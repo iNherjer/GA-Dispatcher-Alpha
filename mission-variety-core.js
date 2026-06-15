@@ -154,8 +154,489 @@
         }
     ];
 
+    const BUSH_SUPPLY_STRIP_CANDIDATES = [
+        {
+            id: 'ranger_cache_restock',
+            familyId: 'ranger_cache',
+            label: 'Ranger-Cache und Streckenbetrieb',
+            tags: ['forest', 'trail', 'remote_strip', 'maintenance'],
+            weight: 1.1,
+            roleIdeas: ['Rangerstation-Kontakt', 'Trail-Crew am Zielstrip', 'Backcountry-Permit-Team'],
+            taskIdeas: ['Markierungsband und neue Trailkarten uebergeben', 'Cache fuer den naechsten Crewgang auffuellen', 'Sperrnotizen und Funkliste mit der Bodencrew abgleichen'],
+            objectIdeas: ['Markierungsband', 'Trailkarten', 'Funkbatterien', 'versiegelte Cache-Kiste'],
+            returnDrivers: ['die naechste Trail-Crew braucht das Material vor dem Morgenlauf', 'Permit- und Sperrplanung wird nach der Uebergabe angepasst', 'die Rangerstation erwartet Rueckmeldung zur Cache-Menge'],
+            accessReasons: ['der Strip ist der kuerzeste Zugang zum oberen Trailabschnitt', 'das Material waere ueber Land zu sperrig', 'die Crew wartet am sicheren Abladepunkt am Striprand']
+        },
+        {
+            id: 'camp_turnaround_supply',
+            familyId: 'camp_logistics',
+            label: 'Camp-Turnaround und Saisonbedarf',
+            tags: ['camp', 'lodge', 'ranch', 'remote_strip'],
+            weight: 1.05,
+            roleIdeas: ['Camp-Koordinatorin', 'Lodge-Allrounder', 'Outfitter-Crew'],
+            taskIdeas: ['Frischware und trockene Vorratskisten fuer den Crewwechsel absetzen', 'Werkzeug und Verbrauchsmaterial fuer die naechste Belegung uebergeben', 'Postbeutel und Bestellzettel beim Campkontakt lassen'],
+            objectIdeas: ['Vorratskisten', 'Postbeutel', 'Werkzeugrolle', 'kleiner Ersatzteilkarton'],
+            returnDrivers: ['das Camp kann den naechsten Turnaround ohne Zusatzfahrt starten', 'die Basis bekommt nach dem Abladen den Bestand bestaetigt', 'das Lodge-Team plant danach den naechsten Umlauf'],
+            accessReasons: ['der Zielstrip ist der direkte Camp-Zugang', 'am Camp-Pfad gibt es einen klaren Abladepunkt', 'kurzer Luftweg spart eine lange, raue Zufahrt']
+        },
+        {
+            id: 'comms_battery_delivery',
+            familyId: 'comms_power',
+            label: 'Funk- und Batterieversorgung',
+            tags: ['power', 'maintenance', 'forest', 'mountain'],
+            weight: 1.0,
+            roleIdeas: ['Funkwart am Ziel', 'USFS-Technikteam', 'Kommunikationshelfer'],
+            taskIdeas: ['geladene Funkakkus und Ersatzhandgeraete abliefern', 'Batterieliste mit der Aussenstelle abgleichen', 'kleines Antennen- und Ladekit fuer den Wochenbetrieb uebergeben'],
+            objectIdeas: ['Akkucase', 'Handfunkgeraete', 'Antennenkit', 'Ladegeraet in Schaumkoffer'],
+            returnDrivers: ['die Funkversorgung fuer den naechsten Einsatzabschnitt bleibt stabil', 'die Basis aktualisiert danach die Akkurotation', 'der folgende Crewflug kann ohne Zusatzfracht geplant werden'],
+            accessReasons: ['der Strip liegt am besten zum Funkzugang', 'die Akkus sollen nicht ueber holprige Zufahrt transportiert werden', 'der Kontakt wartet am kurzen Weg vom Relaispfad']
+        },
+        {
+            id: 'pump_water_utility',
+            familyId: 'water_utility',
+            label: 'Wasser, Pumpe und Utility-Material',
+            tags: ['water', 'power', 'camp', 'maintenance'],
+            weight: 0.95,
+            roleIdeas: ['Pumpenmechaniker', 'Camp-Wartin', 'Utility-Kontakt'],
+            taskIdeas: ['Pumpendichtung und Testschlauch absetzen', 'Wasserfilter und Ersatzriemen fuer den Campbetrieb uebergeben', 'Servicezettel fuer die Aussenstelle mitliefern'],
+            objectIdeas: ['Pumpendichtung', 'Filterkarton', 'Ersatzriemen', 'Serviceumschlag'],
+            returnDrivers: ['die Wasserversorgung kann vor der naechsten Belegung geprueft werden', 'die Basis braucht nach der Uebergabe nur noch die Materialbestaetigung', 'der Utility-Kontakt kann den Testlauf noch bei Tageslicht machen'],
+            accessReasons: ['der Strip ist der einzige sinnvolle Zugang zum Pumpenhaus', 'das Material ist klein, aber dringend fuer den Campbetrieb', 'der Abladepunkt liegt direkt am Pfad zur Wasserstelle']
+        },
+        {
+            id: 'medical_vet_cache',
+            familyId: 'medical_cache',
+            label: 'Medizin-, Vet- oder Notfallcache',
+            tags: ['camp', 'ranch', 'forest', 'remote_strip'],
+            weight: 0.9,
+            roleIdeas: ['Ranch-Caretaker', 'Camp-Medic', 'Backcountry-Vet-Kontakt'],
+            taskIdeas: ['versiegelte Medkits und Kuehlpacks ersetzen', 'Vet-Material fuer Arbeitstiere am Camp absetzen', 'Notfallliste und Ablaufkarte aktualisieren'],
+            objectIdeas: ['versiegelte Medkit-Kiste', 'Kuehlpack-Tasche', 'Vet-Materialkarton', 'Notfallmappe'],
+            returnDrivers: ['der Cache ist wieder einsatzbereit fuer die Saison', 'die Basis vermerkt den Austausch im Bestand', 'der naechste Crewgang muss kein medizinisches Grundmaterial schleppen'],
+            accessReasons: ['der Strip liegt naeher am Cache als jede Strasse', 'das Material soll kontrolliert und sauber uebergeben werden', 'der lokale Kontakt kann die Kiste direkt einlagern']
+        },
+        {
+            id: 'survey_marker_supply',
+            familyId: 'survey_mapping',
+            label: 'Vermessung, Marker und Kartenarbeit',
+            tags: ['mapping', 'ranch', 'forest', 'road'],
+            weight: 0.9,
+            roleIdeas: ['Vermessungsteam', 'Projektleiterin am Strip', 'Boundary-Crew'],
+            taskIdeas: ['Grenzmarker, Farbpatronen und Kartenrolle abliefern', 'neue Wegpunktliste fuer den naechsten Abschnitt uebergeben', 'Foto- und Messzettel fuer die Crew bereitstellen'],
+            objectIdeas: ['Kartenrolle', 'Grenzmarker', 'Farbpatronen', 'Messzettelmappe'],
+            returnDrivers: ['die Bodencrew kann die Markierung ohne Basisfahrt fortsetzen', 'der Projektplan wird nach der Uebergabe freigegeben', 'die Kartenarbeit bleibt mit dem letzten Stand synchron'],
+            accessReasons: ['der Strip ist der neutrale Treffpunkt mehrerer Gelaendeteams', 'die Marker muessen direkt an den Arbeitsrand', 'das Material waere ueber den Trail unhandlich']
+        },
+        {
+            id: 'fire_cache_restock',
+            familyId: 'fire_readiness',
+            label: 'Brandschutz- und Bereitschaftsmaterial',
+            tags: ['fire', 'forest', 'camp', 'maintenance'],
+            weight: 0.85,
+            roleIdeas: ['Fire-Cache-Kontakt', 'USFS-Bereitschaftsteam', 'Ranger-Crew am Strip'],
+            taskIdeas: ['Schlauchkupplungen, Handschuhe und Funkakkus in den Cache bringen', 'Bereitschaftsliste mit der Crew abgleichen', 'kleines Werkzeug fuer den Pumpenstart absetzen'],
+            objectIdeas: ['Schlauchkupplungen', 'Arbeitshandschuhe', 'Funkakku-Box', 'Pumpenwerkzeug'],
+            returnDrivers: ['der Cache ist fuer ein moegliches Wetterfenster vorbereitet', 'die Basis kann den Bereitschaftsstatus aktualisieren', 'die naechste Crew weiss, was vor Ort liegt'],
+            accessReasons: ['der Strip ist der schnellste Zugang zum Fire-Cache', 'der Kontakt wartet am sicheren Abladepunkt', 'das Material bleibt nahe am moeglichen Einsatzrand']
+        },
+        {
+            id: 'odd_lodge_supply',
+            familyId: 'wildcard_camp',
+            label: 'Kuriose Lodge-Versorgung ohne Drama',
+            tags: ['lodge', 'camp', 'wildcard', 'remote_strip'],
+            wildcard: true,
+            weight: 0.5,
+            roleIdeas: ['Lodge-Allrounder', 'Camp-Koch', 'Backcountry-Eventhelferin'],
+            taskIdeas: ['Ersatzgriff fuer den alten Ofen und eine falsch gelieferte Kuechenkiste absetzen', 'Inventarzettel und kleines Sonderpaket beim Camp lassen', 'fehlende Teile fuer ein Wochenende draussen nachreichen'],
+            objectIdeas: ['Ofengriff', 'Kuechenkiste', 'Inventarzettel', 'Sonderpaket'],
+            returnDrivers: ['die Basis vermeidet damit einen zweiten Kleinstflug', 'das Camp kann den Abendbetrieb ohne Improvisation starten', 'der naechste Versorgungszettel wird danach korrigiert'],
+            accessReasons: ['der Strip liegt direkt am Camp-Pfad', 'das Paket ist klein, aber vor Ort genau jetzt praktisch', 'der Campkontakt kann die Lieferung sofort uebernehmen']
+        }
+    ];
+
+    const BUSH_CHARTER_STRIP_CANDIDATES = [
+        {
+            id: 'ranger_field_dropoff',
+            familyId: 'ranger_fieldwork',
+            label: 'Ranger-Dropoff fuer Feldarbeit',
+            tags: ['forest', 'trail', 'remote_strip'],
+            weight: 1.1,
+            roleIdeas: ['USFS-Rangerin', 'Trail-Koordinator', 'Permit-Officer'],
+            taskIdeas: ['frische Wegsperren vor Ort bestaetigen', 'Trailmarker und Besucherhinweise erneuern', 'kurzes Treffen mit einer draussen arbeitenden Crew halten'],
+            objectIdeas: ['Tagesrucksack', 'Funkgeraet', 'Kartenmappe', 'Markierungsband'],
+            returnDrivers: ['am Ziel beginnt ein Tagesauftrag im Gelaende', 'die Crew vor Ort wartet auf Entscheidung und Material', 'der Absetzflug spart mehrere Stunden Anmarsch'],
+            accessReasons: ['der Strip ist der naechste brauchbare Zugang zum Trailabschnitt', 'vom Bahnrand fuehrt der kurze Pfad direkt zur Einsatzstelle', 'die Person muss mit leichtem Gepaeck in die Wildnis']
+        },
+        {
+            id: 'lodge_manager_turnaround',
+            familyId: 'lodge_logistics',
+            label: 'Lodge- oder Ranch-Turnaround',
+            tags: ['lodge', 'ranch', 'camp', 'remote_strip'],
+            weight: 1.05,
+            roleIdeas: ['Lodge-Manager', 'Ranch-Caretakerin', 'Outfitter-Koordinator'],
+            taskIdeas: ['Gaestewechsel und Vorratsliste vor Ort klaeren', 'Schluessel, Post und kleine Ersatzteile an die Aussenstelle bringen', 'Crewplan fuer das kommende Wochenende abstimmen'],
+            objectIdeas: ['Duffelbag', 'Schluesselbund', 'Posttasche', 'kleine Ersatzteilbox'],
+            returnDrivers: ['am Ziel muss die Uebergabe vor dem naechsten Gaestefenster laufen', 'die Lodge braucht den Kontakt persoenlich vor Ort', 'nach der Landung beginnt der Turnaround am Camp'],
+            accessReasons: ['der Strip ist der normale Zugang zur Lodge', 'die Zufahrt ist fuer einen kurzen Termin zu lang', 'der Passagier muss direkt am Camp-Pfad raus']
+        },
+        {
+            id: 'photographer_assignment',
+            familyId: 'photo_story',
+            label: 'Foto-, Karten- oder Dokumentationstermin',
+            tags: ['photo', 'mapping', 'water', 'mountain'],
+            weight: 0.95,
+            roleIdeas: ['Projektfotografin', 'Kartenmacher', 'Dokumentationsleiterin'],
+            taskIdeas: ['Referenzbilder fuer eine Projektakte aufnehmen', 'Wegpunkte und Blickrichtungen am Strip abgleichen', 'Bilder fuer Betreiber oder Redaktion erstellen'],
+            objectIdeas: ['Kameratasche', 'Tablet', 'Kartenrolle', 'Akkucase'],
+            returnDrivers: ['das Licht- und Wetterfenster am Ziel passt heute', 'die Projektleitung braucht aktuelle Bilder', 'der Termin ist kurz, aber nur per Luftweg sinnvoll'],
+            accessReasons: ['der Strip bietet direkten Zugang zum Bildmotiv', 'vom Ziel aus laesst sich der Abschnitt ohne langen Marsch erreichen', 'das Equipment bleibt mit dem Flugzeug handhabbar']
+        },
+        {
+            id: 'biologist_access',
+            familyId: 'wildlife_fieldwork',
+            label: 'Biologie, Habitat oder Monitoring',
+            tags: ['wildlife', 'forest', 'water', 'meadow'],
+            weight: 0.95,
+            roleIdeas: ['Forstbiologin', 'Habitat-Mitarbeiter', 'Wildlife-Koordinatorin'],
+            taskIdeas: ['Kamerastandorte und Zaunluecken vor Ort kontrollieren', 'Ufer- und Wiesenpunkte fuer das Monitoring begehen', 'Datenkarten und Batterien in der Beobachtungsroute tauschen'],
+            objectIdeas: ['Feldrucksack', 'Kamerakarten-Box', 'GPS-Handgeraet', 'leichte Batterietasche'],
+            returnDrivers: ['das Monitoringfenster ist an Wetter und Tageslicht gebunden', 'die Daten sollen nach dem Einsatz in die Basis zurueck', 'die Person bleibt nur fuer den geplanten Feldblock draussen'],
+            accessReasons: ['der Strip liegt nahe an mehreren Kontrollpunkten', 'der Zugang ueber Land waere zu lang fuer den Tagesblock', 'der Wartepunkt liegt am Anfang der Beobachtungsroute']
+        },
+        {
+            id: 'maintenance_tech_dropoff',
+            familyId: 'utility_service',
+            label: 'Techniker am Ziel absetzen',
+            tags: ['maintenance', 'power', 'camp', 'road'],
+            weight: 0.9,
+            roleIdeas: ['Generator-Techniker', 'Pumpenmechanikerin', 'Utility-Servicemitarbeiter'],
+            taskIdeas: ['Generatorlauf und Sicherungskasten pruefen', 'Pumpenleitung und Filter am Camp warten', 'Zufahrtsgatter und Notfallkasten nachsehen'],
+            objectIdeas: ['Werkzeugtasche', 'Ersatzriemen', 'Messgeraet', 'Serviceklemmbrett'],
+            returnDrivers: ['der Techniker bleibt fuer den Arbeitsblock vor Ort', 'das Camp braucht die Wartung vor der naechsten Belegung', 'der Auftrag ist als Dropoff geplant, nicht als Rueckholung'],
+            accessReasons: ['der Strip ist der direkte Zugang zur Aussenstelle', 'Werkzeug und Person kommen zusammen an', 'die Landung spart eine lange Materialfahrt']
+        },
+        {
+            id: 'outfitter_client_transfer',
+            familyId: 'outfitter_guest',
+            label: 'Outfitter-, Angler- oder Campgast',
+            tags: ['lodge', 'water', 'camp', 'ranch'],
+            weight: 0.9,
+            roleIdeas: ['Outfitter-Gast', 'Fly-Fishing-Guide', 'Campgast mit Guidekontakt'],
+            taskIdeas: ['Ausrüstung fuer ein ruhiges Wochenende am Wasser absetzen', 'Guidekontakt am Strip treffen', 'leichte Campausruestung zum Startpunkt bringen'],
+            objectIdeas: ['Angelrohr', 'Duffelbag', 'Tagesrucksack', 'leichte Kuehltasche'],
+            returnDrivers: ['am Ziel startet ein geplanter Aufenthalt', 'der Guide wartet am Striprand', 'der Gast muss vor dem Nachmittagsfenster draussen sein'],
+            accessReasons: ['der Strip ist der uebliche Einstieg zum Camp', 'der Flussabschnitt ist vom Ziel aus schnell erreichbar', 'das Gepaeck passt besser in den Flug als auf einen langen Trail']
+        },
+        {
+            id: 'boundary_survey_visit',
+            familyId: 'survey_mapping',
+            label: 'Vermessungs- oder Property-Termin',
+            tags: ['mapping', 'ranch', 'road', 'maintenance'],
+            weight: 0.85,
+            roleIdeas: ['Vermessungsleiterin', 'Property-Manager', 'Versicherungsprueferin'],
+            taskIdeas: ['Grenzmarken und alte Wegpunkte vor Ort bestaetigen', 'Fotos von Zaun, Zufahrt und Nebengebaeude machen', 'kurzen Ortstermin mit lokalem Kontakt halten'],
+            objectIdeas: ['Messstab', 'Aktenkoffer', 'Fototablet', 'Kartenrolle'],
+            returnDrivers: ['der Termin muss vor der naechsten Entscheidung vor Ort stattfinden', 'Originalnotizen werden spaeter in der Basis gebraucht', 'der Kontakt wartet am Strip, nicht in der Stadt'],
+            accessReasons: ['der Strip ist der praktische Zugang zum Property-Termin', 'die Pistenfahrt waere fuer einen Kurztermin unverhaeltnismaessig', 'die Person muss mit Akten und Messzeug direkt raus']
+        },
+        {
+            id: 'quiet_writer_residency',
+            familyId: 'wildcard_guest',
+            label: 'Kurioser Gast mit harmloser Backcountry-Agenda',
+            tags: ['lodge', 'camp', 'wildcard', 'remote_strip'],
+            wildcard: true,
+            weight: 0.5,
+            roleIdeas: ['Naturautor', 'Lodge-Kuenstlerin', 'Backcountry-Kursleiterin'],
+            taskIdeas: ['einen kurzen Workshop oder Rechercheblock am Camp beginnen', 'Skizzen, Notizen oder Kursmaterial am Ziel auspacken', 'mit dem Campkontakt einen stillen Arbeitsplatz klaeren'],
+            objectIdeas: ['Notizrolle', 'kleiner Malkasten', 'Kursmappe', 'Duffelbag'],
+            returnDrivers: ['der Aufenthalt ist geplant und unkritisch', 'der Zielstrip ist nur der Eingang in die draussen liegende Arbeit', 'die Geschichte darf ungewoehnlich sein, bleibt aber ein normaler Charter'],
+            accessReasons: ['der Strip ist der einzige schnelle Zugang zum ruhigen Camp', 'das Gepaeck ist klein, aber fuer den Trail unpraktisch', 'der Campkontakt holt die Person am Bahnrand ab']
+        }
+    ];
+
+    const BUSH_SCENIC_HOPPER_CANDIDATES = [
+        {
+            id: 'photo_hiker_daytrip',
+            familyId: 'photo_hike',
+            label: 'Foto- und Wandertag',
+            tags: ['photo', 'mountain', 'trail', 'remote_strip'],
+            weight: 1.05,
+            roleIdeas: ['Fotografin', 'Outdoor-Guide', 'Backcountry-Gast'],
+            taskIdeas: ['Morgenlicht und Talblick am Zielstrip nutzen', 'einen kurzen Hike ab dem Bahnrand starten', 'Kamera und Tagesrucksack fuer ein paar Stunden draussen mitnehmen'],
+            objectIdeas: ['Kameratasche', 'Tagesrucksack', 'Wanderstock', 'leichte Jacke'],
+            returnDrivers: ['der Adventure-Leg endet sauber mit der Landung am Zielstrip', 'der Gast bleibt dort fuer den geplanten Ausflug', 'das Wetterfenster macht die Landung heute reizvoll'],
+            accessReasons: ['der Strip ist der beste Einstieg in den Aussichtspunkt', 'vom Ziel aus beginnt der kurze Trail', 'der Flug ist Teil des Backcountry-Erlebnisses']
+        },
+        {
+            id: 'fly_fishing_hop',
+            familyId: 'river_guest',
+            label: 'Fly-Fishing- oder Flussausflug',
+            tags: ['water', 'camp', 'lodge', 'remote_strip'],
+            weight: 0.95,
+            roleIdeas: ['Fly-Fishing-Gast', 'Guide', 'Lodge-Gast'],
+            taskIdeas: ['am Ziel in Richtung Wasserabschnitt weitergehen', 'Angelrohr und leichte Kuehltasche am Strip ausladen', 'den Guidekontakt am Camp-Pfad treffen'],
+            objectIdeas: ['Angelrohr', 'Tagesrucksack', 'Kuehltasche', 'Watjacke'],
+            returnDrivers: ['der Zielstrip ist der geplante Beginn des Tages am Wasser', 'nach der Landung startet der Ausflug ohne weiteren Transfer', 'der Flug ist bewusst ein kurzer Bush-Hop'],
+            accessReasons: ['der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse', 'der Guide wartet am Striprand', 'das Gepaeck bleibt fuer den kurzen Flug handlich']
+        },
+        {
+            id: 'geology_scenic_stop',
+            familyId: 'geo_guest',
+            label: 'Geologie, Landschaft und kurze Bodenpause',
+            tags: ['mountain', 'mapping', 'photo', 'remote_strip'],
+            weight: 0.9,
+            roleIdeas: ['Geologie-Dozentin', 'Naturkundler', 'Karteninteressierter Gast'],
+            taskIdeas: ['Gesteinslinien und Hangformen aus der Luft sehen', 'am Ziel ein paar Fotos und Notizen machen', 'den Strip als ruhigen Aussichtspunkt nutzen'],
+            objectIdeas: ['Notizbuch', 'kleine Lupe', 'Kameratasche', 'Kartenrolle'],
+            returnDrivers: ['die Landung am Ziel ist der geplante Hoehepunkt des Hoppers', 'der Gast bekommt den Backcountry-Kontext aus Luft und Bodenperspektive', 'es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip'],
+            accessReasons: ['der Strip liegt gut fuer Blick auf Tal und Hang', 'eine kurze Landung macht den Scenic-Leg greifbar', 'die Route bleibt ein entspannter Adventure-Flug']
+        },
+        {
+            id: 'lodge_guest_short_hop',
+            familyId: 'lodge_guest',
+            label: 'Lodge-Gast mit kurzem Backcountry-Hop',
+            tags: ['lodge', 'camp', 'ranch', 'remote_strip'],
+            weight: 0.9,
+            roleIdeas: ['Lodge-Gast', 'Camp-Besucherin', 'Outfitter-Kontakt'],
+            taskIdeas: ['am Zielstrip vom Campkontakt abgeholt werden', 'leichte Tasche und Tageskit am Bahnrand ausladen', 'den Anflug als Teil des Aufenthalts erleben'],
+            objectIdeas: ['Duffelbag', 'Tagesrucksack', 'leichte Kuehltasche', 'Kameratasche'],
+            returnDrivers: ['der Aufenthalt beginnt nach der Landung am Ziel', 'der Handoff ist einfach: Gast und Gepaeck raus, Flug abgeschlossen', 'die Story bleibt ruhig und freizeitnah'],
+            accessReasons: ['der Strip ist der Zugang zur Lodge', 'Camp-Pfad und Bahnrand liegen nahe beieinander', 'der Hop ersetzt eine lange holprige Zufahrt']
+        },
+        {
+            id: 'wildlife_watch_guest',
+            familyId: 'wildlife_watch',
+            label: 'Wildlife- und Naturbeobachtung',
+            tags: ['wildlife', 'forest', 'meadow', 'water'],
+            weight: 0.85,
+            roleIdeas: ['Naturbeobachter', 'Fotografin', 'Guide-Gast'],
+            taskIdeas: ['Lichtung, Ufer und Waldrand aus der Luft lesen', 'am Ziel ruhig aussteigen und Beobachtungspunkt erreichen', 'Kamera und Fernglas griffbereit halten'],
+            objectIdeas: ['Fernglas', 'Kameratasche', 'Tagesrucksack', 'Feldnotizbuch'],
+            returnDrivers: ['der kurze Hop liefert den besonderen Zugang zum Beobachtungsraum', 'der Aufenthalt beginnt ohne laute Logistik', 'die Landung ist der natuerliche Abschluss des Fluglegs'],
+            accessReasons: ['der Strip liegt nahe am Beobachtungspunkt', 'die Umgebung passt zu einem stillen Outdoor-Aufenthalt', 'der Flug vermeidet einen langen Anmarsch']
+        },
+        {
+            id: 'trailhead_family_visit',
+            familyId: 'trailhead_visit',
+            label: 'Trailhead-, Familien- oder Besuchsflug',
+            tags: ['trail', 'camp', 'lodge', 'remote_strip'],
+            weight: 0.85,
+            roleIdeas: ['Backcountry-Besucherin', 'Trailhead-Gast', 'Camp-Freund'],
+            taskIdeas: ['eine kleine Besuchstasche zum Ziel bringen', 'am Bahnrand vom Campkontakt abgeholt werden', 'ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben'],
+            objectIdeas: ['kleiner Koffer', 'Tagesrucksack', 'Picknicktasche', 'Kamera'],
+            returnDrivers: ['der Zielstrip ist der Treffpunkt fuer den geplanten Besuch', 'nach der Landung ist der Flugauftrag abgeschlossen', 'die Mission bleibt bewusst leicht und persoenlich'],
+            accessReasons: ['der Strip ist der sichere Treffpunkt fuer den Besuch', 'der Camp-Pfad beginnt am Rand der Piste', 'der kurze Hop macht den Ort erreichbar']
+        },
+        {
+            id: 'plein_air_artist',
+            familyId: 'wildcard_scenic',
+            label: 'Kurioser, ruhiger Scenic-Gast',
+            tags: ['photo', 'camp', 'wildcard', 'remote_strip'],
+            wildcard: true,
+            weight: 0.5,
+            roleIdeas: ['Landschaftsmalerin', 'Naturautor', 'Soundscape-Sammlerin'],
+            taskIdeas: ['am Ziel einen stillen Arbeitsplatz suchen', 'Skizzenblock, Recorder oder kleine Staffelei ausladen', 'den Flug als Zugang zur Stimmung des Ortes nutzen'],
+            objectIdeas: ['Skizzenrolle', 'kleiner Recorder', 'leichte Staffelei', 'Tagesrucksack'],
+            returnDrivers: ['der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik', 'der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt', 'der Adventure-Hopper darf einmal etwas eigenwilliger wirken'],
+            accessReasons: ['der Strip liegt nahe am Motiv', 'zu Fuss waere das Material unpraktisch', 'die kurze Landung macht den Ort erreichbar']
+        }
+    ];
+
+    const BUSH_RECON_RETURN_CANDIDATES = [
+        {
+            id: 'storm_strip_damage',
+            familyId: 'storm_damage',
+            label: 'Strip-Zustand nach Wetter',
+            tags: ['weather', 'remote_strip', 'maintenance', 'road'],
+            weight: 1.15,
+            roleIdeas: ['Airstrip-Inspektorin', 'Backcountry-Operationsleiter', 'Ranger-Koordinator'],
+            taskIdeas: ['Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen', 'Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen', 'Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen'],
+            objectIdeas: ['Kamera', 'Strip-Checkliste', 'Funkmappe', 'Tablet'],
+            returnDrivers: ['die Basis entscheidet danach ueber Freigabe oder Crewgang', 'der Betreiber braucht ein schnelles Lagebild ohne Landung', 'der naechste Versorgungsflug haengt am Befund'],
+            accessReasons: ['der Strip selbst ist der Arbeitsraum', 'ein Ueberflug reicht fuer die erste Entscheidung', 'Landung ist nicht Teil des Recon-Auftrags']
+        },
+        {
+            id: 'drainage_washout_recon',
+            familyId: 'drainage_runoff',
+            label: 'Drainage, Washout und Wasserlauf',
+            tags: ['water', 'weather', 'road', 'remote_strip'],
+            weight: 1.0,
+            roleIdeas: ['Strip-Betreiber', 'USFS-Technikinspektorin', 'Utility-Koordinator'],
+            taskIdeas: ['Drainagegraben und Washout-Spuren neben der Piste kontrollieren', 'Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen', 'moegliche weiche Stellen fuer die Bodencrew markieren'],
+            objectIdeas: ['Fototablet', 'Checkliste', 'Kartenfenster', 'Handfunkgeraet'],
+            returnDrivers: ['die Bodencrew braucht Prioritaeten fuer den Reparaturlauf', 'die Basis entscheidet, ob ein schwererer Flug warten muss', 'der Befund wird nach Rueckkehr direkt eingetragen'],
+            accessReasons: ['der Ueberflug zeigt Wasserlauf und Bahnrand zusammen', 'vom Cockpit laesst sich der Abschnitt ohne Bodenkontakt erfassen', 'der Rueckflug zur Basis ist Teil des Auftrags']
+        },
+        {
+            id: 'wildlife_obstruction_recon',
+            familyId: 'wildlife_obstruction',
+            label: 'Wildlife, Zaun und Hindernisse',
+            tags: ['wildlife', 'ranch', 'meadow', 'remote_strip'],
+            weight: 0.9,
+            roleIdeas: ['Ranger-Koordinator', 'Ranch-Caretakerin', 'Operationskontakt'],
+            taskIdeas: ['Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen', 'Parkflaeche und Pistenkopf auf frische Spuren pruefen', 'sichtbare Hindernisse fuer den naechsten Anflug notieren'],
+            objectIdeas: ['Kamera', 'Fernglas', 'Notizblock', 'Funkliste'],
+            returnDrivers: ['die Basis warnt die naechste Crew nur bei belastbarem Befund', 'der Betreiber kann den Zauncheck gezielt ansetzen', 'der Recon spart eine unnoetige Bodenfahrt'],
+            accessReasons: ['die Piste und der Wiesenrand sind aus der Luft gut lesbar', 'der Auftrag ist ein Lagebild, keine Landung', 'der Heimflug bringt die Notizen direkt zur Einsatzplanung']
+        },
+        {
+            id: 'approach_corridor_recon',
+            familyId: 'approach_corridor',
+            label: 'Anflugraum und Hindernischeck',
+            tags: ['mountain', 'forest', 'remote_strip', 'maintenance'],
+            weight: 0.95,
+            roleIdeas: ['Backcountry-Operationsleiterin', 'Forst-Ranger', 'Airstrip-Inspektor'],
+            taskIdeas: ['Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen', 'Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen', 'Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen'],
+            objectIdeas: ['Kamera', 'Anflugkarte', 'Tablet', 'Funkmappe'],
+            returnDrivers: ['das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert', 'die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden', 'der Recon bleibt bewusst kurz und heimkehrpflichtig'],
+            accessReasons: ['der Anflugraum ist der eigentliche Zielbereich', 'Landung wuerde den Auftrag nicht verbessern', 'aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar']
+        },
+        {
+            id: 'camp_smoke_firewatch',
+            familyId: 'fire_watch',
+            label: 'Rauch-, Camp- oder Firewatch-Recon',
+            tags: ['fire', 'forest', 'camp', 'weather'],
+            weight: 0.85,
+            roleIdeas: ['Firewatch-Koordinator', 'Rangerin', 'Backcountry-Operationskontakt'],
+            taskIdeas: ['Rauchhinweis und Campumfeld aus sicherer Hoehe einordnen', 'Fire-Cache, Zufahrt und Pistenkopf kurz ueberfliegen', 'sichtbare Aktivitaet oder Fehlalarm fuer die Basis dokumentieren'],
+            objectIdeas: ['Kamera', 'Firewatch-Liste', 'Funkgeraet', 'Kartenfenster'],
+            returnDrivers: ['die Basis entscheidet danach, ob eine Bodencrew noetig ist', 'der Befund ersetzt keine Loescharbeit, sondern klaert den naechsten Schritt', 'der Rueckflug zur Basis schliesst den Recon ab'],
+            accessReasons: ['der Strip dient als Orientierung fuer den Suchraum', 'der Auftrag bleibt ein Ueberflug ohne Landung', 'die Sicht aus der Luft ist fuer die Erstbewertung ausreichend']
+        },
+        {
+            id: 'season_opening_recon',
+            familyId: 'season_opening',
+            label: 'Saisonstart und Betreibercheck',
+            tags: ['remote_strip', 'lodge', 'ranch', 'maintenance'],
+            weight: 0.9,
+            roleIdeas: ['Betreiberkontakt', 'Lodge-Koordinatorin', 'Airstrip-Inspektorin'],
+            taskIdeas: ['Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen', 'Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren', 'Betriebsakte mit frischen Fotos ergaenzen'],
+            objectIdeas: ['Tablet', 'Betriebsmappe', 'Kamera', 'Checkliste'],
+            returnDrivers: ['die Saisonplanung wartet auf den ersten belastbaren Befund', 'die Basis entscheidet, welche Fracht als erstes rausgeht', 'das Ergebnis wird nach der Landung daheim eingetragen'],
+            accessReasons: ['der Zielstrip ist selbst der Pruefgegenstand', 'ein kurzer Ueberflug reicht fuer die Vorentscheidung', 'die Heimkehr gehoert zum Abschluss des Recon-Profils']
+        },
+        {
+            id: 'odd_signage_recon',
+            familyId: 'wildcard_recon',
+            label: 'Kurioser Betreiberhinweis',
+            tags: ['wildcard', 'remote_strip', 'ranch', 'maintenance'],
+            wildcard: true,
+            weight: 0.45,
+            roleIdeas: ['Ranch-Caretaker', 'Betreiberkontakt', 'Backcountry-Operationsleiterin'],
+            taskIdeas: ['ein gemeldetes verrutschtes Hinweisschild und ungewoehnliche Reifenspuren aus der Luft pruefen', 'Parkpunkt und Bahnrand kurz fotografieren', 'entscheiden, ob wirklich jemand rausfahren muss'],
+            objectIdeas: ['Kamera', 'Notizblock', 'Strip-Skizze', 'Funkgeraet'],
+            returnDrivers: ['die Basis klaert, ob der kleine Hinweis ein echter Arbeitsauftrag wird', 'der Betreiber bekommt eine schnelle Ja-Nein-Rueckmeldung', 'der Flug bleibt ein leichter Recon ohne Drama'],
+            accessReasons: ['aus der Luft ist der Schildstandort schnell erkennbar', 'Landung lohnt fuer diesen Erstcheck nicht', 'der Rueckflug bringt die Antwort direkt heim']
+        }
+    ];
+
+    const BUSH_PICKUP_CARGO_CANDIDATES = [
+        {
+            id: 'failed_generator_core',
+            familyId: 'utility_repair_return',
+            label: 'Defektes Generator- oder Pumpenteil',
+            tags: ['power', 'maintenance', 'camp', 'remote_strip'],
+            weight: 1.1,
+            roleIdeas: ['Utility-Kontakt am Strip', 'Camp-Wartungsteam', 'Generator-Servicekontakt'],
+            taskIdeas: ['defektes Generatormodul fuer die Werkstatt zurueckholen', 'Fehlerzettel und kleines Werkzeugcase mitnehmen', 'Ersatzteilbedarf in der Basis klaeren'],
+            objectIdeas: ['Generatormodul', 'Werkzeugtasche', 'Fehlerzettel', 'kleine Oelwanne'],
+            returnDrivers: ['die Werkstatt in der Basis kann erst mit dem Bauteil weiterarbeiten', 'der naechste Versorgungslauf braucht die Diagnose', 'das Camp wartet auf die Reparaturentscheidung'],
+            accessReasons: ['das Teil liegt abholbereit am Zielstrip', 'Outbound bleibt leer fuer Gewicht und Platz', 'Rueckfracht ist der eigentliche Auftrag']
+        },
+        {
+            id: 'camera_trap_cards',
+            familyId: 'wildlife_data_return',
+            label: 'Kamerafallen, Datenkarten und Akkus',
+            tags: ['wildlife', 'forest', 'meadow', 'remote_strip'],
+            weight: 0.95,
+            roleIdeas: ['Wildlife-Team', 'Habitat-Koordinatorin', 'Ranger-Kontakt'],
+            taskIdeas: ['Datenkarten und Akkus aus einem Monitoring-Cache heimholen', 'Kamerataschen und Feldnotizen zur Auswertung bringen', 'naechste Batterierotation vorbereiten'],
+            objectIdeas: ['Kamerakarten-Box', 'Akkutasche', 'Feldnotizmappe', 'kleiner Hartschalenkoffer'],
+            returnDrivers: ['die Daten sollen in der Basis gesichert werden', 'die Auswertung startet erst nach der Rueckfracht', 'das Monitoringteam plant danach die naechste Runde'],
+            accessReasons: ['der Cache liegt nahe am Zielstrip', 'die Datentraeger sollen nicht draussen bleiben', 'das Gewicht passt gut als Rueckholfracht']
+        },
+        {
+            id: 'water_sample_cooler',
+            familyId: 'water_samples',
+            label: 'Wasserproben oder Labor-Kuehlbox',
+            tags: ['water', 'cold', 'camp', 'remote_strip'],
+            weight: 0.95,
+            roleIdeas: ['Hydrologie-Team', 'Pegelwart', 'Camp-Kontakt'],
+            taskIdeas: ['Kuehlbox mit Proben und Pegelzetteln aufnehmen', 'versiegelte Behaelter in die Basis bringen', 'Laborfenster fuer die Auswertung halten'],
+            objectIdeas: ['kleine Kuehlbox', 'Probenbehaelter', 'Pegelzettel', 'versiegelte Tasche'],
+            returnDrivers: ['die Proben muessen in der Basis weitergekuehlt und erfasst werden', 'das Labor wartet auf die Behaelter', 'der Rueckflug ist der sichere Transportweg fuer empfindliches Material'],
+            accessReasons: ['der Zielstrip liegt nahe am Probenpunkt', 'Rueckholfracht bleibt klein und empfindlich', 'Outbound leer schafft Platz fuer saubere Sicherung']
+        },
+        {
+            id: 'permit_document_pouch',
+            familyId: 'admin_documents',
+            label: 'Unterlagen, Permits und Betriebsmappe',
+            tags: ['admin', 'ranch', 'forest', 'remote_strip'],
+            weight: 0.9,
+            roleIdeas: ['Permit-Kontakt', 'Rangerstation', 'Projektleitung'],
+            taskIdeas: ['unterschriebene Permits und Betriebsnotizen heimholen', 'Posttasche und Fotos aus dem Zielgebiet mitnehmen', 'Originalunterlagen fuer die Basisakte sichern'],
+            objectIdeas: ['versiegelte Posttasche', 'Dokumentenmappe', 'Fototablet', 'kleiner Aktenkoffer'],
+            returnDrivers: ['die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen', 'der naechste Einsatz haengt an der Akte', 'Dokumente sollen nicht im Camp bleiben'],
+            accessReasons: ['der Strip ist der sichere Uebergabepunkt fuer Unterlagen', 'die Rueckfracht ist klein, aber wichtig', 'eine Landroute waere fuer die Mappe zu langsam']
+        },
+        {
+            id: 'lodge_inventory_return',
+            familyId: 'lodge_inventory',
+            label: 'Lodge-Inventar und Fehlbestand',
+            tags: ['lodge', 'camp', 'ranch', 'remote_strip'],
+            weight: 0.85,
+            roleIdeas: ['Lodge-Team', 'Camp-Koordinator', 'Outfitter-Kontakt'],
+            taskIdeas: ['Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen', 'Sonderbestellung und Rueckgabezeug aufnehmen', 'naechste Versorgungsliste in der Basis korrigieren'],
+            objectIdeas: ['Inventurkiste', 'Schluesselbund', 'Bestellzettel', 'kleiner Rueckgabekarton'],
+            returnDrivers: ['die Basis muss den naechsten Versorgungslauf sauber packen', 'die Lodge wartet auf korrigierte Bestellmengen', 'der Rueckflug vermeidet einen zweiten Kleinstlauf'],
+            accessReasons: ['die Kiste steht am Striprand bereit', 'die Fracht ist leicht, aber organisatorisch wichtig', 'Outbound bleibt bewusst frei fuer die Rueckholung']
+        },
+        {
+            id: 'relay_battery_case',
+            familyId: 'comms_return',
+            label: 'Leere Funkakkus und Relaismaterial',
+            tags: ['power', 'maintenance', 'forest', 'mountain'],
+            weight: 0.85,
+            roleIdeas: ['Funkwart', 'Kommunikationshelferin', 'USFS-Technikteam'],
+            taskIdeas: ['leere Akkucases und Reichweitennotizen zurueckbringen', 'defekten Handfunkkoffer fuer die Werkstatt aufnehmen', 'Relaiszettel und Frequenzliste sichern'],
+            objectIdeas: ['Akkucase', 'Handfunkkoffer', 'Frequenzliste', 'Reichweitennotizen'],
+            returnDrivers: ['die Basis rotiert Akkus und Ersatzgeraete fuer den naechsten Lauf', 'die Werkstatt braucht den defekten Koffer', 'die Frequenzliste wird daheim aktualisiert'],
+            accessReasons: ['das Material ist am Zielstrip gesammelt', 'die Rueckfracht passt in einen kurzen RTB-Leg', 'der Kontakt will die Akkus nicht ueber den Trail tragen']
+        },
+        {
+            id: 'field_tool_repair_return',
+            familyId: 'tool_repair',
+            label: 'Werkzeug, Messgeraet oder Reparaturkoffer',
+            tags: ['maintenance', 'mapping', 'road', 'remote_strip'],
+            weight: 0.85,
+            roleIdeas: ['Feldteam', 'Vermessungsteam', 'Strip-Wartungskontakt'],
+            taskIdeas: ['Messgeraet und Werkzeugrolle zur Kalibrierung heimholen', 'kurze Mangelnotiz und Fotokarte mitnehmen', 'Reparaturbedarf in der Basis klaeren'],
+            objectIdeas: ['Messgeraet', 'Werkzeugrolle', 'Fotokarte', 'Mangelnotiz'],
+            returnDrivers: ['die Kalibrierung passiert nur in der Basis', 'das Feldteam braucht vor dem naechsten Einsatz Ersatz', 'der Rueckflug schliesst den Materiallauf ab'],
+            accessReasons: ['die Teile liegen am Wartepunkt am Strip', 'Outbound leer spart Gewicht fuer die Rueckfracht', 'ein Bodenweg waere fuer das Geraet unguenstig']
+        },
+        {
+            id: 'odd_camp_return',
+            familyId: 'wildcard_cargo',
+            label: 'Kuriose Rueckholfracht ohne Drama',
+            tags: ['wildcard', 'camp', 'lodge', 'remote_strip'],
+            wildcard: true,
+            weight: 0.45,
+            roleIdeas: ['Camp-Kontakt', 'Lodge-Allrounder', 'Outfitter-Team'],
+            taskIdeas: ['einen falsch gelieferten Ofeneinsatz und eine kleine Inventurtasche heimholen', 'Sonderteil zur Basis bringen, bevor es wieder im Camp vergessen wird', 'Bestellzettel und Rueckgabekarton zusammen sichern'],
+            objectIdeas: ['Ofeneinsatz', 'Rueckgabekarton', 'Bestellzettel', 'Inventurtasche'],
+            returnDrivers: ['die Basis korrigiert danach die naechste Lieferung', 'das Camp bekommt beim naechsten Lauf das richtige Teil', 'die Geschichte darf schraeg sein, bleibt aber reine Rueckholfracht'],
+            accessReasons: ['die Kiste steht direkt am Striprand', 'das Teil ist klein, aber im Camp nutzlos', 'der RTB-Leg ist der sauberste Weg zurueck']
+        }
+    ];
+
     const POOLS = {
-        bush_pickup_strip: BUSH_PICKUP_STRIP_CANDIDATES
+        bush_pickup_strip: BUSH_PICKUP_STRIP_CANDIDATES,
+        bush_supply_strip: BUSH_SUPPLY_STRIP_CANDIDATES,
+        bush_charter_strip: BUSH_CHARTER_STRIP_CANDIDATES,
+        bush_scenic_hopper: BUSH_SCENIC_HOPPER_CANDIDATES,
+        bush_recon_return: BUSH_RECON_RETURN_CANDIDATES,
+        bush_pickup_cargo: BUSH_PICKUP_CARGO_CANDIDATES
     };
 
     function _storage() {

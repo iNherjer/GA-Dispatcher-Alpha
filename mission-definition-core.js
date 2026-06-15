@@ -367,7 +367,7 @@ const BUSH_DISPATCH_PROFILES = {
     },
     bush_pickup_cargo: {
         id: 'bush_pickup_cargo',
-        label: 'Bush Cargo Pickup and Return',
+        label: 'Bush-Cargo-Pickup und Rueckkehr',
         icon: '📦',
         category: 'bush_pickup_cargo',
         completionMode: 'return_home',
@@ -769,7 +769,7 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
         });
     }
     if (profile.id === 'bush_pickup_cargo') {
-        const pickupCargo = profile.cargoPool[Math.floor(Math.random() * profile.cargoPool.length)] || 'Bush Pickup Cargo';
+        const pickupCargo = profile.cargoPool[Math.floor(Math.random() * profile.cargoPool.length)] || 'Rueckholfracht am Bush-Strip';
         return sanitizeBushMissionSpec({
             profileId: profile.id,
             targetMode: 'strip_then_return',
@@ -777,7 +777,7 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
             requiresReturnHome: true,
             pickupKind: 'cargo',
             pickupLabel: String(pickupCargo).trim(),
-            pickupRole: 'Bush Cargo Pickup',
+            pickupRole: 'Frachtkontakt am Strip',
             pickupGreetingText: '',
             pickupPassengerCount: 0,
             homeRef,
@@ -863,7 +863,7 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         paxText = passenger?.role ? `0 PAX am Start · 1 PAX Pickup (${passenger.role})` : '0 PAX am Start · 1 PAX Pickup';
         cargoText = '-';
     } else if (profile.id === 'bush_pickup_cargo') {
-        title = `Bush Cargo RTB: ${targetName}`;
+        title = `Bush-Cargo-Rueckholung: ${targetName}`;
         story = `An einem abgelegenen Strip bei ${targetName} wartet heute eine Rueckholfracht auf Abholung. Du fliegst leer von ${homeName} raus, nimmst die bereitliegende Ladung nach der Landung direkt am Treffpunkt auf und bringst sie ohne Zwischenstopp wieder zum Heimatplatz.`;
         paxText = '0 PAX';
         cargoText = '-';

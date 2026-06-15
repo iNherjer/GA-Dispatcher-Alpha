@@ -932,6 +932,95 @@ function buildMissionWriterV4Payload(prompt) {
     };
   }
 
+  const varietyBrief = contract.missionVarietyBrief || {};
+  const varietyCandidate = Array.isArray(varietyBrief.candidateShortlist) && varietyBrief.candidateShortlist.length
+    ? varietyBrief.candidateShortlist[0]
+    : null;
+  if (profileId.startsWith('bush_') && profileId !== 'bush_pickup_strip' && varietyCandidate) {
+    const frame = contract.storyFrame || plan.storyFrame || {};
+    const role = dryrunFirstText(varietyCandidate.roleIdeas, 'Backcountry-Kontakt');
+    const taskA = dryrunFirstText(varietyCandidate.taskIdeas, 'den Auftrag vor Ort vorbereiten');
+    const taskB = dryrunSecondText(varietyCandidate.taskIdeas, 'die offenen Punkte dokumentieren');
+    const objects = dryrunJoin(varietyCandidate.objectIdeas?.slice?.(0, 3) || varietyCandidate.objectIdeas, 'leichter Ausruestung');
+    const returnReason = dryrunFirstText(varietyCandidate.returnDrivers, 'der naechste Arbeitsschritt haengt an diesem Flug');
+    const name = /in\b|leiterin|koordinatorin|wartin|managerin|prueferin|fotografin|macherin|beobachterin|besucherin/.test(role.toLowerCase())
+      ? 'Mara Ellison'
+      : 'Caleb Turner';
+    const gender = name === 'Mara Ellison' ? 'female' : 'male';
+    const profileText = {
+      bush_supply_strip: {
+        title: `Bush-Supply: ${targetName}`,
+        pax: '0 PAX',
+        cargo: `${objects} (62 lbs)`,
+        story: `Wir bringen heute ${objects} nach ${targetName}, wo ${role} am Strip auf die Uebergabe wartet. Die Lieferung ist fuer den Ablauf vor Ort gedacht: ${taskA} und ${taskB}. ${dryrunEnsureSentence(returnReason)} Nach dem Abladen ist unser Auftrag am Ziel abgeschlossen.`,
+        scene: 'A-B-Supply-Flug mit Abladen am Zielstrip.'
+      },
+      bush_charter_strip: {
+        title: `Bush-Charter: ${targetName}`,
+        pax: `1 PAX (${role})`,
+        cargo: `${objects} (28 lbs)`,
+        story: `Wir bringen ${name}, ${role}, heute nach ${targetName}. Nach der Landung beginnt der Termin vor Ort: ${taskA} und ${taskB}. ${gender === 'female' ? 'Sie' : 'Er'} reist mit ${objects}, und nach dem Dropoff ist der Charterflug abgeschlossen. ${dryrunEnsureSentence(returnReason)}`,
+        scene: 'Passenger-Dropoff am Zielstrip.'
+      },
+      bush_scenic_hopper: {
+        title: `Adventure-Hop: ${targetName}`,
+        pax: `1 PAX (${role})`,
+        cargo: `${objects} (18 lbs)`,
+        story: `Dieser Bush-Hop nach ${targetName} ist fuer ${name}, ${role}, bewusst als ruhiger Backcountry-Leg geplant. Nach der Landung beginnt draussen der leichte Tagesplan: ${taskA} und ${taskB}. ${objects} bleibt als kleines Kit dabei; die Landung am Zielstrip ist der Abschluss des Fluglegs und der Start des Aufenthalts.`,
+        scene: 'Scenic-/Adventure-Landung am Zielstrip.'
+      },
+      bush_recon_return: {
+        title: `Recon-Return: ${targetName}`,
+        pax: `1 PAX (${role})`,
+        cargo: `${objects} (16 lbs)`,
+        story: `Wir fliegen heute keinen Dropoff, sondern einen kurzen Recon-Run ueber ${targetName}. Aus der Luft geht es um einen klaren Befund: ${taskA} und ${taskB}. Eine Landung am Ziel gehoert nicht zum Auftrag. ${dryrunEnsureSentence(returnReason)} Danach bringen wir Befund und Fotos zurueck zum Startplatz.`,
+        scene: 'Luft-Recon ohne geplante Landung, Abschluss daheim.'
+      },
+      bush_pickup_cargo: {
+        title: `Cargo-Pickup: ${targetName}`,
+        pax: '0 PAX',
+        cargo: `${objects} (46 lbs)`,
+        story: `Wir fliegen leer nach ${targetName}; dort liegen ${objects} am Striprand zur Rueckholung bereit. Vor Ort geht es konkret darum, ${taskA} und ${taskB}; ein Passagier-Pickup ist nicht Teil dieses Auftrags. ${dryrunEnsureSentence(returnReason)} Danach bringen wir die Fracht zurueck zum Startplatz und laden sie dort aus.`,
+        scene: 'Cargo-Pickup am Zielstrip und Rueckflug zur Basis.'
+      }
+    }[profileId] || null;
+    if (profileText) {
+      return {
+        title: profileText.title,
+        story: profileText.story || [frame.trigger, frame.incidentContext, frame.whyNow, frame.soughtOutcome].filter(Boolean).join(' '),
+        pax: profileText.pax,
+        cargo: profileText.cargo,
+        passenger: {
+          name,
+          role,
+          gender,
+          personality: 'ruhig, draussen-erfahren, aufmerksam',
+          dialectHint: 'neutral',
+          roleProfile,
+          taskDomain,
+          gTolerance: 'mittel',
+          bankTolerance: 'mittel',
+          cargoSensitivity: profileId.includes('cargo') || profileId.includes('supply') ? 'hoch' : 'mittel',
+          stomachSensitivity: 'niedrig',
+          comfortPriority: 'mittel',
+          urgencyPriority: 'niedrig',
+          targetAltFt: 0,
+          targetRadiusNm: 0,
+          targetDwellMin: 0,
+          greetingText: `Hi, heute bleibt es bei ${targetName} klar im Bush-Profil: ${taskA}, ${taskB}, ohne unnoetige Hektik.`
+        },
+        sceneIntent: {
+          summary: profileText.scene,
+          environment: 'Bush-Strip',
+          visibleIdeas: profileId === 'bush_recon_return' ? [] : (Array.isArray(varietyCandidate.objectIdeas) ? varietyCandidate.objectIdeas.slice(0, 3) : []),
+          avoid: ['keine SAR-Lage', 'keine Notlandung', 'kein Rollenmix aus mehreren Kandidaten'],
+          densityHint: profileId === 'bush_recon_return' ? 'none' : 'sparse',
+          notes: varietyCandidate.label || ''
+        }
+      };
+    }
+  }
+
   if (taskDomain === 'mapping_survey') {
     return {
       title: `Photogrammetrie-Pass: ${targetName}`,
@@ -1471,6 +1560,189 @@ function buildPlannerV4Payload(prompt) {
       targetName: targetLabel
     };
   }
+  const missionVarietyCandidates = normalizedBundle?.missionVarietyBrief?.candidateShortlist || [];
+  if (profileId !== 'bush_pickup_strip' && missionVarietyCandidates.length && payload?.plan) {
+    applyBushMissionVarietyToPlannerPayload(payload, normalizedBundle, profileId, missionVarietyCandidates[0]);
+  }
+  return payload;
+}
+
+function dryrunFirstText(values, fallback = '') {
+  return Array.isArray(values) && values.length ? String(values[0] || fallback).trim() : String(fallback || '').trim();
+}
+
+function dryrunSecondText(values, fallback = '') {
+  return Array.isArray(values) && values.length > 1 ? String(values[1] || fallback).trim() : String(fallback || '').trim();
+}
+
+function dryrunJoin(values, fallback = '') {
+  const arr = Array.isArray(values) ? values.map(v => String(v || '').trim()).filter(Boolean) : [];
+  if (!arr.length) return fallback;
+  if (arr.length === 1) return arr[0];
+  return `${arr.slice(0, -1).join(', ')} und ${arr[arr.length - 1]}`;
+}
+
+function dryrunCap(text = '') {
+  const s = String(text || '').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+function dryrunEnsureSentence(text = '') {
+  const s = dryrunCap(String(text || '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/g, ''));
+  return s ? `${s}.` : '';
+}
+
+function applyBushMissionVarietyToPlannerPayload(payload, bundle, profileId, candidate = {}) {
+  const plan = payload?.plan;
+  if (!plan) return payload;
+  const targetLabel = String(plan.targetLabel || bundle?.target?.name || 'Zielstrip').trim();
+  const homeLabel = String(bundle?.route?.startName || bundle?.route?.startIcao || 'Heimatplatz').trim();
+  const role = dryrunFirstText(candidate.roleIdeas, 'Backcountry-Kontakt');
+  const taskA = dryrunFirstText(candidate.taskIdeas, 'den Auftrag vor Ort vorbereiten');
+  const taskB = dryrunSecondText(candidate.taskIdeas, 'die offenen Punkte dokumentieren');
+  const objects = dryrunJoin(candidate.objectIdeas?.slice?.(0, 3) || candidate.objectIdeas, 'leichter Ausruestung');
+  const returnReason = dryrunFirstText(candidate.returnDrivers, 'der naechste Arbeitsschritt haengt an diesem Flug');
+  const accessReason = dryrunFirstText(candidate.accessReasons, 'der Zielstrip ist der passende Zugangspunkt');
+  const visible = Array.isArray(candidate.objectIdeas) ? candidate.objectIdeas.slice(0, 4) : [];
+  const commonAvoid = [
+    'keine SAR-Lage',
+    'keine Notlandung',
+    'keinen zweiten Auftrag neben dem Bush-Profil erfinden',
+    'keine Rollen- oder Objektmischung aus mehreren Kandidaten'
+  ];
+  if (profileId === 'bush_supply_strip') {
+    plan.primaryObjective = `Bringe ${objects} nach ${targetLabel} fuer ${role}.`;
+    plan.missionTrigger = `${role} wartet am Zielstrip auf ${objects}. ${dryrunEnsureSentence(accessReason)}`;
+    plan.focusSubject = `${role} und die Lieferung: ${objects}.`;
+    plan.keyQuestion = `Welche Lieferung geht an ${targetLabel}, wer nimmt sie an und wofuer wird sie dort gebraucht?`;
+    plan.missionStakes = `${returnReason}; nach dem Abladen kann der Ablauf am Ziel weitergehen.`;
+    plan.completionSignal = `Fracht ist am ${targetLabel} entladen und an ${role} uebergeben.`;
+    plan.storyFrame = {
+      trigger: plan.missionTrigger,
+      focusSubject: plan.focusSubject,
+      keyQuestion: plan.keyQuestion,
+      stakes: plan.missionStakes,
+      completionSignal: plan.completionSignal,
+      subjectDetail: `${role} am Zielstrip`,
+      incidentContext: `Vor Ort geht es konkret darum, ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Landung am ${targetLabel}, Abladen von ${objects} und kurzer Handoff an ${role}.`,
+      incidentType: '',
+      lastSeenContext: '',
+      probableScenario: '',
+      visibleClueCandidates: visible
+    };
+    plan.operationalDetails = [`A-B-Flug nach ${targetLabel}; Fracht am Ziel entladen.`, `Empfaenger und Zweck bleiben bei ${role}.`];
+    plan.mustMention = [targetLabel, role, objects, taskA].filter(Boolean);
+  } else if (profileId === 'bush_charter_strip') {
+    plan.primaryObjective = `Bringe ${role} nach ${targetLabel}; nach der Landung beginnt dort ${taskA}.`;
+    plan.missionTrigger = `${role} muss nach ${targetLabel}. ${dryrunEnsureSentence(accessReason)}`;
+    plan.focusSubject = `${role} mit ${objects}.`;
+    plan.keyQuestion = `Wer fliegt nach ${targetLabel} und was beginnt dort nach dem Dropoff?`;
+    plan.missionStakes = `${returnReason}; der Flug schafft den passenden Zugang zum Termin vor Ort.`;
+    plan.completionSignal = `${role} ist mit Gepaeck am ${targetLabel} abgesetzt.`;
+    plan.storyFrame = {
+      trigger: plan.missionTrigger,
+      focusSubject: plan.focusSubject,
+      keyQuestion: plan.keyQuestion,
+      stakes: plan.missionStakes,
+      completionSignal: plan.completionSignal,
+      subjectDetail: `${role} als Bush-Chartergast`,
+      incidentContext: `Am Ziel geht es konkret darum, ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Ruhiger Dropoff am ${targetLabel}; der Gast und ${objects} bleiben vor Ort.`,
+      incidentType: '',
+      lastSeenContext: '',
+      probableScenario: '',
+      visibleClueCandidates: visible
+    };
+    plan.operationalDetails = [`Charter-Dropoff nach ${targetLabel}; Abschluss am Ziel.`, `Gepaeck und Zielgrund bleiben bei ${role}.`];
+    plan.mustMention = [targetLabel, role, taskA, objects].filter(Boolean);
+  } else if (profileId === 'bush_scenic_hopper') {
+    plan.primaryObjective = `Fliege einen Bush-Adventure-Hop nach ${targetLabel} fuer ${role}.`;
+    plan.missionTrigger = `${role} moechte ${targetLabel} erleben. ${dryrunEnsureSentence(accessReason)}`;
+    plan.focusSubject = `${role} mit ${objects}.`;
+    plan.keyQuestion = `Was macht die Landung am ${targetLabel} fuer diesen Gast besonders?`;
+    plan.missionStakes = `${returnReason}; die Landung ist der Abschluss des Scenic-Legs.`;
+    plan.completionSignal = `${role} ist am ${targetLabel} gelandet und kann den geplanten Aufenthalt beginnen.`;
+    plan.storyFrame = {
+      trigger: plan.missionTrigger,
+      focusSubject: plan.focusSubject,
+      keyQuestion: plan.keyQuestion,
+      stakes: plan.missionStakes,
+      completionSignal: plan.completionSignal,
+      subjectDetail: `${role} auf einem ruhigen Backcountry-Hop`,
+      incidentContext: `Nach der Landung geht es um ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Ruhiger Anflug, Landung am ${targetLabel}, kurzer Abschluss des Adventure-Legs.`,
+      incidentType: '',
+      lastSeenContext: '',
+      probableScenario: '',
+      visibleClueCandidates: visible
+    };
+    plan.operationalDetails = [`Scenic-/Adventure-Landung am ${targetLabel}; kein Rueckhol- oder Lieferzwang.`];
+    plan.mustMention = [targetLabel, role, taskA, objects].filter(Boolean);
+  } else if (profileId === 'bush_recon_return') {
+    plan.primaryObjective = `Pruefe ${targetLabel} aus der Luft und bringe den Befund nach ${homeLabel} zurueck.`;
+    plan.missionTrigger = `${role} braucht ein Luftbild von ${targetLabel}. ${dryrunEnsureSentence(accessReason)}`;
+    plan.focusSubject = `${targetLabel}: ${taskA}.`;
+    plan.keyQuestion = `Was ist am ${targetLabel} aus der Luft erkennbar und welche Entscheidung folgt in ${homeLabel}?`;
+    plan.missionStakes = `${returnReason}; Landung am Ziel ist nicht Teil des Recon-Auftrags.`;
+    plan.completionSignal = `Befund und Fotos sind zurueck in ${homeLabel}.`;
+    plan.storyFrame = {
+      trigger: plan.missionTrigger,
+      focusSubject: plan.focusSubject,
+      keyQuestion: plan.keyQuestion,
+      stakes: plan.missionStakes,
+      completionSignal: plan.completionSignal,
+      subjectDetail: `${targetLabel} als Recon-Arbeitsraum`,
+      incidentContext: `Aus der Luft sollst du ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Kurzer Recon-Run ueber ${targetLabel}, danach Rueckflug nach ${homeLabel}.`,
+      incidentType: '',
+      lastSeenContext: '',
+      probableScenario: '',
+      visibleClueCandidates: visible
+    };
+    plan.operationalDetails = [`Recon ueber ${targetLabel}; keine geplante Landung.`, `Rueckflug nach ${homeLabel} schliesst den Auftrag ab.`];
+    plan.mustMention = [targetLabel, taskA, returnReason, homeLabel].filter(Boolean);
+  } else if (profileId === 'bush_pickup_cargo') {
+    plan.primaryObjective = `Fliege leer nach ${targetLabel}, nimm ${objects} auf und bringe die Fracht nach ${homeLabel}.`;
+    plan.missionTrigger = `${objects} liegen am ${targetLabel} bereit. ${dryrunEnsureSentence(accessReason)}`;
+    plan.focusSubject = `Rueckholfracht: ${objects}.`;
+    plan.keyQuestion = `Welche Fracht holen wir am ${targetLabel} ab und warum muss sie nach ${homeLabel}?`;
+    plan.missionStakes = `${returnReason}; der Rueckflug ist der eigentliche Frachtauftrag.`;
+    plan.completionSignal = `${objects} sind in ${homeLabel} ausgeladen.`;
+    plan.storyFrame = {
+      trigger: plan.missionTrigger,
+      focusSubject: plan.focusSubject,
+      keyQuestion: plan.keyQuestion,
+      stakes: plan.missionStakes,
+      completionSignal: plan.completionSignal,
+      subjectDetail: `${objects} am Zielstrip`,
+      incidentContext: `Vor Ort geht es konkret darum, ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Leerflug zum ${targetLabel}, Fracht aufnehmen und Rueckflug nach ${homeLabel}.`,
+      incidentType: '',
+      lastSeenContext: `Am Striprand bei ${targetLabel}.`,
+      probableScenario: `${objects} stehen gesichert am Wartepunkt bereit.`,
+      visibleClueCandidates: visible
+    };
+    plan.operationalDetails = [`Outbound leer nach ${targetLabel}; Rueckholfracht erst dort aufnehmen.`, `Cargo-Pickup bleibt ohne Passagier.`];
+    plan.mustMention = [targetLabel, objects, returnReason, homeLabel].filter(Boolean);
+  }
+  plan.narrativeHooks = [
+    plan.primaryObjective,
+    `Kandidat: ${candidate.label || candidate.id || profileId}.`,
+    `Arbeit/Zweck: ${taskA}; ${taskB}.`,
+    `Folgegrund: ${returnReason}.`
+  ].filter(Boolean);
+  plan.mustAvoid = commonAvoid;
+  plan.localFacts = Array.from(new Set([...(Array.isArray(plan.localFacts) ? plan.localFacts : []), `${targetLabel} bleibt der Zielbezug dieses Bush-Profils.`])).slice(0, 5);
+  plan.lockedFields = {
+    ...(plan.lockedFields || {}),
+    targetName: targetLabel
+  };
   return payload;
 }
 

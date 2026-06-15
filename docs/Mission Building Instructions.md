@@ -883,16 +883,22 @@ Aktueller Anschluss:
 - `bush_pickup_strip` nutzt ein Variety-Pack fuer Rollen-/Storyrichtungen.
 - Der Flugablauf bleibt fest: leer zum Zielstrip, Pickup, Rueckflug, Abschluss daheim.
 - Das Pack liefert nur den kreativen Rahmen: Rolle, Taetigkeit, sichtbare Ausruestung, Rueckkehrgrund und Handoff.
+- Pool-Eintraege sind Rohmaterial, keine fertigen Satzteile. Planner/Writer duerfen sie nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern muessen daraus natuerliche deutsche Saetze bauen.
 - `bush_pickup_strip` verwendet dafuer die eigene `taskDomain` `bush_pickup_return`, nicht die generische `charter`-Domain.
 - Grund: normales Charter darf Termin-/Anschlusslogik nutzen; Bush-Pickup soll aus Arbeit vor Ort, Wartepunkt, Ergebnis und Rueckkehr-Handoff erzaehlen und nur dann Zeitdruck bekommen, wenn Wetter, Urgency oder Story das konkret tragen.
 - Perspektive bleibt getrennt: `story`/Briefing ist Dispatcher- bzw. Auftragsperspektive fuer den Piloten; Ich-Form des abgeholten Gasts gehoert nur in `passenger.greetingText`, `pickupStory.boardingCue`, `pickupStory.departureCue` und spaetere Voice-Ansagen.
+- `bush_supply_strip`, `bush_charter_strip`, `bush_scenic_hopper`, `bush_recon_return` und `bush_pickup_cargo` nutzen `CONTEXT_BUNDLE.missionVarietyBrief` als generischen Bush-Variety-Anschluss.
+- Auch hier gilt: Das Pack liefert Rohmaterial, kein Story-Skript. Das jeweilige Profil-Rezept bleibt bindend:
+  - Supply liefert am Zielstrip aus.
+  - Charter setzt den Gast am Zielstrip ab.
+  - Scenic endet als Adventure-/Scenic-Landung am Zielstrip.
+  - Recon prueft Strip oder Umfeld aus der Luft und kehrt heim.
+  - Cargo-Pickup fliegt leer hinaus, holt nur Fracht und kehrt zur Basis zurueck.
+- Jedes Profil nutzt einen eigenen Namespace und damit eigene lokale History, z. B. `ga_mission_variety_history_bush_supply_strip_v1`.
 
 Empfohlene spaetere Anschluesse:
 
-- `bush_pickup_cargo`: Rueckholfracht-Familien, defekte Ausruestung, Unterlagen, Sensorik, Material.
-- `bush_supply_strip`: Liefergrund, Empfaenger und Folgeablauf.
-- `bush_charter_strip`: Besuch, Crewwechsel, Lodge, Arbeitstermin, Outfitter.
-- `bush_recon_return`: Strip-Zustand, Wetterfolgen, Betreibercheck, Anflugraum.
+- Weitere Bush-Unterprofile koennen denselben `missionVarietyBrief`-Anschluss nutzen, wenn sie ein klares Rezept und einen eigenen Namespace haben.
 - POI Inspection/Photo/Science: Anlassfamilien und Blickwinkel, nicht neue Abschlussrezepte.
 
 ### 7.4 Bush Supply

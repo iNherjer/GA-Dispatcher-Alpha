@@ -9084,6 +9084,8 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         missionContractV4: missionContractV4 || mission?._missionContractV4 || mission?.missionContractV4 || passenger?.missionContractV4 || null,
         missionVariety: mission?.missionVariety
             || missionContractV4?.pickupCreativeBrief?.variety
+            || missionContractV4?.missionVarietyBrief?.variety
+            || missionContractV4?.variety
             || missionPlanV4?.variety
             || missionPlanV2?.variety
             || null,
@@ -14833,6 +14835,182 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
     };
 }
 
+const BUSH_MISSION_VARIETY_PROFILE_IDS = new Set([
+    'bush_supply_strip',
+    'bush_charter_strip',
+    'bush_scenic_hopper',
+    'bush_recon_return',
+    'bush_pickup_cargo'
+]);
+
+function bushProfileSupportsMissionVariety(profileId = '') {
+    return BUSH_MISSION_VARIETY_PROFILE_IDS.has(String(profileId || '').trim().toLowerCase());
+}
+
+function _missionPipelineV4CompactVarietyPack(varietyPack = null) {
+    if (!varietyPack || typeof varietyPack !== 'object') return null;
+    return {
+        schema: varietyPack.schema,
+        namespace: varietyPack.namespace,
+        profileId: varietyPack.profileId,
+        contextTags: varietyPack.contextTags,
+        selectedIds: varietyPack.selectedIds,
+        selectedFamilies: varietyPack.selectedFamilies,
+        primaryId: varietyPack.primaryId,
+        primaryFamily: varietyPack.primaryFamily,
+        recentFamilies: varietyPack.recentFamilies,
+        recentPrimaryFamilies: varietyPack.recentPrimaryFamilies,
+        recentPrimaryIds: varietyPack.recentPrimaryIds,
+        selectionRule: varietyPack.selectionRule,
+        storageKey: varietyPack.storageKey
+    };
+}
+
+const BUSH_MISSION_VARIETY_COPY = {
+    bush_supply_strip: {
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Supply-Flug. Das Profil liefert Material zum Zielstrip; die Story erklaert Empfaenger, Liefergrund und Folgeablauf.',
+        recipe: (targetName, homeName) => `Fracht von ${homeName} nach ${targetName} bringen, am Zielstrip abladen und dort abschliessen; keine Rueckholstory daraus machen.`,
+        coreQuestions: (targetName, homeName) => [
+            `Wer oder welche kleine Crew wartet bei ${targetName} auf die Lieferung?`,
+            'Was wird konkret geliefert und wofuer wird es dort draussen gebraucht?',
+            `Warum ist ${targetName} der passende Abladepunkt fuer diesen Bedarf?`,
+            'Was passiert nach der Uebergabe am Ziel, ohne automatisch Zeitdruck zu behaupten?',
+            `Welche Rueckmeldung, Bestandsaenderung oder Planung in ${homeName} folgt aus der Lieferung?`
+        ],
+        writerExpectations: [
+            'Erzaehle Supply als praktische Bush-Logistik, nicht als Notfall und nicht als Passagierauftrag.',
+            'Fracht, Empfaenger und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.',
+            'Die Mission endet am Zielstrip mit Abladen oder Uebergabe.'
+        ]
+    },
+    bush_charter_strip: {
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Charter-Dropoff. Das Profil bringt einen Gast zum Zielstrip; die Story erklaert Person, Zielgrund und was danach vor Ort beginnt.',
+        recipe: (targetName, homeName) => `Passagier und kleines Gepaeck von ${homeName} nach ${targetName} bringen, am Zielstrip absetzen und dort abschliessen.`,
+        coreQuestions: (targetName) => [
+            `Wer fliegt heute nach ${targetName} und warum gerade diese Person?`,
+            'Was beginnt fuer den Gast nach der Landung vor Ort?',
+            `Warum ist ${targetName} der passende Zugangspunkt statt nur irgendein Flugplatz?`,
+            'Welche Ausruestung, Tasche oder Unterlage macht den Auftrag sichtbar?',
+            'Welcher praktische Ablauf haengt an der Ankunft, ohne die Story kuenstlich hektisch zu machen?'
+        ],
+        writerExpectations: [
+            'Erzaehle aus Dispatcher-Perspektive: Wir bringen den Gast hin, der Gast spricht nur in PAX-Texten.',
+            'Kein Pickup, kein Rueckflug-Handoff, keine implizite Rettung.',
+            'Der Grund am Ziel darf beruflich, privat, outdoorbezogen oder leicht kurios sein, solange er zum Strip passt.'
+        ]
+    },
+    bush_scenic_hopper: {
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Adventure- oder Scenic-Hopper. Das Profil lebt vom Ort, vom Gast und vom Erlebnis der Landung, nicht von einem harten Arbeitsauftrag.',
+        recipe: (targetName, homeName) => `Kurzer Adventure-/Scenic-Flug von ${homeName} nach ${targetName}, Landung am Zielstrip, Abschluss dort; kein Rueckhol- oder Lieferzwang.`,
+        coreQuestions: (targetName) => [
+            `Wer erlebt den Hop nach ${targetName} und was macht den Ort fuer diese Person reizvoll?`,
+            'Was nimmt der Gast mit: Kamera, Tagesrucksack, Angelrohr, Skizzenrolle oder anderes leichtes Material?',
+            'Was beginnt nach der Landung: Hike, Lodge-Aufenthalt, Fotozeit, Campbesuch oder Beobachtung?',
+            'Warum macht die Bush-Landung selbst den Auftrag besonders?',
+            'Wie bleibt der Ton ruhig, glaubwuerdig und nicht wie ein formaler Arbeitsauftrag?'
+        ],
+        writerExpectations: [
+            'Nicht jedes Scenic-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.',
+            'Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.',
+            'Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract.'
+        ]
+    },
+    bush_recon_return: {
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Recon mit Heimkehrpflicht. Das Profil prueft Zielstrip, Anflugraum oder Umfeld aus der Luft und bringt den Befund zur Basis zurueck.',
+        recipe: (targetName, homeName) => `Von ${homeName} zum Zielgebiet bei ${targetName}, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach ${homeName}.`,
+        coreQuestions: (targetName, homeName) => [
+            `Was genau wird bei ${targetName} aus der Luft geprueft?`,
+            'Welche Meldung, Wetterfolge, Betreiberfrage oder Saisonlogik loest den Recon aus?',
+            'Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?',
+            `Warum muss der Befund zurueck nach ${homeName}, statt den Flug am Ziel enden zu lassen?`,
+            'Welche Entscheidung kann nach dem Rueckflug getroffen werden?'
+        ],
+        writerExpectations: [
+            'Recon bleibt Recon: nicht als Landung, Dropoff oder Pickup umdeuten.',
+            'Der Zielstrip oder sein Umfeld ist Arbeitsraum, nicht Endpunkt.',
+            'Der Handoff in der Basis ist der Abschluss, aber ohne pauschalen Zeitdruck.'
+        ]
+    },
+    bush_pickup_cargo: {
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Cargo-Pickup-Return. Das Profil fliegt leer zum Zielstrip, nimmt dort Rueckholfracht auf und bringt sie zur Basis.',
+        recipe: (targetName, homeName) => `Leerflug von ${homeName} nach ${targetName}, Cargo am Zielstrip aufnehmen, Rueckflug nach ${homeName}, Abschluss mit Ausladen daheim.`,
+        coreQuestions: (targetName, homeName) => [
+            `Welche Rueckholfracht liegt bei ${targetName} bereit?`,
+            'Wer hat sie dort vorbereitet oder warum steht sie am Striprand?',
+            'Warum muss die Fracht zur Basis: Werkstatt, Auswertung, Akte, Bestand oder naechster Versorgungslauf?',
+            'Warum bleibt der Hinflug leer und warum passt die Rueckholung zum Strip?',
+            `Was passiert in ${homeName}, wenn die Fracht angekommen ist?`
+        ],
+        writerExpectations: [
+            'Keinen Passagier-Pickup daraus machen; Fokus bleibt Rueckholfracht.',
+            'Cargo, Grund, Wartepunkt und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.',
+            'Die Story darf klein und praktisch sein; nicht automatisch Notfall oder Charter-Termin.'
+        ]
+    }
+};
+
+function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = null, options = {}) {
+    const profileId = String(options.profileId || context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
+    if (!bushProfileSupportsMissionVariety(profileId)) return null;
+    const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
+    const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
+    const copy = BUSH_MISSION_VARIETY_COPY[profileId] || {};
+    const destWeather = weatherBundle?.dest || null;
+    const weatherNote = Number.isFinite(Number(destWeather?.tempC))
+        ? `Wetteranker: am Ziel etwa ${Math.round(Number(destWeather.tempC))}°C; nutze das als Stimmung oder Betriebsdetail, nicht automatisch als Zeitdruck.`
+        : '';
+    const varietyPack = (typeof selectMissionVarietyPack === 'function')
+        ? selectMissionVarietyPack({
+            namespace: profileId,
+            profileId,
+            context,
+            draft,
+            extra: { weather: weatherBundle },
+            maxItems: 5,
+            wildcardRate: profileId === 'bush_scenic_hopper' ? 0.24 : 0.16,
+            writeHistory: options.writeHistory !== false
+        })
+        : null;
+    const varietyAxes = (typeof missionVarietyPackToPromptAxes === 'function' && varietyPack)
+        ? missionVarietyPackToPromptAxes(varietyPack)
+        : null;
+    const fallbackAxes = {
+        roleFamilies: ['Ranger-/Crewkontakt', 'Lodge- oder Campkontakt', 'Technik- oder Utility-Kontakt', 'Outdoor-Gast oder Guide'],
+        activityVerbs: ['uebergeben', 'absetzen', 'pruefen', 'dokumentieren', 'ausladen', 'aufnehmen', 'abgleichen'],
+        evidenceObjects: ['Kartenmappe', 'Werkzeugtasche', 'Kiste', 'Kamera', 'Funkgeraet', 'Tablet', 'Tagesrucksack'],
+        returnDrivers: ['Materialplanung', 'Basis-Handoff', 'Crewbriefing', 'Bestandsabgleich', 'geplanter Aufenthalt'],
+        accessReasons: ['naechster brauchbarer Strip', 'sicherer Zugangspunkt', 'kurzer Weg zum Camp oder Arbeitsraum', 'Backcountry-Landung als sinnvoller Abschluss']
+    };
+    const coreQuestions = (typeof copy.coreQuestions === 'function')
+        ? copy.coreQuestions(targetName, homeName)
+        : [
+            `Wer oder was steht bei ${targetName} im Mittelpunkt?`,
+            'Was ist der konkrete Anlass dieses Bush-Flugs?',
+            'Warum passt der Zielstrip zum Auftrag?',
+            'Welcher naechste Schritt folgt nach dem Flug?'
+        ];
+    return {
+        purpose: copy.purpose || 'Offener Kreativrahmen fuer ein Bush-Profil. Keine Vorlage kopieren; aus Profil, Ziel, Wetter und lokalen Fakten eine eigenstaendige Mikrogeschichte bauen.',
+        recipe: (typeof copy.recipe === 'function')
+            ? copy.recipe(targetName, homeName)
+            : `Bush-Flug zwischen ${homeName} und ${targetName}; Profil-Rezept bleibt bindend, Story bleibt frei.`,
+        coreQuestions,
+        candidateShortlist: Array.isArray(varietyPack?.candidates) ? varietyPack.candidates : [],
+        variety: _missionPipelineV4CompactVarietyPack(varietyPack),
+        ingredientAxes: varietyAxes || fallbackAxes,
+        writerExpectations: [
+            'Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.',
+            'Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.',
+            'Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.',
+            'Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.',
+            'Nicht alle Achsen abarbeiten; frei kombinieren und variieren.',
+            'Keine neuen Ortsnamen oder harten Geofakten erfinden.',
+            ...(Array.isArray(copy.writerExpectations) ? copy.writerExpectations : [])
+        ],
+        weatherNote
+    };
+}
+
 function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = null, options = {}) {
     const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
     const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
@@ -14893,21 +15071,7 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
             `Warum macht der Rückflug nach ${homeName} für den nächsten Schritt einen Unterschied?`
         ],
         candidateShortlist: Array.isArray(varietyPack?.candidates) ? varietyPack.candidates : [],
-        variety: varietyPack ? {
-            schema: varietyPack.schema,
-            namespace: varietyPack.namespace,
-            profileId: varietyPack.profileId,
-            contextTags: varietyPack.contextTags,
-            selectedIds: varietyPack.selectedIds,
-            selectedFamilies: varietyPack.selectedFamilies,
-            primaryId: varietyPack.primaryId,
-            primaryFamily: varietyPack.primaryFamily,
-            recentFamilies: varietyPack.recentFamilies,
-            recentPrimaryFamilies: varietyPack.recentPrimaryFamilies,
-            recentPrimaryIds: varietyPack.recentPrimaryIds,
-            selectionRule: varietyPack.selectionRule,
-            storageKey: varietyPack.storageKey
-        } : null,
+        variety: _missionPipelineV4CompactVarietyPack(varietyPack),
         ingredientAxes: axes,
         writerExpectations: [
             'Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Rueckkehrgrund zusammenpassen.',
@@ -14950,6 +15114,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         writeHistory: true
     });
     const pickupCreativeBrief = debug?.pickupCreativeBrief || null;
+    const missionVarietyBrief = debug?.missionVarietyBrief || null;
     const storyFrame = _missionPipelineV4BuildStoryFrame({
         ...base.plan,
         missionTrigger: rawPlan.missionTrigger,
@@ -14958,7 +15123,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionStakes: rawPlan.missionStakes,
         completionSignal: rawPlan.completionSignal,
         storyFrame: rawPlan.storyFrame
-    }, semantics, resolvedNeeds, { sarDecision, pickupCreativeBrief });
+    }, semantics, resolvedNeeds, { sarDecision, pickupCreativeBrief, missionVarietyBrief });
     const taskDomain = String(semantics?.focusLock?.taskDomain || base.plan?.taskDomain || '').toLowerCase();
     const cleanSortedTexts = (values, kind, maxItems) => _missionPipelineV4FilterNarrativeTexts(
         _missionSemanticsV4SortTexts(values, semantics, kind)
@@ -15194,8 +15359,17 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         pass: 'single-shot',
         promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
         contextSchema: 'missionPlannerV4.contextBundle.v1',
-        semanticsVersion: semantics.version
+        semanticsVersion: semantics.version,
+        variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || base.debug?.variety || null
     };
+    if (pickupCreativeBrief) {
+        base.pickupCreativeBrief = pickupCreativeBrief;
+        base.variety = pickupCreativeBrief.variety || base.variety || null;
+    }
+    if (missionVarietyBrief) {
+        base.missionVarietyBrief = missionVarietyBrief;
+        base.variety = missionVarietyBrief.variety || base.variety || null;
+    }
     return base;
 }
 
@@ -15239,6 +15413,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         : null;
     const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     const bushPickupReturn = profileId === 'bush_pickup_strip';
+    const weatherBundle = _missionPipelineV3WeatherBundle(context.missionWeather || null);
     const baseRouteRule = sarHeli
         ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
         : (context.isPOI
@@ -15260,8 +15435,27 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         routeRules.push('Bush-Pickup-Story: Der Plan beantwortet aus dem Pickup-Kontext wer, was, wo, wann, wie und warum, ohne eine feste Standardgeschichte zu kopieren.');
         realismTargets.unshift('Bei Feldarbeit, Forschung, Technik, Rangerarbeit oder Backcountry-Logistik konkrete Story-Anker liefern: Tätigkeiten, Material, Rückkehrgrund und nächster Handoff statt nur Rollenlabel.');
     }
+    if (profileId === 'bush_supply_strip') {
+        routeRules.push('Bush-Supply: Fracht wird am Zielstrip abgegeben; keine Pickup- oder Rueckholstory daraus machen.');
+        realismTargets.unshift('Supply braucht Empfaenger, konkrete Ladung, Zweck am Ziel und Folgeablauf nach dem Abladen.');
+    } else if (profileId === 'bush_charter_strip') {
+        routeRules.push('Bush-Charter: Passagier wird am Zielstrip abgesetzt; der Abschluss liegt am Ziel, nicht daheim.');
+        realismTargets.unshift('Charter braucht einen konkreten Gast, dessen Zielgrund und den Ablauf, der nach der Landung vor Ort beginnt.');
+    } else if (profileId === 'bush_scenic_hopper') {
+        routeRules.push('Bush-Scenic-Hopper: Adventure-/Scenic-Landung am Zielstrip; kein Liefer-, Pickup- oder Recon-Zwang.');
+        realismTargets.unshift('Scenic braucht Erlebnis, Gastperspektive und Ortssinn, ohne daraus automatisch Feldarbeit oder Zeitdruck zu machen.');
+    } else if (profileId === 'bush_recon_return') {
+        routeRules.push('Bush-Recon-Return: Zielstrip oder Umfeld wird aus der Luft geprueft; keine geplante Landung, Rueckflug zur Basis ist Pflicht.');
+        realismTargets.unshift('Recon braucht Anlass, sichtbare Pruefpunkte und die Folgeentscheidung in der Basis.');
+    } else if (profileId === 'bush_pickup_cargo') {
+        routeRules.push('Bush-Cargo-Pickup: Leerflug zum Zielstrip, Rueckholfracht aufnehmen, Rueckflug zur Basis; kein Passagier-Pickup.');
+        realismTargets.unshift('Cargo-Pickup braucht konkrete Rueckholfracht, Wartepunkt, Grund fuer Heimtransport und naechsten Schritt in der Basis.');
+    }
     const pickupCreativeBrief = bushPickupReturn
-        ? buildBushPickupCreativeBrief(context, draft, _missionPipelineV3WeatherBundle(context.missionWeather || null))
+        ? buildBushPickupCreativeBrief(context, draft, weatherBundle)
+        : null;
+    const missionVarietyBrief = (!bushPickupReturn && bushProfileSupportsMissionVariety(profileId))
+        ? buildBushMissionVarietyBrief(context, draft, weatherBundle, { profileId })
         : null;
     return {
         working,
@@ -15273,13 +15467,15 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             category: draft.category || '',
             profile: _missionPipelineV3ProfileCatalog(context),
             airportDetails: _missionPipelineV3AirportDetails(context),
-            weather: _missionPipelineV3WeatherBundle(context.missionWeather || null),
+            weather: weatherBundle,
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
             semanticsRules,
             sarIncidentGuidance,
             pickupCreativeBrief,
+            missionVarietyBrief,
+            variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || null,
             routeRules,
             realismTargets
         }
@@ -15302,7 +15498,8 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
-9a. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
+9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Scenic landet als Erlebnis, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
+9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -15405,11 +15602,20 @@ async function fetchMissionPlannerV4(context = {}) {
     const normalized = sanitizeMissionPlannerV4Result(result.parsed, draft, resolvedNeeds, {
         source: result.source,
         error: result.error,
-        pickupCreativeBrief: bundle?.pickupCreativeBrief || null
+        pickupCreativeBrief: bundle?.pickupCreativeBrief || null,
+        missionVarietyBrief: bundle?.missionVarietyBrief || null
     });
     if (bundle?.pickupCreativeBrief) {
         normalized.pickupCreativeBrief = bundle.pickupCreativeBrief;
         normalized.variety = bundle.pickupCreativeBrief.variety || null;
+        normalized.debug = {
+            ...(normalized.debug || {}),
+            variety: normalized.variety || null
+        };
+    }
+    if (bundle?.missionVarietyBrief) {
+        normalized.missionVarietyBrief = bundle.missionVarietyBrief;
+        normalized.variety = bundle.missionVarietyBrief.variety || normalized.variety || null;
         normalized.debug = {
             ...(normalized.debug || {}),
             variety: normalized.variety || null
@@ -15458,9 +15664,16 @@ function buildMissionContractV4({
             picker: { profile: contractProfileId }
         }, _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null), { writeHistory: false }))
         : null;
+    const missionVarietyBrief = (!pickupCreativeBrief && bushProfileSupportsMissionVariety(contractProfileId))
+        ? (plannerResult?.missionVarietyBrief || buildBushMissionVarietyBrief(plannerContext, {
+            target: { name: plannerContext.dest?.n || plannerContext.dest?.name || '' },
+            picker: { profile: contractProfileId }
+        }, _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null), { profileId: contractProfileId, writeHistory: false }))
+        : null;
     const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, {
         sarDecision,
         pickupCreativeBrief,
+        missionVarietyBrief,
         homeName: plannerContext.start?.n || plannerContext.start?.name || currentStartICAO || ''
     });
     return {
@@ -15496,6 +15709,8 @@ function buildMissionContractV4({
         missionPlan: plan,
         storyFrame,
         pickupCreativeBrief,
+        missionVarietyBrief,
+        variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || plannerResult?.variety || null,
         sarHeli: sarHeli ? (plannerContext.sarHeli || null) : null,
         missionTruth: compactMissionTruthForPrompt(
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
@@ -15535,9 +15750,10 @@ Regeln:
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-19a. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
-19b. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
-19c. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
+19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Scenic endet als Erlebnislandung am Ziel, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
+19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
+19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
+19d. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -15770,6 +15986,86 @@ function _missionPipelineV4JoinNaturalList(values = []) {
     return `${src.slice(0, -1).join(', ')} und ${src[src.length - 1]}`;
 }
 
+function _missionPipelineV4BushVarietyCandidate(contract = {}) {
+    const brief = contract?.missionVarietyBrief && typeof contract.missionVarietyBrief === 'object'
+        ? contract.missionVarietyBrief
+        : null;
+    const candidates = Array.isArray(brief?.candidateShortlist) ? brief.candidateShortlist : [];
+    if (!candidates.length) return null;
+    const primaryId = String(brief?.variety?.primaryId || '').trim();
+    return (primaryId ? candidates.find(c => String(c?.id || '').trim() === primaryId) : null) || candidates[0] || null;
+}
+
+function _missionPipelineV4BushVarietyFirst(values = [], fallback = '') {
+    return Array.isArray(values) && values.length
+        ? String(values[0] || fallback).trim()
+        : String(fallback || '').trim();
+}
+
+function _missionPipelineV4BushVarietySecond(values = [], fallback = '') {
+    return Array.isArray(values) && values.length > 1
+        ? String(values[1] || fallback).trim()
+        : String(fallback || '').trim();
+}
+
+function _missionPipelineV4ComposeBushVarietyStory(contract = {}) {
+    const profileId = String(contract?.profile?.id || '').trim().toLowerCase();
+    if (!bushProfileSupportsMissionVariety(profileId)) return '';
+    const candidate = _missionPipelineV4BushVarietyCandidate(contract);
+    if (!candidate) return '';
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
+    const homeName = String(contract?.route?.startName || contract?.route?.startIcao || currentStartICAO || 'der Basis').trim() || 'der Basis';
+    const role = _missionPipelineV4BushVarietyFirst(candidate.roleIdeas, 'Backcountry-Kontakt');
+    const taskA = _missionPipelineV4BushVarietyFirst(candidate.taskIdeas, 'den Auftrag vor Ort vorbereiten');
+    const taskB = _missionPipelineV4BushVarietySecond(candidate.taskIdeas, 'die offenen Punkte dokumentieren');
+    const objects = _missionPipelineV4JoinNaturalList(
+        Array.isArray(candidate.objectIdeas) ? candidate.objectIdeas.slice(0, 3) : []
+    ) || 'leichte Ausruestung';
+    const returnReason = _missionPipelineV4EnsureSentence(_missionPipelineV4BushVarietyFirst(candidate.returnDrivers, 'Der naechste Schritt haengt an diesem Flug'));
+    const accessReason = _missionPipelineV4EnsureSentence(_missionPipelineV4BushVarietyFirst(candidate.accessReasons, 'Der Zielstrip ist der passende Zugangspunkt'));
+    if (profileId === 'bush_supply_strip') {
+        return [
+            `Wir bringen heute ${objects} nach ${targetName}; am Strip wartet ${role} auf die Uebergabe.`,
+            `Die Lieferung wird dort draussen gebraucht, um ${taskA} und ${taskB}.`,
+            accessReason,
+            `${returnReason} Nach dem Abladen ist der Supply-Auftrag am Ziel abgeschlossen.`
+        ].filter(Boolean).join(' ');
+    }
+    if (profileId === 'bush_charter_strip') {
+        return [
+            `Heute bringen wir ${role} mit ${objects} nach ${targetName}.`,
+            `Nach der Landung beginnt vor Ort der eigentliche Termin: ${taskA} und ${taskB}.`,
+            accessReason,
+            `${returnReason} Der Charterflug endet mit dem Dropoff am Zielstrip.`
+        ].filter(Boolean).join(' ');
+    }
+    if (profileId === 'bush_scenic_hopper') {
+        return [
+            `Dieser Bush-Hop nach ${targetName} ist als ruhiger Backcountry-Leg fuer ${role} geplant.`,
+            `Nach der Landung beginnt draussen der kleine Tagesplan: ${taskA} und ${taskB}.`,
+            `${objects} bleibt als leichtes Kit dabei.`,
+            `Die Landung am Zielstrip ist der Abschluss des Fluglegs und der Start des Aufenthalts.`
+        ].filter(Boolean).join(' ');
+    }
+    if (profileId === 'bush_recon_return') {
+        return [
+            `Heute pruefen wir ${targetName} aus der Luft, ohne dort eine Landung einzuplanen.`,
+            `Im Fokus stehen ${taskA} und ${taskB}.`,
+            accessReason,
+            `${returnReason} Danach bringen wir Befund, Fotos und Notizen zurueck nach ${homeName}.`
+        ].filter(Boolean).join(' ');
+    }
+    if (profileId === 'bush_pickup_cargo') {
+        return [
+            `Wir fliegen leer nach ${targetName}; dort liegen ${objects} am Striprand zur Rueckholung bereit.`,
+            `Vor Ort geht es konkret darum, ${taskA} und ${taskB}.`,
+            accessReason,
+            `${returnReason} Danach bringen wir die Fracht zurueck nach ${homeName} und laden sie dort aus.`
+        ].filter(Boolean).join(' ');
+    }
+    return '';
+}
+
 function _missionPipelineV4StripSentenceEnd(text = '') {
     return String(text || '')
         .replace(/\s+/g, ' ')
@@ -15782,6 +16078,10 @@ function _missionPipelineV4LowerFirst(text = '') {
     const s = String(text || '').trim();
     if (!s) return '';
     return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function _missionPipelineV4UpperSentenceStart(text = '') {
+    return String(text || '').replace(/^(\s*["'„“(]*)([a-zäöü])/u, (_m, prefix, first) => `${prefix}${first.toUpperCase()}`);
 }
 
 function _missionPipelineV4BuildSarObjective(frame = {}, semantics = {}) {
@@ -15808,7 +16108,7 @@ function _missionPipelineV4SarPrimarySubjectText(text = '') {
 }
 
 function _missionPipelineV4EnsureSentence(text = '', fallback = '') {
-    const s = _missionPipelineV4StripSentenceEnd(text || fallback);
+    const s = _missionPipelineV4UpperSentenceStart(_missionPipelineV4StripSentenceEnd(text || fallback));
     if (!s) return '';
     return /[.!?]$/.test(s) ? s : `${s}.`;
 }
@@ -15871,6 +16171,8 @@ function _missionPipelineV4PushUniqueSentence(out = [], sentence = '', minHits =
 function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     const targetName = String(contract?.target?.name || 'dem Zielgebiet').trim() || 'dem Zielgebiet';
     const taskDomain = String(contract?.profile?.taskDomain || 'general').trim().toLowerCase();
+    const bushVarietyStory = _missionPipelineV4ComposeBushVarietyStory(contract);
+    if (bushVarietyStory) return bushVarietyStory;
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     const detail = String(frame.subjectDetail || frame.focusSubject || targetName).trim();
     const incident = String(frame.incidentContext || frame.trigger || '').trim();
@@ -19293,6 +19595,8 @@ async function generateMission() {
             : (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null),
         missionContractV4: missionContractV4 || null,
         missionVariety: missionContractV4?.pickupCreativeBrief?.variety
+            || missionContractV4?.missionVarietyBrief?.variety
+            || missionContractV4?.variety
             || missionPlanV4?.variety
             || missionPlanV2?.variety
             || null,
@@ -19516,7 +19820,11 @@ async function generateMission() {
             missionPipelineV4Enabled: isMissionPipelineV4Enabled(),
             missionVariety: currentMissionData.missionVariety
                 || currentMissionData.missionContractV4?.pickupCreativeBrief?.variety
+                || currentMissionData.missionContractV4?.missionVarietyBrief?.variety
+                || currentMissionData.missionContractV4?.variety
                 || activeMissionContract?.missionContractV4?.pickupCreativeBrief?.variety
+                || activeMissionContract?.missionContractV4?.missionVarietyBrief?.variety
+                || activeMissionContract?.missionContractV4?.variety
                 || null,
             dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
