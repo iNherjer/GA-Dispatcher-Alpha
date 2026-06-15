@@ -950,6 +950,35 @@ function _activeMissionFollowUpContext() {
     return candidates.find(item => item && typeof item === 'object') || null;
 }
 
+function _activeMissionTemporalContext() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const followUpContext = _activeMissionFollowUpContext();
+    const candidates = [
+        md.missionTemporalContext,
+        md.followUpProspect?.temporalContext,
+        md.followUpContinuation?.temporalContext,
+        followUpContext?.temporalContext,
+        window.activePassenger?.missionTemporalContext
+    ];
+    return candidates.find(item => item && typeof item === 'object') || null;
+}
+
+function _followUpDeboardingHintLine() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    if (md.followUpContinuation || md.followUpRequestId) return '';
+    const temporal = _activeMissionTemporalContext();
+    const prospect = md.followUpProspect && typeof md.followUpProspect === 'object' ? md.followUpProspect : null;
+    const hint = String(
+        prospect?.deboardingHint
+        || temporal?.deboardingHint
+        || window.activePassenger?.followUpDeboardingHint
+        || ''
+    ).replace(/\s+/g, ' ').trim();
+    if (!hint) return '';
+    const stay = String(temporal?.stayText || prospect?.stayText || '').replace(/\s+/g, ' ').trim();
+    return `\nANSCHLUSS-HINWEIS: ${hint}${stay ? ` Zeitraum: ${stay}.` : ''} Erwähne das nur, wenn es als natürlicher Abschiedssatz passt. Keine Wörter wie Follow-up, Request, Timer, stayDays oder System.`;
+}
+
 function _getDestCoords() {
     const el = document.getElementById('mDestCoords');
     if (!el) return null;
@@ -5274,6 +5303,7 @@ function _cargoOnlyFarewellPrompt(record) {
     const facts = (min != null && distanceNm != null)
         ? `${min} min, ${distanceNm.toFixed(1)} NM, Lieferung ${cargoName}.`
         : `Lieferung ${cargoName}.`;
+    const followUpDeboardingHint = failed ? '' : _followUpDeboardingHintLine();
     const resultTask = failed
         ? `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Sag klar, dass die Uebergabe heute noch nicht sauber abgeschlossen ist${failureShort ? `, weil ${failureShort} fehlt oder nicht brauchbar ist` : ''}. Bleib praktisch und knapp, kein Drama, keine Passagierperspektive. Eine kurze Bitte um neuen Anlauf ist okay.`
         : `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Bestaetige kurz, dass die Fracht angekommen ist, sag wofuer sie hier gebraucht wird oder was damit als Naechstes passiert, und bedanke dich fuer den Flug. Keine Passagierperspektive, kein Mitflug, keine Cockpit-Sicht.`;
@@ -5289,7 +5319,7 @@ AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anf
 
 Moment: Die Maschine steht ${place}; dort laeuft jetzt die Uebergabe. ${cue ? `Am Treffpunkt wartet ${cue}.` : ''}
 Fakten: ${facts}
-${resultTask}
+${resultTask}${followUpDeboardingHint}
 Erwaehne die Fracht beim Namen: ${cargoName}. Gib moeglichst ein kleines konkretes Ergebnis oder einen naechsten Schritt der Uebergabe mit.${_bushCargoPickupNarrativeHint('final')} In dieser Abschlussansage zaehlt nur das Ergebnis der Uebergabe am Ziel und was jetzt als Naechstes mit der Fracht passiert; wiederhole den Abhol- oder Rueckfluggrund nicht noch einmal ausfuehrlich. Max 4 Sätze.${_toneHint()}`;
 }
 
@@ -5583,6 +5613,7 @@ function _farewellPrompt(record) {
         : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
     const bushContinuityHint = _bushPickupNarrativeHint('farewell');
+    const followUpDeboardingHint = isMissionFailed ? '' : _followUpDeboardingHintLine();
     const sarHeliFarewellTask = (typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)))
         ? `Verabschiede dich als ${pax.role} nach einer SAR-Heli-Bergung. Sage klar, dass der Patient am medizinischen Ziel ${_sarHeliHospitalName()} uebergeben ist, danke fuer die ruhige Bergung und den Weiterflug, und schliesse professionell ab.`
         : '';
@@ -5597,7 +5628,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-${farewellTask}${poiRideHomeTask}${bushContinuityHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${poiRideHomeTask}${bushContinuityHint}${followUpDeboardingHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 function _failedMissionFarewellFallback(record = null) {

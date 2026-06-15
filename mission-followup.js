@@ -104,11 +104,15 @@
         return status === 'accepted' || status === 'dismissed' || status === 'expired';
     }
 
-    function nextLocalMorningAt(hour = 8) {
+    function localMorningAfterDays(days = 1, hour = 8) {
         const d = new Date();
-        d.setDate(d.getDate() + 1);
+        d.setDate(d.getDate() + Math.max(1, Math.min(7, Math.round(Number(days || 1)))));
         d.setHours(hour, 0, 0, 0);
         return d.getTime();
+    }
+
+    function nextLocalMorningAt(hour = 8) {
+        return localMorningAfterDays(1, hour);
     }
 
     function addDays(ts, days) {
@@ -128,6 +132,133 @@
         } catch (_) {
             return '-';
         }
+    }
+
+    function clampStayDays(value = null) {
+        const n = Math.round(Number(value || 0));
+        return Number.isFinite(n) && n >= 1 && n <= 7 ? n : 0;
+    }
+
+    function randomStayDays() {
+        return Math.floor(Math.random() * 7) + 1;
+    }
+
+    function stayDurationText(days = null, sourceKind = '') {
+        const n = clampStayDays(days);
+        if (!n) return '';
+        const source = String(sourceKind || '').toLowerCase();
+        if (source === 'bush_scenic_hopper') {
+            if (n === 1) return 'eine Nacht draußen';
+            if (n === 2) return 'zwei Tage draußen';
+            return `${n} Tage draußen`;
+        }
+        if (source === 'bush_supply_strip') {
+            if (n === 1) return 'bis morgen';
+            return `in ungefähr ${n} Tagen`;
+        }
+        if (n === 1) return 'bis morgen';
+        return `ungefähr ${n} Tage`;
+    }
+
+    function stayPeriodText(days = null, sourceKind = '') {
+        const n = clampStayDays(days);
+        if (!n) return '';
+        const source = String(sourceKind || '').toLowerCase();
+        if (source === 'bush_scenic_hopper') {
+            if (n === 1) return 'während einer Nacht draußen';
+            if (n === 2) return 'über zwei Tage draußen';
+            return `über ungefähr ${n} Tage draußen`;
+        }
+        if (source === 'bush_supply_strip') {
+            if (n === 1) return 'bis zum nächsten Morgen';
+            return `über ungefähr ${n} Tage`;
+        }
+        if (n === 1) return 'bis zum nächsten Morgen';
+        return `für ungefähr ${n} Tage`;
+    }
+
+    function buildFollowUpDeboardingHint(sourceKind = '', stayDays = null, passenger = null) {
+        const source = String(sourceKind || '').toLowerCase();
+        const text = stayDurationText(stayDays, source);
+        const name = cleanText(passenger?.name || '', 80);
+        if (!text) return '';
+        if (source === 'bush_supply_strip') {
+            return `Die Crew sortiert die Lieferung ${text}; danach sollten leere Kisten, Belege und Rückfracht abholbereit sein.`;
+        }
+        if (source === 'bush_scenic_hopper') {
+            return `${name || 'Der Gast'} plant ${text} zu bleiben und kann beim Abschied locker erwähnen, dass eine Rückholung danach willkommen wäre.`;
+        }
+        return `${name || 'Der Gast'} bleibt voraussichtlich ${text} am Zielstrip und kann beim Abschied erwähnen, dass eine spätere Rückholung gut passen würde.`;
+    }
+
+    function buildTemporalContext(sourceKind = '', options = {}) {
+        const source = String(sourceKind || '').toLowerCase();
+        if (!SOURCE_MAP[source]) return null;
+        const stayDays = clampStayDays(options.stayDays) || randomStayDays();
+        const eligibleAt = Number(options.eligibleAt || 0) > 0
+            ? Number(options.eligibleAt)
+            : localMorningAfterDays(stayDays, 8);
+        const stayText = stayDurationText(stayDays, source);
+        return {
+            schema: 'ga.missionTemporalContext.v1',
+            kind: 'followup_stay',
+            sourceKind: source,
+            stayDays,
+            stayText,
+            returnWindowText: formatLocal(eligibleAt),
+            followUpEligibleAt: eligibleAt,
+            deboardingHint: cleanText(options.deboardingHint || buildFollowUpDeboardingHint(source, stayDays, options.passenger || null), 360),
+            createdAt: Number(options.createdAt || nowMs())
+        };
+    }
+
+    function missionTemporalContext(md = null, sourceKind = '') {
+        const candidate = md && typeof md === 'object' ? md : {};
+        const existing = candidate.missionTemporalContext
+            || candidate.followUpProspect?.temporalContext
+            || candidate.followUpProspect?.missionTemporalContext
+            || null;
+        if (existing && typeof existing === 'object') {
+            const source = String(existing.sourceKind || sourceKind || getProfileId(candidate) || '').toLowerCase();
+            const normalized = buildTemporalContext(source, {
+                stayDays: existing.stayDays,
+                eligibleAt: existing.followUpEligibleAt || existing.eligibleAt,
+                deboardingHint: existing.deboardingHint,
+                createdAt: existing.createdAt,
+                passenger: candidate.passenger || candidate.missionContract?.passenger || null
+            });
+            if (normalized) return { ...existing, ...normalized };
+        }
+        const source = String(sourceKind || getProfileId(candidate) || '').toLowerCase();
+        return buildTemporalContext(source, {
+            passenger: candidate.passenger || candidate.missionContract?.passenger || null
+        });
+    }
+
+    function buildProspectForMission(candidate = null, options = {}) {
+        const md = getMissionDataFromCandidate(candidate);
+        if (!md || typeof md !== 'object') return null;
+        if (md.followUpContinuation || md.followUpRequestId) return null;
+        const sourceKind = String(options.sourceKind || getProfileId(md) || '').toLowerCase();
+        const cfg = SOURCE_MAP[sourceKind];
+        if (!cfg) return null;
+        const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null;
+        const temporalContext = missionTemporalContext(md, sourceKind);
+        if (!temporalContext) return null;
+        return {
+            schema: 'ga.followup.prospect.v1',
+            sourceKind,
+            followUpKind: cfg.followUpKind,
+            sourceLabel: cfg.sourceLabel,
+            followUpLabel: cfg.followUpLabel,
+            temporalContext,
+            stayDays: temporalContext.stayDays,
+            stayText: temporalContext.stayText,
+            eligibleAt: temporalContext.followUpEligibleAt,
+            deboardingHint: temporalContext.deboardingHint,
+            createdAt: temporalContext.createdAt,
+            passenger
+        };
     }
 
     function statusPriority(req) {
@@ -608,13 +739,23 @@
         const pax = cleanText(md?.paxText || md?.initialPaxText || document.getElementById('mPay')?.innerText || '', 180);
         const targetName = targetRef?.name || targetRef?.icao || 'dem Zielstrip';
         const homeName = homeRef?.name || homeRef?.icao || 'der Basis';
+        const temporalContext = missionTemporalContext(md, sourceKind);
+        const stayPeriod = stayPeriodText(temporalContext?.stayDays, sourceKind);
+        const stayDonePrefix = stayPeriod ? `Der geplante Zeitraum ${stayPeriod} ist vorbei; ` : '';
+        const commonMemory = {
+            temporalContext,
+            stayDays: temporalContext?.stayDays || null,
+            stayText: temporalContext?.stayText || '',
+            deboardingHint: temporalContext?.deboardingHint || ''
+        };
         if (sourceKind === 'bush_charter_strip') {
             const name = passenger?.name || 'der Chartergast';
             const role = passenger?.role || 'Bush-Teamgast';
             return {
+                ...commonMemory,
                 outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} gebracht.`,
-                stayOrWorkSummary: `${name} hat am Zielstrip den geplanten Aufenthalt genutzt: Briefing mit dem lokalen Kontakt, Kontrolle der mitgebrachten Ausrüstung und Abgleich der Lage vor Ort.`,
-                whyNowReturn: 'Die Arbeit vor Ort ist abgeschlossen, die Notizen und persönlichen Sachen sind gepackt, und die Basis braucht den Rückbericht.',
+                stayOrWorkSummary: `${name} hat am Zielstrip den geplanten Aufenthalt${stayPeriod ? ` ${stayPeriod}` : ''} genutzt: Briefing mit dem lokalen Kontakt, Kontrolle der mitgebrachten Ausrüstung und Abgleich der Lage vor Ort.`,
+                whyNowReturn: `${stayDonePrefix}die Arbeit vor Ort ist abgeschlossen, die Notizen und persönlichen Sachen sind gepackt, und die Basis braucht den Rückbericht.`,
                 returnReason: 'Rückkehr zur Basis für Debriefing und nächste Teamentscheidung.',
                 teamContinuity: `Der Kontakt fragt bewusst wieder denselben Piloten an, weil Anflug, Strip und Person aus dem ersten Auftrag bekannt sind.`,
                 pickupGreetingText: `${name || 'Ich'} bin bereit am Strip. Wir haben hier draußen alles erledigt und müssen mit dem Bericht zurück zur Basis.`,
@@ -626,9 +767,10 @@
             const name = passenger?.name || 'der Adventure-Gast';
             const role = passenger?.role || 'Adventure-Gast';
             return {
+                ...commonMemory,
                 outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} geflogen, um den geplanten Backcountry-Aufenthalt am Zielstrip zu beginnen.`,
-                stayOrWorkSummary: `${name} hat die Zeit draußen für den geplanten Adventure-Teil genutzt: den lokalen Treffpunkt erreicht, den Tagesrucksack sortiert, Fotos und Eindrücke gesammelt und den Rückweg zum bekannten Strip mit dem Kontakt abgestimmt.`,
-                whyNowReturn: 'Der vereinbarte Wildnisaufenthalt ist beendet, das Wetterfenster passt, und Kamera, Rucksack und persönliche Sachen sind wieder gepackt.',
+                stayOrWorkSummary: `${name} hat ${stayPeriod || 'die Zeit draußen'} für den geplanten Adventure-Teil genutzt: den lokalen Treffpunkt erreicht, den Tagesrucksack sortiert, Fotos und Eindrücke gesammelt und den Rückweg zum bekannten Strip mit dem Kontakt abgestimmt.`,
+                whyNowReturn: `${stayDonePrefix}der vereinbarte Wildnisaufenthalt ist beendet, das Wetterfenster passt, und Kamera, Rucksack und persönliche Sachen sind wieder gepackt.`,
                 returnReason: 'Rückkehr zur Basis mit Fotos, Notizen und der persönlichen Geschichte vom Aufenthalt draußen.',
                 teamContinuity: `Der Gast fragt bewusst wieder denselben Piloten an, weil der Strip, der Anflug und die Absprachen aus dem Adventure-Hinflug vertraut sind.`,
                 pickupGreetingText: `${name || 'Ich'} bin wieder am Strip. Der Ausflug hat sich gelohnt, der Rucksack ist gepackt, und ich habe einiges vom Aufenthalt zu erzählen.`,
@@ -637,9 +779,10 @@
             };
         }
         return {
+            ...commonMemory,
             outboundPurpose: story || `Die Versorgungsladung aus ${homeName} wurde nach ${targetName} gebracht.`,
-            stayOrWorkSummary: `Die Crew vor Ort hat die Lieferung sortiert, Verbrauchsmaterial verteilt und die Rückfracht für den Heimflug vorbereitet.`,
-            whyNowReturn: 'Der Platzkontakt hat die Rückholfracht freigegeben; sie soll nicht länger am Strip liegen bleiben.',
+            stayOrWorkSummary: `Die Crew vor Ort hat ${stayPeriod ? `${stayPeriod} ` : ''}die Lieferung sortiert, Verbrauchsmaterial verteilt und die Rückfracht für den Heimflug vorbereitet.`,
+            whyNowReturn: `${stayDonePrefix}der Platzkontakt hat die Rückholfracht freigegeben; sie soll nicht länger am Strip liegen bleiben.`,
             returnReason: 'Rücktransport von Belegen, leeren Behältern und einem kleinen defekten Teil zur Basis.',
             teamContinuity: `Der Folgeflug schließt den Versorgungskreislauf ab: hinbringen, vor Ort nutzbar machen, Rückfracht sauber heimholen.`,
             pickupGreetingText: '',
@@ -673,6 +816,10 @@
         const departureName = start?.n || start?.name || start?.icao || homeName;
         const memory = req.narrativeMemory || {};
         const sourceStory = displayText(req.source?.story || memory.outboundPurpose || '');
+        const temporalContext = req.temporalContext || req.missionTemporalContext || memory.temporalContext || null;
+        const temporalHint = temporalContext?.stayText
+            ? `Geplante Aufenthalts-/Wartezeit bis zur Folgeanfrage: ${displayText(temporalContext.stayText)}.`
+            : '';
         if (followUpKind === 'bush_pickup_strip') {
             const sourceLabel = displayText(req.sourceLabel || 'Bush-Flug');
             const adventureSource = String(req.sourceKind || '').toLowerCase() === 'bush_scenic_hopper';
@@ -714,6 +861,7 @@
                         title: displayText(req.source?.title || ''),
                         story: sourceStory
                     },
+                    temporalContext,
                     lockedPassenger: {
                         ...passenger,
                         roleProfile: 'bush_charter_guest_v1',
@@ -727,6 +875,7 @@
                         completionSignal: `Nach der Landung in ${homeName} werden Rückbericht, Notizen und persönliche Ausrüstung übergeben.`,
                         subjectDetail: `${name}, ${role}, ist mit gepackten Sachen bereits am Flugzeug am ${targetName}.`,
                         incidentContext: stay,
+                        temporalHint,
                         whyNow,
                         soughtOutcome: `${name} am aktuellen Standort aufnehmen und als normalen Charter-Rückflug von ${departureName} nach ${homeName} bringen.`
                     },
@@ -750,9 +899,10 @@
                         writerExpectations: [
                             `Nutze exakt denselben Gast: ${name}, ${role}.`,
                             'Keine Pickup-Return-Logik beschreiben; der Gast ist am Start bereits vor Ort.',
+                            temporalHint ? 'Nutze die Aufenthaltsdauer als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
                             'Das Briefing ist ein Dispatcher-Auftrag für den Piloten und soll natürlich klingen.',
                             'Normale deutsche Umlaute verwenden.'
-                        ]
+                        ].filter(Boolean)
                     }
                 };
             }
@@ -778,6 +928,7 @@
                     title: displayText(req.source?.title || ''),
                     story: sourceStory
                 },
+                temporalContext,
                 lockedPassenger: passenger,
                 storyFrame: {
                     trigger: `${name} meldet sich nach dem abgeschlossenen Aufenthalt am ${targetName} für den Rückflug.`,
@@ -787,6 +938,7 @@
                     completionSignal: `Nach der Rückkehr nach ${homeName} werden Rückbericht, Notizen und mitgeführte Ausrüstung übergeben.`,
                     subjectDetail: `${name}, ${role}, wartet ${exactWhere} mit Notizen und persönlichem Gepäck.`,
                     incidentContext: stay,
+                    temporalHint,
                     whyNow,
                     soughtOutcome: `Leer von ${departureName} zum bekannten Strip fliegen, ${name} am Wartepunkt aufnehmen und ${passengerPronoun(passenger)} zurück nach ${homeName} bringen.`
                 },
@@ -825,6 +977,7 @@
                     }],
                     writerExpectations: [
                         `Nutze exakt denselben Gast: ${name}, ${role}.`,
+                        temporalHint ? 'Nutze die Aufenthaltsdauer als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
                         'Das Briefing ist ein Dispatch-Briefing für den Piloten, keine Ich-Erzählung des Gasts.',
                         adventureSource ? 'Adventure-Follow-ups dürfen persönlicher, sinnlicher und erlebnisorientierter sein, aber nicht plötzlich wie ein beruflicher Charter oder Notfall klingen.' : '',
                         'Keine Formular- oder Instruction-Sprache. Die Fortsetzung soll wie ein echter Folgeauftrag wirken.',
@@ -865,6 +1018,7 @@
                         title: displayText(req.source?.title || ''),
                         story: sourceStory
                     },
+                    temporalContext,
                     storyFrame: {
                         trigger: `Du bist schon am ${targetName}; die Rückfracht aus dem Supply Run ist bereit und soll jetzt nach ${homeName}.`,
                         focusSubject: `${cargo} als Rücktransport nach dem abgeschlossenen Supply Run`,
@@ -873,6 +1027,7 @@
                         completionSignal: `Nach der Landung in ${homeName} wird die Rückfracht entladen, geprüft und übergeben.`,
                         subjectDetail: `${cargo} steht am aktuellen Startplatz ${targetName} zur Beladung bereit.`,
                         incidentContext: stay,
+                        temporalHint,
                         whyNow,
                         soughtOutcome: `Die bereits bereitliegende Rückfracht am ${targetName} laden und als normalen Supply-Rückflug nach ${homeName} bringen.`
                     },
@@ -896,9 +1051,10 @@
                         writerExpectations: [
                             'Keinen Passenger-Pickup und keinen Cargo-Pickup-Return beschreiben.',
                             'Die Fracht ist am Startplatz bereits bereit und wird dort geladen.',
+                            temporalHint ? 'Nutze die Wartezeit bis zur Rückfracht als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
                             'Das Briefing ist ein natürlicher Folgeauftrag, keine Liste von Systemregeln.',
                             'Normale deutsche Umlaute verwenden.'
-                        ]
+                        ].filter(Boolean)
                     }
                 };
             }
@@ -924,6 +1080,7 @@
                     title: displayText(req.source?.title || ''),
                     story: sourceStory
                 },
+                temporalContext,
                 storyFrame: {
                     trigger: `Nach dem Supply Run am ${targetName} liegt jetzt Rückholfracht für den Heimflug bereit.`,
                     focusSubject: `${cargo} und sauberer Rücktransport zur Basis`,
@@ -932,6 +1089,7 @@
                     completionSignal: `Nach der Rückkehr nach ${homeName} wird die Rückfracht entladen, geprüft und in den nächsten Logistikschritt übergeben.`,
                     subjectDetail: `${cargo} liegt am Wartepunkt am Striprand bei ${targetName}.`,
                     incidentContext: stay,
+                    temporalHint,
                     whyNow,
                     soughtOutcome: `Leer von ${departureName} nach ${targetName} fliegen, die Rückholfracht übernehmen und zurück nach ${homeName} bringen.`
                 },
@@ -954,9 +1112,10 @@
                     }],
                     writerExpectations: [
                         'Keinen Passagier-Pickup daraus machen; es geht um Rückholfracht.',
+                        temporalHint ? 'Nutze die Wartezeit bis zur Rückfracht als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
                         'Das Briefing ist ein natürlicher Folgeauftrag, keine Liste von Systemregeln.',
                         'Normale deutsche Umlaute verwenden.'
-                    ]
+                    ].filter(Boolean)
                 }
             };
         }
@@ -972,6 +1131,7 @@
         if (shouldSkipCompletionSource(source)) return { created: false, reason: 'preview-source' };
         const md = getMissionDataFromCandidate(candidate);
         if (!md || typeof md !== 'object') return { created: false, reason: 'missing-mission-data' };
+        if (md.followUpContinuation || md.followUpRequestId) return { created: false, reason: 'followup-mission' };
         const sourceKind = getProfileId(md);
         const cfg = SOURCE_MAP[sourceKind];
         if (!cfg) return { created: false, reason: 'unsupported-source-profile', sourceKind };
@@ -993,10 +1153,14 @@
         const existing = getRequests().find(req => req.id === id || req.dedupeKey === dedupeKey);
         if (existing) return { created: false, reason: 'duplicate', id, sourceKind };
 
-        const now = nowMs();
-        const eligibleAt = nextLocalMorningAt(8);
         const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null;
-        const memory = buildNarrativeMemory(sourceKind, md, passenger, homeRef, targetRef);
+        const prospect = buildProspectForMission({ ...md, passenger }, { sourceKind });
+        const temporalContext = prospect?.temporalContext || missionTemporalContext({ ...md, passenger }, sourceKind);
+        const now = nowMs();
+        const eligibleAt = Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt || 0) > 0
+            ? Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt)
+            : nextLocalMorningAt(8);
+        const memory = buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
         const req = {
             schema: SCHEMA,
             id,
@@ -1012,6 +1176,10 @@
             updatedAt: now,
             eligibleAt,
             expiresAt: addDays(eligibleAt, EXPIRE_DAYS),
+            temporalContext,
+            stayDays: temporalContext?.stayDays || null,
+            stayText: temporalContext?.stayText || '',
+            deboardingHint: temporalContext?.deboardingHint || '',
             pilotStartPolicy: 'original_home',
             source: {
                 title: cleanText(md.mission || document.getElementById('mTitle')?.innerText || cfg.sourceLabel, 180),
@@ -1026,7 +1194,13 @@
             },
             passenger,
             cargoReturn: cfg.followUpKind === 'bush_pickup_cargo' ? buildCargoReturn(memory, targetRef) : null,
-            narrativeMemory: memory,
+            narrativeMemory: {
+                ...memory,
+                temporalContext,
+                stayDays: temporalContext?.stayDays || memory.stayDays || null,
+                stayText: temporalContext?.stayText || memory.stayText || '',
+                deboardingHint: temporalContext?.deboardingHint || memory.deboardingHint || ''
+            },
             ui: {
                 title: `${cfg.followUpLabel}: ${targetRef.name || targetRef.icao}`,
                 subtitle: `Fortsetzung von ${cfg.sourceLabel}`,
@@ -1037,7 +1211,7 @@
         };
         writeRequests([...getRequests(), req], { cloud: true });
         rememberLastLandingRef(targetRef, { source, missionId: sourceMissionId });
-        console.info('[FollowUp] Anfrage geplant', { id, sourceKind, followUpKind: cfg.followUpKind, eligibleAt });
+        console.info('[FollowUp] Anfrage geplant', { id, sourceKind, followUpKind: cfg.followUpKind, eligibleAt, stayDays: temporalContext?.stayDays || null });
         return { created: true, id, sourceKind, followUpKind: cfg.followUpKind };
     }
 
@@ -1457,8 +1631,10 @@
                 sourceKind: req.sourceKind || null,
                 followUpKind,
                 acceptance: acceptance || null,
-                narrativeMemory: req.narrativeMemory || null
+                narrativeMemory: req.narrativeMemory || null,
+                temporalContext: req.temporalContext || req.narrativeMemory?.temporalContext || null
             },
+            missionTemporalContext: req.temporalContext || req.narrativeMemory?.temporalContext || null,
             _source: 'Follow-up Bush Dispatcher',
             _requestedProfile: effectiveProfileId,
             _appliedProfile: effectiveProfileId
@@ -1534,7 +1710,8 @@
             const eta = status === 'pending'
                 ? (etaMs <= 0 ? 'jetzt' : `${Math.ceil(etaMs / 3600000)}h`)
                 : '-';
-            lines.push(`- ${req.id} | ${status} | ${req.sourceKind || '-'} -> ${req.followUpKind || '-'} | ab ${formatLocal(req.eligibleAt)} | bis ${formatLocal(req.expiresAt)} | ETA ${eta}`);
+            const stay = req.temporalContext?.stayText || req.stayText || req.narrativeMemory?.stayText || '-';
+            lines.push(`- ${req.id} | ${status} | ${req.sourceKind || '-'} -> ${req.followUpKind || '-'} | Aufenthalt ${stay} | ab ${formatLocal(req.eligibleAt)} | bis ${formatLocal(req.expiresAt)} | ETA ${eta}`);
         });
         return lines.join('\n');
     }
@@ -1580,6 +1757,8 @@
     window.missionFollowupAirportFromRef = airportFromRef;
     window.missionFollowupBuildPipelineContext = buildPipelineContext;
     window.missionFollowupBuildDispatchMission = buildDispatchMission;
+    window.missionFollowupBuildProspectForMission = buildProspectForMission;
+    window.missionFollowupBuildTemporalContext = buildTemporalContext;
     window.missionFollowupMarkAccepted = markAccepted;
     window.missionFollowupGetForSync = getForSync;
     window.missionFollowupApplyFromSync = applyFromSync;
