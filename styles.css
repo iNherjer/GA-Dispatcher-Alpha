@@ -11206,20 +11206,10 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
 }
 
 .context-help-btn,
-.main-menu-help-btn,
 .map-toolbar-help-btn,
 .map-side-help-btn {
     position: relative;
     z-index: 5;
-}
-
-.main-menu-help-btn {
-    align-self: center;
-    flex-basis: 32px;
-    width: 32px;
-    min-width: 32px;
-    height: 32px;
-    min-height: 32px;
 }
 
 .map-toolbar-help-btn,
