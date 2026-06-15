@@ -5399,6 +5399,139 @@ function pickRandomTrainingPoiNearAirport(startLat, startLon, dirPref, minNm = 4
 /* =========================================================
    5. DATEN-FETCHING (APIs & GEMINI KI)
    ========================================================= */
+function normalizeAirportIdent(value = '') {
+    return String(value || '').trim().toUpperCase();
+}
+
+function airportIdentMatches(apt = null, ident = '') {
+    const needle = normalizeAirportIdent(ident);
+    if (!apt || !needle) return false;
+    const aliases = Array.isArray(apt.aliases) ? apt.aliases : [];
+    return [
+        apt.icao,
+        apt.faa,
+        apt.local_code,
+        apt.localCode,
+        apt.gps_code,
+        apt.gpsCode,
+        apt.icao_code,
+        apt.icaoCode,
+        apt.aliasOf,
+        ...aliases
+    ].some(v => normalizeAirportIdent(v) === needle);
+}
+
+function normalizeFaaLocalAirportEntry(code, entry = {}, target = null) {
+    const ident = normalizeAirportIdent(code || entry.icao || entry.faa || entry.local_code);
+    const lat = Number(entry.lat ?? target?.lat);
+    const lon = Number(entry.lon ?? target?.lon ?? target?.lng);
+    const elevation = Number(entry.elevation ?? entry.elevFt ?? target?.elevation);
+    return {
+        ...(target || {}),
+        ...entry,
+        icao: ident,
+        faa: normalizeAirportIdent(entry.faa || entry.local_code || ident),
+        local_code: normalizeAirportIdent(entry.local_code || entry.faa || ident),
+        gps_code: normalizeAirportIdent(entry.gps_code || target?.gps_code || target?.icao || ''),
+        icao_code: normalizeAirportIdent(entry.icao_code || target?.icao_code || ''),
+        name: entry.name || target?.name || target?.n || ident,
+        n: entry.name || target?.name || target?.n || ident,
+        city: entry.city || target?.city || null,
+        state: entry.state || target?.state || null,
+        country: entry.country || target?.country || 'US',
+        elevation: Number.isFinite(elevation) ? elevation : null,
+        elevFt: Number.isFinite(elevation) ? elevation : null,
+        lat,
+        lon,
+        tz: entry.tz || target?.tz || null,
+        iata: entry.iata || target?.iata || '',
+        type: entry.type || target?.type || '',
+        aliasOf: normalizeAirportIdent(entry.aliasOf || '')
+    };
+}
+
+function mergeFaaLocalAirportsSupplement(supplement = null) {
+    if (!globalAirports || !supplement || typeof supplement !== 'object') return;
+    const entries = supplement.airports && typeof supplement.airports === 'object'
+        ? supplement.airports
+        : supplement;
+
+    for (const [rawCode, rawEntry] of Object.entries(entries)) {
+        const code = normalizeAirportIdent(rawCode);
+        if (!code || !rawEntry || typeof rawEntry !== 'object') continue;
+        const aliasOf = normalizeAirportIdent(rawEntry.aliasOf);
+        const target = aliasOf && globalAirports[aliasOf] ? globalAirports[aliasOf] : null;
+        const merged = normalizeFaaLocalAirportEntry(code, rawEntry, target);
+        if (!Number.isFinite(merged.lat) || !Number.isFinite(merged.lon)) continue;
+
+        if (target) {
+            const aliases = new Set(Array.isArray(target.aliases) ? target.aliases.map(normalizeAirportIdent) : []);
+            aliases.add(code);
+            target.aliases = Array.from(aliases).filter(Boolean);
+            target.faa = target.faa || merged.faa || code;
+            target.local_code = target.local_code || merged.local_code || code;
+            target.gps_code = target.gps_code || merged.gps_code || aliasOf;
+            target.icao_code = target.icao_code || merged.icao_code || '';
+            target.type = target.type || merged.type || '';
+        }
+
+        globalAirports[code] = merged;
+    }
+}
+
+async function loadFaaLocalAirportsSupplement() {
+    const isValidSupplement = (parsed) => !!(
+        parsed &&
+        typeof parsed === 'object' &&
+        parsed.airports &&
+        typeof parsed.airports === 'object' &&
+        Object.keys(parsed.airports).length > 1000
+    );
+
+    const tryParseResponse = async (res) => {
+        if (!res || !res.ok) return null;
+        try {
+            const parsed = await res.json();
+            return isValidSupplement(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    };
+
+    const urls = [
+        './data/faa-local-airports.json',
+        'data/faa-local-airports.json',
+        '/data/faa-local-airports.json',
+        `./data/faa-local-airports.json?t=${Date.now()}`
+    ];
+
+    if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
+        for (const url of urls) {
+            try {
+                const cached = await caches.match(url, { ignoreSearch: true });
+                const parsed = await tryParseResponse(cached);
+                if (parsed) return mergeFaaLocalAirportsSupplement(parsed);
+            } catch (_) { }
+        }
+    }
+
+    for (const url of urls) {
+        try {
+            const res = await fetch(url, { cache: 'default' });
+            const parsed = await tryParseResponse(res);
+            if (parsed) return mergeFaaLocalAirportsSupplement(parsed);
+        } catch (_) { }
+    }
+
+    for (const url of urls) {
+        try {
+            const res = await fetch(url, { cache: 'reload' });
+            const parsed = await tryParseResponse(res);
+            if (parsed) return mergeFaaLocalAirportsSupplement(parsed);
+        } catch (_) { }
+    }
+}
+
 async function loadGlobalAirports() {
     if (globalAirports && Object.keys(globalAirports).length > 0) return;
     if (globalAirportsLoadPromise) {
@@ -5448,6 +5581,7 @@ async function loadGlobalAirports() {
                     const parsed = await tryParseResponse(cached);
                     if (parsed) {
                         globalAirports = parsed;
+                        await loadFaaLocalAirportsSupplement();
                         return;
                     }
                 } catch (_) { }
@@ -5461,6 +5595,7 @@ async function loadGlobalAirports() {
                 const parsed = await tryParseResponse(res);
                 if (parsed) {
                     globalAirports = parsed;
+                    await loadFaaLocalAirportsSupplement();
                     return;
                 }
             } catch (_) { }
@@ -5473,6 +5608,7 @@ async function loadGlobalAirports() {
                 const parsed = await tryParseResponse(res);
                 if (parsed) {
                     globalAirports = parsed;
+                    await loadFaaLocalAirportsSupplement();
                     return;
                 }
             } catch (_) { }
@@ -5552,6 +5688,7 @@ async function fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref = 'any')
 
 function buildAirportDispatchRecord(icao, apt = {}) {
     const code = String(icao || apt?.icao || '').trim().toUpperCase();
+    const aliases = Array.isArray(apt?.aliases) ? apt.aliases.map(normalizeAirportIdent).filter(Boolean) : [];
     return {
         icao: code,
         n: apt?.name || apt?.city || code,
@@ -5564,7 +5701,15 @@ function buildAirportDispatchRecord(icao, apt = {}) {
         lat: Number(apt?.lat),
         lon: Number(apt?.lon),
         tz: apt?.tz || null,
-        iata: apt?.iata || ''
+        iata: apt?.iata || '',
+        faa: apt?.faa || apt?.local_code || '',
+        localCode: apt?.local_code || apt?.localCode || '',
+        gpsCode: apt?.gps_code || apt?.gpsCode || '',
+        icaoCode: apt?.icao_code || apt?.icaoCode || '',
+        aliasOf: apt?.aliasOf || '',
+        aliases,
+        type: apt?.type || '',
+        source: apt?.source || ''
     };
 }
 
@@ -5578,14 +5723,19 @@ function _airportMatchesRegionPref(apt = {}, regionPref = 'any') {
 
 function scoreBushAirportCandidate(apt = {}) {
     const code = String(apt?.icao || '').trim().toUpperCase();
+    const localCode = String(apt?.faa || apt?.localCode || apt?.local_code || '').trim().toUpperCase();
     const name = normalizeMissionText(apt?.name || apt?.n || apt?.city || '');
+    const type = String(apt?.type || '').trim().toLowerCase();
     const elev = Number(apt?.elevation);
     let score = 0;
     if (!apt?.iata) score += 1;
-    if (/\d/.test(code) || code.length <= 3) score += 3;
+    if (/\d/.test(code) || code.length <= 3 || /\d/.test(localCode) || (localCode && localCode.length <= 3)) score += 3;
+    if (type === 'small_airport' || type === 'seaplane_base') score += 1;
     if (/airpark|ranch|creek|field|strip|landing|lodge|forest|mesa|river|lake|mountain|valley|canyon|backcountry|camp/.test(name)) score += 3;
     if (/municipal|county/.test(name)) score -= 1;
     if (/regional|international|intl|metro|metropolitan/.test(name)) score -= 5;
+    if (type === 'large_airport') score -= 5;
+    if (type === 'medium_airport') score -= 2;
     if (Number.isFinite(elev) && elev >= 4500) score += 2;
     else if (Number.isFinite(elev) && elev >= 2500) score += 1;
     return score;
@@ -5593,12 +5743,13 @@ function scoreBushAirportCandidate(apt = {}) {
 
 async function getAirportData(icao) {
     await loadGlobalAirports();
-    if (globalAirports && globalAirports[icao]) {
-        return buildAirportDispatchRecord(icao, globalAirports[icao]);
+    const code = normalizeAirportIdent(icao);
+    if (globalAirports && globalAirports[code]) {
+        return buildAirportDispatchRecord(code, globalAirports[code]);
     }
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${icao}+airport`); const data = await res.json();
-        if (data && data.length > 0) return { icao: icao, n: data[0].display_name.split(',')[0], lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${code}+airport`); const data = await res.json();
+        if (data && data.length > 0) return { icao: code, n: data[0].display_name.split(',')[0], lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
     } catch (e) { }
     return null;
 }
@@ -5626,7 +5777,8 @@ async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
 
     let validAirports = [];
     for (const key in globalAirports) {
-        const apt = globalAirports[key]; if (apt.icao === currentStartICAO) continue;
+        const apt = globalAirports[key];
+        if (!apt || apt.aliasOf || airportIdentMatches(apt, currentStartICAO)) continue;
         if (!_airportMatchesRegionPref(apt, regionPref)) continue;
         const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
         if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) { validAirports.push(buildAirportDispatchRecord(apt.icao, apt)); }
@@ -5642,7 +5794,7 @@ async function findBushAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
     const rawCandidates = [];
     for (const key in globalAirports) {
         const apt = globalAirports[key];
-        if (!apt || apt.icao === currentStartICAO) continue;
+        if (!apt || apt.aliasOf || airportIdentMatches(apt, currentStartICAO)) continue;
         if (!_airportMatchesRegionPref(apt, regionPref)) continue;
         const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
         if (!(navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref))) continue;
@@ -21141,7 +21293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1081', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1082', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
