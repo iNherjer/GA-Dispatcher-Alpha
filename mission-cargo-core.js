@@ -1331,6 +1331,7 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(_missionCargoIsPassengerItem);
     if (!item) return false;
+    if (!_missionCargoItemCanLoadAtCurrentStage(item)) return false;
     if (item.status === 'loaded') return false;
     item.status = 'loaded';
     item.loadedAt = Date.now();
@@ -1680,16 +1681,16 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
+    if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
+        window.missionCargoStatus.error = item.pickupLocation === 'target'
+            ? 'Dieser Pickup ist erst am Zielstrip verfügbar.'
+            : 'Dieses Item ist in der aktuellen Missionsphase noch nicht verfügbar.';
+        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'pickup' ? 'pickup' : (options.mode === 'unload-reload' ? 'unload' : 'load'), { skipPayloadRefresh: true });
+        return false;
+    }
     if (!options.skipAnimation && item.pickupLocation === 'target' && _missionCargoIsPassengerItem(item)) {
         _missionBushPickupBoarding(item, { reason: 'bush-pickup-load' }).catch?.(() => {});
         return true;
-    }
-    if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
-        window.missionCargoStatus.error = item.pickupLocation === 'target'
-            ? 'Dieser Pickup ist erst am Zielstrip verfuegbar.'
-            : 'Dieses Item ist in der aktuellen Missionsphase noch nicht verfuegbar.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'pickup' ? 'pickup' : (options.mode === 'unload-reload' ? 'unload' : 'load'), { skipPayloadRefresh: true });
-        return false;
     }
     if (item.status === 'dropped') {
         window.missionCargoStatus.error = 'Dieses Item wurde im Flug abgeworfen und kann nicht wieder geladen werden.';
@@ -1900,6 +1901,10 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 window.finishMissionCargoLoadingAndStart = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoLoadingAndStart' });
     const manifest = _missionCargoEnsureManifest();
+    if (typeof window.missionPrepareEmptyPickupStart === 'function' && window.missionPrepareEmptyPickupStart('cargo-finish-loading')) {
+        window.closeMissionCargoDialog?.();
+        return true;
+    }
     if (!manifest.dispatchSignature) {
         window.missionCargoSignDispatchList?.();
         return false;
