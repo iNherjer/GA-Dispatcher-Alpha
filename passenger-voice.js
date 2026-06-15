@@ -3351,6 +3351,17 @@ function _extractPaxCount(text) {
     return m ? Math.max(0, parseInt(m[1], 10) || 0) : (_missionHasPax() ? 1 : 0);
 }
 
+function _missionManifestItemIsPassenger(item = null) {
+    if (!item || typeof item !== 'object') return false;
+    const type = String(item.itemType || '').toLowerCase();
+    const id = String(item.id || '').toLowerCase();
+    const label = String(item.storyName || item.label || '').trim();
+    return type === 'passenger'
+        || id === 'mission-passenger'
+        || id === 'pickup-passenger'
+        || /^\s*\d+\s*PAX\b/i.test(label);
+}
+
 function _missionRequiredItemNames(limit = 4) {
     const max = Math.max(1, Number(limit) || 4);
     let names = [];
@@ -3360,12 +3371,28 @@ function _missionRequiredItemNames(limit = 4) {
             : null;
         names = Array.isArray(manifest?.items)
             ? manifest.items
-                .filter(item => item?.required && item?.pickupLocation !== 'target')
+                .filter(item => item?.required && item?.pickupLocation !== 'target' && !_missionManifestItemIsPassenger(item))
                 .map(item => String(item.storyName || item.label || '').trim())
                 .filter(Boolean)
             : [];
     } catch (_) {}
     return [...new Set(names)].slice(0, max);
+}
+
+function _joinSpeechItems(items = []) {
+    const clean = (Array.isArray(items) ? items : [])
+        .map(item => String(item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    if (!clean.length) return '';
+    if (clean.length === 1) return clean[0];
+    if (clean.length === 2) return `${clean[0]} und ${clean[1]}`;
+    return `${clean.slice(0, -1).join(', ')} und ${clean[clean.length - 1]}`;
+}
+
+function _boardingEquipmentSentence(items = [], fallback = 'meine Ausrüstung') {
+    const list = _joinSpeechItems(items);
+    const equipment = list || String(fallback || 'meine Ausrüstung').trim() || 'meine Ausrüstung';
+    return `Ich steige jetzt ein. Ich habe heute ${equipment} dabei; bitte die Ausrüstung sicher verstauen.`;
 }
 
 function _buildBoardingText() {
@@ -3394,11 +3421,7 @@ function _buildBoardingText() {
             : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
     const requiredItems = _missionRequiredItemNames(4);
     const requiredShort = requiredItems.slice(0, 4).map(_stripManifestWeightForSpeech).filter(Boolean);
-    const requiredText = requiredShort.length
-        ? (requiredShort.length === 1
-            ? `Ich steige jetzt ein; ${requiredShort[0]} habe ich heute dabei und das muss bitte sicher verstaut werden.`
-            : `Ich steige jetzt ein; ${requiredShort.join(', ')} habe ich heute dabei und das muss bitte sicher verstaut werden.`)
-        : `Ich steige jetzt ein; ${cargoClean} habe ich heute dabei und das muss bitte sicher verstaut werden.`;
+    const requiredText = _boardingEquipmentSentence(requiredShort, cargoClean);
     return `Hi, ${paxPart}. ${requiredText} Gib mir bitte ein kurzes Missionsbriefing, dann sind wir startklar.`;
 }
 
@@ -5096,8 +5119,8 @@ Max 3-4 Sätze.${_toneHint()}`;
     const cargoNameLine = speechItems.length === 1
         ? `"${speechItems[0]}"`
         : `"${speechItems.join(', ')}"`;
-    const cargoLine = `Nenne die mitgefuehrte Ausruestung natuerlich beim Namen: ${cargoNameLine}. Rollenlogik fuer den Satz: Die Person steigt ein, sitzt an Bord und schnallt sich an; nur Ausruestung, Gepaeck, Koffer, Tasche, Werkzeug oder Material wird verstaut oder gesichert. Gute Form: "Ich steige ein; ${speechItems.join(' und ') || cargoFallback} habe ich heute dabei und das muss bitte sicher verstaut werden."`;
-    const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natuerlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRUESTUNG, Payload oder Zuladung sind Kontextdaten und keine Woerter fuer die gesprochene Ansage.';
+    const cargoLine = `Nenne die mitgeführte Ausrüstung natürlich beim Namen: ${cargoNameLine}. Rollenlogik für den Satz: Die Person steigt ein, sitzt an Bord und schnallt sich an; nur Ausrüstung, Gepäck, Koffer, Tasche, Werkzeug oder Material wird verstaut oder gesichert. Gute Form: "${_boardingEquipmentSentence(speechItems, cargoFallback)}"`;
+    const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein und schnallt sich an; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
