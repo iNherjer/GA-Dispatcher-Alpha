@@ -7006,6 +7006,17 @@ function _setMissionClosePending(options = {}) {
     missionRuntime.closingPending = true;
     missionRuntime.closingReason = String(options?.reason || 'mission-close-pending');
     missionRuntime.closingOutcome = outcome || missionRuntime.closingOutcome || null;
+    if (missionRuntime.closingOutcome && typeof window.missionFollowupMaybeCreateFromCompletedMission === 'function') {
+        try {
+            window.missionFollowupMaybeCreateFromCompletedMission(
+                (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+                missionRuntime.closingOutcome,
+                { source: missionRuntime.closingReason || 'mission-close-pending' }
+            );
+        } catch (err) {
+            console.warn('[FollowUp] Runtime-Close-Hook fehlgeschlagen:', err?.message || err);
+        }
+    }
     missionRuntime.closingRequestedAt = Date.now();
     missionRuntime.readySince = 0;
     missionRuntime.pendingEndAt = 0;
@@ -9043,13 +9054,34 @@ function _syncCompactActiveMission(activeMission, level = 1) {
     return out;
 }
 
+function _syncFollowupPayload() {
+    if (typeof window.missionFollowupGetForSync === 'function') {
+        try { return window.missionFollowupGetForSync(); } catch (_) {}
+    }
+    try {
+        const parsed = JSON.parse(localStorage.getItem('ga_followup_requests_v1') || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function _syncApplyFollowupsFromCloud(data = null) {
+    if (!data || !Array.isArray(data.followUpRequests)) return;
+    if (typeof window.missionFollowupApplyFromSync === 'function') {
+        try { window.missionFollowupApplyFromSync(data.followUpRequests); } catch (_) {}
+    } else {
+        try { localStorage.setItem('ga_followup_requests_v1', JSON.stringify(data.followUpRequests)); } catch (_) {}
+    }
+}
+
 function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
     const attempts = [
-        { maxFlightRecords: 12, maxTrack: 100, flightDataLevel: 1, logbookMax: 40, missionLevel: 1 },
-        { maxFlightRecords: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1 },
-        { maxFlightRecords: 5, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2 },
-        { maxFlightRecords: 2, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2 },
-        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 2, logbookMax: 5, missionLevel: 2, maxNotes: 50, textMax: 1000, dropFlightData: true, dropActiveMission: true }
+        { maxFlightRecords: 12, maxTrack: 100, flightDataLevel: 1, logbookMax: 40, missionLevel: 1, maxFollowUps: 36 },
+        { maxFlightRecords: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1, maxFollowUps: 30 },
+        { maxFlightRecords: 5, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2, maxFollowUps: 24 },
+        { maxFlightRecords: 2, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2, maxFollowUps: 18 },
+        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 2, logbookMax: 5, missionLevel: 2, maxNotes: 50, textMax: 1000, dropFlightData: true, dropActiveMission: true, maxFollowUps: 12 }
     ];
 
     let last = null;
@@ -9059,6 +9091,9 @@ function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
             pinboard: _syncCompactPinboard(basePayload.pinboard, cfg),
             logbook: Array.isArray(basePayload.logbook) ? basePayload.logbook.slice(0, cfg.logbookMax) : [],
             activeMission: cfg.dropActiveMission ? null : _syncCompactActiveMission(basePayload.activeMission, cfg.missionLevel),
+            followUpRequests: (typeof window.missionFollowupCompactForSync === 'function')
+                ? window.missionFollowupCompactForSync(basePayload.followUpRequests, cfg)
+                : (Array.isArray(basePayload.followUpRequests) ? basePayload.followUpRequests.slice(0, cfg.maxFollowUps || 20) : []),
             lastModified: localSyncTs,
             pin
         };
@@ -9126,7 +9161,8 @@ function setLastSyncedPayload() {
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
-        aircraftPresets: getAircraftPresetsForSync()
+        aircraftPresets: getAircraftPresetsForSync(),
+        followUpRequests: _syncFollowupPayload()
     };
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
 }
@@ -9156,7 +9192,8 @@ async function triggerCloudSave(immediate = false) {
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
-        aircraftPresets: getAircraftPresetsForSync()
+        aircraftPresets: getAircraftPresetsForSync(),
+        followUpRequests: _syncFollowupPayload()
     };
 
     const currentPayloadStr = JSON.stringify(payloadToCompare);
@@ -9254,6 +9291,7 @@ async function forceSyncLoad() {
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
+        _syncApplyFollowupsFromCloud(data);
 
         if (data.groupName !== undefined) {
             updateGroupUIFromSync(data.groupName, data.groupNick);
@@ -9298,6 +9336,7 @@ async function silentSyncLoad() {
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
+            _syncApplyFollowupsFromCloud(data);
 
             if (data.groupName !== undefined) {
                 updateGroupUIFromSync(data.groupName, data.groupNick);
@@ -9466,7 +9505,8 @@ async function checkCloudAfterIdle() {
                 groupNick: getGroupNick(),
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
                 newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
-                aircraftPresets: getAircraftPresetsForSync()
+                aircraftPresets: getAircraftPresetsForSync(),
+                followUpRequests: _syncFollowupPayload()
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
             const hasLocalUnsavedChanges = (currentPayloadStr !== lastSyncedPayloadStr);
@@ -9484,6 +9524,7 @@ async function checkCloudAfterIdle() {
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
+                _syncApplyFollowupsFromCloud(data);
                 if (data.groupName !== undefined) {
                     updateGroupUIFromSync(data.groupName, data.groupNick);
                 }

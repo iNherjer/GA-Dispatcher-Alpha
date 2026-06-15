@@ -3705,6 +3705,14 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`Quelle aktiv: ${(window.vpWeatherSource || 'metar').toUpperCase()}${fbLabel}`);
     lines.push(`Terrain Quelle: ${(window.vpTerrainElevationSource || 'terrarium').toUpperCase()}${window.vpElevationFallbackActive ? ' (Fallback aktiv)' : ''}`);
     lines.push(`Refresh Intervall: 30 min`);
+    if (typeof window.missionFollowupBuildDebugReport === 'function') {
+        lines.push('');
+        try {
+            lines.push(window.missionFollowupBuildDebugReport());
+        } catch (err) {
+            lines.push(`Follow-up Requests: Debug-Fehler (${err?.message || err})`);
+        }
+    }
     lines.push('');
     lines.push('Wetter / Open-Meteo kurz');
     lines.push(`- Requests: OM ${approxCalls}, Elevation ${dbg.elevationNetworkRequests || 0}, Batches ${dbg.openMeteoBatchCalls || 0}/${dbg.openMeteoBatchPoints || 0} Punkte`);
@@ -4084,6 +4092,7 @@ window.vpRefreshWeatherDebugReport = function() {
     if (!body) return;
     try {
         body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
+        if (typeof window.missionFollowupInit === 'function') window.missionFollowupInit();
     } catch (err) {
         const msg = err && (err.stack || err.message || String(err));
         body.textContent = `Debug-Report Fehler:\n${msg || 'unknown'}`;

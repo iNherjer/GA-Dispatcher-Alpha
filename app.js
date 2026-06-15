@@ -3139,6 +3139,7 @@ function bootAppOnce() {
     }
 
     renderLog();
+    if (typeof window.missionFollowupInit === 'function') window.missionFollowupInit();
     updateApiFuelMeter();
 
     if (!localStorage.getItem('ga_pinboard_init')) {
@@ -18609,12 +18610,16 @@ function renderAirspaceWarningsList() {
     listEl.innerHTML = html;
 }
 
-async function generateMission() {
-    if (!confirmMissionOverwriteIfNeeded()) {
+async function generateMission(options = {}) {
+    const dispatchOptions = (options && typeof options === 'object') ? options : {};
+    const followupSeed = (dispatchOptions.followupSeed && typeof dispatchOptions.followupSeed === 'object')
+        ? dispatchOptions.followupSeed
+        : null;
+    if (!dispatchOptions.skipOverwriteConfirm && !confirmMissionOverwriteIfNeeded()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
         setMissionGenerationProgress({ visible: false, force: true });
-        return;
+        return false;
     }
     const dispatchRunId = _startDispatchRun();
     setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
@@ -18718,8 +18723,17 @@ async function generateMission() {
         if (needle) needle.style.transform = `translateX(-50%) rotate(${randomAngle}deg)`;
     }, 120);
 
-    currentStartICAO = document.getElementById("startLoc").value.toUpperCase();
-    const start = await dispatchMeasure('load_start_airport', async () => getAirportData(currentStartICAO), {
+    const followupHomeRef = followupSeed?.route?.homeRef || null;
+    const followupTargetRef = followupSeed?.route?.targetRef || null;
+    const followupStartAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
+        ? window.missionFollowupAirportFromRef(followupHomeRef)
+        : null;
+    const followupTargetAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
+        ? window.missionFollowupAirportFromRef(followupTargetRef)
+        : null;
+
+    currentStartICAO = followupStartAirport?.icao || document.getElementById("startLoc").value.toUpperCase();
+    const start = await dispatchMeasure('load_start_airport', async () => followupStartAirport || getAirportData(currentStartICAO), {
         icao: currentStartICAO
     });
     _ensureDispatchAlive();
@@ -18732,7 +18746,8 @@ async function generateMission() {
     }
 
     const rangePref = document.getElementById("distRange").value, regionPref = document.getElementById("regionFilter").value;
-    const targetType = document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
+    const followupPickerValue = followupSeed?.followUpKind ? `bush:all+${String(followupSeed.followUpKind).toLowerCase()}` : '';
+    const targetType = followupPickerValue || document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
     const selectedTasRaw = parseInt(document.getElementById("tasSlider").value);
@@ -18740,13 +18755,13 @@ async function generateMission() {
     const selectedTas = Number.isFinite(selectedTasRaw) ? selectedTasRaw : 160;
     const selectedGph = Number.isFinite(selectedGphRaw) ? selectedGphRaw : 14;
 
-    let targetDest = document.getElementById("destLoc").value.toUpperCase();
+    let targetDest = followupTargetAirport?.icao || document.getElementById("destLoc").value.toUpperCase();
     let forcePOI = false;
-    if (targetDest && targetDest === currentStartICAO) {
+    if (!followupSeed && targetDest && targetDest === currentStartICAO) {
         targetDest = '';
         forcePOI = missionPicker.baseType === 'poi';
     }
-    let dataSource = targetDest ? "Manuell" : "Generiert";
+    let dataSource = followupSeed ? "Follow-up" : (targetDest ? "Manuell" : "Generiert");
 
     let minNM, maxNM;
     if (rangePref === "any") {
@@ -18805,7 +18820,7 @@ async function generateMission() {
     }
 
     dispatchPhaseStart('resolve_target');
-    if (targetDest) { dest = await getAirportData(targetDest); _ensureDispatchAlive(); } else {
+    if (targetDest) { dest = followupTargetAirport || await getAirportData(targetDest); _ensureDispatchAlive(); } else {
         if (isBushDispatch) {
             dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
             _ensureDispatchAlive();
@@ -19020,7 +19035,7 @@ async function generateMission() {
     ]);
     _ensureDispatchAlive();
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
-    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
+    const aiModeEnabled = !followupSeed && !!document.getElementById('aiToggle')?.checked;
     let preMissionTargetGeoContext = null;
     let preMissionTruth = null;
     const shouldEagerPrefetchPoiContext = !!(
@@ -19288,6 +19303,20 @@ async function generateMission() {
             targetGeoContext: preMissionTargetGeoContext,
             dest
         });
+        if (followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function') {
+            const followupMission = window.missionFollowupBuildDispatchMission(followupSeed, {
+                start,
+                dest,
+                totalDist,
+                missionWeather
+            });
+            if (followupMission?.mission) {
+                m = followupMission.mission;
+                paxText = followupMission.paxText || paxText;
+                cargoText = followupMission.cargoText || cargoText;
+                dataSource = followupMission.dataSource || "Follow-up Bush Dispatcher";
+            }
+        }
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
                 m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4({
@@ -19360,8 +19389,10 @@ async function generateMission() {
             const bushProfileId = String(dispatchProfileId || m?._appliedProfile || '').toLowerCase();
             const pickupKindBeforeHydrate = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
             const targetModeBeforeHydrate = String(dispatchBushSpec?.targetMode || '').toLowerCase();
-            const shouldHydratePickupStory = bushProfileId === 'bush_pickup_strip'
-                || (targetModeBeforeHydrate === 'strip_then_return' && pickupKindBeforeHydrate === 'passenger');
+            const shouldHydratePickupStory = !followupSeed && (
+                bushProfileId === 'bush_pickup_strip'
+                || (targetModeBeforeHydrate === 'strip_then_return' && pickupKindBeforeHydrate === 'passenger')
+            );
             if (shouldHydratePickupStory) {
                 const pickupStoryHint = buildBushPickupStoryHint({
                     mission: m,
@@ -19747,6 +19778,15 @@ async function generateMission() {
     currentMissionData = {
         missionId: missionRuntimeId,
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
+        followUpRequestId: followupSeed?.id || m?.followUpRequestId || null,
+        followUpContinuation: followupSeed ? {
+            requestId: followupSeed.id || null,
+            sourceMissionId: followupSeed.sourceMissionId || null,
+            sourceMissionKey: followupSeed.sourceMissionKey || null,
+            sourceKind: followupSeed.sourceKind || null,
+            followUpKind: followupSeed.followUpKind || null,
+            pilotStartPolicy: followupSeed.pilotStartPolicy || 'original_home'
+        } : (m?.followUpContinuation || null),
         start: currentStartICAO,
         dest: currentDestICAO,
         initialDest: currentDestICAO,
@@ -20206,6 +20246,13 @@ async function generateMission() {
         else document.getElementById('mkI').classList.add('on');
 
         window.debouncedSaveMissionState();
+        if (followupSeed && typeof window.missionFollowupMarkAccepted === 'function') {
+            setTimeout(() => {
+                try { window.missionFollowupMarkAccepted(followupSeed.id, currentMissionData); } catch (err) {
+                    console.warn('[FollowUp] Accept-Markierung fehlgeschlagen:', err?.message || err);
+                }
+            }, 900);
+        }
         if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
         refreshGPSAfterDispatch();
         // Position im Profil auf Start zurücksetzen
@@ -20214,6 +20261,7 @@ async function generateMission() {
             _dispatchState.active = false;
         }
     }, 800);
+    return true;
     } catch (e) {
         if (e && e.name === 'AbortError') {
             // Benutzerabbruch über Clear: kein zusätzlicher Fehlerdialog.
@@ -20273,6 +20321,13 @@ function logCurrentFlight() {
     const cargoOutcome = (typeof window.missionCargoFinalizeMissionOutcome === 'function')
         ? window.missionCargoFinalizeMissionOutcome({ source: 'logbook' })
         : null;
+    if (typeof window.missionFollowupMaybeCreateFromCompletedMission === 'function') {
+        try {
+            window.missionFollowupMaybeCreateFromCompletedMission(currentMissionData, cargoOutcome, { source: 'logbook' });
+        } catch (err) {
+            console.warn('[FollowUp] Logbook-Hook fehlgeschlagen:', err?.message || err);
+        }
+    }
     const log = JSON.parse(localStorage.getItem('ga_logbook')) || [];
     log.unshift({ ...currentMissionData, date: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) });
     localStorage.setItem('ga_logbook', JSON.stringify(log.slice(0, 50)));
