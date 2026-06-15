@@ -3396,9 +3396,9 @@ function _buildBoardingText() {
     const requiredShort = requiredItems.slice(0, 4).map(_stripManifestWeightForSpeech).filter(Boolean);
     const requiredText = requiredShort.length
         ? (requiredShort.length === 1
-            ? `Ich habe heute ${requiredShort[0]} dabei; das muss bitte sicher verstaut werden.`
-            : `Ich habe heute ${requiredShort.join(', ')} dabei; das muss bitte sicher verstaut werden.`)
-        : `Ich habe heute ${cargoClean} dabei; das muss bitte sicher verstaut werden.`;
+            ? `Ich steige jetzt ein; ${requiredShort[0]} habe ich heute dabei und das muss bitte sicher verstaut werden.`
+            : `Ich steige jetzt ein; ${requiredShort.join(', ')} habe ich heute dabei und das muss bitte sicher verstaut werden.`)
+        : `Ich steige jetzt ein; ${cargoClean} habe ich heute dabei und das muss bitte sicher verstaut werden.`;
     return `Hi, ${paxPart}. ${requiredText} Gib mir bitte ein kurzes Missionsbriefing, dann sind wir startklar.`;
 }
 
@@ -5096,8 +5096,8 @@ Max 3-4 Sätze.${_toneHint()}`;
     const cargoNameLine = speechItems.length === 1
         ? `"${speechItems[0]}"`
         : `"${speechItems.join(', ')}"`;
-    const cargoLine = `Nenne die mitgefuehrte Ausruestung natuerlich beim Namen: ${cargoNameLine}. Formuliere sinngemaess wie: "Ich habe heute ${speechItems.join(' und ') || cargoFallback} dabei; das muss bitte sicher verstaut werden." Keine Ladezettel- oder Gewichtsformulierung.`;
-    const manifestSpeechRule = 'WICHTIG: Sprich nie in Manifest-, UI- oder Ladezettel-Sprache. Gewichte sind nur interne Loadsheet-Daten: Nenne niemals Pfund, lbs, kg, Passagiergewicht, "bei etwa ... Gewicht", "zusammen mit mir als Passagier", "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload", "Zuladung", "ich bin 1 PAX", "als 1 PAX", "ich bin die Ladung" oder reine Inventarlisten. Wenn du dich vorstellst, dann nur natuerlich als Person in Alltagssprache.';
+    const cargoLine = `Nenne die mitgefuehrte Ausruestung natuerlich beim Namen: ${cargoNameLine}. Rollenlogik fuer den Satz: Die Person steigt ein, sitzt an Bord und schnallt sich an; nur Ausruestung, Gepaeck, Koffer, Tasche, Werkzeug oder Material wird verstaut oder gesichert. Gute Form: "Ich steige ein; ${speechItems.join(' und ') || cargoFallback} habe ich heute dabei und das muss bitte sicher verstaut werden."`;
+    const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natuerlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRUESTUNG, Payload oder Zuladung sind Kontextdaten und keine Woerter fuer die gesprochene Ansage.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
