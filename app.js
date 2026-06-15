@@ -2898,19 +2898,18 @@ function syncAirportFieldValue(classicId, value, { sourceInput = null, resolved 
     const raw = String(value || '');
     const shouldUseCode = resolved || isAirportCodeLike(raw);
     const next = shouldUseCode ? normalizeAirportIdent(raw) : raw;
-    [cfg.classicId, cfg.opsId].forEach(id => {
+    [cfg.classicId, cfg.opsId, cfg.radioId].forEach(id => {
         const el = document.getElementById(id);
         if (!el || el === sourceInput) return;
-        el.value = next;
+        el.value = id === cfg.radioId && !shouldUseCode ? '' : next;
     });
     if (sourceInput && shouldUseCode) sourceInput.value = next;
-    syncToNavCom(cfg.radioId, shouldUseCode ? next.slice(0, 4) : '');
 }
 
 function setAirportFieldState(classicId, state = '') {
     const cfg = AIRPORT_SEARCH_FIELD_CONFIG[classicId];
     if (!cfg) return;
-    [cfg.classicId, cfg.opsId].forEach(id => {
+    [cfg.classicId, cfg.opsId, cfg.radioId].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.classList.remove('airport-input-valid', 'airport-input-pending', 'airport-input-invalid');
@@ -2932,6 +2931,7 @@ function ensureAirportAutocompleteMenu(input, classicId) {
         parent.appendChild(menu);
     }
     menu.dataset.classicId = classicId;
+    menu.dataset.inputId = input.id || '';
     input.setAttribute('aria-controls', menu.id || `${input.id}-airport-results`);
     menu.id = input.getAttribute('aria-controls');
     return menu;
@@ -3076,13 +3076,14 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
 
 function initAirportAutocompleteFields() {
     Object.entries(AIRPORT_SEARCH_FIELD_CONFIG).forEach(([classicId, cfg]) => {
-        [cfg.classicId, cfg.opsId].forEach(id => {
+        [cfg.classicId, cfg.opsId, cfg.radioId].forEach(id => {
             const input = document.getElementById(id);
             if (!input || input.dataset.airportAutocompleteBound === '1') return;
             input.dataset.airportFieldId = classicId;
             input.setAttribute('autocomplete', 'off');
             input.setAttribute('spellcheck', 'false');
             input.setAttribute('aria-autocomplete', 'list');
+            if (id === cfg.radioId) input.setAttribute('maxlength', '64');
             input.addEventListener('input', () => {
                 syncAirportFieldValue(classicId, input.value, { sourceInput: input, resolved: false });
                 updateOps1940Panel();
@@ -21665,7 +21666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1083', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1084', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

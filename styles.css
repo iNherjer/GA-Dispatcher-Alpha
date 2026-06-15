@@ -343,6 +343,10 @@ select {
     overflow: visible !important;
 }
 
+.airport-search-anchor:focus-within {
+    z-index: 10030;
+}
+
 .airport-autocomplete {
     position: absolute;
     top: calc(100% - 2px);
@@ -5203,6 +5207,48 @@ body.theme-navcom .radio-disp-inner {
     align-items: center;
     column-gap: 6px;
     width: 100%;
+}
+
+body.theme-navcom .radio-disp-inner.airport-search-anchor {
+    z-index: 10030;
+}
+
+body.theme-navcom .radio-disp-inner .airport-autocomplete {
+    top: calc(100% + 6px);
+    left: -8px;
+    right: auto;
+    min-width: min(340px, calc(100vw - 32px));
+    border-color: rgba(255, 68, 0, 0.55);
+    border-radius: 3px;
+    background: rgba(5, 5, 5, 0.98);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.78), 0 0 18px rgba(255, 68, 0, 0.13);
+}
+
+body.theme-navcom .radio-disp-inner .airport-autocomplete[data-input-id="destLocRadio"] {
+    left: auto;
+    right: -8px;
+}
+
+body.theme-navcom .radio-disp-inner .airport-autocomplete-option {
+    border-radius: 2px;
+    background: rgba(255, 68, 0, 0.07);
+    color: #ffd8ca;
+}
+
+body.theme-navcom .radio-disp-inner .airport-autocomplete-option:hover,
+body.theme-navcom .radio-disp-inner .airport-autocomplete-option.is-active {
+    border-color: rgba(255, 96, 42, 0.7);
+    background: rgba(255, 68, 0, 0.17);
+}
+
+body.theme-navcom .radio-disp-inner .airport-result-code,
+body.theme-navcom .radio-disp-inner .airport-result-name {
+    color: #ff5a1f;
+    text-shadow: 0 0 5px rgba(255, 55, 0, 0.58);
+}
+
+body.theme-navcom .radio-disp-inner .airport-result-meta {
+    color: rgba(255, 216, 202, 0.72);
 }
 
 body.theme-navcom .radio-disp-inner .lcd-label {

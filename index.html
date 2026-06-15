@@ -271,7 +271,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEP</span>
-                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value;">
+                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="this.select()">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -283,7 +283,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEST</span>
-                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value;">
+                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="this.select()">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -1642,7 +1642,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=airport-search-20260615-01"></script>
+<script defer src="app.js?v=airport-search-navcom-20260615-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="passenger-voice.js?v=cargo-voice-bush-supply-20260604-01"></script>
