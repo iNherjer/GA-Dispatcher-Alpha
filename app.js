@@ -12546,7 +12546,8 @@ function buildMissionPlannerV2Draft({
     missionFireHazard = null,
     targetGeoContext = null,
     missionTruth = null,
-    sarHeli = null
+    sarHeli = null,
+    followUpContext = null
 } = {}) {
     const baseType = normalizeMissionType(
         missionType || missionPicker?.baseType || (isPOI ? 'poi' : 'apt'),
@@ -12606,6 +12607,20 @@ function buildMissionPlannerV2Draft({
             targetRef: sarHeli.targetRef || null,
             hospitalRef: sarHeli.hospitalRef || null,
             recovery: sarHeli.recovery || null
+        } : null,
+        followUp: followUpContext && typeof followUpContext === 'object' ? {
+            schema: followUpContext.schema || 'ga.followup.pipelineContext.v1',
+            requestId: followUpContext.requestId || null,
+            sourceKind: followUpContext.sourceKind || null,
+            followUpKind: followUpContext.followUpKind || null,
+            sourceLabel: followUpContext.sourceLabel || '',
+            followUpLabel: followUpContext.followUpLabel || '',
+            pilotStartPolicy: followUpContext.pilotStartPolicy || 'original_home',
+            route: followUpContext.route || null,
+            sourceMission: followUpContext.sourceMission || null,
+            lockedPassenger: followUpContext.lockedPassenger || null,
+            storyFrame: followUpContext.storyFrame || null,
+            pickupStory: followUpContext.pickupStory || null
         } : null,
         bush: bushSpec ? {
             profileId: bushSpec.profileId,
@@ -14423,6 +14438,24 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         whyNow: 'Die Folgecrew braucht noch waehrend dieses Umlaufs eine belastbare Ersteinschaetzung.',
         soughtOutcome: 'Wir sollen einen klaren Erstbefund liefern, damit der naechste Schritt geordnet ausgelost werden kann.'
     };
+    const followUpFrame = (options?.followUpContext?.storyFrame && typeof options.followUpContext.storyFrame === 'object')
+        ? options.followUpContext.storyFrame
+        : null;
+    if (followUpFrame && options?.followUpContext?.followUpKind) {
+        return {
+            ...base,
+            ...followUpFrame,
+            trigger: followUpFrame.trigger || base.trigger,
+            focusSubject: followUpFrame.focusSubject || base.focusSubject,
+            keyQuestion: followUpFrame.keyQuestion || base.keyQuestion,
+            stakes: followUpFrame.stakes || base.stakes,
+            completionSignal: followUpFrame.completionSignal || base.completionSignal,
+            subjectDetail: followUpFrame.subjectDetail || base.subjectDetail,
+            incidentContext: followUpFrame.incidentContext || base.incidentContext,
+            whyNow: followUpFrame.whyNow || base.whyNow,
+            soughtOutcome: followUpFrame.soughtOutcome || base.soughtOutcome
+        };
+    }
     if (taskDomain === 'search_and_rescue') {
         const incident = options?.sarDecision?.incidentFrame || _missionPipelineV4BuildSarIncident({
             category,
@@ -14953,6 +14986,12 @@ const BUSH_MISSION_VARIETY_COPY = {
 function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = null, options = {}) {
     const profileId = String(options.profileId || context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     if (!bushProfileSupportsMissionVariety(profileId)) return null;
+    if (context.followUpContext?.missionVarietyBrief && typeof context.followUpContext.missionVarietyBrief === 'object') {
+        return {
+            ...context.followUpContext.missionVarietyBrief,
+            weatherNote: context.followUpContext.missionVarietyBrief.weatherNote || ''
+        };
+    }
     const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
     const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
     const copy = BUSH_MISSION_VARIETY_COPY[profileId] || {};
@@ -15015,6 +15054,12 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
 function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = null, options = {}) {
     const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
     const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
+    if (context.followUpContext?.pickupCreativeBrief && typeof context.followUpContext.pickupCreativeBrief === 'object') {
+        return {
+            ...context.followUpContext.pickupCreativeBrief,
+            weatherNote: context.followUpContext.pickupCreativeBrief.weatherNote || ''
+        };
+    }
     const destWeather = weatherBundle?.dest || null;
     const weatherNote = Number.isFinite(Number(destWeather?.tempC))
         ? `Wetteranker: am Ziel etwa ${Math.round(Number(destWeather.tempC))}°C; nutze das als Stimmung, Komfort- oder Materialdetail, nur bei passender Geschichte auch als leichten Zeitdruck.`
@@ -15116,6 +15161,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
     });
     const pickupCreativeBrief = debug?.pickupCreativeBrief || null;
     const missionVarietyBrief = debug?.missionVarietyBrief || null;
+    const followUpContext = debug?.followUpContext || null;
     const storyFrame = _missionPipelineV4BuildStoryFrame({
         ...base.plan,
         missionTrigger: rawPlan.missionTrigger,
@@ -15124,7 +15170,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionStakes: rawPlan.missionStakes,
         completionSignal: rawPlan.completionSignal,
         storyFrame: rawPlan.storyFrame
-    }, semantics, resolvedNeeds, { sarDecision, pickupCreativeBrief, missionVarietyBrief });
+    }, semantics, resolvedNeeds, { sarDecision, pickupCreativeBrief, missionVarietyBrief, followUpContext });
     const taskDomain = String(semantics?.focusLock?.taskDomain || base.plan?.taskDomain || '').toLowerCase();
     const cleanSortedTexts = (values, kind, maxItems) => _missionPipelineV4FilterNarrativeTexts(
         _missionSemanticsV4SortTexts(values, semantics, kind)
@@ -15371,6 +15417,14 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.missionVarietyBrief = missionVarietyBrief;
         base.variety = missionVarietyBrief.variety || base.variety || null;
     }
+    if (followUpContext) {
+        base.followUpContext = followUpContext;
+        base.debug = {
+            ...(base.debug || {}),
+            followUpRequestId: followUpContext.requestId || null,
+            followUpKind: followUpContext.followUpKind || null
+        };
+    }
     return base;
 }
 
@@ -15415,6 +15469,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     const bushPickupReturn = profileId === 'bush_pickup_strip';
     const weatherBundle = _missionPipelineV3WeatherBundle(context.missionWeather || null);
+    const followUpContext = context.followUpContext && typeof context.followUpContext === 'object'
+        ? context.followUpContext
+        : (draft?.followUp && typeof draft.followUp === 'object' ? draft.followUp : null);
     const baseRouteRule = sarHeli
         ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
         : (context.isPOI
@@ -15435,6 +15492,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     if (bushPickupReturn) {
         routeRules.push('Bush-Pickup-Story: Der Plan beantwortet aus dem Pickup-Kontext wer, was, wo, wann, wie und warum, ohne eine feste Standardgeschichte zu kopieren.');
         realismTargets.unshift('Bei Feldarbeit, Forschung, Technik, Rangerarbeit oder Backcountry-Logistik konkrete Story-Anker liefern: Tätigkeiten, Material, Rückkehrgrund und nächster Handoff statt nur Rollenlabel.');
+    }
+    if (followUpContext) {
+        routeRules.push('Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
+        realismTargets.unshift('Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
     }
     if (profileId === 'bush_supply_strip') {
         routeRules.push('Bush-Supply: Fracht wird am Zielstrip abgegeben; keine Pickup- oder Rueckholstory daraus machen.');
@@ -15474,6 +15535,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             missionTruth: compactMissionTruthForPrompt(truth),
             semanticsRules,
             sarIncidentGuidance,
+            followUpContext,
             pickupCreativeBrief,
             missionVarietyBrief,
             variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || null,
@@ -15501,6 +15563,7 @@ Arbeitsweise:
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
 9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Scenic landet als Erlebnis, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
+9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -15604,7 +15667,8 @@ async function fetchMissionPlannerV4(context = {}) {
         source: result.source,
         error: result.error,
         pickupCreativeBrief: bundle?.pickupCreativeBrief || null,
-        missionVarietyBrief: bundle?.missionVarietyBrief || null
+        missionVarietyBrief: bundle?.missionVarietyBrief || null,
+        followUpContext: bundle?.followUpContext || null
     });
     if (bundle?.pickupCreativeBrief) {
         normalized.pickupCreativeBrief = bundle.pickupCreativeBrief;
@@ -15620,6 +15684,14 @@ async function fetchMissionPlannerV4(context = {}) {
         normalized.debug = {
             ...(normalized.debug || {}),
             variety: normalized.variety || null
+        };
+    }
+    if (bundle?.followUpContext) {
+        normalized.followUpContext = bundle.followUpContext;
+        normalized.debug = {
+            ...(normalized.debug || {}),
+            followUpRequestId: bundle.followUpContext.requestId || null,
+            followUpKind: bundle.followUpContext.followUpKind || null
         };
     }
     window.gaMissionPipelineV4Last = normalized;
@@ -15746,6 +15818,9 @@ function buildMissionContractV4({
         lockSuggested: true
     });
     const contractProfileId = String(profile.id || plannerContext.dispatchProfileId || '').trim().toLowerCase();
+    const followUpContext = plannerContext.followUpContext && typeof plannerContext.followUpContext === 'object'
+        ? plannerContext.followUpContext
+        : (plannerResult?.followUpContext && typeof plannerResult.followUpContext === 'object' ? plannerResult.followUpContext : null);
     const pickupCreativeBrief = contractProfileId === 'bush_pickup_strip'
         ? (plannerResult?.pickupCreativeBrief || buildBushPickupCreativeBrief(plannerContext, {
             target: { name: plannerContext.dest?.n || plannerContext.dest?.name || '' },
@@ -15762,6 +15837,7 @@ function buildMissionContractV4({
         sarDecision,
         pickupCreativeBrief,
         missionVarietyBrief,
+        followUpContext,
         homeName: plannerContext.start?.n || plannerContext.start?.name || currentStartICAO || ''
     });
     const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
@@ -15807,7 +15883,13 @@ function buildMissionContractV4({
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
         ),
         semantics,
-        varietyHints: _missionPipelineV4BuildVarietyHints({ taskDomain, roleProfile, profileId }),
+        followUpContext,
+        varietyHints: followUpContext?.lockedPassenger
+            ? {
+                lockedPassenger: followUpContext.lockedPassenger,
+                note: 'Follow-up nutzt den Passagier aus der Ursprungsmission; keine Namensrotation anwenden.'
+            }
+            : _missionPipelineV4BuildVarietyHints({ taskDomain, roleProfile, profileId }),
         targetGeoContext: _missionPipelineV3CompactGeoContext(
             plannerResult?.resolvedNeeds?.geo_context || plannerContext.targetGeoContext || null
         ),
@@ -15848,6 +15930,7 @@ Regeln:
 19d. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
 19e. bush + bush_pickup_strip / taskDomain bush_pickup_return: Wenn CONTRACT.varietyHints.passengerNameCandidates vorhanden ist, setze passenger.name auf genau einen passenden Namen aus dieser Liste und halte gender konsistent. Die Liste ist nur eine Rotationshilfe gegen wiederkehrende Fuellnamen; Rolle, Auftrag und Story muessen weiter aus StoryFrame, pickupCreativeBrief, Rollenfamilie und Zielkontext entstehen.
 19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Das Briefing braucht einen kurzen, natuerlichen Wetter-/Pistenanker aus CONTRACT.weather und dem Zielstrip: Wind/Sicht/Temperatur knapp einbauen, dazu Zielpiste, Bahnzustand oder Randbereich im Anflug nennen. Nicht als Checkliste schreiben.
+19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -16323,6 +16406,31 @@ function _missionPipelineV4EnforceBushPickupNameCandidates(passenger = {}, contr
         || roleProfile === 'bush_pickup_guest_v1'
         || profileId === 'bush_pickup_strip';
     if (!isBushPickup) return { passenger, story };
+    const lockedPassenger = contract?.followUpContext?.lockedPassenger && typeof contract.followUpContext.lockedPassenger === 'object'
+        ? contract.followUpContext.lockedPassenger
+        : null;
+    if (lockedPassenger?.name) {
+        const pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+        const selectedName = String(lockedPassenger.name || '').trim();
+        const selectedRole = String(lockedPassenger.role || pax.role || '').trim();
+        const selectedGender = String(lockedPassenger.gender || pax.gender || '').trim().toLowerCase();
+        const currentName = String(pax.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+        let nextStory = String(story || '').replace(/\s+/g, ' ').trim();
+        if (currentName && currentName !== selectedName) {
+            nextStory = nextStory.replace(new RegExp(_missionPipelineV4EscapeRegExp(currentName), 'g'), selectedName);
+        }
+        pax.name = selectedName;
+        if (selectedRole) pax.role = selectedRole;
+        if (selectedGender === 'female' || selectedGender === 'male') pax.gender = selectedGender;
+        if (pax.pickupStory && typeof pax.pickupStory === 'object') {
+            pax.pickupStory = {
+                ...pax.pickupStory,
+                personName: selectedName,
+                role: selectedRole || pax.pickupStory.role || pax.role || ''
+            };
+        }
+        return { passenger: pax, story: nextStory || story };
+    }
     const candidates = (Array.isArray(contract?.varietyHints?.passengerNameCandidates)
         ? contract.varietyHints.passengerNameCandidates
         : [])
@@ -19035,7 +19143,7 @@ async function generateMission(options = {}) {
     ]);
     _ensureDispatchAlive();
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
-    const aiModeEnabled = !followupSeed && !!document.getElementById('aiToggle')?.checked;
+    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     let preMissionTargetGeoContext = null;
     let preMissionTruth = null;
     const shouldEagerPrefetchPoiContext = !!(
@@ -19125,7 +19233,15 @@ async function generateMission(options = {}) {
         missionFireHazard,
         targetGeoContext: preMissionTargetGeoContext,
         missionTruth: preMissionTruth,
-        sarHeli: sarHeliSpec
+        sarHeli: sarHeliSpec,
+        followUpContext: followupSeed && typeof window.missionFollowupBuildPipelineContext === 'function'
+            ? window.missionFollowupBuildPipelineContext(followupSeed, {
+                start,
+                dest,
+                totalDist,
+                missionWeather
+            })
+            : null
     };
     const absorbPlannerResolvedNeeds = (plan) => {
         if (plan?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
@@ -19303,7 +19419,7 @@ async function generateMission(options = {}) {
             targetGeoContext: preMissionTargetGeoContext,
             dest
         });
-        if (followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function') {
+        if (!aiModeEnabled && followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function') {
             const followupMission = window.missionFollowupBuildDispatchMission(followupSeed, {
                 start,
                 dest,
@@ -19334,6 +19450,7 @@ async function generateMission(options = {}) {
                         startAirport: start,
                         destAirport: dest,
                         distNm: totalDist,
+                        pickupPassenger: plannerContext.followUpContext?.lockedPassenger || null,
                         storyHint: initialBushPickupStoryHint
                     })
                 }));
@@ -19366,6 +19483,20 @@ async function generateMission(options = {}) {
                 dataSource = m._source;
                 if (m.pax) paxText = m.pax;
                 if (m.cargo) cargoText = m.cargo;
+            }
+        }
+        if (!m && followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function') {
+            const followupMission = window.missionFollowupBuildDispatchMission(followupSeed, {
+                start,
+                dest,
+                totalDist,
+                missionWeather
+            });
+            if (followupMission?.mission) {
+                m = followupMission.mission;
+                paxText = followupMission.paxText || paxText;
+                cargoText = followupMission.cargoText || cargoText;
+                dataSource = followupMission.dataSource || "Follow-up Bush Dispatcher";
             }
         }
         if (!m) {
