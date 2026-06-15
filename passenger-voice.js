@@ -3389,10 +3389,28 @@ function _joinSpeechItems(items = []) {
     return `${clean.slice(0, -1).join(', ')} und ${clean[clean.length - 1]}`;
 }
 
-function _boardingEquipmentSentence(items = [], fallback = 'meine Ausrüstung') {
+function _boardingEquipmentPhrase(items = [], fallback = 'meine Ausrüstung') {
     const list = _joinSpeechItems(items);
-    const equipment = list || String(fallback || 'meine Ausrüstung').trim() || 'meine Ausrüstung';
-    return `Ich steige jetzt ein. Ich habe heute ${equipment} dabei; bitte die Ausrüstung sicher verstauen.`;
+    const equipment = list || String(fallback || '').trim();
+    if (!equipment || /^kein(?:e|en)?\s+/i.test(equipment)) return '';
+    return equipment;
+}
+
+function _boardingEquipmentContextLine(items = [], fallback = 'meine Ausrüstung') {
+    const equipment = _boardingEquipmentPhrase(items, fallback);
+    return equipment
+        ? `Optionale Gepäck-/Ausrüstungsdetails für die Ansage: ${equipment}. Nutze sie höchstens kurz und natürlich, wenn es zum Boardingmoment passt.`
+        : 'Es gibt keine wichtigen Gepäckdetails für die Ansage; sprich lieber über Bereitschaft, Ziel oder Auftrag.';
+}
+
+function _boardingFallbackVariantIndex(seed = '') {
+    const s = String(seed || '');
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i += 1) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
 }
 
 function _buildBoardingText() {
@@ -3415,14 +3433,24 @@ function _buildBoardingText() {
     const isTargetPickupMission = !!(bush && String(bush.targetMode || '') === 'strip_then_return' && String(bush.pickupKind || '').trim());
     const hasOutboundPassenger = paxCount > 0;
     const paxPart = paxCount > 1
-        ? `${paxCount} Personen`
+        ? `wir sind ${paxCount} Personen`
         : (hasOutboundPassenger
             ? `${pax.name ? `ich bin ${pax.name}` : 'ich bin heute mit an Bord'}${role}`
             : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
     const requiredItems = _missionRequiredItemNames(4);
     const requiredShort = requiredItems.slice(0, 4).map(_stripManifestWeightForSpeech).filter(Boolean);
-    const requiredText = _boardingEquipmentSentence(requiredShort, cargoClean);
-    return `Hi, ${paxPart}. ${requiredText} Gib mir bitte ein kurzes Missionsbriefing, dann sind wir startklar.`;
+    const equipment = _boardingEquipmentPhrase(requiredShort, cargoClean);
+    const equipmentText = equipment ? ` ${equipment} ist dabei und liegt bereit.` : '';
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const target = String(contract?.targetName || md?.targetName || md?.dest || '').trim();
+    const targetText = target ? ` nach ${target}` : '';
+    const variants = [
+        `Hi, ${paxPart}.${equipmentText} Von mir aus sind wir bereit für den Flug${targetText}.`,
+        `Hallo, ${paxPart}.${equipmentText} Gib mir kurz Bescheid, worauf ich beim Start achten soll.`,
+        `Moin, ${paxPart}.${equipmentText} Ich bin soweit, wir können den Auftrag${targetText} angehen.`
+    ];
+    const idx = _boardingFallbackVariantIndex(`${md?.missionId || md?.missionKey || ''}|boarding`) % variants.length;
+    return variants[idx];
 }
 
 async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, signal = null) {
@@ -5116,18 +5144,15 @@ Max 3-4 Sätze.${_toneHint()}`;
         .map(_stripManifestWeightForSpeech)
         .filter(Boolean)
         .slice(0, 3);
-    const cargoNameLine = speechItems.length === 1
-        ? `"${speechItems[0]}"`
-        : `"${speechItems.join(', ')}"`;
-    const cargoLine = `Nenne die mitgeführte Ausrüstung natürlich beim Namen: ${cargoNameLine}. Rollenlogik für den Satz: Die Person steigt ein, sitzt an Bord und schnallt sich an; nur Ausrüstung, Gepäck, Koffer, Tasche, Werkzeug oder Material wird verstaut oder gesichert. Gute Form: "${_boardingEquipmentSentence(speechItems, cargoFallback)}"`;
-    const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein und schnallt sich an; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
+    const equipmentContextLine = _boardingEquipmentContextLine(speechItems, cargoFallback);
+    const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
-Erzeuge eine kombinierte Boarding-Begrüßung in einem Block: 1) sehr kurze Vorstellung, 2) ein kurzer Satz zum wichtigen Gegenstand, 3) kurzes Missionsbriefing mit Ziel und Vorhaben.
-${cargoLine}
+Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz beim Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
+Kein fester Satzbau und keine Vorlage nachsprechen; variiere natürlich.
+${equipmentContextLine}
 ${guidance.reqLine}
-Nenne den Gegenstand immer direkt beim Namen.
 ${manifestSpeechRule}
 ${guidance.driftGuard}
 ${guidance.timingWordBan}
