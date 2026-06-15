@@ -5174,6 +5174,7 @@ body.theme-navcom .radio-module-right-screws {
    Zeile 2: Transfer-Button (kleiner weißer Taster)
    Zeile 3: Modul-Label links (weißer Rahmen) + Drehknopf rechts */
 body.theme-navcom .half-module {
+    position: relative;
     display: grid;
     grid-template-areas:
         "disp disp"
@@ -5184,6 +5185,10 @@ body.theme-navcom .half-module {
     gap: 3px 0;
     padding: 5px 10px 6px 10px;
     overflow: visible;
+}
+
+body.theme-navcom .half-module:focus-within {
+    z-index: 10040;
 }
 
 /* Display: volle Breite, weißer Rahmen wie im Original */
@@ -5217,7 +5222,8 @@ body.theme-navcom .radio-disp-inner .airport-autocomplete {
     top: calc(100% + 6px);
     left: -8px;
     right: auto;
-    min-width: min(340px, calc(100vw - 32px));
+    width: min(460px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
     border-color: rgba(255, 68, 0, 0.55);
     border-radius: 3px;
     background: rgba(5, 5, 5, 0.98);

@@ -13130,6 +13130,7 @@ function buildMissionPlannerV2Draft({
             pilotStartPolicy: followUpContext.pilotStartPolicy || 'original_home',
             route: followUpContext.route || null,
             sourceMission: followUpContext.sourceMission || null,
+            temporalContext: followUpContext.temporalContext || null,
             lockedPassenger: followUpContext.lockedPassenger || null,
             storyFrame: followUpContext.storyFrame || null,
             pickupStory: followUpContext.pickupStory || null
@@ -16008,6 +16009,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     if (followUpContext) {
         routeRules.push('Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
         realismTargets.unshift('Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
+        if (followUpContext.temporalContext?.stayText) {
+            routeRules.push(`Follow-up-Zeitkontext: Zwischen Ursprungsflug und Anfrage liegen ${followUpContext.temporalContext.stayText}; nutze das als natürlichen Aufenthalts- oder Wartezeitraum, nicht als Systemfeld.`);
+            realismTargets.unshift('Die Zeit zwischen den Flügen soll als glaubwürdige Tätigkeit, Aufenthalt oder Rückfracht-Vorbereitung spürbar werden.');
+        }
         if (String(followUpContext.acceptanceMode || followUpContext.pilotStartPolicy || '').toLowerCase() === 'pickup_from_third_place') {
             const followRoute = followUpContext.route && typeof followUpContext.route === 'object' ? followUpContext.route : {};
             routeRules.push(`Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`);
@@ -16052,6 +16057,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             semanticsRules,
             sarIncidentGuidance,
             followUpContext,
+            missionTemporalContext: followUpContext?.temporalContext || context.missionTemporalContext || null,
             pickupCreativeBrief,
             missionVarietyBrief,
             variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || null,
@@ -16402,6 +16408,7 @@ function buildMissionContractV4({
         ),
         semantics,
         followUpContext,
+        missionTemporalContext: followUpContext?.temporalContext || plannerContext.missionTemporalContext || null,
         varietyHints: followUpContext?.lockedPassenger
             ? {
                 lockedPassenger: followUpContext.lockedPassenger,
@@ -19797,6 +19804,14 @@ async function generateMission(options = {}) {
             currentDestICAO = medicalIcao && medicalIcao !== 'APT' ? medicalIcao : 'HOSP';
         }
     }
+    const plannerFollowUpContext = followupSeed && typeof window.missionFollowupBuildPipelineContext === 'function'
+        ? window.missionFollowupBuildPipelineContext(followupSeed, {
+            start,
+            dest,
+            totalDist,
+            missionWeather
+        })
+        : null;
     const plannerContext = {
         start,
         dest,
@@ -19813,14 +19828,8 @@ async function generateMission(options = {}) {
         targetGeoContext: preMissionTargetGeoContext,
         missionTruth: preMissionTruth,
         sarHeli: sarHeliSpec,
-        followUpContext: followupSeed && typeof window.missionFollowupBuildPipelineContext === 'function'
-            ? window.missionFollowupBuildPipelineContext(followupSeed, {
-                start,
-                dest,
-                totalDist,
-                missionWeather
-            })
-            : null
+        followUpContext: plannerFollowUpContext,
+        missionTemporalContext: plannerFollowUpContext?.temporalContext || followupSeed?.temporalContext || null
     };
     const absorbPlannerResolvedNeeds = (plan) => {
         if (plan?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
@@ -20570,6 +20579,9 @@ async function generateMission(options = {}) {
             targetRef: followupAcceptance?.targetRef || followupTargetRef || null,
             returnHomeRef: followupAcceptance?.returnHomeRef || followupHomeRef || null
         } : (m?.followUpContinuation || null),
+        followUpContext: plannerContext.followUpContext || m?.followUpContext || null,
+        missionTemporalContext: plannerContext.missionTemporalContext || m?.missionTemporalContext || m?.followUpContinuation?.temporalContext || null,
+        followUpProspect: m?.followUpProspect || null,
         start: currentStartICAO,
         dest: currentDestICAO,
         initialDest: currentDestICAO,
@@ -20639,6 +20651,17 @@ async function generateMission(options = {}) {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
     }
+    if (!followupSeed && typeof window.missionFollowupBuildProspectForMission === 'function') {
+        const followUpProspect = window.missionFollowupBuildProspectForMission(currentMissionData);
+        if (followUpProspect) {
+            currentMissionData.followUpProspect = followUpProspect;
+            currentMissionData.missionTemporalContext = followUpProspect.temporalContext || currentMissionData.missionTemporalContext || null;
+            if (m && typeof m === 'object') {
+                m.followUpProspect = followUpProspect;
+                m.missionTemporalContext = currentMissionData.missionTemporalContext;
+            }
+        }
+    }
     window.currentMissionData = currentMissionData;
     if (missionIsSarHeliMission(currentMissionData)) {
         const sarHeliRoute = missionSarHeliBuildRouteWaypoints({
@@ -20688,6 +20711,10 @@ async function generateMission(options = {}) {
         window.activePassenger.targetAltFt = 0;
         window.activePassenger.targetDwellMin = 0;
         window.activePassenger.targetRadiusNm = Math.max(0.25, Number(window.activePassenger.targetRadiusNm || 0.35) || 0.35);
+    }
+    if (window.activePassenger && currentMissionData?.followUpProspect?.deboardingHint) {
+        window.activePassenger.followUpDeboardingHint = currentMissionData.followUpProspect.deboardingHint;
+        window.activePassenger.missionTemporalContext = currentMissionData.missionTemporalContext || currentMissionData.followUpProspect.temporalContext || null;
     }
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     const suppressAptArrivalPlan = missionType === 'bush'
@@ -21666,7 +21693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1084', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1085', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
