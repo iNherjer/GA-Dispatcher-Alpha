@@ -2103,6 +2103,7 @@ window.finishMissionCargoPickupAndContinue = function() {
         const passenger = md?.passenger || md?.missionContract?.passenger || window.activeMissionContract?.passenger || null;
         if (passenger && typeof passenger === 'object') {
             window.activePassenger = { ...passenger };
+            try { window.attachMissionStorageIdentity?.(window.activePassenger, md); } catch (_) {}
             const pickupPaxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
             if (md && typeof md === 'object') {
                 md.paxText = pickupPaxText;

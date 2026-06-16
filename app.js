@@ -3838,6 +3838,148 @@ function clearDraftMissionPersistence(reason = 'draft') {
 }
 window.clearDraftMissionPersistence = clearDraftMissionPersistence;
 
+function missionRestoreNormalizeValue(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function missionRestoreFirstText(...values) {
+    for (const value of values) {
+        if (value === null || value === undefined) continue;
+        const text = String(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (text) return text;
+    }
+    return '';
+}
+
+function missionRestoreUniqueIds(values = []) {
+    const ids = [];
+    values.forEach(value => {
+        const normalized = missionRestoreNormalizeValue(value);
+        if (normalized && !ids.includes(normalized)) ids.push(normalized);
+    });
+    return ids;
+}
+
+function missionRestoreStateContext(state = {}, md = null) {
+    const missionData = (md && typeof md === 'object')
+        ? md
+        : ((state?.currentMissionData && typeof state.currentMissionData === 'object') ? state.currentMissionData : {});
+    return {
+        ids: missionRestoreUniqueIds([
+            missionData?.missionId,
+            missionData?.missionKey,
+            missionData?.id,
+            state?.missionId,
+            state?.missionKey
+        ]),
+        title: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.missionTitle,
+            missionData?.mission,
+            missionData?.title,
+            missionData?.t,
+            state?.mTitle
+        )),
+        story: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.missionStory,
+            missionData?.mStory,
+            missionData?.story,
+            missionData?.s,
+            state?.mStory
+        )),
+        missionType: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.missionType,
+            state?.missionType
+        )),
+        start: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.start,
+            state?.currentStartICAO,
+            state?.mDepICAO
+        )),
+        dest: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.dest,
+            state?.currentDestICAO,
+            state?.mDestICAO
+        )),
+        paxText: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.paxText,
+            missionData?.initialPaxText
+        )),
+        cargoText: missionRestoreNormalizeValue(missionRestoreFirstText(
+            missionData?.cargoText
+        ))
+    };
+}
+
+function missionRestoreCandidateContext(candidate = null, kind = 'contract') {
+    const src = (candidate && typeof candidate === 'object') ? candidate : {};
+    return {
+        ids: missionRestoreUniqueIds([src.missionId, src.missionKey, src.id]),
+        title: missionRestoreNormalizeValue(missionRestoreFirstText(src.missionTitle, src.title, src.name, src.mission, src.t)),
+        story: missionRestoreNormalizeValue(missionRestoreFirstText(src.missionStory, src.story, src.s)),
+        missionType: missionRestoreNormalizeValue(missionRestoreFirstText(src.missionType, src.type)),
+        start: missionRestoreNormalizeValue(missionRestoreFirstText(src.start, src.dep, src.departure, src.departureIcao)),
+        dest: missionRestoreNormalizeValue(missionRestoreFirstText(src.dest, src.destination, src.arrival, src.destinationIcao)),
+        paxText: kind === 'passenger' ? '' : missionRestoreNormalizeValue(missionRestoreFirstText(src.paxText, src.pax)),
+        cargoText: kind === 'passenger' ? '' : missionRestoreNormalizeValue(missionRestoreFirstText(src.cargoText, src.cargo))
+    };
+}
+
+function missionRestoreCandidateMatchesState(candidate = null, state = {}, md = null, options = {}) {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const stateCtx = missionRestoreStateContext(state, md);
+    const candidateCtx = missionRestoreCandidateContext(candidate, options.kind || 'contract');
+    if (stateCtx.ids.length && candidateCtx.ids.length) {
+        return candidateCtx.ids.some(id => stateCtx.ids.includes(id));
+    }
+    let positiveMatches = 0;
+    const compare = (field, fatalOnConflict = false) => {
+        const expected = stateCtx[field];
+        const actual = candidateCtx[field];
+        if (!expected || !actual) return true;
+        if (expected === actual) {
+            positiveMatches++;
+            return true;
+        }
+        return !fatalOnConflict;
+    };
+    if (!compare('missionType', true)) return false;
+    if (!compare('start', true)) return false;
+    if (!compare('dest', true)) return false;
+    if (!compare('title', true)) return false;
+    compare('story', false);
+    compare('paxText', false);
+    compare('cargoText', false);
+    return options.requirePositiveMatch ? positiveMatches > 0 : true;
+}
+
+function attachMissionStorageIdentity(target = null, md = null) {
+    if (!target || typeof target !== 'object' || !md || typeof md !== 'object') return target;
+    if (!target.missionId && md.missionId) target.missionId = md.missionId;
+    if (!target.missionKey && md.missionKey) target.missionKey = md.missionKey;
+    if (!target.start && md.start) target.start = md.start;
+    if (!target.dest && md.dest) target.dest = md.dest;
+    if (!target.targetName && md.targetName) target.targetName = md.targetName;
+    if (!target.missionTitle) target.missionTitle = missionRestoreFirstText(md.missionTitle, md.mission, md.title);
+    if (!target.missionStory) target.missionStory = missionRestoreFirstText(md.missionStory, md.mStory, md.story, md.s);
+    if (!target.missionType && md.missionType) target.missionType = md.missionType;
+    return target;
+}
+window.attachMissionStorageIdentity = attachMissionStorageIdentity;
+
+window.missionRestoreValidateLocalPassenger = function(passenger, state = null) {
+    const missionState = state || (currentMissionData ? { currentMissionData } : null);
+    if (!missionState) return true;
+    const md = (missionState?.currentMissionData && typeof missionState.currentMissionData === 'object')
+        ? missionState.currentMissionData
+        : _missionDataFromStateCandidate(missionState);
+    return missionRestoreCandidateMatchesState(passenger, missionState, md, { kind: 'passenger', requirePositiveMatch: true });
+};
+
 function normalizeRouteWaypointForStorage(point) {
     if (!point) return null;
     const lat = Array.isArray(point) ? Number(point[0]) : Number(point.lat);
@@ -4344,13 +4486,20 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
 function compactMissionObjectForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return value || null;
     const keep = [
-        'id', 'title', 'name', 's', 'missionType', 'missionPipelineMode',
-        'start', 'dest', 'poiName', 'targetName', 'targetLat', 'targetLon',
-        'category', 'profileId', 'pax', 'cargo', 'passenger',
+        'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
+        'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
+        'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt',
+        'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
+        'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
+        'cargoText', 'passenger',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
-        'missionPlanV2', '_missionPlanV2', 'aptArrivalPlan'
+        'missionPlanV2', '_missionPlanV2', 'missionPlanV4', '_missionPlanV4',
+        'missionContractV4', '_missionContractV4', 'missionVariety',
+        'aptArrivalPlan', 'sceneAccepted', 'sceneCompositionStatus',
+        'cargoManifest', 'cargoOutcome', 'fireScenario'
     ];
     const out = {};
     keep.forEach(key => {
@@ -4406,6 +4555,9 @@ function saveMissionState() {
             : storedRouteWaypoints
     );
     if (currentMissionData && typeof currentMissionData === 'object') {
+        attachMissionStorageIdentity(currentMissionData.missionContract, currentMissionData);
+        attachMissionStorageIdentity(window.activeMissionContract, currentMissionData);
+        attachMissionStorageIdentity(window.activePassenger, currentMissionData);
         currentMissionData.routeWaypoints = storedRouteWaypoints;
         currentMissionData.missionRouteWaypoints = storedMissionRouteWaypoints;
     }
@@ -4567,6 +4719,12 @@ async function restoreMissionState(state, options = {}) {
     if (!resumeRuntime && typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
     }
+    if (!resumeRuntime) {
+        try {
+            if (typeof window.gaMissionSceneDebugClear === 'function') window.gaMissionSceneDebugClear();
+            else window.gaMissionSceneDebug = null;
+        } catch (_) {}
+    }
     state.mStory = _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
@@ -4623,29 +4781,61 @@ async function restoreMissionState(state, options = {}) {
     let restoredPassenger = null;
     if (restoredHasPassenger) {
         restoredPassenger = (state.activePassenger && typeof state.activePassenger === 'object') ? state.activePassenger : null;
+        if (restoredPassenger && !missionRestoreCandidateMatchesState(restoredPassenger, state, currentMissionData, { kind: 'passenger' })) {
+            try { console.warn('[MISSION RESTORE] Stored passenger ignored: mission identity mismatch.'); } catch (_) {}
+            restoredPassenger = null;
+        }
         if (!restoredPassenger) {
             try {
                 const lsPassenger = JSON.parse(localStorage.getItem('ga_active_passenger') || 'null');
-                if (lsPassenger && typeof lsPassenger === 'object') restoredPassenger = lsPassenger;
+                if (
+                    lsPassenger
+                    && typeof lsPassenger === 'object'
+                    && missionRestoreCandidateMatchesState(lsPassenger, state, currentMissionData, { kind: 'passenger', requirePositiveMatch: true })
+                ) {
+                    restoredPassenger = lsPassenger;
+                } else if (lsPassenger && typeof lsPassenger === 'object') {
+                    localStorage.removeItem('ga_active_passenger');
+                    try { console.warn('[MISSION RESTORE] Local passenger fallback ignored: mission identity mismatch.'); } catch (_) {}
+                }
             } catch (_) {}
         }
     }
     window.activePassenger = restoredPassenger;
 
-    let restoredMissionContract = (state.activeMissionContract && typeof state.activeMissionContract === 'object')
+    const stateMissionContract = (state.activeMissionContract && typeof state.activeMissionContract === 'object')
         ? state.activeMissionContract
         : ((state.currentMissionData?.missionContract && typeof state.currentMissionData.missionContract === 'object')
             ? state.currentMissionData.missionContract
             : null);
+    let restoredMissionContract = stateMissionContract;
+    if (restoredMissionContract && !missionRestoreCandidateMatchesState(restoredMissionContract, state, currentMissionData, { kind: 'contract' })) {
+        try { console.warn('[MISSION RESTORE] Stored mission contract ignored: mission identity mismatch.'); } catch (_) {}
+        if (currentMissionData?.missionContract === restoredMissionContract) delete currentMissionData.missionContract;
+        if (state.currentMissionData?.missionContract === restoredMissionContract) delete state.currentMissionData.missionContract;
+        if (state.activeMissionContract === restoredMissionContract) state.activeMissionContract = null;
+        restoredMissionContract = null;
+    }
     if (!restoredMissionContract) {
         try {
             const lsContract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
-            if (lsContract && typeof lsContract === 'object') restoredMissionContract = lsContract;
+            if (
+                lsContract
+                && typeof lsContract === 'object'
+                && missionRestoreCandidateMatchesState(lsContract, state, currentMissionData, { kind: 'contract', requirePositiveMatch: true })
+            ) {
+                restoredMissionContract = lsContract;
+            } else if (lsContract && typeof lsContract === 'object') {
+                localStorage.removeItem('ga_active_mission_contract');
+                try { console.warn('[MISSION RESTORE] Local mission contract fallback ignored: mission identity mismatch.'); } catch (_) {}
+            }
         } catch (_) {}
     }
     const restoredV3 = restoreMissionV3Context(currentMissionData, state, window.activePassenger, restoredMissionContract);
     currentMissionData = restoredV3.missionData;
     restoredMissionContract = restoredV3.missionContract || restoredMissionContract || null;
+    attachMissionStorageIdentity(restoredMissionContract, currentMissionData);
+    attachMissionStorageIdentity(window.activePassenger, currentMissionData);
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.missionContract = window.activeMissionContract;
@@ -21260,6 +21450,8 @@ async function generateMission(options = {}) {
         missionPlanV4: missionPlanV4 || currentMissionData.missionPlanV4 || null,
         missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null
     });
+    attachMissionStorageIdentity(activeMissionContract, currentMissionData);
+    attachMissionStorageIdentity(window.activePassenger, currentMissionData);
     const fireScenario = buildFireWatchScenario({
         isPOI,
         mission: m,

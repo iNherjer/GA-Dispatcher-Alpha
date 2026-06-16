@@ -6456,7 +6456,12 @@ function _tickPoiDwell(lat, lon, flightData) {
 
     if (!window.activePassenger && _missionHasPax()) {
         const saved = localStorage.getItem('ga_active_passenger');
-        if (saved) try { window.activePassenger = JSON.parse(saved); } catch(e) {}
+        if (saved) try {
+            const parsed = JSON.parse(saved);
+            const validator = window.missionRestoreValidateLocalPassenger;
+            if (!validator || validator(parsed)) window.activePassenger = parsed;
+            else localStorage.removeItem('ga_active_passenger');
+        } catch(e) {}
     }
     _normalizeActivePassengerGender();
 

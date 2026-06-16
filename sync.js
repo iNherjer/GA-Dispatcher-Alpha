@@ -9066,9 +9066,71 @@ function _syncCompactFlightRecord(record, maxTrack = 80) {
     return rec;
 }
 
+function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
+    if (!value || typeof value !== 'object') return value || null;
+    const fallback = (fallbackMission && typeof fallbackMission === 'object') ? fallbackMission : {};
+    const keep = [
+        'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
+        'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
+        'poiPresentation', 'isPOI', 'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt',
+        'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
+        'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
+        'cargoText', 'passenger',
+        'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress',
+        'routeWaypoints', 'missionRouteWaypoints',
+        'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
+        'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
+        'aptArrivalPlan', 'cargoManifest', 'cargoOutcome', 'fireScenario'
+    ];
+    const out = {};
+    keep.forEach(key => {
+        if (value[key] !== undefined) out[key] = value[key];
+    });
+    if (!out.missionId && fallback.missionId) out.missionId = fallback.missionId;
+    if (!out.missionKey && fallback.missionKey) out.missionKey = fallback.missionKey;
+    if (!out.start && fallback.start) out.start = fallback.start;
+    if (!out.dest && fallback.dest) out.dest = fallback.dest;
+    if (!out.targetName && fallback.targetName) out.targetName = fallback.targetName;
+    if (!out.missionTitle) out.missionTitle = value.missionTitle || value.title || fallback.missionTitle || fallback.mission || fallback.title || '';
+    if (!out.missionStory) out.missionStory = value.missionStory || value.story || fallback.missionStory || fallback.story || fallback.s || '';
+    if (value.missionContract && typeof value.missionContract === 'object') {
+        out.missionContract = _syncCompactMissionObjectCore(value.missionContract, fallback);
+    }
+    return out;
+}
+
+function _syncStripDeepMissionPlans(value = null) {
+    if (!value || typeof value !== 'object') return value || null;
+    delete value.targetGeoContext;
+    delete value.missionTruth;
+    delete value.missionPlanV2;
+    delete value.missionPlanV3;
+    delete value.missionPlanV4;
+    delete value.missionContractV4;
+    delete value._missionPlanV2;
+    delete value._missionPlanV4;
+    delete value._missionContractV4;
+    delete value.targetSceneDebug;
+    delete value.targetSceneComposerDebug;
+    delete value.missionPipelineDebug;
+    delete value.weatherBriefing;
+    delete value.dispatchPerf;
+    if (value.missionContract && typeof value.missionContract === 'object') {
+        value.missionContract = _syncStripDeepMissionPlans(value.missionContract);
+    }
+    return value;
+}
+
 function _syncCompactFlightDataState(state, level = 1) {
     const out = _syncJsonClone(state);
     if (!out || typeof out !== 'object') return out;
+    if (out.currentMissionData && typeof out.currentMissionData === 'object') {
+        const embeddedContract = out.currentMissionData.missionContract;
+        if (!out.activeMissionContract && embeddedContract && typeof embeddedContract === 'object') {
+            out.activeMissionContract = embeddedContract;
+        }
+    }
     if (level >= 1) {
         delete out.vpElevationData;
         delete out.vpSegmentAlts;
@@ -9083,12 +9145,29 @@ function _syncCompactFlightDataState(state, level = 1) {
         if (out.activeMissionContract && typeof out.activeMissionContract === 'object') {
             delete out.activeMissionContract.targetGeoContext;
             delete out.activeMissionContract.missionTruth;
+            out.activeMissionContract = _syncCompactMissionObjectCore(out.activeMissionContract, out.currentMissionData);
         }
     }
     if (level >= 2) {
-        delete out.activeMissionContract;
+        if (out.activeMissionContract && typeof out.activeMissionContract === 'object') {
+            out.activeMissionContract = _syncCompactMissionObjectCore(out.activeMissionContract, out.currentMissionData);
+        }
         delete out.missionRouteWaypoints;
         delete out.vpAltWaypoints;
+    }
+    if (level >= 3) {
+        out.wikiDepImageUrl = '';
+        out.wikiDestImageUrl = '';
+        out.wikiDepDescText = '';
+        out.wikiDestDescText = '';
+        out.wikiDepFreqText = '';
+        out.wikiDestFreqText = '';
+        if (out.currentMissionData && typeof out.currentMissionData === 'object') {
+            out.currentMissionData = _syncStripDeepMissionPlans(_syncCompactMissionObjectCore(out.currentMissionData, out.currentMissionData));
+        }
+        if (out.activeMissionContract && typeof out.activeMissionContract === 'object') {
+            out.activeMissionContract = _syncStripDeepMissionPlans(_syncCompactMissionObjectCore(out.activeMissionContract, out.currentMissionData));
+        }
     }
     return out;
 }
@@ -9169,7 +9248,7 @@ function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
         { maxFlightRecords: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1, maxFollowUps: 30 },
         { maxFlightRecords: 5, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2, maxFollowUps: 24 },
         { maxFlightRecords: 2, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2, maxFollowUps: 18 },
-        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 2, logbookMax: 5, missionLevel: 2, maxNotes: 50, textMax: 1000, dropFlightData: true, dropActiveMission: true, maxFollowUps: 12 }
+        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 3, logbookMax: 5, missionLevel: 3, maxNotes: 50, textMax: 1000, dropFlightData: true, maxFollowUps: 12 }
     ];
 
     let last = null;
@@ -9228,7 +9307,7 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
     const briefing = document.getElementById("briefingBox");
     if (activeMission && !_syncMissionStateIsDraft(activeMission)) {
         localStorage.setItem('ga_active_mission', JSON.stringify(activeMission));
-        restoreMissionState(activeMission);
+        restoreMissionState(activeMission, { source: 'cloud' });
         return true;
     }
     try {
