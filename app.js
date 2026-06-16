@@ -1931,8 +1931,8 @@ function toggleMissionPickerMode() {
 }
 
 function classifyAptMissionCategory(ms) {
-    const t = normalizeMissionText(ms?.t || '');
-    const s = normalizeMissionText(ms?.s || '');
+    const t = normalizeMissionText(ms?.t || ms?.title || '');
+    const s = normalizeMissionText(ms?.s || ms?.story || '');
     const all = `${t} ${s}`;
     if ((ms?.cat || '') === 'trn' || /training|ueb|checkflug|flight review|stall|vor|pattern|touch|go|steep|avionics|no-flap|crosswind/.test(all)) return 'trn';
     if (/organtransport|aog|labor|urgent mail|medicine|archive transport|flower delivery|high priority courier|art transfer|relocation flight|fracht|dokumente|ersatzteil|medikament|plasma|proben|transport/.test(all)) return 'cargo';
@@ -8637,7 +8637,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         if (/(fragil|zerbrech|praezision|kunstwerk|stoß|stoss|erschuetter)/.test(hay)) return 'cargo_fragile';
         if (/(sar|search|rescue|rettung|suchmuster|vermisst)/.test(hay)) return 'search_and_rescue';
         if (/(brand|rauch|hotspot|waldbrand|feuerwacht)/.test(hay)) return 'fire_watch';
-        if (/(tiertransport|tierschutz|welpen|katze|hund|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation|tierarzt|animal)/.test(hay)) return 'animal_transport';
+        if (/(^|[^a-zäöüß])(animal|animal_transport|tier|tiertransport|tierschutz|welpen|katze|hund|ziege|reh|hirsch|möwe|moewe|gans|ente|enten|schwan|pferd|wildvogel|auffangstation|tierarzt)(?=$|[^a-zäöüß])/.test(hay)) return 'animal_transport';
         if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt)/.test(hay)) return 'science_bio';
         if (/(geolog|hydrolog|erosion|hangstabil|gestein|sediment|rutsch)/.test(hay)) return 'science_geo';
         if (/(wissenschaft|forschung|meteorolog|kartograf|analyst)/.test(hay)) return 'science_general';
@@ -8750,7 +8750,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'ruhig, fokussiert, höflich',
         dialectHint: 'neutral',
-        greetingText: 'Hi, danke dir fürs Fliegen heute. Ich brauch einen ruhigen, sauberen Charterflug.'
+        storySeed: '{name} muss nach der Landung direkt weiter zu einem Kundentermin; am Zielplatz wartet bereits ein Shuttle des Auftraggebers.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet schon mein Shuttle zum Kundentermin; mir hilft vor allem eine ruhige, pünktliche Landung.'
     },
     {
         name: 'Nora Seidel',
@@ -8758,7 +8759,44 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'ruhig, strukturiert, freundlich',
         dialectHint: 'neutral',
-        greetingText: 'Hi, danke fürs Mitnehmen. Mir ist ein ruhiger, planbarer Flug wichtig.'
+        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; ihr Team ist vor Ort schon im Terminblock und hält sie per Telefon auf dem Laufenden.',
+        greetingText: 'Hi, ich bin {firstName}. Mein Team ist am Ziel schon in der Abstimmung, deshalb ist mir ein sauberer und planbarer Flug wichtig.'
+    },
+    {
+        name: 'Mara König',
+        role: 'Eventkoordinatorin',
+        gender: 'female',
+        personality: 'organisiert, freundlich, terminsicher',
+        dialectHint: 'neutral',
+        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf und holt sie nach der Landung am Flugplatz ab.',
+        greetingText: 'Hi, ich bin {firstName}. Die Crew am Ziel baut schon auf; wenn wir ruhig reinkommen, schaffe ich den kurzen Übergang vom Flugplatz direkt zum Aufbau.'
+    },
+    {
+        name: 'Tobias Lenz',
+        role: 'Rechtsanwalt',
+        gender: 'male',
+        personality: 'sachlich, konzentriert, höflich',
+        dialectHint: 'neutral',
+        storySeed: '{name} hat am Zielort einen Notartermin mit engem Zeitfenster; die Unterlagen liegen im Handgepäck und müssen nach der Landung direkt weiter.',
+        greetingText: 'Hi, ich bin {firstName}. Ich habe die Unterlagen dabei und muss nach der Landung ohne Umweg zum Termin; bitte ruhig und pünktlich rein.'
+    },
+    {
+        name: 'Elena Graf',
+        role: 'Kongressreferentin',
+        gender: 'female',
+        personality: 'klar, freundlich, konzentriert',
+        dialectHint: 'neutral',
+        storySeed: '{name} hält am Zielort einen kurzen Fachvortrag; ihr Rollkoffer und die Präsentationsunterlagen reisen mit in der Kabine.',
+        greetingText: 'Hi, ich bin {firstName}. Mein Vortrag hängt an diesem Anschluss, die Unterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
+    },
+    {
+        name: 'Jonas Reuter',
+        role: 'Servicetechniker',
+        gender: 'male',
+        personality: 'pragmatisch, ruhig, lösungsorientiert',
+        dialectHint: 'neutral',
+        storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; der Kunde wartet auf eine kurze Diagnose noch am selben Tag.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet die Werkstatt mit dem Wagen, danach geht es direkt zum Kunden. Wichtig ist, dass wir sauber und verlässlich ankommen.'
     }
 ];
 
@@ -8835,6 +8873,7 @@ function _pickNextCharterPersona() {
             gender: 'male',
             personality: 'ruhig, fokussiert, höflich',
             dialectHint: 'neutral',
+            storySeed: '{name} muss nach der Landung direkt weiter zu einem Kundentermin; am Zielplatz wartet bereits ein Shuttle des Auftraggebers.',
             greetingText: 'Hi, danke dir fürs Fliegen heute. Ich brauch einen ruhigen, sauberen Charterflug.'
         }];
     let idx = -1;
@@ -8845,18 +8884,142 @@ function _pickNextCharterPersona() {
     return { ...list[idx] };
 }
 
-function buildCharterPassenger(basePassenger = null) {
+function _charterNormalizeText(value = '') {
+    return String(value || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _charterRoleLooksGeneric(role = '') {
+    const s = _charterNormalizeText(role);
+    return !s || /^(passagier|passagierin|gast|chartergast|hauptgast|hauptpassagier|hauptpassagierin|begleitperson|geschaeftsreisender|geschaftsreisender|geschaeftsreisende|geschaftsreisende|reisender|reisende|kunde|kundin|pax)$/i.test(s);
+}
+
+function _charterNameLooksGeneric(name = '') {
+    const s = _charterNormalizeText(name);
+    return !s || /^(passagier|passagierin|gast|kunde|kundin|chartergast|pax|reisender|reisende)$/i.test(s);
+}
+
+function _charterTemplateContext(passenger = null, context = {}) {
+    const name = String(passenger?.name || '').trim() || 'unser Chartergast';
+    const firstName = name.split(/\s+/).filter(Boolean)[0] || name;
+    const role = String(passenger?.role || '').trim() || 'Chartergast';
+    const startName = String(context.startName || context.homeName || context.originName || 'Startplatz').trim() || 'Startplatz';
+    const targetName = String(context.targetName || context.destName || context.destinationName || 'Zielflugplatz').trim() || 'Zielflugplatz';
+    return { name, firstName, role, startName, targetName };
+}
+
+function _applyCharterTemplate(text = '', passenger = null, context = {}) {
+    const ctx = _charterTemplateContext(passenger, context);
+    return String(text || '')
+        .replace(/\{name\}/g, ctx.name)
+        .replace(/\{firstName\}/g, ctx.firstName)
+        .replace(/\{role\}/g, ctx.role)
+        .replace(/\{startName\}/g, ctx.startName)
+        .replace(/\{targetName\}/g, ctx.targetName)
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _charterFallbackStorySeed(passenger = null) {
+    const role = _charterNormalizeText(passenger?.role || '');
+    if (/anwalt|notar|jurist|recht/.test(role)) {
+        return '{name} muss am Zielort zu einem Termin mit festen Unterschriftszeiten; die Unterlagen liegen im Handgepäck.';
+    }
+    if (/event|messe|kongress|referent|vortrag/.test(role)) {
+        return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es direkt weiter zum Aufbau oder Vortrag.';
+    }
+    if (/projekt|berater|unternehmer|manager|architekt|kunde|service|techniker/.test(role)) {
+        return '{name} hat am Zielort einen klar getakteten Kundentermin; ein Shuttle wartet am Flugplatz auf die Weiterfahrt.';
+    }
+    return '{name} reist mit einem festen Anschluss am Zielort; am Flugplatz wartet bereits die Abholung für die Weiterreise.';
+}
+
+function _charterStoryLooksGeneric(story = '', passenger = null) {
+    const s = _charterNormalizeText(story);
+    if (!s) return true;
+    if (/geplanter charter-transfer|professionelle durchfuhrung|professionelle durchfuehrung|passagiere reisen|wegen passagiere|weitergabe der passagiere|begleitperson reist/.test(s)) return true;
+    const name = _charterNormalizeText(passenger?.name || '');
+    const role = _charterNormalizeText(passenger?.role || '');
+    const hasName = !!name && !/passagier|gast|kunde|pax/.test(name) && s.includes(name);
+    const hasRole = !!role && !_charterRoleLooksGeneric(role) && s.includes(role);
+    const hasPersonalHook = /(shuttle|anschluss|weiterreise|termin|kundentermin|notar|meeting|bauabnahme|vortrag|kongress|messe|event|veranstaltung|team|crew|familie|hochzeit|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber)/.test(s);
+    return !(hasName || hasRole) || !hasPersonalHook;
+}
+
+function _charterGreetingLooksGeneric(greeting = '', passenger = null, targetName = '') {
+    const s = _charterNormalizeText(greeting);
+    if (!s) return true;
+    if (/wegen passagiere|passagiere reisen|erfolgreiche und sichere landung|weitergabe der passagiere|professionelle durchfuhrung|professionelle durchfuehrung|der flug nach .* wurde angefragt|heute geht es wegen/.test(s)) return true;
+    const name = _charterNormalizeText(passenger?.name || '');
+    const firstName = _charterNormalizeText(String(passenger?.name || '').split(/\s+/)[0] || '');
+    const hasPerson = (!!firstName && s.includes(firstName)) || (!!name && s.includes(name));
+    const hasPersonalHook = /(shuttle|anschluss|weiterreise|termin|kundentermin|notar|meeting|vortrag|kongress|messe|event|veranstaltung|team|crew|familie|hochzeit|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber)/.test(s);
+    return !(hasPerson || hasPersonalHook);
+}
+
+function buildPersonalAptCharterStory(passenger = null, context = {}) {
+    const ctx = _charterTemplateContext(passenger, context);
+    const seed = _applyCharterTemplate(
+        passenger?.storySeed || passenger?.personalStoryCue || _charterFallbackStorySeed(passenger),
+        passenger,
+        context
+    );
+    const paxLabel = _charterRoleLooksGeneric(ctx.role) ? ctx.name : `${ctx.name}, ${ctx.role}`;
+    return _cleanupNarrativeArtifacts(`${paxLabel} reist heute von ${ctx.startName} nach ${ctx.targetName}. ${seed} Der Auftrag bleibt ein ruhiger A-B-Charter: saubere Flugführung, planbare Ankunft und ein kurzer Handoff am Zielflugplatz.`);
+}
+
+function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
+    const ctx = _charterTemplateContext(passenger, context);
+    const templated = _applyCharterTemplate(passenger?.greetingText || '', passenger, context);
+    if (templated && !_charterGreetingLooksGeneric(templated, passenger, ctx.targetName)) {
+        return _cleanupNarrativeArtifacts(templated);
+    }
+    return _cleanupNarrativeArtifacts(`Hi, ich bin ${ctx.firstName}. Am Ziel in ${ctx.targetName} wartet meine Abholung für den nächsten Termin; mir ist wichtig, dass wir ruhig und pünktlich landen.`);
+}
+
+function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
+    if (!mission || typeof mission !== 'object') return mission;
+    const m = { ...mission };
+    const passenger = buildCharterPassenger(m.passenger || null, preferredPersona);
+    const storyKey = Object.prototype.hasOwnProperty.call(m, 'story') ? 'story' : 's';
+    const titleKey = Object.prototype.hasOwnProperty.call(m, 'title') ? 'title' : 't';
+    const targetName = String(context.targetName || context.destName || m.targetName || m.destName || '').trim();
+    const existingStory = String(m[storyKey] || '').trim();
+    const storyContext = {
+        ...context,
+        targetName: targetName || context.targetName || context.destName
+    };
+    if (_charterStoryLooksGeneric(existingStory, passenger)) {
+        m[storyKey] = buildPersonalAptCharterStory(passenger, storyContext);
+    }
+    passenger.greetingText = buildPersonalAptCharterGreeting(passenger, storyContext);
+    m.passenger = passenger;
+    if (!String(m[titleKey] || '').trim()) {
+        m[titleKey] = targetName ? `Charter nach ${targetName}` : 'Persönlicher Charterflug';
+    }
+    return m;
+}
+
+function buildCharterPassenger(basePassenger = null, preferredPersona = null) {
     const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
-    const persona = _pickNextCharterPersona();
+    const persona = (preferredPersona && typeof preferredPersona === 'object')
+        ? { ...preferredPersona }
+        : _pickNextCharterPersona();
+    const baseName = String(base.name || '').trim();
+    const baseRole = String(base.role || '').trim();
     return {
         ...persona,
         ...base,
-        name: String(base.name || '').trim() || persona.name,
-        role: String(base.role || '').trim() || persona.role,
+        name: !_charterNameLooksGeneric(baseName) ? baseName : persona.name,
+        role: !_charterRoleLooksGeneric(baseRole) ? baseRole : persona.role,
         gender: (String(base.gender || '').toLowerCase() === 'female' || String(base.gender || '').toLowerCase() === 'male')
             ? String(base.gender || '').toLowerCase()
             : persona.gender,
         personality: String(base.personality || '').trim() || persona.personality,
+        storySeed: String(base.storySeed || base.personalStoryCue || persona.storySeed || '').trim(),
         greetingText: String(base.greetingText || '').trim() || persona.greetingText,
         dialectHint: 'neutral',
         gTolerance: String(base.gTolerance || 'mittel').toLowerCase(),
@@ -9900,7 +10063,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/aog|ersatzteil|fracht|transport|kurier|urgent mail|high priority courier|archive transport|art transfer|uhren|flower delivery|labor/);
     }
     if (id === 'animal_transport') {
-        return has(/hund|hunderettung|welpen|katze|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation|tier|tierarzt|horse vet|animal|tierrettung/);
+        return has(/(^|[^a-zäöüß])(animal|tier|tiertransport|tierrettung|tierarzt|hund|hunderettung|welpen|katze|ziege|reh|hirsch|möwe|moewe|gans|ente|enten|schwan|pferd|wildvogel|auffangstation|horse vet)(?=$|[^a-zäöüß])/);
     }
     if (id === 'news_coverage') {
         if (isPOI) return has(/report|medien|kamera|dreh|event|lage|dokument|live|beobacht/);
@@ -12468,7 +12631,17 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
     if (!basePlan || typeof basePlan !== 'object') return null;
     const src = raw && typeof raw === 'object' ? raw : {};
     const out = { ...basePlan };
-    ['roleLabel', 'expectedBy', 'visibleCue', 'narrativeHint'].forEach(key => {
+    const fallbackItems = Array.isArray(basePlan.items) ? basePlan.items : [];
+    const rawItems = Array.isArray(src.items) ? src.items : [];
+    const baseRoleSet = new Set([
+        ...(Array.isArray(basePlan.roles) ? basePlan.roles : []),
+        ...fallbackItems.map(item => item?.role)
+    ].map(role => scenePlannerV3CleanText(role, 60)).filter(Boolean));
+    const rawRoleSet = rawItems
+        .map(item => scenePlannerV3CleanText(item?.role || '', 60))
+        .filter(Boolean);
+    const rawFitsBaseRole = !rawRoleSet.length || rawRoleSet.every(role => baseRoleSet.has(role));
+    if (rawFitsBaseRole) ['roleLabel', 'expectedBy', 'visibleCue', 'narrativeHint'].forEach(key => {
         const value = scenePlannerV3CleanText(src[key], key === 'narrativeHint' ? 180 : 90);
         if (value) out[key] = value;
     });
@@ -12485,9 +12658,8 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         'cargo.medical_kit',
         'cargo.animal_transport_box'
     ]);
-    const rawItems = Array.isArray(src.items) ? src.items : [];
-    const fallbackItems = Array.isArray(basePlan.items) ? basePlan.items : [];
-    const items = (rawItems.length ? rawItems : fallbackItems)
+    const sourceItems = (rawFitsBaseRole && rawItems.length) ? rawItems : fallbackItems;
+    const items = sourceItems
         .map((item, index) => {
             const role = scenePlannerV3CleanText(item?.role || fallbackItems[index]?.role || '', 60);
             if (role && !allowedRoles.has(role)) return null;
@@ -17816,8 +17988,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Kurioses / Verrückter, aber friedlicher Privatflug"
         ],
         charter: [
-            "Business-Charter (Geschäftsmann/Geschäftsfrau rechtzeitig zu einem Termin fliegen)",
-            "Business-Charter (Alltäglicher Flug für einen Architekten, Anwalt oder Bauleiter)"
+            "Persönlicher Business-Charter mit konkretem Passagier, Anschluss, Shuttle oder Termin am Ziel",
+            "Charter-Transfer fuer Architekt, Anwalt, Eventkoordination oder Projektleitung mit nachvollziehbarem Weiterreisegrund",
+            "Ruhiger A-B-Charter, bei dem der Passagier nach der Landung direkt zu Team, Familie, Auftraggeber oder Veranstaltung weiter muss"
         ],
         cargo: [
             "Eilige, aber unspektakuläre Kleinfracht (Dokumente, Ersatzteile)",
@@ -17904,6 +18077,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const animalProfileRule = (forcedProfile?.id === 'animal_transport')
         ? `16b. TIERTRANSPORT-KONSISTENZ: Nenne eine konkrete Tierart statt generischem Haustier-Standard. Sichtbar spawnbar sind nur Piper-taugliche Katalogtiere: Ziege, Reh/junges Reh, Moewe, Gans. Ente/Schwan werden als heimischer Wasservogel auf Gans/Moewe oder als Transportbox umgesetzt. Schaf ist erlaubt, wird aber als Transportbox/Frachtobjekt umgesetzt. Pferd/Seeloewe niemals als lebendes Bordtier in der Piper; wenn so ein Thema vorkommt, dann nur als Vet-Einsatz, Dokumente oder geschlossene Uebergabekiste. Nicht vorhandene Tiere werden als Cargo-Objekt ersetzt: Cardboard oder Pallet01_03. Bei Ziege oder Schaf darf der Text die engen Bedingungen im Flieger leicht humorvoll erwaehnen. Pax bleibt Tierpfleger/Tierschutz-Kurier und der Flugauftrag bleibt stressarm und glaubhaft.`
         : '';
+    const aptCharterSeedPassenger = isAptCharterMission ? buildCharterPassenger(null) : null;
+    const aptCharterSeedStory = aptCharterSeedPassenger
+        ? _applyCharterTemplate(aptCharterSeedPassenger.storySeed || _charterFallbackStorySeed(aptCharterSeedPassenger), aptCharterSeedPassenger, { startName, targetName: destName })
+        : '';
+    const aptCharterSeedCue = aptCharterSeedPassenger
+        ? `${aptCharterSeedPassenger.name}, ${aptCharterSeedPassenger.role}. Anlass: ${aptCharterSeedStory}`
+        : '';
+    const aptCharterProfileRule = isAptCharterMission
+        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit kurzer Abholung bzw. Handoff am Zielflugplatz.`
+        : '';
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
         : '';
@@ -17932,7 +18115,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             normalized.targetDwellMin = 0;
         }
         if (isAptCharterMission) {
-            const charter = buildCharterPassenger(normalized);
+            const charter = buildCharterPassenger(normalized, aptCharterSeedPassenger);
             charter.trainingPlan = null;
             return charter;
         }
@@ -18091,8 +18274,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     };
     const enforceCharterPayload = (payload) => {
         if (!isAptCharterMission || !payload || typeof payload !== 'object') return payload;
-        const normalized = { ...payload };
-        normalized.passenger = buildCharterPassenger(normalized.passenger || null);
+        let normalized = { ...payload };
+        normalized.passenger = buildCharterPassenger(normalized.passenger || null, aptCharterSeedPassenger);
+        normalized = personalizeAptCharterMission(normalized, { startName, targetName: promptDestName }, aptCharterSeedPassenger);
         if (!normalized.pax || /^\s*0\s*PAX\b/i.test(String(normalized.pax))) {
             normalized.pax = `1 PAX (${normalized.passenger.role})`;
         }
@@ -18327,6 +18511,7 @@ ${forcedProfileConsistencyRule}
 ${forcedProfileOpsRule}
 ${medicalProfileRule}
 ${animalProfileRule}
+${aptCharterProfileRule}
 ${fireHazardRule}
 ${sceneIntentRule}
 </INSTRUKTIONEN>
@@ -20544,6 +20729,17 @@ async function generateMission(options = {}) {
                     }
                 }
             }
+        }
+        const finalAptCat = (!isPOI && m && typeof m === 'object') ? classifyAptMissionCategory(m || {}) : '';
+        if (!isPOI && m && typeof m === 'object' && (m.cat === 'charter' || finalAptCat === 'charter' || selectedAptCategory === 'charter')) {
+            m = personalizeAptCharterMission(m, {
+                startName: start?.n || currentStartICAO || 'Startplatz',
+                targetName: dest?.n || currentDestICAO || 'Zielflugplatz'
+            });
+            if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
+                paxText = `1 PAX (${m.passenger.role})`;
+            }
+            if (m.pax) paxText = m.pax;
         }
         if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
         if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";

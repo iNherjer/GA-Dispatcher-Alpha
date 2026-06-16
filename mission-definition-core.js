@@ -1049,6 +1049,18 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
                 narrativeHint: `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
             };
         }
+        if (/charter|business|vip/.test(planTask)) {
+            return {
+                role: 'charter_pickup',
+                roleLabel: 'Charter-Abholung',
+                expectedBy: 'Shuttle oder lokaler Empfangskontakt',
+                visibleCue: 'kleines Shuttle- oder Abholfahrzeug',
+                vehicleRole: 'vehicle.car',
+                personRole: 'person.ground_crew',
+                equipmentRole: '',
+                narrativeHint: 'Am Ziel wartet die vorbereitete Abholung fuer den Chartergast an einem sicheren Vorfeldbereich.'
+            };
+        }
         if (/media|news/.test(planTask)) {
             return {
                 role: 'media_pickup',
@@ -1127,7 +1139,7 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             narrativeHint: 'Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.'
         };
     }
-    if (/animal|tier|veterinaer|tierschutz|transportbox|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation/.test(text)) {
+    if (/(^|[^a-zäöüß])(animal|animal_transport|tier|tiertransport|veterinaer|tierschutz|transportbox|ziege|reh|hirsch|möwe|moewe|gans|ente|enten|schwan|pferd|wildvogel|auffangstation)(?=$|[^a-zäöüß])/.test(text)) {
         const animalSpec = pickAnimalTransportSceneSpec(text);
         const handoffLabel = animalTransportBoxLabel(animalSpec);
         return {
@@ -1140,6 +1152,18 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             equipmentRole: 'cargo.animal_transport_box',
             animalSpec,
             narrativeHint: `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
+        };
+    }
+    if (/charter|business|vip|kundentermin|notartermin|projektleiter|unternehmensberater|rechtsanwalt|eventkoordinator|kongressreferent|servicetechniker/.test(text)) {
+        return {
+            role: 'charter_pickup',
+            roleLabel: 'Charter-Abholung',
+            expectedBy: 'Shuttle oder lokaler Empfangskontakt',
+            visibleCue: 'kleines Shuttle- oder Abholfahrzeug',
+            vehicleRole: 'vehicle.car',
+            personRole: 'person.ground_crew',
+            equipmentRole: '',
+            narrativeHint: 'Am Ziel wartet die vorbereitete Abholung fuer den Chartergast an einem sicheren Vorfeldbereich.'
         };
     }
     if (/news|report|presse|tv|kamera|live/.test(text)) {
