@@ -7425,6 +7425,9 @@ function _updateMissionRuntimeUi() {
     const deferredPickupStart = !missionRuntime.active
         && typeof _missionBushIsPickupMission === 'function'
         && _missionBushIsPickupMission();
+    const isAptCharterPickup = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup';
+    const pickupPlaceLabel = isAptCharterPickup ? 'Zielplatz' : 'Zielstrip';
+    const pickupLegLabel = isAptCharterPickup ? 'Charter-Pickup' : 'Pickup-Strip';
     const st = document.getElementById('missionRuntimeStatus');
     const detailEl = document.getElementById('missionRuntimeDetail');
     const nextStepEl = document.getElementById('missionRuntimeNextStep');
