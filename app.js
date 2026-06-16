@@ -16381,10 +16381,14 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         const followKind = String(followUpContext.followUpKind || '').toLowerCase();
         routeRules.push(followKind === 'bush_supply_strip'
             ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Recon-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, storyFrame, serviceRun und missionVarietyBrief aufbauen.'
-            : 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
+            : (followKind === 'bush_charter_strip'
+                ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Recon-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, technicianPlan, storyFrame und missionVarietyBrief aufbauen.'
+                : 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.'));
         realismTargets.unshift(followKind === 'bush_supply_strip'
             ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Recon-Fortsetzung mit demselben Zielstrip, konkretem Servicepaket und glaubwürdigem Handoff.'
-            : 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
+            : (followKind === 'bush_charter_strip'
+                ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Recon-Fortsetzung mit demselben Zielstrip, konkretem Techniker, Kit und Dropoff-Handoff.'
+                : 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.'));
         if (followUpContext.temporalContext?.stayText) {
             routeRules.push(`Follow-up-Zeitkontext: Zwischen Ursprungsflug und Anfrage liegen ${followUpContext.temporalContext.stayText}; nutze das als natürlichen Aufenthalts- oder Wartezeitraum, nicht als Systemfeld.`);
             realismTargets.unshift('Die Zeit zwischen den Flügen soll als glaubwürdige Tätigkeit, Aufenthalt oder Rückfracht-Vorbereitung spürbar werden.');
@@ -16393,7 +16397,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             const followRoute = followUpContext.route && typeof followUpContext.route === 'object' ? followUpContext.route : {};
             routeRules.push(followKind === 'bush_supply_strip'
                 ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Serviceziel ist ${followRoute.targetName || 'der Zielstrip'}; der Auftrag endet nach Landung, Abladen und Handoff am Zielstrip, nicht an der ursprünglichen Basis.`
-                : `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`);
+                : (followKind === 'bush_charter_strip'
+                    ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Techniker-Ziel ist ${followRoute.targetName || 'der Zielstrip'}; der Auftrag endet nach Landung und Dropoff am Zielstrip, nicht an der ursprünglichen Basis.`
+                    : `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`));
         }
     }
     if (profileId === 'bush_supply_strip') {
@@ -20553,6 +20559,37 @@ async function generateMission(options = {}) {
                 m.cargoText = serviceCargoText;
                 if (!m.cat || m.cat === 'generic') m.cat = 'bush_supply';
             }
+            if (followupSeed && String(followupSeed.followUpKind || '').toLowerCase() === 'bush_charter_strip' && m && typeof m === 'object') {
+                const technician = followupSeed.passenger
+                    || followupSeed.technicianPlan?.passenger
+                    || followupSeed.narrativeMemory?.technicianPlan?.passenger
+                    || m.passenger
+                    || null;
+                const lockedTechnician = technician && typeof technician === 'object'
+                    ? {
+                        ...technician,
+                        roleProfile: 'bush_charter_guest_v1',
+                        taskDomain: 'charter'
+                    }
+                    : null;
+                const techKitText = followupSeed.technicianPlan?.kitLabel
+                    || followupSeed.narrativeMemory?.technicianPlan?.kitLabel
+                    || followupSeed.serviceRun?.label
+                    || followupSeed.narrativeMemory?.serviceRun?.label
+                    || m.cargo
+                    || m.cargoText
+                    || 'Techniker-Kit';
+                if (lockedTechnician) {
+                    m.passenger = lockedTechnician;
+                    paxText = lockedTechnician.role ? `1 PAX (${lockedTechnician.role})` : '1 PAX';
+                    m.pax = paxText;
+                    m.paxText = paxText;
+                }
+                cargoText = techKitText;
+                m.cargo = techKitText;
+                m.cargoText = techKitText;
+                if (!m.cat || m.cat === 'generic') m.cat = 'charter';
+            }
             const bushProfileId = String(dispatchProfileId || m?._appliedProfile || '').toLowerCase();
             const pickupKindBeforeHydrate = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
             const targetModeBeforeHydrate = String(dispatchBushSpec?.targetMode || '').toLowerCase();
@@ -21081,6 +21118,20 @@ async function generateMission(options = {}) {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
     }
+    if (typeof window.missionFollowupEnsureBushReconOutcome === 'function') {
+        try {
+            const reconOutcome = window.missionFollowupEnsureBushReconOutcome(currentMissionData);
+            if (reconOutcome && m && typeof m === 'object') {
+                m.bushReconOutcome = reconOutcome;
+                m.hiddenMissionOutcome = {
+                    ...(m.hiddenMissionOutcome && typeof m.hiddenMissionOutcome === 'object' ? m.hiddenMissionOutcome : {}),
+                    bushReconOutcome: reconOutcome
+                };
+            }
+        } catch (err) {
+            console.warn('[FollowUp] Recon outcome konnte nicht vorbereitet werden:', err?.message || err);
+        }
+    }
     if (!followupSeed && typeof window.missionFollowupBuildProspectForMission === 'function') {
         const followUpProspect = window.missionFollowupBuildProspectForMission(currentMissionData);
         if (followUpProspect) {
@@ -21308,6 +21359,13 @@ async function generateMission(options = {}) {
                 || activeMissionContract?.missionContractV4?.missionVarietyBrief?.variety
                 || activeMissionContract?.missionContractV4?.variety
                 || null,
+            bushReconOutcome: currentMissionData.bushReconOutcome ? {
+                outcome: currentMissionData.bushReconOutcome.outcome || currentMissionData.bushReconOutcome.type || null,
+                label: currentMissionData.bushReconOutcome.label || null,
+                followUpKind: currentMissionData.bushReconOutcome.followUpKind || null,
+                followUpLabel: currentMissionData.bushReconOutcome.followUpLabel || null,
+                hiddenFromWriter: currentMissionData.bushReconOutcome.hiddenFromWriter === true
+            } : null,
             dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,

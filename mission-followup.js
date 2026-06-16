@@ -9,6 +9,9 @@
     const MAX_PENDING = 20;
     const MAX_TOTAL_FOR_SYNC = 36;
     const STATUS_RANK = { pending: 1, expired: 2, accepted: 3, dismissed: 3 };
+    const BUSH_RECON_OUTCOME_SCHEMA = 'ga.bushReconOutcome.v1';
+    const BUSH_RECON_OUTCOME_TYPES = new Set(['all_clear', 'monitor_only', 'minor_service', 'technician_needed']);
+    const MAX_CHAIN_DEPTH = 2;
     const SOURCE_MAP = {
         bush_charter_strip: {
             followUpKind: 'bush_pickup_strip',
@@ -203,7 +206,7 @@
         }
         if (source === 'bush_recon_return') {
             const waitText = stayPeriodText(stayDays, source).replace(/\s+nach dem Recon$/i, '');
-            return `Nach dem Rückbericht wertet die Basis den Recon ${waitText || text} aus und kann daraus einen kleinen Serviceflug zum Zielstrip planen.`;
+            return `Nach dem Rückbericht wertet die Basis den Recon ${waitText || text} aus; falls dabei Nacharbeit am Zielstrip entsteht, meldet sie sich mit einem passenden Folgeauftrag.`;
         }
         return `${name || 'Der Gast'} bleibt voraussichtlich ${text} am Zielstrip und kann beim Abschied erwähnen, dass eine spätere Rückholung gut passen würde.`;
     }
@@ -392,10 +395,11 @@
         if (!req || !homeRef?.icao || !targetRef?.icao || !resolvedStartRef?.icao) return null;
         const followUpKind = String(req.followUpKind || '').toLowerCase();
         const isServiceRun = followUpKind === 'bush_supply_strip';
+        const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
         const sameHome = refsSameAirport(resolvedStartRef, homeRef);
         const sameTarget = refsSameAirport(resolvedStartRef, targetRef);
-        if (isServiceRun && sameTarget && !sameHome) return null;
-        const onsite = !isServiceRun && sameTarget && !sameHome;
+        if (isOutboundRun && sameTarget && !sameHome) return null;
+        const onsite = !isOutboundRun && sameTarget && !sameHome;
         const mode = onsite
             ? 'onsite_to_home'
             : (sameHome ? 'pickup_from_home' : 'pickup_from_third_place');
@@ -419,7 +423,7 @@
         if (existing?.mode && existing?.startRef && existing?.targetRef && existing?.returnHomeRef) {
             const followUpKind = String(req?.followUpKind || '').toLowerCase();
             if (
-                followUpKind === 'bush_supply_strip'
+                (followUpKind === 'bush_supply_strip' || followUpKind === 'bush_charter_strip')
                 && refsSameAirport(existing.startRef, existing.targetRef)
                 && !refsSameAirport(existing.startRef, existing.returnHomeRef)
             ) return null;
@@ -483,7 +487,9 @@
         const homeRef = normalizeRef(req?.route?.homeRef);
         const targetRef = normalizeRef(req?.route?.targetRef);
         const lastRef = getLastLandingRef();
-        const isServiceRun = String(req?.followUpKind || '').toLowerCase() === 'bush_supply_strip';
+        const followUpKind = String(req?.followUpKind || '').toLowerCase();
+        const isServiceRun = followUpKind === 'bush_supply_strip';
+        const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
         const defaultRef = lastRef?.icao ? lastRef : homeRef;
         const defaultIcao = String(defaultRef?.icao || homeRef?.icao || '').trim().toUpperCase();
         const overlay = ensureStartDialog();
@@ -498,11 +504,11 @@
         const optionDefs = [
             {
                 id: 'home',
-                title: isServiceRun ? 'Servicepaket an der Basis laden' : 'Wieder an der Basis',
+                title: isServiceRun ? 'Servicepaket an der Basis laden' : (isOutboundRun ? 'Person an der Basis aufnehmen' : 'Wieder an der Basis'),
                 text: followupPlaceLabel(homeRef, 'Ursprungsbasis'),
                 ref: homeRef
             },
-            !isServiceRun ? {
+            !isOutboundRun ? {
                 id: 'target',
                 title: 'Noch am Zielstrip',
                 text: followupPlaceLabel(targetRef, 'Zielstrip'),
@@ -518,11 +524,13 @@
 
         const defaultMatchesTarget = refsSameAirport(defaultRef, targetRef);
         const defaultMatchesHome = refsSameAirport(defaultRef, homeRef);
-        selected = (!isServiceRun && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
+        selected = (!isOutboundRun && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
         if (summary) {
             summary.textContent = isServiceRun
                 ? `Serviceziel: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Materialbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
-                : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, 'Zielstrip')}`;
+                : (isOutboundRun
+                    ? `Einsatzort: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Ausgangsbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
+                    : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, 'Zielstrip')}`);
         }
         if (options) {
             options.innerHTML = '';
@@ -608,12 +616,16 @@
                     }
                     return;
                 }
-                if (isServiceRun && refsSameAirport(ref, targetRef)) {
+                if (isOutboundRun && refsSameAirport(ref, targetRef)) {
                     if (error) {
-                        error.textContent = 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.';
+                        error.textContent = isServiceRun
+                            ? 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'
+                            : 'Dieser Anschlussflug bringt die Person zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.';
                         error.hidden = false;
                     } else {
-                        alert('Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.');
+                        alert(isServiceRun
+                            ? 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'
+                            : 'Dieser Anschlussflug bringt die Person zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.');
                     }
                     return;
                 }
@@ -857,6 +869,223 @@
         });
     }
 
+    function seededUnit(text = '') {
+        const hash = stableHash(text || 'recon');
+        const n = parseInt(hash.slice(-6), 36);
+        return Number.isFinite(n) ? (n % 10000) / 10000 : Math.random();
+    }
+
+    function isBushReconMission(md = null) {
+        return getProfileId(md) === 'bush_recon_return';
+    }
+
+    function normalizeReconOutcomeType(value = '') {
+        const s = String(value || '').trim().toLowerCase();
+        return BUSH_RECON_OUTCOME_TYPES.has(s) ? s : '';
+    }
+
+    function buildReconTechnicianPlan(md = null, targetRef = null) {
+        const targetName = targetRef?.name || targetRef?.icao || 'Zielstrip';
+        const serviceRun = buildReconServicePlan(md, targetRef);
+        const people = [
+            { name: 'Mara Keller', role: 'Instandhaltungstechnikerin', gender: 'female' },
+            { name: 'Jonas Reiter', role: 'Field-Service-Techniker', gender: 'male' },
+            { name: 'Nora Stein', role: 'Backcountry-Wartungstechnikerin', gender: 'female' },
+            { name: 'Levi Brandt', role: 'Strip-Maintenance-Spezialist', gender: 'male' }
+        ];
+        const key = [
+            md?.missionId,
+            md?.missionKey,
+            md?.mission,
+            targetRef?.icao,
+            targetName
+        ].filter(Boolean).join('|');
+        const pick = people[Math.floor(seededUnit(`${key}|technician`) * people.length)] || people[0];
+        const kitItems = serviceRun.kitItems || 'Werkzeugtasche, Markierband und Recon-Befund';
+        const kitLabel = `Techniker-Kit ${targetName}: ${kitItems} (${Math.max(35, Number(serviceRun.weightLbs || 42) + 18)} lbs)`;
+        return {
+            passenger: {
+                name: pick.name,
+                role: pick.role,
+                gender: pick.gender,
+                roleProfile: 'bush_charter_guest_v1',
+                taskDomain: 'charter',
+                gTolerance: 'mittel',
+                bankTolerance: 'mittel',
+                cargoSensitivity: 'hoch',
+                stomachSensitivity: 'mittel',
+                comfortPriority: 'mittel',
+                urgencyPriority: 'mittel',
+                greetingText: `Ich habe das Recon-Protokoll und das Techniker-Kit dabei. Am Strip schaue ich mir den Befund am Boden an und melde danach, ob der Platz wieder sauber freigegeben werden kann.`
+            },
+            kitLabel,
+            kitItems,
+            serviceTask: serviceRun.serviceTask,
+            observedIssue: serviceRun.observedIssue,
+            reason: serviceRun.reason,
+            workSummary: `Der Recon-Befund an ${targetName} braucht nicht nur ein Paket, sondern eine kurze Prüfung durch ${pick.role} am Boden.`,
+            pickupSummary: `${pick.name} soll nach der Arbeit am Strip mit Befundnotizen und Werkzeugtasche wieder zur Basis zurück.`
+        };
+    }
+
+    function chooseBushReconOutcome(md = null, targetRef = null) {
+        const forced = normalizeReconOutcomeType(
+            md?.bushReconOutcome?.outcome
+            || md?.bushReconOutcome?.type
+            || (typeof window !== 'undefined' ? window.gaDebugBushReconOutcomeOverride : '')
+        );
+        if (forced) return forced;
+        const bush = md?.bush || md?.missionContract?.bush || {};
+        const hay = cleanText([
+            bush?.reconFocus,
+            bush?.reconFocusLabel,
+            md?.mission,
+            sourceStoryText(md)
+        ].filter(Boolean).join(' '), 2200).toLowerCase();
+        const key = [
+            md?.missionId,
+            md?.missionKey,
+            md?.mission,
+            targetRef?.icao,
+            targetRef?.name,
+            hay
+        ].filter(Boolean).join('|');
+        let roll = seededUnit(key || String(nowMs()));
+        let weights = [
+            ['all_clear', 0.30],
+            ['monitor_only', 0.18],
+            ['minor_service', 0.38],
+            ['technician_needed', 0.14]
+        ];
+        if (/schaden|damage|bruch|block|hindernis|baum|zaun|unterspuel|unterspül|weich|ausfall|defekt/.test(hay)) {
+            weights = [
+                ['all_clear', 0.18],
+                ['monitor_only', 0.16],
+                ['minor_service', 0.42],
+                ['technician_needed', 0.24]
+            ];
+        } else if (/saison|opening|sicht|marker|windsack|meld|beobacht|rauch|fire/.test(hay)) {
+            weights = [
+                ['all_clear', 0.30],
+                ['monitor_only', 0.24],
+                ['minor_service', 0.34],
+                ['technician_needed', 0.12]
+            ];
+        }
+        for (const [type, weight] of weights) {
+            roll -= weight;
+            if (roll <= 0) return type;
+        }
+        return 'minor_service';
+    }
+
+    function normalizeBushReconOutcome(raw = null, md = null, targetRef = null, options = {}) {
+        if (!isBushReconMission(md) && !raw && !options.force) return null;
+        const target = normalizeRef(targetRef || md?.bush?.targetRef || md?.missionContract?.bush?.targetRef || null);
+        const outcome = normalizeReconOutcomeType(options.outcome || raw?.outcome || raw?.type) || chooseBushReconOutcome(md, target);
+        const serviceRun = (raw?.serviceRun && typeof raw.serviceRun === 'object')
+            ? buildServiceRunCargo({ serviceRun: raw.serviceRun }, target)
+            : buildReconServicePlan(md, target);
+        const technicianPlan = (raw?.technicianPlan && typeof raw.technicianPlan === 'object')
+            ? raw.technicianPlan
+            : buildReconTechnicianPlan(md, target);
+        const followUpKind = outcome === 'minor_service'
+            ? 'bush_supply_strip'
+            : (outcome === 'technician_needed' ? 'bush_charter_strip' : 'none');
+        const followUpLabel = outcome === 'minor_service'
+            ? 'Bush Service Run'
+            : (outcome === 'technician_needed' ? 'Bush Technician Dropoff' : '');
+        const label = outcome === 'all_clear'
+            ? 'Recon unauffällig'
+            : (outcome === 'monitor_only'
+                ? 'Weiter beobachten'
+                : (outcome === 'technician_needed' ? 'Techniker nötig' : 'Kleiner Servicebedarf'));
+        const resultText = outcome === 'all_clear'
+            ? `Der Überflug hat keine blockierende Auffälligkeit am ${target?.name || target?.icao || 'Zielstrip'} ergeben; die Basis dokumentiert den Strip als nutzbar.`
+            : (outcome === 'monitor_only'
+                ? `Am ${target?.name || target?.icao || 'Zielstrip'} gab es nur einen unsicheren Hinweis, den die Basis weiter beobachtet; heute wird noch kein Folgeflug angesetzt.`
+                : (outcome === 'technician_needed'
+                    ? `${technicianPlan.workSummary} Die Basis plant dafür einen Techniker-Dropoff statt nur eines Materialpakets.`
+                    : `${serviceRun.observedIssue} Daraus wird ein gezielter kleiner Service Run vorbereitet.`));
+        return {
+            ...(raw && typeof raw === 'object' ? raw : {}),
+            schema: BUSH_RECON_OUTCOME_SCHEMA,
+            outcome,
+            type: outcome,
+            label,
+            followUpKind,
+            followUpLabel,
+            resultText: cleanText(resultText, 520),
+            serviceRun: outcome === 'minor_service' ? serviceRun : null,
+            technicianPlan: outcome === 'technician_needed' ? technicianPlan : null,
+            revealAfter: 'inspection_complete',
+            hiddenFromWriter: true,
+            createdAt: Number(raw?.createdAt || options.createdAt || nowMs())
+        };
+    }
+
+    function ensureBushReconOutcome(md = null, options = {}) {
+        if (!md || typeof md !== 'object' || !isBushReconMission(md)) return null;
+        const targetRef = normalizeRef(md?.bush?.targetRef || md?.missionContract?.bush?.targetRef || null);
+        const existing = (md.bushReconOutcome && typeof md.bushReconOutcome === 'object')
+            ? md.bushReconOutcome
+            : null;
+        const normalized = normalizeBushReconOutcome(existing, md, targetRef, {
+            outcome: options.outcome,
+            force: true,
+            createdAt: existing?.createdAt || options.createdAt
+        });
+        if (normalized) {
+            md.bushReconOutcome = normalized;
+            md.hiddenMissionOutcome = {
+                ...(md.hiddenMissionOutcome && typeof md.hiddenMissionOutcome === 'object' ? md.hiddenMissionOutcome : {}),
+                bushReconOutcome: normalized
+            };
+        }
+        return normalized;
+    }
+
+    function buildAllowedChainConfig(md = null, cargoOutcome = null) {
+        if (!md || typeof md !== 'object') return null;
+        const cont = md.followUpContinuation && typeof md.followUpContinuation === 'object'
+            ? md.followUpContinuation
+            : null;
+        if (!cont) return null;
+        const chain = cont.chain && typeof cont.chain === 'object' ? cont.chain : null;
+        const sourceKind = String(cont.sourceKind || chain?.rootSourceKind || '').toLowerCase();
+        const currentStep = String(cont.chainStep || chain?.step || '').toLowerCase();
+        const currentFollowUpKind = String(cont.followUpKind || '').toLowerCase();
+        const depth = Math.max(0, Math.round(Number(chain?.depth || 0)));
+        if (
+            sourceKind !== 'bush_recon_return'
+            || currentFollowUpKind !== 'bush_charter_strip'
+            || currentStep !== 'technician_dropoff'
+            || depth >= MAX_CHAIN_DEPTH
+        ) return null;
+        if (cargoOutcome && cargoOutcome.failed === true) return null;
+        if (md.missionFailed === true || String(md.missionResult || '').toLowerCase() === 'failed') return null;
+        const passenger = extractPassenger(md);
+        const nextTemporalContext = buildTemporalContext('bush_charter_strip', { passenger });
+        return {
+            followUpKind: 'bush_pickup_strip',
+            sourceKind: 'bush_charter_strip',
+            sourceLabel: 'Bush Technician Dropoff',
+            followUpLabel: 'Bush Technician Pickup',
+            passenger,
+            temporalContext: nextTemporalContext,
+            chain: {
+                schema: 'ga.followup.chain.v1',
+                id: cleanText(chain?.id || cont.requestId || md.followUpRequestId || md.missionId || `chain_${stableHash(md.missionKey || md.missionId || '')}`, 120),
+                rootSourceKind: 'bush_recon_return',
+                parentRequestId: cleanText(cont.requestId || md.followUpRequestId || '', 120),
+                step: 'technician_pickup',
+                previousStep: currentStep,
+                depth: depth + 1,
+                terminal: true
+            }
+        };
+    }
+
     function buildNarrativeMemory(sourceKind, md, passenger, homeRef, targetRef) {
         const story = sourceStoryText(md);
         const cargo = cleanText(md?.cargoText || md?.initialCargoText || document.getElementById('mWeight')?.innerText || '', 260);
@@ -875,6 +1104,26 @@
         if (sourceKind === 'bush_charter_strip') {
             const name = passenger?.name || 'der Chartergast';
             const role = passenger?.role || 'Bush-Teamgast';
+            const cont = md?.followUpContinuation && typeof md.followUpContinuation === 'object' ? md.followUpContinuation : null;
+            const isTechnicianDropoff = String(cont?.chainStep || cont?.chain?.step || '').toLowerCase() === 'technician_dropoff'
+                || /techniker|instandhaltung|maintenance|service-techn/i.test(`${role} ${story}`);
+            if (isTechnicianDropoff) {
+                const serviceRun = md?.followUpContinuation?.narrativeMemory?.serviceRun
+                    || md?.followUpContext?.serviceRun
+                    || buildReconServicePlan(md, targetRef);
+                return {
+                    ...commonMemory,
+                    serviceRun,
+                    outboundPurpose: story || `${name}, ${role}, wurde nach dem Recon von ${homeName} nach ${targetName} gebracht, um den Befund am Boden zu prüfen.`,
+                    stayOrWorkSummary: `${name} hat ${stayPeriod || 'die Zeit am Strip'} genutzt, um den Recon-Befund am Boden abzugleichen, Markierungen zu prüfen und Notizen für die Basis zu machen.`,
+                    whyNowReturn: `${stayDonePrefix}die Bodenprüfung ist abgeschlossen, Werkzeug und Befundnotizen sind gepackt, und die Basis braucht den Rückbericht für die Freigabeentscheidung.`,
+                    returnReason: 'Rückkehr zur Basis mit Befundnotizen, Werkzeugtasche und klarer Empfehlung für den Zielstrip.',
+                    teamContinuity: `Der Pickup schließt die Recon-Kette ab: erst Überflug, dann Techniker am Boden, jetzt Rückbericht zurück zur Basis.`,
+                    pickupGreetingText: `${name || 'Ich'} bin am Strip fertig. Ich habe den Befund am Boden abgeglichen, die Notizen sind gepackt und ich muss mit der Empfehlung zurück zur Basis.`,
+                    sourcePaxText: pax,
+                    sourceCargoText: cargo || serviceRun.label
+                };
+            }
             return {
                 ...commonMemory,
                 outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} gebracht.`,
@@ -903,10 +1152,31 @@
             };
         }
         if (sourceKind === 'bush_recon_return') {
-            const serviceRun = buildReconServicePlan(md, targetRef);
+            const reconOutcome = ensureBushReconOutcome(md);
+            const serviceRun = reconOutcome?.serviceRun || buildReconServicePlan(md, targetRef);
+            const technicianPlan = reconOutcome?.technicianPlan || null;
             const waitText = stayPeriod || 'nach der Auswertung';
+            if (reconOutcome?.outcome === 'technician_needed') {
+                return {
+                    ...commonMemory,
+                    reconOutcome,
+                    serviceRun,
+                    technicianPlan,
+                    outboundPurpose: story || `Beim Recon von ${homeName} zum Zielgebiet bei ${targetName} wurde der Strip ohne geplante Landung aus der Luft geprüft.`,
+                    stayOrWorkSummary: `Die Basis hat den Recon ${waitText} ausgewertet: ${reconOutcome.resultText || technicianPlan?.workSummary || serviceRun.observedIssue}`,
+                    whyNowReturn: `Aus dem Rückbericht ist ein Techniker-Dropoff entstanden. ${technicianPlan?.reason || serviceRun.reason}`,
+                    returnReason: technicianPlan?.reason || serviceRun.reason,
+                    teamContinuity: `Der zweite Flug knüpft direkt an den Recon an: erst Befund aus der Luft, jetzt ein Techniker am Boden.`,
+                    serviceTask: technicianPlan?.serviceTask || serviceRun.serviceTask,
+                    serviceHandoff: `${technicianPlan?.passenger?.name || 'Der Techniker'} bleibt nach der Landung am Strip und meldet sich nach der Bodenarbeit für die Rückholung.`,
+                    technicianPlan,
+                    sourcePaxText: pax,
+                    sourceCargoText: cargo || technicianPlan?.kitLabel || serviceRun.label
+                };
+            }
             return {
                 ...commonMemory,
+                reconOutcome,
                 serviceRun,
                 outboundPurpose: story || `Beim Recon von ${homeName} zum Zielgebiet bei ${targetName} wurde der Strip ohne geplante Landung aus der Luft geprüft.`,
                 stayOrWorkSummary: `Die Basis hat den Recon ${waitText} ausgewertet: ${serviceRun.observedIssue}`,
@@ -1140,6 +1410,94 @@
                 }
             };
         }
+        if (followUpKind === 'bush_charter_strip') {
+            const technicianPlan = req.technicianPlan || memory.technicianPlan || {};
+            const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, acceptance?.targetRef || req.route?.targetRef);
+            const passenger = {
+                ...(req.passenger || technicianPlan.passenger || {}),
+                name: cleanText(req.passenger?.name || technicianPlan.passenger?.name || 'Service-Techniker', 80),
+                role: cleanText(req.passenger?.role || technicianPlan.passenger?.role || 'Instandhaltungstechniker', 120),
+                gender: cleanText(req.passenger?.gender || technicianPlan.passenger?.gender || '', 30),
+                roleProfile: 'bush_charter_guest_v1',
+                taskDomain: 'charter'
+            };
+            const name = passenger.name || 'der Techniker';
+            const role = passenger.role || 'Instandhaltungstechniker';
+            const kit = displayText(req.technicianPlan?.kitLabel || technicianPlan.kitLabel || req.serviceRun?.label || serviceRun.label || `Techniker-Kit ${targetName}`);
+            const observedIssue = displayText(req.reconOutcome?.resultText || technicianPlan.observedIssue || serviceRun.observedIssue || `Der Recon über ${targetName} hat einen Befund ergeben, der am Boden geprüft werden muss.`);
+            const serviceTask = displayText(technicianPlan.serviceTask || serviceRun.serviceTask || 'Der Befund soll am Strip geprüft, markiert und für die Basis bewertet werden.');
+            const whyNow = displayText(memory.whyNowReturn || req.reconOutcome?.resultText || `Aus dem Recon-Befund ist ein kurzer Techniker-Dropoff entstanden. ${serviceRun.reason || ''}`);
+            const departureNote = acceptanceMode === 'pickup_from_third_place'
+                ? `Start ist ${departureName}; ${name} und ${kit} sind dort für den Weiterflug zum Zielstrip bereit.`
+                : `Start ist ${departureName}; ${name} steigt dort mit ${kit} ein.`;
+            return {
+                schema: 'ga.followup.pipelineContext.v1',
+                requestId: req.id || null,
+                sourceKind: req.sourceKind || null,
+                followUpKind,
+                effectiveProfileId,
+                acceptanceMode,
+                sourceLabel: req.sourceLabel || '',
+                followUpLabel: req.followUpLabel || '',
+                pilotStartPolicy: acceptanceMode,
+                route: {
+                    departureName,
+                    homeName,
+                    targetName,
+                    startRef: acceptance?.startRef || null,
+                    returnHomeRef: acceptance?.returnHomeRef || null,
+                    targetRef: acceptance?.targetRef || null
+                },
+                sourceMission: {
+                    title: displayText(req.source?.title || ''),
+                    story: sourceStory
+                },
+                temporalContext,
+                reconOutcome: req.reconOutcome || memory.reconOutcome || null,
+                serviceRun,
+                technicianPlan,
+                lockedPassenger: passenger,
+                storyFrame: {
+                    trigger: `Beim letzten Bush Recon über ${targetName} wurde ein Befund gemeldet; jetzt soll ${name}, ${role}, mit ${kit} zum Strip.`,
+                    focusSubject: `${name}, ${role}, Techniker-Dropoff am ${targetName}`,
+                    keyQuestion: `Welcher Recon-Befund am ${targetName} am Boden geprüft werden muss und warum dafür eine Person statt nur ein Paket rausgeht.`,
+                    stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen Bush Recon an.`,
+                    completionSignal: `Nach der Landung am ${targetName} bleibt ${name} vor Ort, prüft den Befund und meldet später die Rückholung an.`,
+                    subjectDetail: `${observedIssue} ${serviceTask}`,
+                    incidentContext: memory.stayOrWorkSummary || observedIssue,
+                    temporalHint,
+                    whyNow,
+                    soughtOutcome: `${departureNote} Danach nach ${targetName} fliegen, ${name} am Strip absetzen und das Techniker-Kit übergeben.`
+                },
+                missionVarietyBrief: {
+                    purpose: 'Fortsetzung eines Bush-Recon-Flugs. Der erste Auftrag war ein Luft-Recon ohne geplante Landung; der Follow-up ist ein normaler Bush-Charter/Techniker-Dropoff mit Landung am Zielstrip.',
+                    recipe: `${departureNote} Flug nach ${targetName}, landen, ${name} und ${kit} am Strip absetzen; kein Pickup und keine Rückholfracht in diesem Leg.`,
+                    coreQuestions: [
+                        `Welcher konkrete Befund aus dem Recon über ${targetName} macht eine Bodenprüfung nötig?`,
+                        `Was bringt ${name} mit ${kit} für die Arbeit am Strip mit?`,
+                        `Was soll ${name} nach der Landung prüfen oder markieren?`,
+                        'Wie bleibt der Auftrag ein normaler Charter-Dropoff ohne Pickup- oder Rückflug-zur-Basis-Logik?'
+                    ],
+                    candidateShortlist: [{
+                        id: 'followup_recon_technician_dropoff',
+                        roleIdeas: [role],
+                        taskIdeas: [observedIssue, serviceTask],
+                        objectIdeas: [kit, technicianPlan.kitItems || serviceRun.kitItems || 'Techniker-Kit'],
+                        returnDrivers: [serviceRun.reason || whyNow],
+                        accessReasons: [`${targetName} ist der Strip, der im Recon geprüft wurde.`]
+                    }],
+                    writerExpectations: [
+                        `Nutze exakt die Person ${name}, ${role}.`,
+                        'Nutze den Recon-Befund als Ursache, nicht eine neue Zufallsstory.',
+                        'Es ist ein normaler Charter-/Techniker-Dropoff mit Landung und Absetzen am Zielstrip.',
+                        'Keine Pickup-, Rückholfracht- oder Rückflug-zur-Basis-Logik beschreiben.',
+                        'Der Techniker kann später abgeholt werden, aber diese Mission endet mit dem Dropoff.',
+                        temporalHint ? 'Nutze die Auswertungszeit als natürliche Vorbereitung, nicht als Systemangabe.' : '',
+                        'Normale deutsche Umlaute verwenden.'
+                    ].filter(Boolean)
+                }
+            };
+        }
         if (followUpKind === 'bush_supply_strip') {
             const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, acceptance?.targetRef || req.route?.targetRef);
             const serviceCargo = displayText(serviceRun.label || `Servicepaket ${targetName}`);
@@ -1361,39 +1719,77 @@
         if (shouldSkipCompletionSource(source)) return { created: false, reason: 'preview-source' };
         const md = getMissionDataFromCandidate(candidate);
         if (!md || typeof md !== 'object') return { created: false, reason: 'missing-mission-data' };
-        if (md.followUpContinuation || md.followUpRequestId) return { created: false, reason: 'followup-mission' };
-        const sourceKind = getProfileId(md);
-        const cfg = SOURCE_MAP[sourceKind];
+        const chainCfg = (md.followUpContinuation || md.followUpRequestId)
+            ? buildAllowedChainConfig(md, cargoOutcome)
+            : null;
+        if ((md.followUpContinuation || md.followUpRequestId) && !chainCfg) {
+            return { created: false, reason: 'followup-mission' };
+        }
+        let sourceKind = chainCfg?.sourceKind || getProfileId(md);
+        let cfg = chainCfg || SOURCE_MAP[sourceKind];
         if (!cfg) return { created: false, reason: 'unsupported-source-profile', sourceKind };
         if (cargoOutcome && cargoOutcome.failed === true) return { created: false, reason: 'mission-failed', sourceKind };
         if (md.missionFailed === true || String(md.missionResult || '').toLowerCase() === 'failed') {
             return { created: false, reason: 'mission-failed', sourceKind };
         }
+        let reconOutcome = null;
+        if (!chainCfg && sourceKind === 'bush_recon_return') {
+            reconOutcome = ensureBushReconOutcome(md);
+            if (!reconOutcome) return { created: false, reason: 'missing-recon-outcome', sourceKind };
+            if (!reconOutcome.followUpKind || reconOutcome.followUpKind === 'none') {
+                return { created: false, reason: 'recon-no-followup', sourceKind, outcome: reconOutcome.outcome };
+            }
+            cfg = {
+                ...cfg,
+                followUpKind: reconOutcome.followUpKind,
+                followUpLabel: reconOutcome.followUpLabel || cfg.followUpLabel,
+                reconOutcome,
+                serviceRun: reconOutcome.serviceRun || null,
+                technicianPlan: reconOutcome.technicianPlan || null,
+                passenger: reconOutcome.technicianPlan?.passenger || null,
+                chain: reconOutcome.followUpKind === 'bush_charter_strip' ? {
+                    schema: 'ga.followup.chain.v1',
+                    id: `chain_${stableHash(md.missionId || md.missionKey || [sourceKind, Date.now()].join('|'))}`,
+                    rootSourceKind: 'bush_recon_return',
+                    parentRequestId: null,
+                    step: 'technician_dropoff',
+                    previousStep: 'recon',
+                    depth: 1,
+                    terminal: false
+                } : null
+            };
+        }
         const bush = md.bush || md.missionContract?.bush || null;
-        const homeRef = normalizeRef(bush?.homeRef);
-        const targetRef = normalizeRef(bush?.targetRef);
+        const continuation = md.followUpContinuation && typeof md.followUpContinuation === 'object' ? md.followUpContinuation : null;
+        const homeRef = normalizeRef(chainCfg?.homeRef || continuation?.returnHomeRef || continuation?.acceptance?.returnHomeRef || bush?.homeRef);
+        const targetRef = normalizeRef(chainCfg?.targetRef || continuation?.targetRef || continuation?.acceptance?.targetRef || bush?.targetRef);
         if (!homeRef || !targetRef) return { created: false, reason: 'missing-bush-refs', sourceKind };
         if (!targetRef.icao) return { created: false, reason: 'missing-target-icao', sourceKind };
         if (!homeRef.icao) return { created: false, reason: 'missing-home-icao', sourceKind };
 
         const sourceMissionId = cleanText(md.missionId || '', 120);
         const sourceMissionKey = cleanText(md.missionKey || [sourceKind, homeRef.icao, targetRef.icao, md.mission].filter(Boolean).join('|'), 220);
-        const dedupeKey = `${sourceMissionId || sourceMissionKey}|${cfg.followUpKind}`;
+        const chainKey = cfg.chain?.id || cfg.chain?.step || '';
+        const dedupeKey = `${sourceMissionId || sourceMissionKey}|${cfg.followUpKind}${chainKey ? `|${chainKey}|${cfg.chain?.step || ''}` : ''}`;
         const id = `fup_${stableHash(dedupeKey)}`;
         const existing = getRequests().find(req => req.id === id || req.dedupeKey === dedupeKey);
         if (existing) return { created: false, reason: 'duplicate', id, sourceKind };
 
-        const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null;
-        const prospect = buildProspectForMission({ ...md, passenger }, { sourceKind });
-        const temporalContext = prospect?.temporalContext || missionTemporalContext({ ...md, passenger }, sourceKind);
+        const passenger = cfg.passenger || (PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null);
+        const prospect = chainCfg ? null : buildProspectForMission({ ...md, passenger }, { sourceKind });
+        const temporalContext = cfg.temporalContext
+            || prospect?.temporalContext
+            || missionTemporalContext({ ...md, passenger }, sourceKind);
         const now = nowMs();
         const eligibleAt = Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt || 0) > 0
             ? Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt)
             : nextLocalMorningAt(8);
         const memory = buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
-        const serviceRun = cfg.followUpKind === 'bush_supply_strip' && sourceKind === 'bush_recon_return'
-            ? buildServiceRunCargo(memory, targetRef)
-            : null;
+        const serviceRun = cfg.serviceRun
+            || (cfg.followUpKind === 'bush_supply_strip' && sourceKind === 'bush_recon_return'
+                ? buildServiceRunCargo(memory, targetRef)
+                : null);
+        const technicianPlan = cfg.technicianPlan || memory.technicianPlan || null;
         const req = {
             schema: SCHEMA,
             id,
@@ -1405,6 +1801,8 @@
             followUpKind: cfg.followUpKind,
             sourceLabel: cfg.sourceLabel,
             followUpLabel: cfg.followUpLabel,
+            chain: cfg.chain || null,
+            reconOutcome,
             createdAt: now,
             updatedAt: now,
             eligibleAt,
@@ -1428,9 +1826,12 @@
             passenger,
             cargoReturn: cfg.followUpKind === 'bush_pickup_cargo' ? buildCargoReturn(memory, targetRef) : null,
             serviceRun,
+            technicianPlan,
             narrativeMemory: {
                 ...memory,
                 serviceRun: serviceRun || memory.serviceRun || null,
+                technicianPlan: technicianPlan || memory.technicianPlan || null,
+                reconOutcome: reconOutcome || memory.reconOutcome || null,
                 temporalContext,
                 stayDays: temporalContext?.stayDays || memory.stayDays || null,
                 stayText: temporalContext?.stayText || memory.stayText || '',
@@ -1443,7 +1844,9 @@
                     ? `${passenger?.name || 'Der Gast'} meldet sich vom Strip zur Rückholung.`
                     : (cfg.followUpKind === 'bush_supply_strip'
                         ? `${serviceRun?.observedIssue || 'Die Basis plant aus dem Recon-Befund einen Service Run.'}`
-                        : `Am Strip wartet Rückfracht aus dem Supply Run.`)
+                        : (cfg.followUpKind === 'bush_charter_strip'
+                            ? `${technicianPlan?.passenger?.name || passenger?.name || 'Der Techniker'} soll den Recon-Befund am Strip prüfen.`
+                            : `Am Strip wartet Rückfracht aus dem Supply Run.`))
             }
         };
         writeRequests([...getRequests(), req], { cloud: true });
@@ -1663,7 +2066,7 @@
             return false;
         }
         const sourceKind = getProfileId(md);
-        if (!SOURCE_MAP[sourceKind]) {
+        if (!SOURCE_MAP[sourceKind] && !buildAllowedChainConfig(md, null)) {
             alert('Diese Mission ist kein Follow-up-Auslöser.');
             return false;
         }
@@ -1684,6 +2087,28 @@
         }
         alert(`Debug: Keine Follow-up-Anfrage erzeugt (${result?.reason || 'unbekannt'}).`);
         return false;
+    }
+
+    function debugSetReconOutcome(outcome = '') {
+        const md = getActiveMissionData();
+        if (!md || typeof md !== 'object' || !isBushReconMission(md)) {
+            alert('Keine aktive Bush-Recon-Mission vorhanden.');
+            return false;
+        }
+        const normalizedOutcome = normalizeReconOutcomeType(outcome);
+        if (!normalizedOutcome) {
+            alert('Unbekanntes Recon-Ergebnis.');
+            return false;
+        }
+        const next = ensureBushReconOutcome(md, { outcome: normalizedOutcome, createdAt: nowMs() });
+        if (typeof window.saveMissionState === 'function') {
+            try { window.saveMissionState(); } catch (_) {}
+        }
+        if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+            try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+        }
+        alert(`Debug: Recon-Ergebnis gesetzt: ${next?.label || normalizedOutcome}`);
+        return true;
     }
 
     function buildPickupStory(req, targetName, homeName, options = {}) {
@@ -1727,6 +2152,24 @@
             `${memory.whyNowReturn || serviceRun.reason || 'Der Zielstrip soll vor weiteren Flügen markiert, geprüft oder sauber freigegeben werden.'}`,
             `Du startest in ${departureName}, lädst ${cargo}, fliegst zum bekannten Strip und übergibst das Paket dort an den Servicekontakt.`,
             `${memory.serviceHandoff || serviceRun.handoff || 'Nach der Landung werden Paket und Recon-Befund am Striprand abgeglichen; damit ist der Service Run am Ziel abgeschlossen.'}`
+        ].filter(Boolean).map(displayText).join(' ');
+    }
+
+    function buildTechnicianDropoffStory(req, targetName, homeName, options = {}) {
+        const memory = req.narrativeMemory || {};
+        const technicianPlan = req.technicianPlan || memory.technicianPlan || {};
+        const p = req.passenger || technicianPlan.passenger || {};
+        const name = p.name || 'der Techniker';
+        const role = p.role || 'Instandhaltungstechniker';
+        const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, req.route?.targetRef);
+        const kit = req.technicianPlan?.kitLabel || technicianPlan.kitLabel || req.serviceRun?.label || serviceRun.label || `Techniker-Kit ${targetName}`;
+        const departureName = displayText(options.departureName || homeName);
+        return [
+            `Folgeauftrag zum letzten Bush Recon: Beim Überflug von ${targetName} wurde ein Befund notiert, der eine kurze Prüfung am Boden braucht.`,
+            `${memory.stayOrWorkSummary || req.reconOutcome?.resultText || serviceRun.observedIssue || 'Die Basis hat den Rückbericht ausgewertet und daraus einen gezielten Techniker-Dropoff gemacht.'}`,
+            `${memory.whyNowReturn || technicianPlan.reason || serviceRun.reason || 'Der Zielstrip soll vor weiteren Flügen geprüft, markiert oder sauber freigegeben werden.'}`,
+            `Du startest in ${departureName}, nimmst ${name}, ${role}, mit ${kit} auf, fliegst zum bekannten Strip und setzt ${name} dort für die Bodenarbeit ab.`,
+            `${memory.serviceHandoff || `${name} bleibt nach der Landung am Strip, gleicht den Recon-Befund mit der Situation am Boden ab und meldet sich später für die Rückholung.`}`
         ].filter(Boolean).map(displayText).join(' ');
     }
 
@@ -1868,6 +2311,28 @@
             title = `Bush Service Run: ${targetName}`;
             paxText = '0 PAX';
             cargoText = serviceRun.label || `Servicepaket ${targetName}`;
+        } else if (followUpKind === 'bush_charter_strip') {
+            const technicianPlan = req.technicianPlan || memory.technicianPlan || {};
+            const p = req.passenger || technicianPlan.passenger || {};
+            passenger = {
+                ...p,
+                name: p.name || 'Service-Techniker',
+                role: p.role || 'Instandhaltungstechniker',
+                roleProfile: 'bush_charter_guest_v1',
+                taskDomain: 'charter',
+                greetingText: p.greetingText || technicianPlan.passenger?.greetingText || ''
+            };
+            bushSpec = typeof window.buildBushMissionSpec === 'function'
+                ? window.buildBushMissionSpec({ profileId: 'bush_charter_strip', startAirport: start, destAirport: dest, distNm, storyHint: memory.outboundPurpose || req.reconOutcome?.resultText || '' })
+                : null;
+            story = buildTechnicianDropoffStory(req, targetName, homeName, { departureName });
+            title = `Bush Technician: ${targetName}`;
+            paxText = passenger.role ? `1 PAX (${passenger.role})` : '1 PAX';
+            cargoText = req.technicianPlan?.kitLabel
+                || technicianPlan.kitLabel
+                || req.serviceRun?.label
+                || memory.serviceRun?.label
+                || `Techniker-Kit ${targetName}`;
         }
         if (!bushSpec) return null;
         const mission = {
@@ -1891,6 +2356,8 @@
                 sourceMissionKey: req.sourceMissionKey || null,
                 sourceKind: req.sourceKind || null,
                 followUpKind,
+                chain: req.chain || null,
+                chainStep: req.chain?.step || req.chainStep || null,
                 acceptance: acceptance || null,
                 narrativeMemory: req.narrativeMemory || null,
                 temporalContext: req.temporalContext || req.narrativeMemory?.temporalContext || null
@@ -1958,9 +2425,14 @@
         const due = duePendingRequests();
         const future = futurePendingRequests();
         const lastLanding = getLastLandingRef();
+        const activeMd = getActiveMissionData();
+        const activeRecon = activeMd && isBushReconMission(activeMd) ? ensureBushReconOutcome(activeMd) : null;
         lines.push('Follow-up Requests');
         lines.push(`- Pending: ${pending.length} | fällig: ${due.length} | geplant: ${future.length}`);
         lines.push(`- Letzte Landung: ${lastLanding?.icao ? `${lastLanding.icao} (${lastLanding.name || lastLanding.icao})` : '-'}`);
+        if (activeRecon) {
+            lines.push(`- Aktueller Recon-Ausgang: ${activeRecon.label || activeRecon.outcome} | Folge: ${activeRecon.followUpKind || 'none'} | hidden=${activeRecon.hiddenFromWriter === true ? 'ja' : 'nein'}`);
+        }
         if (!list.length) {
             lines.push('- keine Requests gespeichert');
             return lines.join('\n');
@@ -1991,7 +2463,7 @@
         if (completeBtn) {
             const md = getActiveMissionData();
             const sourceKind = getProfileId(md);
-            const supported = !!(md && SOURCE_MAP[sourceKind]);
+            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null)));
             completeBtn.disabled = !supported;
             completeBtn.textContent = supported ? 'Mission beenden' : 'Mission beenden -';
             completeBtn.title = supported
@@ -2020,6 +2492,8 @@
     window.missionFollowupBuildDispatchMission = buildDispatchMission;
     window.missionFollowupBuildProspectForMission = buildProspectForMission;
     window.missionFollowupBuildTemporalContext = buildTemporalContext;
+    window.missionFollowupEnsureBushReconOutcome = ensureBushReconOutcome;
+    window.missionFollowupDebugSetBushReconOutcome = debugSetReconOutcome;
     window.missionFollowupMarkAccepted = markAccepted;
     window.missionFollowupGetForSync = getForSync;
     window.missionFollowupApplyFromSync = applyFromSync;

@@ -966,6 +966,7 @@ function _activeMissionTemporalContext() {
 function _followUpDeboardingHintLine() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     if (md.followUpContinuation || md.followUpRequestId) return '';
+    if (_activeBushReconOutcome()) return '';
     const temporal = _activeMissionTemporalContext();
     const prospect = md.followUpProspect && typeof md.followUpProspect === 'object' ? md.followUpProspect : null;
     const hint = String(
@@ -977,6 +978,45 @@ function _followUpDeboardingHintLine() {
     if (!hint) return '';
     const stay = String(temporal?.stayText || prospect?.stayText || '').replace(/\s+/g, ' ').trim();
     return `\nANSCHLUSS-HINWEIS: ${hint}${stay ? ` Zeitraum: ${stay}.` : ''} Erwähne das nur, wenn es als natürlicher Abschiedssatz passt. Keine Wörter wie Follow-up, Request, Timer, stayDays oder System.`;
+}
+
+function _activeBushReconOutcome() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const profileId = String(md?.bush?.profileId || md?.missionContract?.bush?.profileId || md?._appliedProfile || '').toLowerCase();
+    if (profileId !== 'bush_recon_return') return null;
+    const raw = md.bushReconOutcome || md.hiddenMissionOutcome?.bushReconOutcome || null;
+    if (!raw || typeof raw !== 'object') return null;
+    const outcome = String(raw.outcome || raw.type || '').toLowerCase();
+    if (!outcome) return null;
+    return { ...raw, outcome };
+}
+
+function _bushReconOutcomeHintLine(stage = 'farewell') {
+    const outcome = _activeBushReconOutcome();
+    if (!outcome) return '';
+    const targetName = String(
+        (typeof currentMissionData !== 'undefined' ? currentMissionData?.bush?.targetRef?.name : '')
+        || (typeof currentMissionData !== 'undefined' ? currentMissionData?.targetName : '')
+        || 'dem Zielstrip'
+    ).trim();
+    const resultText = String(outcome.resultText || '').replace(/\s+/g, ' ').trim();
+    let task = '';
+    if (outcome.outcome === 'all_clear') {
+        task = resultText || `Der Recon über ${targetName} ist unauffällig; die Basis dokumentiert den Strip als nutzbar und es entsteht keine Folgeanforderung.`;
+    } else if (outcome.outcome === 'monitor_only') {
+        task = resultText || `Der Recon über ${targetName} bleibt auf Beobachtung; es gibt noch keinen Bodenauftrag und keine sofortige Folgeanforderung.`;
+    } else if (outcome.outcome === 'technician_needed') {
+        const tech = outcome.technicianPlan?.passenger || {};
+        const name = tech.name || 'ein Techniker';
+        task = resultText || `Der Recon über ${targetName} braucht eine Bodenprüfung; die Basis plant ${name} für einen späteren Techniker-Dropoff ein.`;
+    } else {
+        const service = outcome.serviceRun || {};
+        task = resultText || service.observedIssue || `Der Recon über ${targetName} ergibt einen kleinen Servicebedarf; die Basis plant einen gezielten Materialflug.`;
+    }
+    if (stage === 'result') {
+        return ` Recon-Ergebnis: ${task} Sage das erst jetzt als fachliches Kurzfazit, nicht als Vorabwissen.`;
+    }
+    return `\nRECON-ERGEBNIS: ${task} Nutze das als jetzt bekanntes Debriefing-Ergebnis. Wenn daraus ein Folgeauftrag entsteht, erwähne ihn als natürliche nächste Teamentscheidung; wenn nicht, sage klar, dass heute keine Folgeanforderung entsteht.`;
 }
 
 function _getDestCoords() {
@@ -4946,7 +4986,9 @@ function _poiSatisfiedPrompt(flightData) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
-    const inspResultHint = _inspectionResultHint();
+    const reconOutcomeActive = _activeBushReconOutcome();
+    const inspResultHint = reconOutcomeActive ? '' : _inspectionResultHint();
+    const bushReconResultHint = _bushReconOutcomeHintLine('result');
     const profResultHint = _professionalTaskHint('result');
     const sarResultHint = _sarResultHint();
     const driftGuard = _domainDriftGuard('result');
@@ -4959,14 +5001,14 @@ function _poiSatisfiedPrompt(flightData) {
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
-    const inspectionCompletionRule = (taskDomain === 'inspection_infra')
+    const inspectionCompletionRule = (taskDomain === 'inspection_infra' && !reconOutcomeActive)
         ? ' Gib zuerst ein fachliches Kurzfazit: Was hast du gesehen, wie sieht der Zustand aus, und ob Nacharbeit oder Beobachtung noetig ist. Erst danach darfst du den Weiter- oder Rueckflug freigeben.'
         : '';
     const noRepeatHint = _poiNoRepeatHint('result');
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${noRepeatHint}${driftGuard} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${noRepeatHint}${driftGuard} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -5617,6 +5659,7 @@ function _farewellPrompt(record) {
         : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
     const bushContinuityHint = _bushPickupNarrativeHint('farewell');
+    const bushReconOutcomeHint = isMissionFailed ? '' : _bushReconOutcomeHintLine('farewell');
     const followUpDeboardingHint = isMissionFailed ? '' : _followUpDeboardingHintLine();
     const sarHeliFarewellTask = (typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)))
         ? `Verabschiede dich als ${pax.role} nach einer SAR-Heli-Bergung. Sage klar, dass der Patient am medizinischen Ziel ${_sarHeliHospitalName()} uebergeben ist, danke fuer die ruhige Bergung und den Weiterflug, und schliesse professionell ab.`
@@ -5632,7 +5675,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-${farewellTask}${poiRideHomeTask}${bushContinuityHint}${followUpDeboardingHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${poiRideHomeTask}${bushContinuityHint}${bushReconOutcomeHint}${followUpDeboardingHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 function _failedMissionFarewellFallback(record = null) {
