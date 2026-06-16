@@ -10135,7 +10135,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         'Kein Themenmix zwischen Auftrag, PAX und Fracht',
         'Alle Folgeansagen bleiben im gleichen Auftragsrahmen'
     ];
-    const normalizedBushSpec = normalizedMissionType === 'bush'
+    const normalizedBushSpec = (normalizedMissionType === 'bush' || bushSpec || mission?.bush || passenger?.bush)
         ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
         : null;
     return {
