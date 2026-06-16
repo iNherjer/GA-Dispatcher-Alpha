@@ -1767,17 +1767,62 @@ window.sendBugReport = async function() {
     });
 })();
 
+function escapeMSFSXml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&apos;'
+    }[ch]));
+}
+
+function normalizeMSFSIdent(value) {
+    return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function isMSFSAirportIdent(value) {
+    const ident = normalizeMSFSIdent(value);
+    return /^[A-Z0-9]{3,6}$/.test(ident) && !['GPS', 'POI', 'START', 'DEST', 'USER', 'CUSTOM'].includes(ident);
+}
+
+function sanitizeMSFSWaypointId(value, fallback) {
+    const cleaned = String(value || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .replace(/\s+/g, '')
+        .trim();
+    return (cleaned || fallback || 'WP').substring(0, 12) || 'WP';
+}
+
+function _msfsDms(value) {
+    const abs = Math.abs(Number(value) || 0);
+    let totalSeconds = Math.round(abs * 360000) / 100;
+    const deg = Math.floor(totalSeconds / 3600);
+    totalSeconds -= deg * 3600;
+    const min = Math.floor(totalSeconds / 60);
+    const sec = (totalSeconds - min * 60).toFixed(2);
+    return { deg, min, sec };
+}
+
 function formatMSFSCoords(lat, lon) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'W';
-    lat = Math.abs(lat); lon = Math.abs(lon);
-    const latDeg = Math.floor(lat), latMin = Math.floor((lat - latDeg) * 60), latSec = ((lat - latDeg - latMin/60) * 3600).toFixed(2);
-    const lonDeg = Math.floor(lon), lonMin = Math.floor((lon - lonDeg) * 60), lonSec = ((lon - lonDeg - lonMin/60) * 3600).toFixed(2);
-    return `${latDir}${latDeg}° ${latMin}' ${String(latSec).padStart(5, '0')}", ${lonDir}${String(lonDeg).padStart(3, '0')}° ${lonMin}' ${String(lonSec).padStart(5, '0')}"`;
+    const latDir = Number(lat) >= 0 ? 'N' : 'S';
+    const lonDir = Number(lon) >= 0 ? 'E' : 'W';
+    const latDms = _msfsDms(lat);
+    const lonDms = _msfsDms(lon);
+    return `${latDir}${latDms.deg}* ${latDms.min}' ${String(latDms.sec).padStart(5, '0')}", ${lonDir}${String(lonDms.deg).padStart(3, '0')}* ${lonDms.min}' ${String(lonDms.sec).padStart(5, '0')}"`;
+}
+
+function formatMSFSElevation(altFt) {
+    const raw = Number(altFt);
+    const value = Number.isFinite(raw) ? Math.max(-1500, Math.min(60000, raw)) : 0;
+    const sign = value < 0 ? '-' : '+';
+    return `${sign}${String(Math.abs(value).toFixed(2)).padStart(9, '0')}`;
 }
 
 function parseMSFSCoords(coordStr) {
-    const regex = /([NS])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"?,\s*([EW])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"?/i;
+    const regex = /([NS])\s*(\d+)[°*]\s*(\d+)'\s*([\d.]+)"?,\s*([EW])\s*(\d+)[°*]\s*(\d+)'\s*([\d.]+)"?/i;
     const match = coordStr.match(regex);
     if (!match) return null;
     let lat = parseInt(match[2]) + parseInt(match[3])/60 + parseFloat(match[4])/3600;
@@ -1793,26 +1838,53 @@ window.exportMSFS = function() {
         alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als MSFS-Plan exportieren.");
         return;
     }
-    const activeData = localStorage.getItem('ga_active_mission');
-    const secretBackup = activeData ? btoa(encodeURIComponent(activeData)) : "";
-    const cruiseAlt = document.getElementById('altSlider')?.value || 4500;
+    const cruiseAlt = Number(document.getElementById('altSlider')?.value) || 4500;
+    const firstWp = routeWaypoints[0];
+    const lastWp = routeWaypoints[routeWaypoints.length - 1];
+    const departureAirport = isMSFSAirportIdent(currentStartICAO);
+    const destinationAirport = isMSFSAirportIdent(currentDestICAO);
+    const departureId = departureAirport ? normalizeMSFSIdent(currentStartICAO) : sanitizeMSFSWaypointId(firstWp?.name, 'START');
+    const destinationId = destinationAirport ? normalizeMSFSIdent(currentDestICAO) : sanitizeMSFSWaypointId(lastWp?.name, 'DEST');
+    const depElevRaw = typeof currentDepElev !== 'undefined' ? currentDepElev : 0;
+    const destElevRaw = typeof currentDestElev !== 'undefined' ? currentDestElev : 0;
+    const depElevation = Number.isFinite(Number(depElevRaw)) ? Number(depElevRaw) : 0;
+    const destElevation = Number.isFinite(Number(destElevRaw)) ? Number(destElevRaw) : 0;
+    const depName = typeof currentSName !== 'undefined' ? currentSName : '';
+    const destName = typeof currentDName !== 'undefined' ? currentDName : '';
+    const planTitle = `${departureId} to ${destinationId}`;
+    const planDescr = String(currentMissionData.mission || planTitle).slice(0, 180);
 
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<SimBase.Document Type="AceXML" version="1,0">\n  <Descr>AceXML Document</Descr>\n  <FlightPlan.FlightPlan>\n    <Title>${currentStartICAO} to ${currentDestICAO}</Title>\n    <FPType>VFR</FPType>\n    <CruisingAlt>${cruiseAlt}</CruisingAlt>\n    <DepartureID>${currentStartICAO}</DepartureID>\n    <DepartureLLA>${formatMSFSCoords(routeWaypoints[0].lat, routeWaypoints[0].lng || routeWaypoints[0].lon)}, +000000.00</DepartureLLA>\n    <DestinationID>${currentDestICAO}</DestinationID>\n    <DestinationLLA>${formatMSFSCoords(routeWaypoints[routeWaypoints.length-1].lat, routeWaypoints[routeWaypoints.length-1].lng || routeWaypoints[routeWaypoints.length-1].lon)}, +000000.00</DestinationLLA>\n    <Descr>${currentMissionData.mission} - GA_DISPATCHER_BACKUP[${secretBackup}]</Descr>\n    <AppVersion>\n      <AppVersionMajor>11</AppVersionMajor>\n      <AppVersionBuild>282174</AppVersionBuild>\n    </AppVersion>\n`;
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<SimBase.Document Type="AceXML" version="1,0">\n  <Descr>AceXML Document</Descr>\n  <FlightPlan.FlightPlan>\n    <Title>${escapeMSFSXml(planTitle)}</Title>\n    <FPType>VFR</FPType>\n    <CruisingAlt>${escapeMSFSXml(cruiseAlt.toFixed(0))}</CruisingAlt>\n    <DepartureID>${escapeMSFSXml(departureId)}</DepartureID>\n    <DepartureLLA>${formatMSFSCoords(firstWp.lat, firstWp.lng || firstWp.lon)}, ${formatMSFSElevation(departureAirport ? depElevation : 0)}</DepartureLLA>\n    <DestinationID>${escapeMSFSXml(destinationId)}</DestinationID>\n    <DestinationLLA>${formatMSFSCoords(lastWp.lat, lastWp.lng || lastWp.lon)}, ${formatMSFSElevation(destinationAirport ? destElevation : 0)}</DestinationLLA>\n    <Descr>${escapeMSFSXml(planDescr)}</Descr>\n    <DepartureName>${escapeMSFSXml(depName || departureId)}</DepartureName>\n    <DestinationName>${escapeMSFSXml(destName || destinationId)}</DestinationName>\n    <AppVersion>\n      <AppVersionMajor>11</AppVersionMajor>\n      <AppVersionBuild>282174</AppVersionBuild>\n    </AppVersion>\n`;
     
     routeWaypoints.forEach((wp, i) => {
-        let wpName = wp.name ? wp.name.replace(/[^a-zA-Z0-9 ]/g, '').substring(0,10).trim() : `WP${i}`;
-        if(i===0) wpName = currentStartICAO;
-        if(i===routeWaypoints.length-1) wpName = currentDestICAO;
-        let alt = typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints && vpAltWaypoints[i] ? vpAltWaypoints[i].altFt : cruiseAlt;
-        xml += `    <ATCWaypoint id="${wpName}">\n      <ATCWaypointType>User</ATCWaypointType>\n      <WorldPosition>${formatMSFSCoords(wp.lat, wp.lng || wp.lon)}, +${String(alt).padStart(6, '0')}.00</WorldPosition>\n    </ATCWaypoint>\n`;
+        const isFirst = i === 0;
+        const isLast = i === routeWaypoints.length - 1;
+        const airportIdent = isFirst && departureAirport
+            ? departureId
+            : (isLast && destinationAirport ? destinationId : '');
+        const wpName = airportIdent || sanitizeMSFSWaypointId(wp.name, `WP${i}`);
+        const wpType = airportIdent ? 'Airport' : 'User';
+        const profileAlt = typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints && vpAltWaypoints[i]
+            ? Number(vpAltWaypoints[i].altFt)
+            : NaN;
+        const alt = airportIdent
+            ? (isFirst ? depElevation : destElevation)
+            : (Number.isFinite(profileAlt) ? profileAlt : cruiseAlt);
+        xml += `    <ATCWaypoint id="${escapeMSFSXml(wpName)}">\n      <ATCWaypointType>${wpType}</ATCWaypointType>\n      <WorldPosition>${formatMSFSCoords(wp.lat, wp.lng || wp.lon)}, ${formatMSFSElevation(alt)}</WorldPosition>\n      <SpeedMaxFP>-1</SpeedMaxFP>\n`;
+        if (airportIdent) {
+            xml += `      <ICAO>\n        <ICAOIdent>${escapeMSFSXml(airportIdent)}</ICAOIdent>\n      </ICAO>\n`;
+        }
+        xml += `    </ATCWaypoint>\n`;
     });
     xml += `  </FlightPlan.FlightPlan>\n</SimBase.Document>`;
     
-    const blob = new Blob([xml], { type: 'text/xml' });
+    const blob = new Blob([xml], { type: 'application/octet-stream' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `VFR_${currentStartICAO}_to_${currentDestICAO}.pln`;
+    const objectUrl = URL.createObjectURL(blob);
+    a.href = objectUrl;
+    a.download = `VFR_${sanitizeMSFSWaypointId(currentStartICAO, 'START')}_to_${sanitizeMSFSWaypointId(currentDestICAO, 'DEST')}.pln`;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     closeTransferModal();
 };
 
