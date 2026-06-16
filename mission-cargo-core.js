@@ -234,12 +234,26 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             primaryCandidates = animal.cargoCandidates || MISSION_SCENE_ASSET_POOLS.animalTransportBoxes;
             primaryLabel = animal.cargoLabel || cleanedCargo || 'Tiertransportbox';
         }
+        const primaryWeightLbs = _missionCargoExtractWeight(cargoText, cargoAsset?.cargoWeightLbs || 20);
+        if (
+            typeof _missionSceneCargoLooksLikeSmallLoosePayload === 'function'
+            && _missionSceneCargoLooksLikeSmallLoosePayload(primaryLabel, primaryWeightLbs)
+        ) {
+            primaryTitle = 'Cardboard';
+            primaryCandidates = MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'];
+        } else if (
+            typeof _missionSceneCargoTitleIsTruckContainer === 'function'
+            && _missionSceneCargoTitleIsTruckContainer(primaryTitle)
+        ) {
+            primaryTitle = 'Cardboard';
+            primaryCandidates = MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'];
+        }
         _missionCargoPushItem(items, {
             id: 'primary-cargo',
             sceneKind: 'cargo',
             label: primaryLabel,
             storyName: primaryLabel,
-            weightLbs: _missionCargoExtractWeight(cargoText, cargoAsset?.cargoWeightLbs || 20),
+            weightLbs: primaryWeightLbs,
             required: true,
             deliverAtDestination: !isPoi && !isBushReturnHomeRecon,
             objectTitle: primaryTitle,

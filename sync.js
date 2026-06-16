@@ -3691,33 +3691,63 @@ function _missionSceneSafeBoardingCargoCandidates(candidates = []) {
         .filter(title => !/(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || '')));
 }
 
+function _missionSceneCargoTitleIsTruckContainer(title = '') {
+    return /(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || ''));
+}
+
+function _missionSceneCargoLooksLikeSmallLoosePayload(text = '', weightLbs = null) {
+    const label = String(text || '').toLowerCase();
+    const weight = Number(weightLbs);
+    const hasWeight = Number.isFinite(weight);
+    const smallMissionKit = /(tablet|checklist|checkliste|bordbuch|dispatch.?mappe|mappe|unterlagen|papier|akte|karten|notiz|protokoll|formular|dokument|foto|kamera|speicher|akku|referenzkarten|messprotokoll)/i.test(label);
+    if (smallMissionKit && (!hasWeight || weight <= 35)) return true;
+    const clearlyBulk = /(palette|pallet|container|fass|kanister|sperrig|transportbox|generator|ersatzteil|teile|fracht|freight|ladungssatz|baugruppe)/i.test(label);
+    return !!(hasWeight && weight <= 10 && !clearlyBulk);
+}
+
+function _missionSceneSafeBoardingCargoTitle(title = '', label = '', weightLbs = null) {
+    const rawTitle = String(title || '').trim();
+    const context = `${label || ''} ${rawTitle}`;
+    if (_missionSceneCargoLooksLikeSmallLoosePayload(context, weightLbs)) return 'Cardboard';
+    if (_missionSceneCargoTitleIsTruckContainer(rawTitle)) return 'Cardboard';
+    return rawTitle || 'Cardboard';
+}
+
 function _missionSceneCargoAsset() {
     const taskDomain = _missionSceneTaskDomain();
     const cargoText = _missionSceneCargoText().toLowerCase();
     const cargoWeightLbs = _missionSceneCargoWeightLbs();
+    const smallLoosePayload = _missionSceneCargoLooksLikeSmallLoosePayload(cargoText, cargoWeightLbs);
     const palletPool = MISSION_SCENE_ASSET_POOLS.palletCargo;
     const sizePrimary = Number.isFinite(cargoWeightLbs)
         ? (cargoWeightLbs >= 120 ? 'Pallet01_01' : (cargoWeightLbs >= 50 ? 'Pallet01_02' : (cargoWeightLbs >= 20 ? 'Pallet01_03' : 'Cardboard')))
         : (/(palette|pallet|fracht|transport|material|ersatzteil|teile|equipment|ausruestung)/.test(cargoText) ? 'Pallet01_02' : 'Cardboard');
-    const pool = taskDomain === 'fire_watch'
+    const pool = smallLoosePayload
+        ? MISSION_SCENE_ASSET_POOLS.smallCargo
+        : (taskDomain === 'fire_watch'
         ? MISSION_SCENE_ASSET_POOLS.fireCargo
         : (taskDomain === 'search_and_rescue'
             ? MISSION_SCENE_ASSET_POOLS.sarCargo
-            : (sizePrimary.startsWith('Pallet') ? [sizePrimary, ...palletPool] : MISSION_SCENE_ASSET_POOLS.cargo));
-    const preferredCargo = taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue'
+            : (sizePrimary.startsWith('Pallet') ? [sizePrimary, ...palletPool] : MISSION_SCENE_ASSET_POOLS.cargo)));
+    const preferredCargo = smallLoosePayload
+        ? _scenePreferredTitle(pool, 'Cardboard', `cargo-small-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, 'Cardboard')
+        : (taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue'
         ? _scenePreferredTitle(pool, 'Drop_Container', `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE)
-        : _scenePickTitle(pool, `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE);
-    const preferred = _sceneObjectTitleOverride('cargo', preferredCargo);
-    const candidatePool = (taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue')
+        : _scenePickTitle(pool, `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE));
+    const preferred = _missionSceneSafeBoardingCargoTitle(_sceneObjectTitleOverride('cargo', preferredCargo), cargoText, cargoWeightLbs);
+    const candidatePool = smallLoosePayload
+        ? _missionSceneSafeBoardingCargoCandidates((MISSION_SCENE_ASSET_POOLS.smallCargo || []).concat(['Cardboard', BOARDING_CARGO_FALLBACK_TITLE]))
+        : ((taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue')
         ? _missionSceneSafeBoardingCargoCandidates(pool.concat(MISSION_SCENE_ASSET_POOLS.smallCargo, ['Cardboard', BOARDING_CARGO_FALLBACK_TITLE]))
-        : _missionSceneSafeBoardingCargoCandidates(pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE]));
+        : _missionSceneSafeBoardingCargoCandidates(pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE])));
     return {
         title: preferred,
         candidates: _sceneAssetCandidates(preferred, candidatePool),
         taskDomain,
         sizePrimary,
         cargoText,
-        cargoWeightLbs
+        cargoWeightLbs,
+        smallLoosePayload
     };
 }
 
@@ -3805,16 +3835,22 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     const safeCargoCandidates = (title, candidates = []) => _missionSceneSafeBoardingCargoCandidates(
         _sceneAssetCandidates(title || 'Cardboard', candidates).concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
     );
-    const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0) => ({
-        kind,
-        label,
-        objectTitle: title,
-        titleCandidates: safeCargoCandidates(title, candidates),
-        forwardM: baseForward + forwardOffset,
-        rightM: baseRight + rightOffset,
-        headingMode: 'with_aircraft',
-        altOffsetFt: baseAlt + _missionSceneGroundAltOffsetForTitle(title)
-    });
+    const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0, weightLbs = null) => {
+        const safeTitle = _missionSceneSafeBoardingCargoTitle(title, label, weightLbs);
+        const candidateSource = _missionSceneCargoLooksLikeSmallLoosePayload(`${label || ''} ${title || ''}`, weightLbs)
+            ? (MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
+            : candidates;
+        return {
+            kind,
+            label,
+            objectTitle: safeTitle,
+            titleCandidates: safeCargoCandidates(safeTitle, candidateSource),
+            forwardM: baseForward + forwardOffset,
+            rightM: baseRight + rightOffset,
+            headingMode: 'with_aircraft',
+            altOffsetFt: baseAlt + _missionSceneGroundAltOffsetForTitle(safeTitle)
+        };
+    };
     const manifest = _missionCargoEnsureManifest(cargoAsset);
     const manifestItems = Array.isArray(manifest?.items) ? manifest.items : [];
     if (manifestItems.length) {
@@ -3827,7 +3863,8 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
                     item.objectTitle || 'Cardboard',
                     item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo,
                     Number(item.forwardOffsetM || 0),
-                    Number(item.rightOffsetM || 0)
+                    Number(item.rightOffsetM || 0),
+                    Number.isFinite(Number(item.weightLbs)) ? Number(item.weightLbs) : null
                 ),
                 cargoItemId: item.id || '',
                 cargoSceneKind: item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`)
@@ -3836,7 +3873,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
     const primaryCandidates = cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo;
     return [
-        makeItem('cargo', primary.startsWith('Pallet') ? 'Transportpalette' : 'Cargo Karton', primary, primaryCandidates, 0, 0)
+        makeItem('cargo', primary.startsWith('Pallet') ? 'Transportpalette' : 'Cargo Karton', primary, primaryCandidates, 0, 0, cargoAsset?.cargoWeightLbs ?? null)
     ];
 }
 
