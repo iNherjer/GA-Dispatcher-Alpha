@@ -8940,8 +8940,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'ruhig, fokussiert, höflich',
         dialectHint: 'neutral',
-        storySeed: '{name} hat nach der Landung nur ein kurzes Zeitfenster bis zum Kundentermin; das Auftraggeber-Shuttle wartet am Zielplatz, damit er mit Handgepäck und Unterlagen direkt in die Vorbesprechung kommt.',
-        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet schon mein Shuttle zum Kundentermin; mir hilft vor allem eine ruhige, pünktliche Landung.'
+        storySeed: '{name} reist zu einem Kundengespräch; das Auftraggeber-Shuttle wartet am Zielplatz, damit er mit Handgepäck und Unterlagen ohne großen Übergang in die Vorbesprechung kommt.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet mein Shuttle zum Kundentermin; mir hilft vor allem ein ruhiger, planbarer Flug.'
     },
     {
         name: 'Nora Seidel',
@@ -8949,8 +8949,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'ruhig, strukturiert, freundlich',
         dialectHint: 'neutral',
-        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; vor Ort laufen bereits die ersten Entscheidungen, und ihr Team hält ihr den Platz im Terminblock frei, bis sie mit den freigegebenen Plänen eintrifft.',
-        greetingText: 'Hi, ich bin {firstName}. Mein Team ist am Ziel schon in der Abstimmung, deshalb ist mir ein sauberer und planbarer Flug wichtig.'
+        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; vor Ort liegen die Pläne bereit, und ihr Team erwartet sie für die gemeinsame Durchsicht am Zielort.',
+        greetingText: 'Hi, ich bin {firstName}. Mein Team ist am Ziel in der Abstimmung, deshalb ist mir ein sauberer und planbarer Flug wichtig.'
     },
     {
         name: 'Mara König',
@@ -8958,8 +8958,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'organisiert, freundlich, terminsicher',
         dialectHint: 'neutral',
-        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf, und ihre Ablaufmappe soll nach der Landung direkt an den Bühnenleiter übergeben werden.',
-        greetingText: 'Hi, ich bin {firstName}. Die Crew am Ziel baut schon auf; wenn wir ruhig reinkommen, schaffe ich den kurzen Übergang vom Flugplatz direkt zum Aufbau.'
+        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew bereitet dort den Aufbau vor, und ihre Ablaufmappe geht nach der Landung an den Bühnenleiter.',
+        greetingText: 'Hi, ich bin {firstName}. Die Crew am Ziel ist im Aufbau; wenn wir ruhig reinkommen, passt der Übergang vom Flugplatz zur Halle gut.'
     },
     {
         name: 'Tobias Lenz',
@@ -8967,8 +8967,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'sachlich, konzentriert, höflich',
         dialectHint: 'neutral',
-        storySeed: '{name} hat am Zielort einen Notartermin mit engem Zeitfenster; die unterschriftsreifen Unterlagen liegen im Handgepäck und gehen nach der Landung ohne Umweg weiter.',
-        greetingText: 'Hi, ich bin {firstName}. Ich habe die Unterlagen dabei und muss nach der Landung ohne Umweg zum Termin; bitte ruhig und pünktlich rein.'
+        storySeed: '{name} hat am Zielort einen Notartermin; die Unterlagen liegen im Handgepäck und sollen nach der Landung sauber an den lokalen Kontakt übergeben werden.',
+        greetingText: 'Hi, ich bin {firstName}. Ich habe die Unterlagen dabei und werde am Ziel abgeholt; bitte einfach ruhig und sauber rein.'
     },
     {
         name: 'Elena Graf',
@@ -8976,8 +8976,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'klar, freundlich, konzentriert',
         dialectHint: 'neutral',
-        storySeed: '{name} hält am Zielort einen kurzen Fachvortrag; Rollkoffer und Präsentationsunterlagen bleiben griffbereit, weil der Kongressslot kurz nach der Ankunft beginnt.',
-        greetingText: 'Hi, ich bin {firstName}. Mein Vortrag beginnt kurz nach der Ankunft, die Unterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
+        storySeed: '{name} hält am Zielort einen Fachvortrag; Rollkoffer und Präsentationsunterlagen bleiben griffbereit, damit sie nach der Landung entspannt zur Kongresshalle weiterkommt.',
+        greetingText: 'Hi, ich bin {firstName}. Die Vortragsunterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
     },
     {
         name: 'Jonas Reuter',
@@ -8985,8 +8985,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'pragmatisch, ruhig, lösungsorientiert',
         dialectHint: 'neutral',
-        storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; im Servicewagen liegt bereits das Werkzeug, weil der Kunde noch am selben Tag eine Diagnose braucht.',
-        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet die Werkstatt mit dem Wagen, danach geht es direkt zum Kunden. Wichtig ist, dass wir sauber und verlässlich ankommen.'
+        storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; im Servicewagen liegen Werkzeug und Diagnoseunterlagen für einen geplanten Kundenbesuch.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet die Werkstatt mit dem Wagen, danach geht es zum Kunden. Wichtig ist, dass wir sauber und verlässlich ankommen.'
     },
     {
         name: 'Vera Albrecht',
@@ -8994,8 +8994,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'präzise, sachlich, freundlich',
         dialectHint: 'neutral',
-        storySeed: '{name} fliegt zu einer Bauabnahme mit engem Zeitfenster; im Handgepäck liegen Prüfmappe, Kamera und Siegelunterlagen, und der örtliche Bauleiter wartet am Flugplatz auf ihre Freigabe.',
-        greetingText: 'Hallo, ich bin {firstName}. Der Bauleiter wartet am Ziel schon mit der Prüfliste; wenn wir ruhig und pünktlich landen, passt der Termin.'
+        storySeed: '{name} fliegt zu einer Bauabnahme; im Handgepäck liegen Prüfmappe, Kamera und Siegelunterlagen, und der örtliche Bauleiter holt sie am Flugplatz ab.',
+        greetingText: 'Hallo, ich bin {firstName}. Der Bauleiter wartet am Ziel mit der Prüfliste; wenn wir ruhig landen, passt der Termin.'
     },
     {
         name: 'Karim Özdemir',
@@ -9012,8 +9012,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'aufmerksam, ruhig, verbindlich',
         dialectHint: 'neutral',
-        storySeed: '{name} hat am Zielort eine diskrete Objektbegehung; der Makler wartet mit Schlüsselmappe und Geländeplan am Flugplatz, weil die Besichtigung vor der nächsten Wetterfront erledigt sein soll.',
-        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet der Makler mit der Schlüsselmappe; mir ist vor allem wichtig, ohne Hektik rechtzeitig dort zu sein.'
+        storySeed: '{name} hat am Zielort eine diskrete Objektbegehung; der Makler wartet mit Schlüsselmappe und Geländeplan am Flugplatz.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet der Makler mit der Schlüsselmappe; mir ist vor allem wichtig, ohne Hektik dort anzukommen.'
     },
     {
         name: 'Felix Hartmann',
@@ -9021,8 +9021,8 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'direkt, konzentriert, kollegial',
         dialectHint: 'neutral',
-        storySeed: '{name} muss am Ziel eine kurzfristige Produktionsfreigabe begleiten; sein Team hat Musterteile und Checkliste vorbereitet, und nach der Landung geht es direkt zur Halle.',
-        greetingText: 'Hallo, ich bin {firstName}. Das Team am Ziel wartet mit den Musterteilen, deshalb zählt heute ein ruhiger Transfer ohne Zeitverlust.'
+        storySeed: '{name} begleitet am Ziel eine Produktionsfreigabe; sein Team hat Musterteile und Checkliste vorbereitet, und nach der Landung geht es zur Halle.',
+        greetingText: 'Hallo, ich bin {firstName}. Das Team am Ziel wartet mit den Musterteilen, deshalb zählt heute vor allem ein ruhiger Transfer.'
     }
 ];
 
@@ -9099,7 +9099,7 @@ function _pickNextCharterPersona() {
             gender: 'male',
             personality: 'ruhig, fokussiert, höflich',
             dialectHint: 'neutral',
-            storySeed: '{name} muss nach der Landung direkt weiter zu einem Kundentermin; am Zielplatz wartet bereits ein Shuttle des Auftraggebers.',
+            storySeed: '{name} reist zu einem Kundentermin; am Zielplatz wartet ein Shuttle des Auftraggebers.',
             greetingText: 'Hi, danke dir fürs Fliegen heute. Ich brauch einen ruhigen, sauberen Charterflug.'
         }];
     let idx = -1;
@@ -9152,21 +9152,21 @@ function _applyCharterTemplate(text = '', passenger = null, context = {}) {
 function _charterFallbackStorySeed(passenger = null) {
     const role = _charterNormalizeText(passenger?.role || '');
     if (/anwalt|notar|jurist|recht/.test(role)) {
-        return '{name} muss am Zielort zu einem Termin mit festen Unterschriftszeiten; die Unterlagen liegen im Handgepäck und sollen nach der Landung ohne Umweg weiter.';
+        return '{name} reist am Zielort zu einem juristischen Termin; die Unterlagen liegen im Handgepäck und sollen nach der Landung sauber an den lokalen Kontakt übergeben werden.';
     }
     if (/bau|architekt|sachverstaendig|sachverstandig|gutachter|immobil|bewert/.test(role)) {
-        return '{name} wird am Zielort zu einer fachlichen Begehung erwartet; Pläne, Fotos und Prüfliste bleiben griffbereit, weil der lokale Kontakt direkt am Flugplatz übernimmt.';
+        return '{name} wird am Zielort zu einer fachlichen Begehung erwartet; Pläne, Fotos und Prüfliste bleiben griffbereit, während der lokale Kontakt am Flugplatz übernimmt.';
     }
     if (/event|messe|kongress|referent|vortrag/.test(role)) {
-        return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es mit Rollkoffer und Unterlagen direkt weiter zum Aufbau oder Vortrag.';
+        return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es mit Rollkoffer und Unterlagen weiter zum Aufbau oder Vortrag.';
     }
     if (/service|techniker|werft|avionik|mechaniker/.test(role)) {
-        return '{name} wird am Zielplatz von einem Werkstatt- oder Servicekontakt abgeholt; Werkzeug und Diagnoseunterlagen bleiben klein verpackt, damit der Einsatz direkt beginnen kann.';
+        return '{name} wird am Zielplatz von einem Werkstatt- oder Servicekontakt abgeholt; Werkzeug und Diagnoseunterlagen bleiben klein verpackt für den geplanten Einsatz vor Ort.';
     }
     if (/projekt|berater|unternehmer|manager|kunde|produktion|leiter/.test(role)) {
-        return '{name} hat am Zielort einen klar getakteten Kundentermin; ein Shuttle wartet am Flugplatz, damit der Übergang vom Vorfeld in den nächsten Termin ohne Leerlauf klappt.';
+        return '{name} hat am Zielort einen Kundentermin; ein Shuttle wartet am Flugplatz, damit der Übergang vom Vorfeld zum lokalen Kontakt sauber klappt.';
     }
-    return '{name} reist zu einem festen Termin am Zielort; am Flugplatz wartet bereits die Abholung, damit der nächste Schritt direkt nach dem Aussteigen beginnen kann.';
+    return '{name} reist zu einem festen Termin am Zielort; am Flugplatz wartet die Abholung, damit der nächste Schritt nach dem Aussteigen gut vorbereitet ist.';
 }
 
 function _charterWeatherRaw(wx = null) {
@@ -9296,10 +9296,10 @@ function buildPersonalAptCharterStory(passenger = null, context = {}) {
         context
     );
     const paxLabel = _charterRoleLooksGeneric(ctx.role) ? ctx.name : `${ctx.name}, ${ctx.role},`;
-    const intro = `${paxLabel} nutzt heute unseren Charter von ${ctx.startName} nach ${ctx.targetName}, weil der Termin am Ziel einen verlässlichen, direkten Transfer braucht.`;
+    const intro = `${paxLabel} nutzt heute unseren Charter von ${ctx.startName} nach ${ctx.targetName}, weil der Termin am Ziel eine verlässliche, planbare Verbindung braucht.`;
     const weather = _charterWeatherSentence(context);
-    const arrival = `Nach der Landung wartet ein vorbereiteter Kontakt im GA-Bereich, übernimmt ${ctx.firstName} samt Handgepäck und bringt die nächsten Schritte ohne Leerlauf in Gang.`;
-    const pilotFocus = `Für uns zählt ein unaufgeregter Charterflug: pünktlich raus, sauber ankommen und dem Gast genug Ruhe lassen, um direkt arbeitsfähig auszusteigen.`;
+    const arrival = `Nach der Landung wartet ein lokaler Kontakt im GA-Bereich und übernimmt ${ctx.firstName} samt Handgepäck für den Weg zum Termin.`;
+    const pilotFocus = `Für uns zählt ein unaufgeregter Charterflug: zuverlässig starten, sauber ankommen und dem Gast genug Ruhe lassen, um gesammelt auszusteigen.`;
     return _cleanupNarrativeArtifacts(`${intro} ${seed} ${weather} ${arrival} ${pilotFocus}`);
 }
 
@@ -9310,7 +9310,7 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
         return _cleanupNarrativeArtifacts(templated);
     }
     const weatherPrefix = _charterWeatherSentence(context) ? 'Die Bedingungen sehen für den Transfer ruhig aus. ' : '';
-    return _cleanupNarrativeArtifacts(`Hi, ich bin ${ctx.firstName}. ${weatherPrefix}Am Ziel in ${ctx.targetName} wartet meine Abholung für den nächsten Termin; mir ist wichtig, dass wir ruhig und pünktlich landen.`);
+    return _cleanupNarrativeArtifacts(`Hi, ich bin ${ctx.firstName}. ${weatherPrefix}Am Ziel in ${ctx.targetName} wartet meine Abholung; mir ist wichtig, dass wir ruhig und planbar ankommen.`);
 }
 
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
@@ -9363,7 +9363,7 @@ function buildCharterPassenger(basePassenger = null, preferredPersona = null) {
         cargoSensitivity: String(base.cargoSensitivity || 'mittel').toLowerCase(),
         stomachSensitivity: String(base.stomachSensitivity || 'mittel').toLowerCase(),
         comfortPriority: String(base.comfortPriority || 'mittel').toLowerCase(),
-        urgencyPriority: (String(base.urgencyPriority || '').toLowerCase() === 'hoch') ? 'hoch' : 'niedrig',
+        urgencyPriority: (String(base.urgencyPriority || persona.urgencyPriority || '').toLowerCase() === 'hoch') ? 'hoch' : 'niedrig',
         roleProfile: 'charter_professional_neutral_v1',
         taskDomain: 'charter',
         targetAltFt: 0,
@@ -15789,28 +15789,28 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     }
     if (taskDomain === 'charter') {
         return {
-            trigger: `Der heutige Charter nach ${targetLabel} hat einen klaren Termin- oder Ablaufgrund und soll nicht auf spaeter rutschen.`,
-            focusSubject: 'Chartergast und puenktliche Zielankunft',
-            keyQuestion: `Ob wir den Gast rechtzeitig und ohne Umwege so nach ${targetLabel} bringen, dass der eigentliche Termin dort erreichbar bleibt.`,
-            stakes: 'Wenn der Flug ausfaellt oder zu spaet kommt, platzt das Terminfenster am Ziel.',
-            completionSignal: 'Nach der Landung uebergeben wir den Gast direkt in den vorbereiteten Zielablauf.',
+            trigger: `Der heutige Charter nach ${targetLabel} hat einen klaren Termin- oder Ablaufgrund und ist als planbarer Transfer vorbereitet.`,
+            focusSubject: 'Chartergast und sauberer Zieluebergang',
+            keyQuestion: `Wie wir den Gast so nach ${targetLabel} bringen, dass Kontakt, Gepaeck und Termin vor Ort geordnet anschliessen.`,
+            stakes: 'Der Flug spart dem Gast lange Bodenwege und haelt den Zielablauf am Platz uebersichtlich.',
+            completionSignal: 'Nach der Landung uebernimmt der lokale Kontakt den Gast in den vorbereiteten Zielablauf.',
             subjectDetail: _missionPipelineV4PickOne([
                 'einen Architekten mit festem Ortstermin am Ziel',
-                'eine Geschaeftsreisende mit engem Besprechungsfenster',
-                'einen Sachverstaendigen mit nur kurzem Terminfenster vor Ort',
-                'einen Projektleiter, der am Ziel noch denselben Tag weiterarbeiten muss'
+                'eine Geschaeftsreisende mit vorbereiteter Besprechung am Ziel',
+                'einen Sachverstaendigen mit Unterlagen und lokalem Ansprechpartner',
+                'einen Projektleiter, der am Ziel geordnet weiterarbeiten soll'
             ]),
             incidentContext: _missionPipelineV4PickOne([
-                `Der Gast muss heute noch an ${targetLabel} ankommen, weil dort ein fester Vor-Ort-Termin oder vorbereiteter Kontakt wartet.`,
-                `Die Reise nach ${targetLabel} lohnt sich gerade jetzt, weil der Termin vor Ort zu knapp fuer einen spaeteren Umlauf oder lange Bodenanreise ist.`,
-                `Der Charter wurde angefragt, weil der Gast am Ziel ein enges Zeitfenster hat und direkt nach der Landung weiter muss.`
+                `Der Gast wird an ${targetLabel} von einem vorbereiteten Kontakt oder Shuttle uebernommen.`,
+                `Die Reise nach ${targetLabel} passt, weil der Zieltermin mit einer kurzen GA-Anreise deutlich sauberer organisiert ist.`,
+                `Der Charter wurde angefragt, weil Gepaeck, Kontakt und Termin am Zielplatz aufeinander abgestimmt sind.`
             ]),
             whyNow: _missionPipelineV4PickOne([
-                'Genau dieser Umlauf macht den Termin noch erreichbar, waehrend ein spaeterer Start den Ablauf kippen wuerde.',
-                'Die Charterlage ist zeitkritisch genug, dass eine flexible GA-Anreise gegenueber der Bodenroute den Unterschied macht.',
-                'Der Flug wird jetzt gebraucht, weil nur so das restliche Tagesfenster am Ziel sinnvoll nutzbar bleibt.'
+                'Der Flug passt jetzt, weil Gast, Abholung und Termin am Ziel gemeinsam vorbereitet sind.',
+                'Die flexible GA-Anreise reduziert Wege und macht den Uebergang am Ziel ruhig und planbar.',
+                'Der heutige Umlauf gibt dem Gast genug Ruhe, um am Ziel gesammelt weiterzugehen.'
             ]),
-            soughtOutcome: 'Wir sollen den Gast ruhig, puenktlich und nah genug an den Zielablauf bringen, dass der eigentliche Termin ohne Hektik uebernommen werden kann.'
+            soughtOutcome: 'Wir sollen den Gast ruhig und planbar so anliefern, dass der lokale Kontakt den Zielablauf ohne Hektik uebernehmen kann.'
         };
     }
     if (taskDomain === 'club_utility') {
@@ -15840,27 +15840,27 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 : clubUtilityLike
                     ? `Der heutige Flug nach ${targetLabel} hat einen konkreten Vereins- oder Nutzanlass, der nicht auf spaeter verschoben werden soll.${weatherBit}`
                 : `Der heutige Auftrag nach ${targetLabel} hat einen konkreten Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`,
-            focusSubject: charterLike ? 'Gast, Termin und puenktliche Zielankunft' : (clubUtilityLike ? 'klare Uebergabe oder Erledigung am Ziel' : targetLabel),
+            focusSubject: charterLike ? 'Gast, Termin und sauberer Zieluebergang' : (clubUtilityLike ? 'klare Uebergabe oder Erledigung am Ziel' : targetLabel),
             keyQuestion: charterLike
-                ? `Warum genau dieser Gast jetzt nach ${targetLabel} gebracht werden muss und welcher Termin dort erreicht werden soll.`
+                ? `Welcher Gast nach ${targetLabel} gebracht wird und wie Kontakt, Gepaeck und Termin dort geordnet anschliessen.`
                 : clubUtilityLike
                     ? `Welche konkrete Erledigung, Mitnahme oder Uebergabe in ${targetLabel} den heutigen Flug rechtfertigt.`
                 : `Welche konkrete Aufgabe am Ziel jetzt erledigt oder vorbereitet werden muss.`,
             stakes: charterLike
-                ? 'Ohne den Flug kippt das Terminfenster am Ziel.'
+                ? 'Der Charter ersetzt lange Bodenwege und haelt den Zielablauf fuer den Gast uebersichtlich.'
                 : clubUtilityLike
                     ? 'Ohne den Flug verschiebt sich eine praktische Vereins- oder Betriebsaufgabe unnoetig in den naechsten Umlauf.'
                 : 'Ohne den Flug verschiebt sich der naechste Schritt am Ziel unnoetig.',
             completionSignal: charterLike
-                ? 'Nach der Landung geht der Gast direkt in den vorbereiteten Zielablauf ueber.'
+                ? 'Nach der Landung uebernimmt der lokale Kontakt den Gast in den vorbereiteten Zielablauf.'
                 : clubUtilityLike
                     ? 'Nach der Ankunft wird die Mitnahme, Uebergabe oder Erledigung direkt am Platz uebernommen.'
                 : 'Nach Ankunft oder Ueberflug geht der Auftrag geordnet an die naechste Stelle ueber.',
             subjectDetail: charterLike
                 ? _missionPipelineV4PickOne([
-                    'einen Geschaeftsgast mit engem Terminfenster',
-                    'einen Sachverstaendigen, der am Ziel nur kurz verfuegbar ist',
-                    'einen Projektkontakt, der noch heute vor Ort gebraucht wird'
+                    'einen Geschaeftsgast mit vorbereitetem Zielkontakt',
+                    'einen Sachverstaendigen mit Unterlagen und lokalem Ansprechpartner',
+                    'einen Projektkontakt, der am Ziel geordnet weiterarbeiten soll'
                 ])
                 : clubUtilityLike
                     ? _missionPipelineV4PickOne([
@@ -15874,17 +15874,17 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                     'einen Gast oder Gegenstand mit festem Bezug zum Ziel'
                 ]),
             incidentContext: charterLike
-                ? `Der Flug nach ${targetLabel} wurde angefragt, weil der Gast dort nur in einem engen Zeitfenster sinnvoll uebernommen werden kann.`
+                ? `Der Charter nach ${targetLabel} passt, weil Abholung, Gepaeck und Termin am Zielplatz vorbereitet sind.`
                 : clubUtilityLike
                     ? `Der Flug nach ${targetLabel} wurde angefragt, weil dort eine konkrete Platz- oder Vereinsaufgabe vorbereitet auf uns wartet.`
                 : `Der Flug nach ${targetLabel} wurde nicht zufaellig gewaehlt, sondern durch einen konkreten Anlass am Ziel ausgeloest.`,
             whyNow: charterLike
-                ? 'Gerade dieser Umlauf ist noetig, damit der Termin am Ziel nicht auf spaeter verschoben werden muss.'
+                ? 'Dieser Umlauf passt, weil der Gast am Ziel ohne lange Bodenwege in den vorbereiteten Ablauf uebergehen kann.'
                 : clubUtilityLike
                     ? 'Der Nutzen des Flugs haengt daran, dass die Erledigung noch in diesem Dienst- oder Tagesfenster uebernommen wird.'
                 : 'Die Mission ist gerade jetzt sinnvoll, weil der Anlass am Ziel noch heute bearbeitet oder vorbereitet werden soll.',
             soughtOutcome: charterLike
-                ? 'Wir sollen den Gast puenktlich und ohne Umwege so anliefern, dass der eigentliche Termin am Ziel direkt uebernommen werden kann.'
+                ? 'Wir sollen den Gast ruhig und planbar so anliefern, dass der lokale Kontakt den Zielablauf uebernehmen kann.'
                 : clubUtilityLike
                     ? 'Wir sollen die Mitnahme oder Uebergabe so vorbereiten, dass der Platz- oder Vereinsablauf am Ziel ohne Leerlauf weitergehen kann.'
                 : 'Wir sollen den Anlass so weit klaeren oder uebergeben, dass der naechste Schritt am Ziel direkt anschliessen kann.'
@@ -18454,7 +18454,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `${aptCharterSeedPassenger.name}, ${aptCharterSeedPassenger.role}. Anlass: ${aptCharterSeedStory}`
         : '';
     const aptCharterProfileRule = isAptCharterMission
-        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit Empfang, Shuttle oder lokalem Kontakt im GA-/Vorfeldbereich nach der Landung. Keine Airline-, Anschlussflug-, One-Way-Feeder- oder Sightseeing-Story. Keine Systemwoerter wie Handoff, Pipeline oder Profil. Nutze Wetter Start/Ziel hoechstens als kurzen Realitaetsanker fuer Flugtakt und Komfort, nicht als neues Drama.`
+        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit Empfang, Shuttle oder lokalem Kontakt im GA-/Vorfeldbereich nach der Landung. Standard-Ton: ruhig, professionell, geplant; echter Zeitdruck ist eine seltene Besonderheit und darf nur auftauchen, wenn die Rolle oder der Anlass ihn klar begruendet. Keine Airline-, Anschlussflug-, One-Way-Feeder- oder Sightseeing-Story. Keine Systemwoerter wie Handoff, Pipeline oder Profil. Nutze Wetter Start/Ziel hoechstens als kurzen Realitaetsanker fuer Flugtakt und Komfort, nicht als neues Drama.`
         : '';
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`

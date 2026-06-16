@@ -1209,14 +1209,16 @@
         if (sourceKind === 'apt_charter') {
             const name = passenger?.name || 'der Chartergast';
             const role = passenger?.role || 'Chartergast';
+            const stayLead = stayPeriod ? `Nach einem Aufenthalt ${stayPeriod} ` : '';
             return {
                 ...commonMemory,
                 outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} gebracht.`,
-                stayOrWorkSummary: `${name} hat am Zielplatz den geplanten Termin${stayPeriod ? ` ${stayPeriod}` : ''} wahrgenommen: Empfang durch den lokalen Kontakt, Wege zum Terminort, Abschluss der Besprechung und Zusammenpacken von Notizen und persönlichem Gepäck.`,
-                whyNowReturn: `${stayDonePrefix}der Termin ist abgeschlossen, der Rückweg ist abgestimmt, und der Flug nach ${homeName} ist wieder angefragt.`,
-                returnReason: 'Rückkehr zur Ausgangsbasis mit Notizen, Gepäck und persönlichem Bericht vom Termin.',
+                stayOrWorkSummary: `${name} war ${stayPeriod ? `${stayPeriod} ` : ''}vor Ort: Empfang durch den lokalen Kontakt, Wege zwischen Vorfeld und Terminort, Gespräche am Tisch und am Ende das Sortieren von Notizen, Tasche und persönlichem Gepäck.`,
+                whyNowReturn: `${stayLead}${name} hat die wichtigsten Punkte geklärt, Tasche und Unterlagen wieder beisammen und wartet am GA-Bereich von ${targetName} auf den Rückflug nach ${homeName}.`,
+                returnReason: `Rückkehr nach ${homeName} mit Notizen, persönlichem Gepäck und den Eindrücken aus dem Termin vor Ort.`,
+                pickupDepartureCue: `Ich habe die Notizen aus dem Termin im Gepäck und kann auf dem Rückflug zum ersten Mal in Ruhe sortieren, was davon zu Hause als Nächstes wichtig wird.`,
                 teamContinuity: `Der Chartergast fragt bewusst wieder denselben Piloten an, weil Ablauf, Platzwechsel und Person aus dem ersten Charterflug vertraut sind.`,
-                pickupGreetingText: `Ich bin am Zielplatz fertig. Der Termin ist durch, meine Sachen sind gepackt und ich bin bereit für den Rückflug.`,
+                pickupGreetingText: `Ich bin wieder am GA-Bereich. Der Termin ist erledigt, meine Tasche ist gepackt, und ich bin bereit für den Rückflug.`,
                 sourcePaxText: pax,
                 sourceCargoText: cargo
             };
@@ -1325,9 +1327,10 @@
             };
             const name = passenger.name || 'der Chartergast';
             const role = passenger.role || 'Chartergast';
-            const stay = displayText(memory.stayOrWorkSummary || `${name} hat den Termin am Zielplatz abgeschlossen und wartet mit Notizen und persönlichem Gepäck am vereinbarten Treffpunkt.`);
-            const whyNow = displayText(memory.whyNowReturn || 'Der Termin ist abgeschlossen und der Rückflug ist wieder angefragt.');
-            const returnReason = displayText(memory.returnReason || `Rückflug nach ${homeName} mit Notizen, Gepäck und persönlichem Bericht vom Termin.`);
+            const stay = displayText(memory.stayOrWorkSummary || `${name} hat den Termin am Zielplatz abgeschlossen, Tasche und Notizen sortiert und wartet am vereinbarten Treffpunkt.`);
+            const whyNow = displayText(memory.whyNowReturn || `${name} ist wieder am GA-Bereich und bereit für den Rückflug nach ${homeName}.`);
+            const returnReason = displayText(memory.returnReason || `Rückflug nach ${homeName} mit Notizen, Gepäck und Eindrücken aus dem Termin.`);
+            const departureCue = displayText(memory.pickupDepartureCue || `Ich habe Notizen und Eindrücke im Gepäck und kann sie auf dem Rückflug in Ruhe sortieren.`);
             const exactWhere = `am vereinbarten Treffpunkt auf dem Vorfeld oder im GA-Bereich von ${targetName}`;
             if (acceptanceMode === 'onsite_to_home' || effectiveProfileId === 'apt_charter') {
                 return {
@@ -1427,7 +1430,7 @@
                     whyThere: stay,
                     returnReason,
                     boardingCue: displayText(memory.pickupGreetingText || `Ich bin am Zielplatz bereit; der Termin ist abgeschlossen und meine Sachen sind gepackt.`),
-                    departureCue: `${whyNow} Zurück in ${homeName} kann ich den Bericht direkt weitergeben.`
+                    departureCue
                 },
                 pickupCreativeBrief: {
                     purpose: 'Fortsetzung einer bereits geflogenen APT-Charter-Mission. Der Folgeauftrag nutzt dieselbe Person und erzählt die Rückholung nach einem echten Termin am Zielplatz.',
@@ -2473,7 +2476,7 @@
             whyThere: cleanText(req?.narrativeMemory?.stayOrWorkSummary || '', 320),
             returnReason: cleanText(req?.narrativeMemory?.returnReason || '', 320),
             boardingCue: cleanText(req?.narrativeMemory?.pickupGreetingText || p.greetingText || '', 320),
-            departureCue: cleanText(req?.narrativeMemory?.whyNowReturn || '', 360)
+            departureCue: cleanText(req?.narrativeMemory?.pickupDepartureCue || req?.narrativeMemory?.whyNowReturn || '', 360)
         };
         const spec = {
             profileId: 'apt_charter_pickup',
@@ -2567,7 +2570,7 @@
                     whyThere: memory.stayOrWorkSummary || '',
                     returnReason: memory.returnReason || '',
                     boardingCue: memory.pickupGreetingText || '',
-                    departureCue: memory.whyNowReturn || '',
+                    departureCue: memory.pickupDepartureCue || memory.whyNowReturn || '',
                     personName: p.name || '',
                     role: p.role || ''
                 }

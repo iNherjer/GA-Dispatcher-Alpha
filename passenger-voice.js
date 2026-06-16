@@ -4468,11 +4468,12 @@ ${urgencyLine}`
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
     if (pickupPaxActive) {
         const pickupStory = _bushPickupStoryData(pickupPaxContext, pax);
+        const isAptCharterPickup = String(pickupPaxContext?.bush?.profileId || '').toLowerCase() === 'apt_charter_pickup';
         const pickupStoryLine = [
-            `BUSH-PICKUP-STORY: Name=${pickupStory.personName}`,
+            `${isAptCharterPickup ? 'APT-CHARTER-PICKUP-STORY' : 'BUSH-PICKUP-STORY'}: Name=${pickupStory.personName}`,
             `Rolle=${pickupStory.role || 'n/a'}`,
             `Wartepunkt=${pickupStory.exactWhere}`,
-            pickupStory.whyThere ? `Auftrag draußen=${pickupStory.whyThere}` : '',
+            pickupStory.whyThere ? `${isAptCharterPickup ? 'Aufenthalt/Termin' : 'Auftrag draußen'}=${pickupStory.whyThere}` : '',
             pickupStory.returnReason ? `Rückkehrgrund=${pickupStory.returnReason}` : '',
             pickupStory.boardingCue ? `Einstieg-Cue=${pickupStory.boardingCue}` : '',
             pickupStory.departureCue ? `Rückflug-Cue=${pickupStory.departureCue}` : ''
@@ -5817,8 +5818,12 @@ function _pickupDeparturePrompt() {
     const storyData = _bushPickupStoryData(active, pax);
     const betweenFlights = _bushPickupBetweenFlightsLine(active, pax);
     const isAptCharterPickup = String(active?.bush?.profileId || '').toLowerCase() === 'apt_charter_pickup';
+    const urgency = _normUrgencyPriority(pax?.urgencyPriority);
+    const aptTimeTone = urgency === 'hoch'
+        ? 'Wenn der konkrete Anlass es hergibt, darf ein echter Zeitbezug kurz mitschwingen.'
+        : 'Es gibt keinen Zeitdruck: keine Anschluss-Termin-Hektik, kein "Termin drückt", kein dringender Statusbericht.';
     const storyInstruction = isAptCharterPickup
-        ? `Baue direkt auf deiner kurzen Ansage vom Zielplatz auf: Erzähle jetzt die persönliche Zwischenzeit-Geschichte aus deiner Ich-Perspektive als abgeholter Chartergast. Mache sie lebendig und glaubwürdig: was seit dem ersten Flug konkret im Termin, beim lokalen Kontakt oder zwischen Vorfeld und Zielort passiert ist, welche Notizen/Gegenstände du jetzt dabei hast, warum du wieder nach ${storyData.homePlace} musst und was du aus dem Termin mitnimmst. Nutze dabei den Rückkehrgrund: ${storyData.returnReason || 'am Ausgangsplatz wartet der nächste konkrete Schritt'}. Der Ton ist Airport-Charter: persönlich, professionell, ruhig; keine Bush-, Wildnis- oder Einsatzromantik. Beginne NICHT erneut mit einer Begrüßung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.`
+        ? `Baue direkt auf deiner kurzen Ansage vom Zielplatz auf: Erzähle jetzt als abgeholter Chartergast eine kleine persönliche Szene aus der Zeit zwischen den Flügen, nicht wie ein Briefing. Nimm ein konkretes Detail aus dem Aufenthalt: ein Gespräch, eine handschriftliche Notiz, ein kurzer Weg vom Vorfeld zum Kontakt, eine Mappe im Gepäck oder einen Moment, der dir hängen geblieben ist. Erkläre daraus natürlich, warum der Rückflug nach ${storyData.homePlace} jetzt passt und was du innerlich vom Termin mitnimmst. Nutze den Rückkehrgrund nur als Stoff für diese Erzählung: ${storyData.returnReason || 'zu Hause wartet der nächste ruhige Schritt'}. Der Ton ist Airport-Charter: persönlich, professionell, ruhig; keine Bush-, Wildnis- oder Einsatzromantik. ${aptTimeTone} Beginne NICHT erneut mit einer Begrüßung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.`
         : `Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzähle jetzt die persönliche Zwischenzeit-Geschichte aus deiner Ich-Perspektive als abgeholter Gast. Mache sie lebendig und glaubwürdig: was seit dem ersten Flug konkret passiert ist, ein kleines beobachtetes Detail oder Problem vor Ort, welche Notizen/Gegenstände du jetzt dabei hast, warum du wieder nach ${storyData.homePlace} musst und was du vom Ort oder vom Einsatz mitnimmst. Nutze dabei den Rückkehrgrund: ${storyData.returnReason || 'zu Hause wartet der nächste konkrete Arbeitsschritt'}. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelände, Dauer draußen, Feldarbeit, Wetter oder Rückkehr in die Zivilisation. Das darf persönlicher und bildhafter sein, aber weiterhin realistisch. Beginne NICHT erneut mit einer Begrüßung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.`;
     return `${ctx}
 
