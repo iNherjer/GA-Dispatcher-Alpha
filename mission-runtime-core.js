@@ -69,11 +69,15 @@ function _missionBushPickupAtTargetNow(lat = null, lon = null) {
     if (!Number.isFinite(curLat) || !Number.isFinite(curLon)) return false;
     const ready = _missionEndReadiness(curLat, curLon);
     if (!ready?.groundStill) return false;
+    if (
+        ready?.atTarget
+        && (ready.reason === 'apt_arrival_point' || ready.reason === 'apt_airport_fallback')
+    ) return true;
     const bush = _activeBushMissionSpec();
     const targetLat = Number(bush?.targetRef?.lat);
     const targetLon = Number(bush?.targetRef?.lon);
     if (Number.isFinite(targetLat) && Number.isFinite(targetLon)) {
-        const atArrivalPoint = _isAtAptArrivalPoint(curLat, curLon, 0.12);
+        const atArrivalPoint = _isAtAptArrivalPoint(curLat, curLon, 0.16);
         const dTargetNm = _haversineNmLocal(curLat, curLon, targetLat, targetLon);
         return !!(atArrivalPoint || (Number.isFinite(dTargetNm) && dTargetNm <= 0.35));
     }
