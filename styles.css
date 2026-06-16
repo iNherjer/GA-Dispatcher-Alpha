@@ -7821,6 +7821,33 @@ body.map-drawing-active #map.leaflet-dragging {
     font-size: 11px;
     color: rgba(232,244,255,0.72);
 }
+.mission-cargo-payload-summary {
+    padding: 9px 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px;
+    line-height: 1.45;
+    color: rgba(232,244,255,0.72);
+}
+.mission-cargo-payload-message {
+    margin-top: 7px;
+    padding: 7px 9px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(232,244,255,0.86);
+}
+.mission-cargo-payload-message.is-pending {
+    border-color: rgba(142, 197, 255, 0.36);
+    background: rgba(142, 197, 255, 0.09);
+}
+.mission-cargo-payload-message.is-ok {
+    border-color: rgba(68, 255, 204, 0.3);
+    background: rgba(68, 255, 204, 0.07);
+}
+.mission-cargo-payload-message.is-warn {
+    border-color: rgba(255, 212, 106, 0.44);
+    background: rgba(255, 212, 106, 0.1);
+}
 .mission-cargo-actions {
     display: flex;
     gap: 8px;

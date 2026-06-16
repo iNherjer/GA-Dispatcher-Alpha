@@ -1995,6 +1995,8 @@ window.missionCargoStatus = {
     payloadSyncQueued: '',
     payloadSyncAt: 0,
     payloadNeedsSync: false,
+    payloadVerification: null,
+    payloadVerificationRunning: false,
     payloadPendingResetStations: null,
     payloadPendingResetMaxStations: 0,
     dialogScroll: null

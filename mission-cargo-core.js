@@ -709,6 +709,8 @@ function _missionCargoResetPayloadPlanForMissionKey(manifestKey = '') {
     window.missionCargoStatus.payloadSyncQueued = '';
     window.missionCargoStatus.payloadPendingResetStations = null;
     window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+    window.missionCargoStatus.payloadVerification = null;
+    window.missionCargoStatus.payloadVerificationRunning = false;
     if (manifestKey) window.missionCargoStatus.payloadNeedsSync = false;
 }
 
@@ -856,6 +858,116 @@ function _missionCargoBuildPlanFromManifest(manifest, baseline) {
         missionWeightLbs: Math.round(stations.reduce((sum, row) => sum + Number(row.missionExtraLbs || 0), 0)),
         payloadWeightLbs: Math.round(payloadWeightLbs * 10) / 10
     };
+}
+
+function _missionCargoComparePayloadStations(snapshot = null, targetStations = [], toleranceLbs = 1) {
+    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
+    const targets = (Array.isArray(targetStations) ? targetStations : [])
+        .map(row => ({
+            index: Math.round(Number(row?.index)),
+            weightLbs: Math.round(Math.max(0, Number(row?.weightLbs || 0)) * 10) / 10
+        }))
+        .filter(row => Number.isFinite(row.index) && row.index >= 1 && Number.isFinite(row.weightLbs));
+    if (!normalized || !targets.length) {
+        return { ok: false, reason: normalized ? 'no_targets' : 'no_snapshot', mismatches: [], checked: 0, maxDeltaLbs: null };
+    }
+    const byIndex = new Map((normalized.stations || []).map(row => [Math.round(Number(row.index)), Number(row.weightLbs)]));
+    const tolerance = Math.max(0.25, Number(toleranceLbs) || 1);
+    const mismatches = [];
+    targets.forEach((target) => {
+        const actual = byIndex.get(target.index);
+        const delta = Number.isFinite(actual) ? (actual - target.weightLbs) : null;
+        if (!Number.isFinite(actual) || Math.abs(delta) > tolerance) {
+            mismatches.push({
+                index: target.index,
+                targetWeightLbs: target.weightLbs,
+                actualWeightLbs: Number.isFinite(actual) ? Math.round(actual * 10) / 10 : null,
+                deltaLbs: Number.isFinite(delta) ? Math.round(delta * 10) / 10 : null
+            });
+        }
+    });
+    const maxDelta = mismatches.reduce((max, row) => Math.max(max, Math.abs(Number(row.deltaLbs || 0))), 0);
+    return {
+        ok: mismatches.length === 0,
+        reason: mismatches.length ? 'station_mismatch' : 'matched',
+        mismatches,
+        checked: targets.length,
+        maxDeltaLbs: mismatches.length ? Math.round(maxDelta * 10) / 10 : 0
+    };
+}
+
+async function _missionCargoVerifyPayloadStable(targetStations = [], options = {}) {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadGet !== 'function') {
+        return { status: 'skipped' };
+    }
+    const targets = (Array.isArray(targetStations) ? targetStations : [])
+        .map(row => ({
+            index: Math.round(Number(row?.index)),
+            weightLbs: Math.round(Math.max(0, Number(row?.weightLbs || 0)) * 10) / 10
+        }))
+        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
+    if (!targets.length) return { status: 'no_targets' };
+    const delays = Array.isArray(options.delaysMs) && options.delaysMs.length
+        ? options.delaysMs
+        : [900, 2400];
+    const maxStations = Math.max(1, Math.min(15, Math.round(Number(options.maxStations || targets.length || 12)) || 12));
+    const startedAt = Date.now();
+    let lastAck = null;
+    let lastCheck = null;
+    const renderStatus = () => {
+        if (document.getElementById('missionCargoOverlay')?.style.display !== 'flex') return;
+        const mode = window.missionCargoStatus?.lastMode === 'unload'
+            ? 'unload'
+            : (window.missionCargoStatus?.lastMode === 'pickup' ? 'pickup' : 'load');
+        _missionCargoRenderDialog(mode, { skipPayloadRefresh: true });
+    };
+    window.missionCargoStatus.payloadVerificationRunning = true;
+    window.missionCargoStatus.payloadVerification = {
+        status: 'running',
+        reason: options.reason || 'payload-stability-check',
+        startedAt
+    };
+    renderStatus();
+    try {
+        for (const delayMs of delays) {
+            await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(delayMs) || 0)));
+            lastAck = await _missionCargoRefreshPayloadSnapshot({
+                force: true,
+                maxStations,
+                timeoutMs: Number(options.timeoutMs) || 12000
+            });
+            const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+            lastCheck = _missionCargoComparePayloadStations(snapshot, targets, options.toleranceLbs || 1);
+            if (!lastCheck.ok) break;
+        }
+        const result = {
+            status: lastCheck?.ok ? 'ok' : 'unstable',
+            reason: lastCheck?.ok ? 'stable' : (lastCheck?.reason || lastAck?.error || lastAck?.status || 'payload_unstable'),
+            elapsedMs: Date.now() - startedAt,
+            check: lastCheck,
+            lastAckStatus: lastAck?.status || null,
+            maxStations
+        };
+        window.missionCargoStatus.payloadVerification = result;
+        window.missionCargoStatus.payloadVerificationRunning = false;
+        renderStatus();
+        return result;
+    } catch (err) {
+        const result = {
+            status: 'unstable',
+            reason: err?.message || String(err) || 'payload_verification_failed',
+            elapsedMs: Date.now() - startedAt,
+            check: lastCheck,
+            lastAckStatus: lastAck?.status || null,
+            maxStations
+        };
+        window.missionCargoStatus.payloadVerification = result;
+        window.missionCargoStatus.payloadVerificationRunning = false;
+        renderStatus();
+        return result;
+    } finally {
+        window.missionCargoStatus.payloadVerificationRunning = false;
+    }
 }
 
 function _missionCargoStorePayloadBaselineIfNeeded(snapshot, manifestKey = '') {
@@ -1011,6 +1123,32 @@ function _missionCargoFormatStationList(indices = []) {
     return list.length ? list.join(', ') : '-';
 }
 
+function _missionCargoPayloadStatusMessageHtml() {
+    const verification = window.missionCargoStatus?.payloadVerification || null;
+    const running = !!window.missionCargoStatus?.payloadVerificationRunning;
+    if (running || verification?.status === 'running') {
+        return '<div class="mission-cargo-payload-message is-pending">Sim-Zuladung wird nach dem Setzen erneut geprueft ...</div>';
+    }
+    if (verification?.status === 'unstable') {
+        const mismatch = Array.isArray(verification?.check?.mismatches) ? verification.check.mismatches[0] : null;
+        const detail = mismatch
+            ? ` S${Math.round(Number(mismatch.index) || 0)} Ziel ${Math.round(Number(mismatch.targetWeightLbs) || 0)} lbs, Sim ${Number.isFinite(Number(mismatch.actualWeightLbs)) ? Math.round(Number(mismatch.actualWeightLbs)) : '-'} lbs.`
+            : '';
+        return `<div class="mission-cargo-payload-message is-warn">Sim hat die Zuladung kurz angenommen, aber wieder zurueckgesetzt.${detail} Dieses Flugzeug verwaltet Weight & Balance vermutlich selbst; bitte im aircraft-eigenen Lade-/Tablet-Menue setzen.</div>`;
+    }
+    if (verification?.status === 'ok') {
+        return '<div class="mission-cargo-payload-message is-ok">Sim-Zuladung stabil uebernommen.</div>';
+    }
+    const error = String(window.missionCargoStatus?.error || window.aircraftPayloadStatus?.error || '').trim();
+    if (window.missionCargoStatus?.payloadNeedsSync && error) {
+        const text = error === 'payload_unstable_aircraft_override'
+            ? 'Sim-Zuladung wurde vom Flugzeug wieder ueberschrieben.'
+            : `Sim-Zuladung noch nicht synchron (${error}).`;
+        return `<div class="mission-cargo-payload-message is-warn">${_missionCargoEscape(text)}</div>`;
+    }
+    return '';
+}
+
 function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
     if (!snapshot) {
@@ -1047,10 +1185,11 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const cargoPart = Number.isFinite(Number(plan?.cargoWeightLbs)) ? `Cargo ${Math.round(plan.cargoWeightLbs)} lbs` : 'Cargo n/a';
     return `
         <div class="mission-cargo-payload-summary">
-            <div>Sim aktuell: MTOW-Live ${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '-'} lbs · Leer ${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '-'} lbs · Fuel ${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '-'} lbs</div>
+            <div>Sim aktuell: Gesamt ${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '-'} lbs · Leer ${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '-'} lbs · Fuel ${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '-'} lbs</div>
             <div>Nutzlaststationen: ${snapshot.payloadStationCount} · Verteilung: Copilot S${layout.copilotIndex} · Ruecksitze ${_missionCargoFormatStationList(layout.rearSeatIndices)} · Cargo ${_missionCargoFormatStationList(layout.cargoIndices)}</div>
             <div>Mission-Plan (${mode === 'unload' ? 'Entladen' : 'Verladen'}): ${paxPart} · ${cargoPart}${missionExtra == null ? '' : ` · Zusatz ${Math.round(missionExtra)} lbs`}</div>
             <div>Stationen: ${stationRows || '-'}</div>
+            ${_missionCargoPayloadStatusMessageHtml()}
         </div>`;
 }
 
@@ -1078,6 +1217,8 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
     }
     window.missionCargoStatus.payloadSyncRunning = true;
     window.missionCargoStatus.payloadSyncQueued = '';
+    window.missionCargoStatus.payloadVerification = null;
+    window.missionCargoStatus.payloadVerificationRunning = false;
     try {
         const hasPendingReset = Array.isArray(window.missionCargoStatus?.payloadPendingResetStations) && window.missionCargoStatus.payloadPendingResetStations.length > 0;
         if (hasPendingReset) {
@@ -1114,7 +1255,22 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
         );
         window.missionCargoStatus.payloadSyncAt = Date.now();
         if (setAck?.status === 'ok') {
-            window.missionCargoStatus.payloadNeedsSync = false;
+            const verifyAck = await _missionCargoVerifyPayloadStable(
+                plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })),
+                {
+                    reason,
+                    maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12,
+                    timeoutMs: 12000
+                }
+            );
+            if (verifyAck?.status === 'ok' || verifyAck?.status === 'skipped') {
+                window.missionCargoStatus.payloadNeedsSync = false;
+                if (verifyAck?.status === 'ok') window.missionCargoStatus.error = null;
+            } else {
+                window.missionCargoStatus.payloadNeedsSync = true;
+                window.missionCargoStatus.error = 'payload_unstable_aircraft_override';
+                return verifyAck || { status: 'unstable', error: 'payload_unstable_aircraft_override' };
+            }
         } else {
             window.missionCargoStatus.payloadNeedsSync = true;
             window.missionCargoStatus.error = setAck?.error || setAck?.status || 'payload_set_failed';
