@@ -5234,11 +5234,13 @@ body.theme-navcom .radio-disp-inner.airport-search-anchor {
 }
 
 body.theme-navcom .radio-disp-inner .airport-autocomplete {
+    --navcom-autocomplete-row-gap: 6px;
+    --navcom-autocomplete-display-pad: 8px;
     top: calc(100% + 6px);
-    left: -8px;
+    left: calc(0px - var(--navcom-autocomplete-display-pad));
     right: auto;
-    width: min(460px, calc(100vw - 32px));
-    max-width: calc(100vw - 32px);
+    width: calc(200% + var(--navcom-autocomplete-display-pad) + var(--navcom-autocomplete-display-pad) + var(--navcom-autocomplete-display-pad) + var(--navcom-autocomplete-display-pad) + var(--navcom-autocomplete-row-gap));
+    max-width: none;
     border-color: rgba(255, 68, 0, 0.55);
     border-radius: 3px;
     background: rgba(5, 5, 5, 0.98);
@@ -5247,7 +5249,7 @@ body.theme-navcom .radio-disp-inner .airport-autocomplete {
 
 body.theme-navcom .radio-disp-inner .airport-autocomplete[data-input-id="destLocRadio"] {
     left: auto;
-    right: -8px;
+    right: calc(0px - var(--navcom-autocomplete-display-pad));
 }
 
 body.theme-navcom .radio-disp-inner .airport-autocomplete-option {
@@ -6195,6 +6197,11 @@ body.theme-navcom .kln90b-module .radio-label {
 
     .half-module {
         padding: 5px 6px 4px 6px !important;
+    }
+
+    body.theme-navcom .radio-disp-inner .airport-autocomplete {
+        --navcom-autocomplete-row-gap: 2px;
+        --navcom-autocomplete-display-pad: 4px;
     }
 }
 
