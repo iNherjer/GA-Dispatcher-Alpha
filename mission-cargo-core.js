@@ -1823,10 +1823,13 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const listMarkup = (!isUnload && !isPickup)
         ? ''
         : `<div class="mission-cargo-list">${rows}</div>`;
+    const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup'
+        ? 'Zielplatz'
+        : 'Zielstrip';
     const modeHint = isUnload
         ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.</div>' : '')
         : (isPickup
-            ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Pickup ist nur im Stillstand am Zielstrip moeglich.</div>' : '<div class="mission-cargo-summary">Zum Treffpunkt rollen, Pickup laden und danach den Rueckflug bestaetigen.</div>')
+            ? (!groundHandlingAllowed ? `<div class="mission-cargo-summary">Pickup ist nur im Stillstand am ${pickupPlaceLabel} moeglich.</div>` : '<div class="mission-cargo-summary">Zum Treffpunkt rollen, Pickup laden und danach den Rueckflug bestaetigen.</div>')
             : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : ''));
     const onboardWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'loaded' ? Number(item.weightLbs || 0) : 0), 0);
     const unloadedWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'unloaded' ? Number(item.weightLbs || 0) : 0), 0);
@@ -1836,7 +1839,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-head">
                 <div>
                     <div class="mission-cargo-kicker">${isUnload ? 'Ankunft' : 'Abflug'}</div>
-                    <div class="mission-cargo-title">${isUnload ? 'Ladung entladen' : (isPickup ? 'Pickup am Zielstrip' : 'Verladung')}</div>
+                    <div class="mission-cargo-title">${isUnload ? 'Ladung entladen' : (isPickup ? `Pickup am ${pickupPlaceLabel}` : 'Verladung')}</div>
                 </div>
                 <button class="mission-cargo-close" onclick="window.closeMissionCargoDialog && closeMissionCargoDialog()" title="Schliessen">×</button>
             </div>
@@ -1844,7 +1847,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
                 : (isPickup
-                    ? `Hier laedst du ${pickupItemTypeLabel} am Zielstrip ein. Nach der Bestaetigung wird der Rueckflug freigegeben.`
+                    ? `Hier laedst du ${pickupItemTypeLabel} am ${pickupPlaceLabel} ein. Nach der Bestaetigung wird der Rueckflug freigegeben.`
                     : (window.missionCargoStatus?.loadConfirmed
                         ? (missionStartReady
                             ? 'Verladung ist bestaetigt. Die Mission ist jetzt startbereit.'
@@ -1948,8 +1951,11 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
     if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
+        const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup'
+            ? 'Zielplatz'
+            : 'Zielstrip';
         window.missionCargoStatus.error = item.pickupLocation === 'target'
-            ? 'Dieser Pickup ist erst am Zielstrip verfügbar.'
+            ? `Dieser Pickup ist erst am ${pickupPlaceLabel} verfügbar.`
             : 'Dieses Item ist in der aktuellen Missionsphase noch nicht verfügbar.';
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'pickup' ? 'pickup' : (options.mode === 'unload-reload' ? 'unload' : 'load'), { skipPayloadRefresh: true });
         return false;

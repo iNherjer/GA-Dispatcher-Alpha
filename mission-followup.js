@@ -32,9 +32,14 @@
             followUpKind: 'bush_supply_strip',
             sourceLabel: 'Bush Recon',
             followUpLabel: 'Bush Service Run'
+        },
+        apt_charter: {
+            followUpKind: 'apt_charter_pickup',
+            sourceLabel: 'APT Charter',
+            followUpLabel: 'Charter Pickup'
         }
     };
-    const PASSENGER_PICKUP_SOURCE_KINDS = new Set(['bush_charter_strip', 'bush_scenic_hopper']);
+    const PASSENGER_PICKUP_SOURCE_KINDS = new Set(['bush_charter_strip', 'bush_scenic_hopper', 'apt_charter']);
 
     let initialized = false;
     const acceptingIds = new Set();
@@ -168,6 +173,11 @@
             if (n === 1) return 'bis zum nächsten Morgen für Auswertung und Materialplanung';
             return `ungefähr ${n} Tage für Auswertung und Materialplanung`;
         }
+        if (source === 'apt_charter') {
+            if (n === 1) return 'bis morgen';
+            if (n === 2) return 'für zwei Tage';
+            return `für ungefähr ${n} Tage`;
+        }
         if (n === 1) return 'bis morgen';
         return `ungefähr ${n} Tage`;
     }
@@ -189,6 +199,11 @@
             if (n === 1) return 'bis zum nächsten Morgen nach dem Recon';
             return `über ungefähr ${n} Tage nach dem Recon`;
         }
+        if (source === 'apt_charter') {
+            if (n === 1) return 'bis zum nächsten Morgen';
+            if (n === 2) return 'über zwei Tage';
+            return `über ungefähr ${n} Tage`;
+        }
         if (n === 1) return 'bis zum nächsten Morgen';
         return `für ungefähr ${n} Tage`;
     }
@@ -198,6 +213,9 @@
         const text = stayDurationText(stayDays, source);
         const name = cleanText(passenger?.name || '', 80);
         if (!text) return '';
+        if (source === 'apt_charter') {
+            return `${name || 'Der Chartergast'} bleibt voraussichtlich ${text} am Zielplatz und kann beim Abschied erwähnen, dass ein späterer Rückflug gut passen würde.`;
+        }
         if (source === 'bush_supply_strip') {
             return `Die Crew sortiert die Lieferung ${text}; danach sollten leere Kisten, Belege und Rückfracht abholbereit sein.`;
         }
@@ -262,7 +280,7 @@
         const sourceKind = String(options.sourceKind || getProfileId(md) || '').toLowerCase();
         const cfg = SOURCE_MAP[sourceKind];
         if (!cfg) return null;
-        const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null;
+        const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null;
         const temporalContext = missionTemporalContext(md, sourceKind);
         if (!temporalContext) return null;
         return {
@@ -404,7 +422,9 @@
             ? 'onsite_to_home'
             : (sameHome ? 'pickup_from_home' : 'pickup_from_third_place');
         const dispatchProfileId = onsite
-            ? (followUpKind === 'bush_pickup_cargo' ? 'bush_supply_strip' : 'bush_charter_strip')
+            ? (followUpKind === 'bush_pickup_cargo'
+                ? 'bush_supply_strip'
+                : (followUpKind === 'apt_charter_pickup' ? 'apt_charter' : 'bush_charter_strip'))
             : followUpKind;
         return {
             schema: 'ga.followup.acceptance.v1',
@@ -443,7 +463,9 @@
 
     function pickerValueForProfile(profileId = '') {
         const id = String(profileId || '').trim().toLowerCase();
-        return id ? `bush:all+${id}` : '';
+        if (!id) return '';
+        if (id === 'apt_charter' || id === 'apt_charter_pickup') return 'apt:charter';
+        return `bush:all+${id}`;
     }
 
     function followupPlaceLabel(ref = null, fallback = 'Platz') {
@@ -490,6 +512,8 @@
         const followUpKind = String(req?.followUpKind || '').toLowerCase();
         const isServiceRun = followUpKind === 'bush_supply_strip';
         const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
+        const isAptCharterPickup = followUpKind === 'apt_charter_pickup';
+        const targetPlaceLabel = isAptCharterPickup ? 'Zielplatz' : 'Zielstrip';
         const defaultRef = lastRef?.icao ? lastRef : homeRef;
         const defaultIcao = String(defaultRef?.icao || homeRef?.icao || '').trim().toUpperCase();
         const overlay = ensureStartDialog();
@@ -510,8 +534,8 @@
             },
             !isOutboundRun ? {
                 id: 'target',
-                title: 'Noch am Zielstrip',
-                text: followupPlaceLabel(targetRef, 'Zielstrip'),
+                title: isAptCharterPickup ? 'Noch am Zielplatz' : 'Noch am Zielstrip',
+                text: followupPlaceLabel(targetRef, targetPlaceLabel),
                 ref: targetRef
             } : null,
             {
@@ -527,10 +551,10 @@
         selected = (!isOutboundRun && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
         if (summary) {
             summary.textContent = isServiceRun
-                ? `Serviceziel: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Materialbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
-                : (isOutboundRun
-                    ? `Einsatzort: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Ausgangsbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
-                    : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, 'Zielstrip')}`);
+                    ? `Serviceziel: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Materialbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
+                    : (isOutboundRun
+                        ? `Einsatzort: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Ausgangsbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
+                    : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, targetPlaceLabel)}`);
         }
         if (options) {
             options.innerHTML = '';
@@ -735,7 +759,7 @@
     }
 
     function getProfileId(md = null) {
-        return String(
+        const explicit = String(
             md?.bush?.profileId
             || md?.missionContract?.bush?.profileId
             || md?.missionContract?.appliedProfileId
@@ -744,6 +768,30 @@
             || md?._requestedProfile
             || ''
         ).trim().toLowerCase();
+        if (explicit && SOURCE_MAP[explicit]) return explicit;
+        const missionType = String(md?.missionType || md?.type || '').trim().toLowerCase();
+        const category = String(md?.cat || md?.category || md?.requestedCategory || md?.selectedCategory || md?.missionContract?.category || '').trim().toLowerCase();
+        const taskDomain = String(md?.passenger?.taskDomain || md?.missionContract?.taskDomain || md?.taskDomain || '').trim().toLowerCase();
+        const roleProfile = String(md?.passenger?.roleProfile || md?.missionContract?.passenger?.roleProfile || '').trim().toLowerCase();
+        const hay = [
+            category,
+            taskDomain,
+            roleProfile,
+            md?.mission,
+            md?.t,
+            md?.story,
+            md?.s
+        ].filter(Boolean).join(' ').toLowerCase();
+        const isApt = missionType === 'apt' || (!md?.bush && !md?.poi && !/bush_/.test(explicit));
+        if (
+            isApt
+            && (category === 'charter' || taskDomain === 'charter' || /vip_business|charter_professional/.test(roleProfile))
+            && !/(medical|medic|patient|cargo|fracht|freight|animal|tier|training|club|news|media|sightseeing|tour)/.test(hay)
+            && !/(anschlussflug|linienflug|airline|connecting flight|feeder flight|zubringerflug|one[-\s]?way)/.test(hay)
+        ) {
+            return 'apt_charter';
+        }
+        return explicit;
     }
 
     function getMissionDataFromCandidate(candidate = null) {
@@ -751,19 +799,26 @@
         return candidate && typeof candidate === 'object' ? candidate : null;
     }
 
-    function extractPassenger(md = null) {
+    function pickupPassengerProfileForKind(kind = '') {
+        return String(kind || '').toLowerCase() === 'apt_charter'
+            ? { roleProfile: 'charter_professional_neutral_v1', taskDomain: 'charter' }
+            : { roleProfile: 'bush_pickup_guest_v1', taskDomain: 'bush_pickup_return' };
+    }
+
+    function extractPassenger(md = null, sourceKind = '') {
         const candidates = [
             md?.passenger,
             md?.missionContract?.passenger,
             typeof window !== 'undefined' ? window.activePassenger : null
         ];
         const p = candidates.find(item => item && typeof item === 'object') || {};
+        const profile = pickupPassengerProfileForKind(sourceKind);
         return {
             name: cleanText(p.name || '', 80),
-            role: cleanText(p.role || 'Bush-Teamgast', 120),
+            role: cleanText(p.role || (String(sourceKind).toLowerCase() === 'apt_charter' ? 'Chartergast' : 'Bush-Teamgast'), 120),
             gender: cleanText(p.gender || '', 30),
-            roleProfile: 'bush_pickup_guest_v1',
-            taskDomain: 'bush_pickup_return',
+            roleProfile: profile.roleProfile,
+            taskDomain: profile.taskDomain,
             gTolerance: p.gTolerance || 'mittel',
             bankTolerance: p.bankTolerance || 'mittel',
             cargoSensitivity: p.cargoSensitivity || 'mittel',
@@ -1146,7 +1201,22 @@
                 whyNowReturn: `${stayDonePrefix}der vereinbarte Wildnisaufenthalt ist beendet, das Wetterfenster passt, und Kamera, Rucksack und persönliche Sachen sind wieder gepackt.`,
                 returnReason: 'Rückkehr zur Basis mit Fotos, Notizen und der persönlichen Geschichte vom Aufenthalt draußen.',
                 teamContinuity: `Der Gast fragt bewusst wieder denselben Piloten an, weil der Strip, der Anflug und die Absprachen aus dem Adventure-Hinflug vertraut sind.`,
-                pickupGreetingText: `${name || 'Ich'} bin wieder am Strip. Der Ausflug hat sich gelohnt, der Rucksack ist gepackt, und ich habe einiges vom Aufenthalt zu erzählen.`,
+                pickupGreetingText: `Ich bin wieder am Strip. Der Ausflug hat sich gelohnt, der Rucksack ist gepackt, und ich habe einiges vom Aufenthalt zu erzählen.`,
+                sourcePaxText: pax,
+                sourceCargoText: cargo
+            };
+        }
+        if (sourceKind === 'apt_charter') {
+            const name = passenger?.name || 'der Chartergast';
+            const role = passenger?.role || 'Chartergast';
+            return {
+                ...commonMemory,
+                outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} gebracht.`,
+                stayOrWorkSummary: `${name} hat am Zielplatz den geplanten Termin${stayPeriod ? ` ${stayPeriod}` : ''} wahrgenommen: Empfang durch den lokalen Kontakt, Wege zum Terminort, Abschluss der Besprechung und Zusammenpacken von Notizen und persönlichem Gepäck.`,
+                whyNowReturn: `${stayDonePrefix}der Termin ist abgeschlossen, der Rückweg ist abgestimmt, und der Flug nach ${homeName} ist wieder angefragt.`,
+                returnReason: 'Rückkehr zur Ausgangsbasis mit Notizen, Gepäck und persönlichem Bericht vom Termin.',
+                teamContinuity: `Der Chartergast fragt bewusst wieder denselben Piloten an, weil Ablauf, Platzwechsel und Person aus dem ersten Charterflug vertraut sind.`,
+                pickupGreetingText: `Ich bin am Zielplatz fertig. Der Termin ist durch, meine Sachen sind gepackt und ich bin bereit für den Rückflug.`,
                 sourcePaxText: pax,
                 sourceCargoText: cargo
             };
@@ -1244,6 +1314,149 @@
         const temporalHint = temporalContext?.stayText
             ? `Geplante Aufenthalts-/Wartezeit bis zur Folgeanfrage: ${displayText(temporalContext.stayText)}.`
             : '';
+        if (followUpKind === 'apt_charter_pickup') {
+            const passenger = {
+                ...(req.passenger || {}),
+                name: cleanText(req.passenger?.name || 'Chartergast', 80),
+                role: cleanText(req.passenger?.role || 'Chartergast', 120),
+                gender: cleanText(req.passenger?.gender || '', 30),
+                roleProfile: 'charter_professional_neutral_v1',
+                taskDomain: 'charter'
+            };
+            const name = passenger.name || 'der Chartergast';
+            const role = passenger.role || 'Chartergast';
+            const stay = displayText(memory.stayOrWorkSummary || `${name} hat den Termin am Zielplatz abgeschlossen und wartet mit Notizen und persönlichem Gepäck am vereinbarten Treffpunkt.`);
+            const whyNow = displayText(memory.whyNowReturn || 'Der Termin ist abgeschlossen und der Rückflug ist wieder angefragt.');
+            const returnReason = displayText(memory.returnReason || `Rückflug nach ${homeName} mit Notizen, Gepäck und persönlichem Bericht vom Termin.`);
+            const exactWhere = `am vereinbarten Treffpunkt auf dem Vorfeld oder im GA-Bereich von ${targetName}`;
+            if (acceptanceMode === 'onsite_to_home' || effectiveProfileId === 'apt_charter') {
+                return {
+                    schema: 'ga.followup.pipelineContext.v1',
+                    requestId: req.id || null,
+                    sourceKind: req.sourceKind || null,
+                    followUpKind,
+                    effectiveProfileId,
+                    acceptanceMode,
+                    sourceLabel: req.sourceLabel || '',
+                    followUpLabel: req.followUpLabel || '',
+                    pilotStartPolicy: acceptanceMode,
+                    route: {
+                        departureName,
+                        homeName,
+                        targetName,
+                        startRef: acceptance?.startRef || null,
+                        returnHomeRef: acceptance?.returnHomeRef || null,
+                        targetRef: acceptance?.targetRef || null
+                    },
+                    sourceMission: {
+                        title: displayText(req.source?.title || ''),
+                        story: sourceStory
+                    },
+                    temporalContext,
+                    lockedPassenger: passenger,
+                    storyFrame: {
+                        trigger: `${name} ist nach dem Termin schon bei dir am Zielplatz; jetzt wird daraus ein normaler Charter-Rückflug nach ${homeName}.`,
+                        focusSubject: `${name}, ${role}, Rückflug nach abgeschlossenem APT-Charter-Termin`,
+                        keyQuestion: `Was ${name} zwischen Hinflug und Rückflug erlebt oder erledigt hat und warum der Rückflug nach ${homeName} jetzt sinnvoll ist.`,
+                        stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen APT-Charter an.`,
+                        completionSignal: `Nach der Landung in ${homeName} sind Gepäck, Notizen und Rückmeldung wieder an der Ausgangsbasis.`,
+                        subjectDetail: `${name}, ${role}, ist mit gepackten Sachen bereits am Abflugbereich von ${targetName}.`,
+                        incidentContext: stay,
+                        temporalHint,
+                        whyNow,
+                        soughtOutcome: `${name} am aktuellen Standort aufnehmen und als normalen Charter-Rückflug von ${departureName} nach ${homeName} bringen.`
+                    },
+                    missionVarietyBrief: {
+                        purpose: 'APT-Charter-Follow-up als Vor-Ort-Rückflug: Der Pilot ist schon beim Gast, deshalb ist es kein Pickup-Return mit Leerflug.',
+                        recipe: `Start am Zielplatz ${targetName}, ${name} ist dort bereit, Charter-Rückflug nach ${homeName}; Briefing und Voice erzählen die Zeit zwischen den Flügen persönlich und glaubwürdig.`,
+                        coreQuestions: [
+                            `Was hat ${name} seit dem Hinflug am Zielort erledigt?`,
+                            `Welche Notizen, Gepäckstücke oder Rückwegdetails bringt ${name} zurück?`,
+                            `Warum ist die Rückkehr nach ${homeName} jetzt der logische nächste Schritt?`
+                        ],
+                        writerExpectations: [
+                            `Nutze exakt denselben Gast: ${name}, ${role}.`,
+                            'Keine Pickup-Return-Logik beschreiben; der Gast ist am Start bereits vor Ort.',
+                            temporalHint ? 'Nutze die Aufenthaltsdauer als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
+                            'Das Briefing ist ein Dispatcher-Auftrag für den Piloten und soll natürlich klingen.',
+                            'Normale deutsche Umlaute verwenden.'
+                        ].filter(Boolean)
+                    }
+                };
+            }
+            return {
+                schema: 'ga.followup.pipelineContext.v1',
+                requestId: req.id || null,
+                sourceKind: req.sourceKind || null,
+                followUpKind,
+                effectiveProfileId,
+                acceptanceMode,
+                sourceLabel: req.sourceLabel || '',
+                followUpLabel: req.followUpLabel || '',
+                pilotStartPolicy: acceptanceMode,
+                route: {
+                    departureName,
+                    homeName,
+                    targetName,
+                    startRef: acceptance?.startRef || null,
+                    returnHomeRef: acceptance?.returnHomeRef || null,
+                    targetRef: acceptance?.targetRef || null
+                },
+                sourceMission: {
+                    title: displayText(req.source?.title || ''),
+                    story: sourceStory
+                },
+                temporalContext,
+                lockedPassenger: passenger,
+                storyFrame: {
+                    trigger: `${name} meldet sich nach dem abgeschlossenen Termin am Zielplatz für den Rückflug.`,
+                    focusSubject: `${name}, ${role}, Charter-Rückholung nach erledigtem Termin am Zielplatz`,
+                    keyQuestion: `Was ${name} am Zielort erledigt hat, warum die Rückholung jetzt passt und welcher Abschluss in ${homeName} folgt.`,
+                    stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen APT-Charter an.`,
+                    completionSignal: `Nach der Rückkehr nach ${homeName} werden Rückmeldung, Gepäck und Notizen übergeben.`,
+                    subjectDetail: `${name}, ${role}, wartet ${exactWhere} mit Notizen und persönlichem Gepäck.`,
+                    incidentContext: stay,
+                    temporalHint,
+                    whyNow,
+                    soughtOutcome: `Leer von ${departureName} nach ${targetName} fliegen, ${name} im GA-Bereich aufnehmen und ${passengerPronoun(passenger)} zurück nach ${homeName} bringen.`
+                },
+                pickupStory: {
+                    personName: name,
+                    role,
+                    exactWhere,
+                    whyThere: stay,
+                    returnReason,
+                    boardingCue: displayText(memory.pickupGreetingText || `Ich bin am Zielplatz bereit; der Termin ist abgeschlossen und meine Sachen sind gepackt.`),
+                    departureCue: `${whyNow} Zurück in ${homeName} kann ich den Bericht direkt weitergeben.`
+                },
+                pickupCreativeBrief: {
+                    purpose: 'Fortsetzung einer bereits geflogenen APT-Charter-Mission. Der Folgeauftrag nutzt dieselbe Person und erzählt die Rückholung nach einem echten Termin am Zielplatz.',
+                    recipe: `Leerflug von ${departureName} nach ${targetName}, ${name} im GA-Bereich aufnehmen, Rückflug nach ${homeName}; Briefing und Voice bauen auf dem vorherigen APT-Charter-Hinflug auf.`,
+                    coreQuestions: [
+                        `Wie knüpft die Rückholung glaubwürdig an den vorherigen Charter-Dropoff von ${name} an?`,
+                        `Was hat ${name} am Zielort konkret erledigt?`,
+                        `Warum wartet ${name} jetzt am GA-Bereich von ${targetName}?`,
+                        `Was wird nach der Rückkehr in ${homeName} mit Notizen, Gepäck oder Bericht gemacht?`
+                    ],
+                    candidateShortlist: [{
+                        id: 'followup_apt_charter_guest',
+                        roleIdeas: [role],
+                        taskIdeas: [stay, whyNow],
+                        objectIdeas: ['Notizen', 'Laptop- oder Dokumententasche', displayText(memory.sourceCargoText || 'persönliches Gepäck')],
+                        returnDrivers: [returnReason],
+                        accessReasons: [`${targetName} ist der bekannte Zielplatz aus dem ersten Charter-Leg.`]
+                    }],
+                    writerExpectations: [
+                        `Nutze exakt denselben Gast: ${name}, ${role}.`,
+                        temporalHint ? 'Nutze die Aufenthaltsdauer als natürlichen Story-Fakt, nicht als Systemangabe.' : '',
+                        'Das Briefing ist ein Dispatch-Briefing für den Piloten, keine Ich-Erzählung des Gasts.',
+                        'Keine Bush-/Backcountry-Sprache, wenn es ein normaler Airport-Charter ist.',
+                        'Keine Formular- oder Instruction-Sprache. Die Fortsetzung soll wie ein echter Folgeauftrag wirken.',
+                        'Normale deutsche Umlaute verwenden.'
+                    ].filter(Boolean)
+                }
+            };
+        }
         if (followUpKind === 'bush_pickup_strip') {
             const sourceLabel = displayText(req.sourceLabel || 'Bush-Flug');
             const adventureSource = String(req.sourceKind || '').toLowerCase() === 'bush_scenic_hopper';
@@ -1761,9 +1974,25 @@
         }
         const bush = md.bush || md.missionContract?.bush || null;
         const continuation = md.followUpContinuation && typeof md.followUpContinuation === 'object' ? md.followUpContinuation : null;
-        const homeRef = normalizeRef(chainCfg?.homeRef || continuation?.returnHomeRef || continuation?.acceptance?.returnHomeRef || bush?.homeRef);
-        const targetRef = normalizeRef(chainCfg?.targetRef || continuation?.targetRef || continuation?.acceptance?.targetRef || bush?.targetRef);
-        if (!homeRef || !targetRef) return { created: false, reason: 'missing-bush-refs', sourceKind };
+        const fallbackHomeRef = normalizeRef({
+            kind: 'airport',
+            icao: md.start || md.dep || md.departure || md.initialStart || '',
+            name: md.startName || md.initialStartName || md.departureName || md.start || '',
+            lat: md.initialStartLat ?? md.startLat,
+            lon: md.initialStartLon ?? md.startLon,
+            elevation: md.startElevation || null
+        });
+        const fallbackTargetRef = normalizeRef({
+            kind: 'airport',
+            icao: md.initialDest || md.dest || md.arrival || '',
+            name: md.initialTargetName || md.targetName || md.destName || md.initialDest || md.dest || '',
+            lat: md.initialTargetLat ?? md.targetLat,
+            lon: md.initialTargetLon ?? md.targetLon,
+            elevation: md.targetElevation || null
+        });
+        const homeRef = normalizeRef(chainCfg?.homeRef || continuation?.returnHomeRef || continuation?.acceptance?.returnHomeRef || bush?.homeRef || fallbackHomeRef);
+        const targetRef = normalizeRef(chainCfg?.targetRef || continuation?.targetRef || continuation?.acceptance?.targetRef || bush?.targetRef || fallbackTargetRef);
+        if (!homeRef || !targetRef) return { created: false, reason: 'missing-route-refs', sourceKind };
         if (!targetRef.icao) return { created: false, reason: 'missing-target-icao', sourceKind };
         if (!homeRef.icao) return { created: false, reason: 'missing-home-icao', sourceKind };
 
@@ -1775,7 +2004,7 @@
         const existing = getRequests().find(req => req.id === id || req.dedupeKey === dedupeKey);
         if (existing) return { created: false, reason: 'duplicate', id, sourceKind };
 
-        const passenger = cfg.passenger || (PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null);
+        const passenger = cfg.passenger || (PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null);
         const prospect = chainCfg ? null : buildProspectForMission({ ...md, passenger }, { sourceKind });
         const temporalContext = cfg.temporalContext
             || prospect?.temporalContext
@@ -1842,11 +2071,13 @@
                 subtitle: `Fortsetzung von ${cfg.sourceLabel}`,
                 previewText: cfg.followUpKind === 'bush_pickup_strip'
                     ? `${passenger?.name || 'Der Gast'} meldet sich vom Strip zur Rückholung.`
-                    : (cfg.followUpKind === 'bush_supply_strip'
+                    : (cfg.followUpKind === 'apt_charter_pickup'
+                        ? `${passenger?.name || 'Der Chartergast'} meldet sich vom Zielplatz zur Rückholung.`
+                        : (cfg.followUpKind === 'bush_supply_strip'
                         ? `${serviceRun?.observedIssue || 'Die Basis plant aus dem Recon-Befund einen Service Run.'}`
                         : (cfg.followUpKind === 'bush_charter_strip'
                             ? `${technicianPlan?.passenger?.name || passenger?.name || 'Der Techniker'} soll den Recon-Befund am Strip prüfen.`
-                            : `Am Strip wartet Rückfracht aus dem Supply Run.`))
+                            : `Am Strip wartet Rückfracht aus dem Supply Run.`)))
             }
         };
         writeRequests([...getRequests(), req], { cloud: true });
@@ -2200,6 +2431,86 @@
         ].filter(Boolean).map(displayText).join(' ');
     }
 
+    function buildAptPickupStory(req, targetName, homeName, options = {}) {
+        const memory = req.narrativeMemory || {};
+        const p = req.passenger || {};
+        const name = p.name || 'der Chartergast';
+        const role = p.role || 'Chartergast';
+        const departureName = options.departureName || homeName;
+        return [
+            `Folgeauftrag aus dem letzten APT Charter: ${name}, ${role}, meldet sich nach dem Termin am ${targetName} für den Rückflug.`,
+            `${memory.stayOrWorkSummary || 'Der Termin vor Ort ist abgeschlossen, die Unterlagen sind wieder in der Tasche und der lokale Kontakt hat den Abflug abgestimmt.'}`,
+            `Du startest in ${departureName}, fliegst zunächst ohne Passagier zum bekannten Zielplatz und nimmst ${name} dort im GA-Bereich auf.`,
+            `${memory.whyNowReturn || `Danach geht es zurück nach ${homeName}, wo Rückmeldung, Gepäck und die nächsten Absprachen ankommen sollen.`}`,
+            `${memory.teamContinuity || 'Dass du den ersten Leg schon geflogen bist, macht den Rückflug für den Gast und den Dispatcher besonders unkompliziert.'}`
+        ].filter(Boolean).map(displayText).join(' ');
+    }
+
+    function buildAptOnsitePassengerStory(req, targetName, homeName) {
+        const memory = req.narrativeMemory || {};
+        const p = req.passenger || {};
+        const name = p.name || 'der Chartergast';
+        const role = p.role || 'Chartergast';
+        return [
+            `Folgeauftrag aus dem letzten APT Charter: Du bist bereits am Zielplatz ${targetName}, und ${name}, ${role}, ist nach dem Termin wieder bereit für den Rückflug.`,
+            `${memory.stayOrWorkSummary || 'Der Termin vor Ort ist abgeschlossen, Notizen und persönliches Gepäck sind gepackt und der lokale Kontakt hat den Abflug bestätigt.'}`,
+            `${memory.whyNowReturn || `Der Rückflug nach ${homeName} ist jetzt der logische Abschluss des Charter-Auftrags.`}`,
+            `Es wird deshalb kein Pickup-Return aufgebaut: ${name} steigt am aktuellen Startplatz ein, und du fliegst den Charter direkt zurück nach ${homeName}.`,
+            `${memory.teamContinuity || 'Die Fortsetzung bleibt vertraut, weil Gast, Ablauf und Zielplatz aus dem ersten Flug bekannt sind.'}`
+        ].filter(Boolean).map(displayText).join(' ');
+    }
+
+    function buildAptCharterPickupSpec(req = null, passenger = null) {
+        const acceptance = acceptanceForRequest(req);
+        const homeRef = normalizeRef(acceptance?.returnHomeRef || req?.route?.homeRef);
+        const targetRef = normalizeRef(acceptance?.targetRef || req?.route?.targetRef);
+        if (!homeRef || !targetRef) return null;
+        const p = passenger || req?.passenger || {};
+        const pickupStory = {
+            personName: cleanText(p.name || '', 120),
+            role: cleanText(p.role || 'Chartergast', 120),
+            exactWhere: `im GA-Bereich von ${targetRef.name || targetRef.icao || 'dem Zielplatz'}`,
+            whyThere: cleanText(req?.narrativeMemory?.stayOrWorkSummary || '', 320),
+            returnReason: cleanText(req?.narrativeMemory?.returnReason || '', 320),
+            boardingCue: cleanText(req?.narrativeMemory?.pickupGreetingText || p.greetingText || '', 320),
+            departureCue: cleanText(req?.narrativeMemory?.whyNowReturn || '', 360)
+        };
+        const spec = {
+            profileId: 'apt_charter_pickup',
+            targetMode: 'strip_then_return',
+            completionMode: 'return_home',
+            requiresReturnHome: true,
+            pickupKind: 'passenger',
+            pickupLabel: p.name ? `${p.name} (${p.role || 'Chartergast'})` : 'Chartergast',
+            pickupRole: p.role || 'Chartergast',
+            pickupGreetingText: p.greetingText || req?.narrativeMemory?.pickupGreetingText || '',
+            pickupStory,
+            pickupPassengerCount: 1,
+            homeRef,
+            targetRef,
+            areaRef: null,
+            routeRefs: targetRef ? [targetRef] : [],
+            success: {
+                minGroundTimeSec: 8,
+                minAreaTimeSec: 0,
+                minAreaTrackNm: 0,
+                cargoMustBeDelivered: false,
+                passengerMustDeboard: true,
+                waypointsRequired: 0
+            },
+            allowedEndLocations: ['home'],
+            narrativeMode: 'apt_charter_pickup_return',
+            riskFlags: ['pickup_required', 'return_leg_required', 'apt_charter_followup'],
+            opsNotes: [
+                'Outbound bewusst ohne Passagier halten; Chartergast erst am Zielplatz aufnehmen.',
+                'Nach dem Pickup zurück zum Ausgangsplatz fliegen und den Ausstieg dort abschließen.'
+            ]
+        };
+        return typeof window.sanitizeBushMissionSpec === 'function'
+            ? window.sanitizeBushMissionSpec(spec)
+            : spec;
+    }
+
     function applyAcceptanceToBushSpec(req = null, bushSpec = null) {
         if (!bushSpec || typeof bushSpec !== 'object') return bushSpec;
         const acceptance = acceptanceForRequest(req);
@@ -2242,7 +2553,38 @@
         let title = '';
         let bushSpec = null;
 
-        if (followUpKind === 'bush_pickup_strip') {
+        if (followUpKind === 'apt_charter_pickup') {
+            const p = req.passenger || {};
+            passenger = {
+                ...p,
+                name: p.name || 'Chartergast',
+                role: p.role || 'Chartergast',
+                roleProfile: 'charter_professional_neutral_v1',
+                taskDomain: 'charter',
+                greetingText: memory.pickupGreetingText || p.greetingText || '',
+                pickupStory: {
+                    exactWhere: `Treffpunkt im GA-Bereich von ${pickupTargetName}`,
+                    whyThere: memory.stayOrWorkSummary || '',
+                    returnReason: memory.returnReason || '',
+                    boardingCue: memory.pickupGreetingText || '',
+                    departureCue: memory.whyNowReturn || '',
+                    personName: p.name || '',
+                    role: p.role || ''
+                }
+            };
+            if (effectiveProfileId === 'apt_charter' || acceptanceMode === 'onsite_to_home') {
+                story = buildAptOnsitePassengerStory(req, pickupTargetName, homeName);
+                title = `Charter Rückflug: ${homeName}`;
+                paxText = passenger.role ? `1 PAX (${passenger.role})` : '1 PAX';
+                bushSpec = null;
+            } else {
+                bushSpec = buildAptCharterPickupSpec(req, passenger);
+                bushSpec = applyAcceptanceToBushSpec(req, bushSpec);
+                story = buildAptPickupStory(req, pickupTargetName, homeName, { departureName });
+                title = `Charter Pickup: ${pickupTargetName}`;
+                paxText = `0 PAX am Start · 1 PAX Pickup (${passenger.role})`;
+            }
+        } else if (followUpKind === 'bush_pickup_strip') {
             const p = req.passenger || {};
             passenger = {
                 ...p,
@@ -2334,18 +2676,20 @@
                 || memory.serviceRun?.label
                 || `Techniker-Kit ${targetName}`;
         }
-        if (!bushSpec) return null;
+        if (!bushSpec && !(followUpKind === 'apt_charter_pickup' && (effectiveProfileId === 'apt_charter' || acceptanceMode === 'onsite_to_home'))) return null;
         const mission = {
             i: effectiveProfileId === 'bush_supply_strip' || followUpKind === 'bush_pickup_cargo' ? '📦' : '🧭',
             t: title,
             s: story,
-            cat: effectiveProfileId === 'bush_supply_strip'
+            cat: followUpKind === 'apt_charter_pickup'
+                ? 'charter'
+                : (effectiveProfileId === 'bush_supply_strip'
                 ? 'bush_supply'
                 : (effectiveProfileId === 'bush_charter_strip'
                     ? 'charter'
-                    : (followUpKind === 'bush_pickup_cargo' ? 'bush_pickup_cargo' : 'bush_pickup')),
+                    : (followUpKind === 'bush_pickup_cargo' ? 'bush_pickup_cargo' : 'bush_pickup'))),
             passenger,
-            missionType: 'bush',
+            missionType: followUpKind === 'apt_charter_pickup' ? 'apt' : 'bush',
             bush: bushSpec,
             pax: paxText,
             cargo: cargoText,
@@ -2363,7 +2707,7 @@
                 temporalContext: req.temporalContext || req.narrativeMemory?.temporalContext || null
             },
             missionTemporalContext: req.temporalContext || req.narrativeMemory?.temporalContext || null,
-            _source: 'Follow-up Bush Dispatcher',
+            _source: followUpKind === 'apt_charter_pickup' ? 'Follow-up APT Dispatcher' : 'Follow-up Bush Dispatcher',
             _requestedProfile: effectiveProfileId,
             _appliedProfile: effectiveProfileId
         };
@@ -2371,7 +2715,7 @@
             mission,
             paxText,
             cargoText,
-            dataSource: 'Follow-up Bush Dispatcher'
+            dataSource: followUpKind === 'apt_charter_pickup' ? 'Follow-up APT Dispatcher' : 'Follow-up Bush Dispatcher'
         };
     }
 

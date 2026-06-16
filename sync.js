@@ -6131,7 +6131,8 @@ function _missionBushPickupBoardingApplySuccess(item = null) {
 async function _missionBushPickupBoarding(item = null, options = {}) {
     if (!_missionBushIsPickupMission() || !item || !_missionCargoIsPassengerItem(item)) return false;
     if (typeof _missionCargoItemCanLoadAtCurrentStage === 'function' && !_missionCargoItemCanLoadAtCurrentStage(item)) {
-        window.missionCargoStatus.error = 'Dieser Pickup ist erst am Zielstrip verfügbar.';
+        const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup' ? 'Zielplatz' : 'Zielstrip';
+        window.missionCargoStatus.error = `Dieser Pickup ist erst am ${pickupPlaceLabel} verfügbar.`;
         _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
         return false;
     }
@@ -7277,6 +7278,9 @@ function _updateMissionStartBanner() {
     const deferredPickupStart = !missionRuntime.active
         && typeof _missionBushIsPickupMission === 'function'
         && _missionBushIsPickupMission();
+    const isAptCharterPickup = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup';
+    const pickupPlaceLabel = isAptCharterPickup ? 'Zielplatz' : 'Zielstrip';
+    const pickupLegLabel = isAptCharterPickup ? 'Charter-Pickup' : 'Pickup-Strip';
     missionRuntime.phase = runtimePhase;
     const showClose = !!missionRuntime.closingPending;
     const showDeboarding = missionRuntime.active && deboardingBusy;
@@ -7342,7 +7346,7 @@ function _updateMissionStartBanner() {
         return;
     }
     if (showPickup) {
-        if (kickerEl) kickerEl.textContent = 'Bush Pickup';
+        if (kickerEl) kickerEl.textContent = isAptCharterPickup ? 'Charter Pickup' : 'Bush Pickup';
         if (closeBtn) closeBtn.style.display = 'none';
         if (textEl) textEl.textContent = pickupConfirmOnly
             ? 'Pickup ist bereits geladen. Jetzt im Ladefenster bestaetigen und den Rueckflug freigeben.'
@@ -7355,7 +7359,7 @@ function _updateMissionStartBanner() {
     const scene = window.missionSceneStatus || {};
     let text = phase === 'boarded'
         ? (deferredPickupStart
-            ? 'Leerflug ist startbereit. Der Pickup wird erst am Zielstrip freigegeben.'
+            ? `Leerflug ist startbereit. Der Pickup wird erst am ${pickupPlaceLabel} freigegeben.`
             : 'Boarding abgeschlossen. Wenn du die Ladung sicher verstaut hast, kann es losgehen.')
         : (phase === 'boarding'
             ? (deferredPickupStart
@@ -7367,7 +7371,7 @@ function _updateMissionStartBanner() {
                     : 'Missionstart freigegeben. Als Nächstes kannst du Boarding und Verladen beginnen.')
                 : 'Mission ist geplant, aber noch nicht gestartet.'));
     if (phase === 'boarding') {
-        if (deferredPickupStart) text = 'Leerflug wird vorbereitet. Der Gast wartet am Zielstrip.';
+        if (deferredPickupStart) text = `Leerflug wird vorbereitet. Der Gast wartet am ${pickupPlaceLabel}.`;
         else if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen laufen an.';
         else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding und Verladen laufen.`;
         else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding und Verladen laufen an.';
@@ -7387,7 +7391,7 @@ function _updateMissionStartBanner() {
     } else if (phase === 'planned') {
         text = deferredPickupStart
             ? (groundReady
-                ? 'Mission ist geplant. Mit "Mission starten" wird der Leerflug zum Pickup-Strip vorbereitet.'
+                ? `Mission ist geplant. Mit "Mission starten" wird der Leerflug zum ${pickupLegLabel} vorbereitet.`
                 : 'Mission ist geplant. Für den Leerflug bitte am Boden stehen und den Tracker abwarten.')
             : (groundReady
                 ? 'Mission ist geplant. Mit "Mission starten" wird erst dann Szene, Boarding und Verladen freigegeben.'
@@ -7498,7 +7502,7 @@ function _updateMissionRuntimeUi() {
             }
         } else if (runtimePhase === 'boarded' && validMission) {
             detailText = deferredPickupStart
-                ? 'Leerflug zum Pickup-Strip ist startbereit. Der Gast wird erst am Ziel aufgenommen.'
+                ? `Leerflug zum ${pickupLegLabel} ist startbereit. Der Gast wird erst am Ziel aufgenommen.`
                 : 'Boarding und Verladen abgeschlossen. Mission ist jetzt startbereit.';
         } else if (phase === 'boarding' && validMission) {
             detailText = deferredPickupStart
@@ -7510,7 +7514,7 @@ function _updateMissionRuntimeUi() {
                 : 'Missionstart freigegeben. Boarding und Verladen warten auf die nächste Bestätigung.';
         } else if (phase === 'planned' && validMission) {
             detailText = deferredPickupStart
-                ? 'Pickup-Mission liegt bereit. Erstflug zum Zielstrip bleibt leer.'
+                ? `Pickup-Mission liegt bereit. Erstflug zum ${pickupPlaceLabel} bleibt leer.`
                 : 'Mission liegt bereit. Erst nach "Mission starten" werden Szene und Boarding freigeschaltet.';
         } else if (!validMission) {
             detailText = 'Es fehlt aktuell eine akzeptierte Mission mit nutzbarer Route.';
@@ -7547,7 +7551,7 @@ function _updateMissionRuntimeUi() {
                         ? 'Nächster Schritt: Pickup starten und Gast einladen'
                         : (p?.pickupCompleted
                             ? (p?.returnHomeQualified ? 'Nächster Schritt: Gast am Heimatplatz aussteigen lassen' : 'Nächster Schritt: Zum Heimatplatz zurückkehren und stoppen')
-                            : 'Nächster Schritt: Zum Zielstrip fliegen und zum Treffpunkt rollen'));
+                            : `Nächster Schritt: Zum ${pickupPlaceLabel} fliegen und zum Treffpunkt rollen`));
                 } else {
                     nextStep = p?.areaQualified
                         ? 'Nächster Schritt: Zum Heimatplatz zurückkehren und stoppen'
@@ -7612,7 +7616,7 @@ function _updateMissionRuntimeUi() {
                         ? (deferredPickupStart ? '▶ Leerflug bereit' : '▶ Boarding')
                         : (phase === 'boarding' ? (deferredPickupStart ? '… Leerflug' : '… Boarding läuft') : '▶ Mission starten')));
             bMap.title = missionRuntime.active
-                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (pickupActionReady ? (pickupConfirmOnly ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Pickup am Zielstrip oeffnen') : (unloadActionReady ? 'Ausladen/Aussteigen am Boden oeffnen' : (runtimeGroundEndReady ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))))
+                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (pickupActionReady ? (pickupConfirmOnly ? 'Pickup bestaetigen und Rueckflug freigeben' : `Pickup am ${pickupPlaceLabel} oeffnen`) : (unloadActionReady ? 'Ausladen/Aussteigen am Boden oeffnen' : (runtimeGroundEndReady ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))))
                 : (phase === 'boarded'
                     ? 'Mission jetzt aktiv schalten'
                     : (phase === 'prepare'

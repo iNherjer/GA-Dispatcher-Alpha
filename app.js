@@ -4418,7 +4418,7 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
         return route;
     }
 
-    if (mission?.missionType === 'bush' && mission?.bush?.requiresReturnHome) {
+    if (mission?.bush?.requiresReturnHome) {
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Start' },
             { lat: destPoint.lat, lng: destPoint.lng, name: `🗺️ ${state.mDestName || mission.targetName || destIcao || 'Recon Area'}` }
@@ -8940,7 +8940,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'ruhig, fokussiert, höflich',
         dialectHint: 'neutral',
-        storySeed: '{name} hat nach der Landung nur ein kurzes Zeitfenster bis zum Kundentermin; das Auftraggeber-Shuttle wartet am Zielplatz, damit er mit Handgepäck und Unterlagen direkt weiterkommt.',
+        storySeed: '{name} hat nach der Landung nur ein kurzes Zeitfenster bis zum Kundentermin; das Auftraggeber-Shuttle wartet am Zielplatz, damit er mit Handgepäck und Unterlagen direkt in die Vorbesprechung kommt.',
         greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet schon mein Shuttle zum Kundentermin; mir hilft vor allem eine ruhige, pünktliche Landung.'
     },
     {
@@ -8949,7 +8949,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'ruhig, strukturiert, freundlich',
         dialectHint: 'neutral',
-        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; vor Ort laufen bereits die ersten Entscheidungen, und ihr Team hält ihr den Platz im Terminblock frei.',
+        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; vor Ort laufen bereits die ersten Entscheidungen, und ihr Team hält ihr den Platz im Terminblock frei, bis sie mit den freigegebenen Plänen eintrifft.',
         greetingText: 'Hi, ich bin {firstName}. Mein Team ist am Ziel schon in der Abstimmung, deshalb ist mir ein sauberer und planbarer Flug wichtig.'
     },
     {
@@ -8958,7 +8958,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'organisiert, freundlich, terminsicher',
         dialectHint: 'neutral',
-        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf, und ihre Ablaufmappe soll nach der Landung direkt in die Vorbereitung.',
+        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf, und ihre Ablaufmappe soll nach der Landung direkt an den Bühnenleiter übergeben werden.',
         greetingText: 'Hi, ich bin {firstName}. Die Crew am Ziel baut schon auf; wenn wir ruhig reinkommen, schaffe ich den kurzen Übergang vom Flugplatz direkt zum Aufbau.'
     },
     {
@@ -8977,7 +8977,7 @@ const CHARTER_PERSONA_LIBRARY = [
         personality: 'klar, freundlich, konzentriert',
         dialectHint: 'neutral',
         storySeed: '{name} hält am Zielort einen kurzen Fachvortrag; Rollkoffer und Präsentationsunterlagen bleiben griffbereit, weil der Kongressslot kurz nach der Ankunft beginnt.',
-        greetingText: 'Hi, ich bin {firstName}. Mein Vortrag hängt an diesem Anschluss, die Unterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
+        greetingText: 'Hi, ich bin {firstName}. Mein Vortrag beginnt kurz nach der Ankunft, die Unterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
     },
     {
         name: 'Jonas Reuter',
@@ -8987,6 +8987,42 @@ const CHARTER_PERSONA_LIBRARY = [
         dialectHint: 'neutral',
         storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; im Servicewagen liegt bereits das Werkzeug, weil der Kunde noch am selben Tag eine Diagnose braucht.',
         greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet die Werkstatt mit dem Wagen, danach geht es direkt zum Kunden. Wichtig ist, dass wir sauber und verlässlich ankommen.'
+    },
+    {
+        name: 'Vera Albrecht',
+        role: 'Bausachverständige',
+        gender: 'female',
+        personality: 'präzise, sachlich, freundlich',
+        dialectHint: 'neutral',
+        storySeed: '{name} fliegt zu einer Bauabnahme mit engem Zeitfenster; im Handgepäck liegen Prüfmappe, Kamera und Siegelunterlagen, und der örtliche Bauleiter wartet am Flugplatz auf ihre Freigabe.',
+        greetingText: 'Hallo, ich bin {firstName}. Der Bauleiter wartet am Ziel schon mit der Prüfliste; wenn wir ruhig und pünktlich landen, passt der Termin.'
+    },
+    {
+        name: 'Karim Özdemir',
+        role: 'Avioniktechniker',
+        gender: 'male',
+        personality: 'ruhig, technisch, pragmatisch',
+        dialectHint: 'neutral',
+        storySeed: '{name} wird am Zielplatz von einem Werftfahrzeug abgeholt; dort steht eine Maschine mit intermittierendem Funkfehler, und seine Messadapter bleiben im kleinen Werkzeugkoffer griffbereit.',
+        greetingText: 'Hi, ich bin {firstName}. Die Werft holt mich am Ziel direkt ab, damit ich an den Funkfehler komme. Ein sauberer, planbarer Flug ist perfekt.'
+    },
+    {
+        name: 'Lina Brandt',
+        role: 'Immobilienbewerterin',
+        gender: 'female',
+        personality: 'aufmerksam, ruhig, verbindlich',
+        dialectHint: 'neutral',
+        storySeed: '{name} hat am Zielort eine diskrete Objektbegehung; der Makler wartet mit Schlüsselmappe und Geländeplan am Flugplatz, weil die Besichtigung vor der nächsten Wetterfront erledigt sein soll.',
+        greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet der Makler mit der Schlüsselmappe; mir ist vor allem wichtig, ohne Hektik rechtzeitig dort zu sein.'
+    },
+    {
+        name: 'Felix Hartmann',
+        role: 'Produktionsleiter',
+        gender: 'male',
+        personality: 'direkt, konzentriert, kollegial',
+        dialectHint: 'neutral',
+        storySeed: '{name} muss am Ziel eine kurzfristige Produktionsfreigabe begleiten; sein Team hat Musterteile und Checkliste vorbereitet, und nach der Landung geht es direkt zur Halle.',
+        greetingText: 'Hallo, ich bin {firstName}. Das Team am Ziel wartet mit den Musterteilen, deshalb zählt heute ein ruhiger Transfer ohne Zeitverlust.'
     }
 ];
 
@@ -9118,13 +9154,19 @@ function _charterFallbackStorySeed(passenger = null) {
     if (/anwalt|notar|jurist|recht/.test(role)) {
         return '{name} muss am Zielort zu einem Termin mit festen Unterschriftszeiten; die Unterlagen liegen im Handgepäck und sollen nach der Landung ohne Umweg weiter.';
     }
+    if (/bau|architekt|sachverstaendig|sachverstandig|gutachter|immobil|bewert/.test(role)) {
+        return '{name} wird am Zielort zu einer fachlichen Begehung erwartet; Pläne, Fotos und Prüfliste bleiben griffbereit, weil der lokale Kontakt direkt am Flugplatz übernimmt.';
+    }
     if (/event|messe|kongress|referent|vortrag/.test(role)) {
         return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es mit Rollkoffer und Unterlagen direkt weiter zum Aufbau oder Vortrag.';
     }
-    if (/projekt|berater|unternehmer|manager|architekt|kunde|service|techniker/.test(role)) {
+    if (/service|techniker|werft|avionik|mechaniker/.test(role)) {
+        return '{name} wird am Zielplatz von einem Werkstatt- oder Servicekontakt abgeholt; Werkzeug und Diagnoseunterlagen bleiben klein verpackt, damit der Einsatz direkt beginnen kann.';
+    }
+    if (/projekt|berater|unternehmer|manager|kunde|produktion|leiter/.test(role)) {
         return '{name} hat am Zielort einen klar getakteten Kundentermin; ein Shuttle wartet am Flugplatz, damit der Übergang vom Vorfeld in den nächsten Termin ohne Leerlauf klappt.';
     }
-    return '{name} reist mit einem festen Anschluss am Zielort; am Flugplatz wartet bereits die Abholung, damit die Weiterreise direkt nach dem Aussteigen beginnen kann.';
+    return '{name} reist zu einem festen Termin am Zielort; am Flugplatz wartet bereits die Abholung, damit der nächste Schritt direkt nach dem Aussteigen beginnen kann.';
 }
 
 function _charterWeatherRaw(wx = null) {
@@ -9226,7 +9268,7 @@ function _charterStoryLooksGeneric(story = '', passenger = null) {
     const role = _charterNormalizeText(passenger?.role || '');
     const hasName = !!name && !/passagier|gast|kunde|pax/.test(name) && s.includes(name);
     const hasRole = !!role && !_charterRoleLooksGeneric(role) && s.includes(role);
-    const hasPersonalHook = /(shuttle|anschluss|weiterreise|termin|kundentermin|notar|meeting|bauabnahme|vortrag|kongress|messe|event|veranstaltung|team|crew|familie|hochzeit|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber)/.test(s);
+    const hasPersonalHook = /(shuttle|weiterreise|termin|kundentermin|notar|meeting|bauabnahme|begehung|freigabe|diagnose|vortrag|kongress|messe|event|veranstaltung|team|crew|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber|bauleiter|makler)/.test(s);
     return !(hasName || hasRole) || !hasPersonalHook;
 }
 
@@ -9242,7 +9284,7 @@ function _charterGreetingLooksGeneric(greeting = '', passenger = null, targetNam
     const name = _charterNormalizeText(passenger?.name || '');
     const firstName = _charterNormalizeText(String(passenger?.name || '').split(/\s+/)[0] || '');
     const hasPerson = (!!firstName && s.includes(firstName)) || (!!name && s.includes(name));
-    const hasPersonalHook = /(shuttle|anschluss|weiterreise|termin|kundentermin|notar|meeting|vortrag|kongress|messe|event|veranstaltung|team|crew|familie|hochzeit|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber)/.test(s);
+    const hasPersonalHook = /(shuttle|weiterreise|termin|kundentermin|notar|meeting|begehung|freigabe|diagnose|vortrag|kongress|messe|event|veranstaltung|team|crew|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber|bauleiter|makler)/.test(s);
     return !(hasPerson || hasPersonalHook);
 }
 
@@ -9254,10 +9296,11 @@ function buildPersonalAptCharterStory(passenger = null, context = {}) {
         context
     );
     const paxLabel = _charterRoleLooksGeneric(ctx.role) ? ctx.name : `${ctx.name}, ${ctx.role},`;
-    const intro = `${paxLabel} ist heute unser Chartergast auf der Strecke von ${ctx.startName} nach ${ctx.targetName}.`;
+    const intro = `${paxLabel} nutzt heute unseren Charter von ${ctx.startName} nach ${ctx.targetName}, weil der Termin am Ziel einen verlässlichen, direkten Transfer braucht.`;
     const weather = _charterWeatherSentence(context);
-    const handoff = `Entscheidend ist der saubere Takt: ruhiger Start, stabile Strecke und eine Landung, bei der ${ctx.firstName} ohne Leerlauf zum vorbereiteten Kontakt am Platz wechseln kann.`;
-    return _cleanupNarrativeArtifacts(`${intro} ${seed} ${weather} ${handoff}`);
+    const arrival = `Nach der Landung wartet ein vorbereiteter Kontakt im GA-Bereich, übernimmt ${ctx.firstName} samt Handgepäck und bringt die nächsten Schritte ohne Leerlauf in Gang.`;
+    const pilotFocus = `Für uns zählt ein unaufgeregter Charterflug: pünktlich raus, sauber ankommen und dem Gast genug Ruhe lassen, um direkt arbeitsfähig auszusteigen.`;
+    return _cleanupNarrativeArtifacts(`${intro} ${seed} ${weather} ${arrival} ${pilotFocus}`);
 }
 
 function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
@@ -15746,10 +15789,10 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     }
     if (taskDomain === 'charter') {
         return {
-            trigger: `Der heutige Charter nach ${targetLabel} hat einen klaren Termin- oder Anschlussgrund und soll nicht auf spaeter rutschen.`,
+            trigger: `Der heutige Charter nach ${targetLabel} hat einen klaren Termin- oder Ablaufgrund und soll nicht auf spaeter rutschen.`,
             focusSubject: 'Chartergast und puenktliche Zielankunft',
             keyQuestion: `Ob wir den Gast rechtzeitig und ohne Umwege so nach ${targetLabel} bringen, dass der eigentliche Termin dort erreichbar bleibt.`,
-            stakes: 'Wenn der Flug ausfaellt oder zu spaet kommt, platzt der Termin oder das Anschlussfenster am Ziel.',
+            stakes: 'Wenn der Flug ausfaellt oder zu spaet kommt, platzt das Terminfenster am Ziel.',
             completionSignal: 'Nach der Landung uebergeben wir den Gast direkt in den vorbereiteten Zielablauf.',
             subjectDetail: _missionPipelineV4PickOne([
                 'einen Architekten mit festem Ortstermin am Ziel',
@@ -15758,7 +15801,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'einen Projektleiter, der am Ziel noch denselben Tag weiterarbeiten muss'
             ]),
             incidentContext: _missionPipelineV4PickOne([
-                `Der Gast muss heute noch an ${targetLabel} ankommen, weil dort ein fester Vor-Ort-Termin oder Anschluss wartet.`,
+                `Der Gast muss heute noch an ${targetLabel} ankommen, weil dort ein fester Vor-Ort-Termin oder vorbereiteter Kontakt wartet.`,
                 `Die Reise nach ${targetLabel} lohnt sich gerade jetzt, weil der Termin vor Ort zu knapp fuer einen spaeteren Umlauf oder lange Bodenanreise ist.`,
                 `Der Charter wurde angefragt, weil der Gast am Ziel ein enges Zeitfenster hat und direkt nach der Landung weiter muss.`
             ]),
@@ -15799,12 +15842,12 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 : `Der heutige Auftrag nach ${targetLabel} hat einen konkreten Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`,
             focusSubject: charterLike ? 'Gast, Termin und puenktliche Zielankunft' : (clubUtilityLike ? 'klare Uebergabe oder Erledigung am Ziel' : targetLabel),
             keyQuestion: charterLike
-                ? `Warum genau dieser Gast jetzt nach ${targetLabel} gebracht werden muss und welcher Anschluss dort erreicht werden soll.`
+                ? `Warum genau dieser Gast jetzt nach ${targetLabel} gebracht werden muss und welcher Termin dort erreicht werden soll.`
                 : clubUtilityLike
                     ? `Welche konkrete Erledigung, Mitnahme oder Uebergabe in ${targetLabel} den heutigen Flug rechtfertigt.`
                 : `Welche konkrete Aufgabe am Ziel jetzt erledigt oder vorbereitet werden muss.`,
             stakes: charterLike
-                ? 'Ohne den Flug kippt das Termin- oder Anschlussfenster am Ziel.'
+                ? 'Ohne den Flug kippt das Terminfenster am Ziel.'
                 : clubUtilityLike
                     ? 'Ohne den Flug verschiebt sich eine praktische Vereins- oder Betriebsaufgabe unnoetig in den naechsten Umlauf.'
                 : 'Ohne den Flug verschiebt sich der naechste Schritt am Ziel unnoetig.',
@@ -15836,7 +15879,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                     ? `Der Flug nach ${targetLabel} wurde angefragt, weil dort eine konkrete Platz- oder Vereinsaufgabe vorbereitet auf uns wartet.`
                 : `Der Flug nach ${targetLabel} wurde nicht zufaellig gewaehlt, sondern durch einen konkreten Anlass am Ziel ausgeloest.`,
             whyNow: charterLike
-                ? 'Gerade dieser Umlauf ist noetig, damit der Termin oder Anschluss am Ziel nicht auf spaeter verschoben werden muss.'
+                ? 'Gerade dieser Umlauf ist noetig, damit der Termin am Ziel nicht auf spaeter verschoben werden muss.'
                 : clubUtilityLike
                     ? 'Der Nutzen des Flugs haengt daran, dass die Erledigung noch in diesem Dienst- oder Tagesfenster uebernommen wird.'
                 : 'Die Mission ist gerade jetzt sinnvoll, weil der Anlass am Ziel noch heute bearbeitet oder vorbereitet werden soll.',
@@ -16542,6 +16585,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         : null;
     const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     const bushPickupReturn = profileId === 'bush_pickup_strip';
+    const aptCharterPickupReturn = profileId === 'apt_charter_pickup';
     const weatherBundle = _missionPipelineV3WeatherBundle(context.missionWeather || null);
     const followUpContext = context.followUpContext && typeof context.followUpContext === 'object'
         ? context.followUpContext
@@ -16550,8 +16594,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
         : (context.isPOI
             ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.'
-            : (bushPickupReturn
-                ? 'Bush-Pickup-Return: Leerflug zum Zielstrip, Landung am Strip, Passagier am Wartepunkt aufnehmen, danach Rückflug zum Heimatplatz.'
+            : (bushPickupReturn || aptCharterPickupReturn
+                ? (aptCharterPickupReturn
+                    ? 'APT-Charter-Pickup-Return: Leerflug zum Zielflugplatz, Landung, Chartergast im GA-/Vorfeldbereich aufnehmen, danach Rückflug zum Ausgangsplatz.'
+                    : 'Bush-Pickup-Return: Leerflug zum Zielstrip, Landung am Strip, Passagier am Wartepunkt aufnehmen, danach Rückflug zum Heimatplatz.')
                 : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'));
     const routeRules = [
         baseRouteRule,
@@ -16566,6 +16612,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     if (bushPickupReturn) {
         routeRules.push('Bush-Pickup-Story: Der Plan beantwortet aus dem Pickup-Kontext wer, was, wo, wann, wie und warum, ohne eine feste Standardgeschichte zu kopieren.');
         realismTargets.unshift('Bei Feldarbeit, Forschung, Technik, Rangerarbeit oder Backcountry-Logistik konkrete Story-Anker liefern: Tätigkeiten, Material, Rückkehrgrund und nächster Handoff statt nur Rollenlabel.');
+    } else if (aptCharterPickupReturn) {
+        routeRules.push('APT-Charter-Pickup-Story: Der Plan beantwortet aus dem Follow-up-Kontext wer, was, wo, wann, wie und warum. Der Passagier ist nicht am Start an Bord, sondern wartet am Zielplatz.');
+        realismTargets.unshift('APT-Charter-Pickup braucht Termin-/Aufenthaltsdetails, Wartepunkt am GA-/Vorfeldbereich, Rückkehrgrund und nächsten Handoff am Ausgangsplatz.');
     }
     if (followUpContext) {
         const followKind = String(followUpContext.followUpKind || '').toLowerCase();
@@ -16573,12 +16622,16 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Recon-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, storyFrame, serviceRun und missionVarietyBrief aufbauen.'
             : (followKind === 'bush_charter_strip'
                 ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Recon-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, technicianPlan, storyFrame und missionVarietyBrief aufbauen.'
-                : 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.'));
+                : (followKind === 'apt_charter_pickup'
+                    ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen APT-Charter-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.'
+                    : 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.')));
         realismTargets.unshift(followKind === 'bush_supply_strip'
             ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Recon-Fortsetzung mit demselben Zielstrip, konkretem Servicepaket und glaubwürdigem Handoff.'
             : (followKind === 'bush_charter_strip'
                 ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Recon-Fortsetzung mit demselben Zielstrip, konkretem Techniker, Kit und Dropoff-Handoff.'
-                : 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.'));
+                : (followKind === 'apt_charter_pickup'
+                    ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Airport-Charter-Fortsetzung mit derselben Person, demselben Zielplatz und glaubwürdigem GA-/Vorfeld-Handoff.'
+                    : 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.')));
         if (followUpContext.temporalContext?.stayText) {
             routeRules.push(`Follow-up-Zeitkontext: Zwischen Ursprungsflug und Anfrage liegen ${followUpContext.temporalContext.stayText}; nutze das als natürlichen Aufenthalts- oder Wartezeitraum, nicht als Systemfeld.`);
             realismTargets.unshift('Die Zeit zwischen den Flügen soll als glaubwürdige Tätigkeit, Aufenthalt oder Rückfracht-Vorbereitung spürbar werden.');
@@ -16589,7 +16642,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
                 ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Serviceziel ist ${followRoute.targetName || 'der Zielstrip'}; der Auftrag endet nach Landung, Abladen und Handoff am Zielstrip, nicht an der ursprünglichen Basis.`
                 : (followKind === 'bush_charter_strip'
                     ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Techniker-Ziel ist ${followRoute.targetName || 'der Zielstrip'}; der Auftrag endet nach Landung und Dropoff am Zielstrip, nicht an der ursprünglichen Basis.`
-                    : `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`));
+                    : (followKind === 'apt_charter_pickup'
+                        ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholplatz ist ${followRoute.targetName || 'der Zielplatz'}, Rückkehrbasis und Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`
+                        : `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`)));
         }
     }
     if (profileId === 'bush_supply_strip') {
@@ -16607,6 +16662,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     } else if (profileId === 'bush_pickup_cargo') {
         routeRules.push('Bush-Cargo-Pickup: Leerflug zum Zielstrip, Rueckholfracht aufnehmen, Rueckflug zur Basis; kein Passagier-Pickup.');
         realismTargets.unshift('Cargo-Pickup braucht konkrete Rueckholfracht, Wartepunkt, Grund fuer Heimtransport und naechsten Schritt in der Basis.');
+    } else if (profileId === 'apt_charter_pickup') {
+        routeRules.push('APT-Charter-Pickup: Leerflug zum Zielplatz, Chartergast erst dort aufnehmen, Rückflug zum Ausgangsplatz; kein Boarding am Start.');
+        routeRules.push('Keine Bush-/Backcountry-Sprache verwenden, wenn der Zielort ein normaler Airport ist.');
+        realismTargets.unshift('APT-Charter-Pickup braucht denselben Gast aus dem Hinflug, echte Termin-/Aufenthaltsdetails und einen plausiblen Rückkehrgrund.');
     }
     const pickupCreativeBrief = bushPickupReturn
         ? buildBushPickupCreativeBrief(context, draft, weatherBundle)
@@ -17022,7 +17081,7 @@ Regeln:
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
-19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
+19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
@@ -18298,9 +18357,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Kurioses / Verrückter, aber friedlicher Privatflug"
         ],
         charter: [
-            "Persönlicher Business-Charter mit konkretem Passagier, Anschluss, Shuttle oder Termin am Ziel",
-            "Charter-Transfer fuer Architekt, Anwalt, Eventkoordination oder Projektleitung mit nachvollziehbarem Weiterreisegrund",
-            "Ruhiger A-B-Charter, bei dem der Passagier nach der Landung direkt zu Team, Familie, Auftraggeber oder Veranstaltung weiter muss"
+            "Persönlicher Business-Charter mit konkretem Passagier, Zieltermin, Shuttle oder lokalem Kontakt am Zielplatz",
+            "Charter-Transfer fuer Architekt, Anwalt, Servicetechniker, Eventkoordination oder Projektleitung mit nachvollziehbarem Termin nach der Landung",
+            "Ruhiger A-B-Charter, bei dem der Passagier nach der Landung direkt zu Team, Auftraggeber, Werkstatt, Bauleitung oder Veranstaltung weiter muss"
         ],
         cargo: [
             "Eilige, aber unspektakuläre Kleinfracht (Dokumente, Ersatzteile)",
@@ -18395,7 +18454,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `${aptCharterSeedPassenger.name}, ${aptCharterSeedPassenger.role}. Anlass: ${aptCharterSeedStory}`
         : '';
     const aptCharterProfileRule = isAptCharterMission
-        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit kurzer Abholung bzw. Handoff am Zielflugplatz. Nutze Wetter Start/Ziel hoechstens als kurzen Realitaetsanker fuer Flugtakt und Komfort, nicht als neues Drama.`
+        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit Empfang, Shuttle oder lokalem Kontakt im GA-/Vorfeldbereich nach der Landung. Keine Airline-, Anschlussflug-, One-Way-Feeder- oder Sightseeing-Story. Keine Systemwoerter wie Handoff, Pipeline oder Profil. Nutze Wetter Start/Ziel hoechstens als kurzen Realitaetsanker fuer Flugtakt und Komfort, nicht als neues Drama.`
         : '';
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
@@ -20023,7 +20082,11 @@ async function generateMission(options = {}) {
     if (!followupStartAirport) syncAirportFieldValue('startLoc', currentStartICAO, { resolved: true });
 
     const rangePref = document.getElementById("distRange").value, regionPref = document.getElementById("regionFilter").value;
-    const followupPickerValue = followupDispatchProfileId ? `bush:all+${followupDispatchProfileId}` : '';
+    const followupPickerValue = followupDispatchProfileId
+        ? (followupDispatchProfileId === 'apt_charter' || followupDispatchProfileId === 'apt_charter_pickup'
+            ? 'apt:charter'
+            : `bush:all+${followupDispatchProfileId}`)
+        : '';
     const targetType = followupPickerValue || document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
@@ -20064,14 +20127,16 @@ async function generateMission(options = {}) {
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     const seededProfileId = (selectedMissionProfile === 'auto')
-        ? (isBushDispatch
+        ? (followupDispatchProfileId && !isBushDispatch
+            ? followupDispatchProfileId
+            : (isBushDispatch
             ? pickAutoBushProfileId()
             : pickAutoMissionTaskProfileId({
                 isPOI: effectiveType === 'poi',
                 selectedAptCategory,
                 selectedPoiCategory,
                 missionCat: ''
-            }))
+            })))
         : selectedMissionProfile;
     const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
     const requestedPoiCategory = selectedPoiCategory;
@@ -20931,6 +20996,20 @@ async function generateMission(options = {}) {
         }
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;
+        const aptFollowupDispatchMission = (followupSeed && followupDispatchProfileId === 'apt_charter_pickup' && typeof window.missionFollowupBuildDispatchMission === 'function')
+            ? window.missionFollowupBuildDispatchMission(followupSeed, {
+                start,
+                dest,
+                totalDist,
+                missionWeather
+            })
+            : null;
+        if (!aiModeEnabled && aptFollowupDispatchMission?.mission) {
+            m = aptFollowupDispatchMission.mission;
+            paxText = aptFollowupDispatchMission.paxText || paxText;
+            cargoText = aptFollowupDispatchMission.cargoText || cargoText;
+            dataSource = aptFollowupDispatchMission.dataSource || 'Follow-up APT Dispatcher';
+        }
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
             m = await dispatchMeasure('writer_v4_main', async () => fetchMissionWriterV4({
                 missionContractV4,
@@ -20945,7 +21024,7 @@ async function generateMission(options = {}) {
                 bushSpec: null
             }));
         }
-        if (!m) {
+        if (!m && !aptFollowupDispatchMission?.mission) {
             await ensurePoiMissionContext('legacy_writer');
             m = await dispatchMeasure('writer_legacy_main', async () => fetchGeminiMission(
                 start.n,
@@ -20972,7 +21051,34 @@ async function generateMission(options = {}) {
                 }
             ));
         }
+        if (!m && aptFollowupDispatchMission?.mission) {
+            m = aptFollowupDispatchMission.mission;
+            paxText = aptFollowupDispatchMission.paxText || paxText;
+            cargoText = aptFollowupDispatchMission.cargoText || cargoText;
+            dataSource = aptFollowupDispatchMission.dataSource || 'Follow-up APT Dispatcher';
+        }
         _ensureDispatchAlive();
+        if (m && aptFollowupDispatchMission?.mission && followupDispatchProfileId === 'apt_charter_pickup') {
+            const locked = aptFollowupDispatchMission.mission;
+            m = {
+                ...m,
+                cat: 'charter',
+                missionType: 'apt',
+                passenger: locked.passenger || m.passenger || null,
+                bush: locked.bush || m.bush || null,
+                followUpRequestId: locked.followUpRequestId || m.followUpRequestId || null,
+                followUpContinuation: locked.followUpContinuation || m.followUpContinuation || null,
+                missionTemporalContext: locked.missionTemporalContext || m.missionTemporalContext || null,
+                _requestedProfile: 'apt_charter_pickup',
+                _appliedProfile: 'apt_charter_pickup'
+            };
+            paxText = locked.pax || locked.paxText || aptFollowupDispatchMission.paxText || paxText;
+            cargoText = locked.cargo || locked.cargoText || aptFollowupDispatchMission.cargoText || cargoText || '-';
+            m.pax = paxText;
+            m.paxText = paxText;
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
+        }
         if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
             console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
             m = null;
@@ -21127,6 +21233,22 @@ async function generateMission(options = {}) {
             m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
+        if (followupSeed && followupDispatchProfileId === 'apt_charter_pickup' && m && typeof m === 'object') {
+            m.missionType = 'apt';
+            m.cat = 'charter';
+            m._requestedProfile = 'apt_charter_pickup';
+            m._appliedProfile = 'apt_charter_pickup';
+            if (m.passenger && typeof m.passenger === 'object') {
+                m.passenger = {
+                    ...m.passenger,
+                    roleProfile: 'charter_professional_neutral_v1',
+                    taskDomain: 'charter'
+                };
+            }
+            if (m.bush && typeof window.sanitizeBushMissionSpec === 'function') {
+                m.bush = window.sanitizeBushMissionSpec(m.bush) || m.bush;
+            }
+        }
         if (m && missionIsSarHeliProfileId(m._appliedProfile || dispatchProfileId || '')) {
             sarHeliSpec = finalizeSarHeliMissionSpec(sarHeliSpec || m.sarHeli || missionContractV4?.sarHeli || null, { missionPlanV2 });
             if (sarHeliSpec) {
@@ -21204,7 +21326,7 @@ async function generateMission(options = {}) {
     setMissionGenerationProgress('render_briefing');
 
     const missionType = normalizeMissionType(m?.missionType || requestedMissionType || '', isPOI);
-    const bushSpec = missionType === 'bush'
+    const bushSpec = (missionType === 'bush' || m?.bush)
         ? sanitizeBushMissionSpec(m?.bush || null)
         : null;
 
@@ -21270,6 +21392,8 @@ async function generateMission(options = {}) {
         poiTerrainFt: Number.isFinite(Number(effectiveTargetTerrainFt)) ? Math.round(Number(effectiveTargetTerrainFt)) : null,
         passenger: m?.passenger || null,
         mission: m.t,
+        story: m.s,
+        missionStory: m.s,
         dist: totalDist,
         ac: selectedAC,
         heading: nav.brng,
@@ -21360,15 +21484,14 @@ async function generateMission(options = {}) {
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
     const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
-    const isDeferredBushPickupPassenger = missionType === 'bush'
-        && String(bushSpec?.targetMode || '') === 'strip_then_return'
+    const isDeferredPickupPassenger = String(bushSpec?.targetMode || '') === 'strip_then_return'
         && String(bushSpec?.pickupKind || '') === 'passenger';
     const shouldActivateMissionPassenger = !!(
         missionHasPassenger
         && m
         && m.passenger
         && typeof m.passenger === 'object'
-        && !isDeferredBushPickupPassenger
+        && !isDeferredPickupPassenger
         && (
             (aiModeEnabled && isAiGeneratedMission)
             || forceFireWatchPassenger
@@ -21624,12 +21747,13 @@ async function generateMission(options = {}) {
         || selectedMissionProfile
         || ''
     ).toLowerCase();
-    const isBushPickupBriefing = missionType === 'bush'
+    const isPickupReturnBriefing = String(bushSpec?.targetMode || '') === 'strip_then_return'
         && (briefingProfileId === 'bush_pickup_strip'
+            || briefingProfileId === 'apt_charter_pickup'
             || String(bushSpec?.targetMode || '') === 'strip_then_return'
             || String(currentMissionData?.passenger?.roleProfile || m?.passenger?.roleProfile || '').toLowerCase() === 'bush_pickup_guest_v1');
     const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|vorfeld|parking/i.test(storyForBriefing)
-        || (isBushPickupBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|pistenrand|parkpunkt|wartet)\b/i.test(storyForBriefing));
+        || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet)\b/i.test(storyForBriefing));
     if (arrivalHint && !briefingAlreadyCoversArrival) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
     }
