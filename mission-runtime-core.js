@@ -89,7 +89,19 @@ function _missionBushPickupAtTargetNow(lat = null, lon = null) {
 function _missionBushPickupReadyForAction() {
     if (!_missionBushIsPickupMission()) return false;
     const progress = _activeBushMissionProgress();
-    return !!(_missionBushPickupAtTargetNow() && (progress?.pickupReady || (progress?.pickupCompleted && !progress?.pickupConfirmed)));
+    if (!progress) return false;
+    if (!_missionBushPickupAtTargetNow()) return false;
+    if (progress?.pickupReady || (progress?.pickupCompleted && !progress?.pickupConfirmed)) return true;
+    const pickupItem = _missionBushPickupItem();
+    const pickupLoaded = pickupItem?.status === 'loaded' || pickupItem?.status === 'unloaded';
+    if (!pickupItem || pickupLoaded) return false;
+    _persistBushMissionProgress({
+        ...progress,
+        targetReached: true,
+        pickupReady: true,
+        status: 'pickup_ready'
+    });
+    return true;
 }
 
 function _missionResolveGroundAction(options = {}) {

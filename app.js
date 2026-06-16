@@ -21340,9 +21340,17 @@ async function generateMission(options = {}) {
         ? Math.round(Number(poiTerrainFt))
         : (poiTaskDefaults.defaultTargetAltFt > 0 ? Math.max(0, poiTaskDefaults.defaultTargetAltFt - 1000) : null);
     const missionRuntimeId = `mission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const followupMissionKeyTag = (followupSeed || m?.followUpRequestId || m?.followUpContinuation)
+        ? [
+            'followup',
+            followupSeed?.id || m?.followUpRequestId || m?.followUpContinuation?.requestId || 'unknown',
+            followupDispatchProfileId || m?._appliedProfile || '',
+            followupAcceptance?.mode || m?.followUpContinuation?.acceptanceMode || ''
+        ].filter(Boolean).join(':')
+        : '';
     currentMissionData = {
         missionId: missionRuntimeId,
-        missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
+        missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t, followupMissionKeyTag].filter(Boolean).join('|'),
         followUpRequestId: followupSeed?.id || m?.followUpRequestId || null,
         followUpContinuation: followupSeed ? {
             requestId: followupSeed.id || null,

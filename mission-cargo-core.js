@@ -352,13 +352,27 @@ function _missionCargoEnsureUiSyncHook() {
 function _missionCargoEnsureManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
     let manifest = _missionCargoGetManifest();
-    if (!manifest || manifest.key !== key || !Array.isArray(manifest.items) || !manifest.items.length) {
+    if (!manifest || manifest.key !== key || !Array.isArray(manifest.items) || !manifest.items.length || !_missionCargoManifestMatchesMissionRecipe(manifest)) {
         manifest = _missionCargoGenerateManifest(cargoAsset || _missionSceneCargoAsset());
         _missionCargoPersistManifest(manifest);
     }
     window.missionCargoStatus.manifestKey = manifest.key || key;
     _missionCargoResetPayloadPlanForMissionKey(manifest.key || key);
     return manifest;
+}
+
+function _missionCargoManifestMatchesMissionRecipe(manifest = null) {
+    if (!manifest || !Array.isArray(manifest.items)) return false;
+    const bush = _activeBushMissionSpec();
+    const isPickupPassenger = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'passenger');
+    const isPickupCargo = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'cargo');
+    if (isPickupPassenger) {
+        return manifest.items.some(item => item && item.pickupLocation === 'target' && String(item.itemType || '').toLowerCase() === 'passenger');
+    }
+    if (isPickupCargo) {
+        return manifest.items.some(item => item && item.pickupLocation === 'target' && String(item.itemType || '').toLowerCase() === 'cargo');
+    }
+    return true;
 }
 
 function _missionCargoPilotId() {
