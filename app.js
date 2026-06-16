@@ -8750,7 +8750,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'ruhig, fokussiert, höflich',
         dialectHint: 'neutral',
-        storySeed: '{name} muss nach der Landung direkt weiter zu einem Kundentermin; am Zielplatz wartet bereits ein Shuttle des Auftraggebers.',
+        storySeed: '{name} hat nach der Landung nur ein kurzes Zeitfenster bis zum Kundentermin; das Auftraggeber-Shuttle wartet am Zielplatz, damit er mit Handgepäck und Unterlagen direkt weiterkommt.',
         greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet schon mein Shuttle zum Kundentermin; mir hilft vor allem eine ruhige, pünktliche Landung.'
     },
     {
@@ -8759,7 +8759,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'ruhig, strukturiert, freundlich',
         dialectHint: 'neutral',
-        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; ihr Team ist vor Ort schon im Terminblock und hält sie per Telefon auf dem Laufenden.',
+        storySeed: '{name} reist zu einer Bau- und Abstimmungsrunde; vor Ort laufen bereits die ersten Entscheidungen, und ihr Team hält ihr den Platz im Terminblock frei.',
         greetingText: 'Hi, ich bin {firstName}. Mein Team ist am Ziel schon in der Abstimmung, deshalb ist mir ein sauberer und planbarer Flug wichtig.'
     },
     {
@@ -8768,7 +8768,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'organisiert, freundlich, terminsicher',
         dialectHint: 'neutral',
-        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf und holt sie nach der Landung am Flugplatz ab.',
+        storySeed: '{name} koordiniert am Zielort eine Abendveranstaltung; die Crew baut dort bereits auf, und ihre Ablaufmappe soll nach der Landung direkt in die Vorbereitung.',
         greetingText: 'Hi, ich bin {firstName}. Die Crew am Ziel baut schon auf; wenn wir ruhig reinkommen, schaffe ich den kurzen Übergang vom Flugplatz direkt zum Aufbau.'
     },
     {
@@ -8777,7 +8777,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'sachlich, konzentriert, höflich',
         dialectHint: 'neutral',
-        storySeed: '{name} hat am Zielort einen Notartermin mit engem Zeitfenster; die Unterlagen liegen im Handgepäck und müssen nach der Landung direkt weiter.',
+        storySeed: '{name} hat am Zielort einen Notartermin mit engem Zeitfenster; die unterschriftsreifen Unterlagen liegen im Handgepäck und gehen nach der Landung ohne Umweg weiter.',
         greetingText: 'Hi, ich bin {firstName}. Ich habe die Unterlagen dabei und muss nach der Landung ohne Umweg zum Termin; bitte ruhig und pünktlich rein.'
     },
     {
@@ -8786,7 +8786,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'klar, freundlich, konzentriert',
         dialectHint: 'neutral',
-        storySeed: '{name} hält am Zielort einen kurzen Fachvortrag; ihr Rollkoffer und die Präsentationsunterlagen reisen mit in der Kabine.',
+        storySeed: '{name} hält am Zielort einen kurzen Fachvortrag; Rollkoffer und Präsentationsunterlagen bleiben griffbereit, weil der Kongressslot kurz nach der Ankunft beginnt.',
         greetingText: 'Hi, ich bin {firstName}. Mein Vortrag hängt an diesem Anschluss, die Unterlagen sind hier an Bord; ein ruhiger Charterflug reicht völlig.'
     },
     {
@@ -8795,7 +8795,7 @@ const CHARTER_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'pragmatisch, ruhig, lösungsorientiert',
         dialectHint: 'neutral',
-        storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; der Kunde wartet auf eine kurze Diagnose noch am selben Tag.',
+        storySeed: '{name} wird am Zielplatz von einer Werkstatt abgeholt; im Servicewagen liegt bereits das Werkzeug, weil der Kunde noch am selben Tag eine Diagnose braucht.',
         greetingText: 'Hi, ich bin {firstName}. Am Ziel wartet die Werkstatt mit dem Wagen, danach geht es direkt zum Kunden. Wichtig ist, dass wir sauber und verlässlich ankommen.'
     }
 ];
@@ -8926,27 +8926,123 @@ function _applyCharterTemplate(text = '', passenger = null, context = {}) {
 function _charterFallbackStorySeed(passenger = null) {
     const role = _charterNormalizeText(passenger?.role || '');
     if (/anwalt|notar|jurist|recht/.test(role)) {
-        return '{name} muss am Zielort zu einem Termin mit festen Unterschriftszeiten; die Unterlagen liegen im Handgepäck.';
+        return '{name} muss am Zielort zu einem Termin mit festen Unterschriftszeiten; die Unterlagen liegen im Handgepäck und sollen nach der Landung ohne Umweg weiter.';
     }
     if (/event|messe|kongress|referent|vortrag/.test(role)) {
-        return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es direkt weiter zum Aufbau oder Vortrag.';
+        return '{name} wird am Zielort von der Veranstaltungscrew erwartet; nach der Landung geht es mit Rollkoffer und Unterlagen direkt weiter zum Aufbau oder Vortrag.';
     }
     if (/projekt|berater|unternehmer|manager|architekt|kunde|service|techniker/.test(role)) {
-        return '{name} hat am Zielort einen klar getakteten Kundentermin; ein Shuttle wartet am Flugplatz auf die Weiterfahrt.';
+        return '{name} hat am Zielort einen klar getakteten Kundentermin; ein Shuttle wartet am Flugplatz, damit der Übergang vom Vorfeld in den nächsten Termin ohne Leerlauf klappt.';
     }
-    return '{name} reist mit einem festen Anschluss am Zielort; am Flugplatz wartet bereits die Abholung für die Weiterreise.';
+    return '{name} reist mit einem festen Anschluss am Zielort; am Flugplatz wartet bereits die Abholung, damit die Weiterreise direkt nach dem Aussteigen beginnen kann.';
+}
+
+function _charterWeatherRaw(wx = null) {
+    if (wx && typeof wx === 'object' && wx.raw && typeof wx.raw === 'object') return wx.raw;
+    return wx && typeof wx === 'object' ? wx : null;
+}
+
+function _charterWeatherBundle(context = {}) {
+    const candidates = [
+        context.missionWeather,
+        context.weatherSnapshot,
+        context.weather,
+        context.missionPlanV2?.resolvedNeeds?.weather_snapshot,
+        context.missionPlanV2?.weather,
+        context.missionContractV4?.weather,
+        context.contract?.weather,
+        context.missionContractV4?.missionPlan?.resolvedNeeds?.weather_snapshot
+    ];
+    return candidates.find(c => c && typeof c === 'object' && (c.dep || c.dest || c.targetPoi)) || null;
+}
+
+function _charterCollectWeatherHooks(context = {}) {
+    const hooks = [];
+    const add = (value) => {
+        if (Array.isArray(value)) {
+            value.forEach(add);
+            return;
+        }
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text) hooks.push(text.replace(/\.$/, '').slice(0, 160));
+    };
+    add(context.weatherHooks);
+    add(context.missionPlanV2?.plan?.weatherHooks);
+    add(context.missionContractV4?.missionPlan?.plan?.weatherHooks);
+    add(context.contract?.missionPlan?.plan?.weatherHooks);
+    return Array.from(new Set(hooks)).slice(0, 3);
+}
+
+function _charterWindData(wx = null) {
+    const windKts = Number(wx?.windKts);
+    if (!Number.isFinite(windKts)) return null;
+    const windDeg = Number(wx?.windDeg);
+    return {
+        deg: Number.isFinite(windDeg) ? Math.round(windDeg) : null,
+        kts: Math.round(windKts)
+    };
+}
+
+function _charterWeatherSentence(context = {}) {
+    const bundle = _charterWeatherBundle(context);
+    const dep = _charterWeatherRaw(bundle?.dep || null);
+    const dest = _charterWeatherRaw(bundle?.dest || bundle?.targetPoi || null);
+    const bits = [];
+    const depWind = _charterWindData(dep);
+    const destWind = _charterWindData(dest);
+    if (depWind && destWind) {
+        const maxKts = Math.max(depWind.kts, destWind.kts);
+        const windLabel = maxKts <= 8 ? 'leichter Wind' : 'Wind';
+        if (depWind.deg !== null && destWind.deg !== null && Math.abs(depWind.deg - destWind.deg) <= 10) {
+            bits.push(`${windLabel} aus ${depWind.deg} Grad (${depWind.kts} kt am Start, ${destWind.kts} kt am Ziel)`);
+        } else {
+            const depText = depWind.deg !== null ? `${depWind.deg} Grad/${depWind.kts} kt am Start` : `${depWind.kts} kt am Start`;
+            const destText = destWind.deg !== null ? `${destWind.deg} Grad/${destWind.kts} kt am Ziel` : `${destWind.kts} kt am Ziel`;
+            bits.push(`${windLabel} mit ${depText} und ${destText}`);
+        }
+    } else if (depWind || destWind) {
+        const w = depWind || destWind;
+        const place = depWind ? 'am Start' : 'am Ziel';
+        const windLabel = w.kts <= 8 ? 'leichter Wind' : 'Wind';
+        bits.push(w.deg !== null ? `${windLabel} aus ${w.deg} Grad mit ${w.kts} kt ${place}` : `${windLabel} mit ${w.kts} kt ${place}`);
+    }
+
+    const depVis = Number(dep?.visKm);
+    const destVis = Number(dest?.visKm);
+    const vis = Number.isFinite(depVis) ? depVis : (Number.isFinite(destVis) ? destVis : null);
+    if (Number.isFinite(vis)) {
+        bits.push(vis >= 10 ? 'mehr als 10 km Sicht' : `${vis.toFixed(1)} km Sicht`);
+    }
+    const temp = Number.isFinite(Number(dest?.tempC)) ? Number(dest.tempC) : (Number.isFinite(Number(dep?.tempC)) ? Number(dep.tempC) : null);
+    if (Number.isFinite(temp)) bits.push(`etwa ${Math.round(temp)}°C`);
+    const fltCat = String(dest?.fltCat || dep?.fltCat || '').trim().toUpperCase();
+    if (fltCat && !bits.some(bit => bit.toUpperCase().includes(fltCat))) bits.push(`${fltCat}-Bedingungen`);
+
+    if (bits.length) {
+        return `Das Wetter gibt dem Flug einen ruhigen Rahmen: ${bits.join(', ')}. So bleibt der VFR-Transfer planbar und ruhig.`;
+    }
+    const hooks = _charterCollectWeatherHooks(context);
+    if (hooks.length) {
+        return `Aus den Wetterdaten nehmen wir ${hooks.join('; ')} als ruhigen Rahmen für den Transfer mit.`;
+    }
+    return '';
 }
 
 function _charterStoryLooksGeneric(story = '', passenger = null) {
     const s = _charterNormalizeText(story);
     if (!s) return true;
-    if (/geplanter charter-transfer|professionelle durchfuhrung|professionelle durchfuehrung|passagiere reisen|wegen passagiere|weitergabe der passagiere|begleitperson reist/.test(s)) return true;
+    if (/geplanter charter-transfer|professionelle durchfuhrung|professionelle durchfuehrung|passagiere reisen|wegen passagiere|weitergabe der passagiere|begleitperson reist|der auftrag bleibt ein ruhiger a-b-charter|saubere flugfuhrung|saubere flugfuehrung|kurzer handoff am zielflugplatz/.test(s)) return true;
     const name = _charterNormalizeText(passenger?.name || '');
     const role = _charterNormalizeText(passenger?.role || '');
     const hasName = !!name && !/passagier|gast|kunde|pax/.test(name) && s.includes(name);
     const hasRole = !!role && !_charterRoleLooksGeneric(role) && s.includes(role);
     const hasPersonalHook = /(shuttle|anschluss|weiterreise|termin|kundentermin|notar|meeting|bauabnahme|vortrag|kongress|messe|event|veranstaltung|team|crew|familie|hochzeit|abholung|unterlagen|rollkoffer|werkstatt|auftraggeber)/.test(s);
     return !(hasName || hasRole) || !hasPersonalHook;
+}
+
+function _charterStoryHasWeather(story = '') {
+    const s = _charterNormalizeText(story);
+    return /(?:\bwetter\b|\bwind\b|\bsicht\b|\bvfr\b|\bmvfr\b|\bifr\b|temperatur|\bgrad\b|\bkt\b|\bknoten\b|regen|niesel|schauer|bewolkt|bewoelkt|wolken|cavok|metar|°c)/.test(s);
 }
 
 function _charterGreetingLooksGeneric(greeting = '', passenger = null, targetName = '') {
@@ -8967,8 +9063,11 @@ function buildPersonalAptCharterStory(passenger = null, context = {}) {
         passenger,
         context
     );
-    const paxLabel = _charterRoleLooksGeneric(ctx.role) ? ctx.name : `${ctx.name}, ${ctx.role}`;
-    return _cleanupNarrativeArtifacts(`${paxLabel} reist heute von ${ctx.startName} nach ${ctx.targetName}. ${seed} Der Auftrag bleibt ein ruhiger A-B-Charter: saubere Flugführung, planbare Ankunft und ein kurzer Handoff am Zielflugplatz.`);
+    const paxLabel = _charterRoleLooksGeneric(ctx.role) ? ctx.name : `${ctx.name}, ${ctx.role},`;
+    const intro = `${paxLabel} ist heute unser Chartergast auf der Strecke von ${ctx.startName} nach ${ctx.targetName}.`;
+    const weather = _charterWeatherSentence(context);
+    const handoff = `Entscheidend ist der saubere Takt: ruhiger Start, stabile Strecke und eine Landung, bei der ${ctx.firstName} ohne Leerlauf zum vorbereiteten Kontakt am Platz wechseln kann.`;
+    return _cleanupNarrativeArtifacts(`${intro} ${seed} ${weather} ${handoff}`);
 }
 
 function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
@@ -8977,7 +9076,8 @@ function buildPersonalAptCharterGreeting(passenger = null, context = {}) {
     if (templated && !_charterGreetingLooksGeneric(templated, passenger, ctx.targetName)) {
         return _cleanupNarrativeArtifacts(templated);
     }
-    return _cleanupNarrativeArtifacts(`Hi, ich bin ${ctx.firstName}. Am Ziel in ${ctx.targetName} wartet meine Abholung für den nächsten Termin; mir ist wichtig, dass wir ruhig und pünktlich landen.`);
+    const weatherPrefix = _charterWeatherSentence(context) ? 'Die Bedingungen sehen für den Transfer ruhig aus. ' : '';
+    return _cleanupNarrativeArtifacts(`Hi, ich bin ${ctx.firstName}. ${weatherPrefix}Am Ziel in ${ctx.targetName} wartet meine Abholung für den nächsten Termin; mir ist wichtig, dass wir ruhig und pünktlich landen.`);
 }
 
 function personalizeAptCharterMission(mission = null, context = {}, preferredPersona = null) {
@@ -8994,6 +9094,9 @@ function personalizeAptCharterMission(mission = null, context = {}, preferredPer
     };
     if (_charterStoryLooksGeneric(existingStory, passenger)) {
         m[storyKey] = buildPersonalAptCharterStory(passenger, storyContext);
+    } else if (!_charterStoryHasWeather(existingStory)) {
+        const weather = _charterWeatherSentence(storyContext);
+        if (weather) m[storyKey] = _cleanupNarrativeArtifacts(`${existingStory} ${weather}`);
     }
     passenger.greetingText = buildPersonalAptCharterGreeting(passenger, storyContext);
     m.passenger = passenger;
@@ -18096,7 +18199,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `${aptCharterSeedPassenger.name}, ${aptCharterSeedPassenger.role}. Anlass: ${aptCharterSeedStory}`
         : '';
     const aptCharterProfileRule = isAptCharterMission
-        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit kurzer Abholung bzw. Handoff am Zielflugplatz.`
+        ? `16c. APT-CHARTER-BASIS: Entwickle den A-B-Charter aus diesem Hauptgast: ${aptCharterSeedCue}. Story, passenger.name, passenger.role und passenger.greetingText tragen denselben persoenlichen Anlass. Der operative Kern ist der planbare Transfer vom Startflugplatz zum Zielflugplatz mit kurzer Abholung bzw. Handoff am Zielflugplatz. Nutze Wetter Start/Ziel hoechstens als kurzen Realitaetsanker fuer Flugtakt und Komfort, nicht als neues Drama.`
         : '';
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
@@ -18287,7 +18390,14 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!isAptCharterMission || !payload || typeof payload !== 'object') return payload;
         let normalized = { ...payload };
         normalized.passenger = buildCharterPassenger(normalized.passenger || null, aptCharterSeedPassenger);
-        normalized = personalizeAptCharterMission(normalized, { startName, targetName: promptDestName }, aptCharterSeedPassenger);
+        normalized = personalizeAptCharterMission(normalized, {
+            startName,
+            targetName: promptDestName,
+            missionWeather,
+            missionPlanV2,
+            weatherHooks: dispatchPlan.weatherHooks,
+            cargoText
+        }, aptCharterSeedPassenger);
         if (!normalized.pax || /^\s*0\s*PAX\b/i.test(String(normalized.pax))) {
             normalized.pax = `1 PAX (${normalized.passenger.role})`;
         }
@@ -20760,7 +20870,12 @@ async function generateMission(options = {}) {
         if (!isPOI && m && typeof m === 'object' && (m.cat === 'charter' || finalAptCat === 'charter' || selectedAptCategory === 'charter')) {
             m = personalizeAptCharterMission(m, {
                 startName: start?.n || currentStartICAO || 'Startplatz',
-                targetName: dest?.n || currentDestICAO || 'Zielflugplatz'
+                targetName: dest?.n || currentDestICAO || 'Zielflugplatz',
+                missionWeather,
+                missionPlanV2,
+                missionContractV4,
+                weatherHooks: missionPlanV2?.plan?.weatherHooks,
+                cargoText
             });
             if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
                 paxText = `1 PAX (${m.passenger.role})`;
