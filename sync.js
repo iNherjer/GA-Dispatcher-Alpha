@@ -1973,6 +1973,9 @@ window.missionSceneStatus = {
     boardingActive: false,
     boardingComplete: false,
     boardingError: null,
+    manualPaxRequested: false,
+    manualPaxActive: false,
+    manualPaxError: null,
     personBoarded: false,
     autoSpawnedFor: null,
     autoClearedFor: null
@@ -6458,11 +6461,19 @@ function _handleTrackerAck(ack) {
     if (/^mission_(scene|smoke)_/i.test(String(ack.type || ''))) {
         _missionSceneDebugPatch({ lastAck: ack }, `tracker-ack:${ack.type}`);
     }
-    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack' || ack.type === 'mission_scene_deboarding_ack' || ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack') {
-        if (ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack') {
+    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack' || ack.type === 'mission_scene_deboarding_ack' || ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack' || ack.type === 'mission_scene_manual_pax_ack') {
+        if (ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack' || ack.type === 'mission_scene_manual_pax_ack') {
             window.missionCargoStatus.lastAckAt = Date.now();
             window.missionCargoStatus.lastAck = ack;
             window.missionCargoStatus.error = ack.status === 'ok' || ack.status === 'noop' ? null : (ack.error || ack.status || 'cargo_scene_command_failed');
+            if (ack.type === 'mission_scene_manual_pax_ack' && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
+                window.missionSceneStatus.manualPaxRequested = false;
+                window.missionSceneStatus.manualPaxActive = false;
+                window.missionSceneStatus.manualPaxError = ack.status === 'ok' || ack.status === 'noop' ? null : (ack.error || ack.status || 'manual_pax_failed');
+                if (ack.status === 'ok' || ack.status === 'noop') {
+                    window.missionSceneStatus.personBoarded = String(ack.action || '').toLowerCase() === 'load';
+                }
+            }
             if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
             _updateMissionRuntimeUi();
             return;
@@ -7186,6 +7197,9 @@ window.resetMissionStartFlow = function() {
         boardingActive: false,
         boardingComplete: false,
         boardingError: null,
+        manualPaxRequested: false,
+        manualPaxActive: false,
+        manualPaxError: null,
         personBoarded: false
     });
     _updateMissionRuntimeUi();
@@ -7202,6 +7216,9 @@ function _resetMissionStartFlowAfterEnd() {
         boardingActive: false,
         boardingComplete: false,
         boardingError: null,
+        manualPaxRequested: false,
+        manualPaxActive: false,
+        manualPaxError: null,
         personBoarded: false
     });
 }
@@ -8436,6 +8453,9 @@ window.missionRuntimeReset = function(options = {}) {
         boardingActive: false,
         boardingComplete: false,
         boardingError: null,
+        manualPaxRequested: false,
+        manualPaxActive: false,
+        manualPaxError: null,
         personBoarded: false,
         autoSpawnedFor: null,
         autoClearedFor: null,

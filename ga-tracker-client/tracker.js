@@ -284,6 +284,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const trackedObjectIds = new Set();
   const activeBoardingScenes = new Set();
   const activeDeboardingScenes = new Set();
+  const activeManualPaxScenes = new Set();
   const lastExceptions = [];
   let nextReqId = 9300;
   let nextDefId = 9700;
@@ -2198,6 +2199,129 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return { spawned: objects.length };
   };
 
+  const animateMissionSceneManualPax = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene-manual-pax');
+    const commandId = command?.commandId || null;
+    const missionId = String(command?.missionId || '').trim();
+    const action = String(command?.action || command?.mode || 'unload').trim().toLowerCase() === 'load' ? 'load' : 'unload';
+    if (activeBoardingScenes.size || activeDeboardingScenes.size || activeManualPaxScenes.size) {
+      debugLog(`SCENE_MANUAL_PAX_NOOP scene=${sceneId} action=${action} reason=busy`);
+      sendAck({ type: 'mission_scene_manual_pax_ack', commandId, sceneId, missionId, status: 'error', action, error: 'busy' });
+      return { spawned: 0, removed: 0 };
+    }
+    activeManualPaxScenes.add(sceneId);
+    let stopDoorOpenHold = null;
+    const stopDoorHold = (why = 'stop') => {
+      if (stopDoorOpenHold) {
+        stopDoorOpenHold(why);
+        stopDoorOpenHold = null;
+      }
+    };
+    try {
+      const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
+      rec.sceneId = sceneId;
+      rec.missionId = missionId || rec.missionId || '';
+      rec.command = { ...(rec.command || {}), ...command };
+      if (!Array.isArray(rec.objects)) rec.objects = [];
+      if (!Array.isArray(rec.positions)) rec.positions = [];
+      scenes.set(sceneId, rec);
+
+      const base = sceneBaseFromCommand(command, rec);
+      if (!Number.isFinite(base.lat) || !Number.isFinite(base.lon) || !Number.isFinite(base.altFt)) {
+        debugLog(`SCENE_MANUAL_PAX_ERROR scene=${sceneId} action=${action} reason=invalid_scene_base`);
+        sendAck({ type: 'mission_scene_manual_pax_ack', commandId, sceneId, missionId, status: 'error', action, error: 'invalid_scene_base' });
+        return { spawned: 0, removed: 0 };
+      }
+
+      const doorEnabled = command?.openDoor !== false && command?.door !== false;
+      const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
+      const doorProfile = resolveDoorProfile(command);
+      const openWaitMs = clampInt(command?.doorOpenWaitMs ?? command?.openWaitMs ?? 2000, 0, 12000);
+      const closeWaitMs = clampInt(command?.doorCloseWaitMs ?? command?.closeWaitMs ?? 1000, 0, 12000);
+      const personKind = String(command?.personKind || command?.kind || 'manual_pax').trim() || 'manual_pax';
+      const personLabel = String(command?.personLabel || command?.label || 'Passenger').trim() || 'Passenger';
+      const selector = {
+        kinds: [personKind],
+        labels: [personLabel, command?.label, command?.storyName].filter(Boolean)
+      };
+      const removeMatchingPax = (reason) => {
+        const targets = rec.objects.filter(obj => sceneObjectMatchesSelector(obj, selector));
+        let removed = 0;
+        for (const obj of targets) {
+          removed += removeSceneObject(rec, obj, reason) ? 1 : 0;
+        }
+        return removed;
+      };
+
+      trackerLog(`🚶 Scene ${sceneId}: manueller Pax ${action === 'load' ? 'steigt ein' : 'steigt aus'}.`);
+      if (doorEnabled) {
+        await setUserAircraftDoor(true, doorIndex, `manual-pax-${action}-open`, doorProfile);
+        stopDoorOpenHold = startUserAircraftDoorOpenHold(doorIndex, `manual-pax-${action}-open`, doorProfile, openWaitMs + closeWaitMs + 6000);
+      }
+      if (openWaitMs > 0) await sleep(openWaitMs);
+
+      let removed = 0;
+      let spawned = 0;
+      if (action === 'load') {
+        removed = removeMatchingPax('manual-pax-load');
+      } else {
+        removed = removeMatchingPax('manual-pax-unload-refresh');
+        const title = String(command?.personTitle || command?.personObjectTitle || command?.objectTitle || MISSION_SCENE_PERSON_TITLE).trim() || MISSION_SCENE_PERSON_TITLE;
+        const titleCandidates = buildTitleCandidates(title, command?.personTitleCandidates || command?.titleCandidates || [MISSION_SCENE_PERSON_TITLE, 'Tarmac_Male_Summer_Asian', 'Termac_Female_Summer_Asian']);
+        const boardingPoint = command?.boardingPoint || command?.targetPoint || command?.passengerPoint || { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 };
+        const absPoint = relativeScenePoint(base, boardingPoint, { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 });
+        const hdg = normalizeHeading(base.hdg + toFiniteNumber(command?.hdgOffsetDeg, 165));
+        const plan = {
+          index: rec.positions.length + 1,
+          kind: personKind,
+          label: personLabel,
+          title,
+          titleCandidates,
+          lat: absPoint.lat,
+          lon: absPoint.lon,
+          altFt: absPoint.altFt,
+          hdg,
+          baseAltFt: base.altFt,
+          altOffsetFt: absPoint.altOffsetFt || 0,
+          forwardM: absPoint.forwardM,
+          rightM: absPoint.rightM,
+          northM: absPoint.northM,
+          eastM: absPoint.eastM
+        };
+        const obj = await spawnSceneObjectFromPlan(sceneId, plan, 3000);
+        if (obj) {
+          rec.objects.push(obj);
+          rec.positions.push(plan);
+          spawned = 1;
+        }
+      }
+
+      if (closeWaitMs > 0) await sleep(closeWaitMs);
+      if (doorEnabled) {
+        stopDoorHold(`manual-pax-${action}-close`);
+        await setUserAircraftDoor(false, doorIndex, `manual-pax-${action}-close`, doorProfile);
+      }
+      const ok = action === 'load' ? true : spawned > 0;
+      const status = ok ? (action === 'load' && removed === 0 ? 'noop' : 'ok') : 'error';
+      debugLog(`SCENE_MANUAL_PAX_DONE scene=${sceneId} action=${action} status=${status} spawned=${spawned} removed=${removed}`);
+      sendAck({
+        type: 'mission_scene_manual_pax_ack',
+        commandId,
+        sceneId,
+        missionId,
+        status,
+        action,
+        spawned,
+        removed,
+        error: ok ? '' : 'spawn_failed'
+      });
+      return { spawned, removed };
+    } finally {
+      stopDoorHold('manual-pax-finally');
+      activeManualPaxScenes.delete(sceneId);
+    }
+  };
+
   const spawnMissionScene = async (command) => {
     const sceneId = String(command?.sceneId || 'mission-scene');
     const commandId = command?.commandId || null;
@@ -2313,6 +2437,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     activeBoardingScenes.clear();
     activeDeboardingScenes.clear();
+    activeManualPaxScenes.clear();
     debugLog(`TRACKED_CLEAR_OK reason=${reason} cleared=${cleared}`);
     return { cleared };
   };
@@ -2570,6 +2695,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         spawnSceneObjectsAppend(command).catch(err => {
           trackerWarn(`⚠️  Scene object spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_object_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_manual_pax') {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_manual_pax scene=${sceneId} action=${command?.action || command?.mode || 'unload'} door=${command?.openDoor === false || command?.door === false ? 0 : 1} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''}`);
+        enqueueSceneOperation(sceneId, () => animateMissionSceneManualPax(command)).catch(err => {
+          trackerWarn(`⚠️  Scene manual pax failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_manual_pax_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', action: command?.action || command?.mode || 'unload', error: err?.message || String(err) });
         });
         return true;
       }
