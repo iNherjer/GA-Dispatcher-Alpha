@@ -24,6 +24,11 @@
             followUpKind: 'bush_pickup_strip',
             sourceLabel: 'Bush Adventure',
             followUpLabel: 'Bush Pickup'
+        },
+        bush_recon_return: {
+            followUpKind: 'bush_supply_strip',
+            sourceLabel: 'Bush Recon',
+            followUpLabel: 'Bush Service Run'
         }
     };
     const PASSENGER_PICKUP_SOURCE_KINDS = new Set(['bush_charter_strip', 'bush_scenic_hopper']);
@@ -156,6 +161,10 @@
             if (n === 1) return 'bis morgen';
             return `in ungefähr ${n} Tagen`;
         }
+        if (source === 'bush_recon_return') {
+            if (n === 1) return 'bis zum nächsten Morgen für Auswertung und Materialplanung';
+            return `ungefähr ${n} Tage für Auswertung und Materialplanung`;
+        }
         if (n === 1) return 'bis morgen';
         return `ungefähr ${n} Tage`;
     }
@@ -173,6 +182,10 @@
             if (n === 1) return 'bis zum nächsten Morgen';
             return `über ungefähr ${n} Tage`;
         }
+        if (source === 'bush_recon_return') {
+            if (n === 1) return 'bis zum nächsten Morgen nach dem Recon';
+            return `über ungefähr ${n} Tage nach dem Recon`;
+        }
         if (n === 1) return 'bis zum nächsten Morgen';
         return `für ungefähr ${n} Tage`;
     }
@@ -187,6 +200,10 @@
         }
         if (source === 'bush_scenic_hopper') {
             return `${name || 'Der Gast'} plant ${text} zu bleiben und kann beim Abschied locker erwähnen, dass eine Rückholung danach willkommen wäre.`;
+        }
+        if (source === 'bush_recon_return') {
+            const waitText = stayPeriodText(stayDays, source).replace(/\s+nach dem Recon$/i, '');
+            return `Nach dem Rückbericht wertet die Basis den Recon ${waitText || text} aus und kann daraus einen kleinen Serviceflug zum Zielstrip planen.`;
         }
         return `${name || 'Der Gast'} bleibt voraussichtlich ${text} am Zielstrip und kann beim Abschied erwähnen, dass eine spätere Rückholung gut passen würde.`;
     }
@@ -374,9 +391,11 @@
         const resolvedStartRef = normalizeRef(startRef);
         if (!req || !homeRef?.icao || !targetRef?.icao || !resolvedStartRef?.icao) return null;
         const followUpKind = String(req.followUpKind || '').toLowerCase();
+        const isServiceRun = followUpKind === 'bush_supply_strip';
         const sameHome = refsSameAirport(resolvedStartRef, homeRef);
         const sameTarget = refsSameAirport(resolvedStartRef, targetRef);
-        const onsite = sameTarget && !sameHome;
+        if (isServiceRun && sameTarget && !sameHome) return null;
+        const onsite = !isServiceRun && sameTarget && !sameHome;
         const mode = onsite
             ? 'onsite_to_home'
             : (sameHome ? 'pickup_from_home' : 'pickup_from_third_place');
@@ -397,7 +416,15 @@
 
     function acceptanceForRequest(req = null, context = {}) {
         const existing = (req?.acceptance && typeof req.acceptance === 'object') ? req.acceptance : null;
-        if (existing?.mode && existing?.startRef && existing?.targetRef && existing?.returnHomeRef) return existing;
+        if (existing?.mode && existing?.startRef && existing?.targetRef && existing?.returnHomeRef) {
+            const followUpKind = String(req?.followUpKind || '').toLowerCase();
+            if (
+                followUpKind === 'bush_supply_strip'
+                && refsSameAirport(existing.startRef, existing.targetRef)
+                && !refsSameAirport(existing.startRef, existing.returnHomeRef)
+            ) return null;
+            return existing;
+        }
         const fallbackStart = normalizeAirportLikeToRef(context.start || null)
             || normalizeRef(req?.route?.homeRef);
         return buildAcceptance(req, fallbackStart) || null;
@@ -456,6 +483,7 @@
         const homeRef = normalizeRef(req?.route?.homeRef);
         const targetRef = normalizeRef(req?.route?.targetRef);
         const lastRef = getLastLandingRef();
+        const isServiceRun = String(req?.followUpKind || '').toLowerCase() === 'bush_supply_strip';
         const defaultRef = lastRef?.icao ? lastRef : homeRef;
         const defaultIcao = String(defaultRef?.icao || homeRef?.icao || '').trim().toUpperCase();
         const overlay = ensureStartDialog();
@@ -470,29 +498,31 @@
         const optionDefs = [
             {
                 id: 'home',
-                title: 'Wieder an der Basis',
+                title: isServiceRun ? 'Servicepaket an der Basis laden' : 'Wieder an der Basis',
                 text: followupPlaceLabel(homeRef, 'Ursprungsbasis'),
                 ref: homeRef
             },
-            {
+            !isServiceRun ? {
                 id: 'target',
                 title: 'Noch am Zielstrip',
                 text: followupPlaceLabel(targetRef, 'Zielstrip'),
                 ref: targetRef
-            },
+            } : null,
             {
                 id: 'other',
                 title: 'An einem anderen Platz',
                 text: defaultIcao ? `Vorschlag: ${followupPlaceLabel(defaultRef, defaultIcao)}` : 'ICAO eingeben',
                 ref: null
             }
-        ];
+        ].filter(Boolean);
 
         const defaultMatchesTarget = refsSameAirport(defaultRef, targetRef);
         const defaultMatchesHome = refsSameAirport(defaultRef, homeRef);
-        selected = defaultMatchesTarget ? 'target' : (defaultMatchesHome ? 'home' : 'other');
+        selected = (!isServiceRun && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
         if (summary) {
-            summary.textContent = `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, 'Zielstrip')}`;
+            summary.textContent = isServiceRun
+                ? `Serviceziel: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Materialbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
+                : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, 'Zielstrip')}`;
         }
         if (options) {
             options.innerHTML = '';
@@ -575,6 +605,15 @@
                         error.hidden = false;
                     } else {
                         alert('Startplatz unbekannt. Bitte eine gültige ICAO eingeben.');
+                    }
+                    return;
+                }
+                if (isServiceRun && refsSameAirport(ref, targetRef)) {
+                    if (error) {
+                        error.textContent = 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.';
+                        error.hidden = false;
+                    } else {
+                        alert('Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.');
                     }
                     return;
                 }
@@ -733,6 +772,91 @@
         );
     }
 
+    function buildReconServicePlan(md = null, targetRef = null) {
+        const bush = md?.bush || md?.missionContract?.bush || {};
+        const targetName = targetRef?.name || targetRef?.icao || 'Zielstrip';
+        const hay = cleanText([
+            bush?.reconFocus,
+            bush?.reconFocusLabel,
+            md?.mission,
+            sourceStoryText(md)
+        ].filter(Boolean).join(' '), 2200).toLowerCase();
+        const mk = (plan) => ({
+            observedIssue: cleanText(plan.observedIssue, 180),
+            serviceTask: cleanText(plan.serviceTask, 240),
+            kitItems: cleanText(plan.kitItems, 180),
+            label: cleanText(plan.label, 220),
+            role: cleanText(plan.role || 'Servicekontakt am Strip', 120),
+            weightLbs: Math.max(8, Math.round(Number(plan.weightLbs || 38))),
+            reason: cleanText(plan.reason, 240),
+            handoff: cleanText(plan.handoff, 240)
+        });
+        if (/drain|washout|wasser|unterspuel|unterspül|weich|pfütz|pfuetz|graben|runoff/.test(hay)) {
+            return mk({
+                observedIssue: `Beim Recon wurden mögliche weiche Stellen und Drainage-Spuren am Rand von ${targetName} erkannt.`,
+                serviceTask: 'Der Platzkontakt soll die markierten Stellen am Boden prüfen, provisorisch kennzeichnen und den nächsten schweren Flug freigeben oder zurückstellen.',
+                kitItems: 'Markierstäbe, Drainageband, Klappspaten und Fototafel',
+                label: `Servicepaket ${targetName}: Markierstäbe, Drainageband, Klappspaten und Fototafel (46 lbs)`,
+                weightLbs: 46,
+                reason: 'Der Recon-Befund reicht für die Planung, aber die Stelle muss am Boden markiert werden, bevor weitere Flüge folgen.',
+                handoff: 'Nach der Landung übernimmt der lokale Platzkontakt das Paket am Striprand und gleicht es mit dem Recon-Foto ab.'
+            });
+        }
+        if (/windsack|marker|markier|schild|signage|hinweis|tafel|pistenkopf|bahnrand/.test(hay)) {
+            return mk({
+                observedIssue: `Der Recon hat fehlende oder verrutschte Marker am Strip von ${targetName} nahegelegt.`,
+                serviceTask: 'Der Platzkontakt soll Marker, Schild oder Windsack am Boden wieder sichtbar machen und die Basis danach kurz bestätigen.',
+                kitItems: 'Ersatzmarker, Befestigungssatz, Warnband und kleine Werkzeugrolle',
+                label: `Servicepaket ${targetName}: Ersatzmarker, Befestigungssatz, Warnband und Werkzeugrolle (38 lbs)`,
+                weightLbs: 38,
+                reason: 'Ohne sichtbare Markierung bleibt der nächste Anflug unnötig unsauber; das kleine Kit passt gut in einen kurzen Service Run.',
+                handoff: 'Nach der Landung wird das Servicepaket am Treffpunkt übergeben und der Recon-Befund mit dem Kontakt abgeglichen.'
+            });
+        }
+        if (/ast|baum|wild|zaun|hindernis|gegenstaend|gegenständ|spuren|ranch|meadow|wiese/.test(hay)) {
+            return mk({
+                observedIssue: `Beim Recon wurden mögliche Hindernisse, Wildspuren oder ein Zaunthema am Rand von ${targetName} notiert.`,
+                serviceTask: 'Der Kontakt vor Ort soll den Randbereich sichern, lose Gegenstände entfernen und die nächste Crew informieren.',
+                kitItems: 'Arbeitshandschuhe, Flatterband, kleine Astsäge, Zaunbinder und Fotoausdruck',
+                label: `Servicepaket ${targetName}: Flatterband, Astsäge, Zaunbinder und Fotoausdruck (44 lbs)`,
+                weightLbs: 44,
+                reason: 'Der Recon hat genug Hinweise geliefert, um einen gezielten kleinen Bodenservice statt einer großen Crewfahrt zu schicken.',
+                handoff: 'Das Paket geht nach der Landung an den Ranger- oder Ranchkontakt am Striprand.'
+            });
+        }
+        if (/saison|season|opening|lodge|camp|ranch|betrieb|freigabe|betriebsakte/.test(hay)) {
+            return mk({
+                observedIssue: `Der Recon hat gezeigt, dass ${targetName} vor der nächsten Nutzung einen kleinen Saison- oder Betreibercheck braucht.`,
+                serviceTask: 'Der Kontakt soll Betriebsmappe, Marker und Funkakku für die erste sichere Nutzung der Saison vorbereiten.',
+                kitItems: 'Betriebsmappe, Funkakku, Markerband und kleines Wartungskit',
+                label: `Servicepaket ${targetName}: Betriebsmappe, Funkakku, Markerband und Wartungskit (40 lbs)`,
+                weightLbs: 40,
+                reason: 'Die Basis möchte den Zielstrip nach dem Recon nicht nur freigeben, sondern mit Material für die ersten Folgeflüge ausstatten.',
+                handoff: 'Nach der Landung wird das Servicekit am Stripkontakt abgegeben und die Freigabeliste kurz durchgesprochen.'
+            });
+        }
+        if (/rauch|fire|brand|camp|smoke/.test(hay)) {
+            return mk({
+                observedIssue: `Der Recon um ${targetName} ergab keinen Löschauftrag, aber Bedarf an sauberer Meldetechnik und Markierung vor Ort.`,
+                serviceTask: 'Der Kontakt soll Funkakku, Warnband und Meldekarte übernehmen, damit weitere Beobachtungen geordnet zurücklaufen.',
+                kitItems: 'Funkakku, Warnband, Firewatch-Meldekarte und kleine Wasserkanister',
+                label: `Servicepaket ${targetName}: Funkakku, Warnband, Meldekarte und kleine Wasserkanister (52 lbs)`,
+                weightLbs: 52,
+                reason: 'Der Folgeflug bleibt ein Service Run, kein Löscheinsatz; die Basis stärkt nur die Meldestelle am Strip.',
+                handoff: 'Nach der Landung übernimmt der Firewatch- oder Rangerkontakt das Paket am Striprand.'
+            });
+        }
+        return mk({
+            observedIssue: `Der Recon über ${targetName} hat einen kleinen, klar begrenzten Servicebedarf am Strip ergeben.`,
+            serviceTask: 'Der Platzkontakt soll den Befund am Boden prüfen, die markierte Stelle sichern und der Basis eine kurze Rückmeldung geben.',
+            kitItems: 'Werkzeugtasche, Markierstäbe, Ersatz-Funkakku und ausgedruckter Recon-Befund',
+            label: `Servicepaket ${targetName}: Werkzeugtasche, Markierstäbe, Ersatz-Funkakku und Recon-Befund (42 lbs)`,
+            weightLbs: 42,
+            reason: 'Der Recon war bewusst ohne Landung; jetzt folgt der kleine Materialflug für den gezielten Service am Boden.',
+            handoff: 'Nach der Landung geht das Servicepaket direkt an den Platzkontakt am Striprand.'
+        });
+    }
+
     function buildNarrativeMemory(sourceKind, md, passenger, homeRef, targetRef) {
         const story = sourceStoryText(md);
         const cargo = cleanText(md?.cargoText || md?.initialCargoText || document.getElementById('mWeight')?.innerText || '', 260);
@@ -778,6 +902,23 @@
                 sourceCargoText: cargo
             };
         }
+        if (sourceKind === 'bush_recon_return') {
+            const serviceRun = buildReconServicePlan(md, targetRef);
+            const waitText = stayPeriod || 'nach der Auswertung';
+            return {
+                ...commonMemory,
+                serviceRun,
+                outboundPurpose: story || `Beim Recon von ${homeName} zum Zielgebiet bei ${targetName} wurde der Strip ohne geplante Landung aus der Luft geprüft.`,
+                stayOrWorkSummary: `Die Basis hat den Recon ${waitText} ausgewertet: ${serviceRun.observedIssue}`,
+                whyNowReturn: `Aus dem Rückbericht ist ein gezielter kleiner Service Run entstanden. ${serviceRun.reason}`,
+                returnReason: serviceRun.reason,
+                teamContinuity: `Der zweite Flug knüpft direkt an den Recon an: erst Befund aus der Luft, jetzt Material und Kontakt am Boden.`,
+                serviceTask: serviceRun.serviceTask,
+                serviceHandoff: serviceRun.handoff,
+                sourcePaxText: pax,
+                sourceCargoText: cargo || serviceRun.label
+            };
+        }
         return {
             ...commonMemory,
             outboundPurpose: story || `Die Versorgungsladung aus ${homeName} wurde nach ${targetName} gebracht.`,
@@ -801,9 +942,22 @@
         };
     }
 
+    function buildServiceRunCargo(memory, targetRef) {
+        const serviceRun = memory?.serviceRun && typeof memory.serviceRun === 'object'
+            ? memory.serviceRun
+            : buildReconServicePlan(null, targetRef);
+        return {
+            ...serviceRun,
+            label: serviceRun.label || `Servicepaket ${targetRef?.name || targetRef?.icao || 'Remote Strip'} (42 lbs)`,
+            role: serviceRun.role || 'Servicekontakt am Strip',
+            reason: serviceRun.reason || 'Serviceflug nach Recon-Befund'
+        };
+    }
+
     function buildPipelineContext(req, context = {}) {
         if (!req || typeof req !== 'object') return null;
         const acceptance = acceptanceForRequest(req, context);
+        if (!acceptance) return null;
         const start = context.start || airportFromRef(acceptance?.startRef || req.route?.homeRef);
         const returnHome = airportFromRef(acceptance?.returnHomeRef || req.route?.homeRef);
         const pickupTarget = airportFromRef(acceptance?.targetRef || req.route?.targetRef);
@@ -986,6 +1140,82 @@
                 }
             };
         }
+        if (followUpKind === 'bush_supply_strip') {
+            const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, acceptance?.targetRef || req.route?.targetRef);
+            const serviceCargo = displayText(serviceRun.label || `Servicepaket ${targetName}`);
+            const observedIssue = displayText(serviceRun.observedIssue || memory.serviceTask || `Der Recon über ${targetName} hat einen klar begrenzten Servicebedarf ergeben.`);
+            const serviceTask = displayText(serviceRun.serviceTask || memory.serviceTask || 'Der Platzkontakt soll den Befund am Boden prüfen, markieren und der Basis eine kurze Rückmeldung geben.');
+            const serviceHandoff = displayText(serviceRun.handoff || memory.serviceHandoff || `Nach der Landung übernimmt der lokale Kontakt das Servicepaket am Striprand von ${targetName}.`);
+            const stay = displayText(memory.stayOrWorkSummary || `Die Basis hat den Recon ausgewertet: ${observedIssue}`);
+            const whyNow = displayText(memory.whyNowReturn || `Aus dem Rückbericht ist ein gezielter kleiner Service Run entstanden. ${serviceRun.reason || 'Der Befund soll am Boden abgeglichen werden, bevor weitere Flüge folgen.'}`);
+            const departureNote = acceptanceMode === 'pickup_from_third_place'
+                ? `Start ist ${departureName}; das Servicepaket ist dort für den Weiterflug zum Zielstrip bereit.`
+                : `Start ist ${departureName}; das Servicepaket wird dort geladen.`;
+            return {
+                schema: 'ga.followup.pipelineContext.v1',
+                requestId: req.id || null,
+                sourceKind: req.sourceKind || null,
+                followUpKind,
+                effectiveProfileId,
+                acceptanceMode,
+                sourceLabel: req.sourceLabel || '',
+                followUpLabel: req.followUpLabel || '',
+                pilotStartPolicy: acceptanceMode,
+                route: {
+                    departureName,
+                    homeName,
+                    targetName,
+                    startRef: acceptance?.startRef || null,
+                    returnHomeRef: acceptance?.returnHomeRef || null,
+                    targetRef: acceptance?.targetRef || null
+                },
+                sourceMission: {
+                    title: displayText(req.source?.title || ''),
+                    story: sourceStory
+                },
+                temporalContext,
+                serviceRun,
+                storyFrame: {
+                    trigger: `Beim letzten Bush Recon über ${targetName} wurde ein begrenzter Servicebedarf gemeldet; jetzt geht ${serviceCargo} raus.`,
+                    focusSubject: `${serviceCargo} für den Service am ${targetName}`,
+                    keyQuestion: `Welcher Recon-Befund am ${targetName} jetzt am Boden geprüft, markiert oder abgesichert werden muss.`,
+                    stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen Bush Recon an.`,
+                    completionSignal: `Nach der Landung am ${targetName} wird das Servicepaket am Stripkontakt übergeben und der Recon-Befund abgeglichen.`,
+                    subjectDetail: `${observedIssue} ${serviceTask}`,
+                    incidentContext: stay,
+                    temporalHint,
+                    whyNow,
+                    soughtOutcome: `${departureNote} Danach nach ${targetName} fliegen, ${serviceCargo} abladen und den Service-Handoff sauber abschließen.`
+                },
+                missionVarietyBrief: {
+                    purpose: 'Fortsetzung eines Bush-Recon-Flugs. Der erste Auftrag war ein Luft-Recon ohne geplante Landung; der Follow-up ist ein normaler Bush Supply-/Service Run mit Landung und Abladen am Zielstrip.',
+                    recipe: `${departureNote} Flug nach ${targetName}, landen, ${serviceCargo} ausladen, der Kontakt übernimmt Material und Befundabgleich.`,
+                    coreQuestions: [
+                        `Welcher konkrete Befund aus dem Recon über ${targetName} löst den Service Run aus?`,
+                        `Welche Teile aus ${serviceCargo} werden am Boden gebraucht?`,
+                        `Wer übernimmt den Handoff am Strip und was prüft diese Person danach?`,
+                        'Wie bleibt der Auftrag ein normaler Supply-/Service Run ohne Pickup- oder Rückholfracht-Logik?'
+                    ],
+                    candidateShortlist: [{
+                        id: 'followup_recon_service_run',
+                        roleIdeas: [serviceRun.role || 'Servicekontakt am Strip'],
+                        taskIdeas: [observedIssue, serviceTask],
+                        objectIdeas: [serviceCargo, serviceRun.kitItems || 'kleines Servicekit'],
+                        returnDrivers: [serviceRun.reason || whyNow],
+                        accessReasons: [`${targetName} ist der Strip, der im Recon geprüft wurde.`]
+                    }],
+                    writerExpectations: [
+                        'Nutze den Recon-Befund als Ursache, nicht eine neue Zufallsversorgung.',
+                        'Es ist ein normaler Supply-/Service-Run mit Landung, Abladen und Handoff am Zielstrip.',
+                        'Keine Pickup-, Rückholfracht- oder Rückflug-zur-Basis-Logik beschreiben.',
+                        'Der Recon war der vorherige Flug ohne geplante Landung; jetzt folgt Bodenservice.',
+                        temporalHint ? 'Nutze die Auswertungszeit als natürliche Vorbereitung, nicht als Systemangabe.' : '',
+                        `Der Handoff am Ziel: ${serviceHandoff}`,
+                        'Normale deutsche Umlaute verwenden.'
+                    ].filter(Boolean)
+                }
+            };
+        }
         if (followUpKind === 'bush_pickup_cargo') {
             const cargo = req.cargoReturn?.label || `Rückholfracht ${targetName}`;
             const stay = displayText(memory.stayOrWorkSummary || 'Die Crew vor Ort hat die Lieferung geprüft und Rückfracht am Strip bereitgelegt.');
@@ -1161,6 +1391,9 @@
             ? Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt)
             : nextLocalMorningAt(8);
         const memory = buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
+        const serviceRun = cfg.followUpKind === 'bush_supply_strip' && sourceKind === 'bush_recon_return'
+            ? buildServiceRunCargo(memory, targetRef)
+            : null;
         const req = {
             schema: SCHEMA,
             id,
@@ -1194,8 +1427,10 @@
             },
             passenger,
             cargoReturn: cfg.followUpKind === 'bush_pickup_cargo' ? buildCargoReturn(memory, targetRef) : null,
+            serviceRun,
             narrativeMemory: {
                 ...memory,
+                serviceRun: serviceRun || memory.serviceRun || null,
                 temporalContext,
                 stayDays: temporalContext?.stayDays || memory.stayDays || null,
                 stayText: temporalContext?.stayText || memory.stayText || '',
@@ -1206,7 +1441,9 @@
                 subtitle: `Fortsetzung von ${cfg.sourceLabel}`,
                 previewText: cfg.followUpKind === 'bush_pickup_strip'
                     ? `${passenger?.name || 'Der Gast'} meldet sich vom Strip zur Rückholung.`
-                    : `Am Strip wartet Rückfracht aus dem Supply Run.`
+                    : (cfg.followUpKind === 'bush_supply_strip'
+                        ? `${serviceRun?.observedIssue || 'Die Basis plant aus dem Recon-Befund einen Service Run.'}`
+                        : `Am Strip wartet Rückfracht aus dem Supply Run.`)
             }
         };
         writeRequests([...getRequests(), req], { cloud: true });
@@ -1479,6 +1716,20 @@
         ].filter(Boolean).map(displayText).join(' ');
     }
 
+    function buildServiceStory(req, targetName, homeName, options = {}) {
+        const memory = req.narrativeMemory || {};
+        const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, req.route?.targetRef);
+        const cargo = serviceRun.label || `Servicepaket ${targetName}`;
+        const departureName = displayText(options.departureName || homeName);
+        return [
+            `Folgeauftrag zum letzten Bush Recon: Beim Überflug von ${targetName} wurde ein Servicebedarf notiert, der jetzt am Boden abgeglichen werden soll.`,
+            `${memory.stayOrWorkSummary || serviceRun.observedIssue || 'Die Basis hat den Rückbericht ausgewertet und daraus einen gezielten kleinen Serviceflug gemacht.'}`,
+            `${memory.whyNowReturn || serviceRun.reason || 'Der Zielstrip soll vor weiteren Flügen markiert, geprüft oder sauber freigegeben werden.'}`,
+            `Du startest in ${departureName}, lädst ${cargo}, fliegst zum bekannten Strip und übergibst das Paket dort an den Servicekontakt.`,
+            `${memory.serviceHandoff || serviceRun.handoff || 'Nach der Landung werden Paket und Recon-Befund am Striprand abgeglichen; damit ist der Service Run am Ziel abgeschlossen.'}`
+        ].filter(Boolean).map(displayText).join(' ');
+    }
+
     function buildOnsitePassengerStory(req, targetName, homeName) {
         const p = req.passenger || {};
         const memory = req.narrativeMemory || {};
@@ -1526,6 +1777,7 @@
     function buildDispatchMission(req, context = {}) {
         if (!req || typeof req !== 'object') return null;
         const acceptance = acceptanceForRequest(req, context);
+        if (!acceptance) return null;
         const start = context.start || airportFromRef(acceptance?.startRef || req.route?.homeRef);
         const dest = context.dest || airportFromRef(acceptanceDestRef(acceptance) || req.route?.targetRef);
         const pickupTarget = airportFromRef(acceptance?.targetRef || req.route?.targetRef);
@@ -1607,6 +1859,15 @@
                 title = `Bush Cargo Pickup: ${pickupTargetName}`;
                 paxText = '0 PAX';
             }
+        } else if (followUpKind === 'bush_supply_strip') {
+            const serviceRun = buildServiceRunCargo({ serviceRun: req.serviceRun || memory.serviceRun }, acceptance?.targetRef || req.route?.targetRef);
+            bushSpec = typeof window.buildBushMissionSpec === 'function'
+                ? window.buildBushMissionSpec({ profileId: 'bush_supply_strip', startAirport: start, destAirport: dest, distNm, storyHint: memory.outboundPurpose || serviceRun.observedIssue || '' })
+                : null;
+            story = buildServiceStory(req, targetName, homeName, { departureName });
+            title = `Bush Service Run: ${targetName}`;
+            paxText = '0 PAX';
+            cargoText = serviceRun.label || `Servicepaket ${targetName}`;
         }
         if (!bushSpec) return null;
         const mission = {
@@ -1711,7 +1972,7 @@
                 ? (etaMs <= 0 ? 'jetzt' : `${Math.ceil(etaMs / 3600000)}h`)
                 : '-';
             const stay = req.temporalContext?.stayText || req.stayText || req.narrativeMemory?.stayText || '-';
-            lines.push(`- ${req.id} | ${status} | ${req.sourceKind || '-'} -> ${req.followUpKind || '-'} | Aufenthalt ${stay} | ab ${formatLocal(req.eligibleAt)} | bis ${formatLocal(req.expiresAt)} | ETA ${eta}`);
+            lines.push(`- ${req.id} | ${status} | ${req.sourceKind || '-'} -> ${req.followUpKind || '-'} | Zeitraum ${stay} | ab ${formatLocal(req.eligibleAt)} | bis ${formatLocal(req.expiresAt)} | ETA ${eta}`);
         });
         return lines.join('\n');
     }

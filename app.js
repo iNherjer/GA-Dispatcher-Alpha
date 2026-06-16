@@ -13360,6 +13360,8 @@ function buildMissionPlannerV2Draft({
             requestId: followUpContext.requestId || null,
             sourceKind: followUpContext.sourceKind || null,
             followUpKind: followUpContext.followUpKind || null,
+            effectiveProfileId: followUpContext.effectiveProfileId || null,
+            acceptanceMode: followUpContext.acceptanceMode || null,
             sourceLabel: followUpContext.sourceLabel || '',
             followUpLabel: followUpContext.followUpLabel || '',
             pilotStartPolicy: followUpContext.pilotStartPolicy || 'original_home',
@@ -13368,7 +13370,9 @@ function buildMissionPlannerV2Draft({
             temporalContext: followUpContext.temporalContext || null,
             lockedPassenger: followUpContext.lockedPassenger || null,
             storyFrame: followUpContext.storyFrame || null,
-            pickupStory: followUpContext.pickupStory || null
+            pickupStory: followUpContext.pickupStory || null,
+            serviceRun: followUpContext.serviceRun || null,
+            missionVarietyBrief: followUpContext.missionVarietyBrief || null
         } : null,
         bush: bushSpec ? {
             profileId: bushSpec.profileId,
@@ -16271,15 +16275,22 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         realismTargets.unshift('Bei Feldarbeit, Forschung, Technik, Rangerarbeit oder Backcountry-Logistik konkrete Story-Anker liefern: Tätigkeiten, Material, Rückkehrgrund und nächster Handoff statt nur Rollenlabel.');
     }
     if (followUpContext) {
-        routeRules.push('Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
-        realismTargets.unshift('Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
+        const followKind = String(followUpContext.followUpKind || '').toLowerCase();
+        routeRules.push(followKind === 'bush_supply_strip'
+            ? 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Recon-Mission. Der neue Auftrag muss inhaltlich auf sourceMission, storyFrame, serviceRun und missionVarietyBrief aufbauen.'
+            : 'Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
+        realismTargets.unshift(followKind === 'bush_supply_strip'
+            ? 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Recon-Fortsetzung mit demselben Zielstrip, konkretem Servicepaket und glaubwürdigem Handoff.'
+            : 'Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
         if (followUpContext.temporalContext?.stayText) {
             routeRules.push(`Follow-up-Zeitkontext: Zwischen Ursprungsflug und Anfrage liegen ${followUpContext.temporalContext.stayText}; nutze das als natürlichen Aufenthalts- oder Wartezeitraum, nicht als Systemfeld.`);
             realismTargets.unshift('Die Zeit zwischen den Flügen soll als glaubwürdige Tätigkeit, Aufenthalt oder Rückfracht-Vorbereitung spürbar werden.');
         }
         if (String(followUpContext.acceptanceMode || followUpContext.pilotStartPolicy || '').toLowerCase() === 'pickup_from_third_place') {
             const followRoute = followUpContext.route && typeof followUpContext.route === 'object' ? followUpContext.route : {};
-            routeRules.push(`Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`);
+            routeRules.push(followKind === 'bush_supply_strip'
+                ? `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Serviceziel ist ${followRoute.targetName || 'der Zielstrip'}; der Auftrag endet nach Landung, Abladen und Handoff am Zielstrip, nicht an der ursprünglichen Basis.`
+                : `Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`);
         }
     }
     if (profileId === 'bush_supply_strip') {
@@ -20416,6 +20427,21 @@ async function generateMission(options = {}) {
                 m.paxText = '0 PAX';
                 m.cargo = returnCargoText;
                 m.cargoText = returnCargoText;
+            }
+            if (followupSeed && String(followupSeed.followUpKind || '').toLowerCase() === 'bush_supply_strip' && m && typeof m === 'object') {
+                const serviceCargoText = followupSeed.serviceRun?.label
+                    || followupSeed.narrativeMemory?.serviceRun?.label
+                    || m.cargo
+                    || m.cargoText
+                    || 'Servicepaket';
+                paxText = '0 PAX';
+                cargoText = serviceCargoText;
+                m.passenger = null;
+                m.pax = '0 PAX';
+                m.paxText = '0 PAX';
+                m.cargo = serviceCargoText;
+                m.cargoText = serviceCargoText;
+                if (!m.cat || m.cat === 'generic') m.cat = 'bush_supply';
             }
             const bushProfileId = String(dispatchProfileId || m?._appliedProfile || '').toLowerCase();
             const pickupKindBeforeHydrate = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
