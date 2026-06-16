@@ -21633,7 +21633,7 @@ async function generateMission(options = {}) {
         try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
     }
     try {
-        const plannedPickupPassenger = isDeferredBushPickupPassenger && m?.passenger && typeof m.passenger === 'object'
+        const plannedPickupPassenger = isDeferredPickupPassenger && m?.passenger && typeof m.passenger === 'object'
             ? m.passenger
             : null;
         const p = window.activePassenger || plannedPickupPassenger || {};
@@ -21718,7 +21718,7 @@ async function generateMission(options = {}) {
     } catch (_) {}
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
-    const plannedBriefingPassenger = isDeferredBushPickupPassenger && m?.passenger && typeof m.passenger === 'object'
+    const plannedBriefingPassenger = isDeferredPickupPassenger && m?.passenger && typeof m.passenger === 'object'
         ? m.passenger
         : null;
     const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger || plannedBriefingPassenger);
