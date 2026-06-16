@@ -1,8 +1,9 @@
-// Mission scene asset catalog built from the first MSFS 2024 visual validation pass.
-// VFX entries are kept as known/ACK-tested assets because particles need separate review.
+// Mission scene asset catalog built from MSFS 2024 visual validation plus
+// the SimObjects_Visuals.pdf visual pass. VFX entries are kept as known/ACK-tested assets
+// because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-05-22-scene-arranged-objects',
-    source: 'msfs2024-spawn-validation manual pass plus known VFX',
+    version: '2026-06-16-msfs-visual-pdf-tags',
+    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, plus known VFX',
     targetSceneKinds: {
         none: {
             label: 'Keine Zielszene',
@@ -22,12 +23,12 @@ window.MISSION_SCENE_ASSETS = {
         },
         sar_water: {
             label: 'SAR Wasser / Rettungsinsel',
-            roles: ['sar.liferaft', 'watercraft.small_boat'],
+            roles: ['sar.liferaft', 'watercraft.tiny_boat', 'watercraft.small_boat'],
             useFor: ['search_and_rescue']
         },
         sar_land: {
             label: 'SAR Land / Suchgebiet',
-            roles: ['person.ground_crew', 'vfx.smoke', 'vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'],
+            roles: ['sar.person_target', 'person.ground_crew', 'vfx.smoke', 'vehicle.emergency.medical', 'vehicle.quad', 'cargo.small_box'],
             useFor: ['search_and_rescue']
         },
         medical_pickup: {
@@ -42,7 +43,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         construction_site: {
             label: 'Baustelle / Erdarbeiten',
-            roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck', 'cargo.container', 'cargo.pallet_medium', 'cargo.pallet_small', 'marker.cone'],
+            roles: ['construction.crane', 'construction.earthmoving', 'construction.vehicle', 'construction.material', 'vehicle.truck', 'utility.generator', 'marker.cone'],
             useFor: ['mapping_survey', 'science_geo', 'news_coverage']
         },
         powerline_inspection: {
@@ -72,7 +73,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         infra_dam: {
             label: 'Staudamm / Wasserbauwerk',
-            roles: ['marker.cone', 'utility.generator', 'vehicle.truck', 'watercraft.small_boat'],
+            roles: ['marker.cone', 'utility.generator', 'vehicle.truck', 'watercraft.tiny_boat', 'watercraft.small_boat'],
             useFor: ['inspection_infra', 'science_geo', 'mapping_survey']
         },
         industry_site: {
@@ -82,12 +83,12 @@ window.MISSION_SCENE_ASSETS = {
         },
         water_pollution: {
             label: 'Gewässerbeobachtung / Verschmutzung',
-            roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl', 'marker.cone'],
+            roles: ['watercraft.tiny_boat', 'watercraft.small_boat', 'nature.log', 'animal.waterfowl', 'marker.cone'],
             useFor: ['science_bio', 'science_general', 'news_coverage']
         },
         water_context: {
             label: 'Wasser-/Uferkontext ohne Einsatzlage',
-            roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'],
+            roles: ['watercraft.tiny_boat', 'watercraft.small_boat', 'nature.log', 'animal.waterfowl'],
             useFor: ['poi_learning_guide', 'sightseeing_tour', 'science_bio', 'science_general']
         },
         wildlife_site: {
@@ -178,11 +179,15 @@ window.MISSION_SCENE_ASSETS = {
         },
         construction_truck: {
             label: 'Baustellen-LKW',
-            roles: ['vehicle.truck']
+            roles: ['construction.vehicle', 'vehicle.truck']
+        },
+        construction_material: {
+            label: 'Baustellenmaterial / technische Aggregate',
+            roles: ['construction.material', 'utility.generator', 'cargo.pallet_medium', 'cargo.pallet_small']
         },
         cargo_material: {
-            label: 'Container, Paletten, kleine Fracht',
-            roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box']
+            label: 'Container, Paletten, kleine Fracht oder Materiallager',
+            roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box', 'construction.material']
         },
         pallet_stack: {
             label: 'Palettenstapel / gebuendeltes Materiallager',
@@ -210,7 +215,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         emergency_response: {
             label: 'Einsatzfahrzeug/Bodencrew',
-            roles: ['vehicle.emergency.medical', 'person.ground_crew', 'marker.cone']
+            roles: ['vehicle.emergency.medical', 'vehicle.emergency.fire', 'person.ground_crew', 'marker.cone']
         },
         people: {
             label: 'Personen am Boden',
@@ -218,7 +223,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         missing_person: {
             label: 'vermisste / winkende Person als Suchziel',
-            roles: ['person.ground_crew']
+            roles: ['sar.person_target', 'person.ground_crew']
         },
         cones: {
             label: 'Absperrkegel/Marker',
@@ -241,12 +246,12 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['sar.liferaft']
         },
         watercraft: {
-            label: 'kleine zivile Boote / Wasseraktivitaet',
-            roles: ['watercraft.small_boat']
+            label: 'kleine zivile Boote / See- und Uferaktivitaet',
+            roles: ['watercraft.tiny_boat', 'watercraft.small_boat']
         },
         service_ship: {
-            label: 'grosses Arbeits-/Service-Schiff',
-            roles: ['watercraft.service_ship', 'watercraft.ship']
+            label: 'grosses Arbeits-/Service-Schiff nur fuer Kueste, Hafen oder grosses Gewaesser',
+            roles: ['watercraft.service_ship', 'watercraft.large_ship']
         },
         waterfowl: {
             label: 'heimische Wasservoegel am See',
@@ -323,7 +328,12 @@ window.MISSION_SCENE_ASSETS = {
             'VO_Fire_R1_150'
         ],
         'vehicle.emergency.fire': [
-            'Car Bush Firefighting'
+            'Car Bush Firefighting',
+            'ASO_Firetruck02',
+            'Truck Fire Airport Medium',
+            'Truck Fire Short',
+            'Truck Fire Short 02',
+            'Microsoft_Truck_Fire_Medium_Red'
         ],
         'vehicle.emergency.medical': [
             'Car Bush Medic',
@@ -355,22 +365,63 @@ window.MISSION_SCENE_ASSETS = {
             'Microsoft_Van_EUR_Black',
             'Microsoft_Van_EUR_Blue',
             'Microsoft_Van_EUR_Red',
-            'Microsoft_Van_NA_Lavatory',
-            'Microsoft_Van_NA_Lavatory_Blue',
             'Microsoft_Van_NA_Modern',
             'Microsoft_Van_NA_Modern_Green',
-            'Winch Busio Van Gelder 4D'
+            'Van Europe',
+            'Van NorthAm'
         ],
         'vehicle.truck': [
-            'Fuel Truck Long 01',
-            'Fuel Truck Long 02',
-            'Truck Fire Short',
-            'Truck Military Cover',
-            'Truck Military No Cover',
             'Truck Utility Europe Flush',
             'Truck Utility NorthAm',
+            'Truck Europe',
+            'Truck Europe Vintage',
+            'Truck Large Europe',
+            'Truck NorthAm',
+            'Truck Large NorthAm Vintage 01',
             'ASO_Operation_Truck_White',
-            'ASO_Operation_Truck_Yellow'
+            'ASO_Operation_Truck_Yellow',
+            'ASO_TruckUtility01',
+            'Pickup 01'
+        ],
+        'vehicle.airport_service': [
+            'Fuel Truck Long 01',
+            'Fuel Truck Long 02',
+            'microsoft_truck_na_fuel_short_orange',
+            'microsoft_truck_eur_fuel_short_green',
+            'truck fuel long 02',
+            'Truck Boarding NorthAm',
+            'Microsoft_truck_eur_boarding_purple',
+            'Microsoft_Aerial_Tank',
+            'Truck Deicing Large',
+            'Microsoft_Truck_NA_DeIce_Small_Blue',
+            'microsoft_truck_eur_deice_small_yellow',
+            'Van Lavatory NorthAm',
+            'Microsoft_Van_NA_Lavatory',
+            'Microsoft_Van_NA_Lavatory_Blue'
+        ],
+        'vehicle.military': [
+            'MATV Vehicle',
+            'Humvee',
+            'Police Armoured Vehicle',
+            'UN Armoured Vehicle',
+            'Military Fuel Truck',
+            'Truck Military Cover',
+            'Truck Military No Cover',
+            'microsoft_truck_military_01_tan',
+            'microsoft_truck_military_01',
+            'microsoft_truck_military_01_green',
+            'car_military',
+            'microsoft_car_military_tan'
+        ],
+        'construction.vehicle': [
+            'Truck Crane Small',
+            'Forklift Large',
+            'Forklift Medium',
+            'Truck Water 02',
+            'Truck Water 03',
+            'microsoft_truck_eur_utility_vintage_blue',
+            'Harvester',
+            'Tractor'
         ],
         'vehicle.bus': [
             'Bus',
@@ -414,15 +465,43 @@ window.MISSION_SCENE_ASSETS = {
             'Car Ground Power Unit',
             'ASOBO_Car_Ground_Power_Unit'
         ],
+        'construction.material': [
+            'RooftopUnits03',
+            'BuildingMaterial01',
+            'GeneracPowerSystems01',
+            'Double Pallet',
+            'Single pallet'
+        ],
         'watercraft.boat': [
+            'boat01',
+            'boat02',
+            'Yacht01',
+            'Yacht02',
+            'Yacht03',
             'Fishing Boat Red Modular',
             'Fishing Boat White Modular'
+        ],
+        'watercraft.tiny_boat': [
+            'boat01',
+            'boat02'
         ],
         'watercraft.small_boat': [
+            'boat01',
+            'boat02',
+            'Yacht01',
+            'Yacht02',
+            'Yacht03',
             'Fishing Boat Red Modular',
             'Fishing Boat White Modular'
         ],
+        'watercraft.fishing_ship': [
+            'FishingShip02',
+            'FishingShip03',
+            'fishingship02',
+            'fishingship03'
+        ],
         'watercraft.service_ship': [
+            'PlatformSupply',
             'Microsoft_Ships_AbeilleBourbon_1.0',
             'Microsoft_Ships_AbeilleBourbon_10.0',
             'Microsoft_Ships_AbeilleBourbon_11.0',
@@ -433,6 +512,18 @@ window.MISSION_SCENE_ASSETS = {
             'Microsoft_Ships_AbeilleBourbon_5.0',
             'Microsoft_Ships_AbeilleBourbon_6.0',
             'Microsoft_Ships_AbeilleBourbon_7.0'
+        ],
+        'watercraft.large_ship': [
+            'CargoShip01',
+            'CruiseShip01',
+            'CruiseShip02',
+            'Cargoship01',
+            'CargoGas01',
+            'CargoOil01',
+            'Miltech Tankership',
+            'USCG Cutter',
+            'Hospital Ship',
+            'Cruise Ship'
         ],
         'watercraft.ship': [
             'CargoShip01',
@@ -499,7 +590,15 @@ window.MISSION_SCENE_ASSETS = {
             'MICROSOFT_ASSET_GlidersTrailerType3_Big_Green'
         ],
         'sar.liferaft': [
-            'LifeRaft'
+            'LifeRaft',
+            'Liferaft',
+            'LifeRaft_Characters',
+            'Liferaft_Characters'
+        ],
+        'sar.person_target': [
+            'mmh_HikerRescue',
+            'mmh_SkierRescue',
+            'mmh_ArcticRescue'
         ],
         'person.ground_crew': [
             'Tarmac_Female_Summer_Asian',
@@ -514,6 +613,14 @@ window.MISSION_SCENE_ASSETS = {
             'Marshaller_Female_Winter_Asian',
             'Marshaller_Female_Winter_Caucasian',
             'Marshaller_Female_Winter_Hispanic'
+        ],
+        'person.male': [
+            'Tarmac_Male_Summer_Caucasian',
+            'Tarmac_Male_Summer_Asian',
+            'marshaller_male_summer_arab',
+            'marshaller_male_winter_hispanic',
+            'Tarmac_Male_Winter_Caucasian',
+            'Tarmac_Male_Winter_Asian'
         ],
         'cargo.container': [
             'Drop_Container',

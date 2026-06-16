@@ -10788,11 +10788,11 @@ function missionSceneTargetKindCatalog() {
         none: { roles: [] },
         fire_watch: { roles: ['vfx.smoke', 'vfx.fire'] },
         road_incident: { roles: ['vehicle.car', 'vehicle.emergency.medical', 'marker.cone'] },
-        sar_water: { roles: ['sar.liferaft', 'watercraft.small_boat'] },
-        sar_land: { roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'] },
+        sar_water: { roles: ['sar.liferaft', 'watercraft.tiny_boat', 'watercraft.small_boat'] },
+        sar_land: { roles: ['sar.person_target', 'person.ground_crew', 'vehicle.emergency.medical', 'vehicle.quad', 'cargo.small_box'] },
         medical_pickup: { roles: ['vehicle.emergency.medical', 'cargo.medical_kit'] },
         cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium', 'cargo.animal_transport_box'] },
-        construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck', 'cargo.pallet_medium', 'cargo.pallet_small'] },
+        construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'construction.vehicle', 'construction.material', 'vehicle.truck', 'cargo.pallet_medium', 'cargo.pallet_small'] },
         powerline_inspection: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck'] },
         wind_turbine_site: { roles: ['utility.wind_turbine', 'vehicle.truck', 'marker.cone'] },
         erosion_damage: { roles: ['nature.log', 'debris.light'] },
@@ -10800,8 +10800,8 @@ function missionSceneTargetKindCatalog() {
         infra_bridge: { roles: ['vehicle.truck', 'marker.cone'] },
         infra_dam: { roles: ['marker.cone', 'utility.generator', 'watercraft.small_boat'] },
         industry_site: { roles: ['vehicle.truck', 'cargo.container', 'utility.generator'] },
-        water_pollution: { roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
-        water_context: { roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
+        water_pollution: { roles: ['watercraft.tiny_boat', 'watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
+        water_context: { roles: ['watercraft.tiny_boat', 'watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
         wildlife_site: { roles: ['nature.log', 'animal.wildlife', 'animal.grazing', 'animal.waterfowl', 'debris.light'] },
         media_site: { roles: ['vehicle.van', 'cargo.small_box'] },
         event_site: { roles: ['vehicle.bus', 'vehicle.van', 'marker.cone'] },
@@ -10831,24 +10831,25 @@ function missionSceneTargetFeatureCatalog() {
     return {
         construction_crane: { roles: ['construction.crane'] },
         earthmoving: { roles: ['construction.earthmoving'] },
-        construction_truck: { roles: ['vehicle.truck'] },
-        cargo_material: { roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box'] },
+        construction_truck: { roles: ['construction.vehicle', 'vehicle.truck'] },
+        construction_material: { roles: ['construction.material', 'utility.generator', 'cargo.pallet_medium', 'cargo.pallet_small'] },
+        cargo_material: { roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box', 'construction.material'] },
         pallet_stack: { roles: ['cargo.pallet_medium', 'cargo.pallet_small', 'cargo.pallet_large'] },
         powerline: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone'] },
         wind_turbine: { roles: ['utility.wind_turbine'] },
         generator: { roles: ['utility.generator'] },
         utility_truck: { roles: ['vehicle.truck', 'vehicle.van'] },
         road_vehicles: { roles: ['vehicle.car', 'vehicle.van'] },
-        emergency_response: { roles: ['vehicle.emergency.medical', 'person.ground_crew', 'marker.cone'] },
-        missing_person: { roles: ['person.ground_crew'] },
+        emergency_response: { roles: ['vehicle.emergency.medical', 'vehicle.emergency.fire', 'person.ground_crew', 'marker.cone'] },
+        missing_person: { roles: ['sar.person_target', 'person.ground_crew'] },
         people: { roles: ['person.ground_crew'] },
         cones: { roles: ['marker.cone'] },
         debris: { roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small'] },
         aircraft_wreck: { roles: ['aircraft.wreck', 'debris.light'] },
         logs: { roles: ['nature.log', 'material.log'] },
         liferaft: { roles: ['sar.liferaft'] },
-        watercraft: { roles: ['watercraft.small_boat'] },
-        service_ship: { roles: ['watercraft.service_ship', 'watercraft.ship'] },
+        watercraft: { roles: ['watercraft.tiny_boat', 'watercraft.small_boat'] },
+        service_ship: { roles: ['watercraft.service_ship', 'watercraft.large_ship'] },
         waterfowl: { roles: ['animal.waterfowl', 'animal.bird'] },
         wildlife_animals: { roles: ['animal.wildlife', 'animal.deer'] },
         animal_herd: { roles: ['animal.grazing'] },
@@ -10940,6 +10941,17 @@ function normalizeMissionTargetSceneFeature(value) {
         dozer: 'earthmoving',
         bulldozer: 'earthmoving',
         bagger: 'earthmoving',
+        baumaschine: 'earthmoving',
+        baumaschinen: 'earthmoving',
+        building_material: 'construction_material',
+        building_materials: 'construction_material',
+        construction_material: 'construction_material',
+        construction_materials: 'construction_material',
+        baumaterial: 'construction_material',
+        baustellenmaterial: 'construction_material',
+        rooftop_units: 'construction_material',
+        rooftopunits: 'construction_material',
+        rooftopunits03: 'construction_material',
         material: 'cargo_material',
         cargo: 'cargo_material',
         pallets: 'pallet_stack',
@@ -11010,6 +11022,13 @@ function normalizeMissionTargetSceneFeature(value) {
         research_team: 'people',
         bodenpersonal: 'people',
         forschungsgruppe: 'people',
+        hiker_rescue: 'missing_person',
+        skier_rescue: 'missing_person',
+        rescue_target: 'missing_person',
+        rescue_scene: 'missing_person',
+        hiker: 'missing_person',
+        skier: 'missing_person',
+        wanderer: 'missing_person',
         marker: 'cones',
         cone: 'cones',
         cones_marker: 'cones',
@@ -11044,6 +11063,9 @@ function normalizeMissionTargetSceneFeature(value) {
         boats: 'watercraft',
         small_boat: 'watercraft',
         small_watercraft: 'watercraft',
+        rowboat: 'watercraft',
+        lake_boat: 'watercraft',
+        badesee_boot: 'watercraft',
         ship: 'service_ship',
         ships: 'service_ship',
         service_ship: 'service_ship',
@@ -11303,6 +11325,7 @@ function missionSceneRequirementCountLimit(feature, kind = '') {
     const k = String(kind || '').toLowerCase();
     if (f === 'pallet_stack') return k === 'construction_site' ? 8 : 6;
     if (f === 'cargo_material') return k === 'construction_site' ? 8 : 6;
+    if (f === 'construction_material') return k === 'construction_site' ? 8 : 6;
     if (f === 'cones') return 8;
     return 6;
 }
@@ -11311,7 +11334,7 @@ function missionSceneDefaultArrangement(feature, kind = '', layout = '') {
     const f = String(feature || '').toLowerCase();
     const k = String(kind || '').toLowerCase();
     const l = String(layout || '').toLowerCase();
-    if (f === 'pallet_stack' || (f === 'cargo_material' && k === 'construction_site')) return 'cluster';
+    if (f === 'pallet_stack' || ((f === 'cargo_material' || f === 'construction_material') && k === 'construction_site')) return 'cluster';
     if (f === 'cones' && (l === 'perimeter' || k === 'road_incident' || k === 'construction_site')) return 'perimeter';
     if (f === 'logs' && l === 'waterline') return 'waterline';
     if (f === 'waterfowl') return 'cluster';
@@ -11350,7 +11373,7 @@ function buildMissionPlanV2SceneRaw(missionPlanV2 = null) {
         features: directive.objectFamilies,
         requirements: directive.objectFamilies.map(feature => ({
             feature,
-            count: feature === 'pallet_stack' || feature === 'cargo_material'
+            count: feature === 'pallet_stack' || feature === 'cargo_material' || feature === 'construction_material'
                 ? (directive.sceneKind === 'construction_site' ? 6 : 2)
                 : 1,
             arrangement: missionSceneDefaultArrangement(feature, directive.sceneKind, ''),
@@ -11358,7 +11381,7 @@ function buildMissionPlanV2SceneRaw(missionPlanV2 = null) {
             notes: ''
         })),
         density: directive.sceneDensity || 'sparse',
-        layout: /pallet_stack|cargo_material|earthmoving|construction_truck/.test(directive.objectFamilies.join(' '))
+        layout: /pallet_stack|cargo_material|construction_material|earthmoving|construction_truck/.test(directive.objectFamilies.join(' '))
             ? 'cluster'
             : '',
         notes: directive.placementPolicy
@@ -11381,11 +11404,15 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
             'utility.wind_turbine': 'wind_turbine',
             'construction.crane': 'construction_crane',
             'construction.earthmoving': 'earthmoving',
+            'construction.vehicle': 'construction_truck',
+            'construction.material': 'construction_material',
             'vehicle.bus': 'bus',
             'vehicle.car': 'parked_vehicle',
             'vehicle.van': 'parked_vehicle',
             'vehicle.truck': 'utility_truck',
             'vehicle.emergency.medical': 'emergency_response',
+            'vehicle.emergency.fire': 'emergency_response',
+            'sar.person_target': 'missing_person',
             'person.ground_crew': 'people',
             'cargo.medical_kit': 'cargo_material',
             'cargo.container': 'cargo_material',
@@ -11399,8 +11426,10 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
             'debris.light': 'debris',
             'aircraft.wreck': 'aircraft_wreck',
             'sar.liferaft': 'liferaft',
+            'watercraft.tiny_boat': 'watercraft',
             'watercraft.small_boat': 'watercraft',
             'watercraft.service_ship': 'service_ship',
+            'watercraft.large_ship': 'service_ship',
             'watercraft.ship': 'service_ship',
             'animal.waterfowl': 'waterfowl',
             'animal.bird': 'waterfowl',
@@ -11419,7 +11448,7 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
     const has = feature => features.includes(feature);
     if (has('powerline')) return missionSceneTextHasPowerlineContext(text) ? 'powerline_inspection' : 'survey_context';
     if (has('wind_turbine')) return missionSceneAllowsWindTurbine(text, targetGeoContext) ? 'wind_turbine_site' : 'survey_context';
-    if (has('construction_crane') || has('earthmoving') || has('construction_truck')) return 'construction_site';
+    if (has('construction_crane') || has('earthmoving') || has('construction_truck') || has('construction_material')) return 'construction_site';
     if (has('liferaft') || has('service_ship')) return 'sar_water';
     if (has('aircraft_wreck')) return 'debris_field';
     if (has('missing_person')) return 'sar_land';
@@ -11721,7 +11750,7 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
             ? 'sar_water, sar_land, road_incident oder debris_field bei Luftfahrzeuglage'
             : (forced === 'mapping_survey' ? 'construction_site, erosion_damage, infra_bridge, infra_dam, wind_turbine_site bei Windenergie-Kontext, powerline_inspection nur bei Strom-/Energie-Kontext oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, pallet_stack, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte und ihre Anordnung. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. SAR-Luftfahrzeuglage: Wenn die Story ein vermisstes Luftfahrzeug, Ultraleichtflugzeug, Mayday, Funkabriss, Einschlag oder Wrack beschreibt, nutze kind="debris_field" mit aircraft_wreck als Primaerobjekt; debris, smoke_light und small_equipment sind Zusatzhinweise. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/heimische Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site mit Baufahrzeug und gebuendeltem Materiallager, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle => kind="construction_site", layout="cluster", requirements=[{"feature":"earthmoving","count":1},{"feature":"pallet_stack","count":6,"placement":"am Materiallager","arrangement":"cluster"}], Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Luftfahrzeug-SAR => kind="debris_field", requirements=[{"feature":"aircraft_wreck","count":1},{"feature":"debris","count":1},{"feature":"smoke_light","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2,"arrangement":"cluster"},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, pallet_stack, construction_material, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte und ihre Anordnung. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. SAR-Luftfahrzeuglage: Wenn die Story ein vermisstes Luftfahrzeug, Ultraleichtflugzeug, Mayday, Funkabriss, Einschlag oder Wrack beschreibt, nutze kind="debris_field" mit aircraft_wreck als Primaerobjekt; debris, smoke_light und small_equipment sind Zusatzhinweise. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/heimische Wasservoegel. watercraft meint kleine zivile Boote, bei Badesee/Teich/kleinem Binnensee nur kleine Boote, keine fishing ships, Frachtschiffe, Kreuzfahrtschiffe oder Service-Schiffe. service_ship/grosse Schiffe nur bei Hafen, Kueste, Kuestenwache, Offshore, Arbeitsschiff oder eindeutig grossem Gewaesser. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site mit Baufahrzeug und gebuendeltem Materiallager, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle => kind="construction_site", layout="cluster", requirements=[{"feature":"earthmoving","count":1},{"feature":"construction_material","count":4,"placement":"am Materiallager","arrangement":"cluster"}], Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Luftfahrzeug-SAR => kind="debris_field", requirements=[{"feature":"aircraft_wreck","count":1},{"feature":"debris","count":1},{"feature":"smoke_light","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2,"arrangement":"cluster"},{"feature":"watercraft","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
@@ -12803,6 +12832,8 @@ async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, s
             'APT: targetScene bleibt none; aptArrivalPlan beschreibt Abhol-/Uebergabeszenen am sicheren Vorfeld/Parking.',
             'BUSH: Recon-Return bleibt ohne APT-Ankunft. Strip-Missionen duerfen eine kleine Bush-Handoff-Szene am Striprand oder sicherem Parking erhalten.',
             'Fahrzeuge nur road/parking/apron, Wasserobjekte nur water/waterline, Personen/Ausruestung sparsam und missionsbegruendet.',
+            'Badesee/Teich/kleiner Binnensee: nur watercraft/kleine Boote, keine fishing ships oder grossen service_ship/ship-Objekte.',
+            'SAR missing_person kann ein visuelles Rescue-Ziel sein; Suchtrupps/Fahrzeuge bleiben nur Support und duerfen die Person nicht schon gefunden haben.',
             'Keine Deko, keine Objekte, die den Auftrag bereits geloest wirken lassen.'
         ]
     };
@@ -12885,7 +12916,7 @@ Arbeitsweise:
 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.
 4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
-5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.
+5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Bei Badesee/Teich/kleinem Binnensee nur watercraft/kleine Boote; service_ship/grosse Schiffe nur bei Hafen/Kueste/grossem Gewaesser. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
 7. Gib ausschliesslich JSON aus.
 
