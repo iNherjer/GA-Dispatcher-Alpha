@@ -10501,14 +10501,16 @@ function _sanitizeLearningGuideNarrative(missionLike = {}) {
     if (!missionLike || typeof missionLike !== 'object') return missionLike;
     const target = _targetLabelForGuideNarrative(missionLike);
     const paxName = String(missionLike.passenger?.name || 'Der Lern-Guide').trim();
-    const facts = _missionPlanFactsForNarrative(missionLike, 2);
+    const knowledgeFacts = _missionKnowledgeFactsForNarrative(missionLike, 2);
+    const facts = knowledgeFacts.length ? knowledgeFacts : _missionPlanFactsForNarrative(missionLike, 2);
     const factLine = _learningGuideFactLine(paxName, facts, target);
     const currentRaw = String(missionLike.s || missionLike.story || '');
     const current = currentRaw.toLowerCase();
     const guideLearnsHerself = /(guide|tour-guide|lern-guide|mila|jonas).{0,80}(lernt|trainiert|abspeicher|vorbereit|spaeter|später)|angehend(?:er|e|en)?\s+tour-guide|kuenftig(?:er|e|en)?\s+sightseeing|künft/i.test(current);
     const pronounDrift = /\bunseren\s+[A-ZÄÖÜ][a-zäöüß]+\b|damit\s+er\b|damit\s+sie\s+das\s+gelaende/i.test(currentRaw);
     const internalNarrativeLeak = /gesicherte punkte aus dem kontext|es gibt am boden|\s\|\s|pipeline|contract|debug|formularfeld/i.test(currentRaw);
-    if (guideLearnsHerself || pronounDrift || internalNarrativeLeak || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(currentRaw)) {
+    const writerInstructionLeak = /\bachten\s+sie\b|\bziel\s+ist\s+es\b|\bwir\s+f(?:ü|ue)hren\b|\binformationsflug\b|\bfundiertes\s+verst(?:ä|ae)ndnis\b|\bbegleiten\s+sie\b|\bsie\s+einen\b|\bdurch\s+diesen\b|\bdurchf(?:ü|ue)hren/i.test(currentRaw);
+    if (guideLearnsHerself || pronounDrift || internalNarrativeLeak || writerInstructionLeak || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(currentRaw)) {
         missionLike.s = `${paxName} begleitet dich heute als Lern-Guide rund um ${target}. Unterwegs erklaert ${paxName} kurze Fakten, landschaftlichen Kontext und sichtbare Referenzen, damit du die Gegend aus der Luft besser einordnen kannst. ${factLine} Der Flug bleibt ein ruhiger Rundflug: anfliegen, anschauen, einordnen und danach zurueck zum Heimatplatz.`;
     }
     if (!/^Wissensflug:|^Faktenrunde:|^Kontextflug:|^POI-Erkl/i.test(String(missionLike.t || ''))) {
@@ -11029,6 +11031,29 @@ function missionKnowledgeContextFacts(context = null, maxFacts = 3) {
         .slice(0, Math.max(0, Math.min(5, Math.round(Number(maxFacts) || 0))));
 }
 
+function _missionKnowledgeFactsForNarrative(missionLike = {}, maxItems = 2) {
+    const contexts = [
+        missionLike?.knowledgeContext,
+        missionLike?._missionContractV4?.knowledgeContext,
+        missionLike?.missionContract?.knowledgeContext,
+        missionLike?.passenger?.knowledgeContext
+    ];
+    const seen = new Set();
+    const out = [];
+    contexts.forEach(context => {
+        if (!context || typeof context !== 'object' || context.status !== 'accept') return;
+        (Array.isArray(context.facts) ? context.facts : []).forEach(fact => {
+            const text = String(fact?.text || fact || '').replace(/\s+/g, ' ').trim();
+            if (text.length < 32) return;
+            const key = text.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            out.push(text);
+        });
+    });
+    return out.slice(0, Math.max(0, Math.min(4, Math.round(Number(maxItems) || 0))));
+}
+
 function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     const md = missionData && typeof missionData === 'object' ? missionData : null;
     const pax = passenger || md?.passenger || md?.missionContract?.passenger || null;
@@ -11036,15 +11061,14 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     if (taskDomain !== 'poi_learning_guide') return '';
     const context = md?.knowledgeContext || md?.missionContract?.knowledgeContext || pax?.knowledgeContext || null;
     if (!context || context.status !== 'accept') return '';
-    const facts = missionKnowledgeContextFacts(context, 3);
+    const facts = missionKnowledgeContextFacts(context, 2)
+        .map(fact => _cleanLearningGuideNarrativeFact(fact))
+        .filter(Boolean)
+        .map(fact => fact.length > 150 ? `${fact.slice(0, 147)}...` : fact);
     if (!facts.length) return '';
     const target = String(context.title || md?.poiName || md?.targetName || 'Zielgebiet').replace(/\s+/g, ' ').trim();
-    const source = context.sourceUrl ? 'Wikipedia-Basis' : 'gepruefte Wiki-Faktenbasis';
-    return [
-        `Wissens-Hinweis: Der Lern-Guide nutzt fuer ${target} eine akzeptierte ${source} (${context.selectedFacts || facts.length} Fakten).`,
-        'Faktenanker:',
-        ...facts.map(fact => `- ${fact}`)
-    ].join('\n');
+    const paxName = String(pax?.name || 'Der Lern-Guide').replace(/\s+/g, ' ').trim();
+    return `${paxName} hat ein paar Fakten zu ${target} vorbereitet. Als Einstieg reichen im Briefing: ${facts.join('; ')}.`;
 }
 
 function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null } = {}) {
@@ -18123,7 +18147,7 @@ Regeln:
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Keine Landung am POI andeuten.
-19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten.
+19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -19870,7 +19894,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`)
         : '';
     const knowledgeGuideRule = (requiredTaskDomain === 'poi_learning_guide' && knowledgeContext?.status === 'accept')
-        ? `4e. KNOWLEDGE-GUIDE-FAKTEN: Nutze knowledgeContext.facts als gepruefte Wissensbasis. Die Story darf 1-2 konkrete Fakten natuerlich anteasern, aber keine weiteren Ortsdaten, Baujahre, Groessen, Namen oder historischen Details frei erfinden. Der Passagier soll als Guide erkennbar sein, der unterwegs Wissenswertes zum POI erklaert.`
+        ? `4e. KNOWLEDGE-GUIDE-FAKTEN: Nutze knowledgeContext.facts als gepruefte Wissensbasis. Die Story darf 1-2 konkrete Fakten natuerlich anteasern, aber keine weiteren Ortsdaten, Baujahre, Groessen, Namen oder historischen Details frei erfinden. Der Passagier soll als Guide erkennbar sein, der unterwegs Wissenswertes zum POI erklaert. Keine Zielhoehe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchfuehren".`
         : '';
     const localKnowledgeRule = isBushMission
         ? `4. BUSH-LOKALWISSEN: Baue 1-2 echte geographische oder topographische Hinweise zu "${promptDestName}" ein. Fokus auf Wildnis, Tal-/Gelandecharakter, abgelegenen Strip und glaubwuerdigen Bush-Betrieb.`
@@ -22832,13 +22856,11 @@ async function generateMission(options = {}) {
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();
-    if ((isPOI || missionUsesPoiTaskRecipe(currentMissionData)) && Number(window.activePassenger?.targetAltFt || 0) > 0) {
+    const suppressPublicPoiAltitudeHint = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(briefingTaskDomain);
+    if (!suppressPublicPoiAltitudeHint && (isPOI || missionUsesPoiTaskRecipe(currentMissionData)) && Number(window.activePassenger?.targetAltFt || 0) > 0) {
         const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
         if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
-            const altitudeLabel = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(briefingTaskDomain)
-                ? 'Ziel-Hinweis'
-                : 'Arbeits-Hinweis';
-            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${altitudeLabel}: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
         }
     }
     if (String(window.activePassenger?.taskDomain || '').toLowerCase() === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level))) {

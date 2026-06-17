@@ -1606,11 +1606,16 @@ function _trackerAckTypeForCommand(type = '') {
     return '';
 }
 
-function _trackerRetryConfigForCommand(type = '') {
+function _trackerRetryConfigForCommand(type = '', command = {}) {
     const t = String(type || '').toLowerCase();
     if (t === 'mission_scene_spawn') {
         // Spawn is not idempotent on all tracker builds; retries can duplicate scene objects.
         return { maxAttempts: 1, timeoutMs: 60000 };
+    }
+    if (t === 'mission_scene_clear') {
+        // Clear is idempotent and often used for broad reset/preview cleanup. Missing ACKs should not
+        // create retry storms or warning floods while the user is interacting with the app.
+        return { maxAttempts: 1, timeoutMs: 5000, warnOnExhausted: false };
     }
     if (t === 'mission_scene_boarding') {
         // Boarding is non-idempotent; a retry can run a second boarding in parallel.
@@ -1619,7 +1624,7 @@ function _trackerRetryConfigForCommand(type = '') {
     if (t === 'mission_scene_deboarding') {
         return { maxAttempts: 1, timeoutMs: 52000 };
     }
-    return { maxAttempts: 3, timeoutMs: 12000 };
+    return { maxAttempts: 3, timeoutMs: 12000, warnOnExhausted: true };
 }
 
 function _trackerIsWsOpen() {
@@ -1649,7 +1654,7 @@ function _trackerPendingArmTimeout(commandId) {
             return;
         }
         if (current.attempts >= current.maxAttempts) {
-            console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts}`);
+            if (current.warnOnExhausted !== false) console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts}`);
             _trackerPendingClear(id);
             return;
         }
@@ -1663,7 +1668,7 @@ function _trackerPendingMarkSent(command = {}, commandId, options = {}) {
     const id = String(commandId || '').trim();
     if (!id) return;
     const isRetry = options.isRetryAttempt === true;
-    const cfg = _trackerRetryConfigForCommand(type);
+    const cfg = _trackerRetryConfigForCommand(type, command);
     const prev = trackerPendingMissionCommands.get(id);
     const entry = prev || {
         commandId: id,
@@ -1673,6 +1678,7 @@ function _trackerPendingMarkSent(command = {}, commandId, options = {}) {
         attempts: 0,
         maxAttempts: Number(cfg.maxAttempts) || 3,
         timeoutMs: Number(cfg.timeoutMs) || 12000,
+        warnOnExhausted: cfg.warnOnExhausted !== false,
         firstSentAt: 0,
         lastSentAt: 0,
         timeoutHandle: null,
@@ -1687,6 +1693,7 @@ function _trackerPendingMarkSent(command = {}, commandId, options = {}) {
     entry.command = { ...command, commandId: id };
     entry.maxAttempts = Number(cfg.maxAttempts) || entry.maxAttempts || 3;
     entry.timeoutMs = Number(cfg.timeoutMs) || entry.timeoutMs || 12000;
+    entry.warnOnExhausted = cfg.warnOnExhausted !== false;
     entry.attempts = isRetry ? Math.max(2, Number(entry.attempts || 0) + 1) : 1;
     entry.lastSentAt = Date.now();
     if (!entry.firstSentAt) entry.firstSentAt = entry.lastSentAt;
@@ -1704,7 +1711,7 @@ function _trackerPendingRetryNow(commandId, reason = 'retry') {
     if (!entry || !entry.command) return false;
     if (!_trackerIsWsOpen()) return false;
     if (entry.attempts >= entry.maxAttempts) {
-        console.warn(`[TrackerCmd] Retry blocked ${entry.type} id=${id} attempts=${entry.attempts}/${entry.maxAttempts}`);
+        if (entry.warnOnExhausted !== false) console.warn(`[TrackerCmd] Retry blocked ${entry.type} id=${id} attempts=${entry.attempts}/${entry.maxAttempts}`);
         _trackerPendingClear(id);
         return false;
     }
@@ -1722,7 +1729,7 @@ function _trackerPendingScheduleRetry(commandId, reason = 'ack-failed', delayMs 
         if (!current) return;
         if (!_trackerIsWsOpen()) return;
         if (current.attempts >= current.maxAttempts) {
-            console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts} after ${reason}`);
+            if (current.warnOnExhausted !== false) console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts} after ${reason}`);
             _trackerPendingClear(id);
             return;
         }
