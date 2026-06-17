@@ -805,10 +805,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
-      writeOpenPosition: true,
+      writeOpenPosition: !openDoor,
       writeLatch: true,
       handleOpenValue: 1,
-      handleCloseValue: 0
+      handleCloseValue: 0,
+      latchUnlockValue: 0,
+      latchLockValue: 1
     });
     if (!openDoor) {
       await sleep(120);
