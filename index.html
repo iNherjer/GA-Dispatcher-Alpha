@@ -1271,6 +1271,7 @@
                         <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
                         <button id="mapToolMeasureClear" class="map-draw-tool-btn" type="button" title="Zirkel löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('measureClear', event)">🗑️</button>
+                        <button id="mapToolManualSim" class="map-draw-tool-btn map-tool-manual-sim" type="button" title="Manueller Sim" onclick="window.toggleManualSimMode && toggleManualSimMode(event)">MAN</button>
                     </div>
                 </div>
                 <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
@@ -1283,6 +1284,39 @@
                     </div>
                     <div class="map-draw-menu-row">
                         <input id="mapDrawWeightInput" type="range" min="2" max="18" value="5" step="1" oninput="window.setMapDrawWeight && setMapDrawWeight(this.value)">
+                    </div>
+                </div>
+                <div id="manualSimPanel" class="manual-sim-panel" aria-hidden="true" style="display:none;">
+                    <div id="manualSimPanelHeader" class="manual-sim-header">
+                        <div>
+                            <div class="manual-sim-title">MAN SIM</div>
+                            <div class="manual-sim-subtitle">synthetic live telemetry</div>
+                        </div>
+                        <button class="manual-sim-close" type="button" title="Schließen" onclick="window.stopManualSimMode && stopManualSimMode()">x</button>
+                    </div>
+                    <div class="manual-sim-status">
+                        <div><span>HDG</span><strong id="manualSimHdgValue">000 deg</strong></div>
+                        <div><span>GS</span><strong id="manualSimGsValue">0 kt</strong></div>
+                        <div><span>MSL</span><strong id="manualSimAltValue">0 ft</strong></div>
+                        <div><span>AGL</span><strong id="manualSimAglValue">0 ft AGL</strong></div>
+                        <div><span>MODE</span><strong id="manualSimModeValue">AIR</strong></div>
+                        <div><span>HOLD</span><strong id="manualSimHoldValue">frei</strong></div>
+                    </div>
+                    <div class="manual-sim-controls" aria-label="Manuelle Sim-Steuerung">
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('hdg', -10)">HDG -10</button>
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('hdg', 10)">HDG +10</button>
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('gs', -10)">SPD -10</button>
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('gs', 10)">SPD +10</button>
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('alt', -100)">ALT -100</button>
+                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('alt', 100)">ALT +100</button>
+                        <button type="button" onclick="window.manualSimSetGround && manualSimSetGround()">GND</button>
+                        <button type="button" onclick="window.manualSimSetAirborne && manualSimSetAirborne()">AIR</button>
+                    </div>
+                    <div class="manual-sim-triggers" aria-label="Manuelle Missions-Trigger">
+                        <button type="button" onclick="window.manualSimTriggerMissionAction && manualSimTriggerMissionAction()">MISSION</button>
+                        <button type="button" onclick="window.manualSimTriggerAtTarget && manualSimTriggerAtTarget()">AT TARGET</button>
+                        <button type="button" onclick="window.manualSimTriggerLandingRoll && manualSimTriggerLandingRoll()">LANDING</button>
+                        <button type="button" onclick="window.manualSimStartAuto && manualSimStartAuto()">AUTO WPT</button>
                     </div>
                 </div>
                 <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->
@@ -1659,6 +1693,7 @@
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
+<script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
 <script defer src="passenger-voice.js?v=survey-pattern-20260617-01"></script>
 <script defer src="tutorial.js"></script>
 <script>

@@ -33,55 +33,87 @@
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    window.startSimMode = function () {
+    window.startSimMode = function (options = {}) {
+        const opts = (options && typeof options === 'object') ? options : {};
+        const resumeFromManual = opts.resumeFromCurrentPosition === true;
+        const preserveMissionState = opts.preserveMissionState === true;
+        const manualResumePoint = resumeFromManual && window.lastLiveGpsPos
+            ? { ...window.lastLiveGpsPos }
+            : null;
+
         // Kein Sim-Modus wenn aktiv GPS-Daten vom Tracker ankommen (letzte 8 Sekunden)
         const lastGps = window.lastLiveGpsPos;
-        if (lastGps && (Date.now() - lastGps.t < 8000)) {
+        if (!opts.allowSimGps && !window.simManualModeActive && lastGps && (Date.now() - lastGps.t < 8000)) {
             alert('Live-GPS ist aktiv – bitte erst den Tracker stoppen.');
-            return;
+            return false;
         }
-        if (simActive) { _stop(); return; }
+        if (simActive && !resumeFromManual) { _stop(); return true; }
+        if (simActive && resumeFromManual) _stop({ preserveMissionRuntime: true });
 
         simRouteCache = _buildRoute();
         if (!simRouteCache || simRouteCache.totalDist < 0.5) {
             alert('Bitte zuerst eine Route mit mindestens 2 Wegpunkten planen.');
-            return;
+            return false;
+        }
+
+        let resumeDistNM = null;
+        if (resumeFromManual) {
+            const lat = Number(manualResumePoint?.lat);
+            const lon = Number(manualResumePoint?.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                alert('Manual-Sim hat keine gueltige Position fuer den Auto-Handoff.');
+                return false;
+            }
+            resumeDistNM = _nearestDist(simRouteCache, lat, lon);
+            if (resumeDistNM === null) {
+                alert('Manual-Sim-Position liegt zu weit von der Route entfernt.');
+                return false;
+            }
+        }
+
+        if (window.simManualModeActive && typeof window.stopManualSimMode === 'function') {
+            try { window.stopManualSimMode({ preserveMissionRuntime: true, keepPlane: true, silent: true }); } catch (_) {}
         }
 
         simRouteHash    = _routeHash();
-        simDistNM       = 0;
+        simDistNM       = resumeDistNM === null
+            ? 0
+            : Math.max(0, Math.min(simRouteCache.totalDist, resumeDistNM + 0.02));
         simActive       = true;
-        simPhase        = 'start_hold';
-        simHoldRemainSec = SIM_HOLD_SEC;
+        simPhase        = resumeFromManual ? 'flight' : 'start_hold';
+        simHoldRemainSec = resumeFromManual ? 0 : SIM_HOLD_SEC;
         simStartTs      = Date.now();
         simElapsedSec   = 0;
-        simMaxAltFt     = 0;
+        simMaxAltFt     = Math.max(0, Number(manualResumePoint?.alt) || 0);
         simTouchdownVs  = null;
         simTrack        = [];
         simLastTrackPt  = null;
         simAptAtTargetTriggered = false;
         simLandingRollTriggered = false;
-        simWaitedForMissionStart = false;
+        simWaitedForMissionStart = resumeFromManual;
         simMissionEndPending = false;
         simMissionEndRecord = null;
         simIntermediateHold = null;
         simVisitedIntermediateHolds = new Set();
         window.simModeActive = true;
-        window.simHadMeaningfulAirbornePhase = false;
+        window.simManualModeActive = false;
+        window.simHadMeaningfulAirbornePhase = !!resumeFromManual;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
-        if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
-        if (typeof window.resetMissionStartFlow === 'function') window.resetMissionStartFlow();
+        if (!preserveMissionState && typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+        if (!preserveMissionState && typeof window.resetMissionStartFlow === 'function') window.resetMissionStartFlow();
         console.log('[SimPax] Sim gestartet — paxVoiceEnabled:', localStorage.getItem('awm_pax_voice'), '| activePassenger:', !!window.activePassenger);
         simLastTick     = Date.now();
 
-        _injectHold(false);                         // sofort Startposition mit 0 kn zeigen
+        if (resumeFromManual) _inject(false);
+        else _injectHold(false);                    // sofort Startposition mit 0 kn zeigen
         if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
         simInterval = setInterval(_tick, TICK_MS);
         _ui(true);
+        return true;
     };
 
-    window.stopSimMode = function () { _stop(); };
+    window.stopSimMode = function (options = {}) { _stop(options); };
 
     window.setSimSpeed = function (x) {
         simSpeedFactor = x;
@@ -471,6 +503,13 @@
     }
 
     function _buildSimRecord() {
+        if ((!simRouteCache || !simTrack.length) && window.simManualModeActive && typeof window.manualSimBuildFlightRecord === 'function') {
+            try {
+                return window.manualSimBuildFlightRecord();
+            } catch (e) {
+                console.warn('[SimPax] Manual-Sim-Record fehlgeschlagen:', e?.message || e);
+            }
+        }
         if (!simRouteCache || !simTrack.length) return null;
         const first = simTrack[0];
         const last = simTrack[simTrack.length - 1];
@@ -522,7 +561,7 @@
         console.log('[SimPax] Sim-Missionsende erreicht → expliziter Abschluss mit Farewell/Close-Pfad. Record:', rec?.distanceNm, 'NM');
         if (typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
             const started = _triggerPaxFarewellAndWaitForDeboard(rec, 'sim-mission-end-farewell');
-            _stop({ preserveMissionRuntime: started });
+            _stopAnySimMode({ preserveMissionRuntime: started });
             if (started) return true;
         }
         if (typeof window.missionCargoFinalizeMissionOutcome === 'function') {
@@ -534,8 +573,20 @@
             }
         }
         if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(rec);
-        _stop();
+        _stopAnySimMode();
         return true;
+    }
+
+    function _stopAnySimMode(options = {}) {
+        if (window.simManualModeActive && typeof window.stopManualSimMode === 'function') {
+            try {
+                window.stopManualSimMode(options);
+                return;
+            } catch (e) {
+                console.warn('[SimPax] Manual-Sim Stop fehlgeschlagen:', e?.message || e);
+            }
+        }
+        _stop(options);
     }
 
     window.completeSimMissionEnd = function () {
@@ -545,7 +596,7 @@
                 : null;
             const phase = String(groundAction?.phase || '').trim().toLowerCase();
             const canForceArm = !!(
-                simActive
+                (simActive || window.simManualModeActive)
                 && (
                     phase === 'ready_to_close'
                     || phase === 'end_ready'
