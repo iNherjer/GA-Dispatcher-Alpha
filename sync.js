@@ -8649,6 +8649,37 @@ function _missionPoiRuntimeStatus(endReady = null) {
             nextStep: 'Nächster Schritt: Krankenhaus-Helipad/Fallback-Ziel anfliegen, landen und stoppen'
         };
     }
+    const taskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || '').toLowerCase();
+    if (taskDomain === 'mapping_survey') {
+        const survey = progress?.surveyPattern || null;
+        let spec = null;
+        try {
+            spec = typeof window.missionSurveyPattern?.getActiveSpec === 'function'
+                ? window.missionSurveyPattern.getActiveSpec(currentMissionData, window.activePassenger || null)
+                : null;
+        } catch (_) {
+            spec = null;
+        }
+        const scanTotal = Array.isArray(spec?.scan?.lines) ? spec.scan.lines.length : Math.max(1, Number(spec?.scan?.lineCount || 0) || 1);
+        const scanDone = Array.isArray(survey?.scan?.completedLineIds) ? survey.scan.completedLineIds.length : 0;
+        const orbitTotal = Math.max(1, Number(spec?.orbit?.requiredTurns || 3));
+        const orbitDone = Math.max(0, Number(survey?.orbit?.completedTurns || 0));
+        const isOrbit = String(spec?.type || '').toLowerCase() === 'orbit';
+        const detail = survey?.satisfied
+            ? 'Mapping/Survey erfüllt. Alle geforderten Pattern-Segmente sind abgeschlossen.'
+            : (isOrbit
+                ? `Mapping/Survey offen. Kreise abgeschlossen: ${orbitDone}/${orbitTotal}.`
+                : `Mapping/Survey offen. Linien abgeschlossen: ${scanDone}/${scanTotal}.`);
+        return {
+            stage: survey?.satisfied ? 'survey_complete' : 'survey_working',
+            detail,
+            nextStep: survey?.satisfied
+                ? 'Nächster Schritt: Rueckflug zum Heimatplatz, landen und Mission beenden'
+                : (survey?.startedAt
+                    ? 'Nächster Schritt: offene rote Linie sauber abfliegen, grüne Linien gelten als erledigt'
+                    : 'Nächster Schritt: markiertes Survey-Pattern anfliegen und an einem Linienende beginnen')
+        };
+    }
     const taskLabel = poiRecipeId === 'poi_on_task_return'
         ? 'Recon-/Arbeitsauftrag im Zielgebiet'
         : (poiRecipeId === 'poi_fire_watch'

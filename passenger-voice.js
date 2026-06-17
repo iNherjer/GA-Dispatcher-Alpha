@@ -3031,6 +3031,10 @@ function _missionStatusFacts(ctx) {
         if (wx) parts.push(wx);
         return parts.join(' | ');
     }
+    if (_activeTaskDomain() === 'mapping_survey') {
+        const survey = _surveyPatternProgressSummary(ctx);
+        if (survey) return survey;
+    }
     const radius = Number(pax.targetRadiusNm || 1.5) || 1.5;
     const targetAlt = Number(pax.targetAltFt || 0);
     const dwellReq = Number(pax.targetDwellMin || 0) * 60;
@@ -3326,6 +3330,10 @@ window.paxMissionStatusReport = function() {
         _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus');
         return;
     }
+    if (_activeTaskDomain() === 'mapping_survey') {
+        _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus');
+        return;
+    }
     const facts = _missionStatusFacts(ctx);
     const base = _baseContext();
     const prompt = base ? `${base}
@@ -3343,6 +3351,10 @@ window.paxMissionOrientationHelp = function(_cityRetry = false) {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
         _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
+        return;
+    }
+    if (_activeTaskDomain() === 'mapping_survey') {
+        _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung');
         return;
     }
     if (!_cityRetry && !_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
@@ -4187,6 +4199,65 @@ function _surveyPatternActiveSpec() {
     }
 }
 
+function _surveyPatternSnapshot() {
+    if (typeof window.missionSurveyPattern?.snapshot !== 'function') return null;
+    try {
+        return window.missionSurveyPattern.snapshot();
+    } catch (_) {
+        return null;
+    }
+}
+
+function _surveyPatternProgressSummary(ctx = null) {
+    const spec = _surveyPatternActiveSpec();
+    if (!spec) return '';
+    const snap = _surveyPatternSnapshot();
+    const parts = [];
+    if (ctx?.hasPosition) parts.push(`Distanz zum Ziel ${ctx.distNm.toFixed(1)} NM, Richtung ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad`);
+    if (spec.type === 'orbit') {
+        const done = Math.max(0, Number(snap?.orbit?.completedTurns || 0));
+        const total = Math.max(1, Number(spec.orbit?.requiredTurns || 3));
+        const activeCoverage = Math.round(Number(snap?.orbit?.activeCoverage || 0) * 100);
+        parts.push(`Survey-Orbit ${done}/${total} Kreise abgeschlossen${snap?.orbit?.active ? `, aktueller Kreis ${activeCoverage}%` : ''}`);
+    } else {
+        const done = Array.isArray(snap?.scan?.completedLineIds) ? snap.scan.completedLineIds.length : 0;
+        const total = Array.isArray(spec.scan?.lines) ? spec.scan.lines.length : Math.max(1, Number(spec.scan?.lineCount || 1));
+        const activeLine = String(snap?.scan?.active?.lineId || '');
+        const coverage = Math.round(Number(snap?.scan?.activeCoverage || 0) * 100);
+        parts.push(`Survey-Scan ${done}/${total} Linien gruen${activeLine ? `, ${activeLine} aktiv bei ${coverage}%` : ''}`);
+    }
+    if (snap?.satisfied) parts.push('Status: Survey abgeschlossen, Rueckflug freigegeben');
+    else if (snap?.startedAt) parts.push('Status: Datenaufnahme laeuft');
+    else parts.push('Status: Pattern sichtbar, Einstieg an einem Linienende oder auf dem Orbit');
+    const targetAlt = Number(spec.targetAltFt || window.activePassenger?.targetAltFt || 0);
+    if (targetAlt > 0 && ctx?.mslFt != null) {
+        const diff = Number(ctx.mslFt) - targetAlt;
+        if (Math.abs(diff) <= Number(spec.altitudeToleranceFt || 300)) parts.push(`Hoehe im Band: ${ctx.mslFt} ft bei Ziel ${Math.round(targetAlt)} ft`);
+        else parts.push(`Hoehenabweichung: ${Math.abs(Math.round(diff))} ft ${diff > 0 ? 'zu hoch' : 'zu niedrig'} gegen Ziel ${Math.round(targetAlt)} ft`);
+    }
+    return parts.join(' | ');
+}
+
+function _surveyPatternStatusText(ctx = null) {
+    const summary = _surveyPatternProgressSummary(ctx);
+    if (!summary) return 'Ich habe gerade kein aktives Survey-Pattern geladen. Bitte pruefe, ob die Mapping-Mission noch aktiv ist.';
+    return summary.replace(/\s*\|\s*/g, '. ') + '.';
+}
+
+function _surveyPatternOrientationText(ctx = null) {
+    const spec = _surveyPatternActiveSpec();
+    const vector = _missionVectorText(ctx);
+    if (!spec) return `${vector} Ich habe gerade kein aktives Survey-Pattern geladen.`;
+    if (spec.type === 'orbit') {
+        const radius = Number(spec.orbit?.radiusNm || 0.55).toFixed(2);
+        return `${vector} Das Pattern ist der markierte Orbit um das Ziel. Richte dich auf etwa ${radius} NM Radius ein, halte die geplante Hoehe und fliege die vollen Kreise ruhig durch.`;
+    }
+    const snap = _surveyPatternSnapshot();
+    const done = Array.isArray(snap?.scan?.completedLineIds) ? snap.scan.completedLineIds.length : 0;
+    const total = Array.isArray(spec.scan?.lines) ? spec.scan.lines.length : Math.max(1, Number(spec.scan?.lineCount || 1));
+    return `${vector} Das rote Scanmuster liegt schon auf der Karte. Such dir ein offenes Linienende, flieg die Nord-Sued-Bahn gerade ab und nimm danach die naechste offene Linie; erledigt sind ${done} von ${total}.`;
+}
+
 function _surveyPatternAudioKey(kind = 'event') {
     return _paxMissionAudioKey(`survey-${kind}`);
 }
@@ -4210,6 +4281,10 @@ function _surveyPatternVoiceText(kind = 'line_complete', spec = null) {
             return type === 'orbit'
                 ? 'Das waren alle Kreise, der Survey ist komplett. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.'
                 : 'Alle Survey-Linien sind sauber abgedeckt. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.';
+        case 'survey_area_entered':
+            return type === 'orbit'
+                ? 'Wir sind im Surveybereich. Nimm jetzt den markierten Orbit auf und halte Hoehe und Radius stabil.'
+                : 'Wir sind im Surveybereich. Such dir ein Linienende und flieg die erste Bahn sauber durch.';
         default:
             return '';
     }
@@ -4222,8 +4297,8 @@ window.paxVoicePrepareSurveyPattern = function() {
     const epoch = _paxMissionEpoch;
     const speaker = _speakerSnapshotForMissionVoice('survey-pattern');
     const kinds = spec.type === 'orbit'
-        ? ['orbit_turn_complete', 'orbit_reset_altitude', 'orbit_reset_offtrack', 'survey_complete']
-        : ['line_complete', 'line_reset_altitude', 'line_reset_offtrack', 'survey_complete'];
+        ? ['survey_area_entered', 'orbit_turn_complete', 'orbit_reset_altitude', 'orbit_reset_offtrack', 'survey_complete']
+        : ['survey_area_entered', 'line_complete', 'line_reset_altitude', 'line_reset_offtrack', 'survey_complete'];
     const jobs = kinds.map(kind => {
         const text = _surveyPatternVoiceText(kind, spec);
         return text ? _prepareTextAsTTS(_surveyPatternAudioKey(kind), text, speaker, epoch) : Promise.resolve(null);
@@ -4240,6 +4315,7 @@ function _surveyPatternEventKind(event = null) {
     if (type === 'orbit_turn_complete') return 'orbit_turn_complete';
     if (type === 'orbit_reset_altitude') return 'orbit_reset_altitude';
     if (type === 'orbit_reset_offtrack') return 'orbit_reset_offtrack';
+    if (type === 'survey_area_entered') return 'survey_area_entered';
     return '';
 }
 
@@ -4251,8 +4327,11 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     if (!meaningful.length) return;
     const kind = meaningful.includes('survey_complete')
         ? 'survey_complete'
-        : meaningful.find(k => /complete|reset/.test(k));
+        : (meaningful.includes('survey_area_entered')
+            ? 'survey_area_entered'
+            : meaningful.find(k => /complete|reset/.test(k)));
     if (!kind) return;
+    _paxLog(`Survey-Pattern Event: ${kind}`, 'event');
     if (typeof window.missionPersistRuntimeSnapshot === 'function') {
         window.missionPersistRuntimeSnapshot(`survey-pattern-${kind}`, { immediate: kind === 'survey_complete' });
     }
@@ -4287,6 +4366,10 @@ function _tickSurveyPatternTask(lat, lon, flightData) {
     const progress = result.progress || null;
     if (progress?.startedAt && progress?.updatedAt) {
         _poiDwellSec = Math.max(_poiDwellSec, (Number(progress.updatedAt) - Number(progress.startedAt)) / 1000);
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        if (!_poiEnteredAt) _poiEnteredAt = Number(progress.startedAt) || Date.now();
+        _poiLastTickTime = Date.now();
     }
     if (result.satisfied && !_poiSatisfied) {
         _poiSatisfied = true;
@@ -4301,7 +4384,7 @@ function _tickSurveyPatternTask(lat, lon, flightData) {
         }
         _refreshPaxWidgetVisibility();
     }
-    return true;
+    return result;
 }
 
 function _roleConsistencyDebugEnabled() {
@@ -6864,6 +6947,9 @@ function _tickPoiDwell(lat, lon, flightData) {
     const complaintIntervalSec = strict ? 30 : 45;
     const taskItemState = _poiRequiredTaskItemState();
     const missingTaskItems = taskItemState.blockingItems;
+    const surveyTickResult = taskDomain === 'mapping_survey'
+        ? _tickSurveyPatternTask(lat, lon, flightData)
+        : null;
 
     // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
     // Trigger bei ~3 min Restzeit (gesprochen wird "ca. 2 min", um Gen-/TTS-Latenz auszugleichen).
@@ -6875,8 +6961,10 @@ function _tickPoiDwell(lat, lon, flightData) {
     }
 
     if (!inRadius) {
-        _poiInRadius     = false;
-        _poiLastTickTime = null;
+        if (!surveyTickResult?.progress?.startedAt) {
+            _poiInRadius     = false;
+            _poiLastTickTime = null;
+        }
         return;
     }
 
@@ -6924,7 +7012,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         return;
     }
 
-    if (taskDomain === 'mapping_survey' && _tickSurveyPatternTask(lat, lon, flightData)) {
+    if (taskDomain === 'mapping_survey' && surveyTickResult?.handled) {
         return;
     }
 

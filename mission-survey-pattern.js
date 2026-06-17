@@ -35,6 +35,15 @@
     let activeSpecKey = '';
     let overlayLayer = null;
 
+    function activeMissionDataFromHost() {
+        try {
+            if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
+                return currentMissionData;
+            }
+        } catch (_) {}
+        return host.currentMissionData && typeof host.currentMissionData === 'object' ? host.currentMissionData : null;
+    }
+
     function clamp(value, min, max) {
         const n = Number(value);
         if (!Number.isFinite(n)) return min;
@@ -611,7 +620,7 @@
     }
 
     function getMissionSpec(missionData = null, passenger = null) {
-        const md = missionData || host.currentMissionData || null;
+        const md = missionData || activeMissionDataFromHost();
         const contract = md?.missionContract || host.activeMissionContract || null;
         let raw = md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null;
         if (!raw && typeof host.attachMissionSurveyPattern === 'function' && md) {
@@ -789,6 +798,23 @@
         return drawOverlay(spec, activeState);
     }
 
+    function refreshActiveMissionOverlay() {
+        const md = activeMissionDataFromHost();
+        if (!md) return false;
+        try {
+            return refreshOverlay(md, host.activePassenger || md?.passenger || null);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function scheduleInitialOverlayRefresh() {
+        if (typeof setTimeout !== 'function') return;
+        [0, 150, 750, 2000].forEach(delay => {
+            setTimeout(refreshActiveMissionOverlay, delay);
+        });
+    }
+
     const api = {
         defaults: DEFAULTS,
         getActiveSpec: getMissionSpec,
@@ -797,6 +823,7 @@
         restoreProgress,
         reset,
         refreshOverlay,
+        refreshActiveMissionOverlay,
         snapshot: () => snapshotState(activeState),
         _test: {
             normalizeSpec,
@@ -814,5 +841,9 @@
     };
 
     host.missionSurveyPattern = api;
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleInitialOverlayRefresh, { once: true });
+        else scheduleInitialOverlayRefresh();
+    }
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

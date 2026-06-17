@@ -5146,6 +5146,7 @@ async function restoreMissionState(state, options = {}) {
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.missionContract = window.activeMissionContract;
+        window.currentMissionData = currentMissionData;
         currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
         currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
         if (currentMissionData.fireScenario && !missionDataAllowsFireWatchScenario(currentMissionData, window.activePassenger, window.activeMissionContract)) {
