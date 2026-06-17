@@ -805,12 +805,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
-      writeOpenPosition: !openDoor,
+      writeOpenPosition: true,
       writeLatch: true,
       handleOpenValue: 1,
-      handleCloseValue: 0,
-      latchUnlockValue: 0,
-      latchLockValue: 1
+      handleCloseValue: 0
     });
     if (!openDoor) {
       await sleep(120);
@@ -2240,9 +2238,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const closeWaitMs = clampInt(command?.doorCloseWaitMs ?? command?.closeWaitMs ?? 1000, 0, 12000);
       const personKind = String(command?.personKind || command?.kind || 'manual_pax').trim() || 'manual_pax';
       const personLabel = String(command?.personLabel || command?.label || 'Passenger').trim() || 'Passenger';
+      const personKinds = Array.isArray(command?.personKinds) ? command.personKinds : [];
+      const personLabels = Array.isArray(command?.personLabels) ? command.personLabels : [];
       const selector = {
-        kinds: [personKind],
-        labels: [personLabel, command?.label, command?.storyName].filter(Boolean)
+        kinds: uniqueStrings([personKind, ...personKinds].map(v => String(v || '').trim()).filter(Boolean)),
+        labels: uniqueStrings([personLabel, command?.label, command?.storyName, ...personLabels].map(v => String(v || '').trim()).filter(Boolean))
       };
       const removeMatchingPax = (reason) => {
         const targets = rec.objects.filter(obj => sceneObjectMatchesSelector(obj, selector));

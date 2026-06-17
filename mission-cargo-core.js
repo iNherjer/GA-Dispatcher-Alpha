@@ -561,17 +561,23 @@ function _missionCargoGroundSpawnPlacement(item = null) {
     };
 }
 
-function _missionCargoPassengerSpawnPlacement(item = null) {
+function _missionCargoPassengerBoardingPoint() {
     const cfg = _missionSceneBoardingConfig();
     const target = cfg?.target || { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 };
-    const targetForward = Number.isFinite(Number(target.forwardM)) ? Number(target.forwardM) : 4.5;
-    const targetRight = Number.isFinite(Number(target.rightM)) ? Number(target.rightM) : 8.5;
-    const targetAlt = Number.isFinite(Number(target.altOffsetFt)) ? Number(target.altOffsetFt) : 0;
+    return {
+        forwardM: Number.isFinite(Number(target.forwardM)) ? Number(target.forwardM) : 4.5,
+        rightM: Number.isFinite(Number(target.rightM)) ? Number(target.rightM) : 8.5,
+        altOffsetFt: Number.isFinite(Number(target.altOffsetFt)) ? Number(target.altOffsetFt) : 0
+    };
+}
+
+function _missionCargoPassengerSpawnPlacement(item = null) {
+    const target = _missionCargoPassengerBoardingPoint();
     const itemAlt = Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0;
     return {
-        forwardM: targetForward + _missionCargoItemForwardM(item),
-        rightM: targetRight + _missionCargoItemRightM(item),
-        altOffsetFt: targetAlt + itemAlt
+        forwardM: target.forwardM + _missionCargoItemForwardM(item),
+        rightM: target.rightM + _missionCargoItemRightM(item),
+        altOffsetFt: target.altOffsetFt + itemAlt
     };
 }
 
@@ -609,26 +615,32 @@ function _missionCargoSendManualPassengerCommand(item = null, action = 'unload',
     const commonFields = (typeof _missionSceneCommonSceneCommandFields === 'function')
         ? _missionSceneCommonSceneCommandFields()
         : {};
-    const placement = _missionCargoPassengerSpawnPlacement(item);
+    const boardingPoint = options.boardingPoint || _missionCargoPassengerBoardingPoint();
     const gender = _missionScenePassengerGender();
-    const personTitle = item.objectTitle || _missionScenePersonTitle(gender, `manual-passenger-${normalizedAction}`);
-    const personKind = `unloaded_${item.sceneKind || item.id}`;
+    const personTitle = options.personTitle || item.objectTitle || _missionScenePersonTitle(gender, `manual-passenger-${normalizedAction}`);
+    const defaultPersonKind = `unloaded_${item.sceneKind || item.id}`;
+    const personKind = String(options.personKind || defaultPersonKind).trim() || defaultPersonKind;
+    const personKinds = Array.isArray(options.personKinds) ? options.personKinds.map(v => String(v || '').trim()).filter(Boolean) : [];
+    const personLabel = String(options.personLabel || item.storyName || item.label || 'Passenger').trim() || 'Passenger';
+    const personLabels = Array.isArray(options.personLabels) ? options.personLabels.map(v => String(v || '').trim()).filter(Boolean) : [];
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_manual_pax',
         action: normalizedAction,
-        sceneId: _missionCargoUnloadSceneId(),
+        sceneId: options.sceneId || _missionCargoUnloadSceneId(),
         reason: options.reason || `passenger-manual-${normalizedAction}`,
         ...commonFields,
         lat: Number(pos.lat),
         lon: Number(pos.lon),
         altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
-        boardingPoint: placement,
-        targetPoint: placement,
+        boardingPoint,
+        targetPoint: boardingPoint,
         personKind,
-        personLabel: item.storyName || item.label || 'Passenger',
+        personKinds,
+        personLabel,
+        personLabels,
         personTitle,
-        personTitleCandidates: item.titleCandidates || _missionScenePersonCandidates(gender, personTitle),
+        personTitleCandidates: options.personTitleCandidates || item.titleCandidates || _missionScenePersonCandidates(gender, personTitle),
         doorOpenWaitMs: 2000,
         doorCloseWaitMs: 1000,
         hdgOffsetDeg: 165
@@ -1612,7 +1624,17 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     }
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
-            _missionCargoSendManualPassengerCommand(item, 'load', { reason: options.reason || 'passenger-manual-load' });
+            _missionCargoSendManualPassengerCommand(item, 'load', {
+                reason: options.reason || 'passenger-manual-load',
+                sceneId: options.sceneId,
+                boardingPoint: options.boardingPoint,
+                personKind: options.personKind,
+                personKinds: options.personKinds,
+                personLabel: options.personLabel,
+                personLabels: options.personLabels,
+                personTitle: options.personTitle,
+                personTitleCandidates: options.personTitleCandidates
+            });
         } else {
             const commandId = window.sendTrackerCommand({
                 type: 'mission_scene_object_remove',
@@ -1659,7 +1681,10 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     }
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
-            _missionCargoSendManualPassengerCommand(item, 'unload', { reason: options.reason || 'passenger-manual-unload' });
+            _missionCargoSendManualPassengerCommand(item, 'unload', {
+                reason: options.reason || 'passenger-manual-unload',
+                boardingPoint: options.boardingPoint || _missionCargoPassengerBoardingPoint()
+            });
         } else {
             const pos = _missionCargoCommandBasePos();
             const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
@@ -1992,10 +2017,22 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         return false;
     }
     const wasUnloaded = item.status === 'unloaded';
-    if (_missionCargoIsPassengerItem(item) && wasUnloaded && !options.skipAnimation) {
+    if (_missionCargoIsPassengerItem(item) && !options.skipAnimation) {
+        const unloadedKind = `unloaded_${item.sceneKind || item.id}`;
+        const isReload = wasUnloaded;
         const ok = _missionCargoMarkPassengerLoaded({
-            reason: options.reason || 'passenger-manual-load',
-            manualAnimation: true
+            reason: options.reason || (isReload ? 'passenger-manual-load' : 'passenger-manual-board'),
+            manualAnimation: true,
+            sceneId: isReload ? _missionCargoUnloadSceneId() : _missionCargoSceneId(),
+            boardingPoint: _missionCargoPassengerBoardingPoint(),
+            personKind: isReload ? unloadedKind : 'person_boarder_1',
+            personKinds: isReload
+                ? [unloadedKind, item.sceneKind].filter(Boolean)
+                : ['person_boarder_1', 'person_boarder_2'],
+            personLabel: isReload ? (item.storyName || item.label || 'Passenger') : 'Boarding Pax 1',
+            personLabels: isReload
+                ? [item.label, item.storyName].filter(Boolean)
+                : ['Boarding Pax 1', 'Boarding Pax 2', item.label, item.storyName].filter(Boolean)
         });
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
