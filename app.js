@@ -1451,14 +1451,44 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'media_observer_v1',
         taskDomain: 'media_photo',
         personas: [
-            { name: 'Lena Vogt', role: 'Luftbild-Fotografin', gender: 'female', personality: 'konzentriert, visuell, ruhig' },
-            { name: 'Ben Kramer', role: 'Kameramann', gender: 'male', personality: 'präzise, sachlich, geduldig' }
+            {
+                name: 'Lena Vogt',
+                role: 'Luftbild-Fotografin',
+                gender: 'female',
+                personality: 'konzentriert, visuell, ruhig',
+                storySeed: '{name} erstellt fuer {targetName} eine kurze Luftbildserie, die als Einstiegsmotiv fuer Redaktion, Tourismus oder Ortsmarketing funktionieren soll.',
+                greetingText: 'Hi, ich brauche heute eine kleine Bildserie mit klarem Ortsbezug. Ruhige Bögen und erkennbare Lage sind wichtiger als spektakuläre Winkel.'
+            },
+            {
+                name: 'Ben Kramer',
+                role: 'Kameramann',
+                gender: 'male',
+                personality: 'präzise, sachlich, geduldig',
+                storySeed: '{name} sammelt ruhige Establishing Shots von {targetName}, damit ein Filmbeitrag den Ort, seine Lage und das Umfeld sauber setzen kann.',
+                greetingText: 'Hi, ich sammle Establishing Shots. Wenn wir stabil vorbeiziehen und das Ziel gut im Umfeld steht, habe ich alles, was ich brauche.'
+            },
+            {
+                name: 'Sina Reuter',
+                role: 'Ortsmarketing-Fotografin',
+                gender: 'female',
+                personality: 'freundlich, detailbewusst, praktisch',
+                storySeed: '{name} fotografiert {targetName} fuer eine Tourismusbroschuere oder Gemeindeseite, mit Fokus auf Wiedererkennungswert statt Sightseeing-Stimmung.',
+                greetingText: 'Hi, heute geht es um brauchbare Motive fuer die Gemeinde. Bitte ruhig und mit genug Abstand, damit Ort und Umgebung zusammen lesbar bleiben.'
+            },
+            {
+                name: 'Marco Stein',
+                role: 'Redaktionsfotograf',
+                gender: 'male',
+                personality: 'schnell, sachlich, bildstark',
+                storySeed: '{name} braucht von {targetName} ein aktuelles Aufmacherbild fuer einen redaktionellen Beitrag, klar und verwertbar ohne touristischen Ton.',
+                greetingText: 'Hi, ich brauche ein sauberes Aufmacherbild, keine Panorama-Tour. Ein paar stabile Perspektiven auf Ziel und Umfeld reichen.'
+            }
         ],
-        greetingText: 'Hi, wir brauchen heute verwertbare Foto- und Filmwinkel vom Ziel. Bitte ruhig fliegen, mit sauberen Bögen und genug Zeit für stabile Takes.',
+        greetingText: 'Hi, wir brauchen heute eine verwertbare Bildserie mit klarem Zweck. Bitte ruhig fliegen, mit sauberen Bögen und erkennbarem Ziel im Umfeld.',
         paxText: '1 PAX (Foto/Film)',
         cargoPool: ['Kamera-Gimbal (34 lbs)', 'Film- und Akkukoffer (28 lbs)', 'Teleobjektiv-Set (22 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: professionelle Luftbilder, Firmenaufnahmen, Dokumentation oder Establishing Shots.'
+        storyCue: 'Fokus: Bildserie mit Zweck und Auftraggeber, etwa Tourismusbroschuere, Ortsmarketing, Jubiläumsfilm, Immobilien-/Gemeindeaufnahme oder redaktionelle Establishing Shots; kein Sightseeing.'
     },
     freeflight_planning: {
         id: 'freeflight_planning',
@@ -1496,14 +1526,36 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'news_reporter_professional_v1',
         taskDomain: 'news_coverage',
         personas: [
-            { name: 'Mara Feld', role: 'Reporterin', gender: 'female', personality: 'neugierig, sachlich, schnell' },
-            { name: 'Timo Berger', role: 'TV-Reporter', gender: 'male', personality: 'präzise, präsent, professionell' }
+            {
+                name: 'Mara Feld',
+                role: 'Lokalreporterin',
+                gender: 'female',
+                personality: 'neugierig, sachlich, schnell',
+                storySeed: '{name} berichtet ueber einen aktuellen Anlass rund um {targetName}: Besucherandrang, Verkehrslage, Baustelle, Festbetrieb oder eine sichtbare Veraenderung im Ortsbild.',
+                greetingText: 'Hi, ich brauche heute einen ruhigen Luftueberblick zum aktuellen Anlass vor Ort. Wichtig ist ein klares Bild, keine dramatische Zuspitzung.'
+            },
+            {
+                name: 'Timo Berger',
+                role: 'TV-Reporter',
+                gender: 'male',
+                personality: 'präzise, präsent, professionell',
+                storySeed: '{name} setzt fuer einen kurzen TV-Beitrag einen sachlichen Luftaufhaenger zu {targetName}, damit die Redaktion die Lage sichtbar einordnen kann.',
+                greetingText: 'Hi, die Redaktion braucht einen klaren Aufhänger aus der Luft. Lass uns sachlich bleiben: Überblick, Lage, Rückkehr.'
+            },
+            {
+                name: 'Nora Wendt',
+                role: 'Redakteurin',
+                gender: 'female',
+                personality: 'ruhig, strukturiert, beobachtend',
+                storySeed: '{name} braucht zu {targetName} ein aktuelles redaktionelles Lagebild, etwa zu Besucherstroemen, Verkehr, Bauarbeiten oder einer lokalen Veranstaltung.',
+                greetingText: 'Hi, ich ordne heute nur ein, was aus der Luft wirklich sichtbar ist. Bitte ruhige Passes, damit ich der Redaktion etwas Belastbares geben kann.'
+            }
         ],
-        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Bring mich bitte zum Ziel, dann kann ich vor Ort direkt loslegen.',
+        greetingText: 'Hi, ich brauche heute einen sachlichen Luftüberblick zu einem aktuellen Anlass am Ziel. Bitte ruhig und klar, ohne Show.',
         paxText: '1 PAX (Reporter)',
         cargoPool: ['Kamera- und Audio-Set (32 lbs)', 'Live-Übertragungsrucksack (26 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: nüchterne Beobachtung und klare Lageeinschätzung.'
+        storyCue: 'Fokus: sachliche Berichterstattung mit konkretem Anlass: lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern oder sichtbare Veraenderung; keine O-Ton-Sammelstory bei POI-City.'
     },
     sightseeing_tour: {
         id: 'sightseeing_tour',
@@ -1606,14 +1658,44 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'historian_storyteller_v1',
         taskDomain: 'historian_guided_tour',
         personas: [
-            { name: 'Dr. Hannah Voss', role: 'Historikerin', gender: 'female', personality: 'kenntnisreich, ruhig, anschaulich' },
-            { name: 'Prof. Lukas Brenner', role: 'Historiker', gender: 'male', personality: 'präzise, erzählstark, gelassen' }
+            {
+                name: 'Dr. Hannah Voss',
+                role: 'Ortsarchivarin',
+                gender: 'female',
+                personality: 'kenntnisreich, ruhig, anschaulich',
+                storySeed: '{name} ordnet {targetName} aus Archivsicht ein: Ortskern, Siedlungsform, alte Wege, Kirchen- oder Marktplatzlage und die Lage in Tal oder Hang.',
+                greetingText: 'Hi, ich bringe heute die Archivsicht mit. Mir geht es darum, wie sich der Ort in der Landschaft lesen laesst, nicht um einen technischen Check.'
+            },
+            {
+                name: 'Lukas Brenner',
+                role: 'Denkmalpfleger',
+                gender: 'male',
+                personality: 'präzise, erzählstark, gelassen',
+                storySeed: '{name} betrachtet {targetName} als Denkmal- oder Ortsbild aus der Luft und achtet auf alte Bauachsen, Wegebeziehungen und die Einbindung ins Gelaende.',
+                greetingText: 'Hi, ich schaue heute auf Ortsbild, Wege und historische Lagebeziehungen. Ruhige, gut lesbare Kurven reichen völlig.'
+            },
+            {
+                name: 'Clara Mertens',
+                role: 'Heimatforscherin',
+                gender: 'female',
+                personality: 'warm, neugierig, detailreich',
+                storySeed: '{name} verbindet {targetName} mit lokaler Geschichte: fruehere Verkehrswege, Bach- oder Tallage, Ortsrand, Kirche, Markt oder Schlossbezug.',
+                greetingText: 'Hi, ich erzaehle unterwegs, warum der Ort genau dort gewachsen ist. Bitte so fliegen, dass Kern, Wege und Landschaft zusammen erkennbar bleiben.'
+            },
+            {
+                name: 'Paul Richter',
+                role: 'Stadtchronist',
+                gender: 'male',
+                personality: 'bodenständig, sachkundig, ruhig',
+                storySeed: '{name} nutzt den Rundflug zu {targetName}, um Ortsentwicklung, historische Achsen und sichtbare Spuren frueherer Nutzung anschaulich zu machen.',
+                greetingText: 'Hi, ich nehme heute die Chronistenrolle ein. Ich brauche keinen Showflug, nur einen ruhigen Blick auf Ort, Lage und alte Strukturen.'
+            }
         ],
-        greetingText: 'Hi, wir machen heute einen Geschichtsflug zum POI. Ich gebe dir unterwegs kurze historische Einordnungen, du fliegst bitte ruhig und stabil.',
+        greetingText: 'Hi, ich ordne heute den Ort historisch ein. Bitte ruhig fliegen, damit Ortskern, Wege, Bauwerk und Landschaft zusammen lesbar werden.',
         paxText: '1 PAX (Historiker)',
         cargoPool: ['Archivunterlagen und Karten (14 lbs)', 'Tablet mit historischen Luftbildern (9 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: kurze, sachliche historische Einordnung waehrend des POI-Flugs.'
+        storyCue: 'Fokus: historische Ortslesart aus der Luft: Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Denkmal- oder Burgbezug; keine operative Luftarbeit.'
     },
     science_bio: {
         id: 'science_bio',
@@ -2132,8 +2214,10 @@ function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') 
             { t: `Forstlage: ${n}`, i: '🌲', cat: 'poi', s: `Im Gebiet ${n} soll der Waldzustand aus der Luft dokumentiert werden. Fokus auf klare Sichtachsen und stabile Höhe.`, payloadText: '1 PAX (Forst)', cargoText: 'Kamera/IR-Kit (65 lbs)' }
         ],
         city: [
-            { t: `Stadtlage-Report: ${n}`, i: '🏙️', cat: 'poi', s: `Für ${n} wird ein aktuelles Luft-Lagebild für Planung und Verkehrslenkung benötigt.`, payloadText: '1 PAX (Stadtplanung)', cargoText: 'Dokuset (25 lbs)' },
-            { t: `Event-Überblick: ${n}`, i: '🎤', cat: 'poi', s: `Rund um ${n} soll ein Event aus der Luft beobachtet werden. Ruhige Kreise und klare Meldepunkte.`, payloadText: '1 PAX (Koordination)', cargoText: 'Kamera-Set (30 lbs)' }
+            { t: `Ortskern-Lagebild: ${n}`, i: '🏙️', cat: 'poi', s: `Für ${n} soll der Ortskern mit Zufahrten, Marktplatz- oder Kirchenlage und sichtbaren Verkehrsachsen sachlich aus der Luft eingeordnet werden.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Dokuset (25 lbs)' },
+            { t: `Fest- oder Besucherblick: ${n}`, i: '🎤', cat: 'poi', s: `Rund um ${n} gibt es einen lokalen Anlass wie Festbetrieb, Besucherandrang oder geänderte Verkehrsführung. Ruhige Kreise liefern Überblick, ohne Einsatzdrama.`, payloadText: '1 PAX (Reporter)', cargoText: 'Kamera-Set (30 lbs)' },
+            { t: `Ortsmarketing: ${n}`, i: '📸', cat: 'poi', s: `Für ${n} werden ruhige Luftbilder gebraucht, die Ort, Lage und Wiedererkennungswert für Gemeinde, Tourismus oder Jubiläumsfilm zeigen.`, payloadText: '1 PAX (Foto/Film)', cargoText: 'Kamera-Gimbal (34 lbs)' },
+            { t: `Stadtchronik: ${n}`, i: '📜', cat: 'poi', s: `Eine lokale Geschichtsführung nutzt den Blick auf ${n}, um Ortskern, alte Wege und die Lage im Gelände historisch einzuordnen.`, payloadText: '1 PAX (Stadtchronist)', cargoText: 'Archivunterlagen und Karten (14 lbs)' }
         ],
         generic: [
             { t: `POI-Dokumentation: ${n}`, i: '📍', cat: 'poi', s: `Für ${n} wird eine strukturierte Luftdokumentation angefordert. Fliege präzise und stabil.`, payloadText: '1 PAX (Beobachter)', cargoText: 'Kamera-Set (25 lbs)' },
@@ -2157,10 +2241,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Bestandsaufnahme/Dokumentation: ${n}`, i: '🗺️', cat: 'poi', s: `Für ${n} sollen aktuelle Vergleichsbilder und eine kurze Luftdokumentation entstehen. Wir fliegen ruhig, damit Gebäude, Ufer, Trassen oder Geländeformen sauber zugeordnet werden können.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Tablet und Referenzkarten (18 lbs)' }
         ],
         news_coverage: [
-            { t: `Reporter-POI: ${n}`, i: '📰', cat: 'poi', s: `Ein Reporterteam beobachtet die Lage rund um ${n} aus der Luft, bevor die Berichterstattung am Boden startet.`, payloadText: '1 PAX (Reporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
-            { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' },
-            { t: `Redaktionsflug: ${n}`, i: '📷', cat: 'poi', s: `Die Lokalredaktion braucht ein aktuelles Luftbild von ${n} und der direkten Umgebung. Der Auftrag bleibt sachlich: Überblick, Orientierung, keine dramatische Zuspitzung.`, payloadText: '1 PAX (Reporterin)', cargoText: 'Foto- und Audio-Set (24 lbs)' },
-            { t: `Establishing Shots: ${n}`, i: '🎬', cat: 'poi', s: `Ein kleines TV-Team sammelt ruhige Establishing Shots von ${n}. Wir liefern kurze, klare Perspektiven, ohne den Flug zu einem Touristenrundflug zu machen.`, payloadText: '1 PAX (Kamera-Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
+            { t: `Lokalreport: ${n}`, i: '📰', cat: 'poi', s: `Die Lokalredaktion braucht zu ${n} einen aktuellen Luftaufhänger: Besucherandrang, Verkehrslage, Baustelle oder sichtbare Veränderung im Zielbereich.`, payloadText: '1 PAX (Lokalreporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
+            { t: `Festbetrieb von oben: ${n}`, i: '🎥', cat: 'poi', s: `Bei ${n} soll ein lokales Fest oder eine Veranstaltung sachlich eingeordnet werden. Aus der Luft zählen Besucherströme, Zufahrten und erkennbare Orientierung, nicht Stimmungstourismus.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' },
+            { t: `Baustelle im Ortsbild: ${n}`, i: '🚧', cat: 'poi', s: `Die Redaktion berichtet über Bauarbeiten oder eine sichtbare Veränderung rund um ${n}. Wir liefern Überblick und Kontext, ohne daraus eine technische Inspektion zu machen.`, payloadText: '1 PAX (Reporterin)', cargoText: 'Foto- und Audio-Set (24 lbs)' },
+            { t: `Redaktions-Aufmacher: ${n}`, i: '📷', cat: 'poi', s: `Für einen Beitrag wird ein klares Aufmacherbild von ${n} und seiner direkten Umgebung benötigt. Der Ton bleibt sachlich: sehen, einordnen, zurückmelden.`, payloadText: '1 PAX (Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
         ],
         inspection_infra: [
             { t: `Zustandsprüfung: ${n}`, i: '🛠️', cat: 'poi', s: `Bei ${n} soll der aktuelle Zustand aus der Luft dokumentiert werden: Schäden, Wartungspunkte und auffällige Veränderungen. Fliege ruhige Passes mit klaren Sichtfenstern.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Inspektionskamera und Checklisten (18 lbs)' },
@@ -2169,10 +2253,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Baufortschritt: ${n}`, i: '🏗️', cat: 'poi', s: `Für ${n} werden Vergleichsbilder zum Bau- oder Instandhaltungsfortschritt benötigt. Fliege reproduzierbare Blickachsen für die Projektdokumentation.`, payloadText: '1 PAX (Projektleitung)', cargoText: 'Tablet mit Bauplänen (16 lbs)' }
         ],
         media_photo: [
-            { t: `Firmenaufnahmen: ${n}`, i: '🎥', cat: 'poi', s: `Ein kleines Medienteam braucht professionelle Luftaufnahmen von ${n} für Firmenkommunikation und Dokumentation. Ruhige Bögen und stabile Takes sind wichtiger als Tempo.`, payloadText: '1 PAX (Kamera)', cargoText: 'Kamera-Gimbal (34 lbs)' },
-            { t: `Luftbildserie: ${n}`, i: '📸', cat: 'poi', s: `Für ${n} entsteht eine aktuelle Foto- und Filmserie aus der Luft. Ziel sind klare Perspektiven auf Anlage, Bauwerk und Umgebung.`, payloadText: '1 PAX (Fotografie)', cargoText: 'Teleobjektiv-Set (22 lbs)' },
-            { t: `Dokufilm-Shots: ${n}`, i: '🎬', cat: 'poi', s: `Eine Produktionsfirma sammelt ruhige Establishing Shots von ${n}. Fliege saubere Kreise und vermeide hektische Manöver.`, payloadText: '1 PAX (Filmcrew)', cargoText: 'Film- und Akkukoffer (28 lbs)' },
-            { t: `PR-Dokumentation: ${n}`, i: '🏢', cat: 'poi', s: `Der Betreiber von ${n} benötigt aktuelle Luftbilder für Bericht, Webseite oder interne Präsentation. Es geht um verwertbare Aufnahmen, nicht um technische Diagnose.`, payloadText: '1 PAX (Medienproduktion)', cargoText: 'Kamerarucksack (20 lbs)' }
+            { t: `Ortsmarketing-Serie: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} entsteht eine Bildserie für Gemeinde, Tourismus oder Ortsmarketing. Gesucht sind klare Motive mit Ziel, Lage und Wiedererkennungswert.`, payloadText: '1 PAX (Ortsmarketing-Foto)', cargoText: 'Kamera-Gimbal (34 lbs)' },
+            { t: `Jubiläumsfilm: ${n}`, i: '🎬', cat: 'poi', s: `Ein kurzer Jubiläums- oder Gemeindefilm braucht ruhige Establishing Shots von ${n}. Der Flug liefert Bildsprache, keine Sightseeing-Erzählung.`, payloadText: '1 PAX (Filmcrew)', cargoText: 'Film- und Akkukoffer (28 lbs)' },
+            { t: `Redaktionsfoto: ${n}`, i: '📷', cat: 'poi', s: `Die Redaktion braucht ein aktuelles Aufmacherbild von ${n}. Ziel sind verwertbare Perspektiven auf Objekt, Ortslage und direkte Umgebung.`, payloadText: '1 PAX (Redaktionsfoto)', cargoText: 'Teleobjektiv-Set (22 lbs)' },
+            { t: `Gemeindeaufnahme: ${n}`, i: '🏢', cat: 'poi', s: `Für Gemeindeseite, Immobilienexposé oder Projektbericht werden aktuelle Luftbilder von ${n} gebraucht. Es geht um saubere Bildwirkung, nicht um technische Diagnose.`, payloadText: '1 PAX (Medienproduktion)', cargoText: 'Kamerarucksack (20 lbs)' }
         ],
         search_and_rescue: [
             { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird entlang von Trassen, Flusslauf und Bahnstrecke gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
@@ -2187,10 +2271,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Hotspot-Check: ${n}`, i: '🧯', cat: 'poi', s: `Nach trockenen Tagen soll ${n} auf mögliche Hotspots kontrolliert werden. Gesucht werden kleine Rauchfahnen oder auffällige warme Stellen, keine Einsatzkolonne.`, payloadText: '1 PAX (Einsatzbeobachtung)', cargoText: 'IR-Kamera und Karten (19 lbs)' }
         ],
         historian_guided_tour: [
-            { t: `Historikerflug: ${n}`, i: '📜', cat: 'poi', s: `Ein Historiker begleitet den Flug zu ${n} und gibt unterwegs kurze geschichtliche Einordnungen zu Ort, Nutzung und Entwicklung.`, payloadText: '1 PAX (Historiker)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
-            { t: `Zeitreise aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Für ${n} ist ein ruhiger Rundflug mit historischer Kontext-Erklärung geplant. Fokus liegt auf Orientierung und klaren Sichtachsen.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' },
-            { t: `Ortsgeschichte: ${n}`, i: '🏺', cat: 'poi', s: `Rund um ${n} soll die historische Entwicklung der Landschaft, Bebauung oder Nutzung aus der Luft eingeordnet werden. Es geht um Geschichte, nicht um Inspektion.`, payloadText: '1 PAX (Historiker)', cargoText: 'Notizen und Karten (8 lbs)' },
-            { t: `Kulturroute: ${n}`, i: '🏛️', cat: 'poi', s: `Eine Historikerin nutzt den Flug nach ${n}, um sichtbare Spuren von Siedlung, Verkehr oder Wasserbau zu erklären. Wir bleiben ruhig und gut orientierbar.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Archivmappe (11 lbs)' }
+            { t: `Ortsarchiv-Runde: ${n}`, i: '📜', cat: 'poi', s: `Eine Ortsarchivarin begleitet den Flug zu ${n} und ordnet Ortskern, Siedlungsform, alte Wege und die Lage im Gelände historisch ein.`, payloadText: '1 PAX (Ortsarchivarin)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
+            { t: `Denkmalblick: ${n}`, i: '🏛️', cat: 'poi', s: `Ein Denkmalpfleger nutzt den Blick auf ${n}, um Bauwerk, Ortsbild und historische Achsen zu erklären. Fokus liegt auf Lesbarkeit, nicht auf Inspektion.`, payloadText: '1 PAX (Denkmalpflege)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' },
+            { t: `Heimatforschung: ${n}`, i: '🏺', cat: 'poi', s: `Rund um ${n} soll die Entwicklung von Bebauung, Markt- oder Kirchenlage, Talbezug und Verkehrswegen anschaulich aus der Luft erzählt werden.`, payloadText: '1 PAX (Heimatforscherin)', cargoText: 'Notizen und Karten (8 lbs)' },
+            { t: `Stadtchronik aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Ein Stadtchronist verbindet ${n} mit sichtbaren Spuren von Siedlung, Verkehr, Wasserbau oder Burg-/Schlossbezug. Ruhige Sichtachsen tragen die Erzählung.`, payloadText: '1 PAX (Stadtchronist)', cargoText: 'Archivmappe (11 lbs)' }
         ],
         science_bio: [
             { t: `Umweltbeobachtung: ${n}`, i: '🧪', cat: 'poi', s: `Bei ${n} wird ein biologischer Beobachtungsflug durchgeführt. Fokus auf Vegetation, Gewässerrand und mögliche Stressindikatoren.`, payloadText: '1 PAX (Biologe)', cargoText: 'Umweltsensorik und Kamera (18 lbs)' },
@@ -10694,7 +10778,7 @@ function _profileStoryCue(profile, isPOI = false) {
     if (!profile || profile.id === 'auto') return '';
     if (profile.id === 'news_coverage') {
         return isPOI
-            ? 'Nüchterne Beobachtung und klare Lageeinschätzung aus der Luft.'
+            ? 'Sachlicher Reporterflug mit konkretem sichtbarem Anlass am POI: Festbetrieb, Besucherandrang, Verkehr, Baustelle oder Ortsbild-Veränderung.'
             : '';
     }
     if (profile.id === 'sightseeing_tour') {
@@ -10709,7 +10793,7 @@ function _profileStoryCue(profile, isPOI = false) {
     }
     if (profile.id === 'historian_guided_tour') {
         return isPOI
-            ? 'Am Ziel geht es um historische Einordnung und lokale Geschichte aus der Luft.'
+            ? 'Am Ziel geht es um historische Ortslesart aus der Luft: Ortskern, alte Wege, Siedlungsform, Kirchen-/Marktplatzlage oder Tal-/Hanglage.'
             : 'Der Flug dient der historischen Einordnung des Zielorts mit ruhigem, stabilem Ablauf.';
     }
     return String(profile.storyCue || '').trim();
@@ -10731,6 +10815,10 @@ function _storyAlreadyCoversProfileCue(story, profile) {
             return hasAny(/\bsuch/, /\bsar\b/, /\brettung/, /\blagebild\b/, /\bvermisst/, /\bsignal/);
         case 'inspection_infra':
             return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/);
+        case 'news_coverage':
+            return hasAny(/\breporter/, /\bredaktion/, /\bbericht/, /\bberichterstattung/, /\bauffaenger\b/, /\baufhänger\b/, /\bverkehrslage\b/, /\bbesucher/, /\bfestbetrieb\b/, /\bbaustelle\b/, /\bortsbild\b/, /\blageeinschaetzung\b/, /\blageeinschätzung\b/);
+        case 'media_photo':
+            return hasAny(/\bfoto/, /\bfilm/, /\bkamera/, /\bluftbild/, /\bbildserie\b/, /\bestablishing/, /\baufmacherbild\b/, /\bortsmarketing\b/, /\btourismusbroschuere\b/, /\btourismusbroschüre\b/, /\bjubilaeumsfilm\b/, /\bjubiläumsfilm\b/, /\bgemeindeaufnahme\b/, /\bpr\b/);
         case 'science_geo':
             return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/);
         case 'science_bio':
@@ -10738,7 +10826,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'tour_guide_knowledge':
             return hasAny(/\bfakten\b/, /\beinordnung\b/, /\borientierung\b/, /\bbildung\b/, /\blern/, /\bwissens/, /\bgeschichte\b/);
         case 'historian_guided_tour':
-            return hasAny(/\bhistor/, /\bgeschichte\b/, /\bsiedlungsgeschichte\b/, /\bdorfgeschichte\b/, /\bzeitgeschichte\b/, /\bkulturgeschichte\b/, /\beinordnung\b/, /\barchiv/, /\bkarten\b/);
+            return hasAny(/\bhistor/, /\bgeschichte\b/, /\bsiedlungsgeschichte\b/, /\bdorfgeschichte\b/, /\bzeitgeschichte\b/, /\bkulturgeschichte\b/, /\beinordnung\b/, /\barchiv/, /\bkarten\b/, /\bchronik/, /\bdenkmal/, /\bortsbild\b/, /\bortskern\b/, /\bsiedlungsform\b/, /\bkirchenlage\b/, /\bmarktplatzlage\b/, /\btallage\b/, /\bhanglage\b/);
         case 'sightseeing_tour':
             return hasAny(/\bausflug\b/, /\bblick\b/, /\baussicht\b/, /\bfoto/, /\berinnerung/, /\bpanorama/, /\brundflug/, /\bgast\b/, /\bgaeste\b/, /\bgäste\b/, /\bentspannt/);
         default:
@@ -10755,10 +10843,10 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL REPORTER A-B: Dies ist ein reiner Transport zum Zielflugplatz. KEIN Arbeitsauftrag in der Luft am Ziel, KEIN Kreisen, KEIN Verweilen/Überflug als Missionsziel. Die eigentliche Berichterstattung findet nach der Landung am Boden statt.';
     }
     if (profile.id === 'news_coverage' && isPOI) {
-        return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachlich, keine Touri-Rhetorik.';
+        return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachliche Berichterstattung. Gib einen konkreten sichtbaren Anlass, z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung, neue Nutzung oder sichtbare Veraenderung. Bei POI-City keine "O-Toene sammeln"-Story und keine APT-/Bodenreporter-Transferlogik. Keine Touri-Rhetorik, keine Einsatzdramatisierung, keine technische Inspektion.';
     }
     if (profile.id === 'historian_guided_tour' && isPOI) {
-        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
+        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischer Ortslesart. Nutze Rollen wie Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist. Bei City/Castle eignen sich Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Bauachsen oder fruehere Nutzung als Erzaehlanker. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag, keine allgemeine Sightseeing-Tour.';
     }
     if (profile.id === 'sightseeing_tour' && isPOI) {
         return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Keine Landung am POI andeuten. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
@@ -10770,7 +10858,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, nie Ersatz-Ziel. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'media_photo' && isPOI) {
-        return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag sind verwertbare Foto-/Filmaufnahmen fuer Firma, Betreiber, Redaktion, Dokumentation oder PR. Bei Brücken/Viadukten sind Betreiberfotos, Denkmalschutz-Doku, Bahnviadukt-Establishing-Shots oder Bauwerksdokumentation passende Motive. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
+        return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag ist eine verwertbare Bildserie mit erkennbarem Zweck und Auftraggeber: Tourismusbroschuere, Ortsmarketing, Gemeindeaufnahme, Immobilien-/Projektbild, Jubiläumsfilm, Redaktion, Betreiber, Dokumentation oder PR. Bei City geht es um Ortsbild, Lage, Wiedererkennungswert und Establishing Shots; bei Castle um Denkmal-/Burgmotiv und Umfeld. Nicht in Sightseeing kippen: keine persoenliche Ausflugserzaehlung, keine "Aussicht geniessen"-Sprache. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
     }
     return '';
 }
@@ -11359,7 +11447,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/(^|[^a-zäöüß])(animal|tier|tiertransport|tierrettung|tierarzt|hund|hunderettung|welpen|katze|ziege|reh|hirsch|möwe|moewe|gans|ente|enten|schwan|pferd|wildvogel|auffangstation|horse vet)(?=$|[^a-zäöüß])/);
     }
     if (id === 'news_coverage') {
-        if (isPOI) return has(/report|medien|kamera|dreh|event|lage|dokument|live|beobacht/);
+        if (isPOI) return has(/report|redaktion|medien|kamera|dreh|event|fest|besucher|verkehr|stau|baustell|lage|aufhaenger|aufhänger|dokument|live|beobacht|ortsbild|veraender|veränder/);
         return has(/report|medien|kamera|dreh|event|verkehr|stau|city|festival|skydiver/);
     }
     if (id === 'sightseeing_tour') {
@@ -11373,7 +11461,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return positive && !negative;
     }
     if (id === 'historian_guided_tour') {
-        const positive = has(/histor|geschichte|zeitreise|denkmal|kultur|stadtfuehr|stadtfuehrung|schloss|burg|turm|fluss|tal|berg/);
+        const positive = has(/histor|geschichte|zeitreise|denkmal|kultur|stadtfuehr|stadtfuehrung|stadtchron|ortschron|heimatforsch|ortsarchiv|archiv|ortskern|ortsbild|siedlungsform|alte wege|verkehrsweg|kirchenlage|marktplatzlage|tal|hang|schloss|burg|turm|fluss|berg/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
@@ -11394,7 +11482,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse/);
     }
     if (id === 'media_photo') {
-        const positive = has(/foto|film|kamera|luftbild|aufnahmen|shots|dreh|pr|medien|jahresbericht|firmen|doku/);
+        const positive = has(/foto|film|kamera|luftbild|aufnahmen|bildserie|shots|establishing|dreh|pr|medien|redaktion|aufmacher|tourismus|ortsmarketing|gemeinde|jubilaeum|jubiläum|immobilien|jahresbericht|firmen|doku/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
@@ -15451,13 +15539,25 @@ const MISSION_SEMANTICS_V4_RULESET = {
                 'Survey-Kontext bleibt untergeordnet; das Ziel bleibt visuell dominant.'
             ]
         },
+        media_photo: {
+            planner: [
+                'Der Auftrag bleibt Foto-/Filmproduktion mit verwertbarer Bildserie.',
+                'Auftraggeber und Verwendungszweck konkretisieren die Story, duerfen aber nicht in Sightseeing, Inspektion oder Einsatz kippen.'
+            ],
+            writer: [
+                'Briefing benennt Zweck und Bildsprache: Ortsmarketing, Tourismusbroschuere, Gemeindeaufnahme, Jubiläumsfilm, Redaktion, Betreiber oder PR.',
+                'Keine persoenliche Ausflugssprache und keine technische Diagnose.'
+            ]
+        },
         news_coverage: {
             planner: [
                 'Der Auftrag bleibt Beobachtung und Einordnung.',
-                'Kontext kann den Anlass konkretisieren, aber nicht in Inspektion oder Einsatz kippen.'
+                'Kontext kann den Anlass konkretisieren, aber nicht in Inspektion oder Einsatz kippen.',
+                'Bei POI-City bevorzugt konkrete sichtbare Anlaesse: lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung.'
             ],
             writer: [
-                'Infrastruktur, Verkehr oder Besucher duerfen nur die Berichterstattung kontextualisieren.'
+                'Infrastruktur, Verkehr oder Besucher duerfen nur die Berichterstattung kontextualisieren.',
+                'Keine O-Ton-Sammelstory fuer POI-City; der Luftblick liefert den beobachtbaren redaktionellen Aufhaenger.'
             ]
         },
         poi_learning_guide: {
@@ -15473,10 +15573,12 @@ const MISSION_SEMANTICS_V4_RULESET = {
         historian_guided_tour: {
             planner: [
                 'Historische Einordnung bleibt Hauptzweck.',
-                'Bestaetigte Bauwerke oder Wege stuetzen nur den historischen Kontext.'
+                'Bestaetigte Bauwerke oder Wege stuetzen nur den historischen Kontext.',
+                'Bei City/Castle koennen Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage oder fruehere Nutzung den historischen Blick tragen.'
             ],
             writer: [
-                'Keine operative Luftarbeit aus dem historischen Kontext ableiten.'
+                'Keine operative Luftarbeit aus dem historischen Kontext ableiten.',
+                'Rollen und Ton bleiben historisch-bildend: Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist statt generischer Historikerfloskel.'
             ],
             forceSceneNone: true
         },
@@ -16625,15 +16727,60 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             soughtOutcome: 'Wir sollen eine Serie liefern, die ohne Nachflug in Auswertung oder Planung uebernommen werden kann.'
         };
     }
-    if (taskDomain === 'news_coverage') {
+    if (taskDomain === 'media_photo') {
+        const mediaPurpose = _missionPipelineV4PickOne(
+            category === 'city'
+                ? [
+                    'eine Tourismusbroschuere oder Gemeindeseite, die Ortsbild und Lage klar zeigen soll',
+                    'einen Jubiläums- oder Ortsmarketingfilm mit ruhigen Establishing Shots',
+                    'ein redaktionelles Aufmacherbild, das Ort und Umgebung sauber setzt'
+                ]
+                : category === 'castle'
+                    ? [
+                        'eine Denkmalschutz- oder Tourismusserie, die Bauwerk und Landschaft zusammen zeigt',
+                        'einen kurzen Kulturfilm mit klaren Establishing Shots von Bauwerk, Lage und Umfeld',
+                        'aktuelles Bildmaterial fuer Webseite, Bericht oder Besucherinformation'
+                    ]
+                    : [
+                        'eine verwertbare Bildserie fuer Redaktion, Betreiber, Dokumentation oder PR',
+                        'ruhige Establishing Shots, die Zielobjekt und direkte Umgebung klar einordnen',
+                        'aktuelles Bildmaterial fuer Bericht, Webseite oder Projektkommunikation'
+                    ]
+        );
         return {
-            trigger: `Die Redaktion braucht zu ${targetLabel} noch heute einen klaren Luftaufhaenger statt nur allgemeiner Archivbilder.`,
+            trigger: `Fuer ${targetLabel} wird heute Bildmaterial gebraucht, das mehr leistet als ein beliebiger Schnappschuss.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche Perspektive ${targetLabel} so zeigt, dass Ziel, Lage und Wiedererkennungswert in einer verwertbaren Bildserie zusammenkommen.`,
+            stakes: 'Ohne brauchbare Luftbilder fehlt dem Beitrag, der Gemeinde oder dem Auftraggeber ein klares Einstiegsmotiv.',
+            completionSignal: 'Nach dem Ueberflug gehen Foto-/Filmsequenzen als sortierbares Rohmaterial an Redaktion, Gemeinde oder Auftraggeber.',
+            subjectDetail: mediaPurpose,
+            incidentContext: `Der Flug soll ${targetLabel} als Bildmotiv klar setzen: nicht touristisch ausschwaermen, sondern ruhige Motive mit erkennbarem Zweck liefern.`,
+            whyNow: 'Der heutige Sicht- und Zeit-Slot reicht fuer eine kurze, stabile Serie, bevor das Material weiterverarbeitet wird.',
+            soughtOutcome: 'Wir sollen eine kleine Auswahl sauberer Perspektiven liefern, die ohne Nachflug als Aufmacher, Broschuerenbild oder Establishing Shot taugt.'
+        };
+    }
+    if (taskDomain === 'news_coverage') {
+        const newsAngle = _missionPipelineV4PickOne(
+            category === 'city'
+                ? [
+                    'ein lokales Fest oder Besucherandrang im Ortskern',
+                    'eine geaenderte Verkehrslage, Sperrung oder Baustelle im Ortskern',
+                    'eine sichtbare Veraenderung im Ortsbild, die die Lokalredaktion aktuell einordnet'
+                ]
+                : [
+                    'ein beobachtbarer aktueller Anlass am Ziel',
+                    'Besucher, Verkehr, Baustelle, Betrieb oder sichtbare Veraenderung rund um das Ziel',
+                    'ein redaktioneller Aufhaenger, der aus der Luft besser einzuordnen ist als vom Boden'
+                ]
+        );
+        return {
+            trigger: `Die Redaktion braucht zu ${targetLabel} noch heute einen klaren Luftaufhaenger: ${newsAngle}.`,
             focusSubject: targetLabel,
             keyQuestion: `Welcher beobachtbare Kern von ${targetLabel} die Geschichte heute wirklich traegt und was davon aus der Luft sauber belegbar ist.`,
             stakes: 'Ohne verwertbares Luftbild fehlt der Redaktion die belastbare Einordnung fuer Bericht oder Live-Schalte.',
             completionSignal: 'Nach dem Ueberflug gehen Bilder und kurze Lageeinschaetzung direkt an die Redaktion.',
             subjectDetail: `${targetLabel} als aktueller Aufhaenger der Geschichte`,
-            incidentContext: `Gesucht wird kein Archivmotiv, sondern ein aktueller, heute beobachtbarer Kern rund um ${targetLabel}.`,
+            incidentContext: `Gesucht wird kein Archivmotiv und keine O-Ton-Sammelrunde, sondern ein heute beobachtbarer Kern rund um ${targetLabel}: ${newsAngle}.`,
             whyNow: 'Die Redaktion braucht noch waehrend des Slots einen belastbaren visuellen Aufhaenger fuer Bericht oder Schalte.',
             soughtOutcome: 'Wir sollen ein Bild und eine kurze Einordnung liefern, die die Geschichte heute konkret tragen.'
         };
@@ -16656,18 +16803,33 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'historian_guided_tour') {
+        const historicalAngle = _missionPipelineV4PickOne(
+            category === 'city'
+                ? [
+                    'Ortskern, Siedlungsform, alte Verkehrswege und die Lage von Kirche oder Marktplatz',
+                    'die Beziehung zwischen Bebauung, Tal- oder Hanglage und frueheren Wegen',
+                    'sichtbare Spuren der Ortsentwicklung vom Kern zu den heutigen Raendern'
+                ]
+                : category === 'castle'
+                    ? [
+                        'Burg- oder Schlosslage, Zugang, Sichtbezug und Einbindung ins Gelaende',
+                        'Bauwerk, Vorfeld, Hang- oder Tallage und die historische Kontrolle von Wegen',
+                        'Denkmalgestalt, alte Achsen und heutige Landschaft als gemeinsame Lesart'
+                    ]
+                    : [
+                        'eine historische Nutzung, die aus Lage, Wegen oder Bauform besser lesbar wird',
+                        'eine kleine Geschichtsspur im heutigen Landschaftsbild',
+                        'den Zusammenhang zwischen Ziel, Umgebung und frueherer Nutzung'
+                    ]
+        );
         return {
             trigger: `Zu ${targetLabel} soll die heutige Landschaft mit einer konkreten historischen Lesart verbunden werden.`,
             focusSubject: targetLabel,
             keyQuestion: `Welche historische Bedeutung oder Nutzung von ${targetLabel} sich aus Luftsicht anschaulich erklaeren laesst.`,
             stakes: 'Ohne Einordnung bleibt der Ort nur Kulisse statt nachvollziehbarer Geschichte.',
             completionSignal: 'Nach dem Ueberflug steht ein kurzer historischer Takeaway fuer den weiteren Flug bereit.',
-            subjectDetail: _missionPipelineV4PickOne([
-                'einen historischen Zusammenhang, der aus der Luft besser lesbar ist als vom Boden',
-                'eine kleine Geschichtsspur im heutigen Landschaftsbild',
-                'einen Ort, dessen fruehere Nutzung sich durch Blick und Lage erklaeren laesst'
-            ]),
-            incidentContext: `Der Flug soll bei ${targetLabel} nicht nur ein Motiv zeigen, sondern die heutige Ansicht mit einer belastbaren historischen Einordnung verbinden.`,
+            subjectDetail: historicalAngle,
+            incidentContext: `Der Flug soll bei ${targetLabel} nicht nur ein Motiv zeigen, sondern ${historicalAngle} aus der Luft historisch lesbar machen.`,
             whyNow: 'Gerade der Blick aus der Luft liefert die Geometrie und Umgebung, die fuer die historische Erklaerung gebraucht wird.',
             soughtOutcome: 'Wir sollen eine kurze, anschauliche historische Lesart liefern, die den weiteren Flug inhaltlich traegt.'
         };
@@ -18127,7 +18289,9 @@ Regeln:
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
-18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
+18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
+18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
+18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
@@ -18767,12 +18931,28 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
             `${sought || 'Wir sollen eine klare Erstbewertung fuer Betreiber und Technikteam liefern.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'media_photo') {
+        return [
+            String(frame.trigger || `Fuer ${targetName} wird heute eine verwertbare Luftbildserie gebraucht.`).trim(),
+            incident || `${detail} gibt der Serie den konkreten Zweck und verhindert, dass daraus nur ein beliebiger Rundflug wird.`,
+            `${whyNow || 'Der heutige Slot soll stabile Perspektiven liefern, die direkt in Redaktion, Broschuere, Film oder Projektkommunikation weiterverwendet werden koennen.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen ruhige Motive liefern, die Ziel, Lage und Wiedererkennungswert klar zeigen.'} ${completion}`.trim()
+        ].join(' ');
+    }
     if (taskDomain === 'news_coverage') {
         return [
             String(frame.trigger || `Die Redaktion braucht zu ${targetName} heute einen klaren Aufhaenger aus der Luft.`).trim(),
             incident || `${detail} steht dabei als beobachtbarer Kern der Geschichte im Mittelpunkt.`,
             `${whyNow || 'Die Bilder und Eindruecke werden noch im aktuellen Slot fuer Bericht oder Schalte gebraucht.'}${weatherSentence}`.trim(),
             `${sought || 'Wir sollen ein belastbares Bild und eine kurze Einordnung liefern, damit die Redaktion nicht auf Archivmaterial ausweichen muss.'} ${completion}`.trim()
+        ].join(' ');
+    }
+    if (taskDomain === 'historian_guided_tour') {
+        return [
+            String(frame.trigger || `Zu ${targetName} soll heute eine historische Ortslesart aus der Luft entstehen.`).trim(),
+            incident || `${detail} bildet den historischen Erzaehlanker fuer den ruhigen Ueberflug.`,
+            `${whyNow || 'Der Luftblick macht Lage, Wege, Ortskern oder Bauwerk in ihrem Zusammenhang besser lesbar.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen eine kurze historische Einordnung liefern, die nach dem Ueberflug wirklich haengen bleibt.'} ${completion}`.trim()
         ].join(' ');
     }
     if (taskDomain === 'sightseeing_tour') {
@@ -19040,6 +19220,12 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     if (taskDomain === 'news_coverage') {
         return `${opener}, ich brauche heute zu ${targetName} einen klaren Aufhaenger aus der Luft, damit ${outcome ? outcome.toLowerCase() : 'die Redaktion etwas Belastbares bekommt'}.`;
     }
+    if (taskDomain === 'media_photo') {
+        return `${opener}, ich brauche heute zu ${targetName} eine verwertbare Bildserie, damit ${outcome ? outcome.toLowerCase() : 'Auftraggeber oder Redaktion ein klares Einstiegsmotiv bekommen'}.`;
+    }
+    if (taskDomain === 'historian_guided_tour') {
+        return `${opener}, ich ordne heute ${targetName} historisch ein; bitte ruhig fliegen, damit ${outcome ? outcome.toLowerCase() : 'Ort, Wege und Landschaft zusammen lesbar werden'}.`;
+    }
     if (taskDomain === 'sightseeing_tour') {
         return `${opener}, heute geht es nur um den Blick auf ${targetName}; bitte ruhig und weich, damit wir Aussicht und ein paar Erinnerungsfotos geniessen koennen.`;
     }
@@ -19260,10 +19446,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Nutztier- oder Zoo-/Auffangstations-Transfer mit leicht humorvollem, aber glaubhaftem Ton'
         ],
         news_coverage: isPOI ? [
-            'Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung',
-            'Medienflug fuer ein kurzes aktuelles Luftlagebild am POI',
-            'Lokale Redaktion dokumentiert Verkehr, Besucherandrang oder sichtbare Veraenderungen am Ziel',
-            'TV-Team sammelt neutrale Establishing Shots, ohne Tourismus- oder Einsatzsprache'
+            'Reporter-/Medieneinsatz mit konkretem sichtbarem Anlass am POI',
+            'Lokale Redaktion ordnet Festbetrieb, Besucherandrang, Verkehrslage oder Baustelle aus der Luft ein',
+            'Redaktioneller Luftaufhaenger zu einer sichtbaren Veraenderung im Ortsbild',
+            'TV-Team sammelt sachliche Establishing Shots fuer Bericht oder Schalte, ohne Tourismus- oder Einsatzsprache'
         ] : [
             'Reporter-Shuttle zum Zielflugplatz fuer eine sachliche Berichterstattung am Boden',
             'Medien-Transfer mit Kamera- und Audioausruestung, ohne Luftarbeitsauftrag am Ziel',
@@ -19288,12 +19474,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Bush-Recon mit Fokus auf Betriebsflaechen, Drainage, lose Gegenstaende und abgestellte Fahrzeuge'
         ],
         media_photo: [
-            'Professionelle Foto-/Filmaufnahmen fuer Betreiber, Firma oder Dokumentation',
-            'Luftbildserie mit ruhigen Establishing Shots von Zielobjekt und Umgebung',
-            'PR- oder Jahresbericht-Aufnahmen mit klaren Perspektiven auf das Objekt',
-            'Dokufilm-Shots mit stabilen Boegen, ohne technischen Inspektionsauftrag',
-            'Denkmalschutz- oder Betreiberfotos von Bruecke, Viadukt und Umfeld',
-            'Bahnviadukt-Establishing-Shots mit klarer Trennung von Bauwerk und Zufahrt'
+            'Bildserie fuer Tourismusbroschuere, Ortsmarketing oder Gemeindeseite mit klarem Wiedererkennungswert',
+            'Jubiläumsfilm oder Ortsfilm mit ruhigen Establishing Shots von Zielobjekt und Umgebung',
+            'Redaktionelles Aufmacherbild mit klarer Perspektive auf Ort, Objekt und Lage',
+            'Immobilien-, Projekt- oder Gemeindeaufnahme ohne Sightseeing-Ton',
+            'Denkmalschutz- oder Betreiberfotos von Bauwerk, Burg, Bruecke, Viadukt und Umfeld',
+            'Dokufilm-Shots mit stabilen Boegen, ohne technischen Inspektionsauftrag'
         ],
         sightseeing_tour: isPOI ? [
             'Entspannter Ausflugs- und Sightseeingflug',
@@ -19306,10 +19492,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Ruhiger A-B-Ausflug zum Zielflugplatz mit entspanntem Aufenthalt'
         ],
         historian_guided_tour: [
-            'Historiker-Rundflug mit Bildungsauftrag: historische Fakten, lokale Anekdoten und zeitliche Einordnung am POI',
-            'Kulturhistorische Einordnung des POI aus der Luft, ohne technischen Inspektionsauftrag',
-            'Vergleich historischer Nutzung und heutiger Landschaftsstruktur am Ziel',
-            'Ruhiger Erzaehlflug zu Denkmal, Altstadt, Gewaesser- oder Infrastrukturgeschichte'
+            'Ortsarchivarin ordnet Ortskern, Siedlungsform, alte Wege und Kirchen-/Marktplatzlage aus der Luft ein',
+            'Denkmalpfleger erklaert Bauwerk, Ortsbild, Burg-/Schlosslage oder historische Achsen, ohne Inspektionsauftrag',
+            'Heimatforscherin verbindet fruehere Nutzung mit heutiger Tal-, Hang- oder Verkehrswegelage',
+            'Stadtchronist zeigt sichtbare Spuren von Ortsentwicklung, Denkmal, Altstadt, Gewaesser- oder Infrastrukturgeschichte'
         ],
         science_bio: [
             'Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation',

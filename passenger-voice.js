@@ -1761,6 +1761,16 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
         return ' Drift-Guard (News): Nuechtern und beobachtend, faktenbasiert. Keine Sightseeing-Sprache, keine Fachinspektion, keine Rollenmischung mit SAR/Fire.';
     }
+    if (td === 'media_photo') {
+        if (m === 'result') return ' Drift-Guard (Foto/Film): Abschluss ueber verwertbares Bildmaterial, Motive und Weitergabe an Redaktion/Gemeinde/Auftraggeber. Kein Sightseeing-Fazit, keine technische Befundsprache.';
+        if (m === 'progress') return ' Drift-Guard (Foto/Film): Nur Bildserie, Motiv, Perspektive, Licht, Ortsbezug und Wiedererkennungswert. Keine Aussicht-geniessen-Sprache, keine Inspektion.';
+        return ' Drift-Guard (Foto/Film): Bildredaktionell und zweckbezogen. Keine persoenliche Ausflugserzaehlung, keine Einsatz- oder Inspektionssprache.';
+    }
+    if (td === 'historian_guided_tour') {
+        if (m === 'result') return ' Drift-Guard (Historiker): Abschluss als historische Ortslesart mit kurzem Takeaway und Rueckflughinweis. Kein Sightseeing-Fazit, keine technische Befundsprache.';
+        if (m === 'progress') return ' Drift-Guard (Historiker): Nur historische Einordnung, Ortsbild, alte Wege, Lagebezug oder fruehere Nutzung. Keine Foto-, Einsatz- oder Inspektionssprache.';
+        return ' Drift-Guard (Historiker): Historisch-bildend und anschaulich. Keine Sightseeing-Formel, keine Arbeitsanweisung, keine technische Bewertung.';
+    }
     return '';
 }
 
@@ -4917,8 +4927,11 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
     }
+    if (taskDomain === 'media_photo') {
+        return 'bildredaktionell und ruhig: Motiv, Perspektive, Ortsbezug und verwertbares Material stehen im Vordergrund, kein Sightseeing-Ton.';
+    }
     if (taskDomain === 'historian_guided_tour') {
-        return 'anschaulich-historisch und bildungsorientiert: kurze, konkrete Einordnung mit Zeitbezug, keine Technik-Inspektion.';
+        return 'anschaulich-historisch und bildungsorientiert: Ortsbild, alte Wege, Lagebezug oder fruehere Nutzung konkret einordnen, keine Technik-Inspektion.';
     }
     if (taskDomain === 'poi_learning_guide') {
         return 'locker-bildend und faktenorientiert: kurze Orientierung, klare Einordnung, kein Anweisungsstil.';
@@ -5307,6 +5320,7 @@ function _poiSatisfiedPrompt(flightData) {
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
+    const isMediaPhoto = taskDomain === 'media_photo';
     const reconOutcomeActive = _activeBushReconOutcome();
     const inspResultHint = reconOutcomeActive ? '' : _inspectionResultHint();
     const bushReconResultHint = _bushReconOutcomeHintLine('result');
@@ -5323,6 +5337,9 @@ function _poiSatisfiedPrompt(flightData) {
     const sightseeingResultHint = isSightseeing
         ? ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
         : '';
+    const mediaResultHint = isMediaPhoto
+        ? ' Foto/Film-Fazit: Schließe mit einem kurzen Satz, welche Art Material im Kasten ist (Aufmacherbild, Bildserie, Establishing Shots oder Ortsmotiv) und wohin es danach geht. Nicht wie Sightseeing klingen.'
+        : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
@@ -5332,14 +5349,22 @@ function _poiSatisfiedPrompt(flightData) {
     const noRepeatHint = _poiNoRepeatHint('result');
     const momentLine = isSightseeing
         ? `Moment: Die ruhige Sightseeing-Runde am Ziel hat nach ${dwell} Minuten ihren Blickmoment gehabt.${wx ? ' ' + wx : ''}`
-        : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`;
+        : (isHistorian
+            ? `Moment: Die historische Runde am Ziel ist nach ${dwell} Minuten gut eingeordnet.${wx ? ' ' + wx : ''}`
+            : (isMediaPhoto
+                ? `Moment: Die Foto-/Filmserie am Ziel ist nach ${dwell} Minuten im Kasten.${wx ? ' ' + wx : ''}`
+                : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`));
     const requestLine = isSightseeing
         ? 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.'
-        : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.';
+        : (isHistorian
+            ? 'Sag dem Piloten kurz, welcher historische Takeaway bleibt und dass wir ruhig zurueckfliegen koennen.'
+            : (isMediaPhoto
+                ? 'Sag dem Piloten kurz, dass das Material verwertbar ist und wir zurueckfliegen koennen.'
+                : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.'));
     return `${ctx}
 
 ${momentLine}
-${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
+${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${mediaResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
