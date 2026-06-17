@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v274';
-const TRACKER_VERSION_CODE = 274;
+const TRACKER_VERSION = 'v275';
+const TRACKER_VERSION_CODE = 275;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -771,7 +771,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     // PA24 door state is explicit via LVars. Do not send latch toggle/input
     // events here: they can flip an already-correct state back again.
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
-      writeOpenPosition: !openDoor,
+      writeOpenPosition: false,
       writeLatch: true,
       handleOpenValue: 0,
       handleCloseValue: 1,
@@ -800,6 +800,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     }
     trackerLog(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
+    const isComancheProfile = (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche');
+    if (isComancheProfile) {
+      const idx = clampInt(doorIndex, 1, 4);
+      const pa24Ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
+      doorLastApplyOk = pa24Ok;
+      if (pa24Ok) {
+        doorLastAppliedState = !!openDoor;
+        doorLastAppliedAt = Date.now();
+      }
+      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=${pa24Ok ? 'ok' : 'error'} specificOk=${pa24Ok ? 1 : 0} genericOk=0 reason=${reason}`);
+      return pa24Ok;
+    }
     const tryIndices = [...new Set([
       clampInt(doorIndex, 0, 8),
       1,
@@ -809,19 +821,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     let anySpecificOk = false;
     let anyGenericOk = false;
     for (const idx of tryIndices) {
-      const isComancheProfile = (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche');
       const isA2aProfile = profile.includes('a2a');
-      if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
-        const pa24Ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
-        anySpecificOk = anySpecificOk || pa24Ok;
-      }
       if (profile.includes('a2a')) {
         const lvarOk = await setA2aDoorByLVars(openDoor, idx, `${reason}-idx-${idx}`, profile);
         anySpecificOk = anySpecificOk || lvarOk;
       }
-      // For A2A/Comanche, generic door events can fight with custom LVar/event logic.
+      // For A2A, generic door events can fight with custom LVar/event logic.
       // Use generic path only as fallback when specific handling did not succeed.
-      if ((isComancheProfile || isA2aProfile) && anySpecificOk) {
+      if (isA2aProfile && anySpecificOk) {
         break;
       }
       // Default aircraft path: apply both SimVar set and key events to increase compatibility.

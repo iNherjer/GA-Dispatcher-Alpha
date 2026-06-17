@@ -5,7 +5,7 @@ This note documents the current A2A PA24 / Comanche door behavior in
 custom LVars with non-generic polarity, and generic door-position writes can
 make the visual door appear inverted.
 
-Last checked against tracker `v274`.
+Last checked against tracker `v275`.
 
 ## Entry Points
 
@@ -75,7 +75,7 @@ For PA24 close, the current LVar fallback is:
 
 ```js
 setA2aDoorByLVars(false, doorIndex, reason, 'pa24_comanche', {
-  writeOpenPosition: true,
+  writeOpenPosition: false,
   writeLatch: true,
   handleOpenValue: 0,
   handleCloseValue: 1,
@@ -87,12 +87,10 @@ setA2aDoorByLVars(false, doorIndex, reason, 'pa24_comanche', {
 Observed/expected effects:
 
 - Close handle: `Door1Handle = 1`
-- Close generic position vars: `DoorOpen* = 0`, `CabinDoorOpen* = 0`,
-  `ExitOpen* = 0`
 - Lock latch: `Door1Latch = 1`
 
-Close may write the position vars to zero. The problematic case was writing
-position vars to open while opening.
+Close does not write generic position vars either. For PA24, automatic door
+control is intentionally limited to the explicit latch and handle LVars.
 
 ## Open Hold
 
@@ -160,6 +158,8 @@ the automatic path is no longer the documented safe path.
   The generic defaults are not the documented PA24-safe values.
 - Do not let generic door events run after a PA24-specific path succeeded.
   They can fight the custom LVar/event logic.
+- Do not fall back to standard aircraft door events for `pa24_comanche`, even
+  if an LVar write reports failure.
 - Do not send PA24 latch toggle/client events during automatic boarding,
   deboarding, or manual passenger load/unload. Explicit LVars are the source of
   truth.
@@ -190,10 +190,8 @@ Current implementation close signature:
 
 ```text
 DOOR_PA24_CLOSE_START ...
-A2A_DOOR_LVAR_CLOSE_START profile=pa24_comanche ... writeOpenPosition=1 writeLatch=1 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
+A2A_DOOR_LVAR_CLOSE_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=1 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
 A2A_VAR_SET name=L:Door1Handle ... value=1 ... handle-close
-A2A_VAR_SET name=L:DoorOpen1 ... value=0 ... openvar-0
-A2A_VAR_SET name=L:Exit1Open ... value=0 ... exit-close
 A2A_VAR_SET name=L:Door1Latch ... value=1 ... latch-lock
 DOOR_PA24_CLOSE_DONE ... inputLatchOk=0 eventOk=0 lvarOk=1 ...
 ```
