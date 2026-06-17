@@ -3833,7 +3833,7 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'v3'))).toUpperCase();
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
-        const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || window.gaMissionPipelineV2Last || null;
+        const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || (missionSnap.restored ? null : window.gaMissionPipelineV2Last) || null;
         if (planV2 && typeof planV2 === 'object') {
             const p2 = planV2.plan || {};
             const needTypes = Array.isArray(planV2.needs) ? planV2.needs.map(n => n.type || '?').join(',') : '-';

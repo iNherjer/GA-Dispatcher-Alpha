@@ -3971,6 +3971,102 @@ function attachMissionStorageIdentity(target = null, md = null) {
 }
 window.attachMissionStorageIdentity = attachMissionStorageIdentity;
 
+function clearMissionDebugSnapshot(reason = 'mission-debug-clear') {
+    window.vpMissionDebugSnapshot = null;
+    try { localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
+    try { console.debug('[MISSION SNAPSHOT] cleared:', reason); } catch (_) {}
+}
+window.clearMissionDebugSnapshot = clearMissionDebugSnapshot;
+
+function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) {
+    const md = (state?.currentMissionData && typeof state.currentMissionData === 'object')
+        ? state.currentMissionData
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') ? currentMissionData : null);
+    if (!md || !Object.keys(md).length) {
+        clearMissionDebugSnapshot(options.reason || 'restore-empty');
+        return null;
+    }
+    const contract = (state?.activeMissionContract && typeof state.activeMissionContract === 'object')
+        ? state.activeMissionContract
+        : ((md.missionContract && typeof md.missionContract === 'object')
+            ? md.missionContract
+            : ((window.activeMissionContract && typeof window.activeMissionContract === 'object') ? window.activeMissionContract : null));
+    const passenger = (window.activePassenger && typeof window.activePassenger === 'object')
+        ? window.activePassenger
+        : ((state?.activePassenger && typeof state.activePassenger === 'object')
+            ? state.activePassenger
+            : (md.passenger || contract?.passenger || contract?.missionPassenger || null));
+    const isPOI = !!(state?.isPOI || md.isPOI || md.poiName || missionUsesPoiPresentation(md));
+    const isBush = !!(md.bush || contract?.bush || String(md.missionType || contract?.missionType || '').toLowerCase() === 'bush');
+    const targetCoords = (Number.isFinite(Number(md.targetLat)) && Number.isFinite(Number(md.targetLon ?? md.targetLng)))
+        ? `${Number(md.targetLat).toFixed(5)}, ${Number(md.targetLon ?? md.targetLng).toFixed(5)}`
+        : null;
+    const p = passenger && typeof passenger === 'object' ? passenger : {};
+    const snapshot = {
+        ts: Date.now(),
+        restored: true,
+        restoreSource: String(options.source || ''),
+        missionId: md.missionId || contract?.missionId || null,
+        missionKey: md.missionKey || contract?.missionKey || null,
+        mode: isBush ? 'BUSH' : (isPOI ? 'POI' : 'A-B'),
+        category: md.category || contract?.category || md.requestedCategory || 'generic',
+        requestedCategory: md.requestedCategory || contract?.requestedCategory || null,
+        profile: md.requestedProfileId || contract?.requestedProfileId || md.profileId || contract?.profileId || 'auto',
+        appliedProfile: md.appliedProfileId || contract?.appliedProfileId || md.profileId || contract?.profileId || 'auto',
+        mission: missionRestoreFirstText(md.mission, md.missionTitle, md.title, md.t, state?.mTitle) || 'n/a',
+        target: missionRestoreFirstText(md.targetName, md.poiName, md.destinationName, state?.mDestName, currentDName, state?.mDestICAO) || 'n/a',
+        targetCoords,
+        source: missionRestoreFirstText(md._source, md.source, contract?._source, contract?.source, options.source ? `restore:${options.source}` : 'restored mission'),
+        story: missionRestoreFirstText(md.s, md.missionStory, md.story, state?.mStory),
+        contract: contract || null,
+        sceneAccepted: md.sceneAccepted ?? contract?.sceneAccepted ?? null,
+        sceneCompositionStatus: md.sceneCompositionStatus || contract?.sceneCompositionStatus || null,
+        sceneIntent: md.sceneIntent || contract?.sceneIntent || null,
+        targetGeoContext: md.targetGeoContext || contract?.targetGeoContext || null,
+        missionTruth: md.missionTruth || contract?.missionTruth || null,
+        missionPlanV2: md.missionPlanV2 || contract?.missionPlanV2 || null,
+        missionPlanV4: md.missionPlanV4 || contract?.missionPlanV4 || null,
+        missionPlanV3: md.missionPlanV3 || contract?.missionPlanV3 || null,
+        missionPipelineMode: md.missionPipelineMode || contract?.missionPipelineMode || (typeof getMissionPipelineMode === 'function' ? getMissionPipelineMode() : ''),
+        missionVariety: md.missionVariety || contract?.missionVariety || md.missionContractV4?.variety || contract?.missionContractV4?.variety || null,
+        bushReconOutcome: md.bushReconOutcome || contract?.bushReconOutcome || null,
+        dispatchPerf: md.dispatchPerf || null,
+        missionContractV4: md.missionContractV4 || contract?.missionContractV4 || null,
+        aptArrivalPlan: md.aptArrivalPlan || contract?.aptArrivalPlan || null,
+        targetScene: md.targetScene || contract?.targetScene || null,
+        targetSceneDebug: {
+            sceneIntentRaw: md.sceneIntentDebug?.aiRaw || md.targetSceneDebug?.sceneIntentRaw || null,
+            aiRequested: md.targetSceneAiRaw || md.targetSceneDebug?.aiRequested || null,
+            aiNormalized: md.targetSceneAiNormalized || md.targetSceneDebug?.aiNormalized || md.targetScene || contract?.targetScene || null,
+            contractTargetScene: md.targetScene || contract?.targetScene || null
+        },
+        paxText: missionRestoreFirstText(md.paxText, md.initialPaxText, contract?.paxText, state?.mPay),
+        cargoText: missionRestoreFirstText(md.cargoText, contract?.cargoText, md.cargo, state?.mWeight),
+        passenger: {
+            name: p.name || null,
+            role: p.role || null,
+            gender: p.gender || null,
+            roleProfile: p.roleProfile || md.roleProfile || contract?.roleProfile || 'general_passenger_v1',
+            taskDomain: p.taskDomain || md.taskDomain || contract?.taskDomain || 'general',
+            gTolerance: p.gTolerance || 'mittel',
+            bankTolerance: p.bankTolerance || 'mittel',
+            cargoSensitivity: p.cargoSensitivity || 'mittel',
+            stomachSensitivity: p.stomachSensitivity || 'mittel',
+            comfortPriority: p.comfortPriority || 'mittel',
+            urgencyPriority: p.urgencyPriority || 'niedrig',
+            targetAltFt: Number(p.targetAltFt || md.targetAltFt || 0),
+            targetRadiusNm: Number(p.targetRadiusNm || 0),
+            targetDwellMin: Number(p.targetDwellMin || 0)
+        },
+        fireHazard: md.fireHazard || contract?.fireHazard || null
+    };
+    window.vpMissionDebugSnapshot = snapshot;
+    try { localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot)); } catch (_) {}
+    try { console.debug('[MISSION SNAPSHOT] restored:', snapshot); } catch (_) {}
+    return snapshot;
+}
+window.refreshMissionDebugSnapshotFromRestoredState = refreshMissionDebugSnapshotFromRestoredState;
+
 window.missionRestoreValidateLocalPassenger = function(passenger, state = null) {
     const missionState = state || (currentMissionData ? { currentMissionData } : null);
     if (!missionState) return true;
@@ -4953,6 +5049,9 @@ async function restoreMissionState(state, options = {}) {
     const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
     loadMetarWidget(restoredMissionLikePoi ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
+    refreshMissionDebugSnapshotFromRestoredState(state, {
+        source: options.source || (resumeRuntime ? 'startup' : 'restore')
+    });
 
 }
 
@@ -4973,6 +5072,7 @@ function resetApp() {
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;
     localStorage.removeItem('ga_active_mission_contract');
+    clearMissionDebugSnapshot('reset-app');
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';

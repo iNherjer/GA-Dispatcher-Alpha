@@ -9496,7 +9496,23 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
         const localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
         if (_syncMissionStateIsDraft(localMission)) return false;
     } catch (_) {}
+    if (typeof window.missionRuntimeReset === 'function') {
+        try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
+    }
     localStorage.removeItem('ga_active_mission');
+    localStorage.removeItem('ga_active_mission_contract');
+    localStorage.removeItem('ga_active_passenger');
+    try { currentMissionData = null; } catch (_) {}
+    try { routeWaypoints = []; } catch (_) {}
+    try { window._missionRouteWaypoints = null; } catch (_) {}
+    window.activeMissionContract = null;
+    window.activePassenger = null;
+    if (typeof window.clearMissionDebugSnapshot === 'function') {
+        window.clearMissionDebugSnapshot('cloud-load-no-active-mission');
+    } else {
+        window.vpMissionDebugSnapshot = null;
+        try { localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
+    }
     if (briefing) briefing.style.display = "none";
     return false;
 }
