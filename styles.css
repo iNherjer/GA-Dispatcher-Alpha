@@ -2980,6 +2980,10 @@ body.theme-retro .api-fuel-meter .api-scale {
     border-color: color-mix(in srgb, var(--drawer-danger) 44%, transparent);
 }
 
+.cargo-tool-row.is-disabled {
+    opacity: 0.62;
+}
+
 .cargo-tool-main {
     width: 100%;
     min-height: 58px;
@@ -3057,6 +3061,12 @@ body.theme-retro .api-fuel-meter .api-scale {
     gap: 7px;
     flex-wrap: wrap;
     margin-top: 9px;
+}
+
+.cargo-detail-actions .checklist-mini-btn:disabled,
+.cargo-detail-actions .checklist-mini-btn.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .cargo-fail-note {

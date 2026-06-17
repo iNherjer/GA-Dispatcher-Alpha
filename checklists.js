@@ -949,13 +949,31 @@
         }
     }
 
+    function cargoIsPassengerItem(item) {
+        return !!item && String(item.itemType || '').toLowerCase() === 'passenger';
+    }
+
+    function cargoPassengerSceneBusy() {
+        const status = window.missionSceneStatus || {};
+        return !!(
+            status.boardingRequested
+            || status.boardingActive
+            || status.deboardingRequested
+            || status.deboardingActive
+            || status.manualPaxRequested
+            || status.manualPaxActive
+        );
+    }
+
     function cargoDetailHtml(item) {
         const health = Math.max(0, Math.min(100, Math.round(Number(item.healthPct ?? 100))));
         const tone = cargoHealthTone(health);
         const isBoardBook = /bordbuch/i.test(`${item.id || ''} ${item.label || ''} ${item.storyName || ''}`);
+        const isPassenger = cargoIsPassengerItem(item);
+        const passengerBusy = isPassenger && cargoPassengerSceneBusy();
         const airborne = cargoIsAirborne();
-        const canLoad = !airborne && (item.status === 'pending' || item.status === 'unloaded') && typeof window.missionCargoLoadItem === 'function';
-        const canUnload = item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
+        const canLoad = !passengerBusy && !airborne && (item.status === 'pending' || item.status === 'unloaded') && typeof window.missionCargoLoadItem === 'function';
+        const canUnload = !passengerBusy && item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
         const dropMode = canUnload && airborne;
         const expiry = item.expiresAt ? `<div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt)}</b></div>` : '';
         const log = item.log || {};
@@ -968,6 +986,7 @@
         ` : '';
         const actions = `
             <div class="cargo-detail-actions">
+                ${passengerBusy ? '<button class="checklist-mini-btn is-disabled" type="button" disabled aria-disabled="true">... Szene</button>' : ''}
                 ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">${item.status === 'unloaded' ? 'Wieder laden' : 'Laden'}</button>` : ''}
                 ${canUnload ? `<button class="checklist-mini-btn ${dropMode ? 'danger' : 'primary'}" type="button" data-action="cargo-unload" data-item-id="${escapeAttr(item.id)}">${dropMode ? 'Abwerfen' : 'Entladen'}</button>` : ''}
             </div>
@@ -1006,12 +1025,13 @@
         const rows = items.map(item => {
             const expanded = state.cargoExpandedItemId === item.id;
             const health = Math.max(0, Math.min(100, Math.round(Number(item.healthPct ?? 100))));
+            const passengerBusy = cargoIsPassengerItem(item) && cargoPassengerSceneBusy();
             return `
-                <div class="cargo-tool-row ${item.required ? 'is-required' : ''} ${item.status === 'loaded' ? 'is-loaded' : ''} ${item.status === 'dropped' ? 'is-dropped' : ''}">
+                <div class="cargo-tool-row ${item.required ? 'is-required' : ''} ${item.status === 'loaded' ? 'is-loaded' : ''} ${item.status === 'dropped' ? 'is-dropped' : ''} ${passengerBusy ? 'is-disabled' : ''}">
                     <button class="cargo-tool-main" type="button" data-action="cargo-toggle-detail" data-item-id="${escapeAttr(item.id)}">
                         <span>
                             <span class="cargo-tool-name">${escapeHtml(item.storyName || item.label || item.id)}</span>
-                            <span class="cargo-tool-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${cargoStatusLabel(item)} · ${health}%</span>
+                            <span class="cargo-tool-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${cargoStatusLabel(item)} · ${health}%${passengerBusy ? ' · Szene laeuft' : ''}</span>
                         </span>
                         <span class="checklist-tool-arrow" aria-hidden="true">${expanded ? '⌃' : '›'}</span>
                     </button>
@@ -3378,6 +3398,7 @@ ${routeLines}`;
     function handleClick(event) {
         const button = event.target.closest('[data-action]');
         if (!button || !bodyEl.contains(button)) return;
+        if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         const action = button.dataset.action;
         const id = button.dataset.id || '';
         const chapterIndex = Number(button.dataset.chapterIndex);
