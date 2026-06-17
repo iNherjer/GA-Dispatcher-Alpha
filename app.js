@@ -1383,7 +1383,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
         science_geo: ['mountain', 'dam', 'water'],
         media_photo: ['city', 'castle', 'industry', 'road'],
         news_coverage: ['road', 'city', 'industry'],
-        tour_guide_knowledge: ['castle', 'city', 'mountain', 'water'],
+        tour_guide_knowledge: ['city', 'water', 'dam', 'bridge', 'telecom', 'industry', 'castle', 'mountain'],
         historian_guided_tour: ['castle', 'city'],
         sightseeing_tour: ['castle', 'mountain', 'water', 'city']
     };
@@ -1512,14 +1512,76 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'tour_guide_relaxed_v1',
         taskDomain: 'sightseeing_tour',
         personas: [
-            { name: 'Sophie Lang', role: 'Tour-Guide', gender: 'female', personality: 'freundlich, gelassen, kommunikativ' },
-            { name: 'Felix Braun', role: 'Stadtführer', gender: 'male', personality: 'locker, charmant, aufmerksam' }
+            {
+                name: 'Sophie Lang',
+                role: 'Tour-Guide',
+                gender: 'female',
+                personality: 'freundlich, gelassen, kommunikativ',
+                storySeed: '{name} begleitet zwei Gäste, die {targetName} bewusst als kleinen Ausflugsmoment aus der Luft erleben möchten.',
+                greetingText: 'Hi, ich habe heute zwei Gäste dabei, die sich genau auf diesen Blick von oben freuen. Lass uns die Runde weich und entspannt fliegen.'
+            },
+            {
+                name: 'Felix Braun',
+                role: 'Stadtführer',
+                gender: 'male',
+                personality: 'locker, charmant, aufmerksam',
+                storySeed: '{name} zeigt zwei Besuchern {targetName} einmal aus der Luft, damit Ortsbild und Umgebung als Ganzes hängen bleiben.',
+                greetingText: 'Hi, heute geht es um einen schönen Blick auf den Ort, nicht um Tempo. Weiche Kurven reichen völlig.'
+            },
+            {
+                name: 'Mara Stein',
+                role: 'Ausflugsgast',
+                gender: 'female',
+                personality: 'neugierig, warm, ruhig',
+                storySeed: '{name} hat den Rundflug als kleines Geschenk organisiert und möchte {targetName} gemeinsam mit einer Begleitung von oben sehen.',
+                greetingText: 'Hi, das ist heute ein kleines Geschenk. Ich freu mich auf den Blick auf den Ort, bitte einfach ruhig und angenehm.'
+            },
+            {
+                name: 'Jonas Reuter',
+                role: 'Hobbyfotograf',
+                gender: 'male',
+                personality: 'aufmerksam, entspannt, visuell',
+                storySeed: '{name} bringt eine kleine Kamera mit und möchte bei {targetName} ein paar persönliche Erinnerungsfotos aus der Luft machen.',
+                greetingText: 'Hi, ich mache nur ein paar Erinnerungsfotos für uns. Wenn wir ruhig vorbeiziehen, ist das perfekt.'
+            },
+            {
+                name: 'Nina Keller',
+                role: 'Heimatbesucherin',
+                gender: 'female',
+                personality: 'persönlich, gelassen, aufmerksam',
+                storySeed: '{name} kennt {targetName} vom Boden und möchte den Ort heute mit einer Begleitung aus einer neuen Perspektive wiedersehen.',
+                greetingText: 'Hi, ich kenne den Ort von unten und möchte ihn heute einfach mal von oben sehen. Kein Stress, nur ein schöner Rundflug.'
+            },
+            {
+                name: 'Tobias Meier',
+                role: 'Wochenendgast',
+                gender: 'male',
+                personality: 'locker, freundlich, staunend',
+                storySeed: '{name} nutzt den guten Rundflug-Slot fuer einen kurzen Wochenendausflug zu {targetName} mit Blick, Fotos und entspannter Rückkehr.',
+                greetingText: 'Hi, fuer uns ist das heute der kleine Wochenend-Hoehepunkt. Schön ruhig zum Ziel und dann gemütlich zurück.'
+            },
+            {
+                name: 'Clara Vogt',
+                role: 'Reisebegleiterin',
+                gender: 'female',
+                personality: 'hellwach, freundlich, gelassen',
+                storySeed: '{name} begleitet einen Gast, der {targetName} bisher nur aus Erzählungen kennt und den Ort einmal aus der Luft einordnen möchte.',
+                greetingText: 'Hi, mein Gast kennt den Ort nur aus Geschichten. Ich würde ihm gern zeigen, wie er von oben in der Landschaft liegt.'
+            },
+            {
+                name: 'David Schuster',
+                role: 'Freund der Familie',
+                gender: 'male',
+                personality: 'bodenständig, ruhig, herzlich',
+                storySeed: '{name} nimmt eine Freundin oder einen Freund mit, um {targetName} als gemeinsamen Ausblick und kleinen Ausflugsmoment zu erleben.',
+                greetingText: 'Hi, ich habe heute jemanden dabei, der sich auf den gemeinsamen Ausblick freut. Bitte eher weich als sportlich.'
+            }
         ],
         greetingText: 'Hi, heute gehts um entspannten Ausblick. Bitte eher weich fliegen, damit alle die Aussicht genießen.',
         paxText: '2 PAX (Sightseeing-Gäste)',
         cargoPool: ['Kleine Kamerataschen (12 lbs)', 'Tagesrucksäcke (15 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: ruhiger Rundflug mit angenehmem Tempo.'
+        storyCue: 'Fokus: persoenlicher, ruhiger Rundflug mit Blickmoment, Fotos, Orientierung und entspannter Rueckkehr.'
     },
     tour_guide_knowledge: {
         id: 'tour_guide_knowledge',
@@ -2143,10 +2205,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Geländekanten-Check: ${n}`, i: '⛰️', cat: 'poi', s: `Der Geomorphologe bewertet bei ${n} Geländekanten, Sedimentflächen oder frühere Abbauzonen. Der Flug braucht klare Blickwinkel, aber keine Einsatzdramaturgie.`, payloadText: '1 PAX (Geomorphologe)', cargoText: 'Kamera und Karten (13 lbs)' }
         ],
         sightseeing_tour: [
-            { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein ruhiger Sightseeingflug über ${n} mit Fokus auf angenehme Fluglage und gute Aussicht.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
-            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Die Gäste wünschen einen entspannten Rundflug über ${n}, ohne Hektik und mit weichen Manövern.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' },
-            { t: `Foto-Ausflug: ${n}`, i: '📸', cat: 'poi', s: `Die Gäste möchten ${n} aus der Luft sehen und ein paar ruhige Fotos machen. Kein Auftrag, keine Inspektion, einfach ein sauber geflogener Ausblick.`, payloadText: '2 PAX (Ausflugsgäste)', cargoText: 'Kleine Kamerataschen (10 lbs)' },
-            { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein entspannter Rundflug zu ${n}: kurz zeigen, wie Ziel und Umgebung zusammenliegen, dann wieder zurück. Weiche Kurven und gute Sicht sind wichtiger als Tempo.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Tagesrucksäcke (12 lbs)' }
+            { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Zwei Gäste haben sich ${n} als kleinen Höhepunkt ihres Rundflugs ausgesucht. Der Blick von oben soll Ort, Landschaft und Umgebung als gemeinsames Bild zeigen, mit Zeit für ein paar persönliche Fotos. Danach geht es ohne Eile zurück zum Heimatplatz.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
+            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Ein Besuchsgast kennt ${n} bisher nur vom Boden und möchte den Ort heute aus der Luft wiedererkennen. Weiche Kurven, ein ruhiger Blick und ein paar Erinnerungsfotos sind wichtiger als Tempo. Nach der Runde bleibt nur die entspannte Rückkehr.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' },
+            { t: `Foto-Ausflug: ${n}`, i: '📸', cat: 'poi', s: `Der Rundflug ist als kleines Geschenk geplant: ${n} soll der Moment sein, an den sich die Gäste später erinnern. Wir geben ihnen einen ruhigen Blick auf Ziel und Umgebung, mit genug Zeit für persönliche Fotos. Danach fliegen wir gemütlich heim.`, payloadText: '2 PAX (Ausflugsgäste)', cargoText: 'Kleine Kamerataschen (10 lbs)' },
+            { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein Freund oder Familiengast möchte einmal sehen, wie ${n} in der Landschaft liegt. Wir zeigen den Zielbereich ruhig aus der Luft, lassen Zeit für Orientierung und Fotos und gehen anschließend entspannt zurück zum Heimatplatz.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Tagesrucksäcke (12 lbs)' }
         ],
         tour_guide_knowledge: [
             { t: `Wissensflug: ${n}`, i: '📚', cat: 'poi', s: `Der Lern-Guide erklaert dir bei ${n} kurze Fakten zu Lage, Nutzung und sichtbarer Umgebung. Es gibt keinen Arbeitsauftrag, nur Orientierung und Einordnung.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Ortsfakten (3 lbs)' },
@@ -4591,6 +4653,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'cargoText', 'passenger',
         'sarHeli', 'sarHeliProgress', 'bush',
         'routeWaypoints', 'missionRouteWaypoints',
+        'knowledgeContext',
         'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
         'missionPlanV2', '_missionPlanV2', 'missionPlanV4', '_missionPlanV4',
         'missionContractV4', '_missionContractV4', 'missionVariety',
@@ -7655,7 +7718,6 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         if (!Number.isFinite(navAnchor?.dist) || navAnchor.dist > Number(anchor.localRadiusNm || 20)) continue;
 
         const inferredCat = _poiInferCategoryFromFeature(f);
-        if (isKnowledgeGuideProfile && inferredCat === 'generic') continue;
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
         if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
         if (sarCorridorMode && !_poiFeatureMatchesCategory(f, 'sar_corridor')) continue;
@@ -7784,27 +7846,31 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
 
     let pool = scoredCandidates;
     if (!forceCat || forceCat === 'all') {
-        const balanced = pickBalancedByCategory(pool, p => p.category || 'generic', 'ga_poi_tag_cat');
-        const targetCat = balanced?.category || pool[0]?.category || 'generic';
-        pool = pool.filter(p => p.category === targetCat);
+        if (!isKnowledgeGuideProfile) {
+            const balanced = pickBalancedByCategory(pool, p => p.category || 'generic', 'ga_poi_tag_cat');
+            const targetCat = balanced?.category || pool[0]?.category || 'generic';
+            pool = pool.filter(p => p.category === targetCat);
+        }
     }
     pool.sort((a, b) => (b.rank - a.rank) || (b.score - a.score) || (a.dist - b.dist));
     const topRaw = pool.slice(0, Math.min(12, pool.length));
     const top = (forceCat === 'infrastructure' || forceCat === 'telecom')
         ? _poiLimitPerCluster(topRaw, 2)
         : topRaw;
-    let pick = _pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0];
+    let knowledgeGateResult = null;
+    let knowledgeGateShortlist = null;
+    let pick = isKnowledgeGuideProfile
+        ? null
+        : (_pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0]);
     if (isKnowledgeGuideProfile) {
-        const shortlist = top.slice(0, Math.min(8, top.length));
-        let contextualPick = null;
-        for (const cand of shortlist) {
-            const ctx = await _resolveEducationalPoiContext(cand.n, cand.lat, cand.lon);
-            if (!ctx?.ok) continue;
-            contextualPick = { ...cand, n: String(ctx.title || cand.n || '').trim() || cand.n };
-            break;
-        }
-        if (!contextualPick) return null;
-        pick = contextualPick;
+        knowledgeGateShortlist = _poiKnowledgeBalancedShortlist(pool, {
+            maxCandidates: POI_KNOWLEDGE_AUTO_MAX_CANDIDATES
+        });
+        knowledgeGateResult = await _poiKnowledgePickAcceptedCandidate(knowledgeGateShortlist.shortlist, {
+            budgetMs: POI_KNOWLEDGE_AUTO_BUDGET_MS
+        });
+        if (!knowledgeGateResult?.pick) return null;
+        pick = knowledgeGateResult.pick;
     }
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgBeforeFinalMark = { ..._poiDebugState() };
@@ -7852,6 +7918,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         lon: pick.lon,
         poiCategory: usedCat,
         poiSource: sourceLabel,
+        knowledgeContext: pick.knowledgeContext || null,
         poiLookup: {
             engine: 'hosted-poi-tiles',
             featureSourceKind: String(pick?.featureSourceKind || ''),
@@ -7865,6 +7932,24 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
                     .filter(([k, v]) => k && v !== undefined && v !== null && String(v).length <= 80)
                     .slice(0, 18)
             ) : null,
+            knowledgeGate: isKnowledgeGuideProfile ? {
+                status: String(knowledgeGateResult?.status || 'n/a'),
+                stopReason: String(knowledgeGateResult?.stopReason || ''),
+                elapsedMs: Number(knowledgeGateResult?.elapsedMs || 0),
+                eligible: Number(knowledgeGateShortlist?.eligibleCount || 0),
+                rejected: Number(knowledgeGateShortlist?.rejected?.length || 0),
+                shortlist: (knowledgeGateShortlist?.shortlist || []).map(c => ({
+                    name: c.n,
+                    category: c.category || 'generic',
+                    bucket: c.knowledgeBucket || 'generic'
+                })),
+                evaluated: (knowledgeGateResult?.evaluated || []).slice(0, 4)
+            } : null,
+            knowledgeTitle: String(pick?.knowledgeContext?.title || ''),
+            knowledgeStatus: String(pick?.knowledgeContext?.status || ''),
+            knowledgeScore: Number(pick?.knowledgeContext?.score || 0),
+            knowledgeFacts: Number(pick?.knowledgeContext?.selectedFacts || 0),
+            knowledgeWarnings: Array.isArray(pick?.knowledgeContext?.warnings) ? pick.knowledgeContext.warnings.slice(0, 5) : [],
             ...lookupDebug
         }
     };
@@ -7967,10 +8052,55 @@ function _wikidataTypeQidsForPoiCategory(category = '') {
         // dam, reservoir
         return ['Q12323', 'Q131681'];
     }
+    if (cat === 'bridge') {
+        // bridge, viaduct
+        return ['Q12280', 'Q181348'];
+    }
+    if (cat === 'telecom') {
+        // tower, telecommunications tower
+        return ['Q12518', 'Q11166728'];
+    }
+    if (cat === 'industry') {
+        // industrial facility, factory, power station
+        return ['Q16686448', 'Q83405', 'Q159719'];
+    }
     return [];
 }
 
 const _poiEducationalContextCache = new Map();
+const POI_KNOWLEDGE_CONTEXT_ACCEPT_SCORE = 70;
+const POI_KNOWLEDGE_CONTEXT_REVIEW_SCORE = 55;
+const POI_KNOWLEDGE_AUTO_MAX_CANDIDATES = 3;
+const POI_KNOWLEDGE_AUTO_BUDGET_MS = 2500;
+const POI_KNOWLEDGE_WIKI_TIMEOUT_MS = 2200;
+const POI_KNOWLEDGE_429_COOLDOWN_MS = 60 * 1000;
+let _poiKnowledgeWikiCooldownUntil = 0;
+
+function _poiKnowledgeNormalizeKey(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+function _poiKnowledgeTitleMatch(a, b) {
+    const aa = _poiKnowledgeNormalizeKey(a);
+    const bb = _poiKnowledgeNormalizeKey(b);
+    return !!(aa && bb && (aa.includes(bb) || bb.includes(aa)));
+}
+
+function _poiKnowledgeDistanceKm(lat1, lon1, lat2, lon2) {
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
+    const radiusKm = 6371;
+    const toRad = value => value * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * radiusKm * Math.asin(Math.sqrt(a));
+}
 
 function _isUsefulWikiExtract(text) {
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
@@ -7980,50 +8110,547 @@ function _isUsefulWikiExtract(text) {
     return true;
 }
 
-async function _fetchWikiExtractByTitle(title) {
+function _poiKnowledgeCleanWikiText(value) {
+    return String(value || '')
+        .replace(/\[\d+\]/g, '')
+        .replace(/==+\s*[^=]+\s*==+/g, '. ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _poiKnowledgeProtectSentenceDots(text) {
+    return String(text || '')
+        .replace(/\b(\d{1,2})\.\s+(Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b/g, '$1<DOT> $2')
+        .replace(/\b(St)\.\s+(?=[A-ZÄÖÜ])/g, '$1<DOT> ')
+        .replace(/\b(z)\.\s*(B)\./gi, '$1<DOT> $2<DOT>');
+}
+
+function _poiKnowledgeSplitFacts(text) {
+    const cleaned = _poiKnowledgeProtectSentenceDots(_poiKnowledgeCleanWikiText(text));
+    if (!cleaned) return [];
+    return cleaned
+        .split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ0-9])/)
+        .map(s => s.replace(/<DOT>/g, '.').trim())
+        .map(s => s.replace(/^(Freizeit|Geografie|Geschichte|Technische Daten|Nutzung|Beschreibung|Bauwerk)\s+/i, '').trim())
+        .filter(s => s.length >= 45)
+        .filter(s => !/^(siehe auch|literatur|weblinks|einzelnachweise|normdaten)\b/i.test(s))
+        .filter(s => !/\b(ISBN|Systemdruck|Verlag|Literatur|Weblinks|Einzelnachweise|Normdaten|Auflage|Hrsg\.)\b/i.test(s))
+        .filter(s => !/^(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\b/i.test(s))
+        .filter(s => !/begriffsklärung|liste von|steht für|kann bedeuten/i.test(s));
+}
+
+function _poiKnowledgeFactTopics(sentence) {
+    const text = String(sentence || '').toLowerCase();
+    const topics = [];
+    if (/\b(erbaut|gebaut|bauzeit|in betrieb|eröffnet|eroeffnet|errichtet|jahrhundert|gründ|gruend|stillgelegt|unesco|denkmal|geschichte|histor)/.test(text)) topics.push('history');
+    if (/\b(liegt|lage|befindet|mündet|muendet|fluss|tal|region|landkreis|stadt|gemeinde|ufer|zufluss|abfluss|ortsteil)/.test(text)) topics.push('location');
+    if (/\b(meter|kilometer|km|mio|million|höhe|hoehe|länge|laenge|fläche|flaeche|volumen|einwohner|kapazität|kapazitaet|spannweite|stau|kronen|speicher)/.test(text)) topics.push('metrics');
+    if (/\b(dient|nutzung|versorgt|freizeit|tourismus|seg|surf|baden|rad|spazier|stadion|veranstaltung|museum|naherholung|aussichtsplattform)/.test(text)) topics.push('use');
+    if (/\b(architekt|stil|bauwerk|kirche|dom|brücke|bruecke|turm|damm|anlage|industr|konstruktion|bogen|stahl|beton|mauer|viadukt)/.test(text)) topics.push('structure');
+    if (/\b(natur|schutzgebiet|wald|landschaft|see|fluss|park|ökolog|oekolog|vogel|lebensraum|schwarzwald|ufer)/.test(text)) topics.push('nature');
+    return topics.length ? [...new Set(topics)] : ['general'];
+}
+
+function _poiKnowledgePickFacts(text, maxFacts = 10) {
+    const candidates = _poiKnowledgeSplitFacts(text).map(sentence => ({
+        source: 'extract',
+        topic: _poiKnowledgeFactTopics(sentence)[0],
+        topics: _poiKnowledgeFactTopics(sentence),
+        text: sentence
+    }));
+    const selected = [];
+    const topicCount = new Map();
+    const selectedKeys = new Set();
+    for (const fact of candidates) {
+        const topic = fact.topic || 'general';
+        const current = topicCount.get(topic) || 0;
+        if (current >= 2) continue;
+        selected.push(fact);
+        selectedKeys.add(fact.text);
+        topicCount.set(topic, current + 1);
+        if (selected.length >= maxFacts) break;
+    }
+    for (const fact of candidates) {
+        if (selected.length >= maxFacts) break;
+        if (selectedKeys.has(fact.text)) continue;
+        selected.push(fact);
+        selectedKeys.add(fact.text);
+    }
+    return {
+        candidates,
+        selected,
+        topics: [...new Set(selected.flatMap(fact => fact.topics || [fact.topic || 'general']))].sort()
+    };
+}
+
+function _poiKnowledgeCategoryProfile(category = '') {
+    const value = String(category || '').toLowerCase();
+    return {
+        raw: value,
+        isLinear: /water|lake|river|fluss|see|canal/.test(value),
+        isCity: /city|town|village|settlement|ort/.test(value),
+        isTechnical: /bridge|dam|tower|telecom|industry|stadium|religious|monument/.test(value),
+        isCompactInfrastructure: /bridge|dam|tower|telecom/.test(value),
+        isSupportedKnowledgeType: /city|town|village|settlement|ort|castle|historic|water|lake|river|canal|bridge|dam|tower|telecom|industry|stadium|religious|monument|nature|mountain/.test(value)
+    };
+}
+
+function _poiKnowledgeIsGenericLinearTitle(title) {
+    const key = _poiKnowledgeNormalizeKey(title);
+    return [
+        'bach',
+        'weiher',
+        'teich',
+        'see',
+        'fluss',
+        'kanal',
+        'graben',
+        'quelle',
+        'reservoir',
+        'stausee'
+    ].includes(key);
+}
+
+function _poiKnowledgeHasLinearEvidence(extract) {
+    const text = _poiKnowledgeNormalizeKey(extract);
+    return /fluss|strom|see|stausee|talsperre|gewaesser|gewasser|zufluss|abfluss|quelle|muendung|mundung|laenge|lange|seelaenge|speicherraum|uferort|einzugsgebiet/.test(text);
+}
+
+function _poiKnowledgeCooldownRemainingMs() {
+    return Math.max(0, Number(_poiKnowledgeWikiCooldownUntil || 0) - Date.now());
+}
+
+function _poiKnowledgeRateLimitedContext(title = '') {
+    return {
+        ok: false,
+        status: 'rate_limited',
+        rateLimited: true,
+        title: String(title || '').trim(),
+        extract: '',
+        warnings: ['wiki_rate_limit_cooldown'],
+        retryAfterMs: _poiKnowledgeCooldownRemainingMs()
+    };
+}
+
+function _poiKnowledgeApplyRateLimitCooldown(response) {
+    const retryAfterSec = Number(response?.headers?.get?.('retry-after') || 0);
+    const waitMs = retryAfterSec > 0
+        ? Math.max(15000, Math.min(POI_KNOWLEDGE_429_COOLDOWN_MS, retryAfterSec * 1000))
+        : POI_KNOWLEDGE_429_COOLDOWN_MS;
+    _poiKnowledgeWikiCooldownUntil = Math.max(_poiKnowledgeWikiCooldownUntil || 0, Date.now() + waitMs);
+    return waitMs;
+}
+
+async function _poiKnowledgeFetchJson(url, timeoutMs = POI_KNOWLEDGE_WIKI_TIMEOUT_MS) {
+    const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    let timer = null;
+    if (controller && Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0) {
+        timer = setTimeout(() => {
+            try { controller.abort(); } catch (_) {}
+        }, Math.max(500, Number(timeoutMs)));
+    }
+    try {
+        const res = await fetch(url, controller ? { signal: controller.signal } : undefined);
+        return res;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+async function _fetchWikiExtractByTitle(title, options = {}) {
     const t = String(title || '').trim();
     if (!t) return null;
+    if (_poiKnowledgeCooldownRemainingMs() > 0) return _poiKnowledgeRateLimitedContext(t);
     try {
-        const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&exsentences=4&titles=${encodeURIComponent(t)}&format=json&origin=*`);
+        const params = new URLSearchParams({
+            action: 'query',
+            redirects: '1',
+            prop: 'extracts|coordinates|pageprops|pageimages|info',
+            inprop: 'url',
+            explaintext: '1',
+            exchars: '3600',
+            exsectionformat: 'plain',
+            piprop: 'thumbnail',
+            pithumbsize: '600',
+            titles: t,
+            format: 'json',
+            origin: '*'
+        });
+        const extRes = await _poiKnowledgeFetchJson(`https://de.wikipedia.org/w/api.php?${params.toString()}`, options.timeoutMs || POI_KNOWLEDGE_WIKI_TIMEOUT_MS);
+        if (extRes.status === 429) {
+            const retryAfterMs = _poiKnowledgeApplyRateLimitCooldown(extRes);
+            return { ..._poiKnowledgeRateLimitedContext(t), retryAfterMs };
+        }
         if (!extRes.ok) return null;
         const extData = await extRes.json();
-        const pages = extData?.query?.pages || null;
-        if (!pages || typeof pages !== 'object') return null;
-        const pageId = Object.keys(pages)[0];
-        if (!pageId || pageId === '-1') return null;
-        const extract = String(pages?.[pageId]?.extract || '').trim();
-        return _isUsefulWikiExtract(extract) ? { title: t, extract } : null;
+        const pages = Object.values(extData?.query?.pages || {});
+        const page = pages.find(p => p && p.missing === undefined && String(p.pageid || '') !== '-1') || null;
+        if (!page) return null;
+        const redirects = Array.isArray(extData?.query?.redirects) ? extData.query.redirects : [];
+        const redirect = redirects.find(r => _poiKnowledgeTitleMatch(r?.from, t)) || redirects[0] || null;
+        const extract = String(page?.extract || '').trim();
+        return {
+            title: String(page?.title || t).trim(),
+            extract,
+            page,
+            redirectedTo: redirect?.to || null
+        };
     } catch (_) {
         return null;
     }
 }
 
-async function _resolveEducationalPoiContext(title, lat, lon) {
+function _poiKnowledgeScoreContext({ queryTitle = '', category = '', lat = null, lon = null, wiki = null } = {}) {
+    const page = wiki?.page || null;
+    const extract = String(wiki?.extract || page?.extract || '').trim();
+    const title = String(wiki?.title || page?.title || queryTitle || '').trim();
+    const profile = _poiKnowledgeCategoryProfile(category);
+    const facts = _poiKnowledgePickFacts(extract, 10);
+    const qid = String(page?.pageprops?.wikibase_item || '').trim();
+    const thumb = page?.thumbnail?.source || '';
+    const coordinate = page?.coordinates?.[0] || null;
+    const dist = coordinate && Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))
+        ? _poiKnowledgeDistanceKm(Number(lat), Number(lon), Number(coordinate.lat), Number(coordinate.lon))
+        : null;
+    const exactTitle = _poiKnowledgeTitleMatch(title, queryTitle);
+    const reasons = [];
+    const warnings = [];
+    let score = 0;
+
+    if (extract.length >= 2200) { score += 32; reasons.push('long_extract'); }
+    else if (extract.length >= 1200) { score += 26; reasons.push('solid_extract'); }
+    else if (extract.length >= 650) { score += 18; reasons.push('medium_extract'); }
+    else if (extract.length >= 350) { score += 10; reasons.push('short_but_usable_extract'); }
+    else warnings.push('thin_extract');
+
+    if (facts.candidates.length >= 12) { score += 30; reasons.push('many_fact_candidates'); }
+    else if (facts.candidates.length >= 8) { score += 24; reasons.push('good_fact_count'); }
+    else if (facts.candidates.length >= 6) { score += 18; reasons.push('acceptable_fact_count'); }
+    else if (facts.candidates.length >= 4) { score += 10; reasons.push('low_fact_count'); }
+    else warnings.push('too_few_facts');
+
+    if (facts.selected.length >= 6) { score += 10; reasons.push('enough_voice_facts'); }
+    if (facts.topics.length >= 4) { score += 12; reasons.push('topic_diversity'); }
+    else if (facts.topics.length >= 3) score += 8;
+    else if (facts.topics.length >= 2) score += 4;
+    else warnings.push('low_topic_diversity');
+
+    if (qid) { score += 10; reasons.push('wikidata_qid'); }
+    if (thumb) { score += 5; reasons.push('page_image'); }
+    if (exactTitle) { score += 12; reasons.push('title_match'); }
+    if (wiki?.redirectedTo) {
+        reasons.push('redirect_resolved');
+        if (!exactTitle && profile.isCity) warnings.push('city_redirect_or_parent_context');
+    }
+
+    if (Number.isFinite(dist)) {
+        if (profile.isLinear) {
+            if (dist < 80) score += 6;
+            else warnings.push('linear_feature_coordinate_far_from_target');
+        } else if (dist < 1) {
+            score += 15;
+            reasons.push('coordinate_close');
+        } else if (dist < 5) {
+            score += 10;
+            reasons.push('coordinate_near');
+        } else if (dist < 12) {
+            score += 3;
+            warnings.push('coordinate_loose');
+        } else {
+            score -= 14;
+            warnings.push('coordinate_far');
+        }
+    } else if (exactTitle && profile.isTechnical) {
+        score += 3;
+        warnings.push('no_page_coordinate_but_exact_title');
+    } else {
+        warnings.push('no_page_coordinate');
+    }
+
+    if (profile.isCompactInfrastructure && facts.candidates.length >= 4 && /\b(höchste|hoechste|größte|groesste|längste|laengste|meter|mio|million|bauzeit|erbaut|in betrieb|kronen|spannweite)\b/i.test(extract)) {
+        score += 12;
+        reasons.push('compact_infrastructure_bonus');
+    }
+
+    let status = 'reject';
+    if (score >= POI_KNOWLEDGE_CONTEXT_ACCEPT_SCORE) status = 'accept';
+    else if (score >= POI_KNOWLEDGE_CONTEXT_REVIEW_SCORE) status = 'review';
+
+    if (status === 'accept' && profile.isCity && !exactTitle) {
+        status = 'review';
+        warnings.push('city_target_shift_requires_review');
+    }
+    if (!profile.isSupportedKnowledgeType) {
+        status = score >= POI_KNOWLEDGE_CONTEXT_REVIEW_SCORE ? 'review' : 'reject';
+        warnings.push('unsupported_knowledge_category');
+    }
+    if (status === 'accept' && profile.isLinear && _poiKnowledgeIsGenericLinearTitle(title)) {
+        status = 'reject';
+        warnings.push('generic_linear_article_title');
+    }
+    if (status === 'accept' && profile.isLinear && !Number.isFinite(dist) && !_poiKnowledgeHasLinearEvidence(extract)) {
+        status = 'review';
+        warnings.push('linear_target_without_coordinate_or_water_evidence');
+    }
+    if (status === 'accept' && facts.selected.length < 5) {
+        status = 'review';
+        warnings.push('too_few_selected_voice_facts_for_auto_accept');
+    }
+
+    return {
+        ok: status === 'accept',
+        status,
+        title,
+        extract,
+        score,
+        category: profile.raw || category || 'generic',
+        qid: qid || null,
+        sourceUrl: page?.fullurl || null,
+        redirectedTo: wiki?.redirectedTo || null,
+        exactTitle,
+        distanceKm: Number.isFinite(dist) ? Number(dist.toFixed(2)) : null,
+        factCandidates: facts.candidates.length,
+        selectedFacts: facts.selected.length,
+        topics: facts.topics,
+        facts: facts.selected.map(fact => ({
+            source: fact.source,
+            topic: fact.topic,
+            text: fact.text
+        })),
+        reasons,
+        warnings,
+        rateLimited: false
+    };
+}
+
+async function _resolveEducationalPoiContext(title, lat, lon, category = 'generic', options = {}) {
     const t = String(title || '').trim();
+    const cat = String(category || 'generic').toLowerCase();
     const latN = Number(lat);
     const lonN = Number(lon);
-    const key = `${t.toLowerCase()}|${Number.isFinite(latN) ? latN.toFixed(4) : 'nan'}|${Number.isFinite(lonN) ? lonN.toFixed(4) : 'nan'}`;
+    if (_poiKnowledgeCooldownRemainingMs() > 0) return _poiKnowledgeRateLimitedContext(t);
+    const key = `${t.toLowerCase()}|${cat}|${Number.isFinite(latN) ? latN.toFixed(4) : 'nan'}|${Number.isFinite(lonN) ? lonN.toFixed(4) : 'nan'}`;
     if (_poiEducationalContextCache.has(key)) return _poiEducationalContextCache.get(key);
 
-    let best = await _fetchWikiExtractByTitle(t);
-    if (!best && Number.isFinite(latN) && Number.isFinite(lonN)) {
-        try {
-            const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${latN}|${lonN}&gsradius=8000&gslimit=4&format=json&origin=*`);
-            if (geoRes.ok) {
-                const geoData = await geoRes.json();
-                const list = Array.isArray(geoData?.query?.geosearch) ? geoData.query.geosearch : [];
-                for (const item of list) {
-                    const cTitle = String(item?.title || '').trim();
-                    if (!cTitle) continue;
-                    const hit = await _fetchWikiExtractByTitle(cTitle);
-                    if (hit) { best = hit; break; }
-                }
-            }
-        } catch (_) {}
-    }
-    const out = best ? { ok: true, title: best.title, extract: best.extract } : { ok: false, title: t, extract: '' };
+    const wiki = await _fetchWikiExtractByTitle(t, options);
+    if (wiki?.rateLimited) return wiki;
+    const out = (wiki && _isUsefulWikiExtract(wiki.extract))
+        ? _poiKnowledgeScoreContext({ queryTitle: t, category: cat, lat: latN, lon: lonN, wiki })
+        : {
+            ok: false,
+            status: 'reject',
+            title: t,
+            extract: '',
+            category: cat,
+            score: 0,
+            factCandidates: 0,
+            selectedFacts: 0,
+            facts: [],
+            reasons: [],
+            warnings: ['missing_wikipedia_page'],
+            rateLimited: false
+        };
     _poiEducationalContextCache.set(key, out);
     return out;
+}
+
+const POI_KNOWLEDGE_GATE_BUCKET_PRIORITY = [
+    'city',
+    'water',
+    'dam',
+    'bridge',
+    'tower',
+    'monument',
+    'religious',
+    'stadium',
+    'industry',
+    'castle',
+    'mountain',
+    'nature'
+];
+
+function _poiKnowledgeCandidateBucket(candidate = {}) {
+    const cat = String(candidate.cat || candidate.category || '').toLowerCase();
+    const name = String(candidate.q || candidate.n || '').toLowerCase();
+    const tags = candidate.tags && typeof candidate.tags === 'object' ? candidate.tags : {};
+    const tagText = Object.entries(tags)
+        .map(([key, value]) => `${key}:${value}`)
+        .join(' ')
+        .toLowerCase();
+    const hay = `${cat} ${name} ${tagText}`;
+    const placeHay = `${cat} ${tagText}`;
+    const hasPlaceSignal = /city|town|village|settlement|place:city|place:town|place:village/.test(placeHay);
+    const normName = normalizeMissionText(name);
+
+    if (/dam|talsperre|staudamm|stausee|sperrmauer|waterway:dam|waterway:weir/.test(hay)) return 'dam';
+    if (/bridge|bruecke|brücke|viadukt|man_made:bridge/.test(hay)) return 'bridge';
+    if (/tower|turm|telecom|fernsehturm|funkturm|aussichtsturm|man_made:tower|man_made:mast/.test(hay)) return 'tower';
+    if (/religious|church|kirche|dom|kathedrale|muenster|münster|amenity:place_of_worship/.test(hay)) return 'religious';
+    if (/stadium|stadion|arena|leisure:stadium/.test(hay)) return 'stadium';
+    if (/industry|industrial|industrie|werk|huette|hütte|zeche|tagebau|kraftwerk|fabrik|landuse:industrial|man_made:works|power:plant/.test(hay)) return 'industry';
+    if (/monument|denkmal|memorial|walhalla|historic:monument|historic:memorial/.test(hay)) return 'monument';
+    if (/castle|burg|schloss|fortress|ruine|ruins|historic:castle|historic:ruins/.test(hay)) return 'castle';
+    if (
+        /river|fluss|lake|canal|water|reservoir|natural:water|water:reservoir|water:lake|landuse:reservoir/.test(hay) ||
+        _hasWordToken(normName, 'see') ||
+        _hasWordToken(normName, 'teich') ||
+        _hasWordToken(normName, 'weiher') ||
+        /see$/.test(normName)
+    ) return 'water';
+    if (hasPlaceSignal) return 'city';
+    if (/mountain|berg|gipfel|peak|valley|tal|ridge|natural:peak|natural:valley/.test(hay)) return 'mountain';
+    if (/nature|park|wald|forest|schutzgebiet|natural:wood|landuse:forest/.test(hay)) return 'nature';
+    if (/city|town|village|settlement|ort|place:city|place:town|place:village/.test(hay)) return 'city';
+    return 'generic';
+}
+
+function _poiKnowledgeBadNameReason(candidate = {}) {
+    const raw = String(candidate.q || candidate.n || '').trim();
+    if (!raw) return 'missing_name';
+    const key = _poiKnowledgeNormalizeKey(raw);
+    const genericNames = new Set([
+        'poi',
+        'zielgebiet',
+        'gewaesser',
+        'gewasser',
+        'stadtgebiet',
+        'berggebiet',
+        'talgebiet',
+        'infrastruktur',
+        'infrastrukturkorridor',
+        'strassenverkehrsknoten',
+        'brueckeverkehrsbauwerk',
+        'funkmastfunkturmwindrad',
+        'staudammtalsperre'
+    ]);
+    if (genericNames.has(key)) return 'generic_name';
+    if (_poiKnowledgeIsGenericLinearTitle(raw)) return 'generic_linear_name';
+    if (_poiIsCodeLikeName(raw)) return 'code_like_name';
+    if (_poiIsNumericLikeName(raw)) return 'numeric_name';
+    if (_poiLooksJunctionLabel(raw)) return 'junction_label';
+    return '';
+}
+
+function _poiKnowledgeBalancedShortlist(candidates = [], options = {}) {
+    const maxCandidates = Math.max(1, Math.min(8, Number(options.maxCandidates || POI_KNOWLEDGE_AUTO_MAX_CANDIDATES)));
+    const prepared = (Array.isArray(candidates) ? candidates : []).map((candidate, index) => {
+        const bucket = _poiKnowledgeCandidateBucket(candidate);
+        const badNameReason = _poiKnowledgeBadNameReason(candidate);
+        const supported = POI_KNOWLEDGE_GATE_BUCKET_PRIORITY.includes(bucket);
+        return {
+            ...candidate,
+            sourceIndex: Number.isFinite(Number(candidate.sourceIndex)) ? Number(candidate.sourceIndex) : index,
+            knowledgeBucket: bucket,
+            knowledgeGateRejectedReason: badNameReason || (!supported ? 'unsupported_bucket' : '')
+        };
+    });
+    const eligible = prepared.filter(candidate => !candidate.knowledgeGateRejectedReason);
+    const byBucket = new Map();
+    for (const candidate of eligible) {
+        if (!byBucket.has(candidate.knowledgeBucket)) byBucket.set(candidate.knowledgeBucket, []);
+        byBucket.get(candidate.knowledgeBucket).push(candidate);
+    }
+    for (const list of byBucket.values()) {
+        list.sort((a, b) => (
+            Number(b.rank || 0) - Number(a.rank || 0)
+        ) || (
+            Number(a.sourceIndex || 0) - Number(b.sourceIndex || 0)
+        ) || String(a.n || '').localeCompare(String(b.n || ''), 'de'));
+    }
+    const bucketOrder = [
+        ...POI_KNOWLEDGE_GATE_BUCKET_PRIORITY.filter(bucket => byBucket.has(bucket)),
+        ...[...byBucket.keys()].filter(bucket => !POI_KNOWLEDGE_GATE_BUCKET_PRIORITY.includes(bucket)).sort()
+    ];
+    const shortlist = [];
+    const seen = new Set();
+    for (let round = 0; shortlist.length < maxCandidates; round += 1) {
+        let added = false;
+        for (const bucket of bucketOrder) {
+            const candidate = byBucket.get(bucket)?.[round] || null;
+            if (!candidate) continue;
+            const key = `${_poiKnowledgeNormalizeKey(candidate.n)}|${candidate.knowledgeBucket}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            shortlist.push(candidate);
+            added = true;
+            if (shortlist.length >= maxCandidates) break;
+        }
+        if (!added) break;
+    }
+    return {
+        prepared,
+        eligibleCount: eligible.length,
+        rejected: prepared.filter(candidate => candidate.knowledgeGateRejectedReason),
+        shortlist
+    };
+}
+
+async function _poiKnowledgePickAcceptedCandidate(candidates = [], options = {}) {
+    const started = Date.now();
+    const budgetMs = Math.max(500, Number(options.budgetMs || POI_KNOWLEDGE_AUTO_BUDGET_MS));
+    const evaluated = [];
+    let stopReason = '';
+
+    for (const candidate of (Array.isArray(candidates) ? candidates : [])) {
+        const elapsed = Date.now() - started;
+        if (elapsed >= budgetMs) {
+            stopReason = 'budget_exhausted_before_candidate';
+            break;
+        }
+        const remainingMs = Math.max(700, budgetMs - elapsed);
+        const ctx = await _resolveEducationalPoiContext(
+            candidate.n,
+            candidate.lat,
+            candidate.lon,
+            candidate.knowledgeBucket || candidate.category || 'generic',
+            { timeoutMs: Math.min(POI_KNOWLEDGE_WIKI_TIMEOUT_MS, remainingMs) }
+        );
+        evaluated.push({
+            name: candidate.n,
+            category: candidate.category || 'generic',
+            bucket: candidate.knowledgeBucket || 'generic',
+            status: String(ctx?.status || 'reject'),
+            score: Number(ctx?.score || 0),
+            title: String(ctx?.title || ''),
+            warnings: Array.isArray(ctx?.warnings) ? ctx.warnings.slice(0, 5) : []
+        });
+        if (ctx?.rateLimited) {
+            return {
+                pick: null,
+                context: ctx,
+                status: 'rate_limited',
+                stopReason: 'wiki_429_fail_fast',
+                evaluated,
+                elapsedMs: Date.now() - started
+            };
+        }
+        if (ctx?.ok && ctx.status === 'accept') {
+            return {
+                pick: {
+                    ...candidate,
+                    n: String(ctx.title || candidate.n || '').trim() || candidate.n,
+                    category: candidate.category === 'generic' ? (candidate.knowledgeBucket || candidate.category) : candidate.category,
+                    knowledgeBucket: candidate.knowledgeBucket || candidate.category || 'generic',
+                    knowledgeContext: ctx
+                },
+                context: ctx,
+                status: 'accept',
+                stopReason: 'accepted',
+                evaluated,
+                elapsedMs: Date.now() - started
+            };
+        }
+    }
+
+    if (!stopReason) stopReason = candidates.length ? 'no_accept_in_shortlist' : 'no_supported_candidates';
+    return {
+        pick: null,
+        context: null,
+        status: 'no_pick',
+        stopReason,
+        evaluated,
+        elapsedMs: Date.now() - started
+    };
 }
 
 async function findWikidataTypedPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory) {
@@ -9496,8 +10123,10 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
             ? personaGender
             : ((baseGender === 'female' || baseGender === 'male') ? baseGender : 'male'),
         personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
-        dialectHint: 'neutral',
-        greetingText: String(profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
+        dialectHint: String(persona.dialectHint || base.dialectHint || 'neutral').trim() || 'neutral',
+        storySeed: String(persona.storySeed || base.storySeed || base.personalStoryCue || '').trim(),
+        personalStoryCue: String(persona.storySeed || base.personalStoryCue || base.storySeed || '').trim(),
+        greetingText: String(persona.greetingText || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
         roleProfile: String(profileSpec.roleProfile || base.roleProfile || 'general_passenger_v1').toLowerCase(),
         taskDomain: String(profileSpec.taskDomain || base.taskDomain || 'general').toLowerCase(),
         gTolerance: String(tol.gTolerance || base.gTolerance || 'mittel').toLowerCase(),
@@ -9866,6 +10495,111 @@ function _sanitizeLearningGuideNarrative(missionLike = {}) {
     return missionLike;
 }
 
+function _targetLabelForSightseeingNarrative(missionLike = {}) {
+    const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || null;
+    const fromPlan = String(plan?.targetLabel || '').replace(/\s+/g, ' ').trim();
+    if (fromPlan) return fromPlan;
+    const title = String(missionLike?.t || missionLike?.title || '').trim();
+    const afterColon = (title.match(/:\s*(.+)$/) || [])[1];
+    if (afterColon) return afterColon.trim();
+    const titleTarget = title.match(/\b(?:Panorama(?:flug|-Rundflug)?|Aussichtsflug|Foto-Ausflug|Orientierungsrunde|Rundflug|Ausflug)\s+(?:ueber|über|zu|nach)?\s*(.+)$/i);
+    if (titleTarget?.[1]) return titleTarget[1].trim();
+    return String(missionLike?.targetName || missionLike?.poiName || 'Zielgebiet').replace(/\s+/g, ' ').trim() || 'Zielgebiet';
+}
+
+function _missionTemplateText(text = '', context = {}) {
+    const name = String(context.name || '').trim();
+    const firstName = String(context.firstName || name.split(/\s+/)[0] || '').trim();
+    const targetName = String(context.targetName || context.target || 'dem Zielgebiet').trim();
+    const role = String(context.role || '').trim();
+    return String(text || '')
+        .replace(/\{name\}/g, name || 'der Gast')
+        .replace(/\{firstName\}/g, firstName || name || 'der Gast')
+        .replace(/\{targetName\}/g, targetName || 'das Zielgebiet')
+        .replace(/\{target\}/g, targetName || 'das Zielgebiet')
+        .replace(/\{role\}/g, role || 'Gast')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+function _missionSightseeingWorkText(text = '') {
+    const s = normalizeMissionText(text);
+    if (!s) return false;
+    return /\b(auftrag|beauftragt|erfassung|erfassen|dokumentation|dokumentieren|lagebild|befund|befunde|bericht|arbeitsauftrag|arbeitsflug|arbeitshoehe|arbeitshöhe|inspektion|pruefung|prüfung|vermessung|vermessen|kartierung|kartieren|bewertung|bewerten|daten|bebauung|bauzustand|zustandserfassung|einsatz|wartung|zielbeobachtung|beobachtungskreis)\b/.test(s);
+}
+
+function _missionSightseeingStoryLooksFlat(story = '') {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const s = normalizeMissionText(raw);
+    if (!raw || raw.length < 180) return true;
+    if (_missionSightseeingWorkText(raw)) return true;
+    if (/\bdie anfrage kommt von sightseeing|visueller ueberblick|visueller uberblick|zielbereich .* abgearbeitet|aussichtspunkt .* abgearbeitet\b/.test(s)) return true;
+    return !/\b(gast|gaeste|gaste|besuch|freund|familie|ausflug|blick|aussicht|foto|erinnerung|panorama|rundflug|wochenende|heimat|gemeinsam|entspannt)\b/.test(s);
+}
+
+function _missionSightseeingCategoryLine(missionLike = {}, target = 'Zielgebiet') {
+    const cat = String(
+        missionLike?.cat
+        || missionLike?.poiCategory
+        || missionLike?._missionPlanV2?.plan?.targetCategory
+        || missionLike?.missionPlanV2?.plan?.targetCategory
+        || ''
+    ).toLowerCase();
+    if (cat === 'city') {
+        return `Aus der Höhe sollen Ortsbild, Randlagen und die umgebende Landschaft von ${target} als zusammenhängender Eindruck wirken.`;
+    }
+    if (cat === 'castle' || cat === 'historic') {
+        return `Der Blick auf ${target} lebt von der Lage im Gelände und davon, wie Bauwerk, Ort und Umgebung zusammenwirken.`;
+    }
+    if (cat === 'mountain' || cat === 'terrain' || cat === 'forest') {
+        return `Bei ${target} geht es um Relief, Kanten, Täler und den ruhigen Landschaftseindruck aus der Luft.`;
+    }
+    if (cat === 'water') {
+        return `Bei ${target} stehen Uferlinie, Wasserfläche und Umgebung als ruhiger Blickfang im Mittelpunkt.`;
+    }
+    return `Der Zielbereich ${target} ist der Blickfang der Runde und soll aus der Luft gut wiedererkennbar bleiben.`;
+}
+
+function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
+    if (!missionLike || typeof missionLike !== 'object' || !isPOI) return missionLike;
+    const target = _targetLabelForSightseeingNarrative(missionLike);
+    const pax = (missionLike.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : {};
+    const paxName = String(pax.name || 'Der Sightseeing-Gast').trim();
+    const templateContext = {
+        name: paxName,
+        firstName: paxName.split(/\s+/)[0] || paxName,
+        role: pax.role || 'Sightseeing-Gast',
+        targetName: target
+    };
+    const cue = _missionTemplateText(pax.personalStoryCue || pax.storySeed || '', templateContext);
+    const currentStory = String(missionLike.s || missionLike.story || '').trim();
+    if (_missionSightseeingStoryLooksFlat(currentStory)) {
+        const lead = cue || `${paxName} begleitet heute zwei Gäste, die ${target} als ruhigen Ausflugsmoment aus der Luft erleben möchten.`;
+        missionLike.s = [
+            lead,
+            _missionSightseeingCategoryLine(missionLike, target),
+            'Der Flug bleibt bewusst weich und unaufgeregt, damit Blick, Orientierung und ein paar persönliche Fotos den Höhepunkt bilden.',
+            'Der Zielbereich bleibt reiner Sichtpunkt; nach der Runde geht es ohne Eile zurück zum Heimatplatz.'
+        ].join(' ');
+    }
+    const title = String(missionLike.t || missionLike.title || '').trim();
+    if (!/\b(panorama|aussicht|rundflug|foto|orientierungsrunde|blick)\b/i.test(title)) {
+        missionLike.t = `Panorama-Rundflug: ${target}`;
+    }
+    if (missionLike.passenger && typeof missionLike.passenger === 'object') {
+        const currentGreeting = String(missionLike.passenger.greetingText || '').trim();
+        const templatedGreeting = _missionTemplateText(currentGreeting, templateContext);
+        const greetingLooksFlat = !templatedGreeting
+            || templatedGreeting.length < 45
+            || _missionSightseeingWorkText(templatedGreeting)
+            || /entspannten ausblick/i.test(normalizeMissionText(templatedGreeting));
+        missionLike.passenger.greetingText = greetingLooksFlat
+            ? `Hi, heute geht es nur um den Blick auf ${target}. Bitte eher weich und entspannt, damit alle die Aussicht genießen können.`
+            : templatedGreeting;
+    }
+    return missionLike;
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
@@ -9912,6 +10646,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         _sanitizeLearningGuideNarrative(m);
     }
+    if (profile.id === 'sightseeing_tour' && isPOI) {
+        _sanitizeSightseeingTourNarrative(m, true);
+    }
     const cue = _profileStoryCue(profile, isPOI);
     if (cue) {
         const story = String(m.s || '').trim();
@@ -9940,7 +10677,7 @@ function _profileStoryCue(profile, isPOI = false) {
     }
     if (profile.id === 'sightseeing_tour') {
         return isPOI
-            ? 'Ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
+            ? 'Persoenlicher Rundflug: Blick, Orientierung, Erinnerungsfotos und entspannte Rueckkehr stehen im Mittelpunkt.'
             : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
     }
     if (profile.id === 'tour_guide_knowledge') {
@@ -9980,6 +10717,8 @@ function _storyAlreadyCoversProfileCue(story, profile) {
             return hasAny(/\bfakten\b/, /\beinordnung\b/, /\borientierung\b/, /\bbildung\b/, /\blern/, /\bwissens/, /\bgeschichte\b/);
         case 'historian_guided_tour':
             return hasAny(/\bhistor/, /\bgeschichte\b/, /\bsiedlungsgeschichte\b/, /\bdorfgeschichte\b/, /\bzeitgeschichte\b/, /\bkulturgeschichte\b/, /\beinordnung\b/, /\barchiv/, /\bkarten\b/);
+        case 'sightseeing_tour':
+            return hasAny(/\bausflug\b/, /\bblick\b/, /\baussicht\b/, /\bfoto/, /\berinnerung/, /\bpanorama/, /\brundflug/, /\bgast\b/, /\bgaeste\b/, /\bgäste\b/, /\bentspannt/);
         default:
             return false;
     }
@@ -9998,6 +10737,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     }
     if (profile.id === 'historian_guided_tour' && isPOI) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
+    }
+    if (profile.id === 'sightseeing_tour' && isPOI) {
+        return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Keine Landung am POI andeuten. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
@@ -10055,14 +10797,17 @@ function _pickFromWeightedWithRecentGuard(values = [], storageKey = '', { fallba
 function _poiCategoryTaskPool(category = 'generic') {
     const c = String(category || 'generic').toLowerCase();
     // Kategorie bleibt fix, Task rotiert innerhalb passender Missionsfamilien.
-    if (c === 'bridge' || c === 'road' || c === 'dam' || c === 'industry') {
+    if (c === 'bridge' || c === 'dam' || c === 'industry') {
         return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'tour_guide_knowledge'];
+    }
+    if (c === 'road') {
+        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage'];
     }
     if (c === 'telecom') {
         return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'tour_guide_knowledge'];
     }
     if (c === 'infrastructure') {
-        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'search_and_rescue', 'tour_guide_knowledge'];
+        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'search_and_rescue'];
     }
     if (c === 'castle' || c === 'city') {
         return ['historian_guided_tour', 'historian_guided_tour', 'tour_guide_knowledge', 'sightseeing_tour', 'news_coverage'];
@@ -10077,7 +10822,7 @@ function _poiCategoryTaskPool(category = 'generic') {
         return ['fire_watch', 'fire_watch', 'search_and_rescue', 'science_bio'];
     }
     if (c === 'generic') {
-        return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour', 'tour_guide_knowledge'];
+        return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour'];
     }
     return ['mapping_survey', 'news_coverage'];
 }
@@ -10210,7 +10955,77 @@ function getMissionPlanV2Plan(missionPlanV2 = null) {
     return plan || null;
 }
 
-function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null } = {}) {
+function compactPoiKnowledgeContextForMission(context = null, maxFacts = 10) {
+    if (!context || typeof context !== 'object') return null;
+    const facts = (Array.isArray(context.facts) ? context.facts : [])
+        .map(fact => ({
+            source: String(fact?.source || 'wiki').replace(/\s+/g, ' ').trim() || 'wiki',
+            topic: String(fact?.topic || 'general').replace(/\s+/g, ' ').trim() || 'general',
+            text: String(fact?.text || fact || '').replace(/\s+/g, ' ').trim()
+        }))
+        .filter(fact => fact.text.length >= 24)
+        .slice(0, Math.max(0, Math.min(12, Math.round(Number(maxFacts) || 0))));
+    if (!facts.length && !context.ok && !context.status) return null;
+    const num = value => Number.isFinite(Number(value)) ? Number(value) : null;
+    return {
+        ok: context.ok === true,
+        status: String(context.status || '').replace(/\s+/g, ' ').trim() || (context.ok ? 'accept' : 'unknown'),
+        title: String(context.title || '').replace(/\s+/g, ' ').trim(),
+        category: String(context.category || '').replace(/\s+/g, ' ').trim(),
+        score: num(context.score),
+        qid: String(context.qid || '').replace(/\s+/g, ' ').trim() || null,
+        sourceUrl: String(context.sourceUrl || '').replace(/\s+/g, ' ').trim() || null,
+        redirectedTo: String(context.redirectedTo || '').replace(/\s+/g, ' ').trim() || null,
+        exactTitle: context.exactTitle === true,
+        distanceKm: num(context.distanceKm),
+        factCandidates: Number.isFinite(Number(context.factCandidates)) ? Math.round(Number(context.factCandidates)) : facts.length,
+        selectedFacts: facts.length,
+        topics: Array.isArray(context.topics)
+            ? context.topics.map(x => String(x || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8)
+            : [],
+        facts,
+        warnings: Array.isArray(context.warnings)
+            ? context.warnings.map(x => String(x || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8)
+            : [],
+        rateLimited: context.rateLimited === true
+    };
+}
+
+function missionKnowledgeContextFacts(context = null, maxFacts = 3) {
+    if (!context || typeof context !== 'object') return [];
+    const seen = new Set();
+    return (Array.isArray(context.facts) ? context.facts : [])
+        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim())
+        .filter(text => text.length >= 32)
+        .filter(text => {
+            const key = text.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .map(text => text.length > 180 ? `${text.slice(0, 177)}...` : text)
+        .slice(0, Math.max(0, Math.min(5, Math.round(Number(maxFacts) || 0))));
+}
+
+function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : null;
+    const pax = passenger || md?.passenger || md?.missionContract?.passenger || null;
+    const taskDomain = String(pax?.taskDomain || md?.missionContract?.taskDomain || '').toLowerCase();
+    if (taskDomain !== 'poi_learning_guide') return '';
+    const context = md?.knowledgeContext || md?.missionContract?.knowledgeContext || pax?.knowledgeContext || null;
+    if (!context || context.status !== 'accept') return '';
+    const facts = missionKnowledgeContextFacts(context, 3);
+    if (!facts.length) return '';
+    const target = String(context.title || md?.poiName || md?.targetName || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const source = context.sourceUrl ? 'Wikipedia-Basis' : 'gepruefte Wiki-Faktenbasis';
+    return [
+        `Wissens-Hinweis: Der Lern-Guide nutzt fuer ${target} eine akzeptierte ${source} (${context.selectedFacts || facts.length} Fakten).`,
+        'Faktenanker:',
+        ...facts.map(fact => `- ${fact}`)
+    ].join('\n');
+}
+
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
     const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
@@ -10238,6 +11053,10 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
     const normalizedBushSpec = (normalizedMissionType === 'bush' || bushSpec || mission?.bush || passenger?.bush)
         ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
         : null;
+    const compactKnowledgeContext = compactPoiKnowledgeContextForMission(
+        knowledgeContext || mission?.knowledgeContext || passenger?.knowledgeContext || null,
+        10
+    );
     return {
         missionType: normalizedMissionType,
         requestedProfileId: String(requestedProfileId || 'auto').toLowerCase(),
@@ -10257,6 +11076,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         missionPlanV2: missionPlanV2 || mission?._missionPlanV2 || mission?.missionPlanV2 || passenger?.missionPlanV2 || null,
         missionPlanV4: missionPlanV4 || mission?._missionPlanV4 || mission?.missionPlanV4 || passenger?.missionPlanV4 || null,
         missionContractV4: missionContractV4 || mission?._missionContractV4 || mission?.missionContractV4 || passenger?.missionContractV4 || null,
+        knowledgeContext: compactKnowledgeContext,
         missionVariety: mission?.missionVariety
             || missionContractV4?.pickupCreativeBrief?.variety
             || missionContractV4?.missionVarietyBrief?.variety
@@ -14626,10 +15446,12 @@ const MISSION_SEMANTICS_V4_RULESET = {
         sightseeing_tour: {
             planner: [
                 'Aussicht und ruhige Beobachtung bleiben der Fokus.',
-                'Kein nachtraeglicher Arbeits- oder Einsatzauftrag.'
+                'Kein nachtraeglicher Arbeits- oder Einsatzauftrag.',
+                'Der Anlass bleibt sozial oder persoenlich: Ausflug, Besuch, Geschenkflug, Heimatblick, Erinnerungsfotos oder gemeinsamer Blickmoment.'
             ],
             writer: [
-                'Story bleibt entspannt und driftet nicht in Arbeitssprache.'
+                'Story bleibt entspannt und driftet nicht in Arbeitssprache.',
+                'Keine Begriffe wie Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund oder Arbeitsauftrag.'
             ],
             forceSceneNone: true
         },
@@ -15815,19 +16637,20 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     }
     if (taskDomain === 'sightseeing_tour') {
         return {
-            trigger: `Der Flug zu ${targetLabel} soll heute mehr sein als nur Strecke: Der Blick aufs Ziel ist der eigentliche Anlass.`,
+            trigger: `Zwei Gäste haben den Flug zu ${targetLabel} als ruhigen Ausflugsmoment geplant; der Blick auf das Ziel ist der eigentliche Anlass.`,
             focusSubject: targetLabel,
-            keyQuestion: `Welche Perspektive, Struktur oder Stimmung ${targetLabel} aus der Luft besonders lesbar macht.`,
-            stakes: 'Wenn der Zielueberflug beliebig bleibt, verliert der Ausflug seinen eigentlichen Hoehepunkt.',
-            completionSignal: 'Nach dem Ueberflug ist der Aussichtspunkt sauber abgearbeitet und der Flug kann entspannt weitergehen.',
+            keyQuestion: `Welche Perspektive, Orientierung oder Stimmung ${targetLabel} aus der Luft als schoene Erinnerung traegt.`,
+            stakes: 'Wenn der Ueberflug beliebig bleibt, fehlt dem Ausflug der persoenliche Hoehepunkt.',
+            completionSignal: 'Nach der ruhigen Runde haben die Gaeste ihren Blickmoment und der Flug kann entspannt zum Heimatplatz zurueckgehen.',
             subjectDetail: _missionPipelineV4PickOne([
-                'einen Gast, der sich genau auf diesen Aussichtsmoment gefreut hat',
-                'einen geplanten Panorama-Ueberflug als eigentlichen Hoehepunkt des Ausflugs',
-                'einen entspannten Rundflug, bei dem dieser Zielbereich der besondere Blickfang ist'
+                'zwei Gaeste, die sich genau auf diesen Aussichtsmoment gefreut haben',
+                'einen geplanten Panorama-Ueberflug als kleinen Hoehepunkt eines gemeinsamen Ausflugs',
+                'einen entspannten Rundflug, bei dem dieser Zielbereich der persoenliche Blickfang ist',
+                'einen Besuch oder Geschenkflug, bei dem der Ort von oben neu erlebt werden soll'
             ]),
             incidentContext: `Der heutige Ausflug wurde so geplant, dass ${targetLabel} aus der Luft den eigentlichen Erinnerungsmoment liefert.`,
-            whyNow: 'Der Zielueberflug ist gerade jetzt der Kern des Flugs, nicht nur ein beliebiger Streckenpunkt auf dem Weg.',
-            soughtOutcome: 'Wir sollen den Zielbereich so anfliegen, dass Blick, Stimmung und Wiedererkennungswert wirklich tragen.'
+            whyNow: 'Der gemeinsame Rundflug findet jetzt statt, weil Sicht, Zeitfenster und Stimmung fuer einen ruhigen Blickmoment passen.',
+            soughtOutcome: 'Der Zielbereich soll ruhig zu sehen sein, damit Blick, Orientierung und ein paar persoenliche Fotos wirklich tragen.'
         };
     }
     if (taskDomain === 'bush_adventure') {
@@ -16380,6 +17203,54 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
     };
 }
 
+function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {}, semantics = {}) {
+    const targetLabel = String(plan.targetLabel || semantics?.focusLock?.primarySubjectLabel || 'Zielgebiet').trim() || 'Zielgebiet';
+    const cleanList = (values = [], fallback = []) => {
+        const src = (Array.isArray(values) ? values : [])
+            .map(x => String(x || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .filter(x => !_missionSightseeingWorkText(x));
+        return (src.length ? src : fallback).slice(0, 5);
+    };
+    const hooksFallback = [
+        `Die Gaeste moechten ${targetLabel} als gemeinsamen Ausflugsmoment aus der Luft erleben.`,
+        storyFrame.subjectDetail,
+        storyFrame.incidentContext,
+        storyFrame.whyNow,
+        storyFrame.soughtOutcome
+    ].map(x => String(x || '').trim()).filter(Boolean);
+    plan.primaryObjective = `Ruhiger Panorama-Rundflug ueber ${targetLabel}, bei dem Aussicht, Orientierung und ein persoenlicher Blickmoment fuer die Gaeste im Mittelpunkt stehen.`;
+    plan.localFacts = cleanList(plan.localFacts, [
+        `${targetLabel} ist der Blickfang der Rundflugrunde.`,
+        'Die Umgebung dient nur als Orientierung fuer Aussicht, Fotos und Wiedererkennung.'
+    ]);
+    const cleanedOperationalDetails = cleanList(plan.operationalDetails, [])
+        .filter(x => !/\b(landung|gelandet|landen)\b/.test(normalizeMissionText(x)));
+    plan.operationalDetails = Array.from(new Set([
+        'Weiche Kurven, ruhige Fluglage und ein gut lesbarer Blick auf das Ziel sind wichtiger als Tempo.',
+        'Die Runde bleibt beim Sichtziel; danach geht es entspannt zum Heimatplatz zurueck.',
+        ...cleanedOperationalDetails
+    ].filter(Boolean))).slice(0, 5);
+    plan.narrativeHooks = Array.from(new Set([
+        ...hooksFallback,
+        ...cleanList(plan.narrativeHooks, [])
+    ].filter(Boolean))).slice(0, 5);
+    plan.mustMention = Array.from(new Set([
+        ...cleanList(plan.mustMention, []),
+        targetLabel,
+        'Die entspannte Natur des Rundflugs',
+        'Den persoenlichen Blickmoment fuer die Gaeste'
+    ].filter(Boolean))).slice(0, 6);
+    plan.mustAvoid = Array.from(new Set([
+        ...plan.mustAvoid,
+        'Keine Andeutung einer Landung am POI.',
+        'Keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache.',
+        'Keine Formulierung, dass der Zielbereich abgearbeitet, erfasst oder bewertet wird.'
+    ].filter(Boolean))).slice(0, 12);
+    plan.realismBrief = `Der Flug ist als ruhiger privater Rundflug glaubwuerdig: ${targetLabel} bleibt der Blickfang, die Umgebung liefert Orientierung, und der Abschluss liegt in der entspannten Rueckkehr zum Heimatplatz.`;
+    return plan;
+}
+
 function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
     const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
     const rawPlan = (raw?.plan && typeof raw.plan === 'object') ? raw.plan : {};
@@ -16488,6 +17359,9 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.plan.requiredAnchors = [];
         base.plan.objectFamilies = [];
         base.plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
+    }
+    if (taskDomain === 'sightseeing_tour') {
+        _missionPipelineV4ApplySightseeingPlanGuard(base.plan, storyFrame, semantics);
     }
 	    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
         const allowedSarIncidentIds = sarHeliAllowedIncidentIds?.length
@@ -17128,6 +18002,10 @@ function buildMissionContractV4({
         followUpContext,
         homeName: contractHomeName
     });
+    const knowledgeContext = compactPoiKnowledgeContextForMission(
+        plannerContext.knowledgeContext || plannerContext.dest?.knowledgeContext || null,
+        10
+    );
     const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
     const roleProfile = String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1');
     const profileId = String(profile.id || plannerContext.dispatchProfileId || 'auto');
@@ -17159,6 +18037,7 @@ function buildMissionContractV4({
             poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || ''),
             terrainFt: Number.isFinite(Number(plannerContext.poiTerrainFt)) ? Math.round(Number(plannerContext.poiTerrainFt)) : null
         },
+        knowledgeContext,
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
@@ -17221,6 +18100,8 @@ Regeln:
 19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Das Briefing braucht einen kurzen, natuerlichen Wetter-/Pistenanker aus CONTRACT.weather und dem Zielstrip: Wind/Sicht/Temperatur knapp einbauen, dazu Zielpiste, Bahnzustand oder Randbereich im Anflug nennen. Nicht als Checkliste schreiben.
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
+19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Keine Landung am POI andeuten.
+19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -17857,6 +18738,17 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
             `${sought || 'Wir sollen ein belastbares Bild und eine kurze Einordnung liefern, damit die Redaktion nicht auf Archivmaterial ausweichen muss.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'sightseeing_tour') {
+        const sightseeingWeather = weatherBits.length
+            ? ` Bei ${weatherBits.join(' und ')} bleibt der Rundflug gut planbar und angenehm.`
+            : '';
+        return [
+            String(frame.trigger || `Zwei Gaeste haben den Rundflug zu ${targetName} als ruhigen Ausflugsmoment geplant.`).trim(),
+            incident || `${detail} steht als persoenlicher Blickfang der Runde im Mittelpunkt.`,
+            `${whyNow || 'Der Ueberflug ist der gemeinsame Hoehepunkt der Tour und soll ohne Hektik wirken.'}${sightseeingWeather}`.trim(),
+            `${sought || 'Der Zielbereich soll ruhig zu sehen sein, damit Aussicht, Orientierung und ein paar Erinnerungsfotos tragen.'} ${completion || 'Danach geht es entspannt zum Heimatplatz zurueck.'}`.trim()
+        ].join(' ');
+    }
     if (taskDomain === 'bush_pickup_return') {
         return [
             String(frame.trigger || `Am ${targetName} wartet ein Pickup-Gast nach abgeschlossener Arbeit draussen auf den Rueckflug.`).trim(),
@@ -18110,6 +19002,9 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     }
     if (taskDomain === 'news_coverage') {
         return `${opener}, ich brauche heute zu ${targetName} einen klaren Aufhaenger aus der Luft, damit ${outcome ? outcome.toLowerCase() : 'die Redaktion etwas Belastbares bekommt'}.`;
+    }
+    if (taskDomain === 'sightseeing_tour') {
+        return `${opener}, heute geht es nur um den Blick auf ${targetName}; bitte ruhig und weich, damit wir Aussicht und ein paar Erinnerungsfotos geniessen koennen.`;
     }
     if (taskDomain === 'cargo_fragile' || taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
         return `${opener}, dieser Flug ist heute fuer ${subject} angesetzt; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Uebergabe am Ziel ohne Zusatzstress klappt'}.`;
@@ -18366,12 +19261,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         sightseeing_tour: isPOI ? [
             'Entspannter Ausflugs- und Sightseeingflug',
             'Ruhiger Fotostopp fuer Gaeste mit Fokus auf Aussicht und Orientierung',
-            'Privater Rundflug zu einem markanten POI ohne Arbeitsauftrag',
+            'Privater Rundflug zu einem markanten POI als persoenlicher Blickmoment',
             'Panorama-Tour mit weichen Manoevern und gutem Blick auf Ziel und Umgebung'
         ] : [
             'Entspannter Ausflugs- und Sightseeingflug',
             'Privater Tagesausflug mit Fokus auf angenehmen Ablauf und Aussicht',
-            'Ruhiger A-B-Ausflug zum Zielflugplatz ohne Arbeitsauftrag'
+            'Ruhiger A-B-Ausflug zum Zielflugplatz mit entspanntem Aufenthalt'
         ],
         historian_guided_tour: [
             'Historiker-Rundflug mit Bildungsauftrag: historische Fakten, lokale Anekdoten und zeitliche Einordnung am POI',
@@ -18855,6 +19750,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const sarHeliContext = poiTargetMeta?.sarHeli || missionPlanV2?.sarHeli || null;
     const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
+    const knowledgeContext = compactPoiKnowledgeContextForMission(poiTargetMeta?.knowledgeContext || null, 10);
     const dispatchPlan = compactMissionPlanV2?.plan || {};
     const requiredTaskDomain = String(
         (forcedProfile && forcedProfile.id !== 'auto' ? forcedProfile.taskDomain : '') ||
@@ -18916,6 +19812,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         forbiddenTaskDomains: forbiddenByTaskDomain[requiredTaskDomain] || [],
         forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
         plannerContext: compactMissionPlanV2 || null,
+        knowledgeContext: knowledgeContext || null,
         bushContext: provisionalBushSpec ? {
             targetMode: provisionalBushSpec.targetMode,
             completionMode: provisionalBushSpec.completionMode,
@@ -18950,11 +19847,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             ? `4d. PIPELINE-V3-TOOL-PLAN: Nutze missionPlanV2 als Tool-Calling-Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, localFacts, weatherHooks, realismBrief, narrativeHooks, mustMention/mustAvoid und lockedFields sind Leitplanken. Die Story muss daraus einen konkreten, lokal plausiblen Auftrag machen.`
             : `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`)
         : '';
+    const knowledgeGuideRule = (requiredTaskDomain === 'poi_learning_guide' && knowledgeContext?.status === 'accept')
+        ? `4e. KNOWLEDGE-GUIDE-FAKTEN: Nutze knowledgeContext.facts als gepruefte Wissensbasis. Die Story darf 1-2 konkrete Fakten natuerlich anteasern, aber keine weiteren Ortsdaten, Baujahre, Groessen, Namen oder historischen Details frei erfinden. Der Passagier soll als Guide erkennbar sein, der unterwegs Wissenswertes zum POI erklaert.`
+        : '';
     const localKnowledgeRule = isBushMission
         ? `4. BUSH-LOKALWISSEN: Baue 1-2 echte geographische oder topographische Hinweise zu "${promptDestName}" ein. Fokus auf Wildnis, Tal-/Gelandecharakter, abgelegenen Strip und glaubwuerdigen Bush-Betrieb.`
-        : (isPoiTrainingMission
-            ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
-            : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`);
+        : (requiredTaskDomain === 'poi_learning_guide' && knowledgeContext?.status === 'accept'
+            ? `4. LOKALES WISSEN: Nutze fuer "${promptDestName}" nur die geprueften Fakten aus knowledgeContext und die vorhandenen Zielanker. Keine freien Zusatzfakten recherchieren oder erfinden.`
+            : (isPoiTrainingMission
+                ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
+                : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`));
     const bushToneRule = isBushMission
         ? `4a. BUSH-TON: Sprache und Missionsrahmen muessen bodenstaendig, direkt und praxisnah wirken. Weniger akademisch, weniger touristisch, kein Gutachten- oder Prospektton. Gute Bilder sind abgelegene Strips, Pistenrand, Tal, Hang, Wald, Wetter, Ladung, Werkzeug, Camp-Alltag, Bodencrew oder Rueckkehr in die Zivilisation. Kurz, glaubwuerdig und einsatznah bleiben.`
         : '';
@@ -18989,6 +19891,7 @@ REGELN:
 3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
 3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
 3d) ${missionPlanV2Rule || 'Kein Pipeline-V2-Plan aktiv.'}
+3e) ${knowledgeGuideRule || 'Kein Knowledge-Guide-Faktenkontext aktiv.'}
 4) ${routeRule}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
@@ -19032,6 +19935,7 @@ Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || n
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 missionTruth: ${JSON.stringify(compactTruth)}
 missionPlanV2: ${JSON.stringify(compactMissionPlanV2)}
+knowledgeContext: ${JSON.stringify(knowledgeContext)}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
@@ -20455,19 +21359,30 @@ async function generateMission(options = {}) {
         _ensureDispatchAlive();
     }
     if (dest && effectiveType === 'poi' && dispatchProfileId === 'tour_guide_knowledge' && selectedPoiCategory !== 'trn') {
-        const contextOk = await _resolveEducationalPoiContext(dest.n, dest.lat, dest.lon);
+        const knowledgeCategory = String(dest?.knowledgeContext?.category || dest?.poiCategory || selectedPoiCategory || 'generic').toLowerCase();
+        const contextOk = (dest?.knowledgeContext?.ok && dest?.knowledgeContext?.status === 'accept')
+            ? dest.knowledgeContext
+            : await _resolveEducationalPoiContext(dest.n, dest.lat, dest.lon, knowledgeCategory);
         _ensureDispatchAlive();
-        if (!contextOk?.ok) {
+        if (!contextOk?.ok || contextOk?.status !== 'accept') {
             let replacement = null;
-            for (let i = 0; i < 3; i++) {
-                const retry = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
-                _ensureDispatchAlive();
-                if (!retry) continue;
-                const retryCtx = await _resolveEducationalPoiContext(retry.n, retry.lat, retry.lon);
-                _ensureDispatchAlive();
-                if (retryCtx?.ok) {
-                    replacement = { ...retry, n: String(retryCtx.title || retry.n || '').trim() || retry.n };
-                    break;
+            if (!contextOk?.rateLimited) {
+                for (let i = 0; i < 3; i++) {
+                    const retry = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+                    _ensureDispatchAlive();
+                    if (!retry) continue;
+                    const retryCategory = String(retry?.poiCategory || selectedPoiCategory || knowledgeCategory || 'generic').toLowerCase();
+                    const retryCtx = await _resolveEducationalPoiContext(retry.n, retry.lat, retry.lon, retryCategory);
+                    _ensureDispatchAlive();
+                    if (retryCtx?.rateLimited) break;
+                    if (retryCtx?.ok && retryCtx.status === 'accept') {
+                        replacement = {
+                            ...retry,
+                            n: String(retryCtx.title || retry.n || '').trim() || retry.n,
+                            knowledgeContext: retryCtx
+                        };
+                        break;
+                    }
                 }
             }
             if (replacement) {
@@ -20477,6 +21392,7 @@ async function generateMission(options = {}) {
             }
         } else {
             dest.n = String(contextOk.title || dest.n || '').trim() || dest.n;
+            dest.knowledgeContext = contextOk;
         }
     }
     dispatchPhaseEnd('resolve_target', {
@@ -20603,6 +21519,9 @@ async function generateMission(options = {}) {
             missionWeather
         })
         : null;
+    const plannerKnowledgeContext = isPOI && dest?.knowledgeContext
+        ? compactPoiKnowledgeContextForMission(dest.knowledgeContext, 10)
+        : null;
     const plannerContext = {
         start,
         dest,
@@ -20616,6 +21535,7 @@ async function generateMission(options = {}) {
         poiTerrainFt,
         missionWeather,
         missionFireHazard,
+        knowledgeContext: plannerKnowledgeContext,
         targetGeoContext: preMissionTargetGeoContext,
         missionTruth: preMissionTruth,
         sarHeli: sarHeliSpec,
@@ -21175,6 +22095,7 @@ async function generateMission(options = {}) {
                     requestedCategory: String(selectedPoiCategory || 'all'),
                     poiCategory: String(dest?.poiCategory || ''),
                     startAirport: start,
+                    knowledgeContext: plannerKnowledgeContext,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionPlanV2,
@@ -21397,6 +22318,9 @@ async function generateMission(options = {}) {
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
     const poiLookup = isPOI && dest && typeof dest.poiLookup === 'object' ? dest.poiLookup : null;
+    const knowledgeContext = isPOI && (plannerKnowledgeContext || dest?.knowledgeContext)
+        ? (plannerKnowledgeContext || compactPoiKnowledgeContextForMission(dest.knowledgeContext, 10))
+        : null;
     const dispatchSnapshot = {
         mode: isBushDispatch ? 'BUSH' : (isPOI ? 'POI' : 'A-B'),
         category: poolCategory,
@@ -21407,6 +22331,12 @@ async function generateMission(options = {}) {
         target: dest?.n || 'n/a',
         poiSource,
         poiLookup,
+        knowledgeContext: knowledgeContext ? {
+            title: knowledgeContext.title || dest?.n || '',
+            status: knowledgeContext.status || '',
+            score: knowledgeContext.score,
+            facts: knowledgeContext.selectedFacts || 0
+        } : null,
         perf: dispatchPerfSnapshot()
     };
     console.debug('[DISPATCH]', dispatchSnapshot);
@@ -21524,6 +22454,7 @@ async function generateMission(options = {}) {
         poiCategory: isPOI ? poolCategory : null,
         requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
         poiLookup: poiLookup || null,
+        knowledgeContext,
         targetName: dest.n,
         targetLat: Number(dest.lat),
         targetLon: Number(dest.lon),
@@ -21570,6 +22501,7 @@ async function generateMission(options = {}) {
     if (m && typeof m === 'object') {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
+        if (knowledgeContext) m.knowledgeContext = knowledgeContext;
     }
     if (typeof window.missionFollowupEnsureBushReconOutcome === 'function') {
         try {
@@ -21640,6 +22572,9 @@ async function generateMission(options = {}) {
     window.activePassenger = shouldActivateMissionPassenger
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveTargetTerrainFt, poiTaskDefaults)
         : null;
+    if (window.activePassenger && knowledgeContext) {
+        window.activePassenger.knowledgeContext = knowledgeContext;
+    }
     if (window.activePassenger && missionIsSarHeliMission(currentMissionData)) {
         window.activePassenger.targetAltFt = 0;
         window.activePassenger.targetDwellMin = 0;
@@ -21710,7 +22645,8 @@ async function generateMission(options = {}) {
         aptArrivalPlan,
         missionPlanV2,
         missionPlanV4: missionPlanV4 || currentMissionData.missionPlanV4 || null,
-        missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null
+        missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null,
+        knowledgeContext: currentMissionData.knowledgeContext || null
     });
     attachMissionStorageIdentity(activeMissionContract, currentMissionData);
     attachMissionStorageIdentity(window.activePassenger, currentMissionData);
@@ -21790,6 +22726,15 @@ async function generateMission(options = {}) {
             source: m?._source || dataSource || 'n/a',
             poiSource: poiSource || null,
             poiLookup: poiLookup || null,
+            knowledgeContext: currentMissionData.knowledgeContext ? {
+                title: currentMissionData.knowledgeContext.title || null,
+                status: currentMissionData.knowledgeContext.status || null,
+                score: currentMissionData.knowledgeContext.score,
+                selectedFacts: currentMissionData.knowledgeContext.selectedFacts || 0,
+                factCandidates: currentMissionData.knowledgeContext.factCandidates || 0,
+                topics: currentMissionData.knowledgeContext.topics || [],
+                warnings: currentMissionData.knowledgeContext.warnings || []
+            } : null,
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
@@ -21864,10 +22809,14 @@ async function generateMission(options = {}) {
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
+    const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();
     if ((isPOI || missionUsesPoiTaskRecipe(currentMissionData)) && Number(window.activePassenger?.targetAltFt || 0) > 0) {
         const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
         if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
-            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
+            const altitudeLabel = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(briefingTaskDomain)
+                ? 'Ziel-Hinweis'
+                : 'Arbeits-Hinweis';
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${altitudeLabel}: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
         }
     }
     if (String(window.activePassenger?.taskDomain || '').toLowerCase() === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level))) {
@@ -21895,6 +22844,10 @@ async function generateMission(options = {}) {
         || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet)\b/i.test(storyForBriefing));
     if (arrivalHint && !briefingAlreadyCoversArrival) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
+    }
+    const knowledgeBriefing = buildPoiKnowledgeBriefingBlock(currentMissionData, window.activePassenger || plannedBriefingPassenger);
+    if (knowledgeBriefing && !/Wissens-Hinweis:/i.test(storyForBriefing)) {
+        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${knowledgeBriefing}`;
     }
     if (missionIsSarHeliMission(currentMissionData)) {
         const sarHeliBriefing = missionSarHeliBuildBriefingNarrative(currentMissionData, storyForBriefing);

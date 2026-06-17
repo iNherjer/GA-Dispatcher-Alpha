@@ -1409,6 +1409,176 @@ function _paxMissionPlanFactSources() {
     ];
 }
 
+function _activePoiKnowledgeContext() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const pax = window.activePassenger || null;
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const sources = [
+        md.knowledgeContext,
+        contract?.knowledgeContext,
+        pax?.knowledgeContext,
+        md?.missionContract?.knowledgeContext
+    ];
+    const context = sources.find(ctx => ctx && typeof ctx === 'object' && Array.isArray(ctx.facts) && ctx.facts.length);
+    if (!context) return null;
+    const status = String(context.status || '').toLowerCase();
+    if (status && status !== 'accept') return null;
+    return context;
+}
+
+function _poiKnowledgeCleanFactText(value = '') {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .replace(/\[\d+\]/g, '')
+        .trim();
+}
+
+function _poiKnowledgeFactCandidates() {
+    const context = _activePoiKnowledgeContext();
+    if (!context) return [];
+    const seen = new Set();
+    return (Array.isArray(context.facts) ? context.facts : [])
+        .map((fact, index) => ({
+            index,
+            topic: String(fact?.topic || 'general').toLowerCase(),
+            text: _poiKnowledgeCleanFactText(fact?.text || fact || '')
+        }))
+        .filter(fact => fact.text.length >= 36)
+        .filter(fact => !/(wikipedia|quelle|http|einzelnachweise|weblinks|normdaten)/i.test(fact.text))
+        .filter(fact => {
+            const key = fact.text.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+}
+
+function _poiKnowledgeStageScore(fact = {}, stage = 'generic') {
+    const s = String(stage || 'generic').toLowerCase();
+    const topic = String(fact.topic || 'general').toLowerCase();
+    const preferred = {
+        greeting: ['location', 'history', 'use'],
+        boarding: ['location', 'history', 'use'],
+        in_sight: ['location', 'structure', 'metrics', 'nature'],
+        entry: ['history', 'use', 'structure', 'metrics'],
+        result: ['use', 'history', 'nature', 'metrics'],
+        generic: ['history', 'location', 'use', 'structure', 'metrics', 'nature']
+    }[s] || ['history', 'location', 'use', 'structure', 'metrics', 'nature'];
+    const topicScore = preferred.includes(topic) ? (preferred.length - preferred.indexOf(topic)) * 10 : 0;
+    const stageOffset = _poiKnowledgeStageMinIndex(s);
+    const index = Number.isFinite(Number(fact.index)) ? Number(fact.index) : 0;
+    const progressionScore = index >= stageOffset ? 12 : -30;
+    return topicScore + progressionScore - index;
+}
+
+function _poiKnowledgeStageMinIndex(stage = 'generic') {
+    return {
+        greeting: 0,
+        boarding: 0,
+        in_sight: 1,
+        entry: 1,
+        result: 4,
+        generic: 0
+    }[String(stage || 'generic').toLowerCase()] || 0;
+}
+
+function _poiKnowledgeFactHint(stage = 'generic') {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return '';
+    const context = _activePoiKnowledgeContext();
+    const candidates = _poiKnowledgeFactCandidates();
+    if (!context || !candidates.length) return '';
+    const stageKey = String(stage || 'generic').toLowerCase();
+    const ordered = candidates
+        .map(fact => ({ ...fact, score: _poiKnowledgeStageScore(fact, stageKey) }))
+        .sort((a, b) => (b.score - a.score) || (a.index - b.index));
+    const stagePool = ordered.filter(fact => Number(fact.index || 0) >= _poiKnowledgeStageMinIndex(stageKey));
+    const pool = stagePool.length ? stagePool : ordered;
+    const fresh = pool.find(fact => !_poiMemoryHasSimilarFact(fact.text)) || pool[0];
+    if (!fresh) return '';
+    const cleanText = String(fresh.text || '').replace(/[.!?]+$/, '').trim();
+    const clip = cleanText.length > 220 ? `${cleanText.slice(0, 217)}...` : cleanText;
+    const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const label = {
+        greeting: 'Vorschau',
+        boarding: 'Vorschau',
+        in_sight: 'Anflug',
+        entry: 'Zielgebiet',
+        result: 'Fazit',
+        generic: 'Kontext'
+    }[stageKey] || 'Kontext';
+    return ` WISSENS-FAKTENQUEUE (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Nutze genau diesen Fakt, falls er natuerlich passt, und erfinde keine Zusatzdaten: ${clip}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke.`;
+}
+
+function _poiKnowledgeRichFactCount(stage = 'generic') {
+    const context = _activePoiKnowledgeContext();
+    const candidates = _poiKnowledgeFactCandidates();
+    const total = Math.max(
+        candidates.length,
+        Number.isFinite(Number(context?.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : 0
+    );
+    const s = String(stage || 'generic').toLowerCase();
+    if (s === 'entry') {
+        if (total >= 8) return 3;
+        if (total >= 5) return 2;
+        return 1;
+    }
+    if (s === 'result') {
+        if (total >= 7) return 2;
+        return 1;
+    }
+    return 1;
+}
+
+function _poiKnowledgeFactSequenceHint(stage = 'generic') {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return '';
+    const context = _activePoiKnowledgeContext();
+    const candidates = _poiKnowledgeFactCandidates();
+    if (!context || !candidates.length) return '';
+    const stageKey = String(stage || 'generic').toLowerCase();
+    const maxFacts = Math.max(1, Math.min(3, _poiKnowledgeRichFactCount(stageKey)));
+    if (maxFacts <= 1) return _poiKnowledgeFactHint(stageKey);
+    const ordered = candidates
+        .map(fact => ({ ...fact, score: _poiKnowledgeStageScore(fact, stageKey) }))
+        .sort((a, b) => (b.score - a.score) || (a.index - b.index));
+    const stagePool = ordered.filter(fact => Number(fact.index || 0) >= _poiKnowledgeStageMinIndex(stageKey));
+    const pool = stagePool.length ? stagePool : ordered;
+    const selected = [];
+    const seenTopics = new Set();
+    for (const fact of pool) {
+        if (_poiMemoryHasSimilarFact(fact.text)) continue;
+        const topic = String(fact.topic || 'general').toLowerCase();
+        if (seenTopics.has(topic) && selected.length < Math.min(2, maxFacts)) continue;
+        selected.push(fact);
+        seenTopics.add(topic);
+        if (selected.length >= maxFacts) break;
+    }
+    for (const fact of pool) {
+        if (selected.length >= maxFacts) break;
+        if (selected.some(x => x.text === fact.text)) continue;
+        if (_poiMemoryHasSimilarFact(fact.text)) continue;
+        selected.push(fact);
+    }
+    if (!selected.length) return _poiKnowledgeFactHint(stageKey);
+    if (selected.length === 1) return _poiKnowledgeFactHint(stageKey);
+    const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const label = stageKey === 'result' ? 'Fazit' : 'Zielgebiet';
+    const facts = selected.map((fact, index) => {
+        const cleanText = String(fact.text || '').replace(/[.!?]+$/, '').trim();
+        const clip = cleanText.length > 180 ? `${cleanText.slice(0, 177)}...` : cleanText;
+        return `${index + 1}. ${clip}`;
+    }).join(' ');
+    return ` WISSENS-FAKTENQUEUE (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Es gibt hier genug Stoff; nutze ${selected.length} kurze, unterschiedliche Fakten als kleinen Erzaehlbogen und erfinde keine Zusatzdaten: ${facts}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke.`;
+}
+
+function _poiKnowledgeQueueContextLine() {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return '';
+    const context = _activePoiKnowledgeContext();
+    if (!context) return '';
+    const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const count = Number.isFinite(Number(context.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : _poiKnowledgeFactCandidates().length;
+    return `WISSENSQUELLE: ${target}; akzeptierte Wiki-Faktenbasis mit ${Math.max(1, count)} nutzbaren Fakten. Konkrete Fakten nur aus WISSENS-FAKTENQUEUE-Zeilen verwenden, nicht frei ergaenzen. Start/Anflug maximal ein neuer Fakt; im Zielgebiet bei reichhaltiger Basis 2-3 kurze Fakten als Erzaehlbogen.`;
+}
+
 function _paxTargetGeoContext() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const contract = md.missionContract || window.activeMissionContract || null;
@@ -1493,6 +1663,11 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'progress') return ' Drift-Guard (Lern-Guide): Nur Fakten, Kontext und Orientierung zum Ziel. Du bist Guide fuer den Piloten, kein angehender Guide im Trainingsflug. Keine Checklisten, keine Mess-/Schadenssprache. Keine unbestaetigten Spezial-Landmarken als roten Faden weiterfuehren.';
         return ' Drift-Guard (Lern-Guide): Bildungsorientiert und anschaulich. Du erklaerst Ziel und Umgebung fuer den Piloten. Keine Formulierungen wie "ich lerne fuer spaetere Touren" oder "Gelaende abspeichern". Keine Instruktoranweisungen, keine feste Arbeitshoehe verlangen, kein SAR-/Fire-/Inspektions-Ton. Keine Strommasten, Windraeder oder andere Spezial-Landmarken nennen, ausser sie sind das Ziel oder sicher bestaetigt.';
     }
+    if (td === 'sightseeing_tour') {
+        if (m === 'result') return ' Drift-Guard (Sightseeing): Abschluss als warmer Blickmoment mit entspannter Rueckkehr. Keine Woerter wie fertig, abgearbeitet, Befund, Daten, Dokumentation, Erfassung, Inspektion oder Lagebild.';
+        if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
+        return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion, keine Landung am POI andeuten.';
+    }
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
         if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
@@ -1505,6 +1680,10 @@ function _targetFactHint() {
     const td = _activeTaskDomain();
     if (/^(search_and_rescue|fire_watch|mapping_survey|news_coverage)$/.test(td)) return '';
     if (_activeAptTrainingPlan()) return '';
+    if (td === 'poi_learning_guide') {
+        const knowledgeHint = _poiKnowledgeFactHint('generic');
+        if (knowledgeHint) return knowledgeHint;
+    }
     const raw = document.getElementById('wikiDestDescText')?.innerText?.trim() || '';
     const contextFact = _targetContextFactCandidates().find(s => !_poiMemoryHasSimilarFact(s) && !_poiMemoryHasCue(s)) || '';
     if (!raw) {
@@ -4442,6 +4621,8 @@ ${urgencyLine}`
     if (fireHazardLine) lines.push(fireHazardLine);
     if (_activeTaskDomain() === 'poi_learning_guide') {
         lines.push('LERN-GUIDE-FIX: Du bist der Guide und erklaerst dem Piloten die Gegend. Nicht sagen, dass du selbst fuer spaetere Touren lernst oder das Gelaende abspeicherst. Gib pro Meldung mindestens einen konkreten Fakt, Kontext oder eine visuelle Orientierung. Wiederhole keine bereits genannte Landmarke, wenn eine neue Referenz oder ein neuer Umfeld-Fakt verfuegbar ist.');
+        const knowledgeQueueLine = _poiKnowledgeQueueContextLine();
+        if (knowledgeQueueLine) lines.push(knowledgeQueueLine);
     }
     const targetProminenceLine = _paxTargetProminenceLine();
     const visualLandmarksLine = _paxVisualLandmarksLine();
@@ -4801,13 +4982,14 @@ function _poiEntryPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
-    const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
+    const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide) ? '' : _targetFactHint();
+    const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('entry') : '';
     const driftGuard = _domainDriftGuard('entry');
     const historianHint = isHistorian
         ? ' Historiker-Rolle: Erzaehle 1 kurze historische Einordnung direkt zum Ort (Epoche, Nutzung oder lokales Ereignis). Keine Riss-/Technik-/Inspektionssprache.'
         : '';
     const learningGuideHint = isLearningGuide
-        ? ' Lern-Guide-Rolle: Nenne 1-2 kurze Fakten/Einordnungen direkt zum Ziel und fuehre den Piloten ruhig zum Punkt. Keine Arbeitsanweisung, keine Hoehenforderung, kein "ich suche nach Schaeden".'
+        ? ' Lern-Guide-Rolle: Nenne einen kurzen Fakt, bei einer mehrteiligen WISSENS-FAKTENQUEUE auch 2-3 unterschiedliche Fakten als Mini-Erzaehlung direkt zum Ziel. Fuehre den Piloten ruhig zum Punkt. Keine Arbeitsanweisung, keine Hoehenforderung, kein "ich suche nach Schaeden".'
         : '';
     const sarZoneGuard = (taskDomain === 'search_and_rescue')
         ? ' Bleib strikt im Suchkorridor rund um das Zielobjekt. Keine entfernten Orts-/Gewaesserbezuege ausserhalb der Suchzone.'
@@ -4820,10 +5002,10 @@ function _poiEntryPrompt(flightData) {
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen ersten Fakt oder Kontext zum Ort.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.'}${reqHint}${inspHint}${profHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
+${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen kurzen Wissensbogen zum Ort.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.'}${reqHint}${inspHint}${profHint}${knowledgeFactHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
 ${noRepeatHint}
 ${driftGuard}
-${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'}${_toneHint()}`;
+${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : (isLearningGuide ? '2-4 kurze Sätze, anschaulich und ruhig, ohne zu dozieren.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.')}${_toneHint()}`;
 }
 
 function _bearingDeg(lat1, lon1, lat2, lon2) {
@@ -4851,14 +5033,15 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const approachLandmarkHint = _paxApproachLandmarkCueLine();
-    const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint) ? '' : _targetFactHint();
+    const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint || isLearningGuide) ? '' : _targetFactHint();
+    const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactHint('in_sight') : '';
     const driftGuard = _domainDriftGuard('in_sight');
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
     const pax = window.activePassenger || {};
     const targetAltFt = Number(pax?.targetAltFt || 0);
-    const altBrief = (!isLearningGuide && targetAltFt > 0)
+    const altBrief = (!isLearningGuide && taskDomain !== 'sightseeing_tour' && targetAltFt > 0)
         ? ` Nenne in derselben Meldung bitte kurz die geplante Arbeitsflughöhe: "${targetAltFt} Fuß".`
         : '';
     const trainingPlan = _activeAptTrainingPlan();
@@ -4872,7 +5055,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
         ? ' Historiker-Rolle: knapp historisch einordnen (z.B. Epoche/Funktion/regionale Bedeutung), ohne technische Befundsprache.'
         : '';
     const learningInSightHint = isLearningGuide
-        ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. In diesem Call hat Landmarken-Lokalisierung Vorrang vor Hintergrundfakten.'
+        ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. Landmarken-Lokalisierung hat Vorrang; wenn es ohne Hektik passt, ergaenze genau einen neuen Wissensfakt.'
         : '';
     const roleTone = (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
@@ -4890,7 +5073,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
 ${isLearningGuide
         ? `Gib eine kurze Orientierung zur Lage in der 12-Uhr-Logik (${clockPos}) und nenne "ca. ${announcedEta} Minuten". Nutze danach bevorzugt eine bestaetigte Landmarke, um zu erklaeren, wo der POI liegt.`
-        : `Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".`}${altBrief}${approachLandmarkHint ? `\n${approachLandmarkHint}` : ''}${factHint}${sarZoneGuard}${historianInSightHint}${learningInSightHint} ${trainingHint}
+        : `Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".`}${altBrief}${approachLandmarkHint ? `\n${approachLandmarkHint}` : ''}${knowledgeFactHint}${factHint}${sarZoneGuard}${historianInSightHint}${learningInSightHint} ${trainingHint}
 ${driftGuard}
 ${roleTone}${_toneHint()}`;
 }
@@ -4988,6 +5171,7 @@ function _poiSatisfiedPrompt(flightData) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
+    const isSightseeing = taskDomain === 'sightseeing_tour';
     const reconOutcomeActive = _activeBushReconOutcome();
     const inspResultHint = reconOutcomeActive ? '' : _inspectionResultHint();
     const bushReconResultHint = _bushReconOutcomeHintLine('result');
@@ -4998,7 +5182,11 @@ function _poiSatisfiedPrompt(flightData) {
         ? ' Historiker-Fazit: Schließe mit 1 konkreten historischen Takeaway zum Ort (zeitliche Einordnung oder Bedeutung) und einem klaren Weiterflug-Hinweis. Keine technische Zustandsbewertung.'
         : '';
     const learningResultHint = isLearningGuide
-        ? ' Lern-Guide-Fazit: Schließe mit 1 konkreten Lernpunkt zum Ziel und einem lockeren Hinweis, dass wir zum naechsten Punkt weiterkoennen.'
+        ? ' Lern-Guide-Fazit: Schließe mit 1 konkreten Lernpunkt zum Ziel, bei reichhaltiger WISSENS-FAKTENQUEUE auch mit 2 kurzen Takeaway-Fakten, und einem lockeren Hinweis, dass wir zum naechsten Punkt weiterkoennen.'
+        : '';
+    const knowledgeResultFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('result') : '';
+    const sightseeingResultHint = isSightseeing
+        ? ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
         : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
@@ -5007,10 +5195,16 @@ function _poiSatisfiedPrompt(flightData) {
         ? ' Gib zuerst ein fachliches Kurzfazit: Was hast du gesehen, wie sieht der Zustand aus, und ob Nacharbeit oder Beobachtung noetig ist. Erst danach darfst du den Weiter- oder Rueckflug freigeben.'
         : '';
     const noRepeatHint = _poiNoRepeatHint('result');
+    const momentLine = isSightseeing
+        ? `Moment: Die ruhige Sightseeing-Runde am Ziel hat nach ${dwell} Minuten ihren Blickmoment gehabt.${wx ? ' ' + wx : ''}`
+        : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`;
+    const requestLine = isSightseeing
+        ? 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.'
+        : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.';
     return `${ctx}
 
-Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${noRepeatHint}${driftGuard} 1-2 Sätze.${_toneHint()}`;
+${momentLine}
+${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -5223,6 +5417,7 @@ function _greetingMissionGuidance() {
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const isSightseeingApt = (!isPOI && taskDomain === 'sightseeing_tour');
+    const isSightseeingPoi = (isPOI && taskDomain === 'sightseeing_tour');
     const isBushAdventure = (!isPOI && (taskDomain === 'bush_adventure' || (taskDomain === 'sightseeing_tour' && _isBushAdventureMission())));
     const isBushPickupReturn = (!isPOI && taskDomain === 'bush_pickup_return');
     const isLearningGuidePoi = (isPOI && taskDomain === 'poi_learning_guide');
@@ -5249,7 +5444,9 @@ function _greetingMissionGuidance() {
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
             : (isLearningGuidePoi
                 ? `Bitte sag locker, dass du den Piloten zum Ziel fuehrst und dabei etwas ueber den Ort vermittelst. Keine Arbeitsanweisung, keine feste Arbeitshoehe, kein Komfort- oder Zeitdruckhinweis.`
-                : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`);
+                : (isSightseeingPoi
+                    ? `Bitte sag kurz und persoenlich, worauf du dich beim Blick auf das Ziel freust: Aussicht, Orientierung, Erinnerungsfotos oder gemeinsamer Ausflug. Keine Arbeitsanweisung, keine feste Arbeitshoehe, keine Navigations-, Kurs- oder Hoehenvorgaben, kein Zeitdruck.`
+                    : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`));
     } else if (isReporterApt) {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
@@ -5311,15 +5508,16 @@ Max 3-4 Sätze.${_toneHint()}`;
         .filter(Boolean)
         .slice(0, 3);
     const equipmentContextLine = _boardingEquipmentContextLine(speechItems, cargoFallback);
+    const boardingKnowledgeFact = _activeTaskDomain() === 'poi_learning_guide' ? _poiKnowledgeFactHint('boarding') : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
 Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz beim Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
 Kein fester Satzbau und keine Vorlage nachsprechen; variiere natürlich.
-${equipmentContextLine}
-${guidance.reqLine}
-${manifestSpeechRule}
+	${equipmentContextLine}
+	${guidance.reqLine}${boardingKnowledgeFact}
+	${manifestSpeechRule}
 ${guidance.driftGuard}
 ${guidance.timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
@@ -5378,13 +5576,15 @@ function _greetingPrompt() {
     const wx = _weatherContext(window.lastLiveFlightData);
     const guidance = _greetingMissionGuidance();
     if (!guidance) return null;
+    const greetingKnowledgeFact = _activeTaskDomain() === 'poi_learning_guide' ? _poiKnowledgeFactHint('greeting') : '';
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
 Basistext für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
 Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. "Hi"), aber nur sehr knapp.
-${guidance.reqLine}
-${guidance.driftGuard}
+	${guidance.reqLine}
+	${greetingKnowledgeFact}
+	${guidance.driftGuard}
 ${guidance.timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
 }
