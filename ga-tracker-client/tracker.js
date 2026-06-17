@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v273';
-const TRACKER_VERSION_CODE = 273;
+const TRACKER_VERSION = 'v274';
+const TRACKER_VERSION_CODE = 274;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -28,9 +28,6 @@ const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
 const DOOR_CLOSE_EVENT_ID = 9364;
 const DOOR_TOGGLE_EVENT_ID = 9365;
-const PA24_DOOR_UNLOCK_EVENT_ID = 9366;
-const PA24_DOOR_HANDLE_EVENT_ID = 9367;
-const PA24_DOOR_LOCK_EVENT_ID = 9368;
 const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
 const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
 const PARKING_BRAKE_DEF_ID = 9371;
@@ -292,7 +289,6 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let waypointDefReady = false;
   let parkingBrakeDefReady = false;
   let doorEventsReady = false;
-  let pa24DoorEventsReady = false;
   let inputEventsEnumerating = false;
   let inputEventsEnumerationDone = false;
   let doorLastAppliedState = null; // true=open, false=closed
@@ -431,21 +427,6 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     } catch (err) {
       debugLog(`DOOR_EVENTS_ERROR ${err?.message || err}`);
-      return false;
-    }
-  };
-
-  const ensurePa24DoorEvents = () => {
-    if (pa24DoorEventsReady) return true;
-    try {
-      handle.mapClientEventToSimEvent(PA24_DOOR_UNLOCK_EVENT_ID, 'PA24-door_latch_unlock');
-      handle.mapClientEventToSimEvent(PA24_DOOR_HANDLE_EVENT_ID, 'PA24-door_handle_open');
-      handle.mapClientEventToSimEvent(PA24_DOOR_LOCK_EVENT_ID, 'PA24-door_latch_lock');
-      pa24DoorEventsReady = true;
-      debugLog('DOOR_PA24_EVENTS_READY');
-      return true;
-    } catch (err) {
-      debugLog(`DOOR_PA24_EVENTS_ERROR ${err?.message || err}`);
       return false;
     }
   };
@@ -787,23 +768,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setPa24ComancheDoor = async (openDoor, doorIndex = 1, reason = 'boarding') => {
     const action = openDoor ? 'OPEN' : 'CLOSE';
     debugLog(`DOOR_PA24_${action}_START reason=${reason} doorIndex=${doorIndex}`);
-    let ok = false;
-    let inputLatchOk = false;
-
-    if (openDoor) {
-      inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-open`);
-      ok = inputLatchOk || ok;
-      if (inputLatchOk) await sleep(120);
-    }
-
-    // Legacy custom latch events only as fallback; the behavior input event is the real PA24 latch path.
-    let eventOk = false;
-    if (openDoor && !inputLatchOk && ensurePa24DoorEvents()) {
-      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
-      ok = eventOk || ok;
-    }
-
-    // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
+    // PA24 door state is explicit via LVars. Do not send latch toggle/input
+    // events here: they can flip an already-correct state back again.
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
       writeOpenPosition: !openDoor,
       writeLatch: true,
@@ -812,18 +778,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       latchUnlockValue: 0,
       latchLockValue: 1
     });
-    if (!openDoor) {
-      await sleep(120);
-      inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-close`);
-      ok = inputLatchOk || ok;
-      if (!inputLatchOk && ensurePa24DoorEvents()) {
-        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
-        ok = eventOk || ok;
-      }
-    }
-    const finalOk = ok || lvarOk;
-    debugLog(`DOOR_PA24_${action}_DONE status=${finalOk ? 'ok' : 'error'} inputLatchOk=${inputLatchOk ? 1 : 0} eventOk=${eventOk ? 1 : 0} lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
-    return finalOk;
+    debugLog(`DOOR_PA24_${action}_DONE status=${lvarOk ? 'ok' : 'error'} inputLatchOk=0 eventOk=0 lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
+    return lvarOk;
   };
 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {

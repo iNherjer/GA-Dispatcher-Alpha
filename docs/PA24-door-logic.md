@@ -5,7 +5,7 @@ This note documents the current A2A PA24 / Comanche door behavior in
 custom LVars with non-generic polarity, and generic door-position writes can
 make the visual door appear inverted.
 
-Last checked against tracker `v273`.
+Last checked against tracker `v274`.
 
 ## Entry Points
 
@@ -131,19 +131,22 @@ falls back to index `2` for door index `1`.
 
 ## Behavior/Input Events
 
-The code first tries the behavior latch input event:
+The diagnostic panel can still test the behavior latch input event manually:
 
 - `LEVER_door_latch_2States_Toggle`
 - `B:LEVER_door_latch_2States_Toggle`
 
-In observed logs this often returned `INPUT_EVENT_HASH_MISSING`, so the code
-must not rely on it. The deterministic LVar fallback above is the important
-path.
+Do not use this event in the automatic PA24 boarding/deboarding/manual-pax door
+flow. It behaves like a toggle, so it can flip an already-correct latch state.
+The automatic path must use only the explicit LVars above.
 
-Legacy PA24 custom client events are only fallback/compatibility:
+Legacy PA24 custom client events are disabled for automatic door control:
 
 - Open fallback label: `PA24-door_latch_unlock`
 - Close fallback label: `PA24-door_latch_lock`
+
+If either label appears in the tracker console during PA24 boarding/deboarding,
+the automatic path is no longer the documented safe path.
 
 ## Known Traps
 
@@ -157,6 +160,9 @@ Legacy PA24 custom client events are only fallback/compatibility:
   The generic defaults are not the documented PA24-safe values.
 - Do not let generic door events run after a PA24-specific path succeeded.
   They can fight the custom LVar/event logic.
+- Do not send PA24 latch toggle/client events during automatic boarding,
+  deboarding, or manual passenger load/unload. Explicit LVars are the source of
+  truth.
 - If `tracker.js` changes, bump `TRACKER_VERSION`, `TRACKER_VERSION_CODE`,
   `MIN_TRACKER_VERSION_CODE`, `MIN_TRACKER_VERSION_LABEL`, rebuild the tracker
   EXE, and upload the release asset according to `docs/github-push-workflow.md`.
@@ -170,7 +176,7 @@ DOOR_PA24_OPEN_START ...
 A2A_DOOR_LVAR_OPEN_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=1 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
 A2A_VAR_SET name=L:Door1Latch ... value=0 ... latch-unlock
 A2A_VAR_SET name=L:Door1Handle ... value=0 ... handle-open
-DOOR_PA24_OPEN_DONE ... lvarOk=1 ...
+DOOR_PA24_OPEN_DONE ... inputLatchOk=0 eventOk=0 lvarOk=1 ...
 ```
 
 Current implementation hold signature:
@@ -189,5 +195,5 @@ A2A_VAR_SET name=L:Door1Handle ... value=1 ... handle-close
 A2A_VAR_SET name=L:DoorOpen1 ... value=0 ... openvar-0
 A2A_VAR_SET name=L:Exit1Open ... value=0 ... exit-close
 A2A_VAR_SET name=L:Door1Latch ... value=1 ... latch-lock
-DOOR_PA24_CLOSE_DONE ... lvarOk=1 ...
+DOOR_PA24_CLOSE_DONE ... inputLatchOk=0 eventOk=0 lvarOk=1 ...
 ```
