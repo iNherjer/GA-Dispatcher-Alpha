@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v275';
-const TRACKER_VERSION_CODE = 275;
+const TRACKER_VERSION = 'v276';
+const TRACKER_VERSION_CODE = 276;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -697,10 +697,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     } else {
       ok = setNamedVarFromCandidates(handleVars, handleCloseValue, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
-      ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
-      await sleep(70);
-      ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
-      await sleep(70);
+      if (writeOpenPosition) {
+        ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
+        await sleep(70);
+        ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
+        await sleep(70);
+      }
       if (writeLatch) ok = setNamedVarFromCandidates(latchVars, latchLockValue, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
     }
     debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
@@ -765,19 +767,52 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return finalOk;
   };
 
+  const PA24_OPEN_HANDLE_DELAY_MS = 900;
+  const PA24_CLOSE_LATCH_DELAY_MS = 3000;
+  const PA24_LATCH_UNLOCK_VALUE = 0;
+  const PA24_LATCH_LOCK_VALUE = 1;
+  const PA24_HANDLE_OPEN_VALUE = 1;
+  const PA24_HANDLE_CLOSE_VALUE = 0;
+
+  const setPa24ExactLVar = (name, value, units, reason) => {
+    return setNamedVarValue(name, value, units, reason);
+  };
+
+  const setPa24ComancheDoorByExactLVars = async (openDoor, doorIndex = 1, reason = 'boarding') => {
+    const idx = clampInt(doorIndex, 1, 4);
+    const latchName = `L:Door${idx}Latch`;
+    const handleName = `L:Door${idx}Handle`;
+    const action = openDoor ? 'OPEN' : 'CLOSE';
+    debugLog(`PA24_DOOR_EXACT_${action}_START doorIndex=${idx} handleName=${handleName} latchName=${latchName} openHandleDelayMs=${PA24_OPEN_HANDLE_DELAY_MS} closeLatchDelayMs=${PA24_CLOSE_LATCH_DELAY_MS} handleOpen=${PA24_HANDLE_OPEN_VALUE} handleClose=${PA24_HANDLE_CLOSE_VALUE} latchUnlock=${PA24_LATCH_UNLOCK_VALUE} latchLock=${PA24_LATCH_LOCK_VALUE} reason=${reason}`);
+    let ok = false;
+    if (openDoor) {
+      ok = setPa24ExactLVar(latchName, PA24_LATCH_UNLOCK_VALUE, 'number', `${reason}-latch-unlock`) || ok;
+      await sleep(PA24_OPEN_HANDLE_DELAY_MS);
+      ok = setPa24ExactLVar(handleName, PA24_HANDLE_OPEN_VALUE, 'Bool', `${reason}-handle-open`) || ok;
+    } else {
+      ok = setPa24ExactLVar(handleName, PA24_HANDLE_CLOSE_VALUE, 'Bool', `${reason}-handle-close`) || ok;
+      await sleep(PA24_CLOSE_LATCH_DELAY_MS);
+      ok = setPa24ExactLVar(latchName, PA24_LATCH_LOCK_VALUE, 'number', `${reason}-latch-lock`) || ok;
+    }
+    debugLog(`PA24_DOOR_EXACT_${action}_DONE doorIndex=${idx} status=${ok ? 'ok' : 'error'} reason=${reason}`);
+    return ok;
+  };
+
+  const holdPa24ComancheDoorOpen = async (doorIndex = 1, reason = 'door-hold-open') => {
+    const idx = clampInt(doorIndex, 1, 4);
+    const handleName = `L:Door${idx}Handle`;
+    debugLog(`PA24_DOOR_EXACT_HOLD_START doorIndex=${idx} handleName=${handleName} handleOpen=${PA24_HANDLE_OPEN_VALUE} reason=${reason}`);
+    const ok = setPa24ExactLVar(handleName, PA24_HANDLE_OPEN_VALUE, 'Bool', `${reason}-handle-open`);
+    debugLog(`PA24_DOOR_EXACT_HOLD_DONE doorIndex=${idx} status=${ok ? 'ok' : 'error'} reason=${reason}`);
+    return ok;
+  };
+
   const setPa24ComancheDoor = async (openDoor, doorIndex = 1, reason = 'boarding') => {
     const action = openDoor ? 'OPEN' : 'CLOSE';
     debugLog(`DOOR_PA24_${action}_START reason=${reason} doorIndex=${doorIndex}`);
     // PA24 door state is explicit via LVars. Do not send latch toggle/input
     // events here: they can flip an already-correct state back again.
-    const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
-      writeOpenPosition: false,
-      writeLatch: true,
-      handleOpenValue: 0,
-      handleCloseValue: 1,
-      latchUnlockValue: 0,
-      latchLockValue: 1
-    });
+    const lvarOk = await setPa24ComancheDoorByExactLVars(openDoor, doorIndex, reason);
     debugLog(`DOOR_PA24_${action}_DONE status=${lvarOk ? 'ok' : 'error'} inputLatchOk=0 eventOk=0 lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
     return lvarOk;
   };
@@ -871,15 +906,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       inFlight = true;
       tick++;
       try {
-        const holdProfile = isComancheProfile ? 'pa24_comanche' : profile;
-        await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile, {
-          writeOpenPosition: !isComancheProfile,
-          writeLatch: !isComancheProfile,
-          handleOpenValue: isComancheProfile ? 0 : undefined,
-          handleCloseValue: isComancheProfile ? 1 : undefined,
-          latchUnlockValue: isComancheProfile ? 0 : undefined,
-          latchLockValue: isComancheProfile ? 1 : undefined
-        });
+        if (isComancheProfile) {
+          await holdPa24ComancheDoorOpen(idx, `${reason}-hold-${tick}-${why}`);
+        } else {
+          await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, profile);
+        }
       } catch (err) {
         debugLog(`DOOR_HOLD_OPEN_ERROR profile=${profile} index=${idx} tick=${tick} reason=${reason} error=${err?.message || err}`);
       } finally {
