@@ -1572,6 +1572,7 @@ function _setMissionRuntimePhase(phase = 'idle', options = {}) {
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
 const trackerPayloadWaiters = new Map();
+const trackerDebugCommandWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
 const trackerPendingMissionCommands = new Map();
 let missionSceneBoardingPromise = null;
@@ -6394,6 +6395,26 @@ function _resolveTrackerPayloadAck(ack) {
     waiter.resolve(ack);
 }
 
+function _waitForTrackerDebugAck(commandId, timeoutMs = 7000) {
+    if (!commandId) return Promise.resolve({ status: 'not_sent' });
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            trackerDebugCommandWaiters.delete(commandId);
+            resolve({ type: 'aircraft_debug_ack', commandId, status: 'timeout' });
+        }, Math.max(1000, Number(timeoutMs) || 7000));
+        trackerDebugCommandWaiters.set(commandId, { resolve, timer });
+    });
+}
+
+function _resolveTrackerDebugAck(ack) {
+    const commandId = ack?.commandId;
+    if (!commandId || !trackerDebugCommandWaiters.has(commandId)) return;
+    const waiter = trackerDebugCommandWaiters.get(commandId);
+    trackerDebugCommandWaiters.delete(commandId);
+    clearTimeout(waiter.timer);
+    waiter.resolve(ack);
+}
+
 window.trackerPayloadGet = async function(options = {}) {
     const maxStations = Math.max(1, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12)));
     const commandId = window.sendTrackerCommand({
@@ -6426,6 +6447,150 @@ window.trackerPayloadSet = async function(stations = [], options = {}) {
     if (ack?.status !== 'ok' || options?.refreshAfter === false) return ack;
     return window.trackerPayloadGet({ maxStations: options?.maxStations, timeoutMs: options?.timeoutMs || 12000 });
 };
+
+window.trackerDebugSetVar = async function(nameOrOptions, value = 0, units = 'number', options = {}) {
+    const opts = (nameOrOptions && typeof nameOrOptions === 'object')
+        ? nameOrOptions
+        : { ...(options || {}), name: nameOrOptions, value, units };
+    const name = String(opts.name || opts.varName || opts.simVar || '').trim();
+    const numericValue = Number(opts.value ?? 0);
+    const unitName = String(opts.units || opts.unit || 'number').trim() || 'number';
+    if (!name || !Number.isFinite(numericValue)) return { status: 'invalid_input', error: !name ? 'missing_name' : 'invalid_value' };
+    const commandId = window.sendTrackerCommand({
+        type: 'aircraft_var_set',
+        name,
+        value: numericValue,
+        units: unitName,
+        reason: opts.reason || 'pa24-door-debug-var'
+    });
+    if (!commandId) return { status: 'not_sent' };
+    return _waitForTrackerDebugAck(commandId, Number(opts.timeoutMs) || 7000);
+};
+
+window.trackerDebugSetInputEvent = async function(nameOrOptions, value = 1, options = {}) {
+    const opts = (nameOrOptions && typeof nameOrOptions === 'object')
+        ? nameOrOptions
+        : { ...(options || {}), names: Array.isArray(nameOrOptions) ? nameOrOptions : [nameOrOptions], value };
+    const names = (Array.isArray(opts.names) ? opts.names : [opts.name || opts.eventName || opts.inputEvent])
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+    const numericValue = Number(opts.value ?? 1);
+    if (!names.length || !Number.isFinite(numericValue)) return { status: 'invalid_input', error: !names.length ? 'missing_name' : 'invalid_value' };
+    const commandId = window.sendTrackerCommand({
+        type: 'aircraft_input_event_set',
+        names,
+        value: numericValue,
+        reason: opts.reason || 'pa24-door-debug-input-event'
+    });
+    if (!commandId) return { status: 'not_sent' };
+    return _waitForTrackerDebugAck(commandId, Number(opts.timeoutMs) || 7000);
+};
+
+(function setupPa24DoorDebugTool() {
+    const presets = [
+        { id: 'handle-door1-0', label: 'Door1Handle = 0', kind: 'var', name: 'L:Door1Handle', value: 0, units: 'Bool' },
+        { id: 'handle-door1-1', label: 'Door1Handle = 1', kind: 'var', name: 'L:Door1Handle', value: 1, units: 'Bool' },
+        { id: 'handle-handle1-0', label: 'DoorHandle1 = 0', kind: 'var', name: 'L:DoorHandle1', value: 0, units: 'Bool' },
+        { id: 'handle-handle1-1', label: 'DoorHandle1 = 1', kind: 'var', name: 'L:DoorHandle1', value: 1, units: 'Bool' },
+        { id: 'latch-door1-0', label: 'Door1Latch = 0', kind: 'var', name: 'L:Door1Latch', value: 0, units: 'number' },
+        { id: 'latch-door1-1', label: 'Door1Latch = 1', kind: 'var', name: 'L:Door1Latch', value: 1, units: 'number' },
+        { id: 'latch-latch1-0', label: 'DoorLatch1 = 0', kind: 'var', name: 'L:DoorLatch1', value: 0, units: 'number' },
+        { id: 'latch-latch1-1', label: 'DoorLatch1 = 1', kind: 'var', name: 'L:DoorLatch1', value: 1, units: 'number' },
+        { id: 'dooropen-0', label: 'DoorOpen1 = 0', kind: 'var', name: 'L:DoorOpen1', value: 0, units: 'Bool' },
+        { id: 'dooropen-1', label: 'DoorOpen1 = 1', kind: 'var', name: 'L:DoorOpen1', value: 1, units: 'Bool' },
+        { id: 'dooropen-percent-0', label: 'DoorOpen1 = 0%', kind: 'var', name: 'L:DoorOpen1', value: 0, units: 'percent' },
+        { id: 'dooropen-percent-100', label: 'DoorOpen1 = 100%', kind: 'var', name: 'L:DoorOpen1', value: 100, units: 'percent' },
+        { id: 'exitopen-0', label: 'Exit1Open = 0', kind: 'var', name: 'L:Exit1Open', value: 0, units: 'Bool' },
+        { id: 'exitopen-1', label: 'Exit1Open = 1', kind: 'var', name: 'L:Exit1Open', value: 1, units: 'Bool' },
+        { id: 'exitopen-percent-0', label: 'Exit1Open = 0%', kind: 'var', name: 'L:Exit1Open', value: 0, units: 'percent' },
+        { id: 'exitopen-percent-100', label: 'Exit1Open = 100%', kind: 'var', name: 'L:Exit1Open', value: 100, units: 'percent' },
+        { id: 'input-latch-toggle', label: 'Input latch toggle', kind: 'input', names: ['LEVER_door_latch_2States_Toggle', 'B:LEVER_door_latch_2States_Toggle'], value: 1 }
+    ];
+
+    const htmlEscape = (text = '') => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    let lastAck = null;
+
+    const runPreset = async (presetOrId) => {
+        const preset = typeof presetOrId === 'string' ? presets.find(item => item.id === presetOrId) : presetOrId;
+        if (!preset) return { status: 'invalid_preset' };
+        const ack = preset.kind === 'input'
+            ? await window.trackerDebugSetInputEvent({ names: preset.names, value: preset.value, reason: `pa24-door-lab-${preset.id}` })
+            : await window.trackerDebugSetVar({ name: preset.name, value: preset.value, units: preset.units, reason: `pa24-door-lab-${preset.id}` });
+        lastAck = { label: preset.label, ack, at: Date.now() };
+        try { console.log('[PA24 Door Lab]', preset.label, ack); } catch (_) {}
+        renderPanel();
+        return ack;
+    };
+
+    const closePanel = () => {
+        const el = document.getElementById('pa24DoorDebugPanel');
+        if (el) el.remove();
+    };
+
+    const renderPanel = () => {
+        const panel = document.getElementById('pa24DoorDebugPanel');
+        if (!panel) return;
+        const status = lastAck
+            ? `${lastAck.label}: ${lastAck.ack?.status || 'unknown'}${lastAck.ack?.error ? ` (${lastAck.ack.error})` : ''}`
+            : 'No command sent yet.';
+        panel.querySelector('[data-pa24-status]').textContent = status;
+    };
+
+    const openPanel = () => {
+        closePanel();
+        const panel = document.createElement('div');
+        panel.id = 'pa24DoorDebugPanel';
+        panel.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:99999;width:min(390px,calc(100vw - 28px));max-height:min(680px,calc(100vh - 28px));overflow:auto;background:#111;color:#f4f4f4;border:1px solid #555;border-radius:8px;box-shadow:0 14px 38px rgba(0,0,0,.45);font:12px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;padding:10px;';
+        panel.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+                <strong>PA24 Door Lab</strong>
+                <button type="button" data-pa24-close style="background:#333;color:#fff;border:1px solid #666;border-radius:6px;padding:4px 8px;cursor:pointer;">Close</button>
+            </div>
+            <div style="color:#bbb;margin-bottom:8px;">Send one value, observe the aircraft, note what moved.</div>
+            <div data-pa24-status style="min-height:18px;margin-bottom:8px;color:#8fe3ff;">No command sent yet.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                ${presets.map(preset => `<button type="button" data-pa24-preset="${htmlEscape(preset.id)}" style="background:#242424;color:#fff;border:1px solid #555;border-radius:6px;padding:7px;cursor:pointer;text-align:left;">${htmlEscape(preset.label)}</button>`).join('')}
+            </div>
+            <div style="margin-top:10px;color:#aaa;">
+                Console helpers: pa24DoorDebug.setVar('L:Door1Handle', 0, 'Bool') or pa24DoorDebug.inputEvent().
+            </div>
+        `;
+        panel.addEventListener('click', (event) => {
+            const close = event.target.closest('[data-pa24-close]');
+            if (close) {
+                closePanel();
+                return;
+            }
+            const button = event.target.closest('[data-pa24-preset]');
+            if (!button) return;
+            button.disabled = true;
+            const oldText = button.textContent;
+            button.textContent = `${oldText} ...`;
+            runPreset(button.getAttribute('data-pa24-preset')).finally(() => {
+                button.disabled = false;
+                button.textContent = oldText;
+            });
+        });
+        document.body.appendChild(panel);
+    };
+
+    window.pa24DoorDebug = {
+        presets,
+        run: runPreset,
+        open: openPanel,
+        close: closePanel,
+        setVar(name, value = 0, units = 'number') {
+            return window.trackerDebugSetVar({ name, value, units, reason: 'pa24-door-lab-console' });
+        },
+        inputEvent(value = 1) {
+            return window.trackerDebugSetInputEvent({
+                names: ['LEVER_door_latch_2States_Toggle', 'B:LEVER_door_latch_2States_Toggle'],
+                value,
+                reason: 'pa24-door-lab-console-input'
+            });
+        }
+    };
+})();
 
 window.missionSceneBoarding = async function(reason = 'boarding') {
     if (missionSceneBoardingPromise) return missionSceneBoardingPromise;
@@ -6553,6 +6718,16 @@ function _handleTrackerAck(ack) {
     }
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
+    if (ack.type === 'aircraft_var_set_ack' || ack.type === 'aircraft_input_event_set_ack') {
+        window.trackerDebugStatus = window.trackerDebugStatus && typeof window.trackerDebugStatus === 'object' ? window.trackerDebugStatus : {};
+        window.trackerDebugStatus.lastAckAt = Date.now();
+        window.trackerDebugStatus.lastAck = ack;
+        _resolveTrackerDebugAck(ack);
+        try {
+            window.dispatchEvent(new CustomEvent('trackerdebugack', { detail: { ack } }));
+        } catch (_) {}
+        return;
+    }
     if (ack.type === 'aircraft_payload_get_ack' || ack.type === 'aircraft_payload_set_ack') {
         window.aircraftPayloadStatus.lastAckAt = Date.now();
         window.aircraftPayloadStatus.lastAck = ack;
@@ -10017,8 +10192,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 271;
-const MIN_TRACKER_VERSION_LABEL = 'v271';
+const MIN_TRACKER_VERSION_CODE = 272;
+const MIN_TRACKER_VERSION_LABEL = 'v272';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

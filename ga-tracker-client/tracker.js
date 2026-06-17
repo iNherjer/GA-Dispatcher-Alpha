@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v271';
-const TRACKER_VERSION_CODE = 271;
+const TRACKER_VERSION = 'v272';
+const TRACKER_VERSION_CODE = 272;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -2444,6 +2444,75 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return { cleared };
   };
 
+  const applyAircraftVarSetCommand = async (command) => {
+    const commandId = command?.commandId || null;
+    const name = String(command?.name || command?.varName || command?.simVar || '').trim();
+    const units = String(command?.units || command?.unit || 'number').trim() || 'number';
+    const value = Number(command?.value ?? 0);
+    const reason = String(command?.reason || 'aircraft-var-set').trim() || 'aircraft-var-set';
+    if (!name || !Number.isFinite(value)) {
+      sendAck({
+        type: 'aircraft_var_set_ack',
+        commandId,
+        status: 'error',
+        name,
+        units,
+        value: Number.isFinite(value) ? value : null,
+        reason,
+        error: !name ? 'missing_name' : 'invalid_value'
+      });
+      return false;
+    }
+    debugLog(`COMMAND aircraft_var_set name=${name} units=${units} value=${value} reason=${reason}`);
+    const ok = setNamedVarValue(name, value, units, reason);
+    sendAck({
+      type: 'aircraft_var_set_ack',
+      commandId,
+      status: ok ? 'ok' : 'error',
+      name,
+      units,
+      value,
+      reason,
+      error: ok ? '' : 'set_failed'
+    });
+    return ok;
+  };
+
+  const applyAircraftInputEventSetCommand = async (command) => {
+    const commandId = command?.commandId || null;
+    const names = uniqueStrings(
+      (Array.isArray(command?.names) ? command.names : [command?.name || command?.eventName || command?.inputEvent])
+        .map(v => String(v || '').trim())
+        .filter(Boolean)
+    );
+    const value = Number(command?.value ?? 1);
+    const reason = String(command?.reason || 'aircraft-input-event-set').trim() || 'aircraft-input-event-set';
+    if (!names.length || !Number.isFinite(value)) {
+      sendAck({
+        type: 'aircraft_input_event_set_ack',
+        commandId,
+        status: 'error',
+        names,
+        value: Number.isFinite(value) ? value : null,
+        reason,
+        error: !names.length ? 'missing_name' : 'invalid_value'
+      });
+      return false;
+    }
+    debugLog(`COMMAND aircraft_input_event_set names=${names.join(',')} value=${value} reason=${reason}`);
+    const ok = await setInputEventByNameCandidates(names, value, reason);
+    sendAck({
+      type: 'aircraft_input_event_set_ack',
+      commandId,
+      status: ok ? 'ok' : 'error',
+      names,
+      value,
+      reason,
+      error: ok ? '' : 'set_failed'
+    });
+    return ok;
+  };
+
   const spawnMissionSmoke = async (command) => {
     const missionId = String(command?.missionId || 'active');
     const title = String(command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE).trim() || MISSION_SMOKE_DEFAULT_TITLE;
@@ -2752,7 +2821,36 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           })
           .catch(err => {
             sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', missionId, status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'aircraft_var_set') {
+        applyAircraftVarSetCommand(command).catch((err) => {
+          sendAck({
+            type: 'aircraft_var_set_ack',
+            commandId: command?.commandId || null,
+            status: 'error',
+            name: command?.name || command?.varName || command?.simVar || '',
+            units: command?.units || command?.unit || 'number',
+            value: Number.isFinite(Number(command?.value)) ? Number(command.value) : null,
+            reason: command?.reason || 'aircraft-var-set',
+            error: err?.message || String(err)
           });
+        });
+        return true;
+      }
+      if (type === 'aircraft_input_event_set') {
+        applyAircraftInputEventSetCommand(command).catch((err) => {
+          sendAck({
+            type: 'aircraft_input_event_set_ack',
+            commandId: command?.commandId || null,
+            status: 'error',
+            names: Array.isArray(command?.names) ? command.names : [command?.name || command?.eventName || command?.inputEvent || ''].filter(Boolean),
+            value: Number.isFinite(Number(command?.value)) ? Number(command.value) : null,
+            reason: command?.reason || 'aircraft-input-event-set',
+            error: err?.message || String(err)
+          });
+        });
         return true;
       }
       if (type === 'aircraft_payload_get') {
