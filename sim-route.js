@@ -96,7 +96,7 @@
         if (resumeFromManual) {
             const manualAlt = Number(manualResumeFlightData?.mslFt ?? manualResumePoint?.alt);
             const baseAlt = Number(_alt(simDistNM, simRouteCache));
-            if (Number.isFinite(manualAlt) && Number.isFinite(baseAlt)) {
+            if (_shouldPreserveResumeAltitude(manualResumeFlightData, manualAlt) && Number.isFinite(baseAlt)) {
                 simResumeAltOffsetFt = manualAlt - baseAlt;
                 simResumeExactAltFt = manualAlt;
             }
@@ -108,8 +108,10 @@
                         ? Number(manualResumePoint.gs)
                         : null));
             if (Number.isFinite(manualGs)) {
-                simResumeGsKts = Math.max(0, Math.min(300, manualGs));
-                simResumeGsBlendStartTs = Date.now();
+                if (_shouldPreserveResumeSpeed(manualResumeFlightData, manualGs)) {
+                    simResumeGsKts = Math.max(0, Math.min(300, manualGs));
+                    simResumeGsBlendStartTs = Date.now();
+                }
             }
         }
         simActive       = true;
@@ -1026,7 +1028,7 @@
     }
 
     function _simAlt(distNM, cache, options = {}) {
-        if (options?.exactResume === true && Number.isFinite(Number(simResumeExactAltFt))) {
+        if (options?.exactResume === true && simResumeExactAltFt !== null && Number.isFinite(Number(simResumeExactAltFt))) {
             const exactAlt = Number(simResumeExactAltFt);
             simResumeExactAltFt = null;
             return exactAlt;
@@ -1043,9 +1045,27 @@
         return baseAlt + (offset * factor);
     }
 
+    function _shouldPreserveResumeAltitude(flightData, altFt) {
+        const alt = Number(altFt);
+        if (!Number.isFinite(alt) || alt <= 100) return false;
+        if (flightData?.onGround === true) return false;
+        const agl = Number(flightData?.aglFt);
+        if (Number.isFinite(agl) && agl <= 50) return false;
+        return true;
+    }
+
+    function _shouldPreserveResumeSpeed(flightData, gsKts) {
+        const gs = Number(gsKts);
+        if (!Number.isFinite(gs) || gs <= 1) return false;
+        if (flightData?.onGround === true) return false;
+        const agl = Number(flightData?.aglFt);
+        if (Number.isFinite(agl) && agl <= 50) return false;
+        return true;
+    }
+
     function _gs() {
         const base = parseInt(document.getElementById('tasSlider')?.value || 115);
-        if (Number.isFinite(Number(simResumeGsKts))) {
+        if (simResumeGsKts !== null && Number.isFinite(Number(simResumeGsKts))) {
             const ageMs = Math.max(0, Date.now() - Number(simResumeGsBlendStartTs || 0));
             const t = Math.max(0, Math.min(1, ageMs / SIM_RESUME_GS_BLEND_MS));
             const blended = Number(simResumeGsKts) + ((base - Number(simResumeGsKts)) * t);
