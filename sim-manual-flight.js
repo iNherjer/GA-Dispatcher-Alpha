@@ -45,11 +45,15 @@
             return false;
         }
 
+        const autoHandoffSnapshot = window.simModeActive && !window.simManualModeActive
+            ? _captureTelemetrySnapshot()
+            : null;
+
         if (window.simModeActive && !window.simManualModeActive && typeof window.stopSimMode === 'function') {
             try { window.stopSimMode({ preserveMissionRuntime: true }); } catch (_) {}
         }
 
-        const init = _initialPosition();
+        const init = _initialPosition(autoHandoffSnapshot);
         if (!init) {
             alert('Manual Sim braucht eine Karte, Route oder letzte Position als Startpunkt.');
             return false;
@@ -259,7 +263,9 @@
     function _injectManualTick(force, effectiveGsOverride = null) {
         if (!manualActive && !force) return;
         if (!Number.isFinite(manual.lat) || !Number.isFinite(manual.lon)) return;
-        const gs = Number.isFinite(Number(effectiveGsOverride)) ? Number(effectiveGsOverride) : (manualHoldReason ? 0 : manual.gsKts);
+        const gs = effectiveGsOverride !== null && Number.isFinite(Number(effectiveGsOverride))
+            ? Number(effectiveGsOverride)
+            : (manualHoldReason ? 0 : manual.gsKts);
         manualMaxAltFt = Math.max(manualMaxAltFt, manual.mslFt || 0);
         manualMaxGs = Math.max(manualMaxGs, gs || 0);
 
@@ -296,18 +302,31 @@
         };
     }
 
-    function _initialPosition() {
-        const fd = window.lastLiveFlightData || {};
-        const pos = window.lastLiveGpsPos || {};
+    function _captureTelemetrySnapshot() {
+        const fd = window.lastLiveFlightData;
+        const pos = window.lastLiveGpsPos;
+        return {
+            fd: fd && typeof fd === 'object' ? { ...fd } : null,
+            pos: pos && typeof pos === 'object' ? { ...pos } : null
+        };
+    }
+
+    function _initialPosition(snapshot = null) {
+        const fd = snapshot?.fd || window.lastLiveFlightData || {};
+        const pos = snapshot?.pos || window.lastLiveGpsPos || {};
         const lat = Number(pos.lat);
         const lon = Number(pos.lon);
         if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            const fdGs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
+                : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs) : null);
+            const posGs = Number.isFinite(Number(pos.gsKts)) ? Number(pos.gsKts)
+                : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0);
             return {
                 lat,
                 lon,
                 hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
                 altFt: Number.isFinite(Number(fd.mslFt)) ? Number(fd.mslFt) : Number(pos.alt || 2500),
-                gsKts: Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts) : Number(fd.gs || 0),
+                gsKts: fdGs !== null ? fdGs : posGs,
                 onGround: !!fd.onGround
             };
         }

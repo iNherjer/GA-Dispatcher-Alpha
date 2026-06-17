@@ -27,9 +27,15 @@
     let simWaitedForMissionStart = false;
     let simMissionEndPending = false;
     let simMissionEndRecord = null;
+    let simResumeAltOffsetFt = 0;
+    let simResumeAltOffsetStartDistNM = 0;
+    let simResumeExactAltFt = null;
+    let simResumeGsKts = null;
+    let simResumeGsBlendStartTs = 0;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
     const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
+    const SIM_RESUME_GS_BLEND_MS = 8000;
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -39,6 +45,9 @@
         const preserveMissionState = opts.preserveMissionState === true;
         const manualResumePoint = resumeFromManual && window.lastLiveGpsPos
             ? { ...window.lastLiveGpsPos }
+            : null;
+        const manualResumeFlightData = resumeFromManual && window.lastLiveFlightData
+            ? { ...window.lastLiveFlightData }
             : null;
 
         // Kein Sim-Modus wenn aktiv GPS-Daten vom Tracker ankommen (letzte 8 Sekunden)
@@ -78,7 +87,31 @@
         simRouteHash    = _routeHash();
         simDistNM       = resumeDistNM === null
             ? 0
-            : Math.max(0, Math.min(simRouteCache.totalDist, resumeDistNM + 0.02));
+            : Math.max(0, Math.min(simRouteCache.totalDist, resumeDistNM));
+        simResumeAltOffsetFt = 0;
+        simResumeAltOffsetStartDistNM = simDistNM;
+        simResumeExactAltFt = null;
+        simResumeGsKts = null;
+        simResumeGsBlendStartTs = 0;
+        if (resumeFromManual) {
+            const manualAlt = Number(manualResumeFlightData?.mslFt ?? manualResumePoint?.alt);
+            const baseAlt = Number(_alt(simDistNM, simRouteCache));
+            if (Number.isFinite(manualAlt) && Number.isFinite(baseAlt)) {
+                simResumeAltOffsetFt = manualAlt - baseAlt;
+                simResumeExactAltFt = manualAlt;
+            }
+            const manualGs = Number.isFinite(Number(manualResumeFlightData?.gsKts))
+                ? Number(manualResumeFlightData.gsKts)
+                : (Number.isFinite(Number(manualResumeFlightData?.gs))
+                    ? Number(manualResumeFlightData.gs)
+                    : (Number.isFinite(Number(manualResumePoint?.gs))
+                        ? Number(manualResumePoint.gs)
+                        : null));
+            if (Number.isFinite(manualGs)) {
+                simResumeGsKts = Math.max(0, Math.min(300, manualGs));
+                simResumeGsBlendStartTs = Date.now();
+            }
+        }
         simActive       = true;
         simPhase        = resumeFromManual ? 'flight' : 'start_hold';
         simHoldRemainSec = resumeFromManual ? 0 : SIM_HOLD_SEC;
@@ -269,7 +302,7 @@
         if (!_isPoiSimMission() && !simAptAtTargetTriggered && simRouteCache.totalDist > 0 &&
             simDistNM >= simRouteCache.totalDist - 4.0) {
             simAptAtTargetTriggered = true;
-            const curAlt = Math.round(_alt(simDistNM, simRouteCache));
+            const curAlt = Math.round(_simAlt(simDistNM, simRouteCache));
             console.log('[SimPax] Airport-Anflug 4.0 NM vor Ziel → At-Target, alt:', curAlt, 'ft');
             if (typeof window.triggerPaxAtTarget === 'function')
                 window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: simTouchdownVs || 0 });
@@ -326,12 +359,12 @@
         const pos = _pos(simRouteCache, simDistNM);
         if (!pos) return;
 
-        const alt = _alt(simDistNM, simRouteCache);
+        const alt = _simAlt(simDistNM, simRouteCache, { exactResume: true });
         simMaxAltFt = Math.max(simMaxAltFt, alt || 0);
 
         // VS aus Höhendifferenz über die nächsten 0.15 NM
         const fwd    = Math.min(simDistNM + 0.15, simRouteCache.totalDist - 0.01);
-        const altFwd = _alt(fwd, simRouteCache);
+        const altFwd = _simAlt(fwd, simRouteCache);
         const vs     = (altFwd - alt) / Math.max(0.15 / gs * 60, 0.001); // ft/min
         simTouchdownVs = vs;
         const terrainFt = _terrainAtDistance(simDistNM);
@@ -387,7 +420,7 @@
         const pos = _pos(simRouteCache, d);
         if (!pos) return;
         const forcedAlt = Number(waypoint?.altFt ?? waypoint?.elevationFt ?? waypoint?.elevation);
-        const alt = Number.isFinite(forcedAlt) ? forcedAlt : _alt(d, simRouteCache);
+        const alt = Number.isFinite(forcedAlt) ? forcedAlt : _simAlt(d, simRouteCache);
 
         smoothedGS = 0;
         smoothedVS = 0;
@@ -436,6 +469,11 @@
         clearInterval(simInterval);
         simInterval = null;
         simRouteCache = null;
+        simResumeAltOffsetFt = 0;
+        simResumeAltOffsetStartDistNM = 0;
+        simResumeExactAltFt = null;
+        simResumeGsKts = null;
+        simResumeGsBlendStartTs = 0;
 
         smoothedGS = 0;
         smoothedVS = 0;
@@ -870,13 +908,25 @@
     /** Nächste Distanz entlang der neuen Route zur aktuellen Position */
     function _nearestDist(cache, lat, lon) {
         let best = Infinity, bestD = null;
+        const lonScale = Math.max(0.01, Math.cos((Number(lat) || 0) * Math.PI / 180));
+        const pX = Number(lon) * lonScale;
+        const pY = Number(lat);
         for (const s of cache.segs) {
-            for (let t = 0; t <= 1; t += 0.05) {
-                const sLat = s.fLat + (s.tLat - s.fLat) * t;
-                const sLon = s.fLon + (s.tLon - s.fLon) * t;
-                const d    = Math.hypot(sLat - lat, sLon - lon);
-                if (d < best) { best = d; bestD = s.cum + t * s.dist; }
-            }
+            const aX = Number(s.fLon) * lonScale;
+            const aY = Number(s.fLat);
+            const bX = Number(s.tLon) * lonScale;
+            const bY = Number(s.tLat);
+            const vX = bX - aX;
+            const vY = bY - aY;
+            const len2 = vX * vX + vY * vY;
+            const rawT = len2 > 0
+                ? ((pX - aX) * vX + (pY - aY) * vY) / len2
+                : 0;
+            const t = Math.max(0, Math.min(1, rawT));
+            const sLat = Number(s.fLat) + (Number(s.tLat) - Number(s.fLat)) * t;
+            const sLon = Number(s.fLon) + (Number(s.tLon) - Number(s.fLon)) * t;
+            const d = Math.hypot(sLat - Number(lat), (sLon - Number(lon)) * lonScale);
+            if (d < best) { best = d; bestD = s.cum + t * s.dist; }
         }
         return best < 0.25 ? bestD : null;  // ~15 NM Schwelle, sonst zurück zum Start
     }
@@ -975,8 +1025,34 @@
         return Number.isFinite(lastElev) ? lastElev : null;
     }
 
+    function _simAlt(distNM, cache, options = {}) {
+        if (options?.exactResume === true && Number.isFinite(Number(simResumeExactAltFt))) {
+            const exactAlt = Number(simResumeExactAltFt);
+            simResumeExactAltFt = null;
+            return exactAlt;
+        }
+        const baseAlt = _alt(distNM, cache);
+        const offset = Number(simResumeAltOffsetFt);
+        if (!Number.isFinite(offset) || Math.abs(offset) < 1 || !cache) return baseAlt;
+        const startDist = Number.isFinite(Number(simResumeAltOffsetStartDistNM))
+            ? Number(simResumeAltOffsetStartDistNM)
+            : 0;
+        const blendDist = Math.max(0.01, Number(cache.totalDist || 0) - startDist);
+        const remaining = Math.max(0, Number(cache.totalDist || 0) - Number(distNM || 0));
+        const factor = Math.max(0, Math.min(1, remaining / blendDist));
+        return baseAlt + (offset * factor);
+    }
+
     function _gs() {
-        return parseInt(document.getElementById('tasSlider')?.value || 115);
+        const base = parseInt(document.getElementById('tasSlider')?.value || 115);
+        if (Number.isFinite(Number(simResumeGsKts))) {
+            const ageMs = Math.max(0, Date.now() - Number(simResumeGsBlendStartTs || 0));
+            const t = Math.max(0, Math.min(1, ageMs / SIM_RESUME_GS_BLEND_MS));
+            const blended = Number(simResumeGsKts) + ((base - Number(simResumeGsKts)) * t);
+            if (t >= 1) simResumeGsKts = null;
+            return Math.max(0, blended);
+        }
+        return base;
     }
 
     function _waitForManualMissionStart() {
