@@ -1936,7 +1936,8 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             manualConfirmed: !!poiProgress.manualConfirmed,
             atTargetDone: !!poiProgress.atTargetDone,
             dwellSec: Math.max(0, Number(poiProgress.dwellSec || 0)),
-            attempts: Math.max(0, Number(poiProgress.attempts || 0))
+            attempts: Math.max(0, Number(poiProgress.attempts || 0)),
+            surveyPattern: poiProgress.surveyPattern ? _safeCloneJson(poiProgress.surveyPattern, null) : null
         } : null,
         bushProgress: bushProgress ? _safeCloneJson(bushProgress, null) : null,
         cargoManifest,
@@ -9510,7 +9511,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
         'missionPlanV2', 'missionPlanV4', 'missionContractV4', 'missionVariety',
-        'aptArrivalPlan', 'cargoManifest', 'cargoOutcome', 'fireScenario'
+        'aptArrivalPlan', 'surveyPattern', 'cargoManifest', 'cargoOutcome', 'fireScenario'
     ];
     const out = {};
     keep.forEach(key => {

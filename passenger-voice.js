@@ -509,6 +509,9 @@ window.paxVoiceResetMission = function() {
     _missionComfortScore = _createMissionComfortScore();
     _lastPaxText = '';
     try { _paxPreparedAudio.clear(); } catch (_) {}
+    if (typeof window.missionSurveyPattern?.reset === 'function') {
+        try { window.missionSurveyPattern.reset('pax-voice-reset'); } catch (_) {}
+    }
     _closePaxPanel();
     _refreshPaxWidgetVisibility();
 };
@@ -518,27 +521,38 @@ window.paxVoiceGetPoiMissionProgress = function() {
         ? window.missionSarHeliProgressSnapshot()
         : null;
     const sarHeliLoaded = !!(sarHeli && sarHeli.patientLoaded);
+    const surveyPattern = (typeof window.missionSurveyPattern?.snapshot === 'function')
+        ? window.missionSurveyPattern.snapshot()
+        : null;
+    const surveySatisfied = !!(surveyPattern && surveyPattern.satisfied);
     return {
         hasSignal: true,
         trackingActive: !!window.activePassenger && _missionHasPax(),
-        satisfied: !!(_poiSatisfied || sarHeliLoaded),
+        satisfied: !!(_poiSatisfied || sarHeliLoaded || surveySatisfied),
         aborted: !!_poiAborted,
         manualConfirmed: !!_poiManuallyConfirmed,
-        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded),
+        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded || surveySatisfied),
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
         attempts: Math.max(0, Number(_poiAttempts || 0)),
-        sarHeli
+        sarHeli,
+        surveyPattern
     };
 };
 
 window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'mission-resume') {
     if (!progress || typeof progress !== 'object') return false;
-    _poiSatisfied = !!progress.satisfied;
+    const surveySatisfied = !!(progress.surveyPattern && progress.surveyPattern.satisfied);
+    _poiSatisfied = !!(progress.satisfied || surveySatisfied);
     _poiAborted = !!progress.aborted;
     _poiManuallyConfirmed = !!progress.manualConfirmed;
     _paxAtTargetDone = !!progress.atTargetDone || _poiSatisfied || _poiManuallyConfirmed;
     _poiDwellSec = Math.max(0, Number(progress.dwellSec || 0));
     _poiAttempts = Math.max(0, Number(progress.attempts || 0));
+    if (progress.surveyPattern && typeof window.missionSurveyPattern?.restoreProgress === 'function') {
+        try {
+            window.missionSurveyPattern.restoreProgress(progress.surveyPattern, (typeof currentMissionData !== 'undefined' ? currentMissionData : null), window.activePassenger || null);
+        } catch (_) {}
+    }
     if (_poiSatisfied || _poiManuallyConfirmed || _poiDwellSec > 0) {
         _poiInRadius = true;
         _poiEntryDone = true;
@@ -1181,6 +1195,7 @@ function _inspectionMissionMeta() {
     // Rollenreinheit: Historiker erzaehlt Kontext/Geschichte, keine technische Zustandspruefung.
     if (taskDomain === 'historian_guided_tour') return null;
     if (taskDomain === 'poi_learning_guide') return null;
+    if (taskDomain === 'mapping_survey') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -1254,8 +1269,16 @@ function _professionalRoleMeta() {
     if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility' || taskDomain === 'bush_pickup_return' || taskDomain === 'bush_adventure') {
         return null;
     }
+    if (taskDomain === 'mapping_survey') {
+        return {
+            field: 'Survey',
+            entry: ` Nenne kurz, welche Survey-Aufgabe du an "${objectName}" startest (z.B. Orthofoto, Korridor, Objekt-Orbit, Kartenupdate) und woran gute Daten erkennbar sind.`,
+            progress: ` Gib einen knappen Survey-Zwischenstand zu "${objectName}" (Linie, Hoehe, Ueberlappung, Abdeckung), ohne Schadens- oder Sightseeing-Ton.`,
+            result: ` Schließe mit einem Survey-Fazit zu "${objectName}" ab: Datensatz brauchbar, Abdeckung ausreichend, naechster Schritt Auswertung/GIS/Photogrammetrie.`
+        };
+    }
     // Operative Domains sollen nicht in wissenschaftliche Fallback-Hinweise driften.
-    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour|historian_guided_tour|poi_learning_guide)$/.test(taskDomain)) {
+    if (/^(fire_watch|search_and_rescue|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour|historian_guided_tour|poi_learning_guide)$/.test(taskDomain)) {
         return null;
     }
     if (taskDomain === 'science_bio') {
@@ -1742,9 +1765,9 @@ function _domainDriftGuard(mode = 'generic') {
         return ' Drift-Guard (Geo): Nur geologische/geomorphologische Einordnung. Keine Arten-/Uferbiologie, keine Technikinspektion, kein SAR-/Feuer-Ton.';
     }
     if (td === 'mapping_survey') {
-        if (m === 'result') return ' Drift-Guard (Survey): Abschluss mit Datenguete und naechstem Vermessungsschritt. Keine Story-, Historiker- oder Sightseeing-Formulierungen.';
-        if (m === 'progress') return ' Drift-Guard (Survey): Nur Messlogik, Linienfuehrung, Stabilitaet und Datenqualitaet. Keine Ortsanekdoten.';
-        return ' Drift-Guard (Survey): Nur technisch-praezise Vermessungs-/Dokumentationssprache. Keine Begeisterungs- oder Tourismusformeln, keine Inspektionsdramatik.';
+        if (m === 'result') return ' Drift-Guard (Survey): Abschluss mit Datenguete, Abdeckung und naechstem Auswertungsschritt. Keine Schadensdiagnose, keine Story-, Historiker- oder Sightseeing-Formulierungen.';
+        if (m === 'progress') return ' Drift-Guard (Survey): Nur Survey-Logik, Linien/Orbit, Hoehenstabilitaet, Ueberlappung, Abdeckung und Datenqualitaet. Keine Ortsanekdoten, keine Risse/Schaeden.';
+        return ' Drift-Guard (Survey): Technisch-praezise Vermessungs-/Dokumentationssprache. Keine Begeisterungs- oder Tourismusformeln, keine SAR-/Inspektionsdramatik. Arbeitsmuster nur als geplante Linie oder Orbit nennen, nicht als bereits gepruefte Pattern-Wertung.';
     }
     if (td === 'poi_learning_guide') {
         if (m === 'result') return ' Drift-Guard (Lern-Guide): Abschluss mit 1-2 klaren Fakten/Einordnung und einem ruhigen Weiterflug-Hinweis. Du erklaerst dem Piloten die Gegend; nicht sagen, dass du selbst fuer spaetere Touren lernst. Keine Arbeitsanweisung, keine Einsatz-/Inspektionssprache. Keine unbestaetigten Spezial-Landmarken als roten Faden weiterfuehren.';
@@ -4152,6 +4175,135 @@ function _speakPreparedText(key, text, speaker, eventLabel) {
     return _paxSpeechQueue;
 }
 
+function _surveyPatternActiveSpec() {
+    if (typeof window.missionSurveyPattern?.getActiveSpec !== 'function') return null;
+    try {
+        return window.missionSurveyPattern.getActiveSpec(
+            (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+            window.activePassenger || null
+        );
+    } catch (_) {
+        return null;
+    }
+}
+
+function _surveyPatternAudioKey(kind = 'event') {
+    return _paxMissionAudioKey(`survey-${kind}`);
+}
+
+function _surveyPatternVoiceText(kind = 'line_complete', spec = null) {
+    const type = String(spec?.type || '').toLowerCase();
+    switch (kind) {
+        case 'line_complete':
+            return 'Gut, diese Bahn ist sauber. Nimm dir jetzt die nächste Linie, die Reihenfolge ist egal.';
+        case 'line_reset_altitude':
+            return 'Die Höhe passt nicht mehr, die aktuelle Bahn zählt nicht. Wir setzen die Linie noch einmal sauber an.';
+        case 'line_reset_offtrack':
+            return 'Wir sind zu weit aus der Bahn gedriftet. Diese Linie bitte noch einmal ruhig und gerade aufnehmen.';
+        case 'orbit_turn_complete':
+            return 'Sauber, dieser Kreis zählt. Bleib im gleichen Radius und nimm den nächsten Umlauf mit.';
+        case 'orbit_reset_altitude':
+            return 'Die Höhe ist aus dem Band gelaufen, der aktuelle Kreis zählt nicht. Bitte wieder stabilisieren und neu ansetzen.';
+        case 'orbit_reset_offtrack':
+            return 'Der Radius läuft weg, der aktuelle Kreis zählt nicht. Bitte zurück auf den Ring und neu ansetzen.';
+        case 'survey_complete':
+            return type === 'orbit'
+                ? 'Das waren alle Kreise, der Survey ist komplett. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.'
+                : 'Alle Survey-Linien sind sauber abgedeckt. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.';
+        default:
+            return '';
+    }
+}
+
+window.paxVoicePrepareSurveyPattern = function() {
+    const spec = _surveyPatternActiveSpec();
+    if (!spec || String(spec.taskDomain || '').toLowerCase() !== 'mapping_survey') return Promise.resolve(null);
+    if (!window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
+    const epoch = _paxMissionEpoch;
+    const speaker = _speakerSnapshotForMissionVoice('survey-pattern');
+    const kinds = spec.type === 'orbit'
+        ? ['orbit_turn_complete', 'orbit_reset_altitude', 'orbit_reset_offtrack', 'survey_complete']
+        : ['line_complete', 'line_reset_altitude', 'line_reset_offtrack', 'survey_complete'];
+    const jobs = kinds.map(kind => {
+        const text = _surveyPatternVoiceText(kind, spec);
+        return text ? _prepareTextAsTTS(_surveyPatternAudioKey(kind), text, speaker, epoch) : Promise.resolve(null);
+    });
+    return Promise.allSettled(jobs);
+};
+
+function _surveyPatternEventKind(event = null) {
+    const type = String(event?.type || '').toLowerCase();
+    if (type === 'survey_complete') return 'survey_complete';
+    if (type === 'line_complete') return 'line_complete';
+    if (type === 'line_reset_altitude') return 'line_reset_altitude';
+    if (type === 'line_reset_offtrack') return 'line_reset_offtrack';
+    if (type === 'orbit_turn_complete') return 'orbit_turn_complete';
+    if (type === 'orbit_reset_altitude') return 'orbit_reset_altitude';
+    if (type === 'orbit_reset_offtrack') return 'orbit_reset_offtrack';
+    return '';
+}
+
+function _handleSurveyPatternEvents(events = [], spec = null) {
+    if (!Array.isArray(events) || !events.length) return;
+    const meaningful = events
+        .map(_surveyPatternEventKind)
+        .filter(Boolean);
+    if (!meaningful.length) return;
+    const kind = meaningful.includes('survey_complete')
+        ? 'survey_complete'
+        : meaningful.find(k => /complete|reset/.test(k));
+    if (!kind) return;
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot(`survey-pattern-${kind}`, { immediate: kind === 'survey_complete' });
+    }
+    const text = _surveyPatternVoiceText(kind, spec);
+    if (!text) return;
+    const speaker = _speakerSnapshotForMissionVoice('survey-pattern');
+    const label = kind === 'survey_complete'
+        ? 'Survey erfüllt'
+        : (kind.includes('reset') ? 'Survey-Korrektur' : 'Survey-Fortschritt');
+    _speakPreparedText(_surveyPatternAudioKey(kind), text, speaker, label);
+}
+
+function _tickSurveyPatternTask(lat, lon, flightData) {
+    if (_activeTaskDomain() !== 'mapping_survey') return false;
+    if (typeof window.missionSurveyPattern?.tick !== 'function') return false;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    let result = null;
+    try {
+        result = window.missionSurveyPattern.tick({
+            lat,
+            lon,
+            flightData,
+            missionData: md,
+            passenger: window.activePassenger || null
+        });
+    } catch (err) {
+        _paxLog(`Survey-Pattern Tick Fehler: ${err?.message || err}`, 'warn');
+        return false;
+    }
+    if (!result?.handled) return false;
+    _handleSurveyPatternEvents(result.events || [], result.spec || _surveyPatternActiveSpec());
+    const progress = result.progress || null;
+    if (progress?.startedAt && progress?.updatedAt) {
+        _poiDwellSec = Math.max(_poiDwellSec, (Number(progress.updatedAt) - Number(progress.startedAt)) / 1000);
+    }
+    if (result.satisfied && !_poiSatisfied) {
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+            window.missionPersistRuntimeSnapshot('survey-pattern-satisfied', { immediate: true });
+        }
+        if (!Array.isArray(result.events) || !result.events.some(ev => String(ev?.type || '') === 'survey_complete')) {
+            _handleSurveyPatternEvents([{ type: 'survey_complete' }], result.spec || _surveyPatternActiveSpec());
+        }
+        _refreshPaxWidgetVisibility();
+    }
+    return true;
+}
+
 function _roleConsistencyDebugEnabled() {
     return localStorage.getItem('awm_role_consistency_debug') === '1';
 }
@@ -4289,6 +4441,9 @@ window.paxVoicePrepareBoarding = function() {
     const hasPaxMission = _missionHasPax();
     const hasCargoContext = !!_activeCargoText();
     if (!hasPassenger && !hasCargoContext && !hasPaxMission) return Promise.resolve(null);
+    if (typeof window.paxVoicePrepareSurveyPattern === 'function') {
+        try { window.paxVoicePrepareSurveyPattern(); } catch (_) {}
+    }
     const key = _paxMissionAudioKey('boarding');
     const existing = _paxPreparedAudio.get(key);
     if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
@@ -4922,7 +5077,7 @@ function _roleStyleHint(roleRaw, pax = null) {
         return 'klar, strukturiert und einsatzorientiert: Suchmuster, Prioritäten und sichere Durchführung.';
     }
     if (taskDomain === 'mapping_survey') {
-        return 'technisch-präzise und ruhig: reproduzierbare Linien, stabile Fluglage, keine Offtopic-Kommentare.';
+        return 'technisch-präzise und ruhig: Survey-Ziel, geplante Linie oder Orbit, stabile Höhe, Abdeckung und Datengüte stehen im Vordergrund; keine Sightseeing- oder Schadenssprache.';
     }
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
@@ -5128,6 +5283,7 @@ function _poiEntryPrompt(flightData) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
+    const isProfessionalPoiTask = /^(inspection_infra|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain);
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide) ? '' : _targetFactHint();
@@ -5150,10 +5306,10 @@ function _poiEntryPrompt(flightData) {
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen kurzen Wissensbogen zum Ort.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.'}${reqHint}${inspHint}${profHint}${knowledgeFactHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
+${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen kurzen Wissensbogen zum Ort.' : (isProfessionalPoiTask ? 'Du beginnst jetzt mit der fachlichen Zielaufnahme. Sag knapp, worauf du fuer den Auftrag achtest.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.')}${reqHint}${inspHint}${profHint}${knowledgeFactHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
 ${noRepeatHint}
 ${driftGuard}
-${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : (isLearningGuide ? '2-4 kurze Sätze, anschaulich und ruhig, ohne zu dozieren.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.')}${_toneHint()}`;
+${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : (isLearningGuide ? '2-4 kurze Sätze, anschaulich und ruhig, ohne zu dozieren.' : (isProfessionalPoiTask ? '1-2 Sätze, sachlich und fachlich, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'))}${_toneHint()}`;
 }
 
 function _bearingDeg(lat1, lon1, lat2, lon2) {
@@ -5321,6 +5477,7 @@ function _poiSatisfiedPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const isMediaPhoto = taskDomain === 'media_photo';
+    const isMappingSurvey = taskDomain === 'mapping_survey';
     const reconOutcomeActive = _activeBushReconOutcome();
     const inspResultHint = reconOutcomeActive ? '' : _inspectionResultHint();
     const bushReconResultHint = _bushReconOutcomeHintLine('result');
@@ -5340,6 +5497,9 @@ function _poiSatisfiedPrompt(flightData) {
     const mediaResultHint = isMediaPhoto
         ? ' Foto/Film-Fazit: Schließe mit einem kurzen Satz, welche Art Material im Kasten ist (Aufmacherbild, Bildserie, Establishing Shots oder Ortsmotiv) und wohin es danach geht. Nicht wie Sightseeing klingen.'
         : '';
+    const mappingResultHint = isMappingSurvey
+        ? ' Survey-Fazit: Schließe mit einem kurzen Satz zu Abdeckung/Datenguete und dem naechsten Auswertungsschritt. Keine Schadensdiagnose, kein Sightseeing-Fazit.'
+        : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
@@ -5353,18 +5513,22 @@ function _poiSatisfiedPrompt(flightData) {
             ? `Moment: Die historische Runde am Ziel ist nach ${dwell} Minuten gut eingeordnet.${wx ? ' ' + wx : ''}`
             : (isMediaPhoto
                 ? `Moment: Die Foto-/Filmserie am Ziel ist nach ${dwell} Minuten im Kasten.${wx ? ' ' + wx : ''}`
-                : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`));
+                : (isMappingSurvey
+                    ? `Moment: Der Survey-Pass am Ziel hat nach ${dwell} Minuten genug Datenzeit bekommen.${wx ? ' ' + wx : ''}`
+                    : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`)));
     const requestLine = isSightseeing
         ? 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.'
         : (isHistorian
             ? 'Sag dem Piloten kurz, welcher historische Takeaway bleibt und dass wir ruhig zurueckfliegen koennen.'
             : (isMediaPhoto
                 ? 'Sag dem Piloten kurz, dass das Material verwertbar ist und wir zurueckfliegen koennen.'
-                : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.'));
+                : (isMappingSurvey
+                    ? 'Sag dem Piloten kurz, dass der Datensatz verwertbar wirkt und die Auswertung als naechster Schritt folgen kann.'
+                    : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.')));
     return `${ctx}
 
 ${momentLine}
-${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${mediaResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
+${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${mediaResultHint}${mappingResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -6741,7 +6905,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         }
 
         // Flyover (targetDwellMin=0): Entry genügt → satisfied nach kurzem Delay
-        if (dwellRequired === 0) {
+        if (dwellRequired === 0 && taskDomain !== 'mapping_survey') {
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
             if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-flyover-satisfied', { immediate: true });
@@ -6757,6 +6921,10 @@ function _tickPoiDwell(lat, lon, flightData) {
         _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
         const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
         if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
+        return;
+    }
+
+    if (taskDomain === 'mapping_survey' && _tickSurveyPatternTask(lat, lon, flightData)) {
         return;
     }
 

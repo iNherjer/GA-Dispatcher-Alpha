@@ -1736,14 +1736,76 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'photogrammetry_precision_v1',
         taskDomain: 'mapping_survey',
         personas: [
-            { name: 'Nina Eckert', role: 'Geodatentechnikerin', gender: 'female', personality: 'strukturiert, präzise, ruhig' },
-            { name: 'David Kern', role: 'Vermessungstechniker', gender: 'male', personality: 'genau, konzentriert, sachlich' }
+            {
+                name: 'Nina Eckert',
+                role: 'Geodatentechnikerin',
+                gender: 'female',
+                personality: 'strukturiert, präzise, ruhig',
+                storySeed: '{name} begleitet den Flug zu {targetName}, weil ein aktueller Orthofoto- oder GIS-Datensatz für Planung und Vergleich fehlt.',
+                greetingText: 'Hi, ich sitze heute für die Geodaten-Auswertung mit drin. Wichtig sind gleiche Höhe, ruhige Linien und ein Zielgebiet, das später sauber zusammenpasst.'
+            },
+            {
+                name: 'David Kern',
+                role: 'Vermessungstechniker',
+                gender: 'male',
+                personality: 'genau, konzentriert, sachlich',
+                storySeed: '{name} braucht von {targetName} einen reproduzierbaren Vermessungspass, damit die Auswertung nicht mit Lücken oder schiefen Blickwinkeln starten muss.',
+                greetingText: 'Hi, ich brauche heute keinen Showflug, sondern einen sauberen Arbeitsflug. Wenn Höhe und Linie stabil bleiben, bekommen wir brauchbare Daten.'
+            },
+            {
+                name: 'Lea Brandt',
+                role: 'Photogrammetrie-Operatorin',
+                gender: 'female',
+                personality: 'ruhig, technisch, bildgenau',
+                storySeed: '{name} plant für {targetName} eine Bildfolge mit genügend Überlappung, damit daraus später ein verwertbares Orthofoto entstehen kann.',
+                greetingText: 'Hi, ich achte heute auf Überlappung und Blickwinkel. Lieber zwei ruhige Passes als eine wilde Runde mit schönen, aber unbrauchbaren Bildern.'
+            },
+            {
+                name: 'Karim Möller',
+                role: 'GIS-Koordinator',
+                gender: 'male',
+                personality: 'praktisch, analytisch, gelassen',
+                storySeed: '{name} aktualisiert für {targetName} eine Karten- oder Projektgrundlage; der Flug soll sichtbare Veränderungen in einen brauchbaren Datensatz bringen.',
+                greetingText: 'Hi, die Karte braucht ein aktuelles Bild vom Ziel. Ich sage dir, worauf ich achte; du gibst mir eine ruhige Plattform.'
+            },
+            {
+                name: 'Miriam Sander',
+                role: 'Projektvermessungsingenieurin',
+                gender: 'female',
+                personality: 'klar, verbindlich, konzentriert',
+                storySeed: '{name} dokumentiert {targetName} für einen anstehenden Planungs- oder Bauabschnitt, bevor das Projektteam den nächsten Stand freigibt.',
+                greetingText: 'Hi, das Projektteam wartet auf brauchbare Vergleichsdaten. Wir brauchen saubere Bahnen, stabile Höhe und danach eine klare Übergabe an die Auswertung.'
+            },
+            {
+                name: 'Tarek Holm',
+                role: 'Lidar-Spezialist',
+                gender: 'male',
+                personality: 'präzise, leise, methodisch',
+                storySeed: '{name} nutzt den Flug über {targetName}, um Höhen-, Korridor- oder Geländeinformationen für eine spätere Auswertung zu sammeln.',
+                greetingText: 'Hi, bei mir zählt heute die Datenspur. Gleichmäßige Geschwindigkeit, ruhige Lage und ein klarer Zielkorridor machen den Unterschied.'
+            },
+            {
+                name: 'Jana Fuchs',
+                role: 'Kartierungsplanerin',
+                gender: 'female',
+                personality: 'organisiert, aufmerksam, sachlich',
+                storySeed: '{name} bereitet zu {targetName} eine Kartenaktualisierung vor und braucht dafür einen nachvollziehbaren Luftbildsatz statt einzelner schöner Perspektiven.',
+                greetingText: 'Hi, ich denke heute in Kartenblättern, nicht in Postkarten. Bitte so ruhig, dass man die Aufnahmen später sauber aneinanderlegen kann.'
+            },
+            {
+                name: 'Oliver Brand',
+                role: 'Orthofoto-Auswerter',
+                gender: 'male',
+                personality: 'geduldig, technisch, genau',
+                storySeed: '{name} prüft, ob {targetName} als zusammenhängende Bildfläche erfasst werden kann, ohne dass in der Auswertung ein Nachflug nötig wird.',
+                greetingText: 'Hi, mein Ziel ist simpel: ein Datensatz, der später ohne Nachflug in die Auswertung kann. Ruhige Linien sind heute mehr wert als Tempo.'
+            }
         ],
-        greetingText: 'Hi, ich brauche heute reproduzierbare Linien und einen ruhigen Plattformflug für saubere Daten.',
-        paxText: '1 PAX (Survey-Technik)',
-        cargoPool: ['Lidar-Scanner (65 lbs)', 'Photogrammetrie-Kamera (34 lbs)'],
+        greetingText: 'Hi, ich brauche heute einen ruhigen Survey-Flug: gleiche Höhe, saubere Linien und ein Zielgebiet, das später ohne Nachflug ausgewertet werden kann.',
+        paxText: '1 PAX (Survey-Spezialist)',
+        cargoPool: ['Lidar-Scanner (65 lbs)', 'Photogrammetrie-Kamera (34 lbs)', 'RTK-Logger und Missions-Tablet (18 lbs)', 'Gimbal-Kamera und Kalibrierkoffer (42 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: stabile Fluglage und präzise Passes.'
+        storyCue: 'Fokus: konkreter Datensatz-Anlass mit Auftraggeber/Verwendung, sauberer Arbeitsflug und klarer Übergabe an GIS-, Photogrammetrie- oder Projekt-Auswertung. Für Einzelobjekte passt ein ruhiger Orbit, für Flächen/Korridore parallele Nord-Süd-Passes; noch keine harte Pattern-Erfüllung behaupten.'
     },
     cargo_fragile: {
         id: 'cargo_fragile',
@@ -2235,10 +2297,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
     const n = String(poiName || 'Zielgebiet');
     const byProfile = {
         mapping_survey: [
-            { t: `Mapping-Survey: ${n}`, i: '📏', cat: 'poi', s: `Für ${n} läuft ein Vermessungsflug mit Scan- und Kartierfokus. Fliege reproduzierbare Linien.`, payloadText: '1 PAX (Survey-Technik)', cargoText: 'Lidar-Scanner (180 lbs)' },
-            { t: `Photogrammetrie-Pass: ${n}`, i: '🛰️', cat: 'poi', s: `Ein Team erstellt ein neues Orthofoto-Mosaik von ${n}. Stabilität und exakte Passes sind entscheidend.`, payloadText: '1 PAX (Photogrammetrie)', cargoText: 'Photogrammetrie-Kamera (34 lbs)' },
-            { t: `Korridor-Mapping: ${n}`, i: '📐', cat: 'poi', s: `Bei ${n} wird ein kurzer Korridor für die Kartenaktualisierung abgeflogen. Wichtig sind gleichmäßige Linien und ein sauberer Blick auf das Hauptziel.`, payloadText: '1 PAX (Geodaten-Technik)', cargoText: 'GPS-Logger und Kamera (22 lbs)' },
-            { t: `Bestandsaufnahme/Dokumentation: ${n}`, i: '🗺️', cat: 'poi', s: `Für ${n} sollen aktuelle Vergleichsbilder und eine kurze Luftdokumentation entstehen. Wir fliegen ruhig, damit Gebäude, Ufer, Trassen oder Geländeformen sauber zugeordnet werden können.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Tablet und Referenzkarten (18 lbs)' }
+            { t: `Mapping-Survey: ${n}`, i: '📏', cat: 'poi', s: `Für ${n} braucht die GIS-Auswertung einen aktuellen Datensatz. Wir fliegen ruhig und reproduzierbar, damit Ziel, Randbereiche und Referenzen später sauber zusammenpassen.`, payloadText: '1 PAX (Survey-Spezialist)', cargoText: 'Lidar-Scanner (65 lbs)' },
+            { t: `Photogrammetrie-Pass: ${n}`, i: '🛰️', cat: 'poi', s: `Für ${n} entsteht ein Orthofoto-Mosaik. Der Auftrag lebt von stabiler Höhe, genügend Überlappung und einer klaren Übergabe an die Photogrammetrie-Auswertung.`, payloadText: '1 PAX (Photogrammetrie)', cargoText: 'Photogrammetrie-Kamera (34 lbs)' },
+            { t: `Korridor-Mapping: ${n}`, i: '📐', cat: 'poi', s: `Bei ${n} wird ein kurzer Korridor für die Kartenaktualisierung erfasst. Gleichmäßige Linien und ein sauberer Blick auf das Hauptziel sind wichtiger als einzelne schöne Perspektiven.`, payloadText: '1 PAX (Geodaten-Technik)', cargoText: 'RTK-Logger und Missions-Tablet (18 lbs)' },
+            { t: `Bestandsaufnahme/Dokumentation: ${n}`, i: '🗺️', cat: 'poi', s: `Für ${n} sollen Vergleichsdaten für Planung oder Projektstand entstehen. Der Flug bleibt fachlich: ruhige Passes, erkennbare Zielgeometrie und danach Auswertung statt Sightseeing.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Gimbal-Kamera und Kalibrierkoffer (42 lbs)' }
         ],
         news_coverage: [
             { t: `Lokalreport: ${n}`, i: '📰', cat: 'poi', s: `Die Lokalredaktion braucht zu ${n} einen aktuellen Luftaufhänger: Besucherandrang, Verkehrslage, Baustelle oder sichtbare Veränderung im Zielbereich.`, payloadText: '1 PAX (Lokalreporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
@@ -4165,6 +4227,7 @@ function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) 
         source: missionRestoreFirstText(md._source, md.source, contract?._source, contract?.source, options.source ? `restore:${options.source}` : 'restored mission'),
         story: missionRestoreFirstText(md.s, md.missionStory, md.story, state?.mStory),
         contract: contract || null,
+        surveyPattern: md.surveyPattern || contract?.surveyPattern || null,
         sceneAccepted: md.sceneAccepted ?? contract?.sceneAccepted ?? null,
         sceneCompositionStatus: md.sceneCompositionStatus || contract?.sceneCompositionStatus || null,
         sceneIntent: md.sceneIntent || contract?.sceneIntent || null,
@@ -4742,6 +4805,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'missionPlanV2', '_missionPlanV2', 'missionPlanV4', '_missionPlanV4',
         'missionContractV4', '_missionContractV4', 'missionVariety',
         'aptArrivalPlan', 'sceneAccepted', 'sceneCompositionStatus',
+        'surveyPattern',
         'cargoManifest', 'cargoOutcome', 'fireScenario'
     ];
     const out = {};
@@ -5087,6 +5151,7 @@ async function restoreMissionState(state, options = {}) {
         if (currentMissionData.fireScenario && !missionDataAllowsFireWatchScenario(currentMissionData, window.activePassenger, window.activeMissionContract)) {
             delete currentMissionData.fireScenario;
         }
+        attachMissionSurveyPattern(currentMissionData, window.activeMissionContract, window.activePassenger);
     }
     try {
         if (window.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger));
@@ -5144,6 +5209,9 @@ async function restoreMissionState(state, options = {}) {
     document.getElementById("briefingBox").style.display = "block";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
+    if (typeof window.missionSurveyPattern?.refreshOverlay === 'function') {
+        try { window.missionSurveyPattern.refreshOverlay(currentMissionData, window.activePassenger || null); } catch (_) {}
+    }
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
     const restoredDraft = isMissionDraftPending(currentMissionData);
     recalculatePerformance(); document.getElementById('searchIndicator').innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
@@ -11264,6 +11332,194 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
     };
 }
 
+const MISSION_SURVEY_PATTERN_DEFAULTS = {
+    altitudeToleranceFt: 300,
+    scan: {
+        lineCount: 4,
+        lineLengthNm: 1.6,
+        lineSpacingNm: 0.35,
+        crossTrackToleranceNm: 0.10,
+        headingToleranceDeg: 35,
+        minCoverage: 0.82,
+        bins: 24,
+        startEndTolerance: 0.18,
+        resetGraceSec: 5,
+        minGroundSpeedKts: 45
+    },
+    orbit: {
+        radiusNm: 0.55,
+        radialToleranceNm: 0.12,
+        requiredTurns: 3,
+        sectorsPerTurn: 36,
+        minTurnCoverage: 0.86,
+        resetGraceSec: 5,
+        minGroundSpeedKts: 45,
+        minTurnSec: 45
+    }
+};
+
+function missionSurveyPatternTargetPoint(missionData = null, contract = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : {};
+    const c = contract && typeof contract === 'object' ? contract : {};
+    const truth = md.missionTruth || c.missionTruth || null;
+    const main = truth?.mainTarget || null;
+    const anchor = truth?.sceneAnchor || null;
+    const sources = [
+        main,
+        anchor,
+        { name: md.targetName || md.poiName, lat: md.targetLat, lon: md.targetLon },
+        { name: md.poiName, lat: md.dest?.lat, lon: md.dest?.lon }
+    ];
+    for (const src of sources) {
+        const lat = Number(src?.lat);
+        const lon = Number(src?.lon ?? src?.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            return {
+                name: String(src?.name || md.targetName || md.poiName || 'Zielgebiet').trim() || 'Zielgebiet',
+                lat,
+                lon,
+                source: src === main ? 'missionTruth.mainTarget' : (src === anchor ? 'missionTruth.sceneAnchor' : 'missionData')
+            };
+        }
+    }
+    return null;
+}
+
+function missionSurveyPatternCategory(missionData = null, contract = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : {};
+    const c = contract && typeof contract === 'object' ? contract : {};
+    const truth = md.missionTruth || c.missionTruth || {};
+    return String(
+        truth.primaryCategory
+        || truth.poiCategory
+        || truth.requestedCategory
+        || md.poiCategory
+        || md.requestedCategory
+        || ''
+    ).toLowerCase();
+}
+
+function missionSurveyPatternTypeForTarget(missionData = null, contract = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : {};
+    const c = contract && typeof contract === 'object' ? contract : {};
+    const truth = md.missionTruth || c.missionTruth || {};
+    const category = missionSurveyPatternCategory(md, c);
+    const geometryMode = String(truth.geometryMode || '').toLowerCase();
+    if (/^(area|corridor|facility|broad_infrastructure)$/.test(geometryMode)) return 'north_south_scan';
+    if (/^(city|town|village|settlement|generic|water|lake|river|canal|forest|mountain|industry|infrastructure|road|rail|dam|fire)$/.test(category)) {
+        return 'north_south_scan';
+    }
+    return 'orbit';
+}
+
+function buildMissionSurveyPatternScanLines(center, scan = {}) {
+    const lineCount = Math.max(1, Math.min(8, Math.round(Number(scan.lineCount || MISSION_SURVEY_PATTERN_DEFAULTS.scan.lineCount))));
+    const lineLengthNm = Math.max(0.4, Math.min(5, Number(scan.lineLengthNm || MISSION_SURVEY_PATTERN_DEFAULTS.scan.lineLengthNm)));
+    const lineSpacingNm = Math.max(0.12, Math.min(1.2, Number(scan.lineSpacingNm || MISSION_SURVEY_PATTERN_DEFAULTS.scan.lineSpacingNm)));
+    const halfLen = lineLengthNm / 2;
+    const mid = (lineCount - 1) / 2;
+    const out = [];
+    for (let i = 0; i < lineCount; i++) {
+        const offsetNm = (i - mid) * lineSpacingNm;
+        const base = Math.abs(offsetNm) > 0.0001
+            ? getDestinationPoint(center.lat, center.lon, Math.abs(offsetNm), offsetNm >= 0 ? 90 : 270)
+            : { ...center };
+        const north = getDestinationPoint(base.lat, base.lon, halfLen, 0);
+        const south = getDestinationPoint(base.lat, base.lon, halfLen, 180);
+        out.push({
+            id: `S${i + 1}`,
+            label: `Survey-Linie ${i + 1}`,
+            start: { lat: Math.round(north.lat * 1000000) / 1000000, lon: Math.round(north.lon * 1000000) / 1000000 },
+            end: { lat: Math.round(south.lat * 1000000) / 1000000, lon: Math.round(south.lon * 1000000) / 1000000 }
+        });
+    }
+    return out;
+}
+
+function buildMissionSurveyPatternSpec({ missionData = null, missionContract = null, passenger = null } = {}) {
+    const md = missionData && typeof missionData === 'object' ? missionData : null;
+    const contract = missionContract && typeof missionContract === 'object' ? missionContract : (md?.missionContract || null);
+    const pax = passenger && typeof passenger === 'object' ? passenger : (md?.passenger || null);
+    const taskDomain = String(pax?.taskDomain || contract?.taskDomain || '').toLowerCase();
+    if (taskDomain !== 'mapping_survey') return null;
+    const isPoiTask = !!(md?.isPOI || md?.poiName || md?.poiPresentation || missionUsesPoiTaskRecipe(md));
+    if (!isPoiTask) return null;
+    const target = missionSurveyPatternTargetPoint(md, contract);
+    if (!target) return null;
+    const type = missionSurveyPatternTypeForTarget(md, contract);
+    const category = missionSurveyPatternCategory(md, contract);
+    const targetAltFt = Math.max(0, Math.round(Number(pax?.targetAltFt || 0)));
+    const center = {
+        lat: Math.round(Number(target.lat) * 1000000) / 1000000,
+        lon: Math.round(Number(target.lon) * 1000000) / 1000000
+    };
+    const scan = { ...MISSION_SURVEY_PATTERN_DEFAULTS.scan };
+    if (/^(city|town|village|settlement|industry|infrastructure)$/.test(category)) {
+        scan.lineCount = 5;
+        scan.lineLengthNm = 1.9;
+        scan.lineSpacingNm = 0.35;
+    } else if (/^(road|rail|river|canal)$/.test(category)) {
+        scan.lineCount = 3;
+        scan.lineLengthNm = 2.2;
+        scan.lineSpacingNm = 0.32;
+    } else if (/^(water|lake|forest|mountain|fire)$/.test(category)) {
+        scan.lineCount = 4;
+        scan.lineLengthNm = 2.0;
+        scan.lineSpacingNm = 0.42;
+    }
+    scan.lines = buildMissionSurveyPatternScanLines(center, scan);
+    const orbit = { ...MISSION_SURVEY_PATTERN_DEFAULTS.orbit };
+    if (/^(castle|church|religious|monument|stadium|telecom|tower)$/.test(category)) {
+        orbit.radiusNm = 0.45;
+        orbit.radialToleranceNm = 0.10;
+    } else if (category === 'bridge') {
+        orbit.radiusNm = 0.50;
+        orbit.radialToleranceNm = 0.11;
+    }
+    return {
+        schema: 'ga.surveyPattern.v1',
+        enabled: true,
+        key: [
+            'survey',
+            String(md?.missionId || md?.missionKey || md?.targetName || md?.poiName || 'mission').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 48),
+            type,
+            center.lat.toFixed(5),
+            center.lon.toFixed(5)
+        ].join(':'),
+        taskDomain: 'mapping_survey',
+        type,
+        label: type === 'orbit' ? 'Survey-Orbit' : 'Nord-Sued-Scan',
+        targetLabel: target.name,
+        targetSource: target.source,
+        category,
+        center,
+        targetAltFt,
+        altitudeToleranceFt: MISSION_SURVEY_PATTERN_DEFAULTS.altitudeToleranceFt,
+        scan,
+        orbit,
+        completion: {
+            mode: type === 'orbit' ? 'all_turns' : 'all_lines',
+            returnToBaseOnComplete: true
+        }
+    };
+}
+
+function attachMissionSurveyPattern(missionData = null, missionContract = null, passenger = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : null;
+    const contract = missionContract && typeof missionContract === 'object' ? missionContract : md?.missionContract || null;
+    const spec = buildMissionSurveyPatternSpec({ missionData: md, missionContract: contract, passenger });
+    if (!spec) {
+        if (md && md.surveyPattern) delete md.surveyPattern;
+        if (contract && contract.surveyPattern) delete contract.surveyPattern;
+        return null;
+    }
+    if (md) md.surveyPattern = spec;
+    if (contract) contract.surveyPattern = spec;
+    return spec;
+}
+window.buildMissionSurveyPatternSpec = buildMissionSurveyPatternSpec;
+window.attachMissionSurveyPattern = attachMissionSurveyPattern;
+
 function pickFireWatchExtent(truth, hazardLevel) {
     if (truth !== 'fire') return 'false_alarm';
     const h = Number.isFinite(Number(hazardLevel)) ? Number(hazardLevel) : 3;
@@ -15641,10 +15897,14 @@ const MISSION_SEMANTICS_V4_RULESET = {
         mapping_survey: {
             planner: [
                 'Das gewaehlte Zielobjekt oder Zielgebiet bleibt Hauptsubjekt.',
-                'Supportmarker duerfen Datenaufnahme plausibilisieren, aber keinen neuen Auftrag erzeugen.'
+                'Supportmarker duerfen Datenaufnahme plausibilisieren, aber keinen neuen Auftrag erzeugen.',
+                'Der Auftrag braucht einen konkreten Datensatz-Anlass: Orthofoto, GIS-Aktualisierung, Projektvergleich, Korridoraufnahme, Bauleitplanung oder Anlagenuebersicht.',
+                'Arbeitsmuster duerfen nur als geplante Survey-Logik vorkommen: ruhiger Orbit fuer Einzelobjekte oder parallele Nord-Sued-Passes fuer Flaechen/Korridore. Keine harte Pattern-Erfuellung behaupten.'
             ],
             writer: [
-                'Survey-Kontext bleibt untergeordnet; das Ziel bleibt visuell dominant.'
+                'Survey-Kontext bleibt fachlich und zielbezogen; das Ziel bleibt visuell dominant.',
+                'Briefing nennt Auftraggeber/Verwendung, Zielgeometrie, Arbeitsweise und Handoff an GIS-, Photogrammetrie- oder Projekt-Auswertung.',
+                'Keine Sightseeing-, Historiker-, SAR- oder Schadensdiagnose-Sprache; wenn keine Pattern-Auswertung vorhanden ist, nur von geplanter Linie/Orbit sprechen.'
             ]
         },
         media_photo: {
@@ -16823,16 +17083,57 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'mapping_survey') {
+        const surveyIsAreaLike = /^(city|water|lake|river|forest|nature|industrial|facility|airport|village)$/i.test(String(category || ''));
+        const surveyClient = _missionPipelineV4PickOne([
+            'die kommunale GIS-Stelle',
+            'das Projektteam',
+            'die Planungsrunde',
+            'die Photogrammetrie-Auswertung',
+            'die Kartenredaktion'
+        ]);
+        const surveyUse = _missionPipelineV4PickOne(
+            surveyIsAreaLike
+                ? [
+                    'eine Orthofoto- oder Kartenaktualisierung',
+                    'einen Projektvergleich mit dem letzten Datenstand',
+                    'eine Planungsgrundlage fuer Flaeche, Korridor oder Umfeld'
+                ]
+                : [
+                    'eine objektbezogene Anlagenuebersicht',
+                    'einen reproduzierbaren Vergleichssatz aus gleichmaessigen Blickwinkeln',
+                    'eine genaue Lage- und Umfeldaufnahme fuer die Auswertung'
+                ]
+        );
+        const surveyPattern = surveyIsAreaLike
+            ? 'parallelen Nord-Sued-Passes ueber dem Zielgebiet'
+            : 'einem ruhigen Orbit mit gleichmaessigem Abstand zum Ziel';
+        const incidentContext = _missionPipelineV4PickOne([
+            `Fuer ${targetLabel} braucht ${surveyClient} heute ${surveyUse}, bevor der naechste Bearbeitungsstand freigegeben wird.`,
+            `Der vorhandene Datenstand zu ${targetLabel} ist fuer den naechsten Schritt zu alt oder zu lueckenhaft; der Flug soll eine saubere neue Grundlage liefern.`,
+            `Fuer ${targetLabel} sollen Vergleichsdaten entstehen, die spaeter ohne Nachflug in GIS, Photogrammetrie oder Projektunterlagen uebernommen werden koennen.`
+        ]);
+        const whyNow = _missionPipelineV4PickOne([
+            'Der naechste Planungstermin haengt daran, dass der Datensatz heute vollstaendig und mit stabiler Hoehe erfasst wird.',
+            'Solange Licht, Sicht und Arbeitsfenster passen, ist ein sauberer Luftdatensatz schneller als eine lueckenhafte Bodenerfassung.',
+            'Die Auswertung braucht jetzt konsistente Perspektiven, bevor Team oder Auftraggeber mit dem naechsten Stand weiterarbeiten.'
+        ]);
+        const soughtOutcome = _missionPipelineV4PickOne([
+            `Wir sollen ${targetLabel} mit ${surveyPattern} so erfassen, dass die Bild- oder Sensordaten spaeter zusammenpassen.`,
+            `Wir sollen einen zusammenhaengenden Datensatz liefern, der Ziel, Randbereiche und erkennbare Referenzen ohne grobe Luecken abdeckt.`,
+            `Wir sollen stabile, ueberlappende Aufnahmen liefern, damit ${surveyClient} nicht wegen fehlender Abdeckung einen Nachflug planen muss.`
+        ]);
         return {
-            trigger: `Fuer ${targetLabel} wird heute eine gezielte Dokumentation gebraucht, bevor der Datensatz oder Planungsstand weiterverarbeitet wird.`,
+            trigger: `Fuer ${targetLabel} braucht ${surveyClient} heute ${surveyUse}, bevor der Datensatz oder Planungsstand weiterverarbeitet wird.`,
             focusSubject: targetLabel,
-            keyQuestion: `Ob ${targetLabel} mit der geplanten Linie und Blickfuehrung sauber und verwertbar erfasst werden kann.`,
-            stakes: 'Ohne brauchbare Aufnahme fehlen Vergleichs- oder Planungsdaten fuer den naechsten Arbeitsschritt.',
-            completionSignal: 'Nach dem Pass geht das Material an Auswertung oder Projektteam zur weiteren Verarbeitung.',
-            subjectDetail: `${targetLabel} als Aufnahme- oder Vergleichsobjekt`,
-            incidentContext: `Der heutige Ueberflug soll einen Datensatz liefern, der fuer Vergleich, Planung oder Dokumentation noch fehlt.`,
-            whyNow: 'Der weitere Arbeitsstand haengt daran, dass heute ein sauber nutzbarer Ueberflug zustande kommt.',
-            soughtOutcome: 'Wir sollen eine Serie liefern, die ohne Nachflug in Auswertung oder Planung uebernommen werden kann.'
+            keyQuestion: `Ob ${targetLabel} mit ${surveyPattern} sauber, vollstaendig und verwertbar erfasst werden kann.`,
+            stakes: 'Ohne brauchbare Aufnahme fehlen Vergleichs-, GIS- oder Planungsdaten fuer den naechsten Arbeitsschritt.',
+            completionSignal: 'Nach dem Pass gehen Bild-, Sensor- und Notizdaten an GIS-, Photogrammetrie- oder Projekt-Auswertung.',
+            subjectDetail: `${targetLabel} als Survey-Ziel fuer ${surveyUse}`,
+            incidentContext,
+            whyNow,
+            soughtOutcome,
+            surveyPatternHint: surveyPattern,
+            surveyUse
         };
     }
     if (taskDomain === 'media_photo') {
@@ -18402,6 +18703,7 @@ Regeln:
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
+18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
@@ -19033,6 +19335,16 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
         if (clueLine && sentences.length < 4) _missionPipelineV4PushUniqueSentence(sentences, clueLine);
         return sentences.filter(Boolean).slice(0, 5).join(' ');
     }
+    if (taskDomain === 'mapping_survey') {
+        const pattern = String(frame.surveyPatternHint || '').trim();
+        const use = String(frame.surveyUse || detail || '').trim();
+        return [
+            String(frame.trigger || `Für ${targetName} braucht die Auswertung heute einen verwertbaren Survey-Datensatz.`).trim(),
+            incident || `${use || 'Der geplante Datensatz'} gibt dem Flug den Zweck: Ziel, Randbereiche und erkennbare Referenzen sollen später sauber zusammenpassen.`,
+            `${whyNow || 'Der nächste Arbeitsstand hängt daran, dass die Aufnahmen heute vollständig, ruhig und mit stabiler Höhe entstehen.'}${weatherSentence}`.trim(),
+            `${sought || `Wir erfassen ${targetName}${pattern ? ` mit ${pattern}` : ''} so, dass GIS-, Photogrammetrie- oder Projektteam ohne Nachflug weiterarbeiten können.`} ${completion}`.trim()
+        ].join(' ');
+    }
     if (taskDomain === 'inspection_infra') {
         return [
             `Heute pruefen wir an ${targetName} ${detail}.`,
@@ -19620,10 +19932,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Ruhige Vergleichsfotos fuer geologische Veraenderungen im Zielgebiet'
         ],
         mapping_survey: [
-            'Praeziser Mapping-/Survey-Flug mit stabilen Passes',
-            'Photogrammetrie-Flug fuer Orthofoto, Korridor oder Anlagenuebersicht',
-            'Lidar- oder Vermessungspass mit reproduzierbaren Linien',
-            'Dokumentationsflug zur Kartenaktualisierung mit klarer Zielgeometrie'
+            'Orthofoto-Auftrag fuer GIS- oder Kartenaktualisierung mit stabilen, ueberlappenden Passes',
+            'Korridor- oder Flaechenaufnahme mit parallelen Nord-Sued-Bahnen und klarer Zielgeometrie',
+            'Objektbezogener Survey-Orbit fuer Anlage, Bauwerk oder markanten POI mit gleichmaessigem Abstand',
+            'Projektvergleich fuer Bauleitplanung, Gemeinde-GIS oder Anlagenuebersicht mit verwertbarem Datensatz',
+            'Lidar- oder Photogrammetrie-Flug mit ruhiger Hoehe, reproduzierbarer Linie und Auswertungs-Handoff'
         ],
         tour_guide_knowledge: [
             'Bildungsflug zum POI: der Lern-Guide vermittelt dem Piloten Fakten, Kontext und Orientierung ohne Arbeitsauftrag',
@@ -23029,6 +23342,7 @@ async function generateMission(options = {}) {
     currentMissionData.missionContract = activeMissionContract;
     currentMissionData.targetScene = activeMissionContract.targetScene;
     window.activeMissionContract = activeMissionContract;
+    attachMissionSurveyPattern(currentMissionData, activeMissionContract, window.activePassenger);
     {
         const sceneDebugInfo = {
             sceneAccepted: currentMissionData.sceneAccepted,
@@ -23105,6 +23419,7 @@ async function generateMission(options = {}) {
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
+            surveyPattern: currentMissionData.surveyPattern || activeMissionContract.surveyPattern || null,
             sceneAccepted: currentMissionData.sceneAccepted,
             sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
             sceneIntent: currentMissionData.sceneIntent || null,
@@ -23256,6 +23571,9 @@ async function generateMission(options = {}) {
     if (destLocRadioEl) destLocRadioEl.value = '';
 
     updateMap(start.lat, start.lon, dest.lat, dest.lon, currentStartICAO, dest.n);
+    if (typeof window.missionSurveyPattern?.refreshOverlay === 'function') {
+        try { window.missionSurveyPattern.refreshOverlay(currentMissionData, window.activePassenger || plannedBriefingPassenger || null); } catch (_) {}
+    }
 
     currentDepElev  = (globalAirports && globalAirports[currentStartICAO])  ? (globalAirports[currentStartICAO].elevation  ?? null) : null;
     currentDestElev = (globalAirports && globalAirports[currentDestICAO])   ? (globalAirports[currentDestICAO].elevation   ?? null) : null;
