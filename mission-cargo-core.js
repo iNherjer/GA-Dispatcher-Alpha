@@ -1595,7 +1595,7 @@ function _missionCargoManualPassengerLoadOptions(item = null, wasUnloaded = fals
     };
 }
 
-function _missionCargoMarkAllLoaded({ despawn = true, passengerAnimation = true } = {}) {
+function _missionCargoMarkAllLoaded({ despawn = true, passengerAnimation = false } = {}) {
     const manifest = _missionCargoEnsureManifest();
     let changed = false;
     manifest.items.forEach(item => {
@@ -1845,9 +1845,16 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const dropped = item.status === 'dropped';
         const status = dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen'));
         const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
-        const rowAction = (!isUnload && !isPickup && groundHandlingAllowed && _missionCargoItemCanLoadAtCurrentStage(item)) ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
+        const rowBusy = isPassenger && manualPassengerSceneBusy;
+        const rowCanInteract = !isUnload && !isPickup && groundHandlingAllowed && _missionCargoItemCanLoadAtCurrentStage(item) && !rowBusy;
+        const rowAction = rowCanInteract ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}', { mode: 'load' })"` : '';
+        const rowClasses = [
+            loaded ? 'is-loaded' : '',
+            rowCanInteract ? 'is-interactive' : '',
+            rowBusy ? 'is-disabled' : ''
+        ].filter(Boolean).join(' ');
         return `
-            <tr class="${loaded ? 'is-loaded' : ''} ${(!isUnload && groundHandlingAllowed) ? 'is-interactive' : ''}"${rowAction}>
+            <tr class="${rowClasses}"${rowBusy ? ' aria-disabled="true"' : ''}${rowAction}>
                 <td>${idx + 1}</td>
                 <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
                 <td>${isPassenger ? `PAX${Number(item.passengerCount || 0) > 1 ? ` x${Number(item.passengerCount)}` : ''}` : (item.required ? 'Pflicht' : 'Optional')}</td>
@@ -2081,11 +2088,24 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item) return false;
+    if (_missionCargoIsPassengerItem(item) && _missionCargoManualPassengerSceneBusy()) {
+        window.missionCargoStatus.error = _missionCargoManualPassengerBusyMessage();
+        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        return false;
+    }
     if (item.status === 'unloaded') {
         return window.missionCargoLoadItem(itemId, options);
     }
     if (item.status !== 'loaded' && item.status !== 'unloaded' && item.status !== 'dropped') {
         return window.missionCargoLoadItem(itemId, options);
+    }
+    if (_missionCargoIsPassengerItem(item) && item.status === 'loaded') {
+        const ok = _missionCargoMarkPassengerUnloaded({
+            reason: options.reason || 'passenger-manual-unboard',
+            manualAnimation: true
+        });
+        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        return ok;
     }
     item.status = 'pending';
     item.loadedAt = 0;
@@ -2263,7 +2283,6 @@ window.finishMissionCargoLoadingAndStart = function() {
         _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
         return false;
     }
-    _missionCargoMarkAllLoaded({ despawn: false, passengerAnimation: true });
     window.missionCargoStatus.loadConfirmed = true;
     _missionCargoRemoveLoadedSceneObjects('cargo-finish-loading');
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});

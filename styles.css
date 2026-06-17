@@ -7699,6 +7699,13 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-table tbody tr.is-interactive:hover td {
     background: rgba(102, 136, 190, 0.12);
 }
+.mission-cargo-sheet-table tbody tr.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+.mission-cargo-sheet-table tbody tr.is-disabled td {
+    background: rgba(90, 90, 90, 0.10);
+}
 .mission-cargo-signature {
     margin-top: 11px;
     display: flex;
