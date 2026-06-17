@@ -112,6 +112,16 @@
         };
     }
 
+    function localPointToLatLonNm(point, origin) {
+        const originLat = Number(origin?.lat);
+        const originLon = Number(origin?.lon);
+        if (!Number.isFinite(originLat) || !Number.isFinite(originLon)) return null;
+        const lat = originLat + (Number(point?.y || 0) / 60);
+        const lonScale = Math.max(0.01, Math.cos(toRad(originLat)) * 60);
+        const lon = originLon + (Number(point?.x || 0) / lonScale);
+        return { lat, lon };
+    }
+
     function projectPointToLineNm(lat, lon, line) {
         const start = line?.start || {};
         const end = line?.end || {};
@@ -405,9 +415,21 @@
         };
     }
 
+    function sampleInsideScanArea(spec, sample) {
+        if (!spec?.scan || !Number.isFinite(Number(sample?.lat)) || !Number.isFinite(Number(sample?.lon))) return false;
+        const p = localPointNm(sample.lat, sample.lon, spec.center.lat, spec.center.lon);
+        const halfLength = (Number(spec.scan.lineLengthNm || DEFAULTS.scan.lineLengthNm) / 2) + 0.25;
+        const halfWidth = ((Math.max(1, Number(spec.scan.lineCount || 1)) - 1) * Number(spec.scan.lineSpacingNm || DEFAULTS.scan.lineSpacingNm) / 2) + 0.25;
+        return Math.abs(p.y) <= halfLength && Math.abs(p.x) <= halfWidth;
+    }
+
     function tickScanState(spec, state, sample, events) {
         const now = Number(sample.nowMs ?? Date.now());
         if (!Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
+        if (!state.startedAt && sampleInsideScanArea(spec, sample)) {
+            state.startedAt = now;
+            events.push({ type: 'survey_area_entered', mode: 'scan' });
+        }
         const altOk = sampleAltitudeOk(spec, sample);
         const speedOk = sampleSpeedOk(spec.scan.minGroundSpeedKts, sample);
         const candidate = findLineCandidate(spec, state, sample);
@@ -505,6 +527,10 @@
         const speedOk = sampleSpeedOk(spec.orbit.minGroundSpeedKts, sample);
         const distNm = haversineNm(spec.center.lat, spec.center.lon, sample.lat, sample.lon);
         const radialOk = Math.abs(distNm - spec.orbit.radiusNm) <= spec.orbit.radialToleranceNm;
+        if (!state.startedAt && distNm <= spec.orbit.radiusNm + spec.orbit.radialToleranceNm) {
+            state.startedAt = now;
+            events.push({ type: 'survey_area_entered', mode: 'orbit' });
+        }
         const valid = altOk && speedOk && radialOk;
         let active = state.orbit.active;
         if (!active && valid) {
@@ -587,7 +613,14 @@
     function getMissionSpec(missionData = null, passenger = null) {
         const md = missionData || host.currentMissionData || null;
         const contract = md?.missionContract || host.activeMissionContract || null;
-        return normalizeSpec(md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null);
+        let raw = md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null;
+        if (!raw && typeof host.attachMissionSurveyPattern === 'function' && md) {
+            try {
+                host.attachMissionSurveyPattern(md, contract, passenger || md?.passenger || host.activePassenger || null);
+                raw = md?.surveyPattern || contract?.surveyPattern || passenger?.surveyPattern || null;
+            } catch (_) {}
+        }
+        return normalizeSpec(raw);
     }
 
     function getMapInstance() {
@@ -616,9 +649,55 @@
     function lineStyleFor(lineId, state) {
         const completed = state?.scan?.completedLineIds instanceof Set && state.scan.completedLineIds.has(String(lineId));
         const active = String(state?.scan?.active?.lineId || '') === String(lineId);
-        if (completed) return { color: '#2fd46f', weight: 5, opacity: 0.95, dashArray: null };
-        if (active) return { color: '#f2c94c', weight: 5, opacity: 0.95, dashArray: '10,6' };
-        return { color: '#ff4d4d', weight: 4, opacity: 0.82, dashArray: '12,8' };
+        if (completed) return { color: '#2fd46f', weight: 7, opacity: 0.96, dashArray: null };
+        if (active) return { color: '#f2c94c', weight: 7, opacity: 0.96, dashArray: null };
+        return { color: '#ff4d4d', weight: 6, opacity: 0.9, dashArray: null };
+    }
+
+    function connectorStyleFor() {
+        return {
+            color: '#ff6b57',
+            weight: 5,
+            opacity: 0.72,
+            dashArray: null,
+            interactive: false
+        };
+    }
+
+    function scanConnectorArc(lineA, lineB, center, end = 'south') {
+        const aPt = end === 'north' ? lineA.start : lineA.end;
+        const bPt = end === 'north' ? lineB.start : lineB.end;
+        if (!aPt || !bPt) return [];
+        const a = localPointNm(aPt.lat, aPt.lon, center.lat, center.lon);
+        const b = localPointNm(bPt.lat, bPt.lon, center.lat, center.lon);
+        const cx = (a.x + b.x) / 2;
+        const cy = (a.y + b.y) / 2;
+        const rx = Math.abs(b.x - a.x) / 2;
+        if (!(rx > 0.01)) return [[aPt.lat, aPt.lon], [bPt.lat, bPt.lon]];
+        const bulgeSign = end === 'north' ? 1 : -1;
+        const leftToRight = a.x <= b.x;
+        const points = [];
+        const steps = 14;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = leftToRight
+                ? a.x + (b.x - a.x) * t
+                : a.x - (a.x - b.x) * t;
+            const yOffset = Math.sqrt(Math.max(0, rx * rx - (x - cx) * (x - cx))) * bulgeSign;
+            const ll = localPointToLatLonNm({ x, y: cy + yOffset }, center);
+            if (ll) points.push([ll.lat, ll.lon]);
+        }
+        return points;
+    }
+
+    function drawScanConnectors(layer, spec) {
+        const lines = Array.isArray(spec?.scan?.lines) ? spec.scan.lines : [];
+        if (!layer || typeof L === 'undefined' || lines.length < 2) return;
+        for (let i = 0; i < lines.length - 1; i++) {
+            const end = i % 2 === 0 ? 'south' : 'north';
+            const points = scanConnectorArc(lines[i], lines[i + 1], spec.center, end);
+            if (points.length >= 2) L.polyline(points, connectorStyleFor()).addTo(layer);
+        }
     }
 
     function drawOverlay(specRaw = null, progressState = activeState) {
@@ -645,6 +724,7 @@
                 dashArray: done ? null : '14,9'
             }).bindTooltip(`${label} · ${spec.orbit.requiredTurns} Kreise`, { permanent: false }).addTo(layer);
         } else {
+            drawScanConnectors(layer, spec);
             for (const line of spec.scan.lines) {
                 const style = lineStyleFor(line.id, progressState);
                 L.polyline([[line.start.lat, line.start.lon], [line.end.lat, line.end.lon]], style)

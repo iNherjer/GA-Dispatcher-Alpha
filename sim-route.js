@@ -1101,6 +1101,8 @@
         }
         const strip = document.getElementById('simSpeedStrip');
         if (strip) strip.style.display = active ? 'flex' : 'none';
+        const manualBtn = document.getElementById('btnManualSimMode');
+        if (manualBtn) manualBtn.style.display = active ? 'inline-flex' : 'none';
     }
 
 })();

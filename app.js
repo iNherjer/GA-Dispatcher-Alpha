@@ -11393,7 +11393,11 @@ function missionSurveyPatternCategory(missionData = null, contract = null) {
         truth.primaryCategory
         || truth.poiCategory
         || truth.requestedCategory
+        || c.category
+        || c.poiCategory
+        || c.requestedCategory
         || md.poiCategory
+        || md.category
         || md.requestedCategory
         || ''
     ).toLowerCase();
@@ -11454,7 +11458,7 @@ function buildMissionSurveyPatternSpec({ missionData = null, missionContract = n
         lon: Math.round(Number(target.lon) * 1000000) / 1000000
     };
     const scan = { ...MISSION_SURVEY_PATTERN_DEFAULTS.scan };
-    if (/^(city|town|village|settlement|industry|infrastructure)$/.test(category)) {
+    if (/^(city|town|village|settlement|industry|infrastructure|dam)$/.test(category)) {
         scan.lineCount = 5;
         scan.lineLengthNm = 1.9;
         scan.lineSpacingNm = 0.35;

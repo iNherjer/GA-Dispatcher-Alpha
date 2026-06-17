@@ -84,6 +84,7 @@
 
         _setPanelVisible(true);
         _setManualButtonActive(true);
+        _setManualButtonVisible(true);
         _injectManualTick(true);
         if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
         manualInterval = setInterval(_tickManual, TICK_MS);
@@ -105,6 +106,7 @@
         manualHoldReason = '';
         _setPanelVisible(false);
         _setManualButtonActive(false);
+        _setManualButtonVisible(shouldFallbackToAuto);
         if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
         if (shouldFallbackToAuto) {
             const resumed = window.startSimMode({
@@ -120,6 +122,7 @@
         if (!options.keepSimMode) {
             window.simModeActive = false;
             window.simHadMeaningfulAirbornePhase = false;
+            _setManualButtonVisible(false);
         }
         if (!options.keepPlane && typeof window.hideLivePlane === 'function') {
             try { window.hideLivePlane({ preserveMissionRuntime: options?.preserveMissionRuntime === true }); } catch (_) {}
@@ -479,6 +482,11 @@
             btn.classList.toggle('active', !!active);
             btn.title = active ? 'Manuellen Sim stoppen' : 'Manueller Sim';
         });
+    }
+
+    function _setManualButtonVisible(visible) {
+        const mainBtn = document.getElementById('btnManualSimMode');
+        if (mainBtn) mainBtn.style.display = visible ? 'inline-flex' : 'none';
     }
 
     function _setText(id, text) {
