@@ -10481,26 +10481,8 @@ function _missionPlanFactsForNarrative(missionLike = {}, maxItems = 2) {
         .slice(0, Math.max(0, Math.round(Number(maxItems) || 0)));
 }
 
-function _cleanLearningGuideNarrativeFact(value = '') {
-    return String(value || '')
-        .replace(/\s*\|\s*/g, ', ')
-        .replace(/\s+/g, ' ')
-        .replace(/[.!?。]+$/g, '')
-        .trim();
-}
-
-function _learningGuideFactLine(paxName = 'Der Lern-Guide', facts = [], target = 'Zielgebiet') {
-    const cleanFacts = (Array.isArray(facts) ? facts : [])
-        .map(_cleanLearningGuideNarrativeFact)
-        .filter(Boolean)
-        .slice(0, 2);
-    if (!cleanFacts.length) {
-        return `${paxName} achtet auf Lage, Landschaft, Zufahrten und auffaellige Orientierungspunkte rund um ${target}.`;
-    }
-    if (cleanFacts.length === 1) {
-        return `${paxName} greift dabei einen konkreten Anker auf: ${cleanFacts[0]}.`;
-    }
-    return `${paxName} greift dabei konkrete Anker auf: ${cleanFacts[0]}; außerdem ${cleanFacts[1]}.`;
+function _learningGuideFactLine(paxName = 'Der Lern-Guide') {
+    return `${paxName} hebt die vorbereiteten Details fuer die Ansagen im Flug auf und nutzt sichtbare Orientierungspunkte nur zur Einordnung.`;
 }
 
 function _targetLabelForGuideNarrative(missionLike = {}) {
@@ -10519,14 +10501,12 @@ function _sanitizeLearningGuideNarrative(missionLike = {}) {
     if (!missionLike || typeof missionLike !== 'object') return missionLike;
     const target = _targetLabelForGuideNarrative(missionLike);
     const paxName = String(missionLike.passenger?.name || 'Der Lern-Guide').trim();
-    const knowledgeFacts = _missionKnowledgeFactsForNarrative(missionLike, 2);
-    const facts = knowledgeFacts.length ? knowledgeFacts : _missionPlanFactsForNarrative(missionLike, 2);
-    const factLine = _learningGuideFactLine(paxName, facts, target);
+    const factLine = _learningGuideFactLine(paxName);
     const currentRaw = String(missionLike.s || missionLike.story || '');
     const current = currentRaw.toLowerCase();
     const guideLearnsHerself = /(guide|tour-guide|lern-guide|mila|jonas).{0,80}(lernt|trainiert|abspeicher|vorbereit|spaeter|später)|angehend(?:er|e|en)?\s+tour-guide|kuenftig(?:er|e|en)?\s+sightseeing|künft/i.test(current);
     const pronounDrift = /\bunseren\s+[A-ZÄÖÜ][a-zäöüß]+\b|damit\s+er\b|damit\s+sie\s+das\s+gelaende/i.test(currentRaw);
-    const internalNarrativeLeak = /gesicherte punkte aus dem kontext|es gibt am boden|\s\|\s|pipeline|contract|debug|formularfeld/i.test(currentRaw);
+    const internalNarrativeLeak = /gesicherte punkte aus dem kontext|es gibt am boden|\s\|\s|pipeline|contract|debug|formularfeld|konkrete\s+anker|faktenanker|als\s+einstieg\s+reichen\s+im\s+briefing/i.test(currentRaw);
     const writerInstructionLeak = /\bachten\s+sie\b|\bziel\s+ist\s+es\b|\bwir\s+f(?:ü|ue)hren\b|\binformationsflug\b|\bfundiertes\s+verst(?:ä|ae)ndnis\b|\bbegleiten\s+sie\b|\bsie\s+einen\b|\bdurch\s+diesen\b|\bdurchf(?:ü|ue)hren/i.test(currentRaw);
     if (guideLearnsHerself || pronounDrift || internalNarrativeLeak || writerInstructionLeak || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(currentRaw)) {
         missionLike.s = `${paxName} begleitet dich heute als Lern-Guide rund um ${target}. Unterwegs erklaert ${paxName} kurze Fakten, landschaftlichen Kontext und sichtbare Referenzen, damit du die Gegend aus der Luft besser einordnen kannst. ${factLine} Der Flug bleibt ein ruhiger Rundflug: anfliegen, anschauen, einordnen und danach zurueck zum Heimatplatz.`;
@@ -11064,45 +11044,6 @@ function compactPoiKnowledgeContextForMission(context = null, maxFacts = POI_KNO
     return compact;
 }
 
-function missionKnowledgeContextFacts(context = null, maxFacts = 3) {
-    if (!context || typeof context !== 'object') return [];
-    const seen = new Set();
-    return (Array.isArray(context.facts) ? context.facts : [])
-        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim())
-        .filter(text => text.length >= 32)
-        .filter(text => {
-            const key = text.toLowerCase();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        })
-        .map(text => text.length > 180 ? `${text.slice(0, 177)}...` : text)
-        .slice(0, Math.max(0, Math.min(5, Math.round(Number(maxFacts) || 0))));
-}
-
-function _missionKnowledgeFactsForNarrative(missionLike = {}, maxItems = 2) {
-    const contexts = [
-        missionLike?.knowledgeContext,
-        missionLike?._missionContractV4?.knowledgeContext,
-        missionLike?.missionContract?.knowledgeContext,
-        missionLike?.passenger?.knowledgeContext
-    ];
-    const seen = new Set();
-    const out = [];
-    contexts.forEach(context => {
-        if (!context || typeof context !== 'object' || context.status !== 'accept') return;
-        (Array.isArray(context.facts) ? context.facts : []).forEach(fact => {
-            const text = String(fact?.text || fact || '').replace(/\s+/g, ' ').trim();
-            if (text.length < 32) return;
-            const key = text.toLowerCase();
-            if (seen.has(key)) return;
-            seen.add(key);
-            out.push(text);
-        });
-    });
-    return out.slice(0, Math.max(0, Math.min(4, Math.round(Number(maxItems) || 0))));
-}
-
 function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     const md = missionData && typeof missionData === 'object' ? missionData : null;
     const pax = passenger || md?.passenger || md?.missionContract?.passenger || null;
@@ -11110,14 +11051,15 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     if (taskDomain !== 'poi_learning_guide') return '';
     const context = md?.knowledgeContext || md?.missionContract?.knowledgeContext || pax?.knowledgeContext || null;
     if (!context || context.status !== 'accept') return '';
-    const facts = missionKnowledgeContextFacts(context, 2)
-        .map(fact => _cleanLearningGuideNarrativeFact(fact))
-        .filter(Boolean)
-        .map(fact => fact.length > 150 ? `${fact.slice(0, 147)}...` : fact);
-    if (!facts.length) return '';
+    const factCount = Math.max(
+        Number.isFinite(Number(context.availableFacts)) ? Math.round(Number(context.availableFacts)) : 0,
+        Number.isFinite(Number(context.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : 0,
+        Array.isArray(context.facts) ? context.facts.length : 0
+    );
+    if (factCount <= 0) return '';
     const target = String(context.title || md?.poiName || md?.targetName || 'Zielgebiet').replace(/\s+/g, ' ').trim();
     const paxName = String(pax?.name || 'Der Lern-Guide').replace(/\s+/g, ' ').trim();
-    return `${paxName} hat ein paar Fakten zu ${target} vorbereitet. Als Einstieg reichen im Briefing: ${facts.join('; ')}.`;
+    return `Guide-Hinweis: ${paxName} hat gesicherte Ortsfakten zu ${target} vorbereitet. Die Details kommen unterwegs als kurze Guide-Ansagen; das Briefing bleibt beim Rahmen des ruhigen Rundflugs.`;
 }
 
 function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null } = {}) {
@@ -22946,7 +22888,9 @@ async function generateMission(options = {}) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
     }
     const knowledgeBriefing = buildPoiKnowledgeBriefingBlock(currentMissionData, window.activePassenger || plannedBriefingPassenger);
-    if (knowledgeBriefing && !/Wissens-Hinweis:/i.test(storyForBriefing)) {
+    const storyAlreadyHasGuideFrame = /lern-guide|guide/i.test(storyForBriefing)
+        && /fakten|einordnung|orientierung|ansagen/i.test(storyForBriefing);
+    if (knowledgeBriefing && !/(?:Wissens|Guide)-Hinweis:/i.test(storyForBriefing) && !storyAlreadyHasGuideFrame) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${knowledgeBriefing}`;
     }
     if (missionIsSarHeliMission(currentMissionData)) {
