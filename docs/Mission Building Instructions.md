@@ -318,6 +318,10 @@ Erlaubt und sinnvoll:
 
 ### 6.2 Testmatrix: Was Sim abdeckt
 
+Die allgemeine QA-Reihenfolge fuer neue oder geaenderte Missionen steht in
+`docs/Mission Test Strategy.md`. Die folgende Matrix beschreibt nur, welche
+Teile davon der Sim-Test abdecken kann und welche live geprueft werden muessen.
+
 Sim ist der primaere Testpfad fuer:
 
 - Phasenlogik und Statuswechsel
