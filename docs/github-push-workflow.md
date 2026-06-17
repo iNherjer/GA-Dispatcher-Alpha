@@ -30,10 +30,15 @@ Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo. Das Standar
 
 ## 2) Sonderfall: `ga-tracker-client/tracker.js` wurde geaendert
 
-1. EXE neu bauen:
+1. Tracker-Version vor dem Build erhoehen:
+   - In `ga-tracker-client/tracker.js`:
+     - `TRACKER_VERSION` und `TRACKER_VERSION_CODE` um `+1` erhoehen.
+   - In `sync.js`:
+     - `MIN_TRACKER_VERSION_CODE` und `MIN_TRACKER_VERSION_LABEL` auf dieselbe neue Tracker-Version setzen, damit alte EXEs die Update-Warnung ausloesen.
+2. EXE neu bauen:
    - Im Ordner `ga-tracker-client`:
    - `npm run build:tracker`
-2. Danach zusaetzlich auf `origin` releasen:
+3. Danach zusaetzlich auf `origin` releasen:
    - Nur die gebaute Datei `ga-tracker-client/VFR-Multitool-Tracker.exe` als Release-Asset veroeffentlichen.
 
 ## 3) Prioritaet

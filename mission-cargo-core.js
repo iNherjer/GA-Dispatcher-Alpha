@@ -1577,12 +1577,35 @@ window.toggleMissionCargoAutoLoadOption = function() {
     return next;
 };
 
-function _missionCargoMarkAllLoaded({ despawn = true } = {}) {
+function _missionCargoManualPassengerLoadOptions(item = null, wasUnloaded = false, reason = '') {
+    const unloadedKind = `unloaded_${item?.sceneKind || item?.id || 'passenger'}`;
+    return {
+        reason: reason || (wasUnloaded ? 'passenger-manual-load' : 'passenger-manual-board'),
+        manualAnimation: true,
+        sceneId: wasUnloaded ? _missionCargoUnloadSceneId() : _missionCargoSceneId(),
+        boardingPoint: _missionCargoPassengerBoardingPoint(),
+        personKind: wasUnloaded ? unloadedKind : 'person_boarder_1',
+        personKinds: wasUnloaded
+            ? [unloadedKind, item?.sceneKind].filter(Boolean)
+            : ['person_boarder_1', 'person_boarder_2'],
+        personLabel: wasUnloaded ? (item?.storyName || item?.label || 'Passenger') : 'Boarding Pax 1',
+        personLabels: wasUnloaded
+            ? [item?.label, item?.storyName].filter(Boolean)
+            : ['Boarding Pax 1', 'Boarding Pax 2', item?.label, item?.storyName].filter(Boolean)
+    };
+}
+
+function _missionCargoMarkAllLoaded({ despawn = true, passengerAnimation = true } = {}) {
     const manifest = _missionCargoEnsureManifest();
     let changed = false;
     manifest.items.forEach(item => {
         if (!_missionCargoItemCanLoadAtCurrentStage(item)) return;
         if (item.status !== 'loaded' && item.status !== 'unloaded') {
+            if (_missionCargoIsPassengerItem(item) && passengerAnimation !== false) {
+                const ok = _missionCargoMarkPassengerLoaded(_missionCargoManualPassengerLoadOptions(item, false, 'passenger-manual-board'));
+                changed = ok || changed;
+                return;
+            }
             item.status = 'loaded';
             item.loadedAt = Date.now();
             changed = true;
@@ -2018,22 +2041,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     }
     const wasUnloaded = item.status === 'unloaded';
     if (_missionCargoIsPassengerItem(item) && !options.skipAnimation) {
-        const unloadedKind = `unloaded_${item.sceneKind || item.id}`;
-        const isReload = wasUnloaded;
-        const ok = _missionCargoMarkPassengerLoaded({
-            reason: options.reason || (isReload ? 'passenger-manual-load' : 'passenger-manual-board'),
-            manualAnimation: true,
-            sceneId: isReload ? _missionCargoUnloadSceneId() : _missionCargoSceneId(),
-            boardingPoint: _missionCargoPassengerBoardingPoint(),
-            personKind: isReload ? unloadedKind : 'person_boarder_1',
-            personKinds: isReload
-                ? [unloadedKind, item.sceneKind].filter(Boolean)
-                : ['person_boarder_1', 'person_boarder_2'],
-            personLabel: isReload ? (item.storyName || item.label || 'Passenger') : 'Boarding Pax 1',
-            personLabels: isReload
-                ? [item.label, item.storyName].filter(Boolean)
-                : ['Boarding Pax 1', 'Boarding Pax 2', item.label, item.storyName].filter(Boolean)
-        });
+        const ok = _missionCargoMarkPassengerLoaded(_missionCargoManualPassengerLoadOptions(item, wasUnloaded, options.reason));
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2255,6 +2263,7 @@ window.finishMissionCargoLoadingAndStart = function() {
         _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
         return false;
     }
+    _missionCargoMarkAllLoaded({ despawn: false, passengerAnimation: true });
     window.missionCargoStatus.loadConfirmed = true;
     _missionCargoRemoveLoadedSceneObjects('cargo-finish-loading');
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
