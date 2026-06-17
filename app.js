@@ -8073,6 +8073,9 @@ const POI_KNOWLEDGE_CONTEXT_REVIEW_SCORE = 55;
 const POI_KNOWLEDGE_AUTO_MAX_CANDIDATES = 3;
 const POI_KNOWLEDGE_AUTO_BUDGET_MS = 2500;
 const POI_KNOWLEDGE_WIKI_TIMEOUT_MS = 2200;
+const POI_KNOWLEDGE_WIKI_EXTRACT_CHARS = 7200;
+const POI_KNOWLEDGE_CORE_FACT_LIMIT = 10;
+const POI_KNOWLEDGE_EXTRA_FACT_LIMIT = 20;
 const POI_KNOWLEDGE_429_COOLDOWN_MS = 60 * 1000;
 let _poiKnowledgeWikiCooldownUntil = 0;
 
@@ -8151,7 +8154,7 @@ function _poiKnowledgeFactTopics(sentence) {
     return topics.length ? [...new Set(topics)] : ['general'];
 }
 
-function _poiKnowledgePickFacts(text, maxFacts = 10) {
+function _poiKnowledgePickFacts(text, maxFacts = POI_KNOWLEDGE_CORE_FACT_LIMIT, maxExtraFacts = POI_KNOWLEDGE_EXTRA_FACT_LIMIT) {
     const candidates = _poiKnowledgeSplitFacts(text).map(sentence => ({
         source: 'extract',
         topic: _poiKnowledgeFactTopics(sentence)[0],
@@ -8176,9 +8179,18 @@ function _poiKnowledgePickFacts(text, maxFacts = 10) {
         selected.push(fact);
         selectedKeys.add(fact.text);
     }
+    const extra = [];
+    const extraLimit = Math.max(0, Math.min(40, Math.round(Number(maxExtraFacts) || 0)));
+    for (const fact of candidates) {
+        if (extra.length >= extraLimit) break;
+        if (selectedKeys.has(fact.text)) continue;
+        extra.push(fact);
+        selectedKeys.add(fact.text);
+    }
     return {
         candidates,
         selected,
+        extra,
         topics: [...new Set(selected.flatMap(fact => fact.topics || [fact.topic || 'general']))].sort()
     };
 }
@@ -8268,7 +8280,7 @@ async function _fetchWikiExtractByTitle(title, options = {}) {
             prop: 'extracts|coordinates|pageprops|pageimages|info',
             inprop: 'url',
             explaintext: '1',
-            exchars: '3600',
+            exchars: String(POI_KNOWLEDGE_WIKI_EXTRACT_CHARS),
             exsectionformat: 'plain',
             piprop: 'thumbnail',
             pithumbsize: '600',
@@ -8305,7 +8317,7 @@ function _poiKnowledgeScoreContext({ queryTitle = '', category = '', lat = null,
     const extract = String(wiki?.extract || page?.extract || '').trim();
     const title = String(wiki?.title || page?.title || queryTitle || '').trim();
     const profile = _poiKnowledgeCategoryProfile(category);
-    const facts = _poiKnowledgePickFacts(extract, 10);
+    const facts = _poiKnowledgePickFacts(extract, POI_KNOWLEDGE_CORE_FACT_LIMIT, POI_KNOWLEDGE_EXTRA_FACT_LIMIT);
     const qid = String(page?.pageprops?.wikibase_item || '').trim();
     const thumb = page?.thumbnail?.source || '';
     const coordinate = page?.coordinates?.[0] || null;
@@ -8417,6 +8429,12 @@ function _poiKnowledgeScoreContext({ queryTitle = '', category = '', lat = null,
             topic: fact.topic,
             text: fact.text
         })),
+        extraFacts: facts.extra.map(fact => ({
+            source: fact.source,
+            topic: fact.topic,
+            text: fact.text
+        })),
+        extraSelectedFacts: facts.extra.length,
         reasons,
         warnings,
         rateLimited: false
@@ -10979,19 +10997,44 @@ function getMissionPlanV2Plan(missionPlanV2 = null) {
     return plan || null;
 }
 
-function compactPoiKnowledgeContextForMission(context = null, maxFacts = 10) {
-    if (!context || typeof context !== 'object') return null;
-    const facts = (Array.isArray(context.facts) ? context.facts : [])
-        .map(fact => ({
+function compactPoiKnowledgeFactListForMission(sourceFacts = [], maxFacts = 10, seenTexts = new Set()) {
+    const limit = Math.max(0, Math.min(40, Math.round(Number(maxFacts) || 0)));
+    const out = [];
+    for (const fact of (Array.isArray(sourceFacts) ? sourceFacts : [])) {
+        if (out.length >= limit) break;
+        const clean = {
             source: String(fact?.source || 'wiki').replace(/\s+/g, ' ').trim() || 'wiki',
             topic: String(fact?.topic || 'general').replace(/\s+/g, ' ').trim() || 'general',
             text: String(fact?.text || fact || '').replace(/\s+/g, ' ').trim()
-        }))
-        .filter(fact => fact.text.length >= 24)
-        .slice(0, Math.max(0, Math.min(12, Math.round(Number(maxFacts) || 0))));
+        };
+        if (clean.text.length < 24) continue;
+        const key = clean.text.toLowerCase();
+        if (seenTexts.has(key)) continue;
+        seenTexts.add(key);
+        out.push(clean);
+    }
+    return out;
+}
+
+function compactPoiKnowledgeContextForMission(context = null, maxFacts = POI_KNOWLEDGE_CORE_FACT_LIMIT, options = {}) {
+    if (!context || typeof context !== 'object') return null;
+    const seenTexts = new Set();
+    const facts = compactPoiKnowledgeFactListForMission(
+        context.facts,
+        Math.min(12, Math.round(Number(maxFacts) || POI_KNOWLEDGE_CORE_FACT_LIMIT)),
+        seenTexts
+    );
+    const includeExtraFacts = options?.includeExtraFacts === true;
+    const extraFacts = includeExtraFacts
+        ? compactPoiKnowledgeFactListForMission(
+            context.extraFacts,
+            Math.min(24, Math.round(Number(options.maxExtraFacts) || POI_KNOWLEDGE_EXTRA_FACT_LIMIT)),
+            seenTexts
+        )
+        : [];
     if (!facts.length && !context.ok && !context.status) return null;
     const num = value => Number.isFinite(Number(value)) ? Number(value) : null;
-    return {
+    const compact = {
         ok: context.ok === true,
         status: String(context.status || '').replace(/\s+/g, ' ').trim() || (context.ok ? 'accept' : 'unknown'),
         title: String(context.title || '').replace(/\s+/g, ' ').trim(),
@@ -11013,6 +11056,12 @@ function compactPoiKnowledgeContextForMission(context = null, maxFacts = 10) {
             : [],
         rateLimited: context.rateLimited === true
     };
+    if (includeExtraFacts && extraFacts.length) {
+        compact.extraFacts = extraFacts;
+        compact.extraSelectedFacts = extraFacts.length;
+        compact.availableFacts = facts.length + extraFacts.length;
+    }
+    return compact;
 }
 
 function missionKnowledgeContextFacts(context = null, maxFacts = 3) {
@@ -22364,9 +22413,12 @@ async function generateMission(options = {}) {
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
     const poiLookup = isPOI && dest && typeof dest.poiLookup === 'object' ? dest.poiLookup : null;
-    const knowledgeContext = isPOI && (plannerKnowledgeContext || dest?.knowledgeContext)
-        ? (plannerKnowledgeContext || compactPoiKnowledgeContextForMission(dest.knowledgeContext, 10))
-        : null;
+    const knowledgeContext = isPOI && dest?.knowledgeContext
+        ? compactPoiKnowledgeContextForMission(dest.knowledgeContext, POI_KNOWLEDGE_CORE_FACT_LIMIT, {
+            includeExtraFacts: true,
+            maxExtraFacts: POI_KNOWLEDGE_EXTRA_FACT_LIMIT
+        })
+        : (plannerKnowledgeContext || null);
     const dispatchSnapshot = {
         mode: isBushDispatch ? 'BUSH' : (isPOI ? 'POI' : 'A-B'),
         category: poolCategory,
@@ -22381,7 +22433,9 @@ async function generateMission(options = {}) {
             title: knowledgeContext.title || dest?.n || '',
             status: knowledgeContext.status || '',
             score: knowledgeContext.score,
-            facts: knowledgeContext.selectedFacts || 0
+            facts: knowledgeContext.selectedFacts || 0,
+            extraFacts: knowledgeContext.extraSelectedFacts || 0,
+            availableFacts: knowledgeContext.availableFacts || knowledgeContext.selectedFacts || 0
         } : null,
         perf: dispatchPerfSnapshot()
     };
@@ -22777,6 +22831,8 @@ async function generateMission(options = {}) {
                 status: currentMissionData.knowledgeContext.status || null,
                 score: currentMissionData.knowledgeContext.score,
                 selectedFacts: currentMissionData.knowledgeContext.selectedFacts || 0,
+                extraSelectedFacts: currentMissionData.knowledgeContext.extraSelectedFacts || 0,
+                availableFacts: currentMissionData.knowledgeContext.availableFacts || currentMissionData.knowledgeContext.selectedFacts || 0,
                 factCandidates: currentMissionData.knowledgeContext.factCandidates || 0,
                 topics: currentMissionData.knowledgeContext.topics || [],
                 warnings: currentMissionData.knowledgeContext.warnings || []

@@ -398,6 +398,9 @@ let _poiTrainingPreBriefDone = false; // 4 NM before training area
 let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
+let _poiKnowledgeContextKey = '';
+let _poiKnowledgeManualFactIndices = new Set();
+let _poiKnowledgeSpokenMemory = '';
 let _bushPickupNarrativeMemory = { boarding: '', departure: '', arrival: '', farewell: '' }; // continuity across bush pickup return-leg calls
 let _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' }; // continuity across bush cargo pickup handoff calls
 let _missionComfortScore = null;
@@ -498,6 +501,9 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
+    _poiKnowledgeContextKey = '';
+    _poiKnowledgeManualFactIndices = new Set();
+    _poiKnowledgeSpokenMemory = '';
     _bushPickupNarrativeMemory = { boarding: '', departure: '', arrival: '', farewell: '' };
     _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' };
     _missionComfortScore = _createMissionComfortScore();
@@ -588,6 +594,13 @@ function _capturePoiNarrativeMemory(eventLabel, spokenText) {
     const ev = String(eventLabel || '').toLowerCase();
     const compact = _poiMemoryCompact(spokenText);
     if (!compact) return;
+    if (_activeTaskDomain() === 'poi_learning_guide') {
+        _poiKnowledgeSyncContext();
+        const spoken = String(spokenText || '').replace(/\s+/g, ' ').trim();
+        if (spoken) {
+            _poiKnowledgeSpokenMemory = `${_poiKnowledgeSpokenMemory} ${spoken}`.trim().slice(-4000);
+        }
+    }
     if (ev.includes('objekt in sicht')) _poiNarrativeMemory.pre = compact;
     else if (ev.includes('zielgebiet')) _poiNarrativeMemory.entry = compact;
     else if (ev.includes('ziel erfüllt') || ev.includes('ziel erfuellt') || ev.includes('am ziel')) _poiNarrativeMemory.done = compact;
@@ -1433,13 +1446,37 @@ function _poiKnowledgeCleanFactText(value = '') {
         .trim();
 }
 
-function _poiKnowledgeFactCandidates() {
+function _poiKnowledgeContextIdentity(context = null) {
+    if (!context || typeof context !== 'object') return '';
+    const title = String(context.title || context.name || '').replace(/\s+/g, ' ').trim();
+    const source = String(context.pageid || context.wikidataId || context.url || context.sourceUrl || context.source || '').trim();
+    const facts = Array.isArray(context.facts)
+        ? context.facts.slice(0, 3).map(fact => _poiKnowledgeCleanFactText(fact?.text || fact || '').slice(0, 80)).join('|')
+        : '';
+    return `${title}|${source}|${facts}`;
+}
+
+function _poiKnowledgeSyncContext(context = null) {
+    const activeContext = context || _activePoiKnowledgeContext();
+    const key = _poiKnowledgeContextIdentity(activeContext);
+    if (!key || key === _poiKnowledgeContextKey) return;
+    _poiKnowledgeContextKey = key;
+    _poiKnowledgeManualFactIndices = new Set();
+    _poiKnowledgeSpokenMemory = '';
+}
+
+function _poiKnowledgeFactCandidates(options = {}) {
     const context = _activePoiKnowledgeContext();
     if (!context) return [];
+    _poiKnowledgeSyncContext(context);
+    const includeExtraFacts = options?.includeExtraFacts === true;
+    const facts = Array.isArray(context.facts) ? context.facts : [];
+    const extraFacts = includeExtraFacts && Array.isArray(context.extraFacts) ? context.extraFacts : [];
     const seen = new Set();
-    return (Array.isArray(context.facts) ? context.facts : [])
+    return [...facts, ...extraFacts]
         .map((fact, index) => ({
             index,
+            key: `${index < facts.length ? 'core' : 'extra'}:${index < facts.length ? index : index - facts.length}`,
             topic: String(fact?.topic || 'general').toLowerCase(),
             text: _poiKnowledgeCleanFactText(fact?.text || fact || '')
         }))
@@ -1451,6 +1488,14 @@ function _poiKnowledgeFactCandidates() {
             seen.add(key);
             return true;
         });
+}
+
+function _poiKnowledgeManualFactCandidates() {
+    return _poiKnowledgeFactCandidates({ includeExtraFacts: true });
+}
+
+function _poiKnowledgeFactKey(fact = {}) {
+    return String(fact?.key || fact?.index || fact?.text || '').trim();
 }
 
 function _poiKnowledgeStageScore(fact = {}, stage = 'generic') {
@@ -1577,6 +1622,49 @@ function _poiKnowledgeQueueContextLine() {
     const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
     const count = Number.isFinite(Number(context.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : _poiKnowledgeFactCandidates().length;
     return `WISSENSQUELLE: ${target}; akzeptierte Wiki-Faktenbasis mit ${Math.max(1, count)} nutzbaren Fakten. Konkrete Fakten nur aus WISSENS-FAKTENQUEUE-Zeilen verwenden, nicht frei ergaenzen. Start/Anflug maximal ein neuer Fakt; im Zielgebiet bei reichhaltiger Basis 2-3 kurze Fakten als Erzaehlbogen.`;
+}
+
+function _poiKnowledgeTellMoreAvailable() {
+    if (_activeTaskDomain() !== 'poi_learning_guide') return false;
+    if (typeof window.missionRuntimeIsActive === 'function' && !window.missionRuntimeIsActive()) return false;
+    if (!window.activePassenger || !_missionHasPax()) return false;
+    return _poiKnowledgeManualFactCandidates().length > 0;
+}
+
+function _poiKnowledgeFreshFactCount() {
+    const candidates = _poiKnowledgeManualFactCandidates();
+    return candidates.filter(fact => (
+        !_poiKnowledgeManualFactIndices.has(_poiKnowledgeFactKey(fact))
+        && !_poiMemoryHasSimilarFact(fact.text)
+    )).length;
+}
+
+function _poiKnowledgeManualFactClip(text = '') {
+    const clean = _poiKnowledgeCleanFactText(text).replace(/[.!?]+$/, '').trim();
+    if (clean.length <= 340) return clean;
+    const clipped = clean.slice(0, 337).replace(/\s+\S*$/, '').trim();
+    return clipped || clean.slice(0, 337).trim();
+}
+
+function _poiKnowledgeNextManualFact() {
+    const context = _activePoiKnowledgeContext();
+    if (!context) return null;
+    _poiKnowledgeSyncContext(context);
+    const candidates = _poiKnowledgeManualFactCandidates();
+    const fresh = candidates.find(fact => (
+        !_poiKnowledgeManualFactIndices.has(_poiKnowledgeFactKey(fact))
+        && !_poiMemoryHasSimilarFact(fact.text)
+    ));
+    if (!fresh) return null;
+    _poiKnowledgeManualFactIndices.add(_poiKnowledgeFactKey(fresh));
+    return fresh;
+}
+
+function _poiKnowledgeTargetName(context = null) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    return String(context?.title || md.poiName || md.targetName || 'dem Ziel')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function _paxTargetGeoContext() {
@@ -1730,7 +1818,8 @@ function _poiMemoryHasSimilarFact(fact = '') {
     const mem = [
         _poiNarrativeMemory.pre,
         _poiNarrativeMemory.entry,
-        _poiNarrativeMemory.done
+        _poiNarrativeMemory.done,
+        _poiKnowledgeSpokenMemory
     ].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!mem.trim()) return false;
     const overlap = words.filter(w => mem.includes(w)).length;
@@ -1779,9 +1868,10 @@ function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
     _syncPaxWidgetHost();
-    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive()) || _missionActionMenuAvailable();
+    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive()) || _missionActionMenuAvailable() || _poiKnowledgeTellMoreAvailable();
     widget.style.display = shouldShow ? 'flex' : 'none';
     if (shouldShow) {
+        _refreshPoiKnowledgeGuideMenu();
         _refreshFireMissionMenu();
         _refreshMissionActionMenu();
         _ensurePaxWidgetOnScreen(true);
@@ -1850,6 +1940,16 @@ function _injectPaxUI() {
     const textEl = document.createElement('div');
     textEl.id = 'paxVoiceText';
 
+    const knowledgeMenu = document.createElement('div');
+    knowledgeMenu.id = 'paxKnowledgeGuideMenu';
+    knowledgeMenu.style.cssText = `
+        display:none; margin-top:10px; padding-top:9px; border-top:1px solid #244562;
+        grid-template-columns:1fr; gap:6px;
+    `;
+    knowledgeMenu.innerHTML = `
+        <button type="button" id="paxKnowledgeTellMoreBtn" class="pax-fire-btn pax-knowledge-action-btn" onclick="window.paxKnowledgeTellMore && paxKnowledgeTellMore()">Erzähl mal</button>
+    `;
+
     const fireMenu = document.createElement('div');
     fireMenu.id = 'paxFireMissionMenu';
     fireMenu.style.cssText = `
@@ -1888,6 +1988,7 @@ function _injectPaxUI() {
     panel.appendChild(closeBtn);
     panel.appendChild(nameEl);
     panel.appendChild(textEl);
+    panel.appendChild(knowledgeMenu);
     panel.appendChild(fireMenu);
     panel.appendChild(missionMenu);
 
@@ -2024,6 +2125,7 @@ function _showPaxMessage(text, eventLabel) {
     const pax = window.activePassenger;
     if (nameEl) nameEl.textContent = pax ? `${pax.name} · ${eventLabel}` : eventLabel;
     if (textEl) textEl.textContent = text;
+    _refreshPoiKnowledgeGuideMenu();
     _refreshFireMissionMenu();
     _refreshMissionActionMenu();
 
@@ -2532,6 +2634,20 @@ function _missionActionMenuAvailable() {
     return hasPax || _cargoMissionFocus();
 }
 
+function _refreshPoiKnowledgeGuideMenu() {
+    const menu = document.getElementById('paxKnowledgeGuideMenu');
+    if (!menu) return;
+    const active = _poiKnowledgeTellMoreAvailable();
+    menu.style.display = active ? 'grid' : 'none';
+    const btn = document.getElementById('paxKnowledgeTellMoreBtn');
+    if (!btn) return;
+    const remaining = active ? _poiKnowledgeFreshFactCount() : 0;
+    btn.disabled = false;
+    btn.title = remaining > 0
+        ? `${remaining} weitere gesicherte Fakten vorlesen`
+        : 'Keine frischen Fakten mehr; der Guide meldet das kurz.';
+}
+
 function _activeBushMissionSpec() {
     const contract = _activeMissionContractData();
     const bush = contract?.bush;
@@ -3017,6 +3133,25 @@ function _missionActionSpeak(prompt, eventLabel, fallbackText) {
     _paxSpeakTextDirect(fallbackText || 'Ich habe gerade nicht genug Kontext fuer eine belastbare Rueckmeldung.', eventLabel);
     return Promise.resolve();
 }
+
+window.paxKnowledgeTellMore = function() {
+    const context = _activePoiKnowledgeContext();
+    if (!_poiKnowledgeTellMoreAvailable()) {
+        _paxSpeakTextDirect('Dazu habe ich gerade keine gesicherte Faktenbasis geladen.', 'Erzähl mal');
+        return;
+    }
+    const fact = _poiKnowledgeNextManualFact();
+    const target = _poiKnowledgeTargetName(context);
+    if (!fact) {
+        _paxSpeakTextDirect(`Mehr weiß ich dazu leider auch nicht. Die gesicherten Punkte zu ${target} haben wir damit durch.`, 'Erzähl mal');
+        _refreshPoiKnowledgeGuideMenu();
+        return;
+    }
+    const clip = _poiKnowledgeManualFactClip(fact.text);
+    const intro = _poiKnowledgeManualFactIndices.size <= 1 ? 'Klar. Noch ein Punkt:' : 'Noch ein Punkt:';
+    _paxSpeakTextDirect(`${intro} ${clip}.`, 'Erzähl mal');
+    _refreshPoiKnowledgeGuideMenu();
+};
 
 function _poiManualReportContext(flightData = null) {
     const ctx = _missionActionContext(flightData);
