@@ -10463,6 +10463,28 @@ function _missionPlanFactsForNarrative(missionLike = {}, maxItems = 2) {
         .slice(0, Math.max(0, Math.round(Number(maxItems) || 0)));
 }
 
+function _cleanLearningGuideNarrativeFact(value = '') {
+    return String(value || '')
+        .replace(/\s*\|\s*/g, ', ')
+        .replace(/\s+/g, ' ')
+        .replace(/[.!?。]+$/g, '')
+        .trim();
+}
+
+function _learningGuideFactLine(paxName = 'Der Lern-Guide', facts = [], target = 'Zielgebiet') {
+    const cleanFacts = (Array.isArray(facts) ? facts : [])
+        .map(_cleanLearningGuideNarrativeFact)
+        .filter(Boolean)
+        .slice(0, 2);
+    if (!cleanFacts.length) {
+        return `${paxName} achtet auf Lage, Landschaft, Zufahrten und auffaellige Orientierungspunkte rund um ${target}.`;
+    }
+    if (cleanFacts.length === 1) {
+        return `${paxName} greift dabei einen konkreten Anker auf: ${cleanFacts[0]}.`;
+    }
+    return `${paxName} greift dabei konkrete Anker auf: ${cleanFacts[0]}; außerdem ${cleanFacts[1]}.`;
+}
+
 function _targetLabelForGuideNarrative(missionLike = {}) {
     const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || null;
     const fromPlan = String(plan?.targetLabel || '').replace(/\s+/g, ' ').trim();
@@ -10480,14 +10502,14 @@ function _sanitizeLearningGuideNarrative(missionLike = {}) {
     const target = _targetLabelForGuideNarrative(missionLike);
     const paxName = String(missionLike.passenger?.name || 'Der Lern-Guide').trim();
     const facts = _missionPlanFactsForNarrative(missionLike, 2);
-    const factLine = facts.length
-        ? `Als Orientierung nutzt ${paxName} gesicherte Punkte aus dem Kontext: ${facts.join(' | ')}.`
-        : `${paxName} achtet auf Lage, Landschaft, Zufahrten und auffaellige Orientierungspunkte rund um ${target}.`;
-    const current = String(missionLike.s || missionLike.story || '').toLowerCase();
+    const factLine = _learningGuideFactLine(paxName, facts, target);
+    const currentRaw = String(missionLike.s || missionLike.story || '');
+    const current = currentRaw.toLowerCase();
     const guideLearnsHerself = /(guide|tour-guide|lern-guide|mila|jonas).{0,80}(lernt|trainiert|abspeicher|vorbereit|spaeter|später)|angehend(?:er|e|en)?\s+tour-guide|kuenftig(?:er|e|en)?\s+sightseeing|künft/i.test(current);
-    const pronounDrift = /\bunseren\s+[A-ZÄÖÜ][a-zäöüß]+\b|damit\s+er\b|damit\s+sie\s+das\s+gelaende/i.test(String(missionLike.s || missionLike.story || ''));
-    if (guideLearnsHerself || pronounDrift || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(String(missionLike.s || missionLike.story || ''))) {
-        missionLike.s = `${paxName} begleitet dich heute als Lern-Guide zum ${target}. Unterwegs erklaert ${paxName} kurze Fakten, landschaftlichen Kontext und sichtbare Referenzen, damit du die Gegend aus der Luft besser einordnen kannst. ${factLine} Es gibt keinen Arbeitsauftrag am Boden: ruhig anfliegen, orientieren und die Gegend verstehen.`;
+    const pronounDrift = /\bunseren\s+[A-ZÄÖÜ][a-zäöüß]+\b|damit\s+er\b|damit\s+sie\s+das\s+gelaende/i.test(currentRaw);
+    const internalNarrativeLeak = /gesicherte punkte aus dem kontext|es gibt am boden|\s\|\s|pipeline|contract|debug|formularfeld/i.test(currentRaw);
+    if (guideLearnsHerself || pronounDrift || internalNarrativeLeak || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(currentRaw)) {
+        missionLike.s = `${paxName} begleitet dich heute als Lern-Guide rund um ${target}. Unterwegs erklaert ${paxName} kurze Fakten, landschaftlichen Kontext und sichtbare Referenzen, damit du die Gegend aus der Luft besser einordnen kannst. ${factLine} Der Flug bleibt ein ruhiger Rundflug: anfliegen, anschauen, einordnen und danach zurueck zum Heimatplatz.`;
     }
     if (!/^Wissensflug:|^Faktenrunde:|^Kontextflug:|^POI-Erkl/i.test(String(missionLike.t || ''))) {
         missionLike.t = `Wissensflug: ${target}`;

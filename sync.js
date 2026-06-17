@@ -1582,6 +1582,8 @@ let missionRuntimeSnapshotTimer = null;
 let missionRuntimeLastPersistAt = 0;
 let missionRuntimeResumeAppliedFor = '';
 let missionRuntimeResumeSuppressedFor = '';
+let missionRuntimeResumeConflictLastSig = '';
+let missionRuntimeResumeConflictLastLogAt = 0;
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -3235,18 +3237,31 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
         return false;
     }
     if (trackerMissionId !== activeMissionId) {
+        const now = Date.now();
         window.missionRuntimeResumeConflict = {
             reason: 'mission-id-mismatch',
             trackerMissionId,
             activeMissionId,
             trackerActive,
-            at: Date.now()
+            at: now
         };
-        _missionPhaseDebugPush('resume_conflict', window.missionRuntimeResumeConflict);
-        _updateMissionRuntimeUi();
+        const conflictSig = [
+            window.missionRuntimeResumeConflict.reason,
+            trackerMissionId,
+            activeMissionId,
+            trackerActive ? 'active' : 'inactive'
+        ].join('|');
+        if (conflictSig !== missionRuntimeResumeConflictLastSig || now - missionRuntimeResumeConflictLastLogAt > 5000) {
+            missionRuntimeResumeConflictLastSig = conflictSig;
+            missionRuntimeResumeConflictLastLogAt = now;
+            _missionPhaseDebugPush('resume_conflict', window.missionRuntimeResumeConflict);
+            _updateMissionRuntimeUi();
+        }
         return false;
     }
     window.missionRuntimeResumeConflict = null;
+    missionRuntimeResumeConflictLastSig = '';
+    missionRuntimeResumeConflictLastLogAt = 0;
     if (trackerActive && missionRuntimeResumeSuppressedFor === trackerMissionId && !missionRuntime.active && !missionRuntime.closingPending) {
         _missionPhaseDebugPush('resume_suppressed', { reason, missionId: trackerMissionId, state: status.state || '' });
         return true;
