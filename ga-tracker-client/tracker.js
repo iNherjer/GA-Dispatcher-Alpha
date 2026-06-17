@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v270';
-const TRACKER_VERSION_CODE = 270;
+const TRACKER_VERSION = 'v271';
+const TRACKER_VERSION_CODE = 271;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -805,7 +805,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
-      writeOpenPosition: true,
+      writeOpenPosition: !openDoor,
       writeLatch: true,
       handleOpenValue: 1,
       handleCloseValue: 0,
@@ -914,8 +914,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           writeLatch: !isComancheProfile,
           handleOpenValue: isComancheProfile ? 1 : undefined,
           handleCloseValue: isComancheProfile ? 0 : undefined,
-          latchUnlockValue: isComancheProfile ? 1 : undefined,
-          latchLockValue: isComancheProfile ? 0 : undefined
+          latchUnlockValue: isComancheProfile ? 0 : undefined,
+          latchLockValue: isComancheProfile ? 1 : undefined
         });
       } catch (err) {
         debugLog(`DOOR_HOLD_OPEN_ERROR profile=${profile} index=${idx} tick=${tick} reason=${reason} error=${err?.message || err}`);
