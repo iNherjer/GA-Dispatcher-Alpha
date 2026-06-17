@@ -6688,20 +6688,13 @@ body.theme-navcom .btn-menu:active {
     border-color: rgba(0,0,0,0.35);
 }
 
-.map-tool-manual-sim {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0;
-    font-family: 'Courier New', monospace;
-}
-
 .manual-sim-panel {
-    position: absolute;
-    top: 78px;
-    right: 18px;
+    position: fixed;
+    top: 62px;
+    right: 12px;
     z-index: 100130;
-    width: min(352px, calc(100vw - 22px));
-    max-height: min(620px, calc(100% - 28px));
+    width: min(172px, calc(100vw - 16px));
+    max-height: min(520px, calc(100% - 16px));
     overflow: auto;
     box-sizing: border-box;
     border-radius: 8px;
@@ -6725,8 +6718,8 @@ body.theme-navcom .btn-menu:active {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 10px 10px 8px 12px;
+    gap: 8px;
+    padding: 5px 8px;
     border-bottom: 1px solid rgba(255,255,255,0.12);
     cursor: grab;
     touch-action: none;
@@ -6747,8 +6740,8 @@ body.theme-navcom .btn-menu:active {
 
 .manual-sim-close {
     flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.18);
     background: rgba(255,255,255,0.08);
@@ -6757,70 +6750,70 @@ body.theme-navcom .btn-menu:active {
     cursor: pointer;
 }
 
-.manual-sim-status {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px;
-    padding: 1px;
-    background: rgba(255,255,255,0.08);
-    font-family: 'Courier New', monospace;
-}
-
-.manual-sim-status > div {
-    min-width: 0;
-    padding: 8px 10px;
-    background: rgba(0,0,0,0.28);
-}
-
-.manual-sim-status span {
-    display: block;
-    margin-bottom: 3px;
-    color: rgba(142, 197, 255, 0.86);
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.manual-sim-status strong {
-    display: block;
-    min-width: 0;
-    color: #fff;
-    font-size: 13px;
-    line-height: 1.15;
-    overflow-wrap: anywhere;
-}
-
 .manual-sim-controls,
 .manual-sim-triggers {
     display: grid;
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px;
 }
 
 .manual-sim-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
 }
 
 .manual-sim-triggers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     border-top: 1px solid rgba(255,255,255,0.12);
-    padding-top: 9px;
+    padding-top: 8px;
 }
 
-.manual-sim-controls button,
+.manual-sim-pad,
+.manual-sim-speed {
+    display: grid;
+    gap: 6px;
+    justify-content: center;
+}
+
+.manual-sim-pad {
+    grid-template-columns: repeat(3, 42px);
+}
+
+.manual-sim-speed {
+    grid-template-columns: 42px 42px 42px;
+    align-items: center;
+}
+
+.manual-sim-pad span {
+    width: 42px;
+    height: 42px;
+}
+
+.manual-sim-speed strong {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    color: rgba(142, 197, 255, 0.9);
+    font: 800 10px/1 'Courier New', monospace;
+}
+
+.manual-sim-pad button,
+.manual-sim-speed button,
 .manual-sim-triggers button {
-    min-width: 0;
-    min-height: 42px;
+    width: 42px;
+    height: 42px;
     border-radius: 6px;
     border: 1px solid rgba(255,255,255,0.18);
     background: rgba(255,255,255,0.08);
     color: #fff;
     cursor: pointer;
-    font: 800 12px/1.05 'Courier New', monospace;
+    font: 800 16px/1 'Courier New', monospace;
     letter-spacing: 0;
 }
 
-.manual-sim-controls button:active,
+.manual-sim-pad button:active,
+.manual-sim-speed button:active,
 .manual-sim-triggers button:active,
 .manual-sim-close:active {
     transform: translateY(1px);
@@ -6828,26 +6821,57 @@ body.theme-navcom .btn-menu:active {
 }
 
 .manual-sim-triggers button {
+    width: auto;
+    min-width: 0;
     border-color: rgba(242, 193, 46, 0.34);
     color: #ffdf74;
+    font-size: 10px;
+}
+
+.manual-sim-toggle.active {
+    background: #f2c12e !important;
+    color: #111 !important;
+    border-color: rgba(0,0,0,0.35) !important;
 }
 
 @media (max-width: 767px) {
     .manual-sim-panel {
-        top: 54px;
-        right: 8px;
-        width: min(360px, calc(100vw - 16px));
-        max-height: calc(100% - 16px);
+        top: 46px;
+        right: 6px;
+        width: calc(100vw - 12px);
+        max-width: calc(100vw - 12px);
+        max-height: calc(100% - 12px);
     }
 
-    .manual-sim-controls button,
+    .manual-sim-controls {
+        grid-template-columns: max-content max-content;
+        justify-content: center;
+        align-items: start;
+    }
+
+    .manual-sim-pad {
+        grid-template-columns: repeat(3, 38px);
+    }
+
+    .manual-sim-speed {
+        grid-template-columns: 38px 38px 38px;
+    }
+
+    .manual-sim-pad span,
+    .manual-sim-speed strong,
+    .manual-sim-pad button,
+    .manual-sim-speed button {
+        width: 38px;
+        height: 38px;
+    }
+
     .manual-sim-triggers button {
-        min-height: 46px;
-        font-size: 12px;
+        height: 34px;
+        font-size: 9px;
     }
 
-    .manual-sim-status strong {
-        font-size: 12px;
+    .manual-sim-triggers {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 

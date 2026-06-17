@@ -580,7 +580,7 @@
     function _stopAnySimMode(options = {}) {
         if (window.simManualModeActive && typeof window.stopManualSimMode === 'function') {
             try {
-                window.stopManualSimMode(options);
+                window.stopManualSimMode({ ...options, fallbackToAuto: false });
                 return;
             } catch (e) {
                 console.warn('[SimPax] Manual-Sim Stop fehlgeschlagen:', e?.message || e);

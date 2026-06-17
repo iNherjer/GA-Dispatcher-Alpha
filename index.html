@@ -1271,7 +1271,6 @@
                         <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
                         <button id="mapToolMeasureClear" class="map-draw-tool-btn" type="button" title="Zirkel löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('measureClear', event)">🗑️</button>
-                        <button id="mapToolManualSim" class="map-draw-tool-btn map-tool-manual-sim" type="button" title="Manueller Sim" onclick="window.toggleManualSimMode && toggleManualSimMode(event)">MAN</button>
                     </div>
                 </div>
                 <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
@@ -1290,27 +1289,26 @@
                     <div id="manualSimPanelHeader" class="manual-sim-header">
                         <div>
                             <div class="manual-sim-title">MAN SIM</div>
-                            <div class="manual-sim-subtitle">synthetic live telemetry</div>
                         </div>
                         <button class="manual-sim-close" type="button" title="Schließen" onclick="window.stopManualSimMode && stopManualSimMode()">x</button>
                     </div>
-                    <div class="manual-sim-status">
-                        <div><span>HDG</span><strong id="manualSimHdgValue">000 deg</strong></div>
-                        <div><span>GS</span><strong id="manualSimGsValue">0 kt</strong></div>
-                        <div><span>MSL</span><strong id="manualSimAltValue">0 ft</strong></div>
-                        <div><span>AGL</span><strong id="manualSimAglValue">0 ft AGL</strong></div>
-                        <div><span>MODE</span><strong id="manualSimModeValue">AIR</strong></div>
-                        <div><span>HOLD</span><strong id="manualSimHoldValue">frei</strong></div>
-                    </div>
                     <div class="manual-sim-controls" aria-label="Manuelle Sim-Steuerung">
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('hdg', -10)">HDG -10</button>
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('hdg', 10)">HDG +10</button>
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('gs', -10)">SPD -10</button>
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('gs', 10)">SPD +10</button>
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('alt', -100)">ALT -100</button>
-                        <button type="button" onclick="window.manualSimAdjust && manualSimAdjust('alt', 100)">ALT +100</button>
-                        <button type="button" onclick="window.manualSimSetGround && manualSimSetGround()">GND</button>
-                        <button type="button" onclick="window.manualSimSetAirborne && manualSimSetAirborne()">AIR</button>
+                        <div class="manual-sim-pad">
+                            <span></span>
+                            <button type="button" title="Höhe +100 ft" onclick="window.manualSimAdjust && manualSimAdjust('alt', 100)">↑</button>
+                            <span></span>
+                            <button type="button" title="Heading links" onclick="window.manualSimAdjust && manualSimAdjust('hdg', -10)">←</button>
+                            <button type="button" title="On Ground" onclick="window.manualSimSetGround && manualSimSetGround()">GND</button>
+                            <button type="button" title="Heading rechts" onclick="window.manualSimAdjust && manualSimAdjust('hdg', 10)">→</button>
+                            <button type="button" title="Airborne" onclick="window.manualSimSetAirborne && manualSimSetAirborne()">AIR</button>
+                            <button type="button" title="Höhe -100 ft" onclick="window.manualSimAdjust && manualSimAdjust('alt', -100)">↓</button>
+                            <span></span>
+                        </div>
+                        <div class="manual-sim-speed">
+                            <button type="button" title="Speed -10 kt" onclick="window.manualSimAdjust && manualSimAdjust('gs', -10)">-</button>
+                            <strong>SPD</strong>
+                            <button type="button" title="Speed +10 kt" onclick="window.manualSimAdjust && manualSimAdjust('gs', 10)">+</button>
+                        </div>
                     </div>
                     <div class="manual-sim-triggers" aria-label="Manuelle Missions-Trigger">
                         <button type="button" onclick="window.manualSimTriggerMissionAction && manualSimTriggerMissionAction()">MISSION</button>
@@ -1428,6 +1426,7 @@
                     <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Zwischen Routen-Modus (RTE) und Heading-Modus (HDG) wechseln" style="margin-left:4px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; color:#6f6; border-color:#4a4; background:#0d200d;">RTE</button>
                     <span style="color:#555; font-size:10px; margin: 0 4px;">|</span>
                     <button id="btnSimMode" class="vp-toggle-cloud" onclick="window.startSimMode && startSimMode()" title="Route simulieren" style="min-width:40px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#1a3a1a; color:#6f6;">▶&thinsp;SIM</button>
+                    <button id="btnManualSimMode" class="vp-toggle-cloud manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#17253a; color:#8ec5ff; border-color:#33506d;">MAN</button>
                 </div>
                 <!-- Time-Warp Leiste – nur im Sim-Modus sichtbar -->
                 <div id="simSpeedStrip" style="display:none; align-items:center; gap:4px; padding:3px 6px; background:rgba(0,40,0,0.6); border-top:1px solid #1a4a1a;">
@@ -1437,7 +1436,7 @@
                     <button class="sim-spd vp-ctrl-btn"        data-s="5"  onclick="setSimSpeed(5)"  style="min-width:28px;">5×</button>
                     <button class="sim-spd vp-ctrl-btn"        data-s="10" onclick="setSimSpeed(10)" style="min-width:28px;">10×</button>
                     <button class="sim-spd vp-ctrl-btn"        data-s="30" onclick="setSimSpeed(30)" style="min-width:28px;">30×</button>
-                    <button onclick="window.stopSimMode && stopSimMode()" style="margin-left:auto; font-size:9px; font-family:monospace; background:#3a1a1a; color:#f66; border:1px solid #622; border-radius:3px; padding:2px 7px; cursor:pointer;">⏹ STOP</button>
+                    <button id="btnManualSimStrip" class="manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="margin-left:auto; font-size:9px; font-family:monospace; background:#17253a; color:#8ec5ff; border:1px solid #33506d; border-radius:3px; padding:2px 7px; cursor:pointer;">MAN</button>
                 </div>
                 <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none; overflow-x: auto; overflow-y: hidden;">
                     <div id="vpCanvasWrapper" style="height: 100%; position: relative; overflow: hidden;">

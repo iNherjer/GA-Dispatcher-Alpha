@@ -88,18 +88,35 @@
 
     window.stopManualSimMode = function (options = {}) {
         if (!manualActive && !window.simManualModeActive) return false;
+        const shouldFallbackToAuto = !!(
+            options?.fallbackToAuto !== false
+            && options?.keepSimMode !== true
+            && options?.keepPlane !== true
+            && typeof window.startSimMode === 'function'
+        );
         manualActive = false;
         window.simManualModeActive = false;
-        if (!options.keepSimMode) {
-            window.simModeActive = false;
-            window.simHadMeaningfulAirbornePhase = false;
-        }
         clearInterval(manualInterval);
         manualInterval = null;
         manualHoldReason = '';
         _setPanelVisible(false);
         _setManualButtonActive(false);
         if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
+        if (shouldFallbackToAuto) {
+            const resumed = window.startSimMode({
+                resumeFromCurrentPosition: true,
+                allowSimGps: true,
+                preserveMissionState: true
+            });
+            if (resumed) {
+                if (!options.silent) console.log('[ManualSim] returned to auto sim');
+                return true;
+            }
+        }
+        if (!options.keepSimMode) {
+            window.simModeActive = false;
+            window.simHadMeaningfulAirbornePhase = false;
+        }
         if (!options.keepPlane && typeof window.hideLivePlane === 'function') {
             try { window.hideLivePlane({ preserveMissionRuntime: options?.preserveMissionRuntime === true }); } catch (_) {}
         }
@@ -439,10 +456,10 @@
     }
 
     function _setManualButtonActive(active) {
-        const btn = document.getElementById('mapToolManualSim');
-        if (!btn) return;
-        btn.classList.toggle('active', !!active);
-        btn.title = active ? 'Manuellen Sim stoppen' : 'Manueller Sim';
+        document.querySelectorAll('.manual-sim-toggle').forEach((btn) => {
+            btn.classList.toggle('active', !!active);
+            btn.title = active ? 'Manuellen Sim stoppen' : 'Manueller Sim';
+        });
     }
 
     function _setText(id, text) {
@@ -462,30 +479,27 @@
         let drag = null;
         handle.addEventListener('pointerdown', (ev) => {
             if (ev.target && ev.target.closest('button')) return;
-            const parent = document.getElementById('mapArea') || panel.offsetParent || document.body;
-            const pRect = parent.getBoundingClientRect();
             const rect = panel.getBoundingClientRect();
             drag = {
                 dx: ev.clientX - rect.left,
-                dy: ev.clientY - rect.top,
-                parent,
-                pRect
+                dy: ev.clientY - rect.top
             };
             panel.classList.add('manual-sim-dragging');
             panel.style.right = 'auto';
-            panel.style.left = `${Math.round(rect.left - pRect.left)}px`;
-            panel.style.top = `${Math.round(rect.top - pRect.top)}px`;
+            panel.style.left = `${Math.round(rect.left)}px`;
+            panel.style.top = `${Math.round(rect.top)}px`;
             try { handle.setPointerCapture(ev.pointerId); } catch (_) {}
             ev.preventDefault();
             ev.stopPropagation();
         }, { passive: false });
         handle.addEventListener('pointermove', (ev) => {
             if (!drag) return;
-            const parentRect = drag.parent.getBoundingClientRect();
-            const maxLeft = Math.max(0, parentRect.width - panel.offsetWidth - 8);
-            const maxTop = Math.max(0, parentRect.height - panel.offsetHeight - 8);
-            const left = _clamp(ev.clientX - parentRect.left - drag.dx, 8, maxLeft);
-            const top = _clamp(ev.clientY - parentRect.top - drag.dy, 8, maxTop);
+            const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth - 8);
+            const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight - 8);
+            const minLeft = Math.min(8, maxLeft);
+            const minTop = Math.min(8, maxTop);
+            const left = _clamp(ev.clientX - drag.dx, minLeft, maxLeft);
+            const top = _clamp(ev.clientY - drag.dy, minTop, maxTop);
             panel.style.left = `${Math.round(left)}px`;
             panel.style.top = `${Math.round(top)}px`;
             ev.preventDefault();
@@ -509,8 +523,6 @@
     }
 
     function _restorePanelPosition(panel, clampOnly = false) {
-        const parent = document.getElementById('mapArea') || panel.offsetParent || document.body;
-        const rect = parent.getBoundingClientRect();
         let pos = null;
         try { pos = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (_) {}
         if (!clampOnly && pos && Number.isFinite(Number(pos.left)) && Number.isFinite(Number(pos.top))) {
@@ -519,10 +531,12 @@
             panel.style.top = `${Math.round(Number(pos.top))}px`;
         }
         if (!panel.style.left || panel.style.right) return;
-        const maxLeft = Math.max(0, rect.width - panel.offsetWidth - 8);
-        const maxTop = Math.max(0, rect.height - panel.offsetHeight - 8);
-        panel.style.left = `${Math.round(_clamp(parseInt(panel.style.left, 10) || 8, 8, maxLeft))}px`;
-        panel.style.top = `${Math.round(_clamp(parseInt(panel.style.top, 10) || 8, 8, maxTop))}px`;
+        const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth - 8);
+        const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight - 8);
+        const minLeft = Math.min(8, maxLeft);
+        const minTop = Math.min(8, maxTop);
+        panel.style.left = `${Math.round(_clamp(parseInt(panel.style.left, 10) || minLeft, minLeft, maxLeft))}px`;
+        panel.style.top = `${Math.round(_clamp(parseInt(panel.style.top, 10) || minTop, minTop, maxTop))}px`;
     }
 
     function _destinationPoint(lat, lon, hdgDeg, distNm) {
