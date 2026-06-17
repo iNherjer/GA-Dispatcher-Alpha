@@ -14,7 +14,7 @@ Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo. Das Standar
 3. Nur gewuenschte Dateien committen:
    - Bei gemischtem Worktree niemals `git add -A`.
    - Stattdessen explizit nur die Fix-Dateien stage'n, z. B. `git add sw.js index.html sync.js`.
-4. Ausgeschlossene Dateien nicht committen/pushen (z. B. laut `.gitignore` wie `*.exe`, `.DS_Store`, `.env*`, `.wrangler/state`, temporaere `analysis/*.json`).
+4. Ausgeschlossene Dateien nicht committen/pushen. Details stehen in Abschnitt 1b.
 5. Nach `origin/main` pushen:
    - Wenn der aktuelle Branch `main` ist: `git push origin main`
    - Wenn Codex auf einem Arbeitsbranch steht, der Stand aber direkt nach `main` soll: zuerst Fast-Forward pruefen, dann `git push origin HEAD:main`
@@ -27,6 +27,23 @@ Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo. Das Standar
 3. Wenn der Remote-Push erfolgreich war, aber das lokale Upstream-Tracking wegen `.git/config` scheitert:
    - Remote-Branch kurz mit `git ls-remote --heads origin <branch>` pruefen.
    - Danach bei Bedarf `git fetch origin <branch>:refs/remotes/origin/<branch>` und `git branch --set-upstream-to=origin/<branch> <branch>` ausfuehren.
+
+## 1b) Dateien, die beim normalen Push ausgeschlossen bleiben
+
+Diese Dateien duerfen bei normalen Fixes nicht gestaged werden:
+
+- OS-/Editor-Metadaten: `.DS_Store`, `.claude/`
+- Secrets und lokale Keys: `.env`, `.env.*`, `key.env.local`, `key.env.*`
+- Gebaute Tracker-EXE: `ga-tracker-client/VFR-Multitool-Tracker.exe`
+- Cloudflare/Wrangler-Zustand und Cache: `tools/cloudflare-worker/.wrangler/`
+- temporaere Analyse- und Dry-run-Artefakte: neue Ad-hoc/SAR/Bush-JSONs unter `analysis/`
+- lokale Zwischenablagen und extrahierte Arbeitsdateien: `tmp/`, `SimObjects_Visuals.pdf`
+- Workbench-Caches: `.workbench-cache/`, `tools/workbench-cache/`, `workbench-cache/`
+
+Wenn ein Analyse-Snapshot ausnahmsweise als Beleg in den Commit gehoert, muss er
+absichtlich und einzeln mit `git add -f <datei>` gestaged werden. Vor jedem Commit
+den staged Diff mit `git diff --cached --stat` und bei Bedarf mit
+`git diff --cached -- <datei>` kontrollieren.
 
 ## 2) Sonderfall: `ga-tracker-client/tracker.js` wurde geaendert
 

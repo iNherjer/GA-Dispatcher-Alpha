@@ -7,6 +7,21 @@
 key.env.local
 key.env.*
 
+# Lokale/generierte Arbeitsartefakte
+tmp/
+SimObjects_Visuals.pdf
+
+# Ad-hoc Dry-run- und Analyseausgaben. Bewusst relevante Snapshots bei Bedarf
+# einzeln mit `git add -f` aufnehmen.
+analysis/analysis*.json
+analysis/bush-*.json
+analysis/mission-pipeline-dryrun-sar-*.json
+analysis/mission-pipeline-sar-*.json
+analysis/privatetmpbush-*.json
+
+# Cloudflare/Wrangler lokaler Zustand und Cache
+tools/cloudflare-worker/.wrangler/
+
 # Workbench cache (PBF-Dateien, Zwischenergebnisse) – nie ins Repo
 .workbench-cache/
 tools/workbench-cache/
