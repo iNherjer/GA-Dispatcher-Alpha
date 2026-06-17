@@ -1585,6 +1585,7 @@ let missionRuntimeResumeAppliedFor = '';
 let missionRuntimeResumeSuppressedFor = '';
 let missionRuntimeResumeConflictLastSig = '';
 let missionRuntimeResumeConflictLastLogAt = 0;
+const missionRuntimeMismatchCleanupLast = new Map();
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -3126,6 +3127,45 @@ function _sendMissionLifecycleToTracker(state = 'active', reason = 'mission-life
     });
 }
 
+function _cleanupStaleTrackerMissionStatus(status = null, activeMissionId = '', reason = 'tracker-status') {
+    if (!status || typeof status !== 'object') return false;
+    if (!window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
+    const trackerMissionId = _normalizeMissionRuntimeId(status.missionId || '');
+    if (!trackerMissionId || trackerMissionId === _normalizeMissionRuntimeId(activeMissionId || '')) return false;
+    const now = Date.now();
+    const lastAt = Number(missionRuntimeMismatchCleanupLast.get(trackerMissionId) || 0);
+    if (now - lastAt < 15000) return false;
+    missionRuntimeMismatchCleanupLast.set(trackerMissionId, now);
+
+    const sceneIds = Array.isArray(status.scenes)
+        ? status.scenes
+            .map(scene => String(scene?.sceneId || '').trim())
+            .filter(Boolean)
+            .filter(sceneId => !activeMissionId || !sceneId.includes(activeMissionId))
+            .slice(0, 8)
+        : [];
+    for (const sceneId of sceneIds) {
+        try {
+            window.sendTrackerCommand({
+                type: 'mission_scene_clear',
+                missionId: trackerMissionId,
+                sceneId,
+                reason: 'mission-runtime-reset-mismatch'
+            });
+        } catch (_) {}
+    }
+    try {
+        return !!window.sendTrackerCommand({
+            type: 'mission_lifecycle',
+            missionId: trackerMissionId,
+            state: 'ended',
+            reason: `stale-tracker-mission:${reason}`
+        });
+    } catch (_) {
+        return false;
+    }
+}
+
 function _restoreFlightRecorderFromRuntimeSnapshot(snapshot = null) {
     const src = snapshot?.flightRecorder;
     if (!src || typeof src !== 'object' || !flightRecorder || typeof flightRecorder !== 'object') return false;
@@ -3245,6 +3285,16 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
         return false;
     }
     if (trackerMissionId !== activeMissionId) {
+        if (!trackerActive) {
+            if (window.missionRuntimeResumeConflict?.trackerMissionId === trackerMissionId) {
+                window.missionRuntimeResumeConflict = null;
+                missionRuntimeResumeConflictLastSig = '';
+                missionRuntimeResumeConflictLastLogAt = 0;
+                _updateMissionRuntimeUi();
+            }
+            return true;
+        }
+        _cleanupStaleTrackerMissionStatus(status, activeMissionId, reason);
         const now = Date.now();
         window.missionRuntimeResumeConflict = {
             reason: 'mission-id-mismatch',

@@ -8295,16 +8295,58 @@ function _poiKnowledgeIsGenericLinearTitle(title) {
     const key = _poiKnowledgeNormalizeKey(title);
     return [
         'bach',
+        'baggersee',
+        'feuerloschteich',
+        'feuerloeschteich',
+        'gewasser',
+        'gewaesser',
         'weiher',
         'teich',
+        'loschteich',
+        'loeschteich',
+        'loschwasserteich',
+        'loeschwasserteich',
         'see',
         'fluss',
         'kanal',
         'graben',
         'quelle',
+        'regenruckhaltebecken',
+        'regenrueckhaltebecken',
         'reservoir',
+        'ruckhaltebecken',
+        'rueckhaltebecken',
+        'wasserbecken',
+        'wasserreservoir',
         'stausee'
     ].includes(key);
+}
+
+function _poiKnowledgeGenericTypeArticleReason(title, category = '') {
+    const key = _poiKnowledgeNormalizeKey(title);
+    if (!key) return '';
+    const cat = String(category || '').toLowerCase();
+    const genericWaterTypes = new Set([
+        'baggersee',
+        'feuerloschteich',
+        'feuerloeschteich',
+        'gewasser',
+        'gewaesser',
+        'loschteich',
+        'loeschteich',
+        'loschwasserteich',
+        'loeschwasserteich',
+        'regenruckhaltebecken',
+        'regenrueckhaltebecken',
+        'ruckhaltebecken',
+        'rueckhaltebecken',
+        'wasserbecken',
+        'wasserreservoir'
+    ]);
+    if (/water|lake|river|canal|dam/.test(cat) && genericWaterTypes.has(key)) {
+        return 'generic_type_article_without_coordinate';
+    }
+    return '';
 }
 
 function _poiKnowledgeHasLinearEvidence(extract) {
@@ -8483,6 +8525,11 @@ function _poiKnowledgeScoreContext({ queryTitle = '', category = '', lat = null,
     if (status === 'accept' && profile.isLinear && _poiKnowledgeIsGenericLinearTitle(title)) {
         status = 'reject';
         warnings.push('generic_linear_article_title');
+    }
+    const genericTypeArticleReason = _poiKnowledgeGenericTypeArticleReason(title, category);
+    if (status === 'accept' && !Number.isFinite(dist) && genericTypeArticleReason) {
+        status = 'reject';
+        warnings.push(genericTypeArticleReason);
     }
     if (status === 'accept' && profile.isLinear && !Number.isFinite(dist) && !_poiKnowledgeHasLinearEvidence(extract)) {
         status = 'review';
@@ -14805,6 +14852,72 @@ function buildMissionPlannerV2Draft({
     };
 }
 
+function _missionExtractBalancedJsonObjectText(text = '') {
+    const raw = String(text || '');
+    const start = raw.indexOf('{');
+    if (start < 0) return '';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < raw.length; i++) {
+        const ch = raw[i];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (ch === '"') {
+            inString = true;
+            continue;
+        }
+        if (ch === '{') depth++;
+        if (ch === '}') {
+            depth--;
+            if (depth === 0) return raw.slice(start, i + 1);
+        }
+    }
+    return '';
+}
+
+function _missionParseJsonTextDetailed(text = '') {
+    const raw = String(text || '').trim();
+    let lastError = '';
+    const tryParse = (candidate, mode) => {
+        const value = String(candidate || '').trim();
+        if (!value) return null;
+        try {
+            return { parsed: JSON.parse(value), mode };
+        } catch (err) {
+            lastError = err?.message || String(err || 'json_parse_failed');
+            return null;
+        }
+    };
+    if (!raw) return { parsed: null, mode: 'empty', error: 'empty_response' };
+    const direct = tryParse(raw, 'direct');
+    if (direct) return direct;
+    const fenceTrimmed = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    if (fenceTrimmed !== raw) {
+        const trimmed = tryParse(fenceTrimmed, 'fence_trimmed');
+        if (trimmed) return trimmed;
+    }
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+        const parsedFence = tryParse(fenced[1], 'fenced_block');
+        if (parsedFence) return parsedFence;
+    }
+    const balanced = _missionExtractBalancedJsonObjectText(raw);
+    if (balanced) {
+        const parsedBalanced = tryParse(balanced, 'balanced_object');
+        if (parsedBalanced) return parsedBalanced;
+    }
+    return { parsed: null, mode: 'failed', error: lastError || 'json_parse_failed' };
+}
+
 async function fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
     const models = [
         ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
@@ -14829,9 +14942,13 @@ async function fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion = 'pl
             }
             const data = await res.json();
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-            const parsed = JSON.parse(text);
+            const parsedResult = _missionParseJsonTextDetailed(text);
+            if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
+                lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
+                continue;
+            }
             incrementApiUsage(usageKey);
-            return { parsed, source, promptVersion };
+            return { parsed: parsedResult.parsed, source, promptVersion, parseMode: parsedResult.mode || 'direct' };
         } catch (err) {
             lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
         } finally {
@@ -15234,19 +15351,7 @@ function _missionPipelineV3ExtractFunctionCalls(data = {}) {
 }
 
 function _missionPipelineV3ParseJsonText(text = '') {
-    const raw = String(text || '').trim();
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch (_) {}
-    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced) {
-        try { return JSON.parse(fenced[1].trim()); } catch (_) {}
-    }
-    const first = raw.indexOf('{');
-    const last = raw.lastIndexOf('}');
-    if (first >= 0 && last > first) {
-        try { return JSON.parse(raw.slice(first, last + 1)); } catch (_) {}
-    }
-    return null;
+    return _missionParseJsonTextDetailed(text).parsed;
 }
 
 function _missionPipelineV3Prompt(draft = {}) {
@@ -15368,12 +15473,13 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
                 continue;
             }
             const text = _missionPipelineV3ExtractText(data);
-            const parsed = _missionPipelineV3ParseJsonText(text);
+            const parsedResult = _missionParseJsonTextDetailed(text);
+            const parsed = parsedResult.parsed;
             if (parsed) {
                 incrementApiUsage(usageKey);
-                return { parsed, source, error: '', toolCalls, working };
+                return { parsed, source, error: '', toolCalls, working, parseMode: parsedResult.mode || 'direct' };
             }
-            lastError = 'empty_or_invalid_json';
+            lastError = parsedResult.error || 'empty_or_invalid_json';
             contents.push({
                 role: 'user',
                 parts: [{
@@ -15426,7 +15532,8 @@ function sanitizeMissionPlannerV3Result(raw = null, draft = null, resolvedNeeds 
         pass: 'tool-calling',
         promptVersion: MISSION_PIPELINE_V3_VERSION,
         toolCalls: Array.isArray(debug.toolCalls) ? debug.toolCalls : [],
-        fallbackError: debug.error || ''
+        fallbackError: debug.error || '',
+        parseMode: debug.parseMode || base.debug?.parseMode || ''
     };
     return base;
 }
@@ -15465,7 +15572,8 @@ async function fetchMissionPlannerV3(context = {}) {
     const normalized = sanitizeMissionPlannerV3Result(result.parsed, draft, resolvedNeeds, {
         source: result.source,
         toolCalls: result.toolCalls,
-        error: result.error
+        error: result.error,
+        parseMode: result.parseMode
     });
     window.gaMissionPipelineV3Last = normalized;
     window.gaMissionPipelineV2Last = normalized;
@@ -18015,6 +18123,7 @@ async function fetchMissionPlannerV4(context = {}) {
             debug: {
                 source: result?.source || 'none',
                 error: result?.error || 'v4_direct_planner_failed',
+                parseMode: result?.parseMode || '',
                 promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
                 contextSchema: 'missionPlannerV4.contextBundle.v1'
             }
@@ -18025,6 +18134,7 @@ async function fetchMissionPlannerV4(context = {}) {
     const normalized = sanitizeMissionPlannerV4Result(result.parsed, draft, resolvedNeeds, {
         source: result.source,
         error: result.error,
+        parseMode: result.parseMode,
         pickupCreativeBrief: bundle?.pickupCreativeBrief || null,
         missionVarietyBrief: bundle?.missionVarietyBrief || null,
         followUpContext: bundle?.followUpContext || null
@@ -21784,6 +21894,13 @@ async function generateMission(options = {}) {
             _ensureDispatchAlive();
             absorbPlannerResolvedNeeds(missionPlanV2);
             if (!missionPlanV4 || missionPlanV4.status === 'invalid') {
+                const v4DirectDebug = {
+                    status: String(missionPlanV4?.status || 'missing'),
+                    pipelineVersion: String(missionPlanV4?.pipelineVersion || MISSION_PIPELINE_V4_PLANNER_VERSION),
+                    source: String(missionPlanV4?.debug?.source || ''),
+                    error: String(missionPlanV4?.debug?.error || ''),
+                    parseMode: String(missionPlanV4?.debug?.parseMode || '')
+                };
                 indicator.innerText = `Pipeline V4: Fallback auf V2-Planer...`;
                 missionPlanV2 = await dispatchMeasure('planner_v4_fallback_v2', async () => fetchMissionPlannerV2({
                     ...plannerContext,
@@ -21791,6 +21908,17 @@ async function generateMission(options = {}) {
                     missionTruth: preMissionTruth,
                     missionFireHazard
                 }, { force: true }));
+                if (missionPlanV2 && typeof missionPlanV2 === 'object') {
+                    missionPlanV2.debug = {
+                        ...(missionPlanV2.debug || {}),
+                        v4DirectFallback: true,
+                        v4DirectStatus: v4DirectDebug.status,
+                        v4DirectPipelineVersion: v4DirectDebug.pipelineVersion,
+                        v4DirectSource: v4DirectDebug.source,
+                        v4DirectError: v4DirectDebug.error,
+                        v4DirectParseMode: v4DirectDebug.parseMode
+                    };
+                }
                 missionPlanV4 = missionPlanV2;
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
@@ -21819,6 +21947,15 @@ async function generateMission(options = {}) {
                     missionTruth: preMissionTruth,
                     missionFireHazard
                 }, { force: true }));
+                if (missionPlanV2 && typeof missionPlanV2 === 'object') {
+                    missionPlanV2.debug = {
+                        ...(missionPlanV2.debug || {}),
+                        v4DirectFallback: true,
+                        v4DirectStatus: 'exception',
+                        v4DirectPipelineVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
+                        v4DirectError: err?.message || String(err || 'v4_contract_failed')
+                    };
+                }
                 missionPlanV4 = missionPlanV2;
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);

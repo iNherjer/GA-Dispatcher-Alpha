@@ -3838,8 +3838,24 @@ window.vpBuildWeatherDebugReport = function() {
             const p2 = planV2.plan || {};
             const needTypes = Array.isArray(planV2.needs) ? planV2.needs.map(n => n.type || '?').join(',') : '-';
             const resolvedTypes = planV2.resolvedNeeds && typeof planV2.resolvedNeeds === 'object' ? Object.keys(planV2.resolvedNeeds).join(',') : '-';
-            const planLabel = String(planV2.pipelineVersion || '').includes('mission-v3') ? 'Pipeline V3' : 'Pipeline V2';
+            const planVersion = String(planV2.pipelineVersion || '');
+            const planLabel = planVersion.includes('mission-v4')
+                ? 'Pipeline V4 Plan'
+                : (planVersion.includes('mission-v3')
+                    ? 'Pipeline V3'
+                    : (pipelineMode === 'V4' && planV2.debug?.v4DirectFallback
+                        ? 'Pipeline V2 Fallback-Plan'
+                        : 'Pipeline V2'));
             lines.push(`- ${planLabel} Status: ${planV2.status || '-'} | needs=${needTypes || '-'} | resolved=${resolvedTypes || '-'}`);
+            if (planV2.debug?.v4DirectFallback) {
+                const directBits = [
+                    `direct=${planV2.debug.v4DirectStatus || 'unknown'}`,
+                    planV2.debug.v4DirectParseMode ? `parse=${planV2.debug.v4DirectParseMode}` : '',
+                    planV2.debug.v4DirectSource ? `source=${planV2.debug.v4DirectSource}` : '',
+                    planV2.debug.v4DirectError ? `error=${flattenText(planV2.debug.v4DirectError, 180)}` : ''
+                ].filter(Boolean);
+                lines.push(`- V4 Planner Fallback: ${directBits.join(' | ')}`);
+            }
             if (p2.primaryObjective) lines.push(`- ${planLabel} Plan: ${p2.taskDomain || '-'} | ${p2.sceneKind || '-'} | ${String(p2.primaryObjective).replace(/\s+/g, ' ').slice(0, 180)}`);
             if (Array.isArray(p2.objectFamilies) && p2.objectFamilies.length) lines.push(`- ${planLabel} Objekte: ${p2.objectFamilies.slice(0, 8).join(', ')}`);
             if (p2.placementPolicy) lines.push(`- ${planLabel} Platzierung: ${flattenText(p2.placementPolicy, 220)}`);
