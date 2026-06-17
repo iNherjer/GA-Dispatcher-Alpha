@@ -5,7 +5,7 @@ This note documents the current A2A PA24 / Comanche door behavior in
 custom LVars with non-generic polarity, and generic door-position writes can
 make the visual door appear inverted.
 
-Last checked against tracker `v272`.
+Last checked against tracker `v273`.
 
 ## Entry Points
 
@@ -33,7 +33,7 @@ starts a short hold, waits the configured open/close delays, then closes.
 
 ## Diagnostic Tool
 
-Tracker `v272` includes a small manual test path for this aircraft:
+Tracker `v272+` includes a small manual test path for this aircraft:
 
 - Browser console: `pa24DoorDebug.open()`
 - Direct LVar write: `pa24DoorDebug.setVar('L:Door1Handle', 0, 'Bool')`
@@ -52,8 +52,8 @@ For PA24 open, the current LVar fallback is:
 setA2aDoorByLVars(true, doorIndex, reason, 'pa24_comanche', {
   writeOpenPosition: false,
   writeLatch: true,
-  handleOpenValue: 1,
-  handleCloseValue: 0,
+  handleOpenValue: 0,
+  handleCloseValue: 1,
   latchUnlockValue: 0,
   latchLockValue: 1
 });
@@ -62,8 +62,7 @@ setA2aDoorByLVars(true, doorIndex, reason, 'pa24_comanche', {
 Observed/expected effects:
 
 - Unlock latch: `Door1Latch = 0`
-- Door handle polarity is not yet proven. Current code writes
-  `Door1Handle = 1`, but this must be validated with `pa24DoorDebug`.
+- Open handle: `Door1Handle = 0`
 - Do not write `DoorOpen*`, `CabinDoorOpen*`, or `ExitOpen*` while opening.
 
 Reason: writing the generic open-position vars during PA24 open caused the
@@ -78,8 +77,8 @@ For PA24 close, the current LVar fallback is:
 setA2aDoorByLVars(false, doorIndex, reason, 'pa24_comanche', {
   writeOpenPosition: true,
   writeLatch: true,
-  handleOpenValue: 1,
-  handleCloseValue: 0,
+  handleOpenValue: 0,
+  handleCloseValue: 1,
   latchUnlockValue: 0,
   latchLockValue: 1
 });
@@ -87,8 +86,7 @@ setA2aDoorByLVars(false, doorIndex, reason, 'pa24_comanche', {
 
 Observed/expected effects:
 
-- Door handle polarity is not yet proven. Current code writes
-  `Door1Handle = 0`, but this must be validated with `pa24DoorDebug`.
+- Close handle: `Door1Handle = 1`
 - Close generic position vars: `DoorOpen* = 0`, `CabinDoorOpen* = 0`,
   `ExitOpen* = 0`
 - Lock latch: `Door1Latch = 1`
@@ -107,8 +105,8 @@ For PA24 hold, keep:
 setA2aDoorByLVars(true, idx, reason, 'pa24_comanche', {
   writeOpenPosition: false,
   writeLatch: false,
-  handleOpenValue: 1,
-  handleCloseValue: 0,
+  handleOpenValue: 0,
+  handleCloseValue: 1,
   latchUnlockValue: 0,
   latchLockValue: 1
 });
@@ -116,7 +114,7 @@ setA2aDoorByLVars(true, idx, reason, 'pa24_comanche', {
 
 Important effects:
 
-- Reasserts only `Door1Handle = 1`.
+- Reasserts only `Door1Handle = 0`.
 - Does not spam latch writes.
 - Does not write generic open-position vars.
 
@@ -150,9 +148,8 @@ Legacy PA24 custom client events are only fallback/compatibility:
 ## Known Traps
 
 - Do not change PA24 open to `writeOpenPosition: true`.
-- Do not change handle values from guesses. Test `Door1Handle`, `DoorHandle1`,
-  `DoorOpen1`, and `Exit1Open` one by one with `pa24DoorDebug` before changing
-  boarding/deboarding logic.
+- Do not change handle values from guesses. PA24 measured handle polarity is
+  `Door1Handle = 0` open and `Door1Handle = 1` closed.
 - Do not invert latch values. PA24 unlock is `Door1Latch = 0`, lock is
   `Door1Latch = 1`.
 - Do not call `setA2aDoorByLVars(..., 'pa24_comanche')` for latch control
@@ -170,25 +167,25 @@ Current implementation open signature:
 
 ```text
 DOOR_PA24_OPEN_START ...
-A2A_DOOR_LVAR_OPEN_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=1 handleOpen=1 handleClose=0 latchUnlock=0 latchLock=1 ...
+A2A_DOOR_LVAR_OPEN_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=1 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
 A2A_VAR_SET name=L:Door1Latch ... value=0 ... latch-unlock
-A2A_VAR_SET name=L:Door1Handle ... value=1 ... handle-open
+A2A_VAR_SET name=L:Door1Handle ... value=0 ... handle-open
 DOOR_PA24_OPEN_DONE ... lvarOk=1 ...
 ```
 
 Current implementation hold signature:
 
 ```text
-A2A_DOOR_LVAR_OPEN_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=0 handleOpen=1 handleClose=0 latchUnlock=0 latchLock=1 ...
-A2A_VAR_SET name=L:Door1Handle ... value=1 ... handle-open
+A2A_DOOR_LVAR_OPEN_START profile=pa24_comanche ... writeOpenPosition=0 writeLatch=0 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
+A2A_VAR_SET name=L:Door1Handle ... value=0 ... handle-open
 ```
 
 Current implementation close signature:
 
 ```text
 DOOR_PA24_CLOSE_START ...
-A2A_DOOR_LVAR_CLOSE_START profile=pa24_comanche ... writeOpenPosition=1 writeLatch=1 handleOpen=1 handleClose=0 latchUnlock=0 latchLock=1 ...
-A2A_VAR_SET name=L:Door1Handle ... value=0 ... handle-close
+A2A_DOOR_LVAR_CLOSE_START profile=pa24_comanche ... writeOpenPosition=1 writeLatch=1 handleOpen=0 handleClose=1 latchUnlock=0 latchLock=1 ...
+A2A_VAR_SET name=L:Door1Handle ... value=1 ... handle-close
 A2A_VAR_SET name=L:DoorOpen1 ... value=0 ... openvar-0
 A2A_VAR_SET name=L:Exit1Open ... value=0 ... exit-close
 A2A_VAR_SET name=L:Door1Latch ... value=1 ... latch-lock
