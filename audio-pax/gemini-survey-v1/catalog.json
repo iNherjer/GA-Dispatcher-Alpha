@@ -1,0 +1,730 @@
+{
+  "schema": "ga-dispatcher-pax-static-tts-v1",
+  "generatedAt": "2026-06-18T13:33:22.862Z",
+  "model": "gemini-3.1-flash-tts-preview",
+  "basePath": "./audio-pax/gemini-survey-v1",
+  "voices": [
+    "Charon",
+    "Puck",
+    "Kore",
+    "Leda",
+    "Aoede"
+  ],
+  "clips": {
+    "scan_survey_area_entered": {
+      "text": "Wir sind im Surveybereich. Such dir ein Linienende und flieg die erste Bahn sauber durch.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/scan_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/scan_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/scan_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/scan_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/scan_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/scan_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/scan_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/scan_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/scan_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/scan_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "orbit_survey_area_entered": {
+      "text": "Wir sind im Surveybereich. Nimm jetzt den markierten Orbit auf und halte Hoehe und Radius stabil.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/orbit_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/orbit_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/orbit_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/orbit_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/orbit_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/orbit_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/orbit_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/orbit_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/orbit_survey_area_entered-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/orbit_survey_area_entered-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "line_complete": {
+      "text": "Gut, diese Bahn ist sauber. Nimm dir jetzt die nächste Linie, die Reihenfolge ist egal.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/line_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/line_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/line_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/line_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/line_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/line_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/line_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/line_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/line_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/line_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "line_reset_altitude": {
+      "text": "Die Höhe passt nicht mehr, die aktuelle Bahn zählt nicht. Wir setzen die Linie noch einmal sauber an.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/line_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/line_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/line_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/line_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/line_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/line_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/line_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/line_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/line_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/line_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "line_reset_offtrack": {
+      "text": "Wir sind zu weit aus der Bahn gedriftet. Diese Linie bitte noch einmal ruhig und gerade aufnehmen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/line_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/line_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/line_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/line_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/line_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/line_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/line_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/line_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/line_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/line_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "orbit_turn_complete": {
+      "text": "Sauber, dieser Kreis zählt. Bleib im gleichen Radius und nimm den nächsten Umlauf mit.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/orbit_turn_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/orbit_turn_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/orbit_turn_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/orbit_turn_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/orbit_turn_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/orbit_turn_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/orbit_turn_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/orbit_turn_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/orbit_turn_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/orbit_turn_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "orbit_reset_altitude": {
+      "text": "Die Höhe ist aus dem Band gelaufen, der aktuelle Kreis zählt nicht. Bitte wieder stabilisieren und neu ansetzen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/orbit_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/orbit_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/orbit_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/orbit_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/orbit_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/orbit_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/orbit_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/orbit_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/orbit_reset_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/orbit_reset_altitude-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "orbit_reset_offtrack": {
+      "text": "Der Radius läuft weg, der aktuelle Kreis zählt nicht. Bitte zurück auf den Ring und neu ansetzen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/orbit_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/orbit_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/orbit_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/orbit_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/orbit_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/orbit_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/orbit_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/orbit_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/orbit_reset_offtrack-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/orbit_reset_offtrack-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "scan_survey_complete": {
+      "text": "Alle Survey-Linien sind sauber abgedeckt. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/scan_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/scan_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/scan_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/scan_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/scan_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/scan_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/scan_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/scan_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/scan_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 2,
+          "path": "clips/Aoede/scan_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    },
+    "orbit_survey_complete": {
+      "text": "Das waren alle Kreise, der Survey ist komplett. Auftrag erfüllt, wir gehen zurück zum Heimatplatz.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/orbit_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Charon",
+          "take": 2,
+          "path": "clips/Charon/orbit_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/orbit_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 2,
+          "path": "clips/Puck/orbit_survey_complete-t02.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/orbit_survey_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/wav"
+        }
+      ]
+    }
+  }
+}
