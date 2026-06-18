@@ -192,9 +192,16 @@ function dryrunTileBoundsFromUrl(href = '') {
 
 function dryrunSyntheticPoiTilePayload(href = '') {
   const raw = String(href || '');
-  if (!/obstacles\/(?:poi-tiles|core-tiles)|api\/obstacles\/tile/.test(raw)) return null;
+  if (!/obstacles\/(?:poi-tiles|core-tiles|infra-tiles)|api\/obstacles\/tile/.test(raw)) return null;
   const b = dryrunTileBoundsFromUrl(raw);
   if (!b) return { sourceKind: 'split', lin: [], poi: [] };
+  let layer = '';
+  try {
+    layer = String(new URL(raw, 'https://dryrun.local/').searchParams.get('layer') || '').toLowerCase();
+  } catch (_) {
+    layer = '';
+  }
+  const isInfraRequest = /obstacles\/infra-tiles/.test(raw) || layer === 'infra';
   const points = [];
   let idx = 0;
   for (const fy of [0.2, 0.5, 0.8]) {
@@ -206,6 +213,20 @@ function dryrunSyntheticPoiTilePayload(href = '') {
         lon: b.west + ((b.east - b.west) * fx)
       });
     }
+  }
+  if (isInfraRequest) {
+    const infraPoi = points.flatMap(p => [
+      { lat: p.lat, lon: p.lon, name: `Dryrun Solarpark ${p.idx}`, infra_type: 'solar', power: 'plant', generator_source: 'solar' },
+      { lat: p.lat + 0.004, lon: p.lon - 0.002, name: `Dryrun Windpark ${p.idx}`, infra_type: 'wind', power: 'generator', generator_source: 'wind' },
+      { lat: p.lat - 0.004, lon: p.lon + 0.001, name: `Dryrun Umspannwerk ${p.idx}`, infra_type: 'power_grid', power: 'substation', substation: 'distribution' },
+      { lat: p.lat + 0.001, lon: p.lon + 0.004, name: `Dryrun Wasserkraftwerk ${p.idx}`, infra_type: 'hydro', power: 'generator', generator_source: 'hydro' },
+      { lat: p.lat - 0.001, lon: p.lon - 0.004, name: `Dryrun Industrieanlage ${p.idx}`, infra_type: 'industrial', landuse: 'industrial' }
+    ]);
+    return {
+      sourceKind: 'split',
+      infra: { poi: infraPoi, clusters: [] },
+      counts: { infra: infraPoi.length, clusters: 0 }
+    };
   }
   return {
     sourceKind: 'split',
@@ -1903,6 +1924,21 @@ function buildScenePlannerV3Payload(prompt, toolResult = {}) {
 }
 
 function buildSpokenText(prompt) {
+  const isScienceGeo = /science_geo|Drift-Guard \(Geo\)|Geo-Fazit|Geowissenschaft|geologisch|geomorphologisch|Relief|Erosion|Sediment|Hangform|Uferkante/i.test(prompt);
+  const isScienceBio = !isScienceGeo && /science_bio|Drift-Guard \(Bio\)|Bio-Fazit|Biologie|biologisch|oekologisch|ökologisch|Habitat|Ufervegetation|Artenhinweis/i.test(prompt);
+  const hasSightseeingBan = /kein(?:e[nrms]?)?\s+Sightseeing|kein Sightseeing-Fazit|keine Sightseeing/i.test(prompt);
+  const isSightseeing = !hasSightseeingBan && !isScienceBio && !isScienceGeo && /sightseeing|rundflug|blickmoment|panorama|persoenliche fotos|persönliche fotos/i.test(prompt);
+  if (isScienceBio && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke fürs Mitnehmen. Die Ufer- und Vegetationshinweise sind verwertbar, ich nehme Fotos und Notizen jetzt mit in die Monitoring-Auswertung.';
+  if (isScienceGeo && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke fürs Mitnehmen. Die Relief- und Uferkanten-Beobachtungen sind verwertbar, ich nehme Fotos und Notizen jetzt mit in die geologische Auswertung.';
+  if (isScienceBio && /Höhe passt jetzt|Ich bin fertig am Ziel|fertig am Ziel/i.test(prompt)) return 'Die Habitat- und Uferstruktur ist ausreichend dokumentiert. Ich habe genug Vergleichspunkte fuer die Auswertung.';
+  if (isScienceGeo && /Höhe passt jetzt|Ich bin fertig am Ziel|fertig am Ziel/i.test(prompt)) return 'Die Relief- und Erosionslinien sind ausreichend dokumentiert. Ich habe genug Vergleichspunkte fuer die Auswertung.';
+  if (isSightseeing && /Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Kamerataschen sind verstaut und ich bin bereit. Lass uns ruhig rausrollen.';
+  if (isSightseeing && /Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Ich freue mich auf den Blick von oben, bitte einfach weich und ohne Hektik.';
+  if (isSightseeing && /Zielobjekt .* wird im Anflug sichtbar|taucht gerade vor uns auf/i.test(prompt)) return 'Ich sehe den Zielbereich voraus. Das ist genau der Blick, auf den wir uns gefreut haben.';
+  if (isSightseeing && /Höhe passt jetzt|Ich bin fertig am Ziel|fertig am Ziel|Blickmoment/i.test(prompt)) return 'Der Blick hat gepasst, danke. Von mir aus können wir jetzt entspannt zurück zum Platz.';
+  if (isSightseeing && /nähern uns|Landung gleich|Rückanflug|vor der Landung/i.test(prompt)) return 'Der Heimatplatz liegt voraus. Das war ein schöner ruhiger Rundflug, bitte den Anflug einfach stabil halten.';
+  if (isSightseeing && /Nach der Landung|Landing-Roll/i.test(prompt)) return 'Gut gelandet, danke. Die Aussicht bleibt sicher hängen.';
+  if (isSightseeing && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke für den Flug. Der Blick auf den Ort war genau der schöne Moment, den wir mitnehmen wollten.';
   if (/Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Ausrüstung ist verstaut und ich bin bereit. Lass uns sauber und ohne Hektik rausrollen.';
   if (/Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.';
   if (/Zielobjekt .* wird im Anflug sichtbar|taucht gerade vor uns auf/i.test(prompt)) return 'Ich habe das Ziel voraus in Sicht, leicht rechts von der Nase. Noch etwa zwei Minuten, dann können wir den ersten ruhigen Beobachtungskreis fliegen.';
@@ -1917,7 +1953,7 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
   context.__dryrunFetchStats = { tile: 0, syntheticTile: 0, urls: [] };
   context.fetch = async (url, options = {}) => {
     const href = String(url);
-    if (/obstacles\/(?:poi-tiles|core-tiles)|api\/obstacles\/tile/.test(href)) {
+    if (/obstacles\/(?:poi-tiles|core-tiles|infra-tiles)|api\/obstacles\/tile/.test(href)) {
       context.__dryrunFetchStats.tile += 1;
       if (context.__dryrunFetchStats.urls.length < 12) context.__dryrunFetchStats.urls.push(href);
     }

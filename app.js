@@ -1454,14 +1454,86 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'technical_inspector_v1',
         taskDomain: 'inspection_infra',
         personas: [
-            { name: 'Nora Feldmann', role: 'Bauwerksprüferin', gender: 'female', personality: 'präzise, nüchtern, aufmerksam' },
-            { name: 'Martin Seidel', role: 'Infrastruktur-Techniker', gender: 'male', personality: 'ruhig, technisch, direkt' }
+            {
+                name: 'Nora Feldmann',
+                role: 'Bauwerksprüferin',
+                gender: 'female',
+                personality: 'präzise, nüchtern, aufmerksam',
+                matchCategories: ['bridge', 'dam', 'infrastructure', 'industry'],
+                storySeed: '{name} begleitet den Luftcheck an {targetName}, weil ein Betreiberhinweis zu Tragwerk, Randbereich oder Anbauteilen vor einer Bodenprüfung eingegrenzt werden soll.',
+                greetingText: 'Hi, ich schaue heute auf sichtbare Zustandsmerkmale. Ruhige, wiederholbare Blickwinkel helfen mehr als ein schneller Vorbeiflug.'
+            },
+            {
+                name: 'Martin Seidel',
+                role: 'Infrastruktur-Techniker',
+                gender: 'male',
+                personality: 'ruhig, technisch, direkt',
+                matchCategories: ['bridge', 'road', 'rail', 'telecom', 'industry', 'infrastructure'],
+                storySeed: '{name} prüft bei {targetName}, ob eine frische Störungs- oder Wettermeldung nur Beobachtung braucht oder ein Technikteam raus muss.',
+                greetingText: 'Hi, wir grenzen heute einen Verdachtsbereich ein. Bitte stabil halten, damit ich Bauteile, Zufahrt und Umfeld sauber vergleichen kann.'
+            },
+            {
+                name: 'Jasmin Krüger',
+                role: 'Betreiber-Ingenieurin',
+                gender: 'female',
+                personality: 'verbindlich, technisch, strukturiert',
+                matchCategories: ['bridge', 'dam', 'road', 'rail', 'telecom', 'industry', 'infrastructure'],
+                storySeed: '{name} braucht von {targetName} einen schnellen Betreiberblick, bevor Wartungsfenster, Sperrung oder Hubsteiger eingeplant werden.',
+                greetingText: 'Hi, ich muss am Ende eine Betreiberentscheidung vorbereiten. Ein ruhiger Überblick auf Ziel und Zugänge ist dafür entscheidend.'
+            },
+            {
+                name: 'Hauke Peters',
+                role: 'Netztrassen-Koordinator',
+                gender: 'male',
+                personality: 'sachlich, vorausschauend, klar',
+                matchCategories: ['road', 'rail', 'telecom', 'infrastructure'],
+                matchInfraTypes: ['power', 'power_grid'],
+                storySeed: '{name} kontrolliert bei {targetName} eine Trasse, Leitung oder Netzinfrastruktur, nachdem Bodenmeldungen nicht genau genug waren.',
+                greetingText: 'Hi, ich achte heute auf Trasse, Masten, Freihaltung und mögliche Sturmeinwirkung. Bitte gleichmäßig und ohne harte Manöver.'
+            },
+            {
+                name: 'Selma Brandt',
+                role: 'Windpark-Wartungsplanerin',
+                gender: 'female',
+                personality: 'ruhig, analytisch, betrieblich denkend',
+                matchInfraTypes: ['wind'],
+                storySeed: '{name} lässt {targetName} aus der Luft vorprüfen, weil Rotoren, Zuwegung, Kranstellflächen oder Trafostationen vor dem nächsten Wartungsfenster eingeordnet werden müssen.',
+                greetingText: 'Hi, bei Windparks zählt heute der Überblick: Anlagenreihe, Zuwegung, Trafopunkt und Kranflächen müssen gut lesbar sein.'
+            },
+            {
+                name: 'Karim Vogt',
+                role: 'Solarpark-Techniker',
+                gender: 'male',
+                personality: 'genau, praktisch, ruhig',
+                matchInfraTypes: ['solar'],
+                storySeed: '{name} prüft bei {targetName}, ob Modulreihen, Zaunlinie, Wechselrichterbereiche oder Zufahrten nach einer Meldung auffällig wirken.',
+                greetingText: 'Hi, ich brauche einen ruhigen Blick auf die Reihen, die Ränder und die Technikpunkte. Keine Show, nur saubere Lesbarkeit.'
+            },
+            {
+                name: 'Dr. Vera Lenz',
+                role: 'Schadensgutachterin',
+                gender: 'female',
+                personality: 'präzise, vorsichtig, faktenorientiert',
+                matchCategories: ['bridge', 'dam', 'road', 'rail', 'telecom', 'industry', 'infrastructure'],
+                storySeed: '{name} soll bei {targetName} eine Schadensmeldung neutral einordnen, bevor Betreiber oder Versicherung den nächsten Vor-Ort-Schritt freigeben.',
+                greetingText: 'Hi, ich bewerte heute nicht aus dem Bauch heraus. Wir brauchen genug ruhige Sicht, um Verdacht und Umfeld sauber zu trennen.'
+            },
+            {
+                name: 'Oskar Neumann',
+                role: 'Wasserbau-Kontrolleur',
+                gender: 'male',
+                personality: 'erfahren, ruhig, detailgenau',
+                matchCategories: ['dam', 'water'],
+                matchInfraTypes: ['hydro'],
+                storySeed: '{name} kontrolliert bei {targetName} Dammkrone, Ablaufbauwerk, Uferbefestigung oder Pegelbereich nach einer Meldung aus dem Betrieb.',
+                greetingText: 'Hi, bei Wasserbauwerken zählt der Zusammenhang: Krone, Auslauf, Ufer und Zufahrt. Bitte ruhig, damit ich das Gelände lesen kann.'
+            }
         ],
-        greetingText: 'Hi, wir prüfen heute den Zustand des Zielobjekts aus der Luft. Bitte stabile Passes, damit Schäden, Wartungspunkte und Baufortschritt sauber dokumentiert werden.',
+        greetingText: 'Hi, wir prüfen heute eine konkrete Infrastrukturmeldung aus der Luft. Bitte stabil fliegen, damit Zielobjekt, Zugänge und mögliche Auffälligkeiten sauber einzuordnen sind.',
         paxText: '1 PAX (Infrastruktur-Inspektion)',
-        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)'],
+        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)', 'Netzplan und Sichtcheck-Tablet (12 lbs)', 'PV-/Windpark-Wartungsunterlagen (16 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: technische Sichtprüfung, Schadensdokumentation, Wartungsstatus oder Baufortschritt.'
+        storyCue: 'Fokus: konkrete Betreiber-, Störungs-, Sturm-, Wartungs- oder Schadensmeldung an Infrastruktur; möglich sind Brücke, Damm, Trasse, Funkmast, Windpark, Solarpark, Industrieanlage, Dach, Zufahrt oder Betriebsbauwerk. Der Flug liefert Vorprüfung und Folgeentscheidung, keine freie Vermessungs- oder Sightseeing-Story.'
     },
     media_photo: {
         id: 'media_photo',
@@ -1723,14 +1795,80 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'science_field_v1',
         taskDomain: 'science_bio',
         personas: [
-            { name: 'Dr. Elena Kurz', role: 'Biologin', gender: 'female', personality: 'aufmerksam, sachlich, ruhig' },
-            { name: 'Dr. Paul Reiter', role: 'Ökologe', gender: 'male', personality: 'analytisch, präzise, gelassen' }
+            {
+                name: 'Dr. Elena Kurz',
+                role: 'Biologin',
+                gender: 'female',
+                personality: 'aufmerksam, sachlich, ruhig',
+                storySeed: '{name} vergleicht bei {targetName} Vegetationsmuster, Uferzonen oder Habitatgrenzen für eine laufende Feldstudie.',
+                greetingText: 'Hi, ich schaue heute auf Vegetation, Übergänge und auffällige Muster. Ruhig fliegen, damit die Beobachtung später vergleichbar bleibt.'
+            },
+            {
+                name: 'Dr. Paul Reiter',
+                role: 'Ökologe',
+                gender: 'male',
+                personality: 'analytisch, präzise, gelassen',
+                storySeed: '{name} nutzt den Luftblick auf {targetName}, um Störfaktoren, Randzonen und ökologische Verbindungslinien einzuordnen.',
+                greetingText: 'Hi, für mich ist heute der Zusammenhang wichtig: Randzonen, Nutzung, Wasser oder Waldkante. Bitte gleichmäßig und ohne Hektik.'
+            },
+            {
+                name: 'Samira Beck',
+                role: 'Ornithologin',
+                gender: 'female',
+                personality: 'leise, konzentriert, beobachtend',
+                matchCategories: ['water', 'forest', 'mountain', 'fire'],
+                storySeed: '{name} dokumentiert bei {targetName} mögliche Rast-, Brut- oder Störbereiche, ohne daraus eine Such- oder Einsatzlage zu machen.',
+                greetingText: 'Hi, ich achte auf mögliche Vogelbereiche und Störungen im Gelände. Ein ruhiger Abstand ist besser als nahes Herumkurven.'
+            },
+            {
+                name: 'Leonie Scharf',
+                role: 'Uferökologin',
+                gender: 'female',
+                personality: 'klar, naturkundlich, geduldig',
+                matchCategories: ['water', 'dam'],
+                storySeed: '{name} untersucht bei {targetName} Ufervegetation, Schilfzonen, offene Wasserflächen oder Übergänge zwischen Nutzung und Naturraum.',
+                greetingText: 'Hi, ich lese heute vor allem die Ufer und Übergänge. Bitte so fliegen, dass Wasser, Rand und Bewuchs zusammen sichtbar bleiben.'
+            },
+            {
+                name: 'Dr. Tobias Mertens',
+                role: 'Vegetationskundler',
+                gender: 'male',
+                personality: 'gründlich, ruhig, detailverliebt',
+                matchCategories: ['forest', 'mountain', 'fire', 'generic'],
+                storySeed: '{name} braucht bei {targetName} einen Überblick über Trockenstress, Kronenbild, Bewuchslücken oder auffällige Vegetationsgrenzen.',
+                greetingText: 'Hi, heute geht es um Bewuchsbild und Stresszeichen, nicht um eine technische Prüfung. Gleichmäßige Sicht ist alles.'
+            },
+            {
+                name: 'Nika Lorenz',
+                role: 'Naturschutz-Monitoring',
+                gender: 'female',
+                personality: 'praktisch, freundlich, konzentriert',
+                storySeed: '{name} ergänzt bei {targetName} eine Monitoringreihe und vergleicht sichtbare Habitatflächen mit früheren Notizen.',
+                greetingText: 'Hi, ich hänge heute eine neue Beobachtung an eine laufende Reihe. Bitte ruhig, damit ich die Flächen sauber wiedererkenne.'
+            },
+            {
+                name: 'Mira Bode',
+                role: 'Gewässerbiologin',
+                gender: 'female',
+                personality: 'sachlich, aufmerksam, ruhig',
+                matchCategories: ['water', 'dam'],
+                storySeed: '{name} bewertet bei {targetName} Wasserfarbe, Uferstruktur, Zuflüsse oder mögliche Belastungsanzeichen als Vorprüfung für die Feldarbeit.',
+                greetingText: 'Hi, ich achte auf Wasser, Zuflüsse und Uferstruktur. Der Luftblick soll helfen, die Feldpunkte besser zu setzen.'
+            },
+            {
+                name: 'Jan Falk',
+                role: 'Habitat-Koordinator',
+                gender: 'male',
+                personality: 'übersichtlich, bodenständig, ruhig',
+                storySeed: '{name} ordnet bei {targetName} Habitatinseln, Waldsäume, Feuchtstellen oder offene Flächen für die nächste Begehung.',
+                greetingText: 'Hi, ich brauche heute eine Habitatkarte im Kopf. Ruhige Bögen, klare Ränder, keine dramatische Lage.'
+            }
         ],
-        greetingText: 'Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.',
+        greetingText: 'Hi, wir fliegen heute eine biologische Beobachtung mit konkreter Fragestellung. Bitte ruhig und stabil, damit Vegetation, Habitat und Randzonen vergleichbar bleiben.',
         paxText: '1 PAX (Biologe)',
-        cargoPool: ['Umweltsensorik und Kamera (18 lbs)', 'Feldnotizen und GPS-Logger (9 lbs)'],
+        cargoPool: ['Umweltsensorik und Kamera (18 lbs)', 'Feldnotizen und GPS-Logger (9 lbs)', 'Habitatkarten und Fernglas (11 lbs)', 'Wasserproben-Notizkit und Tablet (14 lbs)', 'Vegetations-Monitoring-Set (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: Natur-/Umweltbeobachtung mit klarer, sachlicher Einordnung.'
+        storyCue: 'Fokus: biologische oder ökologische Beobachtung mit konkreter Studie: Habitat, Vegetation, Uferzone, Vogel-/Rastbereiche, Trockenstress, Störfaktoren, Wasserfarbe, Feuchtflächen oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage.'
     },
     science_geo: {
         id: 'science_geo',
@@ -1739,14 +1877,80 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'science_field_v1',
         taskDomain: 'science_geo',
         personas: [
-            { name: 'Dr. Mira Hahn', role: 'Geologin', gender: 'female', personality: 'präzise, ruhig, strukturiert' },
-            { name: 'Dr. Nils Vogt', role: 'Geomorphologe', gender: 'male', personality: 'analytisch, klar, professionell' }
+            {
+                name: 'Dr. Mira Hahn',
+                role: 'Geologin',
+                gender: 'female',
+                personality: 'präzise, ruhig, strukturiert',
+                storySeed: '{name} vergleicht bei {targetName} Gesteins-, Hang- oder Talstrukturen mit einer laufenden geologischen Kartierung.',
+                greetingText: 'Hi, ich schaue heute auf Formen, Kanten und Übergänge im Gelände. Bitte ruhig, damit die Strukturen lesbar bleiben.'
+            },
+            {
+                name: 'Dr. Nils Vogt',
+                role: 'Geomorphologe',
+                gender: 'male',
+                personality: 'analytisch, klar, professionell',
+                storySeed: '{name} untersucht bei {targetName}, wie Relief, Erosion oder Sedimentflächen aus der Luft zusammenhängen.',
+                greetingText: 'Hi, für mich zählt heute das Relief. Gleichmäßige Bögen und klare Blickwinkel sind wichtiger als Nähe.'
+            },
+            {
+                name: 'Lea Seidel',
+                role: 'Hydrogeologin',
+                gender: 'female',
+                personality: 'ruhig, methodisch, aufmerksam',
+                matchCategories: ['water', 'dam'],
+                storySeed: '{name} ordnet bei {targetName} Wasserlauf, Uferkante, Hangfuß oder Feuchtstellen als Hinweise auf unterirdische oder oberflächennahe Prozesse ein.',
+                greetingText: 'Hi, ich achte auf Wasserlinien, Hangfuß und Geländeübergänge. Bitte so fliegen, dass der Zusammenhang sichtbar wird.'
+            },
+            {
+                name: 'Armin Faber',
+                role: 'Erosionsforscher',
+                gender: 'male',
+                personality: 'direkt, genau, gelassen',
+                matchCategories: ['mountain', 'forest', 'water', 'dam', 'fire'],
+                storySeed: '{name} sucht bei {targetName} nach sichtbaren Erosionsspuren, Rinnen, Abbruchkanten oder frischen Sedimentfächern.',
+                greetingText: 'Hi, ich suche heute keine Schäden an Bauwerken, sondern Spuren im Gelände: Kanten, Rinnen, Ablagerungen.'
+            },
+            {
+                name: 'Dr. Karin Weber',
+                role: 'Sedimentologin',
+                gender: 'female',
+                personality: 'präzise, leise, analytisch',
+                matchCategories: ['water', 'dam', 'industry'],
+                storySeed: '{name} nutzt {targetName}, um Sedimentbänke, Kiesflächen, Uferablagerungen oder alte Fließwege in eine Studie einzuordnen.',
+                greetingText: 'Hi, ich schaue auf Ablagerungen und Formen, die man vom Boden leicht übersieht. Bitte mit ruhigem Blickwinkel.'
+            },
+            {
+                name: 'Jonas Marten',
+                role: 'Hangstabilitätsgutachter',
+                gender: 'male',
+                personality: 'vorsichtig, sachlich, konzentriert',
+                matchCategories: ['mountain', 'forest', 'fire'],
+                storySeed: '{name} bewertet bei {targetName} Hangform, Rutschspuren, Vegetationsbrüche oder Entwässerungslinien als geologische Vorprüfung.',
+                greetingText: 'Hi, ich brauche einen sauberen Blick auf Hang, Kanten und Entwässerung. Keine Eile, lieber stabil.'
+            },
+            {
+                name: 'Eva Scholz',
+                role: 'Quartärgeologin',
+                gender: 'female',
+                personality: 'anschaulich, sachkundig, ruhig',
+                storySeed: '{name} verbindet bei {targetName} Talform, Terrassen, Moränen- oder Schotterflächen mit einer regionalen Geländelesart.',
+                greetingText: 'Hi, ich lese heute Landschaftsgeschichte im Gelände. Ruhige Kurven helfen, Talform und alte Oberflächen zu erkennen.'
+            },
+            {
+                name: 'Bruno Keil',
+                role: 'Reliefkartierer',
+                gender: 'male',
+                personality: 'praktisch, konzentriert, trocken',
+                storySeed: '{name} ergänzt bei {targetName} eine Reliefkarte und braucht dafür Hanglinien, Einschnitte, Kuppen und Geländekanten aus der Luft.',
+                greetingText: 'Hi, ich denke heute in Höhenlinien. Gib mir ruhige Perspektiven auf Kanten, Rücken und Einschnitte.'
+            }
         ],
-        greetingText: 'Hi, wir schauen uns heute Relief, Erosion und Hangstruktur an. Bitte sauber und reproduzierbar fliegen.',
+        greetingText: 'Hi, wir schauen uns heute Relief, Erosion und Geländestruktur mit klarer Fragestellung an. Bitte ruhig und reproduzierbar fliegen.',
         paxText: '1 PAX (Geologe)',
-        cargoPool: ['Geologie-Mapset und Tablet (12 lbs)', 'Kamera und Laser-Entfernungsmesser (14 lbs)'],
+        cargoPool: ['Geologie-Mapset und Tablet (12 lbs)', 'Kamera und Laser-Entfernungsmesser (14 lbs)', 'Reliefkarten und GNSS-Logger (13 lbs)', 'Sedimentnotizen und Fotokit (11 lbs)', 'Hangprofil-Unterlagen (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: geologische/geomorphologische Beobachtung mit ruhiger Arbeitsweise.'
+        storyCue: 'Fokus: geologische oder geomorphologische Beobachtung mit konkreter Studie: Relief, Erosion, Hangstabilität, Sedimente, Talform, Uferkante, Abbruchkante, alte Fließwege, Steinbruch oder Geländekartierung. Keine Bio-, Technik-, SAR- oder Feuerdrift.'
     },
     mapping_survey: {
         id: 'mapping_survey',
@@ -6807,6 +7011,19 @@ function classifyPOITitleCategory(title) {
         _hasWordToken(t, "dam") ||
         _hasWordToken(t, "wehr")
     ) return "dam";
+    if (
+        t.includes("windpark") ||
+        t.includes("windrad") ||
+        t.includes("windkraft") ||
+        t.includes("windturbine") ||
+        t.includes("wind farm") ||
+        t.includes("solarpark") ||
+        t.includes("solaranlage") ||
+        t.includes("solar farm") ||
+        t.includes("photovoltaik") ||
+        t.includes("photovoltaic") ||
+        _hasWordToken(t, "pv")
+    ) return "industry";
     if (t.includes("funkturm") || t.includes("fernsehturm") || t.includes("sendemast") || t.includes("funkmast") || t.includes("mast")) return "telecom";
     if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
     if (t.includes("fluss") || t.includes("strom") || t.includes("kanal") || t.includes("see") || t.includes("talsperre") || t.includes("teich") || t.includes("insel") || t.includes("weiher") || t.includes("kueste") || t.includes("hafen") || t.includes("river") || t.includes("lake") || t.includes("bay") || t.includes("fjord") || t.includes("meer") || t.includes("rhein") || t.includes("donau") || t.includes("elbe") || t.includes("isar") || t.includes("neckar")) return "water";
@@ -6892,7 +7109,16 @@ function _isInfrastructurePOITitle(title) {
         _hasWordToken(t, 'hochspannung') ||
         _hasWordToken(t, 'freileitung') ||
         _hasWordToken(t, 'umspannwerk') ||
-        _hasWordToken(t, 'kraftwerk')
+        _hasWordToken(t, 'kraftwerk') ||
+        _hasWordToken(t, 'windpark') ||
+        _hasWordToken(t, 'windkraft') ||
+        _hasWordToken(t, 'windturbine') ||
+        _hasWordToken(t, 'windrad') ||
+        _hasWordToken(t, 'solarpark') ||
+        _hasWordToken(t, 'solaranlage') ||
+        _hasWordToken(t, 'photovoltaik') ||
+        _hasWordToken(t, 'photovoltaic') ||
+        _hasWordToken(t, 'pv')
     );
 }
 
@@ -7073,9 +7299,14 @@ const POI_TILE_CORE_ENDPOINTS = [
     './obstacles/core-tiles/{latI}/{lonI}.json.gz',
     './obstacles/core-tiles/{latI}/{lonI}.json'
 ];
+const POI_TILE_INFRA_ENDPOINTS = [
+    './obstacles/infra-tiles/{latI}/{lonI}.json.gz',
+    './obstacles/infra-tiles/{latI}/{lonI}.json'
+];
 if (POI_TILE_WORKER_ENABLED) {
     POI_TILE_POI_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
     POI_TILE_CORE_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
+    POI_TILE_INFRA_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
 }
 const POI_TILE_LEGACY_ENDPOINTS = [
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
@@ -7096,8 +7327,10 @@ function _poiDebugState() {
             lastSource: '',
             localPoiSplitHits: 0,
             localCoreSplitHits: 0,
+            localInfraSplitHits: 0,
             workerPoiSplitHits: 0,
             workerCoreSplitHits: 0,
+            workerInfraSplitHits: 0,
             cacheMissSources: 0
         };
     }
@@ -7115,8 +7348,10 @@ function _poiDebugBumpSourceCounter(src = '') {
     const s = String(src || '').toLowerCase();
     if (s === 'local-poi-split') dbg.localPoiSplitHits = Number(dbg.localPoiSplitHits || 0) + 1;
     else if (s === 'local-core-split') dbg.localCoreSplitHits = Number(dbg.localCoreSplitHits || 0) + 1;
+    else if (s === 'local-infra-split') dbg.localInfraSplitHits = Number(dbg.localInfraSplitHits || 0) + 1;
     else if (s === 'worker-poi-split') dbg.workerPoiSplitHits = Number(dbg.workerPoiSplitHits || 0) + 1;
     else if (s === 'worker-core-split') dbg.workerCoreSplitHits = Number(dbg.workerCoreSplitHits || 0) + 1;
+    else if (s === 'worker-infra-split') dbg.workerInfraSplitHits = Number(dbg.workerInfraSplitHits || 0) + 1;
     else if (s === 'split-only-miss') dbg.cacheMissSources = Number(dbg.cacheMissSources || 0) + 1;
 }
 
@@ -7301,7 +7536,78 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
             amenity: String(node?.amenity || '').toLowerCase(),
             leisure: String(node?.leisure || '').toLowerCase(),
             place: String(node?.place || '').toLowerCase(),
-            obstacle_type: String(node?.obstacle_type || node?.type || '').toLowerCase()
+            obstacle_type: String(node?.obstacle_type || node?.type || '').toLowerCase(),
+            generator_source: String(node?.generator_source || node?.['generator:source'] || '').toLowerCase(),
+            plant_source: String(node?.plant_source || node?.['plant:source'] || '').toLowerCase(),
+            generator_method: String(node?.generator_method || node?.['generator:method'] || '').toLowerCase(),
+            plant_method: String(node?.plant_method || node?.['plant:method'] || '').toLowerCase(),
+            substation: String(node?.substation || '').toLowerCase(),
+            transformer: String(node?.transformer || '').toLowerCase(),
+            voltage: String(node?.voltage || ''),
+            operator: String(node?.operator || ''),
+            ref: String(node?.ref || ''),
+            bridge: String(node?.bridge || '').toLowerCase(),
+            infra_enriched: !!node?.infra_enriched,
+            infra_type: String(node?.infra_type || '').toLowerCase()
+        }
+    };
+}
+
+function _poiFeatureSourcePriority(feature = {}) {
+    const source = String(feature?.sourceKind || '').toLowerCase();
+    if (source === 'infra') return 4;
+    if (source === 'poi') return 3;
+    if (source === 'lin') return 2;
+    if (source === 'obs') return 1;
+    return 0;
+}
+
+function _poiFeatureDedupeKey(feature = {}) {
+    const lat = Number(feature?.lat);
+    const lon = Number(feature?.lon);
+    const t = feature?.tags || {};
+    const name = normalizeMissionText(feature?.name || '').replace(/\s+/g, ' ').trim();
+    const type = String(
+        t.infra_type ||
+        t.obstacle_type ||
+        t.highway ||
+        t.railway ||
+        t.waterway ||
+        t.water ||
+        t.power ||
+        t.man_made ||
+        t.natural ||
+        t.landuse ||
+        feature?.rawType ||
+        'poi'
+    ).toLowerCase();
+    const ref = String(t.ref || '').toLowerCase();
+    const operator = normalizeMissionText(t.operator || '').replace(/\s+/g, ' ').trim();
+    const identity = name || [type, ref, operator].filter(Boolean).join('|') || type;
+    return `${lat.toFixed(5)}|${lon.toFixed(5)}|${identity}|${type}`;
+}
+
+function _poiMergePreferredFeature(existing = null, incoming = null) {
+    if (!existing) return incoming;
+    if (!incoming) return existing;
+    const oldPriority = _poiFeatureSourcePriority(existing);
+    const newPriority = _poiFeatureSourcePriority(incoming);
+    const oldName = String(existing?.name || '').trim();
+    const newName = String(incoming?.name || '').trim();
+    const preferIncoming = (
+        newPriority > oldPriority ||
+        (newPriority === oldPriority && !oldName && !!newName)
+    );
+    const primary = preferIncoming ? incoming : existing;
+    const secondary = preferIncoming ? existing : incoming;
+    return {
+        ...secondary,
+        ...primary,
+        name: String(primary?.name || secondary?.name || '').trim(),
+        fetchSource: String(primary?.fetchSource || secondary?.fetchSource || ''),
+        tags: {
+            ...(secondary?.tags || {}),
+            ...(primary?.tags || {})
         }
     };
 }
@@ -7313,9 +7619,13 @@ function _poiParseTilePayload(payload) {
     const poiObj = (payload.poi && typeof payload.poi === 'object' && Array.isArray(payload.poi.poi))
         ? payload.poi
         : null;
+    const infraObj = (payload.infra && typeof payload.infra === 'object' && Array.isArray(payload.infra.poi))
+        ? payload.infra
+        : null;
     const obs = Array.isArray(payload.obs) ? payload.obs : (Array.isArray(coreObj?.obs) ? coreObj.obs : []);
     const lin = Array.isArray(payload.lin) ? payload.lin : (Array.isArray(coreObj?.lin) ? coreObj.lin : []);
     const poi = Array.isArray(payload.poi) ? payload.poi : (Array.isArray(poiObj?.poi) ? poiObj.poi : []);
+    const infra = Array.isArray(infraObj?.poi) ? infraObj.poi : [];
 
     for (const e of obs) {
         const f = _poiFeatureFromTileNode({
@@ -7367,6 +7677,10 @@ function _poiParseTilePayload(payload) {
         const f = _poiFeatureFromTileNode({ ...e, sourceKind: 'poi', layer: 'poi' }, 'poi');
         if (f) out.push(f);
     }
+    for (const e of infra) {
+        const f = _poiFeatureFromTileNode({ ...e, sourceKind: 'infra', layer: 'infra', infra_enriched: true }, 'infra');
+        if (f) out.push(f);
+    }
     return out;
 }
 
@@ -7394,13 +7708,47 @@ function _poiFeatureMatchesCategory(feature, category) {
     const t = feature?.tags || {};
     const rawType = String(feature?.rawType || '').toLowerCase();
     const n = normalizeMissionText(feature?.name || '');
+    const infraType = String(t.infra_type || '').toLowerCase();
+    const obstacleType = String(t.obstacle_type || '').toLowerCase();
+    const energySource = String(
+        t['plant:source'] ||
+        t['generator:source'] ||
+        t.plant_source ||
+        t.generator_source ||
+        t['plant:method'] ||
+        t['generator:method'] ||
+        t.plant_method ||
+        t.generator_method ||
+        t.source ||
+        ''
+    ).toLowerCase();
+    const energyNameHint = (
+        _hasWordToken(n, 'windpark') ||
+        _hasWordToken(n, 'windkraft') ||
+        _hasWordToken(n, 'windturbine') ||
+        _hasWordToken(n, 'windrad') ||
+        _hasWordToken(n, 'solarpark') ||
+        _hasWordToken(n, 'solaranlage') ||
+        _hasWordToken(n, 'photovoltaik') ||
+        _hasWordToken(n, 'photovoltaic') ||
+        _hasWordToken(n, 'pv')
+    );
+    const isEnergyPlant = (
+        ['solar', 'wind', 'power_station', 'power_grid', 'industrial', 'power'].includes(infraType) ||
+        (infraType === 'hydro' && (!!t.power || /(hydro|water)/.test(energySource))) ||
+        ['plant', 'generator'].includes(t.power) ||
+        ['windmill', 'solar_panel'].includes(t.man_made) ||
+        energyNameHint ||
+        /(wind|solar|photovoltaic|photovoltaik|pv)/.test(energySource)
+    );
 
     const isWater = (
         ['river', 'stream', 'canal', 'dam', 'weir'].includes(t.waterway) ||
         t.natural === 'water' ||
         ['lake', 'reservoir', 'pond', 'basin'].includes(t.water) ||
         ['reservoir', 'basin'].includes(t.landuse) ||
-        t.layer === 'hydro'
+        t.layer === 'hydro' ||
+        infraType === 'hydro'
     );
     const damNameStrong = (
         _hasWordToken(n, 'talsperre') ||
@@ -7418,12 +7766,14 @@ function _poiFeatureMatchesCategory(feature, category) {
     const isRoad = (
         !!t.highway ||
         t.layer === 'road' ||
-        rawType === 'highway'
+        rawType === 'highway' ||
+        infraType === 'road'
     );
     const isSettlementOnly = _poiIsSettlementOnlyFeature(feature);
     const isRail = (
         !!t.railway ||
         t.layer === 'rail' ||
+        infraType === 'rail' ||
         rawType === 'railway' ||
         _hasWordToken(n, 'bahn') ||
         _hasWordToken(n, 'bahnhof') ||
@@ -7435,6 +7785,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     const isTransportCorridor = (
         isRoad ||
         isRail ||
+        infraType === 'power_grid' ||
         ['line', 'minor_line', 'cable'].includes(t.power) ||
         t.layer === 'road' ||
         t.layer === 'rail'
@@ -7449,7 +7800,8 @@ function _poiFeatureMatchesCategory(feature, category) {
         ) && (
         ['tower', 'mast'].includes(t.man_made) ||
         ['tower', 'pole'].includes(t.power) ||
-        t.obstacle_type.includes('wind') ||
+        infraType === 'wind' ||
+        obstacleType.includes('wind') ||
         rawType.includes('mast') ||
         rawType.includes('tower') ||
         rawType.includes('wind') ||
@@ -7459,6 +7811,8 @@ function _poiFeatureMatchesCategory(feature, category) {
         )
     );
     const isBridge = (
+        infraType === 'bridge' ||
+        (!!t.bridge && t.bridge !== 'no') ||
         t.man_made === 'bridge' ||
         _hasWordToken(n, 'bruecke') ||
         _hasWordToken(n, 'brucke') ||
@@ -7493,9 +7847,12 @@ function _poiFeatureMatchesCategory(feature, category) {
     const isCity = ['city', 'town', 'village', 'suburb'].includes(t.place);
     const isIndustry = (
         ['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse) ||
+        ['industrial', 'solar', 'wind', 'power_station', 'power_grid', 'power'].includes(infraType) ||
+        (infraType === 'hydro' && (!!t.power || /(hydro|water)/.test(energySource))) ||
         ['substation', 'plant', 'generator', 'transformer'].includes(t.power) ||
         ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made) ||
         ['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity) ||
+        isEnergyPlant ||
         _hasWordToken(n, 'umspannwerk') ||
         _hasWordToken(n, 'wasserwerk') ||
         _hasWordToken(n, 'klaerwerk') ||
@@ -7513,6 +7870,7 @@ function _poiFeatureMatchesCategory(feature, category) {
         isTelecom ||
         isIndustry ||
         isBridge ||
+        !!infraType ||
         ['line', 'minor_line', 'cable'].includes(t.power) ||
         _hasWordToken(n, 'strom') ||
         _hasWordToken(n, 'hochspannung') ||
@@ -7546,6 +7904,17 @@ function _poiFeatureMatchesCategory(feature, category) {
 
 function _poiInferCategoryFromFeature(feature) {
     const t = feature?.tags || {};
+    const infraType = String(t.infra_type || '').toLowerCase();
+    if (infraType === 'bridge') return 'bridge';
+    if (infraType === 'road') return 'road';
+    if (infraType === 'rail' || infraType === 'power_grid' || infraType === 'power') return 'infrastructure';
+    if (infraType === 'hydro') {
+        const energySource = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
+        if (t.power || /(hydro|water)/.test(energySource)) return 'industry';
+        if (['dam', 'weir'].includes(String(t.waterway || '').toLowerCase())) return 'dam';
+        return 'water';
+    }
+    if (['solar', 'wind', 'power_station', 'industrial'].includes(infraType)) return 'industry';
     const placeKind = String(t.place || '').toLowerCase();
     const placeOnly = (
         ['city', 'town', 'village', 'suburb', 'hamlet', 'locality', 'neighbourhood', 'quarter'].includes(placeKind) &&
@@ -7571,6 +7940,7 @@ function _poiFeatureScore(feature, category) {
     const cat = String(category || 'all').toLowerCase();
     const t = feature?.tags || {};
     const n = normalizeMissionText(feature?.name || '');
+    const infraType = String(t.infra_type || '').toLowerCase();
     let score = 0;
     if (cat === 'dam') {
         if (['dam', 'weir'].includes(t.waterway)) score += 8;
@@ -7591,6 +7961,7 @@ function _poiFeatureScore(feature, category) {
         if (!n && ['reservoir', 'basin'].includes(t.landuse)) score -= 2;
     } else if (cat === 'road') {
         const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
+        if (infraType === 'road') score += 7;
         if (major.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
         if (t.highway === 'motorway_junction') score -= 5;
@@ -7598,17 +7969,24 @@ function _poiFeatureScore(feature, category) {
         if (String(n || '').includes(' / ')) score -= 3;
     } else if (cat === 'rail') {
         const majorRail = ['rail', 'light_rail', 'subway', 'tram'];
+        if (infraType === 'rail') score += 8;
         if (majorRail.includes(t.railway)) score += 7;
         if (t.railway) score += 3;
         if (['signal', 'switch', 'level_crossing', 'crossing'].includes(String(t.railway || '').toLowerCase())) score -= 4;
         if (!n && ['signal', 'switch', 'level_crossing', 'crossing'].includes(String(t.railway || '').toLowerCase())) score -= 3;
     } else if (cat === 'telecom') {
+        if (infraType === 'wind') score += 7;
         if (['tower', 'mast'].includes(t.man_made)) score += 7;
         if (['tower', 'pole'].includes(t.power)) score += 4;
         if (t.obstacle_type.includes('wind') || String(feature?.rawType || '').toLowerCase().includes('wind')) score += 6;
     } else if (cat === 'infrastructure') {
+        const energySourceScore = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
         const majorRoad = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
         const majorRail = ['rail', 'light_rail', 'subway', 'tram'];
+        if (infraType) score += 4;
+        if (['road', 'bridge', 'rail', 'power_grid', 'power'].includes(infraType)) score += 5;
+        if (['solar', 'wind', 'power_station', 'industrial'].includes(infraType)) score += 3;
+        if (infraType === 'hydro') score += 2;
         if (majorRoad.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
         if (majorRail.includes(t.railway)) score += 7;
@@ -7616,6 +7994,8 @@ function _poiFeatureScore(feature, category) {
         if (['line', 'minor_line', 'cable'].includes(t.power)) score += 5;
         if (['tower', 'pole'].includes(t.power)) score += 4;
         if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 5;
+        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas)/.test(energySourceScore)) score += 6;
+        if (t.substation || t.transformer) score += 5;
         if (['tower', 'mast', 'bridge'].includes(t.man_made)) score += 4;
         if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse')) score -= 2;
     } else if (cat === 'mountain') {
@@ -7630,8 +8010,14 @@ function _poiFeatureScore(feature, category) {
     } else if (cat === 'castle') {
         if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
     } else if (cat === 'industry') {
+        const energySourceScore = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
+        if (['solar', 'wind', 'power_station', 'industrial'].includes(infraType)) score += 9;
+        if (infraType === 'hydro' && (t.power || /(hydro|water)/.test(energySourceScore))) score += 7;
+        if (infraType === 'power_grid') score += 5;
         if (['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse)) score += 6;
         if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 8;
+        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas)/.test(energySourceScore)) score += 7;
+        if (t.substation || t.transformer) score += 5;
         if (['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made)) score += 7;
         if (['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
     } else if (cat === 'fire') {
@@ -7646,18 +8032,20 @@ function _poiFeatureScore(feature, category) {
     if (n) score += 1;
     if (!n && cat === 'infrastructure') score -= 4;
     if (feature?.sourceKind === 'poi') score += 2;
+    if (feature?.sourceKind === 'infra' && ['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) score += 4;
     if (feature?.sourceKind === 'obs') score -= 1;
     return score;
 }
 
 async function _poiFetchTileFeatures(tileKey, options = null) {
     const includeCore = !!(options && options.includeCore);
+    const includeInfra = !!(options && options.includeInfra);
     const allowLegacyFallback = options && Object.prototype.hasOwnProperty.call(options, 'allowLegacyFallback')
         ? !!options.allowLegacyFallback
         : true;
     const now = Date.now();
     const dbg = _poiDebugState();
-    const cacheKey = `${tileKey}|${includeCore ? '1' : '0'}`;
+    const cacheKey = `${tileKey}|${includeCore ? '1' : '0'}|${includeInfra ? '1' : '0'}`;
     const cached = _poiTileMemCache.get(cacheKey);
     if (cached && (now - Number(cached.ts || 0)) <= POI_TILE_CACHE_TTL_MS && Array.isArray(cached.features)) {
         dbg.hits = Number(dbg.hits || 0) + 1;
@@ -7754,15 +8142,58 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             }
         }
     }
-    if (mergedFeatures.length) {
-        const dedup = [];
-        const seen = new Set();
-        for (const f of mergedFeatures) {
-            const k = `${Number(f?.lat).toFixed(5)}|${Number(f?.lon).toFixed(5)}|${String(f?.name || '').toLowerCase()}|${String(f?.rawType || '').toLowerCase()}|${String(f?.sourceKind || '').toLowerCase()}`;
-            if (seen.has(k)) continue;
-            seen.add(k);
-            dedup.push(f);
+    if (includeInfra) {
+        for (const endpoint of POI_TILE_INFRA_ENDPOINTS) {
+            try {
+                let url = '';
+                if (endpoint.includes('{latI}') || endpoint.includes('{lonI}')) {
+                    url = endpoint
+                        .replaceAll('{latI}', encodeURIComponent(String(b.latI)))
+                        .replaceAll('{lonI}', encodeURIComponent(String(b.lonI)));
+                } else {
+                    const u = new URL(endpoint);
+                    u.searchParams.set('layer', 'infra');
+                    u.searchParams.set('tile', tileKey);
+                    u.searchParams.set('lat_i', String(b.latI));
+                    u.searchParams.set('lon_i', String(b.lonI));
+                    u.searchParams.set('south', b.south.toFixed(5));
+                    u.searchParams.set('west', b.west.toFixed(5));
+                    u.searchParams.set('north', b.north.toFixed(5));
+                    u.searchParams.set('east', b.east.toFixed(5));
+                    u.searchParams.set('v', '3');
+                    url = u.toString();
+                }
+                dbg.requests = Number(dbg.requests || 0) + 1;
+                const res = await fetch(url);
+                if (!res.ok) continue;
+                const payload = await _poiReadTilePayload(url, res);
+                let features = _poiParseTilePayload(payload);
+                if (features.length) {
+                    const fetchSource = endpoint.includes('{latI}') ? 'local-infra-split' : 'worker-infra-split';
+                    features = features.map(f => ({ ...f, fetchSource }));
+                    mergedFeatures = mergedFeatures.concat(features);
+                    dbg.hits = Number(dbg.hits || 0) + 1;
+                    dbg.splitHits = Number(dbg.splitHits || 0) + 1;
+                    if (!tileSourceTag) tileSourceTag = fetchSource;
+                    _poiDebugBumpSourceCounter(fetchSource);
+                    _poiDebugMarkSource(fetchSource);
+                    break;
+                }
+            } catch (_) {
+                dbg.errors = Number(dbg.errors || 0) + 1;
+            }
         }
+    }
+    if (mergedFeatures.length) {
+        const byKey = new Map();
+        for (const f of mergedFeatures) {
+            const lat = Number(f?.lat);
+            const lon = Number(f?.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            const k = _poiFeatureDedupeKey(f);
+            byKey.set(k, _poiMergePreferredFeature(byKey.get(k), f));
+        }
+        const dedup = Array.from(byKey.values());
         const sourceTag = String(tileSourceTag || dbg.lastSource || 'worker');
         _poiTileMemCache.set(cacheKey, { ts: now, features: dedup, source: sourceTag });
         _poiTrackTileCoverage(tileKey, sourceTag);
@@ -7825,6 +8256,16 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     return false;
 }
 
+function _shouldIncludeInfraForPoiSearch(forcedCategory = null, dispatchProfileId = 'auto') {
+    const cat = String(forcedCategory || '').toLowerCase();
+    const profile = String(dispatchProfileId || 'auto').toLowerCase();
+    if (profile === 'inspection_infra') return true;
+    if (profile === 'mapping_survey') return true;
+    if (profile === 'science_geo') return true;
+    if (['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) return true;
+    return false;
+}
+
 async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto', searchAnchor = null) {
     const forceCat = String(forcedCategory || '').toLowerCase();
     const profileId = String(dispatchProfileId || '').toLowerCase();
@@ -7833,6 +8274,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const sarCorridorMode = (profileId === 'search_and_rescue' || isSarHeliProfile) && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
+    const includeInfra = _shouldIncludeInfraForPoiSearch(forceCat, dispatchProfileId);
     const allowLegacyFallback =
         !forceCat ||
         forceCat === 'all' ||
@@ -7868,7 +8310,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             while (cursor < tileKeys.length) {
                 const idx = cursor++;
                 const key = tileKeys[idx];
-                const rows = await _poiFetchTileFeatures(key, { includeCore, allowLegacyFallback });
+                const rows = await _poiFetchTileFeatures(key, { includeCore, includeInfra, allowLegacyFallback });
                 if (rows && rows.length) features.push(...rows);
             }
         })());
@@ -7914,6 +8356,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         }
         if (forceCat === 'infrastructure' && !hasName) {
             const strongInfra = (
+                !!tf.infra_type ||
                 !!tf.highway ||
                 !!tf.railway ||
                 ['line', 'minor_line', 'cable', 'tower', 'pole', 'substation', 'plant', 'generator', 'transformer'].includes(String(tf.power || '').toLowerCase()) ||
@@ -8050,7 +8493,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const dbgEnd = { ..._poiDebugState() };
     const selectedFetchSource = String(pick?.fetchSource || '');
     let sourceLabel = `Hosted POI Tiles (split, tagged:${usedCat})`;
-    if (selectedFetchSource.startsWith('local-')) {
+    if (selectedFetchSource.includes('infra')) {
+        sourceLabel = selectedFetchSource.startsWith('local-')
+            ? `Local Infra Tiles (split, tagged:${usedCat})`
+            : `Hosted Infra Tiles (worker split, tagged:${usedCat})`;
+    } else if (selectedFetchSource.startsWith('local-')) {
         sourceLabel = `Local POI Tiles (split, tagged:${usedCat})`;
     } else if (selectedFetchSource.includes('legacy')) {
         sourceLabel = `Hosted POI Tiles (legacy fallback, tagged:${usedCat})`;
@@ -8059,6 +8506,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     }
     const lookupDebug = {
         includeCore,
+        includeInfra,
         allowLegacyFallback,
         anchorStrategy: anchor.strategy,
         anchorDistNm: Number(anchor.distNm || 0),
@@ -8079,8 +8527,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         selectedFetchSource: selectedFetchSource || 'n/a',
         localPoiSplitHits: Number(dbgEnd.localPoiSplitHits || 0),
         localCoreSplitHits: Number(dbgEnd.localCoreSplitHits || 0),
+        localInfraSplitHits: Number(dbgEnd.localInfraSplitHits || 0),
         workerPoiSplitHits: Number(dbgEnd.workerPoiSplitHits || 0),
         workerCoreSplitHits: Number(dbgEnd.workerCoreSplitHits || 0),
+        workerInfraSplitHits: Number(dbgEnd.workerInfraSplitHits || 0),
         cacheEntries: Number(dbgEnd.cacheEntries || 0)
     };
     return {
@@ -8099,6 +8549,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             selectedAnchorDistNm: Number(pick?.anchorDistNm || 0),
             selectedBrgDeg: Number(pick?.brng || 0),
             selectedHasName: !!pick?.hasName,
+            selectedInfraType: String(pick?.tags?.infra_type || ''),
             selectedTags: pick?.tags && typeof pick.tags === 'object' ? Object.fromEntries(
                 Object.entries(pick.tags)
                     .filter(([k, v]) => k && v !== undefined && v !== null && String(v).length <= 80)
@@ -10337,18 +10788,88 @@ function buildCharterPassenger(basePassenger = null, preferredPersona = null) {
     };
 }
 
-function _pickRandomProfilePersona(profileSpec) {
-    const list = Array.isArray(profileSpec?.personas) ? profileSpec.personas.filter(Boolean) : [];
-    if (!list.length) return null;
-    return { ...list[Math.floor(Math.random() * list.length)] };
+function _missionProfilePersonaContext(missionContext = {}) {
+    const md = (missionContext && typeof missionContext === 'object') ? missionContext : {};
+    const plan = md._missionPlanV2?.plan || md.missionPlanV2?.plan || md.missionPlanV4?.plan || {};
+    const contract = md.missionContractV4 || md._missionContractV4 || {};
+    const profile = contract.profile || {};
+    const lookup = md.poiLookup || contract.target?.poiLookup || {};
+    const selectedTags = lookup.selectedTags || md.selectedTags || md.tags || {};
+    const rawCategory = String(
+        md.poiCategory ||
+        md.requestedCategory ||
+        md.category ||
+        md.cat ||
+        plan.targetCategory ||
+        profile.pickerCategory ||
+        profile.requestedCategory ||
+        ''
+    ).toLowerCase();
+    const rawInfraType = String(
+        lookup.selectedInfraType ||
+        selectedTags.infra_type ||
+        selectedTags.infraType ||
+        md.infraType ||
+        ''
+    ).toLowerCase();
+    const targetName = normalizeMissionText(md.poiName || md.targetName || md.destName || md.n || md.t || '');
+    return {
+        category: rawCategory || 'generic',
+        infraType: rawInfraType,
+        targetName
+    };
 }
 
-function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, isPOI = false, storyHint = '') {
+function _missionProfilePersonaScore(persona = {}, context = {}) {
+    if (!persona || typeof persona !== 'object') return 0;
+    const category = String(context?.category || '').toLowerCase();
+    const infraType = String(context?.infraType || '').toLowerCase();
+    const nameHint = String(context?.targetName || '');
+    const matchCategories = Array.isArray(persona.matchCategories)
+        ? persona.matchCategories.map(v => String(v || '').toLowerCase()).filter(Boolean)
+        : [];
+    const matchInfraTypes = Array.isArray(persona.matchInfraTypes)
+        ? persona.matchInfraTypes.map(v => String(v || '').toLowerCase()).filter(Boolean)
+        : [];
+    let score = 0;
+    if (infraType && matchInfraTypes.includes(infraType)) score += 8;
+    if (category && matchCategories.includes(category)) score += 4;
+
+    const roleText = normalizeMissionText([
+        persona.role,
+        persona.storySeed,
+        persona.greetingText
+    ].filter(Boolean).join(' '));
+    if (/wind/.test(nameHint) && /wind/.test(roleText)) score += 4;
+    if (/(solar|photovoltaik|pv)/.test(nameHint) && /(solar|photovoltaik|pv)/.test(roleText)) score += 4;
+    if (/(wasser|damm|stau|talsperre|hydro)/.test(nameHint) && /(wasser|damm|ufer|hydro)/.test(roleText)) score += 3;
+    if (/(bruecke|brucke|bridge|viadukt)/.test(nameHint) && /(bauwerk|bruecke|brucke|tragwerk|widerlager)/.test(roleText)) score += 3;
+
+    if (category && category !== 'generic' && matchCategories.length && !matchCategories.includes(category)) score -= 2;
+    if (infraType && matchInfraTypes.length && !matchInfraTypes.includes(infraType)) score -= 2;
+    return score;
+}
+
+function _pickRandomProfilePersona(profileSpec, missionContext = null) {
+    const list = Array.isArray(profileSpec?.personas) ? profileSpec.personas.filter(Boolean) : [];
+    if (!list.length) return null;
+    const context = _missionProfilePersonaContext(missionContext || {});
+    const scored = list
+        .map(p => ({ persona: p, score: _missionProfilePersonaScore(p, context) }))
+        .filter(entry => entry.score >= 0);
+    const bestScore = Math.max(0, ...scored.map(entry => entry.score));
+    const pool = bestScore > 0
+        ? scored.filter(entry => entry.score === bestScore).map(entry => entry.persona)
+        : list;
+    return { ...pool[Math.floor(Math.random() * pool.length)] };
+}
+
+function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, isPOI = false, storyHint = '', missionContext = null) {
     if (!profileSpec || !profileSpec.id || profileSpec.id === 'auto') {
         return (basePassenger && typeof basePassenger === 'object') ? basePassenger : null;
     }
     const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
-    const persona = _pickRandomProfilePersona(profileSpec) || {};
+    const persona = _pickRandomProfilePersona(profileSpec, missionContext) || {};
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
     const personaGender = String(persona.gender || '').toLowerCase();
@@ -10851,7 +11372,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
 
     const sourcePassenger = (m.passenger && typeof m.passenger === 'object') ? { ...m.passenger } : null;
-    const passenger = buildMissionProfilePassenger(sourcePassenger || null, profile, (isPOI || usesPoiTaskRecipe), m.s || '');
+    const passenger = buildMissionProfilePassenger(sourcePassenger || null, profile, (isPOI || usesPoiTaskRecipe), m.s || '', m);
     if (passenger) {
         if (profile.id === 'tour_guide_knowledge') {
             passenger.targetAltFt = 0;
@@ -10949,15 +11470,15 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'search_and_rescue':
             return hasAny(/\bsuch/, /\bsar\b/, /\brettung/, /\blagebild\b/, /\bvermisst/, /\bsignal/);
         case 'inspection_infra':
-            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/);
+            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/, /\bstörung\b/, /\bstoerung\b/, /\btrasse\b/, /\bumspannwerk\b/, /\bwindpark\b/, /\bsolarpark\b/, /\bmodulreihe\b/, /\bwechselrichter\b/, /\btrafopunkt\b/);
         case 'news_coverage':
             return hasAny(/\breporter/, /\bredaktion/, /\bbericht/, /\bberichterstattung/, /\bauffaenger\b/, /\baufhänger\b/, /\bverkehrslage\b/, /\bbesucher/, /\bfestbetrieb\b/, /\bbaustelle\b/, /\bortsbild\b/, /\blageeinschaetzung\b/, /\blageeinschätzung\b/);
         case 'media_photo':
             return hasAny(/\bfoto/, /\bfilm/, /\bkamera/, /\bluftbild/, /\bbildserie\b/, /\bestablishing/, /\baufmacherbild\b/, /\bortsmarketing\b/, /\btourismusbroschuere\b/, /\btourismusbroschüre\b/, /\bjubilaeumsfilm\b/, /\bjubiläumsfilm\b/, /\bgemeindeaufnahme\b/, /\bpr\b/);
         case 'science_geo':
-            return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/);
+            return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/, /\bsediment/, /\btalform\b/, /\babbruchkante\b/, /\buferkante\b/, /\bhangstabil/);
         case 'science_bio':
-            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/);
+            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/, /\buferzone\b/, /\btrockenstress\b/, /\brastbereich\b/, /\bbrutbereich\b/, /\bmonitoring\b/);
         case 'tour_guide_knowledge':
             return hasAny(/\bfakten\b/, /\beinordnung\b/, /\borientierung\b/, /\bbildung\b/, /\blern/, /\bwissens/, /\bgeschichte\b/);
         case 'historian_guided_tour':
@@ -10990,7 +11511,13 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, nie Ersatz-Ziel. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Windparks, Solarparks, Umspannwerke, Trassen, Funkmasten und Industrieanlagen sind ebenfalls passende Infra-Ziele: Rotor-/Turmbereich, Modulreihen, Wechselrichter, Trafopunkt, Leitung, Zaun, Zufahrt, Kranfläche oder Betriebsfläche dürfen den Anlass tragen. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+    }
+    if (profile.id === 'science_bio' && isPOI) {
+        return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein: Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Störfaktoren oder Monitoringvergleich. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
+    }
+    if (profile.id === 'science_geo' && isPOI) {
+        return '16. OPERATIONS-REGEL SCIENCE GEO POI: Auftrag ist geologische oder geomorphologische Beobachtung. Baue eine konkrete Fragestellung ein: Relief, Erosion, Hangstabilität, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fließwege oder Geländekartierung. Der Luftblick soll Kartierung, Studie oder Bodenbegehung vorbereiten. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage, keine reine Vermessungs- oder Sightseeing-Sprache.';
     }
     if (profile.id === 'media_photo' && isPOI) {
         return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag ist eine verwertbare Bildserie mit erkennbarem Zweck und Auftraggeber: Tourismusbroschuere, Ortsmarketing, Gemeindeaufnahme, Immobilien-/Projektbild, Jubiläumsfilm, Redaktion, Betreiber, Dokumentation oder PR. Bei City geht es um Ortsbild, Lage, Wiedererkennungswert und Establishing Shots; bei Castle um Denkmal-/Burgmotiv und Umfeld. Nicht in Sightseeing kippen: keine persoenliche Ausflugserzaehlung, keine "Aussicht geniessen"-Sprache. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
@@ -11064,7 +11591,7 @@ function _poiCategoryTaskPool(category = 'generic') {
         return ['science_geo', 'science_bio', 'sightseeing_tour', 'historian_guided_tour', 'search_and_rescue', 'mapping_survey', 'tour_guide_knowledge'];
     }
     if (c === 'fire') {
-        return ['fire_watch', 'fire_watch', 'search_and_rescue', 'science_bio'];
+        return ['fire_watch', 'fire_watch', 'search_and_rescue'];
     }
     if (c === 'generic') {
         return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour'];
@@ -11793,12 +12320,12 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return positive && !negative;
     }
     if (id === 'science_bio') {
-        const positive = has(/biolog|oekolog|ökolog|naturschutz|umwelt|vegetation|fauna|flora|habitat|gewasser|gewaesser/);
+        const positive = has(/biolog|oekolog|ökolog|naturschutz|umwelt|vegetation|fauna|flora|habitat|gewasser|gewaesser|uferzone|trockenstress|rastbereich|brutbereich|monitoring|schilf|feucht/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
     if (id === 'science_geo') {
-        const positive = has(/geolog|geomorph|erosion|relief|hang|sediment|gestein|tal|berg|bruchkante/);
+        const positive = has(/geolog|geomorph|erosion|relief|hang|sediment|gestein|tal|berg|bruchkante|uferkante|abbruchkante|talform|hangstabil|fliessweg|fließweg|gelaende|gelände/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
@@ -11806,7 +12333,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/scan|vermess|lidar|photogram|kartier|topo|mess|dokumentation/);
     }
     if (id === 'inspection_infra') {
-        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse/);
+        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse|umspannwerk|windpark|windkraft|windrad|solarpark|solaranlage|photovoltaik|modulreihe|wechselrichter|trafopunkt/);
     }
     if (id === 'media_photo') {
         const positive = has(/foto|film|kamera|luftbild|aufnahmen|bildserie|shots|establishing|dreh|pr|medien|redaktion|aufmacher|tourismus|ortsmarketing|gemeinde|jubilaeum|jubiläum|immobilien|jahresbericht|firmen|doku/);
@@ -12926,6 +13453,12 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         ...requirementsRaw.map(req => typeof req === 'string' ? req : (req?.feature || req?.kind || req?.type || req?.name || req?.role || ''))
     ].map(normalizeMissionTargetSceneFeature).filter(Boolean));
     const planFeatureAllowed = feature => {
+        const strictInfraDirective = task === 'inspection_infra'
+            && planDirective?.sceneKind
+            && planDirective.sceneKind !== 'none'
+            && Array.isArray(planDirective.objectFamilies)
+            && planDirective.objectFamilies.length > 0;
+        if (strictInfraDirective && !planDirective.objectFamilies.includes(feature)) return false;
         if (explicitFeatureSet.has(feature)) return true;
         if (!planDirective?.objectFamilies?.length) return true;
         if (planDirective.objectFamilies.includes(feature)) return true;
@@ -15912,10 +16445,34 @@ const MISSION_SEMANTICS_V4_RULESET = {
         inspection_infra: {
             planner: [
                 'Infrastruktur darf das Primaerziel sein.',
-                'Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.'
+                'Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.',
+                'Windparks, Solarparks, Energieanlagen, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen.'
             ],
             writer: [
-                'Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.'
+                'Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.',
+                'Briefing nennt Anlass, Verdachtsbereich und Folgeentscheidung: beobachten, Bodencheck, Wartungsfenster, Sperrung, Reparatur oder Betreiberfreigabe.'
+            ]
+        },
+        science_bio: {
+            planner: [
+                'Biologische oder oekologische Beobachtung bleibt Hauptzweck.',
+                'Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Stoerfaktoren oder Monitoringvergleich duerfen die Story tragen.',
+                'Keine Umdeutung zu Technikinspektion, SAR, Feuerlage oder reiner Sightseeing-Tour.'
+            ],
+            writer: [
+                'Briefing nennt Studie, beobachteten Naturraum und wofuer der Luftblick die Feldarbeit verbessert.',
+                'Fakten bleiben als sichtbare biologische Indikatoren formuliert, nicht als frei erfundene harte Messwerte.'
+            ]
+        },
+        science_geo: {
+            planner: [
+                'Geologische oder geomorphologische Beobachtung bleibt Hauptzweck.',
+                'Relief, Erosion, Hangstabilitaet, Sedimente, Talform, Uferkante, Abbruchkante, Steinbruch oder alte Fliesswege duerfen die Story tragen.',
+                'Keine Umdeutung zu Bio-Monitoring, Technikinspektion, SAR, Feuerlage oder reiner Vermessung.'
+            ],
+            writer: [
+                'Briefing nennt Studie, Geländemerkmal und warum der Luftblick die geologische Lesart verbessert.',
+                'Keine Arten-/Vegetationsanalyse, wenn taskDomain science_geo ist; Vegetation nur als sichtbarer Hinweis auf Hang, Feuchte oder Erosionslinie.'
             ]
         },
         mapping_survey: {
@@ -17003,7 +17560,9 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
 function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
-    const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || 'generic').toLowerCase();
+    const semanticCategory = String(semantics?.focusLock?.targetCategory || '').toLowerCase();
+    const planCategory = String(plan?.targetCategory || '').toLowerCase();
+    const category = ((semanticCategory && semanticCategory !== 'generic') ? semanticCategory : (planCategory || semanticCategory || 'generic')).toLowerCase();
     const requestedCategory = String(semantics?.focusLock?.requestedCategory || '').toLowerCase();
     const geoSummary = String(resolvedNeeds?.geo_context?.summary || '').trim();
     const weather = resolvedNeeds?.weather_snapshot?.dest || resolvedNeeds?.weather_snapshot?.dep || null;
@@ -17066,33 +17625,70 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'inspection_infra') {
-        const subjectDetail = category === 'bridge'
-            ? 'den Fahrbahnuebergang, das Tragwerk und die Randbereiche'
-            : category === 'water'
-                ? 'die Damm-, Ufer- oder Betriebsbauwerke im gemeldeten Verdachtsbereich'
-                : 'den gemeldeten Verdachtsbereich an der Anlage';
-        const incidentContext = _missionPipelineV4PickOne(
-            category === 'bridge'
-                ? [
-                    'Nach den starken Belastungen der letzten Tage meldete der Betriebsdienst frische Rostspuren und moegliche Abplatzungen an einem Teilbereich.',
-                    'Eine Routinekontrolle vom Boden ergab einen unklaren Verdacht auf Korrosions- oder Anbauteilschaeden, der aus der Luft schneller eingegrenzt werden soll.',
-                    'Nach einer Stoerungsmeldung zum Uebergangsbereich soll geprueft werden, ob nur Oberflaechenspuren oder ein echter Schaedenhinweis vorliegt.'
-                ]
-                : [
-                    'Nach einer frischen Stoerungs-, Sturm- oder Sichtmeldung soll der Verdachtsbereich vor einer aufwendigen Bodenkontrolle aus der Luft eingegrenzt werden.',
-                    'Der Bereitschaftsdienst hat in den letzten Tagen eine Auffaelligkeit gemeldet, die jetzt eine schnelle technische Ersteinschaetzung verlangt.',
-                    'Beobachtungen vom Vortag deuten auf einen moeglichen neuen Schadenspunkt hin, ohne dass die genaue Lage bisher gesichert ist.'
-                ]
-        );
+        const targetText = normalizeMissionText(targetLabel);
+        const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind farm)/.test(targetText);
+        const isSolarTarget = /(solarpark|solaranlage|photovoltaik|photovoltaic|solar farm|(^|[^a-z0-9])pv([^a-z0-9]|$))/.test(targetText);
+        const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
+        const subjectDetail = (() => {
+            if (category === 'bridge') return 'den Fahrbahnuebergang, das Tragwerk, Pfeiler, Widerlager und Randbereiche';
+            if (category === 'dam' || category === 'water') return 'Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegelbereich und Betriebszugang';
+            if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich oder sichtbare Hindernisse';
+            if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
+            if (isWindTarget) return 'Anlagenreihe, Rotor-/Turmbereich, Trafopunkt, Zuwegung und Kranstellflaechen';
+            if (isSolarTarget) return 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten';
+            if (isEnergyTarget) return 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte';
+            if (category === 'industry') return 'Betriebsflaechen, Dachbereiche, Rohrleitungen, Tanks, Zufahrten oder sichtbare Stoerstellen';
+            return 'den gemeldeten Verdachtsbereich an der Anlage';
+        })();
+        const incidentPool = (() => {
+            if (category === 'bridge') return [
+                'Nach den starken Belastungen der letzten Tage meldete der Betriebsdienst frische Rostspuren und moegliche Abplatzungen an einem Teilbereich.',
+                'Eine Routinekontrolle vom Boden ergab einen unklaren Verdacht auf Korrosions- oder Anbauteilschaeden, der aus der Luft schneller eingegrenzt werden soll.',
+                'Nach einer Stoerungsmeldung zum Uebergangsbereich soll geprueft werden, ob nur Oberflaechenspuren oder ein echter Schaedenhinweis vorliegt.'
+            ];
+            if (category === 'dam' || category === 'water') return [
+                'Nach Starkregen oder Pegelschwankungen will der Betreiber Dammkrone, Auslauf und Uferbefestigung vor der naechsten Bodenkontrolle aus der Luft einordnen.',
+                'Eine Meldung aus dem Betrieb betrifft den Wasserbau- oder Uferbereich; aus der Luft soll zuerst klar werden, welcher Abschnitt wirklich auffaellig ist.',
+                'Vor der naechsten Wartungsrunde braucht die Wasserbehoerde einen schnellen Blick auf Krone, Ablauf und sichtbare Randbereiche.'
+            ];
+            if (isWindTarget) return [
+                'Vor dem naechsten Wartungsfenster sollen Zuwegung, Trafopunkt und Anlagenstandorte aus der Luft vorgeprueft werden.',
+                'Nach einer Sturmmeldung braucht der Betreiber einen Ueberblick, ob an Anlagenreihe, Kranflaechen oder Zufahrt etwas auffaellig wirkt.',
+                'Ein Serviceteam will wissen, ob der Weg zur Anlage und die Betriebsflaechen frei genug fuer die geplante Wartung sind.'
+            ];
+            if (isSolarTarget) return [
+                'Nach einer Stoerungs- oder Sturmnotiz sollen Modulreihen, Zaunlinie und Wechselrichterbereiche aus der Luft vorgeprueft werden.',
+                'Der Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Verschattung, Zaunbereich, Entwaesserung oder Zufahrt auffaellig wirken.',
+                'Eine Ertragsabweichung und eine Wettermeldung passen nicht eindeutig zusammen; der Luftblick soll sichtbare Ursachen eingrenzen.'
+            ];
+            if (isEnergyTarget || category === 'telecom') return [
+                'Nach einer Netz- oder Funkstoerung soll die Lage an Trasse, Mast, Technikpunkt und Zuwegung aus der Luft eingegrenzt werden.',
+                'Der Bereitschaftsdienst hat eine unklare Meldung aus dem Energienetz; vor dem Ausruecken soll der betroffene Abschnitt sichtbar verortet werden.',
+                'Vor einem Wartungstrupp muss klar werden, ob der Zugang frei ist und ob am Technikpunkt sichtbare Auffaelligkeiten vorliegen.'
+            ];
+            if (category === 'industry') return [
+                'Eine Betriebsstelle meldete eine Auffaelligkeit an Dach, Rohrleitung, Randflaeche oder Zufahrt, die vom Boden aus nur langsam einzugrenzen ist.',
+                'Vor dem naechsten Wartungsblock braucht der Betreiber eine Luftvorpruefung von Flaechen, Technikpunkten und sichtbaren Stoerstellen.',
+                'Nach Wind, Starkregen oder einer Produktionsmeldung soll geklaert werden, ob ein Teilbereich sofort geprueft werden muss.'
+            ];
+            return [
+                'Nach einer frischen Stoerungs-, Sturm- oder Sichtmeldung soll der Verdachtsbereich vor einer aufwendigen Bodenkontrolle aus der Luft eingegrenzt werden.',
+                'Der Bereitschaftsdienst hat in den letzten Tagen eine Auffaelligkeit gemeldet, die jetzt eine schnelle technische Ersteinschaetzung verlangt.',
+                'Beobachtungen vom Vortag deuten auf einen moeglichen neuen Schadenspunkt hin, ohne dass die genaue Lage bisher gesichert ist.'
+            ];
+        })();
+        const incidentContext = _missionPipelineV4PickOne(incidentPool);
         const whyNow = _missionPipelineV4PickOne([
             'Bevor Technikteam oder Betreiber Sperrung, Hubsteiger oder Folgeeinsatz disponieren, brauchen sie jetzt eine belastbare Vorpruefung aus der Luft.',
             'Der Luftcheck soll die Bodeninspektion auf einen kleinen Abschnitt verengen, damit keine Zeit in der Flaeche verloren geht.',
-            'Noch waehrend des heutigen Dienstfensters muss entschieden werden, ob Beobachtung reicht oder sofortige Nachpruefung noetig ist.'
+            'Noch waehrend des heutigen Dienstfensters muss entschieden werden, ob Beobachtung reicht oder sofortige Nachpruefung noetig ist.',
+            'Der Betreiber will nur dann ein Team losschicken, wenn der Luftblick einen echten Folgepunkt zeigt.'
         ]);
         const soughtOutcome = _missionPipelineV4PickOne([
             'Wir sollen klaeren, ob sichtbare Schaeden, lose Bauteile oder nur ein Fehlverdacht vorliegen.',
             'Wir sollen dem Betreiber eine klare Erstbewertung liefern, ob Nachkontrolle, Sicherung oder direkte Reparatur vorbereitet werden muss.',
-            'Wir sollen den Verdachtsbereich so eingrenzen, dass das Technikteam gezielt und ohne Vollsuche anruecken kann.'
+            'Wir sollen den Verdachtsbereich so eingrenzen, dass das Technikteam gezielt und ohne Vollsuche anruecken kann.',
+            'Wir sollen Zielobjekt, Zugang und auffaellige Teilbereiche so beschreiben, dass der naechste Wartungsschritt planbar wird.'
         ]);
         return {
             trigger: `Fuer ${targetLabel} liegt eine frische Stoerungs-, Sturm- oder Schadensmeldung vor; vor Ort wird jetzt ein schneller Luftcheck gebraucht.`,
@@ -17102,6 +17698,106 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             completionSignal: 'Der Befund geht nach dem Ueberflug an Betreiber oder Technikteam, zusammen mit einer klaren Erstbewertung.',
             subjectDetail,
             incidentContext,
+            whyNow,
+            soughtOutcome
+        };
+    }
+    if (taskDomain === 'science_bio') {
+        const bioDetail = _missionPipelineV4PickOne(
+            category === 'water'
+                ? [
+                    'Ufervegetation, Wasserfarbe, Zufluesse und moegliche Stoerstellen im Gewaesserrand',
+                    'Schilf-, Feucht- oder Flachwasserzonen als Teil einer laufenden Habitatbeobachtung',
+                    'sichtbare Nutzungskanten zwischen Wasser, Ufer, Wegen und Vegetationsflaechen'
+                ]
+                : category === 'mountain' || category === 'forest' || category === 'fire'
+                    ? [
+                        'Waldsaeume, lichte Bereiche, Trockenstress und erkennbare Habitatgrenzen',
+                        'Vegetationsmuster, Wildwechselkorridore oder Stoerfaktoren am Rand des Naturraums',
+                        'offene Flaechen, Bewuchsluecken und Uebergaenge zwischen Wald, Hang und Nutzung'
+                    ]
+                    : [
+                        'Habitatflaechen, Randzonen, Vegetationsmuster und moegliche Stoerfaktoren',
+                        'sichtbare Bioindikatoren wie Bewuchsgrenzen, Feuchtstellen, Rastbereiche oder Uferstruktur',
+                        'eine oekologische Vergleichsbeobachtung fuer die naechste Begehung am Boden'
+                    ]
+        );
+        const studyContext = _missionPipelineV4PickOne([
+            `Zu ${targetLabel} laeuft eine kleine Monitoringreihe; der heutige Luftblick soll die naechsten Feldpunkte besser setzen.`,
+            `Die letzte Begehung rund um ${targetLabel} liess offen, ob die auffaelligen Randzonen zusammenhaengen oder nur lokale Einzelstellen sind.`,
+            `Fuer ${targetLabel} braucht das Naturschutz- oder Fachteam einen ruhigen Ueberblick, bevor Bodenzeit in der Flaeche gebunden wird.`
+        ]);
+        const whyNow = _missionPipelineV4PickOne([
+            'Der aktuelle Vegetationsstand ist gut lesbar, deshalb lohnt sich der Ueberblick vor der naechsten Begehung.',
+            'Solange Sicht und Licht passen, lassen sich Randzonen und Stoerstellen aus der Luft schneller einordnen als vom Boden.',
+            'Die Studie braucht jetzt einen Vergleichspunkt, bevor Wetter, Wasserstand oder Bewuchsbild wieder wechseln.'
+        ]);
+        const soughtOutcome = _missionPipelineV4PickOne([
+            'Wir sollen sichtbare Habitatgrenzen, Stoerfaktoren und auffaellige Vegetationsmuster fuer die Feldnotizen einordnen.',
+            'Wir sollen klaeren, welche Bereiche bei der naechsten Bodenbegehung Prioritaet bekommen.',
+            'Wir sollen einen biologischen Kurzbefund liefern, der Beobachtung, Fotoanker und naechsten Feldschritt zusammenbringt.'
+        ]);
+        return {
+            trigger: `Fuer ${targetLabel} soll heute eine biologische Beobachtung aus der Luft in eine laufende Studie eingeordnet werden.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche biologischen Muster an ${targetLabel} aus der Luft wirklich sichtbar und fuer die Feldarbeit verwertbar sind.`,
+            stakes: 'Ohne Luftueberblick bleibt unklar, welche Habitat- oder Randbereiche vor Ort zuerst geprueft werden sollen.',
+            completionSignal: 'Nach der Runde gehen Fotos, Notizen und Beobachtungspunkte an die Feld- oder Monitoringplanung.',
+            subjectDetail: bioDetail,
+            incidentContext: studyContext,
+            whyNow,
+            soughtOutcome
+        };
+    }
+    if (taskDomain === 'science_geo') {
+        const geoDetail = _missionPipelineV4PickOne(
+            category === 'water' || category === 'dam'
+                ? [
+                    'Uferkanten, Sedimentbaenke, Abflusslinien und sichtbare Erosionsspuren',
+                    'Talform, Wasserlinie, Uferabbrueche und frische Ablagerungen',
+                    'Gewaesserlauf, Randterrassen und Geländekanten als geologische Lesart'
+                ]
+                : category === 'mountain' || category === 'forest' || category === 'fire'
+                    ? [
+                        'Hangstruktur, Rinnen, Abbruchkanten und moegliche Rutschspuren',
+                        'Relief, Kuppen, Einschnitte und Vegetationsbrueche als Hinweise auf Geländeprozesse',
+                        'Talform, Hangfuss, Sedimentflaechen und sichtbare Entwaesserungslinien'
+                    ]
+                    : category === 'industry'
+                        ? [
+                            'Abbaukanten, Halden, Sedimentflaechen oder kuenstlich angeschnittene Geländestrukturen',
+                            'Betriebs- oder Steinbruchränder als sichtbare geologische Schnittflaechen',
+                            'Reliefunterschiede, Geländekanten und Ablagerungen im Umfeld des Zielbereichs'
+                        ]
+                        : [
+                            'Relief, Erosion, Sedimente, Hanglinien und sichtbare Geländekanten',
+                            'Talform, alte Fliesswege, Bruchkanten oder Ablagerungsflaechen',
+                            'eine geomorphologische Vergleichsbeobachtung fuer die naechste Kartierung'
+                        ]
+        );
+        const studyContext = _missionPipelineV4PickOne([
+            `Zu ${targetLabel} wird eine geologische Kartierung oder Reliefstudie ergaenzt; der Luftblick soll die Gelaendelesart schaerfen.`,
+            `Die letzte Karte zu ${targetLabel} laesst offene Fragen zu Erosion, Hangform oder Sedimentflaechen, die aus der Luft schneller zusammenhaengen.`,
+            `Fuer ${targetLabel} braucht das Fachteam eine Vorpruefung, welche Gelaendeformen bei der Bodenarbeit genauer angesehen werden.`
+        ]);
+        const whyNow = _missionPipelineV4PickOne([
+            'Sicht und Schatten machen die Gelaendeformen heute gut lesbar, bevor der naechste Kartierungsschritt geplant wird.',
+            'Der Luftblick spart Bodenzeit, weil Kanten, Linien und Ablagerungen zuerst als Gesamtbild erkennbar werden.',
+            'Die Fragestellung ist aktuell, weil Wetter, Bewuchs oder Wasserstand die sichtbaren Formen spaeter wieder verdecken koennen.'
+        ]);
+        const soughtOutcome = _missionPipelineV4PickOne([
+            'Wir sollen Relief, Erosionsspuren und markante Gelaendekanten so einordnen, dass die naechste Kartierung gezielter wird.',
+            'Wir sollen einen geologischen Kurzbefund liefern, der sichtbare Formen, Fotoanker und offene Verdachtsstellen trennt.',
+            'Wir sollen klaeren, welche Hang-, Ufer- oder Sedimentbereiche aus geologischer Sicht als naechstes genauer betrachtet werden.'
+        ]);
+        return {
+            trigger: `Fuer ${targetLabel} soll heute eine geologische Beobachtung aus der Luft in eine laufende Fragestellung eingeordnet werden.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche geologischen oder geomorphologischen Merkmale an ${targetLabel} aus der Luft wirklich lesbar sind.`,
+            stakes: 'Ohne Luftueberblick bleiben Reliefzusammenhaenge, Erosionsspuren oder Sedimentflaechen fuer die Feldarbeit zu ungenau.',
+            completionSignal: 'Nach der Runde gehen Fotos, Kartenhinweise und offene Beobachtungspunkte an Kartierung oder Fachteam.',
+            subjectDetail: geoDetail,
+            incidentContext: studyContext,
             whyNow,
             soughtOutcome
         };
@@ -17883,6 +18579,81 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
     return plan;
 }
 
+function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, semantics = {}) {
+    const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase();
+    if (taskDomain !== 'inspection_infra') return null;
+    const semanticCategory = String(semantics?.focusLock?.targetCategory || '').toLowerCase();
+    const planCategory = String(plan?.targetCategory || '').toLowerCase();
+    const category = ((semanticCategory && semanticCategory !== 'generic') ? semanticCategory : (planCategory || semanticCategory || 'generic')).toLowerCase();
+    const text = normalizeMissionText([
+        semantics?.focusLock?.primarySubjectLabel,
+        plan?.targetLabel,
+        plan?.primaryObjective,
+        storyFrame?.subjectDetail,
+        storyFrame?.incidentContext,
+        storyFrame?.whyNow,
+        storyFrame?.soughtOutcome,
+        ...(Array.isArray(plan?.narrativeHooks) ? plan.narrativeHooks : []),
+        ...(Array.isArray(plan?.operationalDetails) ? plan.operationalDetails : [])
+    ].filter(Boolean).join(' '));
+    const wantsSmoke = /\b(rauch|smoke|qualm|abluft|emission)\b/.test(text);
+    const isWind = /\b(windpark|windkraft|windrad|windturbine|windenergie)\b/.test(text);
+    const isSolar = /\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter)\b/.test(text);
+    const isPower = /\b(umspannwerk|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|energienetz)\b/.test(text);
+    const isBlockedRoad = /\b(blockiert|blockade|hindernis|baumstamm|treibgut|ladung|kisten|fahrbahn|zufahrt|sturm)\b/.test(text);
+
+    const pack = (sceneKind, objectFamilies = [], placementPolicy = '') => ({
+        sceneKind,
+        sceneDensity: 'sparse',
+        objectFamilies: Array.from(new Set(objectFamilies.filter(Boolean))).slice(0, 6),
+        placementPolicy
+    });
+
+    if (isWind) {
+        return pack('wind_turbine_site', ['wind_turbine', 'utility_truck', 'cones'], 'Kleine Wartungs-/Referenzszene am Windenergie-Ziel; keine Bodencrew, die den Auftrag schon erledigt.');
+    }
+    if (isSolar) {
+        return pack('industry_site', ['utility_truck', 'generator', 'cones'], 'Kleine Betreiber-/Technikreferenz am Solarpark; keine dekorative Baustelle.');
+    }
+    if (isPower || category === 'telecom') {
+        return pack('powerline_inspection', ['powerline', 'utility_truck', 'cones'], 'Trassen-/Technikreferenz sparsam am Ziel platzieren; Fokus bleibt Sichtpruefung aus der Luft.');
+    }
+    if (category === 'bridge') {
+        return pack('infra_bridge', ['utility_truck', 'generator', 'cones'], 'Brueckenpruefung mit wenigen Arbeits-/Markierungselementen am Bauwerk oder an der Zufahrt.');
+    }
+    if (category === 'dam' || category === 'water') {
+        return pack('infra_dam', ['generator', 'cones', 'watercraft'], 'Wasserbau-Referenz am Damm, Auslauf oder Ufer; sparsam und ohne Rettungsdrama.');
+    }
+    if (category === 'road') {
+        return pack('road_incident', ['road_vehicles', 'cones', isBlockedRoad ? 'debris' : 'small_equipment'], 'Kleine Verkehrs-/Hindernisreferenz entlang der Strasse; keine schwere Einsatzlage.');
+    }
+    if (category === 'rail' || category === 'infrastructure') {
+        return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Schlichte Trassen-/Zugangsreferenz fuer Infrastruktur, ohne falsche Unfall- oder Rettungslage.');
+    }
+    if (category === 'industry') {
+        return pack('industry_site', ['utility_truck', 'cargo_material', 'generator', wantsSmoke ? 'smoke_light' : ''], 'Kleine Betreiberreferenz am Werks-/Anlagenbereich; Rauch nur als leichte Quelle, wenn die Story ihn traegt.');
+    }
+    return null;
+}
+
+function _missionPipelineV4ApplyInfraScenePlanGuard(plan = {}, storyFrame = {}, semantics = {}) {
+    if (!plan || typeof plan !== 'object') return plan;
+    const profile = _missionPipelineV4InferInfraSceneProfile(plan, storyFrame, semantics);
+    if (!profile) return plan;
+    const currentKind = String(plan.sceneKind || '').toLowerCase();
+    const mayReplace = !currentKind || currentKind === 'none' || currentKind === 'water_context' || currentKind === 'wildlife_site' || currentKind === 'survey_context';
+    if (!mayReplace) return plan;
+    plan.sceneKind = profile.sceneKind;
+    plan.sceneDensity = profile.sceneDensity;
+    plan.objectFamilies = profile.objectFamilies;
+    plan.placementPolicy = profile.placementPolicy;
+    plan.narrativeRules = Array.from(new Set([
+        ...(Array.isArray(plan.narrativeRules) ? plan.narrativeRules : []),
+        'Zielszene nur als sparsame technische Referenz nutzen; sie darf die Inspektion nicht vorab loesen.'
+    ])).slice(0, 10);
+    return plan;
+}
+
 function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
     const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
     const rawPlan = (raw?.plan && typeof raw.plan === 'object') ? raw.plan : {};
@@ -17994,6 +18765,9 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
     }
     if (taskDomain === 'sightseeing_tour') {
         _missionPipelineV4ApplySightseeingPlanGuard(base.plan, storyFrame, semantics);
+    }
+    if (taskDomain === 'inspection_infra') {
+        _missionPipelineV4ApplyInfraScenePlanGuard(base.plan, storyFrame, semantics);
     }
 	    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
         const allowedSarIncidentIds = sarHeliAllowedIncidentIds?.length
@@ -18724,6 +19498,8 @@ Regeln:
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
+17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
+17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
@@ -19377,6 +20153,22 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
             `${sought || 'Wir sollen eine klare Erstbewertung fuer Betreiber und Technikteam liefern.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'science_bio') {
+        return [
+            String(frame.trigger || `Fuer ${targetName} wird heute eine biologische Beobachtung aus der Luft gebraucht.`).trim(),
+            incident || `${detail} ist der konkrete Beobachtungsanker fuer Studie, Monitoring oder naechste Feldbegehung.`,
+            `${whyNow || 'Der Luftblick hilft jetzt, Habitat, Vegetation und Randzonen besser zu sortieren, bevor Bodenzeit gebunden wird.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen sichtbare Bioindikatoren, Stoerfaktoren und passende Fotoanker fuer die Feldnotizen einordnen.'} ${completion}`.trim()
+        ].join(' ');
+    }
+    if (taskDomain === 'science_geo') {
+        return [
+            String(frame.trigger || `Fuer ${targetName} wird heute eine geologische Beobachtung aus der Luft gebraucht.`).trim(),
+            incident || `${detail} ist der konkrete Gelaendeanker fuer Kartierung, Reliefstudie oder naechste Feldarbeit.`,
+            `${whyNow || 'Der Luftblick macht Relief, Kanten und Ablagerungen jetzt als Gesamtbild besser lesbar als eine einzelne Bodenstelle.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen geologische Merkmale, offene Verdachtsstellen und passende Fotoanker fuer die Kartierung einordnen.'} ${completion}`.trim()
+        ].join(' ');
+    }
     if (taskDomain === 'media_photo') {
         return [
             String(frame.trigger || `Fuer ${targetName} wird heute eine verwertbare Luftbildserie gebraucht.`).trim(),
@@ -19672,6 +20464,12 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     if (taskDomain === 'historian_guided_tour') {
         return `${opener}, ich ordne heute ${targetName} historisch ein; bitte ruhig fliegen, damit ${outcome ? outcome.toLowerCase() : 'Ort, Wege und Landschaft zusammen lesbar werden'}.`;
     }
+    if (taskDomain === 'science_bio') {
+        return `${opener}, ich begleite heute die biologische Beobachtung bei ${targetName}; bitte ruhig fliegen, damit ${outcome ? outcome.toLowerCase() : 'Habitat, Vegetation und Randzonen fuer die Feldnotizen lesbar bleiben'}.`;
+    }
+    if (taskDomain === 'science_geo') {
+        return `${opener}, ich begleite heute die geologische Beobachtung bei ${targetName}; bitte ruhig fliegen, damit ${outcome ? outcome.toLowerCase() : 'Relief, Kanten und Gelaendeformen sauber einzuordnen sind'}.`;
+    }
     if (taskDomain === 'sightseeing_tour') {
         return `${opener}, heute geht es nur um den Blick auf ${targetName}; bitte ruhig und weich, damit wir Aussicht und ein paar Erinnerungsfotos geniessen koennen.`;
     }
@@ -19909,7 +20707,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Sicherheits- und Zustandskontrolle von Bruecke, Damm, Industrieanlage oder Infrastruktur',
             'Brueckenpruefung mit Fokus auf Pfeiler, Widerlager, Fundamente und Brueckendeck',
             'Lagebild zu Brueckensperrung, Rueckstau oder Unterfuehrung ohne Einsatzdramatisierung',
-            'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage'
+            'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage',
+            'Windpark-Vorpruefung: Anlagenreihe, Zuwegung, Trafopunkt und Kranstellflaechen fuer Betreiberwartung einordnen',
+            'Solarpark-Kontrolle: Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten nach Stoerungs- oder Wettermeldung pruefen',
+            'Netztrassenflug entlang Freileitung, Umspannwerk oder Mastreihe mit Fokus auf Zugang, Freihaltung und sichtbare Auffaelligkeiten'
         ],
         bush_recon_return: [
             'Bush-Strip-Kontrollflug mit Rueckkehr zum Heimatplatz',
@@ -19944,16 +20745,18 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Stadtchronist zeigt sichtbare Spuren von Ortsentwicklung, Denkmal, Altstadt, Gewaesser- oder Infrastrukturgeschichte'
         ],
         science_bio: [
-            'Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation',
-            'Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand',
-            'Umweltmonitoring mit Fokus auf Stressindikatoren, Bewuchs und Randzonen',
-            'Naturschutz-Beobachtung am POI ohne Einsatzdramatisierung'
+            'Biologische Monitoringrunde mit Fokus auf Habitat, Vegetation, Uferzone und sichtbare Stoerfaktoren',
+            'Oekologische Kurzaufnahme von Wasserfarbe, Schilf, Feuchtstellen, Waldsaum oder offenen Vegetationsflaechen',
+            'Vegetationsstudie mit Blick auf Trockenstress, Kronenbild, Bewuchsluecken und Randzonen',
+            'Ornithologische Vorpruefung von Rast-, Brut- oder Stoerbereichen ohne Such- oder Einsatzlage',
+            'Naturschutz-Monitoring fuer die naechste Feldbegehung mit Fotoankern und ruhigem Ueberblick'
         ],
         science_geo: [
-            'Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion',
-            'Geomorphologische Reliefstudie mit Hang-, Ufer- oder Abbruchkanten',
-            'Dokumentation von Kiesgrube, Steinbruch, Talform, Sediment oder Gelaendekante',
-            'Ruhige Vergleichsfotos fuer geologische Veraenderungen im Zielgebiet'
+            'Geologische Beobachtung mit Fokus auf Relief, Erosion, Sedimente und Geländekanten',
+            'Geomorphologische Reliefstudie mit Hang-, Ufer-, Abbruch- oder Terrassenkanten',
+            'Kartierungsflug fuer Talform, alte Fliesswege, Sedimentfaecher oder Steinbruchränder',
+            'Hangstabilitaets-Vorpruefung mit Blick auf Rinnen, Rutschspuren, Vegetationsbrueche und Entwaesserungslinien',
+            'Ruhige Vergleichsperspektiven fuer geologische Kartierung und naechste Bodenbegehung'
         ],
         mapping_survey: [
             'Orthofoto-Auftrag fuer GIS- oder Kartenaktualisierung mit stabilen, ueberlappenden Passes',
@@ -20014,24 +20817,30 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Starkregen-/Sturmschaden-Check an Krone, Wasserseite und Ufer",
             "Foto-/Filmaufnahmen für Wasserbehörde oder Betreiber"
         ],
-        telecom: ["Infrastruktur-Inspektion (Funkmast/Funkturm)"],
+        telecom: [
+            "Infrastruktur-Inspektion (Funkmast/Funkturm)",
+            "Mast- oder Windenergie-Standort mit Zuwegung, Technikpunkt und Abspann-/Turmbereich pruefen"
+        ],
         industry: [
             "Infrastruktur-Inspektion (Industrieanlage)",
             "Wärmebild- oder Emissionsmessung an Industrieanlage",
             "Baufortschritts- oder Wartungsdokumentation am Werksgelände",
-            "Foto-/Filmaufnahmen für Betreiber, Bericht oder PR"
+            "Foto-/Filmaufnahmen für Betreiber, Bericht oder PR",
+            "Windpark- oder Solarpark-Wartungscheck fuer Betreiber und Serviceteam",
+            "Energieanlage mit Trafopunkt, Zufahrt, Modul-/Anlagenreihen und Betriebsflaechen aus der Luft vorpruefen"
         ],
         infrastructure: [
             "Infrastruktur-Inspektion (Straße/Bahn/Strom)",
             "Kontroll- und Vermessungsflug entlang Verkehrs- und Energietrassen",
             "Sturmschaden-Check an Trasse, Knoten, Dach oder Anlage",
-            "Wartungsdokumentation und Störungsprüfung für Betreiber"
+            "Wartungsdokumentation und Störungsprüfung für Betreiber",
+            "Solarpark-/Windpark-Vorpruefung nach Stoerungs-, Ertrags- oder Wettermeldung"
         ],
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
         forest: ["Natur- & Umweltschutz (Beobachtung)", "Rettungsaufklaerung am Waldrand", "Vermisstensuche im Wald- oder Lichtungsbereich"],
-        fire: ["Feuerwacht mit Fokus auf Rauchfahnen und Hotspots", "Natur- & Umweltschutz (Beobachtung)"],
+        fire: ["Feuerwacht mit Fokus auf Rauchfahnen und Hotspots", "Waldbrand-Frueherkennung entlang Waldrand, Hang oder trockenem Vegetationsstreifen"],
         city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
         trn: [
             "Platznahes VFR-Training im Übungsgebiet (Orientierung, Luftraumbezug, saubere Verfahren)",
