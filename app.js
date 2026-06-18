@@ -17626,15 +17626,15 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     }
     if (taskDomain === 'inspection_infra') {
         const targetText = normalizeMissionText(targetLabel);
-        const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind farm)/.test(targetText);
+        const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)/.test(targetText);
         const isSolarTarget = /(solarpark|solaranlage|photovoltaik|photovoltaic|solar farm|(^|[^a-z0-9])pv([^a-z0-9]|$))/.test(targetText);
         const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
         const subjectDetail = (() => {
             if (category === 'bridge') return 'den Fahrbahnuebergang, das Tragwerk, Pfeiler, Widerlager und Randbereiche';
             if (category === 'dam' || category === 'water') return 'Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegelbereich und Betriebszugang';
             if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich oder sichtbare Hindernisse';
-            if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
             if (isWindTarget) return 'Anlagenreihe, Rotor-/Turmbereich, Trafopunkt, Zuwegung und Kranstellflaechen';
+            if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
             if (isSolarTarget) return 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten';
             if (isEnergyTarget) return 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte';
             if (category === 'industry') return 'Betriebsflaechen, Dachbereiche, Rohrleitungen, Tanks, Zufahrten oder sichtbare Stoerstellen';
@@ -18597,7 +18597,7 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
         ...(Array.isArray(plan?.operationalDetails) ? plan.operationalDetails : [])
     ].filter(Boolean).join(' '));
     const wantsSmoke = /\b(rauch|smoke|qualm|abluft|emission)\b/.test(text);
-    const isWind = /\b(windpark|windkraft|windrad|windturbine|windenergie)\b/.test(text);
+    const isWind = /\b(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)\b/.test(text);
     const isSolar = /\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter)\b/.test(text);
     const isPower = /\b(umspannwerk|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|energienetz)\b/.test(text);
     const isBlockedRoad = /\b(blockiert|blockade|hindernis|baumstamm|treibgut|ladung|kisten|fahrbahn|zufahrt|sturm)\b/.test(text);
