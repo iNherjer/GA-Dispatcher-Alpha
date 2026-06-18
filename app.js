@@ -5433,9 +5433,7 @@ async function restoreMissionState(state, options = {}) {
     document.getElementById("briefingBox").style.display = "block";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
-    if (typeof window.missionSurveyPattern?.refreshOverlay === 'function') {
-        try { window.missionSurveyPattern.refreshOverlay(currentMissionData, window.activePassenger || null); } catch (_) {}
-    }
+    refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
     const restoredDraft = isMissionDraftPending(currentMissionData);
     recalculatePerformance(); document.getElementById('searchIndicator').innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
@@ -10310,9 +10308,19 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         const minMslByTerrain = Number.isFinite(poiTerrainFt) ? Math.round(poiTerrainFt + 500) : 0;
         const minRequired = Math.max(500, minMslByTerrain);
         if (normalized.targetAltFt < minRequired) normalized.targetAltFt = minRequired;
+        normalized.targetAltFt = roundPoiWorkAltitudeFt(normalized.targetAltFt, minRequired);
     }
     if (!normalized.dialectHint) normalized.dialectHint = 'neutral';
     return normalized;
+}
+
+function roundPoiWorkAltitudeFt(value = 0, minFt = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    const min = Number.isFinite(Number(minFt)) ? Math.max(0, Number(minFt)) : 0;
+    let rounded = Math.round(Math.max(n, min) / 500) * 500;
+    if (rounded < min) rounded += 500;
+    return Math.max(500, rounded);
 }
 
 const TRAINING_AIRWORK_ITEMS = [
@@ -11505,7 +11513,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischer Ortslesart. Nutze Rollen wie Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist. Bei City/Castle eignen sich Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Bauachsen oder fruehere Nutzung als Erzaehlanker. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag, keine allgemeine Sightseeing-Tour.';
     }
     if (profile.id === 'sightseeing_tour' && isPOI) {
-        return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Keine Landung am POI andeuten. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
+        return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
@@ -11812,6 +11820,18 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     return `Guide-Hinweis: ${paxName} hat gesicherte Ortsfakten zu ${target} vorbereitet. Die Details kommen unterwegs als kurze Guide-Ansagen; das Briefing bleibt beim Rahmen des ruhigen Rundflugs.`;
 }
 
+function sanitizePoiBriefingRuleLeaks(text = '', missionData = null) {
+    let out = String(text || '');
+    const md = missionData && typeof missionData === 'object' ? missionData : null;
+    const isPoi = !!(md?.isPOI || md?.poiName || md?.poiPresentation || missionUsesPoiTaskRecipe(md));
+    if (!out || !isPoi || missionIsSarHeliMission(md)) return out;
+    const replacement = 'Der Blick bleibt auf das Zielgebiet aus der Luft ausgerichtet; danach geht es zurück zur Basis.';
+    out = out.replace(/(?:Denken Sie daran:\s*)?Keine\s+Landung\s+am\s+POI\.?/gi, replacement);
+    out = out.replace(/(?:Denken Sie daran:\s*)?Keine\s+Landung\s+am\s+Ziel(?:gebiet)?\.?/gi, replacement);
+    out = out.replace(/\s+([,.;:!?])/g, '$1').replace(/\n{3,}/g, '\n\n').trim();
+    return out;
+}
+
 function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
@@ -12069,8 +12089,33 @@ function attachMissionSurveyPattern(missionData = null, missionContract = null, 
     if (contract) contract.surveyPattern = spec;
     return spec;
 }
+
+function refreshMissionSurveyOverlaySoon(missionData = null, passenger = null, reason = 'mission') {
+    if (typeof window === 'undefined') return false;
+    const run = () => {
+        if (typeof window.missionSurveyPattern?.refreshOverlay !== 'function') return false;
+        try {
+            return window.missionSurveyPattern.refreshOverlay(
+                missionData || currentMissionData || null,
+                passenger || window.activePassenger || null
+            );
+        } catch (_) {
+            return false;
+        }
+    };
+    const first = run();
+    if (typeof setTimeout === 'function') {
+        [120, 450, 1200].forEach(delay => {
+            setTimeout(() => {
+                try { run(); } catch (_) {}
+            }, delay);
+        });
+    }
+    return first;
+}
 window.buildMissionSurveyPatternSpec = buildMissionSurveyPatternSpec;
 window.attachMissionSurveyPattern = attachMissionSurveyPattern;
+window.refreshMissionSurveyOverlaySoon = refreshMissionSurveyOverlaySoon;
 
 function pickFireWatchExtent(truth, hazardLevel) {
     if (truth !== 'fire') return 'false_alarm';
@@ -16080,7 +16125,7 @@ async function _missionPipelineV3ContextBundle(context = {}, draft = {}, working
         routeRules: [
             sarHeli
                 ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
-                : (context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'),
+                : (context.isPOI ? 'POI-Flug: Das Zielgebiet wird aus der Luft bearbeitet; Abschluss ist die Rückkehr zum Startflugplatz.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'),
             'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
             'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
         ],
@@ -18575,7 +18620,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
     ].filter(Boolean))).slice(0, 6);
     plan.mustAvoid = Array.from(new Set([
         ...plan.mustAvoid,
-        'Keine Andeutung einer Landung am POI.',
+        'Keine Formulierung, die den Zielbereich als Lande- oder Bodenaktionsort beschreibt.',
         'Keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache.',
         'Keine Formulierung, dass der Zielbereich abgearbeitet, erfasst oder bewertet wird.'
     ].filter(Boolean))).slice(0, 12);
@@ -19062,7 +19107,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const baseRouteRule = sarHeli
         ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
         : (context.isPOI
-            ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.'
+            ? 'POI-Flug: Das Zielgebiet wird aus der Luft bearbeitet; Abschluss ist die Rückkehr zum Startflugplatz.'
             : (bushPickupReturn || aptCharterPickupReturn
                 ? (aptCharterPickupReturn
                     ? 'APT-Charter-Pickup-Return: Leerflug zum Zielflugplatz, Landung, Chartergast im GA-/Vorfeldbereich aufnehmen, danach Rückflug zum Ausgangsplatz.'
@@ -19180,8 +19225,8 @@ Arbeitsweise:
 3. Wenn Details im Kontext fehlen, formuliere bewusst allgemein statt zu halluzinieren.
 4. weatherHooks duerfen nur konkrete Wetteranker aus dem Bundle enthalten.
 5. localFacts, narrativeHooks und operationalDetails muessen aus dem Bundle ableitbar sein.
-	6. Bei POI niemals Landung am Ziel andeuten, ausser CONTEXT_BUNDLE.routeRules beschreibt explizit SAR-Heli-Bergung; dann muss Landung oder stabiler Hover an der Fundstelle und Weiterflug zum medizinischen Handoff klar sein.
-	6a. Bei SAR-Heli muss lockedFields.noLandingAtPoi=false und lockedFields.requiresRescueAtPoi=true sein; mustMention/mustAvoid duerfen keine normale POI-Rueckkehr oder "keine Landung am POI" verlangen.
+	6. Bei POI bleibt das Zielgebiet ein Luftarbeits-, Sicht- oder Erkundungsziel mit Abschluss am Start-/Heimatplatz, ausser CONTEXT_BUNDLE.routeRules beschreibt explizit SAR-Heli-Bergung; dann muss Landung oder stabiler Hover an der Fundstelle und Weiterflug zum medizinischen Handoff klar sein. Diese Regel nicht als eigenen Briefing-Satz ausgeben.
+	6a. Bei SAR-Heli muss lockedFields.noLandingAtPoi=false und lockedFields.requiresRescueAtPoi=true sein; mustMention/mustAvoid duerfen keine normale POI-Rueckkehr als Ausschlussregel verlangen.
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
@@ -19544,7 +19589,7 @@ Regeln:
 4. Die Story muss denselben Sachverhalt beschreiben wie primaryObjective, localFacts, weatherHooks und sceneIntent.
 5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
 6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
-7. Bei POI niemals Landung am Ziel andeuten, ausser CONTRACT.sarHeli.enabled ist true; dann muss der SAR-Heli-Ablauf mit Fundstelle, Landung/Hover-Aufnahme und medizinischem Handoff beschrieben werden.
+7. Bei POI bleibt das Zielgebiet ein Luftarbeits-, Sicht- oder Erkundungsziel mit Abschluss am Start-/Heimatplatz, ausser CONTRACT.sarHeli.enabled ist true; dann muss der SAR-Heli-Ablauf mit Fundstelle, Landung/Hover-Aufnahme und medizinischem Handoff beschrieben werden. Diese Regel nicht als eigenen Briefing-Satz ausgeben.
 7a. Bei SAR-Heli darf die Story keinen separaten "Evac-Hinweis" und keine technischen Hoehen-/Zeitvorgaben enthalten. Erzaehle die Bergung und den medizinischen Weiterflug als natuerlichen Teil des Briefings.
 8. Das Zielsubjekt und die TaskDomain bleiben bindend; Kontext darf nur anreichern, nicht umwidmen.
 9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
@@ -19571,7 +19616,7 @@ Regeln:
 19f. bush + bush_pickup_strip / taskDomain bush_pickup_return: Das Briefing braucht einen kurzen, natuerlichen Wetter-/Pistenanker aus CONTRACT.weather und dem Zielstrip: Wind/Sicht/Temperatur knapp einbauen, dazu Zielpiste, Bahnzustand oder Randbereich im Anflug nennen. Nicht als Checkliste schreiben.
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
-19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Keine Landung am POI andeuten.
+19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
@@ -21249,8 +21294,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? 'SAR-HELI-EINSATZPARAMETER: Das ist keine normale POI-Verweil-/Fotoaufgabe. Am POI wird nach Fundbestätigung gelandet oder stabil gehovert; danach Weiterflug zum Krankenhaus-Helipad oder medizinischen Fallback-Ziel. targetDwellMin soll 0 bleiben; die eigentliche Bergungsfreigabe steuert die Runtime.'
         : (poiLikeTask && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
-            ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
-            : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
+            ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetAltFt immer als 500-ft-Rasterwert ausgeben (z.B. 2500, 3000, 3500), nicht als ungerundete Terrain-Höhe. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
+            : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetAltFt immer als 500-ft-Rasterwert ausgeben (z.B. 2500, 3000, 3500), nicht als ungerundete Terrain-Höhe. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
         : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.";
 
     const trainingHardRules = isTrainingMission
@@ -21400,7 +21445,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const routeRule = poiLikeTask
         ? (isSarHeliLegacy
             ? `SAR-HELI-REGEL: Start in ${startName}, Such-/Fundstelle "${promptDestName}" anfliegen, dort nach Sichtkontakt landen oder stabil hovern, Patient aufnehmen und danach zum medizinischen Ziel "${sarHeliContext?.hospitalRef?.name || 'Krankenhaus-Helipad/Fallback-Handoff'}" fliegen. Nicht als Rundflug oder Rückkehr zum Start formulieren.`
-            : `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`)
+            : `RUNDFLUG-REGEL: Start und Abschluss bleiben bei ${startName}; der POI ist der Sicht- oder Arbeitsbereich aus der Luft. Diese Regel nicht als eigenen Briefing-Satz ausgeben.`)
         : (isBushMission
             ? (isBushPickupStrip
                 ? `BUSH-PICKUP-REGEL: Leerflug von ${startName} zum Zielstrip "${promptDestName}", dort landen, die wartende Person am Striprand aufnehmen und danach nach ${startName} zurueckfliegen. Die Story muss Pickup, Arbeit vor Ort, Wartepunkt und Rueckkehrgrund als eine zusammenhaengende Geschichte tragen.`
@@ -24229,6 +24274,10 @@ async function generateMission(options = {}) {
         window.activePassenger.targetDwellMin = 0;
         window.activePassenger.targetRadiusNm = Math.max(0.25, Number(window.activePassenger.targetRadiusNm || 0.35) || 0.35);
     }
+    if (window.activePassenger) {
+        currentMissionData.passenger = window.activePassenger;
+        if (m && typeof m === 'object') m.passenger = window.activePassenger;
+    }
     if (window.activePassenger && currentMissionData?.followUpProspect?.deboardingHint) {
         window.activePassenger.followUpDeboardingHint = currentMissionData.followUpProspect.deboardingHint;
         window.activePassenger.missionTemporalContext = currentMissionData.missionTemporalContext || currentMissionData.followUpProspect.temporalContext || null;
@@ -24315,6 +24364,7 @@ async function generateMission(options = {}) {
     currentMissionData.targetScene = activeMissionContract.targetScene;
     window.activeMissionContract = activeMissionContract;
     attachMissionSurveyPattern(currentMissionData, activeMissionContract, window.activePassenger);
+    refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-generated');
     {
         const sceneDebugInfo = {
             sceneAccepted: currentMissionData.sceneAccepted,
@@ -24517,6 +24567,7 @@ async function generateMission(options = {}) {
         const sarHeliBriefing = missionSarHeliBuildBriefingNarrative(currentMissionData, storyForBriefing);
         if (sarHeliBriefing) storyForBriefing = sarHeliBriefing;
     }
+    storyForBriefing = sanitizePoiBriefingRuleLeaks(storyForBriefing, currentMissionData);
     document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;
     document.getElementById("mDepName").innerText = start.n;
@@ -24553,9 +24604,7 @@ async function generateMission(options = {}) {
     if (destLocRadioEl) destLocRadioEl.value = '';
 
     updateMap(start.lat, start.lon, dest.lat, dest.lon, currentStartICAO, dest.n);
-    if (typeof window.missionSurveyPattern?.refreshOverlay === 'function') {
-        try { window.missionSurveyPattern.refreshOverlay(currentMissionData, window.activePassenger || plannedBriefingPassenger || null); } catch (_) {}
-    }
+    refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || plannedBriefingPassenger || null, 'map-updated');
 
     currentDepElev  = (globalAirports && globalAirports[currentStartICAO])  ? (globalAirports[currentStartICAO].elevation  ?? null) : null;
     currentDestElev = (globalAirports && globalAirports[currentDestICAO])   ? (globalAirports[currentDestICAO].elevation   ?? null) : null;

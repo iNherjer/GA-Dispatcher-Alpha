@@ -427,6 +427,7 @@
         const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
         const sameHome = refsSameAirport(resolvedStartRef, homeRef);
         const sameTarget = refsSameAirport(resolvedStartRef, targetRef);
+        if (isPoiFollowup && sameTarget) return null;
         if (isOutboundRun && sameTarget && !sameHome) return null;
         const onsite = !isOutboundRun && sameTarget && !sameHome;
         const mode = onsite
@@ -536,7 +537,9 @@
         const isServiceRun = followUpKind === 'bush_supply_strip';
         const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
         const isAptCharterPickup = followUpKind === 'apt_charter_pickup';
-        const targetPlaceLabel = isAptCharterPickup ? 'Zielplatz' : 'Zielstrip';
+        const isPoiFollowup = req?.poiFollowUp === true || targetRef?.kind === 'poi' || /^infra_/.test(followUpKind);
+        const targetPlaceLabel = isPoiFollowup ? 'POI' : (isAptCharterPickup ? 'Zielplatz' : 'Zielstrip');
+        const targetIsStartOption = !isPoiFollowup && !isOutboundRun;
         const defaultRef = lastRef?.icao ? lastRef : homeRef;
         const defaultIcao = String(defaultRef?.icao || homeRef?.icao || '').trim().toUpperCase();
         const overlay = ensureStartDialog();
@@ -555,7 +558,7 @@
                 text: followupPlaceLabel(homeRef, 'Ursprungsbasis'),
                 ref: homeRef
             },
-            !isOutboundRun ? {
+            targetIsStartOption ? {
                 id: 'target',
                 title: isAptCharterPickup ? 'Noch am Zielplatz' : 'Noch am Zielstrip',
                 text: followupPlaceLabel(targetRef, targetPlaceLabel),
@@ -571,12 +574,12 @@
 
         const defaultMatchesTarget = refsSameAirport(defaultRef, targetRef);
         const defaultMatchesHome = refsSameAirport(defaultRef, homeRef);
-        selected = (!isOutboundRun && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
+        selected = (targetIsStartOption && defaultMatchesTarget) ? 'target' : (defaultMatchesHome ? 'home' : 'other');
         if (summary) {
             summary.textContent = isServiceRun
                     ? `Serviceziel: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Materialbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
-                    : (isOutboundRun
-                        ? `Einsatzort: ${followupPlaceLabel(targetRef, 'Zielstrip')} · Ausgangsbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
+                    : (isOutboundRun || isPoiFollowup
+                        ? `Einsatzort: ${followupPlaceLabel(targetRef, targetPlaceLabel)} · Ausgangsbasis: ${followupPlaceLabel(homeRef, 'Basis')}`
                     : `Rückkehrbasis: ${followupPlaceLabel(homeRef, 'Basis')} · Anfrageort: ${followupPlaceLabel(targetRef, targetPlaceLabel)}`);
         }
         if (options) {
@@ -663,16 +666,20 @@
                     }
                     return;
                 }
-                if (isOutboundRun && refsSameAirport(ref, targetRef)) {
+                if ((isOutboundRun || isPoiFollowup) && refsSameAirport(ref, targetRef)) {
                     if (error) {
-                        error.textContent = isServiceRun
-                            ? 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'
-                            : 'Dieser Anschlussflug bringt die Person zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.';
-                        error.hidden = false;
-                    } else {
-                        alert(isServiceRun
+                        error.textContent = isPoiFollowup
+                            ? 'Der POI ist kein Startplatz. Bitte Basis oder einen anderen Flugplatz wählen.'
+                            : (isServiceRun
                             ? 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'
                             : 'Dieser Anschlussflug bringt die Person zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.');
+                        error.hidden = false;
+                    } else {
+                        alert(isPoiFollowup
+                            ? 'Der POI ist kein Startplatz. Bitte Basis oder einen anderen Flugplatz wählen.'
+                            : (isServiceRun
+                            ? 'Der Service Run bringt Material zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'
+                            : 'Dieser Anschlussflug bringt die Person zum Zielstrip. Bitte Basis oder einen anderen Startplatz wählen.'));
                     }
                     return;
                 }

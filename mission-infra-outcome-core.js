@@ -230,8 +230,21 @@
             wind: 'am Windenergie-Ziel oder Wartungsweg',
             industry: 'am Werks-/Technikbereich'
         }[family] || 'nahe am Infrastrukturziel';
-        const damage = (type !== 'clear' && damageType) ? ` Befundtyp: ${damageType}.` : '';
+        const damage = (type !== 'clear' && damageType) ? ` Befundtyp: ${damageLabelFor(damageType)}.` : '';
         return `${severity} ${target}; sparsam platzieren und nicht als Rettungs-/SAR-Lage erzaehlen.${damage}`;
+    }
+
+    function damageLabelFor(type = '') {
+        return {
+            access_blocked: 'blockierte Zufahrt oder Arbeitsflaeche',
+            debris_blockage: 'Hindernis oder Treibgut im Zugangsbereich',
+            electrical_fault: 'technische oder elektrische Auffaelligkeit',
+            equipment_fault: 'Auffaelligkeit an der technischen Anlage',
+            route_obstruction: 'Hindernis oder Schadstelle an der Trasse',
+            structural_wear: 'struktureller Verschleiss',
+            water_structure_wear: 'Verschleiss am Wasserbauwerk',
+            visible_anomaly: 'sichtbare Auffaelligkeit'
+        }[String(type || '').toLowerCase()] || 'sichtbare Auffaelligkeit';
     }
 
     function labelFor(type = '') {
@@ -256,9 +269,9 @@
             return `Bei ${target} wirkt eine Zufahrt, Trasse oder Arbeitsflaeche blockiert; der Befund sollte gezielt kartiert und an die Bodenteams weitergegeben werden.`;
         }
         if (type === 'major_damage') {
-            return `Bei ${target} ist ein deutlicher Befund sichtbar (${damageType || 'sichtbare Anomalie'}); vor einer Freigabe braucht es gezielte Dokumentation und technische Nacharbeit.`;
+            return `Bei ${target} ist ein deutlicher Befund sichtbar; vor einer Freigabe braucht es gezielte Dokumentation und technische Nacharbeit. Schwerpunkt ist ${damageLabelFor(damageType)}.`;
         }
-        return `Bei ${target} ist ein begrenzter Befund sichtbar (${damageType || 'kleine Auffaelligkeit'}); die Stelle sollte dokumentiert und spaeter kontrolliert werden.`;
+        return `Bei ${target} ist ein begrenzter Befund sichtbar; die Stelle sollte dokumentiert und spaeter kontrolliert werden. Schwerpunkt ist ${damageLabelFor(damageType)}.`;
     }
 
     function resultPromptFor(md = null, type = '', damageType = '') {
@@ -739,7 +752,7 @@
                 coreQuestions: [
                     `Welcher Befund aus der vorherigen Inspektion bei ${targetName} ist der Anlass?`,
                     isPhoto ? 'Welche sichtbaren Arbeiten muessen ins Bild?' : (profileId === 'inspection_infra' ? 'Was muss in der Nachpruefung beobachtet werden?' : 'Welche Daten/Ansichten braucht die Dokumentation?'),
-                    'Wie bleibt der Auftrag ein POI-Arbeitsflug ohne Landung am Ziel?'
+                    'Wie bleibt der Auftrag eine ruhige Luftaufnahme mit anschliessender Rueckkehr zur Basis?'
                 ],
                 writerExpectations: [
                     'Nutze den bekannten Befund als Anlass, aber erfinde kein neues Schadensbild.',
