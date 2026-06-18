@@ -1209,6 +1209,7 @@ function _inspectionMissionMeta() {
     if (taskDomain === 'historian_guided_tour') return null;
     if (taskDomain === 'poi_learning_guide') return null;
     if (taskDomain === 'mapping_survey') return null;
+    if (taskDomain === 'science_bio' || taskDomain === 'science_geo') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -5337,6 +5338,12 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'mapping_survey') {
         return 'technisch-präzise und ruhig: Survey-Ziel, geplante Linie oder Orbit, stabile Höhe, Abdeckung und Datengüte stehen im Vordergrund; keine Sightseeing- oder Schadenssprache.';
     }
+    if (taskDomain === 'science_bio') {
+        return 'wissenschaftlich ruhig und beobachtend: Biologie, Lebensraum, Artenhinweise, Ufer- oder Vegetationsstruktur und Datenguete stehen im Vordergrund; keine Sightseeing-, Technik- oder Einsatzsprache.';
+    }
+    if (taskDomain === 'science_geo') {
+        return 'geologisch sachlich und ruhig: Relief, Erosion, Hangform, Sedimente, Uferkanten und Geländestruktur stehen im Vordergrund; keine Bio-, Sightseeing- oder Inspektionssprache.';
+    }
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
     }
@@ -5603,7 +5610,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const realEta = Math.max(1, Math.round(etaMin));
     const pax = window.activePassenger || {};
     const targetAltFt = Number(pax?.targetAltFt || 0);
-    const altBrief = (!isLearningGuide && taskDomain !== 'sightseeing_tour' && targetAltFt > 0)
+    const altBrief = (!isLearningGuide && !/^(sightseeing_tour|science_bio|science_geo)$/.test(taskDomain) && targetAltFt > 0)
         ? ` Nenne in derselben Meldung bitte kurz die geplante Arbeitsflughöhe: "${targetAltFt} Fuß".`
         : '';
     const trainingPlan = _activeAptTrainingPlan();
@@ -5736,6 +5743,8 @@ function _poiSatisfiedPrompt(flightData) {
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const isMediaPhoto = taskDomain === 'media_photo';
     const isMappingSurvey = taskDomain === 'mapping_survey';
+    const isScienceBio = taskDomain === 'science_bio';
+    const isScienceGeo = taskDomain === 'science_geo';
     const reconOutcomeActive = _activeBushReconOutcome();
     const inspResultHint = reconOutcomeActive ? '' : _inspectionResultHint();
     const bushReconResultHint = _bushReconOutcomeHintLine('result');
@@ -5758,6 +5767,12 @@ function _poiSatisfiedPrompt(flightData) {
     const mappingResultHint = isMappingSurvey
         ? ' Survey-Fazit: Schließe mit einem kurzen Satz zu Abdeckung/Datenguete und dem naechsten Auswertungsschritt. Keine Schadensdiagnose, kein Sightseeing-Fazit.'
         : '';
+    const scienceBioResultHint = isScienceBio
+        ? ' Bio-Fazit: Schließe mit einem kurzen fachlichen Takeaway zu Habitat, Artenhinweis, Vegetation, Uferstruktur oder Stoerfaktor und nenne den naechsten Auswertungsschritt. Kein Sightseeing-Fazit.'
+        : '';
+    const scienceGeoResultHint = isScienceGeo
+        ? ' Geo-Fazit: Schließe mit einem kurzen fachlichen Takeaway zu Relief, Erosion, Sediment, Uferkante oder Hangform und nenne den naechsten Auswertungsschritt. Kein Sightseeing-Fazit.'
+        : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
@@ -5765,28 +5780,39 @@ function _poiSatisfiedPrompt(flightData) {
         ? ' Gib zuerst ein fachliches Kurzfazit: Was hast du gesehen, wie sieht der Zustand aus, und ob Nacharbeit oder Beobachtung noetig ist. Erst danach darfst du den Weiter- oder Rueckflug freigeben.'
         : '';
     const noRepeatHint = _poiNoRepeatHint('result');
-    const momentLine = isSightseeing
-        ? `Moment: Die ruhige Sightseeing-Runde am Ziel hat nach ${dwell} Minuten ihren Blickmoment gehabt.${wx ? ' ' + wx : ''}`
-        : (isHistorian
-            ? `Moment: Die historische Runde am Ziel ist nach ${dwell} Minuten gut eingeordnet.${wx ? ' ' + wx : ''}`
-            : (isMediaPhoto
-                ? `Moment: Die Foto-/Filmserie am Ziel ist nach ${dwell} Minuten im Kasten.${wx ? ' ' + wx : ''}`
-                : (isMappingSurvey
-                    ? `Moment: Der Survey-Pass am Ziel hat nach ${dwell} Minuten genug Datenzeit bekommen.${wx ? ' ' + wx : ''}`
-                    : `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`)));
-    const requestLine = isSightseeing
-        ? 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.'
-        : (isHistorian
-            ? 'Sag dem Piloten kurz, welcher historische Takeaway bleibt und dass wir ruhig zurueckfliegen koennen.'
-            : (isMediaPhoto
-                ? 'Sag dem Piloten kurz, dass das Material verwertbar ist und wir zurueckfliegen koennen.'
-                : (isMappingSurvey
-                    ? 'Sag dem Piloten kurz, dass der Datensatz verwertbar wirkt und die Auswertung als naechster Schritt folgen kann.'
-                    : 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.')));
+    let momentLine = `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`;
+    if (isSightseeing) {
+        momentLine = `Moment: Die ruhige Sightseeing-Runde am Ziel hat nach ${dwell} Minuten ihren Blickmoment gehabt.${wx ? ' ' + wx : ''}`;
+    } else if (isHistorian) {
+        momentLine = `Moment: Die historische Runde am Ziel ist nach ${dwell} Minuten gut eingeordnet.${wx ? ' ' + wx : ''}`;
+    } else if (isMediaPhoto) {
+        momentLine = `Moment: Die Foto-/Filmserie am Ziel ist nach ${dwell} Minuten im Kasten.${wx ? ' ' + wx : ''}`;
+    } else if (isMappingSurvey) {
+        momentLine = `Moment: Der Survey-Pass am Ziel hat nach ${dwell} Minuten genug Datenzeit bekommen.${wx ? ' ' + wx : ''}`;
+    } else if (isScienceBio) {
+        momentLine = `Moment: Die biologische Beobachtungsrunde am Ziel hat nach ${dwell} Minuten genug Vergleichsbilder und Notizen geliefert.${wx ? ' ' + wx : ''}`;
+    } else if (isScienceGeo) {
+        momentLine = `Moment: Die geologische Beobachtungsrunde am Ziel hat nach ${dwell} Minuten genug Vergleichsbilder und Notizen geliefert.${wx ? ' ' + wx : ''}`;
+    }
+
+    let requestLine = 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.';
+    if (isSightseeing) {
+        requestLine = 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.';
+    } else if (isHistorian) {
+        requestLine = 'Sag dem Piloten kurz, welcher historische Takeaway bleibt und dass wir ruhig zurueckfliegen koennen.';
+    } else if (isMediaPhoto) {
+        requestLine = 'Sag dem Piloten kurz, dass das Material verwertbar ist und wir zurueckfliegen koennen.';
+    } else if (isMappingSurvey) {
+        requestLine = 'Sag dem Piloten kurz, dass der Datensatz verwertbar wirkt und die Auswertung als naechster Schritt folgen kann.';
+    } else if (isScienceBio) {
+        requestLine = 'Sag dem Piloten kurz, welche biologische Beobachtung fuer die Auswertung haengen bleibt und dass wir zurueckfliegen koennen.';
+    } else if (isScienceGeo) {
+        requestLine = 'Sag dem Piloten kurz, welche geologische Beobachtung fuer die Auswertung haengen bleibt und dass wir zurueckfliegen koennen.';
+    }
     return `${ctx}
 
 ${momentLine}
-${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${mediaResultHint}${mappingResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
+${requestLine}${sarResultHint}${inspResultHint}${bushReconResultHint}${inspectionCompletionRule}${profResultHint}${historianResultHint}${mediaResultHint}${mappingResultHint}${scienceBioResultHint}${scienceGeoResultHint}${knowledgeResultFactHint}${learningResultHint}${sightseeingResultHint}${sarEndRule}${noRepeatHint}${driftGuard} ${isLearningGuide ? '2-3 kurze Sätze.' : '1-2 Sätze.'}${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -6003,6 +6029,8 @@ function _greetingMissionGuidance() {
     const isBushAdventure = (!isPOI && (taskDomain === 'bush_adventure' || (taskDomain === 'sightseeing_tour' && _isBushAdventureMission())));
     const isBushPickupReturn = (!isPOI && taskDomain === 'bush_pickup_return');
     const isLearningGuidePoi = (isPOI && taskDomain === 'poi_learning_guide');
+    const isScienceBioPoi = (isPOI && taskDomain === 'science_bio');
+    const isScienceGeoPoi = (isPOI && taskDomain === 'science_geo');
     const targetAltFt = Math.round(Number(pax?.targetAltFt || 0));
     const comfortPolicy = _comfortFeedbackPolicy(pax);
     const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
@@ -6022,13 +6050,19 @@ function _greetingMissionGuidance() {
             : 'Wenn Komforthinweis, dann passend zum konkreten Risiko (Magen/Fracht/Taetigkeit an Bord).');
     let reqLine = '';
     if (isPOI) {
-        reqLine = trainingPlan
-            ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
-            : (isLearningGuidePoi
-                ? `Bitte sag locker, dass du den Piloten zum Ziel fuehrst und dabei etwas ueber den Ort vermittelst. Keine Arbeitsanweisung, keine feste Arbeitshoehe, kein Komfort- oder Zeitdruckhinweis.`
-                : (isSightseeingPoi
-                    ? `Bitte sag kurz und persoenlich, worauf du dich beim Blick auf das Ziel freust: Aussicht, Orientierung, Erinnerungsfotos oder gemeinsamer Ausflug. Keine Arbeitsanweisung, keine feste Arbeitshoehe, keine Navigations-, Kurs- oder Hoehenvorgaben, kein Zeitdruck.`
-                    : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`));
+        if (trainingPlan) {
+            reqLine = `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`;
+        } else if (isLearningGuidePoi) {
+            reqLine = `Bitte sag locker, dass du den Piloten zum Ziel fuehrst und dabei etwas ueber den Ort vermittelst. Keine Arbeitsanweisung, keine feste Arbeitshoehe, kein Komfort- oder Zeitdruckhinweis.`;
+        } else if (isSightseeingPoi) {
+            reqLine = `Bitte sag kurz und persoenlich, worauf du dich beim Blick auf das Ziel freust: Aussicht, Orientierung, Erinnerungsfotos oder gemeinsamer Ausflug. Keine Arbeitsanweisung, keine feste Arbeitshoehe, keine Navigations-, Kurs- oder Hoehenvorgaben, kein Zeitdruck.`;
+        } else if (isScienceBioPoi) {
+            reqLine = `Bitte sag ruhig und fachlich, welche biologische Beobachtung du am Zielgebiet machen willst: Habitat, Artenhinweise, Ufer-/Vegetationsstruktur oder Stoerfaktoren. Keine Arbeitshoehe, keine Flugmanöver, kein Sightseeing-Ton.`;
+        } else if (isScienceGeoPoi) {
+            reqLine = `Bitte sag ruhig und fachlich, welche geologische Beobachtung du am Zielgebiet machen willst: Relief, Hangform, Uferkante, Erosion, Sedimente oder Geländestruktur. Keine Arbeitshoehe, keine Flugmanöver, kein Sightseeing-Ton.`;
+        } else {
+            reqLine = `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`;
+        }
     } else if (isReporterApt) {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
@@ -6445,12 +6479,19 @@ function _farewellPrompt(record) {
     const bushContinuityHint = _bushPickupNarrativeHint('farewell');
     const bushReconOutcomeHint = isMissionFailed ? '' : _bushReconOutcomeHintLine('farewell');
     const followUpDeboardingHint = isMissionFailed ? '' : _followUpDeboardingHintLine();
+    const taskDomain = _activeTaskDomain();
+    const farewellDriftGuard = _domainDriftGuard('result');
     const sarHeliFarewellTask = (typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)))
         ? `Verabschiede dich als ${pax.role} nach einer SAR-Heli-Bergung. Sage klar, dass der Patient am medizinischen Ziel ${_sarHeliHospitalName()} uebergeben ist, danke fuer die ruhige Bergung und den Weiterflug, und schliesse professionell ab.`
         : '';
+    const scienceFarewellTask = taskDomain === 'science_bio'
+        ? `Verabschiede dich kurz beim Piloten und gib ein biologisches Abschlussfazit: welcher Habitat-, Arten-, Vegetations-, Ufer- oder Stoerfaktor fuer die Auswertung haengen bleibt und was mit Fotos/Notizen als naechstes passiert. Danke fuer den Flug ist okay, aber kein Sightseeing-Fazit und keine Formulierung wie "schoener Blick", "Blickmoment" oder "den Ort mitnehmen".`
+        : (taskDomain === 'science_geo'
+            ? `Verabschiede dich kurz beim Piloten und gib ein geologisches Abschlussfazit: welche Relief-, Erosions-, Sediment-, Ufer- oder Hangbeobachtung fuer die Auswertung haengen bleibt und was mit Fotos/Notizen als naechstes passiert. Danke fuer den Flug ist okay, aber kein Sightseeing-Fazit und keine Formulierung wie "schoener Blick", "Blickmoment" oder "den Ort mitnehmen".`
+            : '');
     const farewellTask = isMissionFailed
         ? `Verabschiede dich persönlich beim Piloten aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Bleib freundlich, aber nenne den Fehlschlag klar und ohne ihn schönzureden.${missionFailureTask}`
-        : (sarHeliFarewellTask || `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`);
+        : (sarHeliFarewellTask || scienceFarewellTask || `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`);
     const facts = (min != null && distanceNm != null && maxAltFt != null)
         ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
         : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
@@ -6459,7 +6500,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-${farewellTask}${poiRideHomeTask}${bushContinuityHint}${bushReconOutcomeHint}${followUpDeboardingHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${poiRideHomeTask}${bushContinuityHint}${bushReconOutcomeHint}${followUpDeboardingHint}${profLandingHint}${farewellDriftGuard} Max 3 Sätze.${_toneHint()}`;
 }
 
 function _failedMissionFarewellFallback(record = null) {

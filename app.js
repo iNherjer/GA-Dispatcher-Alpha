@@ -13374,10 +13374,13 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         || (Array.isArray(src.specialRequirements) && src.specialRequirements.length > 0)
         || (Array.isArray(src.roles) && src.roles.length > 0)
         || (Array.isArray(src.sceneRoles) && src.sceneRoles.length > 0);
+    const task = String(taskDomain || '').toLowerCase();
+    if ((task === 'science_bio' || task === 'science_geo') && planDirective?.sceneKind === 'none') {
+        return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Science POI: Beobachtung ohne künstliche Zielszene.' };
+    }
     if (planDirective?.sceneKind === 'none' && !rawHasConcreteScene) {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Pipeline V2: keine Zielszene geplant.' };
     }
-    const task = String(taskDomain || '').toLowerCase();
     const natureTask = missionTruthIsNatureTask('', task);
     const rawSceneText = [
         src.kind,
@@ -18640,6 +18643,15 @@ function _missionPipelineV4ApplyInfraScenePlanGuard(plan = {}, storyFrame = {}, 
     if (!plan || typeof plan !== 'object') return plan;
     const profile = _missionPipelineV4InferInfraSceneProfile(plan, storyFrame, semantics);
     if (!profile) return plan;
+    const label = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Zielgebiet').trim() || 'Zielgebiet';
+    const detail = String(storyFrame?.subjectDetail || 'das ausgewaehlte Infrastrukturziel').replace(/\s+/g, ' ').trim();
+    const primaryText = normalizeMissionText(plan.primaryObjective || '');
+    const primaryLooksGeneric = !primaryText
+        || /fuehre den auftrag .*klarer lokaler begruendung|auftrag nach .*klarer lokaler begruendung/.test(primaryText)
+        || /\bluftlagebild\b/.test(primaryText);
+    if (primaryLooksGeneric) {
+        plan.primaryObjective = `Pruefe bei ${label} ${detail} aus der Luft und liefere eine erste technische Einordnung fuer Betreiber oder Technikteam.`;
+    }
     const currentKind = String(plan.sceneKind || '').toLowerCase();
     const mayReplace = !currentKind || currentKind === 'none' || currentKind === 'water_context' || currentKind === 'wildlife_site' || currentKind === 'survey_context';
     if (!mayReplace) return plan;
@@ -18650,6 +18662,48 @@ function _missionPipelineV4ApplyInfraScenePlanGuard(plan = {}, storyFrame = {}, 
     plan.narrativeRules = Array.from(new Set([
         ...(Array.isArray(plan.narrativeRules) ? plan.narrativeRules : []),
         'Zielszene nur als sparsame technische Referenz nutzen; sie darf die Inspektion nicht vorab loesen.'
+    ])).slice(0, 10);
+    return plan;
+}
+
+function _missionPipelineV4ApplyScienceScenePlanGuard(plan = {}, storyFrame = {}, semantics = {}) {
+    if (!plan || typeof plan !== 'object') return plan;
+    const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase();
+    if (taskDomain !== 'science_bio' && taskDomain !== 'science_geo') return plan;
+    const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || '').toLowerCase();
+    const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || '').toLowerCase();
+    const subjectText = normalizeMissionText([
+        category,
+        targetLabel,
+        storyFrame?.subjectDetail,
+        storyFrame?.incidentContext
+    ].filter(Boolean).join(' '));
+    const waterCategory = /^(water|dam|lake|river|reservoir|canal)$/i.test(category);
+    const waterSubject = /\b(wasser|gewaesser|gewasser|see|ufer|fluss|bach|teich|talsperre|stausee|damm|wasserlinie|uferkante|sedimentbank|abflusslinie)\b/.test(subjectText);
+    const allowWaterContext = waterCategory || waterSubject;
+    const label = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Zielgebiet').trim() || 'Zielgebiet';
+    const scienceObjective = taskDomain === 'science_bio'
+        ? `Erstelle bei ${label} eine ruhige biologische Luftbeobachtung von Habitat, Vegetationsmuster, Randzonen und moeglichen Stoerfaktoren.`
+        : `Erstelle bei ${label} eine ruhige geologische Luftbeobachtung von Relief, Gelaendekanten, Erosion und sichtbaren Formen.`;
+    const primaryText = normalizeMissionText(plan.primaryObjective || '');
+    const primaryLooksGeneric = !primaryText || /fuehre den auftrag .*klarer lokaler begruendung|auftrag nach .*klarer lokaler begruendung/.test(primaryText);
+    const primaryWaterMismatch = !allowWaterContext && /\b(wasser|wasserlinie|gewaesser|gewasser|uferkante|uferlinie|seeufer)\b/.test(primaryText);
+    if (primaryLooksGeneric || primaryWaterMismatch) {
+        plan.primaryObjective = scienceObjective;
+    }
+    const currentKind = String(plan.sceneKind || '').toLowerCase();
+    const noisyScienceScene = currentKind === 'water_context' && !allowWaterContext;
+    const geoNatureScene = taskDomain === 'science_geo' && currentKind === 'wildlife_site';
+    const nonStudyScene = /^(road_incident|powerline_inspection|wind_turbine_site|industry_site|infra_bridge|infra_dam|construction_site|event_site|media_site|cargo_site|medical_pickup)$/i.test(currentKind);
+    if (!noisyScienceScene && !geoNatureScene && !nonStudyScene) return plan;
+    plan.sceneKind = 'none';
+    plan.sceneDensity = 'none';
+    plan.requiredAnchors = [];
+    plan.objectFamilies = [];
+    plan.placementPolicy = 'Keine Zielobjekte platzieren; der Science-Auftrag nutzt vorhandene Landschaftsmerkmale nur als visuelle Beobachtungsanker.';
+    plan.narrativeRules = Array.from(new Set([
+        ...(Array.isArray(plan.narrativeRules) ? plan.narrativeRules : []),
+        'Science POIs bekommen keine dekorative Zielszene; sichtbare Natur- oder Geländemerkmale muessen aus dem echten Zielkontext kommen.'
     ])).slice(0, 10);
     return plan;
 }
@@ -18768,6 +18822,9 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
     }
     if (taskDomain === 'inspection_infra') {
         _missionPipelineV4ApplyInfraScenePlanGuard(base.plan, storyFrame, semantics);
+    }
+    if (taskDomain === 'science_bio' || taskDomain === 'science_geo') {
+        _missionPipelineV4ApplyScienceScenePlanGuard(base.plan, storyFrame, semantics);
     }
 	    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
         const allowedSarIncidentIds = sarHeliAllowedIncidentIds?.length
