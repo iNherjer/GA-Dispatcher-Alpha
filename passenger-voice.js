@@ -853,7 +853,7 @@ localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
 const _PAX_TTS_HEDGE_DEFAULT_MS = 3000;
 
 function _paxTtsHedgeEnabled() {
-    return localStorage.getItem('awm_pax_tts_hedge_enabled') !== '0';
+    return localStorage.getItem('awm_pax_tts_hedge_enabled') === '1';
 }
 
 function _paxTtsHedgeDelayMs() {
@@ -4296,9 +4296,10 @@ window.paxVoicePrepareSurveyPattern = function() {
     if (!window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
     const epoch = _paxMissionEpoch;
     const speaker = _speakerSnapshotForMissionVoice('survey-pattern');
+    // Keep startup TTS bursts small: rare reset/finish calls synthesize on demand.
     const kinds = spec.type === 'orbit'
-        ? ['survey_area_entered', 'orbit_turn_complete', 'orbit_reset_altitude', 'orbit_reset_offtrack', 'survey_complete']
-        : ['survey_area_entered', 'line_complete', 'line_reset_altitude', 'line_reset_offtrack', 'survey_complete'];
+        ? ['survey_area_entered', 'orbit_turn_complete']
+        : ['survey_area_entered', 'line_complete'];
     const jobs = kinds.map(kind => {
         const text = _surveyPatternVoiceText(kind, spec);
         return text ? _prepareTextAsTTS(_surveyPatternAudioKey(kind), text, speaker, epoch) : Promise.resolve(null);
