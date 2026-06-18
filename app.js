@@ -789,6 +789,25 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Schliessen', text: 'Schliesst den Kartentisch und bringt dich zur Hauptansicht zurueck.' }
         ]
     },
+    'map-voice': {
+        kicker: 'Audio',
+        title: 'Voice Menue',
+        intro: 'Hier steuerst du Warnansagen und Passagier-Voice fuer den Kartentisch.',
+        items: [
+            { term: 'Lautstaerke', text: 'Regelt, wie laut die Voice-Warnungen abgespielt werden.' },
+            { term: 'Frequenz ansagen', text: 'Liest passende Funkfrequenzen vor, wenn die App sie fuer den Flug erkennt.' },
+            { term: 'Terrain Warning', text: 'Warnt dich vor auffaelligem Gelaende entlang oder nahe der Route.' },
+            { term: 'Luftraum Warning', text: 'Warnt dich vor relevanten Luftraeumen, die du beachten solltest.' },
+            { term: 'Wegpunkt-Ansage', text: 'Gibt Hinweise aus, wenn du dich einem wichtigen Punkt der Route naeherst.' },
+            { term: 'Warning-Stimme', text: 'Waehlt die Stimme fuer die kurzen Warn- und Hinweisansagen.' },
+            { term: 'Stimme', text: 'Schaltet die gesprochene Passagier-Voice ein oder aus. Der Text bleibt trotzdem sichtbar.' },
+            { term: 'Modus', text: 'Entspannt ist toleranter. Streng bewertet die Mission und dein Flugverhalten etwas genauer.' },
+            { term: 'Humor', text: 'Bestimmt, wie locker oder frech die Passagier-Voice reagieren darf.' },
+            { term: 'TTS', text: 'Auto nutzt Gemini 3.1 und wechselt bei Fehlern auf 2.5. Du kannst auch ein Modell fest auswaehlen.' },
+            { term: 'Fast Mode', text: 'Startet im Auto-TTS-Modus bei Bedarf frueher einen Gemini-2.5-Fallback. Das kann Wartezeit sparen, aber den KI-Token-Verbrauch erhoehen, weil zeitweise zwei TTS-Anfragen laufen koennen.' },
+            { term: 'Pax Voice', text: 'Waehlt den Klang der Passagier-Stimme: klar, Intercom oder Intercom mit Funkrauschen.' }
+        ]
+    },
     'map-side-drawer': {
         kicker: 'Tools',
         title: 'Seitenmenue & Checklisten',

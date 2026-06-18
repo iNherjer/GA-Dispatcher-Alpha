@@ -1115,7 +1115,10 @@
                 <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🎙️ Voice</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <div>
-                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">VOICE WARNINGS</div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">VOICE WARNINGS</div>
+                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Voice-Menue" aria-expanded="false">?</button>
+                        </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                             <span style="font-size:13px;">🔊</span>
                             <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"

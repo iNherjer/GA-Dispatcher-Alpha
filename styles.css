@@ -11444,6 +11444,7 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
 }
 
 .context-help-btn,
+.map-voice-help-btn,
 .map-toolbar-help-btn,
 .map-side-help-btn {
     position: relative;
@@ -11461,6 +11462,7 @@ body.theme-navcom .navcom-dispatch-help-bar {
     padding-right: 2px;
 }
 
+.map-voice-help-btn,
 .map-toolbar-help-btn,
 .map-side-help-btn {
     flex-basis: 28px;
