@@ -1,14 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-18T12:37:12.291Z",
+  "generatedAt": "2026-06-18T12:42:51.731Z",
   "grid": {
     "tileEdgeNm": 25,
     "stepLatDeg": 0.4166666666666667,
     "stepLonDeg": 0.4166666666666667
   },
   "regions": [],
-  "tileCount": 1,
+  "tileCount": 2,
   "tiles": [
+    "354|460",
     "360|444"
   ]
 }
