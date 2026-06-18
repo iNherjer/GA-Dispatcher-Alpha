@@ -1189,6 +1189,17 @@
                                 <option value="2.5">Nur Gemini 2.5 TTS</option>
                             </select>
                         </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Fast Mode</span>
+                            <label title="Startet im Auto-TTS-Modus den Gemini-2.5-Fallback parallel, wenn 3.1 nach kurzer Zeit noch nicht fertig ist."
+                                style="flex:1; display:flex; align-items:center; gap:6px; font-size:11px; color:#d0e8ff; cursor:pointer; user-select:none;">
+                                <input id="awmPaxFastTtsToggle"
+                                    type="checkbox"
+                                    onchange="paxVoiceSetTtsHedge(this.checked)"
+                                    style="width:14px; height:14px; accent-color:#5dade2; cursor:pointer;">
+                                <span>Hedge aktivieren</span>
+                            </label>
+                        </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
                             <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Voice</span>
                             <select id="awmPaxAudioStyleSelect"

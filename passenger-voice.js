@@ -899,12 +899,25 @@ window.paxVoiceSetTtsModel = function(mode) {
     _paxLog(`TTS-Modus gesetzt: ${next}`, 'state');
 };
 
+function _syncPaxTtsHedgeControl() {
+    const el = document.getElementById('awmPaxFastTtsToggle');
+    if (el) el.checked = _paxTtsHedgeEnabled();
+}
+
 window.paxVoiceSetTtsHedge = function(enabled, delayMs = null) {
+    if (enabled && _paxTtsModelPref !== 'auto') {
+        _paxTtsModelPref = 'auto';
+        localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
+        const modelEl = document.getElementById('awmPaxTtsModelSelect');
+        if (modelEl) modelEl.value = _paxTtsModelPref;
+        _paxLog('Fast Mode nutzt TTS Auto: 3.1 zuerst, 2.5 als Hedge-Fallback', 'state');
+    }
     localStorage.setItem('awm_pax_tts_hedge_enabled', enabled ? '1' : '0');
     if (delayMs != null) {
         const safeDelay = Math.max(1000, Math.min(10000, Math.round(Number(delayMs) || _PAX_TTS_HEDGE_DEFAULT_MS)));
         localStorage.setItem('awm_pax_tts_hedge_delay_ms', String(safeDelay));
     }
+    _syncPaxTtsHedgeControl();
     _paxLog(`TTS-Hedge: ${_paxTtsHedgeEnabled() ? 'ein' : 'aus'} | Delay ${_paxTtsHedgeDelayMs()}ms`, 'state');
 };
 
@@ -3626,14 +3639,14 @@ function _normalizeSpokenText(text) {
         .trim();
 }
 
-async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch) {
-    if (!_paxEpochCurrent(epoch)) return;
+async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audio') {
+    if (!_paxEpochCurrent(epoch)) return false;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
         ? window.paxVoiceUnlockAudio('playback')
         : window._tawsAudioCtx;
-    if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
+    if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return false; }
     if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume().catch(() => {});
-    if (!_paxEpochCurrent(epoch)) return;
+    if (!_paxEpochCurrent(epoch)) return false;
     if (ctx.state !== 'running' && Date.now() - _paxAudioWarnedAt > 5000) {
         _paxAudioWarnedAt = Date.now();
         _paxLog(`AudioContext ist ${ctx.state}; Browser blockiert Playback moeglicherweise bis zum naechsten Klick.`, 'warn');
@@ -3642,28 +3655,25 @@ async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch
         const recovered = await _paxEnsureAudioContextRunning(ctx);
         if (!recovered) {
             _paxLog(`Playback abgebrochen: AudioContext blieb ${ctx.state}.`, 'warn');
-            return;
+            return false;
         }
         _paxLog('AudioContext wieder aktiv — Playback wird fortgesetzt', 'state');
     }
-    if (!_paxEpochCurrent(epoch)) return;
+    if (!_paxEpochCurrent(epoch)) return false;
 
-    const binary = atob(base64Audio);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-    let audioBuffer = bytes.buffer;
+    let audioBuffer = rawAudioBuffer;
     const mimeLower = String(mimeType || '').toLowerCase();
     if (!mimeType || mimeLower.includes('pcm') || mimeLower.includes('l16')) {
         const rateMatch = mimeType?.match(/rate=(\d+)/);
         const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
         _paxLog(`PCM→WAV wrap | rate: ${sampleRate} Hz | mime: ${mimeType || 'unbekannt'}`, 'audio');
-        audioBuffer = _pcmToWav(bytes.buffer, sampleRate, 1, 16);
+        audioBuffer = _pcmToWav(rawAudioBuffer, sampleRate, 1, 16);
     }
 
     try {
-        const buf = await ctx.decodeAudioData(audioBuffer);
-        if (!_paxEpochCurrent(epoch)) return;
+        const decodeBuffer = audioBuffer?.slice ? audioBuffer.slice(0) : audioBuffer;
+        const buf = await ctx.decodeAudioData(decodeBuffer);
+        if (!_paxEpochCurrent(epoch)) return false;
         const dest = window._awmMasterGain || ctx.destination;
         const style = _normalizePaxAudioStyle(_paxAudioStyle);
         const chain = style === 'clear'
@@ -3722,15 +3732,25 @@ async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch
                     chain.noise.start(t);
                     chain.noise.stop(t + buf.duration + 0.3);
                 }
-                _paxLog(`${_paxAudioStyleLabel(style)}-Wiedergabe: ${buf.duration.toFixed(1)} s | audio=${ctx.state} | vol=${Number(window._awmMasterGain?.gain?.value ?? 1).toFixed(2)}`, 'audio');
+                _paxLog(`${_paxAudioStyleLabel(style)}-Wiedergabe (${sourceLabel}): ${buf.duration.toFixed(1)} s | audio=${ctx.state} | vol=${Number(window._awmMasterGain?.gain?.value ?? 1).toFixed(2)}`, 'audio');
             } catch (startErr) {
                 _paxLog(`Playback Startfehler: ${startErr?.message || startErr}`, 'warn');
                 guardedFinish();
             }
         });
+        return true;
     } catch(e) {
         _paxLog(`Playback Fehler: ${e.message}`, 'warn');
+        return false;
     }
+}
+
+async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch) {
+    if (!_paxEpochCurrent(epoch)) return false;
+    const binary = atob(base64Audio);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, 'Gemini TTS');
 }
 
 const _PAX_TTS_VOICE_POOL = {
@@ -3792,6 +3812,96 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
 
 const _paxPreparedAudio = new Map();
 const _paxBoardingRecentPlayByKey = new Map();
+const _PAX_STATIC_VOICE_CATALOG_URL = './audio-pax/gemini-survey-v1/catalog.json';
+let _paxStaticVoiceCatalogPromise = null;
+const _paxStaticClipCache = new Map();
+
+function _paxStaticVoiceAssetsEnabled() {
+    return localStorage.getItem('awm_pax_static_voice_assets') !== '0';
+}
+
+async function _paxLoadStaticVoiceCatalog() {
+    if (!_paxStaticVoiceAssetsEnabled()) return null;
+    if (_paxStaticVoiceCatalogPromise) return _paxStaticVoiceCatalogPromise;
+    _paxStaticVoiceCatalogPromise = fetch(_PAX_STATIC_VOICE_CATALOG_URL, { cache: 'force-cache' })
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null);
+    return _paxStaticVoiceCatalogPromise;
+}
+
+function _surveyPatternStaticClipKey(kind = 'event', spec = null) {
+    const type = String(spec?.type || '').toLowerCase() === 'orbit' ? 'orbit' : 'scan';
+    if (kind === 'survey_area_entered' || kind === 'survey_complete') return `${type}_${kind}`;
+    return String(kind || '').trim();
+}
+
+function _paxStaticClipUrl(catalog, clip) {
+    const rel = String(clip?.path || clip?.file || '').trim().replace(/^\.?\//, '');
+    if (!rel) return '';
+    const base = String(catalog?.basePath || './audio-pax/gemini-survey-v1').replace(/\/+$/, '');
+    return `${base}/${rel}`;
+}
+
+function _paxPickStaticVoiceClip(catalog, clipKey, speaker = null) {
+    const entry = catalog?.clips?.[clipKey];
+    const takes = Array.isArray(entry?.takes) ? entry.takes.filter(Boolean) : [];
+    if (!takes.length) return null;
+    const preferredVoices = _ttsVoiceCandidatesForSpeaker(speaker).map(v => String(v || '').trim()).filter(Boolean);
+    let pool = [];
+    for (const voice of preferredVoices) {
+        pool = takes.filter(t => String(t?.voice || '').toLowerCase() === voice.toLowerCase());
+        if (pool.length) break;
+    }
+    if (!pool.length) return null;
+    const seed = `${_paxMissionAudioKey(`static-${clipKey}`)}|${speaker?.name || ''}|${speaker?.role || ''}|${speaker?.roleProfile || ''}`;
+    return pool[_hashStable(seed) % pool.length] || null;
+}
+
+async function _paxResolveStaticSurveyClip(kind, spec = null, speaker = null) {
+    const catalog = await _paxLoadStaticVoiceCatalog();
+    if (!catalog?.clips || typeof catalog.clips !== 'object') return null;
+    const clipKey = _surveyPatternStaticClipKey(kind, spec);
+    const clip = _paxPickStaticVoiceClip(catalog, clipKey, speaker);
+    const url = _paxStaticClipUrl(catalog, clip);
+    return clip && url ? { catalog, clip, clipKey, url } : null;
+}
+
+async function _paxFetchStaticClipAudio(url, mimeType = '') {
+    const key = String(url || '');
+    if (!key) return null;
+    const cached = _paxStaticClipCache.get(key);
+    if (cached?.audioBuffer) return cached;
+    const res = await fetch(key, { cache: 'force-cache' }).catch(() => null);
+    if (!res?.ok) return null;
+    const audioBuffer = await res.arrayBuffer();
+    const rec = { audioBuffer, mimeType: mimeType || res.headers.get('content-type') || '' };
+    _paxStaticClipCache.set(key, rec);
+    return rec;
+}
+
+async function _paxPrimeStaticSurveyVoice(kind, spec = null, speaker = null) {
+    const resolved = await _paxResolveStaticSurveyClip(kind, spec, speaker);
+    if (!resolved) return false;
+    const rec = await _paxFetchStaticClipAudio(resolved.url, resolved.clip?.mimeType || '');
+    if (!rec?.audioBuffer) return false;
+    _paxLog(`Statische Pax Voice bereit: ${resolved.clipKey} | ${resolved.clip?.voice || 'voice'} | take ${resolved.clip?.take || '?'}`, 'state');
+    return true;
+}
+
+async function _paxTryPlayStaticSurveyVoice(kind, spec = null, speaker = null, epoch = _paxMissionEpoch) {
+    const resolved = await _paxResolveStaticSurveyClip(kind, spec, speaker);
+    if (!resolved) return false;
+    const rec = await _paxFetchStaticClipAudio(resolved.url, resolved.clip?.mimeType || '');
+    if (!rec?.audioBuffer) return false;
+    const played = await _paxDecodeAudioBufferAndPlay(
+        rec.audioBuffer.slice(0),
+        rec.mimeType || resolved.clip?.mimeType || '',
+        epoch,
+        `Static Pax ${resolved.clipKey}`
+    );
+    if (played) _paxLog(`Statische Pax Voice gespielt: ${resolved.clipKey} | ${resolved.clip?.voice || 'voice'} | take ${resolved.clip?.take || '?'}`, 'audio');
+    return !!played;
+}
 
 function _paxMissionAudioKey(kind) {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
@@ -4159,7 +4269,7 @@ function _rememberAndShowPrepared(text, speaker, eventLabel) {
     _showPaxMessage(text, eventLabel);
 }
 
-function _speakPreparedText(key, text, speaker, eventLabel) {
+function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
     const epoch = _paxMissionEpoch;
     const run = async () => {
         if (epoch !== _paxMissionEpoch) return;
@@ -4171,6 +4281,11 @@ function _speakPreparedText(key, text, speaker, eventLabel) {
             if (!_paxVoiceEnabled) {
                 _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
                 return;
+            }
+            if (typeof options.tryStaticAudio === 'function') {
+                const playedStatic = await options.tryStaticAudio(epoch);
+                if (epoch !== _paxMissionEpoch) return;
+                if (playedStatic) return;
             }
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
@@ -4302,7 +4417,9 @@ window.paxVoicePrepareSurveyPattern = function() {
         : ['survey_area_entered', 'line_complete'];
     const jobs = kinds.map(kind => {
         const text = _surveyPatternVoiceText(kind, spec);
-        return text ? _prepareTextAsTTS(_surveyPatternAudioKey(kind), text, speaker, epoch) : Promise.resolve(null);
+        if (!text) return Promise.resolve(null);
+        return _paxPrimeStaticSurveyVoice(kind, spec, speaker)
+            .then(staticReady => staticReady ? true : _prepareTextAsTTS(_surveyPatternAudioKey(kind), text, speaker, epoch));
     });
     return Promise.allSettled(jobs);
 };
@@ -4342,7 +4459,9 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     const label = kind === 'survey_complete'
         ? 'Survey erfüllt'
         : (kind.includes('reset') ? 'Survey-Korrektur' : 'Survey-Fortschritt');
-    _speakPreparedText(_surveyPatternAudioKey(kind), text, speaker, label);
+    _speakPreparedText(_surveyPatternAudioKey(kind), text, speaker, label, {
+        tryStaticAudio: (playEpoch) => _paxTryPlayStaticSurveyVoice(kind, spec, speaker, playEpoch)
+    });
 }
 
 function _tickSurveyPatternTask(lat, lon, flightData) {
@@ -7080,6 +7199,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (humorEl) humorEl.value = _paxHumorLevel;
     const ttsModelEl = document.getElementById('awmPaxTtsModelSelect');
     if (ttsModelEl) ttsModelEl.value = _paxTtsModelPref;
+    _syncPaxTtsHedgeControl();
     const audioStyleEl = document.getElementById('awmPaxAudioStyleSelect');
     if (audioStyleEl) audioStyleEl.value = _paxAudioStyle;
 

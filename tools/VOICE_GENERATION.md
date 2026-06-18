@@ -59,3 +59,41 @@ node tools/generate-elevenlabs-voice-packs.mjs --only ava-en --force
 - Problematische Kurzwoerter werden nicht mehr nackt gerendert, sondern aus einem deutschen Traegersatz automatisch auf den letzten Sprachblock zugeschnitten.
 - `ava-en` nutzt ein englisches Clip-Set bei identischen Clip-Keys (kompatibel mit der bestehenden AWM-Logik).
 - Ausgabe ist `mp3_44100_128` und damit breit kompatibel (inkl. Nicht-Apple-Geraete/Browser).
+
+# Gemini Pax Static Voice Assets
+
+Wiederholte Pax-/Survey-Kommentare koennen als lokale Gemini-TTS-Dateien vorgerendert werden. Die Runtime prueft dann zuerst:
+
+`audio-pax/gemini-survey-v1/catalog.json`
+
+Wenn ein passender Clip vorhanden ist, wird er lokal abgespielt. Fehlt der Katalog oder ein Clip, faellt `passenger-voice.js` unveraendert auf Gemini TTS zurueck.
+
+## Request-Plan ansehen
+
+```bash
+node tools/generate-gemini-pax-voice-assets.mjs --takes 2 --voices all
+```
+
+Die volle Default-Matrix rendert 10 feste Survey-Clips mit 5 Gemini-Stimmen und 2 Takes, also 100 TTS-Requests.
+
+## Clips rendern
+
+```bash
+export GEMINI_API_KEY="..."
+node tools/generate-gemini-pax-voice-assets.mjs --takes 2 --voices all --write
+```
+
+Alternativ liest das Script `GEMINI_API_KEY` aus `key.env.local`.
+
+## Gezielt rendern
+
+```bash
+node tools/generate-gemini-pax-voice-assets.mjs --voices Kore,Leda,Aoede --clips scan_survey_area_entered,line_complete --takes 2 --write
+```
+
+## Wichtige Punkte
+
+- Default-Modell ist `gemini-3.1-flash-tts-preview`.
+- Stimmen entsprechen dem Passenger-Voice-Pool: `Charon`, `Puck`, `Kore`, `Leda`, `Aoede`.
+- Gemini PCM/L16 wird als WAV gespeichert, damit der bestehende AudioContext-Player die Clips direkt decodieren kann.
+- Das Script schreibt `audio-pax/gemini-survey-v1/catalog.json`; erst dieser Katalog aktiviert die lokalen Clips in der Runtime.
