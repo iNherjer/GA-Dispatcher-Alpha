@@ -11812,7 +11812,7 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     return `Guide-Hinweis: ${paxName} hat gesicherte Ortsfakten zu ${target} vorbereitet. Die Details kommen unterwegs als kurze Guide-Ansagen; das Briefing bleibt beim Rahmen des ruhigen Rundflugs.`;
 }
 
-function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null } = {}) {
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
     const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
@@ -11874,6 +11874,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
         sarHeli: missionSarHeliSpecFromMission(mission) || null,
         bush: normalizedBushSpec,
+        infraInspectionOutcome: infraInspectionOutcome || mission?.infraInspectionOutcome || passenger?.infraInspectionOutcome || null,
         targetScene,
         constraints
     };
@@ -22604,15 +22605,25 @@ async function generateMission(options = {}) {
     const followupDestRef = String(followupAcceptance?.mode || '').toLowerCase() === 'onsite_to_home'
         ? followupHomeRef
         : followupTargetRef;
+    const followupIsPoiTarget = !!(
+        followupSeed
+        && (
+            followupDestRef?.kind === 'poi'
+            || followupTargetRef?.kind === 'poi'
+            || followupSeed?.poiFollowUp === true
+            || /^infra_/.test(String(followupSeed?.followUpKind || ''))
+        )
+    );
     const followupDispatchProfileId = String(
         followupAcceptance?.dispatchProfileId
+        || (followupIsPoiTarget ? followupSeed?.followUpProfileId : '')
         || followupSeed?.followUpKind
         || ''
     ).trim().toLowerCase();
     const followupStartAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
         ? window.missionFollowupAirportFromRef(followupStartRef)
         : null;
-    const followupDestAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
+    const followupDestAirport = followupSeed && !followupIsPoiTarget && typeof window.missionFollowupAirportFromRef === 'function'
         ? window.missionFollowupAirportFromRef(followupDestRef)
         : null;
     const followupBushRef = (ref = null) => {
@@ -22653,11 +22664,17 @@ async function generateMission(options = {}) {
     if (!followupStartAirport) syncAirportFieldValue('startLoc', currentStartICAO, { resolved: true });
 
     const rangePref = document.getElementById("distRange").value, regionPref = document.getElementById("regionFilter").value;
-    const followupPickerValue = followupDispatchProfileId
+    const followupPickerValue = followupSeed && typeof window.missionInfraPickerValueForFollowup === 'function'
+        ? (window.missionInfraPickerValueForFollowup(followupSeed) || (followupDispatchProfileId
+            ? (followupDispatchProfileId === 'apt_charter' || followupDispatchProfileId === 'apt_charter_pickup'
+                ? 'apt:charter'
+                : `bush:all+${followupDispatchProfileId}`)
+            : ''))
+        : (followupDispatchProfileId
         ? (followupDispatchProfileId === 'apt_charter' || followupDispatchProfileId === 'apt_charter_pickup'
             ? 'apt:charter'
             : `bush:all+${followupDispatchProfileId}`)
-        : '';
+        : '');
     const targetType = followupPickerValue || document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
@@ -22730,7 +22747,7 @@ async function generateMission(options = {}) {
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
     if (effectiveType === "poi" && targetDest) {
         targetDest = '';
-        dataSource = "Generiert";
+        dataSource = followupIsPoiTarget ? "Follow-up POI Dispatcher" : "Generiert";
     }
     let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
     let missionFireHazard = null;
@@ -22741,7 +22758,18 @@ async function generateMission(options = {}) {
     }
 
     dispatchPhaseStart('resolve_target');
-    if (targetDest) { dest = followupDestAirport || await getAirportData(targetDest); _ensureDispatchAlive(); } else {
+    if (followupIsPoiTarget && followupDestRef) {
+        dest = {
+            n: String(followupDestRef.name || followupDestRef.n || followupSeed?.route?.targetRef?.name || 'Infrastrukturziel').trim() || 'Infrastrukturziel',
+            lat: Number(followupDestRef.lat),
+            lon: Number(followupDestRef.lon ?? followupDestRef.lng),
+            elevation: Number.isFinite(Number(followupDestRef.elevation)) ? Math.round(Number(followupDestRef.elevation)) : null,
+            poiCategory: String(followupSeed?.followUpCategory || followupDestRef.category || followupDestRef.poiCategory || selectedPoiCategory || 'infrastructure').toLowerCase(),
+            source: 'followup-poi',
+            followUpRef: followupDestRef
+        };
+        dataSource = 'Follow-up POI Dispatcher';
+    } else if (targetDest) { dest = followupDestAirport || await getAirportData(targetDest); _ensureDispatchAlive(); } else {
         if (isBushDispatch) {
             dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
             _ensureDispatchAlive();
@@ -23610,7 +23638,7 @@ async function generateMission(options = {}) {
         }
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-        const aptFollowupDispatchMission = (followupSeed && followupDispatchProfileId === 'apt_charter_pickup' && typeof window.missionFollowupBuildDispatchMission === 'function')
+        const followupDispatchMission = (followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function')
             ? window.missionFollowupBuildDispatchMission(followupSeed, {
                 start,
                 dest,
@@ -23618,11 +23646,11 @@ async function generateMission(options = {}) {
                 missionWeather
             })
             : null;
-        if (!aiModeEnabled && aptFollowupDispatchMission?.mission) {
-            m = aptFollowupDispatchMission.mission;
-            paxText = aptFollowupDispatchMission.paxText || paxText;
-            cargoText = aptFollowupDispatchMission.cargoText || cargoText;
-            dataSource = aptFollowupDispatchMission.dataSource || 'Follow-up APT Dispatcher';
+        if (!aiModeEnabled && followupDispatchMission?.mission) {
+            m = followupDispatchMission.mission;
+            paxText = followupDispatchMission.paxText || paxText;
+            cargoText = followupDispatchMission.cargoText || cargoText;
+            dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
             m = await dispatchMeasure('writer_v4_main', async () => fetchMissionWriterV4({
@@ -23638,7 +23666,7 @@ async function generateMission(options = {}) {
                 bushSpec: null
             }));
         }
-        if (!m && !aptFollowupDispatchMission?.mission) {
+        if (!m && !followupDispatchMission?.mission) {
             await ensurePoiMissionContext('legacy_writer');
             m = await dispatchMeasure('writer_legacy_main', async () => fetchGeminiMission(
                 start.n,
@@ -23666,15 +23694,15 @@ async function generateMission(options = {}) {
                 }
             ));
         }
-        if (!m && aptFollowupDispatchMission?.mission) {
-            m = aptFollowupDispatchMission.mission;
-            paxText = aptFollowupDispatchMission.paxText || paxText;
-            cargoText = aptFollowupDispatchMission.cargoText || cargoText;
-            dataSource = aptFollowupDispatchMission.dataSource || 'Follow-up APT Dispatcher';
+        if (!m && followupDispatchMission?.mission) {
+            m = followupDispatchMission.mission;
+            paxText = followupDispatchMission.paxText || paxText;
+            cargoText = followupDispatchMission.cargoText || cargoText;
+            dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
         _ensureDispatchAlive();
-        if (m && aptFollowupDispatchMission?.mission && followupDispatchProfileId === 'apt_charter_pickup') {
-            const locked = aptFollowupDispatchMission.mission;
+        if (m && followupDispatchMission?.mission && followupDispatchProfileId === 'apt_charter_pickup') {
+            const locked = followupDispatchMission.mission;
             m = {
                 ...m,
                 cat: 'charter',
@@ -23687,8 +23715,27 @@ async function generateMission(options = {}) {
                 _requestedProfile: 'apt_charter_pickup',
                 _appliedProfile: 'apt_charter_pickup'
             };
-            paxText = locked.pax || locked.paxText || aptFollowupDispatchMission.paxText || paxText;
-            cargoText = locked.cargo || locked.cargoText || aptFollowupDispatchMission.cargoText || cargoText || '-';
+            paxText = locked.pax || locked.paxText || followupDispatchMission.paxText || paxText;
+            cargoText = locked.cargo || locked.cargoText || followupDispatchMission.cargoText || cargoText || '-';
+            m.pax = paxText;
+            m.paxText = paxText;
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
+        } else if (m && followupDispatchMission?.mission && followupIsPoiTarget) {
+            const locked = followupDispatchMission.mission;
+            m = {
+                ...m,
+                missionType: 'poi',
+                cat: locked.cat || m.cat || selectedPoiCategory,
+                followUpRequestId: locked.followUpRequestId || m.followUpRequestId || null,
+                followUpContinuation: locked.followUpContinuation || m.followUpContinuation || null,
+                followUpContext: locked.followUpContext || m.followUpContext || null,
+                missionTemporalContext: locked.missionTemporalContext || m.missionTemporalContext || null,
+                _requestedProfile: locked._requestedProfile || dispatchProfileId,
+                _appliedProfile: locked._appliedProfile || dispatchProfileId
+            };
+            paxText = locked.pax || locked.paxText || followupDispatchMission.paxText || paxText;
+            cargoText = locked.cargo || locked.cargoText || followupDispatchMission.cargoText || cargoText || '-';
             m.pax = paxText;
             m.paxText = paxText;
             m.cargo = cargoText;
@@ -24085,6 +24132,40 @@ async function generateMission(options = {}) {
             console.warn('[FollowUp] Recon outcome konnte nicht vorbereitet werden:', err?.message || err);
         }
     }
+    if (typeof window.missionInfraEnsureInspectionOutcome === 'function') {
+        try {
+            const infraOutcome = window.missionInfraEnsureInspectionOutcome(currentMissionData);
+            if (infraOutcome) {
+                if (typeof window.missionInfraApplyOutcomeToMission === 'function') {
+                    window.missionInfraApplyOutcomeToMission(currentMissionData, infraOutcome);
+                }
+                if (m && typeof m === 'object') {
+                    m.infraInspectionOutcome = infraOutcome;
+                    m.hiddenMissionOutcome = {
+                        ...(m.hiddenMissionOutcome && typeof m.hiddenMissionOutcome === 'object' ? m.hiddenMissionOutcome : {}),
+                        infraInspectionOutcome: infraOutcome
+                    };
+                    m.infraInspectionSceneDirective = currentMissionData.infraInspectionSceneDirective || infraOutcome.sceneProfile || null;
+                }
+                const infraTaskDomain = String(
+                    currentMissionData?.passenger?.taskDomain
+                    || m?.passenger?.taskDomain
+                    || currentMissionData?.missionPlanV2?.plan?.taskDomain
+                    || ''
+                ).toLowerCase();
+                initialTargetScene = sanitizeMissionTargetSceneSpec(currentMissionData.targetScene || initialTargetScene, {
+                    isPOI,
+                    taskDomain: infraTaskDomain,
+                    targetGeoContext: preMissionTargetGeoContext || null,
+                    missionPlanV2: currentMissionData.missionPlanV2 || missionPlanV2 || null
+                });
+                currentMissionData.targetScene = initialTargetScene;
+                currentMissionData.targetSceneAiNormalized = initialTargetScene;
+            }
+        } catch (err) {
+            console.warn('[FollowUp] Infra outcome konnte nicht vorbereitet werden:', err?.message || err);
+        }
+    }
     if (!followupSeed && typeof window.missionFollowupBuildProspectForMission === 'function') {
         const followUpProspect = window.missionFollowupBuildProspectForMission(currentMissionData);
         if (followUpProspect) {
@@ -24214,7 +24295,8 @@ async function generateMission(options = {}) {
         missionPlanV2,
         missionPlanV4: missionPlanV4 || currentMissionData.missionPlanV4 || null,
         missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null,
-        knowledgeContext: currentMissionData.knowledgeContext || null
+        knowledgeContext: currentMissionData.knowledgeContext || null,
+        infraInspectionOutcome: currentMissionData.infraInspectionOutcome || null
     });
     attachMissionStorageIdentity(activeMissionContract, currentMissionData);
     attachMissionStorageIdentity(window.activePassenger, currentMissionData);
@@ -24336,6 +24418,16 @@ async function generateMission(options = {}) {
                 followUpKind: currentMissionData.bushReconOutcome.followUpKind || null,
                 followUpLabel: currentMissionData.bushReconOutcome.followUpLabel || null,
                 hiddenFromWriter: currentMissionData.bushReconOutcome.hiddenFromWriter === true
+            } : null,
+            infraInspectionOutcome: currentMissionData.infraInspectionOutcome ? {
+                outcome: currentMissionData.infraInspectionOutcome.outcome || currentMissionData.infraInspectionOutcome.type || null,
+                label: currentMissionData.infraInspectionOutcome.label || null,
+                severity: currentMissionData.infraInspectionOutcome.severity || null,
+                damageType: currentMissionData.infraInspectionOutcome.damageType || null,
+                followUpKind: currentMissionData.infraInspectionOutcome.followUpKind || null,
+                followUpLabel: currentMissionData.infraInspectionOutcome.followUpLabel || null,
+                followUpProfileId: currentMissionData.infraInspectionOutcome.followUpProfileId || null,
+                hiddenFromWriter: currentMissionData.infraInspectionOutcome.hiddenFromWriter === true
             } : null,
             dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,

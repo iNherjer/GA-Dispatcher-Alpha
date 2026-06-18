@@ -278,6 +278,14 @@
         if (!md || typeof md !== 'object') return null;
         if (md.followUpContinuation || md.followUpRequestId) return null;
         const sourceKind = String(options.sourceKind || getProfileId(md) || '').toLowerCase();
+        if (sourceKind === 'inspection_infra' && typeof window.missionInfraBuildProspectForMission === 'function') {
+            try {
+                const infraProspect = window.missionInfraBuildProspectForMission(md);
+                if (infraProspect) return infraProspect;
+            } catch (err) {
+                console.warn('[FollowUp] Infra prospect failed:', err?.message || err);
+            }
+        }
         const cfg = SOURCE_MAP[sourceKind];
         if (!cfg) return null;
         const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null;
@@ -319,6 +327,8 @@
             lat,
             lon,
             elevation: Number.isFinite(Number(ref.elevation)) ? Math.round(Number(ref.elevation)) : null,
+            category: cleanText(ref.category || ref.poiCategory || '', 40),
+            poiCategory: cleanText(ref.poiCategory || ref.category || '', 40),
             isRemoteStrip: !!ref.isRemoteStrip
         };
     }
@@ -412,6 +422,7 @@
         const resolvedStartRef = normalizeRef(startRef);
         if (!req || !homeRef?.icao || !targetRef?.icao || !resolvedStartRef?.icao) return null;
         const followUpKind = String(req.followUpKind || '').toLowerCase();
+        const isPoiFollowup = req?.poiFollowUp === true || targetRef.kind === 'poi' || /^infra_/.test(followUpKind);
         const isServiceRun = followUpKind === 'bush_supply_strip';
         const isOutboundRun = isServiceRun || followUpKind === 'bush_charter_strip';
         const sameHome = refsSameAirport(resolvedStartRef, homeRef);
@@ -421,11 +432,13 @@
         const mode = onsite
             ? 'onsite_to_home'
             : (sameHome ? 'pickup_from_home' : 'pickup_from_third_place');
-        const dispatchProfileId = onsite
+        const dispatchProfileId = isPoiFollowup
+            ? String(req.followUpProfileId || (followUpKind === 'infra_recheck' ? 'inspection_infra' : 'mapping_survey')).toLowerCase()
+            : (onsite
             ? (followUpKind === 'bush_pickup_cargo'
                 ? 'bush_supply_strip'
                 : (followUpKind === 'apt_charter_pickup' ? 'apt_charter' : 'bush_charter_strip'))
-            : followUpKind;
+            : followUpKind);
         return {
             schema: 'ga.followup.acceptance.v1',
             mode,
@@ -461,9 +474,19 @@
             : normalizeRef(acceptance.targetRef);
     }
 
-    function pickerValueForProfile(profileId = '') {
+    function pickerValueForProfile(profileId = '', req = null) {
+        if (req && typeof window.missionInfraPickerValueForFollowup === 'function') {
+            try {
+                const poiValue = window.missionInfraPickerValueForFollowup(req);
+                if (poiValue) return poiValue;
+            } catch (_) {}
+        }
         const id = String(profileId || '').trim().toLowerCase();
         if (!id) return '';
+        if (req?.route?.targetRef?.kind === 'poi' || /^infra_/.test(String(req?.followUpKind || ''))) {
+            const cat = cleanText(req?.followUpCategory || req?.route?.targetRef?.category || 'infrastructure', 40).toLowerCase() || 'infrastructure';
+            return `poi:${cat}+${id}`;
+        }
         if (id === 'apt_charter' || id === 'apt_charter_pickup') return 'apt:charter';
         return `bush:all+${id}`;
     }
@@ -773,6 +796,7 @@
         const category = String(md?.cat || md?.category || md?.requestedCategory || md?.selectedCategory || md?.missionContract?.category || '').trim().toLowerCase();
         const taskDomain = String(md?.passenger?.taskDomain || md?.missionContract?.taskDomain || md?.taskDomain || '').trim().toLowerCase();
         const roleProfile = String(md?.passenger?.roleProfile || md?.missionContract?.passenger?.roleProfile || '').trim().toLowerCase();
+        if (explicit === 'inspection_infra' || taskDomain === 'inspection_infra') return 'inspection_infra';
         const hay = [
             category,
             taskDomain,
@@ -1102,6 +1126,14 @@
 
     function buildAllowedChainConfig(md = null, cargoOutcome = null) {
         if (!md || typeof md !== 'object') return null;
+        if (typeof window.missionInfraBuildAllowedChainConfig === 'function') {
+            try {
+                const infraChain = window.missionInfraBuildAllowedChainConfig(md, cargoOutcome);
+                if (infraChain) return infraChain;
+            } catch (err) {
+                console.warn('[FollowUp] Infra chain config failed:', err?.message || err);
+            }
+        }
         const cont = md.followUpContinuation && typeof md.followUpContinuation === 'object'
             ? md.followUpContinuation
             : null;
@@ -1316,6 +1348,14 @@
         const temporalHint = temporalContext?.stayText
             ? `Geplante Aufenthalts-/Wartezeit bis zur Folgeanfrage: ${displayText(temporalContext.stayText)}.`
             : '';
+        if ((req.poiFollowUp || req.route?.targetRef?.kind === 'poi' || /^infra_/.test(followUpKind)) && typeof window.missionInfraBuildPipelineContext === 'function') {
+            try {
+                const infraContext = window.missionInfraBuildPipelineContext(req, { ...context, acceptance });
+                if (infraContext) return infraContext;
+            } catch (err) {
+                console.warn('[FollowUp] Infra pipeline context failed:', err?.message || err);
+            }
+        }
         if (followUpKind === 'apt_charter_pickup') {
             const passenger = {
                 ...(req.passenger || {}),
@@ -1943,6 +1983,28 @@
         }
         let sourceKind = chainCfg?.sourceKind || getProfileId(md);
         let cfg = chainCfg || SOURCE_MAP[sourceKind];
+        let infraCfg = null;
+        if (!chainCfg && sourceKind === 'inspection_infra' && typeof window.missionInfraBuildFollowupConfigForMission === 'function') {
+            try {
+                infraCfg = window.missionInfraBuildFollowupConfigForMission(md);
+                if (infraCfg) {
+                    cfg = {
+                        ...infraCfg,
+                        sourceLabel: infraCfg.sourceLabel || 'Infrastruktur-Inspektion',
+                        followUpLabel: infraCfg.followUpLabel || 'Infra-Folgeflug'
+                    };
+                }
+            } catch (err) {
+                console.warn('[FollowUp] Infra follow-up config failed:', err?.message || err);
+            }
+        }
+        if (!cfg && !chainCfg && sourceKind === 'inspection_infra' && typeof window.missionInfraEnsureInspectionOutcome === 'function') {
+            let infraOutcome = null;
+            try { infraOutcome = window.missionInfraEnsureInspectionOutcome(md); } catch (_) { infraOutcome = null; }
+            if (infraOutcome && (!infraOutcome.followUpKind || infraOutcome.followUpKind === 'none')) {
+                return { created: false, reason: 'infra-no-followup', sourceKind, outcome: infraOutcome.outcome || infraOutcome.type || null };
+            }
+        }
         if (!cfg) return { created: false, reason: 'unsupported-source-profile', sourceKind };
         if (cargoOutcome && cargoOutcome.failed === true) return { created: false, reason: 'mission-failed', sourceKind };
         if (md.missionFailed === true || String(md.missionResult || '').toLowerCase() === 'failed') {
@@ -1993,10 +2055,10 @@
             lon: md.initialTargetLon ?? md.targetLon,
             elevation: md.targetElevation || null
         });
-        const homeRef = normalizeRef(chainCfg?.homeRef || continuation?.returnHomeRef || continuation?.acceptance?.returnHomeRef || bush?.homeRef || fallbackHomeRef);
-        const targetRef = normalizeRef(chainCfg?.targetRef || continuation?.targetRef || continuation?.acceptance?.targetRef || bush?.targetRef || fallbackTargetRef);
+        const homeRef = normalizeRef(chainCfg?.homeRef || cfg.homeRef || continuation?.returnHomeRef || continuation?.acceptance?.returnHomeRef || bush?.homeRef || fallbackHomeRef);
+        const targetRef = normalizeRef(chainCfg?.targetRef || cfg.targetRef || continuation?.targetRef || continuation?.acceptance?.targetRef || bush?.targetRef || fallbackTargetRef);
         if (!homeRef || !targetRef) return { created: false, reason: 'missing-route-refs', sourceKind };
-        if (!targetRef.icao) return { created: false, reason: 'missing-target-icao', sourceKind };
+        if (!targetRef.icao && targetRef.kind !== 'poi') return { created: false, reason: 'missing-target-icao', sourceKind };
         if (!homeRef.icao) return { created: false, reason: 'missing-home-icao', sourceKind };
 
         const sourceMissionId = cleanText(md.missionId || '', 120);
@@ -2008,7 +2070,11 @@
         if (existing) return { created: false, reason: 'duplicate', id, sourceKind };
 
         const passenger = cfg.passenger || (PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null);
-        const prospect = chainCfg ? null : buildProspectForMission({ ...md, passenger }, { sourceKind });
+        const prospect = infraCfg
+            ? (typeof window.missionInfraBuildProspectForMission === 'function'
+                ? window.missionInfraBuildProspectForMission(md)
+                : null)
+            : (chainCfg ? null : buildProspectForMission({ ...md, passenger }, { sourceKind }));
         const temporalContext = cfg.temporalContext
             || prospect?.temporalContext
             || missionTemporalContext({ ...md, passenger }, sourceKind);
@@ -2016,7 +2082,7 @@
         const eligibleAt = Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt || 0) > 0
             ? Number(temporalContext?.followUpEligibleAt || prospect?.eligibleAt)
             : nextLocalMorningAt(8);
-        const memory = buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
+        const memory = cfg.narrativeMemory || buildNarrativeMemory(sourceKind, { ...md, missionTemporalContext: temporalContext }, passenger, homeRef, targetRef);
         const serviceRun = cfg.serviceRun
             || (cfg.followUpKind === 'bush_supply_strip' && sourceKind === 'bush_recon_return'
                 ? buildServiceRunCargo(memory, targetRef)
@@ -2033,8 +2099,12 @@
             followUpKind: cfg.followUpKind,
             sourceLabel: cfg.sourceLabel,
             followUpLabel: cfg.followUpLabel,
+            followUpProfileId: cfg.followUpProfileId || null,
+            followUpCategory: cfg.followUpCategory || targetRef.category || null,
+            poiFollowUp: cfg.poiFollowUp === true || targetRef.kind === 'poi' || /^infra_/.test(String(cfg.followUpKind || '')),
             chain: cfg.chain || null,
             reconOutcome,
+            infraInspectionOutcome: cfg.infraInspectionOutcome || prospect?.infraInspectionOutcome || null,
             createdAt: now,
             updatedAt: now,
             eligibleAt,
@@ -2064,6 +2134,7 @@
                 serviceRun: serviceRun || memory.serviceRun || null,
                 technicianPlan: technicianPlan || memory.technicianPlan || null,
                 reconOutcome: reconOutcome || memory.reconOutcome || null,
+                infraInspectionOutcome: cfg.infraInspectionOutcome || prospect?.infraInspectionOutcome || memory.infraInspectionOutcome || null,
                 temporalContext,
                 stayDays: temporalContext?.stayDays || memory.stayDays || null,
                 stayText: temporalContext?.stayText || memory.stayText || '',
@@ -2072,7 +2143,9 @@
             ui: {
                 title: `${cfg.followUpLabel}: ${targetRef.name || targetRef.icao}`,
                 subtitle: `Fortsetzung von ${cfg.sourceLabel}`,
-                previewText: cfg.followUpKind === 'bush_pickup_strip'
+                previewText: cfg.poiFollowUp
+                    ? `${cfg.infraInspectionOutcome?.resultText || cfg.narrativeMemory?.sourceOutcomeText || 'Der Inspektionsbefund wird als POI-Folgeflug weiterbearbeitet.'}`
+                    : (cfg.followUpKind === 'bush_pickup_strip'
                     ? `${passenger?.name || 'Der Gast'} meldet sich vom Strip zur Rückholung.`
                     : (cfg.followUpKind === 'apt_charter_pickup'
                         ? `${passenger?.name || 'Der Chartergast'} meldet sich vom Zielplatz zur Rückholung.`
@@ -2080,11 +2153,11 @@
                         ? `${serviceRun?.observedIssue || 'Die Basis plant aus dem Recon-Befund einen Service Run.'}`
                         : (cfg.followUpKind === 'bush_charter_strip'
                             ? `${technicianPlan?.passenger?.name || passenger?.name || 'Der Techniker'} soll den Recon-Befund am Strip prüfen.`
-                            : `Am Strip wartet Rückfracht aus dem Supply Run.`)))
+                            : `Am Strip wartet Rückfracht aus dem Supply Run.`))))
             }
         };
         writeRequests([...getRequests(), req], { cloud: true });
-        rememberLastLandingRef(targetRef, { source, missionId: sourceMissionId });
+        rememberLastLandingRef(targetRef.kind === 'poi' ? homeRef : targetRef, { source, missionId: sourceMissionId });
         console.info('[FollowUp] Anfrage geplant', { id, sourceKind, followUpKind: cfg.followUpKind, eligibleAt, stayDays: temporalContext?.stayDays || null });
         return { created: true, id, sourceKind, followUpKind: cfg.followUpKind };
     }
@@ -2198,8 +2271,10 @@
             return false;
         }
         const home = airportFromRef(req.route?.homeRef);
-        const target = airportFromRef(req.route?.targetRef);
-        if (!home?.icao || !target?.icao) {
+        const rawTargetRef = normalizeRef(req.route?.targetRef);
+        const isPoiFollowup = !!(req.poiFollowUp || rawTargetRef?.kind === 'poi' || /^infra_/.test(String(req.followUpKind || '')));
+        const target = isPoiFollowup ? rawTargetRef : airportFromRef(req.route?.targetRef);
+        if (!home?.icao || (!isPoiFollowup && !target?.icao) || (isPoiFollowup && !target)) {
             alert('Folgeanfrage unvollständig: Start oder Ziel fehlt.');
             return false;
         }
@@ -2211,17 +2286,18 @@
             return false;
         }
         const start = airportFromRef(acceptance.startRef);
-        const dest = airportFromRef(acceptanceDestRef(acceptance));
-        if (!start?.icao || !dest?.icao) {
+        const acceptedDestRef = normalizeRef(acceptanceDestRef(acceptance));
+        const dest = isPoiFollowup ? acceptedDestRef : airportFromRef(acceptedDestRef);
+        if (!start?.icao || (!isPoiFollowup && !dest?.icao) || (isPoiFollowup && !dest)) {
             alert('Folgeanfrage unvollständig: Start oder Ziel fehlt.');
             return false;
         }
         const startEl = document.getElementById('startLoc');
         const destEl = document.getElementById('destLoc');
         const typeEl = document.getElementById('targetType');
-        const pickerValue = pickerValueForProfile(acceptance.dispatchProfileId || req.followUpKind);
+        const pickerValue = pickerValueForProfile(acceptance.dispatchProfileId || req.followUpKind, req);
         if (startEl) startEl.value = start.icao;
-        if (destEl) destEl.value = dest.icao;
+        if (destEl) destEl.value = isPoiFollowup ? '' : dest.icao;
         if (typeEl) {
             typeEl.value = pickerValue;
             try { localStorage.setItem('ga_target_type', pickerValue); } catch (_) {}
@@ -2231,7 +2307,9 @@
         }
         if (typeof window.syncToNavCom === 'function') {
             try { window.syncToNavCom('startLocRadio', start.icao); } catch (_) {}
-            try { window.syncToNavCom('destLocRadio', dest.icao); } catch (_) {}
+            if (!isPoiFollowup) {
+                try { window.syncToNavCom('destLocRadio', dest.icao); } catch (_) {}
+            }
             try { window.syncToNavCom('targetTypeRadio', pickerValue); } catch (_) {}
         }
         if (typeof window.generateMission !== 'function') {
@@ -2300,7 +2378,10 @@
             return false;
         }
         const sourceKind = getProfileId(md);
-        if (!SOURCE_MAP[sourceKind] && !buildAllowedChainConfig(md, null)) {
+        const infraSupported = !!(sourceKind === 'inspection_infra'
+            && typeof window.missionInfraBuildFollowupConfigForMission === 'function'
+            && window.missionInfraBuildFollowupConfigForMission(md));
+        if (!SOURCE_MAP[sourceKind] && !buildAllowedChainConfig(md, null) && !infraSupported) {
             alert('Diese Mission ist kein Follow-up-Auslöser.');
             return false;
         }
@@ -2556,6 +2637,15 @@
         let title = '';
         let bushSpec = null;
 
+        if ((req.poiFollowUp || req.route?.targetRef?.kind === 'poi' || /^infra_/.test(followUpKind)) && typeof window.missionInfraBuildDispatchMission === 'function') {
+            try {
+                const infraDispatch = window.missionInfraBuildDispatchMission(req, { ...context, acceptance, start, dest, totalDist: distNm });
+                if (infraDispatch?.mission) return infraDispatch;
+            } catch (err) {
+                console.warn('[FollowUp] Infra dispatch mission failed:', err?.message || err);
+            }
+        }
+
         if (followUpKind === 'apt_charter_pickup') {
             const p = req.passenger || {};
             passenger = {
@@ -2774,11 +2864,20 @@
         const lastLanding = getLastLandingRef();
         const activeMd = getActiveMissionData();
         const activeRecon = activeMd && isBushReconMission(activeMd) ? ensureBushReconOutcome(activeMd) : null;
+        const activeInfra = activeMd
+            && typeof window.missionInfraIsInspectionMission === 'function'
+            && window.missionInfraIsInspectionMission(activeMd)
+            && typeof window.missionInfraEnsureInspectionOutcome === 'function'
+            ? window.missionInfraEnsureInspectionOutcome(activeMd)
+            : null;
         lines.push('Follow-up Requests');
         lines.push(`- Pending: ${pending.length} | fällig: ${due.length} | geplant: ${future.length}`);
         lines.push(`- Letzte Landung: ${lastLanding?.icao ? `${lastLanding.icao} (${lastLanding.name || lastLanding.icao})` : '-'}`);
         if (activeRecon) {
             lines.push(`- Aktueller Recon-Ausgang: ${activeRecon.label || activeRecon.outcome} | Folge: ${activeRecon.followUpKind || 'none'} | hidden=${activeRecon.hiddenFromWriter === true ? 'ja' : 'nein'}`);
+        }
+        if (activeInfra) {
+            lines.push(`- Aktueller Infra-Ausgang: ${activeInfra.label || activeInfra.outcome} | Folge: ${activeInfra.followUpKind || 'none'} | hidden=${activeInfra.hiddenFromWriter === true ? 'ja' : 'nein'}`);
         }
         if (!list.length) {
             lines.push('- keine Requests gespeichert');
@@ -2810,7 +2909,11 @@
         if (completeBtn) {
             const md = getActiveMissionData();
             const sourceKind = getProfileId(md);
-            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null)));
+            const infraSupported = !!(md
+                && sourceKind === 'inspection_infra'
+                && typeof window.missionInfraBuildFollowupConfigForMission === 'function'
+                && window.missionInfraBuildFollowupConfigForMission(md));
+            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null) || infraSupported));
             completeBtn.disabled = !supported;
             completeBtn.textContent = supported ? 'Mission beenden' : 'Mission beenden -';
             completeBtn.title = supported
@@ -2841,6 +2944,13 @@
     window.missionFollowupBuildTemporalContext = buildTemporalContext;
     window.missionFollowupEnsureBushReconOutcome = ensureBushReconOutcome;
     window.missionFollowupDebugSetBushReconOutcome = debugSetReconOutcome;
+    window.missionFollowupDebugSetInfraInspectionOutcome = function(outcome = '') {
+        if (typeof window.missionInfraDebugSetInspectionOutcome === 'function') {
+            return window.missionInfraDebugSetInspectionOutcome(outcome);
+        }
+        alert('Infra-Outcome-Core ist nicht geladen.');
+        return false;
+    };
     window.missionFollowupMarkAccepted = markAccepted;
     window.missionFollowupGetForSync = getForSync;
     window.missionFollowupApplyFromSync = applyFromSync;

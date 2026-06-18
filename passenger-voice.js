@@ -1031,6 +1031,25 @@ function _activeBushReconOutcome() {
     return { ...raw, outcome };
 }
 
+function _activeInfraInspectionOutcome() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const taskDomain = String(
+        window.activePassenger?.taskDomain
+        || md?.missionContract?.taskDomain
+        || md?.passenger?.taskDomain
+        || ''
+    ).toLowerCase();
+    if (taskDomain !== 'inspection_infra') return null;
+    const raw = md.infraInspectionOutcome
+        || md.hiddenMissionOutcome?.infraInspectionOutcome
+        || md.missionContract?.infraInspectionOutcome
+        || null;
+    if (!raw || typeof raw !== 'object') return null;
+    const outcome = String(raw.outcome || raw.type || '').toLowerCase();
+    if (!outcome) return null;
+    return { ...raw, outcome };
+}
+
 function _bushReconOutcomeHintLine(stage = 'farewell') {
     const outcome = _activeBushReconOutcome();
     if (!outcome) return '';
@@ -1221,6 +1240,8 @@ function _inspectionMissionMeta() {
 }
 
 function _getPoiInspectionOutcome() {
+    const infraOutcome = _activeInfraInspectionOutcome();
+    if (infraOutcome?.outcome) return infraOutcome.outcome;
     if (_poiInspectionOutcome) return _poiInspectionOutcome;
     const options = ['clear', 'minor', 'damage', 'pending'];
     _poiInspectionOutcome = options[Math.floor(Math.random() * options.length)];
@@ -1237,7 +1258,23 @@ function _inspectionResultHint() {
     const meta = _inspectionMissionMeta();
     if (!meta) return '';
     const objectName = meta.objectName;
+    const infraOutcome = _activeInfraInspectionOutcome();
+    if (infraOutcome?.resultPrompt) {
+        return ` ${infraOutcome.resultPrompt}`;
+    }
     const outcome = _getPoiInspectionOutcome();
+    if (outcome === 'major_damage') {
+        return ` Inspektionsfazit: Bei "${objectName}" hast du einen klaren Schaden gesehen. Sage konkret, was betroffen wirkt, wie ernst es auf den ersten Blick aussieht und dass der Befund fuer Reparatur oder Sperrpruefung weitergemeldet werden muss.`;
+    }
+    if (outcome === 'minor_damage') {
+        return ` Inspektionsfazit: Bei "${objectName}" hast du eine begrenzte Schadstelle gesehen. Nenne kurz, was betroffen wirkt, dass keine Panik noetig ist, aber eine gezielte Dokumentation oder Nachpruefung folgen sollte.`;
+    }
+    if (outcome === 'monitor') {
+        return ` Inspektionsfazit: Bei "${objectName}" ist nur eine unklare oder kleine Auffaelligkeit offen. Sage, was unauffaellig wirkt, was beobachtet werden sollte und dass eine spaetere Nachpruefung reicht.`;
+    }
+    if (outcome === 'blocked_access') {
+        return ` Inspektionsfazit: Bei "${objectName}" wirkt eine Zufahrt, Trasse oder Arbeitsflaeche blockiert. Beschreibe den sichtbaren Befund kurz und dass daraus eine gezielte Dokumentations- oder Raeumungspruefung folgt.`;
+    }
     if (outcome === 'damage') {
         return ` Inspektionsfazit: Bei "${objectName}" hast du einen klaren Schaden gesehen. Sage konkret, was betroffen wirkt, wie ernst es auf den ersten Blick aussieht und dass der Befund fuer Reparatur oder Sperrpruefung weitergemeldet werden muss.`;
     }
