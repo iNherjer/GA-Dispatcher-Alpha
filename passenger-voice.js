@@ -4373,6 +4373,61 @@ function _surveyPatternOrientationText(ctx = null) {
     return `${vector} Das rote Scanmuster liegt schon auf der Karte. Such dir ein offenes Linienende, flieg die Nord-Sued-Bahn gerade ab und nimm danach die naechste offene Linie; erledigt sind ${done} von ${total}.`;
 }
 
+function _surveyPatternOuterRadiusNm(spec = null, fallbackRadiusNm = 1.5) {
+    if (!spec || typeof spec !== 'object') return Math.max(0.5, Number(fallbackRadiusNm || 0) || 1.5);
+    const center = spec.center || {};
+    const centerLat = Number(center.lat);
+    const centerLon = Number(center.lon);
+    if (String(spec.type || '').toLowerCase() === 'orbit') {
+        return Math.max(
+            Number(fallbackRadiusNm || 0) || 0,
+            Number(spec.orbit?.radiusNm || 0) + Number(spec.orbit?.radialToleranceNm || 0) + 0.25
+        );
+    }
+    let maxNm = 0;
+    if (Number.isFinite(centerLat) && Number.isFinite(centerLon) && Array.isArray(spec.scan?.lines)) {
+        for (const line of spec.scan.lines) {
+            for (const point of [line?.start, line?.end]) {
+                const lat = Number(point?.lat);
+                const lon = Number(point?.lon);
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    maxNm = Math.max(maxNm, _haversineNm(centerLat, centerLon, lat, lon));
+                }
+            }
+        }
+    }
+    return Math.max(Number(fallbackRadiusNm || 0) || 0, maxNm + 0.25, 0.5);
+}
+
+function _poiInSightGate({ taskDomain = '', distNm = 0, etaMin = 0, radiusNm = 1.5, effectiveGs = 95, surveyTickResult = null } = {}) {
+    const td = String(taskDomain || '').toLowerCase();
+    const dist = Number(distNm);
+    if (!Number.isFinite(dist)) return { ready: false, announcedEtaMin: 2, logEtaMin: etaMin };
+    if (td !== 'mapping_survey') {
+        return {
+            ready: Number(etaMin) <= 3.2 && dist <= Math.max(2.2, Number(radiusNm || 0) + 1.2),
+            announcedEtaMin: 2,
+            logEtaMin: etaMin
+        };
+    }
+    if (surveyTickResult?.progress?.startedAt) {
+        return { ready: false, announcedEtaMin: 2, logEtaMin: 0 };
+    }
+    const spec = _surveyPatternActiveSpec();
+    const surveyRadius = _surveyPatternOuterRadiusNm(spec, radiusNm);
+    const gs = Math.max(45, Number(effectiveGs || 0) || 95);
+    const etaToSurveyAreaMin = Math.max(0, ((dist - surveyRadius) / gs) * 60);
+    const stillOutsideSurvey = dist > surveyRadius + 0.25;
+    return {
+        ready: stillOutsideSurvey
+            && etaToSurveyAreaMin <= 3.6
+            && dist <= surveyRadius + 6.5,
+        announcedEtaMin: Math.max(2, Math.round(etaToSurveyAreaMin)),
+        logEtaMin: etaToSurveyAreaMin,
+        surveyRadiusNm: surveyRadius
+    };
+}
+
 function _surveyPatternAudioKey(kind = 'event') {
     return _paxMissionAudioKey(`survey-${kind}`);
 }
@@ -5531,7 +5586,7 @@ function _relativeClockPos(targetBearingDeg, headingDeg) {
     return `${hour > 12 ? hour - 12 : hour} Uhr`;
 }
 
-function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
+function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const ctx = _baseContext();
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     if (!ctx || !md) return null;
@@ -5543,7 +5598,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint || isLearningGuide) ? '' : _targetFactHint();
     const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactHint('in_sight') : '';
     const driftGuard = _domainDriftGuard('in_sight');
-    const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
+    const announcedEta = Math.max(1, Math.round(Number(options.announcedEtaMin || 0) || 2)); // Default bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
     const pax = window.activePassenger || {};
@@ -7071,12 +7126,22 @@ function _tickPoiDwell(lat, lon, flightData) {
         ? _tickSurveyPatternTask(lat, lon, flightData)
         : null;
 
+    const inSightGate = _poiInSightGate({
+        taskDomain,
+        distNm,
+        etaMin,
+        radiusNm: radius,
+        effectiveGs,
+        surveyTickResult
+    });
+
     // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
-    // Trigger bei ~3 min Restzeit (gesprochen wird "ca. 2 min", um Gen-/TTS-Latenz auszugleichen).
-    if (!_poiSightCallDone && !inRadius && etaMin <= 3.2 && distNm <= Math.max(2.2, radius + 1.2)) {
+    // Mapping-Survey nutzt die ETA bis zum Pattern-Rand, weil das Arbeitsgebiet groesser als der POI-Radius sein kann.
+    if (!_poiSightCallDone && !inRadius && inSightGate.ready) {
         _poiSightCallDone = true;
-        _paxLog(`POI pre-call | dist: ${distNm.toFixed(2)} NM | eta: ${etaMin.toFixed(1)} min | pos: ${clockPos}`, 'event');
-        const p = _poiInSightPrompt(flightData, distNm, etaMin, clockPos);
+        const surveyPart = Number.isFinite(Number(inSightGate.surveyRadiusNm)) ? ` | surveyR: ${Number(inSightGate.surveyRadiusNm).toFixed(2)} NM` : '';
+        _paxLog(`POI pre-call | dist: ${distNm.toFixed(2)} NM | eta: ${etaMin.toFixed(1)} min | etaGate: ${Number(inSightGate.logEtaMin || etaMin).toFixed(1)} min | pos: ${clockPos}${surveyPart}`, 'event');
+        const p = _poiInSightPrompt(flightData, distNm, etaMin, clockPos, { announcedEtaMin: inSightGate.announcedEtaMin });
         if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Objekt in Sicht'), 300);
     }
 
