@@ -2,6 +2,7 @@ const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
 const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles";
+const DEFAULT_OBS_INFRA_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/infra-tiles";
 
 const AIP_POPUP_ROUTES = {
   AT: "/at/en/vfr/",
@@ -1099,7 +1100,7 @@ function splitTileKey(tileKey) {
 function normalizeObstacleLayer(raw) {
   const layer = String(raw || "").trim().toLowerCase();
   if (!layer || layer === "v1" || layer === "legacy") return "core";
-  if (layer === "core" || layer === "poi") return layer;
+  if (layer === "core" || layer === "poi" || layer === "infra") return layer;
   return null;
 }
 
@@ -1117,6 +1118,7 @@ function buildObstacleTileCandidates(env, tileKey, layer) {
   const legacyBase = String((env && env.OBSTACLE_TILES_BASE) || DEFAULT_OBS_TILE_BASE).replace(/\/+$/, "");
   const coreBase = String((env && env.OBSTACLE_CORE_TILES_BASE) || legacyBase || DEFAULT_OBS_CORE_TILE_BASE).replace(/\/+$/, "");
   const poiBase = String((env && env.OBSTACLE_POI_TILES_BASE) || DEFAULT_OBS_POI_TILE_BASE).replace(/\/+$/, "");
+  const infraBase = String((env && env.OBSTACLE_INFRA_TILES_BASE) || DEFAULT_OBS_INFRA_TILE_BASE).replace(/\/+$/, "");
 
   function gz(url) { return url ? url.replace(/\.json$/, ".json.gz") : null; }
 
@@ -1125,6 +1127,14 @@ function buildObstacleTileCandidates(env, tileKey, layer) {
     const candidates = [];
     if (poiUrl) candidates.push({ layer: "poi", sourceKind: "split", url: gz(poiUrl), compressed: true });
     if (poiUrl) candidates.push({ layer: "poi", sourceKind: "split", url: poiUrl });
+    return candidates;
+  }
+
+  if (layer === "infra") {
+    const infraUrl = buildObstacleTileUrl(infraBase, tileKey);
+    const candidates = [];
+    if (infraUrl) candidates.push({ layer: "infra", sourceKind: "split", url: gz(infraUrl), compressed: true });
+    if (infraUrl) candidates.push({ layer: "infra", sourceKind: "split", url: infraUrl });
     return candidates;
   }
 
@@ -1161,7 +1171,7 @@ async function handleObstacleTile(request, requestUrl, env) {
   let chosen = null;
   let upstreamErr = null;
   let payload = null;
-  let obs = [], lin = [], poi = [];
+  let obs = [], lin = [], poi = [], infraPoi = [], infraClusters = [];
   for (const c of candidates) {
     try {
       const res = await fetch(c.url, {
@@ -1191,15 +1201,21 @@ async function handleObstacleTile(request, requestUrl, env) {
       } catch { continue; }
       const cObj = p && typeof p.core === "object" ? p.core : null;
       const pObj = p && typeof p.poi === "object" ? p.poi : null;
+      const iObj = p && typeof p.infra === "object" ? p.infra : null;
       const o = Array.isArray(p?.obs) ? p.obs : (Array.isArray(cObj?.obs) ? cObj.obs : []);
       const l = Array.isArray(p?.lin) ? p.lin : (Array.isArray(cObj?.lin) ? cObj.lin : []);
       const pi = Array.isArray(p?.poi) ? p.poi : (Array.isArray(pObj?.poi) ? pObj.poi : []);
-      if (layer !== "poi" && o.length === 0 && l.length === 0) continue;
+      const ip = Array.isArray(iObj?.poi) ? iObj.poi : [];
+      const ic = Array.isArray(iObj?.clusters) ? iObj.clusters : [];
+      if (layer === "infra" && ip.length === 0 && ic.length === 0) continue;
+      if (layer !== "poi" && layer !== "infra" && o.length === 0 && l.length === 0) continue;
       chosen = c;
       payload = p;
       obs = o;
       lin = l;
       poi = pi;
+      infraPoi = ip;
+      infraClusters = ic;
       break;
     } catch (error) {
       upstreamErr = error;
@@ -1231,6 +1247,8 @@ async function handleObstacleTile(request, requestUrl, env) {
   };
   if (layer === "poi") {
     body.poi = { poi };
+  } else if (layer === "infra") {
+    body.infra = { poi: infraPoi, clusters: infraClusters };
   } else {
     body.core = { obs, lin };
     // Legacy compatibility for clients expecting flat obs/lin.

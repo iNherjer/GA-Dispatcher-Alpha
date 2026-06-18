@@ -5,5 +5,11 @@
   "_repoRoot_help": "Pfad zum Git-Repo-Root. '..' funktioniert solange tools/ im Repo liegt (Normalfall).",
 
   "cacheDir": "/Volumes/ggg/tools/workbench-cache",
-  "_cacheDir_help": "/Volumes/ggg/tools/workbench-cache"
+  "_cacheDir_help": "/Volumes/ggg/tools/workbench-cache",
+
+  "pbfTtlDays": 90,
+  "_pbfTtlDays_help": "Lokale Geofabrik-PBFs im cacheDir/pbf werden erst nach dieser Anzahl Tage neu geladen.",
+
+  "infraBatchTileMax": 10,
+  "_infraBatchTileMax_help": "Maximale Anzahl ausgewaehlter Tiles, die pro Infra-Lade-Queue in PBF-Batches zusammengefasst werden."
 }

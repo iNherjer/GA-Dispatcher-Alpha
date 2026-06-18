@@ -13,7 +13,7 @@ Worker endpoint:
 
 - `GET /api/obstacles/tile?tile=<latIndex|lonIndex>`
 
-Response (JSON):
+Response (JSON), legacy/core layer:
 
 ```json
 {
@@ -33,6 +33,18 @@ The app also accepts:
 
 - `{ "features": { "obs": [...], "lin": [...] } }`
 - `{ "elements": [...] }` (raw Overpass-like payload)
+
+Split layers use the same tile key:
+
+- `obstacles/core-tiles/<latI>/<lonI>.json.gz` for obstacle/navigation context
+- `obstacles/poi-tiles/<latI>/<lonI>.json.gz` for POI target/story selection
+- `obstacles/infra-tiles/<latI>/<lonI>.json.gz` for optional infrastructure context
+
+Worker layer selection:
+
+- `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=core`
+- `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=poi`
+- `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=infra`
 
 ## Local generation
 
@@ -73,9 +85,13 @@ Behavior:
 - `Auswahl laden`: queue selected tiles and process serially.
 - `Failed erneut laden`: retry all failed tiles.
 - `Neue Ergebnisse pushen`: `git add` + `git commit` + `git push` for:
-  - `obstacles/tiles`
-  - `obstacles/manifest.v1.json`
-  - `obstacles/failed-tiles.json`
+  - `obstacles/core-tiles`
+  - `obstacles/poi-tiles`
+  - `obstacles/infra-tiles`
+  - `obstacles/core-manifest.v1.json`
+  - `obstacles/poi-manifest.v1.json`
+  - `obstacles/infra-manifest.v1.json`
+  - `obstacles/failed-split-tiles.json`
 
 Status colors in grid:
 

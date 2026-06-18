@@ -71,7 +71,14 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
             OR tags['natural']  = 'water'
             OR tags['water']    IS NOT NULL
             OR tags['landuse']  IN ('reservoir','basin')
-            OR tags['power']    IN ('line','minor_line','cable')
+            OR tags['power']    IN ('line','minor_line','cable','plant','generator','substation','transformer','switchgear','converter','compensator')
+            OR tags['generator:source'] IS NOT NULL
+            OR tags['plant:source'] IS NOT NULL
+            OR tags['generator:method'] IS NOT NULL
+            OR tags['plant:method'] IS NOT NULL
+            OR tags['substation'] IS NOT NULL
+            OR tags['transformer'] IS NOT NULL
+            OR tags['bridge'] IS NOT NULL
             OR tags['man_made'] IN ('bridge','tower','mast')
             OR tags['historic'] IS NOT NULL
             OR tags['tourism']  IS NOT NULL
@@ -156,7 +163,17 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
       tags['tourism']  AS tourism,
       tags['historic'] AS historic,
       tags['amenity']  AS amenity,
-      tags['leisure']  AS leisure
+      tags['leisure']  AS leisure,
+      tags['generator:source'] AS generator_source,
+      tags['plant:source'] AS plant_source,
+      tags['generator:method'] AS generator_method,
+      tags['plant:method'] AS plant_method,
+      tags['substation'] AS substation,
+      tags['transformer'] AS transformer,
+      tags['voltage'] AS voltage,
+      tags['operator'] AS operator,
+      tags['ref'] AS ref,
+      tags['bridge'] AS bridge
     FROM sampled
     WHERE rn = 1 OR rn = cnt OR (cnt >= 10 AND rn % 6 = 0) OR (cnt < 10 AND rn % 3 = 0)
     """
@@ -176,7 +193,17 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
       tags['power']    AS power,
       tags['railway']  AS railway,
       tags['highway']  AS highway,
-      tags['place']    AS place
+      tags['place']    AS place,
+      tags['generator:source'] AS generator_source,
+      tags['plant:source'] AS plant_source,
+      tags['generator:method'] AS generator_method,
+      tags['plant:method'] AS plant_method,
+      tags['substation'] AS substation,
+      tags['transformer'] AS transformer,
+      tags['voltage'] AS voltage,
+      tags['operator'] AS operator,
+      tags['ref'] AS ref,
+      tags['bridge'] AS bridge
     FROM bbox_nodes
     WHERE
       tags['tourism']  IS NOT NULL
@@ -188,6 +215,13 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
       OR tags['leisure']  IS NOT NULL
       OR tags['man_made'] IS NOT NULL
       OR tags['power']    IS NOT NULL
+      OR tags['generator:source'] IS NOT NULL
+      OR tags['plant:source'] IS NOT NULL
+      OR tags['generator:method'] IS NOT NULL
+      OR tags['plant:method'] IS NOT NULL
+      OR tags['substation'] IS NOT NULL
+      OR tags['transformer'] IS NOT NULL
+      OR tags['bridge'] IS NOT NULL
       OR tags['railway']  IS NOT NULL
       OR tags['highway']  IN ('motorway_junction','trunk_junction','crossing','traffic_signals')
       OR tags['place']    IS NOT NULL
@@ -216,7 +250,9 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
     lines = []
     for r in way_rows:
         (layer, name, lat, lon, highway, railway, waterway, power,
-         man_made, natural, water, landuse, tourism, historic, amenity, leisure) = r
+         man_made, natural, water, landuse, tourism, historic, amenity, leisure,
+         generator_source, plant_source, generator_method, plant_method, substation,
+         transformer, voltage, operator, ref, bridge) = r
         lines.append({
             "layer": layer, "name": name or "",
             "lat": float(lat), "lon": float(lon),
@@ -224,18 +260,28 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
             "power": power, "man_made": man_made, "natural": natural,
             "water": water, "landuse": landuse, "tourism": tourism,
             "historic": historic, "amenity": amenity, "leisure": leisure,
+            "generator_source": generator_source, "plant_source": plant_source,
+            "generator_method": generator_method, "plant_method": plant_method,
+            "substation": substation, "transformer": transformer, "voltage": voltage,
+            "operator": operator, "ref": ref, "bridge": bridge,
         })
 
     poi = []
     for r in poi_rows:
         (name, lat, lon, natural, water, landuse, tourism, historic,
-         amenity, leisure, man_made, power, railway, highway, place) = r
+         amenity, leisure, man_made, power, railway, highway, place,
+         generator_source, plant_source, generator_method, plant_method, substation,
+         transformer, voltage, operator, ref, bridge) = r
         poi.append({
             "name": name or "", "lat": float(lat), "lon": float(lon),
             "natural": natural, "water": water, "landuse": landuse,
             "tourism": tourism, "historic": historic, "amenity": amenity,
             "leisure": leisure, "man_made": man_made, "power": power,
             "railway": railway, "highway": highway, "place": place,
+            "generator_source": generator_source, "plant_source": plant_source,
+            "generator_method": generator_method, "plant_method": plant_method,
+            "substation": substation, "transformer": transformer, "voltage": voltage,
+            "operator": operator, "ref": ref, "bridge": bridge,
         })
 
     def dedupe(items, keys):
@@ -297,7 +343,17 @@ def _way_points_fallback(con):
       tags['highway'] AS highway, tags['railway'] AS railway, tags['waterway'] AS waterway,
       tags['power'] AS power, tags['man_made'] AS man_made, tags['natural'] AS natural,
       tags['water'] AS water, tags['landuse'] AS landuse, tags['tourism'] AS tourism,
-      tags['historic'] AS historic, tags['amenity'] AS amenity, tags['leisure'] AS leisure
+      tags['historic'] AS historic, tags['amenity'] AS amenity, tags['leisure'] AS leisure,
+      tags['generator:source'] AS generator_source,
+      tags['plant:source'] AS plant_source,
+      tags['generator:method'] AS generator_method,
+      tags['plant:method'] AS plant_method,
+      tags['substation'] AS substation,
+      tags['transformer'] AS transformer,
+      tags['voltage'] AS voltage,
+      tags['operator'] AS operator,
+      tags['ref'] AS ref,
+      tags['bridge'] AS bridge
     FROM sampled
     WHERE rn = 1 OR rn = cnt OR (cnt >= 10 AND rn % 6 = 0) OR (cnt < 10 AND rn % 3 = 0)
     """

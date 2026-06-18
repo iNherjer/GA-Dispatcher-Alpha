@@ -46,12 +46,15 @@ const HTML_PATH = path.join(TOOLS_DIR, 'obstacle-tile-workbench.html');
 const OBST_DIR = path.join(ROOT, 'obstacles');
 const CORE_TILE_DIR = path.join(OBST_DIR, 'core-tiles');
 const POI_TILE_DIR = path.join(OBST_DIR, 'poi-tiles');
+const INFRA_TILE_DIR = path.join(OBST_DIR, 'infra-tiles');
 const CORE_MANIFEST_PATH = path.join(OBST_DIR, 'core-manifest.v1.json');
 const POI_MANIFEST_PATH = path.join(OBST_DIR, 'poi-manifest.v1.json');
+const INFRA_MANIFEST_PATH = path.join(OBST_DIR, 'infra-manifest.v1.json');
 const FAILED_PATH = path.join(OBST_DIR, 'failed-split-tiles.json');
 
 const WORKBENCH_TMP_DIR = path.join(CACHE_BASE, 'obs-split');
 const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
+const WORKBENCH_TMP_ENRICH_DIR = path.join(WORKBENCH_TMP_DIR, 'infra-enrichment');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
@@ -62,7 +65,8 @@ const WORKBENCH_PBF_THIN_LIN_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_
 const WORKBENCH_PBF_THIN_POI_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_POI_MAX || 250));
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
-const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
+const PBF_CACHE_TTL_DAYS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || _cfg.pbfTtlDays || 7));
+const PBF_CACHE_TTL_MS = PBF_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 const TILE_STEP_DEG = 25 / 60;
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
@@ -81,9 +85,26 @@ const pbfDownloadPromises = new Map(); // regionId -> Promise (dedup concurrent 
 const queue = [];
 const queueSet = new Set();
 const queueFreshSet = new Set();
+const infraEnrichQueue = [];
+const infraEnrichQueueSet = new Set();
 let processing = false;
 let currentTile = null;
+let infraEnrichProcessing = false;
+let infraEnrichCurrentTile = null;
 let autoPushWhenDone = false; // set via enqueue autoPush:true
+let autoPushInfraEnrichWhenDone = false; // set via enrich autoPush:true
+let pushStatus = {
+  running: false,
+  ok: null,
+  phase: 'idle',
+  step: '',
+  message: 'Noch kein Push gestartet.',
+  startedAt: 0,
+  finishedAt: 0,
+  updatedAt: 0,
+  commitMessage: '',
+  stagedFiles: []
+};
 const WORKBENCH_RETRIES = Number(process.env.OBS_WORKBENCH_RETRIES || 4);
 const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
 const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
@@ -91,6 +112,7 @@ const WORKBENCH_504_EXTRA_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_504_EXT
 const WORKBENCH_CACHE_RECOVERY_RETRY_MS = Number(process.env.OBS_WORKBENCH_CACHE_RECOVERY_RETRY_MS || 10000);
 const WORKBENCH_PROCESS_LOG_MAX = Math.max(20, Number(process.env.OBS_WORKBENCH_PROCESS_LOG_MAX || 250));
 const WORKBENCH_REPO_SYNC_TIMEOUT_MS = Math.max(5000, Number(process.env.OBS_WORKBENCH_REPO_SYNC_TIMEOUT_MS || 25000));
+const INFRA_ENRICH_BATCH_TILE_MAX = Math.max(1, Number(process.env.OBS_WORKBENCH_INFRA_BATCH_TILE_MAX || _cfg.infraBatchTileMax || 10));
 const lastResults = new Map();
 let lastRepoSync = {
   ok: false,
@@ -118,6 +140,8 @@ let lastRepoSync = {
 let repoSyncPromise = null;
 let processSeq = 0;
 const processLog = [];
+const tileStateEntryCache = new Map();
+let collectTileStatePromise = null;
 const currentProgress = {
   tile: null,
   phase: 'idle',
@@ -145,6 +169,31 @@ function pushProcessEvent(event, details = {}) {
     processLog.splice(0, processLog.length - WORKBENCH_PROCESS_LOG_MAX);
   }
   return entry;
+}
+
+function setPushStatus(patch = {}, options = {}) {
+  Object.assign(pushStatus, patch, { updatedAt: Date.now() });
+  if (options && options.silent) return pushStatus;
+  pushProcessEvent('push-status', {
+    tile: '-',
+    running: !!pushStatus.running,
+    ok: pushStatus.ok,
+    phase: pushStatus.phase,
+    step: pushStatus.step,
+    message: pushStatus.message,
+    stagedFileCount: Array.isArray(pushStatus.stagedFiles) ? pushStatus.stagedFiles.length : 0,
+    commitMessage: pushStatus.commitMessage || ''
+  });
+  return pushStatus;
+}
+
+function statSignature(filePath, stat, exists) {
+  if (!exists || !stat) return 'missing';
+  return [
+    filePath,
+    Math.round(Number(stat.mtimeMs || 0)),
+    Number(stat.size || 0)
+  ].join('|');
 }
 
 function setCurrentProgress(patch = {}) {
@@ -788,19 +837,21 @@ async function readJsonMaybeGz(filePath, fallback = null) {
   }
 }
 
-function getTileCounts(corePayload, poiPayload) {
+function getTileCounts(corePayload, poiPayload, infraPayload = null) {
   return {
     obs: Number(corePayload?.counts?.obs || 0),
     lin: Number(corePayload?.counts?.lin || 0),
-    poi: Number(poiPayload?.counts?.poi || 0)
+    poi: Number(poiPayload?.counts?.poi || 0),
+    infra: Number(infraPayload?.counts?.infra || infraPayload?.counts?.poi || infraPayload?.infra?.poi?.length || 0),
+    clusters: Number(infraPayload?.counts?.clusters || infraPayload?.infra?.clusters?.length || 0)
   };
 }
 
-function getTileDataStatus(corePayload, poiPayload) {
+function getTileDataStatus(corePayload, poiPayload, infraPayload = null) {
   const explicit = String(corePayload?.meta?.dataStatus || poiPayload?.meta?.dataStatus || '').trim();
   if (explicit === 'empty' || explicit === 'loaded') return explicit;
-  const counts = getTileCounts(corePayload, poiPayload);
-  return (counts.obs + counts.lin + counts.poi) === 0 ? 'empty' : 'loaded';
+  const counts = getTileCounts(corePayload, poiPayload, infraPayload);
+  return (counts.obs + counts.lin + counts.poi + counts.infra + counts.clusters) === 0 ? 'empty' : 'loaded';
 }
 
 function mergeCombinedChunks(chunks, tileMeta) {
@@ -902,8 +953,311 @@ function mergePoiPayload(existingPoi, incomingPoi) {
     tile: String(incomingPoi?.tile || existingPoi?.tile || ''),
     source: String(incomingPoi?.source || existingPoi?.source || ''),
     generatedAt: String(incomingPoi?.generatedAt || new Date().toISOString()),
+    meta: existingPoi?.meta || incomingPoi?.meta || undefined,
     poi: { poi },
     counts: { poi: poi.length }
+  };
+}
+
+const INFRA_ENRICHMENT_SCHEMA = 'ga.infraEnrichment.v1';
+const INFRA_ENRICHMENT_FIELDS = [
+  'infra_type',
+  'ref',
+  'operator',
+  'osm_kind',
+  'osm_id',
+  'generator_source',
+  'plant_source',
+  'generator_method',
+  'plant_method',
+  'substation',
+  'transformer',
+  'voltage',
+  'frequency',
+  'location',
+  'utility',
+  'bridge',
+  'service',
+  'industrial',
+  'building',
+  'material',
+  'sample_count',
+  'infra_enriched'
+];
+
+function nonEmptyValue(value) {
+  if (value === true) return true;
+  if (value === false || value === null || value === undefined) return false;
+  return String(value).trim() !== '';
+}
+
+const INFRA_MAJOR_HIGHWAY = new Set([
+  'motorway', 'motorway_link',
+  'trunk', 'trunk_link',
+  'primary', 'primary_link',
+  'secondary', 'secondary_link',
+  'tertiary', 'tertiary_link'
+]);
+const INFRA_MAJOR_RAIL = new Set(['rail', 'light_rail', 'narrow_gauge', 'subway', 'tram']);
+const INFRA_INDUSTRIAL_MAN_MADE = new Set([
+  'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo',
+  'chimney', 'tower', 'mast', 'communications_tower'
+]);
+
+function inferInfraType(raw = {}) {
+  const clean = (value) => String(value || '').trim().toLowerCase();
+  const power = clean(raw.power);
+  const generatorSource = clean(raw.generator_source || raw['generator:source']);
+  const plantSource = clean(raw.plant_source || raw['plant:source']);
+  const highway = clean(raw.highway);
+  const railway = clean(raw.railway);
+  const waterway = clean(raw.waterway);
+  const manMade = clean(raw.man_made || raw.manMade);
+  const bridge = clean(raw.bridge);
+  const landuse = clean(raw.landuse);
+  const industrial = clean(raw.industrial);
+  const amenity = clean(raw.amenity);
+  if (generatorSource === 'solar' || plantSource === 'solar') return 'solar';
+  if (generatorSource === 'wind' || plantSource === 'wind') return 'wind';
+  if (/(hydro|water)/.test(`${generatorSource} ${plantSource}`) || ['dam', 'weir'].includes(waterway)) return 'hydro';
+  if (['substation', 'transformer', 'switchgear', 'converter', 'compensator'].includes(power)) return 'power_station';
+  if (['line', 'minor_line', 'cable', 'tower', 'pole'].includes(power)) return 'power_grid';
+  if (bridge && bridge !== 'no') return 'bridge';
+  if (manMade === 'bridge') return 'bridge';
+  if (INFRA_MAJOR_RAIL.has(railway)) return 'rail';
+  if (INFRA_MAJOR_HIGHWAY.has(highway)) return 'road';
+  if (
+    landuse === 'industrial' ||
+    industrial ||
+    INFRA_INDUSTRIAL_MAN_MADE.has(manMade) ||
+    ['water_works', 'wastewater_plant', 'waste_transfer_station', 'fuel', 'bus_station'].includes(amenity)
+  ) return 'industrial';
+  if (power) return 'power';
+  return 'infra';
+}
+
+function cleanInfraPoiEntry(raw = {}) {
+  const lat = Number(raw?.lat);
+  const lon = Number(raw?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const out = {
+    name: String(raw?.name || '').slice(0, 90),
+    lat: Math.round(lat * 1e5) / 1e5,
+    lon: Math.round(lon * 1e5) / 1e5,
+    tourism: String(raw?.tourism || '').toLowerCase(),
+    historic: String(raw?.historic || '').toLowerCase(),
+    natural: String(raw?.natural || '').toLowerCase(),
+    water: String(raw?.water || '').toLowerCase(),
+    landuse: String(raw?.landuse || '').toLowerCase(),
+    amenity: String(raw?.amenity || '').toLowerCase(),
+    leisure: String(raw?.leisure || '').toLowerCase(),
+    man_made: String(raw?.man_made || '').toLowerCase(),
+    power: String(raw?.power || '').toLowerCase(),
+    railway: String(raw?.railway || '').toLowerCase(),
+    highway: String(raw?.highway || '').toLowerCase(),
+    waterway: String(raw?.waterway || '').toLowerCase(),
+    layer: String(raw?.layer || '').toLowerCase(),
+    place: String(raw?.place || '').toLowerCase(),
+    infra_type: String(raw?.infra_type || inferInfraType(raw)).toLowerCase(),
+    sourceKind: 'infra'
+  };
+  for (const key of INFRA_ENRICHMENT_FIELDS) {
+    const value = raw?.[key];
+    if (!nonEmptyValue(value)) continue;
+    if (key === 'sample_count') out[key] = Math.max(0, Math.round(Number(value || 0)));
+    else if (key === 'infra_enriched') out[key] = true;
+    else out[key] = String(value).slice(0, 120);
+  }
+  out.infra_enriched = true;
+  return out;
+}
+
+function infraPoiPrimaryKey(e = {}) {
+  const osmKind = String(e?.osm_kind || '').trim();
+  const osmId = String(e?.osm_id || '').trim();
+  if (osmKind && osmId) return `osm|${osmKind}|${osmId}`;
+  return '';
+}
+
+function infraPoiGeoKey(e = {}) {
+  return [
+    String(e?.name || ''),
+    Math.round(Number(e?.lat || 0) * 1e5),
+    Math.round(Number(e?.lon || 0) * 1e5),
+    String(e?.power || ''),
+    String(e?.man_made || ''),
+    String(e?.railway || ''),
+    String(e?.highway || ''),
+    String(e?.waterway || '')
+  ].join('|');
+}
+
+function mergeInfraPoiEntries(existing = {}, incoming = {}) {
+  const out = { ...existing };
+  for (const [key, value] of Object.entries(incoming || {})) {
+    if (!nonEmptyValue(value)) continue;
+    if (key === 'sample_count') {
+      out[key] = Math.max(Number(out[key] || 0), Number(value || 0));
+    } else if (key === 'infra_enriched') {
+      out[key] = true;
+    } else {
+      out[key] = value;
+    }
+  }
+  out.infra_enriched = true;
+  return out;
+}
+
+function mergeInfraEnrichmentPayload(existingPoi, enrichmentPayload, metaPatch = {}) {
+  const exPoi = Array.isArray(existingPoi?.poi?.poi)
+    ? existingPoi.poi.poi
+    : (Array.isArray(existingPoi?.poi) ? existingPoi.poi : []);
+  const incomingRaw = Array.isArray(enrichmentPayload?.poi) ? enrichmentPayload.poi : [];
+  const incoming = incomingRaw.map(cleanInfraPoiEntry).filter(Boolean);
+  const poi = exPoi.map(e => ({ ...e }));
+  const primaryIndex = new Map();
+  const geoIndex = new Map();
+  for (let i = 0; i < poi.length; i++) {
+    const primary = infraPoiPrimaryKey(poi[i]);
+    if (primary && !primaryIndex.has(primary)) primaryIndex.set(primary, i);
+    const geo = infraPoiGeoKey(poi[i]);
+    if (geo && !geoIndex.has(geo)) geoIndex.set(geo, i);
+  }
+
+  let added = 0;
+  let updated = 0;
+  for (const entry of incoming) {
+    const primary = infraPoiPrimaryKey(entry);
+    const geo = infraPoiGeoKey(entry);
+    const idx = (primary && primaryIndex.has(primary))
+      ? primaryIndex.get(primary)
+      : (geo && geoIndex.has(geo) ? geoIndex.get(geo) : -1);
+    if (idx >= 0) {
+      poi[idx] = mergeInfraPoiEntries(poi[idx], entry);
+      updated += 1;
+    } else {
+      const nextIdx = poi.length;
+      poi.push(entry);
+      if (primary) primaryIndex.set(primary, nextIdx);
+      if (geo) geoIndex.set(geo, nextIdx);
+      added += 1;
+    }
+  }
+
+  const existingMeta = existingPoi?.meta && typeof existingPoi.meta === 'object' ? existingPoi.meta : {};
+  const prevInfra = existingMeta.infraEnrichment && typeof existingMeta.infraEnrichment === 'object'
+    ? existingMeta.infraEnrichment
+    : {};
+  const nowIso = new Date().toISOString();
+  const sourceRegions = Array.from(new Set([
+    ...(Array.isArray(prevInfra.pbfRegions) ? prevInfra.pbfRegions : []),
+    ...(Array.isArray(metaPatch.pbfRegions) ? metaPatch.pbfRegions : [])
+  ].map(String).filter(Boolean)));
+  const meta = {
+    ...existingMeta,
+    dataStatus: 'loaded',
+    infraEnrichment: {
+      ...prevInfra,
+      schema: INFRA_ENRICHMENT_SCHEMA,
+      version: 1,
+      enrichedAt: nowIso,
+      tile: String(metaPatch.tile || enrichmentPayload?.tile || existingPoi?.tile || ''),
+      source: 'pbf',
+      pbfRegions: sourceRegions,
+      lastIncoming: incoming.length,
+      totalIncoming: Number(prevInfra.totalIncoming || 0) + incoming.length,
+      totalAdded: Number(prevInfra.totalAdded || 0) + added,
+      totalUpdated: Number(prevInfra.totalUpdated || 0) + updated,
+      fields: INFRA_ENRICHMENT_FIELDS.filter(k => k !== 'infra_enriched')
+    }
+  };
+
+  return {
+    payload: {
+      v: 1,
+      tile: String(enrichmentPayload?.tile || existingPoi?.tile || metaPatch.tile || ''),
+      source: String(existingPoi?.source || enrichmentPayload?.source || ''),
+      generatedAt: String(existingPoi?.generatedAt || nowIso),
+      meta,
+      poi: { poi },
+      counts: { poi: poi.length }
+    },
+    stats: {
+      incoming: incoming.length,
+      added,
+      updated,
+      total: poi.length
+    }
+  };
+}
+
+function getInfraPayloadPoiList(payload = {}) {
+  if (Array.isArray(payload?.infra?.poi)) return payload.infra.poi;
+  if (Array.isArray(payload?.poi)) return payload.poi;
+  if (Array.isArray(payload?.poi?.poi)) return payload.poi.poi;
+  return [];
+}
+
+function mergeInfraTilePayload(existingInfra, incomingInfra, metaPatch = {}) {
+  const existingRaw = getInfraPayloadPoiList(existingInfra);
+  const incomingRaw = getInfraPayloadPoiList(incomingInfra);
+  const poi = existingRaw.map(cleanInfraPoiEntry).filter(Boolean);
+  const primaryIndex = new Map();
+  const geoIndex = new Map();
+  for (let i = 0; i < poi.length; i++) {
+    const primary = infraPoiPrimaryKey(poi[i]);
+    if (primary && !primaryIndex.has(primary)) primaryIndex.set(primary, i);
+    const geo = infraPoiGeoKey(poi[i]);
+    if (geo && !geoIndex.has(geo)) geoIndex.set(geo, i);
+  }
+
+  let added = 0;
+  let updated = 0;
+  for (const raw of incomingRaw) {
+    const entry = cleanInfraPoiEntry(raw);
+    if (!entry) continue;
+    const primary = infraPoiPrimaryKey(entry);
+    const geo = infraPoiGeoKey(entry);
+    const idx = (primary && primaryIndex.has(primary))
+      ? primaryIndex.get(primary)
+      : (geo && geoIndex.has(geo) ? geoIndex.get(geo) : -1);
+    if (idx >= 0) {
+      poi[idx] = mergeInfraPoiEntries(poi[idx], entry);
+      updated += 1;
+    } else {
+      const nextIdx = poi.length;
+      poi.push(entry);
+      if (primary) primaryIndex.set(primary, nextIdx);
+      if (geo) geoIndex.set(geo, nextIdx);
+      added += 1;
+    }
+  }
+
+  const clusters = [
+    ...(Array.isArray(existingInfra?.infra?.clusters) ? existingInfra.infra.clusters : []),
+    ...(Array.isArray(incomingInfra?.infra?.clusters) ? incomingInfra.infra.clusters : [])
+  ];
+  const existingMeta = existingInfra?.meta && typeof existingInfra.meta === 'object' ? existingInfra.meta : {};
+  const incomingMeta = incomingInfra?.meta && typeof incomingInfra.meta === 'object' ? incomingInfra.meta : {};
+  const nowIso = new Date().toISOString();
+  return {
+    v: 1,
+    tile: String(incomingInfra?.tile || existingInfra?.tile || metaPatch.tile || ''),
+    source: String(incomingInfra?.source || existingInfra?.source || 'pbf'),
+    generatedAt: String(incomingInfra?.generatedAt || existingInfra?.generatedAt || nowIso),
+    meta: {
+      ...existingMeta,
+      ...incomingMeta,
+      schema: 'ga.infraTile.v1',
+      dataStatus: poi.length || clusters.length ? 'loaded' : 'empty',
+      mergedAt: nowIso,
+      mergeStats: { added, updated, incoming: incomingRaw.length }
+    },
+    infra: { poi, clusters },
+    counts: {
+      infra: poi.length,
+      clusters: clusters.length
+    }
   };
 }
 
@@ -916,8 +1270,10 @@ async function getTileGitStatus() {
   const paths = [
     'obstacles/core-tiles',
     'obstacles/poi-tiles',
+    'obstacles/infra-tiles',
     'obstacles/core-manifest.v1.json',
     'obstacles/poi-manifest.v1.json',
+    'obstacles/infra-manifest.v1.json',
     'obstacles/failed-split-tiles.json'
   ];
   const r = await runCmd('git', ['status', '--porcelain', '--', ...paths], { cwd: ROOT });
@@ -1073,6 +1429,8 @@ async function runRepoSyncCheck() {
     }
     const remotePoiRes = await loadRemoteManifestTiles('obstacles/poi-manifest.v1.json');
     const remotePoiTiles = remotePoiRes.ok ? remotePoiRes.tiles : new Set();
+    const remoteInfraRes = await loadRemoteManifestTiles('obstacles/infra-manifest.v1.json');
+    const remoteInfraTiles = remoteInfraRes.ok ? remoteInfraRes.tiles : new Set();
 
     lastRepoSync = {
       ...lastRepoSync,
@@ -1082,6 +1440,7 @@ async function runRepoSyncCheck() {
     };
     const localCoreTiles = await collectLocalTileKeysFromFs(CORE_TILE_DIR);
     const localPoiTiles = await collectLocalTileKeysFromFs(POI_TILE_DIR);
+    const localInfraTiles = await collectLocalTileKeysFromFs(INFRA_TILE_DIR);
     const localCompleteTiles = setIntersection(localCoreTiles, localPoiTiles);
 
     const remoteCoreTiles = remoteCoreRes.tiles;
@@ -1112,8 +1471,10 @@ async function runRepoSyncCheck() {
       remoteTiles: Array.from(remoteCompleteTiles),
       remoteCoreCount: remoteCoreTiles.size,
       remotePoiCount: remotePoiTiles.size,
+      remoteInfraCount: remoteInfraTiles.size,
       localCoreCount: localCoreTiles.size,
       localPoiCount: localPoiTiles.size,
+      localInfraCount: localInfraTiles.size,
       localCompleteCount: localCompleteTiles.size,
       remoteCompleteCount: remoteCompleteTiles.size
     };
@@ -1142,6 +1503,7 @@ function startRepoSyncJob() {
 async function collectTileState() {
   const coreManifest = await readJsonSafe(CORE_MANIFEST_PATH, defaultManifest());
   const poiManifest = await readJsonSafe(POI_MANIFEST_PATH, defaultManifest());
+  const infraManifest = await readJsonSafe(INFRA_MANIFEST_PATH, defaultManifest());
 
   const failedData = await readJsonSafe(FAILED_PATH, { failedTiles: [] });
   const failedMap = {};
@@ -1159,32 +1521,66 @@ async function collectTileState() {
   const now = Date.now();
   const keys = new Set([
     ...(Array.isArray(coreManifest.tiles) ? coreManifest.tiles : []),
-    ...(Array.isArray(poiManifest.tiles) ? poiManifest.tiles : [])
+    ...(Array.isArray(poiManifest.tiles) ? poiManifest.tiles : []),
+    ...(Array.isArray(infraManifest.tiles) ? infraManifest.tiles : [])
   ].map(normalizeTileKey).filter(Boolean));
 
   for (const tileKey of keys) {
     const coreGz = tileGzPath(CORE_TILE_DIR, tileKey);
     const poiGz = tileGzPath(POI_TILE_DIR, tileKey);
+    const infraGz = tileGzPath(INFRA_TILE_DIR, tileKey);
     const coreFile = existsSync(coreGz) ? coreGz : tilePath(CORE_TILE_DIR, tileKey);
     const poiFile = existsSync(poiGz) ? poiGz : tilePath(POI_TILE_DIR, tileKey);
+    const infraFile = existsSync(infraGz) ? infraGz : tilePath(INFRA_TILE_DIR, tileKey);
     const hasCore = existsSync(coreFile);
     const hasPoi = existsSync(poiFile);
-    if (!hasCore && !hasPoi) continue;
+    const hasInfra = existsSync(infraFile);
+    if (!hasCore && !hasPoi && !hasInfra) continue;
 
     let coreStat = null;
     let poiStat = null;
+    let infraStat = null;
     try { if (hasCore) coreStat = await fs.stat(coreFile); } catch (_) {}
     try { if (hasPoi) poiStat = await fs.stat(poiFile); } catch (_) {}
-    const corePayload = hasCore ? await readJsonMaybeGz(coreFile, null) : null;
-    const poiPayload = hasPoi ? await readJsonMaybeGz(poiFile, null) : null;
-    const counts = getTileCounts(corePayload, poiPayload);
-    const totalCount = counts.obs + counts.lin + counts.poi;
-    const dataStatus = hasCore && hasPoi ? getTileDataStatus(corePayload, poiPayload) : 'partial';
-
+    try { if (hasInfra) infraStat = await fs.stat(infraFile); } catch (_) {}
     const coreMtime = Number(coreStat?.mtimeMs || 0);
     const poiMtime = Number(poiStat?.mtimeMs || 0);
-    const mtimeMs = Math.max(coreMtime, poiMtime);
-    const stale = ((hasCore && (now - coreMtime) > STALE_AFTER_MS) || (hasPoi && (now - poiMtime) > STALE_AFTER_MS));
+    const infraMtime = Number(infraStat?.mtimeMs || 0);
+    const mtimeMs = Math.max(coreMtime, poiMtime, infraMtime);
+    const sig = [
+      statSignature(coreFile, coreStat, hasCore),
+      statSignature(poiFile, poiStat, hasPoi),
+      statSignature(infraFile, infraStat, hasInfra)
+    ].join('::');
+    const cached = tileStateEntryCache.get(tileKey);
+    let baseEntry = cached && cached.sig === sig ? cached.baseEntry : null;
+    if (!baseEntry) {
+      const corePayload = hasCore ? await readJsonMaybeGz(coreFile, null) : null;
+      const poiPayload = hasPoi ? await readJsonMaybeGz(poiFile, null) : null;
+      const infraPayload = hasInfra ? await readJsonMaybeGz(infraFile, null) : null;
+      const counts = getTileCounts(corePayload, poiPayload, infraPayload);
+      const totalCount = counts.obs + counts.lin + counts.poi + counts.infra + counts.clusters;
+      const dataStatus = hasCore && hasPoi ? getTileDataStatus(corePayload, poiPayload, infraPayload) : (hasInfra ? 'infra-only' : 'partial');
+      const infraEnrichment = infraPayload?.meta || poiPayload?.meta?.infraEnrichment || null;
+      baseEntry = {
+        mtimeMs,
+        bytes: Number(coreStat?.size || 0) + Number(poiStat?.size || 0) + Number(infraStat?.size || 0),
+        bytesCore: Number(coreStat?.size || 0),
+        bytesPoi: Number(poiStat?.size || 0),
+        bytesInfra: Number(infraStat?.size || 0),
+        hasCore,
+        hasPoi,
+        hasInfra,
+        dataStatus,
+        empty: dataStatus === 'empty',
+        counts,
+        totalCount,
+        infraEnriched: !!hasInfra || !!infraEnrichment,
+        infraEnrichment
+      };
+      tileStateEntryCache.set(tileKey, { sig, baseEntry });
+    }
+    const stale = ((hasCore && (now - coreMtime) > STALE_AFTER_MS) || (hasPoi && (now - poiMtime) > STALE_AFTER_MS) || (hasInfra && (now - infraMtime) > STALE_AFTER_MS));
     const regionMeta = getRegionMetaForTile(tileKey);
     const partialCoveragePossible = !WORKBENCH_PBF_PATH && regionMeta.count > WORKBENCH_PBF_MAX_REGIONS;
     const partialReason = partialCoveragePossible
@@ -1192,22 +1588,16 @@ async function collectTileState() {
       : '';
 
     loadedMap[tileKey] = {
-      mtimeMs,
+      ...baseEntry,
       stale,
-      bytes: Number(coreStat?.size || 0) + Number(poiStat?.size || 0),
-      bytesCore: Number(coreStat?.size || 0),
-      bytesPoi: Number(poiStat?.size || 0),
-      hasCore,
-      hasPoi,
-      dataStatus,
-      empty: dataStatus === 'empty',
-      counts,
-      totalCount,
       regionOverlapCount: Number(regionMeta.count || 0),
       regionOverlapIds: Array.isArray(regionMeta.ids) ? regionMeta.ids.slice(0, 8) : [],
       partialCoveragePossible,
       partialReason
     };
+  }
+  for (const key of Array.from(tileStateEntryCache.keys())) {
+    if (!keys.has(key)) tileStateEntryCache.delete(key);
   }
 
   const recent = {};
@@ -1221,6 +1611,7 @@ async function collectTileState() {
       pbfPath: WORKBENCH_PBF_PATH,
       pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH),
       cacheDir: CACHE_BASE,
+      pbfTtlDays: PBF_CACHE_TTL_DAYS,
       cacheRecoveryRetrySec: Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000),
       pbfMaxRegions: WORKBENCH_PBF_MAX_REGIONS,
       pbfThinExtend: WORKBENCH_PBF_THIN_EXTEND,
@@ -1246,8 +1637,11 @@ async function collectTileState() {
     downloads: Object.fromEntries(pbfDownloads),
     processing,
     currentTile,
+    infraEnrichProcessing,
+    infraEnrichCurrentTile,
     queue: queue.slice(),
     queueFresh: queue.filter(k => queueFreshSet.has(k)),
+    infraEnrichQueue: infraEnrichQueue.slice(),
     queueLength: queue.length,
     tileStepDeg: TILE_STEP_DEG,
     staleAfterDays: 90,
@@ -1256,10 +1650,17 @@ async function collectTileState() {
     recent,
     processSeq,
     processLogTail: processLog.slice(-80),
+    pushStatus: {
+      ...pushStatus,
+      ageSec: pushStatus.updatedAt ? Math.round((Date.now() - pushStatus.updatedAt) / 1000) : null
+    },
     currentProgress: { ...currentProgress },
     manifest: {
       generatedAt: coreManifest.generatedAt || null,
-      tileCount: Number(coreManifest.tileCount || Object.keys(loadedMap).length || 0)
+      tileCount: Number(coreManifest.tileCount || Object.keys(loadedMap).length || 0),
+      coreTileCount: Number(coreManifest.tileCount || 0),
+      poiTileCount: Number(poiManifest.tileCount || 0),
+      infraTileCount: Number(infraManifest.tileCount || 0)
     },
     repoSync: {
       ok: !!lastRepoSync.ok,
@@ -1279,6 +1680,14 @@ async function collectTileState() {
       missingLocalSample: Array.isArray(lastRepoSync.missingLocalSample) ? lastRepoSync.missingLocalSample : []
     }
   };
+}
+
+async function getCollectedTileState() {
+  if (collectTileStatePromise) return collectTileStatePromise;
+  collectTileStatePromise = collectTileState().finally(() => {
+    collectTileStatePromise = null;
+  });
+  return collectTileStatePromise;
 }
 
 function enqueueTiles(tileKeys, options = {}) {
@@ -1351,12 +1760,16 @@ async function processOneTile(tileKey, options = {}) {
   const combinedFile = tilePath(WORKBENCH_TMP_OUT_DIR, tileKey);
   const coreOut = tileGzPath(CORE_TILE_DIR, tileKey);
   const poiOut = tileGzPath(POI_TILE_DIR, tileKey);
+  const infraOut = tileGzPath(INFRA_TILE_DIR, tileKey);
   const coreLegacyOut = tilePath(CORE_TILE_DIR, tileKey);
   const poiLegacyOut = tilePath(POI_TILE_DIR, tileKey);
+  const infraLegacyOut = tilePath(INFRA_TILE_DIR, tileKey);
   const prevCoreFile = existsSync(coreOut) ? coreOut : (existsSync(coreLegacyOut) ? coreLegacyOut : '');
   const prevPoiFile = existsSync(poiOut) ? poiOut : (existsSync(poiLegacyOut) ? poiLegacyOut : '');
+  const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
   const prevCorePayload = (!freshReload && prevCoreFile) ? await readJsonMaybeGz(prevCoreFile, null) : null;
   const prevPoiPayload = (!freshReload && prevPoiFile) ? await readJsonMaybeGz(prevPoiFile, null) : null;
+  const prevInfraPayload = (!freshReload && prevInfraFile) ? await readJsonMaybeGz(prevInfraFile, null) : null;
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
@@ -1508,6 +1921,8 @@ async function processOneTile(tileKey, options = {}) {
   let finalObs = 0;
   let finalLin = 0;
   let finalPoi = 0;
+  let finalInfra = 0;
+  let finalClusters = 0;
   let dataStatus = 'failed';
 
   if (combinedExists && !failedItem) {
@@ -1515,21 +1930,28 @@ async function processOneTile(tileKey, options = {}) {
       'tools/split-combined-tile.mjs',
       '--in', path.relative(ROOT, combinedFile),
       '--core-out', path.relative(ROOT, coreOut),
-      '--poi-out', path.relative(ROOT, poiOut)
+      '--poi-out', path.relative(ROOT, poiOut),
+      '--infra-out', path.relative(ROOT, infraOut)
     ];
     const splitRun = await runCmd('node', splitCmd, { cwd: ROOT });
-    if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut)) {
+    if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut) && existsSync(infraOut)) {
       const corePayloadRaw = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
       const poiPayloadRaw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+      const infraPayloadRaw = await readJsonMaybeGz(infraOut, { counts: { infra: 0, clusters: 0 }, infra: { poi: [], clusters: [] } });
       const corePayload = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayloadRaw) : corePayloadRaw;
       const poiPayload = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayloadRaw) : poiPayloadRaw;
+      const infraPayload = prevInfraPayload ? mergeInfraTilePayload(prevInfraPayload, infraPayloadRaw) : infraPayloadRaw;
       const outObs = Number(corePayload?.counts?.obs || 0);
       const outLin = Number(corePayload?.counts?.lin || 0);
       const outPoi = Number(poiPayload?.counts?.poi || 0);
-      const outTotal = outObs + outLin + outPoi;
+      const outInfra = Number(infraPayload?.counts?.infra || infraPayload?.infra?.poi?.length || 0);
+      const outClusters = Number(infraPayload?.counts?.clusters || infraPayload?.infra?.clusters?.length || 0);
+      const outTotal = outObs + outLin + outPoi + outInfra + outClusters;
       finalObs = outObs;
       finalLin = outLin;
       finalPoi = outPoi;
+      finalInfra = outInfra;
+      finalClusters = outClusters;
       dataStatus = outTotal === 0 ? 'empty' : 'loaded';
       const meta = {
         dataStatus,
@@ -1539,17 +1961,37 @@ async function processOneTile(tileKey, options = {}) {
           poi: Number(poiPayload?.meta?.rawCounts?.poi || outPoi)
         }
       };
+      const existingInfraEnrichment = prevPoiPayload?.meta?.infraEnrichment || poiPayload?.meta?.infraEnrichment || null;
+      if (existingInfraEnrichment) meta.infraEnrichment = existingInfraEnrichment;
       corePayload.meta = meta;
       poiPayload.meta = meta;
+      infraPayload.meta = {
+        ...(infraPayload.meta || {}),
+        dataStatus,
+        rawCounts: {
+          ...(infraPayload?.meta?.rawCounts || {}),
+          obs: Number(corePayload?.meta?.rawCounts?.obs || outObs),
+          lin: Number(corePayload?.meta?.rawCounts?.lin || outLin),
+          poi: Number(poiPayload?.meta?.rawCounts?.poi || outPoi)
+        }
+      };
+      infraPayload.counts = {
+        ...(infraPayload.counts || {}),
+        infra: outInfra,
+        clusters: outClusters
+      };
       await writeGzJson(coreOut, corePayload);
       await writeGzJson(poiOut, poiPayload);
+      await writeGzJson(infraOut, infraPayload);
 
       await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
       await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+      await upsertManifestTile(INFRA_MANIFEST_PATH, tileKey);
       await removeFailedTile(tileKey);
       // Delete old plain .json counterparts (migrating to .json.gz)
       try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
       try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
+      try { await fs.unlink(tilePath(INFRA_TILE_DIR, tileKey)); } catch (_) {}
       ok = true;
       message = outTotal === 0
         ? `Tile geladen (${loadSource}), leerer Split gespeichert`
@@ -1592,7 +2034,7 @@ async function processOneTile(tileKey, options = {}) {
     error: failError,
     server: failServer,
     dataStatus,
-    counts: { obs: finalObs, lin: finalLin, poi: finalPoi },
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi, infra: finalInfra, clusters: finalClusters },
     message
   });
   setCurrentProgress({
@@ -1610,13 +2052,472 @@ async function processOneTile(tileKey, options = {}) {
     pbfRegions: pbfRegionIds.slice(),
     lowCoverage,
     dataStatus,
-    counts: { obs: finalObs, lin: finalLin, poi: finalPoi },
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi, infra: finalInfra, clusters: finalClusters },
     message
   });
 }
 
+function mergeInfraEnrichmentChunks(chunks, tileKey) {
+  const map = new Map();
+  for (const chunk of Array.isArray(chunks) ? chunks : []) {
+    const list = Array.isArray(chunk?.poi) ? chunk.poi : [];
+    for (const raw of list) {
+      const entry = cleanInfraPoiEntry(raw);
+      if (!entry) continue;
+      const key = infraPoiPrimaryKey(entry) || infraPoiGeoKey(entry);
+      if (!map.has(key)) map.set(key, entry);
+      else map.set(key, mergeInfraPoiEntries(map.get(key), entry));
+    }
+  }
+  return {
+    v: 1,
+    schema: INFRA_ENRICHMENT_SCHEMA,
+    tile: tileKey,
+    generatedAt: new Date().toISOString(),
+    source: chunks.map(c => c?.source || '').filter(Boolean).join('+') || 'pbf',
+    counts: { poi: map.size },
+    poi: Array.from(map.values())
+  };
+}
+
+async function extractInfraEnrichmentForTile(tileKey, pbfPaths) {
+  let run = { code: 1, stdout: '', stderr: '' };
+  const chunks = [];
+  await ensureDir(WORKBENCH_TMP_ENRICH_DIR);
+  for (const pbfPath of Array.isArray(pbfPaths) ? pbfPaths : []) {
+    const tmpOut = path.join(
+      WORKBENCH_TMP_ENRICH_DIR,
+      `${String(tileKey).replace('|', '_')}.${path.basename(pbfPath, '.osm.pbf')}.infra.json`
+    );
+    const cmd = [
+      'tools/enrich-infra-tile-from-pbf.py',
+      '--pbf', pbfPath,
+      '--tile', tileKey,
+      '--out', path.relative(ROOT, tmpOut)
+    ];
+    const r = await runCmd('python3', cmd, { cwd: ROOT });
+    run = r;
+    if (r.code === 0 && existsSync(tmpOut)) {
+      try {
+        const parsed = JSON.parse(await fs.readFile(tmpOut, 'utf8'));
+        chunks.push(parsed);
+      } catch (_) {}
+      try { await fs.unlink(tmpOut); } catch (_) {}
+    }
+  }
+  return { run, chunks };
+}
+
+async function extractInfraEnrichmentBatchForPbf(tileKeys, pbfPath) {
+  const cleanTiles = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).map(normalizeTileKey).filter(Boolean)));
+  let run = { code: 1, stdout: '', stderr: '' };
+  const chunksByTile = new Map(cleanTiles.map(k => [k, []]));
+  if (!cleanTiles.length) return { run, chunksByTile };
+  await ensureDir(WORKBENCH_TMP_ENRICH_DIR);
+  const batchId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tmpDir = path.join(
+    WORKBENCH_TMP_ENRICH_DIR,
+    `batch-${batchId}-${path.basename(pbfPath, '.osm.pbf').replace(/[^a-z0-9_.-]+/gi, '_')}`
+  );
+  await ensureDir(tmpDir);
+  const cmd = [
+    'tools/enrich-infra-tile-from-pbf.py',
+    '--pbf', pbfPath,
+    '--tiles', cleanTiles.join(','),
+    '--out-dir', path.relative(ROOT, tmpDir)
+  ];
+  try {
+    run = await runCmd('python3', cmd, { cwd: ROOT });
+    if (run.code === 0) {
+      let files = [];
+      try { files = await fs.readdir(tmpDir); } catch (_) { files = []; }
+      for (const file of files) {
+        if (!file.endsWith('.infra.json')) continue;
+        const full = path.join(tmpDir, file);
+        try {
+          const parsed = JSON.parse(await fs.readFile(full, 'utf8'));
+          const tile = normalizeTileKey(parsed?.tile);
+          if (!tile || !chunksByTile.has(tile)) continue;
+          chunksByTile.get(tile).push(parsed);
+        } catch (_) {}
+      }
+    }
+  } finally {
+    try { await fs.rm(tmpDir, { recursive: true, force: true }); } catch (_) {}
+  }
+  return { run, chunksByTile };
+}
+
+async function writeInfraLayerForTile(tileKey, chunks, pbfRegionIds, run, startedAt) {
+  const enrichmentPayload = mergeInfraEnrichmentChunks(chunks, tileKey);
+  const infraOut = tileGzPath(INFRA_TILE_DIR, tileKey);
+  const infraLegacyOut = tilePath(INFRA_TILE_DIR, tileKey);
+  const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
+  const prevInfraPayload = prevInfraFile
+    ? await readJsonMaybeGz(prevInfraFile, null)
+    : {
+        v: 1,
+        tile: tileKey,
+        source: 'infra-enrichment',
+        generatedAt: new Date().toISOString(),
+        infra: { poi: [], clusters: [] },
+        counts: { infra: 0, clusters: 0 },
+        meta: { schema: 'ga.infraTile.v1', dataStatus: 'loaded' }
+      };
+  const regions = Array.from(new Set((Array.isArray(pbfRegionIds) ? pbfRegionIds : []).map(String).filter(Boolean)));
+  const mergedPayload = mergeInfraTilePayload(prevInfraPayload, enrichmentPayload, { tile: tileKey });
+  mergedPayload.meta = {
+    ...(mergedPayload.meta || {}),
+    schema: 'ga.infraTile.v1',
+    dataStatus: mergedPayload.counts.infra || mergedPayload.counts.clusters ? 'loaded' : 'empty',
+    pbfRegions: regions,
+    infraEnrichment: {
+      schema: INFRA_ENRICHMENT_SCHEMA,
+      version: 1,
+      enrichedAt: new Date().toISOString(),
+      source: 'pbf',
+      tile: tileKey,
+      pbfRegions: regions,
+      lastIncoming: Number(enrichmentPayload?.counts?.poi || 0),
+      fields: INFRA_ENRICHMENT_FIELDS.filter(k => k !== 'infra_enriched')
+    }
+  };
+  await writeGzJson(infraOut, mergedPayload);
+  try { await fs.unlink(infraLegacyOut); } catch (_) {}
+  await upsertManifestTile(INFRA_MANIFEST_PATH, tileKey);
+
+  lastResults.set(tileKey, {
+    ok: true,
+    at: Date.now(),
+    durationMs: Date.now() - Number(startedAt || Date.now()),
+    code: Number(run?.code || 0),
+    dataStatus: 'loaded',
+    counts: { obs: 0, lin: 0, poi: 0, infra: mergedPayload.counts.infra, clusters: mergedPayload.counts.clusters },
+    message: `Infra-Layer gespeichert: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer, gesamt ${mergedPayload.counts.infra} Infra-Features`
+  });
+  pushProcessEvent('infra-enrich-done', {
+    tile: tileKey,
+    ok: true,
+    source: 'pbf',
+    pbfRegions: regions,
+    counts: {
+      incoming: Number(enrichmentPayload?.counts?.poi || 0),
+      added: Number(mergedPayload?.meta?.mergeStats?.added || 0),
+      updated: Number(mergedPayload?.meta?.mergeStats?.updated || 0),
+      poi: mergedPayload.counts.infra,
+      infra: mergedPayload.counts.infra,
+      clusters: mergedPayload.counts.clusters
+    },
+    message: lastResults.get(tileKey).message
+  });
+  return mergedPayload;
+}
+
+function enqueueInfraEnrichmentTiles(tileKeys, options = {}) {
+  const added = [];
+  if (options && options.autoPush) autoPushInfraEnrichWhenDone = true;
+  for (const raw of Array.isArray(tileKeys) ? tileKeys : []) {
+    const key = normalizeTileKey(raw);
+    if (!key) continue;
+    if (infraEnrichQueueSet.has(key)) continue;
+    if (key === infraEnrichCurrentTile) continue;
+    infraEnrichQueue.push(key);
+    infraEnrichQueueSet.add(key);
+    added.push(key);
+  }
+  if (added.length > 0) processInfraEnrichmentQueue();
+  return added;
+}
+
+async function processOneInfraEnrichmentTile(tileKey) {
+  await assertCacheWritableOrThrow('before-infra-enrichment');
+  infraEnrichCurrentTile = tileKey;
+  const startedAt = Date.now();
+  setCurrentProgress({
+    tile: tileKey,
+    phase: 'infra-enrich',
+    source: 'pbf',
+    message: 'Starte Infra-Enrichment',
+    startedAt
+  });
+
+  const pbfResolution = await resolvePbfPathsForTile(tileKey);
+  const pbfPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
+  const pbfRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
+  const pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
+  const pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
+  if (pbfPaths.length === 0) {
+    throw new Error(`Keine PBF-Region für Infra-Enrichment von ${tileKey} gefunden`);
+  }
+
+  pushProcessEvent('infra-enrich-start', {
+    tile: tileKey,
+    pbfRegions: pbfRegionIds.slice(),
+    pbfRegionsExtra: pbfRemainingRegionIds.slice()
+  });
+
+  let extracted = await extractInfraEnrichmentForTile(tileKey, pbfPaths);
+  let chunks = extracted.chunks;
+  let run = extracted.run;
+  if (pbfRemainingPaths.length > 0) {
+    const extra = await extractInfraEnrichmentForTile(tileKey, pbfRemainingPaths);
+    if (extra.chunks.length > 0) chunks = chunks.concat(extra.chunks);
+    if (run.code !== 0) run = extra.run;
+  }
+  if (chunks.length === 0) {
+    throw new Error((run.stderr || run.stdout || 'Infra-Enrichment lieferte keine PBF-Daten').trim());
+  }
+
+  const enrichmentPayload = mergeInfraEnrichmentChunks(chunks, tileKey);
+  const infraOut = tileGzPath(INFRA_TILE_DIR, tileKey);
+  const infraLegacyOut = tilePath(INFRA_TILE_DIR, tileKey);
+  const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
+  const prevInfraPayload = prevInfraFile
+    ? await readJsonMaybeGz(prevInfraFile, null)
+    : {
+        v: 1,
+        tile: tileKey,
+        source: 'infra-enrichment',
+        generatedAt: new Date().toISOString(),
+        infra: { poi: [], clusters: [] },
+        counts: { infra: 0, clusters: 0 },
+        meta: { schema: 'ga.infraTile.v1', dataStatus: 'loaded' }
+      };
+  const mergedPayload = mergeInfraTilePayload(prevInfraPayload, enrichmentPayload, { tile: tileKey });
+  mergedPayload.meta = {
+    ...(mergedPayload.meta || {}),
+    schema: 'ga.infraTile.v1',
+    dataStatus: mergedPayload.counts.infra || mergedPayload.counts.clusters ? 'loaded' : 'empty',
+    pbfRegions: Array.from(new Set(pbfRegionIds.concat(pbfRemainingRegionIds).map(String).filter(Boolean))),
+    infraEnrichment: {
+      schema: INFRA_ENRICHMENT_SCHEMA,
+      version: 1,
+      enrichedAt: new Date().toISOString(),
+      source: 'pbf',
+      tile: tileKey,
+      pbfRegions: Array.from(new Set(pbfRegionIds.concat(pbfRemainingRegionIds).map(String).filter(Boolean))),
+      lastIncoming: Number(enrichmentPayload?.counts?.poi || 0),
+      fields: INFRA_ENRICHMENT_FIELDS.filter(k => k !== 'infra_enriched')
+    }
+  };
+  await writeGzJson(infraOut, mergedPayload);
+  try { await fs.unlink(infraLegacyOut); } catch (_) {}
+  await upsertManifestTile(INFRA_MANIFEST_PATH, tileKey);
+
+  lastResults.set(tileKey, {
+    ok: true,
+    at: Date.now(),
+    durationMs: Date.now() - startedAt,
+    code: run.code,
+    dataStatus: 'loaded',
+    counts: { obs: 0, lin: 0, poi: 0, infra: mergedPayload.counts.infra, clusters: mergedPayload.counts.clusters },
+    message: `Infra-Layer gespeichert: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer, gesamt ${mergedPayload.counts.infra} Infra-Features`
+  });
+  setCurrentProgress({
+    phase: 'infra-enrich-done',
+    source: 'pbf',
+    message: lastResults.get(tileKey).message
+  });
+  pushProcessEvent('infra-enrich-done', {
+    tile: tileKey,
+    ok: true,
+    source: 'pbf',
+    pbfRegions: pbfRegionIds.slice(),
+    counts: {
+      incoming: Number(enrichmentPayload?.counts?.poi || 0),
+      added: Number(mergedPayload?.meta?.mergeStats?.added || 0),
+      updated: Number(mergedPayload?.meta?.mergeStats?.updated || 0),
+      poi: mergedPayload.counts.infra,
+      infra: mergedPayload.counts.infra,
+      clusters: mergedPayload.counts.clusters
+    },
+    message: lastResults.get(tileKey).message
+  });
+}
+
+async function processInfraEnrichmentBatch(tileKeys) {
+  const cleanTiles = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).map(normalizeTileKey).filter(Boolean)));
+  if (!cleanTiles.length) return;
+  await assertCacheWritableOrThrow('before-infra-enrichment-batch');
+  const startedAt = Date.now();
+  const batchLabel = cleanTiles.length === 1 ? cleanTiles[0] : `${cleanTiles[0]} +${cleanTiles.length - 1}`;
+  infraEnrichCurrentTile = cleanTiles[0] || null;
+  setCurrentProgress({
+    tile: cleanTiles[0] || null,
+    phase: 'infra-enrich-batch',
+    source: 'pbf',
+    message: `Starte Infra-Batch (${cleanTiles.length} Tiles)`,
+    startedAt
+  });
+
+  const pbfBatches = new Map(); // pbfPath -> { tiles:Set, regionIds:Set }
+  const tileRegions = new Map(cleanTiles.map(k => [k, new Set()]));
+  const tileErrors = new Map();
+
+  for (const tileKey of cleanTiles) {
+    const pbfResolution = await resolvePbfPathsForTile(tileKey);
+    const selectedPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
+    const selectedRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
+    const remainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
+    const remainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
+    const pairs = [];
+    selectedPaths.forEach((p, i) => pairs.push([p, selectedRegionIds[i] || 'manual']));
+    remainingPaths.forEach((p, i) => pairs.push([p, remainingRegionIds[i] || 'manual-extra']));
+    if (!pairs.length) {
+      tileErrors.set(tileKey, `Keine PBF-Region für Infra-Enrichment von ${tileKey} gefunden`);
+      continue;
+    }
+    for (const [pbfPath, regionId] of pairs) {
+      if (!pbfBatches.has(pbfPath)) pbfBatches.set(pbfPath, { tiles: new Set(), regionIds: new Set() });
+      pbfBatches.get(pbfPath).tiles.add(tileKey);
+      if (regionId) {
+        pbfBatches.get(pbfPath).regionIds.add(String(regionId));
+        tileRegions.get(tileKey).add(String(regionId));
+      }
+    }
+  }
+
+  pushProcessEvent('infra-enrich-start', {
+    tile: batchLabel,
+    tiles: cleanTiles.slice(),
+    batch: true,
+    pbfRegions: Array.from(new Set(Array.from(pbfBatches.values()).flatMap(v => Array.from(v.regionIds))))
+  });
+
+  const chunksByTile = new Map(cleanTiles.map(k => [k, []]));
+  let lastRun = { code: 0, stdout: '', stderr: '' };
+  let successfulRun = null;
+  let batchFailureMessage = '';
+  for (const [pbfPath, batch] of pbfBatches.entries()) {
+    const tilesForPbf = Array.from(batch.tiles).sort();
+    setCurrentProgress({
+      phase: 'infra-enrich-batch-pbf',
+      message: `PBF-Batch ${path.basename(pbfPath)} (${tilesForPbf.length} Tiles)`
+    });
+    pushProcessEvent('infra-enrich-pbf-batch', {
+      tile: batchLabel,
+      tiles: tilesForPbf,
+      pbf: path.basename(pbfPath),
+      pbfRegions: Array.from(batch.regionIds)
+    });
+    const extracted = await extractInfraEnrichmentBatchForPbf(tilesForPbf, pbfPath);
+    lastRun = extracted.run || lastRun;
+    const pbfHadChunks = Array.from(extracted.chunksByTile.values()).some(chunks => chunks.length > 0);
+    if (pbfHadChunks) successfulRun = extracted.run || successfulRun || { code: 0, stdout: '', stderr: '' };
+    for (const [tile, chunks] of extracted.chunksByTile.entries()) {
+      if (!chunks.length) continue;
+      chunksByTile.get(tile).push(...chunks);
+    }
+    if (lastRun.code !== 0 && !pbfHadChunks) {
+      batchFailureMessage = (lastRun.stderr || lastRun.stdout || `PBF-Batch fehlgeschlagen: ${path.basename(pbfPath)}`).trim();
+    }
+  }
+
+  for (const tileKey of cleanTiles) {
+    const err = tileErrors.get(tileKey);
+    const chunks = chunksByTile.get(tileKey) || [];
+    if (err || !chunks.length) {
+      const msg = err || batchFailureMessage || 'Infra-Enrichment lieferte keine PBF-Daten';
+      lastResults.set(tileKey, {
+        ok: false,
+        at: Date.now(),
+        durationMs: Date.now() - startedAt,
+        code: Number(lastRun?.code || 1),
+        message: `Infra-Enrichment fehlgeschlagen: ${msg}`
+      });
+      pushProcessEvent('infra-enrich-done', {
+        tile: tileKey,
+        ok: false,
+        source: 'pbf',
+        message: lastResults.get(tileKey).message
+      });
+      continue;
+    }
+    await writeInfraLayerForTile(tileKey, chunks, Array.from(tileRegions.get(tileKey) || []), successfulRun || lastRun, startedAt);
+  }
+
+  setCurrentProgress({
+    phase: 'infra-enrich-done',
+    source: 'pbf',
+    message: `Infra-Batch abgeschlossen (${cleanTiles.length} Tiles)`
+  });
+}
+
+async function processInfraEnrichmentQueue() {
+  if (infraEnrichProcessing || processing) return;
+  infraEnrichProcessing = true;
+  try {
+    while (infraEnrichQueue.length > 0) {
+      const batch = [];
+      while (infraEnrichQueue.length > 0 && batch.length < INFRA_ENRICH_BATCH_TILE_MAX) {
+        const next = infraEnrichQueue.shift();
+        infraEnrichQueueSet.delete(next);
+        if (next) batch.push(next);
+      }
+      if (!batch.length) continue;
+      try {
+        await processInfraEnrichmentBatch(batch);
+      } catch (err) {
+        const errText = String(err && err.message || err || '');
+        if ((err && err.code === 'CACHE_UNAVAILABLE') || looksLikeCacheUnavailable(errText)) {
+          const msg = `Cache offline – Infra-Batch pausiert und wird erneut versucht`;
+          pushProcessEvent('cache-offline', { tile: batch[0] || '-', tiles: batch.slice(), message: msg });
+          for (let i = batch.length - 1; i >= 0; i--) {
+            const key = batch[i];
+            if (!infraEnrichQueueSet.has(key)) {
+              infraEnrichQueue.unshift(key);
+              infraEnrichQueueSet.add(key);
+            }
+          }
+          await waitForCacheRecovery();
+          continue;
+        }
+        for (const next of batch) {
+          const msg = `Infra-Enrichment fehlgeschlagen: ${errText}`;
+          lastResults.set(next, {
+            ok: false,
+            at: Date.now(),
+            durationMs: 0,
+            code: 1,
+            message: msg
+          });
+          pushProcessEvent('infra-enrich-done', {
+            tile: next,
+            ok: false,
+            source: 'pbf',
+            message: msg
+          });
+        }
+      } finally {
+        infraEnrichCurrentTile = null;
+      }
+    }
+  } finally {
+    infraEnrichProcessing = false;
+    infraEnrichCurrentTile = null;
+    if (autoPushInfraEnrichWhenDone) {
+      autoPushInfraEnrichWhenDone = false;
+      console.log('[Tile-Workbench] Infra-Enrichment Queue leer — Auto-Push gestartet...');
+      handlePush().then(r => {
+        console.log(`[Tile-Workbench] Infra-Enrichment Auto-Push: ${r.ok ? 'OK' : 'Fehler — ' + r.message}`);
+      }).catch(e => {
+        setPushStatus({
+          running: false,
+          ok: false,
+          phase: 'failed',
+          step: 'exception',
+          message: `Auto-Push Fehler: ${e && e.message || e}`,
+          finishedAt: Date.now()
+        });
+        console.error('[Tile-Workbench] Infra-Enrichment Auto-Push Fehler:', e);
+      });
+    }
+    if (queue.length > 0) processQueue();
+  }
+}
+
 async function processQueue() {
-  if (processing) return;
+  if (processing || infraEnrichProcessing) return;
   processing = true;
   try {
     while (queue.length > 0) {
@@ -1720,76 +2621,160 @@ async function processQueue() {
       handlePush().then(r => {
         console.log(`[Tile-Workbench] Auto-Push: ${r.ok ? 'OK' : 'Fehler — ' + r.message}`);
       }).catch(e => {
+        setPushStatus({
+          running: false,
+          ok: false,
+          phase: 'failed',
+          step: 'exception',
+          message: `Auto-Push Fehler: ${e && e.message || e}`,
+          finishedAt: Date.now()
+        });
         console.error('[Tile-Workbench] Auto-Push Fehler:', e);
       });
     }
+    if (infraEnrichQueue.length > 0) processInfraEnrichmentQueue();
   }
 }
 
 async function handlePush() {
-  if (processing || currentTile || queue.length > 0) {
-    return {
+  if (pushStatus.running) {
+    return { ok: false, code: 409, step: 'push_running', message: 'Push läuft bereits.' };
+  }
+  if (processing || currentTile || queue.length > 0 || infraEnrichProcessing || infraEnrichCurrentTile || infraEnrichQueue.length > 0) {
+    const blocked = {
       ok: false,
       code: 409,
       step: 'queue_active',
-      message: `Queue läuft noch (${queue.length} wartend${currentTile ? ', 1 aktiv' : ''}). Bitte warten bis alles fertig ist.`
+      message: `Queue läuft noch (${queue.length} normal, ${infraEnrichQueue.length} Enrichment${currentTile || infraEnrichCurrentTile ? ', 1 aktiv' : ''}). Bitte warten bis alles fertig ist.`
     };
+    setPushStatus({
+      running: false,
+      ok: false,
+      phase: 'blocked',
+      step: blocked.step,
+      message: blocked.message,
+      finishedAt: Date.now()
+    });
+    return blocked;
   }
+
+  const startedAt = Date.now();
+  const finishPush = (result, phase = '') => {
+    setPushStatus({
+      running: false,
+      ok: !!result.ok,
+      phase: phase || (result.ok ? 'done' : 'failed'),
+      step: String(result.step || ''),
+      message: String(result.message || (result.ok ? 'Push abgeschlossen.' : 'Push fehlgeschlagen.')),
+      finishedAt: Date.now(),
+      commitMessage: String(result.commitMessage || result.commit || pushStatus.commitMessage || ''),
+      stagedFiles: Array.isArray(result.stagedFiles) ? result.stagedFiles : (pushStatus.stagedFiles || [])
+    });
+    return result;
+  };
+
+  setPushStatus({
+    running: true,
+    ok: null,
+    phase: 'sync_check',
+    step: 'sync_check',
+    message: 'Push: Git-Abgleich läuft...',
+    startedAt,
+    finishedAt: 0,
+    commitMessage: '',
+    stagedFiles: []
+  });
 
   const syncState = await getRemoteSyncState();
   if (!syncState.ok) {
-    return { ok: false, code: 500, step: 'sync_check', message: syncState.message || 'Git-Abgleich fehlgeschlagen' };
+    return finishPush({ ok: false, code: 500, step: 'sync_check', message: syncState.message || 'Git-Abgleich fehlgeschlagen' }, 'failed');
   }
   if (syncState.behind > 0) {
-    return {
+    return finishPush({
       ok: false,
       code: 409,
       step: 'behind_remote',
       message: `Lokaler Stand ist ${syncState.behind} Commit(s) hinter origin/main. Bitte erst syncen/pullen, dann erneut pushen.`,
       behind: syncState.behind,
       ahead: syncState.ahead
-    };
+    }, 'blocked');
   }
 
+  setPushStatus({
+    running: true,
+    phase: 'status_before',
+    step: 'status_before',
+    message: 'Push: Tile-Änderungen werden geprüft...'
+  });
   const before = await getTileGitStatus();
   if (!before.ok) {
-    return { ok: false, code: 500, step: 'status_before', message: before.raw || 'git status fehlgeschlagen' };
+    return finishPush({ ok: false, code: 500, step: 'status_before', message: before.raw || 'git status fehlgeschlagen' }, 'failed');
   }
 
-  const pushPaths = [
+  const pushPathCandidates = [
     'obstacles/core-tiles',
     'obstacles/poi-tiles',
+    'obstacles/infra-tiles',
     'obstacles/core-manifest.v1.json',
     'obstacles/poi-manifest.v1.json',
+    'obstacles/infra-manifest.v1.json',
     'obstacles/failed-split-tiles.json'
   ];
+  const pushPaths = pushPathCandidates.filter(p => existsSync(path.join(ROOT, p)));
 
+  setPushStatus({
+    running: true,
+    phase: 'add',
+    step: 'add',
+    message: 'Push: Tile-Dateien werden gestaged...'
+  });
   const add = await runCmd('git', ['add', ...pushPaths], { cwd: ROOT });
   if (add.code !== 0) {
-    return { ok: false, step: 'add', message: (add.stderr || add.stdout || '').trim() || 'git add failed' };
+    return finishPush({ ok: false, step: 'add', message: (add.stderr || add.stdout || '').trim() || 'git add failed' }, 'failed');
   }
 
+  setPushStatus({
+    running: true,
+    phase: 'staged_list',
+    step: 'staged_list',
+    message: 'Push: Staging wird geprüft...'
+  });
   const staged = await runCmd('git', ['diff', '--cached', '--name-only', '--', ...pushPaths], { cwd: ROOT });
   if (staged.code !== 0) {
-    return { ok: false, code: 500, step: 'staged_list', message: (staged.stderr || staged.stdout || '').trim() || 'staged diff fehlgeschlagen' };
+    return finishPush({ ok: false, code: 500, step: 'staged_list', message: (staged.stderr || staged.stdout || '').trim() || 'staged diff fehlgeschlagen' }, 'failed');
   }
   const stagedFiles = String(staged.stdout || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (stagedFiles.length === 0) {
-    return { ok: true, message: 'Keine neuen Tile-Änderungen zum Pushen.', stagedFiles: [] };
+    return finishPush({ ok: true, message: 'Keine neuen Tile-Änderungen zum Pushen.', stagedFiles: [] }, 'done');
   }
+  setPushStatus({
+    running: true,
+    phase: 'commit',
+    step: 'commit',
+    message: `Push: Commit wird erstellt (${stagedFiles.length} Datei(en))...`,
+    stagedFiles
+  });
 
   const msg = `Update hosted split obstacle tiles (${new Date().toISOString().slice(0, 19).replace('T', ' ')})`;
   const commit = await runCmd('git', ['commit', '-m', msg], { cwd: ROOT });
   if (commit.code !== 0) {
-    return { ok: false, step: 'commit', message: (commit.stderr || commit.stdout || '').trim() || 'git commit failed' };
+    return finishPush({ ok: false, step: 'commit', message: (commit.stderr || commit.stdout || '').trim() || 'git commit failed', stagedFiles, commitMessage: msg }, 'failed');
   }
+  setPushStatus({
+    running: true,
+    phase: 'push',
+    step: 'push',
+    message: 'Push: Commit wird zu origin/main gesendet...',
+    commitMessage: msg,
+    stagedFiles
+  });
 
   const push = await runCmd('git', ['push', 'origin', 'main'], { cwd: ROOT });
   if (push.code !== 0) {
-    return { ok: false, step: 'push', message: (push.stderr || push.stdout || '').trim() || 'git push failed', commit: msg };
+    return finishPush({ ok: false, step: 'push', message: (push.stderr || push.stdout || '').trim() || 'git push failed', commit: msg, stagedFiles }, 'failed');
   }
 
-  return {
+  return finishPush({
     ok: true,
     message: `Tiles erfolgreich committed und gepusht (${stagedFiles.length} Datei(en)).`,
     commitMessage: msg,
@@ -1798,7 +2783,7 @@ async function handlePush() {
     aheadBeforePush: syncState.ahead,
     behindBeforePush: syncState.behind,
     changedBeforeAdd: before.lines
-  };
+  }, 'done');
 }
 
 function parseBody(req) {
@@ -1840,7 +2825,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/state') {
-      const state = await collectTileState();
+      const state = await getCollectedTileState();
       return sendJson(res, 200, state);
     }
 
@@ -1856,6 +2841,18 @@ const server = http.createServer(async (req, res) => {
         queueLength: queue.length,
         processing,
         currentTile
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/enrich-infra') {
+      const body = await parseBody(req);
+      const added = enqueueInfraEnrichmentTiles(body && body.tiles, { autoPush: !!(body && body.autoPush) });
+      return sendJson(res, 200, {
+        ok: true,
+        added,
+        queueLength: infraEnrichQueue.length,
+        processing: infraEnrichProcessing,
+        currentTile: infraEnrichCurrentTile
       });
     }
 
@@ -1889,7 +2886,9 @@ const server = http.createServer(async (req, res) => {
       queue.length = 0;
       queueSet.clear();
       queueFreshSet.clear();
-      return sendJson(res, 200, { ok: true, queueLength: 0, processing, currentTile });
+      infraEnrichQueue.length = 0;
+      infraEnrichQueueSet.clear();
+      return sendJson(res, 200, { ok: true, queueLength: 0, infraEnrichQueueLength: 0, processing, currentTile, infraEnrichCurrentTile });
     }
 
     // Re-queue all already-loaded tiles to force a full refresh (useful after PBF update).

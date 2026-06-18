@@ -7,7 +7,8 @@ function parseArgs(argv) {
   const args = {
     in: '',
     coreOut: '',
-    poiOut: ''
+    poiOut: '',
+    infraOut: ''
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -15,8 +16,9 @@ function parseArgs(argv) {
     if (a === '--in' && n) { args.in = n; i++; continue; }
     if (a === '--core-out' && n) { args.coreOut = n; i++; continue; }
     if (a === '--poi-out' && n) { args.poiOut = n; i++; continue; }
+    if (a === '--infra-out' && n) { args.infraOut = n; i++; continue; }
     if (a === '--help' || a === '-h') {
-      console.log('Usage: node tools/split-combined-tile.mjs --in <combined.json> --core-out <core.json> --poi-out <poi.json>');
+      console.log('Usage: node tools/split-combined-tile.mjs --in <combined.json> --core-out <core.json> --poi-out <poi.json> [--infra-out <infra.json>]');
       process.exit(0);
     }
   }
@@ -24,6 +26,12 @@ function parseArgs(argv) {
     throw new Error('Missing required args: --in, --core-out, --poi-out');
   }
   return args;
+}
+
+function normCoord(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return NaN;
+  return Math.round(n * 1e5) / 1e5; // ~1.1m precision, much smaller payload
 }
 
 function compactCore(input) {
@@ -54,12 +62,6 @@ function compactCore(input) {
     if (t === 'power_tower') return hFt >= 200; // only clearly large high-voltage towers
     // Keep only clearly relevant comm towers or larger masts.
     return hFt >= 180 || (hFt >= 120 && commTowerNameRe.test(name));
-  }
-
-  function normCoord(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return NaN;
-    return Math.round(n * 1e5) / 1e5; // ~1.1m precision, much smaller payload
   }
 
   const obs = obsIn
@@ -174,10 +176,21 @@ function compactPoi(input) {
     'tower', 'mast', 'bridge', 'dam', 'lighthouse', 'water_tower', 'chimney', 'antenna',
     'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo'
   ]);
-  const keepPower = new Set(['tower', 'substation', 'plant', 'generator', 'transformer']);
   const keepPlace = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood']);
   const keepLeisure = new Set(['nature_reserve', 'park', 'marina', 'stadium']);
   const keepAmenity = new Set(['university', 'hospital', 'fire_station', 'wastewater_plant', 'waste_transfer_station', 'water_works', 'fuel', 'bus_station']);
+  const optionalPoiFields = [
+    'ref',
+    'operator',
+    'osm_kind',
+    'osm_id',
+    'bridge',
+    'service',
+    'industrial',
+    'building',
+    'material',
+    'sample_count'
+  ];
 
   const poiRaw = poiIn
     .map(e => ({
@@ -195,7 +208,17 @@ function compactPoi(input) {
       power: String(e?.power || '').toLowerCase(),
       railway: String(e?.railway || '').toLowerCase(),
       highway: String(e?.highway || '').toLowerCase(),
-      place: String(e?.place || '').toLowerCase()
+      place: String(e?.place || '').toLowerCase(),
+      ref: String(e?.ref || ''),
+      operator: String(e?.operator || ''),
+      osm_kind: String(e?.osm_kind || ''),
+      osm_id: String(e?.osm_id || ''),
+      bridge: String(e?.bridge || '').toLowerCase(),
+      service: String(e?.service || '').toLowerCase(),
+      industrial: String(e?.industrial || '').toLowerCase(),
+      building: String(e?.building || '').toLowerCase(),
+      material: String(e?.material || '').toLowerCase(),
+      sample_count: Number(e?.sample_count || 0) || 0
     }))
     .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lon))
     .filter(e => {
@@ -208,24 +231,46 @@ function compactPoi(input) {
         keepTourism.has(e.tourism) ||
         keepHistoric.has(e.historic) ||
         keepManMade.has(e.man_made) ||
-        keepPower.has(e.power) ||
         keepPlace.has(e.place) ||
         keepLeisure.has(e.leisure) ||
-        keepAmenity.has(e.amenity)
+        keepAmenity.has(e.amenity) ||
+        e.bridge
       );
     })
-    .map(e => ({
-      ...e,
-      lat: Math.round(e.lat * 1e5) / 1e5,
-      lon: Math.round(e.lon * 1e5) / 1e5,
-      name: e.name.slice(0, 80)
-    }));
+    .map(e => {
+      const out = {
+        name: e.name.slice(0, 80),
+        lat: Math.round(e.lat * 1e5) / 1e5,
+        lon: Math.round(e.lon * 1e5) / 1e5,
+        tourism: e.tourism,
+        historic: e.historic,
+        natural: e.natural,
+        water: e.water,
+        landuse: e.landuse,
+        amenity: e.amenity,
+        leisure: e.leisure,
+        man_made: e.man_made,
+        power: e.power,
+        railway: e.railway,
+        highway: e.highway,
+        place: e.place
+      };
+      for (const key of optionalPoiFields) {
+        const value = e[key];
+        if (key === 'sample_count') {
+          if (Number(value) > 0) out[key] = Math.round(Number(value));
+        } else if (value) {
+          out[key] = String(value).slice(0, 120);
+        }
+      }
+      return out;
+    });
 
   // Dedupe identical/tag-identical points.
   const poiDedup = [];
   const seen = new Set();
   for (const e of poiRaw) {
-    const k = `${e.name}|${e.lat}|${e.lon}|${e.tourism}|${e.historic}|${e.natural}|${e.water}|${e.landuse}|${e.amenity}|${e.leisure}|${e.man_made}|${e.power}|${e.railway}|${e.highway}|${e.place}`;
+    const k = `${e.osm_kind || ''}|${e.osm_id || ''}|${e.name}|${e.lat}|${e.lon}|${e.tourism}|${e.historic}|${e.natural}|${e.water}|${e.landuse}|${e.amenity}|${e.leisure}|${e.man_made}|${e.power}|${e.railway}|${e.highway}|${e.place}`;
     if (seen.has(k)) continue;
     seen.add(k);
     poiDedup.push(e);
@@ -250,9 +295,9 @@ function compactPoi(input) {
     else if (['peak', 'valley', 'ridge', 'cliff', 'saddle', 'hill'].includes(e.natural)) groups.mountain.push(e);
     else if (keepHighwayPoi.has(e.highway)) groups.road.push(e);
     else if (keepRailway.has(e.railway)) groups.rail.push(e);
-    else if (keepLanduse.has(e.landuse) || ['substation', 'plant', 'generator', 'transformer'].includes(e.power) || ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(e.man_made) || keepAmenity.has(e.amenity)) groups.industry.push(e);
+    else if (keepLanduse.has(e.landuse) || ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(e.man_made) || keepAmenity.has(e.amenity)) groups.industry.push(e);
     else if (keepHistoric.has(e.historic)) groups.historic.push(e);
-    else if (keepManMade.has(e.man_made) || keepPower.has(e.power)) groups.tower.push(e);
+    else if (keepManMade.has(e.man_made)) groups.tower.push(e);
     else if (keepTourism.has(e.tourism)) groups.tourism.push(e);
     else groups.other.push(e);
   }
@@ -292,6 +337,233 @@ function compactPoi(input) {
   };
 }
 
+function compactInfra(input) {
+  const linIn = Array.isArray(input?.lin) ? input.lin : [];
+  const poiIn = Array.isArray(input?.poi) ? input.poi : [];
+  const obsIn = Array.isArray(input?.obs) ? input.obs : [];
+  const majorHighway = new Set([
+    'motorway', 'motorway_link',
+    'trunk', 'trunk_link',
+    'primary', 'primary_link',
+    'secondary', 'secondary_link',
+    'tertiary', 'tertiary_link'
+  ]);
+  const majorRail = new Set(['rail', 'light_rail', 'narrow_gauge', 'subway', 'tram']);
+  const infraManMade = new Set([
+    'bridge', 'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo',
+    'chimney', 'tower', 'mast', 'communications_tower'
+  ]);
+  const infraAmenity = new Set(['wastewater_plant', 'waste_transfer_station', 'water_works', 'fuel', 'bus_station']);
+  const infraPower = new Set([
+    'plant', 'generator', 'substation', 'transformer', 'switchgear', 'converter',
+    'compensator', 'line', 'minor_line', 'cable', 'tower', 'pole'
+  ]);
+  const energyValue = (e, key) => String(e?.[key] || e?.[key.replace('_', ':')] || '').toLowerCase();
+  const clean = (v, lower = true, max = 120) => {
+    const s = String(v || '').trim();
+    return (lower ? s.toLowerCase() : s).slice(0, max);
+  };
+
+  function infraType(e) {
+    const power = clean(e.power);
+    const generatorSource = energyValue(e, 'generator_source');
+    const plantSource = energyValue(e, 'plant_source');
+    const highway = clean(e.highway);
+    const railway = clean(e.railway);
+    const waterway = clean(e.waterway);
+    const manMade = clean(e.man_made);
+    const bridge = clean(e.bridge);
+    const landuse = clean(e.landuse);
+    if (generatorSource === 'solar' || plantSource === 'solar') return 'solar';
+    if (generatorSource === 'wind' || plantSource === 'wind') return 'wind';
+    if (/(hydro|water)/.test(`${generatorSource} ${plantSource}`) || ['dam', 'weir'].includes(waterway)) return 'hydro';
+    if (['substation', 'transformer', 'switchgear', 'converter', 'compensator'].includes(power)) return 'power_station';
+    if (['line', 'minor_line', 'cable', 'tower', 'pole'].includes(power)) return 'power_grid';
+    if (bridge && bridge !== 'no') return 'bridge';
+    if (manMade === 'bridge') return 'bridge';
+    if (railway) return 'rail';
+    if (majorHighway.has(highway)) return 'road';
+    if (landuse === 'industrial' || infraManMade.has(manMade) || infraAmenity.has(clean(e.amenity))) return 'industrial';
+    if (power) return 'power';
+    return 'infra';
+  }
+
+  function isInfra(e) {
+    const power = clean(e.power);
+    const highway = clean(e.highway);
+    const railway = clean(e.railway);
+    const manMade = clean(e.man_made);
+    const waterway = clean(e.waterway);
+    const bridge = clean(e.bridge);
+    return (
+      infraPower.has(power) ||
+      !!energyValue(e, 'generator_source') ||
+      !!energyValue(e, 'plant_source') ||
+      !!energyValue(e, 'generator_method') ||
+      !!energyValue(e, 'plant_method') ||
+      !!clean(e.substation) ||
+      !!clean(e.transformer) ||
+      ['dam', 'weir'].includes(waterway) ||
+      (bridge && bridge !== 'no') ||
+      infraManMade.has(manMade) ||
+      infraAmenity.has(clean(e.amenity)) ||
+      majorHighway.has(highway) ||
+      majorRail.has(railway) ||
+      clean(e.landuse) === 'industrial' ||
+      clean(e.industrial) !== ''
+    );
+  }
+
+  function normalize(e, sourceKind) {
+    const lat = normCoord(e?.lat);
+    const lon = normCoord(e?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (!isInfra(e)) return null;
+    const type = infraType(e);
+    const out = {
+      name: String(e?.name || e?.ref || e?.operator || '').trim().slice(0, 90),
+      lat,
+      lon,
+      sourceKind: 'infra',
+      infra_type: type
+    };
+    const fields = [
+      ['layer', true],
+      ['highway', true],
+      ['railway', true],
+      ['waterway', true],
+      ['water', true],
+      ['natural', true],
+      ['landuse', true],
+      ['amenity', true],
+      ['leisure', true],
+      ['tourism', true],
+      ['historic', true],
+      ['man_made', true],
+      ['power', true],
+      ['generator_source', true],
+      ['plant_source', true],
+      ['generator_method', true],
+      ['plant_method', true],
+      ['substation', true],
+      ['transformer', true],
+      ['voltage', false],
+      ['frequency', false],
+      ['operator', false],
+      ['ref', false],
+      ['bridge', true],
+      ['service', true],
+      ['industrial', true],
+      ['building', true],
+      ['material', true]
+    ];
+    for (const [key, lower] of fields) {
+      const value = key.includes('_') ? (e?.[key] || e?.[key.replace('_', ':')]) : e?.[key];
+      const s = clean(value, lower);
+      if (s) out[key] = s;
+    }
+    if (e?.osm_kind) out.osm_kind = clean(e.osm_kind, true, 24);
+    if (e?.osm_id) out.osm_id = clean(e.osm_id, false, 40);
+    if (Number(e?.sample_count || 0) > 0) out.sample_count = Math.round(Number(e.sample_count || 0));
+    out.infra_enriched = true;
+    if (sourceKind === 'obs' && !out.man_made && String(e?.type || '').toLowerCase().includes('tower')) out.man_made = 'tower';
+    return out;
+  }
+
+  const raw = [];
+  for (const e of linIn) {
+    const mapped = normalize({
+      ...e,
+      layer: e?.layer || e?.type || ''
+    }, 'lin');
+    if (mapped) raw.push(mapped);
+  }
+  for (const e of poiIn) {
+    const mapped = normalize(e, 'poi');
+    if (mapped) raw.push(mapped);
+  }
+  for (const e of obsIn) {
+    const t = String(e?.type || '').toLowerCase();
+    const mapped = normalize({
+      ...e,
+      power: t.includes('power') ? 'tower' : '',
+      generator_source: t.includes('wind') ? 'wind' : '',
+      man_made: t.includes('mast') || t.includes('tower') ? 'tower' : ''
+    }, 'obs');
+    if (mapped) raw.push(mapped);
+  }
+
+  const dedup = [];
+  const seen = new Set();
+  for (const e of raw) {
+    const primary = e.osm_kind && e.osm_id ? `${e.osm_kind}|${e.osm_id}` : '';
+    const geo = `${e.infra_type}|${e.name}|${e.lat}|${e.lon}|${e.power || ''}|${e.man_made || ''}|${e.highway || ''}|${e.railway || ''}|${e.waterway || ''}`;
+    const key = primary || geo;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedup.push(e);
+  }
+
+  const groups = {
+    power_station: [],
+    power_grid: [],
+    solar: [],
+    wind: [],
+    hydro: [],
+    bridge: [],
+    road: [],
+    rail: [],
+    industrial: [],
+    infra: []
+  };
+  for (const e of dedup) {
+    const g = Object.prototype.hasOwnProperty.call(groups, e.infra_type) ? e.infra_type : 'infra';
+    groups[g].push(e);
+  }
+  const caps = {
+    power_station: 1200,
+    power_grid: 1800,
+    solar: 1400,
+    wind: 1200,
+    hydro: 1000,
+    bridge: 1600,
+    road: 900,
+    rail: 1000,
+    industrial: 1000,
+    infra: 600
+  };
+  let poi = [];
+  for (const key of Object.keys(groups)) poi = poi.concat(groups[key].slice(0, caps[key] || 600));
+  poi = poi.slice(0, 9000);
+
+  const rawCounts = input?.counts || {};
+  const rawTotal = Number(rawCounts.obs || 0) + Number(rawCounts.lin || 0) + Number(rawCounts.poi || 0);
+  return {
+    v: 1,
+    tile: String(input?.tile || ''),
+    source: String(input?.source || ''),
+    generatedAt: String(input?.generatedAt || new Date().toISOString()),
+    meta: {
+      schema: 'ga.infraTile.v1',
+      dataStatus: rawTotal === 0 ? 'empty' : 'loaded',
+      rawCounts: {
+        obs: Number(rawCounts.obs || 0),
+        lin: Number(rawCounts.lin || 0),
+        poi: Number(rawCounts.poi || 0)
+      },
+      groupCounts: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length]))
+    },
+    infra: {
+      poi,
+      clusters: []
+    },
+    counts: {
+      infra: poi.length,
+      clusters: 0
+    }
+  };
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   const raw = await fs.readFile(args.in, 'utf8');
@@ -299,21 +571,26 @@ async function main() {
 
   const core = compactCore(parsed);
   const poi = compactPoi(parsed);
+  const infra = args.infraOut ? compactInfra(parsed) : null;
 
   await fs.mkdir(path.dirname(args.coreOut), { recursive: true });
   await fs.mkdir(path.dirname(args.poiOut), { recursive: true });
+  if (args.infraOut) await fs.mkdir(path.dirname(args.infraOut), { recursive: true });
 
   await fs.writeFile(args.coreOut, gzipSync(JSON.stringify(core)));
   await fs.writeFile(args.poiOut, gzipSync(JSON.stringify(poi)));
+  if (args.infraOut) await fs.writeFile(args.infraOut, gzipSync(JSON.stringify(infra)));
 
   console.log(JSON.stringify({
     ok: true,
     in: args.in,
     coreOut: args.coreOut,
     poiOut: args.poiOut,
+    infraOut: args.infraOut || '',
     counts: {
       core: core.counts,
-      poi: poi.counts
+      poi: poi.counts,
+      infra: infra ? infra.counts : undefined
     }
   }));
 }

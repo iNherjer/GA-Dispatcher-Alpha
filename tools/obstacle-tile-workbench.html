@@ -128,6 +128,21 @@
       font-size: 12px;
       pointer-events: none;
     }
+    .enrich-badge {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255, 224, 102, .92);
+      border: 1px solid rgba(34, 28, 0, .8);
+      color: #16120a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,.35);
+    }
     @media (max-width: 980px) {
       .wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
       .panel { max-height: 46vh; }
@@ -138,7 +153,7 @@
   <div class="wrap">
     <div class="panel">
       <h1>Obstacle Tile Workbench</h1>
-      <div class="muted">Klick: Tile auswählen. Shift+Klick: Bereich — erstes Tile setzt Anker (Cyan), zweites Shift+Klick wählt alle Tiles dazwischen aus. Queue lädt seriell, schreibt Split-Tiles (core + poi). PBF primär, Overpass Fallback.</div>
+      <div class="muted">Klick: Tile auswählen. Shift+Klick: Bereich — erstes Tile setzt Anker (Cyan), zweites Shift+Klick wählt alle Tiles dazwischen aus. Queue lädt seriell, schreibt Split-Tiles (core + poi + infra). PBF primär, Overpass Fallback.</div>
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
       <div class="stat"><span>Davon leer</span><strong id="stEmpty">0</strong></div>
@@ -150,6 +165,7 @@
       <div class="stat"><span>Lückenverdacht</span><strong id="stPartial">0</strong></div>
       <div class="stat"><span>Repo fehlt (lokal vorhanden)</span><strong id="stRepoMissing">0</strong></div>
       <div class="stat"><span>Lokal fehlt (im Repo)</span><strong id="stLocalMissing">0</strong></div>
+      <div class="stat"><span>Push</span><strong id="stPush">-</strong></div>
       <div class="stat" id="statPbfRow"><span>PBF Downloads</span><strong id="stPbf">-</strong></div>
 
       <div class="region-box">
@@ -167,6 +183,7 @@
         <button id="btnClearSelection">Auswahl leeren</button>
         <button id="btnEnqueue">Auswahl laden</button>
         <button id="btnEnqueueFresh" title="Lädt ausgewählte Tiles frisch und ersetzt vorhandene Daten (ohne Merge)">Auswahl frisch laden</button>
+        <button id="btnEnrichInfra" title="Schreibt für vorhandene Tiles den separaten Infra-Layer per PBF, ohne Core/POI neu zu laden">Auswahl Infra laden</button>
         <button id="btnEnqueueAndPush" title="Ausgewählte Tiles neu laden und danach automatisch pushen">Auswahl laden + pushen</button>
         <button id="btnRetryFailed">Failed erneut laden</button>
         <button id="btnClearQueue">Queue leeren</button>
@@ -185,6 +202,7 @@
         <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
         <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
         <span><i class="dot" style="background:#ffe066"></i> Gelb/Magenta gestrichelt: Lückenverdacht (Region-Overlap &gt; Limit)</span>
+        <span><i class="dot" style="background:#ffe066"></i> Kleine 1: Infra-Layer vorhanden (ab Zoom 10)</span>
         <span><i class="dot" style="background:#00ffee"></i> Cyan: Shift-Anker (Bereichsstart)</span>
       </div>
 
@@ -207,10 +225,13 @@
       queue: [],
       queueFresh: new Set(),
       currentTile: null,
+      infraEnrichQueue: [],
+      infraEnrichCurrentTile: null,
       recent: {},
       selected: new Set(),
       shiftAnchor: null,
       repoSync: null,
+      pushStatus: null,
       repoTiles: new Set(),
       missingInRepoTiles: new Set(),
       lastFailedSig: '',
@@ -224,6 +245,7 @@
     const queueView = document.getElementById('queueView');
     const hint = document.getElementById('hint');
     let lastRectClickAt = 0;
+    let refreshStateInFlight = null;
 
     function log(msg) {
       const t = new Date().toLocaleTimeString();
@@ -255,11 +277,29 @@
       }
       if (ev === 'tile-done') {
         const c = entry && entry.counts || {};
-        const total = Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0);
+        const total = Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0) + Number(c.infra || 0) + Number(c.clusters || 0);
         const status = entry && entry.ok
           ? (entry.dataStatus === 'empty' ? 'leer geprüft' : 'fertig')
           : 'fehlerhaft';
-        return `Workbench: ${tile}${fresh ? ' [fresh]' : ''} ${status} | src=${entry && entry.source || '-'} | counts=${total} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)})`;
+        return `Workbench: ${tile}${fresh ? ' [fresh]' : ''} ${status} | src=${entry && entry.source || '-'} | counts=${total} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)}, infra ${Number(c.infra || 0)}, cluster ${Number(c.clusters || 0)})`;
+      }
+      if (ev === 'infra-enrich-start') {
+        const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
+        return `Workbench: Infra-Layer startet ${tile}${n ? ` | ${n} Tiles` : ''} | PBF ${regs}`;
+      }
+      if (ev === 'infra-enrich-pbf-batch') {
+        const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
+        return `Workbench: Infra-PBF-Batch ${tile} | ${entry && entry.pbf || '-'} | ${n} Tiles | PBF ${regs}`;
+      }
+      if (ev === 'infra-enrich-done') {
+        const c = entry && entry.counts || {};
+        const status = entry && entry.ok ? 'fertig' : 'fehlerhaft';
+        return `Workbench: Infra-Layer ${tile} ${status} | incoming ${Number(c.incoming || 0)}, neu ${Number(c.added || 0)}, aktualisiert ${Number(c.updated || 0)}, infra ${Number(c.infra || c.poi || 0)}, cluster ${Number(c.clusters || 0)}`;
+      }
+      if (ev === 'push-status') {
+        const msg = String(entry && entry.message || '-');
+        const n = Number(entry && entry.stagedFileCount || 0);
+        return `Workbench: Push ${entry && entry.running ? 'läuft' : (entry && entry.ok ? 'fertig' : 'Status')} | ${msg}${n ? ` | ${n} Datei(en)` : ''}`;
       }
       if (ev === 'cache-offline') {
         return `Workbench: Cache offline bei ${tile}, Retry läuft automatisch`;
@@ -350,11 +390,13 @@
     }).addTo(map);
 
     const gridLayer = L.layerGroup().addTo(map);
+    const badgeLayer = L.layerGroup().addTo(map);
     const rects = new Map();
+    const badges = new Map();
 
     function tileStyle(key) {
       const inQueue = state.queue.includes(key);
-      const isCurrent = state.currentTile === key;
+      const isCurrent = state.currentTile === key || state.infraEnrichCurrentTile === key;
       const isSelected = state.selected.has(key);
       const failed = !!state.failed[key] || (state.recent[key] && state.recent[key].ok === false);
       const loaded = state.loaded[key];
@@ -479,16 +521,26 @@
             const loaded = state.loaded[key];
             const failed = state.failed[key];
             const c = loaded && loaded.counts ? loaded.counts : {};
-            const countText = loaded ? ` • counts ${Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0)} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)})` : '';
+            const countText = loaded ? ` • counts ${Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0) + Number(c.infra || 0) + Number(c.clusters || 0)} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)}, infra ${Number(c.infra || 0)}, cluster ${Number(c.clusters || 0)})` : '';
+            const layerText = loaded
+              ? [
+                  loaded.hasCore ? 'core' : '',
+                  loaded.hasPoi ? 'poi' : '',
+                  loaded.hasInfra ? 'infra' : ''
+                ].filter(Boolean).join('+')
+              : '';
             const info = loaded
-              ? `${loaded.dataStatus === 'empty' || loaded.empty ? 'leer geprüft' : (loaded.stale ? 'geladen, alt' : 'geladen')}${loaded.hasCore && loaded.hasPoi ? ' (core+poi)' : (loaded.hasCore ? ' (nur core)' : (loaded.hasPoi ? ' (nur poi)' : ''))}${countText}`
+              ? `${loaded.dataStatus === 'empty' || loaded.empty ? 'leer geprüft' : (loaded.stale ? 'geladen, alt' : 'geladen')}${layerText ? ` (${layerText})` : ''}${countText}`
               : (failed
                 ? `failed (${failed.status || 0}${failed.error ? `: ${String(failed.error).slice(0, 80)}` : ''})`
                 : 'nicht geladen');
             const partialHint = loaded && loaded.partialCoveragePossible
               ? ` • Lückenverdacht (${loaded.partialReason || `Overlap ${loaded.regionOverlapCount || 0}`})`
               : '';
-            hint.textContent = `Tile ${key} • ${info}${partialHint}`;
+            const enrichHint = loaded && loaded.infraEnriched
+              ? ` • Infra-Layer v${Number(loaded.infraEnrichment && loaded.infraEnrichment.version || 1)}`
+              : '';
+            hint.textContent = `Tile ${key} • ${info}${partialHint}${enrichHint}`;
           });
           rect.on('mouseout', () => {
             hint.textContent = `Tile: ${state.currentTile || '-'}`;
@@ -498,6 +550,36 @@
           gridLayer.addLayer(rect);
         } else {
           rect.setStyle(style);
+        }
+      }
+
+      const badgeZoom = map.getZoom() >= 10;
+      for (const [k, marker] of badges.entries()) {
+        if (!set.has(k) || !badgeZoom || !(state.loaded[k] && state.loaded[k].infraEnriched)) {
+          badgeLayer.removeLayer(marker);
+          badges.delete(k);
+        }
+      }
+      if (badgeZoom) {
+        for (const key of keys) {
+          const loaded = state.loaded[key];
+          if (!(loaded && loaded.infraEnriched) || badges.has(key)) continue;
+          const bounds = tileBounds(key);
+          if (!bounds) continue;
+          const south = bounds[0][0];
+          const east = bounds[1][1];
+          const pos = [south + TILE_STEP * 0.08, east - TILE_STEP * 0.08];
+          const marker = L.marker(pos, {
+            interactive: false,
+            icon: L.divIcon({
+              className: '',
+              html: '<div class="enrich-badge">1</div>',
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            })
+          });
+          marker.addTo(badgeLayer);
+          badges.set(key, marker);
         }
       }
     }
@@ -586,6 +668,14 @@
       }
     }
 
+    function formatPushStatus(push) {
+      if (!push || !push.updatedAt) return '-';
+      if (push.running) return String(push.message || 'läuft...');
+      if (push.ok === true) return String(push.message || 'fertig');
+      if (push.ok === false) return String(push.message || 'Fehler');
+      return String(push.message || '-');
+    }
+
     function updateUi() {
       const loadedCount = Object.keys(state.loaded).length;
       const emptyCount = Object.values(state.loaded).filter(v => v && (v.dataStatus === 'empty' || v.empty)).length;
@@ -600,21 +690,27 @@
       document.getElementById('stStale').textContent = String(staleCount);
       document.getElementById('stFailed').textContent = String(failedCount);
       document.getElementById('stSelected').textContent = String(state.selected.size);
-      document.getElementById('stQueue').textContent = String(state.queue.length);
-      document.getElementById('stCurrent').textContent = state.currentTile || '-';
+      document.getElementById('stQueue').textContent = String(state.queue.length + state.infraEnrichQueue.length);
+      document.getElementById('stCurrent').textContent = state.currentTile || state.infraEnrichCurrentTile || '-';
       document.getElementById('stPartial').textContent = String(partialCount);
       document.getElementById('stRepoMissing').textContent = String(repoMissing);
       document.getElementById('stLocalMissing').textContent = String(localMissing);
-      queueView.textContent = state.queue.length
-        ? `Queue: ${state.queue.map(k => state.queueFresh.has(k) ? `${k} [fresh]` : k).join(', ')}`
+      document.getElementById('stPush').textContent = formatPushStatus(state.pushStatus);
+      const normalQueue = state.queue.map(k => state.queueFresh.has(k) ? `${k} [fresh]` : k);
+      const enrichQueue = state.infraEnrichQueue.map(k => `${k} [infra]`);
+      const combinedQueue = normalQueue.concat(enrichQueue);
+      queueView.textContent = combinedQueue.length
+        ? `Queue: ${combinedQueue.join(', ')}`
         : 'Queue: -';
-      hint.textContent = `Tile: ${state.currentTile || '-'}`;
+      hint.textContent = `Tile: ${state.currentTile || state.infraEnrichCurrentTile || '-'}`;
 
       document.getElementById('btnEnqueue').disabled = state.selected.size === 0;
       document.getElementById('btnEnqueueFresh').disabled = state.selected.size === 0;
+      document.getElementById('btnEnrichInfra').disabled = state.selected.size === 0;
       document.getElementById('btnEnqueueAndPush').disabled = state.selected.size === 0;
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
-      document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
+      document.getElementById('btnClearQueue').disabled = state.queue.length === 0 && state.infraEnrichQueue.length === 0;
+      document.getElementById('btnPush').disabled = !!(state.pushStatus && state.pushStatus.running);
       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
       const regionSelect = document.getElementById('regionSelect');
       const hasRegionSelection = Array.from(regionSelect.selectedOptions || []).length > 0;
@@ -625,7 +721,7 @@
       if (state.shiftAnchor) {
         hint.textContent = `Shift-Anker: ${state.shiftAnchor} — Shift+Klick zweites Tile für Bereich`;
       } else {
-        hint.textContent = `Tile: ${state.currentTile || '-'}`;
+        hint.textContent = `Tile: ${state.currentTile || state.infraEnrichCurrentTile || '-'}`;
       }
     }
 
@@ -651,6 +747,14 @@
     }
 
     async function refreshState(quiet = false) {
+      if (refreshStateInFlight) return refreshStateInFlight;
+      refreshStateInFlight = refreshStateInner(quiet).finally(() => {
+        refreshStateInFlight = null;
+      });
+      return refreshStateInFlight;
+    }
+
+    async function refreshStateInner(quiet = false) {
       try {
         const s = await api('/api/state');
         state.loaded = s.loaded || {};
@@ -658,9 +762,12 @@
         state.queue = s.queue || [];
         state.queueFresh = new Set(Array.isArray(s.queueFresh) ? s.queueFresh : []);
         state.currentTile = s.currentTile || null;
+        state.infraEnrichQueue = Array.isArray(s.infraEnrichQueue) ? s.infraEnrichQueue : [];
+        state.infraEnrichCurrentTile = s.infraEnrichCurrentTile || null;
         state.recent = s.recent || {};
         state.regions = Array.isArray(s.regions) ? s.regions : state.regions;
         state.repoSync = s.repoSync || state.repoSync || null;
+        state.pushStatus = s.pushStatus || state.pushStatus || null;
         const sourceCfg = s.sourceConfig || {};
         const srcSig = `${sourceCfg.pbfPath || ''}|${sourceCfg.pbfAvailable ? 1 : 0}`;
         if (srcSig !== state.sourceConfigSig) {
@@ -803,6 +910,30 @@
       }
     });
 
+    document.getElementById('btnEnrichInfra').addEventListener('click', async () => {
+      const tiles = Array.from(state.selected);
+      if (!tiles.length) return;
+      const btn = document.getElementById('btnEnrichInfra');
+      const prevText = btn.textContent;
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Infra-Layer...';
+        log(`Infra-Layer angefragt: ${tiles.join(', ')}`);
+        const out = await api('/api/enrich-infra', 'POST', { tiles }, { timeoutMs: 15000 });
+        const added = Array.isArray(out.added) ? out.added : [];
+        log(added.length
+          ? `Infra-Layer Queue: ${added.join(', ')}`
+          : 'Infra-Layer: keine neuen Tiles eingereiht (bereits aktiv oder schon in Queue)');
+        if (added.length) state.selected.clear();
+        await refreshState(true);
+      } catch (e) {
+        log(`Infra-Layer Fehler: ${e.message || e}`);
+      } finally {
+        btn.textContent = prevText;
+        updateUi();
+      }
+    });
+
     document.getElementById('btnEnqueueAndPush').addEventListener('click', async () => {
       const tiles = Array.from(state.selected);
       if (!tiles.length) return;
@@ -887,8 +1018,8 @@
 
     document.getElementById('btnPush').addEventListener('click', async () => {
       try {
-        if (state.currentTile || state.queue.length > 0) {
-          log(`Push blockiert: Queue läuft noch (${state.queue.length} wartend${state.currentTile ? ', 1 aktiv' : ''}).`);
+        if (state.currentTile || state.queue.length > 0 || state.infraEnrichCurrentTile || state.infraEnrichQueue.length > 0) {
+          log(`Push blockiert: Queue läuft noch (${state.queue.length} normal, ${state.infraEnrichQueue.length} Enrichment${state.currentTile || state.infraEnrichCurrentTile ? ', 1 aktiv' : ''}).`);
           return;
         }
         log('Push gestartet...');
