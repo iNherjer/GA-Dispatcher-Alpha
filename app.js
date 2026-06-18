@@ -5791,31 +5791,63 @@ function resetBtn(btn) {
 }
 
 const MISSION_GENERATION_PROGRESS_PHASES = [
-    { test: phase => phase === 'start', start: 3, done: 5 },
-    { test: phase => phase === 'load_start_airport', start: 7, done: 12 },
-    { test: phase => phase === 'resolve_target', start: 16, done: 30 },
-    { test: phase => phase === 'resolve_poi_terrain' || phase === 'weather_departure' || phase === 'weather_destination', start: 33, done: 40 },
-    { test: phase => phase.startsWith('poi_geo_context'), start: 42, done: 48 },
-    { test: phase => phase.startsWith('poi_mission_truth'), start: 49, done: 53 },
-    { test: phase => phase === 'sar_heli_hospital_resolve', start: 50, done: 57 },
-    { test: phase => phase.startsWith('planner_'), start: 58, done: 68 },
-    { test: phase => phase === 'build_v4_contract', start: 68, done: 72 },
-    { test: phase => phase === 'mission_content' || phase.startsWith('writer_'), start: 75, done: 84 },
-    { test: phase => phase === 'assemble_mission', start: 85, done: 88 },
-    { test: phase => phase === 'apt_arrival_placement', start: 88, done: 92 },
-    { test: phase => phase === 'render_briefing', start: 94, done: 96 },
-    { test: phase => phase === 'enrichment', start: 97, done: 98 },
-    { test: phase => phase === 'complete', start: 100, done: 100 }
+    { test: phase => phase === 'start', start: 1, done: 3, label: 'Initialisiere Dispatcher...', doneLabel: 'Dispatcher gestartet.' },
+    { test: phase => phase === 'load_start_airport', start: 4, done: 8, label: 'Lade Startplatz-Daten...', doneLabel: 'Startplatz geladen.' },
+    { test: phase => phase === 'resolve_target', start: 10, done: 22, label: 'Suche Ziel nach Distanz, Richtung und Profil...', doneLabel: 'Ziel ausgewaehlt.' },
+    { test: phase => phase === 'resolve_poi_terrain', start: 24, done: 28, label: 'Pruefe Zielgelaende und Hoehe...', doneLabel: 'Zielgelaende geprueft.' },
+    { test: phase => phase === 'weather_departure', start: 29, done: 34, label: 'Lade Wetter am Start...', doneLabel: 'Startwetter geladen.' },
+    { test: phase => phase === 'weather_destination', start: 35, done: 40, label: 'Lade Wetter am Ziel...', doneLabel: 'Zielwetter geladen.' },
+    { test: phase => phase.startsWith('poi_geo_context'), start: 42, done: 48, label: 'Analysiere Zielumgebung und Landmarken...', doneLabel: 'Zielumgebung analysiert.' },
+    { test: phase => phase.startsWith('poi_mission_truth'), start: 49, done: 54, label: 'Fixiere Missionsziel und sichtbare Hinweise...', doneLabel: 'Missionsziel fixiert.' },
+    { test: phase => phase === 'sar_heli_hospital_resolve', start: 55, done: 60, label: 'Suche Klinik- und Helipad-Ziel...', doneLabel: 'SAR-Heli-Ziel vorbereitet.' },
+    { test: phase => phase === 'planner_v4_direct', start: 61, done: 66, label: 'Pipeline V4 plant Auftrag und Kontext...', doneLabel: 'Pipeline V4 Planung abgeschlossen.' },
+    { test: phase => phase === 'planner_v4_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 nutzt V2-Fallback...', doneLabel: 'Fallback-Planung abgeschlossen.' },
+    { test: phase => phase === 'planner_v4_error_fallback_v2', start: 62, done: 67, label: 'Pipeline V4 Fehler: V2 plant Ersatzauftrag...', doneLabel: 'Ersatzplanung abgeschlossen.' },
+    { test: phase => phase === 'planner_v3_tools', start: 61, done: 66, label: 'Pipeline V3 plant Kontext-Tools...', doneLabel: 'Pipeline V3 Planung abgeschlossen.' },
+    { test: phase => phase === 'planner_v3_fallback_v2', start: 63, done: 68, label: 'Pipeline V3 nutzt V2-Fallback...', doneLabel: 'Fallback-Planung abgeschlossen.' },
+    { test: phase => phase === 'planner_v3_error_fallback_v2', start: 63, done: 68, label: 'Pipeline V3 Fehler: V2 plant Ersatzauftrag...', doneLabel: 'Ersatzplanung abgeschlossen.' },
+    { test: phase => phase === 'planner_v2_form', start: 61, done: 68, label: 'Pipeline V2 plant Missionsformular...', doneLabel: 'Missionsformular geplant.' },
+    { test: phase => phase.startsWith('planner_'), start: 61, done: 68, label: 'Plane Missionsstruktur...', doneLabel: 'Missionsstruktur geplant.' },
+    { test: phase => phase === 'build_v4_contract', start: 69, done: 73, label: 'Baue Mission-Contract fuer den Writer...', doneLabel: 'Mission-Contract bereit.' },
+    { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
+    { test: phase => phase === 'writer_v4_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
+    { test: phase => phase === 'writer_legacy_bush', start: 77, done: 84, label: 'KI formuliert Bush-Auftrag...', doneLabel: 'Bush-Auftrag formuliert.' },
+    { test: phase => phase === 'writer_v4_main', start: 77, done: 84, label: 'KI schreibt Dispatcher-Briefing...', doneLabel: 'Dispatcher-Briefing geschrieben.' },
+    { test: phase => phase === 'writer_legacy_main', start: 77, done: 84, label: 'KI formuliert Auftragstext...', doneLabel: 'Auftragstext formuliert.' },
+    { test: phase => phase.startsWith('writer_'), start: 77, done: 84, label: 'KI erstellt Missionsbriefing...', doneLabel: 'Missionsbriefing erstellt.' },
+    { test: phase => phase === 'assemble_mission', start: 85, done: 88, label: 'Setze Route, Payload und Mission zusammen...', doneLabel: 'Mission zusammengesetzt.' },
+    { test: phase => phase === 'apt_arrival_placement', start: 89, done: 92, label: 'Plane Zielankunft und Platzierung...', doneLabel: 'Zielankunft geplant.' },
+    { test: phase => phase === 'render_briefing', start: 93, done: 96, label: 'Rendere Briefing-Zettel...', doneLabel: 'Briefing-Zettel gerendert.' },
+    { test: phase => phase === 'enrichment', start: 97, done: 98, label: 'Lade Zusatzinfos und Kartenkontext...', doneLabel: 'Zusatzinfos geladen.' },
+    { test: phase => phase === 'complete', start: 100, done: 100, label: 'Briefing komplett.', doneLabel: 'Briefing komplett.' }
 ];
 
-function getMissionGenerationPhaseProgress(phase, completed = false) {
+function getMissionGenerationPhaseMeta(phase) {
     const key = String(phase || '').trim().toLowerCase();
     if (!key) return null;
     if (key === 'error') return null;
     for (const item of MISSION_GENERATION_PROGRESS_PHASES) {
-        if (item.test(key)) return completed ? item.done : item.start;
+        if (item.test(key)) return item;
     }
     return null;
+}
+
+function getMissionGenerationPhaseProgress(phase, completed = false) {
+    const item = getMissionGenerationPhaseMeta(phase);
+    if (!item) return null;
+    return completed ? item.done : item.start;
+}
+
+function getMissionGenerationPhaseLabel(phase, completed = false) {
+    const item = getMissionGenerationPhaseMeta(phase);
+    if (!item) return '';
+    const label = completed ? (item.doneLabel || item.label) : item.label;
+    return typeof label === 'function' ? label(String(phase || '').trim().toLowerCase(), completed) : String(label || '');
+}
+
+function setMissionGenerationStatusText(text) {
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator && text) indicator.innerText = text;
 }
 
 function setMissionGenerationProgress(phaseOrOptions = '', options = {}) {
@@ -5857,6 +5889,10 @@ function setMissionGenerationProgress(phaseOrOptions = '', options = {}) {
     container.style.setProperty('--mission-generation-progress', `${rounded}%`);
     container.setAttribute('aria-valuenow', String(rounded));
     if (label) label.textContent = `${rounded}%`;
+    const statusText = typeof config.status === 'string'
+        ? config.status
+        : getMissionGenerationPhaseLabel(config.phase, !!config.completed);
+    if (statusText) setMissionGenerationStatusText(statusText);
 }
 window.setMissionGenerationProgress = setMissionGenerationProgress;
 
@@ -23347,7 +23383,7 @@ async function generateMission(options = {}) {
         paxText = '-';
         cargoText = '-';
     } else if (isBushDispatch) {
-        indicator.innerText = aiModeEnabled ? `Kontaktiere Bush-Dispatcher...` : `Erzeuge Bush-Mission...`;
+        indicator.innerText = aiModeEnabled ? `KI bereitet Bush-Dispatcher-Briefing vor...` : `Erzeuge Bush-Mission lokal...`;
         const initialBushPickupStoryHint = buildBushPickupStoryHint({
             missionPlanV2,
             missionContractV4,
@@ -23682,7 +23718,7 @@ async function generateMission(options = {}) {
             }
         }
     } else {
-        indicator.innerText = `Kontaktiere KI-Dispatcher...`;
+        indicator.innerText = aiModeEnabled ? `KI bereitet Dispatcher-Briefing vor...` : `Erzeuge Dispatcher-Auftrag...`;
         const followupDispatchMission = (followupSeed && typeof window.missionFollowupBuildDispatchMission === 'function')
             ? window.missionFollowupBuildDispatchMission(followupSeed, {
                 start,
