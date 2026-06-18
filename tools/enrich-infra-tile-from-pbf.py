@@ -44,6 +44,18 @@ MAJOR_HIGHWAY = {
     "tertiary_link",
 }
 MAJOR_RAIL = {"rail", "light_rail", "narrow_gauge", "subway", "tram"}
+RAIL_FACILITIES = {
+    "station",
+    "halt",
+    "signal_box",
+    "switch",
+    "signal",
+    "level_crossing",
+    "crossing",
+    "junction",
+    "platform",
+    "buffer_stop",
+}
 INDUSTRIAL_MAN_MADE = {
     "water_works",
     "wastewater_plant",
@@ -83,7 +95,7 @@ def infer_infra_type(item):
         return "bridge"
     if man_made == "bridge":
         return "bridge"
-    if railway in MAJOR_RAIL:
+    if railway in MAJOR_RAIL or railway in RAIL_FACILITIES:
         return "rail"
     if highway in MAJOR_HIGHWAY:
         return "road"
@@ -255,6 +267,10 @@ def extract(con, pbf_path, bounds):
         OR tags['transformer'] IS NOT NULL
         OR tags['waterway'] IN ('dam','weir')
         OR tags['bridge'] IS NOT NULL
+        OR tags['railway'] IN ('rail','light_rail','narrow_gauge','subway','tram','station','halt','signal_box','switch','signal','level_crossing','crossing','junction','platform','buffer_stop')
+        OR tags['building'] IN ('train_station','transportation','railway')
+        OR tags['historic'] IN ('railway_station')
+        OR regexp_matches(lower(COALESCE(tags['name'], '')), '(stellwerk|bahnwaerter|bahnw.rter|bahnuebergang|bahn.bergang|haltepunkt)')
         OR tags['man_made'] IN ('bridge','water_works','wastewater_plant','works','storage_tank','silo','chimney')
     """
 
@@ -425,6 +441,10 @@ def extract_many(con, pbf_path, tile_keys):
         OR tags['transformer'] IS NOT NULL
         OR tags['waterway'] IN ('dam','weir')
         OR tags['bridge'] IS NOT NULL
+        OR tags['railway'] IN ('rail','light_rail','narrow_gauge','subway','tram','station','halt','signal_box','switch','signal','level_crossing','crossing','junction','platform','buffer_stop')
+        OR tags['building'] IN ('train_station','transportation','railway')
+        OR tags['historic'] IN ('railway_station')
+        OR regexp_matches(lower(COALESCE(tags['name'], '')), '(stellwerk|bahnwaerter|bahnw.rter|bahnuebergang|bahn.bergang|haltepunkt)')
         OR tags['man_made'] IN ('bridge','water_works','wastewater_plant','works','storage_tank','silo','chimney')
     """
 
