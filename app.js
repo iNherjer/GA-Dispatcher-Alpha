@@ -1398,7 +1398,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
         mapping_survey: ['infrastructure', 'industry', 'rail', 'road', 'bridge', 'dam'],
         inspection_infra: ['infrastructure', 'bridge', 'rail', 'dam', 'telecom', 'industry', 'road'],
         fire_watch: ['fire'],
-        science_bio: ['water', 'mountain'],
+        science_bio: ['water', 'mountain', 'forest'],
         science_geo: ['mountain', 'dam', 'water'],
         media_photo: ['city', 'castle', 'industry', 'road'],
         news_coverage: ['road', 'city', 'industry'],
@@ -1421,6 +1421,7 @@ function missionTaskPoiCategoryWeights(profileId = 'auto') {
     }
     if (id === 'inspection_infra') {
         return {
+            infrastructure: 1.08,
             rail: 1.15,
             bridge: 1.05,
             dam: 0.95,
@@ -1600,13 +1601,33 @@ const MISSION_ROLE_TASK_PROFILES = {
                 matchInfraTypes: ['hydro', 'water_utility', 'flood_protection'],
                 storySeed: '{name} kontrolliert bei {targetName} Dammkrone, Ablaufbauwerk, Uferbefestigung oder Pegelbereich nach einer Meldung aus dem Betrieb.',
                 greetingText: 'Hi, bei Wasserbauwerken zählt der Zusammenhang: Krone, Auslauf, Ufer und Zufahrt. Bitte ruhig, damit ich das Gelände lesen kann.'
+            },
+            {
+                name: 'Fenja Kroll',
+                role: 'Hafen- und Schleusentechnikerin',
+                gender: 'female',
+                personality: 'praktisch, aufmerksam, wasserbaulich',
+                matchCategories: ['water', 'dam', 'infrastructure'],
+                matchInfraTypes: ['marine_infra'],
+                storySeed: '{name} prüft bei {targetName} Schleuse, Anleger, Hafenbecken, Uferbefestigung oder Betriebszugang, weil der Betreiber vor der nächsten Wartung eine klare Luftsicht braucht.',
+                greetingText: 'Hi, ich achte heute auf Schleusentor, Anleger, Uferkante und Betriebszugang. Ruhig fliegen, dann kann ich Wasserbau und Zugang sauber trennen.'
+            },
+            {
+                name: 'Maja Breuer',
+                role: 'Perimeter-Prüferin',
+                gender: 'female',
+                personality: 'ruhig, genau, sicherheitsbewusst',
+                matchCategories: ['infrastructure', 'industry'],
+                matchInfraTypes: ['perimeter_security'],
+                storySeed: '{name} kontrolliert bei {targetName} Zaunlinie, Tore, Zufahrt und Randbereiche, weil eine Betreiber- oder Wettermeldung auf eine mögliche Lücke im Perimeter hinweist.',
+                greetingText: 'Hi, ich schaue heute auf Zaunlinie, Tore und Zugänge. Keine Dramatik, nur ein sauberer Betreiberblick auf den Randbereich.'
             }
         ],
         greetingText: 'Hi, wir prüfen heute eine konkrete Infrastrukturmeldung aus der Luft. Bitte stabil fliegen, damit Zielobjekt, Zugänge und mögliche Auffälligkeiten sauber einzuordnen sind.',
         paxText: '1 PAX (Infrastruktur-Inspektion)',
-        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)', 'Netzplan und Sichtcheck-Tablet (12 lbs)', 'PV-/Windpark-Wartungsunterlagen (16 lbs)', 'Leitungsplan und Betreiberprotokoll (14 lbs)', 'Umwelttechnik-Checkliste (10 lbs)'],
+        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)', 'Netzplan und Sichtcheck-Tablet (12 lbs)', 'PV-/Windpark-Wartungsunterlagen (16 lbs)', 'Leitungsplan und Betreiberprotokoll (14 lbs)', 'Umwelttechnik-Checkliste (10 lbs)', 'Hafen-/Schleusenprotokoll und Kamera (15 lbs)', 'Perimeter-Checkliste und Teleobjektiv (12 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: konkrete Betreiber-, Störungs-, Sturm-, Wartungs- oder Schadensmeldung an Infrastruktur; möglich sind Brücke, Damm, Bahntrasse, Bahnhof, Stellwerk, Weiche, Funkmast, Windpark, Solarpark, Energieanlage, Speicher, Pipeline, Pumpwerk, Wasser-/Abwasseranlage, Entsorgung, Steinbruch, Schutzbau, Industrieanlage, Baustelle, Tankanlage, öffentliches Gebäude, Zufahrt oder Betriebsbauwerk. Der Flug liefert Vorprüfung und Folgeentscheidung, keine freie Vermessungs- oder Sightseeing-Story.'
+        storyCue: 'Fokus: konkrete Betreiber-, Störungs-, Sturm-, Wartungs- oder Schadensmeldung an Infrastruktur; möglich sind Brücke, Damm, Schleuse, Hafen, Anleger, Bahntrasse, Bahnhof, Stellwerk, Weiche, Funkmast, Windpark, Solarpark, Energieanlage, Speicher, Pipeline, Pumpwerk, Wasser-/Abwasseranlage, Entsorgung, Steinbruch, Schutzbau, Perimeter/Zaunlinie, Industrieanlage, Baustelle, Tankanlage, öffentliches Gebäude, Zufahrt oder Betriebsbauwerk. Der Flug liefert Vorprüfung und Folgeentscheidung, keine freie Vermessungs- oder Sightseeing-Story.'
     },
     media_photo: {
         id: 'media_photo',
@@ -1935,13 +1956,31 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'übersichtlich, bodenständig, ruhig',
                 storySeed: '{name} ordnet bei {targetName} Habitatinseln, Waldsäume, Feuchtstellen oder offene Flächen für die nächste Begehung.',
                 greetingText: 'Hi, ich brauche heute eine Habitatkarte im Kopf. Ruhige Bögen, klare Ränder, keine dramatische Lage.'
+            },
+            {
+                name: 'Tessa Klee',
+                role: 'Gebietsbetreuerin Naturschutz',
+                gender: 'female',
+                personality: 'aufmerksam, naturkundlich, pragmatisch',
+                matchCategories: ['forest', 'water', 'mountain'],
+                storySeed: '{name} prüft bei {targetName} Habitatgrenzen, Zaunlinien, Besucherlenkung oder Wildwechsel, damit die nächste Begehung im Schutzgebiet besser vorbereitet ist.',
+                greetingText: 'Hi, ich achte heute auf Habitatgrenzen, Zaunverlauf und Besucherwege. Es geht um ruhige Einordnung, nicht um einen Einsatz.'
+            },
+            {
+                name: 'Robin Heller',
+                role: 'Wildtierökologe',
+                gender: 'male',
+                personality: 'ruhig, beobachtend, sachlich',
+                matchCategories: ['forest', 'water'],
+                storySeed: '{name} nutzt den Luftblick bei {targetName}, um Wildwechsel, Durchlässigkeit von Zäunen und Störkanten am Rand des Naturraums einzuordnen.',
+                greetingText: 'Hi, für mich zählen heute Übergänge, Zäune und mögliche Wildwechsel. Bitte mit Abstand und gleichmäßig, damit wir nichts unnötig stören.'
             }
         ],
         greetingText: 'Hi, wir fliegen heute eine biologische Beobachtung mit konkreter Fragestellung. Bitte ruhig und stabil, damit Vegetation, Habitat und Randzonen vergleichbar bleiben.',
         paxText: '1 PAX (Biologe)',
         cargoPool: ['Umweltsensorik und Kamera (18 lbs)', 'Feldnotizen und GPS-Logger (9 lbs)', 'Habitatkarten und Fernglas (11 lbs)', 'Wasserproben-Notizkit und Tablet (14 lbs)', 'Vegetations-Monitoring-Set (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: biologische oder ökologische Beobachtung mit konkreter Studie: Habitat, Vegetation, Uferzone, Vogel-/Rastbereiche, Trockenstress, Störfaktoren, Wasserfarbe, Feuchtflächen oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage.'
+        storyCue: 'Fokus: biologische oder ökologische Beobachtung mit konkreter Studie: Habitat, Vegetation, Uferzone, Vogel-/Rastbereiche, Trockenstress, Störfaktoren, Wasserfarbe, Feuchtflächen, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage.'
     },
     science_geo: {
         id: 'science_geo',
@@ -7675,6 +7714,8 @@ function _poiInfraFallbackName(tags = {}, fallbackCategory = 'infrastructure') {
     if (infraType === 'energy_plant') return 'Energieanlage';
     if (infraType === 'energy_storage') return 'Batterie-/Speicheranlage';
     if (infraType === 'pipeline' || t.pipeline) return 'Pipeline-/Leitungsstation';
+    if (infraType === 'marine_infra') return 'Hafen-/Schleusenanlage';
+    if (infraType === 'perimeter_security') return 'Perimeter-/Zaunbereich';
     if (infraType === 'water_utility') return 'Wasser-/Abwasseranlage';
     if (infraType === 'water_tank' || String(t.man_made || '').toLowerCase() === 'water_tower') return 'Wassertank';
     if (infraType === 'storage_tank' || String(t.man_made || '').toLowerCase() === 'storage_tank') return 'Lagertank';
@@ -7797,6 +7838,8 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
             historic: String(node?.historic || '').toLowerCase(),
             amenity: String(node?.amenity || '').toLowerCase(),
             leisure: String(node?.leisure || '').toLowerCase(),
+            boundary: String(node?.boundary || '').toLowerCase(),
+            access: String(node?.access || '').toLowerCase(),
             place: String(node?.place || '').toLowerCase(),
             obstacle_type: String(node?.obstacle_type || node?.type || '').toLowerCase(),
             generator_source: String(node?.generator_source || node?.['generator:source'] || '').toLowerCase(),
@@ -8033,6 +8076,53 @@ function _poiFeatureMatchesCategory(feature, category) {
         energyNameHint ||
         /(wind|solar|photovoltaic|photovoltaik|pv|battery|biogas|biomass|gas|geothermal)/.test(energySource)
     );
+    const lockTagPositive = !!String(t.lock_tag || '').trim() && !/^(no|false|0)$/i.test(String(t.lock_tag || '').trim());
+    const marineNameHint = (
+        _hasWordToken(n, 'hafen') ||
+        _hasWordToken(n, 'marina') ||
+        _hasWordToken(n, 'sportboothafen') ||
+        _hasWordToken(n, 'schleuse') ||
+        _hasWordToken(n, 'anleger') ||
+        _hasWordToken(n, 'anlegestelle') ||
+        _hasWordToken(n, 'kai') ||
+        _hasWordToken(n, 'pier') ||
+        _hasWordToken(n, 'dock')
+    );
+    const isMarineInfra = (
+        infraType === 'marine_infra' ||
+        t.amenity === 'ferry_terminal' ||
+        t.leisure === 'marina' ||
+        ['pier', 'dock', 'quay', 'jetty'].includes(t.man_made) ||
+        ['dock', 'lock_gate'].includes(t.waterway) ||
+        lockTagPositive ||
+        marineNameHint
+    );
+    const perimeterNameHint = (
+        _hasWordToken(n, 'zaun') ||
+        _hasWordToken(n, 'tor') ||
+        _hasWordToken(n, 'zugang') ||
+        _hasWordToken(n, 'perimeter') ||
+        _hasWordToken(n, 'wildzaun') ||
+        _hasWordToken(n, 'schutzzaun')
+    );
+    const isPerimeterSecurity = (
+        infraType === 'perimeter_security' ||
+        ['fence', 'gate'].includes(t.barrier) ||
+        perimeterNameHint
+    );
+    const isNatureReserve = (
+        t.leisure === 'nature_reserve' ||
+        ['protected_area', 'national_park'].includes(t.boundary) ||
+        _hasWordToken(n, 'naturschutzgebiet') ||
+        _hasWordToken(n, 'schutzgebiet')
+    );
+    const isWildlifeArea = (
+        t.tourism === 'zoo' ||
+        t.leisure === 'wildlife_park' ||
+        _hasWordToken(n, 'wildpark') ||
+        _hasWordToken(n, 'wildgehege') ||
+        _hasWordToken(n, 'tierpark')
+    );
 
     const isWater = (
         ['river', 'stream', 'canal', 'dam', 'weir'].includes(t.waterway) ||
@@ -8040,7 +8130,8 @@ function _poiFeatureMatchesCategory(feature, category) {
         ['lake', 'reservoir', 'pond', 'basin'].includes(t.water) ||
         ['reservoir', 'basin'].includes(t.landuse) ||
         t.layer === 'hydro' ||
-        infraType === 'hydro'
+        infraType === 'hydro' ||
+        isMarineInfra
     );
     const damNameStrong = (
         _hasWordToken(n, 'talsperre') ||
@@ -8144,6 +8235,8 @@ function _poiFeatureMatchesCategory(feature, category) {
         !isTransportCorridor && !isSettlementOnly && (
             t.natural === 'wood' ||
             t.landuse === 'forest' ||
+            isNatureReserve ||
+            isWildlifeArea ||
             _hasWordToken(n, 'wald') ||
             _hasWordToken(n, 'forst') ||
             _hasWordToken(n, 'forest')
@@ -8190,6 +8283,8 @@ function _poiFeatureMatchesCategory(feature, category) {
         isTelecom ||
         isIndustry ||
         isBridge ||
+        isMarineInfra ||
+        isPerimeterSecurity ||
         !!infraType ||
         ['line', 'minor_line', 'cable'].includes(t.power) ||
         _hasWordToken(n, 'strom') ||
@@ -8232,7 +8327,7 @@ function _poiInferCategoryFromFeature(feature) {
         'construction', 'energy_plant', 'energy_storage', 'pipeline',
         'public_building', 'fuel', 'water_utility', 'water_tank',
         'storage_tank', 'waste', 'quarry', 'flood_protection',
-        'traffic_protection', 'telecom'
+        'traffic_protection', 'telecom', 'marine_infra', 'perimeter_security'
     ].includes(infraType)) return 'infrastructure';
     if (infraType === 'hydro') {
         const energySource = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
@@ -8299,8 +8394,37 @@ function _poiCandidateInfraSubtype(candidate = {}) {
         'energy_plant', 'energy_storage', 'industrial', 'construction',
         'pipeline', 'public_building', 'fuel', 'water_utility', 'water_tank',
         'storage_tank', 'waste', 'quarry', 'flood_protection',
-        'traffic_protection', 'telecom'
+        'traffic_protection', 'telecom', 'marine_infra', 'perimeter_security'
     ].includes(clusterType)) return clusterType;
+    const lockTagPositive = !!String(tags.lock_tag || '').trim() && !/^(no|false|0)$/i.test(String(tags.lock_tag || '').trim());
+    if (
+        infraType === 'marine_infra' ||
+        clusterType === 'marine_infra' ||
+        String(tags.amenity || '').toLowerCase() === 'ferry_terminal' ||
+        String(tags.leisure || '').toLowerCase() === 'marina' ||
+        ['pier', 'dock', 'quay', 'jetty'].includes(String(tags.man_made || '').toLowerCase()) ||
+        ['dock', 'lock_gate'].includes(String(tags.waterway || '').toLowerCase()) ||
+        lockTagPositive ||
+        _hasWordToken(n, 'hafen') ||
+        _hasWordToken(n, 'marina') ||
+        _hasWordToken(n, 'sportboothafen') ||
+        _hasWordToken(n, 'schleuse') ||
+        _hasWordToken(n, 'anleger') ||
+        _hasWordToken(n, 'anlegestelle') ||
+        _hasWordToken(n, 'kai') ||
+        _hasWordToken(n, 'pier') ||
+        _hasWordToken(n, 'dock')
+    ) return 'marine_infra';
+    if (
+        infraType === 'perimeter_security' ||
+        clusterType === 'perimeter_security' ||
+        ['fence', 'gate'].includes(String(tags.barrier || '').toLowerCase()) ||
+        _hasWordToken(n, 'zaun') ||
+        _hasWordToken(n, 'tor') ||
+        _hasWordToken(n, 'perimeter') ||
+        _hasWordToken(n, 'wildzaun') ||
+        _hasWordToken(n, 'schutzzaun')
+    ) return 'perimeter_security';
     if (infraType === 'solar' || energy.includes('solar') || _hasWordToken(n, 'solarpark') || _hasWordToken(n, 'photovoltaik') || _hasWordToken(n, 'pv')) return 'solar';
     if (infraType === 'wind' || energy.includes('wind') || _hasWordToken(n, 'windpark') || _hasWordToken(n, 'windkraft') || _hasWordToken(n, 'windrad')) return 'wind';
     if (infraType === 'energy_storage' || power === 'storage' || /(battery|storage)/.test(energy)) return 'energy_storage';
@@ -8330,7 +8454,7 @@ function _poiCandidateInfraSubtype(candidate = {}) {
         ['water_works', 'wastewater_plant'].includes(String(tags.amenity || '').toLowerCase()) ||
         ['water', 'sewerage', 'wastewater'].includes(String(tags.utility || '').toLowerCase()) ||
         String(tags.waterway || '').toLowerCase() === 'lock_gate' ||
-        tags.lock_tag ||
+        lockTagPositive ||
         tags.monitoring_water_level
     ) return 'water_utility';
     if (infraType === 'water_tank' || String(tags.man_made || '').toLowerCase() === 'water_tower') return 'water_tank';
@@ -8457,7 +8581,7 @@ function _poiFeatureScore(feature, category) {
         if (['power_grid', 'power'].includes(infraType)) score += 6;
         if (['road', 'bridge', 'rail', 'telecom'].includes(infraType)) score -= 3;
         if (['solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'industrial'].includes(infraType)) score += 3;
-        if (['construction', 'fuel', 'pipeline', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'flood_protection', 'traffic_protection'].includes(infraType)) score += 6;
+        if (['construction', 'fuel', 'pipeline', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'flood_protection', 'traffic_protection', 'marine_infra', 'perimeter_security'].includes(infraType)) score += 6;
         if (['public_building', 'telecom'].includes(infraType)) score += 4;
         if (infraType === 'hydro') score += 2;
         if (t.infra_cluster) score += 4;
@@ -8478,23 +8602,30 @@ function _poiFeatureScore(feature, category) {
         if (String(t.landuse || '').toLowerCase() === 'construction' || t.construction) score += 6;
         if (['landfill', 'quarry'].includes(String(t.landuse || '').toLowerCase())) score += 6;
         if (String(t.amenity || '').toLowerCase() === 'fuel') score += 5;
-        if (['recycling', 'waste_disposal', 'waste_transfer_station', 'water_works', 'wastewater_plant'].includes(String(t.amenity || '').toLowerCase())) score += 5;
+        if (['ferry_terminal', 'recycling', 'waste_disposal', 'waste_transfer_station', 'water_works', 'wastewater_plant'].includes(String(t.amenity || '').toLowerCase())) score += 5;
         if (['clinic', 'college', 'courthouse', 'fire_station', 'hospital', 'police', 'post_office', 'school', 'townhall', 'university'].includes(String(t.amenity || '').toLowerCase())) score += 3;
         if (['dyke', 'embankment', 'gasometer', 'pipeline', 'pumping_station', 'water_tower', 'storage_tank'].includes(String(t.man_made || '').toLowerCase())) score += 5;
-        if (['noise_barrier', 'retaining_wall'].includes(String(t.barrier || '').toLowerCase())) score += 4;
+        if (['fence', 'gate', 'noise_barrier', 'retaining_wall'].includes(String(t.barrier || '').toLowerCase())) score += 4;
+        if (String(t.leisure || '').toLowerCase() === 'marina') score += 5;
+        if (['dock', 'lock_gate'].includes(String(t.waterway || '').toLowerCase())) score += 5;
+        if (['pier', 'dock', 'quay', 'jetty'].includes(String(t.man_made || '').toLowerCase())) score += 5;
         if (t.tunnel || t.pipeline || t.monitoring_water_level || t.lock_tag || t.embankment) score += 4;
         if (['gas', 'heating', 'pipeline', 'sewerage', 'wastewater', 'water'].includes(String(t.utility || '').toLowerCase())) score += 4;
         if (t.substation || t.transformer) score += 5;
         if (['tower', 'mast', 'communications_tower', 'bridge'].includes(t.man_made)) score += 4;
-        if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse') && !_hasWordToken(n, 'baustelle') && !_hasWordToken(n, 'dach') && !_hasWordToken(n, 'pv') && !_hasWordToken(n, 'solar') && !_hasWordToken(n, 'tank') && !_hasWordToken(n, 'tankstelle') && !_hasWordToken(n, 'gebaeude') && !_hasWordToken(n, 'gebäude') && !_hasWordToken(n, 'pipeline') && !_hasWordToken(n, 'pump') && !_hasWordToken(n, 'deich') && !_hasWordToken(n, 'tunnel') && !_hasWordToken(n, 'recycling') && !_hasWordToken(n, 'deponie') && !_hasWordToken(n, 'steinbruch')) score -= 2;
+        if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse') && !_hasWordToken(n, 'baustelle') && !_hasWordToken(n, 'dach') && !_hasWordToken(n, 'pv') && !_hasWordToken(n, 'solar') && !_hasWordToken(n, 'tank') && !_hasWordToken(n, 'tankstelle') && !_hasWordToken(n, 'gebaeude') && !_hasWordToken(n, 'gebäude') && !_hasWordToken(n, 'pipeline') && !_hasWordToken(n, 'pump') && !_hasWordToken(n, 'deich') && !_hasWordToken(n, 'tunnel') && !_hasWordToken(n, 'recycling') && !_hasWordToken(n, 'deponie') && !_hasWordToken(n, 'steinbruch') && !_hasWordToken(n, 'hafen') && !_hasWordToken(n, 'schleuse') && !_hasWordToken(n, 'anleger') && !_hasWordToken(n, 'zaun') && !_hasWordToken(n, 'tor')) score -= 2;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge', 'saddle', 'rock', 'cave_entrance', 'hill'].includes(t.natural)) score += 6;
         if (_hasWordToken(n, 'fels') || _hasWordToken(n, 'felsen') || _hasWordToken(n, 'klippe') || _hasWordToken(n, 'klamm') || _hasWordToken(n, 'hohle')) score += 5;
     } else if (cat === 'forest') {
         if (t.natural === 'wood') score += 9;
         if (t.landuse === 'forest') score += 9;
+        if (String(t.leisure || '').toLowerCase() === 'nature_reserve') score += 8;
+        if (['protected_area', 'national_park'].includes(String(t.boundary || '').toLowerCase())) score += 8;
+        if (String(t.tourism || '').toLowerCase() === 'zoo') score += 4;
         if (_hasWordToken(n, 'wald')) score += 6;
         if (_hasWordToken(n, 'forst')) score += 5;
+        if (_hasWordToken(n, 'naturschutzgebiet') || _hasWordToken(n, 'schutzgebiet') || _hasWordToken(n, 'wildpark') || _hasWordToken(n, 'wildgehege')) score += 7;
         if (_poiIsHumanMemorialFeature(feature)) score -= 12;
         if (['city', 'town', 'suburb', 'neighbourhood', 'quarter'].includes(String(t.place || '').toLowerCase())) score -= 6;
     } else if (cat === 'castle') {
@@ -11093,7 +11224,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         if (/(berater|anwalt|architekt|projektleiter|unternehmer|geschaeft|business|vip)/.test(hay)) return 'vip_business_v1';
         if (/(mechan|wartung|inspekt|techn|vermess|ingenieur|facility|pruef|prüfung|statik)/.test(hay)) return 'technical_inspector_v1';
         if (/(foto|film|medien|report|journal|immobilien)/.test(hay)) return 'media_observer_v1';
-        if (/(wissenschaft|forschung|biolog|oekolog|ökolog|geolog|hydrolog|meteorolog|kartograf|analyst)/.test(hay)) return 'science_field_v1';
+        if (/(wissenschaft|forschung|biolog|oekolog|ökolog|geolog|hydrolog|meteorolog|kartograf|analyst|naturschutz|wildwechsel|habitat)/.test(hay)) return 'science_field_v1';
         if (/(verein|stammtisch|hangar|ersatzteil)/.test(hay)) return 'club_utility_v1';
         return 'general_passenger_v1';
     };
@@ -11124,10 +11255,10 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         if (/(sar|search|rescue|rettung|suchmuster|vermisst)/.test(hay)) return 'search_and_rescue';
         if (/(brand|rauch|hotspot|waldbrand|feuerwacht)/.test(hay)) return 'fire_watch';
         if (/(^|[^a-zäöüß])(animal|animal_transport|tier|tiertransport|tierschutz|welpen|katze|hund|ziege|reh|hirsch|möwe|moewe|gans|ente|enten|schwan|pferd|wildvogel|auffangstation|tierarzt)(?=$|[^a-zäöüß])/.test(hay)) return 'animal_transport';
-        if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt)/.test(hay)) return 'science_bio';
+        if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt|schutzgebiet|wildpark|wildwechsel|habitat|besucherlenkung)/.test(hay)) return 'science_bio';
         if (/(geolog|hydrolog|erosion|hangstabil|gestein|sediment|rutsch)/.test(hay)) return 'science_geo';
         if (/(wissenschaft|forschung|meteorolog|kartograf|analyst)/.test(hay)) return 'science_general';
-        if (/(inspekt|wartung|techn|vermess|brueck|bruck|autobahn|strass|funk|mast|damm|talsperre|schaden|sturm|stoer|stör|baufortschritt|waermebild|wärmebild|dach)/.test(hay)) return 'inspection_infra';
+        if (/(inspekt|wartung|techn|vermess|brueck|bruck|autobahn|strass|funk|mast|damm|talsperre|schaden|sturm|stoer|stör|baufortschritt|waermebild|wärmebild|dach|hafen|marina|schleuse|anleger|zaunlinie|perimeter|zugang)/.test(hay)) return 'inspection_infra';
         if (/(foto|film|medien|immobilien|report|journal)/.test(hay)) return 'media_photo';
         if (/(verein|stammtisch|ersatzteil|mechaniker|hangar)/.test(hay)) return 'club_utility';
         return 'general';
@@ -11735,6 +11866,9 @@ function _missionProfilePersonaScore(persona = {}, context = {}) {
     if (/(solar|photovoltaik|pv)/.test(nameHint) && /(solar|photovoltaik|pv)/.test(roleText)) score += 4;
     if (/(wasser|damm|stau|talsperre|hydro)/.test(nameHint) && /(wasser|damm|ufer|hydro)/.test(roleText)) score += 3;
     if (/(bruecke|brucke|bridge|viadukt)/.test(nameHint) && /(bauwerk|bruecke|brucke|tragwerk|widerlager)/.test(roleText)) score += 3;
+    if (/(hafen|marina|schleuse|anleger|kai)/.test(nameHint) && /(hafen|schleuse|wasserbau|anleger|ufer)/.test(roleText)) score += 4;
+    if (/(zaun|zaunlinie|perimeter|tor|zugang)/.test(nameHint) && /(perimeter|zaun|tor|zugang)/.test(roleText)) score += 4;
+    if (/(schutzgebiet|wildpark|wildwechsel|naturschutz)/.test(nameHint) && /(naturschutz|wildtier|habitat|zaun|besucherlenkung)/.test(roleText)) score += 4;
 
     if (category && category !== 'generic' && matchCategories.length && !matchCategories.includes(category)) score -= 2;
     if (infraType && matchInfraTypes.length && !matchInfraTypes.includes(infraType)) score -= 2;
@@ -12361,7 +12495,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'search_and_rescue':
             return hasAny(/\bsuch/, /\bsar\b/, /\brettung/, /\blagebild\b/, /\bvermisst/, /\bsignal/);
         case 'inspection_infra':
-            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/, /\bstörung\b/, /\bstoerung\b/, /\btrasse\b/, /\bumspannwerk\b/, /\bwindpark\b/, /\bsolarpark\b/, /\bpv-dach\b/, /\bdachprüfung\b/, /\bdachpruefung\b/, /\bbaustelle\b/, /\btankstelle\b/, /\btankfeld\b/, /\bwassertank\b/, /\bpumpwerk\b/, /\bwasserwerk\b/, /\bklaeranlage\b/, /\bkläranlage\b/, /\bpipeline\b/, /\bgasdruck\b/, /\bbatteriespeicher\b/, /\bbiogas\b/, /\bbiomasse\b/, /\brecycling\b/, /\bdeponie\b/, /\bsteinbruch\b/, /\bkieswerk\b/, /\bdeich\b/, /\bstuetzmauer\b/, /\bstützmauer\b/, /\blaermschutz\b/, /\blärmschutz\b/, /\btunnelportal\b/, /\bmodulreihe\b/, /\bwechselrichter\b/, /\btrafopunkt\b/);
+            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/, /\bstörung\b/, /\bstoerung\b/, /\btrasse\b/, /\bumspannwerk\b/, /\bwindpark\b/, /\bsolarpark\b/, /\bpv-dach\b/, /\bdachprüfung\b/, /\bdachpruefung\b/, /\bbaustelle\b/, /\btankstelle\b/, /\btankfeld\b/, /\bwassertank\b/, /\bpumpwerk\b/, /\bwasserwerk\b/, /\bklaeranlage\b/, /\bkläranlage\b/, /\bpipeline\b/, /\bgasdruck\b/, /\bbatteriespeicher\b/, /\bbiogas\b/, /\bbiomasse\b/, /\brecycling\b/, /\bdeponie\b/, /\bsteinbruch\b/, /\bkieswerk\b/, /\bdeich\b/, /\bstuetzmauer\b/, /\bstützmauer\b/, /\blaermschutz\b/, /\blärmschutz\b/, /\btunnelportal\b/, /\bmodulreihe\b/, /\bwechselrichter\b/, /\btrafopunkt\b/, /\bhafen\b/, /\bmarina\b/, /\bschleuse\b/, /\banleger\b/, /\buferbefestigung\b/, /\bzaunlinie\b/, /\bperimeter\b/, /\btor\b/, /\bzugang\b/);
         case 'news_coverage':
             return hasAny(/\breporter/, /\bredaktion/, /\bbericht/, /\bberichterstattung/, /\bauffaenger\b/, /\baufhänger\b/, /\bverkehrslage\b/, /\bbesucher/, /\bfestbetrieb\b/, /\bbaustelle\b/, /\bortsbild\b/, /\blageeinschaetzung\b/, /\blageeinschätzung\b/);
         case 'media_photo':
@@ -12369,7 +12503,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'science_geo':
             return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/, /\bsediment/, /\btalform\b/, /\babbruchkante\b/, /\buferkante\b/, /\bhangstabil/);
         case 'science_bio':
-            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/, /\buferzone\b/, /\btrockenstress\b/, /\brastbereich\b/, /\bbrutbereich\b/, /\bmonitoring\b/);
+            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/, /\buferzone\b/, /\btrockenstress\b/, /\brastbereich\b/, /\bbrutbereich\b/, /\bmonitoring\b/, /\bnaturschutzgebiet\b/, /\bschutzgebiet\b/, /\bwildpark\b/, /\bwildwechsel\b/, /\bzaunlinie\b/, /\bbesucherlenkung\b/);
         case 'tour_guide_knowledge':
             return hasAny(/\bfakten\b/, /\beinordnung\b/, /\borientierung\b/, /\bbildung\b/, /\blern/, /\bwissens/, /\bgeschichte\b/);
         case 'historian_guided_tour':
@@ -12402,10 +12536,10 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Bauwerks-/Gebäude-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Bahnzielen sind Bahnhof, Bahntrasse, Stellwerk, Weiche, Signal, Bahnübergang, Bahnwaerterhaus, Oberleitung, Böschung, Entwässerung oder Baustellenzustand passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Windparks, Solarparks, Umspannwerke, Energieanlagen, Batteriespeicher, Pipelines, Pumpwerke, Wasser-/Abwasseranlagen, Entsorgungsanlagen, Steinbrüche/Kieswerke, Deiche, Stützmauern, Lärmschutzwände, Tunnelportale, Trassen, Funkmasten, Industrieanlagen, Baustellen, öffentliche Gebäude, Tankstellen, Lagertanks und Wassertanks sind ebenfalls passende Infra-Ziele. Passende Prüfpunkte sind Rotor-/Turmbereich, Modulreihen, Dachhaut, Wechselrichter, Trafopunkt, Leitung, Ventilpunkt, Zaun, Zufahrt, Kranfläche, Betriebsfläche, Zapfbereich, Tankfeld, Pegelstelle, Pumpstation, Abbaukante, Böschung, Schutzwand oder Gebäudedach. Dach ist dabei Prüfmerkmal eines passenden Gebäudes oder einer Anlage, aber kein eigenständiger Zieltyp. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Bauwerks-/Gebäude-/Trassenprüfung, Perimeterprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Bahnzielen sind Bahnhof, Bahntrasse, Stellwerk, Weiche, Signal, Bahnübergang, Bahnwaerterhaus, Oberleitung, Böschung, Entwässerung oder Baustellenzustand passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Schleusen, Hafenbecken, Anleger, Stege, Kaianlagen und Betriebszugänge sind als Hafen-/Wasserbau-Inspektion passende Varianten. Windparks, Solarparks, Umspannwerke, Energieanlagen, Batteriespeicher, Pipelines, Pumpwerke, Wasser-/Abwasseranlagen, Entsorgungsanlagen, Steinbrüche/Kieswerke, Deiche, Stützmauern, Lärmschutzwände, Tunnelportale, Trassen, Funkmasten, Industrieanlagen, Baustellen, öffentliche Gebäude, Tankstellen, Lagertanks, Wassertanks, Zaunlinien, Tore und Perimeterbereiche sind ebenfalls passende Infra-Ziele. Passende Prüfpunkte sind Rotor-/Turmbereich, Modulreihen, Dachhaut, Wechselrichter, Trafopunkt, Leitung, Ventilpunkt, Zaun, Tor, Zufahrt, Kranfläche, Betriebsfläche, Zapfbereich, Tankfeld, Pegelstelle, Pumpstation, Schleusentor, Uferkante, Abbaukante, Böschung, Schutzwand oder Gebäudedach. Dach ist dabei Prüfmerkmal eines passenden Gebäudes oder einer Anlage, aber kein eigenständiger Zieltyp. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'science_bio' && isPOI) {
-        return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein: Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Störfaktoren oder Monitoringvergleich. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
+        return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein: Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Störfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Zaun/Tor/Perimeter dürfen nur als ökologische Grenze, Durchlässigkeit, Besucherlenkung oder Störkante beschrieben werden, nicht als Sicherheits- oder Polizeiauftrag. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
     }
     if (profile.id === 'science_geo' && isPOI) {
         return '16. OPERATIONS-REGEL SCIENCE GEO POI: Auftrag ist geologische oder geomorphologische Beobachtung. Baue eine konkrete Fragestellung ein: Relief, Erosion, Hangstabilität, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fließwege oder Geländekartierung. Der Luftblick soll Kartierung, Studie oder Bodenbegehung vorbereiten. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage, keine reine Vermessungs- oder Sightseeing-Sprache.';
@@ -12475,7 +12609,7 @@ function _poiCategoryTaskPool(category = 'generic') {
     if (c === 'castle' || c === 'city') {
         return ['historian_guided_tour', 'historian_guided_tour', 'tour_guide_knowledge', 'sightseeing_tour', 'news_coverage'];
     }
-    if (c === 'water') {
+    if (c === 'water' || c === 'forest') {
         return ['science_bio', 'science_bio', 'search_and_rescue', 'sightseeing_tour', 'historian_guided_tour', 'tour_guide_knowledge'];
     }
     if (c === 'mountain') {
@@ -13249,7 +13383,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return positive && !negative;
     }
     if (id === 'science_bio') {
-        const positive = has(/biolog|oekolog|ökolog|naturschutz|umwelt|vegetation|fauna|flora|habitat|gewasser|gewaesser|uferzone|trockenstress|rastbereich|brutbereich|monitoring|schilf|feucht/);
+        const positive = has(/biolog|oekolog|ökolog|naturschutz|umwelt|vegetation|fauna|flora|habitat|gewasser|gewaesser|uferzone|trockenstress|rastbereich|brutbereich|monitoring|schilf|feucht|schutzgebiet|wildpark|wildwechsel|zaunlinie|besucherlenkung/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
@@ -13262,7 +13396,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/scan|vermess|lidar|photogram|kartier|topo|mess|dokumentation/);
     }
     if (id === 'inspection_infra') {
-        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse|umspannwerk|windpark|windkraft|windrad|solarpark|solaranlage|photovoltaik|modulreihe|wechselrichter|trafopunkt/);
+        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse|umspannwerk|windpark|windkraft|windrad|solarpark|solaranlage|photovoltaik|modulreihe|wechselrichter|trafopunkt|hafen|marina|schleuse|anleger|zaunlinie|perimeter|tor|zugang/);
     }
     if (id === 'media_photo') {
         const positive = has(/foto|film|kamera|luftbild|aufnahmen|bildserie|shots|establishing|dreh|pr|medien|redaktion|aufmacher|tourismus|ortsmarketing|gemeinde|jubilaeum|jubiläum|immobilien|jahresbericht|firmen|doku/);
@@ -17397,7 +17531,7 @@ const MISSION_SEMANTICS_V4_RULESET = {
             planner: [
                 'Infrastruktur darf das Primaerziel sein.',
                 'Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.',
-                'Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.'
+                'Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.'
             ],
             writer: [
                 'Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.',
@@ -17407,12 +17541,13 @@ const MISSION_SEMANTICS_V4_RULESET = {
         science_bio: {
             planner: [
                 'Biologische oder oekologische Beobachtung bleibt Hauptzweck.',
-                'Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Stoerfaktoren oder Monitoringvergleich duerfen die Story tragen.',
+                'Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Stoerfaktoren, Schutzgebietsraender, Wildwechsel, Zaunlinien, Besucherlenkung oder Monitoringvergleich duerfen die Story tragen.',
                 'Keine Umdeutung zu Technikinspektion, SAR, Feuerlage oder reiner Sightseeing-Tour.'
             ],
             writer: [
                 'Briefing nennt Studie, beobachteten Naturraum und wofuer der Luftblick die Feldarbeit verbessert.',
-                'Fakten bleiben als sichtbare biologische Indikatoren formuliert, nicht als frei erfundene harte Messwerte.'
+                'Fakten bleiben als sichtbare biologische Indikatoren formuliert, nicht als frei erfundene harte Messwerte.',
+                'Zaun, Tor oder Perimeter werden bei Bio nur als Habitatgrenze, Durchlaessigkeit, Besucherlenkung oder Stoerkante beschrieben.'
             ]
         },
         science_geo: {
@@ -18579,6 +18714,8 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const targetText = normalizeMissionText(targetLabel);
         const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)/.test(targetText);
         const isSolarTarget = /(solarpark|solaranlage|photovoltaik|photovoltaic|solar farm|(^|[^a-z0-9])pv([^a-z0-9]|$))/.test(targetText);
+        const isMarineTarget = /(hafen|marina|sportboothafen|schleuse|anleger|anlegestelle|kai|pier|dock|hafenbecken)/.test(targetText);
+        const isPerimeterTarget = /(zaun|zaunlinie|tor|zugang|perimeter|wildzaun|schutzzaun)/.test(targetText);
         const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
         const subjectDetail = (() => {
             if (category === 'bridge') return 'den Fahrbahnuebergang, das Tragwerk, Pfeiler, Widerlager und Randbereiche';
@@ -18588,6 +18725,8 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             if (isWindTarget) return 'Anlagenreihe, Rotor-/Turmbereich, Trafopunkt, Zuwegung und Kranstellflaechen';
             if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
             if (isSolarTarget) return 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten';
+            if (isMarineTarget) return 'Schleusentor, Anleger, Hafenbecken, Steg, Uferbefestigung, Zufahrt und Betriebsbereich';
+            if (isPerimeterTarget) return 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Luecken oder Fremdkoerper';
             if (isEnergyTarget) return 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte';
             if (category === 'industry') return 'Betriebsflaechen, Dachbereiche, Rohrleitungen, Tanks, Zufahrten oder sichtbare Stoerstellen';
             return 'den gemeldeten Verdachtsbereich an der Anlage';
@@ -18617,6 +18756,16 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'Nach einer Stoerungs- oder Sturmnotiz sollen Modulreihen, Zaunlinie und Wechselrichterbereiche aus der Luft vorgeprueft werden.',
                 'Der Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Verschattung, Zaunbereich, Entwaesserung oder Zufahrt auffaellig wirken.',
                 'Eine Ertragsabweichung und eine Wettermeldung passen nicht eindeutig zusammen; der Luftblick soll sichtbare Ursachen eingrenzen.'
+            ];
+            if (isMarineTarget) return [
+                'Nach einer Betriebs- oder Pegelmeldung sollen Schleusentor, Anleger, Uferkante und Betriebszugang aus der Luft vorgeprueft werden.',
+                'Der Hafen- oder Wasserbau-Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Steg, Kai, Zufahrt oder Uferbefestigung auffaellig wirken.',
+                'Nach Wind, Treibgut oder einer Nutzerhinweis-Meldung soll geklaert werden, ob der Hafen- oder Schleusenbereich sofortige Bodenarbeit braucht.'
+            ];
+            if (isPerimeterTarget) return [
+                'Nach einer Betreiber- oder Wettermeldung soll die Zaunlinie aus der Luft auf offene Tore, Luecken, Fremdkoerper oder versperrte Zufahrten geprueft werden.',
+                'Vor dem naechsten Vor-Ort-Termin braucht der Betreiber einen ruhigen Ueberblick auf Perimeter, Zugang und Randbereiche.',
+                'Eine Sichtmeldung am Randbereich ist vom Boden aus nur schwer einzuordnen; der Luftblick soll klaeren, ob ein echter Folgepunkt vorliegt.'
             ];
             if (category === 'telecom') return [
                 'Nach einer Netz- oder Funkstoerung soll die Lage an Mast, Technikpunkt, Antennenbereich und Zuwegung aus der Luft eingegrenzt werden.',
@@ -18665,8 +18814,17 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'science_bio') {
+        const targetText = normalizeMissionText(targetLabel);
+        const isProtectedBioTarget = /(naturschutzgebiet|schutzgebiet|wildpark|wildgehege|tierpark|naturpark|reservat|habitat)/.test(targetText);
+        const isPerimeterBioTarget = /(zaun|zaunlinie|wildzaun|tor|besucherweg|besucherlenkung|perimeter)/.test(targetText);
         const bioDetail = _missionPipelineV4PickOne(
-            category === 'water'
+            isProtectedBioTarget || isPerimeterBioTarget
+                ? [
+                    'Habitatgrenzen, Zaunlinien, Besucherwege und moegliche Stoerkanten am Rand des Schutzraums',
+                    'Wildwechsel, Durchlaessigkeit von Randstrukturen und Uebergaenge zwischen Naturraum und Nutzung',
+                    'sichtbare Besucherlenkung, Vegetationskanten und offene Randbereiche fuer die naechste Schutzgebietsbegehung'
+                ]
+                : category === 'water'
                 ? [
                     'Ufervegetation, Wasserfarbe, Zufluesse und moegliche Stoerstellen im Gewaesserrand',
                     'Schilf-, Feucht- oder Flachwasserzonen als Teil einer laufenden Habitatbeobachtung',
@@ -18684,11 +18842,19 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                         'eine oekologische Vergleichsbeobachtung fuer die naechste Begehung am Boden'
                     ]
         );
-        const studyContext = _missionPipelineV4PickOne([
-            `Zu ${targetLabel} laeuft eine kleine Monitoringreihe; der heutige Luftblick soll die naechsten Feldpunkte besser setzen.`,
-            `Die letzte Begehung rund um ${targetLabel} liess offen, ob die auffaelligen Randzonen zusammenhaengen oder nur lokale Einzelstellen sind.`,
-            `Fuer ${targetLabel} braucht das Naturschutz- oder Fachteam einen ruhigen Ueberblick, bevor Bodenzeit in der Flaeche gebunden wird.`
-        ]);
+        const studyContext = _missionPipelineV4PickOne(
+            isProtectedBioTarget || isPerimeterBioTarget
+                ? [
+                    `Zu ${targetLabel} laeuft ein Schutzgebiets- oder Habitatmonitoring; der heutige Luftblick soll Zaunlinie, Besucherlenkung und Randzonen besser einordnen.`,
+                    `Die letzte Begehung rund um ${targetLabel} liess offen, ob die sichtbaren Stoerkanten zusammenhaengen oder nur lokale Einzelstellen sind.`,
+                    `Fuer ${targetLabel} braucht das Naturschutzteam einen ruhigen Ueberblick, bevor die naechsten Begehungspunkte gesetzt werden.`
+                ]
+                : [
+                    `Zu ${targetLabel} laeuft eine kleine Monitoringreihe; der heutige Luftblick soll die naechsten Feldpunkte besser setzen.`,
+                    `Die letzte Begehung rund um ${targetLabel} liess offen, ob die auffaelligen Randzonen zusammenhaengen oder nur lokale Einzelstellen sind.`,
+                    `Fuer ${targetLabel} braucht das Naturschutz- oder Fachteam einen ruhigen Ueberblick, bevor Bodenzeit in der Flaeche gebunden wird.`
+                ]
+        );
         const whyNow = _missionPipelineV4PickOne([
             'Der aktuelle Vegetationsstand ist gut lesbar, deshalb lohnt sich der Ueberblick vor der naechsten Begehung.',
             'Solange Sicht und Licht passen, lassen sich Randzonen und Stoerstellen aus der Luft schneller einordnen als vom Boden.',
@@ -19562,6 +19728,8 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
     const isWind = /\b(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)\b/.test(text);
     const isSolar = /\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter)\b/.test(text);
     const isPower = /\b(umspannwerk|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|energienetz)\b/.test(text);
+    const isMarine = /\b(hafen|marina|sportboothafen|schleuse|anleger|anlegestelle|kai|pier|dock|hafenbecken|schleusentor)\b/.test(text);
+    const isPerimeter = /\b(zaun|zaunlinie|wildzaun|schutzzaun|perimeter|tor|zugang|zugangsbereich)\b/.test(text);
     const isBlockedRoad = /\b(blockiert|blockade|hindernis|baumstamm|treibgut|ladung|verlorene ladung|kisten|gesperrt|sperrung|umgestuerzt|umgestürzt)\b/.test(text);
 
     const pack = (sceneKind, objectFamilies = [], placementPolicy = '') => ({
@@ -19579,6 +19747,12 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
     }
     if (isPower) {
         return pack('powerline_inspection', ['powerline', 'utility_truck', 'cones'], 'Trassen-/Technikreferenz sparsam am Ziel platzieren; Fokus bleibt Sichtpruefung aus der Luft.');
+    }
+    if (isMarine) {
+        return pack('water_context', ['watercraft', 'cones', 'small_equipment'], 'Sparsame Hafen-/Schleusenreferenz am Ufer, Anleger oder Betriebszugang; keine Rettungs- oder Grossschiffszene.');
+    }
+    if (isPerimeter) {
+        return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Schlichte Betreiberreferenz am Perimeter oder Zugang; keine Security- oder Polizeiszene.');
     }
     if (category === 'telecom') {
         return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Sparsame Wartungsreferenz am Mast- oder Turmstandort; keine Stromtrasse erfinden.');
@@ -20519,8 +20693,8 @@ Regeln:
 14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
-17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
-17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
+17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
+17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
@@ -21747,7 +21921,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Pipeline-, Gasdruckregel- oder Fernwaermepunkt mit Ventilbereich, Trassenverlauf, Zaun und Zufahrt fuer Betreiberentscheidung einordnen',
             'Batteriespeicher, Biogas- oder Biomasseanlage mit Technikcontainern, Trafopunkt, Brandschutzabstand und Zufahrt kontrollieren',
             'Recyclinghof, Deponie oder Umschlagplatz mit Randbereichen, Zufahrt, Materiallage und Entwaesserung sachlich dokumentieren',
-            'Tunnelportal, Stuetzmauer, Laermschutzwand oder Deich nach Wetter- oder Schadensmeldung aus der Luft vorpruefen'
+            'Tunnelportal, Stuetzmauer, Laermschutzwand oder Deich nach Wetter- oder Schadensmeldung aus der Luft vorpruefen',
+            'Hafen- oder Schleusenanlage mit Schleusentor, Anleger, Uferbefestigung, Betriebszugang und Treibgutlage sachlich vorpruefen',
+            'Perimeterflug fuer Betreiber: Zaunlinie, Tor, Zufahrt und Randbereich nach Sturm- oder Sichtmeldung auf sichtbare Luecken kontrollieren'
         ],
         bush_recon_return: [
             'Bush-Strip-Kontrollflug mit Rueckkehr zum Heimatplatz',
@@ -21786,7 +21962,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Oekologische Kurzaufnahme von Wasserfarbe, Schilf, Feuchtstellen, Waldsaum oder offenen Vegetationsflaechen',
             'Vegetationsstudie mit Blick auf Trockenstress, Kronenbild, Bewuchsluecken und Randzonen',
             'Ornithologische Vorpruefung von Rast-, Brut- oder Stoerbereichen ohne Such- oder Einsatzlage',
-            'Naturschutz-Monitoring fuer die naechste Feldbegehung mit Fotoankern und ruhigem Ueberblick'
+            'Naturschutz-Monitoring fuer die naechste Feldbegehung mit Fotoankern und ruhigem Ueberblick',
+            'Schutzgebietsflug mit Fokus auf Habitatgrenzen, Zaunlinie, Besucherlenkung und Wildwechsel, ohne Technikinspektion'
         ],
         science_geo: [
             'Geologische Beobachtung mit Fokus auf Relief, Erosion, Sedimente und Geländekanten',
@@ -21879,12 +22056,14 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Pipeline-, Gasdruckregel-, Ventil- oder Fernwaermepunkt entlang einer Trasse pruefen",
             "Batteriespeicher, Biogas-/Biomasseanlage oder Technikstandort fuer Wartungsentscheidung dokumentieren",
             "Recyclinghof, Deponie oder Umschlagplatz mit Zufahrt und Randbereichen kontrollieren",
-            "Tunnelportal, Stuetzmauer, Laermschutzwand, Deich oder Uferbefestigung nach Meldung vorpruefen"
+            "Tunnelportal, Stuetzmauer, Laermschutzwand, Deich oder Uferbefestigung nach Meldung vorpruefen",
+            "Hafen, Anleger oder Schleuse mit Uferkante, Betriebszugang und Wasserbau-Anteilen kontrollieren",
+            "Perimeter, Zaunlinie, Tor oder Zugang nach Betreiber- oder Wettermeldung sachlich vorpruefen"
         ],
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
-        water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
-        mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
-        forest: ["Natur- & Umweltschutz (Beobachtung)", "Rettungsaufklaerung am Waldrand", "Vermisstensuche im Wald- oder Lichtungsbereich"],
+        water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung", "Schutzgebiets- oder Ufermonitoring mit Habitatgrenzen und Stoerfaktoren"],
+        mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)", "Habitat- und Besucherlenkungsbeobachtung am Rand des Naturraums"],
+        forest: ["Natur- & Umweltschutz (Beobachtung)", "Rettungsaufklaerung am Waldrand", "Vermisstensuche im Wald- oder Lichtungsbereich", "Wildwechsel-, Zaunlinien- oder Schutzgebietsmonitoring"],
         fire: ["Feuerwacht mit Fokus auf Rauchfahnen und Hotspots", "Waldbrand-Frueherkennung entlang Waldrand, Hang oder trockenem Vegetationsstreifen"],
         city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
         trn: [

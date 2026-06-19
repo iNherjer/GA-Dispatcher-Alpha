@@ -59,6 +59,7 @@ const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
 const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || _cfg.pbfMaxRegions || 6));
+const WORKBENCH_PBF_BORDER_EXTRA_MIN_RATIO = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_BORDER_EXTRA_MIN_RATIO || _cfg.pbfBorderExtraMinRatio || 0.08));
 const WORKBENCH_PBF_THIN_EXTEND = String(process.env.OBS_WORKBENCH_PBF_THIN_EXTEND || '1') !== '0';
 const WORKBENCH_PBF_THIN_OBS_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_OBS_MAX || 1));
 const WORKBENCH_PBF_THIN_LIN_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_LIN_MAX || 250));
@@ -69,7 +70,6 @@ const PBF_CACHE_TTL_DAYS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_TTL_
 const PBF_CACHE_TTL_MS = PBF_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 const TILE_STEP_DEG = 25 / 60;
-const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 const PORT = Number(process.env.OBS_WORKBENCH_PORT || 8788);
 const LAT_TILE_COUNT = Math.round(180 / TILE_STEP_DEG);
 const LON_TILE_COUNT = Math.round(360 / TILE_STEP_DEG);
@@ -85,8 +85,11 @@ const pbfDownloadPromises = new Map(); // regionId -> Promise (dedup concurrent 
 const queue = [];
 const queueSet = new Set();
 const queueFreshSet = new Set();
+const queueRegionHintMap = new Map(); // tileKey -> Set(regionId), used for region-anchored PBF passes
 const infraEnrichQueue = [];
 const infraEnrichQueueSet = new Set();
+const infraEnrichFreshSet = new Set();
+const infraEnrichRegionHintMap = new Map(); // tileKey -> Set(regionId), mirrors complete region-anchored fetches
 let processing = false;
 let currentTile = null;
 let infraEnrichProcessing = false;
@@ -113,6 +116,7 @@ const WORKBENCH_CACHE_RECOVERY_RETRY_MS = Number(process.env.OBS_WORKBENCH_CACHE
 const WORKBENCH_PROCESS_LOG_MAX = Math.max(20, Number(process.env.OBS_WORKBENCH_PROCESS_LOG_MAX || 250));
 const WORKBENCH_REPO_SYNC_TIMEOUT_MS = Math.max(5000, Number(process.env.OBS_WORKBENCH_REPO_SYNC_TIMEOUT_MS || 25000));
 const INFRA_ENRICH_BATCH_TILE_MAX = Math.max(1, Number(process.env.OBS_WORKBENCH_INFRA_BATCH_TILE_MAX || _cfg.infraBatchTileMax || 10));
+const COMPLETE_LOAD_BATCH_TILE_MAX = Math.max(1, Number(process.env.OBS_WORKBENCH_COMPLETE_BATCH_TILE_MAX || _cfg.completeBatchTileMax || 10));
 const lastResults = new Map();
 let lastRepoSync = {
   ok: false,
@@ -278,6 +282,51 @@ function normalizeTileKey(v) {
   return s;
 }
 
+function normalizeRegionIds(value) {
+  const raw = Array.isArray(value) ? value : [value];
+  return Array.from(new Set(raw.map(v => String(v || '').trim()).filter(id => id && REGION_BY_ID.has(id))));
+}
+
+function getRegionHintsForTile(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (!key) return [];
+  return normalizeRegionIds(Array.from(queueRegionHintMap.get(key) || []));
+}
+
+function getInfraRegionHintsForTile(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (!key) return [];
+  return normalizeRegionIds(Array.from(infraEnrichRegionHintMap.get(key) || []));
+}
+
+function mergeQueueRegionHints(tileKey, regionIds) {
+  const key = normalizeTileKey(tileKey);
+  const ids = normalizeRegionIds(regionIds);
+  if (!key || !ids.length) return;
+  if (!queueRegionHintMap.has(key)) queueRegionHintMap.set(key, new Set());
+  const set = queueRegionHintMap.get(key);
+  for (const id of ids) set.add(id);
+}
+
+function mergeInfraRegionHints(tileKey, regionIds) {
+  const key = normalizeTileKey(tileKey);
+  const ids = normalizeRegionIds(regionIds);
+  if (!key || !ids.length) return;
+  if (!infraEnrichRegionHintMap.has(key)) infraEnrichRegionHintMap.set(key, new Set());
+  const set = infraEnrichRegionHintMap.get(key);
+  for (const id of ids) set.add(id);
+}
+
+function clearQueueRegionHints(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (key) queueRegionHintMap.delete(key);
+}
+
+function clearInfraRegionHints(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (key) infraEnrichRegionHintMap.delete(key);
+}
+
 function tileBoundsFromIndices(latI, lonI) {
   const south = -90 + latI * TILE_STEP_DEG;
   const north = south + TILE_STEP_DEG;
@@ -288,6 +337,47 @@ function tileBoundsFromIndices(latI, lonI) {
 
 function bboxIntersects(a, b) {
   return !(a.north <= b.south || a.south >= b.north || a.east <= b.west || a.west >= b.east);
+}
+
+function boundsArea(bounds) {
+  const height = Math.max(0, Number(bounds?.north || 0) - Number(bounds?.south || 0));
+  const width = Math.max(0, Number(bounds?.east || 0) - Number(bounds?.west || 0));
+  return height * width;
+}
+
+function boundsIntersectionArea(a, b) {
+  const south = Math.max(Number(a?.south || 0), Number(b?.south || 0));
+  const north = Math.min(Number(a?.north || 0), Number(b?.north || 0));
+  const west = Math.max(Number(a?.west || 0), Number(b?.west || 0));
+  const east = Math.min(Number(a?.east || 0), Number(b?.east || 0));
+  return Math.max(0, north - south) * Math.max(0, east - west);
+}
+
+function regionBounds(region) {
+  if (!region || !Array.isArray(region.bbox) || region.bbox.length !== 4) return null;
+  const [south, west, north, east] = region.bbox.map(Number);
+  if (![south, west, north, east].every(Number.isFinite)) return null;
+  return {
+    south: Math.min(south, north),
+    west: Math.min(west, east),
+    north: Math.max(south, north),
+    east: Math.max(west, east)
+  };
+}
+
+function tileCenter(bounds) {
+  return {
+    lat: (Number(bounds?.south || 0) + Number(bounds?.north || 0)) / 2,
+    lon: (Number(bounds?.west || 0) + Number(bounds?.east || 0)) / 2
+  };
+}
+
+function pointInBounds(lon, lat, bounds) {
+  return !!bounds &&
+    lat >= Number(bounds.south) &&
+    lat <= Number(bounds.north) &&
+    lon >= Number(bounds.west) &&
+    lon <= Number(bounds.east);
 }
 
 function getRegionMetaForTile(tileKey) {
@@ -704,41 +794,68 @@ async function ensurePbfRegion(region) {
   return promise;
 }
 
-async function resolveRelevantRegionsForTile(tileKey) {
+async function resolveRelevantRegionCandidatesForTile(tileKey) {
   const key = normalizeTileKey(tileKey);
   if (!key) return [];
   const [latI, lonI] = key.split('|').map(Number);
   if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return [];
   const tileBounds = tileBoundsFromIndices(latI, lonI);
+  const tileArea = boundsArea(tileBounds) || 1;
+  const center = tileCenter(tileBounds);
   const bboxCandidates = findRegionsForTile(key);
   if (!bboxCandidates.length) return [];
 
-  const filtered = [];
+  const candidates = [];
   for (const region of bboxCandidates) {
     const coverage = await ensureRegionPolygon(region);
     const poly = coverage.mode === 'poly' ? coverage.polygon : null;
     if (poly && !tileIntersectsPolygon(tileBounds, poly)) continue;
-    filtered.push(region);
+    const bounds = (poly && poly.bbox) ? poly.bbox : regionBounds(region);
+    const intersectionRatio = bounds ? boundsIntersectionArea(tileBounds, bounds) / tileArea : 0;
+    const centerInside = poly
+      ? pointInPoly(center.lon, center.lat, poly)
+      : pointInBounds(center.lon, center.lat, bounds);
+    candidates.push({
+      region,
+      regionId: String(region.id || ''),
+      coverageMode: coverage.mode === 'poly' ? 'poly' : 'bbox',
+      centerInside: !!centerInside,
+      intersectionRatio: Math.max(0, Math.min(1, intersectionRatio))
+    });
   }
-  return filtered.length > 0 ? filtered : bboxCandidates;
+  const out = candidates.length > 0
+    ? candidates
+    : bboxCandidates.map(region => {
+        const bounds = regionBounds(region);
+        return {
+          region,
+          regionId: String(region.id || ''),
+          coverageMode: 'bbox',
+          centerInside: pointInBounds(center.lon, center.lat, bounds),
+          intersectionRatio: bounds ? Math.max(0, Math.min(1, boundsIntersectionArea(tileBounds, bounds) / tileArea)) : 0
+        };
+      });
+  out.sort((a, b) => {
+    if (a.centerInside !== b.centerInside) return b.centerInside ? 1 : -1;
+    const ratioDelta = Number(b.intersectionRatio || 0) - Number(a.intersectionRatio || 0);
+    if (Math.abs(ratioDelta) > 1e-9) return ratioDelta;
+    return Number(a.region?.sizeMb || 0) - Number(b.region?.sizeMb || 0);
+  });
+  return out;
 }
 
-async function resolvePbfPathsForTile(tileKey) {
+async function resolveRelevantRegionsForTile(tileKey) {
+  return (await resolveRelevantRegionCandidatesForTile(tileKey)).map(c => c.region).filter(Boolean);
+}
+
+async function ensurePbfPathsForRegionIds(regionIds = [], seen = new Set()) {
   const selectedPaths = [];
-  const remainingPaths = [];
-  const seen = new Set();
   const selectedRegionIds = [];
-  const remainingRegionIds = [];
-  // Manual path is preferred when present, but no longer exclusive.
-  if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
-    const rp = path.resolve(WORKBENCH_PBF_PATH);
-    selectedPaths.push(rp);
-    seen.add(rp);
-  }
-  const regions = await resolveRelevantRegionsForTile(tileKey);
-  const selectedRegions = regions.slice(0, WORKBENCH_PBF_MAX_REGIONS);
-  const remainingRegions = regions.slice(WORKBENCH_PBF_MAX_REGIONS);
-  for (const region of selectedRegions) {
+  for (const rawId of Array.isArray(regionIds) ? regionIds : []) {
+    const regionId = String(rawId || '').trim();
+    if (!regionId || selectedRegionIds.includes(regionId)) continue;
+    const region = REGION_BY_ID.get(regionId);
+    if (!region) continue;
     try {
       const p = await ensurePbfRegion(region);
       const rp = path.resolve(p);
@@ -746,12 +863,105 @@ async function resolvePbfPathsForTile(tileKey) {
         selectedPaths.push(rp);
         seen.add(rp);
       }
-      selectedRegionIds.push(String(region.id || ''));
+      selectedRegionIds.push(regionId);
     } catch (err) {
       console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
     }
   }
-  for (const region of remainingRegions) {
+  return { paths: selectedPaths, regionIds: selectedRegionIds };
+}
+
+async function resolvePbfPathsForTile(tileKey, options = {}) {
+  const selectedPaths = [];
+  const remainingPaths = [];
+  const seen = new Set();
+  const selectedRegionIds = [];
+  const remainingRegionIds = [];
+  const preferredRegionIds = normalizeRegionIds(options && options.preferredRegionIds);
+  const regionAnchored = preferredRegionIds.length > 0 && options.regionAnchored !== false;
+  // Manual path is preferred when present, but no longer exclusive.
+  if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
+    const rp = path.resolve(WORKBENCH_PBF_PATH);
+    selectedPaths.push(rp);
+    seen.add(rp);
+  }
+  const candidates = await resolveRelevantRegionCandidatesForTile(tileKey);
+  const selectedCandidates = [];
+  const remainingCandidates = [];
+  let usedRegionAnchor = false;
+
+  if (regionAnchored) {
+    const candidateById = new Map(candidates.map(c => [String(c.regionId || ''), c]));
+    for (const regionId of preferredRegionIds) {
+      const candidate = candidateById.get(regionId);
+      if (!candidate) continue;
+      if (selectedCandidates.length >= WORKBENCH_PBF_MAX_REGIONS) {
+        remainingCandidates.push({
+          ...candidate,
+          selected: false,
+          deferred: true,
+          significant: true,
+          reason: 'max-regions'
+        });
+        continue;
+      }
+      selectedCandidates.push({
+        ...candidate,
+        selected: true,
+        deferred: false,
+        significant: true,
+        reason: 'region-anchor'
+      });
+    }
+    usedRegionAnchor = selectedCandidates.length > 0;
+    const selectedIds = new Set(selectedCandidates.map(c => c.regionId));
+    for (const candidate of candidates) {
+      if (selectedIds.has(candidate.regionId)) continue;
+      remainingCandidates.push({
+        ...candidate,
+        selected: false,
+        deferred: true,
+        significant: false,
+        reason: 'neighbor-region-pass'
+      });
+    }
+  }
+
+  if (!selectedCandidates.length) {
+    usedRegionAnchor = false;
+    remainingCandidates.length = 0;
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      const primary = selectedCandidates.length === 0;
+      const significantBorder = !!candidate.centerInside || Number(candidate.intersectionRatio || 0) >= WORKBENCH_PBF_BORDER_EXTRA_MIN_RATIO;
+      const shouldSelect = primary || significantBorder;
+      const annotated = {
+        ...candidate,
+        selected: false,
+        deferred: false,
+        significant: shouldSelect,
+        reason: primary ? 'primary' : (significantBorder ? 'border-extra' : 'thin-fallback-only')
+      };
+      if (shouldSelect && selectedCandidates.length < WORKBENCH_PBF_MAX_REGIONS) {
+        annotated.selected = true;
+        selectedCandidates.push(annotated);
+      } else {
+        annotated.deferred = true;
+        if (shouldSelect) annotated.reason = 'max-regions';
+        remainingCandidates.push(annotated);
+      }
+    }
+  }
+  const ensured = await ensurePbfPathsForRegionIds(selectedCandidates.map(c => c.regionId), seen);
+  selectedPaths.push(...ensured.paths);
+  selectedRegionIds.push(...ensured.regionIds);
+  const significantRemainingRegionIds = remainingCandidates
+    .filter(c => c.significant && !usedRegionAnchor)
+    .map(c => c.regionId)
+    .filter(Boolean);
+  for (const regionId of significantRemainingRegionIds) {
+    const region = REGION_BY_ID.get(regionId);
+    if (!region) continue;
     try {
       const p = await ensurePbfRegion(region);
       const rp = path.resolve(p);
@@ -759,17 +969,34 @@ async function resolvePbfPathsForTile(tileKey) {
         remainingPaths.push(rp);
         seen.add(rp);
       }
-      remainingRegionIds.push(String(region.id || ''));
+      remainingRegionIds.push(regionId);
     } catch (err) {
       console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
     }
   }
+  const deferredRegionIds = remainingCandidates.map(c => c.regionId).filter(Boolean);
   return {
     selectedPaths,
     remainingPaths,
     selectedRegionIds,
-    remainingRegionIds,
-    relevantRegionCount: regions.length
+    remainingRegionIds: Array.from(new Set(remainingRegionIds.concat(deferredRegionIds))),
+    significantRemainingRegionIds,
+    relevantRegionCount: candidates.length,
+    selectedRegionCount: selectedCandidates.length,
+    deferredRegionCount: remainingCandidates.length,
+    significantRemainingCount: significantRemainingRegionIds.length,
+    regionAnchored: usedRegionAnchor,
+    allowThinExtend: !usedRegionAnchor,
+    regionDecisions: selectedCandidates.concat(remainingCandidates).map(c => ({
+      id: c.regionId,
+      mode: c.coverageMode,
+      selected: !!c.selected,
+      deferred: !!c.deferred,
+      significant: !!c.significant,
+      centerInside: !!c.centerInside,
+      intersectionRatio: Math.round(Number(c.intersectionRatio || 0) * 10000) / 10000,
+      reason: c.reason
+    }))
   };
 }
 
@@ -804,6 +1031,25 @@ async function extractPbfChunksForTile(tileKey, pbfPaths, combinedFile) {
     }
   }
   return { run, chunkResults };
+}
+
+async function extractPbfCombinedBatchForPbf(tileKeys, pbfPath) {
+  const cleanTiles = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).map(normalizeTileKey).filter(Boolean)));
+  const tmpDir = path.join(WORKBENCH_TMP_OUT_DIR, `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  await ensureDir(tmpDir);
+  const cmd = [
+    'tools/dryrun_pbf_combined_chunk.py',
+    '--pbf', pbfPath,
+    '--tiles', cleanTiles.join(','),
+    '--out-dir', path.relative(ROOT, tmpDir)
+  ];
+  const run = await runCmd('python3', cmd, { cwd: ROOT });
+  const filesByTile = new Map();
+  for (const tileKey of cleanTiles) {
+    const filePath = path.join(tmpDir, `${tileKey.replace('|', '_')}.combined.json`);
+    if (existsSync(filePath)) filesByTile.set(tileKey, filePath);
+  }
+  return { run, filesByTile, tmpDir };
 }
 
 async function runOverpassToCombined(tileKey, combinedFile) {
@@ -852,6 +1098,23 @@ function getTileDataStatus(corePayload, poiPayload, infraPayload = null) {
   if (explicit === 'empty' || explicit === 'loaded') return explicit;
   const counts = getTileCounts(corePayload, poiPayload, infraPayload);
   return (counts.obs + counts.lin + counts.poi + counts.infra + counts.clusters) === 0 ? 'empty' : 'loaded';
+}
+
+function emptyTileCounts() {
+  return { obs: 0, lin: 0, poi: 0, infra: 0, clusters: 0 };
+}
+
+function countsFromRecentResult(tileKey) {
+  const recent = lastResults.get(tileKey);
+  const rawCounts = recent && recent.ok !== false && recent.counts ? recent.counts : null;
+  if (!rawCounts) return null;
+  return {
+    obs: Number(rawCounts.obs || 0),
+    lin: Number(rawCounts.lin || 0),
+    poi: Number(rawCounts.poi || 0),
+    infra: Number(rawCounts.infra || rawCounts.poiInfra || 0),
+    clusters: Number(rawCounts.clusters || 0)
+  };
 }
 
 function mergeCombinedChunks(chunks, tileMeta) {
@@ -980,7 +1243,29 @@ const INFRA_ENRICHMENT_FIELDS = [
   'service',
   'industrial',
   'building',
+  'building_use',
+  'construction',
+  'content',
+  'healthcare',
+  'office',
+  'shop',
+  'public_transport',
+  'emergency',
+  'barrier',
+  'tunnel',
+  'pipeline',
+  'substance',
+  'monitoring',
+  'monitoring_water_level',
+  'lock_tag',
+  'embankment',
+  'recycling_type',
   'material',
+  'cluster_type',
+  'cluster_count',
+  'cluster_radius_nm',
+  'cluster_sample_names',
+  'infra_cluster',
   'sample_count',
   'infra_enriched'
 ];
@@ -998,11 +1283,85 @@ const INFRA_MAJOR_HIGHWAY = new Set([
   'secondary', 'secondary_link',
   'tertiary', 'tertiary_link'
 ]);
+const INFRA_DRIVABLE_HIGHWAY = new Set([
+  ...INFRA_MAJOR_HIGHWAY,
+  'living_street',
+  'residential',
+  'road',
+  'service',
+  'unclassified'
+]);
 const INFRA_MAJOR_RAIL = new Set(['rail', 'light_rail', 'narrow_gauge', 'subway', 'tram']);
+const INFRA_RAIL_FACILITIES = new Set(['station', 'halt', 'signal_box', 'switch', 'signal', 'level_crossing', 'crossing', 'junction', 'platform', 'buffer_stop']);
 const INFRA_INDUSTRIAL_MAN_MADE = new Set([
   'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo',
-  'chimney', 'tower', 'mast', 'communications_tower'
+  'chimney', 'tower', 'mast', 'communications_tower', 'water_tower', 'gasometer'
 ]);
+const INFRA_PUBLIC_BUILDINGS = new Set(['civic', 'commercial', 'hospital', 'industrial', 'public', 'retail', 'school', 'train_station', 'transportation', 'university', 'warehouse']);
+const INFRA_PUBLIC_AMENITIES = new Set(['bus_station', 'clinic', 'college', 'community_centre', 'courthouse', 'fire_station', 'fuel', 'hospital', 'kindergarten', 'police', 'post_office', 'school', 'townhall', 'university', 'water_works', 'wastewater_plant', 'waste_transfer_station']);
+const INFRA_WATER_UTILITY_AMENITIES = new Set(['water_works', 'wastewater_plant']);
+const INFRA_WASTE_AMENITIES = new Set(['recycling', 'waste_disposal', 'waste_transfer_station']);
+const INFRA_MARINE_AMENITIES = new Set(['ferry_terminal']);
+const INFRA_MARINE_LEISURE = new Set(['marina']);
+const INFRA_MARINE_MAN_MADE = new Set(['pier', 'dock', 'quay', 'jetty']);
+const INFRA_MARINE_WATERWAYS = new Set(['dock', 'lock_gate']);
+const INFRA_ENERGY_STORAGE_SOURCES = new Set(['battery', 'storage']);
+const INFRA_ENERGY_PLANT_SOURCES = new Set(['biogas', 'biomass', 'gas', 'geothermal', 'oil']);
+const INFRA_PIPELINE_UTILITIES = new Set(['gas', 'heating', 'pipeline']);
+const INFRA_WATER_UTILITIES = new Set(['water', 'sewerage', 'wastewater']);
+const INFRA_TRAFFIC_PROTECTION_BARRIERS = new Set(['noise_barrier', 'retaining_wall']);
+const INFRA_PERIMETER_BARRIERS = new Set(['fence', 'gate']);
+const INFRA_FLOOD_PROTECTION_MAN_MADE = new Set(['dyke', 'embankment']);
+const INFRA_FEATURE_TYPE_CAPS = {
+  bridge: 900,
+  rail: 900,
+  power_grid: 650,
+  power_station: 650,
+  traffic_protection: 500,
+  marine_infra: 260,
+  perimeter_security: 420,
+  public_building: 500,
+  industrial: 700,
+  road: 700,
+  telecom: 650,
+  waste: 350,
+  water_utility: 350,
+  storage_tank: 300,
+  fuel: 250,
+  pipeline: 300,
+  construction: 350,
+  solar: 260,
+  wind: 300,
+  hydro: 350,
+  flood_protection: 300,
+  quarry: 220,
+  energy_plant: 220,
+  energy_storage: 160,
+  water_tank: 160,
+  infra: 250,
+  power: 160
+};
+const INFRA_CLUSTER_TYPE_CAPS = {
+  rail: 260,
+  solar: 180,
+  power_grid: 160,
+  construction: 130,
+  industrial: 160,
+  traffic_protection: 130,
+  marine_infra: 80,
+  perimeter_security: 120,
+  public_building: 120,
+  pipeline: 110,
+  flood_protection: 100,
+  water_utility: 110,
+  waste: 100,
+  quarry: 80,
+  energy_plant: 80,
+  energy_storage: 50,
+  infra: 80
+};
+const INFRA_FEATURE_TOTAL_CAP = 4800;
+const INFRA_CLUSTER_TOTAL_CAP = 650;
 
 function inferInfraType(raw = {}) {
   const clean = (value) => String(value || '').trim().toLowerCase();
@@ -1017,20 +1376,82 @@ function inferInfraType(raw = {}) {
   const landuse = clean(raw.landuse);
   const industrial = clean(raw.industrial);
   const amenity = clean(raw.amenity);
-  if (generatorSource === 'solar' || plantSource === 'solar') return 'solar';
+  const leisure = clean(raw.leisure);
+  const building = clean(raw.building);
+  const construction = clean(raw.construction);
+  const content = clean(raw.content);
+  const location = clean(raw.location);
+  const utility = clean(raw.utility);
+  const shop = clean(raw.shop);
+  const office = clean(raw.office);
+  const healthcare = clean(raw.healthcare);
+  const emergency = clean(raw.emergency);
+  const publicTransport = clean(raw.public_transport);
+  const barrier = clean(raw.barrier);
+  const tunnel = clean(raw.tunnel);
+  const pipeline = clean(raw.pipeline);
+  const substance = clean(raw.substance);
+  const monitoring = clean(raw.monitoring);
+  const monitoringWaterLevel = clean(raw.monitoring_water_level || raw['monitoring:water_level']);
+  const lockTag = clean(raw.lock_tag || raw.lock);
+  const embankment = clean(raw.embankment);
+  const name = clean(raw.name);
+  const roofish = location === 'roof' || building === 'roof' || name.includes('dach') || name.includes('roof');
+  const positiveLock = !!lockTag && !/^(no|false|0)$/i.test(lockTag);
+  if (generatorSource === 'solar' || plantSource === 'solar') return roofish ? 'solar_roof' : 'solar';
   if (generatorSource === 'wind' || plantSource === 'wind') return 'wind';
+  if (power === 'storage' || INFRA_ENERGY_STORAGE_SOURCES.has(generatorSource) || INFRA_ENERGY_STORAGE_SOURCES.has(plantSource)) return 'energy_storage';
+  if (
+    INFRA_MARINE_AMENITIES.has(amenity) ||
+    INFRA_MARINE_LEISURE.has(leisure) ||
+    INFRA_MARINE_MAN_MADE.has(manMade) ||
+    INFRA_MARINE_WATERWAYS.has(waterway) ||
+    positiveLock ||
+    /(hafen|marina|schleuse|anleger|anlegestelle|kai)/.test(name)
+  ) return 'marine_infra';
+  if (INFRA_PERIMETER_BARRIERS.has(barrier) || /(zaun|wildzaun|schutzzaun|perimeter)/.test(name)) return 'perimeter_security';
   if (/(hydro|water)/.test(`${generatorSource} ${plantSource}`) || ['dam', 'weir'].includes(waterway)) return 'hydro';
+  if (INFRA_ENERGY_PLANT_SOURCES.has(generatorSource) || INFRA_ENERGY_PLANT_SOURCES.has(plantSource) || ['plant', 'generator'].includes(power)) return 'energy_plant';
+  if (landuse === 'construction' || construction || building === 'construction') return 'construction';
   if (['substation', 'transformer', 'switchgear', 'converter', 'compensator'].includes(power)) return 'power_station';
   if (['line', 'minor_line', 'cable', 'tower', 'pole'].includes(power)) return 'power_grid';
   if (bridge && bridge !== 'no') return 'bridge';
   if (manMade === 'bridge') return 'bridge';
-  if (INFRA_MAJOR_RAIL.has(railway)) return 'rail';
+  if (INFRA_MAJOR_RAIL.has(railway) || INFRA_RAIL_FACILITIES.has(railway)) return 'rail';
   if (INFRA_MAJOR_HIGHWAY.has(highway)) return 'road';
+  if (amenity === 'fuel') return 'fuel';
+  if (manMade === 'pipeline' || pipeline || INFRA_PIPELINE_UTILITIES.has(utility) || ['gas', 'oil', 'hot_water', 'steam'].includes(substance)) return 'pipeline';
+  if (
+    manMade === 'pumping_station' ||
+    INFRA_WATER_UTILITY_AMENITIES.has(amenity) ||
+    INFRA_WATER_UTILITIES.has(utility) ||
+    waterway === 'lock_gate' ||
+    positiveLock ||
+    monitoringWaterLevel ||
+    monitoring.includes('water_level')
+  ) return 'water_utility';
+  if (landuse === 'landfill' || INFRA_WASTE_AMENITIES.has(amenity)) return 'waste';
+  if (landuse === 'quarry') return 'quarry';
+  if (INFRA_FLOOD_PROTECTION_MAN_MADE.has(manMade) || embankment) return 'flood_protection';
+  if (INFRA_TRAFFIC_PROTECTION_BARRIERS.has(barrier) || tunnel) return 'traffic_protection';
+  if (manMade === 'water_tower' || (manMade === 'storage_tank' && /(water|wasser)/.test(`${content} ${name}`))) return 'water_tank';
+  if (manMade === 'storage_tank') return 'storage_tank';
+  if (['tower', 'mast', 'communications_tower'].includes(manMade)) return 'telecom';
+  if (
+    INFRA_PUBLIC_BUILDINGS.has(building) ||
+    INFRA_PUBLIC_AMENITIES.has(amenity) ||
+    healthcare ||
+    emergency === 'fire_service' ||
+    emergency === 'ambulance_station' ||
+    office === 'government' ||
+    ['station', 'platform'].includes(publicTransport)
+  ) return 'public_building';
   if (
     landuse === 'industrial' ||
     industrial ||
     INFRA_INDUSTRIAL_MAN_MADE.has(manMade) ||
-    ['water_works', 'wastewater_plant', 'waste_transfer_station', 'fuel', 'bus_station'].includes(amenity)
+    ['water_works', 'wastewater_plant', 'waste_transfer_station', 'bus_station'].includes(amenity) ||
+    ['fuel', 'car_repair'].includes(shop)
   ) return 'industrial';
   if (power) return 'power';
   return 'infra';
@@ -1064,12 +1485,144 @@ function cleanInfraPoiEntry(raw = {}) {
   for (const key of INFRA_ENRICHMENT_FIELDS) {
     const value = raw?.[key];
     if (!nonEmptyValue(value)) continue;
-    if (key === 'sample_count') out[key] = Math.max(0, Math.round(Number(value || 0)));
-    else if (key === 'infra_enriched') out[key] = true;
+    if (key === 'sample_count' || key === 'cluster_count') out[key] = Math.max(0, Math.round(Number(value || 0)));
+    else if (key === 'cluster_radius_nm') out[key] = Math.max(0, Math.round(Number(value || 0) * 100) / 100);
+    else if (key === 'infra_enriched' || key === 'infra_cluster') out[key] = true;
     else out[key] = String(value).slice(0, 120);
   }
   out.infra_enriched = true;
+  if (isLowValueInfraEntry(out)) return null;
   return out;
+}
+
+function isLowValueInfraEntry(e = {}) {
+  const clean = (value) => String(value || '').trim().toLowerCase();
+  const infraType = clean(e.infra_type || inferInfraType(e));
+  const bridge = clean(e.bridge);
+  const highway = clean(e.highway);
+  const railway = clean(e.railway);
+  const manMade = clean(e.man_made);
+  const power = clean(e.power);
+  const name = clean(e.name);
+  const location = clean(e.location);
+  const building = clean(e.building);
+  if (infraType === 'solar_roof' || ((clean(e.generator_source) === 'solar' || clean(e.plant_source) === 'solar') && (location === 'roof' || building === 'roof' || name.includes('dach') || name.includes('roof')))) {
+    return true;
+  }
+  if (manMade === 'bridge' && !railway && !highway && !name) return true;
+  if (((bridge && bridge !== 'no') || manMade === 'bridge') && !INFRA_DRIVABLE_HIGHWAY.has(highway) && !INFRA_MAJOR_RAIL.has(railway) && !name) {
+    return true;
+  }
+  if (power === 'pole') return true;
+  const ref = clean(e.ref);
+  const operator = clean(e.operator);
+  const distinctName = !!name && name !== operator && name !== ref;
+  const voltageValues = (String(e.voltage || '').match(/\d+/g) || []).map(Number);
+  const voltage = Math.max(0, ...voltageValues);
+  const substation = clean(e.substation);
+  if (power === 'substation') {
+    if (['minor_distribution', 'kiosk', 'transformer'].includes(substation) && voltage < 30000) return true;
+    if (!substation && !distinctName && Number(e.sample_count || 0) < 10 && voltage < 30000) return true;
+  }
+  if (power === 'transformer' && !distinctName && !substation) return true;
+  if (INFRA_MAJOR_RAIL.has(railway) && !(bridge && bridge !== 'no') && !clean(e.tunnel)) return true;
+  if (railway === 'platform' && !name) return true;
+  return false;
+}
+
+function maxInfraVoltage(value = '') {
+  const nums = String(value || '').match(/\d+/g) || [];
+  return nums.reduce((max, raw) => Math.max(max, Number(raw) || 0), 0);
+}
+
+function hasDistinctInfraName(e = {}) {
+  const clean = (value) => String(value || '').trim().toLowerCase();
+  const name = clean(e.name);
+  if (!name) return false;
+  return name !== clean(e.operator) && name !== clean(e.ref);
+}
+
+function infraEntryPriority(e = {}) {
+  const clean = (value) => String(value || '').trim().toLowerCase();
+  const infraType = clean(e.infra_type || e.cluster_type || inferInfraType(e));
+  const railway = clean(e.railway);
+  const highway = clean(e.highway);
+  const power = clean(e.power);
+  const substation = clean(e.substation);
+  const bridge = clean(e.bridge);
+  const clusterCount = Number(e.cluster_count || 0);
+  const sampleCount = Number(e.sample_count || 0);
+  const voltage = maxInfraVoltage(e.voltage);
+  let score = 0;
+  if (hasDistinctInfraName(e)) score += 14;
+  if (clean(e.ref)) score += 5;
+  if (clean(e.operator)) score += 2;
+  if (sampleCount > 0) score += Math.min(8, Math.log2(Math.max(1, sampleCount)));
+  if (clusterCount > 0) score += Math.min(10, Math.log2(Math.max(1, clusterCount)) + 2);
+  if (infraType === 'bridge') {
+    if (INFRA_MAJOR_HIGHWAY.has(highway)) score += 9;
+    else if (INFRA_DRIVABLE_HIGHWAY.has(highway)) score += 5;
+    if (INFRA_MAJOR_RAIL.has(railway)) score += 8;
+    if (bridge === 'viaduct' || bridge === 'aqueduct') score += 4;
+  } else if (infraType === 'rail') {
+    if (railway === 'station' || railway === 'halt' || railway === 'signal_box') score += 10;
+    else if (railway === 'switch' || railway === 'level_crossing' || railway === 'crossing' || railway === 'junction') score += 7;
+    else if (railway === 'signal') score += 4;
+  } else if (infraType === 'power_station') {
+    if (['transmission', 'subtransmission', 'distribution', 'traction', 'generation'].includes(substation)) score += 10;
+    if (voltage >= 110000) score += 10;
+    else if (voltage >= 30000) score += 6;
+    if (['switchgear', 'converter', 'compensator'].includes(power)) score += 5;
+  } else if (infraType === 'solar') {
+    if (clusterCount >= 3 || sampleCount >= 12 || clean(e.power) === 'plant') score += 8;
+  } else if (infraType === 'marine_infra') {
+    if (clean(e.waterway) === 'lock_gate') score += 8;
+    else if (clean(e.leisure) === 'marina' || clean(e.amenity) === 'ferry_terminal') score += 6;
+    else score += 4;
+  } else if (infraType === 'perimeter_security') {
+    if (clean(e.barrier) === 'gate') score += 5;
+    else score += 2;
+  } else if (['wind', 'hydro', 'construction', 'pipeline', 'water_utility', 'waste', 'quarry', 'fuel', 'energy_plant', 'energy_storage', 'water_tank'].includes(infraType)) {
+    score += 4;
+  }
+  return score;
+}
+
+function capInfraEntriesByType(items = [], caps = {}, totalCap = 0, typeKey = 'infra_type') {
+  const groups = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const key = String(item?.[typeKey] || item?.infra_type || 'infra').trim().toLowerCase() || 'infra';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const capped = [];
+  for (const [key, group] of groups.entries()) {
+    const limit = Number(caps[key] || caps.infra || 250);
+    group.sort((a, b) => {
+      const score = infraEntryPriority(b) - infraEntryPriority(a);
+      if (score) return score;
+      return String(a.name || '').localeCompare(String(b.name || ''))
+        || Number(a.lat || 0) - Number(b.lat || 0)
+        || Number(a.lon || 0) - Number(b.lon || 0);
+    });
+    capped.push(...group.slice(0, limit));
+  }
+  capped.sort((a, b) => {
+    const typeCmp = String(a?.[typeKey] || a?.infra_type || '').localeCompare(String(b?.[typeKey] || b?.infra_type || ''));
+    if (typeCmp) return typeCmp;
+    return String(a.name || '').localeCompare(String(b.name || ''))
+      || Number(a.lat || 0) - Number(b.lat || 0)
+      || Number(a.lon || 0) - Number(b.lon || 0);
+  });
+  if (!totalCap || capped.length <= totalCap) return capped;
+  return capped
+    .slice()
+    .sort((a, b) => infraEntryPriority(b) - infraEntryPriority(a))
+    .slice(0, totalCap)
+    .sort((a, b) => String(a?.[typeKey] || a?.infra_type || '').localeCompare(String(b?.[typeKey] || b?.infra_type || ''))
+      || String(a.name || '').localeCompare(String(b.name || ''))
+      || Number(a.lat || 0) - Number(b.lat || 0)
+      || Number(a.lon || 0) - Number(b.lon || 0));
 }
 
 function infraPoiPrimaryKey(e = {}) {
@@ -1105,6 +1658,27 @@ function mergeInfraPoiEntries(existing = {}, incoming = {}) {
     }
   }
   out.infra_enriched = true;
+  return out;
+}
+
+function infraClusterPrimaryKey(e = {}) {
+  const osmKind = String(e?.osm_kind || '').trim();
+  const osmId = String(e?.osm_id || '').trim();
+  if (osmKind && osmId) return `cluster|${osmKind}|${osmId}`;
+  const type = String(e?.cluster_type || e?.infra_type || '').trim();
+  return [
+    'cluster',
+    type,
+    String(e?.name || ''),
+    Math.round(Number(e?.lat || 0) * 1e5),
+    Math.round(Number(e?.lon || 0) * 1e5)
+  ].join('|');
+}
+
+function mergeInfraClusterEntries(existing = {}, incoming = {}) {
+  const out = mergeInfraPoiEntries(existing, incoming);
+  out.infra_cluster = true;
+  out.cluster_type = String(out.cluster_type || out.infra_type || '').toLowerCase();
   return out;
 }
 
@@ -1201,7 +1775,14 @@ function getInfraPayloadPoiList(payload = {}) {
 function mergeInfraTilePayload(existingInfra, incomingInfra, metaPatch = {}) {
   const existingRaw = getInfraPayloadPoiList(existingInfra);
   const incomingRaw = getInfraPayloadPoiList(incomingInfra);
-  const poi = existingRaw.map(cleanInfraPoiEntry).filter(Boolean);
+  const poi = [];
+  const seedClusters = [];
+  for (const raw of existingRaw) {
+    const entry = cleanInfraPoiEntry(raw);
+    if (!entry) continue;
+    if (entry.infra_cluster) seedClusters.push(entry);
+    else poi.push(entry);
+  }
   const primaryIndex = new Map();
   const geoIndex = new Map();
   for (let i = 0; i < poi.length; i++) {
@@ -1216,6 +1797,10 @@ function mergeInfraTilePayload(existingInfra, incomingInfra, metaPatch = {}) {
   for (const raw of incomingRaw) {
     const entry = cleanInfraPoiEntry(raw);
     if (!entry) continue;
+    if (entry.infra_cluster) {
+      seedClusters.push(entry);
+      continue;
+    }
     const primary = infraPoiPrimaryKey(entry);
     const geo = infraPoiGeoKey(entry);
     const idx = (primary && primaryIndex.has(primary))
@@ -1233,10 +1818,23 @@ function mergeInfraTilePayload(existingInfra, incomingInfra, metaPatch = {}) {
     }
   }
 
-  const clusters = [
+  const clusterMap = new Map();
+  const clusterInputs = [
+    ...seedClusters,
     ...(Array.isArray(existingInfra?.infra?.clusters) ? existingInfra.infra.clusters : []),
     ...(Array.isArray(incomingInfra?.infra?.clusters) ? incomingInfra.infra.clusters : [])
   ];
+  for (const raw of clusterInputs) {
+    const entry = cleanInfraPoiEntry({ ...raw, infra_cluster: true, cluster_type: raw?.cluster_type || raw?.infra_type });
+    if (!entry) continue;
+    entry.infra_cluster = true;
+    entry.cluster_type = String(entry.cluster_type || entry.infra_type || '').toLowerCase();
+    const key = infraClusterPrimaryKey(entry);
+    if (!clusterMap.has(key)) clusterMap.set(key, entry);
+    else clusterMap.set(key, mergeInfraClusterEntries(clusterMap.get(key), entry));
+  }
+  const clusters = capInfraEntriesByType(Array.from(clusterMap.values()), INFRA_CLUSTER_TYPE_CAPS, INFRA_CLUSTER_TOTAL_CAP, 'cluster_type');
+  const cappedPoi = capInfraEntriesByType(poi, INFRA_FEATURE_TYPE_CAPS, INFRA_FEATURE_TOTAL_CAP, 'infra_type');
   const existingMeta = existingInfra?.meta && typeof existingInfra.meta === 'object' ? existingInfra.meta : {};
   const incomingMeta = incomingInfra?.meta && typeof incomingInfra.meta === 'object' ? incomingInfra.meta : {};
   const nowIso = new Date().toISOString();
@@ -1249,13 +1847,21 @@ function mergeInfraTilePayload(existingInfra, incomingInfra, metaPatch = {}) {
       ...existingMeta,
       ...incomingMeta,
       schema: 'ga.infraTile.v1',
-      dataStatus: poi.length || clusters.length ? 'loaded' : 'empty',
+      dataStatus: cappedPoi.length || clusters.length ? 'loaded' : 'empty',
       mergedAt: nowIso,
-      mergeStats: { added, updated, incoming: incomingRaw.length }
+      mergeStats: {
+        added,
+        updated,
+        incoming: incomingRaw.length,
+        rawInfra: poi.length,
+        rawClusters: clusterMap.size,
+        cappedInfra: cappedPoi.length,
+        cappedClusters: clusters.length
+      }
     },
-    infra: { poi, clusters },
+    infra: { poi: cappedPoi, clusters },
     counts: {
-      infra: poi.length,
+      infra: cappedPoi.length,
       clusters: clusters.length
     }
   };
@@ -1441,10 +2047,10 @@ async function runRepoSyncCheck() {
     const localCoreTiles = await collectLocalTileKeysFromFs(CORE_TILE_DIR);
     const localPoiTiles = await collectLocalTileKeysFromFs(POI_TILE_DIR);
     const localInfraTiles = await collectLocalTileKeysFromFs(INFRA_TILE_DIR);
-    const localCompleteTiles = setIntersection(localCoreTiles, localPoiTiles);
+    const localCompleteTiles = setIntersection(setIntersection(localCoreTiles, localPoiTiles), localInfraTiles);
 
     const remoteCoreTiles = remoteCoreRes.tiles;
-    const remoteCompleteTiles = setIntersection(remoteCoreTiles, remotePoiTiles);
+    const remoteCompleteTiles = setIntersection(setIntersection(remoteCoreTiles, remotePoiTiles), remoteInfraTiles);
 
     const missingInRepo = [];
     for (const k of localCompleteTiles) if (!remoteCompleteTiles.has(k)) missingInRepo.push(k);
@@ -1518,7 +2124,6 @@ async function collectTileState() {
   }
 
   const loadedMap = {};
-  const now = Date.now();
   const keys = new Set([
     ...(Array.isArray(coreManifest.tiles) ? coreManifest.tiles : []),
     ...(Array.isArray(poiManifest.tiles) ? poiManifest.tiles : []),
@@ -1537,64 +2142,54 @@ async function collectTileState() {
     const hasInfra = existsSync(infraFile);
     if (!hasCore && !hasPoi && !hasInfra) continue;
 
-    let coreStat = null;
-    let poiStat = null;
-    let infraStat = null;
-    try { if (hasCore) coreStat = await fs.stat(coreFile); } catch (_) {}
-    try { if (hasPoi) poiStat = await fs.stat(poiFile); } catch (_) {}
-    try { if (hasInfra) infraStat = await fs.stat(infraFile); } catch (_) {}
-    const coreMtime = Number(coreStat?.mtimeMs || 0);
-    const poiMtime = Number(poiStat?.mtimeMs || 0);
-    const infraMtime = Number(infraStat?.mtimeMs || 0);
-    const mtimeMs = Math.max(coreMtime, poiMtime, infraMtime);
+    const recent = lastResults.get(tileKey);
+    const recentSig = recent ? `${Number(recent.at || 0)}:${recent.ok === false ? 'fail' : 'ok'}` : '';
     const sig = [
-      statSignature(coreFile, coreStat, hasCore),
-      statSignature(poiFile, poiStat, hasPoi),
-      statSignature(infraFile, infraStat, hasInfra)
+      hasCore ? coreFile : 'missing',
+      hasPoi ? poiFile : 'missing',
+      hasInfra ? infraFile : 'missing',
+      recentSig
     ].join('::');
     const cached = tileStateEntryCache.get(tileKey);
     let baseEntry = cached && cached.sig === sig ? cached.baseEntry : null;
     if (!baseEntry) {
-      const corePayload = hasCore ? await readJsonMaybeGz(coreFile, null) : null;
-      const poiPayload = hasPoi ? await readJsonMaybeGz(poiFile, null) : null;
-      const infraPayload = hasInfra ? await readJsonMaybeGz(infraFile, null) : null;
-      const counts = getTileCounts(corePayload, poiPayload, infraPayload);
-      const totalCount = counts.obs + counts.lin + counts.poi + counts.infra + counts.clusters;
-      const dataStatus = hasCore && hasPoi ? getTileDataStatus(corePayload, poiPayload, infraPayload) : (hasInfra ? 'infra-only' : 'partial');
-      const infraEnrichment = infraPayload?.meta || poiPayload?.meta?.infraEnrichment || null;
+      const recentCounts = countsFromRecentResult(tileKey);
+      const counts = recentCounts || emptyTileCounts();
+      const countsReady = !!recentCounts;
+      const totalCount = countsReady
+        ? counts.obs + counts.lin + counts.poi + counts.infra + counts.clusters
+        : null;
+      const dataStatus = countsReady
+        ? (totalCount === 0 ? 'empty' : 'loaded')
+        : (hasCore && hasPoi ? 'loaded' : (hasInfra ? 'infra-only' : 'partial'));
       baseEntry = {
-        mtimeMs,
-        bytes: Number(coreStat?.size || 0) + Number(poiStat?.size || 0) + Number(infraStat?.size || 0),
-        bytesCore: Number(coreStat?.size || 0),
-        bytesPoi: Number(poiStat?.size || 0),
-        bytesInfra: Number(infraStat?.size || 0),
         hasCore,
         hasPoi,
         hasInfra,
         dataStatus,
         empty: dataStatus === 'empty',
-        counts,
-        totalCount,
-        infraEnriched: !!hasInfra || !!infraEnrichment,
-        infraEnrichment
+        countsReady,
+        ...(countsReady ? { counts, totalCount } : {}),
+        infraEnriched: !!hasInfra
       };
       tileStateEntryCache.set(tileKey, { sig, baseEntry });
     }
-    const stale = ((hasCore && (now - coreMtime) > STALE_AFTER_MS) || (hasPoi && (now - poiMtime) > STALE_AFTER_MS) || (hasInfra && (now - infraMtime) > STALE_AFTER_MS));
     const regionMeta = getRegionMetaForTile(tileKey);
     const partialCoveragePossible = !WORKBENCH_PBF_PATH && regionMeta.count > WORKBENCH_PBF_MAX_REGIONS;
     const partialReason = partialCoveragePossible
       ? `Tile schneidet ${regionMeta.count} Regionen (Limit ${WORKBENCH_PBF_MAX_REGIONS})`
       : '';
 
-    loadedMap[tileKey] = {
+    const loadedEntry = {
       ...baseEntry,
-      stale,
-      regionOverlapCount: Number(regionMeta.count || 0),
-      regionOverlapIds: Array.isArray(regionMeta.ids) ? regionMeta.ids.slice(0, 8) : [],
-      partialCoveragePossible,
-      partialReason
+      stale: false,
+      partialCoveragePossible
     };
+    if (partialCoveragePossible) {
+      loadedEntry.regionOverlapCount = Number(regionMeta.count || 0);
+      loadedEntry.partialReason = partialReason;
+    }
+    loadedMap[tileKey] = loadedEntry;
   }
   for (const key of Array.from(tileStateEntryCache.keys())) {
     if (!keys.has(key)) tileStateEntryCache.delete(key);
@@ -1614,6 +2209,7 @@ async function collectTileState() {
       pbfTtlDays: PBF_CACHE_TTL_DAYS,
       cacheRecoveryRetrySec: Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000),
       pbfMaxRegions: WORKBENCH_PBF_MAX_REGIONS,
+      pbfBorderExtraMinRatio: WORKBENCH_PBF_BORDER_EXTRA_MIN_RATIO,
       pbfThinExtend: WORKBENCH_PBF_THIN_EXTEND,
       pbfThinThresholds: {
         obsMax: WORKBENCH_PBF_THIN_OBS_MAX,
@@ -1641,7 +2237,10 @@ async function collectTileState() {
     infraEnrichCurrentTile,
     queue: queue.slice(),
     queueFresh: queue.filter(k => queueFreshSet.has(k)),
+    queueRegionHints: Object.fromEntries(Array.from(queueRegionHintMap.entries()).map(([k, v]) => [k, Array.from(v)])),
     infraEnrichQueue: infraEnrichQueue.slice(),
+    infraEnrichFresh: infraEnrichQueue.filter(k => infraEnrichFreshSet.has(k)),
+    infraEnrichRegionHints: Object.fromEntries(Array.from(infraEnrichRegionHintMap.entries()).map(([k, v]) => [k, Array.from(v)])),
     queueLength: queue.length,
     tileStepDeg: TILE_STEP_DEG,
     staleAfterDays: 90,
@@ -1670,8 +2269,6 @@ async function collectTileState() {
       checkedAt: Number(lastRepoSync.checkedAt || 0),
       message: String(lastRepoSync.message || ''),
       remoteRef: String(lastRepoSync.remoteRef || 'origin/main'),
-      remoteTiles: Array.isArray(lastRepoSync.remoteTiles) ? lastRepoSync.remoteTiles : [],
-      missingInRepoTiles: Array.isArray(lastRepoSync.missingInRepoTiles) ? lastRepoSync.missingInRepoTiles : [],
       remoteTileCount: Number(lastRepoSync.remoteTileCount || 0),
       localTileCount: Number(lastRepoSync.localTileCount || 0),
       missingInRepoCount: Number(lastRepoSync.missingInRepoCount || 0),
@@ -1692,18 +2289,24 @@ async function getCollectedTileState() {
 
 function enqueueTiles(tileKeys, options = {}) {
   const fresh = !!(options && options.fresh);
+  const regionHints = options && options.regionHints;
   const added = [];
   for (const raw of Array.isArray(tileKeys) ? tileKeys : []) {
     const key = normalizeTileKey(raw);
     if (!key) continue;
+    const tileRegionHints = regionHints instanceof Map
+      ? regionHints.get(key)
+      : (regionHints && typeof regionHints === 'object' ? regionHints[key] : null);
     if (queueSet.has(key)) {
       if (fresh) queueFreshSet.add(key);
+      mergeQueueRegionHints(key, tileRegionHints);
       continue;
     }
     if (key === currentTile) continue;
     queue.push(key);
     queueSet.add(key);
     if (fresh) queueFreshSet.add(key);
+    mergeQueueRegionHints(key, tileRegionHints);
     added.push(key);
   }
   if (added.length > 0) processQueue();
@@ -1713,6 +2316,7 @@ function enqueueTiles(tileKeys, options = {}) {
 async function listRegionTiles(regionIds) {
   const selected = [];
   const tileSet = new Set();
+  const tileRegions = new Map();
   for (const rawId of Array.isArray(regionIds) ? regionIds : []) {
     const id = String(rawId || '').trim();
     if (!id) continue;
@@ -1720,17 +2324,22 @@ async function listRegionTiles(regionIds) {
     if (!region) continue;
     selected.push(region);
     const keys = await collectRegionTileKeys(region);
-    for (const tileKey of keys) tileSet.add(tileKey);
+    for (const tileKey of keys) {
+      tileSet.add(tileKey);
+      if (!tileRegions.has(tileKey)) tileRegions.set(tileKey, []);
+      tileRegions.get(tileKey).push(id);
+    }
   }
   return {
     selectedRegions: selected.map(r => ({ id: r.id, name: r.name, sizeMb: Number(r.sizeMb || 0), bbox: r.bbox })),
-    tiles: Array.from(tileSet).sort()
+    tiles: Array.from(tileSet).sort(),
+    tileRegions
   };
 }
 
-async function enqueueRegions(regionIds) {
+async function enqueueRegions(regionIds, options = {}) {
   const listed = await listRegionTiles(regionIds);
-  const added = enqueueTiles(listed.tiles);
+  const added = enqueueTiles(listed.tiles, { fresh: !!(options && options.fresh), regionHints: listed.tileRegions });
   return {
     selectedRegions: listed.selectedRegions,
     tiles: listed.tiles,
@@ -1739,11 +2348,164 @@ async function enqueueRegions(regionIds) {
   };
 }
 
+async function storeCombinedTileFile(tileKey, combinedFile, options = {}) {
+  const startedAt = Number(options.startedAt || Date.now());
+  const freshReload = !!(options && options.freshReload);
+  const regionHintIds = normalizeRegionIds(options && options.regionHintIds);
+  const mergeExisting = !!(options && options.mergeExisting) || regionHintIds.length > 0 || !freshReload;
+  const loadSource = String(options.loadSource || 'pbf');
+  const run = options.run || { code: 0, stdout: '', stderr: '' };
+  const pbfRegionIds = Array.isArray(options.pbfRegionIds) ? options.pbfRegionIds.filter(Boolean) : [];
+  const lowCoverage = !!options.lowCoverage;
+
+  const coreOut = tileGzPath(CORE_TILE_DIR, tileKey);
+  const poiOut = tileGzPath(POI_TILE_DIR, tileKey);
+  const infraOut = tileGzPath(INFRA_TILE_DIR, tileKey);
+  const coreLegacyOut = tilePath(CORE_TILE_DIR, tileKey);
+  const poiLegacyOut = tilePath(POI_TILE_DIR, tileKey);
+  const infraLegacyOut = tilePath(INFRA_TILE_DIR, tileKey);
+  const prevCoreFile = existsSync(coreOut) ? coreOut : (existsSync(coreLegacyOut) ? coreLegacyOut : '');
+  const prevPoiFile = existsSync(poiOut) ? poiOut : (existsSync(poiLegacyOut) ? poiLegacyOut : '');
+  const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
+  const prevCorePayload = (mergeExisting && prevCoreFile) ? await readJsonMaybeGz(prevCoreFile, null) : null;
+  const prevPoiPayload = (mergeExisting && prevPoiFile) ? await readJsonMaybeGz(prevPoiFile, null) : null;
+  const prevInfraPayload = (mergeExisting && prevInfraFile) ? await readJsonMaybeGz(prevInfraFile, null) : null;
+
+  let ok = false;
+  let message = 'Tile-Load fehlgeschlagen';
+  let finalObs = 0;
+  let finalLin = 0;
+  let finalPoi = 0;
+  let finalInfra = 0;
+  let finalClusters = 0;
+  let dataStatus = 'failed';
+  const combinedExists = existsSync(combinedFile);
+
+  if (combinedExists) {
+    const splitCmd = [
+      'tools/split-combined-tile.mjs',
+      '--in', path.relative(ROOT, combinedFile),
+      '--core-out', path.relative(ROOT, coreOut),
+      '--poi-out', path.relative(ROOT, poiOut),
+      '--infra-out', path.relative(ROOT, infraOut)
+    ];
+    const splitRun = await runCmd('node', splitCmd, { cwd: ROOT });
+    if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut) && existsSync(infraOut)) {
+      const corePayloadRaw = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
+      const poiPayloadRaw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+      const infraPayloadRaw = await readJsonMaybeGz(infraOut, { counts: { infra: 0, clusters: 0 }, infra: { poi: [], clusters: [] } });
+      const corePayload = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayloadRaw) : corePayloadRaw;
+      const poiPayload = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayloadRaw) : poiPayloadRaw;
+      const infraPayload = prevInfraPayload ? mergeInfraTilePayload(prevInfraPayload, infraPayloadRaw) : infraPayloadRaw;
+      const outObs = Number(corePayload?.counts?.obs || 0);
+      const outLin = Number(corePayload?.counts?.lin || 0);
+      const outPoi = Number(poiPayload?.counts?.poi || 0);
+      const outInfra = Number(infraPayload?.counts?.infra || infraPayload?.infra?.poi?.length || 0);
+      const outClusters = Number(infraPayload?.counts?.clusters || infraPayload?.infra?.clusters?.length || 0);
+      const outTotal = outObs + outLin + outPoi + outInfra + outClusters;
+      finalObs = outObs;
+      finalLin = outLin;
+      finalPoi = outPoi;
+      finalInfra = outInfra;
+      finalClusters = outClusters;
+      dataStatus = outTotal === 0 ? 'empty' : 'loaded';
+      const meta = {
+        dataStatus,
+        rawCounts: {
+          obs: Number(corePayload?.meta?.rawCounts?.obs || outObs),
+          lin: Number(corePayload?.meta?.rawCounts?.lin || outLin),
+          poi: Number(poiPayload?.meta?.rawCounts?.poi || outPoi)
+        }
+      };
+      const existingInfraEnrichment = prevPoiPayload?.meta?.infraEnrichment || poiPayload?.meta?.infraEnrichment || null;
+      if (existingInfraEnrichment) meta.infraEnrichment = existingInfraEnrichment;
+      corePayload.meta = meta;
+      poiPayload.meta = meta;
+      infraPayload.meta = {
+        ...(infraPayload.meta || {}),
+        dataStatus,
+        rawCounts: {
+          ...(infraPayload?.meta?.rawCounts || {}),
+          obs: Number(corePayload?.meta?.rawCounts?.obs || outObs),
+          lin: Number(corePayload?.meta?.rawCounts?.lin || outLin),
+          poi: Number(poiPayload?.meta?.rawCounts?.poi || outPoi)
+        }
+      };
+      infraPayload.counts = {
+        ...(infraPayload.counts || {}),
+        infra: outInfra,
+        clusters: outClusters
+      };
+      await writeGzJson(coreOut, corePayload);
+      await writeGzJson(poiOut, poiPayload);
+      await writeGzJson(infraOut, infraPayload);
+
+      await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
+      await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+      await upsertManifestTile(INFRA_MANIFEST_PATH, tileKey);
+      await removeFailedTile(tileKey);
+      try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
+      try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
+      try { await fs.unlink(tilePath(INFRA_TILE_DIR, tileKey)); } catch (_) {}
+      ok = true;
+      message = outTotal === 0
+        ? `Tile geladen (${loadSource}), leerer Split gespeichert`
+        : `Tile geladen (${loadSource}), gesplittet und gespeichert`;
+    } else {
+      message = (splitRun.stderr || splitRun.stdout || 'Split fehlgeschlagen').trim() || 'Split fehlgeschlagen';
+      if (looksLikeCacheUnavailable(message)) {
+        throw new CacheUnavailableError(`Cache/Datenträgerproblem während Tile ${tileKey}: ${message.slice(0, 220)}`);
+      }
+      await upsertFailedTile(tileKey, { status: 0, error: message });
+    }
+  } else {
+    message = 'PBF-Batch lieferte keine Combined-Datei';
+    await upsertFailedTile(tileKey, { status: 0, error: message });
+  }
+
+  try { await fs.unlink(combinedFile); } catch (_) {}
+
+  const result = {
+    ok,
+    at: Date.now(),
+    durationMs: Date.now() - startedAt,
+    code: Number(run?.code || 0),
+    status: ok ? 0 : 1,
+    error: ok ? '' : message,
+    server: '',
+    dataStatus,
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi, infra: finalInfra, clusters: finalClusters },
+    message
+  };
+  lastResults.set(tileKey, result);
+  setCurrentProgress({
+    tile: tileKey,
+    phase: ok ? 'done' : 'failed',
+    source: loadSource,
+    message
+  });
+  pushProcessEvent('tile-done', {
+    tile: tileKey,
+    freshReload,
+    ok,
+    source: loadSource,
+    pbfRegions: pbfRegionIds.slice(),
+    lowCoverage,
+    dataStatus,
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi, infra: finalInfra, clusters: finalClusters },
+    message
+  });
+  return result;
+}
+
 async function processOneTile(tileKey, options = {}) {
   await assertCacheWritableOrThrow('before-tile');
   currentTile = tileKey;
   const startedAt = Date.now();
   const freshReload = !!(options && options.freshReload);
+  const regionHintIds = normalizeRegionIds(options && options.regionHintIds);
+  const regionAnchored = regionHintIds.length > 0;
+  const mergeExisting = regionAnchored || !freshReload;
   setCurrentProgress({
     tile: tileKey,
     phase: 'preparing',
@@ -1767,9 +2529,9 @@ async function processOneTile(tileKey, options = {}) {
   const prevCoreFile = existsSync(coreOut) ? coreOut : (existsSync(coreLegacyOut) ? coreLegacyOut : '');
   const prevPoiFile = existsSync(poiOut) ? poiOut : (existsSync(poiLegacyOut) ? poiLegacyOut : '');
   const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
-  const prevCorePayload = (!freshReload && prevCoreFile) ? await readJsonMaybeGz(prevCoreFile, null) : null;
-  const prevPoiPayload = (!freshReload && prevPoiFile) ? await readJsonMaybeGz(prevPoiFile, null) : null;
-  const prevInfraPayload = (!freshReload && prevInfraFile) ? await readJsonMaybeGz(prevInfraFile, null) : null;
+  const prevCorePayload = (mergeExisting && prevCoreFile) ? await readJsonMaybeGz(prevCoreFile, null) : null;
+  const prevPoiPayload = (mergeExisting && prevPoiFile) ? await readJsonMaybeGz(prevPoiFile, null) : null;
+  const prevInfraPayload = (mergeExisting && prevInfraFile) ? await readJsonMaybeGz(prevInfraFile, null) : null;
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
@@ -1791,13 +2553,13 @@ async function processOneTile(tileKey, options = {}) {
     await upsertFailedTile(tileKey, info);
   };
 
-  const pbfResolution = await resolvePbfPathsForTile(tileKey);
+  const pbfResolution = await resolvePbfPathsForTile(tileKey, { preferredRegionIds: regionHintIds, regionAnchored });
   const pbfPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
-  const pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
+  let pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
   const pbfRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
-  const pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
+  let pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
   const relevantRegionCount = Number(pbfResolution?.relevantRegionCount || 0);
-  const lowCoverage = relevantRegionCount > pbfRegionIds.length;
+  const lowCoverage = Number(pbfResolution?.significantRemainingCount || 0) > 0;
   setCurrentProgress({
     phase: 'source-select',
     source: pbfPaths.length > 0 ? 'pbf' : 'overpass',
@@ -1846,23 +2608,30 @@ async function processOneTile(tileKey, options = {}) {
           counts: { obs: merged.obs.length, lin: merged.lin.length, poi: merged.poi.length }
         });
       }
-      if (WORKBENCH_PBF_THIN_EXTEND && pbfRemainingPaths.length > 0 && thinDetected) {
-        setCurrentProgress({
-          phase: 'load-pbf-extend',
-          thinExtended: true,
-          message: `Niedrige Abdeckung erkannt, erweitere mit ${pbfRemainingRegionIds.join(', ') || 'zusätzlichen Regionen'}`
-        });
-        pushProcessEvent('pbf-thin-extend', {
-          tile: tileKey,
-          pbfRegionsExtra: pbfRemainingRegionIds.slice()
-        });
-        const extra = await extractPbfChunksForTile(tileKey, pbfRemainingPaths, combinedFile);
-        if (extra.chunkResults.length > 0) {
-          chunkResults = chunkResults.concat(extra.chunkResults);
-          merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+      if (WORKBENCH_PBF_THIN_EXTEND && pbfResolution?.allowThinExtend !== false && thinDetected && (pbfRemainingPaths.length > 0 || pbfRemainingRegionIds.length > 0)) {
+        if (pbfRemainingPaths.length === 0 && pbfRemainingRegionIds.length > 0) {
+          const extraResolution = await ensurePbfPathsForRegionIds(pbfRemainingRegionIds, new Set(pbfPaths.map(p => path.resolve(p))));
+          pbfRemainingPaths = extraResolution.paths;
+          pbfRemainingRegionIds = extraResolution.regionIds;
+        }
+        if (pbfRemainingPaths.length > 0) {
           setCurrentProgress({
-            message: `Erweiterte Rohdaten: obs=${merged.obs.length}, lin=${merged.lin.length}, poi=${merged.poi.length}`
+            phase: 'load-pbf-extend',
+            thinExtended: true,
+            message: `Niedrige Abdeckung erkannt, erweitere mit ${pbfRemainingRegionIds.join(', ') || 'zusätzlichen Regionen'}`
           });
+          pushProcessEvent('pbf-thin-extend', {
+            tile: tileKey,
+            pbfRegionsExtra: pbfRemainingRegionIds.slice()
+          });
+          const extra = await extractPbfChunksForTile(tileKey, pbfRemainingPaths, combinedFile);
+          if (extra.chunkResults.length > 0) {
+            chunkResults = chunkResults.concat(extra.chunkResults);
+            merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+            setCurrentProgress({
+              message: `Erweiterte Rohdaten: obs=${merged.obs.length}, lin=${merged.lin.length}, poi=${merged.poi.length}`
+            });
+          }
         }
       }
       const total = merged.obs.length + merged.lin.length + merged.poi.length;
@@ -2059,24 +2828,44 @@ async function processOneTile(tileKey, options = {}) {
 
 function mergeInfraEnrichmentChunks(chunks, tileKey) {
   const map = new Map();
+  const clusterMap = new Map();
   for (const chunk of Array.isArray(chunks) ? chunks : []) {
     const list = Array.isArray(chunk?.poi) ? chunk.poi : [];
     for (const raw of list) {
       const entry = cleanInfraPoiEntry(raw);
       if (!entry) continue;
+      if (entry.infra_cluster) {
+        const cKey = infraClusterPrimaryKey(entry);
+        if (!clusterMap.has(cKey)) clusterMap.set(cKey, entry);
+        else clusterMap.set(cKey, mergeInfraClusterEntries(clusterMap.get(cKey), entry));
+        continue;
+      }
       const key = infraPoiPrimaryKey(entry) || infraPoiGeoKey(entry);
       if (!map.has(key)) map.set(key, entry);
       else map.set(key, mergeInfraPoiEntries(map.get(key), entry));
     }
+    const clusters = Array.isArray(chunk?.infra?.clusters) ? chunk.infra.clusters : [];
+    for (const raw of clusters) {
+      const entry = cleanInfraPoiEntry({ ...raw, infra_cluster: true, cluster_type: raw?.cluster_type || raw?.infra_type });
+      if (!entry) continue;
+      entry.infra_cluster = true;
+      entry.cluster_type = String(entry.cluster_type || entry.infra_type || '').toLowerCase();
+      const key = infraClusterPrimaryKey(entry);
+      if (!clusterMap.has(key)) clusterMap.set(key, entry);
+      else clusterMap.set(key, mergeInfraClusterEntries(clusterMap.get(key), entry));
+    }
   }
+  const poi = Array.from(map.values());
+  const clusters = Array.from(clusterMap.values());
   return {
     v: 1,
     schema: INFRA_ENRICHMENT_SCHEMA,
     tile: tileKey,
     generatedAt: new Date().toISOString(),
     source: chunks.map(c => c?.source || '').filter(Boolean).join('+') || 'pbf',
-    counts: { poi: map.size },
-    poi: Array.from(map.values())
+    counts: { poi: poi.length, clusters: clusters.length },
+    poi,
+    infra: { poi, clusters }
   };
 }
 
@@ -2148,12 +2937,13 @@ async function extractInfraEnrichmentBatchForPbf(tileKeys, pbfPath) {
   return { run, chunksByTile };
 }
 
-async function writeInfraLayerForTile(tileKey, chunks, pbfRegionIds, run, startedAt) {
+async function writeInfraLayerForTile(tileKey, chunks, pbfRegionIds, run, startedAt, options = {}) {
+  const freshReplace = !!(options && options.freshReplace);
   const enrichmentPayload = mergeInfraEnrichmentChunks(chunks, tileKey);
   const infraOut = tileGzPath(INFRA_TILE_DIR, tileKey);
   const infraLegacyOut = tilePath(INFRA_TILE_DIR, tileKey);
   const prevInfraFile = existsSync(infraOut) ? infraOut : (existsSync(infraLegacyOut) ? infraLegacyOut : '');
-  const prevInfraPayload = prevInfraFile
+  const prevInfraPayload = (!freshReplace && prevInfraFile)
     ? await readJsonMaybeGz(prevInfraFile, null)
     : {
         v: 1,
@@ -2193,10 +2983,11 @@ async function writeInfraLayerForTile(tileKey, chunks, pbfRegionIds, run, starte
     code: Number(run?.code || 0),
     dataStatus: 'loaded',
     counts: { obs: 0, lin: 0, poi: 0, infra: mergedPayload.counts.infra, clusters: mergedPayload.counts.clusters },
-    message: `Infra-Layer gespeichert: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer, gesamt ${mergedPayload.counts.infra} Infra-Features`
+    message: `${freshReplace ? 'Infra-Layer frisch ersetzt' : 'Infra-Layer gespeichert'}: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer + ${Number(enrichmentPayload?.counts?.clusters || 0)} Cluster, gesamt ${mergedPayload.counts.infra} Infra-Features + ${mergedPayload.counts.clusters} Cluster`
   });
   pushProcessEvent('infra-enrich-done', {
     tile: tileKey,
+    freshReload: freshReplace,
     ok: true,
     source: 'pbf',
     pbfRegions: regions,
@@ -2214,25 +3005,53 @@ async function writeInfraLayerForTile(tileKey, chunks, pbfRegionIds, run, starte
 }
 
 function enqueueInfraEnrichmentTiles(tileKeys, options = {}) {
+  const fresh = !!(options && options.fresh);
+  const regionHints = options && options.regionHints;
   const added = [];
   if (options && options.autoPush) autoPushInfraEnrichWhenDone = true;
   for (const raw of Array.isArray(tileKeys) ? tileKeys : []) {
     const key = normalizeTileKey(raw);
     if (!key) continue;
-    if (infraEnrichQueueSet.has(key)) continue;
+    const tileRegionHints = regionHints instanceof Map
+      ? regionHints.get(key)
+      : (regionHints && typeof regionHints === 'object' ? regionHints[key] : null);
+    if (infraEnrichQueueSet.has(key)) {
+      if (fresh) infraEnrichFreshSet.add(key);
+      mergeInfraRegionHints(key, tileRegionHints);
+      continue;
+    }
     if (key === infraEnrichCurrentTile) continue;
     infraEnrichQueue.push(key);
     infraEnrichQueueSet.add(key);
+    if (fresh) infraEnrichFreshSet.add(key);
+    mergeInfraRegionHints(key, tileRegionHints);
     added.push(key);
   }
   if (added.length > 0) processInfraEnrichmentQueue();
   return added;
 }
 
-async function processOneInfraEnrichmentTile(tileKey) {
+async function enqueueInfraEnrichmentRegions(regionIds, options = {}) {
+  const listed = await listRegionTiles(regionIds);
+  const added = enqueueInfraEnrichmentTiles(listed.tiles, {
+    autoPush: !!(options && options.autoPush),
+    fresh: !!(options && options.fresh),
+    regionHints: listed.tileRegions
+  });
+  return {
+    selectedRegions: listed.selectedRegions,
+    tiles: listed.tiles,
+    foundTiles: listed.tiles.length,
+    added
+  };
+}
+
+async function processOneInfraEnrichmentTile(tileKey, options = {}) {
   await assertCacheWritableOrThrow('before-infra-enrichment');
   infraEnrichCurrentTile = tileKey;
   const startedAt = Date.now();
+  const regionHintIds = normalizeRegionIds(options && options.regionHintIds);
+  const regionAnchored = regionHintIds.length > 0;
   setCurrentProgress({
     tile: tileKey,
     phase: 'infra-enrich',
@@ -2241,11 +3060,11 @@ async function processOneInfraEnrichmentTile(tileKey) {
     startedAt
   });
 
-  const pbfResolution = await resolvePbfPathsForTile(tileKey);
+  const pbfResolution = await resolvePbfPathsForTile(tileKey, { preferredRegionIds: regionHintIds, regionAnchored });
   const pbfPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
   const pbfRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
-  const pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
-  const pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
+  let pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
+  let pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
   if (pbfPaths.length === 0) {
     throw new Error(`Keine PBF-Region für Infra-Enrichment von ${tileKey} gefunden`);
   }
@@ -2259,10 +3078,19 @@ async function processOneInfraEnrichmentTile(tileKey) {
   let extracted = await extractInfraEnrichmentForTile(tileKey, pbfPaths);
   let chunks = extracted.chunks;
   let run = extracted.run;
-  if (pbfRemainingPaths.length > 0) {
-    const extra = await extractInfraEnrichmentForTile(tileKey, pbfRemainingPaths);
-    if (extra.chunks.length > 0) chunks = chunks.concat(extra.chunks);
-    if (run.code !== 0) run = extra.run;
+  let usedRegionIds = pbfRegionIds.slice();
+  if (pbfResolution?.allowThinExtend !== false && chunks.length === 0 && (pbfRemainingPaths.length > 0 || pbfRemainingRegionIds.length > 0)) {
+    if (pbfRemainingPaths.length === 0 && pbfRemainingRegionIds.length > 0) {
+      const extraResolution = await ensurePbfPathsForRegionIds(pbfRemainingRegionIds, new Set(pbfPaths.map(p => path.resolve(p))));
+      pbfRemainingPaths = extraResolution.paths;
+      pbfRemainingRegionIds = extraResolution.regionIds;
+    }
+    if (pbfRemainingPaths.length > 0) {
+      const extra = await extractInfraEnrichmentForTile(tileKey, pbfRemainingPaths);
+      if (extra.chunks.length > 0) chunks = chunks.concat(extra.chunks);
+      if (extra.chunks.length > 0) usedRegionIds = usedRegionIds.concat(pbfRemainingRegionIds);
+      if (run.code !== 0) run = extra.run;
+    }
   }
   if (chunks.length === 0) {
     throw new Error((run.stderr || run.stdout || 'Infra-Enrichment lieferte keine PBF-Daten').trim());
@@ -2288,14 +3116,14 @@ async function processOneInfraEnrichmentTile(tileKey) {
     ...(mergedPayload.meta || {}),
     schema: 'ga.infraTile.v1',
     dataStatus: mergedPayload.counts.infra || mergedPayload.counts.clusters ? 'loaded' : 'empty',
-    pbfRegions: Array.from(new Set(pbfRegionIds.concat(pbfRemainingRegionIds).map(String).filter(Boolean))),
+    pbfRegions: Array.from(new Set(usedRegionIds.map(String).filter(Boolean))),
     infraEnrichment: {
       schema: INFRA_ENRICHMENT_SCHEMA,
       version: 1,
       enrichedAt: new Date().toISOString(),
       source: 'pbf',
       tile: tileKey,
-      pbfRegions: Array.from(new Set(pbfRegionIds.concat(pbfRemainingRegionIds).map(String).filter(Boolean))),
+      pbfRegions: Array.from(new Set(usedRegionIds.map(String).filter(Boolean))),
       lastIncoming: Number(enrichmentPayload?.counts?.poi || 0),
       fields: INFRA_ENRICHMENT_FIELDS.filter(k => k !== 'infra_enriched')
     }
@@ -2311,7 +3139,7 @@ async function processOneInfraEnrichmentTile(tileKey) {
     code: run.code,
     dataStatus: 'loaded',
     counts: { obs: 0, lin: 0, poi: 0, infra: mergedPayload.counts.infra, clusters: mergedPayload.counts.clusters },
-    message: `Infra-Layer gespeichert: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer, gesamt ${mergedPayload.counts.infra} Infra-Features`
+    message: `Infra-Layer gespeichert: ${Number(enrichmentPayload?.counts?.poi || 0)} Treffer + ${Number(enrichmentPayload?.counts?.clusters || 0)} Cluster, gesamt ${mergedPayload.counts.infra} Infra-Features + ${mergedPayload.counts.clusters} Cluster`
   });
   setCurrentProgress({
     phase: 'infra-enrich-done',
@@ -2322,7 +3150,7 @@ async function processOneInfraEnrichmentTile(tileKey) {
     tile: tileKey,
     ok: true,
     source: 'pbf',
-    pbfRegions: pbfRegionIds.slice(),
+    pbfRegions: Array.from(new Set(usedRegionIds.map(String).filter(Boolean))),
     counts: {
       incoming: Number(enrichmentPayload?.counts?.poi || 0),
       added: Number(mergedPayload?.meta?.mergeStats?.added || 0),
@@ -2335,9 +3163,10 @@ async function processOneInfraEnrichmentTile(tileKey) {
   });
 }
 
-async function processInfraEnrichmentBatch(tileKeys) {
+async function processInfraEnrichmentBatch(tileKeys, options = {}) {
   const cleanTiles = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).map(normalizeTileKey).filter(Boolean)));
   if (!cleanTiles.length) return;
+  const freshTiles = options && options.freshTiles instanceof Set ? options.freshTiles : new Set();
   await assertCacheWritableOrThrow('before-infra-enrichment-batch');
   const startedAt = Date.now();
   const batchLabel = cleanTiles.length === 1 ? cleanTiles[0] : `${cleanTiles[0]} +${cleanTiles.length - 1}`;
@@ -2355,14 +3184,12 @@ async function processInfraEnrichmentBatch(tileKeys) {
   const tileErrors = new Map();
 
   for (const tileKey of cleanTiles) {
-    const pbfResolution = await resolvePbfPathsForTile(tileKey);
+    const regionHintIds = getInfraRegionHintsForTile(tileKey);
+    const pbfResolution = await resolvePbfPathsForTile(tileKey, { preferredRegionIds: regionHintIds, regionAnchored: regionHintIds.length > 0 });
     const selectedPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
     const selectedRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
-    const remainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
-    const remainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
     const pairs = [];
     selectedPaths.forEach((p, i) => pairs.push([p, selectedRegionIds[i] || 'manual']));
-    remainingPaths.forEach((p, i) => pairs.push([p, remainingRegionIds[i] || 'manual-extra']));
     if (!pairs.length) {
       tileErrors.set(tileKey, `Keine PBF-Region für Infra-Enrichment von ${tileKey} gefunden`);
       continue;
@@ -2381,6 +3208,7 @@ async function processInfraEnrichmentBatch(tileKeys) {
     tile: batchLabel,
     tiles: cleanTiles.slice(),
     batch: true,
+    freshReload: freshTiles.size > 0,
     pbfRegions: Array.from(new Set(Array.from(pbfBatches.values()).flatMap(v => Array.from(v.regionIds))))
   });
 
@@ -2431,9 +3259,14 @@ async function processInfraEnrichmentBatch(tileKeys) {
         source: 'pbf',
         message: lastResults.get(tileKey).message
       });
+      clearInfraRegionHints(tileKey);
       continue;
     }
-    await writeInfraLayerForTile(tileKey, chunks, Array.from(tileRegions.get(tileKey) || []), successfulRun || lastRun, startedAt);
+    const regionHintIds = getInfraRegionHintsForTile(tileKey);
+    await writeInfraLayerForTile(tileKey, chunks, Array.from(tileRegions.get(tileKey) || []), successfulRun || lastRun, startedAt, {
+      freshReplace: freshTiles.has(tileKey) && regionHintIds.length === 0
+    });
+    clearInfraRegionHints(tileKey);
   }
 
   setCurrentProgress({
@@ -2449,14 +3282,20 @@ async function processInfraEnrichmentQueue() {
   try {
     while (infraEnrichQueue.length > 0) {
       const batch = [];
+      const freshBatch = new Set();
       while (infraEnrichQueue.length > 0 && batch.length < INFRA_ENRICH_BATCH_TILE_MAX) {
         const next = infraEnrichQueue.shift();
         infraEnrichQueueSet.delete(next);
-        if (next) batch.push(next);
+        const nextFresh = infraEnrichFreshSet.has(next);
+        infraEnrichFreshSet.delete(next);
+        if (next) {
+          batch.push(next);
+          if (nextFresh) freshBatch.add(next);
+        }
       }
       if (!batch.length) continue;
       try {
-        await processInfraEnrichmentBatch(batch);
+        await processInfraEnrichmentBatch(batch, { freshTiles: freshBatch });
       } catch (err) {
         const errText = String(err && err.message || err || '');
         if ((err && err.code === 'CACHE_UNAVAILABLE') || looksLikeCacheUnavailable(errText)) {
@@ -2467,6 +3306,7 @@ async function processInfraEnrichmentQueue() {
             if (!infraEnrichQueueSet.has(key)) {
               infraEnrichQueue.unshift(key);
               infraEnrichQueueSet.add(key);
+              if (freshBatch.has(key)) infraEnrichFreshSet.add(key);
             }
           }
           await waitForCacheRecovery();
@@ -2474,6 +3314,7 @@ async function processInfraEnrichmentQueue() {
         }
         for (const next of batch) {
           const msg = `Infra-Enrichment fehlgeschlagen: ${errText}`;
+          clearInfraRegionHints(next);
           lastResults.set(next, {
             ok: false,
             at: Date.now(),
@@ -2516,6 +3357,177 @@ async function processInfraEnrichmentQueue() {
   }
 }
 
+async function getCompletePbfBatchCandidate(tileKey, freshReload, regionHintIds = []) {
+  const key = normalizeTileKey(tileKey);
+  if (!key || COMPLETE_LOAD_BATCH_TILE_MAX <= 1) return null;
+  const hints = normalizeRegionIds(regionHintIds);
+  const pbfResolution = await resolvePbfPathsForTile(key, { preferredRegionIds: hints, regionAnchored: hints.length > 0 });
+  const pbfPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
+  const pbfRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
+  const relevantRegionCount = Number(pbfResolution?.relevantRegionCount || 0);
+  const lowCoverage = Number(pbfResolution?.significantRemainingCount || 0) > 0;
+
+  // Keep edge/multi-region and thin-extend candidates on the proven serial path.
+  if (pbfPaths.length !== 1 || lowCoverage) return null;
+  return {
+    tileKey: key,
+    freshReload: !!freshReload,
+    pbfPath: pbfPaths[0],
+    pbfRegionIds,
+    regionHintIds: hints,
+    mergeExisting: hints.length > 0,
+    relevantRegionCount,
+    lowCoverage
+  };
+}
+
+function requeueCompleteItemsFront(items = []) {
+  const clean = Array.isArray(items) ? items.filter(Boolean) : [];
+  for (let i = clean.length - 1; i >= 0; i--) {
+    const item = clean[i];
+    const key = normalizeTileKey(item.tileKey);
+    if (!key || queueSet.has(key) || key === currentTile) continue;
+    queue.unshift(key);
+    queueSet.add(key);
+    if (item.freshReload) queueFreshSet.add(key);
+  }
+}
+
+async function collectCompletePbfBatch(firstTile, firstFresh, firstRegionHints = []) {
+  const first = await getCompletePbfBatchCandidate(firstTile, firstFresh, firstRegionHints);
+  if (!first) return null;
+  const batch = [first];
+  const held = [];
+
+  try {
+    while (queue.length > 0 && batch.length < COMPLETE_LOAD_BATCH_TILE_MAX) {
+      const next = queue.shift();
+      const nextFresh = queueFreshSet.has(next);
+      queueSet.delete(next);
+      queueFreshSet.delete(next);
+      const nextRegionHints = getRegionHintsForTile(next);
+      let candidate = null;
+      try {
+        candidate = await getCompletePbfBatchCandidate(next, nextFresh, nextRegionHints);
+      } catch (err) {
+        if (next) held.push({ tileKey: next, freshReload: nextFresh });
+        throw err;
+      }
+      if (candidate && candidate.pbfPath === first.pbfPath) {
+        batch.push(candidate);
+      } else if (next) {
+        held.push({ tileKey: next, freshReload: nextFresh });
+      }
+    }
+  } catch (err) {
+    requeueCompleteItemsFront(batch.slice(1));
+    throw err;
+  } finally {
+    requeueCompleteItemsFront(held);
+  }
+  return batch.length > 1 ? batch : null;
+}
+
+async function processCompletePbfBatch(batchItems) {
+  const batch = Array.isArray(batchItems) ? batchItems.filter(Boolean) : [];
+  if (batch.length < 2) return false;
+  await assertCacheWritableOrThrow('before-complete-pbf-batch');
+  const startedAt = Date.now();
+  const pbfPath = batch[0].pbfPath;
+  const tiles = batch.map(item => item.tileKey);
+  const batchLabel = `${tiles[0]} +${tiles.length - 1}`;
+  currentTile = tiles[0] || null;
+
+  setCurrentProgress({
+    tile: tiles[0] || null,
+    phase: 'complete-pbf-batch',
+    source: 'pbf-batch',
+    pbfRegions: Array.from(new Set(batch.flatMap(item => item.pbfRegionIds || []))),
+    relevantRegionCount: Math.max(...batch.map(item => Number(item.relevantRegionCount || 0))),
+    lowCoverage: false,
+    thinDetected: false,
+    thinExtended: false,
+    message: `Starte Complete-PBF-Batch (${tiles.length} Tiles)`,
+    startedAt
+  });
+  pushProcessEvent('tile-batch-start', {
+    tile: batchLabel,
+    tiles: tiles.slice(),
+    freshReload: batch.some(item => item.freshReload),
+    source: 'pbf-batch',
+    pbf: path.basename(pbfPath),
+    pbfRegions: Array.from(new Set(batch.flatMap(item => item.pbfRegionIds || [])))
+  });
+
+  let extracted = null;
+  try {
+    setCurrentProgress({
+      phase: 'complete-pbf-batch-load',
+      message: `PBF-Batch ${path.basename(pbfPath)} (${tiles.length} Tiles)`
+    });
+    pushProcessEvent('tile-batch-pbf', {
+      tile: batchLabel,
+      tiles: tiles.slice(),
+      pbf: path.basename(pbfPath)
+    });
+    extracted = await extractPbfCombinedBatchForPbf(tiles, pbfPath);
+    const anyOutput = extracted.filesByTile && extracted.filesByTile.size > 0;
+    if (!anyOutput) {
+      const msg = (extracted.run?.stderr || extracted.run?.stdout || `PBF-Batch fehlgeschlagen: ${path.basename(pbfPath)}`).trim();
+      if (looksLikeCacheUnavailable(msg)) {
+        throw new CacheUnavailableError(`Cache/Datenträgerproblem während PBF-Batch ${batchLabel}: ${msg.slice(0, 220)}`);
+      }
+      throw new Error(msg || 'PBF-Batch lieferte keine Tile-Dateien');
+    }
+
+    for (const item of batch) {
+      const filePath = extracted.filesByTile.get(item.tileKey);
+      if (!filePath || !existsSync(filePath)) {
+        pushProcessEvent('tile-batch-miss', {
+          tile: item.tileKey,
+          source: 'pbf-batch',
+          message: 'Keine Batch-Datei für Tile, fallback auf Einzelpfad'
+        });
+        await processOneTile(item.tileKey, { freshReload: item.freshReload, regionHintIds: item.regionHintIds });
+        clearQueueRegionHints(item.tileKey);
+        continue;
+      }
+      setCurrentProgress({
+        tile: item.tileKey,
+        phase: 'complete-pbf-batch-split',
+        source: 'pbf-batch',
+        pbfRegions: item.pbfRegionIds.slice(),
+        relevantRegionCount: item.relevantRegionCount,
+        lowCoverage: item.lowCoverage,
+        message: `Split/Speichern aus PBF-Batch (${item.tileKey})`
+      });
+      await storeCombinedTileFile(item.tileKey, filePath, {
+        startedAt,
+        freshReload: item.freshReload,
+        regionHintIds: item.regionHintIds,
+        mergeExisting: item.mergeExisting,
+        loadSource: 'pbf-batch',
+        run: extracted.run,
+        pbfRegionIds: item.pbfRegionIds,
+        lowCoverage: item.lowCoverage
+      });
+      clearQueueRegionHints(item.tileKey);
+    }
+    setCurrentProgress({
+      tile: null,
+      phase: 'complete-pbf-batch-done',
+      source: 'pbf-batch',
+      message: `Complete-PBF-Batch abgeschlossen (${tiles.length} Tiles)`
+    });
+    return true;
+  } finally {
+    currentTile = null;
+    if (extracted && extracted.tmpDir) {
+      try { await fs.rm(extracted.tmpDir, { recursive: true, force: true }); } catch (_) {}
+    }
+  }
+}
+
 async function processQueue() {
   if (processing || infraEnrichProcessing) return;
   processing = true;
@@ -2526,8 +3538,38 @@ async function processQueue() {
       queueSet.delete(next);
       queueFreshSet.delete(next);
       if (!next) continue;
+      const nextRegionHints = getRegionHintsForTile(next);
       try {
-        await processOneTile(next, { freshReload: nextFresh });
+        const batch = await collectCompletePbfBatch(next, nextFresh, nextRegionHints);
+        if (batch) {
+          try {
+            await processCompletePbfBatch(batch);
+            continue;
+          } catch (batchErr) {
+            const batchErrText = String(batchErr && batchErr.message || batchErr || '');
+            if ((batchErr && batchErr.code === 'CACHE_UNAVAILABLE') || looksLikeCacheUnavailable(batchErrText)) {
+              const msg = `Cache offline – Complete-Batch wird pausiert und automatisch erneut versucht`;
+              pushProcessEvent('cache-offline', { tile: next, tiles: batch.map(item => item.tileKey), message: msg });
+              setCurrentProgress({
+                tile: next,
+                phase: 'cache-wait',
+                source: '',
+                message: msg
+              });
+              requeueCompleteItemsFront(batch);
+              await waitForCacheRecovery();
+              continue;
+            }
+            pushProcessEvent('tile-batch-fallback', {
+              tile: next,
+              tiles: batch.map(item => item.tileKey),
+              message: `Complete-Batch fehlgeschlagen, nutze Einzelpfad: ${batchErrText}`
+            });
+            requeueCompleteItemsFront(batch.slice(1));
+          }
+        }
+        await processOneTile(next, { freshReload: nextFresh, regionHintIds: nextRegionHints });
+        clearQueueRegionHints(next);
         const last = lastResults.get(next);
         if (last && last.ok === false) {
           const baseWait = WORKBENCH_FAIL_COOLDOWN_MS;
@@ -2560,13 +3602,14 @@ async function processQueue() {
             code: 1,
             message: msg
           });
-          if (!queueSet.has(next)) {
-            queue.unshift(next);
-            queueSet.add(next);
-            if (nextFresh) queueFreshSet.add(next);
-          }
-          await waitForCacheRecovery();
-          continue;
+        if (!queueSet.has(next)) {
+          queue.unshift(next);
+          queueSet.add(next);
+          if (nextFresh) queueFreshSet.add(next);
+          mergeQueueRegionHints(next, nextRegionHints);
+        }
+        await waitForCacheRecovery();
+        continue;
         }
         const errMsg = `Interner Fehler: ${String(err && err.message || err)}`;
         pushProcessEvent('tile-error', { tile: next, message: errMsg });
@@ -2577,6 +3620,7 @@ async function processQueue() {
           message: errMsg
         });
         await upsertFailedTile(next, { status: 0, error: errMsg });
+        clearQueueRegionHints(next);
         lastResults.set(next, {
           ok: false,
           at: Date.now(),
@@ -2846,10 +3890,22 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/enrich-infra') {
       const body = await parseBody(req);
-      const added = enqueueInfraEnrichmentTiles(body && body.tiles, { autoPush: !!(body && body.autoPush) });
+      const fresh = !!(body && body.fresh);
+      const regionIds = normalizeRegionIds(body && body.regionIds);
+      const out = regionIds.length
+        ? await enqueueInfraEnrichmentRegions(regionIds, { autoPush: !!(body && body.autoPush), fresh })
+        : {
+            selectedRegions: [],
+            tiles: Array.isArray(body && body.tiles) ? body.tiles : [],
+            foundTiles: Array.isArray(body && body.tiles) ? body.tiles.length : 0,
+            added: enqueueInfraEnrichmentTiles(body && body.tiles, { autoPush: !!(body && body.autoPush), fresh })
+          };
       return sendJson(res, 200, {
         ok: true,
-        added,
+        added: out.added,
+        fresh,
+        selectedRegions: out.selectedRegions,
+        foundTiles: Number(out.foundTiles || 0),
         queueLength: infraEnrichQueue.length,
         processing: infraEnrichProcessing,
         currentTile: infraEnrichCurrentTile
@@ -2859,9 +3915,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/enqueue-region') {
       const body = await parseBody(req);
       if (body && body.autoPush) autoPushWhenDone = true;
-      const out = await enqueueRegions(body && body.regionIds);
+      const fresh = !!(body && body.fresh);
+      const out = await enqueueRegions(body && body.regionIds, { fresh });
       return sendJson(res, 200, {
         ok: true,
+        fresh,
         selectedRegions: out.selectedRegions,
         foundTiles: Number(out.foundTiles || 0),
         added: out.added,
@@ -2886,8 +3944,11 @@ const server = http.createServer(async (req, res) => {
       queue.length = 0;
       queueSet.clear();
       queueFreshSet.clear();
+      queueRegionHintMap.clear();
       infraEnrichQueue.length = 0;
       infraEnrichQueueSet.clear();
+      infraEnrichFreshSet.clear();
+      infraEnrichRegionHintMap.clear();
       return sendJson(res, 200, { ok: true, queueLength: 0, infraEnrichQueueLength: 0, processing, currentTile, infraEnrichCurrentTile });
     }
 

@@ -348,15 +348,30 @@ function compactInfra(input) {
     'secondary', 'secondary_link',
     'tertiary', 'tertiary_link'
   ]);
+  const drivableHighway = new Set([
+    ...majorHighway,
+    'living_street',
+    'residential',
+    'road',
+    'service',
+    'unclassified'
+  ]);
   const majorRail = new Set(['rail', 'light_rail', 'narrow_gauge', 'subway', 'tram']);
+  const railFacility = new Set(['station', 'halt', 'signal_box', 'switch', 'signal', 'level_crossing', 'crossing', 'junction', 'buffer_stop']);
+  const railClusterTarget = new Set(['switch', 'signal', 'level_crossing', 'crossing', 'junction']);
   const infraManMade = new Set([
     'bridge', 'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo',
     'chimney', 'tower', 'mast', 'communications_tower'
   ]);
   const infraAmenity = new Set(['wastewater_plant', 'waste_transfer_station', 'water_works', 'fuel', 'bus_station']);
+  const marineAmenity = new Set(['ferry_terminal']);
+  const marineLeisure = new Set(['marina']);
+  const marineManMade = new Set(['pier', 'dock', 'quay', 'jetty']);
+  const marineWaterway = new Set(['dock', 'lock_gate']);
+  const perimeterBarrier = new Set(['fence', 'gate']);
   const infraPower = new Set([
-    'plant', 'generator', 'substation', 'transformer', 'switchgear', 'converter',
-    'compensator', 'line', 'minor_line', 'cable', 'tower', 'pole'
+    'plant', 'generator', 'substation', 'switchgear', 'converter',
+    'compensator', 'line', 'minor_line', 'cable', 'tower'
   ]);
   const energyValue = (e, key) => String(e?.[key] || e?.[key.replace('_', ':')] || '').toLowerCase();
   const clean = (v, lower = true, max = 120) => {
@@ -374,14 +389,33 @@ function compactInfra(input) {
     const manMade = clean(e.man_made);
     const bridge = clean(e.bridge);
     const landuse = clean(e.landuse);
+    const amenity = clean(e.amenity);
+    const leisure = clean(e.leisure);
+    const barrier = clean(e.barrier);
+    const lockTag = clean(e.lock_tag || e.lock);
+    const location = clean(e.location);
+    const building = clean(e.building);
+    const name = clean(e.name);
+    const roofish = location === 'roof' || building === 'roof' || name.includes('dach') || name.includes('roof');
+    const positiveLock = !!lockTag && !/^(no|false|0)$/i.test(lockTag);
+    if ((generatorSource === 'solar' || plantSource === 'solar') && roofish) return 'solar_roof';
     if (generatorSource === 'solar' || plantSource === 'solar') return 'solar';
     if (generatorSource === 'wind' || plantSource === 'wind') return 'wind';
+    if (
+      marineAmenity.has(amenity) ||
+      marineLeisure.has(leisure) ||
+      marineManMade.has(manMade) ||
+      marineWaterway.has(waterway) ||
+      positiveLock ||
+      /(hafen|marina|schleuse|anleger|anlegestelle|kai)/.test(name)
+    ) return 'marine_infra';
+    if (perimeterBarrier.has(barrier) || /(zaun|wildzaun|schutzzaun|perimeter)/.test(name)) return 'perimeter_security';
     if (/(hydro|water)/.test(`${generatorSource} ${plantSource}`) || ['dam', 'weir'].includes(waterway)) return 'hydro';
     if (['substation', 'transformer', 'switchgear', 'converter', 'compensator'].includes(power)) return 'power_station';
     if (['line', 'minor_line', 'cable', 'tower', 'pole'].includes(power)) return 'power_grid';
     if (bridge && bridge !== 'no') return 'bridge';
     if (manMade === 'bridge') return 'bridge';
-    if (railway) return 'rail';
+    if (majorRail.has(railway) || railFacility.has(railway)) return 'rail';
     if (majorHighway.has(highway)) return 'road';
     if (landuse === 'industrial' || infraManMade.has(manMade) || infraAmenity.has(clean(e.amenity))) return 'industrial';
     if (power) return 'power';
@@ -395,6 +429,12 @@ function compactInfra(input) {
     const manMade = clean(e.man_made);
     const waterway = clean(e.waterway);
     const bridge = clean(e.bridge);
+    const amenity = clean(e.amenity);
+    const leisure = clean(e.leisure);
+    const barrier = clean(e.barrier);
+    const name = clean(e.name);
+    const lockTag = clean(e.lock_tag || e.lock);
+    const positiveLock = !!lockTag && !/^(no|false|0)$/i.test(lockTag);
     return (
       infraPower.has(power) ||
       !!energyValue(e, 'generator_source') ||
@@ -402,16 +442,80 @@ function compactInfra(input) {
       !!energyValue(e, 'generator_method') ||
       !!energyValue(e, 'plant_method') ||
       !!clean(e.substation) ||
-      !!clean(e.transformer) ||
       ['dam', 'weir'].includes(waterway) ||
+      marineWaterway.has(waterway) ||
+      positiveLock ||
       (bridge && bridge !== 'no') ||
+      marineAmenity.has(amenity) ||
+      marineLeisure.has(leisure) ||
       infraManMade.has(manMade) ||
+      marineManMade.has(manMade) ||
       infraAmenity.has(clean(e.amenity)) ||
+      perimeterBarrier.has(barrier) ||
+      /(hafen|marina|schleuse|anleger|anlegestelle|kai|zaun|wildzaun|schutzzaun|perimeter)/.test(name) ||
       majorHighway.has(highway) ||
-      majorRail.has(railway) ||
+      railFacility.has(railway) ||
       clean(e.landuse) === 'industrial' ||
       clean(e.industrial) !== ''
     );
+  }
+
+  function isLowValueBridge(e) {
+    const bridge = clean(e.bridge);
+    const manMade = clean(e.man_made);
+    if ((!bridge || bridge === 'no') && manMade !== 'bridge') return false;
+    const railway = clean(e.railway);
+    const highway = clean(e.highway);
+    if (manMade === 'bridge' && !railway && !highway) return !clean(e.name);
+    if (majorRail.has(railway)) return false;
+    if (drivableHighway.has(highway)) return false;
+    return true;
+  }
+
+  function isSolarRoof(e) {
+    return clean(e.infra_type) === 'solar_roof';
+  }
+
+  function isProminentSolar(e) {
+    if (clean(e.infra_type) !== 'solar' || isSolarRoof(e)) return false;
+    const name = clean(e.name);
+    const sampleCount = Math.round(Number(e.sample_count || 0));
+    return (
+      clean(e.power) === 'plant' ||
+      energyValue(e, 'plant_source') === 'solar' ||
+      name.includes('solarpark') ||
+      name.includes('solar farm') ||
+      sampleCount >= 12
+    );
+  }
+
+  function isLowValuePower(e) {
+    const power = clean(e.power);
+    if (power === 'pole') return true;
+    const distinctName = clean(e.name) && clean(e.name) !== clean(e.operator, true, 90) && clean(e.name) !== clean(e.ref, true, 90);
+    const voltageValues = (String(e.voltage || '').match(/\d+/g) || []).map(Number);
+    const voltage = Math.max(0, ...voltageValues);
+    const substation = clean(e.substation);
+    const sampleCount = Math.round(Number(e.sample_count || 0));
+    if (power === 'substation') {
+      if (['minor_distribution', 'kiosk', 'transformer'].includes(substation) && voltage < 30000) return true;
+      if (!substation && !distinctName && sampleCount < 10 && voltage < 30000) return true;
+      return false;
+    }
+    if (power !== 'transformer') return false;
+    return !(distinctName || substation);
+  }
+
+  function isLowValueRail(e) {
+    const railway = clean(e.railway);
+    if (!railway) return false;
+    if (majorRail.has(railway) && !clean(e.bridge) && !clean(e.tunnel)) return true;
+    if (railway === 'platform' && !clean(e.name)) return true;
+    return false;
+  }
+
+  function isLowValueInfra(e) {
+    return isLowValueBridge(e) || isSolarRoof(e) || isLowValuePower(e) || isLowValueRail(e);
   }
 
   function normalize(e, sourceKind) {
@@ -455,7 +559,12 @@ function compactInfra(input) {
       ['service', true],
       ['industrial', true],
       ['building', true],
-      ['material', true]
+      ['material', true],
+      ['barrier', true],
+      ['lock_tag', true],
+      ['tunnel', true],
+      ['pipeline', true],
+      ['utility', true]
     ];
     for (const [key, lower] of fields) {
       const value = key.includes('_') ? (e?.[key] || e?.[key.replace('_', ':')]) : e?.[key];
@@ -467,6 +576,7 @@ function compactInfra(input) {
     if (Number(e?.sample_count || 0) > 0) out.sample_count = Math.round(Number(e.sample_count || 0));
     out.infra_enriched = true;
     if (sourceKind === 'obs' && !out.man_made && String(e?.type || '').toLowerCase().includes('tower')) out.man_made = 'tower';
+    if (isLowValueInfra(out)) return null;
     return out;
   }
 
@@ -504,6 +614,116 @@ function compactInfra(input) {
     dedup.push(e);
   }
 
+  function haversineNm(aLat, aLon, bLat, bLon) {
+    const rNm = 3440.065;
+    const lat1 = Number(aLat) * Math.PI / 180;
+    const lat2 = Number(bLat) * Math.PI / 180;
+    const dLat = lat2 - lat1;
+    const dLon = (Number(bLon) - Number(aLon)) * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return 2 * rNm * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  function clusterLabel(type, members) {
+    if (type === 'solar') return 'Solarpark';
+    if (type === 'marine_infra') return 'Hafen-/Schleusenbereich';
+    if (type === 'perimeter_security') return 'Perimeterbereich';
+    const railTags = new Map();
+    for (const e of members) {
+      const tag = clean(e.railway);
+      if (!tag) continue;
+      railTags.set(tag, Number(railTags.get(tag) || 0) + 1);
+    }
+    const dominant = [...railTags.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))[0]?.[0] || '';
+    if (dominant === 'switch') return 'Weichengruppe';
+    if (dominant === 'signal') return 'Signalgruppe';
+    if (dominant === 'level_crossing' || dominant === 'crossing') return 'Bahnuebergangsgruppe';
+    if (dominant === 'junction') return 'Bahnknoten';
+    return 'Bahninfrastruktur-Gruppe';
+  }
+
+  function clusterEntries(items, type, cellNm, minCount) {
+    const rows = items
+      .map((e, idx) => ({ e, idx }))
+      .filter(row => {
+        if (type === 'solar') return clean(row.e.infra_type) === 'solar';
+        if (type === 'rail') return clean(row.e.infra_type) === 'rail' && railClusterTarget.has(clean(row.e.railway));
+        if (type === 'marine_infra') return clean(row.e.infra_type) === 'marine_infra';
+        if (type === 'perimeter_security') return clean(row.e.infra_type) === 'perimeter_security' && clean(row.e.barrier) === 'fence';
+        return false;
+      });
+    if (rows.length < minCount) return { clustered: new Set(), clusters: [] };
+    const cellDeg = Math.max(0.001, Number(cellNm) / 60);
+    const grid = new Map();
+    const cellOf = e => `${Math.floor(Number(e.lat) / cellDeg)}|${Math.floor(Number(e.lon) / cellDeg)}`;
+    for (let i = 0; i < rows.length; i++) {
+      const key = cellOf(rows[i].e);
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(i);
+    }
+    const assigned = new Set();
+    const clustered = new Set();
+    const clusters = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (assigned.has(i)) continue;
+      const seed = rows[i].e;
+      const [cy, cx] = cellOf(seed).split('|').map(Number);
+      const candidates = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          candidates.push(...(grid.get(`${cy + dy}|${cx + dx}`) || []));
+        }
+      }
+      const members = [...new Set(candidates)].filter(pos => !assigned.has(pos) && haversineNm(seed.lat, seed.lon, rows[pos].e.lat, rows[pos].e.lon) <= cellNm);
+      if (members.length < minCount) continue;
+      for (const pos of members) assigned.add(pos);
+      const memberRows = members.map(pos => rows[pos]);
+      const memberItems = memberRows.map(row => row.e);
+      for (const row of memberRows) clustered.add(row.idx);
+      const lat = memberItems.reduce((sum, e) => sum + Number(e.lat), 0) / memberItems.length;
+      const lon = memberItems.reduce((sum, e) => sum + Number(e.lon), 0) / memberItems.length;
+      const radiusNm = Math.max(...memberItems.map(e => haversineNm(lat, lon, e.lat, e.lon)), 0);
+      const cluster = {
+        name: clusterLabel(type, memberItems),
+        lat: Math.round(lat * 1e6) / 1e6,
+        lon: Math.round(lon * 1e6) / 1e6,
+        sourceKind: 'infra',
+        infra_type: type,
+        osm_kind: 'cluster',
+        osm_id: `${type}:${Math.round(lat * 10000)}:${Math.round(lon * 10000)}`,
+        infra_cluster: true,
+        cluster_type: type,
+        cluster_count: memberItems.length,
+        cluster_radius_nm: Math.round(radiusNm * 100) / 100,
+        cluster_sample_names: memberItems.map(e => String(e.name || '').trim()).filter(Boolean).slice(0, 4).join(' | '),
+        sample_count: memberItems.reduce((sum, e) => sum + Math.max(1, Number(e.sample_count || 1)), 0),
+        infra_enriched: true
+      };
+      if (type === 'solar') cluster.generator_source = 'solar';
+      if (type === 'rail') cluster.railway = clean(memberItems[0]?.railway) || 'rail';
+      if (type === 'marine_infra') {
+        cluster.waterway = 'dock';
+        cluster.leisure = 'marina';
+      }
+      if (type === 'perimeter_security') cluster.barrier = 'fence';
+      clusters.push(cluster);
+    }
+    return { clustered, clusters };
+  }
+
+  const solarClusters = clusterEntries(dedup, 'solar', 0.65, 3);
+  const railClusters = clusterEntries(dedup, 'rail', 0.28, 3);
+  const marineClusters = clusterEntries(dedup, 'marine_infra', 0.45, 2);
+  const perimeterClusters = clusterEntries(dedup, 'perimeter_security', 0.35, 4);
+  const clusteredIndexes = new Set([...solarClusters.clustered, ...railClusters.clustered, ...marineClusters.clustered, ...perimeterClusters.clustered]);
+  const clusters = solarClusters.clusters.concat(railClusters.clusters, marineClusters.clusters, perimeterClusters.clusters);
+  const compacted = dedup.filter((e, idx) => {
+    if (clusteredIndexes.has(idx)) return false;
+    if (clean(e.infra_type) === 'solar' && !isProminentSolar(e)) return false;
+    if (clean(e.infra_type) === 'perimeter_security' && clean(e.barrier) === 'fence' && !clean(e.name)) return false;
+    return !isLowValueInfra(e);
+  });
+
   const groups = {
     power_station: [],
     power_grid: [],
@@ -513,28 +733,33 @@ function compactInfra(input) {
     bridge: [],
     road: [],
     rail: [],
+    marine_infra: [],
+    perimeter_security: [],
     industrial: [],
     infra: []
   };
-  for (const e of dedup) {
+  for (const e of compacted) {
     const g = Object.prototype.hasOwnProperty.call(groups, e.infra_type) ? e.infra_type : 'infra';
     groups[g].push(e);
   }
   const caps = {
-    power_station: 1200,
-    power_grid: 1800,
-    solar: 1400,
-    wind: 1200,
-    hydro: 1000,
-    bridge: 1600,
-    road: 900,
-    rail: 1000,
-    industrial: 1000,
-    infra: 600
+    power_station: 650,
+    power_grid: 650,
+    solar: 260,
+    wind: 300,
+    hydro: 350,
+    bridge: 900,
+    road: 700,
+    rail: 900,
+    marine_infra: 260,
+    perimeter_security: 420,
+    industrial: 700,
+    infra: 250
   };
   let poi = [];
   for (const key of Object.keys(groups)) poi = poi.concat(groups[key].slice(0, caps[key] || 600));
-  poi = poi.slice(0, 9000);
+  poi = poi.slice(0, 4800);
+  const cappedClusters = clusters.slice(0, 650);
 
   const rawCounts = input?.counts || {};
   const rawTotal = Number(rawCounts.obs || 0) + Number(rawCounts.lin || 0) + Number(rawCounts.poi || 0);
@@ -555,11 +780,11 @@ function compactInfra(input) {
     },
     infra: {
       poi,
-      clusters: []
+      clusters: cappedClusters
     },
     counts: {
       infra: poi.length,
-      clusters: 0
+      clusters: cappedClusters.length
     }
   };
 }
