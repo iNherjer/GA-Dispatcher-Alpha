@@ -608,7 +608,7 @@ function _capturePoiNarrativeMemory(eventLabel, spokenText) {
     const ev = String(eventLabel || '').toLowerCase();
     const compact = _poiMemoryCompact(spokenText);
     if (!compact) return;
-    if (_activeTaskDomain() === 'poi_learning_guide') {
+    if (/^(poi_learning_guide|sightseeing_tour)$/.test(_activeTaskDomain()) && _activePoiKnowledgeContext()) {
         _poiKnowledgeSyncContext();
         const spoken = String(spokenText || '').replace(/\s+/g, ' ').trim();
         if (spoken) {
@@ -1602,7 +1602,10 @@ function _poiKnowledgeStageMinIndex(stage = 'generic') {
 }
 
 function _poiKnowledgeFactHint(stage = 'generic') {
-    if (_activeTaskDomain() !== 'poi_learning_guide') return '';
+    const task = _activeTaskDomain();
+    const isLearningGuide = task === 'poi_learning_guide';
+    const isSightseeing = task === 'sightseeing_tour';
+    if (!isLearningGuide && !isSightseeing) return '';
     const context = _activePoiKnowledgeContext();
     const candidates = _poiKnowledgeFactCandidates();
     if (!context || !candidates.length) return '';
@@ -1625,6 +1628,9 @@ function _poiKnowledgeFactHint(stage = 'generic') {
         result: 'Fazit',
         generic: 'Kontext'
     }[stageKey] || 'Kontext';
+    if (isSightseeing) {
+        return ` POI-KONTEXT (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Wenn es natuerlich passt, erwaehne hoechstens einen kurzen Kontextpunkt als persoenliche Beobachtung, nicht als Fuehrung: ${clip}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke und erfinde keine Zusatzdaten.`;
+    }
     return ` WISSENS-FAKTENQUEUE (${label}, Quelle: akzeptierte Wiki-Basis zu ${target}): Nutze genau diesen Fakt, falls er natuerlich passt, und erfinde keine Zusatzdaten: ${clip}. Wiederhole keine bereits genannte Zahl, Nutzung oder Landmarke.`;
 }
 
@@ -1696,6 +1702,15 @@ function _poiKnowledgeQueueContextLine() {
     const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
     const count = Number.isFinite(Number(context.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : _poiKnowledgeFactCandidates().length;
     return `WISSENSQUELLE: ${target}; akzeptierte Wiki-Faktenbasis mit ${Math.max(1, count)} nutzbaren Fakten. Konkrete Fakten nur aus WISSENS-FAKTENQUEUE-Zeilen verwenden, nicht frei ergaenzen. Start/Anflug maximal ein neuer Fakt; im Zielgebiet bei reichhaltiger Basis 2-3 kurze Fakten als Erzaehlbogen.`;
+}
+
+function _poiSightseeingKnowledgeContextLine() {
+    if (_activeTaskDomain() !== 'sightseeing_tour') return '';
+    const context = _activePoiKnowledgeContext();
+    if (!context) return '';
+    const target = String(context.title || 'Zielgebiet').replace(/\s+/g, ' ').trim();
+    const count = Number.isFinite(Number(context.selectedFacts)) ? Math.round(Number(context.selectedFacts)) : _poiKnowledgeFactCandidates().length;
+    return `SIGHTSEEING-POI-KONTEXT: Zu ${target} liegt akzeptierter POI-Kontext mit ${Math.max(1, count)} nutzbaren Fakten vor. Nutze ihn nur als kleine persoenliche Beobachtung, maximal ein neuer Punkt pro Voice-Moment, und wiederhole keine bereits erwaehnte Zahl, Nutzung oder Landmarke. Keine freie Ortsgeschichte erfinden.`;
 }
 
 function _poiKnowledgeTellMoreAvailable() {
@@ -5220,6 +5235,8 @@ ${urgencyLine}`
         const knowledgeQueueLine = _poiKnowledgeQueueContextLine();
         if (knowledgeQueueLine) lines.push(knowledgeQueueLine);
     }
+    const sightseeingKnowledgeLine = _poiSightseeingKnowledgeContextLine();
+    if (sightseeingKnowledgeLine) lines.push(sightseeingKnowledgeLine);
     const targetProminenceLine = _paxTargetProminenceLine();
     const visualLandmarksLine = _paxVisualLandmarksLine();
     const storyFrame = _activeMissionStoryFrame();
@@ -5585,11 +5602,13 @@ function _poiEntryPrompt(flightData) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
+    const isSightseeing = taskDomain === 'sightseeing_tour';
+    const hasPoiKnowledge = !!_activePoiKnowledgeContext();
     const isProfessionalPoiTask = /^(inspection_infra|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain);
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
-    const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide) ? '' : _targetFactHint();
-    const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('entry') : '';
+    const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
+    const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('entry') : (isSightseeing ? _poiKnowledgeFactHint('entry') : '');
     const driftGuard = _domainDriftGuard('entry');
     const historianHint = isHistorian
         ? ' Historiker-Rolle: Erzaehle 1 kurze historische Einordnung direkt zum Ort (Epoche, Nutzung oder lokales Ereignis). Keine Riss-/Technik-/Inspektionssprache.'
@@ -5638,9 +5657,11 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
+    const isSightseeing = taskDomain === 'sightseeing_tour';
+    const hasPoiKnowledge = !!_activePoiKnowledgeContext();
     const approachLandmarkHint = _paxApproachLandmarkCueLine();
-    const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint || isLearningGuide) ? '' : _targetFactHint();
-    const knowledgeFactHint = isLearningGuide ? _poiKnowledgeFactHint('in_sight') : '';
+    const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
+    const knowledgeFactHint = isLearningGuide || isSightseeing ? _poiKnowledgeFactHint('in_sight') : '';
     const driftGuard = _domainDriftGuard('in_sight');
     const announcedEta = Math.max(1, Math.round(Number(options.announcedEtaMin || 0) || 2)); // Default bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
@@ -5794,7 +5815,7 @@ function _poiSatisfiedPrompt(flightData) {
     const learningResultHint = isLearningGuide
         ? ' Lern-Guide-Fazit: Schließe mit 1 konkreten Lernpunkt zum Ziel, bei reichhaltiger WISSENS-FAKTENQUEUE auch mit 2 kurzen Takeaway-Fakten, und einem lockeren Hinweis, dass wir zum naechsten Punkt weiterkoennen.'
         : '';
-    const knowledgeResultFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('result') : '';
+    const knowledgeResultFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('result') : (isSightseeing ? _poiKnowledgeFactHint('result') : '');
     const sightseeingResultHint = isSightseeing
         ? ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
         : '';
@@ -6161,7 +6182,8 @@ Max 3-4 Sätze.${_toneHint()}`;
         .filter(Boolean)
         .slice(0, 3);
     const equipmentContextLine = _boardingEquipmentContextLine(speechItems, cargoFallback);
-    const boardingKnowledgeFact = _activeTaskDomain() === 'poi_learning_guide' ? _poiKnowledgeFactHint('boarding') : '';
+    const activeTask = _activeTaskDomain();
+    const boardingKnowledgeFact = /^(poi_learning_guide|sightseeing_tour)$/.test(activeTask) ? _poiKnowledgeFactHint('boarding') : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
@@ -6229,7 +6251,8 @@ function _greetingPrompt() {
     const wx = _weatherContext(window.lastLiveFlightData);
     const guidance = _greetingMissionGuidance();
     if (!guidance) return null;
-    const greetingKnowledgeFact = _activeTaskDomain() === 'poi_learning_guide' ? _poiKnowledgeFactHint('greeting') : '';
+    const activeTask = _activeTaskDomain();
+    const greetingKnowledgeFact = /^(poi_learning_guide|sightseeing_tour)$/.test(activeTask) ? _poiKnowledgeFactHint('greeting') : '';
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}

@@ -1404,7 +1404,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
         news_coverage: ['road', 'city', 'industry'],
         tour_guide_knowledge: ['city', 'water', 'dam', 'bridge', 'telecom', 'industry', 'castle', 'mountain'],
         historian_guided_tour: ['castle', 'city'],
-        sightseeing_tour: ['castle', 'mountain', 'water', 'city']
+        sightseeing_tour: ['castle', 'mountain', 'water', 'city', 'bridge', 'dam', 'rail']
     };
     return (policies[id] || []).filter(Boolean);
 }
@@ -1425,6 +1425,17 @@ function missionTaskPoiCategoryWeights(profileId = 'auto') {
             bridge: 1.05,
             dam: 0.95,
             road: 0.9
+        };
+    }
+    if (id === 'sightseeing_tour') {
+        return {
+            castle: 1.15,
+            mountain: 1.1,
+            water: 1.0,
+            city: 0.95,
+            bridge: 0.75,
+            dam: 0.75,
+            rail: 0.6
         };
     }
     return {};
@@ -7136,6 +7147,11 @@ function classifyPOITitleCategory(title) {
         _hasWordToken(t, "wald") ||
         _hasWordToken(t, "tal") ||
         _hasWordToken(t, "schlucht") ||
+        _hasWordToken(t, "fels") ||
+        _hasWordToken(t, "felsen") ||
+        _hasWordToken(t, "klippe") ||
+        _hasWordToken(t, "klamm") ||
+        _hasWordToken(t, "hohle") ||
         _hasWordToken(t, "alpen") ||
         _hasWordToken(t, "pass")
     ) return "mountain";
@@ -7240,6 +7256,8 @@ function poiTitleMatchesCategory(title, category) {
             _hasWordToken(t, 'bahnübergang') ||
             _hasWordToken(t, 'bahnwaerterhaus') ||
             _hasWordToken(t, 'bahnwärterhaus') ||
+            _hasWordToken(t, 'bahnwarterhaus') ||
+            /bahnwarter|bahnwaerter|warterhaus|waerterhaus/.test(t) ||
             _hasWordToken(t, 'gleis') ||
             _hasWordToken(t, 'schiene') ||
             _hasWordToken(t, 'viadukt') ||
@@ -8059,8 +8077,11 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'bahnübergang') ||
         _hasWordToken(n, 'bahnwaerterhaus') ||
         _hasWordToken(n, 'bahnwärterhaus') ||
+        _hasWordToken(n, 'bahnwarterhaus') ||
         _hasWordToken(n, 'waerterhaus') ||
         _hasWordToken(n, 'wärterhaus') ||
+        _hasWordToken(n, 'warterhaus') ||
+        /bahnwarter|bahnwaerter|warterhaus|waerterhaus/.test(n) ||
         _hasWordToken(n, 'gleis') ||
         _hasWordToken(n, 'schiene') ||
         _hasWordToken(n, 'rail') ||
@@ -8104,13 +8125,18 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'viadukt')
     );
     const isMountain = (
-        ['peak', 'valley', 'cliff', 'ridge', 'saddle'].includes(t.natural) ||
+        ['peak', 'valley', 'cliff', 'ridge', 'saddle', 'rock', 'cave_entrance', 'hill'].includes(t.natural) ||
         (
             !isTransportCorridor && (
                 _hasWordToken(n, 'berg') ||
                 _hasWordToken(n, 'gipfel') ||
                 _hasWordToken(n, 'tal') ||
-                _hasWordToken(n, 'schlucht')
+                _hasWordToken(n, 'schlucht') ||
+                _hasWordToken(n, 'fels') ||
+                _hasWordToken(n, 'felsen') ||
+                _hasWordToken(n, 'klippe') ||
+                _hasWordToken(n, 'klamm') ||
+                _hasWordToken(n, 'hohle')
             )
         )
     );
@@ -8283,7 +8309,7 @@ function _poiCandidateInfraSubtype(candidate = {}) {
     const railway = String(tags.railway || '').toLowerCase();
     if (infraType === 'rail' || railway || candidate.category === 'rail') {
         if (['station', 'halt'].includes(railway) || _hasWordToken(n, 'bahnhof') || _hasWordToken(n, 'haltepunkt')) return 'rail_station';
-        if (railway === 'signal_box' || _hasWordToken(n, 'stellwerk') || _hasWordToken(n, 'bahnwaerterhaus') || _hasWordToken(n, 'bahnwärterhaus') || _hasWordToken(n, 'waerterhaus') || _hasWordToken(n, 'wärterhaus')) return 'rail_control';
+        if (railway === 'signal_box' || _hasWordToken(n, 'stellwerk') || _hasWordToken(n, 'bahnwaerterhaus') || _hasWordToken(n, 'bahnwärterhaus') || _hasWordToken(n, 'bahnwarterhaus') || _hasWordToken(n, 'waerterhaus') || _hasWordToken(n, 'wärterhaus') || _hasWordToken(n, 'warterhaus') || /bahnwarter|bahnwaerter|warterhaus|waerterhaus/.test(n)) return 'rail_control';
         if (railway === 'switch' || _hasWordToken(n, 'weiche')) return 'rail_switch';
         if (['level_crossing', 'crossing'].includes(railway) || _hasWordToken(n, 'bahnuebergang') || _hasWordToken(n, 'bahnübergang')) return 'rail_crossing';
         if (railway === 'signal' || _hasWordToken(n, 'signal')) return 'rail_signal';
@@ -8413,7 +8439,7 @@ function _poiFeatureScore(feature, category) {
         if (facilityRail.includes(railTag)) score += 8;
         if (t.railway) score += 3;
         if (_hasWordToken(n, 'bahnhof') || _hasWordToken(n, 'haltepunkt')) score += 8;
-        if (_hasWordToken(n, 'stellwerk') || _hasWordToken(n, 'bahnwaerterhaus') || _hasWordToken(n, 'bahnwärterhaus')) score += 8;
+        if (_hasWordToken(n, 'stellwerk') || _hasWordToken(n, 'bahnwaerterhaus') || _hasWordToken(n, 'bahnwärterhaus') || _hasWordToken(n, 'bahnwarterhaus') || _hasWordToken(n, 'warterhaus') || /bahnwarter|bahnwaerter|warterhaus|waerterhaus/.test(n)) score += 8;
         if (_hasWordToken(n, 'weiche') || _hasWordToken(n, 'signal') || _hasWordToken(n, 'bahnuebergang') || _hasWordToken(n, 'bahnübergang')) score += 6;
         if (!n && ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag)) score -= 1;
     } else if (cat === 'telecom') {
@@ -8462,7 +8488,8 @@ function _poiFeatureScore(feature, category) {
         if (['tower', 'mast', 'communications_tower', 'bridge'].includes(t.man_made)) score += 4;
         if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse') && !_hasWordToken(n, 'baustelle') && !_hasWordToken(n, 'dach') && !_hasWordToken(n, 'pv') && !_hasWordToken(n, 'solar') && !_hasWordToken(n, 'tank') && !_hasWordToken(n, 'tankstelle') && !_hasWordToken(n, 'gebaeude') && !_hasWordToken(n, 'gebäude') && !_hasWordToken(n, 'pipeline') && !_hasWordToken(n, 'pump') && !_hasWordToken(n, 'deich') && !_hasWordToken(n, 'tunnel') && !_hasWordToken(n, 'recycling') && !_hasWordToken(n, 'deponie') && !_hasWordToken(n, 'steinbruch')) score -= 2;
     } else if (cat === 'mountain') {
-        if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
+        if (['peak', 'valley', 'cliff', 'ridge', 'saddle', 'rock', 'cave_entrance', 'hill'].includes(t.natural)) score += 6;
+        if (_hasWordToken(n, 'fels') || _hasWordToken(n, 'felsen') || _hasWordToken(n, 'klippe') || _hasWordToken(n, 'klamm') || _hasWordToken(n, 'hohle')) score += 5;
     } else if (cat === 'forest') {
         if (t.natural === 'wood') score += 9;
         if (t.landuse === 'forest') score += 9;
@@ -8502,6 +8529,85 @@ function _poiFeatureScore(feature, category) {
     if (feature?.sourceKind === 'infra' && ['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) score += 4;
     if (feature?.sourceKind === 'obs') score -= 1;
     return score;
+}
+
+function _poiSightseeingInterestScore(item = {}, category = '') {
+    const t = item?.tags || {};
+    const cat = String(category || item?.category || 'generic').toLowerCase();
+    const name = String(item?.n || item?.name || '').trim();
+    const n = normalizeMissionText(name);
+    const hasUsefulName = !!name && !_poiIsGenericFallbackName(name) && !_poiIsCodeLikeName(name) && !_poiIsNumericLikeName(name);
+    const tourism = String(t.tourism || '').toLowerCase();
+    const historic = String(t.historic || '').toLowerCase();
+    const natural = String(t.natural || '').toLowerCase();
+    const manMade = String(t.man_made || '').toLowerCase();
+    const railway = String(t.railway || '').toLowerCase();
+    const infraType = String(t.infra_type || '').toLowerCase();
+    const waterway = String(t.waterway || '').toLowerCase();
+    const bridge = String(t.bridge || '').toLowerCase();
+    let score = hasUsefulName ? 3 : -4;
+
+    if (tourism === 'viewpoint') score += 14;
+    if (tourism === 'attraction') score += 12;
+    if (['museum', 'theme_park', 'zoo', 'aquarium'].includes(tourism)) score += 5;
+    if (['castle', 'ruins', 'fort', 'monument', 'memorial', 'archaeological_site'].includes(historic)) score += 10;
+    if (['peak', 'cliff', 'rock', 'cave_entrance', 'ridge', 'saddle'].includes(natural)) score += 10;
+    if (natural === 'hill' || natural === 'valley') score += 5;
+    if ((bridge && !/^(no|false|0)$/i.test(bridge)) || manMade === 'bridge' || infraType === 'bridge') score += 9;
+    if (waterway === 'dam' || manMade === 'dam' || t.water === 'reservoir' || t.landuse === 'reservoir') score += 8;
+    if (['lighthouse', 'tower', 'water_tower'].includes(manMade)) score += 8;
+    if (['station', 'halt', 'signal_box'].includes(railway)) score += hasUsefulName ? 8 : 2;
+    if (railway === 'narrow_gauge') score += 5;
+    if (railway === 'rail' && hasUsefulName) score += 2;
+
+    if (_hasWordToken(n, 'aussicht') || _hasWordToken(n, 'blick') || _hasWordToken(n, 'panorama')) score += 9;
+    if (_hasWordToken(n, 'fels') || _hasWordToken(n, 'felsen') || _hasWordToken(n, 'klippe') || _hasWordToken(n, 'klamm') || _hasWordToken(n, 'schlucht') || _hasWordToken(n, 'hohle')) score += 9;
+    if (_hasWordToken(n, 'bahnwaerterhaus') || _hasWordToken(n, 'bahnwarterhaus') || _hasWordToken(n, 'waerterhaus') || _hasWordToken(n, 'warterhaus') || _hasWordToken(n, 'stellwerk') || /bahnwarter|bahnwaerter|warterhaus|waerterhaus/.test(n)) score += 11;
+    if (_hasWordToken(n, 'bahnhof') || _hasWordToken(n, 'haltepunkt') || _hasWordToken(n, 'viadukt')) score += 7;
+    if (_hasWordToken(n, 'bruecke') || _hasWordToken(n, 'brucke') || _hasWordToken(n, 'bridge')) score += 5;
+    if (_hasWordToken(n, 'talsperre') || _hasWordToken(n, 'stausee') || _hasWordToken(n, 'staudamm') || _hasWordToken(n, 'sperrmauer')) score += 7;
+    if (_hasWordToken(n, 'ruine') || _hasWordToken(n, 'denkmal') || _hasWordToken(n, 'monument')) score += 6;
+
+    if (cat === 'castle') score += 4;
+    if (cat === 'mountain') score += 3;
+    if (cat === 'bridge' || cat === 'dam') score += 2;
+    if (cat === 'rail') score += 1;
+    if (cat === 'water' && (hasUsefulName || t.water === 'reservoir' || t.water === 'lake')) score += 1;
+    if (cat === 'city' && hasUsefulName) score += 1;
+
+    if (_poiLooksJunctionLabel(name) || _poiLooksTechnicalCodeName(name)) score -= 12;
+    if (String(t.highway || '').toLowerCase() === 'motorway_junction') score -= 9;
+    if (['signal', 'switch', 'level_crossing', 'crossing'].includes(railway) && !hasUsefulName) score -= 10;
+    if (['power_grid', 'power', 'power_station', 'solar_roof', 'solar'].includes(infraType)) score -= 8;
+    if (['line', 'minor_line', 'cable', 'tower', 'pole'].includes(String(t.power || '').toLowerCase()) && !/fernsehturm|funkturm|aussicht/.test(n)) score -= 7;
+    if (_poiIsGenericFallbackName(name)) score -= 9;
+    return score;
+}
+
+function _poiSightseeingRequiresInterestCategory(category = '') {
+    return ['bridge', 'dam', 'rail', 'road', 'telecom', 'industry', 'infrastructure'].includes(String(category || '').toLowerCase());
+}
+
+function _poiFeatureLooksSightseeingAttraction(feature = null) {
+    if (!feature || typeof feature !== 'object') return false;
+    const t = feature.tags || {};
+    const rawName = String(feature.name || t.name || '').trim();
+    const n = normalizeMissionText(rawName);
+    const tourism = String(t.tourism || '').toLowerCase();
+    const historic = String(t.historic || '').toLowerCase();
+    const manMade = String(t.man_made || '').toLowerCase();
+    if (tourism === 'viewpoint') return true;
+    if (rawName && ['attraction', 'museum', 'theme_park', 'zoo', 'aquarium'].includes(tourism)) return true;
+    if (rawName && ['castle', 'ruins', 'fort', 'monument', 'memorial', 'archaeological_site'].includes(historic)) return true;
+    if (rawName && ['lighthouse', 'tower', 'water_tower'].includes(manMade)) return true;
+    return !!(rawName && (
+        _hasWordToken(n, 'aussicht') ||
+        _hasWordToken(n, 'panorama') ||
+        _hasWordToken(n, 'denkmal') ||
+        _hasWordToken(n, 'ruine') ||
+        _hasWordToken(n, 'museum') ||
+        _hasWordToken(n, 'turm')
+    ));
 }
 
 async function _poiFetchTileFeatures(tileKey, options = null) {
@@ -8737,6 +8843,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const forceCat = String(forcedCategory || '').toLowerCase();
     const profileId = String(dispatchProfileId || '').toLowerCase();
     const isKnowledgeGuideProfile = profileId === 'tour_guide_knowledge';
+    const isSightseeingProfile = profileId === 'sightseeing_tour';
     const isSarHeliProfile = missionIsSarHeliProfileId(profileId);
     const sarCorridorMode = (profileId === 'search_and_rescue' || isSarHeliProfile) && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
@@ -8800,7 +8907,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
 
         const inferredCat = _poiInferCategoryFromFeature(f);
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
-        if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
+        const sightseeingAttractionMatch = isSightseeingProfile
+            && forceCat === 'city'
+            && _poiFeatureLooksSightseeingAttraction(f);
+        if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat) && !sightseeingAttractionMatch) continue;
         if (sarCorridorMode && !_poiFeatureMatchesCategory(f, 'sar_corridor')) continue;
 
         const rawName = String(f?.name || '').trim();
@@ -8878,6 +8988,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         }
 
         const baseScore = _poiFeatureScore(f, wantedCat);
+        const sightseeingInterest = isSightseeingProfile
+            ? _poiSightseeingInterestScore({ n: name, name, tags: tf, category: wantedCat }, wantedCat)
+            : 0;
+        if (isSightseeingProfile && _poiSightseeingRequiresInterestCategory(wantedCat) && sightseeingInterest < 8) continue;
         const distMin = Number(minNM || 0);
         const distMax = Number(maxNM || 9999);
         const distMid = (distMin + distMax) / 2;
@@ -8897,7 +9011,8 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             profileId !== 'inspection_infra' &&
             profileId !== 'mapping_survey'
         ) ? 7 : 0;
-        const rank = baseScore + nameBonus + bandBonus - distPenalty - unnamedInfraPenalty - unnamedTelecomPenalty - railOpPenalty;
+        const sightseeingBonus = isSightseeingProfile ? Math.max(-10, Math.min(18, sightseeingInterest)) : 0;
+        const rank = baseScore + nameBonus + bandBonus + sightseeingBonus - distPenalty - unnamedInfraPenalty - unnamedTelecomPenalty - railOpPenalty;
         candidates.push({
             n: name,
             lat: flat,
@@ -8908,6 +9023,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             category: wantedCat,
             score: baseScore,
             rank,
+            sightseeingInterest,
             hasName,
             tags: tf && typeof tf === 'object' ? { ...tf } : {},
             fetchSource: String(f?.fetchSource || ''),
@@ -9047,6 +9163,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             selectedAnchorDistNm: Number(pick?.anchorDistNm || 0),
             selectedBrgDeg: Number(pick?.brng || 0),
             selectedHasName: !!pick?.hasName,
+            selectedSightseeingInterest: Number(pick?.sightseeingInterest || 0),
             selectedInfraType: String(pick?.tags?.infra_type || ''),
             selectedTags: pick?.tags && typeof pick.tags === 'object' ? Object.fromEntries(
                 Object.entries(pick.tags)
@@ -14187,6 +14304,9 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         || (Array.isArray(src.roles) && src.roles.length > 0)
         || (Array.isArray(src.sceneRoles) && src.sceneRoles.length > 0);
     const task = String(taskDomain || '').toLowerCase();
+    if ((task === 'sightseeing_tour' || missionPlanV2?.semantics?.forceSceneNone) && planDirective?.sceneKind === 'none') {
+        return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Ruhiger POI-Rundflug ohne kuenstliche Zielszene.' };
+    }
     if ((task === 'science_bio' || task === 'science_geo') && planDirective?.sceneKind === 'none') {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Science POI: Beobachtung ohne künstliche Zielszene.' };
     }
@@ -14595,6 +14715,7 @@ function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = 
     const bridge = String(t.bridge || '').toLowerCase();
     const natural = String(t.natural || '').toLowerCase();
     const tourism = String(t.tourism || '').toLowerCase();
+    const historic = String(t.historic || '').toLowerCase();
     const raw = String(rawType || t.obstacle_type || '').toLowerCase();
     const labelName = String(name || t.name || t.ref || t.operator || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     const make = (kind, label, fallbackName = '') => ({
@@ -14614,12 +14735,21 @@ function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = 
     if (highway === 'motorway_junction') return make('motorway_junction', 'Autobahnkreuz');
     if (['motorway', 'motorway_link', 'trunk', 'trunk_link'].includes(highway)) return make('motorway', highway.includes('trunk') ? 'Schnellstrasse' : 'Autobahn');
     if (['rail', 'light_rail', 'narrow_gauge'].includes(railway)) return make('railway', 'Eisenbahnlinie');
+    if (['station', 'halt'].includes(railway)) return make('railway_station', 'Bahnhof/Haltepunkt');
+    if (railway === 'signal_box') return make('railway_signal_box', 'Stellwerk');
     if (['river', 'canal'].includes(waterway)) return make(waterway, waterway === 'canal' ? 'Kanal' : 'Fluss');
     if (natural === 'peak') return make('peak', 'Gipfel/Berg');
     if (natural === 'ridge') return make('terrain_ridge', 'Bergruecken');
     if (natural === 'saddle' || t.mountain_pass) return make('terrain_pass', 'Pass/Sattel');
     if (natural === 'cliff') return make('terrain_cliff', 'Felskante');
+    if (natural === 'rock') return make('terrain_rock', 'Felsformation');
+    if (natural === 'cave_entrance') return make('terrain_cave', 'Hoehleneingang');
+    if (natural === 'hill') return make('terrain_hill', 'Huegel');
     if (tourism === 'viewpoint') return make('viewpoint', 'Aussichtspunkt');
+    if (tourism === 'attraction') return make('tourism_attraction', 'Sehenswuerdigkeit');
+    if (['castle', 'ruins', 'fort', 'monument', 'memorial', 'archaeological_site'].includes(historic)) return make('historic_landmark', 'Historischer Punkt');
+    if (waterway === 'dam' || manMade === 'dam') return make('dam', 'Staudamm');
+    if (manMade === 'lighthouse') return make('lighthouse', 'Leuchtturm');
     if (['tower', 'mast', 'communications_tower', 'water_tower'].includes(manMade) || raw.includes('tower') || raw.includes('mast')) return make('tower', 'Turm/Mast');
     return null;
 }
@@ -14639,9 +14769,11 @@ function missionTargetGeoContextCategory(tags = {}) {
     if (tags.waterway || tags.water || /water|reservoir|basin/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'water';
     if (/wood|forest/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'forest';
     if (/meadow|grassland|grass|village_green/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'meadow';
-    if (/peak|ridge|saddle|cliff/.test(String(tags.natural || '').toLowerCase()) || tags.mountain_pass) return 'terrain';
+    if (/peak|ridge|saddle|cliff|rock|cave_entrance|hill/.test(String(tags.natural || '').toLowerCase()) || tags.mountain_pass) return 'terrain';
     if (/farmland|farmyard|orchard|vineyard/.test(String(tags.landuse || '').toLowerCase())) return 'farmland';
     if (String(tags.tourism || '').toLowerCase() === 'viewpoint') return 'viewpoint';
+    if (String(tags.tourism || '').toLowerCase() === 'attraction') return 'viewpoint';
+    if (tags.historic) return 'historic';
     if (tags.building) return 'building';
     if (tags.power) return 'power';
     if (tags.railway) return 'railway';
@@ -15144,7 +15276,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
         if (!Number.isFinite(distM) || !Number.isFinite(bearingDeg)) return;
         const kind = String(candidate.kind || '').toLowerCase();
         if (!kind) return;
-        const extendedKinds = /^(railway|peak|terrain_ridge|terrain_pass|terrain_cliff|viewpoint)$/.test(kind);
+        const extendedKinds = /^(railway|railway_station|railway_signal_box|peak|terrain_ridge|terrain_pass|terrain_cliff|terrain_rock|terrain_cave|terrain_hill|viewpoint|tourism_attraction|historic_landmark|dam|lighthouse)$/.test(kind);
         const maxVisualDistM = extendedKinds ? MISSION_TARGET_GEO_CONTEXT_RADIUS_M : MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M;
         if (distM > maxVisualDistM) return;
         const key = `${kind}|${Math.round(distM / 10)}|${Math.round(bearingDeg / 10)}|${String(candidate.name || '').toLowerCase()}`;
@@ -15213,7 +15345,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     if (anchors.meadow || anchors.farmland) hints.push('animals/tents/reference objects plausible on meadow or farmland anchors');
     if (anchors.power) hints.push('powerline/pylon placement plausible near the power anchor');
     if (anchors.railway) hints.push('railway can be used as a confirmed orientation landmark');
-    if (anchors.terrain || anchors.viewpoint) hints.push('terrain/viewpoint landmarks can be used as confirmed orientation context');
+    if (anchors.terrain || anchors.viewpoint || anchors.historic) hints.push('terrain/viewpoint/historic landmarks can be used as confirmed orientation context');
     if (visualLandmarks.length) hints.push('confirmed visual reference landmarks available');
     const summary = Object.entries(anchors)
         .filter(([, a]) => a && a.present)
@@ -15305,7 +15437,7 @@ async function fetchMissionLocalVisualLandmarks(lat, lon, radiusM = MISSION_TARG
         const candidate = missionVisualLandmarkFromPoiFeature(f);
         if (!candidate) continue;
         const kind = String(candidate.kind || '').toLowerCase();
-        const extendedKinds = /^(railway|peak|terrain_ridge|terrain_pass|terrain_cliff|viewpoint)$/.test(kind);
+        const extendedKinds = /^(railway|railway_station|railway_signal_box|peak|terrain_ridge|terrain_pass|terrain_cliff|terrain_rock|terrain_cave|terrain_hill|viewpoint|tourism_attraction|historic_landmark|dam|lighthouse)$/.test(kind);
         const maxVisualDistM = extendedKinds ? MISSION_TARGET_GEO_CONTEXT_RADIUS_M : MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M;
         if (distM > maxVisualDistM) continue;
         const relFromTarget = missionCardinalGerman(bearingDeg);
@@ -15359,12 +15491,16 @@ async function fetchMissionTargetGeoContext(missionData = null) {
   way(around:${radiusM},${lat},${lon})["waterway"];
   way(around:${radiusM},${lat},${lon})["natural"~"water|wood|scrub|heath|grassland"];
   relation(around:${radiusM},${lat},${lon})["natural"~"water|wood"];
-  node(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff"];
-  way(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff"];
+  node(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff|rock|cave_entrance|hill"];
+  way(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff|rock|cave_entrance|hill"];
   node(around:${radiusM},${lat},${lon})["mountain_pass"];
   way(around:${radiusM},${lat},${lon})["mountain_pass"];
   node(around:${radiusM},${lat},${lon})["tourism"="viewpoint"];
   way(around:${radiusM},${lat},${lon})["tourism"="viewpoint"];
+  node(around:${radiusM},${lat},${lon})["tourism"="attraction"];
+  way(around:${radiusM},${lat},${lon})["tourism"="attraction"];
+  node(around:${radiusM},${lat},${lon})["historic"];
+  way(around:${radiusM},${lat},${lon})["historic"];
   way(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
   relation(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
   way(around:${radiusM},${lat},${lon})["amenity"="parking"];
