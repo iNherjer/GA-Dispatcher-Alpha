@@ -957,6 +957,7 @@
             <button id="btnToggleMissionSceneOverlay" onclick="window.vpToggleMissionSceneDebugOverlay && vpToggleMissionSceneDebugOverlay()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Scene Punkte Aus</button>
             <button id="btnDebugFollowupComplete" onclick="window.missionFollowupDebugCompleteCurrentMission && missionFollowupDebugCompleteCurrentMission(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport();" style="font-size:11px; border:1px solid #705a8a; background:#291b3f; color:#dfc8ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Mission beenden</button>
             <button id="btnDebugFollowupForce" onclick="window.missionFollowupDebugForceNext && missionFollowupDebugForceNext(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport();" style="font-size:11px; border:1px solid #6f5f2f; background:#2f2814; color:#ffe59f; border-radius:4px; padding:2px 6px; cursor:pointer;">Follow-up erzeugen</button>
+            <button id="btnDebugPoiChainForce" onclick="window.vpTogglePoiChainDebugForce && vpTogglePoiChainDebugForce();" style="font-size:11px; border:1px solid #5c6f2f; background:#262f14; color:#dfff9f; border-radius:4px; padding:2px 6px; cursor:pointer;">POI-Kette Aus</button>
             <button onclick="window.vpRetryFailedObsTiles && vpRetryFailedObsTiles()" style="font-size:11px; border:1px solid #7a5a2f; background:#3b2a14; color:#ffd28b; border-radius:4px; padding:2px 6px; cursor:pointer;">Retry Tiles</button>
             <button onclick="if (confirm('Rolling Cache wirklich leeren?\\n\\nPool, Tile-Coverage, Failed-Tiles und Route-Cache werden gelöscht.')) { window.vpClearObstacleRollingCache && vpClearObstacleRollingCache(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport(); }" style="font-size:11px; border:1px solid #8a6a2f; background:#4a391b; color:#ffd79f; border-radius:4px; padding:2px 6px; cursor:pointer;">Cache leeren</button>
             <button id="btnCopyWeatherDebug" onclick="window.vpCopyWeatherDebugReport && vpCopyWeatherDebugReport()" style="font-size:11px; border:1px solid #3f6b4f; background:#172f21; color:#a8efbd; border-radius:4px; padding:2px 6px; cursor:pointer;">Kopieren</button>
@@ -1699,12 +1700,14 @@
 <script defer src="mission-cargo-core.js?v=bush-supply-close-20260604-01"></script>
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-followup.js?v=infra-outcome-chain-20260618-02"></script>
+<script defer src="mission-poi-chain.js?v=poi-chain-20260619-01"></script>
 <script defer src="sync.js?v=survey-pattern-20260617-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
 <script defer src="app.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
+<script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260619-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>

@@ -2369,8 +2369,10 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   loadScript(context, 'mission-arrival-core.js');
   loadScript(context, 'mission-runtime-core.js');
   loadScript(context, 'mission-cargo-core.js');
+  loadScript(context, 'mission-poi-chain.js');
   loadScript(context, 'sync.js');
   loadScript(context, 'app.js');
+  loadScript(context, 'mission-poi-chain-runtime.js');
   loadScript(context, 'passenger-voice.js');
   installForcedSarIncidentDryrun(context, forcedIncidentType);
 

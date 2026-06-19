@@ -1937,7 +1937,8 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             atTargetDone: !!poiProgress.atTargetDone,
             dwellSec: Math.max(0, Number(poiProgress.dwellSec || 0)),
             attempts: Math.max(0, Number(poiProgress.attempts || 0)),
-            surveyPattern: poiProgress.surveyPattern ? _safeCloneJson(poiProgress.surveyPattern, null) : null
+            surveyPattern: poiProgress.surveyPattern ? _safeCloneJson(poiProgress.surveyPattern, null) : null,
+            poiChain: poiProgress.poiChain ? _safeCloneJson(poiProgress.poiChain, null) : null
         } : null,
         bushProgress: bushProgress ? _safeCloneJson(bushProgress, null) : null,
         cargoManifest,
@@ -8650,6 +8651,32 @@ function _missionPoiRuntimeStatus(endReady = null) {
         };
     }
     const taskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || '').toLowerCase();
+    if (progress?.poiChain || currentMissionData?.missionSubType === 'poi_chain' || currentMissionData?.poiChain) {
+        const chain = progress?.poiChain || null;
+        let spec = null;
+        try {
+            spec = typeof window.missionPoiChainRuntime?.getActiveSpec === 'function'
+                ? window.missionPoiChainRuntime.getActiveSpec(currentMissionData, window.activePassenger || null)
+                : null;
+        } catch (_) {
+            spec = null;
+        }
+        const total = Array.isArray(spec?.points) ? spec.points.filter(point => point?.required !== false).length : Math.max(1, Number(currentMissionData?.poiChain?.points?.length || 0) || 1);
+        const done = Array.isArray(chain?.completedPointIds) ? chain.completedPointIds.length : 0;
+        const nextPoint = Array.isArray(spec?.points) ? spec.points[Math.max(0, Number(chain?.currentIndex || 0) || 0)] : null;
+        const detail = chain?.satisfied
+            ? `Infrastruktur-Kette erfüllt. Alle ${total} Punkte sind abgeschlossen.`
+            : `Infrastruktur-Kette offen. Punkte abgeschlossen: ${done}/${total}.`;
+        return {
+            stage: chain?.satisfied ? 'poi_chain_complete' : 'poi_chain_working',
+            detail,
+            nextStep: chain?.satisfied
+                ? 'Nächster Schritt: Rueckflug zum Heimatplatz, landen und Mission beenden'
+                : (nextPoint?.name
+                    ? `Nächster Schritt: nächsten markierten Punkt anfliegen: ${nextPoint.name}`
+                    : 'Nächster Schritt: nächsten markierten Kettenpunkt anfliegen')
+        };
+    }
     if (taskDomain === 'mapping_survey') {
         const survey = progress?.surveyPattern || null;
         let spec = null;
@@ -9535,6 +9562,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiPresentation', 'isPOI', 'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
+        'missionSubType', 'poiChain',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'cargoText', 'passenger',

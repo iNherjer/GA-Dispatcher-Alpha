@@ -8533,6 +8533,57 @@ function initMapBase() {
     if (openAipOverlayActive) refreshOpenAipOverlay(true);
 }
 
+function _missionPoiChainRoutePointsForMap() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const chain = md?.poiChain || null;
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    return points
+        .map((point, idx) => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon ?? point?.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            return {
+                lat,
+                lng: lon,
+                lon,
+                name: `${idx + 1}. ${String(point?.name || `Kettenpunkt ${idx + 1}`).replace(/\s+/g, ' ').trim()}`,
+                isPOI: idx === 0,
+                isPoiChainPoint: true,
+                poiChainPointId: String(point?.id || `chain-point-${idx + 1}`)
+            };
+        })
+        .filter(Boolean);
+}
+
+function _missionRouteDistanceNmForMap(points = []) {
+    if (!Array.isArray(points) || points.length < 2 || typeof calcNav !== 'function') return null;
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+        const a = points[i];
+        const b = points[i + 1];
+        const aLon = a?.lng ?? a?.lon;
+        const bLon = b?.lng ?? b?.lon;
+        if (![a?.lat, aLon, b?.lat, bLon].every(v => Number.isFinite(Number(v)))) return null;
+        const nav = calcNav(Number(a.lat), Number(aLon), Number(b.lat), Number(bLon));
+        if (!Number.isFinite(Number(nav?.dist))) return null;
+        total += Number(nav.dist);
+    }
+    return total;
+}
+
+function _syncCurrentMissionRouteFromMap() {
+    const storedRoute = JSON.parse(JSON.stringify(routeWaypoints || []));
+    window._missionRouteWaypoints = storedRoute;
+    if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
+        currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(storedRoute));
+        currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
+        const routeDist = _missionRouteDistanceNmForMap(routeWaypoints);
+        if (Number.isFinite(routeDist) && routeDist > 0) {
+            currentMissionData.dist = Math.round(routeDist * 10) / 10;
+        }
+    }
+}
+
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (!map) initMapBase();
     currentSName = s || "Start"; currentDName = d || "Ziel";
@@ -8600,6 +8651,28 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
 
     // POI-Check: Wenn ein Zielgebiet als Arbeitswegpunkt genutzt wird, bauen wir ein Rundflug-Dreieck
     if (missionLikePoi) {
+        const chainRoutePoints = _missionPoiChainRoutePointsForMap();
+        if (chainRoutePoints.length >= 2) {
+            const lastPoint = chainRoutePoints[chainRoutePoints.length - 1];
+            const returnNav = calcNav(lastPoint.lat, lastPoint.lng, lat1, lon1);
+            const hasReturnNav = Number.isFinite(Number(returnNav?.dist)) && Number.isFinite(Number(returnNav?.brng)) && Number(returnNav.dist) > 0.1;
+            const offsetBearing = hasReturnNav ? (Number(returnNav.brng) + 20) % 360 : 0;
+            const returnWp = hasReturnNav ? getDestinationPoint(lastPoint.lat, lastPoint.lng, Number(returnNav.dist) * 0.45, offsetBearing) : null;
+            routeWaypoints = [
+                { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' },
+                ...chainRoutePoints,
+                ...(Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon)) ? [{ lat: returnWp.lat, lng: returnWp.lon, name: 'Return Leg' }] : []),
+                { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' }
+            ];
+            _syncCurrentMissionRouteFromMap();
+            renderMainRoute();
+            if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+            const board = document.getElementById('mapTableOverlay');
+            if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+                window.gaScheduleRouteMapLayoutRefresh('route-update');
+            }
+            return;
+        }
         // Berechnung des direkten Rückwegs (vom POI zurück zum Start)
         const returnNav = calcNav(lat2, lon2, lat1, lon1);
         // Wir biegen den Rückflug um 20 Grad ab und legen den Wegpunkt auf ~45% der Strecke
@@ -8620,7 +8693,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     } else {
         routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
     }
-    window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+    _syncCurrentMissionRouteFromMap();
 
     renderMainRoute();
     if (typeof updateRoutePerformance === 'function') updateRoutePerformance();

@@ -512,6 +512,9 @@ window.paxVoiceResetMission = function() {
     if (typeof window.missionSurveyPattern?.reset === 'function') {
         try { window.missionSurveyPattern.reset('pax-voice-reset'); } catch (_) {}
     }
+    if (typeof window.missionPoiChainRuntime?.reset === 'function') {
+        try { window.missionPoiChainRuntime.reset('pax-voice-reset'); } catch (_) {}
+    }
     _closePaxPanel();
     _refreshPaxWidgetVisibility();
 };
@@ -525,17 +528,22 @@ window.paxVoiceGetPoiMissionProgress = function() {
         ? window.missionSurveyPattern.snapshot()
         : null;
     const surveySatisfied = !!(surveyPattern && surveyPattern.satisfied);
+    const poiChain = (typeof window.missionPoiChainRuntime?.snapshot === 'function')
+        ? window.missionPoiChainRuntime.snapshot()
+        : null;
+    const poiChainSatisfied = !!(poiChain && poiChain.satisfied);
     return {
         hasSignal: true,
         trackingActive: !!window.activePassenger && _missionHasPax(),
-        satisfied: !!(_poiSatisfied || sarHeliLoaded || surveySatisfied),
+        satisfied: !!(_poiSatisfied || sarHeliLoaded || surveySatisfied || poiChainSatisfied),
         aborted: !!_poiAborted,
         manualConfirmed: !!_poiManuallyConfirmed,
-        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded || surveySatisfied),
+        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded || surveySatisfied || poiChainSatisfied),
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
         attempts: Math.max(0, Number(_poiAttempts || 0)),
         sarHeli,
-        surveyPattern
+        surveyPattern,
+        poiChain
     };
 };
 
@@ -552,6 +560,16 @@ window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'm
         try {
             window.missionSurveyPattern.restoreProgress(progress.surveyPattern, (typeof currentMissionData !== 'undefined' ? currentMissionData : null), window.activePassenger || null);
         } catch (_) {}
+    }
+    const poiChainSatisfied = !!(progress.poiChain && progress.poiChain.satisfied);
+    if (progress.poiChain && typeof window.missionPoiChainRuntime?.restoreProgress === 'function') {
+        try {
+            window.missionPoiChainRuntime.restoreProgress(progress.poiChain, (typeof currentMissionData !== 'undefined' ? currentMissionData : null), window.activePassenger || null);
+        } catch (_) {}
+    }
+    if (poiChainSatisfied) {
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
     }
     if (_poiSatisfied || _poiManuallyConfirmed || _poiDwellSec > 0) {
         _poiInRadius = true;
@@ -3101,6 +3119,8 @@ function _missionStatusFacts(ctx) {
         const survey = _surveyPatternProgressSummary(ctx);
         if (survey) return survey;
     }
+    const chainSummary = _poiChainProgressSummary(ctx);
+    if (chainSummary) return chainSummary;
     const radius = Number(pax.targetRadiusNm || 1.5) || 1.5;
     const targetAlt = Number(pax.targetAltFt || 0);
     const dwellReq = Number(pax.targetDwellMin || 0) * 60;
@@ -3400,6 +3420,10 @@ window.paxMissionStatusReport = function() {
         _paxSpeakTextDirect(_surveyPatternStatusText(ctx), 'Missionsstatus');
         return;
     }
+    if (_poiChainActiveSpec()) {
+        _paxSpeakTextDirect(_poiChainStatusText(ctx), 'Missionsstatus');
+        return;
+    }
     const facts = _missionStatusFacts(ctx);
     const base = _baseContext();
     const prompt = base ? `${base}
@@ -3421,6 +3445,10 @@ window.paxMissionOrientationHelp = function(_cityRetry = false) {
     }
     if (_activeTaskDomain() === 'mapping_survey') {
         _paxSpeakTextDirect(_surveyPatternOrientationText(ctx), 'Orientierung');
+        return;
+    }
+    if (_poiChainActiveSpec()) {
+        _paxSpeakTextDirect(_poiChainOrientationText(ctx), 'Orientierung');
         return;
     }
     if (!_cityRetry && !_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
@@ -4426,6 +4454,76 @@ function _surveyPatternOrientationText(ctx = null) {
     return `${vector} Das rote Scanmuster liegt schon auf der Karte. Such dir ein offenes Linienende, flieg die Nord-Sued-Bahn gerade ab und nimm danach die naechste offene Linie; erledigt sind ${done} von ${total}.`;
 }
 
+function _poiChainActiveSpec() {
+    if (typeof window.missionPoiChainRuntime?.getActiveSpec !== 'function') return null;
+    try {
+        return window.missionPoiChainRuntime.getActiveSpec(
+            (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+            window.activePassenger || null
+        );
+    } catch (_) {
+        return null;
+    }
+}
+
+function _poiChainSnapshot() {
+    if (typeof window.missionPoiChainRuntime?.snapshot !== 'function') return null;
+    try {
+        return window.missionPoiChainRuntime.snapshot();
+    } catch (_) {
+        return null;
+    }
+}
+
+function _poiChainProgressSummary(ctx = null) {
+    const spec = _poiChainActiveSpec();
+    if (!spec) return '';
+    const snap = _poiChainSnapshot();
+    const points = Array.isArray(spec.points) ? spec.points : [];
+    const total = points.filter(point => point?.required !== false).length || points.length || 1;
+    const done = Array.isArray(snap?.completedPointIds) ? snap.completedPointIds.length : 0;
+    const currentIndex = Math.max(0, Number(snap?.currentIndex || 0) || 0);
+    const nextPoint = points[currentIndex] || null;
+    const parts = [];
+    parts.push(`Kettenauftrag ${done}/${total} Punkte erledigt`);
+    if (snap?.satisfied) {
+        parts.push('Status: Kette abgeschlossen, Rueckflug freigegeben');
+    } else if (nextPoint) {
+        parts.push(`Nächster Punkt: ${nextPoint.name}`);
+        if (ctx?.hasPosition) {
+            const dist = _haversineNm(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
+            const brg = _bearingDeg(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
+            parts.push(`Entfernung ${dist.toFixed(1)} NM, Steuerkurs ${String(Math.round(brg)).padStart(3, '0')} Grad`);
+        }
+    } else {
+        parts.push('Status: naechster Kettenpunkt wird vorbereitet');
+    }
+    return parts.join(' | ');
+}
+
+function _poiChainStatusText(ctx = null) {
+    const summary = _poiChainProgressSummary(ctx);
+    if (!summary) return 'Ich habe gerade keine aktive POI-Kette geladen.';
+    return summary.replace(/\s*\|\s*/g, '. ') + '.';
+}
+
+function _poiChainOrientationText(ctx = null) {
+    const spec = _poiChainActiveSpec();
+    if (!spec) return `${_missionVectorText(ctx)} Ich habe gerade keine aktive POI-Kette geladen.`;
+    const snap = _poiChainSnapshot();
+    const points = Array.isArray(spec.points) ? spec.points : [];
+    const currentIndex = Math.max(0, Number(snap?.currentIndex || 0) || 0);
+    const nextPoint = points[currentIndex] || null;
+    if (!nextPoint) return 'Alle Kettenpunkte sind erledigt. Der sinnvolle nächste Schritt ist der Rueckflug zur Basis.';
+    if (ctx?.hasPosition) {
+        const dist = _haversineNm(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
+        const brg = _bearingDeg(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
+        const clock = _relativeClockPos(brg, ctx.hdg || 0);
+        return `Nächster Kettenpunkt ist ${nextPoint.name}. Steuerkurs ${String(Math.round(brg)).padStart(3, '0')} Grad, Entfernung ${dist.toFixed(1)} NM, etwa ${clock}. Der Triggerkreis ist auf der Karte markiert.`;
+    }
+    return `Nächster Kettenpunkt ist ${nextPoint.name}. Der aktuelle rote Triggerkreis ist auf der Karte markiert.`;
+}
+
 function _surveyPatternOuterRadiusNm(spec = null, fallbackRadiusNm = 1.5) {
     if (!spec || typeof spec !== 'object') return Math.max(0.5, Number(fallbackRadiusNm || 0) || 1.5);
     const center = spec.center || {};
@@ -4570,6 +4668,106 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     _speakPreparedText(_surveyPatternAudioKey(kind), text, speaker, label, {
         tryStaticAudio: (playEpoch) => _paxTryPlayStaticSurveyVoice(kind, spec, speaker, playEpoch)
     });
+}
+
+function _poiChainAudioKey(kind = 'event') {
+    return _paxMissionAudioKey(`poi-chain-${kind}`);
+}
+
+function _poiChainVoiceText(kind = 'point_complete', spec = null) {
+    switch (kind) {
+        case 'chain_complete':
+            return 'Das war der letzte Kontrollpunkt. Die Kette ist komplett, Auftrag erfüllt. Wir gehen zurück zum Heimatplatz.';
+        case 'point_complete':
+            return 'Gut, dieser Kontrollpunkt ist erledigt. Weiter zum nächsten markierten Punkt.';
+        case 'chain_area_entered':
+            return 'Wir sind am ersten Kettenpunkt. Kontrolliere den markierten Bereich ruhig und flieg dann zum nächsten Punkt weiter.';
+        default:
+            return '';
+    }
+}
+
+window.paxVoicePreparePoiChain = function() {
+    const spec = _poiChainActiveSpec();
+    if (!spec || String(spec.kind || '').toLowerCase() !== 'poi_chain') return Promise.resolve(null);
+    if (!window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
+    const epoch = _paxMissionEpoch;
+    const speaker = _speakerSnapshotForMissionVoice('poi-chain');
+    const kinds = ['point_complete', 'chain_complete'];
+    const jobs = kinds.map(kind => {
+        const text = _poiChainVoiceText(kind, spec);
+        if (!text) return Promise.resolve(null);
+        return _prepareTextAsTTS(_poiChainAudioKey(kind), text, speaker, epoch);
+    });
+    return Promise.allSettled(jobs);
+};
+
+function _poiChainEventKind(event = null) {
+    const type = String(event?.type || '').toLowerCase();
+    if (type === 'chain_complete') return 'chain_complete';
+    if (type === 'point_complete') return 'point_complete';
+    if (type === 'chain_area_entered') return 'chain_area_entered';
+    return '';
+}
+
+function _handlePoiChainEvents(events = [], spec = null) {
+    if (!Array.isArray(events) || !events.length) return;
+    const meaningful = events.map(_poiChainEventKind).filter(Boolean);
+    if (!meaningful.length) return;
+    const kind = meaningful.includes('chain_complete') ? 'chain_complete' : meaningful[0];
+    _paxLog(`POI-Chain Event: ${kind}`, 'event');
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot(`poi-chain-${kind}`, { immediate: kind === 'chain_complete' });
+    }
+    const text = _poiChainVoiceText(kind, spec);
+    if (!text) return;
+    const speaker = _speakerSnapshotForMissionVoice('poi-chain');
+    const label = kind === 'chain_complete' ? 'Kette erfüllt' : 'Ketten-Fortschritt';
+    _speakPreparedText(_poiChainAudioKey(kind), text, speaker, label);
+}
+
+function _tickPoiChainTask(lat, lon, flightData) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const isChainMission = !!(md?.poiChain || md?.missionSubType === 'poi_chain' || window.activePassenger?.poiChain);
+    if (!isChainMission) return null;
+    if (typeof window.missionPoiChainRuntime?.tick !== 'function') return null;
+    let result = null;
+    try {
+        result = window.missionPoiChainRuntime.tick({
+            lat,
+            lon,
+            flightData,
+            missionData: md,
+            passenger: window.activePassenger || null
+        });
+    } catch (err) {
+        _paxLog(`POI-Chain Tick Fehler: ${err?.message || err}`, 'warn');
+        return null;
+    }
+    if (!result?.handled) return result;
+    _handlePoiChainEvents(result.events || [], result.spec || _poiChainActiveSpec());
+    const progress = result.progress || null;
+    if (progress?.updatedAt) {
+        if (progress.startedAt) _poiDwellSec = Math.max(_poiDwellSec, (Number(progress.updatedAt) - Number(progress.startedAt)) / 1000);
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        if (!_poiEnteredAt) _poiEnteredAt = Number(progress.startedAt || progress.updatedAt) || Date.now();
+        _poiLastTickTime = Date.now();
+    }
+    if (result.satisfied && !_poiSatisfied) {
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+            window.missionPersistRuntimeSnapshot('poi-chain-satisfied', { immediate: true });
+        }
+        if (!Array.isArray(result.events) || !result.events.some(ev => String(ev?.type || '') === 'chain_complete')) {
+            _handlePoiChainEvents([{ type: 'chain_complete' }], result.spec || _poiChainActiveSpec());
+        }
+        _refreshPaxWidgetVisibility();
+    }
+    return result;
 }
 
 function _tickSurveyPatternTask(lat, lon, flightData) {
@@ -4754,6 +4952,9 @@ window.paxVoicePrepareBoarding = function() {
     if (!hasPassenger && !hasCargoContext && !hasPaxMission) return Promise.resolve(null);
     if (typeof window.paxVoicePrepareSurveyPattern === 'function') {
         try { window.paxVoicePrepareSurveyPattern(); } catch (_) {}
+    }
+    if (typeof window.paxVoicePreparePoiChain === 'function') {
+        try { window.paxVoicePreparePoiChain(); } catch (_) {}
     }
     const key = _paxMissionAudioKey('boarding');
     const existing = _paxPreparedAudio.get(key);
@@ -7223,6 +7424,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     const complaintIntervalSec = strict ? 30 : 45;
     const taskItemState = _poiRequiredTaskItemState();
     const missingTaskItems = taskItemState.blockingItems;
+    const poiChainTickResult = _tickPoiChainTask(lat, lon, flightData);
     const surveyTickResult = taskDomain === 'mapping_survey'
         ? _tickSurveyPatternTask(lat, lon, flightData)
         : null;
@@ -7247,7 +7449,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     }
 
     if (!inRadius) {
-        if (!surveyTickResult?.progress?.startedAt) {
+        if (!surveyTickResult?.progress?.startedAt && !poiChainTickResult?.progress?.startedAt) {
             _poiInRadius     = false;
             _poiLastTickTime = null;
         }
@@ -7299,6 +7501,9 @@ function _tickPoiDwell(lat, lon, flightData) {
     }
 
     if (taskDomain === 'mapping_survey' && surveyTickResult?.handled) {
+        return;
+    }
+    if (poiChainTickResult?.handled) {
         return;
     }
 

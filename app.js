@@ -4989,6 +4989,46 @@ window.buildSarHeliMissionSpec = buildSarHeliMissionSpec;
 window.finalizeSarHeliMissionSpec = finalizeSarHeliMissionSpec;
 window.sarHeliRecoverableKindsForIncident = sarHeliRecoverableKindsForIncident;
 
+function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, startName = 'Start') {
+    const points = Array.isArray(mission?.poiChain?.points) ? mission.poiChain.points : [];
+    const chainPoints = points
+        .map((point, idx) => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon ?? point?.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            return {
+                lat,
+                lng: lon,
+                lon,
+                name: `${idx + 1}. ${String(point?.name || `Kettenpunkt ${idx + 1}`).replace(/\s+/g, ' ').trim()}`,
+                isPOI: idx === 0,
+                isPoiChainPoint: true,
+                poiChainPointId: String(point?.id || `chain-point-${idx + 1}`)
+            };
+        })
+        .filter(Boolean);
+    if (!depPoint || chainPoints.length < 2) return null;
+    const route = [
+        { lat: depPoint.lat, lng: depPoint.lng, name: startName || 'Start' },
+        ...chainPoints
+    ];
+    if (typeof calcNav === 'function' && typeof getDestinationPoint === 'function') {
+        try {
+            const last = chainPoints[chainPoints.length - 1];
+            const returnNav = calcNav(last.lat, last.lng, depPoint.lat, depPoint.lng);
+            if (Number.isFinite(Number(returnNav?.dist)) && Number(returnNav.dist) > 0.1) {
+                const offsetBearing = (Number(returnNav.brng || 0) + 20) % 360;
+                const returnWp = getDestinationPoint(last.lat, last.lng, Number(returnNav.dist) * 0.45, offsetBearing);
+                if (Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon))) {
+                    route.push({ lat: Number(returnWp.lat), lng: Number(returnWp.lon), name: 'Return Leg' });
+                }
+            }
+        } catch (_) {}
+    }
+    route.push({ lat: depPoint.lat, lng: depPoint.lng, name: startName || 'Start' });
+    return route;
+}
+
 function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     const mission = md && typeof md === 'object' ? md : {};
     const bush = (mission.bush && typeof mission.bush === 'object') ? mission.bush : null;
@@ -5042,6 +5082,10 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
         const targetName = bushUsesPoiTaskRecipe
             ? (bush?.areaRef?.name || mission.targetName || state.mDestName || 'Recon Area')
             : (mission.poiName || mission.targetName || state.mDestName || 'POI');
+        if (!bushUsesPoiTaskRecipe) {
+            const chainRoute = buildPoiChainRouteWaypointsFromMission(depPoint, mission, state.currentSName || startIcao || 'Start');
+            if (chainRoute && chainRoute.length >= 4) return chainRoute;
+        }
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng },
             { lat: destPoint.lat, lng: destPoint.lng, name: `🎯 ${targetName}`, isPOI: true }
@@ -5550,6 +5594,7 @@ async function restoreMissionState(state, options = {}) {
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
+    refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
     const restoredDraft = isMissionDraftPending(currentMissionData);
     recalculatePerformance(); document.getElementById('searchIndicator').innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
@@ -8968,6 +9013,228 @@ function _shouldIncludeInfraForPoiSearch(forcedCategory = null, dispatchProfileI
     if (profile === 'science_geo') return true;
     if (['infrastructure', 'industry', 'bridge', 'road', 'rail', 'telecom', 'dam'].includes(cat)) return true;
     return false;
+}
+
+function _poiChainDebugForceValue() {
+    let raw = '';
+    try { raw = String(localStorage.getItem('ga_debug_force_poi_chain') || '').trim().toLowerCase(); } catch (_) {}
+    if (!raw && typeof location !== 'undefined' && location?.search) {
+        try {
+            const params = new URLSearchParams(location.search);
+            raw = String(params.get('poiChain') || params.get('forcePoiChain') || '').trim().toLowerCase();
+        } catch (_) {}
+    }
+    if (!raw || raw === '0' || raw === 'false' || raw === 'off' || raw === 'no') return '';
+    if (raw === '1' || raw === 'true' || raw === 'on' || raw === 'auto') return 'auto';
+    return raw;
+}
+
+function _installPoiChainDebugHelpers() {
+    if (typeof window === 'undefined' || window.__gaPoiChainDebugHelpersInstalled) return;
+    window.__gaPoiChainDebugHelpersInstalled = true;
+    window.getPoiChainDebugForceValue = _poiChainDebugForceValue;
+    window.updatePoiChainDebugForceButtonUi = function() {
+        const btn = document.getElementById('btnDebugPoiChainForce');
+        if (!btn) return;
+        const force = _poiChainDebugForceValue();
+        const active = !!force;
+        btn.textContent = active ? 'POI-Kette Ein' : 'POI-Kette Aus';
+        btn.title = active
+            ? `POI-Ketten-Dispatch wird beim naechsten passenden POI erzwungen (${force}).`
+            : 'POI-Ketten-Dispatch normal, keine Debug-Erzwingung.';
+        btn.style.background = active ? '#344a18' : '#262f14';
+        btn.style.borderColor = active ? '#95d14a' : '#5c6f2f';
+        btn.style.color = active ? '#efffd1' : '#dfff9f';
+    };
+    window.forcePoiChainDispatch = function(theme = 'auto') {
+        const value = String(theme || 'auto').trim().toLowerCase() || 'auto';
+        try { localStorage.setItem('ga_debug_force_poi_chain', value); } catch (_) {}
+        window.gaPoiChainDebug = { ...(window.gaPoiChainDebug || {}), force: value };
+        window.updatePoiChainDebugForceButtonUi();
+        return `POI-Chain-Dispatch erzwungen: ${value}`;
+    };
+    window.clearPoiChainDispatchForce = function() {
+        try { localStorage.removeItem('ga_debug_force_poi_chain'); } catch (_) {}
+        window.gaPoiChainDebug = { ...(window.gaPoiChainDebug || {}), force: '' };
+        window.updatePoiChainDebugForceButtonUi();
+        return 'POI-Chain-Dispatch-Force aus';
+    };
+    window.vpTogglePoiChainDebugForce = function() {
+        const current = _poiChainDebugForceValue();
+        if (current) {
+            try { localStorage.setItem('ga_debug_force_poi_chain', 'off'); } catch (_) {}
+            window.gaPoiChainDebug = { ...(window.gaPoiChainDebug || {}), force: '' };
+        } else {
+            try { localStorage.setItem('ga_debug_force_poi_chain', 'auto'); } catch (_) {}
+            window.gaPoiChainDebug = { ...(window.gaPoiChainDebug || {}), force: 'auto' };
+        }
+        window.updatePoiChainDebugForceButtonUi();
+        if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+            try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+        }
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = current
+            ? 'Debug: POI-Ketten-Dispatch normal.'
+            : 'Debug: POI-Ketten-Dispatch erzwungen.';
+        return !current;
+    };
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', window.updatePoiChainDebugForceButtonUi);
+    } else {
+        window.updatePoiChainDebugForceButtonUi();
+    }
+}
+_installPoiChainDebugHelpers();
+
+function compactPoiChainForMission(chain = null, maxPoints = 8) {
+    if (!chain || typeof chain !== 'object') return null;
+    if (window.missionPoiChain && typeof window.missionPoiChain.compactPoiChain === 'function') {
+        return window.missionPoiChain.compactPoiChain(chain, maxPoints);
+    }
+    const points = Array.isArray(chain.points) ? chain.points.slice(0, maxPoints) : [];
+    return {
+        schema: chain.schema || 'ga.poiChain.v1',
+        kind: chain.kind || 'poi_chain',
+        mode: chain.mode || 'progressive_reveal',
+        theme: String(chain.theme || ''),
+        label: String(chain.label || '').replace(/\s+/g, ' ').trim(),
+        guide: chain.guide || null,
+        overlay: chain.overlay || null,
+        points: points.map((point, idx) => ({
+            id: String(point.id || `chain-point-${idx + 1}`).trim(),
+            index: Number.isFinite(Number(point.index)) ? Number(point.index) : idx,
+            name: String(point.name || '').replace(/\s+/g, ' ').trim(),
+            lat: Number.isFinite(Number(point.lat)) ? Math.round(Number(point.lat) * 1e6) / 1e6 : null,
+            lon: Number.isFinite(Number(point.lon)) ? Math.round(Number(point.lon) * 1e6) / 1e6 : null,
+            category: String(point.category || '').trim(),
+            triggerRadiusNm: Number.isFinite(Number(point.triggerRadiusNm)) ? Math.round(Number(point.triggerRadiusNm) * 100) / 100 : 0.45,
+            revealState: idx === 0 ? 'visible' : (point.revealState || 'hidden'),
+            required: point.required !== false,
+            distanceFromPrevNm: Number.isFinite(Number(point.distanceFromPrevNm)) ? Math.round(Number(point.distanceFromPrevNm) * 100) / 100 : 0,
+            bearingFromPrevDeg: point.bearingFromPrevDeg === null ? null : Math.round(Number(point.bearingFromPrevDeg || 0)),
+            tags: point.tags || {}
+        })),
+        sequenceRequired: chain.sequenceRequired !== false,
+        completionMode: chain.completionMode || 'all_required',
+        fallbackAllowed: chain.fallbackAllowed !== false,
+        dispatch: chain.dispatch || null
+    };
+}
+
+function _poiChainCategoryFromTheme(theme = '') {
+    const t = String(theme || '').toLowerCase();
+    if (t === 'river_bridge_inspection' || t === 'road_bridge_inspection') return 'bridge';
+    if (t === 'road_junction_survey') return 'road';
+    if (t === 'rail_chain_inspection') return 'rail';
+    if (t === 'power_grid_inspection') return 'infrastructure';
+    return 'infrastructure';
+}
+
+async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selectedCategory = 'all', dispatchProfileId = 'auto', searchAnchor = null, options = {}) {
+    const profile = String(dispatchProfileId || '').toLowerCase();
+    const category = String(selectedCategory || 'all').toLowerCase();
+    const forceTheme = String(options.forceTheme || _poiChainDebugForceValue() || '').toLowerCase();
+    const forced = !!forceTheme || category === 'chain' || options.force === true;
+    if (profile !== 'inspection_infra' || !forced) return null;
+    if (!window.missionPoiChain || typeof window.missionPoiChain.buildPoiChainProspects !== 'function') return null;
+    const anchor = (searchAnchor && Number.isFinite(Number(searchAnchor.lat)) && Number.isFinite(Number(searchAnchor.lon)))
+        ? {
+            lat: Number(searchAnchor.lat),
+            lon: Number(searchAnchor.lon),
+            localRadiusNm: Math.max(20, Number(searchAnchor.localRadiusNm) || 28)
+        }
+        : {
+            lat: Number(lat),
+            lon: Number(lon),
+            localRadiusNm: Math.max(22, Math.min(36, Number(maxNM || 40) * 0.6))
+        };
+    const tileKeys = _poiCollectTileKeysAround(anchor.lat, anchor.lon, Math.max(anchor.localRadiusNm + 8, 26));
+    if (!tileKeys.length) return null;
+    const features = [];
+    let cursor = 0;
+    const workers = [];
+    const workerCount = Math.min(POI_TILE_FETCH_PARALLEL, tileKeys.length);
+    for (let i = 0; i < workerCount; i++) {
+        workers.push((async () => {
+            while (cursor < tileKeys.length) {
+                const idx = cursor++;
+                const key = tileKeys[idx];
+                const rows = await _poiFetchTileFeatures(key, { includeCore: true, includeInfra: true, allowLegacyFallback: false });
+                if (rows && rows.length) features.push(...rows);
+            }
+        })());
+    }
+    await Promise.all(workers);
+    if (!features.length) return null;
+    const prospectRun = window.missionPoiChain.buildPoiChainProspects({
+        dispatchStartLat: Number(lat),
+        dispatchStartLon: Number(lon),
+        minNM,
+        maxNM,
+        dirPref,
+        category: category === 'chain' ? 'all' : category,
+        profileId: profile,
+        forceTheme: forceTheme && forceTheme !== 'auto' ? forceTheme : '',
+        minPoints: 3,
+        maxPoints: 8,
+        triggerRadiusNm: 0.5
+    }, { features });
+    const best = prospectRun?.prospects?.[0] || null;
+    if (!best?.chain) {
+        window.gaPoiChainDebug = {
+            ...(window.gaPoiChainDebug || {}),
+            last: {
+                ok: false,
+                status: prospectRun?.status || 'no_chain',
+                diagnostics: prospectRun?.diagnostics || null,
+                forced
+            }
+        };
+        return null;
+    }
+    const chain = compactPoiChainForMission(best.chain, 8);
+    const first = chain?.points?.[0] || null;
+    if (!first || !Number.isFinite(Number(first.lat)) || !Number.isFinite(Number(first.lon))) return null;
+    const targetName = String(chain.label || first.name || 'Infrastruktur-Kette').trim();
+    const targetCategory = _poiChainCategoryFromTheme(chain.theme);
+    const out = {
+        icao: 'POI',
+        n: targetName,
+        lat: Number(first.lat),
+        lon: Number(first.lon),
+        poiCategory: targetCategory,
+        poiSource: `POI Chain Dispatch (${chain.theme || 'auto'})`,
+        source: 'poi-chain-dispatch',
+        missionSubType: 'poi_chain',
+        poiChain: chain,
+        poiLookup: {
+            engine: 'poi-chain-dispatch',
+            theme: chain.theme || null,
+            guide: chain.guide?.name || chain.guide?.type || null,
+            pointCount: chain.points.length,
+            source: 'split-tiles',
+            debugForced: forced,
+            diagnostics: {
+                score: best.score,
+                group: best.group || null,
+                featureCounts: prospectRun?.diagnostics?.featureCounts || null
+            }
+        }
+    };
+    window.gaPoiChainDebug = {
+        ...(window.gaPoiChainDebug || {}),
+        force: forceTheme || '',
+        last: {
+            ok: true,
+            target: targetName,
+            category: targetCategory,
+            theme: chain.theme,
+            points: chain.points.length,
+            score: best.score,
+            diagnostics: prospectRun?.diagnostics || null
+        }
+    };
+    return out;
 }
 
 async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto', searchAnchor = null) {
@@ -12917,7 +13184,7 @@ function sanitizePoiBriefingRuleLeaks(text = '', missionData = null) {
     return out;
 }
 
-function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null } = {}) {
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null, knowledgeContext = null, infraInspectionOutcome = null, poiChain = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
     const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
@@ -12980,6 +13247,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         sarHeli: missionSarHeliSpecFromMission(mission) || null,
         bush: normalizedBushSpec,
         infraInspectionOutcome: infraInspectionOutcome || mission?.infraInspectionOutcome || passenger?.infraInspectionOutcome || null,
+        poiChain: compactPoiChainForMission(poiChain || mission?.poiChain || passenger?.poiChain || missionContractV4?.poiChain || missionPlanV2?.poiChain || null, 8),
         targetScene,
         constraints
     };
@@ -13198,9 +13466,34 @@ function refreshMissionSurveyOverlaySoon(missionData = null, passenger = null, r
     }
     return first;
 }
+
+function refreshMissionPoiChainOverlaySoon(missionData = null, passenger = null, reason = 'mission') {
+    if (typeof window === 'undefined') return false;
+    const run = () => {
+        if (typeof window.missionPoiChainRuntime?.refreshOverlay !== 'function') return false;
+        try {
+            return window.missionPoiChainRuntime.refreshOverlay(
+                missionData || currentMissionData || null,
+                passenger || window.activePassenger || null
+            );
+        } catch (_) {
+            return false;
+        }
+    };
+    const first = run();
+    if (typeof setTimeout === 'function') {
+        [120, 450, 1200].forEach(delay => {
+            setTimeout(() => {
+                try { run(); } catch (_) {}
+            }, delay);
+        });
+    }
+    return first;
+}
 window.buildMissionSurveyPatternSpec = buildMissionSurveyPatternSpec;
 window.attachMissionSurveyPattern = attachMissionSurveyPattern;
 window.refreshMissionSurveyOverlaySoon = refreshMissionSurveyOverlaySoon;
+window.refreshMissionPoiChainOverlaySoon = refreshMissionPoiChainOverlaySoon;
 
 function pickFireWatchExtent(truth, hazardLevel) {
     if (truth !== 'fire') return 'false_alarm';
@@ -16573,6 +16866,7 @@ function compactMissionPlanV2ForPrompt(planResult = null) {
             lockedFields: (plan.lockedFields && typeof plan.lockedFields === 'object') ? plan.lockedFields : {},
             confidence: Number.isFinite(Number(plan.confidence)) ? Math.max(0, Math.min(1, Number(plan.confidence))) : null
         },
+        poiChain: compactPoiChainForMission(planResult.poiChain || null, 8),
         needs: Array.isArray(planResult.needs) ? planResult.needs.slice(0, 6) : [],
         resolvedNeedTypes: Object.keys(resolvedNeeds).slice(0, 8)
     };
@@ -16696,6 +16990,7 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         needs,
         resolvedNeeds: resolvedNeeds || {},
         plan,
+        poiChain: compactPoiChainForMission(draft?.poiChain || src.poiChain || null, 8),
         debug: {
             source: String(src.debug?.source || src.source || 'Gemini Planner V2'),
             rawStatus: src.status || null
@@ -16719,7 +17014,8 @@ function buildMissionPlannerV2Draft({
     targetGeoContext = null,
     missionTruth = null,
     sarHeli = null,
-    followUpContext = null
+    followUpContext = null,
+    poiChain = null
 } = {}) {
     const baseType = normalizeMissionType(
         missionType || missionPicker?.baseType || (isPOI ? 'poi' : 'apt'),
@@ -16756,6 +17052,7 @@ function buildMissionPlannerV2Draft({
             poiSource: String(dest?.poiSource || ''),
             poiCategory: String(draftTargetRef?.poiCategory || dest?.poiCategory || '')
         },
+        poiChain: compactPoiChainForMission(poiChain || dest?.poiChain || null, 8),
         picker: {
             baseType: String(baseType || 'apt'),
             category: String(selectedCategory || 'all'),
@@ -20678,6 +20975,10 @@ function buildMissionContractV4({
         plannerContext.knowledgeContext || plannerContext.dest?.knowledgeContext || null,
         10
     );
+    const poiChain = compactPoiChainForMission(
+        plannerContext.poiChain || plannerContext.dest?.poiChain || plannerResult?.poiChain || null,
+        8
+    );
     const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
     const roleProfile = String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1');
     const profileId = String(profile.id || plannerContext.dispatchProfileId || 'auto');
@@ -20709,6 +21010,7 @@ function buildMissionContractV4({
             poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || ''),
             terrainFt: Number.isFinite(Number(plannerContext.poiTerrainFt)) ? Math.round(Number(plannerContext.poiTerrainFt)) : null
         },
+        poiChain,
         knowledgeContext,
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
@@ -20762,6 +21064,7 @@ Regeln:
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
+17x. inspection_infra + CONTRACT.poiChain: Schreibe die Mission als mehrteilige Korridor- oder Objektketten-Inspektion. Das erste Kettenziel ist der Einstieg in den Auftrag; weitere Punkte werden unterwegs nacheinander abgearbeitet. Nenne den Korridor, den Grund der Prüfung und 2-3 Beispielpunkte natürlich, aber keine internen Felder wie poiChain, revealState, triggerRadius oder Debugdaten. Keine Landung am POI als Regeltext ausgeben.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
@@ -22523,6 +22826,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
     const knowledgeContext = compactPoiKnowledgeContextForMission(poiTargetMeta?.knowledgeContext || null, 10);
+    const poiChain = compactPoiChainForMission(poiTargetMeta?.poiChain || missionPlanV2?.poiChain || null, 8);
     const dispatchPlan = compactMissionPlanV2?.plan || {};
     const requiredTaskDomain = String(
         (forcedProfile && forcedProfile.id !== 'auto' ? forcedProfile.taskDomain : '') ||
@@ -22585,6 +22889,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
         plannerContext: compactMissionPlanV2 || null,
         knowledgeContext: knowledgeContext || null,
+        poiChain: poiChain || null,
         bushContext: provisionalBushSpec ? {
             targetMode: provisionalBushSpec.targetMode,
             completionMode: provisionalBushSpec.completionMode,
@@ -22621,6 +22926,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : '';
     const knowledgeGuideRule = (requiredTaskDomain === 'poi_learning_guide' && knowledgeContext?.status === 'accept')
         ? `4e. KNOWLEDGE-GUIDE-FAKTEN: Nutze knowledgeContext.facts als gepruefte Wissensbasis. Die Story darf 1-2 konkrete Fakten natuerlich anteasern, aber keine weiteren Ortsdaten, Baujahre, Groessen, Namen oder historischen Details frei erfinden. Der Passagier soll als Guide erkennbar sein, der unterwegs Wissenswertes zum POI erklaert. Keine Zielhoehe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchfuehren".`
+        : '';
+    const poiChainRule = (poiLikeTask && requiredTaskDomain === 'inspection_infra' && poiChain?.points?.length)
+        ? `4f. POI-KETTE: poiChain beschreibt eine mehrteilige Infrastruktur-Kette. Schreibe den Auftrag als Korridor-/Objektketten-Inspektion mit erstem Zielpunkt und Folgezielen. Nenne den Korridor und 2-3 Beispielpunkte natuerlich, aber keine internen Feldnamen, Trigger-Radien, revealState oder Debugdaten.`
         : '';
     const localKnowledgeRule = isBushMission
         ? `4. BUSH-LOKALWISSEN: Baue 1-2 echte geographische oder topographische Hinweise zu "${promptDestName}" ein. Fokus auf Wildnis, Tal-/Gelandecharakter, abgelegenen Strip und glaubwuerdigen Bush-Betrieb.`
@@ -22664,6 +22972,7 @@ REGELN:
 3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
 3d) ${missionPlanV2Rule || 'Kein Pipeline-V2-Plan aktiv.'}
 3e) ${knowledgeGuideRule || 'Kein Knowledge-Guide-Faktenkontext aktiv.'}
+3f) ${poiChainRule || 'Keine POI-Kette aktiv.'}
 4) ${routeRule}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
@@ -22709,6 +23018,7 @@ Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest
 missionTruth: ${JSON.stringify(compactTruth)}
 missionPlanV2: ${JSON.stringify(compactMissionPlanV2)}
 knowledgeContext: ${JSON.stringify(knowledgeContext)}
+poiChain: ${JSON.stringify(poiChain)}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
@@ -23953,6 +24263,8 @@ async function generateMission(options = {}) {
     const isBushDispatch = requestedMissionType === 'bush';
     const effectiveType = requestedMissionType === 'poi' ? 'poi' : 'apt';
     let selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
+    const poiChainCategoryRequested = effectiveType === 'poi' && String(selectedPoiCategory || '').toLowerCase() === 'chain';
+    if (poiChainCategoryRequested) selectedPoiCategory = 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     const seededProfileId = (selectedMissionProfile === 'auto')
@@ -23968,7 +24280,7 @@ async function generateMission(options = {}) {
             })))
         : selectedMissionProfile;
     const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
-    const requestedPoiCategory = selectedPoiCategory;
+    const requestedPoiCategory = poiChainCategoryRequested ? 'chain' : selectedPoiCategory;
     if (effectiveType === 'poi') {
         selectedPoiCategory = pickPoiCategoryForTaskProfile(dispatchProfileId, selectedPoiCategory);
     }
@@ -23982,7 +24294,8 @@ async function generateMission(options = {}) {
         category: effectiveType === 'poi' ? selectedPoiCategory : selectedAptCategory,
         profile: dispatchProfileId,
         profileRequested: selectedMissionProfile,
-        categoryRequested: effectiveType === 'poi' ? requestedPoiCategory : selectedAptCategory
+        categoryRequested: effectiveType === 'poi' ? requestedPoiCategory : selectedAptCategory,
+        chainRequested: poiChainCategoryRequested
     };
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
@@ -24025,10 +24338,21 @@ async function generateMission(options = {}) {
             // Primär: eigene gehostete, tag-basierte Tiles.
             // Fallback: bestehendes Wiki/Wikidata/Nominatim-System.
             const poiSearchAnchor = buildPoiRingSearchAnchor(start.lat, start.lon, searchMin, searchMax, dirPref, 20);
-            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId, poiSearchAnchor);
+            const chainPoi = await findPoiChainDispatchTarget(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId, poiSearchAnchor, {
+                force: poiChainCategoryRequested,
+                forceTheme: _poiChainDebugForceValue()
+            });
+            _ensureDispatchAlive();
+            const taggedTilePoi = chainPoi || await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId, poiSearchAnchor);
             _ensureDispatchAlive();
             if (taggedTilePoi) {
                 dest = taggedTilePoi;
+                if (chainPoi) {
+                    dataSource = 'POI Chain Dispatch';
+                    selectedPoiCategory = String(chainPoi.poiCategory || selectedPoiCategory || 'infrastructure').toLowerCase();
+                    missionPickerResolved.category = selectedPoiCategory;
+                    missionPickerResolved.categoryRequested = requestedPoiCategory;
+                }
             } else if (selectedPoiCategory === 'fire') {
                 const fireCandidates = [];
                 for (let i = 0; i < 3; i++) {
@@ -24341,6 +24665,7 @@ async function generateMission(options = {}) {
         missionWeather,
         missionFireHazard,
         knowledgeContext: plannerKnowledgeContext,
+        poiChain: dest?.poiChain || null,
         targetGeoContext: preMissionTargetGeoContext,
         missionTruth: preMissionTruth,
         sarHeli: sarHeliSpec,
@@ -24931,6 +25256,7 @@ async function generateMission(options = {}) {
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionPlanV2,
+                    poiChain: dest?.poiChain || null,
                     sarHeli: sarHeliSpec
                 }
             ));
@@ -25136,6 +25462,16 @@ async function generateMission(options = {}) {
             m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
+        if (isPOI && dest?.poiChain && m && typeof m === 'object') {
+            m.missionSubType = 'poi_chain';
+            m.poiChain = compactPoiChainForMission(dest.poiChain, 8);
+            const chainLabel = String(m.poiChain?.label || dest.n || 'Infrastruktur-Kette').trim();
+            const chainPoints = Array.isArray(m.poiChain?.points) ? m.poiChain.points.length : 0;
+            const hasChainStory = /kette|korridor|mehrteil|mehrere|folg(e|enden)|nacheinander/i.test(String(m.s || ''));
+            if (!hasChainStory && chainPoints >= 2) {
+                m.s = `${String(m.s || '').trim()} ${chainLabel} wird als mehrteilige Korridorprüfung geflogen; die markierten Punkte werden nacheinander aus der Luft kontrolliert und nach Abschluss geht es zurück zur Basis.`.trim();
+            }
+        }
         if (followupSeed && followupDispatchProfileId === 'apt_charter_pickup' && m && typeof m === 'object') {
             m.missionType = 'apt';
             m.cat = 'charter';
@@ -25185,6 +25521,11 @@ async function generateMission(options = {}) {
         target: dest?.n || 'n/a',
         poiSource,
         poiLookup,
+        poiChain: isPOI && dest?.poiChain ? {
+            theme: dest.poiChain.theme || null,
+            label: dest.poiChain.label || null,
+            points: Array.isArray(dest.poiChain.points) ? dest.poiChain.points.length : 0
+        } : null,
         knowledgeContext: knowledgeContext ? {
             title: knowledgeContext.title || dest?.n || '',
             status: knowledgeContext.status || '',
@@ -25299,6 +25640,7 @@ async function generateMission(options = {}) {
         initialDist: totalDist,
         initialHeading: nav.brng,
         missionType,
+        missionSubType: dest?.missionSubType || m?.missionSubType || null,
         sarHeli: sarHeliSpec || m?.sarHeli || null,
         sarHeliProgress: (sarHeliSpec || m?.sarHeli) ? missionSarHeliInitialProgress() : null,
         bush: bushSpec,
@@ -25310,6 +25652,7 @@ async function generateMission(options = {}) {
         poiCategory: isPOI ? poolCategory : null,
         requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
         poiLookup: poiLookup || null,
+        poiChain: isPOI ? compactPoiChainForMission(dest?.poiChain || m?.poiChain || missionContractV4?.poiChain || missionPlanV2?.poiChain || null, 8) : null,
         knowledgeContext,
         targetInfo: isPOI ? sanitizeGeneratedPoiTargetInfo(m?.targetInfo || m?.poiTargetInfo || m?.destinationInfo || '', { maxLen: 760 }) : '',
         targetName: dest.n,
@@ -25362,6 +25705,7 @@ async function generateMission(options = {}) {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
         if (knowledgeContext) m.knowledgeContext = knowledgeContext;
+        if (currentMissionData.poiChain && !m.poiChain) m.poiChain = currentMissionData.poiChain;
         if (currentMissionData.targetInfo && !m.targetInfo) m.targetInfo = currentMissionData.targetInfo;
     }
     if (typeof window.missionFollowupEnsureBushReconOutcome === 'function') {
@@ -25475,6 +25819,11 @@ async function generateMission(options = {}) {
         window.activePassenger.targetDwellMin = 0;
         window.activePassenger.targetRadiusNm = Math.max(0.25, Number(window.activePassenger.targetRadiusNm || 0.35) || 0.35);
     }
+    if (window.activePassenger && currentMissionData?.poiChain) {
+        window.activePassenger.poiChain = currentMissionData.poiChain;
+        window.activePassenger.targetDwellMin = 0;
+        window.activePassenger.targetRadiusNm = Math.max(0.25, Number(window.activePassenger.targetRadiusNm || 0.5) || 0.5);
+    }
     if (window.activePassenger) {
         currentMissionData.passenger = window.activePassenger;
         if (m && typeof m === 'object') m.passenger = window.activePassenger;
@@ -25546,7 +25895,8 @@ async function generateMission(options = {}) {
         missionPlanV4: missionPlanV4 || currentMissionData.missionPlanV4 || null,
         missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null,
         knowledgeContext: currentMissionData.knowledgeContext || null,
-        infraInspectionOutcome: currentMissionData.infraInspectionOutcome || null
+        infraInspectionOutcome: currentMissionData.infraInspectionOutcome || null,
+        poiChain: currentMissionData.poiChain || null
     });
     attachMissionStorageIdentity(activeMissionContract, currentMissionData);
     attachMissionStorageIdentity(window.activePassenger, currentMissionData);
@@ -25566,6 +25916,7 @@ async function generateMission(options = {}) {
     window.activeMissionContract = activeMissionContract;
     attachMissionSurveyPattern(currentMissionData, activeMissionContract, window.activePassenger);
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-generated');
+    refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-generated');
     {
         const sceneDebugInfo = {
             sceneAccepted: currentMissionData.sceneAccepted,
@@ -25628,6 +25979,19 @@ async function generateMission(options = {}) {
             source: m?._source || dataSource || 'n/a',
             poiSource: poiSource || null,
             poiLookup: poiLookup || null,
+            poiChain: currentMissionData.poiChain ? {
+                theme: currentMissionData.poiChain.theme || null,
+                label: currentMissionData.poiChain.label || null,
+                guide: currentMissionData.poiChain.guide?.name || currentMissionData.poiChain.guide?.type || null,
+                points: Array.isArray(currentMissionData.poiChain.points) ? currentMissionData.poiChain.points.map(point => ({
+                    index: point.index,
+                    name: point.name,
+                    category: point.category,
+                    lat: point.lat,
+                    lon: point.lon,
+                    revealState: point.revealState
+                })) : []
+            } : null,
             knowledgeContext: currentMissionData.knowledgeContext ? {
                 title: currentMissionData.knowledgeContext.title || null,
                 status: currentMissionData.knowledgeContext.status || null,
@@ -25805,7 +26169,18 @@ async function generateMission(options = {}) {
     if (destLocRadioEl) destLocRadioEl.value = '';
 
     updateMap(start.lat, start.lon, dest.lat, dest.lon, currentStartICAO, dest.n);
+    const routeDistForDisplay = Number(currentMissionData?.dist || totalDist);
+    if (Number.isFinite(routeDistForDisplay) && routeDistForDisplay > 0 && Math.abs(routeDistForDisplay - totalDist) > 0.05) {
+        const routeTotalMinutes = Math.round((routeDistForDisplay / selectedTas) * 60);
+        const routeHours = Math.floor(routeTotalMinutes / 60);
+        const routeMins = routeTotalMinutes % 60;
+        const routeTimeStr = routeHours > 0 ? `${routeHours}h ${routeMins}m` : `${routeMins} Min.`;
+        document.getElementById("mDistNote").innerText = `${Math.round(routeDistForDisplay)} NM`;
+        document.getElementById("mETENote").innerText = routeTimeStr;
+        currentMissionData.initialDist = Math.round(routeDistForDisplay * 10) / 10;
+    }
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || plannedBriefingPassenger || null, 'map-updated');
+    refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || plannedBriefingPassenger || null, 'map-updated');
 
     currentDepElev  = (globalAirports && globalAirports[currentStartICAO])  ? (globalAirports[currentStartICAO].elevation  ?? null) : null;
     currentDestElev = (globalAirports && globalAirports[currentDestICAO])   ? (globalAirports[currentDestICAO].elevation   ?? null) : null;

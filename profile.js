@@ -3833,6 +3833,26 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'v3'))).toUpperCase();
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
+        const poiChainDebug = (window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object') ? window.gaPoiChainDebug : {};
+        const poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';
+        const poiChainSpec = missionSnap.poiChain || missionSnap.contract?.poiChain || null;
+        if (poiChainForce || poiChainDebug.last || poiChainSpec) {
+            const chainBits = [`Force=${poiChainForce || 'aus'}`];
+            if (poiChainSpec?.label) chainBits.push(`Mission=${flattenText(poiChainSpec.label, 70)}`);
+            if (Number.isFinite(Number(poiChainSpec?.points?.length))) chainBits.push(`Punkte=${Number(poiChainSpec.points.length)}`);
+            const last = poiChainDebug.last || null;
+            if (last && typeof last === 'object') {
+                if (last.ok) {
+                    chainBits.push(`last=ok`);
+                    if (last.theme) chainBits.push(`theme=${String(last.theme)}`);
+                    if (Number.isFinite(Number(last.points))) chainBits.push(`found=${Number(last.points)}`);
+                } else {
+                    chainBits.push(`last=${last.status || 'no_chain'}`);
+                    if (last.forced) chainBits.push('forced=yes');
+                }
+            }
+            lines.push(`- POI-Ketten-Debug: ${chainBits.join(' | ')}`);
+        }
         const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || (missionSnap.restored ? null : window.gaMissionPipelineV2Last) || null;
         if (planV2 && typeof planV2 === 'object') {
             const p2 = planV2.plan || {};
@@ -4109,6 +4129,7 @@ window.vpRefreshWeatherDebugReport = function() {
     try {
         body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
         if (typeof window.missionFollowupInit === 'function') window.missionFollowupInit();
+        if (typeof window.updatePoiChainDebugForceButtonUi === 'function') window.updatePoiChainDebugForceButtonUi();
     } catch (err) {
         const msg = err && (err.stack || err.message || String(err));
         body.textContent = `Debug-Report Fehler:\n${msg || 'unknown'}`;

@@ -1,0 +1,1250 @@
+(function(root) {
+    'use strict';
+
+    const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
+    const EARTH_RADIUS_NM = 3440.065;
+
+    const DEFAULTS = {
+        guideMaxCrossTrackNm: 5,
+        candidateMaxCrossTrackNm: 2.5,
+        clusterRadiusNm: 0.18,
+        minSpacingNm: 1.2,
+        triggerRadiusNm: 0.45,
+        minGuidePoints: 8,
+        minPoints: 3,
+        maxPoints: 8,
+        minScore: 2,
+        projectionSlack: 0.06
+    };
+
+    const THEME_DEFAULTS = {
+        river_bridge_inspection: {
+            guideTypes: ['waterway', 'river'],
+            candidateMode: 'bridge',
+            candidateMaxCrossTrackNm: 1.5,
+            clusterRadiusNm: 0.16,
+            minSpacingNm: 1.0,
+            minScore: 8,
+            minPoints: 3,
+            maxPoints: 8,
+            overlayLabel: 'Korridor-Brueckenpruefung'
+        },
+        road_bridge_inspection: {
+            guideTypes: ['highway', 'road'],
+            candidateMode: 'road_bridge',
+            candidateMaxCrossTrackNm: 1.2,
+            clusterRadiusNm: 0.16,
+            minSpacingNm: 1.0,
+            minScore: 8,
+            minPoints: 3,
+            maxPoints: 8,
+            overlayLabel: 'Strassenbauwerk-Kette'
+        },
+        road_junction_survey: {
+            guideTypes: ['highway', 'road'],
+            candidateMode: 'road_junction',
+            candidateMaxCrossTrackNm: 1.8,
+            clusterRadiusNm: 0.22,
+            minSpacingNm: 1.6,
+            minScore: 6,
+            minPoints: 3,
+            maxPoints: 8,
+            includePoiLayer: true,
+            overlayLabel: 'Verkehrskorridor'
+        },
+        rail_chain_inspection: {
+            guideTypes: ['railway', 'rail'],
+            candidateMode: 'rail',
+            candidateMaxCrossTrackNm: 0.85,
+            clusterRadiusNm: 0.22,
+            minSpacingNm: 1.0,
+            minScore: 4,
+            minPoints: 3,
+            maxPoints: 8,
+            includePoiLayer: true,
+            overlayLabel: 'Bahnkorridor'
+        },
+        power_grid_inspection: {
+            guideTypes: ['power', 'powerline', 'line', 'minor_line'],
+            candidateMode: 'power',
+            guideMaxCrossTrackNm: 7,
+            candidateMaxCrossTrackNm: 2.2,
+            clusterRadiusNm: 0.28,
+            minSpacingNm: 1.4,
+            minScore: 4,
+            minPoints: 2,
+            maxPoints: 6,
+            overlayLabel: 'Stromtrassen-Kette'
+        },
+        generic_poi_chain: {
+            guideTypes: [],
+            candidateMode: 'generic',
+            minScore: 1,
+            minPoints: 3,
+            maxPoints: 8,
+            overlayLabel: 'POI-Kette'
+        }
+    };
+
+    const ROAD_RANKS = {
+        motorway: 9,
+        trunk: 8,
+        primary: 7,
+        secondary: 6,
+        tertiary: 5,
+        unclassified: 3,
+        residential: 2,
+        service: 1,
+        track: 1
+    };
+
+    function cleanText(value, maxLen = 160) {
+        const s = String(value || '').replace(/\s+/g, ' ').trim();
+        return maxLen > 0 && s.length > maxLen ? s.slice(0, maxLen).trim() : s;
+    }
+
+    function asNumber(value, fallback = null) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    }
+
+    function roundNumber(value, digits = 6) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return null;
+        const p = 10 ** digits;
+        return Math.round(n * p) / p;
+    }
+
+    function clamp(value, min, max) {
+        const n = asNumber(value, min);
+        return Math.max(min, Math.min(max, n));
+    }
+
+    function toRad(value) {
+        return Number(value) * Math.PI / 180;
+    }
+
+    function toDeg(value) {
+        return Number(value) * 180 / Math.PI;
+    }
+
+    function haversineNm(lat1, lon1, lat2, lon2) {
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const p1 = toRad(lat1);
+        const p2 = toRad(lat2);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+        return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * EARTH_RADIUS_NM;
+    }
+
+    function bearingDeg(lat1, lon1, lat2, lon2) {
+        const p1 = toRad(lat1);
+        const p2 = toRad(lat2);
+        const dLon = toRad(lon2 - lon1);
+        const y = Math.sin(dLon) * Math.cos(p2);
+        const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dLon);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function normalizePattern(pattern) {
+        if (!pattern) return null;
+        if (pattern instanceof RegExp) return pattern;
+        const s = String(pattern || '').trim();
+        if (!s) return null;
+        try {
+            return new RegExp(s, 'i');
+        } catch (_) {
+            return new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        }
+    }
+
+    function localPointNm(lat, lon, originLat, originLon) {
+        const avgLat = toRad((Number(lat) + Number(originLat)) / 2);
+        return {
+            x: (Number(lon) - Number(originLon)) * Math.cos(avgLat) * 60,
+            y: (Number(lat) - Number(originLat)) * 60
+        };
+    }
+
+    function projectPointToSegmentNm(lat, lon, start, end) {
+        const e = localPointNm(end.lat, end.lon, start.lat, start.lon);
+        const p = localPointNm(lat, lon, start.lat, start.lon);
+        const lenSq = e.x * e.x + e.y * e.y;
+        const lenNm = Math.sqrt(lenSq);
+        if (!(lenSq > 0)) return null;
+        const t = (p.x * e.x + p.y * e.y) / lenSq;
+        const cx = t * e.x;
+        const cy = t * e.y;
+        return {
+            t,
+            tClamped: clamp(t, 0, 1),
+            crossTrackNm: Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2),
+            alongNm: clamp(t, 0, 1) * lenNm,
+            lengthNm: lenNm
+        };
+    }
+
+    function valueText(feature, keys) {
+        for (const key of keys) {
+            const value = feature?.[key];
+            if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+            const tagValue = feature?.tags?.[key];
+            if (tagValue !== undefined && tagValue !== null && String(tagValue).trim()) return String(tagValue).trim();
+        }
+        return '';
+    }
+
+    function featureName(feature) {
+        return cleanText(valueText(feature, ['name', 'ref', 'operator', 'cluster_sample_names', 'osm_id']), 120);
+    }
+
+    function featureTokens(feature) {
+        return [
+            feature?.name,
+            feature?.ref,
+            feature?.operator,
+            feature?.type,
+            feature?.infra_type,
+            feature?.cluster_type,
+            feature?.waterway,
+            feature?.highway,
+            feature?.railway,
+            feature?.power,
+            feature?.man_made,
+            feature?.route,
+            feature?.line,
+            feature?.osm_id
+        ].filter(v => v !== undefined && v !== null && String(v).trim()).join(' ');
+    }
+
+    function fieldValue(feature, key, fallback = '') {
+        const value = feature?.[key];
+        if (value !== undefined && value !== null && String(value).trim()) return value;
+        const tagValue = feature?.tags?.[key];
+        if (tagValue !== undefined && tagValue !== null && String(tagValue).trim()) return tagValue;
+        return fallback;
+    }
+
+    function hasMeaningfulName(feature) {
+        const name = cleanText(feature?.name || '');
+        if (!name) return false;
+        if (/^(yes|no|bridge|road|track|rail|line|minor_line|station|halt)$/i.test(name)) return false;
+        if (/^(baustellenbereich|infrastrukturpunkt)$/i.test(name)) return false;
+        return true;
+    }
+
+    function normalizeFeature(raw, sourceLayer = 'unknown', sourceTile = '') {
+        if (!raw || typeof raw !== 'object') return null;
+        const lat = asNumber(raw.lat ?? raw.latitude);
+        const lon = asNumber(raw.lon ?? raw.lng ?? raw.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const tags = (raw.tags && typeof raw.tags === 'object') ? raw.tags : {};
+        const sourceKind = String(raw.sourceKind || '').toLowerCase();
+        const inferredSourceLayer = sourceLayer && sourceLayer !== 'unknown'
+            ? sourceLayer
+            : (sourceKind === 'lin'
+                ? 'core.lin'
+                : (sourceKind === 'infra'
+                    ? (tags.infra_cluster ? 'infra.clusters' : 'infra.poi')
+                    : (sourceKind === 'poi' ? 'poi.poi' : sourceLayer || 'unknown')));
+        const normalized = {
+            ...raw,
+            lat,
+            lon,
+            name: cleanText(raw.name || tags.name || raw.ref || tags.ref || raw.operator || tags.operator || raw.cluster_sample_names || tags.cluster_sample_names || ''),
+            ref: cleanText(raw.ref || tags.ref || '', 80),
+            operator: cleanText(raw.operator || tags.operator || '', 120),
+            type: cleanText(raw.type || raw.rawType || tags.layer || tags.obstacle_type || '', 80).toLowerCase(),
+            infra_type: cleanText(raw.infra_type || tags.infra_type || '', 80).toLowerCase(),
+            cluster_type: cleanText(raw.cluster_type || tags.cluster_type || '', 80).toLowerCase(),
+            waterway: cleanText(raw.waterway || tags.waterway || '', 80).toLowerCase(),
+            water: cleanText(raw.water || tags.water || '', 80).toLowerCase(),
+            highway: cleanText(raw.highway || tags.highway || '', 80).toLowerCase(),
+            railway: cleanText(raw.railway || tags.railway || '', 80).toLowerCase(),
+            power: cleanText(raw.power || tags.power || '', 80).toLowerCase(),
+            man_made: cleanText(raw.man_made || tags.man_made || '', 80).toLowerCase(),
+            route: cleanText(raw.route || tags.route || '', 80).toLowerCase(),
+            line: cleanText(raw.line || tags.line || '', 80).toLowerCase(),
+            bridge: cleanText(raw.bridge || tags.bridge || '', 80).toLowerCase(),
+            substation: cleanText(raw.substation || tags.substation || '', 80).toLowerCase(),
+            voltage: cleanText(raw.voltage || tags.voltage || '', 80),
+            sample_count: Number(raw.sample_count || tags.sample_count || tags.cluster_count || raw.cluster_count || 0),
+            cluster_count: Number(raw.cluster_count || tags.cluster_count || 0),
+            cluster_sample_names: cleanText(raw.cluster_sample_names || tags.cluster_sample_names || '', 180),
+            sourceLayer: inferredSourceLayer,
+            sourceTile: cleanText(sourceTile || raw.sourceTile || raw.tile || '', 40)
+        };
+        normalized._tokens = featureTokens(normalized).toLowerCase();
+        normalized._name = featureName(normalized);
+        normalized._id = cleanText([
+            inferredSourceLayer,
+            sourceTile || raw.sourceTile || raw.tile || '',
+            raw.osm_kind || '',
+            raw.osm_id || '',
+            normalized.infra_type || normalized.cluster_type || normalized.type || '',
+            roundNumber(lat, 5),
+            roundNumber(lon, 5)
+        ].join(':').replace(/:+/g, ':'), 220);
+        return normalized;
+    }
+
+    function inferSourceLayer(item, fallback = 'unknown') {
+        const sourceLayer = String(item?.sourceLayer || '').toLowerCase();
+        if (sourceLayer === 'core.lin' || sourceLayer === 'core.poi' || sourceLayer === 'core.obs' || sourceLayer === 'infra.poi' || sourceLayer === 'infra.clusters' || sourceLayer === 'poi.poi') return sourceLayer;
+        const sourceKind = String(item?.sourceKind || '').toLowerCase();
+        const tags = item?.tags && typeof item.tags === 'object' ? item.tags : {};
+        if (sourceKind === 'lin') return 'core.lin';
+        if (sourceKind === 'infra') return tags.infra_cluster ? 'infra.clusters' : 'infra.poi';
+        if (sourceKind === 'poi') return 'poi.poi';
+        if (sourceKind === 'obs') return 'core.obs';
+        return fallback || 'unknown';
+    }
+
+    function pushPayloadFeatures(out, payload, layerName) {
+        if (!payload) return;
+        if (Array.isArray(payload)) {
+            for (const item of payload) {
+                const f = normalizeFeature(item, inferSourceLayer(item, layerName || 'unknown'), item?.sourceTile || item?.tile || '');
+                if (f) out.push(f);
+            }
+            return;
+        }
+        if (typeof payload !== 'object') return;
+        const tile = String(payload.tile || payload.meta?.tile || '');
+        const pushList = (list, sourceLayer) => {
+            if (!Array.isArray(list)) return;
+            for (const item of list) {
+                const f = normalizeFeature(item, sourceLayer, tile);
+                if (f) out.push(f);
+            }
+        };
+        if (layerName === 'core' || !layerName) {
+            pushList(payload.core?.lin, 'core.lin');
+            pushList(payload.core?.poi, 'core.poi');
+        }
+        if (layerName === 'infra' || !layerName) {
+            pushList(payload.infra?.poi, 'infra.poi');
+            pushList(payload.infra?.clusters, 'infra.clusters');
+        }
+        if (layerName === 'poi' || !layerName) {
+            pushList(payload.poi?.poi, 'poi.poi');
+        }
+    }
+
+    function collectFeatures(tileBundle = {}) {
+        const core = [];
+        const infra = [];
+        const poi = [];
+        const asList = value => Array.isArray(value) ? value : [];
+        const pushFlat = list => {
+            for (const item of asList(list)) {
+                const sourceLayer = inferSourceLayer(item);
+                const bucket = sourceLayer.startsWith('infra.') ? infra : (sourceLayer.startsWith('poi.') ? poi : core);
+                const f = normalizeFeature(item, sourceLayer, item?.sourceTile || item?.tile || '');
+                if (f) bucket.push(f);
+            }
+        };
+        pushFlat(tileBundle.features);
+        pushFlat(tileBundle.allFeatures);
+        pushFlat(tileBundle.flatFeatures);
+        for (const payload of asList(tileBundle.coreTiles || tileBundle.core || tileBundle.tiles)) pushPayloadFeatures(core, payload, 'core');
+        for (const payload of asList(tileBundle.infraTiles || tileBundle.infra)) pushPayloadFeatures(infra, payload, 'infra');
+        for (const payload of asList(tileBundle.poiTiles || tileBundle.poi)) pushPayloadFeatures(poi, payload, 'poi');
+        if (Array.isArray(tileBundle.allTiles)) {
+            for (const payload of tileBundle.allTiles) pushPayloadFeatures(core, payload, 'core');
+            for (const payload of tileBundle.allTiles) pushPayloadFeatures(infra, payload, 'infra');
+            for (const payload of tileBundle.allTiles) pushPayloadFeatures(poi, payload, 'poi');
+        }
+        return { core, infra, poi };
+    }
+
+    function normalizeConfig(input = {}) {
+        const themeId = String(input.theme || input.kind || 'generic_poi_chain').toLowerCase();
+        const themeDefaults = THEME_DEFAULTS[themeId] || THEME_DEFAULTS.generic_poi_chain;
+        const cfg = {
+            ...DEFAULTS,
+            ...themeDefaults,
+            ...input,
+            theme: themeId
+        };
+        cfg.guideNamePattern = normalizePattern(input.guideNamePattern || input.guidePattern || input.guideName || input.namePattern);
+        cfg.candidateNamePattern = normalizePattern(input.candidateNamePattern || input.candidatePattern);
+        cfg.guideTypes = Array.isArray(input.guideTypes) && input.guideTypes.length
+            ? input.guideTypes.map(v => String(v).toLowerCase())
+            : (themeDefaults.guideTypes || []).map(v => String(v).toLowerCase());
+        cfg.start = normalizePoint(input.start || input.from || input.begin);
+        cfg.end = normalizePoint(input.end || input.to || input.finish);
+        cfg.minGuidePoints = Math.max(2, Math.round(Number(cfg.minGuidePoints || DEFAULTS.minGuidePoints)));
+        cfg.minPoints = Math.max(1, Math.round(Number(cfg.minPoints || DEFAULTS.minPoints)));
+        cfg.maxPoints = Math.max(cfg.minPoints, Math.round(Number(cfg.maxPoints || DEFAULTS.maxPoints)));
+        cfg.guideMaxCrossTrackNm = Math.max(0.2, Number(cfg.guideMaxCrossTrackNm || DEFAULTS.guideMaxCrossTrackNm));
+        cfg.candidateMaxCrossTrackNm = Math.max(0.1, Number(cfg.candidateMaxCrossTrackNm || DEFAULTS.candidateMaxCrossTrackNm));
+        cfg.clusterRadiusNm = Math.max(0.03, Number(cfg.clusterRadiusNm || DEFAULTS.clusterRadiusNm));
+        cfg.minSpacingNm = Math.max(0.05, Number(cfg.minSpacingNm || DEFAULTS.minSpacingNm));
+        cfg.minScore = Number.isFinite(Number(cfg.minScore)) ? Number(cfg.minScore) : DEFAULTS.minScore;
+        cfg.projectionSlack = Math.max(0, Math.min(0.3, Number(cfg.projectionSlack || DEFAULTS.projectionSlack)));
+        cfg.triggerRadiusNm = Math.max(0.1, Number(cfg.triggerRadiusNm || DEFAULTS.triggerRadiusNm));
+        cfg.sequenceRequired = cfg.sequenceRequired !== false;
+        return cfg;
+    }
+
+    function normalizePoint(point) {
+        if (!point || typeof point !== 'object') return null;
+        const lat = asNumber(point.lat);
+        const lon = asNumber(point.lon ?? point.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        return { lat, lon, label: cleanText(point.label || point.name || '') };
+    }
+
+    function typeMatches(feature, types) {
+        if (!types || !types.length) return true;
+        const values = [
+            feature.type,
+            feature.infra_type,
+            feature.cluster_type,
+            feature.waterway,
+            feature.highway,
+            feature.railway,
+            feature.power,
+            feature.route,
+            feature.man_made
+        ].map(v => String(v || '').toLowerCase()).filter(Boolean);
+        return types.some(type => values.includes(type) || values.some(v => v.indexOf(type) >= 0));
+    }
+
+    function guideMatches(feature, cfg, segment) {
+        if (!feature || !segment) return false;
+        if (!typeMatches(feature, cfg.guideTypes)) return false;
+        if (cfg.guideNamePattern && !cfg.guideNamePattern.test(featureTokens(feature))) return false;
+        const proj = projectPointToSegmentNm(feature.lat, feature.lon, segment.start, segment.end);
+        if (!proj) return false;
+        if (proj.t < -cfg.projectionSlack || proj.t > 1 + cfg.projectionSlack) return false;
+        if (proj.crossTrackNm > cfg.guideMaxCrossTrackNm) return false;
+        feature._projection = proj;
+        return true;
+    }
+
+    function isBridge(feature) {
+        const infraType = String(feature.infra_type || feature.cluster_type || '').toLowerCase();
+        const bridge = String(feature.bridge || '').toLowerCase();
+        const manMade = String(feature.man_made || '').toLowerCase();
+        return infraType === 'bridge' || bridge === 'yes' || bridge === 'viaduct' || manMade === 'bridge';
+    }
+
+    function isRoadBridge(feature) {
+        if (!isBridge(feature)) return false;
+        const highway = String(feature.highway || '').toLowerCase();
+        return Boolean(highway && highway !== 'path' && highway !== 'footway' && highway !== 'cycleway') || !String(feature.railway || '').trim();
+    }
+
+    function isRoadJunction(feature) {
+        const highway = String(feature.highway || '').toLowerCase();
+        const infraType = String(feature.infra_type || feature.cluster_type || '').toLowerCase();
+        return highway === 'motorway_junction'
+            || highway === 'trunk_junction'
+            || infraType === 'road_junction'
+            || /\b(motorway_junction|anschlussstelle|kreuz|dreieck)\b/i.test(featureTokens(feature));
+    }
+
+    function isRailPoint(feature) {
+        const railway = String(feature.railway || '').toLowerCase();
+        const infraType = String(feature.infra_type || feature.cluster_type || '').toLowerCase();
+        return infraType === 'rail'
+            || infraType === 'railway'
+            || ['station', 'halt', 'signal_box', 'switch', 'level_crossing', 'crossing', 'junction', 'buffer_stop', 'yard'].includes(railway);
+    }
+
+    function isPowerPoint(feature) {
+        const power = String(feature.power || '').toLowerCase();
+        const infraType = String(feature.infra_type || feature.cluster_type || '').toLowerCase();
+        const manMade = String(feature.man_made || '').toLowerCase();
+        return infraType === 'power'
+            || infraType === 'power_grid'
+            || infraType === 'power_station'
+            || ['substation', 'switchgear', 'tower', 'pole', 'line', 'minor_line', 'plant', 'generator'].includes(power)
+            || manMade === 'power_tower';
+    }
+
+    function candidateMatchesMode(feature, mode) {
+        const m = String(mode || 'generic').toLowerCase();
+        if (m === 'bridge') return isBridge(feature);
+        if (m === 'road_bridge') return isRoadBridge(feature);
+        if (m === 'road_junction') return isRoadJunction(feature);
+        if (m === 'rail') return isRailPoint(feature);
+        if (m === 'power') return isPowerPoint(feature);
+        return true;
+    }
+
+    function scoreBridge(feature) {
+        let score = 0;
+        const highway = String(feature.highway || '').toLowerCase();
+        const railway = String(feature.railway || '').toLowerCase();
+        if (highway) score += ROAD_RANKS[highway] || 2;
+        if (railway === 'rail') score += 6;
+        if (railway && railway !== 'rail') score += 3;
+        if (String(feature.ref || '').trim()) score += 2;
+        if (hasMeaningfulName(feature)) score += 2;
+        if (Number(feature.sample_count) >= 4) score += 1;
+        if (String(feature.service || '').toLowerCase() === 'yard') score -= 2;
+        return score;
+    }
+
+    function scoreRoadJunction(feature) {
+        let score = 0;
+        const highway = String(feature.highway || '').toLowerCase();
+        if (highway === 'motorway_junction') score += 8;
+        if (highway === 'trunk_junction') score += 7;
+        if (/^(kreuz|dreieck)\b/i.test(feature.name || '')) score += 3;
+        if (String(feature.ref || '').trim()) score += 2;
+        if (hasMeaningfulName(feature)) score += 2;
+        return score;
+    }
+
+    function scoreRail(feature) {
+        let score = 0;
+        const railway = String(feature.railway || '').toLowerCase();
+        const infraType = String(feature.infra_type || '').toLowerCase();
+        if (railway === 'station') score += 8;
+        else if (railway === 'halt') score += 6;
+        else if (railway === 'signal_box') score += 5;
+        else if (railway === 'switch') score += 4;
+        else if (railway === 'level_crossing' || railway === 'crossing') score += 3;
+        else if (railway === 'junction') score += 4;
+        else if (railway === 'rail') score += 1;
+        if (infraType === 'bridge') score += 2;
+        if (hasMeaningfulName(feature)) score += 2;
+        if (String(feature.operator || '').trim()) score += 1;
+        if (/^(db infrago|db netz)$/i.test(feature.name || '')) score -= 2;
+        return score;
+    }
+
+    function scorePower(feature) {
+        let score = 0;
+        const power = String(feature.power || '').toLowerCase();
+        const infraType = String(feature.infra_type || feature.cluster_type || '').toLowerCase();
+        if (power === 'substation' || String(feature.substation || '').trim()) score += 8;
+        else if (power === 'switchgear') score += 7;
+        else if (power === 'plant') score += 6;
+        else if (power === 'line') score += 5;
+        else if (power === 'tower') score += 4;
+        else if (power === 'minor_line') score += 1;
+        else if (power === 'pole') score += 1;
+        if (infraType === 'power_grid' || infraType === 'power_station') score += 3;
+        if (hasMeaningfulName(feature)) score += 2;
+        if (String(feature.operator || '').trim()) score += 1;
+        if (String(feature.voltage || '').trim()) score += 1;
+        return score;
+    }
+
+    function scoreGeneric(feature) {
+        let score = 1;
+        if (hasMeaningfulName(feature)) score += 2;
+        if (String(feature.ref || '').trim()) score += 1;
+        if (String(feature.operator || '').trim()) score += 1;
+        return score;
+    }
+
+    function scoreCandidate(feature, cfg) {
+        const mode = String(cfg.candidateMode || 'generic').toLowerCase();
+        let score = 0;
+        if (mode === 'bridge' || mode === 'road_bridge') score = scoreBridge(feature);
+        else if (mode === 'road_junction') score = scoreRoadJunction(feature);
+        else if (mode === 'rail') score = scoreRail(feature);
+        else if (mode === 'power') score = scorePower(feature);
+        else score = scoreGeneric(feature);
+        if (cfg.candidateNamePattern && cfg.candidateNamePattern.test(featureTokens(feature))) score += 3;
+        return score;
+    }
+
+    function collectCandidatePool(features, cfg) {
+        const pool = [];
+        pool.push(...features.infra);
+        if (cfg.includePoiLayer !== false) pool.push(...features.poi);
+        if (cfg.includeCorePoiLayer) pool.push(...features.core.filter(f => f.sourceLayer === 'core.poi'));
+        return pool;
+    }
+
+    function findGuidePoints(features, cfg, segment) {
+        return features.core
+            .filter(f => f.sourceLayer === 'core.lin')
+            .filter(f => guideMatches(f, cfg, segment))
+            .sort((a, b) => a._projection.t - b._projection.t);
+    }
+
+    function nearestGuideProjection(feature, guidePoints) {
+        if (!Array.isArray(guidePoints) || !guidePoints.length) return null;
+        let best = null;
+        for (const guide of guidePoints) {
+            const distNm = haversineNm(feature.lat, feature.lon, guide.lat, guide.lon);
+            if (!best || distNm < best.crossTrackNm) {
+                best = {
+                    t: guide._projection?.t ?? 0,
+                    tClamped: guide._projection?.tClamped ?? clamp(guide._projection?.t ?? 0, 0, 1),
+                    crossTrackNm: distNm,
+                    alongNm: guide._projection?.alongNm ?? 0,
+                    lengthNm: guide._projection?.lengthNm ?? 0
+                };
+            }
+        }
+        return best;
+    }
+
+    function findCandidates(features, cfg, segment, guidePoints) {
+        const raw = collectCandidatePool(features, cfg);
+        const candidates = [];
+        for (const feature of raw) {
+            if (!candidateMatchesMode(feature, cfg.candidateMode)) continue;
+            if (cfg.candidateNamePattern && !cfg.candidateNamePattern.test(featureTokens(feature)) && String(cfg.candidateMode) === 'generic') continue;
+            const proj = projectPointToSegmentNm(feature.lat, feature.lon, segment.start, segment.end);
+            if (!proj) continue;
+            if (proj.t < -cfg.projectionSlack || proj.t > 1 + cfg.projectionSlack) continue;
+            const guideProj = nearestGuideProjection(feature, guidePoints);
+            const effectiveProj = guideProj || proj;
+            if (effectiveProj.crossTrackNm > cfg.candidateMaxCrossTrackNm) continue;
+            const score = scoreCandidate(feature, cfg);
+            if (score < cfg.minScore) continue;
+            candidates.push({
+                ...feature,
+                _projection: effectiveProj,
+                _segmentProjection: proj,
+                _score: score
+            });
+        }
+        return candidates.sort((a, b) => a._projection.t - b._projection.t || b._score - a._score);
+    }
+
+    function chooseBetterCandidate(a, b) {
+        if (!a) return b;
+        if (!b) return a;
+        if (b._score !== a._score) return b._score > a._score ? b : a;
+        if (hasMeaningfulName(b) !== hasMeaningfulName(a)) return hasMeaningfulName(b) ? b : a;
+        const bSamples = Number(b.sample_count || b.cluster_count || 0);
+        const aSamples = Number(a.sample_count || a.cluster_count || 0);
+        if (bSamples !== aSamples) return bSamples > aSamples ? b : a;
+        return a;
+    }
+
+    function clusterCandidates(candidates, radiusNm) {
+        const clusters = [];
+        for (const candidate of candidates) {
+            let cluster = null;
+            for (const existing of clusters) {
+                if (haversineNm(candidate.lat, candidate.lon, existing.lat, existing.lon) <= radiusNm) {
+                    cluster = existing;
+                    break;
+                }
+            }
+            if (!cluster) {
+                clusters.push({
+                    lat: candidate.lat,
+                    lon: candidate.lon,
+                    members: [candidate],
+                    representative: candidate
+                });
+            } else {
+                cluster.members.push(candidate);
+                cluster.representative = chooseBetterCandidate(cluster.representative, candidate);
+                cluster.lat = cluster.members.reduce((sum, f) => sum + f.lat, 0) / cluster.members.length;
+                cluster.lon = cluster.members.reduce((sum, f) => sum + f.lon, 0) / cluster.members.length;
+            }
+        }
+        return clusters.map(cluster => {
+            const rep = cluster.representative;
+            return {
+                ...rep,
+                lat: rep.lat,
+                lon: rep.lon,
+                _clusterCount: cluster.members.length,
+                _clusterMembers: cluster.members.map(f => f._id).slice(0, 8)
+            };
+        }).sort((a, b) => a._projection.t - b._projection.t || b._score - a._score);
+    }
+
+    function selectSpacedCandidates(clustered, cfg) {
+        const selected = [];
+        for (const candidate of clustered) {
+            const nearIdx = selected.findIndex(existing => haversineNm(existing.lat, existing.lon, candidate.lat, candidate.lon) < cfg.minSpacingNm);
+            if (nearIdx >= 0) {
+                selected[nearIdx] = chooseBetterCandidate(selected[nearIdx], candidate);
+                selected.sort((a, b) => a._projection.t - b._projection.t || b._score - a._score);
+                continue;
+            }
+            selected.push(candidate);
+            selected.sort((a, b) => a._projection.t - b._projection.t || b._score - a._score);
+        }
+        if (selected.length <= cfg.maxPoints) return selected;
+        const keep = [];
+        const step = (selected.length - 1) / Math.max(1, cfg.maxPoints - 1);
+        const used = new Set();
+        for (let i = 0; i < cfg.maxPoints; i++) {
+            const idx = Math.round(i * step);
+            let bestIdx = idx;
+            for (let delta = 0; delta < selected.length; delta++) {
+                const left = idx - delta;
+                const right = idx + delta;
+                if (left >= 0 && !used.has(left)) { bestIdx = left; break; }
+                if (right < selected.length && !used.has(right)) { bestIdx = right; break; }
+            }
+            used.add(bestIdx);
+            keep.push(selected[bestIdx]);
+        }
+        return keep.sort((a, b) => a._projection.t - b._projection.t || b._score - a._score);
+    }
+
+    function categoryFor(feature, mode) {
+        const m = String(mode || '').toLowerCase();
+        if (m === 'road_bridge') return 'road_bridge';
+        if (m === 'road_junction') return 'road_junction';
+        if (m === 'bridge') {
+            if (String(feature.railway || '').toLowerCase()) return 'rail_bridge';
+            if (String(feature.highway || '').toLowerCase()) return 'road_bridge';
+            return 'bridge';
+        }
+        if (m === 'rail') {
+            const railway = String(feature.railway || '').toLowerCase();
+            return railway ? `rail_${railway}` : 'rail_point';
+        }
+        if (m === 'power') {
+            const power = String(feature.power || feature.substation || '').toLowerCase();
+            if (power === 'substation') return 'power_substation';
+            if (power === 'line' || power === 'minor_line') return 'power_line';
+            if (power === 'tower' || power === 'pole') return 'power_support';
+            return 'power_grid';
+        }
+        return cleanText(feature.infra_type || feature.highway || feature.railway || feature.power || 'poi', 60);
+    }
+
+    function pointDisplayName(feature, mode, index) {
+        const name = featureName(feature);
+        if (name) return name;
+        const cat = categoryFor(feature, mode).replace(/_/g, ' ');
+        return `${cat} ${index + 1}`;
+    }
+
+    function buildPoint(feature, cfg, index, prev) {
+        const distPrev = prev ? haversineNm(prev.lat, prev.lon, feature.lat, feature.lon) : 0;
+        const bearingPrev = prev ? bearingDeg(prev.lat, prev.lon, feature.lat, feature.lon) : null;
+        return {
+            id: cleanText(`chain-${cfg.theme}-${index + 1}-${feature._id || `${feature.lat},${feature.lon}`}`, 180),
+            index,
+            name: pointDisplayName(feature, cfg.candidateMode, index),
+            lat: roundNumber(feature.lat),
+            lon: roundNumber(feature.lon),
+            category: categoryFor(feature, cfg.candidateMode),
+            triggerRadiusNm: roundNumber(cfg.triggerRadiusNm, 2),
+            revealState: index === 0 ? 'visible' : 'hidden',
+            required: true,
+            sourceLayer: feature.sourceLayer || 'unknown',
+            sourceTile: feature.sourceTile || '',
+            score: roundNumber(feature._score, 2),
+            orderT: roundNumber(feature._projection?.t, 4),
+            distCorridorNm: roundNumber(feature._projection?.crossTrackNm, 3),
+            distanceFromPrevNm: roundNumber(distPrev, 2),
+            bearingFromPrevDeg: bearingPrev === null ? null : Math.round(bearingPrev),
+            clusterCount: Math.max(1, Number(feature._clusterCount || feature.cluster_count || 1)),
+            tags: {
+                ref: cleanText(feature.ref || '', 80),
+                highway: cleanText(feature.highway || '', 80),
+                railway: cleanText(feature.railway || '', 80),
+                power: cleanText(feature.power || '', 80),
+                waterway: cleanText(feature.waterway || '', 80),
+                infraType: cleanText(feature.infra_type || feature.cluster_type || '', 80),
+                operator: cleanText(feature.operator || '', 120)
+            }
+        };
+    }
+
+    function statusResult(status, reason, cfg, diagnostics, extra = {}) {
+        return {
+            ok: false,
+            status,
+            reason,
+            chain: null,
+            diagnostics: {
+                theme: cfg.theme,
+                candidateMode: cfg.candidateMode,
+                ...diagnostics
+            },
+            ...extra
+        };
+    }
+
+    function buildPoiChain(config = {}, tileBundle = {}) {
+        const cfg = normalizeConfig(config);
+        const diagnostics = {
+            ordering: 'guide_trace_projection',
+            featureCounts: null,
+            guidePoints: 0,
+            rawCandidates: 0,
+            clusteredCandidates: 0,
+            selectedPoints: 0
+        };
+        if (!cfg.start || !cfg.end) {
+            return statusResult('invalid_config', 'start and end points are required', cfg, diagnostics);
+        }
+        const segment = { start: cfg.start, end: cfg.end };
+        const features = collectFeatures(tileBundle);
+        diagnostics.featureCounts = {
+            core: features.core.length,
+            infra: features.infra.length,
+            poi: features.poi.length
+        };
+        const guidePoints = findGuidePoints(features, cfg, segment);
+        diagnostics.guidePoints = guidePoints.length;
+        diagnostics.guideNames = summarizeNames(guidePoints, 8);
+        if (guidePoints.length < cfg.minGuidePoints) {
+            return statusResult('insufficient_corridor', `only ${guidePoints.length} guide points matched`, cfg, diagnostics);
+        }
+        const rawCandidates = findCandidates(features, cfg, segment, guidePoints);
+        diagnostics.rawCandidates = rawCandidates.length;
+        diagnostics.candidateNames = summarizeNames(rawCandidates, 10);
+        if (!rawCandidates.length) {
+            return statusResult('insufficient_candidates', 'no matching candidates near guide corridor', cfg, diagnostics);
+        }
+        const clustered = clusterCandidates(rawCandidates, cfg.clusterRadiusNm);
+        diagnostics.clusteredCandidates = clustered.length;
+        const selected = selectSpacedCandidates(clustered, cfg);
+        diagnostics.selectedPoints = selected.length;
+        diagnostics.selectedNames = summarizeNames(selected, 12);
+        if (selected.length < cfg.minPoints) {
+            return statusResult('insufficient_chain', `only ${selected.length} selected points after clustering/spacing`, cfg, diagnostics);
+        }
+        const points = [];
+        for (const feature of selected) {
+            points.push(buildPoint(feature, cfg, points.length, points[points.length - 1] || null));
+        }
+        const chain = {
+            schema: 'ga.poiChain.v1',
+            kind: 'poi_chain',
+            mode: 'progressive_reveal',
+            theme: cfg.theme,
+            label: cleanText(cfg.label || cfg.title || cfg.overlayLabel || 'POI-Kette', 120),
+            guide: {
+                type: cfg.guideTypes[0] || '',
+                namePattern: String(config.guideNamePattern || config.guidePattern || config.guideName || ''),
+                start: {
+                    lat: roundNumber(cfg.start.lat),
+                    lon: roundNumber(cfg.start.lon),
+                    label: cfg.start.label || ''
+                },
+                end: {
+                    lat: roundNumber(cfg.end.lat),
+                    lon: roundNumber(cfg.end.lon),
+                    label: cfg.end.label || ''
+                },
+                guidePointCount: guidePoints.length
+            },
+            overlay: {
+                type: 'corridor_hint',
+                label: cleanText(cfg.overlayLabel || cfg.label || 'Korridor', 120),
+                start: { lat: roundNumber(cfg.start.lat), lon: roundNumber(cfg.start.lon) },
+                end: { lat: roundNumber(cfg.end.lat), lon: roundNumber(cfg.end.lon) },
+                radiusNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2)
+            },
+            points,
+            sequenceRequired: cfg.sequenceRequired,
+            completionMode: 'all_required',
+            fallbackAllowed: true,
+            debug: {
+                ordering: diagnostics.ordering,
+                minSpacingNm: roundNumber(cfg.minSpacingNm, 2),
+                clusterRadiusNm: roundNumber(cfg.clusterRadiusNm, 2),
+                candidateMaxCrossTrackNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2)
+            }
+        };
+        return {
+            ok: true,
+            status: 'ready',
+            reason: '',
+            chain,
+            diagnostics: {
+                theme: cfg.theme,
+                candidateMode: cfg.candidateMode,
+                ...diagnostics
+            }
+        };
+    }
+
+    function summarizeNames(features, maxCount) {
+        const out = [];
+        const seen = new Set();
+        for (const feature of features || []) {
+            const label = featureName(feature) || cleanText(feature.infra_type || feature.highway || feature.railway || feature.power || feature.type || '', 80);
+            if (!label) continue;
+            const key = label.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(label);
+            if (out.length >= maxCount) break;
+        }
+        return out;
+    }
+
+    function guideKindForFeature(feature) {
+        if (!feature || feature.sourceLayer !== 'core.lin') return '';
+        const waterway = String(fieldValue(feature, 'waterway') || '').toLowerCase();
+        const water = String(fieldValue(feature, 'water') || '').toLowerCase();
+        const natural = String(fieldValue(feature, 'natural') || '').toLowerCase();
+        const highway = String(fieldValue(feature, 'highway') || '').toLowerCase();
+        const railway = String(fieldValue(feature, 'railway') || '').toLowerCase();
+        const power = String(fieldValue(feature, 'power') || '').toLowerCase();
+        const layer = String(fieldValue(feature, 'layer') || '').toLowerCase();
+        const type = String(feature.type || feature.rawType || '').toLowerCase();
+        const hydroTypes = ['river', 'stream', 'canal', 'ditch', 'drain', 'water', 'lake', 'reservoir', 'dam', 'weir'];
+        const roadTypes = ['highway', 'motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'residential', 'service', 'road'];
+        const railTypes = ['railway', 'rail', 'tram', 'light_rail', 'subway', 'narrow_gauge'];
+        const powerTypes = ['power', 'powerline', 'power_line', 'line', 'minor_line', 'cable'];
+        if (['river', 'stream', 'canal', 'ditch', 'drain'].includes(waterway) || water === 'river' || natural === 'water' || layer === 'hydro' || hydroTypes.includes(type)) return 'waterway';
+        if (highway || layer === 'road' || roadTypes.includes(type)) return 'road';
+        if (railway || layer === 'rail' || railTypes.includes(type)) return 'rail';
+        if (['line', 'minor_line', 'cable', 'powerline', 'power_line'].includes(power) || layer === 'power' || powerTypes.includes(type)) return 'power';
+        return '';
+    }
+
+    function guideGroupKey(feature, kind = '') {
+        const k = String(kind || guideKindForFeature(feature) || '').toLowerCase();
+        const name = cleanText(feature.name || '', 120);
+        const ref = cleanText(feature.ref || '', 80);
+        const operator = cleanText(feature.operator || '', 120);
+        const voltage = cleanText(feature.voltage || '', 80);
+        const railway = cleanText(feature.railway || '', 80);
+        const highway = cleanText(feature.highway || '', 80);
+        const waterway = cleanText(feature.waterway || '', 80);
+        let identity = '';
+        if (k === 'waterway') identity = name || ref || waterway;
+        else if (k === 'road') identity = ref || name || highway;
+        else if (k === 'rail') identity = ref || name || operator || railway;
+        else if (k === 'power') identity = ref || name || operator || voltage || 'power';
+        else identity = name || ref || operator || feature.type || 'line';
+        if (!identity) return '';
+        return `${k}:${normalizeKey(identity)}`;
+    }
+
+    function normalizeKey(value) {
+        return String(value || '')
+            .toLowerCase()
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim()
+            .replace(/\s+/g, '_');
+    }
+
+    function guideGroupLabel(feature, kind = '') {
+        const k = String(kind || guideKindForFeature(feature) || '').toLowerCase();
+        if (k === 'road') return cleanText(feature.ref || feature.name || feature.highway || 'Straßenkorridor', 120);
+        if (k === 'rail') return cleanText(feature.name || feature.ref || feature.operator || 'Bahnkorridor', 120);
+        if (k === 'power') return cleanText(feature.name || feature.ref || feature.operator || (feature.voltage ? `${feature.voltage}V-Leitung` : 'Stromtrasse'), 120);
+        if (k === 'waterway') return cleanText(feature.name || feature.ref || 'Gewässerkorridor', 120);
+        return cleanText(feature.name || feature.ref || 'Korridor', 120);
+    }
+
+    function groupGuideFeatures(features) {
+        const groups = new Map();
+        for (const feature of features?.core || []) {
+            const kind = guideKindForFeature(feature);
+            if (!kind) continue;
+            const key = guideGroupKey(feature, kind);
+            if (!key) continue;
+            const existing = groups.get(key) || {
+                key,
+                kind,
+                label: guideGroupLabel(feature, kind),
+                features: []
+            };
+            existing.features.push(feature);
+            if (!existing.label || existing.label === 'Korridor') existing.label = guideGroupLabel(feature, kind);
+            groups.set(key, existing);
+        }
+        return Array.from(groups.values()).filter(group => group.features.length >= 3);
+    }
+
+    function themeGuideKind(theme = '') {
+        const t = String(theme || '').toLowerCase();
+        if (t === 'river_bridge_inspection') return 'waterway';
+        if (t === 'road_bridge_inspection' || t === 'road_junction_survey') return 'road';
+        if (t === 'rail_chain_inspection') return 'rail';
+        if (t === 'power_grid_inspection') return 'power';
+        return '';
+    }
+
+    function themesForProspectOptions(options = {}) {
+        const forced = String(options.forceTheme || options.theme || '').toLowerCase();
+        if (forced && forced !== 'auto' && THEME_DEFAULTS[forced]) return [forced];
+        const cat = String(options.category || options.selectedCategory || 'all').toLowerCase();
+        if (cat === 'bridge') return ['river_bridge_inspection', 'road_bridge_inspection'];
+        if (cat === 'road') return ['road_bridge_inspection', 'road_junction_survey'];
+        if (cat === 'rail') return ['rail_chain_inspection'];
+        if (cat === 'infrastructure' || cat === 'industry' || cat === 'all' || cat === 'chain') {
+            return ['river_bridge_inspection', 'road_bridge_inspection', 'road_junction_survey', 'rail_chain_inspection', 'power_grid_inspection'];
+        }
+        return [];
+    }
+
+    function farthestGuidePair(group, maxSample = 80) {
+        const points = Array.isArray(group?.features) ? group.features : [];
+        if (points.length < 2) return null;
+        const step = Math.max(1, Math.ceil(points.length / maxSample));
+        const sampled = points.filter((_, idx) => idx % step === 0);
+        if (sampled[sampled.length - 1] !== points[points.length - 1]) sampled.push(points[points.length - 1]);
+        let best = null;
+        for (let i = 0; i < sampled.length; i++) {
+            for (let j = i + 1; j < sampled.length; j++) {
+                const a = sampled[i];
+                const b = sampled[j];
+                const dist = haversineNm(a.lat, a.lon, b.lat, b.lon);
+                if (!best || dist > best.distNm) best = { a, b, distNm: dist };
+            }
+        }
+        return best;
+    }
+
+    function directionMatchesBearing(bearing, dirPref = 'any') {
+        const pref = String(dirPref || 'any').toLowerCase();
+        if (!pref || pref === 'any' || pref === 'all') return true;
+        const b = ((Number(bearing) % 360) + 360) % 360;
+        const sectors = {
+            n: [315, 45],
+            ne: [0, 90],
+            e: [45, 135],
+            se: [90, 180],
+            s: [135, 225],
+            sw: [180, 270],
+            w: [225, 315],
+            nw: [270, 360]
+        };
+        const sector = sectors[pref];
+        if (!sector) return true;
+        const [start, end] = sector;
+        return start <= end ? (b >= start && b <= end) : (b >= start || b <= end);
+    }
+
+    function buildProspectLabel(theme, groupLabel, chain) {
+        const label = cleanText(groupLabel || '', 80);
+        if (theme === 'river_bridge_inspection') return label ? `Brückenkette ${label}` : 'Brückenkette am Gewässer';
+        if (theme === 'road_bridge_inspection') return label ? `Bauwerkskette ${label}` : 'Straßenbauwerkskette';
+        if (theme === 'road_junction_survey') return label ? `Verkehrskorridor ${label}` : 'Verkehrskorridor';
+        if (theme === 'rail_chain_inspection') return label ? `Bahnkorridor ${label}` : 'Bahnkorridor';
+        if (theme === 'power_grid_inspection') return label ? `Stromtrasse ${label}` : 'Stromtrasse';
+        return chain?.label || 'POI-Kette';
+    }
+
+    function scoreProspect(result, group, navFirst, theme) {
+        const points = Number(result?.chain?.points?.length || 0);
+        const guidePoints = Number(result?.diagnostics?.guidePoints || 0);
+        const dist = Number(navFirst?.dist || 0);
+        const themeBonus = {
+            river_bridge_inspection: 12,
+            road_bridge_inspection: 9,
+            road_junction_survey: 8,
+            rail_chain_inspection: 7,
+            power_grid_inspection: 5
+        }[theme] || 0;
+        return (points * 24) + Math.min(guidePoints, 80) * 0.25 + Math.min(Number(group?.features?.length || 0), 80) * 0.15 + themeBonus - Math.abs(dist - 22) * 0.35;
+    }
+
+    function buildPoiChainProspects(options = {}, tileBundle = {}) {
+        const features = collectFeatures(tileBundle);
+        const dispatchStart = normalizePoint({
+            lat: options.dispatchStartLat ?? options.startLat ?? options.lat,
+            lon: options.dispatchStartLon ?? options.startLon ?? options.lon
+        });
+        const minNM = Math.max(0, Number(options.minNM || 0));
+        const maxNM = Math.max(minNM + 0.1, Number(options.maxNM || 9999));
+        const dirPref = String(options.dirPref || 'any').toLowerCase();
+        const themes = themesForProspectOptions(options);
+        const groupPattern = normalizePattern(options.guideNamePattern || options.guidePattern || options.guideName || '');
+        const maxGroupsPerTheme = Math.max(3, Math.min(30, Math.round(Number(options.maxGroupsPerTheme || 14))));
+        const diagnostics = {
+            featureCounts: {
+                core: features.core.length,
+                infra: features.infra.length,
+                poi: features.poi.length
+            },
+            themes,
+            groups: 0,
+            tested: 0,
+            rejected: []
+        };
+        if (!dispatchStart || !themes.length) {
+            return { ok: false, status: 'disabled', prospects: [], diagnostics };
+        }
+        const groups = groupGuideFeatures(features);
+        diagnostics.groups = groups.length;
+        const prospects = [];
+        for (const theme of themes) {
+            const guideKind = themeGuideKind(theme);
+            const matchingGroups = groups
+                .filter(group => !guideKind || group.kind === guideKind)
+                .filter(group => !groupPattern || groupPattern.test(`${group.label} ${group.key}`));
+            const preparedGroups = [];
+            for (const group of matchingGroups) {
+                const pair = farthestGuidePair(group);
+                if (!pair || pair.distNm < 3) continue;
+                const distA = haversineNm(dispatchStart.lat, dispatchStart.lon, pair.a.lat, pair.a.lon);
+                const distB = haversineNm(dispatchStart.lat, dispatchStart.lon, pair.b.lat, pair.b.lon);
+                const start = distA <= distB ? pair.a : pair.b;
+                const end = distA <= distB ? pair.b : pair.a;
+                const firstDist = Math.min(distA, distB);
+                const firstBearing = bearingDeg(dispatchStart.lat, dispatchStart.lon, start.lat, start.lon);
+                if (firstDist > maxNM + 18 || firstDist < Math.max(0, minNM - 18)) continue;
+                if (!directionMatchesBearing(firstBearing, dirPref) && firstDist > minNM) continue;
+                preparedGroups.push({
+                    group,
+                    pair,
+                    start,
+                    end,
+                    firstDist,
+                    firstBearing,
+                    preScore: pair.distNm + Math.min(group.features.length, 80) * 0.12 - Math.abs(firstDist - Math.max(10, minNM)) * 0.12
+                });
+            }
+            preparedGroups.sort((a, b) => b.preScore - a.preScore);
+            diagnostics[`${theme}_groupsTestable`] = preparedGroups.length;
+            for (const prepared of preparedGroups.slice(0, maxGroupsPerTheme)) {
+                const { group, pair, start, end } = prepared;
+                const cfg = {
+                    theme,
+                    label: buildProspectLabel(theme, group.label),
+                    start: { lat: start.lat, lon: start.lon, label: group.label },
+                    end: { lat: end.lat, lon: end.lon, label: group.label },
+                    minPoints: options.minPoints,
+                    maxPoints: options.maxPoints,
+                    minGuidePoints: options.minGuidePoints,
+                    projectionSlack: options.projectionSlack,
+                    triggerRadiusNm: options.triggerRadiusNm
+                };
+                diagnostics.tested += 1;
+                const result = buildPoiChain(cfg, { features: features.core.concat(features.infra, features.poi) });
+                if (!result.ok || !result.chain?.points?.length) {
+                    diagnostics.rejected.push({ theme, group: group.label, status: result.status, reason: result.reason });
+                    continue;
+                }
+                result.chain.label = buildProspectLabel(theme, group.label, result.chain);
+                result.chain.guide.name = group.label;
+                result.chain.guide.groupKey = group.key;
+                result.chain.dispatch = {
+                    firstPointDistanceNm: null,
+                    firstPointBearingDeg: null,
+                    selectedBy: 'poi-chain-prospector'
+                };
+                const first = result.chain.points[0];
+                const navFirst = first
+                    ? {
+                        dist: haversineNm(dispatchStart.lat, dispatchStart.lon, first.lat, first.lon),
+                        brng: bearingDeg(dispatchStart.lat, dispatchStart.lon, first.lat, first.lon)
+                    }
+                    : null;
+                if (!navFirst || navFirst.dist < minNM || navFirst.dist > maxNM || !directionMatchesBearing(navFirst.brng, dirPref)) {
+                    diagnostics.rejected.push({
+                        theme,
+                        group: group.label,
+                        status: 'dispatch_filter',
+                        distNm: navFirst ? roundNumber(navFirst.dist, 2) : null,
+                        bearingDeg: navFirst ? Math.round(navFirst.brng) : null
+                    });
+                    continue;
+                }
+                result.chain.dispatch.firstPointDistanceNm = roundNumber(navFirst.dist, 2);
+                result.chain.dispatch.firstPointBearingDeg = Math.round(navFirst.brng);
+                prospects.push({
+                    ok: true,
+                    status: 'ready',
+                    theme,
+                    group: {
+                        key: group.key,
+                        kind: group.kind,
+                        label: group.label,
+                        featureCount: group.features.length
+                    },
+                    score: roundNumber(scoreProspect(result, group, navFirst, theme), 2),
+                    chain: result.chain,
+                    diagnostics: result.diagnostics
+                });
+            }
+        }
+        prospects.sort((a, b) => b.score - a.score);
+        return {
+            ok: prospects.length > 0,
+            status: prospects.length > 0 ? 'ready' : 'no_chain',
+            prospects,
+            diagnostics: {
+                ...diagnostics,
+                rejected: diagnostics.rejected.slice(0, 16)
+            }
+        };
+    }
+
+    function compactPoiChain(chain = null, maxPoints = 8) {
+        if (!chain || typeof chain !== 'object') return null;
+        const points = Array.isArray(chain.points) ? chain.points.slice(0, maxPoints) : [];
+        return {
+            schema: chain.schema || 'ga.poiChain.v1',
+            kind: chain.kind || 'poi_chain',
+            mode: chain.mode || 'progressive_reveal',
+            theme: String(chain.theme || ''),
+            label: cleanText(chain.label || '', 120),
+            guide: chain.guide ? {
+                type: cleanText(chain.guide.type || '', 80),
+                name: cleanText(chain.guide.name || chain.guide.namePattern || '', 120),
+                start: chain.guide.start || null,
+                end: chain.guide.end || null,
+                guidePointCount: Number(chain.guide.guidePointCount || 0)
+            } : null,
+            overlay: chain.overlay || null,
+            points: points.map((point, idx) => ({
+                id: cleanText(point.id || `chain-point-${idx + 1}`, 180),
+                index: Number.isFinite(Number(point.index)) ? Number(point.index) : idx,
+                name: cleanText(point.name || '', 120),
+                lat: roundNumber(point.lat),
+                lon: roundNumber(point.lon),
+                category: cleanText(point.category || '', 80),
+                triggerRadiusNm: roundNumber(point.triggerRadiusNm || 0.45, 2),
+                revealState: idx === 0 ? 'visible' : (point.revealState || 'hidden'),
+                required: point.required !== false,
+                distanceFromPrevNm: roundNumber(point.distanceFromPrevNm || 0, 2),
+                bearingFromPrevDeg: point.bearingFromPrevDeg === null ? null : Math.round(Number(point.bearingFromPrevDeg || 0)),
+                tags: point.tags || {}
+            })),
+            sequenceRequired: chain.sequenceRequired !== false,
+            completionMode: chain.completionMode || 'all_required',
+            fallbackAllowed: chain.fallbackAllowed !== false,
+            dispatch: chain.dispatch || null
+        };
+    }
+
+    const api = {
+        defaults: DEFAULTS,
+        themeDefaults: THEME_DEFAULTS,
+        buildPoiChain,
+        buildPoiChainProspects,
+        compactPoiChain,
+        normalizeConfig,
+        collectFeatures,
+        _test: {
+            cleanText,
+            haversineNm,
+            bearingDeg,
+            projectPointToSegmentNm,
+            normalizeFeature,
+            scoreCandidate,
+            clusterCandidates,
+            selectSpacedCandidates,
+            candidateMatchesMode,
+            isBridge,
+            isRoadBridge,
+            isRoadJunction,
+            isRailPoint,
+            isPowerPoint,
+            guideKindForFeature,
+            guideGroupKey,
+            groupGuideFeatures,
+            themesForProspectOptions,
+            directionMatchesBearing
+        }
+    };
+
+    host.missionPoiChain = api;
+    if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));
