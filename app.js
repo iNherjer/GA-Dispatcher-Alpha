@@ -5083,7 +5083,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
-        'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt',
+        'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'cargoText', 'passenger',
@@ -9978,12 +9978,270 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
     return null;
 }
 
-async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icaoCode = null, imgContainerId = 'wikiDestImageContainer', imgElId = 'wikiDestImage') {
+function normalizeGermanTargetInfoText(text = '') {
+    return String(text || '')
+        .replace(/\bFuer\b/g, 'Für')
+        .replace(/\bfuer\b/g, 'für')
+        .replace(/Luftueberblick/g, 'Luftüberblick')
+        .replace(/Ueberblick/g, 'Überblick')
+        .replace(/ueber/g, 'über')
+        .replace(/zurueck/g, 'zurück')
+        .replace(/koennen/g, 'können')
+        .replace(/duerfen/g, 'dürfen')
+        .replace(/laesst/g, 'lässt')
+        .replace(/spaeter/g, 'später')
+        .replace(/haengen/g, 'hängen')
+        .replace(/geloest/g, 'gelöst')
+        .replace(/Primaer/g, 'Primär')
+        .replace(/primaer/g, 'primär')
+        .replace(/vollstaendig/g, 'vollständig')
+        .replace(/Gewaesser/g, 'Gewässer')
+        .replace(/gewaesser/g, 'Gewässer')
+        .replace(/Wasserflaeche/g, 'Wasserfläche')
+        .replace(/wasserflaeche/g, 'Wasserfläche')
+        .replace(/Flaechen/g, 'Flächen')
+        .replace(/flaechen/g, 'Flächen')
+        .replace(/Flaeche/g, 'Fläche')
+        .replace(/flaeche/g, 'Fläche')
+        .replace(/Strassen/g, 'Straßen')
+        .replace(/strassen/g, 'Straßen')
+        .replace(/Strasse/g, 'Straße')
+        .replace(/strasse/g, 'Straße')
+        .replace(/Gelaendekanten/g, 'Geländekanten')
+        .replace(/gelaendekanten/g, 'Geländekanten')
+        .replace(/Gelaende/g, 'Gelände')
+        .replace(/gelaende/g, 'Gelände')
+        .replace(/Sedimentbaenke/g, 'Sedimentbänke')
+        .replace(/sedimentbaenke/g, 'Sedimentbänke')
+        .replace(/Veraenderungen/g, 'Veränderungen')
+        .replace(/veraenderungen/g, 'Veränderungen')
+        .replace(/Veraenderung/g, 'Veränderung')
+        .replace(/veraenderung/g, 'Veränderung');
+}
+
+function sanitizeGeneratedPoiTargetInfo(text = '', { maxLen = 760 } = {}) {
+    let clean = String(text || '')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/^\s*(?:targetInfo|poiTargetInfo|Ziel-Info|Zielinfo)\s*:\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!clean) return '';
+    if (/\b(CONTRACT|DISPATCH_FORM|missionTruth|targetGeoContext|sceneIntent|targetAltFt|targetRadiusNm|targetDwellMin|JSON|Regel|Guardrail)\b/i.test(clean)) {
+        return '';
+    }
+    clean = _cleanupNarrativeArtifacts(clean)
+        .replace(/\bZiel-Info\s*:\s*/gi, '')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .trim();
+    clean = normalizeGermanTargetInfoText(clean);
+    const sentences = clean
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    let out = '';
+    for (const sentence of sentences.length ? sentences : [clean]) {
+        const next = `${out}${out ? ' ' : ''}${sentence}`.trim();
+        if (next.length > maxLen && out) break;
+        out = next;
+        if (out.length >= Math.min(420, maxLen)) break;
+    }
+    out = out || clean;
+    if (out.length > maxLen) out = `${out.slice(0, maxLen - 1).replace(/\s+\S*$/, '')}.`;
+    return out.trim();
+}
+
+function poiCategoryDisplayLabel(category = '') {
+    const key = String(category || '').toLowerCase();
+    const labels = {
+        bridge: 'Brücke oder Viadukt',
+        road: 'Straßen- oder Verkehrsziel',
+        dam: 'Staudamm oder Talsperre',
+        water: 'Gewässer- oder Uferziel',
+        mountain: 'Berg- oder Reliefziel',
+        forest: 'Wald- oder Naturziel',
+        city: 'Orts- oder Stadtziel',
+        castle: 'historisches Bauwerk',
+        historic: 'historisches Ziel',
+        infrastructure: 'Infrastrukturziel',
+        industry: 'Industrie- oder Technikziel',
+        telecom: 'Funk- oder Maststandort',
+        fire: 'Feuerwacht-Zielgebiet',
+        trn: 'Übungsgebiet'
+    };
+    return labels[key] || (key ? `${key}-Ziel` : 'POI-Ziel');
+}
+
+function poiAnchorDisplayLabel(key = '', anchor = null) {
+    const raw = String(anchor?.name || key || '').toLowerCase();
+    const labels = {
+        water: 'Gewässer oder Uferlinie',
+        road: 'Straße oder Zufahrt',
+        motorway: 'Autobahn oder Schnellstraße',
+        rail: 'Bahnlinie',
+        railway: 'Bahnlinie',
+        meadow: 'offene Fläche',
+        field: 'Feld oder offene Fläche',
+        forest: 'Waldkante',
+        bridge: 'Brücke',
+        power: 'Stromtrasse',
+        wind: 'Windenergieanlage',
+        parking: 'Park- oder Zufahrtsfläche',
+        building: 'Gebäude',
+        industrial: 'Industriefläche'
+    };
+    return labels[String(key || '').toLowerCase()]
+        || labels[raw]
+        || String(anchor?.name || key || '').replace(/[_-]+/g, ' ').trim();
+}
+
+function buildPoiOrientationSentence(targetGeoContext = null, missionTruth = null) {
+    const anchors = targetGeoContext?.anchors && typeof targetGeoContext.anchors === 'object'
+        ? targetGeoContext.anchors
+        : {};
+    const anchorParts = Object.entries(anchors)
+        .filter(([, anchor]) => anchor && anchor.present)
+        .map(([key, anchor]) => {
+            const label = poiAnchorDisplayLabel(key, anchor);
+            if (!label) return '';
+            const dist = Number(anchor.distM);
+            return Number.isFinite(dist) && dist > 0
+                ? `${label} rund ${Math.round(dist)} m entfernt`
+                : label;
+        })
+        .filter(Boolean)
+        .slice(0, 3);
+    const landmarks = Array.isArray(targetGeoContext?.visualLandmarks)
+        ? targetGeoContext.visualLandmarks
+            .map(item => String(item?.name || item?.label || item || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .slice(0, 2)
+        : [];
+    const cues = Array.isArray(missionTruth?.visibleCues)
+        ? missionTruth.visibleCues.map(cue => String(cue || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 2)
+        : [];
+    const parts = Array.from(new Set([...anchorParts, ...landmarks, ...cues])).slice(0, 4);
+    if (!parts.length) return '';
+    return `Als Orientierung aus der Luft dienen ${_missionPipelineV4JoinNaturalList(parts)}.`;
+}
+
+function buildPoiTargetInfoFromMission(missionData = null, options = {}) {
+    const md = (missionData && typeof missionData === 'object')
+        ? missionData
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    if (!md || !missionUsesPoiPresentation(md)) return '';
+
+    const explicit = sanitizeGeneratedPoiTargetInfo(
+        md.targetInfo || md.poiTargetInfo || md.generatedTargetInfo || '',
+        { maxLen: 760 }
+    );
+    if (explicit) return explicit;
+
+    const contract = md.missionContractV4
+        || md.missionPlanV4
+        || md._missionPlanV4
+        || md.missionContract?.missionContractV4
+        || md.missionContract
+        || {};
+    const plan = md.missionPlanV2?.plan
+        || md._missionPlanV2?.plan
+        || md.missionContract?.missionPlanV2?.plan
+        || contract?.missionPlan?.plan
+        || {};
+    const frame = contract?.storyFrame && typeof contract.storyFrame === 'object'
+        ? contract.storyFrame
+        : (plan.storyFrame && typeof plan.storyFrame === 'object' ? plan.storyFrame : {});
+    const missionTruth = md.missionTruth || md.missionContract?.missionTruth || contract?.missionTruth || null;
+    const targetGeoContext = md.targetGeoContext || md.missionContract?.targetGeoContext || contract?.targetGeoContext || null;
+    const targetName = String(
+        options.targetName
+        || md.poiName
+        || md.targetName
+        || md.initialTargetName
+        || contract?.target?.name
+        || contract?.route?.targetName
+        || 'Zielgebiet'
+    ).replace(/\s+/g, ' ').trim() || 'Zielgebiet';
+    const category = String(
+        md.poiCategory
+        || md.requestedCategory
+        || contract?.target?.poiCategory
+        || plan.targetCategory
+        || ''
+    ).toLowerCase();
+    const source = String(md.poiSource || contract?.target?.poiSource || '').replace(/\s+/g, ' ').trim();
+    const sourceIsInternal = /tile|fallback|internal|obstacles|profile|follow-up|synthetic/i.test(source);
+    const categoryLabel = poiCategoryDisplayLabel(category);
+    const sentences = [];
+    sentences.push(sourceIsInternal
+        ? `${targetName} ist in der internen Zieldatenbank als ${categoryLabel} hinterlegt.`
+        : `${targetName} ist als ${categoryLabel} hinterlegt.`);
+
+    const subject = _missionPipelineV4StripSentenceEnd(
+        frame.subjectDetail
+        || frame.keyQuestion
+        || plan.keyQuestion
+        || plan.primaryObjective
+        || ''
+    );
+    if (subject) {
+        sentences.push(`Für diesen Flug steht im Mittelpunkt: ${subject}.`);
+    }
+
+    const outcome = _missionPipelineV4StripSentenceEnd(
+        frame.soughtOutcome
+        || frame.whyNow
+        || plan.completionSignal
+        || ''
+    );
+    if (outcome && !sentences.join(' ').toLowerCase().includes(outcome.toLowerCase())) {
+        sentences.push(_missionPipelineV4EnsureSentence(outcome));
+    }
+
+    const orientation = buildPoiOrientationSentence(targetGeoContext, missionTruth);
+    if (orientation) sentences.push(orientation);
+
+    if (sentences.length < 3) {
+        const story = String(md.missionStory || md.story || md.mission || '').replace(/\s+/g, ' ').trim();
+        const storySentence = story.split(/(?<=[.!?])\s+/).find(s => s && !sentences.join(' ').includes(s));
+        if (storySentence) sentences.push(_missionPipelineV4EnsureSentence(storySentence));
+    }
+
+    const text = sanitizeGeneratedPoiTargetInfo(sentences.filter(Boolean).slice(0, 4).join(' '), { maxLen: 760 });
+    if (text && md && typeof md === 'object') {
+        try {
+            md.generatedTargetInfo = text;
+            if (!md.targetInfo) md.targetInfo = text;
+        } catch (_) {}
+    }
+    return text;
+}
+
+function buildAreaDescriptionPoiFallback(lat, lon, elementId, exactTitle = null, icaoCode = null, options = {}) {
+    const opts = options && typeof options === 'object' ? options : {};
+    if (typeof opts.fallbackText === 'string') return sanitizeGeneratedPoiTargetInfo(opts.fallbackText);
+    if (icaoCode && !opts.poiFallback) return '';
+    const elementKey = String(elementId || '');
+    const isDestinationInfo = opts.poiFallback === true || /wikiDestDescText|dest/i.test(elementKey);
+    if (!isDestinationInfo) return '';
+    const md = (opts.missionData && typeof opts.missionData === 'object')
+        ? opts.missionData
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    if (!md || !missionUsesPoiPresentation(md)) return '';
+    return buildPoiTargetInfoFromMission(md, { targetName: exactTitle || opts.targetName || '' });
+}
+
+async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icaoCode = null, imgContainerId = 'wikiDestImageContainer', imgElId = 'wikiDestImage', options = {}) {
     const imgContainer = document.getElementById(imgContainerId);
     const imgElement = document.getElementById(imgElId);
     const textElement = document.getElementById(elementId);
     if (imgContainer) imgContainer.style.display = 'none';
     if (!textElement) return;
+    const applyPoiFallback = () => {
+        const fallback = buildAreaDescriptionPoiFallback(lat, lon, elementId, exactTitle, icaoCode, options);
+        if (!fallback) return false;
+        textElement.innerText = fallback;
+        return true;
+    };
 
     try {
         let titleToFetch = exactTitle;
@@ -9993,7 +10251,11 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
             const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=1&format=json&origin=*`);
             const geoData = await geoRes.json();
             if (geoData?.query?.geosearch?.length > 0) titleToFetch = geoData.query.geosearch[0].title;
-            else { textElement.innerText = "Keine regionalen Wikipedia-Daten gefunden."; return; }
+            else {
+                if (applyPoiFallback()) return;
+                textElement.innerText = "Keine regionalen Wikipedia-Daten gefunden.";
+                return;
+            }
         }
 
         if (titleToFetch) {
@@ -10015,8 +10277,12 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
                 }
             }
         }
+        if (applyPoiFallback()) return;
         textElement.innerText = "Der Artikel konnte nicht von Wikipedia abgerufen werden.";
-    } catch (e) { textElement.innerText = "Wiki-Daten konnten nicht geladen werden."; }
+    } catch (e) {
+        if (applyPoiFallback()) return;
+        textElement.innerText = "Wiki-Daten konnten nicht geladen werden.";
+    }
 }
 
 async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
@@ -20137,6 +20403,7 @@ Regeln:
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+21a. targetInfo ist für die Ziel-Info-Seite, nicht für das Dispatch-Briefing: Schreibe bei POI-Zielen 2-3 sachliche Sätze aus CONTRACT.target, missionTruth, targetGeoContext, knowledgeContext und storyFrame. Wenn keine belegten Fakten vorliegen, beschreibe nur Zielart, sichtbare Orientierung und warum das Ziel für diesen Auftrag relevant ist. Keine neuen Ortsnamen, Baujahre, Größen, historischen Fakten oder touristischen Details erfinden. Bei A-B ohne POI: targetInfo leer lassen.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
 23. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
 24. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
@@ -20158,6 +20425,7 @@ ${JSON.stringify(contract)}
   "story": "4-5 Saetze als Dispatch-Briefing fuer den Piloten, konkret, lokal plausibel und mit echtem Missionsanlass",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Messkoffer (45 lbs)",
+  "targetInfo": "Bei POI: 2-3 sachliche Sätze für die Ziel-Info-Seite aus belegten Contract-Daten; bei A-B leerer String",
   "passenger": {
     "name": "Vollstaendiger Name",
     "role": "Rolle/Beruf",
@@ -21206,11 +21474,15 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
     passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+    const targetInfo = isPOI
+        ? sanitizeGeneratedPoiTargetInfo(src.targetInfo || src.poiTargetInfo || src.destinationInfo || '', { maxLen: 760 })
+        : '';
     return {
         t: String(src.title || '').trim(),
         s: finalStory,
         pax: String(src.pax || '').trim(),
         cargo: String(src.cargo || '').trim(),
+        targetInfo,
         passenger,
         sceneIntent,
         targetScene: draftTargetScene,
@@ -21669,6 +21941,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         p.story = _cleanupNarrativeArtifacts(p.story || '');
         p.title = sanitizeGenericPoiNarrative(p.title || '');
         p.story = sanitizeGenericPoiNarrative(p.story || '');
+        p.targetInfo = sanitizeGeneratedPoiTargetInfo(p.targetInfo || p.poiTargetInfo || p.destinationInfo || '');
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
@@ -22030,6 +22303,7 @@ ${temporalRule}
 13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie "Suchmuster und klare Calls" ohne Objekt/Ort/Trasse/Anlass.
 13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Das gilt fuer alle Missionstypen. Erst das Primaerziel definieren, dann passende Kontextobjekte, dann nur bei Bedarf Support. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Werkzeug, Fracht oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Fuege keine Support-Objekte hinzu, die den Auftrag schon erledigt wirken lassen oder im Briefing nicht vorkommen.
 13d) DISPATCH-FORMULAR: Das JSON in <DISPATCH_FORM> ist bindend. Du darfst Auftragstyp, taskDomain, roleProfile, Ziel, Missionstyp und forbiddenThemes nicht uminterpretieren. Wenn ein Feld im Formular gesetzt ist, muss deine Ausgabe dazu passen.
+13e) targetInfo ist für die Ziel-Info-Seite. Bei POI: Schreibe 2-3 sachliche Sätze aus den belegten Daten in <KONTEXT>/<DISPATCH_FORM> (Zielart, sichtbare Orientierung, Auftragsrelevanz). Keine neuen Ortsnamen, Baujahre, Größen, historischen Fakten oder touristischen Details erfinden. Bei A-B: leerer String.
 ${trainingHardRules}
 ${poiNoTrainingRule}
 ${forcedProfileRule}
@@ -22081,6 +22355,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   "story": "Briefing, max 3-4 Sätze",
   "pax": "z.B. '2 PAX (...)' oder '0 PAX'",
   "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
+  "targetInfo": "Bei POI: 2-3 sachliche Sätze für die Ziel-Info-Seite aus belegten Kontextdaten; bei A-B leerer String",
   "sceneIntent": {
     "summary": "Kurze Klartextbeschreibung, was am Ziel sichtbar sein soll oder warum nichts gespawnt werden sollte",
     "environment": "z.B. Seeufer, Wald, Baustelle, Strasse, leer",
@@ -22149,6 +22424,9 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             targetLabel: promptDestName,
             sceneIntent
         });
+        const targetInfo = isPOI
+            ? sanitizeGeneratedPoiTargetInfo(parsed.targetInfo || parsed.poiTargetInfo || parsed.destinationInfo || '', { maxLen: 760 })
+            : '';
         const draftTargetScene = sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain, missionPlanV2 });
         const aiBushSpec = isBushMission
             ? buildBushMissionSpec({
@@ -22163,6 +22441,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             s: storyText,
             pax: parsed.pax,
             cargo: parsed.cargo,
+            targetInfo,
             sceneIntent,
             targetScene: draftTargetScene,
             sceneCompositionStatus: 'draft',
@@ -24649,6 +24928,7 @@ async function generateMission(options = {}) {
         requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
         poiLookup: poiLookup || null,
         knowledgeContext,
+        targetInfo: isPOI ? sanitizeGeneratedPoiTargetInfo(m?.targetInfo || m?.poiTargetInfo || m?.destinationInfo || '', { maxLen: 760 }) : '',
         targetName: dest.n,
         targetLat: Number(dest.lat),
         targetLon: Number(dest.lon),
@@ -24692,10 +24972,14 @@ async function generateMission(options = {}) {
             normalized: missionSceneIntent
         }
     };
+    if (isPOI && !currentMissionData.targetInfo) {
+        currentMissionData.targetInfo = buildPoiTargetInfoFromMission(currentMissionData);
+    }
     if (m && typeof m === 'object') {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
         if (knowledgeContext) m.knowledgeContext = knowledgeContext;
+        if (currentMissionData.targetInfo && !m.targetInfo) m.targetInfo = currentMissionData.targetInfo;
     }
     if (typeof window.missionFollowupEnsureBushReconOutcome === 'function') {
         try {
