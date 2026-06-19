@@ -12320,8 +12320,21 @@ function _missionSightseeingStoryLooksFlat(story = '') {
     const s = normalizeMissionText(raw);
     if (!raw || raw.length < 180) return true;
     if (_missionSightseeingWorkText(raw)) return true;
-    if (/\bdie anfrage kommt von sightseeing|visueller ueberblick|visueller uberblick|zielbereich .* abgearbeitet|aussichtspunkt .* abgearbeitet\b/.test(s)) return true;
+    if (/\bdie anfrage kommt von sightseeing|visueller ueberblick|visueller uberblick|vollstaendiger visueller eindruck|vollstandiger visueller eindruck|kurvenradien|abschluss der sichtrunde|zielbereich .* abgearbeitet|aussichtspunkt .* abgearbeitet\b/.test(s)) return true;
     return !/\b(gast|gaeste|gaste|besuch|freund|familie|ausflug|blick|aussicht|foto|erinnerung|panorama|rundflug|wochenende|heimat|gemeinsam|entspannt)\b/.test(s);
+}
+
+function _missionSightseeingStoryHasPersonalGuestFrame(story = '', passenger = null) {
+    const s = normalizeMissionText(story);
+    if (!s) return false;
+    const pax = passenger && typeof passenger === 'object' ? passenger : {};
+    const name = String(pax.name || '').trim();
+    const firstName = String(name.split(/\s+/)[0] || '').trim();
+    const genericName = !name || /^(gast|passagier|passenger|sightseeing|alex neumann)$/i.test(name);
+    const hasNamedGuide = !genericName && firstName && s.includes(normalizeMissionText(firstName));
+    const hasGuestRelation = /\b(gast|gaeste|gaste|freund|freundin|familie|begleitung|besucher|reisepartner|reisepartnerin)\b/.test(s);
+    const hasPersonalMotive = /\b(kennt|erzaehlung|erzaehlungen|erzahlung|erzahlungen|geschichten|geschichte|geschenk|heimat|wiedersehen|kindheit|familie|freund|freundin|besuch|erinnerung|erinnerungsfoto|persoenlich|personlich|gemeinsam)\b/.test(s);
+    return hasNamedGuide && hasGuestRelation && hasPersonalMotive;
 }
 
 function _missionSightseeingCategoryLine(missionLike = {}, target = 'Zielgebiet') {
@@ -12347,6 +12360,66 @@ function _missionSightseeingCategoryLine(missionLike = {}, target = 'Zielgebiet'
     return `Der Zielbereich ${target} ist der Blickfang der Runde und soll aus der Luft gut wiedererkennbar bleiben.`;
 }
 
+function _missionSightseeingGuestInterestLine(missionLike = {}, target = 'Zielgebiet') {
+    const cat = String(
+        missionLike?.cat
+        || missionLike?.poiCategory
+        || missionLike?._missionPlanV2?.plan?.targetCategory
+        || missionLike?.missionPlanV2?.plan?.targetCategory
+        || ''
+    ).toLowerCase();
+    if (cat === 'rail') {
+        return `Der Verlauf der Bahnlinie ist der eigentliche Reiz: Von oben wird sichtbar, wie ${target} als Linie durch Ort und Landschaft führt.`;
+    }
+    if (cat === 'bridge') {
+        return `Gerade die Brücke interessiert die Gäste, weil man aus der Luft erkennt, wie Bauwerk, Wege und Landschaft an dieser Stelle zusammenkommen.`;
+    }
+    if (cat === 'dam') {
+        return `Der Damm ist für die Gäste spannend, weil Wasserfläche, Mauer und Umgebung aus der Luft als ein zusammenhängendes Bild wirken.`;
+    }
+    if (cat === 'city') {
+        return `Die Gäste kennen einzelne Straßen, Wege oder Erinnerungen vom Boden; aus der Luft soll daraus ein ganzer Ortszusammenhang werden.`;
+    }
+    if (cat === 'castle' || cat === 'historic') {
+        return `Der historische Reiz liegt darin, wie ${target} in der Landschaft sitzt und warum genau diese Lage aus der Luft besser begreifbar wird.`;
+    }
+    if (cat === 'mountain' || cat === 'terrain' || cat === 'forest') {
+        return `Die Gäste interessieren sich für die Form des Geländes: Kanten, Höhen, Täler und der ruhige Landschaftsblick sollen als Erinnerung hängen bleiben.`;
+    }
+    if (cat === 'water') {
+        return `Bei ${target} geht es um den ruhigen Wasserblick: Uferlinie, Fläche und Umgebung sollen als gemeinsames Ausflugsbild wirken.`;
+    }
+    return `Der Zielbereich ${target} soll für die Gäste mehr sein als ein Punkt auf der Karte: ein gemeinsamer Blickmoment mit erkennbarem Bezug zur Landschaft.`;
+}
+
+function _missionSightseeingWhyNowLine(missionLike = {}) {
+    const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || null;
+    const weatherHooks = Array.isArray(plan?.weatherHooks) ? plan.weatherHooks.map(x => String(x || '').trim()).filter(Boolean) : [];
+    const weatherText = normalizeMissionText(weatherHooks.join(' '));
+    if (/\bsicht\b|\bvfr\b|\bfern|klar|cavok/.test(weatherText)) {
+        return 'Das Sichtfenster passt heute gut, damit der Zielbereich ohne Hektik wiedererkennbar bleibt und die Fotos nicht nur zufällige Schnappschüsse werden.';
+    }
+    if (/\bgrad|hitze|warm|sommer/.test(weatherText)) {
+        return 'Trotz sommerlicher Wärme soll der Flug weich bleiben; der Wert liegt im ruhigen Blick, nicht in sportlichen Manövern.';
+    }
+    return 'Der Flug passt jetzt, weil Zeitfenster, Stimmung und Sicht für einen ruhigen gemeinsamen Blickmoment reichen.';
+}
+
+function _missionSightseeingMemoryOutcomeLine(target = 'Zielgebiet') {
+    return `Nach der Runde soll ${target} für die Gäste nicht abstrakt bleiben, sondern als persönliches Bild im Kopf und auf ein paar privaten Fotos mit nach Hause gehen.`;
+}
+
+function _missionSightseeingComposePersonalStory(missionLike = {}, target = 'Zielgebiet', passenger = null, cue = '') {
+    const paxName = String(passenger?.name || 'Der Sightseeing-Gast').trim();
+    const lead = cue || `${paxName} begleitet heute zwei Gäste, die ${target} als ruhigen Ausflugsmoment aus der Luft erleben möchten.`;
+    return [
+        lead,
+        _missionSightseeingGuestInterestLine(missionLike, target),
+        _missionSightseeingWhyNowLine(missionLike),
+        _missionSightseeingMemoryOutcomeLine(target)
+    ].filter(Boolean).join(' ');
+}
+
 function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
     if (!missionLike || typeof missionLike !== 'object' || !isPOI) return missionLike;
     const target = _targetLabelForSightseeingNarrative(missionLike);
@@ -12360,14 +12433,9 @@ function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
     };
     const cue = _missionTemplateText(pax.personalStoryCue || pax.storySeed || '', templateContext);
     const currentStory = String(missionLike.s || missionLike.story || '').trim();
-    if (_missionSightseeingStoryLooksFlat(currentStory)) {
-        const lead = cue || `${paxName} begleitet heute zwei Gäste, die ${target} als ruhigen Ausflugsmoment aus der Luft erleben möchten.`;
-        missionLike.s = [
-            lead,
-            _missionSightseeingCategoryLine(missionLike, target),
-            'Der Flug bleibt bewusst weich und unaufgeregt, damit Blick, Orientierung und ein paar persönliche Fotos den Höhepunkt bilden.',
-            'Der Zielbereich bleibt reiner Sichtpunkt; nach der Runde geht es ohne Eile zurück zum Heimatplatz.'
-        ].join(' ');
+    const needsPersonalFrame = !_missionSightseeingStoryHasPersonalGuestFrame(currentStory, pax);
+    if (_missionSightseeingStoryLooksFlat(currentStory) || needsPersonalFrame) {
+        missionLike.s = _missionSightseeingComposePersonalStory(missionLike, target, pax, cue);
     }
     const title = String(missionLike.t || missionLike.title || '').trim();
     if (!/\b(panorama|aussicht|rundflug|foto|orientierungsrunde|blick)\b/i.test(title)) {
