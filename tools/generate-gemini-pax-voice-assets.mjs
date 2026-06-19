@@ -59,6 +59,7 @@ function usage() {
     '',
     'Options:',
     '  --write             Call Gemini and write audio files. Without this, only prints the request plan.',
+    '  --catalog-only      Write catalog from existing audio files only. No Gemini requests, no API key needed.',
     '  --force             Re-render existing files.',
     '  --takes <n>         Takes per clip and voice. Default: 2.',
     '  --voices <list>     Comma list or "all". Default: all.',
@@ -75,6 +76,7 @@ function usage() {
 function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     write: false,
+    catalogOnly: false,
     force: false,
     takes: DEFAULT_TAKES,
     voices: DEFAULT_VOICES.slice(),
@@ -98,6 +100,8 @@ function parseArgs(argv = process.argv.slice(2)) {
       process.exit(0);
     } else if (flag === '--write') {
       args.write = true;
+    } else if (flag === '--catalog-only') {
+      args.catalogOnly = true;
     } else if (flag === '--force') {
       args.force = true;
     } else if (flag === '--takes') {
@@ -187,6 +191,25 @@ async function firstExisting(paths) {
   return '';
 }
 
+async function readPreviousCatalog(outDir) {
+  try {
+    return JSON.parse(await fs.readFile(path.join(outDir, 'catalog.json'), 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function previousTakeMap(catalog) {
+  const map = new Map();
+  for (const [clipKey, entry] of Object.entries(catalog?.clips || {})) {
+    for (const take of entry?.takes || []) {
+      const key = `${clipKey}|${take.voice}|${take.take}|${take.path}`;
+      map.set(key, take);
+    }
+  }
+  return map;
+}
+
 async function requestGeminiTts(apiKey, model, text, voice) {
   const payload = {
     contents: [{ role: 'user', parts: [{ text }] }],
@@ -240,15 +263,16 @@ async function main() {
   console.log(`[plan] takes=${args.takes} | slots=${totalSlots}`);
   console.log(`[plan] out=${path.relative(ROOT, args.outDir)}`);
 
-  if (!args.write) {
+  if (!args.write && !args.catalogOnly) {
     console.log('[dry-run] Keine API-Requests. Mit --write rendern.');
     return;
   }
 
-  const apiKey = await resolveApiKey();
-  if (!apiKey) throw new Error('GEMINI_API_KEY fehlt in der Shell oder in key.env.local');
+  const apiKey = args.catalogOnly ? '' : await resolveApiKey();
+  if (!args.catalogOnly && !apiKey) throw new Error('GEMINI_API_KEY fehlt in der Shell oder in key.env.local');
 
   await fs.mkdir(args.outDir, { recursive: true });
+  const previousTakes = previousTakeMap(await readPreviousCatalog(args.outDir));
   const catalog = {
     schema: 'ga-dispatcher-pax-static-tts-v1',
     generatedAt: new Date().toISOString(),
@@ -259,19 +283,32 @@ async function main() {
   };
 
   let requests = 0;
+  let missing = 0;
   for (const clip of selectedClips) {
     catalog.clips[clip.key] = { text: clip.text, takes: [] };
     for (const voice of args.voices) {
       for (let take = 1; take <= args.takes; take++) {
         const existing = args.force ? '' : await firstExisting(existingClipFile(args.outDir, voice, clip.key, take));
         if (existing) {
-          catalog.clips[clip.key].takes.push({
+          const relPath = relPathFromOut(args.outDir, existing);
+          const previousTake = previousTakes.get(`${clip.key}|${voice}|${take}|${relPath}`);
+          const catalogTake = {
             voice,
             take,
-            path: relPathFromOut(args.outDir, existing),
-            mimeType: existing.endsWith('.wav') ? 'audio/wav' : ''
+            path: relPath,
+            mimeType: existing.endsWith('.wav') ? 'audio/wav' : (previousTake?.mimeType || '')
+          };
+          if (previousTake?.sourceMimeType) catalogTake.sourceMimeType = previousTake.sourceMimeType;
+          catalog.clips[clip.key].takes.push({
+            ...catalogTake
           });
           console.log(`[skip] ${voice} ${clip.key} take ${take}: exists`);
+          continue;
+        }
+
+        if (args.catalogOnly) {
+          missing++;
+          console.log(`[missing] ${voice} ${clip.key} take ${take}: no file`);
           continue;
         }
 
@@ -295,7 +332,7 @@ async function main() {
   }
 
   await fs.writeFile(path.join(args.outDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`, 'utf8');
-  console.log(`[ok] requests=${requests} catalog=${path.relative(ROOT, path.join(args.outDir, 'catalog.json'))}`);
+  console.log(`[ok] requests=${requests} missing=${missing} catalog=${path.relative(ROOT, path.join(args.outDir, 'catalog.json'))}`);
 }
 
 main().catch(err => {

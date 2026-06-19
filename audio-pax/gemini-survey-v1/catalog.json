@@ -1,6 +1,6 @@
 {
   "schema": "ga-dispatcher-pax-static-tts-v1",
-  "generatedAt": "2026-06-18T13:33:22.862Z",
+  "generatedAt": "2026-06-19T06:48:23.314Z",
   "model": "gemini-3.1-flash-tts-preview",
   "basePath": "./audio-pax/gemini-survey-v1",
   "voices": [
@@ -18,71 +18,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/scan_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/scan_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/scan_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/scan_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/scan_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/scan_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/scan_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/scan_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/scan_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/scan_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -93,71 +83,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/orbit_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/orbit_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/orbit_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/orbit_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/orbit_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/orbit_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/orbit_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/orbit_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/orbit_survey_area_entered-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/orbit_survey_area_entered-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -168,71 +148,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/line_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/line_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/line_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/line_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/line_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/line_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/line_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/line_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/line_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/line_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -243,71 +213,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/line_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/line_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/line_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/line_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/line_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/line_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/line_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/line_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/line_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/line_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -318,71 +278,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/line_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/line_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/line_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/line_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/line_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/line_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/line_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/line_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/line_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/line_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -393,71 +343,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/orbit_turn_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/orbit_turn_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/orbit_turn_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/orbit_turn_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/orbit_turn_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/orbit_turn_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/orbit_turn_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/orbit_turn_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/orbit_turn_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/orbit_turn_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -468,71 +408,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/orbit_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/orbit_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/orbit_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/orbit_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/orbit_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/orbit_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/orbit_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/orbit_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/orbit_reset_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/orbit_reset_altitude-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -543,71 +473,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/orbit_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/orbit_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/orbit_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/orbit_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/orbit_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/orbit_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/orbit_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/orbit_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/orbit_reset_offtrack-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/orbit_reset_offtrack-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -618,71 +538,61 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/scan_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/scan_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/scan_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/scan_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/scan_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 2,
           "path": "clips/Kore/scan_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/scan_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 2,
           "path": "clips/Leda/scan_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/scan_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 2,
           "path": "clips/Aoede/scan_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -693,36 +603,49 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/orbit_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Charon",
           "take": 2,
           "path": "clips/Charon/orbit_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/orbit_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 2,
           "path": "clips/Puck/orbit_survey_complete-t02.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/orbit_survey_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/wav"
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 2,
+          "path": "clips/Kore/orbit_survey_complete-t02.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/orbit_survey_complete-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 2,
+          "path": "clips/Leda/orbit_survey_complete-t02.wav",
+          "mimeType": "audio/wav"
         }
       ]
     }

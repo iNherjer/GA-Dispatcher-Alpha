@@ -91,6 +91,15 @@ Alternativ liest das Script `GEMINI_API_KEY` aus `key.env.local`.
 node tools/generate-gemini-pax-voice-assets.mjs --voices Kore,Leda,Aoede --clips scan_survey_area_entered,line_complete --takes 2 --write
 ```
 
+## Nur Katalog aus vorhandenen Dateien neu schreiben
+
+Nach einem abgebrochenen Quota-Lauf koennen vorhandene Takes ohne weitere API-Requests in den
+Katalog aufgenommen werden:
+
+```bash
+node tools/generate-gemini-pax-voice-assets.mjs --takes 2 --voices all --clips all --catalog-only
+```
+
 ## Wichtige Punkte
 
 - Default-Modell ist `gemini-3.1-flash-tts-preview`.
