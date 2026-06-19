@@ -1518,6 +1518,60 @@ const MISSION_ROLE_TASK_PROFILES = {
                 greetingText: 'Hi, ich brauche einen ruhigen Blick auf die Reihen, die Ränder und die Technikpunkte. Keine Show, nur saubere Lesbarkeit.'
             },
             {
+                name: 'Maren Scholz',
+                role: 'Bauleiterin',
+                gender: 'female',
+                personality: 'klar, pragmatisch, sicherheitsbewusst',
+                matchInfraTypes: ['construction'],
+                storySeed: '{name} braucht bei {targetName} ein Luftbild zum Baufortschritt, weil Sperrbereiche, Zufahrten oder Kranflächen vor der nächsten Bauphase abgeglichen werden müssen.',
+                greetingText: 'Hi, ich schaue heute auf Baufortschritt, Zufahrt und sichere Arbeitsbereiche. Stabile Perspektiven sind wichtiger als Tempo.'
+            },
+            {
+                name: 'Leonie Haag',
+                role: 'Facility-Managerin',
+                gender: 'female',
+                personality: 'aufmerksam, ruhig, lösungsorientiert',
+                matchInfraTypes: ['public_building'],
+                storySeed: '{name} lässt {targetName} aus der Luft prüfen, weil Dachhaut, Technikaufbauten oder Zugänge nach einer Betreiber- oder Wettermeldung eingeordnet werden sollen.',
+                greetingText: 'Hi, ich achte auf Dach, Technikaufbauten und Zugangsbereiche. Bitte ruhig halten, damit ich echte Auffälligkeiten von Schatten trennen kann.'
+            },
+            {
+                name: 'Tobias Rehm',
+                role: 'Anlagen-Sicherheitsprüfer',
+                gender: 'male',
+                personality: 'vorsichtig, technisch, direkt',
+                matchInfraTypes: ['fuel', 'water_tank', 'storage_tank'],
+                storySeed: '{name} kontrolliert bei {targetName} Tankfeld, Zapfbereich, Entwässerung oder Zufahrt, bevor der Betreiber über Sperrung, Reparatur oder Freigabe entscheidet.',
+                greetingText: 'Hi, ich brauche heute einen sachlichen Blick auf Tankbereich, Zufahrt und sichtbare Leckage- oder Sturmschäden. Ruhig und kontrolliert reicht.'
+            },
+            {
+                name: 'Henrik Maas',
+                role: 'Leitungsnetz-Techniker',
+                gender: 'male',
+                personality: 'ruhig, genau, netzorientiert',
+                matchInfraTypes: ['pipeline', 'energy_storage', 'energy_plant'],
+                storySeed: '{name} prüft bei {targetName}, ob Leitungstrasse, Ventilpunkt, Speicheranlage oder Technikfläche nach einer Betriebs- oder Störmeldung aus der Luft unauffällig wirkt.',
+                greetingText: 'Hi, ich achte heute auf Trassenverlauf, Technikpunkte und Zufahrten. Ein ruhiger Überblick hilft mehr als ein enger Vorbeiflug.'
+            },
+            {
+                name: 'Ruth Eberle',
+                role: 'Umwelttechnik-Prüferin',
+                gender: 'female',
+                personality: 'sachlich, gründlich, vorsichtig',
+                matchInfraTypes: ['water_utility', 'waste', 'quarry'],
+                storySeed: '{name} dokumentiert bei {targetName} Betriebsflächen, Wasser-/Abwassertechnik, Entsorgungsbereiche oder Abbaukanten, weil Betreiber oder Behörde eine saubere Lageeinordnung brauchen.',
+                greetingText: 'Hi, ich brauche einen klaren Blick auf Randbereiche, Zufahrt und sichtbare Betriebsflächen. Bitte ruhig und wiederholbar fliegen.'
+            },
+            {
+                name: 'Svenja Ortmann',
+                role: 'Verkehrsbau-Prüferin',
+                gender: 'female',
+                personality: 'konzentriert, präzise, trocken',
+                matchInfraTypes: ['traffic_protection', 'flood_protection'],
+                storySeed: '{name} prüft bei {targetName}, ob Tunnelportal, Stützmauer, Lärmschutzwand, Deich oder Böschung nach einer Meldung weitere Bodenarbeit braucht.',
+                greetingText: 'Hi, ich schaue heute auf Schutzbau, Kanten und Zugänge. Gleichmäßige Sichtwinkel machen die Bewertung deutlich zuverlässiger.'
+            },
+            {
                 name: 'Dr. Vera Lenz',
                 role: 'Schadensgutachterin',
                 gender: 'female',
@@ -1532,16 +1586,16 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'erfahren, ruhig, detailgenau',
                 matchCategories: ['dam', 'water'],
-                matchInfraTypes: ['hydro'],
+                matchInfraTypes: ['hydro', 'water_utility', 'flood_protection'],
                 storySeed: '{name} kontrolliert bei {targetName} Dammkrone, Ablaufbauwerk, Uferbefestigung oder Pegelbereich nach einer Meldung aus dem Betrieb.',
                 greetingText: 'Hi, bei Wasserbauwerken zählt der Zusammenhang: Krone, Auslauf, Ufer und Zufahrt. Bitte ruhig, damit ich das Gelände lesen kann.'
             }
         ],
         greetingText: 'Hi, wir prüfen heute eine konkrete Infrastrukturmeldung aus der Luft. Bitte stabil fliegen, damit Zielobjekt, Zugänge und mögliche Auffälligkeiten sauber einzuordnen sind.',
         paxText: '1 PAX (Infrastruktur-Inspektion)',
-        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)', 'Netzplan und Sichtcheck-Tablet (12 lbs)', 'PV-/Windpark-Wartungsunterlagen (16 lbs)'],
+        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)', 'Netzplan und Sichtcheck-Tablet (12 lbs)', 'PV-/Windpark-Wartungsunterlagen (16 lbs)', 'Leitungsplan und Betreiberprotokoll (14 lbs)', 'Umwelttechnik-Checkliste (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: konkrete Betreiber-, Störungs-, Sturm-, Wartungs- oder Schadensmeldung an Infrastruktur; möglich sind Brücke, Damm, Bahntrasse, Bahnhof, Stellwerk, Weiche, Funkmast, Windpark, Solarpark, Industrieanlage, Dach, Zufahrt oder Betriebsbauwerk. Der Flug liefert Vorprüfung und Folgeentscheidung, keine freie Vermessungs- oder Sightseeing-Story.'
+        storyCue: 'Fokus: konkrete Betreiber-, Störungs-, Sturm-, Wartungs- oder Schadensmeldung an Infrastruktur; möglich sind Brücke, Damm, Bahntrasse, Bahnhof, Stellwerk, Weiche, Funkmast, Windpark, Solarpark, Energieanlage, Speicher, Pipeline, Pumpwerk, Wasser-/Abwasseranlage, Entsorgung, Steinbruch, Schutzbau, Industrieanlage, Baustelle, Tankanlage, öffentliches Gebäude, Zufahrt oder Betriebsbauwerk. Der Flug liefert Vorprüfung und Folgeentscheidung, keine freie Vermessungs- oder Sightseeing-Story.'
     },
     media_photo: {
         id: 'media_photo',
@@ -7232,7 +7286,15 @@ function _poiCandidateKindTag(p = null) {
     const layer = String(p?.featureLayer || '').toLowerCase();
     const source = String(p?.featureSourceKind || '').toLowerCase();
     const subtype = _poiCandidateInfraSubtype(p);
-    if (['solar', 'wind', 'hydro', 'power_grid', 'power_station', 'industrial', 'bridge', 'road_major', 'road_regional', 'road_minor', 'telecom', 'rail_track', 'rail_station', 'rail_control', 'rail_switch', 'rail_crossing', 'rail_signal', 'rail'].includes(subtype)) return `${subtype}:${source}`;
+    if ([
+        'solar', 'wind', 'hydro', 'power_grid', 'power_station',
+        'energy_plant', 'energy_storage', 'industrial', 'construction',
+        'pipeline', 'public_building', 'fuel', 'water_utility', 'water_tank',
+        'storage_tank', 'waste', 'quarry', 'flood_protection',
+        'traffic_protection', 'bridge', 'road_major', 'road_regional',
+        'road_minor', 'telecom', 'rail_track', 'rail_station', 'rail_control',
+        'rail_switch', 'rail_crossing', 'rail_signal', 'rail'
+    ].includes(subtype)) return `${subtype}:${source}`;
     if (layer === 'road' || n.includes('autobahn') || n.includes('strasse') || n.includes('highway')) return `road:${source}`;
     if (n.includes('mast') || n.includes('tower') || n.includes('funkturm') || n.includes('wind')) return `tower:${source}`;
     if (n.includes('umspannwerk') || n.includes('kraftwerk') || n.includes('werk')) return `power:${source}`;
@@ -7283,12 +7345,45 @@ function _poiMaybeRotateInfraSubtypePool(pool = [], forceCat = '', profileId = '
     if (profileId === 'tour_guide_knowledge') return src;
 
     let sample = src.slice(0, Math.min(80, src.length));
+    if (['infrastructure', 'industry', 'rail'].includes(cat) && src.length > sample.length) {
+        const wideSample = src.slice(0, Math.min(1500, src.length));
+        const presentSubtypes = new Set(sample.map(p => _poiCandidateInfraSubtype(p)).filter(Boolean));
+        const bySubtype = new Map();
+        for (const p of wideSample) {
+            const subtype = _poiCandidateInfraSubtype(p);
+            if (!subtype) continue;
+            if (!bySubtype.has(subtype)) bySubtype.set(subtype, []);
+            const bucket = bySubtype.get(subtype);
+            if (bucket.length < 4) bucket.push(p);
+        }
+        const additions = [];
+        for (const [subtype, bucket] of bySubtype.entries()) {
+            if (presentSubtypes.has(subtype)) continue;
+            additions.push(...bucket);
+        }
+        if (additions.length) sample = sample.concat(additions).slice(0, 160);
+    }
+    if (cat === 'infrastructure') {
+        const broadInfra = sample.filter(p => !_poiInfraSubtypeHasOwnPickerCategory(_poiCandidateInfraSubtype(p)));
+        if (broadInfra.length >= 6) sample = broadInfra;
+    }
+    if (cat === 'industry') {
+        const facilityInfra = sample.filter(p => {
+            const subtype = _poiCandidateInfraSubtype(p);
+            return !['power_grid', 'bridge', 'road', 'road_major', 'road_regional', 'road_minor', 'rail_track', 'rail_station', 'rail_control', 'rail_switch', 'rail_crossing', 'rail_signal', 'rail'].includes(subtype);
+        });
+        if (facilityInfra.length >= 6) sample = facilityInfra;
+    }
     if (cat === 'road') {
         const usefulRoad = sample.filter(p => {
             const subtype = _poiCandidateInfraSubtype(p);
-            return subtype !== 'road_minor';
+            return ['road', 'road_major', 'road_regional', 'traffic_protection'].includes(subtype) || (subtype === 'road_minor' && !!p?.hasName);
         });
         if (usefulRoad.length >= 3) sample = usefulRoad;
+    }
+    if (cat === 'rail') {
+        const railInfra = sample.filter(p => _poiCandidateIsRailInspectionTarget(p));
+        if (railInfra.length >= 4) sample = railInfra;
     }
 
     const subtypeCounts = new Map();
@@ -7550,6 +7645,37 @@ function _poiRailFallbackName(railwayTag = '') {
     return 'Bahntrasse/Bahninfrastruktur';
 }
 
+function _poiInfraFallbackName(tags = {}, fallbackCategory = 'infrastructure') {
+    const t = tags || {};
+    const infraType = String(t.infra_type || t.cluster_type || '').toLowerCase();
+    const railway = String(t.railway || '').toLowerCase();
+    if (infraType === 'solar') return 'Solarpark';
+    if (infraType === 'wind') return 'Windpark';
+    if (infraType === 'construction' || String(t.landuse || '').toLowerCase() === 'construction' || t.construction) return 'Baustellenbereich';
+    if (infraType === 'public_building') return 'Öffentliches Gebäude';
+    if (infraType === 'fuel' || String(t.amenity || '').toLowerCase() === 'fuel') return 'Tankstelle';
+    if (infraType === 'energy_plant') return 'Energieanlage';
+    if (infraType === 'energy_storage') return 'Batterie-/Speicheranlage';
+    if (infraType === 'pipeline' || t.pipeline) return 'Pipeline-/Leitungsstation';
+    if (infraType === 'water_utility') return 'Wasser-/Abwasseranlage';
+    if (infraType === 'water_tank' || String(t.man_made || '').toLowerCase() === 'water_tower') return 'Wassertank';
+    if (infraType === 'storage_tank' || String(t.man_made || '').toLowerCase() === 'storage_tank') return 'Lagertank';
+    if (infraType === 'waste' || ['recycling', 'waste_disposal', 'waste_transfer_station'].includes(String(t.amenity || '').toLowerCase())) return 'Entsorgungsanlage';
+    if (infraType === 'quarry' || String(t.landuse || '').toLowerCase() === 'quarry') return 'Steinbruch/Kieswerk';
+    if (infraType === 'flood_protection' || ['dyke', 'embankment'].includes(String(t.man_made || '').toLowerCase())) return 'Hochwasserschutzbauwerk';
+    if (infraType === 'traffic_protection' || String(t.tunnel || '').trim() || ['noise_barrier', 'retaining_wall'].includes(String(t.barrier || '').toLowerCase())) return 'Verkehrsschutzbauwerk';
+    if (infraType === 'power_station') return 'Umspannwerk/Technikstation';
+    if (infraType === 'power_grid') return 'Netztrassenabschnitt';
+    if (infraType === 'telecom') return 'Funkmast/Funkturm';
+    if (infraType === 'industrial') return 'Industrieareal';
+    if (infraType === 'rail' || railway) return _poiRailFallbackName(railway);
+    if (infraType === 'road' || t.highway) return 'Straßen-/Verkehrsabschnitt';
+    if (infraType === 'bridge' || t.bridge) return 'Brücke/Viadukt';
+    const cat = String(fallbackCategory || '').toLowerCase();
+    if (cat === 'industry') return 'Technische Anlage';
+    return '';
+}
+
 function _poiIsGenericFallbackName(name) {
     const n = normalizeMissionText(name || '');
     return (
@@ -7661,10 +7787,35 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
             plant_method: String(node?.plant_method || node?.['plant:method'] || '').toLowerCase(),
             substation: String(node?.substation || '').toLowerCase(),
             transformer: String(node?.transformer || '').toLowerCase(),
+            location: String(node?.location || '').toLowerCase(),
+            utility: String(node?.utility || '').toLowerCase(),
+            building: String(node?.building || '').toLowerCase(),
+            building_use: String(node?.building_use || node?.['building:use'] || '').toLowerCase(),
+            construction: String(node?.construction || '').toLowerCase(),
+            content: String(node?.content || '').toLowerCase(),
+            healthcare: String(node?.healthcare || '').toLowerCase(),
+            office: String(node?.office || '').toLowerCase(),
+            shop: String(node?.shop || '').toLowerCase(),
+            public_transport: String(node?.public_transport || '').toLowerCase(),
+            emergency: String(node?.emergency || '').toLowerCase(),
+            barrier: String(node?.barrier || '').toLowerCase(),
+            tunnel: String(node?.tunnel || '').toLowerCase(),
+            pipeline: String(node?.pipeline || '').toLowerCase(),
+            substance: String(node?.substance || '').toLowerCase(),
+            monitoring: String(node?.monitoring || '').toLowerCase(),
+            monitoring_water_level: String(node?.monitoring_water_level || node?.['monitoring:water_level'] || '').toLowerCase(),
+            lock_tag: String(node?.lock_tag || node?.lock || '').toLowerCase(),
+            embankment: String(node?.embankment || '').toLowerCase(),
+            recycling_type: String(node?.recycling_type || '').toLowerCase(),
             voltage: String(node?.voltage || ''),
             operator: String(node?.operator || ''),
             ref: String(node?.ref || ''),
             bridge: String(node?.bridge || '').toLowerCase(),
+            infra_cluster: !!node?.infra_cluster,
+            cluster_type: String(node?.cluster_type || '').toLowerCase(),
+            cluster_count: Number(node?.cluster_count || 0),
+            cluster_radius_nm: Number(node?.cluster_radius_nm || 0),
+            cluster_sample_names: String(node?.cluster_sample_names || ''),
             infra_enriched: !!node?.infra_enriched,
             infra_type: String(node?.infra_type || '').toLowerCase()
         }
@@ -7744,6 +7895,7 @@ function _poiParseTilePayload(payload) {
     const lin = Array.isArray(payload.lin) ? payload.lin : (Array.isArray(coreObj?.lin) ? coreObj.lin : []);
     const poi = Array.isArray(payload.poi) ? payload.poi : (Array.isArray(poiObj?.poi) ? poiObj.poi : []);
     const infra = Array.isArray(infraObj?.poi) ? infraObj.poi : [];
+    const infraClusters = Array.isArray(infraObj?.clusters) ? infraObj.clusters : [];
 
     for (const e of obs) {
         const f = _poiFeatureFromTileNode({
@@ -7799,6 +7951,10 @@ function _poiParseTilePayload(payload) {
         const f = _poiFeatureFromTileNode({ ...e, sourceKind: 'infra', layer: 'infra', infra_enriched: true }, 'infra');
         if (f) out.push(f);
     }
+    for (const e of infraClusters) {
+        const f = _poiFeatureFromTileNode({ ...e, sourceKind: 'infra', layer: 'infra', infra_enriched: true, infra_cluster: true }, 'infra');
+        if (f) out.push(f);
+    }
     return out;
 }
 
@@ -7852,12 +8008,12 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'pv')
     );
     const isEnergyPlant = (
-        ['solar', 'wind', 'power_station', 'power_grid', 'industrial', 'power'].includes(infraType) ||
+        ['solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'power_grid', 'industrial', 'power'].includes(infraType) ||
         (infraType === 'hydro' && (!!t.power || /(hydro|water)/.test(energySource))) ||
-        ['plant', 'generator'].includes(t.power) ||
+        ['plant', 'generator', 'storage'].includes(t.power) ||
         ['windmill', 'solar_panel'].includes(t.man_made) ||
         energyNameHint ||
-        /(wind|solar|photovoltaic|photovoltaik|pv)/.test(energySource)
+        /(wind|solar|photovoltaic|photovoltaik|pv|battery|biogas|biomass|gas|geothermal)/.test(energySource)
     );
 
     const isWater = (
@@ -7926,7 +8082,7 @@ function _poiFeatureMatchesCategory(feature, category) {
             t.man_made === 'surveillance' ||
             ['signal', 'switch', 'level_crossing'].includes(t.railway)
         ) && (
-        ['tower', 'mast'].includes(t.man_made) ||
+        ['tower', 'mast', 'communications_tower'].includes(t.man_made) ||
         ['tower', 'pole'].includes(t.power) ||
         rawType.includes('mast') ||
         rawType.includes('tower') ||
@@ -7974,13 +8130,23 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
     const isCity = ['city', 'town', 'village', 'suburb'].includes(t.place);
     const isIndustry = (
-        ['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse) ||
-        ['industrial', 'solar', 'wind', 'power_station', 'power_grid', 'power'].includes(infraType) ||
+        ['industrial', 'quarry', 'brownfield', 'commercial', 'construction', 'depot', 'landfill', 'retail'].includes(t.landuse) ||
+        ['industrial', 'solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'power_grid', 'power', 'fuel', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'pipeline'].includes(infraType) ||
         (infraType === 'hydro' && (!!t.power || /(hydro|water)/.test(energySource))) ||
-        ['substation', 'plant', 'generator', 'transformer'].includes(t.power) ||
-        ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made) ||
-        ['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity) ||
+        ['substation', 'plant', 'generator', 'storage', 'transformer'].includes(t.power) ||
+        ['gasometer', 'pipeline', 'pumping_station', 'water_works', 'wastewater_plant', 'works', 'storage_tank', 'water_tower', 'silo', 'chimney'].includes(t.man_made) ||
+        ['fuel', 'recycling', 'waste_disposal', 'wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity) ||
+        ['fuel', 'car_repair'].includes(t.shop) ||
+        ['gas', 'heating', 'pipeline', 'sewerage', 'wastewater', 'water'].includes(t.utility) ||
+        ['gas', 'hot_water', 'oil', 'sewage', 'steam', 'wastewater', 'water'].includes(t.substance) ||
         isEnergyPlant ||
+        _hasWordToken(n, 'baustelle') ||
+        _hasWordToken(n, 'tankstelle') ||
+        _hasWordToken(n, 'pipeline') ||
+        _hasWordToken(n, 'pumpwerk') ||
+        _hasWordToken(n, 'recycling') ||
+        _hasWordToken(n, 'deponie') ||
+        _hasWordToken(n, 'steinbruch') ||
         _hasWordToken(n, 'umspannwerk') ||
         _hasWordToken(n, 'wasserwerk') ||
         _hasWordToken(n, 'klaerwerk') ||
@@ -8036,6 +8202,12 @@ function _poiInferCategoryFromFeature(feature) {
     if (infraType === 'bridge') return 'bridge';
     if (infraType === 'road') return 'road';
     if (infraType === 'rail' || infraType === 'power_grid' || infraType === 'power') return 'infrastructure';
+    if ([
+        'construction', 'energy_plant', 'energy_storage', 'pipeline',
+        'public_building', 'fuel', 'water_utility', 'water_tank',
+        'storage_tank', 'waste', 'quarry', 'flood_protection',
+        'traffic_protection', 'telecom'
+    ].includes(infraType)) return 'infrastructure';
     if (infraType === 'hydro') {
         const energySource = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
         if (t.power || /(hydro|water)/.test(energySource)) return 'industry';
@@ -8093,11 +8265,21 @@ function _poiCandidateInfraSubtype(candidate = {}) {
     const tags = candidate?.tags || {};
     const n = normalizeMissionText(candidate?.n || candidate?.name || '');
     const infraType = String(tags.infra_type || '').toLowerCase();
+    const clusterType = String(tags.cluster_type || '').toLowerCase();
     const power = String(tags.power || '').toLowerCase();
     const energy = String(tags.generator_source || tags.plant_source || tags.generator_method || tags.plant_method || '').toLowerCase();
+    if ([
+        'solar', 'wind', 'hydro', 'power_grid', 'power_station',
+        'energy_plant', 'energy_storage', 'industrial', 'construction',
+        'pipeline', 'public_building', 'fuel', 'water_utility', 'water_tank',
+        'storage_tank', 'waste', 'quarry', 'flood_protection',
+        'traffic_protection', 'telecom'
+    ].includes(clusterType)) return clusterType;
     if (infraType === 'solar' || energy.includes('solar') || _hasWordToken(n, 'solarpark') || _hasWordToken(n, 'photovoltaik') || _hasWordToken(n, 'pv')) return 'solar';
     if (infraType === 'wind' || energy.includes('wind') || _hasWordToken(n, 'windpark') || _hasWordToken(n, 'windkraft') || _hasWordToken(n, 'windrad')) return 'wind';
+    if (infraType === 'energy_storage' || power === 'storage' || /(battery|storage)/.test(energy)) return 'energy_storage';
     if (infraType === 'hydro' || /(hydro|water)/.test(energy) || ['dam', 'weir'].includes(String(tags.waterway || '').toLowerCase())) return 'hydro';
+    if (infraType === 'energy_plant' || ['plant', 'generator'].includes(power) || /(biogas|biomass|gas|geothermal|oil)/.test(energy)) return 'energy_plant';
     const railway = String(tags.railway || '').toLowerCase();
     if (infraType === 'rail' || railway || candidate.category === 'rail') {
         if (['station', 'halt'].includes(railway) || _hasWordToken(n, 'bahnhof') || _hasWordToken(n, 'haltepunkt')) return 'rail_station';
@@ -8113,11 +8295,77 @@ function _poiCandidateInfraSubtype(candidate = {}) {
         const value = _poiRoadInspectionValue(tags, candidate?.n || candidate?.name || '');
         return value === 'high' ? 'road_major' : (value === 'medium' ? 'road_regional' : 'road_minor');
     }
+    if (infraType === 'construction' || String(tags.landuse || '').toLowerCase() === 'construction' || tags.construction) return 'construction';
+    if (infraType === 'fuel' || String(tags.amenity || '').toLowerCase() === 'fuel') return 'fuel';
+    if (infraType === 'pipeline' || tags.pipeline || String(tags.man_made || '').toLowerCase() === 'pipeline' || ['gas', 'heating', 'pipeline'].includes(String(tags.utility || '').toLowerCase())) return 'pipeline';
+    if (
+        infraType === 'water_utility' ||
+        String(tags.man_made || '').toLowerCase() === 'pumping_station' ||
+        ['water_works', 'wastewater_plant'].includes(String(tags.amenity || '').toLowerCase()) ||
+        ['water', 'sewerage', 'wastewater'].includes(String(tags.utility || '').toLowerCase()) ||
+        String(tags.waterway || '').toLowerCase() === 'lock_gate' ||
+        tags.lock_tag ||
+        tags.monitoring_water_level
+    ) return 'water_utility';
+    if (infraType === 'water_tank' || String(tags.man_made || '').toLowerCase() === 'water_tower') return 'water_tank';
+    if (infraType === 'storage_tank' || String(tags.man_made || '').toLowerCase() === 'storage_tank') return 'storage_tank';
+    if (infraType === 'waste' || String(tags.landuse || '').toLowerCase() === 'landfill' || ['recycling', 'waste_disposal', 'waste_transfer_station'].includes(String(tags.amenity || '').toLowerCase())) return 'waste';
+    if (infraType === 'quarry' || String(tags.landuse || '').toLowerCase() === 'quarry') return 'quarry';
+    if (infraType === 'flood_protection' || ['dyke', 'embankment'].includes(String(tags.man_made || '').toLowerCase()) || tags.embankment) return 'flood_protection';
+    if (infraType === 'traffic_protection' || tags.tunnel || ['noise_barrier', 'retaining_wall'].includes(String(tags.barrier || '').toLowerCase())) return 'traffic_protection';
+    if (
+        infraType === 'public_building' ||
+        ['civic', 'hospital', 'public', 'school', 'train_station', 'transportation', 'university'].includes(String(tags.building || '').toLowerCase()) ||
+        ['clinic', 'college', 'community_centre', 'courthouse', 'fire_station', 'hospital', 'kindergarten', 'police', 'post_office', 'school', 'townhall', 'university'].includes(String(tags.amenity || '').toLowerCase()) ||
+        tags.healthcare ||
+        String(tags.office || '').toLowerCase() === 'government'
+    ) return 'public_building';
     if (infraType === 'power_grid' || ['line', 'minor_line', 'cable', 'tower', 'pole'].includes(power)) return 'power_grid';
     if (infraType === 'power_station' || ['substation', 'transformer', 'switchgear', 'converter', 'compensator'].includes(power) || tags.substation || tags.transformer) return 'power_station';
     if (infraType === 'industrial' || String(tags.landuse || '').toLowerCase() === 'industrial') return 'industrial';
-    if (candidate.category === 'telecom' || ['tower', 'mast'].includes(String(tags.man_made || '').toLowerCase())) return 'telecom';
+    if (candidate.category === 'telecom' || ['tower', 'mast', 'communications_tower'].includes(String(tags.man_made || '').toLowerCase())) return 'telecom';
     return infraType || candidate.category || 'infra';
+}
+
+function _poiInfraSubtypeHasOwnPickerCategory(subtype = '') {
+    const s = String(subtype || '').toLowerCase();
+    return (
+        s === 'bridge' ||
+        s === 'telecom' ||
+        s === 'solar' ||
+        s === 'wind' ||
+        s === 'road' ||
+        s.startsWith('road_') ||
+        s.startsWith('rail_') ||
+        s === 'rail'
+    );
+}
+
+function _poiCandidateIsRoadInspectionTarget(candidate = {}) {
+    const subtype = _poiCandidateInfraSubtype(candidate);
+    return (
+        subtype === 'road_major' ||
+        subtype === 'road_regional' ||
+        subtype === 'road' ||
+        subtype === 'traffic_protection' ||
+        (subtype === 'road_minor' && !!candidate?.hasName)
+    );
+}
+
+function _poiCandidateIsRailInspectionTarget(candidate = {}) {
+    const subtype = _poiCandidateInfraSubtype(candidate);
+    const tags = candidate?.tags || {};
+    const infraType = String(tags.infra_type || '').toLowerCase();
+    return (
+        infraType === 'rail' ||
+        subtype === 'rail_track' ||
+        subtype === 'rail_station' ||
+        subtype === 'rail_control' ||
+        subtype === 'rail_switch' ||
+        subtype === 'rail_crossing' ||
+        subtype === 'rail_signal' ||
+        subtype === 'rail'
+    );
 }
 
 function _poiFeatureScore(feature, category) {
@@ -8146,12 +8394,13 @@ function _poiFeatureScore(feature, category) {
     } else if (cat === 'road') {
         const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
         const roadValue = _poiRoadInspectionValue(t, feature?.name || '');
-        if (infraType === 'road') score += 7;
+        if (infraType === 'road') score += 10;
         if (major.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
         if (roadValue === 'high') score += 6;
         else if (roadValue === 'medium') score += 2;
         else if (roadValue === 'low') score -= 8;
+        if (infraType === 'bridge' || (t.bridge && t.bridge !== 'no')) score -= 12;
         if (t.highway === 'motorway_junction') score -= 5;
         if (_hasWordToken(n, 'stadt') || _hasWordToken(n, 'zentrum') || _hasWordToken(n, 'city')) score -= 4;
         if (String(n || '').includes(' / ')) score -= 3;
@@ -8179,9 +8428,14 @@ function _poiFeatureScore(feature, category) {
         const majorRail = ['rail', 'light_rail', 'subway', 'tram', 'narrow_gauge'];
         const facilityRail = ['station', 'halt', 'signal_box', 'switch', 'signal', 'level_crossing', 'crossing', 'junction'];
         if (infraType) score += 4;
-        if (['road', 'bridge', 'rail', 'power_grid', 'power'].includes(infraType)) score += 5;
-        if (['solar', 'wind', 'power_station', 'industrial'].includes(infraType)) score += 3;
+        if (['power_grid', 'power'].includes(infraType)) score += 6;
+        if (['road', 'bridge', 'rail', 'telecom'].includes(infraType)) score -= 3;
+        if (['solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'industrial'].includes(infraType)) score += 3;
+        if (['construction', 'fuel', 'pipeline', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'flood_protection', 'traffic_protection'].includes(infraType)) score += 6;
+        if (['public_building', 'telecom'].includes(infraType)) score += 4;
         if (infraType === 'hydro') score += 2;
+        if (t.infra_cluster) score += 4;
+        if (Number(t.cluster_count || 0) >= 3) score += Math.min(4, Math.log2(Number(t.cluster_count || 1)));
         if (majorRoad.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
         if (majorRail.includes(t.railway)) score += 7;
@@ -8189,14 +8443,24 @@ function _poiFeatureScore(feature, category) {
         if (t.railway) score += 3;
         if (['line', 'minor_line', 'cable'].includes(t.power)) score += 5;
         if (['tower', 'pole'].includes(t.power)) score += 4;
-        if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 5;
+        if (['substation', 'plant', 'generator', 'storage', 'transformer'].includes(t.power)) score += 5;
         if (infraType === 'rail') score += 3;
         if (infraType === 'power_grid') score += 3;
         if (infraType === 'solar') score -= 2;
-        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas)/.test(energySourceScore)) score += 6;
+        if (infraType === 'solar_roof') score -= 10;
+        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas|geothermal|storage)/.test(energySourceScore)) score += 6;
+        if (String(t.landuse || '').toLowerCase() === 'construction' || t.construction) score += 6;
+        if (['landfill', 'quarry'].includes(String(t.landuse || '').toLowerCase())) score += 6;
+        if (String(t.amenity || '').toLowerCase() === 'fuel') score += 5;
+        if (['recycling', 'waste_disposal', 'waste_transfer_station', 'water_works', 'wastewater_plant'].includes(String(t.amenity || '').toLowerCase())) score += 5;
+        if (['clinic', 'college', 'courthouse', 'fire_station', 'hospital', 'police', 'post_office', 'school', 'townhall', 'university'].includes(String(t.amenity || '').toLowerCase())) score += 3;
+        if (['dyke', 'embankment', 'gasometer', 'pipeline', 'pumping_station', 'water_tower', 'storage_tank'].includes(String(t.man_made || '').toLowerCase())) score += 5;
+        if (['noise_barrier', 'retaining_wall'].includes(String(t.barrier || '').toLowerCase())) score += 4;
+        if (t.tunnel || t.pipeline || t.monitoring_water_level || t.lock_tag || t.embankment) score += 4;
+        if (['gas', 'heating', 'pipeline', 'sewerage', 'wastewater', 'water'].includes(String(t.utility || '').toLowerCase())) score += 4;
         if (t.substation || t.transformer) score += 5;
-        if (['tower', 'mast', 'bridge'].includes(t.man_made)) score += 4;
-        if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse')) score -= 2;
+        if (['tower', 'mast', 'communications_tower', 'bridge'].includes(t.man_made)) score += 4;
+        if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse') && !_hasWordToken(n, 'baustelle') && !_hasWordToken(n, 'dach') && !_hasWordToken(n, 'pv') && !_hasWordToken(n, 'solar') && !_hasWordToken(n, 'tank') && !_hasWordToken(n, 'tankstelle') && !_hasWordToken(n, 'gebaeude') && !_hasWordToken(n, 'gebäude') && !_hasWordToken(n, 'pipeline') && !_hasWordToken(n, 'pump') && !_hasWordToken(n, 'deich') && !_hasWordToken(n, 'tunnel') && !_hasWordToken(n, 'recycling') && !_hasWordToken(n, 'deponie') && !_hasWordToken(n, 'steinbruch')) score -= 2;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
     } else if (cat === 'forest') {
@@ -8210,17 +8474,19 @@ function _poiFeatureScore(feature, category) {
         if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
     } else if (cat === 'industry') {
         const energySourceScore = String(t.generator_source || t.plant_source || t.generator_method || t.plant_method || '').toLowerCase();
-        if (['solar', 'wind', 'power_station', 'industrial'].includes(infraType)) score += 9;
+        if (['solar', 'wind', 'energy_plant', 'energy_storage', 'power_station', 'industrial', 'fuel', 'water_utility', 'water_tank', 'storage_tank', 'waste', 'quarry', 'pipeline'].includes(infraType)) score += 9;
         if (infraType === 'wind') score += 3;
         if (infraType === 'solar' && !_hasWordToken(n, 'solarpark') && !_hasWordToken(n, 'photovoltaik')) score -= 2;
+        if (infraType === 'solar_roof') score -= 10;
         if (infraType === 'hydro' && (t.power || /(hydro|water)/.test(energySourceScore))) score += 7;
         if (infraType === 'power_grid') score += 5;
-        if (['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse)) score += 6;
-        if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 8;
-        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas)/.test(energySourceScore)) score += 7;
+        if (['industrial', 'quarry', 'brownfield', 'commercial', 'construction', 'depot', 'landfill', 'retail'].includes(t.landuse)) score += 6;
+        if (['substation', 'plant', 'generator', 'storage', 'transformer'].includes(t.power)) score += 8;
+        if (/(solar|photovoltaic|photovoltaik|wind|hydro|water|battery|biomass|biogas|gas|geothermal|storage)/.test(energySourceScore)) score += 7;
         if (t.substation || t.transformer) score += 5;
-        if (['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made)) score += 7;
-        if (['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
+        if (['gasometer', 'pipeline', 'pumping_station', 'water_works', 'wastewater_plant', 'works', 'storage_tank', 'water_tower', 'silo', 'chimney'].includes(t.man_made)) score += 7;
+        if (['fuel', 'recycling', 'waste_disposal', 'wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
+        if (['fuel', 'car_repair'].includes(t.shop)) score += 5;
     } else if (cat === 'fire') {
         if (t.natural === 'wood' || t.landuse === 'forest') score += 10;
         if (['heath', 'scrub'].includes(t.natural)) score += 6;
@@ -8540,14 +8806,22 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const rawName = String(f?.name || '').trim();
         const tf = f?.tags || {};
         const railTag = String(tf.railway || '').toLowerCase();
+        const isSarLikeProfile = (profileId === 'search_and_rescue' || isSarHeliProfile);
+        const isInfraOpsProfile = (profileId === 'inspection_infra' || profileId === 'mapping_survey');
+        if (String(tf.infra_type || '').toLowerCase() === 'solar_roof' && (isInfraOpsProfile || forceCat === 'infrastructure' || forceCat === 'industry')) {
+            continue;
+        }
+        let infraFallbackName = '';
         let name = _poiNormalizeFeatureName(rawName, wantedCat);
+        if (!rawName && isInfraOpsProfile && (wantedCat === 'infrastructure' || wantedCat === 'industry' || forceCat === 'infrastructure' || forceCat === 'industry')) {
+            infraFallbackName = _poiInfraFallbackName(tf, wantedCat);
+            if (infraFallbackName) name = infraFallbackName;
+        }
         if (!rawName && railTag && (wantedCat === 'rail' || forceCat === 'rail' || forceCat === 'infrastructure')) {
             name = _poiRailFallbackName(railTag);
         }
-        const hasName = !!rawName;
+        const hasName = !!rawName || !!infraFallbackName;
         const isRailOpPoint = ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag);
-        const isSarLikeProfile = (profileId === 'search_and_rescue' || isSarHeliProfile);
-        const isInfraOpsProfile = (profileId === 'inspection_infra' || profileId === 'mapping_survey');
 
         if (forceCat === 'dam' && !hasName && String(f?.sourceKind || '') === 'lin') continue;
         if (forceCat === 'road' && _poiIsSettlementOnlyFeature(f)) continue;
@@ -8563,8 +8837,18 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
                 !!tf.infra_type ||
                 !!tf.highway ||
                 !!tf.railway ||
-                ['line', 'minor_line', 'cable', 'tower', 'pole', 'substation', 'plant', 'generator', 'transformer'].includes(String(tf.power || '').toLowerCase()) ||
-                ['tower', 'mast', 'bridge'].includes(String(tf.man_made || '').toLowerCase())
+                ['line', 'minor_line', 'cable', 'tower', 'pole', 'storage', 'substation', 'plant', 'generator', 'transformer'].includes(String(tf.power || '').toLowerCase()) ||
+                ['tower', 'mast', 'communications_tower', 'bridge', 'dyke', 'embankment', 'gasometer', 'pipeline', 'pumping_station', 'storage_tank', 'water_tower'].includes(String(tf.man_made || '').toLowerCase()) ||
+                ['fuel', 'clinic', 'fire_station', 'hospital', 'police', 'post_office', 'recycling', 'school', 'townhall', 'university', 'waste_disposal', 'waste_transfer_station', 'water_works', 'wastewater_plant'].includes(String(tf.amenity || '').toLowerCase()) ||
+                ['construction', 'depot', 'industrial', 'commercial', 'landfill', 'quarry', 'retail'].includes(String(tf.landuse || '').toLowerCase()) ||
+                ['construction', 'civic', 'hospital', 'public', 'school', 'train_station', 'transportation', 'university'].includes(String(tf.building || '').toLowerCase()) ||
+                ['noise_barrier', 'retaining_wall'].includes(String(tf.barrier || '').toLowerCase()) ||
+                !!tf.tunnel ||
+                !!tf.pipeline ||
+                !!tf.monitoring_water_level ||
+                !!tf.lock_tag ||
+                !!tf.embankment ||
+                !!tf.infra_cluster
             );
             if (!strongInfra) continue;
         }
@@ -8645,6 +8929,8 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     if (forceCat === 'infrastructure') {
         const namedInfra = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
         if (namedInfra.length >= 1) scoredCandidates = namedInfra;
+        const broadInfra = scoredCandidates.filter(c => !_poiInfraSubtypeHasOwnPickerCategory(_poiCandidateInfraSubtype(c)));
+        if (broadInfra.length >= 6) scoredCandidates = broadInfra;
     }
     if (forceCat === 'telecom') {
         const namedTelecom = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
@@ -8653,10 +8939,16 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     if (forceCat === 'road' && profileId !== 'search_and_rescue' && !isSarHeliProfile) {
         const namedRoad = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiLooksJunctionLabel(c.n));
         if (namedRoad.length >= 2) scoredCandidates = namedRoad;
+        const roadFocused = scoredCandidates.filter(c => _poiCandidateIsRoadInspectionTarget(c));
+        if (roadFocused.length >= 3) scoredCandidates = roadFocused;
     }
-    if (forceCat === 'rail' && profileId !== 'search_and_rescue' && !isSarHeliProfile && profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
-        const namedRail = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsNumericLikeName(c.n));
-        if (namedRail.length >= 2) scoredCandidates = namedRail;
+    if (forceCat === 'rail' && profileId !== 'search_and_rescue' && !isSarHeliProfile) {
+        if (profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
+            const namedRail = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsNumericLikeName(c.n));
+            if (namedRail.length >= 2) scoredCandidates = namedRail;
+        }
+        const railFocused = scoredCandidates.filter(c => _poiCandidateIsRailInspectionTarget(c));
+        if (railFocused.length >= 4) scoredCandidates = railFocused;
     }
     if (isKnowledgeGuideProfile) {
         const educationalNamed = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsCodeLikeName(c.n) && !_poiIsNumericLikeName(c.n));
@@ -11686,7 +11978,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'search_and_rescue':
             return hasAny(/\bsuch/, /\bsar\b/, /\brettung/, /\blagebild\b/, /\bvermisst/, /\bsignal/);
         case 'inspection_infra':
-            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/, /\bstörung\b/, /\bstoerung\b/, /\btrasse\b/, /\bumspannwerk\b/, /\bwindpark\b/, /\bsolarpark\b/, /\bmodulreihe\b/, /\bwechselrichter\b/, /\btrafopunkt\b/);
+            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/, /\bstörung\b/, /\bstoerung\b/, /\btrasse\b/, /\bumspannwerk\b/, /\bwindpark\b/, /\bsolarpark\b/, /\bpv-dach\b/, /\bdachprüfung\b/, /\bdachpruefung\b/, /\bbaustelle\b/, /\btankstelle\b/, /\btankfeld\b/, /\bwassertank\b/, /\bpumpwerk\b/, /\bwasserwerk\b/, /\bklaeranlage\b/, /\bkläranlage\b/, /\bpipeline\b/, /\bgasdruck\b/, /\bbatteriespeicher\b/, /\bbiogas\b/, /\bbiomasse\b/, /\brecycling\b/, /\bdeponie\b/, /\bsteinbruch\b/, /\bkieswerk\b/, /\bdeich\b/, /\bstuetzmauer\b/, /\bstützmauer\b/, /\blaermschutz\b/, /\blärmschutz\b/, /\btunnelportal\b/, /\bmodulreihe\b/, /\bwechselrichter\b/, /\btrafopunkt\b/);
         case 'news_coverage':
             return hasAny(/\breporter/, /\bredaktion/, /\bbericht/, /\bberichterstattung/, /\bauffaenger\b/, /\baufhänger\b/, /\bverkehrslage\b/, /\bbesucher/, /\bfestbetrieb\b/, /\bbaustelle\b/, /\bortsbild\b/, /\blageeinschaetzung\b/, /\blageeinschätzung\b/);
         case 'media_photo':
@@ -11727,7 +12019,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Bahnzielen sind Bahnhof, Bahntrasse, Stellwerk, Weiche, Signal, Bahnübergang, Bahnwaerterhaus, Oberleitung, Böschung, Entwässerung oder Baustellenzustand passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Windparks, Solarparks, Umspannwerke, Trassen, Funkmasten und Industrieanlagen sind ebenfalls passende Infra-Ziele: Rotor-/Turmbereich, Modulreihen, Wechselrichter, Trafopunkt, Leitung, Zaun, Zufahrt, Kranfläche oder Betriebsfläche dürfen den Anlass tragen. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Bauwerks-/Gebäude-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Bahnzielen sind Bahnhof, Bahntrasse, Stellwerk, Weiche, Signal, Bahnübergang, Bahnwaerterhaus, Oberleitung, Böschung, Entwässerung oder Baustellenzustand passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Windparks, Solarparks, Umspannwerke, Energieanlagen, Batteriespeicher, Pipelines, Pumpwerke, Wasser-/Abwasseranlagen, Entsorgungsanlagen, Steinbrüche/Kieswerke, Deiche, Stützmauern, Lärmschutzwände, Tunnelportale, Trassen, Funkmasten, Industrieanlagen, Baustellen, öffentliche Gebäude, Tankstellen, Lagertanks und Wassertanks sind ebenfalls passende Infra-Ziele. Passende Prüfpunkte sind Rotor-/Turmbereich, Modulreihen, Dachhaut, Wechselrichter, Trafopunkt, Leitung, Ventilpunkt, Zaun, Zufahrt, Kranfläche, Betriebsfläche, Zapfbereich, Tankfeld, Pegelstelle, Pumpstation, Abbaukante, Böschung, Schutzwand oder Gebäudedach. Dach ist dabei Prüfmerkmal eines passenden Gebäudes oder einer Anlage, aber kein eigenständiger Zieltyp. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'science_bio' && isPOI) {
         return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein: Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Störfaktoren oder Monitoringvergleich. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
@@ -16703,7 +16995,7 @@ const MISSION_SEMANTICS_V4_RULESET = {
             planner: [
                 'Infrastruktur darf das Primaerziel sein.',
                 'Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.',
-                'Windparks, Solarparks, Energieanlagen, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen.'
+                'Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.'
             ],
             writer: [
                 'Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.',
@@ -17890,6 +18182,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             if (category === 'bridge') return 'den Fahrbahnuebergang, das Tragwerk, Pfeiler, Widerlager und Randbereiche';
             if (category === 'dam' || category === 'water') return 'Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegelbereich und Betriebszugang';
             if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich oder sichtbare Hindernisse';
+            if (category === 'rail') return 'Gleisbereich, Weichen, Signale, Bahnuebergaenge, Stellwerkspunkte, Boeschung und Entwaesserung';
             if (isWindTarget) return 'Anlagenreihe, Rotor-/Turmbereich, Trafopunkt, Zuwegung und Kranstellflaechen';
             if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
             if (isSolarTarget) return 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten';
@@ -17908,6 +18201,11 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'Eine Meldung aus dem Betrieb betrifft den Wasserbau- oder Uferbereich; aus der Luft soll zuerst klar werden, welcher Abschnitt wirklich auffaellig ist.',
                 'Vor der naechsten Wartungsrunde braucht die Wasserbehoerde einen schnellen Blick auf Krone, Ablauf und sichtbare Randbereiche.'
             ];
+            if (category === 'rail') return [
+                'Nach einer Strecken- oder Stellwerksmeldung soll aus der Luft geklaert werden, ob Weichenbereich, Signalumfeld, Bahnuebergang oder Boeschung auffaellig wirken.',
+                'Vor dem naechsten Wartungsfenster braucht der Infrastrukturbetreiber einen Ueberblick auf Gleisbereich, Entwaesserung, Zuwegung und sichtbare Schadstellen.',
+                'Eine Meldung zu Bahntrasse oder Betriebspunkt ist am Boden nur schwer einzugrenzen; der Luftblick soll den relevanten Abschnitt vorselektieren.'
+            ];
             if (isWindTarget) return [
                 'Vor dem naechsten Wartungsfenster sollen Zuwegung, Trafopunkt und Anlagenstandorte aus der Luft vorgeprueft werden.',
                 'Nach einer Sturmmeldung braucht der Betreiber einen Ueberblick, ob an Anlagenreihe, Kranflaechen oder Zufahrt etwas auffaellig wirkt.',
@@ -17918,7 +18216,12 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'Der Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Verschattung, Zaunbereich, Entwaesserung oder Zufahrt auffaellig wirken.',
                 'Eine Ertragsabweichung und eine Wettermeldung passen nicht eindeutig zusammen; der Luftblick soll sichtbare Ursachen eingrenzen.'
             ];
-            if (isEnergyTarget || category === 'telecom') return [
+            if (category === 'telecom') return [
+                'Nach einer Netz- oder Funkstoerung soll die Lage an Mast, Technikpunkt, Antennenbereich und Zuwegung aus der Luft eingegrenzt werden.',
+                'Der Bereitschaftsdienst hat eine unklare Meldung aus dem Funknetz; vor dem Ausruecken soll der betroffene Standort sichtbar verortet werden.',
+                'Vor einem Wartungstrupp muss klar werden, ob der Zugang frei ist und ob am Maststandort sichtbare Auffaelligkeiten vorliegen.'
+            ];
+            if (isEnergyTarget) return [
                 'Nach einer Netz- oder Funkstoerung soll die Lage an Trasse, Mast, Technikpunkt und Zuwegung aus der Luft eingegrenzt werden.',
                 'Der Bereitschaftsdienst hat eine unklare Meldung aus dem Energienetz; vor dem Ausruecken soll der betroffene Abschnitt sichtbar verortet werden.',
                 'Vor einem Wartungstrupp muss klar werden, ob der Zugang frei ist und ob am Technikpunkt sichtbare Auffaelligkeiten vorliegen.'
@@ -18857,7 +19160,7 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
     const isWind = /\b(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)\b/.test(text);
     const isSolar = /\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter)\b/.test(text);
     const isPower = /\b(umspannwerk|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|energienetz)\b/.test(text);
-    const isBlockedRoad = /\b(blockiert|blockade|hindernis|baumstamm|treibgut|ladung|kisten|fahrbahn|zufahrt|sturm)\b/.test(text);
+    const isBlockedRoad = /\b(blockiert|blockade|hindernis|baumstamm|treibgut|ladung|verlorene ladung|kisten|gesperrt|sperrung|umgestuerzt|umgestürzt)\b/.test(text);
 
     const pack = (sceneKind, objectFamilies = [], placementPolicy = '') => ({
         sceneKind,
@@ -18872,8 +19175,11 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
     if (isSolar) {
         return pack('industry_site', ['utility_truck', 'generator', 'cones'], 'Kleine Betreiber-/Technikreferenz am Solarpark; keine dekorative Baustelle.');
     }
-    if (isPower || category === 'telecom') {
+    if (isPower) {
         return pack('powerline_inspection', ['powerline', 'utility_truck', 'cones'], 'Trassen-/Technikreferenz sparsam am Ziel platzieren; Fokus bleibt Sichtpruefung aus der Luft.');
+    }
+    if (category === 'telecom') {
+        return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Sparsame Wartungsreferenz am Mast- oder Turmstandort; keine Stromtrasse erfinden.');
     }
     if (category === 'bridge') {
         return pack('infra_bridge', ['utility_truck', 'generator', 'cones'], 'Brueckenpruefung mit wenigen Arbeits-/Markierungselementen am Bauwerk oder an der Zufahrt.');
@@ -18882,9 +19188,12 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
         return pack('infra_dam', ['generator', 'cones', 'watercraft'], 'Wasserbau-Referenz am Damm, Auslauf oder Ufer; sparsam und ohne Rettungsdrama.');
     }
     if (category === 'road') {
-        return pack('road_incident', ['road_vehicles', 'cones', isBlockedRoad ? 'debris' : 'small_equipment'], 'Kleine Verkehrs-/Hindernisreferenz entlang der Strasse; keine schwere Einsatzlage.');
+        return pack('survey_context', ['utility_truck', 'cones', isBlockedRoad ? 'debris' : 'small_equipment'], 'Kleine Arbeits- oder Hindernisreferenz entlang der Strasse; keine Unfallpersonen und keine Rettungslage.');
     }
-    if (category === 'rail' || category === 'infrastructure') {
+    if (category === 'rail') {
+        return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Schlichte Bahntrassen-/Zugangsreferenz am Ziel; keine Unfall- oder Rettungslage.');
+    }
+    if (category === 'infrastructure') {
         return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Schlichte Trassen-/Zugangsreferenz fuer Infrastruktur, ohne falsche Unfall- oder Rettungslage.');
     }
     if (category === 'industry') {
@@ -21021,7 +21330,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage',
             'Windpark-Vorpruefung: Anlagenreihe, Zuwegung, Trafopunkt und Kranstellflaechen fuer Betreiberwartung einordnen',
             'Solarpark-Kontrolle: Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten nach Stoerungs- oder Wettermeldung pruefen',
-            'Netztrassenflug entlang Freileitung, Umspannwerk oder Mastreihe mit Fokus auf Zugang, Freihaltung und sichtbare Auffaelligkeiten'
+            'Netztrassenflug entlang Freileitung, Umspannwerk oder Mastreihe mit Fokus auf Zugang, Freihaltung und sichtbare Auffaelligkeiten',
+            'Baustellen-Lagebild mit Baufortschritt, Sperrbereichen, Kranflaechen, Zufahrt und sichtbaren Risiken fuer Projektleitung',
+            'Gebaeude- oder PV-Anlagenpruefung nach Sturm, Leckagehinweis oder Ertragsabfall mit Fokus auf Dachhaut, Modulreihen und Entwaesserung',
+            'Tankstellen- oder Tankfeldkontrolle mit Blick auf Zapfbereich, Tanklager, Zufahrt, Entwaesserung und Betreiberfreigabe',
+            'Oeffentliches Gebaeude aus der Luft pruefen: Dach, Technikaufbauten, Zugangsbereiche und sichtbare Schaeden fuer Facility Management',
+            'Pumpwerk, Wasserwerk oder Klaeranlage nach Betriebs- oder Starkregenmeldung auf Zufahrt, Becken, Technikflaechen und sichtbare Stoerstellen pruefen',
+            'Pipeline-, Gasdruckregel- oder Fernwaermepunkt mit Ventilbereich, Trassenverlauf, Zaun und Zufahrt fuer Betreiberentscheidung einordnen',
+            'Batteriespeicher, Biogas- oder Biomasseanlage mit Technikcontainern, Trafopunkt, Brandschutzabstand und Zufahrt kontrollieren',
+            'Recyclinghof, Deponie oder Umschlagplatz mit Randbereichen, Zufahrt, Materiallage und Entwaesserung sachlich dokumentieren',
+            'Tunnelportal, Stuetzmauer, Laermschutzwand oder Deich nach Wetter- oder Schadensmeldung aus der Luft vorpruefen'
         ],
         bush_recon_return: [
             'Bush-Strip-Kontrollflug mit Rueckkehr zum Heimatplatz',
@@ -21145,7 +21463,15 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Kontroll- und Vermessungsflug entlang Verkehrs- und Energietrassen",
             "Sturmschaden-Check an Trasse, Knoten, Dach oder Anlage",
             "Wartungsdokumentation und Störungsprüfung für Betreiber",
-            "Solarpark-/Windpark-Vorpruefung nach Stoerungs-, Ertrags- oder Wettermeldung"
+            "Solarpark-/Windpark-Vorpruefung nach Stoerungs-, Ertrags- oder Wettermeldung",
+            "Baustellen-, Gebaeude- oder PV-Anlagenkontrolle fuer Projektleitung oder Facility Management",
+            "Tankstelle, Tankfeld oder Wassertank mit Zufahrt, Entwaesserung und Technikbereich pruefen",
+            "Oeffentliches Gebaeude mit Dach, Technikaufbauten und Zugangsbereichen dokumentieren",
+            "Pumpwerk, Wasserwerk, Klaeranlage oder Pegelstelle fuer Betreiber und Kommune einordnen",
+            "Pipeline-, Gasdruckregel-, Ventil- oder Fernwaermepunkt entlang einer Trasse pruefen",
+            "Batteriespeicher, Biogas-/Biomasseanlage oder Technikstandort fuer Wartungsentscheidung dokumentieren",
+            "Recyclinghof, Deponie oder Umschlagplatz mit Zufahrt und Randbereichen kontrollieren",
+            "Tunnelportal, Stuetzmauer, Laermschutzwand, Deich oder Uferbefestigung nach Meldung vorpruefen"
         ],
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
