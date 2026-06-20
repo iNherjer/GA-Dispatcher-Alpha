@@ -1504,7 +1504,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'verbindlich, technisch, strukturiert',
                 matchCategories: ['bridge', 'dam', 'road', 'rail', 'telecom', 'industry', 'infrastructure'],
-                storySeed: '{name} braucht von {targetName} einen schnellen Betreiberblick, bevor Wartungsfenster, Sperrung oder Hubsteiger eingeplant werden.',
+                storySeed: '{name} bereitet fuer {targetName} eine Betreiberentscheidung vor und ordnet aus der Luft ein, ob Zugang, Absicherung oder Wartungseinsatz gezielt geplant werden muessen.',
                 greetingText: 'Hi, ich muss am Ende eine Betreiberentscheidung vorbereiten. Ein ruhiger Überblick auf Ziel und Zugänge ist dafür entscheidend.'
             },
             {
@@ -1626,7 +1626,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 matchCategories: ['infrastructure', 'industry'],
                 matchInfraTypes: ['perimeter_security'],
                 storySeed: '{name} kontrolliert bei {targetName} Zaunlinie, Tore, Zufahrt und Randbereiche, weil eine Betreiber- oder Wettermeldung auf eine mögliche Lücke im Perimeter hinweist.',
-                greetingText: 'Hi, ich schaue heute auf Zaunlinie, Tore und Zugänge. Keine Dramatik, nur ein sauberer Betreiberblick auf den Randbereich.'
+                greetingText: 'Hi, ich schaue heute auf Zaunlinie, Tore und Zugänge. Keine Dramatik, nur ein klarer Blick auf den Randbereich.'
             }
         ],
         greetingText: 'Hi, wir prüfen heute eine konkrete Infrastrukturmeldung aus der Luft. Bitte stabil fliegen, damit Zielobjekt, Zugänge und mögliche Auffälligkeiten sauber einzuordnen sind.',
@@ -19512,7 +19512,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         })();
         const incidentContext = _missionPipelineV4PickOne(incidentPool);
         const whyNow = _missionPipelineV4PickOne([
-            'Bevor Technikteam oder Betreiber Sperrung, Hubsteiger oder Folgeeinsatz disponieren, brauchen sie jetzt eine belastbare Vorpruefung aus der Luft.',
+            'Bevor Technikteam oder Betreiber Absicherung, Wartungsfenster oder Folgeeinsatz disponieren, brauchen sie jetzt eine belastbare Vorpruefung aus der Luft.',
             'Der Luftcheck soll die Bodeninspektion auf einen kleinen Abschnitt verengen, damit keine Zeit in der Flaeche verloren geht.',
             'Noch waehrend des heutigen Dienstfensters muss entschieden werden, ob Beobachtung reicht oder sofortige Nachpruefung noetig ist.',
             'Der Betreiber will nur dann ein Team losschicken, wenn der Luftblick einen echten Folgepunkt zeigt.'
@@ -22008,6 +22008,72 @@ function _missionPipelineV4EnforceBushPickupNameCandidates(passenger = {}, contr
     return { passenger: pax, story: nextStory || story };
 }
 
+function _missionPipelineV4InfraPassengerHandoff(contract = {}, detail = '') {
+    const category = String(contract?.target?.poiCategory || contract?.target?.targetCategory || contract?.profile?.pickerCategory || '').trim().toLowerCase();
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Ziel').trim() || 'dem Ziel';
+    const targetText = normalizeMissionText(targetName);
+    const cleanDetail = _missionPipelineV4StripSentenceEnd(detail || contract?.storyFrame?.subjectDetail || '');
+    const isWindTarget = /(windpark|windkraft|windrad|windturbine|wind turbine|windenergie|wind farm)/.test(targetText);
+    const isSolarTarget = /(solarpark|solaranlage|photovoltaik|photovoltaic|solar farm|(^|[^a-z0-9])pv([^a-z0-9]|$))/.test(targetText);
+    const isMarineTarget = /(hafen|marina|sportboothafen|schleuse|anleger|anlegestelle|kai|pier|dock|hafenbecken)/.test(targetText);
+    const isPerimeterTarget = /(zaun|zaunlinie|tor|zugang|perimeter|wildzaun|schutzzaun)/.test(targetText);
+    const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
+    const handoff = (() => {
+        if (category === 'road') return {
+            focus: 'Fahrbahn, Randstreifen, Hangbereiche, Zufahrten und sichtbare Hindernisse',
+            decision: 'ob Beobachtung reicht oder Streckendienst und Absicherung fuer den Abschnitt geplant werden sollen'
+        };
+        if (category === 'bridge') return {
+            focus: 'Fahrbahnuebergang, Tragwerk, Widerlager, Pfeiler und Randbereiche',
+            decision: 'ob eine Bodenpruefung, Beobachtung oder eine gezielte Nachkontrolle vorbereitet werden soll'
+        };
+        if (category === 'rail') return {
+            focus: 'Gleisbereich, Weichen, Signale, Bahnuebergaenge, Boeschung und Entwaesserung',
+            decision: 'ob ein Wartungsfenster, eine Trassenrunde oder nur weitere Beobachtung noetig wirkt'
+        };
+        if (category === 'dam' || category === 'water') return {
+            focus: 'Dammkrone, Auslauf, Uferbefestigung, Pegelbereich und Betriebszugang',
+            decision: 'ob Wasserbau- oder Betriebsteam spaeter einen bestimmten Abschnitt genauer ansehen sollen'
+        };
+        if (category === 'telecom') return {
+            focus: 'Mast, Plattformen, Antennenbereich, Abspannungen und Zuwegung',
+            decision: 'ob ein Netztechnik-, Zugangsteam- oder Hubsteiger-Einsatz sinnvoll vorbereitet werden sollte'
+        };
+        if (isWindTarget) return {
+            focus: 'Anlagenreihe, Turm- und Rotorbereiche, Trafopunkt, Zuwegung und Kranstellflaechen',
+            decision: 'ob der Wartungstermin wie geplant laufen kann oder ein einzelner Anlagenpunkt vorgezogen werden sollte'
+        };
+        if (isSolarTarget) return {
+            focus: 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten',
+            decision: 'ob der Betreiber einen Technikpunkt, eine Zaunstelle oder die Zufahrt gezielt nachpruefen muss'
+        };
+        if (isMarineTarget) return {
+            focus: 'Schleusentor, Anleger, Hafenbecken, Uferbefestigung, Zufahrt und Betriebsbereich',
+            decision: 'ob Wasserbau- oder Hafenbetrieb spaeter einen bestimmten Zugang oder Uferabschnitt nachpruefen muss'
+        };
+        if (isPerimeterTarget) return {
+            focus: 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Luecken oder Fremdkoerper',
+            decision: 'ob der Betreiber den Perimeter nur beobachtet oder ein Vor-Ort-Team an eine konkrete Stelle schickt'
+        };
+        if (isEnergyTarget) return {
+            focus: 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte',
+            decision: 'ob Netzbetrieb oder Technikteam einen bestimmten Punkt gezielt nachpruefen muessen'
+        };
+        if (category === 'industry' || category === 'infrastructure') return {
+            focus: 'Betriebsflaechen, Technikpunkte, Zufahrten, Dachbereiche und sichtbare Stoerstellen',
+            decision: 'ob Beobachtung reicht oder ein Betriebsteam einen Teilbereich nachpruefen muss'
+        };
+        return {
+            focus: 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffaelligkeiten',
+            decision: 'ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss'
+        };
+    })();
+    return {
+        focus: cleanDetail && _missionPipelineV4NarrativeTextUsable(cleanDetail) ? cleanDetail : handoff.focus,
+        decision: handoff.decision
+    };
+}
+
 function _missionPipelineV4InfraPassengerSentence(passenger = {}, contract = {}, detail = '') {
     const taskDomain = String(contract?.profile?.taskDomain || passenger?.taskDomain || '').trim().toLowerCase();
     if (taskDomain !== 'inspection_infra') return '';
@@ -22035,26 +22101,8 @@ function _missionPipelineV4InfraPassengerSentence(passenger = {}, contract = {},
     const gender = String(passenger?.gender || persona?.gender || '').trim().toLowerCase();
     const pronoun = gender === 'female' ? 'Sie' : (gender === 'male' ? 'Er' : 'Die Fachperson');
     const label = name && role ? `An Bord ist ${name}, ${role}` : (name ? `${name} fliegt als Fachperson mit` : `An Bord ist eine ${role}`);
-    const cleanDetail = _missionPipelineV4StripSentenceEnd(detail || contract?.storyFrame?.subjectDetail || 'Zielobjekt, Zugang und sichtbare Auffaelligkeiten');
-    const detailText = cleanDetail
-        ? cleanDetail
-        : 'Zielobjekt, Zugang und sichtbare Auffaelligkeiten';
-    const seedContext = {
-        name: name || 'Die Fachperson',
-        firstName: (name || '').split(/\s+/)[0] || 'Die Fachperson',
-        role,
-        targetName
-    };
-    let seededTask = _missionPipelineV4StripSentenceEnd(
-        _missionTemplateText(passenger?.personalStoryCue || passenger?.storySeed || persona?.storySeed || '', seedContext)
-    );
-    if (name && seededTask) {
-        seededTask = seededTask.replace(new RegExp(`^${_missionPipelineV4EscapeRegExp(name)}\\b`), pronoun);
-    }
-    if (seededTask && _missionPipelineV4NarrativeTextUsable(seededTask)) {
-        return `${_missionPipelineV4EnsureSentence(label)} ${_missionPipelineV4EnsureSentence(seededTask)}`;
-    }
-    return `${_missionPipelineV4EnsureSentence(label)} ${pronoun} beurteilt bei ${targetName} ${detailText}, damit Betreiber oder Technikteam eine klare Empfehlung bekommen.`;
+    const handoff = _missionPipelineV4InfraPassengerHandoff(contract, detail);
+    return `${_missionPipelineV4EnsureSentence(label)} ${pronoun} ordnet bei ${targetName} ${handoff.focus} ein und haelt fest, ${handoff.decision}.`;
 }
 
 function _missionPipelineV4StoryMentionsPassenger(story = '', passenger = {}) {
