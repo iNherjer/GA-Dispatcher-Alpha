@@ -43,6 +43,17 @@
             color: #9ecbff;
             letter-spacing: 0;
         }
+        #bootSplash .boot-splash-status {
+            font: 500 13px/1.35 "Segoe UI", Roboto, sans-serif;
+            color: #e7eef7;
+            text-align: center;
+        }
+        #bootSplash .boot-splash-detail {
+            max-width: min(520px, calc(100vw - 42px));
+            font: 400 12px/1.45 "Segoe UI", Roboto, sans-serif;
+            color: #aab7c6;
+            text-align: center;
+        }
         #bootSplash .boot-splash-dots {
             display: inline-flex;
             gap: 8px;
@@ -57,6 +68,21 @@
         }
         #bootSplash .boot-splash-dots span:nth-child(2) { animation-delay: 0.15s; }
         #bootSplash .boot-splash-dots span:nth-child(3) { animation-delay: 0.30s; }
+        #bootSplash .boot-splash-actions {
+            display: none;
+            gap: 10px;
+        }
+        #bootSplash .boot-splash-actions.is-visible {
+            display: flex;
+        }
+        #bootSplash .boot-splash-action {
+            border: 1px solid rgba(158, 203, 255, 0.55);
+            background: rgba(158, 203, 255, 0.12);
+            color: #e7eef7;
+            border-radius: 6px;
+            padding: 7px 12px;
+            font: 600 12px/1 "Segoe UI", Roboto, sans-serif;
+        }
         @keyframes bootDotPulse {
             0%, 100% { transform: translateY(0); opacity: 0.25; }
             50% { transform: translateY(-2px); opacity: 1; }
@@ -76,7 +102,13 @@
 <div id="bootSplash" class="boot-splash" aria-live="polite" aria-label="App wird geladen">
     <div class="boot-splash-inner">
         <div class="boot-splash-title">VFR Multitool</div>
+        <div class="boot-splash-status" id="bootSplashStatus">App wird geladen</div>
+        <div class="boot-splash-detail" id="bootSplashDetail" hidden></div>
         <div class="boot-splash-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="boot-splash-actions" id="bootSplashActions">
+            <button type="button" class="boot-splash-action" id="bootSplashReloadBtn">Neu laden</button>
+            <button type="button" class="boot-splash-action" id="bootSplashLaterBtn">Später</button>
+        </div>
     </div>
 </div>
 <script>
@@ -1705,7 +1737,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=infra-outcome-chain-20260618-02"></script>
+<script defer src="app.js?v=sw-update-splash-20260620-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260619-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
@@ -1847,24 +1879,104 @@
     window.addEventListener('resize', _closeFloatingMenus);
     window.addEventListener('orientationchange', _closeFloatingMenus);
 
-    // Service Worker mit Auto-Reload bei Updates
+    // Service Worker mit Update-Splash und Reload-Gate
     const _swParams = new URLSearchParams(window.location.search || '');
     const _skipSwForDebug = _swParams.has('fireDebug') || _swParams.has('fireCacheFresh') || _swParams.has('noSw');
+    function _setBootSplashUpdate(status, detail = '', showActions = false) {
+        const splash = document.getElementById('bootSplash');
+        if (!splash) return;
+        const statusEl = document.getElementById('bootSplashStatus');
+        const detailEl = document.getElementById('bootSplashDetail');
+        const actionsEl = document.getElementById('bootSplashActions');
+        splash.dataset.locked = 'update';
+        splash.dataset.hidden = '0';
+        splash.dataset.hiding = '0';
+        splash.classList.remove('is-hidden');
+        document.body.classList.add('boot-splash-active');
+        if (statusEl) statusEl.textContent = status || 'Update läuft';
+        if (detailEl) {
+            detailEl.textContent = detail || '';
+            detailEl.hidden = !detail;
+        }
+        if (actionsEl) actionsEl.classList.toggle('is-visible', !!showActions);
+    }
+    function _hideBootSplashUpdate() {
+        const splash = document.getElementById('bootSplash');
+        if (!splash) return;
+        splash.dataset.locked = '';
+        splash.dataset.hidden = '1';
+        splash.classList.add('is-hidden');
+        document.body.classList.remove('boot-splash-active');
+    }
+    function _isBriefingVisibleForReloadGate() {
+        const briefing = document.getElementById('briefingBox');
+        if (!briefing) return false;
+        return window.getComputedStyle(briefing).display !== 'none';
+    }
+    function _isSwReloadSafeNow() {
+        const dispatchBusy = typeof window.gaIsDispatchBusy === 'function' && window.gaIsDispatchBusy();
+        return !dispatchBusy && !_isBriefingVisibleForReloadGate();
+    }
     if (!_skipSwForDebug && 'serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
         window.addEventListener('load', () => {
+            const hadController = !!navigator.serviceWorker.controller;
+            let reloadPending = false;
+            let reloadStarted = false;
+            let reloadDismissed = false;
+            const reloadForUpdate = () => {
+                if (reloadStarted) return;
+                reloadStarted = true;
+                _setBootSplashUpdate('Update wird gestartet', 'VFR Multitool lädt die neue Version jetzt neu.', false);
+                setTimeout(() => window.location.reload(), 550);
+            };
+            const markReloadPending = () => {
+                reloadPending = true;
+                _setBootSplashUpdate(
+                    'Update bereit',
+                    'Der Neustart ist pausiert, weil gerade ein Dispatch oder Briefing offen ist. Lade neu, wenn es passt.',
+                    true
+                );
+            };
+            const maybeFinishPendingReload = () => {
+                if (!reloadPending || reloadStarted || reloadDismissed) return;
+                if (_isSwReloadSafeNow()) reloadForUpdate();
+                else markReloadPending();
+            };
+            const trackInstallingWorker = (worker) => {
+                if (!worker || !hadController) return;
+                const renderState = () => {
+                    if (worker.state === 'installing') {
+                        _setBootSplashUpdate('Update läuft', 'App-Dateien werden im Hintergrund vorbereitet.', false);
+                    } else if (worker.state === 'installed') {
+                        _setBootSplashUpdate('Update installiert', 'VFR Multitool aktiviert die neue Version.', false);
+                    } else if (worker.state === 'activating') {
+                        _setBootSplashUpdate('Update wird aktiviert', 'Der Service Worker übernimmt gleich die App.', false);
+                    } else if (worker.state === 'activated') {
+                        _setBootSplashUpdate('Update aktiviert', 'Neustart wird vorbereitet.', false);
+                    } else if (worker.state === 'redundant') {
+                        _setBootSplashUpdate('Update abgebrochen', 'Die neue Version konnte nicht aktiviert werden.', true);
+                    }
+                };
+                worker.addEventListener('statechange', renderState);
+                renderState();
+            };
+            document.getElementById('bootSplashReloadBtn')?.addEventListener('click', reloadForUpdate);
+            document.getElementById('bootSplashLaterBtn')?.addEventListener('click', () => {
+                reloadDismissed = true;
+                _hideBootSplashUpdate();
+            });
+            window.addEventListener('ga-dispatchstatechange', () => setTimeout(maybeFinishPendingReload, 0));
+            setInterval(maybeFinishPendingReload, 5000);
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] Service Worker registriert:', reg.scope);
-
-                // Prüft auf Updates, wenn die Seite aus dem Hintergrund geholt wird
+                if (reg.installing) trackInstallingWorker(reg.installing);
+                reg.addEventListener('updatefound', () => trackInstallingWorker(reg.installing));
                 reg.update();
             }).catch(err => console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err));
-            // Wenn ein neuer Service Worker die Kontrolle übernimmt, Seite sofort neu laden!
-            let refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshing) {
-                    refreshing = true;
-                    window.location.reload();
-                }
+                if (!hadController || reloadStarted) return;
+                if (_isSwReloadSafeNow()) reloadForUpdate();
+                else markReloadPending();
             });
         });
     }

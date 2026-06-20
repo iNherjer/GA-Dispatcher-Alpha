@@ -4082,7 +4082,7 @@ window.restoreMainViewFromStorage = function restoreMainViewFromStorage() {
 
 window.hideBootSplash = function hideBootSplash() {
     const splash = document.getElementById('bootSplash');
-    if (!splash || splash.dataset.hidden === '1' || splash.dataset.hiding === '1') return;
+    if (!splash || splash.dataset.hidden === '1' || splash.dataset.hiding === '1' || splash.dataset.locked === 'update') return;
 
     const BOOT_SPLASH_MIN_VISIBLE_MS = 500;
     const shownAt = Number(window.__bootSplashShownAt) || performance.now();
@@ -4091,13 +4091,10 @@ window.hideBootSplash = function hideBootSplash() {
     splash.dataset.hiding = '1';
 
     setTimeout(() => {
-        if (!splash || splash.dataset.hidden === '1') return;
+        if (!splash || splash.dataset.hidden === '1' || splash.dataset.locked === 'update') return;
         splash.dataset.hidden = '1';
         splash.classList.add('is-hidden');
         document.body.classList.remove('boot-splash-active');
-        setTimeout(() => {
-            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-        }, 260);
     }, waitMs);
 };
 
@@ -6155,6 +6152,20 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
 
 let _dispatchRunId = 0;
 let _dispatchState = { active: false, cancelled: false, runId: 0 };
+function _emitDispatchStateChange(reason = 'dispatch-state') {
+    try {
+        window.dispatchEvent(new CustomEvent('ga-dispatchstatechange', {
+            detail: {
+                reason,
+                active: !!(_dispatchState && _dispatchState.active && !_dispatchState.cancelled),
+                runId: Number(_dispatchState?.runId || 0)
+            }
+        }));
+    } catch (_) {}
+}
+window.gaIsDispatchBusy = function gaIsDispatchBusy() {
+    return !!(_dispatchState && _dispatchState.active && !_dispatchState.cancelled);
+};
 const MISSION_PIPELINE_LEGACY_STORAGE_KEY = 'ga_debug_mission_pipeline_legacy';
 const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legacy preference key, no longer used for defaulting
 const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
@@ -6164,6 +6175,7 @@ const MISSION_PIPELINE_MODE_STORAGE_KEY = 'ga_mission_pipeline_mode';
 function _startDispatchRun() {
     _dispatchRunId += 1;
     _dispatchState = { active: true, cancelled: false, runId: _dispatchRunId };
+    _emitDispatchStateChange('start');
     return _dispatchRunId;
 }
 
@@ -6175,6 +6187,7 @@ function _abortDispatchRun(reason = 'Abbruch') {
     if (!_dispatchState.active) return false;
     _dispatchState.cancelled = true;
     _dispatchState.active = false;
+    _emitDispatchStateChange('abort');
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = `Dispatch abgebrochen (${reason}).`;
     setMissionGenerationProgress({ visible: false, force: true });
@@ -27073,6 +27086,7 @@ async function generateMission(options = {}) {
         vpUpdatePosition(0);
         if (_isDispatchRunAlive(dispatchRunId)) {
             _dispatchState.active = false;
+            _emitDispatchStateChange('complete');
         }
     }, 800);
     return true;
@@ -27093,7 +27107,9 @@ async function generateMission(options = {}) {
         }
     } finally {
         if (!_dispatchDeferredFinalize && _dispatchState.runId === dispatchRunId) {
+            const wasActive = !!(_dispatchState.active && !_dispatchState.cancelled);
             _dispatchState.active = false;
+            if (wasActive) _emitDispatchStateChange('finish');
         }
     }
 }
