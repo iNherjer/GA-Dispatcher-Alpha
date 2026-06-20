@@ -929,7 +929,11 @@
         const highway = cleanText(feature.highway || '', 80);
         const waterway = cleanText(feature.waterway || '', 80);
         let identity = '';
-        if (k === 'waterway') identity = name || ref || waterway;
+        if (k === 'waterway') {
+            // Unnamed river/stream/canal tags merge unrelated hydro fragments into
+            // broad "Gewässerkorridor" chains that are not visually legible in flight.
+            identity = name || ref;
+        }
         else if (k === 'road') identity = ref || name || highway;
         else if (k === 'rail') {
             const lineName = railLineIdentityName({ ...feature, name: rawName || name });
