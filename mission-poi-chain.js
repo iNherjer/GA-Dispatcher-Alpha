@@ -27,7 +27,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
-            overlayWidthNm: 2.2,
+            overlayWidthNm: 0.5,
             overlayLabel: 'Korridor-Brueckenpruefung'
         },
         road_bridge_inspection: {
@@ -39,7 +39,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
-            overlayWidthNm: 2.8,
+            overlayWidthNm: 0.5,
             overlayLabel: 'Strassenbauwerk-Kette'
         },
         road_junction_survey: {
@@ -52,7 +52,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
-            overlayWidthNm: 3.2,
+            overlayWidthNm: 0.6,
             overlayLabel: 'Verkehrskorridor'
         },
         rail_chain_inspection: {
@@ -66,7 +66,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
-            overlayWidthNm: 2.0,
+            overlayWidthNm: 0.5,
             overlayLabel: 'Bahnkorridor'
         },
         power_grid_inspection: {
@@ -79,7 +79,7 @@
             minScore: 4,
             minPoints: 2,
             maxPoints: 6,
-            overlayWidthNm: 3.2,
+            overlayWidthNm: 0.7,
             overlayLabel: 'Stromtrassen-Kette'
         },
         generic_poi_chain: {
@@ -386,7 +386,7 @@
         cfg.maxPoints = Math.max(cfg.minPoints, Math.round(Number(cfg.maxPoints || DEFAULTS.maxPoints)));
         cfg.guideMaxCrossTrackNm = Math.max(0.2, Number(cfg.guideMaxCrossTrackNm || DEFAULTS.guideMaxCrossTrackNm));
         cfg.candidateMaxCrossTrackNm = Math.max(0.1, Number(cfg.candidateMaxCrossTrackNm || DEFAULTS.candidateMaxCrossTrackNm));
-        cfg.overlayWidthNm = Math.max(0.8, Math.min(8, Number(cfg.overlayWidthNm || Math.max(1.2, cfg.candidateMaxCrossTrackNm * 4))));
+        cfg.overlayWidthNm = Math.max(0.3, Math.min(8, Number(cfg.overlayWidthNm || Math.max(0.5, cfg.candidateMaxCrossTrackNm * 1.2))));
         cfg.clusterRadiusNm = Math.max(0.03, Number(cfg.clusterRadiusNm || DEFAULTS.clusterRadiusNm));
         cfg.minSpacingNm = Math.max(0.05, Number(cfg.minSpacingNm || DEFAULTS.minSpacingNm));
         cfg.minScore = Number.isFinite(Number(cfg.minScore)) ? Number(cfg.minScore) : DEFAULTS.minScore;

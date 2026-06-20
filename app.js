@@ -13049,12 +13049,18 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 existingContract?.profile?.pickerCategory ||
                 ''
             ).trim().toLowerCase();
+            const chainForStory = compactPoiChainForMission(m.poiChain || existingContract?.poiChain || existingContract?.missionPlan?.poiChain || null, 8);
+            const isChainRecon = profile.id === 'infra_chain_recon'
+                || profile.taskDomain === 'infra_chain_recon'
+                || String(m.appliedProfile || m.dispatchProfileId || m.profile || '').toLowerCase() === 'infra_chain_recon'
+                || String(passenger?.taskDomain || '').toLowerCase() === 'infra_chain_recon'
+                || !!(chainForStory && Array.isArray(chainForStory.points) && chainForStory.points.length >= 2);
             const storyContract = {
                 ...existingContract,
                 profile: {
                     ...(existingContract.profile || {}),
-                    id: profile.id,
-                    taskDomain: profile.taskDomain,
+                    id: isChainRecon ? 'infra_chain_recon' : profile.id,
+                    taskDomain: isChainRecon ? 'infra_chain_recon' : profile.taskDomain,
                     pickerCategory: existingContract?.profile?.pickerCategory || targetCategory
                 },
                 target: {
@@ -13063,10 +13069,10 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                     poiCategory: existingContract?.target?.poiCategory || targetCategory
                 },
                 storyFrame: existingContract.storyFrame || existingContract?.missionPlan?.plan?.storyFrame || m._missionPlanV4?.storyFrame || {},
-                poiChain: compactPoiChainForMission(m.poiChain || existingContract?.poiChain || existingContract?.missionPlan?.poiChain || null, 8)
+                poiChain: chainForStory
             };
             const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
-            if (profile.id === 'infra_chain_recon') {
+            if (isChainRecon) {
                 const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
                 m.s = _missionPipelineV4PoiChainStoryLooksComplete(writerStory, storyContract, passenger)
                     ? writerStory
@@ -21345,7 +21351,11 @@ function buildMissionContractV4({
         plannerContext.poiChain || plannerContext.dest?.poiChain || plannerResult?.poiChain || null,
         8
     );
-    const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
+    const hasPoiChain = !!(poiChain && Array.isArray(poiChain.points) && poiChain.points.length >= 2);
+    const taskDomainRaw = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
+    const taskDomain = hasPoiChain && /^(inspection_infra|infra_chain_recon)$/i.test(taskDomainRaw)
+        ? 'infra_chain_recon'
+        : taskDomainRaw;
     const roleProfile = String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1');
     const profileId = String(profile.id || plannerContext.dispatchProfileId || 'auto');
     const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, {
