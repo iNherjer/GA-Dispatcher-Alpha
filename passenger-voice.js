@@ -1150,6 +1150,7 @@ function _normTaskDomain(value) {
         'training',
         'charter',
         'inspection_infra',
+        'infra_chain_recon',
         'media_photo',
         'science_bio',
         'science_geo',
@@ -1255,6 +1256,7 @@ function _inspectionMissionMeta() {
     if (taskDomain === 'historian_guided_tour') return null;
     if (taskDomain === 'poi_learning_guide') return null;
     if (taskDomain === 'mapping_survey') return null;
+    if (taskDomain === 'infra_chain_recon') return null;
     if (taskDomain === 'science_bio' || taskDomain === 'science_geo') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
@@ -1344,7 +1346,7 @@ function _professionalRoleMeta() {
     const objectName = md.poiName || 'dem Zielobjekt';
     const taskDomain = _activeTaskDomain();
 
-    if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility' || taskDomain === 'bush_pickup_return' || taskDomain === 'bush_adventure') {
+    if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'infra_chain_recon' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility' || taskDomain === 'bush_pickup_return' || taskDomain === 'bush_adventure') {
         return null;
     }
     if (taskDomain === 'mapping_survey') {
@@ -5227,6 +5229,7 @@ function _paxApproachLandmarkPolicy() {
     const task = _activeTaskDomain();
     const expertTargets = new Set([
         'inspection_infra',
+        'infra_chain_recon',
         'mapping_survey',
         'science_bio',
         'science_geo',
@@ -5814,7 +5817,7 @@ function _poiEntryPrompt(flightData) {
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
     const hasPoiKnowledge = !!_activePoiKnowledgeContext();
-    const isProfessionalPoiTask = /^(inspection_infra|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain);
+    const isProfessionalPoiTask = /^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain);
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue' || isLearningGuide || (isSightseeing && hasPoiKnowledge)) ? '' : _targetFactHint();
@@ -5902,7 +5905,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
                 ? 'Historiker-Rolle: bildungsorientiert und anschaulich, kein Technik-/Inspektionston. Max 2 Saetze.'
                 : (taskDomain === 'sightseeing_tour'
                     ? 'Sightseeing-Rolle: freundlich und beobachtend, keine Flug- oder Manöveranweisungen. Max 2 Saetze.'
-                    : (/^(inspection_infra|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain)
+                    : (/^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain)
                         ? 'Fachrolle: knapp, professionell, zielbezogen, keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
                         : 'Rolle: kurz, glaubwuerdig und beobachtend, keine Flug- oder Manöveranweisungen. Max 2 Sätze.'))));
     return `${ctx}
@@ -7425,7 +7428,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         }
         return;
     }
-    const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|mapping_survey)$/.test(taskDomain);
+    const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|infra_chain_recon|mapping_survey)$/.test(taskDomain);
     const altTolerance         = strict ? 200  : (tightAltitudeBand ? 300 : 600);
     const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;
     const maxAttempts          = strict ? 2 : 3;

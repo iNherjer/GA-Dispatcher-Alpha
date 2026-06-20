@@ -288,15 +288,60 @@
         return 0;
     }
 
+    function pushCorridorPoint(out, point) {
+        if (!out || !point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) return;
+        const last = out[out.length - 1] || null;
+        if (last && haversineNm(last.lat, last.lon, point.lat, point.lon) < 0.01) return;
+        out.push({ lat: Number(point.lat), lon: Number(point.lon) });
+    }
+
+    function curvePoint(a, control, b, t) {
+        const u = 1 - t;
+        return {
+            lat: (u * u * a.lat) + (2 * u * t * control.lat) + (t * t * b.lat),
+            lon: (u * u * a.lon) + (2 * u * t * control.lon) + (t * t * b.lon)
+        };
+    }
+
+    function roundedCorridorPoints(points, widthNm) {
+        if (!Array.isArray(points) || points.length < 3) return points || [];
+        const out = [];
+        const radiusBaseNm = Math.max(0.35, Math.min(3.5, Number(widthNm || 5) * 0.65));
+        pushCorridorPoint(out, points[0]);
+        for (let idx = 1; idx < points.length - 1; idx++) {
+            const prev = points[idx - 1];
+            const curr = points[idx];
+            const next = points[idx + 1];
+            const distPrev = haversineNm(prev.lat, prev.lon, curr.lat, curr.lon);
+            const distNext = haversineNm(curr.lat, curr.lon, next.lat, next.lon);
+            const radiusNm = Math.min(radiusBaseNm, distPrev * 0.35, distNext * 0.35);
+            if (!Number.isFinite(radiusNm) || radiusNm < 0.12) {
+                pushCorridorPoint(out, curr);
+                continue;
+            }
+            const before = destinationPoint(curr.lat, curr.lon, radiusNm, bearingDeg(curr.lat, curr.lon, prev.lat, prev.lon));
+            const after = destinationPoint(curr.lat, curr.lon, radiusNm, bearingDeg(curr.lat, curr.lon, next.lat, next.lon));
+            pushCorridorPoint(out, before);
+            const steps = Math.max(3, Math.min(8, Math.ceil(radiusNm * 2)));
+            for (let step = 1; step <= steps; step++) {
+                pushCorridorPoint(out, curvePoint(before, curr, after, step / (steps + 1)));
+            }
+            pushCorridorPoint(out, after);
+        }
+        pushCorridorPoint(out, points[points.length - 1]);
+        return out.length >= 2 ? out : points;
+    }
+
     function drawCorridorHint(layer, points, spec) {
         if (!layer || typeof L === 'undefined' || !Array.isArray(points) || points.length < 2) return;
         const paneName = ensureOverlayPane();
         const widthNm = Math.max(1, Math.min(10, Number(spec?.overlay?.widthNm || 5)));
         const halfWidthNm = widthNm / 2;
+        const corridorPoints = roundedCorridorPoints(points, widthNm);
         const left = [];
         const right = [];
-        points.forEach((point, idx) => {
-            const bearing = corridorBearingAt(points, idx);
+        corridorPoints.forEach((point, idx) => {
+            const bearing = corridorBearingAt(corridorPoints, idx);
             const l = destinationPoint(point.lat, point.lon, halfWidthNm, bearing - 90);
             const r = destinationPoint(point.lat, point.lon, halfWidthNm, bearing + 90);
             left.push([l.lat, l.lon]);
