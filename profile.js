@@ -3850,6 +3850,11 @@ window.vpBuildWeatherDebugReport = function() {
                     chainBits.push(`last=${last.status || 'no_chain'}`);
                     if (last.forced) chainBits.push('forced=yes');
                 }
+                if (Number.isFinite(Number(last.tileKeys))) chainBits.push(`tiles=${Number(last.tileKeys)}`);
+                if (Number.isFinite(Number(last.features))) chainBits.push(`features=${Number(last.features)}`);
+                if (Number.isFinite(Number(last.fetchMs))) chainBits.push(`fetch=${Math.round(Number(last.fetchMs))}ms`);
+                if (Number.isFinite(Number(last.buildMs))) chainBits.push(`build=${Math.round(Number(last.buildMs))}ms`);
+                if (Number.isFinite(Number(last.totalMs))) chainBits.push(`total=${Math.round(Number(last.totalMs))}ms`);
             }
             lines.push(`- POI-Ketten-Debug: ${chainBits.join(' | ')}`);
         }

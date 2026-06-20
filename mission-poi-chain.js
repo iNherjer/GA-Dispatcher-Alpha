@@ -1055,7 +1055,8 @@
         const dirPref = String(options.dirPref || 'any').toLowerCase();
         const themes = themesForProspectOptions(options);
         const groupPattern = normalizePattern(options.guideNamePattern || options.guidePattern || options.guideName || '');
-        const maxGroupsPerTheme = Math.max(3, Math.min(30, Math.round(Number(options.maxGroupsPerTheme || 14))));
+        const maxGroupsPerTheme = Math.max(2, Math.min(16, Math.round(Number(options.maxGroupsPerTheme || 6))));
+        const stopAfterProspects = Math.max(0, Math.min(16, Math.round(Number(options.stopAfterProspects || 0))));
         const diagnostics = {
             featureCounts: {
                 core: features.core.length,
@@ -1073,6 +1074,7 @@
         const groups = groupGuideFeatures(features);
         diagnostics.groups = groups.length;
         const prospects = [];
+        let stopProspecting = false;
         for (const theme of themes) {
             const guideKind = themeGuideKind(theme);
             const matchingGroups = groups
@@ -1162,7 +1164,12 @@
                     chain: result.chain,
                     diagnostics: result.diagnostics
                 });
+                if (stopAfterProspects && prospects.length >= stopAfterProspects) {
+                    stopProspecting = true;
+                    break;
+                }
             }
+            if (stopProspecting) break;
         }
         prospects.sort((a, b) => b.score - a.score);
         return {

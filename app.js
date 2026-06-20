@@ -7588,6 +7588,9 @@ const POI_TILE_STEP_LAT = POI_TILE_EDGE_NM / 60;
 const POI_TILE_STEP_LON = POI_TILE_EDGE_NM / 60;
 const POI_TILE_FETCH_PARALLEL = 4;
 const POI_TILE_MAX_KEYS = 36;
+const POI_CHAIN_TILE_MAX_KEYS = 9;
+const POI_CHAIN_MAX_FEATURES = 24000;
+const POI_CHAIN_MAX_FEATURES_PER_TILE = 3500;
 const POI_TILE_CACHE_TTL_MS = 30 * 60 * 1000;
 // Default ON: split-worker als Standardquelle nutzen, außer explizit deaktiviert.
 const POI_TILE_WORKER_ENABLED = localStorage.getItem('ga_poi_worker_split_enabled') !== 'false';
@@ -7715,6 +7718,31 @@ function _poiCollectTileKeysAround(lat, lon, radiusNm) {
         }
     }
     return out.slice(0, POI_TILE_MAX_KEYS);
+}
+
+function _poiCollectNearestTileKeysAround(lat, lon, radiusNm, maxKeys = POI_TILE_MAX_KEYS) {
+    const center = _poiTileKey(lat, lon);
+    const [cLatI, cLonI] = center.split('|').map(Number);
+    const span = Math.max(1, Math.ceil(Number(radiusNm || 25) / POI_TILE_EDGE_NM) + 1);
+    const rows = [];
+    for (let dy = -span; dy <= span; dy++) {
+        for (let dx = -span; dx <= span; dx++) {
+            const key = `${cLatI + dy}|${cLonI + dx}`;
+            const b = _poiTileBoundsFromKey(key);
+            const centerLat = b ? (Number(b.south) + Number(b.north)) / 2 : Number(lat);
+            const centerLon = b ? (Number(b.west) + Number(b.east)) / 2 : Number(lon);
+            let dist = Math.abs(dx) + Math.abs(dy);
+            try {
+                const nav = calcNav(Number(lat), Number(lon), centerLat, centerLon);
+                if (Number.isFinite(Number(nav?.dist))) dist = Number(nav.dist);
+            } catch (_) {}
+            rows.push({ key, dist, grid: Math.abs(dx) + Math.abs(dy) });
+        }
+    }
+    return rows
+        .sort((a, b) => a.dist - b.dist || a.grid - b.grid || a.key.localeCompare(b.key))
+        .map(row => row.key)
+        .slice(0, Math.max(1, Math.min(POI_TILE_MAX_KEYS, Number(maxKeys) || POI_TILE_MAX_KEYS)));
 }
 
 function _poiNormalizeFeatureName(raw, fallbackCategory = 'poi') {
@@ -9130,7 +9158,118 @@ function _poiChainCategoryFromTheme(theme = '') {
     return 'infrastructure';
 }
 
+function _poiChainThemesForDispatch(category = 'all', forceTheme = '') {
+    const forced = String(forceTheme || '').toLowerCase();
+    const known = ['river_bridge_inspection', 'road_bridge_inspection', 'road_junction_survey', 'rail_chain_inspection', 'power_grid_inspection'];
+    if (forced && forced !== 'auto' && known.includes(forced)) return [forced];
+    const cat = String(category || 'all').toLowerCase();
+    if (cat === 'bridge') return ['river_bridge_inspection', 'road_bridge_inspection'];
+    if (cat === 'road') return ['road_bridge_inspection', 'road_junction_survey'];
+    if (cat === 'rail') return ['rail_chain_inspection'];
+    if (cat === 'infrastructure' || cat === 'industry' || cat === 'all' || cat === 'chain') return known;
+    return known;
+}
+
+function _poiChainRawValue(feature = null, key = '') {
+    const direct = feature?.[key];
+    if (direct !== undefined && direct !== null && String(direct).trim()) return String(direct).trim().toLowerCase();
+    const tag = feature?.tags?.[key];
+    if (tag !== undefined && tag !== null && String(tag).trim()) return String(tag).trim().toLowerCase();
+    return '';
+}
+
+function _poiChainRawTokens(feature = null) {
+    return [
+        feature?.name,
+        feature?.n,
+        feature?.ref,
+        feature?.operator,
+        feature?.rawType,
+        feature?.type,
+        feature?.tags?.name,
+        feature?.tags?.ref,
+        feature?.tags?.operator,
+        feature?.tags?.infra_type,
+        feature?.tags?.cluster_type,
+        feature?.tags?.highway,
+        feature?.tags?.railway,
+        feature?.tags?.power,
+        feature?.tags?.waterway
+    ].filter(v => v !== undefined && v !== null && String(v).trim()).join(' ').toLowerCase();
+}
+
+function _poiChainFeatureGuideKinds(feature = null) {
+    const sourceKind = String(feature?.sourceKind || '').toLowerCase();
+    if (sourceKind !== 'lin') return [];
+    const layer = _poiChainRawValue(feature, 'layer');
+    const highway = _poiChainRawValue(feature, 'highway');
+    const railway = _poiChainRawValue(feature, 'railway');
+    const power = _poiChainRawValue(feature, 'power');
+    const waterway = _poiChainRawValue(feature, 'waterway');
+    const water = _poiChainRawValue(feature, 'water');
+    const natural = _poiChainRawValue(feature, 'natural');
+    const rawType = String(feature?.rawType || feature?.type || '').toLowerCase();
+    const kinds = [];
+    if (waterway || water === 'river' || natural === 'water' || layer === 'hydro' || ['river', 'stream', 'canal', 'ditch', 'drain', 'water', 'lake', 'reservoir', 'dam', 'weir'].includes(rawType)) kinds.push('waterway');
+    if (highway || layer === 'road' || ['highway', 'motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'residential', 'service', 'road'].includes(rawType)) kinds.push('road');
+    if (railway || layer === 'rail' || ['railway', 'rail', 'tram', 'light_rail', 'subway', 'narrow_gauge'].includes(rawType)) kinds.push('rail');
+    if (['line', 'minor_line', 'cable', 'powerline', 'power_line'].includes(power) || layer === 'power' || ['power', 'powerline', 'power_line', 'line', 'minor_line', 'cable'].includes(rawType)) kinds.push('power');
+    return kinds;
+}
+
+function _poiChainFeatureMatchesTheme(feature = null, theme = '') {
+    const t = String(theme || '').toLowerCase();
+    const sourceKind = String(feature?.sourceKind || '').toLowerCase();
+    const guideKinds = _poiChainFeatureGuideKinds(feature);
+    if (t === 'river_bridge_inspection' && guideKinds.includes('waterway')) return true;
+    if ((t === 'road_bridge_inspection' || t === 'road_junction_survey') && guideKinds.includes('road')) return true;
+    if (t === 'rail_chain_inspection' && guideKinds.includes('rail')) return true;
+    if (t === 'power_grid_inspection' && guideKinds.includes('power')) return true;
+    const infraType = _poiChainRawValue(feature, 'infra_type') || _poiChainRawValue(feature, 'cluster_type');
+    const bridge = _poiChainRawValue(feature, 'bridge');
+    const manMade = _poiChainRawValue(feature, 'man_made');
+    const highway = _poiChainRawValue(feature, 'highway');
+    const railway = _poiChainRawValue(feature, 'railway');
+    const power = _poiChainRawValue(feature, 'power');
+    const substation = _poiChainRawValue(feature, 'substation');
+    const tokens = _poiChainRawTokens(feature);
+    const isBridge = infraType === 'bridge' || bridge === 'yes' || bridge === 'viaduct' || manMade === 'bridge';
+    if ((t === 'river_bridge_inspection' || t === 'road_bridge_inspection') && isBridge) return true;
+    const isRoadJunction = highway === 'motorway_junction' || highway === 'trunk_junction' || infraType === 'road_junction' || /\b(motorway_junction|anschlussstelle|kreuz|dreieck)\b/i.test(tokens);
+    if (t === 'road_junction_survey' && isRoadJunction) return true;
+    const isRail = infraType === 'rail' || infraType === 'railway' || ['station', 'halt', 'signal_box', 'switch', 'level_crossing', 'crossing', 'junction', 'buffer_stop', 'yard', 'rail'].includes(railway);
+    if (t === 'rail_chain_inspection' && isRail) return true;
+    const isPower = infraType === 'power' || infraType === 'power_grid' || infraType === 'power_station' || ['substation', 'switchgear', 'tower', 'pole', 'line', 'minor_line', 'plant', 'generator'].includes(power) || !!substation || manMade === 'power_tower';
+    if (t === 'power_grid_inspection' && isPower) return true;
+    return false;
+}
+
+function _poiChainFilterDispatchFeatures(rows = [], themes = [], anchor = null, maxRows = POI_CHAIN_MAX_FEATURES_PER_TILE) {
+    const themeList = Array.isArray(themes) && themes.length ? themes : _poiChainThemesForDispatch('all', 'auto');
+    const filtered = [];
+    for (const row of Array.isArray(rows) ? rows : []) {
+        if (!row) continue;
+        if (!themeList.some(theme => _poiChainFeatureMatchesTheme(row, theme))) continue;
+        filtered.push(row);
+    }
+    if (!anchor || filtered.length <= maxRows) return filtered.slice(0, maxRows);
+    return filtered
+        .map(row => {
+            let dist = 9999;
+            try {
+                const nav = calcNav(Number(anchor.lat), Number(anchor.lon), Number(row.lat), Number(row.lon));
+                if (Number.isFinite(Number(nav?.dist))) dist = Number(nav.dist);
+            } catch (_) {}
+            return { row, dist };
+        })
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, Math.max(1, Number(maxRows) || POI_CHAIN_MAX_FEATURES_PER_TILE))
+        .map(item => item.row);
+}
+
 async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selectedCategory = 'all', dispatchProfileId = 'auto', searchAnchor = null, options = {}) {
+    const chainDebugStartedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    const chainDebugNow = () => (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
     const profile = String(dispatchProfileId || '').toLowerCase();
     const category = String(selectedCategory || 'all').toLowerCase();
     const forceTheme = String(options.forceTheme || _poiChainDebugForceValue() || '').toLowerCase();
@@ -9148,24 +9287,53 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
             lon: Number(lon),
             localRadiusNm: Math.max(22, Math.min(36, Number(maxNM || 40) * 0.6))
         };
-    const tileKeys = _poiCollectTileKeysAround(anchor.lat, anchor.lon, Math.max(anchor.localRadiusNm + 8, 26));
-    if (!tileKeys.length) return null;
+    const themes = _poiChainThemesForDispatch(category, forceTheme);
+    const tileKeys = _poiCollectNearestTileKeysAround(anchor.lat, anchor.lon, Math.max(18, Math.min(24, Number(anchor.localRadiusNm || 20) + 4)), POI_CHAIN_TILE_MAX_KEYS);
+    if (!tileKeys.length) {
+        window.gaPoiChainDebug = {
+            ...(window.gaPoiChainDebug || {}),
+            last: { ok: false, status: 'no_tiles', forced, themes }
+        };
+        return null;
+    }
     const features = [];
     let cursor = 0;
     const workers = [];
-    const workerCount = Math.min(POI_TILE_FETCH_PARALLEL, tileKeys.length);
+    const workerCount = Math.min(2, POI_TILE_FETCH_PARALLEL, tileKeys.length);
+    const fetchStartedAt = chainDebugNow();
     for (let i = 0; i < workerCount; i++) {
         workers.push((async () => {
-            while (cursor < tileKeys.length) {
+            while (cursor < tileKeys.length && features.length < POI_CHAIN_MAX_FEATURES) {
                 const idx = cursor++;
                 const key = tileKeys[idx];
                 const rows = await _poiFetchTileFeatures(key, { includeCore: true, includeInfra: true, allowLegacyFallback: false });
-                if (rows && rows.length) features.push(...rows);
+                if (rows && rows.length) {
+                    features.push(..._poiChainFilterDispatchFeatures(rows, themes, anchor));
+                    if (features.length > POI_CHAIN_MAX_FEATURES) features.length = POI_CHAIN_MAX_FEATURES;
+                }
             }
         })());
     }
     await Promise.all(workers);
-    if (!features.length) return null;
+    const fetchMs = Math.round((chainDebugNow() - fetchStartedAt) * 10) / 10;
+    if (!features.length) {
+        window.gaPoiChainDebug = {
+            ...(window.gaPoiChainDebug || {}),
+            force: forceTheme || '',
+            last: {
+                ok: false,
+                status: 'no_features',
+                forced,
+                themes,
+                tileKeys: tileKeys.length,
+                features: 0,
+                fetchMs,
+                totalMs: Math.round((chainDebugNow() - chainDebugStartedAt) * 10) / 10
+            }
+        };
+        return null;
+    }
+    const prospectStartedAt = chainDebugNow();
     const prospectRun = window.missionPoiChain.buildPoiChainProspects({
         dispatchStartLat: Number(lat),
         dispatchStartLon: Number(lon),
@@ -9175,10 +9343,26 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
         category: category === 'chain' ? 'all' : category,
         profileId: profile,
         forceTheme: forceTheme && forceTheme !== 'auto' ? forceTheme : '',
+        maxGroupsPerTheme: 4,
+        stopAfterProspects: 4,
         minPoints: 3,
         maxPoints: 8,
         triggerRadiusNm: 0.5
     }, { features });
+    const buildMs = Math.round((chainDebugNow() - prospectStartedAt) * 10) / 10;
+    const totalMs = Math.round((chainDebugNow() - chainDebugStartedAt) * 10) / 10;
+    if (totalMs > 2500 && typeof window.gaDebugPush === 'function') {
+        try {
+            window.gaDebugPush('perf-warn', '[POI Chain] Dispatch slow', {
+                totalMs,
+                fetchMs,
+                buildMs,
+                tileKeys: tileKeys.length,
+                features: features.length,
+                themes
+            });
+        } catch (_) {}
+    }
     const best = prospectRun?.prospects?.[0] || null;
     if (!best?.chain) {
         window.gaPoiChainDebug = {
@@ -9187,6 +9371,12 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
                 ok: false,
                 status: prospectRun?.status || 'no_chain',
                 diagnostics: prospectRun?.diagnostics || null,
+                themes,
+                tileKeys: tileKeys.length,
+                features: features.length,
+                fetchMs,
+                buildMs,
+                totalMs,
                 forced
             }
         };
@@ -9231,6 +9421,12 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
             theme: chain.theme,
             points: chain.points.length,
             score: best.score,
+            themes,
+            tileKeys: tileKeys.length,
+            features: features.length,
+            fetchMs,
+            buildMs,
+            totalMs,
             diagnostics: prospectRun?.diagnostics || null
         }
     };
