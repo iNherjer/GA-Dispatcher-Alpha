@@ -27,6 +27,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
+            overlayWidthNm: 2.2,
             overlayLabel: 'Korridor-Brueckenpruefung'
         },
         road_bridge_inspection: {
@@ -38,6 +39,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
+            overlayWidthNm: 2.8,
             overlayLabel: 'Strassenbauwerk-Kette'
         },
         road_junction_survey: {
@@ -50,6 +52,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
+            overlayWidthNm: 3.2,
             overlayLabel: 'Verkehrskorridor'
         },
         rail_chain_inspection: {
@@ -63,6 +66,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
+            overlayWidthNm: 2.0,
             overlayLabel: 'Bahnkorridor'
         },
         power_grid_inspection: {
@@ -75,6 +79,7 @@
             minScore: 4,
             minPoints: 2,
             maxPoints: 6,
+            overlayWidthNm: 3.2,
             overlayLabel: 'Stromtrassen-Kette'
         },
         generic_poi_chain: {
@@ -381,6 +386,7 @@
         cfg.maxPoints = Math.max(cfg.minPoints, Math.round(Number(cfg.maxPoints || DEFAULTS.maxPoints)));
         cfg.guideMaxCrossTrackNm = Math.max(0.2, Number(cfg.guideMaxCrossTrackNm || DEFAULTS.guideMaxCrossTrackNm));
         cfg.candidateMaxCrossTrackNm = Math.max(0.1, Number(cfg.candidateMaxCrossTrackNm || DEFAULTS.candidateMaxCrossTrackNm));
+        cfg.overlayWidthNm = Math.max(0.8, Math.min(8, Number(cfg.overlayWidthNm || Math.max(1.2, cfg.candidateMaxCrossTrackNm * 4))));
         cfg.clusterRadiusNm = Math.max(0.03, Number(cfg.clusterRadiusNm || DEFAULTS.clusterRadiusNm));
         cfg.minSpacingNm = Math.max(0.05, Number(cfg.minSpacingNm || DEFAULTS.minSpacingNm));
         cfg.minScore = Number.isFinite(Number(cfg.minScore)) ? Number(cfg.minScore) : DEFAULTS.minScore;
@@ -571,6 +577,29 @@
             .filter(f => f.sourceLayer === 'core.lin')
             .filter(f => guideMatches(f, cfg, segment))
             .sort((a, b) => a._projection.t - b._projection.t);
+    }
+
+    function buildGuideTrace(guidePoints = [], maxPoints = 48) {
+        const points = (Array.isArray(guidePoints) ? guidePoints : [])
+            .filter(point => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
+            .sort((a, b) => Number(a._projection?.t || 0) - Number(b._projection?.t || 0));
+        if (points.length < 2) return [];
+        const limit = Math.max(2, Math.min(80, Math.round(Number(maxPoints || 48))));
+        const step = Math.max(1, Math.ceil(points.length / limit));
+        const sampled = [];
+        for (let idx = 0; idx < points.length; idx += step) sampled.push(points[idx]);
+        if (sampled[sampled.length - 1] !== points[points.length - 1]) sampled.push(points[points.length - 1]);
+        const out = [];
+        for (const point of sampled) {
+            const tracePoint = {
+                lat: roundNumber(point.lat),
+                lon: roundNumber(point.lon)
+            };
+            const last = out[out.length - 1] || null;
+            if (last && haversineNm(last.lat, last.lon, tracePoint.lat, tracePoint.lon) < 0.04) continue;
+            out.push(tracePoint);
+        }
+        return out.length >= 2 ? out : [];
     }
 
     function nearestGuideProjection(feature, guidePoints) {
@@ -829,6 +858,7 @@
         for (const feature of selected) {
             points.push(buildPoint(feature, cfg, points.length, points[points.length - 1] || null));
         }
+        const trace = buildGuideTrace(guidePoints, 48);
         const chain = {
             schema: 'ga.poiChain.v1',
             kind: 'poi_chain',
@@ -856,7 +886,8 @@
                 start: { lat: roundNumber(cfg.start.lat), lon: roundNumber(cfg.start.lon) },
                 end: { lat: roundNumber(cfg.end.lat), lon: roundNumber(cfg.end.lon) },
                 radiusNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2),
-                widthNm: 5
+                widthNm: roundNumber(cfg.overlayWidthNm, 2),
+                trace
             },
             points,
             sequenceRequired: cfg.sequenceRequired,

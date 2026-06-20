@@ -13067,7 +13067,10 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             };
             const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
             if (profile.id === 'infra_chain_recon') {
-                m.s = chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger });
+                const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
+                m.s = _missionPipelineV4PoiChainStoryLooksComplete(writerStory, storyContract, passenger)
+                    ? writerStory
+                    : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger }));
             } else {
                 m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
             }
@@ -21334,13 +21337,6 @@ function buildMissionContractV4({
             picker: { profile: contractProfileId }
         }, _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null), { profileId: contractProfileId, writeHistory: false }))
         : null;
-    const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, {
-        sarDecision,
-        pickupCreativeBrief,
-        missionVarietyBrief,
-        followUpContext,
-        homeName: contractHomeName
-    });
     const knowledgeContext = compactPoiKnowledgeContextForMission(
         plannerContext.knowledgeContext || plannerContext.dest?.knowledgeContext || null,
         10
@@ -21352,6 +21348,30 @@ function buildMissionContractV4({
     const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
     const roleProfile = String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1');
     const profileId = String(profile.id || plannerContext.dispatchProfileId || 'auto');
+    const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, {
+        sarDecision,
+        pickupCreativeBrief,
+        missionVarietyBrief,
+        followUpContext,
+        homeName: contractHomeName
+    });
+    const infraNarrativeHandoff = /^(inspection_infra|infra_chain_recon)$/i.test(taskDomain)
+        ? _missionPipelineV4BuildInfraNarrativeHandoff({
+            profile: {
+                id: profileId,
+                roleProfile,
+                taskDomain,
+                pickerCategory: String(plannerContext.selectedCategory || 'all'),
+                requestedCategory: String(plannerContext.requestedCategory || plannerContext.selectedCategory || 'all')
+            },
+            target: {
+                name: String(plannerContext.dest?.n || ''),
+                poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || '')
+            },
+            storyFrame,
+            poiChain
+        })
+        : null;
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -21386,6 +21406,7 @@ function buildMissionContractV4({
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
+        infraNarrativeHandoff,
         pickupCreativeBrief,
         missionVarietyBrief,
         variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || plannerResult?.variety || null,
@@ -21433,8 +21454,8 @@ Regeln:
 14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
-17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Der PAX ist eine konkrete Fachperson im Flugzeug; nenne natuerlich, wer diese Person ist oder welche Rolle sie hat und was sie am Ziel fachlich beurteilen soll. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
-17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Ziel ist eine Luftbildserie und ein grober Erstbefund fuer mehrere Punkte: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Nenne Anlass, Korridor, Einstieg und Endpunkt natuerlich. Behalte Zwischenpunkte fuer die spaeteren Voice-Aufrufe unterwegs zurueck und schreibe mit normalen Dispatch-Begriffen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; beschreibe den Abschluss als Rueckkehr mit Foto-/Befunduebergabe.
+17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Der PAX ist eine konkrete Fachperson im Flugzeug; nenne natuerlich, wer diese Person ist oder welche Rolle sie hat und was sie am Ziel fachlich beurteilen soll. Wenn CONTRACT.infraNarrativeHandoff vorhanden ist, nutze focus, decision und nextStep als Rohmaterial und formuliere daraus eine geschlossene Geschichte; nicht wortwoertlich als Listenfelder kopieren. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
+17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Ziel ist eine Luftbildserie und ein grober Erstbefund fuer mehrere Punkte: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Nutze CONTRACT.infraNarrativeHandoff und CONTRACT.poiChain als offene Bausteine: Anlass, Korridor, Einstieg, Endpunkt, Fachperson, Auswertung und naechsten Schritt natuerlich verweben. Behalte Zwischenpunkte fuer die spaeteren Voice-Aufrufe unterwegs zurueck und schreibe mit normalen Dispatch-Begriffen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; beschreibe den Abschluss als Rueckkehr mit Foto-/Befunduebergabe.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
@@ -22034,56 +22055,89 @@ function _missionPipelineV4InfraPassengerHandoff(contract = {}, detail = '') {
     const handoff = (() => {
         if (category === 'road') return {
             focus: 'Fahrbahn, Randstreifen, Hangbereiche, Zufahrten und sichtbare Hindernisse',
-            decision: 'ob Beobachtung reicht oder Streckendienst und Absicherung fuer den Abschnitt geplant werden sollen'
+            decision: 'ob Beobachtung reicht oder Streckendienst und Absicherung für den Abschnitt geplant werden sollen'
         };
         if (category === 'bridge') return {
-            focus: 'Fahrbahnuebergang, Tragwerk, Widerlager, Pfeiler und Randbereiche',
-            decision: 'ob eine Bodenpruefung, Beobachtung oder eine gezielte Nachkontrolle vorbereitet werden soll'
+            focus: 'Fahrbahnübergang, Tragwerk, Widerlager, Pfeiler und Randbereiche',
+            decision: 'ob eine Bodenprüfung, Beobachtung oder eine gezielte Nachkontrolle vorbereitet werden soll'
         };
         if (category === 'rail') return {
-            focus: 'Gleisbereich, Weichen, Signale, Bahnuebergaenge, Boeschung und Entwaesserung',
-            decision: 'ob ein Wartungsfenster, eine Trassenrunde oder nur weitere Beobachtung noetig wirkt'
+            focus: 'Gleisbereich, Weichen, Signale, Bahnübergänge, Böschung und Entwässerung',
+            decision: 'ob ein Wartungsfenster, eine Trassenrunde oder nur weitere Beobachtung nötig wirkt'
         };
         if (category === 'dam' || category === 'water') return {
             focus: 'Dammkrone, Auslauf, Uferbefestigung, Pegelbereich und Betriebszugang',
-            decision: 'ob Wasserbau- oder Betriebsteam spaeter einen bestimmten Abschnitt genauer ansehen sollen'
+            decision: 'ob Wasserbau- oder Betriebsteam später einen bestimmten Abschnitt genauer ansehen sollen'
         };
         if (category === 'telecom') return {
             focus: 'Mast, Plattformen, Antennenbereich, Abspannungen und Zuwegung',
             decision: 'ob ein Netztechnik-, Zugangsteam- oder Hubsteiger-Einsatz sinnvoll vorbereitet werden sollte'
         };
         if (isWindTarget) return {
-            focus: 'Anlagenreihe, Turm- und Rotorbereiche, Trafopunkt, Zuwegung und Kranstellflaechen',
+            focus: 'Anlagenreihe, Turm- und Rotorbereiche, Trafopunkt, Zuwegung und Kranstellflächen',
             decision: 'ob der Wartungstermin wie geplant laufen kann oder ein einzelner Anlagenpunkt vorgezogen werden sollte'
         };
         if (isSolarTarget) return {
-            focus: 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten',
-            decision: 'ob der Betreiber einen Technikpunkt, eine Zaunstelle oder die Zufahrt gezielt nachpruefen muss'
+            focus: 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwässerung und Zufahrten',
+            decision: 'ob der Betreiber einen Technikpunkt, eine Zaunstelle oder die Zufahrt gezielt nachprüfen muss'
         };
         if (isMarineTarget) return {
             focus: 'Schleusentor, Anleger, Hafenbecken, Uferbefestigung, Zufahrt und Betriebsbereich',
-            decision: 'ob Wasserbau- oder Hafenbetrieb spaeter einen bestimmten Zugang oder Uferabschnitt nachpruefen muss'
+            decision: 'ob Wasserbau- oder Hafenbetrieb später einen bestimmten Zugang oder Uferabschnitt nachprüfen muss'
         };
         if (isPerimeterTarget) return {
-            focus: 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Luecken oder Fremdkoerper',
+            focus: 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Lücken oder Fremdkörper',
             decision: 'ob der Betreiber den Perimeter nur beobachtet oder ein Vor-Ort-Team an eine konkrete Stelle schickt'
         };
         if (isEnergyTarget) return {
             focus: 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte',
-            decision: 'ob Netzbetrieb oder Technikteam einen bestimmten Punkt gezielt nachpruefen muessen'
+            decision: 'ob Netzbetrieb oder Technikteam einen bestimmten Punkt gezielt nachprüfen müssen'
         };
         if (category === 'industry' || category === 'infrastructure') return {
-            focus: 'Betriebsflaechen, Technikpunkte, Zufahrten, Dachbereiche und sichtbare Stoerstellen',
-            decision: 'ob Beobachtung reicht oder ein Betriebsteam einen Teilbereich nachpruefen muss'
+            focus: 'Betriebsflächen, Abbaukanten, Lagerflächen, Technikpunkte, Zufahrten und sichtbare Störstellen',
+            decision: 'ob Beobachtung reicht oder ein Betriebsteam einen Teilbereich nachprüfen muss'
         };
         return {
-            focus: 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffaelligkeiten',
+            focus: 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffälligkeiten',
             decision: 'ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss'
         };
     })();
     return {
         focus: cleanDetail && _missionPipelineV4NarrativeTextUsable(cleanDetail) ? cleanDetail : handoff.focus,
         decision: handoff.decision
+    };
+}
+
+function _missionPipelineV4BuildInfraNarrativeHandoff(contract = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (taskDomain !== 'inspection_infra' && taskDomain !== 'infra_chain_recon') return null;
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'Zielgebiet').trim() || 'Zielgebiet';
+    const chain = contract?.poiChain && typeof contract.poiChain === 'object' ? contract.poiChain : null;
+    if (taskDomain === 'infra_chain_recon' && Array.isArray(chain?.points) && chain.points.length >= 2) {
+        const spine = _missionPipelineV4PoiChainStorySpine(chain);
+        const phrase = _missionPipelineV4PoiChainCorridorPhrase(chain, targetName);
+        const first = String(chain.points[0]?.name || 'ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
+        const last = String(chain.points[chain.points.length - 1]?.name || 'letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
+        return {
+            schema: 'ga.infraNarrativeHandoff.v1',
+            mode: 'chain_recon',
+            phrase,
+            actor: spine.actor,
+            trigger: _missionPipelineV4PoiChainTrigger(chain, phrase),
+            focus: spine.scope,
+            firstPoint: first,
+            lastPoint: last,
+            decision: 'welche Punkte unauffällig wirken, welche beobachtet werden sollten und wo später eine gezielte Einzelprüfung lohnt',
+            nextStep: 'Bildserie und Kurzbefund gehen nach der Rückkehr an Betreiber oder Technikteam; Details bleiben späteren Einzelobjekt-Missionen oder Bodenteams vorbehalten'
+        };
+    }
+    const handoff = _missionPipelineV4InfraPassengerHandoff(contract);
+    return {
+        schema: 'ga.infraNarrativeHandoff.v1',
+        mode: 'single_infra_inspection',
+        focus: handoff.focus,
+        decision: handoff.decision,
+        nextStep: 'Befund, Fotos und Empfehlung gehen nach dem Überflug an Betreiber oder Technikteam'
     };
 }
 
@@ -22115,7 +22169,7 @@ function _missionPipelineV4InfraPassengerSentence(passenger = {}, contract = {},
     const pronoun = gender === 'female' ? 'Sie' : (gender === 'male' ? 'Er' : 'Die Fachperson');
     const label = name && role ? `An Bord ist ${name}, ${role}` : (name ? `${name} fliegt als Fachperson mit` : `An Bord ist eine ${role}`);
     const handoff = _missionPipelineV4InfraPassengerHandoff(contract, detail);
-    return `${_missionPipelineV4EnsureSentence(label)} ${pronoun} ordnet bei ${targetName} ${handoff.focus} ein und haelt fest, ${handoff.decision}.`;
+    return `${_missionPipelineV4EnsureSentence(label)} ${pronoun} ordnet bei ${targetName} ${handoff.focus} ein und hält fest, ${handoff.decision}.`;
 }
 
 function _missionPipelineV4StoryMentionsPassenger(story = '', passenger = {}) {
@@ -22344,11 +22398,12 @@ function _missionPipelineV4ComposePoiChainInfraStory(contract = {}, passenger = 
     const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
     const role = String(passenger?.role || 'Fachperson').replace(/\s+/g, ' ').trim();
     const pronoun = String(passenger?.gender || '').toLowerCase() === 'female' ? 'sie' : 'er';
-    const scope = _missionPipelineV4PoiChainScope(chain);
+    const handoff = _missionPipelineV4BuildInfraNarrativeHandoff(contract);
+    const scope = handoff?.focus || _missionPipelineV4PoiChainScope(chain);
     const whyRaw = _missionPipelineV4StripSentenceEnd(frame.trigger || frame.incidentContext || frame.whyNow || '');
     const why = whyRaw && !/(regelmaessige|regelmäßige|saisonale|detaillierter visueller befund|gewaesserkorridor|gewässerkorridor)/i.test(whyRaw)
         ? whyRaw
-        : _missionPipelineV4PoiChainTrigger(chain, phrase);
+        : (handoff?.trigger || _missionPipelineV4PoiChainTrigger(chain, phrase));
     const weather = String(context?.weatherSentence || '').trim();
     const paxSentence = paxName
         ? `An Bord ist ${paxName}, ${role}; ${pronoun} sammelt die Luftbildserie, achtet auf ${scope} und markiert, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen könnten.`
@@ -22360,6 +22415,25 @@ function _missionPipelineV4ComposePoiChainInfraStory(contract = {}, passenger = 
         `${_missionPipelineV4StripSentenceEnd('Aus den Fotos entsteht ein grober Erstbefund: unauffällige Abschnitte, Beobachtungspunkte und Stellen mit Anschlussbedarf werden getrennt notiert')}.${weather}`,
         'Nach der Rückkehr gehen Bildserie und Kurzbefund an Betreiber oder Technikteam, damit die nächste Bodenrunde gezielt geplant werden kann.'
     ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
+}
+
+function _missionPipelineV4PoiChainStoryLooksComplete(story = '', contract = {}, passenger = {}) {
+    const text = String(story || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(text);
+    if (!normalized || normalized.length < 220) return false;
+    const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    const name = normalizeMissionText(String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim());
+    const role = normalizeMissionText(passenger?.role || '');
+    const mentionsPassenger = !!((name && normalized.includes(name)) || (role && normalized.includes(role)));
+    const chainTerms = /(kette|korridor|mehrteil|luftbildserie|erstbefund|prüfpunkt|pruefpunkt|voruntersuchung)/i.test(text);
+    const outcomeTerms = /(befund|fotos?|bildserie|auswertung|betreiber|technikteam|bodenrunde|einzelobjekt|nachpruefung|nachprüfung)/i.test(text);
+    const first = points[0] ? normalizeMissionText(points[0].name || '') : '';
+    const last = points.length > 1 ? normalizeMissionText(points[points.length - 1].name || '') : '';
+    const mentionsEnds = (!first || normalized.includes(first) || /einstieg|ersten pruefpunkt|ersten prüfpunkt/i.test(normalized))
+        && (!last || normalized.includes(last) || /endpunkt|letzten pruefpunkt|letzten prüfpunkt/i.test(normalized));
+    const leaks = /\b(CONTRACT|DISPATCH_FORM|poiChain|missionTruth|infraNarrativeHandoff|taskDomain|roleProfile|Pipeline|JSON)\b/i.test(text);
+    return mentionsPassenger && chainTerms && outcomeTerms && mentionsEnds && !leaks;
 }
 
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
@@ -22391,7 +22465,7 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
     if (Number.isFinite(Number(weather?.tempC))) weatherBits.push(`${Math.round(Number(weather.tempC))}°C`);
     if (String(weather?.fltCat || '').trim()) weatherBits.push(String(weather.fltCat).trim());
     const weatherSentence = weatherBits.length
-        ? ` Die Bedingungen bleiben mit ${weatherBits.join(' und ')} gut genug fuer einen ruhigen, praezisen Ueberflug.`
+        ? ` Die Bedingungen bleiben mit ${weatherBits.join(' und ')} gut genug für einen ruhigen, präzisen Überflug.`
         : '';
     if (taskDomain === 'search_and_rescue') {
         const sentences = [];
@@ -22446,10 +22520,10 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         const chainStory = _missionPipelineV4ComposePoiChainInfraStory(contract, passenger, { weatherSentence });
         if (chainStory) return chainStory;
         return [
-            incident || `Fuer ${targetName} liegt eine Korridor-Voruntersuchung an, weil mehrere Infrastrukturpunkte vor der Bodenrunde zuerst aus der Luft sortiert werden sollen.`,
-            whyNow || 'Der Flug liefert eine Luftbildserie und einen groben Erstbefund, damit Betreiber oder Technikteam nicht jeden Punkt blind einzeln anfahren muessen.',
-            sought || 'Am Ende sollen unauffaellige Punkte, Beobachtungspunkte und Stellen mit Anschlussbedarf getrennt notiert sein.',
-            `Nach der Rueckkehr gehen Fotos und Kurzbefund an die zustaendige Stelle.${weatherSentence}`.trim()
+            incident || `Für ${targetName} liegt eine Korridor-Voruntersuchung an, weil mehrere Infrastrukturpunkte vor der Bodenrunde zuerst aus der Luft sortiert werden sollen.`,
+            whyNow || 'Der Flug liefert eine Luftbildserie und einen groben Erstbefund, damit Betreiber oder Technikteam nicht jeden Punkt blind einzeln anfahren müssen.',
+            sought || 'Am Ende sollen unauffällige Punkte, Beobachtungspunkte und Stellen mit Anschlussbedarf getrennt notiert sein.',
+            `Nach der Rückkehr gehen Fotos und Kurzbefund an die zuständige Stelle.${weatherSentence}`.trim()
         ].join(' ');
     }
     if (taskDomain === 'inspection_infra') {
@@ -22459,20 +22533,20 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         const genericInfraPattern = /(disruptive|saisonale[nr]? wetterbedingungen|regelmaessige inspektionsrunde|regelmäßige inspektionsrunde|detaillierter visueller befund|stoerungs-, sturm- oder schadensmeldung|störungs-, sturm- oder schadensmeldung|rueckkehr zum startflugplatz|rückkehr zum startflugplatz)/i;
         const categoryDetail = (() => {
             if (category === 'dam' || category === 'water') return 'Krone, Auslauf, Uferbefestigung, Pegelbereich und Betriebszugang';
-            if (category === 'bridge') return 'Fahrbahnuebergang, Tragwerk, Pfeiler, Widerlager und Randbereiche';
-            if (category === 'rail') return 'Gleisbereich, Weichen, Signale, Bahnuebergaenge, Boeschung und Entwaesserung';
+            if (category === 'bridge') return 'Fahrbahnübergang, Tragwerk, Pfeiler, Widerlager und Randbereiche';
+            if (category === 'rail') return 'Gleisbereich, Weichen, Signale, Bahnübergänge, Böschung und Entwässerung';
             if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich und sichtbare Hindernisse';
             if (category === 'telecom') return 'Mast, Antennenbereich, Plattformen, Abspannungen und Zuwegung';
-            if (category === 'industry' || category === 'infrastructure') return 'Betriebsflaechen, Technikpunkte, Zufahrten und sichtbare Stoerstellen';
-            return 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffaelligkeiten';
+            if (category === 'industry' || category === 'infrastructure') return 'Betriebsflächen, Abbaukanten, Lagerflächen, Technikpunkte, Zufahrten und sichtbare Störstellen';
+            return 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffälligkeiten';
         })();
         const categoryIntro = (() => {
-            if (category === 'dam' || category === 'water') return `Der Betreiber von ${targetName} braucht heute einen ruhigen Luftblick auf das Wasserbauwerk, bevor die naechste Bodenrunde geplant wird.`;
-            if (category === 'bridge') return `Fuer ${targetName} braucht die zustaendige Stelle heute eine technische Sichtmeldung, bevor ein Bodencheck oder eine Sperrentscheidung vorbereitet wird.`;
-            if (category === 'rail') return `Fuer ${targetName} soll aus der Luft eingegrenzt werden, welcher Abschnitt der Bahn- oder Betriebsinfrastruktur wirklich auffaellig wirkt.`;
-            if (category === 'road') return `Fuer ${targetName} braucht der Strassenbetrieb einen kurzen Luftueberblick, bevor Personal oder Absicherung in den Abschnitt geschickt wird.`;
-            if (category === 'telecom') return `Fuer ${targetName} soll vor dem Vor-Ort-Termin geklaert werden, ob Mast, Technikpunkt oder Zugang sichtbar auffaellig sind.`;
-            return `Fuer ${targetName} liegt ein konkreter Betreiberauftrag vor: Der Zustand soll aus der Luft eingeordnet werden.`;
+            if (category === 'dam' || category === 'water') return `Der Betreiber von ${targetName} braucht heute einen ruhigen Luftblick auf das Wasserbauwerk, bevor die nächste Bodenrunde geplant wird.`;
+            if (category === 'bridge') return `Für ${targetName} braucht die zuständige Stelle heute eine technische Sichtmeldung, bevor ein Bodencheck oder eine Sperrentscheidung vorbereitet wird.`;
+            if (category === 'rail') return `Für ${targetName} soll aus der Luft eingegrenzt werden, welcher Abschnitt der Bahn- oder Betriebsinfrastruktur wirklich auffällig wirkt.`;
+            if (category === 'road') return `Für ${targetName} braucht der Straßenbetrieb einen kurzen Luftüberblick, bevor Personal oder Absicherung in den Abschnitt geschickt wird.`;
+            if (category === 'telecom') return `Für ${targetName} soll vor dem Vor-Ort-Termin geklärt werden, ob Mast, Technikpunkt oder Zugang sichtbar auffällig sind.`;
+            return `Für ${targetName} liegt ein konkreter Betreiberauftrag vor: Der Zustand soll aus der Luft eingeordnet werden.`;
         })();
         const cleanInfraField = (value = '', fallback = '') => {
             const s = _missionPipelineV4StripSentenceEnd(value);
@@ -22492,10 +22566,10 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
             return s;
         })();
         const intro = cleanInfraField(frame.trigger, categoryIntro);
-        const context = cleanInfraField(incident, `Im Mittelpunkt stehen ${cleanDetail}, damit der Verdachtsbereich fuer die Bodenpruefung nicht zu breit bleibt.`);
+        const context = cleanInfraField(incident, `Im Mittelpunkt stehen ${cleanDetail}, damit der Verdachtsbereich für die Bodenprüfung nicht zu breit bleibt.`);
         const timing = cleanInfraField(
             whyNow,
-            'Noch waehrend dieses Einsatzfensters soll entschieden werden, ob Beobachtung reicht oder ein Technikteam gezielt raus muss.'
+            'Noch während dieses Einsatzfensters soll entschieden werden, ob Beobachtung reicht oder ein Technikteam gezielt raus muss.'
         );
         const outcome = cleanInfraField(
             sought,
@@ -22503,7 +22577,7 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         );
         const handoff = cleanInfraField(
             completion,
-            'Nach dem Ueberflug gehen Befund, Fotos und Empfehlung an Betreiber oder Technikteam.'
+            'Nach dem Überflug gehen Befund, Fotos und Empfehlung an Betreiber oder Technikteam.'
         );
         const storyText = [
             _missionPipelineV4EnsureSentence(intro),

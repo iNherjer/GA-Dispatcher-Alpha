@@ -138,7 +138,15 @@
                 start: overlay.start || guide?.start || null,
                 end: overlay.end || guide?.end || null,
                 radiusNm: Math.max(0.2, Math.min(8, Number(overlay.radiusNm || 1.5))),
-                widthNm: Math.max(1, Math.min(10, Number(overlay.widthNm || 5)))
+                widthNm: Math.max(0.8, Math.min(10, Number(overlay.widthNm || 3))),
+                trace: (Array.isArray(overlay.trace) ? overlay.trace : [])
+                    .map(point => {
+                        const lat = Number(point?.lat);
+                        const lon = Number(point?.lon ?? point?.lng);
+                        return Number.isFinite(lat) && Number.isFinite(lon) ? { lat: roundNumber(lat), lon: roundNumber(lon) } : null;
+                    })
+                    .filter(Boolean)
+                    .slice(0, 80)
             } : null,
             points,
             sequenceRequired: raw.sequenceRequired !== false,
@@ -333,11 +341,15 @@
     }
 
     function drawCorridorHint(layer, points, spec) {
-        if (!layer || typeof L === 'undefined' || !Array.isArray(points) || points.length < 2) return;
+        if (!layer || typeof L === 'undefined') return;
         const paneName = ensureOverlayPane();
-        const widthNm = Math.max(1, Math.min(10, Number(spec?.overlay?.widthNm || 5)));
+        const trace = Array.isArray(spec?.overlay?.trace) && spec.overlay.trace.length >= 2
+            ? spec.overlay.trace
+            : points;
+        if (!Array.isArray(trace) || trace.length < 2) return;
+        const widthNm = Math.max(0.8, Math.min(10, Number(spec?.overlay?.widthNm || 3)));
         const halfWidthNm = widthNm / 2;
-        const corridorPoints = roundedCorridorPoints(points, widthNm);
+        const corridorPoints = roundedCorridorPoints(trace, widthNm);
         const left = [];
         const right = [];
         corridorPoints.forEach((point, idx) => {
