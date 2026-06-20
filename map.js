@@ -8664,16 +8664,9 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (missionLikePoi) {
         const chainRoutePoints = _missionPoiChainRoutePointsForMap();
         if (chainRoutePoints.length >= 2) {
-            const lastPoint = chainRoutePoints[chainRoutePoints.length - 1];
-            const returnNav = calcNav(lastPoint.lat, lastPoint.lng, lat1, lon1);
-            const hasReturnNav = Number.isFinite(Number(returnNav?.dist)) && Number.isFinite(Number(returnNav?.brng)) && Number(returnNav.dist) > 0.1;
-            const offsetBearing = hasReturnNav ? (Number(returnNav.brng) + 20) % 360 : 0;
-            const returnWp = hasReturnNav ? getDestinationPoint(lastPoint.lat, lastPoint.lng, Number(returnNav.dist) * 0.45, offsetBearing) : null;
             routeWaypoints = [
                 { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' },
-                ...chainRoutePoints,
-                ...(Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon)) ? [{ lat: returnWp.lat, lng: returnWp.lon, name: 'Return Leg' }] : []),
-                { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' }
+                ...chainRoutePoints
             ];
             _syncCurrentMissionRouteFromMap();
             renderMainRoute();

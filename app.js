@@ -5019,20 +5019,6 @@ function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, s
         firstPoint,
         lastPoint
     ];
-    if (typeof calcNav === 'function' && typeof getDestinationPoint === 'function') {
-        try {
-            const last = lastPoint;
-            const returnNav = calcNav(last.lat, last.lng, depPoint.lat, depPoint.lng);
-            if (Number.isFinite(Number(returnNav?.dist)) && Number(returnNav.dist) > 0.1) {
-                const offsetBearing = (Number(returnNav.brng || 0) + 20) % 360;
-                const returnWp = getDestinationPoint(last.lat, last.lng, Number(returnNav.dist) * 0.45, offsetBearing);
-                if (Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon))) {
-                    route.push({ lat: Number(returnWp.lat), lng: Number(returnWp.lon), name: 'Return Leg' });
-                }
-            }
-        } catch (_) {}
-    }
-    route.push({ lat: depPoint.lat, lng: depPoint.lng, name: startName || 'Start' });
     return route;
 }
 
@@ -5091,7 +5077,7 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
             : (mission.poiName || mission.targetName || state.mDestName || 'POI');
         if (!bushUsesPoiTaskRecipe) {
             const chainRoute = buildPoiChainRouteWaypointsFromMission(depPoint, mission, state.currentSName || startIcao || 'Start');
-            if (chainRoute && chainRoute.length >= 4) return chainRoute;
+            if (chainRoute && chainRoute.length >= 3) return chainRoute;
         }
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng },
@@ -5146,7 +5132,7 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     const isPoiChain = !!(md && Array.isArray(md.poiChain?.points) && md.poiChain.points.length >= 2);
     if (isPoiChain && !isSarHeli) {
         const chainRoute = normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
-        if (chainRoute.length >= 4) return chainRoute;
+        if (chainRoute.length >= 3) return chainRoute;
     }
     const preferMissionRoute = !!(isSarHeli || (md?.bush && String(md.bush.targetMode || '') === 'strip_then_return'));
     const sources = [
@@ -12991,9 +12977,11 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                     name: existingContract?.target?.name || targetName,
                     poiCategory: existingContract?.target?.poiCategory || targetCategory
                 },
-                storyFrame: existingContract.storyFrame || existingContract?.missionPlan?.plan?.storyFrame || m._missionPlanV4?.storyFrame || {}
+                storyFrame: existingContract.storyFrame || existingContract?.missionPlan?.plan?.storyFrame || m._missionPlanV4?.storyFrame || {},
+                poiChain: compactPoiChainForMission(m.poiChain || existingContract?.poiChain || existingContract?.missionPlan?.poiChain || null, 8)
             };
-            m.s = _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
+            const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
+            m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
         }
     }
     if (profile.paxText) {
@@ -22021,6 +22009,68 @@ function _missionPipelineV4EnsureInfraPassengerStory(story = '', contract = {}, 
     return out.filter(Boolean).join(' ');
 }
 
+function _missionPipelineV4PoiChainLabelLooksGeneric(label = '') {
+    return /^(poi[- ]?kette|infrastruktur[- ]?kette|brueckenkette|brückenkette|bauwerkskette|gewaesserkorridor|gewässerkorridor|strassenkorridor|straßenkorridor|verkehrskorridor|bahnkorridor|stromtrasse)$/i.test(String(label || '').trim());
+}
+
+function _missionPipelineV4PoiChainCorridorPhrase(chain = {}, targetName = 'Zielkorridor') {
+    const theme = String(chain?.theme || '').toLowerCase();
+    const guideName = String(chain?.guide?.name || '').replace(/\s+/g, ' ').trim();
+    const label = String(chain?.label || '').replace(/\s+/g, ' ').trim();
+    const named = guideName && !_missionPipelineV4PoiChainLabelLooksGeneric(guideName)
+        ? guideName
+        : (label && !_missionPipelineV4PoiChainLabelLooksGeneric(label) ? label : '');
+    if (theme === 'river_bridge_inspection') return named ? `entlang ${named}` : 'entlang eines Gewässerkorridors';
+    if (theme === 'rail_chain_inspection') return named ? `im Bahnkorridor ${named}` : 'in einem Bahnkorridor';
+    if (theme === 'road_bridge_inspection') return named ? `entlang ${named}` : 'entlang eines Straßenkorridors';
+    if (theme === 'road_junction_survey') return named ? `im Verkehrskorridor ${named}` : 'in einem Verkehrskorridor';
+    if (theme === 'power_grid_inspection') return named ? `entlang der Stromtrasse ${named}` : 'entlang einer Stromtrasse';
+    const cleanTarget = String(targetName || '').replace(/\s+/g, ' ').trim();
+    return cleanTarget && !_missionPipelineV4PoiChainLabelLooksGeneric(cleanTarget)
+        ? `im Korridor ${cleanTarget}`
+        : 'in einem markierten Infrastrukturkorridor';
+}
+
+function _missionPipelineV4PoiChainScope(chain = {}) {
+    const theme = String(chain?.theme || '').toLowerCase();
+    if (theme === 'river_bridge_inspection') return 'Tragwerk, Widerlager, Uferanschluss und freie Durchströmung an jeder Querung';
+    if (theme === 'rail_chain_inspection') return 'Gleiskörper, Weichen, Signale, Bahnübergänge und Randstreifen';
+    if (theme === 'road_bridge_inspection') return 'Fahrbahnübergang, Tragwerk, Pfeiler und Randbereiche der Bauwerke';
+    if (theme === 'road_junction_survey') return 'Knotenpunkte, Zufahrten, Rückstauflächen und sichtbare Hindernisse';
+    if (theme === 'power_grid_inspection') return 'Maststandorte, Leiterseile, Schneisen, Umspannpunkte und Zufahrten';
+    return 'Objekte, Zufahrten, Randbereiche und sichtbare Auffälligkeiten';
+}
+
+function _missionPipelineV4ComposePoiChainInfraStory(contract = {}, passenger = {}, context = {}) {
+    const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    if (!points.length) return '';
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const targetName = String(contract?.target?.name || chain?.label || 'Zielkorridor').replace(/\s+/g, ' ').trim();
+    const phrase = _missionPipelineV4PoiChainCorridorPhrase(chain, targetName);
+    const first = String(points[0]?.name || 'dem ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const last = String(points[points.length - 1]?.name || 'dem letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+    const role = String(passenger?.role || 'Fachperson').replace(/\s+/g, ' ').trim();
+    const pronoun = String(passenger?.gender || '').toLowerCase() === 'female' ? 'Sie' : 'Er';
+    const scope = _missionPipelineV4PoiChainScope(chain);
+    const whyRaw = _missionPipelineV4StripSentenceEnd(frame.trigger || frame.incidentContext || frame.whyNow || '');
+    const why = whyRaw && !/(regelmaessige|regelmäßige|saisonale|detaillierter visueller befund|gewaesserkorridor|gewässerkorridor)/i.test(whyRaw)
+        ? whyRaw
+        : 'Ein Betreiberhinweis soll aus der Luft sauber eingegrenzt werden, bevor ein Bodenteam jeden Punkt einzeln anfährt';
+    const weather = String(context?.weatherSentence || '').trim();
+    const paxSentence = paxName
+        ? `An Bord ist ${paxName}, ${role}; ${pronoun} vergleicht ${scope} und hält fest, wo später eine Bodenprüfung nötig wirken könnte.`
+        : `Die Fachperson an Bord vergleicht ${scope} und hält fest, wo später eine Bodenprüfung nötig wirken könnte.`;
+    return [
+        `Heute prüfen wir eine mehrteilige Infrastrukturkette ${phrase}.`,
+        paxSentence,
+        `Der Einstieg liegt bei ${first}, der Endpunkt bei ${last}; die weiteren Prüfpunkte werden unterwegs nacheinander aufgerufen.`,
+        `${why}.${weather}`,
+        'Nach Abschluss reicht ein klarer Erstbefund: unauffällig, weiter beobachten oder gezielt nacharbeiten.'
+    ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
+}
+
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
     const targetName = String(contract?.target?.name || 'dem Zielgebiet').trim() || 'dem Zielgebiet';
     const taskDomain = String(contract?.profile?.taskDomain || 'general').trim().toLowerCase();
@@ -22102,6 +22152,8 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         ].join(' ');
     }
     if (taskDomain === 'inspection_infra') {
+        const chainStory = _missionPipelineV4ComposePoiChainInfraStory(contract, passenger, { weatherSentence });
+        if (chainStory) return chainStory;
         const category = String(contract?.target?.poiCategory || contract?.target?.targetCategory || contract?.profile?.pickerCategory || '').trim().toLowerCase();
         const genericInfraPattern = /(disruptive|saisonale[nr]? wetterbedingungen|regelmaessige inspektionsrunde|regelmäßige inspektionsrunde|detaillierter visueller befund|stoerungs-, sturm- oder schadensmeldung|störungs-, sturm- oder schadensmeldung|rueckkehr zum startflugplatz|rückkehr zum startflugplatz)/i;
         const categoryDetail = (() => {
