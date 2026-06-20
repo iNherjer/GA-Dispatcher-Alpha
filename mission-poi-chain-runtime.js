@@ -314,14 +314,6 @@
                 interactive: false
             }).addTo(layer);
         }
-        L.polyline(points.map(point => [point.lat, point.lon]), {
-            pane: paneName,
-            color: '#f2c94c',
-            weight: 5,
-            opacity: 0.66,
-            dashArray: '16,10',
-            interactive: false
-        }).bindTooltip(spec?.overlay?.label || spec?.label || 'Korridor', { permanent: false }).addTo(layer).bringToFront?.();
     }
 
     function drawOverlay(specRaw = null, progressState = activeState) {

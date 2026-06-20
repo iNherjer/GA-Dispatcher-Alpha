@@ -16977,6 +16977,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     updateMissionAcceptanceUi();
     if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-accepted');
     return true;
 }
 
@@ -21306,7 +21307,7 @@ Regeln:
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Der PAX ist eine konkrete Fachperson im Flugzeug; nenne natuerlich, wer diese Person ist oder welche Rolle sie hat und was sie am Ziel fachlich beurteilen soll. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
-17x. inspection_infra + CONTRACT.poiChain: Schreibe die Mission als mehrteilige Korridor- oder Objektketten-Inspektion. Das erste Kettenziel ist der Einstieg in den Auftrag; weitere Punkte werden unterwegs nacheinander abgearbeitet. Nenne den Korridor, den Grund der Prüfung und 2-3 Beispielpunkte natürlich, aber keine internen Felder wie poiChain, revealState, triggerRadius oder Debugdaten. Keine Landung am POI als Regeltext ausgeben.
+17x. inspection_infra + CONTRACT.poiChain: Schreibe die Mission als Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Ziel ist eine Luftbildserie und ein grober Erstbefund fuer mehrere Punkte: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Nenne den Korridor, den Grund der Pruefung, Einstieg und Endpunkt natuerlich. Behalte Zwischenpunkte fuer die spaeteren Voice-Aufrufe unterwegs zurueck und schreibe mit normalen Dispatch-Begriffen statt technischen Feldnamen. Beschreibe den Abschluss als Rueckkehr mit Foto-/Befunduebergabe.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
@@ -22033,11 +22034,11 @@ function _missionPipelineV4PoiChainCorridorPhrase(chain = {}, targetName = 'Ziel
 
 function _missionPipelineV4PoiChainScope(chain = {}) {
     const theme = String(chain?.theme || '').toLowerCase();
-    if (theme === 'river_bridge_inspection') return 'Tragwerk, Widerlager, Uferanschluss und freie Durchströmung an jeder Querung';
-    if (theme === 'rail_chain_inspection') return 'Gleiskörper, Weichen, Signale, Bahnübergänge und Randstreifen';
-    if (theme === 'road_bridge_inspection') return 'Fahrbahnübergang, Tragwerk, Pfeiler und Randbereiche der Bauwerke';
+    if (theme === 'river_bridge_inspection') return 'Bauwerkslage, Uferanschlüsse, Zufahrten, Durchflussbild und offensichtliche Veränderungen';
+    if (theme === 'rail_chain_inspection') return 'Streckenabschnitte, Weichenbereiche, Bahnübergänge, Böschungen und offensichtliche Störungen';
+    if (theme === 'road_bridge_inspection') return 'Bauwerkslage, Fahrbahnanschluss, Zufahrten und auffällige Veränderungen im Umfeld';
     if (theme === 'road_junction_survey') return 'Knotenpunkte, Zufahrten, Rückstauflächen und sichtbare Hindernisse';
-    if (theme === 'power_grid_inspection') return 'Maststandorte, Leiterseile, Schneisen, Umspannpunkte und Zufahrten';
+    if (theme === 'power_grid_inspection') return 'Maststandorte, Schneisen, Umspannpunkte, Zufahrten und sichtbare Anomalien';
     return 'Objekte, Zufahrten, Randbereiche und sichtbare Auffälligkeiten';
 }
 
@@ -22057,17 +22058,17 @@ function _missionPipelineV4ComposePoiChainInfraStory(contract = {}, passenger = 
     const whyRaw = _missionPipelineV4StripSentenceEnd(frame.trigger || frame.incidentContext || frame.whyNow || '');
     const why = whyRaw && !/(regelmaessige|regelmäßige|saisonale|detaillierter visueller befund|gewaesserkorridor|gewässerkorridor)/i.test(whyRaw)
         ? whyRaw
-        : 'Ein Betreiberhinweis soll aus der Luft sauber eingegrenzt werden, bevor ein Bodenteam jeden Punkt einzeln anfährt';
+        : 'Ein Betreiberhinweis soll aus der Luft sauber eingegrenzt werden, bevor Teams gezielt zu einzelnen Punkten geschickt werden';
     const weather = String(context?.weatherSentence || '').trim();
     const paxSentence = paxName
-        ? `An Bord ist ${paxName}, ${role}; ${pronoun} vergleicht ${scope} und hält fest, wo später eine Bodenprüfung nötig wirken könnte.`
-        : `Die Fachperson an Bord vergleicht ${scope} und hält fest, wo später eine Bodenprüfung nötig wirken könnte.`;
+        ? `An Bord ist ${paxName}, ${role}; ${pronoun} sammelt eine Luftbildserie, vergleicht grob ${scope} und markiert, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen könnten.`
+        : `Die Fachperson an Bord sammelt eine Luftbildserie, vergleicht grob ${scope} und markiert, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen könnten.`;
     return [
-        `Heute prüfen wir eine mehrteilige Infrastrukturkette ${phrase}.`,
+        `Heute fliegen wir eine Voruntersuchung der mehrteiligen Infrastrukturkette ${phrase}.`,
         paxSentence,
         `Der Einstieg liegt bei ${first}, der Endpunkt bei ${last}; die weiteren Prüfpunkte werden unterwegs nacheinander aufgerufen.`,
         `${why}.${weather}`,
-        'Nach Abschluss reicht ein klarer Erstbefund: unauffällig, weiter beobachten oder gezielt nacharbeiten.'
+        'Nach Abschluss reicht ein Erstbefund mit Fotos: unauffällig, weiter beobachten oder einzelne Punkte genauer untersuchen.'
     ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
 }
 
@@ -23434,7 +23435,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `4e. KNOWLEDGE-GUIDE-FAKTEN: Nutze knowledgeContext.facts als gepruefte Wissensbasis. Die Story darf 1-2 konkrete Fakten natuerlich anteasern, aber keine weiteren Ortsdaten, Baujahre, Groessen, Namen oder historischen Details frei erfinden. Der Passagier soll als Guide erkennbar sein, der unterwegs Wissenswertes zum POI erklaert. Keine Zielhoehe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchfuehren".`
         : '';
     const poiChainRule = (poiLikeTask && requiredTaskDomain === 'inspection_infra' && poiChain?.points?.length)
-        ? `4f. POI-KETTE: poiChain beschreibt eine mehrteilige Infrastruktur-Kette. Schreibe den Auftrag als Korridor-/Objektketten-Inspektion mit erstem Zielpunkt und Folgezielen. Nenne den Korridor und 2-3 Beispielpunkte natuerlich, aber keine internen Feldnamen, Trigger-Radien, revealState oder Debugdaten.`
+        ? `4f. POI-KETTE: poiChain beschreibt eine mehrteilige Infrastruktur-Kette fuer eine Voruntersuchung. Schreibe den Auftrag als Luftbildserie und groben Erstbefund entlang eines Korridors oder einer Objektkette. Der Text soll klaeren, warum mehrere Punkte aus der Luft sortiert werden, welcher Anschlussbedarf daraus entstehen kann und wer die Fotos/Befunde auswertet. Nenne Korridor, Einstieg und Endpunkt natuerlich; Zwischenpunkte bleiben fuer die Voice-Aufrufe unterwegs reserviert. Verwende normale Dispatch-Begriffe statt technischer Feldnamen.`
         : '';
     const localKnowledgeRule = isBushMission
         ? `4. BUSH-LOKALWISSEN: Baue 1-2 echte geographische oder topographische Hinweise zu "${promptDestName}" ein. Fokus auf Wildnis, Tal-/Gelandecharakter, abgelegenen Strip und glaubwuerdigen Bush-Betrieb.`
@@ -25975,7 +25976,7 @@ async function generateMission(options = {}) {
             const chainPoints = Array.isArray(m.poiChain?.points) ? m.poiChain.points.length : 0;
             const hasChainStory = /kette|korridor|mehrteil|mehrere|folg(e|enden)|nacheinander/i.test(String(m.s || ''));
             if (!hasChainStory && chainPoints >= 2) {
-                m.s = `${String(m.s || '').trim()} ${chainLabel} wird als mehrteilige Korridorprüfung geflogen; die markierten Punkte werden nacheinander aus der Luft kontrolliert und nach Abschluss geht es zurück zur Basis.`.trim();
+                m.s = `${String(m.s || '').trim()} ${chainLabel} wird als mehrteilige Voruntersuchung geflogen; unterwegs entsteht eine Luftbildserie mit grobem Erstbefund, Detailprüfungen bleiben späteren Einzelobjekt-Missionen vorbehalten.`.trim();
             }
         }
         if (followupSeed && followupDispatchProfileId === 'apt_charter_pickup' && m && typeof m === 'object') {

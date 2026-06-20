@@ -515,6 +515,15 @@ window.paxVoiceResetMission = function() {
     if (typeof window.missionPoiChainRuntime?.reset === 'function') {
         try { window.missionPoiChainRuntime.reset('pax-voice-reset'); } catch (_) {}
     }
+    if (typeof window.refreshMissionPoiChainOverlaySoon === 'function') {
+        try {
+            window.refreshMissionPoiChainOverlaySoon(
+                (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+                window.activePassenger || null,
+                'pax-voice-reset'
+            );
+        } catch (_) {}
+    }
     _closePaxPanel();
     _refreshPaxWidgetVisibility();
 };
