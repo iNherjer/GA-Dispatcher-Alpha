@@ -55,7 +55,8 @@
         rail_chain_inspection: {
             guideTypes: ['railway', 'rail'],
             candidateMode: 'rail',
-            candidateMaxCrossTrackNm: 0.85,
+            guideMaxCrossTrackNm: 1.6,
+            candidateMaxCrossTrackNm: 0.45,
             clusterRadiusNm: 0.22,
             minSpacingNm: 1.0,
             minScore: 4,
@@ -717,6 +718,15 @@
 
     function pointDisplayName(feature, mode, index) {
         const name = featureName(feature);
+        const normalizedName = cleanText(name, 80).toLowerCase().replace(/[_-]+/g, ' ');
+        const railway = String(feature.railway || '').toLowerCase();
+        if ((String(mode || '').toLowerCase() === 'rail' || railway) && (isBroadRailOperator(name) || /\brail\s+switch\b/i.test(normalizedName) || /^switch\s*\d+$/i.test(normalizedName) || (/^\d{1,3}[a-z]?$/i.test(normalizedName) && railway === 'switch'))) {
+            if (railway === 'switch') return `Weiche ${index + 1}`;
+            if (railway === 'level_crossing' || railway === 'crossing') return `Bahnuebergang ${index + 1}`;
+            if (railway === 'signal_box') return `Stellwerk ${index + 1}`;
+            if (railway === 'junction') return `Bahnknoten ${index + 1}`;
+            return `Bahninfrastruktur ${index + 1}`;
+        }
         if (name) return name;
         const cat = categoryFor(feature, mode).replace(/_/g, ' ');
         return `${cat} ${index + 1}`;
@@ -725,13 +735,18 @@
     function buildPoint(feature, cfg, index, prev) {
         const distPrev = prev ? haversineNm(prev.lat, prev.lon, feature.lat, feature.lon) : 0;
         const bearingPrev = prev ? bearingDeg(prev.lat, prev.lon, feature.lat, feature.lon) : null;
+        const category = categoryFor(feature, cfg.candidateMode);
+        let displayName = pointDisplayName(feature, cfg.candidateMode, index);
+        if (category === 'rail_switch' && /\b(rail\s+switch|switch)\b|^\d{1,3}[a-z]?$/i.test(cleanText(displayName, 80).toLowerCase())) {
+            displayName = `Weiche ${index + 1}`;
+        }
         return {
             id: cleanText(`chain-${cfg.theme}-${index + 1}-${feature._id || `${feature.lat},${feature.lon}`}`, 180),
             index,
-            name: pointDisplayName(feature, cfg.candidateMode, index),
+            name: displayName,
             lat: roundNumber(feature.lat),
             lon: roundNumber(feature.lon),
-            category: categoryFor(feature, cfg.candidateMode),
+            category,
             triggerRadiusNm: roundNumber(cfg.triggerRadiusNm, 2),
             revealState: index === 0 ? 'visible' : 'hidden',
             required: true,
@@ -840,7 +855,8 @@
                 label: cleanText(cfg.overlayLabel || cfg.label || 'Korridor', 120),
                 start: { lat: roundNumber(cfg.start.lat), lon: roundNumber(cfg.start.lon) },
                 end: { lat: roundNumber(cfg.end.lat), lon: roundNumber(cfg.end.lon) },
-                radiusNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2)
+                radiusNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2),
+                widthNm: 5
             },
             points,
             sequenceRequired: cfg.sequenceRequired,
@@ -904,6 +920,7 @@
 
     function guideGroupKey(feature, kind = '') {
         const k = String(kind || guideKindForFeature(feature) || '').toLowerCase();
+        const rawName = cleanText(feature.tags?.name || feature.rawName || '', 120);
         const name = cleanText(feature.name || '', 120);
         const ref = cleanText(feature.ref || '', 80);
         const operator = cleanText(feature.operator || '', 120);
@@ -914,7 +931,10 @@
         let identity = '';
         if (k === 'waterway') identity = name || ref || waterway;
         else if (k === 'road') identity = ref || name || highway;
-        else if (k === 'rail') identity = ref || name || operator || railway;
+        else if (k === 'rail') {
+            const lineName = railLineIdentityName({ ...feature, name: rawName || name });
+            identity = ref || lineName || 'rail';
+        }
         else if (k === 'power') identity = ref || name || operator || voltage || 'power';
         else identity = name || ref || operator || feature.type || 'line';
         if (!identity) return '';
@@ -934,10 +954,24 @@
     function guideGroupLabel(feature, kind = '') {
         const k = String(kind || guideKindForFeature(feature) || '').toLowerCase();
         if (k === 'road') return cleanText(feature.ref || feature.name || feature.highway || 'Straßenkorridor', 120);
-        if (k === 'rail') return cleanText(feature.name || feature.ref || feature.operator || 'Bahnkorridor', 120);
+        if (k === 'rail') return cleanText(feature.ref || railLineIdentityName(feature) || 'Bahnkorridor', 120);
         if (k === 'power') return cleanText(feature.name || feature.ref || feature.operator || (feature.voltage ? `${feature.voltage}V-Leitung` : 'Stromtrasse'), 120);
         if (k === 'waterway') return cleanText(feature.name || feature.ref || 'Gewässerkorridor', 120);
         return cleanText(feature.name || feature.ref || 'Korridor', 120);
+    }
+
+    function isBroadRailOperator(value = '') {
+        return /^(db\s*(netz|infrago|energie)?|deutsche\s+bahn|db|bahn|railway|rail|disused|yes)$/i.test(cleanText(value, 80));
+    }
+
+    function railLineIdentityName(feature = null) {
+        if (!feature) return '';
+        const rawName = cleanText(feature.tags?.name || feature.rawName || '', 120);
+        const name = cleanText(rawName || feature.name || '', 120);
+        const operator = cleanText(feature.operator || feature.tags?.operator || '', 120);
+        if (!name || isBroadRailOperator(name)) return '';
+        if (operator && normalizeKey(name) === normalizeKey(operator) && isBroadRailOperator(operator)) return '';
+        return name;
     }
 
     function groupGuideFeatures(features) {
@@ -960,6 +994,79 @@
         return Array.from(groups.values()).filter(group => group.features.length >= 3);
     }
 
+    function spatialComponentLabel(group, features) {
+        const base = cleanText(group?.label || '', 120);
+        if (base && !/^bahn(korridor)?$/i.test(base)) return base;
+        const named = (Array.isArray(features) ? features : [])
+            .map(feature => cleanText(feature.ref || railLineIdentityName(feature) || '', 80))
+            .filter(Boolean);
+        const unique = Array.from(new Set(named));
+        if (unique.length) return unique.slice(0, 2).join(' - ');
+        return 'Bahnkorridor';
+    }
+
+    function splitGuideGroupSpatialComponents(group, { maxGapNm = 1.8, minFeatures = 3 } = {}) {
+        const features = Array.isArray(group?.features) ? group.features : [];
+        if (features.length < minFeatures) return [];
+        if (String(group?.kind || '').toLowerCase() !== 'rail') return [group];
+        const avgLat = features.reduce((sum, f) => sum + Number(f.lat || 0), 0) / Math.max(1, features.length);
+        const cellLat = Math.max(0.005, maxGapNm / 60);
+        const cellLon = Math.max(0.005, maxGapNm / (60 * Math.max(0.25, Math.cos(toRad(avgLat)))));
+        const parent = features.map((_, idx) => idx);
+        const find = idx => {
+            while (parent[idx] !== idx) {
+                parent[idx] = parent[parent[idx]];
+                idx = parent[idx];
+            }
+            return idx;
+        };
+        const union = (a, b) => {
+            const ra = find(a);
+            const rb = find(b);
+            if (ra !== rb) parent[rb] = ra;
+        };
+        const cells = new Map();
+        const cellKey = (x, y) => `${x}|${y}`;
+        features.forEach((feature, idx) => {
+            const x = Math.floor(Number(feature.lat) / cellLat);
+            const y = Math.floor(Number(feature.lon) / cellLon);
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const bucket = cells.get(cellKey(x + dx, y + dy));
+                    if (!bucket) continue;
+                    for (const otherIdx of bucket) {
+                        const other = features[otherIdx];
+                        if (haversineNm(feature.lat, feature.lon, other.lat, other.lon) <= maxGapNm) {
+                            union(idx, otherIdx);
+                        }
+                    }
+                }
+            }
+            const key = cellKey(x, y);
+            if (!cells.has(key)) cells.set(key, []);
+            cells.get(key).push(idx);
+        });
+        const buckets = new Map();
+        features.forEach((feature, idx) => {
+            const root = find(idx);
+            if (!buckets.has(root)) buckets.set(root, []);
+            buckets.get(root).push(feature);
+        });
+        return Array.from(buckets.values())
+            .filter(list => list.length >= minFeatures)
+            .sort((a, b) => b.length - a.length)
+            .map((list, idx) => ({
+                ...group,
+                key: `${group.key}:component_${idx + 1}`,
+                label: spatialComponentLabel(group, list),
+                features: list,
+                componentIndex: idx,
+                parentKey: group.key,
+                parentLabel: group.label,
+                componentCount: buckets.size
+            }));
+    }
+
     function themeGuideKind(theme = '') {
         const t = String(theme || '').toLowerCase();
         if (t === 'river_bridge_inspection') return 'waterway';
@@ -979,7 +1086,11 @@
         if (cat === 'infrastructure' || cat === 'industry' || cat === 'all' || cat === 'chain') {
             return ['river_bridge_inspection', 'road_bridge_inspection', 'road_junction_survey', 'rail_chain_inspection', 'power_grid_inspection'];
         }
-        return [];
+        // Debug/forced chain dispatch can be requested while the picker still
+        // carries a concrete POI category such as dam or telecom. Treat those
+        // as a broad infrastructure-chain search instead of disabling the
+        // prospector after the expensive tile load.
+        return ['river_bridge_inspection', 'road_bridge_inspection', 'road_junction_survey', 'rail_chain_inspection', 'power_grid_inspection'];
     }
 
     function farthestGuidePair(group, maxSample = 80) {
@@ -1025,7 +1136,15 @@
         if (theme === 'river_bridge_inspection') return label ? `Brückenkette ${label}` : 'Brückenkette am Gewässer';
         if (theme === 'road_bridge_inspection') return label ? `Bauwerkskette ${label}` : 'Straßenbauwerkskette';
         if (theme === 'road_junction_survey') return label ? `Verkehrskorridor ${label}` : 'Verkehrskorridor';
-        if (theme === 'rail_chain_inspection') return label ? `Bahnkorridor ${label}` : 'Bahnkorridor';
+        if (theme === 'rail_chain_inspection') {
+            const generic = !label || /^bahn(korridor)?$/i.test(label) || isBroadRailOperator(label);
+            if (generic && Array.isArray(chain?.points) && chain.points.length >= 2) {
+                const first = cleanText(chain.points[0]?.name || '', 42);
+                const last = cleanText(chain.points[chain.points.length - 1]?.name || '', 42);
+                if (first && last && normalizeKey(first) !== normalizeKey(last)) return `Bahnkorridor ${first} - ${last}`;
+            }
+            return label ? `Bahnkorridor ${label}` : 'Bahnkorridor';
+        }
         if (theme === 'power_grid_inspection') return label ? `Stromtrasse ${label}` : 'Stromtrasse';
         return chain?.label || 'POI-Kette';
     }
@@ -1065,6 +1184,7 @@
             },
             themes,
             groups: 0,
+            components: 0,
             tested: 0,
             rejected: []
         };
@@ -1077,9 +1197,14 @@
         let stopProspecting = false;
         for (const theme of themes) {
             const guideKind = themeGuideKind(theme);
-            const matchingGroups = groups
+            const matchingBaseGroups = groups
                 .filter(group => !guideKind || group.kind === guideKind)
                 .filter(group => !groupPattern || groupPattern.test(`${group.label} ${group.key}`));
+            const matchingGroups = matchingBaseGroups.flatMap(group => splitGuideGroupSpatialComponents(group, {
+                maxGapNm: theme === 'rail_chain_inspection' ? 1.8 : 2.4,
+                minFeatures: theme === 'rail_chain_inspection' ? 5 : 3
+            }));
+            diagnostics.components += matchingGroups.length;
             const preparedGroups = [];
             for (const group of matchingGroups) {
                 const pair = farthestGuidePair(group);
@@ -1158,7 +1283,10 @@
                         key: group.key,
                         kind: group.kind,
                         label: group.label,
-                        featureCount: group.features.length
+                        featureCount: group.features.length,
+                        parentKey: group.parentKey || null,
+                        componentIndex: Number.isFinite(Number(group.componentIndex)) ? Number(group.componentIndex) : null,
+                        componentCount: Number.isFinite(Number(group.componentCount)) ? Number(group.componentCount) : null
                     },
                     score: roundNumber(scoreProspect(result, group, navFirst, theme), 2),
                     chain: result.chain,

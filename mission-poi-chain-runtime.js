@@ -55,6 +55,23 @@
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
+    function destinationPoint(lat, lon, distanceNm, bearing) {
+        const delta = Number(distanceNm) / EARTH_RADIUS_NM;
+        const theta = toRad(bearing);
+        const phi1 = toRad(lat);
+        const lambda1 = toRad(lon);
+        const sinPhi2 = Math.sin(phi1) * Math.cos(delta)
+            + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta);
+        const phi2 = Math.asin(Math.max(-1, Math.min(1, sinPhi2)));
+        const y = Math.sin(theta) * Math.sin(delta) * Math.cos(phi1);
+        const x = Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2);
+        const lambda2 = lambda1 + Math.atan2(y, x);
+        return {
+            lat: toDeg(phi2),
+            lon: ((toDeg(lambda2) + 540) % 360) - 180
+        };
+    }
+
     function cleanText(value, maxLen = 140) {
         const s = String(value || '').replace(/\s+/g, ' ').trim();
         return maxLen > 0 && s.length > maxLen ? s.slice(0, maxLen).trim() : s;
@@ -120,7 +137,8 @@
                 label: cleanText(overlay.label || label, 120),
                 start: overlay.start || guide?.start || null,
                 end: overlay.end || guide?.end || null,
-                radiusNm: Math.max(0.2, Math.min(8, Number(overlay.radiusNm || 1.5)))
+                radiusNm: Math.max(0.2, Math.min(8, Number(overlay.radiusNm || 1.5))),
+                widthNm: Math.max(1, Math.min(10, Number(overlay.widthNm || 5)))
             } : null,
             points,
             sequenceRequired: raw.sequenceRequired !== false,
@@ -235,6 +253,58 @@
         }).addTo(layer);
     }
 
+    function corridorBearingAt(points, idx) {
+        const prev = points[idx - 1] || null;
+        const curr = points[idx] || null;
+        const next = points[idx + 1] || null;
+        if (!curr) return 0;
+        if (prev && next) {
+            const a = bearingDeg(prev.lat, prev.lon, curr.lat, curr.lon);
+            const b = bearingDeg(curr.lat, curr.lon, next.lat, next.lon);
+            const ax = Math.cos(toRad(a));
+            const ay = Math.sin(toRad(a));
+            const bx = Math.cos(toRad(b));
+            const by = Math.sin(toRad(b));
+            return (toDeg(Math.atan2(ay + by, ax + bx)) + 360) % 360;
+        }
+        if (next) return bearingDeg(curr.lat, curr.lon, next.lat, next.lon);
+        if (prev) return bearingDeg(prev.lat, prev.lon, curr.lat, curr.lon);
+        return 0;
+    }
+
+    function drawCorridorHint(layer, points, spec) {
+        if (!layer || typeof L === 'undefined' || !Array.isArray(points) || points.length < 2) return;
+        const widthNm = Math.max(1, Math.min(10, Number(spec?.overlay?.widthNm || 5)));
+        const halfWidthNm = widthNm / 2;
+        const left = [];
+        const right = [];
+        points.forEach((point, idx) => {
+            const bearing = corridorBearingAt(points, idx);
+            const l = destinationPoint(point.lat, point.lon, halfWidthNm, bearing - 90);
+            const r = destinationPoint(point.lat, point.lon, halfWidthNm, bearing + 90);
+            left.push([l.lat, l.lon]);
+            right.push([r.lat, r.lon]);
+        });
+        const polygon = left.concat(right.reverse());
+        if (polygon.length >= 4) {
+            L.polygon(polygon, {
+                color: '#ffcc4d',
+                weight: 1,
+                opacity: 0.48,
+                fillColor: '#ffcc4d',
+                fillOpacity: 0.08,
+                interactive: false
+            }).addTo(layer);
+        }
+        L.polyline(points.map(point => [point.lat, point.lon]), {
+            color: '#f2c94c',
+            weight: 3,
+            opacity: 0.36,
+            dashArray: '14,12',
+            interactive: false
+        }).bindTooltip(spec?.overlay?.label || spec?.label || 'Korridor', { permanent: false }).addTo(layer);
+    }
+
     function drawOverlay(specRaw = null, progressState = activeState) {
         const spec = normalizeSpec(specRaw);
         if (!spec) {
@@ -246,11 +316,12 @@
         if (typeof layer.clearLayers === 'function') layer.clearLayers();
         const points = spec.points || [];
         const currentIdx = Math.max(0, Math.min(points.length - 1, Number(progressState?.currentIndex || 0) || 0));
+        drawCorridorHint(layer, points, spec);
         const visiblePoints = points.filter((point, idx) => {
             const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
             return completed || idx === currentIdx || !spec.sequenceRequired;
         });
-        if (spec.overlay?.start && spec.overlay?.end) {
+        if (points.length < 2 && spec.overlay?.start && spec.overlay?.end) {
             const start = spec.overlay.start;
             const end = spec.overlay.end;
             const startLat = Number(start.lat);

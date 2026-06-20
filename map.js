@@ -8537,7 +8537,7 @@ function _missionPoiChainRoutePointsForMap() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const chain = md?.poiChain || null;
     const points = Array.isArray(chain?.points) ? chain.points : [];
-    return points
+    const normalized = points
         .map((point, idx) => {
             const lat = Number(point?.lat);
             const lon = Number(point?.lon ?? point?.lng);
@@ -8546,13 +8546,24 @@ function _missionPoiChainRoutePointsForMap() {
                 lat,
                 lng: lon,
                 lon,
-                name: `${idx + 1}. ${String(point?.name || `Kettenpunkt ${idx + 1}`).replace(/\s+/g, ' ').trim()}`,
+                name: String(point?.name || `Kettenpunkt ${idx + 1}`).replace(/\s+/g, ' ').trim(),
                 isPOI: idx === 0,
-                isPoiChainPoint: true,
+                isPoiChainEndpoint: true,
                 poiChainPointId: String(point?.id || `chain-point-${idx + 1}`)
             };
         })
         .filter(Boolean);
+    if (normalized.length < 2) return normalized;
+    const first = {
+        ...normalized[0],
+        name: `Korridor Einstieg: ${normalized[0].name || 'Punkt 1'}`
+    };
+    const last = {
+        ...normalized[normalized.length - 1],
+        name: `Korridor Ende: ${normalized[normalized.length - 1].name || `Punkt ${normalized.length}`}`,
+        isPOI: false
+    };
+    return [first, last];
 }
 
 function _missionRouteDistanceNmForMap(points = []) {
