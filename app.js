@@ -13076,7 +13076,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
                 m.s = _missionPipelineV4PoiChainStoryLooksComplete(writerStory, storyContract, passenger)
                     ? writerStory
-                    : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger }));
+                    : (_missionPipelineV4PoiChainStoryLooksUsable(writerStory, storyContract, passenger)
+                        ? _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract)
+                        : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger })));
             } else {
                 m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
             }
@@ -22444,6 +22446,36 @@ function _missionPipelineV4PoiChainStoryLooksComplete(story = '', contract = {},
         && (!last || normalized.includes(last) || /endpunkt|letzten pruefpunkt|letzten prüfpunkt/i.test(normalized));
     const leaks = /\b(CONTRACT|DISPATCH_FORM|poiChain|missionTruth|infraNarrativeHandoff|taskDomain|roleProfile|Pipeline|JSON)\b/i.test(text);
     return mentionsPassenger && chainTerms && outcomeTerms && mentionsEnds && !leaks;
+}
+
+function _missionPipelineV4PoiChainStoryLooksUsable(story = '', contract = {}, passenger = {}) {
+    const text = String(story || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(text);
+    if (!normalized || normalized.length < 180) return false;
+    const name = normalizeMissionText(String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim());
+    const role = normalizeMissionText(passenger?.role || '');
+    const mentionsPassenger = !!((name && normalized.includes(name)) || (role && normalized.includes(role)));
+    const chainTerms = /(kette|korridor|mehrteil|luftbildserie|erstbefund|prüfpunkt|pruefpunkt|voruntersuchung)/i.test(text);
+    const outcomeTerms = /(befund|fotos?|bildserie|auswertung|betreiber|technikteam|bodenrunde|einzelobjekt|nachpruefung|nachprüfung)/i.test(text);
+    const leaks = /\b(CONTRACT|DISPATCH_FORM|poiChain|missionTruth|infraNarrativeHandoff|taskDomain|roleProfile|Pipeline|JSON)\b/i.test(text);
+    return mentionsPassenger && chainTerms && outcomeTerms && !leaks;
+}
+
+function _missionPipelineV4EnsurePoiChainEndpointNote(story = '', contract = {}) {
+    const base = String(story || '').replace(/\s+/g, ' ').trim();
+    const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    if (!base || points.length < 2) return base;
+    const normalized = normalizeMissionText(base);
+    const first = String(points[0]?.name || 'dem ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const last = String(points[points.length - 1]?.name || 'dem letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const firstKey = normalizeMissionText(first);
+    const lastKey = normalizeMissionText(last);
+    const hasFirst = !!(firstKey && normalized.includes(firstKey)) || /einstieg|ersten pruefpunkt|ersten prüfpunkt/i.test(normalized);
+    const hasLast = !!(lastKey && normalized.includes(lastKey)) || /endpunkt|letzten pruefpunkt|letzten prüfpunkt/i.test(normalized);
+    if (hasFirst && hasLast) return base;
+    const note = `Die Kette beginnt am Prüfpunkt ${first} und endet am Prüfpunkt ${last}; die Zwischenpunkte werden unterwegs aufgerufen.`;
+    return `${base} ${note}`.trim();
 }
 
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {

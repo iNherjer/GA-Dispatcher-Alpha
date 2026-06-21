@@ -32,10 +32,6 @@
         return Number(value) * Math.PI / 180;
     }
 
-    function toDeg(value) {
-        return Number(value) * 180 / Math.PI;
-    }
-
     function haversineNm(lat1, lon1, lat2, lon2) {
         const dLat = toRad(lat2 - lat1);
         const dLon = toRad(lon2 - lon1);
@@ -44,32 +40,6 @@
         const a = Math.sin(dLat / 2) ** 2
             + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
         return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * EARTH_RADIUS_NM;
-    }
-
-    function bearingDeg(lat1, lon1, lat2, lon2) {
-        const p1 = toRad(lat1);
-        const p2 = toRad(lat2);
-        const dLon = toRad(lon2 - lon1);
-        const y = Math.sin(dLon) * Math.cos(p2);
-        const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dLon);
-        return (toDeg(Math.atan2(y, x)) + 360) % 360;
-    }
-
-    function destinationPoint(lat, lon, distanceNm, bearing) {
-        const delta = Number(distanceNm) / EARTH_RADIUS_NM;
-        const theta = toRad(bearing);
-        const phi1 = toRad(lat);
-        const lambda1 = toRad(lon);
-        const sinPhi2 = Math.sin(phi1) * Math.cos(delta)
-            + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta);
-        const phi2 = Math.asin(Math.max(-1, Math.min(1, sinPhi2)));
-        const y = Math.sin(theta) * Math.sin(delta) * Math.cos(phi1);
-        const x = Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2);
-        const lambda2 = lambda1 + Math.atan2(y, x);
-        return {
-            lat: toDeg(phi2),
-            lon: ((toDeg(lambda2) + 540) % 360) - 180
-        };
     }
 
     function cleanText(value, maxLen = 140) {
@@ -277,6 +247,20 @@
         }).addTo(layer);
     }
 
+    function corridorStrokeWeightPx(trace, widthNm, layer) {
+        const mapRef = layer?._map || (typeof map !== 'undefined' ? map : null);
+        const zoom = Number(mapRef?.getZoom?.());
+        const sample = Array.isArray(trace) && trace.length
+            ? trace[Math.floor(trace.length / 2)]
+            : null;
+        const lat = Number(sample?.lat);
+        if (!Number.isFinite(zoom) || !Number.isFinite(lat)) return 18;
+        const metersPerPixel = (40075016.686 * Math.cos(lat * Math.PI / 180)) / (256 * Math.pow(2, zoom));
+        if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) return 18;
+        const px = (Number(widthNm || 0.5) * NM_TO_M) / metersPerPixel;
+        return Math.max(10, Math.min(64, Math.round(px)));
+    }
+
     function drawCorridorHint(layer, points, spec) {
         if (!layer || typeof L === 'undefined') return;
         const paneName = ensureOverlayPane();
@@ -285,31 +269,31 @@
             : points;
         if (!Array.isArray(trace) || trace.length < 2) return;
         const widthNm = Math.max(0.3, Math.min(10, Number(spec?.overlay?.widthNm || 0.5)));
-        const halfWidthNm = widthNm / 2;
-        for (let idx = 0; idx < trace.length - 1; idx++) {
-            const a = trace[idx];
-            const b = trace[idx + 1];
-            if (!a || !b) continue;
-            const bearing = bearingDeg(a.lat, a.lon, b.lat, b.lon);
-            const aLeft = destinationPoint(a.lat, a.lon, halfWidthNm, bearing - 90);
-            const aRight = destinationPoint(a.lat, a.lon, halfWidthNm, bearing + 90);
-            const bLeft = destinationPoint(b.lat, b.lon, halfWidthNm, bearing - 90);
-            const bRight = destinationPoint(b.lat, b.lon, halfWidthNm, bearing + 90);
-            L.polygon([
-                [aLeft.lat, aLeft.lon],
-                [bLeft.lat, bLeft.lon],
-                [bRight.lat, bRight.lon],
-                [aRight.lat, aRight.lon]
-            ], {
-                pane: paneName,
-                color: '#ffcc4d',
-                weight: 1,
-                opacity: 0.45,
-                fillColor: '#ffcc4d',
-                fillOpacity: 0.16,
-                interactive: false
-            }).addTo(layer);
-        }
+        const latLngs = trace
+            .map(point => [Number(point?.lat), Number(point?.lon)])
+            .filter(pair => pair.every(Number.isFinite));
+        if (latLngs.length < 2) return;
+        const weight = corridorStrokeWeightPx(trace, widthNm, layer);
+        L.polyline(latLngs, {
+            pane: paneName,
+            color: '#ffcc4d',
+            weight,
+            opacity: 0.26,
+            lineCap: 'round',
+            lineJoin: 'round',
+            smoothFactor: 1.4,
+            interactive: false
+        }).addTo(layer);
+        L.polyline(latLngs, {
+            pane: paneName,
+            color: '#ffe58a',
+            weight: Math.max(3, Math.round(weight * 0.45)),
+            opacity: 0.16,
+            lineCap: 'round',
+            lineJoin: 'round',
+            smoothFactor: 1.4,
+            interactive: false
+        }).addTo(layer);
     }
 
     function drawOverlay(specRaw = null, progressState = activeState) {
