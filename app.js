@@ -4640,6 +4640,11 @@ function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) 
         missionPlanV3: md.missionPlanV3 || contract?.missionPlanV3 || null,
         missionPipelineMode: md.missionPipelineMode || contract?.missionPipelineMode || (typeof getMissionPipelineMode === 'function' ? getMissionPipelineMode() : ''),
         missionVariety: md.missionVariety || contract?.missionVariety || md.missionContractV4?.variety || contract?.missionContractV4?.variety || null,
+        poiChain: md.poiChain || contract?.poiChain || null,
+        poiChainDebug: typeof buildPoiChainDebugSummary === 'function'
+            ? buildPoiChainDebugSummary(md, contract)
+            : null,
+        storyDebug: md._poiChainStoryDebug || md._missionWriterV4Debug || contract?._poiChainStoryDebug || null,
         bushReconOutcome: md.bushReconOutcome || contract?.bushReconOutcome || null,
         dispatchPerf: md.dispatchPerf || null,
         missionContractV4: md.missionContractV4 || contract?.missionContractV4 || null,
@@ -9223,8 +9228,14 @@ function compactPoiChainForMission(chain = null, maxPoints = 8) {
             triggerRadiusNm: Number.isFinite(Number(point.triggerRadiusNm)) ? Math.round(Number(point.triggerRadiusNm) * 100) / 100 : 0.45,
             revealState: idx === 0 ? 'visible' : (point.revealState || 'hidden'),
             required: point.required !== false,
+            sourceLayer: String(point.sourceLayer || '').trim(),
+            sourceTile: String(point.sourceTile || '').trim(),
+            score: Number.isFinite(Number(point.score)) ? Math.round(Number(point.score) * 100) / 100 : null,
+            orderT: Number.isFinite(Number(point.orderT)) ? Math.round(Number(point.orderT) * 10000) / 10000 : null,
+            distCorridorNm: Number.isFinite(Number(point.distCorridorNm)) ? Math.round(Number(point.distCorridorNm) * 1000) / 1000 : null,
             distanceFromPrevNm: Number.isFinite(Number(point.distanceFromPrevNm)) ? Math.round(Number(point.distanceFromPrevNm) * 100) / 100 : 0,
             bearingFromPrevDeg: point.bearingFromPrevDeg === null ? null : Math.round(Number(point.bearingFromPrevDeg || 0)),
+            clusterCount: Math.max(1, Number(point.clusterCount || 1)),
             tags: point.tags || {}
         })),
         sequenceRequired: chain.sequenceRequired !== false,
@@ -9233,6 +9244,91 @@ function compactPoiChainForMission(chain = null, maxPoints = 8) {
         dispatch: chain.dispatch || null
     };
 }
+
+function _poiChainDebugCoord(point = null) {
+    const lat = Number(point?.lat);
+    const lon = Number(point?.lon ?? point?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        lat: Math.round(lat * 1e6) / 1e6,
+        lon: Math.round(lon * 1e6) / 1e6,
+        name: String(point?.name || point?.label || '').replace(/\s+/g, ' ').trim() || undefined
+    };
+}
+
+function _poiChainDebugTraceSummary(trace = []) {
+    const points = Array.isArray(trace) ? trace.map(_poiChainDebugCoord).filter(Boolean) : [];
+    return {
+        count: points.length,
+        first: points.slice(0, 3),
+        last: points.slice(-3)
+    };
+}
+
+function _poiChainDebugRouteSummary(points = []) {
+    const route = Array.isArray(points) ? points.map(_poiChainDebugCoord).filter(Boolean) : [];
+    return {
+        count: route.length,
+        points: route.slice(0, 12)
+    };
+}
+
+function buildPoiChainDebugSummary(missionData = null, contract = null, options = {}) {
+    const md = missionData && typeof missionData === 'object' ? missionData : null;
+    const c = contract && typeof contract === 'object' ? contract : null;
+    const chain = md?.poiChain || c?.poiChain || c?.missionContractV4?.poiChain || c?.missionPlanV2?.poiChain || null;
+    if (!chain || typeof chain !== 'object') return null;
+    const points = Array.isArray(chain.points) ? chain.points : [];
+    const overlay = chain.overlay && typeof chain.overlay === 'object' ? chain.overlay : {};
+    const guide = chain.guide && typeof chain.guide === 'object' ? chain.guide : {};
+    const routeCandidates = [
+        options.routeWaypoints,
+        md?.missionRouteWaypoints,
+        md?.routeWaypoints,
+        (typeof window !== 'undefined' ? window._missionRouteWaypoints : null),
+        (typeof routeWaypoints !== 'undefined' ? routeWaypoints : null)
+    ];
+    const activeRoute = routeCandidates.find(candidate => Array.isArray(candidate) && candidate.length) || [];
+    return {
+        theme: String(chain.theme || ''),
+        label: String(chain.label || ''),
+        guide: {
+            type: String(guide.type || ''),
+            name: String(guide.name || guide.namePattern || ''),
+            groupKey: String(guide.groupKey || ''),
+            guidePointCount: Number(guide.guidePointCount || 0),
+            start: _poiChainDebugCoord(guide.start),
+            end: _poiChainDebugCoord(guide.end)
+        },
+        overlay: {
+            type: String(overlay.type || ''),
+            label: String(overlay.label || ''),
+            radiusNm: Number.isFinite(Number(overlay.radiusNm)) ? Math.round(Number(overlay.radiusNm) * 100) / 100 : null,
+            widthNm: Number.isFinite(Number(overlay.widthNm)) ? Math.round(Number(overlay.widthNm) * 100) / 100 : null,
+            start: _poiChainDebugCoord(overlay.start),
+            end: _poiChainDebugCoord(overlay.end),
+            trace: _poiChainDebugTraceSummary(overlay.trace)
+        },
+        points: points.map((point, idx) => ({
+            index: Number.isFinite(Number(point.index)) ? Number(point.index) : idx,
+            name: String(point.name || '').replace(/\s+/g, ' ').trim(),
+            category: String(point.category || '').trim(),
+            lat: Number.isFinite(Number(point.lat)) ? Math.round(Number(point.lat) * 1e6) / 1e6 : null,
+            lon: Number.isFinite(Number(point.lon)) ? Math.round(Number(point.lon) * 1e6) / 1e6 : null,
+            orderT: Number.isFinite(Number(point.orderT)) ? Math.round(Number(point.orderT) * 10000) / 10000 : null,
+            distCorridorNm: Number.isFinite(Number(point.distCorridorNm)) ? Math.round(Number(point.distCorridorNm) * 1000) / 1000 : null,
+            distanceFromPrevNm: Number.isFinite(Number(point.distanceFromPrevNm)) ? Math.round(Number(point.distanceFromPrevNm) * 100) / 100 : null,
+            bearingFromPrevDeg: Number.isFinite(Number(point.bearingFromPrevDeg)) ? Math.round(Number(point.bearingFromPrevDeg)) : null,
+            sourceLayer: String(point.sourceLayer || ''),
+            sourceTile: String(point.sourceTile || ''),
+            tags: point.tags || {}
+        })),
+        routeWaypoints: _poiChainDebugRouteSummary(activeRoute),
+        dispatch: chain.dispatch || null,
+        runtimeDebug: (typeof window !== 'undefined' && window.gaPoiChainDebug) ? window.gaPoiChainDebug.last || null : null
+    };
+}
+window.buildPoiChainDebugSummary = buildPoiChainDebugSummary;
 
 function _poiChainCategoryFromTheme(theme = '') {
     const t = String(theme || '').toLowerCase();
@@ -9506,6 +9602,22 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
             category: targetCategory,
             theme: chain.theme,
             points: chain.points.length,
+            guide: {
+                name: chain.guide?.name || '',
+                groupKey: chain.guide?.groupKey || '',
+                guidePointCount: chain.guide?.guidePointCount || 0
+            },
+            overlayTracePoints: Array.isArray(chain.overlay?.trace) ? chain.overlay.trace.length : 0,
+            selectedPoints: Array.isArray(chain.points) ? chain.points.map(point => ({
+                index: point.index,
+                name: point.name,
+                category: point.category,
+                lat: point.lat,
+                lon: point.lon,
+                orderT: point.orderT,
+                distCorridorNm: point.distCorridorNm,
+                distanceFromPrevNm: point.distanceFromPrevNm
+            })) : [],
             score: best.score,
             themes,
             tileKeys: tileKeys.length,
@@ -13078,17 +13190,27 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
             if (isChainRecon) {
                 const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
-                const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(
-                    _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract),
-                    storyContract,
-                    passenger
-                );
-                m.s = (
-                    _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, passenger)
-                    || _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, passenger)
-                )
-                    ? preparedWriterStory
-                    : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger }));
+                const endpointPreparedWriterStory = _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract);
+                const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(endpointPreparedWriterStory, storyContract, passenger);
+                const writerComplete = _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, passenger);
+                const writerUsable = _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, passenger);
+                const acceptedWriter = writerComplete || writerUsable;
+                const fallbackStory = chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger });
+                m.s = acceptedWriter ? preparedWriterStory : fallbackStory;
+                m._poiChainStoryDebug = {
+                    stage: 'applyMissionTaskProfileToMission',
+                    source: acceptedWriter ? 'writer_prepared' : (chainStory ? 'chain_fallback' : 'generic_fallback'),
+                    writerLength: writerStory.length,
+                    preparedLength: preparedWriterStory.length,
+                    fallbackLength: fallbackStory.length,
+                    endpointNoteAdded: endpointPreparedWriterStory !== writerStory,
+                    passengerNoteAdded: preparedWriterStory !== endpointPreparedWriterStory,
+                    writerComplete,
+                    writerUsable,
+                    finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
+                        ? _missionPipelineV4LooksEnumerative(m.s)
+                        : null
+                };
             } else {
                 m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
             }
@@ -23162,6 +23284,20 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
             normalized: draftTargetScene,
             pendingComposer: true
         },
+        _missionWriterV4Debug: {
+            source: 'Mission Writer V4',
+            taskDomain: requiredTaskDomain,
+            hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
+            rawStoryLength: String(src.story || '').trim().length,
+            finalStoryLength: finalStory.length,
+            storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
+            finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
+                ? _missionPipelineV4LooksEnumerative(finalStory)
+                : null,
+            finalSentenceCount: typeof _missionPipelineV4SentenceCount === 'function'
+                ? _missionPipelineV4SentenceCount(finalStory)
+                : null
+        },
         i: '📋',
         cat: String(plan.targetCategory || context.selectedCategory || (isPOI ? 'poi' : 'std')).toLowerCase(),
         missionType,
@@ -27015,15 +27151,26 @@ async function generateMission(options = {}) {
                 theme: currentMissionData.poiChain.theme || null,
                 label: currentMissionData.poiChain.label || null,
                 guide: currentMissionData.poiChain.guide?.name || currentMissionData.poiChain.guide?.type || null,
+                groupKey: currentMissionData.poiChain.guide?.groupKey || null,
+                guidePointCount: currentMissionData.poiChain.guide?.guidePointCount || 0,
+                overlayTracePoints: Array.isArray(currentMissionData.poiChain.overlay?.trace) ? currentMissionData.poiChain.overlay.trace.length : 0,
                 points: Array.isArray(currentMissionData.poiChain.points) ? currentMissionData.poiChain.points.map(point => ({
                     index: point.index,
                     name: point.name,
                     category: point.category,
                     lat: point.lat,
                     lon: point.lon,
+                    orderT: point.orderT,
+                    distCorridorNm: point.distCorridorNm,
+                    distanceFromPrevNm: point.distanceFromPrevNm,
+                    sourceLayer: point.sourceLayer,
+                    sourceTile: point.sourceTile,
                     revealState: point.revealState
                 })) : []
             } : null,
+            poiChainDebug: typeof buildPoiChainDebugSummary === 'function'
+                ? buildPoiChainDebugSummary(currentMissionData, activeMissionContract, { routeWaypoints })
+                : null,
             knowledgeContext: currentMissionData.knowledgeContext ? {
                 title: currentMissionData.knowledgeContext.title || null,
                 status: currentMissionData.knowledgeContext.status || null,
@@ -27036,6 +27183,7 @@ async function generateMission(options = {}) {
                 warnings: currentMissionData.knowledgeContext.warnings || []
             } : null,
             story: String(m?.s || ''),
+            storyDebug: m?._poiChainStoryDebug || m?._missionWriterV4Debug || null,
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
             surveyPattern: currentMissionData.surveyPattern || activeMissionContract.surveyPattern || null,

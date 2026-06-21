@@ -3857,6 +3857,40 @@ window.vpBuildWeatherDebugReport = function() {
                 if (Number.isFinite(Number(last.totalMs))) chainBits.push(`total=${Math.round(Number(last.totalMs))}ms`);
             }
             lines.push(`- POI-Ketten-Debug: ${chainBits.join(' | ')}`);
+            const chainDetail = missionSnap.poiChainDebug || null;
+            if (chainDetail && typeof chainDetail === 'object') {
+                const guide = chainDetail.guide || {};
+                const overlay = chainDetail.overlay || {};
+                const trace = overlay.trace || {};
+                const route = chainDetail.routeWaypoints || {};
+                const guideBits = [];
+                if (guide.name) guideBits.push(`guide=${flattenText(guide.name, 70)}`);
+                if (guide.groupKey) guideBits.push(`group=${flattenText(guide.groupKey, 80)}`);
+                if (Number.isFinite(Number(guide.guidePointCount))) guideBits.push(`guidePts=${Number(guide.guidePointCount)}`);
+                if (Number.isFinite(Number(trace.count))) guideBits.push(`tracePts=${Number(trace.count)}`);
+                if (Number.isFinite(Number(overlay.widthNm))) guideBits.push(`width=${Number(overlay.widthNm)}NM`);
+                if (Number.isFinite(Number(route.count))) guideBits.push(`routeWpt=${Number(route.count)}`);
+                if (guideBits.length) lines.push(`- POI-Ketten-Geometrie: ${guideBits.join(' | ')}`);
+                const pointSummary = Array.isArray(chainDetail.points)
+                    ? chainDetail.points.slice(0, 8).map(point => {
+                        const order = Number.isFinite(Number(point.orderT)) ? `t=${Number(point.orderT)}` : 't=-';
+                        const xtrk = Number.isFinite(Number(point.distCorridorNm)) ? `x=${Number(point.distCorridorNm)}NM` : 'x=-';
+                        const prev = Number.isFinite(Number(point.distanceFromPrevNm)) ? `prev=${Number(point.distanceFromPrevNm)}NM` : 'prev=-';
+                        const pos = (Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
+                            ? `${Number(point.lat).toFixed(5)},${Number(point.lon).toFixed(5)}`
+                            : '-';
+                        return `${Number(point.index || 0) + 1}:${flattenText(point.name || '-', 36)}[${order},${xtrk},${prev}]@${pos}`;
+                    }).join(' | ')
+                    : '';
+                if (pointSummary) lines.push(`- POI-Ketten-Punkte: ${pointSummary}`);
+                if (Array.isArray(trace.first) && trace.first.length) {
+                    const firstTrace = trace.first.map(point => `${Number(point.lat).toFixed(5)},${Number(point.lon).toFixed(5)}`).join(' > ');
+                    const lastTrace = Array.isArray(trace.last) && trace.last.length
+                        ? trace.last.map(point => `${Number(point.lat).toFixed(5)},${Number(point.lon).toFixed(5)}`).join(' > ')
+                        : '';
+                    lines.push(`- POI-Ketten-Trace: start ${firstTrace}${lastTrace ? ` | ende ${lastTrace}` : ''}`);
+                }
+            }
         }
         const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || (missionSnap.restored ? null : window.gaMissionPipelineV2Last) || null;
         if (planV2 && typeof planV2 === 'object') {
@@ -3900,6 +3934,24 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'} | urgency=${p.urgencyPriority || 'mittel'}`);
         lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
         if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
+        if (missionSnap.storyDebug && typeof missionSnap.storyDebug === 'object') {
+            const sd = missionSnap.storyDebug;
+            const storyBits = [];
+            if (sd.source) storyBits.push(`source=${String(sd.source)}`);
+            if (sd.stage) storyBits.push(`stage=${String(sd.stage)}`);
+            if (Number.isFinite(Number(sd.rawStoryLength))) storyBits.push(`raw=${Number(sd.rawStoryLength)}`);
+            if (Number.isFinite(Number(sd.writerLength))) storyBits.push(`writer=${Number(sd.writerLength)}`);
+            if (Number.isFinite(Number(sd.preparedLength))) storyBits.push(`prepared=${Number(sd.preparedLength)}`);
+            if (Number.isFinite(Number(sd.fallbackLength))) storyBits.push(`fallback=${Number(sd.fallbackLength)}`);
+            if (typeof sd.storyChangedByFinalize === 'boolean') storyBits.push(`finalizeChanged=${sd.storyChangedByFinalize ? 'ja' : 'nein'}`);
+            if (typeof sd.endpointNoteAdded === 'boolean') storyBits.push(`endpointNote=${sd.endpointNoteAdded ? 'ja' : 'nein'}`);
+            if (typeof sd.passengerNoteAdded === 'boolean') storyBits.push(`paxNote=${sd.passengerNoteAdded ? 'ja' : 'nein'}`);
+            if (typeof sd.writerComplete === 'boolean') storyBits.push(`complete=${sd.writerComplete ? 'ja' : 'nein'}`);
+            if (typeof sd.writerUsable === 'boolean') storyBits.push(`usable=${sd.writerUsable ? 'ja' : 'nein'}`);
+            if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
+            if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
+            if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+        }
         const textPassenger = (window.activePassenger && typeof window.activePassenger === 'object')
             ? window.activePassenger
             : (missionSnap.contract?.passenger || missionSnap.contract?.missionPassenger || {});
