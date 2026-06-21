@@ -32,6 +32,10 @@
         return Number(value) * Math.PI / 180;
     }
 
+    function toDeg(value) {
+        return Number(value) * 180 / Math.PI;
+    }
+
     function haversineNm(lat1, lon1, lat2, lon2) {
         const dLat = toRad(lat2 - lat1);
         const dLon = toRad(lon2 - lon1);
@@ -40,6 +44,15 @@
         const a = Math.sin(dLat / 2) ** 2
             + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
         return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * EARTH_RADIUS_NM;
+    }
+
+    function bearingDeg(lat1, lon1, lat2, lon2) {
+        const p1 = toRad(lat1);
+        const p2 = toRad(lat2);
+        const dLon = toRad(lon2 - lon1);
+        const y = Math.sin(dLon) * Math.cos(p2);
+        const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dLon);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
     function cleanText(value, maxLen = 140) {

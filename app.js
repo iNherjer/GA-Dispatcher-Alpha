@@ -5070,7 +5070,10 @@ function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, s
             };
         })
         .filter(Boolean);
-    if (!depPoint || chainPoints.length < 2) return null;
+    const depLat = Number(depPoint?.lat);
+    const depLon = Number(depPoint?.lng ?? depPoint?.lon);
+    if (!Number.isFinite(depLat) || !Number.isFinite(depLon) || chainPoints.length < 2) return null;
+    const homeName = String(startName || 'Start').replace(/\s+/g, ' ').trim() || 'Start';
     const firstPoint = { ...chainPoints[0], name: `Korridor Einstieg: ${chainPoints[0].name || 'Punkt 1'}` };
     const lastPoint = {
         ...chainPoints[chainPoints.length - 1],
@@ -5078,9 +5081,10 @@ function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, s
         isPOI: false
     };
     const route = [
-        { lat: depPoint.lat, lng: depPoint.lng, name: startName || 'Start' },
+        { lat: depLat, lng: depLon, lon: depLon, name: homeName },
         firstPoint,
-        lastPoint
+        lastPoint,
+        { lat: depLat, lng: depLon, lon: depLon, name: `Rückkehr: ${homeName}`, isPoiChainReturnHome: true }
     ];
     return route;
 }
@@ -5236,7 +5240,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return value || null;
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
-        'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
+        'missionTitle', 'missionStory', 'summary', 'missionType', 'missionSubType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
@@ -5249,7 +5253,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'missionPlanV2', '_missionPlanV2', 'missionPlanV4', '_missionPlanV4',
         'missionContractV4', '_missionContractV4', 'missionVariety',
         'aptArrivalPlan', 'sceneAccepted', 'sceneCompositionStatus',
-        'surveyPattern',
+        'surveyPattern', 'poiChain', 'poiChainProgress',
         'cargoManifest', 'cargoOutcome', 'fireScenario'
     ];
     const out = {};
@@ -13074,11 +13078,17 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
             if (isChainRecon) {
                 const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
-                m.s = _missionPipelineV4PoiChainStoryLooksComplete(writerStory, storyContract, passenger)
-                    ? writerStory
-                    : (_missionPipelineV4PoiChainStoryLooksUsable(writerStory, storyContract, passenger)
-                        ? _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract)
-                        : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger })));
+                const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(
+                    _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract),
+                    storyContract,
+                    passenger
+                );
+                m.s = (
+                    _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, passenger)
+                    || _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, passenger)
+                )
+                    ? preparedWriterStory
+                    : (chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger }));
             } else {
                 m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
             }
@@ -13832,7 +13842,7 @@ function refreshMissionPoiChainOverlaySoon(missionData = null, passenger = null,
     };
     const first = run();
     if (typeof setTimeout === 'function') {
-        [120, 450, 1200].forEach(delay => {
+        [120, 450, 1200, 2400, 4000].forEach(delay => {
             setTimeout(() => {
                 try { run(); } catch (_) {}
             }, delay);
@@ -22311,7 +22321,7 @@ const MISSION_POI_CHAIN_STORY_SPINES = {
             'Vor der nächsten Bodenrunde muss entschieden werden, welche Bauwerke nur beobachtet und welche gezielt angefahren werden.',
             'Nach Wetter- und Verkehrsbelastung braucht der Betrieb eine schnelle Übersicht über Anschlüsse, Randbereiche und sichtbare Hindernisse.'
         ],
-        whyAir: 'Der Flug liefert den Überblick, bevor Fahrzeuge und Sicherungstrupps auf einzelne Abschnitte verteilt werden.'
+        whyAir: 'Der Luftblick zeigt die Bauwerke im Zusammenhang und hilft, die anschließende Vor-Ort-Prüfung auf die richtigen Stellen zu konzentrieren.'
     },
     rail_chain_inspection: {
         titlePrefix: 'Trassen-Erstbefund',
@@ -22476,6 +22486,30 @@ function _missionPipelineV4EnsurePoiChainEndpointNote(story = '', contract = {})
     if (hasFirst && hasLast) return base;
     const note = `Die Kette beginnt am Prüfpunkt ${first} und endet am Prüfpunkt ${last}; die Zwischenpunkte werden unterwegs aufgerufen.`;
     return `${base} ${note}`.trim();
+}
+
+function _missionPipelineV4EnsurePoiChainPassengerNote(story = '', contract = {}, passenger = {}) {
+    const base = String(story || '').replace(/\s+/g, ' ').trim();
+    if (!base) return base;
+    const normalized = normalizeMissionText(base);
+    const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+    const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
+    const nameKey = normalizeMissionText(paxName);
+    const roleKey = normalizeMissionText(role);
+    if ((nameKey && normalized.includes(nameKey)) || (roleKey && normalized.includes(roleKey))) return base;
+    const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
+    const scope = _missionPipelineV4PoiChainScope(chain);
+    const roleNote = role && !/^begleitperson$/i.test(role) ? `, ${role}` : '';
+    const note = paxName
+        ? `An Bord ist ${paxName}${roleNote}; die Fachperson sammelt die Luftbildserie, achtet auf ${scope} und markiert Punkte für eine spätere Nachprüfung.`
+        : `Die Fachperson an Bord sammelt die Luftbildserie, achtet auf ${scope} und markiert Punkte für eine spätere Nachprüfung.`;
+    const sentences = _missionPipelineV4SentenceParts(base);
+    if (sentences.length <= 1) return `${base} ${note}`.trim();
+    return [
+        sentences[0],
+        note,
+        ...sentences.slice(1)
+    ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
 }
 
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
@@ -23011,6 +23045,31 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
             passenger: deferInfraPassengerStory ? {} : passenger,
             suppressInfraPassengerStory: deferInfraPassengerStory
         }));
+    const chainForFinalize = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
+    const chainForFinalizePoints = Array.isArray(chainForFinalize?.points) ? chainForFinalize.points : [];
+    if (taskDomain === 'infra_chain_recon' && chainForFinalizePoints.length >= 2) {
+        if (rawLooksBad) return fallbackStory();
+        const preparedChainStory = _missionPipelineV4EnsurePoiChainPassengerNote(
+            _missionPipelineV4EnsurePoiChainEndpointNote(raw, contract),
+            contract,
+            passenger
+        );
+        if (
+            _missionPipelineV4PoiChainStoryLooksComplete(preparedChainStory, contract, passenger)
+            || _missionPipelineV4PoiChainStoryLooksUsable(preparedChainStory, contract, passenger)
+        ) {
+            return finalizeDomainStory(preparedChainStory);
+        }
+        const chainText = normalizeMissionText(preparedChainStory);
+        const hasChainFrame = /(kette|korridor|mehrteil|mehrere|bruecken|brücken|trasse|luftbildserie|erstbefund|voruntersuchung)/i.test(preparedChainStory);
+        const hasOutcome = /(befund|foto|bildserie|auswertung|betreiber|technikteam|boden|nachpruefung|nachprüfung|einzelobjekt)/i.test(preparedChainStory);
+        const hasNarrativeWeight = chainText.length >= 220
+            && _missionPipelineV4SentenceCount(preparedChainStory) >= 3
+            && !_missionPipelineV4LooksEnumerative(preparedChainStory)
+            && !_missionPipelineV4LooksInternalMissionText(preparedChainStory);
+        if (hasChainFrame && hasOutcome && hasNarrativeWeight) return finalizeDomainStory(preparedChainStory);
+        return fallbackStory();
+    }
     if (isBushPickupReturn && (rawLooksBad || _missionPipelineV4BushPickupBriefingLooksPaxPerspective(raw))) return fallbackStory();
     if (rawLooksBad) return fallbackStory();
     if (taskDomain === 'search_and_rescue' && (
@@ -26731,6 +26790,35 @@ async function generateMission(options = {}) {
             if (m && typeof m === 'object') {
                 m.routeWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
                 m.missionRouteWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+            }
+        }
+    }
+    if (!missionIsSarHeliMission(currentMissionData) && isPOI && currentMissionData?.poiChain) {
+        const chainRoute = buildPoiChainRouteWaypointsFromMission(
+            { lat: start.lat, lng: start.lon, lon: start.lon },
+            currentMissionData,
+            currentStartICAO || start.n || 'Start'
+        );
+        if (Array.isArray(chainRoute) && chainRoute.length >= 4) {
+            routeWaypoints = chainRoute.map(point => ({ ...point }));
+            const storedChainRoute = cloneRouteWaypointsForStorage(routeWaypoints);
+            window._missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
+            currentMissionData.routeWaypoints = storedChainRoute.map(point => ({ ...point }));
+            currentMissionData.missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
+            const routeDist = storedChainRoute.reduce((sum, point, idx, list) => {
+                if (!idx || !Number.isFinite(sum) || typeof calcNav !== 'function') return sum;
+                const prev = list[idx - 1];
+                const nav = calcNav(Number(prev.lat), Number(prev.lng ?? prev.lon), Number(point.lat), Number(point.lng ?? point.lon));
+                return Number.isFinite(Number(nav?.dist)) ? sum + Number(nav.dist) : NaN;
+            }, 0);
+            if (Number.isFinite(routeDist) && routeDist > 0) {
+                totalDist = Math.round(routeDist * 10) / 10;
+                currentMissionData.dist = totalDist;
+                currentMissionData.initialDist = totalDist;
+            }
+            if (m && typeof m === 'object') {
+                m.routeWaypoints = storedChainRoute.map(point => ({ ...point }));
+                m.missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
             }
         }
     }

@@ -8664,13 +8664,19 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (missionLikePoi) {
         const chainRoutePoints = _missionPoiChainRoutePointsForMap();
         if (chainRoutePoints.length >= 2) {
+            const homeName = currentSName || currentStartICAO || 'Start';
             routeWaypoints = [
-                { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' },
-                ...chainRoutePoints
+                { lat: lat1, lng: lon1, lon: lon1, name: homeName },
+                ...chainRoutePoints,
+                { lat: lat1, lng: lon1, lon: lon1, name: `Rückkehr: ${homeName}`, isPoiChainReturnHome: true }
             ];
             _syncCurrentMissionRouteFromMap();
             renderMainRoute();
             if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+            if (typeof updateMiniMap === 'function') updateMiniMap();
+            if (typeof refreshMissionPoiChainOverlaySoon === 'function') {
+                refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'map-chain-route');
+            }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
                 window.gaScheduleRouteMapLayoutRefresh('route-update');
