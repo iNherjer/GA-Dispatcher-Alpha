@@ -781,7 +781,7 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Route Reset', text: 'Loescht manuelle Routenanpassungen und stellt die geplante Hauptroute wieder her.' },
             { term: 'Profil', text: 'Blendet das Hoehenprofil ein oder aus. Dort siehst du Strecke, Hoehe, Terrain und Wolken.' },
             { term: 'Anzeige', text: 'Oeffnet Optionen wie Snapping, Direkt-Linie, Wetter, VFR-Index, Terrain Avoid, Traffic, Autozoom und Kartenleisten.' },
-            { term: 'Voice', text: 'Oeffnet Sprachausgabe und Warnstimmen fuer Frequenzen, Terrain, Luftraum, Wegpunkte und Passagier-Voice.' },
+            { term: 'Audio', text: 'Oeffnet Warnstimmen, Audioeffekte und Passagier-Stimme fuer den Kartentisch.' },
             { term: 'Direct To', text: 'Schaltet freien Flugmodus ein. Das ist fuer direkte Navigation ohne normalen Missionsablauf gedacht.' },
             { term: 'Mission starten', text: 'Startet oder steuert die aktive Mission, wenn ein Missionsentwurf bereit ist.' },
             { term: 'Zeichenwerkzeuge', text: 'Die linke Werkzeugleiste erlaubt Markierungen, Notizen, Peilungen und Kartenhilfen.' },
@@ -791,21 +791,22 @@ const SETTINGS_HELP_CONTENT = {
     },
     'map-voice': {
         kicker: 'Audio',
-        title: 'Voice Menue',
-        intro: 'Hier steuerst du Warnansagen und Passagier-Voice fuer den Kartentisch.',
+        title: 'Audio Menue',
+        intro: 'Hier steuerst du Warnansagen, Soundeffekte und Passagier-Audio fuer den Kartentisch.',
         items: [
-            { term: 'Lautstaerke', text: 'Regelt, wie laut die Voice-Warnungen abgespielt werden.' },
+            { term: 'Lautstaerke', text: 'Regelt, wie laut Warnansagen und Audioeffekte abgespielt werden.' },
             { term: 'Frequenz ansagen', text: 'Liest passende Funkfrequenzen vor, wenn die App sie fuer den Flug erkennt.' },
             { term: 'Terrain Warning', text: 'Warnt dich vor auffaelligem Gelaende entlang oder nahe der Route.' },
             { term: 'Luftraum Warning', text: 'Warnt dich vor relevanten Luftraeumen, die du beachten solltest.' },
             { term: 'Wegpunkt-Ansage', text: 'Gibt Hinweise aus, wenn du dich einem wichtigen Punkt der Route naeherst.' },
             { term: 'Warning-Stimme', text: 'Waehlt die Stimme fuer die kurzen Warn- und Hinweisansagen.' },
-            { term: 'Stimme', text: 'Schaltet die gesprochene Passagier-Voice ein oder aus. Der Text bleibt trotzdem sichtbar.' },
+            { term: 'Stimme', text: 'Schaltet die gesprochene Passagier-Stimme ein oder aus. Der Text bleibt trotzdem sichtbar.' },
+            { term: 'Audioeffekte', text: 'Schaltet kurze Missionssounds wie Foto-Klicks, Boarding- und Cargo-Geraeusche ein oder aus.' },
             { term: 'Modus', text: 'Entspannt ist toleranter. Streng bewertet die Mission und dein Flugverhalten etwas genauer.' },
-            { term: 'Humor', text: 'Bestimmt, wie locker oder frech die Passagier-Voice reagieren darf.' },
+            { term: 'Humor', text: 'Bestimmt, wie locker oder frech die Passagier-Stimme reagieren darf.' },
             { term: 'TTS', text: 'Auto nutzt Gemini 3.1 und wechselt bei Fehlern auf 2.5. Du kannst auch ein Modell fest auswaehlen.' },
             { term: 'Fast Mode', text: 'Startet im Auto-TTS-Modus bei Bedarf frueher einen Gemini-2.5-Fallback. Das kann Wartezeit sparen, aber den KI-Token-Verbrauch erhoehen, weil zeitweise zwei TTS-Anfragen laufen koennen.' },
-            { term: 'Pax Voice', text: 'Waehlt den Klang der Passagier-Stimme: klar, Intercom oder Intercom mit Funkrauschen.' }
+            { term: 'Pax Audio', text: 'Waehlt den Klang der Passagier-Stimme: klar, Intercom oder Intercom mit Funkrauschen.' }
         ]
     },
     'map-side-drawer': {

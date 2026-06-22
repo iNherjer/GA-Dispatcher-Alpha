@@ -45,6 +45,7 @@ window.paxVoiceGetDebugState = function() {
     const pax = window.activePassenger && typeof window.activePassenger === 'object' ? window.activePassenger : null;
     return {
         voiceEnabled: !!_paxVoiceEnabled,
+        audioEffectsEnabled: !!_paxAudioEffectsEnabled,
         strictMode: !!_paxStrictMode,
         hasApiKey: !!_getApiKey(),
         hasPassenger: !!pax,
@@ -114,7 +115,7 @@ window.paxVoiceBuildDebugReport = function() {
         lines.push(`- Bush-Contract: profile=${bush.profileId || '-'} | targetMode=${bush.targetMode || '-'} | completionMode=${bush.completionMode || '-'} | pickupKind=${bush.pickupKind || '-'}`);
     }
     lines.push(`- Rolle/Task: ${state.passengerName || missionSnap?.passenger?.name || '?'} | ${state.passengerRole || missionSnap?.passenger?.role || '?'} | roleProfile=${state.roleProfile || missionSnap?.passenger?.roleProfile || '-'} | taskDomain=${state.taskDomain || missionSnap?.passenger?.taskDomain || '-'}`);
-    lines.push(`- Voice-Modus: enabled=${state.voiceEnabled ? '1' : '0'} | strict=${state.strictMode ? '1' : '0'} | apiKey=${state.hasApiKey ? '1' : '0'}`);
+    lines.push(`- Voice-Modus: enabled=${state.voiceEnabled ? '1' : '0'} | effects=${state.audioEffectsEnabled ? '1' : '0'} | strict=${state.strictMode ? '1' : '0'} | apiKey=${state.hasApiKey ? '1' : '0'}`);
     lines.push(`- Letztes Modell: ${lastModel}`);
     lines.push('');
     lines.push('Voice-Status');
@@ -233,6 +234,7 @@ function _paxDrawZones() {
 
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
+let _paxAudioEffectsEnabled = (localStorage.getItem('awm_audio_effects') !== '0');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
 let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
 let _paxAudioWarnedAt = 0;
@@ -330,6 +332,18 @@ window.paxVoiceSetEnabled = function(on) {
         const epoch = _paxMissionEpoch;
         setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null, epoch), 400);
     }
+};
+
+function _syncPaxAudioEffectsControl() {
+    const chk = document.getElementById('awmAudioEffectsCheck');
+    if (chk) chk.checked = !!_paxAudioEffectsEnabled;
+}
+
+window.paxVoiceSetAudioEffectsEnabled = function(on) {
+    _paxAudioEffectsEnabled = !!on;
+    localStorage.setItem('awm_audio_effects', _paxAudioEffectsEnabled ? '1' : '0');
+    _syncPaxAudioEffectsControl();
+    _paxLog(`Audioeffekte ${_paxAudioEffectsEnabled ? 'aktiviert' : 'stummgeschaltet'}`, 'state');
 };
 
 function _missionHasPax() {
@@ -4130,8 +4144,9 @@ function _paxPickAudioCueClip(cueId = 'none', clips = [], variantSeed = '') {
 
 async function _paxPlayAudioCue(cueId = 'none', seed = '', options = {}, epoch = _paxMissionEpoch) {
     const def = _paxAudioCueDef(cueId);
-    if (!def || def.disabled || !_paxVoiceEnabled || !_paxEpochCurrent(epoch)) return false;
+    if (!def || def.disabled || !_paxAudioEffectsEnabled || !_paxEpochCurrent(epoch)) return false;
     const clips = await _paxResolveAudioCueClips(def.id);
+    if (!_paxAudioEffectsEnabled || !_paxEpochCurrent(epoch)) return false;
     const cueSeed = `${seed || _paxMissionAudioKey(`cue-${def.id}`)}|${def.id}`;
     const variantScope = String(options.variantScope || def.variantScope || 'mission').toLowerCase();
     const variantSeed = variantScope === 'event'
@@ -4154,7 +4169,7 @@ async function _paxPlayAudioCue(cueId = 'none', seed = '', options = {}, epoch =
             const ok = await _paxDelayMs(delay, epoch);
             if (!ok) return played;
         }
-        if (!_paxEpochCurrent(epoch)) return played;
+        if (!_paxAudioEffectsEnabled || !_paxEpochCurrent(epoch)) return played;
         const didPlay = await _paxDecodeAudioEffectAndPlay(
             clip.rec.audioBuffer.slice(0),
             clip.rec.mimeType || 'audio/mpeg',
@@ -8148,6 +8163,7 @@ function _tickPoiDwell(lat, lon, flightData) {
 (function() {
     const chk = document.getElementById('awmPaxVoiceCheck');
     if (chk) chk.checked = _paxVoiceEnabled;
+    _syncPaxAudioEffectsControl();
     const modeEl = document.getElementById('awmPaxModeSelect');
     if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';
     const humorEl = document.getElementById('awmPaxHumorSelect');

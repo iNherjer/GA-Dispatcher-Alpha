@@ -1145,12 +1145,12 @@
                 </div>
             </div>
             <div style="position:relative; display:inline-flex; align-items:center;">
-                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🎙️ Voice</button>
+                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🔊 Audio</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <div>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
-                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">VOICE WARNINGS</div>
-                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Voice-Menue" aria-expanded="false">?</button>
+                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
+                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
                         </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                             <span style="font-size:13px;">🔊</span>
@@ -1189,12 +1189,18 @@
                         </div>
                     </div>
                     <div style="border-top:1px solid #333; padding-top:8px; margin-top:8px;">
-                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER VOICE</div>
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER AUDIO</div>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmPaxVoiceCheck"
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
                                 onchange="paxVoiceSetEnabled(this.checked)">
                             🧑‍✈️ Stimme (Text immer aktiv)
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmAudioEffectsCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="paxVoiceSetAudioEffectsEnabled(this.checked)">
+                            🔔 Audioeffekte
                         </label>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
                             <span style="font-size:11px; color:#aaa; flex-shrink:0;">Modus</span>
@@ -1237,7 +1243,7 @@
                             </label>
                         </div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Voice</span>
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Audio</span>
                             <select id="awmPaxAudioStyleSelect"
                                 style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
                                 onchange="paxVoiceSetAudioStyle(this.value)">
@@ -1737,13 +1743,13 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=sw-update-splash-20260620-01"></script>
+<script defer src="app.js?v=audio-menu-effects-20260622-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
-<script defer src="passenger-voice.js?v=infra-outcome-chain-20260618-02"></script>
+<script defer src="passenger-voice.js?v=audio-menu-effects-20260622-01"></script>
 <script defer src="tutorial.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
@@ -2032,7 +2038,7 @@
         document.body.appendChild(btn);
     });
 
-    // Voice-Menü aus localStorage initialisieren
+    // Audio-Menü aus localStorage initialisieren
     window.addEventListener('load', () => {
         const saved = localStorage.getItem('awm_volume');
         if (saved !== null) {
