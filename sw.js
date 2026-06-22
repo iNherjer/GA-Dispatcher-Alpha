@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1175';
+const CACHE = 'ga-dispatcher-v1176';
 
 const STATIC = [
     './',
@@ -28,6 +28,16 @@ const STATIC = [
     './datenbank.js',
     './missions.js',
     './passenger-voice.js',
+    './audio-cues/boarding_cargo.mp3',
+    './audio-cues/boarding_pax.mp3',
+    './audio-cues/boarding_pax1.mp3',
+    './audio-cues/cargo_load.mp3',
+    './audio-cues/cargo_load1.mp3',
+    './audio-cues/cargo_load2.mp3',
+    './audio-cues/cargo_pickup.mp3',
+    './audio-cues/cargo_unload.mp3',
+    './audio-cues/cargo_unload1.mp3',
+    './audio-cues/cargo_unload2.mp3',
     './audio-cues/photo.mp3',
     './foto.mp3',
     './manifest.json',

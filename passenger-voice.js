@@ -4030,6 +4030,23 @@ function _paxAudioCueDef(cueId = 'none') {
     return _PAX_AUDIO_CUE_CATALOG[id] ? { id, ..._PAX_AUDIO_CUE_CATALOG[id] } : null;
 }
 
+function _paxAudioCueStemVariants(stems = []) {
+    const variants = [];
+    const seen = new Set();
+    const add = (value) => {
+        const stem = String(value || '').trim();
+        if (!stem || seen.has(stem)) return;
+        seen.add(stem);
+        variants.push(stem);
+    };
+    stems.forEach(stem => {
+        add(stem);
+        add(String(stem || '').replace(/-/g, '_'));
+        add(String(stem || '').replace(/_/g, '-'));
+    });
+    return variants;
+}
+
 function _paxAudioCueCandidateUrlsForStems(stems = [], roots = ['./audio-cues/'], variantMax = _PAX_AUDIO_CUE_VARIANT_MAX) {
     const urls = [];
     const seen = new Set();
@@ -4056,10 +4073,10 @@ function _paxAudioCueCandidateGroups(cueId = 'none') {
     const def = _paxAudioCueDef(cueId);
     if (!def || def.disabled) return [];
     const variantMax = Number.isFinite(Number(def.variantMax)) ? Number(def.variantMax) : _PAX_AUDIO_CUE_VARIANT_MAX;
-    const primaryStems = [def.stem || def.id.replace(/_/g, '-')]
+    const primaryStems = _paxAudioCueStemVariants([def.stem || def.id.replace(/_/g, '-'), def.id]
         .concat(Array.isArray(def.aliasStems) ? def.aliasStems : [])
         .map(v => String(v || '').trim())
-        .filter(Boolean);
+        .filter(Boolean));
     const groups = [{
         kind: 'primary',
         urls: _paxAudioCueCandidateUrlsForStems(primaryStems, ['./audio-cues/'], variantMax)
