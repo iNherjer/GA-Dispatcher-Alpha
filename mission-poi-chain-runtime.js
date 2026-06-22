@@ -274,6 +274,54 @@
         return Math.max(10, Math.min(64, Math.round(px)));
     }
 
+    function corridorEdgeLatLngs(trace, offsetNm) {
+        const points = (Array.isArray(trace) ? trace : [])
+            .map(point => ({
+                lat: Number(point?.lat),
+                lon: Number(point?.lon ?? point?.lng)
+            }))
+            .filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+        if (points.length < 2 || !Number.isFinite(Number(offsetNm))) return [];
+        return points.map((point, idx) => {
+            const prev = points[Math.max(0, idx - 1)];
+            const next = points[Math.min(points.length - 1, idx + 1)];
+            const refLat = (prev.lat + next.lat + point.lat) / 3;
+            const eastNm = (next.lon - prev.lon) * 60 * Math.max(0.08, Math.abs(Math.cos(toRad(refLat))));
+            const northNm = (next.lat - prev.lat) * 60;
+            const len = Math.hypot(eastNm, northNm);
+            if (!Number.isFinite(len) || len <= 0.0001) return [point.lat, point.lon];
+            const normalEast = -northNm / len;
+            const normalNorth = eastNm / len;
+            const lat = point.lat + (normalNorth * offsetNm) / 60;
+            const lonScale = 60 * Math.max(0.08, Math.abs(Math.cos(toRad(point.lat))));
+            const lon = point.lon + (normalEast * offsetNm) / lonScale;
+            return [roundNumber(lat), roundNumber(lon)];
+        }).filter(pair => pair.every(Number.isFinite));
+    }
+
+    function drawCorridorEdge(layer, edgeLatLngs, paneName) {
+        if (!Array.isArray(edgeLatLngs) || edgeLatLngs.length < 2) return;
+        const common = {
+            pane: paneName,
+            lineCap: 'round',
+            lineJoin: 'round',
+            smoothFactor: 1.4,
+            interactive: false
+        };
+        L.polyline(edgeLatLngs, {
+            ...common,
+            color: '#2f250b',
+            weight: 4,
+            opacity: 0.58
+        }).addTo(layer);
+        L.polyline(edgeLatLngs, {
+            ...common,
+            color: '#ffe58a',
+            weight: 2,
+            opacity: 0.9
+        }).addTo(layer);
+    }
+
     function drawCorridorHint(layer, points, spec) {
         if (!layer || typeof L === 'undefined') return;
         const paneName = ensureOverlayPane();
@@ -282,9 +330,10 @@
             : points;
         if (!Array.isArray(trace) || trace.length < 2) return;
         const widthNm = Math.max(0.3, Math.min(10, Number(spec?.overlay?.widthNm || 0.5)));
-        const latLngs = trace
-            .map(point => [Number(point?.lat), Number(point?.lon)])
-            .filter(pair => pair.every(Number.isFinite));
+        const tracePoints = trace
+            .map(point => ({ lat: Number(point?.lat), lon: Number(point?.lon ?? point?.lng) }))
+            .filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+        const latLngs = tracePoints.map(point => [point.lat, point.lon]);
         if (latLngs.length < 2) return;
         const weight = corridorStrokeWeightPx(trace, widthNm, layer);
         L.polyline(latLngs, {
@@ -307,6 +356,9 @@
             smoothFactor: 1.4,
             interactive: false
         }).addTo(layer);
+        const edgeOffsetNm = widthNm / 2;
+        drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, edgeOffsetNm), paneName);
+        drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, -edgeOffsetNm), paneName);
     }
 
     function drawOverlay(specRaw = null, progressState = activeState) {
