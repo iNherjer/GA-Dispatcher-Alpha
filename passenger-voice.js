@@ -4838,8 +4838,16 @@ function _poiChainProgressSummary(ctx = null) {
     const done = Array.isArray(snap?.completedPointIds) ? snap.completedPointIds.length : 0;
     const currentIndex = Math.max(0, Number(snap?.currentIndex || 0) || 0);
     const nextPoint = points[currentIndex] || null;
+    const corridor = spec.corridor || null;
+    const corridorSnap = snap?.corridor || null;
+    const corridorTotal = Math.max(0, Number(corridorSnap?.totalSegments || corridor?.segments?.length || 0));
+    const corridorDone = Math.max(0, Number(corridorSnap?.completedCount || 0));
+    const activeCoverage = Math.round(Number(corridorSnap?.activeCoverage || 0) * 100);
     const parts = [];
     parts.push(`Kettenauftrag ${done}/${total} Punkte erledigt`);
+    if (corridorTotal > 0) {
+        parts.push(`Korridor ${corridorDone}/${corridorTotal} Segmente sauber${corridorSnap?.activeSegmentId ? `, aktueller Abschnitt ${activeCoverage}%` : ''}`);
+    }
     if (snap?.satisfied) {
         parts.push('Status: Kette abgeschlossen, Rueckflug freigegeben');
     } else if (nextPoint) {
@@ -4868,7 +4876,19 @@ function _poiChainOrientationText(ctx = null) {
     const points = Array.isArray(spec.points) ? spec.points : [];
     const currentIndex = Math.max(0, Number(snap?.currentIndex || 0) || 0);
     const nextPoint = points[currentIndex] || null;
-    if (!nextPoint) return 'Alle Kettenpunkte sind erledigt. Der sinnvolle nächste Schritt ist der Rueckflug zur Basis.';
+    const corridor = spec.corridor || null;
+    const corridorSnap = snap?.corridor || null;
+    const segments = Array.isArray(corridor?.segments) ? corridor.segments : [];
+    const corridorDone = !!corridorSnap?.satisfied || !segments.length;
+    if (!nextPoint && corridorDone) return 'Alle Kettenpunkte und Korridorsegmente sind erledigt. Der sinnvolle nächste Schritt ist der Rueckflug zur Basis.';
+    if (!corridorDone) {
+        const idx = Math.max(0, Math.min(segments.length - 1, Number(corridorSnap?.currentSegmentIndex || 0) || 0));
+        const completed = Math.max(0, Number(corridorSnap?.completedCount || 0));
+        const total = segments.length;
+        const activeCoverage = Math.round(Number(corridorSnap?.activeCoverage || 0) * 100);
+        return `${_missionVectorText(ctx)} Der Korridor ist in Segmente geteilt: ${completed} von ${total} sind sauber. Nimm jetzt Abschnitt ${idx + 1}, bleib im gelben Band und flieg ihn bis zum Ende${activeCoverage ? `; aktueller Abschnitt etwa ${activeCoverage}%` : ''}.`;
+    }
+    if (!nextPoint) return 'Der Korridor ist sauber abgeflogen, jetzt sind nur noch die offenen Fotopunkte relevant.';
     if (ctx?.hasPosition) {
         const dist = _haversineNm(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
         const brg = _bearingDeg(ctx.lat, ctx.lon, nextPoint.lat, nextPoint.lon);
@@ -4904,10 +4924,13 @@ function _surveyPatternOuterRadiusNm(spec = null, fallbackRadiusNm = 1.5) {
     return Math.max(Number(fallbackRadiusNm || 0) || 0, maxNm + 0.25, 0.5);
 }
 
-function _poiInSightGate({ taskDomain = '', distNm = 0, etaMin = 0, radiusNm = 1.5, effectiveGs = 95, surveyTickResult = null } = {}) {
+function _poiInSightGate({ taskDomain = '', distNm = 0, etaMin = 0, radiusNm = 1.5, effectiveGs = 95, surveyTickResult = null, poiChainTickResult = null } = {}) {
     const td = String(taskDomain || '').toLowerCase();
     const dist = Number(distNm);
     if (!Number.isFinite(dist)) return { ready: false, announcedEtaMin: 2, logEtaMin: etaMin };
+    if (td === 'infra_chain_recon' && poiChainTickResult?.progress?.startedAt) {
+        return { ready: false, announcedEtaMin: 2, logEtaMin: 0 };
+    }
     if (td !== 'mapping_survey') {
         return {
             ready: Number(etaMin) <= 3.2 && dist <= Math.max(2.2, Number(radiusNm || 0) + 1.2),
@@ -5096,10 +5119,10 @@ function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) 
     switch (kind) {
         case 'chain_complete':
             return _poiChainPickText([
-                'Das war der letzte Kontrollpunkt. Die Bildserie ist komplett; wir gehen zur Auswertung zurück zum Heimatplatz.',
-                'Kette abgeschlossen. Alle Prüfpunkte sind dokumentiert, jetzt bringen wir die Bilder zurück zur Basis.',
-                'Der letzte Punkt ist im Kasten. Für den Erstbefund reicht das, wir kehren zur Übergabe nach Hause zurück.',
-                'Alles aufgenommen. Die Kette ist vollständig dokumentiert, Rückflug zum Startplatz.'
+                'Kette abgeschlossen: Korridor sauber abgeflogen, Prüfpunkte dokumentiert. Wir gehen zur Auswertung zurück zum Heimatplatz.',
+                'Auftrag erfüllt. Die Linie ist komplett abgeflogen und die Fotopunkte sind dokumentiert, jetzt bringen wir die Bilder zurück zur Basis.',
+                'Das reicht für den Erstbefund: Korridor und Kontrollpunkte sind im Kasten. Rückflug zur Übergabe.',
+                'Alles aufgenommen. Korridor und Kette sind vollständig dokumentiert, Rückflug zum Startplatz.'
             ], seed);
         case 'point_complete':
             return _poiChainPointFindingText(event, spec) || _poiChainPickText([
@@ -5114,6 +5137,31 @@ function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) 
                 'Wir sind am ersten Kettenpunkt. Bitte ruhig halten, ich starte die Bildserie.',
                 'Erster Prüfpunkt erreicht. Ich beginne mit den Übersichtsaufnahmen und rufe danach den nächsten Punkt auf.',
                 'Das ist der Einstieg in die Kette. Ein stabiler Vorbeiflug reicht für den ersten Befund.'
+            ], seed);
+        case 'chain_corridor_entered':
+            return _poiChainPickText([
+                'Wir sind am Einstieg in den Korridor. Halte die Maschine im gelben Band, dann zählt der erste Abschnitt.',
+                'Korridor erreicht. Ab jetzt zählt nicht nur der Fotopunkt, sondern auch der saubere Verlauf im Band.',
+                'Das ist der Beginn der Korridorarbeit. Ruhig im Streifen bleiben, ich bestätige die Abschnitte nacheinander.'
+            ], seed);
+        case 'corridor_segment_complete':
+            return '';
+        case 'corridor_segment_reset_offtrack':
+            return _poiChainPickText([
+                'Wir sind zu weit aus dem Korridor gelaufen. Setz diesen Abschnitt noch einmal sauber an.',
+                'Der aktuelle Abschnitt zählt so nicht, wir waren zu lange neben dem Band. Bitte zurück in den Korridor und den Teil wiederholen.',
+                'Korrektur: Der Korridor wurde verlassen. Diesen Abschnitt bitte noch einmal ruhig im Band abfliegen.'
+            ], `${seed}|reset|${event?.segmentId || event?.segment?.id || ''}`);
+        case 'corridor_segment_reset_speed':
+            return _poiChainPickText([
+                'Für den Korridor waren wir zu langsam oder instabil. Diesen Abschnitt bitte noch einmal sauber ansetzen.',
+                'Der Abschnitt zählt nicht, die Geschwindigkeit war nicht stabil genug. Zurück ins Band und neu aufnehmen.'
+            ], `${seed}|speed|${event?.segmentId || event?.segment?.id || ''}`);
+        case 'chain_corridor_complete':
+            return _poiChainPickText([
+                'Korridor sauber abgeflogen. Jetzt fehlen nur noch offene Fotopunkte, falls noch welche markiert sind.',
+                'Die Korridorlinie ist vollständig. Halte jetzt die restlichen Aufnahmepunkte im Blick.',
+                'Korridorarbeit abgeschlossen. Die Linie ist sauber, wir konzentrieren uns auf die verbleibenden Punkte.'
             ], seed);
         default:
             return '';
@@ -5155,13 +5203,34 @@ function _poiChainPhotoSoundOptions(kind = '', spec = null, event = null, text =
     };
 }
 
+function _poiChainEventSoundOptions(kind = '', spec = null, event = null, text = '') {
+    const fallbackByKind = {
+        chain_corridor_entered: 'scan_start',
+        chain_corridor_complete: 'handoff',
+        chain_complete: 'handoff'
+    };
+    const fallbackCue = fallbackByKind[kind] || 'none';
+    const cueId = _paxMissionAudioCueId('poi_chain', kind, fallbackCue);
+    if (cueId === 'none') return null;
+    const seed = `${spec?.key || spec?.label || ''}|${kind}|${event?.segmentId || event?.segment?.id || ''}|${text}`;
+    return {
+        beforeAudio: (epoch) => _paxPlayAudioCue(cueId, `${seed}|cue`, {
+            minCount: 1,
+            maxCount: 1,
+            firstDelayMs: 0,
+            minDelayMs: 0,
+            maxDelayMs: 0
+        }, epoch)
+    };
+}
+
 window.paxVoicePreparePoiChain = function() {
     const spec = _poiChainActiveSpec();
     if (!spec || String(spec.kind || '').toLowerCase() !== 'poi_chain') return Promise.resolve(null);
     if (!window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
     const epoch = _paxMissionEpoch;
     const speaker = _speakerSnapshotForMissionVoice('poi-chain');
-    const kinds = ['point_complete', 'chain_complete'];
+    const kinds = ['point_complete', 'chain_corridor_entered', 'chain_corridor_complete', 'chain_complete'];
     const jobs = kinds.map(kind => {
         const text = _poiChainVoiceText(kind, spec);
         if (!text) return Promise.resolve(null);
@@ -5175,6 +5244,11 @@ function _poiChainEventKind(event = null) {
     if (type === 'chain_complete') return 'chain_complete';
     if (type === 'point_complete') return 'point_complete';
     if (type === 'chain_area_entered') return 'chain_area_entered';
+    if (type === 'chain_corridor_entered') return 'chain_corridor_entered';
+    if (type === 'corridor_segment_complete') return 'corridor_segment_complete';
+    if (type === 'corridor_segment_reset_offtrack') return 'corridor_segment_reset_offtrack';
+    if (type === 'corridor_segment_reset_speed') return 'corridor_segment_reset_speed';
+    if (type === 'chain_corridor_complete') return 'chain_corridor_complete';
     return '';
 }
 
@@ -5185,12 +5259,20 @@ function _handlePoiChainEvents(events = [], spec = null) {
         .filter(item => item.kind);
     if (!meaningful.length) return;
     const pickedEvents = [];
+    const resetEvent = meaningful.find(item => /^corridor_segment_reset/.test(item.kind));
     const pointEvent = meaningful.find(item => item.kind === 'point_complete');
-    const areaEvent = meaningful.find(item => item.kind === 'chain_area_entered');
+    const areaEvent = meaningful.find(item => item.kind === 'chain_area_entered' || item.kind === 'chain_corridor_entered');
+    const silentSegmentEvent = meaningful.find(item => item.kind === 'corridor_segment_complete');
+    const corridorEvent = meaningful.find(item => item.kind === 'chain_corridor_complete');
     const chainEvent = meaningful.find(item => item.kind === 'chain_complete');
-    if (pointEvent) pickedEvents.push(pointEvent);
+    if (silentSegmentEvent && !corridorEvent && !chainEvent && typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot('poi-chain-corridor_segment_complete');
+    }
+    if (resetEvent) pickedEvents.push(resetEvent);
+    else if (pointEvent) pickedEvents.push(pointEvent);
     else if (areaEvent) pickedEvents.push(areaEvent);
-    else if (meaningful[0]) pickedEvents.push(meaningful[0]);
+    else if (meaningful[0]?.kind !== 'corridor_segment_complete') pickedEvents.push(meaningful[0]);
+    if (corridorEvent && !pickedEvents.includes(corridorEvent) && !chainEvent) pickedEvents.push(corridorEvent);
     if (chainEvent && !pickedEvents.includes(chainEvent)) pickedEvents.push(chainEvent);
     const speaker = _speakerSnapshotForMissionVoice('poi-chain');
     for (const picked of pickedEvents) {
@@ -5202,9 +5284,13 @@ function _handlePoiChainEvents(events = [], spec = null) {
         }
         const text = _poiChainVoiceText(kind, spec, event);
         if (!text) continue;
-        const label = kind === 'chain_complete' ? 'Kette erfüllt' : 'Ketten-Fortschritt';
-        const photoOptions = _poiChainPhotoSoundOptions(kind, spec, event, text) || {};
-        _speakPreparedText(_poiChainAudioKey(kind, text), text, speaker, label, photoOptions);
+        const label = kind === 'chain_complete'
+            ? 'Kette erfüllt'
+            : (kind.includes('reset') ? 'Korridor-Korrektur' : 'Ketten-Fortschritt');
+        const eventOptions = _poiChainPhotoSoundOptions(kind, spec, event, text)
+            || _poiChainEventSoundOptions(kind, spec, event, text)
+            || {};
+        _speakPreparedText(_poiChainAudioKey(kind, text), text, speaker, label, eventOptions);
     }
 }
 
@@ -6379,6 +6465,20 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos, options = {}) {
                     : (/^(inspection_infra|infra_chain_recon|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain)
                         ? 'Fachrolle: knapp, professionell, zielbezogen, keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
                         : 'Rolle: kurz, glaubwuerdig und beobachtend, keine Flug- oder Manöveranweisungen. Max 2 Sätze.'))));
+    const chainSpec = taskDomain === 'infra_chain_recon' ? _poiChainActiveSpec() : null;
+    if (chainSpec) {
+        const label = String(chainSpec.label || md.poiName || 'Korridor').trim();
+        const segmentCount = Number(chainSpec.corridor?.segments?.length || 0);
+        const segmentHint = segmentCount > 0
+            ? ` Der Korridor ist in ${segmentCount} Abschnitte geteilt; diese technische Zahl nur nennen, wenn es natuerlich klingt.`
+            : '';
+        return `${ctx}
+
+Moment: Wir sind kurz vor dem Einstieg in den Korridor "${label}". Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min.
+Bereite den Piloten knapp auf die Korridorarbeit vor und sage sinngemaess: noch ca. ${announcedEta} Minuten bis zum Einstieg in den Korridor. Keine "Objekt in Sicht"-Formel und keine 12-Uhr-Sichtmeldung; es geht um den Beginn der Linie, die danach sauber im Band abgeflogen wird.${altBrief}${segmentHint}${approachLandmarkHint ? `\n${approachLandmarkHint}` : ''}${factHint} ${trainingHint}
+${driftGuard}
+Fachrolle: ruhig, professionell, zielbezogen. Max 2 Sätze.${_toneHint()}`;
+    }
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
@@ -7918,7 +8018,8 @@ function _tickPoiDwell(lat, lon, flightData) {
         etaMin,
         radiusNm: radius,
         effectiveGs,
-        surveyTickResult
+        surveyTickResult,
+        poiChainTickResult
     });
 
     // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
