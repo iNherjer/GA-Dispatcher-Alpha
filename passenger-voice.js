@@ -3905,9 +3905,35 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
 const _paxPreparedAudio = new Map();
 const _paxBoardingRecentPlayByKey = new Map();
 const _PAX_STATIC_VOICE_CATALOG_URL = './audio-pax/gemini-survey-v1/catalog.json';
-const _PAX_PHOTO_EFFECT_URL = './foto.mp3';
+const _PAX_AUDIO_CUE_VARIANT_MAX = 8;
+const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
+    none: { disabled: true, stem: '', label: 'Kein Audio-Cue' },
+    photo: {
+        stem: 'photo',
+        aliasStems: ['foto'],
+        fallbackUrls: ['./foto.mp3'],
+        fallbackStems: ['foto'],
+        sourceLabel: 'Foto-Sound',
+        warnMissing: true,
+        gain: 0.78
+    },
+    scan_start: { stem: 'scan-start', sourceLabel: 'Scan-Start', gain: 0.58 },
+    scan_tick: { stem: 'scan-tick', sourceLabel: 'Scan-Tick', gain: 0.48 },
+    data_lock: { stem: 'data-lock', sourceLabel: 'Daten-Lock', gain: 0.58 },
+    point_mark: { stem: 'point-mark', sourceLabel: 'Punkt-Markierung', gain: 0.56 },
+    radio_blip: { stem: 'radio-blip', sourceLabel: 'Radio-Blip', gain: 0.42 },
+    handoff: { stem: 'handoff', sourceLabel: 'Uebergabe', gain: 0.54 },
+    boarding_pax: { stem: 'boarding-pax', sourceLabel: 'Pax-Boarding', gain: 0.38 },
+    boarding_cargo: { stem: 'boarding-cargo', sourceLabel: 'Cargo-Boarding', gain: 0.46 },
+    cargo_load: { stem: 'cargo-load', sourceLabel: 'Cargo-Load', gain: 0.62 },
+    cargo_unload: { stem: 'cargo-unload', sourceLabel: 'Cargo-Unload', gain: 0.62 },
+    cargo_pickup: { stem: 'cargo-pickup', sourceLabel: 'Cargo-Pickup', gain: 0.62 },
+    cargo_drop: { stem: 'cargo-drop', sourceLabel: 'Cargo-Drop', gain: 0.72 }
+});
 let _paxStaticVoiceCatalogPromise = null;
 const _paxStaticClipCache = new Map();
+const _paxAudioCueClipPromises = new Map();
+const _paxAudioCueMissingWarned = new Set();
 let _paxPhotoEffectWarned = false;
 
 function _paxStaticVoiceAssetsEnabled() {
@@ -3990,7 +4016,196 @@ function _paxSeededInt(seed, min, max) {
     return a + (_hashStable(seed) % (b - a + 1));
 }
 
-async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audioeffekt') {
+function _paxNormalizeAudioCueId(value, fallback = 'none') {
+    if (value === false || value === null) return 'none';
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw || raw === '0' || raw === 'off' || raw === 'silent' || raw === 'none') return 'none';
+    const id = raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!id) return 'none';
+    return _PAX_AUDIO_CUE_CATALOG[id] ? id : _paxNormalizeAudioCueId(fallback, 'none');
+}
+
+function _paxAudioCueDef(cueId = 'none') {
+    const id = _paxNormalizeAudioCueId(cueId, 'none');
+    return _PAX_AUDIO_CUE_CATALOG[id] ? { id, ..._PAX_AUDIO_CUE_CATALOG[id] } : null;
+}
+
+function _paxAudioCueCandidateUrlsForStems(stems = [], roots = ['./audio-cues/'], variantMax = _PAX_AUDIO_CUE_VARIANT_MAX) {
+    const urls = [];
+    const seen = new Set();
+    const add = (url) => {
+        const clean = String(url || '').trim();
+        if (!clean || seen.has(clean)) return;
+        seen.add(clean);
+        urls.push(clean);
+    };
+    const max = Math.max(0, Math.round(Number(variantMax) || 0));
+    roots.forEach(root => {
+        const prefix = String(root || './audio-cues/');
+        stems.forEach(stemRaw => {
+            const stem = String(stemRaw || '').trim();
+            if (!stem) return;
+            add(`${prefix}${stem}.mp3`);
+            for (let idx = 1; idx <= max; idx++) add(`${prefix}${stem}${idx}.mp3`);
+        });
+    });
+    return urls;
+}
+
+function _paxAudioCueCandidateGroups(cueId = 'none') {
+    const def = _paxAudioCueDef(cueId);
+    if (!def || def.disabled) return [];
+    const variantMax = Number.isFinite(Number(def.variantMax)) ? Number(def.variantMax) : _PAX_AUDIO_CUE_VARIANT_MAX;
+    const primaryStems = [def.stem || def.id.replace(/_/g, '-')]
+        .concat(Array.isArray(def.aliasStems) ? def.aliasStems : [])
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+    const groups = [{
+        kind: 'primary',
+        urls: _paxAudioCueCandidateUrlsForStems(primaryStems, ['./audio-cues/'], variantMax)
+    }];
+    const fallbackUrls = [];
+    (Array.isArray(def.fallbackUrls) ? def.fallbackUrls : [])
+        .forEach(url => fallbackUrls.push(String(url || '').trim()));
+    const fallbackStems = (Array.isArray(def.fallbackStems) ? def.fallbackStems : [])
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+    fallbackUrls.push(..._paxAudioCueCandidateUrlsForStems(fallbackStems, ['./'], variantMax));
+    if (fallbackUrls.length) groups.push({ kind: 'fallback', urls: fallbackUrls });
+    return groups
+        .map(group => ({ ...group, urls: Array.from(new Set(group.urls.filter(Boolean))) }))
+        .filter(group => group.urls.length);
+}
+
+async function _paxResolveAudioCueClips(cueId = 'none') {
+    const def = _paxAudioCueDef(cueId);
+    if (!def || def.disabled) return [];
+    const cacheKey = def.id;
+    if (_paxAudioCueClipPromises.has(cacheKey)) return _paxAudioCueClipPromises.get(cacheKey);
+    const promise = (async () => {
+        const groups = _paxAudioCueCandidateGroups(def.id);
+        for (const group of groups) {
+            const clips = (await Promise.all(group.urls.map(async (url) => {
+                const rec = await _paxFetchStaticClipAudio(url, 'audio/mpeg');
+                return rec?.audioBuffer ? { url, rec, group: group.kind } : null;
+            }))).filter(Boolean);
+            if (clips.length) return clips;
+        }
+        if (def.warnMissing && !_paxAudioCueMissingWarned.has(def.id)) {
+            _paxAudioCueMissingWarned.add(def.id);
+            _paxLog(`Audio-Cue ${def.id} nicht gefunden (${_paxAudioCueCandidateGroups(def.id).flatMap(g => g.urls).slice(0, 3).join(', ')} ...)`, 'warn');
+        }
+        return [];
+    })();
+    _paxAudioCueClipPromises.set(cacheKey, promise);
+    return promise;
+}
+
+function _paxPickAudioCueClip(cueId = 'none', clips = []) {
+    const pool = Array.isArray(clips) ? clips.filter(Boolean) : [];
+    if (!pool.length) return null;
+    const id = _paxNormalizeAudioCueId(cueId, 'none');
+    const seed = _paxMissionAudioKey(`cue-variant-${id}`);
+    return pool[_hashStable(seed) % pool.length] || pool[0] || null;
+}
+
+async function _paxPlayAudioCue(cueId = 'none', seed = '', options = {}, epoch = _paxMissionEpoch) {
+    const def = _paxAudioCueDef(cueId);
+    if (!def || def.disabled || !_paxVoiceEnabled || !_paxEpochCurrent(epoch)) return false;
+    const clips = await _paxResolveAudioCueClips(def.id);
+    const clip = _paxPickAudioCueClip(def.id, clips);
+    if (!clip?.rec?.audioBuffer) return false;
+    const cueSeed = `${seed || _paxMissionAudioKey(`cue-${def.id}`)}|${def.id}`;
+    const minCount = Math.max(1, Number(options.minCount || 1));
+    const maxCount = Math.max(minCount, Number(options.maxCount || minCount));
+    const count = _paxSeededInt(`${cueSeed}|count`, minCount, maxCount);
+    const minDelay = Math.max(0, Number(options.minDelayMs ?? 0));
+    const maxDelay = Math.max(minDelay, Number(options.maxDelayMs ?? minDelay));
+    const gain = Number.isFinite(Number(options.gain)) ? Number(options.gain) : Number(def.gain || 0.78);
+    let played = false;
+    for (let idx = 0; idx < count; idx++) {
+        const delay = idx === 0
+            ? Math.max(0, Number(options.firstDelayMs ?? minDelay))
+            : _paxSeededInt(`${cueSeed}|delay|${idx}`, minDelay, maxDelay);
+        if (delay > 0) {
+            const ok = await _paxDelayMs(delay, epoch);
+            if (!ok) return played;
+        }
+        if (!_paxEpochCurrent(epoch)) return played;
+        const didPlay = await _paxDecodeAudioEffectAndPlay(
+            clip.rec.audioBuffer.slice(0),
+            clip.rec.mimeType || 'audio/mpeg',
+            epoch,
+            def.sourceLabel || `Audio-Cue ${def.id}`,
+            { gain }
+        );
+        played = played || didPlay;
+    }
+    if (played) _paxLog(`Audio-Cue gespielt: ${def.id} (${clip.url}, ${count}x)`, 'audio');
+    return played;
+}
+
+function _paxMissionAudioCueSourceCandidates() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return [
+        md?.audioCues,
+        md?.missionContract?.audioCues,
+        window.activeMissionContract?.audioCues
+    ].filter(source => source && typeof source === 'object');
+}
+
+function _paxFindMissionAudioCueOverride(scope = '', event = '') {
+    const s = String(scope || '').trim();
+    const e = String(event || '').trim();
+    if (!s && !e) return undefined;
+    const keys = [
+        s && e ? `${s}.${e}` : '',
+        s && e ? `${s}:${e}` : '',
+        s && e ? `${s}_${e}` : '',
+        e,
+        s
+    ].filter(Boolean);
+    for (const source of _paxMissionAudioCueSourceCandidates()) {
+        for (const key of keys) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+        }
+        const nested = s ? source[s] : null;
+        if (nested && typeof nested === 'object') {
+            if (e && Object.prototype.hasOwnProperty.call(nested, e)) return nested[e];
+            if (Object.prototype.hasOwnProperty.call(nested, 'default')) return nested.default;
+        }
+    }
+    return undefined;
+}
+
+function _paxMissionAudioCueId(scope = '', event = '', fallbackCueId = 'none') {
+    const override = _paxFindMissionAudioCueOverride(scope, event);
+    return _paxNormalizeAudioCueId(override === undefined ? fallbackCueId : override, 'none');
+}
+
+window.paxResolveMissionAudioCue = function(scope = '', event = '', fallbackCueId = 'none') {
+    return _paxMissionAudioCueId(scope, event, fallbackCueId);
+};
+
+window.paxPlayAudioCue = function(cueId = 'none', options = {}) {
+    const id = _paxNormalizeAudioCueId(cueId, 'none');
+    const seed = String(options?.seed || _paxMissionAudioKey(`manual-cue-${id}`));
+    return _paxPlayAudioCue(id, seed, options || {}, _paxMissionEpoch);
+};
+
+window.paxGetAudioCueCatalog = function() {
+    return Object.fromEntries(Object.entries(_PAX_AUDIO_CUE_CATALOG).map(([id, def]) => [
+        id,
+        {
+            stem: def.stem || '',
+            aliasStems: Array.isArray(def.aliasStems) ? def.aliasStems.slice() : [],
+            fallbackUrls: Array.isArray(def.fallbackUrls) ? def.fallbackUrls.slice() : [],
+            disabled: !!def.disabled
+        }
+    ]));
+};
+
+async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audioeffekt', options = {}) {
     if (!_paxEpochCurrent(epoch)) return false;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
         ? window.paxVoiceUnlockAudio('effect')
@@ -4028,7 +4243,8 @@ async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _p
                 resolve();
             };
             src.buffer = buf;
-            gain.gain.value = 0.78;
+            const gainValue = Number.isFinite(Number(options.gain)) ? Number(options.gain) : 0.78;
+            gain.gain.value = Math.max(0, Math.min(1.2, gainValue));
             src.connect(gain);
             gain.connect(window._awmMasterGain || ctx.destination);
             src.onended = finish;
@@ -4044,47 +4260,20 @@ async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _p
     } catch (err) {
         if (!_paxPhotoEffectWarned) {
             _paxPhotoEffectWarned = true;
-            _paxLog(`Foto-Sound konnte nicht abgespielt werden: ${err?.message || err}`, 'warn');
+            _paxLog(`${sourceLabel || 'Audioeffekt'} konnte nicht abgespielt werden: ${err?.message || err}`, 'warn');
         }
         return false;
     }
 }
 
 async function _paxPlayPhotoBurst(seed, options = {}, epoch = _paxMissionEpoch) {
-    if (!_paxVoiceEnabled || !_paxEpochCurrent(epoch)) return false;
-    const rec = await _paxFetchStaticClipAudio(_PAX_PHOTO_EFFECT_URL, 'audio/mpeg');
-    if (!rec?.audioBuffer) {
-        if (!_paxPhotoEffectWarned) {
-            _paxPhotoEffectWarned = true;
-            _paxLog('Foto-Sound foto.mp3 nicht gefunden oder nicht ladbar.', 'warn');
-        }
-        return false;
-    }
-    const minCount = Math.max(1, Number(options.minCount || 1));
-    const maxCount = Math.max(minCount, Number(options.maxCount || 5));
-    const count = _paxSeededInt(`${seed}|count`, minCount, maxCount);
-    const minDelay = Math.max(0, Number(options.minDelayMs ?? 1000));
-    const maxDelay = Math.max(minDelay, Number(options.maxDelayMs ?? 10000));
-    let played = false;
-    for (let idx = 0; idx < count; idx++) {
-        const delay = idx === 0
-            ? Math.max(0, Number(options.firstDelayMs ?? minDelay))
-            : _paxSeededInt(`${seed}|delay|${idx}`, minDelay, maxDelay);
-        if (delay > 0) {
-            const ok = await _paxDelayMs(delay, epoch);
-            if (!ok) return played;
-        }
-        if (!_paxEpochCurrent(epoch)) return played;
-        const didPlay = await _paxDecodeAudioEffectAndPlay(
-            rec.audioBuffer.slice(0),
-            rec.mimeType || 'audio/mpeg',
-            epoch,
-            'Foto-Sound'
-        );
-        played = played || didPlay;
-    }
-    if (played) _paxLog(`Foto-Burst gespielt: ${count} Aufnahme${count === 1 ? '' : 'n'}`, 'audio');
-    return played;
+    return _paxPlayAudioCue('photo', seed, {
+        minCount: 1,
+        maxCount: 5,
+        minDelayMs: 1000,
+        maxDelayMs: 10000,
+        ...options
+    }, epoch);
 }
 
 async function _paxPrimeStaticSurveyVoice(kind, spec = null, speaker = null) {
@@ -4490,6 +4679,12 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
                 _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
                 return;
             }
+            if (typeof options.backgroundAudio === 'function') {
+                try {
+                    const maybePromise = options.backgroundAudio(epoch);
+                    if (maybePromise && typeof maybePromise.catch === 'function') maybePromise.catch(() => {});
+                } catch (_) {}
+            }
             if (typeof options.beforeAudio === 'function') {
                 await options.beforeAudio(epoch);
                 if (epoch !== _paxMissionEpoch) return;
@@ -4778,6 +4973,28 @@ function _surveyPatternEventKind(event = null) {
     return '';
 }
 
+function _surveyPatternAudioCueOptions(kind = '', spec = null, text = '') {
+    const fallbackByKind = {
+        survey_area_entered: 'scan_start',
+        line_complete: 'data_lock',
+        orbit_turn_complete: 'data_lock',
+        survey_complete: 'handoff'
+    };
+    const fallbackCue = fallbackByKind[kind] || 'none';
+    const cueId = _paxMissionAudioCueId('mapping_survey', kind, fallbackCue);
+    if (cueId === 'none') return null;
+    const seed = `${spec?.key || spec?.label || ''}|${kind}|${text}`;
+    return {
+        beforeAudio: (playEpoch) => _paxPlayAudioCue(cueId, `${seed}|cue`, {
+            minCount: 1,
+            maxCount: 1,
+            firstDelayMs: 0,
+            minDelayMs: 0,
+            maxDelayMs: 0
+        }, playEpoch)
+    };
+}
+
 function _handleSurveyPatternEvents(events = [], spec = null) {
     if (!Array.isArray(events) || !events.length) return;
     const meaningful = events
@@ -4800,7 +5017,9 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     const label = kind === 'survey_complete'
         ? 'Survey erfüllt'
         : (kind.includes('reset') ? 'Survey-Korrektur' : 'Survey-Fortschritt');
+    const cueOptions = _surveyPatternAudioCueOptions(kind, spec, text) || {};
     _speakPreparedText(_surveyPatternAudioKey(kind), text, speaker, label, {
+        ...cueOptions,
         tryStaticAudio: (playEpoch) => _paxTryPlayStaticSurveyVoice(kind, spec, speaker, playEpoch)
     });
 }
@@ -4879,8 +5098,21 @@ function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) 
 
 function _poiChainPhotoSoundOptions(kind = '', spec = null, event = null, text = '') {
     if (kind !== 'point_complete') return null;
+    const cueId = _paxMissionAudioCueId('poi_chain', kind, 'photo');
+    if (cueId === 'none') return null;
     const point = event?.point || {};
     const seed = `${spec?.key || spec?.label || ''}|${point?.id || point?.name || ''}|${text}`;
+    if (cueId !== 'photo') {
+        return {
+            beforeAudio: (epoch) => _paxPlayAudioCue(cueId, `${seed}|pre`, {
+                minCount: 1,
+                maxCount: 1,
+                firstDelayMs: 120,
+                minDelayMs: 0,
+                maxDelayMs: 0
+            }, epoch)
+        };
+    }
     return {
         beforeAudio: (epoch) => _paxPlayPhotoBurst(`${seed}|pre`, {
             minCount: 1,
@@ -5232,6 +5464,20 @@ window.paxVoicePrepareBoarding = function() {
     return textPromise;
 };
 
+function _paxBoardingAudioCueOptions(key = '') {
+    const cueId = _paxMissionAudioCueId('boarding', 'start', 'boarding_pax');
+    if (cueId === 'none') return null;
+    return {
+        backgroundAudio: (playEpoch) => _paxPlayAudioCue(cueId, `${key}|boarding`, {
+            minCount: 1,
+            maxCount: 1,
+            firstDelayMs: 0,
+            minDelayMs: 0,
+            maxDelayMs: 0
+        }, playEpoch)
+    };
+}
+
 window.paxVoicePlayBoarding = async function() {
     const epoch = _paxMissionEpoch;
     const key = _paxMissionAudioKey('boarding');
@@ -5251,7 +5497,7 @@ window.paxVoicePlayBoarding = async function() {
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
-        await _speakPreparedText(key, text, speaker, 'Boarding');
+        await _speakPreparedText(key, text, speaker, 'Boarding', _paxBoardingAudioCueOptions(key) || {});
         if (!_paxEpochCurrent(epoch)) return false;
         _paxBoardingDone = true;
         _paxGreetingDone = true;

@@ -20,6 +20,40 @@ function _missionCargoMissionKey() {
     return [md?.start, md?.dest, md?.poiName || md?.targetName, md?.mission].filter(Boolean).join('|');
 }
 
+function _missionCargoAudioCueId(scope = 'cargo', event = 'event', fallbackCueId = 'none') {
+    if (typeof window.paxResolveMissionAudioCue === 'function') {
+        try { return window.paxResolveMissionAudioCue(scope, event, fallbackCueId) || 'none'; } catch (_) {}
+    }
+    return String(fallbackCueId || 'none');
+}
+
+function _missionCargoPlayAudioCue(fallbackCueId = 'none', item = null, event = 'event', options = {}) {
+    const cueId = _missionCargoAudioCueId('cargo', event, fallbackCueId);
+    if (!cueId || cueId === 'none' || typeof window.paxPlayAudioCue !== 'function') return false;
+    const seed = [
+        _missionCargoMissionKey(),
+        event,
+        item?.id || item?.label || '',
+        item?.pickupLocation || '',
+        item?.itemType || ''
+    ].join('|');
+    try {
+        const result = window.paxPlayAudioCue(cueId, {
+            seed,
+            minCount: 1,
+            maxCount: 1,
+            firstDelayMs: 0,
+            minDelayMs: 0,
+            maxDelayMs: 0,
+            gain: Number.isFinite(Number(options.gain)) ? Number(options.gain) : undefined
+        });
+        if (result && typeof result.catch === 'function') result.catch(() => {});
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 function _missionCargoHasActiveMission() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     return !!(md || window.activeMissionContract);
@@ -2049,6 +2083,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     const wasUnloaded = item.status === 'unloaded';
     if (_missionCargoIsPassengerItem(item) && !options.skipAnimation) {
         const ok = _missionCargoMarkPassengerLoaded(_missionCargoManualPassengerLoadOptions(item, wasUnloaded, options.reason));
+        if (ok) _missionCargoPlayAudioCue('boarding_pax', item, wasUnloaded ? 'passenger_reload' : 'passenger_load', { gain: 0.38 });
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2067,6 +2102,11 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     if (_missionCargoIsPassengerItem(item) && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = true;
     }
+    _missionCargoPlayAudioCue(
+        item.pickupLocation === 'target' ? 'cargo_pickup' : 'cargo_load',
+        item,
+        item.pickupLocation === 'target' ? 'pickup' : (wasUnloaded ? 'reload' : 'load')
+    );
     if (!window.simModeActive && window.liveTrackerConnected && !_missionCargoIsPassengerItem(item)) {
         const isTargetPickup = item.pickupLocation === 'target';
         const removeSceneId = isTargetPickup
@@ -2104,6 +2144,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unboard',
             manualAnimation: true
         });
+        if (ok) _missionCargoPlayAudioCue('handoff', item, 'passenger_unload', { gain: 0.42 });
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2121,6 +2162,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     _missionCargoSpawnVisibleItem(item, { reason: 'cargo-toggle-unload' });
+    _missionCargoPlayAudioCue('cargo_unload', item, 'unload');
     _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
     return true;
@@ -2184,6 +2226,7 @@ function _missionCargoPassengerAlreadyUnloaded() {
 
 window.missionCargoAutoLoad = function() {
     _missionCargoMarkAllLoaded({ despawn: true });
+    _missionCargoPlayAudioCue('boarding_cargo', null, 'auto_load', { gain: 0.46 });
     _missionCargoRenderDialog('load');
     return true;
 };
@@ -2213,6 +2256,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
                 window.triggerPaxCargoEvent({ type: 'dropped_required', item: JSON.parse(JSON.stringify(item)), manifest: JSON.parse(JSON.stringify(manifest)) });
             } catch (_) {}
         }
+        _missionCargoPlayAudioCue('cargo_drop', item, 'drop');
         _missionCargoSyncPayloadToSim('cargo-drop-item').catch(() => {});
         if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
         return true;
@@ -2222,6 +2266,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unload',
             manualAnimation: true
         });
+        if (ok) _missionCargoPlayAudioCue('handoff', item, 'passenger_unload', { gain: 0.42 });
         if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2240,6 +2285,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     if (_missionCargoIsPassengerItem(item) && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
+    _missionCargoPlayAudioCue('cargo_unload', item, 'unload');
     if (!window.simModeActive && window.liveTrackerConnected && !_missionCargoIsPassengerItem(item)) {
         _missionCargoRemoveVisibleItem(item, {
             sceneId: _missionCargoUnloadSceneId(),
