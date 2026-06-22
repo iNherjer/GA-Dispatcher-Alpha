@@ -27,7 +27,8 @@ Ausnahme: Cargo- und Boarding-Cues duerfen pro Aktion variieren. So koennen mehr
 | `point_mark` | Punkt markiert / Checkpoint bestaetigt | Generische Punkt- oder Kontrollmarker ohne Foto | `audio-cues/point-mark.mp3` | `point-mark1.mp3` ... `point-mark8.mp3` |
 | `radio_blip` | Funk-/Comms-Klick | Funkartige Statusereignisse, spaeter nutzbar | `audio-cues/radio-blip.mp3` | `radio-blip1.mp3` ... `radio-blip8.mp3` |
 | `handoff` | Uebergabe / Abschluss | Survey abgeschlossen, Passagier oder Unterlagen uebergeben | `audio-cues/handoff.mp3` | `handoff1.mp3` ... `handoff8.mp3` |
-| `boarding_pax` | Passagier steigt ein, Gurtzeug, Schritte, Tuer | Parallel zur Boarding-Geschichte; Passenger load/unload fallback | `audio-cues/boarding-pax.mp3` oder `audio-cues/boarding_pax.mp3` | `boarding-pax1.mp3` / `boarding_pax1.mp3` ... `8` |
+| `boarding_pax` | Passagier steigt ein, Gurtzeug, Schritte, Tuer | Passenger-Status wechselt erfolgreich auf `loaded` | `audio-cues/boarding-pax.mp3` oder `audio-cues/boarding_pax.mp3` | `boarding-pax1.mp3` / `boarding_pax1.mp3` ... `8` |
+| `deboarding_pax` | Passagier steigt aus, Gurtzeug/Tuer als Platzhalter | Passenger-Status wechselt erfolgreich auf `unloaded` | `audio-cues/deboarding-pax.mp3` oder `audio-cues/deboarding_pax.mp3` | `deboarding-pax1.mp3` / `deboarding_pax1.mp3` ... `8` |
 | `boarding_cargo` | Mehrere Frachtteile werden eingeladen | Auto-load / groesserer Ladeprozess | `audio-cues/boarding-cargo.mp3` oder `audio-cues/boarding_cargo.mp3` | `boarding-cargo1.mp3` / `boarding_cargo1.mp3` ... `8` |
 | `cargo_load` | Einzelnes Cargo-Item wird geladen | Cargo Load Button, Wiederladen | `audio-cues/cargo-load.mp3` oder `audio-cues/cargo_load.mp3` | `cargo-load1.mp3` / `cargo_load1.mp3` ... `8` |
 | `cargo_unload` | Einzelnes Cargo-Item wird entladen | Cargo Unload Button | `audio-cues/cargo-unload.mp3` oder `audio-cues/cargo_unload.mp3` | `cargo-unload1.mp3` / `cargo_unload1.mp3` ... `8` |
@@ -43,21 +44,20 @@ Ausnahme: Cargo- und Boarding-Cues duerfen pro Aktion variieren. So koennen mehr
 | `mapping_survey` | `line_complete` | `data_lock` |
 | `mapping_survey` | `orbit_turn_complete` | `data_lock` |
 | `mapping_survey` | `survey_complete` | `handoff` |
-| `boarding` | `start` | `boarding_pax` |
 | `cargo` | `load` / `reload` | `cargo_load` |
 | `cargo` | `pickup` | `cargo_pickup` |
 | `cargo` | `unload` | `cargo_unload` |
 | `cargo` | `drop` | `cargo_drop` |
 | `cargo` | `auto_load` | `boarding_cargo` |
 | `cargo` | `passenger_load` / `passenger_reload` | `boarding_pax` |
-| `cargo` | `passenger_unload` | `handoff` |
+| `cargo` | `passenger_unload` | `deboarding_pax` |
 
 ## Varianten und Cargo-Queue
 
 | Bereich | Variantenwahl | Queue-Verhalten |
 | --- | --- | --- |
 | `photo` | stabil pro Mission/Cue | keine Queue; Foto-Bursts nutzen denselben Klicksound |
-| `boarding_pax` / `boarding_cargo` | pro Event/Aktion | `boarding_cargo` kann als gebuendelter Multi-Paket-Sound genutzt werden |
+| `boarding_pax` / `deboarding_pax` / `boarding_cargo` | pro Event/Aktion | `boarding_cargo` kann als gebuendelter Multi-Paket-Sound genutzt werden |
 | `cargo_load` / `cargo_unload` / `cargo_pickup` | pro Item/Event | erster Klick spielt sofort; Klicks waehrend der laufenden Datei werden gesammelt |
 
 Wenn waehrend eines laufenden Cargo-Sounds genau eine weitere Paketaktion eintrifft, wird danach noch ein einzelner Paket-Sound gespielt. Wenn mehr als eine weitere Paketaktion wartet, werden diese Aktionen verbraucht und als ein `boarding_cargo`-Buendel-Cue abgespielt.
@@ -72,15 +72,13 @@ audioCues: {
   'mapping_survey.line_complete': 'none',
   cargo: {
     load: 'cargo_load',
-    unload: 'cargo_unload'
-  },
-  boarding: {
-    start: 'boarding_pax'
+    unload: 'cargo_unload',
+    passenger_unload: 'deboarding_pax'
   }
 }
 ```
 
-Damit kann ein Sightseeing- oder Mediengast Fotos hoerbar machen, waehrend ein Lidar-/Mapping-Auftrag auf technische Scan-Cues oder `none` gestellt wird.
+Damit kann ein Sightseeing- oder Mediengast Fotos hoerbar machen, waehrend ein Lidar-/Mapping-Auftrag auf technische Scan-Cues oder `none` gestellt wird. Passenger-Ein-/Aussteigen haengt am Cargo-Manifest-Statuswechsel, nicht an Live-Tracker-Despawn oder der Boarding-Erzaehlung.
 
 ## Service Worker
 

@@ -1709,6 +1709,7 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     if (!item) return false;
     if (!_missionCargoItemCanLoadAtCurrentStage(item)) return false;
     if (item.status === 'loaded') return false;
+    const wasUnloaded = item.status === 'unloaded';
     if (options.manualAnimation === true && _missionCargoManualPassengerSceneBusy()) {
         window.missionCargoStatus.error = _missionCargoManualPassengerBusyMessage();
         return false;
@@ -1728,6 +1729,10 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = true;
     }
+    _missionCargoPlayAudioCue('boarding_pax', item, wasUnloaded ? 'passenger_reload' : 'passenger_load', {
+        gain: 0.38,
+        variantScope: 'event'
+    });
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
             _missionCargoSendManualPassengerCommand(item, 'load', {
@@ -1785,6 +1790,10 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
+    _missionCargoPlayAudioCue('deboarding_pax', item, 'passenger_unload', {
+        gain: 0.38,
+        variantScope: 'event'
+    });
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
             _missionCargoSendManualPassengerCommand(item, 'unload', {
@@ -2132,7 +2141,6 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     const wasUnloaded = item.status === 'unloaded';
     if (_missionCargoIsPassengerItem(item) && !options.skipAnimation) {
         const ok = _missionCargoMarkPassengerLoaded(_missionCargoManualPassengerLoadOptions(item, wasUnloaded, options.reason));
-        if (ok) _missionCargoPlayAudioCue('boarding_pax', item, wasUnloaded ? 'passenger_reload' : 'passenger_load', { gain: 0.38 });
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2194,7 +2202,6 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unboard',
             manualAnimation: true
         });
-        if (ok) _missionCargoPlayAudioCue('handoff', item, 'passenger_unload', { gain: 0.42 });
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
@@ -2316,7 +2323,6 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unload',
             manualAnimation: true
         });
-        if (ok) _missionCargoPlayAudioCue('handoff', item, 'passenger_unload', { gain: 0.42 });
         if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
         return ok;
     }

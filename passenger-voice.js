@@ -3925,6 +3925,7 @@ const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
     radio_blip: { stem: 'radio-blip', sourceLabel: 'Radio-Blip', gain: 0.42 },
     handoff: { stem: 'handoff', sourceLabel: 'Uebergabe', variantScope: 'event', gain: 0.54 },
     boarding_pax: { stem: 'boarding-pax', sourceLabel: 'Pax-Boarding', variantScope: 'event', gain: 0.38 },
+    deboarding_pax: { stem: 'deboarding-pax', sourceLabel: 'Pax-Deboarding', variantScope: 'event', gain: 0.38 },
     boarding_cargo: { stem: 'boarding-cargo', sourceLabel: 'Cargo-Boarding', variantScope: 'event', gain: 0.46 },
     cargo_load: { stem: 'cargo-load', sourceLabel: 'Cargo-Load', variantScope: 'event', gain: 0.62 },
     cargo_unload: { stem: 'cargo-unload', sourceLabel: 'Cargo-Unload', variantScope: 'event', gain: 0.62 },
@@ -5487,20 +5488,6 @@ window.paxVoicePrepareBoarding = function() {
     return textPromise;
 };
 
-function _paxBoardingAudioCueOptions(key = '') {
-    const cueId = _paxMissionAudioCueId('boarding', 'start', 'boarding_pax');
-    if (cueId === 'none') return null;
-    return {
-        backgroundAudio: (playEpoch) => _paxPlayAudioCue(cueId, `${key}|boarding`, {
-            minCount: 1,
-            maxCount: 1,
-            firstDelayMs: 0,
-            minDelayMs: 0,
-            maxDelayMs: 0
-        }, playEpoch)
-    };
-}
-
 window.paxVoicePlayBoarding = async function() {
     const epoch = _paxMissionEpoch;
     const key = _paxMissionAudioKey('boarding');
@@ -5520,7 +5507,7 @@ window.paxVoicePlayBoarding = async function() {
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
-        await _speakPreparedText(key, text, speaker, 'Boarding', _paxBoardingAudioCueOptions(key) || {});
+        await _speakPreparedText(key, text, speaker, 'Boarding');
         if (!_paxEpochCurrent(epoch)) return false;
         _paxBoardingDone = true;
         _paxGreetingDone = true;
