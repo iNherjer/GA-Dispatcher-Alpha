@@ -360,6 +360,71 @@
         });
     }
 
+    function segmentProjectionOrder(point = null, segment = null) {
+        if (!point || !segment) return Number(point?._projection?.t || 0);
+        const proj = projectPointToSegmentNm(point.lat, point.lon, segment.start, segment.end);
+        return Number.isFinite(Number(proj?.t)) ? Number(proj.t) : Number(point?._projection?.t || 0);
+    }
+
+    function orderGuidePointsBySegmentProjection(points = [], segment = null) {
+        const ordered = (Array.isArray(points) ? points : [])
+            .slice()
+            .sort((a, b) => {
+                const at = segmentProjectionOrder(a, segment);
+                const bt = segmentProjectionOrder(b, segment);
+                if (at !== bt) return at - bt;
+                const ad = segment?.start ? haversineNm(segment.start.lat, segment.start.lon, a.lat, a.lon) : 0;
+                const bd = segment?.start ? haversineNm(segment.start.lat, segment.start.lon, b.lat, b.lon) : 0;
+                return ad - bd;
+            });
+        return assignGuideTraceProjection(ordered, segment);
+    }
+
+    function guidePathZigzagMetrics(points = [], segment = null) {
+        const list = Array.isArray(points) ? points : [];
+        let sharpTurns = 0;
+        let turnSpikes = 0;
+        let projectionBacktracks = 0;
+        let prevT = null;
+        for (let idx = 0; idx < list.length; idx++) {
+            const point = list[idx];
+            const t = segmentProjectionOrder(point, segment);
+            if (prevT !== null && Number.isFinite(t) && t + 0.015 < prevT) projectionBacktracks += 1;
+            if (Number.isFinite(t)) prevT = prevT === null ? t : Math.max(prevT, t);
+            if (idx <= 0 || idx >= list.length - 1) continue;
+            const prev = list[idx - 1];
+            const next = list[idx + 1];
+            const legIn = haversineNm(prev.lat, prev.lon, point.lat, point.lon);
+            const legOut = haversineNm(point.lat, point.lon, next.lat, next.lon);
+            const shortcut = haversineNm(prev.lat, prev.lon, next.lat, next.lon);
+            if (legIn < 0.04 || legOut < 0.04) continue;
+            const b1 = bearingDeg(prev.lat, prev.lon, point.lat, point.lon);
+            const b2 = bearingDeg(point.lat, point.lon, next.lat, next.lon);
+            const turn = Math.abs((((b2 - b1 + 540) % 360) - 180));
+            if (turn > 110) sharpTurns += 1;
+            if (turn > 115 && (legIn + legOut) > Math.max(0.2, shortcut * 1.65)) turnSpikes += 1;
+        }
+        return { sharpTurns, turnSpikes, projectionBacktracks };
+    }
+
+    function guidePathNeedsProjectionOrder(points = [], cfg = {}, segment = null) {
+        if (!segment || !Array.isArray(points) || points.length < 4) return false;
+        const metrics = guidePathZigzagMetrics(points, segment);
+        const theme = String(cfg.theme || '').toLowerCase();
+        const maxSharpTurns = theme === 'river_bridge_inspection'
+            ? Math.max(2, Math.floor(points.length / 7))
+            : Math.max(3, Math.floor(points.length / 6));
+        const maxTurns = theme === 'river_bridge_inspection'
+            ? Math.max(1, Math.floor(points.length / 10))
+            : Math.max(2, Math.floor(points.length / 8));
+        const maxBacktracks = theme === 'river_bridge_inspection'
+            ? Math.max(1, Math.floor(points.length / 14))
+            : Math.max(2, Math.floor(points.length / 10));
+        return metrics.sharpTurns > maxSharpTurns
+            || metrics.turnSpikes > maxTurns
+            || metrics.projectionBacktracks > maxBacktracks;
+    }
+
     function orderGuidePointsAlongTrace(points = [], cfg = {}, segment = null) {
         const base = dedupeGuidePoints(points);
         if (base.length < 2) return base;
@@ -375,13 +440,14 @@
         for (const limit of limits) {
             const path = shortestGuidePathIndices(base, startIdx, endIdx, limit);
             if (path.length >= Math.min(base.length, Math.max(2, Number(cfg.minGuidePoints || 2)))) {
-                return assignGuideTraceProjection(path.map(idx => base[idx]), segment);
+                const ordered = assignGuideTraceProjection(path.map(idx => base[idx]), segment);
+                if (guidePathNeedsProjectionOrder(ordered, cfg, segment)) {
+                    return orderGuidePointsBySegmentProjection(ordered, segment);
+                }
+                return ordered;
             }
         }
-        return assignGuideTraceProjection(
-            base.slice().sort((a, b) => Number(a._projection?.t || 0) - Number(b._projection?.t || 0)),
-            segment
-        );
+        return orderGuidePointsBySegmentProjection(base, segment);
     }
 
     function valueText(feature, keys) {
@@ -783,14 +849,56 @@
         return orderGuidePointsAlongTrace(matched, cfg, segment);
     }
 
-    function buildGuideTrace(guidePoints = [], maxPoints = 48) {
-        const points = (Array.isArray(guidePoints) ? guidePoints : [])
+    function turnDeltaDeg(a = null, b = null, c = null) {
+        if (!a || !b || !c) return 0;
+        const b1 = bearingDeg(a.lat, a.lon, b.lat, b.lon);
+        const b2 = bearingDeg(b.lat, b.lon, c.lat, c.lon);
+        return Math.abs((((b2 - b1 + 540) % 360) - 180));
+    }
+
+    function smoothGuideTracePoints(points = [], cfg = {}) {
+        let out = Array.isArray(points) ? points.slice() : [];
+        if (out.length < 5) return out;
+        const theme = String(cfg.theme || '').toLowerCase();
+        const turnLimit = theme === 'river_bridge_inspection' ? 105 : 120;
+        const minKeep = Math.max(3, Math.ceil(out.length * (theme === 'river_bridge_inspection' ? 0.6 : 0.72)));
+        for (let pass = 0; pass < 4 && out.length > minKeep; pass++) {
+            let changed = false;
+            const next = [out[0]];
+            for (let idx = 1; idx < out.length - 1; idx++) {
+                const prev = next[next.length - 1];
+                const point = out[idx];
+                const after = out[idx + 1];
+                const legIn = haversineNm(prev.lat, prev.lon, point.lat, point.lon);
+                const legOut = haversineNm(point.lat, point.lon, after.lat, after.lon);
+                const shortcut = haversineNm(prev.lat, prev.lon, after.lat, after.lon);
+                const turn = turnDeltaDeg(prev, point, after);
+                const canDrop = turn > turnLimit
+                    && legIn > 0.04
+                    && legOut > 0.04
+                    && (legIn + legOut) > Math.max(0.12, shortcut * 1.08)
+                    && (next.length + (out.length - idx - 1)) >= minKeep;
+                if (canDrop) {
+                    changed = true;
+                    continue;
+                }
+                next.push(point);
+            }
+            next.push(out[out.length - 1]);
+            out = next;
+            if (!changed) break;
+        }
+        return out;
+    }
+
+    function buildGuideTrace(guidePoints = [], maxPoints = 48, cfg = {}) {
+        const points = smoothGuideTracePoints((Array.isArray(guidePoints) ? guidePoints : [])
             .filter(point => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
             .sort((a, b) => {
                 const ao = Number.isFinite(Number(a._traceOrder)) ? Number(a._traceOrder) : Number(a._projection?.t || 0);
                 const bo = Number.isFinite(Number(b._traceOrder)) ? Number(b._traceOrder) : Number(b._projection?.t || 0);
                 return ao - bo;
-            });
+            }), cfg);
         if (points.length < 2) return [];
         const limit = Math.max(2, Math.min(80, Math.round(Number(maxPoints || 48))));
         const step = Math.max(1, Math.ceil(points.length / limit));
@@ -1224,7 +1332,7 @@
         }
         const hiddenOutcome = buildSilentChainOutcome(points, cfg);
         const runtimePoints = applySilentChainOutcome(points, hiddenOutcome);
-        const trace = buildGuideTrace(guidePoints, 48);
+        const trace = buildGuideTrace(guidePoints, 48, cfg);
         const chain = {
             schema: 'ga.poiChain.v1',
             kind: 'poi_chain',

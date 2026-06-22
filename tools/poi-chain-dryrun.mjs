@@ -52,6 +52,16 @@ const SCENARIOS = {
         padDeg: 0.28,
         minPoints: 2,
         maxPoints: 6
+    },
+    donau_bridges_tuttlingen: {
+        label: 'Donau-Bruecken Tuttlingen-Muehlheim',
+        theme: 'river_bridge_inspection',
+        guideNamePattern: 'Donau',
+        start: { lat: 47.9495, lon: 8.75984, label: 'Donau West' },
+        end: { lat: 48.07044, lon: 9.00913, label: 'Donau Ost' },
+        padDeg: 0.18,
+        minPoints: 3,
+        maxPoints: 8
     }
 };
 

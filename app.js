@@ -5073,8 +5073,9 @@ window.finalizeSarHeliMissionSpec = finalizeSarHeliMissionSpec;
 window.sarHeliRecoverableKindsForIncident = sarHeliRecoverableKindsForIncident;
 
 function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, startName = 'Start') {
-    const points = Array.isArray(mission?.poiChain?.points) ? mission.poiChain.points : [];
-    const chainPoints = points
+    const chain = mission?.poiChain && typeof mission.poiChain === 'object' ? mission.poiChain : null;
+    const traceSource = Array.isArray(chain?.overlay?.trace) ? chain.overlay.trace : [];
+    const tracePoints = traceSource
         .map((point, idx) => {
             const lat = Number(point?.lat);
             const lon = Number(point?.lon ?? point?.lng);
@@ -5083,27 +5084,51 @@ function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, s
                 lat,
                 lng: lon,
                 lon,
-                name: String(point?.name || `Kettenpunkt ${idx + 1}`).replace(/\s+/g, ' ').trim(),
-                isPOI: idx === 0,
-                isPoiChainEndpoint: true,
-                poiChainPointId: String(point?.id || `chain-point-${idx + 1}`)
+                name: `Korridor ${idx + 1}`,
+                isPOI: false,
+                isPoiChainCorridorHint: true
             };
         })
         .filter(Boolean);
+    if (tracePoints.length < 2) {
+        const guideEndpoints = [chain?.overlay?.start || chain?.guide?.start, chain?.overlay?.end || chain?.guide?.end]
+            .map((point, idx) => {
+                const lat = Number(point?.lat);
+                const lon = Number(point?.lon ?? point?.lng);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                return {
+                    lat,
+                    lng: lon,
+                    lon,
+                    name: idx === 0 ? 'Korridor Einstieg' : 'Korridor Ende',
+                    isPOI: false,
+                    isPoiChainCorridorHint: true
+                };
+            })
+            .filter(Boolean);
+        tracePoints.push(...guideEndpoints);
+    }
+    const uniqueTracePoints = tracePoints.filter((point, idx, list) => {
+        const prev = idx > 0 ? list[idx - 1] : null;
+        return !prev || Math.abs(point.lat - prev.lat) > 0.000001 || Math.abs(point.lon - prev.lon) > 0.000001;
+    });
     const depLat = Number(depPoint?.lat);
     const depLon = Number(depPoint?.lng ?? depPoint?.lon);
-    if (!Number.isFinite(depLat) || !Number.isFinite(depLon) || chainPoints.length < 2) return null;
+    if (!Number.isFinite(depLat) || !Number.isFinite(depLon) || uniqueTracePoints.length < 2) return null;
     const homeName = String(startName || 'Start').replace(/\s+/g, ' ').trim() || 'Start';
-    const firstPoint = { ...chainPoints[0], name: `Korridor Einstieg: ${chainPoints[0].name || 'Punkt 1'}` };
-    const lastPoint = {
-        ...chainPoints[chainPoints.length - 1],
-        name: `Korridor Ende: ${chainPoints[chainPoints.length - 1].name || `Punkt ${chainPoints.length}`}`,
-        isPOI: false
-    };
+    const maxRouteHints = Math.min(10, uniqueTracePoints.length);
+    const corridorPoints = Array.from({ length: maxRouteHints }, (_, idx) => {
+        const srcIdx = maxRouteHints === 1
+            ? 0
+            : Math.round((idx * (uniqueTracePoints.length - 1)) / (maxRouteHints - 1));
+        const point = uniqueTracePoints[srcIdx];
+        if (idx === 0) return { ...point, name: 'Korridor Einstieg' };
+        if (idx === maxRouteHints - 1) return { ...point, name: 'Korridor Ende' };
+        return { ...point, name: `Korridor Abschnitt ${idx + 1}` };
+    });
     const route = [
         { lat: depLat, lng: depLon, lon: depLon, name: homeName },
-        firstPoint,
-        lastPoint,
+        ...corridorPoints,
         { lat: depLat, lng: depLon, lon: depLon, name: `Rückkehr: ${homeName}`, isPoiChainReturnHome: true }
     ];
     return route;
@@ -5220,6 +5245,7 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     if (isPoiChain && !isSarHeli) {
         const chainRoute = normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
         if (chainRoute.length >= 3) return chainRoute;
+        return [];
     }
     const preferMissionRoute = !!(isSarHeli || (md?.bush && String(md.bush.targetMode || '') === 'strip_then_return'));
     const sources = [

@@ -246,6 +246,36 @@
         return overlayLayer;
     }
 
+    function makeOverlayLayerPassive(layer) {
+        if (!layer || typeof layer !== 'object') return layer;
+        if (layer.options && typeof layer.options === 'object') {
+            layer.options.interactive = false;
+            layer.options.bubblingMouseEvents = false;
+            layer.options.keyboard = false;
+            layer.options.className = `${layer.options.className || ''} poi-chain-passive-overlay`.trim();
+        }
+        const applyDomPassThrough = () => {
+            try {
+                const el = typeof layer.getElement === 'function' ? layer.getElement() : null;
+                if (!el) return;
+                el.style.pointerEvents = 'none';
+                el.setAttribute('aria-hidden', 'true');
+            } catch (_) {}
+        };
+        try {
+            if (typeof layer.on === 'function') layer.on('add', applyDomPassThrough);
+        } catch (_) {}
+        applyDomPassThrough();
+        return layer;
+    }
+
+    function addPassiveOverlayLayer(leafletLayer, targetLayer) {
+        makeOverlayLayerPassive(leafletLayer);
+        const added = leafletLayer.addTo(targetLayer);
+        makeOverlayLayerPassive(added || leafletLayer);
+        return added || leafletLayer;
+    }
+
     function clearOverlay() {
         const mapInstance = getMapInstance();
         if (overlayLayer && mapInstance && typeof mapInstance.removeLayer === 'function') {
@@ -270,15 +300,18 @@
         if (!completed && !current) return;
         const bg = completed ? 'rgba(20,95,52,.88)' : 'rgba(120,18,24,.9)';
         const text = completed ? `${idx + 1} ✓` : `${idx + 1}`;
-        L.marker([point.lat, point.lon], {
+        const marker = L.marker([point.lat, point.lon], {
             pane: paneName,
             icon: L.divIcon({
                 className: '',
                 html: `<div style="background:${bg};color:#fff;font-size:11px;font-weight:700;padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.45);white-space:nowrap;">${text}</div>`,
                 iconAnchor: [10, 10]
             }),
-            interactive: false
-        }).addTo(layer);
+            interactive: false,
+            keyboard: false,
+            bubblingMouseEvents: false
+        });
+        addPassiveOverlayLayer(marker, layer);
     }
 
     function corridorStrokeWeightPx(trace, widthNm, layer) {
@@ -329,18 +362,18 @@
             smoothFactor: 1.4,
             interactive: false
         };
-        L.polyline(edgeLatLngs, {
+        addPassiveOverlayLayer(L.polyline(edgeLatLngs, {
             ...common,
             color: '#2f250b',
             weight: 4,
             opacity: 0.58
-        }).addTo(layer);
-        L.polyline(edgeLatLngs, {
+        }), layer);
+        addPassiveOverlayLayer(L.polyline(edgeLatLngs, {
             ...common,
             color: '#ffe58a',
             weight: 2,
             opacity: 0.9
-        }).addTo(layer);
+        }), layer);
     }
 
     function drawCorridorHint(layer, points, spec) {
@@ -357,7 +390,7 @@
         const latLngs = tracePoints.map(point => [point.lat, point.lon]);
         if (latLngs.length < 2) return;
         const weight = corridorStrokeWeightPx(trace, widthNm, layer);
-        L.polyline(latLngs, {
+        addPassiveOverlayLayer(L.polyline(latLngs, {
             pane: paneName,
             color: '#ffcc4d',
             weight,
@@ -366,8 +399,8 @@
             lineJoin: 'round',
             smoothFactor: 1.4,
             interactive: false
-        }).addTo(layer);
-        L.polyline(latLngs, {
+        }), layer);
+        addPassiveOverlayLayer(L.polyline(latLngs, {
             pane: paneName,
             color: '#ffe58a',
             weight: Math.max(3, Math.round(weight * 0.45)),
@@ -376,7 +409,7 @@
             lineJoin: 'round',
             smoothFactor: 1.4,
             interactive: false
-        }).addTo(layer);
+        }), layer);
         const edgeOffsetNm = widthNm / 2;
         drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, edgeOffsetNm), paneName);
         drawCorridorEdge(layer, corridorEdgeLatLngs(tracePoints, -edgeOffsetNm), paneName);
@@ -406,34 +439,35 @@
             const endLat = Number(end.lat);
             const endLon = Number(end.lon);
             if ([startLat, startLon, endLat, endLon].every(Number.isFinite)) {
-                L.polyline([[startLat, startLon], [endLat, endLon]], {
+                const fallbackLine = L.polyline([[startLat, startLon], [endLat, endLon]], {
                     pane: ensureOverlayPane(),
                     color: '#f2c94c',
                     weight: 4,
                     opacity: 0.45,
                     dashArray: '10,8',
                     interactive: false
-                }).bindTooltip(spec.overlay.label || spec.label, { permanent: false }).addTo(layer);
+                }).bindTooltip(spec.overlay.label || spec.label, { permanent: false, interactive: false });
+                addPassiveOverlayLayer(fallbackLine, layer);
             }
         }
         for (let i = 0; i < visiblePoints.length - 1; i++) {
             const a = visiblePoints[i];
             const b = visiblePoints[i + 1];
-            L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+            addPassiveOverlayLayer(L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
                 pane: ensureOverlayPane(),
                 color: '#ff6b57',
                 weight: 4,
                 opacity: 0.72,
                 dashArray: null,
                 interactive: false
-            }).addTo(layer);
+            }), layer);
         }
         points.forEach((point, idx) => {
             const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
             const current = !completed && idx === currentIdx;
             if (!completed && !current && spec.sequenceRequired) return;
             const label = `${idx + 1}/${points.length} ${point.name}`;
-            L.circle([point.lat, point.lon], {
+            const radiusCircle = L.circle([point.lat, point.lon], {
                 pane: ensureOverlayPane(),
                 radius: point.triggerRadiusNm * NM_TO_M,
                 color: completed ? '#24d26b' : (current ? '#ff4d4d' : '#5f6b82'),
@@ -441,13 +475,19 @@
                 opacity: completed || current ? 0.75 : 0.35,
                 fillColor: completed ? '#24d26b' : (current ? '#ff4d4d' : '#182538'),
                 fillOpacity: completed ? 0.08 : (current ? 0.06 : 0.03),
-                dashArray: null
-            }).bindTooltip(`${label} · ${point.triggerRadiusNm.toFixed(2)} NM`, { permanent: false }).addTo(layer);
-            L.circleMarker([point.lat, point.lon], {
+                dashArray: null,
+                interactive: false,
+                bubblingMouseEvents: false
+            }).bindTooltip(`${label} · ${point.triggerRadiusNm.toFixed(2)} NM`, { permanent: false, interactive: false });
+            addPassiveOverlayLayer(radiusCircle, layer);
+            const pointMarker = L.circleMarker([point.lat, point.lon], {
                 pane: ensureOverlayPane(),
                 radius: current ? 8 : 6,
-                ...pointStyle(point, idx, progressState)
-            }).bindTooltip(label, { permanent: false }).addTo(layer);
+                ...pointStyle(point, idx, progressState),
+                interactive: false,
+                bubblingMouseEvents: false
+            }).bindTooltip(label, { permanent: false, interactive: false });
+            addPassiveOverlayLayer(pointMarker, layer);
             drawMarkerLabel(layer, point, idx, spec, progressState);
         });
         return true;
