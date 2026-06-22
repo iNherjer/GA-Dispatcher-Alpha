@@ -1169,8 +1169,14 @@ function swapDepDest() {
 function cycleRadioOption(selectId) {
     const selectEl = document.getElementById(selectId);
     if (!selectEl) return;
-    let nextIndex = selectEl.selectedIndex + 1;
-    if (nextIndex >= selectEl.options.length) nextIndex = 0;
+    const optionCount = selectEl.options.length;
+    if (!optionCount) return;
+    let nextIndex = selectEl.selectedIndex;
+    for (let i = 0; i < optionCount; i += 1) {
+        nextIndex += 1;
+        if (nextIndex >= optionCount) nextIndex = 0;
+        if (!selectEl.options[nextIndex]?.disabled) break;
+    }
     selectEl.selectedIndex = nextIndex;
     selectEl.dispatchEvent(new Event('change'));
 }
@@ -1343,21 +1349,10 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'apt:all+sightseeing_tour', classic: 'APT · Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Sightseeing' },
         { value: 'poi:all', classic: 'POI (alle Kategorien)', radioShort: 'POI ALL', radioFull: 'POI (alle Kategorien)' },
         { value: 'poi:all+freeflight_planning', classic: 'POI · Freiflug/Planung', radioShort: 'POI FREE', radioFull: 'POI · Freiflug/Planung' },
+        { value: 'poi:trn', classic: 'POI · Training (Platznah)', radioShort: 'POI TRN', radioFull: 'POI · Training (platznah)' },
         { value: 'poi:all+inspection_infra', classic: 'POI · Inspektion', radioShort: 'POI INSP', radioFull: 'POI · Infrastruktur-Inspektion' },
         { value: 'poi:chain+infra_chain_recon', classic: 'POI · Ketten-Erstbefund', radioShort: 'POI CHAIN', radioFull: 'POI · Ketten-Erstbefund' },
         { value: 'poi:all+media_photo', classic: 'POI · Foto/Film', radioShort: 'POI CAM', radioFull: 'POI · Foto/Film' },
-        { value: 'poi:bridge', classic: 'POI · Brücken', radioShort: 'POI BRG', radioFull: 'POI · Brücken' },
-        { value: 'poi:road', classic: 'POI · Straße/Autobahn', radioShort: 'POI ROAD', radioFull: 'POI · Straße/Autobahn' },
-        { value: 'poi:dam', classic: 'POI · Staudamm/Talsperre', radioShort: 'POI DAM', radioFull: 'POI · Staudamm/Talsperre' },
-        { value: 'poi:telecom', classic: 'POI · Funkmast/Funkturm', radioShort: 'POI TEL', radioFull: 'POI · Funkmast/Funkturm' },
-        { value: 'poi:industry', classic: 'POI · Industrie/Anlagen', radioShort: 'POI IND', radioFull: 'POI · Industrie/Anlagen' },
-        { value: 'poi:infrastructure', classic: 'POI · Infrastruktur (Straße/Bahn/Strom)', radioShort: 'POI INF', radioFull: 'POI · Infrastruktur (Straße/Bahn/Strom)' },
-        { value: 'poi:castle', classic: 'POI · Burg/Schloss', radioShort: 'POI CST', radioFull: 'POI · Burg/Schloss' },
-        { value: 'poi:water', classic: 'POI · Fluss/See/Küste', radioShort: 'POI WTR', radioFull: 'POI · Fluss/See/Küste' },
-        { value: 'poi:mountain', classic: 'POI · Berg/Tal', radioShort: 'POI MTN', radioFull: 'POI · Berg/Tal' },
-        { value: 'poi:city', classic: 'POI · Stadt/Turm', radioShort: 'POI CITY', radioFull: 'POI · Stadt/Turm' },
-        { value: 'poi:trn', classic: 'POI · Training (Platznah)', radioShort: 'POI TRN', radioFull: 'POI · Training (platznah)' },
-        { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' },
         { value: 'poi:all+mapping_survey', classic: 'POI · Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Mapping/Survey' },
         { value: 'poi:all+news_coverage', classic: 'POI · Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Reporter' },
         { value: 'poi:all+sightseeing_tour', classic: 'POI · Sightseeing', radioShort: 'POI TOUR', radioFull: 'POI · Sightseeing' },
@@ -1374,7 +1369,19 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'bush:all+bush_scenic_hopper', classic: 'BUSH · Adventure', radioShort: 'BUSH ADV', radioFull: 'Bush · Adventure Hopper' },
         { value: 'bush:all+bush_recon_return', classic: 'BUSH · Recon RTB', radioShort: 'BUSH REC', radioFull: 'Bush · Recon and Return' },
         { value: 'bush:all+bush_pickup_strip', classic: 'BUSH · Pickup RTB', radioShort: 'BUSH PCK', radioFull: 'Bush · Pickup and Return' },
-        { value: 'bush:all+bush_pickup_cargo', classic: 'BUSH · Cargo RTB', radioShort: 'BUSH CGO', radioFull: 'Bush · Cargo Pickup and Return' }
+        { value: 'bush:all+bush_pickup_cargo', classic: 'BUSH · Cargo RTB', radioShort: 'BUSH CGO', radioFull: 'Bush · Cargo Pickup and Return' },
+        { disabled: true, classic: 'Auswahl nach Ziel', radioShort: 'ZIEL', radioFull: 'Auswahl nach Ziel' },
+        { value: 'poi:bridge', classic: 'Ziel · Brücken', radioShort: 'ZIEL BRG', radioFull: 'Ziel · POI Brücken' },
+        { value: 'poi:road', classic: 'Ziel · Straße/Autobahn', radioShort: 'ZIEL ROAD', radioFull: 'Ziel · POI Straße/Autobahn' },
+        { value: 'poi:dam', classic: 'Ziel · Staudamm/Talsperre', radioShort: 'ZIEL DAM', radioFull: 'Ziel · POI Staudamm/Talsperre' },
+        { value: 'poi:telecom', classic: 'Ziel · Funkmast/Funkturm', radioShort: 'ZIEL TEL', radioFull: 'Ziel · POI Funkmast/Funkturm' },
+        { value: 'poi:industry', classic: 'Ziel · Industrie/Anlagen', radioShort: 'ZIEL IND', radioFull: 'Ziel · POI Industrie/Anlagen' },
+        { value: 'poi:infrastructure', classic: 'Ziel · Infrastruktur (Straße/Bahn/Strom)', radioShort: 'ZIEL INF', radioFull: 'Ziel · POI Infrastruktur (Straße/Bahn/Strom)' },
+        { value: 'poi:castle', classic: 'Ziel · Burg/Schloss', radioShort: 'ZIEL CST', radioFull: 'Ziel · POI Burg/Schloss' },
+        { value: 'poi:water', classic: 'Ziel · Fluss/See/Küste', radioShort: 'ZIEL WTR', radioFull: 'Ziel · POI Fluss/See/Küste' },
+        { value: 'poi:mountain', classic: 'Ziel · Berg/Tal', radioShort: 'ZIEL MTN', radioFull: 'Ziel · POI Berg/Tal' },
+        { value: 'poi:city', classic: 'Ziel · Stadt/Turm', radioShort: 'ZIEL CITY', radioFull: 'Ziel · POI Stadt/Turm' },
+        { value: 'poi:generic', classic: 'Ziel · Sonstige', radioShort: 'ZIEL GEN', radioFull: 'Ziel · POI Sonstige' }
     ]
 };
 
@@ -2427,7 +2434,7 @@ function _setMissionPickerMode(nextMode) {
 }
 
 function _optionByValue(mode, value) {
-    return (MISSION_PICKER_OPTIONS[mode] || []).find(o => o.value === value) || null;
+    return (MISSION_PICKER_OPTIONS[mode] || []).find(o => !o.disabled && o.value === value) || null;
 }
 
 function _populateMissionTypeSelects(mode, preferredValue = null) {
@@ -2454,12 +2461,14 @@ function _populateMissionTypeSelects(mode, preferredValue = null) {
     radio.innerHTML = '';
     options.forEach(opt => {
         const c = document.createElement('option');
-        c.value = opt.value;
+        c.value = opt.value || '';
+        c.disabled = !!opt.disabled;
         c.textContent = opt.classic;
         classic.appendChild(c);
 
         const r = document.createElement('option');
-        r.value = opt.value;
+        r.value = opt.value || '';
+        r.disabled = !!opt.disabled;
         r.dataset.shortLabel = opt.radioShort || opt.radioFull || opt.classic;
         r.dataset.fullLabel = opt.radioFull || opt.classic;
         r.textContent = r.dataset.shortLabel;
@@ -3403,12 +3412,13 @@ function syncOpsSelectOptions(sourceId, targetId, maxLabelLength = 18) {
     const source = document.getElementById(sourceId);
     const target = document.getElementById(targetId);
     if (!source || !target) return;
-    const signature = Array.from(source.options).map(opt => `${opt.value}:${opt.textContent}`).join('|');
+    const signature = Array.from(source.options).map(opt => `${opt.value}:${opt.disabled ? '1' : '0'}:${opt.textContent}`).join('|');
     if (target.dataset.optionSignature !== signature) {
         target.innerHTML = '';
         Array.from(source.options).forEach(opt => {
             const clone = document.createElement('option');
             clone.value = opt.value;
+            clone.disabled = !!opt.disabled;
             clone.textContent = compactOpsLabel(opt.textContent, maxLabelLength).toUpperCase();
             target.appendChild(clone);
         });
@@ -3807,7 +3817,12 @@ function cycleOpsSelect(sourceId, targetId) {
     const selectedIndex = source.selectedIndex >= 0
         ? source.selectedIndex
         : Array.from(source.options).findIndex(opt => opt.value === source.value);
-    const nextIndex = ((selectedIndex >= 0 ? selectedIndex : 0) + 1) % source.options.length;
+    const optionCount = source.options.length;
+    let nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    for (let i = 0; i < optionCount; i += 1) {
+        nextIndex = (nextIndex + 1) % optionCount;
+        if (!source.options[nextIndex]?.disabled) break;
+    }
     const nextValue = source.options[nextIndex].value;
     syncOpsSelectField(sourceId, nextValue);
 }
