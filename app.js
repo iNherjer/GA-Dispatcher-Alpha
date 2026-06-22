@@ -5187,10 +5187,6 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
         const targetName = bushUsesPoiTaskRecipe
             ? (bush?.areaRef?.name || mission.targetName || state.mDestName || 'Recon Area')
             : (mission.poiName || mission.targetName || state.mDestName || 'POI');
-        if (!bushUsesPoiTaskRecipe) {
-            const chainRoute = buildPoiChainRouteWaypointsFromMission(depPoint, mission, state.currentSName || startIcao || 'Start');
-            if (chainRoute && chainRoute.length >= 3) return chainRoute;
-        }
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng },
             { lat: destPoint.lat, lng: destPoint.lng, name: `🎯 ${targetName}`, isPOI: true }
@@ -5242,11 +5238,6 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
     const isSarHeli = !!(md && missionIsSarHeliMission(md));
     const isPoiChain = !!(md && Array.isArray(md.poiChain?.points) && md.poiChain.points.length >= 2);
-    if (isPoiChain && !isSarHeli) {
-        const chainRoute = normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
-        if (chainRoute.length >= 3) return chainRoute;
-        return [];
-    }
     const preferMissionRoute = !!(isSarHeli || (md?.bush && String(md.bush.targetMode || '') === 'strip_then_return'));
     const sources = [
         ...(preferMissionRoute
@@ -5256,6 +5247,9 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     for (const source of sources) {
         const normalized = normalizeRouteWaypointsForStorage(source);
         if (normalized.length < 2) continue;
+        if (isPoiChain && !isSarHeli && normalized.some(point => /^(?:Korridor (?:Einstieg|Ende|Abschnitt \d+|\d+)|Rückkehr: )/i.test(String(point?.name || '').trim()))) {
+            continue;
+        }
         if (isSarHeli) {
             const hospital = md?.sarHeli?.hospitalRef || null;
             const hospitalLat = Number(hospital?.lat);
@@ -27401,33 +27395,8 @@ async function generateMission(options = {}) {
         }
     }
     if (!missionIsSarHeliMission(currentMissionData) && isPOI && currentMissionData?.poiChain) {
-        const chainRoute = buildPoiChainRouteWaypointsFromMission(
-            { lat: start.lat, lng: start.lon, lon: start.lon },
-            currentMissionData,
-            currentStartICAO || start.n || 'Start'
-        );
-        if (Array.isArray(chainRoute) && chainRoute.length >= 4) {
-            routeWaypoints = chainRoute.map(point => ({ ...point }));
-            const storedChainRoute = cloneRouteWaypointsForStorage(routeWaypoints);
-            window._missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
-            currentMissionData.routeWaypoints = storedChainRoute.map(point => ({ ...point }));
-            currentMissionData.missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
-            const routeDist = storedChainRoute.reduce((sum, point, idx, list) => {
-                if (!idx || !Number.isFinite(sum) || typeof calcNav !== 'function') return sum;
-                const prev = list[idx - 1];
-                const nav = calcNav(Number(prev.lat), Number(prev.lng ?? prev.lon), Number(point.lat), Number(point.lng ?? point.lon));
-                return Number.isFinite(Number(nav?.dist)) ? sum + Number(nav.dist) : NaN;
-            }, 0);
-            if (Number.isFinite(routeDist) && routeDist > 0) {
-                totalDist = Math.round(routeDist * 10) / 10;
-                currentMissionData.dist = totalDist;
-                currentMissionData.initialDist = totalDist;
-            }
-            if (m && typeof m === 'object') {
-                m.routeWaypoints = storedChainRoute.map(point => ({ ...point }));
-                m.missionRouteWaypoints = storedChainRoute.map(point => ({ ...point }));
-            }
-        }
+        delete currentMissionData.missionRouteWaypoints;
+        if (m && typeof m === 'object') delete m.missionRouteWaypoints;
     }
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);

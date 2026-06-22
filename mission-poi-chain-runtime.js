@@ -427,9 +427,10 @@
         const points = spec.points || [];
         const currentIdx = Math.max(0, Math.min(points.length - 1, Number(progressState?.currentIndex || 0) || 0));
         drawCorridorHint(layer, points, spec);
+        const revealCurrentPoint = !!(progressState?.areaEntered || (progressState?.completedPointIds instanceof Set && progressState.completedPointIds.size > 0));
         const visiblePoints = points.filter((point, idx) => {
             const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
-            return completed || idx === currentIdx || !spec.sequenceRequired;
+            return completed || (revealCurrentPoint && idx === currentIdx) || !spec.sequenceRequired;
         });
         if (points.length < 2 && spec.overlay?.start && spec.overlay?.end) {
             const start = spec.overlay.start;
@@ -465,7 +466,7 @@
         points.forEach((point, idx) => {
             const completed = progressState?.completedPointIds instanceof Set && progressState.completedPointIds.has(point.id);
             const current = !completed && idx === currentIdx;
-            if (!completed && !current && spec.sequenceRequired) return;
+            if (!completed && (!current || !revealCurrentPoint) && spec.sequenceRequired) return;
             const label = `${idx + 1}/${points.length} ${point.name}`;
             const radiusCircle = L.circle([point.lat, point.lon], {
                 pane: ensureOverlayPane(),
