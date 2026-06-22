@@ -9505,6 +9505,63 @@ function _poiChainThemesForDispatch(category = 'all', forceTheme = '') {
     return known;
 }
 
+function _poiChainThemeFamily(theme = '') {
+    const t = String(theme || '').toLowerCase();
+    if (t === 'river_bridge_inspection' || t === 'road_bridge_inspection') return 'bridge';
+    if (t === 'road_junction_survey') return 'road';
+    if (t === 'rail_chain_inspection') return 'rail';
+    if (t === 'power_grid_inspection') return 'power';
+    return t || 'chain';
+}
+
+function _selectPoiChainDispatchProspect(prospectRun, context = {}) {
+    const prospects = Array.isArray(prospectRun?.prospects)
+        ? prospectRun.prospects.filter(prospect => prospect?.chain)
+        : [];
+    if (!prospects.length) return null;
+    const rawForceTheme = String(context.forceTheme || '').toLowerCase();
+    const forceTheme = rawForceTheme === 'auto' ? '' : rawForceTheme;
+    const category = String(context.category || 'all').toLowerCase();
+    const shouldBalance = !forceTheme && (context.force === true || category === 'all' || category === 'chain');
+    if (!shouldBalance) return prospects[0];
+
+    const bestScore = Number(prospects[0]?.score || 0);
+    const scoreFloor = Math.max(bestScore - 10, bestScore * 0.9);
+    const families = new Set();
+    const band = [];
+    for (const prospect of prospects) {
+        const score = Number(prospect?.score || 0);
+        if (!Number.isFinite(score) || score < scoreFloor) continue;
+        const family = _poiChainThemeFamily(prospect.theme || prospect.chain?.theme);
+        if (families.has(family)) continue;
+        families.add(family);
+        band.push(prospect);
+    }
+    if (band.length <= 1) return prospects[0];
+
+    const lat = Number(context.lat);
+    const lon = Number(context.lon);
+    const anchorKey = Number.isFinite(lat) && Number.isFinite(lon)
+        ? `${Math.round(lat * 10)}_${Math.round(lon * 10)}`
+        : 'global';
+    const historyKey = `ga_poi_chain_dispatch_family_history_${anchorKey}`;
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch (_) { history = []; }
+    if (!Array.isArray(history)) history = [];
+
+    let pool = band.filter(prospect => !history.includes(_poiChainThemeFamily(prospect.theme || prospect.chain?.theme)));
+    if (!pool.length) {
+        pool = band;
+        history = [];
+    }
+    const pick = pool[Math.floor(Math.random() * pool.length)] || band[0] || prospects[0];
+    const family = _poiChainThemeFamily(pick.theme || pick.chain?.theme);
+    history.push(family);
+    while (history.length > Math.max(4, band.length)) history.shift();
+    try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
+    return pick;
+}
+
 function _poiChainRawValue(feature = null, key = '') {
     const direct = feature?.[key];
     if (direct !== undefined && direct !== null && String(direct).trim()) return String(direct).trim().toLowerCase();
@@ -9699,7 +9756,13 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
             });
         } catch (_) {}
     }
-    const best = prospectRun?.prospects?.[0] || null;
+    const best = _selectPoiChainDispatchProspect(prospectRun, {
+        category,
+        force: options.force === true,
+        forceTheme,
+        lat,
+        lon
+    });
     if (!best?.chain) {
         window.gaPoiChainDebug = {
             ...(window.gaPoiChainDebug || {}),

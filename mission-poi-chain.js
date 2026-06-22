@@ -1737,7 +1737,6 @@
         const groups = groupGuideFeatures(features);
         diagnostics.groups = groups.length;
         const prospects = [];
-        let stopProspecting = false;
         for (const theme of themes) {
             const guideKind = themeGuideKind(theme);
             const matchingBaseGroups = groups
@@ -1772,6 +1771,7 @@
             }
             preparedGroups.sort((a, b) => b.preScore - a.preScore);
             diagnostics[`${theme}_groupsTestable`] = preparedGroups.length;
+            let acceptedForTheme = 0;
             for (const prepared of preparedGroups.slice(0, maxGroupsPerTheme)) {
                 const { group, pair, start, end } = prepared;
                 const cfg = {
@@ -1836,12 +1836,11 @@
                     chain: result.chain,
                     diagnostics: result.diagnostics
                 });
-                if (stopAfterProspects && prospects.length >= stopAfterProspects) {
-                    stopProspecting = true;
+                acceptedForTheme += 1;
+                if (stopAfterProspects && acceptedForTheme >= stopAfterProspects) {
                     break;
                 }
             }
-            if (stopProspecting) break;
         }
         prospects.sort((a, b) => b.score - a.score);
         return {
