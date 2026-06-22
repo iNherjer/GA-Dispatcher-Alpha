@@ -7063,7 +7063,6 @@ function routeLegShouldRenderOnMainMap(p1 = null, p2 = null) {
         && currentMissionData.poiChain
     );
     if (!hasPoiChain) return true;
-    if (p1?.isPoiChainEndpoint && p2?.isPoiChainEndpoint) return false;
     return true;
 }
 
