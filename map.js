@@ -6952,6 +6952,9 @@ function normalizeMapRouteWaypoint(point) {
     const out = { lat, lng };
     if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
     if (point.isPOI === true) out.isPOI = true;
+    if (point.isPoiChainEndpoint === true) out.isPoiChainEndpoint = true;
+    if (point.isPoiChainReturnHome === true) out.isPoiChainReturnHome = true;
+    if (point.poiChainPointId) out.poiChainPointId = String(point.poiChainPointId).trim();
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
     return out;
 }
@@ -9021,6 +9024,69 @@ function shouldAutoStartMapFullscreen() {
 /* =========================================================
    8. POLAROID MINIMAP
    ========================================================= */
+function routeWaypointDistanceNmForMap(a = null, b = null) {
+    const lat1 = Number(a?.lat);
+    const lon1 = Number(a?.lng ?? a?.lon);
+    const lat2 = Number(b?.lat);
+    const lon2 = Number(b?.lng ?? b?.lon);
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return Infinity;
+    if (typeof calcNav === 'function') {
+        try {
+            const nav = calcNav(lat1, lon1, lat2, lon2);
+            if (Number.isFinite(Number(nav?.dist))) return Number(nav.dist);
+        } catch (_) {}
+    }
+    const avgLat = ((lat1 + lat2) / 2) * Math.PI / 180;
+    const dx = (lon2 - lon1) * Math.cos(avgLat) * 60;
+    const dy = (lat2 - lat1) * 60;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function miniMapRouteLooksLikePoiReturn(points = []) {
+    const list = Array.isArray(points) ? points : [];
+    if (list.length < 3) return false;
+    const last = list[list.length - 1];
+    return !!(
+        last?.isPoiChainReturnHome
+        || /^Rückkehr:/i.test(String(last?.name || ''))
+        || routeWaypointDistanceNmForMap(list[0], last) <= 0.2
+    );
+}
+
+function miniMapDestinationWaypoint(points = routeWaypoints) {
+    const list = normalizeMapRouteWaypoints(points);
+    if (!list.length) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const missionLikePoi = !!(
+        md
+        && (
+            md.poiChain
+            || md.poiName
+            || md.poiPresentation
+            || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(md))
+        )
+    );
+    if (missionLikePoi) {
+        const chainEntry = list.find((point, idx) => idx > 0 && (
+            point.isPOI === true
+            || point.isPoiChainEndpoint === true
+            || /^Korridor\s+Einstieg\b/i.test(String(point.name || ''))
+        ));
+        if (chainEntry) return chainEntry;
+        if (miniMapRouteLooksLikePoiReturn(list) && list[1]) return list[1];
+    }
+    return list[list.length - 1] || list[0] || null;
+}
+
+function miniMapBoundsWaypoints(points = routeWaypoints, destPoint = null) {
+    const list = normalizeMapRouteWaypoints(points);
+    if (list.length >= 2) return list;
+    if (list.length === 1 && destPoint && routeWaypointDistanceNmForMap(list[0], destPoint) > 0.02) {
+        return [list[0], destPoint];
+    }
+    return list;
+}
+
 function updateMiniMap(attempt = 0) {
     const miniContainer = document.getElementById('miniMap');
     if (!miniContainer) return;
@@ -9065,17 +9131,21 @@ function updateMiniMap(attempt = 0) {
             miniMapMarkers.forEach(m => miniMap.removeLayer(m)); miniMapMarkers = [];
 
             const startMarker = L.circleMarker(routeWaypoints[0], { radius: 5, color: '#111', weight: 2, fillColor: '#44ff44', fillOpacity: 1 }).addTo(miniMap);
-            const destMarker = L.circleMarker(routeWaypoints[routeWaypoints.length - 1], { radius: 5, color: '#111', weight: 2, fillColor: '#ff4444', fillOpacity: 1 }).addTo(miniMap);
+            const destPoint = miniMapDestinationWaypoint(routeWaypoints);
+            const destMarker = destPoint && routeWaypointDistanceNmForMap(routeWaypoints[0], destPoint) > 0.02
+                ? L.circleMarker(destPoint, { radius: 5, color: '#111', weight: 2, fillColor: '#ff4444', fillOpacity: 1 }).addTo(miniMap)
+                : null;
+            const boundsPoints = miniMapBoundsWaypoints(routeWaypoints, destPoint);
 
-            miniMapMarkers.push(startMarker, destMarker);
+            miniMapMarkers.push(...[startMarker, destMarker].filter(Boolean));
             requestAnimationFrame(() => {
                 miniMap.invalidateSize();
-                const bounds = routeBoundsFromWaypoints(routeWaypoints);
+                const bounds = routeBoundsFromWaypoints(boundsPoints);
                 if (bounds && bounds.isValid()) miniMap.fitBounds(bounds, { padding: [15, 15] });
                 setTimeout(() => {
                     if (miniMap) {
                         miniMap.invalidateSize();
-                        const nextBounds = routeBoundsFromWaypoints(routeWaypoints);
+                        const nextBounds = routeBoundsFromWaypoints(boundsPoints);
                         if (nextBounds && nextBounds.isValid()) miniMap.fitBounds(nextBounds, { padding: [15, 15] });
                     }
                 }, 250);

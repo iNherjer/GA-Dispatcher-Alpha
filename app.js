@@ -4722,6 +4722,9 @@ function normalizeRouteWaypointForStorage(point) {
     };
     if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
     if (point.isPOI === true) out.isPOI = true;
+    if (point.isPoiChainEndpoint === true) out.isPoiChainEndpoint = true;
+    if (point.isPoiChainReturnHome === true) out.isPoiChainReturnHome = true;
+    if (point.poiChainPointId) out.poiChainPointId = String(point.poiChainPointId).trim();
     if (point.isSarHeliIncident === true) out.isSarHeliIncident = true;
     if (point.isSarHeliHospital === true) out.isSarHeliHospital = true;
     if (typeof point.simHoldAction === 'string' && point.simHoldAction.trim()) out.simHoldAction = point.simHoldAction.trim();
@@ -5136,6 +5139,139 @@ function buildPoiChainRouteWaypointsFromMission(depPoint = null, mission = {}, s
     return route;
 }
 
+function poiChainPublicSourcePoint(chain = null, end = false) {
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    const source = end
+        ? (points.slice().reverse().find(point => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lon ?? point?.lng))) || chain?.overlay?.end || chain?.guide?.end)
+        : (points.find(point => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lon ?? point?.lng))) || chain?.overlay?.start || chain?.guide?.start);
+    const lat = Number(source?.lat);
+    const lon = Number(source?.lon ?? source?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { ...source, lat, lon, lng: lon };
+}
+
+function poiChainPublicRoutePoint(source = null, fallbackName = 'Korridor', options = {}) {
+    const lat = Number(source?.lat);
+    const lon = Number(source?.lon ?? source?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const name = String(source?.name || fallbackName || 'Korridor').replace(/\s+/g, ' ').trim();
+    const out = {
+        lat,
+        lng: lon,
+        lon,
+        name,
+        isPoiChainEndpoint: !!options.endpoint
+    };
+    if (options.isPOI) out.isPOI = true;
+    if (options.returnHome) out.isPoiChainReturnHome = true;
+    const pointId = source?.id || options.pointId;
+    if (pointId) out.poiChainPointId = String(pointId);
+    return out;
+}
+
+function poiChainRouteDistanceNm(a = null, b = null) {
+    const lat1 = Number(a?.lat);
+    const lon1 = Number(a?.lng ?? a?.lon);
+    const lat2 = Number(b?.lat);
+    const lon2 = Number(b?.lng ?? b?.lon);
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return Infinity;
+    if (typeof calcNav === 'function') {
+        try {
+            const nav = calcNav(lat1, lon1, lat2, lon2);
+            if (Number.isFinite(Number(nav?.dist))) return Number(nav.dist);
+        } catch (_) {}
+    }
+    const avgLat = ((lat1 + lat2) / 2) * Math.PI / 180;
+    const dx = (lon2 - lon1) * Math.cos(avgLat) * 60;
+    const dy = (lat2 - lat1) * 60;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function poiChainStoredRouteHasHiddenSections(points = []) {
+    return Array.isArray(points) && points.some(point => {
+        const name = String(point?.name || '').replace(/\s+/g, ' ').trim();
+        return /^(?:Korridor\s+Abschnitt\s+\d+|Korridor\s+\d+)\b/i.test(name);
+    });
+}
+
+function poiChainRouteHasPublicAnchor(points = []) {
+    return Array.isArray(points) && points.some((point, idx) => idx > 0 && (
+        point?.isPOI === true
+        || /^Korridor\s+Einstieg\b/i.test(String(point?.name || ''))
+        || (point?.isPoiChainEndpoint === true && !/^Korridor\s+Ende\b/i.test(String(point?.name || '')))
+    ));
+}
+
+function annotatePoiChainPublicRouteWaypoints(points = [], mission = null) {
+    const chain = mission?.poiChain && typeof mission.poiChain === 'object' ? mission.poiChain : null;
+    const out = normalizeRouteWaypointsForStorage(points).map(point => ({ ...point }));
+    if (!chain || out.length < 2) return out;
+    const entry = poiChainPublicSourcePoint(chain, false);
+    const exit = poiChainPublicSourcePoint(chain, true);
+    let entryIdx = out.findIndex((point, idx) => idx > 0 && (
+        point.isPOI === true
+        || point.isPoiChainEndpoint === true
+        || /^Korridor\s+Einstieg\b/i.test(String(point.name || ''))
+        || poiChainRouteDistanceNm(point, entry) <= 0.7
+    ));
+    if (entryIdx > 0 && out[entryIdx]) {
+        out[entryIdx].isPOI = true;
+        out[entryIdx].isPoiChainEndpoint = true;
+        if (!out[entryIdx].name && entry?.name) out[entryIdx].name = `Korridor Einstieg: ${entry.name}`;
+        if (entry?.id && !out[entryIdx].poiChainPointId) out[entryIdx].poiChainPointId = String(entry.id);
+    }
+
+    const exitIdx = entryIdx > 0
+        ? out.findIndex((point, idx) => idx > entryIdx && idx < out.length - 1 && (
+            point.isPoiChainEndpoint === true
+            || /^Korridor\s+Ende\b/i.test(String(point.name || ''))
+            || poiChainRouteDistanceNm(point, exit) <= 0.7
+        ))
+        : -1;
+    if (exitIdx > 0 && out[exitIdx]) {
+        out[exitIdx].isPoiChainEndpoint = true;
+        if (out[exitIdx].isPOI && exitIdx !== entryIdx) delete out[exitIdx].isPOI;
+        if (!out[exitIdx].name && exit?.name) out[exitIdx].name = `Korridor Ende: ${exit.name}`;
+        if (exit?.id && !out[exitIdx].poiChainPointId) out[exitIdx].poiChainPointId = String(exit.id);
+    }
+
+    const lastIdx = out.length - 1;
+    if (lastIdx > 0 && out[lastIdx]) {
+        const returnName = String(out[lastIdx].name || '');
+        if (/^Rückkehr:/i.test(returnName) || poiChainRouteDistanceNm(out[0], out[lastIdx]) <= 0.2) {
+            out[lastIdx].isPoiChainReturnHome = true;
+        }
+    }
+    return normalizeRouteWaypointsForStorage(out);
+}
+
+function buildPoiChainPublicRouteWaypointsFromMissionState(state = {}, md = null) {
+    const mission = md && typeof md === 'object' ? md : {};
+    const chain = mission?.poiChain && typeof mission.poiChain === 'object' ? mission.poiChain : null;
+    if (!chain) return [];
+    const startIcao = state.currentStartICAO || mission.start || state.mDepICAO || currentStartICAO || '';
+    const depPoint = missionAirportPoint(startIcao, state.mDepCoords);
+    if (!depPoint) return [];
+    const homeName = String(state.currentSName || startIcao || 'Start').replace(/\s+/g, ' ').trim() || 'Start';
+    const entrySource = poiChainPublicSourcePoint(chain, false);
+    const exitSource = poiChainPublicSourcePoint(chain, true);
+    const entry = poiChainPublicRoutePoint(entrySource, `Korridor Einstieg: ${chain.label || mission.targetName || 'Kette'}`, {
+        endpoint: true,
+        isPOI: true
+    });
+    if (!entry) return [];
+    const route = [
+        { lat: depPoint.lat, lng: depPoint.lng, lon: depPoint.lng, name: homeName },
+        entry
+    ];
+    const exit = poiChainPublicRoutePoint(exitSource, `Korridor Ende: ${chain.label || mission.targetName || 'Kette'}`, {
+        endpoint: true
+    });
+    if (exit && poiChainRouteDistanceNm(entry, exit) > 0.2) route.push(exit);
+    route.push({ lat: depPoint.lat, lng: depPoint.lng, lon: depPoint.lng, name: `Rückkehr: ${homeName}`, isPoiChainReturnHome: true });
+    return normalizeRouteWaypointsForStorage(route);
+}
+
 function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     const mission = md && typeof md === 'object' ? md : {};
     const bush = (mission.bush && typeof mission.bush === 'object') ? mission.bush : null;
@@ -5249,8 +5385,13 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     for (const source of sources) {
         const normalized = normalizeRouteWaypointsForStorage(source);
         if (normalized.length < 2) continue;
-        if (isPoiChain && !isSarHeli && normalized.some(point => /^(?:Korridor (?:Einstieg|Ende|Abschnitt \d+|\d+)|Rückkehr: )/i.test(String(point?.name || '').trim()))) {
-            continue;
+        if (isPoiChain && !isSarHeli) {
+            if (poiChainStoredRouteHasHiddenSections(normalized)) continue;
+            const annotated = annotatePoiChainPublicRouteWaypoints(normalized, md);
+            if (poiChainRouteHasPublicAnchor(annotated)) return annotated;
+            const isEmptyReturn = annotated.length <= 2 && poiChainRouteDistanceNm(annotated[0], annotated[annotated.length - 1]) <= 0.2;
+            if (isEmptyReturn) continue;
+            return annotated;
         }
         if (isSarHeli) {
             const hospital = md?.sarHeli?.hospitalRef || null;
@@ -5274,6 +5415,10 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
             if (!endsAtHospital || !hasRecoveryHold) continue;
         }
         return normalized;
+    }
+    if (isPoiChain && !isSarHeli) {
+        const publicChainRoute = buildPoiChainPublicRouteWaypointsFromMissionState(state, md);
+        if (publicChainRoute.length >= 2) return publicChainRoute;
     }
     return normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
 }
