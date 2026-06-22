@@ -12729,22 +12729,26 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         return (basePassenger && typeof basePassenger === 'object') ? basePassenger : null;
     }
     const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
-    const persona = _pickRandomProfilePersona(profileSpec, missionContext) || {};
+    const keepBaseChainPersona = profileSpec.id === 'infra_chain_recon'
+        && String(base.taskDomain || profileSpec.taskDomain || '').toLowerCase() === 'infra_chain_recon'
+        && !!String(base.name || '').trim()
+        && !!String(base.role || '').trim();
+    const persona = keepBaseChainPersona ? {} : (_pickRandomProfilePersona(profileSpec, missionContext) || {});
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
     const personaGender = String(persona.gender || '').toLowerCase();
     const merged = {
         ...base,
-        name: String(persona.name || base.name || '').trim() || 'Alex Neumann',
-        role: String(persona.role || base.role || '').trim() || 'Passagier',
+        name: String((keepBaseChainPersona ? base.name : persona.name) || base.name || '').trim() || 'Alex Neumann',
+        role: String((keepBaseChainPersona ? base.role : persona.role) || base.role || '').trim() || 'Passagier',
         gender: (personaGender === 'female' || personaGender === 'male')
             ? personaGender
             : ((baseGender === 'female' || baseGender === 'male') ? baseGender : 'male'),
         personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
         dialectHint: String(persona.dialectHint || base.dialectHint || 'neutral').trim() || 'neutral',
-        storySeed: String(persona.storySeed || base.storySeed || base.personalStoryCue || '').trim(),
-        personalStoryCue: String(persona.storySeed || base.personalStoryCue || base.storySeed || '').trim(),
-        greetingText: String(persona.greetingText || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
+        storySeed: String((keepBaseChainPersona ? (base.storySeed || base.personalStoryCue) : persona.storySeed) || base.storySeed || base.personalStoryCue || '').trim(),
+        personalStoryCue: String((keepBaseChainPersona ? (base.personalStoryCue || base.storySeed) : persona.storySeed) || base.personalStoryCue || base.storySeed || '').trim(),
+        greetingText: String((keepBaseChainPersona ? base.greetingText : persona.greetingText) || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
         roleProfile: String(profileSpec.roleProfile || base.roleProfile || 'general_passenger_v1').toLowerCase(),
         taskDomain: String(profileSpec.taskDomain || base.taskDomain || 'general').toLowerCase(),
         gTolerance: String(tol.gTolerance || base.gTolerance || 'mittel').toLowerCase(),
@@ -13358,15 +13362,32 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 storyFrame: existingContract.storyFrame || existingContract?.missionPlan?.plan?.storyFrame || m._missionPlanV4?.storyFrame || {},
                 poiChain: chainForStory
             };
-            const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, passenger);
+            if (isChainRecon && !storyContract.chainNarrativeBrief && typeof _missionPipelineV4BuildPoiChainNarrativeBrief === 'function') {
+                storyContract.chainNarrativeBrief = _missionPipelineV4BuildPoiChainNarrativeBrief({
+                    profile: storyContract.profile,
+                    target: storyContract.target,
+                    storyFrame: storyContract.storyFrame,
+                    infraNarrativeHandoff: storyContract.infraNarrativeHandoff || null,
+                    poiChain: chainForStory
+                });
+            }
+            const activeInfraPassenger = isChainRecon
+                ? _missionPipelineV4PoiChainBriefPassenger(storyContract, passenger)
+                : passenger;
+            if (isChainRecon && activeInfraPassenger?.name) {
+                const previousPassenger = m.passenger && typeof m.passenger === 'object' ? { ...m.passenger } : null;
+                m.passenger = activeInfraPassenger;
+                synchronizeMissionPassengerName(m, previousPassenger, activeInfraPassenger);
+            }
+            const chainStory = _missionPipelineV4ComposePoiChainInfraStory(storyContract, activeInfraPassenger);
             if (isChainRecon) {
                 const writerStory = String(m.s || m.story || '').replace(/\s+/g, ' ').trim();
                 const endpointPreparedWriterStory = _missionPipelineV4EnsurePoiChainEndpointNote(writerStory, storyContract);
-                const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(endpointPreparedWriterStory, storyContract, passenger);
-                const writerComplete = _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, passenger);
-                const writerUsable = _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, passenger);
+                const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(endpointPreparedWriterStory, storyContract, activeInfraPassenger);
+                const writerComplete = _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, activeInfraPassenger);
+                const writerUsable = _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, activeInfraPassenger);
                 const acceptedWriter = writerComplete || writerUsable;
-                const fallbackStory = chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger });
+                const fallbackStory = chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger: activeInfraPassenger });
                 m.s = acceptedWriter ? preparedWriterStory : fallbackStory;
                 m._poiChainStoryDebug = {
                     stage: 'applyMissionTaskProfileToMission',
@@ -13383,7 +13404,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                         : null
                 };
             } else {
-                m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, passenger);
+                m.s = chainStory || _missionPipelineV4EnsureInfraPassengerStory(m.s || m.story || '', storyContract, activeInfraPassenger);
             }
         }
     }
@@ -21687,6 +21708,24 @@ function buildMissionContractV4({
             poiChain
         })
         : null;
+    const chainNarrativeBrief = taskDomain === 'infra_chain_recon' && hasPoiChain
+        ? _missionPipelineV4BuildPoiChainNarrativeBrief({
+            profile: {
+                id: profileId,
+                roleProfile,
+                taskDomain,
+                pickerCategory: String(plannerContext.selectedCategory || 'all'),
+                requestedCategory: String(plannerContext.requestedCategory || plannerContext.selectedCategory || 'all')
+            },
+            target: {
+                name: String(plannerContext.dest?.n || ''),
+                poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || '')
+            },
+            storyFrame,
+            infraNarrativeHandoff,
+            poiChain
+        })
+        : null;
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -21722,6 +21761,7 @@ function buildMissionContractV4({
         missionPlan: plan,
         storyFrame,
         infraNarrativeHandoff,
+        chainNarrativeBrief,
         pickupCreativeBrief,
         missionVarietyBrief,
         variety: pickupCreativeBrief?.variety || missionVarietyBrief?.variety || plannerResult?.variety || null,
@@ -21770,7 +21810,7 @@ Regeln:
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt. Der PAX ist eine konkrete Fachperson im Flugzeug; nenne natuerlich, wer diese Person ist oder welche Rolle sie hat und was sie am Ziel fachlich beurteilen soll. Wenn CONTRACT.infraNarrativeHandoff vorhanden ist, nutze focus, decision und nextStep als Rohmaterial und formuliere daraus eine geschlossene Geschichte; nicht wortwoertlich als Listenfelder kopieren. Hafen, Schleuse, Anleger, Zaunlinie, Tor oder Perimeter nur dann nutzen, wenn Ziel oder Kontext das tragen; dann als Betreiber-/Wasserbau-/Zugangspruefung erzaehlen, nicht als Security- oder Polizeilage.
-17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Ziel ist eine Luftbildserie und ein grober Erstbefund fuer mehrere Punkte: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Nutze CONTRACT.infraNarrativeHandoff und CONTRACT.poiChain als offene Bausteine: Anlass, Korridor, Einstieg, Endpunkt, Fachperson, Auswertung und naechsten Schritt natuerlich verweben. Behalte Zwischenpunkte fuer die spaeteren Voice-Aufrufe unterwegs zurueck und schreibe mit normalen Dispatch-Begriffen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; beschreibe den Abschluss als Rueckkehr mit Foto-/Befunduebergabe.
+17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Wenn CONTRACT.chainNarrativeBrief vorhanden ist, nutze es als primaere Story-Rezeptur: konkreter Betreiberanlass, warum der Luftblick die Kette sinnvoll vorsortiert, welche Fachperson mit Namen/Rolle an Bord ist, Einstieg am ersten Punkt, Abschluss am letzten Punkt und Handoff nach der Rueckkehr. Setze passenger.name, passenger.role, passenger.gender und nach Moeglichkeit greetingText aus CONTRACT.chainNarrativeBrief.selectedPassenger; diese Person ist Teil der Geschichte, nicht nur ein Formularfeld. StorySeed ist nur Rollenfarbe, nicht wortwoertlich zu kopieren. Ziel ist eine Luftbildserie und ein grober Erstbefund: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Behalte Zwischenpunkte fuer spaetere Voice-Aufrufe unterwegs zurueck und schreibe in 4-5 natuerlichen Dispatch-Saetzen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; der Abschluss ist Rueckkehr mit Foto-/Befunduebergabe.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
 18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
@@ -22569,6 +22609,46 @@ function _missionPipelineV4EnsureInfraPassengerStory(story = '', contract = {}, 
     return out.filter(Boolean).join(' ');
 }
 
+function _missionPipelineV4PolishGermanVisibleText(text = '') {
+    let out = String(text || '');
+    if (!out) return out;
+    [
+        [/\bFuer\b/g, 'Für'], [/\bfuer\b/g, 'für'],
+        [/\bUebersicht\b/g, 'Übersicht'], [/\buebersicht\b/g, 'Übersicht'],
+        [/\bUeber\b/g, 'Über'], [/\bueber\b/g, 'über'],
+        [/\bUebergeb/g, 'Übergeb'], [/\buebergeb/g, 'übergeb'],
+        [/\bUebergabe\b/g, 'Übergabe'], [/\buebergabe\b/g, 'Übergabe'],
+        [/\bUeberflug\b/g, 'Überflug'], [/\bueberflug\b/g, 'Überflug'],
+        [/\bRueckkehr\b/g, 'Rückkehr'], [/\brueckkehr\b/g, 'Rückkehr'],
+        [/\bZurueck\b/g, 'Zurück'], [/\bzurueck\b/g, 'zurück'],
+        [/\bNaechst/g, 'Nächst'], [/\bnaechst/g, 'nächst'],
+        [/\bSpaeter/g, 'Später'], [/\bspaeter/g, 'später'],
+        [/\bKoenn/g, 'Könn'], [/\bkoenn/g, 'könn'],
+        [/\bMuess/g, 'Müss'], [/\bmuess/g, 'müss'],
+        [/\bMoeglich/g, 'Möglich'], [/\bmoeglich/g, 'möglich'],
+        [/\bBenoetig/g, 'Benötig'], [/\bbenoetig/g, 'benötig'],
+        [/\bPrimaer/g, 'Primär'], [/\bprimaer/g, 'primär'],
+        [/\bNatuerlich/g, 'Natürlich'], [/\bnatuerlich/g, 'natürlich'],
+        [/\bSaetze\b/g, 'Sätze'], [/\bsaetze\b/g, 'sätze'],
+        [/\bNachpruef/g, 'Nachprüf'], [/\bnachpruef/g, 'nachprüf'],
+        [/\bEinzelpruef/g, 'Einzelprüf'], [/\beinzelpruef/g, 'einzelprüf'],
+        [/\bBodenpruef/g, 'Bodenprüf'], [/\bbodenpruef/g, 'bodenprüf'],
+        [/\bPruef/g, 'Prüf'], [/\bpruef/g, 'prüf'],
+        [/\bGeprueft\b/g, 'Geprüft'], [/\bgeprueft\b/g, 'geprüft'],
+        [/\bAuffaellig/g, 'Auffällig'], [/\bauffaellig/g, 'auffällig'],
+        [/\bUnauffaellig/g, 'Unauffällig'], [/\bunauffaellig/g, 'unauffällig'],
+        [/\bStoer/g, 'Stör'], [/\bstoer/g, 'stör'],
+        [/\bFlaeche/g, 'Fläche'], [/\bflaeche/g, 'fläche'],
+        [/\bGelaende/g, 'Gelände'], [/\bgelaende/g, 'gelände'],
+        [/\bBruecke/g, 'Brücke'], [/\bbruecke/g, 'brücke'],
+        [/\bAnschluesse\b/g, 'Anschlüsse'], [/\banschluesse\b/g, 'anschlüsse'],
+        [/\bBehoerden\b/g, 'Behörden'], [/\bbehoerden\b/g, 'behörden'],
+        [/\bStrassenverkehrsbehoerden\b/g, 'Straßenverkehrsbehörden'],
+        [/\bStrassenverkehrsbehoerde\b/g, 'Straßenverkehrsbehörde']
+    ].forEach(([pattern, replacement]) => { out = out.replace(pattern, replacement); });
+    return out.replace(/\s+/g, ' ').trim();
+}
+
 function _missionPipelineV4PoiChainLabelLooksGeneric(label = '') {
     return /^(poi[- ]?kette|infrastruktur[- ]?kette|brueckenkette|brückenkette|bauwerkskette|gewaesserkorridor|gewässerkorridor|strassenkorridor|straßenkorridor|verkehrskorridor|bahnkorridor|stromtrasse)$/i.test(String(label || '').trim());
 }
@@ -22701,35 +22781,208 @@ function _missionPipelineV4PoiChainTrigger(chain = {}, phrase = 'im Korridor') {
     return `${spine.actor} hat ${corridor} eine Voruntersuchung angefordert: ${reason}. ${spine.whyAir}`;
 }
 
+function _missionPipelineV4PoiChainBriefPassenger(contract = {}, fallback = {}) {
+    const briefPassenger = contract?.chainNarrativeBrief?.selectedPassenger;
+    const source = (briefPassenger && typeof briefPassenger === 'object') ? briefPassenger : {};
+    const base = (fallback && typeof fallback === 'object') ? fallback : {};
+    const out = {
+        ...base,
+        ...source
+    };
+    const roleProfile = String(contract?.profile?.roleProfile || out.roleProfile || 'technical_inspector_v1').toLowerCase();
+    const taskDomain = String(contract?.profile?.taskDomain || out.taskDomain || 'infra_chain_recon').toLowerCase();
+    out.name = String(out.name || '').replace(/\s+/g, ' ').trim();
+    out.role = String(out.role || 'Fachperson').replace(/\s+/g, ' ').trim();
+    out.gender = String(out.gender || '').toLowerCase() === 'female' ? 'female' : 'male';
+    out.personality = String(out.personality || 'ruhig, freundlich, professionell').trim();
+    out.dialectHint = String(out.dialectHint || 'neutral').trim() || 'neutral';
+    out.roleProfile = roleProfile;
+    out.taskDomain = taskDomain;
+    if (source.storySeed || source.personalStoryCue) {
+        out.storySeed = String(source.storySeed || source.personalStoryCue || '').trim();
+        out.personalStoryCue = String(source.personalStoryCue || source.storySeed || '').trim();
+    }
+    if (source.greetingText) out.greetingText = _missionPipelineV4PolishGermanVisibleText(source.greetingText);
+    return out;
+}
+
+function _missionPipelineV4BuildPoiChainNarrativeBrief({
+    profile = {},
+    target = {},
+    storyFrame = {},
+    infraNarrativeHandoff = null,
+    poiChain = null
+} = {}) {
+    const chain = (poiChain && typeof poiChain === 'object') ? poiChain : null;
+    const points = Array.isArray(chain?.points) ? chain.points : [];
+    if (points.length < 2) return null;
+    const targetName = String(target?.name || chain?.label || 'Zielkorridor').replace(/\s+/g, ' ').trim() || 'Zielkorridor';
+    const category = String(target?.poiCategory || target?.targetCategory || profile?.pickerCategory || '').trim().toLowerCase();
+    const requestedCategory = String(profile?.requestedCategory || profile?.pickerCategory || category || 'chain').trim().toLowerCase();
+    const profileSpec = getMissionTaskProfile('infra_chain_recon', 'poi') || MISSION_ROLE_TASK_PROFILES.infra_chain_recon || {};
+    const persona = _pickRandomProfilePersona(profileSpec, {
+        poiCategory: category,
+        requestedCategory,
+        category,
+        targetName,
+        missionContractV4: { profile, target, poiChain: chain, storyFrame }
+    }) || {};
+    const name = String(persona.name || '').replace(/\s+/g, ' ').trim() || 'Alex Neumann';
+    const role = String(persona.role || '').replace(/\s+/g, ' ').trim() || 'Infrastruktur-Fachperson';
+    const gender = String(persona.gender || '').toLowerCase() === 'female' ? 'female' : 'male';
+    const templateContext = {
+        name,
+        firstName: name.split(/\s+/)[0] || name,
+        role,
+        targetName,
+        target: targetName
+    };
+    const spine = _missionPipelineV4PoiChainStorySpine(chain);
+    const phrase = _missionPipelineV4PoiChainCorridorPhrase(chain, targetName);
+    const firstPoint = String(points[0]?.name || 'dem ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const lastPoint = String(points[points.length - 1]?.name || 'dem letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const handoff = (infraNarrativeHandoff && typeof infraNarrativeHandoff === 'object') ? infraNarrativeHandoff : {};
+    const concreteTrigger = handoff.trigger || _missionPipelineV4PoiChainTrigger(chain, phrase);
+    const scope = handoff.focus || spine.scope;
+    const decision = handoff.decision || 'welche Punkte unauffällig wirken, welche beobachtet werden sollten und wo später eine gezielte Einzelprüfung lohnt';
+    const nextStep = handoff.nextStep || 'Bildserie und Kurzbefund gehen nach der Rückkehr an Betreiber oder Technikteam; Details bleiben späteren Einzelobjekt-Missionen oder Bodenteams vorbehalten';
+    const storySeed = _missionTemplateText(persona.storySeed || '', templateContext);
+    const greetingText = _missionTemplateText(
+        persona.greetingText || profileSpec.greetingText || 'Hi, ich begleite heute die Voruntersuchung bei {targetName}; bitte ruhig fliegen, damit die Bildserie verwertbar wird.',
+        templateContext
+    );
+    const brief = {
+        schema: 'ga.poiChainNarrativeBrief.v1',
+        mode: 'infra_chain_recon',
+        theme: String(chain?.theme || 'default').toLowerCase(),
+        titlePrefix: String(spine.titlePrefix || 'Korridor-Erstbefund'),
+        corridorPhrase: phrase,
+        actor: spine.actor,
+        subject: spine.subject,
+        concreteTrigger,
+        whyAir: spine.whyAir,
+        scope,
+        firstPoint,
+        lastPoint,
+        decision,
+        nextStep,
+        selectedPassenger: {
+            name,
+            role,
+            gender,
+            personality: String(persona.personality || 'ruhig, freundlich, professionell').trim(),
+            dialectHint: String(persona.dialectHint || 'neutral').trim() || 'neutral',
+            storySeed,
+            personalStoryCue: storySeed,
+            greetingText,
+            roleProfile: String(profileSpec.roleProfile || profile?.roleProfile || 'technical_inspector_v1').toLowerCase(),
+            taskDomain: 'infra_chain_recon'
+        },
+        storyBeats: [
+            'konkreter Betreiberanlass fuer die mehrteilige Voruntersuchung',
+            'warum der Luftblick die Kette schneller sortiert als sofortige Einzelpruefungen',
+            'wer als Fachperson an Bord ist und welche fachliche Sicht diese Person mitbringt',
+            'natuerlicher Einstieg am ersten Punkt und Abschluss am letzten Punkt; Zwischenpunkte nur knapp anteasern',
+            'Rueckkehr mit Bildserie, Kurzbefund und Entscheidung ueber gezielte Nachpruefung oder Bodenteam'
+        ],
+        writerExpectation: 'Schreibe ein Briefing aus Dispatcher-Perspektive in 4-5 natuerlichen Saetzen. Die Felder sind Rohmaterial, keine Satzliste; StorySeed inspiriert die Rolle, wird aber nicht wortwoertlich kopiert.'
+    };
+    return JSON.parse(JSON.stringify(brief, (_key, value) => (
+        typeof value === 'string' ? _missionPipelineV4PolishGermanVisibleText(value) : value
+    )));
+}
+
+function _missionPipelineV4PoiChainGenericPassengerSentence(sentence = '') {
+    const normalized = normalizeMissionText(sentence);
+    return /\bfachperson\b/.test(normalized)
+        && /(luftbildserie|markiert|nachpruefung|nachprufung|einzelobjekt|sichtkontrolle|erstbefund|bauwerkslage|durchflussbild)/.test(normalized);
+}
+
+function _missionPipelineV4PoiChainHasGenericPassengerDuplication(story = '', passenger = {}) {
+    const sentences = _missionPipelineV4SentenceParts(story);
+    if (!sentences.length) return false;
+    const normalized = normalizeMissionText(story);
+    const name = normalizeMissionText(String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim());
+    const role = normalizeMissionText(passenger?.role || '');
+    const selectedMentioned = !!((name && normalized.includes(name)) || (role && normalized.includes(role)));
+    const genericSentences = sentences.filter(part => _missionPipelineV4PoiChainGenericPassengerSentence(part));
+    if (genericSentences.length > 1) return true;
+    if (!selectedMentioned || !genericSentences.length) return false;
+    return genericSentences.some(part => {
+        const partNorm = normalizeMissionText(part);
+        return !((name && partNorm.includes(name)) || (role && partNorm.includes(role)));
+    });
+}
+
+function _missionPipelineV4PoiChainFieldCovered(normalizedStory = '', value = '') {
+    const normalizedValue = normalizeMissionText(value);
+    if (!normalizedStory || !normalizedValue) return false;
+    if (normalizedValue.length >= 18 && normalizedStory.includes(normalizedValue)) return true;
+    const stop = new Set(['eine', 'einer', 'einem', 'einen', 'oder', 'und', 'dass', 'damit', 'nach', 'vor', 'soll', 'sollen', 'welche', 'mehrere', 'punkte', 'punkt', 'wird', 'werden', 'geht', 'gehen', 'spaeter', 'spater']);
+    const tokens = normalizedValue
+        .split(/[^a-z0-9äöüß]+/i)
+        .map(token => token.trim())
+        .filter(token => token.length >= 6 && !stop.has(token))
+        .slice(0, 16);
+    if (!tokens.length) return false;
+    const hits = tokens.filter(token => normalizedStory.includes(token)).length;
+    return hits >= Math.min(3, Math.max(1, Math.ceil(tokens.length * 0.25)));
+}
+
+function _missionPipelineV4PoiChainStoryCoversNarrativeBrief(story = '', contract = {}, passenger = {}) {
+    const brief = contract?.chainNarrativeBrief;
+    if (!brief || typeof brief !== 'object') return true;
+    const text = String(story || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(text);
+    if (!normalized) return false;
+    const selectedPassenger = _missionPipelineV4PoiChainBriefPassenger(contract, passenger);
+    const name = normalizeMissionText(String(selectedPassenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim());
+    const role = normalizeMissionText(selectedPassenger?.role || '');
+    let score = 0;
+    if ((name && normalized.includes(name)) || (role && normalized.includes(role))) score += 1;
+    if (_missionPipelineV4PoiChainFieldCovered(normalized, brief.concreteTrigger || '')) score += 1;
+    if (_missionPipelineV4PoiChainFieldCovered(normalized, brief.whyAir || '') || /(luftblick|luftbild|aus der luft|blickzusammenhang|zusammenhang|vorsort)/i.test(text)) score += 1;
+    if (_missionPipelineV4PoiChainFieldCovered(normalized, brief.decision || '') || /(unauffaellig|unauffällig|nachpruefung|nachprüfung|bodenrunde|bodenteam|einzelpruefung|einzelprüfung)/i.test(text)) score += 1;
+    if (_missionPipelineV4PoiChainFieldCovered(normalized, brief.nextStep || '') || /(betreiber|technikteam|kurzbefund|bildserie|rueckkehr|rückkehr)/i.test(text)) score += 1;
+    return score >= 4;
+}
+
 function _missionPipelineV4ComposePoiChainInfraStory(contract = {}, passenger = {}, context = {}) {
     const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
     const points = Array.isArray(chain?.points) ? chain.points : [];
     if (!points.length) return '';
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     const targetName = String(contract?.target?.name || chain?.label || 'Zielkorridor').replace(/\s+/g, ' ').trim();
+    const brief = (contract?.chainNarrativeBrief && typeof contract.chainNarrativeBrief === 'object') ? contract.chainNarrativeBrief : {};
+    const activePassenger = _missionPipelineV4PoiChainBriefPassenger(contract, passenger);
     const phrase = _missionPipelineV4PoiChainCorridorPhrase(chain, targetName);
-    const first = String(points[0]?.name || 'dem ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
-    const last = String(points[points.length - 1]?.name || 'dem letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
-    const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
-    const role = String(passenger?.role || 'Fachperson').replace(/\s+/g, ' ').trim();
-    const pronoun = String(passenger?.gender || '').toLowerCase() === 'female' ? 'sie' : 'er';
-    const handoff = _missionPipelineV4BuildInfraNarrativeHandoff(contract);
-    const scope = handoff?.focus || _missionPipelineV4PoiChainScope(chain);
+    const first = String(brief.firstPoint || points[0]?.name || 'dem ersten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const last = String(brief.lastPoint || points[points.length - 1]?.name || 'dem letzten Prüfpunkt').replace(/\s+/g, ' ').trim();
+    const paxName = String(activePassenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+    const role = String(activePassenger?.role || 'Fachperson').replace(/\s+/g, ' ').trim();
+    const pronoun = String(activePassenger?.gender || '').toLowerCase() === 'female' ? 'sie' : 'er';
+    const handoff = (contract?.infraNarrativeHandoff && typeof contract.infraNarrativeHandoff === 'object')
+        ? contract.infraNarrativeHandoff
+        : _missionPipelineV4BuildInfraNarrativeHandoff(contract);
+    const scope = brief.scope || handoff?.focus || _missionPipelineV4PoiChainScope(chain);
     const whyRaw = _missionPipelineV4StripSentenceEnd(frame.trigger || frame.incidentContext || frame.whyNow || '');
-    const why = whyRaw && !/(regelmaessige|regelmäßige|saisonale|detaillierter visueller befund|gewaesserkorridor|gewässerkorridor)/i.test(whyRaw)
+    const why = brief.concreteTrigger
+        || (whyRaw && !/(regelmaessige|regelmäßige|saisonale|detaillierter visueller befund|gewaesserkorridor|gewässerkorridor)/i.test(whyRaw)
         ? whyRaw
-        : (handoff?.trigger || _missionPipelineV4PoiChainTrigger(chain, phrase));
+        : (handoff?.trigger || _missionPipelineV4PoiChainTrigger(chain, phrase)));
     const weather = String(context?.weatherSentence || '').trim();
     const paxSentence = paxName
-        ? `An Bord ist ${paxName}, ${role}; ${pronoun} sammelt die Luftbildserie, achtet auf ${scope} und markiert, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen könnten.`
-        : `Die Fachperson an Bord sammelt die Luftbildserie, achtet auf ${scope} und markiert, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen könnten.`;
-    return [
+        ? `An Bord ist ${paxName}, ${role}; ${pronoun} nutzt die ruhigen Vorbeiflüge, um ${scope} in einer zusammenhängenden Luftbildserie einzuordnen.`
+        : `An Bord ist eine Fachperson für den Erstbefund. Sie ordnet ${scope} als zusammenhängende Luftbildserie ein.`;
+    const routeOutcome = `Wir steigen bei ${first} in die Kette ein und schließen bei ${last} ab; die Zwischenpunkte bleiben für die späteren Calls unterwegs reserviert, während aus den Fotos ein grober Erstbefund mit unauffälligen Abschnitten, Beobachtungspunkten und Stellen mit Anschlussbedarf entsteht.`;
+    const story = [
         why,
+        weather,
         paxSentence,
-        `Der Flug beginnt am Prüfpunkt ${first} und endet am Prüfpunkt ${last}; die Zwischenpunkte ruft die Fachperson unterwegs nacheinander auf.`,
-        `${_missionPipelineV4StripSentenceEnd('Aus den Fotos entsteht ein grober Erstbefund: unauffällige Abschnitte, Beobachtungspunkte und Stellen mit Anschlussbedarf werden getrennt notiert')}.${weather}`,
-        'Nach der Rückkehr gehen Bildserie und Kurzbefund an Betreiber oder Technikteam, damit die nächste Bodenrunde gezielt geplant werden kann.'
+        routeOutcome,
+        brief.nextStep || handoff?.nextStep || 'Nach der Rückkehr gehen Bildserie und Kurzbefund an Betreiber oder Technikteam, damit die nächste Bodenrunde gezielt geplant werden kann.'
     ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
+    return _missionPipelineV4PolishGermanVisibleText(story);
 }
 
 function _missionPipelineV4PoiChainStoryLooksComplete(story = '', contract = {}, passenger = {}) {
@@ -22748,7 +23001,9 @@ function _missionPipelineV4PoiChainStoryLooksComplete(story = '', contract = {},
     const mentionsEnds = (!first || normalized.includes(first) || /einstieg|ersten pruefpunkt|ersten prüfpunkt/i.test(normalized))
         && (!last || normalized.includes(last) || /endpunkt|letzten pruefpunkt|letzten prüfpunkt/i.test(normalized));
     const leaks = /\b(CONTRACT|DISPATCH_FORM|poiChain|missionTruth|infraNarrativeHandoff|taskDomain|roleProfile|Pipeline|JSON)\b/i.test(text);
-    return mentionsPassenger && chainTerms && outcomeTerms && mentionsEnds && !leaks;
+    const noGenericDuplication = !_missionPipelineV4PoiChainHasGenericPassengerDuplication(text, passenger);
+    const coversBrief = _missionPipelineV4PoiChainStoryCoversNarrativeBrief(text, contract, passenger);
+    return mentionsPassenger && chainTerms && outcomeTerms && mentionsEnds && noGenericDuplication && coversBrief && !leaks;
 }
 
 function _missionPipelineV4PoiChainStoryLooksUsable(story = '', contract = {}, passenger = {}) {
@@ -22761,7 +23016,9 @@ function _missionPipelineV4PoiChainStoryLooksUsable(story = '', contract = {}, p
     const chainTerms = /(kette|korridor|mehrteil|luftbildserie|erstbefund|prüfpunkt|pruefpunkt|voruntersuchung)/i.test(text);
     const outcomeTerms = /(befund|fotos?|bildserie|auswertung|betreiber|technikteam|bodenrunde|einzelobjekt|nachpruefung|nachprüfung)/i.test(text);
     const leaks = /\b(CONTRACT|DISPATCH_FORM|poiChain|missionTruth|infraNarrativeHandoff|taskDomain|roleProfile|Pipeline|JSON)\b/i.test(text);
-    return mentionsPassenger && chainTerms && outcomeTerms && !leaks;
+    const noGenericDuplication = !_missionPipelineV4PoiChainHasGenericPassengerDuplication(text, passenger);
+    const coversBrief = _missionPipelineV4PoiChainStoryCoversNarrativeBrief(text, contract, passenger);
+    return mentionsPassenger && chainTerms && outcomeTerms && noGenericDuplication && coversBrief && !leaks;
 }
 
 function _missionPipelineV4EnsurePoiChainEndpointNote(story = '', contract = {}) {
@@ -22778,31 +23035,47 @@ function _missionPipelineV4EnsurePoiChainEndpointNote(story = '', contract = {})
     const hasLast = !!(lastKey && normalized.includes(lastKey)) || /endpunkt|letzten pruefpunkt|letzten prüfpunkt/i.test(normalized);
     if (hasFirst && hasLast) return base;
     const note = `Die Kette beginnt am Prüfpunkt ${first} und endet am Prüfpunkt ${last}; die Zwischenpunkte werden unterwegs aufgerufen.`;
-    return `${base} ${note}`.trim();
+    return _missionPipelineV4PolishGermanVisibleText(`${base} ${note}`.trim());
 }
 
 function _missionPipelineV4EnsurePoiChainPassengerNote(story = '', contract = {}, passenger = {}) {
     const base = String(story || '').replace(/\s+/g, ' ').trim();
     if (!base) return base;
+    const activePassenger = _missionPipelineV4PoiChainBriefPassenger(contract, passenger);
     const normalized = normalizeMissionText(base);
-    const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
-    const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
+    const paxName = String(activePassenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+    const role = String(activePassenger?.role || '').replace(/\s+/g, ' ').trim();
     const nameKey = normalizeMissionText(paxName);
     const roleKey = normalizeMissionText(role);
-    if ((nameKey && normalized.includes(nameKey)) || (roleKey && normalized.includes(roleKey))) return base;
     const chain = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
-    const scope = _missionPipelineV4PoiChainScope(chain);
+    const scope = contract?.chainNarrativeBrief?.scope || _missionPipelineV4PoiChainScope(chain);
     const roleNote = role && !/^begleitperson$/i.test(role) ? `, ${role}` : '';
+    const pronoun = String(activePassenger?.gender || '').toLowerCase() === 'female' ? 'Sie' : 'Er';
     const note = paxName
-        ? `An Bord ist ${paxName}${roleNote}; die Fachperson sammelt die Luftbildserie, achtet auf ${scope} und markiert Punkte für eine spätere Nachprüfung.`
-        : `Die Fachperson an Bord sammelt die Luftbildserie, achtet auf ${scope} und markiert Punkte für eine spätere Nachprüfung.`;
+        ? `An Bord ist ${paxName}${roleNote}. ${pronoun} ordnet die Luftbildserie anhand von ${scope} und hält fest, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen.`
+        : `An Bord ist eine Fachperson für den Erstbefund. Sie ordnet die Luftbildserie anhand von ${scope} und hält fest, welche Punkte später eine nähere Nachprüfung brauchen.`;
     const sentences = _missionPipelineV4SentenceParts(base);
-    if (sentences.length <= 1) return `${base} ${note}`.trim();
-    return [
+    const hasIdentity = !!((nameKey && normalized.includes(nameKey)) || (roleKey && normalized.includes(roleKey)));
+    const genericIndexes = sentences
+        .map((part, index) => ({ part, index }))
+        .filter(entry => _missionPipelineV4PoiChainGenericPassengerSentence(entry.part))
+        .map(entry => entry.index);
+    if (genericIndexes.length) {
+        const firstGeneric = genericIndexes[0];
+        const out = sentences
+            .map((part, index) => (index === firstGeneric ? note : part))
+            .filter((part, index) => index === firstGeneric || !genericIndexes.includes(index))
+            .map(part => _missionPipelineV4EnsureSentence(part))
+            .filter(Boolean);
+        return _missionPipelineV4PolishGermanVisibleText(_missionPipelineV4DedupeStorySentences(out.join(' ')));
+    }
+    if (hasIdentity) return _missionPipelineV4PolishGermanVisibleText(base);
+    if (sentences.length <= 1) return _missionPipelineV4PolishGermanVisibleText(`${base} ${note}`.trim());
+    return _missionPipelineV4PolishGermanVisibleText([
         sentences[0],
         note,
         ...sentences.slice(1)
-    ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' ');
+    ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' '));
 }
 
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
@@ -23299,6 +23572,11 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
         || current.length < 55;
     const storyCovered = _missionPipelineV4StoryFieldCovered(current, contract?.storyFrame?.subjectDetail || '', 1)
         || _missionPipelineV4StoryFieldCovered(current, contract?.storyFrame?.soughtOutcome || '', 1);
+    const chainGreeting = String(contract?.chainNarrativeBrief?.selectedPassenger?.greetingText || '').trim();
+    if (taskDomain === 'infra_chain_recon' && chainGreeting && (genericGreeting || !storyCovered)) {
+        pax.greetingText = _missionPipelineV4PolishGermanVisibleText(chainGreeting);
+        return pax;
+    }
     if (!genericGreeting && storyCovered) return pax;
     if (!taskDomain) return pax;
     pax.greetingText = _missionPipelineV4BuildGreetingFallback(pax, contract, storyText);
@@ -23419,6 +23697,24 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     passenger.roleProfile = requiredRoleProfile;
     passenger.taskDomain = requiredTaskDomain;
     passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
+    let writerStoryText = String(src.story || '').trim();
+    if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
+        const previousPassenger = { ...passenger };
+        const chainPassenger = _missionPipelineV4PoiChainBriefPassenger(contract, passenger);
+        if (chainPassenger?.name) {
+            const previousName = String(previousPassenger.name || '').trim();
+            const nextName = String(chainPassenger.name || '').trim();
+            if (previousName && nextName && previousName !== nextName) {
+                writerStoryText = _replaceMissionPassengerNameText(writerStoryText, previousName, nextName);
+            }
+            passenger = {
+                ...passenger,
+                ...chainPassenger,
+                roleProfile: requiredRoleProfile,
+                taskDomain: requiredTaskDomain
+            };
+        }
+    }
     const missionType = normalizeMissionType(context.missionType || contract.mode || '', isPOI);
     const draftTargetScene = sanitizeMissionTargetSceneSpec(null, {
         isPOI,
@@ -23426,7 +23722,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         targetGeoContext: context.targetGeoContext || null,
         missionPlanV2: context.missionPlanV2 || null
     });
-    let finalStory = _missionPipelineV4FinalizeStory(String(src.story || '').trim(), contract, {
+    let finalStory = _missionPipelineV4FinalizeStory(writerStoryText, contract, {
         passenger,
         deferInfraPassengerStory: requiredTaskDomain === 'inspection_infra'
     });
@@ -23434,6 +23730,10 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
     passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+    if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
+        finalStory = _missionPipelineV4PolishGermanVisibleText(finalStory);
+        if (passenger?.greetingText) passenger.greetingText = _missionPipelineV4PolishGermanVisibleText(passenger.greetingText);
+    }
     const targetInfo = isPOI
         ? sanitizeGeneratedPoiTargetInfo(src.targetInfo || src.poiTargetInfo || src.destinationInfo || '', { maxLen: 760 })
         : '';
