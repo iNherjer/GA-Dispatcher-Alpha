@@ -3905,8 +3905,10 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
 const _paxPreparedAudio = new Map();
 const _paxBoardingRecentPlayByKey = new Map();
 const _PAX_STATIC_VOICE_CATALOG_URL = './audio-pax/gemini-survey-v1/catalog.json';
+const _PAX_PHOTO_EFFECT_URL = './foto.mp3';
 let _paxStaticVoiceCatalogPromise = null;
 const _paxStaticClipCache = new Map();
+let _paxPhotoEffectWarned = false;
 
 function _paxStaticVoiceAssetsEnabled() {
     return localStorage.getItem('awm_pax_static_voice_assets') !== '0';
@@ -3969,6 +3971,120 @@ async function _paxFetchStaticClipAudio(url, mimeType = '') {
     const rec = { audioBuffer, mimeType: mimeType || res.headers.get('content-type') || '' };
     _paxStaticClipCache.set(key, rec);
     return rec;
+}
+
+function _paxDelayMs(ms, epoch = _paxMissionEpoch) {
+    const wait = Math.max(0, Math.round(Number(ms) || 0));
+    if (!wait) return Promise.resolve(_paxEpochCurrent(epoch));
+    return new Promise(resolve => {
+        setTimeout(() => resolve(_paxEpochCurrent(epoch)), wait);
+    });
+}
+
+function _paxSeededInt(seed, min, max) {
+    const lo = Math.round(Number(min) || 0);
+    const hi = Math.round(Number(max) || lo);
+    const a = Math.min(lo, hi);
+    const b = Math.max(lo, hi);
+    if (a === b) return a;
+    return a + (_hashStable(seed) % (b - a + 1));
+}
+
+async function _paxDecodeAudioEffectAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audioeffekt') {
+    if (!_paxEpochCurrent(epoch)) return false;
+    const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
+        ? window.paxVoiceUnlockAudio('effect')
+        : window._tawsAudioCtx;
+    if (!ctx) return false;
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume().catch(() => {});
+    if (ctx.state !== 'running') {
+        const recovered = await _paxEnsureAudioContextRunning(ctx, 1800);
+        if (!recovered) return false;
+    }
+    if (!_paxEpochCurrent(epoch)) return false;
+    try {
+        let audioBuffer = rawAudioBuffer;
+        const mimeLower = String(mimeType || '').toLowerCase();
+        if (!mimeType || mimeLower.includes('pcm') || mimeLower.includes('l16')) {
+            const rateMatch = mimeType?.match(/rate=(\d+)/);
+            const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
+            audioBuffer = _pcmToWav(rawAudioBuffer, sampleRate, 1, 16);
+        }
+        const decodeBuffer = audioBuffer?.slice ? audioBuffer.slice(0) : audioBuffer;
+        const buf = await ctx.decodeAudioData(decodeBuffer);
+        if (!_paxEpochCurrent(epoch)) return false;
+        await new Promise(resolve => {
+            const src = ctx.createBufferSource();
+            const gain = ctx.createGain();
+            let done = false;
+            let watchdog = null;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                if (watchdog) clearTimeout(watchdog);
+                try { src.onended = null; } catch (_) {}
+                try { src.disconnect(); } catch (_) {}
+                try { gain.disconnect(); } catch (_) {}
+                resolve();
+            };
+            src.buffer = buf;
+            gain.gain.value = 0.78;
+            src.connect(gain);
+            gain.connect(window._awmMasterGain || ctx.destination);
+            src.onended = finish;
+            src.onerror = finish;
+            watchdog = setTimeout(finish, Math.max(1200, Math.round((buf.duration + 0.8) * 1000)));
+            try {
+                src.start(ctx.currentTime + 0.03);
+            } catch (_) {
+                finish();
+            }
+        });
+        return true;
+    } catch (err) {
+        if (!_paxPhotoEffectWarned) {
+            _paxPhotoEffectWarned = true;
+            _paxLog(`Foto-Sound konnte nicht abgespielt werden: ${err?.message || err}`, 'warn');
+        }
+        return false;
+    }
+}
+
+async function _paxPlayPhotoBurst(seed, options = {}, epoch = _paxMissionEpoch) {
+    if (!_paxVoiceEnabled || !_paxEpochCurrent(epoch)) return false;
+    const rec = await _paxFetchStaticClipAudio(_PAX_PHOTO_EFFECT_URL, 'audio/mpeg');
+    if (!rec?.audioBuffer) {
+        if (!_paxPhotoEffectWarned) {
+            _paxPhotoEffectWarned = true;
+            _paxLog('Foto-Sound foto.mp3 nicht gefunden oder nicht ladbar.', 'warn');
+        }
+        return false;
+    }
+    const minCount = Math.max(1, Number(options.minCount || 1));
+    const maxCount = Math.max(minCount, Number(options.maxCount || 5));
+    const count = _paxSeededInt(`${seed}|count`, minCount, maxCount);
+    const minDelay = Math.max(0, Number(options.minDelayMs ?? 1000));
+    const maxDelay = Math.max(minDelay, Number(options.maxDelayMs ?? 10000));
+    let played = false;
+    for (let idx = 0; idx < count; idx++) {
+        const delay = idx === 0
+            ? Math.max(0, Number(options.firstDelayMs ?? minDelay))
+            : _paxSeededInt(`${seed}|delay|${idx}`, minDelay, maxDelay);
+        if (delay > 0) {
+            const ok = await _paxDelayMs(delay, epoch);
+            if (!ok) return played;
+        }
+        if (!_paxEpochCurrent(epoch)) return played;
+        const didPlay = await _paxDecodeAudioEffectAndPlay(
+            rec.audioBuffer.slice(0),
+            rec.mimeType || 'audio/mpeg',
+            epoch,
+            'Foto-Sound'
+        );
+        played = played || didPlay;
+    }
+    if (played) _paxLog(`Foto-Burst gespielt: ${count} Aufnahme${count === 1 ? '' : 'n'}`, 'audio');
+    return played;
 }
 
 async function _paxPrimeStaticSurveyVoice(kind, spec = null, speaker = null) {
@@ -4374,6 +4490,10 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
                 _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
                 return;
             }
+            if (typeof options.beforeAudio === 'function') {
+                await options.beforeAudio(epoch);
+                if (epoch !== _paxMissionEpoch) return;
+            }
             if (typeof options.tryStaticAudio === 'function') {
                 const playedStatic = await options.tryStaticAudio(epoch);
                 if (epoch !== _paxMissionEpoch) return;
@@ -4384,6 +4504,10 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             if (epoch !== _paxMissionEpoch) return;
             if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch);
             else await _playTextAsTTS(text, speaker, epoch);
+            if (typeof options.afterAudio === 'function') {
+                await options.afterAudio(epoch);
+                if (epoch !== _paxMissionEpoch) return;
+            }
         } catch (e) {
             _paxLog(`Prepared Speech Fehler: ${e.message || e}`, 'warn');
         } finally {
@@ -4681,21 +4805,98 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     });
 }
 
-function _poiChainAudioKey(kind = 'event') {
-    return _paxMissionAudioKey(`poi-chain-${kind}`);
+function _poiChainAudioKey(kind = 'event', text = '') {
+    const suffix = text ? `-${_hashStable(text).toString(36).slice(0, 6)}` : '';
+    return _paxMissionAudioKey(`poi-chain-${kind}${suffix}`);
 }
 
-function _poiChainVoiceText(kind = 'point_complete', spec = null) {
+function _poiChainPickText(pool = [], seed = '') {
+    const options = (Array.isArray(pool) ? pool : []).map(v => String(v || '').trim()).filter(Boolean);
+    if (!options.length) return '';
+    return options[_hashStable(seed) % options.length] || options[0] || '';
+}
+
+function _poiChainPointLabel(point = null, fallback = 'dieser Punkt') {
+    const name = String(point?.name || '').trim();
+    if (!name) return fallback;
+    return name.length > 46 ? `${name.slice(0, 43).trim()}...` : name;
+}
+
+function _poiChainPointFindingText(event = null, spec = null) {
+    const point = event?.point || null;
+    const tags = point?.tags || {};
+    const hiddenOutcome = event?.hiddenOutcome && typeof event.hiddenOutcome === 'object' ? event.hiddenOutcome : null;
+    const explicit = [
+        hiddenOutcome?.paxFindingText,
+        hiddenOutcome?.findingHint,
+        tags.paxFindingText,
+        tags.findingText,
+        tags.findingHint,
+        event?.findingText,
+        event?.findingHint
+    ].map(v => String(v || '').trim()).find(Boolean);
+    if (explicit) return explicit;
+    const marker = String(hiddenOutcome?.findingKind || tags.finding || tags.outcome || tags.followUp || tags.followUpType || event?.finding || '').trim().toLowerCase();
+    if (!marker || /^(none|ok|clear|normal|unauffaellig|unauffällig|false|0)$/.test(marker)) return '';
+    const pointName = _poiChainPointLabel(point, 'dieser Querung');
+    return _poiChainPickText([
+        `Bei ${pointName} nehme ich einen möglichen Anschlussbedarf mit. Die Fotos sollten später genauer ausgewertet werden, bevor daraus eine Einzelprüfung wird.`,
+        `Hier notiere ich eine Auffälligkeit für die Nachsichtung. Wir dokumentieren den Punkt sauber und entscheiden erst nach der Bildauswertung über eine Folgemission.`,
+        `Diesen Punkt markiere ich für die Auswertung. Aus der Luft reicht das für den Erstbefund, Details klären wir später gezielt am Einzelobjekt.`
+    ], `${spec?.key || spec?.label || ''}|${point?.id || pointName}|finding|${marker}`);
+}
+
+function _poiChainVoiceText(kind = 'point_complete', spec = null, event = null) {
+    const point = event?.point || null;
+    const nextPoint = event?.nextPoint || null;
+    const seed = `${spec?.key || spec?.label || ''}|${kind}|${point?.id || ''}|${nextPoint?.id || ''}`;
     switch (kind) {
         case 'chain_complete':
-            return 'Das war der letzte Kontrollpunkt. Die Kette ist komplett, Auftrag erfüllt. Wir gehen zurück zum Heimatplatz.';
+            return _poiChainPickText([
+                'Das war der letzte Kontrollpunkt. Die Bildserie ist komplett; wir gehen zur Auswertung zurück zum Heimatplatz.',
+                'Kette abgeschlossen. Alle Prüfpunkte sind dokumentiert, jetzt bringen wir die Bilder zurück zur Basis.',
+                'Der letzte Punkt ist im Kasten. Für den Erstbefund reicht das, wir kehren zur Übergabe nach Hause zurück.',
+                'Alles aufgenommen. Die Kette ist vollständig dokumentiert, Rückflug zum Startplatz.'
+            ], seed);
         case 'point_complete':
-            return 'Gut, dieser Kontrollpunkt ist erledigt. Weiter zum nächsten markierten Punkt.';
+            return _poiChainPointFindingText(event, spec) || _poiChainPickText([
+                'Gut, der Punkt ist im Kasten. Ich habe die Bilder; weiter zum nächsten markierten Punkt.',
+                'Passt, diese Querung ist dokumentiert. Ich rufe gleich den nächsten Prüfpunkt auf.',
+                'Fotos sind drauf. Für den Erstbefund reicht das hier; weiter zur nächsten Markierung.',
+                'Sauber, der Abschnitt ist abgehakt. Nächster Punkt kommt jetzt auf die Karte.',
+                'Der Kontrollpunkt ist erledigt. Ich notiere ihn als dokumentiert und nehme den nächsten Abschnitt auf.'
+            ], seed);
         case 'chain_area_entered':
-            return 'Wir sind am ersten Kettenpunkt. Kontrolliere den markierten Bereich ruhig und flieg dann zum nächsten Punkt weiter.';
+            return _poiChainPickText([
+                'Wir sind am ersten Kettenpunkt. Bitte ruhig halten, ich starte die Bildserie.',
+                'Erster Prüfpunkt erreicht. Ich beginne mit den Übersichtsaufnahmen und rufe danach den nächsten Punkt auf.',
+                'Das ist der Einstieg in die Kette. Ein stabiler Vorbeiflug reicht für den ersten Befund.'
+            ], seed);
         default:
             return '';
     }
+}
+
+function _poiChainPhotoSoundOptions(kind = '', spec = null, event = null, text = '') {
+    if (kind !== 'point_complete') return null;
+    const point = event?.point || {};
+    const seed = `${spec?.key || spec?.label || ''}|${point?.id || point?.name || ''}|${text}`;
+    return {
+        beforeAudio: (epoch) => _paxPlayPhotoBurst(`${seed}|pre`, {
+            minCount: 1,
+            maxCount: 2,
+            firstDelayMs: 120,
+            minDelayMs: 550,
+            maxDelayMs: 1800
+        }, epoch),
+        afterAudio: (epoch) => _paxPlayPhotoBurst(`${seed}|post`, {
+            minCount: 1,
+            maxCount: 5,
+            firstDelayMs: _paxSeededInt(`${seed}|post-first`, 900, 2600),
+            minDelayMs: 1000,
+            maxDelayMs: 10000
+        }, epoch)
+    };
 }
 
 window.paxVoicePreparePoiChain = function() {
@@ -4708,7 +4909,7 @@ window.paxVoicePreparePoiChain = function() {
     const jobs = kinds.map(kind => {
         const text = _poiChainVoiceText(kind, spec);
         if (!text) return Promise.resolve(null);
-        return _prepareTextAsTTS(_poiChainAudioKey(kind), text, speaker, epoch);
+        return _prepareTextAsTTS(_poiChainAudioKey(kind, text), text, speaker, epoch);
     });
     return Promise.allSettled(jobs);
 };
@@ -4723,18 +4924,32 @@ function _poiChainEventKind(event = null) {
 
 function _handlePoiChainEvents(events = [], spec = null) {
     if (!Array.isArray(events) || !events.length) return;
-    const meaningful = events.map(_poiChainEventKind).filter(Boolean);
+    const meaningful = events
+        .map(event => ({ event, kind: _poiChainEventKind(event) }))
+        .filter(item => item.kind);
     if (!meaningful.length) return;
-    const kind = meaningful.includes('chain_complete') ? 'chain_complete' : meaningful[0];
-    _paxLog(`POI-Chain Event: ${kind}`, 'event');
-    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
-        window.missionPersistRuntimeSnapshot(`poi-chain-${kind}`, { immediate: kind === 'chain_complete' });
-    }
-    const text = _poiChainVoiceText(kind, spec);
-    if (!text) return;
+    const pickedEvents = [];
+    const pointEvent = meaningful.find(item => item.kind === 'point_complete');
+    const areaEvent = meaningful.find(item => item.kind === 'chain_area_entered');
+    const chainEvent = meaningful.find(item => item.kind === 'chain_complete');
+    if (pointEvent) pickedEvents.push(pointEvent);
+    else if (areaEvent) pickedEvents.push(areaEvent);
+    else if (meaningful[0]) pickedEvents.push(meaningful[0]);
+    if (chainEvent && !pickedEvents.includes(chainEvent)) pickedEvents.push(chainEvent);
     const speaker = _speakerSnapshotForMissionVoice('poi-chain');
-    const label = kind === 'chain_complete' ? 'Kette erfüllt' : 'Ketten-Fortschritt';
-    _speakPreparedText(_poiChainAudioKey(kind), text, speaker, label);
+    for (const picked of pickedEvents) {
+        const kind = picked.kind;
+        const event = picked.event || null;
+        _paxLog(`POI-Chain Event: ${kind}`, 'event');
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+            window.missionPersistRuntimeSnapshot(`poi-chain-${kind}`, { immediate: kind === 'chain_complete' });
+        }
+        const text = _poiChainVoiceText(kind, spec, event);
+        if (!text) continue;
+        const label = kind === 'chain_complete' ? 'Kette erfüllt' : 'Ketten-Fortschritt';
+        const photoOptions = _poiChainPhotoSoundOptions(kind, spec, event, text) || {};
+        _speakPreparedText(_poiChainAudioKey(kind, text), text, speaker, label, photoOptions);
+    }
 }
 
 function _tickPoiChainTask(lat, lon, flightData) {

@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1171';
+const CACHE = 'ga-dispatcher-v1172';
 
 const STATIC = [
     './',
@@ -15,6 +15,8 @@ const STATIC = [
     './mission-infra-outcome-core.js',
     './mission-followup.js',
     './mission-survey-pattern.js',
+    './mission-poi-chain.js',
+    './mission-poi-chain-runtime.js',
     './data/mission-scene-assets.js',
     './checklists.js',
     './sim-route.js',
@@ -26,6 +28,7 @@ const STATIC = [
     './datenbank.js',
     './missions.js',
     './passenger-voice.js',
+    './foto.mp3',
     './manifest.json',
     './icon-192.png',
     './icon-512.png',

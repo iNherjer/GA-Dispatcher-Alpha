@@ -286,6 +286,31 @@
                 console.warn('[FollowUp] Infra prospect failed:', err?.message || err);
             }
         }
+        if (sourceKind === 'infra_chain_recon' && typeof window.missionInfraBuildChainReconFollowupConfigForMission === 'function') {
+            try {
+                const chainInfraCfg = window.missionInfraBuildChainReconFollowupConfigForMission(md);
+                if (chainInfraCfg) {
+                    return {
+                        schema: 'ga.followup.prospect.v1',
+                        sourceKind,
+                        followUpKind: chainInfraCfg.followUpKind,
+                        sourceLabel: chainInfraCfg.sourceLabel || 'Ketten-Erstbefund',
+                        followUpLabel: chainInfraCfg.followUpLabel || 'Infra-Folgeflug',
+                        followUpProfileId: chainInfraCfg.followUpProfileId || null,
+                        followUpCategory: chainInfraCfg.followUpCategory || null,
+                        temporalContext: chainInfraCfg.temporalContext || null,
+                        stayDays: chainInfraCfg.temporalContext?.stayDays || null,
+                        stayText: chainInfraCfg.temporalContext?.stayText || '',
+                        eligibleAt: chainInfraCfg.temporalContext?.followUpEligibleAt || null,
+                        deboardingHint: chainInfraCfg.temporalContext?.deboardingHint || '',
+                        infraInspectionOutcome: chainInfraCfg.infraInspectionOutcome || null,
+                        createdAt: nowMs()
+                    };
+                }
+            } catch (err) {
+                console.warn('[FollowUp] Infra chain prospect failed:', err?.message || err);
+            }
+        }
         const cfg = SOURCE_MAP[sourceKind];
         if (!cfg) return null;
         const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md, sourceKind) : null;
@@ -804,6 +829,7 @@
         const taskDomain = String(md?.passenger?.taskDomain || md?.missionContract?.taskDomain || md?.taskDomain || '').trim().toLowerCase();
         const roleProfile = String(md?.passenger?.roleProfile || md?.missionContract?.passenger?.roleProfile || '').trim().toLowerCase();
         if (explicit === 'inspection_infra' || taskDomain === 'inspection_infra') return 'inspection_infra';
+        if (explicit === 'infra_chain_recon' || taskDomain === 'infra_chain_recon') return 'infra_chain_recon';
         const hay = [
             category,
             taskDomain,
@@ -2005,12 +2031,29 @@
                 console.warn('[FollowUp] Infra follow-up config failed:', err?.message || err);
             }
         }
+        if (!chainCfg && !cfg && sourceKind === 'infra_chain_recon' && typeof window.missionInfraBuildChainReconFollowupConfigForMission === 'function') {
+            try {
+                infraCfg = window.missionInfraBuildChainReconFollowupConfigForMission(md);
+                if (infraCfg) {
+                    cfg = {
+                        ...infraCfg,
+                        sourceLabel: infraCfg.sourceLabel || 'Ketten-Erstbefund',
+                        followUpLabel: infraCfg.followUpLabel || 'Infra-Folgeflug'
+                    };
+                }
+            } catch (err) {
+                console.warn('[FollowUp] Infra chain follow-up config failed:', err?.message || err);
+            }
+        }
         if (!cfg && !chainCfg && sourceKind === 'inspection_infra' && typeof window.missionInfraEnsureInspectionOutcome === 'function') {
             let infraOutcome = null;
             try { infraOutcome = window.missionInfraEnsureInspectionOutcome(md); } catch (_) { infraOutcome = null; }
             if (infraOutcome && (!infraOutcome.followUpKind || infraOutcome.followUpKind === 'none')) {
                 return { created: false, reason: 'infra-no-followup', sourceKind, outcome: infraOutcome.outcome || infraOutcome.type || null };
             }
+        }
+        if (!cfg && !chainCfg && sourceKind === 'infra_chain_recon') {
+            return { created: false, reason: 'infra-chain-no-finding', sourceKind };
         }
         if (!cfg) return { created: false, reason: 'unsupported-source-profile', sourceKind };
         if (cargoOutcome && cargoOutcome.failed === true) return { created: false, reason: 'mission-failed', sourceKind };
@@ -2388,7 +2431,10 @@
         const infraSupported = !!(sourceKind === 'inspection_infra'
             && typeof window.missionInfraBuildFollowupConfigForMission === 'function'
             && window.missionInfraBuildFollowupConfigForMission(md));
-        if (!SOURCE_MAP[sourceKind] && !buildAllowedChainConfig(md, null) && !infraSupported) {
+        const infraChainSupported = !!(sourceKind === 'infra_chain_recon'
+            && typeof window.missionInfraBuildChainReconFollowupConfigForMission === 'function'
+            && window.missionInfraBuildChainReconFollowupConfigForMission(md));
+        if (!SOURCE_MAP[sourceKind] && !buildAllowedChainConfig(md, null) && !infraSupported && !infraChainSupported) {
             alert('Diese Mission ist kein Follow-up-Auslöser.');
             return false;
         }
@@ -2920,7 +2966,11 @@
                 && sourceKind === 'inspection_infra'
                 && typeof window.missionInfraBuildFollowupConfigForMission === 'function'
                 && window.missionInfraBuildFollowupConfigForMission(md));
-            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null) || infraSupported));
+            const infraChainSupported = !!(md
+                && sourceKind === 'infra_chain_recon'
+                && typeof window.missionInfraBuildChainReconFollowupConfigForMission === 'function'
+                && window.missionInfraBuildChainReconFollowupConfigForMission(md));
+            const supported = !!(md && (SOURCE_MAP[sourceKind] || buildAllowedChainConfig(md, null) || infraSupported || infraChainSupported));
             completeBtn.disabled = !supported;
             completeBtn.textContent = supported ? 'Mission beenden' : 'Mission beenden -';
             completeBtn.title = supported

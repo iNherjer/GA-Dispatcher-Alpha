@@ -21,7 +21,7 @@
         river_bridge_inspection: {
             guideTypes: ['waterway', 'river'],
             candidateMode: 'bridge',
-            candidateMaxCrossTrackNm: 0.55,
+            candidateMaxCrossTrackNm: 0.28,
             clusterRadiusNm: 0.16,
             minSpacingNm: 1.0,
             minScore: 8,
@@ -59,7 +59,7 @@
             guideTypes: ['railway', 'rail'],
             candidateMode: 'rail',
             guideMaxCrossTrackNm: 1.6,
-            candidateMaxCrossTrackNm: 0.45,
+            candidateMaxCrossTrackNm: 0.28,
             clusterRadiusNm: 0.22,
             minSpacingNm: 1.0,
             minScore: 4,
@@ -73,7 +73,7 @@
             guideTypes: ['power', 'powerline', 'line', 'minor_line'],
             candidateMode: 'power',
             guideMaxCrossTrackNm: 7,
-            candidateMaxCrossTrackNm: 2.2,
+            candidateMaxCrossTrackNm: 0.65,
             clusterRadiusNm: 0.28,
             minSpacingNm: 1.4,
             minScore: 4,
@@ -119,6 +119,16 @@
         if (!Number.isFinite(n)) return null;
         const p = 10 ** digits;
         return Math.round(n * p) / p;
+    }
+
+    function stableHash(value) {
+        const s = String(value || '');
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
     }
 
     function clamp(value, min, max) {
@@ -187,6 +197,25 @@
             tClamped: clamp(t, 0, 1),
             crossTrackNm: Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2),
             alongNm: clamp(t, 0, 1) * lenNm,
+            lengthNm: lenNm
+        };
+    }
+
+    function projectPointToSegmentClampedNm(lat, lon, start, end) {
+        const e = localPointNm(end.lat, end.lon, start.lat, start.lon);
+        const p = localPointNm(lat, lon, start.lat, start.lon);
+        const lenSq = e.x * e.x + e.y * e.y;
+        const lenNm = Math.sqrt(lenSq);
+        if (!(lenSq > 0)) return null;
+        const t = (p.x * e.x + p.y * e.y) / lenSq;
+        const tClamped = clamp(t, 0, 1);
+        const cx = tClamped * e.x;
+        const cy = tClamped * e.y;
+        return {
+            t,
+            tClamped,
+            crossTrackNm: Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2),
+            alongNm: tClamped * lenNm,
             lengthNm: lenNm
         };
     }
@@ -783,6 +812,30 @@
 
     function nearestGuideProjection(feature, guidePoints) {
         if (!Array.isArray(guidePoints) || !guidePoints.length) return null;
+        if (guidePoints.length >= 2) {
+            let bestSegment = null;
+            for (let idx = 1; idx < guidePoints.length; idx++) {
+                const start = guidePoints[idx - 1];
+                const end = guidePoints[idx];
+                const seg = projectPointToSegmentClampedNm(feature.lat, feature.lon, start, end);
+                if (!seg) continue;
+                const startAlong = Number(start._projection?.alongNm || 0);
+                const segmentLen = haversineNm(start.lat, start.lon, end.lat, end.lon);
+                const traceLength = Number(end._projection?.lengthNm || start._projection?.lengthNm || seg.lengthNm || 0);
+                const alongNm = startAlong + (seg.tClamped * segmentLen);
+                const t = traceLength > 0 ? alongNm / traceLength : Number(start._projection?.t || 0);
+                const candidate = {
+                    t,
+                    tClamped: clamp(t, 0, 1),
+                    crossTrackNm: seg.crossTrackNm,
+                    alongNm,
+                    lengthNm: traceLength || seg.lengthNm,
+                    guideSegmentIndex: idx - 1
+                };
+                if (!bestSegment || candidate.crossTrackNm < bestSegment.crossTrackNm) bestSegment = candidate;
+            }
+            if (bestSegment) return bestSegment;
+        }
         let best = null;
         for (const guide of guidePoints) {
             const distNm = haversineNm(feature.lat, feature.lon, guide.lat, guide.lon);
@@ -799,6 +852,31 @@
         return best;
     }
 
+    function guideProximityScore(projection, cfg = {}) {
+        const theme = String(cfg.theme || '').toLowerCase();
+        const x = Number(projection?.crossTrackNm);
+        if (!Number.isFinite(x)) return 0;
+        if (theme === 'river_bridge_inspection') {
+            if (x <= 0.08) return 5;
+            if (x <= 0.16) return 3;
+            if (x <= 0.24) return 1;
+            if (x > 0.3) return -3;
+        }
+        if (theme === 'rail_chain_inspection') {
+            if (x <= 0.06) return 5;
+            if (x <= 0.14) return 3;
+            if (x <= 0.22) return 1;
+            if (x > 0.25) return -2;
+        }
+        if (theme === 'power_grid_inspection') {
+            if (x <= 0.12) return 5;
+            if (x <= 0.28) return 3;
+            if (x <= 0.45) return 1;
+            if (x > 0.55) return -2;
+        }
+        return 0;
+    }
+
     function findCandidates(features, cfg, segment, guidePoints) {
         const raw = collectCandidatePool(features, cfg);
         const candidates = [];
@@ -811,12 +889,17 @@
             const guideProj = nearestGuideProjection(feature, guidePoints);
             const effectiveProj = guideProj || proj;
             if (effectiveProj.crossTrackNm > cfg.candidateMaxCrossTrackNm) continue;
-            const score = scoreCandidate(feature, cfg);
+            const baseScore = scoreCandidate(feature, cfg);
+            const proximityScore = guideProximityScore(effectiveProj, cfg);
+            const score = baseScore + proximityScore;
             if (score < cfg.minScore) continue;
             candidates.push({
                 ...feature,
                 _projection: effectiveProj,
                 _segmentProjection: proj,
+                _baseScore: baseScore,
+                _proximityScore: proximityScore,
+                _guideCrossTrackNm: effectiveProj.crossTrackNm,
                 _score: score
             });
         }
@@ -973,9 +1056,110 @@
                 power: cleanText(feature.power || '', 80),
                 waterway: cleanText(feature.waterway || '', 80),
                 infraType: cleanText(feature.infra_type || feature.cluster_type || '', 80),
-                operator: cleanText(feature.operator || '', 120)
+                operator: cleanText(feature.operator || '', 120),
+                guideCrossTrackNm: roundNumber(feature._guideCrossTrackNm, 3),
+                baseScore: roundNumber(feature._baseScore, 2),
+                proximityScore: roundNumber(feature._proximityScore, 2)
             }
         };
+    }
+
+    function chainOutcomeEligiblePoints(points = []) {
+        return (Array.isArray(points) ? points : [])
+            .filter(point => point && Number(point.index) > 0 && Number(point.index) < points.length - 1);
+    }
+
+    function themeFindingTemplate(theme = '') {
+        const t = String(theme || '').toLowerCase();
+        if (t === 'rail_chain_inspection') {
+            return {
+                findingKind: 'observation',
+                findingHint: 'Auffälligkeit im Bereich von Trasse, Weiche, Signal oder Böschung; die Luftbilder sollen gezielt ausgewertet werden.',
+                paxFindingText: 'Hier markiere ich einen möglichen Nachprüfpunkt an der Trasse. Ich will die Bilder später genauer mit Plan und Streckenlage abgleichen, bevor daraus ein gezielter Folgeflug wird.'
+            };
+        }
+        if (t === 'power_grid_inspection') {
+            return {
+                findingKind: 'observation',
+                findingHint: 'Auffälligkeit an Leitung, Mastumfeld oder Schneise; die Bildserie soll gezielt nachbewertet werden.',
+                paxFindingText: 'Diesen Abschnitt nehme ich als möglichen Nachprüfpunkt mit. Bei Leitungen zählt der Verlauf im Zusammenhang, deshalb entscheiden wir nach der Bildauswertung über den nächsten Schritt.'
+            };
+        }
+        if (t === 'road_junction_survey') {
+            return {
+                findingKind: 'observation',
+                findingHint: 'Unklare Veränderung im Knoten- oder Anschlussbereich; die Aufnahmen sollen vor einer Bodenrunde geprüft werden.',
+                paxFindingText: 'Hier setze ich eine Markierung für die spätere Auswertung. Der Knoten wirkt nicht akut, aber die Bilder sollten vor einer Bodenrunde sauber verglichen werden.'
+            };
+        }
+        return {
+            findingKind: 'observation',
+            findingHint: 'Auffälligkeit an Bauwerk, Anschluss oder Umfeld; die Luftbilder sollen vor einer Einzelprüfung genauer ausgewertet werden.',
+            paxFindingText: 'Bei diesem Punkt nehme ich einen möglichen Anschlussbedarf mit. Die Fotos sollten später genauer ausgewertet werden, bevor daraus eine Einzelprüfung wird.'
+        };
+    }
+
+    function buildSilentChainOutcome(points = [], cfg = {}) {
+        const eligible = chainOutcomeEligiblePoints(points);
+        const seed = [
+            cfg.theme,
+            cfg.label,
+            cfg.start?.lat,
+            cfg.start?.lon,
+            cfg.end?.lat,
+            cfg.end?.lon,
+            points.map(point => point.id || point.name || '').join('|')
+        ].join('|');
+        const roll = stableHash(`${seed}|chain-outcome`) % 100;
+        if (!eligible.length || roll >= 34) {
+            return {
+                schema: 'ga.poiChainOutcome.v1',
+                outcome: 'clear',
+                followUpKind: 'none',
+                hiddenFromWriter: true,
+                revealAfter: 'point_complete',
+                createdAt: 0
+            };
+        }
+        const point = eligible[stableHash(`${seed}|finding-point`) % eligible.length];
+        const template = themeFindingTemplate(cfg.theme);
+        return {
+            schema: 'ga.poiChainOutcome.v1',
+            outcome: 'monitor',
+            followUpKind: 'infra_recheck',
+            followUpProfileId: 'inspection_infra',
+            followUpCategory: point.category || 'infrastructure',
+            pointId: point.id,
+            pointIndex: point.index,
+            pointName: point.name,
+            findingKind: template.findingKind,
+            findingHint: template.findingHint,
+            paxFindingText: template.paxFindingText,
+            hiddenFromWriter: true,
+            revealAfter: 'point_complete',
+            createdAt: 0
+        };
+    }
+
+    function applySilentChainOutcome(points = [], outcome = null) {
+        if (!outcome || outcome.outcome === 'clear' || !outcome.pointId) return points;
+        return points.map(point => {
+            if (String(point.id || '') !== String(outcome.pointId || '')) return point;
+            const tags = point.tags && typeof point.tags === 'object' ? point.tags : {};
+            return {
+                ...point,
+                tags: {
+                    ...tags,
+                    finding: outcome.findingKind || 'observation',
+                    findingHint: outcome.findingHint || '',
+                    paxFindingText: outcome.paxFindingText || '',
+                    followUpType: outcome.followUpKind || 'infra_recheck',
+                    followUpKind: outcome.followUpKind || 'infra_recheck',
+                    hiddenFromWriter: true,
+                    revealAfter: 'point_complete'
+                }
+            };
+        });
     }
 
     function statusResult(status, reason, cfg, diagnostics, extra = {}) {
@@ -1038,6 +1222,8 @@
         for (const feature of selected) {
             points.push(buildPoint(feature, cfg, points.length, points[points.length - 1] || null));
         }
+        const hiddenOutcome = buildSilentChainOutcome(points, cfg);
+        const runtimePoints = applySilentChainOutcome(points, hiddenOutcome);
         const trace = buildGuideTrace(guidePoints, 48);
         const chain = {
             schema: 'ga.poiChain.v1',
@@ -1069,7 +1255,8 @@
                 widthNm: roundNumber(cfg.overlayWidthNm, 2),
                 trace
             },
-            points,
+            points: runtimePoints,
+            hiddenOutcome,
             sequenceRequired: cfg.sequenceRequired,
             completionMode: 'all_required',
             fallbackAllowed: true,
@@ -1577,6 +1764,24 @@
                 guidePointCount: Number(chain.guide.guidePointCount || 0)
             } : null,
             overlay: chain.overlay || null,
+            hiddenOutcome: chain.hiddenOutcome && typeof chain.hiddenOutcome === 'object'
+                ? {
+                    schema: chain.hiddenOutcome.schema || 'ga.poiChainOutcome.v1',
+                    outcome: cleanText(chain.hiddenOutcome.outcome || '', 40),
+                    followUpKind: cleanText(chain.hiddenOutcome.followUpKind || '', 80),
+                    followUpProfileId: cleanText(chain.hiddenOutcome.followUpProfileId || '', 80),
+                    followUpCategory: cleanText(chain.hiddenOutcome.followUpCategory || '', 80),
+                    pointId: cleanText(chain.hiddenOutcome.pointId || '', 180),
+                    pointIndex: Number.isFinite(Number(chain.hiddenOutcome.pointIndex)) ? Number(chain.hiddenOutcome.pointIndex) : null,
+                    pointName: cleanText(chain.hiddenOutcome.pointName || '', 120),
+                    findingKind: cleanText(chain.hiddenOutcome.findingKind || '', 80),
+                    findingHint: cleanText(chain.hiddenOutcome.findingHint || '', 240),
+                    paxFindingText: cleanText(chain.hiddenOutcome.paxFindingText || '', 260),
+                    hiddenFromWriter: chain.hiddenOutcome.hiddenFromWriter !== false,
+                    revealAfter: cleanText(chain.hiddenOutcome.revealAfter || 'point_complete', 80),
+                    createdAt: Number(chain.hiddenOutcome.createdAt || 0)
+                }
+                : null,
             points: points.map((point, idx) => ({
                 id: cleanText(point.id || `chain-point-${idx + 1}`, 180),
                 index: Number.isFinite(Number(point.index)) ? Number(point.index) : idx,
@@ -1617,6 +1822,7 @@
             haversineNm,
             bearingDeg,
             projectPointToSegmentNm,
+            projectPointToSegmentClampedNm,
             normalizeFeature,
             scoreCandidate,
             clusterCandidates,

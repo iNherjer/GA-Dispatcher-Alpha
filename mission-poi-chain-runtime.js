@@ -81,6 +81,26 @@
         };
     }
 
+    function normalizeHiddenOutcome(raw = null) {
+        if (!raw || typeof raw !== 'object') return null;
+        return {
+            schema: cleanText(raw.schema || 'ga.poiChainOutcome.v1', 80),
+            outcome: cleanText(raw.outcome || '', 40),
+            followUpKind: cleanText(raw.followUpKind || '', 80),
+            followUpProfileId: cleanText(raw.followUpProfileId || '', 80),
+            followUpCategory: cleanText(raw.followUpCategory || '', 80),
+            pointId: cleanText(raw.pointId || '', 180),
+            pointIndex: Number.isFinite(Number(raw.pointIndex)) ? Number(raw.pointIndex) : null,
+            pointName: cleanText(raw.pointName || '', 120),
+            findingKind: cleanText(raw.findingKind || '', 80),
+            findingHint: cleanText(raw.findingHint || '', 260),
+            paxFindingText: cleanText(raw.paxFindingText || '', 300),
+            hiddenFromWriter: raw.hiddenFromWriter !== false,
+            revealAfter: cleanText(raw.revealAfter || 'point_complete', 80),
+            createdAt: Number(raw.createdAt || 0)
+        };
+    }
+
     function normalizeSpec(raw = null) {
         if (!raw || typeof raw !== 'object') return null;
         if (raw.enabled === false) return null;
@@ -132,6 +152,7 @@
                     .slice(0, 80)
             } : null,
             points,
+            hiddenOutcome: normalizeHiddenOutcome(raw.hiddenOutcome),
             sequenceRequired: raw.sequenceRequired !== false,
             completionMode: raw.completionMode || 'all_required',
             fallbackAllowed: raw.fallbackAllowed !== false,
@@ -461,6 +482,11 @@
                 state.lastPointId = current.id;
                 const nextIndex = idx + 1;
                 const nextPoint = spec.points[nextIndex] || null;
+                const hiddenOutcome = spec.hiddenOutcome
+                    && String(spec.hiddenOutcome.pointId || '') === String(current.id || '')
+                    && String(spec.hiddenOutcome.revealAfter || 'point_complete').toLowerCase() === 'point_complete'
+                    ? spec.hiddenOutcome
+                    : null;
                 state.currentIndex = nextPoint ? nextIndex : spec.points.length;
                 events.push({
                     type: 'point_complete',
@@ -468,6 +494,10 @@
                     pointIndex: idx,
                     nextPoint,
                     nextIndex: nextPoint ? nextIndex : null,
+                    hiddenOutcome,
+                    findingText: hiddenOutcome?.paxFindingText || hiddenOutcome?.findingHint || '',
+                    findingHint: hiddenOutcome?.findingHint || '',
+                    finding: hiddenOutcome?.findingKind || '',
                     distNm: roundNumber(distNm, 3)
                 });
                 const requiredDone = spec.points.every(point => !point.required || state.completedPointIds.has(point.id));

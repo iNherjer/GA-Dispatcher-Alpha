@@ -9354,6 +9354,31 @@ function compactPoiChainForMission(chain = null, maxPoints = 8) {
     };
 }
 
+function stripPoiChainHiddenFieldsForWriter(chain = null, maxPoints = 8) {
+    const compact = compactPoiChainForMission(chain, maxPoints);
+    if (!compact || typeof compact !== 'object') return null;
+    const { hiddenOutcome, ...safe } = compact;
+    const hiddenTagKeys = new Set([
+        'finding',
+        'findingHint',
+        'findingText',
+        'paxFindingText',
+        'followUp',
+        'followUpType',
+        'followUpKind',
+        'hiddenFromWriter',
+        'revealAfter'
+    ]);
+    safe.points = Array.isArray(compact.points)
+        ? compact.points.map(point => {
+            const tags = point?.tags && typeof point.tags === 'object' ? { ...point.tags } : {};
+            for (const key of hiddenTagKeys) delete tags[key];
+            return { ...point, tags };
+        })
+        : [];
+    return safe;
+}
+
 function _poiChainDebugCoord(point = null) {
     const lat = Number(point?.lat);
     const lon = Number(point?.lon ?? point?.lng);
@@ -13285,7 +13310,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 existingContract?.profile?.pickerCategory ||
                 ''
             ).trim().toLowerCase();
-            const chainForStory = compactPoiChainForMission(m.poiChain || existingContract?.poiChain || existingContract?.missionPlan?.poiChain || null, 8);
+            const chainForStory = stripPoiChainHiddenFieldsForWriter(m.poiChain || existingContract?.poiChain || existingContract?.missionPlan?.poiChain || null, 8);
             const isChainRecon = profile.id === 'infra_chain_recon'
                 || profile.taskDomain === 'infra_chain_recon'
                 || String(m.appliedProfile || m.dispatchProfileId || m.profile || '').toLowerCase() === 'infra_chain_recon'
@@ -17474,7 +17499,7 @@ function compactMissionPlanV2ForPrompt(planResult = null) {
             lockedFields: (plan.lockedFields && typeof plan.lockedFields === 'object') ? plan.lockedFields : {},
             confidence: Number.isFinite(Number(plan.confidence)) ? Math.max(0, Math.min(1, Number(plan.confidence))) : null
         },
-        poiChain: compactPoiChainForMission(planResult.poiChain || null, 8),
+        poiChain: stripPoiChainHiddenFieldsForWriter(planResult.poiChain || null, 8),
         needs: Array.isArray(planResult.needs) ? planResult.needs.slice(0, 6) : [],
         resolvedNeedTypes: Object.keys(resolvedNeeds).slice(0, 8)
     };
@@ -24074,7 +24099,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
     const knowledgeContext = compactPoiKnowledgeContextForMission(poiTargetMeta?.knowledgeContext || null, 10);
-    const poiChain = compactPoiChainForMission(poiTargetMeta?.poiChain || missionPlanV2?.poiChain || null, 8);
+    const poiChain = stripPoiChainHiddenFieldsForWriter(poiTargetMeta?.poiChain || missionPlanV2?.poiChain || null, 8);
     const dispatchPlan = compactMissionPlanV2?.plan || {};
     const requiredTaskDomain = String(
         (forcedProfile && forcedProfile.id !== 'auto' ? forcedProfile.taskDomain : '') ||

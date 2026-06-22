@@ -67,6 +67,9 @@
             || md?.missionContract?.taskDomain
             || md?.missionPlanV2?.plan?.taskDomain
             || md?._appliedProfile
+            || md?.appliedProfile
+            || md?.dispatchProfileId
+            || md?.profile
             || ''
         ).trim().toLowerCase();
     }
@@ -75,6 +78,9 @@
         return String(
             md?._appliedProfile
             || md?._requestedProfile
+            || md?.appliedProfile
+            || md?.dispatchProfileId
+            || md?.profile
             || md?.missionContract?.appliedProfileId
             || ''
         ).trim().toLowerCase();
@@ -359,6 +365,82 @@
         });
     }
 
+    function chainPointTags(point = null) {
+        return point?.tags && typeof point.tags === 'object' ? point.tags : {};
+    }
+
+    function chainPointFindingMarker(point = null) {
+        const tags = chainPointTags(point);
+        const explicit = [
+            tags.finding,
+            tags.outcome,
+            tags.followUp,
+            tags.followUpType,
+            tags.followUpKind,
+            tags.findingHint,
+            tags.findingText,
+            tags.paxFindingText
+        ].map(v => cleanText(v || '', 180)).find(Boolean);
+        if (!explicit) return '';
+        const normalized = explicit.toLowerCase();
+        if (/^(none|ok|clear|normal|unauffaellig|unauffällig|false|0)$/.test(normalized)) return '';
+        return explicit;
+    }
+
+    function chainHiddenOutcome(md = null) {
+        const outcome = md?.poiChain?.hiddenOutcome && typeof md.poiChain.hiddenOutcome === 'object'
+            ? md.poiChain.hiddenOutcome
+            : (md?.hiddenMissionOutcome?.poiChainOutcome && typeof md.hiddenMissionOutcome.poiChainOutcome === 'object'
+                ? md.hiddenMissionOutcome.poiChainOutcome
+                : null);
+        if (!outcome) return null;
+        const followUpKind = cleanText(outcome.followUpKind || '', 80).toLowerCase();
+        const pointId = cleanText(outcome.pointId || '', 180);
+        if (!pointId || !followUpKind || followUpKind === 'none') return null;
+        if (/^(none|ok|clear|normal|unauffaellig|unauffällig|false|0)$/.test(cleanText(outcome.outcome || '', 80).toLowerCase())) return null;
+        return outcome;
+    }
+
+    function chainFollowupPoint(md = null) {
+        const points = Array.isArray(md?.poiChain?.points) ? md.poiChain.points : [];
+        const hidden = chainHiddenOutcome(md);
+        if (hidden) {
+            const found = points.find(point => String(point?.id || '') === String(hidden.pointId || '')) || null;
+            if (found) {
+                return {
+                    ...found,
+                    tags: {
+                        ...chainPointTags(found),
+                        finding: hidden.findingKind || hidden.outcome || 'observation',
+                        findingHint: hidden.findingHint || '',
+                        paxFindingText: hidden.paxFindingText || '',
+                        followUpKind: hidden.followUpKind || 'infra_recheck',
+                        followUpType: hidden.followUpKind || 'infra_recheck',
+                        revealAfter: hidden.revealAfter || 'point_complete',
+                        hiddenFromWriter: hidden.hiddenFromWriter !== false
+                    }
+                };
+            }
+        }
+        return points.find(point => chainPointFindingMarker(point)) || null;
+    }
+
+    function targetRefFromChainPoint(md = null, point = null) {
+        if (!point || typeof point !== 'object') return null;
+        const label = cleanText(point.name || point.label || md?.targetName || 'Ketten-Prüfpunkt', 140);
+        return normalizeRef({
+            kind: 'poi',
+            id: 'POI',
+            icao: 'POI',
+            name: label,
+            lat: point.lat,
+            lon: point.lon ?? point.lng,
+            elevation: md?.targetElevation || md?.poiTerrainFt || null,
+            category: cleanText(point.category || md?.poiCategory || md?.requestedCategory || 'infrastructure', 40),
+            poiCategory: cleanText(point.category || md?.poiCategory || md?.requestedCategory || 'infrastructure', 40)
+        });
+    }
+
     function homeRefFromMission(md = null) {
         return normalizeRef({
             kind: 'airport',
@@ -495,7 +577,7 @@
             sourceOutcomeLabel: outcome?.label || '',
             sourceOutcomeText: result,
             followUpPurpose: outcome?.followUpKind === 'infra_recheck'
-                ? 'Nachpruefung eines beobachtungswuerdigen Infrastruktur-Befunds.'
+                ? 'Nachprüfung eines beobachtungswürdigen Infrastruktur-Befunds.'
                 : 'Gezielte Dokumentation eines bei der Infrastruktur-Inspektion erkannten Befunds.',
             nextStepSuggestions: [
                 'Schadenskartierung mit Mapping/Survey',
@@ -532,6 +614,89 @@
                 'inspection',
                 1,
                 outcome.followUpKind === 'infra_recheck'
+            )
+        };
+    }
+
+    function buildChainReconFollowupConfigForMission(md = null) {
+        if (!md || typeof md !== 'object') return null;
+        const task = taskDomainOf(md);
+        const profile = profileOf(md);
+        if (task !== 'infra_chain_recon' && profile !== 'infra_chain_recon') return null;
+        const point = chainFollowupPoint(md);
+        if (!point) return null;
+        const targetRef = targetRefFromChainPoint(md, point);
+        const homeRef = homeRefFromMission(md);
+        if (!targetRef || !homeRef) return null;
+        const marker = chainPointFindingMarker(point);
+        const tags = chainPointTags(point);
+        const markerText = cleanText(tags.findingHint || tags.findingText || tags.paxFindingText || marker, 360);
+        const wantsMapping = /mapping|damage_mapping|kartierung|survey|infra_damage_mapping/i.test([
+            tags.followUpKind,
+            tags.followUpType,
+            tags.followUp,
+            marker
+        ].filter(Boolean).join(' '));
+        const pointMission = {
+            ...md,
+            targetName: targetRef.name,
+            poiName: targetRef.name,
+            initialTargetName: targetRef.name,
+            targetLat: targetRef.lat,
+            targetLon: targetRef.lon,
+            initialTargetLat: targetRef.lat,
+            initialTargetLon: targetRef.lon,
+            poiCategory: targetRef.category || md.poiCategory || 'infrastructure',
+            requestedCategory: targetRef.category || md.requestedCategory || md.poiCategory || 'infrastructure'
+        };
+        const outcome = normalizeInspectionOutcome({
+            outcome: wantsMapping ? 'minor_damage' : 'monitor',
+            resultText: markerText
+                ? `Beim Ketten-Erstbefund fiel ${targetRef.name} auf: ${markerText}. Der Punkt soll gezielt nachgeprüft werden.`
+                : `Beim Ketten-Erstbefund wurde ${targetRef.name} als beobachtungswürdiger Punkt markiert. Die Luftbilder sollen gezielt nachgeprüft werden.`,
+            resultPrompt: `Inspektionsfazit: Der Ketten-Erstbefund hat "${targetRef.name}" als auffälligen Einzelpunkt markiert. Formuliere eine ruhige Folgeprüfung: Was soll am Bauwerk, an Trasse, Anschluss oder Umfeld erneut betrachtet werden? Keine neue Großlage erfinden.`
+        }, pointMission, {
+            force: true,
+            outcome: wantsMapping ? 'minor_damage' : 'monitor',
+            damageType: damageTypeFor(pointMission, wantsMapping ? 'minor_damage' : 'monitor')
+        });
+        if (!outcome) return null;
+        if (!wantsMapping) {
+            outcome.followUpKind = 'infra_recheck';
+            outcome.followUpLabel = 'Gezielte Infra-Nachprüfung';
+            outcome.followUpProfileId = 'inspection_infra';
+            outcome.followUpDelayDays = 1;
+        }
+        outcome.followUpCategory = targetRef.category || outcome.followUpCategory || 'infrastructure';
+        const temporalContext = buildTemporalContext(outcome, pointMission);
+        const narrativeMemory = {
+            ...buildNarrativeMemory(pointMission, outcome),
+            sourceKind: 'infra_chain_recon',
+            chainLabel: cleanText(md.poiChain?.label || md.targetName || '', 160),
+            chainPointName: targetRef.name,
+            sourceOutcomeText: outcome.resultText,
+            followUpPurpose: wantsMapping
+                ? 'Gezielte Dokumentation eines im Ketten-Erstbefund markierten Einzelpunkts.'
+                : 'Gezielte Einzelobjekt-Nachprüfung eines im Ketten-Erstbefund markierten Punkts.'
+        };
+        return {
+            followUpKind: outcome.followUpKind,
+            followUpLabel: outcome.followUpLabel || 'Infra-Folgeflug',
+            sourceLabel: 'Ketten-Erstbefund',
+            followUpProfileId: outcome.followUpProfileId || (wantsMapping ? 'mapping_survey' : 'inspection_infra'),
+            followUpCategory: outcome.followUpCategory || targetRef.category || 'infrastructure',
+            homeRef,
+            targetRef,
+            temporalContext,
+            narrativeMemory,
+            infraInspectionOutcome: outcome,
+            poiFollowUp: true,
+            chain: buildChain(
+                [md?.missionId, md?.missionKey, targetRef.name, outcome.followUpKind].filter(Boolean).join('|'),
+                wantsMapping ? 'chain_point_mapping' : 'chain_point_recheck',
+                'chain_recon',
+                1,
+                !wantsMapping
             )
         };
     }
@@ -906,6 +1071,7 @@
     window.missionInfraEnsureInspectionOutcome = ensureInspectionOutcome;
     window.missionInfraApplyOutcomeToMission = applyOutcomeToMission;
     window.missionInfraBuildFollowupConfigForMission = buildFollowupConfigForMission;
+    window.missionInfraBuildChainReconFollowupConfigForMission = buildChainReconFollowupConfigForMission;
     window.missionInfraBuildAllowedChainConfig = buildAllowedChainConfig;
     window.missionInfraBuildProspectForMission = buildProspectForMission;
     window.missionInfraPickerValueForFollowup = pickerValueForFollowup;
