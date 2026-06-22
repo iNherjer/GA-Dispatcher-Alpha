@@ -9778,10 +9778,15 @@ function _syncActiveMissionPayload() {
         if (_syncMissionStateIsDraft(state)) {
             return null;
         }
-        return state;
+        if (state) return state;
     } catch (_) {
-        return null;
+        // Fall through to the in-memory save fallback below.
     }
+    const fallback = (typeof window !== 'undefined' && window.__gaActiveMissionStorageFallback && typeof window.__gaActiveMissionStorageFallback === 'object')
+        ? window.__gaActiveMissionStorageFallback
+        : null;
+    if (_syncMissionStateIsDraft(fallback)) return null;
+    return fallback || null;
 }
 
 function _syncHasLocalDraftMission() {

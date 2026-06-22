@@ -4454,6 +4454,7 @@ function clearDraftMissionPersistence(reason = 'draft') {
     try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
     try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
     try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    rememberActiveMissionStateMemoryFallback(null);
     try { console.debug('[MISSION DRAFT] Persistenz blockiert:', reason); } catch (_) {}
     if (reason === 'new-mission-draft' && typeof window.triggerCloudSave === 'function') {
         setTimeout(() => {
@@ -5407,9 +5408,23 @@ function compactActiveMissionStateForQuotaStorage(state = {}) {
     };
 }
 
+function rememberActiveMissionStateMemoryFallback(state = null) {
+    if (typeof window === 'undefined') return;
+    if (!state) {
+        try { delete window.__gaActiveMissionStorageFallback; } catch (_) { window.__gaActiveMissionStorageFallback = null; }
+        return;
+    }
+    try {
+        window.__gaActiveMissionStorageFallback = JSON.parse(JSON.stringify(state));
+    } catch (_) {
+        window.__gaActiveMissionStorageFallback = state;
+    }
+}
+
 function storeActiveMissionStateSafely(state = {}) {
     try {
         localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        rememberActiveMissionStateMemoryFallback(null);
         return true;
     } catch (err) {
         try { console.warn('[MISSION SAVE] Active mission state too large; retrying compact save.', err); } catch (_) {}
@@ -5417,10 +5432,21 @@ function storeActiveMissionStateSafely(state = {}) {
         try {
             localStorage.removeItem('ga_active_mission');
             localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
+            rememberActiveMissionStateMemoryFallback(null);
             return true;
         } catch (err2) {
-            try { console.warn('[MISSION SAVE] Compact active mission save skipped after quota error.', err2); } catch (_) {}
-            return false;
+            try {
+                localStorage.removeItem('ga_mission_debug_snapshot');
+                localStorage.removeItem('ga_active_mission_contract');
+                localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
+                rememberActiveMissionStateMemoryFallback(null);
+                try { console.warn('[MISSION SAVE] Compact active mission saved after clearing debug cache.', err2); } catch (_) {}
+                return true;
+            } catch (err3) {
+                rememberActiveMissionStateMemoryFallback(compactState);
+                try { console.warn('[MISSION SAVE] Compact active mission save kept in memory for Cloud-Sync after quota error.', err3); } catch (_) {}
+                return false;
+            }
         }
     }
 }
@@ -5868,6 +5894,7 @@ function resetApp() {
     document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
+    rememberActiveMissionStateMemoryFallback(null);
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;
     localStorage.removeItem('ga_active_mission_contract');
