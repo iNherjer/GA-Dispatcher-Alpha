@@ -13,13 +13,14 @@
             targetSegmentLengthNm: 0.9,
             minSegmentLengthNm: 0.22,
             maxSegments: 18,
-            crossTrackToleranceNm: 0.24,
-            minCoverage: 0.78,
+            crossTrackToleranceNm: 0.32,
+            minCoverage: 0.62,
             bins: 12,
-            startEndTolerance: 0.18,
-            resetGraceSec: 7,
+            startEndTolerance: 0.28,
+            resetGraceSec: 10,
             minGroundSpeedKts: 35,
-            headingToleranceDeg: 70
+            headingToleranceDeg: 75,
+            trimPaddingNm: 0.08
         }
     };
 
@@ -132,6 +133,8 @@
             triggerRadiusNm: Math.max(0.15, Math.min(2.5, Number(raw.triggerRadiusNm || DEFAULTS.triggerRadiusNm))),
             required: raw.required !== false,
             revealState: idx === 0 ? 'visible' : cleanText(raw.revealState || 'hidden', 40),
+            orderT: Number.isFinite(Number(raw.orderT)) ? Math.max(0, Math.min(1, Number(raw.orderT))) : null,
+            distCorridorNm: Number.isFinite(Number(raw.distCorridorNm)) ? Math.max(0, Number(raw.distCorridorNm)) : null,
             distanceFromPrevNm: Math.max(0, Number(raw.distanceFromPrevNm || 0) || 0),
             bearingFromPrevDeg: raw.bearingFromPrevDeg === null ? null : Math.round(Number(raw.bearingFromPrevDeg || 0)),
             tags: raw.tags && typeof raw.tags === 'object' ? raw.tags : {}
@@ -218,16 +221,89 @@
         return points[points.length - 1] || null;
     }
 
+    function projectPointToTraceNm(point = null, traceInfo = null) {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lon ?? point?.lng);
+        const trace = Array.isArray(traceInfo?.points) ? traceInfo.points : [];
+        const distances = Array.isArray(traceInfo?.distances) ? traceInfo.distances : [];
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || trace.length < 2) return null;
+        let best = null;
+        for (let i = 1; i < trace.length; i++) {
+            const start = trace[i - 1];
+            const end = trace[i];
+            const projection = projectPointToSegmentNm(lat, lon, { start, end });
+            if (!projection) continue;
+            const prevD = Number(distances[i - 1] || 0);
+            const alongNm = prevD + projection.tClamped * Number(projection.lengthNm || 0);
+            const candidate = {
+                alongNm,
+                crossTrackNm: projection.crossTrackNm,
+                t: projection.t,
+                segmentIndex: i - 1
+            };
+            if (!best || candidate.crossTrackNm < best.crossTrackNm) best = candidate;
+        }
+        return best;
+    }
+
+    function sliceTraceInfoBetweenNm(traceInfo = null, startNm = 0, endNm = 0) {
+        const points = Array.isArray(traceInfo?.points) ? traceInfo.points : [];
+        const distances = Array.isArray(traceInfo?.distances) ? traceInfo.distances : [];
+        const totalNm = Number(traceInfo?.totalNm || 0);
+        if (points.length < 2 || !(totalNm > 0)) return traceInfo;
+        const a = clamp(Math.min(startNm, endNm), 0, totalNm);
+        const b = clamp(Math.max(startNm, endNm), 0, totalNm);
+        if (!(b - a > 0.25)) return traceInfo;
+        const sliced = [];
+        const start = interpolateTraceAtNm(traceInfo, a);
+        const end = interpolateTraceAtNm(traceInfo, b);
+        if (start) sliced.push(start);
+        for (let i = 1; i < points.length - 1; i++) {
+            const d = Number(distances[i] || 0);
+            if (d > a && d < b) sliced.push(points[i]);
+        }
+        if (end) sliced.push(end);
+        return polylineDistanceSamples(dedupeTracePoints(sliced));
+    }
+
+    function trimTraceInfoToChainPoints(traceInfo = null, points = [], cfg = {}) {
+        const traceTotal = Number(traceInfo?.totalNm || 0);
+        const usablePoints = (Array.isArray(points) ? points : []).filter(point => point && point.required !== false);
+        if (usablePoints.length < 2 || !(traceTotal > 0.5)) return traceInfo;
+        const first = usablePoints[0];
+        const last = usablePoints[usablePoints.length - 1];
+        let startNm = Number.isFinite(Number(first.orderT)) ? Number(first.orderT) * traceTotal : NaN;
+        let endNm = Number.isFinite(Number(last.orderT)) ? Number(last.orderT) * traceTotal : NaN;
+        if (!Number.isFinite(startNm)) {
+            const projection = projectPointToTraceNm(first, traceInfo);
+            if (projection) startNm = projection.alongNm;
+        }
+        if (!Number.isFinite(endNm)) {
+            const projection = projectPointToTraceNm(last, traceInfo);
+            if (projection) endNm = projection.alongNm;
+        }
+        if (!Number.isFinite(startNm) || !Number.isFinite(endNm) || Math.abs(endNm - startNm) < 0.5) return traceInfo;
+        const paddingNm = Math.max(0, Math.min(0.3, Number(cfg.trimPaddingNm || DEFAULTS.corridor.trimPaddingNm)));
+        return sliceTraceInfoBetweenNm(traceInfo, startNm - paddingNm, endNm + paddingNm);
+    }
+
     function normalizeCorridor(raw = {}, overlay = null, guide = null, points = []) {
         const cfg = raw?.corridor && typeof raw.corridor === 'object' ? raw.corridor : {};
         if (cfg.enabled === false) return null;
         const trace = corridorTraceFromRaw(raw, overlay, guide, points);
-        const traceInfo = polylineDistanceSamples(trace);
+        let traceInfo = polylineDistanceSamples(trace);
+        traceInfo = trimTraceInfoToChainPoints(traceInfo, points, cfg);
         if (traceInfo.points.length < 2 || !(traceInfo.totalNm > 0.25)) return null;
         const widthTol = Number(overlay?.widthNm || 0) > 0 ? Number(overlay.widthNm) / 2 : 0;
+        const configuredTol = Number(cfg.crossTrackToleranceNm);
         const crossTrackToleranceNm = Math.max(
             0.06,
-            Math.min(0.8, Number(cfg.crossTrackToleranceNm || widthTol || DEFAULTS.corridor.crossTrackToleranceNm))
+            Math.min(
+                0.9,
+                Number.isFinite(configuredTol) && configuredTol > 0
+                    ? configuredTol
+                    : Math.max(widthTol, DEFAULTS.corridor.crossTrackToleranceNm)
+            )
         );
         const targetLen = Math.max(0.35, Math.min(2.5, Number(cfg.targetSegmentLengthNm || DEFAULTS.corridor.targetSegmentLengthNm)));
         const maxSegments = Math.max(1, Math.min(40, Math.round(Number(cfg.maxSegments || DEFAULTS.corridor.maxSegments))));
