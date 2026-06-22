@@ -3915,6 +3915,7 @@ const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
         fallbackStems: ['foto'],
         sourceLabel: 'Foto-Sound',
         warnMissing: true,
+        variantScope: 'mission',
         gain: 0.78
     },
     scan_start: { stem: 'scan-start', sourceLabel: 'Scan-Start', gain: 0.58 },
@@ -3922,12 +3923,12 @@ const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
     data_lock: { stem: 'data-lock', sourceLabel: 'Daten-Lock', gain: 0.58 },
     point_mark: { stem: 'point-mark', sourceLabel: 'Punkt-Markierung', gain: 0.56 },
     radio_blip: { stem: 'radio-blip', sourceLabel: 'Radio-Blip', gain: 0.42 },
-    handoff: { stem: 'handoff', sourceLabel: 'Uebergabe', gain: 0.54 },
-    boarding_pax: { stem: 'boarding-pax', sourceLabel: 'Pax-Boarding', gain: 0.38 },
-    boarding_cargo: { stem: 'boarding-cargo', sourceLabel: 'Cargo-Boarding', gain: 0.46 },
-    cargo_load: { stem: 'cargo-load', sourceLabel: 'Cargo-Load', gain: 0.62 },
-    cargo_unload: { stem: 'cargo-unload', sourceLabel: 'Cargo-Unload', gain: 0.62 },
-    cargo_pickup: { stem: 'cargo-pickup', sourceLabel: 'Cargo-Pickup', gain: 0.62 },
+    handoff: { stem: 'handoff', sourceLabel: 'Uebergabe', variantScope: 'event', gain: 0.54 },
+    boarding_pax: { stem: 'boarding-pax', sourceLabel: 'Pax-Boarding', variantScope: 'event', gain: 0.38 },
+    boarding_cargo: { stem: 'boarding-cargo', sourceLabel: 'Cargo-Boarding', variantScope: 'event', gain: 0.46 },
+    cargo_load: { stem: 'cargo-load', sourceLabel: 'Cargo-Load', variantScope: 'event', gain: 0.62 },
+    cargo_unload: { stem: 'cargo-unload', sourceLabel: 'Cargo-Unload', variantScope: 'event', gain: 0.62 },
+    cargo_pickup: { stem: 'cargo-pickup', sourceLabel: 'Cargo-Pickup', variantScope: 'event', gain: 0.62 },
     cargo_drop: { stem: 'cargo-drop', sourceLabel: 'Cargo-Drop', gain: 0.72 }
 });
 let _paxStaticVoiceCatalogPromise = null;
@@ -4118,11 +4119,11 @@ async function _paxResolveAudioCueClips(cueId = 'none') {
     return promise;
 }
 
-function _paxPickAudioCueClip(cueId = 'none', clips = []) {
+function _paxPickAudioCueClip(cueId = 'none', clips = [], variantSeed = '') {
     const pool = Array.isArray(clips) ? clips.filter(Boolean) : [];
     if (!pool.length) return null;
     const id = _paxNormalizeAudioCueId(cueId, 'none');
-    const seed = _paxMissionAudioKey(`cue-variant-${id}`);
+    const seed = `${_paxMissionAudioKey(`cue-variant-${id}`)}|${variantSeed || 'mission'}`;
     return pool[_hashStable(seed) % pool.length] || pool[0] || null;
 }
 
@@ -4130,9 +4131,13 @@ async function _paxPlayAudioCue(cueId = 'none', seed = '', options = {}, epoch =
     const def = _paxAudioCueDef(cueId);
     if (!def || def.disabled || !_paxVoiceEnabled || !_paxEpochCurrent(epoch)) return false;
     const clips = await _paxResolveAudioCueClips(def.id);
-    const clip = _paxPickAudioCueClip(def.id, clips);
-    if (!clip?.rec?.audioBuffer) return false;
     const cueSeed = `${seed || _paxMissionAudioKey(`cue-${def.id}`)}|${def.id}`;
+    const variantScope = String(options.variantScope || def.variantScope || 'mission').toLowerCase();
+    const variantSeed = variantScope === 'event'
+        ? String(options.variantSeed || cueSeed)
+        : String(options.variantSeed || '');
+    const clip = _paxPickAudioCueClip(def.id, clips, variantSeed);
+    if (!clip?.rec?.audioBuffer) return false;
     const minCount = Math.max(1, Number(options.minCount || 1));
     const maxCount = Math.max(minCount, Number(options.maxCount || minCount));
     const count = _paxSeededInt(`${cueSeed}|count`, minCount, maxCount);
@@ -4217,6 +4222,7 @@ window.paxGetAudioCueCatalog = function() {
             stem: def.stem || '',
             aliasStems: Array.isArray(def.aliasStems) ? def.aliasStems.slice() : [],
             fallbackUrls: Array.isArray(def.fallbackUrls) ? def.fallbackUrls.slice() : [],
+            variantScope: def.variantScope || 'mission',
             disabled: !!def.disabled
         }
     ]));

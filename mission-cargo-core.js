@@ -27,9 +27,14 @@ function _missionCargoAudioCueId(scope = 'cargo', event = 'event', fallbackCueId
     return String(fallbackCueId || 'none');
 }
 
-function _missionCargoPlayAudioCue(fallbackCueId = 'none', item = null, event = 'event', options = {}) {
+const _MISSION_CARGO_AUDIO_QUEUE = {
+    active: false,
+    pending: []
+};
+
+function _missionCargoPlayAudioCueNow(fallbackCueId = 'none', item = null, event = 'event', options = {}) {
     const cueId = _missionCargoAudioCueId('cargo', event, fallbackCueId);
-    if (!cueId || cueId === 'none' || typeof window.paxPlayAudioCue !== 'function') return false;
+    if (!cueId || cueId === 'none' || typeof window.paxPlayAudioCue !== 'function') return Promise.resolve(false);
     const seed = [
         _missionCargoMissionKey(),
         event,
@@ -45,13 +50,57 @@ function _missionCargoPlayAudioCue(fallbackCueId = 'none', item = null, event = 
             firstDelayMs: 0,
             minDelayMs: 0,
             maxDelayMs: 0,
+            variantScope: options.variantScope || 'event',
             gain: Number.isFinite(Number(options.gain)) ? Number(options.gain) : undefined
         });
-        if (result && typeof result.catch === 'function') result.catch(() => {});
-        return true;
+        if (result && typeof result.then === 'function') return result.catch(() => false);
+        return Promise.resolve(!!result);
     } catch (_) {
-        return false;
+        return Promise.resolve(false);
     }
+}
+
+function _missionCargoBundleAudioCue(batch = []) {
+    const first = batch[0] || {};
+    const itemSeed = batch
+        .map(entry => entry?.item?.id || entry?.item?.label || entry?.event || '')
+        .filter(Boolean)
+        .join('-');
+    return {
+        fallbackCueId: 'boarding_cargo',
+        item: null,
+        event: `${first.event || 'cargo'}_batch_${batch.length}_${itemSeed || 'items'}`,
+        options: { gain: 0.46, variantScope: 'event' }
+    };
+}
+
+function _missionCargoFlushAudioCueQueue() {
+    const batch = _MISSION_CARGO_AUDIO_QUEUE.pending.splice(0);
+    if (!batch.length) {
+        _MISSION_CARGO_AUDIO_QUEUE.active = false;
+        return;
+    }
+    const next = batch.length === 1 ? batch[0] : _missionCargoBundleAudioCue(batch);
+    _missionCargoPlayAudioCueNow(next.fallbackCueId, next.item, next.event, next.options || {})
+        .then(() => _missionCargoFlushAudioCueQueue())
+        .catch(() => _missionCargoFlushAudioCueQueue());
+}
+
+function _missionCargoPlayAudioCue(fallbackCueId = 'none', item = null, event = 'event', options = {}) {
+    const entry = { fallbackCueId, item, event, options };
+    if (options.queue !== true) {
+        _missionCargoPlayAudioCueNow(fallbackCueId, item, event, options).catch(() => {});
+        return true;
+    }
+    if (_MISSION_CARGO_AUDIO_QUEUE.active) {
+        _MISSION_CARGO_AUDIO_QUEUE.pending.push(entry);
+        return true;
+    }
+    _MISSION_CARGO_AUDIO_QUEUE.active = true;
+    _missionCargoPlayAudioCueNow(fallbackCueId, item, event, options)
+        .then(() => _missionCargoFlushAudioCueQueue())
+        .catch(() => _missionCargoFlushAudioCueQueue());
+    return true;
 }
 
 function _missionCargoHasActiveMission() {
@@ -2105,7 +2154,8 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     _missionCargoPlayAudioCue(
         item.pickupLocation === 'target' ? 'cargo_pickup' : 'cargo_load',
         item,
-        item.pickupLocation === 'target' ? 'pickup' : (wasUnloaded ? 'reload' : 'load')
+        item.pickupLocation === 'target' ? 'pickup' : (wasUnloaded ? 'reload' : 'load'),
+        { queue: true }
     );
     if (!window.simModeActive && window.liveTrackerConnected && !_missionCargoIsPassengerItem(item)) {
         const isTargetPickup = item.pickupLocation === 'target';
@@ -2162,7 +2212,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     _missionCargoSpawnVisibleItem(item, { reason: 'cargo-toggle-unload' });
-    _missionCargoPlayAudioCue('cargo_unload', item, 'unload');
+    _missionCargoPlayAudioCue('cargo_unload', item, 'unload', { queue: true });
     _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
     return true;
@@ -2226,7 +2276,7 @@ function _missionCargoPassengerAlreadyUnloaded() {
 
 window.missionCargoAutoLoad = function() {
     _missionCargoMarkAllLoaded({ despawn: true });
-    _missionCargoPlayAudioCue('boarding_cargo', null, 'auto_load', { gain: 0.46 });
+    _missionCargoPlayAudioCue('boarding_cargo', null, 'auto_load', { gain: 0.46, variantScope: 'event' });
     _missionCargoRenderDialog('load');
     return true;
 };
@@ -2285,7 +2335,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     if (_missionCargoIsPassengerItem(item) && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
-    _missionCargoPlayAudioCue('cargo_unload', item, 'unload');
+    _missionCargoPlayAudioCue('cargo_unload', item, 'unload', { queue: true });
     if (!window.simModeActive && window.liveTrackerConnected && !_missionCargoIsPassengerItem(item)) {
         _missionCargoRemoveVisibleItem(item, {
             sceneId: _missionCargoUnloadSceneId(),

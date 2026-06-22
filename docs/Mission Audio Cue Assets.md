@@ -4,6 +4,8 @@ Dieses System ist optional: fehlt eine Datei, bleibt der Cue still. Neue Assets 
 
 Varianten werden pro Mission und Cue stabil gewaehlt, nicht pro Event. Wenn also `photo1.mp3` fuer einen Flug gewaehlt wurde, nutzt ein ganzer Foto-Burst denselben Klicksound. Beim naechsten Flug kann eine andere Variante drankommen.
 
+Ausnahme: Cargo- und Boarding-Cues duerfen pro Aktion variieren. So koennen mehrere Pakete im selben Flug unterschiedliche Ladegeraeusche bekommen, waehrend der Foto-Klick innerhalb eines Foto-Bursts konsistent bleibt.
+
 ## Dateiregel
 
 - Primaer: `audio-cues/<stem>.mp3`
@@ -49,6 +51,16 @@ Varianten werden pro Mission und Cue stabil gewaehlt, nicht pro Event. Wenn also
 | `cargo` | `auto_load` | `boarding_cargo` |
 | `cargo` | `passenger_load` / `passenger_reload` | `boarding_pax` |
 | `cargo` | `passenger_unload` | `handoff` |
+
+## Varianten und Cargo-Queue
+
+| Bereich | Variantenwahl | Queue-Verhalten |
+| --- | --- | --- |
+| `photo` | stabil pro Mission/Cue | keine Queue; Foto-Bursts nutzen denselben Klicksound |
+| `boarding_pax` / `boarding_cargo` | pro Event/Aktion | `boarding_cargo` kann als gebuendelter Multi-Paket-Sound genutzt werden |
+| `cargo_load` / `cargo_unload` / `cargo_pickup` | pro Item/Event | erster Klick spielt sofort; Klicks waehrend der laufenden Datei werden gesammelt |
+
+Wenn waehrend eines laufenden Cargo-Sounds genau eine weitere Paketaktion eintrifft, wird danach noch ein einzelner Paket-Sound gespielt. Wenn mehr als eine weitere Paketaktion wartet, werden diese Aktionen verbraucht und als ein `boarding_cargo`-Buendel-Cue abgespielt.
 
 ## Mission-Overrides
 
