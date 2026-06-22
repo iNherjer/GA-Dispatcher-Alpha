@@ -6848,6 +6848,7 @@ function renderRouteLegLabels() {
     for (let i = 0; i < routeWaypoints.length - 1; i++) {
         const p1 = routeWaypoints[i];
         const p2 = routeWaypoints[i + 1];
+        if (!routeLegShouldRenderOnMainMap(p1, p2)) continue;
         const nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
 
         const midLat = (p1.lat + p2.lat) / 2;
@@ -7052,14 +7053,47 @@ function resetMainRouteVectorLayers() {
     }
 }
 
+function routeLegShouldRenderOnMainMap(p1 = null, p2 = null) {
+    const hasPoiChain = !!(
+        typeof currentMissionData !== 'undefined'
+        && currentMissionData
+        && currentMissionData.poiChain
+    );
+    if (!hasPoiChain) return true;
+    if (p1?.isPoiChainEndpoint && p2?.isPoiChainEndpoint) return false;
+    return true;
+}
+
+function buildMainRoutePolylineLatLngs(points = routeWaypoints) {
+    const list = Array.isArray(points) ? points : [];
+    if (list.length < 2) return list;
+    const segments = [];
+    let current = [];
+    for (let idx = 0; idx < list.length - 1; idx++) {
+        const p1 = list[idx];
+        const p2 = list[idx + 1];
+        if (!routeLegShouldRenderOnMainMap(p1, p2)) {
+            if (current.length >= 2) segments.push(current);
+            current = [];
+            continue;
+        }
+        if (!current.length) current.push(p1);
+        current.push(p2);
+    }
+    if (current.length >= 2) segments.push(current);
+    if (!segments.length) return list;
+    return segments.length === 1 ? segments[0] : segments;
+}
+
 function rebuildMainRouteVectorLayers() {
     if (!map) initMapBase();
     if (!map || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
     routeWaypoints = normalizeMapRouteWaypoints(routeWaypoints);
     resetMainRouteVectorLayers();
     const lowFpsMode = window.isLowFpsMode && window.isLowFpsMode();
-    polyline = L.polyline(routeWaypoints, mainRouteLineOptions(lowFpsMode)).addTo(map);
-    window.hitBoxPolyline = L.polyline(routeWaypoints, mainRouteHitBoxOptions()).addTo(map);
+    const visualRoute = buildMainRoutePolylineLatLngs(routeWaypoints);
+    polyline = L.polyline(visualRoute, mainRouteLineOptions(lowFpsMode)).addTo(map);
+    window.hitBoxPolyline = L.polyline(visualRoute, mainRouteHitBoxOptions()).addTo(map);
     window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
     if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
     if (polyline && typeof polyline.redraw === 'function') polyline.redraw();
@@ -7129,9 +7163,9 @@ function renderMainRoute() {
         resetMainRouteVectorLayers();
     }
     if (!polyline) {
-        polyline = L.polyline(routeWaypoints, mainRouteLineOptions(lowFpsMode)).addTo(map);
+        polyline = L.polyline(buildMainRoutePolylineLatLngs(routeWaypoints), mainRouteLineOptions(lowFpsMode)).addTo(map);
     } else {
-        polyline.setLatLngs(routeWaypoints);
+        polyline.setLatLngs(buildMainRoutePolylineLatLngs(routeWaypoints));
         if (typeof polyline.setStyle === 'function') {
             polyline.setStyle(mainRouteLineOptions(lowFpsMode));
         }
@@ -7139,10 +7173,10 @@ function renderMainRoute() {
     if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
 
     if (!window.hitBoxPolyline) {
-        window.hitBoxPolyline = L.polyline(routeWaypoints, mainRouteHitBoxOptions()).addTo(map);
+        window.hitBoxPolyline = L.polyline(buildMainRoutePolylineLatLngs(routeWaypoints), mainRouteHitBoxOptions()).addTo(map);
         window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
     } else {
-        window.hitBoxPolyline.setLatLngs(routeWaypoints);
+        window.hitBoxPolyline.setLatLngs(buildMainRoutePolylineLatLngs(routeWaypoints));
         if (typeof window.hitBoxPolyline.setStyle === 'function') {
             window.hitBoxPolyline.setStyle(mainRouteHitBoxOptions());
         }
@@ -7272,10 +7306,15 @@ function renderMainRoute() {
         marker.on('drag', function (e) {
             if (polyline) {
                 const latlngs = polyline.getLatLngs();
-                latlngs[index] = marker.getLatLng();
-                polyline.setLatLngs(latlngs);
-                if (typeof window.hitBoxPolyline !== 'undefined' && window.hitBoxPolyline) {
-                    window.hitBoxPolyline.setLatLngs(latlngs);
+                const isSegmentedRoute = Array.isArray(latlngs?.[0]);
+                if (isSegmentedRoute) {
+                    renderMainRoute();
+                } else {
+                    latlngs[index] = marker.getLatLng();
+                    polyline.setLatLngs(latlngs);
+                    if (typeof window.hitBoxPolyline !== 'undefined' && window.hitBoxPolyline) {
+                        window.hitBoxPolyline.setLatLngs(latlngs);
+                    }
                 }
                 scheduleWeatherMarkerDodging(true);
             }
@@ -9747,7 +9786,11 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         // Echtzeit-Koordinaten direkt aus der sichtbaren roten Linie holen
         let pts = [];
     if (typeof polyline !== 'undefined' && polyline) {
-        pts = polyline.getLatLngs().map(ll => map.latLngToLayerPoint(ll));
+        const routeLatLngs = polyline.getLatLngs();
+        const flatLatLngs = Array.isArray(routeLatLngs?.[0])
+            ? routeLatLngs.flat()
+            : routeLatLngs;
+        pts = flatLatLngs.map(ll => map.latLngToLayerPoint(ll));
     } else if (typeof routeWaypoints !== 'undefined' && routeWaypoints && routeWaypoints.length >= 2) {
         pts = routeWaypoints.map(wp => map.latLngToLayerPoint([wp.lat, wp.lng || wp.lon]));
     } else return;

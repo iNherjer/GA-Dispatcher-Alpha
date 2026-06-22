@@ -5271,20 +5271,114 @@ function compactMissionObjectForQuotaStorage(value = null) {
     return out;
 }
 
+function compactRouteWaypointsForQuotaStorage(points = []) {
+    if (!Array.isArray(points)) return [];
+    return points.slice(0, 80).map((point, idx) => {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lng ?? point?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const out = {
+            lat: Math.round(lat * 1e6) / 1e6,
+            lng: Math.round(lon * 1e6) / 1e6
+        };
+        const name = String(point?.name || '').replace(/\s+/g, ' ').trim();
+        if (name) out.name = name.slice(0, 120);
+        ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome', 'isSarHeliIncident', 'isSarHeliHospital'].forEach(key => {
+            if (point?.[key] !== undefined) out[key] = !!point[key];
+        });
+        if (point?.poiChainPointId) out.poiChainPointId = String(point.poiChainPointId).slice(0, 180);
+        if (point?.icao) out.icao = String(point.icao).slice(0, 12);
+        if (!out.name && idx === 0) out.name = 'Start';
+        return out;
+    }).filter(Boolean);
+}
+
+function compactPassengerForQuotaStorage(value = null) {
+    if (!value || typeof value !== 'object') return null;
+    const keep = [
+        'name', 'displayName', 'role', 'gender', 'taskDomain', 'roleProfile',
+        'personality', 'voice', 'voiceId', 'greetingText', 'poiChainProgress'
+    ];
+    const out = {};
+    keep.forEach(key => {
+        if (value[key] !== undefined) out[key] = value[key];
+    });
+    if (value.poiChain && typeof value.poiChain === 'object') {
+        out.poiChain = compactPoiChainForMission(value.poiChain, 8);
+    }
+    return out;
+}
+
+function slimMissionObjectForActiveState(value = null) {
+    const out = compactMissionObjectForQuotaStorage(value);
+    if (!out || typeof out !== 'object') return out;
+    ['knowledgeContext', 'missionPlanV2', '_missionPlanV2', 'missionPlanV4', '_missionPlanV4', 'missionContractV4', '_missionContractV4'].forEach(key => {
+        if (out[key] !== undefined) delete out[key];
+    });
+    if (out.poiChain && typeof out.poiChain === 'object') out.poiChain = compactPoiChainForMission(out.poiChain, 8);
+    if (out.routeWaypoints) out.routeWaypoints = compactRouteWaypointsForQuotaStorage(out.routeWaypoints);
+    if (out.missionRouteWaypoints) out.missionRouteWaypoints = compactRouteWaypointsForQuotaStorage(out.missionRouteWaypoints);
+    if (out.missionContract && typeof out.missionContract === 'object') {
+        out.missionContract = slimMissionObjectForActiveState(out.missionContract);
+    }
+    return out;
+}
+
+function compactActiveMissionStateForQuotaStorage(state = {}) {
+    const currentMissionDataCompact = slimMissionObjectForActiveState(state.currentMissionData);
+    const routeCompact = compactRouteWaypointsForQuotaStorage(state.routeWaypoints);
+    const missionRouteCompact = compactRouteWaypointsForQuotaStorage(state.missionRouteWaypoints || routeCompact);
+    return {
+        mTitle: state.mTitle || '',
+        mStory: state.mStory || '',
+        mDepICAO: state.mDepICAO || '',
+        mDepName: state.mDepName || '',
+        mDepCoords: state.mDepCoords || '',
+        mDepRwy: state.mDepRwy || '',
+        destIcon: state.destIcon || '',
+        mDestICAO: state.mDestICAO || '',
+        mDestName: state.mDestName || '',
+        mDestCoords: state.mDestCoords || '',
+        mDestRwy: state.mDestRwy || '',
+        mPay: state.mPay || '',
+        mWeight: state.mWeight || '',
+        mDistNote: state.mDistNote || '',
+        mHeadingNote: state.mHeadingNote || '',
+        mETENote: state.mETENote || '',
+        wikiDepDescText: '',
+        wikiDestDescText: '',
+        wikiDepFreqText: '',
+        wikiDestFreqText: '',
+        wikiDepImageUrl: '',
+        wikiDestImageUrl: '',
+        isPOI: !!state.isPOI,
+        currentMissionData: currentMissionDataCompact,
+        routeWaypoints: routeCompact,
+        missionRouteWaypoints: missionRouteCompact,
+        currentStartICAO: state.currentStartICAO || '',
+        currentDestICAO: state.currentDestICAO || '',
+        currentSName: state.currentSName || '',
+        currentDName: state.currentDName || '',
+        currentDepFreq: state.currentDepFreq || '',
+        currentDestFreq: state.currentDestFreq || '',
+        currentDepElev: state.currentDepElev ?? null,
+        currentDestElev: state.currentDestElev ?? null,
+        freqCache: {},
+        vpAltWaypoints: [],
+        vpSegmentAlts: [],
+        vpElevationData: null,
+        activePassenger: compactPassengerForQuotaStorage(state.activePassenger),
+        activeMissionContract: slimMissionObjectForActiveState(state.activeMissionContract)
+    };
+}
+
 function storeActiveMissionStateSafely(state = {}) {
     try {
         localStorage.setItem('ga_active_mission', JSON.stringify(state));
         return true;
     } catch (err) {
         try { console.warn('[MISSION SAVE] Active mission state too large; retrying compact save.', err); } catch (_) {}
-        const compactState = {
-            ...state,
-            wikiDepImageUrl: '',
-            wikiDestImageUrl: '',
-            freqCache: {},
-            currentMissionData: compactMissionObjectForQuotaStorage(state.currentMissionData),
-            activeMissionContract: compactMissionObjectForQuotaStorage(state.activeMissionContract)
-        };
+        const compactState = compactActiveMissionStateForQuotaStorage(state);
         try {
             localStorage.removeItem('ga_active_mission');
             localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
@@ -9589,7 +9683,11 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
             diagnostics: {
                 score: best.score,
                 group: best.group || null,
-                featureCounts: prospectRun?.diagnostics?.featureCounts || null
+                featureCounts: prospectRun?.diagnostics?.featureCounts || null,
+                guideScope: best.diagnostics?.guideScope || null,
+                guidePoints: best.diagnostics?.guidePoints || 0,
+                rawCandidates: best.diagnostics?.rawCandidates || 0,
+                selectedPoints: best.diagnostics?.selectedPoints || 0
             }
         }
     };
@@ -9608,6 +9706,13 @@ async function findPoiChainDispatchTarget(lat, lon, minNM, maxNM, dirPref, selec
                 guidePointCount: chain.guide?.guidePointCount || 0
             },
             overlayTracePoints: Array.isArray(chain.overlay?.trace) ? chain.overlay.trace.length : 0,
+            diagnostics: {
+                score: best.score,
+                guideScope: best.diagnostics?.guideScope || null,
+                guidePoints: best.diagnostics?.guidePoints || 0,
+                rawCandidates: best.diagnostics?.rawCandidates || 0,
+                selectedPoints: best.diagnostics?.selectedPoints || 0
+            },
             selectedPoints: Array.isArray(chain.points) ? chain.points.map(point => ({
                 index: point.index,
                 name: point.name,

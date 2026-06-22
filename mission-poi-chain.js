@@ -191,6 +191,170 @@
         };
     }
 
+    function guideTraceStepLimitNm(cfg = {}) {
+        const theme = String(cfg.theme || '').toLowerCase();
+        if (theme === 'river_bridge_inspection') return 0.42;
+        if (theme === 'rail_chain_inspection') return 0.55;
+        if (theme === 'road_bridge_inspection' || theme === 'road_junction_survey') return 0.65;
+        if (theme === 'power_grid_inspection') return 1.4;
+        return 0.75;
+    }
+
+    function dedupeGuidePoints(points = []) {
+        const seen = new Set();
+        const out = [];
+        for (const point of points || []) {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            const key = `${Math.round(lat * 1e5)}|${Math.round(lon * 1e5)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(point);
+        }
+        return out;
+    }
+
+    function nearestGuideIndex(points = [], target = null) {
+        if (!Array.isArray(points) || !points.length || !target) return -1;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let idx = 0; idx < points.length; idx++) {
+            const point = points[idx];
+            const dist = haversineNm(target.lat, target.lon, point.lat, point.lon);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = idx;
+            }
+        }
+        return bestIdx;
+    }
+
+    function buildGuideNeighborLookup(points = [], maxStepNm = 0.75) {
+        const avgLat = points.reduce((sum, p) => sum + Number(p.lat || 0), 0) / Math.max(1, points.length);
+        const cellLat = Math.max(0.002, maxStepNm / 60);
+        const cellLon = Math.max(0.002, maxStepNm / (60 * Math.max(0.25, Math.cos(toRad(avgLat)))));
+        const buckets = new Map();
+        const cellKey = (x, y) => `${x}|${y}`;
+        const cellFor = point => ({
+            x: Math.floor(Number(point.lat) / cellLat),
+            y: Math.floor(Number(point.lon) / cellLon)
+        });
+        points.forEach((point, idx) => {
+            const cell = cellFor(point);
+            const key = cellKey(cell.x, cell.y);
+            if (!buckets.has(key)) buckets.set(key, []);
+            buckets.get(key).push(idx);
+        });
+        return idx => {
+            const point = points[idx];
+            const cell = cellFor(point);
+            const out = [];
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const bucket = buckets.get(cellKey(cell.x + dx, cell.y + dy));
+                    if (!bucket) continue;
+                    for (const otherIdx of bucket) {
+                        if (otherIdx === idx) continue;
+                        const other = points[otherIdx];
+                        const dist = haversineNm(point.lat, point.lon, other.lat, other.lon);
+                        if (dist <= maxStepNm) out.push({ idx: otherIdx, dist });
+                    }
+                }
+            }
+            return out;
+        };
+    }
+
+    function shortestGuidePathIndices(points = [], startIdx = -1, endIdx = -1, maxStepNm = 0.75) {
+        const n = Array.isArray(points) ? points.length : 0;
+        if (n < 2 || startIdx < 0 || endIdx < 0) return [];
+        if (startIdx === endIdx) return [startIdx];
+        const neighborsFor = buildGuideNeighborLookup(points, maxStepNm);
+        const dist = new Array(n).fill(Infinity);
+        const prev = new Array(n).fill(-1);
+        const used = new Array(n).fill(false);
+        dist[startIdx] = 0;
+        for (let step = 0; step < n; step++) {
+            let current = -1;
+            let best = Infinity;
+            for (let idx = 0; idx < n; idx++) {
+                if (!used[idx] && dist[idx] < best) {
+                    best = dist[idx];
+                    current = idx;
+                }
+            }
+            if (current < 0 || current === endIdx) break;
+            used[current] = true;
+            for (const next of neighborsFor(current)) {
+                if (used[next.idx]) continue;
+                const cand = dist[current] + next.dist;
+                if (cand < dist[next.idx]) {
+                    dist[next.idx] = cand;
+                    prev[next.idx] = current;
+                }
+            }
+        }
+        if (!Number.isFinite(dist[endIdx])) return [];
+        const path = [];
+        for (let idx = endIdx; idx >= 0; idx = prev[idx]) {
+            path.push(idx);
+            if (idx === startIdx) break;
+        }
+        path.reverse();
+        return path[0] === startIdx ? path : [];
+    }
+
+    function assignGuideTraceProjection(points = [], segment = null) {
+        if (!Array.isArray(points) || !points.length) return [];
+        let total = 0;
+        const distances = [0];
+        for (let idx = 1; idx < points.length; idx++) {
+            total += haversineNm(points[idx - 1].lat, points[idx - 1].lon, points[idx].lat, points[idx].lon);
+            distances[idx] = total;
+        }
+        return points.map((point, idx) => {
+            const fallback = segment ? projectPointToSegmentNm(point.lat, point.lon, segment.start, segment.end) : null;
+            const alongNm = distances[idx] || 0;
+            const t = total > 0 ? alongNm / total : (points.length > 1 ? idx / (points.length - 1) : 0);
+            return {
+                ...point,
+                _traceOrder: idx,
+                _projection: {
+                    ...(fallback || point._projection || {}),
+                    t,
+                    tClamped: clamp(t, 0, 1),
+                    alongNm,
+                    lengthNm: total
+                }
+            };
+        });
+    }
+
+    function orderGuidePointsAlongTrace(points = [], cfg = {}, segment = null) {
+        const base = dedupeGuidePoints(points);
+        if (base.length < 2) return base;
+        const startIdx = nearestGuideIndex(base, cfg.start || segment?.start);
+        const endIdx = nearestGuideIndex(base, cfg.end || segment?.end);
+        const baseLimit = guideTraceStepLimitNm(cfg);
+        const limits = Array.from(new Set([
+            baseLimit,
+            baseLimit * 1.6,
+            baseLimit * 2.4,
+            Math.max(baseLimit * 2.4, Number(cfg.guideMaxCrossTrackNm || 0))
+        ].map(v => Math.round(Math.max(0.2, Math.min(4, v)) * 100) / 100)));
+        for (const limit of limits) {
+            const path = shortestGuidePathIndices(base, startIdx, endIdx, limit);
+            if (path.length >= Math.min(base.length, Math.max(2, Number(cfg.minGuidePoints || 2)))) {
+                return assignGuideTraceProjection(path.map(idx => base[idx]), segment);
+            }
+        }
+        return assignGuideTraceProjection(
+            base.slice().sort((a, b) => Number(a._projection?.t || 0) - Number(b._projection?.t || 0)),
+            segment
+        );
+    }
+
     function valueText(feature, keys) {
         for (const key of keys) {
             const value = feature?.[key];
@@ -376,6 +540,9 @@
         };
         cfg.guideNamePattern = normalizePattern(input.guideNamePattern || input.guidePattern || input.guideName || input.namePattern);
         cfg.candidateNamePattern = normalizePattern(input.candidateNamePattern || input.candidatePattern);
+        cfg.guideFeatureIds = Array.isArray(input.guideFeatureIds)
+            ? input.guideFeatureIds.map(value => String(value || '').trim()).filter(Boolean)
+            : [];
         cfg.guideTypes = Array.isArray(input.guideTypes) && input.guideTypes.length
             ? input.guideTypes.map(v => String(v).toLowerCase())
             : (themeDefaults.guideTypes || []).map(v => String(v).toLowerCase());
@@ -573,16 +740,28 @@
     }
 
     function findGuidePoints(features, cfg, segment) {
-        return features.core
+        const scopedGuideIds = new Set(Array.isArray(cfg.guideFeatureIds) ? cfg.guideFeatureIds : []);
+        if (scopedGuideIds.size) {
+            const matched = features.core
+                .filter(f => f.sourceLayer === 'core.lin')
+                .filter(f => scopedGuideIds.has(f._id))
+                .filter(f => typeMatches(f, cfg.guideTypes));
+            return orderGuidePointsAlongTrace(matched, cfg, segment);
+        }
+        const matched = features.core
             .filter(f => f.sourceLayer === 'core.lin')
-            .filter(f => guideMatches(f, cfg, segment))
-            .sort((a, b) => a._projection.t - b._projection.t);
+            .filter(f => guideMatches(f, cfg, segment));
+        return orderGuidePointsAlongTrace(matched, cfg, segment);
     }
 
     function buildGuideTrace(guidePoints = [], maxPoints = 48) {
         const points = (Array.isArray(guidePoints) ? guidePoints : [])
             .filter(point => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
-            .sort((a, b) => Number(a._projection?.t || 0) - Number(b._projection?.t || 0));
+            .sort((a, b) => {
+                const ao = Number.isFinite(Number(a._traceOrder)) ? Number(a._traceOrder) : Number(a._projection?.t || 0);
+                const bo = Number.isFinite(Number(b._traceOrder)) ? Number(b._traceOrder) : Number(b._projection?.t || 0);
+                return ao - bo;
+            });
         if (points.length < 2) return [];
         const limit = Math.max(2, Math.min(80, Math.round(Number(maxPoints || 48))));
         const step = Math.max(1, Math.ceil(points.length / limit));
@@ -818,6 +997,7 @@
         const cfg = normalizeConfig(config);
         const diagnostics = {
             ordering: 'guide_trace_projection',
+            guideScope: cfg.guideFeatureIds?.length ? 'selected_component' : 'pattern_or_segment',
             featureCounts: null,
             guidePoints: 0,
             rawCandidates: 0,
@@ -1308,7 +1488,8 @@
                     maxPoints: options.maxPoints,
                     minGuidePoints: options.minGuidePoints,
                     projectionSlack: options.projectionSlack,
-                    triggerRadiusNm: options.triggerRadiusNm
+                    triggerRadiusNm: options.triggerRadiusNm,
+                    guideFeatureIds: group.features.map(feature => feature._id).filter(Boolean)
                 };
                 diagnostics.tested += 1;
                 const result = buildPoiChain(cfg, { features: features.core.concat(features.infra, features.poi) });
