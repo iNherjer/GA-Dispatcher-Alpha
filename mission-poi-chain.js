@@ -72,7 +72,7 @@
         power_grid_inspection: {
             guideTypes: ['power', 'powerline', 'line', 'minor_line'],
             candidateMode: 'power',
-            guideMaxCrossTrackNm: 7,
+            guideMaxCrossTrackNm: 3.2,
             candidateMaxCrossTrackNm: 0.65,
             clusterRadiusNm: 0.28,
             minSpacingNm: 1.4,
@@ -497,6 +497,29 @@
         if (/^(yes|no|bridge|road|track|rail|line|minor_line|station|halt)$/i.test(name)) return false;
         if (/^(baustellenbereich|infrastrukturpunkt)$/i.test(name)) return false;
         return true;
+    }
+
+    function isBroadPowerIdentity(value = '') {
+        const key = normalizeKey(value);
+        if (!key) return true;
+        if (/^(power|powerline|power_line|line|minor_line|cable|yes|stromtrasse|stromleitung|freileitung|leitungsabschnitt)$/.test(key)) return true;
+        if (/^(110kv|220kv|380kv|110_?000|220_?000|380_?000|10kv|20kv|30kv)$/.test(key)) return true;
+        if (/^(enbw|transnetbw|transnetbw_gmbh|db_energie|db_energie_gmbh|badenova|badenovanetz_gmbh|ueberlandwerk_mittelbaden|uberlandwerk_mittelbaden|netze_bw|amprion|tennet|50hertz)$/.test(key)) return true;
+        if (/^(energie|netz|strom|stadtwerke|gemeindewerke|ueberlandwerk|uberlandwerk)(_[a-z0-9]+)*$/.test(key)) return true;
+        return false;
+    }
+
+    function powerGuideIdentity(feature = {}) {
+        const name = cleanText(feature.tags?.name || feature.rawName || feature.name || '', 120);
+        const ref = cleanText(feature.ref || feature.tags?.ref || '', 80);
+        const operator = cleanText(feature.operator || feature.tags?.operator || '', 120);
+        const voltage = cleanText(feature.voltage || feature.tags?.voltage || '', 80);
+        const osmId = cleanText(feature.osm_id || feature.id || feature.tags?.osm_id || feature.rawId || '', 80);
+        if (ref && !isBroadPowerIdentity(ref)) return ref;
+        if (name && !isBroadPowerIdentity(name)) return name;
+        if (osmId && !isBroadPowerIdentity(osmId)) return `osm:${osmId}`;
+        if (operator && voltage && !isBroadPowerIdentity(operator) && !isBroadPowerIdentity(voltage)) return `${operator} ${voltage}`;
+        return '';
     }
 
     function normalizeFeature(raw, sourceLayer = 'unknown', sourceTile = '') {
@@ -1126,6 +1149,16 @@
             if (railway === 'junction') return `Bahnknoten ${index + 1}`;
             return `Bahninfrastruktur ${index + 1}`;
         }
+        if (String(mode || '').toLowerCase() === 'power') {
+            const power = String(feature.power || feature.substation || '').toLowerCase();
+            const looksLikeRawId = /^\d{6,}$/.test(normalizedName);
+            const broad = !name || looksLikeRawId || isBroadPowerIdentity(name);
+            if (!broad) return name;
+            if (power === 'substation' || String(feature.substation || '').trim()) return `Umspannpunkt ${index + 1}`;
+            if (power === 'line' || power === 'minor_line') return `Leitungsabschnitt ${index + 1}`;
+            if (power === 'tower' || power === 'pole') return `Maststandort ${index + 1}`;
+            return `Netzpunkt ${index + 1}`;
+        }
         if (name) return name;
         const cat = categoryFor(feature, mode).replace(/_/g, ' ');
         return `${cat} ${index + 1}`;
@@ -1270,6 +1303,42 @@
         });
     }
 
+    function validateChainQuality(points = [], cfg = {}) {
+        const theme = String(cfg.theme || '').toLowerCase();
+        if (theme !== 'power_grid_inspection') return { ok: true };
+        const gaps = (Array.isArray(points) ? points : [])
+            .map(point => Number(point?.distanceFromPrevNm || 0))
+            .filter(value => Number.isFinite(value) && value > 0);
+        if (!gaps.length) return { ok: true };
+        const maxGap = Math.max(...gaps);
+        const avgGap = gaps.reduce((sum, value) => sum + value, 0) / gaps.length;
+        const longGaps = gaps.filter(value => value > 5.4).length;
+        const veryLongGaps = gaps.filter(value => value > 7.0).length;
+        const metrics = {
+            maxPointGapNm: roundNumber(maxGap, 2),
+            avgPointGapNm: roundNumber(avgGap, 2),
+            longPointGaps: longGaps,
+            veryLongPointGaps: veryLongGaps
+        };
+        if (veryLongGaps > 0) {
+            return {
+                ok: false,
+                status: 'weak_power_chain',
+                reason: `power chain point gap too large (${roundNumber(maxGap, 2)}NM)`,
+                metrics
+            };
+        }
+        if (longGaps >= 2 || (longGaps >= 1 && avgGap > 4.6)) {
+            return {
+                ok: false,
+                status: 'weak_power_chain',
+                reason: `power chain has multiple long point gaps (max ${roundNumber(maxGap, 2)}NM)`,
+                metrics
+            };
+        }
+        return { ok: true, metrics };
+    }
+
     function statusResult(status, reason, cfg, diagnostics, extra = {}) {
         return {
             ok: false,
@@ -1329,6 +1398,11 @@
         const points = [];
         for (const feature of selected) {
             points.push(buildPoint(feature, cfg, points.length, points[points.length - 1] || null));
+        }
+        const quality = validateChainQuality(points, cfg);
+        diagnostics.quality = quality.metrics || null;
+        if (!quality.ok) {
+            return statusResult(quality.status || 'weak_chain', quality.reason || 'chain quality rejected', cfg, diagnostics);
         }
         const hiddenOutcome = buildSilentChainOutcome(points, cfg);
         const runtimePoints = applySilentChainOutcome(points, hiddenOutcome);
@@ -1445,7 +1519,7 @@
             const lineName = railLineIdentityName({ ...feature, name: rawName || name });
             identity = ref || lineName || 'rail';
         }
-        else if (k === 'power') identity = ref || name || operator || voltage || 'power';
+        else if (k === 'power') identity = powerGuideIdentity(feature);
         else identity = name || ref || operator || feature.type || 'line';
         if (!identity) return '';
         return `${k}:${normalizeKey(identity)}`;
@@ -1465,7 +1539,15 @@
         const k = String(kind || guideKindForFeature(feature) || '').toLowerCase();
         if (k === 'road') return cleanText(feature.ref || feature.name || feature.highway || 'Straßenkorridor', 120);
         if (k === 'rail') return cleanText(feature.ref || railLineIdentityName(feature) || 'Bahnkorridor', 120);
-        if (k === 'power') return cleanText(feature.name || feature.ref || feature.operator || (feature.voltage ? `${feature.voltage}V-Leitung` : 'Stromtrasse'), 120);
+        if (k === 'power') {
+            const ref = cleanText(feature.ref || '', 80);
+            const name = cleanText(feature.name || '', 120);
+            const operator = cleanText(feature.operator || '', 120);
+            if (ref && !isBroadPowerIdentity(ref)) return ref;
+            if (name && !isBroadPowerIdentity(name)) return name;
+            if (operator && !isBroadPowerIdentity(operator)) return operator;
+            return 'Stromtrasse';
+        }
         if (k === 'waterway') return cleanText(feature.name || feature.ref || 'Gewässerkorridor', 120);
         return cleanText(feature.name || feature.ref || 'Korridor', 120);
     }
@@ -1680,7 +1762,20 @@
             }
             return label ? `Bahnkorridor ${label}` : 'Bahnkorridor';
         }
-        if (theme === 'power_grid_inspection') return label ? `Stromtrasse ${label}` : 'Stromtrasse';
+        if (theme === 'power_grid_inspection') {
+            const generic = !label || isBroadPowerIdentity(label) || /^stromtrasse$/i.test(label);
+            if (generic && Array.isArray(chain?.points) && chain.points.length >= 2) {
+                const useful = chain.points
+                    .map(point => cleanText(point?.name || '', 42))
+                    .filter(name => name && !isBroadPowerIdentity(name) && !/^\d{6,}$/.test(name) && !/^(power|strom|leitungs?)\s*(line|grid|support)?\s*\d*$/i.test(name));
+                const first = useful[0] || '';
+                const last = useful[useful.length - 1] || '';
+                if (first && last && normalizeKey(first) !== normalizeKey(last)) return `Stromtrasse ${first} - ${last}`;
+                if (first) return `Stromtrasse ${first}`;
+            }
+            if (generic) return 'Stromtrassenabschnitt';
+            return `Stromtrasse ${label.replace(/^stromtrasse\s+/i, '').trim() || label}`;
+        }
         return chain?.label || 'POI-Kette';
     }
 
@@ -1702,7 +1797,7 @@
         const t = String(theme || '').toLowerCase();
         if (t === 'rail_chain_inspection') return 1.8;
         if (t === 'river_bridge_inspection') return 1.6;
-        if (t === 'power_grid_inspection') return 3.2;
+        if (t === 'power_grid_inspection') return 1.4;
         return 2.4;
     }
 

@@ -13616,7 +13616,10 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 const preparedWriterStory = _missionPipelineV4EnsurePoiChainPassengerNote(endpointPreparedWriterStory, storyContract, activeInfraPassenger);
                 const writerComplete = _missionPipelineV4PoiChainStoryLooksComplete(preparedWriterStory, storyContract, activeInfraPassenger);
                 const writerUsable = _missionPipelineV4PoiChainStoryLooksUsable(preparedWriterStory, storyContract, activeInfraPassenger);
-                const acceptedWriter = writerComplete || writerUsable;
+                const writerHasOwnNarrativeWeight = normalizeMissionText(writerStory).length >= 180
+                    && _missionPipelineV4SentenceCount(writerStory) >= 3
+                    && !_missionPipelineV4LooksInternalMissionText(writerStory);
+                const acceptedWriter = (writerComplete || writerUsable) && writerHasOwnNarrativeWeight;
                 const fallbackStory = chainStory || _missionPipelineV4ComposeStoryFallback(storyContract, { passenger: activeInfraPassenger });
                 m.s = acceptedWriter ? preparedWriterStory : fallbackStory;
                 m._poiChainStoryDebug = {
@@ -13627,6 +13630,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                     fallbackLength: fallbackStory.length,
                     endpointNoteAdded: endpointPreparedWriterStory !== writerStory,
                     passengerNoteAdded: preparedWriterStory !== endpointPreparedWriterStory,
+                    writerHasOwnNarrativeWeight,
                     writerComplete,
                     writerUsable,
                     finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
@@ -23282,8 +23286,8 @@ function _missionPipelineV4EnsurePoiChainPassengerNote(story = '', contract = {}
     const roleNote = role && !/^begleitperson$/i.test(role) ? `, ${role}` : '';
     const pronoun = String(activePassenger?.gender || '').toLowerCase() === 'female' ? 'Sie' : 'Er';
     const note = paxName
-        ? `An Bord ist ${paxName}${roleNote}. ${pronoun} ordnet die Luftbildserie anhand von ${scope} und hält fest, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen.`
-        : `An Bord ist eine Fachperson für den Erstbefund. Sie ordnet die Luftbildserie anhand von ${scope} und hält fest, welche Punkte später eine nähere Nachprüfung brauchen.`;
+        ? `An Bord ist ${paxName}${roleNote}. ${pronoun} ordnet die Luftbildserie mit Blick auf ${scope} und hält fest, welche Punkte später eine nähere Boden- oder Einzelobjektprüfung brauchen.`
+        : `An Bord ist eine Fachperson für den Erstbefund. Sie ordnet die Luftbildserie mit Blick auf ${scope} und hält fest, welche Punkte später eine nähere Nachprüfung brauchen.`;
     const sentences = _missionPipelineV4SentenceParts(base);
     const hasIdentity = !!((nameKey && normalized.includes(nameKey)) || (roleKey && normalized.includes(roleKey)));
     const genericIndexes = sentences
