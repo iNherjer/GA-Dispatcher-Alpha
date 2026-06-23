@@ -4309,8 +4309,8 @@ async function _paxPlayPhotoBurst(seed, options = {}, epoch = _paxMissionEpoch) 
     return _paxPlayAudioCue('photo', seed, {
         minCount: 1,
         maxCount: 5,
-        minDelayMs: 1000,
-        maxDelayMs: 10000,
+        minDelayMs: 200,
+        maxDelayMs: 1000,
         ...options
     }, epoch);
 }
@@ -5203,18 +5203,22 @@ function _poiChainPhotoSoundOptions(kind = '', spec = null, event = null, text =
     return {
         beforeAudio: (epoch) => _paxPlayPhotoBurst(`${seed}|pre`, {
             minCount: 1,
-            maxCount: 2,
-            firstDelayMs: 120,
-            minDelayMs: 550,
-            maxDelayMs: 1800
-        }, epoch),
-        afterAudio: (epoch) => _paxPlayPhotoBurst(`${seed}|post`, {
-            minCount: 1,
             maxCount: 5,
-            firstDelayMs: _paxSeededInt(`${seed}|post-first`, 900, 2600),
-            minDelayMs: 1000,
-            maxDelayMs: 10000
-        }, epoch)
+            firstDelayMs: _paxSeededInt(`${seed}|pre-first`, 200, 1000),
+            minDelayMs: 200,
+            maxDelayMs: 1000
+        }, epoch),
+        afterAudio: (epoch) => {
+            const postCount = _paxSeededInt(`${seed}|post-count`, 0, 2);
+            if (postCount <= 0) return false;
+            return _paxPlayPhotoBurst(`${seed}|post`, {
+                minCount: postCount,
+                maxCount: postCount,
+                firstDelayMs: _paxSeededInt(`${seed}|post-first`, 200, 1000),
+                minDelayMs: 200,
+                maxDelayMs: 1000
+            }, epoch);
+        }
     };
 }
 

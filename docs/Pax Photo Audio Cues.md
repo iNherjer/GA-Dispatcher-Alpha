@@ -12,9 +12,9 @@ Diese Regel beschreibt den gemeinsamen Einsatz von `foto.mp3` fuer Missionen, in
 ## Timing
 
 - Die Sequenz wird deterministisch randomisiert, damit derselbe Missionsstand stabil bleibt, aber Missionen nicht identisch klingen.
-- Vor dem PAX-Text sind 0-2 Fotos sinnvoll, meist sehr kurz vor der Ansage.
-- Nach dem PAX-Text sind 1-5 Fotos sinnvoll.
-- Der Abstand zwischen einzelnen Fotos liegt normalerweise zwischen 1 und 10 Sekunden.
+- Vor dem PAX-Text sind 1-5 Fotos sinnvoll.
+- Nach dem PAX-Text sind 0-2 Fotos sinnvoll, maximal 2.
+- Der Abstand zwischen einzelnen Fotos liegt normalerweise zwischen 0.2 und 1 Sekunde.
 - Die Sequenz muss abbrechen, wenn sich die Mission-Epoch aendert oder die Mission endet.
 
 ## Umsetzung
