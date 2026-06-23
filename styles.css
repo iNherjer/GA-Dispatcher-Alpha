@@ -6644,18 +6644,32 @@ body.theme-navcom.navcom-rack-v2 .radio-row {
 
 body.theme-navcom.navcom-rack-v2 .radio-module {
     background:
+        linear-gradient(90deg, transparent 8px, rgba(235,241,245,0.28) 8px calc(100% - 8px), transparent calc(100% - 8px)),
+        linear-gradient(90deg, transparent 8px, rgba(0,0,0,0.72) 8px calc(100% - 8px), transparent calc(100% - 8px)),
         linear-gradient(180deg, rgba(255,255,255,0.09), transparent 16px),
         linear-gradient(180deg, #252a2f 0%, #171b1f 48%, #0b0d10 100%);
-    border: 1px solid #707982;
-    border-top-color: #c5ccd2;
-    border-left-color: #9ba5ad;
-    border-right-color: #1a1f24;
-    border-bottom-color: #060708;
+    background-size:
+        100% 1px,
+        100% 1px,
+        100% 100%,
+        100% 100%;
+    background-position:
+        left 7px,
+        left 8px,
+        left top,
+        left top;
+    background-repeat: no-repeat;
+    border: 1px solid #3b444c;
+    border-top-color: #8a949c;
+    border-left-color: #5a646d;
+    border-right-color: #101418;
+    border-bottom-color: #050607;
     border-radius: 3px;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.16),
         inset 0 -1px 0 rgba(0,0,0,0.9),
-        inset 0 0 0 1px rgba(0,0,0,0.46),
+        inset 0 0 0 1px rgba(0,0,0,0.58),
+        0 0 0 1px rgba(0,0,0,0.84),
         0 1px 0 rgba(255,255,255,0.035),
         0 2px 6px rgba(0,0,0,0.76);
 }
@@ -6664,19 +6678,7 @@ body.theme-navcom.navcom-rack-v2 .radio-module::before,
 body.theme-navcom.navcom-rack-v2 .radio-module::after,
 body.theme-navcom.navcom-rack-v2 .radio-module-right-screws::before,
 body.theme-navcom.navcom-rack-v2 .radio-module-right-screws::after {
-    content: '';
-    display: block;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background:
-        radial-gradient(circle at 34% 28%, #aeb6bd 0 12%, #59616a 13% 38%, #111418 39% 100%);
-    border: 1px solid #070809;
-    box-shadow:
-        inset 0 1px 1px rgba(255,255,255,0.32),
-        0 1px 1px rgba(0,0,0,0.8);
-    opacity: 0.78;
-    z-index: 1;
+    display: none;
 }
 
 body.theme-navcom.navcom-rack-v2 .radio-module::before { top: 4px; left: 4px; }
@@ -6687,6 +6689,18 @@ body.theme-navcom.navcom-rack-v2 .radio-module-right-screws {
     position: absolute;
     inset: 0;
     pointer-events: none;
+}
+
+body.theme-navcom.navcom-rack-v2 .half-module .radio-module-right-screws {
+    inset: 6px 6px 7px 6px;
+    border: 2px solid #fff;
+    border-radius: 1px;
+    box-shadow:
+        inset 0 0 0 1px rgba(0,0,0,0.86),
+        0 0 0 1px rgba(0,0,0,0.92),
+        0 1px 0 rgba(255,255,255,0.06);
+    box-sizing: border-box;
+    z-index: 1;
 }
 
 body.theme-navcom.navcom-rack-v2 .radio-module-right-screws::before { top: 4px; right: 4px; }
@@ -6704,7 +6718,18 @@ body.theme-navcom.navcom-rack-v2 .radio-module > .radio-label {
 body.theme-navcom.navcom-rack-v2 .audio-panel {
     padding: 8px 10px !important;
     background:
+        linear-gradient(90deg, transparent 8px, rgba(235,241,245,0.24) 8px calc(100% - 8px), transparent calc(100% - 8px)),
+        linear-gradient(90deg, transparent 8px, rgba(0,0,0,0.72) 8px calc(100% - 8px), transparent calc(100% - 8px)),
         linear-gradient(180deg, #30353a 0%, #1b2025 54%, #111418 100%);
+    background-size:
+        100% 1px,
+        100% 1px,
+        100% 100%;
+    background-position:
+        left 7px,
+        left 8px,
+        left top;
+    background-repeat: no-repeat;
 }
 
 body.theme-navcom.navcom-rack-v2 .audio-panel-inner {
@@ -6813,6 +6838,11 @@ body.theme-navcom.navcom-rack-v2 .radio-display-container::before {
     position: absolute;
     inset: 1px;
     border-radius: 1px;
+    border: 1px solid rgba(238,244,248,0.34);
+    border-top-color: rgba(238,244,248,0.18);
+    border-left-color: rgba(238,244,248,0.22);
+    border-right-color: rgba(238,244,248,0.46);
+    border-bottom-color: rgba(238,244,248,0.52);
     box-shadow:
         inset 0 3px 9px rgba(0,0,0,0.99),
         inset 1px 0 3px rgba(0,0,0,0.82),
@@ -6889,9 +6919,24 @@ body.theme-navcom.navcom-rack-v2 .half-module .radio-transfer-btn {
     letter-spacing: 0;
     padding: 0 0 1px;
     text-align: center;
+    position: relative;
+    overflow: visible;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.7),
         0 2px 3px rgba(0,0,0,0.68);
+}
+
+body.theme-navcom.navcom-rack-v2 .half-module .radio-transfer-btn::after {
+    content: '';
+    position: absolute;
+    left: calc(100% + 7px);
+    top: 50%;
+    width: 72px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(238,244,248,0.82), rgba(238,244,248,0.48));
+    box-shadow: 0 1px 0 rgba(0,0,0,0.86);
+    transform: translateY(-50%);
+    pointer-events: none;
 }
 
 body.theme-navcom.navcom-rack-v2 .radio-knob,
@@ -6962,6 +7007,12 @@ body.theme-navcom.navcom-rack-v2 .radio-module:not(.half-module) > .radio-displa
         inset 0 -1px 0 rgba(255,255,255,0.055);
 }
 
+body.theme-navcom.navcom-rack-v2 .radio-module:not(.half-module) > .radio-display-container::before {
+    border-color: rgba(238,244,248,0.28);
+    border-right-color: rgba(238,244,248,0.4);
+    border-bottom-color: rgba(238,244,248,0.46);
+}
+
 body.theme-navcom.navcom-rack-v2 .xpdr-pax {
     border-left-color: rgba(183,192,200,0.28) !important;
 }
@@ -6969,8 +7020,21 @@ body.theme-navcom.navcom-rack-v2 .xpdr-pax {
 body.theme-navcom.navcom-rack-v2 .kln90b-module {
     padding: 14px 10px 10px;
     background:
+        linear-gradient(90deg, transparent 8px, rgba(235,241,245,0.22) 8px calc(100% - 8px), transparent calc(100% - 8px)),
+        linear-gradient(90deg, transparent 8px, rgba(0,0,0,0.7) 8px calc(100% - 8px), transparent calc(100% - 8px)),
         linear-gradient(180deg, rgba(255,255,255,0.08), transparent 18px),
         linear-gradient(180deg, #272c31 0%, #12161a 100%);
+    background-size:
+        100% 1px,
+        100% 1px,
+        100% 100%,
+        100% 100%;
+    background-position:
+        left 7px,
+        left 8px,
+        left top,
+        left top;
+    background-repeat: no-repeat;
 }
 
 body.theme-navcom.navcom-rack-v2 .kln90b-display {
@@ -7036,6 +7100,10 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         padding: 10px 8px 6px 13px !important;
     }
 
+    body.theme-navcom.navcom-rack-v2 .half-module .radio-module-right-screws {
+        inset: 6px 5px 6px 6px;
+    }
+
     body.theme-navcom.navcom-rack-v2 .lcd-input {
         font-size: 15px !important;
         letter-spacing: 0.4px;
@@ -7058,6 +7126,11 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     body.theme-navcom.navcom-rack-v2 .kln90b-encoder::after {
         width: 12px !important;
         height: 12px !important;
+    }
+
+    body.theme-navcom.navcom-rack-v2 .half-module .radio-transfer-btn::after {
+        left: calc(100% + 5px);
+        width: 48px;
     }
 
     body.theme-navcom.navcom-rack-v2 .audio-panel .audio-btn {
