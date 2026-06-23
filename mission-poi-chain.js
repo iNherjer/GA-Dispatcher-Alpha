@@ -1327,6 +1327,31 @@
             }
             return { ok: true, metrics };
         }
+        if (theme === 'rail_chain_inspection') {
+            const gaps = (Array.isArray(points) ? points : [])
+                .map(point => Number(point?.distanceFromPrevNm || 0))
+                .filter(value => Number.isFinite(value) && value > 0);
+            if (!gaps.length) return { ok: true };
+            const maxGap = Math.max(...gaps);
+            const avgGap = gaps.reduce((sum, value) => sum + value, 0) / gaps.length;
+            const longGaps = gaps.filter(value => value > 4.4).length;
+            const veryLongGaps = gaps.filter(value => value > 6.8).length;
+            const metrics = {
+                maxPointGapNm: roundNumber(maxGap, 2),
+                avgPointGapNm: roundNumber(avgGap, 2),
+                longPointGaps: longGaps,
+                veryLongPointGaps: veryLongGaps
+            };
+            if (veryLongGaps > 0 || longGaps >= 2) {
+                return {
+                    ok: false,
+                    status: 'weak_rail_chain',
+                    reason: `rail chain has multiple branch-like point gaps (max ${roundNumber(maxGap, 2)}NM)`,
+                    metrics
+                };
+            }
+            return { ok: true, metrics };
+        }
         if (theme !== 'power_grid_inspection') return { ok: true };
         const gaps = (Array.isArray(points) ? points : [])
             .map(point => Number(point?.distanceFromPrevNm || 0))
@@ -1817,7 +1842,7 @@
 
     function componentGapNmForTheme(theme = '') {
         const t = String(theme || '').toLowerCase();
-        if (t === 'rail_chain_inspection') return 1.8;
+        if (t === 'rail_chain_inspection') return 1.4;
         if (t === 'river_bridge_inspection') return 1.6;
         if (t === 'power_grid_inspection') return 1.4;
         return 2.4;
