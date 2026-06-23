@@ -33,7 +33,7 @@
         road_bridge_inspection: {
             guideTypes: ['highway', 'road'],
             candidateMode: 'road_bridge',
-            candidateMaxCrossTrackNm: 1.2,
+            candidateMaxCrossTrackNm: 0.25,
             clusterRadiusNm: 0.16,
             minSpacingNm: 1.0,
             minScore: 8,
@@ -1305,6 +1305,28 @@
 
     function validateChainQuality(points = [], cfg = {}) {
         const theme = String(cfg.theme || '').toLowerCase();
+        if (theme === 'road_bridge_inspection') {
+            const allowedCrossTrack = Math.max(0.08, Number(cfg.overlayWidthNm || 0.5) / 2);
+            const outliers = (Array.isArray(points) ? points : [])
+                .map(point => Number(point?.distCorridorNm || 0))
+                .filter(value => Number.isFinite(value) && value > allowedCrossTrack + 0.01);
+            const metrics = {
+                maxPointCrossTrackNm: roundNumber(Math.max(0, ...((Array.isArray(points) ? points : [])
+                    .map(point => Number(point?.distCorridorNm || 0))
+                    .filter(value => Number.isFinite(value)))), 3),
+                allowedCrossTrackNm: roundNumber(allowedCrossTrack, 3),
+                outlierCount: outliers.length
+            };
+            if (outliers.length) {
+                return {
+                    ok: false,
+                    status: 'weak_road_bridge_chain',
+                    reason: `road bridge chain has points outside the visible corridor (max ${metrics.maxPointCrossTrackNm}NM)`,
+                    metrics
+                };
+            }
+            return { ok: true, metrics };
+        }
         if (theme !== 'power_grid_inspection') return { ok: true };
         const gaps = (Array.isArray(points) ? points : [])
             .map(point => Number(point?.distanceFromPrevNm || 0))
