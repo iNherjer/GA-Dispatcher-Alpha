@@ -765,6 +765,48 @@ function buildMissionAiPayload(prompt) {
       }
     };
   }
+  if (formTaskDomain === 'private_outing') {
+    return {
+      dispatchFormAck: {
+        taskDomain: 'private_outing',
+        roleProfile: 'general_passenger_v1',
+        missionType: 'apt'
+      },
+      title: `Privater Ausflug nach ${target}`,
+      story: `Ein alter Freund fliegt heute mit nach ${target}, weil dort nach der Landung der gemeinsame Burger-Ausflug beginnt. Es geht nicht um einen Rundflug, sondern um ruhig ankommen, Tagesgepaeck ausladen und den Nachmittag am Zielplatz starten.`,
+      pax: '2 PAX (privater Ausflug)',
+      cargo: 'Tagesrucksaecke und Jacken (14 lbs)',
+      sceneIntent: {
+        summary: 'Privater A-B-Ausflug ohne Zielszene; die Aktivitaet beginnt nach der Landung am Ziel.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein Rundflug', 'keine Rueckkehrpflicht', 'kein Arbeitsauftrag'],
+        densityHint: 'none',
+        notes: 'Private Outing bleibt A-B-Kontext mit Zielaktivitaet nach der Landung.'
+      },
+      passenger: {
+        name: 'Jonas Seidel',
+        role: 'alter Freund',
+        gender: 'male',
+        personality: 'locker, herzlich, erwartungsvoll',
+        dialectHint: 'neutral',
+        roleProfile: 'general_passenger_v1',
+        taskDomain: 'private_outing',
+        gTolerance: 'niedrig',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        storySeed: `{name} hat den Flug nach ${target} als gemeinsamen $100-Burger-Ausflug vorgeschlagen; am Ziel wollen Pilot und Gast ohne Hektik zum Platzlokal und den Nachmittag als kleine GA-Auszeit nutzen.`,
+        greetingText: `Hi, ich freu mich auf den Burger am Ziel. Lass uns sauber hinfliegen, parken und dann einfach einen entspannten Nachmittag daraus machen.`,
+        trainingPlan: null
+      }
+    };
+  }
   if (formTaskDomain === 'sightseeing_tour') {
     return {
       dispatchFormAck: {
@@ -2543,7 +2585,7 @@ const VARIANT_TARGET_TYPES = [
   'apt:all+animal_transport',
   'apt:cargo+cargo_fragile',
   'apt:trn',
-  'apt:private+sightseeing_tour'
+  'apt:private+private_outing'
 ];
 
 function parseCliArgs(argv) {

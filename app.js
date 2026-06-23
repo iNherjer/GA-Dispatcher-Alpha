@@ -723,6 +723,47 @@ function changeThemeFromSlider(val) {
     else if (v === 3) setTheme('ops1940');
 }
 
+const NAVCOM_RACK_V2_STORAGE_KEY = 'ga_navcom_rack_v2';
+
+function isNavcomRackV2Enabled() {
+    return localStorage.getItem(NAVCOM_RACK_V2_STORAGE_KEY) === 'true';
+}
+
+function updateNavcomRackV2ButtonUi() {
+    const enabled = isNavcomRackV2Enabled();
+    const btn = document.getElementById('btnNavcomRackV2');
+    if (!btn) return;
+    btn.textContent = enabled ? 'NavCom V2 An' : 'NavCom V2 Aus';
+    btn.style.background = enabled ? '#173a2a' : '#222832';
+    btn.style.borderColor = enabled ? '#55b982' : '#5d6470';
+    btn.style.color = enabled ? '#d9ffe7' : '#d6dde8';
+}
+
+function applyNavcomRackV2State() {
+    const enabled = isNavcomRackV2Enabled();
+    document.body.classList.toggle('navcom-rack-v2', enabled);
+    updateNavcomRackV2ButtonUi();
+}
+
+function toggleNavcomRackV2(forceState) {
+    const enabled = typeof forceState === 'boolean' ? forceState : !isNavcomRackV2Enabled();
+    localStorage.setItem(NAVCOM_RACK_V2_STORAGE_KEY, enabled ? 'true' : 'false');
+    if (enabled && !document.body.classList.contains('theme-navcom')) {
+        setTheme('navcom');
+    } else {
+        applyNavcomRackV2State();
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = enabled
+        ? 'Debug: NavCom Rack V2 aktiv.'
+        : 'Debug: NavCom Legacy aktiv.';
+    return enabled;
+}
+
+window.isNavcomRackV2Enabled = isNavcomRackV2Enabled;
+window.toggleNavcomRackV2 = toggleNavcomRackV2;
+window.updateNavcomRackV2ButtonUi = updateNavcomRackV2ButtonUi;
+
 function setSettingsPanelOpen(open, persist = true) {
     const shell = document.querySelector('.settings-shell');
     const panel = document.getElementById('settingsPanel');
@@ -1068,6 +1109,7 @@ function setTheme(mode) {
         if (lblClassic) lblClassic.style.color = '#4da6ff';
     }
     applySavedPanelTheme();
+    applyNavcomRackV2State();
     updateDynamicColors();
     refreshAllDrums();
     syncGPSWithTheme(mode, wasNavcom);
@@ -1894,6 +1936,84 @@ const MISSION_ROLE_TASK_PROFILES = {
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: persoenlicher, ruhiger Rundflug mit Blickmoment, Fotos, Orientierung und entspannter Rueckkehr.'
     },
+    private_outing: {
+        id: 'private_outing',
+        label: 'Privater Ausflug',
+        appliesTo: ['apt'],
+        roleProfile: 'general_passenger_v1',
+        taskDomain: 'private_outing',
+        personas: [
+            {
+                name: 'Jonas Seidel',
+                role: 'alter Freund',
+                gender: 'male',
+                personality: 'locker, herzlich, erwartungsvoll',
+                storySeed: '{name} hat den Flug nach {targetName} als gemeinsamen $100-Burger-Ausflug vorgeschlagen; am Ziel wollen Pilot und Gast ohne Hektik zum Platzlokal und den Nachmittag als kleine GA-Auszeit nutzen.',
+                greetingText: 'Hi, ich freu mich auf den Burger am Ziel. Lass uns sauber hinfliegen, parken und dann einfach einen entspannten Nachmittag daraus machen.'
+            },
+            {
+                name: 'Leonie Berger',
+                role: 'Partnerin',
+                gender: 'female',
+                personality: 'warm, gelassen, aufmerksam',
+                storySeed: '{name} plant mit dem Piloten einen ruhigen Paarausflug nach {targetName}; nach der Landung wartet ein kurzer Transfer zum Wellness- oder Spaziergangsprogramm in Zielnaehe.',
+                greetingText: 'Hi, heute zaehlt fuer mich einfach, dass wir ruhig ankommen und danach ein bisschen gemeinsame Zeit am Ziel haben.'
+            },
+            {
+                name: 'Mara Hoffmann',
+                role: 'Wanderfreundin',
+                gender: 'female',
+                personality: 'naturnah, fröhlich, unkompliziert',
+                storySeed: '{name} hat am Ziel eine leichte Wanderung herausgesucht; Rucksack und Schuhe liegen hinten, und nach der Landung beginnt der eigentliche Ausflug vom Zielplatz aus.',
+                greetingText: 'Hi, die Wanderschuhe sind dabei. Wenn wir entspannt landen, starten wir am Ziel direkt in die kleine Tour.'
+            },
+            {
+                name: 'Paul Ritter',
+                role: 'Vereinskamerad',
+                gender: 'male',
+                personality: 'bodenstaendig, humorvoll, ruhig',
+                storySeed: '{name} nutzt den freien Slot fuer einen klassischen Fly-out mit Kaffee und Kuchen; am Zielplatz ist ein Tisch im Flugplatzcafe der eigentliche Anlass.',
+                greetingText: 'Moin, heute geht es wirklich nur um Kaffee, Kuchen und einen schoenen Zielplatz. Bitte keine Heldentaten, nur sauber hin.'
+            },
+            {
+                name: 'Nina Albrecht',
+                role: 'Schwester',
+                gender: 'female',
+                personality: 'neugierig, persoenlich, freundlich',
+                storySeed: '{name} besucht mit dem Piloten einen Familienkontakt in Zielnaehe; die Abholung ist nach der Landung am GA-Bereich geplant und der Flug spart ihnen eine lange Autofahrt.',
+                greetingText: 'Hi, ich bin gespannt auf den kleinen Familienausflug. Am Ziel werden wir abgeholt, also reicht ein ruhiger, planbarer Flug.'
+            },
+            {
+                name: 'Felix Brandt',
+                role: 'Fotofreund',
+                gender: 'male',
+                personality: 'entspannt, visuell, geduldig',
+                storySeed: '{name} moechte am Zielort private Fotos machen, aber erst nach der Landung; der Flug ist der schoene Hinweg zu einem ruhigen Spaziergang mit Kamera.',
+                greetingText: 'Hi, die Kamera bleibt erstmal in der Tasche. Mir geht es um den Ausflug nach der Landung, nicht um Kunstflug fuer Fotos.'
+            },
+            {
+                name: 'Clara Weiss',
+                role: 'Freundin',
+                gender: 'female',
+                personality: 'lebendig, freundlich, spontan',
+                storySeed: '{name} hat einen kleinen Städtetrip ab {targetName} geplant; nach dem Ankommen sollen Altstadt, Markt oder Uferpromenade den Nachmittag tragen.',
+                greetingText: 'Hi, ich hab schon eine kleine Runde am Ziel im Kopf. Ruhig hin, Tasche raus, und dann schauen wir uns den Ort an.'
+            },
+            {
+                name: 'Daniel Krueger',
+                role: 'Bruder',
+                gender: 'male',
+                personality: 'gelassen, direkt, familiennah',
+                storySeed: '{name} nutzt den Flug fuer einen Geschwistertag am Ziel; nach der Landung warten ein kurzer Spaziergang, ein gutes Essen und genug Zeit ohne Terminplan.',
+                greetingText: 'Hi, heute ist das kein Auftrag, sondern unser kleiner Ausflug. Lass uns einfach angenehm ankommen und den Tag am Ziel starten.'
+            }
+        ],
+        greetingText: 'Hi, heute ist ein privater Ausflug zum Zielplatz. Bitte ruhig und angenehm fliegen, danach beginnt der eigentliche Tag am Ziel.',
+        paxText: '2 PAX (privater Ausflug)',
+        cargoPool: ['Tagesrucksaecke und Jacken (14 lbs)', 'Picknicktasche und kleine Kameratasche (16 lbs)', 'Wellness- und Wochenendtasche (18 lbs)', 'Wanderrucksack und Schuhe (20 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: privater A-B-Ausflug mit konkreter Aktivitaet nach der Landung; keine Rundflug-, Arbeits- oder Rueckkehrpflicht.'
+    },
     tour_guide_knowledge: {
         id: 'tour_guide_knowledge',
         label: 'POI-Lern-Guide',
@@ -2610,6 +2730,12 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
         news_coverage: [
             { t: 'Reporter Shuttle', i: '📰', cat: 'std', s: 'Ein Reporterteam wird zum Zielplatz geflogen, um dort am Boden über ein Ereignis zu berichten.' },
             { t: 'Medien-Transfer', i: '🎥', cat: 'std', s: 'Kamerateam und Equipment müssen pünktlich am Ziel sein; die eigentliche Berichterstattung startet nach der Landung.' }
+        ],
+        private_outing: [
+            { t: 'Privater Burger-Ausflug', i: '🍔', cat: 'std', s: 'Ein Freund fliegt mit zum Zielplatz, weil dort nach der Landung der klassische $100-Burger und ein entspannter Nachmittag warten.' },
+            { t: 'Kaffee-und-Kuchen Fly-out', i: '☕', cat: 'std', s: 'Zwei Mitflieger nutzen den freien Slot für Kaffee und Kuchen am Zielplatz. Der Flug endet mit einem ruhigen Ankommen vor Ort.' },
+            { t: 'Wellness-Wochenende', i: '🧳', cat: 'std', s: 'Ein privater Paarausflug führt zum Zielplatz; nach der Landung beginnt der kurze Transfer zum Wellness- oder Spaziergangsprogramm.' },
+            { t: 'Wander-Ausflug', i: '🥾', cat: 'std', s: 'Rucksack und Wanderschuhe sind dabei. Nach der Landung am Zielplatz startet der private Tagesausflug.' }
         ],
         sightseeing_tour: [
             { t: 'Sightseeing Charter', i: '🌤️', cat: 'std', s: 'Entspannter Ausflugsflug mit Fokus auf Aussicht und angenehmer Fluglage.' },
@@ -12251,6 +12377,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         'club_utility',
         'medical_transfer',
         'news_coverage',
+        'private_outing',
         'sightseeing_tour',
         'poi_learning_guide',
         'historian_guided_tour',
@@ -12311,6 +12438,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         const hay = `${String(roleRaw || '').toLowerCase()} ${String(storyRaw || '').toLowerCase()}`;
         if (/(notarzt|notaerzt|mediz|sanitaet|blutkonserve|klinik|patient)/.test(hay)) return 'medical_transfer';
         if (/(report|news|presse|tv|journal|moderator)/.test(hay)) return 'news_coverage';
+        if (/(\$\s*100|100\s*\$|burger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|partner|partnerin|freund|freundin|familie|familienbesuch|wochenend|tagesausflug|staedtetrip|städtetrip|spaziergang)/.test(hay)) return 'private_outing';
         if (/(sightseeing|tour|stadtfuehr|ausflug|panorama)/.test(hay)) return 'sightseeing_tour';
         if (/(lern-?guide|wissensflug|bildungsflug|faktenflug|geschichte am ziel|kulturelle einordnung)/.test(hay)) return 'poi_learning_guide';
         if (/(historiker|historikerin|geschichte|zeitreise|denkmal|kulturhistor)/.test(hay)) return 'historian_guided_tour';
@@ -13524,11 +13652,160 @@ function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
     return missionLike;
 }
 
+function _missionPrivateOutingTargetLabel(missionLike = {}) {
+    const existingContract = missionLike?.missionContractV4 || missionLike?.missionContract || missionLike?._missionPlanV4 || {};
+    const planV2 = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || existingContract?.missionPlan?.plan || {};
+    const title = String(missionLike?.t || missionLike?.title || '').trim();
+    const titleTarget =
+        ((title.match(/:\s*(.+)$/) || [])[1]) ||
+        ((title.match(/\b(?:nach|zum|zur|in)\s+(.+)$/i) || [])[1]) ||
+        '';
+    return String(
+        missionLike?.targetName ||
+        missionLike?.destName ||
+        missionLike?.n ||
+        planV2?.targetLabel ||
+        existingContract?.target?.name ||
+        existingContract?.route?.targetName ||
+        titleTarget ||
+        'dem Zielplatz'
+    ).replace(/\s+/g, ' ').trim() || 'dem Zielplatz';
+}
+
+function _missionPrivateOutingBuildStoryContract(missionLike = {}, profile = null) {
+    const existingContract = missionLike?.missionContractV4 || missionLike?.missionContract || missionLike?._missionPlanV4 || {};
+    const planV2 = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || existingContract?.missionPlan?.plan || {};
+    const targetName = _missionPrivateOutingTargetLabel(missionLike);
+    return {
+        ...existingContract,
+        profile: {
+            ...(existingContract.profile || {}),
+            id: 'private_outing',
+            taskDomain: 'private_outing',
+            pickerCategory: existingContract?.profile?.pickerCategory || planV2?.targetCategory || 'private'
+        },
+        target: {
+            ...(existingContract.target || {}),
+            name: existingContract?.target?.name || targetName
+        },
+        route: {
+            ...(existingContract.route || {}),
+            targetName: existingContract?.route?.targetName || targetName
+        },
+        storyFrame: existingContract.storyFrame || existingContract?.missionPlan?.plan?.storyFrame || missionLike?._missionPlanV4?.storyFrame || planV2?.storyFrame || {},
+        missionPlan: {
+            ...(existingContract.missionPlan || {}),
+            plan: {
+                ...(existingContract?.missionPlan?.plan || {}),
+                ...(planV2 || {}),
+                taskDomain: 'private_outing',
+                roleProfile: profile?.roleProfile || 'general_passenger_v1',
+                targetLabel: planV2?.targetLabel || targetName
+            }
+        }
+    };
+}
+
+function _missionPrivateOutingStoryLooksPersonal(story = '', passenger = null) {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const s = normalizeMissionText(raw);
+    if (!raw || raw.length < 140) return false;
+    if (/\b(rundflug|panorama|sightseeing|ueberflug|überflug|arbeitsauftrag|charter|reporter|redaktion|fracht|medizin|training|on-task|rueckkehrpflicht|rückkehrpflicht)\b/.test(s)) return false;
+    if (/\b(umetikettierter auftrag|wie wir die mitflieger|der heutige flug nach|missionsziel|profilkontext)\b/.test(s)) return false;
+    const name = String(passenger?.name || '').trim();
+    const firstName = String(name.split(/\s+/)[0] || '').trim();
+    const hasName = firstName && !/^(gast|passagier|passenger)$/i.test(firstName) && s.includes(normalizeMissionText(firstName));
+    const hasActivity = /\b(burger|flugplatzcafe|flugplatzcafé|cafe|café|kaffee|kuchen|wellness|wander|wanderung|familienbesuch|tagesausflug|stadtetrip|staedtetrip|städtetrip|spaziergang|wochenend|wochenende)\b/.test(s);
+    const hasRelation = /\b(freund|freundin|partner|partnerin|bruder|schwester|familie|vereinskamerad|kamerad|mitflieger|mitfliegerin)\b/.test(s);
+    return Boolean(hasName && hasActivity && hasRelation);
+}
+
+function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
+    if (!missionLike || typeof missionLike !== 'object') return missionLike;
+    const passenger = (missionLike.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : null;
+    const target = _missionPrivateOutingTargetLabel(missionLike);
+    const paxName = String(passenger?.name || 'Der Ausflugsgast').trim();
+    const templateContext = {
+        name: paxName,
+        firstName: paxName.split(/\s+/)[0] || paxName,
+        role: passenger?.role || 'Ausflugsgast',
+        targetName: target
+    };
+    const storyContract = _missionPrivateOutingBuildStoryContract(missionLike, profile);
+    const fallback = _missionPipelineV4ComposeStoryFallback(storyContract, { passenger });
+    if (fallback) {
+        missionLike.s = fallback;
+        missionLike.story = fallback;
+        missionLike.missionStory = fallback;
+        if (passenger) passenger.storyHint = fallback;
+    }
+    if (passenger) {
+        const currentGreeting = _missionTemplateText(passenger.greetingText || '', templateContext);
+        const greetingFlat = !currentGreeting
+            || currentGreeting.length < 45
+            || /\b(rundflug|sightseeing|panorama|auftrag|charter|fracht|medizin|reporter|training)\b/i.test(normalizeMissionText(currentGreeting));
+        passenger.greetingText = greetingFlat
+            ? `Hi, ich freue mich auf den Ausflug nach ${target}. Bring uns einfach ruhig hin, dann starten wir nach der Landung direkt in den privaten Plan.`
+            : currentGreeting;
+    }
+    const title = String(missionLike.t || missionLike.title || '').trim();
+    if (!/\b(privat|ausflug|burger|cafe|café|kaffee|wellness|wander|stadtetrip|staedtetrip|städtetrip)\b/i.test(title)) {
+        missionLike.t = `Privater Ausflug nach ${target}`;
+    }
+    return missionLike;
+}
+
+function _pickPrivateOutingCargo(cargoPool = [], missionLike = {}, passenger = null) {
+    const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
+    if (!pool.length) return '';
+    const hay = normalizeMissionText([
+        passenger?.storySeed,
+        passenger?.personalStoryCue,
+        passenger?.greetingText,
+        passenger?.role,
+        missionLike?.s,
+        missionLike?.t,
+        missionLike?.story
+    ].filter(Boolean).join(' '));
+    const pickByCargoText = (patterns = []) => pool.find(cargo => {
+        const c = normalizeMissionText(cargo);
+        return patterns.some(re => re.test(c));
+    });
+    if (/\b(wander|wanderung|schuhe|trail)\b/.test(hay)) {
+        return pickByCargoText([/\bwanderrucksack\b/, /\bschuhe\b/]) || pool[0] || '';
+    }
+    if (/\b(wellness|wochenend|partner|partnerin)\b/.test(hay)) {
+        return pickByCargoText([/\bwellness\b/, /\bwochenendtasche\b/]) || pool[0] || '';
+    }
+    if (/\b(familie|familienbesuch|familienkontakt|abholung|autofahrt|bruder|schwester)\b/.test(hay)) {
+        return pickByCargoText([/\btagesrucksaecke\b/, /\btagesrucksäcke\b/, /\bjacken\b/]) || pool[0] || '';
+    }
+    if (/\b(burger|flugplatzcafe|flugplatzcafé|cafe|café|kaffee|kuchen)\b/.test(hay)) {
+        return pickByCargoText([/\btagesrucksaecke\b/, /\btagesrucksäcke\b/, /\bjacken\b/, /\bpicknick\b/]) || pool[0] || '';
+    }
+    if (/\b(foto|kamera|stadtetrip|staedtetrip|städtetrip|spaziergang|stadt)\b/.test(hay)) {
+        return pickByCargoText([/\bkamera\b/, /\bpicknick\b/, /\btagesrucksaecke\b/, /\btagesrucksäcke\b/]) || pool[0] || '';
+    }
+    return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
     const baseType = (isPOI || usesPoiTaskRecipe) ? 'poi' : 'apt';
-    const profile = getMissionTaskProfile(profileId, baseType);
+    const normalizedProfileId = String(profileId || 'auto').toLowerCase();
+    const inferredPrivateOuting = !isPOI && normalizedProfileId === 'auto' && String(
+        m?.passenger?.taskDomain
+        || m?._missionContractV4?.profile?.taskDomain
+        || m?._missionContractV4?.profile?.id
+        || m?.missionContractV4?.profile?.taskDomain
+        || m?.missionContractV4?.profile?.id
+        || m?._missionPlanV2?.plan?.taskDomain
+        || m?.missionPlanV2?.plan?.taskDomain
+        || ''
+    ).toLowerCase() === 'private_outing';
+    const effectiveProfileId = inferredPrivateOuting ? 'private_outing' : profileId;
+    const profile = getMissionTaskProfile(effectiveProfileId, baseType);
     if (!profile || profile.id === 'auto') {
         return { mission: m, paxText, cargoText, appliedProfile: 'auto' };
     }
@@ -13543,6 +13820,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         }
         m.passenger = passenger;
         synchronizeMissionPassengerName(m, sourcePassenger, passenger);
+        if (profile.id === 'private_outing' && !isPOI) {
+            _sanitizePrivateOutingNarrative(m, profile);
+        }
         if ((profile.id === 'inspection_infra' || profile.id === 'infra_chain_recon') && typeof _missionPipelineV4EnsureInfraPassengerStory === 'function') {
             const existingContract = m.missionContractV4 || m._missionPlanV4 || {};
             const titleText = String(m.t || m.title || '').trim();
@@ -13651,7 +13931,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (cargoPool.length) {
         cargoText = profile.id === 'animal_transport'
             ? _pickAnimalTransportCargo(cargoPool, m)
-            : cargoPool[Math.floor(Math.random() * cargoPool.length)];
+            : (profile.id === 'private_outing'
+                ? _pickPrivateOutingCargo(cargoPool, m, m.passenger)
+                : cargoPool[Math.floor(Math.random() * cargoPool.length)]);
     }
     if (profile.id === 'animal_transport') {
         const targetMatch = String(m.t || '').match(/\b(nach|zur|zum)\s+(.+)$/i);
@@ -13683,6 +13965,10 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         }
     }
     _finalizeMissionNarrative(m, profile, isPOI);
+    if (profile.id === 'private_outing' && !isPOI) {
+        m.story = m.s;
+        m.missionStory = m.s;
+    }
     if (m.passenger && typeof m.passenger === 'object') {
         m.passenger.storyHint = String(m.s || '').trim();
     }
@@ -13701,6 +13987,9 @@ function _profileStoryCue(profile, isPOI = false) {
         return isPOI
             ? 'Persoenlicher Rundflug: Blick, Orientierung, Erinnerungsfotos und entspannte Rueckkehr stehen im Mittelpunkt.'
             : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
+    }
+    if (profile.id === 'private_outing') {
+        return 'Privater A-B-Ausflug: Freund, Familie oder Partner reisen mit konkretem Bodenplan zum Zielplatz; kein Rundflug und keine Rueckkehrpflicht.';
     }
     if (profile.id === 'tour_guide_knowledge') {
         return isPOI
@@ -13747,6 +14036,8 @@ function _storyAlreadyCoversProfileCue(story, profile) {
             return hasAny(/\bhistor/, /\bgeschichte\b/, /\bsiedlungsgeschichte\b/, /\bdorfgeschichte\b/, /\bzeitgeschichte\b/, /\bkulturgeschichte\b/, /\beinordnung\b/, /\barchiv/, /\bkarten\b/, /\bchronik/, /\bdenkmal/, /\bortsbild\b/, /\bortskern\b/, /\bsiedlungsform\b/, /\bkirchenlage\b/, /\bmarktplatzlage\b/, /\btallage\b/, /\bhanglage\b/);
         case 'sightseeing_tour':
             return hasAny(/\bausflug\b/, /\bblick\b/, /\baussicht\b/, /\bfoto/, /\berinnerung/, /\bpanorama/, /\brundflug/, /\bgast\b/, /\bgaeste\b/, /\bgäste\b/, /\bentspannt/);
+        case 'private_outing':
+            return hasAny(/\bausflug\b/, /\bburger\b/, /\bcafe\b/, /\bcafé\b/, /\bkaffee\b/, /\bkuchen\b/, /\bwand(er|erung)\b/, /\bwellness\b/, /\bpartner\b/, /\bfreund\b/, /\bfreundin\b/, /\bfamilie\b/, /\bstadtetrip\b/, /\bstädtetrip\b/, /\bspaziergang\b/, /\bzielplatz\b/, /\bnach der landung\b/);
         default:
             return false;
     }
@@ -13768,6 +14059,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     }
     if (profile.id === 'sightseeing_tour' && isPOI) {
         return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
+    }
+    if (profile.id === 'private_outing' && !isPOI) {
+        return '16. OPERATIONS-REGEL APT-AUSFLUG: Auftrag ist ein privater A-B-Ausflug zum Zielflugplatz. Der Passagier reist mit Pilot, Freund, Familie oder Partner wegen einer konkreten Aktivitaet nach der Landung: $100-Burger, Flugplatzcafe, Kaffee und Kuchen, Wandern, Wellness, Familienbesuch, Städtetrip oder ruhiger Wochenendtag. Der Zielplatz ist Gateway zur Aktivitaet. KEIN Rundflug, KEINE Rueckkehrpflicht, KEIN on-task, KEIN Arbeits-, Charter-, Reporter-, Cargo-, Medizin-, Vereins- oder Trainingsauftrag. Briefing und greetingText muessen wer, Beziehung, Aktivitaet am Ziel und warum gerade dieser Flug angenehm passt natuerlich beantworten.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
@@ -13887,7 +14181,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     // "Cargo (ohne PAX)" bleibt bewusst ein eigener, neutraler Cargo-Flow.
     // "cargo_fragile" darf nur über den expliziten Fragile-Picker gewählt werden.
     if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'auto';
-    if (!isPOI && (aptSel === 'private')) return 'sightseeing_tour';
+    if (!isPOI && (aptSel === 'private')) return 'private_outing';
 
     const weighted = [];
     const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
@@ -13910,7 +14204,8 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
         if (aptSel === 'charter' || cat === 'charter') return 'auto';
         // APT Default-Mix
-        pushMany('sightseeing_tour', 4);
+        pushMany('private_outing', 4);
+        pushMany('sightseeing_tour', 2);
         pushMany('news_coverage', 3);
         pushMany('cargo_fragile', 2);
         pushMany('animal_transport', 1);
@@ -13922,7 +14217,8 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
             pushMany('news_coverage', 1);
         }
         if (aptSel === 'private' || cat === 'std') {
-            pushMany('sightseeing_tour', 2);
+            pushMany('private_outing', 3);
+            pushMany('sightseeing_tour', 1);
         }
         if (aptSel === 'club' || cat === 'club') {
             pushMany('club_utility', 3);
@@ -14608,7 +14904,9 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const hay = `${t} ${s}`;
     const has = (re) => re.test(hay);
     const conflictsWithProfile = (profile) => {
-        if (profile === 'sightseeing_tour') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/);
+        if (profile === 'sightseeing_tour') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/)
+            || (!isPOI && has(/\bburger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|familienbesuch|wochenend|tagesausflug/));
+        if (profile === 'private_outing') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|report|redaktion|sightseeing|panorama|rundflug|ueberflug|überflug/);
         if (profile === 'cargo_fragile') return has(/\bverein|vereins|stammtisch|fly in|sightseeing|panorama|kuchen|burger|wellness|tour|konzert|city\b/);
         if (profile === 'animal_transport') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|sightseeing|panorama|training|fluglehrer/);
         if (profile === 'medical_transfer') return has(/\bverein|vereins|sightseeing|panorama|kuchen|burger|tierschutz|tiertransport/);
@@ -14636,10 +14934,15 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         if (isPOI) return has(/report|redaktion|medien|kamera|dreh|event|fest|besucher|verkehr|stau|baustell|lage|aufhaenger|aufhänger|dokument|live|beobacht|ortsbild|veraender|veränder/);
         return has(/report|medien|kamera|dreh|event|verkehr|stau|city|festival|skydiver/);
     }
-    if (id === 'sightseeing_tour') {
-        const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|rundflug|aussicht|kuchen|burger|wellness|romant|tour/);
-        const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
+    if (id === 'private_outing') {
+        const positive = has(/ausflug|burger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|freund|freundin|familie|partner|partnerin|wochenend|tagesausflug|stadtetrip|städtetrip|spaziergang/);
+        const negative = conflictsWithProfile(id) || has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport|inspekt|vermess|arbeitsauftrag/);
         return positive && !negative;
+    }
+    if (id === 'sightseeing_tour') {
+        const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|rundflug|aussicht|blick|sehenswuerdig|sehenswürdig|tour/);
+        const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
+        return positive && !negative && !conflictsWithProfile(id);
     }
     if (id === 'tour_guide_knowledge') {
         const positive = has(/bildungsflug|wissensflug|lernflug|fakten|einordnung|hintergrund|geschichte des ortes|kultur|reiseguide|ortskunde/);
@@ -18368,7 +18671,7 @@ function _missionPipelineV3ProfileCatalog(context = {}) {
         allowedTaskDomains: [
             'general', 'training', 'charter', 'inspection_infra', 'infra_chain_recon', 'media_photo', 'science_bio',
             'science_geo', 'science_general', 'club_utility', 'medical_transfer', 'news_coverage',
-            'sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour', 'mapping_survey',
+            'private_outing', 'sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour', 'mapping_survey',
             'cargo_fragile', 'search_and_rescue', 'fire_watch', 'animal_transport',
             'club_training_basic', 'club_training_advanced', 'bush_pickup_return', 'bush_adventure'
         ]
@@ -18916,6 +19219,18 @@ const MISSION_SEMANTICS_V4_RULESET = {
             writer: [
                 'Story bleibt entspannt und driftet nicht in Arbeitssprache.',
                 'Keine Begriffe wie Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund oder Arbeitsauftrag.'
+            ],
+            forceSceneNone: true
+        },
+        private_outing: {
+            planner: [
+                'Privater A-B-Ausflug bleibt Hauptzweck.',
+                'Zielplatz ist Gateway fuer die Aktivitaet nach der Landung.',
+                'Kein Rundflug, kein POI-on-task und keine Rueckkehrpflicht.'
+            ],
+            writer: [
+                'Erzaehle wer mitfliegt, welche Beziehung besteht und welche private Aktivitaet am Ziel wartet.',
+                'Keine Berufs-, Einsatz-, Reporter-, Cargo-, Medizin-, Vereins- oder Trainingssprache.'
             ],
             forceSceneNone: true
         },
@@ -20393,6 +20708,43 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             incidentContext: `Der Flug soll bei ${targetLabel} nicht nur ein Motiv zeigen, sondern ${historicalAngle} aus der Luft historisch lesbar machen.`,
             whyNow: 'Gerade der Blick aus der Luft liefert die Geometrie und Umgebung, die fuer die historische Erklaerung gebraucht wird.',
             soughtOutcome: 'Wir sollen eine kurze, anschauliche historische Lesart liefern, die den weiteren Flug inhaltlich traegt.'
+        };
+    }
+    if (taskDomain === 'private_outing') {
+        const outing = _missionPipelineV4PickOne([
+            {
+                subject: 'ein gemeinsamer Burger- oder Flugplatzcafe-Ausflug mit Freund oder Vereinskamerad',
+                context: `Der Zielplatz ${targetLabel} wurde ausgewaehlt, weil dort nach der Landung Essen, Kaffee oder ein kurzer Plausch den eigentlichen Anlass bilden.`,
+                outcome: 'Nach dem Abstellen beginnt der private Aufenthalt am Zielplatz, ohne dass daraus ein Arbeitsauftrag oder Rueckflugzwang wird.'
+            },
+            {
+                subject: 'ein ruhiger Paarausflug mit Spaziergang, Wellness oder kleinem Wochenendplan',
+                context: `Der Flug nach ${targetLabel} ist der angenehme Hinweg zu gemeinsamer Zeit am Ziel, nicht der Zweck an sich.`,
+                outcome: 'Nach der Landung sollen Gepaeck, Stimmung und Anschluss am Ziel ruhig zusammenpassen.'
+            },
+            {
+                subject: 'ein Familien- oder Freundesbesuch mit Abholung am Zielplatz',
+                context: `In der Naehe von ${targetLabel} wartet eine Verabredung, die per GA-Flug entspannter erreichbar ist als ueber lange Bodenwege.`,
+                outcome: 'Nach der Ankunft geht es vom GA-Bereich direkt in den privaten Tagesplan.'
+            },
+            {
+                subject: 'ein Wander- oder Städtetrip mit leichtem Tagesgepaeck',
+                context: `Der Zielplatz ${targetLabel} dient als Einstieg fuer einen Spaziergang, eine kleine Wanderung oder einen entspannten Ortsbesuch.`,
+                outcome: 'Nach der Landung startet der Ausflug am Ziel; der Flug bleibt ein sauberer Hinflug mit angenehmem Ankommen.'
+            }
+        ]);
+        return {
+            trigger: `${targetLabel} ist heute der Einstieg in einen privaten Ausflug nach der Landung.`,
+            focusSubject: outing.subject,
+            keyQuestion: `Der Flug soll Pilot und Mitflieger ruhig nach ${targetLabel} bringen, damit der private Plan ohne Hektik beginnen kann.`,
+            stakes: 'Ruhiges Ankommen, Tagesgepaeck und der erste Schritt in den Ausflug sind wichtiger als Tempo.',
+            completionSignal: 'Nach der Landung steigen die Gaeste mit ihrem Tagesgepaeck aus und der private Aufenthalt am Ziel beginnt.',
+            subjectDetail: outing.subject,
+            incidentContext: outing.context,
+            whyNow: weatherShort
+                ? `Das heutige Fenster mit ${weatherShort} passt gut fuer einen entspannten Hinflug und einen angenehmen Aufenthalt am Ziel.`
+                : 'Zeitfenster, Stimmung und Zielplan passen heute gut fuer einen entspannten Hinflug.',
+            soughtOutcome: outing.outcome
         };
     }
     if (taskDomain === 'sightseeing_tour') {
@@ -23506,6 +23858,39 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
             `${sought || 'Wir sollen eine kurze historische Einordnung liefern, die nach dem Ueberflug wirklich haengen bleibt.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'private_outing') {
+        const paxName = String(passenger?.name || 'Der Ausflugsgast').trim();
+        const paxRole = String(passenger?.role || 'Ausflugsgast').replace(/\s+/g, ' ').trim();
+        const templateContext = {
+            name: paxName,
+            firstName: paxName.split(/\s+/)[0] || paxName,
+            role: paxRole,
+            targetName
+        };
+        const personalCue = _missionTemplateText(passenger?.personalStoryCue || passenger?.storySeed || '', templateContext);
+        const privateLineIsStory = value => {
+            const s = normalizeMissionText(value);
+            return !!s
+                && !/\b(wie wir|der flug soll|umetikettiert|missionsziel|profilkontext|keyquestion|arbeitsauftrag|auftrag|rueckflugzwang|rückflugzwang|rundflug|sightseeing|ueberflug|überflug|on-task)\b/.test(s)
+                && !/\b(kein|keine|nicht)\b/.test(s);
+        };
+        const cleanPrivateLine = (value, fallback) => {
+            const text = String(value || '').replace(/\s+/g, ' ').trim();
+            return privateLineIsStory(text) ? text : fallback;
+        };
+        const planLine = personalCue || cleanPrivateLine(frame.trigger, `${paxName} fliegt heute privat nach ${targetName}, weil dort nach der Landung der eigentliche Ausflug beginnt.`);
+        const gatewayLine = `${targetName} ist dafuer der praktische Zugang: ankommen, Tagesgepaeck ausladen und entspannt in den Bodenplan wechseln.`;
+        const weatherLine = weatherBits.length
+            ? `Bei ${weatherBits.join(' und ')} bleibt der Hinflug gut planbar und angenehm.`
+            : cleanPrivateLine(whyNow, 'Zeitfenster, Stimmung und privater Zielplan passen heute gut fuer einen entspannten Hinflug.');
+        const arrivalLine = 'Am Vorfeld wartet ein kurzer privater Treffpunkt; danach geht es mit dem Tagesgepaeck direkt weiter in den Ausflug.';
+        return [
+            planLine,
+            cleanPrivateLine(frame.incidentContext, gatewayLine),
+            weatherLine,
+            cleanPrivateLine(frame.soughtOutcome, arrivalLine)
+        ].filter(Boolean).join(' ');
+    }
     if (taskDomain === 'sightseeing_tour') {
         const sightseeingWeather = weatherBits.length
             ? ` Bei ${weatherBits.join(' und ')} bleibt der Rundflug gut planbar und angenehm.`
@@ -23789,6 +24174,9 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     if (taskDomain === 'sightseeing_tour') {
         return `${opener}, heute geht es nur um den Blick auf ${targetName}; bitte ruhig und weich, damit wir Aussicht und ein paar Erinnerungsfotos geniessen koennen.`;
     }
+    if (taskDomain === 'private_outing') {
+        return `${opener}, heute ist das unser privater Ausflug nach ${targetName}; bitte ruhig und angenehm, damit wir nach der Landung entspannt in den Zielplan starten koennen.`;
+    }
     if (taskDomain === 'cargo_fragile' || taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
         return `${opener}, dieser Flug ist heute fuer ${subject} angesetzt; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Uebergabe am Ziel ohne Zusatzstress klappt'}.`;
     }
@@ -24047,10 +24435,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ];
 
     const aptCategories = [
+        "Privater A-B-Ausflug mit Freund, Familie oder Partner und konkreter Aktivitaet nach der Landung",
         "Kulinarischer Ausflug ($100 Burger, legendäre Pizza, Steak oder BBQ am Ziel)",
         "Kaffee & Kuchen Run (Klassischer Nachmittagsausflug zum Flugplatz-Café)",
         "Tagesausflug mit Freunden (Wandern, Action oder einfach abhängen am Zielort)",
-        "Städtetrip (Sightseeing, Kultur, 1-2 echte Highlights der Zielstadt erkunden)",
+        "Städtetrip als Zielaktivitaet nach der Landung, nicht als Luftarbeitsauftrag",
         "Wellness-Urlaub / Romantischer Wochenendausflug mit der Frau/dem Partner",
         "Besuch bei einem befreundeten Fliegerverein (Stammtisch, Fly-In, Austausch)",
         "Flugplatz-Logistik (Ersatzteil für die Vereinsmaschine holen, Mechaniker-Shuttle)",
@@ -24082,6 +24471,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const isBushPickupStrip = isBushMission
         && String(provisionalBushSpec?.profileId || forcedProfile?.id || missionSel.profile || '').toLowerCase() === 'bush_pickup_strip';
     const profileThemeOverrides = {
+        private_outing: [
+            'Privater A-B-Ausflug mit Freund, Familie oder Partner: Zielplatz als Einstieg in Burger, Cafe, Wandern, Wellness, Familienbesuch oder Wochenendtag',
+            'Entspannter privater Fly-out zum Zielflugplatz mit konkreter Aktivitaet nach der Landung, ohne Rundflug oder Rueckkehrpflicht',
+            'Freizeitflug fuer Pilot und Mitflieger: angenehm ankommen, Tagesgepaeck ausladen, privaten Plan am Ziel beginnen'
+        ],
         medical_transfer: ['Medizinischer Personal- oder Materialtransfer mit hoher Prioritaet und ruhigem Flug, ohne Patient an Bord'],
         cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
         animal_transport: [
@@ -24282,10 +24676,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Flugplatz-Logistik (Ersatzteil für die Vereinsmaschine holen, Mechaniker-Shuttle)"
         ],
         private: [
+            "Privater A-B-Ausflug mit Freund, Familie oder Partner und konkreter Aktivitaet nach der Landung",
             "Kulinarischer Ausflug ($100 Burger, legendäre Pizza, Steak oder BBQ am Ziel)",
             "Kaffee & Kuchen Run (Klassischer Nachmittagsausflug zum Flugplatz-Café)",
             "Tagesausflug mit Freunden (Wandern, Action oder einfach abhängen am Zielort)",
-            "Städtetrip (Sightseeing, Kultur, 1-2 echte Highlights der Zielstadt erkunden)",
+            "Städtetrip als Zielaktivitaet nach der Landung, nicht als Luftarbeitsauftrag",
             "Wellness-Urlaub / Romantischer Wochenendausflug mit der Frau/dem Partner",
             "Kurioses / Verrückter, aber friedlicher Privatflug"
         ],
@@ -24672,6 +25067,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         (isTrainingMission ? 'instructor_calm_precise_v1' : '')
     ).toLowerCase();
     const forbiddenByTaskDomain = {
+        private_outing: ['club_utility', 'cargo_fragile', 'medical_transfer', 'animal_transport', 'training', 'news_coverage'],
         sightseeing_tour: ['club_utility', 'cargo_fragile', 'medical_transfer', 'animal_transport', 'training'],
         cargo_fragile: ['club_utility', 'sightseeing_tour', 'medical_transfer', 'animal_transport', 'training'],
         animal_transport: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'medical_transfer', 'training'],
@@ -24680,6 +25076,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         training: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'medical_transfer', 'animal_transport']
     };
     const forbiddenThemesByTaskDomain = {
+        private_outing: ['Vereins-Shuttle', 'Ersatzteilflug', 'Mechaniker-Shuttle', 'Kurierflug', 'Frachtauftrag', 'medizinischer Transfer', 'Tiertransport', 'Reporter-Shuttle', 'Training', 'Sightseeing', 'Panorama-Rundflug'],
         sightseeing_tour: ['Vereins-Shuttle', 'Ersatzteilflug', 'Mechaniker-Shuttle', 'Kurierflug', 'Frachtauftrag', 'medizinischer Transfer', 'Tiertransport'],
         cargo_fragile: ['Vereins-Shuttle', 'Sightseeing', 'Städtetrip', 'Kaffee-und-Kuchen-Flug', 'Tiertransport', 'medizinischer Transfer'],
         animal_transport: ['Vereins-Shuttle', 'Ersatzteilflug', 'Sightseeing', 'Städtetrip', 'Frachtauftrag ohne Tier', 'Training'],
@@ -24862,7 +25259,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
 Erlaubte roleProfile:
 ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1","bush_pickup_guest_v1","bush_charter_guest_v1","bush_adventure_guest_v1"]
 Erlaubte taskDomain:
-["general","training","charter","inspection_infra","infra_chain_recon","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced","bush_pickup_return","bush_adventure"]
+["general","training","charter","inspection_infra","infra_chain_recon","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","private_outing","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced","bush_pickup_return","bush_adventure"]
 </KONTEXT>
 
 <DISPATCH_FORM>
@@ -27068,6 +27465,15 @@ async function generateMission(options = {}) {
                 sarHeli: sarHeliSpec,
                 bushSpec: null
             }));
+            if (!isPOI && m && String(missionContractV4?.profile?.taskDomain || '').toLowerCase() === 'private_outing') {
+                const outingProfile = getMissionTaskProfile('private_outing', 'apt');
+                if (outingProfile) {
+                    if (!m.passenger || typeof m.passenger !== 'object') {
+                        m.passenger = buildMissionProfilePassenger(null, outingProfile, false, m.s || m.story || '', m);
+                    }
+                    _sanitizePrivateOutingNarrative(m, outingProfile);
+                }
+            }
         }
         if (!m && !followupDispatchMission?.mission) {
             await ensurePoiMissionContext('legacy_writer');

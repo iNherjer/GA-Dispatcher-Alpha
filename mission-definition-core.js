@@ -935,6 +935,19 @@ function pickBushArrivalVehicleSpec({ bush = null, dest = null, mission = null, 
     return choices[hash % choices.length] || choices[0] || { role: 'vehicle.car', label: 'Geländewagen', cue: 'lokaler Kontakt seitlich der Bahn' };
 }
 
+function privateOutingAptArrivalRole() {
+    return {
+        role: 'tour_pickup',
+        roleLabel: 'Ausflug-Abholung',
+        expectedBy: 'lokaler Kontakt oder private Mitfahrgelegenheit',
+        visibleCue: 'kleines Abholfahrzeug am Vorfeld',
+        vehicleRole: 'vehicle.car',
+        personRole: 'person.ground_crew',
+        equipmentRole: '',
+        narrativeHint: 'Am Ziel ist ein kurzer privater Treffpunkt am Vorfeld vorgesehen; danach beginnt der Ausflug.'
+    };
+}
+
 function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '', cargoText = '', mission = null, missionPlanV2 = null, missionType = '', bushSpec = null, dest = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', false);
     const bush = normalizedMissionType === 'bush'
@@ -1049,6 +1062,9 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
                 narrativeHint: `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
             };
         }
+        if (/private_outing|outing|ausflug|burger|flugplatzcaf|kaffee|kuchen|wellness|wander|familienbesuch|tagesausflug|staedtetrip|städtetrip|stadtetrip|spaziergang|wochenend/.test(planTask)) {
+            return privateOutingAptArrivalRole();
+        }
         if (/charter|business|vip/.test(planTask)) {
             return {
                 role: 'charter_pickup',
@@ -1153,6 +1169,9 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             animalSpec,
             narrativeHint: `Am Ziel ist eine stressarme Uebergabe fuer ${handoffLabel} am Vorfeld vorgesehen.`
         };
+    }
+    if (/private_outing|privater\s+ausflug|burger|flugplatzcaf|kaffee|kuchen|wellness|wandern|wanderung|familienbesuch|tagesausflug|staedtetrip|städtetrip|stadtetrip|spaziergang|wochenend/.test(text)) {
+        return privateOutingAptArrivalRole();
     }
     if (/charter|business|vip|kundentermin|notartermin|projektleiter|unternehmensberater|rechtsanwalt|eventkoordinator|kongressreferent|servicetechniker/.test(text)) {
         return {

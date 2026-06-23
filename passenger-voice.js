@@ -1172,6 +1172,7 @@ function _normTaskDomain(value) {
         'club_utility',
         'medical_transfer',
         'news_coverage',
+        'private_outing',
         'sightseeing_tour',
         'historian_guided_tour',
         'poi_learning_guide',
@@ -6151,6 +6152,9 @@ function _aptArrivalApproachHint() {
     const plan = _activeAptArrivalPlan();
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
+    if (_activeTaskDomain() === 'private_outing') {
+        return ` APT-Arrival-Hinweis: Bereite kurz auf den privaten Treffpunkt am Ziel vor. Erwaehne grob, dass am Vorfeld ${cue} wartet und danach der Ausflug beginnt. Das ist Vorfreude aufs Ankommen, keine Uebergabe- oder Frachtmeldung.`;
+    }
     return ` APT-Arrival-Hinweis: Bereite kurz auf den Empfangspunkt vor. Erwaehne grob, dass am Ziel ${cue} wartet. Das ist die Ankunfts-/Uebergabe-Meldung vor der Landung, kein langer Debrief und keine Objektliste.`;
 }
 
@@ -6159,6 +6163,9 @@ function _aptArrivalAfterLandingHint() {
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
     const place = _aptArrivalLocationLabel(plan);
+    if (_activeTaskDomain() === 'private_outing') {
+        return `Nach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir ${place} rollen sollen; dort wartet ${cue} und danach beginnt der private Ausflug. Keine Uebergabe-, Fracht- oder Arbeitsmeldung.`;
+    }
     return `Nach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir ${place} rollen sollen; dort wartet ${cue}. Keine Verabschiedung, keine Flugzusammenfassung, keine detaillierte Objektliste.`;
 }
 
@@ -6167,6 +6174,9 @@ function _aptArrivalFarewellHint() {
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
     const place = _aptArrivalLocationLabel(plan);
+    if (_activeTaskDomain() === 'private_outing') {
+        return `Wir stehen jetzt ${place}; dort wartet ${cue} und der private Ausflug kann beginnen. Du darfst dem Piloten kurz danken und in den Tagesplan am Ziel ueberleiten.`;
+    }
     return `Wir stehen jetzt ${place}; dort wartet ${cue}. Das ist jetzt der eigentliche Abschied am Empfangspunkt. Du darfst den Flug kurz zusammenfassen und dann zur Uebergabe/Abholung ueberleiten.`;
 }
 
@@ -6201,6 +6211,9 @@ function _roleStyleHint(roleRaw, pax = null) {
     }
     if (taskDomain === 'bush_adventure') {
         return 'locker, bodenstaendig und leicht gespannt: wildnisnah, ruhig, mit persoenlichem Backcountry-Faden und klarem Bezug zum Aufenthalt nach der Landung.';
+    }
+    if (taskDomain === 'private_outing') {
+        return 'persoenlich, entspannt und alltagsnah: der Flug ist der angenehme Hinweg zu Burger, Kaffee, Wandern, Wellness, Familienbesuch oder einem kleinen Tagesplan am Ziel.';
     }
     if (taskDomain === 'sightseeing_tour') {
         if (_isBushAdventureMission()) {
@@ -6885,6 +6898,7 @@ function _greetingMissionGuidance() {
     const isClubTechRole = /(mechan|wartung|techn|inspekt|ingenieur|facility|vereins|hangar)/.test(role);
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
+    const isPrivateOutingApt = (!isPOI && taskDomain === 'private_outing');
     const isSightseeingApt = (!isPOI && taskDomain === 'sightseeing_tour');
     const isSightseeingPoi = (isPOI && taskDomain === 'sightseeing_tour');
     const isBushAdventure = (!isPOI && (taskDomain === 'bush_adventure' || (taskDomain === 'sightseeing_tour' && _isBushAdventureMission())));
@@ -6928,6 +6942,8 @@ function _greetingMissionGuidance() {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
             : `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass), danach Fokus auf ${timingHintNeeded ? 'pünktliche ' : ''}Ankunft und Start der Arbeit am Boden. KEIN Komforthinweis. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`;
+    } else if (isPrivateOutingApt) {
+        reqLine = `Sag kurz und persönlich, worauf du dich am Ziel nach der Landung freust: Burger, Kaffee, Wanderung, Wellness, Familienbesuch, Städtetrip oder den konkreten Plan aus dem Briefing. Sprich als Freund, Familie oder Partner entspannt zum Piloten; keine Arbeits-, Charter-, Übergabe- oder Rundflug-Sprache.`;
     } else if (isBushAdventure) {
         reqLine = `Sag kurz und persoenlich, warum du genau zu diesem Strip willst, was dort auf dich wartet oder warum du dort Zeit verbringen wirst. Nenne einen konkreten Bodenplan mit Wildnisbezug, z.B. Camp, Trail, Lodge, Flussabschnitt, Fotozeit oder ruhigen Beobachtungspunkt. Sprich freundlich als Gast, ohne Navigations-, Hoehen- oder Arbeitsvorgaben an den Piloten. Maximal ein kurzer Komforthinweis, sonst klare Vorfreude mit echtem Hintergrund.`;
     } else if (isBushPickupReturn) {
