@@ -1163,9 +1163,15 @@ function buildMissionWriterV4Payload(prompt) {
           .map(item => String(item?.text || item || '').replace(/\s+/g, ' ').trim())
           .find(text => /schloss|altstadt|ortskern|muenster|münster|kirche|allgaeu|allgäu|schwarzwald|aussicht/i.test(text))
       : '';
+    const factLooksRaw = text => {
+      const raw = String(text || '').replace(/\s+/g, ' ').trim();
+      return raw.length > 78
+        || /[.!?;:]/.test(raw)
+        || /\b(ist|liegt|befindet|gehoert|gehört|bildet|praegt|prägt|erinnert|dient|verbindet|umfasst|besitzt|grenzt|kreis|baden|wuerttemberg|württemberg)\b/i.test(raw);
+    };
     const anchorText = landmarks.length
       ? landmarks.join(', ')
-      : (factLine || `Ortskern, Aussichtspunkte und private Fotomotive rund um ${targetName}`);
+      : (!factLooksRaw(factLine) && factLine ? factLine : `Ortskern, Aussichtspunkte und private Fotomotive rund um ${targetName}`);
     const firstAnchor = landmarks[0] || 'der Ortskern';
     const secondAnchor = landmarks[1] || 'den Ortskern';
     const visitText = landmarks.length >= 2 ? `${firstAnchor} und ${secondAnchor}` : anchorText;

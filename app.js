@@ -13851,17 +13851,16 @@ function _missionSightseeingAptKnowledgeAttractions(context = null) {
             .slice(0, APT_SIGHTSEEING_LANDMARK_LIMIT)
         : [];
     if (landmarkNames.length) return landmarkNames.join(', ');
-    const preferredFacts = (Array.isArray(context.facts) ? context.facts : [])
-        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
-        .filter(text => /\b(altstadt|muenster|münster|dom|kirche|schloss|burg|museum|denkmal|park|see|aussicht|turm|marktplatz|rathaus|spazier|tourismus|freizeit|schwarzwald|allgaeu|allgäu)\b/i.test(text))
-        .slice(0, 3);
-    if (preferredFacts.length) return preferredFacts.map(text => text.replace(/[.!?]+$/, '')).join('; ');
-    return (Array.isArray(context.facts) ? context.facts : [])
-        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, ''))
-        .filter(Boolean)
-        .slice(0, 2)
-        .join('; ');
+    // Freitext-Wiki-Fakten sind Kontext, aber keine belastbaren Besuchsziele.
+    return '';
+}
+
+function _missionSightseeingAptLooksLikeRawFact(text = '') {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    const s = normalizeMissionText(raw);
+    return raw.length > 78
+        || /[.!?;:]/.test(raw)
+        || /\b(ist|liegt|befindet|gehoert|gehört|bildet|praegt|prägt|erinnert|dient|verbindet|umfasst|besitzt|grenzt|kreis|baden|wuerttemberg|württemberg)\b/.test(s);
 }
 
 function _missionSightseeingAptAttractionNames(context = null, fallbackText = '') {
@@ -13875,19 +13874,22 @@ function _missionSightseeingAptAttractionNames(context = null, fallbackText = ''
     return String(fallbackText || '')
         .split(/\s*,\s*|\s+und\s+/i)
         .map(part => part.replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
+        .filter(part => part && !_missionSightseeingAptLooksLikeRawFact(part))
         .slice(0, 3);
 }
 
 function _missionSightseeingAptNaturalAttractionsText(names = [], fallback = '') {
     const src = (Array.isArray(names) ? names : [])
         .map(item => String(item || '').replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
+        .filter(item => item && !_missionSightseeingAptLooksLikeRawFact(item))
         .slice(0, 3);
     if (src.length === 1) return src[0];
     if (src.length === 2) return `${src[0]} und ${src[1]}`;
     if (src.length >= 3) return `${src[0]}, ${src[1]} und ${src[2]}`;
-    return String(fallback || 'ein paar schoene Stellen im Zielort').replace(/\s+/g, ' ').trim();
+    const cleanFallback = String(fallback || '').replace(/\s+/g, ' ').trim();
+    return cleanFallback && !_missionSightseeingAptLooksLikeRawFact(cleanFallback)
+        ? cleanFallback
+        : 'ein paar schoene Stellen im Zielort';
 }
 
 function _missionSightseeingAptVariantSeed(missionLike = {}, passenger = {}, target = '') {
@@ -13910,23 +13912,41 @@ function _missionSightseeingAptVariantSeed(missionLike = {}, passenger = {}, tar
 
 function _missionSightseeingAptPickVariant(list = [], seed = 0, salt = 0) {
     if (!Array.isArray(list) || !list.length) return null;
-    const idx = Math.abs((Number(seed) || 0) + salt) % list.length;
+    let mixed = ((Number(seed) || 0) ^ Math.imul((Number(salt) || 0) + 1, 0x27d4eb2d)) >>> 0;
+    mixed = (mixed ^ (mixed >>> 15)) >>> 0;
+    mixed = Math.imul(mixed, 0x85ebca6b) >>> 0;
+    mixed = (mixed ^ (mixed >>> 13)) >>> 0;
+    mixed = Math.imul(mixed, 0xc2b2ae35) >>> 0;
+    mixed = (mixed ^ (mixed >>> 16)) >>> 0;
+    const idx = mixed % list.length;
     return list[idx] || list[0] || null;
 }
 
 function _missionSightseeingAptRotationSalt() {
+    const memorySalt = () => {
+        try {
+            const scope = typeof globalThis !== 'undefined' ? globalThis : null;
+            if (scope) {
+                const key = '__gaMissionVarietyAptSightseeingStory';
+                const current = Number(scope[key] || 0);
+                scope[key] = Number.isFinite(current) ? (current + 1) % 997 : 1;
+                return Number.isFinite(current) ? current : 0;
+            }
+        } catch (_) {}
+        return 0;
+    };
     try {
         const storage = (typeof localStorage !== 'undefined' && localStorage)
             ? localStorage
             : (typeof window !== 'undefined' ? window.localStorage : null);
-        if (!storage) return 0;
+        if (!storage) return memorySalt();
         const key = 'ga_mission_variety_history_apt_sightseeing_story';
         const current = Number(storage.getItem(key) || 0);
         const next = Number.isFinite(current) ? (current + 1) % 997 : 1;
         storage.setItem(key, String(next));
         return Number.isFinite(current) ? current : 0;
     } catch (_) {
-        return 0;
+        return memorySalt();
     }
 }
 
@@ -14009,7 +14029,7 @@ function _missionSightseeingContractIsApt(contract = {}) {
 function _missionSightseeingAptStoryLooksDestinationRich(story = '', passenger = null, target = '') {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const s = normalizeMissionText(raw);
-    if (!raw || raw.length < 220) return false;
+    if (!raw || raw.length < 150) return false;
     if (_missionSightseeingWorkText(raw)) return false;
     if (/\b(zielinfos|zielanker|wiki|wikipedia|geosearch|context|contract|gepruefte|geprüfte|worauf sich die gaeste freuen, ist konkret)\b/.test(s)) return false;
     if (/\b(rueckkehr|ruckkehr|zurueck zum heimat|zuruck zum heimat|runde ueber dem ziel|runde über dem ziel|panorama-rundflug ueber|panoramaflug ueber)\b/.test(s)) return false;
@@ -14019,9 +14039,10 @@ function _missionSightseeingAptStoryLooksDestinationRich(story = '', passenger =
     const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(passenger));
     const place = normalizeMissionText(anchors.place);
     const hasDestination = place && s.includes(place);
-    const hasLandingPlan = /\b(nach der landung|vom vorfeld|ga-bereich|zielregion|stadt|ortskern|altstadt|spaziergang|cafe|muenster|baechle|schlossberg|aussichtspunkt|fotomotive)\b/.test(s);
-    const hasMotive = /\b(freut|freuen|moechte|mochte|will|kamera|foto|geschenk|besuch|familie|wochenend|erzaehlungen|erzahlungen|heimat|wiedersehen)\b/.test(s);
-    return Boolean((hasName || hasMotive) && hasDestination && hasLandingPlan);
+    const hasGroundVisit = /\b(nach der landung|landung|abstellen|aussteigen|ankommen|vom vorfeld|ga-bereich|zielort|zielregion|stadt|ortskern|altstadt|spaziergang|cafe|muenster|baechle|schlossberg|aussichtspunkt|fotomotive|tagesrucksack)\b/.test(s);
+    const hasMotive = /\b(freut|freuen|moechte|mochte|will|wollen|kamera|foto|geschenk|besuch|familie|wochenend|erzaehlungen|erzahlungen|heimat|wiedersehen|privat|ausflug)\b/.test(s);
+    const onlyAirborne = /\b(von oben|aus der luft|blick auf den ort|weiche kurven|runde|rundflug|vorbeiziehen)\b/.test(s) && !hasGroundVisit;
+    return Boolean(!onlyAirborne && hasDestination && hasGroundVisit && (hasName || hasMotive));
 }
 
 function _missionSightseeingAptPersonaLine(missionLike = {}, passenger = {}, target = 'Zielgebiet', variantSeed = 0) {
@@ -14125,6 +14146,15 @@ function _missionSightseeingAptGreetingFallback(anchors = {}, variantSeed = 0, o
     return _missionSightseeingAptPickVariant(variants, variantSeed, 79);
 }
 
+function _missionSightseeingAptGreetingLooksGrounded(text = '') {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    const s = normalizeMissionText(raw);
+    if (!raw || raw.length < 35 || _missionSightseeingWorkText(raw)) return false;
+    const hasGroundPlan = /\b(landung|ankommen|abstellen|aussteigen|vorfeld|zielort|zielregion|ortskern|stadt|spazier|cafe|foto|hinflug|bring uns|angenehm hin)\b/.test(s);
+    const onlyAirborne = /\b(von oben|aus der luft|blick auf den ort|weiche kurven|runde|rundflug|vorbeiziehen)\b/.test(s) && !hasGroundPlan;
+    return Boolean(hasGroundPlan && !onlyAirborne);
+}
+
 function _missionSightseeingComposePersonalStory(missionLike = {}, target = 'Zielgebiet', passenger = null, cue = '') {
     const paxName = String(passenger?.name || 'Der Sightseeing-Gast').trim();
     const lead = cue || `${paxName} begleitet heute zwei Gäste, die ${target} als ruhigen Ausflugsmoment aus der Luft erleben möchten.`;
@@ -14175,9 +14205,10 @@ function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
                 ? `Hi, heute geht es nur um den Blick auf ${target}. Bitte eher weich und entspannt, damit alle die Aussicht genießen können.`
                 : templatedGreeting;
         } else {
-            const variantSeed = _missionSightseeingAptVariantSeed(missionLike, missionLike.passenger || {}, target);
+            const variantSeed = _missionSightseeingAptVariantSeed(missionLike, missionLike.passenger || {}, target)
+                + (_missionSightseeingAptRotationSalt() * 101);
             const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(missionLike) || _missionSightseeingAptKnowledgeContext(missionLike.passenger), variantSeed);
-            missionLike.passenger.greetingText = greetingLooksFlat || !/landung|zielregion|stadt|ort|muenster|schlossberg|foto/i.test(normalizeMissionText(templatedGreeting))
+            missionLike.passenger.greetingText = greetingLooksFlat || !_missionSightseeingAptGreetingLooksGrounded(templatedGreeting)
                 ? _missionSightseeingAptGreetingFallback(anchors, variantSeed, 'Hi')
                 : templatedGreeting;
         }
@@ -23192,7 +23223,7 @@ Regeln:
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben.
-19k. sightseeing_tour + APT: Schreibe einen privaten A-B-Sightseeing-Ausflug zur Zielregion; der Flug endet am Zielort und bleibt ein privater Besuchsflug. Beantworte natürlich: wer ist der Gast, warum geht es genau zu diesem Zielflugplatz, welche Sehenswürdigkeiten, Altstadt-/Ortskernmomente, Aussichtspunkte, Fotos, Cafe- oder Spazierplaene freuen ihn nach der Landung, und warum passt Wetter/Stimmung heute. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort ein paar schöne Sachen der Zielstadt anschauen, darum fliegen wir sie dort hin. Keine Listen, keine "Zielinfos", keine "Faktenbasis", kein "knowledgeContext" und keine Wiki-/GeoSearch-Sprache im Briefing. Erfinde keine zusätzlichen harten Ortsfakten, Namen, Baujahre oder touristischen Details außerhalb des Contracts. Wenn keine geprüften Fakten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivitaet am Boden; keine Rueckkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist. Gib diese Regeln nicht als "kein/ohne"-Kontrast im Briefing aus, sondern erzaehle positiv, was die Gaeste am Ziel vorhaben.
+19k. sightseeing_tour + APT: Schreibe einen privaten A-B-Sightseeing-Ausflug zur Zielregion; der Flug endet am Zielort und bleibt ein privater Besuchsflug. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Ein gutes Briefing darf z.B. nur Gast + Besuchswunsch + Wetterstimmung oder Gast + Zielflugplatz + Bodenplan tragen. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort ein paar schöne Sachen der Zielstadt anschauen, darum fliegen wir sie dort hin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Keine Listen, keine "Zielinfos", keine "Faktenbasis", kein "knowledgeContext" und keine Wiki-/GeoSearch-Sprache im Briefing. Erfinde keine zusätzlichen harten Ortsfakten, Namen, Baujahre oder touristischen Details außerhalb des Contracts. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivitaet am Boden; keine Rueckkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist. Gib diese Regeln nicht als "kein/ohne"-Kontrast im Briefing aus, sondern erzaehle positiv, was die Gaeste am Ziel vorhaben.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
@@ -24970,7 +25001,8 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     }
     if (taskDomain === 'sightseeing_tour') {
         if (_missionSightseeingContractIsApt(contract)) {
-            const variantSeed = _missionSightseeingAptVariantSeed(contract, pax, targetName);
+            const variantSeed = _missionSightseeingAptVariantSeed(contract, pax, targetName)
+                + (_missionSightseeingAptRotationSalt() * 101);
             const anchors = _missionSightseeingAptRegionAnchors(targetName, contract?.knowledgeContext, variantSeed);
             return _missionSightseeingAptGreetingFallback(anchors, variantSeed, opener);
         }
@@ -24991,6 +25023,7 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
     const pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
     const current = String(pax.greetingText || '').trim();
     const taskDomain = String(contract?.profile?.taskDomain || pax.taskDomain || '').trim().toLowerCase();
+    const isAptSightseeing = taskDomain === 'sightseeing_tour' && _missionSightseeingContractIsApt(contract);
     const genericGreeting = !current
         || /^hi,\s*(wir arbeiten heute nach suchmuster und klaren calls|bitte ruhig fliegen|danke fuers fliegen heute|heute ist ein klassischer|wir machen heute)/i.test(normalizeMissionText(current))
         || current.length < 55;
@@ -24999,6 +25032,10 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
     const chainGreeting = String(contract?.chainNarrativeBrief?.selectedPassenger?.greetingText || '').trim();
     if (taskDomain === 'infra_chain_recon' && chainGreeting && (genericGreeting || !storyCovered)) {
         pax.greetingText = _missionPipelineV4PolishGermanVisibleText(chainGreeting);
+        return pax;
+    }
+    if (isAptSightseeing && !_missionSightseeingAptGreetingLooksGrounded(current)) {
+        pax.greetingText = _missionPipelineV4BuildGreetingFallback(pax, contract, storyText);
         return pax;
     }
     if (!genericGreeting && storyCovered) return pax;
