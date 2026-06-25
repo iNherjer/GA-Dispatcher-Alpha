@@ -1167,10 +1167,12 @@ function buildMissionWriterV4Payload(prompt) {
       ? landmarks.join(', ')
       : (factLine || `Ortskern, Aussichtspunkte und private Fotomotive rund um ${targetName}`);
     const firstAnchor = landmarks[0] || 'der Ortskern';
+    const secondAnchor = landmarks[1] || 'den Ortskern';
+    const visitText = landmarks.length >= 2 ? `${firstAnchor} und ${secondAnchor}` : anchorText;
     const place = String(knowledgeContext.sightseeingPlace || targetName).replace(/\s+/g, ' ').trim();
     return {
       title: `Sightseeing-Ausflug nach ${place}`,
-      story: `Sophie fliegt heute als private Ausflugsgästin mit nach ${targetName}, weil ${place} nach der Landung mehr verspricht als nur einen Flugplatzstopp. Sie freut sich besonders auf ${anchorText}; Kamera und leichte Jacke liegen deshalb griffbereit hinten im Flugzeug. Das Wetter gibt dem Flug einen ruhigen Rahmen, sodass der Weg in die Zielregion schon Teil des Tages wird. Nach dem Abstellen geht es vom Vorfeld Richtung ${firstAnchor}, mit Zeit für Fotos, Ortsgefühl und einen entspannten Spaziergang statt Rückkehr-Rundflug.`,
+      story: `Sophie und ihre Begleitung wollen heute nach ${place}, weil sie nach der Landung ${visitText} anschauen und ein paar private Fotos mitnehmen moechten. Genau deshalb passt ${targetName} als Ziel: Der Flug bringt sie nah genug an den Ort und macht den Stadtbesuch schon beim Hinflug greifbar. Das Wetter gibt dem Hinflug einen ruhigen Rahmen, sodass unterwegs Vorfreude auf die Zielstadt entsteht. Nach dem Abstellen geht es vom Vorfeld weiter zum ersten Stopp, mit Kameratasche, leichter Jacke und Zeit fuer einen entspannten Spaziergang.`,
       pax: '1 PAX (privater Sightseeing-Gast)',
       cargo: 'Kameratasche und leichte Jacke (10 lbs)',
       passenger: {
@@ -1190,8 +1192,8 @@ function buildMissionWriterV4Payload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        sightseeingInterestSeed: `Sophie möchte ${place} nach der Landung in Ruhe erleben; besonders ${anchorText} machen den Flug für sie zum privaten Tagesausflug.`,
-        greetingText: `Hi, ich freue mich auf ${place}, vor allem auf ${anchorText}. Lass uns ruhig hinfliegen; nach der Landung beginnt der schöne Teil am Boden.`,
+        sightseeingInterestSeed: `Sophie möchte ${place} nach der Landung in Ruhe erleben; besonders ${visitText} machen den Flug für sie zum privaten Tagesausflug.`,
+        greetingText: `Hi, ich freue mich auf ${place}, vor allem auf ${visitText}. Lass uns ruhig hinfliegen; nach der Landung beginnt der schöne Teil am Boden.`,
         trainingPlan: null
       },
       sceneIntent: {
@@ -1613,7 +1615,7 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
     .slice(0, 3);
   const localFacts = [
     ...(isAptSightseeing && knowledgeLandmarks.length
-      ? [`Gepruefte Sightseeing-Anker am Zielort: ${knowledgeLandmarks.join(', ')}.`]
+      ? [`Die Gaeste wollen nach der Landung ${knowledgeLandmarks.slice(0, 2).join(' und ')} anschauen.`]
       : []),
     ...knowledgeFactTexts,
     targetLabel ? `Zielbezug ist ${targetLabel}.` : '',
@@ -1645,7 +1647,7 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
     stakes: `Der Flug soll den Tagesausflug starten, nicht einen Rundflug ohne Zielplan ersetzen.`,
     completionSignal: `Nach der Landung beginnt der Spaziergang oder Fotoplan am Zielort.`,
     subjectDetail: `Ein privater Gast freut sich auf ${knowledgeLandmarks.join(', ') || targetLabel}.`,
-    incidentContext: knowledgeFactTexts[0] || `Der Zielort bietet Ortskern, Aussicht und private Fotomotive nach der Landung.`,
+    incidentContext: knowledgeFactTexts[0] || `Die Gaeste wollen nach der Landung ein paar schoene Stellen im Zielort anschauen.`,
     whyNow: weatherHooks[0] || `Das Wetterfenster passt fuer einen ruhigen privaten Ausflug.`,
     soughtOutcome: `Ruhig am Zielflugplatz ankommen und den Zielort am Boden erleben.`,
     incidentType: '',
@@ -1685,7 +1687,7 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
         : `Der Auftrag bleibt bewusst allgemein, weil der Dryrun keine belastbaren Ortsfakten geliefert hat.`,
       narrativeHooks: [
         primaryObjective,
-        ...(isAptSightseeing && knowledgeLandmarks.length ? [`Zielanker: ${knowledgeLandmarks.join(', ')}.`] : []),
+        ...(isAptSightseeing && knowledgeLandmarks.length ? [`Besuchswunsch nach der Landung: ${knowledgeLandmarks.slice(0, 2).join(' und ')} anschauen.`] : []),
         weatherHooks[0] ? `Wetteranker: ${weatherHooks[0]}` : 'Wetter wird nur erwaehnt, wenn verwertbare Daten vorliegen.',
         missionType === 'poi' ? 'Nach kurzer Zielbeobachtung geht es zum Startflugplatz zurueck.' : 'Uebergabe oder Termin findet erst am Zielflugplatz statt.'
       ],

@@ -11196,7 +11196,7 @@ function _missionSightseeingAptLandmarkFacts(place = '', landmarks = []) {
     return [{
         source: 'wikipedia_geosearch',
         topic: 'landmark',
-        text: `Als gepruefte Wikipedia-Zielanker nahe ${place || 'dem Zielort'} eignen sich ${names.join(', ')}.`
+        text: `Nahe ${place || 'dem Zielort'} bieten sich ${names.join(', ')} als Sehenswuerdigkeiten fuer den privaten Zielplan nach der Landung an.`
     }];
 }
 
@@ -13864,17 +13864,46 @@ function _missionSightseeingAptKnowledgeAttractions(context = null) {
         .join('; ');
 }
 
+function _missionSightseeingAptAttractionNames(context = null, fallbackText = '') {
+    const fromContext = Array.isArray(context?.sightseeingLandmarks)
+        ? context.sightseeingLandmarks
+            .map(item => String(item?.title || item || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .slice(0, 3)
+        : [];
+    if (fromContext.length) return fromContext;
+    return String(fallbackText || '')
+        .split(/\s*,\s*|\s+und\s+/i)
+        .map(part => part.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 3);
+}
+
+function _missionSightseeingAptNaturalAttractionsText(names = [], fallback = '') {
+    const src = (Array.isArray(names) ? names : [])
+        .map(item => String(item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 3);
+    if (src.length === 1) return src[0];
+    if (src.length === 2) return `${src[0]} und ${src[1]}`;
+    if (src.length >= 3) return `${src[0]}, ${src[1]} und ${src[2]}`;
+    return String(fallback || 'ein paar schoene Stellen im Zielort').replace(/\s+/g, ' ').trim();
+}
+
 function _missionSightseeingAptRegionAnchors(target = '', knowledgeContext = null) {
     const place = _missionSightseeingAptPlaceLabel(target);
     const wikiContext = _missionSightseeingAptKnowledgeContext({ knowledgeContext });
     const wikiAttractions = _missionSightseeingAptKnowledgeAttractions(wikiContext);
     if (wikiAttractions) {
-        const wikiTitle = String(wikiContext?.title || place).replace(/\s+/g, ' ').trim();
+        const names = _missionSightseeingAptAttractionNames(wikiContext, wikiAttractions);
+        const visitText = _missionSightseeingAptNaturalAttractionsText(names, wikiAttractions);
+        const firstStop = names[0] || visitText;
         return {
             place: String(wikiContext?.sightseeingPlace || place).replace(/\s+/g, ' ').trim() || place,
-            attractions: wikiAttractions,
-            approach: `Die Zielinfos zu ${wikiTitle} geben dem Flug echte Anker: ${wikiAttractions}.`,
-            groundPlan: `Nach der Landung geht es vom Vorfeld in Richtung Zielort; Kamera oder Tagesrucksack kommen mit, und ${wikiAttractions.split(',')[0].trim()} wird zum ersten konkreten Punkt des privaten Sightseeing-Plans.`,
+            attractions: visitText,
+            attractionNames: names,
+            approach: `Der Flug hat einen einfachen privaten Grund: Die Gaeste wollen nach der Landung ${visitText} anschauen und den Zielort in Ruhe erleben.`,
+            groundPlan: `Nach dem Abstellen geht es vom Vorfeld weiter in den Zielort; Kamera oder Tagesrucksack kommen mit, und ${firstStop} wird zum ersten konkreten Stopp des kleinen Ausflugs.`,
             source: 'wiki'
         };
     }
@@ -13883,6 +13912,7 @@ function _missionSightseeingAptRegionAnchors(target = '', knowledgeContext = nul
         return {
             place: 'Freiburg',
             attractions: 'Altstadt, Muenster, Baechle, Schlossberg und der Schwarzwaldrand',
+            attractionNames: ['Altstadt', 'Muenster', 'Baechle', 'Schlossberg'],
             approach: 'Schon der Anflug macht klar, warum der Platz als Tor zur Stadt taugt: Rhein-Ebene, Stadt und Schwarzwaldrand liegen dicht beieinander.',
             groundPlan: 'Nach der Landung soll es vom Vorfeld weiter in die Stadt gehen, erst zum Muenster und in die Gassen, spaeter vielleicht hinauf Richtung Schlossberg.'
         };
@@ -13890,6 +13920,7 @@ function _missionSightseeingAptRegionAnchors(target = '', knowledgeContext = nul
     return {
         place,
         attractions: `Ortskern, Aussichtspunkte, Spazierwege und ein paar private Fotomotive rund um ${place}`,
+        attractionNames: ['Ortskern', 'Aussichtspunkte', 'Spazierwege'],
         approach: `Der Anflug soll ${place} nicht als bloßen Punkt auf der Karte zeigen, sondern als Zielregion, in der nach der Landung ein kleiner Ausflug beginnt.`,
         groundPlan: `Nach der Landung geht es vom Vorfeld in Richtung ${place}: kurz orientieren, Kamera oder Tagesrucksack greifen und den Ort in Ruhe anschauen.`
     };
@@ -13907,6 +13938,7 @@ function _missionSightseeingAptStoryLooksDestinationRich(story = '', passenger =
     const s = normalizeMissionText(raw);
     if (!raw || raw.length < 220) return false;
     if (_missionSightseeingWorkText(raw)) return false;
+    if (/\b(zielinfos|zielanker|wiki|wikipedia|geosearch|context|contract|gepruefte|geprüfte|worauf sich die gaeste freuen, ist konkret)\b/.test(s)) return false;
     if (/\b(rueckkehr|ruckkehr|zurueck zum heimat|zuruck zum heimat|runde ueber dem ziel|runde über dem ziel|panorama-rundflug ueber|panoramaflug ueber)\b/.test(s)) return false;
     const paxName = String(passenger?.name || '').trim();
     const firstName = String(paxName.split(/\s+/)[0] || '').trim();
@@ -13955,7 +13987,7 @@ function _missionSightseeingAptWeatherLine(missionLike = {}, fallback = '') {
             return `Bei ${Math.round(temp)}°C klingt das nach Sommertag: gut fuer den Ausflug, aber nach dem Abstellen eher mit Wasser, Schatten und einem entspannten Stadtstart als mit Hektik.`;
         }
         if (Number.isFinite(temp)) {
-            return `Bei ${Math.round(temp)}°C passt der Flug gut als Auftakt: ruhig ankommen, dann ohne Druck in den Zielort wechseln.`;
+            return `Bei ${Math.round(temp)}°C passt der Flug gut als Auftakt: ruhig ankommen, dann entspannt in den Zielort wechseln.`;
         }
     }
     if (/\bvfr|sicht|klar|cavok|gut\b/i.test(raw)) {
@@ -13969,9 +14001,10 @@ function _missionSightseeingComposeAptDestinationStory(missionLike = {}, target 
     const personalLine = cue && _missionSightseeingAptStoryLooksDestinationRich(cue, passenger, target)
         ? cue
         : _missionSightseeingAptPersonaLine(missionLike, passenger || {}, target);
+    const visitLine = `${anchors.place} ist heute das eigentliche Tagesziel: Nach der Landung wollen die Gaeste ${anchors.attractions} anschauen, ein paar Fotos machen und mit Zeit fuer den ersten Eindruck in den Ort starten.`;
     return [
         personalLine,
-        `${anchors.approach} Worauf sich die Gaeste freuen, ist konkret: ${anchors.attractions}.`,
+        visitLine,
         _missionSightseeingAptWeatherLine(missionLike, missionLike?.storyFrame?.whyNow || ''),
         anchors.groundPlan
     ].filter(Boolean).join(' ');
@@ -21303,7 +21336,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 stakes: 'Wenn der Flug nur wie ein generischer Rundflug klingt, fehlt dem A-B-Ausflug der persoenliche Zielgrund.',
                 completionSignal: `Nach der Landung am Ziel steigen die Gaeste aus und beginnen den privaten Plan in ${anchors.place}.`,
                 subjectDetail: sightseeingSubject,
-                incidentContext: `${anchors.approach} Im Mittelpunkt stehen ${anchors.attractions}, nicht ein abstrakter Rundflug.`,
+                incidentContext: `${anchors.approach} Der Flug bringt sie dorthin, damit der Zielort nach dem Aussteigen wirklich beginnen kann.`,
                 whyNow: weatherShort
                     ? `Das heutige Fenster mit ${weatherShort} passt als freundlicher Auftakt fuer Hinflug und anschliessenden Stadt- oder Zielregionsbesuch.`
                     : 'Der Flug passt jetzt, weil Zeitfenster und Stimmung fuer einen ruhigen Hinflug und einen privaten Zielbesuch reichen.',
@@ -21894,7 +21927,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
     if (isAptMode) {
         const anchors = _missionSightseeingAptRegionAnchors(targetLabel, options?.knowledgeContext);
         const hooksFallback = [
-            `Die Gaeste fliegen nach ${targetLabel}, weil ${anchors.place} nach der Landung ihr privater Sightseeing-Plan ist.`,
+            `Die Gaeste fliegen nach ${targetLabel}, weil sie in ${anchors.place} nach der Landung ${anchors.attractions} anschauen moechten.`,
             storyFrame.subjectDetail,
             storyFrame.incidentContext,
             storyFrame.whyNow,
@@ -21903,13 +21936,13 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
         plan.primaryObjective = `Privater A-B-Sightseeing-Ausflug nach ${targetLabel}; der Zielflugplatz ist Zugang zu ${anchors.place} und den Sehenswuerdigkeiten nach der Landung.`;
         plan.localFacts = cleanList(plan.localFacts, [
             `${targetLabel} ist der Zielflugplatz fuer den privaten Besuch in ${anchors.place}.`,
-            `Zielinteresse: ${anchors.attractions}.`
+            `Die Gaeste wollen nach der Landung ${anchors.attractions} anschauen.`
         ]);
         const cleanedOperationalDetails = cleanList(plan.operationalDetails, [])
             .filter(x => !/\b(rueckkehr|ruckkehr|zurueck|zurück|runde|rundflug)\b/.test(normalizeMissionText(x)));
         plan.operationalDetails = Array.from(new Set([
             'Ruhiger A-B-Hinflug, Landung am Zielplatz, Ausstieg am GA-/Vorfeldbereich.',
-            'Der Sightseeing-Teil beginnt als privater Zielplan nach der Landung, nicht als Arbeits- oder POI-Task in der Luft.',
+            'Der Flug bringt die Gaeste zum Zielort; die Sehenswuerdigkeiten werden nach der Landung am Boden besucht.',
             ...cleanedOperationalDetails
         ].filter(Boolean))).slice(0, 5);
         plan.narrativeHooks = Array.from(new Set([
@@ -21929,7 +21962,7 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
             'Keine reine Panorama- oder Rundflug-Story ohne Zielregionsgrund.',
             'Keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache.'
         ].filter(Boolean))).slice(0, 12);
-        plan.realismBrief = `Der Flug ist glaubwuerdig als privater A-B-Sightseeing-Ausflug: ${targetLabel} ist der Zugang zu ${anchors.place}; nach der Landung tragen ${anchors.attractions} den eigentlichen Zielgrund.`;
+        plan.realismBrief = `Der Flug ist glaubwuerdig als privater A-B-Sightseeing-Ausflug: ${targetLabel} ist der Zugang zu ${anchors.place}; die Gaeste wollen dort nach der Landung ${anchors.attractions} anschauen.`;
         return plan;
     }
     const hooksFallback = [
@@ -22501,8 +22534,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         realismTargets.unshift('APT-Charter-Pickup braucht Termin-/Aufenthaltsdetails, Wartepunkt am GA-/Vorfeldbereich, Rückkehrgrund und nächsten Handoff am Ausgangsplatz.');
     } else if (!context.isPOI && profileId === 'sightseeing_tour') {
         routeRules.push('APT-Sightseeing: Zielplatz ist Gateway zur Zielregion nach der Landung; der Abschluss liegt am Zielplatz, nicht am Heimatplatz.');
-        routeRules.push('Wenn knowledgeContext.status="accept" vorhanden ist, nutze diese Wiki-/GeoSearch-Zielanker als Faktenbasis fuer Sehenswuerdigkeiten und Zielplan. Keine zusaetzlichen harten Ortsfakten erfinden.');
-        realismTargets.unshift('APT-Sightseeing braucht einen privaten Gast, echte Zielort-Anker aus knowledgeContext wenn vorhanden, und einen Plan fuer Fotos, Altstadt/Ortskern, Aussichtspunkt, Cafe oder Spaziergang nach der Landung.');
+        routeRules.push('Wenn knowledgeContext.status="accept" vorhanden ist, nutze die darin enthaltenen Zielort-Fakten als belegtes Rohmaterial, aber forme daraus einen natuerlichen Pax-Wunsch fuer Sehenswuerdigkeiten nach der Landung. Keine zusaetzlichen harten Ortsfakten erfinden.');
+        realismTargets.unshift('APT-Sightseeing braucht einen privaten Gast, einen konkreten Besuchswunsch am Zielort und einen kurzen Plan fuer Fotos, Altstadt/Ortskern, Aussichtspunkt, Cafe oder Spaziergang nach der Landung.');
     }
     if (followUpContext) {
         const followKind = String(followUpContext.followUpKind || '').toLowerCase();
@@ -22608,7 +22641,7 @@ Arbeitsweise:
 9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Adventure bringt den Gast zur Landung und zum Beginn des Aufenthalts am Ziel, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
-9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als gepruefte Faktenbasis fuer die Sehenswuerdigkeiten, Ortsstimmung und den Zielplan nach der Landung. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
+9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -23043,7 +23076,7 @@ Regeln:
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben.
-19k. sightseeing_tour + APT: Schreibe einen privaten A-B-Sightseeing-Ausflug zur Zielregion, keinen Rundflug ohne Zielplan. Beantworte natürlich: wer ist der Gast, warum geht es genau zu diesem Zielflugplatz, welche Sehenswürdigkeiten, Altstadt-/Ortskernmomente, Aussichtspunkte, Fotos, Cafe- oder Spazierplaene freuen ihn nach der Landung, und warum passt Wetter/Stimmung heute. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als geprüfte Faktenbasis für Sehenswürdigkeiten und Zielplan; erfinde keine zusätzlichen harten Ortsfakten, Namen, Baujahre oder touristischen Details außerhalb des Contracts. Wenn keine geprüften Fakten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern. Der Zielflugplatz ist Gateway zur Aktivitaet am Boden; keine Rueckkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
+19k. sightseeing_tour + APT: Schreibe einen privaten A-B-Sightseeing-Ausflug zur Zielregion; der Flug endet am Zielort und bleibt ein privater Besuchsflug. Beantworte natürlich: wer ist der Gast, warum geht es genau zu diesem Zielflugplatz, welche Sehenswürdigkeiten, Altstadt-/Ortskernmomente, Aussichtspunkte, Fotos, Cafe- oder Spazierplaene freuen ihn nach der Landung, und warum passt Wetter/Stimmung heute. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort ein paar schöne Sachen der Zielstadt anschauen, darum fliegen wir sie dort hin. Keine Listen, keine "Zielinfos", keine "Faktenbasis", kein "knowledgeContext" und keine Wiki-/GeoSearch-Sprache im Briefing. Erfinde keine zusätzlichen harten Ortsfakten, Namen, Baujahre oder touristischen Details außerhalb des Contracts. Wenn keine geprüften Fakten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern. Der Zielflugplatz ist Gateway zur Aktivitaet am Boden; keine Rueckkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist. Gib diese Regeln nicht als "kein/ohne"-Kontrast im Briefing aus, sondern erzaehle positiv, was die Gaeste am Ziel vorhaben.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
