@@ -978,6 +978,34 @@ function _getApiKey() {
     return document.getElementById('apiKeyInput')?.value.trim() || '';
 }
 
+function _explicitMissionModeHint() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContractV4
+        || md._missionContractV4
+        || md.missionContract
+        || window.activeMissionContract
+        || {};
+    const candidates = [
+        md.missionType,
+        md.mode,
+        md.missionContext?.mode,
+        md.missionPlanV4?.plan?.missionType,
+        md.missionPlanV2?.plan?.missionType,
+        contract.mode,
+        contract.missionType,
+        contract.route?.mode,
+        window.activePassenger?.missionType
+    ];
+    for (const value of candidates) {
+        const raw = String(value || '').trim().toLowerCase();
+        if (!raw) continue;
+        if (raw === 'poi' || /^poi[:_\s-]/.test(raw) || raw === 'point-of-interest') return 'poi';
+        if (raw === 'bush' || /^bush[:_\s-]/.test(raw)) return 'bush';
+        if (raw === 'apt' || raw === 'a-b' || raw === 'a_b' || raw === 'ab' || raw === 'airport' || /^apt[:_\s-]/.test(raw)) return 'apt';
+    }
+    return '';
+}
+
 function _isPOIMission() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     if (md && typeof md === 'object' && md.poiName) return true;
@@ -989,6 +1017,9 @@ function _isPOIMission() {
         && String(md.bush.profileId || '').toLowerCase() === 'bush_recon_return'
         && String(md.bush.targetMode || '').toLowerCase() === 'area_then_return'
     ) return true;
+    const explicitMode = _explicitMissionModeHint();
+    if (explicitMode === 'poi') return true;
+    if (explicitMode === 'apt' || explicitMode === 'bush') return false;
     if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
     return document.getElementById('destRwyContainer')?.style.display === 'none';
 }
@@ -1885,6 +1916,11 @@ function _domainDriftGuard(mode = 'generic') {
         return ' Drift-Guard (Lern-Guide): Bildungsorientiert und anschaulich. Du erklaerst Ziel und Umgebung fuer den Piloten. Keine Formulierungen wie "ich lerne fuer spaetere Touren" oder "Gelaende abspeichern". Keine Instruktoranweisungen, keine feste Arbeitshoehe verlangen, kein SAR-/Fire-/Inspektions-Ton. Keine Strommasten, Windraeder oder andere Spezial-Landmarken nennen, ausser sie sind das Ziel oder sicher bestaetigt.';
     }
     if (td === 'sightseeing_tour') {
+        if (!_isPOIMission()) {
+            if (m === 'result') return ' Drift-Guard (APT-Sightseeing): Abschluss als Ankommen am Zielplatz mit Vorfreude auf Zielort, Altstadt, Aussichtspunkt, Spaziergang, Fotos oder Cafe nach der Landung. Kein Rueckkehr-, Rundflug-, Auftrag-, Befund-, Daten- oder Inspektionston.';
+            if (m === 'progress') return ' Drift-Guard (APT-Sightseeing): Privater Hinflug zur Zielregion; nenne Vorfreude, Zielort, Landschaft, Fotos oder Plaene nach der Landung. Keine Arbeits-, Einsatz-, Vermessungs-, Instruktor-, Rueckflug- oder Rundflug-Sprache.';
+            return ' Drift-Guard (APT-Sightseeing): Persoenlicher A-B-Ausflug zur Zielregion. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielplatz als Gateway zum privaten Plan nach der Landung erzaehlen, nicht als POI-Rundflug.';
+        }
         if (m === 'result') return ' Drift-Guard (Sightseeing): Abschluss als warmer Blickmoment mit entspannter Rueckkehr. Keine Woerter wie fertig, abgearbeitet, Befund, Daten, Dokumentation, Erfassung, Inspektion oder Lagebild.';
         if (m === 'progress') return ' Drift-Guard (Sightseeing): Nur Aussicht, Orientierung, Erinnerungsfotos und ruhige Beobachtung. Keine Arbeits-, Einsatz-, Vermessungs- oder Instruktor-Sprache.';
         return ' Drift-Guard (Sightseeing): Persoenlicher Rundflugston. Keine Arbeitsanweisung, keine feste Arbeitshoehe verlangen, keine Erfassung/Dokumentation/Lagebild/Inspektion. Zielbereich nur als Blickmoment aus der Luft erzaehlen, nicht als Bodenaktionsort.';
@@ -6615,6 +6651,7 @@ function _poiSatisfiedPrompt(flightData) {
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
     const isSightseeing = taskDomain === 'sightseeing_tour';
+    const isSightseeingApt = isSightseeing && !_isPOIMission();
     const isMediaPhoto = taskDomain === 'media_photo';
     const isMappingSurvey = taskDomain === 'mapping_survey';
     const isScienceBio = taskDomain === 'science_bio';
@@ -6633,7 +6670,9 @@ function _poiSatisfiedPrompt(flightData) {
         : '';
     const knowledgeResultFactHint = isLearningGuide ? _poiKnowledgeFactSequenceHint('result') : (isSightseeing ? _poiKnowledgeFactHint('result') : '');
     const sightseeingResultHint = isSightseeing
-        ? ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
+        ? (isSightseeingApt
+            ? ' Sightseeing-Ankunft: Schließe als privater Gast mit Ankunftsfreude auf den Zielort und den Plan nach der Landung. Kein Rueckflug-Hinweis, kein Rundflug-Fazit, nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.'
+            : ' Sightseeing-Fazit: Schließe mit einem persoenlichen Blickmoment zum Ziel und einem entspannten Rueckflug-Hinweis. Nicht "fertig", "abgearbeitet" oder wie ein Auftrag klingen.')
         : '';
     const mediaResultHint = isMediaPhoto
         ? ' Foto/Film-Fazit: Schließe mit einem kurzen Satz, welche Art Material im Kasten ist (Aufmacherbild, Bildserie, Establishing Shots oder Ortsmotiv) und wohin es danach geht. Nicht wie Sightseeing klingen.'
@@ -6655,7 +6694,9 @@ function _poiSatisfiedPrompt(flightData) {
         : '';
     const noRepeatHint = _poiNoRepeatHint('result');
     let momentLine = `Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}`;
-    if (isSightseeing) {
+    if (isSightseeingApt) {
+        momentLine = `Moment: Wir sind am Zielflugplatz angekommen; der private Sightseeing-Plan in der Zielregion beginnt nach dem Aussteigen.${wx ? ' ' + wx : ''}`;
+    } else if (isSightseeing) {
         momentLine = `Moment: Die ruhige Sightseeing-Runde am Ziel hat nach ${dwell} Minuten ihren Blickmoment gehabt.${wx ? ' ' + wx : ''}`;
     } else if (isHistorian) {
         momentLine = `Moment: Die historische Runde am Ziel ist nach ${dwell} Minuten gut eingeordnet.${wx ? ' ' + wx : ''}`;
@@ -6670,7 +6711,9 @@ function _poiSatisfiedPrompt(flightData) {
     }
 
     let requestLine = 'Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.';
-    if (isSightseeing) {
+    if (isSightseeingApt) {
+        requestLine = 'Sag dem Piloten kurz, dass die Ankunft gut passt, du dich auf den Zielort nach der Landung freust und dich fuer den ruhigen Hinflug bedankst. Kein Rueckflughinweis.';
+    } else if (isSightseeing) {
         requestLine = 'Sag dem Piloten kurz, dass der Blick gepasst hat und wir entspannt zurueckfliegen koennen.';
     } else if (isHistorian) {
         requestLine = 'Sag dem Piloten kurz, welcher historische Takeaway bleibt und dass wir ruhig zurueckfliegen koennen.';
@@ -6949,7 +6992,7 @@ function _greetingMissionGuidance() {
     } else if (isBushPickupReturn) {
         reqLine = `Sprich als abgeholter Bush-Pickup-Gast, nicht als Pilot oder Dispatcher. Fokus auf deine konkrete Arbeit draußen, deinen Wartepunkt und warum der Rückflug zur Basis der passende Abschluss ist. Kein generischer Charter-Termin, kein künstlicher Zeitdruck, keine Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`;
     } else if (isSightseeingApt) {
-        reqLine = `Sag kurz und locker, dass du dich auf den Flug freust (z.B. "Danke fürs Mitnehmen"). Kein Anweisungsstil: KEINE Navigations-, Höhen- oder Arbeitsvorgaben an den Piloten. Maximal ein weicher Komforthinweis (ruhig/entspannt), sonst einfach sympathische Vorfreude auf den Ausflug.`;
+        reqLine = `Sag kurz und persoenlich, worauf du dich am Ziel nach der Landung freust: Zielregion, Altstadt oder Ortskern, Aussichtspunkt, Fotos, Cafe, Spaziergang oder den konkreten Plan aus dem Briefing. Sprich als privater Gast entspannt zum Piloten; keine Navigations-, Hoehen- oder Arbeitsvorgaben, keine Rundflug-, Rueckkehr- oder Charter-Sprache.`;
     } else if (isClubTechRole) {
         reqLine = `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`;
     } else if (comfortHintNeeded) {
@@ -7002,7 +7045,9 @@ Max 3-4 Sätze.${_toneHint()}`;
         .slice(0, 3);
     const equipmentContextLine = _boardingEquipmentContextLine(speechItems, cargoFallback);
     const activeTask = _activeTaskDomain();
-    const boardingKnowledgeFact = /^(poi_learning_guide|sightseeing_tour)$/.test(activeTask) ? _poiKnowledgeFactHint('boarding') : '';
+    const boardingKnowledgeFact = (activeTask === 'poi_learning_guide' || (activeTask === 'sightseeing_tour' && _isPOIMission()))
+        ? _poiKnowledgeFactHint('boarding')
+        : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
@@ -7071,7 +7116,9 @@ function _greetingPrompt() {
     const guidance = _greetingMissionGuidance();
     if (!guidance) return null;
     const activeTask = _activeTaskDomain();
-    const greetingKnowledgeFact = /^(poi_learning_guide|sightseeing_tour)$/.test(activeTask) ? _poiKnowledgeFactHint('greeting') : '';
+    const greetingKnowledgeFact = (activeTask === 'poi_learning_guide' || (activeTask === 'sightseeing_tour' && _isPOIMission()))
+        ? _poiKnowledgeFactHint('greeting')
+        : '';
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}

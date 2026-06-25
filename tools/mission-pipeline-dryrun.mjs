@@ -169,6 +169,72 @@ function responseText(text, ok = true, status = 200) {
   };
 }
 
+function dryrunWikiTitleFromUrl(href = '') {
+  try {
+    const u = new URL(String(href || ''), 'https://dryrun.local/');
+    return decodeURIComponent(u.searchParams.get('titles') || '').replace(/\+/g, ' ').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+function dryrunWikiLandmarkPayload(href = '') {
+  if (!/de\.wikipedia\.org\/w\/api\.php/i.test(String(href || '')) || !/[?&]list=geosearch\b/i.test(String(href || ''))) return null;
+  let lon = 10;
+  try {
+    const u = new URL(String(href || ''), 'https://dryrun.local/');
+    const coord = String(u.searchParams.get('gscoord') || '');
+    lon = Number(coord.split('|')[1]);
+  } catch (_) {}
+  const isFreiburgArea = Number.isFinite(lon) && lon < 8.5;
+  const geosearch = isFreiburgArea
+    ? [
+        { pageid: 31005, title: 'Schlossberg (Freiburg im Breisgau)', lat: 47.995, lon: 7.863, dist: 3200 },
+        { pageid: 31006, title: 'Freiburger Münster', lat: 47.995, lon: 7.852, dist: 3600 },
+        { pageid: 31007, title: 'Freiburger Bächle', lat: 47.996, lon: 7.850, dist: 3800 },
+        { pageid: 31008, title: 'Historisches Kaufhaus (Freiburg im Breisgau)', lat: 47.995, lon: 7.853, dist: 3900 }
+      ]
+    : [
+        { pageid: 31001, title: 'Schloss Zeil', lat: 47.826, lon: 10.043, dist: 4200 },
+        { pageid: 31002, title: 'Leutkirch im Allgäu', lat: 47.826, lon: 10.020, dist: 6500 },
+        { pageid: 31003, title: 'Altstadt Leutkirch', lat: 47.826, lon: 10.022, dist: 6800 },
+        { pageid: 31004, title: 'Sankt Martin (Leutkirch im Allgäu)', lat: 47.827, lon: 10.021, dist: 6900 }
+      ];
+  return {
+    query: {
+      geosearch
+    }
+  };
+}
+
+function dryrunWikiExtractPayload(href = '') {
+  if (!/de\.wikipedia\.org\/w\/api\.php/i.test(String(href || '')) || !/[?&]prop=[^&]*extracts/i.test(String(href || ''))) return null;
+  const requestedTitle = dryrunWikiTitleFromUrl(href) || 'Leutkirch im Allgäu';
+  const lower = requestedTitle.toLowerCase();
+  const isFreiburg = /freiburg/.test(lower);
+  const title = isFreiburg ? 'Freiburg im Breisgau' : (/leutkirch|unterzeil|allg/.test(lower) ? 'Leutkirch im Allgäu' : requestedTitle);
+  const extract = isFreiburg
+    ? 'Freiburg im Breisgau ist eine Stadt in Baden-Württemberg am Rand des Schwarzwaldes. Die historische Altstadt ist fuer das Freiburger Münster, die Baechle, das Rathausumfeld und enge Gassen bekannt. Der Schlossberg steigt unmittelbar oestlich der Altstadt an und bietet Aussicht ueber Stadt, Dreisamtal und Rheinebene. Viele Besucher verbinden die Stadt mit einem Spaziergang durch den Muensterplatz, einem Cafe-Stopp und dem Blick zum Schwarzwaldrand. Durch die Lage zwischen Rheinebene und Schwarzwald eignet sich Freiburg besonders als Ziel fuer einen privaten Tagesausflug nach der Landung. Der Zielort ist kein Luftarbeitsziel, sondern ein Ort fuer Stadtspaziergang, Fotos und ruhige Orientierung am Boden.'
+    : 'Leutkirch im Allgäu ist eine Stadt im baden-württembergischen Allgäu. Der historische Ortskern besitzt Gassen, Marktplatzbereiche und Kirchen, die fuer einen ruhigen Spaziergang nach der Ankunft gut geeignet sind. In der Umgebung liegt Schloss Zeil, ein markanter Schlosskomplex oberhalb der Landschaft, der als Ausflugsanker und Fotomotiv bekannt ist. Die Region verbindet Stadtbild, Allgäu-Landschaft und kurze Wege zwischen Flugplatz, Ort und Aussichtspunkten. Für private Besucher ist der Reiz nicht ein Arbeitsauftrag aus der Luft, sondern das Ankommen, Orientieren, Fotografieren und ein entspannter Gang in den Zielort. Der Zielflugplatz dient als Gateway zur Region, waehrend der eigentliche Plan nach der Landung am Boden beginnt.';
+  const pageid = isFreiburg ? 31010 : 31011;
+  return {
+    query: {
+      pages: {
+        [String(pageid)]: {
+          pageid,
+          ns: 0,
+          title,
+          extract,
+          coordinates: [{ lat: isFreiburg ? 47.995 : 47.826, lon: isFreiburg ? 7.852 : 10.021 }],
+          pageprops: { wikibase_item: isFreiburg ? 'Q2833' : 'Q505143' },
+          fullurl: `https://de.wikipedia.org/wiki/${encodeURIComponent(title.replace(/\s+/g, '_'))}`,
+          thumbnail: { source: 'https://example.invalid/wiki-thumb.jpg' }
+        }
+      }
+    }
+  };
+}
+
 function dryrunTileBoundsFromUrl(href = '') {
   const raw = String(href || '');
   try {
@@ -1084,6 +1150,61 @@ function buildMissionWriterV4Payload(prompt) {
     }
   }
 
+  if (!isPoi && taskDomain === 'sightseeing_tour') {
+    const knowledgeContext = contract.knowledgeContext && typeof contract.knowledgeContext === 'object' ? contract.knowledgeContext : {};
+    const landmarks = Array.isArray(knowledgeContext.sightseeingLandmarks)
+      ? knowledgeContext.sightseeingLandmarks
+          .map(item => String(item?.title || item || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
+    const factLine = Array.isArray(knowledgeContext.facts)
+      ? knowledgeContext.facts
+          .map(item => String(item?.text || item || '').replace(/\s+/g, ' ').trim())
+          .find(text => /schloss|altstadt|ortskern|muenster|münster|kirche|allgaeu|allgäu|schwarzwald|aussicht/i.test(text))
+      : '';
+    const anchorText = landmarks.length
+      ? landmarks.join(', ')
+      : (factLine || `Ortskern, Aussichtspunkte und private Fotomotive rund um ${targetName}`);
+    const firstAnchor = landmarks[0] || 'der Ortskern';
+    const place = String(knowledgeContext.sightseeingPlace || targetName).replace(/\s+/g, ' ').trim();
+    return {
+      title: `Sightseeing-Ausflug nach ${place}`,
+      story: `Sophie fliegt heute als private Ausflugsgästin mit nach ${targetName}, weil ${place} nach der Landung mehr verspricht als nur einen Flugplatzstopp. Sie freut sich besonders auf ${anchorText}; Kamera und leichte Jacke liegen deshalb griffbereit hinten im Flugzeug. Das Wetter gibt dem Flug einen ruhigen Rahmen, sodass der Weg in die Zielregion schon Teil des Tages wird. Nach dem Abstellen geht es vom Vorfeld Richtung ${firstAnchor}, mit Zeit für Fotos, Ortsgefühl und einen entspannten Spaziergang statt Rückkehr-Rundflug.`,
+      pax: '1 PAX (privater Sightseeing-Gast)',
+      cargo: 'Kameratasche und leichte Jacke (10 lbs)',
+      passenger: {
+        name: 'Sophie Lang',
+        role: 'private Ausflugsgästin',
+        gender: 'female',
+        personality: 'neugierig, freundlich, entspannt',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'niedrig',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        sightseeingInterestSeed: `Sophie möchte ${place} nach der Landung in Ruhe erleben; besonders ${anchorText} machen den Flug für sie zum privaten Tagesausflug.`,
+        greetingText: `Hi, ich freue mich auf ${place}, vor allem auf ${anchorText}. Lass uns ruhig hinfliegen; nach der Landung beginnt der schöne Teil am Boden.`,
+        trainingPlan: null
+      },
+      sceneIntent: {
+        summary: 'Privater A-B-Sightseeing-Flug; keine Zielszene, die Aktivität beginnt nach der Landung in der Zielregion.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein Rundflug', 'keine Rückkehrpflicht', 'kein Arbeitsauftrag'],
+        densityHint: 'none',
+        notes: 'APT-Sightseeing bleibt Zielort-Ausflug mit Wiki-/Ortsankern am Boden.'
+      }
+    };
+  }
+
   if (taskDomain === 'mapping_survey') {
     return {
       title: `Photogrammetrie-Pass: ${targetName}`,
@@ -1446,6 +1567,20 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
   const missionType = String(draft.mode || bundle?.route?.mode || 'apt').toLowerCase();
   const category = String(draft.category || bundle?.category || '').toLowerCase();
   const targetLabel = String(bundle?.target?.name || draft.target?.name || draft.route?.targetIcao || 'Zielgebiet').trim();
+  const knowledgeContext = bundle?.knowledgeContext && typeof bundle.knowledgeContext === 'object' ? bundle.knowledgeContext : {};
+  const isAptSightseeing = missionType === 'apt' && taskDomain === 'sightseeing_tour';
+  const knowledgeLandmarks = isAptSightseeing && Array.isArray(knowledgeContext.sightseeingLandmarks)
+    ? knowledgeContext.sightseeingLandmarks
+        .map(item => String(item?.title || item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 4)
+    : [];
+  const knowledgeFactTexts = isAptSightseeing && knowledgeContext.status === 'accept' && Array.isArray(knowledgeContext.facts)
+    ? knowledgeContext.facts
+        .map(item => String(item?.text || item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
   const isMapping = taskDomain === 'mapping_survey';
   const isSar = taskDomain === 'search_and_rescue';
   const isFire = taskDomain === 'fire_watch' || category === 'fire';
@@ -1477,13 +1612,19 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
     .filter(v => v && !/keine (aktuellen )?wetterdaten|nicht verfuegbar|nicht verfügbar|unbekannt/i.test(v))
     .slice(0, 3);
   const localFacts = [
+    ...(isAptSightseeing && knowledgeLandmarks.length
+      ? [`Gepruefte Sightseeing-Anker am Zielort: ${knowledgeLandmarks.join(', ')}.`]
+      : []),
+    ...knowledgeFactTexts,
     targetLabel ? `Zielbezug ist ${targetLabel}.` : '',
     bundle?.targetGeoContext?.summary ? `Umfeld: ${bundle.targetGeoContext.summary}` : '',
     Array.isArray(bundle?.targetGeoContext?.hints) ? bundle.targetGeoContext.hints[0] : '',
     bundle?.airportDetails?.start?.icao ? `Startflugplatz ist ${bundle.airportDetails.start.icao}.` : ''
-  ].filter(Boolean).slice(0, 4);
+  ].filter(Boolean).slice(0, isAptSightseeing ? 6 : 4);
   const operationalDetails = [
-    missionType === 'poi' ? 'Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'Normaler A-B-Streckenflug zum Zielflugplatz.',
+    isAptSightseeing
+      ? 'APT-Sightseeing ist ein privater A-B-Flug; der Zielflugplatz ist Gateway zur Zielregion nach der Landung.'
+      : (missionType === 'poi' ? 'Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'Normaler A-B-Streckenflug zum Zielflugplatz.'),
     sceneKind !== 'none' ? 'Zielbeobachtung mit ruhigen, wiederholbaren Passes und klarer Aufgabenbegrenzung.' : 'Kein Zielobjekt-Spawn; Auftrag bleibt in Passagier/Fracht/Route verankert.'
   ];
   const primaryObjective = isMapping
@@ -1494,7 +1635,24 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
         ? `Pruefe bei ${targetLabel} eine gemeldete schwache Rauchentwicklung ohne Grossbrand-Inszenierung.`
         : (isWater
           ? `Erstelle bei ${targetLabel} ein ruhiges Luftlagebild von Uferkante, Wasserlinie und sichtbaren Veraenderungen.`
-          : `Fuehre den Auftrag nach ${targetLabel} mit klarer lokaler Begruendung durch.`)));
+          : (isAptSightseeing
+            ? `Fliege einen privaten A-B-Sightseeing-Ausflug nach ${targetLabel}, damit der Gast nach der Landung ${knowledgeLandmarks[0] || 'den Zielort'} erleben kann.`
+            : `Fuehre den Auftrag nach ${targetLabel} mit klarer lokaler Begruendung durch.`))));
+  const storyFrame = isAptSightseeing ? {
+    trigger: `Der private Gast hat ${targetLabel} wegen der Zielregion und ihrer Sehenswuerdigkeiten vorgeschlagen.`,
+    focusSubject: `Privater Sightseeing-Gast mit Interesse an ${knowledgeLandmarks.join(', ') || 'Ortskern, Aussicht und Fotos nach der Landung'}.`,
+    keyQuestion: `Warum lohnt sich genau dieser Zielflugplatz als Gateway zum Zielort nach der Landung?`,
+    stakes: `Der Flug soll den Tagesausflug starten, nicht einen Rundflug ohne Zielplan ersetzen.`,
+    completionSignal: `Nach der Landung beginnt der Spaziergang oder Fotoplan am Zielort.`,
+    subjectDetail: `Ein privater Gast freut sich auf ${knowledgeLandmarks.join(', ') || targetLabel}.`,
+    incidentContext: knowledgeFactTexts[0] || `Der Zielort bietet Ortskern, Aussicht und private Fotomotive nach der Landung.`,
+    whyNow: weatherHooks[0] || `Das Wetterfenster passt fuer einen ruhigen privaten Ausflug.`,
+    soughtOutcome: `Ruhig am Zielflugplatz ankommen und den Zielort am Boden erleben.`,
+    incidentType: '',
+    lastSeenContext: '',
+    probableScenario: `A-B-Flug zum Zielflugplatz; der Ausflug beginnt nach dem Abstellen am Vorfeld.`,
+    visibleClueCandidates: knowledgeLandmarks
+  } : undefined;
   return {
     status: 'ready',
     needs: [],
@@ -1515,8 +1673,10 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
       narrativeRules: [
         'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.',
         'Nur lokale Fakten aus Tool-Ergebnissen verwenden; bei schwachem Kontext allgemein bleiben.',
-        'Wetter als Realitaetsanker verwenden, aber keine Gefahrenlage erfinden.'
+        'Wetter als Realitaetsanker verwenden, aber keine Gefahrenlage erfinden.',
+        ...(isAptSightseeing ? ['APT-Sightseeing bleibt A-B mit Zielabschluss am Zielflugplatz; keine Rueckkehr und kein Arbeitsauftrag.'] : [])
       ],
+      ...(storyFrame ? { storyFrame } : {}),
       localFacts,
       weatherHooks,
       operationalDetails,
@@ -1525,14 +1685,16 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
         : `Der Auftrag bleibt bewusst allgemein, weil der Dryrun keine belastbaren Ortsfakten geliefert hat.`,
       narrativeHooks: [
         primaryObjective,
+        ...(isAptSightseeing && knowledgeLandmarks.length ? [`Zielanker: ${knowledgeLandmarks.join(', ')}.`] : []),
         weatherHooks[0] ? `Wetteranker: ${weatherHooks[0]}` : 'Wetter wird nur erwaehnt, wenn verwertbare Daten vorliegen.',
         missionType === 'poi' ? 'Nach kurzer Zielbeobachtung geht es zum Startflugplatz zurueck.' : 'Uebergabe oder Termin findet erst am Zielflugplatz statt.'
       ],
-      mustMention: [targetLabel, missionType === 'poi' ? 'keine Landung am POI' : 'A-B-Flug'].filter(Boolean),
+      mustMention: [targetLabel, ...(isAptSightseeing ? knowledgeLandmarks.slice(0, 2) : []), missionType === 'poi' ? 'keine Landung am POI' : 'A-B-Flug'].filter(Boolean),
       mustAvoid: [
         'keine generische wichtige Mission ohne konkreten Anlass',
         'keine Actionfilm-Dramatik',
-        missionType === 'poi' ? 'keinen anderen Primaerort erfinden' : 'keinen POI-Arbeitsauftrag erfinden'
+        missionType === 'poi' ? 'keinen anderen Primaerort erfinden' : 'keinen POI-Arbeitsauftrag erfinden',
+        ...(isAptSightseeing ? ['keinen Rundflug ohne Zielplan', 'keine Rueckkehr zum Heimatplatz behaupten'] : [])
       ],
       lockedFields: {
         taskDomain,
@@ -1563,7 +1725,8 @@ function buildPlannerV4Payload(prompt) {
     weather: bundle?.weather || {},
     fireHazard: bundle?.fireHazard || null,
     targetGeoContext: bundle?.targetGeoContext || null,
-    missionTruth: bundle?.missionTruth || null
+    missionTruth: bundle?.missionTruth || null,
+    knowledgeContext: bundle?.knowledgeContext || null
   };
   const payload = buildPlannerV3Payload(prompt, normalizedBundle);
   const profile = normalizedBundle?.profile?.selected || normalizedBundle?.profile || draft?.profile || {};
@@ -1970,10 +2133,16 @@ function buildSpokenText(prompt) {
   const isScienceBio = !isScienceGeo && /science_bio|Drift-Guard \(Bio\)|Bio-Fazit|Biologie|biologisch|oekologisch|ökologisch|Habitat|Ufervegetation|Artenhinweis/i.test(prompt);
   const hasSightseeingBan = /kein(?:e[nrms]?)?\s+Sightseeing|kein Sightseeing-Fazit|keine Sightseeing/i.test(prompt);
   const isSightseeing = !hasSightseeingBan && !isScienceBio && !isScienceGeo && /sightseeing|rundflug|blickmoment|panorama|persoenliche fotos|persönliche fotos/i.test(prompt);
+  const isAptSightseeing = isSightseeing && /APT-Sightseeing|A-B-Ausflug|Zielflugplatz.*Zielregion|privaten Sightseeing-Ausflug in die Zielregion|Zielplatz als Gateway|Plan nach der Landung/i.test(prompt);
   if (isScienceBio && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke fürs Mitnehmen. Die Ufer- und Vegetationshinweise sind verwertbar, ich nehme Fotos und Notizen jetzt mit in die Monitoring-Auswertung.';
   if (isScienceGeo && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke fürs Mitnehmen. Die Relief- und Uferkanten-Beobachtungen sind verwertbar, ich nehme Fotos und Notizen jetzt mit in die geologische Auswertung.';
   if (isScienceBio && /Höhe passt jetzt|Ich bin fertig am Ziel|fertig am Ziel/i.test(prompt)) return 'Die Habitat- und Uferstruktur ist ausreichend dokumentiert. Ich habe genug Vergleichspunkte fuer die Auswertung.';
   if (isScienceGeo && /Höhe passt jetzt|Ich bin fertig am Ziel|fertig am Ziel/i.test(prompt)) return 'Die Relief- und Erosionslinien sind ausreichend dokumentiert. Ich habe genug Vergleichspunkte fuer die Auswertung.';
+  if (isAptSightseeing && /Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Taschen sind dabei und ich freue mich auf den Zielort nach der Landung.';
+  if (isAptSightseeing && /Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Ich freue mich auf den Ort nach der Landung, vor allem auf Fotos und einen ruhigen Spaziergang.';
+  if (isAptSightseeing && /nähern uns|Landung gleich|vor der Landung/i.test(prompt)) return 'Der Zielplatz liegt voraus. Gleich beginnt unser kleiner Plan im Ort, und ich freue mich schon auf die ersten Fotos nach dem Aussteigen.';
+  if (isAptSightseeing && /Nach der Landung|Landing-Roll/i.test(prompt)) return 'Gut gelandet, danke. Lass uns zum Vorfeld rollen, dann beginnt unser kleiner Plan im Ort.';
+  if (isAptSightseeing && /Verabschiedung|Flug ist beendet|gelandet/i.test(prompt)) return 'Danke fürs Mitnehmen. Ich freue mich jetzt auf den Ort, die Fotos und den Spaziergang ab dem Vorfeld.';
   if (isSightseeing && /Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Kamerataschen sind verstaut und ich bin bereit. Lass uns ruhig rausrollen.';
   if (isSightseeing && /Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Ich freue mich auf den Blick von oben, bitte einfach weich und ohne Hektik.';
   if (isSightseeing && /Zielobjekt .* wird im Anflug sichtbar|taucht gerade vor uns auf/i.test(prompt)) return 'Ich sehe den Zielbereich voraus. Das ist genau der Blick, auf den wir uns gefreut haben.';
@@ -2054,6 +2223,10 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
         }]
       });
     }
+    const dryrunWikiGeo = dryrunWikiLandmarkPayload(href);
+    if (dryrunWikiGeo) return responseJson(dryrunWikiGeo);
+    const dryrunWikiExtract = dryrunWikiExtractPayload(href);
+    if (dryrunWikiExtract) return responseJson(dryrunWikiExtract);
     if (href.includes('ga-proxy.einherjer.workers.dev') || href.includes('wikipedia.org') || href.includes('wikidata.org') || href.includes('nominatim.openstreetmap.org')) {
       return responseJson({ items: [], elements: [], query: { pages: {} } });
     }

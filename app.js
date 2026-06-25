@@ -1871,6 +1871,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'freundlich, gelassen, kommunikativ',
                 storySeed: '{name} begleitet zwei Gäste, die {targetName} bewusst als kleinen Ausflugsmoment aus der Luft erleben möchten.',
+                sightseeingInterestSeed: '{firstName} begleitet zwei Gaeste, die nach der Landung in die Zielregion wollen und den Ort mit einem ersten persoenlichen Blick beginnen moechten.',
                 greetingText: 'Hi, ich habe heute zwei Gäste dabei, die sich genau auf diesen Blick von oben freuen. Lass uns die Runde weich und entspannt fliegen.'
             },
             {
@@ -1879,6 +1880,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'locker, charmant, aufmerksam',
                 storySeed: '{name} zeigt zwei Besuchern {targetName} einmal aus der Luft, damit Ortsbild und Umgebung als Ganzes hängen bleiben.',
+                sightseeingInterestSeed: '{firstName} moechte seinen Gaesten nach der Landung nicht nur irgendeinen Ort zeigen, sondern die Stadt mit Orientierung, Ortskern und einem kleinen Spazierplan aufmachen.',
                 greetingText: 'Hi, heute geht es um einen schönen Blick auf den Ort, nicht um Tempo. Weiche Kurven reichen völlig.'
             },
             {
@@ -1887,6 +1889,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'neugierig, warm, ruhig',
                 storySeed: '{name} hat den Rundflug als kleines Geschenk organisiert und möchte {targetName} gemeinsam mit einer Begleitung von oben sehen.',
+                sightseeingInterestSeed: '{firstName} hat den Flug als Geschenk organisiert; nach der Landung sollen Zielort, ein Cafe und ein gemeinsamer Spaziergang den Tag tragen.',
                 greetingText: 'Hi, das ist heute ein kleines Geschenk. Ich freu mich auf den Blick auf den Ort, bitte einfach ruhig und angenehm.'
             },
             {
@@ -1895,6 +1898,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'aufmerksam, entspannt, visuell',
                 storySeed: '{name} bringt eine kleine Kamera mit und möchte bei {targetName} ein paar persönliche Erinnerungsfotos aus der Luft machen.',
+                sightseeingInterestSeed: '{firstName} bringt die kleine Kamera mit, weil er nach der Landung Motive in der Zielregion sammeln will: Ortsbild, Aussicht, Gassen und den ersten Eindruck vom Ziel.',
                 greetingText: 'Hi, ich mache nur ein paar Erinnerungsfotos für uns. Wenn wir ruhig vorbeiziehen, ist das perfekt.'
             },
             {
@@ -1903,6 +1907,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'persönlich, gelassen, aufmerksam',
                 storySeed: '{name} kennt {targetName} vom Boden und möchte den Ort heute mit einer Begleitung aus einer neuen Perspektive wiedersehen.',
+                sightseeingInterestSeed: '{firstName} kennt die Gegend von frueher und freut sich darauf, nach der Landung vertraute Ecken mit einer Begleitung neu zu sehen.',
                 greetingText: 'Hi, ich kenne den Ort von unten und möchte ihn heute einfach mal von oben sehen. Kein Stress, nur ein schöner Rundflug.'
             },
             {
@@ -1911,6 +1916,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'locker, freundlich, staunend',
                 storySeed: '{name} nutzt den guten Rundflug-Slot fuer einen kurzen Wochenendausflug zu {targetName} mit Blick, Fotos und entspannter Rückkehr.',
+                sightseeingInterestSeed: '{firstName} macht daraus einen kleinen Wochenend-Stadtbesuch: ruhig ankommen, Zielregion ansehen, Fotos machen und den Tag ohne Termindruck beginnen.',
                 greetingText: 'Hi, fuer uns ist das heute der kleine Wochenend-Hoehepunkt. Schön ruhig zum Ziel und dann gemütlich zurück.'
             },
             {
@@ -1919,6 +1925,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'hellwach, freundlich, gelassen',
                 storySeed: '{name} begleitet einen Gast, der {targetName} bisher nur aus Erzählungen kennt und den Ort einmal aus der Luft einordnen möchte.',
+                sightseeingInterestSeed: '{firstName} begleitet jemanden, der die Zielregion bisher nur aus Erzaehlungen kennt und nach der Landung endlich selbst durch den Ort laufen moechte.',
                 greetingText: 'Hi, mein Gast kennt den Ort nur aus Geschichten. Ich würde ihm gern zeigen, wie er von oben in der Landschaft liegt.'
             },
             {
@@ -1927,6 +1934,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'bodenständig, ruhig, herzlich',
                 storySeed: '{name} nimmt eine Freundin oder einen Freund mit, um {targetName} als gemeinsamen Ausblick und kleinen Ausflugsmoment zu erleben.',
+                sightseeingInterestSeed: '{firstName} nimmt einen Familiengast mit, der nach der Landung einen ruhigen Ortsbesuch, ein paar Fotos und einen gemeinsamen Blick auf die Gegend vor sich hat.',
                 greetingText: 'Hi, ich habe heute jemanden dabei, der sich auf den gemeinsamen Ausblick freut. Bitte eher weich als sportlich.'
             }
         ],
@@ -10643,7 +10651,10 @@ const POI_KNOWLEDGE_WIKI_EXTRACT_CHARS = 7200;
 const POI_KNOWLEDGE_CORE_FACT_LIMIT = 10;
 const POI_KNOWLEDGE_EXTRA_FACT_LIMIT = 20;
 const POI_KNOWLEDGE_429_COOLDOWN_MS = 60 * 1000;
+const APT_SIGHTSEEING_KNOWLEDGE_BUDGET_MS = 2800;
+const APT_SIGHTSEEING_LANDMARK_LIMIT = 5;
 let _poiKnowledgeWikiCooldownUntil = 0;
+const _aptSightseeingKnowledgeCache = new Map();
 
 function _poiKnowledgeNormalizeKey(value) {
     return String(value || '')
@@ -11082,6 +11093,200 @@ async function _resolveEducationalPoiContext(title, lat, lon, category = 'generi
             rateLimited: false
         };
     _poiEducationalContextCache.set(key, out);
+    return out;
+}
+
+function _missionSightseeingAptWikiTitleCandidates(place = '', airportName = '') {
+    const rawPlace = String(place || '').replace(/\s+/g, ' ').trim();
+    const rawAirport = String(airportName || '').replace(/\s+/g, ' ').trim();
+    const candidates = [];
+    const push = value => {
+        const clean = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!clean) return;
+        const key = _poiKnowledgeNormalizeKey(clean);
+        if (!key || candidates.some(item => _poiKnowledgeNormalizeKey(item) === key)) return;
+        candidates.push(clean);
+    };
+    push(rawPlace);
+    if (/\bfreiburg\b/i.test(rawPlace)) {
+        push('Freiburg im Breisgau');
+    }
+    const hyphenBase = rawPlace.replace(/\s*[-–]\s*[^-–]+$/, '').trim();
+    if (hyphenBase && hyphenBase !== rawPlace) push(hyphenBase);
+    const airportPlace = _missionSightseeingAptPlaceLabel(rawAirport);
+    if (airportPlace && airportPlace !== rawPlace) push(airportPlace);
+    if (/\bleutkirch\b/i.test(rawPlace) || /\bleutkirch\b/i.test(rawAirport)) {
+        push('Leutkirch im Allgäu');
+        push('Leutkirch im Allgaeu');
+    }
+    return candidates.slice(0, 6);
+}
+
+function _missionSightseeingAptLandmarkScore(title = '', place = '') {
+    const t = normalizeMissionText(title);
+    const p = normalizeMissionText(place);
+    if (!t) return -999;
+    if (/\b(flugplatz|airport|aerodrome|landeplatz|runway|startbahn|iata|icao)\b/.test(t)) return -80;
+    if (/\b(liste|begriffsklaerung|begriffsklarung|verwaltungsgemeinschaft|landkreis|wahlkreis|person)\b/.test(t)) return -40;
+    let score = 0;
+    if (p && t.includes(p)) score += 8;
+    if (/\b(altstadt|muenster|munster|dom|kathedrale|kirche|kloster|schloss|burg|ruine|museum|denkmal|theater|rathaus|marktplatz|markt|tor|turm|aussicht|schlossberg|baechle|bächle|park|garten|promenade|see|hafen|bruecke|brücke|schwarzwald|allgaeu|allgäu)\b/.test(t)) score += 35;
+    if (/\b(stadt|ort|gemeinde|stadtteil|viertel)\b/.test(t)) score += 8;
+    if (/\b(bahnhof|messe|stadion|universitaet|universität|schule|strasse|straße)\b/.test(t)) score -= 6;
+    return score;
+}
+
+function _missionSightseeingAptLandmarkTopic(title = '') {
+    const t = normalizeMissionText(title);
+    if (/\b(muenster|munster|dom|kathedrale|kirche|kloster)\b/.test(t)) return 'religious';
+    if (/\b(schloss|burg|ruine)\b/.test(t)) return 'castle';
+    if (/\b(museum|denkmal|theater|rathaus|marktplatz|altstadt|tor)\b/.test(t)) return 'culture';
+    if (/\b(aussicht|berg|schlossberg|turm|park|garten|see|hafen|promenade|schwarzwald|allgaeu|allgäu)\b/.test(t)) return 'landscape';
+    return 'landmark';
+}
+
+async function _missionSightseeingFetchNearbyWikiLandmarks(lat, lon, place = '', options = {}) {
+    const latN = Number(lat);
+    const lonN = Number(lon);
+    if (!Number.isFinite(latN) || !Number.isFinite(lonN)) return [];
+    if (_poiKnowledgeCooldownRemainingMs() > 0) return [];
+    try {
+        const params = new URLSearchParams({
+            action: 'query',
+            list: 'geosearch',
+            gscoord: `${latN}|${lonN}`,
+            gsradius: String(Math.max(2500, Math.min(18000, Number(options.radiusM || 12000)))),
+            gslimit: '30',
+            format: 'json',
+            origin: '*'
+        });
+        const res = await _poiKnowledgeFetchJson(`https://de.wikipedia.org/w/api.php?${params.toString()}`, options.timeoutMs || POI_KNOWLEDGE_WIKI_TIMEOUT_MS);
+        if (res.status === 429) {
+            _poiKnowledgeApplyRateLimitCooldown(res);
+            return [];
+        }
+        if (!res.ok) return [];
+        const data = await res.json();
+        const rows = Array.isArray(data?.query?.geosearch) ? data.query.geosearch : [];
+        return rows
+            .map(row => {
+                const title = String(row?.title || '').replace(/\s+/g, ' ').trim();
+                const distM = Number(row?.dist);
+                return {
+                    title,
+                    distanceKm: Number.isFinite(distM) ? Number((distM / 1000).toFixed(1)) : null,
+                    topic: _missionSightseeingAptLandmarkTopic(title),
+                    score: _missionSightseeingAptLandmarkScore(title, place)
+                };
+            })
+            .filter(item => item.title && item.score > 0)
+            .sort((a, b) => (b.score - a.score) || ((a.distanceKm ?? 999) - (b.distanceKm ?? 999)) || a.title.localeCompare(b.title, 'de'))
+            .slice(0, APT_SIGHTSEEING_LANDMARK_LIMIT);
+    } catch (_) {
+        return [];
+    }
+}
+
+function _missionSightseeingAptLandmarkFacts(place = '', landmarks = []) {
+    const names = (Array.isArray(landmarks) ? landmarks : [])
+        .map(item => String(item?.title || item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, APT_SIGHTSEEING_LANDMARK_LIMIT);
+    if (!names.length) return [];
+    return [{
+        source: 'wikipedia_geosearch',
+        topic: 'landmark',
+        text: `Als gepruefte Wikipedia-Zielanker nahe ${place || 'dem Zielort'} eignen sich ${names.join(', ')}.`
+    }];
+}
+
+async function resolveAptSightseeingKnowledgeContext(dest = null, options = {}) {
+    const d = dest && typeof dest === 'object' ? dest : {};
+    const airportName = String(d.n || d.name || d.title || '').replace(/\s+/g, ' ').trim();
+    const place = _missionSightseeingAptPlaceLabel(airportName);
+    const lat = Number(d.lat);
+    const lon = Number(d.lon);
+    if (!place || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (_poiKnowledgeCooldownRemainingMs() > 0) return _poiKnowledgeRateLimitedContext(place);
+    const cacheKey = `${_poiKnowledgeNormalizeKey(place)}|${lat.toFixed(3)}|${lon.toFixed(3)}|apt_sightseeing`;
+    if (_aptSightseeingKnowledgeCache.has(cacheKey)) return _aptSightseeingKnowledgeCache.get(cacheKey);
+
+    const started = Date.now();
+    const budgetMs = Math.max(900, Number(options.budgetMs || APT_SIGHTSEEING_KNOWLEDGE_BUDGET_MS));
+    const titles = _missionSightseeingAptWikiTitleCandidates(place, airportName);
+    const evaluated = [];
+    let cityContext = null;
+
+    for (const title of titles) {
+        const remainingMs = budgetMs - (Date.now() - started);
+        if (remainingMs < 500) break;
+        const ctx = await _resolveEducationalPoiContext(title, lat, lon, 'city', {
+            timeoutMs: Math.min(POI_KNOWLEDGE_WIKI_TIMEOUT_MS, Math.max(600, remainingMs))
+        });
+        evaluated.push({
+            title,
+            status: String(ctx?.status || 'reject'),
+            score: Number(ctx?.score || 0),
+            warnings: Array.isArray(ctx?.warnings) ? ctx.warnings.slice(0, 4) : []
+        });
+        if (ctx?.rateLimited) {
+            _aptSightseeingKnowledgeCache.set(cacheKey, ctx);
+            return ctx;
+        }
+        if (ctx?.ok && ctx.status === 'accept') {
+            cityContext = ctx;
+            break;
+        }
+        if (!cityContext && ctx && (ctx.status === 'review' || Number(ctx.score || 0) >= POI_KNOWLEDGE_CONTEXT_REVIEW_SCORE)) {
+            cityContext = ctx;
+        }
+    }
+
+    const remainingForLandmarks = budgetMs - (Date.now() - started);
+    const landmarks = remainingForLandmarks >= 550
+        ? await _missionSightseeingFetchNearbyWikiLandmarks(lat, lon, place, { timeoutMs: Math.min(POI_KNOWLEDGE_WIKI_TIMEOUT_MS, remainingForLandmarks) })
+        : [];
+    const landmarkFacts = _missionSightseeingAptLandmarkFacts(place, landmarks);
+    const baseFacts = Array.isArray(cityContext?.facts) ? cityContext.facts : [];
+    const mergedFacts = compactPoiKnowledgeFactListForMission(
+        [...landmarkFacts, ...baseFacts],
+        POI_KNOWLEDGE_CORE_FACT_LIMIT
+    );
+    const hasAcceptedCity = !!(cityContext?.ok && cityContext.status === 'accept');
+    const out = {
+        ...(cityContext && typeof cityContext === 'object' ? cityContext : {}),
+        ok: hasAcceptedCity || landmarks.length > 0,
+        status: hasAcceptedCity || landmarks.length > 0 ? 'accept' : (cityContext?.status || 'reject'),
+        title: String(cityContext?.title || place).replace(/\s+/g, ' ').trim(),
+        category: 'city',
+        score: Math.max(Number(cityContext?.score || 0), landmarks.length ? POI_KNOWLEDGE_CONTEXT_ACCEPT_SCORE : 0),
+        facts: mergedFacts,
+        factCandidates: Math.max(Number(cityContext?.factCandidates || 0), mergedFacts.length),
+        selectedFacts: mergedFacts.length,
+        topics: Array.from(new Set([
+            ...((Array.isArray(cityContext?.topics) ? cityContext.topics : [])),
+            ...mergedFacts.map(fact => fact.topic || 'general')
+        ])).filter(Boolean).slice(0, 8),
+        sightseeingPlace: place,
+        sightseeingLandmarks: landmarks.map(item => ({
+            title: item.title,
+            topic: item.topic,
+            distanceKm: item.distanceKm,
+            source: 'wikipedia_geosearch'
+        })),
+        reasons: Array.from(new Set([
+            ...((Array.isArray(cityContext?.reasons) ? cityContext.reasons : [])),
+            ...(landmarks.length ? ['apt_sightseeing_landmarks'] : [])
+        ])),
+        warnings: Array.from(new Set([
+            ...((Array.isArray(cityContext?.warnings) ? cityContext.warnings : [])),
+            ...(hasAcceptedCity || landmarks.length ? [] : ['apt_sightseeing_no_wiki_anchor'])
+        ])),
+        aptSightseeing: true,
+        evaluatedTitles: evaluated,
+        rateLimited: false
+    };
+    _aptSightseeingKnowledgeCache.set(cacheKey, out);
     return out;
 }
 
@@ -13115,6 +13320,7 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         storySeed: String((keepBaseChainPersona ? (base.storySeed || base.personalStoryCue) : persona.storySeed) || base.storySeed || base.personalStoryCue || '').trim(),
         personalStoryCue: String((keepBaseChainPersona ? (base.personalStoryCue || base.storySeed) : persona.storySeed) || base.personalStoryCue || base.storySeed || '').trim(),
         paxBriefingSeed: String((keepBaseChainPersona ? base.paxBriefingSeed : persona.paxBriefingSeed) || base.paxBriefingSeed || '').trim(),
+        sightseeingInterestSeed: String((keepBaseChainPersona ? base.sightseeingInterestSeed : persona.sightseeingInterestSeed) || base.sightseeingInterestSeed || '').trim(),
         greetingText: String((keepBaseChainPersona ? base.greetingText : persona.greetingText) || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
         roleProfile: String(profileSpec.roleProfile || base.roleProfile || 'general_passenger_v1').toLowerCase(),
         taskDomain: String(profileSpec.taskDomain || base.taskDomain || 'general').toLowerCase(),
@@ -13615,6 +13821,162 @@ function _missionSightseeingMemoryOutcomeLine(target = 'Zielgebiet') {
     return `Nach der Runde soll ${target} für die Gäste nicht abstrakt bleiben, sondern als persönliches Bild im Kopf und auf ein paar privaten Fotos mit nach Hause gehen.`;
 }
 
+function _missionSightseeingAptPlaceLabel(target = '') {
+    const raw = String(target || '').replace(/\s+/g, ' ').trim();
+    const withoutAirport = raw
+        .replace(/\s+i\.\s*br\.?\s+airport$/i, '')
+        .replace(/\b(?:airport|airfield|aerodrome|flugplatz|landeplatz|sonderlandeplatz)\b.*$/i, '')
+        .replace(/\s*[-–]\s*$/g, '')
+        .trim();
+    return withoutAirport || raw || 'die Zielregion';
+}
+
+function _missionSightseeingAptKnowledgeContext(source = null) {
+    const ctx = source?.knowledgeContext
+        || source?.missionContractV4?.knowledgeContext
+        || source?.missionContract?.knowledgeContext
+        || source?._missionContractV4?.knowledgeContext
+        || null;
+    if (!ctx || typeof ctx !== 'object') return null;
+    if (ctx.aptSightseeing === true || ctx.status === 'accept') return ctx;
+    return null;
+}
+
+function _missionSightseeingAptKnowledgeAttractions(context = null) {
+    if (!context || typeof context !== 'object' || context.status !== 'accept') return '';
+    const landmarkNames = Array.isArray(context.sightseeingLandmarks)
+        ? context.sightseeingLandmarks
+            .map(item => String(item?.title || item || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .slice(0, APT_SIGHTSEEING_LANDMARK_LIMIT)
+        : [];
+    if (landmarkNames.length) return landmarkNames.join(', ');
+    const preferredFacts = (Array.isArray(context.facts) ? context.facts : [])
+        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(text => /\b(altstadt|muenster|münster|dom|kirche|schloss|burg|museum|denkmal|park|see|aussicht|turm|marktplatz|rathaus|spazier|tourismus|freizeit|schwarzwald|allgaeu|allgäu)\b/i.test(text))
+        .slice(0, 3);
+    if (preferredFacts.length) return preferredFacts.map(text => text.replace(/[.!?]+$/, '')).join('; ');
+    return (Array.isArray(context.facts) ? context.facts : [])
+        .map(fact => String(fact?.text || fact || '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, ''))
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('; ');
+}
+
+function _missionSightseeingAptRegionAnchors(target = '', knowledgeContext = null) {
+    const place = _missionSightseeingAptPlaceLabel(target);
+    const wikiContext = _missionSightseeingAptKnowledgeContext({ knowledgeContext });
+    const wikiAttractions = _missionSightseeingAptKnowledgeAttractions(wikiContext);
+    if (wikiAttractions) {
+        const wikiTitle = String(wikiContext?.title || place).replace(/\s+/g, ' ').trim();
+        return {
+            place: String(wikiContext?.sightseeingPlace || place).replace(/\s+/g, ' ').trim() || place,
+            attractions: wikiAttractions,
+            approach: `Die Zielinfos zu ${wikiTitle} geben dem Flug echte Anker: ${wikiAttractions}.`,
+            groundPlan: `Nach der Landung geht es vom Vorfeld in Richtung Zielort; Kamera oder Tagesrucksack kommen mit, und ${wikiAttractions.split(',')[0].trim()} wird zum ersten konkreten Punkt des privaten Sightseeing-Plans.`,
+            source: 'wiki'
+        };
+    }
+    const key = normalizeMissionText(place);
+    if (/\bfreiburg\b/.test(key)) {
+        return {
+            place: 'Freiburg',
+            attractions: 'Altstadt, Muenster, Baechle, Schlossberg und der Schwarzwaldrand',
+            approach: 'Schon der Anflug macht klar, warum der Platz als Tor zur Stadt taugt: Rhein-Ebene, Stadt und Schwarzwaldrand liegen dicht beieinander.',
+            groundPlan: 'Nach der Landung soll es vom Vorfeld weiter in die Stadt gehen, erst zum Muenster und in die Gassen, spaeter vielleicht hinauf Richtung Schlossberg.'
+        };
+    }
+    return {
+        place,
+        attractions: `Ortskern, Aussichtspunkte, Spazierwege und ein paar private Fotomotive rund um ${place}`,
+        approach: `Der Anflug soll ${place} nicht als bloßen Punkt auf der Karte zeigen, sondern als Zielregion, in der nach der Landung ein kleiner Ausflug beginnt.`,
+        groundPlan: `Nach der Landung geht es vom Vorfeld in Richtung ${place}: kurz orientieren, Kamera oder Tagesrucksack greifen und den Ort in Ruhe anschauen.`
+    };
+}
+
+function _missionSightseeingContractIsApt(contract = {}) {
+    const target = contract?.target || {};
+    if (contract?.isPOI || target?.isPOI) return false;
+    const mode = normalizeMissionType(contract?.mode || contract?.missionType || contract?.route?.mode || '', false);
+    return mode !== 'poi' && mode !== 'bush';
+}
+
+function _missionSightseeingAptStoryLooksDestinationRich(story = '', passenger = null, target = '') {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const s = normalizeMissionText(raw);
+    if (!raw || raw.length < 220) return false;
+    if (_missionSightseeingWorkText(raw)) return false;
+    if (/\b(rueckkehr|ruckkehr|zurueck zum heimat|zuruck zum heimat|runde ueber dem ziel|runde über dem ziel|panorama-rundflug ueber|panoramaflug ueber)\b/.test(s)) return false;
+    const paxName = String(passenger?.name || '').trim();
+    const firstName = String(paxName.split(/\s+/)[0] || '').trim();
+    const hasName = firstName && s.includes(normalizeMissionText(firstName));
+    const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(passenger));
+    const place = normalizeMissionText(anchors.place);
+    const hasDestination = place && s.includes(place);
+    const hasLandingPlan = /\b(nach der landung|vom vorfeld|ga-bereich|zielregion|stadt|ortskern|altstadt|spaziergang|cafe|muenster|baechle|schlossberg|aussichtspunkt|fotomotive)\b/.test(s);
+    const hasMotive = /\b(freut|freuen|moechte|mochte|will|kamera|foto|geschenk|besuch|familie|wochenend|erzaehlungen|erzahlungen|heimat|wiedersehen)\b/.test(s);
+    return Boolean((hasName || hasMotive) && hasDestination && hasLandingPlan);
+}
+
+function _missionSightseeingAptPersonaLine(missionLike = {}, passenger = {}, target = 'Zielgebiet') {
+    const paxName = String(passenger?.name || 'Der Sightseeing-Gast').trim();
+    const firstName = paxName.split(/\s+/)[0] || paxName;
+    const role = String(passenger?.role || 'Sightseeing-Gast').replace(/\s+/g, ' ').trim();
+    const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(missionLike) || _missionSightseeingAptKnowledgeContext(passenger));
+    const seed = _missionTemplateText(String(passenger?.sightseeingInterestSeed || '').trim(), {
+        name: paxName,
+        firstName,
+        role,
+        targetName: anchors.place
+    });
+    if (seed) return seed;
+    const roleText = normalizeMissionText(role);
+    if (/\bfotograf|foto|kamera\b/.test(roleText)) {
+        return `${firstName} bringt die Kamera mit, weil ${anchors.place} nach der Landung mehr verspricht als einen beliebigen Flugplatzstopp: ${anchors.attractions} sollen zu privaten Bildern werden.`;
+    }
+    if (/\bstadtfuehr|stadtführ|guide|reisebegleit/.test(roleText)) {
+        return `${firstName} begleitet heute Gaeste, die ${anchors.place} nicht nur anfliegen, sondern nach der Landung mit Orientierung und einem echten Stadtgefuehl erleben wollen.`;
+    }
+    if (/\bheimat|familie|freund|besuch/.test(roleText)) {
+        return `${firstName} freut sich auf ${anchors.place}, weil dort nach der Landung vertraute Geschichten, ein gemeinsamer Spaziergang und neue Fotos zusammenkommen.`;
+    }
+    return `${firstName} hat ${anchors.place} als privaten Sightseeing-Ausflug vorgeschlagen, weil nach der Landung genau dort der kleine Zielplan beginnt.`;
+}
+
+function _missionSightseeingAptWeatherLine(missionLike = {}, fallback = '') {
+    const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || {};
+    const weatherHooks = Array.isArray(plan.weatherHooks) ? plan.weatherHooks.join(' ') : '';
+    const raw = [weatherHooks, fallback, plan?.storyFrame?.whyNow].filter(Boolean).join(' ');
+    const tempMatch = String(raw || '').match(/(-?\d{1,2})\s*°\s*C/i);
+    if (tempMatch) {
+        const temp = Number(tempMatch[1]);
+        if (Number.isFinite(temp) && temp >= 30) {
+            return `Bei ${Math.round(temp)}°C klingt das nach Sommertag: gut fuer den Ausflug, aber nach dem Abstellen eher mit Wasser, Schatten und einem entspannten Stadtstart als mit Hektik.`;
+        }
+        if (Number.isFinite(temp)) {
+            return `Bei ${Math.round(temp)}°C passt der Flug gut als Auftakt: ruhig ankommen, dann ohne Druck in den Zielort wechseln.`;
+        }
+    }
+    if (/\bvfr|sicht|klar|cavok|gut\b/i.test(raw)) {
+        return 'Das Wetterfenster passt als freundlicher Auftakt: genug Ruhe fuer den Hinflug und genug Sicht, damit die Zielregion schon vor der Landung neugierig macht.';
+    }
+    return 'Der Wert des Flugs liegt im entspannten Ankommen: unterwegs Orientierung sammeln und nach der Landung in den privaten Sightseeing-Plan wechseln.';
+}
+
+function _missionSightseeingComposeAptDestinationStory(missionLike = {}, target = 'Zielgebiet', passenger = null, cue = '') {
+    const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(missionLike) || _missionSightseeingAptKnowledgeContext(passenger));
+    const personalLine = cue && _missionSightseeingAptStoryLooksDestinationRich(cue, passenger, target)
+        ? cue
+        : _missionSightseeingAptPersonaLine(missionLike, passenger || {}, target);
+    return [
+        personalLine,
+        `${anchors.approach} Worauf sich die Gaeste freuen, ist konkret: ${anchors.attractions}.`,
+        _missionSightseeingAptWeatherLine(missionLike, missionLike?.storyFrame?.whyNow || ''),
+        anchors.groundPlan
+    ].filter(Boolean).join(' ');
+}
+
 function _missionSightseeingComposePersonalStory(missionLike = {}, target = 'Zielgebiet', passenger = null, cue = '') {
     const paxName = String(passenger?.name || 'Der Sightseeing-Gast').trim();
     const lead = cue || `${paxName} begleitet heute zwei Gäste, die ${target} als ruhigen Ausflugsmoment aus der Luft erleben möchten.`;
@@ -13627,7 +13989,7 @@ function _missionSightseeingComposePersonalStory(missionLike = {}, target = 'Zie
 }
 
 function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
-    if (!missionLike || typeof missionLike !== 'object' || !isPOI) return missionLike;
+    if (!missionLike || typeof missionLike !== 'object') return missionLike;
     const target = _targetLabelForSightseeingNarrative(missionLike);
     const pax = (missionLike.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : {};
     const paxName = String(pax.name || 'Der Sightseeing-Gast').trim();
@@ -13639,13 +14001,19 @@ function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
     };
     const cue = _missionTemplateText(pax.personalStoryCue || pax.storySeed || '', templateContext);
     const currentStory = String(missionLike.s || missionLike.story || '').trim();
-    const needsPersonalFrame = !_missionSightseeingStoryHasPersonalGuestFrame(currentStory, pax);
-    if (_missionSightseeingStoryLooksFlat(currentStory) || needsPersonalFrame) {
+    const needsPersonalFrame = isPOI
+        ? !_missionSightseeingStoryHasPersonalGuestFrame(currentStory, pax)
+        : !_missionSightseeingAptStoryLooksDestinationRich(currentStory, pax, target);
+    if (isPOI && (_missionSightseeingStoryLooksFlat(currentStory) || needsPersonalFrame)) {
         missionLike.s = _missionSightseeingComposePersonalStory(missionLike, target, pax, cue);
+    } else if (!isPOI && (_missionSightseeingStoryLooksFlat(currentStory) || needsPersonalFrame)) {
+        missionLike.s = _missionSightseeingComposeAptDestinationStory(missionLike, target, pax, cue);
     }
     const title = String(missionLike.t || missionLike.title || '').trim();
-    if (!/\b(panorama|aussicht|rundflug|foto|orientierungsrunde|blick)\b/i.test(title)) {
+    if (isPOI && !/\b(panorama|aussicht|rundflug|foto|orientierungsrunde|blick)\b/i.test(title)) {
         missionLike.t = `Panorama-Rundflug: ${target}`;
+    } else if (!isPOI && (!/\b(sightseeing|ausflug|stadt|zielregion|freiburg)\b/i.test(title) || /\bpanoramaflug\s+(?:ueber|über)\b/i.test(title))) {
+        missionLike.t = `Sightseeing-Ausflug nach ${_missionSightseeingAptPlaceLabel(target)}`;
     }
     if (missionLike.passenger && typeof missionLike.passenger === 'object') {
         const currentGreeting = String(missionLike.passenger.greetingText || '').trim();
@@ -13653,10 +14021,17 @@ function _sanitizeSightseeingTourNarrative(missionLike = {}, isPOI = false) {
         const greetingLooksFlat = !templatedGreeting
             || templatedGreeting.length < 45
             || _missionSightseeingWorkText(templatedGreeting)
-            || /entspannten ausblick/i.test(normalizeMissionText(templatedGreeting));
-        missionLike.passenger.greetingText = greetingLooksFlat
-            ? `Hi, heute geht es nur um den Blick auf ${target}. Bitte eher weich und entspannt, damit alle die Aussicht genießen können.`
-            : templatedGreeting;
+            || /entspannten ausblick|ruhig vorbeiziehen|schoenen blick auf den ort|schönen blick auf den ort/i.test(normalizeMissionText(templatedGreeting));
+        if (isPOI) {
+            missionLike.passenger.greetingText = greetingLooksFlat
+                ? `Hi, heute geht es nur um den Blick auf ${target}. Bitte eher weich und entspannt, damit alle die Aussicht genießen können.`
+                : templatedGreeting;
+        } else {
+            const anchors = _missionSightseeingAptRegionAnchors(target, _missionSightseeingAptKnowledgeContext(missionLike) || _missionSightseeingAptKnowledgeContext(missionLike.passenger));
+            missionLike.passenger.greetingText = greetingLooksFlat || !/landung|zielregion|stadt|ort|muenster|schlossberg|foto/i.test(normalizeMissionText(templatedGreeting))
+                ? `Hi, ich freue mich auf ${anchors.place}. Nach der Landung moechte ich ${anchors.attractions} in Ruhe sehen; bring uns einfach angenehm hin.`
+                : templatedGreeting;
+        }
     }
     return missionLike;
 }
@@ -14095,8 +14470,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         _sanitizeLearningGuideNarrative(m);
     }
-    if (profile.id === 'sightseeing_tour' && isPOI) {
-        _sanitizeSightseeingTourNarrative(m, true);
+    if (profile.id === 'sightseeing_tour') {
+        _sanitizeSightseeingTourNarrative(m, isPOI);
     }
     const cue = _profileStoryCue(profile, isPOI);
     if (cue) {
@@ -14110,7 +14485,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         }
     }
     _finalizeMissionNarrative(m, profile, isPOI);
-    if (profile.id === 'private_outing' && !isPOI) {
+    if ((profile.id === 'private_outing' || profile.id === 'sightseeing_tour') && !isPOI) {
         m.story = m.s;
         m.missionStory = m.s;
     }
@@ -14131,7 +14506,7 @@ function _profileStoryCue(profile, isPOI = false) {
     if (profile.id === 'sightseeing_tour') {
         return isPOI
             ? 'Persoenlicher Rundflug: Blick, Orientierung, Erinnerungsfotos und entspannte Rueckkehr stehen im Mittelpunkt.'
-            : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
+            : '';
     }
     if (profile.id === 'private_outing') {
         return '';
@@ -14204,6 +14579,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     }
     if (profile.id === 'sightseeing_tour' && isPOI) {
         return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
+    }
+    if (profile.id === 'sightseeing_tour' && !isPOI) {
+        return '16. OPERATIONS-REGEL APT-SIGHTSEEING: Auftrag ist ein privater A-B-Flug zur Zielregion, kein POI-Rundflug und keine Rueckkehrpflicht. Erzaehle, wer an Bord ist, warum genau dieser Zielort interessiert, welche Sehenswuerdigkeiten, Aussichtspunkte, Altstadt-/Ortskernmomente, Fotos oder Spazierplaene nach der Landung wichtig sind, und warum der Zielflugplatz der passende Zugang ist. Der Ton ist warm, privat und erwartungsvoll; der Abschluss liegt beim Ankommen, Aussteigen und Start des Zielplans am Boden.';
     }
     if (profile.id === 'private_outing' && !isPOI) {
         return '16. OPERATIONS-REGEL APT-AUSFLUG: Schreibe das Briefing wie eine kurze Vorflug-Erzaehlung des mitfliegenden Passagiers in Ich-Perspektive. Der Pax sagt, wer er zum Piloten ist, warum er genau zu diesem Zielplatz moechte, worauf er sich nach der Landung freut und wie Wetter oder Stimmung den privaten Tag praegen. Typische positive Anker: $100-Burger, Flugplatzcafe, Kaffee und Kuchen, Wandern, Wellness, Familienbesuch, Städtetrip, Fotos, ruhiger Wochenendtag. Der Zielplatz ist der angenehme Zugang zur Aktivitaet am Boden; der Ton ist persoenlich, alltagsnah und wie ein Gespraech vor dem privaten Flug.';
@@ -14495,6 +14873,19 @@ function compactPoiKnowledgeContextForMission(context = null, maxFacts = POI_KNO
             : [],
         rateLimited: context.rateLimited === true
     };
+    if (context.aptSightseeing === true) compact.aptSightseeing = true;
+    if (context.sightseeingPlace) compact.sightseeingPlace = String(context.sightseeingPlace || '').replace(/\s+/g, ' ').trim();
+    if (Array.isArray(context.sightseeingLandmarks) && context.sightseeingLandmarks.length) {
+        compact.sightseeingLandmarks = context.sightseeingLandmarks
+            .map(item => ({
+                title: String(item?.title || item || '').replace(/\s+/g, ' ').trim(),
+                topic: String(item?.topic || 'landmark').replace(/\s+/g, ' ').trim() || 'landmark',
+                distanceKm: Number.isFinite(Number(item?.distanceKm)) ? Number(item.distanceKm) : null,
+                source: String(item?.source || 'wikipedia_geosearch').replace(/\s+/g, ' ').trim() || 'wikipedia_geosearch'
+            }))
+            .filter(item => item.title)
+            .slice(0, APT_SIGHTSEEING_LANDMARK_LIMIT);
+    }
     if (includeExtraFacts && extraFacts.length) {
         compact.extraFacts = extraFacts;
         compact.extraSelectedFacts = extraFacts.length;
@@ -15050,7 +15441,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const has = (re) => re.test(hay);
     const conflictsWithProfile = (profile) => {
         if (profile === 'sightseeing_tour') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/)
-            || (!isPOI && has(/\bburger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|familienbesuch|wochenend|tagesausflug/));
+            || (!isPOI && has(/\bburger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|familienbesuch/));
         if (profile === 'private_outing') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|report|redaktion|sightseeing|panorama|rundflug|ueberflug|überflug/);
         if (profile === 'cargo_fragile') return has(/\bverein|vereins|stammtisch|fly in|sightseeing|panorama|kuchen|burger|wellness|tour|konzert|city\b/);
         if (profile === 'animal_transport') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|sightseeing|panorama|training|fluglehrer/);
@@ -19359,10 +19750,12 @@ const MISSION_SEMANTICS_V4_RULESET = {
             planner: [
                 'Aussicht und ruhige Beobachtung bleiben der Fokus.',
                 'Kein nachtraeglicher Arbeits- oder Einsatzauftrag.',
-                'Der Anlass bleibt sozial oder persoenlich: Ausflug, Besuch, Geschenkflug, Heimatblick, Erinnerungsfotos oder gemeinsamer Blickmoment.'
+                'Der Anlass bleibt sozial oder persoenlich: Ausflug, Besuch, Geschenkflug, Heimatblick, Erinnerungsfotos oder gemeinsamer Blickmoment.',
+                'Bei APT-Sightseeing ist der Zielplatz Zugang zur Zielregion nach der Landung; bei POI-Sightseeing bleibt der Zielbereich Blickmoment aus der Luft.'
             ],
             writer: [
                 'Story bleibt entspannt und driftet nicht in Arbeitssprache.',
+                'APT-Sightseeing erzaehlt, was die Gaeste in der Zielregion sehen moechten und worauf sie sich nach der Landung freuen.',
                 'Keine Begriffe wie Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund oder Arbeitsauftrag.'
             ],
             forceSceneNone: true
@@ -20396,6 +20789,8 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
 function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
+    const missionMode = normalizeMissionType(options?.missionType || plan?.missionType || '', !!options?.isPOI);
+    const isAptMode = missionMode === 'apt' && !options?.isPOI;
     const semanticCategory = String(semantics?.focusLock?.targetCategory || '').toLowerCase();
     const planCategory = String(plan?.targetCategory || '').toLowerCase();
     const category = ((semanticCategory && semanticCategory !== 'generic') ? semanticCategory : (planCategory || semanticCategory || 'generic')).toLowerCase();
@@ -20893,6 +21288,28 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'sightseeing_tour') {
+        if (isAptMode) {
+            const anchors = _missionSightseeingAptRegionAnchors(targetLabel, options?.knowledgeContext);
+            const sightseeingSubject = _missionPipelineV4PickOne([
+                `Gaeste mit privatem Zielplan fuer ${anchors.place}`,
+                `ein kleiner Stadt- oder Zielregionsbesuch rund um ${anchors.place}`,
+                `ein Foto- und Spazierplan, der nach der Landung in ${anchors.place} beginnt`,
+                `ein Besuch, bei dem ${anchors.place} nach der Landung endlich konkret werden soll`
+            ]);
+            return {
+                trigger: `${targetLabel} ist heute der Zielflugplatz fuer einen privaten Sightseeing-Ausflug in die Zielregion.`,
+                focusSubject: sightseeingSubject,
+                keyQuestion: `Was die Gaeste in ${anchors.place} nach der Landung sehen moechten und warum der Zielflugplatz dafuer der passende Zugang ist.`,
+                stakes: 'Wenn der Flug nur wie ein generischer Rundflug klingt, fehlt dem A-B-Ausflug der persoenliche Zielgrund.',
+                completionSignal: `Nach der Landung am Ziel steigen die Gaeste aus und beginnen den privaten Plan in ${anchors.place}.`,
+                subjectDetail: sightseeingSubject,
+                incidentContext: `${anchors.approach} Im Mittelpunkt stehen ${anchors.attractions}, nicht ein abstrakter Rundflug.`,
+                whyNow: weatherShort
+                    ? `Das heutige Fenster mit ${weatherShort} passt als freundlicher Auftakt fuer Hinflug und anschliessenden Stadt- oder Zielregionsbesuch.`
+                    : 'Der Flug passt jetzt, weil Zeitfenster und Stimmung fuer einen ruhigen Hinflug und einen privaten Zielbesuch reichen.',
+                soughtOutcome: anchors.groundPlan
+            };
+        }
         return {
             trigger: `Zwei Gäste haben den Flug zu ${targetLabel} als ruhigen Ausflugsmoment geplant; der Blick auf das Ziel ist der eigentliche Anlass.`,
             focusSubject: targetLabel,
@@ -21109,6 +21526,8 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
     const rawFrame = (plan.storyFrame && typeof plan.storyFrame === 'object') ? plan.storyFrame : {};
     const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds, options);
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase();
+    const missionMode = normalizeMissionType(options?.missionType || plan?.missionType || '', !!options?.isPOI);
+    const isAptSightseeing = taskDomain === 'sightseeing_tour' && missionMode === 'apt' && !options?.isPOI;
     const useSarDecisionFrame = taskDomain === 'search_and_rescue'
         && !!options?.sarDecision?.incidentType;
     const sarIncidentType = options?.sarDecision?.incidentType || defaults.incidentType || rawFrame.incidentType || '';
@@ -21124,6 +21543,7 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
         if (!clean) return '';
         if (useSarDecisionFrame) return pickSarText(clean);
         if (taskDomain === 'bush_pickup_return' && _missionPipelineV4LooksBushPickupFragmentText(clean)) return '';
+        if (isAptSightseeing && /\b(rundflug|panorama-rundflug|panoramaflug|ueberflug|überflug|runde\s+ueber|runde\s+über|rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat)\b/.test(normalizeMissionText(clean))) return '';
         return _missionPipelineV4NarrativeTextUsable(clean) ? clean : '';
     };
     const frameSource = useSarDecisionFrame
@@ -21460,8 +21880,10 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
     };
 }
 
-function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {}, semantics = {}) {
+function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {}, semantics = {}, options = {}) {
     const targetLabel = String(plan.targetLabel || semantics?.focusLock?.primarySubjectLabel || 'Zielgebiet').trim() || 'Zielgebiet';
+    const missionMode = normalizeMissionType(options?.missionType || plan?.missionType || '', !!options?.isPOI);
+    const isAptMode = missionMode === 'apt' && !options?.isPOI;
     const cleanList = (values = [], fallback = []) => {
         const src = (Array.isArray(values) ? values : [])
             .map(x => String(x || '').replace(/\s+/g, ' ').trim())
@@ -21469,6 +21891,47 @@ function _missionPipelineV4ApplySightseeingPlanGuard(plan = {}, storyFrame = {},
             .filter(x => !_missionSightseeingWorkText(x));
         return (src.length ? src : fallback).slice(0, 5);
     };
+    if (isAptMode) {
+        const anchors = _missionSightseeingAptRegionAnchors(targetLabel, options?.knowledgeContext);
+        const hooksFallback = [
+            `Die Gaeste fliegen nach ${targetLabel}, weil ${anchors.place} nach der Landung ihr privater Sightseeing-Plan ist.`,
+            storyFrame.subjectDetail,
+            storyFrame.incidentContext,
+            storyFrame.whyNow,
+            storyFrame.soughtOutcome
+        ].map(x => String(x || '').trim()).filter(Boolean);
+        plan.primaryObjective = `Privater A-B-Sightseeing-Ausflug nach ${targetLabel}; der Zielflugplatz ist Zugang zu ${anchors.place} und den Sehenswuerdigkeiten nach der Landung.`;
+        plan.localFacts = cleanList(plan.localFacts, [
+            `${targetLabel} ist der Zielflugplatz fuer den privaten Besuch in ${anchors.place}.`,
+            `Zielinteresse: ${anchors.attractions}.`
+        ]);
+        const cleanedOperationalDetails = cleanList(plan.operationalDetails, [])
+            .filter(x => !/\b(rueckkehr|ruckkehr|zurueck|zurück|runde|rundflug)\b/.test(normalizeMissionText(x)));
+        plan.operationalDetails = Array.from(new Set([
+            'Ruhiger A-B-Hinflug, Landung am Zielplatz, Ausstieg am GA-/Vorfeldbereich.',
+            'Der Sightseeing-Teil beginnt als privater Zielplan nach der Landung, nicht als Arbeits- oder POI-Task in der Luft.',
+            ...cleanedOperationalDetails
+        ].filter(Boolean))).slice(0, 5);
+        plan.narrativeHooks = Array.from(new Set([
+            ...hooksFallback,
+            ...cleanList(plan.narrativeHooks, [])
+        ].filter(Boolean))).slice(0, 5);
+        plan.mustMention = Array.from(new Set([
+            ...cleanList(plan.mustMention, []),
+            targetLabel,
+            anchors.place,
+            'Persoenlicher Zielplan nach der Landung',
+            'Was die Gaeste in der Zielregion sehen moechten'
+        ].filter(Boolean))).slice(0, 6);
+        plan.mustAvoid = Array.from(new Set([
+            ...plan.mustAvoid,
+            'Keine Rueckkehr zum Heimatplatz fuer APT-Sightseeing behaupten.',
+            'Keine reine Panorama- oder Rundflug-Story ohne Zielregionsgrund.',
+            'Keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache.'
+        ].filter(Boolean))).slice(0, 12);
+        plan.realismBrief = `Der Flug ist glaubwuerdig als privater A-B-Sightseeing-Ausflug: ${targetLabel} ist der Zugang zu ${anchors.place}; nach der Landung tragen ${anchors.attractions} den eigentlichen Zielgrund.`;
+        return plan;
+    }
     const hooksFallback = [
         `Die Gaeste moechten ${targetLabel} als gemeinsamen Ausflugsmoment aus der Luft erleben.`,
         storyFrame.subjectDetail,
@@ -21678,6 +22141,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
     const pickupCreativeBrief = debug?.pickupCreativeBrief || null;
     const missionVarietyBrief = debug?.missionVarietyBrief || null;
     const followUpContext = debug?.followUpContext || null;
+    const draftIsPOI = !!(draft?.isPOI || draft?.mode === 'poi' || draft?.picker?.baseType === 'poi');
     const storyFrame = _missionPipelineV4BuildStoryFrame({
         ...base.plan,
         missionTrigger: rawPlan.missionTrigger,
@@ -21686,7 +22150,14 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionStakes: rawPlan.missionStakes,
         completionSignal: rawPlan.completionSignal,
         storyFrame: rawPlan.storyFrame
-    }, semantics, resolvedNeeds, { sarDecision, pickupCreativeBrief, missionVarietyBrief, followUpContext });
+    }, semantics, resolvedNeeds, {
+        sarDecision,
+        pickupCreativeBrief,
+        missionVarietyBrief,
+        followUpContext,
+        isPOI: draftIsPOI,
+        missionType: draft?.mode || base?.plan?.missionType || (draftIsPOI ? 'poi' : 'apt')
+    });
     const taskDomain = String(semantics?.focusLock?.taskDomain || base.plan?.taskDomain || '').toLowerCase();
     const cleanSortedTexts = (values, kind, maxItems) => _missionPipelineV4FilterNarrativeTexts(
         _missionSemanticsV4SortTexts(values, semantics, kind)
@@ -21758,7 +22229,11 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
     }
     if (taskDomain === 'sightseeing_tour') {
-        _missionPipelineV4ApplySightseeingPlanGuard(base.plan, storyFrame, semantics);
+        _missionPipelineV4ApplySightseeingPlanGuard(base.plan, storyFrame, semantics, {
+            isPOI: draftIsPOI,
+            missionType: draft?.mode || base?.plan?.missionType || (draftIsPOI ? 'poi' : 'apt'),
+            knowledgeContext: draft?.knowledgeContext || draft?.target?.knowledgeContext || null
+        });
     }
     if (taskDomain === 'inspection_infra') {
         _missionPipelineV4ApplyInfraScenePlanGuard(base.plan, storyFrame, semantics);
@@ -21994,6 +22469,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     const bushPickupReturn = profileId === 'bush_pickup_strip';
     const aptCharterPickupReturn = profileId === 'apt_charter_pickup';
+    const knowledgeContext = compactPoiKnowledgeContextForMission(context.knowledgeContext || context.dest?.knowledgeContext || null, 10);
     const weatherBundle = _missionPipelineV3WeatherBundle(context.missionWeather || null);
     const followUpContext = context.followUpContext && typeof context.followUpContext === 'object'
         ? context.followUpContext
@@ -22023,6 +22499,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     } else if (aptCharterPickupReturn) {
         routeRules.push('APT-Charter-Pickup-Story: Der Plan beantwortet aus dem Follow-up-Kontext wer, was, wo, wann, wie und warum. Der Passagier ist nicht am Start an Bord, sondern wartet am Zielplatz.');
         realismTargets.unshift('APT-Charter-Pickup braucht Termin-/Aufenthaltsdetails, Wartepunkt am GA-/Vorfeldbereich, Rückkehrgrund und nächsten Handoff am Ausgangsplatz.');
+    } else if (!context.isPOI && profileId === 'sightseeing_tour') {
+        routeRules.push('APT-Sightseeing: Zielplatz ist Gateway zur Zielregion nach der Landung; der Abschluss liegt am Zielplatz, nicht am Heimatplatz.');
+        routeRules.push('Wenn knowledgeContext.status="accept" vorhanden ist, nutze diese Wiki-/GeoSearch-Zielanker als Faktenbasis fuer Sehenswuerdigkeiten und Zielplan. Keine zusaetzlichen harten Ortsfakten erfinden.');
+        realismTargets.unshift('APT-Sightseeing braucht einen privaten Gast, echte Zielort-Anker aus knowledgeContext wenn vorhanden, und einen Plan fuer Fotos, Altstadt/Ortskern, Aussichtspunkt, Cafe oder Spaziergang nach der Landung.');
     }
     if (followUpContext) {
         const followKind = String(followUpContext.followUpKind || '').toLowerCase();
@@ -22095,6 +22575,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
+            knowledgeContext,
             semanticsRules,
             sarIncidentGuidance,
             followUpContext,
@@ -22127,6 +22608,7 @@ Arbeitsweise:
 9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Adventure bringt den Gast zur Landung und zum Beginn des Aufenthalts am Ziel, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
+9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als gepruefte Faktenbasis fuer die Sehenswuerdigkeiten, Ortsstimmung und den Zielplan nach der Landung. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -22420,7 +22902,10 @@ function buildMissionContractV4({
         pickupCreativeBrief,
         missionVarietyBrief,
         followUpContext,
-        homeName: contractHomeName
+        homeName: contractHomeName,
+        isPOI: !!plannerContext.isPOI,
+        missionType: plannerContext.missionType || plannerContext.missionPicker?.baseType || (plannerContext.isPOI ? 'poi' : 'apt'),
+        knowledgeContext
     });
     const infraNarrativeHandoff = /^(inspection_infra|infra_chain_recon)$/i.test(taskDomain)
         ? _missionPipelineV4BuildInfraNarrativeHandoff({
@@ -22558,6 +23043,7 @@ Regeln:
 19g. Follow-up-Missionen: Wenn CONTRACT.followUpContext vorhanden ist, schreibe die Mission als natürliche Fortsetzung des vorherigen Auftrags. Nutze sourceMission, storyFrame, lockedPassenger, pickupStory oder missionVarietyBrief als Faktenanker. Das Briefing darf nicht nach Systemanweisung, Debugtext oder Formularfeldern klingen; es soll wie ein neuer Dispatcher-Auftrag mit vertrautem Teamkontext wirken.
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe einen persönlichen Rundflug, keinen Arbeitsauftrag. Beantworte natürlich: wer freut sich auf den Blick, warum ist genau dieser Zielbereich der Höhepunkt, warum passt der Flug jetzt, und was bleibt nach der Rückkehr hängen. Gute Anlässe sind Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persönliche Fotos. Verboten sind Erfassung, Dokumentation, Lagebild, Vermessung, Inspektion, Befund, Bewertung, Arbeitsauftrag, Arbeitsflughöhe und Formulierungen wie "abgearbeitet". Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben.
+19k. sightseeing_tour + APT: Schreibe einen privaten A-B-Sightseeing-Ausflug zur Zielregion, keinen Rundflug ohne Zielplan. Beantworte natürlich: wer ist der Gast, warum geht es genau zu diesem Zielflugplatz, welche Sehenswürdigkeiten, Altstadt-/Ortskernmomente, Aussichtspunkte, Fotos, Cafe- oder Spazierplaene freuen ihn nach der Landung, und warum passt Wetter/Stimmung heute. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als geprüfte Faktenbasis für Sehenswürdigkeiten und Zielplan; erfinde keine zusätzlichen harten Ortsfakten, Namen, Baujahre oder touristischen Details außerhalb des Contracts. Wenn keine geprüften Fakten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern. Der Zielflugplatz ist Gateway zur Aktivitaet am Boden; keine Rueckkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
@@ -24044,6 +24530,16 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         ].filter(Boolean).join(' ');
     }
     if (taskDomain === 'sightseeing_tour') {
+        if (_missionSightseeingContractIsApt(contract)) {
+            const missionLike = {
+                ...contract,
+                _missionPlanV2: contract?.missionPlan || contract?.missionPlanV2 || null,
+                missionPlanV2: contract?.missionPlan || contract?.missionPlanV2 || null,
+                targetName,
+                passenger
+            };
+            return _missionSightseeingComposeAptDestinationStory(missionLike, targetName, passenger, '');
+        }
         const sightseeingWeather = weatherBits.length
             ? ` Bei ${weatherBits.join(' und ')} bleibt der Rundflug gut planbar und angenehm.`
             : '';
@@ -24324,6 +24820,10 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
         return `${opener}, ich begleite heute die geologische Beobachtung bei ${targetName}; bitte ruhig fliegen, damit ${outcome ? outcome.toLowerCase() : 'Relief, Kanten und Gelaendeformen sauber einzuordnen sind'}.`;
     }
     if (taskDomain === 'sightseeing_tour') {
+        if (_missionSightseeingContractIsApt(contract)) {
+            const anchors = _missionSightseeingAptRegionAnchors(targetName, contract?.knowledgeContext);
+            return `${opener}, ich freue mich auf ${anchors.place}. Nach der Landung moechte ich ${anchors.attractions} in Ruhe sehen; bring uns einfach angenehm hin.`;
+        }
         return `${opener}, heute geht es nur um den Blick auf ${targetName}; bitte ruhig und weich, damit wir Aussicht und ein paar Erinnerungsfotos geniessen koennen.`;
     }
     if (taskDomain === 'private_outing') {
@@ -24365,9 +24865,18 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
     const deferInfraPassengerStory = !!context?.deferInfraPassengerStory;
     const roleProfile = String(contract?.profile?.roleProfile || passenger?.roleProfile || '').trim().toLowerCase();
     const profileId = String(contract?.profile?.id || '').trim().toLowerCase();
+    const targetName = String(contract?.target?.name || '').trim();
+    const sightseeingKnowledgeContext = _missionSightseeingAptKnowledgeContext(contract)
+        || _missionSightseeingAptKnowledgeContext(passenger);
+    const sightseeingPassengerContext = sightseeingKnowledgeContext
+        ? { ...passenger, knowledgeContext: sightseeingKnowledgeContext }
+        : passenger;
     const isBushPickupReturn = taskDomain === 'bush_pickup_return'
         || roleProfile === 'bush_pickup_guest_v1'
         || profileId === 'bush_pickup_strip';
+    const sightseeingAptNeedsFallback = taskDomain === 'sightseeing_tour'
+        && _missionSightseeingContractIsApt(contract)
+        && !_missionSightseeingAptStoryLooksDestinationRich(raw, sightseeingPassengerContext, targetName);
     if (contract?.sarHeli?.enabled && taskDomain === 'search_and_rescue') {
         const sarHeliStory = _missionPipelineV4ComposeSarHeliStory(contract, raw);
         if (sarHeliStory) return sarHeliStory;
@@ -24377,6 +24886,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         || _missionPipelineV4LooksInternalMissionText(raw)
         || _missionPipelineV4LooksFragmentedStory(raw)
         || (taskDomain === 'inspection_infra' && _missionPipelineV4LooksLooseInfraInspectionStory(raw))
+        || sightseeingAptNeedsFallback
         || (isBushPickupReturn && _missionPipelineV4LooksBushPickupFragmentText(raw));
     const finalizeDomainStory = candidate => {
         const text = isBushPickupReturn ? _missionPipelineV4EnsureBushPickupConditions(candidate, contract) : candidate;
@@ -24387,7 +24897,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
     const fallbackStory = () => isBushPickupReturn
         ? finalizeDomainStory(_missionPipelineV4ComposeBushPickupBriefingStory(contract, passenger, raw))
         : finalizeDomainStory(_missionPipelineV4ComposeStoryFallback(contract, {
-            passenger: deferInfraPassengerStory ? {} : passenger,
+            passenger: deferInfraPassengerStory ? {} : sightseeingPassengerContext,
             suppressInfraPassengerStory: deferInfraPassengerStory
         }));
     const chainForFinalize = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
@@ -24430,7 +24940,6 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         _missionPipelineV4StoryFieldCovered(raw, frame.whyNow, 2),
         _missionPipelineV4StoryFieldCovered(raw, frame.soughtOutcome, 2)
     ].filter(Boolean).length;
-    const targetName = String(contract?.target?.name || '').trim();
     const repeatedTarget = targetName ? _missionPipelineV4CountNeedle(raw, targetName) : 0;
     const looksFlat = raw.length < 190
         || /(wir machen|wir fliegen|kurze zielarbeit|klar umrissenen, ruhigen auftrag|lagebildaufnahme|zielgebiet .* mit einem klar umrissenen)/i.test(raw)
@@ -24466,6 +24975,9 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         roleProfile: requiredRoleProfile,
         taskDomain: requiredTaskDomain
     }, isPOI, context.poiTerrainFt);
+    if (contract?.knowledgeContext && typeof contract.knowledgeContext === 'object') {
+        passenger.knowledgeContext = contract.knowledgeContext;
+    }
     const genderRaw = String(passenger?.gender || '').trim().toLowerCase();
     passenger.gender = genderRaw === 'female' ? 'female' : 'male';
     passenger.roleProfile = requiredRoleProfile;
@@ -24516,6 +25028,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         s: finalStory,
         pax: String(src.pax || '').trim(),
         cargo: String(src.cargo || '').trim(),
+        knowledgeContext: contract?.knowledgeContext || null,
         targetInfo,
         passenger,
         sceneIntent,
@@ -24697,9 +25210,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Privater Rundflug zu einem markanten POI als persoenlicher Blickmoment',
             'Panorama-Tour mit weichen Manoevern und gutem Blick auf Ziel und Umgebung'
         ] : [
-            'Entspannter Ausflugs- und Sightseeingflug',
-            'Privater Tagesausflug mit Fokus auf angenehmen Ablauf und Aussicht',
-            'Ruhiger A-B-Ausflug zum Zielflugplatz mit entspanntem Aufenthalt'
+            'Privater A-B-Sightseeing-Ausflug mit Stadt- oder Zielregionsplan nach der Landung',
+            'Flug zum Zielflugplatz als Gateway fuer Altstadt, Aussichtspunkt, Fotos oder Spaziergang',
+            'Ruhiger Hinflug zu einem privaten Besuch, bei dem Sehenswuerdigkeiten am Ziel den Anlass tragen'
         ],
         historian_guided_tour: [
             'Ortsarchivarin ordnet Ortskern, Siedlungsform, alte Wege und Kirchen-/Marktplatzlage aus der Luft ein',
@@ -27034,9 +27547,26 @@ async function generateMission(options = {}) {
             missionWeather
         })
         : null;
-    const plannerKnowledgeContext = isPOI && dest?.knowledgeContext
+    let plannerKnowledgeContext = isPOI && dest?.knowledgeContext
         ? compactPoiKnowledgeContextForMission(dest.knowledgeContext, 10)
         : null;
+    const shouldLoadAptSightseeingKnowledge = !isPOI
+        && String(dispatchProfileId || '').toLowerCase() === 'sightseeing_tour'
+        && String(selectedAptCategory || '').toLowerCase() !== 'trn';
+    if (shouldLoadAptSightseeingKnowledge) {
+        indicator.innerText = 'Sightseeing: Zielort-Infos werden geprüft...';
+        try {
+            const aptSightseeingContext = await dispatchMeasure('apt_sightseeing_wiki_context', async () => (
+                await resolveAptSightseeingKnowledgeContext(dest, { budgetMs: APT_SIGHTSEEING_KNOWLEDGE_BUDGET_MS })
+            ));
+            plannerKnowledgeContext = compactPoiKnowledgeContextForMission(aptSightseeingContext, 10);
+            if (plannerKnowledgeContext) {
+                dest.knowledgeContext = plannerKnowledgeContext;
+            }
+        } catch (err) {
+            console.warn('[APT Sightseeing] Wiki context lookup failed', err);
+        }
+    }
     const plannerContext = {
         start,
         dest,
