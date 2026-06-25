@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-24T16:14:21.196Z",
-  "failed": 1,
+  "generatedAt": "2026-06-25T06:40:51.614Z",
+  "failed": 2,
   "failedTiles": [
     {
       "tile": "339|431",
@@ -8,6 +8,13 @@
       "error": "HTTP 504: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
       "server": "https://overpass-api.de/api/interpreter",
       "at": "2026-06-24T09:03:53.551Z"
+    },
+    {
+      "tile": "304|171",
+      "status": 429,
+      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
+      "server": "https://overpass-api.de/api/interpreter",
+      "at": "2026-06-25T05:52:42.382Z"
     }
   ]
 }
