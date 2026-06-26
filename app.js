@@ -2386,14 +2386,69 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'cargo_fragile_highcare_v1',
         taskDomain: 'cargo_fragile',
         personas: [
-            { name: 'Miriam Stahl', role: 'Logistik-Kurierin', gender: 'female', personality: 'gewissenhaft, direkt, professionell' },
-            { name: 'Ralf König', role: 'Frachtbegleiter', gender: 'male', personality: 'ruhig, organisiert, präzise' }
+            {
+                name: 'Miriam Stahl',
+                role: 'Logistik-Kurierin',
+                gender: 'female',
+                personality: 'gewissenhaft, direkt, professionell',
+                storySeed: '{name} begleitet eine stoßempfindliche Spezialsendung; am Ziel wartet der Empfangskontakt schon mit Prüfplatz, Übergabeprotokoll und kurzem Weitertransport.',
+                greetingText: 'Hi, die Sendung ist sauber verpackt, aber sie mag keine ruppigen Korrekturen. Bring uns ruhig an den Zielplatz, dort übernimmt der Kontakt direkt am Vorfeld.'
+            },
+            {
+                name: 'Ralf König',
+                role: 'Frachtbegleiter',
+                gender: 'male',
+                personality: 'ruhig, organisiert, präzise',
+                storySeed: '{name} hat die Verpackung selbst kontrolliert; die Fracht geht nach der Landung in eine Werkstatt-, Labor- oder Auswertungsübergabe.',
+                greetingText: 'Hi, ich habe die Gurte und das Case geprüft. Entscheidend ist heute ein gleichmäßiger Flug und eine saubere Übergabe am Ziel.'
+            },
+            {
+                name: 'Lea Hoffmann',
+                role: 'Labor-Kurierin',
+                gender: 'female',
+                personality: 'konzentriert, freundlich, sorgfältig',
+                storySeed: '{name} bringt eine vorbereitete Laborbox zum Zielplatz, weil dort ein Technikerteam das Material noch im aktuellen Slot auswerten will.',
+                greetingText: 'Hallo, die Laborbox ist bereit und der Zielkontakt rechnet mit uns. Ruhige Lage zählt heute mehr als fünf Minuten Zeitgewinn.'
+            },
+            {
+                name: 'Jonas Merz',
+                role: 'Museumslogistiker',
+                gender: 'male',
+                personality: 'gelassen, detailverliebt, vorsichtig',
+                storySeed: '{name} begleitet ein kleines Ausstellungsstück im Schutzcase; nach der Landung geht es direkt in die Annahme und Zustandskontrolle.',
+                greetingText: 'Moin, das Case ist klein, aber der Inhalt zählt. Bitte weich fliegen und am Ziel erst nach vollem Stillstand zur Übergabe freigeben.'
+            },
+            {
+                name: 'Nora Stein',
+                role: 'Optik-Technikerin',
+                gender: 'female',
+                personality: 'technisch, ruhig, aufmerksam',
+                storySeed: '{name} bringt kalibrierte Optik zum Ziel, wo ein Prüfstand vorbereitet ist und die Verpackung direkt geöffnet werden soll.',
+                greetingText: 'Hi, die Optik ist kalibriert und gut gesichert. Wenn wir weich ankommen, kann der Prüfstand am Ziel ohne Nacharbeit starten.'
+            },
+            {
+                name: 'Timo Berger',
+                role: 'Werkstatt-Koordinator',
+                gender: 'male',
+                personality: 'pragmatisch, wach, verbindlich',
+                storySeed: '{name} koordiniert eine kleine AOG-Sendung; die Zielwerft wartet auf das Bauteil, damit die Arbeit am abgestellten Flugzeug weitergeht.',
+                greetingText: 'Servus, das Teil ist klein, aber die Werft wartet darauf. Sauber sichern, ruhig fliegen, am Ziel direkt an den Vorfeldkontakt.'
+            }
         ],
-        greetingText: 'Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.',
+        greetingText: 'Hi, die Sendung ist empfindlich und am Ziel wird sie direkt weiterbearbeitet. Bitte ruhig fliegen und die Übergabe erst nach sauberem Abstellen freigeben.',
         paxText: '1 PAX (Frachtbegleitung)',
-        cargoPool: ['Präzisionsoptik im Stoßschutz-Case (28 lbs)', 'Laborgerät in Schutzverpackung (35 lbs)'],
+        cargoPool: [
+            'Präzisionsoptik im Stoßschutz-Case (28 lbs)',
+            'Laborgerät in Schutzverpackung (35 lbs)',
+            'Kalibrierter Sensorkoffer (32 lbs)',
+            'Archivbox mit Originaldokumenten (18 lbs)',
+            'Kleines Ausstellungsstück im Klimacase (24 lbs)',
+            'AOG-Avionikmodul im gepolsterten Kuriercase (16 lbs)',
+            'Probenkoffer mit versiegelten Haltern (22 lbs)',
+            'Kamera-Gimbal im Transportcase (26 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: sichere, erschütterungsarme Frachtführung.'
+        storyCue: 'Fracht-Story: konkrete Sendung, vorbereiteter Zielkontakt, ruhiger A-B-Flug und klare Übergabe nach der Landung. Route und Entfernung dürfen als natürlicher Kontext vorkommen, wenn sie die Geschichte stützen.'
     },
     club_utility: {
         id: 'club_utility',
@@ -2737,8 +2792,10 @@ function _offlineAptCategoryFallbacks(category = 'all') {
             { t: 'Executive Transfer', i: '💼', cat: 'std', s: 'Ein Projektleiter mit engem Terminplan reist per Charter. Stabiler Flug und klare Zeitplanung sind wichtig.' }
         ],
         cargo: [
-            { t: 'Kurierflug Dokumente', i: '📂', cat: 'std', s: 'Zeitkritische Dokumente müssen als Kurier zum Zielplatz. Kein Passagier an Bord.' },
-            { t: 'Ersatzteil-Transport', i: '🔧', cat: 'std', s: 'Ein Ersatzteil wird dringend für eine abgestellte Maschine benötigt. Reiner Frachtflug ohne PAX.' }
+            { t: 'Kurierflug Dokumente', i: '📂', cat: 'std', s: 'Eine versiegelte Dokumentenmappe muss zum Zielplatz, wo der Vereinsvorstand sie direkt für die Freigabe des Nachmittagsbetriebs braucht. Reiner Frachtflug ohne PAX.' },
+            { t: 'Ersatzteil-Transport', i: '🔧', cat: 'std', s: 'Ein kleines AOG-Bauteil liegt bereit und soll zur Zielwerft, damit eine abgestellte Maschine dort wieder in die Arbeit kann. Reiner Frachtflug ohne PAX.' },
+            { t: 'Labor-Kurier', i: '🧪', cat: 'std', s: 'Ein gesicherter Probenkoffer geht zum Zielplatz; der Laborkontakt übernimmt ihn nach der Landung direkt am Vorfeld.' },
+            { t: 'Archivbox Transfer', i: '🗂️', cat: 'std', s: 'Eine kleine Archivbox wird für eine Übergabe am Ziel gebraucht. Die Route ersetzt heute den langen Bodenlauf und hält die Sendung nachvollziehbar in einer Hand.' }
         ],
         trn: [
             { t: 'Training: Airwork Basic', i: '🎓', cat: 'trn', s: 'Heute stehen saubere Airwork-Manöver an: stabile Kurven, Trimmarbeit und saubere Höhenhaltung.' },
@@ -2761,8 +2818,9 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
             { t: 'Medicine Emergency', i: '💊', cat: 'std', s: 'Dringender Medizin-Transfer mit zeitkritischer Lieferung für die Notaufnahme am Zielort.' }
         ],
         cargo_fragile: [
-            { t: 'Fragile Lab Cargo', i: '🧪', cat: 'std', s: 'Empfindliche Laborgeräte werden als fragile Fracht transportiert. Sanfte Flugführung ist Pflicht.' },
-            { t: 'Art Transfer', i: '🖼️', cat: 'std', s: 'Zerbrechliches Kunstobjekt im Kurierflug. Harte Manöver und ruppige Landung vermeiden.' }
+            { t: 'Fragile Lab Cargo', i: '🧪', cat: 'std', s: 'Eine gesicherte Laborbox geht zum Zielplatz, wo der Prüfplatz bereits vorbereitet ist. Ruhige Fluglage und eine saubere Vorfeldübergabe sind der Kern des Auftrags.' },
+            { t: 'Art Transfer', i: '🖼️', cat: 'std', s: 'Ein kleines Ausstellungsstück reist im Schutzcase zum Ziel. Nach der Landung übernimmt der Museumslogistiker die Zustandskontrolle direkt am Vorfeld.' },
+            { t: 'Optik-Kurier', i: '🔭', cat: 'std', s: 'Kalibrierte Präzisionsoptik muss ohne unnötige Erschütterung zur Zielwerft. Der Flug spart Bodenzeit und hält die Verpackung unter direkter Aufsicht.' }
         ],
         animal_transport: [
             { t: 'Ziegenkurier', i: '🐐', cat: 'std', s: 'Eine junge Ziege muss zur Auffangstation. Ruhiger Flug, wenig Drama, aber bitte keine Rodeo-Landung.' },
@@ -13667,6 +13725,44 @@ function _pickAnimalTransportCargo(cargoPool = [], missionLike = {}) {
     return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
 }
 
+function _pickCargoFragileCargo(cargoPool = [], missionLike = {}, currentCargoText = '') {
+    const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
+    if (!pool.length) return '';
+    const storyText = normalizeMissionText([
+        missionLike?.t,
+        missionLike?.title,
+        missionLike?.s,
+        missionLike?.story,
+        missionLike?.missionStory,
+        missionLike?.passenger?.storySeed,
+        missionLike?.passenger?.greetingText,
+        missionLike?._missionContractV4?.storyFrame?.shipment,
+        missionLike?.missionContractV4?.storyFrame?.shipment
+    ].filter(Boolean).join(' '));
+    const pickByCargoText = (patterns = []) => {
+        for (const re of patterns) {
+            const match = pool.find(cargo => re.test(normalizeMissionText(cargo)));
+            if (match) return match;
+        }
+        return '';
+    };
+    if (/(sensor|sensorkoffer|kalibrier)/.test(storyText)) return pickByCargoText([/sensor|sensorkoffer|kalibrier/]) || pool[0] || '';
+    if (/(ausstell|kunst|klima|museum)/.test(storyText)) return pickByCargoText([/ausstell|kunst|klima/]) || pool[0] || '';
+    if (/(archiv|originaldokument|dokument)/.test(storyText)) return pickByCargoText([/archiv|dokument/]) || pool[0] || '';
+    if (/(aog|avionik|modul|werft)/.test(storyText)) return pickByCargoText([/aog|avionik|modul/]) || pool[0] || '';
+    if (/(probe|proben|versiegel)/.test(storyText)) return pickByCargoText([/probe|proben|versiegel/]) || pool[0] || '';
+    if (/(gimbal|kamera)/.test(storyText)) return pickByCargoText([/gimbal|kamera/]) || pool[0] || '';
+    if (/(labor|laborgerat|laborkoffer|laborbox)/.test(storyText)) return pickByCargoText([/labor/]) || pool[0] || '';
+    if (/(optik|prazision|praezision|prufstand|pruefstand)/.test(storyText)) return pickByCargoText([/optik|prazision|praezision/]) || pool[0] || '';
+    const current = String(currentCargoText || missionLike?.cargo || missionLike?.cargoText || '').replace(/\s+/g, ' ').trim();
+    if (current
+        && !/^[-–—]$/.test(current)
+        && /\b(fracht|sendung|case|koffer|box|labor|probe|optik|sensor|archiv|dokument|ausstell|avionik|modul|gimbal|kunst|klima)\b/i.test(current)) {
+        return current;
+    }
+    return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
+}
+
 function _missionPlanFactsForNarrative(missionLike = {}, maxItems = 2) {
     const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || null;
     const facts = [
@@ -15305,7 +15401,13 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             ? _pickAnimalTransportCargo(cargoPool, m)
             : (profile.id === 'private_outing'
                 ? _pickPrivateOutingCargo(cargoPool, m, m.passenger)
-                : cargoPool[Math.floor(Math.random() * cargoPool.length)]);
+                : (profile.id === 'cargo_fragile'
+                    ? _pickCargoFragileCargo(cargoPool, m, cargoText)
+                    : cargoPool[Math.floor(Math.random() * cargoPool.length)]));
+        if (profile.id === 'cargo_fragile') {
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
+        }
     }
     if (profile.id === 'animal_transport') {
         const targetMatch = String(m.t || '').match(/\b(nach|zur|zum)\s+(.+)$/i);
@@ -15361,6 +15463,9 @@ function _profileStoryCue(profile, isPOI = false) {
             : '';
     }
     if (profile.id === 'private_outing') {
+        return '';
+    }
+    if (profile.id === 'cargo_fragile') {
         return '';
     }
     if (profile.id === 'tour_guide_knowledge') {
@@ -15437,6 +15542,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     }
     if (profile.id === 'private_outing' && !isPOI) {
         return '16. OPERATIONS-REGEL APT-AUSFLUG: Schreibe eine warme private Fly-out-Story: Pilot und Mitflieger fliegen gemeinsam irgendwo hin, weil man als Privatpilot genau solche Unternehmungen macht. Nutze Beziehung und Anlass frei, nicht als Checkliste. Gute Anker sind $100-Burger, Flugplatzcafe, Kaffee und Kuchen, Einkaufen, Wandern, Berge, Schwimmen am See oder Meer, Museum, Wellness, Familienbesuch, Paartag, Fotos oder ein ruhiger Wochenendtag. Der Zielplatz ist der Zugang zur gemeinsamen Aktivitaet nach der Landung. Keine reine Sightseeing-/Panorama-/Rundflugstory und keine operative/geschaeftliche Umdeutung.';
+    }
+    if (profile.id === 'cargo_fragile') {
+        return '16. OPERATIONS-RAHMEN APT-CARGO: Erzaehle den Flug als hochwertige Kleinfracht-Mission: konkrete Sendung, wer am Ziel wartet, warum der Flug gegenueber Bodenroute oder spaeterem Umlauf Sinn ergibt, und was mit der Fracht nach der Landung passiert. Route und Entfernung duerfen als natuerlicher Kontext vorkommen; waehle die Punkte, die die Geschichte tragen, statt alle mechanisch abzuarbeiten.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
@@ -20636,8 +20744,14 @@ const MISSION_SEMANTICS_V4_RULESET = {
             forceSceneNone: true
         },
         cargo_fragile: {
-            planner: ['Transport und sichere Uebergabe bleiben Hauptzweck.'],
-            writer: ['Umfeld liefert nur Ankunfts- und Uebergabekontext.']
+            planner: [
+                'Transport und sichere Uebergabe bleiben Hauptzweck.',
+                'Die Story-Spine entsteht aus konkreter Sendung, vorbereitetem Empfaenger, Route, Entfernung und naechstem Arbeitsschritt am Ziel.'
+            ],
+            writer: [
+                'Briefing als Frachtgeschichte schreiben: Was ist an Bord, wer wartet am Ziel, warum passt der Flug jetzt, und was passiert nach der Landung?',
+                'Route und Entfernung duerfen die Mission verorten; sie sind Erzaehltextur, keine Checkliste.'
+            ]
         },
         medical_transfer: {
             planner: ['Medizinische Begleitung oder Materialtransfer bleiben Hauptzweck.'],
@@ -20713,6 +20827,16 @@ const MISSION_SEMANTICS_V4_RULESET = {
             ],
             writer: ['Verkehrsraum und gemeldete Strassenlage bleiben narrativ fuehrend.']
         },
+        cargo: {
+            planner: [
+                'APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.',
+                'Planner liefert offene Story-Anker: was an Bord ist, warum der Flug jetzt sinnvoll ist, wer am Ziel wartet und welcher Folgeschritt nach der Landung anschliesst.'
+            ],
+            writer: [
+                'Briefing als kleine Frachtgeschichte schreiben, nicht als generischen Transfer.',
+                'Route und Entfernung duerfen den Auftrag verorten; Sendung, Empfaenger und naechster Schritt tragen die Geschichte.'
+            ]
+        },
         generic: {
             planner: ['Das gewaehlte Ziel bleibt Primärsubjekt.'],
             writer: ['Kontext darf nur anreichern, nie umwidmen.']
@@ -20723,7 +20847,8 @@ const MISSION_SEMANTICS_V4_RULESET = {
 function _missionSemanticsV4NormalizeCategory(value = '') {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return 'generic';
-    if (['bridge', 'water', 'mountain', 'forest', 'fire', 'city', 'castle', 'road'].includes(raw)) return raw;
+    if (['bridge', 'water', 'mountain', 'forest', 'fire', 'city', 'castle', 'road', 'cargo'].includes(raw)) return raw;
+    if (/cargo|fracht|kurier|sendung|lieferung|transport/.test(raw)) return 'cargo';
     if (/lake|river|shore|dam|reservoir|basin|water/.test(raw)) return 'water';
     if (/fire|brand|rauch|smoke|hotspot/.test(raw)) return 'fire';
     if (/forest|wood|wald|forst/.test(raw)) return 'forest';
@@ -22197,16 +22322,42 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'cargo_fragile') {
+        const cargoSeed = _missionPipelineV4PickEntry([
+            {
+                shipment: 'Präzisionsoptik im Schutzcase',
+                receiver: 'eine vorbereitete Werft- oder Prüfcrew',
+                reason: 'der Prüfstand am Ziel heute noch belegt ist und die Verpackung nicht durch einen langen Bodenlauf soll',
+                nextStep: 'übernimmt die Crew das Case nach dem Abstellen, prüft Zustand und Siegel und bringt die Optik direkt in die Kalibrierung'
+            },
+            {
+                shipment: 'eine versiegelte Laborbox',
+                receiver: 'der Laborkontakt am Zielplatz',
+                reason: 'das Auswertefenster am Ziel nur in diesem Slot offen ist',
+                nextStep: 'quittiert der Laborkontakt die Box am Vorfeld, bringt sie in den Kühl- oder Prüfbereich und öffnet sie erst dort'
+            },
+            {
+                shipment: 'ein kleines Ausstellungsstück im Klimacase',
+                receiver: 'ein Museumslogistiker am Ziel',
+                reason: 'Annahme, Zustandskontrolle und Weiterfahrt am Ziel bereits vorbereitet sind',
+                nextStep: 'übernimmt der Museumslogistiker das Case unter Aufsicht und fährt es zur Annahme'
+            },
+            {
+                shipment: 'ein AOG-Avionikmodul im gepolsterten Kuriercase',
+                receiver: 'die Zielwerft',
+                reason: 'die abgestellte Maschine dort auf genau dieses Bauteil wartet',
+                nextStep: 'übernimmt die Werft das Modul direkt aus dem Kuriercase und bereitet den Einbau vor'
+            }
+        ]);
         return {
-            trigger: `Die empfindliche Sendung fuer ${targetLabel} wird am Ziel in einem engen Zeitfenster weiterverarbeitet.`,
-            focusSubject: 'empfindliche Sendung und sichere Uebergabe',
-            keyQuestion: `Ob die Fracht ruhig, puenktlich und ohne zusaetzliche Belastung am Ziel ankommt.`,
-            stakes: 'Eine schlechte Uebergabe gefaehrdet den naechsten Arbeitsschritt am Ziel.',
-            completionSignal: 'Nach der Landung erfolgt eine ruhige Uebergabe am vereinbarten Punkt.',
-            subjectDetail: 'empfindliche Sendung mit direktem Folgetermin am Ziel',
-            incidentContext: `Die Fracht fuer ${targetLabel} ist nicht beliebig verschiebbar, weil sie dort zeitnah weiterverarbeitet oder verbaut werden soll.`,
-            whyNow: 'Das Zeitfenster am Ziel ist eng genug, dass ein spaeterer Umlauf den Folgeablauf stoeren wuerde.',
-            soughtOutcome: 'Wir sollen die Ladung ruhig, unbeschaedigt und rechtzeitig zur vorbereiteten Uebergabe bringen.'
+            trigger: `${cargoSeed.shipment} muss nach ${targetLabel}; ${cargoSeed.receiver} wartet dort auf die direkte Übernahme.`,
+            focusSubject: `${cargoSeed.shipment}, ruhige Flugführung und vorbereitete Zielübergabe`,
+            keyQuestion: `Wie die Sendung ruhig nach ${targetLabel} kommt und dort ohne Umweg in den nächsten Arbeitsschritt geht.`,
+            stakes: `Der Flug ist sinnvoll, weil ${cargoSeed.reason}.`,
+            completionSignal: `Nach der Landung ${cargoSeed.nextStep}.`,
+            subjectDetail: cargoSeed.shipment,
+            incidentContext: `Am Ziel geht es nicht nur ums Abladen: Dort ${cargoSeed.nextStep}.`,
+            whyNow: `Der heutige GA-Flug passt, weil ${cargoSeed.reason}.`,
+            soughtOutcome: 'Wir sollen die Ladung sauber verstauen, ruhig zum Ziel fliegen und die Übergabe am Vorfeld nachvollziehbar abschließen.'
         };
     }
     if (taskDomain === 'medical_transfer') {
@@ -22314,6 +22465,46 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const weatherBit = weatherShort ? ` Bei ${weatherShort} soll die Lage noch heute erledigt werden.` : '';
         const charterLike = category === 'charter' || requestedCategory === 'charter';
         const clubUtilityLike = requestedCategory === 'club' || requestedCategory === 'utility';
+        const cargoLike = isAptMode && (category === 'cargo' || requestedCategory === 'cargo');
+        if (cargoLike) {
+            const cargoSeed = _missionPipelineV4PickEntry([
+                {
+                    shipment: 'eine versiegelte Dokumentenmappe',
+                    reason: 'der Zielkontakt braucht sie fuer eine Freigabe, die heute noch am Platz weitergegeben wird',
+                    receiver: 'ein vorbereiteter Frachtkontakt',
+                    nextStep: 'die Mappe wird quittiert und direkt an den verantwortlichen Empfaenger weitergereicht'
+                },
+                {
+                    shipment: 'eine kleine Ersatzteilbox',
+                    reason: 'die Werft am Zielplatz wartet auf das Teil, damit eine begonnene Arbeit nicht liegenbleibt',
+                    receiver: 'die Zielwerft',
+                    nextStep: 'die Box geht vom Vorfeld direkt in die Werkstattannahme'
+                },
+                {
+                    shipment: 'ein Projektkoffer mit vorbereiteten Unterlagen',
+                    reason: 'am Ziel startet danach ein kurzer Abstimmungs- oder Prueftermin',
+                    receiver: 'der lokale Projektkontakt',
+                    nextStep: 'der Koffer bleibt geschlossen, bis der Empfaenger ihn am Vorfeld uebernimmt'
+                },
+                {
+                    shipment: 'ein gesicherter Probenkoffer',
+                    reason: 'das Zielteam hat Annahme und Weitertransport fuer diesen Umlauf vorbereitet',
+                    receiver: 'der Laborkontakt am Ziel',
+                    nextStep: 'der Koffer wird nach der Landung direkt in die Annahme gebracht'
+                }
+            ]) || {};
+            return {
+                trigger: `${cargoSeed.shipment || 'eine kleine Frachtsendung'} geht heute nach ${targetLabel}; ${cargoSeed.reason || 'der Zielkontakt hat die Uebergabe vorbereitet'}.`,
+                focusSubject: `${cargoSeed.shipment || 'Frachtsendung'} und vorbereitete Zieluebergabe`,
+                keyQuestion: `Wie die Sendung sauber nach ${targetLabel} kommt und dort ohne Umweg an den richtigen Kontakt uebergeht.`,
+                stakes: 'Der Flug haelt die Fracht in einer Hand und spart den langen Bodenweg, ohne daraus einen Eil- oder Einsatzflug zu machen.',
+                completionSignal: `Nach der Landung uebernimmt ${cargoSeed.receiver || 'der Frachtkontakt am Vorfeld'}; ${cargoSeed.nextStep || 'die Sendung geht direkt in den naechsten Arbeitsschritt'}.`,
+                subjectDetail: cargoSeed.shipment || 'eine kleine Frachtsendung',
+                incidentContext: `Am Ziel wartet ${cargoSeed.receiver || 'ein Frachtkontakt'} auf die Uebergabe, nicht nur auf eine beliebige Ankunft.`,
+                whyNow: 'Der heutige GA-Flug passt, weil Empfaenger, Ankunftsfenster und naechster Arbeitsschritt bereits zusammen vorbereitet sind.',
+                soughtOutcome: `Wir sollen die Fracht ruhig anliefern, nachvollziehbar uebergeben und ${cargoSeed.nextStep || 'den naechsten Schritt am Ziel ermoeglichen'}.`
+            };
+        }
         return {
             trigger: charterLike
                 ? `Der heutige Auftrag nach ${targetLabel} hat einen klaren Charter-Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`
@@ -23961,7 +24152,8 @@ Regeln:
 19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Die Gäste fliegen zum Zielplatz, weil sie nach der Landung einen konkreten Besuchswunsch am Zielort haben. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir sie dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
 19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: eine kurze handgeschriebene Dispatch-/Pinnwand-Notiz mit lockerem Einstieg ("Servus!" oder "Heute geht's ..."), Zielstrecke, Mitflieger, kleinem Insider zum Anlass und einem entspannten Abschluss wie "macht euch keinen Stress, geniesst den Flug". Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Baue immer einen konkreten, sinnlichen Motiv-Haken ein statt nur "nach dem Flug beginnt die Aktivitaet": z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Namens-/Rollenformel wie "X ist als Y an Bord". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
-20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
+20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Nutze CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm als natuerliche Verortung, wenn es den Text staerkt. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
+20a. medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 21a. targetInfo ist für die Ziel-Info-Seite, nicht für das Dispatch-Briefing: Schreibe bei POI-Zielen 2-3 sachliche Sätze aus CONTRACT.target, missionTruth, targetGeoContext, knowledgeContext und storyFrame. Wenn keine belegten Fakten vorliegen, beschreibe nur Zielart, sichtbare Orientierung und warum das Ziel für diesen Auftrag relevant ist. Keine neuen Ortsnamen, Baujahre, Größen, historischen Fakten oder touristischen Details erfinden. Bei A-B ohne POI: targetInfo leer lassen.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -25228,6 +25420,106 @@ function _missionPipelineV4EnsurePoiChainPassengerNote(story = '', contract = {}
     ].map(part => _missionPipelineV4EnsureSentence(part)).filter(Boolean).join(' '));
 }
 
+function _missionPipelineV4CleanCargoLabel(text = '') {
+    const cleaned = String(text || '')
+        .replace(/\s*\([^)]*\)\s*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!cleaned || /^[-–—]$/.test(cleaned) || /^(?:0\s*pax|kein(?:e|)\s+fracht|kein\s+cargo|none)$/i.test(cleaned)) return '';
+    return cleaned;
+}
+
+function _missionPipelineV4CargoLabelTooGeneric(text = '') {
+    const normalized = normalizeMissionText(_missionPipelineV4CleanCargoLabel(text));
+    if (!normalized) return true;
+    return /^(?:die\s+)?(?:fracht|ladung|sendung|cargo|frachtsendung|kleine\s+frachtsendung|kleine\s+arbeitstasche|arbeitstasche|gegenstand|mitnahme)$/.test(normalized);
+}
+
+function _missionPipelineV4CargoLabel(contract = {}, context = {}) {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const candidates = [
+        context?.cargoText,
+        contract?.cargoText,
+        contract?.cargo,
+        contract?.missionContract?.cargoText,
+        frame.subjectDetail,
+        frame.focusSubject
+    ];
+    for (const candidate of candidates) {
+        const cleaned = _missionPipelineV4CleanCargoLabel(candidate);
+        if (cleaned && !_missionPipelineV4CargoLabelTooGeneric(cleaned) && !/^(empfindliche\s+sendung|empfindliche\s+sendung\s+und\s+sichere\s+uebergabe|empfindliche\s+sendung\s+und\s+sichere\s+übergabe)$/i.test(cleaned)) {
+            return cleaned;
+        }
+    }
+    return String(contract?.profile?.taskDomain || '').toLowerCase() === 'cargo_fragile'
+        ? 'die empfindliche Sendung'
+        : 'die Fracht';
+}
+
+function _missionPipelineV4IsCargoTransportContract(contract = {}, taskDomain = '', context = {}) {
+    const domain = String(taskDomain || contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (domain && !['general', 'cargo_fragile'].includes(domain)) return false;
+    const mode = String(contract?.mode || contract?.missionType || '').trim().toLowerCase();
+    const profileId = String(contract?.profile?.id || contract?.appliedProfileId || '').trim().toLowerCase();
+    const category = String(contract?.profile?.pickerCategory || contract?.profile?.requestedCategory || contract?.target?.poiCategory || '').trim().toLowerCase();
+    const cargoText = normalizeMissionText(_missionPipelineV4CargoLabel(contract, context));
+    return domain === 'cargo_fragile'
+        || profileId === 'cargo_fragile'
+        || (mode === 'apt' && category === 'cargo')
+        || (category === 'cargo' && /(fracht|cargo|kurier|sendung|ersatzteil|dokument|labor|probe|case|box)/.test(cargoText));
+}
+
+function _missionPipelineV4ComposeCargoTransportStory(contract = {}, context = {}) {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
+    const targetName = String(contract?.target?.name || route.targetName || 'dem Zielplatz').trim() || 'dem Zielplatz';
+    const startName = String(route.startName || route.startIcao || 'Startplatz').trim() || 'Startplatz';
+    const distanceNm = Number(route.distanceNm);
+    const cargoLabel = _missionPipelineV4CargoLabel(contract, context);
+    const domain = String(contract?.profile?.taskDomain || '').toLowerCase();
+    const sensitive = domain === 'cargo_fragile' || /\b(empfindlich|fragil|schutz|stoß|stoss|case|optik|labor|probe|kunst|klima)\b/i.test(cargoLabel);
+    const receiver = String(contract?.aptArrivalPlan?.expectedBy || contract?.aptArrivalPlan?.roleLabel || '').trim()
+        || (sensitive ? 'der vorbereitete Frachtkontakt' : 'der Frachtkontakt am Vorfeld');
+    const trigger = _missionPipelineV4StripSentenceEnd(frame.trigger || '');
+    const triggerHasCargo = trigger && _missionPipelineV4StoryFieldCovered(trigger, cargoLabel, 1);
+    const first = triggerHasCargo
+        ? _missionPipelineV4EnsureSentence(trigger)
+        : _missionPipelineV4EnsureSentence(
+            trigger
+                ? `${cargoLabel} geht heute nach ${targetName}; ${_missionPipelineV4LowerFirst(trigger)}`
+                : `${cargoLabel} geht heute nach ${targetName}, wo ${receiver} die Sendung für den nächsten Arbeitsschritt erwartet`
+        );
+    const routeSentence = Number.isFinite(distanceNm) && distanceNm > 0
+        ? `Die Route führt von ${startName} nach ${targetName} über rund ${distanceNm.toFixed(distanceNm % 1 ? 1 : 0)} NM; das hält die Fracht nachvollziehbar in einer Hand und spart ihr den langen Bodenlauf.`
+        : `Der A-B-Flug hält die Fracht nachvollziehbar in einer Hand und bringt sie ohne Zwischenstation zum Zielkontakt.`;
+    const reason = _missionPipelineV4StripSentenceEnd(frame.whyNow || frame.stakes || frame.incidentContext || '');
+    const reasonSentence = _missionPipelineV4EnsureSentence(
+        reason || (sensitive
+            ? 'Ruhige Fluglage, weiche Korrekturen und ein sauberer Anflug sind wichtiger als Tempo'
+            : 'Der Zielkontakt kann mit der Sendung direkt weiterarbeiten, sobald sie am Vorfeld übernommen ist')
+    );
+    const outcome = _missionPipelineV4StripSentenceEnd(frame.soughtOutcome || frame.completionSignal || '');
+    const outcomeSentence = _missionPipelineV4EnsureSentence(
+        outcome || `Nach der Landung bleibt ${cargoLabel} gesichert, bis ${receiver} sie übernimmt und den nächsten Schritt freigibt`
+    );
+    return _missionPipelineV4PolishGermanVisibleText([first, routeSentence, reasonSentence, outcomeSentence].filter(Boolean).join(' '));
+}
+
+function _missionPipelineV4CargoStoryNeedsFallback(text = '', contract = {}, context = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (!_missionPipelineV4IsCargoTransportContract(contract, taskDomain, context)) return false;
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(raw);
+    if (!raw) return true;
+    if (_missionPipelineV4LooksInternalMissionText(raw) || _missionPipelineV4LooksFragmentedStory(raw) || _missionPipelineV4LooksEnumerative(raw)) return true;
+    if (raw.length < 170 || _missionPipelineV4SentenceCount(raw) < 3) return true;
+    const cargoLabel = normalizeMissionText(_missionPipelineV4CargoLabel(contract, context));
+    const hasCargo = /\b(fracht|ladung|sendung|kurier|case|box|koffer|ersatzteil|dokument|labor|probe|optik|modul|gimbal)\b/.test(normalized)
+        || (cargoLabel && _missionPipelineV4StoryFieldCovered(raw, cargoLabel, 1));
+    const hasArrivalStep = /\b(uebergabe|übergabe|uebernimmt|übernimmt|empfaenger|empfänger|frachtkontakt|zielkontakt|vorfeld|entladen|annahme|werkstatt|werft|labor|pruef|prüf|auswertung|weitertransport)\b/.test(normalized);
+    return !hasCargo || !hasArrivalStep;
+}
+
 function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
     const targetName = String(contract?.target?.name || 'dem Zielgebiet').trim() || 'dem Zielgebiet';
     const taskDomain = String(contract?.profile?.taskDomain || 'general').trim().toLowerCase();
@@ -25451,6 +25743,9 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
             return _missionSightseeingComposeAptDestinationStory(missionLike, targetName, passenger, '');
         }
         return _missionSightseeingComposePersonalStory(missionLike, targetName, passenger, '');
+    }
+    if (_missionPipelineV4IsCargoTransportContract(contract, taskDomain, context)) {
+        return _missionPipelineV4ComposeCargoTransportStory(contract, context);
     }
     if (taskDomain === 'bush_pickup_return') {
         return [
@@ -25778,7 +26073,11 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
         };
         return _missionPipelineV4PolishGermanVisibleText(options[activityKind] || `${opener}, ich freu mich auf ${spec.reward}. Bring uns ruhig nach ${place}, der gute Grund für den Fly-out wartet schon.`);
     }
-    if (taskDomain === 'cargo_fragile' || taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
+    if (_missionPipelineV4IsCargoTransportContract(contract, taskDomain)) {
+        const cargoLabel = _missionPipelineV4CargoLabel(contract);
+        return `${opener}, ${cargoLabel} geht heute nach ${targetName}; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Übergabe am Ziel ohne Zusatzstress klappt'}.`;
+    }
+    if (taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
         return `${opener}, dieser Flug ist heute fuer ${subject} angesetzt; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Uebergabe am Ziel ohne Zusatzstress klappt'}.`;
     }
     const generic = String(incident || `heute geht es fuer uns nach ${targetName}`).trim().replace(/[.!?]+$/,'');
@@ -25850,6 +26149,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         && (_missionSightseeingStoryLooksFlat(raw) || !_missionSightseeingStoryHasPersonalGuestFrame(raw, sightseeingPassengerContext));
     const privateOutingNeedsFallback = taskDomain === 'private_outing'
         && _missionPipelineV4PrivateOutingBriefingNeedsFallback(raw, passenger, contract);
+    const cargoTransportNeedsFallback = _missionPipelineV4CargoStoryNeedsFallback(raw, contract, context);
     if (contract?.sarHeli?.enabled && taskDomain === 'search_and_rescue') {
         const sarHeliStory = _missionPipelineV4ComposeSarHeliStory(contract, raw);
         if (sarHeliStory) return sarHeliStory;
@@ -25862,6 +26162,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         || sightseeingAptNeedsFallback
         || sightseeingPoiNeedsFallback
         || privateOutingNeedsFallback
+        || cargoTransportNeedsFallback
         || (isBushPickupReturn && _missionPipelineV4LooksBushPickupFragmentText(raw));
     const finalizeDomainStory = candidate => {
         const text = isBushPickupReturn ? _missionPipelineV4EnsureBushPickupConditions(candidate, contract) : candidate;
@@ -25874,7 +26175,8 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         : finalizeDomainStory(_missionPipelineV4ComposeStoryFallback(contract, {
             passenger: deferInfraPassengerStory ? {} : sightseeingPassengerContext,
             suppressInfraPassengerStory: deferInfraPassengerStory,
-            privateOutingActivityHint: raw
+            privateOutingActivityHint: raw,
+            cargoText: context?.cargoText || ''
         }));
     const chainForFinalize = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
     const chainForFinalizePoints = Array.isArray(chainForFinalize?.points) ? chainForFinalize.points : [];
@@ -25989,8 +26291,15 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     });
     let finalStory = _missionPipelineV4FinalizeStory(writerStoryText, contract, {
         passenger,
-        deferInfraPassengerStory: requiredTaskDomain === 'inspection_infra'
+        deferInfraPassengerStory: requiredTaskDomain === 'inspection_infra',
+        cargoText: src.cargo || context.cargoText || ''
     });
+    const writerCargo = String(src.cargo || '').trim();
+    let finalCargo = writerCargo;
+    if (_missionPipelineV4IsCargoTransportContract(contract, requiredTaskDomain, { cargoText: writerCargo })
+        && _missionPipelineV4CargoLabelTooGeneric(writerCargo)) {
+        finalCargo = _missionPipelineV4CargoLabel(contract, { cargoText: '' });
+    }
     const nameAligned = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract, finalStory);
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
@@ -26006,7 +26315,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         t: String(src.title || '').trim(),
         s: finalStory,
         pax: String(src.pax || '').trim(),
-        cargo: String(src.cargo || '').trim(),
+        cargo: finalCargo,
         knowledgeContext: contract?.knowledgeContext || null,
         targetInfo,
         passenger,
@@ -26090,7 +26399,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "Spezielles Flugtraining (Seitenwind, Navigation, Platzrunden-Drill am fremden Platz)",
         "Business-Charter (Geschäftsmann/Geschäftsfrau rechtzeitig zu einem Termin fliegen)",
         "Business-Charter (Alltäglicher Flug für einen Architekten, Anwalt oder Bauleiter)",
-        "Eilige, aber unspektakuläre Kleinfracht (Dokumente, Ersatzteile)",
+        "Eilige, aber glaubwürdige Kleinfracht mit konkreter Sendung, Route und Zielübergabe",
         "Kurioses / Verrückter, aber friedlicher Privatflug",
         "Tierrettung / Tiertransport"
     ];
@@ -26100,6 +26409,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const isBushMission = missionBaseType === 'bush';
     const isAptTrainingMission = !isPOI && !isBushMission && missionBaseType === 'apt' && missionSel.category === 'trn';
     const isAptCharterMission = !isPOI && !isBushMission && missionBaseType === 'apt' && missionSel.category === 'charter';
+    const isAptCargoMission = !isPOI && !isBushMission && missionBaseType === 'apt' && missionSel.category === 'cargo';
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
     const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', missionBaseType);
@@ -26121,7 +26431,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Freizeitflug wie ein Gespraech vor dem Start: Beziehung, Vorfreude, Tagesgepaeck, Wettergefuehl und entspanntes gemeinsames Ankommen'
         ],
         medical_transfer: ['Medizinischer Personal- oder Materialtransfer mit hoher Prioritaet und ruhigem Flug, ohne Patient an Bord'],
-        cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
+        cargo_fragile: [
+            'Empfindliche Fracht mit konkreter Sendung, Zielkontakt und ruhiger Übergabe am Vorfeld',
+            'High-Care-Kurierflug: Verpackung, Route, Entfernung und nächster Arbeitsschritt am Ziel erzählen die Geschichte',
+            'Fragile Kleinfracht, die per GA-Flug nachvollziehbar schneller und schonender an den vorbereiteten Empfänger kommt'
+        ],
         animal_transport: [
             'Tiertransport mit stressarmer, ruhiger Flugfuehrung',
             'Wildtier- oder Vogeltransfer fuer Auffangstation, mit konkreter Tierart',
@@ -26334,8 +26648,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Ruhiger A-B-Charter, bei dem der Passagier nach der Landung direkt zu Team, Auftraggeber, Werkstatt, Bauleitung oder Veranstaltung weiter muss"
         ],
         cargo: [
-            "Eilige, aber unspektakuläre Kleinfracht (Dokumente, Ersatzteile)",
-            "Kurierflug ohne Passagiere (zeitkritische Fracht)"
+            "Kurierflug ohne Passagiere mit konkreter Sendung, Zielkontakt und Übergabe nach der Landung",
+            "Eilige, aber glaubwürdige Kleinfracht: Dokumente, Proben, Ersatzteil oder Archivbox mit nachvollziehbarem Folgeablauf am Ziel",
+            "Reiner A-B-Frachtflug, bei dem Route, Entfernung und ruhige Übergabe die Geschichte tragen"
         ],
         trn: [
             "Spezielles Flugtraining (Seitenwind, Navigation, Platzrunden-Drill am fremden Platz)",
@@ -26411,6 +26726,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : '';
     const forcedProfileOpsRule = (forcedProfile && forcedProfile.id !== 'auto')
         ? _profileOpsRuleForPrompt(forcedProfile, isPOI)
+        : '';
+    const aptCargoCategoryRule = isAptCargoMission
+        ? `16c. APT-CARGO-RAHMEN: Schreibe als reinen Frachtflug mit konkreter Sendung, Route ${startName} → ${destName}, grober Entfernung ${dist} NM, Zielkontakt und nächstem Arbeitsschritt nach der Landung. Route/Entfernung sind Erzählanker, keine Pflichtliste; wichtiger ist eine natürliche Frachtgeschichte, die erklärt, warum diese Sendung heute per Flugzeug sinnvoll zum Ziel kommt.`
         : '';
     const medicalProfileRule = (forcedProfile?.id === 'medical_transfer')
         ? `16. MEDICAL-KONSISTENZ: Wenn pax nur 1 PAX ist, ist diese Person medizinische Begleitung/Notarzt, NICHT Patient. Keine Patientin/keinen Patienten im Flugzeug erwaehnen, ausser pax ist explizit mindestens 2 PAX und die Story modelliert Patient plus medizinische Begleitung. Bei 1 PAX keine Formulierung "Notarztteam"; nutze "medizinische Begleitung", "Notarzt" oder "Notaerztin".`
@@ -26882,6 +27200,7 @@ ${forcedProfileOpsRule}
 ${medicalProfileRule}
 ${animalProfileRule}
 ${aptCharterProfileRule}
+${aptCargoCategoryRule}
 ${fireHazardRule}
 ${sceneIntentRule}
 </INSTRUKTIONEN>

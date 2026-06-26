@@ -432,6 +432,8 @@ function buildMissionAiPayload(prompt) {
   const start = parseContextValue(prompt, 'Start') || 'Bremen-Hemelingen';
   const targetLine = parseContextValue(prompt, 'Ziel') || 'Zielgebiet';
   const target = targetLine.replace(/\s+\((POI\/Wendepunkt|Zielflughafen)\)\s*$/i, '').trim();
+  const distanceNm = parseContextValue(prompt, 'Distanz') || '';
+  const distanceLabel = String(distanceNm || '?').replace(/\s*NM\s*$/i, '').trim() || '?';
   const isPoi = /POI\/Wendepunkt/i.test(targetLine) || /RUNDFLUG-REGEL/i.test(prompt);
   const forcedTaskDomain = parseForcedTaskDomain(prompt);
   const dispatchForm = parseDispatchForm(prompt);
@@ -798,11 +800,11 @@ function buildMissionAiPayload(prompt) {
         missionType: 'apt'
       },
       title: `Empfindliche Fracht nach ${target}`,
-      story: `Eine empfindliche Sendung muss sicher nach ${target}. Die Ladung bleibt im Stoßschutz-Case, daher zaehlen ruhige Fluglage, weiche Korrekturen und eine saubere Uebergabe am Vorfeld.`,
+      story: `Heute geht Präzisionsoptik im Stoßschutz-Case nach ${target}; der Zielkontakt hat Prüfplatz und Übergabeprotokoll schon vorbereitet. Die Route führt von ${start} nach ${target} über rund ${distanceLabel} NM, kurz genug für einen sauberen GA-Kurierlauf und deutlich schonender als ein langer Bodenweg. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein Anflug ohne Hektik. Nach der Landung bleibt das Case gesichert, bis der Frachtkontakt am Vorfeld übernimmt und die Optik direkt in die Prüfung bringt.`,
       pax: '1 PAX (Frachtbegleitung)',
       cargo: 'Präzisionsoptik im Stoßschutz-Case (28 lbs)',
       sceneIntent: {
-        summary: 'A-B-Flug ohne Zielszene; die sichtbare Logik liegt in Fracht und Uebergabe am Ziel.',
+        summary: 'A-B-Flug ohne Zielszene; die sichtbare Logik liegt in Fracht, Route und Uebergabe am Ziel.',
         environment: 'leer',
         visibleIdeas: [],
         avoid: ['kein Vereinsauftrag', 'kein Sightseeing', 'keine Werkstattstory'],
@@ -826,9 +828,26 @@ function buildMissionAiPayload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        greetingText: `Hi, die Fracht nach ${target} ist empfindlich; bitte ruhig fliegen und harte Manoever vermeiden.`,
+        greetingText: `Hi, die Optik fuer ${target} ist sauber gesichert. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`,
         trainingPlan: null
       }
+    };
+  }
+  if (!isPoi && targetCategory === 'cargo' && formTaskDomain !== 'cargo_fragile') {
+    return {
+      title: `Kurierfracht nach ${target}`,
+      story: `Heute geht eine kleine Ersatzteilbox nach ${target}; die Zielwerft hat Arbeitsplatz und Annahme bereits vorbereitet. Die Route führt von ${start} nach ${target} über rund ${distanceLabel} NM, damit die Sendung nachvollziehbar in einer Hand bleibt und nicht den langen Bodenlauf nimmt. Nach der Landung übernimmt der Frachtkontakt am Vorfeld und bringt die Box direkt in die Werkstattannahme.`,
+      pax: '0 PAX',
+      cargo: 'Kleine Ersatzteilbox (18 lbs)',
+      sceneIntent: {
+        summary: 'A-B-Frachtflug ohne separate Zielszene; die Geschichte liegt in Sendung, Route und Übergabe.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein POI-Arbeitsauftrag', 'keine zusätzliche Zielszene'],
+        densityHint: 'none',
+        notes: 'Cargo bleibt A-B-Kontext.'
+      },
+      passenger: {}
     };
   }
   if (formTaskDomain === 'private_outing') {
@@ -997,6 +1016,7 @@ function buildMissionWriterV4Payload(prompt) {
   const roleProfile = String(profile.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
   const isPoi = !!target.isPOI;
   const profileId = String(profile.id || '').toLowerCase();
+  const category = String(profile.pickerCategory || profile.requestedCategory || target.poiCategory || plan.targetCategory || '').toLowerCase();
 
   if (profileId === 'bush_pickup_strip' || roleProfile === 'bush_pickup_guest_v1') {
     const homeName = String(route.startName || route.startIcao || 'Heimatplatz').trim();
@@ -1286,9 +1306,13 @@ function buildMissionWriterV4Payload(prompt) {
   }
 
   if (taskDomain === 'cargo_fragile') {
+    const route = contract?.route || {};
+    const startName = route.startName || route.startIcao || 'Startplatz';
+    const dist = Number(route.distanceNm);
+    const distText = Number.isFinite(dist) && dist > 0 ? ` über rund ${dist.toFixed(dist % 1 ? 1 : 0)} NM` : '';
     return {
       title: `Empfindliche Fracht nach ${targetName}`,
-      story: `Wir bringen heute empfindliche Vermessungstechnik nach ${targetName}. Entscheidend sind ruhige Fluglage, weiche Korrekturen und eine saubere Übergabe am Vorfeld nach der Landung. Die eigentliche Arbeit beginnt erst am Zielplatz.`,
+      story: `Heute geht ein kalibrierter Sensorkoffer nach ${targetName}; der Zielkontakt hat Prüfplatz und Übergabeprotokoll bereits vorbereitet. Die Route führt von ${startName} nach ${targetName}${distText}, damit die Sendung nachvollziehbar in einer Hand bleibt und nicht über den langen Bodenweg muss. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein sauberer Anflug. Nach der Landung bleibt der Koffer gesichert, bis der Frachtkontakt am Vorfeld übernimmt und die Prüfung direkt starten kann.`,
       pax: '1 PAX (Frachtbegleiter)',
       cargo: 'Präzisionssensorik im Schutzcase (42 lbs)',
       passenger: {
@@ -1308,15 +1332,37 @@ function buildMissionWriterV4Payload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        greetingText: `Hi, die Fracht für ${targetName} ist empfindlich; bitte heute besonders ruhig und ohne harte Manöver fliegen.`
+        greetingText: `Hi, der Sensorkoffer für ${targetName} ist sauber gesichert. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`
       },
       sceneIntent: {
-        summary: 'A-B-Flug ohne separate Zielszene; die Übergabe bleibt am Zielflugplatz.',
+        summary: 'A-B-Flug ohne separate Zielszene; die Übergabe bleibt am Zielflugplatz und wird über Fracht, Route und Kontakt erzählt.',
         environment: 'leer',
         visibleIdeas: [],
         avoid: ['kein POI-Arbeitsauftrag', 'keine zusätzliche Zielszene'],
         densityHint: 'none',
         notes: 'Fragile Fracht bleibt reiner A-B-Kontext.'
+      }
+    };
+  }
+
+  if (!isPoi && taskDomain === 'general' && category === 'cargo') {
+    const route = contract?.route || {};
+    const startName = route.startName || route.startIcao || 'Startplatz';
+    const dist = Number(route.distanceNm);
+    const distText = Number.isFinite(dist) && dist > 0 ? ` über rund ${dist.toFixed(dist % 1 ? 1 : 0)} NM` : '';
+    return {
+      title: `Kurierfracht nach ${targetName}`,
+      story: `Heute geht eine kleine Ersatzteilbox nach ${targetName}; die Zielwerft hat den Arbeitsplatz und die Annahme schon vorbereitet. Die Route führt von ${startName} nach ${targetName}${distText}, damit die Fracht nachvollziehbar in einer Hand bleibt und nicht den langen Bodenlauf nimmt. Es ist kein Eil-Drama, aber der Flug hält den Werkstattablauf sauber im Takt. Nach der Landung übernimmt der Frachtkontakt am Vorfeld und bringt die Box direkt in die Werkstattannahme.`,
+      pax: '0 PAX',
+      cargo: 'Kleine Ersatzteilbox (18 lbs)',
+      passenger: {},
+      sceneIntent: {
+        summary: 'A-B-Frachtflug ohne separate Zielszene; Übergabe und nächster Arbeitsschritt tragen die Mission.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein POI-Arbeitsauftrag', 'keine zusätzliche Zielszene'],
+        densityHint: 'none',
+        notes: 'Cargo bleibt A-B-Kontext.'
       }
     };
   }
