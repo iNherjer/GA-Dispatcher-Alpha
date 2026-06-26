@@ -11411,25 +11411,36 @@ async function resolveAptSightseeingKnowledgeContext(dest = null, options = {}) 
     const landmarks = remainingForLandmarks >= 550
         ? await _missionSightseeingFetchNearbyWikiLandmarks(lat, lon, place, { timeoutMs: Math.min(POI_KNOWLEDGE_WIKI_TIMEOUT_MS, remainingForLandmarks) })
         : [];
+    const cityWarnings = Array.isArray(cityContext?.warnings)
+        ? cityContext.warnings.map(item => String(item || '').trim()).filter(Boolean)
+        : [];
+    const cityCoordinateFar = cityWarnings.some(item => /coordinate_far|linear_feature_coordinate_far_from_target/.test(item));
+    const cityScore = cityCoordinateFar ? 0 : Number(cityContext?.score || 0);
+    const cityFactCandidates = cityCoordinateFar ? 0 : Number(cityContext?.factCandidates || 0);
+    const cityTopics = !cityCoordinateFar && Array.isArray(cityContext?.topics) ? cityContext.topics : [];
+    const cityReasons = !cityCoordinateFar && Array.isArray(cityContext?.reasons) ? cityContext.reasons : [];
     const landmarkFacts = _missionSightseeingAptLandmarkFacts(place, landmarks);
-    const baseFacts = Array.isArray(cityContext?.facts) ? cityContext.facts : [];
+    const baseFacts = !cityCoordinateFar && Array.isArray(cityContext?.facts) ? cityContext.facts : [];
     const mergedFacts = compactPoiKnowledgeFactListForMission(
         [...landmarkFacts, ...baseFacts],
         POI_KNOWLEDGE_CORE_FACT_LIMIT
     );
-    const hasAcceptedCity = !!(cityContext?.ok && cityContext.status === 'accept');
+    const hasAcceptedCity = !!(cityContext?.ok && cityContext.status === 'accept' && !cityCoordinateFar);
+    const fallbackCityStatus = cityCoordinateFar && String(cityContext?.status || '') === 'accept'
+        ? 'review'
+        : (cityContext?.status || 'reject');
     const out = {
         ...(cityContext && typeof cityContext === 'object' ? cityContext : {}),
         ok: hasAcceptedCity || landmarks.length > 0,
-        status: hasAcceptedCity || landmarks.length > 0 ? 'accept' : (cityContext?.status || 'reject'),
-        title: String(cityContext?.title || place).replace(/\s+/g, ' ').trim(),
+        status: hasAcceptedCity || landmarks.length > 0 ? 'accept' : fallbackCityStatus,
+        title: String((cityCoordinateFar ? '' : cityContext?.title) || place).replace(/\s+/g, ' ').trim(),
         category: 'city',
-        score: Math.max(Number(cityContext?.score || 0), landmarks.length ? POI_KNOWLEDGE_CONTEXT_ACCEPT_SCORE : 0),
+        score: Math.max(cityScore, landmarks.length ? POI_KNOWLEDGE_CONTEXT_ACCEPT_SCORE : 0),
         facts: mergedFacts,
-        factCandidates: Math.max(Number(cityContext?.factCandidates || 0), mergedFacts.length),
+        factCandidates: Math.max(cityFactCandidates, mergedFacts.length),
         selectedFacts: mergedFacts.length,
         topics: Array.from(new Set([
-            ...((Array.isArray(cityContext?.topics) ? cityContext.topics : [])),
+            ...cityTopics,
             ...mergedFacts.map(fact => fact.topic || 'general')
         ])).filter(Boolean).slice(0, 8),
         sightseeingPlace: place,
@@ -11440,11 +11451,12 @@ async function resolveAptSightseeingKnowledgeContext(dest = null, options = {}) 
             source: 'wikipedia_geosearch'
         })),
         reasons: Array.from(new Set([
-            ...((Array.isArray(cityContext?.reasons) ? cityContext.reasons : [])),
+            ...cityReasons,
             ...(landmarks.length ? ['apt_sightseeing_landmarks'] : [])
         ])),
         warnings: Array.from(new Set([
             ...((Array.isArray(cityContext?.warnings) ? cityContext.warnings : [])),
+            ...(cityCoordinateFar ? ['apt_sightseeing_city_context_coordinate_far_ignored'] : []),
             ...(hasAcceptedCity || landmarks.length ? [] : ['apt_sightseeing_no_wiki_anchor'])
         ])),
         aptSightseeing: true,
@@ -27514,6 +27526,18 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     return !hasReporterFrame || !hasFlightValue || !hasOutcome || genericOnly || (!(hardAngle || softChange || coversSpine));
 }
 
+function _missionWriterV5SightseeingHasRealMotive(normalized = '') {
+    if (!normalized) return false;
+    return /\b(panorama|aussicht|ausblick|blick|blickmoment|ansehen|anschauen|besichtigen|sehenswuerdig|sehenswürdig|landmarke|landmarken|altstadt|ortskern|ortsbild|stadt|schloss|museum|fotomotiv|fotomotive|fotos?|spaziergang|zielregion|reisegrund|besuchswunsch|besuch|ausflug|cafe|café|kaffee|promenade|erinnerung)\b/.test(normalized);
+}
+
+function _missionWriterV5SightseeingWrongDomain(normalized = '', isAptSightseeing = false) {
+    if (!normalized) return false;
+    const operationalDrift = /\b(verein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|arbeitsauftrag|auftrag|uebergabe|übergabe|handoff|charter|transfer|vfr-transfer|termin|meeting|kunde|kundin|business|geschaeft|geschäft|abendveranstaltung|veranstaltung|event|buehnenleiter|bühnenleiter|aufbau|ablaufmappe|crew|zuverlaessige verbindung|zuverlässige verbindung|planbare verbindung|koordiniert)\b/.test(normalized);
+    if (operationalDrift) return true;
+    return Boolean(isAptSightseeing && /\b(airport operations|airport_operations|flughafengelaende|flughafengelände|flughafenbetrieb|airportbetrieb|betrieb am flughafen|betrieb am flugplatz|besichtigung des flughafens|flughafen erkundung|flugplatz erkundung|gates?|rollwege?|vorfeldbetrieb|hangars?|ground vehicles|bodenfahrzeuge|betrieb simulieren|ga-bereich.*uebernimmt|ga-bereich.*übernimmt)\b/.test(normalized));
+}
+
 function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const reasons = [];
@@ -27529,8 +27553,8 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
     if (raw) {
         const normalized = normalizeMissionText(raw);
         if (taskDomain === 'sightseeing_tour') {
-            const wrongDomain = /\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|arbeitsauftrag|uebergabe|übergabe\b/.test(normalized);
-            const hasSightseeingMotive = /\bsightseeing|panorama|rundflug|aussicht|blick|sehenswuerdig|sehenswürdig|landmarke|landmarken|altstadt|ortskern|schloss|museum|fotomotiv|fotomotive|fotos|spaziergang|zielregion|reisegrund|besuchswunsch|ausflug\b/.test(normalized);
+            const wrongDomain = _missionWriterV5SightseeingWrongDomain(normalized, isAptSightseeing);
+            const hasSightseeingMotive = _missionWriterV5SightseeingHasRealMotive(normalized);
             if (wrongDomain) reasons.push('sightseeing_wrong_domain');
             if (!hasSightseeingMotive) reasons.push('sightseeing_weak_motive');
         } else if (taskDomain === 'private_outing') {
@@ -27548,6 +27572,10 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
         const claimsReturn = /\b(rueckkehr|ruckkehr|zurueck zum start|zuruck zum start|zurueck zum heimat|zuruck zum heimat|rundflug)\b/.test(normalized);
         const hasLandingPlan = /\b(nach der landung|abstellen|aussteigen|vorfeld|zielort|ortskern|spaziergang|cafe|fotos?)\b/.test(normalized);
         if (claimsReturn && !hasLandingPlan) reasons.push('apt_sightseeing_roundtrip_drift');
+        const targetName = contract?.target?.name || contract?.route?.targetName || '';
+        if (raw && !_missionSightseeingAptStoryLooksDestinationRich(raw, context?.passenger || {}, targetName)) {
+            reasons.push('apt_sightseeing_weak_destination_story');
+        }
     }
     if (taskDomain === 'private_outing' && raw && _missionPipelineV4PrivateOutingBriefingNeedsFallback(raw, context?.passenger || {}, contract)) {
         reasons.push('private_outing_weak_motive');
