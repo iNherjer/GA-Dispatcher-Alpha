@@ -15897,6 +15897,100 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     return `Guide-Hinweis: ${paxName} hat gesicherte Ortsfakten zu ${target} vorbereitet. Die Details kommen unterwegs als kurze Guide-Ansagen; das Briefing bleibt beim Rahmen des ruhigen Rundflugs.`;
 }
 
+function _missionBriefingCleanRouteLabel(value = '') {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .replace(/^[^A-Za-z0-9ÄÖÜäöüß]+/g, '')
+        .trim();
+}
+
+function _missionBriefingPublicIcao(value = '') {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(raw)) return '';
+    if (/^(POI|HOSP|SAR|HOME|START|DEST|TARGET)$/.test(raw)) return '';
+    return raw;
+}
+
+function _missionBriefingRoutePointLabel(icao = '', name = '') {
+    return _missionBriefingPublicIcao(icao)
+        || _missionBriefingCleanRouteLabel(name);
+}
+
+function _missionBriefingFormatDistanceNm(value = null) {
+    const nm = Number(value);
+    if (!Number.isFinite(nm) || nm <= 0) return '';
+    const rounded = nm >= 20 ? Math.round(nm) : Math.round(nm * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function _missionBriefingRouteWaypointLabels(missionData = null) {
+    const md = missionData && typeof missionData === 'object' ? missionData : {};
+    const points = Array.isArray(md.routeWaypoints) ? md.routeWaypoints
+        : (Array.isArray(md.missionRouteWaypoints) ? md.missionRouteWaypoints : []);
+    if (points.length < 2) return [];
+    const labels = [];
+    for (const point of points) {
+        const label = _missionBriefingRoutePointLabel(
+            point?.icao,
+            point?.name || point?.label || point?.title
+        );
+        if (!label) continue;
+        if (labels[labels.length - 1] !== label) labels.push(label);
+    }
+    if (labels.length <= 4) return labels;
+    return [labels[0], `${labels.length - 2} Wegpunkte`, labels[labels.length - 1]];
+}
+
+function buildMissionBriefingRouteInfoLine(missionData = null, options = {}) {
+    const md = missionData && typeof missionData === 'object' ? missionData : {};
+    const contractRoute = md.missionContractV4?.route
+        || md.missionPlanV4?.route
+        || md.missionContract?.missionContractV4?.route
+        || md.missionContract?.route
+        || {};
+    let labels = _missionBriefingRouteWaypointLabels(md);
+    if (labels.length < 2) {
+        const startLabel = _missionBriefingRoutePointLabel(
+            md.start || md.startIcao || contractRoute.startIcao || options.startIcao,
+            md.startName || contractRoute.startName || options.startName
+        );
+        const isPoi = !!(md.isPOI || md.poiName || options.isPOI);
+        const targetLabel = isPoi
+            ? _missionBriefingCleanRouteLabel(md.poiName || md.targetName || contractRoute.targetName || options.targetName || 'Zielgebiet')
+            : _missionBriefingRoutePointLabel(
+                md.dest || md.initialDest || md.targetIcao || contractRoute.targetIcao || options.destIcao,
+                md.targetName || md.initialTargetName || contractRoute.targetName || options.targetName
+            );
+        if (startLabel && targetLabel && targetLabel !== startLabel) {
+            labels = isPoi ? [startLabel, targetLabel, startLabel] : [startLabel, targetLabel];
+        }
+    }
+    const distanceLabel = _missionBriefingFormatDistanceNm(
+        md.dist ?? md.initialDist ?? contractRoute.distanceNm ?? options.dist
+    );
+    if (labels.length >= 2) {
+        return `Strecke: ${labels.join(' -> ')}${distanceLabel ? `, ca. ${distanceLabel} NM` : ''}.`;
+    }
+    if (distanceLabel) return `Entfernung: ca. ${distanceLabel} NM.`;
+    return '';
+}
+
+function missionBriefingAlreadyHasStructuredRouteInfo(text = '') {
+    const raw = String(text || '');
+    if (/(^|\n)\s*(?:Strecke|Route|Distanz|Entfernung)\s*:/i.test(raw)) return true;
+    const hasRoutePhrase = /\b(?:die\s+route\s+f(?:ü|ue)hrt|von\s+\S.{1,80}?\s+nach\s+\S)/i.test(raw);
+    const hasDistance = /\b\d{1,4}(?:[,.]\d+)?\s*(?:NM|Seemeilen)\b/i.test(raw);
+    return hasRoutePhrase && hasDistance;
+}
+
+function appendMissionBriefingRouteInfo(story = '', missionData = null, options = {}) {
+    const base = String(story || '').trim();
+    if (missionBriefingAlreadyHasStructuredRouteInfo(base)) return base;
+    const routeLine = buildMissionBriefingRouteInfoLine(missionData, options);
+    if (!routeLine) return base;
+    return `${base}${base ? '\n\n' : ''}${routeLine}`;
+}
+
 function sanitizePoiBriefingRuleLeaks(text = '', missionData = null) {
     let out = String(text || '');
     const md = missionData && typeof missionData === 'object' ? missionData : null;
@@ -30500,6 +30594,14 @@ async function generateMission(options = {}) {
         const sarHeliBriefing = missionSarHeliBuildBriefingNarrative(currentMissionData, storyForBriefing);
         if (sarHeliBriefing) storyForBriefing = sarHeliBriefing;
     }
+    storyForBriefing = appendMissionBriefingRouteInfo(storyForBriefing, currentMissionData, {
+        startIcao: currentStartICAO,
+        startName: start?.n,
+        destIcao: currentDestICAO,
+        targetName: dest?.n,
+        isPOI: missionActsLikePoi,
+        dist: currentMissionData?.dist ?? totalDist
+    });
     storyForBriefing = sanitizePoiBriefingRuleLeaks(storyForBriefing, currentMissionData);
     document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;
