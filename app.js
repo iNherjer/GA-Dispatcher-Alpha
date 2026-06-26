@@ -6593,7 +6593,9 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('planner_'), start: 61, done: 68, label: 'Plane Missionsstruktur...', doneLabel: 'Missionsstruktur geplant.' },
     { test: phase => phase === 'build_v4_contract', start: 69, done: 73, label: 'Baue Mission-Contract fuer den Writer...', doneLabel: 'Mission-Contract bereit.' },
     { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
+    { test: phase => phase === 'writer_v5_bush', start: 77, done: 84, label: 'Writer V5 schreibt Bush-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
     { test: phase => phase === 'writer_v4_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
+    { test: phase => phase === 'writer_v5_main', start: 77, done: 84, label: 'Writer V5 schreibt Dispatcher-Zettel...', doneLabel: 'Dispatcher-Zettel geschrieben.' },
     { test: phase => phase === 'writer_legacy_bush', start: 77, done: 84, label: 'KI formuliert Bush-Auftrag...', doneLabel: 'Bush-Auftrag formuliert.' },
     { test: phase => phase === 'writer_v4_main', start: 77, done: 84, label: 'KI schreibt Dispatcher-Briefing...', doneLabel: 'Dispatcher-Briefing geschrieben.' },
     { test: phase => phase === 'writer_legacy_main', start: 77, done: 84, label: 'KI formuliert Auftragstext...', doneLabel: 'Auftragstext formuliert.' },
@@ -6730,6 +6732,7 @@ const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legac
 const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
 const MISSION_PIPELINE_V4_STORAGE_KEY = 'ga_debug_mission_pipeline_v4_contract_writer';
 const MISSION_PIPELINE_MODE_STORAGE_KEY = 'ga_mission_pipeline_mode';
+const MISSION_WRITER_MODE_STORAGE_KEY = 'ga_mission_writer_mode';
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -6818,6 +6821,56 @@ function getMissionPipelineMode() {
     return getMissionPipelineStoredMode();
 }
 window.getMissionPipelineMode = getMissionPipelineMode;
+
+function getMissionWriterMode() {
+    try {
+        const mode = String(localStorage.getItem(MISSION_WRITER_MODE_STORAGE_KEY) || '').toLowerCase();
+        return mode === 'v4' ? 'v4' : 'v5';
+    } catch (_) {
+        return 'v5';
+    }
+}
+window.getMissionWriterMode = getMissionWriterMode;
+
+function setMissionWriterMode(mode = 'v5') {
+    const normalized = String(mode || '').toLowerCase() === 'v4' ? 'v4' : 'v5';
+    try { localStorage.setItem(MISSION_WRITER_MODE_STORAGE_KEY, normalized); } catch (_) {}
+    return normalized;
+}
+window.setMissionWriterMode = setMissionWriterMode;
+
+function isMissionWriterV5Enabled() {
+    return getMissionWriterMode() === 'v5';
+}
+window.isMissionWriterV5Enabled = isMissionWriterV5Enabled;
+
+function updateMissionWriterModeButtonUi() {
+    const btn = document.getElementById('btnMissionWriterMode');
+    if (!btn) return;
+    const mode = getMissionWriterMode();
+    const v5 = mode === 'v5';
+    btn.textContent = v5 ? 'Writer V5' : 'Writer V4';
+    btn.style.background = v5 ? '#4a391b' : '#35234a';
+    btn.style.borderColor = v5 ? '#b58335' : '#7350a5';
+    btn.style.color = v5 ? '#ffd79f' : '#e4d0ff';
+}
+window.updateMissionWriterModeButtonUi = updateMissionWriterModeButtonUi;
+
+window.toggleMissionWriterMode = function(forceMode) {
+    const current = getMissionWriterMode();
+    const next = (typeof forceMode === 'string')
+        ? setMissionWriterMode(forceMode)
+        : setMissionWriterMode(current === 'v5' ? 'v4' : 'v5');
+    updateMissionWriterModeButtonUi();
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = next === 'v5'
+        ? 'Debug: Mission Writer V5 aktiv.'
+        : 'Debug: Mission Writer V4 aktiv.';
+    return next;
+};
 
 function updateMissionPipelineV2ButtonUi() {
     const btn = document.getElementById('btnMissionPipelineLegacy') || document.getElementById('btnMissionPipelineV2');
@@ -6911,7 +6964,10 @@ window.toggleMissionPipelineV4 = function(forceState) {
 };
 
 if (typeof window !== 'undefined') {
-    window.addEventListener('DOMContentLoaded', updateMissionPipelineV2ButtonUi);
+    window.addEventListener('DOMContentLoaded', () => {
+        updateMissionPipelineV2ButtonUi();
+        updateMissionWriterModeButtonUi();
+    });
 }
 
 function _parseMetarPayloadToArray(txt) {
@@ -16519,8 +16575,12 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const hay = `${t} ${s}`;
     const has = (re) => re.test(hay);
     const conflictsWithProfile = (profile) => {
-        if (profile === 'sightseeing_tour') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/)
-            || (!isPOI && has(/\bburger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|familienbesuch/));
+        if (profile === 'sightseeing_tour') {
+            const hardConflict = has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/);
+            const softPrivateCue = !isPOI && has(/\bburger|kaffee|kuchen|flugplatzcaf|wellness|wandern|wanderung|familienbesuch/);
+            const sightseeingAnchor = has(/\bsightseeing|panorama|rundflug|aussicht|blick|sehenswuerdig|sehenswürdig|landmarke|landmarken|altstadt|ortskern|schloss|museum|fotomotiv|fotomotive|fotos|spaziergang|zielregion/);
+            return hardConflict || (softPrivateCue && !sightseeingAnchor);
+        }
         if (profile === 'private_outing') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|report|redaktion|sightseeing|panorama|rundflug|ueberflug|überflug/);
         if (profile === 'cargo_fragile') return has(/\bverein|vereins|stammtisch|fly in|sightseeing|panorama|kuchen|burger|wellness|tour|konzert|city\b/);
         if (profile === 'animal_transport') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|sightseeing|panorama|training|fluglehrer/);
@@ -24367,6 +24427,305 @@ ${JSON.stringify(contract)}
 </OUTPUT>`;
 }
 
+function _missionWriterV5ExtractText(value = '') {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+    if (Array.isArray(value)) {
+        return value.map(item => _missionWriterV5ExtractText(item)).filter(Boolean).join(', ');
+    }
+    if (typeof value === 'object') {
+        const keys = ['text', 'title', 'name', 'label', 'summary', 'description', 'value', 'displayName'];
+        for (const key of keys) {
+            const extracted = _missionWriterV5ExtractText(value[key]);
+            if (extracted) return extracted;
+        }
+    }
+    return '';
+}
+
+function _missionWriterV5Text(value = '', maxLen = 220) {
+    const clean = _missionWriterV5ExtractText(value).replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (/^\[object object\]$/i.test(clean)) return '';
+    return clean.slice(0, maxLen);
+}
+
+function _missionWriterV5Array(values = [], maxItems = 5, maxLen = 180) {
+    return (Array.isArray(values) ? values : [values])
+        .map(value => _missionWriterV5Text(value, maxLen))
+        .filter(Boolean)
+        .slice(0, maxItems);
+}
+
+function _missionWriterV5Unique(values = [], maxItems = 6, maxLen = 180) {
+    const out = [];
+    const seen = new Set();
+    for (const value of values) {
+        const clean = _missionWriterV5Text(value, maxLen);
+        const key = normalizeMissionText(clean);
+        if (!clean || !key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(clean);
+        if (out.length >= maxItems) break;
+    }
+    return out;
+}
+
+function _missionWriterV5MissionFamily(contract = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || '').toLowerCase();
+    const mode = normalizeMissionType(contract?.mode || contract?.route?.mode || '', !!contract?.target?.isPOI);
+    const isApt = mode === 'apt' && !contract?.target?.isPOI;
+    const isPoi = mode === 'poi' || !!contract?.target?.isPOI;
+    if (taskDomain === 'private_outing' && isApt) return 'apt_private_outing';
+    if (taskDomain === 'sightseeing_tour' && isApt) return 'apt_sightseeing';
+    if (taskDomain === 'sightseeing_tour' && isPoi) return 'poi_sightseeing';
+    if (taskDomain === 'bush_pickup_return') return 'bush_pickup_return';
+    if (taskDomain === 'infra_chain_recon') return 'infra_chain_recon';
+    if (_missionPipelineV4IsCargoTransportContract(contract, taskDomain, {})) return 'cargo_transport';
+    if (taskDomain === 'search_and_rescue') return contract?.sarHeli?.enabled ? 'sar_heli' : 'search_and_rescue';
+    return taskDomain || 'general';
+}
+
+function _missionWriterV5PlaceLabel(contract = {}) {
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || '', 120);
+    if (!targetName) return 'das Ziel';
+    if (_missionSightseeingContractIsApt(contract)) return _missionSightseeingAptPlaceLabel(targetName);
+    return targetName;
+}
+
+function _missionWriterV5DefaultTitle(contract = {}, family = '') {
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || '', 120);
+    const place = _missionWriterV5PlaceLabel(contract);
+    const target = place && place !== 'das Ziel' ? place : (targetName || 'das Ziel');
+    if (family === 'apt_private_outing') return `Privater Fly-out nach ${target}`;
+    if (family === 'apt_sightseeing') return `Sightseeing-Ausflug nach ${target}`;
+    if (family === 'poi_sightseeing') return `Blickrunde: ${target}`;
+    if (family === 'cargo_transport') return `Transport nach ${target}`;
+    if (family === 'search_and_rescue' || family === 'sar_heli') return `Sucheinsatz bei ${target}`;
+    if (family === 'infra_chain_recon') return `Korridor-Erstbefund: ${target}`;
+    return targetName ? `Mission nach ${targetName}` : 'Dispatch-Auftrag';
+}
+
+function _missionWriterV5PassengerConflictsTask(passenger = {}, taskDomain = '') {
+    const task = String(taskDomain || passenger?.taskDomain || '').toLowerCase();
+    const hay = normalizeMissionText([
+        passenger?.name,
+        passenger?.role,
+        passenger?.personality,
+        passenger?.greetingText,
+        passenger?.storySeed,
+        passenger?.personalStoryCue
+    ].filter(Boolean).join(' '));
+    if (!hay) return false;
+    const opsCue = /\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|reporter|redaktion|inspekt|vermess|arbeitsauftrag\b/;
+    if (task === 'sightseeing_tour' || task === 'private_outing') return opsCue.test(hay);
+    return false;
+}
+
+function _missionWriterV5TitleNeedsFallback(title = '', contract = {}, taskDomain = '', isPOI = false) {
+    const normalized = normalizeMissionText(title);
+    if (!normalized) return true;
+    if (/\b(contract|pipeline|writer|json|profil|taskdomain|ziellabel|zielgebiet|transfer)\b/.test(normalized)) return true;
+    const domain = String(taskDomain || contract?.profile?.taskDomain || '').toLowerCase();
+    if (domain === 'private_outing') {
+        return /\b(sightseeing|panorama|rundflug|shuttle|charter|verein|vereins|fracht|kurier|medizin|training|fluglehrer)\b/.test(normalized);
+    }
+    if (domain === 'sightseeing_tour') {
+        if (/\b(verein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|charter|shuttle)\b/.test(normalized)) return true;
+        if (!isPOI && /\b(burger|flugplatzcafe|flugplatzcafé|wellness|wandern|wanderung|familienbesuch)\b/.test(normalized)) return true;
+    }
+    return false;
+}
+
+function _missionWriterV5RouteLine(contract = {}) {
+    const route = contract?.route || {};
+    const start = _missionWriterV5Text(route.startName || route.startIcao || '', 120);
+    const target = _missionWriterV5Text(route.targetName || route.targetIcao || contract?.target?.name || '', 120);
+    const distance = Number(route.distanceNm);
+    const distText = Number.isFinite(distance) && distance > 0 ? `ca. ${Math.round(distance)} NM` : '';
+    if (start && target && distText) return `${start} -> ${target}, ${distText}`;
+    if (start && target) return `${start} -> ${target}`;
+    if (target && distText) return `${target}, ${distText}`;
+    return target || '';
+}
+
+function _missionWriterV5WeatherSummary(contract = {}) {
+    const weather = contract?.weather || {};
+    const dep = weather.dep || weather.departure || weather.start || null;
+    const dest = weather.dest || weather.destination || weather.target || null;
+    const planWeather = contract?.missionPlan?.plan?.weatherHooks || [];
+    const summarized = _missionWriterV5Array([
+        Array.isArray(planWeather) ? planWeather.join(' ') : planWeather,
+        dep ? _summarizeMissionWeather(dep) : '',
+        dest ? _summarizeMissionWeather(dest) : ''
+    ], 3, 180).join(' | ');
+    return _missionWriterV5Text(summarized, 260);
+}
+
+function _missionWriterV5KnowledgeHighlights(contract = {}) {
+    const knowledge = _missionSightseeingAptKnowledgeContext(contract) || contract?.knowledgeContext || null;
+    const facts = [];
+    const landmarks = [];
+    if (knowledge && typeof knowledge === 'object') {
+        landmarks.push(..._missionWriterV5Array(knowledge.sightseeingLandmarks, 4, 120));
+        landmarks.push(..._missionWriterV5Array(knowledge.landmarks, 4, 120));
+        facts.push(..._missionWriterV5Array(knowledge.facts, 3, 180));
+        facts.push(..._missionWriterV5Array(knowledge.extraFacts, 2, 180));
+        if (knowledge.title) facts.unshift(_missionWriterV5Text(knowledge.title, 120));
+    }
+    return {
+        status: String(knowledge?.status || '').toLowerCase(),
+        title: _missionWriterV5Text(knowledge?.title || '', 120),
+        place: _missionWriterV5Text(knowledge?.sightseeingPlace || '', 120),
+        landmarks: _missionWriterV5Unique(landmarks, 4, 120),
+        facts: _missionWriterV5Unique(facts, 4, 180)
+    };
+}
+
+function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
+    const plan = contract?.missionPlan?.plan || {};
+    const profile = contract?.profile || {};
+    const frame = contract?.storyFrame || {};
+    const routeLine = _missionWriterV5RouteLine(contract);
+    const family = _missionWriterV5MissionFamily(contract);
+    const place = _missionWriterV5PlaceLabel(contract);
+    const knowledge = _missionWriterV5KnowledgeHighlights(contract);
+    const isPoi = !!contract?.target?.isPOI || !!context?.isPOI;
+    const ingredients = _missionWriterV5Unique([
+        frame.trigger,
+        frame.subjectDetail,
+        frame.incidentContext,
+        frame.whyNow,
+        frame.soughtOutcome,
+        plan.primaryObjective,
+        ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : []),
+        ...(Array.isArray(plan.localFacts) ? plan.localFacts : []),
+        plan.realismBrief
+    ], 7, 220);
+    const targetFacts = _missionWriterV5Unique([
+        ...knowledge.landmarks,
+        ...knowledge.facts,
+        ...(Array.isArray(plan.localFacts) ? plan.localFacts : [])
+    ], 5, 180);
+    const desired = _missionWriterV5Unique([
+        ...(Array.isArray(plan.mustMention) ? plan.mustMention : []),
+        ...(Array.isArray(plan.operationalDetails) ? plan.operationalDetails : [])
+    ], 6, 170);
+    const arrival = _missionWriterV5Text(
+        contract?.missionTruth?.arrival?.label
+        || contract?.missionTruth?.arrivalPlan?.label
+        || contract?.airportDetails?.arrivalHint
+        || ''
+    , 180);
+    const briefingBrief = {
+        writerVersion: 'v5',
+        missionFamily: family,
+        mode: contract?.mode || (isPoi ? 'poi' : 'apt'),
+        taskDomain: String(profile.taskDomain || 'general'),
+        roleProfile: String(profile.roleProfile || 'general_passenger_v1'),
+        route: routeLine,
+        target: {
+            name: _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || '', 120),
+            place,
+            isPOI: !!isPoi,
+            category: _missionWriterV5Text(contract?.target?.poiCategory || profile.pickerCategory || '', 80)
+        },
+        weather: _missionWriterV5WeatherSummary(contract),
+        arrivalPlan: arrival,
+        storyIngredients: ingredients,
+        targetFacts,
+        desiredIngredients: desired,
+        tone: family === 'apt_private_outing'
+            ? 'warme, lockere Pinnwand-Notiz mit Lust auf den privaten Fly-out'
+            : (family === 'apt_sightseeing'
+                ? 'professionelle, freundliche A-B-Sightseeing-Notiz mit konkretem Zielort-Grund'
+                : (family === 'poi_sightseeing'
+                    ? 'ruhige, hochwertige Sightseeing-Notiz mit dem POI als Reisegrund'
+                    : 'kurzer, klarer Dispatcher-Zettel')),
+        rules: [
+            'Schreibe einen kurzen zusammenhaengenden freien Text, keine Liste.',
+            'Baue Route, Entfernung, Wetter und Ankunft nur natuerlich ein, wenn sie in die Erzaehlung passen.',
+            'Nutze harte Orts- und Faktenaussagen nur aus targetFacts oder storyIngredients.',
+            'desiredIngredients sind Zutaten, keine abzuhakende Muss-Liste.',
+            'Keine Systemwoerter wie Contract, Pipeline, Writer, mustMention, Handoff oder Profil.'
+        ]
+    };
+    if (family === 'apt_private_outing') {
+        briefingBrief.styleRecipe = 'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel; der Zielplan darf charmant und sinnlich sein, z.B. Burger, Kaffee, See, Museum, Wandern oder ein anderer plausibler Privatgrund. Der Genussgrund darf frei erfunden werden, solange er keine harte Ortsfakt-Behauptung wird.';
+    } else if (family === 'apt_sightseeing') {
+        briefingBrief.styleRecipe = 'Der Zielflugplatz ist Gateway zum Zielort. Die Gaeste wollen nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder gepruefte Landmarken erleben. Keine Rueckkehr zum Heimatplatz behaupten.';
+    } else if (family === 'poi_sightseeing') {
+        briefingBrief.styleRecipe = 'Der POI selbst ist der Reisegrund und wird aus der Luft erlebt; das Briefing bleibt gastorientiert, nicht arbeits- oder einsatzartig.';
+    }
+    return briefingBrief;
+}
+window.buildMissionWriterV5BriefingBrief = _missionWriterV5BuildBriefingBrief;
+
+function buildMissionWriterV5Prompt(contract = {}, context = {}) {
+    const briefingBrief = _missionWriterV5BuildBriefingBrief(contract, context);
+    return `<INSTRUKTIONEN>
+Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
+Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
+
+Arbeitsweise:
+1. Nutze BRIEFING_BRIEF als kuratiertes Rohmaterial.
+2. Schreibe die Story als 3-5 zusammenhaengende deutsche Saetze.
+3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
+4. Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.
+5. desiredIngredients sind nur Zutaten. Du musst sie nicht einzeln sichtbar abarbeiten.
+6. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur aus targetFacts/storyIngredients verwenden.
+7. Private Genussgruende bei apt_private_outing duerfen charmant erfunden werden, bleiben aber weiche Privatstory, keine neue harte Ortsfakten.
+8. Keine Systemwoerter und keine sichtbaren Feldnamen.
+9. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
+10. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
+11. Nutze normale deutsche Umlaute.
+
+<BRIEFING_BRIEF>
+${JSON.stringify(briefingBrief)}
+</BRIEFING_BRIEF>
+
+<OUTPUT>
+Antworte ausschliesslich als JSON ohne Markdown:
+{
+  "title": "Kurzer, passender Missionstitel",
+  "story": "3-5 natuerliche Saetze als zusammenhaengender Dispatch-Zettel",
+  "pax": "z.B. 1 PAX (...) oder 0 PAX",
+  "cargo": "z.B. Tagesrucksack (12 lbs)",
+  "targetInfo": "Bei POI: 2-3 sachliche Saetze fuer die Ziel-Info-Seite aus belegten Daten; bei A-B leerer String",
+  "passenger": {
+    "name": "Vollstaendiger Name",
+    "role": "Rolle oder Beziehung",
+    "gender": "male|female",
+    "personality": "3 Adjektive",
+    "dialectHint": "neutral oder leicht regional",
+    "roleProfile": "${String(contract?.profile?.roleProfile || 'general_passenger_v1')}",
+    "taskDomain": "${String(contract?.profile?.taskDomain || 'general')}",
+    "gTolerance": "niedrig|mittel|hoch",
+    "bankTolerance": "niedrig|mittel|hoch",
+    "cargoSensitivity": "niedrig|mittel|hoch",
+    "stomachSensitivity": "niedrig|mittel|hoch",
+    "comfortPriority": "niedrig|mittel|hoch",
+    "urgencyPriority": "niedrig|hoch",
+    "targetAltFt": 0,
+    "targetRadiusNm": 0,
+    "targetDwellMin": 0,
+    "greetingText": "Kurze persoenliche Begruessung mit konkretem Bezug zur gleichen Geschichte"
+  },
+  "sceneIntent": {
+    "summary": "Was am Ziel sichtbar sein soll oder warum keine Zielszene noetig ist",
+    "environment": "kurzer Umgebungsanker oder leer",
+    "visibleIdeas": [],
+    "avoid": [],
+    "densityHint": "none|sparse|normal|busy",
+    "notes": "kurzer Grund"
+  }
+}
+</OUTPUT>`;
+}
+window.buildMissionWriterV5Prompt = buildMissionWriterV5Prompt;
+
 function _missionPipelineV4StoryKeywords(text = '') {
     const stop = new Set([
         'der', 'die', 'das', 'und', 'oder', 'aber', 'eine', 'einer', 'einem', 'einen', 'eines', 'eines',
@@ -26414,6 +26773,417 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
     return fallbackStory();
 }
 
+function _missionWriterV5RouteSentence(contract = {}) {
+    const route = contract?.route || {};
+    const start = _missionWriterV5Text(route.startName || route.startIcao || '', 120);
+    const target = _missionWriterV5Text(route.targetName || route.targetIcao || contract?.target?.name || '', 120);
+    const distance = Number(route.distanceNm);
+    const distText = Number.isFinite(distance) && distance > 0 ? `, rund ${Math.round(distance)} NM` : '';
+    if (start && target) return `Heute geht es von ${start} nach ${target}${distText}.`;
+    if (target) return `Heute geht es nach ${target}${distText}.`;
+    return '';
+}
+
+function _missionWriterV5WeatherSentence(contract = {}, family = '') {
+    const summary = _missionWriterV5WeatherSummary(contract);
+    if (!summary) return '';
+    const tempMatch = summary.match(/(-?\d{1,2})\s*(?:°\s*C|grad\b)/i);
+    const temp = tempMatch ? Number(tempMatch[1]) : NaN;
+    if (Number.isFinite(temp) && temp >= 30) {
+        if (family === 'apt_private_outing') return `Bei ${Math.round(temp)}°C klingt der Plan am Ziel gleich noch besser: erst der Flug, dann Schatten, etwas Kühles und Zeit miteinander.`;
+        if (family === 'apt_sightseeing') return `Bei ${Math.round(temp)}°C bleibt der Flug der angenehme Auftakt, bevor am Ziel erst einmal Schatten, Wasser und ein ruhiger erster Weg zählen.`;
+    }
+    if (Number.isFinite(temp)) return `Das Wetter gibt dem Flug mit etwa ${Math.round(temp)}°C einen passenden Rahmen.`;
+    return `Das Wetter passt als kurzer Realitätsanker: ${summary}.`;
+}
+
+function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'die Gäste') {
+    const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
+    if (name && role && !/^(gast|passagier|passagierin|pax)$/i.test(role)) return `${name}, ${role}`;
+    if (name) return name;
+    if (role && !/^(gast|passagier|passagierin|pax)$/i.test(role)) return role;
+    return fallback;
+}
+
+function _missionWriterV5PassengerFirstName(passenger = {}) {
+    const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return name.split(/\s+/)[0] || '';
+}
+
+function _missionWriterV5SightseeingGroupLabel(passenger = {}) {
+    const firstName = _missionWriterV5PassengerFirstName(passenger);
+    return firstName ? `${firstName} und die Gäste` : 'Die Gäste';
+}
+
+function _missionWriterV5PrivateHook(contract = {}, passenger = {}, context = {}) {
+    const cargo = normalizeMissionText(context?.cargoText || contract?.storyFrame?.shipment || contract?.missionPlan?.plan?.cargo || '');
+    const place = _missionWriterV5PlaceLabel(contract);
+    if (/\b(bade|schwimm|see|meer|handtuch|bikini|badehose)\b/.test(cargo)) {
+        return `am Ziel eine verdiente Abkühlung am Wasser einplanen`;
+    }
+    if (/\b(wander|schuhe|rucksack|berg|tour)\b/.test(cargo)) {
+        return `nach der Landung eine kleine Wander- oder Aussichtsrunde starten`;
+    }
+    if (/\b(kamera|foto|stativ)\b/.test(cargo)) {
+        return `in ${place} ein paar Motive suchen und den Tag mit Fotos mitnehmen`;
+    }
+    if (/\b(einkauf|tasche|korb|markt)\b/.test(cargo)) {
+        return `ein paar Besorgungen erledigen und danach noch einen Kaffee dranhängen`;
+    }
+    if (/\b(wellness|wochenend|jacke)\b/.test(cargo)) {
+        return `aus dem Flug einen kleinen Wellness- oder Wochenendmoment machen`;
+    }
+    const frameText = [
+        contract?.storyFrame?.subjectDetail,
+        contract?.storyFrame?.incidentContext,
+        contract?.storyFrame?.whyNow,
+        contract?.storyFrame?.soughtOutcome
+    ].map(x => String(x || '').trim()).join(' ');
+    if (frameText && !_missionPipelineV4LooksInternalMissionText(frameText)) {
+        const sentence = _missionPipelineV4SentenceParts(frameText)[0] || frameText;
+        if (sentence && sentence.length >= 30) return _missionPipelineV4StripSentenceEnd(sentence);
+    }
+    return `den kleinen Zielplan am Boden genießen: Kaffee, Bummel und ein guter Grund, das Flugzeug heute wirklich zu nehmen`;
+}
+
+function _missionWriterV5AptSightseeingAttractions(contract = {}) {
+    const target = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'den Zielort', 120);
+    const anchors = _missionSightseeingAptRegionAnchors(
+        target,
+        _missionSightseeingAptKnowledgeContext(contract),
+        0
+    );
+    const names = Array.isArray(anchors?.attractionNames)
+        ? anchors.attractionNames.map(x => String(x || '').trim()).filter(Boolean)
+        : [];
+    if (anchors?.source === 'wiki' && names.length) return _missionPipelineV4JoinNaturalList(names.slice(0, 3));
+    const key = normalizeMissionText(target);
+    if (/\bfreiburg\b/.test(key)) return 'Altstadt, Münster, Bächle und Schlossberg';
+    return 'Ortskern, Aussicht und ein paar gute Fotomotive';
+}
+
+function _missionWriterV5SentenceJoin(sentences = []) {
+    return _missionPipelineV4PolishGermanVisibleText(
+        sentences
+            .map(sentence => _missionPipelineV4EnsureSentence(sentence))
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+    );
+}
+
+function _missionWriterV5UsableStoryFact(fact = '') {
+    const clean = _missionWriterV5Text(fact, 180);
+    if (!clean) return '';
+    const normalized = normalizeMissionText(clean);
+    if (/^(zielbezug ist|startflugplatz ist|umfeld:)/.test(normalized)) return '';
+    if (/\broad \d|bearing \d|nearest_|target-category|dryrun synthetic\b/.test(normalized)) return '';
+    if (/\b(roadside|vehicle placement|placement plausible|parking anchor|waterline|meadow|farmland|bearing|anchor)\b/.test(normalized)) return '';
+    return clean;
+}
+
+function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
+    const family = _missionWriterV5MissionFamily(contract);
+    const passenger = context?.passenger || {};
+    if (family === 'bush_pickup_return') {
+        return _missionPipelineV4ComposeBushPickupBriefingStory(contract, passenger, context?.sourceStory || '');
+    }
+    if (family === 'cargo_transport') {
+        return _missionPipelineV4ComposeCargoTransportStory(contract, context);
+    }
+    if (family === 'sar_heli') {
+        return _missionPipelineV4ComposeSarHeliStory(contract, context?.sourceStory || '');
+    }
+    if (family === 'search_and_rescue' || family === 'infra_chain_recon') {
+        return _missionPipelineV4ComposeStoryFallback(contract, context);
+    }
+    const routeSentence = _missionWriterV5RouteSentence(contract);
+    const weatherSentence = _missionWriterV5WeatherSentence(contract, family);
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
+    const place = _missionWriterV5PlaceLabel(contract);
+    if (family === 'apt_private_outing') {
+        const hook = _missionWriterV5PrivateHook(contract, passenger, context);
+        const pax = _missionWriterV5PassengerFirstName(passenger) || 'dein Mitflieger';
+        return _missionWriterV5SentenceJoin([
+            routeSentence || `Heute geht es nach ${targetName}`,
+            `${pax} und du wollt dort ${_missionPipelineV4LowerFirst(_missionPipelineV4StripSentenceEnd(hook))}`,
+            weatherSentence,
+            `Nach dem Abstellen reicht ein ruhiger Gang vom Vorfeld; macht euch keinen Stress, genießt den Flug und nehmt den freien Tag am Ziel mit`
+        ]);
+    }
+    if (family === 'apt_sightseeing') {
+        const attractions = _missionWriterV5AptSightseeingAttractions(contract);
+        const pax = _missionWriterV5SightseeingGroupLabel(passenger);
+        return _missionWriterV5SentenceJoin([
+            routeSentence || `Heute geht es nach ${targetName}`,
+            `${pax} wollen ${place} nach der Landung wirklich anschauen: ${attractions} geben dem Ausflug den Grund`,
+            weatherSentence,
+            `Nach dem Abstellen geht es vom Vorfeld in den Zielort, mit Kamera oder Tagesrucksack und genug Zeit für den ersten Eindruck`
+        ]);
+    }
+    if (family === 'poi_sightseeing') {
+        const fact = _missionWriterV5Array(context?.briefingBrief?.targetFacts || [], 5, 180)
+            .map(_missionWriterV5UsableStoryFact)
+            .find(Boolean);
+        const pax = _missionWriterV5SightseeingGroupLabel(passenger);
+        return _missionWriterV5SentenceJoin([
+            `${pax} freuen sich heute auf ${targetName}; der Blick aus der Luft ist der eigentliche Reisegrund`,
+            fact ? `${fact} Genau deshalb lohnt sich die ruhige Runde über dem Ziel.` : 'Der Flug soll den Ort aus der Luft einordnen, ohne daraus einen Arbeitsauftrag zu machen',
+            weatherSentence,
+            `Nach dem Blickmoment geht es sauber zurück zum Startplatz`
+        ]);
+    }
+    const ingredients = _missionWriterV5Array(context?.briefingBrief?.storyIngredients || [], 3, 180);
+    return _missionWriterV5SentenceJoin([
+        routeSentence || `Heute steht ${targetName} auf dem Dispatch-Zettel`,
+        ingredients[0] || `Der Anlass ist klar genug, damit der Flug mehr ist als ein zufälliger A-B-Hop`,
+        ingredients[1] || weatherSentence,
+        ingredients[2] || `Nach der Landung zählt ein sauberer Abschluss am Ziel`
+    ]);
+}
+
+function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context = {}) {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const reasons = [];
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    const isAptSightseeing = taskDomain === 'sightseeing_tour' && _missionSightseeingContractIsApt(contract);
+    if (!raw) reasons.push('empty_writer_story');
+    if (raw && _missionPipelineV4LooksEnglish(raw)) reasons.push('english_story');
+    if (raw && _missionPipelineV4LooksInternalMissionText(raw)) reasons.push('internal_text');
+    if (raw && _missionPipelineV4LooksFragmentedStory(raw)) reasons.push('fragmented_story');
+    if (raw && _missionPipelineV4LooksEnumerative(raw)) reasons.push('enumerative_story');
+    if (raw && raw.length < 120) reasons.push('too_short');
+    if (raw && _missionPipelineV4SentenceCount(raw) < 2) reasons.push('too_few_sentences');
+    if (raw) {
+        const normalized = normalizeMissionText(raw);
+        if (taskDomain === 'sightseeing_tour') {
+            const wrongDomain = /\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|arbeitsauftrag|uebergabe|übergabe\b/.test(normalized);
+            const hasSightseeingMotive = /\bsightseeing|panorama|rundflug|aussicht|blick|sehenswuerdig|sehenswürdig|landmarke|landmarken|altstadt|ortskern|schloss|museum|fotomotiv|fotomotive|fotos|spaziergang|zielregion|reisegrund|besuchswunsch|ausflug\b/.test(normalized);
+            if (wrongDomain) reasons.push('sightseeing_wrong_domain');
+            if (!hasSightseeingMotive) reasons.push('sightseeing_weak_motive');
+        } else if (taskDomain === 'private_outing') {
+            if (/\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|arbeitsauftrag|uebergabe|übergabe\b/.test(normalized)) {
+                reasons.push('private_outing_wrong_domain');
+            }
+        }
+    }
+    if (isAptSightseeing) {
+        const normalized = normalizeMissionText(raw);
+        const claimsReturn = /\b(rueckkehr|ruckkehr|zurueck zum start|zuruck zum start|zurueck zum heimat|zuruck zum heimat|rundflug)\b/.test(normalized);
+        const hasLandingPlan = /\b(nach der landung|abstellen|aussteigen|vorfeld|zielort|ortskern|spaziergang|cafe|fotos?)\b/.test(normalized);
+        if (claimsReturn && !hasLandingPlan) reasons.push('apt_sightseeing_roundtrip_drift');
+    }
+    if (taskDomain === 'private_outing' && raw && _missionPipelineV4PrivateOutingBriefingNeedsFallback(raw, context?.passenger || {}, contract)) {
+        reasons.push('private_outing_weak_motive');
+    }
+    return reasons;
+}
+
+function _missionWriterV5FinalizeStory(story = '', contract = {}, context = {}) {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const reasons = _missionWriterV5StoryFallbackReasons(raw, contract, context);
+    if (!reasons.length) {
+        return {
+            story: _missionPipelineV4EnsureCargoRouteContext(_missionPipelineV4PolishGermanVisibleText(raw), contract),
+            fallbackReason: '',
+            acceptedRaw: true
+        };
+    }
+    const fallback = _missionWriterV5ComposeFallbackStory(contract, {
+        ...context,
+        sourceStory: raw
+    });
+    return {
+        story: _missionPipelineV4EnsureCargoRouteContext(fallback, contract),
+        fallbackReason: reasons.join(','),
+        acceptedRaw: false
+    };
+}
+
+function _missionWriterV5EnsurePassenger(passenger = {}, contract = {}, context = {}) {
+    const mode = normalizeMissionType(contract?.mode || contract?.route?.mode || '', !!contract?.target?.isPOI);
+    const profileId = String(contract?.profile?.id || '').trim() || 'auto';
+    const profile = getMissionTaskProfile(profileId, mode) || getMissionTaskProfile('auto', mode) || null;
+    const locked = contract?.followUpContext?.lockedPassenger && typeof contract.followUpContext.lockedPassenger === 'object'
+        ? contract.followUpContext.lockedPassenger
+        : null;
+    let pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+    if (locked?.name) pax = { ...pax, ...locked };
+    if (!String(pax.name || '').trim() && profile) {
+        const generated = buildMissionProfilePassenger(pax, profile, !!contract?.target?.isPOI, context?.storyHint || '', { _missionContractV4: contract });
+        pax = {
+            ...generated,
+            ...pax
+        };
+        ['name', 'role', 'personality', 'dialectHint', 'greetingText'].forEach(key => {
+            if (!String(pax[key] || '').trim() && generated?.[key]) pax[key] = generated[key];
+        });
+    }
+    pax.roleProfile = String(contract?.profile?.roleProfile || pax.roleProfile || 'general_passenger_v1');
+    pax.taskDomain = String(contract?.profile?.taskDomain || pax.taskDomain || 'general');
+    const genderRaw = String(pax.gender || '').trim().toLowerCase();
+    pax.gender = genderRaw === 'female' ? 'female' : 'male';
+    if (profile && _missionWriterV5PassengerConflictsTask(pax, profile.taskDomain)) {
+        const generated = buildMissionProfilePassenger(null, profile, !!contract?.target?.isPOI, '', { _missionContractV4: contract }) || {};
+        pax = {
+            ...generated,
+            roleProfile: String(contract?.profile?.roleProfile || generated.roleProfile || 'general_passenger_v1'),
+            taskDomain: String(contract?.profile?.taskDomain || generated.taskDomain || 'general')
+        };
+        const nextGender = String(pax.gender || '').trim().toLowerCase();
+        pax.gender = nextGender === 'female' ? 'female' : 'male';
+    }
+    return pax;
+}
+
+function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    const contract = context.missionContractV4 || {};
+    const plan = contract?.missionPlan?.plan || {};
+    const briefingBrief = _missionWriterV5BuildBriefingBrief(contract, context);
+    const requiredRoleProfile = String(contract?.profile?.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
+    const requiredTaskDomain = String(contract?.profile?.taskDomain || plan.taskDomain || 'general').toLowerCase();
+    const isPOI = !!context.isPOI;
+    const sceneIntent = sanitizeMissionSceneIntentSpec(src.sceneIntent || null, {
+        isPOI,
+        taskDomain: requiredTaskDomain
+    });
+    if (String(plan.sceneKind || '').toLowerCase() === 'none') {
+        sceneIntent.visibleIdeas = [];
+        sceneIntent.densityHint = 'none';
+        if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
+    }
+    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? src.passenger : {};
+    let passenger = enforcePoiPassengerAltitudeRule({
+        ...passengerRaw,
+        roleProfile: requiredRoleProfile,
+        taskDomain: requiredTaskDomain
+    }, isPOI, context.poiTerrainFt);
+    if (contract?.knowledgeContext && typeof contract.knowledgeContext === 'object') {
+        passenger.knowledgeContext = contract.knowledgeContext;
+    }
+    passenger = _missionWriterV5EnsurePassenger(passenger, contract, {
+        ...context,
+        storyHint: src.story || ''
+    });
+    passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
+    if (requiredTaskDomain === 'private_outing') {
+        passenger = _missionPrivateOutingNormalizePassenger(passenger, getMissionTaskProfile('private_outing', 'apt'), contract);
+    }
+    let writerStoryText = String(src.story || '').trim();
+    if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
+        const previousPassenger = { ...passenger };
+        const chainPassenger = _missionPipelineV4PoiChainBriefPassenger(contract, passenger);
+        if (chainPassenger?.name) {
+            const previousName = String(previousPassenger.name || '').trim();
+            const nextName = String(chainPassenger.name || '').trim();
+            if (previousName && nextName && previousName !== nextName) {
+                writerStoryText = _replaceMissionPassengerNameText(writerStoryText, previousName, nextName);
+            }
+            passenger = {
+                ...passenger,
+                ...chainPassenger,
+                roleProfile: requiredRoleProfile,
+                taskDomain: requiredTaskDomain
+            };
+        }
+    }
+    const missionType = normalizeMissionType(context.missionType || contract.mode || '', isPOI);
+    const draftTargetScene = sanitizeMissionTargetSceneSpec(null, {
+        isPOI,
+        taskDomain: requiredTaskDomain,
+        targetGeoContext: context.targetGeoContext || null,
+        missionPlanV2: context.missionPlanV2 || null
+    });
+    const finalized = _missionWriterV5FinalizeStory(writerStoryText, contract, {
+        passenger,
+        briefingBrief,
+        cargoText: src.cargo || context.cargoText || ''
+    });
+    let finalStory = finalized.story;
+    const writerCargo = String(src.cargo || '').trim();
+    let finalCargo = writerCargo;
+    if (_missionPipelineV4IsCargoTransportContract(contract, requiredTaskDomain, { cargoText: writerCargo })
+        && _missionPipelineV4CargoLabelTooGeneric(writerCargo)) {
+        finalCargo = _missionPipelineV4CargoLabel(contract, { cargoText: '' });
+    }
+    const nameAligned = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract, finalStory);
+    passenger = nameAligned.passenger;
+    finalStory = nameAligned.story;
+    passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+    if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
+        finalStory = _missionPipelineV4PolishGermanVisibleText(finalStory);
+        if (passenger?.greetingText) passenger.greetingText = _missionPipelineV4PolishGermanVisibleText(passenger.greetingText);
+    }
+    const targetInfo = isPOI
+        ? sanitizeGeneratedPoiTargetInfo(src.targetInfo || src.poiTargetInfo || src.destinationInfo || '', { maxLen: 760 })
+        : '';
+    const profileId = String(contract?.profile?.id || context.dispatchProfileId || context.selectedProfile || requiredTaskDomain || 'auto').toLowerCase();
+    const family = briefingBrief.missionFamily || _missionWriterV5MissionFamily(contract);
+    const rawTitle = _missionWriterV5Text(src.title || '', 120);
+    const finalTitle = _missionWriterV5TitleNeedsFallback(rawTitle, contract, requiredTaskDomain, isPOI)
+        ? _missionWriterV5DefaultTitle(contract, family)
+        : rawTitle;
+    return {
+        t: finalTitle,
+        s: finalStory,
+        pax: String(src.pax || '').trim(),
+        cargo: finalCargo,
+        knowledgeContext: contract?.knowledgeContext || null,
+        targetInfo,
+        passenger,
+        sceneIntent,
+        targetScene: draftTargetScene,
+        sceneCompositionStatus: 'draft',
+        targetSceneDebug: {
+            source: context.source || 'Mission Writer V5',
+            sceneIntentRaw: src.sceneIntent || null,
+            sceneIntent,
+            aiRaw: null,
+            normalized: draftTargetScene,
+            pendingComposer: true
+        },
+        _missionWriterV4Debug: {
+            source: 'Mission Writer V5',
+            writerMode: 'v5',
+            taskDomain: requiredTaskDomain,
+            missionFamily: family,
+            hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
+            rawStoryLength: String(src.story || '').trim().length,
+            finalStoryLength: finalStory.length,
+            storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
+            fallbackReason: finalized.fallbackReason || '',
+            writerAccepted: !!finalized.acceptedRaw,
+            rawTitle,
+            titleChangedByFinalize: rawTitle !== finalTitle,
+            briefingRoute: !!briefingBrief.route,
+            briefingWeather: !!briefingBrief.weather,
+            briefingFacts: Array.isArray(briefingBrief.targetFacts) ? briefingBrief.targetFacts.length : 0,
+            finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
+                ? _missionPipelineV4LooksEnumerative(finalStory)
+                : null,
+            finalSentenceCount: typeof _missionPipelineV4SentenceCount === 'function'
+                ? _missionPipelineV4SentenceCount(finalStory)
+                : null
+        },
+        i: '📋',
+        cat: String(plan.targetCategory || context.selectedCategory || (isPOI ? 'poi' : 'std')).toLowerCase(),
+        missionType,
+        missionSubType: context?.poiChain?.points?.length ? 'poi_chain' : undefined,
+        poiChain: context?.poiChain || contract?.poiChain || null,
+        profileId,
+        _requestedProfile: profileId,
+        _appliedProfile: profileId,
+        _missionPlanV2: context.missionPlanV2 || null,
+        _missionPlanV4: contract,
+        _missionContractV4: contract,
+        _source: context.source || 'Mission Writer V5'
+    };
+}
+window.sanitizeMissionWriterV5Payload = sanitizeMissionWriterV5Payload;
+
 function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     const src = (raw && typeof raw === 'object') ? raw : {};
     const contract = context.missionContractV4 || {};
@@ -26555,6 +27325,29 @@ async function fetchMissionWriterV4(context = {}) {
     });
 }
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
+
+async function fetchMissionWriterV5(context = {}) {
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
+    const contract = context.missionContractV4 || null;
+    if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
+    const result = await fetchGeminiJsonWithFallback(
+        buildMissionWriterV5Prompt(contract, context),
+        apiKey,
+        { promptVersion: 'mission-writer-v5', timeoutMs: 16000 }
+    );
+    if (!result?.parsed) {
+        return sanitizeMissionWriterV5Payload({}, {
+            ...context,
+            source: 'Local Fallback + V5 Writer'
+        });
+    }
+    return sanitizeMissionWriterV5Payload(result.parsed, {
+        ...context,
+        source: `${result.source || 'Gemini'} + V5 Writer`
+    });
+}
+window.fetchMissionWriterV5 = fetchMissionWriterV5;
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -29318,7 +30111,8 @@ async function generateMission(options = {}) {
         }
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
-                m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4({
+                const writerMode = getMissionWriterMode();
+                const writerContext = {
                     missionContractV4,
                     missionPlanV2,
                     missionType: requestedMissionType,
@@ -29336,7 +30130,10 @@ async function generateMission(options = {}) {
                         pickupPassenger: plannerContext.followUpContext?.lockedPassenger || null,
                         storyHint: initialBushPickupStoryHint
                     })
-                }));
+                };
+                m = await dispatchMeasure(writerMode === 'v5' ? 'writer_v5_bush' : 'writer_v4_bush', async () => (
+                    writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
+                ));
             }
             if (!m) {
                 m = await dispatchMeasure('writer_legacy_bush', async () => fetchGeminiMission(
@@ -29646,7 +30443,8 @@ async function generateMission(options = {}) {
             dataSource = followupDispatchMission.dataSource || 'Follow-up Dispatcher';
         }
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
-            m = await dispatchMeasure('writer_v4_main', async () => fetchMissionWriterV4({
+            const writerMode = getMissionWriterMode();
+            const writerContext = {
                 missionContractV4,
                 missionPlanV2,
                 missionType: requestedMissionType,
@@ -29657,7 +30455,10 @@ async function generateMission(options = {}) {
                 targetGeoContext: preMissionTargetGeoContext,
                 sarHeli: sarHeliSpec,
                 bushSpec: null
-            }));
+            };
+            m = await dispatchMeasure(writerMode === 'v5' ? 'writer_v5_main' : 'writer_v4_main', async () => (
+                writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
+            ));
             if (!isPOI && m && String(missionContractV4?.profile?.taskDomain || '').toLowerCase() === 'private_outing') {
                 const outingProfile = getMissionTaskProfile('private_outing', 'apt');
                 if (outingProfile) {
@@ -29745,7 +30546,13 @@ async function generateMission(options = {}) {
             m.cargoText = cargoText;
         }
         if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
-            console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
+            console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', {
+                dispatchProfileId,
+                mission: m?.t || 'n/a',
+                roleProfile: m?.passenger?.roleProfile || '',
+                taskDomain: m?.passenger?.taskDomain || '',
+                storyPreview: String(m?.s || m?.story || '').replace(/\s+/g, ' ').trim().slice(0, 260)
+            });
             m = null;
         }
 
@@ -30131,6 +30938,7 @@ async function generateMission(options = {}) {
             || missionPlanV2?.variety
             || null,
         missionPipelineMode: getMissionPipelineMode(),
+        missionWriterMode: getMissionWriterMode(),
         dispatchPerf: dispatchPerfSnapshot(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
@@ -30475,6 +31283,7 @@ async function generateMission(options = {}) {
             missionPlanV4: currentMissionData.missionPlanV4 || activeMissionContract.missionPlanV4 || null,
             missionPlanV3: currentMissionData.missionPlanV3 || null,
             missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
+            missionWriterMode: currentMissionData.missionWriterMode || getMissionWriterMode(),
             missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
             missionPipelineV3Enabled: isMissionPipelineV3Enabled(),
             missionPipelineV4Enabled: isMissionPipelineV4Enabled(),

@@ -3833,6 +3833,8 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'v3'))).toUpperCase();
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
+        const writerMode = String(missionSnap.missionWriterMode || (window.getMissionWriterMode ? window.getMissionWriterMode() : '') || '').toUpperCase();
+        if (writerMode) lines.push(`- Mission Writer: ${writerMode}`);
         const poiChainDebug = (window.gaPoiChainDebug && typeof window.gaPoiChainDebug === 'object') ? window.gaPoiChainDebug : {};
         const poiChainForce = typeof window.getPoiChainDebugForceValue === 'function' ? window.getPoiChainDebugForceValue() : '';
         const poiChainSpec = missionSnap.poiChain || missionSnap.contract?.poiChain || null;
@@ -3938,6 +3940,7 @@ window.vpBuildWeatherDebugReport = function() {
             const sd = missionSnap.storyDebug;
             const storyBits = [];
             if (sd.source) storyBits.push(`source=${String(sd.source)}`);
+            if (sd.writerMode) storyBits.push(`mode=${String(sd.writerMode).toUpperCase()}`);
             if (sd.stage) storyBits.push(`stage=${String(sd.stage)}`);
             if (Number.isFinite(Number(sd.rawStoryLength))) storyBits.push(`raw=${Number(sd.rawStoryLength)}`);
             if (Number.isFinite(Number(sd.writerLength))) storyBits.push(`writer=${Number(sd.writerLength)}`);
@@ -3948,6 +3951,8 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.passengerNoteAdded === 'boolean') storyBits.push(`paxNote=${sd.passengerNoteAdded ? 'ja' : 'nein'}`);
             if (typeof sd.writerComplete === 'boolean') storyBits.push(`complete=${sd.writerComplete ? 'ja' : 'nein'}`);
             if (typeof sd.writerUsable === 'boolean') storyBits.push(`usable=${sd.writerUsable ? 'ja' : 'nein'}`);
+            if (typeof sd.writerAccepted === 'boolean') storyBits.push(`accepted=${sd.writerAccepted ? 'ja' : 'nein'}`);
+            if (sd.fallbackReason) storyBits.push(`fallback=${String(sd.fallbackReason)}`);
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
@@ -4471,6 +4476,7 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
     if (show) {
         window.vpUpdateObsTileOverlayButtonUi && window.vpUpdateObsTileOverlayButtonUi();
         window.updateMissionPipelineV2ButtonUi && window.updateMissionPipelineV2ButtonUi();
+        window.updateMissionWriterModeButtonUi && window.updateMissionWriterModeButtonUi();
         window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
     }
 };
