@@ -14983,8 +14983,8 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
         case 'hiking':
             return {
                 plan: 'eine kleine Wanderung starten',
-                draw: 'die erste schöne Runde mit Wanderschuhen',
-                hook: 'Die Wanderschuhe sind dabei, weil die erste schöne Runde nicht im Auto beginnen soll.',
+                draw: 'die kleine Runde mit Aussicht',
+                hook: 'Die Wanderschuhe liegen hinten; nach dem Abstellen geht es direkt raus auf den ersten ruhigen Weg.',
                 reward: 'den ersten ruhigen Weg mit Rucksack und Wanderschuhen',
                 cargo: 'Rucksack und Wanderschuhe'
             };
@@ -15167,7 +15167,7 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         `Servus! Heute geht's ganz entspannt ${routePhrase}; ${pair} wollt dort ${spec.plan}. ${spec.hook}`,
         `Ab nach ${title}: Euer Plan ist simpel: ${spec.draw}. ${spec.hook}`,
         `${title} ist heute euer kleiner Vorfreude-Punkt: ${pair} wollt dort ${spec.plan}. ${spec.hook}`,
-        `${withPax} geht es heute nach ${title}: ${spec.draw}. ${spec.hook}`,
+        `${withPax} geht es heute nach ${title}; dort wartet ${spec.draw}. ${spec.hook}`,
         `Heute bleibt es herrlich privat: ${withPax} nimmst du Kurs auf ${title}; ${spec.draw} ist der Plan. ${spec.hook}`
     ];
     const line1 = line1Options[variant % line1Options.length];
@@ -24735,6 +24735,251 @@ function _missionWriterV5QualityQuestions(taskDomain = '', family = '') {
     ];
 }
 
+const MISSION_WRITER_V5_DOMAIN_RECIPES = {
+    apt_private_outing: {
+        tone: 'warme, lockere Pinnwand-Notiz mit Lust auf den privaten Fly-out',
+        perspective: 'Dispatcher an Pilot; privater gemeinsamer Tag, kein Auftrag',
+        length: '3-5 Sätze',
+        softFreedom: 'Private Genussgründe dürfen charmant erfunden werden, solange sie keine harten Ortsfakten behaupten.',
+        requiredMeaning: [
+            'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel.',
+            'Der Zielplan hat einen konkreten, sinnlichen Grund.',
+            'Der Flug wirkt wie Teil des gemeinsamen Tages, nicht wie Taxi oder Sightseeing.'
+        ],
+        qualityQuestions: [
+            'Worauf freuen sich Pilot und Mitflieger am Ziel wirklich?',
+            'Welcher kleine Genuss- oder Tagesplan macht den Fly-out besonders?',
+            'Klingen Route, Wetter und Abschluss wie ein natürlicher Dispatch-Zettel?'
+        ],
+        styleRecipe: 'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel; der Zielplan darf charmant und sinnlich sein, z.B. Burger, Kaffee, See, Museum, Wandern oder ein anderer plausibler Privatgrund. Der Genussgrund darf frei erfunden werden, solange er keine harte Ortsfakt-Behauptung wird.'
+    },
+    apt_sightseeing: {
+        tone: 'professionelle, freundliche A-B-Sightseeing-Notiz mit konkretem Zielort-Grund',
+        perspective: 'Dispatcher an Pilot; Zielflugplatz als Gateway zum Besuch am Boden',
+        length: '4-5 Sätze',
+        softFreedom: 'Allgemeine Besuchspläne wie Ortskern, Aussicht, Fotos oder Café sind erlaubt; echte Sehenswürdigkeiten nur aus Faktenbasis.',
+        requiredMeaning: [
+            'Der Zielflugplatz ist der Zugang zur Zielregion.',
+            'Die Gäste haben nach der Landung einen konkreten Besuchswunsch.',
+            'Keine Rückkehr zum Heimatplatz behaupten, wenn der Contract A-B ist.'
+        ],
+        qualityQuestions: [
+            'Warum wollen die Gäste genau diesen Zielort besuchen?',
+            'Was passiert nach dem Abstellen am Zielplatz?',
+            'Welche 1-2 belegten oder plausiblen Zielanker tragen die Geschichte?'
+        ],
+        styleRecipe: 'Der Zielflugplatz ist Gateway zum Zielort. Die Gäste wollen nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder geprüfte Landmarken erleben. Keine Rückkehr zum Heimatplatz behaupten.'
+    },
+    poi_sightseeing: {
+        tone: 'ruhige, hochwertige Sightseeing-Notiz mit dem POI als Reisegrund',
+        perspective: 'Dispatcher an Pilot; der Überflug selbst ist der Blickmoment',
+        length: '3-5 Sätze',
+        softFreedom: 'Persönliche Foto-, Erinnerungs- oder Orientierungsmotive sind erlaubt; harte POI-Fakten nur aus Faktenbasis.',
+        requiredMeaning: [
+            'Der POI selbst ist der Reisegrund.',
+            'Der Blick aus der Luft ist der Kern der Mission.',
+            'Der Text bleibt gastorientiert und nicht einsatz- oder arbeitsartig.'
+        ],
+        qualityQuestions: [
+            'Warum ist dieser POI für die Gäste interessant?',
+            'Was soll der Luftblick zeigen, das vom Boden weniger stark wäre?',
+            'Bleibt der Ton Sightseeing statt Inspektion oder Lagebild?'
+        ],
+        styleRecipe: 'Der POI selbst ist der Reisegrund und wird aus der Luft erlebt; das Briefing bleibt gastorientiert, nicht arbeits- oder einsatzartig.'
+    },
+    news_coverage: {
+        tone: 'lokale Reporter-Notiz mit beobachtbarem redaktionellem Anlass',
+        perspective: 'Dispatcher an Pilot; Redaktion braucht Bilder, Überblick oder Einordnung',
+        length: '4-6 Sätze',
+        softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen: Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel.',
+        requiredMeaning: [
+            'Ein konkreter redaktioneller Aufhänger trägt den Flug.',
+            'Der Luftblick klärt, zeigt oder ordnet etwas Sichtbares ein.',
+            'Nach dem Überflug gibt es Material oder Einordnung für die Redaktion.'
+        ],
+        qualityQuestions: [
+            'Welcher konkrete redaktionelle Aufhänger trägt diesen Flug?',
+            'Was soll aus der Luft sichtbar, belegbar oder besser einzuordnen werden?',
+            'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
+        ],
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus dem Formular einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+    },
+    default: {
+        tone: 'kurzer, klarer Dispatcher-Zettel',
+        perspective: 'Dispatcher an Pilot; fachlich korrekt und zusammenhängend',
+        length: '4-5 Sätze',
+        softFreedom: 'Frei formulieren, aber keine harten Orts- oder Einsatzfakten ohne Datenbasis erfinden.',
+        requiredMeaning: [
+            'Missionsfamilie und Aufgabe bleiben klar.',
+            'Anlass, Ziel und nächster Schritt hängen natürlich zusammen.',
+            'Route, Entfernung und Wetter helfen nur, wenn sie den Text runder machen.'
+        ],
+        qualityQuestions: [
+            'Warum gibt es diesen Flug genau heute?',
+            'Was macht der Flug besser als ein beliebiger Weg zum Ziel?',
+            'Was passiert nach Landung, Rückkehr oder Überflug mit dem Ergebnis?'
+        ],
+        styleRecipe: 'Schreibe einen kurzen, zusammenhängenden Dispatch-Zettel. Nutze konkrete Rolle, Anlass, Flugnutzen und Ergebnis statt Listen- oder Formularsprache.'
+    }
+};
+
+function _missionWriterV5DomainRecipe(family = '', taskDomain = '') {
+    const key = String(family || taskDomain || '').toLowerCase();
+    return MISSION_WRITER_V5_DOMAIN_RECIPES[key]
+        || MISSION_WRITER_V5_DOMAIN_RECIPES[String(taskDomain || '').toLowerCase()]
+        || MISSION_WRITER_V5_DOMAIN_RECIPES.default;
+}
+
+function _missionWriterV5BuildRouteForm(contract = {}, routeLine = '') {
+    const route = contract?.route || {};
+    const distance = Number(route.distanceNm);
+    return {
+        from: _missionWriterV5Text(route.startName || route.startIcao || '', 120),
+        to: _missionWriterV5Text(route.targetName || route.targetIcao || contract?.target?.name || '', 120),
+        distanceNm: Number.isFinite(distance) && distance > 0 ? Math.round(distance) : null,
+        text: _missionWriterV5Text(routeLine || _missionWriterV5RouteLine(contract), 180)
+    };
+}
+
+function _missionWriterV5BuildPeopleForm(contract = {}, context = {}, family = '') {
+    const profile = contract?.profile || {};
+    const passenger = context?.passenger || contract?.passenger || contract?.activePassenger || {};
+    const passengerName = _missionWriterV5Text(passenger?.name || passenger?.fullName || '', 120);
+    const passengerRole = _missionWriterV5Text(passenger?.role || profile.roleLabel || profile.roleProfile || '', 120);
+    let relationshipOrFunction = passengerRole;
+    if (family === 'apt_private_outing') {
+        relationshipOrFunction = _missionWriterV5Text(passenger?.relationship || passenger?.role || 'Freund, Partner, Familie oder private Begleitung', 140);
+    } else if (String(profile.taskDomain || '').toLowerCase() === 'news_coverage') {
+        relationshipOrFunction = _missionWriterV5Text(passenger?.role || 'Reporter oder Redakteurin', 140);
+    } else if (String(profile.taskDomain || '').toLowerCase() === 'sightseeing_tour') {
+        relationshipOrFunction = _missionWriterV5Text(passenger?.role || 'Sightseeing-Gast oder kleine Gästerunde', 140);
+    }
+    return {
+        passengerName,
+        passengerRole,
+        relationshipOrFunction,
+        roleProfile: String(profile.roleProfile || passenger?.roleProfile || 'general_passenger_v1'),
+        taskDomain: String(profile.taskDomain || passenger?.taskDomain || 'general'),
+        onboardReason: _missionWriterV5FirstSpineValue([
+            passenger?.storySeed,
+            passenger?.personalStoryCue,
+            passenger?.greetingText,
+            contract?.storyFrame?.subjectDetail,
+            contract?.storyFrame?.trigger
+        ], 220)
+    };
+}
+
+function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context = {}, parts = {}) {
+    const spine = parts.storySpine || _missionWriterV5BuildStorySpine(contract, context);
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
+    const place = parts.place || _missionWriterV5PlaceLabel(contract);
+    const passenger = context?.passenger || contract?.passenger || {};
+    if (family === 'apt_private_outing') {
+        return {
+            privateActivity: _missionWriterV5PrivateHook(contract, passenger, context),
+            dayFeeling: _missionWriterV5FirstSpineValue([spine.whyNow, parts.weather], 180),
+            arrivalMood: 'Nach dem Abstellen beginnt der private Plan am Ziel, ohne Arbeits- oder Sightseeing-Auftrag.'
+        };
+    }
+    if (family === 'apt_sightseeing') {
+        return {
+            sightseeingInterest: spine.concreteAngle || spine.premise || `Besuch von ${place}`,
+            landingPlan: 'Nach der Landung geht es vom Zielflugplatz in den Zielort oder zur Zielregion.',
+            attractions: _missionWriterV5AptSightseeingAttractions(contract)
+        };
+    }
+    if (family === 'poi_sightseeing') {
+        return {
+            sightseeingInterest: spine.concreteAngle || spine.premise || `Blick auf ${targetName}`,
+            overflightFocus: spine.openQuestion || `Der Luftblick soll ${targetName} und seine Lage erlebbar machen.`,
+            returnFlow: 'Der Überflug ist der Kern; danach geht es ohne Arbeitsauftrag zurück.'
+        };
+    }
+    if (family === 'news_coverage') {
+        const angle = _missionWriterV5NewsConcreteAngle(spine.concreteAngle || spine.premise || '', targetName);
+        return {
+            reporterAngle: angle || `einen sichtbaren redaktionellen Anlass rund um ${targetName}`,
+            editorialQuestion: spine.openQuestion || spine.flightValue || 'Was ist aus der Luft sichtbar und journalistisch belastbar?',
+            editorialOutcome: spine.outcome || spine.completion || 'Bilder und kurze Einordnung gehen an die Redaktion.',
+            visibleContext: _missionWriterV5Unique([...(spine.visibleContext || []), ...(parts.targetFacts || [])], 5, 160)
+        };
+    }
+    return {
+        domainFocus: spine.concreteAngle || spine.subject || spine.premise || targetName,
+        flightValue: spine.flightValue || spine.openQuestion || '',
+        completion: spine.completion || spine.outcome || ''
+    };
+}
+
+function _missionWriterV5BuildBriefForm(contract = {}, context = {}, parts = {}) {
+    const plan = contract?.missionPlan?.plan || {};
+    const profile = contract?.profile || {};
+    const family = parts.family || _missionWriterV5MissionFamily(contract);
+    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain);
+    const route = _missionWriterV5BuildRouteForm(contract, parts.routeLine || '');
+    const storySpine = parts.storySpine || _missionWriterV5BuildStorySpine(contract, context);
+    const targetFacts = _missionWriterV5Array(parts.targetFacts || [], 7, 180);
+    const storyIngredients = _missionWriterV5Array(parts.storyIngredients || [], 9, 220);
+    const weather = parts.weather || _missionWriterV5WeatherSummary(contract);
+    const isPoi = !!contract?.target?.isPOI || !!context?.isPOI;
+    const form = {
+        formVersion: 'mission-brief-form-v5.1',
+        identity: {
+            missionFamily: family,
+            taskDomain: String(profile.taskDomain || 'general'),
+            roleProfile: String(profile.roleProfile || 'general_passenger_v1'),
+            mode: contract?.mode || (isPoi ? 'poi' : 'apt'),
+            targetType: isPoi ? 'poi' : 'apt'
+        },
+        route,
+        people: _missionWriterV5BuildPeopleForm(contract, context, family),
+        storyCore: {
+            premise: storySpine.premise || '',
+            concreteReason: storySpine.concreteAngle || storySpine.premise || '',
+            whyToday: storySpine.whyNow || '',
+            flightValue: storySpine.flightValue || storySpine.openQuestion || '',
+            targetFocus: storySpine.subject || _missionWriterV5Text(contract?.target?.name || route.to || '', 120),
+            successOutcome: storySpine.outcome || storySpine.completion || '',
+            nextStep: storySpine.completion || storySpine.outcome || ''
+        },
+        domainDetails: _missionWriterV5BuildDomainDetails(family, contract, context, {
+            storySpine,
+            place: parts.place || _missionWriterV5PlaceLabel(contract),
+            weather,
+            targetFacts
+        }),
+        facts: {
+            targetName: _missionWriterV5Text(contract?.target?.name || route.to || '', 120),
+            targetPlace: parts.place || _missionWriterV5PlaceLabel(contract),
+            targetCategory: _missionWriterV5Text(contract?.target?.poiCategory || profile.pickerCategory || plan.targetCategory || '', 80),
+            hardFacts: targetFacts,
+            storyIngredients,
+            visibleCues: _missionWriterV5Array(parts.geoHighlights || storySpine.visibleContext || [], 5, 140),
+            weatherAnchor: weather,
+            arrivalAnchor: parts.arrival || ''
+        },
+        style: {
+            tone: recipe.tone,
+            perspective: recipe.perspective,
+            length: recipe.length,
+            allowedFreedom: recipe.softFreedom,
+            styleRecipe: recipe.styleRecipe
+        },
+        quality: {
+            questions: recipe.qualityQuestions || _missionWriterV5QualityQuestions(profile.taskDomain, family),
+            requiredMeaning: recipe.requiredMeaning || [],
+            driftChecks: [
+                'Bleibt die Missionsfamilie klar?',
+                'Sind wer, warum, wohin und was danach spürbar?',
+                'Klingt der Text wie ein zusammenhängender Dispatch-Zettel statt wie ein Formular?'
+            ]
+        }
+    };
+    return form;
+}
+window.buildMissionWriterV5BriefForm = _missionWriterV5BuildBriefForm;
+
 function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
     const plan = contract?.missionPlan?.plan || {};
     const profile = contract?.profile || {};
@@ -24776,8 +25021,21 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         || contract?.airportDetails?.arrivalHint
         || ''
     , 180);
+    const missionBriefForm = _missionWriterV5BuildBriefForm(contract, context, {
+        family,
+        routeLine,
+        place,
+        weather: _missionWriterV5WeatherSummary(contract),
+        storySpine,
+        storyIngredients: ingredients,
+        targetFacts,
+        geoHighlights,
+        arrival
+    });
+    const recipe = _missionWriterV5DomainRecipe(family, profile.taskDomain);
     const briefingBrief = {
         writerVersion: 'v5',
+        missionBriefForm,
         missionFamily: family,
         mode: contract?.mode || (isPoi ? 'poi' : 'apt'),
         taskDomain: String(profile.taskDomain || 'general'),
@@ -24795,60 +25053,53 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         storyIngredients: ingredients,
         targetFacts,
         desiredIngredients: desired,
-        qualityQuestions: _missionWriterV5QualityQuestions(String(profile.taskDomain || 'general'), family),
-        tone: family === 'apt_private_outing'
-            ? 'warme, lockere Pinnwand-Notiz mit Lust auf den privaten Fly-out'
-            : (family === 'apt_sightseeing'
-                ? 'professionelle, freundliche A-B-Sightseeing-Notiz mit konkretem Zielort-Grund'
-                : (family === 'poi_sightseeing'
-                    ? 'ruhige, hochwertige Sightseeing-Notiz mit dem POI als Reisegrund'
-                    : 'kurzer, klarer Dispatcher-Zettel')),
+        qualityQuestions: missionBriefForm.quality.questions,
+        tone: missionBriefForm.style.tone,
         rules: [
             'Schreibe einen kurzen zusammenhaengenden freien Text, keine Liste.',
-            'storySpine ist die wichtigste Erzaehlabsicht. Nutze sie frei, nicht als sichtbares Schema.',
+            'missionBriefForm ist das wichtigste ausgefuellte Formular. Nutze es frei, nicht als sichtbares Schema.',
             'Baue Route, Entfernung, Wetter und Ankunft nur natuerlich ein, wenn sie in die Erzaehlung passen.',
-            'Nutze harte Orts- und Faktenaussagen nur aus storySpine, targetFacts oder storyIngredients.',
+            'Nutze harte Orts- und Faktenaussagen nur aus missionBriefForm.facts.hardFacts, storySpine, targetFacts oder storyIngredients.',
             'desiredIngredients sind Zutaten, keine abzuhakende Muss-Liste.',
             'qualityQuestions sind ein innerer Kompass, keine sichtbare Checkliste.',
             'Keine Systemwoerter wie Contract, Pipeline, Writer, mustMention, Handoff oder Profil.'
         ]
     };
-    if (family === 'apt_private_outing') {
-        briefingBrief.styleRecipe = 'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel; der Zielplan darf charmant und sinnlich sein, z.B. Burger, Kaffee, See, Museum, Wandern oder ein anderer plausibler Privatgrund. Der Genussgrund darf frei erfunden werden, solange er keine harte Ortsfakt-Behauptung wird.';
-    } else if (family === 'apt_sightseeing') {
-        briefingBrief.styleRecipe = 'Der Zielflugplatz ist Gateway zum Zielort. Die Gaeste wollen nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder gepruefte Landmarken erleben. Keine Rueckkehr zum Heimatplatz behaupten.';
-    } else if (family === 'poi_sightseeing') {
-        briefingBrief.styleRecipe = 'Der POI selbst ist der Reisegrund und wird aus der Luft erlebt; das Briefing bleibt gastorientiert, nicht arbeits- oder einsatzartig.';
-    } else if (String(profile.taskDomain || '').toLowerCase() === 'news_coverage') {
-        briefingBrief.styleRecipe = 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus storySpine einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus storySpine, targetFacts oder sichtbarem Kontext.';
-    }
+    briefingBrief.styleRecipe = recipe.styleRecipe;
     return briefingBrief;
 }
 window.buildMissionWriterV5BriefingBrief = _missionWriterV5BuildBriefingBrief;
 
 function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const briefingBrief = _missionWriterV5BuildBriefingBrief(contract, context);
+    const missionBriefForm = briefingBrief.missionBriefForm || _missionWriterV5BuildBriefForm(contract, context);
+    const legacyBriefingBrief = { ...briefingBrief };
+    delete legacyBriefingBrief.missionBriefForm;
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
 
 Arbeitsweise:
-1. Nutze BRIEFING_BRIEF als kuratiertes Rohmaterial.
+1. Nutze MISSION_BRIEF_FORM als ausgefuelltes Missionsformular. Es enthaelt Identitaet, Route, Personen, Story-Kern, Missionsdetails, Fakten, Stil und Qualitaetskompass.
 2. Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.
 3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
 4. Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.
-5. desiredIngredients sind nur Zutaten. Du musst sie nicht einzeln sichtbar abarbeiten.
-6. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur aus storySpine, targetFacts oder storyIngredients verwenden.
-7. Private Genussgruende bei apt_private_outing duerfen charmant erfunden werden, bleiben aber weiche Privatstory, keine neue harte Ortsfakten.
-8. storySpine ist keine Checkliste, sondern der rote Faden: premise, concreteAngle, openQuestion, flightValue und outcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
-9. Wenn storySpine.softFreedom vorhanden ist, darfst du den dort beschriebenen weichen Winkel erzaehlerisch konkretisieren, ohne neue harte Fakten zu behaupten.
+5. storyCore ist der rote Faden: premise, concreteReason, whyToday, flightValue, targetFocus und successOutcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
+6. domainDetails sagt dir, was diese Missionsfamilie besonders macht; formuliere daraus frei, nicht als sichtbares Schema.
+7. facts.hardFacts sind die belegten Fakten. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur daraus oder aus den Legacy-Feldern targetFacts/storyIngredients verwenden.
+8. style.allowedFreedom beschreibt, wo du weiche Farbe ergaenzen darfst. Private Genussgruende duerfen charmant erfunden werden, bleiben aber weiche Privatstory, keine neuen harten Ortsfakten.
+9. quality.questions und quality.requiredMeaning sind dein innerer Kompass. Du musst sie nicht einzeln sichtbar abarbeiten.
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
 13. Nutze normale deutsche Umlaute.
 
+<MISSION_BRIEF_FORM>
+${JSON.stringify(missionBriefForm)}
+</MISSION_BRIEF_FORM>
+
 <BRIEFING_BRIEF>
-${JSON.stringify(briefingBrief)}
+${JSON.stringify(legacyBriefingBrief)}
 </BRIEFING_BRIEF>
 
 <OUTPUT>
@@ -26971,6 +27222,18 @@ function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'die Gäste')
     return fallback;
 }
 
+function _missionWriterV5ReporterRoleLabel(role = '', gender = '') {
+    const normalized = normalizeMissionText(role);
+    const isFemale = String(gender || '').toLowerCase() === 'female';
+    const isMale = String(gender || '').toLowerCase() === 'male';
+    if (!normalized) return isFemale ? 'Lokalreporterin' : 'Lokalreporter';
+    if (/\btv[-\s]?reporter(?:in)?\b/.test(normalized)) return isFemale ? 'TV-Reporterin' : 'TV-Reporter';
+    if (/\blokalreporter(?:in)?\b/.test(normalized)) return isFemale ? 'Lokalreporterin' : 'Lokalreporter';
+    if (/\bredakteur(?:in)?\b/.test(normalized)) return isMale ? 'Redakteur' : 'Redakteurin';
+    if (/\breporter(?:in)?\b/.test(normalized)) return isFemale ? 'Reporterin' : 'Reporter';
+    return _missionPipelineV4PolishGermanVisibleText(role);
+}
+
 function _missionWriterV5PassengerFirstName(passenger = {}) {
     const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     return name.split(/\s+/)[0] || '';
@@ -27046,13 +27309,19 @@ function _missionWriterV5UsableStoryFact(fact = '') {
     if (/^(zielbezug ist|startflugplatz ist|umfeld:)/.test(normalized)) return '';
     if (/\broad \d|bearing \d|nearest_|target-category|dryrun synthetic\b/.test(normalized)) return '';
     if (/\b(roadside|vehicle placement|placement plausible|parking anchor|waterline|meadow|farmland|bearing|anchor)\b/.test(normalized)) return '';
+    if (/^(gewaesser|gewasser|wasserflaeche|wasserfläche|wasserflache|uferlinie|gewaesser oder uferlinie|gewasser oder uferlinie|wasserflaeche oder uferlinie|wasserfläche oder uferlinie|wasserflache oder uferlinie|strasse oder zufahrt|straße oder zufahrt|offenes gelaende|offenes gelände|offenes gelande|offene flaeche|offene fläche|offene flache)$/i.test(normalized)) return '';
     return clean;
 }
 
 function _missionWriterV5ReporterSubject(passenger = {}) {
-    const reporter = _missionWriterV5PassengerLabel(passenger, 'die Lokalredaktion');
-    if (!reporter || reporter === 'die Lokalredaktion') return 'Die Lokalredaktion';
-    return `${reporter}${reporter.includes(',') ? ',' : ''}`;
+    const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const roleNormalized = normalizeMissionText(passenger?.role || '');
+    const role = _missionWriterV5ReporterRoleLabel(passenger?.role || '', passenger?.gender || '');
+    if (name && /\btv[-\s]?reporter/.test(roleNormalized)) return `${name} vom TV-Team`;
+    if (name && /\bredakteur/.test(roleNormalized)) return `${name} aus der Redaktion`;
+    if (name) return `${name} aus der Lokalredaktion`;
+    if (role) return role;
+    return 'Die Lokalredaktion';
 }
 
 function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
@@ -27112,6 +27381,9 @@ function _missionWriterV5NewsOutcomeSentence(outcome = '') {
 
 function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
     const briefingBrief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
+    const form = briefingBrief?.missionBriefForm || _missionWriterV5BuildBriefForm(contract, context, { storySpine: briefingBrief?.storySpine });
+    const core = form.storyCore || {};
+    const domain = form.domainDetails || {};
     const spine = briefingBrief?.storySpine || _missionWriterV5BuildStorySpine(contract, context);
     const passenger = context?.passenger || {};
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Ziel', 120);
@@ -27119,19 +27391,23 @@ function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract);
     const angle = _missionWriterV5CleanSpineValue(
-        spine.concreteAngle || spine.premise || `einen sichtbaren redaktionellen Anlass rund um ${targetName}`,
+        domain.reporterAngle || core.concreteReason || spine.concreteAngle || spine.premise || `einen sichtbaren redaktionellen Anlass rund um ${targetName}`,
         190
     );
     const openQuestion = _missionWriterV5CleanSpineValue(
-        spine.openQuestion || spine.flightValue || `was am Boden wirklich sichtbar ist und die Geschichte trägt`,
+        domain.editorialQuestion || core.flightValue || spine.openQuestion || spine.flightValue || `was am Boden wirklich sichtbar ist und die Geschichte trägt`,
         220
     );
     const outcome = _missionWriterV5CleanSpineValue(
-        spine.outcome || spine.completion || 'Bilder und kurze Einordnung gehen danach direkt an die Redaktion',
+        domain.editorialOutcome || core.successOutcome || spine.outcome || spine.completion || 'Bilder und kurze Einordnung gehen danach direkt an die Redaktion',
         220
     );
-    const visible = Array.isArray(spine.visibleContext) && spine.visibleContext.length
-        ? `Als Orientierung zählen aus der Luft besonders ${_missionPipelineV4JoinNaturalList(spine.visibleContext.slice(0, 3))}.`
+    const visibleContext = _missionWriterV5Array(domain.visibleContext || form.facts?.visibleCues || spine.visibleContext || [], 5, 140)
+        .map(_missionWriterV5UsableStoryFact)
+        .filter(Boolean)
+        .slice(0, 3);
+    const visible = visibleContext.length
+        ? `Als Orientierung zählen aus der Luft besonders ${_missionPipelineV4JoinNaturalList(visibleContext)}.`
         : '';
     const angleText = _missionWriterV5NewsConcreteAngle(angle, targetName);
     const reporterLine = reporter === 'Die Lokalredaktion'
@@ -27151,6 +27427,8 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     const family = _missionWriterV5MissionFamily(contract);
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     const passenger = context?.passenger || {};
+    const briefingBrief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
+    const form = briefingBrief?.missionBriefForm || _missionWriterV5BuildBriefForm(contract, context, { storySpine: briefingBrief?.storySpine });
     if (family === 'bush_pickup_return') {
         return _missionPipelineV4ComposeBushPickupBriefingStory(contract, passenger, context?.sourceStory || '');
     }
@@ -27191,7 +27469,7 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
         ]);
     }
     if (family === 'poi_sightseeing') {
-        const fact = _missionWriterV5Array(context?.briefingBrief?.targetFacts || [], 5, 180)
+        const fact = _missionWriterV5Array(form.facts?.hardFacts || briefingBrief?.targetFacts || [], 5, 180)
             .map(_missionWriterV5UsableStoryFact)
             .find(Boolean);
         const pax = _missionWriterV5SightseeingGroupLabel(passenger);
@@ -27202,7 +27480,7 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
             `Nach dem Blickmoment geht es sauber zurück zum Startplatz`
         ]);
     }
-    const ingredients = _missionWriterV5Array(context?.briefingBrief?.storyIngredients || [], 3, 180);
+    const ingredients = _missionWriterV5Array(form.facts?.storyIngredients || briefingBrief?.storyIngredients || [], 3, 180);
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute steht ${targetName} auf dem Dispatch-Zettel`,
         ingredients[0] || `Der Anlass ist klar genug, damit der Flug mehr ist als ein zufälliger A-B-Hop`,
@@ -27223,7 +27501,15 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const genericOnly = /\b(aktuelle lage|geschehen am boden|veraenderungen? im ortskern|veränderungen? im ortskern|sichtbare veraenderungen?|sichtbare veränderungen?|infrastruktur)\b/.test(normalized)
         && !(hardAngle || softChange);
     const brief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
-    const angle = String(brief?.storySpine?.concreteAngle || contract?.storyFrame?.incidentContext || contract?.storyFrame?.trigger || '');
+    const form = brief?.missionBriefForm || null;
+    const angle = String(
+        form?.domainDetails?.reporterAngle
+        || form?.storyCore?.concreteReason
+        || brief?.storySpine?.concreteAngle
+        || contract?.storyFrame?.incidentContext
+        || contract?.storyFrame?.trigger
+        || ''
+    );
     const coversSpine = angle && _missionPipelineV4StoryFieldCovered(story, angle, 2);
     return !hasReporterFrame || !hasFlightValue || !hasOutcome || genericOnly || (!(hardAngle || softChange || coversSpine));
 }
