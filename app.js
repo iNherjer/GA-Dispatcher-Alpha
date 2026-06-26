@@ -6593,7 +6593,6 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('planner_'), start: 61, done: 68, label: 'Plane Missionsstruktur...', doneLabel: 'Missionsstruktur geplant.' },
     { test: phase => phase === 'build_v4_contract', start: 69, done: 73, label: 'Baue Mission-Contract fuer den Writer...', doneLabel: 'Mission-Contract bereit.' },
     { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
-    { test: phase => phase === 'writer_v5_bush', start: 77, done: 84, label: 'Writer V5 schreibt Bush-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
     { test: phase => phase === 'writer_v4_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
     { test: phase => phase === 'writer_v5_main', start: 77, done: 84, label: 'Writer V5 schreibt Dispatcher-Zettel...', doneLabel: 'Dispatcher-Zettel geschrieben.' },
     { test: phase => phase === 'writer_legacy_bush', start: 77, done: 84, label: 'KI formuliert Bush-Auftrag...', doneLabel: 'Bush-Auftrag formuliert.' },
@@ -6853,6 +6852,9 @@ function updateMissionWriterModeButtonUi() {
     btn.style.background = v5 ? '#4a391b' : '#35234a';
     btn.style.borderColor = v5 ? '#b58335' : '#7350a5';
     btn.style.color = v5 ? '#ffd79f' : '#e4d0ff';
+    btn.title = v5
+        ? 'APT/POI nutzt Writer V5; Bush bleibt beim Bush-Dispatcher.'
+        : 'APT/POI nutzt Writer V4; Bush bleibt beim Bush-Dispatcher.';
 }
 window.updateMissionWriterModeButtonUi = updateMissionWriterModeButtonUi;
 
@@ -6867,8 +6869,8 @@ window.toggleMissionWriterMode = function(forceMode) {
     }
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = next === 'v5'
-        ? 'Debug: Mission Writer V5 aktiv.'
-        : 'Debug: Mission Writer V4 aktiv.';
+        ? 'Debug: Mission Writer V5 aktiv, Bush bleibt Bush-Dispatcher.'
+        : 'Debug: Mission Writer V4 aktiv, Bush bleibt Bush-Dispatcher.';
     return next;
 };
 
@@ -24505,6 +24507,7 @@ function _missionWriterV5DefaultTitle(contract = {}, family = '') {
     if (family === 'cargo_transport') return `Transport nach ${target}`;
     if (family === 'search_and_rescue' || family === 'sar_heli') return `Sucheinsatz bei ${target}`;
     if (family === 'infra_chain_recon') return `Korridor-Erstbefund: ${target}`;
+    if (family === 'news_coverage') return `Reporterflug über ${target}`;
     return targetName ? `Mission nach ${targetName}` : 'Dispatch-Auftrag';
 }
 
@@ -24521,6 +24524,11 @@ function _missionWriterV5PassengerConflictsTask(passenger = {}, taskDomain = '')
     if (!hay) return false;
     const opsCue = /\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|reporter|redaktion|inspekt|vermess|arbeitsauftrag\b/;
     if (task === 'sightseeing_tour' || task === 'private_outing') return opsCue.test(hay);
+    if (task === 'news_coverage') {
+        const reporterCue = /\b(reporter|reporterin|redaktion|redakteur|redakteurin|journalist|journalistin|journalismus|presse|kamera|kamerateam|fotograf|fotografin|korrespondent|korrespondentin|nachrichten)\b/;
+        const wrongCue = /\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|tourist|guide|wander|partner|familie|privat\b/;
+        return wrongCue.test(hay) || !reporterCue.test(hay);
+    }
     return false;
 }
 
@@ -24584,6 +24592,149 @@ function _missionWriterV5KnowledgeHighlights(contract = {}) {
     };
 }
 
+function _missionWriterV5CleanSpineValue(value = '', maxLen = 240) {
+    const clean = _missionWriterV5Text(value, maxLen);
+    if (!clean || _missionPipelineV4LooksInternalMissionText(clean)) return '';
+    return clean;
+}
+
+function _missionWriterV5FirstSpineValue(values = [], maxLen = 240) {
+    for (const value of (Array.isArray(values) ? values : [values])) {
+        const clean = _missionWriterV5CleanSpineValue(value, maxLen);
+        if (clean) return clean;
+    }
+    return '';
+}
+
+function _missionWriterV5ExtractNewsAngle(value = '') {
+    let clean = _missionWriterV5CleanSpineValue(value, 260);
+    if (!clean) return '';
+    clean = clean
+        .replace(/^.*?\b(?:luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|kern)\s*:\s*/i, '')
+        .replace(/^.*?\bheute beobachtbarer kern[^:]*:\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return _missionWriterV5CleanSpineValue(clean, 190);
+}
+
+function _missionWriterV5GeoHighlights(contract = {}, context = {}) {
+    const geo = context?.targetGeoContext || contract?.targetGeoContext || null;
+    if (!geo || typeof geo !== 'object') return [];
+    const items = [];
+    const add = value => {
+        const clean = _missionWriterV5CleanSpineValue(value, 140);
+        if (clean) items.push(clean);
+    };
+    if (!/\b(bearing|road\s+\d|water\s+\d|meadow\s+\d|farmland\s+\d)\b/i.test(String(geo.summary || ''))) {
+        add(geo.summary);
+    }
+    Object.entries(geo.anchors || {}).forEach(([key, anchor]) => {
+        if (!anchor || !anchor.present) return;
+        const label = typeof poiAnchorDisplayLabel === 'function'
+            ? poiAnchorDisplayLabel(key, anchor)
+            : String(anchor.name || key || '').replace(/[_-]+/g, ' ').trim();
+        if (!label) return;
+        const name = String(anchor.name || '').replace(/\s+/g, ' ').trim();
+        const genericName = /^(service|road|strasse|straße|meadow|wiese|water|uferbereich|parking|parkplatz|building|house|track|path|footway|residential|yes)$/i.test(name);
+        const hasName = name && !genericName && !normalizeMissionText(label).includes(normalizeMissionText(name));
+        add(hasName ? `${label} ${name}` : label);
+    });
+    (Array.isArray(geo.visualLandmarks) ? geo.visualLandmarks : []).forEach(item => {
+        if (!item) return;
+        if (typeof item === 'string') return add(item);
+        add(item.name || item.label || item.kind || item.type || '');
+    });
+    return _missionWriterV5Unique(items, 5, 140);
+}
+
+function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
+    const plan = contract?.missionPlan?.plan || {};
+    const profile = contract?.profile || {};
+    const frame = contract?.storyFrame || {};
+    const taskDomain = String(profile.taskDomain || plan.taskDomain || 'general').toLowerCase();
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
+    const hooks = Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : [];
+    const localFacts = Array.isArray(plan.localFacts) ? plan.localFacts : [];
+    const premise = _missionWriterV5FirstSpineValue([
+        frame.trigger,
+        plan.primaryObjective,
+        hooks[0],
+        plan.realismBrief
+    ], 240);
+    const concreteAngle = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            _missionWriterV5ExtractNewsAngle(frame.incidentContext),
+            _missionWriterV5ExtractNewsAngle(frame.trigger),
+            frame.subjectDetail,
+            hooks.find(hook => /\b(fest|besucher|verkehr|sperr|baustell|ortsbild|veraender|veränder|aufhaenger|aufhänger)\b/i.test(String(hook || ''))),
+            plan.primaryObjective
+        ], 210)
+        : _missionWriterV5FirstSpineValue([
+            frame.subjectDetail,
+            frame.incidentContext,
+            hooks[0],
+            localFacts[0],
+            plan.primaryObjective
+        ], 210);
+    const openQuestion = _missionWriterV5FirstSpineValue([
+        frame.keyQuestion,
+        frame.soughtOutcome,
+        plan.operationalDetails && Array.isArray(plan.operationalDetails) ? plan.operationalDetails[0] : ''
+    ], 240);
+    const whyNow = _missionWriterV5FirstSpineValue([
+        frame.whyNow,
+        frame.stakes,
+        Array.isArray(plan.weatherHooks) ? plan.weatherHooks[0] : ''
+    ], 220);
+    const outcome = _missionWriterV5FirstSpineValue([
+        frame.soughtOutcome,
+        frame.completionSignal,
+        frame.keyQuestion
+    ], 240);
+    const completion = _missionWriterV5FirstSpineValue([
+        frame.completionSignal,
+        outcome
+    ], 220);
+    const visibleContext = _missionWriterV5GeoHighlights(contract, context);
+    const spine = {
+        premise,
+        subject: _missionWriterV5CleanSpineValue(frame.focusSubject || targetName, 140),
+        concreteAngle,
+        openQuestion,
+        whyNow,
+        flightValue: taskDomain === 'news_coverage'
+            ? _missionWriterV5FirstSpineValue([
+                frame.keyQuestion,
+                'Der Luftblick soll zeigen, welcher beobachtbare Kern die Geschichte trägt und was davon belastbar sichtbar ist.'
+            ], 240)
+            : openQuestion,
+        stakes: _missionWriterV5CleanSpineValue(frame.stakes, 220),
+        outcome,
+        completion,
+        visibleContext
+    };
+    if (taskDomain === 'news_coverage') {
+        spine.softFreedom = 'Wenn kein harter Anlass belegt ist, darf daraus ein weicher redaktioneller Blickwinkel entstehen, z.B. Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel. Als Fakt nur behaupten, was storySpine, targetFacts oder sichtbarer Kontext tragen.';
+    }
+    return spine;
+}
+
+function _missionWriterV5QualityQuestions(taskDomain = '', family = '') {
+    const domain = String(taskDomain || family || '').toLowerCase();
+    if (domain === 'news_coverage') {
+        return [
+            'Welcher konkrete redaktionelle Aufhänger trägt diesen Flug?',
+            'Was soll aus der Luft sichtbar, belegbar oder besser einzuordnen werden?',
+            'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
+        ];
+    }
+    return [
+        'Warum gibt es diesen Flug genau heute?',
+        'Was macht der Flug besser als ein beliebiger Weg zum Ziel?',
+        'Was passiert nach Landung, Rückkehr oder Überflug mit dem Ergebnis?'
+    ];
+}
+
 function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
     const plan = contract?.missionPlan?.plan || {};
     const profile = contract?.profile || {};
@@ -24593,22 +24744,28 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
     const place = _missionWriterV5PlaceLabel(contract);
     const knowledge = _missionWriterV5KnowledgeHighlights(contract);
     const isPoi = !!contract?.target?.isPOI || !!context?.isPOI;
+    const storySpine = _missionWriterV5BuildStorySpine(contract, context);
+    const geoHighlights = _missionWriterV5GeoHighlights(contract, context);
     const ingredients = _missionWriterV5Unique([
         frame.trigger,
         frame.subjectDetail,
         frame.incidentContext,
+        frame.keyQuestion,
         frame.whyNow,
+        frame.stakes,
         frame.soughtOutcome,
+        frame.completionSignal,
         plan.primaryObjective,
         ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : []),
         ...(Array.isArray(plan.localFacts) ? plan.localFacts : []),
         plan.realismBrief
-    ], 7, 220);
+    ], 9, 220);
     const targetFacts = _missionWriterV5Unique([
         ...knowledge.landmarks,
         ...knowledge.facts,
+        ...geoHighlights,
         ...(Array.isArray(plan.localFacts) ? plan.localFacts : [])
-    ], 5, 180);
+    ], 7, 180);
     const desired = _missionWriterV5Unique([
         ...(Array.isArray(plan.mustMention) ? plan.mustMention : []),
         ...(Array.isArray(plan.operationalDetails) ? plan.operationalDetails : [])
@@ -24634,9 +24791,11 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         },
         weather: _missionWriterV5WeatherSummary(contract),
         arrivalPlan: arrival,
+        storySpine,
         storyIngredients: ingredients,
         targetFacts,
         desiredIngredients: desired,
+        qualityQuestions: _missionWriterV5QualityQuestions(String(profile.taskDomain || 'general'), family),
         tone: family === 'apt_private_outing'
             ? 'warme, lockere Pinnwand-Notiz mit Lust auf den privaten Fly-out'
             : (family === 'apt_sightseeing'
@@ -24646,9 +24805,11 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
                     : 'kurzer, klarer Dispatcher-Zettel')),
         rules: [
             'Schreibe einen kurzen zusammenhaengenden freien Text, keine Liste.',
+            'storySpine ist die wichtigste Erzaehlabsicht. Nutze sie frei, nicht als sichtbares Schema.',
             'Baue Route, Entfernung, Wetter und Ankunft nur natuerlich ein, wenn sie in die Erzaehlung passen.',
-            'Nutze harte Orts- und Faktenaussagen nur aus targetFacts oder storyIngredients.',
+            'Nutze harte Orts- und Faktenaussagen nur aus storySpine, targetFacts oder storyIngredients.',
             'desiredIngredients sind Zutaten, keine abzuhakende Muss-Liste.',
+            'qualityQuestions sind ein innerer Kompass, keine sichtbare Checkliste.',
             'Keine Systemwoerter wie Contract, Pipeline, Writer, mustMention, Handoff oder Profil.'
         ]
     };
@@ -24658,6 +24819,8 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         briefingBrief.styleRecipe = 'Der Zielflugplatz ist Gateway zum Zielort. Die Gaeste wollen nach der Landung einen kleinen Besuch, Fotos, Aussicht, Ortskern oder gepruefte Landmarken erleben. Keine Rueckkehr zum Heimatplatz behaupten.';
     } else if (family === 'poi_sightseeing') {
         briefingBrief.styleRecipe = 'Der POI selbst ist der Reisegrund und wird aus der Luft erlebt; das Briefing bleibt gastorientiert, nicht arbeits- oder einsatzartig.';
+    } else if (String(profile.taskDomain || '').toLowerCase() === 'news_coverage') {
+        briefingBrief.styleRecipe = 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus storySpine einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus storySpine, targetFacts oder sichtbarem Kontext.';
     }
     return briefingBrief;
 }
@@ -24671,16 +24834,18 @@ Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formulara
 
 Arbeitsweise:
 1. Nutze BRIEFING_BRIEF als kuratiertes Rohmaterial.
-2. Schreibe die Story als 3-5 zusammenhaengende deutsche Saetze.
+2. Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.
 3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, warum genau heute, warum dieser Flug Sinn macht, was nach Landung/Rueckkehr passiert.
 4. Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.
 5. desiredIngredients sind nur Zutaten. Du musst sie nicht einzeln sichtbar abarbeiten.
-6. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur aus targetFacts/storyIngredients verwenden.
+6. Harte Ortsfakten, Landmarken, Baujahre, historische Details oder echte Sehenswuerdigkeiten nur aus storySpine, targetFacts oder storyIngredients verwenden.
 7. Private Genussgruende bei apt_private_outing duerfen charmant erfunden werden, bleiben aber weiche Privatstory, keine neue harte Ortsfakten.
-8. Keine Systemwoerter und keine sichtbaren Feldnamen.
-9. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
-10. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-11. Nutze normale deutsche Umlaute.
+8. storySpine ist keine Checkliste, sondern der rote Faden: premise, concreteAngle, openQuestion, flightValue und outcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
+9. Wenn storySpine.softFreedom vorhanden ist, darfst du den dort beschriebenen weichen Winkel erzaehlerisch konkretisieren, ohne neue harte Fakten zu behaupten.
+10. Keine Systemwoerter und keine sichtbaren Feldnamen.
+11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
+12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
+13. Nutze normale deutsche Umlaute.
 
 <BRIEFING_BRIEF>
 ${JSON.stringify(briefingBrief)}
@@ -24690,7 +24855,7 @@ ${JSON.stringify(briefingBrief)}
 Antworte ausschliesslich als JSON ohne Markdown:
 {
   "title": "Kurzer, passender Missionstitel",
-  "story": "3-5 natuerliche Saetze als zusammenhaengender Dispatch-Zettel",
+  "story": "4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Tagesrucksack (12 lbs)",
   "targetInfo": "Bei POI: 2-3 sachliche Saetze fuer die Ziel-Info-Seite aus belegten Daten; bei A-B leerer String",
@@ -26884,8 +27049,107 @@ function _missionWriterV5UsableStoryFact(fact = '') {
     return clean;
 }
 
+function _missionWriterV5ReporterSubject(passenger = {}) {
+    const reporter = _missionWriterV5PassengerLabel(passenger, 'die Lokalredaktion');
+    if (!reporter || reporter === 'die Lokalredaktion') return 'Die Lokalredaktion';
+    return `${reporter}${reporter.includes(',') ? ',' : ''}`;
+}
+
+function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
+    const clean = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanSpineValue(angle, 190)).trim();
+    const normalized = normalizeMissionText(clean);
+    if (/\bfest\b.*\bbesucher|besucher.*\bfest\b|festbetrieb|besucherandrang/.test(normalized)) {
+        return _missionPipelineV4PickOne([
+            'den Besucherandrang im Ortskern',
+            'den Festbetrieb im Ortskern',
+            'die vollen Wege rund um den Ortskern'
+        ]);
+    }
+    if (/\bverkehrslage\b.*\bsperrung\b.*\bbaustelle\b|\bsperrung\b.*\bbaustelle\b/.test(normalized)) {
+        return _missionPipelineV4PickOne([
+            'eine geänderte Verkehrsführung im Ortskern',
+            'eine mögliche Sperrung im Ortskern',
+            'eine Baustelle im Ortskern'
+        ]);
+    }
+    if (/\bortsbild\b.*\b(veraender|veränder)|\b(veraender|veränder).*\bortsbild\b/.test(normalized)) {
+        return _missionPipelineV4PickOne([
+            `den sichtbaren Wandel im Ortsbild${targetName ? ` von ${targetName}` : ''}`,
+            `eine Bildstrecke zum Ortsbild${targetName ? ` von ${targetName}` : ''} früher und heute`,
+            'die heutigen Veränderungen im Ortskern'
+        ]);
+    }
+    return _missionPipelineV4PolishGermanVisibleText(clean)
+        .replace(/\bgeaenderte\b/g, 'geänderte')
+        .replace(/\bVeraenderung\b/g, 'Veränderung')
+        .replace(/\bveraenderung\b/g, 'Veränderung')
+        .replace(/\bVeraenderungen\b/g, 'Veränderungen')
+        .replace(/\bveraenderungen\b/g, 'Veränderungen');
+}
+
+function _missionWriterV5NewsQuestionSentence(openQuestion = '') {
+    const clean = _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(openQuestion)).trim();
+    if (!clean) return 'Aus der Luft soll klar werden, was die Geschichte heute wirklich trägt.';
+    if (/^(welch\w*|ob|wie|was)\b/i.test(clean)) {
+        return `Aus der Luft soll klar werden, ${_missionPipelineV4LowerFirst(clean)}.`;
+    }
+    return `${clean}.`;
+}
+
+function _missionWriterV5NewsOutcomeSentence(outcome = '') {
+    const clean = _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(outcome)).trim();
+    const normalized = normalizeMissionText(clean);
+    if (/\bein bild und eine kurze einordnung\b/.test(normalized)) {
+        return 'Nach dem Überflug bekommt die Redaktion ein Bild und eine kurze Einordnung, die die Geschichte heute konkret tragen.';
+    }
+    if (/\bbilder\b.*\blageeinschaetzung\b|\blageeinschätzung\b/.test(normalized)) {
+        return 'Nach dem Überflug gehen Bilder und Lageeinschätzung direkt an die Redaktion.';
+    }
+    if (/^nach dem\b/i.test(clean)) return `${clean}.`;
+    if (!clean) return 'Nach dem Überflug gehen Bilder und kurze Einordnung direkt an die Redaktion.';
+    return `${clean}.`;
+}
+
+function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
+    const briefingBrief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
+    const spine = briefingBrief?.storySpine || _missionWriterV5BuildStorySpine(contract, context);
+    const passenger = context?.passenger || {};
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Ziel', 120);
+    const reporter = _missionWriterV5ReporterSubject(passenger);
+    const routeSentence = _missionWriterV5RouteSentence(contract);
+    const weatherSentence = _missionWriterV5WeatherSentence(contract);
+    const angle = _missionWriterV5CleanSpineValue(
+        spine.concreteAngle || spine.premise || `einen sichtbaren redaktionellen Anlass rund um ${targetName}`,
+        190
+    );
+    const openQuestion = _missionWriterV5CleanSpineValue(
+        spine.openQuestion || spine.flightValue || `was am Boden wirklich sichtbar ist und die Geschichte trägt`,
+        220
+    );
+    const outcome = _missionWriterV5CleanSpineValue(
+        spine.outcome || spine.completion || 'Bilder und kurze Einordnung gehen danach direkt an die Redaktion',
+        220
+    );
+    const visible = Array.isArray(spine.visibleContext) && spine.visibleContext.length
+        ? `Als Orientierung zählen aus der Luft besonders ${_missionPipelineV4JoinNaturalList(spine.visibleContext.slice(0, 3))}.`
+        : '';
+    const angleText = _missionWriterV5NewsConcreteAngle(angle, targetName);
+    const reporterLine = reporter === 'Die Lokalredaktion'
+        ? `Die Lokalredaktion will ${angleText} aus der Luft sauber einordnen.`
+        : `${reporter} will ${angleText} aus der Luft sauber einordnen.`;
+    return _missionWriterV5SentenceJoin([
+        routeSentence || `Heute steht ${targetName} auf dem Dispatch-Zettel`,
+        reporterLine,
+        _missionWriterV5NewsQuestionSentence(openQuestion),
+        visible,
+        weatherSentence,
+        _missionWriterV5NewsOutcomeSentence(outcome)
+    ]);
+}
+
 function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     const family = _missionWriterV5MissionFamily(contract);
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     const passenger = context?.passenger || {};
     if (family === 'bush_pickup_return') {
         return _missionPipelineV4ComposeBushPickupBriefingStory(contract, passenger, context?.sourceStory || '');
@@ -26898,6 +27162,9 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     }
     if (family === 'search_and_rescue' || family === 'infra_chain_recon') {
         return _missionPipelineV4ComposeStoryFallback(contract, context);
+    }
+    if (taskDomain === 'news_coverage') {
+        return _missionWriterV5ComposeNewsCoverageStory(contract, context);
     }
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract, family);
@@ -26944,6 +27211,23 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     ]);
 }
 
+function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, context = {}) {
+    const normalized = normalizeMissionText(story);
+    if (!normalized) return true;
+    const hasReporterFrame = /\b(reporter|redaktion|bericht|berichterstattung|meldung|beitrag|online|bildstrecke|lageeinschaetzung|lageeinschätzung)\b/.test(normalized);
+    const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|belegbar|einordnen|einordnung)\b/.test(normalized);
+    const hasOutcome = /\b(redaktion|bericht|meldung|beitrag|online|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung)\b/.test(normalized);
+    const hardAngle = /\b(fest|veranstaltung|markt|besucherandrang|besucher|andrang|verkehrslage|verkehr|sperrung|sperrungslage|umleitung|baustelle|bauarbeiten|baustellen|kran|bagger|neubau|umbau|neue nutzung|nutzungswechsel|bildstrecke|frueher|früher|wandel)\b/.test(normalized);
+    const softChange = /\b(ortsbild|ortskern|veraender|veränder)\b/.test(normalized)
+        && /\b(frueher|früher|wandel|neubau|umbau|bauarbeiten|baustelle|verkehr|besucher|fest|markt|bruecke|brücke|strasse|straße|zufahrt|zentrum)\b/.test(normalized);
+    const genericOnly = /\b(aktuelle lage|geschehen am boden|veraenderungen? im ortskern|veränderungen? im ortskern|sichtbare veraenderungen?|sichtbare veränderungen?|infrastruktur)\b/.test(normalized)
+        && !(hardAngle || softChange);
+    const brief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
+    const angle = String(brief?.storySpine?.concreteAngle || contract?.storyFrame?.incidentContext || contract?.storyFrame?.trigger || '');
+    const coversSpine = angle && _missionPipelineV4StoryFieldCovered(story, angle, 2);
+    return !hasReporterFrame || !hasFlightValue || !hasOutcome || genericOnly || (!(hardAngle || softChange || coversSpine));
+}
+
 function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const reasons = [];
@@ -26966,6 +27250,10 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
         } else if (taskDomain === 'private_outing') {
             if (/\bverein|vereins|techniker|technik|ersatzteil|ersatzpumpe|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|tiertransport|training|fluglehrer|arbeitsauftrag|uebergabe|übergabe\b/.test(normalized)) {
                 reasons.push('private_outing_wrong_domain');
+            }
+        } else if (taskDomain === 'news_coverage') {
+            if (_missionWriterV5NewsCoverageNeedsRepair(raw, contract, context)) {
+                reasons.push('news_coverage_weak_spine');
             }
         }
     }
@@ -30111,7 +30399,6 @@ async function generateMission(options = {}) {
         }
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
-                const writerMode = getMissionWriterMode();
                 const writerContext = {
                     missionContractV4,
                     missionPlanV2,
@@ -30131,9 +30418,7 @@ async function generateMission(options = {}) {
                         storyHint: initialBushPickupStoryHint
                     })
                 };
-                m = await dispatchMeasure(writerMode === 'v5' ? 'writer_v5_bush' : 'writer_v4_bush', async () => (
-                    writerMode === 'v5' ? fetchMissionWriterV5(writerContext) : fetchMissionWriterV4(writerContext)
-                ));
+                m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4(writerContext));
             }
             if (!m) {
                 m = await dispatchMeasure('writer_legacy_bush', async () => fetchGeminiMission(
