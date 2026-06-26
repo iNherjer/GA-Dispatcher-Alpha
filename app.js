@@ -2621,14 +2621,14 @@ const MISSION_ROLE_TASK_PROFILES = {
                 greetingText: 'Hi, danke fürs Mitnehmen. Je ruhiger der Flug, desto entspannter wird die Übergabe an der Station.'
             }
         ],
-        greetingText: 'Hi, wir haben heute einen Tierschutzauftrag. Bitte moeglichst ruhig fliegen, damit Uebergabe und Transport entspannt bleiben.',
+        greetingText: 'Hi, wir haben heute einen Tierschutzauftrag. Bitte möglichst ruhig fliegen, damit Übergabe und Transport entspannt bleiben.',
         paxText: '1 PAX (Tierbegleitung)',
         cargoPool: [
             'Transportbox mit junger Ziege (34 lbs)',
             'kleines Schaf in enger Transportbox (42 lbs)',
             'ruhige Reh-Verlegung in Transportbox (38 lbs)',
-            'Moewe fuer die Wildvogelstation (18 lbs)',
-            'Gans fuer die Auffangstation (24 lbs)',
+            'Möwe für die Wildvogelstation (18 lbs)',
+            'Gans für die Auffangstation (24 lbs)',
             'Enten-Reha-Transferbox (22 lbs)',
             'Pferde-Vet-Material und Unterlagen (16 lbs)',
             'Katzenwelpen-Transportbox mit Wärmedecke (20 lbs)',
@@ -2637,7 +2637,7 @@ const MISSION_ROLE_TASK_PROFILES = {
             'Kleiner Therapiehund in Reisebox (28 lbs)'
         ],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: Tierschutz-/Veterinaerauftrag mit ruhigem Ablauf; bei konkretem Tier in Transportbox darf der enge Kabinenraum kurz glaubwuerdig anklingen.'
+        storyCue: 'Fokus: Tierschutz-/Veterinärauftrag mit ruhigem Ablauf; bei konkretem Tier in Transportbox darf der enge Kabinenraum kurz glaubwürdig anklingen.'
     }
 };
 
@@ -13898,6 +13898,143 @@ function _pickAnimalTransportCargo(cargoPool = [], missionLike = {}) {
     return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
 }
 
+function _animalTransportDisplayCargoLabel(cargoText = '') {
+    const clean = _missionPipelineV4CleanCargoLabel(cargoText);
+    if (!clean) return '';
+    return _missionPipelineV4PolishGermanVisibleText(clean)
+        .replace(/\bVet-Material\b/g, 'Vet-Material')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _animalTransportSubjectFromCargo(cargoText = '') {
+    const cargo = _animalTransportDisplayCargoLabel(cargoText);
+    const norm = normalizeMissionText(cargo);
+    if (!cargo) return 'ein Tiertransport in gesicherter Box';
+    if (/\bgans\b/.test(norm)) return 'eine Gans für die Auffangstation';
+    if (/\bmoewe\b|\bmowe\b|\bmöwe\b/.test(norm)) return 'eine Möwe für die Wildvogelstation';
+    if (/\bente|enten\b/.test(norm)) return 'eine Enten-Reha-Box';
+    if (/\bzieg/.test(norm)) return 'eine junge Ziege in der Transportbox';
+    if (/\bschaf\b/.test(norm)) return 'ein kleines Schaf in der engen Transportbox';
+    if (/\breh|hirsch/.test(norm)) return 'ein junges Reh in der gesicherten Transportbox';
+    if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Katzenwelpen in einer Transportbox mit Wärmedecke';
+    if (/\bhund|therapiehund\b/.test(norm)) return 'ein kleiner Therapiehund in der Reisebox';
+    if (/\bwildvogel|vogelbox\b/.test(norm)) return 'eine Wildvogelbox mit Sichtschutz';
+    if (/\btierarzt|kurierpaket|medikament|unterlagen|pferde|vet\b/.test(norm)) return cargo;
+    if (/^(transportbox|box)\b/i.test(cargo)) return `die ${_missionPipelineV4LowerFirst(cargo)}`;
+    return cargo;
+}
+
+function _animalTransportHandoffFromCargo(cargoText = '') {
+    const subject = _animalTransportSubjectFromCargo(cargoText);
+    const norm = normalizeMissionText(`${cargoText} ${subject}`);
+    if (/\bgans\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Kontakt der Auffangstation die Gans am Tierpflege-Van und bringt sie direkt in den vorbereiteten Rückzugsbereich.';
+    if (/\bmoewe\b|\bmowe\b|\bmöwe\b|wildvogel|vogelbox/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildvogelstation direkt am Vorfeld und bringt die Box ohne Umwege in den ruhigen Betreuungsbereich.';
+    if (/\bente|enten\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Reha-Station die Box am Vorfeld, bevor es für den Wasservogel in den vorbereiteten Ruhebereich geht.';
+    if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Stationskontakt die Wärmedecken-Box und bringt die Kleinen direkt in den vorbereiteten Innenraum.';
+    if (/\bhund|therapiehund\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Betreuungskontakt den Hund am Vorfeld und hält den Wechsel kurz und ruhig.';
+    if (/\btierarzt|kurierpaket|medikament|unterlagen|pferde|vet\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Tierarztkontakt Material und Unterlagen direkt für den nächsten Versorgungsschritt.';
+    return 'Nach dem Abstellen übernimmt der Tierpflege- oder Stationskontakt am Vorfeld und führt die Übergabe in Ruhe weiter.';
+}
+
+function _animalTransportOnboardVerb(subject = '') {
+    const norm = normalizeMissionText(subject);
+    if (/\b(welpen|katzenwelpen)\b/.test(norm)) return 'reisen';
+    if (/\b(unterlagen|material)\b/.test(norm)) return 'sind';
+    return 'reist';
+}
+
+function _animalTransportBuildBrief(cargoText = '', options = {}) {
+    const cargo = _animalTransportDisplayCargoLabel(cargoText);
+    const subject = _animalTransportSubjectFromCargo(cargo);
+    const norm = normalizeMissionText(`${cargo} ${subject}`);
+    const targetName = String(options?.targetName || options?.route?.targetName || options?.target || 'dem Zielplatz').replace(/\s+/g, ' ').trim() || 'dem Zielplatz';
+    const isVetMaterial = /\b(tierarzt|veterinaer|veterinär|kurierpaket|medikament|unterlagen|pferde|vet)\b/.test(norm);
+    const receivingContact = (() => {
+        if (/\bmoewe|mowe|möwe|wildvogel|vogelbox\b/.test(norm)) return 'die Wildvogelstation am Ziel';
+        if (/\bgans|ente|enten\b/.test(norm)) return 'der Kontakt der Auffang- oder Reha-Station';
+        if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'der Stationskontakt im ruhigen Innenbereich';
+        if (/\bhund|therapiehund\b/.test(norm)) return 'der Betreuungskontakt am Ziel';
+        if (isVetMaterial) return 'der Tierarztkontakt am Ziel';
+        return 'der Tierpflege- oder Stationskontakt am Ziel';
+    })();
+    const nextCareStep = (() => {
+        if (/\bmoewe|mowe|möwe|wildvogel|vogelbox\b/.test(norm)) return 'Versorgung und Beobachtung laufen in der Wildvogelstation weiter';
+        if (/\bgans|ente|enten\b/.test(norm)) return 'der Wasservogel kommt direkt in den vorbereiteten Ruhebereich';
+        if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Wärme, Fütterung und Kontrolle können ohne langen Bodentransfer weitergehen';
+        if (/\bhund|therapiehund\b/.test(norm)) return 'der Wechsel bleibt kurz, ruhig und betreut';
+        if (isVetMaterial) return 'Material und Unterlagen gehen direkt in den nächsten Versorgungsschritt';
+        return 'die Betreuung kann nach der Übergabe ohne Zusatzstress weiterlaufen';
+    })();
+    const whyAir = isVetMaterial
+        ? `der kurze Luftweg nach ${targetName} spart Bodenzeit und hält den Ablauf nachvollziehbar`
+        : `der kurze Luftweg nach ${targetName} erspart dem Tier einen langen Bodentransfer`;
+    const handlingFocus = isVetMaterial
+        ? 'sauberes Verstauen, ruhiger Flug und eine Übergabe ohne Hektik'
+        : 'gleichmäßige Fluglage, sanfte Kurven und ein ruhiges Abstellen';
+    const stressReason = isVetMaterial
+        ? 'die Unterlagen und das Vet-Material sollen vollständig und geordnet beim Zielkontakt ankommen'
+        : 'Box, Geräuschkulisse und Temperatur machen einen ruhigen Ablauf spürbar wertvoll';
+    return {
+        cargoText: cargo,
+        transportSubject: subject,
+        whyAir,
+        handlingFocus,
+        stressReason,
+        receivingContact,
+        nextCareStep,
+        handoffSentence: _animalTransportHandoffFromCargo(cargo)
+    };
+}
+
+function _animalTransportStoryMentionsCargo(story = '', cargoText = '') {
+    const normalized = normalizeMissionText(story);
+    const cargoNorm = normalizeMissionText(_animalTransportDisplayCargoLabel(cargoText));
+    if (!normalized) return false;
+    if (!cargoNorm) return /\b(tier|tierschutz|tierarzt|veterinaer|veterinär|auffangstation|transportbox|wildvogel|station)\b/.test(normalized);
+    const species = ['gans', 'moewe', 'möwe', 'ente', 'ziege', 'schaf', 'reh', 'hirsch', 'katze', 'welpen', 'hund', 'wildvogel'];
+    if (species.some(word => normalized.includes(word) && cargoNorm.includes(normalizeMissionText(word)))) return true;
+    const cargoWords = cargoNorm
+        .split(/\s+/)
+        .filter(word => word.length >= 5 && !/^(klein|kleine|kleiner|ruhige|enger|enge|fuer|für|transportbox|box|unterlagen|material)$/.test(word));
+    return cargoWords.some(word => normalized.includes(word));
+}
+
+function _animalTransportStoryNeedsRepair(story = '', cargoText = '', passenger = {}) {
+    const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(raw);
+    if (!raw || raw.length < 120 || _missionPipelineV4SentenceCount(raw) < 2) return true;
+    if (!_animalTransportStoryMentionsCargo(raw, cargoText)) return true;
+    const hasReceiver = /\b(übergabe|uebergabe|übernimmt|uebernimmt|auffangstation|wildvogelstation|tierarzt|tierpflege|stationskontakt|betreuung|zielkontakt|versorgung)\b/.test(normalized);
+    if (!hasReceiver) return true;
+    const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (paxName && raw.length < 260 && !raw.toLowerCase().includes(paxName.toLowerCase())) return true;
+    return false;
+}
+
+function _animalTransportComposeProfileStory(missionLike = {}, cargoText = '') {
+    const contract = missionLike?._missionContractV4 || missionLike?.missionContractV4 || {};
+    const animalBrief = contract?.animalTransportBrief || _animalTransportBuildBrief(cargoText || missionLike?.cargo || missionLike?.cargoText || '', {
+        targetName: contract?.route?.targetName || contract?.target?.name || missionLike?.targetName || ''
+    });
+    const routeSentence = _missionWriterV5RouteSentence(contract)
+        || _missionPipelineV4EnsureSentence(`Heute geht es mit Tiertransport ${missionLike?.t ? String(missionLike.t).replace(/^mission\s+/i, '') : 'zum Zielplatz'}`);
+    const weatherSentence = _missionWriterV5WeatherSentence(contract);
+    const passenger = _missionWriterV5PassengerLabel(missionLike?.passenger || {}, 'die Tierbegleitung');
+    const subject = animalBrief.transportSubject || _animalTransportSubjectFromCargo(cargoText || missionLike?.cargo || missionLike?.cargoText || '');
+    const passengerLead = passenger.includes(',') ? `${passenger}, begleitet` : `${passenger} begleitet`;
+    const onboardVerb = _animalTransportOnboardVerb(subject);
+    const whyAir = _missionPipelineV4StripSentenceEnd(animalBrief.whyAir || '').trim();
+    const handling = _missionPipelineV4StripSentenceEnd(animalBrief.handlingFocus || '').trim();
+    return _missionWriterV5SentenceJoin([
+        routeSentence,
+        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}`,
+        [whyAir, handling ? `für dich zählt ${_missionPipelineV4LowerFirst(handling)}` : ''].filter(Boolean).join('; '),
+        weatherSentence,
+        animalBrief.handoffSentence || _animalTransportHandoffFromCargo(cargoText || missionLike?.cargo || missionLike?.cargoText || '')
+    ]);
+}
+
 function _pickCargoFragileCargoFromStory(cargoPool = [], storyText = '') {
     const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
     if (!pool.length) return '';
@@ -15712,7 +15849,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
     if (cargoPool.length) {
         cargoText = profile.id === 'animal_transport'
-            ? _pickAnimalTransportCargo(cargoPool, m)
+            ? (_animalTransportDisplayCargoLabel(m.cargo || m.cargoText || cargoText) || _pickAnimalTransportCargo(cargoPool, m))
             : (profile.id === 'private_outing'
                 ? _pickPrivateOutingCargo(cargoPool, m, m.passenger)
                 : (profile.id === 'cargo_fragile'
@@ -15724,15 +15861,24 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         }
     }
     if (profile.id === 'animal_transport') {
-        const targetMatch = String(m.t || '').match(/\b(nach|zur|zum)\s+(.+)$/i);
-        const targetHint = targetMatch ? `${targetMatch[1]} ${targetMatch[2]}` : 'zum Zielplatz';
-        const cargoClean = String(cargoText || '').replace(/\s*\([^)]*\)/g, '').trim();
+        const cargoClean = _animalTransportDisplayCargoLabel(cargoText || m.cargo || m.cargoText || '');
         if (cargoClean) {
-            const liveAnimalCargo = /transportbox|ziege|schaf|reh|hirsch|moewe|möwe|gans|ente|schwan|wildvogel/i.test(cargoClean)
-                && !/vet|veterinaer|veterinär|dokument|unterlagen|tasche|futter|material/i.test(cargoClean);
-            m.s = liveAnimalCargo
-                ? `Eine Auffangstation braucht einen ruhigen Transfer ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`
-                : `Eine Auffangstation braucht einen ruhigen Tierschutzflug ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
+            const existingStory = String(m.s || m.story || m.missionStory || '').trim();
+            const repairedStory = _animalTransportStoryNeedsRepair(existingStory, cargoClean, m.passenger)
+                ? _animalTransportComposeProfileStory(m, cargoClean)
+                : _missionPipelineV4PolishGermanVisibleText(existingStory);
+            if (repairedStory) {
+                m.s = repairedStory;
+                m.story = repairedStory;
+                m.missionStory = repairedStory;
+            }
+            m.cargo = cargoClean;
+            m.cargoText = cargoClean;
+            const contractTarget = String(m?._missionContractV4?.route?.targetName || m?._missionContractV4?.target?.name || '').trim();
+            const targetTitle = contractTarget || String(m.t || '').replace(/^mission\s+nach\s+/i, '').trim();
+            if (!String(m.t || '').trim() || /^mission\s+nach\b/i.test(String(m.t || '').trim())) {
+                m.t = targetTitle ? `Tiertransport nach ${targetTitle}` : 'Tiertransport';
+            }
         }
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
@@ -24502,10 +24648,26 @@ function buildMissionContractV4({
             poiChain
         })
         : null;
+    const animalTransportBrief = taskDomain === 'animal_transport'
+        ? (plannerContext.animalTransportBrief && typeof plannerContext.animalTransportBrief === 'object'
+            ? {
+                ...plannerContext.animalTransportBrief,
+                cargoText: _animalTransportDisplayCargoLabel(plannerContext.animalTransportBrief.cargoText || plannerContext.cargoText || '')
+            }
+            : _animalTransportBuildBrief(plannerContext.cargoText || '', {
+                targetName: plannerContext.dest?.n || '',
+                route: {
+                    targetName: plannerContext.dest?.n || '',
+                    distanceNm: Number.isFinite(Number(plannerContext.dist)) ? Math.round(Number(plannerContext.dist) * 10) / 10 : null
+                }
+            }))
+        : null;
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
         mode,
+        cargoText: String(plannerContext.cargoText || ''),
+        animalTransportBrief,
         route: {
             startIcao: currentStartICAO || '',
             startName: String(plannerContext.start?.n || ''),
@@ -24748,6 +24910,7 @@ function _missionWriterV5DefaultTitle(contract = {}, family = '') {
     if (family === 'apt_sightseeing') return `Sightseeing-Ausflug nach ${target}`;
     if (family === 'poi_sightseeing') return `Blickrunde: ${target}`;
     if (family === 'cargo_transport') return `Transport nach ${target}`;
+    if (family === 'animal_transport') return `Tiertransport nach ${target}`;
     if (family === 'search_and_rescue' || family === 'sar_heli') return `Sucheinsatz bei ${target}`;
     if (family === 'infra_chain_recon') return `Korridor-Erstbefund: ${target}`;
     if (family === 'news_coverage') return `Reporterflug über ${target}`;
@@ -25312,10 +25475,19 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
         };
     }
     if (taskDomain === 'animal_transport') {
+        const cargoLabel = contract?.animalTransportBrief?.cargoText || _missionPipelineV4CargoLabel(contract, context);
+        const animalBrief = contract?.animalTransportBrief && typeof contract.animalTransportBrief === 'object'
+            ? contract.animalTransportBrief
+            : _animalTransportBuildBrief(cargoLabel, { targetName });
         return {
-            transportSubject: spine.concreteAngle || spine.subject || 'Tiertransport in gesicherter Box oder mit Veterinärbegleitung',
-            handlingFocus: spine.whyNow || 'gleichmäßige Fluglage und sanfte Übergabe reduzieren Stress',
-            receivingContact: spine.outcome || spine.completion || 'Station, Tierarzt oder Betreuungskontakt übernimmt am Ziel'
+            cargoText: animalBrief.cargoText || cargoLabel || '',
+            transportSubject: animalBrief.transportSubject || spine.concreteAngle || spine.subject || 'Tiertransport in gesicherter Box oder mit Veterinärbegleitung',
+            whyAir: animalBrief.whyAir || spine.flightValue || spine.whyNow || '',
+            handlingFocus: animalBrief.handlingFocus || spine.whyNow || 'gleichmäßige Fluglage und sanfte Übergabe reduzieren Stress',
+            stressReason: animalBrief.stressReason || '',
+            receivingContact: animalBrief.receivingContact || spine.outcome || spine.completion || 'Station, Tierarzt oder Betreuungskontakt übernimmt am Ziel',
+            nextCareStep: animalBrief.nextCareStep || spine.completion || spine.outcome || '',
+            handoffSentence: animalBrief.handoffSentence || ''
         };
     }
     return {
@@ -26288,7 +26460,10 @@ function _missionPipelineV4PolishGermanVisibleText(text = '') {
         [/\bKoenn/g, 'Könn'], [/\bkoenn/g, 'könn'],
         [/\bMuess/g, 'Müss'], [/\bmuess/g, 'müss'],
         [/\bMoeglich/g, 'Möglich'], [/\bmoeglich/g, 'möglich'],
+        [/\bGleichmaessig/g, 'Gleichmäßig'], [/\bgleichmaessig/g, 'gleichmäßig'],
         [/\bBenoetig/g, 'Benötig'], [/\bbenoetig/g, 'benötig'],
+        [/\bMoewe\b/g, 'Möwe'], [/\bmoewe\b/g, 'Möwe'],
+        [/\bVeterinaer/g, 'Veterinär'], [/\bveterinaer/g, 'veterinär'],
         [/\bPrimaer/g, 'Primär'], [/\bprimaer/g, 'primär'],
         [/\bNatuerlich/g, 'Natürlich'], [/\bnatuerlich/g, 'natürlich'],
         [/\bSaetze\b/g, 'Sätze'], [/\bsaetze\b/g, 'sätze'],
@@ -27448,7 +27623,14 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
         const cargoLabel = _missionPipelineV4CargoLabel(contract);
         return `${opener}, ${cargoLabel} geht heute nach ${targetName}; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Übergabe am Ziel ohne Zusatzstress klappt'}.`;
     }
-    if (taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
+    if (taskDomain === 'animal_transport') {
+        const animalBrief = contract?.animalTransportBrief || _animalTransportBuildBrief(contract?.cargoText || '', { targetName });
+        const transportSubject = String(animalBrief.transportSubject || subject || 'ein Tiertransport').trim();
+        const nextStep = String(animalBrief.nextCareStep || outcome || 'die Übergabe am Ziel ohne Zusatzstress klappt').trim();
+        const onboardVerb = /\b(welpen|unterlagen|material)\b/i.test(transportSubject) ? 'sind' : 'ist';
+        return _missionPipelineV4PolishGermanVisibleText(`${opener}, an Bord ${onboardVerb} ${transportSubject}; bitte ruhig und sauber fliegen, damit ${_missionPipelineV4LowerFirst(nextStep)}.`);
+    }
+    if (taskDomain === 'medical_transfer') {
         return `${opener}, dieser Flug ist heute fuer ${subject} angesetzt; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Uebergabe am Ziel ohne Zusatzstress klappt'}.`;
     }
     const generic = String(incident || `heute geht es fuer uns nach ${targetName}`).trim().replace(/[.!?]+$/,'');
@@ -27956,14 +28138,23 @@ function _missionWriterV5ComposeAnimalTransportStory(contract = {}, context = {}
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielplatz', 120);
     const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die Tierbegleitung');
     const subject = _missionWriterV5CleanDomainSentence(domain.transportSubject, 'ein Tierschutz- oder Veterinärtransfer braucht den Luftweg');
+    const whyAir = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanDomainSentence(domain.whyAir, '')).trim();
     const handling = _missionWriterV5CleanDomainSentence(domain.handlingFocus, 'gleichmäßige Fluglage und sanfte Übergabe halten den Stress niedrig');
     const receiver = _missionWriterV5CleanDomainSentence(domain.receivingContact, 'am Ziel übernimmt Station, Tierarzt oder Betreuungskontakt');
+    const nextStep = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanDomainSentence(domain.nextCareStep, '')).trim();
+    const handoff = _missionWriterV5CleanDomainSentence(domain.handoffSentence, '');
+    const passengerLead = passenger.includes(',') ? `${passenger}, begleitet` : `${passenger} begleitet`;
+    const onboardVerb = _animalTransportOnboardVerb(subject);
+    const handlingLine = [whyAir, handling ? `für dich zählt ${_missionPipelineV4LowerFirst(_missionPipelineV4StripSentenceEnd(handling))}` : '']
+        .filter(Boolean)
+        .join('; ');
+    const handoffLine = handoff || [receiver, nextStep ? `danach ${_missionPipelineV4LowerFirst(nextStep)}` : ''].filter(Boolean).join(', ');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute geht es mit Tiertransport nach ${targetName}`,
-        `${passenger} begleitet den Transfer, weil ${_missionWriterV5ReasonClause(subject)}`,
-        `${handling}.`,
+        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}`,
+        handlingLine,
         weatherSentence,
-        `${receiver}.`
+        handoffLine
     ]);
 }
 
@@ -28128,7 +28319,9 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
     if (domain === 'animal_transport') {
         const hasAnimalFrame = /\b(tier|tierschutz|veterinaer|veterinär|tierarzt|auffangstation|wildvogel|transportbox|box|station|reh|ziege|schaf|gans|ente|moewe|möwe|katze|welpen|hund|stress|versorgung)\b/.test(normalized);
         const hasReceiving = /\b(uebergabe|übergabe|uebernimmt|übernimmt|station|tierarzt|klinik|betreuung|auffangstation|zielkontakt|versorgung)\b/.test(normalized);
-        return !hasAnimalFrame || !hasReceiving;
+        const cargoLabel = contract?.animalTransportBrief?.cargoText || context?.cargoText || contract?.cargoText || '';
+        const hasConcreteCargo = cargoLabel ? _animalTransportStoryMentionsCargo(raw, cargoLabel) : true;
+        return !hasAnimalFrame || !hasReceiving || !hasConcreteCargo;
     }
     return false;
 }
@@ -28316,7 +28509,9 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         sceneIntent.densityHint = 'none';
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
-    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? src.passenger : {};
+    const passengerRaw = (src.passenger && typeof src.passenger === 'object')
+        ? src.passenger
+        : ((context.passenger && typeof context.passenger === 'object') ? context.passenger : {});
     let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
@@ -28381,7 +28576,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     finalStory = nameAligned.story;
     passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
     finalStory = _missionWriterV5AlignPassengerRoleInStory(finalStory, passenger);
-    if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
+    if ((requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) || requiredTaskDomain === 'animal_transport') {
         finalStory = _missionPipelineV4PolishGermanVisibleText(finalStory);
         if (passenger?.greetingText) passenger.greetingText = _missionPipelineV4PolishGermanVisibleText(passenger.greetingText);
     }
@@ -28681,9 +28876,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Fragile Kleinfracht, die per GA-Flug nachvollziehbar schneller und schonender an den vorbereiteten Empfänger kommt'
         ],
         animal_transport: [
-            'Tiertransport mit stressarmer, ruhiger Flugfuehrung',
-            'Wildtier- oder Vogeltransfer fuer Auffangstation, mit konkreter Tierart',
-            'Nutztier- oder Zoo-/Auffangstations-Transfer mit leicht humorvollem, aber glaubhaftem Ton'
+            'Tiertransport mit konkreter Tierart, stressarmer Flugführung und vorbereitetem Zielkontakt',
+            'Wildtier- oder Vogeltransfer für Auffangstation, bei dem Luftweg, Box und nächste Betreuung den Anlass tragen',
+            'Veterinär- oder Stations-Transfer mit ruhigem Ablauf, Begleitperson und klarer Übergabe am Ziel'
         ],
         news_coverage: isPOI ? [
             'Reporter-/Medieneinsatz mit konkretem sichtbarem Anlass am POI',
@@ -28978,7 +29173,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `16. MEDICAL-KONSISTENZ: Wenn pax nur 1 PAX ist, ist diese Person medizinische Begleitung/Notarzt, NICHT Patient. Keine Patientin/keinen Patienten im Flugzeug erwaehnen, ausser pax ist explizit mindestens 2 PAX und die Story modelliert Patient plus medizinische Begleitung. Bei 1 PAX keine Formulierung "Notarztteam"; nutze "medizinische Begleitung", "Notarzt" oder "Notaerztin".`
         : '';
     const animalProfileRule = (forcedProfile?.id === 'animal_transport')
-        ? `16b. TIERTRANSPORT-KONSISTENZ: Nenne eine konkrete Tierart statt generischem Haustier-Standard. Sichtbar spawnbar sind nur Piper-taugliche Katalogtiere: Ziege, Reh/junges Reh, Moewe, Gans. Ente/Schwan werden als heimischer Wasservogel auf Gans/Moewe oder als Transportbox umgesetzt. Schaf ist erlaubt, wird aber als Transportbox/Frachtobjekt umgesetzt. Pferd/Seeloewe niemals als lebendes Bordtier in der Piper; wenn so ein Thema vorkommt, dann nur als Vet-Einsatz, Dokumente oder geschlossene Uebergabekiste. Nicht vorhandene Tiere werden als Cargo-Objekt ersetzt: Cardboard oder Pallet01_03. Bei Ziege oder Schaf darf der Text die engen Bedingungen im Flieger leicht humorvoll erwaehnen. Pax bleibt Tierpfleger/Tierschutz-Kurier und der Flugauftrag bleibt stressarm und glaubhaft.`
+        ? `16b. TIERTRANSPORT-BASIS: Baue den Auftrag aus konkreter Tier-/Vet-Sendung, Begleitperson, ruhiger Flugführung, Zielkontakt und nächstem Betreuungsschritt. Der Flug ist sinnvoll, weil der kurze Luftweg Stress, Bodenzeit oder Hitze reduziert und die Übergabe vorbereitet ist. Wenn eine Tierart genannt wird, halte sie Piper-tauglich oder formuliere sie als gesicherte Transportbox beziehungsweise Vet-Material. Der Ton darf kurz warm oder leicht humorvoll sein, bleibt aber ein glaubhafter Tierschutz- oder Veterinärtransfer.`
         : '';
     const aptCharterSeedPassenger = isAptCharterMission ? buildCharterPassenger(null) : null;
     const aptCharterSeedStory = aptCharterSeedPassenger
@@ -31919,6 +32114,27 @@ async function generateMission(options = {}) {
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
     if (missionProposalChoice?.paxText) paxText = missionProposalChoice.paxText;
     if (missionProposalChoice?.cargoText) cargoText = missionProposalChoice.cargoText;
+    const preWriterProfile = getMissionTaskProfile(dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
+    let animalTransportBrief = null;
+    if (preWriterProfile?.id === 'animal_transport') {
+        if (preWriterProfile.paxText && !missionProposalChoice?.paxText) paxText = preWriterProfile.paxText;
+        const cargoPool = Array.isArray(preWriterProfile.cargoPool) ? preWriterProfile.cargoPool.filter(Boolean) : [];
+        const proposalCargo = _animalTransportDisplayCargoLabel(missionProposalChoice?.cargoText || '');
+        const pickedCargo = proposalCargo || _animalTransportDisplayCargoLabel(_pickAnimalTransportCargo(cargoPool, {
+            t: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
+            title: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
+            s: missionProposalChoice?.s || missionProposalChoice?.story || ''
+        }));
+        if (pickedCargo) cargoText = pickedCargo;
+        animalTransportBrief = _animalTransportBuildBrief(cargoText, {
+            targetName: dest?.n || '',
+            route: {
+                startName: start?.n || '',
+                targetName: dest?.n || '',
+                distanceNm: Number.isFinite(Number(totalDist)) ? Math.round(Number(totalDist) * 10) / 10 : null
+            }
+        });
+    }
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     let missionPlanV2 = null;
@@ -32016,6 +32232,7 @@ async function generateMission(options = {}) {
         missionWeather,
         missionFireHazard,
         cargoText,
+        animalTransportBrief,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
         knowledgeContext: plannerKnowledgeContext,
         poiChain: dest?.poiChain || null,
@@ -32579,6 +32796,15 @@ async function generateMission(options = {}) {
         }
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
             const writerMode = getMissionWriterMode();
+            const writerProfile = getMissionTaskProfile(missionContractV4?.profile?.id || dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
+            const writerPassengerSeed = writerProfile?.id === 'animal_transport'
+                ? buildMissionProfilePassenger(null, writerProfile, isPOI, '', {
+                    _missionContractV4: missionContractV4,
+                    cargoText,
+                    targetName: dest?.n || missionContractV4?.route?.targetName || '',
+                    t: dest?.n || missionContractV4?.route?.targetName || ''
+                })
+                : null;
             const writerContext = {
                 missionContractV4,
                 missionPlanV2,
@@ -32587,6 +32813,7 @@ async function generateMission(options = {}) {
                 requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
                 isPOI,
                 cargoText,
+                passenger: writerPassengerSeed,
                 selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
                 poiTerrainFt,
                 targetGeoContext: preMissionTargetGeoContext,
@@ -33560,10 +33787,10 @@ async function generateMission(options = {}) {
             || briefingProfileId === 'apt_charter_pickup'
             || String(bushSpec?.targetMode || '') === 'strip_then_return'
             || String(currentMissionData?.passenger?.roleProfile || m?.passenger?.roleProfile || '').toLowerCase() === 'bush_pickup_guest_v1');
-    const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|vorfeld|parking/i.test(storyForBriefing)
+    const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|uebernimmt|übernimmt|uebernahme|übernahme|vorfeld|parking|tierarztkontakt|tierpflege|stationskontakt|zielkontakt/i.test(storyForBriefing)
         || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet)\b/i.test(storyForBriefing));
     if (arrivalHint && !isPrivateOutingBriefing && !briefingAlreadyCoversArrival) {
-        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
+        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${_missionPipelineV4PolishGermanVisibleText(arrivalHint)}`;
     }
     const knowledgeBriefing = buildPoiKnowledgeBriefingBlock(currentMissionData, window.activePassenger || plannedBriefingPassenger);
     const storyAlreadyHasGuideFrame = /lern-guide|guide/i.test(storyForBriefing)
