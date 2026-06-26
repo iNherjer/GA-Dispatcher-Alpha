@@ -30561,6 +30561,140 @@ function missionProposalDirectionLabel(bearing) {
     return labels[Math.round((((b % 360) + 360) % 360) / 45) % 8];
 }
 
+function missionProposalPolishVisibleText(value = '') {
+    let text = String(value || '');
+    if (typeof _missionPipelineV4PolishGermanVisibleText === 'function') {
+        text = _missionPipelineV4PolishGermanVisibleText(text);
+    }
+    return text
+        .replace(/\bwaehlen\b/g, 'wählen')
+        .replace(/\bWaehlen\b/g, 'Wählen')
+        .replace(/\bgewaehlt\b/g, 'gewählt')
+        .replace(/\bGewaehlte\b/g, 'Gewählte')
+        .replace(/\bRueckkehr\b/g, 'Rückkehr')
+        .replace(/\bSichtpruefung\b/g, 'Sichtprüfung')
+        .replace(/\bUebergabe\b/g, 'Übergabe')
+        .replace(/\bGaeste\b/g, 'Gäste')
+        .replace(/\bHoehepunkt\b/g, 'Höhepunkt')
+        .replace(/\bfuer\b/g, 'für')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function missionProposalPoiTags(target = {}) {
+    const lookupTags = target?.poiLookup?.selectedTags;
+    if (lookupTags && typeof lookupTags === 'object') return lookupTags;
+    if (target?.tags && typeof target.tags === 'object') return target.tags;
+    return {};
+}
+
+function missionProposalPoiTypeLabel(target = {}) {
+    const tags = missionProposalPoiTags(target);
+    const infraType = String(target?.poiLookup?.selectedInfraType || tags.infra_type || tags.infraType || '').toLowerCase();
+    const category = String(target?.poiCategory || target?.category || '').toLowerCase();
+    const railway = String(tags.railway || '').toLowerCase();
+    const power = String(tags.power || '').toLowerCase();
+    const manMade = String(tags.man_made || tags.manMade || '').toLowerCase();
+    const amenity = String(tags.amenity || '').toLowerCase();
+    if (infraType === 'telecom' || ['communications_tower', 'tower', 'mast'].includes(manMade) || tags.communication || tags['tower:type']) return 'Funkmast';
+    if (railway === 'switch' || /\bweiche/i.test(String(target?.n || target?.name || ''))) return 'Weichengruppe';
+    if (railway === 'signal') return 'Signalstandort';
+    if (infraType === 'rail' || railway) return 'Bahn-Infrastruktur';
+    if (infraType === 'bridge' || tags.bridge) return 'Brücke/Viadukt';
+    if (infraType === 'road' || tags.highway) return 'Verkehrsabschnitt';
+    if (infraType === 'power_grid' || ['tower', 'pole', 'line', 'minor_line', 'cable'].includes(power)) return 'Netztrassenabschnitt';
+    if (infraType === 'power_station' || ['substation', 'transformer', 'switchgear'].includes(power) || tags.substation) return 'Umspannwerk/Technikstation';
+    if (infraType === 'solar') return 'Solarpark';
+    if (infraType === 'wind') return 'Windpark';
+    if (infraType === 'water_tank' || manMade === 'water_tower') return 'Wassertank/Wasserturm';
+    if (infraType === 'water_utility' || amenity === 'water_works') return 'Wasser-/Abwasseranlage';
+    if (infraType === 'marine_infra') return 'Hafen-/Schleusenanlage';
+    if (infraType === 'industrial' || String(tags.landuse || '').toLowerCase() === 'industrial') return 'Industrieareal';
+    if (typeof _poiInfraFallbackName === 'function' && (category === 'infrastructure' || category === 'industry')) {
+        const fallback = _poiInfraFallbackName(tags, category);
+        if (fallback) return fallback;
+    }
+    if (category === 'infrastructure') return 'Infrastrukturziel';
+    if (category === 'industry') return 'Industrieareal';
+    if (category === 'castle') return 'Schloss/Burg';
+    if (category === 'mountain') return 'Aussichtspunkt';
+    if (category === 'water') return 'Gewässer';
+    if (category === 'dam') return 'Damm/Talsperre';
+    if (category === 'city') return 'Orts-/Stadtblick';
+    return '';
+}
+
+function missionProposalWeakPoiName(name = '') {
+    const raw = String(name || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return true;
+    if (/^\d{1,6}[A-Z]?$/i.test(raw)) return true;
+    if (/^[A-Z0-9._:-]{2,12}$/i.test(raw) && /\d/.test(raw)) return true;
+    if (typeof _poiIsNumericLikeName === 'function' && _poiIsNumericLikeName(raw)) return true;
+    if (typeof _poiLooksTechnicalCodeName === 'function' && _poiLooksTechnicalCodeName(raw)) return true;
+    return false;
+}
+
+function missionProposalPoiDisplayTitle(target = {}, profileId = '') {
+    const raw = String(target?.n || target?.name || '').replace(/\s+/g, ' ').trim();
+    const typeLabel = missionProposalPoiTypeLabel(target);
+    const profile = String(profileId || '').toLowerCase();
+    const weak = missionProposalWeakPoiName(raw);
+    if (typeLabel && weak) {
+        return raw ? `${typeLabel} ${raw}` : typeLabel;
+    }
+    if (!typeLabel && weak && profile === 'inspection_infra') {
+        return raw ? `Infrastrukturziel ${raw}` : 'Infrastrukturziel';
+    }
+    if (!typeLabel && weak && profile === 'sightseeing_tour') {
+        return raw ? `Blickpunkt ${raw}` : 'Blickpunkt';
+    }
+    if (typeLabel && profile === 'inspection_infra') {
+        const typeNorm = normalizeMissionText(typeLabel);
+        const rawNorm = normalizeMissionText(raw);
+        if (raw && !rawNorm.includes(typeNorm.split(/\s+/)[0] || typeNorm)) return `${typeLabel}: ${raw}`;
+    }
+    return raw || typeLabel || 'Zielgebiet';
+}
+
+function missionProposalPoiOptionLine(target = {}, profileId = '') {
+    const profile = String(profileId || '').toLowerCase();
+    const tags = missionProposalPoiTags(target);
+    const infraType = String(target?.poiLookup?.selectedInfraType || tags.infra_type || '').toLowerCase();
+    const railway = String(tags.railway || '').toLowerCase();
+    const category = String(target?.poiCategory || target?.category || '').toLowerCase();
+    if (profile === 'sightseeing_tour') {
+        if (category === 'castle') return 'Motiv: Bauwerk, Lage und Umgebung als markanter Blickpunkt.';
+        if (category === 'mountain') return 'Motiv: Geländeform, Aussicht und Landschaftszusammenhang.';
+        if (category === 'water' || category === 'dam') return 'Motiv: Wasserlinie, Ufer und Einbettung in die Landschaft.';
+        if (category === 'city') return 'Motiv: Ortsbild, Orientierung und wiedererkennbare Landmarken.';
+        if (category === 'bridge') return 'Motiv: Brücke, Tal- oder Flussbezug und klare Fotoperspektive.';
+        return 'Motiv: ein konkreter Blickpunkt mit Zeit für Orientierung und Fotos.';
+    }
+    if (infraType === 'telecom') return 'Prüfauftrag: Mast, Standortzugang und unmittelbares Umfeld einordnen.';
+    if (railway || infraType === 'rail') return 'Prüfauftrag: Gleis-/Weichenumfeld, Signale und Zugänglichkeit dokumentieren.';
+    if (infraType === 'bridge' || tags.bridge) return 'Prüfauftrag: Bauwerk, Widerlager, Zufahrten und Unterseite soweit sichtbar erfassen.';
+    if (infraType === 'road' || tags.highway) return 'Prüfauftrag: Verkehrsabschnitt, Randbereiche und mögliche Baustellenlage einordnen.';
+    if (infraType === 'power_grid') return 'Prüfauftrag: Trasse, Masten und freie Zugänglichkeit aus ruhigen Blickwinkeln prüfen.';
+    if (infraType === 'power_station') return 'Prüfauftrag: Anlagenrand, Schaltfeld und Zufahrtsbereich dokumentieren.';
+    if (infraType === 'water_utility' || infraType === 'water_tank') return 'Prüfauftrag: Bauwerkszustand, Zugänge und sichtbare Leitungs-/Beckenbereiche prüfen.';
+    if (infraType === 'industrial') return 'Prüfauftrag: Anlagenkanten, Zufahrten und sichtbare Wartungspunkte erfassen.';
+    return 'Prüfauftrag: Zielbereich, Zugänge und auffällige Veränderungen aus der Luft erfassen.';
+}
+
+function missionProposalFamilyIntro(choices = []) {
+    const profile = String(choices?.[0]?.profileId || '').toLowerCase();
+    if (profile === 'cargo_fragile') {
+        return 'Wähle einen konkreten Frachtauftrag. Jede Option setzt Sendung, Ziel und Entfernung für das folgende Dispatcher-Briefing fest.';
+    }
+    if (profile === 'sightseeing_tour') {
+        return 'Wähle den Blickpunkt für die Runde. Alle Optionen sind entspannte Rundflüge mit Rückkehr zum Start; die Gäste wollen genau diesen Ort sehen und fotografieren.';
+    }
+    if (profile === 'inspection_infra') {
+        return 'Wähle einen Inspektionsauftrag. Alle Optionen sind Rundflüge mit Rückkehr zum Start; geflogen werden ruhige, gut planbare Passes für erste Zustands- oder Wartungsbilder.';
+    }
+    return 'Wähle einen der vorbereiteten Aufträge.';
+}
+
 function missionProposalTargetKey(target = {}) {
     const name = String(target?.n || target?.name || target?.icao || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const lat = Number(target?.lat);
@@ -30713,7 +30847,7 @@ function missionProposalPickCargoItems(cargoPool = [], count = 3) {
     const fallback = [
         'Optische Baugruppe im Schaumcase (24 lbs)',
         'Ming-Vase im Klimakoffer (18 lbs)',
-        'Kiste rohe Eier fuer die Testkueche (20 lbs)',
+        'Kiste rohe Eier für die Testküche (20 lbs)',
         'Kalibrierter Sensorkoffer (32 lbs)',
         'Archivmappe mit Originaldokumenten (12 lbs)'
     ];
@@ -30879,11 +31013,11 @@ async function buildMissionProposalChoices(context = {}) {
                 target: missionProposalCompactTarget(airport, 'apt'),
                 title: cargoText.replace(/\s*\([^)]*\)\s*$/, ''),
                 subtitle: `nach ${targetName}`,
-                description: `Empfindliche Fracht nach ${targetName}; ${route.label} vom Start. Schwerpunkt: ruhige Flugfuehrung und saubere Uebergabe am Ziel.`,
+                description: `Route: ${route.label} vom Start. Übergabe am Zielkontakt in ${targetName}.`,
                 routeLabel: route.label,
                 cargoText,
                 paxText: String(profile.paxText || '1 PAX (Frachtbegleitung)'),
-                storySeed: `Die gewaehlte Sendung ist ${cargoText}; Zielkontakt am Platz ${targetName}.`
+                storySeed: `Die gewählte Sendung ist ${cargoText}; Zielkontakt am Platz ${targetName}.`
             });
         }).filter(Boolean);
     }
@@ -30904,8 +31038,10 @@ async function buildMissionProposalChoices(context = {}) {
         });
         return candidates.map((poi, index) => {
             const route = missionProposalFormatRoute(start, poi, 'poi');
-            const targetName = String(poi.n || poi.name || 'POI').trim();
             const isSightseeing = profileId === 'sightseeing_tour';
+            const targetTitle = missionProposalPoiDisplayTitle(poi, profileId);
+            const typeLabel = missionProposalPoiTypeLabel(poi);
+            const optionLine = missionProposalPoiOptionLine(poi, profileId);
             const selectedCategory = String(poi.poiCategory || poiCategory || 'poi').toLowerCase();
             return normalizeMissionProposalChoice({
                 id: `${profileId}-${Date.now()}-${index}`,
@@ -30914,17 +31050,17 @@ async function buildMissionProposalChoices(context = {}) {
                 selectedCategory,
                 requestedCategory: String(context.requestedPoiCategory || context.selectedPoiCategory || selectedCategory || 'all').toLowerCase(),
                 target: missionProposalCompactTarget(poi, 'poi'),
-                title: targetName,
-                subtitle: isSightseeing ? 'Sightseeing-Runde' : 'Inspektionsziel',
-                description: isSightseeing
-                    ? `Ruhiger Blickflug zu ${targetName}; ${route.label} gesamt mit Rueckkehr zum Start. Die Gaeste waehlen genau diesen Ort als Hoehepunkt der Runde.`
-                    : `Sichtpruefung bei ${targetName}; ${route.label} gesamt mit Rueckkehr zum Start. Schwerpunkt: klare Passes fuer erste Zustands- oder Wartungsbilder.`,
+                title: targetTitle,
+                subtitle: isSightseeing
+                    ? (typeLabel ? `${typeLabel} als Blickpunkt` : 'Sightseeing-Runde')
+                    : (typeLabel ? `${typeLabel} prüfen` : 'Infrastruktur prüfen'),
+                description: `Route: ${route.label} gesamt. ${optionLine}`,
                 routeLabel: route.label,
                 cargoText: isSightseeing ? 'Kleine Kamerataschen (12 lbs)' : 'Inspektionskamera und Tablet (26 lbs)',
-                paxText: isSightseeing ? '2 PAX (Sightseeing-Gaeste)' : '1 PAX (Infrastruktur-Technik)',
+                paxText: isSightseeing ? '2 PAX (Sightseeing-Gäste)' : '1 PAX (Infrastruktur-Technik)',
                 storySeed: isSightseeing
-                    ? `Die Gaeste wollen ${targetName} bewusst aus der Luft sehen und fotografieren.`
-                    : `Ein Fachkontakt braucht bei ${targetName} eine ruhige Sichtpruefung aus der Luft.`
+                    ? `Die Gäste wollen ${targetTitle} bewusst aus der Luft sehen und fotografieren.`
+                    : `Ein Fachkontakt braucht bei ${targetTitle} eine ruhige Sichtprüfung aus der Luft.`
             });
         }).filter(Boolean);
     }
@@ -30979,12 +31115,12 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
         if (el) el.innerHTML = value;
     };
     setMissionNoteFrontIndex(0);
-    setText('mTitle', 'Auftrag auswaehlen');
+    setText('mTitle', 'Auftrag auswählen');
     setText('mDepICAO', currentStartICAO || start?.icao || '-');
     setText('mDepName', start?.n || start?.name || '-');
     setText('mDepCoords', (Number.isFinite(Number(start?.lat)) && Number.isFinite(Number(start?.lon))) ? `${Number(start.lat).toFixed(4)}, ${Number(start.lon).toFixed(4)}` : '-');
     setText('mDestICAO', 'OFFEN');
-    setText('mDestName', 'Bitte Vorschlag waehlen');
+    setText('mDestName', 'Bitte Vorschlag wählen');
     setText('mDestCoords', '-');
     setText('mPay', '-');
     setText('mWeight', '-');
@@ -31004,13 +31140,14 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
     const destIcon = document.getElementById('destIcon');
     if (destIcon) destIcon.innerText = '>';
 
+    const familyIntro = missionProposalEscapeHtml(missionProposalFamilyIntro(validChoices));
     const cards = validChoices.map((choice, index) => {
-        const title = missionProposalEscapeHtml(choice.title || `Vorschlag ${index + 1}`);
-        const subtitle = missionProposalEscapeHtml(choice.subtitle || '');
-        const description = missionProposalEscapeHtml(choice.description || '');
+        const title = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.title || `Vorschlag ${index + 1}`));
+        const subtitle = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.subtitle || ''));
+        const description = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.description || ''));
         const route = missionProposalEscapeHtml(choice.routeLabel || '');
-        const cargo = missionProposalEscapeHtml(choice.cargoText || '');
-        const pax = missionProposalEscapeHtml(choice.paxText || '');
+        const cargo = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.cargoText || ''));
+        const pax = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.paxText || ''));
         const id = missionProposalEscapeHtml(choice.id);
         return `
             <div style="border:1px solid rgba(0,0,0,0.24); border-radius:6px; padding:10px 12px; margin:0 0 10px 0; background:rgba(255,255,255,0.45);">
@@ -31026,12 +31163,12 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
                     ${pax ? `<span>PAX: ${pax}</span>` : ''}
                     ${cargo ? `<span>Fracht: ${cargo}</span>` : ''}
                 </div>
-                <button type="button" onclick="window.acceptMissionProposalChoice('${id}'); event.stopPropagation();" style="margin-top:9px; border:1px solid #111; background:#111; color:#fff; border-radius:4px; padding:7px 10px; font-size:13px; font-weight:700; cursor:pointer;">Diesen Auftrag waehlen</button>
+                <button type="button" onclick="window.acceptMissionProposalChoice('${id}'); event.stopPropagation();" style="margin-top:9px; border:1px solid #111; background:#111; color:#fff; border-radius:4px; padding:7px 10px; font-size:13px; font-weight:700; cursor:pointer;">Diesen Auftrag wählen</button>
             </div>`;
     }).join('');
     setHtml('mStory', `
         <div style="font-size:16px; line-height:1.25; margin-bottom:11px;">
-            Vorschlagsmodus ist aktiv. Waehle einen Auftrag; danach verschwindet diese Auswahl und das normale Dispatcher-Briefing wird erzeugt.
+            ${familyIntro}
         </div>
         ${cards}
         <button type="button" onclick="window.cancelMissionProposalSelection(); event.stopPropagation();" style="border:1px solid rgba(0,0,0,0.45); background:transparent; color:#222; border-radius:4px; padding:6px 9px; font-size:12px; cursor:pointer;">Abbrechen</button>
@@ -31042,7 +31179,7 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
         try { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
     }
     const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = 'Vorschlaege bereit. Bitte Auftrag im Briefing waehlen.';
+    if (indicator) indicator.innerText = 'Vorschläge bereit. Bitte Auftrag im Briefing wählen.';
     setMissionGenerationProgress('mission_content', { completed: true, force: true });
     setDispatchLampState('done', 'Vorschlagsauswahl');
     return true;
@@ -31059,9 +31196,9 @@ window.acceptMissionProposalChoice = function acceptMissionProposalChoice(id) {
     gaMissionProposalPending = null;
     missionProposalRestoreBriefingPresentation();
     const story = document.getElementById('mStory');
-    if (story) story.innerText = 'Auswahl uebernommen. Dispatcher erstellt jetzt das eigentliche Briefing...';
+    if (story) story.innerText = 'Auswahl übernommen. Dispatcher erstellt jetzt das Briefing...';
     const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = 'Auswahl uebernommen. Erzeuge Mission...';
+    if (indicator) indicator.innerText = 'Auswahl übernommen. Erzeuge Mission...';
     setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
     setTimeout(() => generateMission({
         proposalChoice: normalized,
@@ -34198,7 +34335,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1216', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1217', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
