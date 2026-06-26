@@ -800,9 +800,9 @@ function buildMissionAiPayload(prompt) {
         missionType: 'apt'
       },
       title: `Empfindliche Fracht nach ${target}`,
-      story: `Heute geht Präzisionsoptik im Stoßschutz-Case nach ${target}; der Zielkontakt hat Prüfplatz und Übergabeprotokoll schon vorbereitet. Die Route führt von ${start} nach ${target} über rund ${distanceLabel} NM, kurz genug für einen sauberen GA-Kurierlauf und deutlich schonender als ein langer Bodenweg. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein Anflug ohne Hektik. Nach der Landung bleibt das Case gesichert, bis der Frachtkontakt am Vorfeld übernimmt und die Optik direkt in die Prüfung bringt.`,
+      story: `Heute gehen handbemalte Keramikenten im Polstercase nach ${target}; der Marktstand-Kontakt hat die Übergabe schon vorbereitet und nimmt die Sache ernster, als der Inhalt klingt. Die Route führt von ${start} nach ${target} über rund ${distanceLabel} NM, kurz genug für einen sauberen GA-Kurierlauf und deutlich schonender als ein langer Bodenweg. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein Anflug ohne Enten-Domino. Nach der Landung bleibt das Case gesichert, bis der Frachtkontakt am Vorfeld übernimmt und die Enten in Ruhe nachzählt.`,
       pax: '1 PAX (Frachtbegleitung)',
-      cargo: 'Präzisionsoptik im Stoßschutz-Case (28 lbs)',
+      cargo: 'Handbemalte Keramikenten im Polstercase (19 lbs)',
       sceneIntent: {
         summary: 'A-B-Flug ohne Zielszene; die sichtbare Logik liegt in Fracht, Route und Uebergabe am Ziel.',
         environment: 'leer',
@@ -812,10 +812,10 @@ function buildMissionAiPayload(prompt) {
         notes: 'Fragile Fracht bleibt A-B-Kontext.'
       },
       passenger: {
-        name: 'Ralf König',
-        role: 'Frachtbegleiter',
-        gender: 'male',
-        personality: 'ruhig, organisiert, praezise',
+        name: 'Klara Mohn',
+        role: 'Event-Kurierin',
+        gender: 'female',
+        personality: 'hellwach, trocken, vorsichtig',
         dialectHint: 'neutral',
         roleProfile: 'cargo_fragile_highcare_v1',
         taskDomain: 'cargo_fragile',
@@ -828,7 +828,7 @@ function buildMissionAiPayload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        greetingText: `Hi, die Optik fuer ${target} ist sauber gesichert. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`,
+        greetingText: `Hi, die Keramikenten fuer ${target} sind sauber gepolstert. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`,
         trainingPlan: null
       }
     };
@@ -1312,14 +1312,14 @@ function buildMissionWriterV4Payload(prompt) {
     const distText = Number.isFinite(dist) && dist > 0 ? ` über rund ${dist.toFixed(dist % 1 ? 1 : 0)} NM` : '';
     return {
       title: `Empfindliche Fracht nach ${targetName}`,
-      story: `Heute geht ein kalibrierter Sensorkoffer nach ${targetName}; der Zielkontakt hat Prüfplatz und Übergabeprotokoll bereits vorbereitet. Die Route führt von ${startName} nach ${targetName}${distText}, damit die Sendung nachvollziehbar in einer Hand bleibt und nicht über den langen Bodenweg muss. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein sauberer Anflug. Nach der Landung bleibt der Koffer gesichert, bis der Frachtkontakt am Vorfeld übernimmt und die Prüfung direkt starten kann.`,
+      story: `Heute geht eine Hochzeitstorte im stoßgedämpften Kühlcase nach ${targetName}; der Cateringkontakt hat Kühlplatz und Übergabeprotokoll schon vorbereitet. Die Route führt von ${startName} nach ${targetName}${distText}, damit die Torte nachvollziehbar in einer Hand bleibt und nicht den langen Bodenlauf nimmt. Entscheidend sind ruhige Fluglage, weiche Korrekturen und ein Anflug ohne Küchenkatastrophe. Nach der Landung bleibt das Kühlcase geschlossen, bis der Frachtkontakt am Vorfeld übernimmt und die Torte direkt in die Kühlung bringt.`,
       pax: '1 PAX (Frachtbegleiter)',
-      cargo: 'Präzisionssensorik im Schutzcase (42 lbs)',
+      cargo: 'Hochzeitstorte im stoßgedämpften Kühlcase (30 lbs)',
       passenger: {
-        name: 'Ralf König',
-        role: 'Frachtbegleiter',
-        gender: 'male',
-        personality: 'ruhig, organisiert, präzise',
+        name: 'Klara Mohn',
+        role: 'Event-Kurierin',
+        gender: 'female',
+        personality: 'hellwach, trocken, vorsichtig',
         dialectHint: 'neutral',
         roleProfile,
         taskDomain,
@@ -1332,7 +1332,7 @@ function buildMissionWriterV4Payload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        greetingText: `Hi, der Sensorkoffer für ${targetName} ist sauber gesichert. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`
+        greetingText: `Hi, die Torte fuer ${targetName} ist sauber gekuehlt. Bitte ruhig fliegen; am Ziel wartet der Frachtkontakt direkt am Vorfeld.`
       },
       sceneIntent: {
         summary: 'A-B-Flug ohne separate Zielszene; die Übergabe bleibt am Zielflugplatz und wird über Fracht, Route und Kontakt erzählt.',

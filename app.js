@@ -2433,6 +2433,22 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'pragmatisch, wach, verbindlich',
                 storySeed: '{name} koordiniert eine kleine AOG-Sendung; die Zielwerft wartet auf das Bauteil, damit die Arbeit am abgestellten Flugzeug weitergeht.',
                 greetingText: 'Servus, das Teil ist klein, aber die Werft wartet darauf. Sauber sichern, ruhig fliegen, am Ziel direkt an den Vorfeldkontakt.'
+            },
+            {
+                name: 'Klara Mohn',
+                role: 'Event-Kurierin',
+                gender: 'female',
+                personality: 'hellwach, trocken, vorsichtig',
+                storySeed: '{name} begleitet eine etwas kuriose, aber empfindliche Event-Fracht; am Ziel wartet jemand, der sie lieber heil als schnell haben will.',
+                greetingText: 'Hi, die Fracht ist heute ein bisschen skurril, aber leider nicht unkaputtbar. Weich fliegen, dann haben am Ziel alle etwas zu lachen.'
+            },
+            {
+                name: 'Oskar Bent',
+                role: 'Instrumententechniker',
+                gender: 'male',
+                personality: 'ruhig, musikverliebt, pingelig',
+                storySeed: '{name} bringt ein empfindliches Instrument oder Buehnenteil zum Ziel; dort ist der naechste Aufbau schon auf diese Kiste abgestimmt.',
+                greetingText: 'Moin, das Case ist gut gepolstert, aber die Stimmung nach der Landung haengt daran, dass innen nichts klappert. Ruhig reicht voellig.'
             }
         ],
         greetingText: 'Hi, die Sendung ist empfindlich und am Ziel wird sie direkt weiterbearbeitet. Bitte ruhig fliegen und die Übergabe erst nach sauberem Abstellen freigeben.',
@@ -2445,7 +2461,12 @@ const MISSION_ROLE_TASK_PROFILES = {
             'Kleines Ausstellungsstück im Klimacase (24 lbs)',
             'AOG-Avionikmodul im gepolsterten Kuriercase (16 lbs)',
             'Probenkoffer mit versiegelten Haltern (22 lbs)',
-            'Kamera-Gimbal im Transportcase (26 lbs)'
+            'Kamera-Gimbal im Transportcase (26 lbs)',
+            'Hochzeitstorte im stoßgedämpften Kühlcase (30 lbs)',
+            'Porzellan-Maskottchen im Schaumcase (14 lbs)',
+            'Vintage-Synthesizer im Flightcase (31 lbs)',
+            'Modellflugzeug-Pokal im Acrylcase (12 lbs)',
+            'Handbemalte Keramikenten im Polstercase (19 lbs)'
         ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fracht-Story: konkrete Sendung, vorbereiteter Zielkontakt, ruhiger A-B-Flug und klare Übergabe nach der Landung. Route und Entfernung dürfen als natürlicher Kontext vorkommen, wenn sie die Geschichte stützen.'
@@ -13752,6 +13773,10 @@ function _pickCargoFragileCargo(cargoPool = [], missionLike = {}, currentCargoTe
     if (/(aog|avionik|modul|werft)/.test(storyText)) return pickByCargoText([/aog|avionik|modul/]) || pool[0] || '';
     if (/(probe|proben|versiegel)/.test(storyText)) return pickByCargoText([/probe|proben|versiegel/]) || pool[0] || '';
     if (/(gimbal|kamera)/.test(storyText)) return pickByCargoText([/gimbal|kamera/]) || pool[0] || '';
+    if (/(torte|hochzeit|konditorei|kuehlcase|kuhlcase)/.test(storyText)) return pickByCargoText([/torte|hochzeit|kuehlcase|kuhlcase/]) || pool[0] || '';
+    if (/(porzellan|maskottchen|schaumcase|keramik|enten)/.test(storyText)) return pickByCargoText([/porzellan|maskottchen|schaumcase|keramik|enten/]) || pool[0] || '';
+    if (/(synthesizer|instrument|buehne|buhne|flightcase)/.test(storyText)) return pickByCargoText([/synthesizer|instrument|flightcase/]) || pool[0] || '';
+    if (/(pokal|modellflugzeug|acrylcase|vereinsabend|clubabend)/.test(storyText)) return pickByCargoText([/pokal|modellflugzeug|acrylcase/]) || pool[0] || '';
     if (/(labor|laborgerat|laborkoffer|laborbox)/.test(storyText)) return pickByCargoText([/labor/]) || pool[0] || '';
     if (/(optik|prazision|praezision|prufstand|pruefstand)/.test(storyText)) return pickByCargoText([/optik|prazision|praezision/]) || pool[0] || '';
     const current = String(currentCargoText || missionLike?.cargo || missionLike?.cargoText || '').replace(/\s+/g, ' ').trim();
@@ -22346,6 +22371,36 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 receiver: 'die Zielwerft',
                 reason: 'die abgestellte Maschine dort auf genau dieses Bauteil wartet',
                 nextStep: 'übernimmt die Werft das Modul direkt aus dem Kuriercase und bereitet den Einbau vor'
+            },
+            {
+                shipment: 'eine Hochzeitstorte im stoßgedämpften Kühlcase',
+                receiver: 'der Cateringkontakt am Zielplatz',
+                reason: 'die Torte den langen Bodenweg nicht gut finden wuerde und der Empfang am Ziel schon mit Kuehlplatz wartet',
+                nextStep: 'übernimmt der Cateringkontakt das Kühlcase, prueft die Siegel und bringt die Torte direkt in die Kuehlung'
+            },
+            {
+                shipment: 'ein Porzellan-Maskottchen im Schaumcase',
+                receiver: 'das Organisationsteam eines kleinen Platz- oder Vereinsabends',
+                reason: 'das Maskottchen heute Abend auf den Tisch soll und niemand testen moechte, wie gut Porzellan landet',
+                nextStep: 'übernimmt das Organisationsteam das Schaumcase und stellt es erst am Zielort wieder auf die eigenen Fuesse'
+            },
+            {
+                shipment: 'ein Vintage-Synthesizer im Flightcase',
+                receiver: 'ein Buehnen- oder Studiokontakt am Ziel',
+                reason: 'das Instrument zum Aufbau gebraucht wird und alte Regler kurze, ruhige Wege mehr schaetzen als lange Rumpelstrecken',
+                nextStep: 'übernimmt der Buehnenkontakt das Flightcase und laesst es bis zum Aufbau geschlossen'
+            },
+            {
+                shipment: 'ein Modellflugzeug-Pokal im Acrylcase',
+                receiver: 'ein Fliegerclub-Kontakt am Ziel',
+                reason: 'der Pokal fuer eine kleine Siegerehrung gebraucht wird und im Vereinsauto schon genug Abenteuer erlebt hat',
+                nextStep: 'übernimmt der Clubkontakt das Acrylcase und bringt den Pokal direkt zur vorbereiteten Uebergabe'
+            },
+            {
+                shipment: 'handbemalte Keramikenten im Polstercase',
+                receiver: 'ein etwas nervoeser Marktstand-Kontakt am Ziel',
+                reason: 'die Keramikenten heute noch auf ihren Stand sollen und die Sendung mehr Humor als Bodenwellen vertraegt',
+                nextStep: 'übernimmt der Marktstand-Kontakt das Polstercase und zaehlt die Enten erst nach dem Abstellen in Ruhe nach'
             }
         ]);
         return {
@@ -24152,7 +24207,7 @@ Regeln:
 19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Die Gäste fliegen zum Zielplatz, weil sie nach der Landung einen konkreten Besuchswunsch am Zielort haben. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir sie dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
 19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: eine kurze handgeschriebene Dispatch-/Pinnwand-Notiz mit lockerem Einstieg ("Servus!" oder "Heute geht's ..."), Zielstrecke, Mitflieger, kleinem Insider zum Anlass und einem entspannten Abschluss wie "macht euch keinen Stress, geniesst den Flug". Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Baue immer einen konkreten, sinnlichen Motiv-Haken ein statt nur "nach dem Flug beginnt die Aktivitaet": z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Namens-/Rollenformel wie "X ist als Y an Bord". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
-20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Nutze CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm als natuerliche Verortung, wenn es den Text staerkt. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
+20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Wenn CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm vorhanden sind, baue Route und Entfernung als natuerlichen Story-Satz ein, nicht als technische Liste. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
 20a. medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 21a. targetInfo ist für die Ziel-Info-Seite, nicht für das Dispatch-Briefing: Schreibe bei POI-Zielen 2-3 sachliche Sätze aus CONTRACT.target, missionTruth, targetGeoContext, knowledgeContext und storyFrame. Wenn keine belegten Fakten vorliegen, beschreibe nur Zielart, sichtbare Orientierung und warum das Ziel für diesen Auftrag relevant ist. Keine neuen Ortsnamen, Baujahre, Größen, historischen Fakten oder touristischen Details erfinden. Bei A-B ohne POI: targetInfo leer lassen.
@@ -25505,6 +25560,39 @@ function _missionPipelineV4ComposeCargoTransportStory(contract = {}, context = {
     return _missionPipelineV4PolishGermanVisibleText([first, routeSentence, reasonSentence, outcomeSentence].filter(Boolean).join(' '));
 }
 
+function _missionPipelineV4CargoStoryHasRouteContext(story = '', contract = {}) {
+    const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
+    const text = String(story || '').replace(/\s+/g, ' ').trim();
+    if (!text) return false;
+    const normalized = normalizeMissionText(text);
+    const startLabels = [route.startName, route.startIcao].map(normalizeMissionText).filter(Boolean);
+    const targetLabels = [contract?.target?.name, route.targetName, route.targetIcao].map(normalizeMissionText).filter(Boolean);
+    const hasStart = !startLabels.length || startLabels.some(label => normalized.includes(label));
+    const hasTarget = !targetLabels.length || targetLabels.some(label => normalized.includes(label));
+    const distanceNm = Number(route.distanceNm);
+    const hasDistance = !Number.isFinite(distanceNm) || distanceNm <= 0 || /\b\d{1,4}(?:[,.]\d+)?\s*nm\b/i.test(text);
+    return hasStart && hasTarget && hasDistance;
+}
+
+function _missionPipelineV4EnsureCargoRouteContext(story = '', contract = {}) {
+    if (!_missionPipelineV4IsCargoTransportContract(contract, contract?.profile?.taskDomain || '', {})) return story;
+    if (_missionPipelineV4CargoStoryHasRouteContext(story, contract)) return story;
+    const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
+    const startName = String(route.startName || route.startIcao || '').trim();
+    const targetName = String(contract?.target?.name || route.targetName || route.targetIcao || '').trim();
+    const distanceNm = Number(route.distanceNm);
+    if (!startName || !targetName || !Number.isFinite(distanceNm) || distanceNm <= 0) return story;
+    const distanceLabel = distanceNm.toFixed(distanceNm % 1 ? 1 : 0);
+    const routeSentence = `Die Route führt von ${startName} nach ${targetName} über rund ${distanceLabel} NM; das gibt der Fracht einen klaren, nachvollziehbaren Weg statt eines langen Bodenlaufs.`;
+    const parts = _missionPipelineV4SentenceParts(story).map(_missionPipelineV4EnsureSentence).filter(Boolean);
+    if (!parts.length) return _missionPipelineV4PolishGermanVisibleText(routeSentence);
+    return _missionPipelineV4PolishGermanVisibleText([
+        parts[0],
+        routeSentence,
+        ...parts.slice(1)
+    ].join(' '));
+}
+
 function _missionPipelineV4CargoStoryNeedsFallback(text = '', contract = {}, context = {}) {
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     if (!_missionPipelineV4IsCargoTransportContract(contract, taskDomain, context)) return false;
@@ -26166,9 +26254,10 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         || (isBushPickupReturn && _missionPipelineV4LooksBushPickupFragmentText(raw));
     const finalizeDomainStory = candidate => {
         const text = isBushPickupReturn ? _missionPipelineV4EnsureBushPickupConditions(candidate, contract) : candidate;
-        return taskDomain === 'inspection_infra' && !deferInfraPassengerStory
+        const domainStory = taskDomain === 'inspection_infra' && !deferInfraPassengerStory
             ? _missionPipelineV4EnsureInfraPassengerStory(text, contract, passenger)
             : text;
+        return _missionPipelineV4EnsureCargoRouteContext(domainStory, contract);
     };
     const fallbackStory = () => isBushPickupReturn
         ? finalizeDomainStory(_missionPipelineV4ComposeBushPickupBriefingStory(contract, passenger, raw))
