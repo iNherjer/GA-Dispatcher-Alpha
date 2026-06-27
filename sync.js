@@ -1522,6 +1522,7 @@ let flightRecorder = {
 
 let missionRuntime = {
     phase: 'idle',
+    startedAt: 0,
     armed: false,
     active: false,
     manual: false,
@@ -1557,6 +1558,10 @@ function _setMissionRuntimePhase(phase = 'idle', options = {}) {
     const prev = String(missionRuntime.phase || 'idle');
     const next = String(phase || 'idle');
     missionRuntime.phase = next;
+    if (_missionRuntimePhaseCountsAsStarted(next) && !missionRuntime.startedAt) {
+        missionRuntime.startedAt = Date.now();
+        _touchActiveMissionRuntimeMarker(options.reason || 'set-runtime-phase');
+    }
     if (prev !== next) {
         _missionPhaseDebugPush('runtime_phase', {
             from: prev,
@@ -1903,6 +1908,88 @@ function _clearMissionRuntimeSnapshot(reason = 'mission-runtime-clear') {
     _missionPhaseDebugPush('resume_snapshot_clear', { reason });
 }
 
+function _missionRuntimePhaseCountsAsStarted(phase = '') {
+    const p = String(phase || '').toLowerCase();
+    return ['prepare', 'boarding', 'boarded', 'active', 'end_ready', 'closing'].includes(p);
+}
+
+function _mutateStoredActiveMissionRuntimeMarker(mutator) {
+    let state = null;
+    try {
+        state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+    } catch (_) {
+        state = null;
+    }
+    if (!state || typeof state !== 'object') return false;
+    try {
+        mutator(state);
+        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        if (typeof window !== 'undefined' && window.__gaActiveMissionStorageFallback && typeof window.__gaActiveMissionStorageFallback === 'object') {
+            try { mutator(window.__gaActiveMissionStorageFallback); } catch (_) {}
+        }
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function _touchActiveMissionRuntimeMarker(reason = 'runtime') {
+    const missionId = _activeMissionRuntimeId('');
+    if (!missionId) return false;
+    const now = Date.now();
+    if (!missionRuntime.startedAt) missionRuntime.startedAt = now;
+    const phase = String(missionRuntime.phase || _missionRuntimePhaseSnapshot() || 'active');
+    const applyMarker = obj => {
+        if (!obj || typeof obj !== 'object') return;
+        obj.activeMissionRuntimeStartedAt = Number(obj.activeMissionRuntimeStartedAt || missionRuntime.startedAt || now) || now;
+        obj.activeMissionRuntimeSavedAt = now;
+        obj.activeMissionRuntimePhase = phase;
+        obj.activeMissionRuntimeMissionId = missionId;
+    };
+    try { applyMarker(currentMissionData); } catch (_) {}
+    try { applyMarker(window.activeMissionContract); } catch (_) {}
+    return _mutateStoredActiveMissionRuntimeMarker(state => {
+        const startedAt = Number(state.activeMissionRuntimeStartedAt || missionRuntime.startedAt || now) || now;
+        state.activeMissionRuntimeStartedAt = startedAt;
+        state.activeMissionRuntimeSavedAt = now;
+        state.activeMissionRuntimePhase = phase;
+        state.activeMissionRuntimeMissionId = missionId;
+        const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+        if (md) {
+            md.activeMissionRuntimeStartedAt = Number(md.activeMissionRuntimeStartedAt || startedAt) || startedAt;
+            md.activeMissionRuntimeSavedAt = now;
+            md.activeMissionRuntimePhase = phase;
+            md.activeMissionRuntimeMissionId = missionId;
+        }
+        const contract = state.activeMissionContract && typeof state.activeMissionContract === 'object' ? state.activeMissionContract : null;
+        if (contract) {
+            contract.activeMissionRuntimeStartedAt = Number(contract.activeMissionRuntimeStartedAt || startedAt) || startedAt;
+            contract.activeMissionRuntimeSavedAt = now;
+            contract.activeMissionRuntimePhase = phase;
+            contract.activeMissionRuntimeMissionId = missionId;
+        }
+    });
+}
+
+function _clearActiveMissionRuntimeMarker(reason = 'runtime-clear') {
+    const clear = obj => {
+        if (!obj || typeof obj !== 'object') return;
+        delete obj.activeMissionRuntimeStartedAt;
+        delete obj.activeMissionRuntimeSavedAt;
+        delete obj.activeMissionRuntimePhase;
+        delete obj.activeMissionRuntimeMissionId;
+    };
+    missionRuntime.startedAt = 0;
+    try { clear(currentMissionData); } catch (_) {}
+    try { clear(window.activeMissionContract); } catch (_) {}
+    return _mutateStoredActiveMissionRuntimeMarker(state => {
+        clear(state);
+        clear(state.currentMissionData);
+        clear(state.activeMissionContract);
+        if (state.currentMissionData?.missionContract) clear(state.currentMissionData.missionContract);
+    });
+}
+
 function _buildMissionRuntimeSnapshot(reason = 'runtime') {
     const missionId = _activeMissionRuntimeId('');
     if (!missionId) return null;
@@ -1915,12 +2002,14 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
     return {
         version: 1,
         missionId,
+        startedAt: Number(missionRuntime.startedAt || 0),
         savedAt: Date.now(),
         reason: String(reason || 'runtime'),
         startPhase,
         runtime: {
             missionId,
             phase: String(missionRuntime.phase || _missionRuntimePhaseSnapshot() || 'idle'),
+            startedAt: Number(missionRuntime.startedAt || 0),
             active: !!missionRuntime.active,
             manual: !!missionRuntime.manual,
             armed: !!missionRuntime.armed,
@@ -1982,6 +2071,18 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
 function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
     const snapshot = _buildMissionRuntimeSnapshot(reason);
     if (!snapshot) return false;
+    const runtimeStarted = !!(
+        snapshot.runtime?.active
+        || snapshot.runtime?.closingPending
+        || _missionRuntimePhaseCountsAsStarted(snapshot.startPhase)
+        || _missionRuntimePhaseCountsAsStarted(snapshot.runtime?.phase)
+    );
+    if (runtimeStarted) {
+        if (!missionRuntime.startedAt) missionRuntime.startedAt = Date.now();
+        snapshot.startedAt = Number(snapshot.startedAt || missionRuntime.startedAt || Date.now());
+        if (snapshot.runtime && typeof snapshot.runtime === 'object') snapshot.runtime.startedAt = snapshot.startedAt;
+        _touchActiveMissionRuntimeMarker(reason);
+    }
     const immediate = options.immediate === true;
     const minIntervalMs = Math.max(250, Number(options.minIntervalMs) || 2500);
     const writeNow = () => {
@@ -3235,6 +3336,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     }
 
     missionRuntime.phase = shouldBeClosing ? 'closing' : (phase === 'end_ready' ? 'end_ready' : (shouldBeActive ? 'active' : _missionRuntimePhaseSnapshot()));
+    missionRuntime.startedAt = Number(runtime.startedAt || snap.startedAt || snap.savedAt || Date.now()) || Date.now();
     missionRuntime.active = shouldBeActive && !shouldBeClosing;
     missionRuntime.armed = shouldBeActive && !shouldBeClosing;
     missionRuntime.manual = !!runtime.manual || shouldBeActive;
@@ -8005,6 +8107,7 @@ window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
 function _resetMissionRuntime() {
     missionRuntime = {
         phase: _hasValidMissionForStart() ? 'planned' : 'idle',
+        startedAt: 0,
         armed: false,
         active: false,
         manual: false,
@@ -8874,6 +8977,7 @@ window.missionRuntimeReset = function(options = {}) {
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('mission-runtime-reset');
     else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
     _clearMissionStartPhase();
+    _clearActiveMissionRuntimeMarker('mission-runtime-reset');
     Object.assign(window.missionSceneStatus, {
         spawned: false,
         spawnedCount: 0,
@@ -9024,6 +9128,7 @@ window.manualMissionStart = function() {
     }
     _setMissionStartPhase('boarded');
     missionRuntime.phase = 'active';
+    if (!missionRuntime.startedAt) missionRuntime.startedAt = Date.now();
     missionRuntime.armed = true;
     missionRuntime.active = true;
     missionRuntime.manual = true;
@@ -9559,6 +9664,10 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
     const fallback = (fallbackMission && typeof fallbackMission === 'object') ? fallbackMission : {};
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'activeMissionCreatedAt', 'activeMissionSavedAt',
+        'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
+        'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
+        'generatedAt', 'createdAt', 'updatedAt', 'savedAt',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiPresentation', 'isPOI', 'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
@@ -9772,10 +9881,115 @@ function _syncMissionStateIsDraft(state = null) {
     return status === 'draft' || status === 'composing';
 }
 
+function _syncMissionIdentityValues(state = null) {
+    if (!state || typeof state !== 'object') return [];
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : state;
+    const contract = state.activeMissionContract && typeof state.activeMissionContract === 'object'
+        ? state.activeMissionContract
+        : (md.missionContract && typeof md.missionContract === 'object' ? md.missionContract : null);
+    const out = [];
+    [
+        state.missionId,
+        state.missionKey,
+        state.id,
+        md.missionId,
+        md.missionKey,
+        md.id,
+        contract?.missionId,
+        contract?.missionKey,
+        contract?.id
+    ].forEach(value => {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (normalized && !out.includes(normalized)) out.push(normalized);
+    });
+    return out;
+}
+
+function _syncMissionStatesShareIdentity(a = null, b = null) {
+    const aIds = _syncMissionIdentityValues(a);
+    const bIds = _syncMissionIdentityValues(b);
+    return !!(aIds.length && bIds.length && aIds.some(id => bIds.includes(id)));
+}
+
+function _syncReadRuntimeSnapshot() {
+    try {
+        const snap = JSON.parse(localStorage.getItem(MISSION_RUNTIME_RESUME_KEY) || 'null');
+        return snap && typeof snap === 'object' ? snap : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _syncRuntimeSnapshotMatchesMission(snapshot = null, missionState = null) {
+    if (!snapshot || typeof snapshot !== 'object' || !missionState || typeof missionState !== 'object') return false;
+    const snapIds = [
+        snapshot.missionId,
+        snapshot.runtime?.missionId
+    ].map(value => String(value || '').trim().toLowerCase()).filter(Boolean);
+    const missionIds = _syncMissionIdentityValues(missionState);
+    return !!(snapIds.length && missionIds.length && snapIds.some(id => missionIds.includes(id)));
+}
+
+function _syncRuntimeSnapshotStarted(snapshot = null) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const runtime = snapshot.runtime && typeof snapshot.runtime === 'object' ? snapshot.runtime : {};
+    return !!(
+        runtime.active
+        || runtime.closingPending
+        || _missionRuntimePhaseCountsAsStarted(snapshot.startPhase)
+        || _missionRuntimePhaseCountsAsStarted(runtime.phase || snapshot.runtimePhase)
+    );
+}
+
+function _syncShouldCloudRestoreResumeRuntime(activeMission = null, localMission = null) {
+    if (!activeMission || typeof activeMission !== 'object') return false;
+    const currentState = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+        ? { currentMissionData, activeMissionContract: window.activeMissionContract || currentMissionData.missionContract || null }
+        : null;
+    const matchesCurrent = _syncMissionStatesShareIdentity(currentState, activeMission);
+    const matchesLocal = _syncMissionStatesShareIdentity(localMission, activeMission);
+    if (!matchesCurrent && !matchesLocal) return false;
+    if (matchesCurrent && (missionRuntime.active || missionRuntime.closingPending || _missionRuntimePhaseCountsAsStarted(_missionRuntimePhaseSnapshot()))) {
+        return true;
+    }
+    const snapshot = _syncReadRuntimeSnapshot();
+    return !!(_syncRuntimeSnapshotStarted(snapshot) && _syncRuntimeSnapshotMatchesMission(snapshot, activeMission));
+}
+
+function _syncActiveMissionIsExpired(state = null) {
+    if (!state || typeof state !== 'object') return false;
+    if (typeof window.isActiveMissionStateExpired !== 'function') return false;
+    try { return !!window.isActiveMissionStateExpired(state); } catch (_) { return false; }
+}
+
+function _syncClearExpiredActiveMission(reason = 'sync-active-mission-expired', state = null, options = {}) {
+    if (typeof window.clearExpiredActiveMissionPersistence === 'function') {
+        let expiryInfo = null;
+        if (state && typeof window.activeMissionRestoreExpiryInfo === 'function') {
+            try { expiryInfo = window.activeMissionRestoreExpiryInfo(state); } catch (_) { expiryInfo = null; }
+        }
+        try {
+            window.clearExpiredActiveMissionPersistence(reason, {
+                expiryInfo,
+                pushCloudClear: options.pushCloudClear === true
+            });
+        } catch (_) {}
+        return;
+    }
+    try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
+}
+
 function _syncActiveMissionPayload() {
     try {
         const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
         if (_syncMissionStateIsDraft(state)) {
+            return null;
+        }
+        if (_syncActiveMissionIsExpired(state)) {
+            _syncClearExpiredActiveMission('sync-upload-expired-active-mission', state);
             return null;
         }
         if (state) return state;
@@ -9786,6 +10000,10 @@ function _syncActiveMissionPayload() {
         ? window.__gaActiveMissionStorageFallback
         : null;
     if (_syncMissionStateIsDraft(fallback)) return null;
+    if (_syncActiveMissionIsExpired(fallback)) {
+        _syncClearExpiredActiveMission('sync-upload-expired-active-mission-fallback', fallback);
+        return null;
+    }
     return fallback || null;
 }
 
@@ -9800,9 +10018,35 @@ function _syncHasLocalDraftMission() {
 function _syncApplyActiveMissionFromCloud(activeMission = null) {
     const briefing = document.getElementById("briefingBox");
     if (activeMission && !_syncMissionStateIsDraft(activeMission)) {
+        if (_syncActiveMissionIsExpired(activeMission)) {
+            _syncClearExpiredActiveMission('cloud-active-mission-expired', activeMission, { pushCloudClear: true });
+            return false;
+        }
+        let localMission = null;
+        try {
+            localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        } catch (_) {
+            localMission = null;
+        }
+        const resumeRuntime = _syncShouldCloudRestoreResumeRuntime(activeMission, localMission);
+        window.__gaCloudActiveMissionApplyInProgress = true;
         localStorage.setItem('ga_active_mission', JSON.stringify(activeMission));
-        restoreMissionState(activeMission, { source: 'cloud' });
-        return true;
+        const markApplied = () => {
+            window.__gaCloudActiveMissionApplyInProgress = false;
+            window.__gaCloudActiveMissionAppliedAt = Date.now();
+        };
+        const restored = restoreMissionState(activeMission, { source: 'cloud', resumeRuntime });
+        if (restored && typeof restored.catch === 'function') {
+            restored
+                .then(markApplied)
+                .catch(err => {
+                    try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
+                    markApplied();
+                });
+        } else {
+            markApplied();
+        }
+        return restored !== false;
     }
     try {
         const localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');

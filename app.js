@@ -4526,8 +4526,26 @@ function bootAppOnce() {
     const activeMission = localStorage.getItem('ga_active_mission');
     if (activeMission) {
         setTimeout(() => {
-            const parsedMission = JSON.parse(activeMission);
-            restoreMissionState(parsedMission, { allowDraft: true, resumeRuntime: true });
+            try {
+                if (window.__gaCloudActiveMissionApplyInProgress) return;
+                if (window.__gaCloudActiveMissionAppliedAt && (Date.now() - Number(window.__gaCloudActiveMissionAppliedAt || 0)) < 1500) return;
+                const latestActiveMission = localStorage.getItem('ga_active_mission');
+                if (!latestActiveMission) return;
+                const parsedMission = JSON.parse(latestActiveMission);
+                const restored = restoreMissionState(parsedMission, { allowDraft: true, resumeRuntime: true });
+                if (restored && typeof restored.catch === 'function') {
+                    restored.catch(err => {
+                        try { console.warn('[MISSION RESTORE] Auto-Restore fehlgeschlagen:', err); } catch (_) {}
+                    });
+                }
+            } catch (err) {
+                try { console.warn('[MISSION RESTORE] Gespeicherte aktive Mission ist unlesbar und wurde verworfen.', err); } catch (_) {}
+                if (typeof clearExpiredActiveMissionPersistence === 'function') {
+                    clearExpiredActiveMissionPersistence('startup-active-mission-parse-error');
+                } else {
+                    try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
+                }
+            }
             // Clear destination input on initial load to allow easy random route generation
             const dInp = document.getElementById('destLoc');
             if (dInp) dInp.value = '';
@@ -4941,6 +4959,259 @@ function clearMissionDebugSnapshot(reason = 'mission-debug-clear') {
     try { console.debug('[MISSION SNAPSHOT] cleared:', reason); } catch (_) {}
 }
 window.clearMissionDebugSnapshot = clearMissionDebugSnapshot;
+
+const ACTIVE_MISSION_RESTORE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+window.ACTIVE_MISSION_RESTORE_MAX_AGE_MS = ACTIVE_MISSION_RESTORE_MAX_AGE_MS;
+
+function activeMissionNormalizeTimestamp(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    if (typeof value === 'string' && !/^\d+(\.\d+)?$/.test(value.trim())) {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return n < 10000000000 ? Math.round(n * 1000) : Math.round(n);
+}
+
+function activeMissionTimestampFromMissionId(value, now = Date.now()) {
+    const text = String(value || '').trim();
+    const match = text.match(/^mission-([a-z0-9]{6,12})-/i);
+    if (!match) return 0;
+    const ts = parseInt(match[1], 36);
+    const earliestSupported = Date.UTC(2023, 0, 1);
+    if (!Number.isFinite(ts) || ts < earliestSupported || ts > now + 24 * 60 * 60 * 1000) return 0;
+    return ts;
+}
+
+function activeMissionStateIds(state = {}) {
+    const md = state?.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
+    const contract = state?.activeMissionContract && typeof state.activeMissionContract === 'object'
+        ? state.activeMissionContract
+        : (md?.missionContract && typeof md.missionContract === 'object' ? md.missionContract : {});
+    return missionRestoreUniqueIds([
+        state?.missionId,
+        state?.missionKey,
+        md?.missionId,
+        md?.missionKey,
+        md?.id,
+        contract?.missionId,
+        contract?.missionKey,
+        contract?.id
+    ]);
+}
+
+function activeMissionDebugSnapshotTimestamp(state = {}) {
+    let snap = null;
+    try {
+        snap = JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null');
+    } catch (_) {
+        snap = null;
+    }
+    if (!snap || typeof snap !== 'object') return 0;
+    const stateIds = activeMissionStateIds(state);
+    const snapIds = missionRestoreUniqueIds([snap.missionId, snap.missionKey, snap.id]);
+    if (stateIds.length && snapIds.length && !snapIds.some(id => stateIds.includes(id))) return 0;
+    return activeMissionNormalizeTimestamp(snap.ts || snap.savedAt || snap.createdAt || snap.time);
+}
+
+function activeMissionRuntimePhaseIsStarted(phase = '') {
+    const p = String(phase || '').toLowerCase();
+    return ['prepare', 'boarding', 'boarded', 'active', 'end_ready', 'closing'].includes(p);
+}
+
+function activeMissionRuntimeMarkerInfo(state = {}, now = Date.now()) {
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
+    const contract = state.activeMissionContract && typeof state.activeMissionContract === 'object'
+        ? state.activeMissionContract
+        : (md.missionContract && typeof md.missionContract === 'object' ? md.missionContract : {});
+    const markerMissionId = missionRestoreFirstText(
+        state.activeMissionRuntimeMissionId,
+        md.activeMissionRuntimeMissionId,
+        contract.activeMissionRuntimeMissionId
+    );
+    const stateIds = activeMissionStateIds(state);
+    const markerIds = missionRestoreUniqueIds([markerMissionId]);
+    if (stateIds.length && markerIds.length && !markerIds.some(id => stateIds.includes(id))) {
+        return { started: false };
+    }
+    const phase = missionRestoreFirstText(
+        state.activeMissionRuntimePhase,
+        md.activeMissionRuntimePhase,
+        contract.activeMissionRuntimePhase
+    );
+    const startedAt = activeMissionNormalizeTimestamp(
+        state.activeMissionRuntimeStartedAt
+        || md.activeMissionRuntimeStartedAt
+        || contract.activeMissionRuntimeStartedAt
+    );
+    const savedAt = activeMissionNormalizeTimestamp(
+        state.activeMissionRuntimeSavedAt
+        || md.activeMissionRuntimeSavedAt
+        || contract.activeMissionRuntimeSavedAt
+    );
+    const started = startedAt > 0 || activeMissionRuntimePhaseIsStarted(phase);
+    if (!started) return { started: false };
+    const baseTs = startedAt || savedAt || activeMissionTimestampFromMissionId(markerMissionId, now);
+    return {
+        started: true,
+        baseTs,
+        savedAt,
+        phase,
+        source: 'activeMissionRuntimeMarker'
+    };
+}
+
+function activeMissionRuntimeSnapshotInfo(state = {}, now = Date.now()) {
+    let snap = null;
+    try {
+        snap = JSON.parse(localStorage.getItem('ga_active_mission_runtime') || 'null');
+    } catch (_) {
+        snap = null;
+    }
+    if (!snap || typeof snap !== 'object') return { started: false };
+    const stateIds = activeMissionStateIds(state);
+    const snapIds = missionRestoreUniqueIds([
+        snap.missionId,
+        snap.runtime?.missionId
+    ]);
+    if (snapIds.length && !stateIds.length) return { started: false };
+    if (stateIds.length && snapIds.length && !snapIds.some(id => stateIds.includes(id))) {
+        return { started: false };
+    }
+    const runtime = snap.runtime && typeof snap.runtime === 'object' ? snap.runtime : {};
+    const startPhase = String(snap.startPhase || '').toLowerCase();
+    const phase = String(runtime.phase || snap.runtimePhase || '').toLowerCase();
+    const started = !!(
+        runtime.active
+        || runtime.closingPending
+        || activeMissionRuntimePhaseIsStarted(startPhase)
+        || activeMissionRuntimePhaseIsStarted(phase)
+    );
+    if (!started) return { started: false };
+    const startedAt = activeMissionNormalizeTimestamp(snap.startedAt || runtime.startedAt || snap.flightRecorder?.startTs);
+    const savedAt = activeMissionNormalizeTimestamp(snap.savedAt);
+    return {
+        started: true,
+        baseTs: startedAt || savedAt || activeMissionTimestampFromMissionId(snap.missionId || runtime.missionId, now),
+        savedAt,
+        phase: phase || startPhase,
+        source: 'runtimeSnapshot'
+    };
+}
+
+function activeMissionRestoreExpiryInfo(state = {}, options = {}) {
+    const ttlMs = Number.isFinite(Number(options.ttlMs)) ? Number(options.ttlMs) : ACTIVE_MISSION_RESTORE_MAX_AGE_MS;
+    const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
+    const info = {
+        expired: false,
+        started: false,
+        ageMs: 0,
+        ttlMs,
+        baseTs: 0,
+        savedAt: 0,
+        source: 'none'
+    };
+    if (!state || typeof state !== 'object') return info;
+    const markerInfo = activeMissionRuntimeMarkerInfo(state, now);
+    const snapshotInfo = activeMissionRuntimeSnapshotInfo(state, now);
+    const runtimeInfo = markerInfo.started ? markerInfo : snapshotInfo;
+    if (!runtimeInfo.started) return info;
+    info.started = true;
+    info.baseTs = runtimeInfo.baseTs || runtimeInfo.savedAt || activeMissionDebugSnapshotTimestamp(state);
+    info.savedAt = runtimeInfo.savedAt || 0;
+    info.source = runtimeInfo.source || 'runtime';
+    if (!info.baseTs) return info;
+    info.ageMs = Math.max(0, now - info.baseTs);
+    info.expired = info.ageMs > ttlMs;
+    return info;
+}
+window.activeMissionRestoreExpiryInfo = activeMissionRestoreExpiryInfo;
+
+function isActiveMissionStateExpired(state = {}, options = {}) {
+    return !!activeMissionRestoreExpiryInfo(state, options).expired;
+}
+window.isActiveMissionStateExpired = isActiveMissionStateExpired;
+
+function stampActiveMissionStateForStorage(state = {}) {
+    if (!state || typeof state !== 'object') return state;
+    const now = Date.now();
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+    const existingCreatedAt = activeMissionNormalizeTimestamp(
+        state.activeMissionCreatedAt
+        || state.createdAt
+        || md?.activeMissionCreatedAt
+        || md?.generatedAt
+        || md?.createdAt
+    ) || activeMissionTimestampFromMissionId(md?.missionId || state.missionId || md?.missionKey || state.missionKey, now) || now;
+    state.activeMissionCreatedAt = existingCreatedAt;
+    state.activeMissionSavedAt = now;
+    if (md) {
+        if (!md.generatedAt) md.generatedAt = existingCreatedAt;
+        md.activeMissionCreatedAt = existingCreatedAt;
+        md.activeMissionSavedAt = now;
+    }
+    return state;
+}
+
+function clearActiveMissionRuntimeMarkersFromState(state = {}) {
+    const clear = obj => {
+        if (!obj || typeof obj !== 'object') return;
+        delete obj.activeMissionRuntimeStartedAt;
+        delete obj.activeMissionRuntimeSavedAt;
+        delete obj.activeMissionRuntimePhase;
+        delete obj.activeMissionRuntimeMissionId;
+    };
+    clear(state);
+    clear(state.currentMissionData);
+    clear(state.activeMissionContract);
+    if (state.currentMissionData?.missionContract) clear(state.currentMissionData.missionContract);
+    return state;
+}
+
+function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired', options = {}) {
+    const info = options.expiryInfo || null;
+    if (typeof window.missionRuntimeReset === 'function') {
+        try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
+    }
+    try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    if (typeof clearMissionDebugSnapshot === 'function') clearMissionDebugSnapshot(reason);
+    else {
+        window.vpMissionDebugSnapshot = null;
+        try { localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
+    }
+    rememberActiveMissionStateMemoryFallback(null);
+    try { currentMissionData = null; } catch (_) {}
+    try { routeWaypoints = []; } catch (_) {}
+    try { window._missionRouteWaypoints = null; } catch (_) {}
+    window.activeMissionContract = null;
+    window.activePassenger = null;
+    const briefing = document.getElementById("briefingBox");
+    if (briefing) briefing.style.display = "none";
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) {
+        const ageHours = info && Number.isFinite(Number(info.ageMs)) ? Math.round(Number(info.ageMs) / 360000) / 10 : null;
+        indicator.innerText = ageHours
+            ? `Alte gestartete Mission verworfen (${ageHours} h alt).`
+            : 'Alte gestartete Mission verworfen.';
+    }
+    if (typeof window.paxVoiceRefreshWidget === 'function') {
+        try { window.paxVoiceRefreshWidget(); } catch (_) {}
+    }
+    try {
+        console.warn('[MISSION RESTORE] Alter aktiver Missionsstand verworfen:', reason, info || '');
+    } catch (_) {}
+    if (options.pushCloudClear && typeof window.triggerCloudSave === 'function') {
+        setTimeout(() => {
+            try { window.triggerCloudSave(true); } catch (_) {}
+        }, 0);
+    }
+    return false;
+}
+window.clearExpiredActiveMissionPersistence = clearExpiredActiveMissionPersistence;
 
 function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) {
     const md = (state?.currentMissionData && typeof state.currentMissionData === 'object')
@@ -5764,6 +6035,10 @@ function compactMissionObjectForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return value || null;
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'activeMissionCreatedAt', 'activeMissionSavedAt',
+        'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
+        'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
+        'generatedAt', 'createdAt', 'updatedAt', 'savedAt',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionSubType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
@@ -5815,6 +6090,7 @@ function compactRouteWaypointsForQuotaStorage(points = []) {
 function compactPassengerForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return null;
     const keep = [
+        'missionId', 'missionKey', 'start', 'dest', 'targetName', 'missionTitle', 'missionStory', 'missionType',
         'name', 'displayName', 'role', 'gender', 'taskDomain', 'roleProfile',
         'personality', 'voice', 'voiceId', 'greetingText', 'poiChainProgress'
     ];
@@ -5848,6 +6124,12 @@ function compactActiveMissionStateForQuotaStorage(state = {}) {
     const routeCompact = compactRouteWaypointsForQuotaStorage(state.routeWaypoints);
     const missionRouteCompact = compactRouteWaypointsForQuotaStorage(state.missionRouteWaypoints || routeCompact);
     return {
+        activeMissionCreatedAt: state.activeMissionCreatedAt || null,
+        activeMissionSavedAt: state.activeMissionSavedAt || null,
+        activeMissionRuntimeStartedAt: state.activeMissionRuntimeStartedAt || null,
+        activeMissionRuntimeSavedAt: state.activeMissionRuntimeSavedAt || null,
+        activeMissionRuntimePhase: state.activeMissionRuntimePhase || '',
+        activeMissionRuntimeMissionId: state.activeMissionRuntimeMissionId || '',
         mTitle: state.mTitle || '',
         mStory: state.mStory || '',
         mDepICAO: state.mDepICAO || '',
@@ -5904,14 +6186,17 @@ function rememberActiveMissionStateMemoryFallback(state = null) {
     }
 }
 
-function storeActiveMissionStateSafely(state = {}) {
+function storeActiveMissionStateSafely(state = {}, options = {}) {
+    const stampedState = options.refreshActiveMissionTimestamp === false
+        ? state
+        : stampActiveMissionStateForStorage(state);
     try {
-        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        localStorage.setItem('ga_active_mission', JSON.stringify(stampedState));
         rememberActiveMissionStateMemoryFallback(null);
         return true;
     } catch (err) {
         try { console.warn('[MISSION SAVE] Active mission state too large; retrying compact save.', err); } catch (_) {}
-        const compactState = compactActiveMissionStateForQuotaStorage(state);
+        const compactState = compactActiveMissionStateForQuotaStorage(stampedState);
         try {
             localStorage.removeItem('ga_active_mission');
             localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
@@ -6109,11 +6394,28 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 async function restoreMissionState(state, options = {}) {
     const allowDraft = !!options.allowDraft;
     const resumeRuntime = options.resumeRuntime === true;
+    const restoreSource = String(options.source || '').toLowerCase();
+    if (!state || typeof state !== 'object') {
+        return clearExpiredActiveMissionPersistence(`restore-${restoreSource || 'state'}-invalid`, {
+            pushCloudClear: restoreSource === 'cloud'
+        });
+    }
     if (isMissionDraftPending(state) && !allowDraft) {
         clearDraftMissionPersistence('restore-draft-rejected');
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
-        return;
+        return false;
+    }
+    if (resumeRuntime || restoreSource === 'cloud') {
+        const expiryInfo = activeMissionRestoreExpiryInfo(state);
+        if (expiryInfo.expired) {
+            return clearExpiredActiveMissionPersistence(`restore-${restoreSource || 'startup'}-expired`, {
+                expiryInfo,
+                pushCloudClear: restoreSource === 'cloud'
+            });
+        }
+    } else {
+        clearActiveMissionRuntimeMarkersFromState(state);
     }
     if (!resumeRuntime && typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
@@ -6260,7 +6562,9 @@ async function restoreMissionState(state, options = {}) {
         state.currentMissionData = currentMissionData;
         state.activePassenger = window.activePassenger || null;
         state.activeMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
-        storeActiveMissionStateSafely(state);
+        storeActiveMissionStateSafely(state, {
+            refreshActiveMissionTimestamp: !(resumeRuntime || restoreSource === 'cloud')
+        });
     } catch (_) {}
     if (resumeRuntime && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
         try { window.missionRuntimeRestoreFromSnapshot(null, { reason: 'mission-state-restore' }); } catch (_) {}
@@ -33318,7 +33622,8 @@ async function generateMission(options = {}) {
     const effectiveTargetTerrainFt = Number.isFinite(Number(poiTerrainFt))
         ? Math.round(Number(poiTerrainFt))
         : (poiTaskDefaults.defaultTargetAltFt > 0 ? Math.max(0, poiTaskDefaults.defaultTargetAltFt - 1000) : null);
-    const missionRuntimeId = `mission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const missionCreatedAt = Date.now();
+    const missionRuntimeId = `mission-${missionCreatedAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const followupMissionKeyTag = (followupSeed || m?.followUpRequestId || m?.followUpContinuation)
         ? [
             'followup',
@@ -33329,6 +33634,7 @@ async function generateMission(options = {}) {
         : '';
     currentMissionData = {
         missionId: missionRuntimeId,
+        generatedAt: missionCreatedAt,
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t, followupMissionKeyTag].filter(Boolean).join('|'),
         followUpRequestId: followupSeed?.id || m?.followUpRequestId || null,
         followUpContinuation: followupSeed ? {
@@ -34640,7 +34946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1217', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1220', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
