@@ -31551,18 +31551,17 @@ function missionProposalPickCargoItems(cargoPool = [], count = 3) {
         'Kalibrierter Sensorkoffer (32 lbs)',
         'Archivmappe mit Originaldokumenten (12 lbs)'
     ];
-    const pool = (Array.isArray(cargoPool) && cargoPool.length ? cargoPool : fallback)
+    const explicitPool = (Array.isArray(cargoPool) ? cargoPool : [])
         .map(v => String(v || '').trim())
         .filter(Boolean);
+    const pool = explicitPool.length ? explicitPool : fallback;
     const shuffled = pool
         .map(v => ({ v, r: Math.random() }))
         .sort((a, b) => a.r - b.r)
         .map(entry => entry.v);
     const out = [];
-    while (out.length < count && (shuffled.length || fallback.length)) {
-        const next = shuffled.shift() || fallback[out.length % fallback.length];
-        if (!out.includes(next)) out.push(next);
-        else if (!shuffled.length) break;
+    while (out.length < count && shuffled.length) {
+        out.push(shuffled[out.length % shuffled.length]);
     }
     return out;
 }
@@ -35242,7 +35241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1222', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1223', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
