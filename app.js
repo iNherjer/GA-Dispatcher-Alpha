@@ -2630,6 +2630,14 @@ const MISSION_ROLE_TASK_PROFILES = {
             'Möwe für die Wildvogelstation (18 lbs)',
             'Gans für die Auffangstation (24 lbs)',
             'Enten-Reha-Transferbox (22 lbs)',
+            'Igelbox mit Wärmematte (8 lbs)',
+            'Feldhasen-Jungtier in kleiner Reha-Box (9 lbs)',
+            'Verletzte Schleiereule in abgedunkelter Vogelbox (12 lbs)',
+            'Turmfalke in ruhiger Greifvogelbox (11 lbs)',
+            'Fledermaus-Kleinbox für die Wildtierstation (5 lbs)',
+            'Schildkröte in belüfteter Transportbox (14 lbs)',
+            'Fuchswelpe in gesicherter Transportbox (18 lbs)',
+            'Kaninchen-Transportbox aus der Pflegestelle (12 lbs)',
             'Pferde-Vet-Material und Unterlagen (16 lbs)',
             'Katzenwelpen-Transportbox mit Wärmedecke (20 lbs)',
             'Wildvogelbox mit Sichtschutz (14 lbs)',
@@ -13876,11 +13884,18 @@ function _animalTransportCargoSignalFromText(text = '') {
     const signals = [
         { id: 'goat', match: /zieg|zicklein|jungziege|goat|hircus/i, cargo: /zieg|zicklein|goat|hircus/i },
         { id: 'sheep', match: /schaf|sheep/i, cargo: /schaf|sheep/i },
-        { id: 'deer', match: /rehkitz|reh|hirsch|wildtier|deer/i, cargo: /reh|hirsch|deer/i },
+        { id: 'deer', match: /rehkitz|\breh\b|hirsch|wildtier|deer/i, cargo: /\breh\b|hirsch|deer/i },
         { id: 'gull', match: /moewe|mowe|möwe|wildvogel|vogelstation|seagull/i, cargo: /moewe|mowe|möwe|wildvogel/i },
         { id: 'goose', match: /gans|goose|wasservogel/i, cargo: /gans|goose/i },
         { id: 'duck', match: /ente|enten|duck|mallard/i, cargo: /ente|duck/i },
-        { id: 'horse_vet', match: /pferd|gestuet|gestüt|horse|tierarzt|vet|veterinaer|veterinär/i, cargo: /pferd|horse|vet|tierarzt|veterinaer|veterinär/i }
+        { id: 'hedgehog', match: /igel|hedgehog/i, cargo: /igel|hedgehog/i },
+        { id: 'hare_rabbit', match: /hase|feldhase|kaninchen|rabbit|hare/i, cargo: /hase|feldhase|kaninchen|rabbit|hare/i },
+        { id: 'owl_raptor', match: /eule|schleiereule|falke|turmfalke|greifvogel|owl|falcon|raptor/i, cargo: /eule|schleiereule|falke|turmfalke|greifvogel|owl|falcon|raptor/i },
+        { id: 'bat', match: /fledermaus|bat/i, cargo: /fledermaus|bat/i },
+        { id: 'tortoise', match: /schildkroete|schildkrote|schildkröte|turtle|tortoise/i, cargo: /schildkroete|schildkrote|schildkröte|turtle|tortoise/i },
+        { id: 'fox', match: /fuchs|fuchswelpe|fox/i, cargo: /fuchs|fuchswelpe|fox/i },
+        { id: 'dog_cat', match: /hund|therapiehund|katze|katzenwelpen|welpen|dog|cat|kitten/i, cargo: /hund|therapiehund|katze|katzenwelpen|welpen|dog|cat|kitten/i },
+        { id: 'horse_vet', match: /pferd|gestuet|gestüt|horse|tierarzt|vet|veterinaer|veterinär|medikament|unterlagen/i, cargo: /pferd|horse|vet|tierarzt|veterinaer|veterinär|medikament|unterlagen/i }
     ];
     return signals.find(s => s.match.test(hay)) || null;
 }
@@ -13916,7 +13931,15 @@ function _animalTransportSubjectFromCargo(cargoText = '') {
     if (/\bente|enten\b/.test(norm)) return 'eine Enten-Reha-Box';
     if (/\bzieg/.test(norm)) return 'eine junge Ziege in der Transportbox';
     if (/\bschaf\b/.test(norm)) return 'ein kleines Schaf in der engen Transportbox';
-    if (/\breh|hirsch/.test(norm)) return 'ein junges Reh in der gesicherten Transportbox';
+    if (/\b(?:reh|rehkitz|hirsch)\b/.test(norm)) return 'ein junges Reh in der gesicherten Transportbox';
+    if (/\bigel\b/.test(norm)) return 'ein Igel in der Box mit Wärmematte';
+    if (/\bkaninchen\b/.test(norm)) return 'ein Kaninchen in der Pflegestellen-Box';
+    if (/\b(?:feldhase|hase)\b/.test(norm)) return 'ein Feldhasen-Jungtier in der Reha-Box';
+    if (/\beule|schleiereule\b/.test(norm)) return 'eine Schleiereule in der abgedunkelten Vogelbox';
+    if (/\bfalke|turmfalke|greifvogel\b/.test(norm)) return 'ein Turmfalke in der ruhigen Greifvogelbox';
+    if (/\bfledermaus\b/.test(norm)) return 'eine Fledermaus-Kleinbox für die Wildtierstation';
+    if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'eine Schildkröte in der belüfteten Transportbox';
+    if (/\bfuchs|fuchswelpe\b/.test(norm)) return 'ein Fuchswelpe in der gesicherten Transportbox';
     if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Katzenwelpen in einer Transportbox mit Wärmedecke';
     if (/\bhund|therapiehund\b/.test(norm)) return 'ein kleiner Therapiehund in der Reisebox';
     if (/\bwildvogel|vogelbox\b/.test(norm)) return 'eine Wildvogelbox mit Sichtschutz';
@@ -13931,6 +13954,13 @@ function _animalTransportHandoffFromCargo(cargoText = '') {
     if (/\bgans\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Kontakt der Auffangstation die Gans am Tierpflege-Van und bringt sie direkt in den vorbereiteten Rückzugsbereich.';
     if (/\bmoewe\b|\bmowe\b|\bmöwe\b|wildvogel|vogelbox/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildvogelstation direkt am Vorfeld und bringt die Box ohne Umwege in den ruhigen Betreuungsbereich.';
     if (/\bente|enten\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Reha-Station die Box am Vorfeld, bevor es für den Wasservogel in den vorbereiteten Ruhebereich geht.';
+    if (/\bigel\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildtierstation die Wärmebox direkt am Van, damit Fütterung und Temperaturkontrolle ohne Pause weitergehen.';
+    if (/\bkaninchen\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Stationskontakt die Pflegestellen-Box und bringt das Kaninchen direkt in den ruhigen Innenbereich.';
+    if (/\b(?:feldhase|hase)\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Stationskontakt die Reha-Box und bringt das kleine Wildtier direkt in den ruhigen Innenbereich.';
+    if (/\beule|schleiereule|falke|turmfalke|greifvogel\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Greifvogelstation die abgedunkelte Box und bringt den Vogel ohne Umwege zur Kontrolle.';
+    if (/\bfledermaus\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildtierstation die Kleinbox und bringt sie direkt in den warmen, dunklen Ruheraum.';
+    if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Reptilienkontakt die belüftete Box und setzt die Kontrolle am Ziel fort.';
+    if (/\bfuchs|fuchswelpe\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildtierstation die gesicherte Box und bringt den Fuchswelpen in den vorbereiteten Rückzugsbereich.';
     if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Stationskontakt die Wärmedecken-Box und bringt die Kleinen direkt in den vorbereiteten Innenraum.';
     if (/\bhund|therapiehund\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Betreuungskontakt den Hund am Vorfeld und hält den Wechsel kurz und ruhig.';
     if (/\btierarzt|kurierpaket|medikament|unterlagen|pferde|vet\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Tierarztkontakt Material und Unterlagen direkt für den nächsten Versorgungsschritt.';
@@ -13953,14 +13983,40 @@ function _animalTransportBuildBrief(cargoText = '', options = {}) {
     const receivingContact = (() => {
         if (/\bmoewe|mowe|möwe|wildvogel|vogelbox\b/.test(norm)) return 'die Wildvogelstation am Ziel';
         if (/\bgans|ente|enten\b/.test(norm)) return 'der Kontakt der Auffang- oder Reha-Station';
+        if (/\beule|schleiereule|falke|turmfalke|greifvogel\b/.test(norm)) return 'die Greifvogelstation am Ziel';
+        if (/\b(?:igel|feldhase|hase|kaninchen|fledermaus|fuchs|fuchswelpe)\b/.test(norm)) return 'die Wildtierstation am Ziel';
+        if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'der Reptilienkontakt am Ziel';
         if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'der Stationskontakt im ruhigen Innenbereich';
         if (/\bhund|therapiehund\b/.test(norm)) return 'der Betreuungskontakt am Ziel';
         if (isVetMaterial) return 'der Tierarztkontakt am Ziel';
         return 'der Tierpflege- oder Stationskontakt am Ziel';
     })();
+    const careReason = (() => {
+        if (/\bente|enten\b/.test(norm)) return 'der Wasservogel nach einer Uferverletzung erstversorgt wurde und jetzt in die Reha muss';
+        if (/\bgans\b/.test(norm)) return 'die Gans nach Fund am Badesee weiter beobachtet werden soll';
+        if (/\bmoewe|mowe|möwe|wildvogel|vogelbox\b/.test(norm)) return 'der Wildvogel eine Feder- und Konditionskontrolle in der Station braucht';
+        if (/\bzieg/.test(norm)) return 'die junge Ziege nach einer kurzen Erstversorgung in eine kleine Pflegestelle wechselt';
+        if (/\bschaf\b/.test(norm)) return 'das Schaf nach der Erstversorgung nicht noch stundenlang im Transporter stehen soll';
+        if (/\b(?:reh|rehkitz|hirsch)\b/.test(norm)) return 'das Wildtier nach der Erstaufnahme in einen ruhigen Aufzuchtbereich kommt';
+        if (/\bigel\b/.test(norm)) return 'der Igel Wärme, Fütterung und Beobachtung in der Station braucht';
+        if (/\bkaninchen\b/.test(norm)) return 'das Kaninchen nach der Erstpflege ohne langen Bodentransfer weiter soll';
+        if (/\b(?:feldhase|hase)\b/.test(norm)) return 'das kleine Wildtier nach dem Fund schnell in eine ruhige Pflegestelle soll';
+        if (/\beule|schleiereule\b/.test(norm)) return 'die Schleiereule nach einem Scheunenfund dunkel und ruhig zur Greifvogelstation muss';
+        if (/\bfalke|turmfalke|greifvogel\b/.test(norm)) return 'der Greifvogel nach einer Flügelkontrolle in die spezialisierte Station kommt';
+        if (/\bfledermaus\b/.test(norm)) return 'die Fledermaus Wärme und einen dunklen Ruheraum in der Wildtierstation braucht';
+        if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'die Schildkröte zur fachkundigen Kontrolle in eine Reptilienstation soll';
+        if (/\bfuchs|fuchswelpe\b/.test(norm)) return 'der Fuchswelpe nach der Erstaufnahme in einen gesicherten Rückzugsbereich muss';
+        if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'die Kleinen Wärme, Fütterung und eine kurze Kontrolle am Ziel brauchen';
+        if (/\bhund|therapiehund\b/.test(norm)) return 'der Hund einen ruhigen betreuten Wechsel am Ziel braucht';
+        if (isVetMaterial) return 'Praxis oder Station Material und Unterlagen für den nächsten Versorgungsschritt erwartet';
+        return 'die Zielstation die Weiterbetreuung vorbereitet hat';
+    })();
     const nextCareStep = (() => {
         if (/\bmoewe|mowe|möwe|wildvogel|vogelbox\b/.test(norm)) return 'Versorgung und Beobachtung laufen in der Wildvogelstation weiter';
         if (/\bgans|ente|enten\b/.test(norm)) return 'der Wasservogel kommt direkt in den vorbereiteten Ruhebereich';
+        if (/\beule|schleiereule|falke|turmfalke|greifvogel\b/.test(norm)) return 'die Greifvogelstation übernimmt Kontrolle und ruhige Unterbringung';
+        if (/\b(?:igel|feldhase|hase|kaninchen|fledermaus|fuchs|fuchswelpe)\b/.test(norm)) return 'Versorgung und Beobachtung laufen in der Wildtierstation weiter';
+        if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'die Reptilienstation setzt Kontrolle und Unterbringung fort';
         if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Wärme, Fütterung und Kontrolle können ohne langen Bodentransfer weitergehen';
         if (/\bhund|therapiehund\b/.test(norm)) return 'der Wechsel bleibt kurz, ruhig und betreut';
         if (isVetMaterial) return 'Material und Unterlagen gehen direkt in den nächsten Versorgungsschritt';
@@ -13978,6 +14034,7 @@ function _animalTransportBuildBrief(cargoText = '', options = {}) {
     return {
         cargoText: cargo,
         transportSubject: subject,
+        careReason,
         whyAir,
         handlingFocus,
         stressReason,
@@ -13992,7 +14049,10 @@ function _animalTransportStoryMentionsCargo(story = '', cargoText = '') {
     const cargoNorm = normalizeMissionText(_animalTransportDisplayCargoLabel(cargoText));
     if (!normalized) return false;
     if (!cargoNorm) return /\b(tier|tierschutz|tierarzt|veterinaer|veterinär|auffangstation|transportbox|wildvogel|station)\b/.test(normalized);
-    const species = ['gans', 'moewe', 'möwe', 'ente', 'ziege', 'schaf', 'reh', 'hirsch', 'katze', 'welpen', 'hund', 'wildvogel'];
+    if (/\b(?:tierarzt|kurierpaket|medikament|medikamente|unterlagen|pferde|vet)\b/.test(cargoNorm)) {
+        return /\b(?:vet-material|vet|medikament|medikamente|unterlagen|kurierpaket|material)\b/.test(normalized);
+    }
+    const species = ['gans', 'moewe', 'möwe', 'ente', 'ziege', 'schaf', 'reh', 'hirsch', 'igel', 'hase', 'kaninchen', 'eule', 'falke', 'greifvogel', 'fledermaus', 'schildkroete', 'schildkrote', 'schildkröte', 'fuchs', 'katze', 'welpen', 'hund', 'wildvogel'];
     if (species.some(word => normalized.includes(word) && cargoNorm.includes(normalizeMissionText(word)))) return true;
     const cargoWords = cargoNorm
         .split(/\s+/)
@@ -14024,11 +14084,12 @@ function _animalTransportComposeProfileStory(missionLike = {}, cargoText = '') {
     const subject = animalBrief.transportSubject || _animalTransportSubjectFromCargo(cargoText || missionLike?.cargo || missionLike?.cargoText || '');
     const passengerLead = passenger.includes(',') ? `${passenger}, begleitet` : `${passenger} begleitet`;
     const onboardVerb = _animalTransportOnboardVerb(subject);
+    const careReason = _missionPipelineV4StripSentenceEnd(animalBrief.careReason || '').trim();
     const whyAir = _missionPipelineV4StripSentenceEnd(animalBrief.whyAir || '').trim();
     const handling = _missionPipelineV4StripSentenceEnd(animalBrief.handlingFocus || '').trim();
     return _missionWriterV5SentenceJoin([
         routeSentence,
-        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}`,
+        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}${careReason ? `, weil ${careReason}` : ''}`,
         [whyAir, handling ? `für dich zählt ${_missionPipelineV4LowerFirst(handling)}` : ''].filter(Boolean).join('; '),
         weatherSentence,
         animalBrief.handoffSentence || _animalTransportHandoffFromCargo(cargoText || missionLike?.cargo || missionLike?.cargoText || '')
@@ -15849,7 +15910,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
     if (cargoPool.length) {
         cargoText = profile.id === 'animal_transport'
-            ? (_animalTransportDisplayCargoLabel(m.cargo || m.cargoText || cargoText) || _pickAnimalTransportCargo(cargoPool, m))
+            ? (_animalTransportDisplayCargoLabel(m?._missionContractV4?.animalTransportBrief?.cargoText || '')
+                || _animalTransportDisplayCargoLabel(m.cargo || m.cargoText || cargoText)
+                || _pickAnimalTransportCargo(cargoPool, m))
             : (profile.id === 'private_outing'
                 ? _pickPrivateOutingCargo(cargoPool, m, m.passenger)
                 : (profile.id === 'cargo_fragile'
@@ -16208,16 +16271,24 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
 }
 
 const ANIMAL_TRANSPORT_SCENE_OPTIONS = [
-    { title: 'Seagull', label: 'Moewe', role: 'animal.waterfowl', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
+    { title: 'Seagull', label: 'Möwe', role: 'animal.waterfowl', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
     { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /gans|goose|wasservogel/i },
-    { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /ente|enten|duck|mallard|schwan|swan|heimischer\s+wasservogel/i },
+    { title: 'Goose', label: 'Wasservogel', cargoLabel: 'Wasservogel-Transportbox', role: 'animal.waterfowl', keywords: /ente|enten|duck|mallard|schwan|swan|heimischer\s+wasservogel/i },
     { title: 'CHircusHircusFemale', label: 'Ziege', role: 'animal.grazing', keywords: /ziege|geiss|geiß|bock|goat|hircus/i },
     { title: 'CHircusHircusJuvenile', label: 'junge Ziege', role: 'animal.grazing', keywords: /kitz|jungziege|zicklein/i },
     { title: 'OHemionusJuvenile', label: 'junges Reh', role: 'animal.deer', keywords: /rehkitz|kitz|junges\s+reh/i },
-    { title: 'OHemionusFemale', label: 'Reh', role: 'animal.deer', keywords: /reh|hirsch|wildtier|deer|\bwild\b/i },
+    { title: 'OHemionusFemale', label: 'Reh', role: 'animal.deer', keywords: /\breh\b|rehkitz|hirsch|deer/i },
     { visible: false, label: 'Schaf-Transportbox', cargoLabel: 'Schaf-Transportbox', cargoTitle: 'Pallet01_03', keywords: /schaf|sheep/i },
+    { visible: false, label: 'Igel-Wärmebox', cargoLabel: 'Igel-Wärmebox', cargoTitle: 'Cardboard', keywords: /igel|hedgehog/i },
+    { visible: false, label: 'Kleintier-Reha-Box', cargoLabel: 'Kleintier-Reha-Box', cargoTitle: 'Cardboard', keywords: /feldhase|hase|kaninchen|rabbit|hare/i },
+    { visible: false, label: 'Greifvogelbox', cargoLabel: 'Greifvogelbox', cargoTitle: 'Cardboard', keywords: /eule|schleiereule|falke|turmfalke|greifvogel|owl|falcon|raptor/i },
+    { visible: false, label: 'Fledermaus-Kleinbox', cargoLabel: 'Fledermaus-Kleinbox', cargoTitle: 'Cardboard', keywords: /fledermaus|bat/i },
+    { visible: false, label: 'Schildkrötenbox', cargoLabel: 'Schildkrötenbox', cargoTitle: 'Cardboard', keywords: /schildkroete|schildkrote|schildkröte|turtle|tortoise/i },
+    { visible: false, label: 'Wildtier-Transportbox', cargoLabel: 'Wildtier-Transportbox', cargoTitle: 'Cardboard', keywords: /fuchs|fuchswelpe|fox/i },
     { visible: false, label: 'Luchs-Transportbox', cargoLabel: 'Luchs-Transportbox', cargoTitle: 'Cardboard', keywords: /luchs|lux|lynx/i },
-    { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|welpe|dog|cat/i },
+    { visible: false, label: 'Katzenwelpen-Box', cargoLabel: 'Katzenwelpen-Box', cargoTitle: 'Cardboard', keywords: /katzenwelpen|kitten|welpen/i },
+    { visible: false, label: 'Kleintierbox', cargoLabel: 'Kleintierbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|dog|cat/i },
+    { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /tiertransportbox|transportbox|tierbox/i },
     { visible: false, label: 'Auffangstations-Kiste', cargoLabel: 'Auffangstations-Kiste', cargoTitle: 'Pallet01_03', keywords: /seelöwe|seeloewe|seal|sealion/i },
     { visible: false, label: 'Pferde-Vet-Material', cargoLabel: 'Pferde-Vet-Material', cargoTitle: 'Pallet01_03', keywords: /pferd|gestuet|gestüt|horse/i }
 ];
@@ -19641,7 +19712,9 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         .map(item => scenePlannerV3CleanText(item?.role || '', 60))
         .filter(Boolean);
     const rawFitsBaseRole = !rawRoleSet.length || rawRoleSet.every(role => baseRoleSet.has(role));
+    const preserveBaseArrivalCue = String(basePlan.role || '').toLowerCase() === 'animal_handoff';
     if (rawFitsBaseRole) ['roleLabel', 'expectedBy', 'visibleCue', 'narrativeHint'].forEach(key => {
+        if (preserveBaseArrivalCue && (key === 'visibleCue' || key === 'narrativeHint')) return;
         const value = scenePlannerV3CleanText(src[key], key === 'narrativeHint' ? 180 : 90);
         if (value) out[key] = value;
     });
@@ -24666,7 +24739,7 @@ function buildMissionContractV4({
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
         mode,
-        cargoText: String(plannerContext.cargoText || ''),
+        cargoText: animalTransportBrief?.cargoText || String(plannerContext.cargoText || ''),
         animalTransportBrief,
         route: {
             startIcao: currentStartICAO || '',
@@ -25483,6 +25556,7 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             cargoText: animalBrief.cargoText || cargoLabel || '',
             transportSubject: animalBrief.transportSubject || spine.concreteAngle || spine.subject || 'Tiertransport in gesicherter Box oder mit Veterinärbegleitung',
             whyAir: animalBrief.whyAir || spine.flightValue || spine.whyNow || '',
+            careReason: animalBrief.careReason || '',
             handlingFocus: animalBrief.handlingFocus || spine.whyNow || 'gleichmäßige Fluglage und sanfte Übergabe reduzieren Stress',
             stressReason: animalBrief.stressReason || '',
             receivingContact: animalBrief.receivingContact || spine.outcome || spine.completion || 'Station, Tierarzt oder Betreuungskontakt übernimmt am Ziel',
@@ -28138,6 +28212,7 @@ function _missionWriterV5ComposeAnimalTransportStory(contract = {}, context = {}
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielplatz', 120);
     const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die Tierbegleitung');
     const subject = _missionWriterV5CleanDomainSentence(domain.transportSubject, 'ein Tierschutz- oder Veterinärtransfer braucht den Luftweg');
+    const careReason = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanDomainSentence(domain.careReason, '')).trim();
     const whyAir = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanDomainSentence(domain.whyAir, '')).trim();
     const handling = _missionWriterV5CleanDomainSentence(domain.handlingFocus, 'gleichmäßige Fluglage und sanfte Übergabe halten den Stress niedrig');
     const receiver = _missionWriterV5CleanDomainSentence(domain.receivingContact, 'am Ziel übernimmt Station, Tierarzt oder Betreuungskontakt');
@@ -28151,7 +28226,7 @@ function _missionWriterV5ComposeAnimalTransportStory(contract = {}, context = {}
     const handoffLine = handoff || [receiver, nextStep ? `danach ${_missionPipelineV4LowerFirst(nextStep)}` : ''].filter(Boolean).join(', ');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute geht es mit Tiertransport nach ${targetName}`,
-        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}`,
+        `${passengerLead} den Transfer; an Bord ${onboardVerb} ${subject}${careReason ? `, weil ${careReason}` : ''}`,
         handlingLine,
         weatherSentence,
         handoffLine
@@ -28553,17 +28628,20 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         targetGeoContext: context.targetGeoContext || null,
         missionPlanV2: context.missionPlanV2 || null
     });
+    const contractAnimalCargo = requiredTaskDomain === 'animal_transport'
+        ? _animalTransportDisplayCargoLabel(contract?.animalTransportBrief?.cargoText || contract?.cargoText || context.cargoText || '')
+        : '';
     const writerCargo = String(src.cargo || '').trim();
     const storyCargoText = _missionWriterV5CargoTextConflictsTask(writerCargo, requiredTaskDomain)
-        ? String(context.cargoText || contract?.cargoText || '').trim()
-        : (writerCargo || String(context.cargoText || contract?.cargoText || '').trim());
+        ? String(contractAnimalCargo || context.cargoText || contract?.cargoText || '').trim()
+        : (contractAnimalCargo || writerCargo || String(context.cargoText || contract?.cargoText || '').trim());
     const finalized = _missionWriterV5FinalizeStory(writerStoryText, contract, {
         passenger,
         briefingBrief,
         cargoText: storyCargoText
     });
     let finalStory = finalized.story;
-    let finalCargo = writerCargo;
+    let finalCargo = contractAnimalCargo || writerCargo;
     if (_missionWriterV5CargoTextConflictsTask(finalCargo, requiredTaskDomain)) {
         finalCargo = storyCargoText || _missionPipelineV4CargoLabel(contract, { cargoText: '' });
     } else if (_missionPipelineV4IsCargoTransportContract(contract, requiredTaskDomain, { cargoText: writerCargo })
@@ -29173,7 +29251,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `16. MEDICAL-KONSISTENZ: Wenn pax nur 1 PAX ist, ist diese Person medizinische Begleitung/Notarzt, NICHT Patient. Keine Patientin/keinen Patienten im Flugzeug erwaehnen, ausser pax ist explizit mindestens 2 PAX und die Story modelliert Patient plus medizinische Begleitung. Bei 1 PAX keine Formulierung "Notarztteam"; nutze "medizinische Begleitung", "Notarzt" oder "Notaerztin".`
         : '';
     const animalProfileRule = (forcedProfile?.id === 'animal_transport')
-        ? `16b. TIERTRANSPORT-BASIS: Baue den Auftrag aus konkreter Tier-/Vet-Sendung, Begleitperson, ruhiger Flugführung, Zielkontakt und nächstem Betreuungsschritt. Der Flug ist sinnvoll, weil der kurze Luftweg Stress, Bodenzeit oder Hitze reduziert und die Übergabe vorbereitet ist. Wenn eine Tierart genannt wird, halte sie Piper-tauglich oder formuliere sie als gesicherte Transportbox beziehungsweise Vet-Material. Der Ton darf kurz warm oder leicht humorvoll sein, bleibt aber ein glaubhafter Tierschutz- oder Veterinärtransfer.`
+        ? `16b. TIERTRANSPORT-BASIS: Baue den Auftrag aus konkreter Tier-/Vet-Sendung, kurzem Pflegegrund, Begleitperson, ruhiger Flugführung, Zielkontakt und nächstem Betreuungsschritt. Der Flug ist sinnvoll, weil der kurze Luftweg Stress, Bodenzeit oder Hitze reduziert und die Übergabe vorbereitet ist. Kleine Tiere dürfen frei und passend gewählt werden, wenn sie in Box, Tasche oder gesicherter Transportkiste plausibel in die Maschine passen; größere Tiere nur als Vet-Material, Unterlagen oder vorbereitete Kiste. Der Ton darf kurz warm oder leicht humorvoll sein, bleibt aber ein glaubhafter Tierschutz- oder Veterinärtransfer.`
         : '';
     const aptCharterSeedPassenger = isAptCharterMission ? buildCharterPassenger(null) : null;
     const aptCharterSeedStory = aptCharterSeedPassenger

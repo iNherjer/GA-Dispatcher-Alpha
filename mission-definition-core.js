@@ -1043,8 +1043,14 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             };
         }
         if (/animal/.test(planTask)) {
+            const animalCargoText = [
+                mission?._missionContractV4?.animalTransportBrief?.cargoText,
+                mission?.missionContractV4?.animalTransportBrief?.cargoText,
+                mission?.animalTransportBrief?.cargoText,
+                cargoText
+            ].filter(Boolean).join(' ');
             const animalSpec = pickAnimalTransportSceneSpec([
-                cargoText,
+                animalCargoText,
                 mission?.s,
                 mission?.t,
                 paxText
