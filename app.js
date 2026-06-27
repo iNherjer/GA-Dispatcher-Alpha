@@ -31114,6 +31114,26 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
             ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
             : 'RDM: direkt eine zufällige Mission erzeugen.';
     }
+    const modernControl = document.querySelector('.modern-proposal-mode-control');
+    const modernLabel = document.getElementById('modernProposalModeLabel');
+    const modernCheckbox = document.getElementById('modernProposalModeCheckbox');
+    if (modernControl) {
+        modernControl.classList.toggle('is-active', active);
+        modernControl.title = active
+            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
+            : 'RDM: direkt eine zufällige Mission erzeugen.';
+    }
+    if (modernLabel) {
+        modernLabel.textContent = active ? 'PICK' : 'RDM';
+    }
+    if (modernCheckbox) {
+        modernCheckbox.checked = active;
+        modernCheckbox.setAttribute('aria-checked', active ? 'true' : 'false');
+        modernCheckbox.setAttribute('data-mode', active ? 'pick' : 'rdm');
+        modernCheckbox.title = active
+            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
+            : 'RDM: direkt eine zufällige Mission erzeugen.';
+    }
 };
 
 window.vpToggleMissionProposalMode = function vpToggleMissionProposalMode(forceState) {
@@ -35261,7 +35281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1226', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1227', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

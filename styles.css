@@ -9267,6 +9267,20 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-generatio
     margin: 0 auto;
 }
 
+.mission-type-control {
+    width: 100%;
+}
+
+.modern-proposal-mode-control {
+    display: none;
+}
+
+body.theme-retro .modern-proposal-mode-control,
+body.theme-navcom .modern-proposal-mode-control,
+body.theme-ops1940 .modern-proposal-mode-control {
+    display: none;
+}
+
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #classicInputs {
     display: flex;
     flex-direction: column;
@@ -9318,6 +9332,100 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select:focus {
         inset 0 1px 0 rgba(255, 255, 255, 0.16),
         0 0 0 4px rgba(126, 199, 255, 0.16),
         0 14px 32px rgba(0, 0, 0, 0.22);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-type-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 52px;
+    gap: 8px;
+    align-items: end;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-type-control #targetType {
+    width: 100%;
+    min-width: 0;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-control {
+    display: flex;
+    flex-direction: column;
+    min-height: 48px;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    color: rgba(226, 241, 250, 0.72);
+    cursor: pointer;
+    user-select: none;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-text {
+    display: block;
+    width: 100%;
+    text-align: center;
+    color: rgba(226, 241, 250, 0.72);
+    font-size: 10px;
+    font-weight: 780;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    display: block;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    margin: 0;
+    padding: 0;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+        rgba(8, 17, 25, 0.62);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 9px 22px rgba(0, 0, 0, 0.24);
+    cursor: pointer;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox::after {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 10px;
+    width: 13px;
+    height: 7px;
+    border-left: 3px solid #071018;
+    border-bottom: 3px solid #071018;
+    opacity: 0;
+    transform: rotate(-45deg) scale(0.8);
+    transform-origin: center;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox:checked {
+    border-color: rgba(104, 242, 160, 0.7);
+    background:
+        linear-gradient(145deg, rgba(126, 199, 255, 0.96), rgba(104, 242, 160, 0.92)),
+        rgba(104, 242, 160, 0.44);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.44),
+        0 0 0 4px rgba(104, 242, 160, 0.13),
+        0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox:checked::after {
+    opacity: 1;
+    transform: rotate(-45deg) scale(1);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-control.is-active .modern-proposal-mode-text {
+    color: rgba(199, 255, 223, 0.94);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .preset-row {

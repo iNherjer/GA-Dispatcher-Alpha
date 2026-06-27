@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=analog-proposal-label-20260627-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=modern-proposal-toggle-20260627-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=analog-proposal-label-20260627-01">
+        <link rel="stylesheet" href="styles.css?v=modern-proposal-toggle-20260627-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -166,10 +166,10 @@
         </div>
         
         <div class="grid-2 ops-type-fields">
-            <div><label id="targetTypeLabel" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten" style="cursor:pointer; user-select:none;">Typ</label><button type="button" id="analogProposalModeLabel" class="analog-proposal-mode-label" role="switch" aria-checked="false" onclick="event.stopPropagation(); if (window.vpToggleMissionProposalMode) window.vpToggleMissionProposalMode();" title="RDM: direkt zufällig. PICK: zuerst Vorschläge auswählen.">RDM</button><select id="targetType" onchange="setMissionTypeSelection(this.value)">
+            <div><label id="targetTypeLabel" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten" style="cursor:pointer; user-select:none;">Typ</label><button type="button" id="analogProposalModeLabel" class="analog-proposal-mode-label" role="switch" aria-checked="false" onclick="event.stopPropagation(); if (window.vpToggleMissionProposalMode) window.vpToggleMissionProposalMode();" title="RDM: direkt zufällig. PICK: zuerst Vorschläge auswählen.">RDM</button><div class="mission-type-control"><select id="targetType" onchange="setMissionTypeSelection(this.value)">
                 <option value="apt">Flugplatz (A ➔ B)</option>
                 <option value="poi">POI (Rundflug)</option>
-            </select></div>
+            </select><label class="modern-proposal-mode-control" for="modernProposalModeCheckbox" title="RDM: direkt zufällig. PICK: zuerst Vorschläge auswählen."><span id="modernProposalModeLabel" class="modern-proposal-mode-text">RDM</span><input type="checkbox" id="modernProposalModeCheckbox" class="modern-proposal-mode-checkbox" role="switch" aria-label="Missionsvorschläge auswählen" aria-checked="false" onchange="if (window.vpToggleMissionProposalMode) window.vpToggleMissionProposalMode(this.checked);"></label></div></div>
             <div><label>Distanz (Total)</label><select id="distRange" onchange="syncOpsSelectField('distRange', this.value)">
                 <option value="any">Egal (Zufall)</option>
                 <option value="short">Short (10-50 NM)</option>
@@ -1751,7 +1751,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=mission-writer-v5-20260626-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=analog-proposal-label-20260627-01"></script>
+<script defer src="app.js?v=modern-proposal-toggle-20260627-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
