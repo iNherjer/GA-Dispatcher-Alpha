@@ -5347,6 +5347,86 @@ body.theme-navcom .radio-disp-inner .lcd-input {
     font-weight: bold;
 }
 
+body.theme-navcom .radio-disp-inner.navcom-type-display {
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
+body.theme-navcom .navcom-proposal-switch {
+    display: grid;
+    grid-template-columns: auto 25px auto;
+    align-items: center;
+    gap: 3px;
+    min-width: 62px;
+    height: 20px;
+    padding: 2px 4px;
+    border: 1px solid #494949;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #070707 100%);
+    color: rgba(255, 80, 24, 0.64);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 2px rgba(0,0,0,0.95);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    text-shadow: 0 0 4px rgba(255, 55, 0, 0.4);
+    cursor: pointer;
+}
+
+body.theme-navcom .navcom-proposal-panel-switch {
+    grid-area: swap;
+    align-self: center;
+    justify-self: end;
+    position: relative;
+    z-index: 3;
+    margin-right: 1px;
+}
+
+body.theme-navcom .navcom-proposal-switch:focus-visible {
+    outline: 1px solid #ff8a42;
+    outline-offset: 2px;
+}
+
+body.theme-navcom .navcom-proposal-track {
+    position: relative;
+    width: 25px;
+    height: 11px;
+    border-radius: 999px;
+    background: #090909;
+    border: 1px solid #2b2b2b;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.95);
+}
+
+body.theme-navcom .navcom-proposal-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #c9c9c9 0%, #6d6d6d 100%);
+    box-shadow: 0 0 4px rgba(255,255,255,0.35), inset 0 1px 1px rgba(255,255,255,0.45);
+    transition: transform 120ms ease;
+}
+
+body.theme-navcom .navcom-proposal-switch.is-active {
+    border-color: rgba(255, 112, 48, 0.72);
+    color: rgba(255, 111, 43, 0.72);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.08), 0 0 8px rgba(255, 72, 22, 0.16);
+}
+
+body.theme-navcom .navcom-proposal-switch.is-active .navcom-proposal-thumb {
+    transform: translateX(14px);
+    background: linear-gradient(180deg, #ffb370 0%, #ff5a1f 100%);
+    box-shadow: 0 0 7px rgba(255, 82, 24, 0.7), inset 0 1px 1px rgba(255,255,255,0.4);
+}
+
+body.theme-navcom .navcom-proposal-switch:not(.is-active) .navcom-proposal-rdm,
+body.theme-navcom .navcom-proposal-switch.is-active .navcom-proposal-pick {
+    color: #ff5a1f;
+    text-shadow: 0 0 5px rgba(255, 55, 0, 0.72), 0 0 10px rgba(255, 30, 0, 0.25);
+}
+
 /* Transfer-Button (↔) – weißer Taster unterhalb des Displays */
 .radio-transfer-btn {
     display: none;
@@ -6212,6 +6292,29 @@ body.theme-navcom .kln90b-module .radio-label {
         font-size: 18px !important;
     }
 
+    body.theme-navcom .navcom-proposal-switch {
+        min-width: 54px;
+        height: 18px;
+        grid-template-columns: auto 21px auto;
+        gap: 2px;
+        padding: 1px 3px;
+        font-size: 7px;
+    }
+
+    body.theme-navcom .navcom-proposal-track {
+        width: 21px;
+        height: 9px;
+    }
+
+    body.theme-navcom .navcom-proposal-thumb {
+        width: 7px;
+        height: 7px;
+    }
+
+    body.theme-navcom .navcom-proposal-switch.is-active .navcom-proposal-thumb {
+        transform: translateX(12px);
+    }
+
     /* NavCom: Knöpfe auf iPhone wie KLN-Encoder (volle Größe + Styling) */
     body.theme-navcom .radio-knob {
         width: 40px !important;
@@ -6886,6 +6989,36 @@ body.theme-navcom.navcom-rack-v2 .lcd-input {
     text-shadow:
         0 0 5px rgba(255,92,28,0.92),
         0 0 14px rgba(255,80,20,0.34) !important;
+}
+
+body.theme-navcom.navcom-rack-v2 .navcom-proposal-switch {
+    min-width: 57px;
+    height: 17px;
+    padding: 1px 3px;
+    grid-template-columns: auto 22px auto;
+    gap: 2px;
+    border-color: #202428;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), transparent 42%),
+        linear-gradient(180deg, #171b1f 0%, #050607 100%);
+    font-size: 7px;
+    color: rgba(255, 138, 66, 0.55);
+}
+
+body.theme-navcom.navcom-rack-v2 .navcom-proposal-track {
+    width: 22px;
+    height: 9px;
+    border-color: #111519;
+    background: #020303;
+}
+
+body.theme-navcom.navcom-rack-v2 .navcom-proposal-thumb {
+    width: 7px;
+    height: 7px;
+}
+
+body.theme-navcom.navcom-rack-v2 .navcom-proposal-switch.is-active .navcom-proposal-thumb {
+    transform: translateX(13px);
 }
 
 body.theme-navcom.navcom-rack-v2 .lcd-input:focus {

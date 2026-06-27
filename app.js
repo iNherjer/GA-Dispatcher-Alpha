@@ -31085,15 +31085,25 @@ window.gaMissionProposalMode = function gaMissionProposalMode(enabled) {
 
 window.updateMissionProposalModeButtonUi = function updateMissionProposalModeButtonUi() {
     const btn = document.getElementById('btnMissionProposalMode');
-    if (!btn) return;
     const active = missionProposalModeEnabled();
-    btn.textContent = active ? 'Vorschläge Ein' : 'Vorschläge Aus';
-    btn.title = active
-        ? 'Vorschlagsauswahl aktiv: passende APT- und POI-Missionen zeigen vorab auswählbare Optionen.'
-        : 'Vorschlagsauswahl aus: Missionen werden direkt wie bisher zufällig generiert.';
-    btn.style.background = active ? '#283d6a' : '#1f2638';
-    btn.style.borderColor = active ? '#7fa8ff' : '#4f5f86';
-    btn.style.color = active ? '#e4edff' : '#c9d6ff';
+    const activeTitle = 'Vorschlagsauswahl aktiv: passende APT- und POI-Missionen zeigen vorab auswählbare Optionen.';
+    const inactiveTitle = 'Zufallsmodus: Missionen werden direkt wie bisher zufällig generiert.';
+    if (btn) {
+        btn.textContent = active ? 'Vorschläge Ein' : 'Vorschläge Aus';
+        btn.title = active ? activeTitle : inactiveTitle;
+        btn.style.background = active ? '#283d6a' : '#1f2638';
+        btn.style.borderColor = active ? '#7fa8ff' : '#4f5f86';
+        btn.style.color = active ? '#e4edff' : '#c9d6ff';
+    }
+    const navcomSwitch = document.getElementById('navcomProposalModeSwitch');
+    if (navcomSwitch) {
+        navcomSwitch.classList.toggle('is-active', active);
+        navcomSwitch.setAttribute('aria-checked', active ? 'true' : 'false');
+        navcomSwitch.setAttribute('data-mode', active ? 'pick' : 'rdm');
+        navcomSwitch.title = active
+            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
+            : 'RDM: direkt eine zufällige Mission erzeugen.';
+    }
 };
 
 window.vpToggleMissionProposalMode = function vpToggleMissionProposalMode(forceState) {
@@ -35241,7 +35251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1223', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1224', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

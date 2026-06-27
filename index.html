@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=navcom-proposal-switch-20260627-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css">
+        <link rel="stylesheet" href="styles.css?v=navcom-proposal-switch-20260627-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -335,7 +335,7 @@
                 <div class="radio-module-right-screws"></div>
                 <div class="radio-label">NAV 1</div>
                 <div class="radio-display-container">
-                    <div class="radio-disp-inner">
+                    <div class="radio-disp-inner navcom-type-display">
                         <span class="lcd-label">TYPE</span>
                         <select id="targetTypeRadio" class="lcd-input" onchange="setMissionTypeSelection(this.value)">
                             <option value="apt">APT</option>
@@ -344,6 +344,11 @@
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten">↔</button>
+                <button type="button" id="navcomProposalModeSwitch" class="navcom-proposal-switch navcom-proposal-panel-switch" role="switch" aria-checked="false" aria-label="Missionsauswahl zwischen Zufall und Vorschlägen umschalten" onclick="event.stopPropagation(); if (window.vpToggleMissionProposalMode) window.vpToggleMissionProposalMode();" title="RDM: direkt zufällig. PICK: zuerst Vorschläge auswählen.">
+                    <span class="navcom-proposal-label navcom-proposal-rdm">RDM</span>
+                    <span class="navcom-proposal-track" aria-hidden="true"><span class="navcom-proposal-thumb"></span></span>
+                    <span class="navcom-proposal-label navcom-proposal-pick">PICK</span>
+                </button>
                 <div class="radio-knob" onclick="cycleRadioOption('targetTypeRadio')" title="Klicken für nächste Option"></div>
             </div>
             <div class="radio-module half-module">
@@ -1746,7 +1751,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=mission-writer-v5-20260626-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=mission-proposal-cargo-pool-20260627-01"></script>
+<script defer src="app.js?v=navcom-proposal-switch-20260627-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
