@@ -9941,11 +9941,86 @@ function _syncRuntimeSnapshotStarted(snapshot = null) {
     );
 }
 
+function _syncCurrentMissionStateForIdentity() {
+    if (typeof currentMissionData === 'undefined' || !currentMissionData || typeof currentMissionData !== 'object') return null;
+    return {
+        currentMissionData,
+        activeMissionContract: window.activeMissionContract || currentMissionData.missionContract || null
+    };
+}
+
+function _syncMissionTitleForPrompt(state = null) {
+    if (!state || typeof state !== 'object') return 'Unbenannte Mission';
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : state;
+    const parts = [
+        md.missionTitle || md.mission || md.title || state.mTitle || '',
+        [md.start || state.currentStartICAO || state.mDepICAO || '', md.dest || state.currentDestICAO || state.mDestICAO || ''].filter(Boolean).join(' -> ')
+    ].map(value => String(value || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+    return parts.length ? parts.join('\n') : 'Unbenannte Mission';
+}
+
+function _syncLocalMissionRuntimeStatus(state = null) {
+    if (!state || typeof state !== 'object') return { started: false, expired: false };
+    let info = null;
+    if (typeof window.activeMissionRestoreExpiryInfo === 'function') {
+        try { info = window.activeMissionRestoreExpiryInfo(state); } catch (_) { info = null; }
+    }
+    const currentState = _syncCurrentMissionStateForIdentity();
+    const matchesCurrent = _syncMissionStatesShareIdentity(currentState, state);
+    const runtimeStarted = !!(
+        matchesCurrent
+        && (
+            missionRuntime.active
+            || missionRuntime.closingPending
+            || _missionRuntimePhaseCountsAsStarted(_missionRuntimePhaseSnapshot())
+        )
+    );
+    const snapshot = _syncReadRuntimeSnapshot();
+    const snapshotStarted = _syncRuntimeSnapshotStarted(snapshot) && _syncRuntimeSnapshotMatchesMission(snapshot, state);
+    return {
+        started: !!(info?.started || runtimeStarted || snapshotStarted),
+        expired: !!info?.expired,
+        source: info?.source || (runtimeStarted ? 'runtime' : (snapshotStarted ? 'runtimeSnapshot' : 'none'))
+    };
+}
+
+function _syncShouldPromptBeforeReplacingLocalMission(cloudMission = null, localMission = null) {
+    if (!localMission || typeof localMission !== 'object') return false;
+    if (_syncMissionStateIsDraft(localMission)) return false;
+    if (cloudMission && _syncMissionStatesShareIdentity(localMission, cloudMission)) return false;
+    const localRuntime = _syncLocalMissionRuntimeStatus(localMission);
+    return !!(localRuntime.started && !localRuntime.expired);
+}
+
+function _syncConfirmReplaceRunningLocalMission(cloudMission = null, localMission = null, options = {}) {
+    if (!_syncShouldPromptBeforeReplacingLocalMission(cloudMission, localMission)) return true;
+    if (typeof confirm !== 'function') return false;
+    const localLabel = _syncMissionTitleForPrompt(localMission);
+    const cloudLabel = cloudMission
+        ? _syncMissionTitleForPrompt(cloudMission)
+        : 'Keine aktive Mission in der Cloud';
+    const cloudText = cloudMission
+        ? `In der Cloud liegt eine andere aktive Mission:\n\n${cloudLabel}`
+        : 'In der Cloud ist keine aktive Mission gespeichert.';
+    const actionText = cloudMission
+        ? 'OK = Cloud-Mission laden und lokale laufende Mission beenden'
+        : 'OK = Cloud-Zustand uebernehmen und lokale laufende Mission beenden';
+    const msg = [
+        'Lokal laeuft noch eine Mission:',
+        '',
+        localLabel,
+        '',
+        cloudText,
+        '',
+        actionText,
+        'Abbrechen = lokale laufende Mission fortsetzen'
+    ].join('\n');
+    try { return !!confirm(msg); } catch (_) { return false; }
+}
+
 function _syncShouldCloudRestoreResumeRuntime(activeMission = null, localMission = null) {
     if (!activeMission || typeof activeMission !== 'object') return false;
-    const currentState = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
-        ? { currentMissionData, activeMissionContract: window.activeMissionContract || currentMissionData.missionContract || null }
-        : null;
+    const currentState = _syncCurrentMissionStateForIdentity();
     const matchesCurrent = _syncMissionStatesShareIdentity(currentState, activeMission);
     const matchesLocal = _syncMissionStatesShareIdentity(localMission, activeMission);
     if (!matchesCurrent && !matchesLocal) return false;
@@ -10017,16 +10092,32 @@ function _syncHasLocalDraftMission() {
 
 function _syncApplyActiveMissionFromCloud(activeMission = null) {
     const briefing = document.getElementById("briefingBox");
+    let localMission = null;
+    try {
+        localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+    } catch (_) {
+        localMission = null;
+    }
     if (activeMission && !_syncMissionStateIsDraft(activeMission)) {
         if (_syncActiveMissionIsExpired(activeMission)) {
+            const keepDifferentLocalMission = !!(
+                localMission
+                && !_syncMissionStateIsDraft(localMission)
+                && !_syncMissionStatesShareIdentity(localMission, activeMission)
+            );
+            if (keepDifferentLocalMission) {
+                if (typeof window.triggerCloudSave === 'function') {
+                    setTimeout(() => {
+                        try { window.triggerCloudSave(true); } catch (_) {}
+                    }, 0);
+                }
+                return false;
+            }
             _syncClearExpiredActiveMission('cloud-active-mission-expired', activeMission, { pushCloudClear: true });
             return false;
         }
-        let localMission = null;
-        try {
-            localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
-        } catch (_) {
-            localMission = null;
+        if (!_syncConfirmReplaceRunningLocalMission(activeMission, localMission, { source: 'cloud-active-mission' })) {
+            return false;
         }
         const resumeRuntime = _syncShouldCloudRestoreResumeRuntime(activeMission, localMission);
         window.__gaCloudActiveMissionApplyInProgress = true;
@@ -10049,9 +10140,11 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
         return restored !== false;
     }
     try {
-        const localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
         if (_syncMissionStateIsDraft(localMission)) return false;
     } catch (_) {}
+    if (!_syncConfirmReplaceRunningLocalMission(null, localMission, { source: 'cloud-no-active-mission' })) {
+        return false;
+    }
     if (typeof window.missionRuntimeReset === 'function') {
         try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
     }
