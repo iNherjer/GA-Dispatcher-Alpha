@@ -31089,7 +31089,7 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
     const active = missionProposalModeEnabled();
     btn.textContent = active ? 'Vorschläge Ein' : 'Vorschläge Aus';
     btn.title = active
-        ? 'Vorschlagsauswahl aktiv: Cargo fragil, POI Sightseeing und POI Inspektion zeigen vorab auswählbare Optionen.'
+        ? 'Vorschlagsauswahl aktiv: passende APT- und POI-Missionen zeigen vorab auswählbare Optionen.'
         : 'Vorschlagsauswahl aus: Missionen werden direkt wie bisher zufällig generiert.';
     btn.style.background = active ? '#283d6a' : '#1f2638';
     btn.style.borderColor = active ? '#7fa8ff' : '#4f5f86';
@@ -31233,12 +31233,100 @@ function missionProposalPoiDisplayTitle(target = {}, profileId = '') {
     return raw || typeLabel || 'Zielgebiet';
 }
 
+function missionProposalPoiProfileConfig(profileId = '') {
+    const profile = String(profileId || '').toLowerCase();
+    const configs = {
+        sightseeing_tour: {
+            intro: 'Wähle den Blickpunkt für die Runde. Alle Optionen sind entspannte Rundflüge mit Rückkehr zum Start; die Gäste wollen genau diesen Ort sehen und fotografieren.',
+            fallbackSubtitle: 'Sightseeing-Runde',
+            fallbackCargo: 'Kleine Kamerataschen (12 lbs)',
+            fallbackPax: '2 PAX (Sightseeing-Gäste)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} als Blickpunkt` : 'Sightseeing-Runde',
+            storySeed: targetTitle => `Die Gäste wollen ${targetTitle} bewusst aus der Luft sehen und fotografieren.`
+        },
+        inspection_infra: {
+            intro: 'Wähle einen Inspektionsauftrag. Alle Optionen sind Rundflüge mit Rückkehr zum Start; geflogen werden ruhige, gut planbare Passes für erste Zustands- oder Wartungsbilder.',
+            fallbackSubtitle: 'Infrastruktur prüfen',
+            fallbackCargo: 'Inspektionskamera und Tablet (26 lbs)',
+            fallbackPax: '1 PAX (Infrastruktur-Technik)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} prüfen` : 'Infrastruktur prüfen',
+            storySeed: targetTitle => `Ein Fachkontakt braucht bei ${targetTitle} eine ruhige Sichtprüfung aus der Luft.`
+        },
+        tour_guide_knowledge: {
+            intro: 'Wähle ein Lernziel. Alle Optionen bleiben ruhige Einordnungsflüge mit Rückkehr zum Start; der Guide erklärt Ziel, Lage und sichtbare Orientierungspunkte.',
+            fallbackSubtitle: 'Lernziel einordnen',
+            fallbackCargo: 'Tablet mit Ortsfakten (3 lbs)',
+            fallbackPax: '1 PAX (Lern-Guide)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} erklären` : 'Lernziel einordnen',
+            storySeed: targetTitle => `Der Lern-Guide soll ${targetTitle} aus der Luft erklären und sichtbare Orientierungspunkte einordnen.`
+        },
+        historian_guided_tour: {
+            intro: 'Wähle ein historisches Ziel. Alle Optionen sind ruhige Rundflüge mit Rückkehr zum Start; im Mittelpunkt stehen Ortsbild, Bauwerk, alte Wege und Landschaftslage.',
+            fallbackSubtitle: 'Historische Einordnung',
+            fallbackCargo: 'Archivunterlagen und Karten (14 lbs)',
+            fallbackPax: '1 PAX (Historiker)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} historisch einordnen` : 'Historische Einordnung',
+            storySeed: targetTitle => `Der Historiker ordnet ${targetTitle} aus der Luft historisch ein, ohne daraus einen Arbeitsauftrag zu machen.`
+        },
+        mapping_survey: {
+            intro: 'Wähle ein Survey-Ziel. Alle Optionen sind Arbeitsflüge mit Rückkehr zum Start; gefragt sind ruhige Linien, klare Abdeckung und ein verwertbarer Datensatz.',
+            fallbackSubtitle: 'Survey-Ziel erfassen',
+            fallbackCargo: 'Photogrammetrie-Kamera (34 lbs)',
+            fallbackPax: '1 PAX (Survey-Spezialist)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} als Survey-Ziel` : 'Survey-Ziel erfassen',
+            storySeed: targetTitle => `Für ${targetTitle} soll ein sauberer Luftbild- oder GIS-Datensatz vorbereitet werden.`
+        },
+        news_coverage: {
+            intro: 'Wähle einen redaktionellen Aufhänger. Alle Optionen sind sachliche Beobachtungsflüge mit Rückkehr zum Start; der Luftblick soll Ort, Anlass und Umfeld verständlich machen.',
+            fallbackSubtitle: 'Redaktioneller Aufhänger',
+            fallbackCargo: 'Foto- und Notizrucksack (18 lbs)',
+            fallbackPax: '1 PAX (Reporter)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} für Redaktion` : 'Redaktioneller Aufhänger',
+            storySeed: targetTitle => `Die Redaktion braucht zu ${targetTitle} einen sachlichen Luftüberblick mit erkennbarem Anlass.`
+        },
+        media_photo: {
+            intro: 'Wähle ein Bildziel. Alle Optionen sind ruhige Foto- oder Filmflüge mit Rückkehr zum Start; gefragt ist eine verwertbare Bildserie mit klarem Zweck.',
+            fallbackSubtitle: 'Bildserie aufnehmen',
+            fallbackCargo: 'Kamera-Gimbal (34 lbs)',
+            fallbackPax: '1 PAX (Foto/Film)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} fotografieren` : 'Bildserie aufnehmen',
+            storySeed: targetTitle => `Für ${targetTitle} soll eine ruhige Luftbildserie mit klarem Verwendungszweck entstehen.`
+        },
+        fire_watch: {
+            intro: 'Wähle ein Beobachtungsgebiet. Alle Optionen sind ruhige Feuerwacht-Flüge mit Rückkehr zum Start; gesucht werden Rauchfahnen, Hotspots oder auffällige Trockenbereiche.',
+            fallbackSubtitle: 'Brandwache fliegen',
+            fallbackCargo: 'IR-Kamera und Tablet (21 lbs)',
+            fallbackPax: '1 PAX (Brandbeobachtung)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} beobachten` : 'Brandwache fliegen',
+            storySeed: targetTitle => `Bei ${targetTitle} soll eine sachliche Feuerwacht aus der Luft geflogen werden.`
+        },
+        science_bio: {
+            intro: 'Wähle ein Naturbeobachtungsziel. Alle Optionen sind ruhige Beobachtungsflüge mit Rückkehr zum Start; im Fokus stehen Habitat, Vegetation, Ufer oder Schutzgebietsrand.',
+            fallbackSubtitle: 'Naturraum beobachten',
+            fallbackCargo: 'Habitatkarten und Fernglas (11 lbs)',
+            fallbackPax: '1 PAX (Biologe)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} biologisch einordnen` : 'Naturraum beobachten',
+            storySeed: targetTitle => `Bei ${targetTitle} soll ein biologischer oder ökologischer Luftblick die spätere Feldarbeit vorbereiten.`
+        },
+        science_geo: {
+            intro: 'Wähle ein Geologie-Ziel. Alle Optionen sind ruhige Beobachtungsflüge mit Rückkehr zum Start; im Fokus stehen Relief, Hangform, Erosion oder Uferkante.',
+            fallbackSubtitle: 'Relief einordnen',
+            fallbackCargo: 'Geologie-Mapset und Tablet (12 lbs)',
+            fallbackPax: '1 PAX (Geologe)',
+            subtitle: typeLabel => typeLabel ? `${typeLabel} geologisch einordnen` : 'Relief einordnen',
+            storySeed: targetTitle => `Bei ${targetTitle} soll der Luftblick Relief, Erosion oder Geländestruktur fachlich einordnen.`
+        }
+    };
+    return configs[profile] || null;
+}
+
 function missionProposalPoiOptionLine(target = {}, profileId = '') {
     const profile = String(profileId || '').toLowerCase();
     const tags = missionProposalPoiTags(target);
     const infraType = String(target?.poiLookup?.selectedInfraType || tags.infra_type || '').toLowerCase();
     const railway = String(tags.railway || '').toLowerCase();
     const category = String(target?.poiCategory || target?.category || '').toLowerCase();
+    const typeLabel = missionProposalPoiTypeLabel(target);
     if (profile === 'sightseeing_tour') {
         if (category === 'castle') return 'Motiv: Bauwerk, Lage und Umgebung als markanter Blickpunkt.';
         if (category === 'mountain') return 'Motiv: Geländeform, Aussicht und Landschaftszusammenhang.';
@@ -31247,28 +31335,63 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
         if (category === 'bridge') return 'Motiv: Brücke, Tal- oder Flussbezug und klare Fotoperspektive.';
         return 'Motiv: ein konkreter Blickpunkt mit Zeit für Orientierung und Fotos.';
     }
-    if (infraType === 'telecom') return 'Prüfauftrag: Mast, Standortzugang und unmittelbares Umfeld einordnen.';
-    if (railway || infraType === 'rail') return 'Prüfauftrag: Gleis-/Weichenumfeld, Signale und Zugänglichkeit dokumentieren.';
-    if (infraType === 'bridge' || tags.bridge) return 'Prüfauftrag: Bauwerk, Widerlager, Zufahrten und Unterseite soweit sichtbar erfassen.';
-    if (infraType === 'road' || tags.highway) return 'Prüfauftrag: Verkehrsabschnitt, Randbereiche und mögliche Baustellenlage einordnen.';
-    if (infraType === 'power_grid') return 'Prüfauftrag: Trasse, Masten und freie Zugänglichkeit aus ruhigen Blickwinkeln prüfen.';
-    if (infraType === 'power_station') return 'Prüfauftrag: Anlagenrand, Schaltfeld und Zufahrtsbereich dokumentieren.';
-    if (infraType === 'water_utility' || infraType === 'water_tank') return 'Prüfauftrag: Bauwerkszustand, Zugänge und sichtbare Leitungs-/Beckenbereiche prüfen.';
-    if (infraType === 'industrial') return 'Prüfauftrag: Anlagenkanten, Zufahrten und sichtbare Wartungspunkte erfassen.';
-    return 'Prüfauftrag: Zielbereich, Zugänge und auffällige Veränderungen aus der Luft erfassen.';
+    if (profile === 'inspection_infra') {
+        if (infraType === 'telecom') return 'Prüfauftrag: Mast, Standortzugang und unmittelbares Umfeld einordnen.';
+        if (railway || infraType === 'rail') return 'Prüfauftrag: Gleis-/Weichenumfeld, Signale und Zugänglichkeit dokumentieren.';
+        if (infraType === 'bridge' || tags.bridge) return 'Prüfauftrag: Bauwerk, Widerlager, Zufahrten und Unterseite soweit sichtbar erfassen.';
+        if (infraType === 'road' || tags.highway) return 'Prüfauftrag: Verkehrsabschnitt, Randbereiche und mögliche Baustellenlage einordnen.';
+        if (infraType === 'power_grid') return 'Prüfauftrag: Trasse, Masten und freie Zugänglichkeit aus ruhigen Blickwinkeln prüfen.';
+        if (infraType === 'power_station') return 'Prüfauftrag: Anlagenrand, Schaltfeld und Zufahrtsbereich dokumentieren.';
+        if (infraType === 'water_utility' || infraType === 'water_tank') return 'Prüfauftrag: Bauwerkszustand, Zugänge und sichtbare Leitungs-/Beckenbereiche prüfen.';
+        if (infraType === 'industrial') return 'Prüfauftrag: Anlagenkanten, Zufahrten und sichtbare Wartungspunkte erfassen.';
+        return 'Prüfauftrag: Zielbereich, Zugänge und auffällige Veränderungen aus der Luft erfassen.';
+    }
+    if (profile === 'tour_guide_knowledge') {
+        if (category === 'city') return 'Guide-Fokus: Ortsbild, Lage, Nutzung und sichtbare Landmarken verständlich erklären.';
+        if (category === 'water' || category === 'dam') return 'Guide-Fokus: Wasserlinie, Ufer, Nutzung und Landschaftszusammenhang einordnen.';
+        if (category === 'castle') return 'Guide-Fokus: Bauwerk, Lage und historische Einbettung anschaulich erklären.';
+        return 'Guide-Fokus: Ziel, Umgebung und sichtbare Orientierungspunkte knapp und anschaulich einordnen.';
+    }
+    if (profile === 'historian_guided_tour') {
+        if (category === 'castle') return 'Historischer Blick: Bauwerk, Lage, alte Wege und sichtbare Bezüge zur Umgebung.';
+        if (category === 'city') return 'Historischer Blick: Ortskern, Siedlungsform, Wegeachsen und Landschaftslage.';
+        return 'Historischer Blick: sichtbare Spuren, Lagebezug und frühere Nutzung des Zielraums.';
+    }
+    if (profile === 'mapping_survey') {
+        if (category === 'road' || category === 'rail' || category === 'infrastructure') return 'Survey-Fokus: Korridor, Kanten und Anschlussbereiche mit ruhigen Linien abdecken.';
+        if (category === 'bridge' || category === 'dam') return 'Survey-Fokus: Bauwerk und Randbereiche als auswertbare Bildserie erfassen.';
+        return 'Survey-Fokus: Zielgeometrie, Überdeckung und reproduzierbare Perspektiven für die Auswertung.';
+    }
+    if (profile === 'news_coverage') {
+        if (category === 'city') return 'Redaktionsfokus: Ortsbild, Besucherandrang, Baustelle oder sichtbare Veränderung sachlich einordnen.';
+        if (category === 'road') return 'Redaktionsfokus: Verkehrslage, Baustelle oder Sperrbereich aus ruhiger Übersicht zeigen.';
+        return 'Redaktionsfokus: sichtbaren Anlass, Umfeld und klare Aufmacherperspektive sammeln.';
+    }
+    if (profile === 'media_photo') {
+        return 'Bildauftrag: wiedererkennbare Lage, saubere Perspektiven und verwertbare Motive statt Showflug.';
+    }
+    if (profile === 'fire_watch') {
+        return 'Beobachtungsfokus: Rauchfahnen, Hotspot-Hinweise und trockene Vegetationsränder sachlich prüfen.';
+    }
+    if (profile === 'science_bio') {
+        return 'Beobachtungsfokus: Habitatgrenzen, Vegetation, Uferzonen oder Störkanten für spätere Feldarbeit.';
+    }
+    if (profile === 'science_geo') {
+        return 'Geologie-Fokus: Relief, Hangform, Erosionsspuren oder Uferkante aus ruhiger Perspektive lesen.';
+    }
+    if (typeLabel) return `Auftrag: ${typeLabel} mit ruhigen, nachvollziehbaren Blickwinkeln einordnen.`;
+    return 'Auftrag: Zielbereich und Umgebung mit ruhigen, nachvollziehbaren Blickwinkeln einordnen.';
 }
 
 function missionProposalFamilyIntro(choices = []) {
     const profile = String(choices?.[0]?.profileId || '').toLowerCase();
-    if (profile === 'cargo_fragile') {
-        return 'Wähle einen konkreten Frachtauftrag. Jede Option setzt Sendung, Ziel und Entfernung für das folgende Dispatcher-Briefing fest.';
+    const mode = String(choices?.[0]?.mode || '').toLowerCase();
+    if (mode === 'apt') {
+        const config = missionProposalAptProfileConfig(profile);
+        if (config?.intro) return config.intro;
     }
-    if (profile === 'sightseeing_tour') {
-        return 'Wähle den Blickpunkt für die Runde. Alle Optionen sind entspannte Rundflüge mit Rückkehr zum Start; die Gäste wollen genau diesen Ort sehen und fotografieren.';
-    }
-    if (profile === 'inspection_infra') {
-        return 'Wähle einen Inspektionsauftrag. Alle Optionen sind Rundflüge mit Rückkehr zum Start; geflogen werden ruhige, gut planbare Passes für erste Zustands- oder Wartungsbilder.';
-    }
+    const poiConfig = missionProposalPoiProfileConfig(profile);
+    if (poiConfig?.intro) return poiConfig.intro;
     return 'Wähle einen der vorbereiteten Aufträge.';
 }
 
@@ -31545,103 +31668,275 @@ async function collectMissionProposalPoiCandidates({
     return out.slice(0, limit);
 }
 
-async function buildMissionProposalChoices(context = {}) {
+function missionProposalAptProfileConfig(profileId = '') {
+    const profile = String(profileId || '').toLowerCase();
+    const configs = {
+        cargo_fragile: {
+            selectedCategory: 'cargo',
+            intro: 'Wähle einen konkreten Frachtauftrag. Jede Option setzt Sendung, Ziel und Entfernung für das folgende Dispatcher-Briefing fest.',
+            fallbackCargo: 'Empfindliche Fracht im Schutzcase (24 lbs)',
+            fallbackPax: '1 PAX (Frachtbegleitung)',
+            titleMode: 'cargo',
+            description: ({ route, targetName }) => `Route: ${route.label} vom Start. Übergabe am Zielkontakt in ${targetName}.`,
+            storySeed: ({ cargoText, targetName }) => `Die gewählte Sendung ist ${cargoText}; Zielkontakt am Platz ${targetName}.`
+        },
+        animal_transport: {
+            selectedCategory: 'cargo',
+            intro: 'Wähle einen Tiertransport. Jede Option setzt Tier- oder Vet-Sendung, Zielplatz und ruhigen Übergabeplan für das Dispatcher-Briefing fest.',
+            fallbackCargo: 'Gesicherte Tiertransportbox (18 lbs)',
+            fallbackPax: '1 PAX (Tierbegleitung)',
+            titleMode: 'cargo',
+            subtitle: ({ targetName }) => `Tiertransport nach ${targetName}`,
+            description: ({ route, targetName, cargoTitle }) => `Route: ${route.label} vom Start. Ruhiger Transfer für ${cargoTitle}; der Zielkontakt übernimmt nach dem Abstellen in ${targetName}.`,
+            storySeed: ({ cargoText, targetName }) => `Die gewählte Tier- oder Vet-Sendung ist ${cargoText}; am Zielplatz ${targetName} wartet ein vorbereiteter Tierpflege- oder Stationskontakt.`
+        },
+        medical_transfer: {
+            selectedCategory: 'cargo',
+            intro: 'Wähle einen medizinischen Transfer. Jede Option setzt Material, Zielplatz und direkte Klinik- oder Laborübergabe für das Dispatcher-Briefing fest.',
+            fallbackCargo: 'Medizinisches Kurierpaket (12 lbs)',
+            fallbackPax: '1 PAX (medizinische Begleitung)',
+            title: ({ cargoTitle }) => `Medizin: ${cargoTitle}`,
+            subtitle: ({ targetName }) => `nach ${targetName}`,
+            description: ({ route, targetName, cargoTitle }) => `Route: ${route.label} vom Start. ${cargoTitle} bleibt gesichert; der medizinische Zielkontakt übernimmt direkt in ${targetName}.`,
+            storySeed: ({ cargoText, targetName }) => `Der gewählte medizinische Transfer ist ${cargoText}; am Zielplatz ${targetName} zählt die direkte Übergabe an Klinik, Labor oder medizinischen Kontakt.`
+        },
+        private_outing: {
+            selectedCategory: 'private',
+            intro: 'Wähle den privaten Ausflug. Jede Option setzt Zielplatz, Mitflug-Anlass und Gepäck für das folgende Dispatcher-Briefing fest.',
+            fallbackCargo: 'Tagesrucksäcke und Jacken (14 lbs)',
+            fallbackPax: '2 PAX (privater Ausflug)',
+            titleMode: 'scenario',
+            description: ({ route, scenario }) => `Route: ${route.label} vom Start. ${missionProposalShortSentence(scenario?.s, 'Nach der Landung beginnt der private Plan am Zielplatz.')}`,
+            storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Der private Ausflug beginnt nach der Landung am Zielplatz.'} Gepäck: ${cargoText}. Zielplatz: ${targetName}.`
+        },
+        sightseeing_tour: {
+            selectedCategory: 'private',
+            intro: 'Wähle den APT-Ausflug. Jede Option setzt Zielplatz, Blick- oder Besuchsanlass und Gepäck für das folgende Dispatcher-Briefing fest.',
+            fallbackCargo: 'Kleine Kamerataschen (12 lbs)',
+            fallbackPax: '2 PAX (Sightseeing-Gäste)',
+            titleMode: 'scenario',
+            description: ({ route, scenario }) => `Route: ${route.label} vom Start. ${missionProposalShortSentence(scenario?.s, 'Der Zielplatz ist der Zugang zur Zielregion nach der Landung.')}`,
+            storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Die Gäste wollen die Zielregion nach der Landung bewusst erleben.'} Gepäck: ${cargoText}. Zielplatz: ${targetName}.`
+        },
+        news_coverage: {
+            selectedCategory: 'charter',
+            intro: 'Wähle den redaktionellen Transfer. Jede Option setzt Zielplatz, Anlass und Ausrüstung für das folgende Dispatcher-Briefing fest.',
+            fallbackCargo: 'Foto- und Notizrucksack (18 lbs)',
+            fallbackPax: '1 PAX (Reporter)',
+            titleMode: 'scenario',
+            description: ({ route, scenario }) => `Route: ${route.label} vom Start. ${missionProposalShortSentence(scenario?.s, 'Die Redaktion braucht am Ziel einen sachlichen Aufhänger.')}`,
+            storySeed: ({ scenario, cargoText, targetName }) => `${scenario?.s || 'Die Redaktion braucht am Ziel einen sachlichen Aufhänger.'} Ausrüstung: ${cargoText}. Zielplatz: ${targetName}.`
+        },
+        club_utility: {
+            selectedCategory: 'club',
+            intro: 'Wähle den Vereins- oder Utility-Flug. Jede Option setzt Zielplatz, Vereinsanlass und mitgeführtes Material für das Dispatcher-Briefing fest.',
+            fallbackCargo: 'Werkzeug- und Dokumententasche (24 lbs)',
+            fallbackPax: '1 PAX (Vereinskoordination)',
+            title: ({ cargoTitle }) => `Vereins-Utility: ${cargoTitle}`,
+            description: ({ route, targetName, cargoTitle }) => `Route: ${route.label} vom Start. ${cargoTitle} geht zum Vereins- oder Techniktermin am Zielplatz ${targetName}.`,
+            storySeed: ({ cargoText, targetName }) => `Der gewählte Vereins-/Utility-Auftrag führt ${cargoText} zum Zielplatz ${targetName}; dort wartet ein kurzer Vereins- oder Techniktermin.`,
+            scenarios: [
+                { t: 'Vereinsmaterial-Transfer', s: 'Material und Unterlagen werden am Zielplatz für einen kurzen Vereinstermin gebraucht.' },
+                { t: 'Mechaniker-Shuttle', s: 'Ein Vereinskontakt muss zum Zielplatz, weil dort Werkzeug, Dokumente oder ein kleiner Techniktermin warten.' },
+                { t: 'Fly-In Vorbereitung', s: 'Am Zielplatz soll ein Vereins- oder Fly-In-Termin vorbereitet werden.' }
+            ]
+        }
+    };
+    return configs[profile] || null;
+}
+
+function missionProposalShuffleItems(items = []) {
+    return (Array.isArray(items) ? items : [])
+        .map(item => ({ item, r: Math.random() }))
+        .sort((a, b) => a.r - b.r)
+        .map(entry => entry.item);
+}
+
+function missionProposalCargoTitle(cargoText = '', fallback = 'Auftrag') {
+    const clean = missionProposalPolishVisibleText(String(cargoText || '').replace(/\s*\([^)]*\)\s*$/, '').trim());
+    return clean || fallback;
+}
+
+function missionProposalShortSentence(text = '', fallback = '', maxLen = 150) {
+    const clean = missionProposalPolishVisibleText(text || fallback || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    const first = clean.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || clean;
+    if (first.length <= maxLen) return first;
+    return `${first.slice(0, Math.max(40, maxLen - 1)).replace(/\s+\S*$/, '').trim()}.`;
+}
+
+function missionProposalAptScenarios(profileId = '', config = {}, count = 3) {
+    const profilePool = (typeof _offlineAptProfileFallbacks === 'function')
+        ? _offlineAptProfileFallbacks(profileId)
+        : [];
+    const pool = missionProposalShuffleItems([
+        ...(Array.isArray(profilePool) ? profilePool : []),
+        ...(Array.isArray(config.scenarios) ? config.scenarios : [])
+    ].filter(item => item && typeof item === 'object'));
+    const fallback = {
+        t: config.defaultTitle || config.label || 'Auftrag',
+        s: config.defaultScenario || 'Der Auftrag wird am Zielplatz direkt weitergeführt.'
+    };
+    const out = [];
+    while (out.length < count) {
+        out.push(pool[out.length % Math.max(1, pool.length)] || fallback);
+        if (!pool.length && out.length >= 1) break;
+    }
+    return out.length ? out : [fallback];
+}
+
+function missionProposalAptChoiceText(config = {}, params = {}) {
+    const cargoTitle = params.cargoTitle || missionProposalCargoTitle(params.cargoText, config.defaultTitle || 'Auftrag');
+    const scenarioTitle = missionProposalPolishVisibleText(params.scenario?.t || '');
+    const targetName = params.targetName || 'Zielplatz';
+    const title = (typeof config.title === 'function')
+        ? config.title({ ...params, cargoTitle, scenarioTitle })
+        : (config.titleMode === 'cargo')
+        ? cargoTitle
+        : (config.titleMode === 'scenario' && scenarioTitle)
+        ? scenarioTitle
+        : (config.defaultTitle || cargoTitle || scenarioTitle || 'Auftrag');
+    const subtitle = (typeof config.subtitle === 'function')
+        ? config.subtitle({ ...params, cargoTitle, scenarioTitle })
+        : `nach ${targetName}`;
+    const description = (typeof config.description === 'function')
+        ? config.description({ ...params, cargoTitle, scenarioTitle })
+        : `Route: ${params.route?.label || '?'} vom Start. ${missionProposalShortSentence(params.scenario?.s, 'Der Zielkontakt übernimmt nach dem Abstellen.')}`;
+    const storySeed = (typeof config.storySeed === 'function')
+        ? config.storySeed({ ...params, cargoTitle, scenarioTitle })
+        : `${params.scenario?.s || description} Gewählte Fracht: ${params.cargoText || cargoTitle}. Zielplatz: ${targetName}.`;
+    return {
+        title: missionProposalPolishVisibleText(title),
+        subtitle: missionProposalPolishVisibleText(subtitle),
+        description: missionProposalPolishVisibleText(description),
+        storySeed: missionProposalPolishVisibleText(storySeed)
+    };
+}
+
+async function buildMissionProposalAptChoices(context = {}) {
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
+    const config = missionProposalAptProfileConfig(profileId);
     const start = context.start;
-    if (!start) return [];
-    if (context.effectiveType === 'apt' && profileId === 'cargo_fragile') {
-        const profile = getMissionTaskProfile('cargo_fragile', 'apt') || {};
-        let airports = await collectMissionProposalAirportCandidates({
+    if (!config || !start) return [];
+    const profile = getMissionTaskProfile(profileId, 'apt') || {};
+    let airports = await collectMissionProposalAirportCandidates({
+        start,
+        minNM: context.searchMin,
+        maxNM: context.searchMax,
+        dirPref: context.dirPref,
+        regionPref: context.regionPref,
+        limit: 18
+    });
+    if (airports.length < 3) {
+        airports = airports.concat(await collectMissionProposalAirportCandidates({
             start,
-            minNM: context.searchMin,
-            maxNM: context.searchMax,
-            dirPref: context.dirPref,
+            minNM: Math.max(5, Number(context.searchMin || 0) * 0.5),
+            maxNM: Math.max(Number(context.searchMax || 0), 220),
+            dirPref: 'any',
             regionPref: context.regionPref,
             limit: 18
-        });
-        if (airports.length < 3) {
-            airports = airports.concat(await collectMissionProposalAirportCandidates({
-                start,
-                minNM: Math.max(5, Number(context.searchMin || 0) * 0.5),
-                maxNM: Math.max(Number(context.searchMax || 0), 220),
-                dirPref: 'any',
-                regionPref: context.regionPref,
-                limit: 18
-            }));
-        }
-        const seen = new Set();
-        airports = airports.filter(apt => {
-            const key = normalizeAirportIdent(apt.icao || missionProposalTargetKey(apt));
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        }).slice(0, 3);
-        const cargos = missionProposalPickCargoItems(profile.cargoPool, 3);
-        return airports.map((airport, index) => {
-            const route = missionProposalFormatRoute(start, airport, 'apt');
-            const cargoText = cargos[index] || cargos[0] || 'Empfindliche Fracht';
-            const targetName = String(airport.n || airport.name || airport.icao || 'Zielplatz').trim();
-            return normalizeMissionProposalChoice({
-                id: `cargo-fragile-${Date.now()}-${index}`,
-                mode: 'apt',
-                profileId: 'cargo_fragile',
-                selectedCategory: 'cargo',
-                requestedCategory: 'cargo',
-                target: missionProposalCompactTarget(airport, 'apt'),
-                title: cargoText.replace(/\s*\([^)]*\)\s*$/, ''),
-                subtitle: `nach ${targetName}`,
-                description: `Route: ${route.label} vom Start. Übergabe am Zielkontakt in ${targetName}.`,
-                routeLabel: route.label,
-                cargoText,
-                paxText: String(profile.paxText || '1 PAX (Frachtbegleitung)'),
-                storySeed: `Die gewählte Sendung ist ${cargoText}; Zielkontakt am Platz ${targetName}.`
-            });
-        }).filter(Boolean);
+        }));
     }
-
-    if (context.effectiveType === 'poi' && (profileId === 'sightseeing_tour' || profileId === 'inspection_infra')) {
-        const poiCategory = String(context.selectedPoiCategory || 'all').toLowerCase() === 'chain'
-            ? 'infrastructure'
-            : String(context.selectedPoiCategory || 'all').toLowerCase();
-        const candidates = await collectMissionProposalPoiCandidates({
-            start,
-            searchMin: context.searchMin,
-            searchMax: context.searchMax,
-            dirPref: context.dirPref,
-            selectedPoiCategory: poiCategory,
-            dispatchProfileId: profileId,
-            limit: 3,
-            ensureAlive: context.ensureAlive
+    const seen = new Set();
+    airports = airports.filter(apt => {
+        const key = normalizeAirportIdent(apt.icao || missionProposalTargetKey(apt));
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).slice(0, 3);
+    const cargoPool = Array.isArray(profile.cargoPool) && profile.cargoPool.length
+        ? profile.cargoPool
+        : [config.fallbackCargo || 'Auftragsgepäck (12 lbs)'];
+    const cargos = missionProposalPickCargoItems(cargoPool, 3);
+    const scenarios = missionProposalAptScenarios(profileId, config, 3);
+    const selectedCategory = String(config.selectedCategory || context.selectedAptCategory || 'all').toLowerCase();
+    return airports.map((airport, index) => {
+        const route = missionProposalFormatRoute(start, airport, 'apt');
+        const cargoText = cargos[index % Math.max(1, cargos.length)] || config.fallbackCargo || 'Auftragsgepäck';
+        const cargoTitle = missionProposalCargoTitle(cargoText, config.defaultTitle || 'Auftrag');
+        const scenario = scenarios[index % Math.max(1, scenarios.length)] || {};
+        const targetName = String(airport.n || airport.name || airport.icao || 'Zielplatz').trim();
+        const text = missionProposalAptChoiceText(config, {
+            route,
+            targetName,
+            cargoText,
+            cargoTitle,
+            scenario,
+            airport
         });
-        return candidates.map((poi, index) => {
-            const route = missionProposalFormatRoute(start, poi, 'poi');
-            const isSightseeing = profileId === 'sightseeing_tour';
-            const targetTitle = missionProposalPoiDisplayTitle(poi, profileId);
-            const typeLabel = missionProposalPoiTypeLabel(poi);
-            const optionLine = missionProposalPoiOptionLine(poi, profileId);
-            const selectedCategory = String(poi.poiCategory || poiCategory || 'poi').toLowerCase();
-            return normalizeMissionProposalChoice({
-                id: `${profileId}-${Date.now()}-${index}`,
-                mode: 'poi',
-                profileId,
-                selectedCategory,
-                requestedCategory: String(context.requestedPoiCategory || context.selectedPoiCategory || selectedCategory || 'all').toLowerCase(),
-                target: missionProposalCompactTarget(poi, 'poi'),
-                title: targetTitle,
-                subtitle: isSightseeing
-                    ? (typeLabel ? `${typeLabel} als Blickpunkt` : 'Sightseeing-Runde')
-                    : (typeLabel ? `${typeLabel} prüfen` : 'Infrastruktur prüfen'),
-                description: `Route: ${route.label} gesamt. ${optionLine}`,
-                routeLabel: route.label,
-                cargoText: isSightseeing ? 'Kleine Kamerataschen (12 lbs)' : 'Inspektionskamera und Tablet (26 lbs)',
-                paxText: isSightseeing ? '2 PAX (Sightseeing-Gäste)' : '1 PAX (Infrastruktur-Technik)',
-                storySeed: isSightseeing
-                    ? `Die Gäste wollen ${targetTitle} bewusst aus der Luft sehen und fotografieren.`
-                    : `Ein Fachkontakt braucht bei ${targetTitle} eine ruhige Sichtprüfung aus der Luft.`
-            });
-        }).filter(Boolean);
-    }
+        return normalizeMissionProposalChoice({
+            id: `${profileId}-${Date.now()}-${index}`,
+            mode: 'apt',
+            profileId,
+            selectedCategory,
+            requestedCategory: String(context.selectedAptCategory || selectedCategory || 'all').toLowerCase(),
+            target: missionProposalCompactTarget(airport, 'apt'),
+            title: text.title,
+            subtitle: text.subtitle,
+            description: text.description,
+            routeLabel: route.label,
+            cargoText,
+            paxText: String(profile.paxText || config.fallbackPax || '1 PAX'),
+            storySeed: text.storySeed
+        });
+    }).filter(Boolean);
+}
 
+async function buildMissionProposalPoiChoices(context = {}) {
+    const profileId = String(context.dispatchProfileId || '').toLowerCase();
+    const config = missionProposalPoiProfileConfig(profileId);
+    const start = context.start;
+    if (!config || !start) return [];
+    const profile = getMissionTaskProfile(profileId, 'poi') || {};
+    const poiCategory = String(context.selectedPoiCategory || 'all').toLowerCase() === 'chain'
+        ? 'infrastructure'
+        : String(context.selectedPoiCategory || 'all').toLowerCase();
+    const candidates = await collectMissionProposalPoiCandidates({
+        start,
+        searchMin: context.searchMin,
+        searchMax: context.searchMax,
+        dirPref: context.dirPref,
+        selectedPoiCategory: poiCategory,
+        dispatchProfileId: profileId,
+        limit: 3,
+        ensureAlive: context.ensureAlive
+    });
+    const cargoPool = Array.isArray(profile.cargoPool) && profile.cargoPool.length
+        ? profile.cargoPool
+        : [config.fallbackCargo || 'Auftragsausrüstung (12 lbs)'];
+    const cargos = missionProposalPickCargoItems(cargoPool, Math.max(3, candidates.length));
+    return candidates.map((poi, index) => {
+        const route = missionProposalFormatRoute(start, poi, 'poi');
+        const targetTitle = missionProposalPoiDisplayTitle(poi, profileId);
+        const typeLabel = missionProposalPoiTypeLabel(poi);
+        const optionLine = missionProposalPoiOptionLine(poi, profileId);
+        const selectedCategory = String(poi.poiCategory || poiCategory || 'poi').toLowerCase();
+        const cargoText = cargos[index % Math.max(1, cargos.length)] || config.fallbackCargo || 'Auftragsausrüstung';
+        return normalizeMissionProposalChoice({
+            id: `${profileId}-${Date.now()}-${index}`,
+            mode: 'poi',
+            profileId,
+            selectedCategory,
+            requestedCategory: String(context.requestedPoiCategory || context.selectedPoiCategory || selectedCategory || 'all').toLowerCase(),
+            target: missionProposalCompactTarget(poi, 'poi'),
+            title: targetTitle,
+            subtitle: typeof config.subtitle === 'function'
+                ? config.subtitle(typeLabel, poi)
+                : (typeLabel ? `${typeLabel} einordnen` : (config.fallbackSubtitle || 'POI-Ziel')),
+            description: `Route: ${route.label} gesamt. ${optionLine}`,
+            routeLabel: route.label,
+            cargoText,
+            paxText: String(profile.paxText || config.fallbackPax || '1 PAX'),
+            storySeed: typeof config.storySeed === 'function'
+                ? config.storySeed(targetTitle, optionLine, route)
+                : `${targetTitle} wurde als Ziel für diesen Auftrag gewählt. ${optionLine}`
+        });
+    }).filter(Boolean);
+}
+
+async function buildMissionProposalChoices(context = {}) {
+    if (context.effectiveType === 'apt') return buildMissionProposalAptChoices(context);
+    if (context.effectiveType === 'poi') return buildMissionProposalPoiChoices(context);
     return [];
 }
 
@@ -31651,10 +31946,11 @@ function missionProposalIsEligible(context = {}) {
     if (context.followupSeed || context.targetDest || context.isBushDispatch || context.isPlanningOnlyMode) return false;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
-        return profileId === 'cargo_fragile' && String(context.selectedAptCategory || '').toLowerCase() === 'cargo';
+        return !!missionProposalAptProfileConfig(profileId);
     }
     if (context.effectiveType === 'poi') {
-        return profileId === 'sightseeing_tour' || profileId === 'inspection_infra';
+        if (String(context.selectedPoiCategory || '').toLowerCase() === 'trn') return false;
+        return !!missionProposalPoiProfileConfig(profileId);
     }
     return false;
 }
@@ -32143,7 +32439,7 @@ async function generateMission(options = {}) {
         isBushDispatch,
         isPlanningOnlyMode: proposalPlanningOnlyMode
     })) {
-        indicator.innerText = 'Vorschlagsmodus: passende Auftraege werden gesucht...';
+        indicator.innerText = 'Vorschlagsmodus: passende Aufträge werden gesucht...';
         const proposalChoices = await dispatchMeasure('mission_proposals', async () => buildMissionProposalChoices({
             start,
             effectiveType,
@@ -32181,7 +32477,7 @@ async function generateMission(options = {}) {
             document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
             return true;
         }
-        indicator.innerText = 'Zu wenig Vorschlaege gefunden, Zufallsmodus laeuft weiter...';
+        indicator.innerText = 'Zu wenig Vorschläge gefunden, Zufallsmodus läuft weiter...';
     }
 
     dispatchPhaseStart('resolve_target');
@@ -34946,7 +35242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1221', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1222', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
