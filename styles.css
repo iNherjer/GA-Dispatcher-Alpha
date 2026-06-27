@@ -1057,6 +1057,41 @@ body.theme-retro label {
     font-size: 11px;
 }
 
+.analog-proposal-mode-label {
+    display: none;
+}
+
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) .analog-proposal-mode-label {
+    display: inline-block;
+    margin: 0 0 5px 7px;
+    padding: 3px 7px;
+    min-width: 40px;
+    border: 1px solid #000;
+    border-radius: 2px;
+    background: #111;
+    color: #ddd;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0,0,0,0.45);
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    vertical-align: top;
+}
+
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) .analog-proposal-mode-label.is-active {
+    color: #fff;
+    text-shadow: 0 0 4px rgba(255,255,255,0.32);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.5);
+}
+
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) .analog-proposal-mode-label:active {
+    transform: translateY(1px);
+}
+
 body.theme-retro input,
 body.theme-retro select {
     background-color: #f0eada;

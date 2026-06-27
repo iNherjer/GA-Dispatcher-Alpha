@@ -31104,6 +31104,16 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
             ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
             : 'RDM: direkt eine zufällige Mission erzeugen.';
     }
+    const analogLabel = document.getElementById('analogProposalModeLabel');
+    if (analogLabel) {
+        analogLabel.textContent = active ? 'PICK' : 'RDM';
+        analogLabel.classList.toggle('is-active', active);
+        analogLabel.setAttribute('aria-checked', active ? 'true' : 'false');
+        analogLabel.setAttribute('data-mode', active ? 'pick' : 'rdm');
+        analogLabel.title = active
+            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
+            : 'RDM: direkt eine zufällige Mission erzeugen.';
+    }
 };
 
 window.vpToggleMissionProposalMode = function vpToggleMissionProposalMode(forceState) {
@@ -35251,7 +35261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1225', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1226', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
