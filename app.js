@@ -31134,6 +31134,20 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
             ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
             : 'RDM: direkt eine zufällige Mission erzeugen.';
     }
+    const opsRdm = document.getElementById('opsProposalModeRdm');
+    const opsPick = document.getElementById('opsProposalModePick');
+    if (opsRdm) {
+        opsRdm.classList.toggle('is-active', !active);
+        opsRdm.setAttribute('aria-pressed', active ? 'false' : 'true');
+        opsRdm.setAttribute('data-mode', 'rdm');
+        opsRdm.title = 'RDM: direkt eine zufällige Mission erzeugen.';
+    }
+    if (opsPick) {
+        opsPick.classList.toggle('is-active', active);
+        opsPick.setAttribute('aria-pressed', active ? 'true' : 'false');
+        opsPick.setAttribute('data-mode', 'pick');
+        opsPick.title = 'PICK: zuerst 2-3 Vorschläge auswählen.';
+    }
 };
 
 window.vpToggleMissionProposalMode = function vpToggleMissionProposalMode(forceState) {
@@ -35281,7 +35295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1227', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1228', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

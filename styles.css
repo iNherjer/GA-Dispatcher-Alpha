@@ -9275,6 +9275,10 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-generatio
     display: none;
 }
 
+.ops-proposal-mode-labels {
+    display: none;
+}
+
 body.theme-retro .modern-proposal-mode-control,
 body.theme-navcom .modern-proposal-mode-control,
 body.theme-ops1940 .modern-proposal-mode-control {
@@ -10400,6 +10404,62 @@ body.theme-ops1940 .ops-symbol-dest { background-image: var(--ops-picto-dest); }
 body.theme-ops1940 .ops-picto-type.type-apt .ops-symbol-type { background-image: var(--ops-picto-type-apt); }
 body.theme-ops1940 .ops-picto-type.type-poi .ops-symbol-type { background-image: var(--ops-picto-type-poi); }
 body.theme-ops1940 .ops-symbol-range { background-image: var(--ops-picto-range); }
+
+body.theme-ops1940 .ops-proposal-mode-labels {
+    position: absolute;
+    left: 15px;
+    right: 15px;
+    bottom: 38px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+body.theme-ops1940 .ops-proposal-mode-label {
+    position: relative;
+    display: inline-block;
+    min-width: 42px;
+    padding: 2px 5px 1px;
+    border: 0;
+    border-radius: 2px;
+    color: rgba(247, 251, 241, 0.58);
+    background: rgba(9, 8, 6, 0.18);
+    box-shadow: none;
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.8px;
+    line-height: 1;
+    text-align: center;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.95), 0 0 1px rgba(255, 255, 255, 0.16);
+    cursor: pointer;
+    pointer-events: auto;
+    transform: rotate(-2deg);
+}
+
+body.theme-ops1940 .ops-proposal-mode-label + .ops-proposal-mode-label {
+    transform: rotate(2deg);
+}
+
+body.theme-ops1940 .ops-proposal-mode-label:hover {
+    color: rgba(255, 248, 218, 0.88);
+    background: rgba(29, 23, 14, 0.28);
+}
+
+body.theme-ops1940 .ops-proposal-mode-label.is-active {
+    color: #fff8dc;
+    background:
+        linear-gradient(180deg, rgba(83, 62, 29, 0.62), rgba(22, 17, 10, 0.54));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 237, 184, 0.22),
+        0 0 9px rgba(242, 202, 103, 0.32),
+        0 1px 2px rgba(0, 0, 0, 0.56);
+    text-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.95),
+        0 0 6px rgba(255, 238, 172, 0.48);
+}
 
 body.theme-ops1940 .ops-range-radar {
     display: none;
