@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1233';
+const CACHE = 'ga-dispatcher-v1234';
 
 const STATIC = [
     './',
@@ -64,6 +64,8 @@ const NETWORK_ONLY = [
     'corsproxy.io',
     'api.allorigins.win',
     'api.open-meteo.com',
+    'api.openai.com',
+    'generativelanguage.googleapis.com',
     'overpass-api.de',
     'nominatim.openstreetmap.org',
     'opensky-network.org',

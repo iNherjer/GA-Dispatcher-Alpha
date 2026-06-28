@@ -975,7 +975,32 @@ window.paxVoiceSetAudioStyle = function(style) {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function _getApiKey() {
+    if (typeof window.getSelectedAiApiKey === 'function') return window.getSelectedAiApiKey();
     return document.getElementById('apiKeyInput')?.value.trim() || '';
+}
+
+function _getAiProvider() {
+    if (typeof window.getSelectedAiProvider === 'function') return window.getSelectedAiProvider();
+    return 'gemini';
+}
+
+function _paxAiTextModels(provider = _getAiProvider()) {
+    if (typeof window.getAiTextModelCandidates === 'function') return window.getAiTextModelCandidates(provider);
+    return [
+        ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
+        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
+    ];
+}
+
+function _arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer || new ArrayBuffer(0));
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
 }
 
 function _explicitMissionModeHint() {
@@ -3673,6 +3698,44 @@ Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenpers
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
 async function _generateSpokenText(apiKey, situationPrompt) {
+    const provider = _getAiProvider();
+    if (provider === 'openai') {
+        for (const [model, source, usageKey] of _paxAiTextModels('openai')) {
+            try {
+                _paxLog(`Textgen -> ${source}`, 'send');
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'Schreibe kurze, natuerliche deutsche Passenger-Voice-Zeilen. Keine Markdown-Formatierung.'
+                            },
+                            { role: 'user', content: situationPrompt }
+                        ]
+                    })
+                });
+                if (!res.ok) {
+                    _paxLog(`Textgen ${source} HTTP ${res.status}`, 'warn');
+                    continue;
+                }
+                const data = await res.json();
+                const text = data?.choices?.[0]?.message?.content?.trim();
+                if (text) {
+                    if (typeof incrementApiUsage === 'function') incrementApiUsage(usageKey || 'openaiText');
+                    _paxLog(`Textgen OK (${source}, ${text.length} Zeichen): "${text}"`, 'recv');
+                    return text;
+                }
+                _paxLog(`Textgen ${source} leere Antwort: ${JSON.stringify(data).slice(0, 120)}`, 'warn');
+            } catch(e) { _paxLog(`Textgen ${source} Fehler: ${e.message}`, 'warn'); }
+        }
+        return null;
+    }
     const payload = {
         contents: [{ parts: [{ text: situationPrompt }] }],
         generationConfig: {
@@ -3683,11 +3746,11 @@ async function _generateSpokenText(apiKey, situationPrompt) {
     };
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
-    for (const model of ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
+    for (const [model, source, usageKey] of _paxAiTextModels('gemini')) {
         try {
             _paxLog(`Textgen → ${model}`, 'send');
             const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
                 opts
             );
             if (!res.ok) {
@@ -3697,7 +3760,7 @@ async function _generateSpokenText(apiKey, situationPrompt) {
             const data = await res.json();
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
             if (text) {
-                if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
+                if (typeof incrementApiUsage === 'function') incrementApiUsage(usageKey || 'flash');
                 _paxLog(`Textgen OK (${text.length} Zeichen): "${text}"`, 'recv');
                 return text;
             }
@@ -3888,12 +3951,12 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
     }
 }
 
-async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch) {
+async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'TTS') {
     if (!_paxEpochCurrent(epoch)) return false;
     const binary = atob(base64Audio);
     const bytes  = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, 'Gemini TTS');
+    return _paxDecodeAudioBufferAndPlay(bytes.buffer, mimeType, epoch, sourceLabel);
 }
 
 const _PAX_TTS_VOICE_POOL = {
@@ -3901,6 +3964,11 @@ const _PAX_TTS_VOICE_POOL = {
     // primären male-Reihe, um Gender-Mismatch-Eindruck zu reduzieren.
     male: ['Charon', 'Puck'],
     female: ['Kore', 'Leda', 'Aoede']
+};
+
+const _PAX_OPENAI_TTS_VOICE_POOL = {
+    male: ['onyx', 'echo', 'ash'],
+    female: ['nova', 'shimmer', 'coral']
 };
 
 function _normSpeakerGender(pax) {
@@ -3945,6 +4013,28 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
     const seen = new Set();
     for (const v of rotated) {
         const n = String(v || '').trim();
+        if (!n || seen.has(n)) continue;
+        seen.add(n);
+        dedup.push(n);
+    }
+    if (!dedup.includes(fallback)) dedup.push(fallback);
+    return dedup;
+}
+
+function _openAiTtsVoiceCandidatesForSpeaker(pax) {
+    const gender = _normSpeakerGender(pax);
+    const basePool = Array.isArray(_PAX_OPENAI_TTS_VOICE_POOL[gender])
+        ? _PAX_OPENAI_TTS_VOICE_POOL[gender].slice()
+        : (gender === 'male' ? ['onyx'] : ['nova']);
+    const fallback = gender === 'male' ? 'onyx' : 'nova';
+    if (!basePool.includes(fallback)) basePool.push(fallback);
+    const seed = `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}|openai`;
+    const start = basePool.length ? (_hashStable(seed) % basePool.length) : 0;
+    const rotated = basePool.map((_, idx) => basePool[(start + idx) % basePool.length]);
+    const dedup = [];
+    const seen = new Set();
+    for (const v of rotated) {
+        const n = String(v || '').trim().toLowerCase();
         if (!n || seen.has(n)) continue;
         seen.add(n);
         dedup.push(n);
@@ -4564,7 +4654,7 @@ async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidate
         };
         try {
             const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
                 { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload), ...(signal ? { signal } : {}) }
             );
             if (!res.ok) {
@@ -4584,11 +4674,54 @@ async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidate
             }
             _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
             _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
-            return { text, speaker: pax, b64, mimeType, voiceName, model };
+            return { text, speaker: pax, b64, mimeType, voiceName, model, provider: 'gemini', sourceLabel: 'Gemini TTS' };
         } catch(e) {
             if (e?.name === 'AbortError') throw e;
             lastErr = e;
             _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
+        }
+    }
+    if (lastErr) throw lastErr;
+    return null;
+}
+
+async function _requestOpenAiTTSAudio(apiKey, text, pax, voiceCandidates) {
+    const model = 'gpt-4o-mini-tts';
+    let lastErr = null;
+    for (const voiceName of voiceCandidates) {
+        try {
+            const res = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model,
+                    voice: voiceName,
+                    input: text,
+                    response_format: 'mp3'
+                })
+            });
+            if (!res.ok) {
+                const errBody = await res.text().catch(() => '(unlesbar)');
+                _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
+                lastErr = new Error(`OpenAI TTS ${model}/${voiceName} HTTP ${res.status}`);
+                continue;
+            }
+            const audioBuffer = await res.arrayBuffer();
+            const b64 = _arrayBufferToBase64(audioBuffer);
+            if (!b64) {
+                lastErr = new Error(`OpenAI TTS ${model}/${voiceName}: Keine Audio-Daten`);
+                continue;
+            }
+            _paxLog(`OpenAI TTS Stimme aktiv: ${voiceName}`, 'state');
+            _paxLog(`TTS OK (${model}) | mime: audio/mpeg | ${b64.length} chars base64`, 'recv');
+            if (typeof incrementApiUsage === 'function') incrementApiUsage('openaiTts');
+            return { text, speaker: pax, b64, mimeType: 'audio/mpeg', voiceName, model, provider: 'openai', sourceLabel: 'OpenAI TTS' };
+        } catch(e) {
+            lastErr = e;
+            _paxLog(`OpenAI TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
         }
     }
     if (lastErr) throw lastErr;
@@ -4670,6 +4803,16 @@ async function _requestTTSAudio(text, speaker = null) {
     if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return null; }
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
     const resolvedGender = _normSpeakerGender(pax);
+    if (_getAiProvider() === 'openai') {
+        const openAiVoices = _openAiTtsVoiceCandidatesForSpeaker(pax);
+        _paxLog(`OpenAI TTS Stimmen: ${openAiVoices.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender}`, 'state');
+        try {
+            return await _requestOpenAiTTSAudio(apiKey, text, pax, openAiVoices);
+        } catch (e) {
+            _paxLog(`OpenAI TTS Fehler: ${e.message}`, 'warn');
+            return null;
+        }
+    }
     const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
     _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
     const ttsModels = _paxTtsModelPref === '3.1'
@@ -4775,7 +4918,7 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
             const rec = _paxPreparedAudio.get(key);
             const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
             if (epoch !== _paxMissionEpoch) return;
-            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch);
+            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
             else await _playTextAsTTS(text, speaker, epoch);
             if (typeof options.afterAudio === 'function') {
                 await options.afterAudio(epoch);
@@ -5482,7 +5625,7 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch) {
     if (!_paxEpochCurrent(epoch)) return;
     const audio = await _requestTTSAudio(text, speaker);
     if (!_paxEpochCurrent(epoch)) return;
-    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch);
+    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch) {

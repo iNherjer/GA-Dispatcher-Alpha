@@ -871,6 +871,8 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Schalter', text: 'Schaltet die KI-Missionen ein oder aus. Aus bedeutet: Die App nutzt feste lokale Aufträge.' },
             { term: 'FUEL-Anzeige', text: 'Zeigt grob, wie viel Tageskontingent fuer KI-Anfragen noch uebrig ist.' },
             { term: 'API-Key', text: 'Optionale Provider-Schluessel fuer Gemini und OpenAI. Der aktive Provider bestimmt, welcher Key fuer Text und Voice genutzt wird.' },
+            { term: 'Provider / Profil', text: 'Auto ist der Normalbetrieb, Sparsam priorisiert guenstigere Modelle, Qualitaet priorisiert staerkere Textmodelle.' },
+            { term: 'Kosten grob', text: () => getAiCostEstimateText() },
             { term: 'Status', text: 'Zeigt, ob der Key zuletzt erfolgreich geprueft wurde.' },
             { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben.' }
         ]
@@ -990,7 +992,8 @@ function _buildSettingsHelpPopover(data) {
     list.className = 'settings-help-list';
     (data.items || []).forEach(item => {
         _appendSettingsHelpText(list, 'dt', '', item.term);
-        _appendSettingsHelpText(list, 'dd', '', item.text);
+        const text = (typeof item.text === 'function') ? item.text() : item.text;
+        _appendSettingsHelpText(list, 'dd', '', text);
     });
     panel.appendChild(list);
     return panel;
@@ -5081,15 +5084,20 @@ function getSelectedAiApiKey(provider = getSelectedAiProvider()) {
 }
 window.getSelectedAiApiKey = getSelectedAiApiKey;
 
+function getAiCostEstimateText(provider = getSelectedAiProvider(), profile = getSelectedAiModelProfile()) {
+    const normalizedProvider = normalizeAiProvider(provider);
+    const normalizedProfile = normalizeAiModelProfile(profile);
+    const label = AI_PROVIDER_LABELS[normalizedProvider] || normalizedProvider;
+    const model = getAiTextModelCandidates(normalizedProvider, normalizedProfile)?.[0]?.[1] || 'Auto';
+    const estimate = AI_COST_ESTIMATE_COPY[normalizedProvider]?.[normalizedProfile] || '';
+    return `Aktuelle Auswahl: ${label} / ${model}. ${estimate} Schaetzung ohne Garantie; echte Kosten haengen von Promptlaenge, Antwortlaenge und Zahl der Voice-Zeilen ab.`;
+}
+window.getAiCostEstimateText = getAiCostEstimateText;
+
 function updateAiCostEstimate() {
     const el = document.getElementById('aiCostEstimate');
     if (!el) return;
-    const provider = getSelectedAiProvider();
-    const profile = getSelectedAiModelProfile();
-    const label = AI_PROVIDER_LABELS[provider] || provider;
-    const model = getAiTextModelCandidates(provider, profile)?.[0]?.[1] || 'Auto';
-    const estimate = AI_COST_ESTIMATE_COPY[provider]?.[profile] || '';
-    el.textContent = `${label} / ${model}: ${estimate}`;
+    el.textContent = getAiCostEstimateText();
 }
 window.updateAiCostEstimate = updateAiCostEstimate;
 

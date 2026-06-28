@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=ops1940-proposal-labels-20260628-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=ai-provider-help-20260628-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=ops1940-proposal-labels-20260628-01">
+        <link rel="stylesheet" href="styles.css?v=ai-provider-help-20260628-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -744,12 +744,33 @@
                 <button type="button" class="settings-help-btn" onclick="showSettingsHelp('dispatcher', event)" aria-label="Hilfe zu KI-Dispatcher" aria-expanded="false">?</button>
             </div>
         </div>
+        <div class="ai-provider-grid">
+            <label class="ai-provider-field">
+                <span>Provider</span>
+                <select id="aiProviderSelect" onchange="saveAiProvider(this.value)">
+                    <option value="gemini">Gemini</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </label>
+            <label class="ai-provider-field">
+                <span>Profil</span>
+                <select id="aiModelProfileSelect" onchange="saveAiModelProfile(this.value)">
+                    <option value="auto">Auto</option>
+                    <option value="economy">Sparsam</option>
+                    <option value="quality">Qualitaet</option>
+                </select>
+            </label>
+        </div>
         <input type="text" style="display:none;" aria-hidden="true" autocomplete="username">
-        <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey(true)" autocomplete="new-password">
-        <div id="apiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprüft.</div>
+        <label class="ai-key-field" for="apiKeyInput">Gemini API-Key</label>
+        <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey(true, 'gemini')" autocomplete="new-password">
+        <div id="apiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprueft.</div>
+        <label class="ai-key-field" for="openAiApiKeyInput">OpenAI API-Key</label>
+        <input type="password" id="openAiApiKeyInput" placeholder="Optional. sk-..." onchange="saveApiKey(true, 'openai')" autocomplete="new-password">
+        <div id="openAiApiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprueft.</div>
         <div class="api-hint">
-            <strong>Tipp:</strong> Mehr Abwechslung? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini API-Key</a> benutzen um dynamische Missionen generieren zu lassen. <br>
-            <span style="opacity: 0.7;">🔒 Sicher: Der Key wird ausschließlich lokal in deinem Browser gespeichert.</span>
+            <strong>Tipp:</strong> Mehr Abwechslung? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini API-Key</a> oder <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API-Key</a> benutzen. <br>
+            <span style="opacity: 0.7;">Schluessel werden nur lokal in deinem Browser gespeichert. Browser-Extensions oder ein kompromittiertes Geraet koennen lokale Daten trotzdem auslesen.</span>
         </div>
     </div>
 
@@ -1238,7 +1259,7 @@
                             <select id="awmPaxTtsModelSelect"
                                 style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
                                 onchange="paxVoiceSetTtsModel(this.value)">
-                                <option value="auto">Auto (3.1, 2.5 bei Fehler)</option>
+                                <option value="auto">Auto (Provider-Standard)</option>
                                 <option value="3.1">Nur Gemini 3.1 TTS</option>
                                 <option value="2.5">Nur Gemini 2.5 TTS</option>
                             </select>
@@ -1755,14 +1776,14 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=mission-writer-v5-20260626-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=mission-quality-20260628-01"></script>
+<script defer src="app.js?v=ai-provider-help-20260628-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
-<script defer src="passenger-voice.js?v=deboarding-farewell-20260628-01"></script>
-<script defer src="tutorial.js"></script>
+<script defer src="passenger-voice.js?v=ai-provider-help-20260628-01"></script>
+<script defer src="tutorial.js?v=ai-provider-help-20260628-01"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
         if (!menu || !btn) return;

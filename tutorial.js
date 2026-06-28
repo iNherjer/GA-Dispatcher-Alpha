@@ -281,11 +281,11 @@
             },
             {
                 title: 'API-Key für KI',
-                selector: '#apiKeyInput',
+                selector: '#aiProviderSelect',
                 body: `
-                    <p>Für KI-Missionen braucht jedes Gerät mit KI-Funktionen denselben oder einen eigenen API-Key.</p>
-                    <p>Der kostenlose Key reicht in der Regel aus. Er wird lokal gespeichert.</p>
-                    <p><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">API-Key hier erstellen (öffnet neues Fenster)</a></p>
+                    <p>Für KI-Missionen wählst du Gemini oder OpenAI und trägst den passenden API-Key ein.</p>
+                    <p>Die Schlüssel werden lokal auf dem Gerät gespeichert.</p>
+                    <p><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini-Key</a> · <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI-Key</a></p>
                 `,
                 beforeEnter: () => {
                     ensureSettingsOpen();

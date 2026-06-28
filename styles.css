@@ -2091,6 +2091,39 @@ body.theme-retro .api-settings input {
     line-height: 1.4;
 }
 
+.ai-provider-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.ai-provider-field,
+.ai-key-field {
+    display: block;
+    margin: 0 0 4px;
+    color: #aaa;
+    font-size: 10px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.ai-provider-field span {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.ai-provider-field select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.ai-key-field {
+    margin-top: 8px;
+}
+
 .api-hint a {
     color: var(--blue);
     text-decoration: none;
