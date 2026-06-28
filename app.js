@@ -2601,7 +2601,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Tierärztin',
                 gender: 'female',
                 personality: 'ruhig, praktisch, aufmerksam',
-                storySeed: '{name} begleitet eine Veterinärverlegung; am Ziel wartet die Praxis oder Auffangstation mit vorbereitetem ruhigem Übergabepunkt.',
+                storySeed: '{name} begleitet eine Veterinärverlegung; am Ziel wartet ein vorbereiteter Stall-, Praxis- oder Stationskontakt auf Kit, Mappe und kurze Übergabe.',
                 greetingText: 'Hi, wichtig ist heute eine gleichmäßige Lage und kein hektisches Ausladen. Der Zielkontakt übernimmt direkt nach dem Abstellen.'
             },
             {
@@ -2934,7 +2934,7 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
             { t: 'Rehkitz-Verlegung', i: '🦌', cat: 'std', s: 'Ein kleines Wildtier wird mit Begleitung verlegt. Ruhig und weich fliegen, damit die Box nicht zur Achterbahn wird.' },
             { t: 'Horse-Vet Shuttle', i: '🐎', cat: 'std', s: 'Ein Tierarzt muss zu einem dringenden Einsatz auf ein Gestüt am Zielort.' },
             { t: 'Auffangstation-Transfer', i: '🐾', cat: 'std', s: 'Eine gesicherte Transportbox geht zur Auffangstation am Ziel. Gleichmäßige Fluglage und sanfte Übergabe halten den Stress niedrig.' },
-            { t: 'Tierarzt-Kurier', i: '🩺', cat: 'std', s: 'Veterinärmaterial und Unterlagen sollen zum Zielkontakt. Der Flug spart Bodenzeit und hält die Übergabe ruhig und nachvollziehbar.' }
+            { t: 'Tierarzt-Kurier', i: '🩺', cat: 'std', s: 'Ein Vet-Kit mit Medikamenten und Befundmappe soll direkt zum Zielkontakt. Der Flug spart der Sendung den langen Kurierweg und hält Tierärztin, Kit und Übergabe zusammen.' }
         ],
         news_coverage: [
             { t: 'Reporter Shuttle', i: '📰', cat: 'std', s: 'Ein Reporterteam wird zum Zielplatz geflogen, um dort am Boden über ein Ereignis zu berichten.' },
@@ -14204,17 +14204,55 @@ function _animalTransportCargoSignalFromText(text = '') {
     return signals.find(s => s.match.test(hay)) || null;
 }
 
+function _animalTransportCargoFromSignalText(cargoPool = [], text = '') {
+    const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
+    if (!pool.length) return '';
+    const signal = _animalTransportCargoSignalFromText(text);
+    if (!signal) return '';
+    return pool.find(cargo => signal.cargo.test(String(cargo || ''))) || '';
+}
+
 function _pickAnimalTransportCargo(cargoPool = [], missionLike = {}) {
     const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
     if (!pool.length) return '';
-    const titleSignal = _animalTransportCargoSignalFromText(missionLike?.t || missionLike?.title || '');
-    const storySignal = _animalTransportCargoSignalFromText(missionLike?.s || missionLike?.story || '');
-    const signal = titleSignal || storySignal;
-    if (signal) {
-        const matchedCargo = pool.find(cargo => signal.cargo.test(String(cargo || '')));
-        if (matchedCargo) return matchedCargo;
-    }
+    const matchedCargo = _animalTransportCargoFromSignalText(pool, [
+        missionLike?.t,
+        missionLike?.title,
+        missionLike?.s,
+        missionLike?.story
+    ].filter(Boolean).join(' | '));
+    if (matchedCargo) return matchedCargo;
     return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
+}
+
+function _animalTransportPlanSignalText(planResult = null) {
+    const parts = [];
+    const add = (value) => {
+        if (Array.isArray(value)) {
+            value.forEach(add);
+            return;
+        }
+        if (value && typeof value === 'object') {
+            Object.values(value).forEach(add);
+            return;
+        }
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text) parts.push(text.slice(0, 360));
+    };
+    const plan = planResult?.plan && typeof planResult.plan === 'object' ? planResult.plan : {};
+    add(plan.primaryObjective);
+    add(plan.missionTrigger);
+    add(plan.focusSubject);
+    add(plan.keyQuestion);
+    add(plan.missionStakes);
+    add(plan.completionSignal);
+    add(plan.localFacts);
+    add(plan.operationalDetails);
+    add(plan.realismBrief);
+    add(plan.narrativeHooks);
+    add(plan.mustMention);
+    add(plan.storyFrame);
+    return parts.join(' | ').slice(0, 2200);
 }
 
 function _animalTransportDisplayCargoLabel(cargoText = '') {
@@ -14247,7 +14285,8 @@ function _animalTransportSubjectFromCargo(cargoText = '') {
     if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Katzenwelpen in einer Transportbox mit Wärmedecke';
     if (/\bhund|therapiehund\b/.test(norm)) return 'ein kleiner Therapiehund in der Reisebox';
     if (/\bwildvogel|vogelbox\b/.test(norm)) return 'eine Wildvogelbox mit Sichtschutz';
-    if (/\btierarzt|kurierpaket|medikament|unterlagen|pferde|vet\b/.test(norm)) return cargo;
+    if (/\bpferde|pferd|vet\b/.test(norm)) return 'ein mobiles Pferde-Vet-Kit mit Behandlungsmappe';
+    if (/\btierarzt|kurierpaket|medikament|unterlagen\b/.test(norm)) return 'ein Tierarzt-Kurierpaket mit Medikamenten und Befundmappe';
     if (/^(transportbox|box)\b/i.test(cargo)) return `die ${_missionPipelineV4LowerFirst(cargo)}`;
     return cargo;
 }
@@ -14267,7 +14306,8 @@ function _animalTransportHandoffFromCargo(cargoText = '') {
     if (/\bfuchs|fuchswelpe\b/.test(norm)) return 'Nach dem Abstellen übernimmt die Wildtierstation die gesicherte Box und bringt den Fuchswelpen in den vorbereiteten Rückzugsbereich.';
     if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Stationskontakt die Wärmedecken-Box und bringt die Kleinen direkt in den vorbereiteten Innenraum.';
     if (/\bhund|therapiehund\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Betreuungskontakt den Hund am Vorfeld und hält den Wechsel kurz und ruhig.';
-    if (/\btierarzt|kurierpaket|medikament|unterlagen|pferde|vet\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Tierarztkontakt Material und Unterlagen direkt für den nächsten Versorgungsschritt.';
+    if (/\bpferde|pferd|vet\b/.test(norm)) return 'Nach dem Abstellen geht das Vet-Kit direkt mit der Begleitperson zum Stall- oder Praxiskontakt; die Behandlungsmappe bleibt bis zur Übergabe zusammen mit dem Material.';
+    if (/\btierarzt|kurierpaket|medikament|unterlagen\b/.test(norm)) return 'Nach dem Abstellen übernimmt der Tierarztkontakt Paket und Befundmappe direkt am Van, damit Medikamente und Notizen gemeinsam in die Nachbehandlung gehen.';
     return 'Nach dem Abstellen übernimmt der Tierpflege- oder Stationskontakt am Vorfeld und führt die Übergabe in Ruhe weiter.';
 }
 
@@ -14292,6 +14332,7 @@ function _animalTransportBuildBrief(cargoText = '', options = {}) {
         if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'der Reptilienkontakt am Ziel';
         if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'der Stationskontakt im ruhigen Innenbereich';
         if (/\bhund|therapiehund\b/.test(norm)) return 'der Betreuungskontakt am Ziel';
+        if (/\bpferde|pferd|vet\b/.test(norm)) return 'der Stall- oder Tierarztkontakt am Ziel';
         if (isVetMaterial) return 'der Tierarztkontakt am Ziel';
         return 'der Tierpflege- oder Stationskontakt am Ziel';
     })();
@@ -14312,7 +14353,8 @@ function _animalTransportBuildBrief(cargoText = '', options = {}) {
         if (/\bfuchs|fuchswelpe\b/.test(norm)) return 'der Fuchswelpe nach der Erstaufnahme in einen gesicherten Rückzugsbereich muss';
         if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'die Kleinen Wärme, Fütterung und eine kurze Kontrolle am Ziel brauchen';
         if (/\bhund|therapiehund\b/.test(norm)) return 'der Hund einen ruhigen betreuten Wechsel am Ziel braucht';
-        if (isVetMaterial) return 'Praxis oder Station Material und Unterlagen für den nächsten Versorgungsschritt erwartet';
+        if (/\bpferde|pferd|vet\b/.test(norm)) return 'am Ziel ein Stalltermin wartet und Vet-Kit, Verbandmaterial und Behandlungsmappe zusammen ankommen sollen';
+        if (isVetMaterial) return 'Medikamente und Befundmappe für eine angemeldete Nachbehandlung zusammen beim Zielkontakt ankommen sollen';
         return 'die Zielstation die Weiterbetreuung vorbereitet hat';
     })();
     const nextCareStep = (() => {
@@ -14323,17 +14365,18 @@ function _animalTransportBuildBrief(cargoText = '', options = {}) {
         if (/\b(?:schildkroete|schildkrote|schildkröte)\b/.test(norm)) return 'die Reptilienstation setzt Kontrolle und Unterbringung fort';
         if (/\bkatze|katzenwelpen|welpen\b/.test(norm)) return 'Wärme, Fütterung und Kontrolle können ohne langen Bodentransfer weitergehen';
         if (/\bhund|therapiehund\b/.test(norm)) return 'der Wechsel bleibt kurz, ruhig und betreut';
-        if (isVetMaterial) return 'Material und Unterlagen gehen direkt in den nächsten Versorgungsschritt';
+        if (/\bpferde|pferd|vet\b/.test(norm)) return 'der Stall- oder Praxistermin kann mit Kit und Mappe ohne Sucherei beginnen';
+        if (isVetMaterial) return 'Medikamente und Befundmappe gehen zusammen in die Nachbehandlung';
         return 'die Betreuung kann nach der Übergabe ohne Zusatzstress weiterlaufen';
     })();
     const whyAir = isVetMaterial
-        ? `der kurze Luftweg nach ${targetName} spart Bodenzeit und hält den Ablauf nachvollziehbar`
-        : `der kurze Luftweg nach ${targetName} erspart dem Tier einen langen Bodentransfer`;
+        ? `der kurze Luftweg nach ${targetName} spart den langen Kurierweg und bringt Kit, Mappe und Begleitung im selben Slot an den Zielkontakt`
+        : `der Flug nach ${targetName} erspart dem Tier die Rumpelstrecke am Boden und hält die Zeit in der Box kurz`;
     const handlingFocus = isVetMaterial
-        ? 'sauberes Verstauen, ruhiger Flug und eine Übergabe ohne Hektik'
+        ? 'griffbereites Kit, trockene Mappe und ruhiges Rollen zum Zielkontakt'
         : 'gleichmäßige Fluglage, sanfte Kurven und ein ruhiges Abstellen';
     const stressReason = isVetMaterial
-        ? 'die Unterlagen und das Vet-Material sollen vollständig und geordnet beim Zielkontakt ankommen'
+        ? 'Kit, Medikamente und Befundmappe sollen gemeinsam und ohne Durcheinander beim Zielkontakt ankommen'
         : 'Box, Geräuschkulisse und Temperatur machen einen ruhigen Ablauf spürbar wertvoll';
     return {
         cargoText: cargo,
@@ -14354,7 +14397,7 @@ function _animalTransportStoryMentionsCargo(story = '', cargoText = '') {
     if (!normalized) return false;
     if (!cargoNorm) return /\b(tier|tierschutz|tierarzt|veterinaer|veterinär|auffangstation|transportbox|wildvogel|station)\b/.test(normalized);
     if (/\b(?:tierarzt|kurierpaket|medikament|medikamente|unterlagen|pferde|vet)\b/.test(cargoNorm)) {
-        return /\b(?:vet-material|vet|medikament|medikamente|unterlagen|kurierpaket|material)\b/.test(normalized);
+        return /\b(?:vet-material|vet|kit|medikament|medikamente|unterlagen|befundmappe|behandlungsmappe|kurierpaket|material)\b/.test(normalized);
     }
     const species = ['gans', 'moewe', 'möwe', 'ente', 'ziege', 'schaf', 'reh', 'hirsch', 'igel', 'hase', 'kaninchen', 'eule', 'falke', 'greifvogel', 'fledermaus', 'schildkroete', 'schildkrote', 'schildkröte', 'fuchs', 'katze', 'welpen', 'hund', 'wildvogel'];
     if (species.some(word => normalized.includes(word) && cargoNorm.includes(normalizeMissionText(word)))) return true;
@@ -14374,6 +14417,52 @@ function _animalTransportStoryNeedsRepair(story = '', cargoText = '', passenger 
     const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     if (paxName && raw.length < 260 && !raw.toLowerCase().includes(paxName.toLowerCase())) return true;
     return false;
+}
+
+function _pickAnimalTransportPassengerForCargo(profile = null, cargoText = '', missionLike = {}) {
+    const personas = Array.isArray(profile?.personas) ? profile.personas.filter(Boolean) : [];
+    if (!personas.length) return null;
+    const norm = normalizeMissionText(cargoText);
+    const rules = [
+        { cargo: /\b(?:pferde|pferd|vet|tierarzt|kurierpaket|medikament|unterlagen)\b/, persona: /\b(?:dr\.?|tierarzt|tieraerzt|tierärzt|veterinaer|veterinär)\b/i },
+        { cargo: /\b(?:reh|rehkitz|igel|hase|kaninchen|eule|falke|greifvogel|fledermaus|fuchs|wildvogel|moewe|möwe|mowe)\b/, persona: /\b(?:wildtierpfleger|tierschutz-kurier|tierpfleger)\b/i },
+        { cargo: /\b(?:gans|ente|zieg|schaf|katze|katzenwelpen|welpen|hund)\b/, persona: /\b(?:auffangstations|tierpfleger|tierschutz-kurier)\b/i }
+    ];
+    const rule = rules.find(item => item.cargo.test(norm));
+    if (!rule) return null;
+    const selected = personas.find(persona => rule.persona.test([
+        persona?.name,
+        persona?.role,
+        persona?.storySeed,
+        persona?.greetingText
+    ].filter(Boolean).join(' ')));
+    if (!selected) return null;
+    const targetName = String(
+        missionLike?.targetName
+        || missionLike?._missionContractV4?.route?.targetName
+        || missionLike?.missionContractV4?.route?.targetName
+        || missionLike?._missionContractV4?.target?.name
+        || missionLike?.missionContractV4?.target?.name
+        || 'Zielplatz'
+    ).trim();
+    const templateContext = {
+        name: selected.name || 'die Tierbegleitung',
+        targetName
+    };
+    const base = (missionLike?.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : {};
+    return {
+        ...base,
+        ...selected,
+        storySeed: _missionTemplateText(selected.storySeed || base.storySeed || base.personalStoryCue || '', templateContext),
+        personalStoryCue: _missionTemplateText(selected.storySeed || base.personalStoryCue || base.storySeed || '', templateContext),
+        greetingText: _missionTemplateText(selected.greetingText || profile?.greetingText || base.greetingText || '', templateContext),
+        roleProfile: profile?.roleProfile || base.roleProfile || 'general_passenger_v1',
+        taskDomain: profile?.taskDomain || base.taskDomain || 'animal_transport',
+        ...(profile?.tolerances || {}),
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0
+    };
 }
 
 function _animalTransportComposeProfileStory(missionLike = {}, cargoText = '') {
@@ -16230,6 +16319,12 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     if (profile.id === 'animal_transport') {
         const cargoClean = _animalTransportDisplayCargoLabel(cargoText || m.cargo || m.cargoText || '');
         if (cargoClean) {
+            const cargoPassenger = _pickAnimalTransportPassengerForCargo(profile, cargoClean, m);
+            if (cargoPassenger?.name && cargoPassenger.name !== m.passenger?.name) {
+                const previousPassenger = m.passenger && typeof m.passenger === 'object' ? { ...m.passenger } : null;
+                m.passenger = cargoPassenger;
+                synchronizeMissionPassengerName(m, previousPassenger, cargoPassenger);
+            }
             const existingStory = String(m.s || m.story || m.missionStory || '').trim();
             const repairedStory = _animalTransportStoryNeedsRepair(existingStory, cargoClean, m.passenger)
                 ? _animalTransportComposeProfileStory(m, cargoClean)
@@ -28696,7 +28791,7 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
         return !hasMedicalFrame || !hasReceiving;
     }
     if (domain === 'animal_transport') {
-        const hasAnimalFrame = /\b(tier|tierschutz|veterinaer|veterinär|tierarzt|auffangstation|wildvogel|transportbox|box|station|reh|ziege|schaf|gans|ente|moewe|möwe|katze|welpen|hund|stress|versorgung)\b/.test(normalized);
+        const hasAnimalFrame = /\b(tier|tierschutz|veterinaer|veterinär|tierarzt|auffangstation|wildvogel|transportbox|box|station|reh|ziege|schaf|gans|ente|moewe|möwe|igel|hase|kaninchen|eule|falke|greifvogel|fledermaus|schildkroete|schildkröte|fuchs|katze|welpen|hund|stress|versorgung|vet|medikament|befundmappe|behandlungsmappe)\b/.test(normalized);
         const hasReceiving = /\b(uebergabe|übergabe|uebernimmt|übernimmt|station|tierarzt|klinik|betreuung|auffangstation|zielkontakt|versorgung)\b/.test(normalized);
         const cargoLabel = contract?.animalTransportBrief?.cargoText || context?.cargoText || contract?.cargoText || '';
         const hasConcreteCargo = cargoLabel ? _animalTransportStoryMentionsCargo(raw, cargoLabel) : true;
@@ -28747,7 +28842,7 @@ function _missionWriterV5CargoTextConflictsTask(cargoText = '', taskDomain = '')
         return !/\b(medizin|notfall|notarzt|notärzt|klinik|labor|blut|serum|probe|diagnostik|op[-\s]?instrument|sanitaet|sanität|kuehl|kühl|transplant)\b/.test(normalized);
     }
     if (task === 'animal_transport') {
-        return !/\b(tier|transportbox|veterinaer|veterinär|tierarzt|auffangstation|wildvogel|reh|ziege|schaf|gans|ente|moewe|möwe|katze|welpen|hund|medikament)\b/.test(normalized);
+        return !/\b(tier|transportbox|box|veterinaer|veterinär|tierarzt|auffangstation|wildvogel|reh|ziege|schaf|gans|ente|moewe|möwe|igel|hase|kaninchen|eule|falke|greifvogel|fledermaus|schildkroete|schildkröte|fuchs|katze|welpen|hund|medikament|vet|unterlagen|befundmappe|behandlungsmappe)\b/.test(normalized);
     }
     return false;
 }
@@ -32846,12 +32941,14 @@ async function generateMission(options = {}) {
     if (missionProposalChoice?.paxText) paxText = missionProposalChoice.paxText;
     if (missionProposalChoice?.cargoText) cargoText = missionProposalChoice.cargoText;
     const preWriterProfile = getMissionTaskProfile(dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
+    const animalTransportCargoPool = preWriterProfile?.id === 'animal_transport' && Array.isArray(preWriterProfile.cargoPool)
+        ? preWriterProfile.cargoPool.filter(Boolean)
+        : [];
     let animalTransportBrief = null;
     if (preWriterProfile?.id === 'animal_transport') {
         if (preWriterProfile.paxText && !missionProposalChoice?.paxText) paxText = preWriterProfile.paxText;
-        const cargoPool = Array.isArray(preWriterProfile.cargoPool) ? preWriterProfile.cargoPool.filter(Boolean) : [];
         const proposalCargo = _animalTransportDisplayCargoLabel(missionProposalChoice?.cargoText || '');
-        const pickedCargo = proposalCargo || _animalTransportDisplayCargoLabel(_pickAnimalTransportCargo(cargoPool, {
+        const pickedCargo = proposalCargo || _animalTransportDisplayCargoLabel(_pickAnimalTransportCargo(animalTransportCargoPool, {
             t: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
             title: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
             s: missionProposalChoice?.s || missionProposalChoice?.story || ''
@@ -32984,6 +33081,24 @@ async function generateMission(options = {}) {
             missionFireHazard = plan.resolvedNeeds.fire_hazard;
         }
     };
+    const refreshAnimalTransportBriefFromPlan = (planResult = null) => {
+        if (preWriterProfile?.id !== 'animal_transport' || missionProposalChoice?.cargoText || !animalTransportCargoPool.length) return;
+        const planCargo = _animalTransportDisplayCargoLabel(
+            _animalTransportCargoFromSignalText(animalTransportCargoPool, _animalTransportPlanSignalText(planResult))
+        );
+        if (!planCargo || planCargo === _animalTransportDisplayCargoLabel(cargoText)) return;
+        cargoText = planCargo;
+        animalTransportBrief = _animalTransportBuildBrief(cargoText, {
+            targetName: dest?.n || '',
+            route: {
+                startName: start?.n || '',
+                targetName: dest?.n || '',
+                distanceNm: Number.isFinite(Number(totalDist)) ? Math.round(Number(totalDist) * 10) / 10 : null
+            }
+        });
+        plannerContext.cargoText = cargoText;
+        plannerContext.animalTransportBrief = animalTransportBrief;
+    };
     if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
         indicator.innerText = `Pipeline V4: Contract wird geplant...`;
         try {
@@ -33021,6 +33136,7 @@ async function generateMission(options = {}) {
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
             }
+            refreshAnimalTransportBriefFromPlan(missionPlanV4);
             dispatchPhaseStart('build_v4_contract');
             missionContractV4 = buildMissionContractV4({
                 plannerContext: {
@@ -33057,6 +33173,7 @@ async function generateMission(options = {}) {
                 missionPlanV4 = missionPlanV2;
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
+                refreshAnimalTransportBriefFromPlan(missionPlanV4);
                 dispatchPhaseStart('build_v4_contract');
                 missionContractV4 = buildMissionContractV4({
                     plannerContext: {
