@@ -845,8 +845,8 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Audioeffekte', text: 'Schaltet kurze Missionssounds wie Foto-Klicks, Boarding- und Cargo-Geraeusche ein oder aus.' },
             { term: 'Modus', text: 'Entspannt ist toleranter. Streng bewertet die Mission und dein Flugverhalten etwas genauer.' },
             { term: 'Humor', text: 'Bestimmt, wie locker oder frech die Passagier-Stimme reagieren darf.' },
-            { term: 'TTS', text: 'Auto nutzt Gemini 3.1 und wechselt bei Fehlern auf 2.5. Du kannst auch ein Modell fest auswaehlen.' },
-            { term: 'Fast Mode', text: 'Startet im Auto-TTS-Modus bei Bedarf frueher einen Gemini-2.5-Fallback. Das kann Wartezeit sparen, aber den KI-Token-Verbrauch erhoehen, weil zeitweise zwei TTS-Anfragen laufen koennen.' },
+            { term: 'TTS', text: 'Gemini nutzt im Auto-Modus 3.1 und 2.5 als Fallback. OpenAI nutzt den OpenAI-TTS-Standardpfad.' },
+            { term: 'Fast Mode', text: 'Startet nur bei Gemini im Auto-TTS-Modus frueher einen 2.5-Fallback. Das kann Wartezeit sparen, aber den KI-Verbrauch erhoehen.' },
             { term: 'Pax Audio', text: 'Waehlt den Klang der Passagier-Stimme: klar, Intercom oder Intercom mit Funkrauschen.' }
         ]
     },
@@ -866,11 +866,11 @@ const SETTINGS_HELP_CONTENT = {
     dispatcher: {
         kicker: 'Aufträge',
         title: 'KI-Dispatcher',
-        intro: 'Hier stellst du ein, ob Missionen aus der lokalen Datenbank kommen oder ob Gemini neue Aufträge erzeugen darf.',
+        intro: 'Hier stellst du ein, ob Missionen aus der lokalen Datenbank kommen oder ob Gemini oder OpenAI neue Auftraege erzeugen darf.',
         items: [
             { term: 'Schalter', text: 'Schaltet die KI-Missionen ein oder aus. Aus bedeutet: Die App nutzt feste lokale Aufträge.' },
             { term: 'FUEL-Anzeige', text: 'Zeigt grob, wie viel Tageskontingent fuer KI-Anfragen noch uebrig ist.' },
-            { term: 'API-Key', text: 'Optionaler Gemini-Schluessel. Leer lassen ist okay; dann bleibt die App bei lokalen Daten.' },
+            { term: 'API-Key', text: 'Optionale Provider-Schluessel fuer Gemini und OpenAI. Der aktive Provider bestimmt, welcher Key fuer Text und Voice genutzt wird.' },
             { term: 'Status', text: 'Zeigt, ob der Key zuletzt erfolgreich geprueft wurde.' },
             { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben.' }
         ]
@@ -1811,8 +1811,22 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'medical_sensitive_v1',
         taskDomain: 'medical_transfer',
         personas: [
-            { name: 'Dr. Lena Roth', role: 'Notärztin', gender: 'female', personality: 'fokussiert, ruhig, empathisch' },
-            { name: 'Dr. Jonas Weber', role: 'Notarzt', gender: 'male', personality: 'präzise, ruhig, professionell' },
+            {
+                name: 'Dr. Lena Roth',
+                role: 'Notärztin',
+                gender: 'female',
+                personality: 'fokussiert, ruhig, empathisch',
+                storySeed: '{name} begleitet ein kleines medizinisches Bereitschaftspaket; am Zielplatz wartet ein Klinikfahrzeug fuer die direkte Uebergabe an die dortige Notaufnahme.',
+                greetingText: 'Hi, ich habe das Bereitschaftspaket und die Uebergabemappe dabei. Bitte ruhig und planbar, am Ziel wartet die Klinikannahme.'
+            },
+            {
+                name: 'Dr. Jonas Weber',
+                role: 'Notarzt',
+                gender: 'male',
+                personality: 'präzise, ruhig, professionell',
+                storySeed: '{name} fliegt mit Diagnostikunterlagen und einem versiegelten Kurierfach zum Zielplatz; dort soll ein Klinikteam die Sendung ohne Umwege uebernehmen.',
+                greetingText: 'Hallo, die Unterlagen sind versiegelt und der Zielkontakt ist informiert. Mir ist wichtig, dass der Ablauf ruhig und verlaesslich bleibt.'
+            },
             {
                 name: 'Sara Neumann',
                 role: 'Kliniklogistikerin',
@@ -1836,6 +1850,22 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'ruhig, klar, belastbar',
                 storySeed: '{name} begleitet medizinische Unterlagen und ein kleines gekühltes Paket für den Klinikverbund; nach der Landung zählt die direkte Übergabe.',
                 greetingText: 'Hi, ich brauche heute keinen Stress im Cockpit, nur einen verlässlichen Ablauf bis zum Zielkontakt.'
+            },
+            {
+                name: 'Felix Mertens',
+                role: 'Medizintechnik-Kurier',
+                gender: 'male',
+                personality: 'sorgfaeltig, ruhig, praktisch',
+                storySeed: '{name} bringt ein geschuetztes Diagnostikmodul zum Ziel; dort wartet ein Technikkontakt, damit das Geraet noch im geplanten Klinikfenster eingesetzt werden kann.',
+                greetingText: 'Hi, das Modul ist im Schutzcase und der Technikkontakt wartet am Ziel. Ruhig ankommen reicht, dann klappt die Uebergabe.'
+            },
+            {
+                name: 'Mara Voigt',
+                role: 'Laborlogistikerin',
+                gender: 'female',
+                personality: 'konzentriert, freundlich, genau',
+                storySeed: '{name} begleitet Laborunterlagen und ein kleines Kuehlfach; am Ziel soll die Probe direkt in die vorbereitete Annahme gehen.',
+                greetingText: 'Hallo, die Laborannahme ist vorbereitet. Bitte sauber und gleichmaessig fliegen, dann bleibt der Transfer fuer alle planbar.'
             }
         ],
         greetingText: 'Hi, danke fürs Fliegen. Wir transportieren medizinische Begleitung und zeitkritisches Material, der Flug muss ruhig und sauber laufen.',
@@ -2111,12 +2141,80 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'tour_guide_learning_v1',
         taskDomain: 'poi_learning_guide',
         personas: [
-            { name: 'Mila Hartung', role: 'Lern-Guide', gender: 'female', personality: 'klar, neugierig, anschaulich' },
-            { name: 'Jonas Keller', role: 'Tour-Guide', gender: 'male', personality: 'ruhig, faktenstark, freundlich' }
+            {
+                name: 'Mila Hartung',
+                role: 'Lern-Guide',
+                gender: 'female',
+                personality: 'klar, neugierig, anschaulich',
+                storySeed: '{name} macht {targetName} fuer den Piloten und die Mitfliegenden verstaendlich: sichtbare Lage, Name, Nutzung und ein bis zwei gepruefte Fakten sollen unterwegs locker haengen bleiben.',
+                greetingText: 'Hi, ich bin heute dein Lern-Guide. Ich erklaere unterwegs kurz, was man bei {targetName} wirklich sieht und warum der Ort interessant ist.'
+            },
+            {
+                name: 'Jonas Keller',
+                role: 'Tour-Guide',
+                gender: 'male',
+                personality: 'ruhig, faktenstark, freundlich',
+                storySeed: '{name} nutzt den Flug zu {targetName}, um aus Fakten eine kleine Ortsgeschichte zu bauen: erst Orientierung, dann Bedeutung, dann ein Detail, das man von oben gut versteht.',
+                greetingText: 'Hi, ich bringe die Fakten mit und mache daraus unterwegs eine kleine Fuehrung. Ruhige Blickwinkel helfen, damit {targetName} gut lesbar bleibt.'
+            },
+            {
+                name: 'Clara Behrens',
+                role: 'Museumspaedagogin',
+                gender: 'female',
+                personality: 'warm, anschaulich, detailverliebt',
+                storySeed: '{name} bereitet zu {targetName} eine kurze Erklaerpassage vor, die Besucher spaeter am Boden wiedererkennen koennen: Lage, Form, Zugang und ein gepruefter Fakt aus der Wissensbasis.',
+                greetingText: 'Hallo, ich sammle heute gute Bilder im Kopf. Wenn wir {targetName} ruhig im Zusammenhang sehen, kann ich die Geschichte spaeter viel besser erzaehlen.'
+            },
+            {
+                name: 'Paul Neumann',
+                role: 'Geografie-Guide',
+                gender: 'male',
+                personality: 'beobachtend, ruhig, praezise',
+                storySeed: '{name} erklaert {targetName} ueber Landschaft und Orientierung: Wasserlauf, Hoehenzug, Ortsrand, Verkehrsweg oder andere sichtbare Bezuege bilden den roten Faden.',
+                greetingText: 'Hi, ich schaue heute auf Lage und Zusammenhang. Bitte so fliegen, dass {targetName} und die Umgebung gemeinsam lesbar werden.'
+            },
+            {
+                name: 'Sofia Richter',
+                role: 'Audio-Guide-Autorin',
+                gender: 'female',
+                personality: 'erzaehlstark, neugierig, unaufgeregt',
+                storySeed: '{name} testet bei {targetName} einen kurzen Audio-Guide-Text: nicht zu viele Daten, sondern ein klarer Einstieg, ein sichtbares Detail und ein guter Abschluss fuer die Voice-Cues.',
+                greetingText: 'Hi, ich schreibe den kleinen Audio-Guide im Kopf mit. Ein paar ruhige Perspektiven reichen, dann klingt der Ort spaeter nicht trocken.'
+            },
+            {
+                name: 'Benno Krueger',
+                role: 'Regionalfuehrer',
+                gender: 'male',
+                personality: 'bodenstaendig, freundlich, kenntnisreich',
+                storySeed: '{name} verbindet {targetName} mit der Region: warum der Ort genau hier liegt, wie man ihn aus der Luft erkennt und welcher gepruefte Fakt den Blick abrundet.',
+                greetingText: 'Moin, ich gebe unterwegs den regionalen Kontext. Wichtig ist, dass wir {targetName} nicht isoliert sehen, sondern mit seiner Umgebung.'
+            },
+            {
+                name: 'Nora Lechner',
+                role: 'Natur- und Kulturvermittlerin',
+                gender: 'female',
+                personality: 'aufmerksam, ruhig, anschaulich',
+                storySeed: '{name} macht bei {targetName} den Zusammenhang aus Naturraum, Bauwerk, Weg oder Ortsbild greifbar, ohne aus dem Lernflug einen technischen Arbeitsauftrag zu machen.',
+                greetingText: 'Hi, ich achte heute auf das, was man von oben gut erklaeren kann: Lage, Form und ein paar echte Fakten zu {targetName}.'
+            },
+            {
+                name: 'Tim Falkenberg',
+                role: 'Exkursionsleiter',
+                gender: 'male',
+                personality: 'klar, freundlich, lebendig',
+                storySeed: '{name} plant aus dem Flug zu {targetName} eine kurze Exkursions-Einleitung: erst Orientierung aus der Luft, dann ein Merksatz, den die Gruppe spaeter am Boden wiederfindet.',
+                greetingText: 'Hi, ich nehme heute die Exkursionsbrille mit. Lass uns {targetName} ruhig einordnen, dann habe ich spaeter eine gute erste Geschichte.'
+            }
         ],
         greetingText: 'Hi, ich bin heute dein Lern-Guide. Ich gebe dir unterwegs kurze Fakten, Orientierung und ein paar anschauliche Hinweise zur Gegend.',
         paxText: '1 PAX (Lern-Guide)',
-        cargoPool: ['Notizbuch und Reisefuehrer (4 lbs)', 'Tablet mit Ortsfakten (3 lbs)'],
+        cargoPool: [
+            'Notizbuch, Reisefuehrer und kleine Kartenmappe (6 lbs)',
+            'Tablet mit Ortsfakten und Offline-Karten (5 lbs)',
+            'Audio-Guide-Notizen und Mikrorecorder (4 lbs)',
+            'Exkursionsmappe mit Fotozetteln (7 lbs)',
+            'Fernglas, Stiftmappe und Faktenkarten (6 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: Lern-Guide erklaert dem Piloten Fakten, Kontext, Landschaft und sichtbare Orientierungspunkte zum POI; der Guide trainiert nicht selbst.'
     },
@@ -2525,14 +2623,85 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'club_utility_v1',
         taskDomain: 'club_utility',
         personas: [
-            { name: 'Lena Hartig', role: 'Vereinskoordinatorin', gender: 'female', personality: 'pragmatisch, freundlich, organisiert' },
-            { name: 'Tobias Kern', role: 'Flugplatzkoordinator', gender: 'male', personality: 'ruhig, zuverlässig, lösungsorientiert' }
+            {
+                name: 'Lena Hartig',
+                role: 'Vereinskoordinatorin',
+                gender: 'female',
+                personality: 'pragmatisch, freundlich, organisiert',
+                storySeed: '{name} bringt fuer den Verein Unterlagen, Schluessel und eine kleine Ersatzteilsendung zum Zielplatz, wo ein kurzer Termin mit Platzwart oder Vorstand wartet.',
+                greetingText: 'Hi, ich habe die Vereinsmappe und die kleine Sendung dabei. Am Ziel wartet jemand vom Platz, also einfach sauber und planbar hin.'
+            },
+            {
+                name: 'Tobias Kern',
+                role: 'Flugplatzkoordinator',
+                gender: 'male',
+                personality: 'ruhig, zuverlässig, lösungsorientiert',
+                storySeed: '{name} koordiniert am Zielplatz einen praktischen Hangar- oder Werkstatttermin; Werkzeugtasche, Dokumente und ein kurzer Vor-Ort-Abgleich sind der eigentliche Anlass.',
+                greetingText: 'Moin, das ist heute ein pragmatischer Platztermin. Ich habe Werkzeug und Unterlagen dabei, am Ziel klaeren wir den Rest am Hangar.'
+            },
+            {
+                name: 'Nina Kraus',
+                role: 'Technikwartin',
+                gender: 'female',
+                personality: 'sorgfaeltig, direkt, kollegial',
+                storySeed: '{name} bringt ein kleines Avionik- oder Batterieteil zum Zielplatz, damit eine Vereinsmaschine dort wieder fuer den naechsten Dienstflug vorbereitet werden kann.',
+                greetingText: 'Hi, das Ersatzteil ist klein, aber wichtig. Wenn wir ruhig ankommen, kann die Technik am Ziel direkt weiterarbeiten.'
+            },
+            {
+                name: 'Markus Lenz',
+                role: 'Jugendflugleiter',
+                gender: 'male',
+                personality: 'organisiert, ruhig, motivierend',
+                storySeed: '{name} reist mit Schulungsunterlagen und Vereinsmaterial zum Zielplatz, weil dort ein kurzer Einweisungstermin fuer Nachwuchs oder Helfer vorbereitet ist.',
+                greetingText: 'Hallo, ich habe die Schulungsmappe und etwas Vereinsmaterial dabei. Am Ziel wartet die Gruppe, kein Stress, nur verlaesslich ankommen.'
+            },
+            {
+                name: 'Anja Ritter',
+                role: 'Eventhelferin',
+                gender: 'female',
+                personality: 'freundlich, zupackend, entspannt',
+                storySeed: '{name} bringt leichte Eventausruestung fuer einen Flugtag oder Vereinsabend zum Zielplatz; nach der Landung wird alles direkt am Clubheim uebergeben.',
+                greetingText: 'Hi, hinten liegen Banner, Klemmbretter und die kleine Kiste. Am Ziel nehmen die Helfer das direkt am Clubheim ab.'
+            },
+            {
+                name: 'Holger Seifert',
+                role: 'Werftkontakt',
+                gender: 'male',
+                personality: 'technisch, ruhig, verbindlich',
+                storySeed: '{name} fliegt mit Messadapter, Pruefmappe und Rueckfragenliste zum Zielplatz, weil dort eine Vereinsmaschine eine kurze technische Klaerung braucht.',
+                greetingText: 'Moin, ich habe Messadapter und Pruefmappe dabei. Das ist kein Notfall, aber am Ziel wartet die Maschine auf die Entscheidung.'
+            },
+            {
+                name: 'Svenja Michel',
+                role: 'Kassenwartin',
+                gender: 'female',
+                personality: 'genau, freundlich, strukturiert',
+                storySeed: '{name} bringt Vertragsunterlagen, Schluessel und eine kleine Materialtasche zum Zielplatz, damit ein Vereinsprojekt dort sauber abgeschlossen werden kann.',
+                greetingText: 'Hi, ich habe die Mappe und Schluessel dabei. Am Ziel reicht ein kurzer, sauberer Uebergang an den Vereinskontakt.'
+            },
+            {
+                name: 'Jan Vollmer',
+                role: 'Platzwart',
+                gender: 'male',
+                personality: 'bodenstaendig, aufmerksam, pragmatisch',
+                storySeed: '{name} will am Zielplatz eine kleine Betriebsabsprache erledigen: Markierungen, Geraeteschuppen, Ersatzteile und naechster Arbeitseinsatz sollen zusammengebracht werden.',
+                greetingText: 'Hallo, heute geht es um einen kurzen Platzwart-Termin. Bitte ruhig hin, dann kann ich Material und Absprachen direkt einsortieren.'
+            }
         ],
         greetingText: 'Hi, heute ist ein klassischer Vereins- und Utility-Flug. Bitte sauber und entspannt, wir haben einen klaren Ablauf.',
         paxText: '1 PAX (Vereinskoordination)',
-        cargoPool: ['Werkzeug- und Dokumententasche (24 lbs)', 'Ersatzteilkiste (32 lbs)'],
+        cargoPool: [
+            'Werkzeug- und Dokumententasche (24 lbs)',
+            'Ersatzteilkiste fuer Vereinsmaschine (32 lbs)',
+            'Clubheim-Schluessel, Klemmbretter und Unterlagenbox (18 lbs)',
+            'Avionikadapter und Pruefmappe (22 lbs)',
+            'Flugtag-Banner, Funkakkus und Helferlisten (20 lbs)',
+            'Batterie, Leuchtmittel und Kleinmaterialbox (28 lbs)',
+            'Schulungsordner und Vereinsmaterial (16 lbs)',
+            'Hangar-Wartungsset und Lash-Straps (26 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Am Ziel ist ein kurzer Vereins- oder Utility-Termin am Flugplatz eingeplant.'
+        storyCue: 'Fokus: glaubwuerdiger Vereins-/Utility-Flug mit konkretem Platz-, Hangar-, Technik- oder Vereinskontakt am Ziel; kleine Fracht und Person muessen denselben praktischen Anlass tragen.'
     },
     search_and_rescue: {
         id: 'search_and_rescue',
@@ -2541,14 +2710,84 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'rescue_coordination_v1',
         taskDomain: 'search_and_rescue',
         personas: [
-            { name: 'Lea Winter', role: 'SAR-Koordinatorin', gender: 'female', personality: 'klar, belastbar, fokussiert' },
-            { name: 'Jan Ritter', role: 'Rettungskoordinator', gender: 'male', personality: 'ruhig, strukturiert, entschlossen' }
+            {
+                name: 'Lea Winter',
+                role: 'SAR-Koordinatorin',
+                gender: 'female',
+                personality: 'klar, belastbar, fokussiert',
+                storySeed: '{name} koordiniert bei {targetName} eine Suchrunde aus der Luft, weil Bodenmeldungen zu Wegen, Randbereichen oder sichtbaren Signalen noch kein klares Lagebild ergeben.',
+                greetingText: 'Hi, wir fliegen heute ein ruhiges Suchmuster bei {targetName}. Ich brauche Uebersicht, klare Calls und keine wilden Manoever.'
+            },
+            {
+                name: 'Jan Ritter',
+                role: 'Rettungskoordinator',
+                gender: 'male',
+                personality: 'ruhig, strukturiert, entschlossen',
+                storySeed: '{name} begleitet die Luftsuche bei {targetName}, damit Suchtrupps am Boden spaeter gezielter angesetzt werden koennen.',
+                greetingText: 'Hallo, ich notiere Sichtachsen und moegliche Hinweise. Bitte stabil fliegen, damit ich den Boden sauber absuchen kann.'
+            },
+            {
+                name: 'Mara Seidel',
+                role: 'Einsatzleiterin Suche',
+                gender: 'female',
+                personality: 'sachlich, belastbar, wach',
+                storySeed: '{name} braucht ueber {targetName} ein geordnetes Lagebild: Wege, Waldkanten, Lichtungen, Ufer oder Zufahrten werden als Suchabschnitte abgearbeitet.',
+                greetingText: 'Hi, ich teile die Abschnitte ein und gebe dir die naechsten Blickrichtungen. Ruhig und wiederholbar ist heute wichtiger als Tempo.'
+            },
+            {
+                name: 'Felix Brand',
+                role: 'Bergwacht-Koordinator',
+                gender: 'male',
+                personality: 'konzentriert, ruhig, genau',
+                storySeed: '{name} prueft bei {targetName} Hang, Grat, Talweg oder Forststrasse aus der Luft, damit ein moeglicher Bodeneinsatz nicht blind in schwieriges Gelaende laeuft.',
+                greetingText: 'Servus, ich schaue auf Wege, Hangkanten und moegliche Sammelpunkte. Bitte gleichmaessig halten, dann kann ich die Karte sauber abgleichen.'
+            },
+            {
+                name: 'Nora Petersen',
+                role: 'Wasserrettungs-Koordinatorin',
+                gender: 'female',
+                personality: 'ruhig, aufmerksam, praezise',
+                storySeed: '{name} sucht bei {targetName} entlang von Ufer, Anlegern, Buchten oder Wasserlauf nach sichtbaren Hinweisen und sicheren Zugangspunkten fuer Teams am Boden.',
+                greetingText: 'Hi, ich achte auf Uferlinie, Zugänge und alles, was nicht ins Bild passt. Bitte weich fliegen, damit ich die Abschnitte vergleichen kann.'
+            },
+            {
+                name: 'Karim Adler',
+                role: 'Drohnen-/Luftbildkoordinator',
+                gender: 'male',
+                personality: 'analytisch, ruhig, klar',
+                storySeed: '{name} gleicht den Flug ueber {targetName} mit Karten und Drohnenfenstern ab, damit sich Suchbereiche nicht doppeln und Luecken sichtbar werden.',
+                greetingText: 'Hi, ich gleiche Kartenraster und Sichtfelder ab. Wenn wir sauber im Muster bleiben, sehe ich, welche Flaechen wirklich abgedeckt sind.'
+            },
+            {
+                name: 'Tessa Mohr',
+                role: 'Polizei-Lagebeobachterin',
+                gender: 'female',
+                personality: 'klar, sachlich, beobachtend',
+                storySeed: '{name} erstellt bei {targetName} ein neutrales Lagebild fuer die Einsatzleitung: Zufahrten, Fahrzeuge, Lichtungen und moegliche Sammelpunkte werden aus der Luft sortiert.',
+                greetingText: 'Hallo, ich brauche einen sachlichen Ueberblick fuer die Lagekarte. Sichtbar notieren, nichts dramatisieren, ruhig weiterfliegen.'
+            },
+            {
+                name: 'Oskar Lenz',
+                role: 'Suchtrupp-Verbindungsmann',
+                gender: 'male',
+                personality: 'bodenstaendig, ruhig, teamorientiert',
+                storySeed: '{name} sitzt mit Funk und Karte an Bord, damit Luftsicht und Suchtrupp-Meldungen bei {targetName} zusammenpassen.',
+                greetingText: 'Moin, ich halte den Funk zur Bodenmannschaft. Gib mir stabile Blickwinkel, dann kann ich Hinweise direkt in die Karte ziehen.'
+            }
         ],
         greetingText: 'Hi, wir arbeiten heute nach Suchmuster und klaren Calls. Stabilität und Übersicht sind entscheidend.',
         paxText: '1 PAX (SAR-Koordination)',
-        cargoPool: ['Optik- und SAR-Kit (24 lbs)', 'Signalmittel und Kartenpaket (16 lbs)'],
+        cargoPool: [
+            'Optik- und SAR-Kit (24 lbs)',
+            'Signalmittel und Kartenpaket (16 lbs)',
+            'Thermal-Handkamera und Funkakkus (22 lbs)',
+            'Suchraster-Mappe und Markerboard (12 lbs)',
+            'Fernglas, Tablet und Ersatzfunk (18 lbs)',
+            'Erste-Hilfe-Pack und Koordinatenkarten (20 lbs)',
+            'Bodenfunk-Relaisbox und Warnwesten (26 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'hoch' },
-        storyCue: 'Fokus: Suchmuster, Lagebild und sichere Durchführung.'
+        storyCue: 'Fokus: glaubwuerdige Luftsuche mit konkretem Suchraum, klarer Koordination, Bodenbezug und sicherem Lagebild; der Flug bestaetigt Hinweise oder schliesst Abschnitte ein, ohne das Ergebnis vorwegzunehmen.'
     },
     sar_heli: {
         id: 'sar_heli',
@@ -2557,12 +2796,65 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'rescue_coordination_v1',
         taskDomain: 'search_and_rescue',
         personas: [
-            { name: 'Mara Seidel', role: 'SAR-Heli-Koordinatorin', gender: 'female', personality: 'ruhig, klar, medizinisch fokussiert' },
-            { name: 'Timo Brandt', role: 'Luftrettungskoordinator', gender: 'male', personality: 'präzise, belastbar, handlungsorientiert' }
+            {
+                name: 'Mara Seidel',
+                role: 'SAR-Heli-Koordinatorin',
+                gender: 'female',
+                personality: 'ruhig, klar, medizinisch fokussiert',
+                storySeed: '{name} fuehrt den Heli-Einsatz bei {targetName}: erst Fundstelle bestaetigen, dann sichere Aufnahmeposition waehlen und den direkten medizinischen Weiterflug vorbereiten.',
+                greetingText: 'Hi, wir arbeiten sauber: Fund bestaetigen, Lande- oder Hover-Option pruefen, Patient aufnehmen und direkt zum Helipad weiter.'
+            },
+            {
+                name: 'Timo Brandt',
+                role: 'Luftrettungskoordinator',
+                gender: 'male',
+                personality: 'präzise, belastbar, handlungsorientiert',
+                storySeed: '{name} koordiniert bei {targetName} die Verbindung zwischen Crew, Fundstelle und Klinikziel, damit Aufnahme und Abflug ohne unnoetige Schleifen laufen.',
+                greetingText: 'Hallo, ich halte Fundstelle und Klinikziel zusammen. Bitte ruhig in die Arbeitsposition, dann treffen wir die Aufnahmeentscheidung.'
+            },
+            {
+                name: 'Dr. Nele Berger',
+                role: 'Notärztin HEMS',
+                gender: 'female',
+                personality: 'konzentriert, ruhig, klar',
+                storySeed: '{name} begleitet die medizinische Seite des Heli-Einsatzes bei {targetName}; nach der Fundbestaetigung zaehlt eine stabile Aufnahme und ein direkter Transfer zum geeigneten Helipad.',
+                greetingText: 'Hi, ich achte medizinisch auf die Aufnahme. Wir brauchen eine stabile Position und danach einen klaren, direkten Flug zur Uebergabe.'
+            },
+            {
+                name: 'Jonas Marquardt',
+                role: 'Bergrettungs-Einsatzleiter',
+                gender: 'male',
+                personality: 'ruhig, erfahren, knapp',
+                storySeed: '{name} prueft bei {targetName} Gelaende, Anflugrichtung und Bodencrew-Situation, bevor die Heli-Crew Aufnahme oder Landung entscheidet.',
+                greetingText: 'Servus, ich schaue auf Gelaende und Bodencrew. Erst klare Lage, dann landen oder stabil arbeiten, dann raus zum Helipad.'
+            },
+            {
+                name: 'Sina Wolf',
+                role: 'Windenkoordinatorin',
+                gender: 'female',
+                personality: 'praezise, aufmerksam, belastbar',
+                storySeed: '{name} beurteilt bei {targetName}, ob eine Landung, ein kurzer Hover oder eine Winden-/Bergungsoption zur Fundstelle passt.',
+                greetingText: 'Hi, ich schaue auf Hindernisse, Wind und Bodenzeichen. Bitte ruhig in Position, dann entscheide ich mit der Crew den naechsten Schritt.'
+            },
+            {
+                name: 'Lukas Frei',
+                role: 'Klinik-Handoff-Koordinator',
+                gender: 'male',
+                personality: 'klar, strukturiert, ruhig',
+                storySeed: '{name} haelt waehrend des Einsatzes die Klinikannahme bereit, damit nach der Aufnahme bei {targetName} der Weiterflug zum Helipad nicht neu geplant werden muss.',
+                greetingText: 'Hallo, die Klinikannahme steht auf Abruf. Sobald wir aufnehmen, zaehlt ein sauberer Direktflug zum Helipad.'
+            }
         ],
         greetingText: 'Hi, das ist heute eine SAR-Heli-Bergung. Erst Fund bestätigen, dann an der Fundstelle landen oder stabil hovern, Patient aufnehmen und direkt zum Klinik-Helipad.',
         paxText: '1 PAX (SAR-Heli-Koordination)',
-        cargoPool: ['Rettungs- und Sanitätskit (38 lbs)', 'Winden-/Bergungspaket und MedPack (44 lbs)'],
+        cargoPool: [
+            'Rettungs- und Sanitätskit (38 lbs)',
+            'Winden-/Bergungspaket und MedPack (44 lbs)',
+            'HEMS-Rucksack und Immobilisationsset (36 lbs)',
+            'Bodenfunk-Relais und Landeplatzmarker (24 lbs)',
+            'Thermal-Handkamera und Heli-Checkmappe (18 lbs)',
+            'Klinik-Handoff-Pack und Monitoringtasche (32 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'hoch' },
         storyCue: 'Fokus: Fundbestätigung, stabile Heli-Bergung und medizinischer Handoff am Krankenhaus-Helipad.',
         opsNotes: [
@@ -2578,14 +2870,84 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'fire_observer_ops_v1',
         taskDomain: 'fire_watch',
         personas: [
-            { name: 'Klara Stein', role: 'Brandbeobachterin', gender: 'female', personality: 'sachlich, wachsam, präzise' },
-            { name: 'Markus Adler', role: 'Einsatzbeobachter', gender: 'male', personality: 'ruhig, analytisch, professionell' }
+            {
+                name: 'Klara Stein',
+                role: 'Brandbeobachterin',
+                gender: 'female',
+                personality: 'sachlich, wachsam, präzise',
+                storySeed: '{name} beobachtet bei {targetName} trockene Wald- oder Feldbereiche aus der Luft, weil Bodenmeldungen zu Rauch, Staub oder Hitzezeichen eingeordnet werden muessen.',
+                greetingText: 'Hi, ich schaue heute nach Rauchfahnen, trockenen Kanten und auffaelligen Hotspots bei {targetName}. Bitte ruhig und mit guter Uebersicht.'
+            },
+            {
+                name: 'Markus Adler',
+                role: 'Einsatzbeobachter',
+                gender: 'male',
+                personality: 'ruhig, analytisch, professionell',
+                storySeed: '{name} liefert fuer {targetName} ein sachliches Feuerlagebild: Zufahrten, Windrichtung, Waldrand, Felder und moegliche Rauchquellen werden geordnet betrachtet.',
+                greetingText: 'Hallo, ich brauche ein klares Lagebild, keine Dramatisierung. Wenn wir stabil fliegen, kann ich Rauch, Staub und Schatten sauber trennen.'
+            },
+            {
+                name: 'Nina Falk',
+                role: 'Forstschutz-Koordinatorin',
+                gender: 'female',
+                personality: 'aufmerksam, ruhig, naturkundig',
+                storySeed: '{name} prueft bei {targetName}, ob trockene Schneisen, Waldkanten oder Besucherwege nach einer Gefahrenmeldung aus der Luft auffaellig wirken.',
+                greetingText: 'Hi, ich achte auf Waldkante, Wege und trockene Schneisen. Ein ruhiger Blick reicht, dann kann der Forst am Boden gezielt nachsehen.'
+            },
+            {
+                name: 'Oskar Henning',
+                role: 'Leitstellen-Beobachter',
+                gender: 'male',
+                personality: 'knapp, klar, belastbar',
+                storySeed: '{name} nimmt bei {targetName} Sichtmeldungen fuer die Leitstelle auf und gleicht sie mit Zufahrten, Wind und moeglichen Bereitstellungsraeumen ab.',
+                greetingText: 'Moin, ich halte die Leitstelle auf Stand. Bitte stabile Boegen, damit ich Richtung, Rauchbild und Zufahrten sauber melden kann.'
+            },
+            {
+                name: 'Sofia Brandt',
+                role: 'Naturschutz-Rangerin',
+                gender: 'female',
+                personality: 'besonnen, wach, gelassen',
+                storySeed: '{name} beobachtet bei {targetName} sensible Heide-, Moor-, Wald- oder Hangbereiche, damit ein moegliches Feuer- oder Trockenstressbild frueh eingeordnet wird.',
+                greetingText: 'Hallo, ich schaue auf sensible Flaechen und Besucherwege. Wir brauchen keinen engen Kreis, nur einen guten Ueberblick.'
+            },
+            {
+                name: 'David Kranz',
+                role: 'Waldbrand-Fachberater',
+                gender: 'male',
+                personality: 'analytisch, ruhig, erfahren',
+                storySeed: '{name} bewertet bei {targetName} aus der Luft, ob sichtbare Rauch- oder Hitzehinweise zu Wind, Gelaende und Brennstoffflaechen passen.',
+                greetingText: 'Hi, ich vergleiche Rauchbild, Wind und Gelaende. Ruhig bleiben, dann koennen wir echte Hinweise von Fehlalarmen trennen.'
+            },
+            {
+                name: 'Mara Lenz',
+                role: 'Kommunal-Beobachterin',
+                gender: 'female',
+                personality: 'strukturiert, freundlich, sachlich',
+                storySeed: '{name} begleitet die Feuerwacht fuer die Gemeinde bei {targetName}; wichtig sind sichtbare Zufahrten, moegliche Sperrpunkte und ein klarer Bericht nach der Landung.',
+                greetingText: 'Hi, die Gemeinde braucht einen klaren Ueberblick. Ich notiere Zufahrten, Rauchrichtung und alles, was spaeter am Boden geprueft werden sollte.'
+            },
+            {
+                name: 'Henrik Paulsen',
+                role: 'Agrar-Brandwachenkontakt',
+                gender: 'male',
+                personality: 'bodenstaendig, aufmerksam, ruhig',
+                storySeed: '{name} beobachtet bei {targetName} Feldkanten, Ernteflaechen und angrenzende Wege, weil dort eine Meldung zu Rauch oder Hitzeentwicklung eingegangen ist.',
+                greetingText: 'Moin, ich schaue auf Feldkanten und Wege. Ein sauberer Ueberblick hilft mehr als ein tiefer Vorbeiflug.'
+            }
         ],
         greetingText: 'Hi, wir halten heute nach Rauchfahnen und Hotspots Ausschau. Bitte möglichst sauber und stabil fliegen.',
         paxText: '1 PAX (Brandbeobachtung)',
-        cargoPool: ['IR-Kamera und Tablet (21 lbs)', 'Feuerlage-Mapset (10 lbs)'],
+        cargoPool: [
+            'IR-Kamera und Tablet (21 lbs)',
+            'Feuerlage-Mapset (10 lbs)',
+            'Fernglas, Windkarte und Funkakku-Set (14 lbs)',
+            'Leitstellen-Tablet und Rauchmeldeformular (9 lbs)',
+            'Forstschutz-Mappe und GPS-Marker (12 lbs)',
+            'Thermal-Handkamera und Ersatzfunk (18 lbs)',
+            'Zufahrtskarten und Warnwestenpaket (16 lbs)'
+        ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: Frühwarnung, Hotspots und klare Meldungen.'
+        storyCue: 'Fokus: sachliche Feuerwacht mit konkretem Zielgebiet, Rauch-/Hotspot-Beobachtung, Wind-/Zufahrtsbezug und ruhigem Bericht; keine Einsatzdramatisierung ohne Datenanker.'
     },
     animal_transport: {
         id: 'animal_transport',
@@ -2594,8 +2956,22 @@ const MISSION_ROLE_TASK_PROFILES = {
         roleProfile: 'general_passenger_v1',
         taskDomain: 'animal_transport',
         personas: [
-            { name: 'Eva Maurer', role: 'Tierpflegerin', gender: 'female', personality: 'einfühlsam, organisiert, ruhig' },
-            { name: 'Tom Falk', role: 'Tierschutz-Kurier', gender: 'male', personality: 'ruhig, verantwortungsvoll, freundlich' },
+            {
+                name: 'Eva Maurer',
+                role: 'Tierpflegerin',
+                gender: 'female',
+                personality: 'einfühlsam, organisiert, ruhig',
+                storySeed: '{name} begleitet eine gesicherte Tiertransportbox; am Ziel wartet eine Station, Praxis oder Pflegestelle auf die ruhige Uebergabe.',
+                greetingText: 'Hi, die Box ist gesichert und der Zielkontakt ist vorbereitet. Bitte weich fliegen, dann bleibt die Uebergabe fuer das Tier entspannt.'
+            },
+            {
+                name: 'Tom Falk',
+                role: 'Tierschutz-Kurier',
+                gender: 'male',
+                personality: 'ruhig, verantwortungsvoll, freundlich',
+                storySeed: '{name} bringt ein kleines Tierschutz-Paket mit Transportbox, Unterlagen und Versorgungsnotiz zum Zielplatz, damit die weitere Betreuung dort direkt starten kann.',
+                greetingText: 'Moin, ich habe Box und Unterlagen bei mir. Ruhig ankommen reicht, am Ziel uebernimmt die Station ohne Umwege.'
+            },
             {
                 name: 'Dr. Nora Klein',
                 role: 'Tierärztin',
@@ -2619,6 +2995,30 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'warm, organisiert, klar',
                 storySeed: '{name} koordiniert den Transfer zur Auffangstation; der kurze Luftweg spart dem Tier einen langen Straßentransport.',
                 greetingText: 'Hi, danke fürs Mitnehmen. Je ruhiger der Flug, desto entspannter wird die Übergabe an der Station.'
+            },
+            {
+                name: 'Leon Gerber',
+                role: 'Wildvogel-Kurier',
+                gender: 'male',
+                personality: 'leise, sorgfaeltig, aufmerksam',
+                storySeed: '{name} begleitet eine abgedunkelte Vogelbox zur naechsten Wildvogelstation; nach der Landung zaehlt eine kurze, ruhige Uebergabe im GA-Bereich.',
+                greetingText: 'Hallo, die Vogelbox bleibt dunkel und ruhig. Bitte keine harten Manoever, die Station nimmt uns am Ziel direkt in Empfang.'
+            },
+            {
+                name: 'Katharina Moos',
+                role: 'Praxishilfe Tiermedizin',
+                gender: 'female',
+                personality: 'freundlich, genau, ruhig',
+                storySeed: '{name} fliegt mit Vet-Unterlagen, Medikamentenpaket und Transportbox zum Zielplatz, wo eine Praxis den Fall schon vorbereitet hat.',
+                greetingText: 'Hi, die Praxis am Ziel weiss Bescheid. Wir brauchen nur einen gleichmaessigen Flug und danach eine saubere Uebergabe.'
+            },
+            {
+                name: 'Arne Feld',
+                role: 'Auffangstellen-Fahrer',
+                gender: 'male',
+                personality: 'bodenstaendig, geduldig, verlässlich',
+                storySeed: '{name} uebernimmt am Ziel normalerweise den Weitertransport; heute begleitet er die Flugstrecke, damit Box, Waermedecke und Pflegezettel zusammen bleiben.',
+                greetingText: 'Moin, ich kenne die Station am Ziel. Bring uns ruhig hin, dann kann ich Box und Pflegezettel direkt weitergeben.'
             }
         ],
         greetingText: 'Hi, wir haben heute einen Tierschutzauftrag. Bitte möglichst ruhig fliegen, damit Übergabe und Transport entspannt bleiben.',
@@ -4466,36 +4866,7 @@ function bootAppOnce() {
     const lastDest = localStorage.getItem('last_icao_dest');
     if (lastDest) document.getElementById('startLoc').value = lastDest;
 
-    const savedKey = localStorage.getItem('ga_gemini_key');
-    if (savedKey) {
-        document.getElementById('apiKeyInput').value = savedKey;
-        const cache = _readApiKeyValidationCache();
-        const sameKey = cache && cache.sig === _apiKeyValidationSignature(savedKey);
-        const ageMs = sameKey ? (Date.now() - Number(cache.ts || 0)) : Number.POSITIVE_INFINITY;
-        if (sameKey && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < API_KEY_VALIDATION_TTL_MS) {
-            const minutesAgo = Math.max(1, Math.round(ageMs / 60000));
-            if (cache.ok === true) {
-                setApiKeyValidationStatus(`API-Key zuletzt vor ${minutesAgo} min geprueft (ok).`, 'ok');
-            } else {
-                setApiKeyValidationStatus(`Letzte API-Key Pruefung vor ${minutesAgo} min fehlgeschlagen.`, 'error');
-            }
-        } else {
-            queueApiKeyValidation(savedKey);
-        }
-    } else {
-        setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
-    }
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    if (apiKeyInput && !apiKeyInput.dataset.validationBound) {
-        apiKeyInput.addEventListener('input', () => {
-            saveApiKey(false);
-            if (_apiKeyValidationDebounceTimer) clearTimeout(_apiKeyValidationDebounceTimer);
-            _apiKeyValidationDebounceTimer = setTimeout(() => {
-                queueApiKeyValidation(apiKeyInput.value);
-            }, 700);
-        });
-        apiKeyInput.dataset.validationBound = '1';
-    }
+    initAiProviderSettings();
 
     const aiEnabled = localStorage.getItem('ga_ai_enabled');
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -4614,10 +4985,131 @@ if (document.readyState === 'loading') {
 }
 window.addEventListener('load', bootAppOnce, { once: true });
 
-let _apiKeyValidationRunId = 0;
+let _apiKeyValidationRunId = { gemini: 0, openai: 0 };
 let _apiKeyValidationDebounceTimer = null;
 const API_KEY_VALIDATION_CACHE_KEY = 'ga_gemini_key_validation';
+const OPENAI_KEY_VALIDATION_CACHE_KEY = 'ga_openai_key_validation';
 const API_KEY_VALIDATION_TTL_MS = 24 * 60 * 60 * 1000;
+const AI_PROVIDER_STORAGE_KEY = 'ga_ai_provider';
+const AI_MODEL_PROFILE_STORAGE_KEY = 'ga_ai_model_profile';
+const OPENAI_API_KEY_STORAGE_KEY = 'ga_openai_key';
+
+const AI_PROVIDER_LABELS = {
+    gemini: 'Gemini',
+    openai: 'OpenAI'
+};
+
+const AI_TEXT_MODEL_PROFILES = {
+    gemini: {
+        auto: [
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
+            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
+        ],
+        economy: [
+            ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+        ],
+        quality: [
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+        ]
+    },
+    openai: {
+        auto: [
+            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText'],
+            ['gpt-5.4-nano', 'OpenAI GPT-5.4 Nano', 'openaiText']
+        ],
+        economy: [
+            ['gpt-5.4-nano', 'OpenAI GPT-5.4 Nano', 'openaiText'],
+            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText']
+        ],
+        quality: [
+            ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText'],
+            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText']
+        ]
+    }
+};
+
+const AI_COST_ESTIMATE_COPY = {
+    gemini: {
+        auto: 'Text grob $0.01-0.05 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.08 extra, je nach Audiolaenge.',
+        economy: 'Text grob unter $0.01-0.02 pro Mission. Voice bleibt meist der groessere Anteil, ca. $0.01-0.08 extra.',
+        quality: 'Text grob $0.02-0.08 pro Mission. Voice mit 3.1 TTS: ca. $0.01-0.08 extra bei 5-15 Saetzen.'
+    },
+    openai: {
+        auto: 'Text grob $0.02-0.05 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.05 extra, je nach Audiolaenge.',
+        economy: 'Text grob $0.005-0.02 pro Mission. Voice bleibt separat: ca. $0.01-0.05 extra bei 5-15 Saetzen.',
+        quality: 'Text grob $0.06-0.15 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.'
+    }
+};
+
+function normalizeAiProvider(provider) {
+    return String(provider || '').toLowerCase() === 'openai' ? 'openai' : 'gemini';
+}
+
+function normalizeAiModelProfile(profile) {
+    const value = String(profile || '').toLowerCase();
+    return value === 'economy' || value === 'quality' ? value : 'auto';
+}
+
+function getSelectedAiProvider() {
+    const selectValue = document.getElementById('aiProviderSelect')?.value;
+    return normalizeAiProvider(selectValue || localStorage.getItem(AI_PROVIDER_STORAGE_KEY) || 'gemini');
+}
+window.getSelectedAiProvider = getSelectedAiProvider;
+
+function getSelectedAiModelProfile() {
+    const selectValue = document.getElementById('aiModelProfileSelect')?.value;
+    return normalizeAiModelProfile(selectValue || localStorage.getItem(AI_MODEL_PROFILE_STORAGE_KEY) || 'auto');
+}
+window.getSelectedAiModelProfile = getSelectedAiModelProfile;
+
+function getAiTextModelCandidates(provider = getSelectedAiProvider(), profile = getSelectedAiModelProfile()) {
+    const normalizedProvider = normalizeAiProvider(provider);
+    const normalizedProfile = normalizeAiModelProfile(profile);
+    return (AI_TEXT_MODEL_PROFILES[normalizedProvider]?.[normalizedProfile] || AI_TEXT_MODEL_PROFILES[normalizedProvider]?.auto || []).slice();
+}
+window.getAiTextModelCandidates = getAiTextModelCandidates;
+
+function getSelectedAiApiKey(provider = getSelectedAiProvider()) {
+    const normalized = normalizeAiProvider(provider);
+    if (normalized === 'openai') {
+        return String(document.getElementById('openAiApiKeyInput')?.value || localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY) || '').trim();
+    }
+    return String(document.getElementById('apiKeyInput')?.value || localStorage.getItem('ga_gemini_key') || '').trim();
+}
+window.getSelectedAiApiKey = getSelectedAiApiKey;
+
+function updateAiCostEstimate() {
+    const el = document.getElementById('aiCostEstimate');
+    if (!el) return;
+    const provider = getSelectedAiProvider();
+    const profile = getSelectedAiModelProfile();
+    const label = AI_PROVIDER_LABELS[provider] || provider;
+    const model = getAiTextModelCandidates(provider, profile)?.[0]?.[1] || 'Auto';
+    const estimate = AI_COST_ESTIMATE_COPY[provider]?.[profile] || '';
+    el.textContent = `${label} / ${model}: ${estimate}`;
+}
+window.updateAiCostEstimate = updateAiCostEstimate;
+
+function saveAiProvider(provider) {
+    const normalized = normalizeAiProvider(provider);
+    localStorage.setItem(AI_PROVIDER_STORAGE_KEY, normalized);
+    const select = document.getElementById('aiProviderSelect');
+    if (select) select.value = normalized;
+    updateAiCostEstimate();
+}
+window.saveAiProvider = saveAiProvider;
+
+function saveAiModelProfile(profile) {
+    const normalized = normalizeAiModelProfile(profile);
+    localStorage.setItem(AI_MODEL_PROFILE_STORAGE_KEY, normalized);
+    const select = document.getElementById('aiModelProfileSelect');
+    if (select) select.value = normalized;
+    updateAiCostEstimate();
+}
+window.saveAiModelProfile = saveAiModelProfile;
 
 function _apiKeyValidationSignature(rawKey) {
     const key = String(rawKey || '').trim();
@@ -4627,9 +5119,15 @@ function _apiKeyValidationSignature(rawKey) {
     return `${prefix}|${suffix}|${key.length}`;
 }
 
-function _readApiKeyValidationCache() {
+function _apiKeyValidationCacheKey(provider = 'gemini') {
+    return normalizeAiProvider(provider) === 'openai'
+        ? OPENAI_KEY_VALIDATION_CACHE_KEY
+        : API_KEY_VALIDATION_CACHE_KEY;
+}
+
+function _readApiKeyValidationCache(provider = 'gemini') {
     try {
-        const raw = localStorage.getItem(API_KEY_VALIDATION_CACHE_KEY);
+        const raw = localStorage.getItem(_apiKeyValidationCacheKey(provider));
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object') return null;
@@ -4639,18 +5137,18 @@ function _readApiKeyValidationCache() {
     }
 }
 
-function _writeApiKeyValidationCache(payload) {
+function _writeApiKeyValidationCache(payload, provider = 'gemini') {
     try {
-        localStorage.setItem(API_KEY_VALIDATION_CACHE_KEY, JSON.stringify(payload));
+        localStorage.setItem(_apiKeyValidationCacheKey(provider), JSON.stringify(payload));
     } catch (_) {}
 }
 
-function _clearApiKeyValidationCache() {
-    try { localStorage.removeItem(API_KEY_VALIDATION_CACHE_KEY); } catch (_) {}
+function _clearApiKeyValidationCache(provider = 'gemini') {
+    try { localStorage.removeItem(_apiKeyValidationCacheKey(provider)); } catch (_) {}
 }
 
-function setApiKeyValidationStatus(message, tone = 'neutral') {
-    const statusEl = document.getElementById('apiKeyStatus');
+function setApiKeyValidationStatus(message, tone = 'neutral', provider = 'gemini') {
+    const statusEl = document.getElementById(normalizeAiProvider(provider) === 'openai' ? 'openAiApiKeyStatus' : 'apiKeyStatus');
     if (!statusEl) return;
     const colorByTone = {
         neutral: '#888',
@@ -4662,31 +5160,60 @@ function setApiKeyValidationStatus(message, tone = 'neutral') {
     statusEl.style.color = colorByTone[tone] || colorByTone.neutral;
 }
 
-async function queueApiKeyValidation(rawKey) {
+function _restoreApiKeyValidationStatus(provider, key) {
+    const normalized = normalizeAiProvider(provider);
+    if (!key) {
+        setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalized]} API-Key fehlt.`, 'neutral', normalized);
+        return;
+    }
+    const cache = _readApiKeyValidationCache(normalized);
+    const sameKey = cache && cache.sig === _apiKeyValidationSignature(key);
+    const ageMs = sameKey ? (Date.now() - Number(cache.ts || 0)) : Number.POSITIVE_INFINITY;
+    if (sameKey && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < API_KEY_VALIDATION_TTL_MS) {
+        const minutesAgo = Math.max(1, Math.round(ageMs / 60000));
+        if (cache.ok === true) {
+            setApiKeyValidationStatus(`Zuletzt vor ${minutesAgo} min geprueft (ok).`, 'ok', normalized);
+        } else {
+            setApiKeyValidationStatus(`Letzte Pruefung vor ${minutesAgo} min fehlgeschlagen.`, 'error', normalized);
+        }
+    } else {
+        queueApiKeyValidation(key, normalized);
+    }
+}
+
+async function queueApiKeyValidation(rawKey, provider = 'gemini') {
+    const normalizedProvider = normalizeAiProvider(provider);
     const apiKey = String(rawKey || '').trim();
     const keySig = _apiKeyValidationSignature(apiKey);
-    const runId = ++_apiKeyValidationRunId;
+    const runId = Number(_apiKeyValidationRunId[normalizedProvider] || 0) + 1;
+    _apiKeyValidationRunId[normalizedProvider] = runId;
     if (!apiKey) {
-        _clearApiKeyValidationCache();
-        setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
+        _clearApiKeyValidationCache(normalizedProvider);
+        setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalizedProvider]} API-Key fehlt.`, 'neutral', normalizedProvider);
         return { ok: null, reason: 'empty' };
     }
 
-    setApiKeyValidationStatus('Pruefe API-Key...', 'pending');
+    setApiKeyValidationStatus('Pruefe API-Key...', 'pending', normalizedProvider);
 
     const controller = new AbortController();
     const timeoutMs = 8000;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(apiKey)}`;
-        const res = await fetch(url, {
-            method: 'GET',
-            cache: 'no-store',
-            signal: controller.signal
-        });
+        const res = normalizedProvider === 'openai'
+            ? await fetch('https://api.openai.com/v1/models', {
+                method: 'GET',
+                cache: 'no-store',
+                headers: { 'Authorization': `Bearer ${apiKey}` },
+                signal: controller.signal
+            })
+            : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(apiKey)}`, {
+                method: 'GET',
+                cache: 'no-store',
+                signal: controller.signal
+            });
 
-        if (runId !== _apiKeyValidationRunId) return { ok: null, reason: 'stale' };
+        if (runId !== _apiKeyValidationRunId[normalizedProvider]) return { ok: null, reason: 'stale' };
 
         if (res.ok) {
             _writeApiKeyValidationCache({
@@ -4694,8 +5221,8 @@ async function queueApiKeyValidation(rawKey) {
                 ts: Date.now(),
                 ok: true,
                 status: res.status
-            });
-            setApiKeyValidationStatus('API-Key ist gueltig und einsatzbereit.', 'ok');
+            }, normalizedProvider);
+            setApiKeyValidationStatus('API-Key ist gueltig und einsatzbereit.', 'ok', normalizedProvider);
             return { ok: true };
         }
 
@@ -4706,9 +5233,9 @@ async function queueApiKeyValidation(rawKey) {
         } catch (_) {}
         const suffix = apiMessage ? ` (${apiMessage})` : '';
         if (res.status === 400 || res.status === 401 || res.status === 403) {
-            setApiKeyValidationStatus(`API-Key ungueltig oder ohne Gemini-Berechtigung${suffix}`, 'error');
+            setApiKeyValidationStatus(`API-Key ungueltig oder ohne ${AI_PROVIDER_LABELS[normalizedProvider]}-Berechtigung${suffix}`, 'error', normalizedProvider);
         } else {
-            setApiKeyValidationStatus(`API-Key Pruefung fehlgeschlagen (HTTP ${res.status})${suffix}`, 'error');
+            setApiKeyValidationStatus(`API-Key Pruefung fehlgeschlagen (HTTP ${res.status})${suffix}`, 'error', normalizedProvider);
         }
         _writeApiKeyValidationCache({
             sig: keySig,
@@ -4716,38 +5243,78 @@ async function queueApiKeyValidation(rawKey) {
             ok: false,
             status: res.status,
             message: apiMessage
-        });
+        }, normalizedProvider);
         return { ok: false, status: res.status, message: apiMessage };
     } catch (err) {
-        if (runId !== _apiKeyValidationRunId) return { ok: null, reason: 'stale' };
+        if (runId !== _apiKeyValidationRunId[normalizedProvider]) return { ok: null, reason: 'stale' };
         const timedOut = err && err.name === 'AbortError';
-        setApiKeyValidationStatus(timedOut ? 'API-Key Pruefung Zeitlimit erreicht. Bitte erneut versuchen.' : 'API-Key Pruefung fehlgeschlagen (Netzwerk/CORS).', 'error');
+        setApiKeyValidationStatus(timedOut ? 'API-Key Pruefung Zeitlimit erreicht. Bitte erneut versuchen.' : 'API-Key Pruefung fehlgeschlagen (Netzwerk/CORS).', 'error', normalizedProvider);
         _writeApiKeyValidationCache({
             sig: keySig,
             ts: Date.now(),
             ok: false,
             status: 0,
             message: String(err?.message || err || '')
-        });
+        }, normalizedProvider);
         return { ok: false, status: 0, message: String(err?.message || err || '') };
     } finally {
         clearTimeout(timeoutId);
     }
 }
 
-function saveApiKey(shouldValidate = true) {
-    const input = document.getElementById('apiKeyInput');
+function saveApiKey(shouldValidate = true, provider = 'gemini') {
+    const normalizedProvider = normalizeAiProvider(provider);
+    const input = document.getElementById(normalizedProvider === 'openai' ? 'openAiApiKeyInput' : 'apiKeyInput');
     if (!input) return;
     const key = input.value.trim();
-    const previousKey = String(localStorage.getItem('ga_gemini_key') || '').trim();
-    localStorage.setItem('ga_gemini_key', key);
+    const storageKey = normalizedProvider === 'openai' ? OPENAI_API_KEY_STORAGE_KEY : 'ga_gemini_key';
+    const previousKey = String(localStorage.getItem(storageKey) || '').trim();
+    localStorage.setItem(storageKey, key);
     if (key !== previousKey) {
-        _clearApiKeyValidationCache();
-        if (!key) setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
-        else setApiKeyValidationStatus('API-Key geaendert. Warte auf Pruefung...', 'neutral');
+        _clearApiKeyValidationCache(normalizedProvider);
+        if (!key) setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalizedProvider]} API-Key fehlt.`, 'neutral', normalizedProvider);
+        else setApiKeyValidationStatus('API-Key geaendert. Warte auf Pruefung...', 'neutral', normalizedProvider);
     }
-    if (shouldValidate) queueApiKeyValidation(key);
+    updateAiCostEstimate();
+    if (shouldValidate) queueApiKeyValidation(key, normalizedProvider);
 }
+window.saveApiKey = saveApiKey;
+
+function _bindAiKeyInput(provider, inputId) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.validationBound) return;
+    input.addEventListener('input', () => {
+        saveApiKey(false, provider);
+        if (_apiKeyValidationDebounceTimer) clearTimeout(_apiKeyValidationDebounceTimer);
+        _apiKeyValidationDebounceTimer = setTimeout(() => {
+            queueApiKeyValidation(input.value, provider);
+        }, 700);
+    });
+    input.dataset.validationBound = '1';
+}
+
+function initAiProviderSettings() {
+    const provider = normalizeAiProvider(localStorage.getItem(AI_PROVIDER_STORAGE_KEY) || 'gemini');
+    const profile = normalizeAiModelProfile(localStorage.getItem(AI_MODEL_PROFILE_STORAGE_KEY) || 'auto');
+    const providerSelect = document.getElementById('aiProviderSelect');
+    const profileSelect = document.getElementById('aiModelProfileSelect');
+    if (providerSelect) providerSelect.value = provider;
+    if (profileSelect) profileSelect.value = profile;
+
+    const geminiKey = String(localStorage.getItem('ga_gemini_key') || '').trim();
+    const openAiKey = String(localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY) || '').trim();
+    const geminiInput = document.getElementById('apiKeyInput');
+    const openAiInput = document.getElementById('openAiApiKeyInput');
+    if (geminiInput) geminiInput.value = geminiKey;
+    if (openAiInput) openAiInput.value = openAiKey;
+
+    _restoreApiKeyValidationStatus('gemini', geminiKey);
+    _restoreApiKeyValidationStatus('openai', openAiKey);
+    _bindAiKeyInput('gemini', 'apiKeyInput');
+    _bindAiKeyInput('openai', 'openAiApiKeyInput');
+    updateAiCostEstimate();
+}
+
 function saveAiToggle() { const t = document.getElementById('aiToggle'); if (t) localStorage.setItem('ga_ai_enabled', t.checked); }
 
 /* =========================================================
@@ -7097,6 +7664,7 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
     }
     if (state === 'done') {
         if (/V3 Tools/i.test(String(dataSource || ''))) btn.classList.add('dispatch-lamp-ai-g3');
+        else if (/^OpenAI\b/i.test(String(dataSource || ''))) btn.classList.add('dispatch-lamp-ai-g3');
         else if (dataSource === "Gemini 3.0 Flash") btn.classList.add('dispatch-lamp-ai-g3');
         else if (dataSource === "Gemini 2.5 Flash") btn.classList.add('dispatch-lamp-ai-g25');
         else if (dataSource === "Gemini 2.5 Flash Lite") btn.classList.add('dispatch-lamp-ai-lite');
@@ -13320,14 +13888,27 @@ const TRAINING_AIRWORK_ITEMS = [
     'Slow Flight',
     'Haengekurven rechts/links',
     'Clean/Dirty Configuration Changes',
-    'VFR-Navigationsaufgabe mit Kurskorrektur'
+    'VFR-Navigationsaufgabe mit Kurskorrektur',
+    'Steig-/Sinkflug mit Leistungswechsel',
+    'Trim- und Speed-Control-Drills',
+    'Notverfahren mit sauberer Checklistenarbeit'
 ];
 const TRAINING_PATTERN_ITEMS = [
     'No-Flaps-Approach',
     'Engine-Out-Approach (simuliert)',
     'Touch-and-Go',
     'Missed Approach / Go-Around',
-    'Extra-Platzrunde mit stabilisiertem Endanflug'
+    'Extra-Platzrunde mit stabilisiertem Endanflug',
+    'Short-Field-Landing-Setup',
+    'Crosswind-Korrektur im Endanflug',
+    'Go-Around-Entscheidung mit Funkcall'
+];
+const TRAINING_CARGO_ITEMS = [
+    'Trainingsunterlagen, Kniebrett und Checklisten (10 lbs)',
+    'Pruefungsordner, Plotter und Ersatzkarten (12 lbs)',
+    'Headsettasche, Manoeverkarten und Debriefingbogen (9 lbs)',
+    'Tablet, Sichtschutzhaube und Trainingsmappe (8 lbs)',
+    'Leichter Simulationsblock und Checklistenpaket (11 lbs)'
 ];
 const INSTRUCTOR_PERSONA_LIBRARY = [
     {
@@ -13336,7 +13917,8 @@ const INSTRUCTOR_PERSONA_LIBRARY = [
         gender: 'male',
         personality: 'ruhig, präzise, motivierend',
         dialectHint: 'neutral',
-        greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.'
+        storySeed: '{name} nutzt den Flug zum Zielplatz fuer ein strukturiertes Uebungsprogramm: erst saubere Fluglage, dann Verfahren, am Ende ein kurzes Debriefing nach der Landung.',
+        greetingText: 'Morgen, ich bin Alex. Heute gibt es klare Aufgaben, ruhige Korrekturen und nach der Landung ein kurzes Debriefing.'
     },
     {
         name: 'Lea Hartmann',
@@ -13344,7 +13926,62 @@ const INSTRUCTOR_PERSONA_LIBRARY = [
         gender: 'female',
         personality: 'ruhig, präzise, motivierend',
         dialectHint: 'neutral',
-        greetingText: 'Hi, ich bin Lea. Heute trainieren wir strukturiert und ich gebe dir die Aufgaben Schritt für Schritt.'
+        storySeed: '{name} baut das Training Schritt fuer Schritt auf: erst Orientierung und Speed-Control, dann die geplanten Manoever, danach sauberer Anflug zum Zielplatz.',
+        greetingText: 'Hi, ich bin Lea. Heute trainieren wir strukturiert; ich gebe dir die Aufgaben Schritt fuer Schritt und lasse dir genug Zeit zum Sortieren.'
+    },
+    {
+        name: 'Mara Thiel',
+        role: 'FI(A) Schwerpunkt Airwork',
+        gender: 'female',
+        personality: 'klar, geduldig, aufmerksam',
+        dialectHint: 'neutral',
+        storySeed: '{name} moechte auf dem Weg zum Zielplatz sehen, wie sauber Leistung, Pitch, Trimmung und Blickfuehrung zusammenarbeiten.',
+        greetingText: 'Hi, ich achte heute auf Pitch, Power und Blickfuehrung. Wenn etwas nicht sauber sitzt, bauen wir es ruhig nochmal auf.'
+    },
+    {
+        name: 'Jonas Weber',
+        role: 'IFR-/VFR-Instruktor',
+        gender: 'male',
+        personality: 'sachlich, ruhig, methodisch',
+        dialectHint: 'neutral',
+        storySeed: '{name} legt den Schwerpunkt auf Verfahren und saubere Entscheidungswege: Briefing, Funk, Checklisten und stabile Flugphasen sollen zusammenpassen.',
+        greetingText: 'Hallo, ich schaue heute auf Verfahren und Entscheidungen. Lieber sauber vorbereitet als hektisch korrigiert.'
+    },
+    {
+        name: 'Nina Schubert',
+        role: 'Platzrunden-Coach',
+        gender: 'female',
+        personality: 'praezise, freundlich, direkt',
+        dialectHint: 'neutral',
+        storySeed: '{name} nutzt den Zielflug fuer Platzrunden- und Anflugtraining: Energie, Bahnbezug, Funk und Go-Around-Entscheidung stehen im Mittelpunkt.',
+        greetingText: 'Hi, heute geht es um stabile Anfluege und gute Entscheidungen. Ich rede knapp, damit du im Cockpit Platz zum Arbeiten hast.'
+    },
+    {
+        name: 'Paul Rieger',
+        role: 'Safety-Pilot und Fluglehrer',
+        gender: 'male',
+        personality: 'gelassen, erfahren, beobachtend',
+        dialectHint: 'neutral',
+        storySeed: '{name} setzt das Training als Safety-Refresher auf: ungewohnte Situationen werden kontrolliert angesprochen, aber der Flug bleibt ruhig und lehrbar.',
+        greetingText: 'Moin, wir machen heute einen sauberen Refresher. Ich gebe dir Szenarien, aber wir halten den Flug ruhig und kontrolliert.'
+    },
+    {
+        name: 'Sofia Keller',
+        role: 'Checkflug-Instruktorin',
+        gender: 'female',
+        personality: 'strukturiert, fair, genau',
+        dialectHint: 'neutral',
+        storySeed: '{name} begleitet einen pruefungsnahen Trainingsflug: Aufgaben, Standards und Debriefing sollen zeigen, wo der Pilot schon stabil ist und was noch Uebung braucht.',
+        greetingText: 'Hallo, ich beobachte heute fair und genau. Flieg sauber, sag laut mit, was du planst, dann haben wir ein gutes Debriefing.'
+    },
+    {
+        name: 'Henrik Faber',
+        role: 'Navigationstrainer',
+        gender: 'male',
+        personality: 'ruhig, analytisch, freundlich',
+        dialectHint: 'neutral',
+        storySeed: '{name} baut in den Zielflug kleine Navigationsaufgaben ein: Kurskorrektur, Landmarken, Windversatz und Anflugplanung sollen praktisch zusammenlaufen.',
+        greetingText: 'Hi, ich gebe dir unterwegs kleine Nav-Aufgaben. Es geht nicht um Stress, sondern darum, Kurs und Entscheidungen sauber zu halten.'
     }
 ];
 const CHARTER_PERSONA_LIBRARY = [
@@ -13449,6 +14086,7 @@ function _pickNextInstructorPersona() {
             gender: 'male',
             personality: 'ruhig, präzise, motivierend',
             dialectHint: 'neutral',
+            storySeed: '{name} nutzt den Flug zum Zielplatz fuer ein strukturiertes Uebungsprogramm mit ruhigen Korrekturen und Debriefing nach der Landung.',
             greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.'
         }];
     let idx = -1;
@@ -13489,18 +14127,23 @@ function enforceAptTrainingMission(mission = null, destName = '') {
     const modeLabel = String(plan?.mode || '').toLowerCase() === 'pattern'
         ? 'Platzrunden- und Anflugtraining'
         : 'Airwork- und Verfahrenstraining';
+    const instructorName = String(passenger?.name || 'Der Instruktor').trim();
+    const instructorRole = String(passenger?.role || 'Instruktor').trim();
+    const instructorCue = String(passenger?.storySeed || '').trim();
+    const cargoOptions = Array.isArray(TRAINING_CARGO_ITEMS) && TRAINING_CARGO_ITEMS.length ? TRAINING_CARGO_ITEMS : ['Trainingsunterlagen (10 lbs)'];
+    const cargoText = cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
     m.i = m.i || '🧑‍✈️';
     m.t = `Trainingsflug nach ${target}`;
-    m.s = `Heute fliegen wir ${modeLabel} auf dem Weg nach ${target}. Der Instruktor gibt unterwegs konkrete Uebungen vor: ${focus}. Es geht um saubere Verfahren, stabile Fluglage und ein ruhiges Debriefing nach der Landung.`;
+    m.s = `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Der Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
     m.cat = 'trn';
     m.passenger = passenger;
     m.pax = '1 PAX (Instruktor)';
-    m.cargo = 'Trainingsunterlagen (10 lbs)';
-    m.cargoText = 'Trainingsunterlagen (10 lbs)';
+    m.cargo = cargoText;
+    m.cargoText = cargoText;
     return {
         mission: m,
         paxText: '1 PAX (Instruktor)',
-        cargoText: 'Trainingsunterlagen (10 lbs)'
+        cargoText
     };
 }
 
@@ -20329,7 +20972,7 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
         targetScene: fallbackTargetScene,
         aptArrivalPlan: md.aptArrivalPlan || contract.aptArrivalPlan || null
     };
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const apiKey = getSelectedAiApiKey();
     const baseDebug = {
         source: 'local-fallback',
         sceneIntent,
@@ -20340,13 +20983,13 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
         fallbackArrivalPlan: fallback.aptArrivalPlan || null,
         promptVersion: MISSION_SCENE_PLANNER_V3_VERSION
     };
-    if (!apiKey) {
+    if (!apiKey || getSelectedAiProvider() !== 'gemini') {
         return {
             targetScene: fallback.targetScene,
             aptArrivalPlan: fallback.aptArrivalPlan || null,
             debug: {
                 ...baseDebug,
-                error: 'missing_api_key'
+                error: apiKey ? 'scene_planner_gemini_only' : 'missing_api_key'
             }
         };
     }
@@ -20936,19 +21579,92 @@ function _missionParseJsonTextDetailed(text = '') {
     return { parsed: null, mode: 'failed', error: lastError || 'json_parse_failed' };
 }
 
-async function fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
-    const models = [
-        ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
-        ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
-        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
-    ];
+function _openAiMessageText(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        return content.map(part => {
+            if (typeof part === 'string') return part;
+            if (typeof part?.text === 'string') return part.text;
+            if (typeof part?.content === 'string') return part.content;
+            return '';
+        }).join('').trim();
+    }
+    return '';
+}
+
+async function _fetchOpenAiChatCompletionText(apiKey, model, prompt, { jsonMode = false, timeoutMs = 14000, system = '' } = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const messages = [];
+        if (system) messages.push({ role: 'system', content: system });
+        messages.push({ role: 'user', content: String(prompt || '') });
+        const payload = {
+            model,
+            messages,
+            ...(jsonMode ? { response_format: { type: 'json_object' } } : {})
+        };
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            return { ok: false, status: res.status, text: '', error: `http_${res.status}_${model}:${errText.slice(0, 180)}` };
+        }
+        const data = await res.json();
+        const text = _openAiMessageText(data?.choices?.[0]?.message?.content).trim();
+        return { ok: true, status: res.status, text, usage: data?.usage || null };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
+    const selectedProvider = normalizeAiProvider(provider || getSelectedAiProvider());
+    const explicitKey = String(apiKey || '').trim();
+    const selectedKey = (selectedProvider === 'gemini' && explicitKey)
+        ? explicitKey
+        : String(getSelectedAiApiKey(selectedProvider) || explicitKey || '').trim();
+    if (!selectedKey) return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: 'missing_api_key' };
+    const models = getAiTextModelCandidates(selectedProvider);
     let lastError = '';
+    if (selectedProvider === 'openai') {
+        for (const [model, source, usageKey] of models) {
+            try {
+                const result = await _fetchOpenAiChatCompletionText(selectedKey, model, prompt, {
+                    jsonMode: true,
+                    timeoutMs,
+                    system: 'Antworte ausschliesslich mit einem gueltigen JSON-Objekt ohne Markdown.'
+                });
+                if (!result.ok) {
+                    lastError = result.error || `http_${result.status}_${model}`;
+                    continue;
+                }
+                const parsedResult = _missionParseJsonTextDetailed(result.text);
+                if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
+                    lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
+                    continue;
+                }
+                incrementApiUsage(usageKey);
+                return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', usage: result.usage || null };
+            } catch (err) {
+                lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+            }
+        }
+        return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed' };
+    }
     for (const [model, source, usageKey] of models) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
             const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(selectedKey)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -20966,14 +21682,19 @@ async function fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion = 'pl
                 continue;
             }
             incrementApiUsage(usageKey);
-            return { parsed: parsedResult.parsed, source, promptVersion, parseMode: parsedResult.mode || 'direct' };
+            return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct' };
         } catch (err) {
             lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
         } finally {
             clearTimeout(timeoutId);
         }
     }
-    return { parsed: null, source: 'none', promptVersion, error: lastError || 'planner_failed' };
+    return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed' };
+}
+window.fetchAiJsonWithFallback = fetchAiJsonWithFallback;
+
+async function fetchGeminiJsonWithFallback(prompt, apiKey, options = {}) {
+    return fetchAiJsonWithFallback(prompt, { ...options, apiKey });
 }
 
 async function resolveMissionPlannerV2Needs(needs = [], context = {}) {
@@ -21074,7 +21795,7 @@ ${JSON.stringify(resolvedNeeds || null)}
 
 async function fetchMissionPlannerV2(context = {}, options = {}) {
     if (!options.force && !isMissionPipelineV2Enabled()) return null;
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const first = await fetchGeminiJsonWithFallback(buildMissionPlannerV2Prompt(draft, null), apiKey, { promptVersion: 'planner-v2-pass1' });
@@ -21558,7 +22279,8 @@ function sanitizeMissionPlannerV3Result(raw = null, draft = null, resolvedNeeds 
 
 async function fetchMissionPlannerV3(context = {}) {
     if (!missionPipelineUsesToolPlanner()) return null;
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (getSelectedAiProvider() !== 'gemini') return null;
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const runContext = { ...context, apiKey };
@@ -24853,7 +25575,7 @@ ${JSON.stringify(contextBundle)}
 
 async function fetchMissionPlannerV4(context = {}) {
     if (!isMissionPipelineV4Enabled()) return null;
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const { working, bundle } = await _missionPipelineV4ResolveContextBundle(context, draft);
@@ -29249,7 +29971,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
 }
 
 async function fetchMissionWriterV4(context = {}) {
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
@@ -29267,7 +29989,7 @@ async function fetchMissionWriterV4(context = {}) {
 window.fetchMissionWriterV4 = fetchMissionWriterV4;
 
 async function fetchMissionWriterV5(context = {}) {
-    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
@@ -29292,8 +30014,7 @@ window.fetchMissionWriterV5 = fetchMissionWriterV5;
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+    const apiKey = getSelectedAiApiKey();
     if (!apiKey) return null;
 
     const poiCategories = [
@@ -30269,36 +30990,15 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
         };
     };
 
-    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
-    const reqOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
-
     try {
-        const resFlash3 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, reqOptions);
-        if (resFlash3.ok) {
-            const data = await resFlash3.json();
-            const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)))));
-            incrementApiUsage('flash');
-            return buildGeminiMissionResult(parsed, "Gemini 3.0 Flash");
-        }
-    } catch (e) { }
-
-    try {
-        const resFlash = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, reqOptions);
-        if (resFlash.ok) {
-            const data = await resFlash.json();
-            const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)))));
-            incrementApiUsage('flash');
-            return buildGeminiMissionResult(parsed, "Gemini 2.5 Flash");
-        }
-    } catch (e) { }
-
-    try {
-        const resLite = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, reqOptions);
-        if (resLite.ok) {
-            const data = await resLite.json();
-            const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)))));
-            incrementApiUsage('lite');
-            return buildGeminiMissionResult(parsed, "Gemini 2.5 Flash Lite");
+        const result = await fetchAiJsonWithFallback(prompt, {
+            apiKey,
+            promptVersion: 'legacy-mission-writer',
+            timeoutMs: 18000
+        });
+        if (result?.parsed) {
+            const parsed = sanitizeMissionPayloadText(enforceMedicalTransferPayload(enforceCharterPayload(enforceTrainingInstructorPayload(result.parsed))));
+            return buildGeminiMissionResult(parsed, result.source || 'KI Dispatcher');
         }
     } catch (e) { }
     return null;
@@ -30318,9 +31018,11 @@ function getApiUsage() {
     let data = JSON.parse(localStorage.getItem('ga_api_fuel'));
 
     if (!data || data.date !== today || data.flash === undefined) {
-        data = { date: today, flash: 0, lite: 0 };
+        data = { date: today, flash: 0, lite: 0, openaiText: 0, openaiTts: 0 };
         localStorage.setItem('ga_api_fuel', JSON.stringify(data));
     }
+    data.openaiText = Number(data.openaiText || 0);
+    data.openaiTts = Number(data.openaiTts || 0);
     return data;
 }
 
@@ -30329,7 +31031,15 @@ function incrementApiUsage(modelType) {
     let data = getApiUsage();
     if (modelType === 'flash') data.flash++;
     else if (modelType === 'lite') data.lite++;
-    localStorage.setItem('ga_api_fuel', JSON.stringify({ date: today, flash: data.flash, lite: data.lite }));
+    else if (modelType === 'openaiTts') data.openaiTts++;
+    else if (modelType === 'openaiText') data.openaiText++;
+    localStorage.setItem('ga_api_fuel', JSON.stringify({
+        date: today,
+        flash: data.flash,
+        lite: data.lite,
+        openaiText: data.openaiText,
+        openaiTts: data.openaiTts
+    }));
     updateApiFuelMeter();
 }
 
@@ -30337,7 +31047,7 @@ function updateApiFuelMeter() {
     const needle = document.getElementById('apiNeedle');
     if (!needle) return;
     const data = getApiUsage();
-    let used = data.flash + data.lite;
+    let used = data.flash + data.lite + data.openaiText + data.openaiTts;
     const maxCalls = 40;
 
     if (used > maxCalls) used = maxCalls;
@@ -34293,7 +35003,7 @@ async function generateMission(options = {}) {
     }
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
-    const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
+    const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^(Gemini|OpenAI)\b/i.test(String(m._source)));
     const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
     const isDeferredPickupPassenger = String(bushSpec?.targetMode || '') === 'strip_then_return'
         && String(bushSpec?.pickupKind || '') === 'passenger';
@@ -34757,14 +35467,19 @@ async function generateMission(options = {}) {
 
         if (led) {
             led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
-            if (dataSource === "Gemini 3.0 Flash") { led.classList.add('led-flash3'); }
+            if (/^OpenAI\b/i.test(String(dataSource || ''))) { led.classList.add('led-flash3'); }
+            else if (dataSource === "Gemini 3.0 Flash") { led.classList.add('led-flash3'); }
             else if (dataSource === "Gemini 2.5 Flash") { led.classList.add('led-blue'); }
             else if (dataSource === "Gemini 2.5 Flash Lite") { led.classList.add('led-green'); }
             else { led.classList.add('led-red'); }
         }
 
         document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
-        if (dataSource === "Gemini 3.0 Flash") {
+        if (/^OpenAI\b/i.test(String(dataSource || ''))) {
+            document.getElementById('mkO').classList.add('on');
+            document.getElementById('mkM').classList.add('on');
+        }
+        else if (dataSource === "Gemini 3.0 Flash") {
             document.getElementById('mkO').classList.add('on');
             document.getElementById('mkM').classList.add('on');
         }

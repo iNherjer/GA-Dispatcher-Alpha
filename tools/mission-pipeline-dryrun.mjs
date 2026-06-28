@@ -340,16 +340,22 @@ function parsePromptTheme(prompt) {
   return String(prompt || '').match(/Thema-Pflicht:[^"]*"([^"]+)"/i)?.[1] || '';
 }
 
-function parseDispatchForm(prompt) {
-  const raw = extractTaggedBlock(prompt, 'DISPATCH_FORM');
+function parseTaggedJson(prompt, tag) {
+  const raw = extractTaggedBlock(prompt, tag);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch (_) { return null; }
 }
 
+function parseDispatchForm(prompt) {
+  return parseTaggedJson(prompt, 'DISPATCH_FORM');
+}
+
+function parseMissionBriefForm(prompt) {
+  return parseTaggedJson(prompt, 'MISSION_BRIEF_FORM');
+}
+
 function parseMissionWriterV4Contract(prompt) {
-  const raw = extractTaggedBlock(prompt, 'CONTRACT');
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (_) { return null; }
+  return parseTaggedJson(prompt, 'CONTRACT');
 }
 
 function dryrunTargetCategory(dispatchForm) {
@@ -429,15 +435,18 @@ function dryrunInspectionText(target, category) {
 }
 
 function buildMissionAiPayload(prompt) {
-  const start = parseContextValue(prompt, 'Start') || 'Bremen-Hemelingen';
-  const targetLine = parseContextValue(prompt, 'Ziel') || 'Zielgebiet';
+  const briefForm = parseMissionBriefForm(prompt);
+  const start = parseContextValue(prompt, 'Start') || briefForm?.route?.from || 'Bremen-Hemelingen';
+  const briefTarget = String(briefForm?.route?.to || briefForm?.target?.name || '').trim();
+  const briefMode = String(briefForm?.identity?.mode || '').toLowerCase();
+  const targetLine = parseContextValue(prompt, 'Ziel') || (briefTarget ? `${briefTarget} (${briefMode === 'poi' ? 'POI/Wendepunkt' : 'Zielflughafen'})` : 'Zielgebiet');
   const target = targetLine.replace(/\s+\((POI\/Wendepunkt|Zielflughafen)\)\s*$/i, '').trim();
-  const distanceNm = parseContextValue(prompt, 'Distanz') || '';
+  const distanceNm = parseContextValue(prompt, 'Distanz') || briefForm?.route?.distanceNm || '';
   const distanceLabel = String(distanceNm || '?').replace(/\s*NM\s*$/i, '').trim() || '?';
-  const isPoi = /POI\/Wendepunkt/i.test(targetLine) || /RUNDFLUG-REGEL/i.test(prompt);
+  const isPoi = /POI\/Wendepunkt/i.test(targetLine) || /RUNDFLUG-REGEL/i.test(prompt) || briefMode === 'poi';
   const forcedTaskDomain = parseForcedTaskDomain(prompt);
   const dispatchForm = parseDispatchForm(prompt);
-  const formTaskDomain = String(dispatchForm?.required?.taskDomain || '').toLowerCase();
+  const formTaskDomain = String(dispatchForm?.required?.taskDomain || briefForm?.identity?.taskDomain || briefForm?.people?.taskDomain || '').toLowerCase();
   const targetCategory = dryrunTargetCategory(dispatchForm);
   const theme = parsePromptTheme(prompt);
   const taskAndTheme = `${forcedTaskDomain} ${formTaskDomain} ${theme}`;
@@ -965,6 +974,154 @@ function buildMissionAiPayload(prompt) {
         targetRadiusNm: 0,
         targetDwellMin: 0,
         greetingText: `Hi, ich muss nach ${target} fuer einen sachlichen Beitrag am Boden; ein ruhiger Transfer reicht voellig.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'club_utility') {
+    return {
+      title: `Vereins-/Utility-Flug nach ${target}`,
+      story: `Heute fliegt ein Vereinskontakt mit kleiner Werkzeug- und Dokumententasche nach ${target}. Am Zielplatz wartet ein kurzer Hangar-, Technik- oder Clubheimtermin; der Flug ist kein Drama, sondern ein sauberer GA-Utility-Lauf mit klarer Uebergabe am Vorfeld.`,
+      pax: '1 PAX (Vereinskoordination)',
+      cargo: 'Werkzeug- und Dokumententasche (24 lbs)',
+      sceneIntent: {
+        summary: 'A-B-Utility-Flug ohne separate Zielszene; Anlass liegt in Vereinskontakt, kleiner Fracht und Termin am Zielplatz.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein POI-Arbeitsauftrag', 'keine Einsatzlage', 'kein Sightseeing'],
+        densityHint: 'none',
+        notes: 'Vereins-/Utility bleibt praktischer A-B-Flug.'
+      },
+      passenger: {
+        name: 'Lena Hartig',
+        role: 'Vereinskoordinatorin',
+        gender: 'female',
+        personality: 'pragmatisch, freundlich, organisiert',
+        dialectHint: 'neutral',
+        roleProfile: 'club_utility_v1',
+        taskDomain: 'club_utility',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        storySeed: `{name} bringt fuer den Verein Unterlagen, Schluessel und eine kleine Ersatzteilsendung nach ${target}; dort wartet ein kurzer Termin mit Platzwart oder Vorstand.`,
+        greetingText: `Hi, ich habe die Vereinsmappe und die kleine Sendung dabei. Am Ziel in ${target} wartet jemand vom Platz, also einfach sauber und planbar hin.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'tour_guide_knowledge') {
+    return {
+      title: `Wissensflug: ${target}`,
+      story: `Ein Lern-Guide begleitet den Flug zu ${target}, damit aus dem Blick von oben ein verstaendlicher Orts- oder Landschaftskontext wird. Der Guide erklaert unterwegs wenige gepruefte Fakten, sichtbare Lagebezuege und einen klaren Merksatz, statt den Flug in einen Arbeitsauftrag zu drehen.`,
+      pax: '1 PAX (Lern-Guide)',
+      cargo: 'Tablet mit Ortsfakten und Offline-Karten (5 lbs)',
+      sceneIntent: {
+        summary: 'POI-Lernflug ohne separate Zielszene; Fakten und Orientierung tragen die Mission.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein technischer Check', 'keine Einsatzlage', 'keine erfundenen Ortsdaten'],
+        densityHint: 'none',
+        notes: 'Wissensflug bleibt Erklaer- und Orientierungsauftrag.'
+      },
+      passenger: {
+        name: 'Mila Hartung',
+        role: 'Lern-Guide',
+        gender: 'female',
+        personality: 'klar, neugierig, anschaulich',
+        dialectHint: 'neutral',
+        roleProfile: 'tour_guide_learning_v1',
+        taskDomain: 'poi_learning_guide',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        storySeed: `{name} macht ${target} fuer den Piloten verstaendlich: sichtbare Lage, Name, Nutzung und ein bis zwei gepruefte Fakten sollen unterwegs locker haengen bleiben.`,
+        greetingText: `Hi, ich bin heute dein Lern-Guide. Ich erklaere unterwegs kurz, was man bei ${target} wirklich sieht und warum der Ort interessant ist.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'search_and_rescue') {
+    return {
+      title: `Sucheinsatz bei ${target}`,
+      story: `Bei ${target} braucht die Einsatzleitung ein ruhiges Luftlagebild. An Bord sitzt eine SAR-Koordination mit Suchraster, Funkliste und Optik; der Auftrag ist, Wege, Randbereiche oder Uferabschnitte sauber abzusuchen und nur belastbare Hinweise weiterzugeben.`,
+      pax: '1 PAX (SAR-Koordination)',
+      cargo: 'Optik- und SAR-Kit (24 lbs)',
+      sceneIntent: {
+        summary: 'POI-Suchflug mit sparsamem Suchhinweis; keine bereits geloeste Rettungslage.',
+        environment: 'Suchgebiet',
+        visibleIdeas: ['Suchraster aus der Luft', 'kleiner Bodenhinweis', 'sparsame Marker'],
+        avoid: ['keine Rettungskolonne', 'keine Unfallfahrzeuge', 'keine ueberladene Szene'],
+        densityHint: 'sparse',
+        notes: 'Suchmuster und Lagebild bleiben Hauptzweck.'
+      },
+      passenger: {
+        name: 'Lea Winter',
+        role: 'SAR-Koordinatorin',
+        gender: 'female',
+        personality: 'klar, belastbar, fokussiert',
+        dialectHint: 'neutral',
+        roleProfile: 'rescue_coordination_v1',
+        taskDomain: 'search_and_rescue',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'hoch',
+        targetAltFt: 2300,
+        targetRadiusNm: 3,
+        targetDwellMin: 4,
+        storySeed: `{name} koordiniert bei ${target} eine Suchrunde aus der Luft, weil Bodenmeldungen zu Wegen, Randbereichen oder sichtbaren Signalen noch kein klares Lagebild ergeben.`,
+        greetingText: `Hi, wir fliegen heute ein ruhiges Suchmuster bei ${target}. Ich brauche Uebersicht, klare Calls und keine wilden Manoever.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'fire_watch') {
+    return {
+      title: `Feuerwacht bei ${target}`,
+      story: `Bei ${target} gibt es eine frische Rauch- oder Hotspot-Meldung, die aus der Luft sachlich eingeordnet werden soll. Die Brandbeobachtung achtet auf Rauchrichtung, trockene Kanten, Zufahrten und sichtbare Hotspots; nach dem Ueberflug geht eine klare Meldung an Leitstelle oder Forstkontakt.`,
+      pax: '1 PAX (Brandbeobachtung)',
+      cargo: 'IR-Kamera, Tablet und Feuerlage-Mapset (21 lbs)',
+      sceneIntent: {
+        summary: 'Feuerwacht mit kleinem Rauch-/Hotspot-Anker und sachlichem Lagebild.',
+        environment: 'Wald, Feldkante oder offenes Zielgebiet',
+        visibleIdeas: ['leichte Rauchfahne', 'trockene Kante', 'Zufahrtsbezug'],
+        avoid: ['keine Grossbrand-Inszenierung', 'keine Feuerwehrkolonne', 'keine Unfallstelle'],
+        densityHint: 'sparse',
+        notes: 'Feuerwacht bleibt Beobachtungslage.'
+      },
+      passenger: {
+        name: 'Klara Stein',
+        role: 'Brandbeobachterin',
+        gender: 'female',
+        personality: 'sachlich, wachsam, praezise',
+        dialectHint: 'neutral',
+        roleProfile: 'fire_observer_ops_v1',
+        taskDomain: 'fire_watch',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 2400,
+        targetRadiusNm: 3,
+        targetDwellMin: 3,
+        storySeed: `{name} beobachtet bei ${target} trockene Wald- oder Feldbereiche aus der Luft, weil Bodenmeldungen zu Rauch, Staub oder Hitzezeichen eingeordnet werden muessen.`,
+        greetingText: `Hi, ich schaue heute nach Rauchfahnen, trockenen Kanten und auffaelligen Hotspots bei ${target}. Bitte ruhig und mit guter Uebersicht.`,
         trainingPlan: null
       }
     };

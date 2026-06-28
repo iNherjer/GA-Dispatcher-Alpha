@@ -290,7 +290,11 @@ const BUSH_DISPATCH_PROFILES = {
             'Versorgungskisten und Werkzeug (86 lbs)',
             'Medkits und Funkbatterien (54 lbs)',
             'Camp-Proviant und Ersatzteile (92 lbs)',
-            'Treibstoffkanister und Wartungskit (118 lbs)'
+            'Treibstoffkanister und Wartungskit (118 lbs)',
+            'Solarlader, Wasserfilter und Ersatzfunk (64 lbs)',
+            'Generatorriemen, Schraubensatz und Oelpack (72 lbs)',
+            'Ranger-Kuehlbox, Batterien und Papierkarten (58 lbs)',
+            'Trail-Crew-Proviant und Markierungsset (76 lbs)'
         ],
         opsNotes: [
             'Stabiler Short-Field-Anflug, kein Hektik-Pattern.',
@@ -307,7 +311,10 @@ const BUSH_DISPATCH_PROFILES = {
         cargoPool: [
             'Duffelbags und Kameraausruestung (42 lbs)',
             'Campingausruestung und Tagesrucksaecke (58 lbs)',
-            'Arbeitskoffer und Funkgeraet (26 lbs)'
+            'Arbeitskoffer und Funkgeraet (26 lbs)',
+            'Lodge-Duffel, Jacken und kleine Werkzeugrolle (38 lbs)',
+            'Feldtasche, Tabletcase und Probenbox leer (30 lbs)',
+            'Angelrohr, Trockenbeutel und leichter Kuehlbeutel (44 lbs)'
         ],
         opsNotes: [
             'Ruhiger Tal-/Gelandeanflug fuer einen kontrollierten Ausstieg am Strip.',
@@ -324,7 +331,11 @@ const BUSH_DISPATCH_PROFILES = {
         cargoPool: [
             'Tagesrucksaecke und Fotoequipment (24 lbs)',
             'Outdoor-Kit und Kartenrolle (18 lbs)',
-            'Angel- und Camptaschen (34 lbs)'
+            'Angel- und Camptaschen (34 lbs)',
+            'Trailrucksack, Fernglas und Regenjacken (28 lbs)',
+            'Kamerarucksack, Stativtasche und Filtercase (31 lbs)',
+            'Lodge-Daypack und leichte Provianttasche (22 lbs)',
+            'Packraft-Zubehoer und Trockenbeutel (36 lbs)'
         ],
         opsNotes: [
             'Backcountry-Charakter: Strecke ruhig lesen, Terrain bewusst managen.',
@@ -341,7 +352,10 @@ const BUSH_DISPATCH_PROFILES = {
         cargoPool: [
             'Strip-Checkliste, Kamera und Funkmappe (18 lbs)',
             'Inspektionskoffer, Markierspray und Tablet (24 lbs)',
-            'Werkzeugrolle, Foto-Kit und Betriebsunterlagen (21 lbs)'
+            'Werkzeugrolle, Foto-Kit und Betriebsunterlagen (21 lbs)',
+            'Windsack-Leine, Messband und Fototafel (16 lbs)',
+            'Drainage-Mappe, GPS-Marker und Ersatzfunk (20 lbs)',
+            'Betriebsflaechen-Checkset und Warnflaggen (23 lbs)'
         ],
         opsNotes: [
             'Ziel ist ein kurzer Recon-Run ueber Strip, Vorfeld oder Anflugraum, nicht nur die Landung am Platz.',
@@ -358,7 +372,9 @@ const BUSH_DISPATCH_PROFILES = {
         cargoPool: [
             'Leichter Rueckflug-Survival-Kit und Funkmappe (12 lbs)',
             'Basis-Werkzeug und Lash-Straps fuer den Leerflug (18 lbs)',
-            'Nur Bordunterlagen und Notfallausruestung fuer den Pickup-Leg (8 lbs)'
+            'Nur Bordunterlagen und Notfallausruestung fuer den Pickup-Leg (8 lbs)',
+            'Ersatzheadset, Wasserflasche und Pickup-Manifest (10 lbs)',
+            'Lash-Straps, Decke und kleine Erste-Hilfe-Tasche (14 lbs)'
         ],
         opsNotes: [
             'Outbound bewusst leer halten, Pickup erst am Zielstrip aufnehmen.',
@@ -375,7 +391,11 @@ const BUSH_DISPATCH_PROFILES = {
         cargoPool: [
             'Ersatzteilkiste und Werkzeugtasche fuer den Rueckflug (46 lbs)',
             'Funkakku-Case und Wartungsunterlagen fuer die Heimholung (34 lbs)',
-            'Versiegelte Utility-Kiste mit Betriebsbedarf fuer den RTB-Leg (58 lbs)'
+            'Versiegelte Utility-Kiste mit Betriebsbedarf fuer den RTB-Leg (58 lbs)',
+            'Generatorstarter, Riemensatz und Pruefmappe fuer die Basis (52 lbs)',
+            'Kuehlbox mit Probenbeuteln und Ranger-Notizen (40 lbs)',
+            'Leichte Materialkiste, Lash-Straps und Rueckgabeschein (36 lbs)',
+            'Defektes Funkrelais im Alukoffer und Antennentasche (48 lbs)'
         ],
         opsNotes: [
             'Outbound bewusst leer halten, Pickup-Fracht erst am Zielstrip aufnehmen.',
@@ -390,13 +410,43 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Maya Brooks',
             role: 'Rangerin',
             gender: 'female',
-            greetingText: 'Danke fuers Fliegen. Wir laden am Strip aus und gehen danach direkt ins Gelaende.'
+            storySeed: '{name} muss von {homeName} zum abgelegenen Strip bei {targetName}, weil dort eine Ranger-Crew Material, Funkcheck und kurze Lagebesprechung fuer den naechsten Gelaendetag vorbereitet.',
+            greetingText: 'Danke fuers Fliegen. Bei {targetName} wartet die Crew am Strip; wir laden ruhig aus und gehen danach direkt ins Gelaende.'
         },
         {
             name: 'Cole Mercer',
             role: 'Lodge Manager',
             gender: 'male',
-            greetingText: 'Danke fuers Mitnehmen. Wir haben Ausruestung dabei und brauchen eine ruhige Landung am Zielstrip.'
+            storySeed: '{name} bringt Lodge-Unterlagen und kleine Ausruestung nach {targetName}, wo vor dem Abend noch Vorrat, Gaesteliste und Bootssteg abgestimmt werden muessen.',
+            greetingText: 'Danke fuers Mitnehmen. Bei {targetName} wartet die Lodge-Crew; eine ruhige Landung macht den ganzen Uebergang einfacher.'
+        },
+        {
+            name: 'Nora Vale',
+            role: 'Feldbiologin',
+            gender: 'female',
+            storySeed: '{name} reist zum Strip bei {targetName}, um von dort aus eine kurze Feldrunde zu starten; Probenbox und Tablet muessen nach der Landung direkt ins Camp.',
+            greetingText: 'Hi, meine Feldtasche ist hinten. Bei {targetName} geht es direkt weiter ins Camp, also bitte ruhig und sauber rein.'
+        },
+        {
+            name: 'Eli Turner',
+            role: 'Generator-Techniker',
+            gender: 'male',
+            storySeed: '{name} wird bei {targetName} an der Aussenstelle erwartet, weil Generator, Batteriebox oder Relais noch vor der Nacht geprueft werden sollen.',
+            greetingText: 'Moin, am Strip bei {targetName} wartet jemand mit dem kleinen Generatorproblem. Ruhig hin, Werkzeug raus, dann kann ich direkt anfangen.'
+        },
+        {
+            name: 'Sophie Grant',
+            role: 'Backcountry-Paramedic',
+            gender: 'female',
+            storySeed: '{name} bringt ein kleines Bereitschafts- und Funkpaket zur Station bei {targetName}, damit die Crew fuer die naechsten Tage wieder komplett ist.',
+            greetingText: 'Hallo, das Med- und Funkpaket bleibt griffbereit. Bei {targetName} nimmt die Station uns direkt am Strip auf.'
+        },
+        {
+            name: 'Owen Brooks',
+            role: 'Trail-Crew-Leiter',
+            gender: 'male',
+            storySeed: '{name} fliegt mit Markierungsset und Crew-Mappe nach {targetName}, wo eine Trail-Mannschaft ihren naechsten Abschnitt vom Strip aus startet.',
+            greetingText: 'Hi, die Crew wartet bei {targetName} mit der Trailkarte. Wir brauchen keine Eile, nur eine saubere Landung und einen kurzen Ausstieg.'
         }
     ],
     bush_scenic_hopper: [
@@ -404,13 +454,43 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Evan Holt',
             role: 'Outdoor Guide',
             gender: 'male',
-            greetingText: 'Heute geht es in die Wildnis. Ein ruhiger Bush-Hop zum Strip reicht uns voellig.'
+            storySeed: '{name} nutzt den Bush-Hop nach {targetName} als Start fuer eine kleine Wildnisroute; nach der Landung sollen Rucksack, Karte und erster Trail direkt bereitliegen.',
+            greetingText: 'Heute geht es bei {targetName} wirklich raus in die Wildnis. Ein ruhiger Bush-Hop zum Strip reicht uns voellig.'
         },
         {
             name: 'Leah Carter',
             role: 'Fotografin',
             gender: 'female',
-            greetingText: 'Perfekt, danke. Ich will den Flug ruhig halten und am Ziel ein paar Tage draussen arbeiten.'
+            storySeed: '{name} bleibt nach der Landung bei {targetName} fuer ein Foto- und Lichtfenster draussen; der Flug ist der Auftakt zum eigentlichen Aufenthalt am Strip.',
+            greetingText: 'Perfekt, danke. Ich will ruhig bei {targetName} ankommen und danach ein paar Tage draussen fotografieren.'
+        },
+        {
+            name: 'Mira Stone',
+            role: 'Lodge-Gast',
+            gender: 'female',
+            storySeed: '{name} wird bei {targetName} von einer kleinen Lodge-Crew abgeholt; der Reiz ist nicht Sightseeing aus dem Cockpit, sondern das Ankommen an einem abgelegenen Ort.',
+            greetingText: 'Hi, ich freue mich auf den Moment, wenn wir bei {targetName} wirklich aussteigen. Bitte eher weich als sportlich.'
+        },
+        {
+            name: 'Cal Reed',
+            role: 'Angler',
+            gender: 'male',
+            storySeed: '{name} fliegt mit Angelrohr und Trockenbeutel nach {targetName}, weil der Fluss- oder Seezugang dort vom Strip aus am besten erreichbar ist.',
+            greetingText: 'Moin, die Angeltasche ist gesichert. Bring uns ruhig nach {targetName}, danach gehoert der Tag dem Wasser.'
+        },
+        {
+            name: 'Anna Brooks',
+            role: 'Trekking-Gast',
+            gender: 'female',
+            storySeed: '{name} startet bei {targetName} eine kurze Huetten- oder Trailnacht; Rucksack, Regenjacke und Karte sind der eigentliche Grund fuer den Flug.',
+            greetingText: 'Hi, ich habe Rucksack und Karte dabei. Bei {targetName} faengt der Trail an, also einfach ruhig ankommen.'
+        },
+        {
+            name: 'Noah Fields',
+            role: 'Naturfilmer',
+            gender: 'male',
+            storySeed: '{name} braucht bei {targetName} einen abgelegenen Einstiegspunkt fuer eine kleine Naturfilm-Session; Kamera und Stativ sollen nach der Landung direkt raus.',
+            greetingText: 'Hallo, die Kamera bleibt bis zur Landung verpackt. Bei {targetName} brauche ich dann nur Zeit, Licht und einen ruhigen Start vom Strip.'
         }
     ],
     bush_recon_return: [
@@ -418,25 +498,50 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Nora Hale',
             role: 'Airstrip-Inspektorin',
             gender: 'female',
+            storySeed: '{name} prueft bei {targetName} aus der Luft Bahn, Randstreifen und Anflugraum, damit die Basis den naechsten Verkehr nicht blind einplant.',
             greetingText: 'Wir schauen uns dort draussen heute den Zustand von Strip, Vorfeld und Anflugraum an. Wenn das Lagebild sauber ist, drehen wir ohne Umweg wieder heim.'
         },
         {
             name: 'Grant Mercer',
             role: 'Ranger-Koordinator',
             gender: 'male',
+            storySeed: '{name} braucht bei {targetName} einen kurzen Recon-Run fuer Rangerbetrieb, Zufahrt und moegliche Sperrpunkte, danach geht der Bericht zurueck nach {homeName}.',
             greetingText: 'Ich brauche nur einen ruhigen Kontrollflug ueber den Platz und die direkte Umgebung. Danach haben wir genug fuer den Bericht und gehen direkt wieder zurueck.'
         },
         {
             name: 'Elena Brooks',
             role: 'Backcountry-Operationsleiterin',
             gender: 'female',
+            storySeed: '{name} will nach dem letzten Wetterzug bei {targetName} aus der Luft klaeren, ob Bahn, Vorfeld und Materialbereich fuer den naechsten Einsatz sauber wirken.',
             greetingText: 'Nach dem letzten Wetterzug wollen wir dort unten keine Ueberraschungen auf dem Strip haben. Ein sauberer Ueberflug, ein kurzer Check aus der Luft und dann direkt wieder heim.'
         },
         {
             name: 'Mason Reed',
             role: 'Forst-Ranger',
             gender: 'male',
+            storySeed: '{name} achtet bei {targetName} auf Treibholz, Spurrinnen, Zufahrtsbereich und Hindernisse, damit die Forstcrew ihre naechste Bodenrunde planen kann.',
             greetingText: 'Am Platz gab es zuletzt Hinweise auf Treibholz, tiefe Spurrinnen und moegliche Hindernisse im Zufahrtsbereich. Wir machen die Runde sauber, notieren alles und fliegen dann ohne Stop wieder raus.'
+        },
+        {
+            name: 'Kara Milton',
+            role: 'Drainage-Inspektorin',
+            gender: 'female',
+            storySeed: '{name} begleitet den Recon bei {targetName}, weil Wasserlaeufe, weiche Randzonen oder Unterspuelungen nach Regen aus der Luft zuerst grob eingeordnet werden sollen.',
+            greetingText: 'Hi, ich schaue auf Drainage, Kanten und weiche Stellen. Wir brauchen nur einen ruhigen Run und danach die direkte Rueckkehr.'
+        },
+        {
+            name: 'Sam Ortega',
+            role: 'Materialplatz-Koordinator',
+            gender: 'male',
+            storySeed: '{name} prueft bei {targetName}, ob Materiallager, Zufahrt und Abstellflaeche frei genug fuer den naechsten Supply-Flug sind.',
+            greetingText: 'Hallo, ich achte auf Vorfeld, Zufahrt und lose Gegenstaende. Wenn das Bild klar ist, drehen wir nach {homeName} zurueck.'
+        },
+        {
+            name: 'Lena Cross',
+            role: 'Windsack- und Markierungsprueferin',
+            gender: 'female',
+            storySeed: '{name} kontrolliert bei {targetName} Windsack, Markierungen, Bahnenden und moegliche Hindernisse, bevor der Strip wieder in die Planung kommt.',
+            greetingText: 'Hi, ich brauche den Blick auf Windsack, Bahnenden und Markierungen. Bitte gleichmaessig, danach reicht uns der Rueckflug.'
         }
     ],
     bush_pickup_strip: [
@@ -477,6 +582,32 @@ const BUSH_PERSONA_LIBRARY = {
                 returnReason: 'In {homeName} übernimmt die Technikleitung seine Relaisdaten, Ersatzteilnotizen und den Frequenzplan für die nächste Crew',
                 boardingCue: 'Die Relais laufen wieder, die Messdaten sind im Tablet, und die kalte Nacht hier draußen spare ich mir gern.',
                 departureCue: 'Der Antennencheck ist sauber abgeschlossen; in {homeName} warten Relaisdaten, Frequenzplan und Ersatzteilentscheidung.'
+            }
+        },
+        {
+            name: 'Mira Coleman',
+            role: 'Backcountry-Medizinerin',
+            gender: 'female',
+            greetingText: 'Danke, dass du rauskommst. Ich habe bei {targetName} die kleine Versorgungsschicht abgeschlossen, Material gezählt und die medizinische Box neu versiegelt. Bring mich bitte zurück nach {homeName}; dort wartet die Übergabe an die nächste Crew.',
+            pickupStory: {
+                exactWhere: 'am Striprand bei {targetName}, neben einer roten Medizintasche, einer versiegelten kleinen Box und einem zusammengefalteten Campstuhl',
+                whyThere: 'Sie hat an der Außenstelle bei {targetName} eine kurze medizinische Bereitschaftsschicht beendet, Verbrauchsmaterial gezählt, die Funknotizen abgeglichen und die versiegelte Box für die Basis vorbereitet',
+                returnReason: 'In {homeName} uebergibt sie Verbrauchsliste, Funknotizen und die versiegelte Box an die naechste Bereitschaftscrew',
+                boardingCue: 'Die Med-Box ist versiegelt, die Liste ist fertig, und ich bin bereit fuer den Rueckflug.',
+                departureCue: 'Die Basis braucht die Verbrauchsliste und die Box, damit die naechste Crew wieder vollstaendig rausgehen kann.'
+            }
+        },
+        {
+            name: 'Caleb Stone',
+            role: 'Trail-Crew-Vermesser',
+            gender: 'male',
+            greetingText: 'Gutes Timing. Ich habe bei {targetName} die Markierungen am Trailkopf gesetzt und die weiche Stelle am Bach vermessen. Zurück in {homeName} muessen die Werte in die Crewplanung, bevor morgen Material rausgeht.',
+            pickupStory: {
+                exactWhere: 'am kurzen Bahnende bei {targetName}, neben einem Rucksack, Vermessungsstab, GPS-Tablet und zwei kleinen Markierungsbeuteln',
+                whyThere: 'Er hat am Trailkopf bei {targetName} Markierungen gesetzt, eine weiche Bachquerung vermessen und die Materialpunkte fuer die naechste Trail-Crew dokumentiert',
+                returnReason: 'In {homeName} werden seine GPS-Punkte und Materialnotizen fuer den morgigen Supply- und Crewplan gebraucht',
+                boardingCue: 'Die Markierungen sitzen, die GPS-Punkte sind gespeichert, und die Beutel koennen mit zurueck.',
+                departureCue: 'Die Trail-Crew wartet auf die Messpunkte; ohne die Werte geht morgen das falsche Material raus.'
             }
         }
     ]
@@ -623,11 +754,14 @@ function _buildBushPickupBriefingStory({ passenger = null, bushSpec = null, home
 function _buildBushPassenger(profileId = 'bush_charter_strip', context = {}) {
     const persona = _pickBushPersona(profileId, context);
     if (!persona) return null;
+    const storySeed = _applyBushTemplateText(persona.storySeed || persona.personalStoryCue || '', context);
     const templatedPersona = {
         ...persona,
+        storySeed: storySeed || ' ',
+        personalStoryCue: storySeed || ' ',
         greetingText: _applyBushTemplateText(persona.greetingText || '', context)
     };
-    const passenger = buildCharterPassenger(templatedPersona);
+    const passenger = buildCharterPassenger(templatedPersona, templatedPersona);
     if (!passenger || typeof passenger !== 'object') return null;
     passenger.role = String(templatedPersona.role || passenger.role || 'Bush Passenger').trim();
     passenger.greetingText = String(templatedPersona.greetingText || passenger.greetingText || '').trim();
@@ -837,24 +971,27 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
     let story = `Ein kurzer Backcountry-Transfer fuehrt dich heute von ${homeName} nach ${targetName}. Flugweg, Energie und Landung sollen bewusst konservativ bleiben.`;
     if (profile.id === 'bush_supply_strip') {
         title = `Backcountry Supply: ${targetName}`;
-        story = `Ein abgelegener Strip bei ${targetName} braucht heute eine kleine Versorgungsladung aus ${homeName}. Keine Hektik: sauber navigieren, das Gelaende lesen und erst nach vollem Stillstand am Ziel entladen.`;
+        story = `Ein abgelegener Strip bei ${targetName} braucht heute ${cargoText} aus ${homeName}. Die Ladung passt zum lokalen Betrieb draussen: sauber navigieren, das Gelaende lesen und erst nach vollem Stillstand am Ziel entladen.`;
         paxText = '0 PAX';
     } else if (profile.id === 'bush_charter_strip') {
         passenger = _buildBushPassenger(profile.id, { homeName, targetName });
+        const paxCue = String(passenger?.storySeed || '').trim();
         title = `Bush Charter: ${targetName}`;
-        story = `${passenger?.role || 'Ein Chartergast'} muss von ${homeName} zu einem abgelegenen Strip bei ${targetName}. Der Auftrag lebt von ruhiger Flugfuehrung, sauberem Terrain-Management und einem kontrollierten Ausstieg direkt am Ziel.`;
+        story = `${paxCue || `${passenger?.name || 'Ein Chartergast'} muss von ${homeName} zu einem abgelegenen Strip bei ${targetName}.`} Gepaeck/Fracht: ${cargoText}. Der Auftrag lebt von ruhiger Flugfuehrung, sauberem Terrain-Management und einem kontrollierten Ausstieg direkt am Ziel.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_scenic_hopper') {
         passenger = _buildBushPassenger(profile.id, { homeName, targetName });
+        const paxCue = String(passenger?.storySeed || '').trim();
         title = `Bush Adventure: ${targetName}`;
-        story = `${passenger?.role || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop. Der kurze Hinflug bringt die Person an einen abgelegenen Strip, wo nach der sauberen Landung der Aufenthalt oder Outdoor-Plan beginnt.`;
+        story = `${paxCue || `${passenger?.name || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop.`} Mit an Bord: ${cargoText}. Der kurze Hinflug bringt den Gast an einen abgelegenen Strip, wo nach der sauberen Landung der Aufenthalt oder Outdoor-Plan beginnt.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_recon_return') {
         passenger = _buildBushPassenger(profile.id, { homeName, targetName });
+        const paxCue = String(passenger?.storySeed || '').trim();
         const reconFocusLabel = String(bushSpec?.reconFocusLabel || 'Strip-Check').trim();
         const reconStory = String(bushSpec?.reconFocus || '').trim();
         title = `Bush Recon RTB: ${targetName}`;
-        story = `${passenger?.role || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} nach ${targetName}, um dort einen ${reconFocusLabel} durchzufuehren. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich und den Betriebsflaechen; konkret sollt ihr ${reconStory || 'den Zustand von Strip und Umfeld bewerten'}. Danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
+        story = `${paxCue || `${passenger?.name || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} nach ${targetName}, um dort einen ${reconFocusLabel} durchzufuehren.`} Ausruestung: ${cargoText}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich und den Betriebsflaechen; konkret sollt ihr ${reconStory || 'den Zustand von Strip und Umfeld bewerten'}. Danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_pickup_strip') {
         passenger = pickupPassengerForSpec || _buildBushPassenger(profile.id, { homeName, targetName });
@@ -863,10 +1000,11 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         paxText = passenger?.role ? `0 PAX am Start · 1 PAX Pickup (${passenger.role})` : '0 PAX am Start · 1 PAX Pickup';
         cargoText = '-';
     } else if (profile.id === 'bush_pickup_cargo') {
+        const pickupLabel = String(bushSpec?.pickupLabel || 'Rueckholfracht am Bush-Strip').trim();
         title = `Bush-Cargo-Rueckholung: ${targetName}`;
-        story = `An einem abgelegenen Strip bei ${targetName} wartet heute eine Rueckholfracht auf Abholung. Du fliegst leer von ${homeName} raus, nimmst die bereitliegende Ladung nach der Landung direkt am Treffpunkt auf und bringst sie ohne Zwischenstopp wieder zum Heimatplatz.`;
+        story = `An einem abgelegenen Strip bei ${targetName} wartet heute ${pickupLabel} auf Abholung. Du fliegst leer von ${homeName} raus, nimmst die bereitliegende Ladung nach der Landung direkt am Treffpunkt auf und bringst sie ohne Zwischenstopp wieder zum Heimatplatz.`;
         paxText = '0 PAX';
-        cargoText = '-';
+        cargoText = `Pickup am Ziel: ${pickupLabel}`;
     }
     return {
         mission: {
