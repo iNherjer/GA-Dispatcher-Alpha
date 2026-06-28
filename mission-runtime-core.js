@@ -551,7 +551,12 @@ function _missionEndReadiness(lat = null, lon = null) {
 
 function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-farewell') {
     _missionPhaseDebugPush('trigger', { name: '_missionSceneFinishRuntimeAfterDeboard', reason });
-    _missionCargoMarkPassengerUnloaded({ reason: `${reason}-passenger-sync` });
+    const endSceneStarted = _tryStartMissionEndScene(reason, { force: true });
+    _missionCargoMarkPassengerUnloaded({
+        reason: `${reason}-passenger-sync`,
+        playAudioCue: !endSceneStarted,
+        spawnUnloadedObject: !endSceneStarted
+    });
     let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
         ? _missionCargoFinalizeMissionOutcome({ source: reason })
         : null;
@@ -568,7 +573,6 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
         droppedRequired: (cargoOutcome?.droppedRequired || []).join(','),
         damagedRequired: (cargoOutcome?.damagedRequired || []).join(',')
     });
-    const endSceneStarted = _tryStartMissionEndScene(reason, { force: true });
     _setMissionClosePending({ reason, outcome: cargoOutcome });
     return endSceneStarted || cargoOutcome || true;
 }
@@ -598,7 +602,7 @@ function _missionFarewellRecordWithCargoOutcome(record) {
 function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
     _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard', reason });
     if (typeof window.triggerPaxFarewell !== 'function') return false;
-    if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
+    if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload({ ignorePassenger: true })) {
         _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard:blocked-unload', reason });
         return false;
     }

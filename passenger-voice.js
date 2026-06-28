@@ -4739,6 +4739,8 @@ function _rememberAndShowPrepared(text, speaker, eventLabel) {
     _lastSpokenText = text;
     _lastSpokenSpeaker = speaker;
     _capturePoiNarrativeMemory(eventLabel, text);
+    _captureBushPickupNarrativeMemory(eventLabel, text);
+    _captureBushCargoPickupNarrativeMemory(eventLabel, text);
     _showPaxMessage(text, eventLabel);
 }
 
@@ -5649,7 +5651,17 @@ window.paxVoicePlayBoarding = async function() {
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
-        await _speakPreparedText(key, text, speaker, 'Boarding');
+        const cueId = (window.activePassenger || _missionHasPax())
+            ? _paxMissionAudioCueId('cargo', 'passenger_load', 'boarding_pax')
+            : 'none';
+        await _speakPreparedText(key, text, speaker, 'Boarding', {
+            beforeAudio: cueId && cueId !== 'none'
+                ? (playEpoch) => _paxPlayAudioCue(cueId, `${key}|boarding-cue`, {
+                    gain: 0.38,
+                    variantScope: 'event'
+                }, playEpoch)
+                : null
+        });
         if (!_paxEpochCurrent(epoch)) return false;
         _paxBoardingDone = true;
         _paxGreetingDone = true;
@@ -7795,6 +7807,123 @@ function _notifyFarewellSpeechCompleteIfCurrent(epoch, reason = 'pax-farewell-co
     _notifyFarewellSpeechComplete(reason);
 }
 
+function _farewellPreparedContext(record = null) {
+    let rec = (record && typeof record === 'object') ? { ...record } : {};
+    if (!rec.missionCargoOutcome && typeof _missionCargoEvaluateFarewellOutcome === 'function') {
+        try {
+            const outcome = _missionCargoEvaluateFarewellOutcome();
+            if (outcome && typeof outcome === 'object' && outcome.status !== 'none') {
+                rec.missionCargoOutcome = outcome;
+                rec.missionFailed = !!outcome.failed;
+            }
+        } catch (_) {}
+    }
+    const cargoOutcome = rec?.missionCargoOutcome || null;
+    const forceFailureFallback = !!(
+        rec?.missionFailed
+        || rec?.poiAborted
+        || cargoOutcome?.failed
+    );
+    if (!window.activePassenger || !_missionHasPax()) {
+        const prompt = _cargoOnlyFarewellPrompt(rec);
+        if (!prompt) return null;
+        return {
+            key: _paxMissionAudioKey('farewell-cargo'),
+            prompt,
+            speaker: _cargoMissionSpeaker('farewell'),
+            eventLabel: 'Verabschiedung',
+            logLabel: 'CargoFarewell'
+        };
+    }
+    const speaker = _speakerSnapshotForActivePax();
+    if (forceFailureFallback) {
+        return {
+            key: _paxMissionAudioKey('farewell-failed'),
+            text: _failedMissionFarewellFallback(rec),
+            speaker,
+            eventLabel: 'Verabschiedung',
+            logLabel: 'Farewell'
+        };
+    }
+    const prompt = _farewellPrompt(rec);
+    if (!prompt) return null;
+    return {
+        key: _paxMissionAudioKey('farewell'),
+        prompt,
+        speaker,
+        eventLabel: 'Verabschiedung',
+        logLabel: 'Farewell'
+    };
+}
+
+window.paxVoicePrepareFarewell = function(record = null) {
+    const epoch = _paxMissionEpoch;
+    const ctx = _farewellPreparedContext(record);
+    if (!ctx?.key) return Promise.resolve(null);
+    const existing = _paxPreparedAudio.get(ctx.key);
+    if (existing && existing.epoch != null && !_paxEpochCurrent(existing.epoch)) {
+        _paxPreparedAudio.delete(ctx.key);
+    } else if (existing?.text || existing?.textPromise) {
+        return existing.textPromise || Promise.resolve(existing);
+    }
+    if (ctx.text) {
+        _paxPreparedAudio.set(ctx.key, {
+            text: ctx.text,
+            speaker: ctx.speaker,
+            audio: null,
+            promise: null,
+            epoch
+        });
+        _prepareTextAsTTS(ctx.key, ctx.text, ctx.speaker, epoch);
+        return Promise.resolve(_paxPreparedAudio.get(ctx.key) || null);
+    }
+    const apiKey = _getApiKey();
+    if (!apiKey || !ctx.prompt) return Promise.resolve(null);
+    const textPromise = (async () => {
+        if (!_paxEpochCurrent(epoch)) return null;
+        try {
+            _paxLog(`${ctx.logLabel || 'Farewell'} Preload → API-Call`, 'event');
+            _logRoleConsistencyCheck(ctx.eventLabel || 'Verabschiedung');
+            const spokenTextRaw = await _generateSpokenText(apiKey, ctx.prompt);
+            if (!_paxEpochCurrent(epoch)) return null;
+            const spokenText = _injectPattonvilleJuliusEasteregg(
+                _injectPattonvilleReportingPointsHint(
+                    _normalizeSpokenText(spokenTextRaw),
+                    ctx.eventLabel || 'Verabschiedung'
+                ),
+                ctx.eventLabel || 'Verabschiedung'
+            );
+            if (!spokenText) return null;
+            _paxPreparedAudio.set(ctx.key, {
+                text: spokenText,
+                speaker: ctx.speaker,
+                audio: null,
+                promise: null,
+                epoch
+            });
+            _prepareTextAsTTS(ctx.key, spokenText, ctx.speaker, epoch);
+            return _paxPreparedAudio.get(ctx.key) || null;
+        } catch (e) {
+            if (!_paxEpochCurrent(epoch)) return null;
+            _paxLog(`${ctx.logLabel || 'Farewell'} Preload Fehler: ${e.message || e}`, 'warn');
+            const rec = _paxPreparedAudio.get(ctx.key) || {};
+            rec.textPromise = null;
+            rec.epoch = epoch;
+            _paxPreparedAudio.set(ctx.key, rec);
+            return null;
+        }
+    })();
+    _paxPreparedAudio.set(ctx.key, {
+        prompt: ctx.prompt,
+        speaker: ctx.speaker,
+        textPromise,
+        audio: null,
+        promise: null,
+        epoch
+    });
+    return textPromise;
+};
+
 window.triggerPaxFarewell = async function(record) {
     const epoch = _paxMissionEpoch;
     _paxLog(`triggerPaxFarewell | tts:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
@@ -7802,62 +7931,32 @@ window.triggerPaxFarewell = async function(record) {
         _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-already-done');
         return false;
     }
-    if (!window.activePassenger || !_missionHasPax()) {
-        const cargoPrompt = _cargoOnlyFarewellPrompt(record);
-        if (cargoPrompt) {
-            _paxFarewellDone = true;
-            const delayMs = _paxVoiceEnabled ? 1500 : 0;
-            const speaker = _cargoMissionSpeaker('farewell');
-            _paxLog(`CargoFarewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
-            _paxMissionTimeout(async () => {
-                try {
-                    await _speakAndShow(cargoPrompt, 'Verabschiedung', speaker);
-                } finally {
-                    _notifyFarewellSpeechCompleteIfCurrent(epoch, 'cargo-farewell-complete');
-                }
-            }, delayMs);
-            return true;
-        }
-        _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-no-pax');
+    const ctx = _farewellPreparedContext(record);
+    if (!ctx?.key) {
+        _notifyFarewellSpeechCompleteIfCurrent(epoch, window.activePassenger ? 'pax-farewell-no-prompt' : 'pax-farewell-no-pax');
         return false;
     }
     _paxFarewellDone = true;
-    const cargoOutcome = record?.missionCargoOutcome || null;
-    const forceFailureFallback = !!(
-        record?.missionFailed
-        || record?.poiAborted
-        || cargoOutcome?.failed
-    );
-    const prompt = _farewellPrompt(record);
-    if (!prompt) {
-        _paxFarewellDone = false;
-        _paxLog('Farewell: kein Prompt', 'warn');
-        _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-no-prompt');
-        return false;
-    }
-    const delayMs = _paxVoiceEnabled ? 3000 : 0;
-    if (forceFailureFallback) {
-        const fallbackText = _failedMissionFarewellFallback(record);
-        const key = _paxMissionAudioKey('farewell-failed');
-        const speaker = _speakerSnapshotForActivePax();
-        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
-        _prepareTextAsTTS(key, fallbackText, speaker, epoch);
-        _paxLog(`Farewell → lokaler Failure-Fallback in ${Math.round(delayMs / 1000)}s`, 'event');
-        _paxMissionTimeout(async () => {
-            try {
-                await _speakPreparedText(key, fallbackText, speaker, 'Verabschiedung');
-            } finally {
-                _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-complete');
-            }
-        }, delayMs);
-        return true;
-    }
-    _paxLog(`Farewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
+    let prepared = null;
+    try {
+        prepared = await window.paxVoicePrepareFarewell(record);
+    } catch (_) {}
+    if (!_paxEpochCurrent(epoch)) return false;
+    prepared = prepared || _paxPreparedAudio.get(ctx.key) || null;
+    const preparedReady = !!String(prepared?.text || '').trim();
+    const delayMs = _paxVoiceEnabled ? (preparedReady ? 250 : 3000) : 0;
+    _paxLog(`${ctx.logLabel || 'Farewell'} → ${preparedReady ? 'Prepared Audio/Text' : 'API-Call'} in ${Math.round(delayMs / 100) / 10}s`, 'event');
     _paxMissionTimeout(async () => {
         try {
-            await _speakAndShow(prompt, 'Verabschiedung');
+            const currentPrepared = preparedReady ? prepared : (_paxPreparedAudio.get(ctx.key) || null);
+            const text = String(currentPrepared?.text || '').trim();
+            if (text) {
+                await _speakPreparedText(ctx.key, text, currentPrepared?.speaker || ctx.speaker, ctx.eventLabel || 'Verabschiedung');
+            } else if (ctx.prompt) {
+                await _speakAndShow(ctx.prompt, ctx.eventLabel || 'Verabschiedung', ctx.speaker);
+            }
         } finally {
-            _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-complete');
+            _notifyFarewellSpeechCompleteIfCurrent(epoch, window.activePassenger ? 'pax-farewell-complete' : 'cargo-farewell-complete');
         }
     }, delayMs);
     return true;

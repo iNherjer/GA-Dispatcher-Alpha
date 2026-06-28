@@ -1621,10 +1621,15 @@ window.missionCargoGetManifestSnapshot = function() {
     return JSON.parse(JSON.stringify(_missionCargoEnsureManifest()));
 };
 
-function _missionCargoNeedsUnload() {
+function _missionCargoNeedsUnload(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     if (manifest.isPoi) return false;
-    return _missionCargoLoadedItems(manifest).some(item => _missionCargoItemNeedsUnloadHere(item) && item.status !== 'unloaded');
+    const ignorePassenger = !!options?.ignorePassenger;
+    return _missionCargoLoadedItems(manifest).some(item => {
+        if (!_missionCargoItemNeedsUnloadHere(item) || item.status === 'unloaded') return false;
+        if (ignorePassenger && _missionCargoIsPassengerItem(item)) return false;
+        return true;
+    });
 }
 window.missionCargoNeedsUnload = _missionCargoNeedsUnload;
 
@@ -1729,10 +1734,12 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = true;
     }
-    _missionCargoPlayAudioCue('boarding_pax', item, wasUnloaded ? 'passenger_reload' : 'passenger_load', {
-        gain: 0.38,
-        variantScope: 'event'
-    });
+    if (options.playAudioCue !== false) {
+        _missionCargoPlayAudioCue('boarding_pax', item, wasUnloaded ? 'passenger_reload' : 'passenger_load', {
+            gain: 0.38,
+            variantScope: 'event'
+        });
+    }
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
             _missionCargoSendManualPassengerCommand(item, 'load', {
@@ -1790,17 +1797,19 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
-    _missionCargoPlayAudioCue('deboarding_pax', item, 'passenger_unload', {
-        gain: 0.38,
-        variantScope: 'event'
-    });
+    if (options.playAudioCue !== false) {
+        _missionCargoPlayAudioCue('deboarding_pax', item, 'passenger_unload', {
+            gain: 0.38,
+            variantScope: 'event'
+        });
+    }
     if (!window.simModeActive && window.liveTrackerConnected) {
         if (options.manualAnimation === true) {
             _missionCargoSendManualPassengerCommand(item, 'unload', {
                 reason: options.reason || 'passenger-manual-unload',
                 boardingPoint: options.boardingPoint || _missionCargoPassengerBoardingPoint()
             });
-        } else {
+        } else if (options.spawnUnloadedObject !== false) {
             const pos = _missionCargoCommandBasePos();
             const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
             if (hasPos) {
@@ -1887,8 +1896,10 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             ? manifest.items.filter(item => item.pickupLocation === 'target')
             : manifest.items);
     const requiredMissing = manifest.items.filter(item => item.required && item.pickupLocation !== 'target' && item.status !== 'loaded' && item.status !== 'unloaded').length;
-    const requiredUnloadMissing = manifest.items.filter(item => item.required && _missionCargoItemNeedsUnloadHere(item) && item.status === 'loaded').length;
+    const requiredUnloadBlockingMissing = manifest.items.filter(item => item.required && _missionCargoItemNeedsUnloadHere(item) && item.status === 'loaded' && !_missionCargoIsPassengerItem(item)).length;
     const requiredPickupMissing = visibleItems.filter(item => item.required && item.status !== 'loaded' && item.status !== 'unloaded').length;
+    const unloadCompletesMission = isUnload && _missionRuntimeGroundEndReady();
+    const passengerDeboardPending = isUnload && unloadCompletesMission && visibleItems.some(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
     const signature = manifest.dispatchSignature && typeof manifest.dispatchSignature === 'object' ? manifest.dispatchSignature : null;
     const signatureAnimating = !!signature && !isUnload && !isPickup && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now();
     const signatureReady = !!signature && !signatureAnimating;
@@ -1910,13 +1921,18 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const canReloadNearby = _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
         const passengerSceneBusy = isPassenger && manualPassengerSceneBusy;
         const passengerSceneBusyLabel = passengerSceneBusy ? '... Szene' : '';
-        const action = isUnload
-            ? (dropped
-                ? `<button class="mission-cargo-row-btn" disabled>Abgeworfen</button>`
-                : (unloaded
-                ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canReloadNearby || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${passengerSceneBusy ? passengerSceneBusyLabel : (!groundHandlingAllowed ? 'Nur am Boden' : (canReloadNearby ? (isPassenger ? 'Einsteigen' : 'Wieder laden') : 'Zu weit weg'))}</button>`
-                : `<button class="mission-cargo-row-btn" ${((!groundHandlingAllowed && isPassenger) || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${passengerSceneBusy ? passengerSceneBusyLabel : (groundHandlingAllowed ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Nur am Boden' : 'Abwerfen'))}</button>`))
-            : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed || !_missionCargoItemCanLoadAtCurrentStage(item) || pickupBoardingActive || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${isPickup ? 'pickup' : 'load'}' })">${passengerSceneBusy ? passengerSceneBusyLabel : (pickupBoardingActive ? '... Boarding' : (!groundHandlingAllowed ? 'Nur am Boden' : (!_missionCargoItemCanLoadAtCurrentStage(item) ? 'Am Ziel' : (dropped ? 'Abgeworfen' : (loaded ? (isPassenger ? 'An Bord' : 'Geladen') : (isPassenger ? 'Einsteigen' : 'Laden'))))))}</button>`;
+        let action = '';
+        if (isUnload && isPassenger && !unloaded && unloadCompletesMission) {
+            action = '<button class="mission-cargo-row-btn" disabled>Nach Farewell</button>';
+        } else {
+            action = isUnload
+                ? (dropped
+                    ? `<button class="mission-cargo-row-btn" disabled>Abgeworfen</button>`
+                    : (unloaded
+                    ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canReloadNearby || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${passengerSceneBusy ? passengerSceneBusyLabel : (!groundHandlingAllowed ? 'Nur am Boden' : (canReloadNearby ? (isPassenger ? 'Einsteigen' : 'Wieder laden') : 'Zu weit weg'))}</button>`
+                    : `<button class="mission-cargo-row-btn" ${((!groundHandlingAllowed && isPassenger) || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${passengerSceneBusy ? passengerSceneBusyLabel : (groundHandlingAllowed ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Nur am Boden' : 'Abwerfen'))}</button>`))
+                : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed || !_missionCargoItemCanLoadAtCurrentStage(item) || pickupBoardingActive || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${isPickup ? 'pickup' : 'load'}' })">${passengerSceneBusy ? passengerSceneBusyLabel : (pickupBoardingActive ? '... Boarding' : (!groundHandlingAllowed ? 'Nur am Boden' : (!_missionCargoItemCanLoadAtCurrentStage(item) ? 'Am Ziel' : (dropped ? 'Abgeworfen' : (loaded ? (isPassenger ? 'An Bord' : 'Geladen') : (isPassenger ? 'Einsteigen' : 'Laden'))))))}</button>`;
+        }
         const status = dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen'));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))
             ? ` · Distanz ${Math.round(reloadDistanceM)} m`
@@ -1965,7 +1981,6 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · ${signatureAnimating ? 'wird eingetragen' : (signatureReady ? 'Klick: Signatur loeschen' : 'Klick: unterschreiben')}</div>
         </div>` : '';
     const pickupReadyToConfirm = isPickup && requiredPickupMissing === 0 && visibleItems.length > 0;
-    const unloadCompletesMission = isUnload && _missionRuntimeGroundEndReady();
     const primaryActionJs = (!isUnload && !isPickup && !signatureReady)
         ? 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()'
         : (isUnload
@@ -1976,7 +1991,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const primaryActionLabel = (!isUnload && !isPickup && !signatureReady)
         ? (signatureAnimating ? 'Unterschrift wird eingetragen ...' : 'Unterschrift eintragen')
         : (isUnload
-        ? (unloadCompletesMission ? 'Entladung abgeschlossen - Mission beenden' : 'Entladung abschliessen')
+        ? (unloadCompletesMission && passengerDeboardPending && requiredUnloadBlockingMissing === 0 ? 'Abschied und Deboarding starten' : (unloadCompletesMission ? 'Entladung abgeschlossen - Mission beenden' : 'Entladung abschliessen'))
         : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Verladung abschliessen'));
     const secondaryAction = (!isUnload && !isPickup && signatureReady)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
@@ -2042,7 +2057,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             ${_missionCargoPayloadSummaryHtml(mode)}
             ${listMarkup}
             <div class="mission-cargo-summary">
-                <span>${isUnload ? `${requiredUnloadMissing} Pflicht-Items noch an Bord` : (isPickup ? `${requiredPickupMissing} Pickup-Items offen` : `${requiredMissing} Pflicht-Items offen`)}</span>
+                <span>${isUnload ? `${requiredUnloadBlockingMissing} Pflicht-Items noch zu entladen${passengerDeboardPending ? ' · PAX via Deboarding' : ''}` : (isPickup ? `${requiredPickupMissing} Pickup-Items offen` : `${requiredMissing} Pflicht-Items offen`)}</span>
                 <span>${weightSummary}</span>
             </div>
             <div class="mission-cargo-actions">
@@ -2527,9 +2542,12 @@ window.finishMissionCargoUnloadAndEnd = function() {
         && typeof window.missionSceneDeboarding === 'function'
     );
     if (shouldRunBushHomeDeboarding) {
-        let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
-            ? _missionCargoFinalizeMissionOutcome({ source: 'bush-home-unload-preview' })
-            : null;
+        let cargoOutcome = typeof _missionCargoEvaluateFarewellOutcome === 'function'
+            ? _missionCargoEvaluateFarewellOutcome()
+            : (typeof _missionCargoFinalizeMissionOutcome === 'function'
+                ? _missionCargoFinalizeMissionOutcome({ source: 'bush-home-unload-preview' })
+                : null);
+        if (cargoOutcome && typeof cargoOutcome === 'object') cargoOutcome.source = 'bush-home-unload-preview';
         cargoOutcome = _missionOutcomeApplyPoiProgress(cargoOutcome, {
             endedAtHome: _missionPoiEndedAtHome(),
             needsRideHome: _missionPoiGroundEndReady() && !_missionPoiEndedAtHome()

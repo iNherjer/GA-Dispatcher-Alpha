@@ -1535,6 +1535,7 @@ let missionRuntime = {
     lastOffDestAt: 0,
     landingRollTriggered: false,
     arrivalFarewellTriggered: false,
+    farewellPreloadRequestedAt: 0,
     arrivalFlightRecord: null,
     waitingFarewellDeboarding: false,
     deboardingAfterFarewellStarted: false,
@@ -3344,6 +3345,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     missionRuntime.closingReason = String(runtime.closingReason || (shouldBeClosing ? 'mission-resume-closing' : ''));
     missionRuntime.waitingFarewellDeboarding = false;
     missionRuntime.deboardingAfterFarewellStarted = false;
+    missionRuntime.farewellPreloadRequestedAt = 0;
     missionRuntime.endReadinessKey = String(runtime.endReadinessKey || '');
     if (shouldBeClosing && !missionRuntime.closingRequestedAt) missionRuntime.closingRequestedAt = Date.now();
 
@@ -6804,6 +6806,29 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
     }
 };
 
+function _missionScenePlayDeboardingCue(reason = 'mission-end') {
+    if (typeof window.paxPlayAudioCue !== 'function') return;
+    const hasPassenger = !!(
+        window.activePassenger
+        || window.missionSceneStatus?.personBoarded
+        || (typeof _missionCargoLoadedPassengerItems === 'function' && _missionCargoLoadedPassengerItems().length)
+    );
+    if (!hasPassenger) return;
+    let cueId = 'deboarding_pax';
+    if (typeof window.paxResolveMissionAudioCue === 'function') {
+        try { cueId = window.paxResolveMissionAudioCue('cargo', 'passenger_unload', 'deboarding_pax') || cueId; } catch (_) {}
+    }
+    if (!cueId || cueId === 'none') return;
+    try {
+        const played = window.paxPlayAudioCue(cueId, {
+            seed: `mission-deboarding|${window.missionSceneStatus?.sceneId || _missionSceneId()}|${reason}`,
+            gain: 0.38,
+            variantScope: 'event'
+        });
+        if (played && typeof played.catch === 'function') played.catch(() => {});
+    } catch (_) {}
+}
+
 window.missionSceneDeboarding = function(reason = 'mission-end') {
     if (window.simModeActive && !window.liveTrackerConnected) return false;
     if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) return false;
@@ -6848,6 +6873,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     }
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;
+    _missionScenePlayDeboardingCue(reason);
     window.missionSceneStatus.sceneId = sceneId;
     window.missionSceneStatus.lastCommandAt = Date.now();
     window.missionSceneStatus.lastCommand = { type: 'mission_scene_deboarding', commandId, reason };
@@ -7053,7 +7079,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.boardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_boarding_failed');
             window.missionSceneStatus.personBoarded = ack.status === 'ok' && !!Number(ack.boarded || 0);
             if (ack.status === 'ok') {
-                _missionCargoMarkPassengerLoaded({ reason: 'boarding-ack-passenger-sync' });
+                _missionCargoMarkPassengerLoaded({ reason: 'boarding-ack-passenger-sync', playAudioCue: false });
                 _missionCargoSyncPayloadToSim('boarding-ack').catch(() => {});
                 _missionCargoScheduleStartReadyPromotion('boarding-ack');
                 setTimeout(() => {
@@ -7075,6 +7101,8 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.deboardingComplete = ack.status === 'ok';
             window.missionSceneStatus.deboardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_deboarding_failed');
             if (ack.status === 'ok') window.missionSceneStatus.personBoarded = false;
+            missionRuntime.waitingFarewellDeboarding = false;
+            missionRuntime.deboardingAfterFarewellStarted = false;
         }
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
         _updateMissionRuntimeUi();
@@ -7751,8 +7779,8 @@ function _updateMissionStartBanner() {
     const pickupPlaceLabel = isAptCharterPickup ? 'Zielplatz' : 'Zielstrip';
     const pickupLegLabel = isAptCharterPickup ? 'Charter-Pickup' : 'Pickup-Strip';
     missionRuntime.phase = runtimePhase;
-    const showClose = !!missionRuntime.closingPending;
-    const showDeboarding = missionRuntime.active && deboardingBusy;
+    const showClose = !!missionRuntime.closingPending && !deboardingBusy;
+    const showDeboarding = (missionRuntime.active || missionRuntime.closingPending) && deboardingBusy;
     const showEndReady = missionRuntime.active && !!groundAction?.endReady;
     const showEnd = missionRuntime.active && showEndReady && !deboardingBusy;
     const showPickup = missionRuntime.active && groundAction?.action === 'pickup' && !showEnd && !deboardingBusy;
@@ -8073,9 +8101,11 @@ function _updateMissionRuntimeUi() {
     if (bMap) {
         if (missionRuntime.closingPending) {
             bMap.style.display = 'inline-flex';
-            bMap.textContent = '■ Mission schliessen';
-            bMap.title = 'Mission abschliessen und Szene/Status zuruecksetzen';
-            bMap.disabled = false;
+            bMap.textContent = deboardingBusy ? '… Deboarding läuft' : '■ Mission schliessen';
+            bMap.title = deboardingBusy
+                ? 'Deboarding laeuft noch'
+                : 'Mission abschliessen und Szene/Status zuruecksetzen';
+            bMap.disabled = deboardingBusy;
         } else {
             bMap.style.display = (missionRuntime.active || (validMission && groundReady)) ? 'inline-flex' : 'none';
             const pickupActionReady = missionRuntime.active && groundAction?.action === 'pickup';
@@ -8120,6 +8150,7 @@ function _resetMissionRuntime() {
         lastOffDestAt: 0,
         landingRollTriggered: false,
         arrivalFarewellTriggered: false,
+        farewellPreloadRequestedAt: 0,
         arrivalFlightRecord: null,
         waitingFarewellDeboarding: false,
         deboardingAfterFarewellStarted: false,
@@ -9137,6 +9168,7 @@ window.manualMissionStart = function() {
     missionRuntime.lastOffDestAt = 0;
     missionRuntime.landingRollTriggered = false;
     missionRuntime.arrivalFarewellTriggered = false;
+    missionRuntime.farewellPreloadRequestedAt = 0;
     missionRuntime.arrivalFlightRecord = null;
     missionRuntime.waitingFarewellDeboarding = false;
     missionRuntime.deboardingAfterFarewellStarted = false;
@@ -9269,6 +9301,22 @@ window.toggleManualMissionRuntime = function() {
     else window.manualMissionStart();
 };
 
+function _missionPrepareFarewellVoice(record = null, reason = 'farewell-preload') {
+    if (!missionRuntime.active || missionRuntime.waitingFarewellDeboarding || missionRuntime.closingPending) return false;
+    if (missionRuntime.farewellPreloadRequestedAt) return false;
+    if (typeof window.paxVoicePrepareFarewell !== 'function') return false;
+    missionRuntime.farewellPreloadRequestedAt = Date.now();
+    _missionPhaseDebugPush('trigger', { name: 'paxVoicePrepareFarewell', reason });
+    try {
+        const prepared = window.paxVoicePrepareFarewell(record);
+        if (prepared && typeof prepared.catch === 'function') prepared.catch(() => {});
+        return true;
+    } catch (_) {
+        missionRuntime.farewellPreloadRequestedAt = 0;
+        return false;
+    }
+}
+
 function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
     if (window.simModeActive) return false;
     if (!window.liveTrackerConnected) return false;
@@ -9293,12 +9341,12 @@ window.handleMissionStartBannerAction = async function() {
             closingPending: !!missionRuntime.closingPending
         });
         const phase = _missionStartPhase();
-        if (missionRuntime.closingPending) {
-            window.completeMissionClose('banner-close');
-            return;
-        }
         if (_missionEndDeboardingBusy()) {
             _updateMissionRuntimeUi();
+            return;
+        }
+        if (missionRuntime.closingPending) {
+            window.completeMissionClose('banner-close');
             return;
         }
         if (missionRuntime.active) {
@@ -12778,6 +12826,15 @@ function updateFlightRecorder(lat, lon, alt) {
         if (Number.isFinite(_lfd?.touchdownFpm)) r.touchdownVsFpm = _lfd.touchdownFpm;
         else if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
         const earlyRecord = _buildFlightRecordSnapshot(now);
+        const dAptArrivalNm = _hasAptArrivalRuntimePoint() ? _distanceToAptArrivalNm(lat, lon) : null;
+        const dMissionTouchdownNm = _distanceToMissionTargetNm(lat, lon);
+        const nearFarewellTarget = !!(
+            (Number.isFinite(Number(dAptArrivalNm)) && Number(dAptArrivalNm) <= 1.2)
+            || (Number.isFinite(Number(dMissionTouchdownNm)) && Number(dMissionTouchdownNm) <= 1.2)
+        );
+        if (earlyRecord && nearFarewellTarget) {
+            _missionPrepareFarewellVoice(earlyRecord, 'touchdown-preload');
+        }
         if (_hasAptArrivalRuntimePoint()) {
             if (earlyRecord) missionRuntime.arrivalFlightRecord = earlyRecord;
             if (!missionRuntime.landingRollTriggered && typeof window.triggerPaxLandingRoll === 'function') {
@@ -12811,6 +12868,10 @@ function updateFlightRecorder(lat, lon, alt) {
     const endReady = _missionEndReadiness(lat, lon);
     const bushGroundEndReady = _missionBushGroundEndReady(endReady);
     const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
+    if (runtimeGroundEndReady && !missionRuntime.waitingFarewellDeboarding && !missionRuntime.closingPending) {
+        const endRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(now);
+        if (endRecord) _missionPrepareFarewellVoice(endRecord, 'ground-end-ready-preload');
+    }
     const nextRuntimePhase = runtimeGroundEndReady ? 'end_ready' : 'active';
     if (missionRuntime.phase !== nextRuntimePhase) {
         _missionPhaseDebugPush('runtime_phase', {
