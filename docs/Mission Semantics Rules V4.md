@@ -93,6 +93,8 @@ Kontext darf nicht:
 - Kontext kann den Anlass konkretisieren.
 - Jeder News-Winkel braucht eine kleine erzählte Lokalgeschichte aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung. Das Briefing darf nicht nur Planfelder wie "Meldung", "Lage", "Aufhänger", "Zufahrtslage" oder "Lageeinschätzung" umformulieren.
 - Besucherandrang braucht einen plausiblen kleinen Ausloeser mit Programmlogik. Der konkrete Anlass soll aus Zieltyp, sichtbaren Ankern und Creative Brief frei ausgestaltet werden, nicht aus einem festen Event-Katalog stammen und nicht nur behaupten, dass mehr los ist. Im Briefing darf "lokaler Anlass" nicht als Platzhalter stehen bleiben.
+- Bei Besucherandrang an Straßen-, Tunnel- oder Zufahrts-POIs bleibt das Ereignis die News: Publikum, Programm und sichtbarer Andrang tragen die Geschichte. Straße, Tunnel, Zufahrt, Parkdruck oder Rückstau sind nur sichtbare Folgen und dürfen nicht zur Verkehrs-, Sperrungs- oder Straßenmeisterei-Analyse werden.
+- Verkehrs- oder Zufahrtswinkel sind nur dann News, wenn dahinter ein oeffentlicher Anlass, eine betroffene Gruppe oder eine konkrete lokale Wirkung steht. Ohne diesen Anlass gehoeren solche Themen eher zu Inspektion, Betrieb oder Verwaltung, nicht zum Reporterflug.
 - Kein Drift zu Technikinspektion, SAR oder Einsatz, wenn das nicht der berichtete Kern ist.
 
 ### `poi_learning_guide`
