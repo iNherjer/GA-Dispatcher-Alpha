@@ -9027,10 +9027,24 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const countsKey = `${storagePrefix}_counts`;
     const lastKey = `${storagePrefix}_last`;
-    const counts = JSON.parse(localStorage.getItem(countsKey) || '{}');
-    const lastCat = localStorage.getItem(lastKey) || '';
+    let counts = {};
+    let lastCat = '';
+    try {
+        const parsed = JSON.parse(localStorage.getItem(countsKey) || '{}');
+        counts = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        counts = {};
+    }
+    try {
+        lastCat = localStorage.getItem(lastKey) || '';
+    } catch (_) {
+        lastCat = '';
+    }
 
     const categories = [...new Set(items.map(categoryOf))];
+    Object.keys(counts).forEach(cat => {
+        if (!categories.includes(cat)) delete counts[cat];
+    });
     const minCount = Math.min(...categories.map(cat => parseInt(counts[cat] || 0, 10)));
     let candidateCats = categories.filter(cat => parseInt(counts[cat] || 0, 10) === minCount);
     if (candidateCats.length > 1 && candidateCats.includes(lastCat)) {
@@ -9041,8 +9055,15 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     const picked = pool[Math.floor(Math.random() * pool.length)] || items[0];
 
     counts[selectedCat] = parseInt(counts[selectedCat] || 0, 10) + 1;
-    localStorage.setItem(countsKey, JSON.stringify(counts));
-    localStorage.setItem(lastKey, selectedCat);
+    try {
+        localStorage.setItem(countsKey, JSON.stringify(counts));
+        localStorage.setItem(lastKey, selectedCat);
+    } catch (_) {
+        try {
+            localStorage.removeItem(countsKey);
+            localStorage.removeItem(lastKey);
+        } catch (_) {}
+    }
     return { item: picked, category: selectedCat };
 }
 
@@ -9171,7 +9192,7 @@ function _poiMaybeRotateInfraSubtypePool(pool = [], forceCat = '', profileId = '
         p => _poiCandidateInfraSubtype(p),
         `ga_poi_infra_subtype_${cat}`
     );
-    const targetSubtype = _poiCandidateInfraSubtype(balanced);
+    const targetSubtype = String(balanced?.category || _poiCandidateInfraSubtype(balanced?.item) || '').trim();
     if (!targetSubtype) return src;
     const preferred = src.filter(p => _poiCandidateInfraSubtype(p) === targetSubtype);
     if (!preferred.length) return src;
@@ -36804,7 +36825,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1235', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1238', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
