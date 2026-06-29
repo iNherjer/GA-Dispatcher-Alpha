@@ -1933,7 +1933,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Lokaljournalist',
                 gender: 'male',
                 personality: 'neugierig, trocken, genau',
-                storySeed: '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und erkennbarem Bildwert. Wege, Zufahrten oder Parkdruck sind nur Material, wenn sie diese Geschichte stützen.',
+                storySeed: '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und erkennbarem Bildwert. Wege, Zufahrten oder Randbereiche sind nur Material, wenn sie diese Geschichte stützen.',
                 greetingText: 'Servus, ich schaue heute auf {targetName}. Entscheidend ist, welche Headline der Ort trägt und was wir von oben dazu beitragen können.'
             }
         ],
@@ -14780,20 +14780,28 @@ function _missionNewsBriefPresets(category = '') {
             label: 'Umfeldreportage',
             personaNames: ['Severin Lutz'],
             cargoText: 'Live-Übertragungsrucksack (26 lbs)',
-            angle: isCity ? 'eine lokale Reportage am Ortsrand von {targetName}' : 'eine lokale Reportage am Ziel mit sichtbarem Umfeldbezug',
+            angle: isCity ? 'eine lokale Reportage in {targetName} mit erkennbarem Stadtbezug' : 'eine lokale Reportage am Ziel mit sichtbarem Umfeldbezug',
             reporterAngle: '',
-            storySeed: '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Zugang, Wege oder Parkdruck sind nur Belege, wenn sie den Aufhänger tragen.',
+            storySeed: isCity
+                ? '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Ortsbild, Wege oder Randbereiche sind nur Belege, wenn sie den Aufhänger tragen.'
+                : '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Zugang, Wege oder Parkdruck sind nur Belege, wenn sie den Aufhänger tragen.',
             greetingText: 'Servus, ich schaue heute auf {targetName}. Wichtig ist die Geschichte, nicht die Zufahrt als Selbstzweck.',
             trigger: 'Die Redaktion braucht zu {targetName} eine lokale Umfeldreportage, deren Anlass aus der Luft lesbar wird.',
             subjectDetail: '{targetName} als Schauplatz einer lokalen Umfeldreportage',
             incidentContext: '{creativeCue} Nutze {visibleFocus} als Rohdaten, aber entscheide frei, welcher Headline-Kern, Vorfall, Event oder Dokumentationsanlass den Flug trägt.',
-            keyQuestion: 'Welche lokale Umfeldgeschichte führt heute zu {targetName}, und was zeigen Umfeld, Wege oder Parkdruck aus der Luft dazu?',
+            keyQuestion: isCity
+                ? 'Welche lokale Geschichte führt heute zu {targetName}, und welche Stadtbild- oder Wegebelege machen sie aus der Luft nachvollziehbar?'
+                : 'Welche lokale Umfeldgeschichte führt heute zu {targetName}, und was zeigen Umfeld, Wege oder Parkdruck aus der Luft dazu?',
             whyNow: 'Die Redaktion will vor Veröffentlichung oder Schalte wissen, ob Ort, Aufhänger und Luftbild zusammen eine erzählbare Geschichte ergeben.',
             soughtOutcome: 'Wir sollen eine knappe redaktionelle Einordnung liefern, ob die gewählte Geschichte aus der Luft trägt.',
             completionSignal: 'Nach dem Überflug geht die Lageeinschätzung direkt an die Lokalredaktion.',
-            creativeCue: `${sharedCreativeCue} Beim Zufahrts-Winkel sind Wege und Parklogik nur sichtbare Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`,
-            visibleFocus: isCity ? 'Ortsrand, Zufahrten, sichtbare Wege, Parkbereich, Treffpunkt und Übergang ins Ortsbild' : 'Zugang, Randlage, Wege, Parkbereich, Treffpunkt und sichtbare Orientierungspunkte',
-            storyDetailPrompt: 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze Zugang, Wege und Parkdruck nur als sichtbare Belege.'
+            creativeCue: isCity
+                ? `${sharedCreativeCue} Beim Stadt-/Umfeld-Winkel sind Wege, Zufahrten und Randbereiche nur sichtbare Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`
+                : `${sharedCreativeCue} Beim Zufahrts-Winkel sind Wege und Parklogik nur sichtbare Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`,
+            visibleFocus: isCity ? 'Ortsbild, Treffpunkte, Zugangswege, Randbereiche und Übergang ins Umfeld als Bildbelege' : 'Zugang, Randlage, Wege, Parkbereich, Treffpunkt und sichtbare Orientierungspunkte',
+            storyDetailPrompt: isCity
+                ? 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze Ortsbild, Wege und Randbereiche nur als sichtbare Belege.'
+                : 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze Zugang, Wege und Parkdruck nur als sichtbare Belege.'
         }
     ];
 }
@@ -29851,7 +29859,8 @@ function _missionWriterV5NewsAngleIsPlaceholder(value = '') {
     const normalized = normalizeMissionText(value);
     if (!normalized) return true;
     if (/\b(berichtenswerten kern|berichtenswerter kern|lokale news geschichte|lokalen news geschichte|lokale meldung|lokalen meldung|lokalreportage)\b/.test(normalized)) return true;
-    if (/\blokale(?:n|r)?\s+(?:reportage|geschichte|umfeldgeschichte)\b/.test(normalized)) return true;
+    if (/\blokale(?:n|r)?\s+(?:reportage|geschichte|umfeldgeschichte|umfeldreportage)\b/.test(normalized)) return true;
+    if (/\bumfeldreportage\b|\bstadtgeschichte\s+um\s+(?:zufahrt|zufahrten|wege|ortsrand|umfeld|sichtbar)/.test(normalized)) return true;
     if (/\bbilder\b[^.]{0,90}\blokale(?:n|r)? geschichte\b/.test(normalized)) return true;
     if (/\b(was macht|welche konkrete|welcher konkrete|ob sie ueber|ob sie über|aus der luft traegt|aus der luft trägt)\b/.test(normalized)) return true;
     if (/^(die\s+)?(redaktionelle dokumentation|bildgeschichte)(\s+(bei|am|im)\b.*)?$/.test(normalized)) return true;
@@ -29893,6 +29902,15 @@ function _missionWriterV5NewsStoryIsMetaOnly(story = '') {
     const hasMetaWords = /\b(redaktion|bericht|schalte|bilder|einordnung|geschichte|aufhaenger|aufhänger|lage|szene|rahmen)\b/.test(normalized);
     const hasOnlyEvidence = /\b(strasse|straße|b\s*33|tunnel|zufahrt|bahn|bruecke|brücke|strommast|wasserlauf|offene flaeche|offene fläche|umfeld|randbereich|verkehrsraum|verkehrsfuehrung|verkehrsführung)\b/.test(normalized);
     return metaHits >= 2 || (metaHits >= 1 && hasOnlyEvidence) || (hasMetaWords && hasOnlyEvidence);
+}
+
+function _missionWriterV5NewsStoryHasVagueEvidenceMashup(story = '') {
+    const normalized = normalizeMissionText(story);
+    if (!normalized) return false;
+    if (/\bsichtbar(?:er|e|en|em|es)?\s+druck\b|\bdruck\s+am\s+(?:ortsrand|stadtrand|ziel|umfeld|randbereich)\b/.test(normalized)) return true;
+    if (/\bstadtgeschichte\s+um\s+(?:die\s+)?(?:zufahrt|zufahrten|wege|ortsrand|umfeld|sichtbar)/.test(normalized)) return true;
+    if (/\bumfeldgeschichte\b[^.]{0,120}\b(?:wege|zufahrt|zufahrten|parkdruck|randbereich|ortsrand)\b/.test(normalized)) return true;
+    return false;
 }
 
 function _missionWriterV5NewsFallbackSceneLabel(targetName = '', category = '') {
@@ -29937,9 +29955,9 @@ function _missionWriterV5NewsFallbackPremise(contract = {}, domain = {}) {
     }
     if (category === 'city') {
         return _missionPipelineV4PickOne([
-            `${targetScene} verfolgt die Redaktion heute eine Bildgeschichte über einen kleinen lokalen Umschwung: nicht nur der Ort zählt, sondern was sich an Wegen, Treffpunkten und Rändern gerade sichtbar sammelt`,
-            `Die Lokalredaktion macht ${targetScene} eine Reportage über eine kleine Ortsfrage, die aus der Luft besser greifbar wird als aus einzelnen Bodenbeobachtungen`,
-            base
+            `${targetScene} greift die Redaktion eine Bürgerfrage auf: ob ein unscheinbarer Bereich im Ortsbild gerade zum Treffpunkt wird; Wege und Ränder sind nur die Bildbelege`,
+            `Die Lokalredaktion macht ${targetScene} eine kurze Bildgeschichte über einen neuen Treffpunkt im Ort; von oben soll sichtbar werden, ob Wege und Randbereiche diese These tragen`,
+            `${targetScene} soll heute aus einem Bodenhinweis eine kleine Reportage werden: ob sich an einer Stelle mehr Nutzung zeigt, als einzelne Beobachtungen erkennen lassen`
         ]);
     }
     return base;
@@ -30286,6 +30304,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const hasWhyHook = /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|rund um|anlaesslich|anlässlich|zum|zur|fuer|für|damit|grund|ausloeser|auslöser|dahinter|im kern|warum)\b/.test(normalized);
     const angleMenu = _missionWriterV5NewsStoryUsesAngleMenu(story);
     const metaOnly = _missionWriterV5NewsStoryIsMetaOnly(story);
+    const vagueEvidenceMashup = _missionWriterV5NewsStoryHasVagueEvidenceMashup(story);
     const genericOnly = /\b(aktuelle lage|geschehen am boden|veraenderungen? im ortskern|veränderungen? im ortskern|sichtbare veraenderungen?|sichtbare veränderungen?|infrastruktur)\b/.test(normalized)
         && !(hasNewsKernel && hasWhyHook);
     const brief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
@@ -30307,7 +30326,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const weakVisitorOccasion = visitorSignals
         ? (!visitorSignals.hasVisitorFrame || visitorSignals.genericOccasionOnly)
         : false;
-    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || metaOnly || genericOnly || weakVisitorOccasion || (!(hasNewsKernel || coversConcreteSpine));
+    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || metaOnly || vagueEvidenceMashup || genericOnly || weakVisitorOccasion || (!(hasNewsKernel || coversConcreteSpine));
 }
 
 function _missionWriterV5WrongUtilityDrift(normalized = '') {
