@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1242';
+const CACHE = 'ga-dispatcher-v1243';
 
 const STATIC = [
     './',

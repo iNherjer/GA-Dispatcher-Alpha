@@ -25454,7 +25454,7 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
     if (category === 'infrastructure') {
         return pack('survey_context', ['utility_truck', 'cones', 'small_equipment'], 'Schlichte Trassen-/Zugangsreferenz fuer Infrastruktur, ohne falsche Unfall- oder Rettungslage.');
     }
-    if (category === 'industry') {
+    if (category === 'industry' || category === 'industrial_area') {
         return pack('industry_site', ['utility_truck', 'cargo_material', 'generator', wantsSmoke ? 'smoke_light' : ''], 'Kleine Betreiberreferenz am Werks-/Anlagenbereich; Rauch nur als leichte Quelle, wenn die Story ihn traegt.');
     }
     return null;
@@ -26728,7 +26728,9 @@ function _missionWriterV5WeatherSummary(contract = {}) {
         Array.isArray(planWeather) ? planWeather.join(' ') : planWeather,
         dep ? _summarizeMissionWeather(dep) : '',
         dest ? _summarizeMissionWeather(dest) : ''
-    ], 3, 180).join(' | ');
+    ], 3, 180)
+        .filter(_missionWriterV5WeatherSegmentIsUsable)
+        .join(' | ');
     return _missionWriterV5Text(summarized, 260);
 }
 
@@ -26781,6 +26783,14 @@ function _missionWriterV5GeoHighlights(contract = {}, context = {}) {
     const geo = context?.targetGeoContext || contract?.targetGeoContext || null;
     if (!geo || typeof geo !== 'object') return [];
     const items = [];
+    const technicalName = value => {
+        const raw = String(value || '').replace(/\s+/g, ' ').trim();
+        const normalized = normalizeMissionText(raw);
+        if (!raw) return true;
+        if (/[A-Z0-9]{3,}[-;][A-Z0-9;-]{3,}/.test(raw)) return true;
+        return /^(service|road|strasse|straße|meadow|wiese|water|uferbereich|parking|parkplatz|building|house|track|path|footway|residential|yes|unclassified|minor_line|power|pole)$/i.test(raw)
+            || /^(service|road|strasse|straße|meadow|wiese|water|uferbereich|parking|parkplatz|building|house|track|path|footway|residential|yes|unclassified|minor line|power|pole)$/.test(normalized);
+    };
     const add = value => {
         const clean = _missionWriterV5CleanSpineValue(value, 140);
         if (clean) items.push(clean);
@@ -26795,8 +26805,7 @@ function _missionWriterV5GeoHighlights(contract = {}, context = {}) {
             : String(anchor.name || key || '').replace(/[_-]+/g, ' ').trim();
         if (!label) return;
         const name = String(anchor.name || '').replace(/\s+/g, ' ').trim();
-        const genericName = /^(service|road|strasse|straße|meadow|wiese|water|uferbereich|parking|parkplatz|building|house|track|path|footway|residential|yes)$/i.test(name);
-        const hasName = name && !genericName && !normalizeMissionText(label).includes(normalizeMissionText(name));
+        const hasName = name && !technicalName(name) && !normalizeMissionText(label).includes(normalizeMissionText(name));
         add(hasName ? `${label} ${name}` : label);
     });
     (Array.isArray(geo.visualLandmarks) ? geo.visualLandmarks : []).forEach(item => {
@@ -29614,9 +29623,24 @@ function _missionWriterV5RouteSentence(contract = {}) {
     const target = _missionWriterV5Text(route.targetName || route.targetIcao || contract?.target?.name || '', 120);
     const distance = Number(route.distanceNm);
     const distText = Number.isFinite(distance) && distance > 0 ? `, rund ${Math.round(distance)} NM` : '';
-    if (start && target) return `Heute geht es von ${start} nach ${target}${distText}.`;
+    const isPoi = !!contract?.target?.isPOI;
+    const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
+    const targetPhrase = isPoi && !['city', 'town', 'village'].includes(category)
+        ? `zum Zielgebiet ${target}`
+        : `nach ${target}`;
+    if (start && target) return `Heute geht es von ${start} ${targetPhrase}${distText}.`;
     if (target) return `Heute geht es nach ${target}${distText}.`;
     return '';
+}
+
+function _missionWriterV5WeatherSegmentIsUsable(segment = '') {
+    const clean = String(segment || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return false;
+    const normalized = normalizeMissionText(clean);
+    const naCount = (normalized.match(/\bn\/a\b/g) || []).length;
+    if (naCount >= 2) return false;
+    if (/^wind n\/a\b/.test(normalized) && /\bsicht n\/a\b/.test(normalized)) return false;
+    return true;
 }
 
 function _missionWriterV5WeatherSentence(contract = {}, family = '') {
@@ -29629,6 +29653,7 @@ function _missionWriterV5WeatherSentence(contract = {}, family = '') {
         if (family === 'apt_sightseeing') return `Bei ${Math.round(temp)}°C bleibt der Flug der angenehme Auftakt, bevor am Ziel erst einmal Schatten, Wasser und ein ruhiger erster Weg zählen.`;
     }
     if (Number.isFinite(temp)) return `Das Wetter gibt dem Flug mit etwa ${Math.round(temp)}°C einen passenden Rahmen.`;
+    if (!_missionWriterV5WeatherSegmentIsUsable(summary)) return '';
     return `Das Wetter passt als kurzer Realitätsanker: ${summary}.`;
 }
 
@@ -29728,6 +29753,8 @@ function _missionWriterV5UsableStoryFact(fact = '') {
     const clean = _missionWriterV5Text(fact, 180);
     if (!clean) return '';
     const normalized = normalizeMissionText(clean);
+    if (/[A-Z0-9]{3,}[-;][A-Z0-9;-]{3,}/.test(clean)) return '';
+    if (/\b(?:unclassified|minor_line|power|yes|track|service)\b/.test(normalized)) return '';
     if (/^(zielbezug ist|startflugplatz ist|umfeld:)/.test(normalized)) return '';
     if (/^reporter[-\s]?winkel\s*:/.test(normalized)) return '';
     if (/\broad \d|bearing \d|nearest_|target-category|dryrun synthetic\b/.test(normalized)) return '';
@@ -29868,31 +29895,52 @@ function _missionWriterV5NewsStoryIsMetaOnly(story = '') {
     return metaHits >= 2 || (metaHits >= 1 && hasOnlyEvidence) || (hasMetaWords && hasOnlyEvidence);
 }
 
+function _missionWriterV5NewsFallbackSceneLabel(targetName = '', category = '') {
+    const target = _missionWriterV5Text(targetName || 'dem Zielgebiet', 120);
+    const cat = String(category || '').toLowerCase();
+    if (!target) return 'am Zielgebiet';
+    if (cat === 'city') return `in ${target}`;
+    if (cat === 'road' || cat === 'industry' || cat === 'industrial_area') return `im Bereich ${target}`;
+    return `bei ${target}`;
+}
+
 function _missionWriterV5NewsFallbackPremise(contract = {}, domain = {}) {
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Ziel', 120);
     const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
-    const focus = _missionWriterV5CleanSpineValue(domain.visibleFocus || contract?.storyFrame?.visibleFocus || contract?.newsBrief?.visibleFocus || '', 170);
+    const targetScene = _missionWriterV5NewsFallbackSceneLabel(targetName, category);
+    const normalizedTarget = normalizeMissionText(targetName);
     const base = _missionPipelineV4PickOne([
-        `Die Lokalredaktion hängt heute eine kleine Reportage an ${targetName}: Vor Ort gibt es Hinweise auf einen neuen Treffpunkt, aber erst der Luftblick zeigt, ob Wege, Ränder und Besucherbewegung zusammenpassen`,
-        `Bei ${targetName} steht eine kurze Bildgeschichte über einen lokalen Streit um Nutzung und Zugang im Raum; von oben soll sichtbar werden, was davon mehr ist als einzelne Stimmen vom Boden`,
-        `Rund um ${targetName} soll heute aus einer knappen Bodenmeldung eine erzählbare Reportage werden, weil der Ort selbst zeigen kann, wie Anlass, Wege und Umfeld zusammenhängen`
+        `Die Lokalredaktion macht heute ${targetScene} eine kleine Reportage: Vor Ort gibt es Hinweise auf eine neue Nutzungsspur, aber erst der Luftblick zeigt, ob Wege, Ränder und sichtbare Aktivität zusammenpassen`,
+        `${targetScene} steht eine kurze Bildgeschichte über einen lokalen Streit um Nutzung und Zugang im Raum; von oben soll sichtbar werden, was davon mehr ist als einzelne Stimmen vom Boden`,
+        `${targetScene} soll heute aus einer knappen Bodenmeldung eine erzählbare Reportage werden, weil der Ort selbst zeigen kann, wie Anlass, Wege und Umfeld zusammenhängen`
     ]);
+    if (category === 'industry' || category === 'industrial_area') {
+        if (/\b(deponie|muelldeponie|mülldeponie|altlast|abfall)\b/.test(normalizedTarget)) {
+            return _missionPipelineV4PickOne([
+                `Die Lokalredaktion greift ${targetScene} die Nachnutzungsfrage "Was wird aus der alten Deponie?" auf: aus der Luft soll sichtbar werden, ob Zufahrt, Ränder und Abstellflächen eher nach stiller Brache oder beginnender Zwischennutzung aussehen`,
+                `${targetScene} steht eine kurze Dokumentation über den Wandel einer alten Deponiefläche an; die Bilder sollen zeigen, ob Wege, Randbewuchs und Betriebsränder eine neue Nutzungsthese tragen`,
+                `${targetScene} geht es heute um eine leise, aber gute Lokalgeschichte: ob eine ehemalige Entsorgungsfläche im Ortsrandbild wieder als nutzbarer Ort erkennbar wird`
+            ]);
+        }
+        return _missionPipelineV4PickOne([
+            `Die Lokalredaktion greift ${targetScene} eine Nutzungsfrage auf: ob die Betriebsfläche aus der Luft nach Stillstand, Umbruch oder neuer Aktivität aussieht`,
+            `${targetScene} soll eine kurze Bildgeschichte zeigen, ob Zufahrten, Abstellflächen und Randzonen eine Veränderung im Gewerbeumfeld erkennen lassen`,
+            `${targetScene} geht es heute nicht um Technikprüfung, sondern um die sichtbare Frage, wie sich eine Betriebsfläche gerade im Ort bemerkbar macht`
+        ]);
+    }
     if (category === 'road') {
         return _missionPipelineV4PickOne([
-            `Die Lokalredaktion greift bei ${targetName} eine Bürgerfrage auf: ob der Bereich gerade nur Durchfahrt ist oder schon als Treffpunkt, Besucherweg und Engstelle zugleich wirkt`,
-            `Bei ${targetName} soll eine Reportage klären, warum aus einem unscheinbaren Straßenort heute ein lokaler Aufreger geworden ist; Verkehr, Zufahrt und Ränder sind nur die sichtbaren Belege`,
+            `Die Lokalredaktion greift ${targetScene} eine Bürgerfrage auf: ob der Bereich gerade nur Durchfahrt ist oder schon als Treffpunkt, Besucherweg und Engstelle zugleich wirkt`,
+            `${targetScene} soll eine Reportage klären, warum aus einem unscheinbaren Straßenort heute ein lokaler Aufreger geworden ist; Verkehr, Zufahrt und Ränder sind nur die sichtbaren Belege`,
             base
         ]);
     }
     if (category === 'city') {
         return _missionPipelineV4PickOne([
-            `Bei ${targetName} verfolgt die Redaktion heute eine Bildgeschichte über einen kleinen lokalen Umschwung: nicht nur der Ort zählt, sondern was sich an Wegen, Treffpunkten und Rändern gerade sichtbar sammelt`,
-            `Die Lokalredaktion hängt an ${targetName} eine Reportage über eine kleine Ortsfrage auf, die aus der Luft besser greifbar wird als aus einzelnen Bodenbeobachtungen`,
+            `${targetScene} verfolgt die Redaktion heute eine Bildgeschichte über einen kleinen lokalen Umschwung: nicht nur der Ort zählt, sondern was sich an Wegen, Treffpunkten und Rändern gerade sichtbar sammelt`,
+            `Die Lokalredaktion macht ${targetScene} eine Reportage über eine kleine Ortsfrage, die aus der Luft besser greifbar wird als aus einzelnen Bodenbeobachtungen`,
             base
         ]);
-    }
-    if (focus) {
-        return `${base}; wichtig sind dabei ${focus}`;
     }
     return base;
 }
@@ -29914,10 +29962,20 @@ function _missionWriterV5NewsFallbackReporterLine(reporter = '', cargoText = '')
     return `${subject} ist dafür an Bord; ${toolPurpose}`;
 }
 
-function _missionWriterV5NewsFallbackEvidenceLine(domain = {}, visibleContext = []) {
+function _missionWriterV5NewsFallbackEvidenceLine(domain = {}, visibleContext = [], contract = {}) {
+    const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
     const focus = _missionWriterV5CleanSpineValue(domain.visibleFocus || '', 180);
+    if (category === 'industry' || category === 'industrial_area') {
+        return 'Aus der Höhe sollen Zufahrten, Ränder und Abstellflächen nur die Bildbelege liefern, nicht zu einer technischen Prüfung werden.';
+    }
+    if (category === 'road') {
+        return 'Aus der Höhe sollen Zufahrt, Wegränder, Parkdruck oder Sammelpunkte nur belegen, ob die lokale These am Ziel wirklich sichtbar wird.';
+    }
+    if (category === 'city') {
+        return 'Aus der Höhe sollen Ortsbild, Wege und sichtbare Treffpunkte nur belegen, ob die Bildgeschichte wirklich trägt.';
+    }
     if (focus) {
-        return `Aus der Höhe zählen vor allem ${focus}, aber nur als Bildbelege für den Aufmacher.`;
+        return 'Aus der Höhe zählen die sichtbaren Ränder und Wege nur als Bildbelege für den Aufmacher.';
     }
     const visible = _missionWriterV5Array(visibleContext, 4, 120).filter(Boolean);
     if (visible.length) {
@@ -29988,8 +30046,8 @@ function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
         genericFallbackAngle ? _missionWriterV5NewsFallbackPremise(contract, domain) : '',
         reporterLine,
         programLine,
-        genericFallbackAngle ? _missionWriterV5NewsFallbackEvidenceLine(domain, visibleContext) : _missionWriterV5NewsQuestionSentence(openQuestion),
-        visible,
+        genericFallbackAngle ? _missionWriterV5NewsFallbackEvidenceLine(domain, visibleContext, contract) : _missionWriterV5NewsQuestionSentence(openQuestion),
+        genericFallbackAngle ? '' : visible,
         weatherSentence,
         genericFallbackAngle
             ? 'Nach dem Überflug gehen Bilder und kurze Einordnung direkt an die Redaktion, damit daraus ein sauberer Beitrag wird.'
