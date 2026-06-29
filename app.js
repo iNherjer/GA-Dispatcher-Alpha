@@ -33914,6 +33914,54 @@ function missionProposalAddCandidate(out, seen, candidate, start, mode = 'poi', 
     return true;
 }
 
+function missionProposalAppendUniquePoiCandidates(out, seen, candidates = [], limit = 3) {
+    if (!Array.isArray(out) || !seen) return;
+    for (const candidate of Array.isArray(candidates) ? candidates : []) {
+        if (!candidate || typeof candidate !== 'object') continue;
+        const key = missionProposalTargetKey(candidate);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(candidate);
+        if (out.length >= limit) break;
+    }
+}
+
+function missionProposalPoiCategoryMix(profileId = '', selectedCategory = 'all', requestedCategory = 'all', count = 3) {
+    const profile = String(profileId || '').toLowerCase();
+    const selected = String(selectedCategory || 'all').toLowerCase();
+    const requested = String(requestedCategory || selected || 'all').toLowerCase();
+    if (requested && requested !== 'all' && requested !== 'chain') {
+        return [selected && selected !== 'all' ? selected : requested];
+    }
+    const overrides = {
+        inspection_infra: ['bridge', 'rail', 'industry', 'road', 'dam', 'telecom', 'infrastructure'],
+        mapping_survey: ['industry', 'rail', 'road', 'bridge', 'dam', 'infrastructure'],
+        sightseeing_tour: ['castle', 'mountain', 'water', 'city', 'bridge', 'dam', 'rail'],
+        tour_guide_knowledge: ['city', 'water', 'castle', 'mountain', 'bridge', 'dam', 'industry', 'telecom'],
+        historian_guided_tour: ['castle', 'city'],
+        media_photo: ['city', 'castle', 'industry', 'road'],
+        news_coverage: ['city', 'road', 'industry'],
+        science_bio: ['water', 'forest', 'mountain'],
+        science_geo: ['mountain', 'dam', 'water']
+    };
+    const policy = Array.isArray(overrides[profile]) && overrides[profile].length
+        ? overrides[profile]
+        : missionTaskPoiCategoryPolicy(profile);
+    const base = (Array.isArray(policy) && policy.length ? policy : [selected])
+        .map(cat => String(cat || '').toLowerCase())
+        .filter(cat => cat && cat !== 'all' && cat !== 'chain' && cat !== 'trn');
+    const out = [];
+    const push = cat => {
+        const clean = String(cat || '').toLowerCase();
+        if (!clean || out.includes(clean)) return;
+        out.push(clean);
+    };
+    if (selected && selected !== 'all' && selected !== 'chain') push(selected);
+    missionProposalShuffleItems(base.filter(cat => cat !== selected)).forEach(push);
+    if (!out.length) push(selected === 'chain' ? 'infrastructure' : selected || 'all');
+    return out.slice(0, Math.max(1, Number(count) || 3));
+}
+
 async function collectMissionProposalPoiCandidates({
     start,
     searchMin,
@@ -34190,16 +34238,50 @@ async function buildMissionProposalPoiChoices(context = {}) {
     const poiCategory = String(context.selectedPoiCategory || 'all').toLowerCase() === 'chain'
         ? 'infrastructure'
         : String(context.selectedPoiCategory || 'all').toLowerCase();
-    const candidates = await collectMissionProposalPoiCandidates({
-        start,
-        searchMin: context.searchMin,
-        searchMax: context.searchMax,
-        dirPref: context.dirPref,
-        selectedPoiCategory: poiCategory,
-        dispatchProfileId: profileId,
-        limit: 3,
-        ensureAlive: context.ensureAlive
-    });
+    const requestedPoiCategory = String(context.requestedPoiCategory || context.selectedPoiCategory || poiCategory || 'all').toLowerCase();
+    const candidateCategories = missionProposalPoiCategoryMix(profileId, poiCategory, requestedPoiCategory, 3);
+    const candidates = [];
+    const seenCandidates = new Set();
+    if (candidateCategories.length > 1) {
+        for (const category of candidateCategories) {
+            const batch = await collectMissionProposalPoiCandidates({
+                start,
+                searchMin: context.searchMin,
+                searchMax: context.searchMax,
+                dirPref: context.dirPref,
+                selectedPoiCategory: category,
+                dispatchProfileId: profileId,
+                limit: 1,
+                ensureAlive: context.ensureAlive
+            });
+            missionProposalAppendUniquePoiCandidates(candidates, seenCandidates, batch, 3);
+            if (candidates.length >= 3) break;
+        }
+    }
+    if (candidates.length < 3) {
+        const backfillCategories = [
+            ...candidateCategories,
+            poiCategory,
+            requestedPoiCategory === 'all' ? 'all' : ''
+        ].filter(Boolean);
+        const seenCategories = new Set();
+        for (const category of backfillCategories) {
+            if (seenCategories.has(category)) continue;
+            seenCategories.add(category);
+            const batch = await collectMissionProposalPoiCandidates({
+                start,
+                searchMin: context.searchMin,
+                searchMax: context.searchMax,
+                dirPref: context.dirPref,
+                selectedPoiCategory: category,
+                dispatchProfileId: profileId,
+                limit: 3 - candidates.length,
+                ensureAlive: context.ensureAlive
+            });
+            missionProposalAppendUniquePoiCandidates(candidates, seenCandidates, batch, 3);
+            if (candidates.length >= 3) break;
+        }
+    }
     const cargoPool = Array.isArray(profile.cargoPool) && profile.cargoPool.length
         ? profile.cargoPool
         : [config.fallbackCargo || 'Auftragsausrüstung (12 lbs)'];
@@ -37592,7 +37674,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1238', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1251', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
