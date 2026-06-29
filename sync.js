@@ -2028,7 +2028,8 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             dwellSec: Math.max(0, Number(poiProgress.dwellSec || 0)),
             attempts: Math.max(0, Number(poiProgress.attempts || 0)),
             surveyPattern: poiProgress.surveyPattern ? _safeCloneJson(poiProgress.surveyPattern, null) : null,
-            poiChain: poiProgress.poiChain ? _safeCloneJson(poiProgress.poiChain, null) : null
+            poiChain: poiProgress.poiChain ? _safeCloneJson(poiProgress.poiChain, null) : null,
+            trainingProcedure: poiProgress.trainingProcedure ? _safeCloneJson(poiProgress.trainingProcedure, null) : null
         } : null,
         bushProgress: bushProgress ? _safeCloneJson(bushProgress, null) : null,
         cargoManifest,
@@ -8785,6 +8786,30 @@ function _missionPoiRuntimeStatus(endReady = null) {
         };
     }
     const taskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || '').toLowerCase();
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain) || progress?.trainingProcedure) {
+        const training = progress?.trainingProcedure || null;
+        let recipe = null;
+        try {
+            recipe = typeof window.missionTrainingProcedure?.getActiveRecipe === 'function'
+                ? window.missionTrainingProcedure.getActiveRecipe(currentMissionData, window.activePassenger || null)
+                : null;
+        } catch (_) {
+            recipe = null;
+        }
+        const total = Math.max(1, Number(training?.totalExercises || recipe?.exercises?.length || 0) || 1);
+        const done = Math.max(0, Number(training?.completedCount || 0));
+        const activeLabel = String(training?.activeExercise?.label || recipe?.exercises?.[Math.max(0, Number(training?.activeIndex || 0) || 0)]?.label || '').trim();
+        const detail = training?.satisfied
+            ? `Training abgeschlossen. Uebungen sauber abgeschlossen: ${done}/${total}.`
+            : `Training offen. Uebungen abgeschlossen: ${done}/${total}${activeLabel ? `, aktuell: ${activeLabel}` : ''}.`;
+        return {
+            stage: training?.satisfied ? 'training_complete' : 'training_working',
+            detail,
+            nextStep: training?.satisfied
+                ? 'Nächster Schritt: Landung/Heimflug fortsetzen und Debriefing nach der Landung abholen'
+                : (activeLabel ? `Nächster Schritt: Trainingsuebung fliegen: ${activeLabel}` : 'Nächster Schritt: auf die Instruktor-Ansage warten und Uebung stabil beginnen')
+        };
+    }
     if (progress?.poiChain || currentMissionData?.missionSubType === 'poi_chain' || currentMissionData?.poiChain) {
         const chain = progress?.poiChain || null;
         let spec = null;
@@ -10692,8 +10717,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 276;
-const MIN_TRACKER_VERSION_LABEL = 'v276';
+const MIN_TRACKER_VERSION_CODE = 277;
+const MIN_TRACKER_VERSION_LABEL = 'v277';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

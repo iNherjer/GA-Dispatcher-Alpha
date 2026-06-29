@@ -14091,7 +14091,9 @@ function roundPoiWorkAltitudeFt(value = 0, minFt = 0) {
 
 const TRAINING_AIRWORK_ITEMS = [
     'Stall-Training',
-    'Steep Turns (Vollkreis)',
+    'Steep Turns (Vollkreis 30 und 45 Grad)',
+    '180-Grad-Wende mit Hoehe halten',
+    'Geradeausflug mit 500-ft-Hoehenwechsel',
     'Slow Flight',
     'Haengekurven rechts/links',
     'Clean/Dirty Configuration Changes',
@@ -32383,6 +32385,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     11. TRAININGSINHALT MUSS KONKRET SEIN:
        - Wähle mode: "airwork" ODER "pattern".
        - Bei mode "airwork": Übungen in der Luft, z.B. Stall-Training, Steep Turns/Vollkreis, Slow Flight, Navigationsaufgabe.
+         Bevorzuge pruefbare Airwork-Verfahren: Vollkreis 30/45 Grad, 180-Grad-Wende, Geradeausflug mit 500-ft-Hoehenwechsel, Stall bis zum Break und Recovery.
          trigger MUSS "half_route" sein (Instruktor meldet sich auf halber Strecke).
        - Bei mode "pattern": Übungen platznah im Anflug/Platzrunde, z.B. Engine-Out-Approach, No-Flaps, Extra-Platzrunden, Touch-and-Go, Missed Approach.
          trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).

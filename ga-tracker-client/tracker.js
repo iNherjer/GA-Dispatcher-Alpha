@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v276';
-const TRACKER_VERSION_CODE = 276;
+const TRACKER_VERSION = 'v277';
+const TRACKER_VERSION_CODE = 277;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3164,6 +3164,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       addRequiredVar('INCIDENCE ALPHA', 'degrees', 'aoaDeg');
       addRequiredVar('STALL WARNING', 'Bool', 'stallState');
       // Wetter-Zusatzwerte (optional je nach SimConnect/Sim-Version)
+      addOptionalVar('AIRSPEED INDICATED', 'knots', 'iasKts');
+      addOptionalVar('PLANE PITCH DEGREES', 'degrees', 'pitchDeg');
       addOptionalVar('GROUND VELOCITY', 'knots', 'groundSpeedKts');
       addOptionalVar('AMBIENT WIND GUST', 'knots', 'windGustKts');
       addOptionalVar('AMBIENT PRECIP STATE', 'Enum', 'precipState');
@@ -3240,6 +3242,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
               const visMeters = raw.visMeters;
               const aoaDeg = raw.aoaDeg;
               const stallState = raw.stallState;
+              const iasKts = raw.iasKts;
+              const pitchDeg = raw.pitchDeg;
               const groundSpeedKts = raw.groundSpeedKts;
               const windGustKts = raw.windGustKts;
               const precipState = raw.precipState;
@@ -3300,6 +3304,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
                   payloadWeightLbs: Number.isFinite(payloadWeightLbs) ? Math.round(payloadWeightLbs * 10) / 10 : null,
                   payloadStationCount: Number.isFinite(payloadStationCount) ? Math.max(0, Math.round(payloadStationCount)) : null,
+                  iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
+                  ias: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
+                  pitchDeg: Number.isFinite(pitchDeg) ? Math.round(pitchDeg * 10) / 10 : null,
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
@@ -3327,7 +3334,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                 ws.send(JSON.stringify(gpsMsg));
                 if (now - lastFlightLog >= 1000) {
                   lastFlightLog = now;
-                  trackerStatus(`GPS Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Park ${flight.parkingBrake == null ? '?' : (flight.parkingBrake ? 'Y' : 'N')} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                  trackerStatus(`GPS Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | IAS ${flight.iasKts ?? '?'}kts | Pitch ${flight.pitchDeg ?? '?'}° | OnG ${flight.onGround ? 'Y' : 'N'} | Park ${flight.parkingBrake == null ? '?' : (flight.parkingBrake ? 'Y' : 'N')} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
                 }
               } else if (lat === 0) {
                 if (consoleMode === 'full') process.stdout.write(".");

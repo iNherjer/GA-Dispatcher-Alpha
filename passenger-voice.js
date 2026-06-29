@@ -526,6 +526,9 @@ window.paxVoiceResetMission = function() {
     if (typeof window.missionSurveyPattern?.reset === 'function') {
         try { window.missionSurveyPattern.reset('pax-voice-reset'); } catch (_) {}
     }
+    if (typeof window.missionTrainingProcedure?.reset === 'function') {
+        try { window.missionTrainingProcedure.reset('pax-voice-reset'); } catch (_) {}
+    }
     if (typeof window.missionPoiChainRuntime?.reset === 'function') {
         try { window.missionPoiChainRuntime.reset('pax-voice-reset'); } catch (_) {}
     }
@@ -555,25 +558,32 @@ window.paxVoiceGetPoiMissionProgress = function() {
         ? window.missionPoiChainRuntime.snapshot()
         : null;
     const poiChainSatisfied = !!(poiChain && poiChain.satisfied);
+    const trainingProcedure = (typeof window.missionTrainingProcedure?.snapshot === 'function')
+        ? window.missionTrainingProcedure.snapshot()
+        : null;
+    const trainingSatisfied = !!(trainingProcedure && trainingProcedure.satisfied);
+    const trainingCountsAsPoiDone = trainingSatisfied && _isPOIMission();
     return {
         hasSignal: true,
         trackingActive: !!window.activePassenger && _missionHasPax(),
-        satisfied: !!(_poiSatisfied || sarHeliLoaded || surveySatisfied || poiChainSatisfied),
+        satisfied: !!(_poiSatisfied || sarHeliLoaded || surveySatisfied || poiChainSatisfied || trainingCountsAsPoiDone),
         aborted: !!_poiAborted,
         manualConfirmed: !!_poiManuallyConfirmed,
-        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded || surveySatisfied || poiChainSatisfied),
+        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded || surveySatisfied || poiChainSatisfied || trainingCountsAsPoiDone),
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
         attempts: Math.max(0, Number(_poiAttempts || 0)),
         sarHeli,
         surveyPattern,
-        poiChain
+        poiChain,
+        trainingProcedure
     };
 };
 
 window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'mission-resume') {
     if (!progress || typeof progress !== 'object') return false;
     const surveySatisfied = !!(progress.surveyPattern && progress.surveyPattern.satisfied);
-    _poiSatisfied = !!(progress.satisfied || surveySatisfied);
+    const trainingSatisfied = !!(progress.trainingProcedure && progress.trainingProcedure.satisfied);
+    _poiSatisfied = !!(progress.satisfied || surveySatisfied || (trainingSatisfied && _isPOIMission()));
     _poiAborted = !!progress.aborted;
     _poiManuallyConfirmed = !!progress.manualConfirmed;
     _paxAtTargetDone = !!progress.atTargetDone || _poiSatisfied || _poiManuallyConfirmed;
@@ -593,6 +603,11 @@ window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'm
     if (poiChainSatisfied) {
         _poiSatisfied = true;
         _paxAtTargetDone = true;
+    }
+    if (progress.trainingProcedure && typeof window.missionTrainingProcedure?.restoreProgress === 'function') {
+        try {
+            window.missionTrainingProcedure.restoreProgress(progress.trainingProcedure, (typeof currentMissionData !== 'undefined' ? currentMissionData : null), window.activePassenger || null);
+        } catch (_) {}
     }
     if (_poiSatisfied || _poiManuallyConfirmed || _poiDwellSec > 0) {
         _poiInRadius = true;
@@ -880,6 +895,37 @@ function _trainingEvalSummary() {
     const aoaMax = _trainingEval.aoaSamples > 0 ? Number((_trainingEval.maxAoaDeg || 0).toFixed(1)) : null;
     const stallEvents = _trainingEval.stallEvents || 0;
     return { altVar, bank, maxG, climb, descent, aoaMax, stallEvents, samples: _trainingEval.samples };
+}
+
+function _trainingProcedureDebriefLine() {
+    const snap = (typeof window.missionTrainingProcedure?.snapshot === 'function')
+        ? window.missionTrainingProcedure.snapshot()
+        : null;
+    if (!snap || !Array.isArray(snap.exercises) || !snap.exercises.length) return '';
+    const completed = snap.exercises.filter(ex => ex && ex.status === 'complete');
+    if (!completed.length) {
+        const active = snap.activeExercise?.label ? ` Aktive Uebung: ${snap.activeExercise.label}.` : '';
+        return `\nTrainingsprozedur: noch kein sauber abgeschlossener Durchlauf.${active}`;
+    }
+    const bits = completed.slice(0, 6).map(ex => {
+        const s = ex.summary || {};
+        const label = String(ex.label || ex.id || 'Uebung').trim();
+        if (ex.type === 'stall_recovery') {
+            return `${label}: Hoehenverlust ab Break ${Math.round(Number(s.heightLossFt || 0))} ft`;
+        }
+        if (ex.type === 'constant_bank_360' || ex.type === 'turn_180') {
+            const alt = Number.isFinite(Number(s.maxAltitudeDeviationFt)) ? `${Math.round(Number(s.maxAltitudeDeviationFt))} ft Hoehenabweichung` : 'Hoehe n/a';
+            const hdg = Number.isFinite(Number(s.rolloutHeadingErrorDeg)) ? `Rollout ${Number(s.rolloutHeadingErrorDeg).toFixed(1)} Grad` : '';
+            return `${label}: ${[alt, hdg].filter(Boolean).join(', ')}`;
+        }
+        if (ex.type === 'altitude_step_hold') {
+            const alt = Number.isFinite(Number(s.maxAltitudeDeviationFt)) ? `${Math.round(Number(s.maxAltitudeDeviationFt))} ft Hoehenabweichung` : 'Hoehe n/a';
+            const hdg = Number.isFinite(Number(s.maxHeadingDeviationDeg)) ? `Kurs max ${Number(s.maxHeadingDeviationDeg).toFixed(1)} Grad` : '';
+            return `${label}: ${[alt, hdg].filter(Boolean).join(', ')}`;
+        }
+        return `${label}: sauber`;
+    });
+    return `\nTrainingsprozedur: ${completed.length}/${snap.exercises.length} Uebungen sauber abgeschlossen. ${bits.join(' | ')}.`;
 }
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
@@ -4045,7 +4091,10 @@ function _openAiTtsVoiceCandidatesForSpeaker(pax) {
 
 const _paxPreparedAudio = new Map();
 const _paxBoardingRecentPlayByKey = new Map();
-const _PAX_STATIC_VOICE_CATALOG_URL = './audio-pax/gemini-survey-v1/catalog.json';
+const _PAX_STATIC_VOICE_CATALOG_URLS = Object.freeze({
+    survey: './audio-pax/gemini-survey-v1/catalog.json',
+    training: './audio-pax/gemini-training-v1/catalog.json'
+});
 const _PAX_AUDIO_CUE_VARIANT_MAX = 8;
 const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
     none: { disabled: true, stem: '', label: 'Kein Audio-Cue' },
@@ -4073,7 +4122,7 @@ const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
     cargo_pickup: { stem: 'cargo-pickup', sourceLabel: 'Cargo-Pickup', variantScope: 'event', gain: 0.62 },
     cargo_drop: { stem: 'cargo-drop', sourceLabel: 'Cargo-Drop', gain: 0.72 }
 });
-let _paxStaticVoiceCatalogPromise = null;
+const _paxStaticVoiceCatalogPromises = new Map();
 const _paxStaticClipCache = new Map();
 const _paxAudioCueClipPromises = new Map();
 const _paxAudioCueMissingWarned = new Set();
@@ -4083,13 +4132,16 @@ function _paxStaticVoiceAssetsEnabled() {
     return localStorage.getItem('awm_pax_static_voice_assets') !== '0';
 }
 
-async function _paxLoadStaticVoiceCatalog() {
+async function _paxLoadStaticVoiceCatalog(pack = 'survey') {
     if (!_paxStaticVoiceAssetsEnabled()) return null;
-    if (_paxStaticVoiceCatalogPromise) return _paxStaticVoiceCatalogPromise;
-    _paxStaticVoiceCatalogPromise = fetch(_PAX_STATIC_VOICE_CATALOG_URL, { cache: 'force-cache' })
+    const packId = String(pack || 'survey').toLowerCase();
+    const url = _PAX_STATIC_VOICE_CATALOG_URLS[packId] || _PAX_STATIC_VOICE_CATALOG_URLS.survey;
+    if (_paxStaticVoiceCatalogPromises.has(url)) return _paxStaticVoiceCatalogPromises.get(url);
+    const promise = fetch(url, { cache: 'force-cache' })
         .then(res => res.ok ? res.json() : null)
         .catch(() => null);
-    return _paxStaticVoiceCatalogPromise;
+    _paxStaticVoiceCatalogPromises.set(url, promise);
+    return promise;
 }
 
 function _surveyPatternStaticClipKey(kind = 'event', spec = null) {
@@ -4120,13 +4172,16 @@ function _paxPickStaticVoiceClip(catalog, clipKey, speaker = null) {
     return pool[_hashStable(seed) % pool.length] || null;
 }
 
-async function _paxResolveStaticSurveyClip(kind, spec = null, speaker = null) {
-    const catalog = await _paxLoadStaticVoiceCatalog();
+async function _paxResolveStaticVoiceClip(pack = 'survey', clipKey = '', speaker = null) {
+    const catalog = await _paxLoadStaticVoiceCatalog(pack);
     if (!catalog?.clips || typeof catalog.clips !== 'object') return null;
-    const clipKey = _surveyPatternStaticClipKey(kind, spec);
     const clip = _paxPickStaticVoiceClip(catalog, clipKey, speaker);
     const url = _paxStaticClipUrl(catalog, clip);
     return clip && url ? { catalog, clip, clipKey, url } : null;
+}
+
+async function _paxResolveStaticSurveyClip(kind, spec = null, speaker = null) {
+    return _paxResolveStaticVoiceClip('survey', _surveyPatternStaticClipKey(kind, spec), speaker);
 }
 
 async function _paxFetchStaticClipAudio(url, mimeType = '') {
@@ -4444,6 +4499,10 @@ async function _paxPlayPhotoBurst(seed, options = {}, epoch = _paxMissionEpoch) 
 
 async function _paxPrimeStaticSurveyVoice(kind, spec = null, speaker = null) {
     const resolved = await _paxResolveStaticSurveyClip(kind, spec, speaker);
+    return _paxPrimeResolvedStaticVoice(resolved);
+}
+
+async function _paxPrimeResolvedStaticVoice(resolved = null) {
     if (!resolved) return false;
     const rec = await _paxFetchStaticClipAudio(resolved.url, resolved.clip?.mimeType || '');
     if (!rec?.audioBuffer) return false;
@@ -4453,6 +4512,10 @@ async function _paxPrimeStaticSurveyVoice(kind, spec = null, speaker = null) {
 
 async function _paxTryPlayStaticSurveyVoice(kind, spec = null, speaker = null, epoch = _paxMissionEpoch) {
     const resolved = await _paxResolveStaticSurveyClip(kind, spec, speaker);
+    return _paxTryPlayResolvedStaticVoice(resolved, epoch);
+}
+
+async function _paxTryPlayResolvedStaticVoice(resolved = null, epoch = _paxMissionEpoch) {
     if (!resolved) return false;
     const rec = await _paxFetchStaticClipAudio(resolved.url, resolved.clip?.mimeType || '');
     if (!rec?.audioBuffer) return false;
@@ -5268,6 +5331,293 @@ function _handleSurveyPatternEvents(events = [], spec = null) {
     });
 }
 
+function _trainingProcedureActiveRecipe() {
+    if (typeof window.missionTrainingProcedure?.getActiveRecipe !== 'function') return null;
+    try {
+        return window.missionTrainingProcedure.getActiveRecipe(
+            (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+            window.activePassenger || null
+        );
+    } catch (_) {
+        return null;
+    }
+}
+
+function _trainingProcedureSnapshot() {
+    if (typeof window.missionTrainingProcedure?.snapshot !== 'function') return null;
+    try {
+        return window.missionTrainingProcedure.snapshot();
+    } catch (_) {
+        return null;
+    }
+}
+
+function _trainingProcedureAudioKey(kind = 'event', event = null) {
+    const ex = String(event?.exerciseId || event?.exerciseType || '').trim();
+    return _paxMissionAudioKey(`training-${kind}${ex ? `-${ex}` : ''}`);
+}
+
+function _trainingProcedureEventKind(event = null) {
+    const type = String(event?.type || '').toLowerCase();
+    if (type === 'training_complete') return 'training_complete';
+    if (type === 'stall_break_detected') return 'stall_break_detected';
+    if (type === 'training_wait_altitude') return 'training_wait_altitude';
+    if (type === 'exercise_instruction') {
+        const exerciseType = String(event?.exerciseType || '').toLowerCase();
+        const bank = Math.round(Number(event?.targetBankDeg || 0));
+        if (exerciseType === 'constant_bank_360') return bank >= 40 ? 'training_instruction_turn_360_45' : 'training_instruction_turn_360_30';
+        if (exerciseType === 'turn_180') return 'training_instruction_turn_180';
+        if (exerciseType === 'altitude_step_hold') return 'training_instruction_altitude_step';
+        if (exerciseType === 'stall_recovery') return 'training_instruction_stall';
+        return 'training_exercise_started';
+    }
+    if (type === 'training_caution') {
+        const caution = String(event?.caution || '').toLowerCase();
+        if (caution === 'altitude') return 'training_caution_altitude';
+        if (caution === 'heading') return 'training_caution_heading';
+        if (caution === 'bank') return 'training_caution_bank';
+        if (caution === 'speed') return 'training_caution_speed';
+        if (caution === 'rollout_soon') return 'training_caution_rollout_soon';
+        if (caution === 'rollout') return 'training_caution_rollout';
+        if (caution === 'leveloff') return 'training_caution_leveloff';
+        if (caution === 'stall_setup') return 'stall_caution_setup';
+        if (caution === 'stall_hold_altitude') return 'stall_caution_hold_altitude';
+        if (caution === 'stall_wings_level') return 'stall_caution_wings_level';
+        if (caution === 'stall_recovery') return 'stall_caution_recovery';
+        if (caution === 'stall_stop_sink') return 'stall_caution_stop_sink';
+        if (caution === 'stall_secondary') return 'stall_caution_secondary';
+        return 'training_caution_general';
+    }
+    if (type === 'exercise_repeat_required') {
+        const reason = String(event?.reason || '').toLowerCase();
+        if (/altitude|hoehe/.test(reason)) return 'training_repeat_altitude';
+        if (/heading|course|kurs/.test(reason)) return 'training_repeat_heading';
+        if (/bank|direction|overshoot|rollout/.test(reason)) return 'training_repeat_bank';
+        if (/speed|ias/.test(reason)) return 'training_repeat_speed';
+        return 'training_repeat_required';
+    }
+    if (type === 'exercise_pass_clean') {
+        const exerciseType = String(event?.exerciseType || '').toLowerCase();
+        if (exerciseType === 'stall_recovery') return 'stall_good_recovery';
+        if (exerciseType === 'constant_bank_360' || exerciseType === 'turn_180') return 'training_pass_turn';
+        if (exerciseType === 'altitude_step_hold') return 'training_pass_altitude';
+        return 'training_pass_clean';
+    }
+    if (type === 'phase_started') {
+        const phase = String(event?.phase || '').toLowerCase();
+        if (phase === 'altitude_change') return 'training_altitude_change';
+        if (phase === 'hold_final') return 'training_hold_new_altitude';
+        if (phase === 'hold_initial') return 'training_hold_course_altitude';
+        if (phase === 'entry') return 'training_turn_entry';
+        if (phase === 'rollout') return 'training_turn_rollout';
+        if (phase === 'approach') return 'stall_approach';
+        if (phase === 'hold_to_break') return 'stall_hold_to_break';
+        if (phase === 'recovery') return 'stall_recovery';
+    }
+    if (type === 'exercise_started') return 'training_exercise_started';
+    if (type === 'training_started') return 'training_started';
+    return '';
+}
+
+function _trainingProcedureVoiceText(kind = 'training_started') {
+    switch (kind) {
+        case 'training_started':
+            return 'Training aktiv. Wir bewerten ab jetzt Hoehe, Kurs, Bank und saubere Korrekturen.';
+        case 'training_exercise_started':
+            return 'Neue Uebung. Erst stabilisieren, dann sauber und ohne Hast einleiten.';
+        case 'training_instruction_turn_360_30':
+            return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.';
+        case 'training_instruction_turn_360_45':
+            return 'Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten.';
+        case 'training_instruction_turn_180':
+            return 'Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen.';
+        case 'training_instruction_altitude_step':
+            return 'Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus.';
+        case 'training_instruction_stall':
+            return 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen.';
+        case 'training_turn_entry':
+            return 'Jetzt den Ziel-Bankwinkel aufnehmen und die Hoehe halten.';
+        case 'training_turn_rollout':
+            return 'Ausleiten. Kurs sauber treffen und die Flaechen waagerecht bringen.';
+        case 'training_hold_course_altitude':
+            return 'Eine Minute geradeaus. Kurs und Hoehe im engen Band halten.';
+        case 'training_altitude_change':
+            return 'Jetzt den Hoehenwechsel einleiten. Kurs halten und die Geschwindigkeit nicht weglaufen lassen.';
+        case 'training_hold_new_altitude':
+            return 'Neue Hoehe erreicht. Wieder eine Minute geradeaus und stabil halten.';
+        case 'stall_approach':
+            return 'Stall-Uebung beginnt. Leistung rausnehmen, Kurs halten und die Hoehe weiter verteidigen.';
+        case 'stall_hold_to_break':
+            return 'Weiter halten. Nicht zu frueh nachdruecken, wir warten auf den echten Break.';
+        case 'stall_break_detected':
+            return 'Break erkannt. Jetzt abfangen, Fluegel gerade, Fahrt aufbauen und danach sanft stabilisieren.';
+        case 'stall_recovery':
+            return 'Recovery laeuft. Fluegel waagerecht, Stallwarnung raus und Sinkrate stoppen.';
+        case 'training_pass_clean':
+            return 'Sauberer Durchlauf. Die Uebung zaehlt.';
+        case 'training_pass_turn':
+            return 'Guter Durchlauf. Rollout und Hoehe waren sauber genug, die Wende zaehlt.';
+        case 'training_pass_altitude':
+            return 'Gut gehalten. Kurs und Hoehenband passen, der Hoehenwechsel zaehlt.';
+        case 'stall_good_recovery':
+            return 'Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.';
+        case 'training_caution_altitude':
+            return 'Die Hoehe laeuft aus dem Band. Kleine Korrektur, nicht jagen.';
+        case 'training_caution_heading':
+            return 'Der Kurs driftet. Blick raus, Referenz halten und sanft zurueckfuehren.';
+        case 'training_caution_bank':
+            return 'Bankwinkel stabilisieren. Nicht nachdruecken, sauber halten.';
+        case 'training_caution_speed':
+            return 'Die Geschwindigkeit laeuft weg. Energie ruhiger fuehren.';
+        case 'training_caution_rollout_soon':
+            return 'Rollout kommt gleich. Vorplanen, Bank rausnehmen und Zielkurs treffen.';
+        case 'training_caution_rollout':
+            return 'Rollout noch nicht sauber. Flaechen waagerecht und Kurs ruhig einfangen.';
+        case 'training_caution_leveloff':
+            return 'Zielhoehe kommt. Leistung und Pitch vorbereiten, nicht durchschiessen.';
+        case 'training_caution_general':
+            return 'Kleine Korrektur noetig. Stabilisieren und ruhig weiterfliegen.';
+        case 'training_wait_altitude':
+            return 'Fuer die Uebung brauchen wir erst mehr Sicherheitshoehe. Weiter steigen und stabilisieren.';
+        case 'stall_caution_setup':
+            return 'Erst sauber stabilisieren: Kurs halten, Fluegel gerade, Hoehe ruhig.';
+        case 'stall_caution_hold_altitude':
+            return 'Hoehe weiter verteidigen. Noch nicht nachdruecken, sauber bis zum Break halten.';
+        case 'stall_caution_wings_level':
+            return 'Fluegel waagerecht halten. Keine Drehung in den Stall mitnehmen.';
+        case 'stall_caution_recovery':
+            return 'Recovery weiterfuehren: Nase loesen, Fahrt aufbauen, dann erst sanft abfangen.';
+        case 'stall_caution_stop_sink':
+            return 'Sinkrate stoppen. Fahrt ist wieder da, jetzt weich abfangen.';
+        case 'stall_caution_secondary':
+            return 'Vorsicht vor dem Sekundaerstall. Nicht zu frueh wieder ziehen.';
+        case 'training_repeat_altitude':
+            return 'Die Hoehe war ausserhalb der Toleranz. Wir setzen die Uebung noch einmal sauber an.';
+        case 'training_repeat_heading':
+            return 'Der Kurs war nicht sauber genug. Wir wiederholen mit ruhigerem Blick auf die Referenz.';
+        case 'training_repeat_bank':
+            return 'Bankwinkel oder Ausleitung waren nicht sauber. Wir nehmen den Durchlauf noch einmal.';
+        case 'training_repeat_speed':
+            return 'Die Geschwindigkeit ist zu weit weggelaufen. Bitte noch einmal mit ruhigerer Energie fuehren.';
+        case 'training_repeat_required':
+            return 'Kriterium verfehlt. Kein Problem, wir wiederholen die Uebung sauber.';
+        case 'training_complete':
+            return 'Training abgeschlossen. Wir haben die Uebungen im Kasten und werten nach der Landung kurz aus.';
+        default:
+            return '';
+    }
+}
+
+function _trainingProcedurePickEvent(events = []) {
+    const ranked = (Array.isArray(events) ? events : [])
+        .map(event => ({ event, kind: _trainingProcedureEventKind(event) }))
+        .filter(item => item.kind);
+    if (!ranked.length) return null;
+    const priority = [
+        'training_complete',
+        'stall_break_detected',
+        'training_repeat_altitude',
+        'training_repeat_heading',
+        'training_repeat_bank',
+        'training_repeat_speed',
+        'training_repeat_required',
+        'stall_caution_secondary',
+        'stall_caution_stop_sink',
+        'stall_caution_recovery',
+        'stall_caution_wings_level',
+        'stall_caution_hold_altitude',
+        'training_caution_rollout',
+        'training_caution_leveloff',
+        'training_caution_altitude',
+        'training_caution_heading',
+        'training_caution_bank',
+        'training_caution_speed',
+        'training_caution_rollout_soon',
+        'training_caution_general',
+        'stall_caution_setup',
+        'training_pass_clean',
+        'training_pass_turn',
+        'training_pass_altitude',
+        'stall_good_recovery',
+        'training_instruction_turn_360_30',
+        'training_instruction_turn_360_45',
+        'training_instruction_turn_180',
+        'training_instruction_altitude_step',
+        'training_instruction_stall',
+        'stall_hold_to_break',
+        'stall_recovery',
+        'training_altitude_change',
+        'training_hold_new_altitude',
+        'training_turn_rollout',
+        'training_turn_entry',
+        'stall_approach',
+        'training_hold_course_altitude',
+        'training_exercise_started',
+        'training_wait_altitude',
+        'training_started'
+    ];
+    return ranked.sort((a, b) => priority.indexOf(a.kind) - priority.indexOf(b.kind))[0] || null;
+}
+
+async function _paxPrimeStaticTrainingVoice(kind, speaker = null) {
+    const resolved = await _paxResolveStaticVoiceClip('training', kind, speaker);
+    return _paxPrimeResolvedStaticVoice(resolved);
+}
+
+async function _paxTryPlayStaticTrainingVoice(kind, speaker = null, epoch = _paxMissionEpoch) {
+    const resolved = await _paxResolveStaticVoiceClip('training', kind, speaker);
+    return _paxTryPlayResolvedStaticVoice(resolved, epoch);
+}
+
+window.paxVoicePrepareTrainingProcedure = function() {
+    const recipe = _trainingProcedureActiveRecipe();
+    if (!recipe || !window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
+    const epoch = _paxMissionEpoch;
+    const speaker = _speakerSnapshotForMissionVoice('training-procedure');
+    const kinds = [
+        'training_instruction_turn_360_30',
+        'training_instruction_turn_360_45',
+        'training_instruction_turn_180',
+        'training_instruction_altitude_step',
+        'training_instruction_stall',
+        'training_pass_turn',
+        'training_pass_altitude',
+        'stall_good_recovery',
+        'training_repeat_required',
+        'training_caution_altitude',
+        'training_caution_heading',
+        'training_complete',
+        'stall_break_detected'
+    ];
+    const jobs = kinds.map(kind => {
+        const text = _trainingProcedureVoiceText(kind);
+        if (!text) return Promise.resolve(null);
+        return _paxPrimeStaticTrainingVoice(kind, speaker)
+            .then(staticReady => staticReady ? true : _prepareTextAsTTS(_paxMissionAudioKey(`training-prep-${kind}`), text, speaker, epoch));
+    });
+    return Promise.allSettled(jobs);
+};
+
+function _handleTrainingProcedureEvents(events = [], recipe = null) {
+    const picked = _trainingProcedurePickEvent(events);
+    if (!picked) return;
+    const kind = picked.kind;
+    const event = picked.event || null;
+    _paxLog(`Training-Prozedur Event: ${kind}`, 'event');
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot(`training-procedure-${kind}`, { immediate: kind === 'training_complete' });
+    }
+    const text = _trainingProcedureVoiceText(kind, event, recipe);
+    if (!text) return;
+    const speaker = _speakerSnapshotForMissionVoice('training-procedure');
+    const label = kind === 'training_complete'
+        ? 'Training abgeschlossen'
+        : (kind.includes('repeat') ? 'Training Wiederholung' : (kind.includes('stall') ? 'Stall Training' : 'Training'));
+    _speakPreparedText(_trainingProcedureAudioKey(kind, event), text, speaker, label, {
+        tryStaticAudio: (playEpoch) => _paxTryPlayStaticTrainingVoice(kind, speaker, playEpoch)
+    });
+}
+
 function _poiChainAudioKey(kind = 'event', text = '') {
     const suffix = text ? `-${_hashStable(text).toString(36).slice(0, 6)}` : '';
     return _paxMissionAudioKey(`poi-chain-${kind}${suffix}`);
@@ -5582,6 +5932,49 @@ function _tickSurveyPatternTask(lat, lon, flightData) {
     return result;
 }
 
+function _tickTrainingProcedureTask(lat, lon, flightData) {
+    const trainingPlan = _activeAptTrainingPlan();
+    const taskDomain = _activeTaskDomain();
+    if (!trainingPlan && !/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain)) return null;
+    if (typeof window.missionTrainingProcedure?.tick !== 'function') return null;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    let result = null;
+    try {
+        result = window.missionTrainingProcedure.tick({
+            lat,
+            lon,
+            flightData,
+            missionData: md,
+            passenger: window.activePassenger || null
+        });
+    } catch (err) {
+        _paxLog(`Training-Prozedur Tick Fehler: ${err?.message || err}`, 'warn');
+        return null;
+    }
+    if (!result?.handled) return result;
+    _handleTrainingProcedureEvents(result.events || [], result.recipe || _trainingProcedureActiveRecipe());
+    const progress = result.progress || null;
+    if (progress?.startedAt && progress?.updatedAt) {
+        _poiDwellSec = Math.max(_poiDwellSec, (Number(progress.updatedAt) - Number(progress.startedAt)) / 1000);
+        _poiLastTickTime = Date.now();
+    }
+    if (result.satisfied && _isPOIMission() && !_poiSatisfied) {
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        if (!_poiEnteredAt) _poiEnteredAt = Date.now();
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+            window.missionPersistRuntimeSnapshot('training-procedure-satisfied', { immediate: true });
+        }
+        if (!Array.isArray(result.events) || !result.events.some(ev => String(ev?.type || '') === 'training_complete')) {
+            _handleTrainingProcedureEvents([{ type: 'training_complete' }], result.recipe || _trainingProcedureActiveRecipe());
+        }
+        _refreshPaxWidgetVisibility();
+    }
+    return result;
+}
+
 function _roleConsistencyDebugEnabled() {
     return localStorage.getItem('awm_role_consistency_debug') === '1';
 }
@@ -5724,6 +6117,9 @@ window.paxVoicePrepareBoarding = function() {
     }
     if (typeof window.paxVoicePreparePoiChain === 'function') {
         try { window.paxVoicePreparePoiChain(); } catch (_) {}
+    }
+    if (typeof window.paxVoicePrepareTrainingProcedure === 'function') {
+        try { window.paxVoicePrepareTrainingProcedure(); } catch (_) {}
     }
     const key = _paxMissionAudioKey('boarding');
     const existing = _paxPreparedAudio.get(key);
@@ -7533,9 +7929,10 @@ function _farewellPrompt(record) {
     const profLandingHint = _professionalLandingToneHint();
     const trainingPlan = _activeAptTrainingPlan();
     const trn = trainingPlan ? _trainingEvalSummary() : null;
+    const trnProcedureFacts = trainingPlan ? _trainingProcedureDebriefLine() : '';
     const trnFacts = trn
-        ? `\nTrainingsdaten (Übungsabschnitt): Höhenvariation ${trn.altVar ?? 'n/a'} ft, max Bank ${trn.bank}°, max G ${trn.maxG}g, max Steigen ${trn.climb} ft/min, max Sinken ${Math.abs(trn.descent)} ft/min${trn.aoaMax != null ? `, max AOA ${trn.aoaMax}°` : ''}, Stall-Events ${trn.stallEvents}.`
-        : '';
+        ? `\nTrainingsdaten (Übungsabschnitt): Höhenvariation ${trn.altVar ?? 'n/a'} ft, max Bank ${trn.bank}°, max G ${trn.maxG}g, max Steigen ${trn.climb} ft/min, max Sinken ${Math.abs(trn.descent)} ft/min${trn.aoaMax != null ? `, max AOA ${trn.aoaMax}°` : ''}, Stall-Events ${trn.stallEvents}.${trnProcedureFacts}`
+        : trnProcedureFacts;
     const trnTask = trn
         ? '\nDa du hier als Instruktor unterwegs bist: Gib ein kurzes, konkretes Trainingsfazit (was war gut, was sollte beim nächsten Flug sauberer werden).'
         : '';
@@ -8254,9 +8651,13 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         _trainingEvalBegin();
         _trainingEvalTick(flightData || window.lastLiveFlightData || {});
     }
+    const trainingTaskDomainActive = /^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain());
+    const trainingProcedureTickResult = (trainingPlan || trainingTaskDomainActive)
+        ? _tickTrainingProcedureTask(lat, lon, flightData || window.lastLiveFlightData || {})
+        : null;
 
     if (isPoiMission) {
-        if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
+        if (!_poiSatisfied && !_poiAborted && !trainingProcedureTickResult?.handled) _tickPoiDwell(lat, lon, flightData);
     } else {
         if (!wps || wps.length < 2) return;
         const last = wps[wps.length - 1];

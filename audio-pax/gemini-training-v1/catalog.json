@@ -1,0 +1,892 @@
+{
+  "schema": "ga-dispatcher-pax-static-tts-v1",
+  "generatedAt": "2026-06-29T19:05:26.810Z",
+  "model": "gemini-3.1-flash-tts-preview",
+  "basePath": "./audio-pax/gemini-training-v1",
+  "voices": [
+    "Charon",
+    "Puck",
+    "Kore",
+    "Leda",
+    "Aoede"
+  ],
+  "clips": {
+    "training_started": {
+      "text": "Training aktiv. Wir bewerten ab jetzt Hoehe, Kurs, Bank und saubere Korrekturen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_started-t01.wav",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    "training_exercise_started": {
+      "text": "Neue Uebung. Erst stabilisieren, dann sauber und ohne Hast einleiten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_exercise_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_exercise_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_exercise_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_exercise_started-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_exercise_started-t01.wav",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    "training_instruction_turn_360_30": {
+      "text": "Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_instruction_turn_360_30-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_instruction_turn_360_30-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_instruction_turn_360_30-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_instruction_turn_360_30-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_instruction_turn_360_30-t01.wav",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    "training_instruction_turn_360_45": {
+      "text": "Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_instruction_turn_360_45-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_instruction_turn_360_45-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_instruction_turn_360_45-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_instruction_turn_360_45-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_instruction_turn_360_45-t01.wav",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    "training_instruction_turn_180": {
+      "text": "Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_instruction_turn_180-t01.wav",
+          "mimeType": "audio/wav"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_instruction_turn_180-t01.wav",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    "training_instruction_altitude_step": {
+      "text": "Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus.",
+      "takes": []
+    },
+    "training_instruction_stall": {
+      "text": "Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen.",
+      "takes": []
+    },
+    "training_turn_entry": {
+      "text": "Jetzt den Ziel-Bankwinkel aufnehmen und die Hoehe halten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_turn_entry-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_turn_entry-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_turn_entry-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_turn_entry-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_turn_entry-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_turn_rollout": {
+      "text": "Ausleiten. Kurs sauber treffen und die Flaechen waagerecht bringen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_turn_rollout-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_turn_rollout-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_turn_rollout-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_turn_rollout-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_turn_rollout-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_hold_course_altitude": {
+      "text": "Eine Minute geradeaus. Kurs und Hoehe im engen Band halten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_hold_course_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_hold_course_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_hold_course_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_hold_course_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_hold_course_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_altitude_change": {
+      "text": "Jetzt den Hoehenwechsel einleiten. Kurs halten und die Geschwindigkeit nicht weglaufen lassen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_altitude_change-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_altitude_change-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_altitude_change-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_altitude_change-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_altitude_change-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_hold_new_altitude": {
+      "text": "Neue Hoehe erreicht. Wieder eine Minute geradeaus und stabil halten.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_hold_new_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_hold_new_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_hold_new_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_hold_new_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_hold_new_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "stall_approach": {
+      "text": "Stall-Uebung beginnt. Leistung rausnehmen, Kurs halten und die Hoehe weiter verteidigen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/stall_approach-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/stall_approach-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/stall_approach-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/stall_approach-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/stall_approach-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "stall_hold_to_break": {
+      "text": "Weiter halten. Nicht zu frueh nachdruecken, wir warten auf den echten Break.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/stall_hold_to_break-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/stall_hold_to_break-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/stall_hold_to_break-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/stall_hold_to_break-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/stall_hold_to_break-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "stall_break_detected": {
+      "text": "Break erkannt. Jetzt abfangen, Fluegel gerade, Fahrt aufbauen und danach sanft stabilisieren.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/stall_break_detected-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/stall_break_detected-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/stall_break_detected-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/stall_break_detected-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/stall_break_detected-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "stall_recovery": {
+      "text": "Recovery laeuft. Fluegel waagerecht, Stallwarnung raus und Sinkrate stoppen.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/stall_recovery-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/stall_recovery-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/stall_recovery-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/stall_recovery-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/stall_recovery-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_pass_clean": {
+      "text": "Sauberer Durchlauf. Die Uebung zaehlt.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_pass_clean-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_pass_clean-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_pass_clean-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_pass_clean-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_pass_clean-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_pass_turn": {
+      "text": "Guter Durchlauf. Rollout und Hoehe waren sauber genug, die Wende zaehlt.",
+      "takes": []
+    },
+    "training_pass_altitude": {
+      "text": "Gut gehalten. Kurs und Hoehenband passen, der Hoehenwechsel zaehlt.",
+      "takes": []
+    },
+    "stall_good_recovery": {
+      "text": "Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.",
+      "takes": []
+    },
+    "training_caution_altitude": {
+      "text": "Die Hoehe laeuft aus dem Band. Kleine Korrektur, nicht jagen.",
+      "takes": []
+    },
+    "training_caution_heading": {
+      "text": "Der Kurs driftet. Blick raus, Referenz halten und sanft zurueckfuehren.",
+      "takes": []
+    },
+    "training_caution_bank": {
+      "text": "Bankwinkel stabilisieren. Nicht nachdruecken, sauber halten.",
+      "takes": []
+    },
+    "training_caution_speed": {
+      "text": "Die Geschwindigkeit laeuft weg. Energie ruhiger fuehren.",
+      "takes": []
+    },
+    "training_caution_rollout_soon": {
+      "text": "Rollout kommt gleich. Vorplanen, Bank rausnehmen und Zielkurs treffen.",
+      "takes": []
+    },
+    "training_caution_rollout": {
+      "text": "Rollout noch nicht sauber. Flaechen waagerecht und Kurs ruhig einfangen.",
+      "takes": []
+    },
+    "training_caution_leveloff": {
+      "text": "Zielhoehe kommt. Leistung und Pitch vorbereiten, nicht durchschiessen.",
+      "takes": []
+    },
+    "training_caution_general": {
+      "text": "Kleine Korrektur noetig. Stabilisieren und ruhig weiterfliegen.",
+      "takes": []
+    },
+    "training_wait_altitude": {
+      "text": "Fuer die Uebung brauchen wir erst mehr Sicherheitshoehe. Weiter steigen und stabilisieren.",
+      "takes": []
+    },
+    "stall_caution_setup": {
+      "text": "Erst sauber stabilisieren: Kurs halten, Fluegel gerade, Hoehe ruhig.",
+      "takes": []
+    },
+    "stall_caution_hold_altitude": {
+      "text": "Hoehe weiter verteidigen. Noch nicht nachdruecken, sauber bis zum Break halten.",
+      "takes": []
+    },
+    "stall_caution_wings_level": {
+      "text": "Fluegel waagerecht halten. Keine Drehung in den Stall mitnehmen.",
+      "takes": []
+    },
+    "stall_caution_recovery": {
+      "text": "Recovery weiterfuehren: Nase loesen, Fahrt aufbauen, dann erst sanft abfangen.",
+      "takes": []
+    },
+    "stall_caution_stop_sink": {
+      "text": "Sinkrate stoppen. Fahrt ist wieder da, jetzt weich abfangen.",
+      "takes": []
+    },
+    "stall_caution_secondary": {
+      "text": "Vorsicht vor dem Sekundaerstall. Nicht zu frueh wieder ziehen.",
+      "takes": []
+    },
+    "training_repeat_altitude": {
+      "text": "Die Hoehe war ausserhalb der Toleranz. Wir setzen die Uebung noch einmal sauber an.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_repeat_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_repeat_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_repeat_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_repeat_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_repeat_altitude-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_repeat_heading": {
+      "text": "Der Kurs war nicht sauber genug. Wir wiederholen mit ruhigerem Blick auf die Referenz.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_repeat_heading-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_repeat_heading-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_repeat_heading-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_repeat_heading-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_repeat_heading-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_repeat_bank": {
+      "text": "Bankwinkel oder Ausleitung waren nicht sauber. Wir nehmen den Durchlauf noch einmal.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_repeat_bank-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_repeat_bank-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_repeat_bank-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_repeat_bank-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_repeat_bank-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_repeat_speed": {
+      "text": "Die Geschwindigkeit ist zu weit weggelaufen. Bitte noch einmal mit ruhigerer Energie fuehren.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_repeat_speed-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_repeat_speed-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_repeat_speed-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_repeat_speed-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_repeat_speed-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_repeat_required": {
+      "text": "Kriterium verfehlt. Kein Problem, wir wiederholen die Uebung sauber.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_repeat_required-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_repeat_required-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_repeat_required-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_repeat_required-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_repeat_required-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_complete": {
+      "text": "Training abgeschlossen. Wir haben die Uebungen im Kasten und werten nach der Landung kurz aus.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Puck",
+          "take": 1,
+          "path": "clips/Puck/training_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Kore",
+          "take": 1,
+          "path": "clips/Kore/training_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Leda",
+          "take": 1,
+          "path": "clips/Leda/training_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        },
+        {
+          "voice": "Aoede",
+          "take": 1,
+          "path": "clips/Aoede/training_complete-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    }
+  }
+}
