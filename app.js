@@ -17832,7 +17832,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachliche Berichterstattung. Erfinde aus Zieltyp, sichtbaren Ankern, Persona und Ausruestung eine konkrete kleine Lokalgeschichte mit Headline, Vorfall, Event oder medialer Dokumentation. Der POI bleibt Ort des Geschehens; sichtbare Anker sind Bildbelege, keine zu kopierende Vorlage und keine Auswahlliste. Im finalen Briefing duerfen nicht nur "lokaler Anlass", "Meldung", "Lage" oder "Aufhaenger" als Platzhalter stehen. Bei POI-City keine "O-Toene sammeln"-Story und keine APT-/Bodenreporter-Transferlogik. Keine Touri-Rhetorik, keine Einsatzdramatisierung, keine technische Inspektion.';
     }
     if (profile.id === 'historian_guided_tour' && isPOI) {
-        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischer Ortslesart. Nutze Rollen wie Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist. Bei City/Castle eignen sich Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Bauachsen oder fruehere Nutzung als Erzaehlanker. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag, keine allgemeine Sightseeing-Tour.';
+        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischer Ortslesart. Nutze Rollen wie Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist. Bei City/Castle eignen sich Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Bauachsen oder fruehere Nutzung als Erzaehlanker. Wenn ein "warum jetzt" gebraucht wird, dann als weicher Arbeitsstand wie Archivnotiz, Infotafel, Fuehrung oder Chronikbeitrag, nicht als Wetterbegruendung und nicht als sichtbare Checkliste. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag, keine allgemeine Sightseeing-Tour.';
     }
     if (profile.id === 'sightseeing_tour' && isPOI) {
         return '16. OPERATIONS-REGEL SIGHTSEEING POI: Auftrag ist ein persoenlicher, ruhiger Rundflug zum POI mit Blickmoment, Orientierung, Erinnerungsfotos und entspannter Rueckkehr. Schreibe keine Arbeits-, Erfassungs-, Dokumentations-, Lagebild-, Vermessungs-, Inspektions- oder Einsatzsprache. Der Zielbereich bleibt ein Blickmoment aus der Luft und kein Bodenaktionsort; diese Regel nicht als eigenen Briefing-Satz ausgeben. Nenne nach Moeglichkeit einen kleinen sozialen Anlass: Besuch, Freund/Familie, Geschenkflug, Heimatblick, Wochenendausflug oder persoenliche Fotos.';
@@ -24738,16 +24738,23 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                         'den Zusammenhang zwischen Ziel, Umgebung und frueherer Nutzung'
                     ]
         );
+        const currentWork = _missionPipelineV4PickOne([
+            'eine kurze Ortsarchiv-Notiz braucht noch die Luftperspektive, bevor sie fertiggestellt wird',
+            'fuer einen Entwurf einer kleinen Infotafel fehlt noch die Frage, wie Lage und Zugang aus der Luft wirken',
+            'eine lokalhistorische Fuehrung soll um einen klaren Blick auf Lage, Wege und Umgebung ergaenzt werden',
+            'ein kurzer Chronikbeitrag soll nicht nur aus Bodenfotos bestehen, sondern den Ort im Gelaende erklaeren',
+            'fuer die naechste Heimatvereinsrunde soll eine anschauliche Luftperspektive als roter Faden entstehen'
+        ]);
         return {
             trigger: `Zu ${targetLabel} soll die heutige Landschaft mit einer konkreten historischen Lesart verbunden werden.`,
             focusSubject: targetLabel,
             keyQuestion: `Welche historische Bedeutung oder Nutzung von ${targetLabel} sich aus Luftsicht anschaulich erklaeren laesst.`,
             stakes: 'Ohne Einordnung bleibt der Ort nur Kulisse statt nachvollziehbarer Geschichte.',
-            completionSignal: 'Nach dem Ueberflug steht ein kurzer historischer Takeaway fuer den weiteren Flug bereit.',
+            completionSignal: 'Nach dem Ueberflug gehen Notizen und Eindruecke in die kurze historische Einordnung.',
             subjectDetail: historicalAngle,
             incidentContext: `Der Flug soll bei ${targetLabel} nicht nur ein Motiv zeigen, sondern ${historicalAngle} aus der Luft historisch lesbar machen.`,
-            whyNow: 'Gerade der Blick aus der Luft liefert die Geometrie und Umgebung, die fuer die historische Erklaerung gebraucht wird.',
-            soughtOutcome: 'Wir sollen eine kurze, anschauliche historische Lesart liefern, die den weiteren Flug inhaltlich traegt.'
+            whyNow: currentWork,
+            soughtOutcome: 'Wir sollen eine kurze, anschauliche historische Lesart liefern, die spaeter als Notiz, Fuehrungsbaustein oder Ortskommentar funktioniert.'
         };
     }
     if (taskDomain === 'private_outing') {
@@ -27229,7 +27236,7 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
     const whyNow = _missionWriterV5FirstSpineValue([
         frame.whyNow,
         frame.stakes,
-        Array.isArray(plan.weatherHooks) ? plan.weatherHooks[0] : ''
+        taskDomain === 'historian_guided_tour' ? '' : (Array.isArray(plan.weatherHooks) ? plan.weatherHooks[0] : '')
     ], 220);
     const outcome = _missionWriterV5FirstSpineValue([
         frame.soughtOutcome,
@@ -27486,6 +27493,25 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         ],
         styleRecipe: 'Geo/Relief bleibt Geländelesart: Relief, Erosion, Sediment, Hangform, Uferkante, Talform oder Kartierung. Keine Bio-, Technik-, SAR- oder Feuerdrift.'
     },
+    historian_guided_tour: {
+        tone: 'ruhige historische Ortslesart mit erzählerischem, aber sachlichem Ton',
+        perspective: 'Dispatcher an Pilot; Historiker oder Denkmalpflege nutzt den Luftblick für eine konkrete historische Einordnung',
+        length: '4-5 Sätze',
+        softFreedom: 'Der aktuelle Anlass darf ein weicher Arbeitsstand sein: Archivnotiz, Entwurf für eine Infotafel, Vorbereitung einer Führung, Heimatvereinsbeitrag oder kurze Chronik-Einordnung. Keine harten Baujahre, echten Ereignisse oder Ortsdetails erfinden.',
+        requiredMeaning: [
+            'Historische Einordnung bleibt der Grund des Fluges.',
+            'Der POI bleibt Hauptziel und wird über Lage, Wege, Ortsbild, Bauwerk oder Landschaft gelesen.',
+            'Der Anlass entsteht aus einem plausiblen historischen Arbeitsstand, nicht aus gutem Wetter allein.',
+            'Nach dem Überflug fließen Eindrücke in Notiz, Tafeltext, Führung, Archiv- oder Chronikarbeit.'
+        ],
+        qualityQuestions: [
+            'Welche historische Lesart trägt den Flug?',
+            'Welcher weiche Arbeitsstand macht den Überflug heute plausibel?',
+            'Was sieht man aus der Luft besser als nur vom Boden?',
+            'Wofür nutzt die Fachperson Notizen oder Eindrücke danach?'
+        ],
+        styleRecipe: 'Schreibe eine historische Ortslesart, keine Geschichtsstunde und keinen Pflichtkatalog. Entscheide dich für einen konkreten weichen Anlass wie Archivnotiz, Infotafel-Entwurf, Führungsvorbereitung oder Chronikbeitrag. Wetter darf höchstens einmal als Flugrahmen auftauchen und soll nicht die Antwort auf "warum jetzt" sein. Nutze nur wenige sichtbare Belege und lasse Nebeninformationen weg, wenn sie den Text steif machen.'
+    },
     medical_transfer: {
         tone: 'ruhige medizinische Transfer-Notiz ohne Einsatzdrama',
         perspective: 'Dispatcher an Pilot; medizinische Begleitung oder Material braucht sauberen, planbaren Luftweg',
@@ -27664,6 +27690,14 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             studyQuestion: spine.concreteAngle || spine.premise || `geologische Beobachtung bei ${targetName}`,
             visibleTerrainFocus: spine.flightValue || 'Relief, Hangform, Erosion, Sediment oder Geländeübergänge aus der Luft lesen',
             fieldworkStep: spine.outcome || spine.completion || 'Vergleichsbilder und Notizen ergänzen Kartierung oder Bericht'
+        };
+    }
+    if (taskDomain === 'historian_guided_tour') {
+        return {
+            historicalReading: spine.concreteAngle || spine.premise || `historische Einordnung von ${targetName}`,
+            currentWork: spine.whyNow || 'ein kurzer Arbeitsstand für Archivnotiz, Infotafel, Führung oder Chronikbeitrag braucht noch den Luftblick',
+            visibleHistoryFocus: spine.flightValue || 'Lage, Wege, Ortsbild, Bauwerk oder Landschaft aus der Luft zusammen lesen',
+            followupUse: spine.completion || spine.outcome || 'Notizen und Eindrücke fließen nach der Rückkehr in eine kurze historische Einordnung'
         };
     }
     if (taskDomain === 'medical_transfer') {
@@ -27865,6 +27899,9 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const newsCoveragePromptRule = promptTaskDomain === 'news_coverage'
         ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich für einen einzigen journalistischen Kern: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Der erste inhaltliche Satz muss sagen, was bei diesem POI berichtenswert ist; "die Redaktion braucht Bilder/einen klaren Ort/einen Rahmen für die Geschichte" ist nur Arbeitsauftrag, keine fertige Story. Der gewählte POI bleibt Ort des Geschehens. Schreibe nicht fragend, welches Standardmotiv dort vorliegen könnte, sondern erzähle die gewählte Situation direkt. Sichtbare Orts- oder Umfeldmerkmale sind nur Rohmaterial; wähle höchstens einen Beleg, statt eine Liste aufzuzählen. Kein Boulevard- oder BILD-Zeitung-Ton; bei Fotoaufträgen eher Fotoreportage, Fotodokumentation oder Fotoauswahl sagen. Story-Felder sind Leitplanken, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen, wenn die Geschichte dadurch besser wird.'
         : '';
+    const historianPromptRule = promptTaskDomain === 'historian_guided_tour'
+        ? '\n14. HISTORIKER: Schreibe eine historische Ortslesart mit einem weichen fachlichen Anlass, nicht eine Checkliste. "Warum heute" bedeutet hier Arbeitsstand oder Weiterverwendung, z.B. Archivnotiz, Infotafel-Entwurf, Führungsvorbereitung oder kurzer Chronikbeitrag; es darf beiläufig sein und muss nicht als eigener Pflichtsatz erscheinen. Wetter ist nur Flugrahmen und darf nicht noch einmal als eigentliche Begründung dienen, wenn es schon genannt wurde. Wähle wenige passende Belege wie Lage, Wege, Ortsbild, Hang/Tal oder Bauwerk; nicht alles aufzählen.'
+        : '';
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
@@ -27882,7 +27919,7 @@ Arbeitsweise:
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}
+13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}
 
 <MISSION_BRIEF_FORM>
 ${JSON.stringify(missionBriefForm)}
@@ -29458,12 +29495,29 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         ].join(' ');
     }
     if (taskDomain === 'historian_guided_tour') {
+        const intro = _missionPipelineV4StripSentenceEnd(frame.trigger || `Zu ${targetName} soll heute eine historische Ortslesart aus der Luft entstehen`);
+        const workReason = _missionPipelineV4StripSentenceEnd(
+            whyNow || 'Für eine kurze Archivnotiz, einen Infotafel-Entwurf oder eine Führungsvorbereitung fehlt noch der Blick von oben'
+        );
+        const focus = _missionPipelineV4StripSentenceEnd(
+            incident || detail || `${targetName} bleibt der historische Bezugspunkt`
+        );
+        let outcome = _missionPipelineV4StripSentenceEnd(
+            sought || 'Wir sollen eine anschauliche Einordnung liefern, die Lage, Wege und Bauwerk als Zusammenhang lesbar macht'
+        );
+        if (/^wir\s+sollen\b/i.test(normalizeMissionText(outcome))) {
+            outcome = 'Das Ergebnis soll eine anschauliche historische Einordnung sein, keine vollständige Ortschronik';
+        }
+        const handoff = _missionPipelineV4StripSentenceEnd(
+            completion || 'Nach dem Überflug gehen Notizen und Eindrücke in die kurze historische Einordnung'
+        );
         return [
-            String(frame.trigger || `Zu ${targetName} soll heute eine historische Ortslesart aus der Luft entstehen.`).trim(),
-            incident || `${detail} bildet den historischen Erzaehlanker fuer den ruhigen Ueberflug.`,
-            `${whyNow || 'Der Luftblick macht Lage, Wege, Ortskern oder Bauwerk in ihrem Zusammenhang besser lesbar.'}${weatherSentence}`.trim(),
-            `${sought || 'Wir sollen eine kurze historische Einordnung liefern, die nach dem Ueberflug wirklich haengen bleibt.'} ${completion}`.trim()
-        ].join(' ');
+            _missionPipelineV4EnsureSentence(intro),
+            _missionPipelineV4EnsureSentence(workReason),
+            _missionPipelineV4EnsureSentence(`${focus} wird aus der Luft als Zusammenhang gelesen, nicht als Liste einzelner Orientierungspunkte`),
+            _missionPipelineV4EnsureSentence(outcome),
+            _missionPipelineV4EnsureSentence(handoff)
+        ].filter(Boolean).join(' ');
     }
     if (taskDomain === 'private_outing') {
         const privateProfile = getMissionTaskProfile('private_outing', 'apt');
@@ -30536,6 +30590,61 @@ function _missionWriterV5ComposeScienceGeoStory(contract = {}, context = {}) {
     ]);
 }
 
+function _missionWriterV5ComposeHistorianStory(contract = {}, context = {}) {
+    const { form } = _missionWriterV5DomainForm(contract, context);
+    const domain = form.domainDetails || {};
+    const routeSentence = _missionWriterV5RouteSentence(contract);
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Ziel', 120);
+    const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die historische Begleitung');
+    const passengerLead = passenger.includes(',') ? `${passenger}, ist an Bord` : `${passenger} ist an Bord`;
+    const historianPolish = value => _missionPipelineV4PolishGermanVisibleText(String(value || '')
+        .replace(/\berklaeren\b/g, 'erklären')
+        .replace(/\berklaert\b/g, 'erklärt')
+        .replace(/\bFuehrung\b/g, 'Führung')
+        .replace(/\bFuehrungs/g, 'Führungs')
+        .replace(/\bUeberflug\b/g, 'Überflug')
+        .replace(/\bEindruecke\b/g, 'Eindrücke')
+        .replace(/\beindruecke\b/g, 'eindrücke')
+        .replace(/\bspaeter\b/g, 'später')
+        .replace(/\bGelaende\b/g, 'Gelände'));
+    const reading = historianPolish(_missionWriterV5CleanDomainSentence(domain.historicalReading, `historische Einordnung von ${targetName}`));
+    const currentWork = _missionWriterV5CleanDomainSentence(
+        domain.currentWork,
+        'ein kurzer Arbeitsstand für Archivnotiz, Infotafel, Führung oder Chronik braucht noch den Luftblick'
+    );
+    const currentWorkClause = (() => {
+        const clean = historianPolish(currentWork);
+        const sollMatch = clean.match(/^(.+?)\s+soll\s+(.+)$/i);
+        if (sollMatch) return _missionPipelineV4LowerFirst(`${sollMatch[1]} ${sollMatch[2]} soll`);
+        return _missionWriterV5ReasonClause(clean);
+    })();
+    const visibleFocus = historianPolish(_missionWriterV5CleanDomainSentence(
+        domain.visibleHistoryFocus,
+        'Lage, Wege, Ortsbild oder Bauwerk als Zusammenhang lesbar werden'
+    ));
+    const focusLine = (() => {
+        const normalized = normalizeMissionText(visibleFocus);
+        if (/^(ob|wie|warum|welch|welche|welcher|welches)\b/.test(normalized)) {
+            return `Aus der Luft soll klar werden, ${_missionPipelineV4LowerFirst(visibleFocus)}.`;
+        }
+        return `Aus der Luft zählt vor allem der Zusammenhang: ${visibleFocus}.`;
+    })();
+    let followup = historianPolish(_missionWriterV5CleanDomainSentence(
+        domain.followupUse,
+        'Notizen und Eindrücke fließen nach der Rückkehr in eine kurze historische Einordnung'
+    ));
+    if (/^wir\s+sollen\b/i.test(normalizeMissionText(followup))) {
+        followup = 'Notizen und Eindrücke fließen nach der Rückkehr in eine kurze historische Einordnung';
+    }
+    return _missionWriterV5SentenceJoin([
+        routeSentence || `Heute geht es zur historischen Einordnung nach ${targetName}`,
+        `${passengerLead}, weil ${currentWorkClause}`,
+        `Der Blick richtet sich auf ${reading}`,
+        focusLine,
+        `${followup}.`
+    ]);
+}
+
 function _missionWriterV5ComposeMedicalTransferStory(contract = {}, context = {}) {
     const { form } = _missionWriterV5DomainForm(contract, context);
     const domain = form.domainDetails || {};
@@ -30613,6 +30722,9 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     }
     if (taskDomain === 'science_geo') {
         return _missionWriterV5ComposeScienceGeoStory(contract, context);
+    }
+    if (taskDomain === 'historian_guided_tour') {
+        return _missionWriterV5ComposeHistorianStory(contract, context);
     }
     if (taskDomain === 'medical_transfer') {
         return _missionWriterV5ComposeMedicalTransferStory(contract, context);
@@ -30747,6 +30859,12 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
         const hasOutcome = /\b(kartierung|vergleich|notizen|bericht|studie|beobachtung|einordnen|einordnung|profil|geländelesart|gelaendelesart|auswertung)\b/.test(normalized);
         return !hasGeoFrame || !hasOutcome;
     }
+    if (domain === 'historian_guided_tour') {
+        const wrongOperationalFrame = /\b(wasserbehoerde|wasserbehörde|lagebild|ufer[-\s]?check|treibgut|boote?|einsatzmittel|inspektion|pruefung|prüfung|technikteam|betreiber|stoerung|störung|schaden|redaktion|reporter|rettung|sar|brand|feuer)\b/.test(normalized);
+        const hasHistoryFrame = /\b(histor|geschichte|geschichtlich|ortsgeschichte|siedlung|siedlungsform|archiv|chronik|denkmal|denkmalpflege|heimat|burg|schloss|ruine|bauwerk|alte wege|wegebeziehung|ortsbild|ortskern|marktplatz|kirche|kirchenlage|hanglage|tallage|infotafel|fuehrung|führung)\b/.test(normalized);
+        const hasHistorianOutcome = /\b(notiz|einordnung|deutung|lesart|takeaway|archiv|chronik|tafeln?|infotafel|fuehrung|führung|kommentar|ortskommentar|beitrag|unterlagen|karten)\b/.test(normalized);
+        return wrongOperationalFrame || !hasHistoryFrame || !hasHistorianOutcome;
+    }
     if (domain === 'medical_transfer') {
         const hasMedicalFrame = /\b(medizin|notarzt|notärzt|klinik|labor|notaufnahme|organ|blut|serum|probe|proben|diagnostik|op[-\s]?instrument|sanitaet|sanität|kuehlbox|kühlbox|transplant|medizinische begleitung)\b/.test(normalized);
         const hasReceiving = /\b(uebergabe|übergabe|uebernimmt|übernimmt|klinik|labor|notaufnahme|zielkontakt|medizinischer kontakt|kurierfach|annahme)\b/.test(normalized);
@@ -30856,7 +30974,7 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
             if (_missionWriterV5NewsCoverageNeedsRepair(raw, contract, context)) {
                 reasons.push('news_coverage_weak_spine');
             }
-        } else if (['cargo_fragile', 'mapping_survey', 'science_bio', 'science_geo', 'medical_transfer', 'animal_transport'].includes(taskDomain)) {
+        } else if (['cargo_fragile', 'mapping_survey', 'science_bio', 'science_geo', 'historian_guided_tour', 'medical_transfer', 'animal_transport'].includes(taskDomain)) {
             if (_missionWriterV5DomainStoryNeedsRepair(taskDomain, raw, contract, context)) {
                 reasons.push(`${taskDomain}_weak_domain_story`);
             }
