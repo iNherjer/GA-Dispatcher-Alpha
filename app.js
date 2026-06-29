@@ -1897,8 +1897,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Lokalreporterin',
                 gender: 'female',
                 personality: 'neugierig, sachlich, schnell',
-                storySeed: '{name} berichtet bei {targetName} ueber den heutigen Besucherandrang rund um Ortskern, Zufahrten und Parkbereiche; der Luftblick soll zeigen, ob sich der Andrang wirklich im Ortsbild abzeichnet.',
-                greetingText: 'Hi, ich brauche heute den Blick auf den Besucherandrang bei {targetName}: Ortskern, Zufahrten und ein klares Bild statt Vermutung.'
+                storySeed: '{name} berichtet bei {targetName} ueber Besucherandrang wegen eines kleinen lokalen Veranstaltungsanlasses; der Luftblick soll zeigen, ob sich der Anlass an Zufahrten, Wegen oder Parkbereichen wirklich abzeichnet.',
+                greetingText: 'Hi, ich brauche heute den Blick auf den Besucherandrang bei {targetName}: Anlass, Zufahrten und ein klares Bild statt Vermutung.'
             },
             {
                 newsBriefId: 'traffic_change',
@@ -3347,7 +3347,7 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
         news_coverage: [
             { t: 'Reporter Shuttle', i: '📰', cat: 'std', s: 'Ein Reporterteam wird zum Zielplatz geflogen, um dort am Boden über ein Ereignis zu berichten.' },
             { t: 'Medien-Transfer', i: '🎥', cat: 'std', s: 'Kamerateam und Equipment müssen pünktlich am Ziel sein; die eigentliche Berichterstattung startet nach der Landung.' },
-            { t: 'Lokalaufhänger', i: '🗞️', cat: 'std', s: 'Die Redaktion braucht einen Luftblick auf Besucherandrang, Baustelle, Verkehrsänderung oder Ortsbildwandel am Zielort.' },
+            { t: 'Lokalaufhänger', i: '🗞️', cat: 'std', s: 'Die Redaktion braucht einen Luftblick auf einen lokalen Anlass: Veranstaltungsandrang, Baustelle, Verkehrsänderung oder Ortsbildwandel am Zielort.' },
             { t: 'Aufmacherbild', i: '📷', cat: 'std', s: 'Für einen kurzen Beitrag soll ein klares Aufmacherbild aus der Luft entstehen, damit Ort, Anlass und Umfeld zusammen verständlich werden.' }
         ],
         private_outing: [
@@ -3463,7 +3463,7 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Bestandsaufnahme/Dokumentation: ${n}`, i: '🗺️', cat: 'poi', s: `Für ${n} sollen Vergleichsdaten für Planung oder Projektstand entstehen. Der Flug bleibt fachlich: ruhige Passes, erkennbare Zielgeometrie und danach Auswertung statt Sightseeing.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Gimbal-Kamera und Kalibrierkoffer (42 lbs)' }
         ],
         news_coverage: [
-            { t: `Lokalreport: ${n}`, i: '📰', cat: 'poi', s: `Die Lokalredaktion braucht zu ${n} einen aktuellen Luftaufhänger: Besucherandrang, Verkehrslage, Baustelle oder sichtbare Veränderung im Zielbereich.`, payloadText: '1 PAX (Lokalreporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
+            { t: `Lokalreport: ${n}`, i: '📰', cat: 'poi', s: `Die Lokalredaktion braucht zu ${n} einen aktuellen Luftaufhänger: Veranstaltungsandrang, Verkehrslage, Baustelle oder sichtbare Veränderung im Zielbereich.`, payloadText: '1 PAX (Lokalreporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
             { t: `Festbetrieb von oben: ${n}`, i: '🎥', cat: 'poi', s: `Bei ${n} soll ein lokales Fest oder eine Veranstaltung sachlich eingeordnet werden. Aus der Luft zählen Besucherströme, Zufahrten und erkennbare Orientierung, nicht Stimmungstourismus.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' },
             { t: `Baustelle im Ortsbild: ${n}`, i: '🚧', cat: 'poi', s: `Die Redaktion berichtet über Bauarbeiten oder eine sichtbare Veränderung rund um ${n}. Wir liefern Überblick und Kontext, ohne daraus eine technische Inspektion zu machen.`, payloadText: '1 PAX (Reporterin)', cargoText: 'Foto- und Audio-Set (24 lbs)' },
             { t: `Redaktions-Aufmacher: ${n}`, i: '📷', cat: 'poi', s: `Für einen Beitrag wird ein klares Aufmacherbild von ${n} und seiner direkten Umgebung benötigt. Der Ton bleibt sachlich: sehen, einordnen, zurückmelden.`, payloadText: '1 PAX (Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
@@ -14526,12 +14526,33 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     if (!profileSpec || !profileSpec.id || profileSpec.id === 'auto') {
         return (basePassenger && typeof basePassenger === 'object') ? basePassenger : null;
     }
-    const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
+    const rawBase = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
+    const contractPassenger = profileSpec.id === 'news_coverage'
+        ? (
+            (missionContext?._missionContractV4?.passenger && typeof missionContext._missionContractV4.passenger === 'object')
+                ? missionContext._missionContractV4.passenger
+                : ((missionContext?.missionContractV4?.passenger && typeof missionContext.missionContractV4.passenger === 'object')
+                    ? missionContext.missionContractV4.passenger
+                    : null)
+        )
+        : null;
+    const base = contractPassenger?.newsBriefId
+        ? { ...rawBase, ...contractPassenger }
+        : rawBase;
     const keepBaseChainPersona = profileSpec.id === 'infra_chain_recon'
         && String(base.taskDomain || profileSpec.taskDomain || '').toLowerCase() === 'infra_chain_recon'
         && !!String(base.name || '').trim()
         && !!String(base.role || '').trim();
-    const preferredNewsBriefId = String(base.newsBriefId || '').trim();
+    const contractNewsBriefId = profileSpec.id === 'news_coverage'
+        ? String(
+            missionContext?._missionContractV4?.newsBrief?.id
+            || missionContext?.missionContractV4?.newsBrief?.id
+            || missionContext?._missionContractV4?.storyFrame?.newsBriefId
+            || missionContext?.missionContractV4?.storyFrame?.newsBriefId
+            || ''
+        ).trim()
+        : '';
+    const preferredNewsBriefId = String(contractNewsBriefId || base.newsBriefId || '').trim();
     const newsBriefPersona = profileSpec.id === 'news_coverage' && preferredNewsBriefId && Array.isArray(profileSpec.personas)
         ? profileSpec.personas.find(item => String(item?.newsBriefId || '').trim() === preferredNewsBriefId)
         : null;
@@ -14580,25 +14601,94 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     return merged;
 }
 
+function _missionNewsBriefVisitorCreativeBrief(category = '') {
+    const cat = String(category || '').toLowerCase();
+    const defaults = {
+        categoryHint: 'lokaler POI',
+        focus: 'Zufahrten, Wege, Parkdruck, Sammelpunkte und sichtbare Randbereiche',
+        programPrompt: 'Erfinde 1-2 sichtbare Programmdetails, die Besucherwege oder Parkdruck plausibel machen.',
+        whyNow: 'Die Redaktion braucht den Luftblick, solange Anlass, Anreise und Besucherbewegung noch zusammen sichtbar sind.'
+    };
+    const byCategory = {
+        city: {
+            categoryHint: 'Ortskern oder Stadt-POI',
+            focus: 'Ortskern, Zugangswege, Besucherströme, Parkflächen, möglicher Bühnen- oder Standbereich und Zufahrten',
+            programPrompt: 'Erfinde einen kleinen lokalen Termin mit 1-2 Programmpunkten, die im Ortsbild sichtbar werden können.'
+        },
+        road: {
+            categoryHint: 'Straßen- oder Zufahrts-POI',
+            focus: 'Straße, Zufahrt, Wegränder, Treffpunkt, provisorische Parklogik und sichtbare Besucherwege',
+            programPrompt: 'Erfinde einen Anlass, der gerade an einer Straße oder Zufahrt Andrang erzeugt, mit 1-2 Programmpunkten und sichtbarer Anreise-Logik.'
+        },
+        industry: {
+            categoryHint: 'Gewerbe- oder Industrieumfeld',
+            focus: 'Hallenränder, Besucherwege, Parkflächen, Shuttlepunkt, Infobereich und Zufahrten',
+            programPrompt: 'Erfinde einen kleinen öffentlichen Termin im Gewerbeumfeld mit Besucherrouten und 1-2 sichtbaren Programmpunkten.'
+        },
+        water: {
+            categoryHint: 'Ufer- oder Gewässer-POI',
+            focus: 'Uferzugänge, Wege, Sammelpunkte, Vereins- oder Infobereich, Parkdruck und Zufahrten',
+            programPrompt: 'Erfinde einen lokalen Anlass am Wasser mit 1-2 Programmpunkten, ohne daraus eine Wasserrettungs- oder Inspektionslage zu machen.'
+        },
+        mountain: {
+            categoryHint: 'Aussichts-, Berg- oder Höhen-POI',
+            focus: 'Wanderwege, Ziel- oder Sammelpunkt, Aussichtspunkt, Randparkplätze und sichtbare Besucherwege',
+            programPrompt: 'Erfinde einen kleinen Anlass am Aussichtspunkt oder Höhenweg mit 1-2 Programmpunkten und plausibler Anreise.'
+        },
+        forest: {
+            categoryHint: 'Wald- oder Natur-POI',
+            focus: 'Waldzugänge, markierte Wege, Sammelpunkte, Randparkplätze und Familien- oder Infobereich',
+            programPrompt: 'Erfinde einen kleinen Natur- oder Vereinstermin mit 1-2 Programmpunkten, ohne Einsatz-, Feuer- oder Naturschutzauftrag daraus zu machen.'
+        }
+    };
+    const picked = {
+        ...defaults,
+        ...(byCategory[cat] || {})
+    };
+    return {
+        categoryHint: picked.categoryHint,
+        eventLabel: '',
+        reason: '',
+        focus: picked.focus,
+        programPrompt: picked.programPrompt,
+        whyNow: picked.whyNow,
+        creativeCue: [
+            `Erfinde aus Zieltyp (${picked.categoryHint}) und sichtbaren Ankern genau einen plausiblen kleinen lokalen Anlass.`,
+            'Gib dem Anlass einen konkreten Namen oder Charakter und 1-2 Programmdetails; schreibe im finalen Text nicht nur "lokaler Anlass".',
+            'Kopiere keine Katalogphrase und schreibe keine Auswahlliste.',
+            'Keine harten Ortsfakten, Veranstalternamen oder echten Termine behaupten, wenn sie nicht im Contract stehen.'
+        ].join(' ')
+    };
+}
+
 function _missionNewsBriefPresets(category = '') {
     const isCity = String(category || '').toLowerCase() === 'city';
+    const visitorCreativeBrief = _missionNewsBriefVisitorCreativeBrief(category);
     return [
         {
             id: 'visitor_pressure',
             label: 'Besucherandrang',
             personaNames: ['Mara Feld'],
             cargoText: 'Redaktionskamera mit Teleobjektiv (24 lbs)',
-            angle: isCity ? 'der Besucherandrang im Ortskern und an den Zufahrten' : 'der heutige Besucherandrang am Ziel und an den Zugängen',
-            reporterAngle: isCity ? 'die vollen Wege rund um den Ortskern' : 'die sichtbare Besucherbewegung am Ziel',
-            storySeed: '{name} berichtet bei {targetName} über den heutigen Besucherandrang; der Luftblick soll zeigen, ob sich der Andrang an Ortskern, Zufahrten oder Parkbereichen wirklich abzeichnet.',
-            greetingText: 'Hi, ich brauche heute den Blick auf den Besucherandrang bei {targetName}: Ortskern, Zufahrten und ein klares Bild statt Vermutung.',
-            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
-            subjectDetail: '{targetName} als lokaler Aufhänger zum sichtbaren Besucherandrang',
-            incidentContext: 'Gesucht wird kein Archivmotiv und keine O-Ton-Sammelrunde, sondern ein heute beobachtbarer Kern rund um {targetName}: {angle}.',
-            keyQuestion: 'Ob sich der gemeldete Andrang bei {targetName} aus der Luft wirklich an Wegen, Zufahrten und Ortsbild ablesen lässt.',
-            whyNow: 'Die Redaktion braucht den visuellen Beleg noch im aktuellen Veröffentlichungsfenster.',
-            soughtOutcome: 'Wir sollen ein Bild und eine kurze Einordnung liefern, ob der Andrang die Geschichte heute trägt.',
-            completionSignal: 'Nach dem Überflug gehen Bilder und kurze Lageeinschätzung direkt an die Redaktion.'
+            angle: isCity ? 'der Besucherandrang rund um den Ortskern von {targetName}' : 'der heutige Besucherandrang bei {targetName}',
+            reporterAngle: 'den Besucherandrang bei {targetName}',
+            storySeed: '{name} berichtet bei {targetName} über Besucherandrang. Entwickle aus Zieltyp, sichtbaren Ankern und Luft-Zutaten einen konkreten kleinen lokalen Anlass mit 1-2 Programmdetails; nicht diese Feldwerte kopieren.',
+            greetingText: 'Hi, ich brauche heute den Blick auf {targetName}: Warum ist dort so viel los, was sieht man an Wegen, Zufahrten und Parkdruck?',
+            trigger: 'Die Redaktion meldet Besucherandrang bei {targetName}; der konkrete lokale Anlass soll aus Zieltyp und sichtbaren Ankern frei und plausibel erzählt werden.',
+            subjectDetail: '{targetName} als lokaler Aufhänger für Besucherandrang',
+            incidentContext: 'Creative Brief: {occasionCreativeCue} Sichtbare Luft-Zutaten: {occasionFocus}. Programmlogik: {occasionProgramPrompt} Gesucht wird kein Archivmotiv und keine O-Ton-Sammelrunde, sondern ob Anlass und Andrang aus der Luft wirklich tragen.',
+            keyQuestion: 'Welcher konkrete lokale Anlass den Andrang bei {targetName} plausibel macht und ob er über {occasionFocus} sichtbar wird.',
+            whyNow: '{occasionWhyNow}',
+            soughtOutcome: 'Wir sollen ein Bild und eine kurze Einordnung liefern, ob Anlass, Programm und sichtbarer Besucherandrang die Geschichte heute tragen.',
+            completionSignal: 'Nach dem Überflug gehen Bilder und kurze Lageeinschätzung direkt an die Redaktion.',
+            occasionName: '',
+            occasionEventLabel: visitorCreativeBrief.eventLabel,
+            occasionReason: visitorCreativeBrief.reason,
+            occasionFocus: visitorCreativeBrief.focus,
+            occasionProgram: '',
+            occasionProgramPrompt: visitorCreativeBrief.programPrompt,
+            occasionWhyNow: visitorCreativeBrief.whyNow,
+            occasionCreativeCue: visitorCreativeBrief.creativeCue
         },
         {
             id: 'traffic_change',
@@ -14672,9 +14762,15 @@ function _missionNewsBriefPresets(category = '') {
 }
 
 function _missionNewsBriefTemplate(text = '', context = {}) {
+    let out = _missionTemplateText(String(text || ''), context);
+    for (let pass = 0; pass < 3; pass++) {
+        Object.keys(context || {}).forEach(key => {
+            if (!/^[A-Za-z0-9_]+$/.test(key)) return;
+            out = out.replace(new RegExp(`\\{${key}\\}`, 'g'), String(context[key] || ''));
+        });
+    }
     return _missionPipelineV4PolishGermanVisibleText(
-        _missionTemplateText(String(text || ''), context)
-            .replace(/\{angle\}/g, context.angle || '')
+        out
             .replace(/\s+/g, ' ')
             .trim()
     );
@@ -14744,13 +14840,32 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         }
         : (passenger && typeof passenger === 'object' ? passenger : {});
     const name = String(alignedPassenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Die Redaktion';
-    const context = { targetName, name, angle: preset.angle };
+    const context = {
+        targetName,
+        name,
+        angle: preset.angle,
+        occasionName: preset.occasionName || '',
+        occasionEventLabel: preset.occasionEventLabel || '',
+        occasionReason: preset.occasionReason || '',
+        occasionFocus: preset.occasionFocus || '',
+        occasionProgram: preset.occasionProgram || '',
+        occasionProgramPrompt: preset.occasionProgramPrompt || '',
+        occasionWhyNow: preset.occasionWhyNow || '',
+        occasionCreativeCue: preset.occasionCreativeCue || ''
+    };
     const brief = {
         id: preset.id,
         label: preset.label,
         angle: _missionNewsBriefTemplate(preset.angle, context),
         reporterAngle: _missionNewsBriefTemplate(preset.reporterAngle, context),
         cargoText: preset.cargoText,
+        localOccasion: _missionNewsBriefTemplate(preset.occasionName || '', context),
+        occasionEventLabel: _missionNewsBriefTemplate(preset.occasionEventLabel || '', context),
+        occasionReason: _missionNewsBriefTemplate(preset.occasionReason || '', context),
+        occasionFocus: _missionNewsBriefTemplate(preset.occasionFocus || '', context),
+        occasionProgram: _missionNewsBriefTemplate(preset.occasionProgram || '', context),
+        occasionProgramPrompt: _missionNewsBriefTemplate(preset.occasionProgramPrompt || '', context),
+        occasionCreativeCue: _missionNewsBriefTemplate(preset.occasionCreativeCue || '', context),
         trigger: _missionNewsBriefTemplate(preset.trigger, context),
         subjectDetail: _missionNewsBriefTemplate(preset.subjectDetail, context),
         incidentContext: _missionNewsBriefTemplate(preset.incidentContext, context),
@@ -14768,17 +14883,36 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         personalStoryCue: brief.storySeed,
         greetingText: brief.greetingText
     };
+    contract.passenger = {
+        ...nextPassenger,
+        roleProfile: 'news_reporter_professional_v1',
+        taskDomain: 'news_coverage'
+    };
     contract.newsBrief = {
         id: brief.id,
         label: brief.label,
         angle: brief.angle,
         reporterAngle: brief.reporterAngle,
+        localOccasion: brief.localOccasion,
+        occasionEventLabel: brief.occasionEventLabel,
+        occasionReason: brief.occasionReason,
+        occasionFocus: brief.occasionFocus,
+        occasionProgram: brief.occasionProgram,
+        occasionProgramPrompt: brief.occasionProgramPrompt,
+        occasionCreativeCue: brief.occasionCreativeCue,
         cargoText: brief.cargoText
     };
     const framePatch = {
         newsBriefId: brief.id,
         newsAngle: brief.angle,
         reporterAngle: brief.reporterAngle,
+        localOccasion: brief.localOccasion,
+        occasionEventLabel: brief.occasionEventLabel,
+        occasionReason: brief.occasionReason,
+        occasionFocus: brief.occasionFocus,
+        occasionProgram: brief.occasionProgram,
+        occasionProgramPrompt: brief.occasionProgramPrompt,
+        occasionCreativeCue: brief.occasionCreativeCue,
         trigger: brief.trigger,
         focusSubject: targetName,
         keyQuestion: brief.keyQuestion,
@@ -14811,6 +14945,10 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
             brief.trigger,
             brief.incidentContext,
             brief.whyNow,
+            brief.localOccasion ? `Lokaler Anlass: ${brief.localOccasion}.` : '',
+            brief.occasionProgram ? `Programm sichtbar machen: ${brief.occasionProgram}.` : '',
+            brief.occasionProgramPrompt ? `Programmlogik kreativ ausformen: ${brief.occasionProgramPrompt}.` : '',
+            brief.occasionCreativeCue,
             ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : [])
         ], 6, 220);
         plan.localFacts = _missionWriterV5Unique([
@@ -14820,6 +14958,8 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
             `${targetName} als Ziel`,
             'Reporter-Einsatz',
             brief.reporterAngle,
+            brief.localOccasion,
+            brief.occasionProgram,
             'sachliche Berichterstattung',
             'Rückkehr zum Startflugplatz',
             ...(Array.isArray(plan.mustMention) ? plan.mustMention : [])
@@ -17316,7 +17456,7 @@ function _profileStoryCue(profile, isPOI = false) {
     if (!profile || profile.id === 'auto') return '';
     if (profile.id === 'news_coverage') {
         return isPOI
-            ? 'Sachlicher Reporterflug mit konkretem sichtbarem Anlass am POI: Festbetrieb, Besucherandrang, Verkehr, Baustelle oder Ortsbild-Veränderung.'
+            ? 'Sachlicher Reporterflug mit konkretem sichtbarem Anlass am POI: Festbetrieb, Veranstaltungsandrang, Verkehr, Baustelle oder Ortsbild-Veränderung.'
             : '';
     }
     if (profile.id === 'sightseeing_tour') {
@@ -17391,7 +17531,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL REPORTER A-B: Dies ist ein reiner Transport zum Zielflugplatz. KEIN Arbeitsauftrag in der Luft am Ziel, KEIN Kreisen, KEIN Verweilen/Überflug als Missionsziel. Die eigentliche Berichterstattung findet nach der Landung am Boden statt.';
     }
     if (profile.id === 'news_coverage' && isPOI) {
-        return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachliche Berichterstattung. Gib einen konkreten sichtbaren Anlass, z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung, neue Nutzung oder sichtbare Veraenderung. Bei POI-City keine "O-Toene sammeln"-Story und keine APT-/Bodenreporter-Transferlogik. Keine Touri-Rhetorik, keine Einsatzdramatisierung, keine technische Inspektion.';
+        return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachliche Berichterstattung. Gib einen konkreten sichtbaren Anlass wie Besucherandrang, Verkehrslage, Baustellenumfeld, neue Nutzung oder sichtbare Veraenderung. Wenn Besucherandrang der Aufhaenger ist, erfinde aus Zieltyp und sichtbaren Ankern genau einen plausiblen kleinen lokalen Anlass mit 1-2 Programmdetails; im finalen Briefing darf nicht nur "lokaler Anlass" als Platzhalter stehen. Creative-Brief-Felder sind Leitplanken, keine zu kopierende Vorlage und keine Auswahlliste. Bei POI-City keine "O-Toene sammeln"-Story und keine APT-/Bodenreporter-Transferlogik. Keine Touri-Rhetorik, keine Einsatzdramatisierung, keine technische Inspektion.';
     }
     if (profile.id === 'historian_guided_tour' && isPOI) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischer Ortslesart. Nutze Rollen wie Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist. Bei City/Castle eignen sich Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Bauachsen oder fruehere Nutzung als Erzaehlanker. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag, keine allgemeine Sightseeing-Tour.';
@@ -22726,11 +22866,12 @@ const MISSION_SEMANTICS_V4_RULESET = {
             planner: [
                 'Der Auftrag bleibt Beobachtung und Einordnung.',
                 'Kontext kann den Anlass konkretisieren, aber nicht in Inspektion oder Einsatz kippen.',
-                'Bei POI-City bevorzugt konkrete sichtbare Anlaesse: lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung.'
+                'Bei POI-City bevorzugt konkrete sichtbare Anlaesse: Besucherandrang mit frei ausgestaltetem kleinem Veranstaltungsgrund, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung.'
             ],
             writer: [
                 'Infrastruktur, Verkehr oder Besucher duerfen nur die Berichterstattung kontextualisieren.',
-                'Keine O-Ton-Sammelstory fuer POI-City; der Luftblick liefert den beobachtbaren redaktionellen Aufhaenger.'
+                'Keine O-Ton-Sammelstory fuer POI-City; der Luftblick liefert den beobachtbaren redaktionellen Aufhaenger.',
+                'Wenn der Aufhaenger Besucherandrang ist, erfindet der Writer aus Zieltyp und sichtbaren Ankern einen plausiblen kleinen Anlass mit 1-2 Programmdetails; keine Katalogphrase kopieren.'
             ]
         },
         poi_learning_guide: {
@@ -24205,13 +24346,13 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const newsAngle = _missionPipelineV4PickOne(
             category === 'city'
                 ? [
-                    'der Besucherandrang im Ortskern und an den Zufahrten',
+                    'der Besucherandrang im Ortskern als lokaler Reporteraufhänger',
                     'eine geaenderte Verkehrsführung an den Zufahrten',
                     'das Baustellenumfeld am Ortsrand und seine Wirkung auf Zufahrten und Ortsbild',
                     'eine Bildstrecke zum sichtbaren Wandel im Ortsbild'
                 ]
                 : [
-                    'der heutige Besucherandrang am Ziel und an den naechsten Zugängen',
+                    'der heutige Besucherandrang als lokaler Reporteraufhänger',
                     'die geaenderte Verkehrsführung am Ziel',
                     'das Baustellen- oder Betriebsumfeld am Ziel',
                     'eine sichtbare Veraenderung am Ziel, die aus der Luft besser lesbar wird'
@@ -26232,7 +26373,7 @@ Regeln:
 17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Wenn CONTRACT.chainNarrativeBrief vorhanden ist, nutze es als primaere Story-Rezeptur: konkreter Betreiberanlass, warum der Luftblick die Kette sinnvoll vorsortiert, welche Fachperson mit Namen/Rolle an Bord ist, Einstieg am ersten Punkt, Abschluss am letzten Punkt und Handoff nach der Rueckkehr. Setze passenger.name, passenger.role, passenger.gender und nach Moeglichkeit greetingText aus CONTRACT.chainNarrativeBrief.selectedPassenger; diese Person ist Teil der Geschichte, nicht nur ein Formularfeld. StorySeed ist nur Rollenfarbe, nicht wortwoertlich zu kopieren. Ziel ist eine Luftbildserie und ein grober Erstbefund: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Behalte Zwischenpunkte fuer spaetere Voice-Aufrufe unterwegs zurueck und schreibe in 4-5 natuerlichen Dispatch-Saetzen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; der Abschluss ist Rueckkehr mit Foto-/Befunduebergabe.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
-18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei POI-City keine "O-Toene sammeln"-Story, sondern z.B. lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern, Sperrung oder sichtbare Veraenderung. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
+18. news_coverage: Gib einen beobachtbaren redaktionellen Aufhaenger statt nur "wir machen Bilder". Bei Besucherandrang gehoert ein plausibler kleiner Ausloeser mit Programmlogik dazu; erfinde aus Zieltyp, sichtbaren Ankern und Creative Brief genau einen lokalen Anlass mit 1-2 Programmdetails, statt nur zu behaupten, dass Andrang da ist. Schreibe im finalen Briefing nicht nur "lokaler Anlass" oder "Besucherandrang", sondern ersetze den Platzhalter durch den erfundenen Termin. Leitplanken als Rohmaterial nutzen und frei erzaehlen, keine Feldtexte abschreiben und keine Auswahlliste ausgeben. Bei POI-City keine "O-Toene sammeln"-Story. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
@@ -26610,6 +26751,42 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         frame.completionSignal,
         outcome
     ], 220);
+    const localOccasion = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.localOccasion,
+            contract?.newsBrief?.localOccasion
+        ], 160)
+        : '';
+    const occasionReason = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.occasionReason,
+            contract?.newsBrief?.occasionReason
+        ], 160)
+        : '';
+    const occasionFocus = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.occasionFocus,
+            contract?.newsBrief?.occasionFocus
+        ], 160)
+        : '';
+    const occasionProgram = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.occasionProgram,
+            contract?.newsBrief?.occasionProgram
+        ], 200)
+        : '';
+    const occasionProgramPrompt = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.occasionProgramPrompt,
+            contract?.newsBrief?.occasionProgramPrompt
+        ], 220)
+        : '';
+    const occasionCreativeCue = taskDomain === 'news_coverage'
+        ? _missionWriterV5FirstSpineValue([
+            frame.occasionCreativeCue,
+            contract?.newsBrief?.occasionCreativeCue
+        ], 220)
+        : '';
     const visibleContext = _missionWriterV5GeoHighlights(contract, context);
     const spine = {
         premise,
@@ -26626,10 +26803,16 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         stakes: _missionWriterV5CleanSpineValue(frame.stakes, 220),
         outcome,
         completion,
+        localOccasion,
+        occasionReason,
+        occasionFocus,
+        occasionProgram,
+        occasionProgramPrompt,
+        occasionCreativeCue,
         visibleContext
     };
     if (taskDomain === 'news_coverage') {
-        spine.softFreedom = 'Wenn kein harter Anlass belegt ist, darf daraus ein weicher redaktioneller Blickwinkel entstehen, z.B. Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel. Als Fakt nur behaupten, was storySpine, targetFacts oder sichtbarer Kontext tragen.';
+        spine.softFreedom = 'Wenn kein harter Anlass belegt ist, darf daraus ein weicher redaktioneller Blickwinkel entstehen, z.B. Ortsbild früher/heute, Verkehrsfluss, Besucherandrang wegen eines kleinen lokalen Anlasses, Baustellenumfeld oder sichtbarer Wandel. Bei Besucherandrang musst du aus Zieltyp und sichtbarem Kontext selbst einen plausiblen kleinen Ausloeser mit 1-2 Programmdetails erfinden; Creative-Brief-Felder sind Leitplanken, keine fertigen Textbausteine. Harte Ortsfakten nur behaupten, wenn storySpine, targetFacts oder sichtbarer Kontext sie tragen.';
     }
     return spine;
 }
@@ -26706,7 +26889,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         tone: 'lokale Reporter-Notiz mit beobachtbarem redaktionellem Anlass',
         perspective: 'Dispatcher an Pilot; Redaktion braucht Bilder, Überblick oder Einordnung',
         length: '4-6 Sätze',
-        softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen: Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel. Waehle genau einen Blickwinkel und erzaehle ihn als These, nicht als Auswahlmenue.',
+        softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen: Ortsbild früher/heute, Verkehrsfluss, Besucherandrang wegen eines kleinen lokalen Anlasses, Baustellenumfeld oder sichtbarer Wandel. Bei Besucherandrang erfinde aus Zieltyp und sichtbaren Kontextankern genau einen plausiblen kleinen Auslöser mit 1-2 Programmdetails. Keine harten Ortsfakten behaupten. Waehle genau einen Blickwinkel und erzaehle ihn als These, nicht als Auswahlmenue.',
         requiredMeaning: [
             'Ein konkreter redaktioneller Aufhänger trägt den Flug.',
             'Der Luftblick klärt, zeigt oder ordnet etwas Sichtbares ein.',
@@ -26717,7 +26900,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Was soll aus der Luft sichtbar, belegbar oder besser einzuordnen werden?',
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ],
-        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus dem Formular genau einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Keine Variantenliste wie Besucherandrang, Baustelle oder Veränderung nebeneinander; die Story entscheidet sich fuer eine redaktionelle These. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus dem Formular genau einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Bei Besucherandrang sind Zieltyp, sichtbare Anker und Creative Brief nur Rohmaterial: erfinde daraus einen kleinen plausiblen Lokaltermin mit Programm und sichtbaren Folgen, statt Feldtexte abzuschreiben. Schreibe nicht nur "lokaler Anlass" oder "Besucherandrang", sondern ersetze den Platzhalter durch den erfundenen Termin. Keine Variantenliste wie Besucherandrang, Baustelle oder Veränderung nebeneinander; die Story entscheidet sich fuer eine redaktionelle These. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
     },
     cargo_transport: {
         tone: 'ruhige kleine Frachtgeschichte mit konkreter Sendung',
@@ -26915,9 +27098,21 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
         };
     }
     if (family === 'news_coverage') {
-        const angle = _missionWriterV5NewsConcreteAngle(spine.concreteAngle || spine.premise || '', targetName);
+        const lockedAngle = _missionWriterV5FirstSpineValue([
+            contract?.newsBrief?.reporterAngle,
+            contract?.newsBrief?.angle,
+            contract?.storyFrame?.reporterAngle,
+            contract?.storyFrame?.newsAngle
+        ], 190);
+        const angle = lockedAngle || _missionWriterV5NewsConcreteAngle(spine.concreteAngle || spine.premise || '', targetName);
         return {
             reporterAngle: angle || `einen sichtbaren redaktionellen Anlass rund um ${targetName}`,
+            localOccasion: spine.localOccasion || contract?.storyFrame?.localOccasion || contract?.newsBrief?.localOccasion || '',
+            occasionReason: spine.occasionReason || contract?.storyFrame?.occasionReason || contract?.newsBrief?.occasionReason || '',
+            occasionFocus: spine.occasionFocus || contract?.storyFrame?.occasionFocus || contract?.newsBrief?.occasionFocus || '',
+            occasionProgram: spine.occasionProgram || contract?.storyFrame?.occasionProgram || contract?.newsBrief?.occasionProgram || '',
+            occasionProgramPrompt: spine.occasionProgramPrompt || contract?.storyFrame?.occasionProgramPrompt || contract?.newsBrief?.occasionProgramPrompt || '',
+            occasionCreativeCue: spine.occasionCreativeCue || contract?.storyFrame?.occasionCreativeCue || contract?.newsBrief?.occasionCreativeCue || '',
             editorialQuestion: spine.openQuestion || spine.flightValue || 'Was ist aus der Luft sichtbar und journalistisch belastbar?',
             editorialOutcome: spine.outcome || spine.completion || 'Bilder und kurze Einordnung gehen an die Redaktion.',
             visibleContext: _missionWriterV5Unique([...(spine.visibleContext || []), ...(parts.targetFacts || [])], 5, 160)
@@ -29420,15 +29615,23 @@ function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
     if (!normalized || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte)\b/.test(normalized))) {
         return _missionPipelineV4PickOne([
             targetName ? `den Verkehrsfluss an den Zufahrten von ${targetName}` : 'den Verkehrsfluss an den Zufahrten',
-            targetName ? `den Besucherandrang rund um den Ortskern von ${targetName}` : 'den Besucherandrang rund um den Ortskern',
+            targetName ? `den Besucherandrang bei ${targetName}` : 'den Besucherandrang am Ziel',
             targetName ? `eine Bildstrecke zum Ortsbild von ${targetName} früher und heute` : 'eine Bildstrecke zum Ortsbild früher und heute'
         ]);
     }
+    if (/\bbesucher|andrang|fest|veranstaltung|markt|verein|aktionstag|wandertag|hof\b/.test(normalized)
+        && /\bwegen|rund um|anlass|termin|veranstaltung|programm|programmpunkt|buehne|bühne|stand|staende|stände|vorfuehrung|vorführung|musik|kinder|shuttle|park|verein|jubil|aktion|lauf|wander|markt|fest|hof\b/.test(normalized)) {
+        return clean;
+    }
+    if (/\bbesucher|andrang|besucherandrang\b/.test(normalized)
+        && /\b(anlass|termin|programm|programmpunkt|buehne|bühne|stand|staende|stände|vorfuehrung|vorführung|musik|kinder|shuttle|parkplatz|parkflaeche|parkfläche|verein|jubil|aktion|lauf|wander|markt|fest|hof)\b/.test(normalized)) {
+        return clean;
+    }
     if (/\bfest\b.*\bbesucher|besucher.*\bfest\b|festbetrieb|besucherandrang/.test(normalized)) {
         return _missionPipelineV4PickOne([
-            'den Besucherandrang im Ortskern',
-            'den Festbetrieb im Ortskern',
-            'die vollen Wege rund um den Ortskern'
+            targetName ? `den Besucherandrang bei ${targetName}` : 'den Besucherandrang am Ziel',
+            'die vollen Wege und Zufahrten am Ziel',
+            'die sichtbare Besucherbewegung mit Programm- und Parklogik'
         ]);
     }
     if (/\bverkehrslage\b.*\bsperrung\b.*\bbaustelle\b|\bsperrung\b.*\bbaustelle\b/.test(normalized)) {
@@ -29485,6 +29688,23 @@ function _missionWriterV5NewsOutcomeSentence(outcome = '') {
     return `${clean}.`;
 }
 
+function _missionWriterV5NewsVisitorSignals(story = '') {
+    const normalized = normalizeMissionText(story);
+    const hasVisitorFrame = /\b(besucher|besucherandrang|andrang|trubel|zulauf|menschen|parkdruck|volle wege|vollen wege|zufahrt|zufahrten)\b/.test(normalized);
+    const concreteOccasion = /\b(fest|feier|jubil|markt|aktion|aktionstag|tag der offenen|verein|vereins|lauf|wander|ausstellung|schau|vorfuehrung|vorführung|rahmenprogramm|auftakt|abschluss|parcours|werkstatt|infotag|projekttag)\b/.test(normalized);
+    const hasOccasion = concreteOccasion || /\b(termin|veranstaltung)\b/.test(normalized);
+    const hasProgram = /\b(programm|programmpunkt|programmpunkte|rahmenprogramm|stand|staende|stände|buehne|bühne|vorfuehrung|vorführung|fuehrung|führung|musik|zelt|bewirtung|essensstand|foodtruck|kinder|familien|shuttle|parkplatz|parkflaeche|parkfläche|zielbereich|sammelpunkt|route|laufstrecke|ausstellung|schau)\b/.test(normalized);
+    const genericOccasionOnly = /\b(lokaler anlass|lokalen anlass|kleiner anlass|kleinen anlass|veranstaltungsanlass|besucherbewegung|besucherandrang)\b/.test(normalized)
+        && !(concreteOccasion && hasProgram);
+    return {
+        hasVisitorFrame,
+        hasOccasion,
+        hasProgram,
+        concreteOccasion,
+        genericOccasionOnly
+    };
+}
+
 function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
     const briefingBrief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
     const form = briefingBrief?.missionBriefForm || _missionWriterV5BuildBriefForm(contract, context, { storySpine: briefingBrief?.storySpine });
@@ -29515,13 +29735,34 @@ function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
     const visible = visibleContext.length
         ? `Als Orientierung zählen aus der Luft besonders ${_missionPipelineV4JoinNaturalList(visibleContext)}.`
         : '';
-    const angleText = _missionWriterV5NewsConcreteAngle(angle, targetName);
+    let angleText = _missionWriterV5NewsConcreteAngle(angle, targetName);
+    const occasionReason = _missionWriterV5CleanSpineValue(
+        domain.occasionReason || spine.occasionReason || contract?.storyFrame?.occasionReason || contract?.newsBrief?.occasionReason || '',
+        160
+    );
+    if (occasionReason
+        && !/\bwegen\b/i.test(angleText)
+        && !_missionPipelineV4StoryFieldCovered(angleText, occasionReason, 1)) {
+        angleText = `${_missionPipelineV4StripSentenceEnd(angleText)} wegen ${occasionReason}`;
+    }
+    const occasionProgram = _missionWriterV5CleanSpineValue(
+        domain.occasionProgram || spine.occasionProgram || contract?.storyFrame?.occasionProgram || contract?.newsBrief?.occasionProgram || '',
+        190
+    );
+    const occasionFocus = _missionWriterV5CleanSpineValue(
+        domain.occasionFocus || spine.occasionFocus || contract?.storyFrame?.occasionFocus || contract?.newsBrief?.occasionFocus || '',
+        160
+    );
+    const programLine = occasionProgram
+        ? `Programmpunkte sind ${_missionPipelineV4StripSentenceEnd(occasionProgram)}; aus der Höhe sollen ${occasionFocus || 'Wege, Parkdruck und Zufahrten'} als sichtbare Folgen lesbar werden.`
+        : '';
     const reporterLine = reporter === 'Die Lokalredaktion'
         ? `Die Lokalredaktion will ${angleText} aus der Luft sauber einordnen.`
         : `${reporter} will ${angleText} aus der Luft sauber einordnen.`;
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute steht ${targetName} auf dem Dispatch-Zettel`,
         reporterLine,
+        programLine,
         _missionWriterV5NewsQuestionSentence(openQuestion),
         visible,
         weatherSentence,
@@ -29773,7 +30014,14 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
         || ''
     );
     const coversSpine = angle && _missionPipelineV4StoryFieldCovered(story, angle, 2);
-    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || genericOnly || (!(hardAngle || softChange || coversSpine));
+    const newsBriefId = String(contract?.newsBrief?.id || contract?.storyFrame?.newsBriefId || '').trim();
+    const visitorSignals = newsBriefId === 'visitor_pressure'
+        ? _missionWriterV5NewsVisitorSignals(story)
+        : null;
+    const weakVisitorOccasion = visitorSignals
+        ? (!visitorSignals.hasVisitorFrame || !visitorSignals.concreteOccasion || !visitorSignals.hasProgram || visitorSignals.genericOccasionOnly)
+        : false;
+    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || genericOnly || weakVisitorOccasion || (!(hardAngle || softChange || coversSpine));
 }
 
 function _missionWriterV5WrongUtilityDrift(normalized = '') {
@@ -30028,10 +30276,24 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         sceneIntent.densityHint = 'none';
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
-    const contextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
-    const passengerRaw = (src.passenger && typeof src.passenger === 'object')
+    const rawContextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
+    const contractPassenger = requiredTaskDomain === 'news_coverage' && contract?.passenger && typeof contract.passenger === 'object'
+        ? contract.passenger
+        : null;
+    const contextPassenger = contractPassenger?.newsBriefId
+        ? { ...rawContextPassenger, ...contractPassenger }
+        : rawContextPassenger;
+    let passengerRaw = (src.passenger && typeof src.passenger === 'object')
         ? { ...contextPassenger, ...src.passenger }
         : contextPassenger;
+    if (requiredTaskDomain === 'news_coverage' && contextPassenger?.newsBriefId) {
+        passengerRaw = {
+            ...passengerRaw,
+            ...contextPassenger,
+            roleProfile: requiredRoleProfile,
+            taskDomain: requiredTaskDomain
+        };
+    }
     let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
@@ -30187,8 +30449,22 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         sceneIntent.densityHint = 'none';
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
-    const contextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
-    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? { ...contextPassenger, ...src.passenger } : contextPassenger;
+    const rawContextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
+    const contractPassenger = requiredTaskDomain === 'news_coverage' && contract?.passenger && typeof contract.passenger === 'object'
+        ? contract.passenger
+        : null;
+    const contextPassenger = contractPassenger?.newsBriefId
+        ? { ...rawContextPassenger, ...contractPassenger }
+        : rawContextPassenger;
+    let passengerRaw = (src.passenger && typeof src.passenger === 'object') ? { ...contextPassenger, ...src.passenger } : contextPassenger;
+    if (requiredTaskDomain === 'news_coverage' && contextPassenger?.newsBriefId) {
+        passengerRaw = {
+            ...passengerRaw,
+            ...contextPassenger,
+            roleProfile: requiredRoleProfile,
+            taskDomain: requiredTaskDomain
+        };
+    }
     let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
@@ -30406,7 +30682,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         news_coverage: isPOI ? [
             'Reporter-/Medieneinsatz mit konkretem sichtbarem Anlass am POI',
-            'Lokale Redaktion ordnet Festbetrieb, Besucherandrang, Verkehrslage oder Baustelle aus der Luft ein',
+            'Lokale Redaktion ordnet Festbetrieb, Veranstaltungsandrang, Verkehrslage oder Baustelle aus der Luft ein',
             'Redaktioneller Luftaufhaenger zu einer sichtbaren Veraenderung im Ortsbild',
             'TV-Team sammelt sachliche Establishing Shots fuer Bericht oder Schalte, ohne Tourismus- oder Einsatzsprache'
         ] : [
@@ -32548,7 +32824,7 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
         return 'Survey-Fokus: Zielgeometrie, Überdeckung und reproduzierbare Perspektiven für die Auswertung.';
     }
     if (profile === 'news_coverage') {
-        if (category === 'city') return 'Redaktionsfokus: Ortsbild, Besucherandrang, Baustelle oder sichtbare Veränderung sachlich einordnen.';
+        if (category === 'city') return 'Redaktionsfokus: Ortsbild, Veranstaltungsandrang, Baustelle oder sichtbare Veränderung sachlich einordnen.';
         if (category === 'road') return 'Redaktionsfokus: Verkehrslage, Baustelle oder Sperrbereich aus ruhiger Übersicht zeigen.';
         return 'Redaktionsfokus: sichtbaren Anlass, Umfeld und klare Aufmacherperspektive sammeln.';
     }
