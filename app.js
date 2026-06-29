@@ -26967,6 +26967,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen. Erfinde aus Zieltyp, sichtbaren Kontextankern, Persona und Ausrüstung eine konkrete kleine Lokalgeschichte, die erklärt, warum die Redaktion heute fliegt. Keine harten Ortsfakten behaupten. Waehle genau einen Blickwinkel und erzaehle ihn als These, nicht als Auswahlmenue.',
         requiredMeaning: [
             'Ein konkreter redaktioneller Aufhänger trägt den Flug und wird als kleine Geschichte erzählt.',
+            'Die Story entscheidet sich für eine erfundene weiche Hintergrundgeschichte, statt Dispatcher-Felder als Frage umzuschreiben.',
             'Der Luftblick klärt, zeigt oder ordnet etwas Sichtbares ein.',
             'Nach dem Überflug gibt es Material oder Einordnung für die Redaktion.'
         ],
@@ -26975,7 +26976,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Was soll aus der Luft sichtbar, belegbar oder besser einzuordnen werden?',
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ],
-        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, um selbst eine konkrete kleine Lokalgeschichte zu erfinden. Das Briefing darf nicht wie eine Umformulierung von primaryObjective, keyQuestion oder reporterAngle klingen: Es braucht wer/warum/heute/was danach. Bei Besucherandrang sind Zieltyp, sichtbare Anker und Creative Brief nur Rohmaterial: erfinde daraus einen kleinen plausiblen Lokaltermin mit Programm und sichtbaren Folgen, statt Feldtexte abzuschreiben. Schreibe nicht nur "lokaler Anlass", "Meldung" oder "Lage", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste wie Besucherandrang, Baustelle oder Veränderung nebeneinander; die Story entscheidet sich fuer eine redaktionelle These. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, um selbst eine konkrete kleine Lokalgeschichte zu erfinden. Das Briefing darf nicht wie eine Umformulierung von primaryObjective, keyQuestion oder reporterAngle klingen: Es braucht wer/warum/heute/was danach. Entscheide dich fuer eine erfundene weiche Hintergrundgeschichte und schreibe sie als Tatsache im kleinen lokalen Rahmen, nicht als Frage wie "welche Situation sichtbar wird". Bei Besucherandrang sind Zieltyp, sichtbare Anker und Creative Brief nur Rohmaterial: erfinde daraus einen kleinen plausiblen Lokaltermin mit Programm und sichtbaren Folgen, statt Feldtexte abzuschreiben. Schreibe nicht nur "lokaler Anlass", "Meldung" oder "Lage", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste wie Besucherandrang, Baustelle oder Veränderung nebeneinander; die Story entscheidet sich fuer eine redaktionelle These. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
     },
     cargo_transport: {
         tone: 'ruhige kleine Frachtgeschichte mit konkreter Sendung',
@@ -27419,6 +27420,10 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const missionBriefForm = briefingBrief.missionBriefForm || _missionWriterV5BuildBriefForm(contract, context);
     const legacyBriefingBrief = { ...briefingBrief };
     delete legacyBriefingBrief.missionBriefForm;
+    const promptTaskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    const newsCoveragePromptRule = promptTaskDomain === 'news_coverage'
+        ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich fuer einen einzigen kleinen lokalen Grund, warum Reporter, Kamera und Luftblick heute gebraucht werden. Schreibe nicht "welche Situation sichtbar wird" oder "ob Besucherandrang, Baustelle oder Verkehr vorliegt", sondern erzaehle die gewaehlte Situation direkt. Creative-Brief-Felder sind Leitplanken, keine Textbausteine.'
+        : '';
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
@@ -27436,7 +27441,7 @@ Arbeitsweise:
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-13. Nutze normale deutsche Umlaute.
+13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}
 
 <MISSION_BRIEF_FORM>
 ${JSON.stringify(missionBriefForm)}
@@ -30280,10 +30285,39 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
     return reasons;
 }
 
+function _missionWriterV5NewsStoryCanKeepWriterOutput(raw = '', reasons = [], contract = {}, context = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (taskDomain !== 'news_coverage') return false;
+    const list = Array.isArray(reasons) ? reasons : [];
+    if (!raw || !list.length || list.some(reason => reason !== 'news_coverage_weak_spine')) return false;
+    const normalized = normalizeMissionText(raw);
+    if (!normalized || _missionWriterV5WrongUtilityDrift(normalized)) return false;
+    const hasReporterFrame = /\b(reporter|reporterin|redaktion|redakteur|redakteurin|journalist|journalistin|bericht|berichterstattung|meldung|beitrag|schalte|bildstrecke|tv-team|kamerateam|presse)\b/.test(normalized);
+    const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|luftblick|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|einordnen|einordnung|aufnahmen|bilder)\b/.test(normalized);
+    const hasNewsOutcome = /\b(redaktion|bericht|meldung|beitrag|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung|sendung|online)\b/.test(normalized);
+    const targetCandidates = _missionWriterV5Unique([
+        contract?.target?.name,
+        contract?.route?.targetName,
+        contract?.missionPlan?.plan?.targetName,
+        context?.briefingBrief?.target?.name
+    ], 4, 120).map(name => normalizeMissionText(name)).filter(Boolean);
+    const hasTarget = !targetCandidates.length
+        || targetCandidates.some(name => normalized.includes(name))
+        || targetCandidates.some(name => name.split(/\s+/).filter(part => part.length >= 4).some(part => normalized.includes(part)));
+    return hasReporterFrame && hasFlightValue && hasNewsOutcome && hasTarget;
+}
+
 function _missionWriterV5FinalizeStory(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const reasons = _missionWriterV5StoryFallbackReasons(raw, contract, context);
     if (!reasons.length) {
+        return {
+            story: _missionPipelineV4EnsureCargoRouteContext(_missionPipelineV4PolishGermanVisibleText(raw), contract),
+            fallbackReason: '',
+            acceptedRaw: true
+        };
+    }
+    if (_missionWriterV5NewsStoryCanKeepWriterOutput(raw, reasons, contract, context)) {
         return {
             story: _missionPipelineV4EnsureCargoRouteContext(_missionPipelineV4PolishGermanVisibleText(raw), contract),
             fallbackReason: '',
