@@ -1892,51 +1892,56 @@ const MISSION_ROLE_TASK_PROFILES = {
         taskDomain: 'news_coverage',
         personas: [
             {
+                newsBriefId: 'visitor_pressure',
                 name: 'Mara Feld',
                 role: 'Lokalreporterin',
                 gender: 'female',
                 personality: 'neugierig, sachlich, schnell',
-                storySeed: '{name} berichtet ueber einen aktuellen Anlass rund um {targetName}: Besucherandrang, Verkehrslage, Baustelle, Festbetrieb oder eine sichtbare Veraenderung im Ortsbild.',
-                greetingText: 'Hi, ich brauche heute einen ruhigen Luftueberblick zum aktuellen Anlass vor Ort. Wichtig ist ein klares Bild, keine dramatische Zuspitzung.'
+                storySeed: '{name} berichtet bei {targetName} ueber den heutigen Besucherandrang rund um Ortskern, Zufahrten und Parkbereiche; der Luftblick soll zeigen, ob sich der Andrang wirklich im Ortsbild abzeichnet.',
+                greetingText: 'Hi, ich brauche heute den Blick auf den Besucherandrang bei {targetName}: Ortskern, Zufahrten und ein klares Bild statt Vermutung.'
             },
             {
+                newsBriefId: 'traffic_change',
                 name: 'Timo Berger',
                 role: 'TV-Reporter',
                 gender: 'male',
                 personality: 'präzise, präsent, professionell',
-                storySeed: '{name} setzt fuer einen kurzen TV-Beitrag einen sachlichen Luftaufhaenger zu {targetName}, damit die Redaktion die Lage sichtbar einordnen kann.',
-                greetingText: 'Hi, die Redaktion braucht einen klaren Aufhänger aus der Luft. Lass uns sachlich bleiben: Überblick, Lage, Rückkehr.'
+                storySeed: '{name} setzt fuer einen kurzen TV-Beitrag eine geaenderte Verkehrsfuehrung bei {targetName} als Aufhaenger; aus der Luft sollen Zufahrten, Engstellen und der Verkehrsfluss verstaendlich werden.',
+                greetingText: 'Hi, die Redaktion braucht den Verkehrsueberblick bei {targetName}. Bitte ruhig, damit Zufahrten und Engstellen gut lesbar sind.'
             },
             {
+                newsBriefId: 'construction_context',
                 name: 'Nora Wendt',
                 role: 'Redakteurin',
                 gender: 'female',
                 personality: 'ruhig, strukturiert, beobachtend',
-                storySeed: '{name} braucht zu {targetName} ein aktuelles redaktionelles Lagebild, etwa zu Besucherstroemen, Verkehr, Bauarbeiten oder einer lokalen Veranstaltung.',
-                greetingText: 'Hi, ich ordne heute nur ein, was aus der Luft wirklich sichtbar ist. Bitte ruhige Passes, damit ich der Redaktion etwas Belastbares geben kann.'
+                storySeed: '{name} braucht zu {targetName} ein Lagebild zum Baustellenumfeld; die Redaktion will wissen, wie Baukante, Zufahrt und Ortsbild aus der Luft zusammenwirken.',
+                greetingText: 'Hi, ich schaue heute auf das Baustellenumfeld bei {targetName}. Wichtig sind Baukante, Zufahrt und Ortsbild, nicht Drama.'
             },
             {
+                newsBriefId: 'townscape_change',
                 name: 'Jana Wild',
                 role: 'Fotoredakteurin',
                 gender: 'female',
                 personality: 'bildstark, sachlich, aufmerksam',
-                storySeed: '{name} sucht fuer {targetName} ein klares Aufmacherbild: Ortsbild, Zufahrten, Besucherandrang, Baufortschritt oder sichtbarer Wandel sollen aus der Luft verstaendlich werden.',
-                greetingText: 'Hi, ich brauche heute ein Bild, das etwas erklärt. Ruhige Perspektive, klare Kanten, keine Show.'
+                storySeed: '{name} sucht fuer {targetName} eine Bildstrecke zum sichtbaren Wandel im Ortsbild; der Ueberflug soll alte Struktur, neue Kanten und Lage im Umfeld erzaehlbar machen.',
+                greetingText: 'Hi, ich brauche heute ein Bild, das den Wandel im Ortsbild von {targetName} erklaert. Ruhige Perspektive, klare Kanten, keine Show.'
             },
             {
+                newsBriefId: 'access_pattern',
                 name: 'Severin Lutz',
                 role: 'Lokaljournalist',
                 gender: 'male',
                 personality: 'neugierig, trocken, genau',
-                storySeed: '{name} macht aus {targetName} einen kurzen Lokalaufhänger: was hat sich verändert, wo staut es sich, warum schaut die Redaktion gerade heute von oben hin?',
-                greetingText: 'Servus, ich will nur sehen, was die Geschichte trägt. Wenn wir sauber fliegen, reicht mir ein ehrlicher Überblick.'
+                storySeed: '{name} macht aus {targetName} einen Lokalaufhaenger zur Lage an den Zufahrten; der Luftblick soll zeigen, ob Ortsrand und Wege die Meldung wirklich tragen.',
+                greetingText: 'Servus, ich schaue heute auf die Zufahrten bei {targetName}. Wenn wir sauber fliegen, sehe ich, ob die Meldung wirklich traegt.'
             }
         ],
         greetingText: 'Hi, ich brauche heute einen sachlichen Luftüberblick zu einem aktuellen Anlass am Ziel. Bitte ruhig und klar, ohne Show.',
         paxText: '1 PAX (Reporter)',
         cargoPool: ['Kamera- und Audio-Set (32 lbs)', 'Live-Übertragungsrucksack (26 lbs)', 'Foto- und Notizrucksack (18 lbs)', 'Redaktionskamera mit Teleobjektiv (24 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: sachliche Berichterstattung mit konkretem Anlass: lokales Fest, Besucherandrang, Verkehrslage, Baustelle im Ortskern oder sichtbare Veraenderung; keine O-Ton-Sammelstory bei POI-City.'
+        storyCue: 'Fokus: sachliche Berichterstattung mit genau einem konkreten sichtbaren Anlass; keine O-Ton-Sammelstory bei POI-City.'
     },
     sightseeing_tour: {
         id: 'sightseeing_tour',
@@ -14526,24 +14531,38 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         && String(base.taskDomain || profileSpec.taskDomain || '').toLowerCase() === 'infra_chain_recon'
         && !!String(base.name || '').trim()
         && !!String(base.role || '').trim();
-    const persona = keepBaseChainPersona ? {} : (_pickRandomProfilePersona(profileSpec, missionContext) || {});
+    const preferredNewsBriefId = String(base.newsBriefId || '').trim();
+    const newsBriefPersona = profileSpec.id === 'news_coverage' && preferredNewsBriefId && Array.isArray(profileSpec.personas)
+        ? profileSpec.personas.find(item => String(item?.newsBriefId || '').trim() === preferredNewsBriefId)
+        : null;
+    const baseMatchesNewsBriefPersona = !newsBriefPersona?.name
+        || normalizeMissionText(base.name || '') === normalizeMissionText(newsBriefPersona.name);
+    const keepBaseNewsPersona = profileSpec.id === 'news_coverage'
+        && String(base.taskDomain || profileSpec.taskDomain || '').toLowerCase() === 'news_coverage'
+        && !!String(base.name || '').trim()
+        && !!String(base.role || '').trim()
+        && !!preferredNewsBriefId
+        && baseMatchesNewsBriefPersona;
+    const keepBasePersona = keepBaseChainPersona || keepBaseNewsPersona;
+    const persona = keepBasePersona ? {} : (newsBriefPersona ? { ...newsBriefPersona } : (_pickRandomProfilePersona(profileSpec, missionContext) || {}));
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
     const personaGender = String(persona.gender || '').toLowerCase();
     const merged = {
         ...base,
-        name: String((keepBaseChainPersona ? base.name : persona.name) || base.name || '').trim() || 'Alex Neumann',
-        role: String((keepBaseChainPersona ? base.role : persona.role) || base.role || '').trim() || 'Passagier',
+        name: String((keepBasePersona ? base.name : persona.name) || base.name || '').trim() || 'Alex Neumann',
+        role: String((keepBasePersona ? base.role : persona.role) || base.role || '').trim() || 'Passagier',
         gender: (personaGender === 'female' || personaGender === 'male')
             ? personaGender
             : ((baseGender === 'female' || baseGender === 'male') ? baseGender : 'male'),
         personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
         dialectHint: String(persona.dialectHint || base.dialectHint || 'neutral').trim() || 'neutral',
-        storySeed: String((keepBaseChainPersona ? (base.storySeed || base.personalStoryCue) : persona.storySeed) || base.storySeed || base.personalStoryCue || '').trim(),
-        personalStoryCue: String((keepBaseChainPersona ? (base.personalStoryCue || base.storySeed) : persona.storySeed) || base.personalStoryCue || base.storySeed || '').trim(),
-        paxBriefingSeed: String((keepBaseChainPersona ? base.paxBriefingSeed : persona.paxBriefingSeed) || base.paxBriefingSeed || '').trim(),
-        sightseeingInterestSeed: String((keepBaseChainPersona ? base.sightseeingInterestSeed : persona.sightseeingInterestSeed) || base.sightseeingInterestSeed || '').trim(),
-        greetingText: String((keepBaseChainPersona ? base.greetingText : persona.greetingText) || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
+        storySeed: String((keepBasePersona ? (base.storySeed || base.personalStoryCue) : persona.storySeed) || base.storySeed || base.personalStoryCue || '').trim(),
+        personalStoryCue: String((keepBasePersona ? (base.personalStoryCue || base.storySeed) : persona.storySeed) || base.personalStoryCue || base.storySeed || '').trim(),
+        paxBriefingSeed: String((keepBasePersona ? base.paxBriefingSeed : persona.paxBriefingSeed) || base.paxBriefingSeed || '').trim(),
+        sightseeingInterestSeed: String((keepBasePersona ? base.sightseeingInterestSeed : persona.sightseeingInterestSeed) || base.sightseeingInterestSeed || '').trim(),
+        greetingText: String((keepBasePersona ? base.greetingText : persona.greetingText) || profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
+        newsBriefId: String((keepBaseNewsPersona ? base.newsBriefId : persona.newsBriefId) || base.newsBriefId || '').trim(),
         roleProfile: String(profileSpec.roleProfile || base.roleProfile || 'general_passenger_v1').toLowerCase(),
         taskDomain: String(profileSpec.taskDomain || base.taskDomain || 'general').toLowerCase(),
         gTolerance: String(tol.gTolerance || base.gTolerance || 'mittel').toLowerCase(),
@@ -14559,6 +14578,259 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         storyHint: String(storyHint || '')
     };
     return merged;
+}
+
+function _missionNewsBriefPresets(category = '') {
+    const isCity = String(category || '').toLowerCase() === 'city';
+    return [
+        {
+            id: 'visitor_pressure',
+            label: 'Besucherandrang',
+            personaNames: ['Mara Feld'],
+            cargoText: 'Redaktionskamera mit Teleobjektiv (24 lbs)',
+            angle: isCity ? 'der Besucherandrang im Ortskern und an den Zufahrten' : 'der heutige Besucherandrang am Ziel und an den Zugängen',
+            reporterAngle: isCity ? 'die vollen Wege rund um den Ortskern' : 'die sichtbare Besucherbewegung am Ziel',
+            storySeed: '{name} berichtet bei {targetName} über den heutigen Besucherandrang; der Luftblick soll zeigen, ob sich der Andrang an Ortskern, Zufahrten oder Parkbereichen wirklich abzeichnet.',
+            greetingText: 'Hi, ich brauche heute den Blick auf den Besucherandrang bei {targetName}: Ortskern, Zufahrten und ein klares Bild statt Vermutung.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            subjectDetail: '{targetName} als lokaler Aufhänger zum sichtbaren Besucherandrang',
+            incidentContext: 'Gesucht wird kein Archivmotiv und keine O-Ton-Sammelrunde, sondern ein heute beobachtbarer Kern rund um {targetName}: {angle}.',
+            keyQuestion: 'Ob sich der gemeldete Andrang bei {targetName} aus der Luft wirklich an Wegen, Zufahrten und Ortsbild ablesen lässt.',
+            whyNow: 'Die Redaktion braucht den visuellen Beleg noch im aktuellen Veröffentlichungsfenster.',
+            soughtOutcome: 'Wir sollen ein Bild und eine kurze Einordnung liefern, ob der Andrang die Geschichte heute trägt.',
+            completionSignal: 'Nach dem Überflug gehen Bilder und kurze Lageeinschätzung direkt an die Redaktion.'
+        },
+        {
+            id: 'traffic_change',
+            label: 'Verkehrsführung',
+            personaNames: ['Timo Berger'],
+            cargoText: 'Kamera- und Audio-Set (32 lbs)',
+            angle: isCity ? 'eine geänderte Verkehrsführung an den Zufahrten' : 'die geänderte Verkehrsführung am Ziel',
+            reporterAngle: isCity ? 'die neue Führung an den Zufahrten' : 'die sichtbare Verkehrsführung am Ziel',
+            storySeed: '{name} setzt für einen kurzen TV-Beitrag eine geänderte Verkehrsführung bei {targetName} als Aufhänger; aus der Luft sollen Zufahrten, Engstellen und der Verkehrsfluss verständlich werden.',
+            greetingText: 'Hi, die Redaktion braucht den Verkehrsüberblick bei {targetName}. Bitte ruhig, damit Zufahrten und Engstellen gut lesbar sind.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            subjectDetail: '{targetName} als lokaler Aufhänger zur aktuellen Verkehrslage',
+            incidentContext: 'Der Beitrag braucht keine Dramatisierung, sondern einen ruhigen Luftblick darauf, wie {angle} bei {targetName} wirklich wirkt.',
+            keyQuestion: 'Ob Zufahrten, Engstellen und Verkehrsfluss bei {targetName} aus der Luft klar genug erkennbar sind.',
+            whyNow: 'Die Redaktion will die Lage einordnen, bevor Meldung und Bildmaterial auseinanderlaufen.',
+            soughtOutcome: 'Wir sollen Bilder liefern, die die Verkehrslage nachvollziehbar machen, ohne eine technische Inspektion daraus zu machen.',
+            completionSignal: 'Nach dem Überflug gehen Bildmaterial und knappe Verkehrseinordnung an die Redaktion.'
+        },
+        {
+            id: 'construction_context',
+            label: 'Baustellenumfeld',
+            personaNames: ['Nora Wendt'],
+            cargoText: 'Foto- und Notizrucksack (18 lbs)',
+            angle: isCity ? 'das Baustellenumfeld am Ortsrand und seine Wirkung auf Zufahrten und Ortsbild' : 'das Baustellen- oder Betriebsumfeld am Ziel',
+            reporterAngle: isCity ? 'die Baukante zwischen Ortsrand und Zufahrten' : 'das sichtbare Baustellenumfeld am Ziel',
+            storySeed: '{name} braucht zu {targetName} ein Lagebild zum Baustellenumfeld; die Redaktion will wissen, wie Baukante, Zufahrt und Ortsbild aus der Luft zusammenwirken.',
+            greetingText: 'Hi, ich schaue heute auf das Baustellenumfeld bei {targetName}. Wichtig sind Baukante, Zufahrt und Ortsbild, nicht Drama.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            subjectDetail: '{targetName} als lokaler Aufhänger zum sichtbaren Baustellenumfeld',
+            incidentContext: 'Der Flug soll nicht klären, was dort technisch passiert, sondern wie {angle} aus der Luft im Ortszusammenhang lesbar wird.',
+            keyQuestion: 'Ob Baukante, Zufahrt und Ortsbild bei {targetName} zusammen ein belastbares Lagebild ergeben.',
+            whyNow: 'Der Bericht braucht vor der nächsten Ausgabe ein aktuelles Bild statt nur eine Bodenmeldung.',
+            soughtOutcome: 'Wir sollen eine sachliche Einordnung liefern, wie das Baustellenumfeld im Luftbild wirkt.',
+            completionSignal: 'Nach dem Überflug gehen Fotos und Notizen in die redaktionelle Auswertung.'
+        },
+        {
+            id: 'townscape_change',
+            label: 'Ortsbildwandel',
+            personaNames: ['Jana Wild'],
+            cargoText: 'Redaktionskamera mit Teleobjektiv (24 lbs)',
+            angle: isCity ? 'eine Bildstrecke zum sichtbaren Wandel im Ortsbild' : 'eine sichtbare Veränderung am Ziel, die aus der Luft besser lesbar wird',
+            reporterAngle: isCity ? 'den sichtbaren Wandel im Ortsbild' : 'die sichtbare Veränderung am Ziel',
+            storySeed: '{name} sucht für {targetName} eine Bildstrecke zum sichtbaren Wandel im Ortsbild; der Überflug soll alte Struktur, neue Kanten und Lage im Umfeld erzählbar machen.',
+            greetingText: 'Hi, ich brauche heute ein Bild, das den Wandel im Ortsbild von {targetName} erklärt. Ruhige Perspektive, klare Kanten, keine Show.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            subjectDetail: '{targetName} als Bildgeschichte zum sichtbaren Ortsbildwandel',
+            incidentContext: 'Gesucht wird eine ruhige Bildgeschichte: Welche Struktur bei {targetName} heute anders wirkt und wie {angle} aus der Luft erzählbar wird.',
+            keyQuestion: 'Welche sichtbare Veränderung bei {targetName} die Bildstrecke trägt und wie sie im Umfeld liegt.',
+            whyNow: 'Die Redaktion braucht ein aktuelles Motiv, das mehr zeigt als ein einzelnes Bodenfoto.',
+            soughtOutcome: 'Wir sollen eine Bildstrecke ermöglichen, die Veränderung und Lage klar verbindet.',
+            completionSignal: 'Nach dem Überflug gehen Bildauswahl und kurze Einordnung an die Bildredaktion.'
+        },
+        {
+            id: 'access_pattern',
+            label: 'Zufahrtslage',
+            personaNames: ['Severin Lutz'],
+            cargoText: 'Live-Übertragungsrucksack (26 lbs)',
+            angle: isCity ? 'die Lage an den Zufahrten und am Ortsrand' : 'die sichtbare Zugangs- und Randlage am Ziel',
+            reporterAngle: isCity ? 'die Zufahrtslage am Ortsrand' : 'die Zugangs- und Randlage am Ziel',
+            storySeed: '{name} macht aus {targetName} einen Lokalaufhänger zur Lage an den Zufahrten; der Luftblick soll zeigen, ob Ortsrand und Wege die Meldung wirklich tragen.',
+            greetingText: 'Servus, ich schaue heute auf die Zufahrten bei {targetName}. Wenn wir sauber fliegen, sehe ich, ob die Meldung wirklich trägt.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            subjectDetail: '{targetName} als lokaler Aufhänger zur Lage an Zufahrten und Ortsrand',
+            incidentContext: 'Der Flug soll zeigen, ob {angle} bei {targetName} aus der Luft als Geschichte trägt, ohne daraus eine Verkehrskontrolle zu machen.',
+            keyQuestion: 'Ob Zufahrten, Ortsrand und sichtbare Wege bei {targetName} die lokale Meldung wirklich stützen.',
+            whyNow: 'Die Redaktion will vor der Veröffentlichung wissen, ob die gemeldete Lage im Luftbild plausibel ist.',
+            soughtOutcome: 'Wir sollen eine knappe Einschätzung liefern, ob der lokale Aufhänger aus der Luft trägt.',
+            completionSignal: 'Nach dem Überflug geht die Lageeinschätzung direkt an die Lokalredaktion.'
+        }
+    ];
+}
+
+function _missionNewsBriefTemplate(text = '', context = {}) {
+    return _missionPipelineV4PolishGermanVisibleText(
+        _missionTemplateText(String(text || ''), context)
+            .replace(/\{angle\}/g, context.angle || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+    );
+}
+
+function _missionNewsBriefPick(contract = {}, passenger = {}, options = {}) {
+    const category = String(
+        options.category
+        || contract?.target?.poiCategory
+        || contract?.profile?.pickerCategory
+        || contract?.missionPlan?.plan?.targetCategory
+        || ''
+    ).toLowerCase();
+    const presets = _missionNewsBriefPresets(category);
+    const byId = id => presets.find(item => item.id === String(id || '').trim());
+    const explicit = byId(passenger?.newsBriefId)
+        || byId(contract?.newsBrief?.id)
+        || byId(contract?.storyFrame?.newsBriefId)
+        || byId(contract?.missionPlan?.plan?.storyFrame?.newsBriefId);
+    if (explicit) return explicit;
+    const passengerName = normalizeMissionText(passenger?.name || '');
+    const byName = passengerName
+        ? presets.find(item => (item.personaNames || []).some(name => normalizeMissionText(name) === passengerName))
+        : null;
+    if (byName) return byName;
+    const hay = normalizeMissionText([
+        passenger?.storySeed,
+        passenger?.personalStoryCue,
+        passenger?.greetingText,
+        passenger?.role,
+        contract?.storyFrame?.trigger,
+        contract?.storyFrame?.incidentContext,
+        contract?.storyFrame?.subjectDetail,
+        options.cargoText
+    ].filter(Boolean).join(' '));
+    if (/\bbaustell|baukante|bauarbeiten|kran|bauzaun\b/.test(hay)) return byId('construction_context');
+    if (/\bortsbild|wandel|veraender|veränder|bildstrecke|frueher|früher\b/.test(hay)) return byId('townscape_change');
+    if (/\bverkehr|verkehrsfuehrung|verkehrsführung|sperrung|umleitung|engstelle\b/.test(hay)) return byId('traffic_change');
+    if (/\bzufahrt|zufahrten|ortsrand|randlage\b/.test(hay)) return byId('access_pattern');
+    if (/\bbesucher|andrang|fest|markt|parkbereich\b/.test(hay)) return byId('visitor_pressure');
+    return _missionPipelineV4PickOne(presets);
+}
+
+function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, options = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || contract?.missionPlan?.plan?.taskDomain || '').toLowerCase();
+    if (taskDomain !== 'news_coverage' || !contract || typeof contract !== 'object') {
+        return { contract, passenger, cargoText: options.cargoText || '' };
+    }
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || options.targetName || 'dem Ziel').trim() || 'dem Ziel';
+    const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
+    const preset = _missionNewsBriefPick(contract, passenger, { ...options, category });
+    const newsProfile = getMissionTaskProfile('news_coverage', contract?.target?.isPOI ? 'poi' : 'apt') || null;
+    const presetPersona = Array.isArray(newsProfile?.personas)
+        ? newsProfile.personas.find(item => String(item?.newsBriefId || '').trim() === preset.id)
+        : null;
+    const lockedPassenger = contract?.followUpContext?.lockedPassenger && typeof contract.followUpContext.lockedPassenger === 'object'
+        ? contract.followUpContext.lockedPassenger
+        : null;
+    const passengerNameMatchesPreset = presetPersona?.name
+        && normalizeMissionText(passenger?.name || '') === normalizeMissionText(presetPersona.name);
+    const alignedPassenger = presetPersona && !lockedPassenger?.name && !passengerNameMatchesPreset
+        ? {
+            ...(passenger && typeof passenger === 'object' ? passenger : {}),
+            ...presetPersona,
+            roleProfile: 'news_reporter_professional_v1',
+            taskDomain: 'news_coverage'
+        }
+        : (passenger && typeof passenger === 'object' ? passenger : {});
+    const name = String(alignedPassenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Die Redaktion';
+    const context = { targetName, name, angle: preset.angle };
+    const brief = {
+        id: preset.id,
+        label: preset.label,
+        angle: _missionNewsBriefTemplate(preset.angle, context),
+        reporterAngle: _missionNewsBriefTemplate(preset.reporterAngle, context),
+        cargoText: preset.cargoText,
+        trigger: _missionNewsBriefTemplate(preset.trigger, context),
+        subjectDetail: _missionNewsBriefTemplate(preset.subjectDetail, context),
+        incidentContext: _missionNewsBriefTemplate(preset.incidentContext, context),
+        keyQuestion: _missionNewsBriefTemplate(preset.keyQuestion, context),
+        whyNow: _missionNewsBriefTemplate(preset.whyNow, context),
+        soughtOutcome: _missionNewsBriefTemplate(preset.soughtOutcome, context),
+        completionSignal: _missionNewsBriefTemplate(preset.completionSignal, context),
+        storySeed: _missionNewsBriefTemplate(preset.storySeed, context),
+        greetingText: _missionNewsBriefTemplate(preset.greetingText, context)
+    };
+    const nextPassenger = {
+        ...alignedPassenger,
+        newsBriefId: brief.id,
+        storySeed: brief.storySeed,
+        personalStoryCue: brief.storySeed,
+        greetingText: brief.greetingText
+    };
+    contract.newsBrief = {
+        id: brief.id,
+        label: brief.label,
+        angle: brief.angle,
+        reporterAngle: brief.reporterAngle,
+        cargoText: brief.cargoText
+    };
+    const framePatch = {
+        newsBriefId: brief.id,
+        newsAngle: brief.angle,
+        reporterAngle: brief.reporterAngle,
+        trigger: brief.trigger,
+        focusSubject: targetName,
+        keyQuestion: brief.keyQuestion,
+        stakes: 'Ohne verwertbares Luftbild fehlt der Redaktion die belastbare Einordnung für Bericht oder Schalte.',
+        completionSignal: brief.completionSignal,
+        subjectDetail: brief.subjectDetail,
+        incidentContext: brief.incidentContext,
+        whyNow: brief.whyNow,
+        soughtOutcome: brief.soughtOutcome
+    };
+    contract.storyFrame = {
+        ...(contract.storyFrame || {}),
+        ...framePatch
+    };
+    if (contract.missionPlan && typeof contract.missionPlan === 'object') {
+        const plan = {
+            ...(contract.missionPlan.plan || {})
+        };
+        plan.missionTrigger = brief.trigger;
+        plan.primaryObjective = `${targetName} aus der Luft für den redaktionellen Aufhänger "${brief.reporterAngle}" einordnen.`;
+        plan.focusSubject = targetName;
+        plan.keyQuestion = brief.keyQuestion;
+        plan.missionStakes = framePatch.stakes;
+        plan.completionSignal = brief.completionSignal;
+        plan.storyFrame = {
+            ...(plan.storyFrame || {}),
+            ...framePatch
+        };
+        plan.narrativeHooks = _missionWriterV5Unique([
+            brief.trigger,
+            brief.incidentContext,
+            brief.whyNow,
+            ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : [])
+        ], 6, 220);
+        plan.localFacts = _missionWriterV5Unique([
+            ...(Array.isArray(plan.localFacts) ? plan.localFacts : [])
+        ], 7, 180);
+        plan.mustMention = _missionWriterV5Unique([
+            `${targetName} als Ziel`,
+            'Reporter-Einsatz',
+            brief.reporterAngle,
+            'sachliche Berichterstattung',
+            'Rückkehr zum Startflugplatz',
+            ...(Array.isArray(plan.mustMention) ? plan.mustMention : [])
+        ], 8, 120);
+        contract.missionPlan.plan = plan;
+    }
+    return {
+        contract,
+        passenger: nextPassenger,
+        cargoText: brief.cargoText || options.cargoText || ''
+    };
 }
 
 function missionUsesPoiTaskRecipe(mission = null) {
@@ -16961,8 +17233,13 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 ? _pickPrivateOutingCargo(cargoPool, m, m.passenger)
                 : (profile.id === 'cargo_fragile'
                     ? _pickCargoFragileCargo(cargoPool, m, cargoText)
-                    : cargoPool[Math.floor(Math.random() * cargoPool.length)]));
+                    : (profile.id === 'news_coverage'
+                        ? (m?._missionContractV4?.newsBrief?.cargoText || m?.missionContractV4?.newsBrief?.cargoText || m.cargoText || m.cargo || cargoText || cargoPool[0])
+                        : cargoPool[Math.floor(Math.random() * cargoPool.length)])));
         if (profile.id === 'cargo_fragile') {
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
+        } else if (profile.id === 'news_coverage') {
             m.cargo = cargoText;
             m.cargoText = cargoText;
         }
@@ -23928,14 +24205,16 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const newsAngle = _missionPipelineV4PickOne(
             category === 'city'
                 ? [
-                    'ein lokales Fest oder Besucherandrang im Ortskern',
-                    'eine geaenderte Verkehrslage, Sperrung oder Baustelle im Ortskern',
-                    'eine sichtbare Veraenderung im Ortsbild, die die Lokalredaktion aktuell einordnet'
+                    'der Besucherandrang im Ortskern und an den Zufahrten',
+                    'eine geaenderte Verkehrsführung an den Zufahrten',
+                    'das Baustellenumfeld am Ortsrand und seine Wirkung auf Zufahrten und Ortsbild',
+                    'eine Bildstrecke zum sichtbaren Wandel im Ortsbild'
                 ]
                 : [
-                    'ein beobachtbarer aktueller Anlass am Ziel',
-                    'Besucher, Verkehr, Baustelle, Betrieb oder sichtbare Veraenderung rund um das Ziel',
-                    'ein redaktioneller Aufhaenger, der aus der Luft besser einzuordnen ist als vom Boden'
+                    'der heutige Besucherandrang am Ziel und an den naechsten Zugängen',
+                    'die geaenderte Verkehrsführung am Ziel',
+                    'das Baustellen- oder Betriebsumfeld am Ziel',
+                    'eine sichtbare Veraenderung am Ziel, die aus der Luft besser lesbar wird'
                 ]
         );
         return {
@@ -26295,6 +26574,10 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
     ], 240);
     const concreteAngle = taskDomain === 'news_coverage'
         ? _missionWriterV5FirstSpineValue([
+            frame.reporterAngle,
+            frame.newsAngle,
+            contract?.newsBrief?.reporterAngle,
+            contract?.newsBrief?.angle,
             _missionWriterV5ExtractNewsAngle(frame.incidentContext),
             _missionWriterV5ExtractNewsAngle(frame.trigger),
             frame.subjectDetail,
@@ -26423,7 +26706,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         tone: 'lokale Reporter-Notiz mit beobachtbarem redaktionellem Anlass',
         perspective: 'Dispatcher an Pilot; Redaktion braucht Bilder, Überblick oder Einordnung',
         length: '4-6 Sätze',
-        softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen: Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel.',
+        softFreedom: 'Wenn kein harter Anlass belegt ist, darf ein weicher redaktioneller Blickwinkel entstehen: Ortsbild früher/heute, Verkehrsfluss, Besucherandrang, Baustellenumfeld oder sichtbarer Wandel. Waehle genau einen Blickwinkel und erzaehle ihn als These, nicht als Auswahlmenue.',
         requiredMeaning: [
             'Ein konkreter redaktioneller Aufhänger trägt den Flug.',
             'Der Luftblick klärt, zeigt oder ordnet etwas Sichtbares ein.',
@@ -26434,7 +26717,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Was soll aus der Luft sichtbar, belegbar oder besser einzuordnen werden?',
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ],
-        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus dem Formular einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Anlass. Wähle aus dem Formular genau einen konkreten Blickwinkel und erzähle, was der Luftblick klären, zeigen oder einordnen soll. Keine Variantenliste wie Besucherandrang, Baustelle oder Veränderung nebeneinander; die Story entscheidet sich fuer eine redaktionelle These. Weiche journalistische Winkel sind erlaubt; harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
     },
     cargo_transport: {
         tone: 'ruhige kleine Frachtgeschichte mit konkreter Sendung',
@@ -29022,12 +29305,15 @@ function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'die Gäste')
 }
 
 function _missionWriterV5ReporterRoleLabel(role = '', gender = '') {
+    const rawRole = String(role || '');
     const normalized = normalizeMissionText(role);
     const isFemale = String(gender || '').toLowerCase() === 'female';
     const isMale = String(gender || '').toLowerCase() === 'male';
     if (!normalized) return isFemale ? 'Lokalreporterin' : 'Lokalreporter';
     if (/\btv[-\s]?reporter(?:in)?\b/.test(normalized)) return isFemale ? 'TV-Reporterin' : 'TV-Reporter';
     if (/\blokalreporter(?:in)?\b/.test(normalized)) return isFemale ? 'Lokalreporterin' : 'Lokalreporter';
+    if (/foto\s*redakteur/i.test(rawRole)) return isMale ? 'Fotoredakteur' : 'Fotoredakteurin';
+    if (/\bfotoredakteur(?:in)?\b/.test(normalized)) return isMale ? 'Fotoredakteur' : 'Fotoredakteurin';
     if (/\bredakteur(?:in)?\b/.test(normalized)) return isMale ? 'Redakteur' : 'Redakteurin';
     if (/\breporter(?:in)?\b/.test(normalized)) return isFemale ? 'Reporterin' : 'Reporter';
     return _missionPipelineV4PolishGermanVisibleText(role);
@@ -29106,6 +29392,7 @@ function _missionWriterV5UsableStoryFact(fact = '') {
     if (!clean) return '';
     const normalized = normalizeMissionText(clean);
     if (/^(zielbezug ist|startflugplatz ist|umfeld:)/.test(normalized)) return '';
+    if (/^reporter[-\s]?winkel\s*:/.test(normalized)) return '';
     if (/\broad \d|bearing \d|nearest_|target-category|dryrun synthetic\b/.test(normalized)) return '';
     if (/\b(roadside|vehicle placement|placement plausible|parking anchor|waterline|meadow|farmland|bearing|anchor)\b/.test(normalized)) return '';
     if (/^(gewaesser|gewasser|wasserflaeche|wasserfläche|wasserflache|uferlinie|gewaesser oder uferlinie|gewasser oder uferlinie|wasserflaeche oder uferlinie|wasserfläche oder uferlinie|wasserflache oder uferlinie|strasse oder zufahrt|straße oder zufahrt|offenes gelaende|offenes gelände|offenes gelande|offene flaeche|offene fläche|offene flache)$/i.test(normalized)) return '';
@@ -29114,9 +29401,12 @@ function _missionWriterV5UsableStoryFact(fact = '') {
 
 function _missionWriterV5ReporterSubject(passenger = {}) {
     const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const rawRole = String(passenger?.role || '');
     const roleNormalized = normalizeMissionText(passenger?.role || '');
     const role = _missionWriterV5ReporterRoleLabel(passenger?.role || '', passenger?.gender || '');
     if (name && /\btv[-\s]?reporter/.test(roleNormalized)) return `${name} vom TV-Team`;
+    if (name && /foto\s*redakteur/i.test(rawRole)) return `${name} aus der Bildredaktion`;
+    if (name && /\bfotoredakteur/.test(roleNormalized)) return `${name} aus der Bildredaktion`;
     if (name && /\bredakteur/.test(roleNormalized)) return `${name} aus der Redaktion`;
     if (name) return `${name} aus der Lokalredaktion`;
     if (role) return role;
@@ -29126,6 +29416,14 @@ function _missionWriterV5ReporterSubject(passenger = {}) {
 function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
     const clean = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanSpineValue(angle, 190)).trim();
     const normalized = normalizeMissionText(clean);
+    const hasSpecificAngle = /\b(fest|veranstaltung|markt|besucherandrang|besucher|verkehr|verkehrslage|verkehrsfuehrung|verkehrsführung|sperrung|umleitung|baustelle|baustellenumfeld|baukante|bauarbeiten|ortsbild|ortskern|wandel|veraender|veränder|bildstrecke|zufahrt|zufahrten)\b/.test(normalized);
+    if (!normalized || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte)\b/.test(normalized))) {
+        return _missionPipelineV4PickOne([
+            targetName ? `den Verkehrsfluss an den Zufahrten von ${targetName}` : 'den Verkehrsfluss an den Zufahrten',
+            targetName ? `den Besucherandrang rund um den Ortskern von ${targetName}` : 'den Besucherandrang rund um den Ortskern',
+            targetName ? `eine Bildstrecke zum Ortsbild von ${targetName} früher und heute` : 'eine Bildstrecke zum Ortsbild früher und heute'
+        ]);
+    }
     if (/\bfest\b.*\bbesucher|besucher.*\bfest\b|festbetrieb|besucherandrang/.test(normalized)) {
         return _missionPipelineV4PickOne([
             'den Besucherandrang im Ortskern',
@@ -29153,6 +29451,15 @@ function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
         .replace(/\bveraenderung\b/g, 'Veränderung')
         .replace(/\bVeraenderungen\b/g, 'Veränderungen')
         .replace(/\bveraenderungen\b/g, 'Veränderungen');
+}
+
+function _missionWriterV5NewsStoryUsesAngleMenu(story = '') {
+    const normalized = normalizeMissionText(story);
+    if (!normalized) return false;
+    const newsTerms = '(?:besucherandrang|besucher|fest|verkehrslage|verkehr|sperrung|umleitung|baustell(?:e|en|enumfeld)?|bauarbeiten|ortsbild|veraender(?:ung|ungen)?|verander(?:ung|ungen)?|wandel)';
+    const menuTerms = new RegExp(`\\b(?:ob|etwa|z\\.?b\\.?|zum beispiel)\\b[^.]{0,170}\\b${newsTerms}\\b[^.]{0,130}\\b(?:oder|und\\/oder)\\b[^.]{0,130}\\b${newsTerms}\\b`, 'i');
+    const commaMenu = new RegExp(`\\b${newsTerms}\\b\\s*,\\s*[^.]{0,120}\\b(?:oder|und\\/oder)\\b[^.]{0,120}\\b${newsTerms}\\b`, 'i');
+    return menuTerms.test(normalized) || commaMenu.test(normalized);
 }
 
 function _missionWriterV5NewsQuestionSentence(openQuestion = '') {
@@ -29452,6 +29759,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const hardAngle = /\b(fest|veranstaltung|markt|besucherandrang|besucher|andrang|verkehrslage|verkehr|sperrung|sperrungslage|umleitung|baustelle|bauarbeiten|baustellen|kran|bagger|neubau|umbau|neue nutzung|nutzungswechsel|bildstrecke|frueher|früher|wandel)\b/.test(normalized);
     const softChange = /\b(ortsbild|ortskern|veraender|veränder)\b/.test(normalized)
         && /\b(frueher|früher|wandel|neubau|umbau|bauarbeiten|baustelle|verkehr|besucher|fest|markt|bruecke|brücke|strasse|straße|zufahrt|zentrum)\b/.test(normalized);
+    const angleMenu = _missionWriterV5NewsStoryUsesAngleMenu(story);
     const genericOnly = /\b(aktuelle lage|geschehen am boden|veraenderungen? im ortskern|veränderungen? im ortskern|sichtbare veraenderungen?|sichtbare veränderungen?|infrastruktur)\b/.test(normalized)
         && !(hardAngle || softChange);
     const brief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
@@ -29465,7 +29773,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
         || ''
     );
     const coversSpine = angle && _missionPipelineV4StoryFieldCovered(story, angle, 2);
-    return !hasReporterFrame || !hasFlightValue || !hasOutcome || genericOnly || (!(hardAngle || softChange || coversSpine));
+    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || genericOnly || (!(hardAngle || softChange || coversSpine));
 }
 
 function _missionWriterV5WrongUtilityDrift(normalized = '') {
@@ -29551,9 +29859,16 @@ function _missionWriterV5AlignPassengerRoleInStory(story = '', passenger = {}) {
     const name = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     const role = String(passenger?.role || '').replace(/\s+/g, ' ').trim();
     const text = String(story || '');
-    if (!name || !role || !text || !_missionWriterV5StoryHasPassengerRoleConflict(text, passenger)) return story;
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return text.replace(
+    let next = text;
+    const reporterSubject = String(passenger?.taskDomain || '').toLowerCase() === 'news_coverage'
+        ? _missionWriterV5ReporterSubject(passenger)
+        : '';
+    if (reporterSubject && reporterSubject !== `${name} vom TV-Team`) {
+        next = next.replace(new RegExp(`${escaped}\\s+vom\\s+TV-Team`, 'g'), reporterSubject);
+    }
+    if (!name || !role || !next || !_missionWriterV5StoryHasPassengerRoleConflict(next, passenger)) return next;
+    return next.replace(
         new RegExp(`(${escaped}\\s*,\\s*)([^.;]{3,70}?)(?=\\s+(?:ist|begleitet|braucht|will|nutzt|sitzt)|[,.;])`, 'i'),
         `$1${role}`
     );
@@ -29713,9 +30028,10 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         sceneIntent.densityHint = 'none';
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
+    const contextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
     const passengerRaw = (src.passenger && typeof src.passenger === 'object')
-        ? src.passenger
-        : ((context.passenger && typeof context.passenger === 'object') ? context.passenger : {});
+        ? { ...contextPassenger, ...src.passenger }
+        : contextPassenger;
     let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
@@ -29822,6 +30138,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
             missionFamily: family,
             hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
             rawStoryLength: String(src.story || '').trim().length,
+            rawStoryPreview: _missionWriterV5Text(src.story || '', 520),
             finalStoryLength: finalStory.length,
             storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
             fallbackReason: finalized.fallbackReason || '',
@@ -29870,7 +30187,8 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         sceneIntent.densityHint = 'none';
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
-    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? src.passenger : {};
+    const contextPassenger = (context.passenger && typeof context.passenger === 'object') ? context.passenger : {};
+    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? { ...contextPassenger, ...src.passenger } : contextPassenger;
     let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
@@ -34363,14 +34681,32 @@ async function generateMission(options = {}) {
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
             const writerMode = getMissionWriterMode();
             const writerProfile = getMissionTaskProfile(missionContractV4?.profile?.id || dispatchProfileId || 'auto', isPOI ? 'poi' : 'apt') || null;
-            const writerPassengerSeed = writerProfile?.id === 'animal_transport'
-                ? buildMissionProfilePassenger(null, writerProfile, isPOI, '', {
+            let writerCargoText = cargoText;
+            let writerPassengerSeed = null;
+            if (writerProfile?.id === 'animal_transport') {
+                writerPassengerSeed = buildMissionProfilePassenger(null, writerProfile, isPOI, '', {
                     _missionContractV4: missionContractV4,
-                    cargoText,
+                    cargoText: writerCargoText,
                     targetName: dest?.n || missionContractV4?.route?.targetName || '',
                     t: dest?.n || missionContractV4?.route?.targetName || ''
-                })
-                : null;
+                });
+            } else if (writerProfile?.id === 'news_coverage') {
+                writerPassengerSeed = buildMissionProfilePassenger(null, writerProfile, isPOI, '', {
+                    _missionContractV4: missionContractV4,
+                    cargoText: writerCargoText,
+                    targetName: dest?.n || missionContractV4?.route?.targetName || '',
+                    t: dest?.n || missionContractV4?.route?.targetName || ''
+                });
+                const syncedNews = _missionPipelineV4SyncNewsCoverageBrief(missionContractV4, writerPassengerSeed, {
+                    cargoText: writerCargoText,
+                    targetName: dest?.n || missionContractV4?.route?.targetName || ''
+                });
+                missionContractV4 = syncedNews.contract || missionContractV4;
+                writerPassengerSeed = syncedNews.passenger || writerPassengerSeed;
+                writerCargoText = syncedNews.cargoText || writerCargoText;
+                cargoText = writerCargoText;
+                if (missionContractV4?.missionPlan) missionPlanV2 = missionContractV4.missionPlan;
+            }
             const writerContext = {
                 missionContractV4,
                 missionPlanV2,
@@ -34378,7 +34714,7 @@ async function generateMission(options = {}) {
                 selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
                 requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
                 isPOI,
-                cargoText,
+                cargoText: writerCargoText,
                 passenger: writerPassengerSeed,
                 selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
                 poiTerrainFt,
@@ -36135,7 +36471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1230', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1235', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
