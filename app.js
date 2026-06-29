@@ -1897,7 +1897,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Lokalreporterin',
                 gender: 'female',
                 personality: 'neugierig, sachlich, schnell',
-                storySeed: '{name} sucht bei {targetName} den berichtenswerten Kern für eine lokale News-Geschichte. Ziel, sichtbare Anker, Kamera und Redaktion geben den Rahmen; daraus soll eine eigene lokale Geschichte entstehen.',
+                storySeed: '{name} sucht bei {targetName} eine eigenständige lokale Reportage. Ziel, sichtbare Anker, Kamera und Redaktion geben nur den Rahmen; der konkrete Anlass muss als kleine Geschichte entstehen.',
                 greetingText: 'Hi, ich brauche heute den Blick auf {targetName}: Was ist dort wirklich berichtenswert, und was sieht man aus der Luft besser als vom Boden?'
             },
             {
@@ -14627,8 +14627,8 @@ function _missionNewsBriefVisitorCreativeBrief(category = '') {
     const defaults = {
         categoryHint: 'lokaler POI',
         focus: 'sichtbare Wege, Zufahrten, Umfeld, Sammelpunkte, Randbereiche und erkennbare Aktivität',
-        programPrompt: 'Entwickle frei einen berichtenswerten Kern: Headline, Vorfall, Event oder mediale Dokumentation. Nutze sichtbare Anker nur als Bildbelege.',
-        whyNow: 'Die Redaktion braucht den Luftblick, solange Ort des Geschehens, Bildwert und lokale Wirkung zusammen sichtbar sind.'
+        programPrompt: 'Entwickle frei eine journalistische These: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Nutze sichtbare Anker nur als Bildbelege.',
+        whyNow: 'Die Redaktion braucht den Luftblick, solange Anlass, Bildwert und lokale Wirkung zusammen sichtbar sind.'
     };
     const byCategory = {
         city: {
@@ -14636,7 +14636,7 @@ function _missionNewsBriefVisitorCreativeBrief(category = '') {
             focus: 'Ortskern, Zugangswege, Plätze, Randbereiche, erkennbare Aktivität und Übergang ins Umfeld'
         },
         road: {
-            categoryHint: 'Straßen-, Tunnel-, Wege- oder Zufahrts-POI als Ort einer lokalen News-Geschichte',
+            categoryHint: 'Straßen-, Tunnel-, Wege- oder Zufahrts-POI als Schauplatz einer lokalen Reportage',
             focus: 'Straßenraum, Tunnelumfeld, Wege, Zufahrt, Randbereiche, Parkdruck oder Treffpunkte als sichtbare Bildbelege'
         },
         industry: {
@@ -14668,9 +14668,9 @@ function _missionNewsBriefVisitorCreativeBrief(category = '') {
         programPrompt: picked.programPrompt,
         whyNow: picked.whyNow,
         creativeCue: [
-            `Nutze Zieltyp (${picked.categoryHint}) und sichtbare Anker nur als Rohmaterial für eine lokale News-Geschichte.`,
-            'Entscheide frei, ob der Kern eher Headline, Vorfall, Event oder mediale Dokumentation ist.',
-            'Schreibe wie ein Reporter: Ort des Geschehens, warum heute, warum aus der Luft und was die Redaktion damit macht.',
+            `Nutze Zieltyp (${picked.categoryHint}) und sichtbare Anker nur als Rohmaterial für eine lokale Reportage.`,
+            'Entscheide frei, ob die These eher Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation ist.',
+            'Schreibe wie ein Reporter: was heute passiert oder erzählt wird, warum aus der Luft und was die Redaktion damit macht.',
             'Kopiere keine Katalogphrase und arbeite keine Motivliste ab.',
             'Keine harten Ortsfakten, Veranstalternamen oder echten Termine behaupten, wenn sie nicht im Contract stehen.'
         ].join(' ')
@@ -14681,7 +14681,7 @@ function _missionNewsBriefPresets(category = '') {
     const isCity = String(category || '').toLowerCase() === 'city';
     const isRoad = String(category || '').toLowerCase() === 'road';
     const visitorCreativeBrief = _missionNewsBriefVisitorCreativeBrief(category);
-    const sharedCreativeCue = 'Der Dispatcher liefert Faktenrahmen, Rolle, Ausrüstung und sichtbare Anker, nicht die fertige Story. Schreibe frei wie ein lokaler Reporter: ein berichtenswerter Kern, der Ort des Geschehens, warum der Flug heute sinnvoll ist und was die Redaktion danach mit Material oder Einordnung macht. Keine harten Ortsfakten, Veranstalternamen, Straßennamen oder echten Termine behaupten, wenn sie nicht als harte Fakten vorliegen.';
+    const sharedCreativeCue = 'Der Dispatcher liefert Faktenrahmen, Rolle, Ausrüstung und sichtbare Anker, nicht die fertige Story. Schreibe frei wie ein lokaler Reporter: eine selbst gewählte journalistische These, warum der Flug heute sinnvoll ist, warum genau dieser POI der Schauplatz ist und was die Redaktion danach mit Material oder Einordnung macht. Keine harten Ortsfakten, Veranstalternamen, Straßennamen oder echten Termine behaupten, wenn sie nicht als harte Fakten vorliegen.';
     return [
         {
             id: 'visitor_pressure',
@@ -14689,15 +14689,15 @@ function _missionNewsBriefPresets(category = '') {
             personaNames: ['Mara Feld'],
             cargoText: 'Redaktionskamera mit Teleobjektiv (24 lbs)',
             angle: isCity
-                ? 'eine lokale News-Geschichte rund um den Ortskern von {targetName}'
-                : (isRoad ? 'eine lokale News-Geschichte am Ort des Geschehens bei {targetName}' : 'eine lokale News-Geschichte bei {targetName}'),
-            reporterAngle: 'den berichtenswerten Kern bei {targetName}',
-            storySeed: '{name} berichtet bei {targetName}. Entwickle aus Ziel, Rolle, Ausrüstung und sichtbaren Ankern frei eine lokale News-Geschichte; Andrang, Wege oder Parkdruck sind nur Material, wenn sie die Headline tragen.',
+                ? 'eine lokale Reportage rund um den Ortskern von {targetName}'
+                : (isRoad ? 'eine lokale Reportage mit {targetName} als Schauplatz' : 'eine lokale Reportage bei {targetName}'),
+            reporterAngle: '',
+            storySeed: '{name} berichtet bei {targetName}. Entwickle aus Ziel, Rolle, Ausrüstung und sichtbaren Ankern frei eine lokale Reportage; Andrang, Wege oder Parkdruck sind nur Material, wenn sie die Headline tragen.',
             greetingText: 'Hi, ich brauche heute den Blick auf {targetName}: Was ist dort wirklich berichtenswert, und was sieht man von oben besser als vom Boden?',
-            trigger: 'Die Redaktion braucht zu {targetName} eine lokale News-Geschichte mit klarem Ort des Geschehens und Luftbildwert.',
-            subjectDetail: '{targetName} als Ort des Geschehens für einen lokalen Reporter-Aufhänger',
+            trigger: 'Die Redaktion braucht zu {targetName} einen konkret erzählten lokalen Reporter-Anlass mit Luftbildwert.',
+            subjectDetail: '{targetName} als Schauplatz einer lokalen Reporter-Geschichte',
             incidentContext: '{occasionCreativeCue} Sichtbare Rohdaten: {occasionFocus}. Wähle einen einzelnen Aufhänger: Headline, Vorfall, Event oder mediale Dokumentation. Keine Motivliste, keine Formularantwort.',
-            keyQuestion: 'Warum fliegt ein Reporter heute zu {targetName}, was ist dort berichtenswert und was liefert der Luftblick für die Geschichte?',
+            keyQuestion: 'Welche selbst gewählte lokale Geschichte führt den Reporter heute zu {targetName}, und was liefert der Luftblick dafür?',
             whyNow: '{occasionWhyNow}',
             soughtOutcome: 'Wir sollen Bilder und eine kurze redaktionelle Einordnung liefern, die eine gute lokale Geschichte tragen.',
             completionSignal: 'Nach dem Überflug gehen Bilder und kurze Lageeinschätzung direkt an die Redaktion.',
@@ -14720,14 +14720,14 @@ function _missionNewsBriefPresets(category = '') {
             label: 'TV-Aufmacher',
             personaNames: ['Timo Berger'],
             cargoText: 'Kamera- und Audio-Set (32 lbs)',
-            angle: isCity ? 'eine lokale News-Geschichte mit sichtbarem Ortsbezug' : 'eine lokale News-Geschichte am Ziel mit sichtbarem Bildwert',
-            reporterAngle: 'den berichtenswerten Kern bei {targetName}',
+            angle: isCity ? 'eine lokale Reportage mit sichtbarem Ortsbezug' : 'eine lokale Reportage am Ziel mit sichtbarem Bildwert',
+            reporterAngle: '',
             storySeed: '{name} setzt {targetName} als TV-Aufhänger. Entwickle frei, was dort heute berichtenswert ist; Wege, Engstellen oder Verkehrszeichen sind nur Bildmaterial, wenn sie die Geschichte stützen.',
             greetingText: 'Hi, die Redaktion braucht bei {targetName} keine bloße Straßenbeschreibung, sondern eine Geschichte, die man aus der Luft begreifen kann.',
-            trigger: 'Die Redaktion braucht zu {targetName} einen klaren Luftaufhänger für eine lokale News-Geschichte.',
-            subjectDetail: '{targetName} als Ort des Geschehens für einen TV-Aufhänger',
+            trigger: 'Die Redaktion braucht zu {targetName} eine erzählte lokale TV-Reportage, bei der der Luftblick wirklich hilft.',
+            subjectDetail: '{targetName} als Schauplatz einer lokalen TV-Reportage',
             incidentContext: '{creativeCue} Nutze {visibleFocus} als sichtbare Rohdaten. Entscheide selbst, welcher Headline-Kern, Vorfall, Event oder Dokumentationsanlass den Flug trägt.',
-            keyQuestion: 'Was macht {targetName} heute berichtenswert und was kann der Luftblick zeigen, das die Redaktion am Boden nicht sauber einordnen kann?',
+            keyQuestion: 'Welche lokale Reportage-These führt das TV-Team heute zu {targetName}, und was zeigt der Luftblick besser als der Boden?',
             whyNow: 'Die Redaktion braucht vor Veröffentlichung oder Schalte einen erzählbaren Luftblick statt nur Einzelbeobachtungen vom Boden.',
             soughtOutcome: 'Wir sollen Bilder liefern, die den gewählten News-Kern nachvollziehbar machen, ohne eine technische Prüfung daraus zu machen.',
             completionSignal: 'Nach dem Überflug gehen Bildmaterial und kurze redaktionelle Einordnung an die Redaktion.',
@@ -14744,7 +14744,7 @@ function _missionNewsBriefPresets(category = '') {
             reporterAngle: 'die redaktionelle Dokumentation bei {targetName}',
             storySeed: '{name} macht aus {targetName} eine kurze Redaktionsdoku. Entwickle frei, welche lokale Frage oder welcher berichtenswerte Moment den Luftblick heute rechtfertigt.',
             greetingText: 'Hi, ich brauche heute eine saubere Doku-Perspektive auf {targetName}: Was ist dort die Geschichte, und was kann der Luftblick belegen?',
-            trigger: 'Die Redaktion braucht zu {targetName} noch heute eine dokumentarische Luftperspektive mit klarem lokalen Kern.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute eine dokumentarische Luftperspektive mit einer erzählten lokalen These.',
             subjectDetail: '{targetName} als Ort einer kurzen Redaktionsdokumentation',
             incidentContext: '{creativeCue} Nutze die sichtbaren Anker als Rohdaten und entscheide frei, welche lokale Frage oder welcher berichtenswerte Moment daraus entsteht.',
             keyQuestion: 'Welche lokale Geschichte die Redaktion bei {targetName} dokumentieren will und ob sie über {visibleFocus} aus der Luft trägt.',
@@ -14764,7 +14764,7 @@ function _missionNewsBriefPresets(category = '') {
             reporterAngle: isCity ? 'die Bildgeschichte im Ortsbild' : 'die Bildgeschichte am Ziel',
             storySeed: '{name} sucht für {targetName} eine Bildgeschichte mit klarem lokalen Aufhänger; der Überflug soll Ort, Umfeld und sichtbare Belege erzählbar machen.',
             greetingText: 'Hi, ich brauche heute ein Bild, das die Geschichte bei {targetName} erklärt. Ruhige Perspektive, klare Kanten, keine Show.',
-            trigger: 'Die Redaktion braucht zu {targetName} noch heute einen klaren Luftaufhänger: {angle}.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute eine Bildgeschichte, deren These aus der Luft lesbar wird: {angle}.',
             subjectDetail: '{targetName} als Ort einer redaktionellen Bildgeschichte',
             incidentContext: '{creativeCue} Erfinde frei, warum die Redaktion gerade diesen Ort als Bildgeschichte braucht. Keine historische Beispielschablone und keine harte Ortsgeschichte behaupten.',
             keyQuestion: 'Welche konkrete Bild- oder Dokumentationsthese die Redaktion bei {targetName} erzählen will und ob sie über {visibleFocus} aus der Luft trägt.',
@@ -14780,14 +14780,14 @@ function _missionNewsBriefPresets(category = '') {
             label: 'Umfeldreportage',
             personaNames: ['Severin Lutz'],
             cargoText: 'Live-Übertragungsrucksack (26 lbs)',
-            angle: isCity ? 'eine lokale News-Geschichte am Ortsrand von {targetName}' : 'eine lokale News-Geschichte am Ziel mit sichtbarem Umfeldbezug',
-            reporterAngle: 'den berichtenswerten Kern bei {targetName}',
+            angle: isCity ? 'eine lokale Reportage am Ortsrand von {targetName}' : 'eine lokale Reportage am Ziel mit sichtbarem Umfeldbezug',
+            reporterAngle: '',
             storySeed: '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Zugang, Wege oder Parkdruck sind nur Belege, wenn sie den Aufhänger tragen.',
             greetingText: 'Servus, ich schaue heute auf {targetName}. Wichtig ist die Geschichte, nicht die Zufahrt als Selbstzweck.',
-            trigger: 'Die Redaktion braucht zu {targetName} einen Luftaufhänger mit klarem Ort des Geschehens und sichtbarem Umfeldbezug.',
-            subjectDetail: '{targetName} als Ort des Geschehens für eine lokale News-Geschichte',
+            trigger: 'Die Redaktion braucht zu {targetName} eine lokale Umfeldreportage, deren Anlass aus der Luft lesbar wird.',
+            subjectDetail: '{targetName} als Schauplatz einer lokalen Umfeldreportage',
             incidentContext: '{creativeCue} Nutze {visibleFocus} als Rohdaten, aber entscheide frei, welcher Headline-Kern, Vorfall, Event oder Dokumentationsanlass den Flug trägt.',
-            keyQuestion: 'Warum ist {targetName} heute der Ort einer lokalen Meldung und was zeigen Umfeld, Wege oder Parkdruck aus der Luft dazu?',
+            keyQuestion: 'Welche lokale Umfeldgeschichte führt heute zu {targetName}, und was zeigen Umfeld, Wege oder Parkdruck aus der Luft dazu?',
             whyNow: 'Die Redaktion will vor Veröffentlichung oder Schalte wissen, ob Ort, Aufhänger und Luftbild zusammen eine erzählbare Geschichte ergeben.',
             soughtOutcome: 'Wir sollen eine knappe redaktionelle Einordnung liefern, ob die gewählte Geschichte aus der Luft trägt.',
             completionSignal: 'Nach dem Überflug geht die Lageeinschätzung direkt an die Lokalredaktion.',
@@ -14965,7 +14965,7 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         trigger: brief.trigger,
         focusSubject: targetName,
         keyQuestion: brief.keyQuestion,
-        stakes: 'Ohne verwertbares Luftbild fehlt der Redaktion die belastbare Einordnung für Bericht oder Schalte.',
+        stakes: 'Ohne Luftblick bleibt der lokale Aufhänger bei einzelnen Bodenbeobachtungen, statt als zusammenhängende Reportage zu tragen.',
         completionSignal: brief.completionSignal,
         subjectDetail: brief.subjectDetail,
         incidentContext: brief.incidentContext,
@@ -14993,29 +14993,34 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
                 if (/\b(eventgeschichte|veranstaltungsgeschichte|festgeschichte)\b/.test(normalized)) return false;
                 return true;
             });
+        const concreteReporterAngle = !_missionWriterV5NewsAngleIsPlaceholder(brief.reporterAngle)
+            ? brief.reporterAngle
+            : '';
         const visitorPressureHooks = isVisitorPressureBrief
             ? [
-                'News-Kern ist eine frei entwickelte lokale Geschichte mit Headline, Vorfall, Event oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
+                'News-Kern ist eine frei entwickelte lokale Reportage mit Headline, Vorfall, Event, Streitfrage, Initiative oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
                 'Besucher, Andrang, Straße, Tunnel, Zufahrt, Parkdruck und Wege sind nur sichtbare Belege, wenn sie den gewählten News-Kern tragen.'
             ]
             : [];
         const roadNewsHooks = isEventLedRoadBrief && !isVisitorPressureBrief
             ? [
-                'News-Kern ist eine frei entwickelte lokale Geschichte mit Headline, Vorfall, Event oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
+                'News-Kern ist eine frei entwickelte lokale Reportage mit Headline, Vorfall, Event, Streitfrage, Initiative oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
                 'Straße, Tunnel, Zufahrt, Parkdruck und Wege sind nur sichtbare Belege, wenn sie den gewählten News-Kern tragen.'
             ]
             : [];
         const visitorPressureOps = isVisitorPressureBrief
             ? [
-                'Der Überflug soll zeigen, warum der POI als Ort des Geschehens trägt; technische Betriebsdetails werden nicht zum Auftrag.'
+                'Der Überflug soll zeigen, warum der POI als Schauplatz der Reportage trägt; technische Betriebsdetails werden nicht zum Auftrag.'
             ]
             : [];
         plan.missionTrigger = brief.trigger;
         plan.primaryObjective = isVisitorPressureBrief
-            ? `${targetName} aus der Luft als Ort einer lokalen News-Geschichte einordnen; der konkrete Aufhänger entsteht frei aus Faktenrahmen, Persona, Ausrüstung und sichtbaren Ankern.`
+            ? `${targetName} bleibt Ort der Reportage; das Briefing muss den konkreten erfundenen News-Kern selbst erzählen, statt nur den Rahmen zu beschreiben.`
             : (isEventLedRoadBrief
-                ? `${targetName} aus der Luft als Ort einer lokalen News-Geschichte einordnen; Straße, Tunnel, Zufahrt und Parkdruck bleiben mögliche Bildbelege, nicht Auftrag.`
-                : `${targetName} aus der Luft für den redaktionellen Aufhänger "${brief.reporterAngle}" einordnen.`);
+                ? `${targetName} bleibt Ort der Reportage; Straße, Tunnel, Zufahrt und Parkdruck bleiben mögliche Bildbelege für den frei erzählten News-Kern, nicht Auftrag.`
+                : (concreteReporterAngle
+                    ? `${targetName} aus der Luft für den redaktionellen Aufhänger "${concreteReporterAngle}" einordnen.`
+                    : `${targetName} bleibt Ort der Reportage; das Briefing muss den konkreten erfundenen News-Kern selbst erzählen.`));
         plan.focusSubject = targetName;
         plan.keyQuestion = brief.keyQuestion;
         plan.missionStakes = framePatch.stakes;
@@ -15049,7 +15054,7 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         plan.mustMention = _missionWriterV5Unique([
             `${targetName} als Ziel`,
             'Reporter-Einsatz',
-            brief.reporterAngle,
+            concreteReporterAngle,
             brief.localOccasion,
             brief.occasionProgram,
             'sachliche Berichterstattung',
@@ -26476,7 +26481,7 @@ Regeln:
 17x. infra_chain_recon: Schreibe die Mission als vorgeschaltete Voruntersuchung einer mehrteiligen Korridor- oder Objektkette. Wenn CONTRACT.chainNarrativeBrief vorhanden ist, nutze es als primaere Story-Rezeptur: konkreter Betreiberanlass, warum der Luftblick die Kette sinnvoll vorsortiert, welche Fachperson mit Namen/Rolle an Bord ist, Einstieg am ersten Punkt, Abschluss am letzten Punkt und Handoff nach der Rueckkehr. Setze passenger.name, passenger.role, passenger.gender und nach Moeglichkeit greetingText aus CONTRACT.chainNarrativeBrief.selectedPassenger; diese Person ist Teil der Geschichte, nicht nur ein Formularfeld. StorySeed ist nur Rollenfarbe, nicht wortwoertlich zu kopieren. Ziel ist eine Luftbildserie und ein grober Erstbefund: Was wirkt unauffaellig, was sollte spaeter genauer angesehen werden, wo lohnt sich ein gezielter Folgeflug oder ein Bodenteam? Behalte Zwischenpunkte fuer spaetere Voice-Aufrufe unterwegs zurueck und schreibe in 4-5 natuerlichen Dispatch-Saetzen statt technischen Feldnamen. Keine Detaildiagnose und kein Reparaturfazit im Briefing; der Abschluss ist Rueckkehr mit Foto-/Befunduebergabe.
 17a. science_bio: Schreibe eine biologische/ökologische Studie oder Monitoringfrage, keine allgemeine "Umweltbeobachtung". Nenne sichtbare Bio-Anker wie Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Stoerfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Zaun/Tor/Perimeter bei Bio nur als Habitatgrenze, Durchlaessigkeit oder Stoerkante nutzen. Keine Technikinspektion, keine SAR-/Feuerlage, keine harten Messwerte oder Artenfunde frei erfinden.
 17b. science_geo: Schreibe eine geologische/geomorphologische Fragestellung, keine allgemeine "Relief anschauen"-Floskel. Nenne sichtbare Geo-Anker wie Relief, Erosion, Hangstabilitaet, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fliesswege oder Gelaendekartierung. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage.
-18. news_coverage: Gib einen beobachtbaren redaktionellen Kern statt nur "wir machen Bilder". Aus Zieltyp, sichtbaren Ankern, Persona und Ausruestung entsteht frei eine kleine lokale News-Geschichte: warum fliegt ein Reporter heute genau zu diesem POI, welche Headline, welcher Vorfall, welches Event oder welche mediale Dokumentation steckt dahinter, warum hilft der Luftblick, und was passiert danach mit Bildern/Notizen? Der POI bleibt Ort des Geschehens. Verkehr, Zufahrt, Baustelle, Ortsbild oder Besucher sind nur moegliche Bildbelege, nicht automatisch die Story. Schreibe im finalen Briefing nicht nur "lokaler Anlass", "Meldung", "Lage" oder "Aufhaenger", sondern ersetze Platzhalter durch die erfundene Situation. Leitplanken als Rohmaterial nutzen und frei erzaehlen, keine Feldtexte abschreiben und keine Auswahlliste ausgeben. Bei POI-City keine "O-Toene sammeln"-Story. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
+18. news_coverage: Gib einen beobachtbaren redaktionellen Kern statt nur "wir machen Bilder". Aus Zieltyp, sichtbaren Ankern, Persona und Ausruestung entsteht frei eine kleine lokale News-Geschichte: warum fliegt ein Reporter heute genau zu diesem POI, welche Headline, welcher Vorfall, welches Event oder welche mediale Dokumentation steckt dahinter, warum hilft der Luftblick, und was passiert danach mit Bildern/Notizen? Der erste inhaltliche Story-Satz muss den erfundenen Anlass benennen; eine reine Meta-Erzaehlung wie "die Redaktion braucht verwertbare Bilder/einen klaren Ort/einen Rahmen fuer die Geschichte" ist kein fertiges Briefing. Der POI bleibt Ort des Geschehens. Verkehr, Zufahrt, Baustelle, Ortsbild oder Besucher sind nur moegliche Bildbelege, nicht automatisch die Story. Schreibe im finalen Briefing nicht nur "lokaler Anlass", "Meldung", "Lage" oder "Aufhaenger", sondern ersetze Platzhalter durch die erfundene Situation. Leitplanken als Rohmaterial nutzen und frei erzaehlen, keine Feldtexte abschreiben und keine Auswahlliste ausgeben. Bei POI-City keine "O-Toene sammeln"-Story. Sachlich bleiben, keine Einsatz- oder Inspektionssprache.
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
@@ -27030,7 +27035,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Was soll aus der Luft sichtbar, belegbar oder besser erzählbar werden?',
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ],
-        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Kern. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, nicht als Textbausteine. Der Dispatcher liefert Missionsfakten, Rolle, Cargo, Ziel und Grenzen; daraus entsteht eigenständig die Geschichte. Das Briefing darf frei variieren und muss nicht jede Nebeninformation abarbeiten. Wichtig sind wer/warum heute/warum dieser Ort/warum aus der Luft/was danach. Entscheide dich fuer eine erfundene weiche Hintergrundgeschichte und schreibe sie als kleine lokale Tatsache, nicht als Frage wie "welche Situation sichtbar wird". Bei Road-/Tunnel-Zielen bleibt der POI der Ort des Geschehens; Straße, Tunnel, Zufahrt und Parkdruck sind nur sichtbare Belege, keine technische Betriebs- oder Infrastrukturprüfung. Schreibe nicht nur "lokaler Anlass", "Meldung" oder "Lage", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste und kein Motivkatalog; die Story entscheidet sich fuer eine journalistische These. Harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Kern. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, nicht als Textbausteine. Der Dispatcher liefert Missionsfakten, Rolle, Cargo, Ziel und Grenzen; daraus entsteht eigenständig die Geschichte. Das Briefing darf frei variieren und muss nicht jede Nebeninformation abarbeiten. Wichtig sind wer/warum heute/warum dieser Ort/warum aus der Luft/was danach. Entscheide dich fuer eine erfundene weiche Hintergrundgeschichte und schreibe sie als kleine lokale Tatsache, nicht als Frage wie "welche Situation sichtbar wird". Der erste inhaltliche Satz benennt den Anlass selbst: eine Headline, ein Vorfall, ein Event, eine Streitfrage, eine Initiative oder eine mediale Dokumentation. Bei Road-/Tunnel-Zielen bleibt der POI der Ort des Geschehens; Straße, Tunnel, Zufahrt und Parkdruck sind nur sichtbare Belege, keine technische Betriebs- oder Infrastrukturprüfung. Schreibe nicht nur "lokaler Anlass", "Meldung", "Lage", "die Redaktion braucht Bilder" oder "ein klarer Ort des Geschehens", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste und kein Motivkatalog; die Story entscheidet sich fuer eine journalistische These. Harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
     },
     cargo_transport: {
         tone: 'ruhige kleine Frachtgeschichte mit konkreter Sendung',
@@ -27476,7 +27481,7 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     delete legacyBriefingBrief.missionBriefForm;
     const promptTaskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     const newsCoveragePromptRule = promptTaskDomain === 'news_coverage'
-        ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich für einen einzigen journalistischen Kern: Headline, Vorfall, Event oder mediale Dokumentation. Der gewählte POI bleibt Ort des Geschehens. Schreibe nicht fragend, welches Standardmotiv dort vorliegen könnte, sondern erzähle die gewählte Situation direkt. Straße, Tunnel, Zufahrt, Parkdruck oder Verkehr sind nur sichtbare Belege, keine technische Analyse. Story-Felder sind Leitplanken, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen, wenn die Geschichte dadurch besser wird.'
+        ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich für einen einzigen journalistischen Kern: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Der erste inhaltliche Satz muss sagen, was bei diesem POI berichtenswert ist; "die Redaktion braucht Bilder/einen klaren Ort/einen Rahmen für die Geschichte" ist nur Arbeitsauftrag, keine fertige Story. Der gewählte POI bleibt Ort des Geschehens. Schreibe nicht fragend, welches Standardmotiv dort vorliegen könnte, sondern erzähle die gewählte Situation direkt. Straße, Tunnel, Zufahrt, Parkdruck oder Verkehr sind nur sichtbare Belege, keine technische Analyse. Story-Felder sind Leitplanken, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen, wenn die Geschichte dadurch besser wird.'
         : '';
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
@@ -29748,10 +29753,10 @@ function _missionWriterV5ReporterSubject(passenger = {}) {
 function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
     const clean = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanSpineValue(angle, 190)).trim();
     const normalized = normalizeMissionText(clean);
-    const hasSpecificAngle = /\b(headline|vorfall|event|veranstaltung|dokumentation|dokumentar|reportage|bildstrecke|besucher|andrang|verkehr|verkehrslage|verkehrsfuehrung|verkehrsführung|sperrung|umleitung|baustelle|baustellenumfeld|baukante|bauarbeiten|ortsbild|ortskern|wandel|veraender|veränder|zufahrt|zufahrten|publikum|anwohner|initiative|aktion|termin|auftakt|abschluss|kritik|streit|frage)\b/.test(normalized);
-    if (!normalized || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte|meldung|lage)\b/.test(normalized))) {
+    const hasSpecificAngle = /\b(headline|vorfall|event|veranstaltung|besucher|andrang|sperrung|umleitung|baustelle|baustellenumfeld|baukante|bauarbeiten|ortsbild|ortskern|wandel|veraender|veränder|publikum|anwohner|initiative|aktion|termin|auftakt|abschluss|kritik|streit|frage)\b/.test(normalized);
+    if (!normalized || _missionWriterV5NewsAngleIsPlaceholder(clean) || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte|meldung|lage|reportage|dokumentation|bildstrecke)\b/.test(normalized))) {
         return _missionPipelineV4PickOne([
-            targetName ? `den berichtenswerten Kern bei ${targetName}` : 'den berichtenswerten Kern am Ziel',
+            targetName ? `warum ${targetName} heute zum Ort einer kleinen Lokalreportage wird` : 'warum das Ziel heute zum Ort einer kleinen Lokalreportage wird',
             targetName ? `warum ${targetName} heute zum Ort einer lokalen Meldung wird` : 'warum das Ziel heute zum Ort einer lokalen Meldung wird',
             targetName ? `die Bilder, die eine lokale Geschichte bei ${targetName} tragfähig machen` : 'die Bilder, die eine lokale Geschichte am Ziel tragfähig machen'
         ]);
@@ -29818,10 +29823,49 @@ function _missionWriterV5NewsVisitorSignals(story = '') {
 function _missionWriterV5NewsAngleIsPlaceholder(value = '') {
     const normalized = normalizeMissionText(value);
     if (!normalized) return true;
-    if (/\b(berichtenswerten kern|berichtenswerter kern|lokale news geschichte|lokalen news geschichte|lokale meldung|lokalen meldung)\b/.test(normalized)) return true;
+    if (/\b(berichtenswerten kern|berichtenswerter kern|lokale news geschichte|lokalen news geschichte|lokale meldung|lokalen meldung|lokalreportage)\b/.test(normalized)) return true;
+    if (/\blokale(?:n|r)?\s+(?:reportage|geschichte|umfeldgeschichte)\b/.test(normalized)) return true;
+    if (/\bbilder\b[^.]{0,90}\blokale(?:n|r)? geschichte\b/.test(normalized)) return true;
     if (/\b(was macht|welche konkrete|welcher konkrete|ob sie ueber|ob sie über|aus der luft traegt|aus der luft trägt)\b/.test(normalized)) return true;
     if (/^(die\s+)?(redaktionelle dokumentation|bildgeschichte)(\s+(bei|am|im)\b.*)?$/.test(normalized)) return true;
     return false;
+}
+
+function _missionWriterV5NewsStoryHasConcreteNucleus(story = '') {
+    const normalized = normalizeMissionText(story);
+    if (!normalized) return false;
+    const hasNamedOccasion = /\b(vorfall|event|veranstaltung|veranstaltungs|fest|feier|jubil|markt|aktionstag|tag der offenen|verein|vereins|schule|feuerwehr|lauf|wanderung|ausstellung|schau|vorfuehrung|vorführung|fuehrung|führung|rahmenprogramm|auftakt|abschluss|termin|probe|eroeffnung|eröffnung|projekttag|infotag|initiative)\b/.test(normalized);
+    const hasCivicIssue = /\b(anwohner|kritik|streit|frage|sorge|debatte|debatt|beschwerde|petition|protest|recherche|initiative)\b/.test(normalized)
+        && /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|anlaesslich|anlässlich|zum|zur|ueber|über|rund um)\b/.test(normalized);
+    const hasDocumentaryNucleus = /\b(dokumentation|dokumentar|reportage|bildstrecke|bildgeschichte)\b/.test(normalized)
+        && /\b(ueber|über|wegen|zu|zur|zum|rund um|weil|da|heute)\b/.test(normalized)
+        && /\b(anwohner|kritik|streit|frage|sorge|debatte|debatt|beschwerde|petition|protest|initiative|wandel|veraender|veränder|umschwung|nutzung|zugang|treffpunkt|besucher|andrang|parkdruck|veranstaltung|event|fest|markt|jubil|aktion)\b/.test(normalized);
+    const hasVisitorCause = /\b(besucher|besucherandrang|andrang|publikum|parkdruck|sammelpunkt|treffpunkt)\b/.test(normalized)
+        && (hasNamedOccasion || /\b(wegen|anlaesslich|anlässlich|zum|zur|fuer|für)\b[^.]{0,120}\b(fest|feier|jubil|markt|veranstaltung|programm|fuehrung|führung|ausstellung|schau|aktion|verein|schule|feuerwehr|lauf)\b/.test(normalized));
+    const hasSoftNamedThesis = /\b(?:das|der|die|ein|eine|einen)\s+[a-z0-9äöüß-]{4,40}[-\s](?:tag|fest|lauf|markt|aktion|auftakt|abschluss|frage|streit|debatte)\b/.test(normalized);
+    return hasNamedOccasion || hasCivicIssue || hasDocumentaryNucleus || hasVisitorCause || hasSoftNamedThesis;
+}
+
+function _missionWriterV5NewsStoryIsMetaOnly(story = '') {
+    const normalized = normalizeMissionText(story);
+    if (!normalized || _missionWriterV5NewsStoryHasConcreteNucleus(story)) return false;
+    const metaPatterns = [
+        /\bklar(?:en|er|es)? ort des geschehens\b/,
+        /\bverwertbare bilder\b/,
+        /\bluftbild(?:wert|hinweis)?\b/,
+        /\bkleine(?:n|r)? lokale(?:n|r)? geschichte\b/,
+        /\blokale news[-\s]?geschichte\b/,
+        /\bfeste?n? rahmen\b/,
+        /\bdie lage (?:ordnet|einordnet|einordnen)\b/,
+        /\bwas zur szene gehoert\b/,
+        /\bredaktion\b[^.]{0,140}\b(?:bilder|material|einordnung|lageeinschaetzung|lageeinschätzung|bericht|schalte)\b/,
+        /\bbilder\b[^.]{0,110}\b(?:kurze|knappe)?\s*(?:einordnung|lageeinschaetzung|lageeinschätzung)\b/,
+        /\bberichtenswert(?:e[nsr]?|er)?\b[^.]{0,120}\b(?:kern|aufhaenger|aufhänger|rahmen)\b/
+    ];
+    const metaHits = metaPatterns.reduce((count, pattern) => count + (pattern.test(normalized) ? 1 : 0), 0);
+    const hasMetaWords = /\b(redaktion|bericht|schalte|bilder|einordnung|geschichte|aufhaenger|aufhänger|lage|szene|rahmen)\b/.test(normalized);
+    const hasOnlyEvidence = /\b(strasse|straße|b\s*33|tunnel|zufahrt|bahn|bruecke|brücke|strommast|wasserlauf|offene flaeche|offene fläche|umfeld|randbereich|verkehrsraum|verkehrsfuehrung|verkehrsführung)\b/.test(normalized);
+    return metaHits >= 2 || (metaHits >= 1 && hasOnlyEvidence) || (hasMetaWords && hasOnlyEvidence);
 }
 
 function _missionWriterV5NewsFallbackPremise(contract = {}, domain = {}) {
@@ -29829,19 +29873,21 @@ function _missionWriterV5NewsFallbackPremise(contract = {}, domain = {}) {
     const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
     const focus = _missionWriterV5CleanSpineValue(domain.visibleFocus || contract?.storyFrame?.visibleFocus || contract?.newsBrief?.visibleFocus || '', 170);
     const base = _missionPipelineV4PickOne([
-        `Für die Redaktion ist ${targetName} heute der Prüfstein einer kleinen Meldung: vom Boden gibt es nur Einzelbeobachtungen, aus der Luft soll daraus ein klares Bild werden`,
-        `Rund um ${targetName} liegt heute eine lokale Geschichte auf dem Tisch, die erst von oben verständlich wird`,
-        `Bei ${targetName} soll heute aus einer knappen Bodenmeldung ein sauberer Aufmacher mit erkennbarem Ort und Bildwert werden`
+        `Die Lokalredaktion hängt heute eine kleine Reportage an ${targetName}: Vor Ort gibt es Hinweise auf einen neuen Treffpunkt, aber erst der Luftblick zeigt, ob Wege, Ränder und Besucherbewegung zusammenpassen`,
+        `Bei ${targetName} steht eine kurze Bildgeschichte über einen lokalen Streit um Nutzung und Zugang im Raum; von oben soll sichtbar werden, was davon mehr ist als einzelne Stimmen vom Boden`,
+        `Rund um ${targetName} soll heute aus einer knappen Bodenmeldung eine erzählbare Reportage werden, weil der Ort selbst zeigen kann, wie Anlass, Wege und Umfeld zusammenhängen`
     ]);
     if (category === 'road') {
         return _missionPipelineV4PickOne([
-            `Am Ziel soll der Luftblick zeigen, warum ${targetName} heute als Ort einer lokalen Meldung auffällt und wie sich das Umfeld dazu lesen lässt`,
+            `Die Lokalredaktion greift bei ${targetName} eine Bürgerfrage auf: ob der Bereich gerade nur Durchfahrt ist oder schon als Treffpunkt, Besucherweg und Engstelle zugleich wirkt`,
+            `Bei ${targetName} soll eine Reportage klären, warum aus einem unscheinbaren Straßenort heute ein lokaler Aufreger geworden ist; Verkehr, Zufahrt und Ränder sind nur die sichtbaren Belege`,
             base
         ]);
     }
     if (category === 'city') {
         return _missionPipelineV4PickOne([
-            `Bei ${targetName} sucht die Redaktion den einen Blick, der erklärt, warum der Ort heute zur Meldung wird`,
+            `Bei ${targetName} verfolgt die Redaktion heute eine Bildgeschichte über einen kleinen lokalen Umschwung: nicht nur der Ort zählt, sondern was sich an Wegen, Treffpunkten und Rändern gerade sichtbar sammelt`,
+            `Die Lokalredaktion hängt an ${targetName} eine Reportage über eine kleine Ortsfrage auf, die aus der Luft besser greifbar wird als aus einzelnen Bodenbeobachtungen`,
             base
         ]);
     }
@@ -30178,9 +30224,10 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const hasReporterFrame = /\b(reporter|redaktion|bericht|berichterstattung|meldung|beitrag|online|bildstrecke|lageeinschaetzung|lageeinschätzung)\b/.test(normalized);
     const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|belegbar|einordnen|einordnung)\b/.test(normalized);
     const hasOutcome = /\b(redaktion|bericht|meldung|beitrag|online|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung)\b/.test(normalized);
-    const hasNewsKernel = /\b(headline|vorfall|event|veranstaltung|dokumentation|dokumentar|reportage|recherche|meldung|beitrag|schalte|bildstrecke|redaktion|anlass|geschichte|publikum|besucher|andrang|anwohner|initiative|aktion|termin|auftakt|abschluss|kritik|streit|frage|sorge|debatt|baustelle|ortsbild|wandel|veraender|veränder|verkehr|zufahrt|parkdruck)\b/.test(normalized);
+    const hasNewsKernel = _missionWriterV5NewsStoryHasConcreteNucleus(story);
     const hasWhyHook = /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|rund um|anlaesslich|anlässlich|zum|zur|fuer|für|damit|grund|ausloeser|auslöser|dahinter|im kern|warum)\b/.test(normalized);
     const angleMenu = _missionWriterV5NewsStoryUsesAngleMenu(story);
+    const metaOnly = _missionWriterV5NewsStoryIsMetaOnly(story);
     const genericOnly = /\b(aktuelle lage|geschehen am boden|veraenderungen? im ortskern|veränderungen? im ortskern|sichtbare veraenderungen?|sichtbare veränderungen?|infrastruktur)\b/.test(normalized)
         && !(hasNewsKernel && hasWhyHook);
     const brief = context?.briefingBrief || _missionWriterV5BuildBriefingBrief(contract, context);
@@ -30194,6 +30241,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
         || ''
     );
     const coversSpine = angle && _missionPipelineV4StoryFieldCovered(story, angle, 2);
+    const coversConcreteSpine = coversSpine && !_missionWriterV5NewsAngleIsPlaceholder(angle);
     const newsBriefId = String(contract?.newsBrief?.id || contract?.storyFrame?.newsBriefId || '').trim();
     const visitorSignals = newsBriefId === 'visitor_pressure'
         ? _missionWriterV5NewsVisitorSignals(story)
@@ -30201,7 +30249,7 @@ function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, cont
     const weakVisitorOccasion = visitorSignals
         ? (!visitorSignals.hasVisitorFrame || visitorSignals.genericOccasionOnly)
         : false;
-    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || genericOnly || weakVisitorOccasion || (!(hasNewsKernel || coversSpine));
+    return !hasReporterFrame || !hasFlightValue || !hasOutcome || angleMenu || metaOnly || genericOnly || weakVisitorOccasion || (!(hasNewsKernel || coversConcreteSpine));
 }
 
 function _missionWriterV5WrongUtilityDrift(normalized = '') {
@@ -30388,7 +30436,7 @@ function _missionWriterV5NewsStoryCanKeepWriterOutput(raw = '', reasons = [], co
     const list = Array.isArray(reasons) ? reasons : [];
     if (!raw || !list.length || list.some(reason => reason !== 'news_coverage_weak_spine')) return false;
     const normalized = normalizeMissionText(raw);
-    if (!normalized || _missionWriterV5WrongUtilityDrift(normalized)) return false;
+    if (!normalized || _missionWriterV5WrongUtilityDrift(normalized) || _missionWriterV5NewsStoryIsMetaOnly(raw)) return false;
     const hasReporterFrame = /\b(reporter|reporterin|redaktion|redakteur|redakteurin|journalist|journalistin|bericht|berichterstattung|meldung|beitrag|schalte|bildstrecke|tv-team|kamerateam|presse)\b/.test(normalized);
     const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|luftblick|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|einordnen|einordnung|aufnahmen|bilder)\b/.test(normalized);
     const hasNewsOutcome = /\b(redaktion|bericht|meldung|beitrag|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung|sendung|online)\b/.test(normalized);

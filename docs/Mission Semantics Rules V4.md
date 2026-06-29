@@ -93,6 +93,7 @@ Kontext darf nicht:
 - Kontext kann den Anlass konkretisieren.
 - Jeder News-Winkel braucht eine kleine erzählte Lokalgeschichte aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung. Das Briefing darf nicht nur Planfelder wie "Meldung", "Lage", "Aufhänger", "Umfeldlage" oder "Lageeinschätzung" umformulieren.
 - News-Missionen brauchen einen berichtenswerten Kern: Headline, Vorfall, Event oder mediale Dokumentation. Der konkrete Kern soll frei aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung entstehen, nicht aus einem festen Motiv- oder Event-Katalog.
+- Der erste inhaltliche Story-Satz muss den erfundenen Anlass selbst benennen. Eine reine Meta-Erzählung wie "die Redaktion braucht Bilder", "klarer Ort des Geschehens", "Rahmen für die Geschichte" oder "Lage einordnen" ist kein fertiges News-Briefing.
 - Der gewählte POI bleibt der Ort des Geschehens. Kontextanker dürfen die Story tragen helfen, aber Ziel, Rolle und Auftrag nicht ersetzen.
 - Bei Straßen-, Tunnel- oder Zufahrts-POIs sind Straße, Tunnel, Zufahrt, Parkdruck, Rückstau oder Wege nur sichtbare Belege, nicht automatisch die Story. Sie dürfen nicht zur technischen Betriebs- oder Infrastrukturprüfung werden.
 - Ein gutes News-Briefing beantwortet nicht immer alles vollständig, aber es sollte spürbar machen: Warum heute? Warum genau dieser POI? Warum hilft der Luftblick? Was macht die Redaktion danach mit Bildern, Notizen oder Einordnung?
