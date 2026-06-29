@@ -1549,7 +1549,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'ruhig, technisch, direkt',
                 matchCategories: ['bridge', 'road', 'rail', 'telecom', 'industry', 'infrastructure'],
                 storySeed: '{name} prüft bei {targetName}, ob eine frische Störungs- oder Wettermeldung nur Beobachtung braucht oder ein Technikteam raus muss.',
-                greetingText: 'Hi, wir grenzen heute einen Verdachtsbereich ein. Bitte stabil halten, damit ich Bauteile, Zufahrt und Umfeld sauber vergleichen kann.'
+                greetingText: 'Hi, wir grenzen heute einen Verdachtsbereich ein. Bitte stabil halten, damit ich den wichtigsten sichtbaren Befund sauber vergleichen kann.'
             },
             {
                 name: 'Jasmin Krüger',
@@ -1568,7 +1568,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 matchCategories: ['road', 'rail', 'telecom', 'infrastructure'],
                 matchInfraTypes: ['power', 'power_grid'],
                 storySeed: '{name} kontrolliert bei {targetName} eine Trasse, Leitung oder Netzinfrastruktur, nachdem Bodenmeldungen nicht genau genug waren.',
-                greetingText: 'Hi, ich achte heute auf Trasse, Masten, Freihaltung und mögliche Sturmeinwirkung. Bitte gleichmäßig und ohne harte Manöver.'
+                greetingText: 'Hi, ich achte heute auf den auffälligsten Abschnitt der Trasse. Bitte gleichmäßig und ohne harte Manöver.'
             },
             {
                 name: 'Selma Brandt',
@@ -1576,8 +1576,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'ruhig, analytisch, betrieblich denkend',
                 matchInfraTypes: ['wind'],
-                storySeed: '{name} lässt {targetName} aus der Luft vorprüfen, weil Rotoren, Zuwegung, Kranstellflächen oder Trafostationen vor dem nächsten Wartungsfenster eingeordnet werden müssen.',
-                greetingText: 'Hi, bei Windparks zählt heute der Überblick: Anlagenreihe, Zuwegung, Trafopunkt und Kranflächen müssen gut lesbar sein.'
+                storySeed: '{name} lässt {targetName} aus der Luft vorprüfen, weil vor dem nächsten Wartungsfenster ein konkreter Anlagenschwerpunkt eingeordnet werden muss.',
+                greetingText: 'Hi, bei Windparks zählt heute ein ruhiger Überblick auf den relevanten Anlagenbereich, nicht eine Checkliste.'
             },
             {
                 name: 'Karim Vogt',
@@ -1585,8 +1585,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'genau, praktisch, ruhig',
                 matchInfraTypes: ['solar'],
-                storySeed: '{name} prüft bei {targetName}, ob Modulreihen, Zaunlinie, Wechselrichterbereiche oder Zufahrten nach einer Meldung auffällig wirken.',
-                greetingText: 'Hi, ich brauche einen ruhigen Blick auf die Reihen, die Ränder und die Technikpunkte. Keine Show, nur saubere Lesbarkeit.'
+                storySeed: '{name} prüft bei {targetName}, ob eine frische Betriebs- oder Wettermeldung aus der Luft einen klaren Solarschwerpunkt ergibt.',
+                greetingText: 'Hi, ich brauche einen ruhigen Blick auf den auffälligen Solarparkbereich. Keine Show, nur saubere Lesbarkeit.'
             },
             {
                 name: 'Maren Scholz',
@@ -1594,8 +1594,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'klar, pragmatisch, sicherheitsbewusst',
                 matchInfraTypes: ['construction'],
-                storySeed: '{name} braucht bei {targetName} ein Luftbild zum Baufortschritt, weil Sperrbereiche, Zufahrten oder Kranflächen vor der nächsten Bauphase abgeglichen werden müssen.',
-                greetingText: 'Hi, ich schaue heute auf Baufortschritt, Zufahrt und sichere Arbeitsbereiche. Stabile Perspektiven sind wichtiger als Tempo.'
+                storySeed: '{name} braucht bei {targetName} ein Luftbild zum Baufortschritt, weil vor der nächsten Bauphase ein offener Punkt geklärt werden muss.',
+                greetingText: 'Hi, ich schaue heute auf den relevanten Baufortschritt. Stabile Perspektiven sind wichtiger als Tempo.'
             },
             {
                 name: 'Leonie Haag',
@@ -1603,8 +1603,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'aufmerksam, ruhig, lösungsorientiert',
                 matchInfraTypes: ['public_building'],
-                storySeed: '{name} lässt {targetName} aus der Luft prüfen, weil Dachhaut, Technikaufbauten oder Zugänge nach einer Betreiber- oder Wettermeldung eingeordnet werden sollen.',
-                greetingText: 'Hi, ich achte auf Dach, Technikaufbauten und Zugangsbereiche. Bitte ruhig halten, damit ich echte Auffälligkeiten von Schatten trennen kann.'
+                storySeed: '{name} lässt {targetName} aus der Luft prüfen, weil nach einer Betreiber- oder Wettermeldung ein sichtbarer Gebäudebefund eingeordnet werden soll.',
+                greetingText: 'Hi, ich achte heute auf den wichtigsten sichtbaren Gebäudebefund. Bitte ruhig halten, damit ich echte Auffälligkeiten von Schatten trennen kann.'
             },
             {
                 name: 'Tobias Rehm',
@@ -1612,8 +1612,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'vorsichtig, technisch, direkt',
                 matchInfraTypes: ['fuel', 'water_tank', 'storage_tank'],
-                storySeed: '{name} kontrolliert bei {targetName} Tankfeld, Zapfbereich, Entwässerung oder Zufahrt, bevor der Betreiber über Sperrung, Reparatur oder Freigabe entscheidet.',
-                greetingText: 'Hi, ich brauche heute einen sachlichen Blick auf Tankbereich, Zufahrt und sichtbare Leckage- oder Sturmschäden. Ruhig und kontrolliert reicht.'
+                storySeed: '{name} kontrolliert bei {targetName} einen konkreten Anlagenverdacht, bevor der Betreiber über Sperrung, Reparatur oder Freigabe entscheidet.',
+                greetingText: 'Hi, ich brauche heute einen sachlichen Blick auf den gemeldeten Anlagenbereich. Ruhig und kontrolliert reicht.'
             },
             {
                 name: 'Henrik Maas',
@@ -1621,8 +1621,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'ruhig, genau, netzorientiert',
                 matchInfraTypes: ['pipeline', 'energy_storage', 'energy_plant'],
-                storySeed: '{name} prüft bei {targetName}, ob Leitungstrasse, Ventilpunkt, Speicheranlage oder Technikfläche nach einer Betriebs- oder Störmeldung aus der Luft unauffällig wirkt.',
-                greetingText: 'Hi, ich achte heute auf Trassenverlauf, Technikpunkte und Zufahrten. Ein ruhiger Überblick hilft mehr als ein enger Vorbeiflug.'
+                storySeed: '{name} prüft bei {targetName}, ob eine Betriebs- oder Störmeldung aus der Luft einen klaren Netzbefund ergibt.',
+                greetingText: 'Hi, ich achte heute auf den gemeldeten Netzabschnitt. Ein ruhiger Überblick hilft mehr als ein enger Vorbeiflug.'
             },
             {
                 name: 'Ruth Eberle',
@@ -1630,8 +1630,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'sachlich, gründlich, vorsichtig',
                 matchInfraTypes: ['water_utility', 'waste', 'quarry'],
-                storySeed: '{name} dokumentiert bei {targetName} Betriebsflächen, Wasser-/Abwassertechnik, Entsorgungsbereiche oder Abbaukanten, weil Betreiber oder Behörde eine saubere Lageeinordnung brauchen.',
-                greetingText: 'Hi, ich brauche einen klaren Blick auf Randbereiche, Zufahrt und sichtbare Betriebsflächen. Bitte ruhig und wiederholbar fliegen.'
+                storySeed: '{name} dokumentiert bei {targetName} einen konkreten Umwelttechnik-Befund, weil Betreiber oder Behörde eine saubere Lageeinordnung brauchen.',
+                greetingText: 'Hi, ich brauche einen klaren Blick auf den relevanten Betriebsbereich. Bitte ruhig und wiederholbar fliegen.'
             },
             {
                 name: 'Svenja Ortmann',
@@ -1639,8 +1639,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'konzentriert, präzise, trocken',
                 matchInfraTypes: ['traffic_protection', 'flood_protection'],
-                storySeed: '{name} prüft bei {targetName}, ob Tunnelportal, Stützmauer, Lärmschutzwand, Deich oder Böschung nach einer Meldung weitere Bodenarbeit braucht.',
-                greetingText: 'Hi, ich schaue heute auf Schutzbau, Kanten und Zugänge. Gleichmäßige Sichtwinkel machen die Bewertung deutlich zuverlässiger.'
+                storySeed: '{name} prüft bei {targetName}, ob eine Meldung an einem Schutzbauwerk weitere Bodenarbeit braucht.',
+                greetingText: 'Hi, ich schaue heute auf den gemeldeten Schutzbau-Befund. Gleichmäßige Sichtwinkel machen die Bewertung deutlich zuverlässiger.'
             },
             {
                 name: 'Dr. Vera Lenz',
@@ -1658,8 +1658,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'erfahren, ruhig, detailgenau',
                 matchCategories: ['dam', 'water'],
                 matchInfraTypes: ['hydro', 'water_utility', 'flood_protection'],
-                storySeed: '{name} kontrolliert bei {targetName} Dammkrone, Ablaufbauwerk, Uferbefestigung oder Pegelbereich nach einer Meldung aus dem Betrieb.',
-                greetingText: 'Hi, bei Wasserbauwerken zählt der Zusammenhang: Krone, Auslauf, Ufer und Zufahrt. Bitte ruhig, damit ich das Gelände lesen kann.'
+                storySeed: '{name} kontrolliert bei {targetName} einen konkreten Wasserbau-Hinweis nach einer Meldung aus dem Betrieb.',
+                greetingText: 'Hi, bei Wasserbauwerken zählt ein ruhiger Schwerpunkt statt einer Checkliste. Bitte so fliegen, dass ich den sichtbaren Befund sauber einordnen kann.'
             },
             {
                 name: 'Fenja Kroll',
@@ -1668,8 +1668,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'praktisch, aufmerksam, wasserbaulich',
                 matchCategories: ['water', 'infrastructure'],
                 matchInfraTypes: ['marine_infra'],
-                storySeed: '{name} prüft bei {targetName} Schleuse, Anleger, Hafenbecken, Uferbefestigung oder Betriebszugang, weil der Betreiber vor der nächsten Wartung eine klare Luftsicht braucht.',
-                greetingText: 'Hi, ich achte heute auf Schleusentor, Anleger, Uferkante und Betriebszugang. Ruhig fliegen, dann kann ich Wasserbau und Zugang sauber trennen.'
+                storySeed: '{name} prüft bei {targetName} einen konkreten Hafen- oder Wasserbaupunkt, weil der Betreiber vor der nächsten Wartung eine klare Luftsicht braucht.',
+                greetingText: 'Hi, ich achte heute auf den relevanten Wasserbaupunkt. Ruhig fliegen, dann kann ich den Befund sauber trennen.'
             },
             {
                 name: 'Maja Breuer',
@@ -1678,8 +1678,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 personality: 'ruhig, genau, sicherheitsbewusst',
                 matchCategories: ['infrastructure', 'industry'],
                 matchInfraTypes: ['perimeter_security'],
-                storySeed: '{name} kontrolliert bei {targetName} Zaunlinie, Tore, Zufahrt und Randbereiche, weil eine Betreiber- oder Wettermeldung auf eine mögliche Lücke im Perimeter hinweist.',
-                greetingText: 'Hi, ich schaue heute auf Zaunlinie, Tore und Zugänge. Keine Dramatik, nur ein klarer Blick auf den Randbereich.'
+                storySeed: '{name} kontrolliert bei {targetName} einen konkreten Perimeter-Hinweis, weil eine Betreiber- oder Wettermeldung auf eine mögliche Lücke hinweist.',
+                greetingText: 'Hi, ich schaue heute auf den gemeldeten Randbereich. Keine Dramatik, nur ein klarer Blick.'
             }
         ],
         greetingText: 'Hi, wir prüfen heute eine konkrete Infrastrukturmeldung aus der Luft. Bitte stabil fliegen, damit Zielobjekt, Zugänge und mögliche Auffälligkeiten sauber einzuordnen sind.',
@@ -1924,7 +1924,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Fotoredakteurin',
                 gender: 'female',
                 personality: 'bildstark, sachlich, aufmerksam',
-                storySeed: '{name} sucht für {targetName} eine Bildgeschichte mit klarem lokalen Aufhänger; der Überflug soll Ort, Umfeld und sichtbare Belege erzählbar machen.',
+                storySeed: '{name} sucht für {targetName} eine Fotoreportage mit klarem lokalen Aufhänger; der Überflug soll Ort, Anlass und einen tragenden Beleg erzählbar machen.',
                 greetingText: 'Hi, ich brauche heute ein Bild, das die Geschichte bei {targetName} erklärt. Ruhige Perspektive, klare Kanten, keine Show.'
             },
             {
@@ -2336,16 +2336,16 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'sachlich, aufmerksam, ruhig',
                 matchCategories: ['water', 'dam'],
-                storySeed: '{name} bewertet bei {targetName} Wasserfarbe, Uferstruktur, Zuflüsse oder mögliche Belastungsanzeichen als Vorprüfung für die Feldarbeit.',
-                greetingText: 'Hi, ich achte auf Wasser, Zuflüsse und Uferstruktur. Der Luftblick soll helfen, die Feldpunkte besser zu setzen.'
+                storySeed: '{name} bewertet bei {targetName} einen konkreten Gewässerhinweis als Vorprüfung für die Feldarbeit.',
+                greetingText: 'Hi, ich achte heute auf den wichtigsten Gewässerbefund. Der Luftblick soll helfen, die Feldpunkte besser zu setzen.'
             },
             {
                 name: 'Jan Falk',
                 role: 'Habitat-Koordinator',
                 gender: 'male',
                 personality: 'übersichtlich, bodenständig, ruhig',
-                storySeed: '{name} ordnet bei {targetName} Habitatinseln, Waldsäume, Feuchtstellen oder offene Flächen für die nächste Begehung.',
-                greetingText: 'Hi, ich brauche heute eine Habitatkarte im Kopf. Ruhige Bögen, klare Ränder, keine dramatische Lage.'
+                storySeed: '{name} ordnet bei {targetName} einen auffälligen Habitatbereich für die nächste Begehung.',
+                greetingText: 'Hi, ich brauche heute einen ruhigen Habitat-Schwerpunkt im Kopf. Keine dramatische Lage.'
             },
             {
                 name: 'Tessa Klee',
@@ -2353,8 +2353,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'aufmerksam, naturkundlich, pragmatisch',
                 matchCategories: ['forest', 'water', 'mountain'],
-                storySeed: '{name} prüft bei {targetName} Habitatgrenzen, Zaunlinien, Besucherlenkung oder Wildwechsel, damit die nächste Begehung im Schutzgebiet besser vorbereitet ist.',
-                greetingText: 'Hi, ich achte heute auf Habitatgrenzen, Zaunverlauf und Besucherwege. Es geht um ruhige Einordnung, nicht um einen Einsatz.'
+                storySeed: '{name} prüft bei {targetName} einen konkreten Schutzgebiets-Hinweis, damit die nächste Begehung besser vorbereitet ist.',
+                greetingText: 'Hi, ich achte heute auf einen ruhigen Naturschutz-Befund. Es geht um Einordnung, nicht um einen Einsatz.'
             },
             {
                 name: 'Robin Heller',
@@ -2370,7 +2370,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         paxText: '1 PAX (Biologe)',
         cargoPool: ['Umweltsensorik und Kamera (18 lbs)', 'Feldnotizen und GPS-Logger (9 lbs)', 'Habitatkarten und Fernglas (11 lbs)', 'Wasserproben-Notizkit und Tablet (14 lbs)', 'Vegetations-Monitoring-Set (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: biologische oder ökologische Beobachtung mit konkreter Studie: Habitat, Vegetation, Uferzone, Vogel-/Rastbereiche, Trockenstress, Störfaktoren, Wasserfarbe, Feuchtflächen, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Keine Technikinspektion, keine SAR-/Feuerlage.'
+        storyCue: 'Fokus: biologische oder ökologische Beobachtung mit konkreter Studie. Der Writer setzt einen klaren fachlichen Beobachtungsschwerpunkt statt mehrere mögliche Prüfpunkte aufzuzählen. Keine Technikinspektion, keine SAR-/Feuerlage.'
     },
     science_geo: {
         id: 'science_geo',
@@ -2401,8 +2401,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'ruhig, methodisch, aufmerksam',
                 matchCategories: ['water', 'dam'],
-                storySeed: '{name} ordnet bei {targetName} Wasserlauf, Uferkante, Hangfuß oder Feuchtstellen als Hinweise auf unterirdische oder oberflächennahe Prozesse ein.',
-                greetingText: 'Hi, ich achte auf Wasserlinien, Hangfuß und Geländeübergänge. Bitte so fliegen, dass der Zusammenhang sichtbar wird.'
+                storySeed: '{name} ordnet bei {targetName} einen sichtbaren Gelände- oder Wasserhinweis als Teil oberflächennaher Prozesse ein.',
+                greetingText: 'Hi, ich achte auf den geologischen Zusammenhang. Bitte so fliegen, dass er sichtbar wird.'
             },
             {
                 name: 'Armin Faber',
@@ -2410,8 +2410,8 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'direkt, genau, gelassen',
                 matchCategories: ['mountain', 'forest', 'water', 'dam', 'fire'],
-                storySeed: '{name} sucht bei {targetName} nach sichtbaren Erosionsspuren, Rinnen, Abbruchkanten oder frischen Sedimentfächern.',
-                greetingText: 'Hi, ich suche heute keine Schäden an Bauwerken, sondern Spuren im Gelände: Kanten, Rinnen, Ablagerungen.'
+                storySeed: '{name} sucht bei {targetName} nach einem sichtbaren Erosions- oder Sedimenthinweis.',
+                greetingText: 'Hi, ich suche heute keine Schäden an Bauwerken, sondern einen klaren Gelände-Befund.'
             },
             {
                 name: 'Dr. Karin Weber',
@@ -2419,7 +2419,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'female',
                 personality: 'präzise, leise, analytisch',
                 matchCategories: ['water', 'dam', 'industry'],
-                storySeed: '{name} nutzt {targetName}, um Sedimentbänke, Kiesflächen, Uferablagerungen oder alte Fließwege in eine Studie einzuordnen.',
+                storySeed: '{name} nutzt {targetName}, um einen sichtbaren Sedimenthinweis in eine Studie einzuordnen.',
                 greetingText: 'Hi, ich schaue auf Ablagerungen und Formen, die man vom Boden leicht übersieht. Bitte mit ruhigem Blickwinkel.'
             },
             {
@@ -2428,15 +2428,15 @@ const MISSION_ROLE_TASK_PROFILES = {
                 gender: 'male',
                 personality: 'vorsichtig, sachlich, konzentriert',
                 matchCategories: ['mountain', 'forest', 'fire'],
-                storySeed: '{name} bewertet bei {targetName} Hangform, Rutschspuren, Vegetationsbrüche oder Entwässerungslinien als geologische Vorprüfung.',
-                greetingText: 'Hi, ich brauche einen sauberen Blick auf Hang, Kanten und Entwässerung. Keine Eile, lieber stabil.'
+                storySeed: '{name} bewertet bei {targetName} einen möglichen Hangbefund als geologische Vorprüfung.',
+                greetingText: 'Hi, ich brauche einen sauberen Blick auf den Hangzusammenhang. Keine Eile, lieber stabil.'
             },
             {
                 name: 'Eva Scholz',
                 role: 'Quartärgeologin',
                 gender: 'female',
                 personality: 'anschaulich, sachkundig, ruhig',
-                storySeed: '{name} verbindet bei {targetName} Talform, Terrassen, Moränen- oder Schotterflächen mit einer regionalen Geländelesart.',
+                storySeed: '{name} verbindet bei {targetName} einen markanten Landschaftsbefund mit einer regionalen Geländelesart.',
                 greetingText: 'Hi, ich lese heute Landschaftsgeschichte im Gelände. Ruhige Kurven helfen, Talform und alte Oberflächen zu erkennen.'
             },
             {
@@ -2444,15 +2444,15 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Reliefkartierer',
                 gender: 'male',
                 personality: 'praktisch, konzentriert, trocken',
-                storySeed: '{name} ergänzt bei {targetName} eine Reliefkarte und braucht dafür Hanglinien, Einschnitte, Kuppen und Geländekanten aus der Luft.',
-                greetingText: 'Hi, ich denke heute in Höhenlinien. Gib mir ruhige Perspektiven auf Kanten, Rücken und Einschnitte.'
+                storySeed: '{name} ergänzt bei {targetName} eine Reliefkarte und braucht dafür einen sauberen Luftblick auf den prägenden Geländeabschnitt.',
+                greetingText: 'Hi, ich denke heute in Höhenlinien. Gib mir ruhige Perspektiven auf den prägenden Geländeabschnitt.'
             }
         ],
         greetingText: 'Hi, wir schauen uns heute Relief, Erosion und Geländestruktur mit klarer Fragestellung an. Bitte ruhig und reproduzierbar fliegen.',
         paxText: '1 PAX (Geologe)',
         cargoPool: ['Geologie-Mapset und Tablet (12 lbs)', 'Kamera und Laser-Entfernungsmesser (14 lbs)', 'Reliefkarten und GNSS-Logger (13 lbs)', 'Sedimentnotizen und Fotokit (11 lbs)', 'Hangprofil-Unterlagen (10 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: geologische oder geomorphologische Beobachtung mit konkreter Studie: Relief, Erosion, Hangstabilität, Sedimente, Talform, Uferkante, Abbruchkante, alte Fließwege, Steinbruch oder Geländekartierung. Keine Bio-, Technik-, SAR- oder Feuerdrift.'
+        storyCue: 'Fokus: geologische oder geomorphologische Beobachtung mit konkreter Studie. Der Writer setzt einen fachlichen Gelände- oder Reliefschwerpunkt statt mögliche Prüfpunkte aufzuzählen. Keine Bio-, Technik-, SAR- oder Feuerdrift.'
     },
     mapping_survey: {
         id: 'mapping_survey',
@@ -2723,7 +2723,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'SAR-Koordinatorin',
                 gender: 'female',
                 personality: 'klar, belastbar, fokussiert',
-                storySeed: '{name} koordiniert bei {targetName} eine Suchrunde aus der Luft, weil Bodenmeldungen zu Wegen, Randbereichen oder sichtbaren Signalen noch kein klares Lagebild ergeben.',
+                storySeed: '{name} koordiniert bei {targetName} eine Suchrunde aus der Luft, weil ein Bodenhinweis noch kein klares Lagebild ergibt.',
                 greetingText: 'Hi, wir fliegen heute ein ruhiges Suchmuster bei {targetName}. Ich brauche Uebersicht, klare Calls und keine wilden Manoever.'
             },
             {
@@ -2739,7 +2739,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Einsatzleiterin Suche',
                 gender: 'female',
                 personality: 'sachlich, belastbar, wach',
-                storySeed: '{name} braucht ueber {targetName} ein geordnetes Lagebild: Wege, Waldkanten, Lichtungen, Ufer oder Zufahrten werden als Suchabschnitte abgearbeitet.',
+                storySeed: '{name} braucht ueber {targetName} ein geordnetes Lagebild, damit der wichtigste Suchabschnitt aus der Luft sauber eingegrenzt wird.',
                 greetingText: 'Hi, ich teile die Abschnitte ein und gebe dir die naechsten Blickrichtungen. Ruhig und wiederholbar ist heute wichtiger als Tempo.'
             },
             {
@@ -2747,16 +2747,16 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Bergwacht-Koordinator',
                 gender: 'male',
                 personality: 'konzentriert, ruhig, genau',
-                storySeed: '{name} prueft bei {targetName} Hang, Grat, Talweg oder Forststrasse aus der Luft, damit ein moeglicher Bodeneinsatz nicht blind in schwieriges Gelaende laeuft.',
-                greetingText: 'Servus, ich schaue auf Wege, Hangkanten und moegliche Sammelpunkte. Bitte gleichmaessig halten, dann kann ich die Karte sauber abgleichen.'
+                storySeed: '{name} prueft bei {targetName} den relevanten Gelaendeabschnitt aus der Luft, damit ein moeglicher Bodeneinsatz nicht blind in schwieriges Gelaende laeuft.',
+                greetingText: 'Servus, ich schaue auf den entscheidenden Kartenabschnitt. Bitte gleichmaessig halten, dann kann ich ihn sauber abgleichen.'
             },
             {
                 name: 'Nora Petersen',
                 role: 'Wasserrettungs-Koordinatorin',
                 gender: 'female',
                 personality: 'ruhig, aufmerksam, praezise',
-                storySeed: '{name} sucht bei {targetName} entlang von Ufer, Anlegern, Buchten oder Wasserlauf nach sichtbaren Hinweisen und sicheren Zugangspunkten fuer Teams am Boden.',
-                greetingText: 'Hi, ich achte auf Uferlinie, Zugänge und alles, was nicht ins Bild passt. Bitte weich fliegen, damit ich die Abschnitte vergleichen kann.'
+                storySeed: '{name} sucht bei {targetName} an einem wasserbezogenen Suchabschnitt nach sichtbaren Hinweisen fuer Teams am Boden.',
+                greetingText: 'Hi, ich achte auf den relevanten Suchabschnitt und alles, was nicht ins Bild passt. Bitte weich fliegen.'
             },
             {
                 name: 'Karim Adler',
@@ -2771,7 +2771,7 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Polizei-Lagebeobachterin',
                 gender: 'female',
                 personality: 'klar, sachlich, beobachtend',
-                storySeed: '{name} erstellt bei {targetName} ein neutrales Lagebild fuer die Einsatzleitung: Zufahrten, Fahrzeuge, Lichtungen und moegliche Sammelpunkte werden aus der Luft sortiert.',
+                storySeed: '{name} erstellt bei {targetName} ein neutrales Lagebild fuer die Einsatzleitung und ordnet den wichtigsten sichtbaren Hinweis aus der Luft ein.',
                 greetingText: 'Hallo, ich brauche einen sachlichen Ueberblick fuer die Lagekarte. Sichtbar notieren, nichts dramatisieren, ruhig weiterfliegen.'
             },
             {
@@ -2883,15 +2883,15 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Brandbeobachterin',
                 gender: 'female',
                 personality: 'sachlich, wachsam, präzise',
-                storySeed: '{name} beobachtet bei {targetName} trockene Wald- oder Feldbereiche aus der Luft, weil Bodenmeldungen zu Rauch, Staub oder Hitzezeichen eingeordnet werden muessen.',
-                greetingText: 'Hi, ich schaue heute nach Rauchfahnen, trockenen Kanten und auffaelligen Hotspots bei {targetName}. Bitte ruhig und mit guter Uebersicht.'
+                storySeed: '{name} beobachtet bei {targetName} einen konkreten Verdacht aus der Luft, weil Bodenmeldungen noch nicht eindeutig sind.',
+                greetingText: 'Hi, ich schaue heute auf den gemeldeten Feuerwacht-Hinweis bei {targetName}. Bitte ruhig und mit guter Uebersicht.'
             },
             {
                 name: 'Markus Adler',
                 role: 'Einsatzbeobachter',
                 gender: 'male',
                 personality: 'ruhig, analytisch, professionell',
-                storySeed: '{name} liefert fuer {targetName} ein sachliches Feuerlagebild: Zufahrten, Windrichtung, Waldrand, Felder und moegliche Rauchquellen werden geordnet betrachtet.',
+                storySeed: '{name} liefert fuer {targetName} ein sachliches Feuerlagebild und ordnet den wichtigsten sichtbaren Hinweis ohne Dramatisierung ein.',
                 greetingText: 'Hallo, ich brauche ein klares Lagebild, keine Dramatisierung. Wenn wir stabil fliegen, kann ich Rauch, Staub und Schatten sauber trennen.'
             },
             {
@@ -2899,40 +2899,40 @@ const MISSION_ROLE_TASK_PROFILES = {
                 role: 'Forstschutz-Koordinatorin',
                 gender: 'female',
                 personality: 'aufmerksam, ruhig, naturkundig',
-                storySeed: '{name} prueft bei {targetName}, ob trockene Schneisen, Waldkanten oder Besucherwege nach einer Gefahrenmeldung aus der Luft auffaellig wirken.',
-                greetingText: 'Hi, ich achte auf Waldkante, Wege und trockene Schneisen. Ein ruhiger Blick reicht, dann kann der Forst am Boden gezielt nachsehen.'
+                storySeed: '{name} prueft bei {targetName}, ob eine Gefahrenmeldung aus der Luft einen klaren Forstbefund ergibt.',
+                greetingText: 'Hi, ich achte auf den gemeldeten Forstbefund. Ein ruhiger Blick reicht, dann kann der Forst am Boden gezielt nachsehen.'
             },
             {
                 name: 'Oskar Henning',
                 role: 'Leitstellen-Beobachter',
                 gender: 'male',
                 personality: 'knapp, klar, belastbar',
-                storySeed: '{name} nimmt bei {targetName} Sichtmeldungen fuer die Leitstelle auf und gleicht sie mit Zufahrten, Wind und moeglichen Bereitstellungsraeumen ab.',
-                greetingText: 'Moin, ich halte die Leitstelle auf Stand. Bitte stabile Boegen, damit ich Richtung, Rauchbild und Zufahrten sauber melden kann.'
+                storySeed: '{name} nimmt bei {targetName} Sichtmeldungen fuer die Leitstelle auf und ordnet den wichtigsten Hinweis fuer den weiteren Bodenschritt ein.',
+                greetingText: 'Moin, ich halte die Leitstelle auf Stand. Bitte stabile Boegen, damit ich den Hinweis sauber melden kann.'
             },
             {
                 name: 'Sofia Brandt',
                 role: 'Naturschutz-Rangerin',
                 gender: 'female',
                 personality: 'besonnen, wach, gelassen',
-                storySeed: '{name} beobachtet bei {targetName} sensible Heide-, Moor-, Wald- oder Hangbereiche, damit ein moegliches Feuer- oder Trockenstressbild frueh eingeordnet wird.',
-                greetingText: 'Hallo, ich schaue auf sensible Flaechen und Besucherwege. Wir brauchen keinen engen Kreis, nur einen guten Ueberblick.'
+                storySeed: '{name} beobachtet bei {targetName} einen sensiblen Naturraum, damit ein moegliches Feuer- oder Trockenstressbild frueh eingeordnet wird.',
+                greetingText: 'Hallo, ich schaue auf den sensiblen Bereich. Wir brauchen keinen engen Kreis, nur einen guten Ueberblick.'
             },
             {
                 name: 'David Kranz',
                 role: 'Waldbrand-Fachberater',
                 gender: 'male',
                 personality: 'analytisch, ruhig, erfahren',
-                storySeed: '{name} bewertet bei {targetName} aus der Luft, ob sichtbare Rauch- oder Hitzehinweise zu Wind, Gelaende und Brennstoffflaechen passen.',
-                greetingText: 'Hi, ich vergleiche Rauchbild, Wind und Gelaende. Ruhig bleiben, dann koennen wir echte Hinweise von Fehlalarmen trennen.'
+                storySeed: '{name} bewertet bei {targetName} aus der Luft, ob ein sichtbarer Rauch- oder Hitzehinweis plausibel ist.',
+                greetingText: 'Hi, ich vergleiche den Hinweis mit der Lage. Ruhig bleiben, dann koennen wir echte Hinweise von Fehlalarmen trennen.'
             },
             {
                 name: 'Mara Lenz',
                 role: 'Kommunal-Beobachterin',
                 gender: 'female',
                 personality: 'strukturiert, freundlich, sachlich',
-                storySeed: '{name} begleitet die Feuerwacht fuer die Gemeinde bei {targetName}; wichtig sind sichtbare Zufahrten, moegliche Sperrpunkte und ein klarer Bericht nach der Landung.',
-                greetingText: 'Hi, die Gemeinde braucht einen klaren Ueberblick. Ich notiere Zufahrten, Rauchrichtung und alles, was spaeter am Boden geprueft werden sollte.'
+                storySeed: '{name} begleitet die Feuerwacht fuer die Gemeinde bei {targetName}; wichtig ist ein klarer Bericht zum gemeldeten Hinweis nach der Landung.',
+                greetingText: 'Hi, die Gemeinde braucht einen klaren Ueberblick. Ich notiere den Befund, der spaeter am Boden geprueft werden sollte.'
             },
             {
                 name: 'Henrik Paulsen',
@@ -3404,8 +3404,8 @@ function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') 
             { t: `Stau-Lagebild: ${n}`, i: '🚗', cat: 'poi', s: `Ein Lagezentrum braucht ein aktuelles Verkehrsbild über ${n}. Klare, ruhige Reporting-Passes sind gefragt.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Live-Link Set (40 lbs)' }
         ],
         rail: [
-            { t: `Bahntrassen-Check: ${n}`, i: '🚄', cat: 'poi', s: `Für ${n} soll der Zustand der Trasse, Böschungen, Überwege und angrenzenden Betriebsflächen aus der Luft geprüft werden.`, payloadText: '1 PAX (Bahn-Infrastruktur)', cargoText: 'Trassenkamera und Tablet (28 lbs)' },
-            { t: `Bahnviadukt-Dokumentation: ${n}`, i: '🚆', cat: 'poi', s: `Bei ${n} braucht der Betreiber aktuelle Luftbilder von Gleisführung, Viadukt, Zufahrt oder Instandhaltungsbereich.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Teleobjektiv-Set (22 lbs)' }
+            { t: `Bahntrassen-Check: ${n}`, i: '🚄', cat: 'poi', s: `Für ${n} soll ein konkreter Trassenbefund aus der Luft eingeordnet werden.`, payloadText: '1 PAX (Bahn-Infrastruktur)', cargoText: 'Trassenkamera und Tablet (28 lbs)' },
+            { t: `Bahnviadukt-Dokumentation: ${n}`, i: '🚆', cat: 'poi', s: `Bei ${n} braucht der Betreiber aktuelle Luftbilder zum relevanten Bauwerks- oder Gleisumfeld.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Teleobjektiv-Set (22 lbs)' }
         ],
         dam: [
             { t: `Dammkontrolle: ${n}`, i: '🧱', cat: 'poi', s: `Für ${n} wird eine Luftsichtkontrolle der Bauwerksstruktur angefordert. Bitte stabil und präzise anfliegen.`, payloadText: '1 PAX (Wasserbau)', cargoText: 'Messkoffer (60 lbs)' },
@@ -3436,7 +3436,7 @@ function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') 
             { t: `Forstlage: ${n}`, i: '🌲', cat: 'poi', s: `Im Gebiet ${n} soll der Waldzustand aus der Luft dokumentiert werden. Fokus auf klare Sichtachsen und stabile Höhe.`, payloadText: '1 PAX (Forst)', cargoText: 'Kamera/IR-Kit (65 lbs)' }
         ],
         city: [
-            { t: `Ortskern-Lagebild: ${n}`, i: '🏙️', cat: 'poi', s: `Für ${n} soll der Ortskern mit Zufahrten, Marktplatz- oder Kirchenlage und sichtbaren Verkehrsachsen sachlich aus der Luft eingeordnet werden.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Dokuset (25 lbs)' },
+            { t: `Ortskern-Lagebild: ${n}`, i: '🏙️', cat: 'poi', s: `Für ${n} soll ein konkreter Ortskern-Eindruck sachlich aus der Luft eingeordnet werden.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Dokuset (25 lbs)' },
             { t: `Reporterblick: ${n}`, i: '🎤', cat: 'poi', s: `Rund um ${n} soll eine lokale Geschichte aus der Luft erzählbar werden. Ruhige Kreise liefern Ort, Umfeld und Bildbelege, ohne Einsatzdrama.`, payloadText: '1 PAX (Reporter)', cargoText: 'Kamera-Set (30 lbs)' },
             { t: `Ortsmarketing: ${n}`, i: '📸', cat: 'poi', s: `Für ${n} werden ruhige Luftbilder gebraucht, die Ort, Lage und Wiedererkennungswert für Gemeinde, Tourismus oder Jubiläumsfilm zeigen.`, payloadText: '1 PAX (Foto/Film)', cargoText: 'Kamera-Gimbal (34 lbs)' },
             { t: `Stadtchronik: ${n}`, i: '📜', cat: 'poi', s: `Eine lokale Geschichtsführung nutzt den Blick auf ${n}, um Ortskern, alte Wege und die Lage im Gelände historisch einzuordnen.`, payloadText: '1 PAX (Stadtchronist)', cargoText: 'Archivunterlagen und Karten (14 lbs)' }
@@ -3469,9 +3469,9 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Redaktions-Aufmacher: ${n}`, i: '📷', cat: 'poi', s: `Für einen Beitrag wird ein klares Aufmacherbild von ${n} und seiner direkten Umgebung benötigt. Der Ton bleibt sachlich: sehen, erzählen, zurückmelden.`, payloadText: '1 PAX (Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
         ],
         inspection_infra: [
-            { t: `Zustandsprüfung: ${n}`, i: '🛠️', cat: 'poi', s: `Bei ${n} soll der aktuelle Zustand aus der Luft dokumentiert werden: Schäden, Wartungspunkte und auffällige Veränderungen. Fliege ruhige Passes mit klaren Sichtfenstern.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Inspektionskamera und Checklisten (18 lbs)' },
+            { t: `Zustandsprüfung: ${n}`, i: '🛠️', cat: 'poi', s: `Bei ${n} soll der aktuelle Zustand aus der Luft dokumentiert werden. Der Writer setzt einen klaren Prüfschwerpunkt statt mehrere Details aufzuzählen.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Inspektionskamera und Checklisten (18 lbs)' },
             { t: `Wartungsdoku: ${n}`, i: '🔧', cat: 'poi', s: `Ein Technikteam braucht aktuelle Luftbilder von ${n}, um Wartung und mögliche Störungen zu priorisieren. Fokus auf stabile Blickwinkel, nicht auf Geologie.`, payloadText: '1 PAX (Infrastruktur-Technik)', cargoText: 'Wärmebildkamera und Tablet (26 lbs)' },
-            { t: `Sturmschaden-Check: ${n}`, i: '🌬️', cat: 'poi', s: `Nach dem letzten Sturm sollen Dächer, Trassen, Anlagenkanten und exponierte Bauteile bei ${n} visuell geprüft werden. Dokumentiere Auffälligkeiten sauber aus der Luft.`, payloadText: '1 PAX (Schadensgutachter)', cargoText: 'Kamera-Gimbal und Messkoffer (42 lbs)' },
+            { t: `Sturmschaden-Check: ${n}`, i: '🌬️', cat: 'poi', s: `Nach dem letzten Sturm soll bei ${n} ein konkreter Verdacht visuell geprüft werden. Dokumentiere Auffälligkeiten sauber aus der Luft.`, payloadText: '1 PAX (Schadensgutachter)', cargoText: 'Kamera-Gimbal und Messkoffer (42 lbs)' },
             { t: `Baufortschritt: ${n}`, i: '🏗️', cat: 'poi', s: `Für ${n} werden Vergleichsbilder zum Bau- oder Instandhaltungsfortschritt benötigt. Fliege reproduzierbare Blickachsen für die Projektdokumentation.`, payloadText: '1 PAX (Projektleitung)', cargoText: 'Tablet mit Bauplänen (16 lbs)' }
         ],
         media_photo: [
@@ -3481,34 +3481,34 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Gemeindeaufnahme: ${n}`, i: '🏢', cat: 'poi', s: `Für Gemeindeseite, Immobilienexposé oder Projektbericht werden aktuelle Luftbilder von ${n} gebraucht. Es geht um saubere Bildwirkung, nicht um technische Diagnose.`, payloadText: '1 PAX (Medienproduktion)', cargoText: 'Kamerarucksack (20 lbs)' }
         ],
         search_and_rescue: [
-            { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird entlang von Trassen, Flusslauf und Bahnstrecke gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
-            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild möglicher Unfallkorridore an Straße, Fluss und Schiene benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' },
-            { t: `Vermisstensuche: ${n}`, i: '🔎', cat: 'poi', s: `Rund um ${n} wird eine vermisste Person gesucht. Wir prüfen Ufer, Waldrand, Wege oder Böschungen mit ruhigen Kreisen und geben nur klare Sichtmeldungen weiter.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Fernglas und Kartenpaket (14 lbs)' },
-            { t: `Hinweis-Check: ${n}`, i: '📍', cat: 'poi', s: `Die Leitstelle hat einen möglichen Hinweis im Bereich ${n}. Wir fliegen einen kurzen Suchsektor ab und achten auf einzelne Personen, Fahrzeuge oder Ausrüstung am Boden.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Optik- und Funkkit (20 lbs)' }
+            { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird ein konkreter Suchhinweis aus der Luft eingegrenzt. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
+            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild zu einem möglichen Such- oder Unfallhinweis benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' },
+            { t: `Vermisstensuche: ${n}`, i: '🔎', cat: 'poi', s: `Rund um ${n} wird eine vermisste Person gesucht. Wir grenzen den wichtigsten Suchabschnitt ruhig ein und geben nur klare Sichtmeldungen weiter.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Fernglas und Kartenpaket (14 lbs)' },
+            { t: `Hinweis-Check: ${n}`, i: '📍', cat: 'poi', s: `Die Leitstelle hat einen möglichen Hinweis im Bereich ${n}. Wir fliegen einen kurzen Suchsektor ab und melden nur eindeutige Auffälligkeiten.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Optik- und Funkkit (20 lbs)' }
         ],
         fire_watch: [
-            { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach Rauchfahnen, Hotspots und neuen Brandherden.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
+            { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach dem gemeldeten Hinweis und melde nur klare Beobachtungen.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
             { t: `Waldbrand-Frühwarnung: ${n}`, i: '🌲', cat: 'poi', s: `Für ${n} läuft ein Frühwarnflug wegen erhöhter Waldbrandgefahr. Fokus auf Hotspots und klare Meldungen.`, payloadText: '1 PAX (Einsatzbeobachter)', cargoText: 'IR-Kamera und Tablet (21 lbs)' },
-            { t: `Rauchmelderunde: ${n}`, i: '🌫️', cat: 'poi', s: `Im Umfeld von ${n} wurde leichter Rauchgeruch gemeldet. Wir prüfen Waldrand, Hang und offene Flächen aus sicherer Höhe, ohne eine Großlage anzunehmen.`, payloadText: '1 PAX (Brandbeobachter)', cargoText: 'Wärmebild-Tablet (16 lbs)' },
-            { t: `Hotspot-Check: ${n}`, i: '🧯', cat: 'poi', s: `Nach trockenen Tagen soll ${n} auf mögliche Hotspots kontrolliert werden. Gesucht werden kleine Rauchfahnen oder auffällige warme Stellen, keine Einsatzkolonne.`, payloadText: '1 PAX (Einsatzbeobachtung)', cargoText: 'IR-Kamera und Karten (19 lbs)' }
+            { t: `Rauchmelderunde: ${n}`, i: '🌫️', cat: 'poi', s: `Im Umfeld von ${n} wurde leichter Rauchgeruch gemeldet. Wir prüfen den wahrscheinlichsten Hinweis aus sicherer Höhe, ohne eine Großlage anzunehmen.`, payloadText: '1 PAX (Brandbeobachter)', cargoText: 'Wärmebild-Tablet (16 lbs)' },
+            { t: `Hotspot-Check: ${n}`, i: '🧯', cat: 'poi', s: `Nach trockenen Tagen soll ${n} auf einen möglichen Hotspot kontrolliert werden. Gesucht wird ein klarer Befund, keine Einsatzkolonne.`, payloadText: '1 PAX (Einsatzbeobachtung)', cargoText: 'IR-Kamera und Karten (19 lbs)' }
         ],
         historian_guided_tour: [
             { t: `Ortsarchiv-Runde: ${n}`, i: '📜', cat: 'poi', s: `Eine Ortsarchivarin begleitet den Flug zu ${n} und ordnet Ortskern, Siedlungsform, alte Wege und die Lage im Gelände historisch ein.`, payloadText: '1 PAX (Ortsarchivarin)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
             { t: `Denkmalblick: ${n}`, i: '🏛️', cat: 'poi', s: `Ein Denkmalpfleger nutzt den Blick auf ${n}, um Bauwerk, Ortsbild und historische Achsen zu erklären. Fokus liegt auf Lesbarkeit, nicht auf Inspektion.`, payloadText: '1 PAX (Denkmalpflege)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' },
-            { t: `Heimatforschung: ${n}`, i: '🏺', cat: 'poi', s: `Rund um ${n} soll die Entwicklung von Bebauung, Markt- oder Kirchenlage, Talbezug und Verkehrswegen anschaulich aus der Luft erzählt werden.`, payloadText: '1 PAX (Heimatforscherin)', cargoText: 'Notizen und Karten (8 lbs)' },
-            { t: `Stadtchronik aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Ein Stadtchronist verbindet ${n} mit sichtbaren Spuren von Siedlung, Verkehr, Wasserbau oder Burg-/Schlossbezug. Ruhige Sichtachsen tragen die Erzählung.`, payloadText: '1 PAX (Stadtchronist)', cargoText: 'Archivmappe (11 lbs)' }
+            { t: `Heimatforschung: ${n}`, i: '🏺', cat: 'poi', s: `Rund um ${n} soll eine konkrete historische Ortsgeschichte anschaulich aus der Luft erzählt werden.`, payloadText: '1 PAX (Heimatforscherin)', cargoText: 'Notizen und Karten (8 lbs)' },
+            { t: `Stadtchronik aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Ein Stadtchronist verbindet ${n} mit einem sichtbaren historischen Bezug. Ruhige Sichtachsen tragen die Erzählung.`, payloadText: '1 PAX (Stadtchronist)', cargoText: 'Archivmappe (11 lbs)' }
         ],
         science_bio: [
             { t: `Umweltbeobachtung: ${n}`, i: '🧪', cat: 'poi', s: `Bei ${n} wird ein biologischer Beobachtungsflug durchgeführt. Fokus auf Vegetation, Gewässerrand und mögliche Stressindikatoren.`, payloadText: '1 PAX (Biologe)', cargoText: 'Umweltsensorik und Kamera (18 lbs)' },
             { t: `Ökologie-Check: ${n}`, i: '🦉', cat: 'poi', s: `Für ${n} soll eine kurze ökologische Lageeinschätzung aus der Luft erstellt werden. Wir fliegen ruhig und dokumentieren sauber.`, payloadText: '1 PAX (Ökologin)', cargoText: 'Feldnotizen und GPS-Logger (9 lbs)' },
-            { t: `Habitat-Runde: ${n}`, i: '🌿', cat: 'poi', s: `Die Biologin möchte bei ${n} Ufer, Waldrand oder offene Vegetationsflächen vergleichen. Wir achten auf Muster im Bewuchs, nicht auf technische Schäden.`, payloadText: '1 PAX (Biologin)', cargoText: 'Kamera und GPS-Logger (12 lbs)' },
-            { t: `Vegetationsmonitoring: ${n}`, i: '🍃', cat: 'poi', s: `Bei ${n} werden Baumkronen, Uferzonen oder trockene Randstreifen dokumentiert. Der Flug bleibt ruhig, damit die Beobachtung später auswertbar ist.`, payloadText: '1 PAX (Ökologe)', cargoText: 'Umweltsensorik (15 lbs)' }
+            { t: `Habitat-Runde: ${n}`, i: '🌿', cat: 'poi', s: `Die Biologin möchte bei ${n} einen Habitatbefund vergleichen. Wir achten auf Muster im Bewuchs, nicht auf technische Schäden.`, payloadText: '1 PAX (Biologin)', cargoText: 'Kamera und GPS-Logger (12 lbs)' },
+            { t: `Vegetationsmonitoring: ${n}`, i: '🍃', cat: 'poi', s: `Bei ${n} wird ein Vegetationshinweis dokumentiert. Der Flug bleibt ruhig, damit die Beobachtung später auswertbar ist.`, payloadText: '1 PAX (Ökologe)', cargoText: 'Umweltsensorik (15 lbs)' }
         ],
         science_geo: [
             { t: `Geologie-Pass: ${n}`, i: '🪨', cat: 'poi', s: `Rund um ${n} werden Erosion, Hangformen und Reliefmerkmale aus der Luft beurteilt. Wir brauchen reproduzierbare Linien.`, payloadText: '1 PAX (Geologe)', cargoText: 'Geologie-Mapset und Tablet (12 lbs)' },
             { t: `Relief-Analyse: ${n}`, i: '🏔️', cat: 'poi', s: `Für ${n} wird eine geomorphologische Kurzaufnahme geflogen, um markante Strukturen und mögliche Veränderungen zu bewerten.`, payloadText: '1 PAX (Geomorphologin)', cargoText: 'Kamera und Laser-Entfernungsmesser (14 lbs)' },
-            { t: `Erosionsblick: ${n}`, i: '🪨', cat: 'poi', s: `Bei ${n} sollen Uferkanten, Hänge oder Einschnitte auf sichtbare Erosionsspuren geprüft werden. Wir liefern ruhige Vergleichsperspektiven.`, payloadText: '1 PAX (Geologin)', cargoText: 'Geologie-Tablet (10 lbs)' },
-            { t: `Geländekanten-Check: ${n}`, i: '⛰️', cat: 'poi', s: `Der Geomorphologe bewertet bei ${n} Geländekanten, Sedimentflächen oder frühere Abbauzonen. Der Flug braucht klare Blickwinkel, aber keine Einsatzdramaturgie.`, payloadText: '1 PAX (Geomorphologe)', cargoText: 'Kamera und Karten (13 lbs)' }
+            { t: `Erosionsblick: ${n}`, i: '🪨', cat: 'poi', s: `Bei ${n} soll ein sichtbarer Erosionshinweis geprüft werden. Wir liefern ruhige Vergleichsperspektiven.`, payloadText: '1 PAX (Geologin)', cargoText: 'Geologie-Tablet (10 lbs)' },
+            { t: `Geländekanten-Check: ${n}`, i: '⛰️', cat: 'poi', s: `Der Geomorphologe bewertet bei ${n} einen markanten Geländehinweis. Der Flug braucht klare Blickwinkel, aber keine Einsatzdramaturgie.`, payloadText: '1 PAX (Geomorphologe)', cargoText: 'Kamera und Karten (13 lbs)' }
         ],
         sightseeing_tour: [
             { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Zwei Gäste haben sich ${n} als kleinen Höhepunkt ihres Rundflugs ausgesucht. Der Blick von oben soll Ort, Landschaft und Umgebung als gemeinsames Bild zeigen, mit Zeit für ein paar persönliche Fotos. Danach geht es ohne Eile zurück zum Heimatplatz.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
@@ -5182,6 +5182,20 @@ function getAiTextModelCandidates(provider = getSelectedAiProvider(), profile = 
     return (AI_TEXT_MODEL_PROFILES[normalizedProvider]?.[normalizedProfile] || AI_TEXT_MODEL_PROFILES[normalizedProvider]?.auto || []).slice();
 }
 window.getAiTextModelCandidates = getAiTextModelCandidates;
+
+function getAiTextModelCandidatesForPrompt(provider = getSelectedAiProvider(), profile = getSelectedAiModelProfile(), promptVersion = '') {
+    const normalizedProvider = normalizeAiProvider(provider);
+    const normalizedProfile = normalizeAiModelProfile(profile);
+    const prompt = String(promptVersion || '').toLowerCase();
+    if (normalizedProvider === 'openai' && /^planner-v[24]/.test(prompt)) {
+        if (normalizedProfile === 'economy') {
+            return (AI_TEXT_MODEL_PROFILES.openai.economy || []).slice();
+        }
+        return (AI_TEXT_MODEL_PROFILES.openai.auto || []).slice();
+    }
+    return getAiTextModelCandidates(normalizedProvider, normalizedProfile);
+}
+window.getAiTextModelCandidatesForPrompt = getAiTextModelCandidatesForPrompt;
 
 function getSelectedAiApiKey(provider = getSelectedAiProvider()) {
     const normalized = normalizeAiProvider(provider);
@@ -14729,34 +14743,34 @@ function _missionNewsBriefVisitorCreativeBrief(category = '') {
     const cat = String(category || '').toLowerCase();
     const defaults = {
         categoryHint: 'lokaler POI',
-        focus: 'sichtbare Wege, Zufahrten, Umfeld, Sammelpunkte, Randbereiche und erkennbare Aktivität',
+        focus: 'ein selbst gewählter sichtbarer Beleg aus dem unmittelbaren Umfeld',
         programPrompt: 'Entwickle frei eine journalistische These: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Nutze sichtbare Anker nur als Bildbelege.',
         whyNow: 'Die Redaktion braucht den Luftblick, solange Anlass, Bildwert und lokale Wirkung zusammen sichtbar sind.'
     };
     const byCategory = {
         city: {
             categoryHint: 'Ortskern oder Stadt-POI',
-            focus: 'Ortskern, Zugangswege, Plätze, Randbereiche, erkennbare Aktivität und Übergang ins Umfeld'
+            focus: 'ein klarer Ortsbild-Beleg, den die Reportage selbst auswählt'
         },
         road: {
             categoryHint: 'Straßen-, Tunnel-, Wege- oder Zufahrts-POI als Schauplatz einer lokalen Reportage',
-            focus: 'Straßenraum, Tunnelumfeld, Wege, Zufahrt, Randbereiche, Parkdruck oder Treffpunkte als sichtbare Bildbelege'
+            focus: 'ein einzelner sinnvoller Beleg im direkten Straßen- oder Tunnelumfeld'
         },
         industry: {
             categoryHint: 'Gewerbe- oder Industrieumfeld',
-            focus: 'Hallenränder, Zufahrten, Parkflächen, Betriebsränder, Besucherwege und sichtbare Aktivität'
+            focus: 'ein glaubwürdiger Beleg an der Betriebs- oder Randfläche'
         },
         water: {
             categoryHint: 'Ufer- oder Gewässer-POI',
-            focus: 'Uferzugänge, Wege, Sammelpunkte, Randflächen, Wasserbezug und Zufahrten'
+            focus: 'ein sichtbarer Beleg am Gewässer- oder Uferbezug'
         },
         mountain: {
             categoryHint: 'Aussichts-, Berg- oder Höhen-POI',
-            focus: 'Höhenlage, Wege, Aussichtspunkt, Randparkplätze, Sammelpunkte und sichtbare Bewegung'
+            focus: 'ein sichtbarer Beleg an Höhenlage oder Aussichtspunkt'
         },
         forest: {
             categoryHint: 'Wald- oder Natur-POI',
-            focus: 'Waldzugänge, Wege, Lichtungen, Randparkplätze, Sammelpunkte und erkennbare Nutzung'
+            focus: 'ein sichtbarer Beleg am Natur- oder Waldrand'
         }
     };
     const picked = {
@@ -14795,7 +14809,7 @@ function _missionNewsBriefPresets(category = '') {
                 ? 'eine lokale Reportage rund um den Ortskern von {targetName}'
                 : (isRoad ? 'eine lokale Reportage mit {targetName} als Schauplatz' : 'eine lokale Reportage bei {targetName}'),
             reporterAngle: '',
-            storySeed: '{name} berichtet bei {targetName}. Entwickle aus Ziel, Rolle, Ausrüstung und sichtbaren Ankern frei eine lokale Reportage; Andrang, Wege oder Parkdruck sind nur Material, wenn sie die Headline tragen.',
+            storySeed: '{name} berichtet bei {targetName}. Entwickle aus Ziel, Rolle, Ausrüstung und sichtbaren Ankern frei eine lokale Reportage; sichtbare Details sind nur Material, wenn sie die Headline tragen.',
             greetingText: 'Hi, ich brauche heute den Blick auf {targetName}: Was ist dort wirklich berichtenswert, und was sieht man von oben besser als vom Boden?',
             trigger: 'Die Redaktion braucht zu {targetName} einen konkret erzählten lokalen Reporter-Anlass mit Luftbildwert.',
             subjectDetail: '{targetName} als Schauplatz einer lokalen Reporter-Geschichte',
@@ -14807,7 +14821,7 @@ function _missionNewsBriefPresets(category = '') {
             creativeCue: visitorCreativeBrief.creativeCue,
             visibleFocus: visitorCreativeBrief.focus,
             storyDetailPrompt: isRoad
-                ? `${visitorCreativeBrief.programPrompt} Straße, Tunnel, Zufahrt oder Parkdruck dürfen vorkommen, aber nur als sichtbare Belege für den News-Kern.`
+                ? `${visitorCreativeBrief.programPrompt} Der Straßen- oder Tunnelbezug darf vorkommen, aber nur als gewählter Beleg für den News-Kern.`
                 : visitorCreativeBrief.programPrompt,
             occasionName: '',
             occasionEventLabel: visitorCreativeBrief.eventLabel,
@@ -14834,9 +14848,9 @@ function _missionNewsBriefPresets(category = '') {
             whyNow: 'Die Redaktion braucht vor Veröffentlichung oder Schalte einen erzählbaren Luftblick statt nur Einzelbeobachtungen vom Boden.',
             soughtOutcome: 'Wir sollen Bilder liefern, die den gewählten News-Kern nachvollziehbar machen, ohne eine technische Prüfung daraus zu machen.',
             completionSignal: 'Nach dem Überflug gehen Bildmaterial und kurze redaktionelle Einordnung an die Redaktion.',
-            creativeCue: `${sharedCreativeCue} Wenn Wege, Verkehr oder Engstellen vorkommen, sind sie nur sichtbare Belege, nicht die Story selbst. Keine technische Betriebsprüfung.`,
-            visibleFocus: isCity ? 'Besucher- oder Anwohnerwege, Zufahrten, Sammelpunkte, Parkdruck und sichtbare Randbereiche' : 'Besucherwege, Zufahrt, Sammelpunkt, Parkdruck und sichtbare Randbereiche',
-            storyDetailPrompt: 'Erzähle zuerst den News-Kern und warum genau dieser Ort heute zählt; danach erst die sichtbaren Hinweise aus der Luft.'
+            creativeCue: `${sharedCreativeCue} Sichtbare Umfeldmerkmale sind nur Belege, nicht die Story selbst. Keine technische Betriebsprüfung.`,
+            visibleFocus: isCity ? 'ein selbst gewählter Ortsbild- oder Aktivitätsbeleg' : 'ein selbst gewählter Beleg im direkten Zielumfeld',
+            storyDetailPrompt: 'Erzähle zuerst den News-Kern und warum genau dieser Ort heute zählt; nutze danach höchstens den sichtbaren Hinweis, der die Story trägt.'
         },
         {
             id: 'construction_context',
@@ -14850,33 +14864,33 @@ function _missionNewsBriefPresets(category = '') {
             trigger: 'Die Redaktion braucht zu {targetName} noch heute eine dokumentarische Luftperspektive mit einer erzählten lokalen These.',
             subjectDetail: '{targetName} als Ort einer kurzen Redaktionsdokumentation',
             incidentContext: '{creativeCue} Nutze die sichtbaren Anker als Rohdaten und entscheide frei, welche lokale Frage oder welcher berichtenswerte Moment daraus entsteht.',
-            keyQuestion: 'Welche lokale Geschichte die Redaktion bei {targetName} dokumentieren will und ob sie über {visibleFocus} aus der Luft trägt.',
+            keyQuestion: 'Welche lokale Geschichte die Redaktion bei {targetName} dokumentieren will und welcher eine Luftbild-Beleg sie trägt.',
             whyNow: 'Der Bericht braucht vor der nächsten Ausgabe ein aktuelles Bild statt nur eine Bodenmeldung.',
             soughtOutcome: 'Wir sollen eine sachliche redaktionelle Einordnung liefern, bei der Ort, sichtbare Belege und Aufhänger zusammenpassen.',
             completionSignal: 'Nach dem Überflug gehen Fotos und Notizen in die redaktionelle Auswertung.',
             creativeCue: `${sharedCreativeCue} Beim Dokumentations-Winkel braucht die Story einen lokalen Grund für den Luftblick, keine technische Diagnose.`,
-            visibleFocus: isCity ? 'Ortsrand, Wege, parkende Fahrzeuge, offene Flächen, Übergang zum Ortsbild und sichtbare Aktivität' : 'Randfläche, Zielumfeld, sichtbare Wege, offene Flächen und erkennbare Aktivität',
+            visibleFocus: isCity ? 'ein selbst gewählter Ortsbild-Beleg' : 'ein selbst gewählter Umfeld-Beleg',
             storyDetailPrompt: 'Erzähle, welche lokale Frage der Luftblick beantworten soll, wer den Überblick braucht und was mit den Bildern später eingeordnet wird.'
         },
         {
             id: 'townscape_change',
-            label: 'Bildgeschichte',
+            label: 'Fotoreportage',
             personaNames: ['Jana Wild'],
             cargoText: 'Redaktionskamera mit Teleobjektiv (24 lbs)',
-            angle: isCity ? 'eine redaktionelle Bildgeschichte zum Ortsbild' : 'eine redaktionelle Bildgeschichte am Ziel, die aus der Luft besser lesbar wird',
-            reporterAngle: isCity ? 'die Bildgeschichte im Ortsbild' : 'die Bildgeschichte am Ziel',
-            storySeed: '{name} sucht für {targetName} eine Bildgeschichte mit klarem lokalen Aufhänger; der Überflug soll Ort, Umfeld und sichtbare Belege erzählbar machen.',
+            angle: isCity ? 'eine redaktionelle Fotoreportage zum Ortsbild' : 'eine redaktionelle Fotoreportage am Ziel, die aus der Luft besser lesbar wird',
+            reporterAngle: isCity ? 'die Fotoreportage im Ortsbild' : 'die Fotoreportage am Ziel',
+            storySeed: '{name} sucht für {targetName} eine Fotoreportage mit klarem lokalen Aufhänger; der Überflug soll Ort, Anlass und einen tragenden Bildbeleg erzählbar machen.',
             greetingText: 'Hi, ich brauche heute ein Bild, das die Geschichte bei {targetName} erklärt. Ruhige Perspektive, klare Kanten, keine Show.',
-            trigger: 'Die Redaktion braucht zu {targetName} noch heute eine Bildgeschichte, deren These aus der Luft lesbar wird: {angle}.',
-            subjectDetail: '{targetName} als Ort einer redaktionellen Bildgeschichte',
-            incidentContext: '{creativeCue} Erfinde frei, warum die Redaktion gerade diesen Ort als Bildgeschichte braucht. Keine historische Beispielschablone und keine harte Ortsgeschichte behaupten.',
-            keyQuestion: 'Welche konkrete Bild- oder Dokumentationsthese die Redaktion bei {targetName} erzählen will und ob sie über {visibleFocus} aus der Luft trägt.',
+            trigger: 'Die Redaktion braucht zu {targetName} noch heute eine Fotoreportage, deren These aus der Luft lesbar wird: {angle}.',
+            subjectDetail: '{targetName} als Ort einer redaktionellen Fotoreportage',
+            incidentContext: '{creativeCue} Erfinde frei, warum die Redaktion gerade diesen Ort als Fotoreportage braucht. Keine historische Beispielschablone und keine harte Ortsgeschichte behaupten.',
+            keyQuestion: 'Welche konkrete Foto- oder Dokumentationsthese die Redaktion bei {targetName} erzählen will und welcher Luftbild-Beleg sie trägt.',
             whyNow: 'Die Redaktion braucht ein aktuelles Motiv, das mehr zeigt als ein einzelnes Bodenfoto.',
-            soughtOutcome: 'Wir sollen eine Bildstrecke ermöglichen, die Ort, Aufhänger und Luftperspektive klar verbindet.',
-            completionSignal: 'Nach dem Überflug gehen Bildauswahl und kurze Einordnung an die Bildredaktion.',
-            creativeCue: `${sharedCreativeCue} Beim Ortsbild-Winkel braucht die Story eine konkrete redaktionelle These, was im Bild erzählbar wird; keine automatische Früher-heute- oder Historiengeschichte.`,
-            visibleFocus: isCity ? 'Ortsrand, Dächer, Wege, neue oder freie Kanten, Zufahrten, Grünflächen und Lagebezüge' : 'Zielobjekt, Randbereiche, Wege, Freiflächen und Lagebezüge',
-            storyDetailPrompt: 'Erzähle, warum gerade heute eine Bildstrecke gebraucht wird, welche redaktionelle These sie trägt und was die Redaktion danach mit den Bildern macht.'
+            soughtOutcome: 'Wir sollen eine Fotodokumentation ermöglichen, die Ort, Aufhänger und Luftperspektive klar verbindet.',
+            completionSignal: 'Nach dem Überflug gehen Fotoauswahl und kurze Einordnung an die Fotoredaktion.',
+            creativeCue: `${sharedCreativeCue} Beim Ortsbild-Winkel braucht die Story eine konkrete redaktionelle These, was im Foto erzählbar wird; keine automatische Früher-heute- oder Historiengeschichte und kein Boulevard-Ton.`,
+            visibleFocus: isCity ? 'ein selbst gewählter Ortsbild-Beleg' : 'ein selbst gewählter Beleg am Zielobjekt',
+            storyDetailPrompt: 'Erzähle, warum gerade heute eine Fotoreportage gebraucht wird, welche redaktionelle These sie trägt und was die Redaktion danach mit den Bildern macht.'
         },
         {
             id: 'access_pattern',
@@ -14887,24 +14901,24 @@ function _missionNewsBriefPresets(category = '') {
             reporterAngle: '',
             storySeed: isCity
                 ? '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Ortsbild, Wege oder Randbereiche sind nur Belege, wenn sie den Aufhänger tragen.'
-                : '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Zugang, Wege oder Parkdruck sind nur Belege, wenn sie den Aufhänger tragen.',
+                : '{name} sucht bei {targetName} eine lokale Geschichte mit Ort, Anlass und Bildwert. Sichtbare Umfelddetails sind nur Belege, wenn sie den Aufhänger tragen.',
             greetingText: 'Servus, ich schaue heute auf {targetName}. Wichtig ist die Geschichte, nicht die Zufahrt als Selbstzweck.',
             trigger: 'Die Redaktion braucht zu {targetName} eine lokale Umfeldreportage, deren Anlass aus der Luft lesbar wird.',
             subjectDetail: '{targetName} als Schauplatz einer lokalen Umfeldreportage',
             incidentContext: '{creativeCue} Nutze {visibleFocus} als Rohdaten, aber entscheide frei, welcher Headline-Kern, Vorfall, Event oder Dokumentationsanlass den Flug trägt.',
             keyQuestion: isCity
                 ? 'Welche lokale Geschichte führt heute zu {targetName}, und welche Stadtbild- oder Wegebelege machen sie aus der Luft nachvollziehbar?'
-                : 'Welche lokale Umfeldgeschichte führt heute zu {targetName}, und was zeigen Umfeld, Wege oder Parkdruck aus der Luft dazu?',
+                : 'Welche lokale Umfeldgeschichte führt heute zu {targetName}, und welcher Luftbild-Beleg macht sie nachvollziehbar?',
             whyNow: 'Die Redaktion will vor Veröffentlichung oder Schalte wissen, ob Ort, Aufhänger und Luftbild zusammen eine erzählbare Geschichte ergeben.',
             soughtOutcome: 'Wir sollen eine knappe redaktionelle Einordnung liefern, ob die gewählte Geschichte aus der Luft trägt.',
             completionSignal: 'Nach dem Überflug geht die Lageeinschätzung direkt an die Lokalredaktion.',
             creativeCue: isCity
-                ? `${sharedCreativeCue} Beim Stadt-/Umfeld-Winkel sind Wege, Zufahrten und Randbereiche nur sichtbare Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`
-                : `${sharedCreativeCue} Beim Zufahrts-Winkel sind Wege und Parklogik nur sichtbare Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`,
-            visibleFocus: isCity ? 'Ortsbild, Treffpunkte, Zugangswege, Randbereiche und Übergang ins Umfeld als Bildbelege' : 'Zugang, Randlage, Wege, Parkbereich, Treffpunkt und sichtbare Orientierungspunkte',
+                ? `${sharedCreativeCue} Beim Stadt-/Umfeld-Winkel sind sichtbare Umfeldmerkmale nur Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`
+                : `${sharedCreativeCue} Beim Umfeld-Winkel sind sichtbare Details nur Belege. Der News-Kern entsteht frei aus Ort, Rolle und Bildwert.`,
+            visibleFocus: isCity ? 'ein selbst gewählter Ortsbild-Beleg' : 'ein selbst gewählter Umfeld-Beleg',
             storyDetailPrompt: isCity
-                ? 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze Ortsbild, Wege und Randbereiche nur als sichtbare Belege.'
-                : 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze Zugang, Wege und Parkdruck nur als sichtbare Belege.'
+                ? 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze nur den sichtbaren Beleg, der die Story trägt.'
+                : 'Erzähle zuerst den News-Kern und warum dieser Ort heute zählt; nutze nur den sichtbaren Beleg, der die Story trägt.'
         }
     ];
 }
@@ -14955,8 +14969,8 @@ function _missionNewsBriefPick(contract = {}, passenger = {}, options = {}) {
         options.cargoText
     ].filter(Boolean).join(' '));
     if (/\bbaustell|baukante|bauarbeiten|kran|bauzaun\b/.test(hay)) return byId('construction_context');
-    if (/\bortsbild|wandel|veraender|veränder|bildstrecke|frueher|früher\b/.test(hay)) return byId('townscape_change');
-    if (/\bbesucher|andrang|fest|markt|parkdruck|veranstaltung|termin|programm|programmpunkt\b/.test(hay)) return byId('visitor_pressure');
+    if (/\bortsbild|wandel|veraender|veränder|fotoreportage|fotodokumentation|frueher|früher\b/.test(hay)) return byId('townscape_change');
+    if (/\bbesucher|andrang|fest|markt|veranstaltung|termin|programm|programmpunkt\b/.test(hay)) return byId('visitor_pressure');
     if (/\bverkehr|verkehrsfuehrung|verkehrsführung|sperrung|umleitung|engstelle\b/.test(hay)) return byId('traffic_change');
     if (/\bzufahrt|zufahrten|ortsrand|randlage\b/.test(hay)) return byId('access_pattern');
     return _missionPipelineV4PickOne(presets);
@@ -15110,13 +15124,13 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         const visitorPressureHooks = isVisitorPressureBrief
             ? [
                 'News-Kern ist eine frei entwickelte lokale Reportage mit Headline, Vorfall, Event, Streitfrage, Initiative oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
-                'Besucher, Andrang, Straße, Tunnel, Zufahrt, Parkdruck und Wege sind nur sichtbare Belege, wenn sie den gewählten News-Kern tragen.'
+                'Sichtbare Umfeldmerkmale sind Rohmaterial; der Writer waehlt hoechstens einen tragenden Beleg fuer den gewaehlten News-Kern.'
             ]
             : [];
         const roadNewsHooks = isEventLedRoadBrief && !isVisitorPressureBrief
             ? [
                 'News-Kern ist eine frei entwickelte lokale Reportage mit Headline, Vorfall, Event, Streitfrage, Initiative oder medialer Dokumentation; nicht der Verkehrsraum selbst.',
-                'Straße, Tunnel, Zufahrt, Parkdruck und Wege sind nur sichtbare Belege, wenn sie den gewählten News-Kern tragen.'
+                'Sichtbare Umfeldmerkmale sind Rohmaterial; der Writer waehlt hoechstens einen tragenden Beleg fuer den gewaehlten News-Kern.'
             ]
             : [];
         const visitorPressureOps = isVisitorPressureBrief
@@ -15128,7 +15142,7 @@ function _missionPipelineV4SyncNewsCoverageBrief(contract = {}, passenger = {}, 
         plan.primaryObjective = isVisitorPressureBrief
             ? `${targetName} bleibt Ort der Reportage; das Briefing muss den konkreten erfundenen News-Kern selbst erzählen, statt nur den Rahmen zu beschreiben.`
             : (isEventLedRoadBrief
-                ? `${targetName} bleibt Ort der Reportage; Straße, Tunnel, Zufahrt und Parkdruck bleiben mögliche Bildbelege für den frei erzählten News-Kern, nicht Auftrag.`
+                ? `${targetName} bleibt Ort der Reportage; sichtbare Umfeldmerkmale bleiben mögliche Bildbelege für den frei erzählten News-Kern, nicht Auftrag.`
                 : (concreteReporterAngle
                     ? `${targetName} aus der Luft für den redaktionellen Aufhänger "${concreteReporterAngle}" einordnen.`
                     : `${targetName} bleibt Ort der Reportage; das Briefing muss den konkreten erfundenen News-Kern selbst erzählen.`));
@@ -17771,13 +17785,13 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Bauwerks-/Gebäude-/Trassenprüfung, Perimeterprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Bahnzielen sind Bahnhof, Bahntrasse, Stellwerk, Weiche, Signal, Bahnübergang, Bahnwaerterhaus, Oberleitung, Böschung, Entwässerung oder Baustellenzustand passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Schleusen, Hafenbecken, Anleger, Stege, Kaianlagen und Betriebszugänge sind als Hafen-/Wasserbau-Inspektion passende Varianten. Windparks, Solarparks, Umspannwerke, Energieanlagen, Batteriespeicher, Pipelines, Pumpwerke, Wasser-/Abwasseranlagen, Entsorgungsanlagen, Steinbrüche/Kieswerke, Deiche, Stützmauern, Lärmschutzwände, Tunnelportale, Trassen, Funkmasten, Industrieanlagen, Baustellen, öffentliche Gebäude, Tankstellen, Lagertanks, Wassertanks, Zaunlinien, Tore und Perimeterbereiche sind ebenfalls passende Infra-Ziele. Passende Prüfpunkte sind Rotor-/Turmbereich, Modulreihen, Dachhaut, Wechselrichter, Trafopunkt, Leitung, Ventilpunkt, Zaun, Tor, Zufahrt, Kranfläche, Betriebsfläche, Zapfbereich, Tankfeld, Pegelstelle, Pumpstation, Schleusentor, Uferkante, Abbaukante, Böschung, Schutzwand oder Gebäudedach. Dach ist dabei Prüfmerkmal eines passenden Gebäudes oder einer Anlage, aber kein eigenständiger Zieltyp. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Erfinde einen konkreten Betreiberanlass: Schaden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Bauwerks-/Gebäude-/Trassenprüfung, Perimeterprüfung oder Dokumentation. Wähle passend zum Ziel genau einen sichtbaren Prüfschwerpunkt und erzähle ihn als Befundfrage, nicht als Liste von möglichen Prüfpunkten. Bei Wasserbauwerken bleibt das Wasserbauwerk Primärziel, bei Bahnzielen die Betriebsinfrastruktur, bei Energie-/Industriezielen der Anlagenbereich. Dach ist Prüfmerkmal eines passenden Gebäudes oder einer Anlage, aber kein eigenständiger Zieltyp. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, wenn sie nicht selbst Ziel sind. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'infra_chain_recon' && isPOI) {
         return '16. OPERATIONS-REGEL KETTEN-ERSTBEFUND POI: Auftrag ist eine vorgeschaltete Infrastruktur-Voruntersuchung entlang einer mehrteiligen Objekt- oder Korridorkette. Schreibe eine konkrete Anfrage: Wer braucht den Überblick, welche Meldung oder Routine löst ihn aus, warum reichen Luftbilder zuerst, und welche Folgeentscheidung entsteht daraus? Ziel ist eine Luftbildserie mit grobem Erstbefund über mehrere Punkte: unauffällig, weiter beobachten oder später gezielt per Einzelinspektion/Bodenteam prüfen. Keine Detaildiagnose, keine Reparaturfreigabe und keine Behauptung, dass einzelne Schäden schon bestätigt sind. Zwischenpunkte werden unterwegs per Voice aufgerufen; im Briefing nur Einstieg, Endpunkt, Korridorlogik und Handoff nennen.';
     }
     if (profile.id === 'science_bio' && isPOI) {
-        return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein: Habitat, Vegetation, Uferzone, Wasserfarbe, Rast-/Brutbereiche, Trockenstress, Störfaktoren, Schutzgebietsrand, Zaunlinie, Besucherlenkung, Wildwechsel oder Monitoringvergleich. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Zaun/Tor/Perimeter dürfen nur als ökologische Grenze, Durchlässigkeit, Besucherlenkung oder Störkante beschrieben werden, nicht als Sicherheits- oder Polizeiauftrag. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
+        return '16. OPERATIONS-REGEL SCIENCE BIO POI: Auftrag ist biologische oder ökologische Beobachtung. Baue eine konkrete Fragestellung ein und setze genau einen fachlichen Beobachtungsschwerpunkt, statt mehrere mögliche Bioindikatoren aufzuzählen. Der Luftblick soll Feldarbeit, Studie oder Naturschutz-Monitoring vorbereiten. Zaun/Tor/Perimeter dürfen nur als ökologische Grenze, Durchlässigkeit, Besucherlenkung oder Störkante beschrieben werden, nicht als Sicherheits- oder Polizeiauftrag. Keine Technikinspektion, keine Schadensdiagnose an Bauwerken, keine SAR-/Feuerlage, keine reine Sightseeing-Tour. Keine harten Messwerte oder Artenfunde erfinden, wenn sie nicht aus dem Kontext kommen.';
     }
     if (profile.id === 'science_geo' && isPOI) {
         return '16. OPERATIONS-REGEL SCIENCE GEO POI: Auftrag ist geologische oder geomorphologische Beobachtung. Baue eine konkrete Fragestellung ein: Relief, Erosion, Hangstabilität, Sedimente, Uferkante, Abbruchkante, Talform, Steinbruch, alte Fließwege oder Geländekartierung. Der Luftblick soll Kartierung, Studie oder Bodenbegehung vorbereiten. Keine Bio-/Artenanalyse, keine Technikinspektion, keine SAR-/Feuerlage, keine reine Vermessungs- oder Sightseeing-Sprache.';
@@ -20621,7 +20635,7 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
     if (cat === 'dam') {
         add('Staudamm/Talsperre oder Rueckhaltebecken');
         if (anchors.water) add('Wasserflaeche oder Uferlinie');
-        if (anchors.road || anchors.parking) add('Zufahrt oder Dammkrone');
+        if (anchors.road || anchors.parking) add('Wasserbau- oder Zugangsanker');
         return cues.slice(0, 3);
     }
     if (cat === 'telecom') {
@@ -22276,7 +22290,7 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
         ? explicitKey
         : String(getSelectedAiApiKey(selectedProvider) || explicitKey || '').trim();
     if (!selectedKey) return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: 'missing_api_key' };
-    const models = getAiTextModelCandidates(selectedProvider);
+    const models = getAiTextModelCandidatesForPrompt(selectedProvider, getSelectedAiModelProfile(), promptVersion);
     let lastError = '';
     if (selectedProvider === 'openai') {
         for (const [model, source, usageKey] of models) {
@@ -24296,17 +24310,17 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const isPerimeterTarget = /(zaun|zaunlinie|tor|zugang|perimeter|wildzaun|schutzzaun)/.test(targetText);
         const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
         const subjectDetail = (() => {
-            if (category === 'bridge') return 'den Fahrbahnuebergang, das Tragwerk, Pfeiler, Widerlager und Randbereiche';
-            if (category === 'dam' || category === 'water') return 'Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegelbereich und Betriebszugang';
-            if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich oder sichtbare Hindernisse';
-            if (category === 'rail') return 'Gleisbereich, Weichen, Signale, Bahnuebergaenge, Stellwerkspunkte, Boeschung und Entwaesserung';
-            if (isWindTarget) return 'Anlagenreihe, Rotor-/Turmbereich, Trafopunkt, Zuwegung und Kranstellflaechen';
-            if (category === 'telecom') return 'Mast, Plattformen, Abspannungen, Antennenbereich und Zuwegung';
-            if (isSolarTarget) return 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten';
-            if (isMarineTarget) return 'Schleusentor, Anleger, Hafenbecken, Steg, Uferbefestigung, Zufahrt und Betriebsbereich';
-            if (isPerimeterTarget) return 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Luecken oder Fremdkoerper';
-            if (isEnergyTarget) return 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte';
-            if (category === 'industry') return 'Betriebsflaechen, Dachbereiche, Rohrleitungen, Tanks, Zufahrten oder sichtbare Stoerstellen';
+            if (category === 'bridge') return 'den auffaelligen Bauwerksanschluss';
+            if (category === 'dam' || category === 'water') return 'den sichtbaren Zustand am Wasserbauwerk';
+            if (category === 'road') return 'den gemeldeten Strassenabschnitt';
+            if (category === 'rail') return 'den gemeldeten Abschnitt der Betriebsinfrastruktur';
+            if (isWindTarget) return 'den auffaelligen Anlagenpunkt';
+            if (category === 'telecom') return 'den Maststandort';
+            if (isSolarTarget) return 'den auffaelligen Technik- oder Randpunkt';
+            if (isMarineTarget) return 'den sichtbaren Wasserbau- oder Hafenpunkt';
+            if (isPerimeterTarget) return 'den gemeldeten Perimeterpunkt';
+            if (isEnergyTarget) return 'den auffaelligen Punkt im Anlagen- oder Trassenbereich';
+            if (category === 'industry') return 'den gemeldeten Teilbereich der Betriebsflaeche';
             return 'den gemeldeten Verdachtsbereich an der Anlage';
         })();
         const incidentPool = (() => {
@@ -24316,48 +24330,48 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'Nach einer Stoerungsmeldung zum Uebergangsbereich soll geprueft werden, ob nur Oberflaechenspuren oder ein echter Schaedenhinweis vorliegt.'
             ];
             if (category === 'dam' || category === 'water') return [
-                'Nach Starkregen oder Pegelschwankungen will der Betreiber Dammkrone, Auslauf und Uferbefestigung vor der naechsten Bodenkontrolle aus der Luft einordnen.',
+                'Nach Starkregen oder Pegelschwankungen will der Betreiber den sichtbaren Befund am Wasserbauwerk vor der naechsten Bodenkontrolle aus der Luft einordnen.',
                 'Eine Meldung aus dem Betrieb betrifft den Wasserbau- oder Uferbereich; aus der Luft soll zuerst klar werden, welcher Abschnitt wirklich auffaellig ist.',
-                'Vor der naechsten Wartungsrunde braucht die Wasserbehoerde einen schnellen Blick auf Krone, Ablauf und sichtbare Randbereiche.'
+                'Vor der naechsten Wartungsrunde braucht die Wasserbehoerde einen schnellen Blick auf den entscheidenden Befundpunkt.'
             ];
             if (category === 'rail') return [
-                'Nach einer Strecken- oder Stellwerksmeldung soll aus der Luft geklaert werden, ob Weichenbereich, Signalumfeld, Bahnuebergang oder Boeschung auffaellig wirken.',
-                'Vor dem naechsten Wartungsfenster braucht der Infrastrukturbetreiber einen Ueberblick auf Gleisbereich, Entwaesserung, Zuwegung und sichtbare Schadstellen.',
+                'Nach einer Strecken- oder Stellwerksmeldung soll aus der Luft geklaert werden, welcher Abschnitt auffaellig wirkt.',
+                'Vor dem naechsten Wartungsfenster braucht der Infrastrukturbetreiber einen Ueberblick auf den entscheidenden Befundpunkt.',
                 'Eine Meldung zu Bahntrasse oder Betriebspunkt ist am Boden nur schwer einzugrenzen; der Luftblick soll den relevanten Abschnitt vorselektieren.'
             ];
             if (isWindTarget) return [
-                'Vor dem naechsten Wartungsfenster sollen Zuwegung, Trafopunkt und Anlagenstandorte aus der Luft vorgeprueft werden.',
-                'Nach einer Sturmmeldung braucht der Betreiber einen Ueberblick, ob an Anlagenreihe, Kranflaechen oder Zufahrt etwas auffaellig wirkt.',
-                'Ein Serviceteam will wissen, ob der Weg zur Anlage und die Betriebsflaechen frei genug fuer die geplante Wartung sind.'
+                'Vor dem naechsten Wartungsfenster soll ein konkreter Anlagenpunkt aus der Luft vorgeprueft werden.',
+                'Nach einer Sturmmeldung braucht der Betreiber einen Ueberblick, ob ein klarer Anlagenbefund vorliegt.',
+                'Ein Serviceteam will wissen, ob die geplante Wartung am relevanten Anlagenbereich realistisch disponiert werden kann.'
             ];
             if (isSolarTarget) return [
-                'Nach einer Stoerungs- oder Sturmnotiz sollen Modulreihen, Zaunlinie und Wechselrichterbereiche aus der Luft vorgeprueft werden.',
-                'Der Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Verschattung, Zaunbereich, Entwaesserung oder Zufahrt auffaellig wirken.',
+                'Nach einer Stoerungs- oder Sturmnotiz soll ein konkreter Solarpark-Befund aus der Luft vorgeprueft werden.',
+                'Der Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob ein sichtbarer Teilbereich auffaellig wirkt.',
                 'Eine Ertragsabweichung und eine Wettermeldung passen nicht eindeutig zusammen; der Luftblick soll sichtbare Ursachen eingrenzen.'
             ];
             if (isMarineTarget) return [
-                'Nach einer Betriebs- oder Pegelmeldung sollen Schleusentor, Anleger, Uferkante und Betriebszugang aus der Luft vorgeprueft werden.',
-                'Der Hafen- oder Wasserbau-Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob Steg, Kai, Zufahrt oder Uferbefestigung auffaellig wirken.',
+                'Nach einer Betriebs- oder Pegelmeldung soll ein konkreter Hafen- oder Wasserbaupunkt aus der Luft vorgeprueft werden.',
+                'Der Hafen- oder Wasserbau-Betreiber braucht vor dem Vor-Ort-Termin einen Ueberblick, ob ein sichtbarer Teilbereich auffaellig wirkt.',
                 'Nach Wind, Treibgut oder einer Nutzerhinweis-Meldung soll geklaert werden, ob der Hafen- oder Schleusenbereich sofortige Bodenarbeit braucht.'
             ];
             if (isPerimeterTarget) return [
-                'Nach einer Betreiber- oder Wettermeldung soll die Zaunlinie aus der Luft auf offene Tore, Luecken, Fremdkoerper oder versperrte Zufahrten geprueft werden.',
-                'Vor dem naechsten Vor-Ort-Termin braucht der Betreiber einen ruhigen Ueberblick auf Perimeter, Zugang und Randbereiche.',
+                'Nach einer Betreiber- oder Wettermeldung soll ein konkreter Perimeter-Hinweis aus der Luft geprueft werden.',
+                'Vor dem naechsten Vor-Ort-Termin braucht der Betreiber einen ruhigen Ueberblick auf den relevanten Randbereich.',
                 'Eine Sichtmeldung am Randbereich ist vom Boden aus nur schwer einzuordnen; der Luftblick soll klaeren, ob ein echter Folgepunkt vorliegt.'
             ];
             if (category === 'telecom') return [
-                'Nach einer Netz- oder Funkstoerung soll die Lage an Mast, Technikpunkt, Antennenbereich und Zuwegung aus der Luft eingegrenzt werden.',
+                'Nach einer Netz- oder Funkstoerung soll die Lage am betroffenen Standort aus der Luft eingegrenzt werden.',
                 'Der Bereitschaftsdienst hat eine unklare Meldung aus dem Funknetz; vor dem Ausruecken soll der betroffene Standort sichtbar verortet werden.',
                 'Vor einem Wartungstrupp muss klar werden, ob der Zugang frei ist und ob am Maststandort sichtbare Auffaelligkeiten vorliegen.'
             ];
             if (isEnergyTarget) return [
-                'Nach einer Netz- oder Funkstoerung soll die Lage an Trasse, Mast, Technikpunkt und Zuwegung aus der Luft eingegrenzt werden.',
+                'Nach einer Netz- oder Funkstoerung soll die Lage am betroffenen Energieabschnitt aus der Luft eingegrenzt werden.',
                 'Der Bereitschaftsdienst hat eine unklare Meldung aus dem Energienetz; vor dem Ausruecken soll der betroffene Abschnitt sichtbar verortet werden.',
                 'Vor einem Wartungstrupp muss klar werden, ob der Zugang frei ist und ob am Technikpunkt sichtbare Auffaelligkeiten vorliegen.'
             ];
             if (category === 'industry') return [
-                'Eine Betriebsstelle meldete eine Auffaelligkeit an Dach, Rohrleitung, Randflaeche oder Zufahrt, die vom Boden aus nur langsam einzugrenzen ist.',
-                'Vor dem naechsten Wartungsblock braucht der Betreiber eine Luftvorpruefung von Flaechen, Technikpunkten und sichtbaren Stoerstellen.',
+                'Eine Betriebsstelle meldete eine Auffaelligkeit, die vom Boden aus nur langsam einzugrenzen ist.',
+                'Vor dem naechsten Wartungsblock braucht der Betreiber eine Luftvorpruefung zum relevanten Teilbereich.',
                 'Nach Wind, Starkregen oder einer Produktionsmeldung soll geklaert werden, ob ein Teilbereich sofort geprueft werden muss.'
             ];
             return [
@@ -24377,7 +24391,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             'Wir sollen klaeren, ob sichtbare Schaeden, lose Bauteile oder nur ein Fehlverdacht vorliegen.',
             'Wir sollen dem Betreiber eine klare Erstbewertung liefern, ob Nachkontrolle, Sicherung oder direkte Reparatur vorbereitet werden muss.',
             'Wir sollen den Verdachtsbereich so eingrenzen, dass das Technikteam gezielt und ohne Vollsuche anruecken kann.',
-            'Wir sollen Zielobjekt, Zugang und auffaellige Teilbereiche so beschreiben, dass der naechste Wartungsschritt planbar wird.'
+            'Wir sollen den auffaelligen Befundpunkt so beschreiben, dass der naechste Wartungsschritt planbar wird.'
         ]);
         return {
             trigger: `Fuer ${targetLabel} liegt eine frische Stoerungs-, Sturm- oder Schadensmeldung vor; vor Ort wird jetzt ein schneller Luftcheck gebraucht.`,
@@ -24398,32 +24412,32 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const bioDetail = _missionPipelineV4PickOne(
             isProtectedBioTarget || isPerimeterBioTarget
                 ? [
-                    'Habitatgrenzen, Zaunlinien, Besucherwege und moegliche Stoerkanten am Rand des Schutzraums',
+                    'ein konkreter Stoer- oder Randhinweis am Schutzraum',
                     'Wildwechsel, Durchlaessigkeit von Randstrukturen und Uebergaenge zwischen Naturraum und Nutzung',
-                    'sichtbare Besucherlenkung, Vegetationskanten und offene Randbereiche fuer die naechste Schutzgebietsbegehung'
+                    'ein sichtbarer Schutzgebiets-Befund fuer die naechste Begehung'
                 ]
                 : category === 'water'
                 ? [
-                    'Ufervegetation, Wasserfarbe, Zufluesse und moegliche Stoerstellen im Gewaesserrand',
+                    'ein auffaelliger Gewaesserrand-Befund',
                     'Schilf-, Feucht- oder Flachwasserzonen als Teil einer laufenden Habitatbeobachtung',
-                    'sichtbare Nutzungskanten zwischen Wasser, Ufer, Wegen und Vegetationsflaechen'
+                    'ein sichtbarer Nutzungskonflikt am Gewaesserrand'
                 ]
                 : category === 'mountain' || category === 'forest' || category === 'fire'
                     ? [
-                        'Waldsaeume, lichte Bereiche, Trockenstress und erkennbare Habitatgrenzen',
+                        'ein sichtbarer Habitat- oder Trockenstress-Hinweis',
                         'Vegetationsmuster, Wildwechselkorridore oder Stoerfaktoren am Rand des Naturraums',
-                        'offene Flaechen, Bewuchsluecken und Uebergaenge zwischen Wald, Hang und Nutzung'
+                        'ein klarer Uebergang zwischen Naturraum und Nutzung'
                     ]
                     : [
-                        'Habitatflaechen, Randzonen, Vegetationsmuster und moegliche Stoerfaktoren',
-                        'sichtbare Bioindikatoren wie Bewuchsgrenzen, Feuchtstellen, Rastbereiche oder Uferstruktur',
+                        'ein konkreter Habitat- oder Randzonenbefund',
+                        'ein sichtbarer Bioindikator, der die Feldplanung traegt',
                         'eine oekologische Vergleichsbeobachtung fuer die naechste Begehung am Boden'
                     ]
         );
         const studyContext = _missionPipelineV4PickOne(
             isProtectedBioTarget || isPerimeterBioTarget
                 ? [
-                    `Zu ${targetLabel} laeuft ein Schutzgebiets- oder Habitatmonitoring; der heutige Luftblick soll Zaunlinie, Besucherlenkung und Randzonen besser einordnen.`,
+                    `Zu ${targetLabel} laeuft ein Schutzgebiets- oder Habitatmonitoring; der heutige Luftblick soll einen konkreten Randhinweis besser einordnen.`,
                     `Die letzte Begehung rund um ${targetLabel} liess offen, ob die sichtbaren Stoerkanten zusammenhaengen oder nur lokale Einzelstellen sind.`,
                     `Fuer ${targetLabel} braucht das Naturschutzteam einen ruhigen Ueberblick, bevor die naechsten Begehungspunkte gesetzt werden.`
                 ]
@@ -24439,7 +24453,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             'Die Studie braucht jetzt einen Vergleichspunkt, bevor Wetter, Wasserstand oder Bewuchsbild wieder wechseln.'
         ]);
         const soughtOutcome = _missionPipelineV4PickOne([
-            'Wir sollen sichtbare Habitatgrenzen, Stoerfaktoren und auffaellige Vegetationsmuster fuer die Feldnotizen einordnen.',
+            'Wir sollen den wichtigsten sichtbaren Bio-Befund fuer die Feldnotizen einordnen.',
             'Wir sollen klaeren, welche Bereiche bei der naechsten Bodenbegehung Prioritaet bekommen.',
             'Wir sollen einen biologischen Kurzbefund liefern, der Beobachtung, Fotoanker und naechsten Feldschritt zusammenbringt.'
         ]);
@@ -24459,25 +24473,25 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         const geoDetail = _missionPipelineV4PickOne(
             category === 'water' || category === 'dam'
                 ? [
-                    'Uferkanten, Sedimentbaenke, Abflusslinien und sichtbare Erosionsspuren',
-                    'Talform, Wasserlinie, Uferabbrueche und frische Ablagerungen',
-                    'Gewaesserlauf, Randterrassen und Geländekanten als geologische Lesart'
+                    'ein sichtbarer Erosions- oder Sedimenthinweis am Wasser',
+                    'ein geologischer Befund an der Wasserlinie',
+                    'ein Gewaesserbezug als geologische Lesart'
                 ]
                 : category === 'mountain' || category === 'forest' || category === 'fire'
                     ? [
-                        'Hangstruktur, Rinnen, Abbruchkanten und moegliche Rutschspuren',
-                        'Relief, Kuppen, Einschnitte und Vegetationsbrueche als Hinweise auf Geländeprozesse',
-                        'Talform, Hangfuss, Sedimentflaechen und sichtbare Entwaesserungslinien'
+                        'ein sichtbarer Hang- oder Reliefbefund',
+                        'ein markanter Geländeprozess aus der Luft',
+                        'ein geologischer Hinweis im Tal- oder Hangbereich'
                     ]
                     : category === 'industry'
                         ? [
-                            'Abbaukanten, Halden, Sedimentflaechen oder kuenstlich angeschnittene Geländestrukturen',
+                            'ein sichtbarer geologischer Schnitt im Betriebsumfeld',
                             'Betriebs- oder Steinbruchränder als sichtbare geologische Schnittflaechen',
-                            'Reliefunterschiede, Geländekanten und Ablagerungen im Umfeld des Zielbereichs'
+                            'ein markanter Reliefunterschied im Umfeld des Zielbereichs'
                         ]
                         : [
-                            'Relief, Erosion, Sedimente, Hanglinien und sichtbare Geländekanten',
-                            'Talform, alte Fliesswege, Bruchkanten oder Ablagerungsflaechen',
+                            'ein sichtbarer Relief- oder Erosionsbefund',
+                            'ein markanter Hinweis auf fruehere oder aktuelle Geländeprozesse',
                             'eine geomorphologische Vergleichsbeobachtung fuer die naechste Kartierung'
                         ]
         );
@@ -24600,13 +24614,13 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 ? [
                     'ein lokaler News-Kern im Ortsbild',
                     'eine berichtenswerte Situation mit sichtbarem Umfeldbezug',
-                    'eine redaktionelle Bildgeschichte am Ort des Geschehens',
+                    'eine redaktionelle Fotoreportage am Ort des Geschehens',
                     'ein Aufmacher, bei dem der Luftblick die Geschichte tragfähig macht'
                 ]
                 : [
                     'ein lokaler News-Kern am Ziel',
                     'eine berichtenswerte Situation am Ort des Geschehens',
-                    'eine redaktionelle Bildgeschichte mit sichtbarem Umfeldbezug',
+                    'eine redaktionelle Fotoreportage mit sichtbarem Umfeldbezug',
                     'ein Aufmacher, bei dem der Luftblick die Geschichte tragfähig macht'
                 ]
         );
@@ -25587,7 +25601,7 @@ function _missionPipelineV4InferInfraSceneProfile(plan = {}, storyFrame = {}, se
         return pack('infra_bridge', ['utility_truck', 'generator', 'cones'], 'Brueckenpruefung mit wenigen Arbeits-/Markierungselementen am Bauwerk oder an der Zufahrt.');
     }
     if (category === 'dam' || category === 'water') {
-        return pack('infra_dam', ['generator', 'cones', 'watercraft'], 'Wasserbau-Referenz am Damm, Auslauf oder Ufer; sparsam und ohne Rettungsdrama.');
+        return pack('infra_dam', ['generator', 'cones', 'watercraft'], 'Sparsame Wasserbau-Referenz am relevanten Befundpunkt; kein Rettungsdrama.');
     }
     if (category === 'road') {
         return pack('survey_context', ['utility_truck', 'cones', isBlockedRoad ? 'debris' : 'small_equipment'], 'Kleine Arbeits- oder Hindernisreferenz entlang der Strasse; keine Unfallpersonen und keine Rettungslage.');
@@ -26168,7 +26182,151 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     };
 }
 
-function _missionPipelineV4Prompt(draft = {}, contextBundle = {}) {
+function _missionPipelineV4CompactPromptValue(value, depth = 0) {
+    if (value === null || value === undefined) return value;
+    if (typeof value === 'string') return value.replace(/\s+/g, ' ').trim().slice(0, depth > 2 ? 180 : 320);
+    if (typeof value === 'number' || typeof value === 'boolean') return value;
+    if (Array.isArray(value)) {
+        return value
+            .slice(0, depth > 1 ? 6 : 10)
+            .map(item => _missionPipelineV4CompactPromptValue(item, depth + 1))
+            .filter(item => item !== null && item !== undefined && item !== '');
+    }
+    if (typeof value === 'object') {
+        const out = {};
+        const skipKeys = new Set(['raw', 'elements', 'candidates', 'allowedRoleProfiles', 'allowedTaskDomains']);
+        Object.entries(value).slice(0, depth > 1 ? 18 : 28).forEach(([key, item]) => {
+            if (skipKeys.has(key)) return;
+            const compact = _missionPipelineV4CompactPromptValue(item, depth + 1);
+            if (compact === null || compact === undefined || compact === '') return;
+            if (Array.isArray(compact) && !compact.length) return;
+            if (typeof compact === 'object' && !Array.isArray(compact) && !Object.keys(compact).length) return;
+            out[key] = compact;
+        });
+        return out;
+    }
+    return String(value || '').slice(0, 160);
+}
+
+function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
+    const src = (bundle && typeof bundle === 'object') ? bundle : {};
+    const semantics = (src.semanticsRules && typeof src.semanticsRules === 'object') ? src.semanticsRules : {};
+    const selectedProfile = (src.profile?.selected && typeof src.profile.selected === 'object') ? src.profile.selected : {};
+    const compactWeather = {
+        dep: src.weather?.dep?.summary || '',
+        dest: src.weather?.dest?.summary || '',
+        rule: src.weather?.rule || ''
+    };
+    return _missionPipelineV4CompactPromptValue({
+        schema: src.schema || 'missionPlannerV4.contextBundle.v1',
+        route: src.route || {},
+        target: src.target || {},
+        picker: src.picker || {},
+        category: src.category || '',
+        profile: { selected: selectedProfile },
+        airportDetails: src.airportDetails || null,
+        weather: compactWeather,
+        fireHazard: src.fireHazard || null,
+        targetGeoContext: src.targetGeoContext || null,
+        missionTruth: src.missionTruth || null,
+        knowledgeContext: src.knowledgeContext || null,
+        semanticsRules: {
+            focusLock: semantics.focusLock || null,
+            forceSceneNone: !!semantics.forceSceneNone,
+            plannerGuardrails: Array.isArray(semantics.plannerGuardrails) ? semantics.plannerGuardrails.slice(0, 6) : []
+        },
+        sarIncidentGuidance: src.sarIncidentGuidance || null,
+        followUpContext: src.followUpContext || null,
+        missionTemporalContext: src.missionTemporalContext || null,
+        pickupCreativeBrief: src.pickupCreativeBrief || null,
+        missionVarietyBrief: src.missionVarietyBrief || null,
+        variety: src.variety || null,
+        routeRules: Array.isArray(src.routeRules) ? src.routeRules.slice(0, 8) : [],
+        realismTargets: Array.isArray(src.realismTargets) ? src.realismTargets.slice(0, 6) : []
+    });
+}
+
+function _missionPipelineV4CompactDraftForOpenAi(draft = {}) {
+    return _missionPipelineV4CompactPromptValue({
+        mode: draft?.mode || '',
+        isPOI: !!draft?.isPOI,
+        route: draft?.route || {},
+        target: draft?.target || {},
+        picker: draft?.picker || {},
+        category: draft?.category || '',
+        profile: draft?.profile || {},
+        followUp: draft?.followUp || null
+    });
+}
+
+function _missionPipelineV4Prompt(draft = {}, contextBundle = {}, options = {}) {
+    if (options?.compact) {
+        return `<INSTRUKTIONEN>
+Du bist Mission Planner V4 fuer einen GA-Dispatcher. Erzeuge ein knappes, robustes JSON-Formular fuer den Writer.
+
+Regeln:
+1. Nutze nur DRAFT und CONTEXT_BUNDLE.
+2. Zieltyp, targetLabel, roleProfile und taskDomain bleiben bindend.
+3. Kontextanker ergaenzen nur Orientierung, Zugang, Beleg oder Hintergrund; sie ersetzen nie das Primaerziel.
+4. Erfinde einen plausiblen Missionsanlass, aber keine harten Ortsfakten, echten Veranstalter, Termine oder Namen ausserhalb des Bundles.
+5. Bei news_coverage: Plane einen konkreten lokalen News-Kern (Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation). Sichtbare Anker sind Rohmaterial, keine abzuarbeitende Liste.
+6. Bei privaten, Bush-, SAR-, Inspektions- und Sightseeing-Profilen bleiben die jeweiligen RouteRules und Semantik-Locks bindend.
+7. Schreibe frei formulierte Texte auf Deutsch mit Umlauten. Antworte ausschliesslich als JSON.
+</INSTRUKTIONEN>
+
+<DRAFT>
+${JSON.stringify(draft)}
+</DRAFT>
+
+<CONTEXT_BUNDLE>
+${JSON.stringify(contextBundle)}
+</CONTEXT_BUNDLE>
+
+<OUTPUT_JSON>
+{
+  "status": "ready|invalid",
+  "needs": [],
+  "plan": {
+    "taskDomain": "aus erlaubtem Profilrahmen",
+    "roleProfile": "aus erlaubtem Profilrahmen",
+    "missionType": "poi|apt|bush",
+    "targetCategory": "Kategorie",
+    "primaryObjective": "konkreter Hauptauftrag",
+    "targetLabel": "kanonischer Zielname",
+    "sceneKind": "none|construction_site|sar_land|water_context|fire_watch|...",
+    "sceneDensity": "none|sparse|normal|busy",
+    "requiredAnchors": [],
+    "objectFamilies": [],
+    "placementPolicy": "kurze Platzierungslogik",
+    "missionTrigger": "warum jetzt",
+    "focusSubject": "wer oder was im Mittelpunkt steht",
+    "keyQuestion": "welche Frage am Ziel beantwortet wird",
+    "missionStakes": "warum das Ergebnis wichtig ist",
+    "completionSignal": "was nach Ueberflug/Landung passiert",
+    "storyFrame": {
+      "subjectDetail": "",
+      "incidentContext": "",
+      "whyNow": "",
+      "soughtOutcome": "",
+      "incidentType": "",
+      "lastSeenContext": "",
+      "probableScenario": "",
+      "visibleClueCandidates": []
+    },
+    "narrativeRules": [],
+    "localFacts": [],
+    "weatherHooks": [],
+    "operationalDetails": [],
+    "realismBrief": "",
+    "narrativeHooks": [],
+    "mustMention": [],
+    "mustAvoid": [],
+    "lockedFields": {"noLandingAtPoi": true},
+    "confidence": 0.0
+  }
+}
+</OUTPUT_JSON>`;
+    }
     return `<INSTRUKTIONEN>
 Du bist Mission Planner V4 fuer einen GA-Dispatcher im Flugsimulator.
 Du erzeugst in einem einzigen Schritt ein robustes, lokales Missionsformular fuer den nachfolgenden V4-Writer.
@@ -26260,9 +26418,12 @@ async function fetchMissionPlannerV4(context = {}) {
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const { working, bundle } = await _missionPipelineV4ResolveContextBundle(context, draft);
-    const timeoutMs = selectedProvider === 'openai' ? 24000 : 12000;
+    const useOpenAiCompactPlanner = normalizeAiProvider(selectedProvider) === 'openai';
+    const promptDraft = useOpenAiCompactPlanner ? _missionPipelineV4CompactDraftForOpenAi(draft) : draft;
+    const promptBundle = useOpenAiCompactPlanner ? _missionPipelineV4CompactPlannerBundleForOpenAi(bundle) : bundle;
+    const timeoutMs = useOpenAiCompactPlanner ? 30000 : 12000;
     const result = await fetchGeminiJsonWithFallback(
-        _missionPipelineV4Prompt(draft, bundle),
+        _missionPipelineV4Prompt(promptDraft, promptBundle, { compact: useOpenAiCompactPlanner }),
         apiKey,
         { provider: selectedProvider, promptVersion: 'planner-v4-direct', timeoutMs }
     );
@@ -27190,7 +27351,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Was soll aus der Luft sichtbar, belegbar oder besser erzählbar werden?',
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ],
-        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Kern. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, nicht als Textbausteine. Der Dispatcher liefert Missionsfakten, Rolle, Cargo, Ziel und Grenzen; daraus entsteht eigenständig die Geschichte. Das Briefing darf frei variieren und muss nicht jede Nebeninformation abarbeiten. Wichtig sind wer/warum heute/warum dieser Ort/warum aus der Luft/was danach. Entscheide dich fuer eine erfundene weiche Hintergrundgeschichte und schreibe sie als kleine lokale Tatsache, nicht als Frage wie "welche Situation sichtbar wird". Der erste inhaltliche Satz benennt den Anlass selbst: eine Headline, ein Vorfall, ein Event, eine Streitfrage, eine Initiative oder eine mediale Dokumentation. Bei Road-/Tunnel-Zielen bleibt der POI der Ort des Geschehens; Straße, Tunnel, Zufahrt und Parkdruck sind nur sichtbare Belege, keine technische Betriebs- oder Infrastrukturprüfung. Schreibe nicht nur "lokaler Anlass", "Meldung", "Lage", "die Redaktion braucht Bilder" oder "ein klarer Ort des Geschehens", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste und kein Motivkatalog; die Story entscheidet sich fuer eine journalistische These. Harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
+        styleRecipe: 'Lokale Reporter-Notiz mit einem beobachtbaren redaktionellen Kern. Nutze domainDetails.creativeCue, visibleFocus und storyDetailPrompt als Leitplanken, nicht als Textbausteine. Der Dispatcher liefert Missionsfakten, Rolle, Cargo, Ziel und Grenzen; daraus entsteht eigenständig die Geschichte. Das Briefing darf frei variieren und muss nicht jede Nebeninformation abarbeiten. Wichtig sind wer/warum heute/warum dieser Ort/warum aus der Luft/was danach. Entscheide dich fuer eine erfundene weiche Hintergrundgeschichte und schreibe sie als kleine lokale Tatsache, nicht als Frage wie "welche Situation sichtbar wird". Der erste inhaltliche Satz benennt den Anlass selbst: eine Headline, ein Vorfall, ein Event, eine Streitfrage, eine Initiative oder eine mediale Dokumentation. Bei Road-/Tunnel-Zielen bleibt der POI der Ort des Geschehens; sichtbare Ortsdetails sind nur Belege, keine technische Betriebs- oder Infrastrukturprüfung. Schreibe nicht nur "lokaler Anlass", "Meldung", "Lage", "die Redaktion braucht Bilder" oder "ein klarer Ort des Geschehens", sondern ersetze Platzhalter durch die erfundene Situation. Keine Variantenliste und kein Motivkatalog; die Story entscheidet sich fuer eine journalistische These. Harte Ereignisse, Ortsdetails oder echte Behauptungen nur aus harten Fakten oder sichtbarem Kontext.'
     },
     cargo_transport: {
         tone: 'ruhige kleine Frachtgeschichte mit konkreter Sendung',
@@ -27571,9 +27732,8 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         ...(Array.isArray(plan.localFacts) ? plan.localFacts : [])
     ], 7, 180);
     const desired = _missionWriterV5Unique([
-        ...(Array.isArray(plan.mustMention) ? plan.mustMention : []),
         ...(Array.isArray(plan.operationalDetails) ? plan.operationalDetails : [])
-    ], 6, 170);
+    ], 3, 170);
     const arrival = _missionWriterV5Text(
         contract?.missionTruth?.arrival?.label
         || contract?.missionTruth?.arrivalPlan?.label
@@ -27619,7 +27779,9 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
             'missionBriefForm ist das wichtigste ausgefuellte Formular. Nutze es frei, nicht als sichtbares Schema.',
             'Baue Route, Entfernung, Wetter und Ankunft nur natuerlich ein, wenn sie in die Erzaehlung passen.',
             'Nutze harte Orts- und Faktenaussagen nur aus missionBriefForm.facts.hardFacts, storySpine, targetFacts oder storyIngredients.',
-            'desiredIngredients sind Zutaten, keine abzuhakende Muss-Liste.',
+            'desiredIngredients sind optionale Zutaten, keine abzuhakende Muss-Liste.',
+            'Wenn Nebeninformationen den Text listenhaft oder steif machen, lasse sie weg.',
+            'Waehle einen erzählerischen Fokus statt mehrere sichtbare Belege aufzuzählen.',
             'qualityQuestions sind ein innerer Kompass, keine sichtbare Checkliste.',
             'Keine Systemwoerter wie Contract, Pipeline, Writer, mustMention, Handoff oder Profil.'
         ]
@@ -27636,7 +27798,7 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     delete legacyBriefingBrief.missionBriefForm;
     const promptTaskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     const newsCoveragePromptRule = promptTaskDomain === 'news_coverage'
-        ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich für einen einzigen journalistischen Kern: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Der erste inhaltliche Satz muss sagen, was bei diesem POI berichtenswert ist; "die Redaktion braucht Bilder/einen klaren Ort/einen Rahmen für die Geschichte" ist nur Arbeitsauftrag, keine fertige Story. Der gewählte POI bleibt Ort des Geschehens. Schreibe nicht fragend, welches Standardmotiv dort vorliegen könnte, sondern erzähle die gewählte Situation direkt. Straße, Tunnel, Zufahrt, Parkdruck oder Verkehr sind nur sichtbare Belege, keine technische Analyse. Story-Felder sind Leitplanken, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen, wenn die Geschichte dadurch besser wird.'
+        ? '\n14. NEWS-COVERAGE: Erfinde die konkrete weiche Hintergrundgeschichte selbst. Entscheide dich für einen einzigen journalistischen Kern: Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation. Der erste inhaltliche Satz muss sagen, was bei diesem POI berichtenswert ist; "die Redaktion braucht Bilder/einen klaren Ort/einen Rahmen für die Geschichte" ist nur Arbeitsauftrag, keine fertige Story. Der gewählte POI bleibt Ort des Geschehens. Schreibe nicht fragend, welches Standardmotiv dort vorliegen könnte, sondern erzähle die gewählte Situation direkt. Sichtbare Orts- oder Umfeldmerkmale sind nur Rohmaterial; wähle höchstens einen Beleg, statt eine Liste aufzuzählen. Kein Boulevard- oder BILD-Zeitung-Ton; bei Fotoaufträgen eher Fotoreportage, Fotodokumentation oder Fotoauswahl sagen. Story-Felder sind Leitplanken, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen, wenn die Geschichte dadurch besser wird.'
         : '';
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
@@ -28221,51 +28383,51 @@ function _missionPipelineV4InfraPassengerHandoff(contract = {}, detail = '') {
     const isEnergyTarget = isWindTarget || isSolarTarget || /(umspannwerk|kraftwerk|strom|freileitung|hochspannung|trasse)/.test(targetText);
     const handoff = (() => {
         if (category === 'road') return {
-            focus: 'Fahrbahn, Randstreifen, Hangbereiche, Zufahrten und sichtbare Hindernisse',
+            focus: 'den gemeldeten Abschnitt',
             decision: 'ob Beobachtung reicht oder Streckendienst und Absicherung für den Abschnitt geplant werden sollen'
         };
         if (category === 'bridge') return {
-            focus: 'Fahrbahnübergang, Tragwerk, Widerlager, Pfeiler und Randbereiche',
+            focus: 'den auffälligen Bauwerksanschluss',
             decision: 'ob eine Bodenprüfung, Beobachtung oder eine gezielte Nachkontrolle vorbereitet werden soll'
         };
         if (category === 'rail') return {
-            focus: 'Gleisbereich, Weichen, Signale, Bahnübergänge, Böschung und Entwässerung',
+            focus: 'den gemeldeten Abschnitt der Betriebsinfrastruktur',
             decision: 'ob ein Wartungsfenster, eine Trassenrunde oder nur weitere Beobachtung nötig wirkt'
         };
         if (category === 'dam' || category === 'water') return {
-            focus: 'Dammkrone, Auslauf, Uferbefestigung, Pegelbereich und Betriebszugang',
+            focus: 'den sichtbaren Zustand am Wasserbauwerk',
             decision: 'ob Wasserbau- oder Betriebsteam später einen bestimmten Abschnitt genauer ansehen sollen'
         };
         if (category === 'telecom') return {
-            focus: 'Mast, Plattformen, Antennenbereich, Abspannungen und Zuwegung',
+            focus: 'den Maststandort',
             decision: 'ob ein Netztechnik-, Zugangsteam- oder Hubsteiger-Einsatz sinnvoll vorbereitet werden sollte'
         };
         if (isWindTarget) return {
-            focus: 'Anlagenreihe, Turm- und Rotorbereiche, Trafopunkt, Zuwegung und Kranstellflächen',
+            focus: 'den auffälligen Anlagenpunkt',
             decision: 'ob der Wartungstermin wie geplant laufen kann oder ein einzelner Anlagenpunkt vorgezogen werden sollte'
         };
         if (isSolarTarget) return {
-            focus: 'Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwässerung und Zufahrten',
+            focus: 'den auffälligen Technik- oder Randpunkt',
             decision: 'ob der Betreiber einen Technikpunkt, eine Zaunstelle oder die Zufahrt gezielt nachprüfen muss'
         };
         if (isMarineTarget) return {
-            focus: 'Schleusentor, Anleger, Hafenbecken, Uferbefestigung, Zufahrt und Betriebsbereich',
+            focus: 'den sichtbaren Wasserbau- oder Hafenpunkt',
             decision: 'ob Wasserbau- oder Hafenbetrieb später einen bestimmten Zugang oder Uferabschnitt nachprüfen muss'
         };
         if (isPerimeterTarget) return {
-            focus: 'Zaunlinie, Tore, Zufahrt, Randbereiche und sichtbare Lücken oder Fremdkörper',
+            focus: 'den gemeldeten Perimeterpunkt',
             decision: 'ob der Betreiber den Perimeter nur beobachtet oder ein Vor-Ort-Team an eine konkrete Stelle schickt'
         };
         if (isEnergyTarget) return {
-            focus: 'Trasse, Masten, Umspann- oder Betriebsbereiche und erreichbare Zugangspunkte',
+            focus: 'den auffälligen Punkt im Anlagen- oder Trassenbereich',
             decision: 'ob Netzbetrieb oder Technikteam einen bestimmten Punkt gezielt nachprüfen müssen'
         };
         if (category === 'industry' || category === 'infrastructure') return {
-            focus: 'Betriebsflächen, Abbaukanten, Lagerflächen, Technikpunkte, Zufahrten und sichtbare Störstellen',
+            focus: 'den gemeldeten Teilbereich der Betriebsfläche',
             decision: 'ob Beobachtung reicht oder ein Betriebsteam einen Teilbereich nachprüfen muss'
         };
         return {
-            focus: 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffälligkeiten',
+            focus: 'den konkreten Nachprüfpunkt am Ziel',
             decision: 'ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss'
         };
     })();
@@ -28532,7 +28694,7 @@ const MISSION_POI_CHAIN_STORY_SPINES = {
         titlePrefix: 'Trassen-Erstbefund',
         actor: 'Die Netzstelle',
         subject: 'den Bahnkorridor',
-        scope: 'Streckenabschnitte, Weichenbereiche, Bahnübergänge, Böschungen und offensichtliche Störungen',
+        scope: 'Bahninfrastruktur mit klar begrenztem Strecken- oder Betriebspunktbefund',
         reasonPool: [
             'Nach einer Streckenmeldung sollen mehrere sichtbare Bahnpunkte vor der Begehung mit Luftbildern eingeordnet werden.',
             'Vor der nächsten Trassenrunde braucht die Netzstelle eine schnelle Übersicht über Abschnitte, Zugänge und mögliche Störstellen.',
@@ -29140,13 +29302,13 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
         const category = String(contract?.target?.poiCategory || contract?.target?.targetCategory || contract?.profile?.pickerCategory || '').trim().toLowerCase();
         const genericInfraPattern = /(disruptive|saisonale[nr]? wetterbedingungen|regelmaessige inspektionsrunde|regelmäßige inspektionsrunde|detaillierter visueller befund|stoerungs-, sturm- oder schadensmeldung|störungs-, sturm- oder schadensmeldung|rueckkehr zum startflugplatz|rückkehr zum startflugplatz)/i;
         const categoryDetail = (() => {
-            if (category === 'dam' || category === 'water') return 'Krone, Auslauf, Uferbefestigung, Pegelbereich und Betriebszugang';
-            if (category === 'bridge') return 'Fahrbahnübergang, Tragwerk, Pfeiler, Widerlager und Randbereiche';
-            if (category === 'rail') return 'Gleisbereich, Weichen, Signale, Bahnübergänge, Böschung und Entwässerung';
-            if (category === 'road') return 'Fahrbahn, Knotenpunkt, Randstreifen, Baustellenbereich und sichtbare Hindernisse';
-            if (category === 'telecom') return 'Mast, Antennenbereich, Plattformen, Abspannungen und Zuwegung';
-            if (category === 'industry' || category === 'infrastructure') return 'Betriebsflächen, Abbaukanten, Lagerflächen, Technikpunkte, Zufahrten und sichtbare Störstellen';
-            return 'Zielobjekt, Zugang, Randbereiche und sichtbare Auffälligkeiten';
+            if (category === 'dam' || category === 'water') return 'der sichtbare Zustand am Wasserbauwerk';
+            if (category === 'bridge') return 'der auffällige Bauwerksanschluss';
+            if (category === 'rail') return 'der gemeldete Abschnitt der Betriebsinfrastruktur';
+            if (category === 'road') return 'der gemeldete Straßenabschnitt';
+            if (category === 'telecom') return 'der Maststandort';
+            if (category === 'industry' || category === 'infrastructure') return 'der gemeldete Teilbereich der Betriebsfläche';
+            return 'der konkrete Nachprüfpunkt am Ziel';
         })();
         const categoryIntro = (() => {
             if (category === 'dam' || category === 'water') return `Der Betreiber von ${targetName} braucht heute einen ruhigen Luftblick auf das Wasserbauwerk, bevor die nächste Bodenrunde geplant wird.`;
@@ -29915,8 +30077,8 @@ function _missionWriterV5ReporterSubject(passenger = {}) {
     const roleNormalized = normalizeMissionText(passenger?.role || '');
     const role = _missionWriterV5ReporterRoleLabel(passenger?.role || '', passenger?.gender || '');
     if (name && /\btv[-\s]?reporter/.test(roleNormalized)) return `${name} vom TV-Team`;
-    if (name && /foto\s*redakteur/i.test(rawRole)) return `${name} aus der Bildredaktion`;
-    if (name && /\bfotoredakteur/.test(roleNormalized)) return `${name} aus der Bildredaktion`;
+    if (name && /foto\s*redakteur/i.test(rawRole)) return `${name} aus der Fotoredaktion`;
+    if (name && /\bfotoredakteur/.test(roleNormalized)) return `${name} aus der Fotoredaktion`;
     if (name && /\bredakteur/.test(roleNormalized)) return `${name} aus der Redaktion`;
     if (name) return `${name} aus der Lokalredaktion`;
     if (role) return role;
@@ -29927,7 +30089,7 @@ function _missionWriterV5NewsConcreteAngle(angle = '', targetName = '') {
     const clean = _missionPipelineV4StripSentenceEnd(_missionWriterV5CleanSpineValue(angle, 190)).trim();
     const normalized = normalizeMissionText(clean);
     const hasSpecificAngle = /\b(headline|vorfall|event|veranstaltung|besucher|andrang|sperrung|umleitung|baustelle|baustellenumfeld|baukante|bauarbeiten|ortsbild|ortskern|wandel|veraender|veränder|publikum|anwohner|initiative|aktion|termin|auftakt|abschluss|kritik|streit|frage)\b/.test(normalized);
-    if (!normalized || _missionWriterV5NewsAngleIsPlaceholder(clean) || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte|meldung|lage|reportage|dokumentation|bildstrecke)\b/.test(normalized))) {
+    if (!normalized || _missionWriterV5NewsAngleIsPlaceholder(clean) || (!hasSpecificAngle && /\b(aktueller|aktuellen|lokaler|lokalen|sichtbarer|sichtbaren|redaktioneller|redaktionellen|luftaufhaenger|luftaufhänger|aufhaenger|aufhänger|anlass|geschichte|meldung|lage|reportage|dokumentation|fotoreportage)\b/.test(normalized))) {
         return _missionPipelineV4PickOne([
             targetName ? `warum ${targetName} heute zum Ort einer kleinen Lokalreportage wird` : 'warum das Ziel heute zum Ort einer kleinen Lokalreportage wird',
             targetName ? `warum ${targetName} heute zum Ort einer lokalen Meldung wird` : 'warum das Ziel heute zum Ort einer lokalen Meldung wird',
@@ -29977,7 +30139,7 @@ function _missionWriterV5NewsOutcomeSentence(outcome = '') {
 function _missionWriterV5NewsVisitorSignals(story = '') {
     const normalized = normalizeMissionText(story);
     const hasVisitorFrame = /\b(besucher|besucherandrang|andrang|trubel|zulauf|menschen|parkdruck|volle wege|vollen wege|zufahrt|zufahrten)\b/.test(normalized);
-    const concreteOccasion = /\b(headline|vorfall|event|veranstaltung|dokumentation|reportage|bildstrecke|fest|feier|jubil|markt|aktion|aktionstag|tag der offenen|verein|vereins|lauf|wander|ausstellung|schau|vorfuehrung|vorführung|rahmenprogramm|auftakt|abschluss|parcours|werkstatt|infotag|projekttag|initiative|termin|kritik|streit|frage|sorge|debatt|probe|eroeffnung|eröffnung)\b/.test(normalized);
+    const concreteOccasion = /\b(headline|vorfall|event|veranstaltung|dokumentation|reportage|fotoreportage|fotodokumentation|fest|feier|jubil|markt|aktion|aktionstag|tag der offenen|verein|vereins|lauf|wander|ausstellung|schau|vorfuehrung|vorführung|rahmenprogramm|auftakt|abschluss|parcours|werkstatt|infotag|projekttag|initiative|termin|kritik|streit|frage|sorge|debatt|probe|eroeffnung|eröffnung)\b/.test(normalized);
     const hasOccasion = concreteOccasion || /\b(termin|veranstaltung)\b/.test(normalized);
     const hasProgram = /\b(programm|programmpunkt|programmpunkte|rahmenprogramm|stand|staende|stände|buehne|bühne|vorfuehrung|vorführung|fuehrung|führung|musik|zelt|bewirtung|essensstand|foodtruck|kinder|familien|shuttle|parkplatz|parkflaeche|parkfläche|zielbereich|sammelpunkt|route|laufstrecke|ausstellung|schau)\b/.test(normalized);
     const hasCausalHook = /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|rund um|anlaesslich|anlässlich|zum|zur|fuer|für|grund|ausloeser|auslöser|dahinter|im kern|headline|vorfall|event|dokumentation|recherche|aktion|termin)\b/.test(normalized);
@@ -30001,7 +30163,7 @@ function _missionWriterV5NewsAngleIsPlaceholder(value = '') {
     if (/\bumfeldreportage\b|\bstadtgeschichte\s+um\s+(?:zufahrt|zufahrten|wege|ortsrand|umfeld|sichtbar)/.test(normalized)) return true;
     if (/\bbilder\b[^.]{0,90}\blokale(?:n|r)? geschichte\b/.test(normalized)) return true;
     if (/\b(was macht|welche konkrete|welcher konkrete|ob sie ueber|ob sie über|aus der luft traegt|aus der luft trägt)\b/.test(normalized)) return true;
-    if (/^(die\s+)?(redaktionelle dokumentation|bildgeschichte)(\s+(bei|am|im)\b.*)?$/.test(normalized)) return true;
+    if (/^(die\s+)?(redaktionelle dokumentation|fotoreportage)(\s+(bei|am|im)\b.*)?$/.test(normalized)) return true;
     return false;
 }
 
@@ -30011,7 +30173,7 @@ function _missionWriterV5NewsStoryHasConcreteNucleus(story = '') {
     const hasNamedOccasion = /\b(vorfall|event|veranstaltung|veranstaltungs|fest|feier|jubil|markt|aktionstag|tag der offenen|verein|vereins|schule|feuerwehr|lauf|wanderung|ausstellung|schau|vorfuehrung|vorführung|fuehrung|führung|rahmenprogramm|auftakt|abschluss|termin|probe|eroeffnung|eröffnung|projekttag|infotag|initiative)\b/.test(normalized);
     const hasCivicIssue = /\b(anwohner|kritik|streit|frage|sorge|debatte|debatt|beschwerde|petition|protest|recherche|initiative)\b/.test(normalized)
         && /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|anlaesslich|anlässlich|zum|zur|ueber|über|rund um)\b/.test(normalized);
-    const hasDocumentaryNucleus = /\b(dokumentation|dokumentar|reportage|bildstrecke|bildgeschichte)\b/.test(normalized)
+    const hasDocumentaryNucleus = /\b(dokumentation|dokumentar|reportage|fotoreportage|fotodokumentation)\b/.test(normalized)
         && /\b(ueber|über|wegen|zu|zur|zum|rund um|weil|da|heute)\b/.test(normalized)
         && /\b(anwohner|kritik|streit|frage|sorge|debatte|debatt|beschwerde|petition|protest|initiative|wandel|veraender|veränder|umschwung|nutzung|zugang|treffpunkt|besucher|andrang|parkdruck|veranstaltung|event|fest|markt|jubil|aktion)\b/.test(normalized);
     const hasVisitorCause = /\b(besucher|besucherandrang|andrang|publikum|parkdruck|sammelpunkt|treffpunkt)\b/.test(normalized)
@@ -30066,35 +30228,35 @@ function _missionWriterV5NewsFallbackPremise(contract = {}, domain = {}) {
     const targetScene = _missionWriterV5NewsFallbackSceneLabel(targetName, category);
     const normalizedTarget = normalizeMissionText(targetName);
     const base = _missionPipelineV4PickOne([
-        `Die Lokalredaktion macht heute ${targetScene} eine kleine Reportage: Vor Ort gibt es Hinweise auf eine neue Nutzungsspur, aber erst der Luftblick zeigt, ob Wege, Ränder und sichtbare Aktivität zusammenpassen`,
-        `${targetScene} steht eine kurze Bildgeschichte über einen lokalen Streit um Nutzung und Zugang im Raum; von oben soll sichtbar werden, was davon mehr ist als einzelne Stimmen vom Boden`,
-        `${targetScene} soll heute aus einer knappen Bodenmeldung eine erzählbare Reportage werden, weil der Ort selbst zeigen kann, wie Anlass, Wege und Umfeld zusammenhängen`
+        `Die Lokalredaktion macht heute ${targetScene} eine kleine Reportage: Vor Ort gibt es Hinweise auf eine neue Nutzungsspur, aber erst der Luftblick zeigt, ob der Ort diese These wirklich trägt`,
+        `${targetScene} steht eine kurze Fotoreportage über einen lokalen Streit um Nutzung und Zugang im Raum; von oben soll sichtbar werden, was davon mehr ist als einzelne Stimmen vom Boden`,
+        `${targetScene} soll heute aus einer knappen Bodenmeldung eine erzählbare Reportage werden, weil der Ort selbst den Anlass sichtbar machen kann`
     ]);
     if (category === 'industry' || category === 'industrial_area') {
         if (/\b(deponie|muelldeponie|mülldeponie|altlast|abfall)\b/.test(normalizedTarget)) {
             return _missionPipelineV4PickOne([
-                `Die Lokalredaktion greift ${targetScene} die Nachnutzungsfrage "Was wird aus der alten Deponie?" auf: aus der Luft soll sichtbar werden, ob Zufahrt, Ränder und Abstellflächen eher nach stiller Brache oder beginnender Zwischennutzung aussehen`,
-                `${targetScene} steht eine kurze Dokumentation über den Wandel einer alten Deponiefläche an; die Bilder sollen zeigen, ob Wege, Randbewuchs und Betriebsränder eine neue Nutzungsthese tragen`,
+                `Die Lokalredaktion greift ${targetScene} die Nachnutzungsfrage "Was wird aus der alten Deponie?" auf; aus der Luft soll ein klarer Bildbeleg fuer stille Brache oder beginnende Zwischennutzung entstehen`,
+                `${targetScene} steht eine kurze Dokumentation über den Wandel einer alten Deponiefläche an; die Bilder sollen zeigen, ob die neue Nutzungsthese aus der Luft trägt`,
                 `${targetScene} geht es heute um eine leise, aber gute Lokalgeschichte: ob eine ehemalige Entsorgungsfläche im Ortsrandbild wieder als nutzbarer Ort erkennbar wird`
             ]);
         }
         return _missionPipelineV4PickOne([
             `Die Lokalredaktion greift ${targetScene} eine Nutzungsfrage auf: ob die Betriebsfläche aus der Luft nach Stillstand, Umbruch oder neuer Aktivität aussieht`,
-            `${targetScene} soll eine kurze Bildgeschichte zeigen, ob Zufahrten, Abstellflächen und Randzonen eine Veränderung im Gewerbeumfeld erkennen lassen`,
+            `${targetScene} soll eine kurze Fotoreportage zeigen, ob ein sichtbarer Wandel im Gewerbeumfeld erkennbar wird`,
             `${targetScene} geht es heute nicht um Technikprüfung, sondern um die sichtbare Frage, wie sich eine Betriebsfläche gerade im Ort bemerkbar macht`
         ]);
     }
     if (category === 'road') {
         return _missionPipelineV4PickOne([
-            `Die Lokalredaktion greift ${targetScene} eine Bürgerfrage auf: ob der Bereich gerade nur Durchfahrt ist oder schon als Treffpunkt, Besucherweg und Engstelle zugleich wirkt`,
-            `${targetScene} soll eine Reportage klären, warum aus einem unscheinbaren Straßenort heute ein lokaler Aufreger geworden ist; Verkehr, Zufahrt und Ränder sind nur die sichtbaren Belege`,
+            `Die Lokalredaktion greift ${targetScene} eine Bürgerfrage auf: ob aus einem unscheinbaren Straßenort gerade ein lokaler Treffpunkt oder Streitpunkt wird`,
+            `${targetScene} soll eine Reportage klären, warum aus einem unscheinbaren Straßenort heute ein lokaler Aufreger geworden ist; der Luftblick liefert nur den passenden Bildbeleg`,
             base
         ]);
     }
     if (category === 'city') {
         return _missionPipelineV4PickOne([
-            `${targetScene} greift die Redaktion eine Bürgerfrage auf: ob ein unscheinbarer Bereich im Ortsbild gerade zum Treffpunkt wird; Wege und Ränder sind nur die Bildbelege`,
-            `Die Lokalredaktion macht ${targetScene} eine kurze Bildgeschichte über einen neuen Treffpunkt im Ort; von oben soll sichtbar werden, ob Wege und Randbereiche diese These tragen`,
+            `${targetScene} greift die Redaktion eine Bürgerfrage auf: ob ein unscheinbarer Bereich im Ortsbild gerade zum Treffpunkt wird`,
+            `Die Lokalredaktion macht ${targetScene} eine kurze Fotoreportage über einen neuen Treffpunkt im Ort; von oben soll sichtbar werden, ob diese These trägt`,
             `${targetScene} soll heute aus einem Bodenhinweis eine kleine Reportage werden: ob sich an einer Stelle mehr Nutzung zeigt, als einzelne Beobachtungen erkennen lassen`
         ]);
     }
@@ -30122,20 +30284,20 @@ function _missionWriterV5NewsFallbackEvidenceLine(domain = {}, visibleContext = 
     const category = String(contract?.target?.poiCategory || contract?.profile?.pickerCategory || contract?.missionPlan?.plan?.targetCategory || '').toLowerCase();
     const focus = _missionWriterV5CleanSpineValue(domain.visibleFocus || '', 180);
     if (category === 'industry' || category === 'industrial_area') {
-        return 'Aus der Höhe sollen Zufahrten, Ränder und Abstellflächen nur die Bildbelege liefern, nicht zu einer technischen Prüfung werden.';
+        return 'Aus der Höhe soll ein einzelner klarer Bildbeleg für diese These entstehen; Betriebsdetails bleiben Nebenmaterial.';
     }
     if (category === 'road') {
-        return 'Aus der Höhe sollen Zufahrt, Wegränder, Parkdruck oder Sammelpunkte nur belegen, ob die lokale These am Ziel wirklich sichtbar wird.';
+        return 'Aus der Höhe soll ein klarer Blick auf den Schauplatz reichen; Verkehrs- oder Randdetails bleiben Nebenmaterial.';
     }
     if (category === 'city') {
-        return 'Aus der Höhe sollen Ortsbild, Wege und sichtbare Treffpunkte nur belegen, ob die Bildgeschichte wirklich trägt.';
+        return 'Aus der Höhe soll der eine Ortsbild-Beleg entstehen, der die Fotoreportage wirklich trägt.';
     }
     if (focus) {
-        return 'Aus der Höhe zählen die sichtbaren Ränder und Wege nur als Bildbelege für den Aufmacher.';
+        return 'Die sichtbaren Umfelddetails bleiben Rohmaterial; der Text nutzt nur den Beleg, der die Geschichte trägt.';
     }
     const visible = _missionWriterV5Array(visibleContext, 4, 120).filter(Boolean);
     if (visible.length) {
-        return `Als Bildbelege zählen aus der Luft vor allem ${_missionPipelineV4JoinNaturalList(visible)}.`;
+        return 'Aus der Luft soll nur der Beleg herausgearbeitet werden, der den Aufmacher wirklich trägt.';
     }
     return 'Aus der Höhe soll erkennbar werden, ob Ort, Umfeld und sichtbare Spuren die Meldung tragen.';
 }
@@ -30168,7 +30330,7 @@ function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
         .filter(Boolean)
         .slice(0, 3);
     const visible = visibleContext.length
-        ? `Als Orientierung zählen aus der Luft besonders ${_missionPipelineV4JoinNaturalList(visibleContext)}.`
+        ? 'Die sichtbaren Umfelddetails bleiben Orientierung; entscheidend ist der Beleg, der die Reporterthese trägt.'
         : '';
     let angleText = _missionWriterV5NewsConcreteAngle(angle, targetName);
     const occasionReason = _missionWriterV5CleanSpineValue(
@@ -30189,7 +30351,7 @@ function _missionWriterV5ComposeNewsCoverageStory(contract = {}, context = {}) {
         160
     );
     const programLine = occasionProgram
-        ? `Zum gewählten Aufhänger gehört ${_missionPipelineV4StripSentenceEnd(occasionProgram)}; aus der Höhe sollen ${occasionFocus || 'Ort, Umfeld und sichtbare Belege'} lesbar werden.`
+        ? `Zum gewählten Aufhänger gehört ${_missionPipelineV4StripSentenceEnd(occasionProgram)}; aus der Höhe soll der passende Bildbeleg lesbar werden.`
         : '';
     const genericFallbackAngle = _missionWriterV5NewsAngleIsPlaceholder(angleText) || _missionWriterV5NewsAngleIsPlaceholder(openQuestion);
     const reporterLine = genericFallbackAngle
@@ -30435,9 +30597,9 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
 function _missionWriterV5NewsCoverageNeedsRepair(story = '', contract = {}, context = {}) {
     const normalized = normalizeMissionText(story);
     if (!normalized) return true;
-    const hasReporterFrame = /\b(reporter|redaktion|bericht|berichterstattung|meldung|beitrag|online|bildstrecke|lageeinschaetzung|lageeinschätzung)\b/.test(normalized);
+    const hasReporterFrame = /\b(reporter|redaktion|bericht|berichterstattung|meldung|beitrag|online|fotoreportage|fotodokumentation|lageeinschaetzung|lageeinschätzung)\b/.test(normalized);
     const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|belegbar|einordnen|einordnung)\b/.test(normalized);
-    const hasOutcome = /\b(redaktion|bericht|meldung|beitrag|online|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung)\b/.test(normalized);
+    const hasOutcome = /\b(redaktion|bericht|meldung|beitrag|online|schalte|fotoreportage|fotodokumentation|fotoauswahl|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung)\b/.test(normalized);
     const hasNewsKernel = _missionWriterV5NewsStoryHasConcreteNucleus(story);
     const hasWhyHook = /\b(weil|wegen|da|nachdem|seit|heute|gerade|kurz vor|kurz nach|rund um|anlaesslich|anlässlich|zum|zur|fuer|für|damit|grund|ausloeser|auslöser|dahinter|im kern|warum)\b/.test(normalized);
     const angleMenu = _missionWriterV5NewsStoryUsesAngleMenu(story);
@@ -30652,9 +30814,9 @@ function _missionWriterV5NewsStoryCanKeepWriterOutput(raw = '', reasons = [], co
     if (!raw || !list.length || list.some(reason => reason !== 'news_coverage_weak_spine')) return false;
     const normalized = normalizeMissionText(raw);
     if (!normalized || _missionWriterV5WrongUtilityDrift(normalized) || _missionWriterV5NewsStoryIsMetaOnly(raw)) return false;
-    const hasReporterFrame = /\b(reporter|reporterin|redaktion|redakteur|redakteurin|journalist|journalistin|bericht|berichterstattung|meldung|beitrag|schalte|bildstrecke|tv-team|kamerateam|presse)\b/.test(normalized);
+    const hasReporterFrame = /\b(reporter|reporterin|redaktion|redakteur|redakteurin|journalist|journalistin|bericht|berichterstattung|meldung|beitrag|schalte|fotoreportage|fotodokumentation|tv-team|kamerateam|presse)\b/.test(normalized);
     const hasFlightValue = /\b(aus der luft|luftbild|luftbilder|luftblick|ueberblick|überblick|von oben|cockpit|perspektive|sichtbar|einordnen|einordnung|aufnahmen|bilder)\b/.test(normalized);
-    const hasNewsOutcome = /\b(redaktion|bericht|meldung|beitrag|schalte|bildstrecke|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung|sendung|online)\b/.test(normalized);
+    const hasNewsOutcome = /\b(redaktion|bericht|meldung|beitrag|schalte|fotoreportage|fotodokumentation|fotoauswahl|aufnahmen|bilder|auswertung|lageeinschaetzung|lageeinschätzung|einordnung|sendung|online)\b/.test(normalized);
     const targetCandidates = _missionWriterV5Unique([
         contract?.target?.name,
         contract?.route?.targetName,
@@ -30667,19 +30829,33 @@ function _missionWriterV5NewsStoryCanKeepWriterOutput(raw = '', reasons = [], co
     return hasReporterFrame && hasFlightValue && hasNewsOutcome && hasTarget;
 }
 
+function _missionWriterV5NormalizeNewsEditorialTerms(text = '', taskDomain = '') {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (String(taskDomain || '').toLowerCase() !== 'news_coverage' || !raw) {
+        return _missionPipelineV4PolishGermanVisibleText(raw);
+    }
+    return _missionPipelineV4PolishGermanVisibleText(raw)
+        .replace(/\bbildredaktion\b/gi, 'Fotoredaktion')
+        .replace(/\bbildstrecken\b/gi, 'Fotoreportagen')
+        .replace(/\bbildstrecke\b/gi, 'Fotoreportage')
+        .replace(/\bbildgeschichten\b/gi, 'Fotoreportagen')
+        .replace(/\bbildgeschichte\b/gi, 'Fotoreportage');
+}
+
 function _missionWriterV5FinalizeStory(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
+    const taskDomain = String(contract?.profile?.taskDomain || contract?.missionPlan?.plan?.taskDomain || '').toLowerCase();
     const reasons = _missionWriterV5StoryFallbackReasons(raw, contract, context);
     if (!reasons.length) {
         return {
-            story: _missionPipelineV4EnsureCargoRouteContext(_missionPipelineV4PolishGermanVisibleText(raw), contract),
+            story: _missionPipelineV4EnsureCargoRouteContext(_missionWriterV5NormalizeNewsEditorialTerms(raw, taskDomain), contract),
             fallbackReason: '',
             acceptedRaw: true
         };
     }
     if (_missionWriterV5NewsStoryCanKeepWriterOutput(raw, reasons, contract, context)) {
         return {
-            story: _missionPipelineV4EnsureCargoRouteContext(_missionPipelineV4PolishGermanVisibleText(raw), contract),
+            story: _missionPipelineV4EnsureCargoRouteContext(_missionWriterV5NormalizeNewsEditorialTerms(raw, taskDomain), contract),
             fallbackReason: '',
             acceptedRaw: true
         };
@@ -30689,7 +30865,7 @@ function _missionWriterV5FinalizeStory(story = '', contract = {}, context = {}) 
         sourceStory: raw
     });
     return {
-        story: _missionPipelineV4EnsureCargoRouteContext(fallback, contract),
+        story: _missionPipelineV4EnsureCargoRouteContext(_missionWriterV5NormalizeNewsEditorialTerms(fallback, taskDomain), contract),
         fallbackReason: reasons.join(','),
         acceptedRaw: false
     };
@@ -30843,9 +31019,10 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const profileId = String(contract?.profile?.id || context.dispatchProfileId || context.selectedProfile || requiredTaskDomain || 'auto').toLowerCase();
     const family = briefingBrief.missionFamily || _missionWriterV5MissionFamily(contract);
     const rawTitle = _missionWriterV5Text(src.title || '', 120);
-    const finalTitle = _missionWriterV5TitleNeedsFallback(rawTitle, contract, requiredTaskDomain, isPOI)
+    const titleCandidate = _missionWriterV5TitleNeedsFallback(rawTitle, contract, requiredTaskDomain, isPOI)
         ? _missionWriterV5DefaultTitle(contract, family)
         : rawTitle;
+    const finalTitle = _missionWriterV5NormalizeNewsEditorialTerms(titleCandidate, requiredTaskDomain);
     return {
         t: finalTitle,
         s: finalStory,
@@ -31067,10 +31244,11 @@ async function fetchMissionWriterV5(context = {}) {
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
     if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
+    const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
         buildMissionWriterV5Prompt(contract, context),
         apiKey,
-        { promptVersion: 'mission-writer-v5', timeoutMs: 16000 }
+        { promptVersion: 'mission-writer-v5', timeoutMs: selectedProvider === 'openai' ? 26000 : 16000 }
     );
     if (!result?.parsed) {
         return sanitizeMissionWriterV5Payload({}, {
@@ -31168,23 +31346,23 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Wartungsdokumentation fuer Betreiber mit stabilen Foto- und Waermebild-Passes',
             'Baufortschritts- oder Instandhaltungsdokumentation fuer Projektleitung und Betrieb',
             'Sicherheits- und Zustandskontrolle von Bruecke, Damm, Industrieanlage oder Infrastruktur',
-            'Brueckenpruefung mit Fokus auf Pfeiler, Widerlager, Fundamente und Brueckendeck',
-            'Lagebild zu Brueckensperrung, Rueckstau oder Unterfuehrung ohne Einsatzdramatisierung',
+            'Brueckenpruefung mit Fokus auf einen klaren Bauwerksbefund',
+            'Lagebild zu Brueckensperrung oder Unterfuehrung ohne Einsatzdramatisierung',
             'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage',
-            'Windpark-Vorpruefung: Anlagenreihe, Zuwegung, Trafopunkt und Kranstellflaechen fuer Betreiberwartung einordnen',
-            'Solarpark-Kontrolle: Modulreihen, Wechselrichterbereiche, Zaunlinie, Entwaesserung und Zufahrten nach Stoerungs- oder Wettermeldung pruefen',
-            'Netztrassenflug entlang Freileitung, Umspannwerk oder Mastreihe mit Fokus auf Zugang, Freihaltung und sichtbare Auffaelligkeiten',
-            'Baustellen-Lagebild mit Baufortschritt, Sperrbereichen, Kranflaechen, Zufahrt und sichtbaren Risiken fuer Projektleitung',
-            'Gebaeude- oder PV-Anlagenpruefung nach Sturm, Leckagehinweis oder Ertragsabfall mit Fokus auf Dachhaut, Modulreihen und Entwaesserung',
-            'Tankstellen- oder Tankfeldkontrolle mit Blick auf Zapfbereich, Tanklager, Zufahrt, Entwaesserung und Betreiberfreigabe',
-            'Oeffentliches Gebaeude aus der Luft pruefen: Dach, Technikaufbauten, Zugangsbereiche und sichtbare Schaeden fuer Facility Management',
-            'Pumpwerk, Wasserwerk oder Klaeranlage nach Betriebs- oder Starkregenmeldung auf Zufahrt, Becken, Technikflaechen und sichtbare Stoerstellen pruefen',
-            'Pipeline-, Gasdruckregel- oder Fernwaermepunkt mit Ventilbereich, Trassenverlauf, Zaun und Zufahrt fuer Betreiberentscheidung einordnen',
-            'Batteriespeicher, Biogas- oder Biomasseanlage mit Technikcontainern, Trafopunkt, Brandschutzabstand und Zufahrt kontrollieren',
-            'Recyclinghof, Deponie oder Umschlagplatz mit Randbereichen, Zufahrt, Materiallage und Entwaesserung sachlich dokumentieren',
+            'Windpark-Vorpruefung mit Fokus auf einen klaren Anlagenbefund fuer die Betreiberwartung',
+            'Solarpark-Kontrolle nach Stoerungs- oder Wettermeldung mit einem klaren Technik- oder Randbefund',
+            'Netztrassenflug entlang Freileitung, Umspannwerk oder Mastreihe mit Fokus auf eine sichtbare Auffaelligkeit',
+            'Baustellen-Lagebild mit einem klaren Baufortschritts- oder Risikobefund fuer Projektleitung',
+            'Gebaeude- oder PV-Anlagenpruefung nach Sturm, Leckagehinweis oder Ertragsabfall mit einem klaren Sichtbefund',
+            'Tankstellen- oder Tankfeldkontrolle mit Blick auf einen entscheidenden Betreiberbefund',
+            'Oeffentliches Gebaeude aus der Luft pruefen: ein klarer Sichtbefund fuer Facility Management',
+            'Pumpwerk, Wasserwerk oder Klaeranlage nach Betriebs- oder Starkregenmeldung auf einen klaren Befund pruefen',
+            'Pipeline-, Gasdruckregel- oder Fernwaermepunkt mit einem klaren Betreiberbefund einordnen',
+            'Batteriespeicher, Biogas- oder Biomasseanlage mit Fokus auf einen sichtbaren Anlagenbefund',
+            'Recyclinghof, Deponie oder Umschlagplatz mit einem sachlichen Nutzungs- oder Stoerbefund dokumentieren',
             'Tunnelportal, Stuetzmauer, Laermschutzwand oder Deich nach Wetter- oder Schadensmeldung aus der Luft vorpruefen',
-            'Hafen- oder Schleusenanlage mit Schleusentor, Anleger, Uferbefestigung, Betriebszugang und Treibgutlage sachlich vorpruefen',
-            'Perimeterflug fuer Betreiber: Zaunlinie, Tor, Zufahrt und Randbereich nach Sturm- oder Sichtmeldung auf sichtbare Luecken kontrollieren'
+            'Hafen- oder Schleusenanlage mit einem klaren Wasserbau- oder Betriebsbefund sachlich vorpruefen',
+            'Perimeterflug fuer Betreiber nach Sturm- oder Sichtmeldung mit einem klaren Randbefund'
         ],
         infra_chain_recon: [
             'Mehrteilige Infrastruktur-Voruntersuchung: entlang einer Objektkette Luftbilder sammeln und Erstbefund fuer Folgepruefungen erstellen',
@@ -31194,7 +31372,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         bush_recon_return: [
             'Bush-Strip-Kontrollflug mit Rueckkehr zum Heimatplatz',
-            'Backcountry-Lagebild zu Bahnzustand, Randstreifen und Anflugraum eines abgelegenen Flugplatzes',
+            'Backcountry-Lagebild zu einem klaren Zustandspunkt an einem abgelegenen Flugplatz',
             'Sturmschaden- oder Betriebscheck an Remote Strip, Vorfeldkante, Windsack und Zufahrt',
             'Kontrollflug nach Meldung ueber Hindernisse, Spurrinnen oder weiche Stellen am Bush-Strip',
             'Ranger- oder Betreiber-Check, ob Strip und Umfeld fuer den naechsten Verkehr nutzbar bleiben',
@@ -31388,7 +31566,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         bush_recon_return: [
             'Backcountry-Recon zu einem abgelegenen Strip mit Rueckkehr zum Heimatplatz',
-            'Bush-Kontrollflug mit kurzem Lagebild zu Bahnzustand, Windsack, Randstreifen oder Hindernissen und anschliessendem RTB',
+            'Bush-Kontrollflug mit kurzem Lagebild zu einem ausgewählten Platzbefund und anschliessendem RTB',
             'Abgelegener Strip-Check mit Fokus auf Betriebsflaechen, Anflugraum und sicherer Heimkehr',
             'Ranger- oder Betreiberflug, um Sturmschaeden, Spurrinnen, lose Gegenstaende oder abgestellte Fahrzeuge am Ziel zu bewerten'
         ],
@@ -33270,7 +33448,7 @@ function missionProposalPoiOptionLine(target = {}, profileId = '') {
     }
     if (profile === 'inspection_infra') {
         if (infraType === 'telecom') return 'Prüfauftrag: Mast, Standortzugang und unmittelbares Umfeld einordnen.';
-        if (railway || infraType === 'rail') return 'Prüfauftrag: Gleis-/Weichenumfeld, Signale und Zugänglichkeit dokumentieren.';
+        if (railway || infraType === 'rail') return 'Prüfauftrag: relevanten Bahninfrastruktur-Befund dokumentieren.';
         if (infraType === 'bridge' || tags.bridge) return 'Prüfauftrag: Bauwerk, Widerlager, Zufahrten und Unterseite soweit sichtbar erfassen.';
         if (infraType === 'road' || tags.highway) return 'Prüfauftrag: Verkehrsabschnitt, Randbereiche und mögliche Baustellenlage einordnen.';
         if (infraType === 'power_grid') return 'Prüfauftrag: Trasse, Masten und freie Zugänglichkeit aus ruhigen Blickwinkeln prüfen.';
