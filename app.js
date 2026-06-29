@@ -33702,6 +33702,113 @@ function missionProposalTargetKey(target = {}) {
     return `${name}|${Number.isFinite(lat) ? lat.toFixed(4) : ''}|${Number.isFinite(lon) ? lon.toFixed(4) : ''}`;
 }
 
+function missionProposalCleanLocationPart(value = '', maxLen = 56) {
+    const clean = missionProposalPolishVisibleText(value)
+        .replace(/\s*\([^)]*\)\s*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!clean) return '';
+    if (clean.length <= maxLen) return clean;
+    return `${clean.slice(0, Math.max(24, maxLen - 1)).replace(/\s+\S*$/, '').trim()}.`;
+}
+
+function missionProposalSameLocationText(a = '', b = '') {
+    if (!a || !b) return false;
+    const norm = typeof normalizeAirportSearchText === 'function'
+        ? normalizeAirportSearchText
+        : (value => String(value || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ').trim());
+    const aa = norm(a);
+    const bb = norm(b);
+    return !!(aa && bb && (aa === bb || aa.includes(bb) || bb.includes(aa)));
+}
+
+function missionProposalAirportLocationLabel(airport = {}) {
+    const code = normalizeAirportIdent(airport?.icao || '');
+    const name = missionProposalCleanLocationPart(airport?.n || airport?.name || '');
+    const city = missionProposalCleanLocationPart(airport?.city || '');
+    const airportLabel = [code, name && !missionProposalSameLocationText(name, code) ? name : '']
+        .filter(Boolean)
+        .join(' · ');
+    if (city && airportLabel && !missionProposalSameLocationText(city, name)) return `Ziel: ${city} (${airportLabel})`;
+    if (airportLabel) return `Ziel: ${airportLabel}`;
+    if (city) return `Ziel: ${city}`;
+    return '';
+}
+
+function missionProposalPoiTagPlaceLabel(target = {}) {
+    const tags = missionProposalPoiTags(target);
+    const keys = [
+        'addr:city',
+        'addr:town',
+        'addr:village',
+        'addr:place',
+        'is_in:city',
+        'is_in:town',
+        'is_in:village',
+        'municipality',
+        'place_name',
+        'is_in'
+    ];
+    for (const key of keys) {
+        const raw = missionProposalCleanLocationPart(tags?.[key] || '', 42);
+        if (raw) return raw.split(',')[0].trim();
+    }
+    return '';
+}
+
+function missionProposalNearestAirportReference(target = {}, maxNm = 45) {
+    const lat = Number(target?.lat);
+    const lon = Number(target?.lon ?? target?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const airports = (typeof globalAirports === 'object' && globalAirports) ? globalAirports : null;
+    if (!airports) return null;
+    let best = null;
+    for (const [rawCode, apt] of Object.entries(airports)) {
+        if (!apt || typeof apt !== 'object') continue;
+        const aptLat = Number(apt.lat);
+        const aptLon = Number(apt.lon ?? apt.lng);
+        if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) continue;
+        const nav = calcNav(lat, lon, aptLat, aptLon);
+        const dist = Number(nav?.dist);
+        if (!Number.isFinite(dist) || dist > maxNm) continue;
+        const code = normalizeAirportIdent(apt.icao || rawCode || '');
+        const name = missionProposalCleanLocationPart(apt.name || apt.n || '');
+        const city = missionProposalCleanLocationPart(apt.city || '');
+        const place = city || name || code;
+        const score = dist
+            + (/large_airport/i.test(String(apt.type || '')) ? 6 : 0)
+            - (city ? 1.5 : 0);
+        if (!best || score < best.score) {
+            best = {
+                code,
+                name,
+                city,
+                place,
+                distNm: Math.max(1, Math.round(dist)),
+                score
+            };
+        }
+    }
+    return best;
+}
+
+function missionProposalPoiLocationLabel(target = {}, title = '') {
+    const tagPlace = missionProposalPoiTagPlaceLabel(target);
+    const nearest = missionProposalNearestAirportReference(target);
+    const parts = [];
+    if (tagPlace && !missionProposalSameLocationText(tagPlace, title)) parts.push(tagPlace);
+    if (nearest?.place) {
+        const nearPlace = missionProposalCleanLocationPart(nearest.place, 38);
+        const detail = [
+            nearest.code && !missionProposalSameLocationText(nearest.code, nearPlace) ? nearest.code : '',
+            Number.isFinite(Number(nearest.distNm)) ? `${nearest.distNm} NM` : ''
+        ].filter(Boolean).join(', ');
+        parts.push(`nahe ${nearPlace}${detail ? ` (${detail})` : ''}`);
+    }
+    if (!parts.length) return '';
+    return `Lage: ${parts.slice(0, 2).join(' · ')}`;
+}
+
 function missionProposalCompactTarget(target = {}, mode = 'apt') {
     const isPoi = String(mode || '').toLowerCase() === 'poi';
     const lat = Number(target?.lat);
@@ -33760,6 +33867,7 @@ function compactMissionProposalChoice(choice = null) {
         title: normalized.title,
         subtitle: normalized.subtitle,
         description: normalized.description,
+        locationLabel: normalized.locationLabel,
         cargoText: normalized.cargoText,
         paxText: normalized.paxText,
         routeLabel: normalized.routeLabel,
@@ -33785,6 +33893,7 @@ function normalizeMissionProposalChoice(choice = null) {
         title: String(choice.title || target.n || target.name || 'Vorschlag').trim(),
         subtitle: String(choice.subtitle || '').trim(),
         description: String(choice.description || '').trim(),
+        locationLabel: String(choice.locationLabel || '').trim(),
         cargoText: String(choice.cargoText || '').trim(),
         paxText: String(choice.paxText || '').trim(),
         routeLabel: String(choice.routeLabel || '').trim(),
@@ -34203,6 +34312,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         const cargoTitle = missionProposalCargoTitle(cargoText, config.defaultTitle || 'Auftrag');
         const scenario = scenarios[index % Math.max(1, scenarios.length)] || {};
         const targetName = String(airport.n || airport.name || airport.icao || 'Zielplatz').trim();
+        const locationLabel = missionProposalAirportLocationLabel(airport);
         const text = missionProposalAptChoiceText(config, {
             route,
             targetName,
@@ -34221,6 +34331,7 @@ async function buildMissionProposalAptChoices(context = {}) {
             title: text.title,
             subtitle: text.subtitle,
             description: text.description,
+            locationLabel,
             routeLabel: route.label,
             cargoText,
             paxText: String(profile.paxText || config.fallbackPax || '1 PAX'),
@@ -34286,6 +34397,7 @@ async function buildMissionProposalPoiChoices(context = {}) {
         ? profile.cargoPool
         : [config.fallbackCargo || 'Auftragsausrüstung (12 lbs)'];
     const cargos = missionProposalPickCargoItems(cargoPool, Math.max(3, candidates.length));
+    try { await loadGlobalAirports(); } catch (_) {}
     return candidates.map((poi, index) => {
         const route = missionProposalFormatRoute(start, poi, 'poi');
         const targetTitle = missionProposalPoiDisplayTitle(poi, profileId);
@@ -34293,6 +34405,7 @@ async function buildMissionProposalPoiChoices(context = {}) {
         const optionLine = missionProposalPoiOptionLine(poi, profileId);
         const selectedCategory = String(poi.poiCategory || poiCategory || 'poi').toLowerCase();
         const cargoText = cargos[index % Math.max(1, cargos.length)] || config.fallbackCargo || 'Auftragsausrüstung';
+        const locationLabel = missionProposalPoiLocationLabel(poi, targetTitle);
         return normalizeMissionProposalChoice({
             id: `${profileId}-${Date.now()}-${index}`,
             mode: 'poi',
@@ -34305,6 +34418,7 @@ async function buildMissionProposalPoiChoices(context = {}) {
                 ? config.subtitle(typeLabel, poi)
                 : (typeLabel ? `${typeLabel} einordnen` : (config.fallbackSubtitle || 'POI-Ziel')),
             description: `Route: ${route.label} gesamt. ${optionLine}`,
+            locationLabel,
             routeLabel: route.label,
             cargoText,
             paxText: String(profile.paxText || config.fallbackPax || '1 PAX'),
@@ -34399,6 +34513,7 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
         const title = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.title || `Vorschlag ${index + 1}`));
         const subtitle = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.subtitle || ''));
         const description = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.description || ''));
+        const location = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.locationLabel || ''));
         const route = missionProposalEscapeHtml(choice.routeLabel || '');
         const cargo = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.cargoText || ''));
         const pax = missionProposalEscapeHtml(missionProposalPolishVisibleText(choice.paxText || ''));
@@ -34412,6 +34527,7 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
                     </div>
                     ${route ? `<div style="font-size:14px; font-weight:700; color:#111; white-space:nowrap;">${route}</div>` : ''}
                 </div>
+                ${location ? `<div style="font-size:13px; color:#333; margin-top:5px;">${location}</div>` : ''}
                 <div style="font-size:15px; line-height:1.28; margin-top:7px;">${description}</div>
                 <div style="display:flex; flex-wrap:wrap; gap:6px 12px; font-size:13px; color:#555; margin-top:8px;">
                     ${pax ? `<span>PAX: ${pax}</span>` : ''}
@@ -37674,7 +37790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1251', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1252', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
