@@ -91,6 +91,7 @@ Kontext darf nicht:
 
 - Es geht um Beobachtung, Einordnung und Berichterstattung.
 - Kontext kann den Anlass konkretisieren.
+- Jeder News-Winkel braucht eine kleine erzählte Lokalgeschichte aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung. Das Briefing darf nicht nur Planfelder wie "Meldung", "Lage", "Aufhänger", "Zufahrtslage" oder "Lageeinschätzung" umformulieren.
 - Besucherandrang braucht einen plausiblen kleinen Ausloeser mit Programmlogik. Der konkrete Anlass soll aus Zieltyp, sichtbaren Ankern und Creative Brief frei ausgestaltet werden, nicht aus einem festen Event-Katalog stammen und nicht nur behaupten, dass mehr los ist. Im Briefing darf "lokaler Anlass" nicht als Platzhalter stehen bleiben.
 - Kein Drift zu Technikinspektion, SAR oder Einsatz, wenn das nicht der berichtete Kern ist.
 
