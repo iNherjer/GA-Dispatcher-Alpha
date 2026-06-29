@@ -91,10 +91,11 @@ Kontext darf nicht:
 
 - Es geht um Beobachtung, Einordnung und Berichterstattung.
 - Kontext kann den Anlass konkretisieren.
-- Jeder News-Winkel braucht eine kleine erzählte Lokalgeschichte aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung. Das Briefing darf nicht nur Planfelder wie "Meldung", "Lage", "Aufhänger", "Zufahrtslage" oder "Lageeinschätzung" umformulieren.
-- Besucherandrang braucht einen plausiblen kleinen Ausloeser mit Programmlogik. Der konkrete Anlass soll aus Zieltyp, sichtbaren Ankern und Creative Brief frei ausgestaltet werden, nicht aus einem festen Event-Katalog stammen und nicht nur behaupten, dass mehr los ist. Im Briefing darf "lokaler Anlass" nicht als Platzhalter stehen bleiben.
-- Bei Besucherandrang an Straßen-, Tunnel- oder Zufahrts-POIs bleibt das Ereignis die News: Publikum, Programm und sichtbarer Andrang tragen die Geschichte. Straße, Tunnel, Zufahrt, Parkdruck oder Rückstau sind nur sichtbare Folgen und dürfen nicht zur Verkehrs-, Sperrungs- oder Straßenmeisterei-Analyse werden.
-- Verkehrs- oder Zufahrtswinkel sind nur dann News, wenn dahinter ein oeffentlicher Anlass, eine betroffene Gruppe oder eine konkrete lokale Wirkung steht. Ohne diesen Anlass gehoeren solche Themen eher zu Inspektion, Betrieb oder Verwaltung, nicht zum Reporterflug.
+- Jeder News-Winkel braucht eine kleine erzählte Lokalgeschichte aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung. Das Briefing darf nicht nur Planfelder wie "Meldung", "Lage", "Aufhänger", "Umfeldlage" oder "Lageeinschätzung" umformulieren.
+- News-Missionen brauchen einen berichtenswerten Kern: Headline, Vorfall, Event oder mediale Dokumentation. Der konkrete Kern soll frei aus Zieltyp, sichtbaren Ankern, Persona und Ausrüstung entstehen, nicht aus einem festen Motiv- oder Event-Katalog.
+- Der gewählte POI bleibt der Ort des Geschehens. Kontextanker dürfen die Story tragen helfen, aber Ziel, Rolle und Auftrag nicht ersetzen.
+- Bei Straßen-, Tunnel- oder Zufahrts-POIs sind Straße, Tunnel, Zufahrt, Parkdruck, Rückstau oder Wege nur sichtbare Belege, nicht automatisch die Story. Sie dürfen nicht zur technischen Betriebs- oder Infrastrukturprüfung werden.
+- Ein gutes News-Briefing beantwortet nicht immer alles vollständig, aber es sollte spürbar machen: Warum heute? Warum genau dieser POI? Warum hilft der Luftblick? Was macht die Redaktion danach mit Bildern, Notizen oder Einordnung?
 - Kein Drift zu Technikinspektion, SAR oder Einsatz, wenn das nicht der berichtete Kern ist.
 
 ### `poi_learning_guide`
