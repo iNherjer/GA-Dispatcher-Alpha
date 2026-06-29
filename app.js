@@ -22288,6 +22288,14 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
                 });
                 if (!result.ok) {
                     lastError = result.error || `http_${result.status}_${model}`;
+                    recordAiUsageEvent({
+                        provider: selectedProvider,
+                        model,
+                        source,
+                        promptVersion,
+                        status: result.status ? `http_${result.status}` : 'http_error',
+                        error: lastError
+                    });
                     continue;
                 }
                 const parsedResult = _missionParseJsonTextDetailed(result.text);
@@ -22316,6 +22324,14 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
                 return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', usage: result.usage || null };
             } catch (err) {
                 lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+                recordAiUsageEvent({
+                    provider: selectedProvider,
+                    model,
+                    source,
+                    promptVersion,
+                    status: err?.name === 'AbortError' ? 'timeout' : 'error',
+                    error: lastError
+                });
             }
         }
         return { parsed: null, source: 'none', provider: selectedProvider, promptVersion, error: lastError || 'planner_failed' };
@@ -26239,14 +26255,16 @@ ${JSON.stringify(contextBundle)}
 
 async function fetchMissionPlannerV4(context = {}) {
     if (!isMissionPipelineV4Enabled()) return null;
-    const apiKey = getSelectedAiApiKey();
+    const selectedProvider = getSelectedAiProvider();
+    const apiKey = getSelectedAiApiKey(selectedProvider);
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const { working, bundle } = await _missionPipelineV4ResolveContextBundle(context, draft);
+    const timeoutMs = selectedProvider === 'openai' ? 24000 : 12000;
     const result = await fetchGeminiJsonWithFallback(
         _missionPipelineV4Prompt(draft, bundle),
         apiKey,
-        { promptVersion: 'planner-v4-direct', timeoutMs: 12000 }
+        { provider: selectedProvider, promptVersion: 'planner-v4-direct', timeoutMs }
     );
     const resolvedNeeds = {
         geo_context: working.targetGeoContext || context.targetGeoContext || null,
