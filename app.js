@@ -5025,16 +5025,16 @@ const AI_TEXT_MODEL_PROFILES = {
     },
     openai: {
         auto: [
-            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText'],
-            ['gpt-5.4-nano', 'OpenAI GPT-5.4 Nano', 'openaiText']
+            ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText'],
+            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText']
         ],
         economy: [
             ['gpt-5.4-nano', 'OpenAI GPT-5.4 Nano', 'openaiText'],
             ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText']
         ],
         quality: [
-            ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText'],
-            ['gpt-5.4-mini', 'OpenAI GPT-5.4 Mini', 'openaiText']
+            ['gpt-5.5', 'OpenAI GPT-5.5', 'openaiText'],
+            ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText']
         ]
     }
 };
@@ -5046,9 +5046,9 @@ const AI_COST_ESTIMATE_COPY = {
         quality: 'Text grob $0.02-0.08 pro Mission. Voice mit 3.1 TTS: ca. $0.01-0.08 extra bei 5-15 Saetzen.'
     },
     openai: {
-        auto: 'Text grob $0.02-0.05 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.05 extra, je nach Audiolaenge.',
+        auto: 'Text grob $0.04-0.12 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.05 extra, je nach Audiolaenge.',
         economy: 'Text grob $0.005-0.02 pro Mission. Voice bleibt separat: ca. $0.01-0.05 extra bei 5-15 Saetzen.',
-        quality: 'Text grob $0.06-0.15 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.'
+        quality: 'Text grob $0.08-0.25 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.'
     }
 };
 
