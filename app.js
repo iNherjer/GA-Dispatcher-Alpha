@@ -5052,6 +5052,109 @@ const AI_COST_ESTIMATE_COPY = {
     }
 };
 
+const AI_USAGE_EVENT_LIMIT = 160;
+
+function normalizeAiUsageTokens(usage = {}) {
+    if (!usage || typeof usage !== 'object') return null;
+    const promptTokens = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0);
+    const completionTokens = Number(usage.completion_tokens ?? usage.output_tokens ?? 0);
+    const totalTokens = Number(usage.total_tokens ?? (promptTokens + completionTokens));
+    const cachedTokens = Number(
+        usage.prompt_tokens_details?.cached_tokens
+        ?? usage.input_tokens_details?.cached_tokens
+        ?? 0
+    );
+    const reasoningTokens = Number(
+        usage.completion_tokens_details?.reasoning_tokens
+        ?? usage.output_tokens_details?.reasoning_tokens
+        ?? 0
+    );
+    if (![promptTokens, completionTokens, totalTokens, cachedTokens, reasoningTokens].some(Number.isFinite)) return null;
+    return {
+        promptTokens: Number.isFinite(promptTokens) ? Math.max(0, Math.round(promptTokens)) : 0,
+        completionTokens: Number.isFinite(completionTokens) ? Math.max(0, Math.round(completionTokens)) : 0,
+        totalTokens: Number.isFinite(totalTokens) ? Math.max(0, Math.round(totalTokens)) : 0,
+        cachedTokens: Number.isFinite(cachedTokens) ? Math.max(0, Math.round(cachedTokens)) : 0,
+        reasoningTokens: Number.isFinite(reasoningTokens) ? Math.max(0, Math.round(reasoningTokens)) : 0
+    };
+}
+
+function getAiUsageEventCount() {
+    return Array.isArray(window.gaAiUsageEvents) ? window.gaAiUsageEvents.length : 0;
+}
+window.getAiUsageEventCount = getAiUsageEventCount;
+
+function recordAiUsageEvent(event = {}) {
+    if (typeof window === 'undefined') return null;
+    const usage = normalizeAiUsageTokens(event.usage || null);
+    const entry = {
+        ts: Date.now(),
+        provider: normalizeAiProvider(event.provider || getSelectedAiProvider()),
+        model: String(event.model || ''),
+        source: String(event.source || ''),
+        promptVersion: String(event.promptVersion || ''),
+        status: String(event.status || 'ok'),
+        error: event.error ? String(event.error).slice(0, 180) : '',
+        usage
+    };
+    const events = Array.isArray(window.gaAiUsageEvents) ? window.gaAiUsageEvents : [];
+    events.push(entry);
+    while (events.length > AI_USAGE_EVENT_LIMIT) events.shift();
+    window.gaAiUsageEvents = events;
+    window.gaAiUsageLast = entry;
+    return entry;
+}
+window.recordAiUsageEvent = recordAiUsageEvent;
+
+function getAiUsageEventsSince(startIndex = 0) {
+    const events = Array.isArray(window.gaAiUsageEvents) ? window.gaAiUsageEvents : [];
+    const index = Math.max(0, Math.min(events.length, Math.floor(Number(startIndex) || 0)));
+    return events.slice(index);
+}
+window.getAiUsageEventsSince = getAiUsageEventsSince;
+
+function summarizeAiUsageEvents(events = []) {
+    const list = (Array.isArray(events) ? events : []).filter(event => event && typeof event === 'object');
+    if (!list.length) return null;
+    const summary = {
+        calls: list.length,
+        openaiTextCalls: list.filter(event => event.provider === 'openai').length,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        cachedTokens: 0,
+        reasoningTokens: 0,
+        models: {},
+        promptVersions: {},
+        events: []
+    };
+    list.forEach(event => {
+        const usage = normalizeAiUsageTokens(event.usage || null);
+        const model = String(event.model || 'unknown');
+        const promptVersion = String(event.promptVersion || 'unknown');
+        summary.models[model] = (summary.models[model] || 0) + 1;
+        summary.promptVersions[promptVersion] = (summary.promptVersions[promptVersion] || 0) + 1;
+        if (usage) {
+            summary.promptTokens += usage.promptTokens;
+            summary.completionTokens += usage.completionTokens;
+            summary.totalTokens += usage.totalTokens;
+            summary.cachedTokens += usage.cachedTokens;
+            summary.reasoningTokens += usage.reasoningTokens;
+        }
+        summary.events.push({
+            provider: event.provider,
+            model,
+            source: event.source || '',
+            promptVersion,
+            status: event.status || 'ok',
+            usage
+        });
+    });
+    summary.note = 'OpenAI liefert echte Token-Usage, aber keinen Rechnungsbetrag pro Response; Kosten bitte mit aktueller Preistabelle oder Dashboard abgleichen.';
+    return summary;
+}
+window.summarizeAiUsageEvents = summarizeAiUsageEvents;
+
 function normalizeAiProvider(provider) {
     return String(provider || '').toLowerCase() === 'openai' ? 'openai' : 'gemini';
 }
@@ -22190,9 +22293,26 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
                 const parsedResult = _missionParseJsonTextDetailed(result.text);
                 if (parsedResult?.parsed === null || parsedResult?.parsed === undefined) {
                     lastError = `json_parse_${model}_${parsedResult?.mode || 'failed'}:${parsedResult?.error || 'unknown'}`;
+                    recordAiUsageEvent({
+                        provider: selectedProvider,
+                        model,
+                        source,
+                        promptVersion,
+                        status: 'json_parse_failed',
+                        error: lastError,
+                        usage: result.usage || null
+                    });
                     continue;
                 }
                 incrementApiUsage(usageKey);
+                recordAiUsageEvent({
+                    provider: selectedProvider,
+                    model,
+                    source,
+                    promptVersion,
+                    status: 'ok',
+                    usage: result.usage || null
+                });
                 return { parsed: parsedResult.parsed, source, provider: selectedProvider, model, promptVersion, parseMode: parsedResult.mode || 'direct', usage: result.usage || null };
             } catch (err) {
                 lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
@@ -33953,6 +34073,7 @@ async function generateMission(options = {}) {
         ? performance.now()
         : Date.now();
     const dispatchPerf = {};
+    const dispatchAiUsageStartIndex = getAiUsageEventCount();
     const dispatchPhaseStart = (phase) => {
         dispatchPerf[phase] = { startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now() };
         setMissionGenerationProgress(phase);
@@ -34002,6 +34123,7 @@ async function generateMission(options = {}) {
             phases
         };
     };
+    const dispatchAiUsageSnapshot = () => summarizeAiUsageEvents(getAiUsageEventsSince(dispatchAiUsageStartIndex));
     try {
     const btn = document.getElementById('generateBtn');
     const rBtn = document.getElementById('radioGenerateBtn');
@@ -35689,7 +35811,8 @@ async function generateMission(options = {}) {
             extraFacts: knowledgeContext.extraSelectedFacts || 0,
             availableFacts: knowledgeContext.availableFacts || knowledgeContext.selectedFacts || 0
         } : null,
-        perf: dispatchPerfSnapshot()
+        perf: dispatchPerfSnapshot(),
+        aiUsage: dispatchAiUsageSnapshot()
     };
     console.debug('[DISPATCH]', dispatchSnapshot);
 
@@ -35850,6 +35973,7 @@ async function generateMission(options = {}) {
         missionPipelineMode: getMissionPipelineMode(),
         missionWriterMode: getMissionWriterMode(),
         dispatchPerf: dispatchPerfSnapshot(),
+        aiUsage: dispatchAiUsageSnapshot(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -36097,6 +36221,7 @@ async function generateMission(options = {}) {
             missionPlanV3: currentMissionData.missionPlanV3 || null,
             missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
             dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
+            aiUsage: currentMissionData.aiUsage || dispatchAiUsageSnapshot(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
@@ -36200,6 +36325,7 @@ async function generateMission(options = {}) {
             missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
             missionPipelineV3Enabled: isMissionPipelineV3Enabled(),
             missionPipelineV4Enabled: isMissionPipelineV4Enabled(),
+            aiUsage: currentMissionData.aiUsage || dispatchAiUsageSnapshot(),
             missionVariety: currentMissionData.missionVariety
                 || currentMissionData.missionContractV4?.pickupCreativeBrief?.variety
                 || currentMissionData.missionContractV4?.missionVarietyBrief?.variety

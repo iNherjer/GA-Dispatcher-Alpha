@@ -3811,6 +3811,34 @@ window.vpBuildWeatherDebugReport = function() {
             }
         }
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
+        const aiUsage = missionSnap.aiUsage && typeof missionSnap.aiUsage === 'object' ? missionSnap.aiUsage : null;
+        if (aiUsage && Number.isFinite(Number(aiUsage.calls)) && Number(aiUsage.calls) > 0) {
+            const promptTokens = Number(aiUsage.promptTokens || 0);
+            const completionTokens = Number(aiUsage.completionTokens || 0);
+            const totalTokens = Number(aiUsage.totalTokens || 0);
+            const tokenBits = [
+                `calls=${Number(aiUsage.calls)}`,
+                Number(aiUsage.openaiTextCalls || 0) ? `openai=${Number(aiUsage.openaiTextCalls)}` : '',
+                totalTokens ? `tokens=${totalTokens}` : '',
+                promptTokens || completionTokens ? `in/out=${promptTokens}/${completionTokens}` : '',
+                Number(aiUsage.cachedTokens || 0) ? `cached=${Number(aiUsage.cachedTokens)}` : '',
+                Number(aiUsage.reasoningTokens || 0) ? `reasoning=${Number(aiUsage.reasoningTokens)}` : ''
+            ].filter(Boolean);
+            lines.push(`- AI Usage: ${tokenBits.join(' | ')} | Kosten: Tokenbasis, kein Rechnungsbetrag in API-Antwort`);
+            const modelBits = Object.entries(aiUsage.models || {})
+                .map(([model, count]) => `${flattenText(model, 36)}×${count}`)
+                .slice(0, 6);
+            if (modelBits.length) lines.push(`- AI Usage Modelle: ${modelBits.join(' | ')}`);
+            const eventBits = (Array.isArray(aiUsage.events) ? aiUsage.events : [])
+                .slice(0, 6)
+                .map(event => {
+                    const usage = event?.usage || {};
+                    const total = Number(usage.totalTokens || 0);
+                    const status = event?.status && event.status !== 'ok' ? `/${event.status}` : '';
+                    return `${flattenText(event?.promptVersion || '-', 28)}:${flattenText(event?.model || '-', 24)}${status}${total ? ` ${total}t` : ''}`;
+                });
+            if (eventBits.length) lines.push(`- AI Usage Calls: ${eventBits.join(' | ')}`);
+        }
         if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
         if (missionSnap.poiLookup && typeof missionSnap.poiLookup === 'object') {
             const lk = missionSnap.poiLookup;
