@@ -14336,12 +14336,15 @@ function enforceAptTrainingMission(mission = null, destName = '') {
         : 'Airwork- und Verfahrenstraining';
     const instructorName = String(passenger?.name || 'Der Instruktor').trim();
     const instructorRole = String(passenger?.role || 'Instruktor').trim();
-    const instructorCue = String(passenger?.storySeed || '').trim();
+    const instructorCue = String(passenger?.storySeed || '')
+        .replace(/\{name\}/g, instructorName)
+        .replace(/\{targetName\}/g, target)
+        .trim();
     const cargoOptions = Array.isArray(TRAINING_CARGO_ITEMS) && TRAINING_CARGO_ITEMS.length ? TRAINING_CARGO_ITEMS : ['Trainingsunterlagen (10 lbs)'];
     const cargoText = cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
     m.i = m.i || '🧑‍✈️';
     m.t = `Trainingsflug nach ${target}`;
-    m.s = `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Der Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
+    m.s = _missionPipelineV4PolishGermanVisibleText(`Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Der Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`);
     m.cat = 'trn';
     m.passenger = passenger;
     m.pax = '1 PAX (Instruktor)';
@@ -17677,6 +17680,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         if (profile.id === 'cargo_fragile') {
             m.cargo = cargoText;
             m.cargoText = cargoText;
+        } else if (profile.id === 'medical_transfer') {
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
         } else if (profile.id === 'news_coverage') {
             m.cargo = cargoText;
             m.cargoText = cargoText;
@@ -17707,6 +17713,67 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             if (!String(m.t || '').trim() || /^mission\s+nach\b/i.test(String(m.t || '').trim())) {
                 m.t = targetTitle ? `Tiertransport nach ${targetTitle}` : 'Tiertransport';
             }
+        }
+    }
+    if (profile.id === 'medical_transfer') {
+        const medicalCargo = _missionPipelineV4CleanCargoLabel(cargoText || m.cargo || m.cargoText || '');
+        if (medicalCargo) {
+            m.cargo = medicalCargo;
+            m.cargoText = medicalCargo;
+            cargoText = medicalCargo;
+        }
+        const medicalBaseContract = m?._missionContractV4 || m?.missionContractV4 || {};
+        const medicalContract = {
+            ...medicalBaseContract,
+            cargoText: medicalCargo || cargoText || medicalBaseContract.cargoText || '',
+            profile: {
+                ...(medicalBaseContract.profile || {}),
+                id: 'medical_transfer',
+                taskDomain: 'medical_transfer'
+            }
+        };
+        const medicalContext = {
+            passenger: m.passenger,
+            cargoText: medicalCargo || cargoText || ''
+        };
+        const existingStory = String(m.s || m.story || m.missionStory || '').trim();
+        if (_missionWriterV5DomainStoryNeedsRepair('medical_transfer', existingStory, medicalContract, medicalContext)) {
+            const repairedStory = _missionWriterV5ComposeMedicalTransferStory(medicalContract, medicalContext);
+            if (repairedStory) {
+                m.s = repairedStory;
+                m.story = repairedStory;
+                m.missionStory = repairedStory;
+            }
+        }
+        const titleText = String(m.t || m.title || m.mission || '').trim();
+        if (!titleText || /\b(vereins[-\s]?shuttle|sightseeing|tiertransport|training|krankentransport)\b/i.test(titleText)) {
+            const targetLabel = String(medicalContract?.target?.name || medicalContract?.route?.targetName || m.targetName || '').trim();
+            m.t = targetLabel ? `Medizin-Kurier nach ${targetLabel}` : 'Medizin-Kurierflug';
+        }
+    }
+    if (profile.id === 'media_photo' && isPOI) {
+        const mediaContract = m?._missionContractV4 || m?.missionContractV4 || {};
+        const existingStory = String(m.s || m.story || m.missionStory || '').trim();
+        if (_missionWriterV5DomainStoryNeedsRepair('media_photo', existingStory, mediaContract, {
+            passenger: m.passenger,
+            cargoText
+        })) {
+            const repairedStory = _missionWriterV5ComposeMediaPhotoStory(mediaContract, {
+                passenger: m.passenger,
+                cargoText
+            });
+            if (repairedStory) {
+                m.s = repairedStory;
+                m.story = repairedStory;
+                m.missionStory = repairedStory;
+            }
+        }
+        const sceneText = _missionWriterV5SceneIntentText(m.sceneIntent || {});
+        if (_missionWriterV5DomainStoryNeedsRepair('media_photo', sceneText, mediaContract, {
+            passenger: m.passenger,
+            cargoText
+        })) {
+            m.sceneIntent = _missionWriterV5ComposeDomainSceneIntent(mediaContract, 'media_photo', isPOI);
         }
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
@@ -27020,6 +27087,12 @@ function _missionWriterV5DefaultTitle(contract = {}, family = '') {
     if (family === 'poi_sightseeing') return `Blickrunde: ${target}`;
     if (family === 'cargo_transport') return `Transport nach ${target}`;
     if (family === 'animal_transport') return `Tiertransport nach ${target}`;
+    if (family === 'media_photo') return `Bildserie: ${target}`;
+    if (family === 'mapping_survey') return `Survey-Flug: ${target}`;
+    if (family === 'science_bio') return `Umweltbeobachtung: ${target}`;
+    if (family === 'science_geo') return `Reliefbeobachtung: ${target}`;
+    if (family === 'historian_guided_tour') return `Historischer Blick: ${target}`;
+    if (family === 'medical_transfer') return `Medizinischer Transfer nach ${target}`;
     if (family === 'search_and_rescue' || family === 'sar_heli') return `Sucheinsatz bei ${target}`;
     if (family === 'infra_chain_recon') return `Korridor-Erstbefund: ${target}`;
     if (family === 'news_coverage') return `Reporterflug über ${target}`;
@@ -27082,6 +27155,21 @@ function _missionWriterV5TitleNeedsFallback(title = '', contract = {}, taskDomai
     if (domain === 'sightseeing_tour') {
         if (/\b(verein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|charter|shuttle)\b/.test(normalized)) return true;
         if (!isPOI && /\b(burger|flugplatzcafe|flugplatzcafé|wellness|wandern|wanderung|familienbesuch)\b/.test(normalized)) return true;
+    }
+    if (domain === 'media_photo') {
+        return /\b(ufer[-\s]?check|wasserbehoerde|wasserbehörde|inspektion|pruefung|prüfung|technikteam|betreibercheck|rettung|sar|brand|feuer)\b/.test(normalized);
+    }
+    if (domain === 'mapping_survey') {
+        return /\b(verein|vereins|charter|shuttle|sightseeing|rundflug|ufer[-\s]?check|rettung|sar|brand|feuer)\b/.test(normalized);
+    }
+    if (domain === 'science_bio') {
+        return /\b(baustellen[-\s]?check|technikteam|inspektion|pruefung|prüfung|survey|vermessung|rettung|sar|brand|feuer)\b/.test(normalized);
+    }
+    if (domain === 'science_geo') {
+        return /\b(baustellen[-\s]?check|technikteam|inspektion|pruefung|prüfung|survey|vermessung|bio|habitat|rettung|sar|brand|feuer)\b/.test(normalized);
+    }
+    if (domain === 'historian_guided_tour') {
+        return /\b(ufer[-\s]?check|wasserbehoerde|wasserbehörde|inspektion|pruefung|prüfung|technikteam|rettung|sar|brand|feuer|reporterflug)\b/.test(normalized);
     }
     return false;
 }
@@ -27669,6 +27757,13 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             shipment: _missionWriterV5Text(cargoLabel, 160),
             handlingFocus: spine.whyNow || 'ruhige Fluglage und eine nachvollziehbare Übergabe sind wichtiger als Tempo',
             receiverOrNextStep: spine.outcome || spine.completion || 'der Zielkontakt übernimmt die Sendung am Vorfeld und gibt den nächsten Arbeitsschritt frei'
+        };
+    }
+    if (taskDomain === 'media_photo') {
+        return {
+            imagePurpose: spine.concreteAngle || spine.premise || `eine verwertbare Bildserie von ${targetName}`,
+            motifLogic: spine.flightValue || 'Ort, Objekt und Umgebung als zusammenhängendes Motiv lesbar machen',
+            usageAfterFlight: spine.outcome || spine.completion || 'Fotos und kurze Notizen gehen danach in Beitrag, Ortsmarketing oder Projektdokumentation'
         };
     }
     if (taskDomain === 'mapping_survey') {
@@ -28690,6 +28785,7 @@ function _missionPipelineV4PolishGermanVisibleText(text = '') {
     if (!out) return out;
     [
         [/\bFuer\b/g, 'Für'], [/\bfuer\b/g, 'für'],
+        [/\bFuehr/g, 'Führ'], [/\bfuehr/g, 'führ'],
         [/\bUebersicht\b/g, 'Übersicht'], [/\buebersicht\b/g, 'Übersicht'],
         [/\bUeber\b/g, 'Über'], [/\bueber\b/g, 'über'],
         [/\bUebergeb/g, 'Übergeb'], [/\buebergeb/g, 'übergeb'],
@@ -28713,6 +28809,15 @@ function _missionPipelineV4PolishGermanVisibleText(text = '') {
         [/\bEinzelpruef/g, 'Einzelprüf'], [/\beinzelpruef/g, 'einzelprüf'],
         [/\bBodenpruef/g, 'Bodenprüf'], [/\bbodenpruef/g, 'bodenprüf'],
         [/\bPruef/g, 'Prüf'], [/\bpruef/g, 'prüf'],
+        [/\bUebung/g, 'Übung'], [/\buebung/g, 'übung'],
+        [/\bManoever/g, 'Manöver'], [/\bmanoever/g, 'manöver'],
+        [/\bHaenge/g, 'Hänge'], [/\bhaenge/g, 'hänge'],
+        [/\bAnflueg/g, 'Anflüg'], [/\banflueg/g, 'anflüg'],
+        [/\bBlickfuehrung/g, 'Blickführung'], [/\bblickfuehrung/g, 'blickführung'],
+        [/\bBroschuere/g, 'Broschüre'], [/\bbroschuere/g, 'broschüre'],
+        [/\bEmpfaeng/g, 'Empfäng'], [/\bempfaeng/g, 'empfäng'],
+        [/\bKuehl/g, 'Kühl'], [/\bkuehl/g, 'kühl'],
+        [/\bGeraet/g, 'Gerät'], [/\bgeraet/g, 'gerät'],
         [/\bGeprueft\b/g, 'Geprüft'], [/\bgeprueft\b/g, 'geprüft'],
         [/\bAuffaellig/g, 'Auffällig'], [/\bauffaellig/g, 'auffällig'],
         [/\bUnauffaellig/g, 'Unauffällig'], [/\bunauffaellig/g, 'unauffällig'],
@@ -30099,6 +30204,13 @@ function _missionWriterV5PassengerLabel(passenger = {}, fallback = 'die Gäste')
     return fallback;
 }
 
+function _missionWriterV5PassengerVerbPhrase(passenger = {}, fallback = 'die Fachperson', verbPhrase = 'ist an Bord') {
+    const label = _missionWriterV5PassengerLabel(passenger, fallback);
+    const verb = String(verbPhrase || 'ist an Bord').replace(/\s+/g, ' ').trim();
+    if (!verb) return label;
+    return label.includes(',') ? `${label}, ${verb}` : `${label} ${verb}`;
+}
+
 function _missionWriterV5ReporterRoleLabel(role = '', gender = '') {
     const rawRole = String(role || '');
     const normalized = normalizeMissionText(role);
@@ -30505,9 +30617,22 @@ function _missionWriterV5DomainForm(contract = {}, context = {}) {
 }
 
 function _missionWriterV5CleanDomainSentence(value = '', fallback = '') {
-    const clean = _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(value || '')).trim();
+    let clean = _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(value || '')).trim();
+    clean = clean.replace(/^wir\s+sollen\s+/i, '').replace(/^wir\s+müssen\s+/i, '').trim();
     if (clean) return clean;
-    return _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(fallback || '')).trim();
+    clean = _missionPipelineV4StripSentenceEnd(_missionPipelineV4PolishGermanVisibleText(fallback || '')).trim();
+    return clean.replace(/^wir\s+sollen\s+/i, '').replace(/^wir\s+müssen\s+/i, '').trim();
+}
+
+function _missionWriterV5CleanOutcomeSentence(value = '', fallback = '') {
+    const clean = _missionWriterV5CleanDomainSentence(value, '');
+    const normalized = normalizeMissionText(clean);
+    const looksLikeActionFragment = /^(?:eine|einen|den|die|das|klaeren|klären|liefern|einordnen)\b/.test(normalized)
+        && /\b(?:liefern|einordnen|klaeren|klären|bereitstellen|abgeben)\b/.test(normalized);
+    const looksLikePurposeFragment = /\bso\s+einordnen,\s+dass\b/.test(normalized);
+    const hasFiniteVerb = /\b(?:geht|gehen|fliesst|fließt|fliessen|fließen|hilft|helfen|ergaenzt|ergänzt|ergaenzen|ergänzen|nutzt|nutzen|uebernimmt|übernimmt|bleibt|bleiben|wird|werden|soll|sollen|kommt|kommen|startet|starten|dient|dienen|liegt|liegen|passt|passen|taugt|tragen|traegt|trägt)\b/.test(normalized);
+    if (clean && hasFiniteVerb && !looksLikeActionFragment && !looksLikePurposeFragment) return clean;
+    return _missionWriterV5CleanDomainSentence(fallback, '');
 }
 
 function _missionWriterV5ReasonClause(value = '', fallback = '') {
@@ -30517,8 +30642,17 @@ function _missionWriterV5ReasonClause(value = '', fallback = '') {
     if (/^weil\b/.test(normalized)) return _missionPipelineV4LowerFirst(clean);
     if (/^dass\b/.test(normalized)) return _missionPipelineV4LowerFirst(clean);
     if (/^(ob|wie|warum|welch|welche|welcher|welches)\b/.test(normalized)) return `geklärt werden soll, ${_missionPipelineV4LowerFirst(clean)}`;
-    if (/\b(ist|sind|steht|stehen|fehlt|fehlen|braucht|brauchen|wartet|warten|läuft|laeuft|laufen|soll|sollen|muss|muessen|müssen|geht|gehen|zaehlt|zählt)\b/.test(normalized)) {
-        return _missionPipelineV4LowerFirst(clean);
+    if (/\b(ist|sind|steht|stehen|fehlt|fehlen|braucht|brauchen|wartet|warten|läuft|laeuft|laufen|soll|sollen|muss|muessen|müssen|geht|gehen|zaehlt|zählt|reist|reisen)\b/.test(normalized)) {
+        return /^(?:der|die|das|ein|eine|einen|einem|einer)\b/i.test(clean)
+            ? _missionPipelineV4LowerFirst(clean)
+            : clean;
+    }
+    if (/^(ein|eine|einen|einem|einer|der|die|das)\b/.test(normalized)) {
+        const subject = clean
+            .replace(/^einen\b/i, 'ein')
+            .replace(/^einem\b/i, 'ein')
+            .replace(/^einer\b/i, 'eine');
+        return `${_missionPipelineV4LowerFirst(subject)} aus der Luft eingeordnet werden soll`;
     }
     return `es um ${_missionPipelineV4LowerFirst(clean)} geht`;
 }
@@ -30533,19 +30667,132 @@ function _missionWriterV5ObservationSentence(value = '', fallback = '') {
     return _missionPipelineV4EnsureSentence(clean);
 }
 
+function _missionWriterV5SceneIntentText(sceneIntent = {}) {
+    if (!sceneIntent || typeof sceneIntent !== 'object') return '';
+    return [
+        sceneIntent.summary,
+        sceneIntent.environment,
+        ...(Array.isArray(sceneIntent.visibleIdeas) ? sceneIntent.visibleIdeas : []),
+        ...(Array.isArray(sceneIntent.avoid) ? sceneIntent.avoid : []),
+        sceneIntent.notes
+    ].map(value => String(value || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
+}
+
+function _missionWriterV5ComposeDomainSceneIntent(contract = {}, taskDomain = '', isPOI = false) {
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Ziel', 120);
+    const domain = String(taskDomain || contract?.profile?.taskDomain || '').toLowerCase();
+    if (!isPOI) {
+        return {
+            summary: 'A-B-Flug ohne Zielszene.',
+            environment: '',
+            visibleIdeas: [],
+            avoid: [],
+            densityHint: 'none',
+            notes: ''
+        };
+    }
+    const commonAvoid = ['keine Umwidmung zu Technik-, Einsatz- oder Wasserlage'];
+    if (domain === 'media_photo') {
+        return {
+            summary: `Am Ziel soll ${targetName} als verwertbares Bildmotiv mit Lage, Wiedererkennungswert und Umfeld lesbar werden.`,
+            environment: 'Motiv, Lage und direktes Umfeld',
+            visibleIdeas: ['ruhige Bildserie', 'klarer Wiedererkennungswert', 'Motiv und Umgebung im Zusammenhang'],
+            avoid: commonAvoid,
+            densityHint: 'none',
+            notes: 'Die Szene unterstützt Foto-/Filmaufnahmen, nicht Sightseeing und keine technische Prüfung.'
+        };
+    }
+    if (domain === 'historian_guided_tour') {
+        return {
+            summary: `Am Ziel soll ${targetName} als historischer Ort mit Lagebezug, Wegen, Bauachsen oder Ortsbild lesbar werden.`,
+            environment: 'Historische Lage, Ortsbild und sichtbare Bezüge',
+            visibleIdeas: ['historische Ortslesart', 'Lagebezug', 'alte Wege oder Bauachsen'],
+            avoid: commonAvoid,
+            densityHint: 'none',
+            notes: 'Der Luftblick dient der historischen Einordnung, nicht einer Wasser-, Einsatz- oder Inspektionsszene.'
+        };
+    }
+    if (domain === 'science_bio') {
+        return {
+            summary: `Am Ziel bleibt ${targetName} eine biologische oder ökologische Beobachtung aus der Luft.`,
+            environment: 'Habitat, Vegetation oder Randzone',
+            visibleIdeas: ['Habitatgrenze', 'Vegetationsmuster', 'Monitoringbezug'],
+            avoid: ['keine technische Inspektion', 'keine Einsatzlage'],
+            densityHint: 'none',
+            notes: 'Die Szene soll Feldarbeit oder Monitoring vorbereiten.'
+        };
+    }
+    if (domain === 'science_geo') {
+        return {
+            summary: `Am Ziel bleibt ${targetName} eine geologische oder geomorphologische Lesart aus der Luft.`,
+            environment: 'Relief, Hangform oder Geländekante',
+            visibleIdeas: ['Reliefbezug', 'Erosions- oder Sedimenthinweis', 'Geländelesart'],
+            avoid: ['keine Bioanalyse', 'keine technische Inspektion', 'keine Einsatzlage'],
+            densityHint: 'none',
+            notes: 'Die Szene soll Kartierung, Studie oder Bodenbegehung vorbereiten.'
+        };
+    }
+    if (domain === 'mapping_survey') {
+        return {
+            summary: `Am Ziel soll ${targetName} als sauber erfassbare Survey-Fläche mit reproduzierbarer Bildgeometrie lesbar werden.`,
+            environment: 'Survey-Ziel, Passes und Auswertungsbezug',
+            visibleIdeas: ['gleichmäßige Erfassung', 'klare Zielgeometrie', 'verwertbare Bildfolge'],
+            avoid: ['keine Sightseeing-Story', 'keine technische Schadensdiagnose'],
+            densityHint: 'none',
+            notes: 'Die Szene unterstützt Mapping, Orthofoto oder Projektvergleich.'
+        };
+    }
+    return {
+        summary: `Am Ziel bleibt ${targetName} das Hauptmotiv der Mission.`,
+        environment: '',
+        visibleIdeas: [],
+        avoid: [],
+        densityHint: 'none',
+        notes: ''
+    };
+}
+
+function _missionWriterV5ComposeMediaPhotoStory(contract = {}, context = {}) {
+    const { form } = _missionWriterV5DomainForm(contract, context);
+    const domain = form.domainDetails || {};
+    const routeSentence = _missionWriterV5RouteSentence(contract);
+    const weatherSentence = _missionWriterV5WeatherSentence(contract);
+    const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielgebiet', 120);
+    const passengerLine = _missionWriterV5PassengerVerbPhrase(context?.passenger || {}, 'die Foto- oder Medienbegleitung', 'begleitet den Flug');
+    const imagePurpose = _missionWriterV5CleanDomainSentence(domain.imagePurpose, `eine verwertbare Bildserie von ${targetName}`);
+    const motifLogic = _missionWriterV5CleanDomainSentence(domain.motifLogic, 'Ort, Objekt und Umgebung als zusammenhängendes Motiv lesbar machen');
+    const usage = _missionWriterV5CleanOutcomeSentence(domain.usageAfterFlight, 'Fotos und kurze Notizen gehen danach in Beitrag, Ortsmarketing oder Projektdokumentation');
+    const imagePurposeClause = (() => {
+        const clean = _missionPipelineV4PolishGermanVisibleText(imagePurpose);
+        const normalized = normalizeMissionText(clean);
+        const relativeOnly = clean.match(/^(.+?),\s+(?:die|der|das)\s+.+\bsoll(?:en)?\b\.?$/i);
+        if (relativeOnly && /^(?:ein|eine|einen|der|die|das)\b/.test(normalized)) {
+            return `${_missionPipelineV4LowerFirst(relativeOnly[1])} klares Luftbildmaterial braucht`;
+        }
+        return _missionWriterV5ReasonClause(clean);
+    })();
+    return _missionWriterV5SentenceJoin([
+        routeSentence || `Heute geht es für eine Bildserie nach ${targetName}`,
+        `${passengerLine}, weil ${imagePurposeClause}`,
+        _missionWriterV5ObservationSentence(motifLogic),
+        weatherSentence,
+        `${usage}.`
+    ]);
+}
+
 function _missionWriterV5ComposeMappingSurveyStory(contract = {}, context = {}) {
     const { form } = _missionWriterV5DomainForm(contract, context);
     const domain = form.domainDetails || {};
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract);
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielgebiet', 120);
-    const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die Survey-Fachperson');
+    const passengerLine = _missionWriterV5PassengerVerbPhrase(context?.passenger || {}, 'die Survey-Fachperson', 'begleitet den Flug');
     const dataNeed = _missionWriterV5CleanDomainSentence(domain.dataNeed, `für ${targetName} ein aktueller Datensatz fehlt`);
     const pattern = _missionWriterV5CleanDomainSentence(domain.flightPattern, 'ruhige, reproduzierbare Linien machen die Bilder später verwertbar');
-    const analysis = _missionWriterV5CleanDomainSentence(domain.analysisStep, 'die Aufnahmen gehen danach in die GIS- oder Photogrammetrie-Auswertung');
+    const analysis = _missionWriterV5CleanOutcomeSentence(domain.analysisStep, 'die Aufnahmen gehen danach in die GIS- oder Photogrammetrie-Auswertung');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute steht ${targetName} als Survey-Ziel auf dem Dispatch-Zettel`,
-        `${passenger} begleitet den Flug, weil ${_missionWriterV5ReasonClause(dataNeed)}`,
+        `${passengerLine}, weil ${_missionWriterV5ReasonClause(dataNeed)}`,
         _missionWriterV5ObservationSentence(pattern),
         weatherSentence,
         `${analysis}.`
@@ -30558,13 +30805,13 @@ function _missionWriterV5ComposeScienceBioStory(contract = {}, context = {}) {
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract);
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielgebiet', 120);
-    const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die Biologin');
+    const passengerLine = _missionWriterV5PassengerVerbPhrase(context?.passenger || {}, 'die Biologin', 'ist an Bord');
     const question = _missionWriterV5CleanDomainSentence(domain.studyQuestion, `bei ${targetName} eine biologische Beobachtung ansteht`);
     const focus = _missionWriterV5CleanDomainSentence(domain.visibleNaturalFocus, 'Habitat, Vegetation, Ufer oder Randzonen aus der Luft besser zusammenpassen');
-    const fieldwork = _missionWriterV5CleanDomainSentence(domain.fieldworkStep, 'die Notizen helfen danach bei Begehung, Monitoring oder Feldplanung');
+    const fieldwork = _missionWriterV5CleanOutcomeSentence(domain.fieldworkStep, 'die Notizen helfen danach bei Begehung, Monitoring oder Feldplanung');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute geht es für eine ruhige Umweltbeobachtung nach ${targetName}`,
-        `${passenger} ist an Bord, weil ${_missionWriterV5ReasonClause(question)}`,
+        `${passengerLine}, weil ${_missionWriterV5ReasonClause(question)}`,
         _missionWriterV5ObservationSentence(focus),
         weatherSentence,
         `${fieldwork}.`
@@ -30577,13 +30824,13 @@ function _missionWriterV5ComposeScienceGeoStory(contract = {}, context = {}) {
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract);
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielgebiet', 120);
-    const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die Geologin');
+    const passengerLine = _missionWriterV5PassengerVerbPhrase(context?.passenger || {}, 'die Geologin', 'begleitet den Flug');
     const question = _missionWriterV5CleanDomainSentence(domain.studyQuestion, `bei ${targetName} eine Geländelesart aus der Luft ansteht`);
     const focus = _missionWriterV5CleanDomainSentence(domain.visibleTerrainFocus, 'Relief, Hangform, Erosion oder Sedimentlinien aus der Luft besser lesbar werden');
-    const fieldwork = _missionWriterV5CleanDomainSentence(domain.fieldworkStep, 'die Vergleichsbilder ergänzen danach Kartierung oder Bericht');
+    const fieldwork = _missionWriterV5CleanOutcomeSentence(domain.fieldworkStep, 'die Vergleichsbilder ergänzen danach Kartierung oder Bericht');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute geht es für eine ruhige geologische Beobachtung nach ${targetName}`,
-        `${passenger} begleitet den Flug, weil ${_missionWriterV5ReasonClause(question)}`,
+        `${passengerLine}, weil ${_missionWriterV5ReasonClause(question)}`,
         _missionWriterV5ObservationSentence(focus),
         weatherSentence,
         `${fieldwork}.`
@@ -30651,13 +30898,59 @@ function _missionWriterV5ComposeMedicalTransferStory(contract = {}, context = {}
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract);
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'dem Zielplatz', 120);
-    const passenger = _missionWriterV5PassengerLabel(context?.passenger || {}, 'die medizinische Begleitung');
-    const subject = _missionWriterV5CleanDomainSentence(domain.medicalItemOrRole, 'medizinische Begleitung oder zeitkritisches Material reist mit');
+    const passengerLine = _missionWriterV5PassengerVerbPhrase(context?.passenger || {}, 'die medizinische Begleitung', 'ist an Bord');
+    const cargoLabel = _missionWriterV5Text(String(_missionPipelineV4CargoLabel(contract, context) || '').replace(/\s*\([^)]*\)\s*$/, ''), 140);
+    const cargoNorm = normalizeMissionText(cargoLabel);
+    const cargoLooksPlural = /\b(?:[a-zäöüß-]*unterlagen|[a-zäöüß-]*proben|laborproben|blutkonserven|dokumente|akten)\b/.test(cargoNorm);
+    const neuterCargoLabel = cargoLabel
+        .replace(/^Steriles\b/i, 'sterile')
+        .replace(/^Geschuetztes\b/i, 'geschützte')
+        .replace(/^Geschütztes\b/i, 'geschützte')
+        .replace(/^Versiegeltes\b/i, 'versiegelte')
+        .replace(/^Gekuehltes\b/i, 'gekühlte')
+        .replace(/^Gekühltes\b/i, 'gekühlte');
+    let cargoSubjectIsPlural = false;
+    const cargoSubject = (() => {
+        if (!cargoLabel || /^(?:die\s+)?(?:fracht|ladung|sendung|cargo|frachtsendung|\d+\s*(?:lbs?|kg))$/.test(cargoNorm)) return '';
+        if (/^(?:der|die|das|ein|eine)\b/i.test(cargoLabel)) return cargoLabel;
+        if (/\b(kuehlbox|kuhlbox|kühlbox|box)\b/.test(cargoNorm)) return `die ${cargoLabel}`;
+        if (cargoLooksPlural) {
+            cargoSubjectIsPlural = true;
+            return `die ${cargoLabel}`;
+        }
+        if (/\b(koffer|notfallkoffer)\b/.test(cargoNorm)) return `der ${cargoLabel}`;
+        if (/\b(op[-\s]?instrumentenset|instrumentenset|diagnostikmodul|diagnostikgeraet|diagnostikgerät|paket|geraet|gerät|gerat|modul|set|kurierfach|kuriercase|case)\b/.test(cargoNorm)) return `das ${neuterCargoLabel}`;
+        return `die medizinische Sendung ${cargoLabel}`;
+    })();
+    const passengerSeed = normalizeMissionText([
+        context?.passenger?.storySeed,
+        context?.passenger?.personalStoryCue,
+        context?.passenger?.role
+    ].filter(Boolean).join(' '));
+    let defaultSubject = cargoSubject
+        ? `${cargoSubject} am Ziel direkt in die vorbereitete medizinische Annahme gehen ${cargoSubjectIsPlural ? 'sollen' : 'soll'}`
+        : 'ein versiegeltes medizinisches Kurierpaket am Ziel direkt in die vorbereitete Annahme gehen soll';
+    if (!cargoNorm || /^(?:die\s+)?(?:fracht|ladung|sendung|cargo|frachtsendung)$/.test(cargoNorm)) {
+        if (/\bblutkonserve|kuehlbox|kühlbox\b/.test(passengerSeed)) {
+            defaultSubject = 'die Kühlbox mit Blutkonserven am Ziel direkt in die Klinikannahme gehen soll';
+        } else if (/\blaborprobe|laborproben|laborunterlagen|kuehlfach|kühlfach|serum\b/.test(passengerSeed)) {
+            defaultSubject = 'die Laborproben am Ziel direkt in die vorbereitete Laborannahme gehen sollen';
+        } else if (/\bdiagnostikmodul|diagnostikgeraet|diagnostikgerät|schutzcase\b/.test(passengerSeed)) {
+            defaultSubject = 'das geschützte Diagnostikmodul am Ziel direkt vom Technikkontakt übernommen werden soll';
+        } else if (/\btransplant|kurierfach|medizinische\s+unterlagen|klinikverbund\b/.test(passengerSeed)) {
+            defaultSubject = 'die medizinischen Unterlagen und das gekühlte Kurierpaket am Ziel direkt an den Klinikverbund gehen sollen';
+        }
+    }
+    let subject = _missionWriterV5CleanDomainSentence(domain.medicalItemOrRole, defaultSubject);
+    const badMedicalSubjectGrammar = /\bdas\s+(?:transplantations)?unterlagen\b|\bdas\s+(?:labor)?proben\b|\bdie\s+kuehlbox\b[^.!?]{0,100}\bgehen\s+sollen\b|\bdie\s+kühlbox\b[^.!?]{0,100}\bgehen\s+sollen\b/.test(normalizeMissionText(subject));
+    if (badMedicalSubjectGrammar || /\bmedizinisches\s+personal\b|\bsensibles\s+material\b|\bvorbereiteter\s+folgeeinsatz\b|\bfolgeeinsatz\b/i.test(normalizeMissionText(subject))) {
+        subject = defaultSubject;
+    }
     const handling = _missionWriterV5CleanDomainSentence(domain.handlingFocus, 'ruhiger, planbarer Flug zählt heute mehr als Tempo');
-    const receiver = _missionWriterV5CleanDomainSentence(domain.receivingContact, 'am Ziel übernimmt der Klinik- oder Laborkontakt direkt');
+    const receiver = _missionWriterV5CleanOutcomeSentence(domain.receivingContact, 'am Ziel übernimmt der Klinik- oder Laborkontakt direkt');
     return _missionWriterV5SentenceJoin([
         routeSentence || `Heute geht es mit medizinischem Auftrag nach ${targetName}`,
-        `${passenger} ist an Bord; ${_missionPipelineV4LowerFirst(subject)}`,
+        `${passengerLine}, weil ${_missionWriterV5ReasonClause(subject)}`,
         `${handling}.`,
         weatherSentence,
         `${receiver}.`
@@ -30713,6 +31006,9 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     }
     if (taskDomain === 'news_coverage') {
         return _missionWriterV5ComposeNewsCoverageStory(contract, context);
+    }
+    if (taskDomain === 'media_photo') {
+        return _missionWriterV5ComposeMediaPhotoStory(contract, context);
     }
     if (taskDomain === 'mapping_survey') {
         return _missionWriterV5ComposeMappingSurveyStory(contract, context);
@@ -30839,10 +31135,19 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
     if (!normalized) return true;
     const wrongUtility = _missionWriterV5WrongUtilityDrift(normalized);
     if (wrongUtility && ['cargo_fragile', 'mapping_survey', 'science_bio', 'science_geo', 'medical_transfer', 'animal_transport'].includes(domain)) return true;
+    const bareOutcomeFragment = /(?:^|[.!?]\s+)(?:klaeren|klären|eine\s+kleine\s+auswahl|eine\s+auswahl|den\s+wichtigsten|die\s+wichtigsten|das\s+wichtigste)\b[^.!?]{0,180}\b(?:liefern|einordnen|klaeren|klären|bereitstellen|abgeben|betrachten)\b/.test(normalized)
+        || /(?:^|[.!?]\s+)[^.!?]{5,180}\bso\s+einordnen,\s+dass\b/.test(normalized);
+    if (bareOutcomeFragment && ['media_photo', 'mapping_survey', 'science_bio', 'science_geo', 'medical_transfer'].includes(domain)) return true;
     if (domain === 'cargo_fragile') {
         const hasCargo = _missionWriterV5CoversConcreteCargo(raw, contract, context);
         const hasArrivalStep = /\b(uebergabe|übergabe|uebernimmt|übernimmt|empfaenger|empfänger|zielkontakt|frachtkontakt|annahme|pruefplatz|prüfplatz|labor|werkstatt|werft|museum|zustandskontrolle|auswertung|weitertransport|vorfeld)\b/.test(normalized);
         return _missionPipelineV4CargoStoryNeedsFallback(raw, contract, context) || !hasCargo || !hasArrivalStep;
+    }
+    if (domain === 'media_photo') {
+        const wrongOperationalFrame = /\b(wasserbehoerde|wasserbehörde|ufer[-\s]?check|treibgut|boote?|einsatzmittel|inspektion|pruefung|prüfung|technikteam|betreiber|stoerung|störung|schaden|rettung|sar|brand|feuer)\b/.test(normalized);
+        const hasMediaFrame = /\b(foto|film|bildserie|aufnahme|aufnahmen|shot|shots|motiv|establishing|aufmacher|redaktionell|tourismus|ortsmarketing|gemeindeseite|broschuere|broschüre|doku|dokumentation|projektbild|medien|kamera)\b/.test(normalized);
+        const hasUse = /\b(beitrag|film|broschuere|broschüre|gemeindeseite|ortsmarketing|redaktion|dokumentation|projekt|auswertung|veroeffentlichung|veröffentlichung|material|bildmaterial)\b/.test(normalized);
+        return wrongOperationalFrame || !hasMediaFrame || !hasUse;
     }
     if (domain === 'mapping_survey') {
         const hasDataFrame = /\b(mapping|survey|vermess|geodaten|gis|photogramm|orthofoto|datensatz|karten|kartierung|lidar|rtk|bildfolge|mosaik|ueberlapp|überlapp|referenz|zielgeometrie|auswertung)\b/.test(normalized);
@@ -30866,6 +31171,8 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
         return wrongOperationalFrame || !hasHistoryFrame || !hasHistorianOutcome;
     }
     if (domain === 'medical_transfer') {
+        if (/\bmedizinisches\s+personal\b|\bsensibles\s+material\b/.test(normalized)) return true;
+        if (/\bdas\s+(?:transplantations)?unterlagen\b|\bdas\s+(?:labor)?proben\b|\bdie\s+kuehlbox\b[^.!?]{0,100}\bgehen\s+sollen\b|\bdie\s+kühlbox\b[^.!?]{0,100}\bgehen\s+sollen\b/.test(normalized)) return true;
         const hasMedicalFrame = /\b(medizin|notarzt|notärzt|klinik|labor|notaufnahme|organ|blut|serum|probe|proben|diagnostik|op[-\s]?instrument|sanitaet|sanität|kuehlbox|kühlbox|transplant|medizinische begleitung)\b/.test(normalized);
         const hasReceiving = /\b(uebergabe|übergabe|uebernimmt|übernimmt|klinik|labor|notaufnahme|zielkontakt|medizinischer kontakt|kurierfach|annahme)\b/.test(normalized);
         return !hasMedicalFrame || !hasReceiving;
@@ -30892,6 +31199,12 @@ function _missionWriterV5StoryHasPassengerRoleConflict(story = '', passenger = {
     const visibleNorm = normalizeMissionText(visibleRole);
     const roleNorm = normalizeMissionText(role);
     if (!visibleNorm || !roleNorm) return false;
+    const gender = String(passenger?.gender || '').toLowerCase();
+    if (gender === 'male'
+        && /\b[a-zäöüß-]{4,}(?:in|erin)\b/.test(visibleNorm)
+        && !/\b[a-zäöüß-]{4,}(?:in|erin)\b/.test(roleNorm)) {
+        return true;
+    }
     if (visibleNorm.includes(roleNorm) || roleNorm.includes(visibleNorm)) return false;
     const roleWords = roleNorm.split(/\s+/).filter(word => word.length >= 5);
     return roleWords.length ? !roleWords.some(word => visibleNorm.includes(word)) : visibleNorm !== roleNorm;
@@ -31104,7 +31417,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const requiredRoleProfile = String(contract?.profile?.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
     const requiredTaskDomain = String(contract?.profile?.taskDomain || plan.taskDomain || 'general').toLowerCase();
     const isPOI = !!context.isPOI;
-    const sceneIntent = sanitizeMissionSceneIntentSpec(src.sceneIntent || null, {
+    let sceneIntent = sanitizeMissionSceneIntentSpec(src.sceneIntent || null, {
         isPOI,
         taskDomain: requiredTaskDomain
     });
@@ -31185,6 +31498,12 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         cargoText: storyCargoText
     });
     let finalStory = finalized.story;
+    if (!finalized.acceptedRaw || _missionWriterV5DomainStoryNeedsRepair(requiredTaskDomain, _missionWriterV5SceneIntentText(sceneIntent), contract, {
+        passenger,
+        cargoText: storyCargoText
+    })) {
+        sceneIntent = _missionWriterV5ComposeDomainSceneIntent(contract, requiredTaskDomain, isPOI);
+    }
     let finalCargo = contractAnimalCargo || writerCargo;
     if (_missionWriterV5CargoTextConflictsTask(finalCargo, requiredTaskDomain)) {
         finalCargo = storyCargoText || _missionPipelineV4CargoLabel(contract, { cargoText: '' });
@@ -37790,7 +38109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1252', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1253', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
