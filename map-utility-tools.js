@@ -21,6 +21,7 @@
         running: false,
         elapsedMs: 0,
         startedAt: 0,
+        compact: false,
         frame: 0,
         clockTimer: 0
     };
@@ -299,6 +300,33 @@
         updateStopwatchDisplay();
     }
 
+    function applyStopwatchScale(compact, persist = true) {
+        const panel = el('mapStopwatchDevice');
+        const button = el('mapStopwatchScale');
+        stopwatchState.compact = !!compact;
+        if (panel) {
+            panel.classList.toggle('is-compact', stopwatchState.compact);
+            if (panel.style.display !== 'none') {
+                requestAnimationFrame(() => {
+                    clampPanel(panel);
+                    const cfg = getToolConfig('stopwatch');
+                    if (cfg) savePanelPosition(cfg);
+                });
+            }
+        }
+        if (button) {
+            button.textContent = stopwatchState.compact ? '100%' : '50%';
+            button.title = stopwatchState.compact ? 'Uhr auf 100% vergrößern' : 'Uhr auf 50% verkleinern';
+        }
+        if (persist) {
+            try { localStorage.setItem(`${STORAGE_PREFIX}stopwatch_scale`, stopwatchState.compact ? '50' : '100'); } catch (_) {}
+        }
+    }
+
+    function toggleStopwatchScale() {
+        applyStopwatchScale(!stopwatchState.compact);
+    }
+
     function setCalcDisplay(value) {
         calcState.display = String(value || '0');
         if (calcState.display === '-0') calcState.display = '0';
@@ -427,6 +455,7 @@
     function bindButtons() {
         const startStop = el('mapStopwatchStartStop');
         const reset = el('mapStopwatchReset');
+        const scale = el('mapStopwatchScale');
         const closeStopwatch = el('mapStopwatchClose');
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
@@ -439,6 +468,10 @@
         if (reset && reset.dataset.bound !== '1') {
             reset.addEventListener('click', resetStopwatch);
             reset.dataset.bound = '1';
+        }
+        if (scale && scale.dataset.bound !== '1') {
+            scale.addEventListener('click', toggleStopwatchScale);
+            scale.dataset.bound = '1';
         }
         if (closeStopwatch && closeStopwatch.dataset.bound !== '1') {
             closeStopwatch.addEventListener('click', () => closeMapUtilityTool('stopwatch'));
@@ -462,6 +495,9 @@
         bindButtons();
         bindDrag('stopwatch');
         bindDrag('calculator');
+        let storedScale = '';
+        try { storedScale = localStorage.getItem(`${STORAGE_PREFIX}stopwatch_scale`) || ''; } catch (_) {}
+        applyStopwatchScale(storedScale === '50', false);
         updateStopwatchDisplay();
         updateClockFields();
         clearCalc();
