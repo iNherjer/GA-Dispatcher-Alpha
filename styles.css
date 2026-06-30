@@ -7591,7 +7591,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     --stopwatch-frame-size: 246px;
     --stopwatch-dial-size: 224px;
     --stopwatch-scale: 1;
-    width: min(300px, calc(100vw - 16px));
+    width: min(calc(var(--stopwatch-frame-size) + 44px), calc(100vw - 16px));
     padding-top: 24px;
     transform: scale(var(--stopwatch-scale));
     transform-origin: top left;
@@ -7649,8 +7649,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .stopwatch-crown-reset {
-    top: 136px;
-    left: 1px;
+    top: calc(50% - 12px);
+    left: -16px;
     width: 52px;
     height: 24px;
     border-radius: 13px;
@@ -7660,8 +7660,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .stopwatch-scale-toggle {
-    top: 136px;
-    right: 1px;
+    top: calc(50% - 11px);
+    right: -16px;
     width: 43px;
     height: 22px;
     border-radius: 12px;
@@ -7813,21 +7813,24 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     position: absolute;
     box-sizing: border-box;
     z-index: 5;
-    left: 65px;
+    left: 50%;
     top: 58px;
-    width: 94px;
-    padding: 4px 5px;
+    width: 88px;
+    padding: 3px 5px;
     border-radius: 7px;
     border: 2px solid #0d1114;
     background: linear-gradient(#20251d, #080a08);
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
     text-align: center;
+    transform: translateX(-50%);
     pointer-events: none;
 }
 
 #mapStopwatchElapsed {
-    font-size: 16px;
+    display: block;
+    font-size: 15px;
     font-weight: 900;
+    line-height: 1;
 }
 
 .stopwatch-time-grid {
@@ -8142,7 +8145,6 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 @media (max-width: 767px) {
-    .map-stopwatch-device,
     .map-calculator-device {
         width: calc(100vw - 16px);
     }
