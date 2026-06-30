@@ -5984,6 +5984,7 @@ function isMapUiClickTarget(evt) {
         t.closest('.map-draw-floating-btn') ||
         t.closest('.map-draw-tool-stack') ||
         t.closest('.map-draw-menu') ||
+        t.closest('.map-utility-device') ||
         t.closest('.pb-btn') ||
         t.closest('#vpSettingsMenu') ||
         t.closest('#awmFreqBanner') ||
@@ -6038,6 +6039,8 @@ function syncMapDrawUi() {
     const eraserToolBtn = document.getElementById('mapToolEraser');
     const settingsToolBtn = document.getElementById('mapToolSettings');
     const measureToolBtn = document.getElementById('mapToolMeasure');
+    const stopwatchToolBtn = document.getElementById('mapToolStopwatch');
+    const calculatorToolBtn = document.getElementById('mapToolCalculator');
     const menu = document.getElementById('mapDrawMenu');
     const weightInput = document.getElementById('mapDrawWeightInput');
     document.body.classList.toggle('map-drawing-active', mapDrawState.enabled);
@@ -6057,6 +6060,14 @@ function syncMapDrawUi() {
     if (measureToolBtn) {
         measureToolBtn.classList.toggle('active', !!measureMode);
         measureToolBtn.title = `Messen (${measureMode ? 'An' : 'Aus'})`;
+    }
+    if (stopwatchToolBtn) {
+        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('stopwatch');
+        stopwatchToolBtn.classList.toggle('active', !!open);
+    }
+    if (calculatorToolBtn) {
+        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('calculator');
+        calculatorToolBtn.classList.toggle('active', !!open);
     }
     if (menu) {
         const shouldOpen = mapDrawState.menuOpen;
@@ -6229,6 +6240,12 @@ function activateMapDrawTool(kind, evt) {
         mapDrawState.menuOpen = false;
     } else if (kind === 'measureClear') {
         clearMeasure();
+    } else if (kind === 'stopwatch') {
+        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('stopwatch');
+        mapDrawState.menuOpen = false;
+    } else if (kind === 'calculator') {
+        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('calculator');
+        mapDrawState.menuOpen = false;
     }
     syncMapDrawUi();
 }

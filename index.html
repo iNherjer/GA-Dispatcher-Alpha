@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=map-tools-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=map-utility-tools-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=map-tools-20260630-01">
+        <link rel="stylesheet" href="styles.css?v=map-utility-tools-20260630-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1355,6 +1355,8 @@
                         <button id="mapToolSettings" class="map-draw-tool-btn" type="button" title="Farben & Größe" onclick="window.toggleMapDrawSettingsMenu && window.toggleMapDrawSettingsMenu()">🎨</button>
                         <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen und Lineal löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
+                        <button id="mapToolStopwatch" class="map-draw-tool-btn" type="button" title="Stoppuhr" onclick="window.activateMapDrawTool && activateMapDrawTool('stopwatch', event)">⏱</button>
+                        <button id="mapToolCalculator" class="map-draw-tool-btn" type="button" title="Taschenrechner" onclick="window.activateMapDrawTool && activateMapDrawTool('calculator', event)">▦</button>
                     </div>
                 </div>
                 <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
@@ -1367,6 +1369,98 @@
                     </div>
                     <div class="map-draw-menu-row">
                         <input id="mapDrawWeightInput" type="range" min="2" max="18" value="5" step="1" oninput="window.setMapDrawWeight && setMapDrawWeight(this.value)">
+                    </div>
+                </div>
+                <div id="mapStopwatchDevice" class="map-utility-device map-stopwatch-device" aria-hidden="true" style="display:none;">
+                    <button id="mapStopwatchStartStop" class="stopwatch-crown stopwatch-crown-main" type="button" title="Start / Stop">START</button>
+                    <button id="mapStopwatchReset" class="stopwatch-crown stopwatch-crown-reset" type="button" title="Reset">RESET</button>
+                    <div id="mapStopwatchHandle" class="map-utility-drag-handle stopwatch-bezel" aria-label="Stoppuhr verschieben">
+                        <div class="map-utility-device-title">VFR CHRONO</div>
+                        <button id="mapStopwatchClose" class="map-utility-close" type="button" title="Schließen">x</button>
+                        <div class="stopwatch-dial" aria-hidden="true">
+                            <div class="stopwatch-tick tick-12"></div>
+                            <div class="stopwatch-tick tick-3"></div>
+                            <div class="stopwatch-tick tick-6"></div>
+                            <div class="stopwatch-tick tick-9"></div>
+                            <div class="stopwatch-hand stopwatch-minute-hand" id="mapStopwatchMinuteHand"></div>
+                            <div class="stopwatch-hand stopwatch-second-hand" id="mapStopwatchSecondHand"></div>
+                            <div class="stopwatch-hand stopwatch-tenth-hand" id="mapStopwatchTenthHand"></div>
+                            <div class="stopwatch-hub"></div>
+                            <div class="stopwatch-subdial">
+                                <span id="mapStopwatchSubMinutes">00</span>
+                                <small>MIN</small>
+                            </div>
+                        </div>
+                        <div class="stopwatch-digital-face">
+                            <div id="mapStopwatchElapsed" class="utility-seven-seg">00:00.0</div>
+                        </div>
+                    </div>
+                    <div class="stopwatch-controls">
+                        <button id="mapStopwatchModeAnalog" class="stopwatch-mode-btn active" type="button">ANALOG</button>
+                        <button id="mapStopwatchModeDigital" class="stopwatch-mode-btn" type="button">DIGITAL</button>
+                    </div>
+                    <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten">
+                        <div>
+                            <span>UTC</span>
+                            <strong id="mapStopwatchUtc">--:--:--</strong>
+                        </div>
+                        <div>
+                            <span>LOCAL</span>
+                            <strong id="mapStopwatchLocal">--:--:--</strong>
+                        </div>
+                    </div>
+                </div>
+                <div id="mapCalculatorDevice" class="map-utility-device map-calculator-device" aria-hidden="true" style="display:none;">
+                    <button id="mapCalculatorFormulaToggle" class="calculator-formula-tab" type="button" title="Formel-Spickzettel">FORM</button>
+                    <aside id="mapCalculatorFormulaDrawer" class="calculator-formula-drawer" aria-hidden="true">
+                        <div class="formula-drawer-title">VFR FORMELN</div>
+                        <dl>
+                            <dt>Zeit / Distanz / GS</dt>
+                            <dd>Zeit h = NM / kt · NM = kt * h · kt = NM / h</dd>
+                            <dt>Fuel / Range</dt>
+                            <dd>Fuel = GPH * h · Endurance = Fuel / GPH · Range = GS * h</dd>
+                            <dt>Sinkflug</dt>
+                            <dd>3°: ca. 300 ft/NM · TOD NM = ft abzubauen / 300 · VS ≈ GS * 5</dd>
+                            <dt>Wind</dt>
+                            <dd>Headwind = Wind * cos Winkel · Crosswind = Wind * sin Winkel</dd>
+                            <dt>TAS</dt>
+                            <dd>TAS ≈ IAS + 2% pro 1000 ft</dd>
+                            <dt>ISA Temperatur</dt>
+                            <dd>ISA °C = 15 - 2 * Höhe in 1000 ft</dd>
+                            <dt>Dichtehöhe</dt>
+                            <dd>DA ≈ PA + 120 * (OAT - ISA Temp)</dd>
+                            <dt>Einheiten</dt>
+                            <dd>1 NM = 1.852 km · 1 ft = 0.3048 m · 1 gal = 3.785 l · 1 lb = 0.454 kg</dd>
+                        </dl>
+                    </aside>
+                    <div id="mapCalculatorHandle" class="map-utility-drag-handle calculator-case" aria-label="Taschenrechner verschieben">
+                        <div class="calculator-topbar">
+                            <div class="map-utility-device-title">VFR CALC</div>
+                            <button id="mapCalculatorClose" class="map-utility-close" type="button" title="Schließen">x</button>
+                        </div>
+                        <div id="mapCalculatorDisplay" class="calculator-display utility-seven-seg" aria-live="polite">0</div>
+                        <div class="calculator-keypad" aria-label="Taschenrechner">
+                            <button type="button" data-calc="clear">C</button>
+                            <button type="button" data-calc="backspace">⌫</button>
+                            <button type="button" data-calc="sign">+/-</button>
+                            <button type="button" data-calc="operator" data-op="/">÷</button>
+                            <button type="button" data-calc="digit" data-value="7">7</button>
+                            <button type="button" data-calc="digit" data-value="8">8</button>
+                            <button type="button" data-calc="digit" data-value="9">9</button>
+                            <button type="button" data-calc="operator" data-op="*">×</button>
+                            <button type="button" data-calc="digit" data-value="4">4</button>
+                            <button type="button" data-calc="digit" data-value="5">5</button>
+                            <button type="button" data-calc="digit" data-value="6">6</button>
+                            <button type="button" data-calc="operator" data-op="-">−</button>
+                            <button type="button" data-calc="digit" data-value="1">1</button>
+                            <button type="button" data-calc="digit" data-value="2">2</button>
+                            <button type="button" data-calc="digit" data-value="3">3</button>
+                            <button type="button" data-calc="operator" data-op="+">+</button>
+                            <button type="button" data-calc="percent">%</button>
+                            <button type="button" data-calc="digit" data-value="0">0</button>
+                            <button type="button" data-calc="decimal">.</button>
+                            <button type="button" data-calc="equals">=</button>
+                        </div>
                     </div>
                 </div>
                 <div id="manualSimPanel" class="manual-sim-panel" aria-hidden="true" style="display:none;">
@@ -1773,7 +1867,8 @@
 <script defer src="sync.js?v=poi-training-runtime-20260630-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
-<script defer src="map.js?v=map-tools-20260630-01"></script>
+<script defer src="map.js?v=map-utility-tools-20260630-01"></script>
+<script defer src="map-utility-tools.js?v=map-utility-tools-20260630-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
