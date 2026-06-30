@@ -14330,9 +14330,21 @@ function enforceAptTrainingMission(mission = null, destName = '') {
     const target = String(destName || m.targetName || m.destName || 'Zielflugplatz').trim() || 'Zielflugplatz';
     const plan = sanitizeTrainingPlan(m.passenger?.trainingPlan || null, true);
     const passenger = buildInstructorPassenger(plan);
-    const focus = Array.isArray(plan?.focus) && plan.focus.length
-        ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 4).join(', ')
+    const focusItems = Array.isArray(plan?.focus) && plan.focus.length
+        ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 4)
+        : [];
+    const requiredCount = Math.max(1, Math.min(focusItems.length || 2, Math.round(Number(plan?.requiredCount || 2) || 2)));
+    const requiredItems = focusItems.slice(0, requiredCount);
+    const optionalItems = focusItems.slice(requiredCount);
+    const focus = focusItems.length
+        ? focusItems.join(', ')
         : 'Airwork, saubere Anflugvorbereitung und Verfahren';
+    const requiredLine = requiredItems.length
+        ? `Pflicht heute: ${requiredItems.join(' und ')}.`
+        : 'Pflicht heute: zwei saubere Basisuebungen.';
+    const optionalLine = optionalItems.length
+        ? `Optional danach: ${optionalItems.join(', ')}.`
+        : 'Optional danach gibt es nur bei Bedarf noch eine Zusatzuebung.';
     const modeLabel = String(plan?.mode || '').toLowerCase() === 'pattern'
         ? 'Platzrunden- und Anflugtraining'
         : 'Airwork- und Verfahrenstraining';
@@ -14346,7 +14358,7 @@ function enforceAptTrainingMission(mission = null, destName = '') {
     const cargoText = cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
     m.i = m.i || '🧑‍✈️';
     m.t = `Trainingsflug nach ${target}`;
-    m.s = _missionPipelineV4PolishGermanVisibleText(`Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Der Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`);
+    m.s = _missionPipelineV4PolishGermanVisibleText(`Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`);
     m.cat = 'trn';
     m.passenger = passenger;
     m.pax = '1 PAX (Instruktor)';
@@ -18980,7 +18992,8 @@ function _isPatternFocusItem(text) {
 }
 
 function buildDistributedTrainingPlan(seedMode = 'airwork') {
-    const totalCount = 2 + Math.floor(Math.random() * 3); // 2..4
+    const totalCount = 4;
+    const requiredCount = 2;
     const preferPattern = String(seedMode || '').toLowerCase() === 'pattern';
     let patternCount = 0;
 
@@ -19001,7 +19014,7 @@ function buildDistributedTrainingPlan(seedMode = 'airwork') {
     const instructorLine = mode === 'pattern'
         ? 'Wir machen erst die Uebungen in der Luft und gehen dann in eine Landeuebung am Platz.'
         : 'Wir bleiben heute beim Airwork: sauber, ruhig und mit klarem Ablauf.';
-    return { mode, trigger, focus, instructorLine };
+    return { mode, trigger, focus, instructorLine, requiredCount };
 }
 
 function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
@@ -19028,6 +19041,7 @@ function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
         }
     }
     const mode = focus.some(_isPatternFocusItem) ? 'pattern' : requestedMode;
+    const requiredCount = Math.max(1, Math.min(focus.length, Math.round(Number(rawPlan.requiredCount || 2) || 2)));
     const triggerRaw = String(rawPlan.trigger || '').toLowerCase();
     const trigger = (triggerRaw === 'half_route' || triggerRaw === 'five_nm_before_landing')
         ? triggerRaw
@@ -19036,7 +19050,7 @@ function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
     const instructorFallback = mode === 'pattern'
         ? 'Heute mit gemischtem Programm: Airwork im Uebungsgebiet, dann eine saubere Landeuebung am Platz.'
         : 'Heute konzentrieren wir uns auf Airwork mit ruhigem, sauberem Ablauf.';
-    return { mode, trigger, focus, instructorLine: instructorLine || instructorFallback };
+    return { mode, trigger, focus, instructorLine: instructorLine || instructorFallback, requiredCount };
 }
 
 function formatPaxBriefingText(paxText, passenger) {
@@ -32390,10 +32404,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - Bei mode "pattern": Übungen platznah im Anflug/Platzrunde, z.B. Engine-Out-Approach, No-Flaps, Extra-Platzrunden, Touch-and-Go, Missed Approach.
          trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).
          Wichtig: Die eigentliche Landung erfolgt ERST nach Abschluss der Übung am Platz.
-       - Gib 2-4 konkrete Übungen in "focus" an (keine Dubletten).
+       - Gib 3-4 konkrete Übungen in "focus" an (keine Dubletten).
+       - Die ersten zwei focus-Eintraege sind der Pflichtteil. Alle weiteren focus-Eintraege sind freiwillige Zusatzuebungen.
+       - Setze requiredCount IMMER auf 2.
        - Verteile sinnvoll:
-         * Option A: nur Airwork (z.B. 2 reine Airwork-Uebungen)
-         * Option B: Mix aus Airwork + genau 1 Landeuebung (z.B. 3 Uebungen: 2 Airwork, 1 Pattern/Landung)
+         * Option A: nur Airwork (z.B. 4 reine Airwork-Uebungen, davon 2 Pflicht)
+         * Option B: Mix aus Airwork + genau 1 Landeuebung (z.B. 3-4 Uebungen: 2 Pflicht-Airwork, 1 optionale Pattern/Landung)
        - Gib dazu eine kurze Instruktor-Ansage in "instructorLine".
     12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor / die Instruktorin. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
         Der passenger darf NICHT null sein und role MUSS klar Instructor/Fluglehrer sein.
@@ -32675,7 +32691,8 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
     "trainingPlan": {
       "mode": "airwork|pattern",
       "trigger": "half_route|five_nm_before_landing",
-      "focus": ["Übung 1", "Übung 2"],
+      "focus": ["Pflichtübung 1", "Pflichtübung 2", "optionale Zusatzübung 3", "optionale Zusatzübung 4"],
+      "requiredCount": 2,
       "instructorLine": "Kurze konkrete Instruktoranweisung"
     }
   }
@@ -38112,7 +38129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1254', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1257', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

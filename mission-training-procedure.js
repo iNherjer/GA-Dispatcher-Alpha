@@ -6,6 +6,7 @@
     const DEFAULTS = {
         minAglFt: 1200,
         stallMinAglFt: 2500,
+        requiredExerciseCount: 2,
         headingToleranceDeg: 5,
         altitudeToleranceFt: 50,
         bankToleranceDeg: 6,
@@ -237,10 +238,21 @@
         if (!exercises.length) return null;
         const mode = String(source?.mode || plan?.mode || 'airwork').toLowerCase() === 'pattern' ? 'pattern' : 'airwork';
         const targetLabel = String(source?.targetLabel || md?.destName || md?.targetName || md?.dest || 'Trainingsflug').trim();
+        const requiredCount = Math.max(1, Math.min(
+            exercises.length,
+            Math.round(finiteNumber(source?.requiredCount ?? plan?.requiredCount, DEFAULTS.requiredExerciseCount))
+        ));
+        const requiredMinAglFt = exercises.slice(0, requiredCount).reduce((max, ex) => {
+            const exMin = ex.type === 'stall_recovery'
+                ? Number(source?.stallMinAglFt || DEFAULTS.stallMinAglFt)
+                : Number(source?.minAglFt || DEFAULTS.minAglFt);
+            return Math.max(max, exMin);
+        }, 0);
         const key = String(source?.key || [
             'training',
             mode,
             targetLabel,
+            `req${requiredCount}`,
             exercises.map(ex => `${ex.id}:${ex.type}:${ex.targetBankDeg || ex.altitudeStepFt || ''}`).join('|')
         ].join(':'));
         return {
@@ -251,6 +263,8 @@
             targetLabel,
             minAglFt: clamp(source?.minAglFt ?? DEFAULTS.minAglFt, 500, 8000),
             stallMinAglFt: clamp(source?.stallMinAglFt ?? DEFAULTS.stallMinAglFt, 1000, 10000),
+            requiredCount,
+            readyMinAglFt: clamp(source?.readyMinAglFt ?? plan?.readyMinAglFt ?? requiredMinAglFt, 500, 10000),
             exercises
         };
     }
@@ -262,6 +276,12 @@
             startedAt: 0,
             updatedAt: 0,
             satisfied: false,
+            requiredComplete: false,
+            ready: false,
+            readyPrompted: false,
+            optionalRequested: false,
+            optionalActive: false,
+            lastGateEventAt: {},
             activeIndex: 0,
             active: null,
             exercises: (recipe?.exercises || []).map(ex => ({
@@ -283,6 +303,12 @@
         state.startedAt = Number(saved.startedAt || 0);
         state.updatedAt = Number(saved.updatedAt || 0);
         state.satisfied = !!saved.satisfied;
+        state.requiredComplete = !!(saved.requiredComplete || saved.satisfied);
+        state.ready = !!saved.ready || state.requiredComplete;
+        state.readyPrompted = !!saved.readyPrompted;
+        state.optionalRequested = !!saved.optionalRequested;
+        state.optionalActive = !!saved.optionalActive;
+        state.lastGateEventAt = saved.lastGateEventAt && typeof saved.lastGateEventAt === 'object' ? { ...saved.lastGateEventAt } : {};
         state.activeIndex = Math.max(0, Math.min(state.exercises.length - 1, Math.round(Number(saved.activeIndex || 0))));
         state.active = saved.active && typeof saved.active === 'object' ? { ...saved.active } : null;
         if (Array.isArray(saved.exercises)) {
@@ -307,10 +333,19 @@
             recipeKey: String(state.recipeKey || ''),
             startedAt: Number(state.startedAt || 0),
             updatedAt: Number(state.updatedAt || 0),
-            satisfied: !!state.satisfied,
+            satisfied: !!(state.satisfied || state.requiredComplete),
+            requiredComplete: !!state.requiredComplete,
+            ready: !!state.ready,
+            readyPrompted: !!state.readyPrompted,
+            optionalRequested: !!state.optionalRequested,
+            optionalAvailable: !!(state.requiredComplete && Number(state.activeIndex || 0) < Number((state.exercises || []).length || 0)),
             activeIndex: Math.max(0, Number(state.activeIndex || 0)),
             completedCount: Array.isArray(state.exercises) ? state.exercises.filter(ex => ex.status === 'complete').length : 0,
             totalExercises: Array.isArray(state.exercises) ? state.exercises.length : 0,
+            requiredCount: Math.max(1, Math.min(
+                Array.isArray(state.exercises) ? state.exercises.length : 1,
+                Math.round(Number((state.recipe && state.recipe.requiredCount) || state.requiredCount || 2))
+            )),
             activeExercise: activeExercise ? {
                 id: activeExercise.id,
                 type: activeExercise.type,
@@ -391,7 +426,7 @@
     }
 
     function ensureActiveExercise(recipe, state, sample, events) {
-        if (state.satisfied) return null;
+        if (state.satisfied && !state.optionalActive) return null;
         const ex = recipe.exercises[state.activeIndex] || null;
         if (!ex) {
             state.satisfied = true;
@@ -499,6 +534,17 @@
         });
     }
 
+    function pushGateEvent(state, events, kind, sample, extra = {}) {
+        if (!state || !kind) return;
+        if (!state.lastGateEventAt || typeof state.lastGateEventAt !== 'object') state.lastGateEventAt = {};
+        const now = Number(sample?.nowMs || Date.now());
+        const minMs = Number(extra.minIntervalMs || 30000);
+        const last = Number(state.lastGateEventAt[kind] || 0);
+        if (last && (now - last) < minMs) return;
+        state.lastGateEventAt[kind] = now;
+        events.push({ type: kind, ...extra });
+    }
+
     function repeatExercise(state, ex, sample, events, reason) {
         const rec = state.exercises[state.activeIndex];
         if (rec) rec.status = 'repeat';
@@ -538,6 +584,19 @@
         state.activeIndex += 1;
         state.active = null;
         state.lastSample = null;
+        state.optionalActive = false;
+        const requiredCount = Math.max(1, Math.min(recipe.exercises.length, Math.round(Number(recipe.requiredCount || DEFAULTS.requiredExerciseCount))));
+        if (!state.requiredComplete && state.activeIndex >= requiredCount) {
+            state.requiredComplete = true;
+            state.satisfied = true;
+            events.push({
+                type: 'training_required_complete',
+                completedCount: state.exercises.filter(item => item.status === 'complete').length,
+                requiredCount,
+                remainingOptional: Math.max(0, recipe.exercises.length - state.activeIndex)
+            });
+            return;
+        }
         if (state.activeIndex >= recipe.exercises.length) {
             state.satisfied = true;
             events.push({ type: 'training_complete' });
@@ -821,26 +880,69 @@
         const recipe = normalizeRecipe(recipeRaw);
         if (!recipe) return { handled: false, state: stateRaw || null, events: [], satisfied: false, progress: null };
         const state = stateRaw || createInitialState(recipe);
+        state.recipe = recipe;
+        state.requiredCount = Number(recipe.requiredCount || DEFAULTS.requiredExerciseCount);
         if (state.recipeKey !== recipe.key) return tickState(recipe, createInitialState(recipe), sampleRaw);
-        if (state.satisfied) return { handled: true, state, events: [], satisfied: true, progress: snapshotState(state), recipe };
         const sample = withTurnRate(state, sampleRaw?.flightData ? sampleFromInput(sampleRaw) : sampleRaw);
         const events = [];
         if (sample.onGround || !Number.isFinite(sample.altFt) || !Number.isFinite(sample.headingDeg)) {
             state.updatedAt = Number(sample.nowMs || Date.now());
+            return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
+        }
+        if (state.requiredComplete && !state.optionalRequested && !state.active) {
+            state.updatedAt = Number(sample.nowMs || Date.now());
+            return { handled: true, state, events, satisfied: true, progress: snapshotState(state), recipe };
+        }
+        const nextEx = recipe.exercises[state.activeIndex] || null;
+        if (!nextEx) {
+            state.satisfied = true;
+            state.requiredComplete = true;
+            events.push({ type: 'training_complete' });
+            state.updatedAt = Number(sample.nowMs || Date.now());
+            return { handled: true, state, events, satisfied: true, progress: snapshotState(state), recipe };
+        }
+        const agl = Number(sample.aglFt);
+        const minAgl = !state.ready && !state.requiredComplete
+            ? Number(recipe.readyMinAglFt || DEFAULTS.minAglFt)
+            : (nextEx.type === 'stall_recovery' ? Number(recipe.stallMinAglFt || DEFAULTS.stallMinAglFt) : Number(recipe.minAglFt || DEFAULTS.minAglFt));
+        if (Number.isFinite(agl) && agl < minAgl) {
+            pushGateEvent(state, events, 'training_wait_altitude', sample, {
+                exerciseId: nextEx.id,
+                exerciseType: nextEx.type,
+                label: nextEx.label,
+                minAglFt: minAgl
+            });
+            state.updatedAt = Number(sample.nowMs || Date.now());
+            state.events = events;
+            return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
+        }
+        if (!state.ready && !state.requiredComplete) {
+            if (!state.readyPrompted) {
+                events.push({
+                    type: 'training_ready_available',
+                    minAglFt: minAgl,
+                    requiredCount: Number(recipe.requiredCount || DEFAULTS.requiredExerciseCount)
+                });
+                state.readyPrompted = true;
+            }
+            state.updatedAt = Number(sample.nowMs || Date.now());
+            state.events = events;
             return { handled: true, state, events, satisfied: false, progress: snapshotState(state), recipe };
+        }
+        if (state.requiredComplete && state.optionalRequested && !state.active) {
+            state.optionalRequested = false;
+            state.optionalActive = true;
+            events.push({
+                type: 'training_optional_started',
+                exerciseId: nextEx.id,
+                exerciseType: nextEx.type,
+                label: nextEx.label
+            });
         }
         const ex = ensureActiveExercise(recipe, state, sample, events);
         if (!ex) {
             state.updatedAt = Number(sample.nowMs || Date.now());
-            return { handled: true, state, events, satisfied: !!state.satisfied, progress: snapshotState(state), recipe };
-        }
-        const agl = Number(sample.aglFt);
-        const minAgl = ex.type === 'stall_recovery' ? Number(recipe.stallMinAglFt || DEFAULTS.stallMinAglFt) : Number(recipe.minAglFt || DEFAULTS.minAglFt);
-        if (Number.isFinite(agl) && agl < minAgl) {
-            events.push({ type: 'training_wait_altitude', exerciseId: ex.id, exerciseType: ex.type, label: ex.label, minAglFt: minAgl });
-            state.updatedAt = Number(sample.nowMs || Date.now());
-            state.events = events;
-            return { handled: true, state, events, satisfied: false, progress: snapshotState(state), recipe };
+            return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
         }
         if (ex.type === 'altitude_step_hold') tickAltitudeStep(recipe, state, ex, sample, events);
         else if (ex.type === 'constant_bank_360') tickConstantTurn(recipe, state, ex, sample, events, 360);
@@ -848,7 +950,7 @@
         else if (ex.type === 'stall_recovery') tickStallRecovery(recipe, state, ex, sample, events);
         state.updatedAt = Number(sample.nowMs || Date.now());
         state.events = events;
-        return { handled: true, state, events, satisfied: !!state.satisfied, progress: snapshotState(state), recipe };
+        return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
     }
 
     function getMissionRecipe(missionData = null, passenger = null) {
@@ -885,6 +987,41 @@
         activeState = null;
     }
 
+    function ensureStateForControl(missionData = null, passenger = null) {
+        const recipe = getMissionRecipe(missionData, passenger);
+        if (!recipe) return null;
+        if (!activeState || activeRecipeKey !== recipe.key || activeState.recipeKey !== recipe.key) {
+            activeState = createInitialState(recipe);
+            activeRecipeKey = recipe.key;
+        }
+        activeState.recipe = recipe;
+        activeState.requiredCount = Number(recipe.requiredCount || DEFAULTS.requiredExerciseCount);
+        return { recipe, state: activeState };
+    }
+
+    function signalReady(missionData = null, passenger = null) {
+        const ctx = ensureStateForControl(missionData, passenger);
+        if (!ctx) return { ok: false, reason: 'no_training' };
+        if (ctx.state.requiredComplete) return { ok: false, reason: 'required_complete', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        ctx.state.ready = true;
+        ctx.state.readyPrompted = true;
+        ctx.state.updatedAt = Date.now();
+        return { ok: true, state: snapshotState(ctx.state), recipe: ctx.recipe };
+    }
+
+    function requestOptionalExercise(missionData = null, passenger = null) {
+        const ctx = ensureStateForControl(missionData, passenger);
+        if (!ctx) return { ok: false, reason: 'no_training' };
+        if (!ctx.state.requiredComplete) return { ok: false, reason: 'required_open', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (ctx.state.active) return { ok: false, reason: 'active', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (Number(ctx.state.activeIndex || 0) >= ctx.recipe.exercises.length) {
+            return { ok: false, reason: 'no_optional_left', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        }
+        ctx.state.optionalRequested = true;
+        ctx.state.updatedAt = Date.now();
+        return { ok: true, state: snapshotState(ctx.state), recipe: ctx.recipe };
+    }
+
     const api = {
         defaults: DEFAULTS,
         getActiveRecipe: getMissionRecipe,
@@ -897,6 +1034,8 @@
         tick,
         restoreProgress,
         reset,
+        signalReady,
+        requestOptionalExercise,
         _test: {
             angleDiffAbs,
             signedAngleDelta,

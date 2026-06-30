@@ -25,6 +25,12 @@ function tick(recipe, state, s) {
   return result.state;
 }
 
+function markReady(state) {
+  state.ready = true;
+  state.readyPrompted = true;
+  return state;
+}
+
 function testTurn180() {
   const recipe = {
     schema: 'ga.trainingRecipe.v1',
@@ -38,7 +44,7 @@ function testTurn180() {
       stableSec: 1
     }]
   };
-  let state = createInitialState(trainingProcedure.normalizeRecipe(recipe));
+  let state = markReady(createInitialState(trainingProcedure.normalizeRecipe(recipe)));
   state = tick(recipe, state, sample({ t: 0, hdg: 0, bank: 0 }));
   for (let i = 1; i <= 18; i++) {
     state = tick(recipe, state, sample({ t: i, hdg: i * 10, bank: 30 }));
@@ -62,7 +68,7 @@ function testStallBreakRecovery() {
       targetAoaDeg: 12
     }]
   };
-  let state = createInitialState(trainingProcedure.normalizeRecipe(recipe));
+  let state = markReady(createInitialState(trainingProcedure.normalizeRecipe(recipe)));
   state = tick(recipe, state, sample({ t: 0, alt: 4000, agl: 3000, hdg: 90, pitch: 3, ias: 80, aoa: 5 }));
   state = tick(recipe, state, sample({ t: 2, alt: 4000, agl: 3000, hdg: 90, pitch: 4, ias: 78, aoa: 6 }));
   state = tick(recipe, state, sample({ t: 4, alt: 3995, agl: 2995, hdg: 90, pitch: 8, ias: 62, aoa: 12, stall: true }));
@@ -73,6 +79,43 @@ function testStallBreakRecovery() {
   assert.ok(state.exercises[0].summary.heightLossFt >= 50, 'stall summary should include height loss');
 }
 
+function testRequiredGateAndOptionalRequest() {
+  const recipe = {
+    schema: 'ga.trainingRecipe.v1',
+    key: 'test-required-gate',
+    requiredCount: 1,
+    exercises: [{
+      id: 'turn_180_required',
+      type: 'turn_180',
+      label: '180 Required',
+      targetBankDeg: 30,
+      stableSec: 1
+    }, {
+      id: 'turn_180_optional',
+      type: 'turn_180',
+      label: '180 Optional',
+      targetBankDeg: 30,
+      stableSec: 1
+    }]
+  };
+  let state = createInitialState(trainingProcedure.normalizeRecipe(recipe));
+  let result = tickState(recipe, state, sample({ t: 0, hdg: 0, bank: 0 }));
+  assert.equal(result.state.readyPrompted, true, 'training should wait for pilot ready at altitude');
+  assert.equal(result.state.active, null, 'no exercise should start before ready');
+  state = markReady(result.state);
+  state = tick(recipe, state, sample({ t: 1, hdg: 0, bank: 0 }));
+  for (let i = 2; i <= 19; i++) state = tick(recipe, state, sample({ t: i, hdg: (i - 1) * 10, bank: 30 }));
+  state = tick(recipe, state, sample({ t: 20, hdg: 180, bank: 5 }));
+  state = tick(recipe, state, sample({ t: 22, hdg: 181, bank: 2 }));
+  assert.equal(state.requiredComplete, true, 'required part should complete after first exercise');
+  assert.equal(state.satisfied, true, 'mission should be satisfied after required exercises');
+  assert.equal(state.activeIndex, 1, 'optional exercise should remain pending');
+  state.optionalRequested = true;
+  result = tickState(recipe, state, sample({ t: 24, hdg: 181, bank: 0 }));
+  assert.equal(result.state.active?.exerciseId, 'turn_180_optional', 'optional exercise should start only after request');
+}
+
 testTurn180();
 testStallBreakRecovery();
+testRequiredGateAndOptionalRequest();
 console.log('[ok] training procedure selftest');

@@ -2118,12 +2118,13 @@ function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
     _syncPaxWidgetHost();
-    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive()) || _missionActionMenuAvailable() || _poiKnowledgeTellMoreAvailable();
+    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive()) || _missionActionMenuAvailable() || _poiKnowledgeTellMoreAvailable() || _trainingProcedureMenuAvailable();
     widget.style.display = shouldShow ? 'flex' : 'none';
     if (shouldShow) {
         _refreshPoiKnowledgeGuideMenu();
         _refreshFireMissionMenu();
         _refreshMissionActionMenu();
+        _refreshTrainingProcedureMenu();
         _ensurePaxWidgetOnScreen(true);
     }
 }
@@ -2235,12 +2236,24 @@ function _injectPaxUI() {
         <button type="button" id="paxWeatherReactionBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxWeatherReactionReport && paxWeatherReactionReport()">Wetter</button>
     `;
 
+    const trainingMenu = document.createElement('div');
+    trainingMenu.id = 'paxTrainingProcedureMenu';
+    trainingMenu.style.cssText = `
+        display:none; margin-top:10px; padding-top:9px; border-top:1px solid #244562;
+        grid-template-columns:1fr; gap:6px;
+    `;
+    trainingMenu.innerHTML = `
+        <button type="button" id="paxTrainingReadyBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureReady && paxTrainingProcedureReady()">Bereit für Übung</button>
+        <button type="button" id="paxTrainingExtraBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureRequestExtra && paxTrainingProcedureRequestExtra()">Weitere Übung</button>
+    `;
+
     panel.appendChild(closeBtn);
     panel.appendChild(nameEl);
     panel.appendChild(textEl);
     panel.appendChild(knowledgeMenu);
     panel.appendChild(fireMenu);
     panel.appendChild(missionMenu);
+    panel.appendChild(trainingMenu);
 
     widget.appendChild(panel);
     widget.appendChild(btn);
@@ -2378,6 +2391,7 @@ function _showPaxMessage(text, eventLabel) {
     _refreshPoiKnowledgeGuideMenu();
     _refreshFireMissionMenu();
     _refreshMissionActionMenu();
+    _refreshTrainingProcedureMenu();
 
     widget.style.display = 'flex';
     _ensurePaxWidgetOnScreen(true);
@@ -2413,6 +2427,7 @@ function _togglePaxPanel() {
     if (!isOpen) {
         _refreshFireMissionMenu();
         _refreshMissionActionMenu();
+        _refreshTrainingProcedureMenu();
         _ensurePaxWidgetOnScreen();
         if (badge) badge.style.display = 'none';
         if (btn) btn.classList.remove('pax-has-new');
@@ -3180,6 +3195,130 @@ function _refreshMissionActionMenu() {
         textEl.textContent = isPoi ? 'Mission laeuft. Status und Orientierung sind abrufbar.' : 'Mission laeuft. Zustand und Wetter sind abrufbar.';
     }
 }
+
+function _trainingProcedureControlState() {
+    const taskDomain = _activeTaskDomain();
+    const trainingActive = !!(_activeAptTrainingPlan() || /^(training|club_training_basic|club_training_advanced)$/.test(taskDomain));
+    if (!trainingActive || typeof window.missionTrainingProcedure?.getActiveRecipe !== 'function') {
+        return { active: false, readyVisible: false, extraVisible: false };
+    }
+    if (typeof window.missionRuntimeIsActive === 'function' && !window.missionRuntimeIsActive()) {
+        return { active: false, readyVisible: false, extraVisible: false };
+    }
+    const recipe = _trainingProcedureActiveRecipe();
+    if (!recipe) return { active: false, readyVisible: false, extraVisible: false };
+    const snap = _trainingProcedureSnapshot();
+    const requiredComplete = !!snap?.requiredComplete;
+    const ready = !!snap?.ready;
+    const readyPrompted = !!snap?.readyPrompted;
+    const activeExercise = !!(snap?.activeExercise && String(snap.activeExercise.status || '') === 'active');
+    const optionalAvailable = !!snap?.optionalAvailable;
+    return {
+        active: true,
+        readyVisible: !requiredComplete && !ready && readyPrompted,
+        readyEnabled: !requiredComplete && !ready && readyPrompted,
+        extraVisible: requiredComplete && optionalAvailable,
+        extraEnabled: requiredComplete && optionalAvailable && !activeExercise && !snap?.optionalRequested,
+        requiredComplete,
+        ready,
+        readyPrompted,
+        activeExercise,
+        optionalAvailable,
+        snap,
+        recipe
+    };
+}
+
+function _trainingProcedureMenuAvailable() {
+    const state = _trainingProcedureControlState();
+    return !!(state.active && (state.readyVisible || state.extraVisible));
+}
+
+function _refreshTrainingProcedureMenu() {
+    const menu = document.getElementById('paxTrainingProcedureMenu');
+    if (!menu) return;
+    const state = _trainingProcedureControlState();
+    const visible = !!(state.active && (state.readyVisible || state.extraVisible));
+    menu.style.display = visible ? 'grid' : 'none';
+    const readyBtn = document.getElementById('paxTrainingReadyBtn');
+    const extraBtn = document.getElementById('paxTrainingExtraBtn');
+    if (readyBtn) {
+        readyBtn.style.display = state.readyVisible ? 'block' : 'none';
+        readyBtn.disabled = !state.readyEnabled;
+        readyBtn.title = 'Startet die zwei Pflichtuebungen, sobald die Maschine stabil in Trainingshoehe ist.';
+    }
+    if (extraBtn) {
+        extraBtn.style.display = state.extraVisible ? 'block' : 'none';
+        extraBtn.disabled = !state.extraEnabled;
+        extraBtn.title = state.extraEnabled
+            ? 'Fordert eine freiwillige Zusatzuebung vom Instruktor an.'
+            : 'Eine Uebung laeuft bereits oder es ist keine Zusatzuebung mehr offen.';
+    }
+    const nameEl = document.getElementById('paxVoiceName');
+    const textEl = document.getElementById('paxVoiceText');
+    if (visible && nameEl && !nameEl.textContent) {
+        const pax = window.activePassenger;
+        nameEl.textContent = pax ? `${pax.name} · Training` : 'Training';
+    }
+    if (visible && textEl && !textEl.textContent) {
+        textEl.textContent = state.readyVisible
+            ? 'Trainingshoehe erreicht? Dann melde die Bereitschaft, sobald du stabil bist.'
+            : 'Pflichtteil erledigt. Du kannst freiwillig noch eine Uebung anfragen.';
+    }
+}
+
+function _trainingProcedureControlSpeak(text, label = 'Training') {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const speaker = _speakerSnapshotForMissionVoice('training-procedure');
+    _speakPreparedText(_paxMissionAudioKey(`training-control-${label}-${clean.slice(0, 24)}`), clean, speaker, label);
+}
+
+window.paxTrainingProcedureReady = function() {
+    if (typeof window.missionTrainingProcedure?.signalReady !== 'function') {
+        _trainingProcedureControlSpeak('Trainingslogik ist noch nicht bereit. Halte den Flug stabil, ich melde mich gleich.', 'Training');
+        return;
+    }
+    const result = window.missionTrainingProcedure.signalReady(
+        (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+        window.activePassenger || null
+    );
+    const text = result?.ok
+        ? 'Alles klar, Bereitschaft ist notiert. Ich starte jetzt den Pflichtteil mit zwei Uebungen und sage die erste Aufgabe an.'
+        : (result?.reason === 'required_complete'
+            ? 'Der Pflichtteil ist bereits erledigt. Wenn du noch mehr willst, frag eine Zusatzuebung an.'
+            : 'Ich finde gerade keinen aktiven Trainingsplan. Halte den Flug stabil, dann versuchen wir es gleich nochmal.');
+    _trainingProcedureControlSpeak(text, 'Training bereit');
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot('training-ready-button', { immediate: true });
+    }
+    _refreshTrainingProcedureMenu();
+    _refreshPaxWidgetVisibility();
+};
+
+window.paxTrainingProcedureRequestExtra = function() {
+    if (typeof window.missionTrainingProcedure?.requestOptionalExercise !== 'function') {
+        _trainingProcedureControlSpeak('Zusatzuebungen sind in dieser Version noch nicht abrufbar.', 'Training');
+        return;
+    }
+    const result = window.missionTrainingProcedure.requestOptionalExercise(
+        (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+        window.activePassenger || null
+    );
+    const text = result?.ok
+        ? 'Okay, wir nehmen noch eine freiwillige Zusatzuebung dazu. Ich sage sie gleich an.'
+        : (result?.reason === 'required_open'
+            ? 'Erst die zwei Pflichtuebungen sauber abschliessen, danach koennen wir freiwillig erweitern.'
+            : (result?.reason === 'active'
+                ? 'Eine Uebung laeuft gerade schon. Flieg die erst sauber zu Ende.'
+                : 'Fuer heute ist keine weitere Uebung mehr offen. Rueckkehr ist frei.'));
+    _trainingProcedureControlSpeak(text, 'Training extra');
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot('training-extra-button', { immediate: true });
+    }
+    _refreshTrainingProcedureMenu();
+    _refreshPaxWidgetVisibility();
+};
 
 function _missionActionContext(flightData = null) {
     const md = _activeMissionData();
@@ -4655,6 +4794,35 @@ function _boardingEquipmentContextLine(items = [], fallback = 'meine Ausrüstung
         : 'Es gibt keine wichtigen Gepäckdetails für die Ansage; sprich lieber über Bereitschaft, Ziel oder Auftrag.';
 }
 
+function _trainingProcedureScheduleParts() {
+    const recipe = _trainingProcedureActiveRecipe();
+    const plan = _activeAptTrainingPlan();
+    const recipeExercises = Array.isArray(recipe?.exercises) ? recipe.exercises : [];
+    const focus = Array.isArray(plan?.focus) ? plan.focus.map(x => String(x || '').trim()).filter(Boolean) : [];
+    const labels = recipeExercises.length
+        ? recipeExercises.map(ex => String(ex?.label || ex?.id || '').trim()).filter(Boolean)
+        : focus;
+    if (!labels.length) return null;
+    const requiredCount = Math.max(1, Math.min(labels.length, Math.round(Number(recipe?.requiredCount || plan?.requiredCount || 2) || 2)));
+    return {
+        required: labels.slice(0, requiredCount),
+        optional: labels.slice(requiredCount),
+        requiredCount
+    };
+}
+
+function _trainingProcedureScheduleText() {
+    const parts = _trainingProcedureScheduleParts();
+    if (!parts) return '';
+    const required = _joinSpeechItems(parts.required);
+    const optional = _joinSpeechItems(parts.optional);
+    return [
+        required ? `Pflichtprogramm: ${required}.` : 'Pflichtprogramm: zwei saubere Uebungen.',
+        optional ? `Danach optional: ${optional}.` : 'Danach sind weitere Uebungen freiwillig.',
+        'Im Flug steigen wir erst auf Trainingshoehe. Wenn die Maschine stabil ist, gibst du mir im Pax-Fenster mit dem Bereit-Button frei.'
+    ].join(' ');
+}
+
 function _boardingFallbackVariantIndex(seed = '') {
     const s = String(seed || '');
     let h = 2166136261;
@@ -4678,6 +4846,11 @@ function _buildBoardingText() {
     const paxText = String(contract.paxText || document.getElementById('mPay')?.innerText || '').trim();
     const cargoText = String(contract.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
     const pax = window.activePassenger || {};
+    const trainingSchedule = _trainingProcedureScheduleText();
+    if (trainingSchedule && /^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) {
+        const role = pax.role ? `, ${pax.role}` : '';
+        return `Hallo, ich bin ${pax.name || 'dein Instruktor'}${role}. ${trainingSchedule} Nach zwei Pflichtuebungen gebe ich dich fuer die Rueckkehr frei; mehr gibt es nur, wenn du danach noch eine Zusatzuebung anfragst.`;
+    }
     const paxCount = _extractPaxCount(paxText);
     const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? (_stripManifestWeightForSpeech(cargoText) || cargoText) : 'kein zusaetzliches Gepaeck';
     const role = pax.role ? ` als ${pax.role}` : '';
@@ -5360,6 +5533,9 @@ function _trainingProcedureAudioKey(kind = 'event', event = null) {
 function _trainingProcedureEventKind(event = null) {
     const type = String(event?.type || '').toLowerCase();
     if (type === 'training_complete') return 'training_complete';
+    if (type === 'training_required_complete') return 'training_required_complete';
+    if (type === 'training_ready_available') return 'training_ready_available';
+    if (type === 'training_optional_started') return 'training_optional_started';
     if (type === 'stall_break_detected') return 'stall_break_detected';
     if (type === 'training_wait_altitude') return 'training_wait_altitude';
     if (type === 'exercise_instruction') {
@@ -5425,6 +5601,10 @@ function _trainingProcedureVoiceText(kind = 'training_started') {
             return 'Training aktiv. Wir bewerten ab jetzt Hoehe, Kurs, Bank und saubere Korrekturen.';
         case 'training_exercise_started':
             return 'Neue Uebung. Erst stabilisieren, dann sauber und ohne Hast einleiten.';
+        case 'training_ready_available':
+            return 'Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.';
+        case 'training_optional_started':
+            return 'Zusatzuebung angenommen. Das ist freiwillig; wir fliegen sie sauber, aber der Pflichtteil ist schon erledigt.';
         case 'training_instruction_turn_360_30':
             return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.';
         case 'training_instruction_turn_360_45':
@@ -5461,6 +5641,8 @@ function _trainingProcedureVoiceText(kind = 'training_started') {
             return 'Gut gehalten. Kurs und Hoehenband passen, der Hoehenwechsel zaehlt.';
         case 'stall_good_recovery':
             return 'Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.';
+        case 'training_required_complete':
+            return 'Pflichtteil abgeschlossen. Zwei Uebungen sind sauber genug im Kasten, du bist fuer die Rueckkehr frei. Wenn du willst, kannst du noch eine Zusatzuebung anfragen.';
         case 'training_caution_altitude':
             return 'Die Hoehe laeuft aus dem Band. Kleine Korrektur, nicht jagen.';
         case 'training_caution_heading':
@@ -5515,6 +5697,7 @@ function _trainingProcedurePickEvent(events = []) {
     if (!ranked.length) return null;
     const priority = [
         'training_complete',
+        'training_required_complete',
         'stall_break_detected',
         'training_repeat_altitude',
         'training_repeat_heading',
@@ -5544,6 +5727,8 @@ function _trainingProcedurePickEvent(events = []) {
         'training_instruction_turn_180',
         'training_instruction_altitude_step',
         'training_instruction_stall',
+        'training_ready_available',
+        'training_optional_started',
         'stall_hold_to_break',
         'stall_recovery',
         'training_altitude_change',
@@ -5580,9 +5765,11 @@ window.paxVoicePrepareTrainingProcedure = function() {
         'training_instruction_turn_180',
         'training_instruction_altitude_step',
         'training_instruction_stall',
+        'training_ready_available',
         'training_pass_turn',
         'training_pass_altitude',
         'stall_good_recovery',
+        'training_required_complete',
         'training_repeat_required',
         'training_caution_altitude',
         'training_caution_heading',
@@ -5605,7 +5792,7 @@ function _handleTrainingProcedureEvents(events = [], recipe = null) {
     const event = picked.event || null;
     _paxLog(`Training-Prozedur Event: ${kind}`, 'event');
     if (typeof window.missionPersistRuntimeSnapshot === 'function') {
-        window.missionPersistRuntimeSnapshot(`training-procedure-${kind}`, { immediate: kind === 'training_complete' });
+        window.missionPersistRuntimeSnapshot(`training-procedure-${kind}`, { immediate: kind === 'training_complete' || kind === 'training_required_complete' });
     }
     const text = _trainingProcedureVoiceText(kind, event, recipe);
     if (!text) return;
@@ -5616,6 +5803,7 @@ function _handleTrainingProcedureEvents(events = [], recipe = null) {
     _speakPreparedText(_trainingProcedureAudioKey(kind, event), text, speaker, label, {
         tryStaticAudio: (playEpoch) => _paxTryPlayStaticTrainingVoice(kind, speaker, playEpoch)
     });
+    _refreshTrainingProcedureMenu();
 }
 
 function _poiChainAudioKey(kind = 'event', text = '') {
@@ -5967,8 +6155,8 @@ function _tickTrainingProcedureTask(lat, lon, flightData) {
         if (typeof window.missionPersistRuntimeSnapshot === 'function') {
             window.missionPersistRuntimeSnapshot('training-procedure-satisfied', { immediate: true });
         }
-        if (!Array.isArray(result.events) || !result.events.some(ev => String(ev?.type || '') === 'training_complete')) {
-            _handleTrainingProcedureEvents([{ type: 'training_complete' }], result.recipe || _trainingProcedureActiveRecipe());
+        if (!Array.isArray(result.events) || !result.events.some(ev => /^(training_complete|training_required_complete)$/.test(String(ev?.type || '')))) {
+            _handleTrainingProcedureEvents([{ type: 'training_required_complete' }], result.recipe || _trainingProcedureActiveRecipe());
         }
         _refreshPaxWidgetVisibility();
     }
@@ -6576,6 +6764,7 @@ function _baseContext() {
     const trainingDiscipline = trainingPlan
         ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
         : '';
+    const trainingScheduleLine = trainingPlan ? _trainingProcedureScheduleText() : '';
     const contractSummary = contract?.summary ? String(contract.summary).trim() : '';
     const contractRules = Array.isArray(contract?.constraints)
         ? contract.constraints.map(x => String(x || '').trim()).filter(Boolean).slice(0, 3).join(' | ')
@@ -6603,6 +6792,7 @@ DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
     if (trainingDiscipline) lines.push(trainingDiscipline);
+    if (trainingScheduleLine) lines.push(`TRAINING-STUNDENPLAN: ${trainingScheduleLine}`);
     if (contractSummary) lines.push(`MISSION-CONTRACT: ${contractSummary}`);
     if (contractRules) lines.push(`CONTRACT-REGELN: ${contractRules}`);
     if (aptArrivalLine) lines.push(aptArrivalLine);
@@ -7532,6 +7722,8 @@ function _greetingMissionGuidance() {
         } else {
             reqLine = `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`;
         }
+    } else if (trainingPlan) {
+        reqLine = `Sprich als Instruktor. Nenne kurz den Stundenplan mit zwei Pflichtuebungen und erklaere, dass der Pilot im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button die Bereitschaft gibt. Danach kommen genau diese Pflichtuebungen; weitere Uebungen nur auf freiwillige Anfrage. Keine Ortsstory, kein Sightseeing.`;
     } else if (isReporterApt) {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
@@ -7599,6 +7791,10 @@ Max 3-4 Sätze.${_toneHint()}`;
     const boardingKnowledgeFact = (activeTask === 'poi_learning_guide' || (activeTask === 'sightseeing_tour' && _isPOIMission()))
         ? _poiKnowledgeFactHint('boarding')
         : '';
+    const trainingSchedule = _trainingProcedureScheduleText();
+    const trainingBoardingRule = trainingSchedule
+        ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass der Pilot erst im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button "Bereit fuer Uebung" freigeben soll. Sage auch, dass nach zwei Pflichtuebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen.`
+        : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
@@ -7606,7 +7802,7 @@ Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + 
 Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz beim Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
 Kein fester Satzbau und keine Vorlage nachsprechen; variiere natürlich.
 	${equipmentContextLine}
-	${guidance.reqLine}${boardingKnowledgeFact}
+	${guidance.reqLine}${boardingKnowledgeFact}${trainingBoardingRule}
 	${manifestSpeechRule}
 ${guidance.driftGuard}
 ${guidance.timingWordBan}

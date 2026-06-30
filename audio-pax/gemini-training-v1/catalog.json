@@ -1,6 +1,6 @@
 {
   "schema": "ga-dispatcher-pax-static-tts-v1",
-  "generatedAt": "2026-06-29T19:05:26.810Z",
+  "generatedAt": "2026-06-30T04:51:14.806Z",
   "model": "gemini-3.1-flash-tts-preview",
   "basePath": "./audio-pax/gemini-training-v1",
   "voices": [
@@ -80,6 +80,22 @@
           "mimeType": "audio/wav"
         }
       ]
+    },
+    "training_ready_available": {
+      "text": "Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.",
+      "takes": [
+        {
+          "voice": "Charon",
+          "take": 1,
+          "path": "clips/Charon/training_ready_available-t01.wav",
+          "mimeType": "audio/wav",
+          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+        }
+      ]
+    },
+    "training_optional_started": {
+      "text": "Zusatzuebung angenommen. Das ist freiwillig; wir fliegen sie sauber, aber der Pflichtteil ist schon erledigt.",
+      "takes": []
     },
     "training_instruction_turn_360_30": {
       "text": "Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.",
@@ -183,36 +199,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_turn_entry-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_turn_entry-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_turn_entry-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_turn_entry-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_turn_entry-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -223,36 +234,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_turn_rollout-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_turn_rollout-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_turn_rollout-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_turn_rollout-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_turn_rollout-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -263,36 +269,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_hold_course_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_hold_course_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_hold_course_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_hold_course_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_hold_course_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -303,36 +304,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_altitude_change-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_altitude_change-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_altitude_change-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_altitude_change-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_altitude_change-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -343,36 +339,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_hold_new_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_hold_new_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_hold_new_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_hold_new_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_hold_new_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -383,36 +374,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/stall_approach-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/stall_approach-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/stall_approach-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/stall_approach-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/stall_approach-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -423,36 +409,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/stall_hold_to_break-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/stall_hold_to_break-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/stall_hold_to_break-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/stall_hold_to_break-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/stall_hold_to_break-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -463,36 +444,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/stall_break_detected-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/stall_break_detected-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/stall_break_detected-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/stall_break_detected-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/stall_break_detected-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -503,36 +479,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/stall_recovery-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/stall_recovery-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/stall_recovery-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/stall_recovery-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/stall_recovery-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -543,36 +514,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_pass_clean-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_pass_clean-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_pass_clean-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_pass_clean-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_pass_clean-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -586,6 +552,10 @@
     },
     "stall_good_recovery": {
       "text": "Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.",
+      "takes": []
+    },
+    "training_required_complete": {
+      "text": "Pflichtteil abgeschlossen. Zwei Uebungen sind sauber genug im Kasten, du bist fuer die Rueckkehr frei. Wenn du willst, kannst du noch eine Zusatzuebung anfragen.",
       "takes": []
     },
     "training_caution_altitude": {
@@ -655,36 +625,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_repeat_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_repeat_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_repeat_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_repeat_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_repeat_altitude-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -695,36 +660,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_repeat_heading-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_repeat_heading-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_repeat_heading-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_repeat_heading-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_repeat_heading-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -735,36 +695,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_repeat_bank-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_repeat_bank-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_repeat_bank-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_repeat_bank-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_repeat_bank-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -775,36 +730,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_repeat_speed-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_repeat_speed-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_repeat_speed-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_repeat_speed-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_repeat_speed-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -815,36 +765,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_repeat_required-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_repeat_required-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_repeat_required-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_repeat_required-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_repeat_required-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     },
@@ -855,36 +800,31 @@
           "voice": "Charon",
           "take": 1,
           "path": "clips/Charon/training_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Puck",
           "take": 1,
           "path": "clips/Puck/training_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Kore",
           "take": 1,
           "path": "clips/Kore/training_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Leda",
           "take": 1,
           "path": "clips/Leda/training_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         },
         {
           "voice": "Aoede",
           "take": 1,
           "path": "clips/Aoede/training_complete-t01.wav",
-          "mimeType": "audio/wav",
-          "sourceMimeType": "audio/l16; rate=24000; channels=1"
+          "mimeType": "audio/wav"
         }
       ]
     }

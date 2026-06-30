@@ -63,6 +63,14 @@ const TRAINING_CLIPS = [
     text: 'Neue Uebung. Erst stabilisieren, dann sauber und ohne Hast einleiten.'
   },
   {
+    key: 'training_ready_available',
+    text: 'Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.'
+  },
+  {
+    key: 'training_optional_started',
+    text: 'Zusatzuebung angenommen. Das ist freiwillig; wir fliegen sie sauber, aber der Pflichtteil ist schon erledigt.'
+  },
+  {
     key: 'training_instruction_turn_360_30',
     text: 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.'
   },
@@ -133,6 +141,10 @@ const TRAINING_CLIPS = [
   {
     key: 'stall_good_recovery',
     text: 'Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.'
+  },
+  {
+    key: 'training_required_complete',
+    text: 'Pflichtteil abgeschlossen. Zwei Uebungen sind sauber genug im Kasten, du bist fuer die Rueckkehr frei. Wenn du willst, kannst du noch eine Zusatzuebung anfragen.'
   },
   {
     key: 'training_caution_altitude',
@@ -401,6 +413,47 @@ function previousTakeMap(catalog) {
   return map;
 }
 
+function maxTakeFromCatalog(catalog) {
+  let maxTake = 0;
+  for (const entry of Object.values(catalog?.clips || {})) {
+    for (const take of entry?.takes || []) {
+      maxTake = Math.max(maxTake, Number(take?.take || 0));
+    }
+  }
+  return maxTake;
+}
+
+async function buildCatalogFromFiles({ outDir, pack, model, voices, takes, previousTakes }) {
+  const catalog = {
+    schema: 'ga-dispatcher-pax-static-tts-v1',
+    generatedAt: new Date().toISOString(),
+    model,
+    basePath: pack.basePath,
+    voices: voices.slice(),
+    clips: {}
+  };
+  for (const clip of pack.clips) {
+    catalog.clips[clip.key] = { text: clip.text, takes: [] };
+    for (const voice of voices) {
+      for (let take = 1; take <= takes; take++) {
+        const existing = await firstExisting(existingClipFile(outDir, voice, clip.key, take));
+        if (!existing) continue;
+        const relPath = relPathFromOut(outDir, existing);
+        const previousTake = previousTakes.get(`${clip.key}|${voice}|${take}|${relPath}`);
+        const catalogTake = {
+          voice,
+          take,
+          path: relPath,
+          mimeType: existing.endsWith('.wav') ? 'audio/wav' : (previousTake?.mimeType || '')
+        };
+        if (previousTake?.sourceMimeType) catalogTake.sourceMimeType = previousTake.sourceMimeType;
+        catalog.clips[clip.key].takes.push(catalogTake);
+      }
+    }
+  }
+  return catalog;
+}
+
 async function requestGeminiTts(apiKey, model, text, voice) {
   const payload = {
     contents: [{ role: 'user', parts: [{ text }] }],
@@ -465,7 +518,10 @@ async function main() {
   if (!args.catalogOnly && !apiKey) throw new Error('GEMINI_API_KEY fehlt in der Shell oder in key.env.local');
 
   await fs.mkdir(args.outDir, { recursive: true });
-  const previousTakes = previousTakeMap(await readPreviousCatalog(args.outDir));
+  const previousCatalog = await readPreviousCatalog(args.outDir);
+  const previousTakes = previousTakeMap(previousCatalog);
+  const catalogVoices = Array.from(new Set([...DEFAULT_VOICES, ...args.voices]));
+  const catalogTakes = Math.max(args.takes, maxTakeFromCatalog(previousCatalog));
   const catalog = {
     schema: 'ga-dispatcher-pax-static-tts-v1',
     generatedAt: new Date().toISOString(),
@@ -524,7 +580,15 @@ async function main() {
     }
   }
 
-  await fs.writeFile(path.join(args.outDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`, 'utf8');
+  const fullCatalog = await buildCatalogFromFiles({
+    outDir: args.outDir,
+    pack,
+    model: args.model,
+    voices: catalogVoices,
+    takes: catalogTakes,
+    previousTakes
+  });
+  await fs.writeFile(path.join(args.outDir, 'catalog.json'), `${JSON.stringify(fullCatalog, null, 2)}\n`, 'utf8');
   console.log(`[ok] requests=${requests} missing=${missing} catalog=${path.relative(ROOT, path.join(args.outDir, 'catalog.json'))}`);
 }
 

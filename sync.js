@@ -8797,17 +8797,36 @@ function _missionPoiRuntimeStatus(endReady = null) {
             recipe = null;
         }
         const total = Math.max(1, Number(training?.totalExercises || recipe?.exercises?.length || 0) || 1);
+        const required = Math.max(1, Math.min(total, Number(training?.requiredCount || recipe?.requiredCount || 2) || 2));
         const done = Math.max(0, Number(training?.completedCount || 0));
+        const ready = !!training?.ready;
+        const readyPrompted = !!training?.readyPrompted;
         const activeLabel = String(training?.activeExercise?.label || recipe?.exercises?.[Math.max(0, Number(training?.activeIndex || 0) || 0)]?.label || '').trim();
-        const detail = training?.satisfied
-            ? `Training abgeschlossen. Uebungen sauber abgeschlossen: ${done}/${total}.`
-            : `Training offen. Uebungen abgeschlossen: ${done}/${total}${activeLabel ? `, aktuell: ${activeLabel}` : ''}.`;
+        const optionalLeft = Math.max(0, total - Math.max(required, done));
+        let detail = '';
+        let nextStep = '';
+        if (training?.requiredComplete) {
+            detail = `Training Pflichtteil abgeschlossen. Pflichtuebungen: ${Math.min(done, required)}/${required}${optionalLeft ? `, optionale Uebungen offen: ${optionalLeft}` : ''}.`;
+            nextStep = optionalLeft
+                ? 'Nächster Schritt: Rückkehr fortsetzen oder per Pax-Fenster eine Zusatzuebung anfragen'
+                : 'Nächster Schritt: Landung/Heimflug fortsetzen und Debriefing nach der Landung abholen';
+        } else if (!ready) {
+            detail = readyPrompted
+                ? `Trainingshoehe erreicht. Pflichtuebungen offen: ${Math.min(done, required)}/${required}.`
+                : `Training wartet auf passende Trainingshoehe. Pflichtuebungen offen: ${Math.min(done, required)}/${required}.`;
+            nextStep = readyPrompted
+                ? 'Nächster Schritt: im Pax-Fenster "Bereit für Übung" drücken, wenn die Maschine stabil ist'
+                : 'Nächster Schritt: zur Trainingshoehe steigen und Instruktor-Freigabe abwarten';
+        } else {
+            detail = `Training offen. Pflichtuebungen abgeschlossen: ${Math.min(done, required)}/${required}${activeLabel ? `, aktuell: ${activeLabel}` : ''}.`;
+            nextStep = activeLabel
+                ? `Nächster Schritt: Trainingsuebung fliegen: ${activeLabel}`
+                : 'Nächster Schritt: auf die Instruktor-Ansage warten und Uebung stabil beginnen';
+        }
         return {
-            stage: training?.satisfied ? 'training_complete' : 'training_working',
+            stage: training?.requiredComplete ? 'training_complete' : (ready ? 'training_working' : 'training_ready_waiting'),
             detail,
-            nextStep: training?.satisfied
-                ? 'Nächster Schritt: Landung/Heimflug fortsetzen und Debriefing nach der Landung abholen'
-                : (activeLabel ? `Nächster Schritt: Trainingsuebung fliegen: ${activeLabel}` : 'Nächster Schritt: auf die Instruktor-Ansage warten und Uebung stabil beginnen')
+            nextStep
         };
     }
     if (progress?.poiChain || currentMissionData?.missionSubType === 'poi_chain' || currentMissionData?.poiChain) {
