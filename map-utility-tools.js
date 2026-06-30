@@ -949,6 +949,27 @@
         event.preventDefault();
     }
 
+    function placeFormulaDrawer(panel, drawer) {
+        if (!panel || !drawer) return;
+        const margin = 12;
+        const gap = 12;
+        const panelRect = panel.getBoundingClientRect();
+        const width = Math.min(320, Math.max(220, window.innerWidth - margin * 2));
+        const maxHeight = Math.min(480, Math.max(220, window.innerHeight - margin * 2 - 28));
+        const spaceRight = window.innerWidth - panelRect.right;
+        const spaceLeft = panelRect.left;
+        const openLeft = spaceRight < width + gap + margin && spaceLeft > spaceRight;
+        let left = openLeft ? panelRect.left - width - gap : panelRect.right + gap;
+        left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));
+        let top = panelRect.top + 8;
+        top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - maxHeight - margin));
+        panel.classList.toggle('formula-left', openLeft);
+        drawer.style.setProperty('--formula-drawer-left', `${Math.round(left - panelRect.left)}px`);
+        drawer.style.setProperty('--formula-drawer-top', `${Math.round(top - panelRect.top)}px`);
+        drawer.style.setProperty('--formula-drawer-width', `${Math.round(width)}px`);
+        drawer.style.setProperty('--formula-drawer-max-height', `${Math.round(maxHeight)}px`);
+    }
+
     function toggleFormulaDrawer(force) {
         const panel = el('mapCalculatorDevice');
         const drawer = el('mapCalculatorFormulaDrawer');
@@ -956,8 +977,13 @@
         const open = typeof force === 'boolean' ? force : !panel.classList.contains('formula-open');
         panel.classList.toggle('formula-open', open);
         drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (!open) panel.classList.remove('formula-left');
+        if (open) placeFormulaDrawer(panel, drawer);
         bringToFront(panel);
-        requestAnimationFrame(() => clampPanel(panel));
+        requestAnimationFrame(() => {
+            clampPanel(panel);
+            if (open) placeFormulaDrawer(panel, drawer);
+        });
     }
 
     function bindButtons() {
