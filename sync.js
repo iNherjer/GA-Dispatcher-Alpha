@@ -2728,9 +2728,84 @@ function _missionLooksLikeFireWatch() {
     return _missionFireContextIsFireWatch(md);
 }
 
+function _missionTrainingSceneCanAutoAccept(candidate = null) {
+    const md = (candidate && typeof candidate === 'object')
+        ? (candidate.currentMissionData && typeof candidate.currentMissionData === 'object' ? candidate.currentMissionData : candidate)
+        : null;
+    if (!md) return false;
+    const isCurrentMission = (typeof currentMissionData !== 'undefined' && currentMissionData && md === currentMissionData);
+    const contract = (md.missionContract && typeof md.missionContract === 'object')
+        ? md.missionContract
+        : (isCurrentMission && window.activeMissionContract && typeof window.activeMissionContract === 'object' ? window.activeMissionContract : null);
+    const taskDomain = String(
+        md?.passenger?.taskDomain
+        || contract?.taskDomain
+        || contract?.profile?.taskDomain
+        || md?.missionContractV4?.profile?.taskDomain
+        || md?.missionPlanV4?.plan?.taskDomain
+        || md?.missionPlanV2?.plan?.taskDomain
+        || ''
+    ).trim().toLowerCase();
+    const category = String(
+        md?.requestedCategory
+        || md?.poiCategory
+        || md?.category
+        || md?.cat
+        || contract?.requestedCategory
+        || contract?.category
+        || contract?.profile?.requestedCategory
+        || contract?.profile?.pickerCategory
+        || ''
+    ).trim().toLowerCase();
+    const isTraining = /^(training|club_training_basic|club_training_advanced)$/.test(taskDomain) || category === 'trn';
+    if (!isTraining) return false;
+    const sceneKind = String(
+        md?.targetScene?.kind
+        || md?.targetSceneAiNormalized?.kind
+        || contract?.targetScene?.kind
+        || md?.missionPlanV2?.plan?.sceneKind
+        || contract?.missionPlanV2?.plan?.sceneKind
+        || ''
+    ).trim().toLowerCase();
+    return !sceneKind || sceneKind === 'none';
+}
+window.missionTrainingSceneCanAutoAccept = _missionTrainingSceneCanAutoAccept;
+
+function _missionAcceptTrainingNoSceneDraft(candidate = null, reason = 'training-no-scene') {
+    const md = (candidate && typeof candidate === 'object')
+        ? (candidate.currentMissionData && typeof candidate.currentMissionData === 'object' ? candidate.currentMissionData : candidate)
+        : null;
+    if (!_missionTrainingSceneCanAutoAccept(md)) return false;
+    const changed = md.sceneAccepted !== true || String(md.sceneCompositionStatus || '').toLowerCase() !== 'accepted';
+    md.sceneAccepted = true;
+    md.sceneCompositionStatus = 'accepted';
+    md.sceneCompositionStartedAt = 0;
+    if (md.missionContract && typeof md.missionContract === 'object') {
+        md.missionContract.sceneAccepted = true;
+        md.missionContract.sceneCompositionStatus = 'accepted';
+    }
+    const isCurrentMission = (typeof currentMissionData !== 'undefined' && currentMissionData && md === currentMissionData);
+    if (isCurrentMission && window.activeMissionContract && typeof window.activeMissionContract === 'object' && (window.activeMissionContract === md.missionContract || !window.activeMissionContract.sceneAccepted)) {
+        window.activeMissionContract.sceneAccepted = true;
+        window.activeMissionContract.sceneCompositionStatus = 'accepted';
+    }
+    if (changed) {
+        _missionPhaseDebugPush('scene_accept', { reason, mode: 'training-no-scene' });
+        try {
+            if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+            else if (typeof window.saveMissionState === 'function') window.saveMissionState();
+        } catch (_) {}
+    }
+    return true;
+}
+window.missionAcceptTrainingNoSceneDraft = _missionAcceptTrainingNoSceneDraft;
+
 function _missionSceneAcceptedForRuntime() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return false;
+    if (_missionTrainingSceneCanAutoAccept(md)) {
+        return _missionAcceptTrainingNoSceneDraft(md, 'runtime-gate');
+    }
     if (md.sceneAccepted === false) return false;
     const status = String(md.sceneCompositionStatus || '').toLowerCase();
     if (status === 'draft' || status === 'composing') return false;

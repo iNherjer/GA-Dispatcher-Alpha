@@ -5467,6 +5467,7 @@ function _missionDataFromStateCandidate(candidate) {
 function isMissionDraftPending(candidate = currentMissionData) {
     const md = _missionDataFromStateCandidate(candidate);
     if (!md || typeof md !== 'object') return false;
+    if (typeof window.missionTrainingSceneCanAutoAccept === 'function' && window.missionTrainingSceneCanAutoAccept(md)) return false;
     if (md.sceneAccepted === false) return true;
     const status = String(md.sceneCompositionStatus || '').toLowerCase();
     return status === 'draft' || status === 'composing';
@@ -21907,6 +21908,10 @@ function updateMissionAcceptanceUi() {
     const btn = document.getElementById('missionAcceptBtn');
     const text = document.getElementById('missionAcceptText');
     const md = currentMissionData || null;
+    if (md && typeof window.missionAcceptTrainingNoSceneDraft === 'function' && window.missionAcceptTrainingNoSceneDraft(md, 'accept-ui')) {
+        panel.style.display = 'none';
+        return;
+    }
     const needsAccept = !!(md && md.sceneAccepted === false);
     panel.style.display = needsAccept ? 'flex' : 'none';
     if (!needsAccept) return;
@@ -36958,11 +36963,27 @@ async function generateMission(options = {}) {
     if (isPOI && !missionSceneIntent.summary && (!missionSceneIntent.visibleIdeas || missionSceneIntent.visibleIdeas.length === 0)) {
         missionSceneIntent = sanitizeMissionSceneIntentSpec(m?.s || '', { isPOI, taskDomain: missionTaskDomain });
     }
-    const missionNeedsAccept = !isPlanningOnlyMode;
+    const missionBaseNeedsAccept = !isPlanningOnlyMode;
     let initialTargetScene = sanitizeMissionTargetSceneSpec(
-        missionNeedsAccept ? null : (m?.targetScene || null),
+        missionBaseNeedsAccept ? null : (m?.targetScene || null),
         { isPOI, taskDomain: missionTaskDomain, targetGeoContext: preMissionTargetGeoContext || null, missionPlanV2 }
     );
+    const missionTrainingNoScene = !!(
+        /^(training|club_training_basic|club_training_advanced)$/.test(missionTaskDomain)
+        || (isPOI && selectedPoiCategory === 'trn')
+        || (!isPOI && selectedAptCategory === 'trn')
+    );
+    const initialTargetSceneKind = String(initialTargetScene?.kind || '').trim().toLowerCase();
+    const missionAutoAcceptNoScene = !!(
+        missionBaseNeedsAccept
+        && missionTrainingNoScene
+        && (!initialTargetSceneKind || initialTargetSceneKind === 'none')
+    );
+    const missionNeedsAccept = missionBaseNeedsAccept && !missionAutoAcceptNoScene;
+    if (missionAutoAcceptNoScene && m && typeof m === 'object') {
+        m.sceneAccepted = true;
+        m.sceneCompositionStatus = 'accepted';
+    }
     if (
         isPOI
         && missionIsSarHeliProfileId(m?._appliedProfile || dispatchProfileId || '')
@@ -37212,6 +37233,18 @@ async function generateMission(options = {}) {
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^(Gemini|OpenAI)\b/i.test(String(m._source)));
     const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
+    const forceTrainingPassenger = !!(
+        missionHasPassenger
+        && m
+        && m.passenger
+        && typeof m.passenger === 'object'
+        && (
+            /^(training|club_training_basic|club_training_advanced)$/.test(String(m.passenger.taskDomain || '').toLowerCase())
+            || String(m.passenger.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1'
+            || (isPOI && selectedPoiCategory === 'trn')
+            || (!isPOI && selectedAptCategory === 'trn')
+        )
+    );
     const isDeferredPickupPassenger = String(bushSpec?.targetMode || '') === 'strip_then_return'
         && String(bushSpec?.pickupKind || '') === 'passenger';
     const shouldActivateMissionPassenger = !!(
@@ -37223,6 +37256,7 @@ async function generateMission(options = {}) {
         && (
             (aiModeEnabled && isAiGeneratedMission)
             || forceFireWatchPassenger
+            || forceTrainingPassenger
             || m._appliedProfile
         )
     );
@@ -38336,7 +38370,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1258', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1259', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
