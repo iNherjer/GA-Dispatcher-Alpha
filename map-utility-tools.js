@@ -375,9 +375,74 @@
         return stopwatchState.timer.audioCtx;
     }
 
+    function getUtilityAudioGain(baseGain = 1) {
+        try {
+            if (localStorage.getItem('awm_audio_effects') === '0') return 0;
+        } catch (_) {}
+        let volume = 1;
+        try {
+            const stored = Number.parseFloat(localStorage.getItem('awm_volume') || '1');
+            if (Number.isFinite(stored)) volume = Math.min(1, Math.max(0, stored));
+        } catch (_) {}
+        return Math.min(1, Math.max(0, Number(baseGain) || 0)) * volume;
+    }
+
+    function playUtilityTone(ctx, start, frequency, duration, peakGain, type = 'sine') {
+        if (!ctx || peakGain <= 0) return;
+        try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(frequency, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peakGain), start + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + duration + 0.025);
+        } catch (_) {}
+    }
+
+    function playUtilityClickSound(kind = 'button') {
+        const peak = getUtilityAudioGain(kind === 'crown' ? 0.1 : 0.07);
+        if (peak <= 0) return;
+        const ctx = ensureTimerAudioContext();
+        if (!ctx) return;
+        const start = ctx.currentTime + 0.012;
+        try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(kind === 'soft' ? 420 : 680, start);
+            osc.frequency.exponentialRampToValueAtTime(kind === 'soft' ? 170 : 230, start + 0.04);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(peak, start + 0.006);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.038);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + 0.055);
+        } catch (_) {}
+    }
+
+    function playTimerToggleSignal(starting) {
+        const peak = getUtilityAudioGain(0.11);
+        if (peak <= 0) return;
+        const ctx = ensureTimerAudioContext();
+        if (!ctx) return;
+        const start = ctx.currentTime + 0.016;
+        const tones = starting ? [760, 980] : [620, 460];
+        tones.forEach((frequency, index) => {
+            playUtilityTone(ctx, start + index * 0.105, frequency, 0.07, peak, 'square');
+        });
+    }
+
     function playTimerAlarmSignal() {
         const ctx = ensureTimerAudioContext();
         if (!ctx) return;
+        const peak = getUtilityAudioGain(0.18);
+        if (peak <= 0) return;
         const start = ctx.currentTime + 0.02;
         for (let i = 0; i < 5; i += 1) {
             const osc = ctx.createOscillator();
@@ -386,7 +451,7 @@
             osc.type = 'square';
             osc.frequency.setValueAtTime(i % 2 ? 920 : 740, toneStart);
             gain.gain.setValueAtTime(0.0001, toneStart);
-            gain.gain.exponentialRampToValueAtTime(0.18, toneStart + 0.015);
+            gain.gain.exponentialRampToValueAtTime(peak, toneStart + 0.015);
             gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.14);
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -461,10 +526,12 @@
         const max = TIMER_DIGIT_MAX[digitIndex];
         const range = max + 1;
         digits[digitIndex] = ((digits[digitIndex] + step) % range + range) % range;
+        playUtilityClickSound('soft');
         setTimerPickerDraft(timerDigitsToDuration(digits), true);
     }
 
     function resetTimerFromPicker() {
+        playUtilityClickSound('soft');
         const timer = stopwatchState.timer;
         timer.alarm = false;
         timer.running = false;
@@ -479,10 +546,12 @@
         const timer = stopwatchState.timer;
         if (timer.running) {
             pauseTimer();
+            playTimerToggleSignal(false);
             timer.pickerDraftMs = clampTimerDuration(timer.remainingMs || timer.durationMs);
         } else {
             timer.pickerDraftMs = timerDigitsToDuration(readTimerPickerDigits());
             startTimer(timer.pickerDraftMs || timer.durationMs);
+            playTimerToggleSignal(true);
         }
         event.preventDefault();
         event.stopPropagation();
@@ -642,24 +711,28 @@
         cleanupTimerDigitDrag();
         const timer = stopwatchState.timer;
         if (timer.alarm) {
+            playUtilityClickSound('soft');
             acknowledgeTimerAlarm();
             return;
         }
         ensureTimerAudioContext();
         if (timer.running) {
             pauseTimer();
+            playTimerToggleSignal(false);
             return;
         }
         if (timer.pickerOpen) {
             timer.pickerDraftMs = timerDigitsToDuration(readTimerPickerDigits());
             startTimer(timer.pickerDraftMs);
+            playTimerToggleSignal(true);
             return;
         }
         startTimer();
+        playTimerToggleSignal(true);
     }
 
     function handleTimerDisplayClick(event) {
-        ensureTimerAudioContext();
+        playUtilityClickSound('soft');
         setTimerPickerOpen(true);
         event.preventDefault();
         event.stopPropagation();
@@ -714,6 +787,7 @@
     }
 
     function toggleStopwatch() {
+        playUtilityClickSound('crown');
         if (stopwatchState.running) {
             stopwatchState.elapsedMs = getStopwatchElapsedMs();
             stopwatchState.running = false;
@@ -727,6 +801,7 @@
     }
 
     function resetStopwatch() {
+        playUtilityClickSound('soft');
         stopwatchState.elapsedMs = 0;
         stopwatchState.startedAt = performance.now();
         updateStopwatchDisplay();
@@ -756,6 +831,7 @@
     }
 
     function toggleStopwatchScale() {
+        playUtilityClickSound('soft');
         applyStopwatchScale(!stopwatchState.compact);
     }
 
@@ -937,6 +1013,7 @@
         }
         if (timerPickerClose && timerPickerClose.dataset.bound !== '1') {
             timerPickerClose.addEventListener('click', event => {
+                playUtilityClickSound('soft');
                 setTimerPickerOpen(false);
                 event.preventDefault();
                 event.stopPropagation();
@@ -944,7 +1021,10 @@
             timerPickerClose.dataset.bound = '1';
         }
         if (closeStopwatch && closeStopwatch.dataset.bound !== '1') {
-            closeStopwatch.addEventListener('click', () => closeMapUtilityTool('stopwatch'));
+            closeStopwatch.addEventListener('click', () => {
+                playUtilityClickSound('soft');
+                closeMapUtilityTool('stopwatch');
+            });
             closeStopwatch.dataset.bound = '1';
         }
         if (closeCalculator && closeCalculator.dataset.bound !== '1') {
