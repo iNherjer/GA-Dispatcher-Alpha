@@ -14325,9 +14325,11 @@ function buildInstructorPassenger(trainingPlan = null) {
     };
 }
 
-function enforceAptTrainingMission(mission = null, destName = '') {
+function enforceAptTrainingMission(mission = null, destName = '', options = {}) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
-    const target = String(destName || m.targetName || m.destName || 'Zielflugplatz').trim() || 'Zielflugplatz';
+    const isPoiTraining = !!options.isPOI;
+    const startName = String(options.startName || currentStartICAO || 'Startplatz').trim() || 'Startplatz';
+    const target = String(destName || m.targetName || m.destName || (isPoiTraining ? 'Übungsgebiet' : 'Zielflugplatz')).trim() || (isPoiTraining ? 'Übungsgebiet' : 'Zielflugplatz');
     const plan = sanitizeTrainingPlan(m.passenger?.trainingPlan || null, true);
     const passenger = buildInstructorPassenger(plan);
     const focusItems = Array.isArray(plan?.focus) && plan.focus.length
@@ -14357,17 +14359,108 @@ function enforceAptTrainingMission(mission = null, destName = '') {
     const cargoOptions = Array.isArray(TRAINING_CARGO_ITEMS) && TRAINING_CARGO_ITEMS.length ? TRAINING_CARGO_ITEMS : ['Trainingsunterlagen (10 lbs)'];
     const cargoText = cargoOptions[Math.floor(Math.random() * cargoOptions.length)] || 'Trainingsunterlagen (10 lbs)';
     m.i = m.i || '🧑‍✈️';
-    m.t = `Trainingsflug nach ${target}`;
-    m.s = _missionPipelineV4PolishGermanVisibleText(`Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`);
+    m.t = isPoiTraining ? 'Trainingsflug im Übungsgebiet' : `Trainingsflug nach ${target}`;
+    const baseStory = isPoiTraining
+        ? `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} im platznahen Übungsgebiet bei ${startName}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. Nach dem Pflichtteil bist du fuer die Rueckkehr nach ${startName} frei; weitere Aufgaben kommen nur, wenn du sie im Pax-Fenster anfragst.`
+        : `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
+    m.s = _missionPipelineV4PolishGermanVisibleText(baseStory);
     m.cat = 'trn';
     m.passenger = passenger;
     m.pax = '1 PAX (Instruktor)';
     m.cargo = cargoText;
     m.cargoText = cargoText;
+    if (isPoiTraining) {
+        m.sceneIntent = {
+            summary: 'Das Übungsgebiet ist nur Trainingsraum; es wird keine normale POI-Zielszene oder Bestandsaufnahme aufgebaut.',
+            environment: 'Trainingsraum',
+            visibleIdeas: [],
+            avoid: ['keine Arbeitsauftrag-Szene', 'keine Infrastrukturprüfung', 'keine Sightseeing-Objekte'],
+            densityHint: 'none',
+            notes: 'Trainingscalls und Instruktor-Feedback haben Vorrang vor Zielobjekten.'
+        };
+        m.targetScene = { kind: 'none', roles: [], density: 'none', notes: 'POI-Training ohne künstliche Zielszene.' };
+        m.sceneCompositionStatus = 'accepted';
+        m.sceneAccepted = true;
+        m.targetSceneDebug = {
+            source: 'training-enforced',
+            sceneIntent: m.sceneIntent,
+            normalized: m.targetScene,
+            pendingComposer: false
+        };
+    }
     return {
         mission: m,
         paxText: '1 PAX (Instruktor)',
         cargoText
+    };
+}
+
+function enforceTrainingContractFields(contract = null, { isPOI = false } = {}) {
+    if (!contract || typeof contract !== 'object') return contract;
+    const next = { ...contract };
+    next.profile = {
+        ...(next.profile || {}),
+        roleProfile: 'instructor_calm_precise_v1',
+        taskDomain: 'training',
+        pickerCategory: 'trn',
+        requestedCategory: 'trn'
+    };
+    next.target = {
+        ...(next.target || {}),
+        isPOI: !!isPOI,
+        poiCategory: 'trn'
+    };
+    if (next.missionPlan && typeof next.missionPlan === 'object') {
+        next.missionPlan = {
+            ...next.missionPlan,
+            plan: {
+                ...(next.missionPlan.plan || {}),
+                taskDomain: 'training',
+                roleProfile: 'instructor_calm_precise_v1',
+                targetCategory: 'trn',
+                sceneKind: 'none',
+                sceneDensity: 'none',
+                objectFamilies: [],
+                primaryObjective: isPOI
+                    ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
+                    : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.'
+            }
+        };
+    }
+    next.storyFrame = {
+        ...(next.storyFrame || {}),
+        trigger: isPOI
+            ? 'Der Instruktor nutzt das platznahe Übungsgebiet fuer Airwork und Verfahrenstraining.'
+            : 'Der Instruktor nutzt den Flug fuer Airwork, Verfahren und saubere Flugpraezision.',
+        focusSubject: 'zwei Pflichtübungen und freiwillige Zusatzübungen',
+        keyQuestion: 'Wie sauber der Pilot Höhe, Kurs, Bank und Verfahren in den angesagten Aufgaben hält.',
+        completionSignal: 'Nach zwei Pflichtübungen ist der Pflichtteil abgeschlossen; weitere Übungen nur auf freiwillige Anfrage.',
+        subjectDetail: 'Instruktorflug mit vorab genanntem Stundenplan',
+        soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil die Rückkehrfreigabe.'
+    };
+    return next;
+}
+
+function enforceTrainingPlannerResultFields(plannerResult = null, { isPOI = false } = {}) {
+    if (!plannerResult || typeof plannerResult !== 'object') return plannerResult;
+    return {
+        ...plannerResult,
+        plan: {
+            ...(plannerResult.plan || {}),
+            taskDomain: 'training',
+            roleProfile: 'instructor_calm_precise_v1',
+            targetCategory: 'trn',
+            sceneKind: 'none',
+            sceneDensity: 'none',
+            requiredAnchors: [],
+            objectFamilies: [],
+            placementPolicy: isPOI
+                ? 'Kein normales POI-Zielobjekt und keine Bestandsaufnahme; das Zielgebiet ist nur Trainingsraum.'
+                : 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.',
+            primaryObjective: isPOI
+                ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
+                : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.'
+        }
     };
 }
 
@@ -20000,8 +20093,8 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         || (Array.isArray(src.roles) && src.roles.length > 0)
         || (Array.isArray(src.sceneRoles) && src.sceneRoles.length > 0);
     const task = String(taskDomain || '').toLowerCase();
-    if ((task === 'sightseeing_tour' || missionPlanV2?.semantics?.forceSceneNone) && planDirective?.sceneKind === 'none') {
-        return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Ruhiger POI-Rundflug ohne kuenstliche Zielszene.' };
+    if ((task === 'sightseeing_tour' || task === 'training' || missionPlanV2?.semantics?.forceSceneNone) && planDirective?.sceneKind === 'none') {
+        return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || (task === 'training' ? 'Trainingsflug ohne künstliche POI-Zielszene.' : 'Ruhiger POI-Rundflug ohne kuenstliche Zielszene.') };
     }
     if ((task === 'science_bio' || task === 'science_geo') && planDirective?.sceneKind === 'none') {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Science POI: Beobachtung ohne künstliche Zielszene.' };
@@ -22135,7 +22228,12 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         lockedFields,
         confidence: Number.isFinite(Number(rawPlan.confidence)) ? Math.max(0, Math.min(1, Number(rawPlan.confidence))) : null
     };
-    if (String(draft?.mode || '').toLowerCase() === 'apt' && String(draft?.category || '').toLowerCase() === 'trn') {
+    const draftMode = String(draft?.mode || '').toLowerCase();
+    const draftCategory = String(draft?.category || draft?.target?.poiCategory || '').toLowerCase();
+    const isDraftTraining = (draftMode === 'apt' || draftMode === 'poi') && draftCategory === 'trn';
+    if (isDraftTraining) {
+        const isDraftPoiTraining = draftMode === 'poi';
+        const trainingTarget = isDraftPoiTraining ? 'Übungsgebiet' : (String(draft?.target?.name || '').trim() || 'Zielflugplatz');
         plan.taskDomain = 'training';
         plan.roleProfile = 'instructor_calm_precise_v1';
         plan.targetCategory = 'trn';
@@ -22143,9 +22241,36 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         plan.sceneDensity = 'none';
         plan.requiredAnchors = [];
         plan.objectFamilies = [];
-        plan.placementPolicy = 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.';
+        plan.primaryObjective = isDraftPoiTraining
+            ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
+            : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.';
+        plan.targetLabel = trainingTarget;
+        plan.focusSubject = 'zwei Pflichtübungen mit freiwilligen Zusatzübungen';
+        plan.keyQuestion = 'Ob der Pilot die angesagten Verfahren sauber, stabil und innerhalb der Toleranzen fliegt.';
+        plan.missionStakes = 'Der Flug ist Schulung, kein Beobachtungs-, Charter-, Cargo- oder Infrastrukturauftrag.';
+        plan.completionSignal = 'Nach zwei bestandenen Pflichtübungen gibt der Instruktor die Rückkehr frei.';
+        plan.storyFrame = {
+            ...(plan.storyFrame || {}),
+            trigger: isDraftPoiTraining
+                ? 'Der Instruktor nutzt das platznahe Übungsgebiet fuer Airwork und Verfahrenstraining.'
+                : 'Der Instruktor nutzt den Flug fuer Airwork, Verfahren und saubere Flugpraezision.',
+            focusSubject: 'Pflichtübungen, freiwillige Zusatzübungen und saubere Rückkehrfreigabe',
+            keyQuestion: 'Wie sauber der Pilot Höhe, Kurs, Bank und Verfahren in den angesagten Aufgaben hält.',
+            stakes: 'Wenn der Flug in eine normale Bestandsaufnahme oder Ortsstory kippt, verliert er seinen Trainingszweck.',
+            completionSignal: 'Nach zwei Pflichtübungen ist der Pflichtteil abgeschlossen; weitere Übungen nur auf freiwillige Anfrage.',
+            subjectDetail: 'Instruktorflug mit vorab genanntem Stundenplan',
+            whyNow: 'Das Wetterfenster reicht fuer ruhiges Airwork und klare Auswertung.',
+            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil die Rückkehrfreigabe.'
+        };
+        plan.placementPolicy = isDraftPoiTraining
+            ? 'Kein normales POI-Zielobjekt und keine Bestandsaufnahme; das Zielgebiet ist nur Trainingsraum.'
+            : 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.';
         plan.narrativeRules = [
-            'APT-Training bleibt ein Instruktorflug ohne Charter-, Fracht- oder Vereinsauftrag.',
+            isDraftPoiTraining
+                ? 'POI-Training bleibt ein Instruktorflug im Übungsraum, kein Beobachter-, Survey-, Infrastruktur- oder Sightseeing-Auftrag.'
+                : 'APT-Training bleibt ein Instruktorflug ohne Charter-, Fracht- oder Vereinsauftrag.',
+            'Briefing nennt die zwei Pflichtübungen und optionalen Zusatzübungen als Stundenplan.',
+            'Passenger ist immer Instruktor oder Instruktorin; keine Analysten-, Planer-, Reporter- oder Arbeitsauftrag-Rolle.',
             ...plan.narrativeRules
         ].slice(0, 8);
         plan.lockedFields = {
@@ -22153,7 +22278,7 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
             taskDomain: 'training',
             roleProfile: 'instructor_calm_precise_v1',
             targetCategory: 'trn',
-            noLandingAtPoi: false
+            noLandingAtPoi: isDraftPoiTraining
         };
     }
     if (String(draft?.profile?.id || draft?.picker?.profile || '').toLowerCase() === 'bush_pickup_strip') {
@@ -24934,6 +25059,19 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             soughtOutcome: 'Wir sollen den Gast sicher zum Zielstrip bringen, dort sauber landen und den Adventure-Leg mit Ausstieg und Handoff abschliessen.'
         };
     }
+    if (taskDomain === 'training') {
+        return {
+            trigger: `Der heutige Flug ist ein Instruktorflug im Trainingsrahmen ${targetLabel}.`,
+            focusSubject: 'zwei Pflichtuebungen, saubere Verfahren und freiwillige Zusatzuebungen',
+            keyQuestion: 'Ob Hoehe, Kurs, Bank und Verfahren in den angesagten Uebungen innerhalb der Toleranzen bleiben.',
+            stakes: 'Der Flug darf nicht in eine Bestandsaufnahme, Ortsstory oder einen normalen Arbeitsauftrag kippen.',
+            completionSignal: 'Nach zwei bestandenen Pflichtuebungen gibt der Instruktor die Rueckkehr frei; weitere Uebungen nur auf Anfrage.',
+            subjectDetail: 'Fluglehrer oder Fluglehrerin mit klarem Stundenplan',
+            incidentContext: `Das Ziel ${targetLabel} ist Trainingsraum oder Zielbezug, nicht Gegenstand einer Gelaende- oder Infrastrukturpruefung.`,
+            whyNow: 'Das Wetterfenster ist ruhig genug fuer saubere Aufgaben, Korrekturen und kurze Auswertung.',
+            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil eine eindeutige Rueckkehrfreigabe.'
+        };
+    }
     if (taskDomain === 'cargo_fragile') {
         const cargoSeed = _missionPipelineV4PickEntry([
             {
@@ -27112,6 +27250,7 @@ function _missionWriterV5DefaultTitle(contract = {}, family = '') {
     if (family === 'search_and_rescue' || family === 'sar_heli') return `Sucheinsatz bei ${target}`;
     if (family === 'infra_chain_recon') return `Korridor-Erstbefund: ${target}`;
     if (family === 'news_coverage') return `Reporterflug über ${target}`;
+    if (family === 'training') return `Trainingsflug: ${target}`;
     return targetName ? `Mission nach ${targetName}` : 'Dispatch-Auftrag';
 }
 
@@ -27450,6 +27589,13 @@ function _missionWriterV5QualityQuestions(taskDomain = '', family = '') {
             'Wofür nutzt die Redaktion Bilder, Eindrücke oder Lageeinschätzung danach?'
         ];
     }
+    if (domain === 'training') {
+        return [
+            'Ist klar, dass ein Instruktor oder eine Instruktorin mitfliegt?',
+            'Nennt das Briefing die zwei Pflichtübungen und optionale Zusatzübungen?',
+            'Bleibt das Zielgebiet Trainingsraum statt Beobachtungs- oder Arbeitsauftrag?'
+        ];
+    }
     return [
         'Warum gibt es diesen Flug genau heute?',
         'Was macht der Flug besser als ein beliebiger Weg zum Ziel?',
@@ -27562,6 +27708,24 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Wer wertet die Bilder oder Messspuren danach aus?'
         ],
         styleRecipe: 'Mapping/Survey bleibt Arbeitsflug für Datenqualität: Datensatz-Anlass, Zielgeometrie, ruhige Linien/Passes, spätere Auswertung. Keine Ersatzpumpe, kein Vereinsservice und kein Sightseeing.'
+    },
+    training: {
+        tone: 'ruhige, klare Fluglehrer-Notiz mit Stundenplan',
+        perspective: 'Dispatcher an Pilot; Instruktor fliegt mit und gibt im Flug die Aufgaben',
+        length: '3-5 Sätze',
+        softFreedom: 'Trainingsinhalte dürfen konkret formuliert werden; keine Geländebestandsaufnahme, kein Survey, kein Sightseeing und kein Arbeitsauftrag.',
+        requiredMeaning: [
+            'Ein Instruktor oder eine Instruktorin fliegt mit.',
+            'Das Briefing nennt zwei Pflichtübungen und optionale Zusatzübungen.',
+            'Der Pilot gibt bei stabiler Trainingshöhe im Pax-Fenster die Bereitschaft.',
+            'Nach dem Pflichtteil ist die Rückkehr frei.'
+        ],
+        qualityQuestions: [
+            'Ist die Rolle eindeutig Fluglehrer oder Fluglehrerin?',
+            'Steht der Stundenplan im Vordergrund statt das Zielgebiet?',
+            'Ist klar, wann der Pilot bereit meldet und wann Rückkehr frei ist?'
+        ],
+        styleRecipe: 'Training bleibt Schulungsflug: Instruktor, zwei Pflichtübungen, optionale Zusatzübungen, Bereitschaft per Pax-Fenster bei Trainingshöhe, danach Rückkehrfreigabe. Zielgebiet und Wetter sind nur Rahmen, keine eigene Orts- oder Bestandsaufnahmegeschichte.'
     },
     science_bio: {
         tone: 'ruhige Feldforschungs-Notiz mit biologischer Fragestellung',
@@ -27787,6 +27951,14 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             dataNeed: spine.concreteAngle || spine.premise || `aktueller Datensatz zu ${targetName}`,
             flightPattern: spine.flightValue || 'ruhige, reproduzierbare Linien oder Passes statt einzelner schöner Perspektiven',
             analysisStep: spine.outcome || spine.completion || 'Übergabe an GIS-, Photogrammetrie- oder Projekt-Auswertung'
+        };
+    }
+    if (taskDomain === 'training') {
+        return {
+            trainingProgram: spine.concreteAngle || spine.premise || `Airwork und Verfahrenstraining bei ${targetName}`,
+            requiredBlock: 'Zwei Pflichtuebungen werden im Briefing genannt und unterwegs vom Instruktor angesagt.',
+            optionalBlock: 'Weitere Uebungen sind freiwillig und kommen nur nach Anfrage im Pax-Fenster.',
+            completion: spine.outcome || spine.completion || 'Nach dem Pflichtteil ist die Rueckkehr frei.'
         };
     }
     if (taskDomain === 'science_bio') {
@@ -35840,6 +36012,12 @@ async function generateMission(options = {}) {
             dispatchPhaseEnd('build_v4_contract', {
                 status: missionContractV4?.status || null
             });
+            if ((isPOI && selectedPoiCategory === 'trn') || (!isPOI && selectedAptCategory === 'trn')) {
+                const trainingIsPoi = !!(isPOI && selectedPoiCategory === 'trn');
+                missionPlanV2 = enforceTrainingPlannerResultFields(missionPlanV2, { isPOI: trainingIsPoi });
+                missionPlanV4 = enforceTrainingPlannerResultFields(missionPlanV4, { isPOI: trainingIsPoi });
+                missionContractV4 = enforceTrainingContractFields(missionContractV4, { isPOI: trainingIsPoi });
+            }
         } catch (err) {
             console.warn('[MISSION PIPELINE V4] Contract planner failed, falling back to V3/V2 chain.', err);
             missionContractV4 = null;
@@ -35878,6 +36056,12 @@ async function generateMission(options = {}) {
                     status: missionContractV4?.status || null,
                     fallback: true
                 });
+                if ((isPOI && selectedPoiCategory === 'trn') || (!isPOI && selectedAptCategory === 'trn')) {
+                    const trainingIsPoi = !!(isPOI && selectedPoiCategory === 'trn');
+                    missionPlanV2 = enforceTrainingPlannerResultFields(missionPlanV2, { isPOI: trainingIsPoi });
+                    missionPlanV4 = enforceTrainingPlannerResultFields(missionPlanV4, { isPOI: trainingIsPoi });
+                    missionContractV4 = enforceTrainingContractFields(missionContractV4, { isPOI: trainingIsPoi });
+                }
             } catch (fallbackErr) {
                 missionPlanV2 = {
                     pipelineVersion: MISSION_PIPELINE_V4_VERSION,
@@ -35957,6 +36141,12 @@ async function generateMission(options = {}) {
     }
     if (missionProposalChoice && missionContractV4 && typeof missionContractV4 === 'object') {
         missionContractV4 = applyMissionProposalChoiceToMissionContractV4(missionContractV4, missionProposalChoice);
+    }
+    if ((isPOI && selectedPoiCategory === 'trn') || (!isPOI && selectedAptCategory === 'trn')) {
+        const trainingIsPoi = !!(isPOI && selectedPoiCategory === 'trn');
+        missionPlanV2 = enforceTrainingPlannerResultFields(missionPlanV2, { isPOI: trainingIsPoi });
+        missionPlanV4 = enforceTrainingPlannerResultFields(missionPlanV4, { isPOI: trainingIsPoi });
+        missionContractV4 = enforceTrainingContractFields(missionContractV4, { isPOI: trainingIsPoi });
     }
     setMissionGenerationProgress('mission_content');
     let m = null;
@@ -36614,6 +36804,23 @@ async function generateMission(options = {}) {
             m = training.mission || m;
             paxText = training.paxText || paxText;
             cargoText = training.cargoText || cargoText;
+        }
+        if (isPOI && selectedPoiCategory === 'trn') {
+            const training = enforceAptTrainingMission(m, dest?.n || 'Übungsgebiet', {
+                isPOI: true,
+                startName: start?.n || currentStartICAO || 'Startplatz'
+            });
+            m = training.mission || m;
+            paxText = training.paxText || paxText;
+            cargoText = training.cargoText || cargoText;
+            missionPlanV2 = enforceTrainingPlannerResultFields(missionPlanV2, { isPOI: true });
+            missionPlanV4 = enforceTrainingPlannerResultFields(missionPlanV4, { isPOI: true });
+            missionContractV4 = enforceTrainingContractFields(missionContractV4, { isPOI: true });
+            if (m && typeof m === 'object') {
+                m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
+                m._missionPlanV4 = missionPlanV4 || missionContractV4 || m._missionPlanV4 || null;
+                m._missionContractV4 = missionContractV4 || m._missionContractV4 || null;
+            }
         }
         {
             const effectiveProfileId = dispatchProfileId;
@@ -38129,7 +38336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1257', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1258', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

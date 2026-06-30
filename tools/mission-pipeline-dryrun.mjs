@@ -1719,8 +1719,8 @@ function buildPlannerV2Payload(prompt) {
       }
     };
   }
-  const isAptTraining = draft.mode === 'apt' && draft.category === 'trn';
-  const taskDomain = isAptTraining ? 'training' : (draft.profile?.taskDomain || (draft.profile?.id === 'mapping_survey' ? 'mapping_survey' : 'general'));
+  const isTraining = (draft.mode === 'apt' || draft.mode === 'poi') && draft.category === 'trn';
+  const taskDomain = isTraining ? 'training' : (draft.profile?.taskDomain || (draft.profile?.id === 'mapping_survey' ? 'mapping_survey' : 'general'));
   const isMapping = taskDomain === 'mapping_survey';
   const isSar = taskDomain === 'search_and_rescue';
   return {
@@ -1728,10 +1728,12 @@ function buildPlannerV2Payload(prompt) {
     needs: [],
     plan: {
       taskDomain,
-      roleProfile: isAptTraining ? 'instructor_calm_precise_v1' : (draft.profile?.roleProfile || 'general_passenger_v1'),
+      roleProfile: isTraining ? 'instructor_calm_precise_v1' : (draft.profile?.roleProfile || 'general_passenger_v1'),
       missionType: draft.mode || 'apt',
       targetCategory: draft.category || '',
-      primaryObjective: isMapping
+      primaryObjective: isTraining
+        ? `Training flight near ${draft.target?.name || draft.route?.targetIcao || 'the practice area'} with two required exercises.`
+        : isMapping
         ? `Survey the target area ${draft.target?.name || ''} with stable repeatable passes.`
         : (isSar ? `Search for a small ground clue near ${draft.target?.name || ''}.` : `Complete the mission to ${draft.target?.name || draft.route?.targetIcao || ''}.`),
       targetLabel: draft.target?.name || draft.route?.targetIcao || '',
@@ -1739,7 +1741,7 @@ function buildPlannerV2Payload(prompt) {
       sceneDensity: isMapping ? 'normal' : (isSar ? 'sparse' : 'none'),
       requiredAnchors: isMapping ? ['road_or_work_area', 'material_cluster'] : (isSar ? ['clearing_or_edge'] : []),
       objectFamilies: isMapping ? ['earthmoving', 'construction_truck', 'pallet_stack', 'cones'] : (isSar ? ['missing_person', 'small_equipment', 'signal_smoke'] : []),
-      placementPolicy: isAptTraining ? 'No target object spawn; training debrief after landing.' : (isMapping ? 'Cluster material objects together; do not scatter pallets.' : 'Keep the target sparse and readable.'),
+      placementPolicy: isTraining ? 'No normal target object spawn; the target area is only the training area.' : (isMapping ? 'Cluster material objects together; do not scatter pallets.' : 'Keep the target sparse and readable.'),
       narrativeRules: ['Keep story, passenger, sceneIntent and targetScene in the same task domain.'],
       lockedFields: {
         taskDomain,
@@ -1772,9 +1774,9 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
   try { draft = JSON.parse(draftRaw || '{}'); } catch (_) {}
   const bundle = normalizePlannerV3ToolResult(toolResult);
   const profile = bundle?.profile?.selected || draft.profile || {};
-  const isAptTraining = draft.mode === 'apt' && draft.category === 'trn';
-  const taskDomain = String(isAptTraining ? 'training' : (profile.taskDomain || draft.profile?.taskDomain || 'general')).toLowerCase();
-  const roleProfile = String(isAptTraining ? 'instructor_calm_precise_v1' : (profile.roleProfile || draft.profile?.roleProfile || 'general_passenger_v1')).toLowerCase();
+  const isTraining = (draft.mode === 'apt' || draft.mode === 'poi') && draft.category === 'trn';
+  const taskDomain = String(isTraining ? 'training' : (profile.taskDomain || draft.profile?.taskDomain || 'general')).toLowerCase();
+  const roleProfile = String(isTraining ? 'instructor_calm_precise_v1' : (profile.roleProfile || draft.profile?.roleProfile || 'general_passenger_v1')).toLowerCase();
   const missionType = String(draft.mode || bundle?.route?.mode || 'apt').toLowerCase();
   const category = String(draft.category || bundle?.category || '').toLowerCase();
   const targetLabel = String(bundle?.target?.name || draft.target?.name || draft.route?.targetIcao || 'Zielgebiet').trim();
