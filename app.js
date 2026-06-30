@@ -14337,17 +14337,14 @@ function enforceAptTrainingMission(mission = null, destName = '', options = {}) 
         ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 4)
         : [];
     const requiredCount = Math.max(1, Math.min(focusItems.length || 2, Math.round(Number(plan?.requiredCount || 2) || 2)));
-    const requiredItems = focusItems.slice(0, requiredCount);
+    const requiredItems = focusItems.slice(0, Math.max(1, Math.min(requiredCount, 2)));
     const optionalItems = focusItems.slice(requiredCount);
-    const focus = focusItems.length
-        ? focusItems.join(', ')
-        : 'Airwork, saubere Anflugvorbereitung und Verfahren';
-    const requiredLine = requiredItems.length
-        ? `Pflicht heute: ${requiredItems.join(' und ')}.`
-        : 'Pflicht heute: zwei saubere Basisuebungen.';
-    const optionalLine = optionalItems.length
-        ? `Optional danach: ${optionalItems.join(', ')}.`
-        : 'Optional danach gibt es nur bei Bedarf noch eine Zusatzuebung.';
+    const preparedExerciseText = requiredItems.length
+        ? requiredItems.join(' und ')
+        : 'einen Vollkreis und ein Stall-Training';
+    const extraExerciseText = optionalItems.length
+        ? `Wenn das sauber sitzt, kannst du später im Pax-Fenster noch eine zusätzliche Übung anfragen.`
+        : 'Wenn das sauber sitzt, bleibt es bei dem ruhigen Debriefing und der Rückkehrfreigabe.';
     const modeLabel = String(plan?.mode || '').toLowerCase() === 'pattern'
         ? 'Platzrunden- und Anflugtraining'
         : 'Airwork- und Verfahrenstraining';
@@ -14362,8 +14359,8 @@ function enforceAptTrainingMission(mission = null, destName = '', options = {}) 
     m.i = m.i || '🧑‍✈️';
     m.t = isPoiTraining ? 'Trainingsflug im Übungsgebiet' : `Trainingsflug nach ${target}`;
     const baseStory = isPoiTraining
-        ? `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} im platznahen Übungsgebiet bei ${startName}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. Nach dem Pflichtteil bist du fuer die Rueckkehr nach ${startName} frei; weitere Aufgaben kommen nur, wenn du sie im Pax-Fenster anfragst.`
-        : `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. ${requiredLine} ${optionalLine} Voller Plan: ${focus}. ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
+        ? `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} im platznahen Übungsgebiet bei ${startName}. Er hat zwei Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} Wenn die beiden Übungen sauber abgeschlossen sind, gibt er dich für die Rückkehr nach ${startName} frei.`
+        : `Heute fliegt ${instructorName}, ${instructorRole}, mit dir ${modeLabel} auf dem Weg nach ${target}. Er hat zwei Übungen vorbereitet: ${preparedExerciseText}. ${extraExerciseText} ${instructorCue || 'Der Flug bleibt lehrbar und ruhig: Aufgabe ansagen, sauber fliegen, Korrektur aufnehmen und nach der Landung kurz auswerten.'}`;
     m.s = _missionPipelineV4PolishGermanVisibleText(baseStory);
     m.cat = 'trn';
     m.passenger = passenger;
@@ -14423,8 +14420,8 @@ function enforceTrainingContractFields(contract = null, { isPOI = false } = {}) 
                 sceneDensity: 'none',
                 objectFamilies: [],
                 primaryObjective: isPOI
-                    ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
-                    : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.'
+                    ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei vorbereitete Übungen, danach Rückkehr frei.'
+                    : 'Trainingsflug mit Fluglehrer; zwei vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
             }
         };
     }
@@ -14433,11 +14430,11 @@ function enforceTrainingContractFields(contract = null, { isPOI = false } = {}) 
         trigger: isPOI
             ? 'Der Instruktor nutzt das platznahe Übungsgebiet fuer Airwork und Verfahrenstraining.'
             : 'Der Instruktor nutzt den Flug fuer Airwork, Verfahren und saubere Flugpraezision.',
-        focusSubject: 'zwei Pflichtübungen und freiwillige Zusatzübungen',
+        focusSubject: 'zwei vorbereitete Übungen und freiwillige Zusatzübungen',
         keyQuestion: 'Wie sauber der Pilot Höhe, Kurs, Bank und Verfahren in den angesagten Aufgaben hält.',
-        completionSignal: 'Nach zwei Pflichtübungen ist der Pflichtteil abgeschlossen; weitere Übungen nur auf freiwillige Anfrage.',
+        completionSignal: 'Nach den zwei vorbereiteten Übungen gibt der Instruktor die Rückkehr frei; weitere Übungen nur auf freiwillige Anfrage.',
         subjectDetail: 'Instruktorflug mit vorab genanntem Stundenplan',
-        soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil die Rückkehrfreigabe.'
+        soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach den zwei Übungen die Rückkehrfreigabe.'
     };
     return next;
 }
@@ -14459,8 +14456,8 @@ function enforceTrainingPlannerResultFields(plannerResult = null, { isPOI = fals
                 ? 'Kein normales POI-Zielobjekt und keine Bestandsaufnahme; das Zielgebiet ist nur Trainingsraum.'
                 : 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.',
             primaryObjective: isPOI
-                ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
-                : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.'
+                ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei vorbereitete Übungen, danach Rückkehr frei.'
+                : 'Trainingsflug mit Fluglehrer; zwei vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.'
         }
     };
 }
@@ -22247,25 +22244,25 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         plan.requiredAnchors = [];
         plan.objectFamilies = [];
         plan.primaryObjective = isDraftPoiTraining
-            ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei Pflichtübungen, danach Rückkehr frei.'
-            : 'Trainingsflug mit Fluglehrer; zwei Pflichtübungen, danach Rückkehr oder Landung laut Flugplan.';
+            ? 'Platznaher Trainingsflug mit Fluglehrer im Übungsgebiet; zwei vorbereitete Übungen, danach Rückkehr frei.'
+            : 'Trainingsflug mit Fluglehrer; zwei vorbereitete Übungen, danach Rückkehr oder Landung laut Flugplan.';
         plan.targetLabel = trainingTarget;
-        plan.focusSubject = 'zwei Pflichtübungen mit freiwilligen Zusatzübungen';
+        plan.focusSubject = 'zwei vorbereitete Übungen mit freiwilligen Zusatzübungen';
         plan.keyQuestion = 'Ob der Pilot die angesagten Verfahren sauber, stabil und innerhalb der Toleranzen fliegt.';
         plan.missionStakes = 'Der Flug ist Schulung, kein Beobachtungs-, Charter-, Cargo- oder Infrastrukturauftrag.';
-        plan.completionSignal = 'Nach zwei bestandenen Pflichtübungen gibt der Instruktor die Rückkehr frei.';
+        plan.completionSignal = 'Nach den zwei vorbereiteten Übungen gibt der Instruktor die Rückkehr frei.';
         plan.storyFrame = {
             ...(plan.storyFrame || {}),
             trigger: isDraftPoiTraining
                 ? 'Der Instruktor nutzt das platznahe Übungsgebiet fuer Airwork und Verfahrenstraining.'
                 : 'Der Instruktor nutzt den Flug fuer Airwork, Verfahren und saubere Flugpraezision.',
-            focusSubject: 'Pflichtübungen, freiwillige Zusatzübungen und saubere Rückkehrfreigabe',
+            focusSubject: 'vorbereitete Übungen, freiwillige Zusatzübungen und saubere Rückkehrfreigabe',
             keyQuestion: 'Wie sauber der Pilot Höhe, Kurs, Bank und Verfahren in den angesagten Aufgaben hält.',
             stakes: 'Wenn der Flug in eine normale Bestandsaufnahme oder Ortsstory kippt, verliert er seinen Trainingszweck.',
-            completionSignal: 'Nach zwei Pflichtübungen ist der Pflichtteil abgeschlossen; weitere Übungen nur auf freiwillige Anfrage.',
+            completionSignal: 'Nach den zwei vorbereiteten Übungen gibt der Instruktor die Rückkehr frei; weitere Übungen nur auf freiwillige Anfrage.',
             subjectDetail: 'Instruktorflug mit vorab genanntem Stundenplan',
             whyNow: 'Das Wetterfenster reicht fuer ruhiges Airwork und klare Auswertung.',
-            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil die Rückkehrfreigabe.'
+            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach den zwei Übungen die Rückkehrfreigabe.'
         };
         plan.placementPolicy = isDraftPoiTraining
             ? 'Kein normales POI-Zielobjekt und keine Bestandsaufnahme; das Zielgebiet ist nur Trainingsraum.'
@@ -22274,7 +22271,7 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
             isDraftPoiTraining
                 ? 'POI-Training bleibt ein Instruktorflug im Übungsraum, kein Beobachter-, Survey-, Infrastruktur- oder Sightseeing-Auftrag.'
                 : 'APT-Training bleibt ein Instruktorflug ohne Charter-, Fracht- oder Vereinsauftrag.',
-            'Briefing nennt die zwei Pflichtübungen und optionalen Zusatzübungen als Stundenplan.',
+            'Briefing nennt nur die zwei vorbereiteten Übungen und hält Zusatzübungen als freiwillige Anfrage knapp.',
             'Passenger ist immer Instruktor oder Instruktorin; keine Analysten-, Planer-, Reporter- oder Arbeitsauftrag-Rolle.',
             ...plan.narrativeRules
         ].slice(0, 8);
@@ -25067,14 +25064,14 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     if (taskDomain === 'training') {
         return {
             trigger: `Der heutige Flug ist ein Instruktorflug im Trainingsrahmen ${targetLabel}.`,
-            focusSubject: 'zwei Pflichtuebungen, saubere Verfahren und freiwillige Zusatzuebungen',
+            focusSubject: 'zwei vorbereitete Uebungen, saubere Verfahren und freiwillige Zusatzuebungen',
             keyQuestion: 'Ob Hoehe, Kurs, Bank und Verfahren in den angesagten Uebungen innerhalb der Toleranzen bleiben.',
             stakes: 'Der Flug darf nicht in eine Bestandsaufnahme, Ortsstory oder einen normalen Arbeitsauftrag kippen.',
-            completionSignal: 'Nach zwei bestandenen Pflichtuebungen gibt der Instruktor die Rueckkehr frei; weitere Uebungen nur auf Anfrage.',
+            completionSignal: 'Nach den zwei vorbereiteten Uebungen gibt der Instruktor die Rueckkehr frei; weitere Uebungen nur auf Anfrage.',
             subjectDetail: 'Fluglehrer oder Fluglehrerin mit klarem Stundenplan',
             incidentContext: `Das Ziel ${targetLabel} ist Trainingsraum oder Zielbezug, nicht Gegenstand einer Gelaende- oder Infrastrukturpruefung.`,
             whyNow: 'Das Wetterfenster ist ruhig genug fuer saubere Aufgaben, Korrekturen und kurze Auswertung.',
-            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach dem Pflichtteil eine eindeutige Rueckkehrfreigabe.'
+            soughtOutcome: 'Der Pilot bekommt klare Aufgaben, Feedback und nach den zwei Uebungen eine eindeutige Rueckkehrfreigabe.'
         };
     }
     if (taskDomain === 'cargo_fragile') {
@@ -27597,7 +27594,7 @@ function _missionWriterV5QualityQuestions(taskDomain = '', family = '') {
     if (domain === 'training') {
         return [
             'Ist klar, dass ein Instruktor oder eine Instruktorin mitfliegt?',
-            'Nennt das Briefing die zwei Pflichtübungen und optionale Zusatzübungen?',
+            'Klingt das Briefing nach zwei vorbereiteten Übungen statt nach einer Aufgabenliste?',
             'Bleibt das Zielgebiet Trainingsraum statt Beobachtungs- oder Arbeitsauftrag?'
         ];
     }
@@ -27721,16 +27718,16 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
         softFreedom: 'Trainingsinhalte dürfen konkret formuliert werden; keine Geländebestandsaufnahme, kein Survey, kein Sightseeing und kein Arbeitsauftrag.',
         requiredMeaning: [
             'Ein Instruktor oder eine Instruktorin fliegt mit.',
-            'Das Briefing nennt zwei Pflichtübungen und optionale Zusatzübungen.',
+            'Das Briefing nennt zwei vorbereitete Übungen in natürlichem Fluglehrer-Ton.',
             'Der Pilot gibt bei stabiler Trainingshöhe im Pax-Fenster die Bereitschaft.',
-            'Nach dem Pflichtteil ist die Rückkehr frei.'
+            'Nach den zwei Übungen ist die Rückkehr frei.'
         ],
         qualityQuestions: [
             'Ist die Rolle eindeutig Fluglehrer oder Fluglehrerin?',
             'Steht der Stundenplan im Vordergrund statt das Zielgebiet?',
             'Ist klar, wann der Pilot bereit meldet und wann Rückkehr frei ist?'
         ],
-        styleRecipe: 'Training bleibt Schulungsflug: Instruktor, zwei Pflichtübungen, optionale Zusatzübungen, Bereitschaft per Pax-Fenster bei Trainingshöhe, danach Rückkehrfreigabe. Zielgebiet und Wetter sind nur Rahmen, keine eigene Orts- oder Bestandsaufnahmegeschichte.'
+        styleRecipe: 'Training bleibt Schulungsflug: Instruktor, zwei vorbereitete Übungen, Bereitschaft per Pax-Fenster bei Trainingshöhe, danach Rückkehrfreigabe. Zusatzübungen nur knapp als freiwillige Anfrage erwähnen. Keine Listen wie Pflicht/Optional/Voller Plan. Zielgebiet und Wetter sind nur Rahmen, keine eigene Orts- oder Bestandsaufnahmegeschichte.'
     },
     science_bio: {
         tone: 'ruhige Feldforschungs-Notiz mit biologischer Fragestellung',
@@ -27961,9 +27958,9 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
     if (taskDomain === 'training') {
         return {
             trainingProgram: spine.concreteAngle || spine.premise || `Airwork und Verfahrenstraining bei ${targetName}`,
-            requiredBlock: 'Zwei Pflichtuebungen werden im Briefing genannt und unterwegs vom Instruktor angesagt.',
+            requiredBlock: 'Zwei vorbereitete Uebungen werden im Briefing natuerlich genannt und unterwegs vom Instruktor angesagt.',
             optionalBlock: 'Weitere Uebungen sind freiwillig und kommen nur nach Anfrage im Pax-Fenster.',
-            completion: spine.outcome || spine.completion || 'Nach dem Pflichtteil ist die Rueckkehr frei.'
+            completion: spine.outcome || spine.completion || 'Nach den zwei Uebungen ist die Rueckkehr frei.'
         };
     }
     if (taskDomain === 'science_bio') {
@@ -32582,7 +32579,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
          trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).
          Wichtig: Die eigentliche Landung erfolgt ERST nach Abschluss der Übung am Platz.
        - Gib 3-4 konkrete Übungen in "focus" an (keine Dubletten).
-       - Die ersten zwei focus-Eintraege sind der Pflichtteil. Alle weiteren focus-Eintraege sind freiwillige Zusatzuebungen.
+       - Die ersten zwei focus-Eintraege sind die vorbereiteten Uebungen. Alle weiteren focus-Eintraege sind freiwillige Zusatzuebungen.
+       - In sichtbarer story/greetingText keine Listenlogik wie "Pflicht", "Optional" oder "Voller Plan" schreiben. Natuerlich formulieren: Der Fluglehrer hat zwei Uebungen vorbereitet; Zusatzuebungen nur knapp als freiwillige Anfrage.
        - Setze requiredCount IMMER auf 2.
        - Verteile sinnvoll:
          * Option A: nur Airwork (z.B. 4 reine Airwork-Uebungen, davon 2 Pflicht)
@@ -32868,7 +32866,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
     "trainingPlan": {
       "mode": "airwork|pattern",
       "trigger": "half_route|five_nm_before_landing",
-      "focus": ["Pflichtübung 1", "Pflichtübung 2", "optionale Zusatzübung 3", "optionale Zusatzübung 4"],
+      "focus": ["vorbereitete Übung 1", "vorbereitete Übung 2", "freiwillige Zusatzübung 3", "freiwillige Zusatzübung 4"],
       "requiredCount": 2,
       "instructorLine": "Kurze konkrete Instruktoranweisung"
     }
@@ -38370,7 +38368,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1259', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1260', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

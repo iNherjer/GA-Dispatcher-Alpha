@@ -3245,7 +3245,7 @@ function _refreshTrainingProcedureMenu() {
     if (readyBtn) {
         readyBtn.style.display = state.readyVisible ? 'block' : 'none';
         readyBtn.disabled = !state.readyEnabled;
-        readyBtn.title = 'Startet die zwei Pflichtuebungen, sobald die Maschine stabil in Trainingshoehe ist.';
+        readyBtn.title = 'Startet die zwei vorbereiteten Uebungen, sobald die Maschine stabil in Trainingshoehe ist.';
     }
     if (extraBtn) {
         extraBtn.style.display = state.extraVisible ? 'block' : 'none';
@@ -3263,7 +3263,7 @@ function _refreshTrainingProcedureMenu() {
     if (visible && textEl && !textEl.textContent) {
         textEl.textContent = state.readyVisible
             ? 'Trainingshoehe erreicht? Dann melde die Bereitschaft, sobald du stabil bist.'
-            : 'Pflichtteil erledigt. Du kannst freiwillig noch eine Uebung anfragen.';
+            : 'Die vorbereiteten Uebungen sitzen. Du kannst freiwillig noch eine Uebung anfragen.';
     }
 }
 
@@ -3284,9 +3284,9 @@ window.paxTrainingProcedureReady = function() {
         window.activePassenger || null
     );
     const text = result?.ok
-        ? 'Alles klar, Bereitschaft ist notiert. Ich starte jetzt den Pflichtteil mit zwei Uebungen und sage die erste Aufgabe an.'
+        ? 'Alles klar, Bereitschaft ist notiert. Ich starte jetzt mit den zwei vorbereiteten Uebungen und sage die erste Aufgabe an.'
         : (result?.reason === 'required_complete'
-            ? 'Der Pflichtteil ist bereits erledigt. Wenn du noch mehr willst, frag eine Zusatzuebung an.'
+            ? 'Die vorbereiteten Uebungen sind bereits erledigt. Wenn du noch mehr willst, frag eine Zusatzuebung an.'
             : 'Ich finde gerade keinen aktiven Trainingsplan. Halte den Flug stabil, dann versuchen wir es gleich nochmal.');
     _trainingProcedureControlSpeak(text, 'Training bereit');
     if (typeof window.missionPersistRuntimeSnapshot === 'function') {
@@ -3308,7 +3308,7 @@ window.paxTrainingProcedureRequestExtra = function() {
     const text = result?.ok
         ? 'Okay, wir nehmen noch eine freiwillige Zusatzuebung dazu. Ich sage sie gleich an.'
         : (result?.reason === 'required_open'
-            ? 'Erst die zwei Pflichtuebungen sauber abschliessen, danach koennen wir freiwillig erweitern.'
+            ? 'Erst die zwei vorbereiteten Uebungen sauber abschliessen, danach koennen wir freiwillig erweitern.'
             : (result?.reason === 'active'
                 ? 'Eine Uebung laeuft gerade schon. Flieg die erst sauber zu Ende.'
                 : 'Fuer heute ist keine weitere Uebung mehr offen. Rueckkehr ist frei.'));
@@ -4028,6 +4028,22 @@ function _normalizeSpokenText(text) {
         .replace(/\s{2,}/g, ' ')
         .replace(/\s+([,.!?])/g, '$1')
         .trim();
+}
+
+function _trainingBoardingTextOrFallback(text, fallbackText) {
+    const clean = String(text || '').trim();
+    const fallback = String(fallbackText || '').trim();
+    if (!/^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) {
+        return clean || fallback;
+    }
+    if (!clean) return fallback;
+    const looksMetaAck = /^(verstanden|okay|alles klar|klar)[\s,.!]/i.test(clean)
+        && /(ich\s+(?:bleibe|werde|halte|liefere|formuliere|achte)|keine\s+markdown|nur\s+die\s+naechsten|nur\s+die\s+nächsten|sinnvollen\s+hinweise)/i.test(clean);
+    const hasTrainingCue = /(uebung|übung|training|trainingshoehe|trainingshöhe|bereitschaft|bereit-button|vollkreis|stall)/i.test(clean);
+    const hasBriefingListLeak = /(pflichtprogramm|pflichtteil|pflichtuebung|pflichtübung|pflicht\s+heute|optional\s*(?:danach|:)|voller\s+plan)/i.test(clean);
+    if (!looksMetaAck && hasTrainingCue && !hasBriefingListLeak) return clean;
+    _paxLog('Training-Boarding Textgen verworfen; nutze stabile Boarding-Ansage', 'warn');
+    return fallback || clean;
 }
 
 async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _paxMissionEpoch, sourceLabel = 'Audio') {
@@ -4817,8 +4833,8 @@ function _trainingProcedureScheduleText() {
     const required = _joinSpeechItems(parts.required);
     const optional = _joinSpeechItems(parts.optional);
     return [
-        required ? `Pflichtprogramm: ${required}.` : 'Pflichtprogramm: zwei saubere Uebungen.',
-        optional ? `Danach optional: ${optional}.` : 'Danach sind weitere Uebungen freiwillig.',
+        required ? `Ich habe heute zwei Uebungen fuer dich vorbereitet: ${required}.` : 'Ich habe heute zwei saubere Uebungen fuer dich vorbereitet.',
+        optional ? `Wenn das gut sitzt, kannst du spaeter noch eine Zusatzuebung anfragen.` : 'Wenn das gut sitzt, bleiben wir bei Rueckkehr und Debriefing.',
         'Im Flug steigen wir erst auf Trainingshoehe. Wenn die Maschine stabil ist, gibst du mir im Pax-Fenster mit dem Bereit-Button frei.'
     ].join(' ');
 }
@@ -4849,7 +4865,7 @@ function _buildBoardingText() {
     const trainingSchedule = _trainingProcedureScheduleText();
     if (trainingSchedule && /^(training|club_training_basic|club_training_advanced)$/.test(_activeTaskDomain())) {
         const role = pax.role ? `, ${pax.role}` : '';
-        return `Hallo, ich bin ${pax.name || 'dein Instruktor'}${role}. ${trainingSchedule} Nach zwei Pflichtuebungen gebe ich dich fuer die Rueckkehr frei; mehr gibt es nur, wenn du danach noch eine Zusatzuebung anfragst.`;
+        return `Hallo, ich bin ${pax.name || 'dein Instruktor'}${role}. ${trainingSchedule} Wenn die beiden Uebungen sauber abgeschlossen sind, gebe ich dich fuer die Rueckkehr frei.`;
     }
     const paxCount = _extractPaxCount(paxText);
     const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? (_stripManifestWeightForSpeech(cargoText) || cargoText) : 'kein zusaetzliches Gepaeck';
@@ -5604,7 +5620,7 @@ function _trainingProcedureVoiceText(kind = 'training_started') {
         case 'training_ready_available':
             return 'Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.';
         case 'training_optional_started':
-            return 'Zusatzuebung angenommen. Das ist freiwillig; wir fliegen sie sauber, aber der Pflichtteil ist schon erledigt.';
+            return 'Zusatzuebung angenommen. Das ist freiwillig; die vorbereiteten Uebungen sitzen, jetzt fliegen wir sauber weiter.';
         case 'training_instruction_turn_360_30':
             return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.';
         case 'training_instruction_turn_360_45':
@@ -5642,7 +5658,7 @@ function _trainingProcedureVoiceText(kind = 'training_started') {
         case 'stall_good_recovery':
             return 'Saubere Recovery. Break erkannt, Fluegel stabilisiert und der Hoehenverlust bleibt brauchbar.';
         case 'training_required_complete':
-            return 'Pflichtteil abgeschlossen. Zwei Uebungen sind sauber genug im Kasten, du bist fuer die Rueckkehr frei. Wenn du willst, kannst du noch eine Zusatzuebung anfragen.';
+            return 'Die zwei vorbereiteten Uebungen sind sauber genug im Kasten, du bist fuer die Rueckkehr frei. Wenn du willst, kannst du noch eine Zusatzuebung anfragen.';
         case 'training_caution_altitude':
             return 'Die Hoehe laeuft aus dem Band. Kleine Korrektur, nicht jagen.';
         case 'training_caution_heading':
@@ -6342,7 +6358,8 @@ window.paxVoicePrepareBoarding = function() {
                 ),
                 'Boarding'
             );
-            const finalText = spokenText || _buildBoardingText();
+            const fallbackText = _buildBoardingText();
+            const finalText = _trainingBoardingTextOrFallback(spokenText, fallbackText);
             _paxPreparedAudio.set(key, { text: finalText, speaker, audio: null, promise: null, epoch });
             _prepareTextAsTTS(key, finalText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
@@ -7723,7 +7740,7 @@ function _greetingMissionGuidance() {
             reqLine = `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`;
         }
     } else if (trainingPlan) {
-        reqLine = `Sprich als Instruktor. Nenne kurz den Stundenplan mit zwei Pflichtuebungen und erklaere, dass der Pilot im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button die Bereitschaft gibt. Danach kommen genau diese Pflichtuebungen; weitere Uebungen nur auf freiwillige Anfrage. Keine Ortsstory, kein Sightseeing.`;
+        reqLine = `Sprich als Instruktor. Nenne kurz, dass du zwei Uebungen vorbereitet hast, und erklaere, dass der Pilot im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button die Bereitschaft gibt. Weitere Uebungen nur auf freiwillige Anfrage. Keine Listenlogik mit Pflicht/Optional, keine Ortsstory, kein Sightseeing.`;
     } else if (isReporterApt) {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
@@ -7793,7 +7810,7 @@ Max 3-4 Sätze.${_toneHint()}`;
         : '';
     const trainingSchedule = _trainingProcedureScheduleText();
     const trainingBoardingRule = trainingSchedule
-        ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass der Pilot erst im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button "Bereit fuer Uebung" freigeben soll. Sage auch, dass nach zwei Pflichtuebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen.`
+        ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass der Pilot erst im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button "Bereit fuer Uebung" freigeben soll. Sage auch, dass nach den zwei vorbereiteten Uebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen. Keine Woerter wie Pflichtprogramm, Pflichtteil, Optional oder voller Plan.`
         : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
