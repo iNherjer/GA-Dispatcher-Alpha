@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=utility-sounds-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=formula-sheet-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=utility-sounds-20260630-01">
+        <link rel="stylesheet" href="styles.css?v=formula-sheet-20260630-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1453,21 +1453,46 @@
                     <button id="mapCalculatorFormulaToggle" class="calculator-formula-tab" type="button" title="Formel-Spickzettel">FORM</button>
                     <aside id="mapCalculatorFormulaDrawer" class="calculator-formula-drawer" aria-hidden="true">
                         <div class="formula-drawer-title">VFR FORMELN</div>
+                        <div class="formula-drawer-source">Kurzreferenz nach <a href="https://aopa.de/wp-content/uploads/49_Berechnungen_und_Formeln_fuer_Piloten.pdf" target="_blank" rel="noopener">AOPA Safety Letter Nr. 49</a></div>
                         <dl>
                             <dt>Zeit / Distanz / GS</dt>
                             <dd>Zeit h = NM / kt · NM = kt * h · kt = NM / h</dd>
                             <dt>Fuel / Range</dt>
                             <dd>Fuel = GPH * h · Endurance = Fuel / GPH · Range = GS * h</dd>
-                            <dt>Sinkflug</dt>
+                            <dt>Reserve</dt>
+                            <dd>Reservezeit h = Reservefuel / Verbrauch · Reserve-NM = GS * Reservezeit</dd>
+                            <dt>Sinkflug / 3°</dt>
                             <dd>3°: ca. 300 ft/NM · TOD NM = ft abzubauen / 300 · VS ≈ GS * 5</dd>
-                            <dt>Wind</dt>
-                            <dd>Headwind = Wind * cos Winkel · Crosswind = Wind * sin Winkel</dd>
+                            <dt>Steig- / Sinkwinkel</dt>
+                            <dd>Winkel ° ≈ Gradient % / 1.7 · Gradient % ≈ ft pro NM / 60.8</dd>
+                            <dt>Windkomponenten</dt>
+                            <dd>Headwind ≈ Wind * cos Winkel · Crosswind ≈ Wind * sin Winkel</dd>
+                            <dt>Crosswind Drittel</dt>
+                            <dd>0-30°: 1/3 · 30-60°: 2/3 · 60-90°: 3/3 vom Wind</dd>
+                            <dt>Sinus kurz</dt>
+                            <dd>10°=.2 · 20°=.3 · 30°=.5 · 40°=.6 · 50°=.8 · 60°=.9</dd>
+                            <dt>Gust-Zuschlag</dt>
+                            <dd>Vref-Zuschlag ≈ halbe Böendifferenz</dd>
+                            <dt>1:60 Regel</dt>
+                            <dd>Korrektur ° ≈ Abstand NM * 60 / geflogene NM</dd>
+                            <dt>Missweisung</dt>
+                            <dd>rwK → mwK: E abziehen, W addieren</dd>
+                            <dt>Kartenmaßstab</dt>
+                            <dd>1:500k: 1 cm ≈ 5 km · 1:250k: 1 cm ≈ 2.5 km</dd>
                             <dt>TAS</dt>
                             <dd>TAS ≈ IAS + 2% pro 1000 ft</dd>
+                            <dt>Wahre Höhe</dt>
+                            <dd>True Alt ≈ Indicated Alt + 4 ft/1000 ft je °C über ISA</dd>
                             <dt>ISA Temperatur</dt>
                             <dd>ISA °C = 15 - 2 * Höhe in 1000 ft</dd>
                             <dt>Dichtehöhe</dt>
                             <dd>DA ≈ PA + 120 * (OAT - ISA Temp)</dd>
+                            <dt>Startstrecke Zuschläge</dt>
+                            <dd>Steigung +10% je 1% · trockenes Gras +20% · Pfützen/Matsch +30%</dd>
+                            <dt>Kurvenstall</dt>
+                            <dd>45° Bank: Vs * 1.19 · 60° Bank: Vs * 1.41</dd>
+                            <dt>Niedrigste FL</dt>
+                            <dd>Druckdiff. zu 1013 * 30 ft; bei QNH < 1013 steigt Mindest-FL</dd>
                             <dt>Einheiten</dt>
                             <dd>1 NM = 1.852 km · 1 ft = 0.3048 m · 1 gal = 3.785 l · 1 lb = 0.454 kg</dd>
                         </dl>
@@ -1906,8 +1931,8 @@
 <script defer src="sync.js?v=poi-training-runtime-20260630-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
-<script defer src="map.js?v=utility-sounds-20260630-01"></script>
-<script defer src="map-utility-tools.js?v=utility-sounds-20260630-01"></script>
+<script defer src="map.js?v=formula-sheet-20260630-01"></script>
+<script defer src="map-utility-tools.js?v=formula-sheet-20260630-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

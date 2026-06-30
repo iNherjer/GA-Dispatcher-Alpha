@@ -8194,15 +8194,30 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .formula-drawer-title {
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     color: #f5d76f;
     font: 900 13px/1 'Courier New', monospace;
+}
+
+.formula-drawer-source {
+    margin-bottom: 10px;
+    color: rgba(245,215,111,0.64);
+    font: 700 9px/1.25 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.formula-drawer-source a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
 }
 
 .calculator-formula-drawer dl {
     margin: 0;
     display: grid;
-    gap: 8px;
+    gap: 7px;
 }
 
 .calculator-formula-drawer dt {
