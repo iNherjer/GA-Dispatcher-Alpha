@@ -2278,6 +2278,14 @@ body.theme-retro .api-fuel-meter .api-scale {
     line-height: 1;
 }
 
+#mapTableOverlay .pinboard-header .pb-btn.map-menu-open {
+    background: var(--warn) !important;
+    color: #111 !important;
+    border-color: rgba(0,0,0,0.45) !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 0 12px rgba(242, 193, 46, 0.55);
+    font-weight: bold;
+}
+
 .pb-btn.add {
     background: var(--green);
     color: #000;

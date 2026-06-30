@@ -1205,6 +1205,12 @@ window.toggleMapHintsMenu = function(force) {
     } else {
         menu.style.display = 'none';
     }
+    if (typeof window.gaSetMapFloatingMenuButtonOpen === 'function') {
+        window.gaSetMapFloatingMenuButtonOpen('mapHintsBtn', nextOpen);
+    } else if (btn) {
+        btn.classList.toggle('map-menu-open', nextOpen);
+        btn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    }
     if (!nextOpen) {
         closeAllMapHintSubmenus();
         const planeMenu = document.getElementById('vpPlaneIconMenu');
@@ -6029,7 +6035,6 @@ function syncMapDrawUi() {
     const floatingBtn = document.getElementById('mapDrawFloatingBtn');
     const toolStack = document.getElementById('mapDrawToolStack');
     const penBtn = document.getElementById('mapToolPen');
-    const lineBtn = document.getElementById('mapToolLine');
     const eraserToolBtn = document.getElementById('mapToolEraser');
     const settingsToolBtn = document.getElementById('mapToolSettings');
     const measureToolBtn = document.getElementById('mapToolMeasure');
@@ -6047,7 +6052,6 @@ function syncMapDrawUi() {
     }
     if (toolStack) toolStack.classList.toggle('open', mapDrawState.panelOpen);
     if (penBtn) penBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'freehand');
-    if (lineBtn) lineBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'line');
     if (eraserToolBtn) eraserToolBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'eraser');
     if (settingsToolBtn) settingsToolBtn.classList.toggle('active', mapDrawState.menuOpen);
     if (measureToolBtn) {
@@ -6214,7 +6218,7 @@ function activateMapDrawTool(kind, evt) {
             setMapDrawTool('line');
         }
     } else if (kind === 'drawClear') {
-        clearMapDrawings();
+        clearMapDrawings({ includeMeasure: true });
     } else if (kind === 'measure') {
         if (measureMode) {
             toggleMeasureMode();
@@ -6249,14 +6253,26 @@ function setMapDrawTool(tool) {
     mapDrawState.tool = tool;
     syncMapDrawUi();
     if (tool === 'line') showMapToast('Linie: Startpunkt tippen, dann Endpunkt tippen', 2200);
-    if (tool === 'eraser') showMapToast('Radierer: Strich antippen zum Löschen', 2200);
+    if (tool === 'eraser') showMapToast('Radierer: Strich oder Lineal antippen zum Löschen', 2200);
 }
 
-function clearMapDrawings() {
+function hasActiveMeasure() {
+    return !!measurePolyline || !!measureTooltip || measureMarkers.length > 0 || measurePoints.length > 0;
+}
+
+function clearMapDrawings(options = {}) {
+    const includeMeasure = !!options.includeMeasure;
+    const hadDrawings = mapDrawState.drawings.length > 0 || !!mapDrawState.drawingLine || !!mapDrawState.previewLine || !!mapDrawState.lineStartMarker;
+    const hadMeasure = hasActiveMeasure();
     resetMapDrawGesture();
     if (mapDrawState.layer) mapDrawState.layer.clearLayers();
     mapDrawState.drawings = [];
-    showMapToast('Zeichnungen gelöscht', 1600);
+    if (includeMeasure && hadMeasure) clearMeasure();
+    if (includeMeasure) {
+        showMapToast(hadDrawings || hadMeasure ? 'Zeichnungen und Lineal gelöscht' : 'Nichts zum Löschen', 1600);
+    } else {
+        showMapToast(hadDrawings ? 'Zeichnungen gelöscht' : 'Keine Zeichnung zum Löschen', 1600);
+    }
 }
 
 function addMapDrawLineLabel(line, start, end) {
@@ -6311,23 +6327,54 @@ function getMapDrawLayerPointDistance(latlng, layer) {
     return best;
 }
 
+function getMapLatLngPointDistance(latlng, targetLatLng) {
+    if (!map || !latlng || !targetLatLng) return Infinity;
+    const target = map.latLngToLayerPoint(latlng);
+    const point = map.latLngToLayerPoint(targetLatLng);
+    return target.distanceTo(point);
+}
+
+function getMapMeasurePointDistance(latlng) {
+    if (!hasActiveMeasure()) return Infinity;
+    let best = Infinity;
+    if (measurePolyline) best = Math.min(best, getMapDrawLayerPointDistance(latlng, measurePolyline));
+    measureMarkers.forEach(marker => {
+        if (marker && typeof marker.getLatLng === 'function') {
+            best = Math.min(best, getMapLatLngPointDistance(latlng, marker.getLatLng()));
+        }
+    });
+    return best;
+}
+
 function eraseMapDrawingAt(latlng, silent = false) {
-    if (!mapDrawState.layer || mapDrawState.drawings.length === 0) {
-        if (!silent) showMapToast('Keine Zeichnung zum Löschen', 1200);
+    const hasDrawings = !!mapDrawState.layer && mapDrawState.drawings.length > 0;
+    const hasMeasure = hasActiveMeasure();
+    if (!hasDrawings && !hasMeasure) {
+        if (!silent) showMapToast('Nichts zum Löschen', 1200);
         return false;
     }
     let bestLayer = null;
     let bestDist = Infinity;
-    mapDrawState.drawings.forEach(layer => {
-        const dist = getMapDrawLayerPointDistance(latlng, layer);
-        if (dist < bestDist) {
-            bestDist = dist;
-            bestLayer = layer;
-        }
-    });
-    const threshold = Math.max(14, mapDrawState.weight + 10);
-    if (!bestLayer || bestDist > threshold) {
-        if (!silent) showMapToast('Kein Strich getroffen', 1100);
+    if (hasDrawings) {
+        mapDrawState.drawings.forEach(layer => {
+            const dist = getMapDrawLayerPointDistance(latlng, layer);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestLayer = layer;
+            }
+        });
+    }
+    const drawThreshold = Math.max(14, mapDrawState.weight + 10);
+    const measureDist = getMapMeasurePointDistance(latlng);
+    const measureThreshold = 22;
+    const eraseMeasure = hasMeasure && measureDist <= measureThreshold && (!bestLayer || bestDist > drawThreshold || measureDist <= bestDist);
+    if (eraseMeasure) {
+        clearMeasure();
+        if (!silent) showMapToast('Lineal gelöscht', 1000);
+        return true;
+    }
+    if (!bestLayer || bestDist > drawThreshold) {
+        if (!silent) showMapToast('Nichts getroffen', 1100);
         return false;
     }
     if (bestLayer._mapDrawLabel) {

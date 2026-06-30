@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=main-bg-anchor-20260629-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=map-tools-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=main-bg-anchor-20260629-01">
+        <link rel="stylesheet" href="styles.css?v=map-tools-20260630-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1080,7 +1080,7 @@
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <div style="position:relative; display:inline-flex; align-items:center;">
-                <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()">⚙️ Anzeige</button>
+                <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()" aria-expanded="false">⚙️ Anzeige</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; width:210px; max-width:calc(100vw - 16px); box-sizing:border-box; overflow:hidden; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
@@ -1178,7 +1178,7 @@
                 </div>
             </div>
             <div style="position:relative; display:inline-flex; align-items:center;">
-                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🔊 Audio</button>
+                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()" aria-expanded="false">🔊 Audio</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <div>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
@@ -1351,12 +1351,10 @@
                     <button id="mapDrawFloatingBtn" class="map-draw-floating-btn" type="button" title="Werkzeugleiste" onclick="window.toggleMapToolRail && toggleMapToolRail(event)">✎</button>
                     <div id="mapDrawToolStack" class="map-draw-tool-stack" aria-label="Kartenwerkzeuge">
                         <button id="mapToolPen" class="map-draw-tool-btn" type="button" title="Stift" onclick="window.activateMapDrawTool && activateMapDrawTool('pen', event)">✎</button>
-                        <button id="mapToolLine" class="map-draw-tool-btn" type="button" title="Linie" onclick="window.activateMapDrawTool && activateMapDrawTool('line', event)">╱</button>
                         <button id="mapToolEraser" class="map-draw-tool-btn" type="button" title="Radierer" onclick="window.activateMapDrawTool && activateMapDrawTool('eraser', event)">⌫</button>
                         <button id="mapToolSettings" class="map-draw-tool-btn" type="button" title="Farben & Größe" onclick="window.toggleMapDrawSettingsMenu && window.toggleMapDrawSettingsMenu()">🎨</button>
-                        <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
+                        <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen und Lineal löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
-                        <button id="mapToolMeasureClear" class="map-draw-tool-btn" type="button" title="Zirkel löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('measureClear', event)">🗑️</button>
                     </div>
                 </div>
                 <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
@@ -1775,7 +1773,7 @@
 <script defer src="sync.js?v=poi-training-runtime-20260630-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
-<script defer src="map.js?v=autozoom-max-20260614-01"></script>
+<script defer src="map.js?v=map-tools-20260630-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
@@ -1810,22 +1808,41 @@
 
         const aboveTop = br.top - mr.height - 6;
         const belowTop = br.bottom + 6;
-        const fitsAbove = aboveTop >= pad;
-        const fitsBelow = (belowTop + mr.height) <= (window.innerHeight - pad);
+        const aboveSpace = Math.max(0, br.top - 6 - pad);
+        const belowSpace = Math.max(0, window.innerHeight - belowTop - pad);
+        const fitsAbove = mr.height <= aboveSpace;
+        const fitsBelow = mr.height <= belowSpace;
+        const minMenuHeight = 96;
 
         let top;
+        let maxHeight;
         if (preferAbove) {
-            if (fitsAbove) top = aboveTop;
-            else if (fitsBelow) top = belowTop;
-            else top = Math.max(pad, window.innerHeight - mr.height - pad);
+            if (fitsAbove) {
+                top = aboveTop;
+                maxHeight = aboveSpace;
+            } else if (fitsBelow || belowSpace >= aboveSpace) {
+                top = belowTop;
+                maxHeight = belowSpace;
+            } else {
+                top = pad;
+                maxHeight = aboveSpace;
+            }
         } else {
-            if (fitsBelow) top = belowTop;
-            else if (fitsAbove) top = aboveTop;
-            else top = Math.max(pad, window.innerHeight - mr.height - pad);
+            if (fitsBelow) {
+                top = belowTop;
+                maxHeight = belowSpace;
+            } else if (fitsAbove || aboveSpace > belowSpace) {
+                top = fitsAbove ? aboveTop : pad;
+                maxHeight = aboveSpace;
+            } else {
+                top = belowTop;
+                maxHeight = belowSpace;
+            }
         }
 
         menu.style.left = `${left}px`;
         menu.style.top = `${top}px`;
+        menu.style.maxHeight = `${Math.max(minMenuHeight, maxHeight || window.innerHeight - (pad * 2))}px`;
         menu.style.visibility = 'visible';
         if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
     }
@@ -1836,6 +1853,9 @@
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
+        _setMapFloatingMenuButtonOpen('btnVpSettings', false);
+        _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
+        _setMapFloatingMenuButtonOpen('mapHintsBtn', false);
         const planeMenu = document.getElementById('vpPlaneIconMenu');
         if (planeMenu) planeMenu.style.display = 'none';
         const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
@@ -1850,6 +1870,14 @@
         if (terrBtn) terrBtn.classList.remove('active');
     }
 
+    function _setMapFloatingMenuButtonOpen(id, open) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.classList.toggle('map-menu-open', !!open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    window.gaSetMapFloatingMenuButtonOpen = _setMapFloatingMenuButtonOpen;
+
     // ── Zahnrad-Untermenü Höhenprofil ──────────────────────────────────────────
     function toggleVpSettingsMenu() {
         const menu = document.getElementById('vpSettingsMenu');
@@ -1858,9 +1886,11 @@
         const open = menu.style.display === 'block';
         if (open) {
             menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('btnVpSettings', false);
             return;
         }
         _openFloatingMenuInViewport(menu, btn, true);
+        _setMapFloatingMenuButtonOpen('btnVpSettings', true);
         setTimeout(() => {
             document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
         }, 0);
@@ -1870,6 +1900,7 @@
         const btn  = document.getElementById('btnVpSettings');
         if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
             menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('btnVpSettings', false);
             const planeMenu = document.getElementById('vpPlaneIconMenu');
             if (planeMenu) planeMenu.style.display = 'none';
             const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
@@ -1900,9 +1931,11 @@
         const open = menu.style.display === 'block';
         if (open) {
             menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
             return;
         }
         _openFloatingMenuInViewport(menu, btn, false);
+        _setMapFloatingMenuButtonOpen('mapVoiceBtn', true);
         if (!open) {
             setTimeout(() => {
                 document.addEventListener('click', _closeMapVoiceOnOutside, { once: true, capture: true });
@@ -1914,6 +1947,7 @@
         const btn  = document.getElementById('mapVoiceBtn');
         if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
             menu.style.display = 'none';
+            _setMapFloatingMenuButtonOpen('mapVoiceBtn', false);
         }
     }
     window.addEventListener('resize', _closeFloatingMenus);
