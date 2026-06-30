@@ -23,7 +23,15 @@
         startedAt: 0,
         compact: false,
         frame: 0,
-        clockTimer: 0
+        clockTimer: 0,
+        timer: {
+            durationMs: 5 * 60000,
+            remainingMs: 5 * 60000,
+            running: false,
+            startedAt: 0,
+            alarm: false,
+            audioCtx: null
+        }
     };
 
     const calcState = {
@@ -51,6 +59,23 @@
             const btn = el(cfg.button);
             if (btn) btn.classList.toggle('active', !!panel && panel.style.display !== 'none');
         });
+        syncTimerAlarmUi();
+    }
+
+    function syncTimerAlarmUi() {
+        const panel = el('mapStopwatchDevice');
+        const isOpen = !!panel && panel.style.display !== 'none';
+        const alarm = !!stopwatchState.timer.alarm;
+        if (panel) panel.classList.toggle('timer-alert', alarm && isOpen);
+        ['mapDrawFloatingBtn', 'mapToolStopwatch'].forEach(id => {
+            const btn = el(id);
+            if (btn) btn.classList.toggle('timer-alert', alarm && !isOpen);
+        });
+        const timerDisplay = el('mapStopwatchTimerDisplay');
+        if (timerDisplay) {
+            timerDisplay.classList.toggle('is-running', stopwatchState.timer.running);
+            timerDisplay.classList.toggle('is-alarm', alarm);
+        }
     }
 
     function bringToFront(panel) {
@@ -233,21 +258,181 @@
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`;
     }
 
+    function formatTimerDuration(ms) {
+        const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+        const seconds = totalSeconds % 60;
+        const totalMinutes = Math.floor(totalSeconds / 60);
+        const minutes = totalMinutes % 60;
+        const hours = Math.floor(totalMinutes / 60);
+        if (hours > 0) {
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function parseTimerDuration(input) {
+        const text = String(input || '').trim().replace(',', '.').toLowerCase();
+        if (!text) return null;
+        if (/^\d+(\.\d+)?m$/.test(text)) {
+            return Math.round(Number.parseFloat(text) * 60000);
+        }
+        if (/^\d+(\.\d+)?s$/.test(text)) {
+            return Math.round(Number.parseFloat(text) * 1000);
+        }
+        if (/^\d+(\.\d+)?$/.test(text)) {
+            return Math.round(Number.parseFloat(text) * 60000);
+        }
+        if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(text)) {
+            const parts = text.split(':').map(part => Number.parseInt(part, 10));
+            if (parts.some(part => !Number.isFinite(part) || part < 0 || part > 59)) return null;
+            const seconds = parts.length === 2
+                ? parts[0] * 60 + parts[1]
+                : parts[0] * 3600 + parts[1] * 60 + parts[2];
+            return seconds * 1000;
+        }
+        return null;
+    }
+
+    function getTimerRemainingMs() {
+        const timer = stopwatchState.timer;
+        return timer.running
+            ? Math.max(0, timer.remainingMs - (performance.now() - timer.startedAt))
+            : Math.max(0, timer.remainingMs);
+    }
+
+    function persistTimerDuration() {
+        try { localStorage.setItem(`${STORAGE_PREFIX}stopwatch_timer_duration`, String(stopwatchState.timer.durationMs)); } catch (_) {}
+    }
+
+    function ensureTimerAudioContext() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        if (!stopwatchState.timer.audioCtx) {
+            try { stopwatchState.timer.audioCtx = new AudioCtx(); } catch (_) { return null; }
+        }
+        if (stopwatchState.timer.audioCtx.state === 'suspended') {
+            stopwatchState.timer.audioCtx.resume().catch(() => {});
+        }
+        return stopwatchState.timer.audioCtx;
+    }
+
+    function playTimerAlarmSignal() {
+        const ctx = ensureTimerAudioContext();
+        if (!ctx) return;
+        const start = ctx.currentTime + 0.02;
+        for (let i = 0; i < 5; i += 1) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const toneStart = start + i * 0.22;
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(i % 2 ? 920 : 740, toneStart);
+            gain.gain.setValueAtTime(0.0001, toneStart);
+            gain.gain.exponentialRampToValueAtTime(0.18, toneStart + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.14);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(toneStart);
+            osc.stop(toneStart + 0.16);
+        }
+    }
+
+    function updateTimerDisplay() {
+        const timer = stopwatchState.timer;
+        const remaining = getTimerRemainingMs();
+        const value = el('mapStopwatchTimerValue');
+        const label = el('mapStopwatchTimerLabel');
+        if (value) value.textContent = formatTimerDuration(timer.alarm ? 0 : (remaining || timer.durationMs));
+        if (label) label.textContent = timer.alarm ? 'DONE' : (timer.running ? 'RUN' : 'TIMER');
+        syncTimerAlarmUi();
+    }
+
+    function finishTimer() {
+        const timer = stopwatchState.timer;
+        timer.running = false;
+        timer.remainingMs = 0;
+        timer.startedAt = 0;
+        timer.alarm = true;
+        updateTimerDisplay();
+        playTimerAlarmSignal();
+    }
+
+    function startTimer(durationMs) {
+        const timer = stopwatchState.timer;
+        const nextDuration = Number(durationMs);
+        if (Number.isFinite(nextDuration) && nextDuration > 0) {
+            timer.durationMs = Math.min(nextDuration, 24 * 3600000);
+            timer.remainingMs = timer.durationMs;
+            persistTimerDuration();
+        }
+        if (timer.remainingMs <= 0) timer.remainingMs = timer.durationMs;
+        timer.alarm = false;
+        timer.startedAt = performance.now();
+        timer.running = true;
+        ensureTimerAudioContext();
+        updateStopwatchDisplay();
+    }
+
+    function pauseTimer() {
+        const timer = stopwatchState.timer;
+        timer.remainingMs = getTimerRemainingMs();
+        timer.running = false;
+        timer.startedAt = 0;
+        updateStopwatchDisplay();
+    }
+
+    function acknowledgeTimerAlarm() {
+        const timer = stopwatchState.timer;
+        timer.alarm = false;
+        timer.running = false;
+        timer.remainingMs = timer.durationMs;
+        updateStopwatchDisplay();
+    }
+
+    function handleTimerDisplayClick(event) {
+        const timer = stopwatchState.timer;
+        if (timer.alarm) {
+            acknowledgeTimerAlarm();
+            event.preventDefault();
+            return;
+        }
+        if (timer.running) {
+            pauseTimer();
+            event.preventDefault();
+            return;
+        }
+        ensureTimerAudioContext();
+        const current = formatTimerDuration(timer.remainingMs || timer.durationMs);
+        const input = window.prompt('Timerdauer: Minuten, MM:SS oder HH:MM:SS', current);
+        if (input === null) {
+            event.preventDefault();
+            return;
+        }
+        const nextMs = parseTimerDuration(input);
+        if (!nextMs || nextMs < 1000) {
+            window.alert('Bitte eine Timerdauer ab 1 Sekunde eingeben, z.B. 5, 5:00 oder 00:05:00.');
+            event.preventDefault();
+            return;
+        }
+        startTimer(nextMs);
+        event.preventDefault();
+    }
+
     function updateStopwatchDisplay() {
+        stopwatchState.frame = 0;
         const ms = getStopwatchElapsedMs();
         const elapsed = el('mapStopwatchElapsed');
         const secondHand = el('mapStopwatchSecondHand');
         const tenthHand = el('mapStopwatchTenthHand');
         const minuteHand = el('mapStopwatchMinuteHand');
-        const subMinutes = el('mapStopwatchSubMinutes');
         if (elapsed) elapsed.textContent = formatElapsed(ms);
         if (secondHand) secondHand.style.transform = `rotate(${(ms / 1000 % 60) * 6}deg)`;
         if (tenthHand) tenthHand.style.transform = `rotate(${(ms / 100 % 10) * 36}deg)`;
         if (minuteHand) minuteHand.style.transform = `rotate(${(ms / 60000 % 60) * 6}deg)`;
-        if (subMinutes) subMinutes.textContent = String(Math.floor(ms / 60000) % 100).padStart(2, '0');
+        if (stopwatchState.timer.running && getTimerRemainingMs() <= 0) finishTimer();
+        else updateTimerDisplay();
         const startStop = el('mapStopwatchStartStop');
         if (startStop) startStop.textContent = stopwatchState.running ? 'STOP' : 'START';
-        if (stopwatchState.running) {
+        if (stopwatchState.running || stopwatchState.timer.running) {
             stopwatchState.frame = requestAnimationFrame(updateStopwatchDisplay);
         }
     }
@@ -289,7 +474,6 @@
         } else {
             stopwatchState.startedAt = performance.now();
             stopwatchState.running = true;
-            stopwatchState.frame = requestAnimationFrame(updateStopwatchDisplay);
         }
         updateStopwatchDisplay();
     }
@@ -456,6 +640,7 @@
         const startStop = el('mapStopwatchStartStop');
         const reset = el('mapStopwatchReset');
         const scale = el('mapStopwatchScale');
+        const timerDisplay = el('mapStopwatchTimerDisplay');
         const closeStopwatch = el('mapStopwatchClose');
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
@@ -472,6 +657,10 @@
         if (scale && scale.dataset.bound !== '1') {
             scale.addEventListener('click', toggleStopwatchScale);
             scale.dataset.bound = '1';
+        }
+        if (timerDisplay && timerDisplay.dataset.bound !== '1') {
+            timerDisplay.addEventListener('click', handleTimerDisplayClick);
+            timerDisplay.dataset.bound = '1';
         }
         if (closeStopwatch && closeStopwatch.dataset.bound !== '1') {
             closeStopwatch.addEventListener('click', () => closeMapUtilityTool('stopwatch'));
@@ -498,6 +687,12 @@
         let storedScale = '';
         try { storedScale = localStorage.getItem(`${STORAGE_PREFIX}stopwatch_scale`) || ''; } catch (_) {}
         applyStopwatchScale(storedScale === '50', false);
+        let storedTimerDuration = 0;
+        try { storedTimerDuration = Number(localStorage.getItem(`${STORAGE_PREFIX}stopwatch_timer_duration`) || 0); } catch (_) {}
+        if (Number.isFinite(storedTimerDuration) && storedTimerDuration >= 1000) {
+            stopwatchState.timer.durationMs = Math.min(storedTimerDuration, 24 * 3600000);
+            stopwatchState.timer.remainingMs = stopwatchState.timer.durationMs;
+        }
         updateStopwatchDisplay();
         updateClockFields();
         clearCalc();
