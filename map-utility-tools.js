@@ -21,7 +21,6 @@
         running: false,
         elapsedMs: 0,
         startedAt: 0,
-        mode: 'analog',
         frame: 0,
         clockTimer: 0
     };
@@ -159,9 +158,12 @@
         handle.addEventListener('pointerdown', event => {
             if (event.button !== undefined && event.button !== 0) return;
             if (event.target && event.target.closest('button, input, select, textarea')) return;
-            const rect = panel.getBoundingClientRect();
-            panel.style.left = `${rect.left}px`;
-            panel.style.top = `${rect.top}px`;
+            const styleLeft = Number.parseFloat(panel.style.left);
+            const styleTop = Number.parseFloat(panel.style.top);
+            const startLeft = Number.isFinite(styleLeft) ? styleLeft : panel.offsetLeft;
+            const startTop = Number.isFinite(styleTop) ? styleTop : panel.offsetTop;
+            panel.style.left = `${startLeft}px`;
+            panel.style.top = `${startTop}px`;
             panel.style.right = 'auto';
             panel.style.bottom = 'auto';
             dragState = {
@@ -169,8 +171,8 @@
                 pointerId: event.pointerId,
                 startX: event.clientX,
                 startY: event.clientY,
-                left: rect.left,
-                top: rect.top
+                left: startLeft,
+                top: startTop
             };
             panel.classList.add('is-dragging');
             bringToFront(panel);
@@ -284,16 +286,6 @@
         stopwatchState.elapsedMs = 0;
         stopwatchState.startedAt = performance.now();
         updateStopwatchDisplay();
-    }
-
-    function setStopwatchMode(mode) {
-        stopwatchState.mode = mode === 'digital' ? 'digital' : 'analog';
-        const panel = el('mapStopwatchDevice');
-        const analog = el('mapStopwatchModeAnalog');
-        const digital = el('mapStopwatchModeDigital');
-        if (panel) panel.classList.toggle('is-digital-mode', stopwatchState.mode === 'digital');
-        if (analog) analog.classList.toggle('active', stopwatchState.mode === 'analog');
-        if (digital) digital.classList.toggle('active', stopwatchState.mode === 'digital');
     }
 
     function setCalcDisplay(value) {
@@ -425,8 +417,6 @@
         const startStop = el('mapStopwatchStartStop');
         const reset = el('mapStopwatchReset');
         const closeStopwatch = el('mapStopwatchClose');
-        const analog = el('mapStopwatchModeAnalog');
-        const digital = el('mapStopwatchModeDigital');
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
         const keypad = document.querySelector('#mapCalculatorDevice .calculator-keypad');
@@ -442,14 +432,6 @@
         if (closeStopwatch && closeStopwatch.dataset.bound !== '1') {
             closeStopwatch.addEventListener('click', () => closeMapUtilityTool('stopwatch'));
             closeStopwatch.dataset.bound = '1';
-        }
-        if (analog && analog.dataset.bound !== '1') {
-            analog.addEventListener('click', () => setStopwatchMode('analog'));
-            analog.dataset.bound = '1';
-        }
-        if (digital && digital.dataset.bound !== '1') {
-            digital.addEventListener('click', () => setStopwatchMode('digital'));
-            digital.dataset.bound = '1';
         }
         if (closeCalculator && closeCalculator.dataset.bound !== '1') {
             closeCalculator.addEventListener('click', () => closeMapUtilityTool('calculator'));
@@ -469,7 +451,6 @@
         bindButtons();
         bindDrag('stopwatch');
         bindDrag('calculator');
-        setStopwatchMode('analog');
         updateStopwatchDisplay();
         updateClockFields();
         clearCalc();

@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=map-utility-tools-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=stopwatch-polish-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=map-utility-tools-20260630-01">
+        <link rel="stylesheet" href="styles.css?v=stopwatch-polish-20260630-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1378,10 +1378,23 @@
                         <div class="map-utility-device-title">VFR CHRONO</div>
                         <button id="mapStopwatchClose" class="map-utility-close" type="button" title="Schließen">x</button>
                         <div class="stopwatch-dial" aria-hidden="true">
+                            <div class="stopwatch-tick-ring"></div>
                             <div class="stopwatch-tick tick-12"></div>
                             <div class="stopwatch-tick tick-3"></div>
                             <div class="stopwatch-tick tick-6"></div>
                             <div class="stopwatch-tick tick-9"></div>
+                            <span class="stopwatch-number number-60">60</span>
+                            <span class="stopwatch-number number-5">5</span>
+                            <span class="stopwatch-number number-10">10</span>
+                            <span class="stopwatch-number number-15">15</span>
+                            <span class="stopwatch-number number-20">20</span>
+                            <span class="stopwatch-number number-25">25</span>
+                            <span class="stopwatch-number number-30">30</span>
+                            <span class="stopwatch-number number-35">35</span>
+                            <span class="stopwatch-number number-40">40</span>
+                            <span class="stopwatch-number number-45">45</span>
+                            <span class="stopwatch-number number-50">50</span>
+                            <span class="stopwatch-number number-55">55</span>
                             <div class="stopwatch-hand stopwatch-minute-hand" id="mapStopwatchMinuteHand"></div>
                             <div class="stopwatch-hand stopwatch-second-hand" id="mapStopwatchSecondHand"></div>
                             <div class="stopwatch-hand stopwatch-tenth-hand" id="mapStopwatchTenthHand"></div>
@@ -1394,10 +1407,6 @@
                         <div class="stopwatch-digital-face">
                             <div id="mapStopwatchElapsed" class="utility-seven-seg">00:00.0</div>
                         </div>
-                    </div>
-                    <div class="stopwatch-controls">
-                        <button id="mapStopwatchModeAnalog" class="stopwatch-mode-btn active" type="button">ANALOG</button>
-                        <button id="mapStopwatchModeDigital" class="stopwatch-mode-btn" type="button">DIGITAL</button>
                     </div>
                     <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten">
                         <div>
@@ -1868,7 +1877,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
 <script defer src="map.js?v=map-utility-tools-20260630-01"></script>
-<script defer src="map-utility-tools.js?v=map-utility-tools-20260630-01"></script>
+<script defer src="map-utility-tools.js?v=stopwatch-polish-20260630-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
