@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=stopwatch-timer-20260630-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=dial-zones-20260630-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=stopwatch-timer-20260630-02">
+        <link rel="stylesheet" href="styles.css?v=dial-zones-20260630-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1402,10 +1402,40 @@
                             <div class="stopwatch-hand stopwatch-second-hand" id="mapStopwatchSecondHand"></div>
                             <div class="stopwatch-hand stopwatch-tenth-hand" id="mapStopwatchTenthHand"></div>
                             <div class="stopwatch-hub"></div>
-                            <button id="mapStopwatchTimerDisplay" class="stopwatch-timer-display" type="button" title="Timer einstellen / starten / stoppen">
+                            <button id="mapStopwatchTimerDisplay" class="stopwatch-timer-display" type="button" title="Timer einstellen">
                                 <span id="mapStopwatchTimerLabel">TIMER</span>
                                 <strong id="mapStopwatchTimerValue" class="utility-seven-seg">05:00</strong>
                             </button>
+                            <div id="mapStopwatchTimerPicker" class="stopwatch-timer-picker" aria-hidden="true">
+                                <div class="timer-picker-digits" aria-label="Timerdauer">
+                                    <div class="timer-picker-digit" data-timer-digit="0">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="0" title="Minuten-Zehner erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="0" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="0" title="Minuten-Zehner verringern">▼</button>
+                                    </div>
+                                    <div class="timer-picker-digit" data-timer-digit="1">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="1" title="Minuten-Einer erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="1" title="Ziehen zum Einstellen">5</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="1" title="Minuten-Einer verringern">▼</button>
+                                    </div>
+                                    <span class="timer-picker-separator">:</span>
+                                    <div class="timer-picker-digit" data-timer-digit="2">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="2" title="Sekunden-Zehner erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="2" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="2" title="Sekunden-Zehner verringern">▼</button>
+                                    </div>
+                                    <div class="timer-picker-digit" data-timer-digit="3">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="3" title="Sekunden-Einer erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="3" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="3" title="Sekunden-Einer verringern">▼</button>
+                                    </div>
+                                </div>
+                                <div class="timer-picker-actions">
+                                    <button id="mapStopwatchTimerStartStop" type="button">START</button>
+                                    <button id="mapStopwatchTimerReset" type="button">RESET</button>
+                                    <button id="mapStopwatchTimerClose" type="button" title="Timer-Einstellung schließen">OK</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten">
@@ -1876,8 +1906,8 @@
 <script defer src="sync.js?v=poi-training-runtime-20260630-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
-<script defer src="map.js?v=stopwatch-timer-20260630-02"></script>
-<script defer src="map-utility-tools.js?v=stopwatch-timer-20260630-02"></script>
+<script defer src="map.js?v=dial-zones-20260630-01"></script>
+<script defer src="map-utility-tools.js?v=dial-zones-20260630-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

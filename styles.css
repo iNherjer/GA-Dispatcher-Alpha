@@ -7588,6 +7588,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .map-utility-close:active,
 .stopwatch-crown:active:not(.stopwatch-crown-reset):not(.stopwatch-scale-toggle),
+.timer-picker-digit button:active,
+.timer-picker-actions button:active,
 .calculator-keypad button:active,
 .calculator-formula-tab:active {
     transform: translateY(1px);
@@ -7898,6 +7900,132 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .stopwatch-timer-display.is-alarm {
     border-color: rgba(255,93,36,0.9);
     background: linear-gradient(rgba(76,16,10,0.86), rgba(12,6,4,0.74));
+}
+
+.stopwatch-timer-picker {
+    position: absolute;
+    z-index: 10;
+    left: 50%;
+    bottom: 81px;
+    width: 176px;
+    box-sizing: border-box;
+    padding: 8px 9px 9px;
+    border-radius: 16px;
+    border: 2px solid rgba(246,240,220,0.18);
+    background:
+        linear-gradient(145deg, rgba(58,64,67,0.96), rgba(15,18,19,0.98)),
+        radial-gradient(circle at 30% 15%, rgba(255,255,255,0.16), transparent 32%);
+    box-shadow:
+        inset 0 1px 2px rgba(255,255,255,0.2),
+        inset 0 -5px 10px rgba(0,0,0,0.45),
+        0 10px 24px rgba(0,0,0,0.58);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(8px) scale(0.96);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    touch-action: none;
+}
+
+.stopwatch-timer-picker.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.stopwatch-timer-picker.is-running {
+    border-color: rgba(245,200,75,0.45);
+    box-shadow:
+        inset 0 1px 2px rgba(255,255,255,0.2),
+        inset 0 -5px 10px rgba(0,0,0,0.45),
+        0 10px 24px rgba(0,0,0,0.58),
+        0 0 15px rgba(245,200,75,0.24);
+}
+
+.stopwatch-timer-picker.is-alarm {
+    border-color: rgba(255,93,36,0.72);
+}
+
+.timer-picker-digits {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.timer-picker-digit {
+    display: grid;
+    grid-template-rows: 18px 31px 18px;
+    width: 31px;
+    gap: 2px;
+}
+
+.timer-picker-digit button,
+.timer-picker-actions button {
+    border: 1px solid rgba(255,255,255,0.18);
+    background: linear-gradient(#343b40, #171b1e);
+    color: #f8f2dc;
+    cursor: pointer;
+    font: 900 10px/1 'Courier New', monospace;
+    letter-spacing: 0;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.16), 0 2px 5px rgba(0,0,0,0.35);
+    touch-action: none;
+}
+
+.timer-picker-digit button {
+    border-radius: 7px;
+    padding: 0;
+}
+
+.timer-picker-value {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px !important;
+    color: #ff5d24 !important;
+    border-color: #0d1114 !important;
+    background: linear-gradient(rgba(32,37,29,0.86), rgba(8,10,8,0.74)) !important;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.68), 0 0 8px rgba(255,93,36,0.2) !important;
+}
+
+.timer-picker-value.is-dragging {
+    filter: brightness(1.28);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.68), 0 0 14px rgba(255,93,36,0.55) !important;
+}
+
+.timer-picker-separator {
+    align-self: center;
+    color: #ffb08f;
+    font: 900 23px/1 'Courier New', monospace;
+    text-shadow: 0 0 6px rgba(255,93,36,0.45);
+    transform: translateY(1px);
+}
+
+.timer-picker-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 36px;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.timer-picker-actions button {
+    height: 24px;
+    border-radius: 8px;
+    padding: 0 5px;
+}
+
+#mapStopwatchTimerStartStop {
+    background: linear-gradient(#f6c650, #9f6c12);
+    color: #111;
+}
+
+#mapStopwatchTimerReset {
+    background: linear-gradient(#cfd5d9, #6e767d);
+    color: #101317;
+}
+
+#mapStopwatchTimerClose {
+    background: linear-gradient(#294257, #101820);
+    color: #aee4ff;
 }
 
 .stopwatch-digital-face {

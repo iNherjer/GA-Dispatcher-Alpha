@@ -16,6 +16,11 @@
             storage: `${STORAGE_PREFIX}calculator_pos`
         }
     };
+    const TIMER_MIN_MS = 1000;
+    const TIMER_MAX_SECONDS = 99 * 60 + 59;
+    const TIMER_MAX_MS = TIMER_MAX_SECONDS * 1000;
+    const TIMER_DIGIT_MAX = [9, 9, 5, 9];
+    const TIMER_DIGIT_DRAG_STEP_PX = 14;
 
     const stopwatchState = {
         running: false,
@@ -30,7 +35,9 @@
             running: false,
             startedAt: 0,
             alarm: false,
-            audioCtx: null
+            audioCtx: null,
+            pickerOpen: false,
+            pickerDraftMs: 5 * 60000
         }
     };
 
@@ -43,6 +50,7 @@
     };
 
     let dragState = null;
+    let timerDigitDragState = null;
 
     function el(id) {
         return document.getElementById(id);
@@ -164,6 +172,7 @@
         const panel = el(cfg.panel);
         if (!panel) return;
         savePanelPosition(cfg);
+        if (tool === 'stopwatch') setTimerPickerOpen(false);
         panel.style.display = 'none';
         panel.setAttribute('aria-hidden', 'true');
         if (tool === 'stopwatch') stopClockTimerIfIdle();
@@ -176,6 +185,16 @@
         return !!panel && panel.style.display !== 'none';
     }
 
+    function getStopwatchDialTapAction(event) {
+        if (!event || !event.target) return '';
+        const dial = event.target.closest('.stopwatch-dial');
+        if (!dial) return '';
+        const rect = dial.getBoundingClientRect();
+        if (!rect.height) return '';
+        const localY = event.clientY - rect.top;
+        return localY < rect.height / 2 ? 'toggleStopwatch' : 'toggleTimer';
+    }
+
     function bindDrag(tool) {
         const cfg = getToolConfig(tool);
         const panel = cfg ? el(cfg.panel) : null;
@@ -183,7 +202,7 @@
         if (!cfg || !panel || !handle || handle.dataset.utilityDragBound === '1') return;
         handle.addEventListener('pointerdown', event => {
             if (event.button !== undefined && event.button !== 0) return;
-            if (event.target && event.target.closest('button, input, select, textarea')) return;
+            if (event.target && event.target.closest('button, input, select, textarea, .stopwatch-timer-picker')) return;
             const styleLeft = Number.parseFloat(panel.style.left);
             const styleTop = Number.parseFloat(panel.style.top);
             const startLeft = Number.isFinite(styleLeft) ? styleLeft : panel.offsetLeft;
@@ -200,7 +219,7 @@
                 left: startLeft,
                 top: startTop,
                 moved: false,
-                tapAction: tool === 'stopwatch' && event.target && event.target.closest('.stopwatch-dial') ? 'toggleStopwatch' : ''
+                tapAction: tool === 'stopwatch' ? getStopwatchDialTapAction(event) : ''
             };
             panel.classList.add('is-dragging');
             bringToFront(panel);
@@ -224,14 +243,15 @@
         });
         const endDrag = event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
-            const shouldTap = !dragState.moved && dragState.tapAction === 'toggleStopwatch';
+            const tapAction = !dragState.moved ? dragState.tapAction : '';
             panel.classList.remove('is-dragging');
             if (handle.releasePointerCapture && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) {
                 handle.releasePointerCapture(event.pointerId);
             }
             if (dragState.moved) savePanelPosition(cfg);
             dragState = null;
-            if (shouldTap) toggleStopwatch();
+            if (tapAction === 'toggleStopwatch') toggleStopwatch();
+            else if (tapAction === 'toggleTimer') toggleTimerFromDial();
             event.stopPropagation();
         };
         handle.addEventListener('pointerup', endDrag);
@@ -259,14 +279,9 @@
     }
 
     function formatTimerDuration(ms) {
-        const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+        const totalSeconds = Math.ceil(Math.min(TIMER_MAX_MS, Math.max(0, ms)) / 1000);
         const seconds = totalSeconds % 60;
-        const totalMinutes = Math.floor(totalSeconds / 60);
-        const minutes = totalMinutes % 60;
-        const hours = Math.floor(totalMinutes / 60);
-        if (hours > 0) {
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
+        const minutes = Math.floor(totalSeconds / 60);
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
 
@@ -298,6 +313,50 @@
         return timer.running
             ? Math.max(0, timer.remainingMs - (performance.now() - timer.startedAt))
             : Math.max(0, timer.remainingMs);
+    }
+
+    function clampTimerDuration(ms) {
+        const value = Number(ms);
+        if (!Number.isFinite(value)) return 5 * 60000;
+        return Math.min(TIMER_MAX_MS, Math.max(TIMER_MIN_MS, Math.ceil(value / 1000) * 1000));
+    }
+
+    function durationToTimerDigits(ms) {
+        const totalSeconds = Math.round(clampTimerDuration(ms) / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return [
+            Math.floor(minutes / 10),
+            minutes % 10,
+            Math.floor(seconds / 10),
+            seconds % 10
+        ];
+    }
+
+    function timerDigitsToDuration(digits) {
+        const minutes = (Number(digits[0]) || 0) * 10 + (Number(digits[1]) || 0);
+        const seconds = (Number(digits[2]) || 0) * 10 + (Number(digits[3]) || 0);
+        return clampTimerDuration((minutes * 60 + Math.min(59, seconds)) * 1000);
+    }
+
+    function readTimerPickerDigits() {
+        const digits = [0, 0, 0, 1];
+        const picker = el('mapStopwatchTimerPicker');
+        if (!picker) return digits;
+        picker.querySelectorAll('[data-timer-drag]').forEach(button => {
+            const index = Number(button.dataset.timerDrag);
+            const value = Number.parseInt(button.textContent || '0', 10);
+            if (Number.isInteger(index) && index >= 0 && index < digits.length && Number.isFinite(value)) {
+                digits[index] = Math.min(TIMER_DIGIT_MAX[index], Math.max(0, value));
+            }
+        });
+        return digits;
+    }
+
+    function getTimerPickerBaseMs() {
+        const timer = stopwatchState.timer;
+        if (timer.running) return getTimerRemainingMs();
+        return timer.remainingMs || timer.durationMs;
     }
 
     function persistTimerDuration() {
@@ -344,6 +403,194 @@
         if (value) value.textContent = formatTimerDuration(timer.alarm ? 0 : (remaining || timer.durationMs));
         if (label) label.textContent = timer.alarm ? 'DONE' : (timer.running ? 'RUN' : 'TIMER');
         syncTimerAlarmUi();
+        syncTimerPicker();
+    }
+
+    function syncTimerPicker() {
+        const timer = stopwatchState.timer;
+        const picker = el('mapStopwatchTimerPicker');
+        if (!picker) return;
+        if (timer.pickerOpen && timer.running) timer.pickerDraftMs = clampTimerDuration(getTimerRemainingMs());
+        const digits = durationToTimerDigits(timer.pickerDraftMs || timer.durationMs);
+        picker.querySelectorAll('[data-timer-drag]').forEach(button => {
+            const index = Number(button.dataset.timerDrag);
+            if (Number.isInteger(index) && index >= 0 && index < digits.length) {
+                button.textContent = String(digits[index]);
+            }
+        });
+        const startStop = el('mapStopwatchTimerStartStop');
+        if (startStop) startStop.textContent = timer.running ? 'STOP' : 'START';
+        picker.classList.toggle('open', !!timer.pickerOpen);
+        picker.classList.toggle('is-running', !!timer.running);
+        picker.classList.toggle('is-alarm', !!timer.alarm);
+        picker.setAttribute('aria-hidden', timer.pickerOpen ? 'false' : 'true');
+    }
+
+    function setTimerPickerOpen(open) {
+        const timer = stopwatchState.timer;
+        timer.pickerOpen = !!open;
+        if (timer.pickerOpen) {
+            timer.pickerDraftMs = clampTimerDuration(getTimerPickerBaseMs());
+            const panel = el('mapStopwatchDevice');
+            if (panel) bringToFront(panel);
+        }
+        syncTimerPicker();
+    }
+
+    function setTimerPickerDraft(durationMs, commit = true) {
+        const timer = stopwatchState.timer;
+        timer.pickerDraftMs = clampTimerDuration(durationMs);
+        if (commit) {
+            if (timer.running) pauseTimer();
+            timer.alarm = false;
+            timer.durationMs = timer.pickerDraftMs;
+            timer.remainingMs = timer.pickerDraftMs;
+            timer.startedAt = 0;
+            persistTimerDuration();
+            updateStopwatchDisplay();
+            return;
+        }
+        syncTimerPicker();
+    }
+
+    function adjustTimerPickerDigit(index, delta) {
+        const digitIndex = Number(index);
+        const step = Number(delta);
+        if (!Number.isInteger(digitIndex) || digitIndex < 0 || digitIndex > 3 || !Number.isFinite(step) || step === 0) return;
+        const digits = durationToTimerDigits(stopwatchState.timer.pickerDraftMs || getTimerPickerBaseMs());
+        const max = TIMER_DIGIT_MAX[digitIndex];
+        const range = max + 1;
+        digits[digitIndex] = ((digits[digitIndex] + step) % range + range) % range;
+        setTimerPickerDraft(timerDigitsToDuration(digits), true);
+    }
+
+    function resetTimerFromPicker() {
+        const timer = stopwatchState.timer;
+        timer.alarm = false;
+        timer.running = false;
+        timer.startedAt = 0;
+        timer.pickerDraftMs = clampTimerDuration(timer.durationMs);
+        timer.remainingMs = timer.pickerDraftMs;
+        updateStopwatchDisplay();
+    }
+
+    function handleTimerPickerStartStop(event) {
+        cleanupTimerDigitDrag();
+        const timer = stopwatchState.timer;
+        if (timer.running) {
+            pauseTimer();
+            timer.pickerDraftMs = clampTimerDuration(timer.remainingMs || timer.durationMs);
+        } else {
+            timer.pickerDraftMs = timerDigitsToDuration(readTimerPickerDigits());
+            startTimer(timer.pickerDraftMs || timer.durationMs);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function handleTimerPickerClick(event) {
+        const stepButton = event.target.closest('[data-timer-step]');
+        if (!stepButton) return;
+        adjustTimerPickerDigit(stepButton.dataset.timerDigitIndex, Number(stepButton.dataset.timerStep));
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function handleTimerPickerPointerDown(event) {
+        const valueButton = event.target.closest('[data-timer-drag]');
+        if (!valueButton) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        startTimerDigitDrag(valueButton, event.pointerId, event.clientY, event);
+    }
+
+    function handleTimerPickerMouseDown(event) {
+        const valueButton = event.target.closest('[data-timer-drag]');
+        if (!valueButton || timerDigitDragState) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        startTimerDigitDrag(valueButton, 'mouse', event.clientY, event);
+    }
+
+    function startTimerDigitDrag(valueButton, pointerId, clientY, event) {
+        cleanupTimerDigitDrag();
+        timerDigitDragState = {
+            pointerId,
+            index: Number(valueButton.dataset.timerDrag),
+            startY: clientY,
+            lastStep: 0,
+            moved: false,
+            target: valueButton
+        };
+        valueButton.classList.add('is-dragging');
+        if (pointerId !== 'mouse') {
+            if (valueButton.setPointerCapture) valueButton.setPointerCapture(pointerId);
+            window.addEventListener('pointermove', handleTimerPickerPointerMove, true);
+            window.addEventListener('pointerup', endTimerPickerDrag, true);
+            window.addEventListener('pointercancel', endTimerPickerDrag, true);
+        } else {
+            window.addEventListener('mousemove', handleTimerPickerMouseMove, true);
+            window.addEventListener('mouseup', endTimerPickerMouseDrag, true);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function handleTimerPickerPointerMove(event) {
+        if (!timerDigitDragState || timerDigitDragState.pointerId !== event.pointerId) return;
+        moveTimerDigitDrag(event.pointerId, event.clientY, event);
+    }
+
+    function handleTimerPickerMouseMove(event) {
+        if (!timerDigitDragState || timerDigitDragState.pointerId !== 'mouse') return;
+        moveTimerDigitDrag('mouse', event.clientY, event);
+    }
+
+    function moveTimerDigitDrag(pointerId, clientY, event) {
+        if (!timerDigitDragState || timerDigitDragState.pointerId !== pointerId) return;
+        const nextStep = Math.trunc((timerDigitDragState.startY - clientY) / TIMER_DIGIT_DRAG_STEP_PX);
+        const delta = nextStep - timerDigitDragState.lastStep;
+        if (delta !== 0) {
+            timerDigitDragState.moved = true;
+            timerDigitDragState.lastStep = nextStep;
+            adjustTimerPickerDigit(timerDigitDragState.index, delta);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function cleanupTimerDigitDrag(event) {
+        if (!timerDigitDragState) return;
+        const target = timerDigitDragState.target;
+        if (target) {
+            target.classList.remove('is-dragging');
+            if (
+                event
+                && target.releasePointerCapture
+                && target.hasPointerCapture
+                && target.hasPointerCapture(event.pointerId)
+            ) {
+                target.releasePointerCapture(event.pointerId);
+            }
+        }
+        window.removeEventListener('pointermove', handleTimerPickerPointerMove, true);
+        window.removeEventListener('pointerup', endTimerPickerDrag, true);
+        window.removeEventListener('pointercancel', endTimerPickerDrag, true);
+        window.removeEventListener('mousemove', handleTimerPickerMouseMove, true);
+        window.removeEventListener('mouseup', endTimerPickerMouseDrag, true);
+        timerDigitDragState = null;
+    }
+
+    function endTimerPickerDrag(event) {
+        if (!timerDigitDragState || timerDigitDragState.pointerId !== event.pointerId) return;
+        cleanupTimerDigitDrag(event);
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function endTimerPickerMouseDrag(event) {
+        if (!timerDigitDragState || timerDigitDragState.pointerId !== 'mouse') return;
+        cleanupTimerDigitDrag(event);
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     function finishTimer() {
@@ -360,8 +607,9 @@
         const timer = stopwatchState.timer;
         const nextDuration = Number(durationMs);
         if (Number.isFinite(nextDuration) && nextDuration > 0) {
-            timer.durationMs = Math.min(nextDuration, 24 * 3600000);
+            timer.durationMs = clampTimerDuration(nextDuration);
             timer.remainingMs = timer.durationMs;
+            timer.pickerDraftMs = timer.durationMs;
             persistTimerDuration();
         }
         if (timer.remainingMs <= 0) timer.remainingMs = timer.durationMs;
@@ -375,6 +623,7 @@
     function pauseTimer() {
         const timer = stopwatchState.timer;
         timer.remainingMs = getTimerRemainingMs();
+        timer.pickerDraftMs = clampTimerDuration(timer.remainingMs || timer.durationMs);
         timer.running = false;
         timer.startedAt = 0;
         updateStopwatchDisplay();
@@ -385,36 +634,35 @@
         timer.alarm = false;
         timer.running = false;
         timer.remainingMs = timer.durationMs;
+        timer.pickerDraftMs = timer.durationMs;
         updateStopwatchDisplay();
     }
 
-    function handleTimerDisplayClick(event) {
+    function toggleTimerFromDial() {
+        cleanupTimerDigitDrag();
         const timer = stopwatchState.timer;
         if (timer.alarm) {
             acknowledgeTimerAlarm();
-            event.preventDefault();
-            return;
-        }
-        if (timer.running) {
-            pauseTimer();
-            event.preventDefault();
             return;
         }
         ensureTimerAudioContext();
-        const current = formatTimerDuration(timer.remainingMs || timer.durationMs);
-        const input = window.prompt('Timerdauer: Minuten, MM:SS oder HH:MM:SS', current);
-        if (input === null) {
-            event.preventDefault();
+        if (timer.running) {
+            pauseTimer();
             return;
         }
-        const nextMs = parseTimerDuration(input);
-        if (!nextMs || nextMs < 1000) {
-            window.alert('Bitte eine Timerdauer ab 1 Sekunde eingeben, z.B. 5, 5:00 oder 00:05:00.');
-            event.preventDefault();
+        if (timer.pickerOpen) {
+            timer.pickerDraftMs = timerDigitsToDuration(readTimerPickerDigits());
+            startTimer(timer.pickerDraftMs);
             return;
         }
-        startTimer(nextMs);
+        startTimer();
+    }
+
+    function handleTimerDisplayClick(event) {
+        ensureTimerAudioContext();
+        setTimerPickerOpen(true);
         event.preventDefault();
+        event.stopPropagation();
     }
 
     function updateStopwatchDisplay() {
@@ -641,6 +889,10 @@
         const reset = el('mapStopwatchReset');
         const scale = el('mapStopwatchScale');
         const timerDisplay = el('mapStopwatchTimerDisplay');
+        const timerPicker = el('mapStopwatchTimerPicker');
+        const timerPickerStartStop = el('mapStopwatchTimerStartStop');
+        const timerPickerReset = el('mapStopwatchTimerReset');
+        const timerPickerClose = el('mapStopwatchTimerClose');
         const closeStopwatch = el('mapStopwatchClose');
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
@@ -661,6 +913,35 @@
         if (timerDisplay && timerDisplay.dataset.bound !== '1') {
             timerDisplay.addEventListener('click', handleTimerDisplayClick);
             timerDisplay.dataset.bound = '1';
+        }
+        if (timerPicker && timerPicker.dataset.bound !== '1') {
+            timerPicker.addEventListener('click', handleTimerPickerClick);
+            timerPicker.addEventListener('pointerdown', handleTimerPickerPointerDown);
+            timerPicker.addEventListener('pointermove', handleTimerPickerPointerMove);
+            timerPicker.addEventListener('pointerup', endTimerPickerDrag);
+            timerPicker.addEventListener('pointercancel', endTimerPickerDrag);
+            timerPicker.addEventListener('mousedown', handleTimerPickerMouseDown);
+            timerPicker.dataset.bound = '1';
+        }
+        if (timerPickerStartStop && timerPickerStartStop.dataset.bound !== '1') {
+            timerPickerStartStop.addEventListener('click', handleTimerPickerStartStop);
+            timerPickerStartStop.dataset.bound = '1';
+        }
+        if (timerPickerReset && timerPickerReset.dataset.bound !== '1') {
+            timerPickerReset.addEventListener('click', event => {
+                resetTimerFromPicker();
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            timerPickerReset.dataset.bound = '1';
+        }
+        if (timerPickerClose && timerPickerClose.dataset.bound !== '1') {
+            timerPickerClose.addEventListener('click', event => {
+                setTimerPickerOpen(false);
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            timerPickerClose.dataset.bound = '1';
         }
         if (closeStopwatch && closeStopwatch.dataset.bound !== '1') {
             closeStopwatch.addEventListener('click', () => closeMapUtilityTool('stopwatch'));
@@ -690,8 +971,9 @@
         let storedTimerDuration = 0;
         try { storedTimerDuration = Number(localStorage.getItem(`${STORAGE_PREFIX}stopwatch_timer_duration`) || 0); } catch (_) {}
         if (Number.isFinite(storedTimerDuration) && storedTimerDuration >= 1000) {
-            stopwatchState.timer.durationMs = Math.min(storedTimerDuration, 24 * 3600000);
+            stopwatchState.timer.durationMs = clampTimerDuration(storedTimerDuration);
             stopwatchState.timer.remainingMs = stopwatchState.timer.durationMs;
+            stopwatchState.timer.pickerDraftMs = stopwatchState.timer.durationMs;
         }
         updateStopwatchDisplay();
         updateClockFields();
