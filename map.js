@@ -6613,10 +6613,12 @@ function positionMapDrawToolStack() {
     }
     const areaRect = area.getBoundingClientRect();
     const railRect = rail.getBoundingClientRect();
-    const estimatedStackHeight = Math.max(46, stack.scrollHeight || (5 * 46));
+    const buttonCount = stack.children ? stack.children.length : 0;
+    const estimatedStackHeight = Math.max(46, stack.scrollHeight || (buttonCount ? ((buttonCount * 40) + ((buttonCount - 1) * 6)) : (5 * 46)));
     const spaceAbove = railRect.top - areaRect.top;
+    const spaceBelow = areaRect.bottom - railRect.bottom;
     const minNeeded = estimatedStackHeight + 58;
-    stack.classList.toggle('flip-down', spaceAbove < minNeeded);
+    stack.classList.toggle('flip-down', spaceAbove < minNeeded && spaceBelow > spaceAbove && spaceBelow >= minNeeded);
 }
 
 function positionMapDrawMenuNearButton() {

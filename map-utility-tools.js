@@ -172,7 +172,9 @@
                 startX: event.clientX,
                 startY: event.clientY,
                 left: startLeft,
-                top: startTop
+                top: startTop,
+                moved: false,
+                tapAction: tool === 'stopwatch' && event.target && event.target.closest('.stopwatch-dial') ? 'toggleStopwatch' : ''
             };
             panel.classList.add('is-dragging');
             bringToFront(panel);
@@ -182,19 +184,28 @@
         });
         handle.addEventListener('pointermove', event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
-            panel.style.left = `${dragState.left + event.clientX - dragState.startX}px`;
-            panel.style.top = `${dragState.top + event.clientY - dragState.startY}px`;
+            const dx = event.clientX - dragState.startX;
+            const dy = event.clientY - dragState.startY;
+            if (!dragState.moved && Math.hypot(dx, dy) < 6) {
+                event.preventDefault();
+                return;
+            }
+            dragState.moved = true;
+            panel.style.left = `${dragState.left + dx}px`;
+            panel.style.top = `${dragState.top + dy}px`;
             clampPanel(panel);
             event.preventDefault();
         });
         const endDrag = event => {
             if (!dragState || dragState.tool !== tool || dragState.pointerId !== event.pointerId) return;
+            const shouldTap = !dragState.moved && dragState.tapAction === 'toggleStopwatch';
             panel.classList.remove('is-dragging');
             if (handle.releasePointerCapture && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) {
                 handle.releasePointerCapture(event.pointerId);
             }
-            savePanelPosition(cfg);
+            if (dragState.moved) savePanelPosition(cfg);
             dragState = null;
+            if (shouldTap) toggleStopwatch();
             event.stopPropagation();
         };
         handle.addEventListener('pointerup', endDrag);

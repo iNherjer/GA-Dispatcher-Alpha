@@ -7584,16 +7584,21 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .map-stopwatch-device {
     width: min(292px, calc(100vw - 16px));
-    padding-top: 20px;
+    padding-top: 24px;
 }
 
 .stopwatch-bezel {
     position: relative;
-    padding: 15px 15px 16px;
-    border-radius: 34px;
+    box-sizing: border-box;
+    width: 270px;
+    height: 270px;
+    margin: 0 auto;
+    padding: 0;
+    border-radius: 50%;
     border: 2px solid rgba(255,255,255,0.22);
     background:
-        radial-gradient(circle at 28% 18%, rgba(255,255,255,0.18), transparent 24%),
+        radial-gradient(circle at 35% 18%, rgba(255,255,255,0.2), transparent 25%),
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06), transparent 47%),
         linear-gradient(145deg, #53565a 0%, #1f2327 48%, #090b0e 100%);
     box-shadow:
         inset 0 2px 4px rgba(255,255,255,0.22),
@@ -7601,16 +7606,10 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         0 20px 42px rgba(0,0,0,0.58);
 }
 
-.stopwatch-bezel .map-utility-device-title {
-    position: absolute;
-    left: 22px;
-    top: 15px;
-}
-
 .stopwatch-bezel .map-utility-close {
     position: absolute;
-    right: 14px;
-    top: 9px;
+    right: 30px;
+    top: 28px;
 }
 
 .stopwatch-crown {
@@ -7625,7 +7624,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .stopwatch-crown-main {
-    top: 0;
+    top: 2px;
     left: 50%;
     width: 68px;
     height: 29px;
@@ -7635,8 +7634,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .stopwatch-crown-reset {
-    top: 42px;
-    left: -7px;
+    top: 64px;
+    left: 0;
     width: 50px;
     height: 26px;
     border-radius: 16px 6px 6px 16px;
@@ -7648,13 +7647,14 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     position: relative;
     width: 202px;
     height: 202px;
-    margin: 24px auto 10px;
+    margin: 35px auto 0;
     border-radius: 50%;
     border: 9px solid #15191d;
     background:
         radial-gradient(circle at center, #f6f0dc 0 7%, transparent 8%),
         radial-gradient(circle at center, #22272d 0 58%, #111 59% 100%);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.12), inset 0 0 20px rgba(0,0,0,0.65);
+    cursor: pointer;
 }
 
 .stopwatch-tick-ring {
@@ -7779,18 +7779,23 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .stopwatch-digital-face {
-    margin: 0 auto;
-    width: 180px;
-    padding: 8px 10px;
-    border-radius: 9px;
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    top: 43px;
+    width: 104px;
+    padding: 5px 6px;
+    border-radius: 7px;
     border: 2px solid #0d1114;
     background: linear-gradient(#20251d, #080a08);
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
     text-align: center;
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
 #mapStopwatchElapsed {
-    font-size: 26px;
+    font-size: 18px;
     font-weight: 900;
 }
 
