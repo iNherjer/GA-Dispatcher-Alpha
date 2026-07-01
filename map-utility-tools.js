@@ -44,7 +44,8 @@
     const calcState = {
         display: '0',
         expression: '',
-        justEvaluated: false
+        justEvaluated: false,
+        formula: null
     };
 
     let dragState = null;
@@ -846,11 +847,31 @@
         if (expression) expression.textContent = calcState.expression || 'DEG';
     }
 
+    function setCalcExpressionHtml(value, plainText) {
+        calcState.expression = String(plainText || '');
+        const expression = el('mapCalculatorExpression');
+        if (expression) expression.innerHTML = value || 'DEG';
+    }
+
     function calcOperatorSymbol(operator) {
         if (operator === '*') return '×';
         if (operator === '/') return '÷';
         if (operator === '-') return '−';
         return '+';
+    }
+
+    function escapeCalcHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char] || char));
+    }
+
+    function escapeCalcRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function formatCalcNumber(value) {
@@ -860,6 +881,190 @@
             ? displayValue.toExponential(6)
             : String(Math.round(displayValue * 1000000000) / 1000000000);
         return rounded.length > 12 ? Number(displayValue).toPrecision(7) : rounded;
+    }
+
+    function getCalcFormulaButtons() {
+        const keypad = document.querySelector('#mapCalculatorDevice .calculator-keypad');
+        if (!keypad) return { keypad: null, sin: null, cos: null, tan: null };
+        return {
+            keypad,
+            sin: keypad.querySelector('[data-calc="function"][data-fn="sin"], [data-calc="formulaNext"][data-fn="sin"]'),
+            cos: keypad.querySelector('[data-calc="function"][data-fn="cos"], [data-calc="formulaNext"][data-fn="cos"]'),
+            tan: keypad.querySelector('[data-calc="function"][data-fn="tan"], [data-calc="formulaNext"][data-fn="tan"]')
+        };
+    }
+
+    function setCalcFormulaKeyMode(active) {
+        const { keypad, sin, cos, tan } = getCalcFormulaButtons();
+        if (keypad) keypad.classList.toggle('formula-entry', !!active);
+        [sin, cos, tan].forEach(button => {
+            if (!button) return;
+            button.hidden = false;
+            if (!button.dataset.normalCalc) button.dataset.normalCalc = 'function';
+            if (!button.dataset.normalText) button.dataset.normalText = button.textContent || button.dataset.fn || '';
+            button.dataset.calc = 'function';
+            button.textContent = button.dataset.normalText;
+            button.title = '';
+        });
+        if (!active || !sin) return;
+        sin.dataset.calc = 'formulaNext';
+        sin.textContent = 'TAB';
+        sin.title = 'Nächste Variable';
+    }
+
+    function clearActiveFormulaLine() {
+        document.querySelectorAll('.formula-panel span.is-selected-formula').forEach(line => {
+            line.classList.remove('is-selected-formula');
+        });
+    }
+
+    function splitFormulaVars(value) {
+        return String(value || '')
+            .split(',')
+            .map(part => part.trim())
+            .filter(Boolean);
+    }
+
+    function isFormulaEntryComplete(value) {
+        const text = String(value || '').trim();
+        if (!text || text === '-' || text === '.' || text === '-.') return false;
+        return Number.isFinite(Number(text));
+    }
+
+    function substituteCalcFormulaExpression(formula) {
+        if (!formula) return '';
+        let expression = formula.expr;
+        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
+            const value = Object.prototype.hasOwnProperty.call(formula.values, name)
+                ? formula.values[name]
+                : '0';
+            expression = expression.replace(new RegExp(escapeCalcRegExp(name), 'g'), value);
+        });
+        return expression;
+    }
+
+    function renderCalcFormula() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        const activeName = formula.vars[formula.current] || '';
+        let html = escapeCalcHtml(formula.display);
+        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
+            const stored = Object.prototype.hasOwnProperty.call(formula.values, name) ? formula.values[name] : '';
+            const raw = name === activeName ? (formula.entry || stored || name) : (stored || name);
+            const classes = ['formula-var'];
+            if (name === activeName) classes.push('is-active');
+            if (stored) classes.push('has-value');
+            const replacement = `<span class="${classes.join(' ')}">${escapeCalcHtml(raw)}</span>`;
+            html = html.replace(new RegExp(escapeCalcRegExp(escapeCalcHtml(name)), 'g'), replacement);
+        });
+        setCalcExpressionHtml(html, formula.display);
+        setCalcDisplay(formula.entry || formula.values[activeName] || '0');
+    }
+
+    function commitCalcFormulaEntry() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        const activeName = formula.vars[formula.current];
+        if (!activeName) return;
+        if (isFormulaEntryComplete(formula.entry)) formula.values[activeName] = formula.entry;
+    }
+
+    function endCalcFormulaMode() {
+        if (!calcState.formula) return;
+        clearActiveFormulaLine();
+        calcState.formula = null;
+        setCalcFormulaKeyMode(false);
+    }
+
+    function startCalcFormulaFromLine(line) {
+        if (!line || !line.dataset.formulaExpr) return;
+        const vars = splitFormulaVars(line.dataset.formulaVars);
+        if (!vars.length) return;
+        clearActiveFormulaLine();
+        line.classList.add('is-selected-formula');
+        calcState.formula = {
+            expr: line.dataset.formulaExpr,
+            vars,
+            result: line.dataset.formulaResult || 'Result',
+            display: (line.textContent || '').trim(),
+            values: {},
+            current: 0,
+            entry: ''
+        };
+        calcState.justEvaluated = false;
+        setCalcFormulaKeyMode(true);
+        renderCalcFormula();
+        playUtilityClickSound('soft');
+    }
+
+    function nextCalcFormulaVariable() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        commitCalcFormulaEntry();
+        formula.current = (formula.current + 1) % formula.vars.length;
+        const activeName = formula.vars[formula.current];
+        formula.entry = formula.values[activeName] || '';
+        renderCalcFormula();
+    }
+
+    function inputCalcFormulaDigit(value) {
+        const formula = calcState.formula;
+        if (!formula || formula.entry.replace('-', '').replace('.', '').length >= 10) return;
+        formula.entry = formula.entry === '0' ? String(value || '0') : `${formula.entry}${value || '0'}`;
+        renderCalcFormula();
+    }
+
+    function inputCalcFormulaDecimal() {
+        const formula = calcState.formula;
+        if (!formula || formula.entry.includes('.')) return;
+        formula.entry = formula.entry ? `${formula.entry}.` : '0.';
+        renderCalcFormula();
+    }
+
+    function backspaceCalcFormula() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        const activeName = formula.vars[formula.current];
+        if (formula.entry) {
+            formula.entry = formula.entry.slice(0, -1);
+        } else if (activeName && Object.prototype.hasOwnProperty.call(formula.values, activeName)) {
+            delete formula.values[activeName];
+        }
+        renderCalcFormula();
+    }
+
+    function toggleCalcFormulaSign() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        const value = formula.entry || '0';
+        formula.entry = value.startsWith('-') ? value.slice(1) : `-${value}`;
+        renderCalcFormula();
+    }
+
+    function evaluateCalcFormula() {
+        const formula = calcState.formula;
+        if (!formula) return;
+        commitCalcFormulaEntry();
+        const missingIndex = formula.vars.findIndex(name => !isFormulaEntryComplete(formula.values[name]));
+        if (missingIndex >= 0) {
+            formula.current = missingIndex;
+            formula.entry = formula.values[formula.vars[missingIndex]] || '';
+            renderCalcFormula();
+            return;
+        }
+        const expression = substituteCalcFormulaExpression(formula);
+        try {
+            const result = evaluateCalcExpression(expression);
+            endCalcFormulaMode();
+            setCalcExpression(`${formula.result} = ${expression}`);
+            setCalcDisplay(formatCalcNumber(result));
+            calcState.justEvaluated = true;
+        } catch (_) {
+            endCalcFormulaMode();
+            setCalcExpression(formula.display);
+            setCalcDisplay('ERR');
+            calcState.justEvaluated = true;
+        }
     }
 
     function normalizeCalcExpression(expression) {
@@ -1053,6 +1258,7 @@
     }
 
     function clearCalc() {
+        endCalcFormulaMode();
         setCalcExpression('');
         calcState.justEvaluated = false;
         setCalcDisplay('0');
@@ -1119,6 +1325,17 @@
         const button = event.target.closest('[data-calc]');
         if (!button) return;
         const action = button.dataset.calc;
+        if (calcState.formula) {
+            if (action === 'digit') inputCalcFormulaDigit(button.dataset.value || '0');
+            else if (action === 'decimal') inputCalcFormulaDecimal();
+            else if (action === 'backspace') backspaceCalcFormula();
+            else if (action === 'formulaNext' || action === 'function') nextCalcFormulaVariable();
+            else if (action === 'operator' && (button.dataset.op || '') === '-') toggleCalcFormulaSign();
+            else if (action === 'equals') evaluateCalcFormula();
+            else if (action === 'clear') clearCalc();
+            event.preventDefault();
+            return;
+        }
         if (action === 'digit') inputDigit(button.dataset.value || '0');
         else if (action === 'decimal') inputDecimal();
         else if (action === 'operator') applyOperator(button.dataset.op || '+');
@@ -1211,6 +1428,13 @@
     }
 
     function handleFormulaDrawerClick(event) {
+        const formulaLine = event.target.closest('.formula-panel span[data-formula-expr]');
+        if (formulaLine) {
+            startCalcFormulaFromLine(formulaLine);
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
         const button = event.target.closest('.formula-section-toggle');
         if (!button) return;
         const drawer = el('mapCalculatorFormulaDrawer');

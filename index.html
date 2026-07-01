@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=calc-expression-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=formula-interactive-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=calc-expression-20260701-01">
+        <link rel="stylesheet" href="styles.css?v=formula-interactive-20260701-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1458,51 +1458,51 @@
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-nav">Navigation & Kurs</button>
                                 <div id="formula-panel-nav" class="formula-panel" hidden>
-                                    <p><strong>Zeit / Distanz / GS</strong><span>Zeit h = NM / kt · NM = kt * h · kt = NM / h</span></p>
-                                    <p><strong>1:60 Regel</strong><span>Korrektur ° ≈ Abstand NM * 60 / geflogene NM</span></p>
-                                    <p><strong>Missweisung</strong><span>rwK → mwK: E abziehen, W addieren</span></p>
-                                    <p><strong>Kartenmaßstab</strong><span>1:500k: 1 cm ≈ 5 km · 1:250k: 1 cm ≈ 2.5 km</span></p>
+                                    <p><strong>Zeit / Distanz / GS</strong><span data-formula-expr="Distanz / GS" data-formula-vars="Distanz,GS" data-formula-result="Zeit h">Zeit (h) = Distanz / GS</span><span data-formula-expr="GS * Zeit" data-formula-vars="GS,Zeit" data-formula-result="Distanz">Distanz = GS * Zeit</span><span data-formula-expr="Distanz / Zeit" data-formula-vars="Distanz,Zeit" data-formula-result="GS">GS = Distanz / Zeit</span></p>
+                                    <p><strong>1:60 Regel</strong><span data-formula-expr="Ablage * 60 / Strecke" data-formula-vars="Ablage,Strecke" data-formula-result="Korrektur °">Korrektur ° ≈ Ablage NM * 60 / Strecke NM</span></p>
+                                    <p><strong>Missweisung</strong><span data-formula-expr="rwK - Ost" data-formula-vars="rwK,Ost" data-formula-result="mwK">mwK = rwK - Ost</span><span data-formula-expr="rwK + West" data-formula-vars="rwK,West" data-formula-result="mwK">mwK = rwK + West</span></p>
+                                    <p><strong>Kartenmaßstab</strong><span data-formula-expr="cm * 5" data-formula-vars="cm" data-formula-result="km">1:500k km = cm * 5</span><span data-formula-expr="cm * 2.5" data-formula-vars="cm" data-formula-result="km">1:250k km = cm * 2.5</span></p>
                                 </div>
                             </section>
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-fuel">Fuel & Reserve</button>
                                 <div id="formula-panel-fuel" class="formula-panel" hidden>
-                                    <p><strong>Fuel / Range</strong><span>Fuel = GPH * h · Endurance = Fuel / GPH · Range = GS * h</span></p>
-                                    <p><strong>Reserve</strong><span>Reservezeit h = Reservefuel / Verbrauch · Reserve-NM = GS * Reservezeit</span></p>
+                                    <p><strong>Fuel / Range</strong><span data-formula-expr="GPH * Zeit" data-formula-vars="GPH,Zeit" data-formula-result="Fuel">Fuel = GPH * Zeit</span><span data-formula-expr="Fuel / GPH" data-formula-vars="Fuel,GPH" data-formula-result="Endurance">Endurance = Fuel / GPH</span><span data-formula-expr="GS * Endurance" data-formula-vars="GS,Endurance" data-formula-result="Range">Range = GS * Endurance</span></p>
+                                    <p><strong>Reserve</strong><span data-formula-expr="Reservefuel / Verbrauch" data-formula-vars="Reservefuel,Verbrauch" data-formula-result="Reservezeit">Reservezeit = Reservefuel / Verbrauch</span><span data-formula-expr="GS * Reservezeit" data-formula-vars="GS,Reservezeit" data-formula-result="Reserve-NM">Reserve-NM = GS * Reservezeit</span></p>
                                 </div>
                             </section>
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-descent">Sinkflug & Profil</button>
                                 <div id="formula-panel-descent" class="formula-panel" hidden>
-                                    <p><strong>Sinkflug / 3°</strong><span>3°: ca. 300 ft/NM · TOD NM = ft abzubauen / 300 · VS ≈ GS * 5</span></p>
-                                    <p><strong>Steig- / Sinkwinkel</strong><span>Winkel ° ≈ Gradient % / 1.7 · Gradient % ≈ ft pro NM / 60.8</span></p>
+                                    <p><strong>Sinkflug / 3°</strong><span data-formula-expr="NM * 300" data-formula-vars="NM" data-formula-result="ft">3° Profil ft ≈ NM * 300</span><span data-formula-expr="Höhe / 300" data-formula-vars="Höhe" data-formula-result="TOD NM">TOD NM = Höhe abzubauen / 300</span><span data-formula-expr="GS * 5" data-formula-vars="GS" data-formula-result="VS ft/min">VS ft/min ≈ GS * 5</span></p>
+                                    <p><strong>Steig- / Sinkwinkel</strong><span data-formula-expr="Gradient / 1.7" data-formula-vars="Gradient" data-formula-result="Winkel °">Winkel ° ≈ Gradient % / 1.7</span><span data-formula-expr="ftNM / 60.8" data-formula-vars="ftNM" data-formula-result="Gradient %">Gradient % ≈ ft pro NM / 60.8</span></p>
                                 </div>
                             </section>
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-wind">Wind & Anflug</button>
                                 <div id="formula-panel-wind" class="formula-panel" hidden>
-                                    <p><strong>Windkomponenten</strong><span>Headwind ≈ Wind * cos Winkel · Crosswind ≈ Wind * sin Winkel</span></p>
-                                    <p><strong>Crosswind Drittel</strong><span>0-30°: 1/3 · 30-60°: 2/3 · 60-90°: 3/3 vom Wind</span></p>
-                                    <p><strong>Sinus kurz</strong><span>10°=.2 · 20°=.3 · 30°=.5 · 40°=.6 · 50°=.8 · 60°=.9</span></p>
-                                    <p><strong>Gust-Zuschlag</strong><span>Vref-Zuschlag ≈ halbe Böendifferenz</span></p>
+                                    <p><strong>Windkomponenten</strong><span data-formula-expr="Wind * cos(Winkel)" data-formula-vars="Wind,Winkel" data-formula-result="Headwind">Headwind ≈ Wind * cos(Winkel)</span><span data-formula-expr="Wind * sin(Winkel)" data-formula-vars="Wind,Winkel" data-formula-result="Crosswind">Crosswind ≈ Wind * sin(Winkel)</span></p>
+                                    <p><strong>Crosswind Drittel</strong><span data-formula-expr="Wind / 3" data-formula-vars="Wind" data-formula-result="Crosswind">0-30° ≈ 1/3 Wind</span><span data-formula-expr="Wind * 2 / 3" data-formula-vars="Wind" data-formula-result="Crosswind">30-60° ≈ 2/3 Wind</span><span data-formula-expr="Wind" data-formula-vars="Wind" data-formula-result="Crosswind">60-90° ≈ voller Wind</span></p>
+                                    <p><strong>Sinus kurz</strong><span>sin 10° ≈ .2 / 20° ≈ .3</span><span>sin 30° = .5 / 40° ≈ .6</span><span>sin 50° ≈ .8 / 60° ≈ .9</span></p>
+                                    <p><strong>Gust-Zuschlag</strong><span data-formula-expr="Böendifferenz / 2" data-formula-vars="Böendifferenz" data-formula-result="Vref-Zuschlag">Vref-Zuschlag ≈ halbe Böendifferenz</span></p>
                                 </div>
                             </section>
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-performance">Leistung & Atmosphäre</button>
                                 <div id="formula-panel-performance" class="formula-panel" hidden>
-                                    <p><strong>TAS</strong><span>TAS ≈ IAS + 2% pro 1000 ft</span></p>
-                                    <p><strong>Wahre Höhe</strong><span>True Alt ≈ Indicated Alt + 4 ft/1000 ft je °C über ISA</span></p>
-                                    <p><strong>ISA Temperatur</strong><span>ISA °C = 15 - 2 * Höhe in 1000 ft</span></p>
-                                    <p><strong>Dichtehöhe</strong><span>DA ≈ PA + 120 * (OAT - ISA Temp)</span></p>
-                                    <p><strong>Startstrecke Zuschläge</strong><span>Steigung +10% je 1% · trockenes Gras +20% · Pfützen/Matsch +30%</span></p>
-                                    <p><strong>Kurvenstall</strong><span>45° Bank: Vs * 1.19 · 60° Bank: Vs * 1.41</span></p>
-                                    <p><strong>Niedrigste FL</strong><span>Druckdiff. zu 1013 * 30 ft; bei QNH < 1013 steigt Mindest-FL</span></p>
+                                    <p><strong>TAS</strong><span data-formula-expr="IAS * (1 + 0.02 * Höhe / 1000)" data-formula-vars="IAS,Höhe" data-formula-result="TAS">TAS ≈ IAS * (1 + 0.02 * Höhe/1000)</span></p>
+                                    <p><strong>Wahre Höhe</strong><span data-formula-expr="Indicated + 4 * (Indicated / 1000) * DeltaISA" data-formula-vars="Indicated,DeltaISA" data-formula-result="True Alt">True Alt ≈ Indicated + Temp-Korr.</span><span data-formula-expr="4 * (Indicated / 1000) * DeltaISA" data-formula-vars="Indicated,DeltaISA" data-formula-result="Temp-Korr.">Temp-Korr. = 4 ft/1000 ft je °C über ISA</span></p>
+                                    <p><strong>ISA Temperatur</strong><span data-formula-expr="15 - 2 * Höhe / 1000" data-formula-vars="Höhe" data-formula-result="ISA °C">ISA °C = 15 - 2 * Höhe/1000 ft</span></p>
+                                    <p><strong>Dichtehöhe</strong><span data-formula-expr="PA + 120 * (OAT - ISA)" data-formula-vars="PA,OAT,ISA" data-formula-result="DA">DA ≈ PA + 120 * (OAT - ISA)</span></p>
+                                    <p><strong>Startstrecke Zuschläge</strong><span data-formula-expr="Strecke * (1 + 0.10 * Steigung)" data-formula-vars="Strecke,Steigung" data-formula-result="Startstrecke">Start = Strecke * (1 + 0.10 * Steigung%)</span><span data-formula-expr="Strecke * 1.2" data-formula-vars="Strecke" data-formula-result="Startstrecke">Trockenes Gras = Strecke * 1.2</span><span data-formula-expr="Strecke * 1.3" data-formula-vars="Strecke" data-formula-result="Startstrecke">Pfützen / Matsch = Strecke * 1.3</span></p>
+                                    <p><strong>Kurvenstall</strong><span data-formula-expr="Vs * 1.19" data-formula-vars="Vs" data-formula-result="Vs 45°">Vs 45° Bank ≈ Vs * 1.19</span><span data-formula-expr="Vs * 1.41" data-formula-vars="Vs" data-formula-result="Vs 60°">Vs 60° Bank ≈ Vs * 1.41</span></p>
+                                    <p><strong>Niedrigste FL</strong><span data-formula-expr="Druckdiff * 30" data-formula-vars="Druckdiff" data-formula-result="ft">Druckdiff. zu 1013 * 30 ft</span><span>QNH &lt; 1013: Mindest-FL steigt</span></p>
                                 </div>
                             </section>
                             <section class="formula-section">
                                 <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-units">Einheiten</button>
                                 <div id="formula-panel-units" class="formula-panel" hidden>
-                                    <p><strong>Standard</strong><span>1 NM = 1.852 km · 1 ft = 0.3048 m · 1 gal = 3.785 l · 1 lb = 0.454 kg</span></p>
+                                    <p><strong>Standard</strong><span data-formula-expr="NM * 1.852" data-formula-vars="NM" data-formula-result="km">km = NM * 1.852</span><span data-formula-expr="ft * 0.3048" data-formula-vars="ft" data-formula-result="m">m = ft * 0.3048</span><span data-formula-expr="gal * 3.785" data-formula-vars="gal" data-formula-result="l">l = gal * 3.785</span><span data-formula-expr="lb * 0.454" data-formula-vars="lb" data-formula-result="kg">kg = lb * 0.454</span></p>
                                 </div>
                             </section>
                         </div>
@@ -1949,7 +1949,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
 <script defer src="map.js?v=quest-draw-20260701-01"></script>
-<script defer src="map-utility-tools.js?v=calc-zero-normalize-20260701-01"></script>
+<script defer src="map-utility-tools.js?v=formula-interactive-20260701-01"></script>
 <script defer src="app.js?v=direct-to-freeflight-20260701-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

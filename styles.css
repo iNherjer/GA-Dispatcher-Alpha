@@ -8142,6 +8142,32 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     text-overflow: ellipsis;
 }
 
+.calculator-expression .formula-var {
+    display: inline-block;
+    min-width: 1.7em;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: rgba(248, 213, 101, 0.12);
+    color: #f8d565;
+}
+
+.calculator-expression .formula-var.has-value {
+    color: #bde6ad;
+}
+
+.calculator-expression .formula-var.is-active {
+    animation: formula-var-blink 0.88s steps(2, end) infinite;
+    background: rgba(255, 98, 45, 0.24);
+    color: #ff622d;
+}
+
+@keyframes formula-var-blink {
+    50% {
+        color: rgba(255, 98, 45, 0.28);
+        background: rgba(255, 98, 45, 0.08);
+    }
+}
+
 .calculator-keypad {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -8172,6 +8198,19 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     background: linear-gradient(#434a52, #1c2228);
     color: #f5d76f;
     font-size: 13px;
+}
+
+.calculator-keypad.formula-entry button[data-fn="sin"] {
+    grid-column: span 3;
+    border-radius: 7px;
+    background: linear-gradient(#47525f, #202830);
+    color: #f8d565;
+    letter-spacing: 0.08em;
+}
+
+.calculator-keypad.formula-entry button[data-fn="cos"],
+.calculator-keypad.formula-entry button[data-fn="tan"] {
+    display: none;
 }
 
 .calculator-keypad button[data-calc="clear"],
@@ -8212,7 +8251,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     transform: translateX(-14px) rotate(-1.2deg);
     pointer-events: none;
     box-sizing: border-box;
-    --formula-hand: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    --formula-hand: "Chalkboard SE", "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
     border-radius: 5px 10px 8px 5px;
     border: 1px solid rgba(111, 86, 42, 0.34);
     background:
@@ -8345,11 +8384,11 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .formula-panel {
     display: grid;
-    gap: 8px;
+    gap: 10px;
     margin: 4px 0 3px;
-    padding: 3px 7px 6px 9px;
+    padding: 4px 7px 7px 9px;
     color: #243047;
-    font: 700 12px/1.45 var(--formula-hand);
+    font: 700 12px/1.42 var(--formula-hand);
     text-shadow: 0 1px 0 rgba(255,255,255,0.42);
 }
 
@@ -8360,7 +8399,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .formula-panel p {
     margin: 0;
     display: grid;
-    gap: 2px;
+    gap: 4px;
 }
 
 .formula-panel strong {
@@ -8371,6 +8410,21 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .formula-panel span {
     display: block;
+    padding-left: 8px;
+    text-indent: -8px;
+    line-height: 1.32;
+}
+
+.formula-panel span[data-formula-expr] {
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.formula-panel span[data-formula-expr]:hover,
+.formula-panel span[data-formula-expr].is-selected-formula {
+    background: rgba(248, 213, 101, 0.2);
+    color: #102b68;
 }
 
 .manual-sim-panel {
