@@ -8155,19 +8155,20 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .calculator-formula-tab {
     position: absolute;
     z-index: 10;
-    right: -34px;
+    right: -30px;
     top: 58px;
-    width: 44px;
-    height: 72px;
+    width: 38px;
+    height: 66px;
     border-radius: 0 12px 12px 0;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: linear-gradient(#f3c747, #8b6114);
-    color: #111;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-left-color: rgba(255,255,255,0.08);
+    background: linear-gradient(#30353b, #161a1f);
+    color: rgba(245, 215, 111, 0.78);
     cursor: pointer;
-    font: 900 10px/1 'Courier New', monospace;
+    font: 900 9px/1 'Courier New', monospace;
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    box-shadow: 4px 7px 15px rgba(0,0,0,0.38);
+    box-shadow: 3px 6px 12px rgba(0,0,0,0.28), inset 1px 0 1px rgba(255,255,255,0.08);
 }
 
 .calculator-formula-drawer {
@@ -8498,10 +8499,10 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     .calculator-formula-tab {
         right: 8px;
         top: auto;
-        bottom: -32px;
-        width: 72px;
-        height: 36px;
-        border-radius: 0 0 12px 12px;
+        bottom: -27px;
+        width: 62px;
+        height: 31px;
+        border-radius: 0 0 10px 10px;
         writing-mode: horizontal-tb;
     }
 
