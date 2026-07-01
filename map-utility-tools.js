@@ -954,20 +954,97 @@
         const margin = 12;
         const gap = 12;
         const panelRect = panel.getBoundingClientRect();
-        const width = Math.min(320, Math.max(220, window.innerWidth - margin * 2));
-        const maxHeight = Math.min(480, Math.max(220, window.innerHeight - margin * 2 - 28));
         const spaceRight = window.innerWidth - panelRect.right;
         const spaceLeft = panelRect.left;
+        const crampedSide = Math.max(spaceRight, spaceLeft) < 260;
+        const narrowLayout = window.innerWidth <= 767 || crampedSide;
+        const drawerHeight = () => Math.min(maxHeight, Math.max(180, drawer.scrollHeight || 220));
+
+        let width = Math.min(320, Math.max(220, window.innerWidth - margin * 2));
+        let maxHeight = Math.min(480, Math.max(220, window.innerHeight - margin * 2 - 28));
+
+        if (narrowLayout) {
+            width = Math.min(360, Math.max(220, window.innerWidth - margin * 2, 0));
+            if (panelRect.width > 240) width = Math.min(width, Math.max(220, panelRect.width - 18));
+            maxHeight = Math.min(340, Math.max(190, window.innerHeight - margin * 2));
+            let left = panelRect.left + (panelRect.width - width) / 2;
+            left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));
+            const belowTop = panelRect.bottom + gap;
+            const availableBelow = window.innerHeight - margin - belowTop;
+            const availableAbove = panelRect.top - margin - gap;
+            let top;
+            if (availableBelow >= 190) {
+                maxHeight = Math.min(maxHeight, availableBelow);
+                top = belowTop;
+            } else if (availableAbove >= 190) {
+                maxHeight = Math.min(maxHeight, availableAbove);
+                top = panelRect.top - maxHeight - gap;
+            } else {
+                top = panelRect.top + 86;
+            }
+            const visibleHeight = drawerHeight();
+            top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - visibleHeight - margin));
+            panel.classList.remove('formula-left');
+            panel.classList.add('formula-under');
+            drawer.style.setProperty('--formula-drawer-left', `${Math.round(left - panelRect.left)}px`);
+            drawer.style.setProperty('--formula-drawer-top', `${Math.round(top - panelRect.top)}px`);
+            drawer.style.setProperty('--formula-drawer-width', `${Math.round(width)}px`);
+            drawer.style.setProperty('--formula-drawer-max-height', `${Math.round(maxHeight)}px`);
+            return;
+        }
+
         const openLeft = spaceRight < width + gap + margin && spaceLeft > spaceRight;
         let left = openLeft ? panelRect.left - width - gap : panelRect.right + gap;
         left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));
         let top = panelRect.top + 8;
-        top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - maxHeight - margin));
+        top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - drawerHeight() - margin));
         panel.classList.toggle('formula-left', openLeft);
+        panel.classList.remove('formula-under');
         drawer.style.setProperty('--formula-drawer-left', `${Math.round(left - panelRect.left)}px`);
         drawer.style.setProperty('--formula-drawer-top', `${Math.round(top - panelRect.top)}px`);
         drawer.style.setProperty('--formula-drawer-width', `${Math.round(width)}px`);
         drawer.style.setProperty('--formula-drawer-max-height', `${Math.round(maxHeight)}px`);
+    }
+
+    function setFormulaSectionOpen(section, open) {
+        if (!section) return;
+        const button = section.querySelector('.formula-section-toggle');
+        const panel = section.querySelector('.formula-panel');
+        section.classList.toggle('is-open', !!open);
+        if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (panel) panel.hidden = !open;
+    }
+
+    function closeFormulaSections(drawer) {
+        if (!drawer) return;
+        drawer.querySelectorAll('.formula-section').forEach(section => setFormulaSectionOpen(section, false));
+    }
+
+    function scrollFormulaSectionIntoView(drawer, section) {
+        if (!drawer || !section) return;
+        const maxScroll = Math.max(0, drawer.scrollHeight - drawer.clientHeight);
+        const targetTop = Math.min(maxScroll, Math.max(0, section.offsetTop - 8));
+        drawer.scrollTop = targetTop;
+    }
+
+    function handleFormulaDrawerClick(event) {
+        const button = event.target.closest('.formula-section-toggle');
+        if (!button) return;
+        const drawer = el('mapCalculatorFormulaDrawer');
+        const panel = el('mapCalculatorDevice');
+        const section = button.closest('.formula-section');
+        if (!section) return;
+        const open = !section.classList.contains('is-open');
+        closeFormulaSections(drawer);
+        setFormulaSectionOpen(section, open);
+        if (panel && drawer) {
+            requestAnimationFrame(() => {
+                placeFormulaDrawer(panel, drawer);
+                if (open) scrollFormulaSectionIntoView(drawer, section);
+            });
+        }
+        event.preventDefault();
+        event.stopPropagation();
     }
 
     function toggleFormulaDrawer(force) {
@@ -977,7 +1054,14 @@
         const open = typeof force === 'boolean' ? force : !panel.classList.contains('formula-open');
         panel.classList.toggle('formula-open', open);
         drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-        if (!open) panel.classList.remove('formula-left');
+        if (!open) {
+            panel.classList.remove('formula-left', 'formula-under');
+            closeFormulaSections(drawer);
+        }
+        if (open) {
+            closeFormulaSections(drawer);
+            drawer.scrollTop = 0;
+        }
         if (open) placeFormulaDrawer(panel, drawer);
         bringToFront(panel);
         requestAnimationFrame(() => {
@@ -998,6 +1082,7 @@
         const closeStopwatch = el('mapStopwatchClose');
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
+        const formulaDrawer = el('mapCalculatorFormulaDrawer');
         const keypad = document.querySelector('#mapCalculatorDevice .calculator-keypad');
 
         if (startStop && startStop.dataset.bound !== '1') {
@@ -1060,6 +1145,10 @@
         if (formulaToggle && formulaToggle.dataset.bound !== '1') {
             formulaToggle.addEventListener('click', () => toggleFormulaDrawer());
             formulaToggle.dataset.bound = '1';
+        }
+        if (formulaDrawer && formulaDrawer.dataset.bound !== '1') {
+            formulaDrawer.addEventListener('click', handleFormulaDrawerClick);
+            formulaDrawer.dataset.bound = '1';
         }
         if (keypad && keypad.dataset.bound !== '1') {
             keypad.addEventListener('click', handleCalcButton);

@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=formula-note-20260630-05" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=formula-accordion-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=formula-note-20260630-05">
+        <link rel="stylesheet" href="styles.css?v=formula-accordion-20260701-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1454,48 +1454,58 @@
                     <aside id="mapCalculatorFormulaDrawer" class="calculator-formula-drawer" aria-hidden="true">
                         <div class="formula-drawer-title">Pilot Spickzettel</div>
                         <div class="formula-drawer-source">Kurzreferenz nach <a href="https://aopa.de/wp-content/uploads/49_Berechnungen_und_Formeln_fuer_Piloten.pdf" target="_blank" rel="noopener">AOPA Safety Letter Nr. 49</a></div>
-                        <dl>
-                            <dt>Zeit / Distanz / GS</dt>
-                            <dd>Zeit h = NM / kt · NM = kt * h · kt = NM / h</dd>
-                            <dt>Fuel / Range</dt>
-                            <dd>Fuel = GPH * h · Endurance = Fuel / GPH · Range = GS * h</dd>
-                            <dt>Reserve</dt>
-                            <dd>Reservezeit h = Reservefuel / Verbrauch · Reserve-NM = GS * Reservezeit</dd>
-                            <dt>Sinkflug / 3°</dt>
-                            <dd>3°: ca. 300 ft/NM · TOD NM = ft abzubauen / 300 · VS ≈ GS * 5</dd>
-                            <dt>Steig- / Sinkwinkel</dt>
-                            <dd>Winkel ° ≈ Gradient % / 1.7 · Gradient % ≈ ft pro NM / 60.8</dd>
-                            <dt>Windkomponenten</dt>
-                            <dd>Headwind ≈ Wind * cos Winkel · Crosswind ≈ Wind * sin Winkel</dd>
-                            <dt>Crosswind Drittel</dt>
-                            <dd>0-30°: 1/3 · 30-60°: 2/3 · 60-90°: 3/3 vom Wind</dd>
-                            <dt>Sinus kurz</dt>
-                            <dd>10°=.2 · 20°=.3 · 30°=.5 · 40°=.6 · 50°=.8 · 60°=.9</dd>
-                            <dt>Gust-Zuschlag</dt>
-                            <dd>Vref-Zuschlag ≈ halbe Böendifferenz</dd>
-                            <dt>1:60 Regel</dt>
-                            <dd>Korrektur ° ≈ Abstand NM * 60 / geflogene NM</dd>
-                            <dt>Missweisung</dt>
-                            <dd>rwK → mwK: E abziehen, W addieren</dd>
-                            <dt>Kartenmaßstab</dt>
-                            <dd>1:500k: 1 cm ≈ 5 km · 1:250k: 1 cm ≈ 2.5 km</dd>
-                            <dt>TAS</dt>
-                            <dd>TAS ≈ IAS + 2% pro 1000 ft</dd>
-                            <dt>Wahre Höhe</dt>
-                            <dd>True Alt ≈ Indicated Alt + 4 ft/1000 ft je °C über ISA</dd>
-                            <dt>ISA Temperatur</dt>
-                            <dd>ISA °C = 15 - 2 * Höhe in 1000 ft</dd>
-                            <dt>Dichtehöhe</dt>
-                            <dd>DA ≈ PA + 120 * (OAT - ISA Temp)</dd>
-                            <dt>Startstrecke Zuschläge</dt>
-                            <dd>Steigung +10% je 1% · trockenes Gras +20% · Pfützen/Matsch +30%</dd>
-                            <dt>Kurvenstall</dt>
-                            <dd>45° Bank: Vs * 1.19 · 60° Bank: Vs * 1.41</dd>
-                            <dt>Niedrigste FL</dt>
-                            <dd>Druckdiff. zu 1013 * 30 ft; bei QNH < 1013 steigt Mindest-FL</dd>
-                            <dt>Einheiten</dt>
-                            <dd>1 NM = 1.852 km · 1 ft = 0.3048 m · 1 gal = 3.785 l · 1 lb = 0.454 kg</dd>
-                        </dl>
+                        <div class="formula-sections" data-formula-sections>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-nav">Navigation & Kurs</button>
+                                <div id="formula-panel-nav" class="formula-panel" hidden>
+                                    <p><strong>Zeit / Distanz / GS</strong><span>Zeit h = NM / kt · NM = kt * h · kt = NM / h</span></p>
+                                    <p><strong>1:60 Regel</strong><span>Korrektur ° ≈ Abstand NM * 60 / geflogene NM</span></p>
+                                    <p><strong>Missweisung</strong><span>rwK → mwK: E abziehen, W addieren</span></p>
+                                    <p><strong>Kartenmaßstab</strong><span>1:500k: 1 cm ≈ 5 km · 1:250k: 1 cm ≈ 2.5 km</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-fuel">Fuel & Reserve</button>
+                                <div id="formula-panel-fuel" class="formula-panel" hidden>
+                                    <p><strong>Fuel / Range</strong><span>Fuel = GPH * h · Endurance = Fuel / GPH · Range = GS * h</span></p>
+                                    <p><strong>Reserve</strong><span>Reservezeit h = Reservefuel / Verbrauch · Reserve-NM = GS * Reservezeit</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-descent">Sinkflug & Profil</button>
+                                <div id="formula-panel-descent" class="formula-panel" hidden>
+                                    <p><strong>Sinkflug / 3°</strong><span>3°: ca. 300 ft/NM · TOD NM = ft abzubauen / 300 · VS ≈ GS * 5</span></p>
+                                    <p><strong>Steig- / Sinkwinkel</strong><span>Winkel ° ≈ Gradient % / 1.7 · Gradient % ≈ ft pro NM / 60.8</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-wind">Wind & Anflug</button>
+                                <div id="formula-panel-wind" class="formula-panel" hidden>
+                                    <p><strong>Windkomponenten</strong><span>Headwind ≈ Wind * cos Winkel · Crosswind ≈ Wind * sin Winkel</span></p>
+                                    <p><strong>Crosswind Drittel</strong><span>0-30°: 1/3 · 30-60°: 2/3 · 60-90°: 3/3 vom Wind</span></p>
+                                    <p><strong>Sinus kurz</strong><span>10°=.2 · 20°=.3 · 30°=.5 · 40°=.6 · 50°=.8 · 60°=.9</span></p>
+                                    <p><strong>Gust-Zuschlag</strong><span>Vref-Zuschlag ≈ halbe Böendifferenz</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-performance">Leistung & Atmosphäre</button>
+                                <div id="formula-panel-performance" class="formula-panel" hidden>
+                                    <p><strong>TAS</strong><span>TAS ≈ IAS + 2% pro 1000 ft</span></p>
+                                    <p><strong>Wahre Höhe</strong><span>True Alt ≈ Indicated Alt + 4 ft/1000 ft je °C über ISA</span></p>
+                                    <p><strong>ISA Temperatur</strong><span>ISA °C = 15 - 2 * Höhe in 1000 ft</span></p>
+                                    <p><strong>Dichtehöhe</strong><span>DA ≈ PA + 120 * (OAT - ISA Temp)</span></p>
+                                    <p><strong>Startstrecke Zuschläge</strong><span>Steigung +10% je 1% · trockenes Gras +20% · Pfützen/Matsch +30%</span></p>
+                                    <p><strong>Kurvenstall</strong><span>45° Bank: Vs * 1.19 · 60° Bank: Vs * 1.41</span></p>
+                                    <p><strong>Niedrigste FL</strong><span>Druckdiff. zu 1013 * 30 ft; bei QNH < 1013 steigt Mindest-FL</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-units">Einheiten</button>
+                                <div id="formula-panel-units" class="formula-panel" hidden>
+                                    <p><strong>Standard</strong><span>1 NM = 1.852 km · 1 ft = 0.3048 m · 1 gal = 3.785 l · 1 lb = 0.454 kg</span></p>
+                                </div>
+                            </section>
+                        </div>
                     </aside>
                     <div id="mapCalculatorHandle" class="map-utility-drag-handle calculator-case" aria-label="Taschenrechner verschieben">
                         <div class="calculator-topbar">
@@ -1931,8 +1941,8 @@
 <script defer src="sync.js?v=poi-training-runtime-20260630-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
-<script defer src="map.js?v=formula-note-20260630-05"></script>
-<script defer src="map-utility-tools.js?v=formula-note-20260630-05"></script>
+<script defer src="map.js?v=formula-accordion-20260701-01"></script>
+<script defer src="map-utility-tools.js?v=formula-accordion-20260701-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
