@@ -8547,6 +8547,49 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     line-height: 1.1;
 }
 
+.formula-help-trigger {
+    width: fit-content;
+    max-width: 100%;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #3f454e;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.1;
+    padding: 0 18px 1px 0;
+    position: relative;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: rgba(77, 81, 88, 0.24);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-shadow: inherit;
+}
+
+.formula-help-trigger::after {
+    content: "?";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: rgba(77, 81, 88, 0.12);
+    color: rgba(63, 69, 78, 0.82);
+    display: grid;
+    place-items: center;
+    font: 900 9px/1 "Courier New", monospace;
+    transform: translateY(-50%) rotate(-6deg);
+}
+
+.formula-help-trigger:hover {
+    color: #242a32;
+    text-decoration-color: rgba(77, 81, 88, 0.46);
+}
+
 .formula-panel span {
     display: block;
     padding-left: 8px;
@@ -8564,6 +8607,103 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .formula-panel span[data-formula-expr].is-selected-formula {
     background: rgba(77, 81, 88, 0.12);
     color: #262a30;
+}
+
+.formula-help-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 42;
+    display: grid;
+    place-items: center;
+    padding: 14px;
+    box-sizing: border-box;
+    background: rgba(7, 9, 12, 0.26);
+    pointer-events: auto;
+}
+
+.formula-help-overlay[hidden] {
+    display: none;
+}
+
+.formula-help-card {
+    width: min(360px, calc(100vw - 28px));
+    max-height: min(520px, calc(100vh - 28px));
+    overflow: auto;
+    box-sizing: border-box;
+    position: relative;
+    border-radius: 6px 11px 8px 6px;
+    border: 1px solid rgba(92, 96, 103, 0.28);
+    background:
+        linear-gradient(90deg, transparent 0 30px, rgba(123, 126, 132, 0.16) 30px 31px, transparent 31px),
+        repeating-linear-gradient(to bottom, transparent 0 25px, rgba(99, 110, 126, 0.14) 26px, transparent 27px),
+        linear-gradient(108deg, #fbfbf8 0%, #efefeb 66%, #dbdcd8 100%);
+    box-shadow:
+        0 24px 48px rgba(0,0,0,0.56),
+        inset 0 0 22px rgba(75, 79, 86, 0.1);
+    color: #4d5158;
+    font-family: "Chalkboard SE", "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    padding: 25px 18px 20px 42px;
+    transform: rotate(-0.7deg);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.58);
+}
+
+.formula-help-card::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    top: -1px;
+    border-style: solid;
+    border-width: 0 28px 28px 0;
+    border-color: transparent rgba(205, 206, 201, 0.74) transparent transparent;
+    filter: drop-shadow(-2px 3px 2px rgba(0,0,0,0.16));
+    pointer-events: none;
+}
+
+.formula-help-close {
+    position: absolute;
+    right: 11px;
+    top: 10px;
+    z-index: 1;
+    width: 25px;
+    height: 25px;
+    border: 1px solid rgba(77, 81, 88, 0.22);
+    border-radius: 50%;
+    background: rgba(77, 81, 88, 0.12);
+    color: #454a52;
+    cursor: pointer;
+    font: 900 15px/1 "Courier New", monospace;
+}
+
+.formula-help-title {
+    margin: 0 32px 12px 0;
+    color: #3f454e;
+    font: 900 20px/1.08 "Chalkboard SE", "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    text-decoration: underline;
+    text-decoration-color: rgba(74, 78, 86, 0.3);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+}
+
+.formula-help-formula {
+    margin: 0 0 14px;
+    white-space: pre-wrap;
+    color: #3a3f46;
+    font: 900 13px/1.5 "Courier New", monospace;
+    background: rgba(255,255,255,0.38);
+    border-radius: 5px;
+    border: 1px solid rgba(77, 81, 88, 0.13);
+    padding: 9px 10px;
+}
+
+.formula-help-body {
+    display: grid;
+    gap: 9px;
+    color: rgba(77, 81, 88, 0.9);
+    font: 800 13px/1.48 "Chalkboard SE", "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+}
+
+.formula-help-body p {
+    margin: 0;
 }
 
 .manual-sim-panel {

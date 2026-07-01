@@ -21,6 +21,169 @@
     const TIMER_MAX_MS = TIMER_MAX_SECONDS * 1000;
     const TIMER_DIGIT_MAX = [9, 9, 5, 9];
     const TIMER_DIGIT_DRAG_STEP_PX = 14;
+    const FORMULA_HELP = {
+        'time-distance': {
+            title: 'Zeit / Distanz / GS',
+            formula: 'Zeit = Distanz / GS\nDistanz = GS * Zeit\nGS = Distanz / Zeit',
+            body: [
+                'Grundrechnung für Navigation, ETA und Fuelplanung.',
+                'Zeit wird hier in Stunden eingegeben: 30 Minuten = 0.5 h.'
+            ]
+        },
+        'rule-60': {
+            title: '1:60 Regel',
+            formula: 'Parallel-Korr. = Ablage * 60 / geflogene Strecke\nZiel-Korr. = Ablage * 60 / Reststrecke',
+            body: [
+                'Näherung für kleine Winkel: 1 NM Ablage nach 60 NM entspricht etwa 1 Grad.',
+                'Parallel-Korrektur bringt dich wieder parallel zum geplanten Kurs. Ziel-Korrektur dreht direkter zum Ziel.'
+            ]
+        },
+        variation: {
+            title: 'Missweisung',
+            formula: 'mwK = rwK - Ost\nmwK = rwK + West',
+            body: [
+                'Wandelt rechtweisenden Kurs in missweisenden Kurs um.',
+                'Merksatz: East is least, West is best.'
+            ]
+        },
+        'map-scale': {
+            title: 'Kartenmaßstab',
+            formula: '1:500k: km = cm * 5\n1:250k: km = cm * 2.5\n1:100k: km = cm * 1',
+            body: [
+                'Hilft beim schnellen Abschätzen von Strecken auf Papierkarten.',
+                'Die Formel nutzt Zentimeter auf der Karte und liefert Kilometer in der Realwelt.'
+            ]
+        },
+        'fuel-range': {
+            title: 'Fuel / Range',
+            formula: 'Fuel = GPH * Zeit\nEndurance = Fuel / GPH\nRange = GS * Endurance',
+            body: [
+                'Berechnet Verbrauch, Flugzeit aus vorhandenem Fuel und Reichweite.',
+                'GS statt TAS verwenden, weil Wind die tatsächlich geflogene Strecke pro Zeit bestimmt.'
+            ]
+        },
+        'fuel-reserve': {
+            title: 'Reserve',
+            formula: 'Reservezeit = Reservefuel / Verbrauch\nReserve-NM = GS * Reservezeit\nTagreserve = GPH * 0.5\nNachtreserve = GPH * 0.75',
+            body: [
+                'Zeigt, wie viel Zeit und Strecke nach dem geplanten Flug noch übrig bleibt.',
+                'Die festen Faktoren sind schnelle Cockpitwerte für 30 bzw. 45 Minuten Reserve.'
+            ]
+        },
+        'descent-profile': {
+            title: 'Sinkflug / 3 Grad',
+            formula: '3 Grad Profil = NM * 300 ft\nTOD = Höhe abzubauen / 300\nVS = GS * 5',
+            body: [
+                'Grobe Planung für einen stabilen Sinkflug mit etwa 3 Grad.',
+                'TOD ist der Punkt, an dem der Sinkflug beginnen sollte.'
+            ]
+        },
+        'climb-gradient': {
+            title: 'Steig- / Sinkwinkel',
+            formula: 'Winkel = Gradient % / 1.7\nGradient % = ft/NM / 60.8\nft/NM = ROC / GS * 60',
+            body: [
+                'Verbindet Steig- oder Sinkrate, Groundspeed und geforderte Hindernisfreiheit.',
+                'Nützlich für Abflugprofile, Anflugprofile und Mindeststeigleistung.'
+            ]
+        },
+        'wind-components': {
+            title: 'Windkomponenten',
+            formula: 'Headwind = Wind * cos(Winkel)\nCrosswind = Wind * sin(Winkel)\nWCA = Crosswind / TAS * 60',
+            body: [
+                'Zerlegt Wind in Gegenwind/Rückenwind und Seitenwind.',
+                'Der Winkel ist die Differenz zwischen Bahn- oder Kursrichtung und Windrichtung.'
+            ]
+        },
+        'crosswind-thirds': {
+            title: 'Crosswind Drittel',
+            formula: '0-30 Grad = 1/3 Wind\n30-60 Grad = 2/3 Wind\n60-90 Grad = voller Wind',
+            body: [
+                'Schnelle Faustregel, wenn kein genauer Sinus gerechnet werden soll.',
+                'Gut für eine Plausibilitätsprüfung vor Start und Landung.'
+            ]
+        },
+        'sine-short': {
+            title: 'Sinus kurz',
+            formula: 'sin 10 Grad = .2\nsin 30 Grad = .5\nsin 60 Grad = .9',
+            body: [
+                'Kurztabelle für Seitenwind und Windkorrekturwinkel.',
+                'Exakter ist die sin/cos/tan Funktion des Rechners.'
+            ]
+        },
+        'gust-additive': {
+            title: 'Gust-Zuschlag',
+            formula: 'Vref-Zuschlag = Böendifferenz / 2',
+            body: [
+                'Ein schneller Zuschlag bei böigem Wind.',
+                'Die Flugzeugdokumentation und lokale Verfahren bleiben maßgeblich.'
+            ]
+        },
+        tas: {
+            title: 'TAS',
+            formula: 'TAS = IAS * (1 + 0.02 * Höhe / 1000)',
+            body: [
+                'True Airspeed steigt mit der Höhe, weil das Flugzeug bei gleicher IAS in dünnerer Luft schneller durchs Luftpaket läuft.',
+                'Die 2 Prozent pro 1000 ft sind eine Cockpitnäherung.'
+            ]
+        },
+        'true-altitude': {
+            title: 'Wahre Höhe',
+            formula: 'True Alt = Indicated + Temp-Korr.\nTemp-Korr. = 4 ft / 1000 ft je Grad ISA-Abweichung\nQNH-Höhe = FL*100 + (QNH - 1013) * 30',
+            body: [
+                'Wahre Höhe korrigiert angezeigte Höhe um Temperatur- und Druckeffekte.',
+                'Wichtig bei Hindernisfreiheit und niedrigen Temperaturen.'
+            ]
+        },
+        'isa-temp': {
+            title: 'ISA Temperatur',
+            formula: 'ISA = 15 Grad C - 2 Grad C * Höhe / 1000',
+            body: [
+                'Standardtemperatur in der Internationalen Standardatmosphäre.',
+                'Du brauchst sie unter anderem für Dichtehöhe und Temperaturkorrekturen.'
+            ]
+        },
+        'density-altitude': {
+            title: 'Dichtehöhe',
+            formula: 'PA = Elevation + (1013 - QNH) * 30\nISA = 15 - 2 * PA / 1000\nDA = PA + 120 * (OAT - ISA)',
+            body: [
+                'Dichtehöhe ist die Höhe in der Standardatmosphäre, die zur aktuellen Luftdichte passt.',
+                'Sie ist wichtig, weil hohe Dichtehöhe Startstrecke verlängert, Steigleistung reduziert und Motorleistung verschlechtert.',
+                'Du brauchst Platzhöhe, QNH, OAT und daraus Druckhöhe plus ISA-Abweichung.'
+            ]
+        },
+        'takeoff-factors': {
+            title: 'Startstrecke Zuschläge',
+            formula: 'Steigung: +10 Prozent je 1 Prozent Steigung\nFeuchtes Gras: * 1.1\nTrockenes Gras: * 1.2\nAufgeweicht: * 1.5',
+            body: [
+                'Schnelle Zuschläge für Pistenlage und Oberfläche.',
+                'Sie ersetzen nicht das AFM/POH, sind aber gut für konservatives Kopfrechnen und Plausibilitätschecks.'
+            ]
+        },
+        'turn-stall': {
+            title: 'Kurvenstall',
+            formula: 'Vs 20 Grad = Vs * 1.03\nVs 40 Grad = Vs * 1.14\nVs 45 Grad = Vs * 1.19\nVs 60 Grad = Vs * 1.41',
+            body: [
+                'In der Kurve steigt die Lastvielfache und damit die Stallgeschwindigkeit.',
+                'Besonders wichtig im Platzrunden- und Kurvenflug nahe am Boden.'
+            ]
+        },
+        'lowest-fl': {
+            title: 'Niedrigste FL',
+            formula: 'Druckdifferenz zu 1013 hPa * 30 ft',
+            body: [
+                'Schätzt den Höhenunterschied zwischen QNH und Standarddruck.',
+                'Bei QNH unter 1013 liegt die wahre Höhe eines Flight Levels niedriger, die niedrigste nutzbare FL steigt.'
+            ]
+        },
+        'unit-standard': {
+            title: 'Einheiten',
+            formula: 'km = NM * 1.852\nkm/h = kt * 1.852\nm = ft * 0.3048\nl = gal * 3.785\nkg = lb * 0.454',
+            body: [
+                'Standardumrechnungen für Navigation, Performance und Fuel.',
+                'Die kt nach km/h Faustformel kt * 2 minus 10 Prozent ist schneller, aber weniger genau.'
+            ]
+        }
+    };
 
     const stopwatchState = {
         running: false,
@@ -172,6 +335,7 @@
         if (!panel) return;
         savePanelPosition(cfg);
         if (tool === 'stopwatch') setTimerPickerOpen(false);
+        if (tool === 'calculator') closeFormulaHelp();
         panel.style.display = 'none';
         panel.setAttribute('aria-hidden', 'true');
         if (tool === 'stopwatch') stopClockTimerIfIdle();
@@ -901,18 +1065,20 @@
         const cleanName = String(name || '').replace(/[()]/g, '').trim();
         const resultName = String(formula?.result || '');
         const expr = String(formula?.expr || '');
-        const speedNames = new Set(['GS', 'IAS', 'TAS', 'Wind', 'Headwind', 'Crosswind', 'Vs', 'Böendifferenz']);
-        const distanceNames = new Set(['Distanz', 'Ablage', 'Range', 'Reserve-NM', 'NM', 'TOD']);
-        const altitudeNames = new Set(['Höhe', 'PA', 'DA', 'Indicated', 'True Alt', 'ft']);
+        const speedNames = new Set(['GS', 'IAS', 'TAS', 'Wind', 'Headwind', 'Crosswind', 'Vs', 'Böendifferenz', 'kt']);
+        const distanceNames = new Set(['Distanz', 'Ablage', 'Range', 'Reserve-NM', 'NM', 'TOD', 'Rest']);
+        const altitudeNames = new Set(['Höhe', 'PA', 'DA', 'Indicated', 'True Alt', 'QNH-Höhe', 'Elevation', 'ft']);
         const timeNames = new Set(['Zeit', 'Reservezeit', 'Endurance']);
-        const fuelNames = new Set(['Fuel', 'Reservefuel']);
+        const fuelNames = new Set(['Fuel', 'Reservefuel', 'TripFuel', 'Tagreserve', 'Nachtreserve', 'Fuel+5%']);
         if (role === 'result') {
             if (cleanName === 'Zeit h' || /Zeit|Endurance/.test(cleanName)) return 'h';
             if (/NM$|Distanz|Range/.test(cleanName)) return 'NM';
             if (/°$|mwK|Korrektur|Winkel/.test(cleanName)) return '°';
+            if (/km\/h/.test(cleanName)) return 'km/h';
             if (/Fuel/.test(cleanName)) return 'gal';
-            if (/VS/.test(cleanName)) return 'ft/min';
-            if (cleanName === 'ft' || /DA|True Alt|Startstrecke/.test(cleanName)) return 'ft';
+            if (/VS|ROC/.test(cleanName)) return 'ft/min';
+            if (cleanName === 'ft/NM') return 'ft/NM';
+            if (cleanName === 'ft' || /PA|DA|True Alt|QNH-Höhe|Startstrecke/.test(cleanName)) return 'ft';
             if (/GS|IAS|TAS|Headwind|Crosswind|Vs |Vref/.test(cleanName)) return 'Kn';
             if (cleanName === 'ISA °C') return '°C';
             if (['km', 'm', 'l', 'kg'].includes(cleanName)) return cleanName;
@@ -921,13 +1087,17 @@
         if (fuelNames.has(cleanName)) return 'gal';
         if (cleanName === 'GPH' || cleanName === 'Verbrauch') return 'gal/h';
         if (timeNames.has(cleanName)) return 'h';
-        if (altitudeNames.has(cleanName) || cleanName === 'Druckdiff' || cleanName === 'Startstrecke' || resultName === 'ft') return 'ft';
-        if (cleanName === 'ftNM') return 'ft/NM';
+        if (altitudeNames.has(cleanName) || cleanName === 'Startstrecke' || resultName === 'ft') return 'ft';
+        if (cleanName === 'Druckdiff' || cleanName === 'QNH') return 'hPa';
+        if (cleanName === 'FL') return '';
+        if (cleanName === 'ftNM' || cleanName === 'GradientFtNm') return 'ft/NM';
+        if (cleanName === 'ROC') return 'ft/min';
         if (cleanName === 'OAT' || cleanName === 'ISA' || cleanName === 'DeltaISA' || cleanName === 'ISA °C') return '°C';
         if (cleanName === 'Gradient' || cleanName === 'Steigung') return '%';
-        if (cleanName === 'Winkel' || cleanName === 'Korrektur °' || cleanName === 'mwK' || cleanName === 'rwK' || cleanName === 'Ost' || cleanName === 'West' || cleanName === 'Winkel °') return '°';
+        if (cleanName === 'Winkel' || cleanName === 'Korrektur °' || cleanName === 'mwK' || cleanName === 'rwK' || cleanName === 'Ost' || cleanName === 'West' || cleanName === 'Winkel °' || cleanName === 'Parallel' || cleanName === 'Ziel') return '°';
         if (cleanName === 'cm') return 'cm';
         if (cleanName === 'km') return 'km';
+        if (cleanName === 'km/h') return 'km/h';
         if (cleanName === 'm') return 'm';
         if (cleanName === 'l') return 'l';
         if (cleanName === 'kg') return 'kg';
@@ -940,7 +1110,7 @@
 
     function cleanFormulaLabel(label, unit) {
         let text = String(label || '').trim();
-        const suffixes = ['ft/min', 'NM', '°C', '°', 'ft', 'Kn', 'kt', 'h', 'gal', 'km', 'm', 'l', 'kg'];
+        const suffixes = ['ft/min', 'ft/NM', 'km/h', 'NM', '°C', '°', 'ft', 'Kn', 'kt', 'hPa', 'h', 'gal', 'km', 'm', 'l', 'kg', '%'];
         suffixes.forEach(suffix => {
             if (unit === suffix && text.endsWith(` ${suffix}`)) text = text.slice(0, -suffix.length - 1).trim();
         });
@@ -1504,7 +1674,46 @@
         drawer.scrollTop = targetTop;
     }
 
+    function closeFormulaHelp() {
+        const overlay = el('mapFormulaHelpOverlay');
+        if (!overlay) return;
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.classList.remove('is-open');
+    }
+
+    function openFormulaHelp(trigger) {
+        const key = trigger?.dataset?.helpKey;
+        const data = key ? FORMULA_HELP[key] : null;
+        const overlay = el('mapFormulaHelpOverlay');
+        const title = el('mapFormulaHelpTitle');
+        const formula = el('mapFormulaHelpFormula');
+        const body = el('mapFormulaHelpBody');
+        if (!data || !overlay || !title || !formula || !body) return;
+        title.textContent = data.title || 'Formelhilfe';
+        formula.textContent = data.formula || '';
+        const paragraphs = (Array.isArray(data.body) ? data.body : [data.body])
+            .filter(Boolean)
+            .map(text => {
+                const p = document.createElement('p');
+                p.textContent = String(text);
+                return p;
+            });
+        body.replaceChildren(...paragraphs);
+        overlay.hidden = false;
+        overlay.setAttribute('aria-hidden', 'false');
+        overlay.classList.add('is-open');
+        bringToFront(el('mapCalculatorDevice'));
+    }
+
     function handleFormulaDrawerClick(event) {
+        const helpTrigger = event.target.closest('.formula-help-trigger');
+        if (helpTrigger) {
+            openFormulaHelp(helpTrigger);
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
         const formulaLine = event.target.closest('.formula-panel span[data-formula-expr]');
         if (formulaLine) {
             startCalcFormulaFromLine(formulaLine);
@@ -1541,6 +1750,7 @@
         if (!open) {
             panel.classList.remove('formula-left', 'formula-under');
             closeFormulaSections(drawer);
+            closeFormulaHelp();
         }
         if (open) {
             closeFormulaSections(drawer);
@@ -1567,6 +1777,8 @@
         const closeCalculator = el('mapCalculatorClose');
         const formulaToggle = el('mapCalculatorFormulaToggle');
         const formulaDrawer = el('mapCalculatorFormulaDrawer');
+        const formulaHelpOverlay = el('mapFormulaHelpOverlay');
+        const formulaHelpClose = el('mapFormulaHelpClose');
         const keypad = document.querySelector('#mapCalculatorDevice .calculator-keypad');
 
         if (startStop && startStop.dataset.bound !== '1') {
@@ -1633,6 +1845,20 @@
         if (formulaDrawer && formulaDrawer.dataset.bound !== '1') {
             formulaDrawer.addEventListener('click', handleFormulaDrawerClick);
             formulaDrawer.dataset.bound = '1';
+        }
+        if (formulaHelpOverlay && formulaHelpOverlay.dataset.bound !== '1') {
+            formulaHelpOverlay.addEventListener('click', event => {
+                if (event.target === formulaHelpOverlay) closeFormulaHelp();
+            });
+            formulaHelpOverlay.dataset.bound = '1';
+        }
+        if (formulaHelpClose && formulaHelpClose.dataset.bound !== '1') {
+            formulaHelpClose.addEventListener('click', event => {
+                closeFormulaHelp();
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            formulaHelpClose.dataset.bound = '1';
         }
         if (keypad && keypad.dataset.bound !== '1') {
             keypad.addEventListener('click', handleCalcButton);
