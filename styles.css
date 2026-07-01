@@ -8200,20 +8200,6 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.calculator-formula-drawer::before {
-    content: "";
-    position: absolute;
-    left: 44%;
-    top: 6px;
-    width: 76px;
-    height: 24px;
-    transform: translateX(-50%) rotate(2deg);
-    border-radius: 3px;
-    background: rgba(226, 203, 142, 0.76);
-    box-shadow: 0 2px 7px rgba(0,0,0,0.18);
-    pointer-events: none;
-}
-
 .calculator-formula-drawer::after {
     content: "";
     position: absolute;
