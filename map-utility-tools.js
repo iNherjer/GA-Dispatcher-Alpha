@@ -855,10 +855,11 @@
 
     function formatCalcNumber(value) {
         if (!Number.isFinite(value)) return 'ERR';
-        const rounded = Math.abs(value) >= 1000000000 || (Math.abs(value) > 0 && Math.abs(value) < 0.000001)
-            ? value.toExponential(6)
-            : String(Math.round(value * 1000000000) / 1000000000);
-        return rounded.length > 12 ? Number(value).toPrecision(7) : rounded;
+        const displayValue = Math.abs(value) < 1e-12 ? 0 : value;
+        const rounded = Math.abs(displayValue) >= 1000000000 || (Math.abs(displayValue) > 0 && Math.abs(displayValue) < 0.000001)
+            ? displayValue.toExponential(6)
+            : String(Math.round(displayValue * 1000000000) / 1000000000);
+        return rounded.length > 12 ? Number(displayValue).toPrecision(7) : rounded;
     }
 
     function normalizeCalcExpression(expression) {
