@@ -54,6 +54,7 @@
     --drawer-danger: #ff9f9f;
     --drawer-back-bg: rgba(154, 38, 38, 0.95);
     --drawer-back-border: rgba(255, 148, 148, 0.62);
+    --ga-ui-scale: 1;
 }
 
 html {
@@ -2165,6 +2166,111 @@ body.theme-retro .api-hint a {
 body.theme-retro .api-hint a:hover {
     color: var(--piper-white);
     border-bottom-color: var(--piper-white);
+}
+
+.ui-scale-control {
+    width: min(260px, 100%);
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    box-sizing: border-box;
+}
+
+.ui-scale-control-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.ui-scale-label {
+    margin: 0;
+    color: #aaa;
+    letter-spacing: 0;
+}
+
+.ui-scale-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+#uiScaleValue {
+    min-width: 64px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(77, 166, 255, 0.34);
+    border-radius: 6px;
+    background: rgba(7, 13, 20, 0.46);
+    color: var(--blue);
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 800;
+    font-size: 15px;
+    text-align: center;
+}
+
+.ui-scale-step-btn,
+.ui-scale-reset-btn {
+    border: 1px solid #4d5b68;
+    border-radius: 5px;
+    background: #252b31;
+    color: #dce8f5;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.ui-scale-step-btn {
+    width: 42px;
+    height: 34px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.ui-scale-reset-btn {
+    min-width: 48px;
+    min-height: 24px;
+    padding: 4px 8px;
+    font-size: 10px;
+}
+
+.ui-scale-step-btn:hover:not(:disabled),
+.ui-scale-reset-btn:hover:not(:disabled) {
+    border-color: var(--blue);
+    color: #fff;
+}
+
+.ui-scale-step-btn:disabled,
+.ui-scale-reset-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+}
+
+body.theme-retro .ui-scale-control {
+    border-top: 1px dashed rgba(228, 222, 200, 0.38);
+}
+
+body.theme-retro #uiScaleValue {
+    color: var(--piper-yellow);
+    border-color: rgba(242, 193, 46, 0.45);
+    background: rgba(17, 17, 17, 0.72);
+}
+
+body.theme-retro .ui-scale-step-btn,
+body.theme-retro .ui-scale-reset-btn {
+    border-color: #5a5f6a;
+    background: #2b2d31;
+    color: var(--piper-white);
 }
 
 /* --- API FUEL METER --- */
@@ -8142,6 +8248,10 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     text-overflow: ellipsis;
 }
 
+.calculator-result.is-labeled {
+    font-size: 21px;
+}
+
 .calculator-expression .formula-var {
     display: inline-block;
     min-width: 1.7em;
@@ -12753,6 +12863,32 @@ body.theme-ops1940 #themeSlider::-webkit-slider-thumb {
     background-size: auto, 200% 200%;
     background-position: center, right bottom;
     box-shadow: inset 2px 2px 4px rgba(255, 239, 177, 0.16), inset -5px -5px 8px rgba(0, 0, 0, 0.72), 0 5px 9px rgba(0, 0, 0, 0.72);
+}
+
+body.theme-ops1940 .ui-scale-control {
+    border-top-color: rgba(208, 164, 79, 0.32);
+}
+
+body.theme-ops1940 .ui-scale-label,
+body.theme-ops1940 #uiScaleValue {
+    color: #f2ca67;
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-ops1940 #uiScaleValue {
+    border-color: rgba(208, 164, 79, 0.42);
+    background: rgba(0, 0, 0, 0.24);
+}
+
+body.theme-ops1940 .ui-scale-step-btn,
+body.theme-ops1940 .ui-scale-reset-btn {
+    border-color: rgba(208, 164, 79, 0.48);
+    background:
+        linear-gradient(180deg, rgba(255, 230, 166, 0.06), rgba(0, 0, 0, 0.32)),
+        var(--ops-atlas);
+    background-size: auto, 200% 200%;
+    background-position: center, right bottom;
+    color: #ead8ab;
 }
 
 body.theme-ops1940 .version-info {

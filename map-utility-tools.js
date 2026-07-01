@@ -834,11 +834,15 @@
         applyStopwatchScale(!stopwatchState.compact);
     }
 
-    function setCalcDisplay(value) {
-        calcState.display = String(value || '0');
+    function setCalcDisplay(value, stateValue) {
+        const displayValue = String(value || '0');
+        calcState.display = String(typeof stateValue === 'undefined' ? displayValue : (stateValue || '0'));
         if (calcState.display === '-0') calcState.display = '0';
         const result = el('mapCalculatorResult');
-        if (result) result.textContent = calcState.display;
+        if (result) {
+            result.textContent = displayValue === '-0' ? '0' : displayValue;
+            result.classList.toggle('is-labeled', result.textContent !== calcState.display);
+        }
     }
 
     function setCalcExpression(value) {
@@ -881,6 +885,63 @@
             ? displayValue.toExponential(6)
             : String(Math.round(displayValue * 1000000000) / 1000000000);
         return rounded.length > 12 ? Number(displayValue).toPrecision(7) : rounded;
+    }
+
+    function inferFormulaUnit(formula, name, role = 'variable') {
+        const cleanName = String(name || '').replace(/[()]/g, '').trim();
+        const resultName = String(formula?.result || '');
+        const expr = String(formula?.expr || '');
+        const speedNames = new Set(['GS', 'IAS', 'TAS', 'Wind', 'Headwind', 'Crosswind', 'Vs', 'Böendifferenz']);
+        const distanceNames = new Set(['Distanz', 'Ablage', 'Range', 'Reserve-NM', 'NM', 'TOD']);
+        const altitudeNames = new Set(['Höhe', 'PA', 'DA', 'Indicated', 'True Alt', 'ft']);
+        const timeNames = new Set(['Zeit', 'Reservezeit', 'Endurance']);
+        const fuelNames = new Set(['Fuel', 'Reservefuel']);
+        if (role === 'result') {
+            if (cleanName === 'Zeit h' || /Zeit|Endurance/.test(cleanName)) return 'h';
+            if (/NM$|Distanz|Range/.test(cleanName)) return 'NM';
+            if (/°$|mwK|Korrektur|Winkel/.test(cleanName)) return '°';
+            if (/Fuel/.test(cleanName)) return 'gal';
+            if (/VS/.test(cleanName)) return 'ft/min';
+            if (cleanName === 'ft' || /DA|True Alt|Startstrecke/.test(cleanName)) return 'ft';
+            if (/GS|IAS|TAS|Headwind|Crosswind|Vs |Vref/.test(cleanName)) return 'Kn';
+            if (cleanName === 'ISA °C') return '°C';
+            if (['km', 'm', 'l', 'kg'].includes(cleanName)) return cleanName;
+        }
+        if (speedNames.has(cleanName) || /^Vs /.test(cleanName)) return 'Kn';
+        if (fuelNames.has(cleanName)) return 'gal';
+        if (cleanName === 'GPH' || cleanName === 'Verbrauch') return 'gal/h';
+        if (timeNames.has(cleanName)) return 'h';
+        if (altitudeNames.has(cleanName) || cleanName === 'Druckdiff' || cleanName === 'Startstrecke' || resultName === 'ft') return 'ft';
+        if (cleanName === 'ftNM') return 'ft/NM';
+        if (cleanName === 'OAT' || cleanName === 'ISA' || cleanName === 'DeltaISA' || cleanName === 'ISA °C') return '°C';
+        if (cleanName === 'Gradient' || cleanName === 'Steigung') return '%';
+        if (cleanName === 'Winkel' || cleanName === 'Korrektur °' || cleanName === 'mwK' || cleanName === 'rwK' || cleanName === 'Ost' || cleanName === 'West' || cleanName === 'Winkel °') return '°';
+        if (cleanName === 'cm') return 'cm';
+        if (cleanName === 'km') return 'km';
+        if (cleanName === 'm') return 'm';
+        if (cleanName === 'l') return 'l';
+        if (cleanName === 'kg') return 'kg';
+        if (cleanName === 'gal') return 'gal';
+        if (cleanName === 'lb') return 'lb';
+        if (cleanName === 'Strecke' && /Steigung|1\.2|1\.3/.test(expr)) return 'ft';
+        if (distanceNames.has(cleanName) || cleanName === 'Strecke') return 'NM';
+        return '';
+    }
+
+    function cleanFormulaLabel(label, unit) {
+        let text = String(label || '').trim();
+        const suffixes = ['ft/min', 'NM', '°C', '°', 'ft', 'Kn', 'kt', 'h', 'gal', 'km', 'm', 'l', 'kg'];
+        suffixes.forEach(suffix => {
+            if (unit === suffix && text.endsWith(` ${suffix}`)) text = text.slice(0, -suffix.length - 1).trim();
+        });
+        if (unit === 'NM' && text.endsWith('-NM')) text = text.slice(0, -3).trim();
+        return text || label;
+    }
+
+    function formatCalcLabeledValue(label, value, unit) {
+        const text = String(value || '0');
+        const cleanLabel = cleanFormulaLabel(label, unit);
+        return `${cleanLabel} ${text}${unit ? ` ${unit}` : ''}`;
     }
 
     function getCalcFormulaButtons() {
@@ -947,6 +1008,7 @@
         const formula = calcState.formula;
         if (!formula) return;
         const activeName = formula.vars[formula.current] || '';
+        const activeUnit = inferFormulaUnit(formula, activeName);
         let html = escapeCalcHtml(formula.display);
         [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
             const stored = Object.prototype.hasOwnProperty.call(formula.values, name) ? formula.values[name] : '';
@@ -958,7 +1020,8 @@
             html = html.replace(new RegExp(escapeCalcRegExp(escapeCalcHtml(name)), 'g'), replacement);
         });
         setCalcExpressionHtml(html, formula.display);
-        setCalcDisplay(formula.entry || formula.values[activeName] || '0');
+        const entryValue = formula.entry || formula.values[activeName] || '0';
+        setCalcDisplay(formatCalcLabeledValue(activeName, entryValue, activeUnit), entryValue);
     }
 
     function commitCalcFormulaEntry() {
@@ -1055,9 +1118,11 @@
         const expression = substituteCalcFormulaExpression(formula);
         try {
             const result = evaluateCalcExpression(expression);
+            const formattedResult = formatCalcNumber(result);
+            const resultUnit = inferFormulaUnit(formula, formula.result, 'result');
             endCalcFormulaMode();
             setCalcExpression(`${formula.result} = ${expression}`);
-            setCalcDisplay(formatCalcNumber(result));
+            setCalcDisplay(formatCalcLabeledValue(formula.result, formattedResult, resultUnit), formattedResult);
             calcState.justEvaluated = true;
         } catch (_) {
             endCalcFormulaMode();

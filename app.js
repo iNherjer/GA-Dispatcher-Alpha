@@ -723,6 +723,103 @@ function changeThemeFromSlider(val) {
     else if (v === 3) setTheme('ops1940');
 }
 
+const APP_UI_SCALE_STORAGE_KEY = 'ga_ui_scale_percent';
+const APP_UI_SCALE_DEFAULT = 100;
+const APP_UI_SCALE_MIN = 30;
+const APP_UI_SCALE_MAX = 150;
+const APP_UI_SCALE_STEP = 5;
+let appUiScaleMapInvalidateTimer = null;
+
+function clampAppUiScalePercent(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return APP_UI_SCALE_DEFAULT;
+    const stepped = Math.round(numeric / APP_UI_SCALE_STEP) * APP_UI_SCALE_STEP;
+    return Math.min(APP_UI_SCALE_MAX, Math.max(APP_UI_SCALE_MIN, stepped));
+}
+
+function getSavedAppUiScalePercent() {
+    try {
+        const raw = localStorage.getItem(APP_UI_SCALE_STORAGE_KEY);
+        return clampAppUiScalePercent(raw || APP_UI_SCALE_DEFAULT);
+    } catch (_) {
+        return APP_UI_SCALE_DEFAULT;
+    }
+}
+
+function updateAppUiScaleControl(percent) {
+    const normalized = clampAppUiScalePercent(percent);
+    const scale = normalized / 100;
+    const control = document.querySelector('.ui-scale-control');
+    const value = document.getElementById('uiScaleValue');
+    const resetBtn = document.querySelector('.ui-scale-reset-btn');
+    const minusBtn = document.getElementById('uiScaleMinusBtn');
+    const plusBtn = document.getElementById('uiScalePlusBtn');
+    if (control) control.style.zoom = normalized === APP_UI_SCALE_DEFAULT ? '' : String(1 / scale);
+    if (value) value.textContent = `${normalized}%`;
+    if (resetBtn) resetBtn.disabled = normalized === APP_UI_SCALE_DEFAULT;
+    if (minusBtn) minusBtn.disabled = normalized <= APP_UI_SCALE_MIN;
+    if (plusBtn) plusBtn.disabled = normalized >= APP_UI_SCALE_MAX;
+}
+
+function invalidateMapAfterAppUiScale() {
+    if (appUiScaleMapInvalidateTimer) {
+        clearTimeout(appUiScaleMapInvalidateTimer);
+        appUiScaleMapInvalidateTimer = null;
+    }
+    appUiScaleMapInvalidateTimer = setTimeout(() => {
+        appUiScaleMapInvalidateTimer = null;
+        try {
+            if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+                map.invalidateSize({ pan: false });
+            }
+        } catch (_) {}
+    }, 140);
+}
+
+function applyAppUiScale(value = getSavedAppUiScalePercent(), persist = true) {
+    const percent = clampAppUiScalePercent(value);
+    const scale = percent / 100;
+    if (document.body) {
+        document.body.style.zoom = percent === APP_UI_SCALE_DEFAULT ? '' : String(scale);
+        document.body.classList.toggle('app-ui-scaled', percent !== APP_UI_SCALE_DEFAULT);
+    }
+    document.documentElement.style.setProperty('--ga-ui-scale', String(scale));
+    document.documentElement.dataset.uiScale = String(percent);
+    if (persist) {
+        try {
+            if (percent === APP_UI_SCALE_DEFAULT) localStorage.removeItem(APP_UI_SCALE_STORAGE_KEY);
+            else localStorage.setItem(APP_UI_SCALE_STORAGE_KEY, String(percent));
+        } catch (_) {}
+    }
+    updateAppUiScaleControl(percent);
+    invalidateMapAfterAppUiScale();
+    return percent;
+}
+
+function setAppUiScaleFromSlider(value) {
+    return applyAppUiScale(value, true);
+}
+
+function getCurrentAppUiScalePercent() {
+    const fromDataset = Number(document.documentElement?.dataset?.uiScale);
+    if (Number.isFinite(fromDataset)) return clampAppUiScalePercent(fromDataset);
+    return getSavedAppUiScalePercent();
+}
+
+function adjustAppUiScale(delta) {
+    const stepDelta = Number.isFinite(Number(delta)) ? Number(delta) : 0;
+    return applyAppUiScale(getCurrentAppUiScalePercent() + stepDelta, true);
+}
+
+function resetAppUiScale() {
+    return applyAppUiScale(APP_UI_SCALE_DEFAULT, true);
+}
+
+window.applyAppUiScale = applyAppUiScale;
+window.setAppUiScaleFromSlider = setAppUiScaleFromSlider;
+window.adjustAppUiScale = adjustAppUiScale;
+window.resetAppUiScale = resetAppUiScale;
+
 const NAVCOM_RACK_V2_STORAGE_KEY = 'ga_navcom_rack_v2';
 
 function isNavcomRackV2Enabled() {
@@ -945,7 +1042,10 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Analog', text: 'Klassischere Panel-Optik mit Instrumenten-Gefuehl.' },
             { term: 'NavCom', text: 'Funkgeraete-Look mit dunkler Bedienoberflaeche.' },
             { term: 'Ops 1940', text: 'Militaerisch angelehnte Retro-Bedienoberflaeche.' },
-            { term: 'Schieberegler', text: 'Wechselt zwischen den vier Darstellungsarten.' }
+            { term: 'Schieberegler', text: 'Wechselt zwischen den vier Darstellungsarten.' },
+            { term: 'Seitengröße', text: 'Skaliert die gesamte Webapp im Browser von 30% bis 150%. Minus und Plus aendern den Wert in 5%-Schritten; Reset stellt 100% wieder her.' },
+            { term: 'Wofuer gut?', text: 'Hilft, wenn die App im Browser zu gross oder zu klein wirkt: zum Beispiel auf Quest/VR, Tablet, Handy, kleinen Fenstern oder sehr hoch aufloesenden Monitoren.' },
+            { term: 'Geraete', text: 'Die Einstellung ist nicht VR-spezifisch. Sie wirkt auf jedem Geraet, auf dem der Browser CSS-Zoom unterstuetzt, und wird lokal pro Browser gespeichert.' }
         ]
     }
 };
@@ -4865,6 +4965,7 @@ function bootAppOnce() {
 
     const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
+    applyAppUiScale(getSavedAppUiScalePercent(), false);
     setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
     applySavedPanelTheme();
     loadAircraftPresets();
@@ -38806,7 +38907,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1260', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1299', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

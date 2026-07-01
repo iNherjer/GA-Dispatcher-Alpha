@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=formula-interactive-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=ui-scale-buttons-formula-units-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=formula-interactive-20260701-01">
+        <link rel="stylesheet" href="styles.css?v=ui-scale-buttons-formula-units-20260701-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -111,9 +111,20 @@
         </div>
     </div>
 </div>
-<script>
-    window.__bootSplashShownAt = performance.now();
-</script>
+    <script>
+        window.__bootSplashShownAt = performance.now();
+        (function applyEarlyUiScale() {
+            try {
+                const raw = localStorage.getItem('ga_ui_scale_percent');
+                const parsed = Number(raw);
+                if (!Number.isFinite(parsed)) return;
+                const percent = Math.min(150, Math.max(30, Math.round(parsed / 5) * 5));
+                if (percent === 100) return;
+                document.body.style.zoom = String(percent / 100);
+                document.documentElement.style.setProperty('--ga-ui-scale', String(percent / 100));
+            } catch (_) {}
+        })();
+    </script>
 
 <div class="container">
     <div class="glareshield"></div>
@@ -950,6 +961,17 @@
             <span id="lbl-ops1940" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(3)">Ops 1940</span>
         </div>
         <input type="range" id="themeSlider" min="0" max="3" value="0" style="width: 210px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
+        <div class="ui-scale-control">
+            <div class="ui-scale-control-head">
+                <span class="ui-scale-label">Seitengröße</span>
+                <button type="button" class="ui-scale-reset-btn" onclick="resetAppUiScale()" aria-label="Skalierung zurücksetzen">Reset</button>
+            </div>
+            <div class="ui-scale-stepper" role="group" aria-label="Seitengröße">
+                <button type="button" class="ui-scale-step-btn" id="uiScaleMinusBtn" onclick="adjustAppUiScale(-5)" aria-label="Skalierung kleiner">−</button>
+                <span id="uiScaleValue" aria-live="polite">100%</span>
+                <button type="button" class="ui-scale-step-btn" id="uiScalePlusBtn" onclick="adjustAppUiScale(5)" aria-label="Skalierung größer">+</button>
+            </div>
+        </div>
     </div>
         </div>
         </div>
@@ -1949,8 +1971,8 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
 <script defer src="map.js?v=quest-draw-20260701-01"></script>
-<script defer src="map-utility-tools.js?v=formula-interactive-20260701-01"></script>
-<script defer src="app.js?v=direct-to-freeflight-20260701-01"></script>
+<script defer src="map-utility-tools.js?v=formula-units-20260701-01"></script>
+<script defer src="app.js?v=ui-scale-help-20260701-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
