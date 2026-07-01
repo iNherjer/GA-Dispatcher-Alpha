@@ -887,6 +887,16 @@
         return rounded.length > 12 ? Number(displayValue).toPrecision(7) : rounded;
     }
 
+    function formatCalcFormulaNumber(value) {
+        const text = String(value || '0').trim();
+        if (!text || text === '-' || text === '.' || text === '-.' || text.endsWith('.')) return text || '0';
+        const number = Number(text);
+        if (!Number.isFinite(number)) return text;
+        const rounded = Math.round((number + Math.sign(number) * Number.EPSILON) * 100) / 100;
+        if (Math.abs(rounded) < 0.005) return '0';
+        return rounded.toFixed(2).replace(/\.?0+$/, '');
+    }
+
     function inferFormulaUnit(formula, name, role = 'variable') {
         const cleanName = String(name || '').replace(/[()]/g, '').trim();
         const resultName = String(formula?.result || '');
@@ -939,7 +949,7 @@
     }
 
     function formatCalcLabeledValue(label, value, unit) {
-        const text = String(value || '0');
+        const text = formatCalcFormulaNumber(value);
         const cleanLabel = cleanFormulaLabel(label, unit);
         return `${cleanLabel} ${text}${unit ? ` ${unit}` : ''}`;
     }
@@ -1012,11 +1022,13 @@
         let html = escapeCalcHtml(formula.display);
         [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
             const stored = Object.prototype.hasOwnProperty.call(formula.values, name) ? formula.values[name] : '';
-            const raw = name === activeName ? (formula.entry || stored || name) : (stored || name);
+            const rawValue = name === activeName ? (formula.entry || stored) : stored;
+            const raw = rawValue || name;
             const classes = ['formula-var'];
             if (name === activeName) classes.push('is-active');
             if (stored) classes.push('has-value');
-            const replacement = `<span class="${classes.join(' ')}">${escapeCalcHtml(raw)}</span>`;
+            const visibleValue = rawValue ? formatCalcFormulaNumber(rawValue) : raw;
+            const replacement = `<span class="${classes.join(' ')}">${escapeCalcHtml(visibleValue)}</span>`;
             html = html.replace(new RegExp(escapeCalcRegExp(escapeCalcHtml(name)), 'g'), replacement);
         });
         setCalcExpressionHtml(html, formula.display);
@@ -1118,7 +1130,7 @@
         const expression = substituteCalcFormulaExpression(formula);
         try {
             const result = evaluateCalcExpression(expression);
-            const formattedResult = formatCalcNumber(result);
+            const formattedResult = formatCalcFormulaNumber(result);
             const resultUnit = inferFormulaUnit(formula, formula.result, 'result');
             endCalcFormulaMode();
             setCalcExpression(`${formula.result} = ${expression}`);
