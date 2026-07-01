@@ -2244,6 +2244,26 @@ body.theme-retro .api-hint a:hover {
     font-size: 10px;
 }
 
+.display-diagnostics-btn {
+    width: 100%;
+    min-height: 30px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    border: 1px dashed rgba(127, 183, 255, 0.58);
+    border-radius: 5px;
+    background: rgba(18, 32, 48, 0.74);
+    color: #a9d1ff;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.display-diagnostics-btn:hover {
+    border-color: var(--blue);
+    color: #fff;
+}
+
 .ui-scale-step-btn:hover:not(:disabled),
 .ui-scale-reset-btn:hover:not(:disabled) {
     border-color: var(--blue);
@@ -2271,6 +2291,12 @@ body.theme-retro .ui-scale-reset-btn {
     border-color: #5a5f6a;
     background: #2b2d31;
     color: var(--piper-white);
+}
+
+body.theme-retro .display-diagnostics-btn {
+    border-color: rgba(242, 193, 46, 0.42);
+    background: rgba(17, 17, 17, 0.72);
+    color: var(--piper-yellow);
 }
 
 /* --- API FUEL METER --- */

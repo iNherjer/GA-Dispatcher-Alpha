@@ -3663,6 +3663,73 @@ function vpFormatBytes(bytes) {
     return `${(b / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function vpBuildDisplayDiagnosticsLines() {
+    const fmt = (value, digits = 0) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '-';
+    const fmtRect = (rect) => {
+        if (!rect) return '-';
+        return `${fmt(rect.width)}x${fmt(rect.height)} @ ${fmt(rect.left)},${fmt(rect.top)}`;
+    };
+    const media = (query) => {
+        try { return window.matchMedia && window.matchMedia(query).matches ? '1' : '0'; } catch (_) { return '-'; }
+    };
+    const cssVar = (name) => {
+        try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '-'; } catch (_) { return '-'; }
+    };
+    const storageValue = (key) => {
+        try { return localStorage.getItem(key) || '-'; } catch (_) { return '-'; }
+    };
+    const rectOf = (selector) => {
+        try {
+            const node = document.querySelector(selector);
+            return node ? node.getBoundingClientRect() : null;
+        } catch (_) {
+            return null;
+        }
+    };
+    const vv = window.visualViewport || null;
+    const dpr = Number(window.devicePixelRatio || 1);
+    const innerW = Number(window.innerWidth || 0);
+    const innerH = Number(window.innerHeight || 0);
+    const visualW = Number(vv?.width || innerW);
+    const visualH = Number(vv?.height || innerH);
+    const ua = String(navigator.userAgent || '');
+    const isQuest = /Quest|OculusBrowser|Meta Quest|VR/i.test(ua);
+    const appScaleRaw = storageValue('ga_ui_scale_percent');
+    const appScale = Number(appScaleRaw === '-' ? 100 : appScaleRaw);
+    const cssPixelBudgetW = Math.round(visualW * dpr);
+    const cssPixelBudgetH = Math.round(visualH * dpr);
+    const layoutLabel = innerW < 740 ? 'phone-like' : (innerW < 1024 ? 'tablet-like' : 'desktop-like');
+    const pixelLabel = cssPixelBudgetW < 1000 ? 'sehr niedrig' : (cssPixelBudgetW < 1500 ? 'niedrig' : (cssPixelBudgetW < 2200 ? 'mittel' : 'hoch'));
+    const lines = [];
+    lines.push('Display / Viewport Diagnose');
+    lines.push(`- Zeitpunkt: ${vpFormatDebugTs(Date.now())}`);
+    lines.push(`- Layout-Breite: ${layoutLabel} | inner=${fmt(innerW)}x${fmt(innerH)} CSS px | outer=${fmt(window.outerWidth)}x${fmt(window.outerHeight)}`);
+    lines.push(`- VisualViewport: ${fmt(visualW, 1)}x${fmt(visualH, 1)} CSS px | scale=${fmt(vv?.scale, 3)} | offset=${fmt(vv?.offsetLeft, 1)},${fmt(vv?.offsetTop, 1)}`);
+    lines.push(`- devicePixelRatio: ${fmt(dpr, 3)} | geschaetztes Pixelbudget=${cssPixelBudgetW}x${cssPixelBudgetH} (${pixelLabel})`);
+    lines.push(`- Screen: ${fmt(screen.width)}x${fmt(screen.height)} CSS px | avail=${fmt(screen.availWidth)}x${fmt(screen.availHeight)} | orientation=${screen.orientation?.type || '-'} ${fmt(screen.orientation?.angle)}`);
+    lines.push(`- Document: client=${fmt(document.documentElement.clientWidth)}x${fmt(document.documentElement.clientHeight)} | bodyZoom=${document.body?.style?.zoom || '-'} | --ga-ui-scale=${cssVar('--ga-ui-scale')} | savedScale=${appScaleRaw}`);
+    lines.push(`- Elemente: container=${fmtRect(rectOf('.container'))} | map=${fmtRect(rectOf('#map'))} | settings=${fmtRect(rectOf('#settingsPanel'))}`);
+    lines.push(`- Eingabe/Media: maxTouch=${navigator.maxTouchPoints || 0} | pointerCoarse=${media('(pointer: coarse)')} | hoverNone=${media('(hover: none)')} | standalone=${media('(display-mode: standalone)')}`);
+    lines.push(`- Browser: ${ua.slice(0, 220) || '-'}`);
+    const warnings = [];
+    if (isQuest && innerW < 900) warnings.push('Quest meldet nur phone/tablet-artige CSS-Breite; Meta-Fenster wirkt vermutlich niedriger aufgeloest.');
+    if (isQuest && dpr <= 1.15) warnings.push('Quest DPR ist nahe 1; es gibt wenig physische Pixel pro CSS-Pixel.');
+    if (Number.isFinite(appScale) && appScale !== 100) warnings.push('Seitengroesse ist nicht 100%; CSS-Zoom kann vorhandene Pixel-Unschaerfe sichtbar verstaerken.');
+    if (vv && Number.isFinite(Number(vv.scale)) && Math.abs(Number(vv.scale) - 1) > 0.02) warnings.push('VisualViewport ist skaliert; Browser/Page-Zoom ist aktiv.');
+    if (warnings.length) {
+        lines.push('- Hinweise:');
+        warnings.forEach(w => lines.push(`  * ${w}`));
+    } else {
+        lines.push('- Hinweise: keine offensichtliche App-seitige Zusatzskalierung erkannt.');
+    }
+    lines.push('- Grenze: Eine Website kann das Meta-2D-Fenster groesser oder kleiner layouten, aber nicht erzwingen, dass Horizon OS mehr Pixel fuer dieses Fenster alloziert.');
+    return lines;
+}
+
+window.vpBuildDisplayDiagnosticsReport = function() {
+    return vpBuildDisplayDiagnosticsLines().join('\n');
+};
+
 window.vpBuildWeatherDebugReport = function() {
     vpHydrateObsTileCoverage();
     vpHydrateObsTileFailed();
@@ -3697,6 +3764,8 @@ window.vpBuildWeatherDebugReport = function() {
         const hay = `${level} ${msg}`;
         return /paxvoice|tts|textgen|\[fetch\]|fetch-(slow|error)|generativelanguage|websocketrelais|gps/.test(hay.toLowerCase());
     };
+    lines.push(...vpBuildDisplayDiagnosticsLines());
+    lines.push('');
     lines.push(`Session seit: ${vpFormatDebugTs(dbg.sessionStartedAt)}`);
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
     const fbLabel = fbMode === 'openmeteo_to_metar'
@@ -4264,6 +4333,51 @@ window.vpCopyWeatherDebugReport = async function() {
         console.warn('[Debug] Copy failed:', err);
         alert(`Debug-Log konnte nicht kopiert werden: ${err?.message || err}`);
     }
+};
+
+window.vpCopyDisplayDiagnosticsReport = async function() {
+    const btn = document.getElementById('btnCopyDisplayDiagnostics');
+    const oldText = btn ? btn.textContent : '';
+    try {
+        const text = window.vpBuildDisplayDiagnosticsReport ? window.vpBuildDisplayDiagnosticsReport() : '';
+        if (!text.trim()) throw new Error('empty_display_diagnostics');
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand && document.execCommand('copy');
+            ta.remove();
+            if (!ok) throw new Error('clipboard_unavailable');
+        }
+        if (btn) {
+            btn.textContent = 'Display kopiert';
+            setTimeout(() => { btn.textContent = oldText || 'Display'; }, 1400);
+        }
+    } catch (err) {
+        if (btn) {
+            btn.textContent = 'Fehler';
+            setTimeout(() => { btn.textContent = oldText || 'Display'; }, 1400);
+        }
+        console.warn('[Display Diagnose] Copy failed:', err);
+    }
+};
+
+window.vpOpenDisplayDiagnostics = function() {
+    if (typeof window.vpToggleWeatherDebugPanel === 'function') {
+        window.vpToggleWeatherDebugPanel(true);
+    } else {
+        const panel = document.getElementById('weatherDebugPanel');
+        if (panel) panel.style.display = 'block';
+    }
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') window.vpRefreshWeatherDebugReport();
+    const body = document.getElementById('weatherDebugBody');
+    if (body) body.scrollTop = 0;
 };
 
 window.vpBuildMissionPhaseDebugReport = function() {
