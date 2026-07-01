@@ -8114,29 +8114,49 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         linear-gradient(rgba(255,255,255,0.05), transparent),
         #172015;
     box-shadow: inset 0 3px 12px rgba(0,0,0,0.82);
-    padding: 12px 10px;
+    padding: 8px 10px;
     color: #ff622d;
-    font: 900 31px/1 'Courier New', monospace;
-    text-align: right;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
     overflow: hidden;
     white-space: nowrap;
+}
+
+.calculator-expression {
+    min-height: 12px;
+    color: rgba(197, 220, 181, 0.72);
+    font: 900 10px/1 'Courier New', monospace;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.calculator-result {
+    color: #ff622d;
+    font: 900 28px/1 'Courier New', monospace;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .calculator-keypad {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    margin-top: 10px;
 }
 
 .calculator-keypad button {
-    height: 43px;
+    height: 35px;
     border-radius: 7px;
     border: 1px solid rgba(255,255,255,0.18);
     background: linear-gradient(#353b42, #11151a);
     color: #f6f1df;
     cursor: pointer;
-    font: 900 18px/1 'Courier New', monospace;
+    font: 900 16px/1 'Courier New', monospace;
     box-shadow: inset 0 1px 2px rgba(255,255,255,0.16), 0 3px 7px rgba(0,0,0,0.38);
 }
 
@@ -8144,6 +8164,14 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .calculator-keypad button[data-calc="equals"] {
     background: linear-gradient(#f3c747, #8b6114);
     color: #111;
+}
+
+.calculator-keypad button[data-calc="function"],
+.calculator-keypad button[data-calc="paren"],
+.calculator-keypad button[data-calc="percent"] {
+    background: linear-gradient(#434a52, #1c2228);
+    color: #f5d76f;
+    font-size: 13px;
 }
 
 .calculator-keypad button[data-calc="clear"],
@@ -8184,7 +8212,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     transform: translateX(-14px) rotate(-1.2deg);
     pointer-events: none;
     box-sizing: border-box;
-    --formula-hand: "Chalkboard SE", "Comic Sans MS", "Segoe Print", cursive;
+    --formula-hand: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
     border-radius: 5px 10px 8px 5px;
     border: 1px solid rgba(111, 86, 42, 0.34);
     background:
@@ -8493,7 +8521,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 @media (max-width: 767px) {
     .map-calculator-device {
-        width: calc(100vw - 16px);
+        width: min(292px, calc(100vw - 16px));
     }
 
     .calculator-formula-tab {

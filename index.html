@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=formula-tab-subtle-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=calc-expression-20260701-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=formula-tab-subtle-20260701-01">
+        <link rel="stylesheet" href="styles.css?v=calc-expression-20260701-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1512,28 +1512,35 @@
                             <div class="map-utility-device-title">VFR CALC</div>
                             <button id="mapCalculatorClose" class="map-utility-close" type="button" title="Schließen">x</button>
                         </div>
-                        <div id="mapCalculatorDisplay" class="calculator-display utility-seven-seg" aria-live="polite">0</div>
+                        <div id="mapCalculatorDisplay" class="calculator-display utility-seven-seg" aria-live="polite">
+                            <div id="mapCalculatorExpression" class="calculator-expression">DEG</div>
+                            <div id="mapCalculatorResult" class="calculator-result">0</div>
+                        </div>
                         <div class="calculator-keypad" aria-label="Taschenrechner">
                             <button type="button" data-calc="clear">C</button>
                             <button type="button" data-calc="backspace">⌫</button>
-                            <button type="button" data-calc="sign">+/-</button>
-                            <button type="button" data-calc="operator" data-op="/">÷</button>
+                            <button type="button" data-calc="paren" data-value="(">(</button>
+                            <button type="button" data-calc="paren" data-value=")">)</button>
+                            <button type="button" data-calc="function" data-fn="sin">sin</button>
+                            <button type="button" data-calc="function" data-fn="cos">cos</button>
+                            <button type="button" data-calc="function" data-fn="tan">tan</button>
+                            <button type="button" data-calc="percent">%</button>
                             <button type="button" data-calc="digit" data-value="7">7</button>
                             <button type="button" data-calc="digit" data-value="8">8</button>
                             <button type="button" data-calc="digit" data-value="9">9</button>
-                            <button type="button" data-calc="operator" data-op="*">×</button>
+                            <button type="button" data-calc="operator" data-op="/">÷</button>
                             <button type="button" data-calc="digit" data-value="4">4</button>
                             <button type="button" data-calc="digit" data-value="5">5</button>
                             <button type="button" data-calc="digit" data-value="6">6</button>
-                            <button type="button" data-calc="operator" data-op="-">−</button>
+                            <button type="button" data-calc="operator" data-op="*">×</button>
                             <button type="button" data-calc="digit" data-value="1">1</button>
                             <button type="button" data-calc="digit" data-value="2">2</button>
                             <button type="button" data-calc="digit" data-value="3">3</button>
-                            <button type="button" data-calc="operator" data-op="+">+</button>
-                            <button type="button" data-calc="percent">%</button>
+                            <button type="button" data-calc="operator" data-op="-">−</button>
                             <button type="button" data-calc="digit" data-value="0">0</button>
                             <button type="button" data-calc="decimal">.</button>
                             <button type="button" data-calc="equals">=</button>
+                            <button type="button" data-calc="operator" data-op="+">+</button>
                         </div>
                     </div>
                 </div>
@@ -1942,7 +1949,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=historian-why-now-20260629-01"></script>
 <script defer src="map.js?v=formula-accordion-20260701-01"></script>
-<script defer src="map-utility-tools.js?v=formula-accordion-20260701-01"></script>
+<script defer src="map-utility-tools.js?v=calc-expression-20260701-01"></script>
 <script defer src="app.js?v=apt-news-ground-story-20260630-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

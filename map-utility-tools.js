@@ -43,9 +43,7 @@
 
     const calcState = {
         display: '0',
-        storedValue: null,
-        operator: null,
-        waitingForOperand: false,
+        expression: '',
         justEvaluated: false
     };
 
@@ -838,13 +836,21 @@
     function setCalcDisplay(value) {
         calcState.display = String(value || '0');
         if (calcState.display === '-0') calcState.display = '0';
-        const display = el('mapCalculatorDisplay');
-        if (display) display.textContent = calcState.display;
+        const result = el('mapCalculatorResult');
+        if (result) result.textContent = calcState.display;
     }
 
-    function currentCalcValue() {
-        const value = Number(calcState.display);
-        return Number.isFinite(value) ? value : 0;
+    function setCalcExpression(value) {
+        calcState.expression = String(value || '');
+        const expression = el('mapCalculatorExpression');
+        if (expression) expression.textContent = calcState.expression || 'DEG';
+    }
+
+    function calcOperatorSymbol(operator) {
+        if (operator === '*') return '×';
+        if (operator === '/') return '÷';
+        if (operator === '-') return '−';
+        return '+';
     }
 
     function formatCalcNumber(value) {
@@ -855,83 +861,257 @@
         return rounded.length > 12 ? Number(value).toPrecision(7) : rounded;
     }
 
-    function computeCalc(left, operator, right) {
-        if (operator === '+') return left + right;
-        if (operator === '-') return left - right;
-        if (operator === '*') return left * right;
-        if (operator === '/') return right === 0 ? NaN : left / right;
-        return right;
+    function normalizeCalcExpression(expression) {
+        return String(expression || '')
+            .replace(/×/g, '*')
+            .replace(/÷/g, '/')
+            .replace(/−/g, '-')
+            .replace(/,/g, '.')
+            .replace(/\s+/g, '');
+    }
+
+    function prepareCalcExpression(expression) {
+        let prepared = String(expression || '').trim();
+        while (/[+×÷*/.]$/.test(prepared)) prepared = prepared.slice(0, -1).trim();
+        if (prepared.endsWith('−') || prepared.endsWith('-')) prepared = prepared.slice(0, -1).trim();
+        if (!prepared) return '';
+        const opens = (prepared.match(/\(/g) || []).length;
+        const closes = (prepared.match(/\)/g) || []).length;
+        if (opens > closes) prepared += ')'.repeat(opens - closes);
+        return prepared;
+    }
+
+    function evaluateCalcExpression(rawExpression) {
+        const source = normalizeCalcExpression(rawExpression);
+        let index = 0;
+
+        function peek() {
+            return source[index] || '';
+        }
+
+        function match(char) {
+            if (source[index] === char) {
+                index += 1;
+                return true;
+            }
+            return false;
+        }
+
+        function parseExpression() {
+            let value = parseTerm();
+            while (index < source.length) {
+                if (match('+')) value += parseTerm();
+                else if (match('-')) value -= parseTerm();
+                else break;
+            }
+            return value;
+        }
+
+        function parseTerm() {
+            let value = parseUnary();
+            while (index < source.length) {
+                if (match('*')) value *= parseUnary();
+                else if (match('/')) {
+                    const divisor = parseUnary();
+                    value = divisor === 0 ? NaN : value / divisor;
+                } else {
+                    break;
+                }
+            }
+            return value;
+        }
+
+        function parseUnary() {
+            if (match('+')) return parseUnary();
+            if (match('-')) return -parseUnary();
+            return parsePostfix();
+        }
+
+        function parsePostfix() {
+            let value = parsePrimary();
+            while (match('%')) value /= 100;
+            return value;
+        }
+
+        function parsePrimary() {
+            const char = peek();
+            if (match('(')) {
+                const value = parseExpression();
+                if (!match(')')) throw new Error('missing-paren');
+                return value;
+            }
+            if (/[a-z]/i.test(char)) {
+                const start = index;
+                while (/[a-z]/i.test(peek())) index += 1;
+                const name = source.slice(start, index).toLowerCase();
+                if (!['sin', 'cos', 'tan'].includes(name)) throw new Error('unknown-function');
+                if (!match('(')) throw new Error('function-paren');
+                const degrees = parseExpression();
+                if (!match(')')) throw new Error('missing-paren');
+                const radians = degrees * Math.PI / 180;
+                if (name === 'sin') return Math.sin(radians);
+                if (name === 'cos') return Math.cos(radians);
+                return Math.tan(radians);
+            }
+            if (/\d|\./.test(char)) {
+                const start = index;
+                while (/\d|\./.test(peek())) index += 1;
+                const numberText = source.slice(start, index);
+                if ((numberText.match(/\./g) || []).length > 1) throw new Error('bad-number');
+                const value = Number(numberText);
+                if (!Number.isFinite(value)) throw new Error('bad-number');
+                return value;
+            }
+            throw new Error('unexpected-token');
+        }
+
+        const result = parseExpression();
+        if (index !== source.length) throw new Error('trailing-token');
+        return result;
+    }
+
+    function currentCalcSegment(expression) {
+        const compact = String(expression || '').trim();
+        const match = compact.match(/(?:^|[+\-×÷*/(])\s*([−-]?\d+(?:\.\d*)?|[−-]?\.\d+)%?$/);
+        return match ? match[1] : '';
+    }
+
+    function previewCalcEntry() {
+        const segment = currentCalcSegment(calcState.expression);
+        if (segment) {
+            setCalcDisplay(segment);
+            return;
+        }
+        if (!calcState.expression) setCalcDisplay('0');
+    }
+
+    function appendCalcExpression(part, options = {}) {
+        let expression = calcState.expression;
+        if (calcState.justEvaluated) {
+            expression = options.continueResult ? calcState.display : '';
+            calcState.justEvaluated = false;
+        }
+        if (expression.length >= 48) return;
+        setCalcExpression(expression + part);
+        if (options.preview !== false) previewCalcEntry();
     }
 
     function inputDigit(value) {
-        if (calcState.waitingForOperand || calcState.justEvaluated || calcState.display === 'ERR') {
-            calcState.waitingForOperand = false;
-            calcState.justEvaluated = false;
-            setCalcDisplay(value);
+        let expression = calcState.justEvaluated ? '' : calcState.expression;
+        calcState.justEvaluated = false;
+        const segment = currentCalcSegment(expression);
+        if (segment === '0' && /(?:^|[+\-×÷*/(])\s*0$/.test(expression.trim())) {
+            expression = expression.replace(/0$/, value);
+            setCalcExpression(expression);
+            previewCalcEntry();
             return;
         }
-        if (calcState.display.replace('-', '').replace('.', '').length >= 10) return;
-        setCalcDisplay(calcState.display === '0' ? value : calcState.display + value);
+        appendCalcExpression(value);
     }
 
     function inputDecimal() {
-        if (calcState.waitingForOperand || calcState.justEvaluated || calcState.display === 'ERR') {
-            calcState.waitingForOperand = false;
+        let expression = calcState.expression;
+        if (calcState.justEvaluated) {
+            expression = '';
             calcState.justEvaluated = false;
+        }
+        const segment = currentCalcSegment(expression);
+        if (segment.includes('.')) return;
+        if (!segment) {
+            setCalcExpression(`${expression}0.`);
             setCalcDisplay('0.');
             return;
         }
-        if (!calcState.display.includes('.')) setCalcDisplay(`${calcState.display}.`);
+        appendCalcExpression('.');
     }
 
     function applyOperator(operator) {
-        const value = currentCalcValue();
-        if (calcState.operator && !calcState.waitingForOperand) {
-            const result = computeCalc(Number(calcState.storedValue || 0), calcState.operator, value);
-            calcState.storedValue = result;
-            setCalcDisplay(formatCalcNumber(result));
-        } else {
-            calcState.storedValue = value;
-        }
-        calcState.operator = operator;
-        calcState.waitingForOperand = true;
+        let expression = calcState.justEvaluated ? calcState.display : calcState.expression.trimEnd();
         calcState.justEvaluated = false;
+        const symbol = calcOperatorSymbol(operator);
+        if (!expression) {
+            if (operator === '-') setCalcExpression('−');
+            return;
+        }
+        if (/[+×÷*/−-]\s*$/.test(expression)) expression = expression.replace(/[+×÷*/−-]\s*$/, symbol);
+        else expression += ` ${symbol} `;
+        setCalcExpression(expression);
     }
 
     function evaluateCalc() {
-        if (!calcState.operator || calcState.storedValue === null) return;
-        const result = computeCalc(Number(calcState.storedValue), calcState.operator, currentCalcValue());
-        setCalcDisplay(formatCalcNumber(result));
-        calcState.storedValue = null;
-        calcState.operator = null;
-        calcState.waitingForOperand = true;
+        const expression = prepareCalcExpression(calcState.expression);
+        if (!expression) return;
+        try {
+            const result = evaluateCalcExpression(expression);
+            setCalcExpression(expression);
+            setCalcDisplay(formatCalcNumber(result));
+        } catch (_) {
+            setCalcDisplay('ERR');
+        }
         calcState.justEvaluated = true;
     }
 
     function clearCalc() {
-        calcState.storedValue = null;
-        calcState.operator = null;
-        calcState.waitingForOperand = false;
+        setCalcExpression('');
         calcState.justEvaluated = false;
         setCalcDisplay('0');
     }
 
     function backspaceCalc() {
-        if (calcState.waitingForOperand || calcState.justEvaluated || calcState.display === 'ERR') {
+        if (calcState.justEvaluated || calcState.display === 'ERR') {
             clearCalc();
             return;
         }
-        const next = calcState.display.length > 1 ? calcState.display.slice(0, -1) : '0';
-        setCalcDisplay(next === '-' ? '0' : next);
+        const trimmed = calcState.expression.trimEnd();
+        setCalcExpression(trimmed.slice(0, -1));
+        previewCalcEntry();
     }
 
     function toggleCalcSign() {
-        if (calcState.display === '0' || calcState.display === 'ERR') return;
-        setCalcDisplay(calcState.display.startsWith('-') ? calcState.display.slice(1) : `-${calcState.display}`);
+        if (calcState.justEvaluated) {
+            const value = Number(calcState.display);
+            if (!Number.isFinite(value) || value === 0) return;
+            setCalcDisplay(formatCalcNumber(-value));
+            setCalcExpression(calcState.display);
+            return;
+        }
+        const expression = calcState.expression;
+        const match = expression.match(/([−-]?\d+(?:\.\d*)?|[−-]?\.\d+)$/);
+        if (!match) {
+            appendCalcExpression('−');
+            return;
+        }
+        const start = expression.length - match[0].length;
+        const replacement = match[0].startsWith('-') || match[0].startsWith('−')
+            ? match[0].slice(1)
+            : `−${match[0]}`;
+        setCalcExpression(expression.slice(0, start) + replacement);
+        previewCalcEntry();
     }
 
     function percentCalc() {
-        setCalcDisplay(formatCalcNumber(currentCalcValue() / 100));
+        appendCalcExpression('%');
+    }
+
+    function inputCalcFunction(name) {
+        const fn = String(name || '').toLowerCase();
+        if (!['sin', 'cos', 'tan'].includes(fn)) return;
+        let prefix = '';
+        const expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
+        calcState.justEvaluated = false;
+        if (expression && /[+×÷−-]$/.test(expression)) prefix = ' ';
+        else if (expression && /[\d)%]$/.test(expression)) prefix = ' × ';
+        setCalcExpression(`${expression}${prefix}${fn}(`);
+        setCalcDisplay('0');
+    }
+
+    function inputCalcParen(paren) {
+        const value = paren === ')' ? ')' : '(';
+        let expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
+        calcState.justEvaluated = false;
+        if (value === '(' && expression && /[\d)%]$/.test(expression)) expression += ' × ';
+        setCalcExpression(expression + value);
+        previewCalcEntry();
     }
 
     function handleCalcButton(event) {
@@ -946,6 +1126,8 @@
         else if (action === 'backspace') backspaceCalc();
         else if (action === 'sign') toggleCalcSign();
         else if (action === 'percent') percentCalc();
+        else if (action === 'function') inputCalcFunction(button.dataset.fn);
+        else if (action === 'paren') inputCalcParen(button.dataset.value);
         event.preventDefault();
     }
 
