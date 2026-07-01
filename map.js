@@ -7473,6 +7473,7 @@ function renderMainRoute() {
                                 if (storyEl) storyEl.innerText = 'Kein Missionsauftrag erstellt. Das POI-Ziel wurde im Freiflug-/Planungsmodus verschoben.';
                                 if (typeof currentMissionData !== 'undefined' && currentMissionData) {
                                     currentMissionData.mission = 'Freiflug · POI-Ziel';
+                                    markDirectToFreeflightMissionData(currentMissionData, 'poi-freeflight-planning', false);
                                 }
                                 window.debouncedSaveMissionState();
                                 return;
@@ -7767,6 +7768,32 @@ function getDirectToPrivateStoryText() {
     return 'Direct-To Modus aktiv: Story-Briefing ausgesetzt.';
 }
 
+function markDirectToFreeflightMissionData(md, reason = 'direct-to', directTo = true) {
+    if (!md || typeof md !== 'object') return md;
+    if (typeof window.prepareFreeflightBriefingState === 'function') {
+        return window.prepareFreeflightBriefingState(md, { reason, directTo });
+    }
+    md.freeflightOnly = true;
+    md.efbOnly = true;
+    md.noMissionRuntime = true;
+    md.directToEfbOnly = directTo !== false;
+    md.routeOnly = true;
+    md.taskDomain = md.taskDomain || 'freeflight_planning';
+    md.missionType = md.missionType || 'freeflight';
+    md._requestedProfile = md._requestedProfile || 'freeflight_planning';
+    md._appliedProfile = md._appliedProfile || 'freeflight_planning';
+    md.sceneAccepted = null;
+    md.sceneCompositionStatus = 'freeflight';
+    delete md.missionContract;
+    delete md.passenger;
+    try { window.activePassenger = null; } catch (_) {}
+    try { window.activeMissionContract = null; } catch (_) {}
+    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    return md;
+}
+
 function renderGpsStartBriefing(destAirport, startPoint) {
     const nav = calcNav(startPoint.lat, startPoint.lng, destAirport.lat, destAirport.lon);
     const tas = getTasForRouteEstimate();
@@ -7886,6 +7913,7 @@ async function applyAirportDirectTo(airport, options = {}) {
         ac: typeof selectedAC !== 'undefined' ? selectedAC : 'N/A',
         heading: nav.brng
     };
+    markDirectToFreeflightMissionData(currentMissionData, 'airport-direct-to');
     currentDepFreq = '';
     currentDestFreq = '';
 
@@ -10277,6 +10305,7 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
         ac: typeof selectedAC !== 'undefined' ? selectedAC : 'N/A',
         heading: directNav.brng
     };
+    markDirectToFreeflightMissionData(currentMissionData, 'freeflight-direct-to');
     if (typeof populateBriefingUI === 'function') {
         const startData = { lat: startWp.lat, lon: startWp.lng, n: currentSName, icao: currentStartICAO };
         const destData = { lat: lat, lon: lon, n: currentDName, icao: currentDestICAO };

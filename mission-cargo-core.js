@@ -105,6 +105,7 @@ function _missionCargoPlayAudioCue(fallbackCueId = 'none', item = null, event = 
 
 function _missionCargoHasActiveMission() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) return false;
     return !!(md || window.activeMissionContract);
 }
 
@@ -434,6 +435,17 @@ function _missionCargoEnsureUiSyncHook() {
 
 function _missionCargoEnsureManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
+        return {
+            version: 1,
+            key,
+            taskDomain: 'freeflight_planning',
+            isPoi: false,
+            createdAt: Date.now(),
+            items: []
+        };
+    }
     let manifest = _missionCargoGetManifest();
     if (!manifest || manifest.key !== key || !Array.isArray(manifest.items) || !manifest.items.length || !_missionCargoManifestMatchesMissionRecipe(manifest)) {
         manifest = _missionCargoGenerateManifest(cargoAsset || _missionSceneCargoAsset());
@@ -2387,6 +2399,10 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 
 window.finishMissionCargoLoadingAndStart = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoLoadingAndStart' });
+    if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly()) {
+        window.closeMissionCargoDialog?.();
+        return false;
+    }
     const manifest = _missionCargoEnsureManifest();
     if (typeof window.missionPrepareEmptyPickupStart === 'function' && window.missionPrepareEmptyPickupStart('cargo-finish-loading')) {
         window.closeMissionCargoDialog?.();

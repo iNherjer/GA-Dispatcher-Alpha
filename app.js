@@ -5483,6 +5483,7 @@ function isAcceptedOrActiveMissionPresent() {
     const contract = (md && typeof md.missionContract === 'object')
         ? md.missionContract
         : ((window.activeMissionContract && typeof window.activeMissionContract === 'object') ? window.activeMissionContract : null);
+    if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly({ currentMissionData: md, activeMissionContract: contract })) return false;
     if (!md && !contract) return false;
     if (isMissionDraftPending(md) || isMissionDraftPending(contract)) return false;
 
@@ -6733,6 +6734,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
     if (!value || typeof value !== 'object') return value || null;
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
         'activeMissionCreatedAt', 'activeMissionSavedAt',
         'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
         'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
@@ -6986,6 +6988,30 @@ function saveMissionState() {
         activePassenger: window.activePassenger || null,
         activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
     };
+    const freeflightOnly = typeof window.missionIsFreeflightOnly === 'function' && (
+        window.missionIsFreeflightOnly(state)
+        || window.missionIsFreeflightOnly(currentMissionData)
+    );
+    if (freeflightOnly) {
+        if (currentMissionData && typeof currentMissionData === 'object') {
+            if (typeof window.markMissionAsFreeflightOnly === 'function') {
+                window.markMissionAsFreeflightOnly(currentMissionData, {
+                    reason: 'save-freeflight-briefing',
+                    directTo: currentMissionData.directToEfbOnly !== false
+                });
+            }
+            delete currentMissionData.missionContract;
+            delete currentMissionData.passenger;
+            state.currentMissionData = currentMissionData;
+        }
+        window.activePassenger = null;
+        window.activeMissionContract = null;
+        state.activePassenger = null;
+        state.activeMissionContract = null;
+        try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+        try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    }
     storeActiveMissionStateSafely(state);
     if (draftPending) {
         try { console.debug('[MISSION DRAFT] Lokal gespeichert, Cloud-Sync blockiert.'); } catch (_) {}
@@ -6996,6 +7022,17 @@ function saveMissionState() {
 
 function restoreMissionV3Context(md, state = {}, restoredPassenger = null, restoredMissionContract = null) {
     if (!md || typeof md !== 'object') return { missionData: md, missionContract: restoredMissionContract || null };
+    if (typeof window.missionIsFreeflightOnly === 'function' && (window.missionIsFreeflightOnly(state) || window.missionIsFreeflightOnly(md))) {
+        if (typeof window.markMissionAsFreeflightOnly === 'function') {
+            window.markMissionAsFreeflightOnly(md, {
+                reason: 'restore-v3-freeflight',
+                directTo: md.directToEfbOnly !== false && state?.currentMissionData?.directToEfbOnly !== false
+            });
+        }
+        delete md.missionContract;
+        delete md.passenger;
+        return { missionData: md, missionContract: null };
+    }
     const contract = (restoredMissionContract && typeof restoredMissionContract === 'object')
         ? restoredMissionContract
         : ((md.missionContract && typeof md.missionContract === 'object') ? md.missionContract : null);
@@ -7178,7 +7215,18 @@ async function restoreMissionState(state, options = {}) {
     window._missionRouteWaypoints = restoredMissionRoute.length >= 2 ? restoredMissionRoute : cloneRouteWaypointsForStorage(routeWaypoints);
     currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
     currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
-    const restoredHasPassenger = missionHasPassengerByPaxText(state.mPay || '');
+    const restoredFreeflightOnly = !!(typeof window.missionIsFreeflightOnly === 'function' && (
+        window.missionIsFreeflightOnly(state)
+        || window.missionIsFreeflightOnly(currentMissionData)
+    ));
+    if (restoredFreeflightOnly && typeof window.markMissionAsFreeflightOnly === 'function') {
+        currentMissionData = window.markMissionAsFreeflightOnly(currentMissionData, {
+            reason: 'restore-freeflight-briefing',
+            directTo: currentMissionData.directToEfbOnly !== false && state?.currentMissionData?.directToEfbOnly !== false
+        });
+        state.currentMissionData = currentMissionData;
+    }
+    const restoredHasPassenger = !restoredFreeflightOnly && missionHasPassengerByPaxText(state.mPay || '');
     let restoredPassenger = null;
     if (restoredHasPassenger) {
         restoredPassenger = (state.activePassenger && typeof state.activePassenger === 'object') ? state.activePassenger : null;
@@ -7202,14 +7250,14 @@ async function restoreMissionState(state, options = {}) {
             } catch (_) {}
         }
     }
-    window.activePassenger = restoredPassenger;
+    window.activePassenger = restoredFreeflightOnly ? null : restoredPassenger;
 
     const stateMissionContract = (state.activeMissionContract && typeof state.activeMissionContract === 'object')
         ? state.activeMissionContract
         : ((state.currentMissionData?.missionContract && typeof state.currentMissionData.missionContract === 'object')
             ? state.currentMissionData.missionContract
             : null);
-    let restoredMissionContract = stateMissionContract;
+    let restoredMissionContract = restoredFreeflightOnly ? null : stateMissionContract;
     if (restoredMissionContract && !missionRestoreCandidateMatchesState(restoredMissionContract, state, currentMissionData, { kind: 'contract' })) {
         try { console.warn('[MISSION RESTORE] Stored mission contract ignored: mission identity mismatch.'); } catch (_) {}
         if (currentMissionData?.missionContract === restoredMissionContract) delete currentMissionData.missionContract;
@@ -7217,7 +7265,7 @@ async function restoreMissionState(state, options = {}) {
         if (state.activeMissionContract === restoredMissionContract) state.activeMissionContract = null;
         restoredMissionContract = null;
     }
-    if (!restoredMissionContract) {
+    if (!restoredFreeflightOnly && !restoredMissionContract) {
         try {
             const lsContract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
             if (
@@ -7232,14 +7280,26 @@ async function restoreMissionState(state, options = {}) {
             }
         } catch (_) {}
     }
-    const restoredV3 = restoreMissionV3Context(currentMissionData, state, window.activePassenger, restoredMissionContract);
+    if (restoredFreeflightOnly) {
+        delete currentMissionData.missionContract;
+        delete currentMissionData.passenger;
+        state.activePassenger = null;
+        state.activeMissionContract = null;
+        try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+        try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+        try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    }
+    const restoredV3 = restoredFreeflightOnly
+        ? { missionData: currentMissionData, missionContract: null }
+        : restoreMissionV3Context(currentMissionData, state, window.activePassenger, restoredMissionContract);
     currentMissionData = restoredV3.missionData;
     restoredMissionContract = restoredV3.missionContract || restoredMissionContract || null;
     attachMissionStorageIdentity(restoredMissionContract, currentMissionData);
     attachMissionStorageIdentity(window.activePassenger, currentMissionData);
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
-        currentMissionData.missionContract = window.activeMissionContract;
+        if (restoredFreeflightOnly) delete currentMissionData.missionContract;
+        else currentMissionData.missionContract = window.activeMissionContract;
         window.currentMissionData = currentMissionData;
         currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
         currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
@@ -7259,12 +7319,12 @@ async function restoreMissionState(state, options = {}) {
     try {
         state.currentMissionData = currentMissionData;
         state.activePassenger = window.activePassenger || null;
-        state.activeMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
+        state.activeMissionContract = restoredFreeflightOnly ? null : (window.activeMissionContract || currentMissionData?.missionContract || null);
         storeActiveMissionStateSafely(state, {
             refreshActiveMissionTimestamp: !(resumeRuntime || restoreSource === 'cloud')
         });
     } catch (_) {}
-    if (resumeRuntime && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
+    if (resumeRuntime && !restoredFreeflightOnly && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
         try { window.missionRuntimeRestoreFromSnapshot(null, { reason: 'mission-state-restore' }); } catch (_) {}
     }
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
@@ -7360,9 +7420,16 @@ async function restoreMissionState(state, options = {}) {
     const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
     loadMetarWidget(restoredMissionLikePoi ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
-    refreshMissionDebugSnapshotFromRestoredState(state, {
-        source: options.source || (resumeRuntime ? 'startup' : 'restore')
-    });
+    if (restoredFreeflightOnly) {
+        clearMissionDebugSnapshot('restore-freeflight-briefing');
+        if (typeof window.gaMissionSceneDebugClear === 'function') {
+            try { window.gaMissionSceneDebugClear(); } catch (_) {}
+        }
+    } else {
+        refreshMissionDebugSnapshotFromRestoredState(state, {
+            source: options.source || (resumeRuntime ? 'startup' : 'restore')
+        });
+    }
 
 }
 
@@ -22046,6 +22113,10 @@ function updateMissionAcceptanceUi() {
     const btn = document.getElementById('missionAcceptBtn');
     const text = document.getElementById('missionAcceptText');
     const md = currentMissionData || null;
+    if (md && typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
+        panel.style.display = 'none';
+        return;
+    }
     if (md && typeof window.missionAcceptTrainingNoSceneDraft === 'function' && window.missionAcceptTrainingNoSceneDraft(md, 'accept-ui')) {
         panel.style.display = 'none';
         return;
@@ -22079,6 +22150,7 @@ window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
 
 function applyMissionTargetSceneComposition(composition = {}, reason = 'accept') {
     if (!currentMissionData) return false;
+    if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(currentMissionData)) return false;
     const taskDomain = currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '';
     const isPOI = !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI);
     const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, {
@@ -37483,6 +37555,9 @@ async function generateMission(options = {}) {
             normalized: missionSceneIntent
         }
     };
+    if (isPlanningOnlyMode && typeof window.markMissionAsFreeflightOnly === 'function') {
+        currentMissionData = window.markMissionAsFreeflightOnly(currentMissionData, { reason: 'generated-freeflight-planning', directTo: false });
+    }
     if (isPOI && !currentMissionData.targetInfo) {
         currentMissionData.targetInfo = buildPoiTargetInfoFromMission(currentMissionData);
     }
@@ -37700,6 +37775,17 @@ async function generateMission(options = {}) {
         infraInspectionOutcome: currentMissionData.infraInspectionOutcome || null,
         poiChain: currentMissionData.poiChain || null
     });
+    if (isPlanningOnlyMode && activeMissionContract && typeof activeMissionContract === 'object') {
+        activeMissionContract.freeflightOnly = true;
+        activeMissionContract.efbOnly = true;
+        activeMissionContract.noMissionRuntime = true;
+        activeMissionContract.directToEfbOnly = false;
+        activeMissionContract.routeOnly = true;
+        activeMissionContract.taskDomain = activeMissionContract.taskDomain || 'freeflight_planning';
+        activeMissionContract.appliedProfileId = activeMissionContract.appliedProfileId || 'freeflight_planning';
+        activeMissionContract.sceneAccepted = null;
+        activeMissionContract.sceneCompositionStatus = 'freeflight';
+    }
     if (missionProposalChoice && activeMissionContract && typeof activeMissionContract === 'object') {
         activeMissionContract.selectedMissionProposal = compactMissionProposalChoice(missionProposalChoice);
     }

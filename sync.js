@@ -1542,6 +1542,132 @@ let missionRuntime = {
     endReadinessKey: ''
 };
 
+function _missionRuntimeDataFromCandidate(candidate = null) {
+    if (candidate && typeof candidate === 'object') {
+        if (candidate.currentMissionData && typeof candidate.currentMissionData === 'object') return candidate.currentMissionData;
+        return candidate;
+    }
+    try {
+        return (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+            ? currentMissionData
+            : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _missionRuntimeContractFromCandidate(candidate = null, md = null) {
+    if (candidate && typeof candidate === 'object') {
+        if (candidate.activeMissionContract && typeof candidate.activeMissionContract === 'object') return candidate.activeMissionContract;
+        if (candidate.currentMissionData?.missionContract && typeof candidate.currentMissionData.missionContract === 'object') return candidate.currentMissionData.missionContract;
+        if (candidate.missionContract && typeof candidate.missionContract === 'object') return candidate.missionContract;
+    }
+    if (md?.missionContract && typeof md.missionContract === 'object') return md.missionContract;
+    try {
+        return (window.activeMissionContract && typeof window.activeMissionContract === 'object') ? window.activeMissionContract : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _missionIsFreeflightOnly(candidate = null) {
+    const md = _missionRuntimeDataFromCandidate(candidate);
+    if (!md || typeof md !== 'object') return false;
+    const contract = _missionRuntimeContractFromCandidate(candidate, md);
+    const flags = [
+        md.freeflightOnly,
+        md.efbOnly,
+        md.noMissionRuntime,
+        md.directToEfbOnly,
+        md.routeOnly,
+        contract?.freeflightOnly,
+        contract?.efbOnly,
+        contract?.noMissionRuntime,
+        contract?.directToEfbOnly
+    ];
+    if (flags.some(value => value === true || value === 'true' || value === 1 || value === '1')) return true;
+
+    const profileValues = [
+        md.taskDomain,
+        md.profileId,
+        md.requestedProfileId,
+        md.appliedProfileId,
+        md._requestedProfile,
+        md._appliedProfile,
+        md.missionContractV4?.profile?.id,
+        md.missionContractV4?.profile?.taskDomain,
+        contract?.taskDomain,
+        contract?.profileId,
+        contract?.requestedProfileId,
+        contract?.appliedProfileId
+    ].map(value => String(value || '').trim().toLowerCase()).filter(Boolean);
+    if (profileValues.includes('freeflight_planning')) return true;
+
+    const texts = [
+        md.source,
+        md._source,
+        md.mission,
+        md.title,
+        md.missionTitle,
+        md.story,
+        md.missionStory,
+        md.s,
+        candidate?.mTitle,
+        candidate?.mStory
+    ].map(value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()).filter(Boolean);
+    const hasDirectToStory = texts.some(text => /direct-to|direct to|story-briefing ausgesetzt/.test(text));
+    const hasFreeflightStory = texts.some(text => /freiflug|freeflight/.test(text));
+    const hasPrivateFlightTitle = texts.some(text => /^👤?\s*privater flug$/.test(text) || /^privater flug$/.test(text));
+    return (hasDirectToStory && hasPrivateFlightTitle) || (hasFreeflightStory && profileValues.length === 0 && hasPrivateFlightTitle);
+}
+window.missionIsFreeflightOnly = _missionIsFreeflightOnly;
+
+function _markMissionAsFreeflightOnly(md = null, options = {}) {
+    const data = _missionRuntimeDataFromCandidate(md);
+    if (!data || typeof data !== 'object') return data;
+    data.freeflightOnly = true;
+    data.efbOnly = true;
+    data.noMissionRuntime = true;
+    data.directToEfbOnly = options.directTo !== false;
+    data.routeOnly = true;
+    data.taskDomain = data.taskDomain || 'freeflight_planning';
+    data.missionType = data.missionType || 'freeflight';
+    data._requestedProfile = data._requestedProfile || 'freeflight_planning';
+    data._appliedProfile = data._appliedProfile || 'freeflight_planning';
+    data.sceneAccepted = null;
+    data.sceneCompositionStatus = 'freeflight';
+    delete data.missionContract;
+    delete data.passenger;
+    return data;
+}
+window.markMissionAsFreeflightOnly = _markMissionAsFreeflightOnly;
+
+window.prepareFreeflightBriefingState = function(md = null, options = {}) {
+    const data = _markMissionAsFreeflightOnly(md, options);
+    try { window.activePassenger = null; } catch (_) {}
+    try { window.activeMissionContract = null; } catch (_) {}
+    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+    try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
+    if (typeof window.paxVoiceResetMission === 'function') {
+        try { window.paxVoiceResetMission(); } catch (_) {}
+    }
+    if (typeof window.clearMissionDebugSnapshot === 'function') {
+        try { window.clearMissionDebugSnapshot(options.reason || 'freeflight-briefing'); } catch (_) {}
+    } else {
+        try { window.vpMissionDebugSnapshot = null; localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
+    }
+    if (typeof window.gaMissionSceneDebugClear === 'function') {
+        try { window.gaMissionSceneDebugClear(); } catch (_) {}
+    }
+    if (typeof window.missionRuntimeReset === 'function') {
+        try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
+    } else {
+        _resetMissionRuntime();
+    }
+    return data;
+};
+
 function _missionRuntimePhaseSnapshot() {
     const validMission = _hasValidMissionForStart();
     if (missionRuntime.closingPending) return 'closing';
@@ -2803,6 +2929,7 @@ window.missionAcceptTrainingNoSceneDraft = _missionAcceptTrainingNoSceneDraft;
 function _missionSceneAcceptedForRuntime() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return false;
+    if (_missionIsFreeflightOnly(md)) return false;
     if (_missionTrainingSceneCanAutoAccept(md)) {
         return _missionAcceptTrainingNoSceneDraft(md, 'runtime-gate');
     }
@@ -2890,6 +3017,7 @@ function _missionSceneSpawnPendingActive(status = {}, sceneId = '') {
 
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
+    if (_missionIsFreeflightOnly()) return;
     const startPhase = _missionStartPhase();
     if (!missionRuntime.active && startPhase !== 'prepare' && startPhase !== 'boarding' && startPhase !== 'boarded') return;
     const sceneId = _missionSceneId();
@@ -3275,6 +3403,7 @@ function _normalizeMissionRuntimeId(value = '') {
 function _activeMissionRuntimeId(fallback = 'active') {
     const fs = _activeFireScenario();
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (_missionIsFreeflightOnly(md)) return '';
     const contract = window.activeMissionContract || md?.missionContract || null;
     const id = _normalizeMissionRuntimeId(
         fs?.missionId
@@ -3905,6 +4034,7 @@ window.missionAptArrivalClear = function(reason = 'apt-arrival-clear') {
 };
 
 function _missionScenePaxCount() {
+    if (_missionIsFreeflightOnly()) return 0;
     const bush = _activeBushMissionSpec();
     const pickupMode = bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'passenger';
     if (pickupMode) {
@@ -4166,6 +4296,7 @@ function _missionSceneGroundAltOffsetForTitle(title) {
 }
 
 function _missionSceneCargoItems(cargoPoint, cargoAsset) {
+    if (_missionIsFreeflightOnly()) return [];
     const baseForward = Number.isFinite(Number(cargoPoint?.forwardM)) ? Number(cargoPoint.forwardM) : 4;
     const baseRight = Number.isFinite(Number(cargoPoint?.rightM)) ? Number(cargoPoint.rightM) : 4;
     const baseAlt = Number.isFinite(Number(cargoPoint?.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0;
@@ -4420,9 +4551,14 @@ function _missionSceneCommonSceneCommandFields() {
 }
 
 window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
+    const debugReason = String(reason || '').includes('debug');
+    if (!debugReason && _missionIsFreeflightOnly()) {
+        if (window.missionSceneStatus) window.missionSceneStatus.blockReason = 'freeflight_only';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
     const pos = window.lastLiveGpsPos || {};
     const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
-    const debugReason = String(reason || '').includes('debug');
     if (!gate.rawHasPosition || !gate.plausiblePosition || !gate.nearDeparture) {
         window.missionSceneStatus.blockReason = !gate.rawHasPosition ? 'no_live_position' : (!gate.plausiblePosition ? 'bad_live_position' : `away_from_start_${Math.round(Number(gate.depDistNm || 0))}nm`);
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
@@ -7330,6 +7466,7 @@ window.fireMissionSmokeDebugSummary = function() {
 function _missionStartUiKey() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return '';
+    if (_missionIsFreeflightOnly(md)) return '';
     const fs = _activeFireScenario() || {};
     return String(fs.missionId || md.missionId || md.id || `${md.start || ''}-${md.dest || ''}-${md.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96);
 }
@@ -7346,6 +7483,7 @@ function _missionStartHasUsableRoute() {
 
 function _hasValidMissionForStart() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (_missionIsFreeflightOnly(md)) return false;
     return !!(md && _missionSceneAcceptedForRuntime() && _missionStartHasUsableRoute());
 }
 
@@ -9454,6 +9592,16 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 window.handleMissionStartBannerAction = async function() {
     if (missionStartActionPromise) return missionStartActionPromise;
     missionStartActionPromise = (async () => {
+        if (_missionIsFreeflightOnly()) {
+            _missionPhaseDebugPush('trigger', {
+                name: 'handleMissionStartBannerAction:freeflight-blocked'
+            });
+            if (typeof window.prepareFreeflightBriefingState === 'function') {
+                window.prepareFreeflightBriefingState(currentMissionData, { reason: 'freeflight-start-blocked' });
+            }
+            _updateMissionRuntimeUi();
+            return false;
+        }
         _missionPhaseDebugPush('trigger', {
             name: 'handleMissionStartBannerAction',
             runtimeActive: !!missionRuntime.active,
@@ -9831,6 +9979,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
     const fallback = (fallbackMission && typeof fallbackMission === 'object') ? fallbackMission : {};
     const keep = [
         'id', 'missionId', 'missionKey', 'title', 'name', 's', 'mission',
+        'freeflightOnly', 'efbOnly', 'noMissionRuntime', 'directToEfbOnly', 'routeOnly',
         'activeMissionCreatedAt', 'activeMissionSavedAt',
         'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
         'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
@@ -10187,6 +10336,7 @@ function _syncConfirmReplaceRunningLocalMission(cloudMission = null, localMissio
 
 function _syncShouldCloudRestoreResumeRuntime(activeMission = null, localMission = null) {
     if (!activeMission || typeof activeMission !== 'object') return false;
+    if (_missionIsFreeflightOnly(activeMission)) return false;
     const currentState = _syncCurrentMissionStateForIdentity();
     const matchesCurrent = _syncMissionStatesShareIdentity(currentState, activeMission);
     const matchesLocal = _syncMissionStatesShareIdentity(localMission, activeMission);
@@ -10227,6 +10377,9 @@ function _syncClearExpiredActiveMission(reason = 'sync-active-mission-expired', 
 function _syncActiveMissionPayload() {
     try {
         const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        if (_missionIsFreeflightOnly(state)) {
+            return null;
+        }
         if (_syncMissionStateIsDraft(state)) {
             return null;
         }
@@ -10241,6 +10394,7 @@ function _syncActiveMissionPayload() {
     const fallback = (typeof window !== 'undefined' && window.__gaActiveMissionStorageFallback && typeof window.__gaActiveMissionStorageFallback === 'object')
         ? window.__gaActiveMissionStorageFallback
         : null;
+    if (_missionIsFreeflightOnly(fallback)) return null;
     if (_syncMissionStateIsDraft(fallback)) return null;
     if (_syncActiveMissionIsExpired(fallback)) {
         _syncClearExpiredActiveMission('sync-upload-expired-active-mission-fallback', fallback);
@@ -10266,6 +10420,7 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
         localMission = null;
     }
     if (activeMission && !_syncMissionStateIsDraft(activeMission)) {
+        if (_missionIsFreeflightOnly(activeMission)) return false;
         if (_syncActiveMissionIsExpired(activeMission)) {
             const keepDifferentLocalMission = !!(
                 localMission
