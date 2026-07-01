@@ -6521,20 +6521,43 @@ function stopMapDrawPointerEvent(evt) {
     if (typeof L !== 'undefined' && L.DomEvent) L.DomEvent.stop(evt);
 }
 
+function captureMapDrawPointer(evt) {
+    const container = map && map.getContainer && map.getContainer();
+    if (!container || !evt || evt.pointerId == null || typeof container.setPointerCapture !== 'function') return;
+    try { container.setPointerCapture(evt.pointerId); } catch (_) {}
+}
+
+function releaseMapDrawPointer(evt) {
+    const container = map && map.getContainer && map.getContainer();
+    if (!container || !evt || evt.pointerId == null || typeof container.releasePointerCapture !== 'function') return;
+    try {
+        if (!container.hasPointerCapture || container.hasPointerCapture(evt.pointerId)) {
+            container.releasePointerCapture(evt.pointerId);
+        }
+    } catch (_) {}
+}
+
+function isLikelyMapDrawXrPointer(evt) {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+    const pointerType = String((evt && evt.pointerType) || '').toLowerCase();
+    return pointerType === 'xr' || MAP_DRAW_XR_POINTER_UA_RE.test(ua);
+}
+
 function shouldUseMapDrawPointerEvent(evt) {
     if (!evt) return false;
     if (evt.pointerType !== 'mouse') return true;
-    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-    return MAP_DRAW_XR_POINTER_UA_RE.test(ua);
+    return isLikelyMapDrawXrPointer(evt);
 }
 
 function handleMapDrawPointerDown(evt) {
     if (!mapDrawState.enabled || !shouldUseMapDrawPointerEvent(evt)) return;
-    if (evt.isPrimary === false) return;
+    if (evt.isPrimary === false && !isLikelyMapDrawXrPointer(evt)) return;
+    if (mapDrawState.activeDrawPointerId != null && mapDrawState.activeDrawPointerId !== evt.pointerId) return;
     if (isMapUiClickTarget(evt)) return;
     const latlng = getMapDrawPointerLatLng(evt);
     if (!latlng) return;
     mapDrawState.activeDrawPointerId = evt.pointerId;
+    captureMapDrawPointer(evt);
     if (map && map.dragging) map.dragging.disable();
     stopMapDrawPointerEvent(evt);
 
@@ -6561,8 +6584,13 @@ function handleMapDrawPointerMove(evt) {
 function handleMapDrawPointerUp(evt) {
     if (!shouldUseMapDrawPointerEvent(evt)) return;
     if (mapDrawState.activeDrawPointerId !== evt.pointerId) return;
+    const latlng = evt.type === 'pointercancel' ? null : getMapDrawPointerLatLng(evt);
     mapDrawState.suppressMapClickUntil = Date.now() + 500;
     stopMapDrawPointerEvent(evt);
+    if (mapDrawState.tool === 'freehand' && latlng) {
+        handleMapDrawMouseMove({ latlng, originalEvent: evt });
+    }
+    releaseMapDrawPointer(evt);
     finishMapDrawFreehand();
     mapDrawState.activeDrawPointerId = null;
 }
