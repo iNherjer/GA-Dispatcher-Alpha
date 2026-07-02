@@ -7345,6 +7345,48 @@ function resetMainRoute() {
     fitMapToRouteWaypoints([40, 40]);
 }
 
+function mainRouteProfileRefreshKey(points = routeWaypoints) {
+    if (!Array.isArray(points) || points.length < 2) return '';
+    return points
+        .map(p => `${(Number(p?.lat) || 0).toFixed(4)},${(Number(p?.lng ?? p?.lon) || 0).toFixed(4)}`)
+        .join('|');
+}
+
+function notifyMainRouteChanged(reason = 'route-render') {
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
+    const routeKey = mainRouteProfileRefreshKey(routeWaypoints);
+    if (!routeKey) return;
+    if (window._lastMainRouteProfileRefreshKey === routeKey) return;
+    window._lastMainRouteProfileRefreshKey = routeKey;
+    window.vpBgNeedsUpdate = true;
+    if (typeof _syncCurrentMissionRouteFromMap === 'function') {
+        _syncCurrentMissionRouteFromMap();
+    }
+    if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+    } else if (typeof triggerVerticalProfileUpdate === 'function') {
+        triggerVerticalProfileUpdate();
+    }
+    const board = document.getElementById('mapTableOverlay');
+    if (board && board.classList.contains('active')) {
+        if (window._mainRouteProfileEnsureTimeout) clearTimeout(window._mainRouteProfileEnsureTimeout);
+        window._mainRouteProfileEnsureTimeout = setTimeout(() => {
+            window._mainRouteProfileEnsureTimeout = null;
+            if (typeof window.vpEnsureMapProfileVisible === 'function') {
+                window.vpEnsureMapProfileVisible(reason);
+            } else if (typeof renderMapProfile === 'function') {
+                renderMapProfile();
+            }
+            if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+                window.gaScheduleRouteMapLayoutRefresh(reason);
+            }
+        }, 160);
+    }
+    if (window.gaDebugPush) {
+        window.gaDebugPush('profile', 'Main route change scheduled profile refresh', { reason, routeKey });
+    }
+}
+
 function renderMainRoute() {
     if (!map) initMapBase();
     routeWaypoints = normalizeMapRouteWaypoints(routeWaypoints);
@@ -7715,6 +7757,7 @@ function renderMainRoute() {
     if (isVfrIndexWeatherLayerEnabled() && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
         vpScheduleVfrOverlayUpdate(false);
     }
+    notifyMainRouteChanged('route-render');
 }
 
 window.openRouteWaypointAirportInfo = function (index) {

@@ -10780,10 +10780,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) {
     --glass-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-color: #071018;
-    background-image:
-        linear-gradient(135deg, rgba(42, 94, 125, 0.32), rgba(14, 18, 30, 0.68) 48%, rgba(17, 59, 56, 0.36)),
-        url('bg.jpg');
-    background-blend-mode: soft-light, normal;
+    background-image: none;
     color: var(--text);
 }
 
@@ -10794,7 +10791,13 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940)::before {
     pointer-events: none;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 34%),
-        linear-gradient(90deg, rgba(126, 199, 255, 0.13), transparent 42%, rgba(104, 242, 160, 0.10));
+        linear-gradient(90deg, rgba(126, 199, 255, 0.13), transparent 42%, rgba(104, 242, 160, 0.10)),
+        linear-gradient(135deg, rgba(42, 94, 125, 0.32), rgba(14, 18, 30, 0.68) 48%, rgba(17, 59, 56, 0.36)),
+        url('bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-blend-mode: screen, normal, soft-light, normal;
     opacity: 0.72;
     z-index: 0;
 }
