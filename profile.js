@@ -2294,6 +2294,22 @@ function triggerVerticalProfileUpdate() {
             ) {
                 renderMapProfile();
             }
+            if (
+                mapTable
+                && mapTable.classList.contains('active')
+                && typeof window.gaScheduleRouteMapLayoutRefresh === 'function'
+            ) {
+                const layoutKey = `${cacheKey}:${mapTable.clientWidth || 0}x${mapTable.clientHeight || 0}`;
+                if (window._lastProfileDataReadyLayoutKey !== layoutKey) {
+                    window._lastProfileDataReadyLayoutKey = layoutKey;
+                    if (typeof window.gaRefreshRouteMapProfileFrameLayout === 'function') {
+                        Promise.resolve(window.gaRefreshRouteMapProfileFrameLayout('profile-data-ready')).catch((error) => {
+                            console.warn('[Profile] Data-ready frame layout failed', error);
+                        });
+                    }
+                    window.gaScheduleRouteMapLayoutRefresh('profile-data-ready');
+                }
+            }
             
             // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
             if (window._lastLmRouteKey !== cacheKey) {
