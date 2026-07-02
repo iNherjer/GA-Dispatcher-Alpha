@@ -7352,35 +7352,50 @@ function mainRouteProfileRefreshKey(points = routeWaypoints) {
         .join('|');
 }
 
+function refreshRouteProfileAfterMainRouteChange(reason = 'route-render') {
+    if (window.routeProfileRefreshTimeout) {
+        clearTimeout(window.routeProfileRefreshTimeout);
+        window.routeProfileRefreshTimeout = null;
+    }
+    window._lastVpRouteKey = null;
+    window.vpBgNeedsUpdate = true;
+
+    const board = document.getElementById('mapTableOverlay');
+    const boardActive = !!(board && board.classList.contains('active'));
+    if (window._mainRouteProfileEnsureTimeout) clearTimeout(window._mainRouteProfileEnsureTimeout);
+    window._mainRouteProfileEnsureTimeout = setTimeout(() => {
+        window._mainRouteProfileEnsureTimeout = null;
+        const activeNow = !!(board && board.classList.contains('active'));
+        if (activeNow && typeof refreshMapTableLayout === 'function') {
+            refreshMapTableLayout().catch((error) => {
+                console.warn('[RouteMap] Profile layout refresh failed', reason, error);
+            });
+        }
+        if (activeNow && typeof window.vpEnsureMapProfileVisible === 'function') {
+            window.vpEnsureMapProfileVisible(reason);
+        } else if (typeof triggerVerticalProfileUpdate === 'function') {
+            triggerVerticalProfileUpdate();
+        } else if (typeof renderMapProfile === 'function') {
+            renderMapProfile();
+        }
+        if (activeNow && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+            window.gaScheduleRouteMapLayoutRefresh(reason);
+        }
+    }, boardActive ? 80 : 0);
+}
+
 function notifyMainRouteChanged(reason = 'route-render') {
     if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
     const routeKey = mainRouteProfileRefreshKey(routeWaypoints);
     if (!routeKey) return;
     if (window._lastMainRouteProfileRefreshKey === routeKey) return;
     window._lastMainRouteProfileRefreshKey = routeKey;
-    window.vpBgNeedsUpdate = true;
     if (typeof _syncCurrentMissionRouteFromMap === 'function') {
         _syncCurrentMissionRouteFromMap();
     }
+    refreshRouteProfileAfterMainRouteChange(reason);
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
-    } else if (typeof triggerVerticalProfileUpdate === 'function') {
-        triggerVerticalProfileUpdate();
-    }
-    const board = document.getElementById('mapTableOverlay');
-    if (board && board.classList.contains('active')) {
-        if (window._mainRouteProfileEnsureTimeout) clearTimeout(window._mainRouteProfileEnsureTimeout);
-        window._mainRouteProfileEnsureTimeout = setTimeout(() => {
-            window._mainRouteProfileEnsureTimeout = null;
-            if (typeof window.vpEnsureMapProfileVisible === 'function') {
-                window.vpEnsureMapProfileVisible(reason);
-            } else if (typeof renderMapProfile === 'function') {
-                renderMapProfile();
-            }
-            if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
-                window.gaScheduleRouteMapLayoutRefresh(reason);
-            }
-        }, 160);
+        scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
     }
     if (window.gaDebugPush) {
         window.gaDebugPush('profile', 'Main route change scheduled profile refresh', { reason, routeKey });
@@ -8003,7 +8018,7 @@ function refreshDirectToRouteLikeDispatch(startPoint, destPoint, startLabel, des
         renderMainRoute();
         if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
         if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-            scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+            scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
         }
     }
     syncDirectToFreeflightRouteState();
@@ -8202,6 +8217,7 @@ function scheduleRouteDerivedDataRefresh(options = {}) {
     const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 2200;
     const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 2800;
     const profileDuringBusy = options.profileDuringBusy === true;
+    const skipProfile = options.skipProfile === true;
     const deferWhileBusyMs = 700;
     const routeUiBusy = () => {
         const mapMoving = !!(
@@ -8212,16 +8228,18 @@ function scheduleRouteDerivedDataRefresh(options = {}) {
         return !!(window.vpUIInteractionActive || mapMoving);
     };
 
-    if (window.routeProfileRefreshTimeout) clearTimeout(window.routeProfileRefreshTimeout);
-    const runProfileRefresh = () => {
-        if (!profileDuringBusy && routeUiBusy()) {
-            window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, deferWhileBusyMs);
-            return;
-        }
-        window.routeProfileRefreshTimeout = null;
-        if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
-    };
-    window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, profileDelayMs);
+    if (!skipProfile) {
+        if (window.routeProfileRefreshTimeout) clearTimeout(window.routeProfileRefreshTimeout);
+        const runProfileRefresh = () => {
+            if (!profileDuringBusy && routeUiBusy()) {
+                window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, deferWhileBusyMs);
+                return;
+            }
+            window.routeProfileRefreshTimeout = null;
+            if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+        };
+        window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, profileDelayMs);
+    }
 
     if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
     const runAirspaceRefresh = () => {
@@ -9059,7 +9077,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
             if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
             if (typeof updateMiniMap === 'function') updateMiniMap();
             if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+                scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
             }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
@@ -9087,7 +9105,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
                 refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'map-chain-route');
             }
             if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+                scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
             }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
@@ -9125,7 +9143,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     renderMainRoute();
     if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+        scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
     }
     const board = document.getElementById('mapTableOverlay');
     if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
@@ -9161,7 +9179,7 @@ async function updateMapFromInputs() {
             routeWaypoints = [{ lat: sData.lat, lng: sData.lon }, { lat: dData.lat, lng: dData.lon }];
             renderMainRoute();
             if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+                scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
             }
             map.fitBounds(L.latLngBounds([sData.lat, sData.lon], [dData.lat, dData.lon]), { padding: [40, 40] });
         }
