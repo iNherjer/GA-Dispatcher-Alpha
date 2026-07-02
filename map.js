@@ -8342,7 +8342,7 @@ function initMapBase() {
     
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
-        attribution: 'AeroData / Navigraph', opacity: 0.65, maxNativeZoom: 12
+        attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12
     });
     const usaVfrSectionalOverlay = L.tileLayer(USA_VFR_SECTIONAL_TILE_URL, {
         attribution: 'FAA VFR Sectional via ArcGIS',
@@ -9236,14 +9236,11 @@ function updateMiniMap(attempt = 0) {
         }
 
         if (!miniMap) {
-            miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: true });
-            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors, OpenTopoMap'
-            }).addTo(miniMap);
+            miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
+            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(miniMap);
             L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
                 opacity: 0.65,
-                maxNativeZoom: 12,
-                attribution: 'AeroData / Navigraph'
+                maxNativeZoom: 12
             }).addTo(miniMap);
         }
 

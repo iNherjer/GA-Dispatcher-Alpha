@@ -2107,7 +2107,7 @@ ${routeLines}`;
                 maxZoom: 18
             }),
             aero: L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
-                attribution: 'AeroData / Navigraph',
+                attribution: 'AeroData / NewayData',
                 opacity: 0.68,
                 maxNativeZoom: 12,
                 maxZoom: 17
