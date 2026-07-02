@@ -2247,6 +2247,65 @@ function vpRouteWaypointLabel(index, point = null) {
     return wp.name ? String(wp.name).replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').replace(/^🚁\s*/, '').split(' ')[0] : `WP${index}`;
 }
 
+window.vpHardReloadRouteProfile = function(reason = 'route-change') {
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return false;
+
+    if (vpProfileFastTimeout) {
+        clearTimeout(vpProfileFastTimeout);
+        vpProfileFastTimeout = null;
+    }
+    if (vpProfileSlowTimeout) {
+        clearTimeout(vpProfileSlowTimeout);
+        vpProfileSlowTimeout = null;
+    }
+    if (window.vpFetchController) {
+        try { window.vpFetchController.abort(); } catch (_) {}
+        window.vpFetchController = null;
+    }
+
+    // Route edits need a data reload, not only a canvas repaint.
+    vpElevationData = null;
+    window.vpElevationData = null;
+    vpHighResData = null;
+    vpAltWaypoints = [];
+    vpSegmentAlts = [];
+    vpZoomLevel = 100;
+    window._lastVpRouteKey = null;
+    window._lastLmRouteKey = null;
+    window._lastObsRouteKey = null;
+    window._lastWetterRouteKey = null;
+    window._lastWetterCoverageKey = null;
+    window._lastWetterRouteNm = 0;
+    window._vpAutoSarHeliAltRouteKey = null;
+    window.vpBgNeedsUpdate = true;
+
+    const zd = document.getElementById('vpZoomDisplay');
+    if (zd) zd.textContent = '0%';
+    const status = document.getElementById('verticalProfileStatus');
+    if (status) status.textContent = 'Lade Terrain...';
+
+    const mapTable = document.getElementById('mapTableOverlay');
+    if (mapTable && mapTable.classList.contains('active')) {
+        vpMapProfileVisible = true;
+        const strip = document.getElementById('mapProfileStrip');
+        const btn = document.getElementById('vpToggleBtn');
+        if (strip) strip.style.display = '';
+        if (btn) {
+            btn.textContent = '📊 Profil (An)';
+            btn.style.background = '#2E8B57';
+        }
+        if (typeof initProfileResize === 'function') initProfileResize();
+        if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+            setTimeout(() => map.invalidateSize(), 80);
+        }
+    }
+
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Route profile hard reload', { reason });
+    triggerVerticalProfileUpdate();
+    if (typeof renderMapProfile === 'function') renderMapProfile();
+    return true;
+};
+
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
     if (window.vpFetchController) window.vpFetchController.abort();
@@ -2293,22 +2352,6 @@ function triggerVerticalProfileUpdate() {
                 && typeof renderMapProfile === 'function'
             ) {
                 renderMapProfile();
-            }
-            if (
-                mapTable
-                && mapTable.classList.contains('active')
-                && typeof window.gaScheduleRouteMapLayoutRefresh === 'function'
-            ) {
-                const layoutKey = `${cacheKey}:${mapTable.clientWidth || 0}x${mapTable.clientHeight || 0}`;
-                if (window._lastProfileDataReadyLayoutKey !== layoutKey) {
-                    window._lastProfileDataReadyLayoutKey = layoutKey;
-                    if (typeof window.gaRefreshRouteMapProfileFrameLayout === 'function') {
-                        Promise.resolve(window.gaRefreshRouteMapProfileFrameLayout('profile-data-ready')).catch((error) => {
-                            console.warn('[Profile] Data-ready frame layout failed', error);
-                        });
-                    }
-                    window.gaScheduleRouteMapLayoutRefresh('profile-data-ready');
-                }
             }
             
             // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
