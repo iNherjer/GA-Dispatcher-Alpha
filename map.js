@@ -7157,6 +7157,7 @@ function normalizeMapRouteWaypoint(point) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     const out = { lat, lng };
     if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
+    if (typeof point.icao === 'string' && point.icao.trim()) out.icao = point.icao.trim().toUpperCase();
     if (point.isPOI === true) out.isPOI = true;
     if (point.isPoiChainEndpoint === true) out.isPoiChainEndpoint = true;
     if (point.isPoiChainReturnHome === true) out.isPoiChainReturnHome = true;
@@ -7934,6 +7935,50 @@ function markDirectToFreeflightMissionData(md, reason = 'direct-to', directTo = 
     return md;
 }
 
+function syncDirectToFreeflightRouteState() {
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
+    const storedRoute = (typeof cloneRouteWaypointsForStorage === 'function')
+        ? cloneRouteWaypointsForStorage(routeWaypoints)
+        : JSON.parse(JSON.stringify(routeWaypoints));
+    window._missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
+    if (currentMissionData && typeof currentMissionData === 'object') {
+        currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(storedRoute));
+        currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
+    }
+}
+
+function refreshDirectToRouteLikeDispatch(startPoint, destPoint, startLabel, destLabel, reason = 'direct-to') {
+    const startLat = Number(startPoint?.lat);
+    const startLon = Number(startPoint?.lng ?? startPoint?.lon);
+    const destLat = Number(destPoint?.lat);
+    const destLon = Number(destPoint?.lng ?? destPoint?.lon);
+    if (![startLat, startLon, destLat, destLon].every(Number.isFinite)) return false;
+
+    if (typeof updateMap === 'function') {
+        updateMap(startLat, startLon, destLat, destLon, startLabel || currentStartICAO || 'Start', destLabel || currentDestICAO || 'Ziel');
+    } else {
+        renderMainRoute();
+        if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+        if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+            scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+        }
+    }
+    syncDirectToFreeflightRouteState();
+    if (map) fitMapToRouteWaypoints([60, 60]);
+    if (typeof updateMiniMap === 'function') updateMiniMap();
+    if (typeof window.vpEnsureMapProfileVisible === 'function') {
+        window.vpEnsureMapProfileVisible(reason);
+    } else if (typeof triggerVerticalProfileUpdate === 'function') {
+        triggerVerticalProfileUpdate();
+    }
+    if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+        window.gaScheduleRouteMapLayoutRefresh(reason);
+    } else if (typeof renderMapProfile === 'function') {
+        renderMapProfile();
+    }
+    return true;
+}
+
 function renderGpsStartBriefing(destAirport, startPoint) {
     const nav = calcNav(startPoint.lat, startPoint.lng, destAirport.lat, destAirport.lon);
     const tas = getTasForRouteEstimate();
@@ -8024,10 +8069,6 @@ async function applyAirportDirectTo(airport, options = {}) {
     }
 
     const nav = calcNav(startPoint.lat, startPoint.lng, destAirport.lat, destAirport.lon);
-    routeWaypoints = [
-        { lat: startPoint.lat, lng: startPoint.lng },
-        { lat: destAirport.lat, lng: destAirport.lon }
-    ];
 
     currentDestICAO = destAirport.icao;
     currentDName = destAirport.name;
@@ -8043,6 +8084,22 @@ async function applyAirportDirectTo(airport, options = {}) {
         currentSName = 'Live GPS Position';
         currentDepElev = null;
     }
+    routeWaypoints = [
+        {
+            lat: startPoint.lat,
+            lng: startPoint.lng,
+            lon: startPoint.lng,
+            name: currentSName || currentStartICAO || 'Start',
+            icao: currentStartICAO || undefined
+        },
+        {
+            lat: destAirport.lat,
+            lng: destAirport.lon,
+            lon: destAirport.lon,
+            name: destAirport.name || destAirport.icao,
+            icao: destAirport.icao
+        }
+    ];
 
     currentMissionData = {
         start: currentStartICAO || 'GPS',
@@ -8054,6 +8111,7 @@ async function applyAirportDirectTo(airport, options = {}) {
         heading: nav.brng
     };
     markDirectToFreeflightMissionData(currentMissionData, 'airport-direct-to');
+    syncDirectToFreeflightRouteState();
     currentDepFreq = '';
     currentDestFreq = '';
 
@@ -8074,16 +8132,10 @@ async function applyAirportDirectTo(airport, options = {}) {
         const destData = { icao: destAirport.icao, n: destAirport.name, lat: destAirport.lat, lon: destAirport.lon };
         currentMissionData.mission = 'Privater Flug';
         populateBriefingUI(title, story, pax, cargo, false, routeWaypoints, startData, destData);
+        refreshDirectToRouteLikeDispatch(startPoint, destAirport, currentSName || currentStartICAO, destAirport.name || destAirport.icao, 'airport-direct-to-existing-start');
     } else {
         renderGpsStartBriefing(destAirport, startPoint);
-        renderMainRoute();
-        if (map) {
-            fitMapToRouteWaypoints([60, 60]);
-        }
-        if (typeof updateMiniMap === 'function') updateMiniMap();
-        if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-            scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
-        }
+        refreshDirectToRouteLikeDispatch(startPoint, destAirport, currentSName || currentStartICAO, destAirport.name || destAirport.icao, 'airport-direct-to');
         if (typeof refreshGPSAfterDispatch === 'function') refreshGPSAfterDispatch();
         if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
     }
@@ -8106,6 +8158,7 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
 function scheduleRouteDerivedDataRefresh(options = {}) {
     const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 2200;
     const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 2800;
+    const profileDuringBusy = options.profileDuringBusy === true;
     const deferWhileBusyMs = 700;
     const routeUiBusy = () => {
         const mapMoving = !!(
@@ -8118,7 +8171,7 @@ function scheduleRouteDerivedDataRefresh(options = {}) {
 
     if (window.routeProfileRefreshTimeout) clearTimeout(window.routeProfileRefreshTimeout);
     const runProfileRefresh = () => {
-        if (routeUiBusy()) {
+        if (!profileDuringBusy && routeUiBusy()) {
             window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, deferWhileBusyMs);
             return;
         }
@@ -8963,7 +9016,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
             if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
             if (typeof updateMiniMap === 'function') updateMiniMap();
             if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
+                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
             }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
@@ -8990,6 +9043,9 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
             if (typeof refreshMissionPoiChainOverlaySoon === 'function') {
                 refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'map-chain-route');
             }
+            if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+            }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
                 window.gaScheduleRouteMapLayoutRefresh('route-update');
@@ -9014,12 +9070,20 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
             { lat: lat1, lng: lon1, name: currentSName }
         ];
     } else {
-        routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
+        const startIcao = String(typeof currentStartICAO !== 'undefined' ? (currentStartICAO || '') : '').trim().toUpperCase();
+        const destIcao = String(typeof currentDestICAO !== 'undefined' ? (currentDestICAO || '') : '').trim().toUpperCase();
+        routeWaypoints = [
+            { lat: lat1, lng: lon1, lon: lon1, name: currentSName || startIcao || 'Start', icao: startIcao || undefined },
+            { lat: lat2, lng: lon2, lon: lon2, name: currentDName || destIcao || 'Ziel', icao: destIcao || undefined }
+        ];
     }
     _syncCurrentMissionRouteFromMap();
 
     renderMainRoute();
     if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+    if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+    }
     const board = document.getElementById('mapTableOverlay');
     if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
         window.gaScheduleRouteMapLayoutRefresh('route-update');
@@ -9032,6 +9096,20 @@ async function updateMapFromInputs() {
     if (!sIcao) return;
     if (!map) initMapBase();
     let sData = await getAirportData(sIcao), dData = dIcao ? await getAirportData(dIcao) : null;
+    const hasRouteOnlyFlightPlan = !!(
+        currentMissionData
+        && Array.isArray(routeWaypoints)
+        && routeWaypoints.length >= 2
+        && (
+            currentMissionData.routeOnly
+            || currentMissionData.directToEfbOnly
+            || (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(currentMissionData))
+        )
+    );
+    if (!dIcao && hasRouteOnlyFlightPlan) {
+        if (typeof fitMapToRouteWaypoints === 'function') fitMapToRouteWaypoints([40, 40]);
+        return;
+    }
     if (sData && dData) {
         currentSName = sData.icao; currentDName = dData.icao;
         if (!currentMissionData) {
@@ -9039,6 +9117,9 @@ async function updateMapFromInputs() {
         } else {
             routeWaypoints = [{ lat: sData.lat, lng: sData.lon }, { lat: dData.lat, lng: dData.lon }];
             renderMainRoute();
+            if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800, profileDuringBusy: true });
+            }
             map.fitBounds(L.latLngBounds([sData.lat, sData.lon], [dData.lat, dData.lon]), { padding: [40, 40] });
         }
     } else if (sData) {
@@ -10412,12 +10493,16 @@ function findNearestAirport(latlng, maxPixels) {
         const latF = latlng.lat, lngF = latlng.lng;
         for (const icao in globalAirports) {
             const apt = globalAirports[icao];
-            if (Math.abs(apt.lat - latF) > 0.5 || Math.abs(apt.lon - lngF) > 0.5) continue;
-            const aptPx = map.latLngToLayerPoint([apt.lat, apt.lon]);
+            const aptLat = Number(apt?.lat);
+            const aptLon = Number(apt?.lon ?? apt?.lng);
+            if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) continue;
+            if (Math.abs(aptLat - latF) > 0.5 || Math.abs(aptLon - lngF) > 0.5) continue;
+            const aptPx = map.latLngToLayerPoint([aptLat, aptLon]);
             const d = tapPx.distanceTo(aptPx);
             if (d < bestDist) {
                 bestDist = d;
-                best = { icao: apt.icao, name: apt.name || apt.city || apt.icao, lat: apt.lat, lon: apt.lon, elevation: apt.elevation ?? null };
+                const aptIcao = String(apt?.icao || icao || '').trim().toUpperCase();
+                best = { icao: aptIcao, name: apt.name || apt.n || apt.city || aptIcao, lat: aptLat, lon: aptLon, elevation: apt.elevation ?? null };
             }
         }
     }
@@ -10447,6 +10532,8 @@ function handleFreeflightMapClick(e) {
     const apt = findNearestAirport(e.latlng, getAirportTapRadiusPx(34));
     if (apt) {
         freeflightDirectTo(apt.icao, apt.lat, apt.lon, apt.name);
+    } else {
+        freeflightDirectTo('MAP', e.latlng.lat, e.latlng.lng, 'Kartenpunkt');
     }
 }
 
@@ -10460,11 +10547,6 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     const startWp = ffWaypoints[0];
     const startName = startWp.icao || startWp.name || 'Start';
 
-    // FF-Route in die Hauptroute uebertragen
-    routeWaypoints = [
-        { lat: startWp.lat, lng: startWp.lng },
-        { lat: lat, lng: lon }
-    ];
     const isLiveGpsStart = startWp.name === 'GPS';
     const isAirportStart = Boolean(startWp.icao);
     currentSName = isLiveGpsStart ? 'Live GPS Position' : (isAirportStart ? startName : 'Kartenstart');
@@ -10473,6 +10555,23 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
         currentStartICAO = isAirportStart ? startWp.icao : 'GPS';
     }
     if (typeof currentDestICAO !== 'undefined') currentDestICAO = icao;
+    // FF-Route in die Hauptroute uebertragen
+    routeWaypoints = [
+        {
+            lat: startWp.lat,
+            lng: startWp.lng,
+            lon: startWp.lng,
+            name: currentSName,
+            icao: currentStartICAO || (isLiveGpsStart ? 'GPS' : undefined)
+        },
+        {
+            lat: lat,
+            lng: lon,
+            lon: lon,
+            name: currentDName,
+            icao: currentDestICAO || icao
+        }
+    ];
     const directNav = calcNav(startWp.lat, startWp.lng, lat, lon);
     currentMissionData = {
         start: currentStartICAO || 'GPS',
@@ -10484,6 +10583,7 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
         heading: directNav.brng
     };
     markDirectToFreeflightMissionData(currentMissionData, 'freeflight-direct-to');
+    syncDirectToFreeflightRouteState();
     if (typeof populateBriefingUI === 'function') {
         const startData = { lat: startWp.lat, lon: startWp.lng, n: currentSName, icao: currentStartICAO };
         const destData = { lat: lat, lon: lon, n: currentDName, icao: currentDestICAO };
@@ -10510,7 +10610,13 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
 
     // Hauptroute rendern (regulaerer Bearbeitungsmodus)
     if (polyline) polyline.setStyle({ opacity: 1 });
-    renderMainRoute();
+    refreshDirectToRouteLikeDispatch(
+        { lat: startWp.lat, lng: startWp.lng },
+        { lat, lng: lon },
+        currentSName || currentStartICAO,
+        currentDName || currentDestICAO,
+        'freeflight-direct-to'
+    );
 
     // Lufträume, Landmarks, Hindernisse/Flüsse explizit nachladen.
     const _ffCacheKey = routeWaypoints.map(p =>
@@ -10518,9 +10624,6 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     // Cache-Keys zurücksetzen damit ein voller Neu-Fetch stattfindet
     if (window._lastLmRouteKey  !== _ffCacheKey) window._lastLmRouteKey  = null;
     if (window._lastObsRouteKey !== _ffCacheKey) window._lastObsRouteKey = null;
-    if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
-    }
 
     // Elevation, Frequenz & Pisten für beide Airports via OpenAIP laden
     const startIcao = startWp.icao || null;

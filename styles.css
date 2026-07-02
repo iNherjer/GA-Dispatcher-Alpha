@@ -10811,8 +10811,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container {
         var(--glass-shadow),
         inset 0 1px 0 rgba(255, 255, 255, 0.24),
         inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(28px) saturate(1.25);
-    -webkit-backdrop-filter: blur(28px) saturate(1.25);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container::before {
@@ -11114,12 +11114,21 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]:
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-thumb {
     width: 13px;
     height: 13px;
-    margin-top: -2px;
+    margin-top: 3.5px;
     background: #f8fcff;
     border: 1px solid rgba(255, 255, 255, 0.9);
     box-shadow:
         0 8px 22px rgba(0, 0, 0, 0.34),
         0 0 0 5px rgba(255, 255, 255, 0.13);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mapTableBtn,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #pinboardMenuBtn {
+    padding: 10px 12px;
+    min-height: 34px;
+    margin-top: 8px;
+    font-size: 13px;
+    border-radius: 14px;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-main,

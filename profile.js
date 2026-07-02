@@ -30,6 +30,7 @@ window.updateOverpassErrorUI = function() {
 };
 window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;
+window.vpAnimFrameTimerId = null;
 window.vpAnimFrameMeta = window.vpAnimFrameMeta || { lastPaintMs: 0, lastTargetFps: 0 };
 window._vpLastScrollLeft = 0;
 window._vpProfileRenderTimer = null;
@@ -52,6 +53,47 @@ window.vpProfilePerfWarn = function(label, t0, extra = null, warnMs = 120) {
     }
     return durationMs;
 };
+function vpIsMapProfileFrameScheduled() {
+    return !!(window.vpAnimFrameId || window.vpAnimFrameTimerId);
+}
+window.vpIsMapProfileFrameScheduled = vpIsMapProfileFrameScheduled;
+function vpRequestMapProfileRaf() {
+    if (window.vpAnimFrameId) return;
+    window.vpAnimFrameId = requestAnimationFrame((timeMs) => {
+        window.vpAnimFrameId = null;
+        renderMapProfileFrames(timeMs);
+    });
+}
+function vpScheduleMapProfileFrame(delayMs = 0) {
+    if (window.vpAnimFrameId || window.vpAnimFrameTimerId) return;
+    const delay = Math.max(0, Number(delayMs) || 0);
+    if (delay <= 0) {
+        vpRequestMapProfileRaf();
+        return;
+    }
+    window.vpAnimFrameTimerId = setTimeout(() => {
+        window.vpAnimFrameTimerId = null;
+        vpRequestMapProfileRaf();
+    }, delay);
+}
+function vpRequestMapProfileFrameNow() {
+    if (window.vpAnimFrameTimerId) {
+        clearTimeout(window.vpAnimFrameTimerId);
+        window.vpAnimFrameTimerId = null;
+    }
+    vpRequestMapProfileRaf();
+}
+function vpStopMapProfileFrameLoop() {
+    if (window.vpAnimFrameTimerId) clearTimeout(window.vpAnimFrameTimerId);
+    window.vpAnimFrameTimerId = null;
+    if (window.vpAnimFrameId) cancelAnimationFrame(window.vpAnimFrameId);
+    window.vpAnimFrameId = null;
+}
+function vpScheduleNextMapProfileFrame(frameIntervalMs, lastPaintMs) {
+    const now = performance && performance.now ? performance.now() : Date.now();
+    const elapsedSincePaintMs = Math.max(0, now - (Number(lastPaintMs) || now));
+    vpScheduleMapProfileFrame(Math.max(0, Number(frameIntervalMs || 0) - elapsedSincePaintMs));
+}
 /* =========================================================
    VERTICAL PROFILE (Höhenprofil) ENGINE
    ========================================================= */
@@ -158,7 +200,7 @@ const VP_OBS_HOSTED_ENDPOINTS = [
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
 const VP_PROFILE_FPS_IDLE = 10;
-const VP_PROFILE_FPS_ACTIVE = 22;
+const VP_PROFILE_FPS_ACTIVE = 16;
 const VP_PROFILE_FPS_INTERACT = 30;
 const VP_OBS_TILE_FAILED_KEY = 'ga_obs_tile_failed_v1';
 const VP_OBS_TILE_FAILED_MAX = 1200;
@@ -2239,6 +2281,18 @@ function triggerVerticalProfileUpdate() {
             window.vpElevationData = vpElevationData;
             if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
                 vpApplySarHeliAltitudeConstraints(cacheKey);
+            }
+            if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
+                renderVerticalProfile('verticalProfileCanvas');
+            }
+            const mapTable = document.getElementById('mapTableOverlay');
+            if (
+                mapTable
+                && mapTable.classList.contains('active')
+                && (typeof vpMapProfileVisible === 'undefined' || vpMapProfileVisible)
+                && typeof renderMapProfile === 'function'
+            ) {
+                renderMapProfile();
             }
             
             // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
@@ -7476,6 +7530,30 @@ function toggleMapProfile() {
     if (typeof map !== 'undefined' && map) setTimeout(() => map.invalidateSize(), 100);
 }
 
+function vpEnsureMapProfileVisible(reason = 'route') {
+    vpMapProfileVisible = true;
+    const strip = document.getElementById('mapProfileStrip');
+    const btn = document.getElementById('vpToggleBtn');
+    if (strip) strip.style.display = '';
+    if (btn) {
+        btn.textContent = '📊 Profil (An)';
+        btn.style.background = '#2E8B57';
+    }
+    if (typeof initProfileResize === 'function') initProfileResize();
+    if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+        setTimeout(() => map.invalidateSize(), 80);
+    }
+    const hasRoute = typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints) && routeWaypoints.length >= 2;
+    if (hasRoute && typeof triggerVerticalProfileUpdate === 'function') {
+        triggerVerticalProfileUpdate();
+    } else if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
+        renderVerticalProfile('verticalProfileCanvas');
+    }
+    if (typeof renderMapProfile === 'function') renderMapProfile();
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Map profile ensured visible', { reason, hasRoute });
+}
+window.vpEnsureMapProfileVisible = vpEnsureMapProfileVisible;
+
 function syncAltFromMap(val) {
     const mainSlider = document.getElementById('altSlider');
     if (mainSlider) mainSlider.value = val;
@@ -7585,9 +7663,24 @@ function renderMapProfile() {
     // Sicherheitsnetz: explizite Render-Aufrufe sollen den statischen Layer
     // immer neu zeichnen, damit Karten-Edits und Menü-Toggles sichtbar werden.
     window.vpBgNeedsUpdate = true;
-    if (!window.vpAnimFrameId) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+    vpRequestMapProfileFrameNow();
+}
+
+function vpGetMapProfileElevationData(isHdgMode) {
+    if (isHdgMode) {
+        return Array.isArray(vpHdgElevData) && vpHdgElevData.length >= 2 ? vpHdgElevData : null;
     }
+    if (vpZoomLevel < 100 && Array.isArray(vpHighResData) && vpHighResData.length >= 2) {
+        return vpHighResData;
+    }
+    if (Array.isArray(vpElevationData) && vpElevationData.length >= 2) {
+        return vpElevationData;
+    }
+    if (Array.isArray(window.vpElevationData) && window.vpElevationData.length >= 2) {
+        vpElevationData = window.vpElevationData;
+        return vpElevationData;
+    }
+    return null;
 }
 
 function vpGetMapProfileTargetFps(isHdgMode) {
@@ -7724,7 +7817,7 @@ function renderMapProfileFrames(timeMs) {
     const frameT0 = performance && performance.now ? performance.now() : Date.now();
     const mapTable = document.getElementById('mapTableOverlay');
     if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
-        window.vpAnimFrameId = null; 
+        vpStopMapProfileFrameLoop();
         return;
     }
 
@@ -7733,7 +7826,7 @@ function renderMapProfileFrames(timeMs) {
     const scrollContainer = document.getElementById('mapProfileScroll');
     const wrapper = document.getElementById('vpCanvasWrapper');
     if (!fgCanvas || !bgCanvas || !scrollContainer || !wrapper) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+        vpScheduleMapProfileFrame(250);
         return;
     }
 
@@ -7745,19 +7838,18 @@ function renderMapProfileFrames(timeMs) {
     const elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
 
     if (!window.vpBgNeedsUpdate && elapsedMs < frameIntervalMs) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+        vpScheduleMapProfileFrame(frameIntervalMs - elapsedMs);
+        return;
+    }
+    const elevData = vpGetMapProfileElevationData(isHdgMode);
+    if (!elevData || elevData.length < 2) {
+        window.vpBgNeedsUpdate = true;
+        perfMeta.lastNoElevationMs = nowMs;
+        vpScheduleMapProfileFrame(250);
         return;
     }
     perfMeta.lastPaintMs = nowMs;
     perfMeta.lastTargetFps = targetFps;
-
-    const elevData = isHdgMode
-        ? vpHdgElevData
-        : (vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
-    if (!elevData || elevData.length < 2) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
-        return;
-    }
 
     const containerHeight = scrollContainer.clientHeight || 100;
     const baseWidth = scrollContainer.clientWidth || 600;
@@ -8390,7 +8482,7 @@ function renderMapProfileFrames(timeMs) {
             elevPoints: Array.isArray(elevData) ? elevData.length : 0
         }, 120);
     }
-    window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+    vpScheduleNextMapProfileFrame(frameIntervalMs, perfMeta.lastPaintMs);
 }
 
 // Removed arbitrary setTimeout hook in favor of synchronous hooks within renderVerticalProfile
@@ -8460,9 +8552,7 @@ function vpUpdatePosition(fraction) {
     vpPositionFraction = fraction;
     
     // Weckt nur die Foreground-Schleife, falls sie schläft.
-    if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
-    }
+    if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) vpRequestMapProfileFrameNow();
 
     // Update Leaflet marker on map
     if (!vpElevationData || vpElevationData.length < 2) return;
@@ -8510,9 +8600,7 @@ function vpUpdateLiveAircraft(fraction, altFt, hdg) {
     vpLiveAltFt = altFt;
     vpLiveHdg = hdg;
 
-    if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
-        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
-    }
+    if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) vpRequestMapProfileFrameNow();
 }
 
 /* =========================================================
