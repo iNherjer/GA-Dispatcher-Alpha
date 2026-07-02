@@ -1,73 +1,438 @@
-# VFR Multitool 
+# VFR Multitool
 
-https://inherjer.github.io/VFR-Multitool/
+Live: https://inherjer.github.io/VFR-Multitool/
 
-# Beta
+Beta: https://inherjer.github.io/GA-Dispatcher-beta/
 
-https://inherjer.github.io/GA-Dispatcher-beta/
+Das **VFR Multitool** ist ein browserbasiertes Cockpit-, Dispatch- und EFB-Werkzeug fuer VFR-Fluege im Microsoft Flight Simulator. Es kann einfache Freifluege begleiten, komplette Auftraege generieren, Routen und Hoehenprofile anzeigen, Live-GPS vom Simulator auf Tablet oder Zweitgeraet bringen und Fluege mit einer Crew teilen.
 
-# 🛩️ VFR multitool 
+Das Tool ersetzt keine echte Flugvorbereitung. Es ist fuer den Flugsimulator gedacht.
 
-Der **VFR multitool** ist ein interaktiver, webbasierter Flugdienstleiter für General Aviation (GA) Piloten in Flugsimulatoren (MSFS, X-Plane, etc.). Wenn du mal wieder nicht weißt, wohin du fliegen sollst, generiert dir dieses Tool realistische, abwechslungsreiche und immersive Flugaufträge.
+## Schnellstart
 
-## ✨ Kernfunktionen
+1. App oeffnen und unter **DEP / Start** den Startplatz eingeben, zum Beispiel `EDTW`.
+2. Flugzeugwerte pruefen: Preset waehlen oder **TAS**, **GPH**, **Cruise ALT** und **V/S** selbst setzen.
+3. Fuer einen Auftrag **Typ**, **Distanz**, **Region** und **Richtung** waehlen und **Auftrag generieren / DISPATCH** klicken.
+4. Fuer freie Navigation den **Kartentisch** oeffnen und **Direct To** nutzen.
+5. Optional: **Pilot-ID + PIN** einrichten, damit Cloud-Sync, Crew Board und PC-Tracker zusammenarbeiten.
 
-* **Dynamischer Missions-Generator:** Generiert zufällige A-nach-B Flüge oder Sightseeing-Rundflüge (POIs) basierend auf deinen Vorgaben (Distanz, Region, Himmelsrichtung).
-* **Gemini KI-Integration (Dual-AI):** Verbindet echte geografische Wikipedia-Daten mit modernsten Gemini-Modellen (Gemini 3.0 Flash, 2.5 Flash & Lite), um einzigartige, kreative Briefings zu schreiben (inklusive Passagiere, Fracht und lokaler Storys).
-* **☁️ Cloud Sync & Multiplayer (Crew Board):** Synchronisiere dein Logbuch und deine Pinnwand geräteübergreifend (PC/iPad) dank smarter Idle-Konflikterkennung. Gründe eine Crew und teile Flugaufträge in Echtzeit auf dem Multiplayer-Brett mit deinen Freunden.
-* **📊 Vertikales Profil & Lufträume:** Berechnet ein interaktives Höhenprofil inklusive Terrain (TOC/TOD) und warnt live vor VFR-Lufträumen (OpenAIP) auf deiner Route. Setze eigene Höhen-Wegpunkte, um Sektoren präzise zu unterfliegen.
-* **🌤️ Visual METAR Widgets:** Ruft aktuelles Flugwetter ab und visualisiert es mit animierten Wind-Instrumenten und Pisten-Ausrichtung direkt im Briefing.
-* **Drei interaktive Cockpit-Themes:**
-  * **Modern:** Cleanes, schnelles UI.
-  * **Analog:** Authentisches 60er-Jahre Retro-Feeling mit mechanischen Trommelzählwerken.
-  * **NavCom:** Eine vollständige Bendix/King Radio-Stack Simulation (inklusive voll funktionsfähigem KLN 90B GPS-Display, KMA Audio-Panel und Drag-Drehreglern).
-* **Interaktiver Kartentisch (Map Table) & OpenAIP Snapping:** * VFR-Overlay (Lufträume) und verschiedene Basiskarten (Topografie, Satellit).
-  * Wegpunkte lassen sich per Drag & Drop auf der Route hinzufügen.
-  * **🧲 Magnetisches Snapping:** Wegpunkte rasten automatisch an echten VORs, Pflichtmeldepunkten (Reporting Points) und Flugplätzen ein.
-  * Integriertes Messwerkzeug (Zirkel) für Distanzen und Kurse.
-* **📄 PDF Briefing Pack Export:** Generiere mit einem Klick ein komplettes, mehrseitiges Kniebrett-PDF für deinen Flug – inklusive detailliertem Nav-Log, Spritberechnung, Profil und Pisten-Infos.
-* **Hangar-Pinnwand:** Ein visuelles schwarzes Brett, um sich Notizen zu machen oder generierte Flüge für später zu speichern.
+## Teil 1: Grundeinstellungen
 
----
+### Darstellung und Bedienoberflaeche
 
-## 🚀 Kurzanleitung / Bedienung
+Das VFR Multitool hat mehrere Oberflaechen, die dieselben Daten bedienen:
 
-### 1. Flugzeug & Startplatz vorbereiten
-1. Gib oben links unter **Start / DEP** deinen aktuellen ICAO-Code (z.B. `EDTW`) ein. 
-2. Das Feld **Ziel / DEST** kannst du leer lassen (für einen komplett zufälligen Flug) oder einen konkreten Platz eingeben, wenn du nur die Routen- und KI-Briefing-Funktion nutzen willst.
-3. Wähle ein **Flugzeug-Preset** (C172, PA24, AERO) oder stelle deine Reise-Geschwindigkeit (TAS) und den Verbrauch (GPH) manuell über die Slider (bzw. die Drehknöpfe im NavCom-Theme) ein.
+- **Modern**: kompakte Standardansicht.
+- **Analog**: Retro-Cockpit mit mechanischer Anmutung.
+- **NavCom**: Radio-Stack mit KLN-90B-artigem GPS-Display, DATA- und DISPATCH-Tasten.
+- **Ops 1940**: stark instrumentenartige Missionsauswahl mit Piktogrammen.
 
-### 2. Auftrags-Parameter wählen (Optional)
-* **Typ:** Wähle zwischen `Flugplatz (A ➔ B)` oder `POI (Rundflug)`. Bei einem POI landest du wieder am Startplatz.
-* **Distanz:** Grenze ein, ob du nur einen kurzen Hüpfer (`Short`) oder einen langen Streckenflug (`Long`) machen willst.
-* **Region & Richtung:** Bestimme, ob du in Deutschland bleibst, ins Ausland fliegst und in welche Himmelsrichtung der Dispatcher suchen soll.
+Die Darstellung aenderst du in **Einstellungen > Darstellung**. Die **Seitengroesse** hilft auf iPad, Quest, Tablet oder kleinen Monitoren. Im Analog-Modus kann die obere linke Schraube die Panel-Lackierung wechseln.
 
-### 3. Dispatch! (Auftrag generieren)
-Klicke auf **Auftrag generieren** (oder `DISPATCH` im NavCom-Theme). Das System:
-* Sucht einen passenden Flugplatz oder POI in der Datenbank.
-* Ruft Wikipedia-Daten & METAR-Wetter für das Ziel ab.
-* Kontaktiert (falls aktiviert) die Gemini KI für ein authentisches Briefing.
-* Präsentiert dir auf dem Klemmbrett (bzw. dem GPS-Display) alle Routendaten, Funkfeuer-Kurse, Spritberechnungen und Wetter-Widgets.
+Tipps:
 
-### 4. Flugplanung am Kartentisch
-Klicke auf **🗺️ Kartentisch**, um deine Route zu verfeinern:
-* Nutze das **🧲 Snapping**, um Wegpunkte (durch Ziehen der roten Linie) magisch an reale VORs oder Flughäfen andocken zu lassen.
-* Aktiviere das **📊 Profil**, um das Terrain zu analysieren. Klicke doppelt auf die Fluglinie im Profil, um **Höhen-Wegpunkte** zu erstellen und Lufträumen auszuweichen.
+- Wenn Text oder Bedienelemente zu klein wirken, zuerst **Seitengroesse** anpassen, nicht den Browser-Zoom.
+- Auf iPad/iPhone die Seite ueber Safari mit **Zum Home-Bildschirm** installieren. Dann fuehlt sich die App eher wie eine PWA an.
+- Der Versionshinweis unten kann ein Update erzwingen, falls der Browser eine alte Service-Worker-Version haelt.
 
-### 5. Exportieren, Loggen & Speichern
-* **Drucken:** Klicke auf das Dokumenten-Symbol (📄) auf dem Klemmbrett, um dir dein **Briefing Pack als PDF** herunterzuladen.
-* **Loggen:** Flug absolviert? Klicke unten auf **✈️ Flug loggen & Startplatz setzen**. Dein Flug landet im Logbuch und dein Startplatz für die nächste Session ist nun dein aktueller Standort.
+### Flugzeugwerte und Presets
 
-### 6. ☁️ Cloud Sync & Multiplayer
-* **Geräte synchronisieren:** Generiere dir unten in den Settings eine **Pilot-ID (🎲)**. Trage sie an all deinen Geräten ein. Die App gleicht deine Daten (Logbuch, aktiver Flug, private Zettel) automatisch ab. Eine intelligente Idle-Detection verhindert Datenverlust, falls du Tabs offen vergisst.
-* **Crew Board:** Tritt einer Gruppe bei (z.B. Crew-Code `EDTK`) und vergib dir einen Rufnamen. Wenn du einen Flug ans Brett pinnst (📌), kannst du ihn ab sofort mit einem Klick live auf das Multiplayer-Brett deiner Freunde heften!
+Die Flugzeugwerte bestimmen Zeiten, Fuel-Schaetzung, Profil und Missionsauswahl:
 
----
+- **TAS**: geplante Reisegeschwindigkeit in Knoten.
+- **GPH**: Verbrauch in US-Gallonen pro Stunde.
+- **Cruise ALT**: geplante Reiseflughoehe fuer Route, Profil, Wetter- und Luftraumhinweise.
+- **V/S Rate**: Steig- und Sinkrate fuer TOC/TOD und Profil.
+- **Sitze / PAX**: begrenzt, wie viele Passagiere ein Auftrag einplanen darf.
 
-## 🤖 KI-Feature aktivieren (Gemini API)
-Um die volle Magie der dynamischen Briefings zu nutzen, kannst du dir kostenlos einen API Key von Google holen:
-1. Gehe zu [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Erstelle einen API Key.
-3. Füge diesen Key im GA Dispatcher ganz unten in das Feld **"KI-Dispatcher (Gemini API)"** ein.
+Es gibt drei Schnellslots: **C172**, **Comanche / PA-24** und **Aerostar**. Unter **Aircraft > Presets** kannst du Name, TAS, GPH und PAX pro Slot speichern. Die Boarding-Szene kann ebenfalls pro Slot angepasst werden: Tuer, Marker, Wegpunkte, Reihenfolge und relative Positionen zum Flugzeug.
 
-*Hinweis: Der Key wird extrem sicher und ausschließlich lokal in deinem eigenen Browser gespeichert.* Das "Fuel-Meter" unten links zeigt dir an, wie viel deiner täglichen KI-Quota du bereits verbraucht hast. Das System fällt automatisch auf leichtere Modelle oder die lokale Offline-Datenbank zurück, falls Limits erreicht werden.
+Tipps:
+
+- Speichere deine haeufig genutzten Flugzeuge als Slots, statt vor jedem Dispatch die Slider neu zu setzen.
+- Fuer langsame Busch- oder Trainingsfluege lieber realistische TAS eintragen, weil Distanz, ETE und Missionsdauer sonst falsch wirken.
+- Boarding-Punkte nur anfassen, wenn Passagiere oder Marker im Simulator sichtbar falsch am Flugzeug stehen.
+
+### KI-Dispatcher
+
+Der **KI-Dispatcher** kann Briefings, Rollen, Fracht, Passagiere und lokale Geschichten erzeugen. Ohne API-Key nutzt die App lokale Daten und Fallbacks.
+
+Einstellungen:
+
+- **Schalter**: KI ein oder aus.
+- **Provider**: Gemini oder OpenAI.
+- **Profil**: Auto, Sparsam oder Qualitaet.
+- **Gemini API-Key** und **OpenAI API-Key**: getrennte Felder.
+- **FUEL-Anzeige**: grober Hinweis auf KI-Kontingent/Verbrauch.
+
+Die API-Keys werden lokal im Browser gespeichert. Sie werden nicht in dein Pilotenprofil geschrieben. Browser-Erweiterungen oder ein kompromittiertes Geraet koennen lokale Browserdaten trotzdem auslesen.
+
+Tipps:
+
+- **Auto** ist der normale Betrieb. **Sparsam** ist sinnvoll, wenn du viele Missionen testest. **Qualitaet** lohnt sich fuer laengere Story-Briefings.
+- Wenn ein Provider limitiert oder langsam ist, auf den anderen Provider wechseln oder KI kurz deaktivieren.
+- Passagier-TTS und KI-Briefings koennen getrennt Kosten verursachen, je nach Provider und Einstellung.
+
+### Pilot-ID, Cloud-Sync und PC-Tracker
+
+Die **Pilot-ID** ist deine Identitaet fuer Sync, Crew und Live-Tracking. Der **PIN** schuetzt diese Identitaet.
+
+Funktionen:
+
+- **Login**: schaltet Cloud-Funktionen frei.
+- **Auto-Sync**: laedt und speichert automatisch, wenn du angemeldet bist.
+- **Push**: aktuellen Stand in die Cloud schreiben.
+- **Pull**: Cloud-Stand auf dieses Geraet holen.
+- **Live GPS**: zeigt, ob Daten vom PC-Tracker ankommen.
+- **PC-Tracker (.exe)**: sendet MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App.
+
+PC-Tracker einrichten:
+
+1. In der App **Pilot-ID + PIN** setzen und einloggen.
+2. Am MSFS-PC den **VFR-Multitool-Tracker.exe** laden und starten.
+3. Dieselbe Pilot-ID und denselben PIN eintragen.
+4. Auf Tablet, iPad oder Zweit-PC die App mit derselben Pilot-ID oeffnen.
+
+Tipps:
+
+- Die Reihenfolge ist unkritisch: Tracker und MSFS koennen vor oder nach der App starten.
+- Wenn Live-GPS aktiv ist, nutzt **Direct To** automatisch die echte aktuelle Position als Start.
+- Bei Sync-Konflikten nicht hektisch Push/Pull druecken. Erst pruefen, welches Geraet den gewuenschten Stand hat.
+
+### Missionsstatus, Reset und Auto Load
+
+Der Bereich **Cloud & Mission** zeigt, was die laufende Mission erwartet: zum Beispiel Bodenstabilisierung, Boarding, Fracht oder naechsten Schritt.
+
+- **Mission Reset** setzt die laufende Mission zurueck, ohne alle Einstellungen zu loeschen.
+- **Auto Load** kann Missionsfracht automatisch laden, wenn die Mission dafuer vorbereitet ist.
+- Bei akzeptierten Missionen werden Runtime, Passagier- und Cargo-Zustand separat von reinen EFB-/Freiflug-Briefings behandelt.
+
+Tipps:
+
+- Bei einer Mission, die nach Reload falsch aktiv wirkt, zuerst **Mission Reset** nutzen und dann neu akzeptieren.
+- Freiflug/Direct-To ist EFB-only: keine versteckte Mission, kein Cargo-Start, keine Passagier-State-Machine.
+
+### Hilfe, Update und Support
+
+Unten in der App findest du:
+
+- **Tutorial** fuer eine gefuehrte Einweisung.
+- **Problem per E-Mail** fuer einen gekuerzten Debug-Bericht.
+- **Debug Console** und **Pax Log** fuer Fehlersuche.
+- Links zu **Impressum**, **Datenschutz**, **Daten & Lizenzen**, Discord und freiwilliger Unterstuetzung.
+
+## Teil 2: Dispatch
+
+### Grundprinzip
+
+Dispatch erzeugt aus deinen Vorgaben einen Missionsentwurf. Danach kannst du ihn pruefen, annehmen, exportieren, pinnen oder im Kartentisch fliegen.
+
+Wichtige Felder:
+
+- **DEP / Start**: ICAO-Code oder Suchtext. Beispiel: `EDTW`.
+- **DEST / Ziel**: optional. Leer, `RNDM` oder `----` bedeutet: die App sucht selbst.
+- **TYPE / Typ**: APT, POI, Bush oder Spezialprofil.
+- **RANGE / Distanz**: Egal, Short, Medium oder Long.
+- **Region**: Europaweit, nur Deutschland oder Ausland.
+- **Richtung**: bevorzugte Himmelsrichtung.
+- **RDM / PICK**: Direkt zufaellig erzeugen oder erst 2-3 Vorschlaege anzeigen.
+
+Tipps:
+
+- Fuer maximale Abwechslung **DEST leer lassen** und **RDM** nutzen.
+- Fuer kontrollierte Auswahl **PICK** aktivieren. Dann entscheidet man erst im Briefing, welcher Vorschlag wirklich ausgearbeitet wird.
+- Wenn du nur ein Ziel mit Planungsbriefing willst, nutze **Freiflug/Planung** statt einer echten Mission.
+
+### Missionstypen
+
+Der Basic-Picker deckt die wichtigsten Faelle ab:
+
+- **APT**: Flugplatz-zu-Flugplatz.
+- **POI**: Rundflug oder Zielpunkt mit Rueckkehr-/Zielbezug.
+- **Bush**: Backcountry- und Remote-Strip-Auftraege.
+- **APT/POI Freiflug/Planung**: Route und Briefing ohne Missionsruntime.
+
+Der erweiterte Picker enthaelt Spezialprofile:
+
+- **APT**: Verein, Privat, Charter, Cargo, Training, Medizin-Transfer, fragile Fracht, Tiertransport, Reporter, Sightseeing.
+- **POI**: Training, Infrastruktur-Inspektion, Ketten-Erstbefund, Foto/Film, Mapping/Survey, Reporter, Sightseeing, Lern-Guide, Historiker, Bio/Umwelt, Geo/Relief, SAR/Rescue, SAR Heli, Fire Watch.
+- **Bush**: Versorgung, Charter, Adventure, Recon Return, Pickup Return, Cargo Pickup Return.
+- **Zielkategorien**: Bruecken, Strasse/Autobahn, Staudamm/Talsperre, Funkmast, Industrie, Infrastruktur, Burg/Schloss, Wasser, Berg/Tal, Stadt/Turm, Sonstige.
+
+Tipps:
+
+- APT-Auftraege sind meistens echte A-nach-B-Fluege. POI-Auftraege drehen sich staerker um Ziel, Blick, Ueberflug, Foto, Inspektion oder Wissen.
+- Bush-Profile koennen Pickup- oder Return-Logik haben. Dafuer den Missionsentwurf akzeptieren und im Kartentisch mit Live-Tracker starten.
+- Spezialprofile liefern bessere Geschichten, wenn Startregion, Distanz und Richtung nicht zu eng gesetzt sind.
+
+### Briefing-Seiten
+
+Ein Dispatch erzeugt mehrere Briefing-Seiten:
+
+- **Seite 1**: Titel, Story, Payload, Fracht, Strecke, Kurs und ETE.
+- **Seite 2**: Nav-Log mit Wegpunkten und Luftraumwarnungen.
+- **Seite 3**: Start-Info mit AIP, METAR, Pisten, Frequenzen, Wiki-/Ortsdaten.
+- **Seite 4**: Ziel-Info oder POI-Info.
+- **Seite 5**: Vertical Profile, wenn das Profil aktiv ist.
+
+Am Briefing findest du:
+
+- **Pin**: Flug an private Pinnwand oder Crew heften.
+- **DATA / Transfer**: Flugcode, MSFS-Plan Import/Export und Transferfunktionen.
+- **PDF**: Briefing Pack als PDF.
+- **Mission akzeptieren**: macht aus einem Entwurf eine startbare Mission.
+
+Tipps:
+
+- Entwuerfe erst akzeptieren, bevor du sie exportierst, pinnst oder mit der Crew teilst.
+- Im Nav-Log kann der Luftraumfilter Warnungen auf deine geplante Flughoehe reduzieren.
+- AIP/METAR-Links sind direkt im Briefing und im NavCom-GPS erreichbar.
+
+### Mission fliegen
+
+Nach dem Akzeptieren wird eine Mission fuer den Kartentisch vorbereitet. Mit Live-Tracker kann die App Start, Boarding, Cargo, Zielnaehe, Foto-/Inspektionsereignisse, Rueckkehrlogik und Ankunft besser einordnen.
+
+Wichtige Funktionen:
+
+- **Mission starten** erscheint im Kartentisch, wenn ein akzeptierter Auftrag bereit ist.
+- **Passagier-Text und -Stimme** reagieren auf Missionsphase und Flugverhalten, wenn aktiviert.
+- **Audioeffekte** koennen Boarding, Cargo, Foto oder Missionsereignisse unterstuetzen.
+- **Missionsstatus** in den Einstellungen zeigt den naechsten erwarteten Schritt.
+
+Tipps:
+
+- Wenn eine Mission gestartet werden soll, erst Tracker verbinden und am Boden stabil stehen.
+- Bei reinen Planungs-/Freiflugprofilen gibt es bewusst keinen Missionsstart.
+- Der Log-/Weiterflug-Abschluss kann je nach Entwicklungsstand deaktiviert sein; gespeicherte Missionen und Flugdaten bleiben davon getrennt.
+
+### Export, Import und Teilen
+
+Der Transfer-Hub unter **DATA / 💾** kann:
+
+- Flugcode kopieren und laden.
+- MSFS `.pln` exportieren.
+- MSFS-Plan importieren.
+- Daten fuer externe oder 2D-Nutzung vorbereiten.
+- PDF-Briefing erzeugen.
+
+Tipps:
+
+- Flugcodes sind praktisch fuer Chat, Discord oder ein zweites Geraet.
+- MSFS-Export erst nach Akzeptieren nutzen, damit kein Entwurf im Plan landet.
+- PDF vor dem Start erzeugen, wenn du ein klassisches Kneeboard willst.
+
+## Teil 3: EFB, Kartentisch und Freiflug ohne Dispatch
+
+### Kartentisch oeffnen
+
+Der **Kartentisch** ist die grosse EFB-Ansicht. Er funktioniert mit Dispatch, mit importierten Routen und ohne Mission.
+
+Zentrale Tasten:
+
+- **Route Reset**: manuelle Routenanpassungen zuruecksetzen.
+- **Profil**: Hoehenprofil ein- oder ausblenden.
+- **Anzeige**: Layer und Overlays.
+- **Audio**: Warnungen, Stimmen und Effekte.
+- **Direct To**: Freiflugmodus fuer direkte Navigation.
+- **Mission starten**: nur sichtbar, wenn eine echte Mission bereit ist.
+
+Tipps:
+
+- Im Kartentisch werden Pinnwand und andere Overlays geschlossen, damit die Karte genug Platz hat.
+- Auf kleinen Displays die Toolbar einklappen und Autozoom nutzen.
+
+### Route und Karte
+
+Du kannst die Route direkt bearbeiten:
+
+- Wegpunkte auf der Route anfassen und verschieben.
+- Neue Punkte setzen, Punkte loeschen und Route zuruecksetzen.
+- **Snapping** aktivieren, damit Punkte an Flugplaetzen, Funkfeuern oder Meldepunkten einrasten.
+- **Direkt-Linie** fuer die einfache magentafarbene Orientierung ein-/ausblenden.
+- **Auto-Follow** zentriert die Karte auf deiner Live-Position.
+
+Zeichen- und Planungstools:
+
+- Stift, Radierer, Farbe und Strichstaerke.
+- Messwerkzeug fuer Distanzen und Kurse.
+- Zeichnungen und Messungen loeschen.
+- Stoppuhr mit Timer, UTC und Lokalzeit.
+- VFR-Rechner mit Formel-Spickzettel fuer Navigation, Fuel, Sinkflug, Wind, Performance und Einheiten.
+- Seitendrawer mit Checklisten und Kartenwerkzeugen.
+
+Tipps:
+
+- Fuer schnelle VFR-Notizen Stift + Messwerkzeug nutzen, statt die Hauptflugroute zu verbiegen.
+- Die Formelhilfe im Rechner ist besonders nuetzlich fuer Windkorrektur, Sinkflug und Fuel-Reserve.
+
+### Layer, Wetter und Live-Hinweise
+
+Im Menue **Anzeige** findest du:
+
+- **Wetter** mit METAR/Open-Meteo-Quelle, Windbarben und Wolkenfeldern.
+- **VFR-Index** mit Land-Auswahl, Modell, Refresh und Ampel-Zeitfenster.
+- **Terrain Avoid** mit Warn- und Safe-Schwellen.
+- **Traffic** fuer andere Flugzeuge aus dem Simulator.
+- **Autozoom** mit einstellbarer Vorausschau.
+- **Telemetrie**, **Aktuell**, **Wegpunkt-Info**, **Route-Leiste**.
+- **Leg-Beschriftung** fuer Distanz/Informationen.
+- **Kompassscheibe**.
+- **Low FPS Mode**.
+- **Flugzeug-Icon** mit Farbe und Groesse.
+
+Tipps:
+
+- Terrain Avoid braucht entweder Live-Hoehe oder eine sinnvolle Cruise-Hoehe.
+- VFR-Index und Wetter brauchen Internet. Bereits geladene Kartenausschnitte koennen trotzdem weiter sichtbar sein.
+- Low FPS Mode ist fuer schwache Tablets, VR-Browser oder Remote-Desktop-Situationen gedacht.
+
+### Vertical Profile
+
+Das Profil zeigt die Route von der Seite:
+
+- Terrain unter der Route oder im HDG-Ausblick.
+- Luftraeume und Hoehengrenzen.
+- Hindernisse wie Masten oder Windraeder.
+- Wolken und Wetterbaender.
+- Verkehr, wenn Live-Tracking aktiv ist.
+- TOC/TOD-Logik aus Cruise ALT und V/S.
+
+Bedienung:
+
+- Horizontal zoomen.
+- Y-Achse anpassen oder auf Auto zuruecksetzen.
+- Cruise ALT und V/S direkt im Profil aendern.
+- Profilhoehe per Griff veraendern.
+- Bei Live-GPS kann das Profil in die Vorausschau entlang des aktuellen Headings wechseln.
+
+Tipps:
+
+- Vor dem Start einmal Route und Profil zusammen pruefen: Terrain, Luftraum, Wolken, Fuel.
+- Im Flug ist HDG-/Vorausschau oft wichtiger als die urspruenglich geplante Route.
+
+### Live-Tracking und Verkehr
+
+Mit PC-Tracker sendet MSFS Live-Daten an die App:
+
+- Position, Hoehe, Groundspeed, Vertical Speed und Heading.
+- Flugspur und Route Progress.
+- Andere Flugzeuge in der Naehe.
+- Frequenz-/Positionshinweise, wenn bekannt.
+- Auto-Follow, Autozoom und HDG-Profil.
+
+Tipps:
+
+- Wenn keine Live-Position erscheint, zuerst Pilot-ID/PIN und Login auf beiden Seiten vergleichen.
+- Live-Tracking uebertraegt keine Bild- oder Tondaten aus dem Simulator.
+
+### Freiflug ohne Dispatch: Direct To
+
+**Direct To** ist fuer private Fluege ohne Missionsruntime gedacht.
+
+Ablauf:
+
+1. Kartentisch oeffnen.
+2. **Direct To (An)** aktivieren.
+3. Ziel auf der Karte oder an einem Flugplatz waehlen.
+4. Bei Live-GPS startet die Route an deiner aktuellen Position. Ohne Live-GPS nutzt die App einen vorhandenen Start-/Routenpunkt.
+
+Direct-To-/Freiflug-Briefings sind EFB-only:
+
+- keine Mission starten,
+- kein Boarding-/Cargo-Zwang,
+- keine versteckte Passagier-State-Machine,
+- keine Missionswiederherstellung als aktive Mission.
+
+Tipps:
+
+- Fuer reale "ich fliege einfach los"-Simulatorabende immer **Direct To** oder **Freiflug/Planung** nutzen.
+- Wenn du doch Story, Passagier, Cargo oder Zielszene willst, einen echten Dispatch erzeugen und akzeptieren.
+
+### Audio im Kartentisch
+
+Das Audio-Menue steuert:
+
+- Gesamtlautstaerke.
+- Frequenzansagen.
+- Terrain-Warnungen.
+- Luftraum-Warnungen.
+- Wegpunkt-Ansagen.
+- Warning-Stimme.
+- Passagier-Stimme, Textmodus, Humor, TTS-Modell, Fast Mode und Audio-Stil.
+
+Tipps:
+
+- Passagier-Text bleibt sichtbar, auch wenn die Stimme ausgeschaltet ist.
+- Fast Mode kann TTS-Wartezeit senken, aber mehr KI-Verbrauch erzeugen.
+- Fuer konzentrierten IFR-/ATC-Betrieb nur Warnungen aktiv lassen und Passagier-Audio ausschalten.
+
+## Teil 4: Pinnwand und Gruppenfunktion
+
+### Private Pinnwand
+
+Die **Pinnwand** ist dein privates Hangar-Board:
+
+- Tipps ein-/ausblenden.
+- Freie Zettel anlegen.
+- Zettel verschieben, bearbeiten und loeschen.
+- Aktuelle Fluege aus dem Briefing anpinnen.
+- Flugcodes laden.
+- Gespeicherte Fluege wiederherstellen.
+- Aufgezeichnete Flugrecords als Karte oder Debrief ansehen, wenn entsprechende Daten vorliegen.
+
+Tipps:
+
+- Private Zettel werden mit deiner Pilot-ID synchronisiert, wenn Auto-Sync aktiv ist.
+- Das private Board ist gut fuer Routenideen, wiederkehrende Startplaetze, Checklistenhinweise und Lieblingsmissionen.
+- Angepinnte Missionsentwuerfe koennen nicht geladen werden. Erst akzeptieren, dann pinnen.
+
+### Crew Board
+
+Das **Crew Board** ist die gemeinsame Pinnwand fuer eine Gruppe.
+
+Einrichten:
+
+1. In **Pilot Identity & Sync** mit Pilot-ID und PIN einloggen.
+2. Unter **Crew Board** einen **Crew-Code** eingeben, zum Beispiel `EDTK`.
+3. Optional einen Anzeigenamen setzen.
+4. **Beitreten / Update** klicken.
+
+Funktionen:
+
+- Gemeinsame Zettel fuer alle Crew-Mitglieder.
+- Fluege aus dem Briefing an die Crew heften.
+- Neue Crew-Zettel werden mit Badge markiert.
+- Crew-Roster zeigt Mitglieder und Status.
+- Der erste Ersteller wird Admin.
+- Admins koennen andere Mitglieder entfernen.
+- Eigene Crew-Zettel koennen fuer alle geloescht werden; fremde Zettel werden lokal ausgeblendet.
+
+Tipps:
+
+- Einen kurzen, eindeutigen Crew-Code verwenden, zum Beispiel Vereinskennung oder Flugplatz.
+- Vor dem Teilen eines Fluges immer pruefen, ob er akzeptiert ist.
+- Crew-Board ist kein ATC- oder Multiplayer-Server. Es teilt Planung, Notizen und Auftraege, nicht die eigentliche Simulator-Session.
+
+### Sync-Regeln fuer Pinnwand und Crew
+
+- Private Pinnwand: gehoert zu deiner Pilot-ID.
+- Crew Board: gehoert zum Crew-Code und nutzt deine Pilot-ID/PIN zur Authentifizierung.
+- Auto-Sync speichert private Daten automatisch.
+- Crew-Sync laeuft beim Oeffnen und nach Aenderungen.
+- Gelesen-/Neu-Status wird lokal und per Cloud abgeglichen.
+
+Tipps:
+
+- Wenn ein Crew-Zettel nicht auftaucht, Pinnwand schliessen und erneut oeffnen oder einmal Push/Pull pruefen.
+- Bei mehreren Geraeten erst klaeren, welches Geraet den aktuellsten privaten Stand hat, bevor du manuell pushst.
+
+## Datenquellen und Grenzen
+
+Das VFR Multitool nutzt je nach Funktion lokale Daten, Browser-Cache, Live-Tracker-Daten, OpenAIP, Wetterquellen, DWD-/VFR-Daten, Kartenkacheln, Flughafen-/POI-Daten, Wikipedia/Wikidata-Kontext und optionale KI-Provider.
+
+Grenzen:
+
+- Internetdaten koennen fehlen, veraltet sein oder kurzzeitig nicht antworten.
+- Luftraum-, Wetter-, Terrain- und Hindernisdaten sind Simulator-/Planungshilfen, keine reale Freigabe.
+- API-Keys bleiben lokal im Browser, muessen aber wie Passwoerter behandelt werden.
+- Browser-Cache und Service Worker koennen alte Versionen halten; im Zweifel Update erzwingen oder Seite neu laden.
