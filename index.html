@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=map-attribution-mobile-20260702-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=map-attribution-paypal-sdk-20260702-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=map-attribution-mobile-20260702-01">
+        <link rel="stylesheet" href="styles.css?v=map-attribution-paypal-sdk-20260702-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1001,10 +1001,23 @@
         <a href="legal.html#daten-lizenzen">Daten & Lizenzen</a>
     </nav>
     <div class="support-donate-block" aria-label="Freiwillige Unterstützung">
-        <a href="https://www.paypal.com/donate/?hosted_button_id=PBKAFCYKLDNAC" target="_blank" rel="noopener noreferrer" class="support-donate-link" title="PayPal öffnet in einem neuen Tab">
-            <span aria-hidden="true">♥</span>
-            <span>Entwicklung unterstützen</span>
-        </a>
+        <div id="donate-button-container" class="paypal-donate-container">
+            <div id="donate-button"></div>
+        </div>
+        <script src="https://www.paypalobjects.com/donate/sdk/donate-sdk.js" charset="UTF-8"></script>
+        <script>
+            if (window.PayPal && PayPal.Donation && typeof PayPal.Donation.Button === 'function') {
+                PayPal.Donation.Button({
+                    env: 'production',
+                    hosted_button_id: 'EN9U3WB88EF9A',
+                    image: {
+                        src: 'https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_LG.gif',
+                        alt: 'Spenden mit dem PayPal-Button',
+                        title: 'PayPal - The safer, easier way to pay online!',
+                    }
+                }).render('#donate-button');
+            }
+        </script>
         <details class="support-donate-note">
             <summary>Hinweis zur freiwilligen Unterstützung</summary>
             <p>Dein Beitrag unterstützt Entwicklung und laufende Kosten. Er ist freiwillig und keine Bestellung, Lizenz, Supportvertrag oder Gegenleistung. Daraus entstehen keine Ansprüche auf Rückerstattung, individuellen Support, Feature-Umsetzung, Priorisierung, Updates, Verfügbarkeit oder sonstige Leistungen, soweit gesetzlich zulässig. Gesetzliche Rechte und die PayPal-Bedingungen bleiben unberührt. Es wird keine Spendenquittung ausgestellt.</p>
@@ -1965,7 +1978,7 @@
 <script defer src="sync.js?v=direct-to-freeflight-20260701-01"></script>
 <script defer src="checklists.js?v=minimap-attribution-20260702-01"></script>
 <script defer src="profile.js?v=display-log-cleanup-20260702-01"></script>
-<script defer src="map.js?v=map-attribution-mobile-20260702-01"></script>
+<script defer src="map.js?v=map-draw-safe-zone-20260702-01"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
 <script defer src="app.js?v=readme-refresh-20260702-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>

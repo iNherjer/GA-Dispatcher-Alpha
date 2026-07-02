@@ -815,31 +815,23 @@ input[type=range]::-webkit-slider-thumb {
     letter-spacing: 0;
 }
 
-.support-donate-link {
-    display: inline-flex;
-    align-items: center;
+.paypal-donate-container {
+    display: flex;
     justify-content: center;
-    gap: 7px;
-    width: 100%;
-    min-height: 38px;
-    box-sizing: border-box;
-    padding: 9px 12px;
-    border: 1px solid rgba(242, 193, 46, 0.78);
-    border-radius: 7px;
-    background: linear-gradient(to bottom, #5a4317, #261b08);
-    color: #ffe7a6;
-    text-decoration: none;
-    font-size: 0.86em;
-    font-weight: 800;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
-    cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.2s ease, color 0.2s ease;
+    min-height: 47px;
+    line-height: 0;
 }
 
-.support-donate-link:hover {
-    color: #fff5d0;
-    border-color: #ffd35a;
-    transform: translateY(-1px);
+#donate-button {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 147px;
+    max-width: 100%;
+}
+
+#donate-button img,
+#donate-button iframe {
+    max-width: 100%;
 }
 
 .support-donate-note {

@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1312';
+const CACHE = 'ga-dispatcher-v1314';
 
 const STATIC = [
     './',
@@ -76,7 +76,9 @@ const NETWORK_ONLY = [
     'tiles.arcgis.com',
     'maps.dwd.de',
     'brz-maps.dwd.de',
-    'mapservices.weather.noaa.gov'
+    'mapservices.weather.noaa.gov',
+    'www.paypal.com',
+    'www.paypalobjects.com'
 ];
 
 const NETWORK_FIRST_PATHS = [
