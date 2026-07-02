@@ -7352,53 +7352,35 @@ function mainRouteProfileRefreshKey(points = routeWaypoints) {
         .join('|');
 }
 
-function refreshRouteProfileAfterMainRouteChange(reason = 'route-render') {
-    if (window.routeProfileRefreshTimeout) {
-        clearTimeout(window.routeProfileRefreshTimeout);
-        window.routeProfileRefreshTimeout = null;
-    }
-    window._lastVpRouteKey = null;
-    window.vpBgNeedsUpdate = true;
-
-    const board = document.getElementById('mapTableOverlay');
-    const boardActive = !!(board && board.classList.contains('active'));
-    if (window._mainRouteProfileEnsureTimeout) clearTimeout(window._mainRouteProfileEnsureTimeout);
-    window._mainRouteProfileEnsureTimeout = setTimeout(() => {
-        window._mainRouteProfileEnsureTimeout = null;
-        const activeNow = !!(board && board.classList.contains('active'));
-        if (activeNow && typeof refreshMapTableLayout === 'function') {
-            refreshMapTableLayout().catch((error) => {
-                console.warn('[RouteMap] Profile layout refresh failed', reason, error);
-            });
-        }
-        if (activeNow && typeof window.vpEnsureMapProfileVisible === 'function') {
-            window.vpEnsureMapProfileVisible(reason);
-        } else if (typeof triggerVerticalProfileUpdate === 'function') {
-            triggerVerticalProfileUpdate();
-        } else if (typeof renderMapProfile === 'function') {
-            renderMapProfile();
-        }
-        if (activeNow && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
-            window.gaScheduleRouteMapLayoutRefresh(reason);
-        }
-    }, boardActive ? 80 : 0);
-}
-
 function notifyMainRouteChanged(reason = 'route-render') {
     if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
     const routeKey = mainRouteProfileRefreshKey(routeWaypoints);
     if (!routeKey) return;
-    if (window._lastMainRouteProfileRefreshKey === routeKey) return;
+    const routeChanged = window._lastMainRouteProfileRefreshKey !== routeKey;
     window._lastMainRouteProfileRefreshKey = routeKey;
     if (typeof _syncCurrentMissionRouteFromMap === 'function') {
         _syncCurrentMissionRouteFromMap();
     }
-    refreshRouteProfileAfterMainRouteChange(reason);
+    window.vpBgNeedsUpdate = true;
+    if (routeChanged) window._lastVpRouteKey = null;
+    if (window.routeProfileRefreshTimeout) {
+        clearTimeout(window.routeProfileRefreshTimeout);
+        window.routeProfileRefreshTimeout = null;
+    }
+    if (window._mainRouteProfileRefreshTimeout) clearTimeout(window._mainRouteProfileRefreshTimeout);
+    window._mainRouteProfileRefreshTimeout = setTimeout(() => {
+        window._mainRouteProfileRefreshTimeout = null;
+        if (typeof triggerVerticalProfileUpdate === 'function') {
+            triggerVerticalProfileUpdate();
+        } else if (typeof renderMapProfile === 'function') {
+            renderMapProfile();
+        }
+    }, 120);
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {
         scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
     }
     if (window.gaDebugPush) {
-        window.gaDebugPush('profile', 'Main route change scheduled profile refresh', { reason, routeKey });
+        window.gaDebugPush('profile', 'Main route render scheduled profile refresh', { reason, routeKey, routeChanged });
     }
 }
 
