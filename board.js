@@ -1465,7 +1465,7 @@ window.closeTransferModal = function() {
     document.getElementById('transferModalOverlay').style.display = 'none';
 };
 
-const BUG_REPORT_ENDPOINT = 'https://ga-proxy.einherjer.workers.dev/api/problem-reports';
+const BUG_REPORT_EMAIL = 'info@vfr-multitool.de';
 
 function _bugNowLabel() {
     return new Date().toLocaleString('de-DE');
@@ -1602,170 +1602,77 @@ function _bugGetWeatherDebugText() {
     return text.trim().slice(0, 22000);
 }
 
-window.openBugReportModal = function() {
-    const ov = document.getElementById('bugReportModalOverlay');
-    if (!ov) return;
+function _bugEmailTrimText(value = '', maxLen = 900) {
+    const text = String(value || '').replace(/\s+\n/g, '\n').trim();
+    return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
+}
 
-    const msgEl = document.getElementById('bugReportMessage');
-    const stEl = document.getElementById('bugReportStatus');
+function _bugEmailLogLine(entry = {}) {
+    const ts = String(entry.ts || '').trim();
+    const level = String(entry.level || 'log').toUpperCase();
+    const msg = _bugEmailTrimText(entry.msg || '', 900);
+    const extra = entry.extra ? ` ${_bugEmailTrimText(JSON.stringify(entry.extra), 420)}` : '';
+    return `[${ts || 'no-ts'}] ${level}: ${msg}${extra}`;
+}
 
-    if (msgEl && !msgEl.value.trim()) {
-        msgEl.value = 'was ist passiert?';
+function _bugBuildEmailReportBody() {
+    const swVersion = document.getElementById('swVersionDisplay')?.innerText?.trim() || '';
+    const logs = _bugGetDebugLogs().slice(-90).map(_bugEmailLogLine);
+    const weatherDebug = _bugGetWeatherDebugText();
+    const lines = [
+        'Bitte hier kurz beschreiben, was passiert ist:',
+        '',
+        '',
+        '--- App / Gerät ---',
+        `Zeit: ${new Date().toISOString()}`,
+        `Version: ${swVersion || 'unbekannt'}`,
+        `URL: ${String(location.href || '')}`,
+        `Browser: ${String(navigator.userAgent || '')}`,
+        `Sprache: ${String(navigator.language || '')}`,
+        `Zeitzone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || ''}`,
+        `Viewport: ${window.innerWidth || 0}x${window.innerHeight || 0} @${window.devicePixelRatio || 1}`,
+        `Online: ${navigator.onLine ? 'ja' : 'nein'}`,
+        '',
+        '--- Debug Log, gekürzt ---',
+        logs.length ? logs.join('\n') : 'Keine Debug-Log-Einträge vorhanden.'
+    ];
+    if (weatherDebug) {
+        lines.push('', '--- Weather/Debug Panel, gekürzt ---', _bugEmailTrimText(weatherDebug, 3600));
     }
-    if (stEl) stEl.textContent = '';
-    ov.style.display = 'flex';
+    let body = lines.join('\n');
+    const maxBodyLen = 7800;
+    if (body.length > maxBodyLen) {
+        body = `${body.slice(0, maxBodyLen)}\n\n--- gekürzt: Mail-Entwurf war zu lang ---`;
+    }
+    return body;
+}
+
+window.openBugReportEmailDraft = function() {
+    const subject = `VFR Multitool Problembericht ${new Date().toLocaleDateString('de-DE')}`;
+    const body = _bugBuildEmailReportBody();
+    const href = `mailto:${BUG_REPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const a = document.createElement('a');
+    a.href = href;
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        try { a.remove(); } catch (_) {}
+    }, 0);
+    return href;
+};
+
+window.openBugReportModal = function() {
+    return window.openBugReportEmailDraft();
 };
 
 window.closeBugReportModal = function() {
-    const ov = document.getElementById('bugReportModalOverlay');
-    if (!ov) return;
-    ov.style.display = 'none';
+    return false;
 };
 
 window.sendBugReport = async function() {
-    const msgEl = document.getElementById('bugReportMessage');
-    const stEl = document.getElementById('bugReportStatus');
-    const btn = document.getElementById('bugReportSendBtn');
-    const includeDebug = !!document.getElementById('bugIncludeDebug')?.checked;
-    const includePax = !!document.getElementById('bugIncludePax')?.checked;
-    const includeRoute = !!document.getElementById('bugIncludeRoute')?.checked;
-
-    const message = String(msgEl?.value || '').trim().slice(0, 5000) || 'Kein Freitext angegeben.';
-    const firstLine = message.split('\n').map(s => s.trim()).find(Boolean) || '';
-    const title = (firstLine || `Problembericht ${_bugNowLabel()}`).slice(0, 180);
-
-    const swVersion = document.getElementById('swVersionDisplay')?.innerText?.trim() || '';
-    const weatherDebug = includeDebug ? _bugGetWeatherDebugText() : '';
-    const logs = includeDebug ? _bugGetDebugLogs() : [];
-    if (weatherDebug) {
-        logs.push({ ts: new Date().toISOString(), level: 'state', msg: `[WeatherDebugPanel]\n${weatherDebug}` });
-    }
-
-    const payload = {
-        title,
-        message,
-        source: 'vfr-multitool-web',
-        appVersion: swVersion,
-        logs,
-        transcripts: includePax ? _bugGetPaxTranscripts() : [],
-        context: {
-            deviceType: _bugDetectDeviceType(),
-            browser: String(navigator.userAgent || ''),
-            platform: String(navigator.platform || ''),
-            language: String(navigator.language || ''),
-            languages: Array.isArray(navigator.languages) ? navigator.languages.slice(0, 8) : [],
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            online: !!navigator.onLine,
-            viewport: { w: window.innerWidth || 0, h: window.innerHeight || 0, dpr: window.devicePixelRatio || 1 },
-            screen: { w: window.screen?.width || 0, h: window.screen?.height || 0 },
-            url: String(location.href || ''),
-            referrer: String(document.referrer || ''),
-            theme: String(localStorage.getItem('ga_theme') || ''),
-            missionSnapshot: _bugGetMissionSnapshot(),
-            route: includeRoute ? _bugGetRouteSnapshot() : null,
-            localStorageSafe: _bugSafeLocalStorageDump()
-        }
-    };
-
-    const MAX_REPORT_BYTES = 320 * 1024; // Worker-Limit liegt bei ~350 KiB.
-    const enc = new TextEncoder();
-    const _measureBytes = (obj) => enc.encode(JSON.stringify(obj)).length;
-    const _clone = (obj) => JSON.parse(JSON.stringify(obj));
-    const _trimEntryText = (entry, maxLen) => {
-        if (!entry || typeof entry !== 'object') return entry;
-        const out = { ...entry };
-        if (typeof out.msg === 'string' && out.msg.length > maxLen) out.msg = `${out.msg.slice(0, maxLen)}...`;
-        return out;
-    };
-
-    const report = _clone(payload);
-    let bytes = _measureBytes(report);
-
-    if (bytes > MAX_REPORT_BYTES) {
-        // 1) Große Weather-Debug-Dump-Einträge entfernen.
-        if (Array.isArray(report.logs)) {
-            report.logs = report.logs.filter((e) => !(e && typeof e.msg === 'string' && e.msg.startsWith('[WeatherDebugPanel]')));
-        }
-        bytes = _measureBytes(report);
-    }
-    if (bytes > MAX_REPORT_BYTES) {
-        // 2) Logs + Transcripts deutlich kürzen.
-        report.logs = Array.isArray(report.logs)
-            ? report.logs.slice(-180).map((e) => _trimEntryText(e, 420))
-            : [];
-        report.transcripts = Array.isArray(report.transcripts)
-            ? report.transcripts.slice(-80).map((e) => _trimEntryText(e, 280))
-            : [];
-        bytes = _measureBytes(report);
-    }
-    if (bytes > MAX_REPORT_BYTES) {
-        // 3) Route auf Meta reduzieren.
-        if (report.context && report.context.route && typeof report.context.route === 'object') {
-            const wpCount = Number(report.context.route.waypointCount || 0);
-            report.context.route = { waypointCount: wpCount, trimmed: true };
-        }
-        if (report.context && typeof report.context === 'object') {
-            report.context.localStorageSafe = { trimmed: 'true' };
-        }
-        bytes = _measureBytes(report);
-    }
-    if (bytes > MAX_REPORT_BYTES) {
-        // 4) Nur Kern-Context behalten.
-        const c = (report.context && typeof report.context === 'object') ? report.context : {};
-        report.context = {
-            deviceType: c.deviceType || '',
-            timezone: c.timezone || '',
-            online: !!c.online,
-            viewport: c.viewport || null,
-            missionSnapshot: c.missionSnapshot || null,
-            route: c.route || null,
-            trimmed: true
-        };
-        bytes = _measureBytes(report);
-    }
-    if (bytes > MAX_REPORT_BYTES) {
-        // 5) Letzter Fallback: Logs/Transcripts ganz entfernen + Nachricht kürzen.
-        report.logs = [];
-        report.transcripts = [];
-        report.message = String(report.message || '').slice(0, 1400);
-        bytes = _measureBytes(report);
-    }
-
-    const body = JSON.stringify(report);
-
-    if (btn) btn.disabled = true;
-    if (stEl) stEl.textContent = bytes > (260 * 1024) ? 'Sende Bericht (komprimiert)...' : 'Sende Bericht...';
-
-    try {
-        const res = await fetch(BUG_REPORT_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.ok) {
-            throw new Error(data?.error || `HTTP ${res.status}`);
-        }
-        if (stEl) stEl.textContent = `✅ Gesendet (ID: ${data.id || 'ok'})`;
-        setTimeout(() => {
-            if (msgEl) msgEl.value = '';
-            closeBugReportModal();
-        }, 900);
-    } catch (err) {
-        console.error('[BugReport] Send failed:', err);
-        if (stEl) stEl.textContent = `❌ Senden fehlgeschlagen: ${err?.message || err}`;
-    } finally {
-        if (btn) btn.disabled = false;
-    }
+    return window.openBugReportEmailDraft();
 };
-
-(() => {
-    const ov = document.getElementById('bugReportModalOverlay');
-    if (!ov) return;
-    ov.addEventListener('click', (e) => {
-        if (e.target === ov) closeBugReportModal();
-    });
-})();
 
 function escapeMSFSXml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (ch) => ({

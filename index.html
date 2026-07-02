@@ -990,7 +990,10 @@
     <button onclick="window.paxVoiceOpenLog && paxVoiceOpenLog()" style="background: transparent; color: #a0c8ff; border: 1px dashed #2f5a8a; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.7em; margin-top: 2px; opacity: 0.65;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.65">
         🎙 Pax Log
     </button><br>
-    <button id="openTutorialBtn" style="display:block; width:min(320px, 96%); margin:8px auto 8px auto; padding:9px 12px; font-size:0.85em; font-weight:bold; color:#dff0ff; background:linear-gradient(to bottom, #2f4f75, #1c2f46); border:1px solid #4a79a8; border-radius:7px; cursor:pointer;" onclick="window.openInteractiveTutorial && openInteractiveTutorial({ startIndex: 0 });">
+    <button id="btnReportProblemEmail" onclick="window.openBugReportEmailDraft && openBugReportEmailDraft()" title="Öffnet einen E-Mail-Entwurf mit gekürztem Debug-Log. Nichts wird automatisch gesendet." style="display:block; width:min(320px, 96%); margin:8px auto 6px auto; padding:10px 12px; font-size:0.86em; font-weight:bold; color:#e5f2ff; background:linear-gradient(to bottom, #25435f, #14283c); border:1px solid #4a79a8; border-radius:7px; cursor:pointer; text-shadow:0 1px 0 rgba(0,0,0,0.45);">
+        ✉️ Problem per E-Mail
+    </button>
+    <button id="openTutorialBtn" style="display:block; width:min(320px, 96%); margin:0 auto 8px auto; padding:9px 12px; font-size:0.85em; font-weight:bold; color:#dff0ff; background:linear-gradient(to bottom, #2f4f75, #1c2f46); border:1px solid #4a79a8; border-radius:7px; cursor:pointer;" onclick="window.openInteractiveTutorial && openInteractiveTutorial({ startIndex: 0 });">
         📘 Tutorial
     </button>
     <nav class="legal-footer-links" aria-label="Rechtliches">
@@ -1014,34 +1017,6 @@
         </svg>
         Feedback & Community
     </a>
-</div>
-
-<div id="bugReportModalOverlay" class="pin-modal-overlay">
-    <div class="pin-modal-box" style="width:min(92vw,560px);">
-        <h3 style="margin-top:0; color:#fff; margin-bottom:8px; font-family:'Arial', sans-serif;">⚠️ Problem melden</h3>
-        <p style="color:#aaa; font-size:13px; margin:0 0 12px 0;">Sende Debug-Logs, Pax/Voice-Log, Gerätetyp und Browser direkt ins Bug-Backend.</p>
-
-        <div style="display:flex; flex-direction:column; gap:8px; text-align:left;">
-            <textarea id="bugReportMessage" maxlength="5000" rows="6" placeholder="was ist passiert?" style="width:100%; resize:vertical; min-height:108px; font-size:13px;"></textarea>
-
-            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#c7d7eb;">
-                <input id="bugIncludeDebug" type="checkbox" checked style="width:15px; height:15px; accent-color:#4da6ff;"> Debug-Log mitsenden
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#c7d7eb;">
-                <input id="bugIncludePax" type="checkbox" checked style="width:15px; height:15px; accent-color:#4da6ff;"> Pax/Voice-Transcripts mitsenden
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#c7d7eb;">
-                <input id="bugIncludeRoute" type="checkbox" checked style="width:15px; height:15px; accent-color:#4da6ff;"> Route-Details mitsenden (Mission immer dabei)
-            </label>
-        </div>
-
-        <div id="bugReportStatus" style="font-size:12px; color:#9fb3cd; margin-top:10px; min-height:16px;"></div>
-
-        <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
-            <button id="bugReportSendBtn" class="btn-main" style="padding:12px; font-size:14px; text-transform:none; background:linear-gradient(to bottom, #ffb54d, #cc7e14); color:#111; border:1px solid #6a3f10;" onclick="window.sendBugReport && sendBugReport()">📨 Bericht senden</button>
-            <button class="btn-preset" style="padding:12px; margin-top:2px;" onclick="window.closeBugReportModal && closeBugReportModal()">❌ Abbrechen</button>
-        </div>
-    </div>
 </div>
 
 <div id="weatherDebugPanel" style="display:none; position:fixed; right:12px; bottom:12px; width:min(92vw, 460px); max-height:55vh; z-index:100300; background:rgba(8,12,18,0.96); border:1px solid #2e4f71; border-radius:8px; box-shadow:0 12px 30px rgba(0,0,0,0.5); color:#cfe4ff; font-family:monospace;">
@@ -1994,11 +1969,11 @@
 <script defer src="profile.js?v=display-diagnostics-20260701-01"></script>
 <script defer src="map.js?v=legal-attribution-20260702-01"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
-<script defer src="app.js?v=legal-contact-20260702-01"></script>
+<script defer src="app.js?v=bug-report-email-20260702-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
-<script defer src="board.js?v=debug-report-20260523-01"></script>
+<script defer src="board.js?v=bug-report-email-20260702-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
 <script defer src="passenger-voice.js?v=training-briefing-tone-20260630-01"></script>
