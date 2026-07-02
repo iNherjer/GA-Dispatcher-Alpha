@@ -815,23 +815,42 @@ input[type=range]::-webkit-slider-thumb {
     letter-spacing: 0;
 }
 
+.support-donate-prompt {
+    margin: 0 auto 5px auto;
+    color: rgba(219, 232, 244, 0.82);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+}
+
 .paypal-donate-container {
     display: flex;
+    align-items: flex-start;
     justify-content: center;
-    min-height: 47px;
+    min-height: 70px;
     line-height: 0;
+    overflow: hidden;
 }
 
 #donate-button {
     display: inline-flex;
+    align-items: flex-start;
     justify-content: center;
-    min-width: 147px;
-    max-width: 100%;
+    width: 180px;
+    min-height: 70px;
+    max-width: 180px;
+    overflow: hidden;
 }
 
 #donate-button img,
 #donate-button iframe {
-    max-width: 100%;
+    display: block;
+    width: 180px !important;
+    height: auto !important;
+    max-width: 180px;
+    transform: scale(1);
+    transform-origin: center top;
 }
 
 .support-donate-note {
