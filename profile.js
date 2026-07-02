@@ -3774,6 +3774,14 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`Quelle aktiv: ${(window.vpWeatherSource || 'metar').toUpperCase()}${fbLabel}`);
     lines.push(`Terrain Quelle: ${(window.vpTerrainElevationSource || 'terrarium').toUpperCase()}${window.vpElevationFallbackActive ? ' (Fallback aktiv)' : ''}`);
     lines.push(`Refresh Intervall: 30 min`);
+    if (typeof window.gaPerfBaselineSummaryText === 'function') {
+        lines.push('');
+        try {
+            lines.push(window.gaPerfBaselineSummaryText());
+        } catch (err) {
+            lines.push(`Performance Baseline: Debug-Fehler (${err?.message || err})`);
+        }
+    }
     if (typeof window.missionFollowupBuildDebugReport === 'function') {
         lines.push('');
         try {

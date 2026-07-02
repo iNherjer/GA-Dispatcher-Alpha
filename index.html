@@ -1048,6 +1048,9 @@
             <button id="btnDebugPoiChainForce" onclick="window.vpTogglePoiChainDebugForce && vpTogglePoiChainDebugForce();" style="font-size:11px; border:1px solid #5c6f2f; background:#262f14; color:#dfff9f; border-radius:4px; padding:2px 6px; cursor:pointer;">POI-Kette Aus</button>
             <button onclick="window.vpRetryFailedObsTiles && vpRetryFailedObsTiles()" style="font-size:11px; border:1px solid #7a5a2f; background:#3b2a14; color:#ffd28b; border-radius:4px; padding:2px 6px; cursor:pointer;">Retry Tiles</button>
             <button onclick="if (confirm('Rolling Cache wirklich leeren?\\n\\nPool, Tile-Coverage, Failed-Tiles und Route-Cache werden gelöscht.')) { window.vpClearObstacleRollingCache && vpClearObstacleRollingCache(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport(); }" style="font-size:11px; border:1px solid #8a6a2f; background:#4a391b; color:#ffd79f; border-radius:4px; padding:2px 6px; cursor:pointer;">Cache leeren</button>
+            <button id="btnPerfBaselineToggle" onclick="window.gaPerfBaselineToggle && gaPerfBaselineToggle()" style="font-size:11px; border:1px solid #3f6b4f; background:#172f21; color:#a8efbd; border-radius:4px; padding:2px 6px; cursor:pointer;">Perf Start</button>
+            <button id="btnPerfBaselineDownload" onclick="window.gaDownloadPerfBaseline && gaDownloadPerfBaseline()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Perf JSON</button>
+            <span id="perfBaselineStatus" style="font-size:11px; color:#9fb8d8; align-self:center;">bereit</span>
             <button id="btnCopyWeatherDebug" onclick="window.vpCopyWeatherDebugReport && vpCopyWeatherDebugReport()" style="font-size:11px; border:1px solid #3f6b4f; background:#172f21; color:#a8efbd; border-radius:4px; padding:2px 6px; cursor:pointer;">Kopieren</button>
             <button id="btnCopyMissionPhaseDebug" onclick="window.vpCopyMissionPhaseDebugReport && vpCopyMissionPhaseDebugReport()" style="font-size:11px; border:1px solid #5a4678; background:#231b35; color:#d8c4ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Phasen-Log</button>
             <button onclick="window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">↻</button>
@@ -1820,6 +1823,465 @@
             }
             return null;
         };
+
+        const PERF_BASELINE_DEFAULT_TARGETS = [
+            'updateLivePlanePosition',
+            'updateTrafficOnMap',
+            'renderWeatherMarkers',
+            'renderMapWeatherOverlays',
+            'renderVfrIndexOverlay',
+            'triggerVerticalProfileUpdate',
+            'renderMapProfile',
+            'renderMapProfileFrames',
+            'scheduleTerrainAvoidOverlayUpdate',
+            'terrainAvoidHandleFlightState',
+            'checkPaxPoiProximity',
+            'missionSmokeEnsureSpawned',
+            'missionTargetSceneEnsureSpawned',
+            'missionAptArrivalEnsureSpawned'
+        ];
+        let perfBaselineState = null;
+        let lastPerfBaselineReport = null;
+
+        function perfBaselineNow() {
+            return (performance && performance.now) ? performance.now() : Date.now();
+        }
+
+        function perfBaselineRound(value) {
+            return Math.round(Number(value || 0) * 10) / 10;
+        }
+
+        function perfBaselineMemory() {
+            return performance && performance.memory ? {
+                usedJSHeapSize: performance.memory.usedJSHeapSize,
+                totalJSHeapSize: performance.memory.totalJSHeapSize,
+                jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+            } : null;
+        }
+
+        function perfBaselinePercentile(values, pct) {
+            if (!values || !values.length) return 0;
+            const sorted = values.slice().sort((a, b) => a - b);
+            const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1));
+            return sorted[idx];
+        }
+
+        function perfBaselineCreateCallStats(name) {
+            return {
+                name,
+                count: 0,
+                asyncCount: 0,
+                errorCount: 0,
+                totalMs: 0,
+                maxMs: 0,
+                over16Ms: 0,
+                over50Ms: 0,
+                over100Ms: 0,
+                durations: []
+            };
+        }
+
+        function perfBaselineRecordCall(stats, durationMs) {
+            if (!stats) return;
+            const duration = Math.max(0, Number(durationMs) || 0);
+            stats.totalMs += duration;
+            stats.maxMs = Math.max(stats.maxMs, duration);
+            if (duration >= 16) stats.over16Ms += 1;
+            if (duration >= 50) stats.over50Ms += 1;
+            if (duration >= 100) stats.over100Ms += 1;
+            stats.durations.push(duration);
+            if (stats.durations.length > 500) stats.durations.splice(0, stats.durations.length - 500);
+        }
+
+        function perfBaselinePatchTarget(state, name) {
+            if (!state || !name || state.patched[name]) return;
+            const original = window[name];
+            if (typeof original !== 'function') return;
+            if (original.__gaPerfBaselineOriginal) return;
+            const stats = state.calls[name] || (state.calls[name] = perfBaselineCreateCallStats(name));
+            const wrapped = function(...args) {
+                const startedAt = perfBaselineNow();
+                stats.count += 1;
+                try {
+                    const result = original.apply(this, args);
+                    if (result && typeof result.then === 'function') {
+                        stats.asyncCount += 1;
+                        return result.then(
+                            value => {
+                                perfBaselineRecordCall(stats, perfBaselineNow() - startedAt);
+                                return value;
+                            },
+                            err => {
+                                stats.errorCount += 1;
+                                perfBaselineRecordCall(stats, perfBaselineNow() - startedAt);
+                                throw err;
+                            }
+                        );
+                    }
+                    perfBaselineRecordCall(stats, perfBaselineNow() - startedAt);
+                    return result;
+                } catch (err) {
+                    stats.errorCount += 1;
+                    perfBaselineRecordCall(stats, perfBaselineNow() - startedAt);
+                    throw err;
+                }
+            };
+            wrapped.__gaPerfBaselineOriginal = original;
+            window[name] = wrapped;
+            state.patched[name] = original;
+        }
+
+        function perfBaselineInstallPatches(state) {
+            state.targets.forEach(name => perfBaselinePatchTarget(state, name));
+        }
+
+        function perfBaselineRestorePatches(state) {
+            if (!state || !state.patched) return;
+            Object.keys(state.patched).forEach(name => {
+                if (window[name] && window[name].__gaPerfBaselineOriginal === state.patched[name]) {
+                    window[name] = state.patched[name];
+                }
+            });
+            state.patched = {};
+        }
+
+        function perfBaselineCollectSample(state) {
+            if (!state) return;
+            const now = perfBaselineNow();
+            const gps = window.lastLiveGpsPos || null;
+            const sample = {
+                tMs: perfBaselineRound(now - state.startedAtMs),
+                visibilityState: document.visibilityState,
+                memory: perfBaselineMemory(),
+                activePerf: window.gaGetActivePerf ? window.gaGetActivePerf() : [],
+                map: (typeof map !== 'undefined' && map) ? {
+                    zoom: map.getZoom ? map.getZoom() : null,
+                    layers: map._layers ? Object.keys(map._layers).length : null
+                } : null,
+                profileFrameActive: !!window.vpAnimFrameId,
+                gpsAgeMs: gps && Number.isFinite(Number(gps.t)) ? Math.max(0, Date.now() - Number(gps.t)) : null,
+                trafficCount: Array.isArray(window.vpTrafficData) ? window.vpTrafficData.length : 0
+            };
+            state.samples.push(sample);
+            if (state.samples.length > state.maxSamples) state.samples.splice(0, state.samples.length - state.maxSamples);
+        }
+
+        function perfBaselineBuildReport(state) {
+            if (!state) return lastPerfBaselineReport;
+            const now = perfBaselineNow();
+            const durationMs = Math.max(0, now - state.startedAtMs);
+            const frameDeltas = state.frameDeltas.slice();
+            const calls = {};
+            Object.keys(state.calls).sort().forEach(name => {
+                const stats = state.calls[name];
+                calls[name] = {
+                    count: stats.count,
+                    asyncCount: stats.asyncCount,
+                    errorCount: stats.errorCount,
+                    totalMs: perfBaselineRound(stats.totalMs),
+                    avgMs: perfBaselineRound(stats.count ? stats.totalMs / stats.count : 0),
+                    maxMs: perfBaselineRound(stats.maxMs),
+                    p95Ms: perfBaselineRound(perfBaselinePercentile(stats.durations, 95)),
+                    over16Ms: stats.over16Ms,
+                    over50Ms: stats.over50Ms,
+                    over100Ms: stats.over100Ms
+                };
+            });
+            const relevantLogs = buffer.filter(entry => entry.ts >= state.startedAtIso && (
+                entry.level === 'longtask'
+                || entry.level === 'freeze'
+                || entry.level === 'perf-warn'
+                || entry.level === 'fetch-slow'
+                || entry.level === 'fetch-error'
+            ));
+            const logCounts = relevantLogs.reduce((acc, entry) => {
+                acc[entry.level] = (acc[entry.level] || 0) + 1;
+                return acc;
+            }, {});
+            const memoryNow = perfBaselineMemory();
+            const memoryDelta = memoryNow && state.startMemory ? {
+                usedJSHeapSize: memoryNow.usedJSHeapSize - state.startMemory.usedJSHeapSize,
+                totalJSHeapSize: memoryNow.totalJSHeapSize - state.startMemory.totalJSHeapSize
+            } : null;
+            return {
+                name: state.name,
+                active: state.active,
+                startedAt: state.startedAtIso,
+                durationMs: perfBaselineRound(durationMs),
+                targetCount: state.targets.length,
+                patchedTargets: Object.keys(state.patched || {}).sort(),
+                skippedTargets: state.targets.filter(name => !state.calls[name]),
+                calls,
+                frames: {
+                    count: state.frameCount,
+                    fpsApprox: perfBaselineRound(state.frameCount / Math.max(0.001, durationMs / 1000)),
+                    avgDeltaMs: perfBaselineRound(frameDeltas.length ? frameDeltas.reduce((sum, value) => sum + value, 0) / frameDeltas.length : 0),
+                    maxGapMs: perfBaselineRound(state.maxFrameGapMs),
+                    p95GapMs: perfBaselineRound(perfBaselinePercentile(frameDeltas, 95)),
+                    over50Ms: state.frameGapOver50Ms,
+                    over100Ms: state.frameGapOver100Ms,
+                    over250Ms: state.frameGapOver250Ms
+                },
+                memory: {
+                    start: state.startMemory,
+                    current: memoryNow,
+                    delta: memoryDelta
+                },
+                logs: {
+                    counts: logCounts,
+                    recent: relevantLogs.slice(-30)
+                },
+                samples: state.samples.slice()
+            };
+        }
+
+        function perfBaselineFrameLoop(ts) {
+            const state = perfBaselineState;
+            if (!state || !state.active) return;
+            const now = Number(ts || perfBaselineNow());
+            if (state.lastFrameAtMs) {
+                const gap = now - state.lastFrameAtMs;
+                state.frameDeltas.push(gap);
+                if (state.frameDeltas.length > 1000) state.frameDeltas.splice(0, state.frameDeltas.length - 1000);
+                state.maxFrameGapMs = Math.max(state.maxFrameGapMs, gap);
+                if (gap >= 50) state.frameGapOver50Ms += 1;
+                if (gap >= 100) state.frameGapOver100Ms += 1;
+                if (gap >= 250) state.frameGapOver250Ms += 1;
+            }
+            state.lastFrameAtMs = now;
+            state.frameCount += 1;
+            state.rafId = requestAnimationFrame(perfBaselineFrameLoop);
+        }
+
+        let perfBaselineUiTimer = null;
+
+        function perfBaselineFormatDuration(ms) {
+            const seconds = Math.max(0, Math.round(Number(ms || 0) / 1000));
+            if (seconds < 60) return `${seconds}s`;
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}m ${String(secs).padStart(2, '0')}s`;
+        }
+
+        function perfBaselineFormatBytes(bytes) {
+            if (!Number.isFinite(Number(bytes))) return '-';
+            const mb = Number(bytes) / (1024 * 1024);
+            const sign = mb > 0 ? '+' : '';
+            return `${sign}${perfBaselineRound(mb)} MB`;
+        }
+
+        function perfBaselineTopCalls(report, limit = 4) {
+            const calls = report && report.calls ? report.calls : {};
+            return Object.keys(calls)
+                .map(name => ({ name, ...calls[name] }))
+                .filter(item => item.count > 0)
+                .sort((a, b) => (Number(b.totalMs) || 0) - (Number(a.totalMs) || 0))
+                .slice(0, limit);
+        }
+
+        function perfBaselineUpdateUi() {
+            const active = !!(perfBaselineState && perfBaselineState.active);
+            const btn = document.getElementById('btnPerfBaselineToggle');
+            const downloadBtn = document.getElementById('btnPerfBaselineDownload');
+            const status = document.getElementById('perfBaselineStatus');
+            const hasReport = active || !!lastPerfBaselineReport;
+            if (btn) {
+                btn.textContent = active ? 'Perf Stop' : 'Perf Start';
+                btn.style.borderColor = active ? '#9b4f4f' : '#3f6b4f';
+                btn.style.background = active ? '#462020' : '#172f21';
+                btn.style.color = active ? '#ffb4b4' : '#a8efbd';
+                btn.title = active ? 'Performance-Messung stoppen' : 'Performance-Messung starten';
+            }
+            if (downloadBtn) {
+                downloadBtn.disabled = !hasReport;
+                downloadBtn.style.opacity = hasReport ? '1' : '0.55';
+                downloadBtn.style.cursor = hasReport ? 'pointer' : 'not-allowed';
+                downloadBtn.title = hasReport ? 'Performance-Messung als JSON speichern' : 'Noch keine Performance-Messung vorhanden';
+            }
+            if (status) {
+                if (active) {
+                    const elapsed = perfBaselineNow() - perfBaselineState.startedAtMs;
+                    status.textContent = `läuft ${perfBaselineFormatDuration(elapsed)}`;
+                    status.style.color = '#ffcf9f';
+                } else if (lastPerfBaselineReport) {
+                    status.textContent = `letzte ${perfBaselineFormatDuration(lastPerfBaselineReport.durationMs)}`;
+                    status.style.color = '#9fd0ff';
+                } else {
+                    status.textContent = 'bereit';
+                    status.style.color = '#9fb8d8';
+                }
+            }
+        }
+
+        function perfBaselineStartUiTimer() {
+            if (perfBaselineUiTimer) return;
+            perfBaselineUiTimer = setInterval(() => {
+                if (!perfBaselineState || !perfBaselineState.active) {
+                    perfBaselineStopUiTimer();
+                    perfBaselineUpdateUi();
+                    return;
+                }
+                perfBaselineUpdateUi();
+            }, 1000);
+        }
+
+        function perfBaselineStopUiTimer() {
+            if (!perfBaselineUiTimer) return;
+            clearInterval(perfBaselineUiTimer);
+            perfBaselineUiTimer = null;
+        }
+
+        function perfBaselineRefreshDebugPanel() {
+            if (typeof window.vpRefreshWeatherDebugReport !== 'function') return;
+            try {
+                window.vpRefreshWeatherDebugReport();
+            } catch (_) {}
+        }
+
+        window.gaUpdatePerfBaselineUi = perfBaselineUpdateUi;
+
+        window.gaPerfBaselineIsActive = function() {
+            return !!(perfBaselineState && perfBaselineState.active);
+        };
+
+        window.gaPerfBaselineSummaryText = function() {
+            const report = perfBaselineState && perfBaselineState.active
+                ? window.gaPerfBaselineReport()
+                : lastPerfBaselineReport;
+            if (!report) return 'Performance Baseline: noch keine Messung';
+            const lines = [];
+            const stateLabel = report.active ? 'läuft' : 'letzte Messung';
+            lines.push(`Performance Baseline: ${stateLabel}`);
+            lines.push(`- Dauer: ${perfBaselineFormatDuration(report.durationMs)} | Targets: ${report.targetCount} | Samples: ${Array.isArray(report.samples) ? report.samples.length : 0}`);
+            if (report.frames) {
+                lines.push(`- Frames: ~${report.frames.fpsApprox} fps, p95 Gap ${report.frames.p95GapMs} ms, max ${report.frames.maxGapMs} ms, >100 ms ${report.frames.over100Ms}`);
+            }
+            if (report.memory && report.memory.delta) {
+                lines.push(`- Heap Delta: used ${perfBaselineFormatBytes(report.memory.delta.usedJSHeapSize)}, total ${perfBaselineFormatBytes(report.memory.delta.totalJSHeapSize)}`);
+            }
+            const topCalls = perfBaselineTopCalls(report);
+            if (topCalls.length) {
+                lines.push(`- Teuerste Funktionen: ${topCalls.map(item => `${item.name} ${item.totalMs} ms/${item.count}x p95 ${item.p95Ms} ms`).join('; ')}`);
+            } else {
+                lines.push('- Teuerste Funktionen: noch keine Calls in den beobachteten Targets');
+            }
+            const logCounts = report.logs && report.logs.counts ? report.logs.counts : {};
+            const logSummary = Object.keys(logCounts).sort().map(key => `${key}:${logCounts[key]}`).join(', ');
+            lines.push(`- Perf Logs: ${logSummary || '-'}`);
+            return lines.join('\n');
+        };
+
+        window.gaPerfBaselineToggle = function(options = {}) {
+            const report = perfBaselineState && perfBaselineState.active
+                ? window.gaPerfBaselineStop()
+                : window.gaPerfBaselineStart({ name: 'ui-baseline', ...options });
+            perfBaselineUpdateUi();
+            perfBaselineRefreshDebugPanel();
+            return report;
+        };
+
+        window.gaDownloadPerfBaseline = function() {
+            const report = perfBaselineState && perfBaselineState.active
+                ? window.gaPerfBaselineReport()
+                : lastPerfBaselineReport;
+            if (!report) {
+                alert('Noch keine Performance-Messung vorhanden. Bitte zuerst Perf Start nutzen.');
+                return null;
+            }
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `ga-perf-baseline-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(a.href);
+                a.remove();
+            }, 1000);
+            return report;
+        };
+
+        function perfBaselineInitUi() {
+            perfBaselineUpdateUi();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', perfBaselineInitUi, { once: true });
+        } else {
+            setTimeout(perfBaselineInitUi, 0);
+        }
+
+        window.gaPerfBaselineStart = function(options = {}) {
+            if (perfBaselineState && perfBaselineState.active) window.gaPerfBaselineStop();
+            const targets = Array.isArray(options.targets) && options.targets.length
+                ? options.targets.map(String)
+                : PERF_BASELINE_DEFAULT_TARGETS.slice();
+            const sampleEveryMs = Math.max(250, Number(options.sampleEveryMs || 1000) || 1000);
+            const startedAtMs = perfBaselineNow();
+            perfBaselineState = {
+                name: String(options.name || 'baseline'),
+                active: true,
+                startedAtMs,
+                startedAtIso: new Date().toISOString(),
+                startMemory: perfBaselineMemory(),
+                targets,
+                patched: {},
+                calls: {},
+                samples: [],
+                maxSamples: Math.max(20, Math.min(1200, Number(options.maxSamples || 360) || 360)),
+                frameCount: 0,
+                lastFrameAtMs: 0,
+                frameDeltas: [],
+                maxFrameGapMs: 0,
+                frameGapOver50Ms: 0,
+                frameGapOver100Ms: 0,
+                frameGapOver250Ms: 0,
+                sampleTimer: null,
+                patchTimer: null,
+                rafId: null
+            };
+            perfBaselineInstallPatches(perfBaselineState);
+            perfBaselineState.patchTimer = setInterval(() => perfBaselineInstallPatches(perfBaselineState), 1500);
+            perfBaselineState.sampleTimer = setInterval(() => perfBaselineCollectSample(perfBaselineState), sampleEveryMs);
+            perfBaselineCollectSample(perfBaselineState);
+            perfBaselineState.rafId = requestAnimationFrame(perfBaselineFrameLoop);
+            perfBaselineStartUiTimer();
+            push('perf-baseline', ['[PERF BASELINE] start'], { name: perfBaselineState.name, targets });
+            const report = window.gaPerfBaselineReport();
+            perfBaselineUpdateUi();
+            return report;
+        };
+
+        window.gaPerfBaselineReport = function() {
+            return perfBaselineBuildReport(perfBaselineState);
+        };
+
+        window.gaPerfBaselineStop = function() {
+            const state = perfBaselineState;
+            if (!state) return lastPerfBaselineReport;
+            state.active = false;
+            if (state.sampleTimer) clearInterval(state.sampleTimer);
+            if (state.patchTimer) clearInterval(state.patchTimer);
+            if (state.rafId) cancelAnimationFrame(state.rafId);
+            perfBaselineRestorePatches(state);
+            const report = perfBaselineBuildReport(state);
+            lastPerfBaselineReport = report;
+            perfBaselineState = null;
+            perfBaselineStopUiTimer();
+            push('perf-baseline', ['[PERF BASELINE] stop'], {
+                name: report && report.name,
+                durationMs: report && report.durationMs,
+                calls: report && report.calls ? Object.keys(report.calls).length : 0,
+                maxGapMs: report && report.frames ? report.frames.maxGapMs : 0
+            });
+            perfBaselineUpdateUi();
+            return report;
+        };
+
+        window.gaGetLastPerfBaseline = function() {
+            return lastPerfBaselineReport;
+        };
+
         window.gaGetDebugSnapshot = function() {
             return {
                 ts: new Date().toISOString(),
@@ -1844,6 +2306,7 @@
                     lastUpdatedAt: window.vpVfrIndexState.lastUpdatedAt
                 } : null,
                 activePerf: window.gaGetActivePerf(),
+                perfBaseline: perfBaselineState ? window.gaPerfBaselineReport() : lastPerfBaselineReport,
                 logs: buffer.slice()
             };
         };
@@ -1978,7 +2441,7 @@
 <script defer src="mission-poi-chain.js?v=poi-chain-20260620-01"></script>
 <script defer src="sync.js?v=direct-to-freeflight-20260701-01"></script>
 <script defer src="checklists.js?v=minimap-attribution-20260702-01"></script>
-<script defer src="profile.js?v=display-log-cleanup-20260702-01"></script>
+<script defer src="profile.js?v=perf-baseline-20260702-01"></script>
 <script defer src="map.js?v=map-draw-safe-zone-20260702-01"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
 <script defer src="app.js?v=readme-refresh-20260702-01"></script>
