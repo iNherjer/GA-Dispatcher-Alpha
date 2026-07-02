@@ -1607,12 +1607,14 @@
         const narrowLayout = window.innerWidth <= 767 || crampedSide;
         const drawerHeight = () => Math.min(maxHeight, Math.max(180, drawer.scrollHeight || 220));
 
-        let width = Math.min(320, Math.max(220, window.innerWidth - margin * 2));
+        const viewportWidth = Math.max(220, window.innerWidth - margin * 2);
+        const preferredMaxWidth = Math.min(400, viewportWidth);
+        const sideCapacity = Math.max(spaceRight, spaceLeft) - gap - margin;
+        let width = Math.min(preferredMaxWidth, Math.max(260, sideCapacity));
         let maxHeight = Math.min(480, Math.max(220, window.innerHeight - margin * 2 - 28));
 
         if (narrowLayout) {
-            width = Math.min(360, Math.max(220, window.innerWidth - margin * 2, 0));
-            if (panelRect.width > 240) width = Math.min(width, Math.max(220, panelRect.width - 18));
+            width = Math.min(380, Math.max(220, viewportWidth));
             maxHeight = Math.min(340, Math.max(190, window.innerHeight - margin * 2));
             let left = panelRect.left + (panelRect.width - width) / 2;
             left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin));

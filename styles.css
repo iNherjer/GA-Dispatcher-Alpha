@@ -8379,9 +8379,11 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     z-index: 8;
     left: var(--formula-drawer-left, 24px);
     top: var(--formula-drawer-top, 48px);
-    width: var(--formula-drawer-width, min(320px, calc(100vw - 24px)));
+    width: var(--formula-drawer-width, min(400px, calc(100vw - 24px)));
+    max-width: calc(100vw - 24px);
     max-height: var(--formula-drawer-max-height, min(524px, calc(100vh - 24px)));
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     touch-action: pan-y;
     opacity: 0;
     transform: translateX(-14px) rotate(-1.2deg);
@@ -8451,12 +8453,14 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     text-decoration-color: rgba(74, 78, 86, 0.32);
     text-decoration-thickness: 2px;
     text-underline-offset: 3px;
+    overflow-wrap: anywhere;
 }
 
 .formula-drawer-source {
     margin-bottom: 13px;
     color: var(--formula-pencil-soft);
     font: 700 10px/1.3 var(--formula-hand);
+    overflow-wrap: anywhere;
 }
 
 .formula-drawer-source a {
@@ -8470,11 +8474,13 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     margin: 0;
     display: grid;
     gap: 7px;
+    min-width: 0;
 }
 
 .formula-section {
     border-bottom: 1px dashed var(--formula-pencil-faint);
     padding-bottom: 4px;
+    min-width: 0;
 }
 
 .formula-section:last-child {
@@ -8483,6 +8489,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .formula-section-toggle {
     width: 100%;
+    min-width: 0;
     min-height: 34px;
     box-sizing: border-box;
     border: 0;
@@ -8497,6 +8504,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     text-align: left;
     font: 900 15px/1.1 var(--formula-hand);
     text-shadow: 0 1px 0 rgba(255,255,255,0.62);
+    overflow-wrap: anywhere;
 }
 
 .formula-section-toggle::after {
@@ -8529,6 +8537,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     color: var(--formula-pencil);
     font: 700 12px/1.42 var(--formula-hand);
     text-shadow: 0 1px 0 rgba(255,255,255,0.58);
+    min-width: 0;
 }
 
 .formula-panel[hidden] {
@@ -8539,6 +8548,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     margin: 0;
     display: grid;
     gap: 4px;
+    min-width: 0;
 }
 
 .formula-panel strong {
@@ -8567,6 +8577,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
     text-shadow: inherit;
+    overflow-wrap: anywhere;
 }
 
 .formula-help-trigger::after {
@@ -8592,9 +8603,12 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
 .formula-panel span {
     display: block;
+    max-width: 100%;
     padding-left: 8px;
     text-indent: -8px;
     line-height: 1.32;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .formula-panel span[data-formula-expr] {
@@ -8869,6 +8883,7 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 
     .calculator-formula-drawer {
         width: var(--formula-drawer-width, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
         max-height: var(--formula-drawer-max-height, 62vh);
     }
 }
