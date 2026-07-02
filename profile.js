@@ -4335,51 +4335,6 @@ window.vpCopyWeatherDebugReport = async function() {
     }
 };
 
-window.vpCopyDisplayDiagnosticsReport = async function() {
-    const btn = document.getElementById('btnCopyDisplayDiagnostics');
-    const oldText = btn ? btn.textContent : '';
-    try {
-        const text = window.vpBuildDisplayDiagnosticsReport ? window.vpBuildDisplayDiagnosticsReport() : '';
-        if (!text.trim()) throw new Error('empty_display_diagnostics');
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-            await navigator.clipboard.writeText(text);
-        } else {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.setAttribute('readonly', 'readonly');
-            ta.style.position = 'fixed';
-            ta.style.left = '-9999px';
-            document.body.appendChild(ta);
-            ta.select();
-            const ok = document.execCommand && document.execCommand('copy');
-            ta.remove();
-            if (!ok) throw new Error('clipboard_unavailable');
-        }
-        if (btn) {
-            btn.textContent = 'Display kopiert';
-            setTimeout(() => { btn.textContent = oldText || 'Display'; }, 1400);
-        }
-    } catch (err) {
-        if (btn) {
-            btn.textContent = 'Fehler';
-            setTimeout(() => { btn.textContent = oldText || 'Display'; }, 1400);
-        }
-        console.warn('[Display Diagnose] Copy failed:', err);
-    }
-};
-
-window.vpOpenDisplayDiagnostics = function() {
-    if (typeof window.vpToggleWeatherDebugPanel === 'function') {
-        window.vpToggleWeatherDebugPanel(true);
-    } else {
-        const panel = document.getElementById('weatherDebugPanel');
-        if (panel) panel.style.display = 'block';
-    }
-    if (typeof window.vpRefreshWeatherDebugReport === 'function') window.vpRefreshWeatherDebugReport();
-    const body = document.getElementById('weatherDebugBody');
-    if (body) body.scrollTop = 0;
-};
-
 window.vpBuildMissionPhaseDebugReport = function() {
     const fmt = (ts) => vpFormatDebugTs(ts);
     const lines = [];

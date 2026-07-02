@@ -1046,7 +1046,6 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Seitengröße', text: 'Skaliert die gesamte Webapp im Browser von 30% bis 150%. Minus und Plus aendern den Wert in 5%-Schritten; Reset stellt 100% wieder her.' },
             { term: 'Wofuer gut?', text: 'Hilft, wenn die App im Browser zu gross oder zu klein wirkt: zum Beispiel auf Quest/VR, Tablet, Handy, kleinen Fenstern oder sehr hoch aufloesenden Monitoren.' },
             { term: 'Schaerfe-Grenze', text: 'Diese Einstellung vergroessert oder verkleinert die App, erzeugt aber keine zusaetzlichen physischen Pixel. Wenn ein VR-Browser sein Fenster nur hochskaliert, bleibt der Inhalt trotz groesserer Darstellung weich.' },
-            { term: 'Display Diagnose', text: 'Oeffnet den Debug-Report mit CSS-Viewport, VisualViewport, devicePixelRatio, gespeichertem App-Zoom und geschaetztem Pixelbudget. Damit kannst du Quest, Mac, iPad und Handy direkt vergleichen.' },
             { term: 'Geraete', text: 'Die Einstellung ist nicht VR-spezifisch. Sie wirkt auf jedem Geraet, auf dem der Browser CSS-Zoom unterstuetzt, und wird lokal pro Browser gespeichert.' }
         ]
     }
@@ -38909,7 +38908,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1308', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1309', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
