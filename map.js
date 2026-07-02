@@ -8333,11 +8333,12 @@ function initMapBase() {
     const usaVfrOverlayActive = localStorage.getItem('ga_usa_vfr_overlay_active') === 'true';
     
     // Base Maps
-    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
-    const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
-    const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
-    const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
-    const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
+    const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
+    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: `${osmAttribution}, <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a>` });
+    const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+    const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+    const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
+    const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
     
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
@@ -8408,7 +8409,7 @@ function initMapBase() {
     if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
     if (usaVfrOverlayActive) startupLayers.push(usaVfrSectionalOverlay);
     if (openAipOverlayActive && openAipVectorOverlay) startupLayers.push(openAipVectorOverlay);
-    map = L.map('map', { layers: startupLayers, attributionControl: false, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
+    map = L.map('map', { layers: startupLayers, attributionControl: true, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
         const zoom = Number(map.getZoom && map.getZoom());
@@ -9235,11 +9236,14 @@ function updateMiniMap(attempt = 0) {
         }
 
         if (!miniMap) {
-            miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
-            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(miniMap);
+            miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: true });
+            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors, OpenTopoMap'
+            }).addTo(miniMap);
             L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
                 opacity: 0.65,
-                maxNativeZoom: 12
+                maxNativeZoom: 12,
+                attribution: 'AeroData / Navigraph'
             }).addTo(miniMap);
         }
 

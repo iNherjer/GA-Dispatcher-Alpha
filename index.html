@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=paypal-support-20260702-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=legal-page-20260702-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=paypal-support-20260702-01">
+        <link rel="stylesheet" href="styles.css?v=legal-page-20260702-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -990,12 +990,14 @@
     <button onclick="window.paxVoiceOpenLog && paxVoiceOpenLog()" style="background: transparent; color: #a0c8ff; border: 1px dashed #2f5a8a; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.7em; margin-top: 2px; opacity: 0.65;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.65">
         🎙 Pax Log
     </button><br>
-    <button id="btnReportProblem" onclick="window.openBugReportModal && openBugReportModal()" style="display:block; width:min(320px, 96%); margin:8px auto 6px auto; padding:10px 12px; font-size:0.88em; font-weight:bold; color:#ffe8b0; background:linear-gradient(to bottom, #5a3a12, #2f1f0a); border:1px solid #8a5d1f; border-radius:7px; cursor:pointer; text-shadow:0 1px 0 rgba(0,0,0,0.45);">
-        ⚠️ Problem senden
-    </button>
-    <button id="openTutorialBtn" style="display:block; width:min(320px, 96%); margin:0 auto 8px auto; padding:9px 12px; font-size:0.85em; font-weight:bold; color:#dff0ff; background:linear-gradient(to bottom, #2f4f75, #1c2f46); border:1px solid #4a79a8; border-radius:7px; cursor:pointer;" onclick="window.openInteractiveTutorial && openInteractiveTutorial({ startIndex: 0 });">
+    <button id="openTutorialBtn" style="display:block; width:min(320px, 96%); margin:8px auto 8px auto; padding:9px 12px; font-size:0.85em; font-weight:bold; color:#dff0ff; background:linear-gradient(to bottom, #2f4f75, #1c2f46); border:1px solid #4a79a8; border-radius:7px; cursor:pointer;" onclick="window.openInteractiveTutorial && openInteractiveTutorial({ startIndex: 0 });">
         📘 Tutorial
     </button>
+    <nav class="legal-footer-links" aria-label="Rechtliches">
+        <a href="legal.html#impressum">Impressum</a>
+        <a href="legal.html#datenschutz">Datenschutz</a>
+        <a href="legal.html#daten-lizenzen">Daten & Lizenzen</a>
+    </nav>
     <div class="support-donate-block" aria-label="Freiwillige Unterstützung">
         <a href="https://www.paypal.com/donate/?hosted_button_id=PBKAFCYKLDNAC" target="_blank" rel="noopener noreferrer" class="support-donate-link" title="PayPal öffnet in einem neuen Tab">
             <span aria-hidden="true">♥</span>
@@ -1990,9 +1992,9 @@
 <script defer src="sync.js?v=direct-to-freeflight-20260701-01"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=display-diagnostics-20260701-01"></script>
-<script defer src="map.js?v=quest-draw-20260701-01"></script>
+<script defer src="map.js?v=legal-attribution-20260702-01"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
-<script defer src="app.js?v=formula-drawer-width-20260702-01"></script>
+<script defer src="app.js?v=legal-version-20260702-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
