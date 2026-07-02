@@ -8324,6 +8324,42 @@ async function refreshOpenAipOverlay(forceFetch = false) {
     }
 }
 
+function configureMapAttributionControl(targetMap) {
+    if (!targetMap || !targetMap.attributionControl) return;
+    targetMap.attributionControl.setPrefix?.(false);
+    const container = targetMap.attributionControl.getContainer?.();
+    if (!container) return;
+    container.classList.add('ga-map-attribution');
+    container.setAttribute('tabindex', '0');
+    container.setAttribute('role', 'group');
+    container.setAttribute('aria-label', 'Kartenquellen und Lizenzen anzeigen');
+    container.setAttribute('title', 'Kartenquellen und Lizenzen');
+    const collapse = () => {
+        container.classList.remove('is-expanded');
+        container.setAttribute('aria-expanded', 'false');
+    };
+    const toggle = () => {
+        const expanded = container.classList.toggle('is-expanded');
+        container.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    };
+    collapse();
+    container.addEventListener('click', (event) => {
+        if (container.classList.contains('is-expanded') && event.target && event.target.closest?.('a')) return;
+        toggle();
+    });
+    container.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggle();
+        } else if (event.key === 'Escape') {
+            collapse();
+        }
+    });
+    document.addEventListener('click', (event) => {
+        if (!container.contains(event.target)) collapse();
+    });
+}
+
 function initMapBase() {
     if (map) return;
     const radarActive = localStorage.getItem('ga_radar_active') === 'true';
@@ -8333,7 +8369,7 @@ function initMapBase() {
     const usaVfrOverlayActive = localStorage.getItem('ga_usa_vfr_overlay_active') === 'true';
     
     // Base Maps
-    const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
+    const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: `${osmAttribution}, <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a>` });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
@@ -8410,6 +8446,7 @@ function initMapBase() {
     if (usaVfrOverlayActive) startupLayers.push(usaVfrSectionalOverlay);
     if (openAipOverlayActive && openAipVectorOverlay) startupLayers.push(openAipVectorOverlay);
     map = L.map('map', { layers: startupLayers, attributionControl: true, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
+    configureMapAttributionControl(map);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
         const zoom = Number(map.getZoom && map.getZoom());
