@@ -63,3 +63,36 @@ den staged Diff mit `git diff --cached --stat` und bei Bedarf mit
 Wenn `tracker.js` geaendert wurde, gilt beides:
 1. normaler Push-Workflow (inkl. SW hochzaehlen)
 2. plus EXE-Build und Release auf `origin`.
+
+## 4) Stable-Deploy mit Custom Domain
+
+`stable/main` liegt auf dem separaten Remote `stable` (`iNherjer/VFR-Multitool`) und
+veroeffentlicht die Custom Domain `www.vfr-multitool.de`.
+
+Wichtig: `stable/main` darf deshalb nicht mehr hart und bytegenau auf `origin/main`
+gesetzt werden. Ein exakter Force-Sync entfernt die `CNAME`-Datei aus Stable und
+loescht damit die Custom-Domain-Bindung bei GitHub Pages.
+
+Der richtige Stable-Deploy ist:
+
+1. Beta wie bisher auf den aktuellen `origin/main`-SHA nachziehen.
+2. Stable mit dem Overlay-Helper deployen:
+   - `node tools/deploy-stable-pages.mjs`
+3. Danach die Refs und den Pages-Run live pruefen:
+   - `git ls-remote origin refs/heads/main refs/heads/beta`
+   - `git ls-remote beta refs/heads/main`
+   - `git ls-remote stable refs/heads/main`
+   - `gh run list -R iNherjer/VFR-Multitool --limit 5`
+
+Der Helper erstellt aus dem aktuellen `origin/main`-Commit einen temporaeren
+Stable-Deploy-Commit mit nur einer zusaetzlichen Datei:
+
+- `CNAME` mit `www.vfr-multitool.de`
+
+Dann pusht er diesen Commit per `--force-with-lease` nach `stable/main` und stoesst
+einen GitHub-Pages-Build fuer `iNherjer/VFR-Multitool` an. Stable ist dadurch
+inhaltlich auf Origin-Stand, behaelt aber sein notwendiges Pages-Metadatum.
+
+Wenn `stable/main` lokale Stable-only Commits enthaelt, die mehr als `CNAME`
+aendern, bricht der Helper ab. Nur wenn diese Ueberschreibung bewusst gewollt ist,
+darf `--allow-overwrite` verwendet werden.
