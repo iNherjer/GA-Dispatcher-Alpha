@@ -9952,6 +9952,12 @@ function _syncJsonClone(value) {
     }
 }
 
+function _syncIsStorageQuotaError(err) {
+    const name = String(err?.name || '');
+    const msg = String(err?.message || '');
+    return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || /quota|storage/i.test(msg);
+}
+
 function _syncCompactArray(arr, maxItems = 80) {
     const src = Array.isArray(arr) ? arr : [];
     if (src.length <= maxItems) return src;
@@ -10122,6 +10128,39 @@ function _syncCompactPinboard(pinboard, options = {}) {
         }
     });
     return notes;
+}
+
+function _syncStoreCloudPinboard(pinboard) {
+    const attempts = [
+        { raw: true },
+        { maxFlightRecords: 12, maxPinnedFlights: 10, maxTrack: 100, flightDataLevel: 1 },
+        { maxFlightRecords: 8, maxPinnedFlights: 8, maxTrack: 70, flightDataLevel: 1 },
+        { maxFlightRecords: 5, maxPinnedFlights: 6, maxTrack: 40, flightDataLevel: 2 },
+        { maxFlightRecords: 2, maxPinnedFlights: 4, maxTrack: 20, flightDataLevel: 2, maxNotes: 80, textMax: 3000 },
+        { maxFlightRecords: 0, maxPinnedFlights: 2, maxTrack: 0, flightDataLevel: 3, maxNotes: 50, textMax: 1000 },
+        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
+    ];
+    let lastError = null;
+    for (const cfg of attempts) {
+        const notes = cfg.raw ? (Array.isArray(pinboard) ? pinboard : []) : _syncCompactPinboard(pinboard, cfg);
+        try {
+            localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+            return { notes, compacted: !cfg.raw };
+        } catch (err) {
+            lastError = err;
+            if (!_syncIsStorageQuotaError(err)) break;
+        }
+    }
+    throw lastError || new Error('Pinboard konnte lokal nicht gespeichert werden');
+}
+
+async function _syncFetchError(res) {
+    let detail = '';
+    try {
+        detail = (await res.text() || '').trim();
+        if (detail.length > 180) detail = detail.slice(0, 180) + '...';
+    } catch (_) {}
+    return new Error(`HTTP ${res.status}${detail ? ': ' + detail : ''}`);
 }
 
 function _syncCompactActiveMission(activeMission, level = 1) {
@@ -10618,14 +10657,14 @@ async function forceSyncLoad() {
             setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
             return;
         }
-        if (!res.ok) throw new Error("Netzwerkfehler");
+        if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
 
         if (data.lastModified) {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
         }
-        if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
+        const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
         if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
         await _syncApplyActiveMissionFromCloud(data.activeMission || null);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
@@ -10638,7 +10677,7 @@ async function forceSyncLoad() {
         }
         setLastSyncedPayload();
         updateGroupBadgeUI();
-        updateSyncStatus("Cloud: Geladen ✅");
+        updateSyncStatus(pinboardStore?.compacted ? "Cloud: Geladen (kompakt) ✅" : "Cloud: Geladen ✅");
         flashSyncIndicator('down');
 
         setNavComLed('navcomLoadBtn', 'success');
@@ -10646,8 +10685,10 @@ async function forceSyncLoad() {
         if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
         renderLog();
     } catch (e) {
-        updateSyncStatus("Cloud: Lade-Fehler", true);
-        alert("Fehler beim Laden aus der Cloud.");
+        try { console.error("[Sync] Cloud load failed:", e); } catch (_) {}
+        const msg = String(e?.message || '');
+        updateSyncStatus(msg.startsWith('HTTP ') ? `Cloud: ${msg}` : "Cloud: Lade-Fehler", true);
+        alert("Fehler beim Laden aus der Cloud." + (msg ? "\n\nDetails: " + msg : ""));
         setNavComLed('navcomLoadBtn', 'error');
         setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
     }
@@ -10670,7 +10711,7 @@ async function silentSyncLoad() {
         if (data.lastModified && data.lastModified > localSyncTime) {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
-            if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
+            if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
             if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
             await _syncApplyActiveMissionFromCloud(data.activeMission || null);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
@@ -10835,7 +10876,7 @@ async function checkCloudAfterIdle() {
             updateSyncStatus("PIN falsch", true);
             return;
         }
-        if (!res.ok) throw new Error("Netzwerkfehler");
+        if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
         if (data.lastModified && data.lastModified > localSyncTime) {
             // Lokalen Status abgleichen (Habe ich hier ungespeicherte Änderungen?)
@@ -10860,7 +10901,7 @@ async function checkCloudAfterIdle() {
                 // User will laden -> Daten anwenden
                 localSyncTime = data.lastModified;
                 localStorage.setItem('ga_sync_time', localSyncTime);
-                if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
+                if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
                 if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));

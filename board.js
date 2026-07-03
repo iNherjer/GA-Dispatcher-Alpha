@@ -21,6 +21,114 @@ const tutorialNotes = [
     { id: 107, text: "🤖 KI DISPATCHER\n\nTrag unten deinen Gemini API-Key ein für kreative Missions-Storys mit Passagieren & Fracht.", x: 55, y: 42, rot: 2 },
     { id: 108, text: "📌 FLÜGE MERKEN\n\nPinne coole Routen an dieses Brett. Geflogen? Logge sie unten, um deinen Startplatz zu versetzen!", x: 78, y: 46, rot: -2 }
 ];
+
+function pinboardJsonClone(value) {
+    if (value == null) return value;
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+        return null;
+    }
+}
+
+function pinboardIsQuotaError(err) {
+    const name = String(err?.name || '');
+    const msg = String(err?.message || '');
+    return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || /quota|storage/i.test(msg);
+}
+
+function pinboardCompactFlightDataState(state, level = 1) {
+    if (typeof _syncCompactFlightDataState === 'function') {
+        try {
+            const compact = _syncCompactFlightDataState(state, level);
+            if (compact) return compact;
+        } catch (_) {}
+    }
+    const out = pinboardJsonClone(state);
+    if (!out || typeof out !== 'object') return out;
+    delete out.vpElevationData;
+    delete out.vpSegmentAlts;
+    delete out.freqCache;
+    if (level >= 2) {
+        delete out.vpAltWaypoints;
+        delete out.missionRouteWaypoints;
+    }
+    if (level >= 3) {
+        out.wikiDepImageUrl = '';
+        out.wikiDestImageUrl = '';
+        out.wikiDepDescText = '';
+        out.wikiDestDescText = '';
+        out.wikiDepFreqText = '';
+        out.wikiDestFreqText = '';
+    }
+    return out;
+}
+
+function pinboardCompactNotesForStorage(notes, options = {}) {
+    if (typeof _syncCompactPinboard === 'function') {
+        try {
+            return _syncCompactPinboard(notes, options);
+        } catch (_) {}
+    }
+    let out = Array.isArray(notes) ? notes.map(n => pinboardJsonClone(n)).filter(Boolean) : [];
+    const maxNotes = Number(options.maxNotes);
+    if (Number.isFinite(maxNotes) && out.length > maxNotes) out = out.slice(Math.max(0, out.length - maxNotes));
+    const pruneByType = (type, maxKeep) => {
+        if (!Number.isFinite(Number(maxKeep))) return;
+        const indexes = [];
+        out.forEach((note, idx) => { if (note?.type === type) indexes.push(idx); });
+        while (indexes.length > Math.max(0, Number(maxKeep))) {
+            const idx = indexes.shift();
+            out.splice(idx, 1);
+            for (let i = 0; i < indexes.length; i++) indexes[i] -= 1;
+        }
+    };
+    pruneByType('flight_record', options.maxFlightRecords);
+    pruneByType('flight', options.maxPinnedFlights);
+    const level = Number.isFinite(Number(options.flightDataLevel)) ? Number(options.flightDataLevel) : 1;
+    const textMax = Number.isFinite(Number(options.textMax)) ? Number(options.textMax) : 8000;
+    out.forEach(note => {
+        if (!note || typeof note !== 'object') return;
+        if (typeof note.text === 'string' && note.text.length > textMax) note.text = note.text.slice(0, textMax);
+        if (note.type === 'flight' && note.flightData) note.flightData = pinboardCompactFlightDataState(note.flightData, level);
+    });
+    return out;
+}
+
+function pinboardSavePrivateNotes(notes) {
+    const attempts = [
+        { raw: true },
+        { maxFlightRecords: 12, maxPinnedFlights: 10, maxTrack: 100, flightDataLevel: 1 },
+        { maxFlightRecords: 8, maxPinnedFlights: 8, maxTrack: 70, flightDataLevel: 1 },
+        { maxFlightRecords: 5, maxPinnedFlights: 6, maxTrack: 40, flightDataLevel: 2 },
+        { maxFlightRecords: 2, maxPinnedFlights: 4, maxTrack: 20, flightDataLevel: 2, maxNotes: 80, textMax: 3000 },
+        { maxFlightRecords: 0, maxPinnedFlights: 2, maxTrack: 0, flightDataLevel: 3, maxNotes: 50, textMax: 1000 },
+        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
+    ];
+    let lastError = null;
+    for (const attempt of attempts) {
+        const candidate = attempt.raw ? notes : pinboardCompactNotesForStorage(notes, attempt);
+        try {
+            localStorage.setItem('ga_pinboard', JSON.stringify(candidate));
+            return { notes: candidate, compacted: !attempt.raw };
+        } catch (err) {
+            lastError = err;
+            if (!pinboardIsQuotaError(err)) break;
+        }
+    }
+    throw lastError || new Error('Pinboard konnte nicht gespeichert werden');
+}
+
+function pinboardTrySavePrivateNotes(notes, alertText = '') {
+    try {
+        return pinboardSavePrivateNotes(notes).notes || notes;
+    } catch (err) {
+        try { console.error('[Pinboard] Pinnwand konnte nicht gespeichert werden:', err); } catch (_) {}
+        if (alertText) alert(alertText);
+        return null;
+    }
+}
+
 function getGroupName() { return localStorage.getItem('ga_group_name') || ""; }
 function getGroupNick() { return localStorage.getItem('ga_group_nick') || getSyncId() || "Pilot"; }
 
@@ -204,7 +312,7 @@ function toggleTutorialNotes() {
     const hasTutorial = notes.some(n => n.id >= 101 && n.id <= 108);
     if (hasTutorial) notes = notes.filter(n => n.id < 101 || n.id > 108);
     else tutorialNotes.forEach(tn => { if (!notes.find(n => n.id === tn.id)) notes.push(tn); });
-    localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+    if (!pinboardTrySavePrivateNotes(notes, "Die Pinnwand konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
     renderNotes();
 }
 function clearPinboard() {
@@ -282,7 +390,7 @@ function addNote() {
     } else {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         notes.push(newNote);
-        localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+        if (!pinboardTrySavePrivateNotes(notes, "Die Notiz konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
         renderNotes(); triggerCloudSave();
     }
 }
@@ -305,7 +413,7 @@ function deleteNote(id, isGroup) {
         if (!confirm("Zettel wirklich abreißen?")) return;
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         notes = notes.filter(n => n.id !== id);
-        localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+        if (!pinboardTrySavePrivateNotes(notes, "Die Pinnwand konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
         renderNotes(); triggerCloudSave();
     }
 }
@@ -329,7 +437,7 @@ function editNote(id, isGroup) {
             const clean = String(newText || '').trim().slice(0, 250);
             if (newText !== null && clean !== "") {
                 notes[noteIndex].text = clean;
-                localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+                if (!pinboardTrySavePrivateNotes(notes, "Die Notiz konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
                 renderNotes(); triggerCloudSave();
             }
         }
@@ -378,8 +486,9 @@ function pinCurrentFlight() {
         activeMissionContract: pinnedMissionContract || null
     };
     const routeText = `${currentStartICAO} ➔ ${currentDestICAO === "POI" ? currentMissionData.poiName : currentDestICAO}`;
+    const pinnedFlightData = pinboardCompactFlightDataState(state, 1) || state;
     pendingPinNote = {
-        id: Date.now(), type: "flight", flightData: state,
+        id: Date.now(), type: "flight", flightData: pinnedFlightData,
         text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${state.currentMissionData?.mission || ''}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
         x: 35 + Math.random() * 15, y: 20 + Math.random() * 15, rot: Math.floor(Math.random() * 9) - 4
     };
@@ -492,36 +601,7 @@ window.pinCompletedFlightRecord = function(record, opts = {}) {
         for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
     }
 
-    const _savePinboardWithPrune = (arr) => {
-        const tryWrite = (candidate) => {
-            localStorage.setItem('ga_pinboard', JSON.stringify(candidate));
-            return true;
-        };
-        try {
-            return tryWrite(arr);
-        } catch (e) {
-            const msg = String(e?.message || e);
-            if (!/quota/i.test(msg)) throw e;
-            // Quota-Fallback: zuerst alte flight_record-Notizen trimmen, dann harte Obergrenze auf Gesamtmenge.
-            const trimmed = Array.isArray(arr) ? arr.slice() : [];
-            const recIdx = [];
-            trimmed.forEach((n, i) => { if (n?.type === 'flight_record') recIdx.push(i); });
-            while (recIdx.length > 20) {
-                const idx = recIdx.shift();
-                trimmed.splice(idx, 1);
-                for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
-            }
-            while (trimmed.length > 120) trimmed.shift();
-            try {
-                return tryWrite(trimmed);
-            } catch (e2) {
-                console.warn('[Pinboard] Quota-Fallback fehlgeschlagen:', e2?.message || e2);
-                return false;
-            }
-        }
-    };
-
-    const saved = _savePinboardWithPrune(notes);
+    const saved = !!pinboardTrySavePrivateNotes(notes);
     if (saved) {
         triggerCloudSave(true);
         if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
@@ -599,8 +679,15 @@ function executePin(target) {
             alert("Dein privates Board ist voll! (Max 10 Flüge)."); closePinModal(); return;
         }
         notes.push(pendingPinNote);
-        localStorage.setItem('ga_pinboard', JSON.stringify(notes));
-        triggerCloudSave(true);
+        try {
+            const saved = pinboardSavePrivateNotes(notes);
+            notes = saved.notes || notes;
+            triggerCloudSave(true);
+        } catch (err) {
+            try { console.error('[Pinboard] Flug konnte nicht gespeichert werden:', err); } catch (_) {}
+            alert("Der Flug konnte nicht gespeichert werden. Der lokale Speicher ist voll oder blockiert. Bitte lösche alte Pinnwand-Flüge und versuche es erneut.");
+            return;
+        }
         if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert("📌 Flugauftrag privat gespeichert!");
     } else if (target === 'group') {
         pendingPinNote.author = getGroupNick();
@@ -782,7 +869,7 @@ function makeDraggable(element, noteId, isGroup) {
             if (noteIndex > -1) {
                 notes[noteIndex].x = (element.offsetLeft / board.offsetWidth) * 100;
                 notes[noteIndex].y = (element.offsetTop / board.offsetHeight) * 100;
-                localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+                if (!pinboardTrySavePrivateNotes(notes)) return;
                 triggerCloudSave();
             }
         }
