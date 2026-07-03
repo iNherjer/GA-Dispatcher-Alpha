@@ -7422,6 +7422,14 @@ function scheduleRouteProfileReloadSoon(reason = 'route-update') {
     }, 120);
 }
 
+function runMainRoutePostUpdate(label, fn) {
+    try {
+        fn();
+    } catch (err) {
+        console.warn(`[RouteMap] ${label} update failed`, err);
+    }
+}
+
 function notifyMainRouteChanged(reason = 'route-render') {
     if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
     const routeKey = mainRouteProfileRefreshKey(routeWaypoints);
@@ -7429,16 +7437,27 @@ function notifyMainRouteChanged(reason = 'route-render') {
     const routeChanged = window._lastMainRouteProfileRefreshKey !== routeKey;
     window._lastMainRouteProfileRefreshKey = routeKey;
     if (typeof _syncCurrentMissionRouteFromMap === 'function') {
-        _syncCurrentMissionRouteFromMap();
+        try {
+            _syncCurrentMissionRouteFromMap();
+        } catch (err) {
+            console.warn('[RouteMap] Mission route sync failed', err);
+        }
     }
     window.vpBgNeedsUpdate = true;
-    if (routeChanged) window._lastVpRouteKey = null;
+    if (routeChanged) {
+        window._lastVpRouteKey = null;
+        window._lastLmRouteKey = null;
+        window._lastObsRouteKey = null;
+        window._lastWetterRouteKey = null;
+        window._lastWetterCoverageKey = null;
+        window._lastWetterRouteNm = 0;
+    }
     scheduleMainRouteProfileReload(reason);
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {
-        scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
+        scheduleRouteDerivedDataRefresh({ profileDelayMs: 900, airspaceDelayMs: 800, profileDuringBusy: true });
     }
     if (window.gaDebugPush) {
-        window.gaDebugPush('profile', 'Main route render scheduled profile refresh', { reason, routeKey, routeChanged });
+        window.gaDebugPush('profile', 'Main route render scheduled profile refresh', { reason, routeKey, routeChanged, fallbackProfileDelayMs: 900 });
     }
 }
 
@@ -7805,14 +7824,29 @@ function renderMainRoute() {
         routeMarkers.push(marker);
     });
 
-    renderRouteLegLabels();
-    updateRoutePerformance(); updateMiniMap();
-    scheduleWeatherMarkerDodging(true);
-    vpUpdateVfrUi();
-    if (isVfrIndexWeatherLayerEnabled() && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
-        vpScheduleVfrOverlayUpdate(false);
-    }
     notifyMainRouteChanged('route-render');
+    runMainRoutePostUpdate('route leg labels', () => renderRouteLegLabels());
+    runMainRoutePostUpdate('route performance/minimap', () => {
+        if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+        if (typeof updateMiniMap === 'function') updateMiniMap();
+    });
+    runMainRoutePostUpdate('weather marker dodging', () => {
+        if (typeof scheduleWeatherMarkerDodging === 'function') scheduleWeatherMarkerDodging(true);
+    });
+    runMainRoutePostUpdate('VFR UI', () => {
+        if (typeof vpUpdateVfrUi === 'function') vpUpdateVfrUi();
+    });
+    runMainRoutePostUpdate('VFR overlay refresh', () => {
+        if (
+            typeof isVfrIndexWeatherLayerEnabled === 'function'
+            && typeof vpNormalizeVfrCountrySelection === 'function'
+            && typeof vpScheduleVfrOverlayUpdate === 'function'
+            && isVfrIndexWeatherLayerEnabled()
+            && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto'
+        ) {
+            vpScheduleVfrOverlayUpdate(false);
+        }
+    });
 }
 
 window.openRouteWaypointAirportInfo = function (index) {
