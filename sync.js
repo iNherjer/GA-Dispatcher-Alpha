@@ -10088,6 +10088,7 @@ function _syncCompactFlightDataState(state, level = 1) {
 
 function _syncCompactPinboard(pinboard, options = {}) {
     const maxFlightRecords = Number.isFinite(Number(options.maxFlightRecords)) ? Number(options.maxFlightRecords) : 8;
+    const maxPinnedFlights = Number.isFinite(Number(options.maxPinnedFlights)) ? Number(options.maxPinnedFlights) : Infinity;
     const maxTrack = Number.isFinite(Number(options.maxTrack)) ? Number(options.maxTrack) : 80;
     const flightDataLevel = Number.isFinite(Number(options.flightDataLevel)) ? Number(options.flightDataLevel) : 1;
     const textMax = Number.isFinite(Number(options.textMax)) ? Number(options.textMax) : 8000;
@@ -10095,15 +10096,21 @@ function _syncCompactPinboard(pinboard, options = {}) {
     if (Number.isFinite(Number(options.maxNotes)) && notes.length > Number(options.maxNotes)) {
         notes = notes.slice(Math.max(0, notes.length - Number(options.maxNotes)));
     }
-    const flightRecordIndexes = [];
-    notes.forEach((note, idx) => {
-        if (note?.type === 'flight_record') flightRecordIndexes.push(idx);
-    });
-    while (flightRecordIndexes.length > maxFlightRecords) {
-        const idx = flightRecordIndexes.shift();
-        notes.splice(idx, 1);
-        for (let i = 0; i < flightRecordIndexes.length; i++) flightRecordIndexes[i] -= 1;
-    }
+    const pruneByType = (type, maxKeep) => {
+        if (!Number.isFinite(maxKeep)) return;
+        maxKeep = Math.max(0, Math.floor(maxKeep));
+        const indexes = [];
+        notes.forEach((note, idx) => {
+            if (note?.type === type) indexes.push(idx);
+        });
+        while (indexes.length > maxKeep) {
+            const idx = indexes.shift();
+            notes.splice(idx, 1);
+            for (let i = 0; i < indexes.length; i++) indexes[i] -= 1;
+        }
+    };
+    pruneByType('flight_record', maxFlightRecords);
+    pruneByType('flight', maxPinnedFlights);
     notes.forEach(note => {
         if (!note || typeof note !== 'object') return;
         if (typeof note.text === 'string' && note.text.length > textMax) note.text = note.text.slice(0, textMax);
@@ -10111,8 +10118,7 @@ function _syncCompactPinboard(pinboard, options = {}) {
             note.flightRecord = _syncCompactFlightRecord(note.flightRecord, maxTrack);
         }
         if (note.type === 'flight' && note.flightData) {
-            if (options.dropFlightData) delete note.flightData;
-            else note.flightData = _syncCompactFlightDataState(note.flightData, flightDataLevel);
+            note.flightData = _syncCompactFlightDataState(note.flightData, flightDataLevel);
         }
     });
     return notes;
@@ -10158,11 +10164,12 @@ function _syncApplyFollowupsFromCloud(data = null) {
 
 function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
     const attempts = [
-        { maxFlightRecords: 12, maxTrack: 100, flightDataLevel: 1, logbookMax: 40, missionLevel: 1, maxFollowUps: 36 },
-        { maxFlightRecords: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1, maxFollowUps: 30 },
-        { maxFlightRecords: 5, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2, maxFollowUps: 24 },
-        { maxFlightRecords: 2, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2, maxFollowUps: 18 },
-        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 3, logbookMax: 5, missionLevel: 3, maxNotes: 50, textMax: 1000, dropFlightData: true, maxFollowUps: 12 }
+        { maxFlightRecords: 12, maxPinnedFlights: 10, maxTrack: 100, flightDataLevel: 1, logbookMax: 40, missionLevel: 1, maxFollowUps: 36 },
+        { maxFlightRecords: 8, maxPinnedFlights: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1, maxFollowUps: 30 },
+        { maxFlightRecords: 5, maxPinnedFlights: 6, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2, maxFollowUps: 24 },
+        { maxFlightRecords: 2, maxPinnedFlights: 4, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2, maxNotes: 80, textMax: 3000, maxFollowUps: 18 },
+        { maxFlightRecords: 0, maxPinnedFlights: 2, maxTrack: 0, flightDataLevel: 3, logbookMax: 5, missionLevel: 3, maxNotes: 50, textMax: 1000, maxFollowUps: 12 },
+        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, logbookMax: 2, missionLevel: 3, maxNotes: 30, textMax: 600, maxFollowUps: 6 }
     ];
 
     let last = null;
@@ -10411,7 +10418,7 @@ function _syncHasLocalDraftMission() {
     }
 }
 
-function _syncApplyActiveMissionFromCloud(activeMission = null) {
+async function _syncApplyActiveMissionFromCloud(activeMission = null) {
     const briefing = document.getElementById("briefingBox");
     let localMission = null;
     try {
@@ -10448,18 +10455,15 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
             window.__gaCloudActiveMissionApplyInProgress = false;
             window.__gaCloudActiveMissionAppliedAt = Date.now();
         };
-        const restored = restoreMissionState(activeMission, { source: 'cloud', resumeRuntime });
-        if (restored && typeof restored.catch === 'function') {
-            restored
-                .then(markApplied)
-                .catch(err => {
-                    try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
-                    markApplied();
-                });
-        } else {
+        try {
+            const restored = await restoreMissionState(activeMission, { source: 'cloud', resumeRuntime });
             markApplied();
+            return restored !== false;
+        } catch (err) {
+            try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
+            markApplied();
+            return false;
         }
-        return restored !== false;
     }
     try {
         if (_syncMissionStateIsDraft(localMission)) return false;
@@ -10623,7 +10627,7 @@ async function forceSyncLoad() {
         }
         if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
         if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
-        _syncApplyActiveMissionFromCloud(data.activeMission || null);
+        await _syncApplyActiveMissionFromCloud(data.activeMission || null);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -10668,7 +10672,7 @@ async function silentSyncLoad() {
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
             if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
-            _syncApplyActiveMissionFromCloud(data.activeMission || null);
+            await _syncApplyActiveMissionFromCloud(data.activeMission || null);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -10685,7 +10689,9 @@ async function silentSyncLoad() {
             updateSyncStatus("Auto-Sync: Aktualisiert 🔄");
             flashSyncIndicator('down');
         }
-    } catch (e) {}
+    } catch (e) {
+        try { console.warn('[SYNC] Silent Cloud Load fehlgeschlagen:', e); } catch (_) {}
+    }
 }
 // === GROUP SYNC LOGIC ===
 let groupSyncTime = 0;
@@ -10856,7 +10862,7 @@ async function checkCloudAfterIdle() {
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
                 if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
-                _syncApplyActiveMissionFromCloud(data.activeMission || null);
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);

@@ -523,7 +523,7 @@ window.pinCompletedFlightRecord = function(record, opts = {}) {
 
     const saved = _savePinboardWithPrune(notes);
     if (saved) {
-        triggerCloudSave();
+        triggerCloudSave(true);
         if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
     } else {
         console.warn('[Pinboard] FlightRecord konnte nicht gespeichert werden (Quota).');
@@ -600,7 +600,7 @@ function executePin(target) {
         }
         notes.push(pendingPinNote);
         localStorage.setItem('ga_pinboard', JSON.stringify(notes));
-        triggerCloudSave();
+        triggerCloudSave(true);
         if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert("📌 Flugauftrag privat gespeichert!");
     } else if (target === 'group') {
         pendingPinNote.author = getGroupNick();
@@ -613,7 +613,7 @@ function executePin(target) {
     if(document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
     closePinModal();
 }
-function loadPinnedFlight(id, isGroup) {
+async function loadPinnedFlight(id, isGroup) {
     let note;
     if(isGroup) {
         note = (groupDataCache.notes || []).find(n => n.id === id);
@@ -621,17 +621,35 @@ function loadPinnedFlight(id, isGroup) {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         note = notes.find(n => n.id === id);
     }
-    if (note && note.flightData) {
-        if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(note.flightData)) {
-            alert("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.");
-            return;
-        }
+    if (!note) return;
+    if (!note.flightData) {
+        alert("Dieser Pinnwand-Flug enthaelt keine gespeicherten Flugdaten mehr. Bitte den Flug neu anpinnen oder aus einem neueren Cloud-Backup laden.");
+        try { console.warn('[Pinboard] Flight note without flightData cannot be restored:', note); } catch (_) {}
+        return;
+    }
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(note.flightData)) {
+        alert("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.");
+        return;
+    }
+    try {
         try {
             localStorage.setItem('ga_active_mission', JSON.stringify(note.flightData));
         } catch (_) {}
-        restoreMissionState(note.flightData);
+        const restored = await restoreMissionState(note.flightData, { source: 'pinboard' });
+        if (restored === false) {
+            alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
+            return;
+        }
         togglePinboard();
-        setTimeout(() => { if (map && routeWaypoints.length >= 2) { map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] }); updateMiniMap(); } }, 300);
+        setTimeout(() => {
+            if (typeof map !== 'undefined' && map && routeWaypoints.length >= 2) {
+                map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
+                updateMiniMap();
+            }
+        }, 300);
+    } catch (err) {
+        console.error('[Pinboard] Flight restore failed:', err);
+        alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
     }
 }
 function renderNotes() {
@@ -788,7 +806,7 @@ window.exportMission = function() {
     }).catch(() => alert("Fehler beim Kopieren."));
 };
 
-window.importMission = function() {
+window.importMission = async function() {
     const code = prompt("Füge hier den kopierten Flug-Code ein:");
     if (!code) return;
     try {
@@ -799,7 +817,11 @@ window.importMission = function() {
             return;
         }
         localStorage.setItem('ga_active_mission', JSON.stringify(state));
-        restoreMissionState(state);
+        const restored = await restoreMissionState(state, { source: 'import' });
+        if (restored === false) {
+            alert("❌ Dieser Flug konnte nicht geladen werden.");
+            return;
+        }
         alert("✅ Flug erfolgreich geladen!");
     } catch(e) {
         alert("❌ Ungültiger oder beschädigter Code.");
@@ -1801,21 +1823,34 @@ window.importMSFS = function(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         const content = e.target.result;
         document.getElementById('msfsFileInput').value = ''; 
         
         const backupMatch = content.match(/GA_DISPATCHER_BACKUP\[(.*?)\]/);
         if (backupMatch && backupMatch[1]) {
+            let backupState = null;
             try {
                 const decoded = decodeURIComponent(atob(backupMatch[1]));
-                const state = JSON.parse(decoded);
-                if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(state)) {
+                backupState = JSON.parse(decoded);
+                if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(backupState)) {
                     alert("Der MSFS-Plan enthaelt nur einen Dispatcher-Entwurf. Bitte erst akzeptieren und neu exportieren.");
                     return;
                 }
-                localStorage.setItem('ga_active_mission', JSON.stringify(state));
-                restoreMissionState(state);
+            } catch(err) { console.warn("Backup Code fehlerhaft, parse regulär."); }
+            if (backupState) {
+                try {
+                    localStorage.setItem('ga_active_mission', JSON.stringify(backupState));
+                    const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
+                    if (restored === false) {
+                        alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
+                        return;
+                    }
+                } catch(err) {
+                    console.warn("Backup Restore fehlgeschlagen:", err);
+                    alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
+                    return;
+                }
                 closeTransferModal();
                 alert("✅ Eigener Flugplan inkl. KI-Briefing erfolgreich wiederhergestellt!");
                 setTimeout(() => {
@@ -1825,7 +1860,7 @@ window.importMSFS = function(event) {
                     }
                 }, 300);
                 return;
-            } catch(err) { console.warn("Backup Code fehlerhaft, parse regulär."); }
+            }
         }
 
         const parser = new DOMParser();
