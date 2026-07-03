@@ -7965,6 +7965,39 @@ function _missionEndDeboardingBusy() {
         || scene.deboardingActive);
 }
 
+function _missionCriticalActionConfirmMessage(action = 'end', options = {}) {
+    const normalized = String(action || 'end').toLowerCase();
+    if (normalized === 'close') {
+        return 'Mission wirklich schliessen?\n\nDer Missionsabschluss wird uebernommen und der laufende Missionsstatus zurueckgesetzt.';
+    }
+    if (normalized === 'reset') {
+        return 'Mission wirklich zuruecksetzen?\n\nAktive Missionsphase, Szenenstatus und Laufzeitdaten werden geloescht.';
+    }
+    if (normalized === 'stop') {
+        return 'Mission wirklich stoppen?\n\nDiese Aktion beendet die laufende Mission manuell.';
+    }
+    if (normalized === 'sim-end') {
+        return 'Sim-Mission wirklich beenden?\n\nDer Missionsabschluss wird jetzt ausgefuehrt.';
+    }
+    if (normalized === 'cargo-end') {
+        return 'Entladung abschliessen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.';
+    }
+    if (normalized === 'cargo-unload') {
+        return 'Entladung wirklich abschliessen?\n\nDiese Missionsaktion bestaetigt die aktuelle Entladung.';
+    }
+    if (normalized === 'debug-end') {
+        return 'Debug-Mission wirklich als beendet markieren?\n\nDiese Aktion veraendert den Follow-up-/Missionsstatus.';
+    }
+    return options?.message || 'Mission wirklich beenden?\n\nDer Missionsabschluss wird jetzt ausgefuehrt.';
+}
+
+function _confirmMissionCriticalAction(action = 'end', options = {}) {
+    if (options?.skipConfirm) return true;
+    const message = _missionCriticalActionConfirmMessage(action, options);
+    try { return !!confirm(message); } catch (_) { return false; }
+}
+window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
+
 function _updateMissionStartBanner() {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -9467,6 +9500,15 @@ window.manualMissionEnd = function(options = {}) {
         window.openMissionCargoDialog('unload');
         return false;
     }
+    if (!options.skipConfirm) {
+        const confirmAction = (groundAction.action === 'end' || endReady.atTarget || poiGroundEndReady || bushGroundEndReady || runtimeGroundEndReady)
+            ? 'end'
+            : 'stop';
+        if (!_confirmMissionCriticalAction(confirmAction, options)) {
+            _missionPhaseDebugPush('trigger', { name: 'manualMissionEnd:cancelled', action: confirmAction });
+            return false;
+        }
+    }
     if (_missionEndDeboardingBusy()) {
         _updateMissionRuntimeUi();
         return true;
@@ -9538,8 +9580,9 @@ window.manualMissionEnd = function(options = {}) {
     return endSceneStarted || cargoOutcome || true;
 };
 
-window.completeMissionClose = function(reason = 'mission-close') {
+window.completeMissionClose = function(reason = 'mission-close', options = {}) {
     if (!missionRuntime.closingPending) return false;
+    if (!options?.skipConfirm && !_confirmMissionCriticalAction('close', options)) return false;
     if (typeof _missionCargoFinalizeMissionOutcome === 'function' && !missionRuntime.closingOutcome) {
         try {
             missionRuntime.closingOutcome = _missionCargoFinalizeMissionOutcome({ source: reason });
@@ -9636,6 +9679,7 @@ window.handleMissionStartBannerAction = async function() {
                 || simEndPhase === 'ready_to_close'
             );
             if (window.simModeActive && typeof window.completeSimMissionEnd === 'function' && groundAction.action === 'end' && simEndAllowed) {
+                if (!_confirmMissionCriticalAction('sim-end')) return false;
                 _missionPhaseDebugPush('trigger', {
                     name: 'handleMissionStartBannerAction:complete-sim-end',
                     phase: groundAction.phase

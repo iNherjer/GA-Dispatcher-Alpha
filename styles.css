@@ -10683,11 +10683,14 @@ body.theme-retro .mission-accept-btn {
     right: 0 !important;
     z-index: 100210 !important;
     pointer-events: auto !important;
+    touch-action: manipulation;
+    overscroll-behavior: contain;
 }
 .awm-freq-entry { display:flex; align-items:center; gap:10px;
     background:rgba(8,8,8,0.94); border-top-width:2px; border-top-style:solid;
     padding:8px 10px 8px 13px; backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px); cursor:pointer; user-select:none; }
+    -webkit-backdrop-filter:blur(8px); cursor:pointer; user-select:none;
+    touch-action: manipulation; }
 .awm-freq-name  { font-weight:bold; font-size:13px; font-family:monospace;
     letter-spacing:.4px; white-space:nowrap; }
 .awm-freq-vals  { font-size:15px; font-family:monospace; }

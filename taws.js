@@ -413,10 +413,27 @@ function _awPulseOnProfileBand(as) {
  * Frequenz/Squawk-Banner am oberen Kartenrand anzeigen.
  * Bleibt stehen bis der Pilot tippt/klickt — kein Auto-Dismiss.
  */
+function _awConsumeFreqBannerEvent(ev, options = {}) {
+    if (!ev) return;
+    if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+    if (options.preventDefault !== false && ev.cancelable && typeof ev.preventDefault === 'function') ev.preventDefault();
+}
+
+function _awInstallFreqBannerBarrier(banner) {
+    if (!banner || banner.__awmFreqBarrierInstalled) return;
+    banner.__awmFreqBarrierInstalled = true;
+    const consume = (ev) => _awConsumeFreqBannerEvent(ev, {
+        preventDefault: !/^(pointerdown|mousedown|touchstart)$/i.test(String(ev?.type || ''))
+    });
+    ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend']
+        .forEach(type => banner.addEventListener(type, consume, { passive: false }));
+}
+
 function _awShowFreqBanner(as, col) {
     if (!as.frequencies || as.frequencies.length === 0) return;
     const banner = document.getElementById('awmFreqBanner');
     if (!banner) return;
+    _awInstallFreqBannerBarrier(banner);
 
     // Gleichen Luftraum nicht doppelt anzeigen
     const asKey = `${as.type}_${as.name || as._id || 'x'}`;
@@ -462,15 +479,25 @@ function _awShowFreqBanner(as, col) {
         `<span style="color:#555;font-size:10px;">·</span>` +
         `<span class="awm-freq-vals">${valsHtml}</span>` +
         `</span>` +
-        `<button class="awm-freq-dismiss" onclick="event.stopPropagation();">✕</button>`;
+        `<button class="awm-freq-dismiss" type="button">✕</button>`;
 
     // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
-    const dismiss = () => {
+    const dismiss = (ev) => {
+        _awConsumeFreqBannerEvent(ev);
+        if (!entry.isConnected) return;
         entry.remove();
         if (!banner.children.length) banner.style.display = 'none';
     };
-    entry.addEventListener('click', dismiss);
-    entry.addEventListener('touchend', dismiss, { passive: true });
+    const consumeOnly = (ev) => _awConsumeFreqBannerEvent(ev, { preventDefault: false });
+    const dismissBtn = entry.querySelector('.awm-freq-dismiss');
+    ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+        entry.addEventListener(type, consumeOnly, { passive: false });
+        if (dismissBtn) dismissBtn.addEventListener(type, consumeOnly, { passive: false });
+    });
+    ['pointerup', 'click', 'touchend'].forEach(type => {
+        entry.addEventListener(type, dismiss, { passive: false });
+        if (dismissBtn) dismissBtn.addEventListener(type, dismiss, { passive: false });
+    });
 
     banner.appendChild(entry);
     banner.style.display = 'block';

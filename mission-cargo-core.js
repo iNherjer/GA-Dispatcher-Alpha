@@ -1871,6 +1871,16 @@ function _missionCargoEscape(text = '') {
     return String(text || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
+function _missionCargoConfirmCriticalAction(action = 'cargo-end') {
+    if (typeof window.confirmMissionCriticalAction === 'function') {
+        return !!window.confirmMissionCriticalAction(action);
+    }
+    const msg = action === 'cargo-unload'
+        ? 'Entladung wirklich abschliessen?'
+        : 'Entladung abschliessen und Mission beenden?';
+    try { return !!confirm(msg); } catch (_) { return false; }
+}
+
 function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const groundHandlingAllowed = _missionCargoGroundHandlingAllowed();
@@ -2538,6 +2548,11 @@ window.finishMissionCargoPickupAndContinue = function() {
 
 window.finishMissionCargoUnloadAndEnd = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd' });
+    const completesMission = _missionRuntimeGroundEndReady();
+    if (!_missionCargoConfirmCriticalAction(completesMission ? 'cargo-end' : 'cargo-unload')) {
+        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:cancelled', completesMission: !!completesMission });
+        return false;
+    }
     _missionCargoSpawnUnloadedSceneObjects('cargo-finish-unload');
     window.closeMissionCargoDialog?.();
     if (_missionSceneIsBushMission() && typeof _missionBushUpdateProgress === 'function') {
@@ -2608,11 +2623,11 @@ window.finishMissionCargoUnloadAndEnd = function() {
         if (completed) return true;
         _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:sim-fallback-manual-end' });
         if (typeof window.manualMissionEnd === 'function') {
-            return !!window.manualMissionEnd({ skipCargoUnload: true });
+            return !!window.manualMissionEnd({ skipCargoUnload: true, skipConfirm: true });
         }
         return true;
     }
-    window.manualMissionEnd({ skipCargoUnload: true });
+    window.manualMissionEnd({ skipCargoUnload: true, skipConfirm: true });
 };
 
 function _missionCargoGroundHandlingAllowed() {
