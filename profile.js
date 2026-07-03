@@ -32,6 +32,7 @@ window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;
 window.vpAnimFrameTimerId = null;
 window.vpAnimFrameMeta = window.vpAnimFrameMeta || { lastPaintMs: 0, lastTargetFps: 0 };
+window.vpForceNextMapProfileFrame = false;
 window._vpLastScrollLeft = 0;
 window._vpProfileRenderTimer = null;
 window.vpScheduleProfileRender = function(reason = 'profile', delayMs = 50) {
@@ -43,6 +44,68 @@ window.vpScheduleProfileRender = function(reason = 'profile', delayMs = 50) {
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }, Math.max(0, Number(delayMs || 0)));
 };
+function vpBuildMapProfileBackgroundKey(elevData, opts = {}) {
+    const routeKey = (typeof vpBuildElevationRouteKey === 'function')
+        ? vpBuildElevationRouteKey(elevData || [], 5)
+        : (Array.isArray(elevData) ? elevData.map(p => `${Number(p?.lat || 0).toFixed(5)},${Number((p?.lng ?? p?.lon) || 0).toFixed(5)}`).join('|') : '');
+    return [
+        opts.isHdgMode ? 'HDG' : 'RTE',
+        routeKey,
+        Math.round(Number(opts.maxAlt || 0)),
+        Math.round(Number(opts.zoomFactor || 1) * 100),
+        Number(opts.viewX || 0).toFixed(0),
+        Number(opts.width || 0).toFixed(0),
+        Number(opts.height || 0).toFixed(0),
+        Number(opts.dpr || 1).toFixed(2),
+        vpAirspaceMode,
+        vpShowClouds ? 1 : 0,
+        vpShowIsobars ? 1 : 0,
+        vpShowWindComponents ? 1 : 0,
+        vpWeatherRenderMode || '',
+        window.vpTerrainElevationSource || ''
+    ].join('|');
+}
+function vpInvalidateMapProfileBackground(reason = 'profile-bg', resetCanvas = false) {
+    window.vpBgNeedsUpdate = true;
+    window._vpLastMapProfileBgKey = null;
+    window._vpLastScrollLeft = -1;
+    const bgCanvas = resetCanvas ? document.getElementById('mapProfileCanvasBg') : null;
+    if (bgCanvas) {
+        const prevW = bgCanvas.width || 0;
+        const prevH = bgCanvas.height || 0;
+        const prevStyleW = bgCanvas.style.width || '';
+        const prevStyleH = bgCanvas.style.height || '';
+        try {
+            const ctx = bgCanvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, prevW, prevH);
+        } catch (_) {}
+        if (prevW > 0 && prevH > 0) {
+            bgCanvas.width = prevW;
+            bgCanvas.height = prevH;
+            if (prevStyleW) bgCanvas.style.width = prevStyleW;
+            if (prevStyleH) bgCanvas.style.height = prevStyleH;
+        }
+        bgCanvas.style.transform = 'translateX(0px)';
+    }
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Map profile background invalidated', { reason });
+    if (typeof vpRequestMapProfileFrameNow === 'function') vpRequestMapProfileFrameNow(true);
+}
+function vpIsMapTableProfileOpen(mapTable = null) {
+    const board = mapTable || document.getElementById('mapTableOverlay');
+    if (!board) return false;
+    if (board.classList.contains('active') || board.classList.contains('is-opening')) return true;
+    if (document.body.classList.contains('maptable-open') || document.body.classList.contains('map-is-fullscreen')) return true;
+    if (document.documentElement.classList.contains('map-is-fullscreen')) return true;
+    try {
+        const style = window.getComputedStyle ? window.getComputedStyle(board) : null;
+        if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 0) <= 0.01) return false;
+        const rect = board.getBoundingClientRect();
+        return rect.width > 1 && rect.height > 1 && style.pointerEvents !== 'none';
+    } catch (_) {
+        return false;
+    }
+}
+window.vpIsMapTableProfileOpen = vpIsMapTableProfileOpen;
 window.vpProfilePerfWarn = function(label, t0, extra = null, warnMs = 120) {
     const now = performance && performance.now ? performance.now() : Date.now();
     const durationMs = Math.round((now - Number(t0 || now)) * 10) / 10;
@@ -76,10 +139,15 @@ function vpScheduleMapProfileFrame(delayMs = 0) {
         vpRequestMapProfileRaf();
     }, delay);
 }
-function vpRequestMapProfileFrameNow() {
+function vpRequestMapProfileFrameNow(force = false) {
+    if (force) window.vpForceNextMapProfileFrame = true;
     if (window.vpAnimFrameTimerId) {
         clearTimeout(window.vpAnimFrameTimerId);
         window.vpAnimFrameTimerId = null;
+    }
+    if (window.vpAnimFrameId) {
+        cancelAnimationFrame(window.vpAnimFrameId);
+        window.vpAnimFrameId = null;
     }
     vpRequestMapProfileRaf();
 }
@@ -88,6 +156,7 @@ function vpStopMapProfileFrameLoop() {
     window.vpAnimFrameTimerId = null;
     if (window.vpAnimFrameId) cancelAnimationFrame(window.vpAnimFrameId);
     window.vpAnimFrameId = null;
+    window.vpForceNextMapProfileFrame = false;
 }
 function vpScheduleNextMapProfileFrame(frameIntervalMs, lastPaintMs) {
     const now = performance && performance.now ? performance.now() : Date.now();
@@ -2277,7 +2346,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
     window._lastWetterCoverageKey = null;
     window._lastWetterRouteNm = 0;
     window._vpAutoSarHeliAltRouteKey = null;
-    window.vpBgNeedsUpdate = true;
+    vpInvalidateMapProfileBackground(reason, true);
 
     const zd = document.getElementById('vpZoomDisplay');
     if (zd) zd.textContent = '0%';
@@ -2285,7 +2354,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
     if (status) status.textContent = 'Lade Terrain...';
 
     const mapTable = document.getElementById('mapTableOverlay');
-    if (mapTable && mapTable.classList.contains('active')) {
+    if (vpIsMapTableProfileOpen(mapTable)) {
         vpMapProfileVisible = true;
         const strip = document.getElementById('mapProfileStrip');
         const btn = document.getElementById('vpToggleBtn');
@@ -2335,7 +2404,7 @@ function triggerVerticalProfileUpdate() {
             // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
             if (!Array.isArray(vpElevationData)) vpElevationData = [];
-            window.vpBgNeedsUpdate = true;
+            vpInvalidateMapProfileBackground('route-elevation-ready', false);
             
             window.vpElevationData = vpElevationData;
             if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
@@ -2346,8 +2415,7 @@ function triggerVerticalProfileUpdate() {
             }
             const mapTable = document.getElementById('mapTableOverlay');
             if (
-                mapTable
-                && mapTable.classList.contains('active')
+                vpIsMapTableProfileOpen(mapTable)
                 && (typeof vpMapProfileVisible === 'undefined' || vpMapProfileVisible)
                 && typeof renderMapProfile === 'function'
             ) {
@@ -7875,7 +7943,10 @@ window.vpToggleTrafficProfile = function() {
 function renderMapProfileFrames(timeMs) {
     const frameT0 = performance && performance.now ? performance.now() : Date.now();
     const mapTable = document.getElementById('mapTableOverlay');
-    if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
+    const tableOpen = vpIsMapTableProfileOpen(mapTable);
+    const forcedFrame = window.vpForceNextMapProfileFrame === true;
+    window.vpForceNextMapProfileFrame = false;
+    if ((!tableOpen && !forcedFrame) || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
         vpStopMapProfileFrameLoop();
         return;
     }
@@ -7885,7 +7956,7 @@ function renderMapProfileFrames(timeMs) {
     const scrollContainer = document.getElementById('mapProfileScroll');
     const wrapper = document.getElementById('vpCanvasWrapper');
     if (!fgCanvas || !bgCanvas || !scrollContainer || !wrapper) {
-        vpScheduleMapProfileFrame(250);
+        if (tableOpen) vpScheduleMapProfileFrame(250);
         return;
     }
 
@@ -7897,14 +7968,14 @@ function renderMapProfileFrames(timeMs) {
     const elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
 
     if (!window.vpBgNeedsUpdate && elapsedMs < frameIntervalMs) {
-        vpScheduleMapProfileFrame(frameIntervalMs - elapsedMs);
+        if (tableOpen) vpScheduleMapProfileFrame(frameIntervalMs - elapsedMs);
         return;
     }
     const elevData = vpGetMapProfileElevationData(isHdgMode);
     if (!elevData || elevData.length < 2) {
         window.vpBgNeedsUpdate = true;
         perfMeta.lastNoElevationMs = nowMs;
-        vpScheduleMapProfileFrame(250);
+        if (tableOpen) vpScheduleMapProfileFrame(250);
         return;
     }
     perfMeta.lastPaintMs = nowMs;
@@ -8050,7 +8121,19 @@ function renderMapProfileFrames(timeMs) {
     // =======================================================
     // LAYER 1: STATISCHER HINTERGRUND
     // =======================================================
-    const needsBgRender = window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH;
+    const bgRenderKey = vpBuildMapProfileBackgroundKey(elevData, {
+        isHdgMode,
+        maxAlt,
+        zoomFactor,
+        viewX,
+        width: baseWidth,
+        height: containerHeight,
+        dpr
+    });
+    const needsBgRender = window.vpBgNeedsUpdate
+        || window._vpLastMapProfileBgKey !== bgRenderKey
+        || bgCanvas.width !== targetW
+        || bgCanvas.height !== targetH;
     if (needsBgRender) {
         const bgT0 = performance && performance.now ? performance.now() : Date.now();
         if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
@@ -8168,6 +8251,7 @@ function renderMapProfileFrames(timeMs) {
         bgCtx.strokeStyle = '#333'; bgCtx.lineWidth = 1; 
         bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
         bgCtx.restore();
+        window._vpLastMapProfileBgKey = bgRenderKey;
         window.vpBgNeedsUpdate = false;
         if (window.vpProfilePerfWarn) {
             window.vpProfilePerfWarn('Profile map background render', bgT0, {
@@ -8541,7 +8625,7 @@ function renderMapProfileFrames(timeMs) {
             elevPoints: Array.isArray(elevData) ? elevData.length : 0
         }, 120);
     }
-    vpScheduleNextMapProfileFrame(frameIntervalMs, perfMeta.lastPaintMs);
+    if (tableOpen) vpScheduleNextMapProfileFrame(frameIntervalMs, perfMeta.lastPaintMs);
 }
 
 // Removed arbitrary setTimeout hook in favor of synchronous hooks within renderVerticalProfile
