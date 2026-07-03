@@ -7309,8 +7309,10 @@ function rebuildMainRouteVectorLayers() {
     if (window.hitBoxPolyline && typeof window.hitBoxPolyline.redraw === 'function') window.hitBoxPolyline.redraw();
 }
 
-window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route') {
+window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route', options = {}) {
     const delays = [0, 120, 420, 900, 1600];
+    const fitRoute = !(options && options.fitRoute === false);
+    const preserveView = !fitRoute || !!(options && options.preserveView === true);
     if (Array.isArray(window._routeMapLayoutRefreshTimers)) {
         window._routeMapLayoutRefreshTimers.forEach(timerId => clearTimeout(timerId));
     }
@@ -7320,10 +7322,15 @@ window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route') {
                 if (!map) initMapBase();
                 if (!map) return;
                 if (typeof map.stop === 'function') map.stop();
-                map.invalidateSize();
-                fitMapToRouteWaypoints([40, 40]);
+                const originalCenter = preserveView && typeof map.getCenter === 'function' ? map.getCenter() : null;
+                const originalZoom = preserveView && typeof map.getZoom === 'function' ? map.getZoom() : null;
+                map.invalidateSize({ pan: !preserveView, animate: false });
+                if (fitRoute) fitMapToRouteWaypoints([40, 40]);
                 rebuildMainRouteVectorLayers();
-                fitMapToRouteWaypoints([40, 40]);
+                if (fitRoute) fitMapToRouteWaypoints([40, 40]);
+                if (preserveView && originalCenter && Number.isFinite(Number(originalZoom)) && typeof map.setView === 'function') {
+                    map.setView(originalCenter, originalZoom, { animate: false });
+                }
                 if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
                     renderMapProfile();
                 }
@@ -7377,7 +7384,7 @@ function scheduleMainRouteProfileReload(reason = 'route-render') {
             renderMapProfile();
         }
         if (boardActive && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
-            window.gaScheduleRouteMapLayoutRefresh(reason);
+            window.gaScheduleRouteMapLayoutRefresh(reason, { fitRoute: false, preserveView: true });
         } else if (boardActive && typeof renderMapProfile === 'function') {
             renderMapProfile();
         }
