@@ -9958,6 +9958,43 @@ function _syncIsStorageQuotaError(err) {
     return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || /quota|storage/i.test(msg);
 }
 
+function _syncPruneLocalStorageForQuota(options = {}) {
+    const exact = [
+        'ga_mission_debug_snapshot',
+        'ga_vfr_overlay_cache_v1',
+        'ga_obs_pool_v1',
+        'ga_obs_tile_cov_v1',
+        'ga_obs_tile_failed_v1',
+        'ga_om_cache_v2'
+    ];
+    if (options.replacePinboard) exact.push('ga_pinboard');
+    if (options.replaceActiveMission) {
+        exact.push('ga_active_mission', 'ga_active_mission_contract', 'ga_active_passenger', 'ga_active_mission_runtime');
+    }
+    const prefixes = ['ga_obs_combo_', 'ga_lms_'];
+    let removed = 0;
+    exact.forEach(key => {
+        try {
+            if (localStorage.getItem(key) !== null) {
+                localStorage.removeItem(key);
+                removed++;
+            }
+        } catch (_) {}
+    });
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && prefixes.some(prefix => key.startsWith(prefix))) {
+                localStorage.removeItem(key);
+                removed++;
+            }
+        }
+    } catch (_) {}
+    return removed;
+}
+
+try { window.gaPruneLocalStorageForQuota = _syncPruneLocalStorageForQuota; } catch (_) {}
+
 function _syncCompactArray(arr, maxItems = 80) {
     const src = Array.isArray(arr) ? arr : [];
     if (src.length <= maxItems) return src;
@@ -10138,17 +10175,37 @@ function _syncStoreCloudPinboard(pinboard) {
         { maxFlightRecords: 5, maxPinnedFlights: 6, maxTrack: 40, flightDataLevel: 2 },
         { maxFlightRecords: 2, maxPinnedFlights: 4, maxTrack: 20, flightDataLevel: 2, maxNotes: 80, textMax: 3000 },
         { maxFlightRecords: 0, maxPinnedFlights: 2, maxTrack: 0, flightDataLevel: 3, maxNotes: 50, textMax: 1000 },
-        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
+        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 },
+        { dropPinboard: true }
     ];
     let lastError = null;
+    let storageRescued = false;
     for (const cfg of attempts) {
-        const notes = cfg.raw ? (Array.isArray(pinboard) ? pinboard : []) : _syncCompactPinboard(pinboard, cfg);
-        try {
-            localStorage.setItem('ga_pinboard', JSON.stringify(notes));
-            return { notes, compacted: !cfg.raw };
-        } catch (err) {
-            lastError = err;
-            if (!_syncIsStorageQuotaError(err)) break;
+        const notes = cfg.dropPinboard ? [] : (cfg.raw ? (Array.isArray(pinboard) ? pinboard : []) : _syncCompactPinboard(pinboard, cfg));
+        const raw = JSON.stringify(notes);
+        for (let pass = 0; pass < 2; pass++) {
+            try {
+                if (storageRescued || cfg.dropPinboard) {
+                    try { localStorage.removeItem('ga_pinboard'); } catch (_) {}
+                }
+                localStorage.setItem('ga_pinboard', raw);
+                if (storageRescued) {
+                    try { console.warn('[Sync] Local storage quota cleanup applied before storing cloud pinboard.'); } catch (_) {}
+                }
+                if (cfg.dropPinboard) {
+                    try { console.warn('[Sync] Cloud pinboard dropped locally because storage quota stayed full after compaction.'); } catch (_) {}
+                }
+                return { notes, compacted: !cfg.raw, storageRescued, dropped: !!cfg.dropPinboard };
+            } catch (err) {
+                lastError = err;
+                if (!_syncIsStorageQuotaError(err)) break;
+                if (!storageRescued) {
+                    _syncPruneLocalStorageForQuota({ replacePinboard: true, replaceActiveMission: true });
+                    storageRescued = true;
+                    continue;
+                }
+                break;
+            }
         }
     }
     throw lastError || new Error('Pinboard konnte lokal nicht gespeichert werden');
@@ -10677,7 +10734,12 @@ async function forceSyncLoad() {
         }
         setLastSyncedPayload();
         updateGroupBadgeUI();
-        updateSyncStatus(pinboardStore?.compacted ? "Cloud: Geladen (kompakt) ✅" : "Cloud: Geladen ✅");
+        const pinboardStatus = pinboardStore?.dropped
+            ? "Cloud: Geladen (ohne Pinnwand) ⚠️"
+            : (pinboardStore?.storageRescued
+                ? "Cloud: Geladen (Speicher bereinigt) ✅"
+                : (pinboardStore?.compacted ? "Cloud: Geladen (kompakt) ✅" : "Cloud: Geladen ✅"));
+        updateSyncStatus(pinboardStatus);
         flashSyncIndicator('down');
 
         setNavComLed('navcomLoadBtn', 'success');

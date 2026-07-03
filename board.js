@@ -37,6 +37,43 @@ function pinboardIsQuotaError(err) {
     return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || /quota|storage/i.test(msg);
 }
 
+function pinboardPruneLocalStorageForQuota(options = {}) {
+    if (typeof window.gaPruneLocalStorageForQuota === 'function') {
+        try {
+            return window.gaPruneLocalStorageForQuota(options);
+        } catch (_) {}
+    }
+    const exact = [
+        'ga_mission_debug_snapshot',
+        'ga_vfr_overlay_cache_v1',
+        'ga_obs_pool_v1',
+        'ga_obs_tile_cov_v1',
+        'ga_obs_tile_failed_v1',
+        'ga_om_cache_v2'
+    ];
+    if (options.replacePinboard) exact.push('ga_pinboard');
+    const prefixes = ['ga_obs_combo_', 'ga_lms_'];
+    let removed = 0;
+    exact.forEach(key => {
+        try {
+            if (localStorage.getItem(key) !== null) {
+                localStorage.removeItem(key);
+                removed++;
+            }
+        } catch (_) {}
+    });
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && prefixes.some(prefix => key.startsWith(prefix))) {
+                localStorage.removeItem(key);
+                removed++;
+            }
+        }
+    } catch (_) {}
+    return removed;
+}
+
 function pinboardCompactFlightDataState(state, level = 1) {
     if (typeof _syncCompactFlightDataState === 'function') {
         try {
@@ -106,15 +143,36 @@ function pinboardSavePrivateNotes(notes) {
         { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
     ];
     let lastError = null;
+    let storageRescued = false;
+    let previousRaw = null;
+    try { previousRaw = localStorage.getItem('ga_pinboard'); } catch (_) {}
     for (const attempt of attempts) {
         const candidate = attempt.raw ? notes : pinboardCompactNotesForStorage(notes, attempt);
-        try {
-            localStorage.setItem('ga_pinboard', JSON.stringify(candidate));
-            return { notes: candidate, compacted: !attempt.raw };
-        } catch (err) {
-            lastError = err;
-            if (!pinboardIsQuotaError(err)) break;
+        const raw = JSON.stringify(candidate);
+        for (let pass = 0; pass < 2; pass++) {
+            try {
+                if (storageRescued) {
+                    try { localStorage.removeItem('ga_pinboard'); } catch (_) {}
+                }
+                localStorage.setItem('ga_pinboard', raw);
+                if (storageRescued) {
+                    try { console.warn('[Pinboard] Local storage quota cleanup applied before saving pinboard.'); } catch (_) {}
+                }
+                return { notes: candidate, compacted: !attempt.raw, storageRescued };
+            } catch (err) {
+                lastError = err;
+                if (!pinboardIsQuotaError(err)) break;
+                if (!storageRescued) {
+                    pinboardPruneLocalStorageForQuota({ replacePinboard: true });
+                    storageRescued = true;
+                    continue;
+                }
+                break;
+            }
         }
+    }
+    if (previousRaw != null) {
+        try { localStorage.setItem('ga_pinboard', previousRaw); } catch (_) {}
     }
     throw lastError || new Error('Pinboard konnte nicht gespeichert werden');
 }
