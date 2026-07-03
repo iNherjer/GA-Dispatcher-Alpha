@@ -2800,14 +2800,18 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, heute ist ein klassischer Vereins- und Utility-Flug. Bitte sauber und entspannt, wir haben einen klaren Ablauf.',
         paxText: '1 PAX (Vereinskoordination)',
         cargoPool: [
-            'Werkzeug- und Dokumententasche (24 lbs)',
-            'Ersatzteilkiste fuer Vereinsmaschine (32 lbs)',
+            'Prueflampe, Vereinsstempel und Hallenskizze in der Werkzeugtasche (24 lbs)',
+            'Landelicht-Leuchtmittel, Sicherungsdraht und Freigabezettel fuer Vereinsmaschine (18 lbs)',
             'Clubheim-Schluessel, Klemmbretter und Unterlagenbox (18 lbs)',
             'Avionikadapter und Pruefmappe (22 lbs)',
             'Flugtag-Banner, Funkakkus und Helferlisten (20 lbs)',
             'Batterie, Leuchtmittel und Kleinmaterialbox (28 lbs)',
             'Schulungsordner und Vereinsmaterial (16 lbs)',
-            'Hangar-Wartungsset und Lash-Straps (26 lbs)'
+            'Hangar-Wartungsset und Lash-Straps (26 lbs)',
+            'Startlisten-Mappe und Parkscheiben fuer Gastmaschinen (14 lbs)',
+            'Laminierte Checkkarten und Jugendflug-Briefingmappe (12 lbs)',
+            'Clubheim-Stempel, Schluesselbund und Aushangmappe (15 lbs)',
+            'Markierband, Hallenskizze und Zurrgurt-Satz (19 lbs)'
         ],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: glaubwuerdiger Vereins-/Utility-Flug mit konkretem Platz-, Hangar-, Technik- oder Vereinskontakt am Ziel; kleine Fracht und Person muessen denselben praktischen Anlass tragen.'
@@ -3460,6 +3464,12 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
         sightseeing_tour: [
             { t: 'Sightseeing Charter', i: '🌤️', cat: 'std', s: 'Entspannter Ausflugsflug mit Fokus auf Aussicht und angenehmer Fluglage.' },
             { t: 'Panorama-Rundflug Transfer', i: '🏞️', cat: 'std', s: 'Ruhiger Tourflug zum Ziel mit anschließendem lokalen Ausflugsprogramm am Boden.' }
+        ],
+        club_utility: [
+            { t: 'Flugtag-Regiekiste', i: '🎪', cat: 'std', s: 'Banner, geladene Funkakkus und die finale Helferliste müssen zum Zielplatz; nach der Landung übernimmt die Fly-In-Orga direkt am Clubheim.' },
+            { t: 'Avionikadapter zum Hallentor', i: '🔌', cat: 'std', s: 'Ein Vereinskontakt bringt Adapter, Prüfbogen und Rückfragenliste zur Zielwerft, damit die Maschine dort wieder in den Dienstplan kann.' },
+            { t: 'Hangar-Straps und Markierband', i: '🪢', cat: 'std', s: 'Am Zielhangar werden Stellplätze neu sortiert; Lash-Straps, Markierband und Hallenskizze sollen direkt an die Hallentafel.' },
+            { t: 'Jugendflug-Checkkarten', i: '📋', cat: 'std', s: 'Schulungsordner, laminierte Checkkarten und Vereinsmaterial gehen zur Jugendflugleitung am Zielplatz.' }
         ]
     };
     return (byProfile[id] || []).map(x => ({ ...x }));
@@ -17952,6 +17962,97 @@ function _pickPrivateOutingCargo(cargoPool = [], missionLike = {}, passenger = n
     return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
 }
 
+function _pickClubUtilityCargo(cargoPool = [], missionLike = {}, passenger = null, currentCargoText = '') {
+    const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
+    if (!pool.length) return '';
+    const normalizedPool = pool.map(cargo => normalizeMissionText(cargo));
+    const current = String(currentCargoText || missionLike?.cargoText || missionLike?.cargo || '').trim();
+    const currentNorm = normalizeMissionText(current);
+    const currentIsPoolCargo = currentNorm && normalizedPool.includes(currentNorm);
+    const currentLooksConcrete = currentIsPoolCargo && !/^\d+\s*lbs\b/.test(currentNorm);
+    if (currentLooksConcrete) return current;
+    const hay = normalizeMissionText([
+        current,
+        missionLike?.s,
+        missionLike?.story,
+        missionLike?.missionStory,
+        missionLike?.t,
+        missionLike?.title,
+        missionLike?.selectedMissionProposal?.title,
+        missionLike?.selectedMissionProposal?.story,
+        missionLike?.selectedMissionProposal?.cargoText,
+        passenger?.storySeed,
+        passenger?.personalStoryCue,
+        passenger?.greetingText,
+        passenger?.role
+    ].filter(Boolean).join(' '));
+    const pickByCargoText = (patterns = []) => {
+        for (const re of patterns) {
+            const match = pool.find(cargo => re.test(normalizeMissionText(cargo)));
+            if (match) return match;
+        }
+        return '';
+    };
+    if (/\b(flugtag|fly[- ]?in|banner|funkakku|funkakkus|helfer|event|veranstaltung)\b/.test(hay)) {
+        return pickByCargoText([/flugtag|banner|funkakku|helfer/]) || pool[0] || '';
+    }
+    if (/\b(clubheim|schluessel|schlussel|stempel|aushang|vertrag|kassenwart|vorstand)\b/.test(hay)) {
+        return pickByCargoText([/clubheim|schluessel|schlussel|stempel|aushang|unterlagenbox/]) || pool[0] || '';
+    }
+    if (/\b(avionik|adapter|messadapter|pruefmappe|prüfmappe|transponder|funkcheck|werft|technikwart|freigabezettel)\b/.test(hay)) {
+        return pickByCargoText([/avionik|adapter|pruefmappe|prüfmappe|landelicht|leuchtmittel|freigabezettel/]) || pool[0] || '';
+    }
+    if (/\b(batterie|leuchtmittel|landelicht|birne|kleinmaterial|platzwart|geraeteschuppen|geräteschuppen)\b/.test(hay)) {
+        return pickByCargoText([/batterie|leuchtmittel|landelicht|kleinmaterial/]) || pool[0] || '';
+    }
+    if (/\b(jugend|schulung|checkkarte|checkkarten|briefingmappe|einweisung|nachwuchs)\b/.test(hay)) {
+        return pickByCargoText([/checkkarten|briefingmappe|schulungsordner|vereinsmaterial/]) || pool[0] || '';
+    }
+    if (/\b(hangar|halle|hallen|lash|strap|zurr|markierband|stellplatz|hallenskizze|werkzeug|prueflampe|prüflampe)\b/.test(hay)) {
+        return pickByCargoText([/markierband|hallenskizze|zurrgurt|hangar|lash|werkzeug|prueflampe|prüflampe/]) || pool[0] || '';
+    }
+    if (/\b(startliste|startlisten|parkscheibe|parkscheiben|gastmaschine|gastmaschinen)\b/.test(hay)) {
+        return pickByCargoText([/startlisten|parkscheiben|gastmaschinen/]) || pool[0] || '';
+    }
+    return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
+}
+
+function _pickClubUtilityPassengerForCargo(profile = null, cargoText = '', missionLike = {}) {
+    const personas = Array.isArray(profile?.personas) ? profile.personas.filter(Boolean) : [];
+    if (!personas.length) return null;
+    const hay = normalizeMissionText([
+        cargoText,
+        missionLike?.selectedMissionProposal?.title,
+        missionLike?.selectedMissionProposal?.story,
+        missionLike?.s,
+        missionLike?.story,
+        missionLike?.missionStory
+    ].filter(Boolean).join(' '));
+    const byNames = (names = []) => {
+        const pool = personas.filter(p => names.includes(String(p?.name || '').trim()));
+        return pool.length ? { ...pool[Math.floor(Math.random() * pool.length)] } : null;
+    };
+    if (/\b(flugtag|fly[- ]?in|banner|funkakku|funkakkus|helfer|event|veranstaltung)\b/.test(hay)) {
+        return byNames(['Anja Ritter']);
+    }
+    if (/\b(schluessel|schlussel|clubheim|stempel|aushang|vertrag|unterlagenbox|klemmbrett|klemmbretter)\b/.test(hay)) {
+        return byNames(['Svenja Michel', 'Jan Vollmer', 'Lena Hartig']);
+    }
+    if (/\b(avionik|adapter|messadapter|pruefmappe|prüfmappe|transponder|funkcheck|werft|landelicht|freigabezettel|sicherungsdraht)\b/.test(hay)) {
+        return byNames(['Nina Kraus', 'Holger Seifert']);
+    }
+    if (/\b(batterie|leuchtmittel|kleinmaterial|platzwart|geraeteschuppen|geräteschuppen)\b/.test(hay)) {
+        return byNames(['Jan Vollmer', 'Nina Kraus']);
+    }
+    if (/\b(jugend|schulung|schulungsordner|checkkarte|checkkarten|briefingmappe|einweisung|nachwuchs)\b/.test(hay)) {
+        return byNames(['Markus Lenz', 'Lena Hartig']);
+    }
+    if (/\b(hangar|halle|hallen|lash|strap|zurr|markierband|stellplatz|hallenskizze|werkzeug|prueflampe|prüflampe)\b/.test(hay)) {
+        return byNames(['Tobias Kern', 'Jan Vollmer', 'Holger Seifert']);
+    }
+    return null;
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
@@ -18111,7 +18212,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                     ? _pickCargoFragileCargo(cargoPool, m, cargoText)
                     : (profile.id === 'news_coverage'
                         ? (m?._missionContractV4?.newsBrief?.cargoText || m?.missionContractV4?.newsBrief?.cargoText || m.cargoText || m.cargo || cargoText || cargoPool[0])
-                        : cargoPool[Math.floor(Math.random() * cargoPool.length)])));
+                        : (profile.id === 'club_utility'
+                            ? _pickClubUtilityCargo(cargoPool, m, m.passenger, cargoText)
+                            : cargoPool[Math.floor(Math.random() * cargoPool.length)]))));
         if (profile.id === 'cargo_fragile') {
             m.cargo = cargoText;
             m.cargoText = cargoText;
@@ -18119,6 +18222,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             m.cargo = cargoText;
             m.cargoText = cargoText;
         } else if (profile.id === 'news_coverage') {
+            m.cargo = cargoText;
+            m.cargoText = cargoText;
+        } else if (profile.id === 'club_utility') {
             m.cargo = cargoText;
             m.cargoText = cargoText;
         }
@@ -18184,6 +18290,106 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         if (!titleText || /\b(vereins[-\s]?shuttle|sightseeing|tiertransport|training|krankentransport)\b/i.test(titleText)) {
             const targetLabel = String(medicalContract?.target?.name || medicalContract?.route?.targetName || m.targetName || '').trim();
             m.t = targetLabel ? `Medizin-Kurier nach ${targetLabel}` : 'Medizin-Kurierflug';
+        }
+    }
+    if (profile.id === 'club_utility') {
+        const clubCargoDisplay = String(cargoText || m.cargo || m.cargoText || '').trim();
+        const clubCargoClean = _missionPipelineV4CleanCargoLabel(clubCargoDisplay);
+        if (clubCargoDisplay) {
+            cargoText = clubCargoDisplay;
+            m.cargo = clubCargoDisplay;
+            m.cargoText = clubCargoDisplay;
+        }
+        const clubPassenger = _pickClubUtilityPassengerForCargo(profile, clubCargoClean || clubCargoDisplay || cargoText || '', m);
+        if (clubPassenger?.name && clubPassenger.name !== m.passenger?.name) {
+            const previousPassenger = m.passenger && typeof m.passenger === 'object' ? { ...m.passenger } : null;
+            const tol = profile.tolerances || {};
+            m.passenger = {
+                ...clubPassenger,
+                roleProfile: String(profile.roleProfile || clubPassenger.roleProfile || 'club_utility_v1').toLowerCase(),
+                taskDomain: String(profile.taskDomain || clubPassenger.taskDomain || 'club_utility').toLowerCase(),
+                gTolerance: String(tol.gTolerance || clubPassenger.gTolerance || 'mittel').toLowerCase(),
+                bankTolerance: String(tol.bankTolerance || clubPassenger.bankTolerance || 'mittel').toLowerCase(),
+                cargoSensitivity: String(tol.cargoSensitivity || clubPassenger.cargoSensitivity || 'mittel').toLowerCase(),
+                stomachSensitivity: String(tol.stomachSensitivity || clubPassenger.stomachSensitivity || 'mittel').toLowerCase(),
+                comfortPriority: String(tol.comfortPriority || clubPassenger.comfortPriority || 'mittel').toLowerCase(),
+                urgencyPriority: String(tol.urgencyPriority || clubPassenger.urgencyPriority || 'niedrig').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig',
+                targetAltFt: 0,
+                targetRadiusNm: 0,
+                targetDwellMin: 0,
+                trainingPlan: null,
+                personalStoryCue: String(clubPassenger.personalStoryCue || clubPassenger.storySeed || '').trim(),
+                storyHint: String(m.s || m.story || '').trim()
+            };
+            synchronizeMissionPassengerName(m, previousPassenger, m.passenger);
+            if (m.passenger?.role) paxText = `1 PAX (${m.passenger.role})`;
+        }
+        const clubBaseContract = m?._missionContractV4 || m?.missionContractV4 || {};
+        const targetLabel = String(
+            clubBaseContract?.target?.name
+            || clubBaseContract?.route?.targetName
+            || m.targetName
+            || m.destName
+            || ''
+        ).trim();
+        const selectedProposal = m.selectedMissionProposal || clubBaseContract?.selectedMissionProposal || null;
+        const clubStoryFrame = _missionPipelineV4EnrichClubUtilityStoryFrame(clubBaseContract?.storyFrame || {}, {
+            targetLabel,
+            cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+            selectedProposal
+        });
+        const clubContract = {
+            ...clubBaseContract,
+            cargoText: clubCargoDisplay || clubBaseContract?.cargoText || '',
+            paxText: paxText || clubBaseContract?.paxText || profile.paxText || '',
+            selectedMissionProposal: selectedProposal || clubBaseContract?.selectedMissionProposal || null,
+            profile: {
+                ...(clubBaseContract?.profile || {}),
+                id: 'club_utility',
+                taskDomain: 'club_utility',
+                roleProfile: profile.roleProfile || clubBaseContract?.profile?.roleProfile || 'club_utility_v1',
+                pickerCategory: clubBaseContract?.profile?.pickerCategory || 'club'
+            },
+            target: {
+                ...(clubBaseContract?.target || {}),
+                name: clubBaseContract?.target?.name || targetLabel
+            },
+            storyFrame: clubStoryFrame
+        };
+        const existingStory = String(m.s || m.story || m.missionStory || '').trim();
+        if (_missionWriterV5DomainStoryNeedsRepair('club_utility', existingStory, clubContract, {
+            passenger: m.passenger,
+            cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+            selectedMissionProposal: selectedProposal || null
+        })) {
+            const repairedStory = _missionPipelineV4ComposeClubUtilityStory(clubContract, {
+                passenger: m.passenger,
+                cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+                selectedMissionProposal: selectedProposal || null
+            });
+            if (repairedStory) {
+                m.s = repairedStory;
+                m.story = repairedStory;
+                m.missionStory = repairedStory;
+            }
+        }
+        if (m._missionContractV4 && typeof m._missionContractV4 === 'object') {
+            m._missionContractV4 = {
+                ...m._missionContractV4,
+                cargoText: clubContract.cargoText,
+                paxText: clubContract.paxText,
+                selectedMissionProposal: clubContract.selectedMissionProposal,
+                storyFrame: clubContract.storyFrame
+            };
+        }
+        if (m.missionContractV4 && typeof m.missionContractV4 === 'object') {
+            m.missionContractV4 = {
+                ...m.missionContractV4,
+                cargoText: clubContract.cargoText,
+                paxText: clubContract.paxText,
+                selectedMissionProposal: clubContract.selectedMissionProposal,
+                storyFrame: clubContract.storyFrame
+            };
         }
     }
     if (profile.id === 'media_photo' && isPOI) {
@@ -24846,6 +25052,173 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
     return _missionPipelineV4PickEntry(pool) || landFamilies[0];
 }
 
+function _missionPipelineV4ClubUtilitySeed({ targetLabel = '', cargoText = '', selectedProposal = null } = {}) {
+    const target = String(targetLabel || 'Zielplatz').trim() || 'Zielplatz';
+    const cargoLabel = _missionPipelineV4CleanCargoLabel(
+        cargoText
+        || selectedProposal?.cargoText
+        || selectedProposal?.cargo
+        || ''
+    );
+    const hay = normalizeMissionText([
+        cargoLabel,
+        selectedProposal?.title,
+        selectedProposal?.description,
+        selectedProposal?.storySeed
+    ].filter(Boolean).join(' '));
+    const seeds = [
+        {
+            test: /\b(flugtag|fly-in|flyin|banner|funkakku|funkakkus|helferliste|helferlisten|klemmbrett)\b/,
+            fallbackShipment: 'Flugtag-Banner, geladene Funkakkus und die finale Helferliste',
+            receiver: 'das Fly-In-Orga-Team am Clubheim',
+            focus: 'Flugtag-Vorbereitung, Helferbriefing und Funkgeräteausgabe',
+            reason: `am Zielplatz ${target} Aufbauplan, Funkgeräteausgabe und Helferbriefing zusammengeführt werden`,
+            nextStep: 'die Banner werden probegehängt, die Funkakkus nummeriert und die Helferliste ans Briefingboard gehängt',
+            detail: 'keine anonyme Fracht, sondern genau die kleine Regiekiste, ohne die der Vereinsbetrieb beim Fly-In improvisieren müsste'
+        },
+        {
+            test: /\b(schluessel|schlüssel|clubheim|unterlagenbox|mappe|klemmbrett|klemmbretter|vertragsunterlagen)\b/,
+            fallbackShipment: 'Clubheim-Schlüssel, Klemmbretter und eine Unterlagenbox',
+            receiver: 'ein Vorstands- oder Platzwartkontakt',
+            focus: 'Schlüsselübergabe, Aushangmappe und kurze Vorstandsfreigabe',
+            reason: `in ${target} Zugang, Aushang und kurze Freigabe für den nächsten Vereinstermin zusammenpassen müssen`,
+            nextStep: 'der Kontakt quittiert Schlüssel und Mappe, hängt die Unterlagen aus und schließt den Platztermin ab',
+            detail: 'eine kleine Vereinsmappe mit Schlüsselbund, Gästeliste, Stempel und den Zetteln, die sonst wieder jemand im Auto vergisst'
+        },
+        {
+            test: /\b(avionik|adapter|pruefmappe|prüfmappe|messadapter|funk|transponder)\b/,
+            fallbackShipment: 'Avionikadapter, Prüfbogen und ein kleiner Messsatz',
+            receiver: 'der Technikwart an der Zielwerft',
+            focus: 'Avionik-Abgleich, Messadapter und Freigabeentscheidung',
+            reason: `die Zielwerft in ${target} den Adapter für einen kurzen Funk- oder Transpondercheck braucht`,
+            nextStep: 'der Technikwart steckt den Adapter direkt in die Prüftasche, gleicht die Mappe ab und entscheidet, ob die Vereinsmaschine wieder in die Planung darf',
+            detail: 'ein unscheinbarer Adapter samt Prüfbogen, der am Boden mehr Zeit spart als er im Gepäck wiegt'
+        },
+        {
+            test: /\b(ersatzteil|ersatzteile|vereinsmaschine|magneto|reifen|bauteil|aog|werft)\b/,
+            fallbackShipment: 'eine Ersatzteilkiste für die Vereinsmaschine',
+            receiver: 'die Werft- oder Technikcrew am Zielhangar',
+            focus: 'kleines Bauteil, Einbauentscheidung und Werkstatt-Handoff',
+            reason: `die Vereinsmaschine in ${target} auf genau diese Teile wartet und die Werkstatt ohne sie nur vorbereiten kann`,
+            nextStep: 'die Crew prüft Teilenummer und Begleitzettel am Hallentor und legt das Bauteil direkt auf den Werkstattwagen',
+            detail: 'nicht nur eine beliebige Box, sondern das kleine Teil mit Zettel, Teilenummer und der Frage, ob der Flieger wieder in den Dienstplan darf'
+        },
+        {
+            test: /\b(batterie|leuchtmittel|kleinmaterial|pistenlampe|handfunk|akku)\b/,
+            fallbackShipment: 'Batterie, Leuchtmittel und eine Kleinmaterialbox',
+            receiver: 'der Platzwart mit seinem Werkstattwagen',
+            focus: 'Betriebsbereitschaft, Ersatzakkus und kleine Platzrunde am Boden',
+            reason: `am Zielplatz ${target} ein paar unspektakuläre, aber sichtbare Betriebsdetails vor dem nächsten Flugtag erledigt werden sollen`,
+            nextStep: 'der Platzwart sortiert Leuchtmittel und Batterien in den Materialschrank und nimmt die offene Liste mit auf die nächste Platzrunde',
+            detail: 'Kleinmaterial, das im Regal langweilig aussieht, aber am Platz genau dann fehlt, wenn alle schon angeschnallt sind'
+        },
+        {
+            test: /\b(schulung|schulungsordner|schueler|schüler|vereinsmaterial|jugend|einweisung|checkkarte)\b/,
+            fallbackShipment: 'Schulungsordner, laminierte Checkkarten und Vereinsmaterial',
+            receiver: 'die Jugendflugleitung am Zielplatz',
+            focus: 'Nachwuchsbriefing, Checkkarten und Einweisungstisch',
+            reason: `in ${target} eine kleine Einweisung vorbereitet ist und die Unterlagen nicht erst nachgereicht werden sollen`,
+            nextStep: 'die Mappe landet direkt auf dem Briefingtisch, die Checkkarten werden verteilt und die Jugendgruppe kann ohne Papierjagd starten',
+            detail: 'Schulungsmaterial mit Randnotizen, Checkkarten und den Vereinszetteln, die aus einem normalen Flug einen vorbereiteten Termin machen'
+        },
+        {
+            test: /\b(hangar|wartungsset|lash|strap|straps|zurr|gurt|gurtzeug|hallen)\b/,
+            fallbackShipment: 'Hangar-Wartungsset, Lash-Straps und markierte Kleinteile',
+            receiver: 'die Hallencrew am Zielhangar',
+            focus: 'Hangarordnung, Verzurrmaterial und kurzer Hallenabgleich',
+            reason: `am Zielhangar in ${target} die Stellplätze neu sortiert und die fehlenden Gurte nicht wieder improvisiert werden sollen`,
+            nextStep: 'die Hallencrew nimmt Straps und Set direkt an die Stellplatztafel und gleicht die offenen Punkte am Flügel ab',
+            detail: 'eine kleine Tasche mit Gurten, Markierungsband und genau den Teilen, die in einer vollen Halle plötzlich wichtig werden'
+        }
+    ];
+    const selected = seeds.find(seed => seed.test.test(hay)) || _missionPipelineV4PickEntry([
+        {
+            fallbackShipment: 'Startlisten-Mappe, Parkscheiben für Gastmaschinen und eine kleine Kiste mit Vereinskleinkram',
+            receiver: 'der Vereinskontakt am Vorfeld',
+            focus: 'Startlisten, Gastmaschinen-Logistik und kurzer Clubheim-Abgleich',
+            reason: `in ${target} eine kleine Vereinsrunde vorbereitet wird und Startlisten, Parkmarken und Material zusammen ankommen sollen`,
+            nextStep: 'der Vereinskontakt nimmt die Mappe mit ins Clubheim, legt die Parkscheiben bereit und hakt die offene Materialliste ab',
+            detail: 'eine charmant unglamouröse Vereinsladung: Zettel, Schilder, Kleinteile und genau die Dinge, die immer fehlen, wenn der erste Gast rollt'
+        },
+        {
+            fallbackShipment: 'Werkzeug- und Dokumententasche mit Prüflampe, Vereinsstempel und Hallenskizze',
+            receiver: 'der Platz- oder Technikwart am Zielhangar',
+            focus: 'Werkzeugtasche, kurzer Technikabgleich und saubere Übergabe am Hallentor',
+            reason: `in ${target} ein kleiner Hallen- oder Techniktermin vorbereitet ist und Werkzeug, Stempel und Skizze zusammen gebraucht werden`,
+            nextStep: 'der Platzkontakt übernimmt die Tasche, prüft die Hallenskizze und markiert direkt, was bis zum nächsten Dienst erledigt wird',
+            detail: 'eine Werkzeugtasche mit mehr Geschichte als Gewicht: Prüflampe, Stempel, Skizze und ein paar offene Punkte vom letzten Hallenabend'
+        }
+    ]);
+    const shipment = cargoLabel || selected.fallbackShipment;
+    return {
+        shipment,
+        receiver: selected.receiver,
+        focus: selected.focus,
+        reason: selected.reason,
+        nextStep: selected.nextStep,
+        detail: selected.detail
+    };
+}
+
+function _missionPipelineV4ClubUtilityStoryFrame({ targetLabel = '', cargoText = '', selectedProposal = null } = {}) {
+    const target = String(targetLabel || 'Zielplatz').trim() || 'Zielplatz';
+    const seed = _missionPipelineV4ClubUtilitySeed({ targetLabel: target, cargoText, selectedProposal });
+    const receiverAt = _missionPipelineV4ClubUtilityReceiverAt(seed.receiver);
+    return {
+        trigger: `${seed.shipment} muss heute nach ${target}; ${seed.reason}.`,
+        focusSubject: `${seed.shipment} für ${seed.focus}`,
+        keyQuestion: `Wie ${seed.shipment} sauber nach ${target} kommt und dort ohne Umweg ${receiverAt} landet.`,
+        stakes: `Ohne den Flug bleibt ${seed.focus} am Zielplatz Stückwerk statt vorbereiteter Vereinsablauf.`,
+        completionSignal: `Nach der Landung übernimmt ${seed.receiver}; ${seed.nextStep}.`,
+        subjectDetail: seed.shipment,
+        incidentContext: `${seed.detail}. Der Flug nach ${target} ist deshalb ein kleiner, konkreter Clubauftrag statt allgemeiner Materialkurier.`,
+        whyNow: `Der heutige Slot passt, weil ${seed.reason} und die Übergabe direkt nach dem Abstellen weiterverarbeitet wird.`,
+        soughtOutcome: `Wir sollen ${seed.shipment} ruhig anliefern, die Übergabe an ${seed.receiver} nachvollziehbar machen und den nächsten Vereinsschritt am Ziel auslösen.`
+    };
+}
+
+function _missionPipelineV4ClubUtilityReceiverAt(receiver = '') {
+    const clean = String(receiver || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return 'beim Zielkontakt';
+    if (/^die\s+/i.test(clean)) return `bei der ${clean.replace(/^die\s+/i, '')}`;
+    if (/^(der|das)\s+/i.test(clean)) return `beim ${clean.replace(/^(der|das)\s+/i, '')}`;
+    if (/^ein\s+/i.test(clean)) return `bei einem ${clean.replace(/^ein\s+/i, '')}`;
+    if (/^eine\s+/i.test(clean)) return `bei einer ${clean.replace(/^eine\s+/i, '')}`;
+    return `bei ${clean}`;
+}
+
+function _missionPipelineV4ClubUtilityFieldNeedsSeed(text = '', seeded = {}) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    const normalized = normalizeMissionText(clean);
+    if (!normalized) return true;
+    if (/\b(konkreter zweck|klarer vereins|klarer nutzauftrag|kleine aber wichtige mitnahme|praktischer anlass|beliebige strecke|zeitfenster|zielablauf ohne leerlauf|naechste person|nächste person|naechste stelle|nächste stelle)\b/.test(normalized)) return true;
+    const shipmentWords = normalizeMissionText(seeded.subjectDetail || seeded.focusSubject || '')
+        .split(/\s+/)
+        .filter(word => word.length >= 5 && !/^(heute|kleine|kleiner|kleines|fuer|für|nach|zielplatz|vereins|utility|lbs)$/.test(word));
+    if (!shipmentWords.length) return false;
+    const hasShipmentWord = shipmentWords.some(word => normalized.includes(word));
+    if (hasShipmentWord) return false;
+    return /\b(ersatzteil|ersatzteile|werkzeug|unterlagen|material|sendung|fracht|mitnahme|kiste|tasche|box|bauteil|banner|funkakku|funkakkus|helferliste|helferlisten|schluessel|schlüssel|clubheim|stempel|aushang|avionik|adapter|pruefmappe|prüfmappe|leuchtmittel|landelicht|batterie|kleinmaterial|schulung|schulungsordner|checkkarte|checkkarten|briefingmappe|jugend|hangar|lash|strap|straps|zurr|zurrgurt|markierband|hallenskizze|startlisten|parkscheiben|gastmaschinen)\b/.test(normalized);
+}
+
+function _missionPipelineV4EnrichClubUtilityStoryFrame(frame = {}, { targetLabel = '', cargoText = '', selectedProposal = null } = {}) {
+    const seeded = _missionPipelineV4ClubUtilityStoryFrame({ targetLabel, cargoText, selectedProposal });
+    const pick = key => _missionPipelineV4ClubUtilityFieldNeedsSeed(frame[key], seeded) ? seeded[key] : frame[key];
+    return {
+        ...frame,
+        trigger: pick('trigger'),
+        focusSubject: pick('focusSubject'),
+        keyQuestion: pick('keyQuestion'),
+        stakes: pick('stakes'),
+        completionSignal: pick('completionSignal'),
+        subjectDetail: pick('subjectDetail'),
+        incidentContext: pick('incidentContext'),
+        whyNow: pick('whyNow'),
+        soughtOutcome: pick('soughtOutcome'),
+        shipment: seeded.subjectDetail
+    };
+}
+
 function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
@@ -25601,21 +25974,11 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         };
     }
     if (taskDomain === 'club_utility') {
-        return {
-            trigger: `Der heutige Vereins- oder Nutzflug nach ${targetLabel} hat einen konkreten Zweck, der am Ziel noch heute erledigt werden soll.`,
-            focusSubject: 'klarer Vereins- oder Nutzauftrag',
-            keyQuestion: `Welche konkrete Uebergabe, Abholung oder Erledigung in ${targetLabel} den heutigen Flug rechtfertigt.`,
-            stakes: 'Ohne den Flug verschiebt sich eine praktische Aufgabe am Ziel unnoetig in den naechsten Umlauf.',
-            completionSignal: 'Nach Ankunft oder Ueberflug geht die Aufgabe geordnet an die naechste Person oder Stelle ueber.',
-            subjectDetail: _missionPipelineV4PickOne([
-                'ein Vereinsmitglied mit konkretem Erledigungsauftrag',
-                'eine kleine, aber wichtige Mitnahme fuer den Flugbetrieb',
-                'einen Gast oder Helfer mit direktem Bezug zum Zielablauf'
-            ]),
-            incidentContext: `Der Flug nach ${targetLabel} hat heute einen praktischen Anlass und ist nicht nur eine beliebige Strecke.`,
-            whyNow: 'Der Nutzen des Flugs haengt daran, dass die Aufgabe noch in diesem Zeitfenster abgeschlossen oder uebergeben wird.',
-            soughtOutcome: 'Wir sollen die Erledigung so sauber vorbereiten, dass der Zielablauf ohne Leerlauf weitergeht.'
-        };
+        return _missionPipelineV4ClubUtilityStoryFrame({
+            targetLabel,
+            cargoText: options?.loadout?.cargoText || plan?.storyFrame?.shipment || plan?.cargo || '',
+            selectedProposal: options?.loadout?.selectedMissionProposal || null
+        });
     }
     if (taskDomain === 'general') {
         const weatherBit = weatherShort ? ` Bei ${weatherShort} soll die Lage noch heute erledigt werden.` : '';
@@ -25794,7 +26157,7 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
             missionStakes: pickCleanText(plan.missionStakes),
             completionSignal: pickCleanText(plan.completionSignal)
         };
-    return {
+    const frame = {
         trigger: _missionPipelineV3Text(frameSource.trigger || planSource.missionTrigger || defaults.trigger, 220),
         focusSubject: _missionPipelineV3Text(frameSource.focusSubject || planSource.focusSubject || defaults.focusSubject, 140),
         keyQuestion: _missionPipelineV3Text(frameSource.keyQuestion || planSource.keyQuestion || defaults.keyQuestion, 220),
@@ -25813,6 +26176,14 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
                 ? defaults.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
                 : [])
     };
+    if (taskDomain === 'club_utility') {
+        return _missionPipelineV4EnrichClubUtilityStoryFrame(frame, {
+            targetLabel: semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || '',
+            cargoText: options?.loadout?.cargoText || plan?.storyFrame?.shipment || plan?.cargo || '',
+            selectedProposal: options?.loadout?.selectedMissionProposal || null
+        });
+    }
+    return frame;
 }
 
 const BUSH_MISSION_VARIETY_PROFILE_IDS = new Set([
@@ -26077,6 +26448,63 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
         ],
         weatherNote
     };
+}
+
+function _missionPipelineV4ApplyClubUtilityPlanGuard(plan = {}, storyFrame = {}, semantics = {}, options = {}) {
+    const targetLabel = String(plan.targetLabel || semantics?.focusLock?.primarySubjectLabel || options?.targetLabel || options?.targetName || 'Zielplatz').trim() || 'Zielplatz';
+    const selectedProposal = options?.loadout?.selectedMissionProposal || options?.selectedProposal || null;
+    const seedFrame = _missionPipelineV4ClubUtilityStoryFrame({
+        targetLabel,
+        cargoText: options?.loadout?.cargoText || options?.cargoText || storyFrame?.shipment || storyFrame?.subjectDetail || '',
+        selectedProposal
+    });
+    const seed = _missionPipelineV4ClubUtilitySeed({
+        targetLabel,
+        cargoText: seedFrame.subjectDetail,
+        selectedProposal
+    });
+    const cleanList = (values = []) => (Array.isArray(values) ? values : [])
+        .map(x => String(x || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(x => !_missionPipelineV4ClubUtilityFieldNeedsSeed(x, seedFrame));
+    plan.primaryObjective = `Bringe ${seed.shipment} nach ${targetLabel} und übergib die Ladung dort an ${seed.receiver} für ${seed.focus}.`;
+    plan.missionTrigger = seedFrame.trigger;
+    plan.focusSubject = seedFrame.focusSubject;
+    plan.keyQuestion = seedFrame.keyQuestion;
+    plan.missionStakes = seedFrame.stakes;
+    plan.completionSignal = seedFrame.completionSignal;
+    plan.storyFrame = {
+        ...(plan.storyFrame || {}),
+        ...seedFrame,
+        shipment: seed.shipment
+    };
+    plan.localFacts = Array.from(new Set([
+        `${seed.shipment} ist die konkrete mitgeführte Vereinsladung.`,
+        `${seed.receiver} wartet am Zielplatz auf die Übergabe.`,
+        ...cleanList(plan.localFacts)
+    ].filter(Boolean))).slice(0, 5);
+    plan.operationalDetails = Array.from(new Set([
+        `Normaler A-B-Hinflug nach ${targetLabel}; die Übergabe passiert nach der Landung im GA-/Vorfeldbereich.`,
+        seedFrame.completionSignal,
+        ...cleanList(plan.operationalDetails)
+    ].filter(Boolean))).slice(0, 5);
+    plan.narrativeHooks = Array.from(new Set([
+        seedFrame.incidentContext,
+        seedFrame.whyNow,
+        seedFrame.soughtOutcome,
+        ...cleanList(plan.narrativeHooks)
+    ].filter(Boolean))).slice(0, 5);
+    plan.mustMention = Array.from(new Set([
+        seed.shipment,
+        seed.receiver,
+        ...(Array.isArray(plan.mustMention) ? plan.mustMention : [])
+    ].filter(Boolean))).slice(0, 6);
+    plan.narrativeRules = Array.from(new Set([
+        ...(Array.isArray(plan.narrativeRules) ? plan.narrativeRules : []),
+        'Gewählte Fracht, PAX-Rolle und Vereinsanlass bleiben derselbe Sachverhalt; keine andere Lieferstory einsetzen.',
+        'Club-Utility bleibt A-B-Flug mit Handoff am Zielplatz, kein POI-Arbeitsauftrag und kein künstlicher Notfall.'
+    ])).slice(0, 10);
+    return plan;
 }
 
 function _missionPipelineV4ApplyPrivateOutingPlanGuard(plan = {}, storyFrame = {}, semantics = {}, options = {}) {
@@ -26400,7 +26828,8 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionVarietyBrief,
         followUpContext,
         isPOI: draftIsPOI,
-        missionType: draft?.mode || base?.plan?.missionType || (draftIsPOI ? 'poi' : 'apt')
+        missionType: draft?.mode || base?.plan?.missionType || (draftIsPOI ? 'poi' : 'apt'),
+        loadout: debug?.loadout || null
     });
     const taskDomain = String(semantics?.focusLock?.taskDomain || base.plan?.taskDomain || '').toLowerCase();
     const cleanSortedTexts = (values, kind, maxItems) => _missionPipelineV4FilterNarrativeTexts(
@@ -26477,6 +26906,12 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             isPOI: draftIsPOI,
             missionType: draft?.mode || base?.plan?.missionType || (draftIsPOI ? 'poi' : 'apt'),
             targetName: draft?.target?.name || ''
+        });
+    }
+    if (taskDomain === 'club_utility') {
+        _missionPipelineV4ApplyClubUtilityPlanGuard(base.plan, storyFrame, semantics, {
+            targetName: draft?.target?.name || '',
+            loadout: debug?.loadout || null
         });
     }
     if (taskDomain === 'sightseeing_tour') {
@@ -26720,6 +27155,15 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
     const bushPickupReturn = profileId === 'bush_pickup_strip';
     const aptCharterPickupReturn = profileId === 'apt_charter_pickup';
+    const selectedMissionProposal = context.selectedMissionProposal && typeof context.selectedMissionProposal === 'object'
+        ? context.selectedMissionProposal
+        : null;
+    const loadout = {
+        paxText: String(context.paxText || selectedMissionProposal?.paxText || '').trim(),
+        cargoText: String(context.cargoText || selectedMissionProposal?.cargoText || '').trim(),
+        selectedMissionProposal,
+        rule: 'Wenn paxText oder cargoText gesetzt ist, sind diese Werte bindend und muessen die Club-/Cargo-Story konkret tragen.'
+    };
     const knowledgeContext = compactPoiKnowledgeContextForMission(context.knowledgeContext || context.dest?.knowledgeContext || null, 10);
     const weatherBundle = _missionPipelineV3WeatherBundle(context.missionWeather || null);
     const followUpContext = context.followUpContext && typeof context.followUpContext === 'object'
@@ -26764,6 +27208,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         routeRules.push('Die Aktivitaet darf frei und mit Vorfreude gewaehlt werden: Burger, Kaffee, Einkaufen, Wandern, Schwimmen, Museum, Familie, Paartag oder ein aehnlicher privater Grund.');
         routeRules.push('Der Ton darf wie eine kurze handgeschriebene Dispatch-/Pinnwand-Notiz wirken: lockerer Einstieg, konkrete Meilen zum Ziel, kleiner Insider zum Anlass, entspannter Abschluss.');
         realismTargets.unshift('APT-Privatausflug braucht eine konkrete Person mit Beziehung zum Piloten, einen reizvollen Grund am Ziel und spuerbare Vorfreude im Stil eines kleinen Fly-out-Zettels.');
+    } else if (!context.isPOI && profileId === 'club_utility') {
+        routeRules.push('APT-Club-Utility: normaler A-B-Flug mit Vereins- oder Platzkontakt am Ziel. Die mitgefuehrte Ladung aus loadout.cargoText ist bindend und darf nicht durch eine andere Ersatzteil-, Werkzeug- oder Materialstory ersetzt werden.');
+        routeRules.push('APT-Club-Utility darf originell sein, bleibt aber klein und glaubwuerdig: genaues Material, wer es uebernimmt, was direkt danach am Clubheim, Hangar, Briefingtisch oder Werkstattwagen passiert.');
+        realismTargets.unshift('APT-Club-Utility braucht eine konkrete Vereinsladung, einen Empfaenger am Ziel und einen naechsten sichtbaren Vereinsschritt statt "irgendwas liefern".');
     }
     if (followUpContext) {
         const followKind = String(followUpContext.followUpKind || '').toLowerCase();
@@ -26831,6 +27279,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             picker: draft.picker || {},
             category: draft.category || '',
             profile: _missionPipelineV3ProfileCatalog(context),
+            loadout,
             airportDetails: _missionPipelineV3AirportDetails(context),
             weather: weatherBundle,
             fireHazard: fire || null,
@@ -26892,6 +27341,7 @@ function _missionPipelineV4CompactPlannerBundleForOpenAi(bundle = {}) {
         picker: src.picker || {},
         category: src.category || '',
         profile: { selected: selectedProfile },
+        loadout: src.loadout || null,
         airportDetails: src.airportDetails || null,
         weather: compactWeather,
         fireHazard: src.fireHazard || null,
@@ -26938,7 +27388,8 @@ Regeln:
 3. Kontextanker ergaenzen nur Orientierung, Zugang, Beleg oder Hintergrund; sie ersetzen nie das Primaerziel.
 4. Erfinde einen plausiblen Missionsanlass, aber keine harten Ortsfakten, echten Veranstalter, Termine oder Namen ausserhalb des Bundles.
 5. Bei news_coverage: Plane einen konkreten lokalen News-Kern (Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation). Bei POI-News sind sichtbare Anker Rohmaterial für den Luftblick; bei APT-News wartet die Geschichte nach der Landung am Boden und wird nicht als Überflugauftrag geplant.
-6. Bei privaten, Bush-, SAR-, Inspektions- und Sightseeing-Profilen bleiben die jeweiligen RouteRules und Semantik-Locks bindend.
+6. Bei privaten, Club-/Utility-, Bush-, SAR-, Inspektions- und Sightseeing-Profilen bleiben die jeweiligen RouteRules und Semantik-Locks bindend.
+6a. Bei APT club_utility ist CONTEXT_BUNDLE.loadout.cargoText der konkrete Gegenstand an Bord. Plane genau diese Ladung, Empfaenger und naechsten Vereinsschritt; nicht durch generische Ersatzteil- oder "Material liefern"-Story ersetzen.
 7. Schreibe frei formulierte Texte auf Deutsch mit Umlauten. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
@@ -27015,6 +27466,7 @@ Arbeitsweise:
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
 9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt", sondern Vorfreude auf einen kleinen persoenlichen Motiv-Haken: der Platzburger darf als bester Burger weit und breit gelten, der Kaffee am Platz darf den Ausflug wert sein, die Abkuehlung am See ist bei Hitze der Grund, die erste Berg-/Wanderrunde lockt, die Ausstellung ist der ruhige Anlass. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer einen kurzen freundlichen Dispatchzettel mit Lust auf den Ausflug: lockerer Einstieg, Zielstrecke, Mitflieger, Anlass, Wetterstimmung und ein entspannter "macht euch keinen Stress"-Abschluss. Beispielton: "Servus! Heute geht's die Meilen rueber nach ...; Clara und du wollen dort ...; bei 36°C passt die Abkuehlung." mustMention darf leer bleiben; keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
+9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern": Nutze CONTEXT_BUNDLE.loadout.cargoText als bindende Ladung, benenne was genau damit am Ziel passiert, wer es uebernimmt und welcher naechste Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt daran haengt. Gute Details sind z.B. Banner probehaengen, Funkakkus nummerieren, Helferliste ans Board haengen, Schluessel quittieren, Pruefadapter mit Mappe abgleichen, Leuchtmittel in den Materialschrank legen, Checkkarten verteilen oder Lash-Straps an die Stellplatztafel bringen. Bleibe A-B mit Handoff am Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -27129,7 +27581,8 @@ async function fetchMissionPlannerV4(context = {}) {
         parseMode: result.parseMode,
         pickupCreativeBrief: bundle?.pickupCreativeBrief || null,
         missionVarietyBrief: bundle?.missionVarietyBrief || null,
-        followUpContext: bundle?.followUpContext || null
+        followUpContext: bundle?.followUpContext || null,
+        loadout: bundle?.loadout || null
     });
     if (bundle?.pickupCreativeBrief) {
         normalized.pickupCreativeBrief = bundle.pickupCreativeBrief;
@@ -27319,7 +27772,12 @@ function buildMissionContractV4({
         homeName: contractHomeName,
         isPOI: !!plannerContext.isPOI,
         missionType: plannerContext.missionType || plannerContext.missionPicker?.baseType || (plannerContext.isPOI ? 'poi' : 'apt'),
-        knowledgeContext
+        knowledgeContext,
+        loadout: {
+            paxText: String(plannerContext.paxText || '').trim(),
+            cargoText: String(plannerContext.cargoText || '').trim(),
+            selectedMissionProposal: plannerContext.selectedMissionProposal || null
+        }
     });
     const infraNarrativeHandoff = /^(inspection_infra|infra_chain_recon)$/i.test(taskDomain)
         ? _missionPipelineV4BuildInfraNarrativeHandoff({
@@ -27374,6 +27832,7 @@ function buildMissionContractV4({
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
         mode,
+        paxText: String(plannerContext.paxText || profile.paxText || ''),
         cargoText: animalTransportBrief?.cargoText || String(plannerContext.cargoText || ''),
         animalTransportBrief,
         route: {
@@ -27464,6 +27923,7 @@ Regeln:
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
+19club. club_utility + APT: Nutze CONTRACT.cargoText oder CONTRACT.storyFrame.shipment als bindende Ladung. Erzaehle konkret, was geliefert wird und was danach passiert: wer uebernimmt am Ziel, wofuer wird die Ladung dort gebraucht, welcher naechste Club-, Flugtag-, Hangar-, Werkstatt- oder Briefingtisch-Schritt folgt. Kein austauschbares "Ersatzteile/Material liefern", wenn die Ladung z.B. Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder eine Werkzeugtasche ist. Originell ist erlaubt, aber klein und glaubwuerdig.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
@@ -29994,6 +30454,55 @@ function _missionPipelineV4ComposeCargoTransportStory(contract = {}, context = {
     return _missionPipelineV4PolishGermanVisibleText([first, routeSentence, reasonSentence, outcomeSentence].filter(Boolean).join(' '));
 }
 
+function _missionPipelineV4ComposeClubUtilityStory(contract = {}, context = {}) {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
+    const targetName = String(contract?.target?.name || route.targetName || 'dem Zielplatz').trim() || 'dem Zielplatz';
+    const startName = String(route.startName || route.startIcao || 'Startplatz').trim() || 'Startplatz';
+    const distanceNm = Number(route.distanceNm);
+    const seedFrame = _missionPipelineV4ClubUtilityStoryFrame({
+        targetLabel: targetName,
+        cargoText: context?.cargoText || contract?.cargoText || frame.shipment || frame.subjectDetail || '',
+        selectedProposal: contract?.selectedMissionProposal || null
+    });
+    const seed = _missionPipelineV4ClubUtilitySeed({
+        targetLabel: targetName,
+        cargoText: seedFrame.subjectDetail,
+        selectedProposal: contract?.selectedMissionProposal || null
+    });
+    const trigger = _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.trigger, seedFrame)
+        ? seedFrame.trigger
+        : frame.trigger;
+    const first = _missionPipelineV4EnsureSentence(trigger);
+    const routeSentence = Number.isFinite(distanceNm) && distanceNm > 0
+        ? `Die Route führt von ${startName} nach ${targetName} über rund ${distanceNm.toFixed(distanceNm % 1 ? 1 : 0)} NM; an Bord bleibt ${seed.shipment} zusammen mit dem Vereinskontakt in einer Hand.`
+        : `Der A-B-Flug bringt ${seed.shipment} zusammen mit dem Vereinskontakt ohne Zwischenstation zum Zielplatz.`;
+    const contextSentence = _missionPipelineV4EnsureSentence(
+        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.incidentContext, seedFrame)
+            ? seedFrame.incidentContext
+            : frame.incidentContext
+    );
+    const whySentence = _missionPipelineV4EnsureSentence(
+        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.whyNow, seedFrame)
+            ? seedFrame.whyNow
+            : frame.whyNow
+    );
+    const outcomeSentence = _missionPipelineV4EnsureSentence(
+        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.soughtOutcome, seedFrame)
+            ? seedFrame.soughtOutcome
+            : frame.soughtOutcome
+    );
+    const handoffSentence = _missionPipelineV4EnsureSentence(frame.completionSignal || seedFrame.completionSignal);
+    return _missionPipelineV4PolishGermanVisibleText([
+        first,
+        routeSentence,
+        contextSentence,
+        whySentence,
+        outcomeSentence,
+        handoffSentence
+    ].filter(Boolean).join(' '));
+}
+
 function _missionPipelineV4CargoStoryHasRouteContext(story = '', contract = {}) {
     const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
     const text = String(story || '').replace(/\s+/g, ' ').trim();
@@ -30303,7 +30812,13 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
             `${sought || 'Wir sollen leer zum Pickup fliegen, den Gast aufnehmen und die Geschichte auf dem Rueckflug nach Hause weiterfuehren.'} ${completion}`.trim()
         ].join(' ');
     }
-    if (taskDomain === 'charter' || taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility') {
+        return _missionPipelineV4ComposeClubUtilityStory(contract, {
+            ...context,
+            cargoText: context?.cargoText || contract?.cargoText || ''
+        });
+    }
+    if (taskDomain === 'charter') {
         return [
             String(frame.trigger || `Der Flug nach ${targetName} hat heute einen konkreten Anlass am Ziel.`).trim(),
             incident || `${detail} macht genau diesen Umlauf sinnvoll und nicht nur irgendeinen Transport.`,
@@ -30576,7 +31091,15 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     if (taskDomain === 'bush_pickup_return') {
         return `${opener}, ich war bei ${targetName} draussen wegen ${subject}; bring mich bitte zurück, damit ${outcome ? outcome.toLowerCase() : 'die Unterlagen und Ausrüstung wieder in der Basis ankommen'}.`;
     }
-    if (taskDomain === 'charter' || taskDomain === 'club_utility') {
+    if (taskDomain === 'club_utility') {
+        const seed = _missionPipelineV4ClubUtilitySeed({
+            targetLabel: targetName,
+            cargoText: contract?.cargoText || frame.shipment || frame.subjectDetail || '',
+            selectedProposal: contract?.selectedMissionProposal || null
+        });
+        return `${opener}, ich habe ${seed.shipment} dabei; am Ziel wartet ${seed.receiver}, damit ${_missionPipelineV4LowerFirst(seed.nextStep)}.`;
+    }
+    if (taskDomain === 'charter') {
         return `${opener}, heute geht es wegen ${subject} nach ${targetName}; wichtig ist, dass wir ${outcome ? outcome.toLowerCase() : 'den Termin oder die Uebergabe am Ziel sauber erreichen'}.`;
     }
     if (taskDomain === 'news_coverage') {
@@ -31754,6 +32277,9 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     if (taskDomain === 'animal_transport') {
         return _missionWriterV5ComposeAnimalTransportStory(contract, context);
     }
+    if (taskDomain === 'club_utility') {
+        return _missionPipelineV4ComposeClubUtilityStory(contract, context);
+    }
     const routeSentence = _missionWriterV5RouteSentence(contract);
     const weatherSentence = _missionWriterV5WeatherSentence(contract, family);
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
@@ -31871,6 +32397,35 @@ function _missionWriterV5CoversConcreteCargo(raw = '', contract = {}, context = 
     return /\b(fracht|ladung|sendung|kurier|case|box|koffer|labor|probe|optik|modul|gimbal|archiv|ausstellung|kunst|porzellan|keramik|torte|instrument|synthesizer|pokal|avionik|klimacase|kuehlcase|kühlcase)\b/.test(normalized);
 }
 
+function _missionWriterV5ClubUtilityStoryNeedsRepair(raw = '', contract = {}, context = {}) {
+    const normalized = normalizeMissionText(raw);
+    if (!normalized) return true;
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'Zielplatz').trim();
+    const seedFrame = _missionPipelineV4ClubUtilityStoryFrame({
+        targetLabel: targetName,
+        cargoText: context?.cargoText || contract?.cargoText || contract?.storyFrame?.shipment || contract?.storyFrame?.subjectDetail || '',
+        selectedProposal: contract?.selectedMissionProposal || null
+    });
+    const seed = _missionPipelineV4ClubUtilitySeed({
+        targetLabel: targetName,
+        cargoText: seedFrame.subjectDetail,
+        selectedProposal: contract?.selectedMissionProposal || null
+    });
+    const cargoNorm = normalizeMissionText(seed.shipment);
+    const cargoWords = cargoNorm
+        .split(/\s+/)
+        .filter(word => word.length >= 5 && !/^(kleine|kleiner|kleines|heute|fuer|für|nach|zielplatz|vereins|utility|lbs)$/.test(word));
+    const hasConcreteCargo = cargoWords.length
+        ? cargoWords.some(word => normalized.includes(word))
+        : _missionPipelineV4StoryFieldCovered(raw, seed.shipment, 1);
+    const hasHandoff = /\b(uebergabe|übergabe|uebernimmt|übernimmt|zielkontakt|vereinskontakt|platzwart|technikwart|clubheim|hangar|hallentor|briefingtisch|briefingboard|werkstatt|vorfeld|helferliste|funkakku|funkgeraete|funkgeräte|checkkarten|schluessel|schlüssel|materialschrank|stellplatztafel)\b/.test(normalized);
+    const genericOnly = /\b(konkreter zweck|klarer vereins|klarer nutzauftrag|praktischer anlass|wichtige aufgabe|spezielle ersatzteile|ein paar spezielle ersatzteile|ersatzteile, die wir heute|material und absprachen|zielablauf ohne leerlauf|naechste person|nächste person)\b/.test(normalized);
+    const cargoMismatch = hasConcreteCargo
+        ? false
+        : /\b(ersatzteil|ersatzteile|werkzeug|unterlagen|material|sendung|fracht|mitnahme|bauteil)\b/.test(normalized);
+    return !hasConcreteCargo || !hasHandoff || genericOnly || cargoMismatch;
+}
+
 function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contract = {}, context = {}) {
     const domain = String(taskDomain || '').trim().toLowerCase();
     const normalized = normalizeMissionText(raw);
@@ -31884,6 +32439,9 @@ function _missionWriterV5DomainStoryNeedsRepair(taskDomain = '', raw = '', contr
         const hasCargo = _missionWriterV5CoversConcreteCargo(raw, contract, context);
         const hasArrivalStep = /\b(uebergabe|übergabe|uebernimmt|übernimmt|empfaenger|empfänger|zielkontakt|frachtkontakt|annahme|pruefplatz|prüfplatz|labor|werkstatt|werft|museum|zustandskontrolle|auswertung|weitertransport|vorfeld)\b/.test(normalized);
         return _missionPipelineV4CargoStoryNeedsFallback(raw, contract, context) || !hasCargo || !hasArrivalStep;
+    }
+    if (domain === 'club_utility') {
+        return _missionWriterV5ClubUtilityStoryNeedsRepair(raw, contract, context);
     }
     if (domain === 'media_photo') {
         const wrongOperationalFrame = /\b(wasserbehoerde|wasserbehörde|ufer[-\s]?check|treibgut|boote?|einsatzmittel|inspektion|pruefung|prüfung|technikteam|betreiber|stoerung|störung|schaden|rettung|sar|brand|feuer)\b/.test(normalized);
@@ -32029,7 +32587,7 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
             if (_missionWriterV5NewsCoverageNeedsRepair(raw, contract, context)) {
                 reasons.push('news_coverage_weak_spine');
             }
-        } else if (['cargo_fragile', 'mapping_survey', 'science_bio', 'science_geo', 'historian_guided_tour', 'medical_transfer', 'animal_transport'].includes(taskDomain)) {
+        } else if (['cargo_fragile', 'club_utility', 'mapping_survey', 'science_bio', 'science_geo', 'historian_guided_tour', 'medical_transfer', 'animal_transport'].includes(taskDomain)) {
             if (_missionWriterV5DomainStoryNeedsRepair(taskDomain, raw, contract, context)) {
                 reasons.push(`${taskDomain}_weak_domain_story`);
             }
@@ -33330,6 +33888,7 @@ REGELN:
 3g) ${sightseeingKnowledgeRule || 'Kein Sightseeing-Zielwissen aktiv.'}
 4) ${routeRule}
 5) PAX/FRACHT: Wenn <DISPATCH_FORM>.selectedLoadout.paxText oder cargoText gesetzt ist, sind diese Werte bindend. Du darfst sie nicht durch andere Personen-, Material- oder Ersatzteil-Stories ersetzen. Nur wenn selectedLoadout leer oder Platzhalter ist, erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
+5b) Bei taskDomain club_utility: Erzaehle die konkrete Vereinsladung aus selectedLoadout.cargoText mit Zielkontakt und naechstem Club-/Hangar-/Flugtag-/Werkstatt-Schritt. Keine generische Ersatzteilstory, wenn die Ladung Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder Werkzeugtasche ist.
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
 6b) passenger.gender ist PFLICHT und MUSS exakt "male" oder "female" sein (keine anderen Werte).
 7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:
@@ -35270,13 +35829,22 @@ function missionProposalAptProfileConfig(profileId = '') {
             intro: 'Wähle den Vereins- oder Utility-Flug. Jede Option setzt Zielplatz, Vereinsanlass und mitgeführtes Material für das Dispatcher-Briefing fest.',
             fallbackCargo: 'Werkzeug- und Dokumententasche (24 lbs)',
             fallbackPax: '1 PAX (Vereinskoordination)',
-            title: ({ cargoTitle }) => `Vereins-Utility: ${cargoTitle}`,
-            description: ({ route, targetName, cargoTitle }) => `Route: ${route.label} vom Start. ${cargoTitle} geht zum Vereins- oder Techniktermin am Zielplatz ${targetName}.`,
-            storySeed: ({ cargoText, targetName }) => `Der gewählte Vereins-/Utility-Auftrag führt ${cargoText} zum Zielplatz ${targetName}; dort wartet ein kurzer Vereins- oder Techniktermin.`,
+            titleMode: 'scenario',
+            description: ({ route, targetName, cargoTitle, scenario }) => {
+                const detail = missionProposalShortSentence(scenario?.s, 'Am Zielplatz wartet ein konkreter Vereinskontakt.');
+                return `Route: ${route.label} vom Start. ${detail} Mit an Bord: ${cargoTitle}; Übergabe am GA-/Vorfeldbereich in ${targetName}.`;
+            },
+            storySeed: ({ scenario, cargoText, targetName }) => {
+                const detail = missionProposalShortSentence(scenario?.s, 'Am Zielplatz wartet ein konkreter Vereinskontakt.');
+                return `${detail} Mit an Bord: ${cargoText}. Zielplatz: ${targetName}.`;
+            },
             scenarios: [
-                { t: 'Vereinsmaterial-Transfer', s: 'Material und Unterlagen werden am Zielplatz für einen kurzen Vereinstermin gebraucht.' },
-                { t: 'Mechaniker-Shuttle', s: 'Ein Vereinskontakt muss zum Zielplatz, weil dort Werkzeug, Dokumente oder ein kleiner Techniktermin warten.' },
-                { t: 'Fly-In Vorbereitung', s: 'Am Zielplatz soll ein Vereins- oder Fly-In-Termin vorbereitet werden.' }
+                { t: 'Flugtag-Regiekiste', s: 'Am Zielplatz fehlen noch Banner, geladene Funkakkus und die finale Helferliste; nach der Landung wandert alles direkt an den Briefingtisch.' },
+                { t: 'Schlüsselmappe fürs Clubheim', s: 'Ein Vereinskontakt übernimmt Schlüssel, Klemmbretter und Aushangmappe, damit Gastzugang und kurzer Vorstandstermin sauber starten.' },
+                { t: 'Avionikadapter zum Hallentor', s: 'Die Technikcrew wartet auf Adapter, Prüfbogen und Rückfragenliste; damit entscheidet sich, ob die Vereinsmaschine wieder in den Dienstplan darf.' },
+                { t: 'Jugendflug-Checkkarten', s: 'Für eine Nachwuchs-Einweisung liegen laminierte Checkkarten, Schulungsordner und Vereinsmaterial bereit; die Mappe soll direkt auf den Briefingtisch.' },
+                { t: 'Hangar-Straps und Markierband', s: 'Am Zielhangar werden Stellplätze neu sortiert; Lash-Straps, Markierband und Hallenskizze sollen nicht wieder improvisiert werden.' },
+                { t: 'Platzwart-Kleinteile', s: 'Batterien, Leuchtmittel und eine kleine Materialbox gehen zum Platzwart, der nach der Landung gleich seine offene Platzrunde abhakt.' }
             ]
         }
     };
@@ -35675,13 +36243,27 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
         };
     }
     if (cargoText) contract.cargoText = cargoText;
+    const clubUtilityFrame = String(selected.profileId || contract.profile?.id || '').toLowerCase() === 'club_utility'
+        ? _missionPipelineV4ClubUtilityStoryFrame({
+            targetLabel: targetName,
+            cargoText,
+            selectedProposal: compact
+        })
+        : null;
     contract.storyFrame = {
         ...(contract.storyFrame || {}),
         selectedProposalTitle: selected.title || targetName,
         selectedProposalDescription: selected.description || '',
-        trigger: selected.storySeed || contract.storyFrame?.trigger || selected.description || '',
-        subjectDetail: cargoText || contract.storyFrame?.subjectDetail || selected.title || targetName,
-        shipment: cargoText || contract.storyFrame?.shipment || ''
+        trigger: clubUtilityFrame?.trigger || selected.storySeed || contract.storyFrame?.trigger || selected.description || '',
+        focusSubject: clubUtilityFrame?.focusSubject || contract.storyFrame?.focusSubject || '',
+        keyQuestion: clubUtilityFrame?.keyQuestion || contract.storyFrame?.keyQuestion || '',
+        stakes: clubUtilityFrame?.stakes || contract.storyFrame?.stakes || '',
+        completionSignal: clubUtilityFrame?.completionSignal || contract.storyFrame?.completionSignal || '',
+        subjectDetail: clubUtilityFrame?.subjectDetail || cargoText || contract.storyFrame?.subjectDetail || selected.title || targetName,
+        incidentContext: clubUtilityFrame?.incidentContext || contract.storyFrame?.incidentContext || '',
+        whyNow: clubUtilityFrame?.whyNow || contract.storyFrame?.whyNow || '',
+        soughtOutcome: clubUtilityFrame?.soughtOutcome || contract.storyFrame?.soughtOutcome || '',
+        shipment: clubUtilityFrame?.subjectDetail || cargoText || contract.storyFrame?.shipment || ''
     };
     if (contract.missionPlan && typeof contract.missionPlan === 'object') {
         contract.missionPlan.plan = {
@@ -35707,7 +36289,8 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
             ...plan.storyFrame,
             selectedProposalTitle: selected.title || targetName,
             selectedProposalDescription: selected.description || '',
-            shipment: cargoText || plan.storyFrame.shipment || ''
+            ...(clubUtilityFrame || {}),
+            shipment: clubUtilityFrame?.subjectDetail || cargoText || plan.storyFrame.shipment || ''
         };
     }
     return contract;
@@ -36378,6 +36961,20 @@ async function generateMission(options = {}) {
         ? preWriterProfile.cargoPool.filter(Boolean)
         : [];
     let animalTransportBrief = null;
+    if (preWriterProfile?.id === 'club_utility') {
+        if (preWriterProfile.paxText && !missionProposalChoice?.paxText) paxText = preWriterProfile.paxText;
+        const clubCargoPool = Array.isArray(preWriterProfile.cargoPool)
+            ? preWriterProfile.cargoPool.filter(Boolean)
+            : [];
+        if (!missionProposalChoice?.cargoText && clubCargoPool.length) {
+            cargoText = _pickClubUtilityCargo(clubCargoPool, {
+                t: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
+                title: missionProposalChoice?.t || missionProposalChoice?.title || dest?.n || '',
+                s: missionProposalChoice?.s || missionProposalChoice?.story || '',
+                selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice)
+            }, null, cargoText);
+        }
+    }
     if (preWriterProfile?.id === 'animal_transport') {
         if (preWriterProfile.paxText && !missionProposalChoice?.paxText) paxText = preWriterProfile.paxText;
         const proposalCargo = _animalTransportDisplayCargoLabel(missionProposalChoice?.cargoText || '');
@@ -36492,6 +37089,7 @@ async function generateMission(options = {}) {
         poiTerrainFt,
         missionWeather,
         missionFireHazard,
+        paxText,
         cargoText,
         animalTransportBrief,
         selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
@@ -37396,10 +37994,11 @@ async function generateMission(options = {}) {
         {
             const effectiveProfileId = dispatchProfileId;
             const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
+            const appliedProfileId = profApplied.appliedProfile || effectiveProfileId || 'auto';
             m = profApplied.mission || m;
             paxText = profApplied.paxText || paxText;
             cargoText = profApplied.cargoText || cargoText;
-            if ((profApplied.appliedProfile || effectiveProfileId) === 'cargo_fragile' && Array.isArray(getMissionTaskProfile('cargo_fragile', 'apt')?.cargoPool)) {
+            if (appliedProfileId === 'cargo_fragile' && Array.isArray(getMissionTaskProfile('cargo_fragile', 'apt')?.cargoPool)) {
                 const cargoProfile = getMissionTaskProfile('cargo_fragile', 'apt');
                 const synced = _syncCargoFragileStoryAnchor(m, cargoProfile, cargoText, [
                     missionPlanV2?.plan?.storyFrame?.shipment,
@@ -37418,7 +38017,7 @@ async function generateMission(options = {}) {
             if (missionProposalChoice && m && typeof m === 'object') {
                 const compactProposal = compactMissionProposalChoice(missionProposalChoice);
                 m.selectedMissionProposal = compactProposal;
-                if ((profApplied.appliedProfile || effectiveProfileId) === 'cargo_fragile' && missionProposalChoice.cargoText) {
+                if (appliedProfileId === 'cargo_fragile' && missionProposalChoice.cargoText) {
                     cargoText = missionProposalChoice.cargoText;
                     m.cargo = cargoText;
                     m.cargoText = cargoText;
@@ -37428,8 +38027,59 @@ async function generateMission(options = {}) {
                     }
                 }
             }
+            if (appliedProfileId === 'club_utility' && m && typeof m === 'object') {
+                const compactProposal = compactMissionProposalChoice(missionProposalChoice) || m.selectedMissionProposal || null;
+                const clubCargoDisplay = String(m.cargo || m.cargoText || cargoText || missionContractV4?.cargoText || '').trim();
+                const clubCargoClean = _missionPipelineV4CleanCargoLabel(clubCargoDisplay);
+                if (clubCargoDisplay) {
+                    cargoText = clubCargoDisplay;
+                    m.cargo = clubCargoDisplay;
+                    m.cargoText = clubCargoDisplay;
+                }
+                const clubTargetLabel = String(
+                    missionContractV4?.target?.name
+                    || missionContractV4?.route?.targetName
+                    || dest?.n
+                    || currentDestICAO
+                    || ''
+                ).trim();
+                const clubStoryFrame = _missionPipelineV4EnrichClubUtilityStoryFrame(
+                    missionContractV4?.storyFrame || missionPlanV4?.plan?.storyFrame || missionPlanV2?.plan?.storyFrame || {},
+                    {
+                        targetLabel: clubTargetLabel,
+                        cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+                        selectedProposal: compactProposal
+                    }
+                );
+                if (missionPlanV2?.plan && typeof missionPlanV2.plan === 'object') {
+                    _missionPipelineV4ApplyClubUtilityPlanGuard(missionPlanV2.plan, clubStoryFrame, missionPlanV2.semantics || {}, {
+                        targetLabel: clubTargetLabel,
+                        cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+                        selectedProposal: compactProposal
+                    });
+                }
+                if (missionPlanV4?.plan && typeof missionPlanV4.plan === 'object' && missionPlanV4 !== missionPlanV2) {
+                    _missionPipelineV4ApplyClubUtilityPlanGuard(missionPlanV4.plan, clubStoryFrame, missionPlanV4.semantics || {}, {
+                        targetLabel: clubTargetLabel,
+                        cargoText: clubCargoClean || clubCargoDisplay || cargoText || '',
+                        selectedProposal: compactProposal
+                    });
+                }
+                if (missionContractV4 && typeof missionContractV4 === 'object') {
+                    missionContractV4 = {
+                        ...missionContractV4,
+                        paxText,
+                        cargoText: clubCargoDisplay || cargoText || missionContractV4.cargoText || '',
+                        selectedMissionProposal: compactProposal || missionContractV4.selectedMissionProposal || null,
+                        storyFrame: clubStoryFrame,
+                        missionPlan: missionPlanV4 || missionPlanV2 || missionContractV4.missionPlan || null
+                    };
+                    m._missionContractV4 = missionContractV4;
+                    m._missionPlanV4 = missionPlanV4 || missionContractV4 || m._missionPlanV4 || null;
+                }
+            }
             m._requestedProfile = selectedMissionProfile;
-            m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
+            m._appliedProfile = appliedProfileId;
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
         if (isPOI && dest?.poiChain && m && typeof m === 'object') {

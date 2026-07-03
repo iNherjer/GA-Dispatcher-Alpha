@@ -979,13 +979,76 @@ function buildMissionAiPayload(prompt) {
     };
   }
   if (formTaskDomain === 'club_utility') {
+    const cargoRaw = String(
+      dispatchForm?.selectedLoadout?.cargoText
+      || dispatchForm?.loadout?.cargoText
+      || dispatchForm?.cargoText
+      || 'Flugtag-Banner, Funkakkus und Helferlisten (20 lbs)'
+    ).trim();
+    const cargoClean = cargoRaw.replace(/\s*\([^)]*\)\s*$/, '').trim() || cargoRaw;
+    const cargoHay = cargoClean
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss');
+    const clubSeed = (() => {
+      if (/(flugtag|fly-in|flyin|banner|funkakku|helferliste)/.test(cargoHay)) {
+        return {
+          receiver: 'die Fly-In-Orga am Clubheim',
+          nextStep: 'die Banner werden probegehaengt, die Funkakkus nummeriert und die Helferliste ans Briefingboard gehaengt',
+          detail: 'genau der kleine Regiesatz, ohne den der Vereinsbetrieb am Ziel improvisieren muesste',
+          passenger: { name: 'Anja Ritter', role: 'Eventhelferin', gender: 'female', personality: 'freundlich, zupackend, entspannt', greetingText: `Hi, hinten liegen Banner, Funkakkus und die Helferliste. Am Ziel in ${target} nimmt die Orga das direkt am Clubheim ab.` }
+        };
+      }
+      if (/(schluessel|schlussel|clubheim|stempel|aushang|vertrag|unterlagenbox|klemmbrett)/.test(cargoHay)) {
+        return {
+          receiver: 'der Vorstands- oder Platzwartkontakt',
+          nextStep: 'Schluessel und Mappe werden quittiert, die Aushangseite geht ans Brett und der Clubheim-Termin ist sauber abgeschlossen',
+          detail: 'eine kleine Vereinsmappe mit Schluesselbund, Stempel und genau den Zetteln, die sonst wieder im Auto liegen bleiben',
+          passenger: { name: 'Svenja Michel', role: 'Kassenwartin', gender: 'female', personality: 'genau, freundlich, strukturiert', greetingText: `Hi, Mappe und Schluessel sind dabei. In ${target} reicht ein sauberer Uebergang an den Vereinskontakt.` }
+        };
+      }
+      if (/(avionik|adapter|messadapter|pruefmappe|transponder|landelicht|freigabezettel|sicherungsdraht)/.test(cargoHay)) {
+        return {
+          receiver: 'der Technikwart am Zielhangar',
+          nextStep: 'Adapter, Freigabezettel und Pruefmappe werden am Hallentor abgeglichen, bevor die Vereinsmaschine wieder in die Planung darf',
+          detail: 'kleine Technikladung mit mehr Zeitwert als Gewicht',
+          passenger: { name: 'Nina Kraus', role: 'Technikwartin', gender: 'female', personality: 'sorgfaeltig, direkt, kollegial', greetingText: `Hi, das Technikzeug ist klein, aber wichtig. In ${target} wartet die Maschine auf den kurzen Abgleich.` }
+        };
+      }
+      if (/(jugend|schulung|schulungsordner|checkkarte|briefingmappe|einweisung|nachwuchs)/.test(cargoHay)) {
+        return {
+          receiver: 'die Jugendflugleitung am Zielplatz',
+          nextStep: 'die Mappe landet direkt auf dem Briefingtisch, die Checkkarten werden verteilt und die Jugendgruppe kann ohne Papierjagd starten',
+          detail: 'Schulungsmaterial mit Randnotizen und Checkkarten, das aus einem normalen Flug einen vorbereiteten Termin macht',
+          passenger: { name: 'Markus Lenz', role: 'Jugendflugleiter', gender: 'male', personality: 'organisiert, ruhig, motivierend', greetingText: `Hallo, die Schulungsmappe ist an Bord. In ${target} wartet die Gruppe am Briefingtisch.` }
+        };
+      }
+      if (/(hangar|halle|lash|strap|zurr|markierband|stellplatz|hallenskizze|werkzeug|prueflampe)/.test(cargoHay)) {
+        return {
+          receiver: 'die Hallencrew am Zielhangar',
+          nextStep: 'Gurte, Skizze und Markierungen gehen direkt an die Stellplatztafel, damit die Halle ohne Improvisation sortiert wird',
+          detail: 'eine praktische Hallentasche mit Gurten, Skizze und offenen Punkten vom letzten Vereinsabend',
+          passenger: { name: 'Tobias Kern', role: 'Flugplatzkoordinator', gender: 'male', personality: 'ruhig, zuverlaessig, loesungsorientiert', greetingText: `Moin, die Hallentasche ist dabei. In ${target} klaeren wir den Rest direkt am Hangar.` }
+        };
+      }
+      return {
+        receiver: 'der Vereinskontakt am Vorfeld',
+        nextStep: 'die Mappe geht ins Clubheim, Parkscheiben werden bereitgelegt und die offene Materialliste wird abgehakt',
+        detail: 'eine charmant unglamouroese Vereinsladung mit genau den Dingen, die immer fehlen, wenn der erste Gast rollt',
+        passenger: { name: 'Lena Hartig', role: 'Vereinskoordinatorin', gender: 'female', personality: 'pragmatisch, freundlich, organisiert', greetingText: `Hi, die Vereinsladung ist dabei. In ${target} wartet der Kontakt am Clubheim.` }
+      };
+    })();
     return {
       title: `Vereins-/Utility-Flug nach ${target}`,
-      story: `Heute fliegt ein Vereinskontakt mit kleiner Werkzeug- und Dokumententasche nach ${target}. Am Zielplatz wartet ein kurzer Hangar-, Technik- oder Clubheimtermin; der Flug ist kein Drama, sondern ein sauberer GA-Utility-Lauf mit klarer Uebergabe am Vorfeld.`,
-      pax: '1 PAX (Vereinskoordination)',
-      cargo: 'Werkzeug- und Dokumententasche (24 lbs)',
+      story: `Heute gehen ${cargoClean} nach ${target}. Am Zielplatz wartet ${clubSeed.receiver}. Nach der Landung folgt direkt der naechste Vereinsschritt: ${clubSeed.nextStep}. Der Flug bleibt ein normaler A-B-Utility-Lauf, aber die Ladung ist ${clubSeed.detail}. Nach dem Abstellen uebernimmt der Vereinskontakt direkt am Vorfeld.`,
+      pax: String(dispatchForm?.selectedLoadout?.paxText || '').trim() || `1 PAX (${clubSeed.passenger.role})`,
+      cargo: cargoRaw,
       sceneIntent: {
-        summary: 'A-B-Utility-Flug ohne separate Zielszene; Anlass liegt in Vereinskontakt, kleiner Fracht und Termin am Zielplatz.',
+        summary: 'A-B-Utility-Flug ohne separate Zielszene; Anlass liegt in Vereinskontakt, konkreter Club-Ladung und Handoff am Zielplatz.',
         environment: 'leer',
         visibleIdeas: [],
         avoid: ['kein POI-Arbeitsauftrag', 'keine Einsatzlage', 'kein Sightseeing'],
@@ -993,10 +1056,10 @@ function buildMissionAiPayload(prompt) {
         notes: 'Vereins-/Utility bleibt praktischer A-B-Flug.'
       },
       passenger: {
-        name: 'Lena Hartig',
-        role: 'Vereinskoordinatorin',
-        gender: 'female',
-        personality: 'pragmatisch, freundlich, organisiert',
+        name: clubSeed.passenger.name,
+        role: clubSeed.passenger.role,
+        gender: clubSeed.passenger.gender,
+        personality: clubSeed.passenger.personality,
         dialectHint: 'neutral',
         roleProfile: 'club_utility_v1',
         taskDomain: 'club_utility',
@@ -1009,8 +1072,8 @@ function buildMissionAiPayload(prompt) {
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
-        storySeed: `{name} bringt fuer den Verein Unterlagen, Schluessel und eine kleine Ersatzteilsendung nach ${target}; dort wartet ein kurzer Termin mit Platzwart oder Vorstand.`,
-        greetingText: `Hi, ich habe die Vereinsmappe und die kleine Sendung dabei. Am Ziel in ${target} wartet jemand vom Platz, also einfach sauber und planbar hin.`,
+        storySeed: `{name} bringt ${cargoClean} nach ${target}; dort wartet ${clubSeed.receiver}.`,
+        greetingText: clubSeed.passenger.greetingText,
         trainingPlan: null
       }
     };
