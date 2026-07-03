@@ -5307,6 +5307,13 @@ function getAiTextModelCandidatesForPrompt(provider = getSelectedAiProvider(), p
         }
         return (AI_TEXT_MODEL_PROFILES.openai.auto || []).slice();
     }
+    if (normalizedProvider === 'gemini' && normalizedProfile === 'high_quality' && /^planner-v4/.test(prompt)) {
+        return [
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+        ];
+    }
     return getAiTextModelCandidates(normalizedProvider, normalizedProfile);
 }
 window.getAiTextModelCandidatesForPrompt = getAiTextModelCandidatesForPrompt;
@@ -27079,10 +27086,13 @@ async function fetchMissionPlannerV4(context = {}) {
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
     const { working, bundle } = await _missionPipelineV4ResolveContextBundle(context, draft);
-    const useOpenAiCompactPlanner = normalizeAiProvider(selectedProvider) === 'openai';
+    const selectedProfile = getSelectedAiModelProfile();
+    const normalizedProvider = normalizeAiProvider(selectedProvider);
+    const useOpenAiCompactPlanner = normalizedProvider === 'openai';
+    const useGeminiHighQualityPlanner = normalizedProvider === 'gemini' && selectedProfile === 'high_quality';
     const promptDraft = useOpenAiCompactPlanner ? _missionPipelineV4CompactDraftForOpenAi(draft) : draft;
     const promptBundle = useOpenAiCompactPlanner ? _missionPipelineV4CompactPlannerBundleForOpenAi(bundle) : bundle;
-    const timeoutMs = useOpenAiCompactPlanner ? 30000 : 12000;
+    const timeoutMs = useOpenAiCompactPlanner ? 30000 : (useGeminiHighQualityPlanner ? 26000 : 12000);
     const result = await fetchGeminiJsonWithFallback(
         _missionPipelineV4Prompt(promptDraft, promptBundle, { compact: useOpenAiCompactPlanner }),
         apiKey,
@@ -33222,6 +33232,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             opsNotes: Array.isArray(forcedProfile.opsNotes) ? forcedProfile.opsNotes.slice(0, 4) : []
         } : null,
         allowedTheme: randomTheme,
+        selectedLoadout: {
+            paxText: String(paxText || '').trim(),
+            cargoText: String(cargoText || '').trim()
+        },
         forbiddenTaskDomains: forbiddenByTaskDomain[requiredTaskDomain] || [],
         forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
         plannerContext: compactMissionPlanV2 || null,
@@ -33240,7 +33254,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             hospitalRef: sarHeliContext.hospitalRef || null,
             recovery: sarHeliContext.recovery || null
         } : null,
-        instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
+        instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile, Ziel, PAX und Fracht duerfen nicht neu erfunden werden, wenn selectedLoadout gesetzt ist.'
     };
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
     const poiConsistencyRule = poiLikeTask
@@ -33315,7 +33329,7 @@ REGELN:
 3f) ${poiChainRule || 'Keine POI-Kette aktiv.'}
 3g) ${sightseeingKnowledgeRule || 'Kein Sightseeing-Zielwissen aktiv.'}
 4) ${routeRule}
-5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
+5) PAX/FRACHT: Wenn <DISPATCH_FORM>.selectedLoadout.paxText oder cargoText gesetzt ist, sind diese Werte bindend. Du darfst sie nicht durch andere Personen-, Material- oder Ersatzteil-Stories ersetzen. Nur wenn selectedLoadout leer oder Platzhalter ist, erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
 6b) passenger.gender ist PFLICHT und MUSS exakt "male" oder "female" sein (keine anderen Werte).
 7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:
