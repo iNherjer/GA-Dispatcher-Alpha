@@ -3454,13 +3454,13 @@ function _recordMissionComfortSample(flightData) {
     if (Number.isFinite(turb)) score.maxTurbulencePct = Math.max(score.maxTurbulencePct || 0, turb);
     if (Number.isFinite(precip)) score.maxPrecipRate = Math.max(score.maxPrecipRate || 0, precip);
 
-    _missionScoreRegisterEvent('g', g >= 1.45, g >= 1.75, 'pilot');
-    _missionScoreRegisterEvent('bank', bank >= 30, bank >= 45, 'pilot');
-    _missionScoreRegisterEvent('descent', vs <= -1500, vs <= -2300, 'pilot');
-    _missionScoreRegisterEvent('wind', wind >= 22, wind >= 32, 'weather');
-    _missionScoreRegisterEvent('gust', gustSpread >= 10, gustSpread >= 18, 'weather');
-    _missionScoreRegisterEvent('turb', turb >= 35, turb >= 60, 'weather');
-    _missionScoreRegisterEvent('precip', precip >= 1.0 || flightData.precipActive === true, precip >= 4.0, 'weather');
+    _missionScoreRegisterEvent('g', g >= 1.6, g >= 1.85, 'pilot');
+    _missionScoreRegisterEvent('bank', bank >= 34, bank >= 45, 'pilot');
+    _missionScoreRegisterEvent('descent', vs <= -1600, vs <= -2400, 'pilot');
+    _missionScoreRegisterEvent('wind', wind >= 24, wind >= 34, 'weather');
+    _missionScoreRegisterEvent('gust', gustSpread >= 16, gustSpread >= 24, 'weather');
+    _missionScoreRegisterEvent('turb', turb >= 55, turb >= 75, 'weather');
+    _missionScoreRegisterEvent('precip', precip >= 1.5 || flightData.precipActive === true, precip >= 4.0, 'weather');
 }
 
 function _missionComfortSummary() {
@@ -3496,10 +3496,10 @@ function _missionWeatherReactionLine(flightData = null) {
     const spread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const turb = Number(fd.turbulencePct || 0);
     const precip = Number(fd.precipRateMmH || 0);
-    if (wind >= 20) parts.push(`Wind ${Math.round(wind)} kt`);
-    if (spread >= 8) parts.push(`Boeen plus ${Math.round(spread)} kt`);
-    if (turb >= 30) parts.push(`Turbulenz ${Math.round(turb)} Prozent`);
-    if (precip >= 0.5 || fd.precipActive === true) parts.push(precip >= 0.5 ? `Regen/Niederschlag ${precip.toFixed(1)} mm/h` : 'Niederschlag');
+    if (wind >= 24) parts.push(`Wind ${Math.round(wind)} kt`);
+    if (spread >= 16) parts.push(`Boeen plus ${Math.round(spread)} kt`);
+    if (turb >= 55) parts.push(`Turbulenz ${Math.round(turb)} Prozent`);
+    if (precip >= 1.5 || fd.precipActive === true) parts.push(precip >= 1.5 ? `Regen/Niederschlag ${precip.toFixed(1)} mm/h` : 'Niederschlag');
     if (fd.inCloud === true) parts.push('in Wolken');
     return parts.join(', ');
 }
@@ -3826,9 +3826,15 @@ window.paxAptWellbeingReport = function() {
 Button-Frage: Der Pilot fragt nach dem Wohlbefinden/Zufriedenheit.
 Auswertung seit Missionsstart: ${facts}
 Wichtig: Turbulenzen, Boeen und Regen nicht dem Piloten anlasten; Flugweise wie harte G-Last, steile Kurven oder starker Sinkflug darfst du humorvoll bewerten. Reagiere kreativ, menschlich und passend zur Rolle. Max 2 Saetze.${_toneHint()}` : null;
+    const pilotIssue = Number(summary.pilotEvents || 0) > 0 || Number(summary.pilotSevere || 0) > 0;
+    const weatherIssue = Number(summary.weatherEvents || 0) > 0 || Number(summary.weatherSevere || 0) > 0 || !!wx;
     const fallback = summary.comfortScore >= 75
         ? `Mir geht es gut, Score etwa ${summary.comfortScore} von 100. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
-        : `Ich bin bei etwa ${summary.comfortScore} von 100. Die Wetteranteile zaehle ich dir nicht an, aber Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.`;
+        : (!pilotIssue && weatherIssue)
+            ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das war wetterbedingt unruhig, aber deinen Flugstil kreide ich dir nicht an.`
+            : (pilotIssue && weatherIssue)
+                ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das Wetter war spuerbar, und Kurven, G-Last oder Sinkflug haben sich zusaetzlich bemerkbar gemacht.`
+                : `Ich bin bei etwa ${summary.comfortScore} von 100. Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.`;
     _missionActionSpeak(prompt, 'Wohlbefinden', fallback);
 };
 
@@ -7914,8 +7920,8 @@ function _atTargetPrompt(flightData) {
     const aptArrivalApproachHint = (!isPOI && !trainingPlan) ? _aptArrivalApproachHint() : '';
 
     let notes = '';
-    if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.3) notes += ` Die G-Belastung vorhin war spürbar für mich.`;
-    if (pax.bankTolerance === 'niedrig' && parseFloat(bank) > 20) notes += ` Die Kurven haben mich etwas mitgenommen.`;
+    if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.55) notes += ` Die G-Belastung vorhin war spürbar für mich.`;
+    if (pax.bankTolerance === 'niedrig' && parseFloat(bank) > 34) notes += ` Die Kurven haben mich etwas mitgenommen.`;
     if (isPOI && altFt > 0 && pax.targetAltFt) {
         const diff = altFt - pax.targetAltFt;
         if (Math.abs(diff) > 300) notes += ` Wir sind noch ${diff > 0 ? diff + ' ft zu hoch' : Math.abs(diff) + ' ft zu niedrig'} für meine Arbeit.`;
@@ -7992,10 +7998,10 @@ function _evaluateComfortBreach(flightData, pax) {
     const gThr = chooseThreshold(policy.metricLevels.g, [1.6, 1.85], [1.9, 2.2]);
     const bThr = chooseThreshold(policy.metricLevels.bank, [34, 45], [45, 60]);
     // Wetterreaktionen: hoch = frueher, mittel = spaeter, niedrig = stumm.
-    const wThr = chooseThreshold(policy.metricLevels.wind, [20, 30], [24, 34]);
-    const gsThr = chooseThreshold(policy.metricLevels.gust, [12, 18], [16, 24]);
-    const tThr = chooseThreshold(policy.metricLevels.turb, [40, 60], [50, 75]);
-    const pThr = chooseThreshold(policy.metricLevels.precip, [1.0, 3.0], [2.0, 4.5]);
+    const wThr = chooseThreshold(policy.metricLevels.wind, [24, 34], [30, 42]);
+    const gsThr = chooseThreshold(policy.metricLevels.gust, [16, 24], [22, 32]);
+    const tThr = chooseThreshold(policy.metricLevels.turb, [55, 75], [70, 90]);
+    const pThr = chooseThreshold(policy.metricLevels.precip, [1.5, 4.0], [3.0, 6.0]);
     const dThr = chooseThreshold(policy.metricLevels.descent, [-1300, -2000], [-1600, -2400]);
 
     const gLevel = gThr ? (g >= gThr.hard ? 'hard' : g >= gThr.warn ? 'warn' : null) : null;
@@ -8024,15 +8030,27 @@ function _comfortBreachPrompt(flightData, breach, count) {
     if (breach.tLevel) bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
     if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
     if (breach.dLevel) bits.push(`Sinkflug ${Math.round(breach.vsFpm)} ft/min`);
+    const hasPilotIssue = !!(breach.gLevel || breach.bLevel || breach.dLevel);
+    const hasWeatherIssue = !!(breach.wLevel || breach.gsLevel || breach.tLevel || breach.pLevel);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
-    const humor = breach.severity === 'hard'
-        ? 'Gib gern einen kurzen humorvollen Kommentar zur sportlichen Flugweise.'
-        : 'Du darfst leicht humorvoll sein, aber bleib freundlich.';
+    const causeLine = hasPilotIssue
+        ? `Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`
+        : `Mitten im Flug ist das Wetter für mich ${level} unruhig (${bits.join(' · ')}).${wx ? ' ' + wx : ''}`;
+    const attributionRule = hasPilotIssue && hasWeatherIssue
+        ? 'Du darfst G-Last, steile Kurven oder starken Sinkflug als Flugstil ansprechen; Wind, Böen, Turbulenz und Regen aber ausdrücklich nicht dem Piloten anlasten.'
+        : hasPilotIssue
+            ? 'Du darfst die Flugweise nur konkret über G-Last, steile Kurven oder starken Sinkflug ansprechen.'
+            : 'Kritisiere NICHT den Piloten und NICHT den Flugstil; sprich nur über Wetter, Böen, Turbulenz, Regen oder dein Magengefühl.';
+    const humor = hasPilotIssue
+        ? (breach.severity === 'hard'
+            ? 'Ein kurzer humorvoller Kommentar zur sportlichen Flugweise ist okay.'
+            : 'Du darfst leicht humorvoll sein, aber bleib freundlich.')
+        : 'Bleib freundlich; kein Kommentar zur sportlichen Flugweise.';
 
     return `${ctx}
 
-Moment: Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}
-Melde dich beim Piloten mit einem kurzen, menschlichen Statement zu deinem Komfortgefühl. ${humor}
+Moment: ${causeLine}
+Melde dich beim Piloten mit einem kurzen, menschlichen Statement zu deinem Komfortgefühl. ${attributionRule} ${humor}
 Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_toneHint()}`;
 }
 
@@ -8094,8 +8112,8 @@ function _farewellPrompt(record) {
     const wx   = _weatherContext(window.lastLiveFlightData);
 
     let highlights = '';
-    if (pax.gTolerance === 'niedrig' && (Number(rec.maxGForce) || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
-    if (pax.bankTolerance === 'niedrig' && (Number(rec.maxBankDeg) || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
+    if (pax.gTolerance === 'niedrig' && (Number(rec.maxGForce) || 1) > 1.6) highlights += ' Etwas viel G für mich, aber okay.';
+    if (pax.bankTolerance === 'niedrig' && (Number(rec.maxBankDeg) || 0) > 34) highlights += ' Die Kurven waren schon sportlich.';
     if (!isSimRecord && Number.isFinite(Number(rec.maxDescentFpm)) && Number(rec.maxDescentFpm) <= -1500) {
         highlights += ` Der Sinkflug mit ${Math.abs(Math.round(Number(rec.maxDescentFpm)))} ft/min ging etwas auf Ohren und Magen.`;
     }
