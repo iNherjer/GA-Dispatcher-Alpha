@@ -968,7 +968,7 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Schalter', text: 'Schaltet die KI-Missionen ein oder aus. Aus bedeutet: Die App nutzt feste lokale Aufträge.' },
             { term: 'FUEL-Anzeige', text: 'Zeigt grob, wie viel Tageskontingent fuer KI-Anfragen noch uebrig ist.' },
             { term: 'API-Key', text: 'Optionale Provider-Schluessel fuer Gemini und OpenAI. Der aktive Provider bestimmt, welcher Key fuer Text und Voice genutzt wird.' },
-            { term: 'Provider / Profil', text: 'Auto ist der Normalbetrieb, Sparsam priorisiert guenstigere Modelle, Qualitaet priorisiert staerkere Textmodelle.' },
+            { term: 'Provider / Profil', text: 'Auto ist der Normalbetrieb, Sparsam priorisiert guenstigere Modelle, Qualitaet priorisiert staerkere Textmodelle. High Quality nutzt fuer Gemini zuerst Gemini 3.5 Flash.' },
             { term: 'Kosten grob', text: () => getAiCostEstimateText() },
             { term: 'Status', text: 'Zeigt, ob der Key zuletzt erfolgreich geprueft wurde.' },
             { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben.' }
@@ -5123,6 +5123,12 @@ const AI_TEXT_MODEL_PROFILES = {
         quality: [
             ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
             ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
+        ],
+        high_quality: [
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'flash'],
+            ['gemini-2.5-pro', 'Gemini 2.5 Pro', 'flash'],
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash']
         ]
     },
     openai: {
@@ -5137,6 +5143,10 @@ const AI_TEXT_MODEL_PROFILES = {
         quality: [
             ['gpt-5.5', 'OpenAI GPT-5.5', 'openaiText'],
             ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText']
+        ],
+        high_quality: [
+            ['gpt-5.5', 'OpenAI GPT-5.5', 'openaiText'],
+            ['gpt-5.4', 'OpenAI GPT-5.4', 'openaiText']
         ]
     }
 };
@@ -5145,12 +5155,14 @@ const AI_COST_ESTIMATE_COPY = {
     gemini: {
         auto: 'Text grob $0.01-0.05 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.08 extra, je nach Audiolaenge.',
         economy: 'Text grob unter $0.01-0.02 pro Mission. Voice bleibt meist der groessere Anteil, ca. $0.01-0.08 extra.',
-        quality: 'Text grob $0.02-0.08 pro Mission. Voice mit 3.1 TTS: ca. $0.01-0.08 extra bei 5-15 Saetzen.'
+        quality: 'Text grob $0.02-0.08 pro Mission. Voice mit 3.1 TTS: ca. $0.01-0.08 extra bei 5-15 Saetzen.',
+        high_quality: 'Text grob $0.04-0.16 pro Mission. Voice bleibt separat: ca. $0.01-0.08 extra bei 5-15 Saetzen.'
     },
     openai: {
         auto: 'Text grob $0.04-0.12 pro Mission. Voice mit 5-15 TTS-Saetzen: ca. $0.01-0.05 extra, je nach Audiolaenge.',
         economy: 'Text grob $0.005-0.02 pro Mission. Voice bleibt separat: ca. $0.01-0.05 extra bei 5-15 Saetzen.',
-        quality: 'Text grob $0.08-0.25 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.'
+        quality: 'Text grob $0.08-0.25 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.',
+        high_quality: 'Text grob $0.08-0.25 pro Mission. Voice zusaetzlich ca. $0.01-0.05 bei 5-15 Saetzen.'
     }
 };
 
@@ -5263,7 +5275,7 @@ function normalizeAiProvider(provider) {
 
 function normalizeAiModelProfile(profile) {
     const value = String(profile || '').toLowerCase();
-    return value === 'economy' || value === 'quality' ? value : 'auto';
+    return value === 'economy' || value === 'quality' || value === 'high_quality' ? value : 'auto';
 }
 
 function getSelectedAiProvider() {
@@ -7965,6 +7977,7 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
     if (state === 'done') {
         if (/V3 Tools/i.test(String(dataSource || ''))) btn.classList.add('dispatch-lamp-ai-g3');
         else if (/^OpenAI\b/i.test(String(dataSource || ''))) btn.classList.add('dispatch-lamp-ai-g3');
+        else if (dataSource === "Gemini 3.5 Flash") btn.classList.add('dispatch-lamp-ai-g3');
         else if (dataSource === "Gemini 3.0 Flash") btn.classList.add('dispatch-lamp-ai-g3');
         else if (dataSource === "Gemini 2.5 Flash") btn.classList.add('dispatch-lamp-ai-g25');
         else if (dataSource === "Gemini 2.5 Flash Lite") btn.classList.add('dispatch-lamp-ai-lite');
@@ -22070,11 +22083,18 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
     };
     const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI, missionMode }) }] }];
     const tools = [{ functionDeclarations: scenePlannerV3ToolDeclarations() }];
-    const models = [
+    const baseModels = [
         ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Planner V3', 'flash'],
         ['gemini-2.5-flash', 'Gemini 2.5 Flash Scene Planner V3', 'flash'],
         ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite Scene Planner V3', 'lite']
     ];
+    const models = getSelectedAiModelProfile() === 'high_quality'
+        ? [
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash Scene Planner V3', 'flash'],
+            ['gemini-2.5-pro', 'Gemini 2.5 Pro Scene Planner V3', 'flash'],
+            ...baseModels
+        ]
+        : baseModels;
     let lastError = '';
     for (const [model, source, usageKey] of models) {
         const toolCalls = [];
@@ -23516,11 +23536,19 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
 }
 
 async function _missionPipelineV3GeminiJson(draft, context) {
-    const models = [
+    const baseModels = [
         ['gemini-3-flash-preview', 'Gemini 3.0 Flash Tool Planner V3', 'flash'],
         ['gemini-2.5-flash', 'Gemini 2.5 Flash Tool Planner V3', 'flash'],
         ['gemini-3.5-flash', 'Gemini 3.5 Flash Tool Planner V3', 'flash']
     ];
+    const models = getSelectedAiModelProfile() === 'high_quality'
+        ? [
+            ['gemini-3.5-flash', 'Gemini 3.5 Flash Tool Planner V3', 'flash'],
+            ['gemini-2.5-pro', 'Gemini 2.5 Pro Tool Planner V3', 'flash'],
+            ['gemini-3-flash-preview', 'Gemini 3.0 Flash Tool Planner V3', 'flash'],
+            ['gemini-2.5-flash', 'Gemini 2.5 Flash Tool Planner V3', 'flash']
+        ]
+        : baseModels;
     let last = null;
     for (const [model, source, usageKey] of models) {
         last = await _missionPipelineV3RunModel(model, source, usageKey, draft, context);
@@ -38249,6 +38277,7 @@ async function generateMission(options = {}) {
         if (led) {
             led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
             if (/^OpenAI\b/i.test(String(dataSource || ''))) { led.classList.add('led-flash3'); }
+            else if (dataSource === "Gemini 3.5 Flash") { led.classList.add('led-flash3'); }
             else if (dataSource === "Gemini 3.0 Flash") { led.classList.add('led-flash3'); }
             else if (dataSource === "Gemini 2.5 Flash") { led.classList.add('led-blue'); }
             else if (dataSource === "Gemini 2.5 Flash Lite") { led.classList.add('led-green'); }
@@ -38257,6 +38286,10 @@ async function generateMission(options = {}) {
 
         document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
         if (/^OpenAI\b/i.test(String(dataSource || ''))) {
+            document.getElementById('mkO').classList.add('on');
+            document.getElementById('mkM').classList.add('on');
+        }
+        else if (dataSource === "Gemini 3.5 Flash") {
             document.getElementById('mkO').classList.add('on');
             document.getElementById('mkM').classList.add('on');
         }
