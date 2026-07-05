@@ -4964,6 +4964,44 @@ body.map-is-fullscreen #mapTableOverlay {
     box-sizing: border-box !important;
 }
 
+.map-fullscreen-close-btn {
+    display: none;
+}
+
+@media (max-width: 1249px) {
+    body.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn {
+        position: absolute;
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
+        z-index: 100130;
+        width: 42px;
+        height: 42px;
+        min-height: 42px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        padding: 0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        border-radius: 12px;
+        background: rgba(10, 14, 18, 0.82);
+        color: #fff;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+        font-family: Arial, sans-serif;
+        font-size: 25px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        touch-action: manipulation;
+    }
+
+    body.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn:active {
+        background: rgba(70, 78, 88, 0.9);
+        transform: translateY(1px);
+    }
+}
+
 body.map-is-fullscreen .pinboard-header {
     position: relative !important;
     height: auto !important;
@@ -15851,6 +15889,44 @@ body.theme-win95 .ui-scale-control {
     body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-overlay-minimize-btn,
     body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-overlay-close-btn {
         display: none !important;
+    }
+
+    body.theme-win95 #pinboardOverlay {
+        padding: 34px 0 0 !important;
+    }
+
+    body.theme-win95 #pinboardOverlay .pinboard-header {
+        margin: 0 !important;
+        border-left: 0;
+        border-right: 0;
+    }
+
+    body.theme-win95 #pinboardOverlay .pinboard-scroll-area {
+        flex: 1 1 auto !important;
+        min-height: 0;
+        height: auto !important;
+        display: flex !important;
+        align-items: stretch;
+        justify-content: flex-start;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 0 !important;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        touch-action: pan-x;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body.theme-win95 #pinboardOverlay .pinboard-content {
+        width: auto !important;
+        height: 100% !important;
+        min-height: 100%;
+        min-width: 100%;
+        aspect-ratio: 16 / 10 !important;
+        margin: 0 !important;
+        max-width: none !important;
+        max-height: none !important;
     }
 
     body.theme-win95 .win95-window-dragbar {

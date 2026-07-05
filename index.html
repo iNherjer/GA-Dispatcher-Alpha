@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=win95-mobile-overlay-logic-20260705-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=win95-mobile-close-scroll-20260705-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=win95-mobile-overlay-logic-20260705-01">
+        <link rel="stylesheet" href="styles.css?v=win95-mobile-close-scroll-20260705-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1148,6 +1148,7 @@
     <div class="win95-window-dragbar win95-overlay-dragbar" data-win95-drag-target="mapTableOverlay" aria-hidden="true"></div>
     <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('map', event)" aria-label="Kartentisch minimieren" title="Kartentisch minimieren"></button>
     <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('map', event)" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">X</button>
+    <button type="button" class="map-fullscreen-close-btn" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">×</button>
     <div class="win95-window-resize-handles" aria-hidden="true">
         <div class="win95-window-resize-handle win95-resize-n" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="n"></div>
         <div class="win95-window-resize-handle win95-resize-e" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="e"></div>
@@ -2507,7 +2508,7 @@
 <script defer src="profile.js?v=profile-refresh-cleanup-20260703-01"></script>
 <script defer src="map.js?v=win95-mobile-overlay-logic-20260705-01"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
-<script defer src="app.js?v=win95-mobile-overlay-logic-20260705-01"></script>
+<script defer src="app.js?v=win95-mobile-close-scroll-20260705-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
