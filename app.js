@@ -25817,20 +25817,28 @@ function _missionPipelineV4ClubUtilitySeed({ targetLabel = '', cargoText = '', s
     };
 }
 
+function _missionPipelineV4ClubUtilityShipmentIsPlural(shipment = '') {
+    return /,|\bund\b/i.test(String(shipment || '').replace(/\([^)]*\)/g, ' '));
+}
+
 function _missionPipelineV4ClubUtilityStoryFrame({ targetLabel = '', cargoText = '', selectedProposal = null } = {}) {
     const target = String(targetLabel || 'Zielplatz').trim() || 'Zielplatz';
     const seed = _missionPipelineV4ClubUtilitySeed({ targetLabel: target, cargoText, selectedProposal });
     const receiverAt = _missionPipelineV4ClubUtilityReceiverAt(seed.receiver);
+    const pluralShipment = _missionPipelineV4ClubUtilityShipmentIsPlural(seed.shipment);
+    const shipmentMustVerb = pluralShipment ? 'müssen' : 'muss';
+    const shipmentMoveVerb = pluralShipment ? 'kommen' : 'kommt';
+    const shipmentLandVerb = pluralShipment ? 'landen' : 'landet';
     return {
-        trigger: `${seed.shipment} muss heute nach ${target}; ${seed.reason}.`,
+        trigger: `${seed.shipment} ${shipmentMustVerb} heute nach ${target}, weil ${seed.reason}.`,
         focusSubject: `${seed.shipment} für ${seed.focus}`,
-        keyQuestion: `Wie ${seed.shipment} sauber nach ${target} kommt und dort ohne Umweg ${receiverAt} landet.`,
+        keyQuestion: `Wie ${seed.shipment} sauber nach ${target} ${shipmentMoveVerb} und dort ohne Umweg ${receiverAt} ${shipmentLandVerb}.`,
         stakes: `Ohne den Flug bleibt ${seed.focus} am Zielplatz Stückwerk statt vorbereiteter Vereinsablauf.`,
         completionSignal: `Nach der Landung übernimmt ${seed.receiver}; ${seed.nextStep}.`,
         subjectDetail: seed.shipment,
-        incidentContext: `${seed.detail}. Der Flug nach ${target} ist deshalb ein kleiner, konkreter Clubauftrag statt allgemeiner Materialkurier.`,
-        whyNow: `Der heutige Slot passt, weil ${seed.reason} und die Übergabe direkt nach dem Abstellen weiterverarbeitet wird.`,
-        soughtOutcome: `Wir sollen ${seed.shipment} ruhig anliefern, die Übergabe an ${seed.receiver} nachvollziehbar machen und den nächsten Vereinsschritt am Ziel auslösen.`
+        incidentContext: `${seed.detail}; mehr Anlass als Frachtgewicht, aber praktisch genug für einen echten Vereinsflug.`,
+        whyNow: `Am Ziel hängt der nächste Schritt an ${seed.focus}; nach dem Abstellen kann ${seed.receiver} direkt weiterarbeiten.`,
+        soughtOutcome: `Ruhiger A-B-Flug nach ${target}, klare Übergabe ${receiverAt}; danach folgt: ${seed.nextStep}.`
     };
 }
 
@@ -25848,7 +25856,7 @@ function _missionPipelineV4ClubUtilityFieldNeedsSeed(text = '', seeded = {}) {
     const clean = String(text || '').replace(/\s+/g, ' ').trim();
     const normalized = normalizeMissionText(clean);
     if (!normalized) return true;
-    if (/\b(konkreter zweck|klarer vereins|klarer nutzauftrag|kleine aber wichtige mitnahme|praktischer anlass|beliebige strecke|zeitfenster|zielablauf ohne leerlauf|naechste person|nächste person|naechste stelle|nächste stelle)\b/.test(normalized)) return true;
+    if (/\b(konkreter zweck|klarer vereins|klarer nutzauftrag|kleine aber wichtige mitnahme|praktischer anlass|beliebige strecke|zeitfenster|zielablauf ohne leerlauf|naechste person|nächste person|naechste stelle|nächste stelle|kleiner, konkreter clubauftrag|allgemeiner materialkurier|wir sollen\b[^.!?]{0,160}\bruhig anliefern|der heutige slot passt)\b/.test(normalized)) return true;
     const shipmentWords = normalizeMissionText(seeded.subjectDetail || seeded.focusSubject || '')
         .split(/\s+/)
         .filter(word => word.length >= 5 && !/^(heute|kleine|kleiner|kleines|fuer|für|nach|zielplatz|vereins|utility|lbs)$/.test(word));
@@ -27120,11 +27128,14 @@ function _missionPipelineV4ApplyClubUtilityPlanGuard(plan = {}, storyFrame = {},
         cargoText: seedFrame.subjectDetail,
         selectedProposal
     });
+    const receiverAt = _missionPipelineV4ClubUtilityReceiverAt(seed.receiver);
     const cleanList = (values = []) => (Array.isArray(values) ? values : [])
         .map(x => String(x || '').replace(/\s+/g, ' ').trim())
         .filter(Boolean)
-        .filter(x => !_missionPipelineV4ClubUtilityFieldNeedsSeed(x, seedFrame));
-    plan.primaryObjective = `Bringe ${seed.shipment} nach ${targetLabel} und übergib die Ladung dort an ${seed.receiver} für ${seed.focus}.`;
+        .filter(x => !_missionPipelineV4ClubUtilityFieldNeedsSeed(x, seedFrame))
+        .filter(x => !/\b(jugendflugleitung|hallencrew|zielhangar|vorstands|platzwartkontakt|technikcrew|technikwart|werft|fly[-\s]?in|orga[-\s]?team|clubheim|briefingtisch|briefingboard|stellplatztafel|materialschrank)\b/.test(normalizeMissionText(x)));
+    const shipmentFactVerb = _missionPipelineV4ClubUtilityShipmentIsPlural(seed.shipment) ? 'sind' : 'ist';
+    plan.primaryObjective = `Bringe ${seed.shipment} nach ${targetLabel} und übergib die Ladung dort ${receiverAt} für ${seed.focus}.`;
     plan.missionTrigger = seedFrame.trigger;
     plan.focusSubject = seedFrame.focusSubject;
     plan.keyQuestion = seedFrame.keyQuestion;
@@ -27136,7 +27147,7 @@ function _missionPipelineV4ApplyClubUtilityPlanGuard(plan = {}, storyFrame = {},
         shipment: seed.shipment
     };
     plan.localFacts = Array.from(new Set([
-        `${seed.shipment} ist die konkrete mitgeführte Vereinsladung.`,
+        `${seed.shipment} ${shipmentFactVerb} die konkrete mitgeführte Vereinsladung.`,
         `${seed.receiver} wartet am Zielplatz auf die Übergabe.`,
         ...cleanList(plan.localFacts)
     ].filter(Boolean))).slice(0, 5);
@@ -27153,8 +27164,7 @@ function _missionPipelineV4ApplyClubUtilityPlanGuard(plan = {}, storyFrame = {},
     ].filter(Boolean))).slice(0, 5);
     plan.mustMention = Array.from(new Set([
         seed.shipment,
-        seed.receiver,
-        ...(Array.isArray(plan.mustMention) ? plan.mustMention : [])
+        seed.receiver
     ].filter(Boolean))).slice(0, 6);
     plan.narrativeRules = Array.from(new Set([
         ...(Array.isArray(plan.narrativeRules) ? plan.narrativeRules : []),
@@ -28046,7 +28056,7 @@ Regeln:
 4. Erfinde einen plausiblen Missionsanlass, aber keine harten Ortsfakten, echten Veranstalter, Termine oder Namen ausserhalb des Bundles.
 5. Bei news_coverage: Plane einen konkreten lokalen News-Kern (Headline, Vorfall, Event, Streitfrage, Initiative oder mediale Dokumentation). Bei POI-News sind sichtbare Anker Rohmaterial für den Luftblick; bei APT-News wartet die Geschichte nach der Landung am Boden und wird nicht als Überflugauftrag geplant.
 6. Bei privaten, Club-/Utility-, Bush-, SAR-, Inspektions- und Sightseeing-Profilen bleiben die jeweiligen RouteRules und Semantik-Locks bindend.
-6a. Bei APT club_utility ist CONTEXT_BUNDLE.loadout.cargoText der konkrete Gegenstand an Bord. Plane genau diese Ladung, Empfaenger und naechsten Vereinsschritt; nicht durch generische Ersatzteil- oder "Material liefern"-Story ersetzen.
+6a. Bei APT club_utility ist CONTEXT_BUNDLE.loadout.cargoText der konkrete Gegenstand an Bord. Plane genau diese Ladung, Empfaenger und naechsten Vereinsschritt; nicht durch generische Ersatzteil- oder "Material liefern"-Story ersetzen. Wenn der Vereinsanlass klein ist, duerfen Route, Wetter, Terrain, Pax-Rolle oder Grund der Reise den Storykern mittragen.
 7. Schreibe frei formulierte Texte auf Deutsch mit Umlauten. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
@@ -28123,7 +28133,7 @@ Arbeitsweise:
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
 9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt", sondern Vorfreude auf einen kleinen persoenlichen Motiv-Haken: der Platzburger darf als bester Burger weit und breit gelten, der Kaffee am Platz darf den Ausflug wert sein, die Abkuehlung am See ist bei Hitze der Grund, die erste Berg-/Wanderrunde lockt, die Ausstellung ist der ruhige Anlass. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer einen kurzen freundlichen Dispatchzettel mit Lust auf den Ausflug: lockerer Einstieg, Zielstrecke, Mitflieger, Anlass, Wetterstimmung und ein entspannter "macht euch keinen Stress"-Abschluss. Beispielton: "Servus! Heute geht's die Meilen rueber nach ...; Clara und du wollen dort ...; bei 36°C passt die Abkuehlung." mustMention darf leer bleiben; keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
-9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern": Nutze CONTEXT_BUNDLE.loadout.cargoText als bindende Ladung, benenne was genau damit am Ziel passiert, wer es uebernimmt und welcher naechste Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt daran haengt. Gute Details sind z.B. Banner probehaengen, Funkakkus nummerieren, Helferliste ans Board haengen, Schluessel quittieren, Pruefadapter mit Mappe abgleichen, Leuchtmittel in den Materialschrank legen, Checkkarten verteilen oder Lash-Straps an die Stellplatztafel bringen. Bleibe A-B mit Handoff am Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
+9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern": Nutze CONTEXT_BUNDLE.loadout.cargoText als bindende Ladung, benenne was genau damit am Ziel passiert, wer es uebernimmt und welcher naechste Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt daran haengt. Gute Details sind z.B. Banner probehaengen, Funkakkus nummerieren, Helferliste ans Board haengen, Schluessel quittieren, Pruefadapter mit Mappe abgleichen, Leuchtmittel in den Materialschrank legen, Checkkarten verteilen oder Lash-Straps an die Stellplatztafel bringen. Wenn die Ladung nur ein kleiner Anlass ist, erzaehle zusaetzlich natuerlich ueber Strecke, Wetter, Terrain, Pax oder Reisegrund, statt die Ladung mehrfach zu paraphrasieren. Bleibe A-B mit Handoff am Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
@@ -28580,7 +28590,7 @@ Regeln:
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
-19club. club_utility + APT: Nutze CONTRACT.cargoText oder CONTRACT.storyFrame.shipment als bindende Ladung. Erzaehle konkret, was geliefert wird und was danach passiert: wer uebernimmt am Ziel, wofuer wird die Ladung dort gebraucht, welcher naechste Club-, Flugtag-, Hangar-, Werkstatt- oder Briefingtisch-Schritt folgt. Kein austauschbares "Ersatzteile/Material liefern", wenn die Ladung z.B. Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder eine Werkzeugtasche ist. Originell ist erlaubt, aber klein und glaubwuerdig.
+19club. club_utility + APT: Nutze CONTRACT.cargoText oder CONTRACT.storyFrame.shipment als bindende Ladung. Erzaehle konkret, was geliefert wird und was danach passiert: wer uebernimmt am Ziel, wofuer wird die Ladung dort gebraucht, welcher naechste Club-, Flugtag-, Hangar-, Werkstatt- oder Briefingtisch-Schritt folgt. Kein austauschbares "Ersatzteile/Material liefern", wenn die Ladung z.B. Banner, Funkakkus, Helferlisten, Schluessel, Checkkarten, Leuchtmittel, Lash-Straps oder eine Werkzeugtasche ist. Wiederhole die Ladung nicht als Stempel-/Kleinteile-Motiv in jedem Satz: Wenn der Anlass klein bleibt, darf das Briefing mit Route, Wetter, Terrain, Pax-Rolle oder Grund der Reise lebendiger werden. Originell ist erlaubt, aber klein und glaubwuerdig.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
@@ -31111,6 +31121,58 @@ function _missionPipelineV4ComposeCargoTransportStory(contract = {}, context = {
     return _missionPipelineV4PolishGermanVisibleText([first, routeSentence, reasonSentence, outcomeSentence].filter(Boolean).join(' '));
 }
 
+function _missionPipelineV4ClubUtilityWeatherClause(contract = {}) {
+    const summary = _missionWriterV5WeatherSummary(contract);
+    if (!summary) return '';
+    const tempMatch = summary.match(/(-?\d{1,2})\s*(?:°\s*C|grad\b)/i);
+    if (tempMatch) return `bei etwa ${Math.round(Number(tempMatch[1]))}°C`;
+    if (/\bVFR\b/i.test(summary)) return 'bei VFR-Bedingungen';
+    return '';
+}
+
+function _missionPipelineV4ClubUtilityRouteTexture(contract = {}, startName = '', targetName = '') {
+    const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
+    const hay = normalizeMissionText([
+        startName,
+        targetName,
+        route.startIcao,
+        route.targetIcao,
+        contract?.target?.name
+    ].filter(Boolean).join(' '));
+    const hasAllgaeu = /\b(allgaeu|allgau|leutkirch|unterzeil|kempten|memmingen|tannheim|ednl|edmk|edmt)\b/.test(hay);
+    const hasSchwarzwald = /\b(schwarzwald|schwarzwaldrand|schramberg|winzeln|freiburg|donaueschingen|edtw|edtf|edtd)\b/.test(hay);
+    const hasAlb = /\b(schwaebische\s+alb|schwabische\s+alb|alb|albstadt|heuberg|reutlingen|ulm|edtm|edtu)\b/.test(hay);
+    if ((hasAllgaeu && hasSchwarzwald) || (hasAlb && (hasAllgaeu || hasSchwarzwald))) {
+        return 'den Raum zwischen Allgäu, Schwäbischer Alb und Schwarzwaldrand; bergig und waldig genug, dass saubere VFR-Planung und ein Blick auf Ausweichflächen mehr zählen als Eile';
+    }
+    if (hasSchwarzwald) {
+        return 'waldige Schwarzwald-Höhen; schön zu fliegen, aber ein guter Grund für ruhige Streckenplanung';
+    }
+    if (hasAllgaeu) {
+        return 'Richtung Allgäu und Alpenvorland; landschaftlich schön und nicht ganz flach';
+    }
+    if (hasAlb) {
+        return 'die Schwäbische Alb mit Höhenzügen, Waldstücken und klarer VFR-Streckenplanung';
+    }
+    return '';
+}
+
+function _missionPipelineV4ClubUtilityRouteSentence(contract = {}, startName = '', targetName = '', distanceNm = NaN) {
+    const distText = Number.isFinite(distanceNm) && distanceNm > 0
+        ? ` über rund ${distanceNm.toFixed(distanceNm % 1 ? 1 : 0)} NM`
+        : '';
+    const routeBase = startName && targetName
+        ? `Die Strecke von ${startName} nach ${targetName}${distText}`
+        : (targetName ? `Der Flug nach ${targetName}${distText}` : `Der A-B-Flug${distText}`);
+    const texture = _missionPipelineV4ClubUtilityRouteTexture(contract, startName, targetName);
+    if (texture) return `${routeBase} führt durch ${texture}.`;
+    const weatherClause = _missionPipelineV4ClubUtilityWeatherClause(contract);
+    if (weatherClause) {
+        return `${routeBase} ist lang genug für einen echten kleinen Vereinsflug; ${weatherClause} zählen saubere Funk- und Anflugplanung mehr als Tempo.`;
+    }
+    return `${routeBase} ist lang genug für einen echten kleinen Vereinsflug; Funk, Luftraum und Anflugplanung zählen mehr als Tempo.`;
+}
+
 function _missionPipelineV4ComposeClubUtilityStory(contract = {}, context = {}) {
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     const route = (contract?.route && typeof contract.route === 'object') ? contract.route : {};
@@ -31131,31 +31193,17 @@ function _missionPipelineV4ComposeClubUtilityStory(contract = {}, context = {}) 
         ? seedFrame.trigger
         : frame.trigger;
     const first = _missionPipelineV4EnsureSentence(trigger);
-    const routeSentence = Number.isFinite(distanceNm) && distanceNm > 0
-        ? `Die Route führt von ${startName} nach ${targetName} über rund ${distanceNm.toFixed(distanceNm % 1 ? 1 : 0)} NM; an Bord bleibt ${seed.shipment} zusammen mit dem Vereinskontakt in einer Hand.`
-        : `Der A-B-Flug bringt ${seed.shipment} zusammen mit dem Vereinskontakt ohne Zwischenstation zum Zielplatz.`;
-    const contextSentence = _missionPipelineV4EnsureSentence(
-        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.incidentContext, seedFrame)
-            ? seedFrame.incidentContext
-            : frame.incidentContext
-    );
-    const whySentence = _missionPipelineV4EnsureSentence(
-        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.whyNow, seedFrame)
-            ? seedFrame.whyNow
-            : frame.whyNow
-    );
-    const outcomeSentence = _missionPipelineV4EnsureSentence(
-        _missionPipelineV4ClubUtilityFieldNeedsSeed(frame.soughtOutcome, seedFrame)
-            ? seedFrame.soughtOutcome
-            : frame.soughtOutcome
-    );
-    const handoffSentence = _missionPipelineV4EnsureSentence(frame.completionSignal || seedFrame.completionSignal);
+    const routeSentence = _missionPipelineV4ClubUtilityRouteSentence(contract, startName, targetName, distanceNm);
+    const passengerLabel = _missionWriterV5PassengerLabel(context?.passenger || {}, '');
+    const passengerSubject = passengerLabel && passengerLabel.includes(',') ? `${passengerLabel},` : passengerLabel;
+    const roleSentence = passengerLabel
+        ? `${passengerSubject} ist dafür an Bord; am Ziel geht es um ${seed.focus}, nicht um eine große Logistiknummer.`
+        : `${seed.detail}; am Ziel geht es um ${seed.focus}, nicht um eine große Logistiknummer.`;
+    const handoffSentence = `Nach der Landung übernimmt ${seed.receiver}; ${seed.nextStep}.`;
     return _missionPipelineV4PolishGermanVisibleText([
         first,
         routeSentence,
-        contextSentence,
-        whySentence,
-        outcomeSentence,
+        roleSentence,
         handoffSentence
     ].filter(Boolean).join(' '));
 }
@@ -33076,7 +33124,7 @@ function _missionWriterV5ClubUtilityStoryNeedsRepair(raw = '', contract = {}, co
         ? cargoWords.some(word => normalized.includes(word))
         : _missionPipelineV4StoryFieldCovered(raw, seed.shipment, 1);
     const hasHandoff = /\b(uebergabe|übergabe|uebernimmt|übernimmt|zielkontakt|vereinskontakt|platzwart|technikwart|clubheim|hangar|hallentor|briefingtisch|briefingboard|werkstatt|vorfeld|helferliste|funkakku|funkgeraete|funkgeräte|checkkarten|schluessel|schlüssel|materialschrank|stellplatztafel)\b/.test(normalized);
-    const genericOnly = /\b(konkreter zweck|klarer vereins|klarer nutzauftrag|praktischer anlass|wichtige aufgabe|spezielle ersatzteile|ein paar spezielle ersatzteile|ersatzteile, die wir heute|material und absprachen|zielablauf ohne leerlauf|naechste person|nächste person)\b/.test(normalized);
+    const genericOnly = /\b(konkreter zweck|klarer vereins|klarer nutzauftrag|praktischer anlass|wichtige aufgabe|spezielle ersatzteile|ein paar spezielle ersatzteile|ersatzteile, die wir heute|material und absprachen|zielablauf ohne leerlauf|naechste person|nächste person|kleiner, konkreter clubauftrag|allgemeiner materialkurier|wir sollen\b[^.!?]{0,160}\bruhig anliefern|der heutige slot passt)\b/.test(normalized);
     const cargoMismatch = hasConcreteCargo
         ? false
         : /\b(ersatzteil|ersatzteile|werkzeug|unterlagen|material|sendung|fracht|mitnahme|bauteil)\b/.test(normalized);

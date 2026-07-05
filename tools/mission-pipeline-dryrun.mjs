@@ -998,23 +998,23 @@ function buildMissionAiPayload(prompt) {
       if (/(flugtag|fly-in|flyin|banner|funkakku|helferliste)/.test(cargoHay)) {
         return {
           receiver: 'die Fly-In-Orga am Clubheim',
-          nextStep: 'die Banner werden probegehaengt, die Funkakkus nummeriert und die Helferliste ans Briefingboard gehaengt',
-          detail: 'genau der kleine Regiesatz, ohne den der Vereinsbetrieb am Ziel improvisieren muesste',
+          nextStep: 'die Banner werden probegehängt, die Funkakkus nummeriert und die Helferliste ans Briefingboard gehängt',
+          detail: 'genau der kleine Regiesatz, ohne den der Vereinsbetrieb am Ziel improvisieren müsste',
           passenger: { name: 'Anja Ritter', role: 'Eventhelferin', gender: 'female', personality: 'freundlich, zupackend, entspannt', greetingText: `Hi, hinten liegen Banner, Funkakkus und die Helferliste. Am Ziel in ${target} nimmt die Orga das direkt am Clubheim ab.` }
         };
       }
       if (/(schluessel|schlussel|clubheim|stempel|aushang|vertrag|unterlagenbox|klemmbrett)/.test(cargoHay)) {
         return {
           receiver: 'der Vorstands- oder Platzwartkontakt',
-          nextStep: 'Schluessel und Mappe werden quittiert, die Aushangseite geht ans Brett und der Clubheim-Termin ist sauber abgeschlossen',
-          detail: 'eine kleine Vereinsmappe mit Schluesselbund, Stempel und genau den Zetteln, die sonst wieder im Auto liegen bleiben',
+          nextStep: 'Schlüssel und Mappe werden quittiert, die Aushangseite geht ans Brett und der Clubheim-Termin ist sauber abgeschlossen',
+          detail: 'eine kleine Vereinsmappe mit Schlüsselbund, Stempel und genau den Zetteln, die sonst wieder im Auto liegen bleiben',
           passenger: { name: 'Svenja Michel', role: 'Kassenwartin', gender: 'female', personality: 'genau, freundlich, strukturiert', greetingText: `Hi, Mappe und Schluessel sind dabei. In ${target} reicht ein sauberer Uebergang an den Vereinskontakt.` }
         };
       }
       if (/(avionik|adapter|messadapter|pruefmappe|transponder|landelicht|freigabezettel|sicherungsdraht)/.test(cargoHay)) {
         return {
           receiver: 'der Technikwart am Zielhangar',
-          nextStep: 'Adapter, Freigabezettel und Pruefmappe werden am Hallentor abgeglichen, bevor die Vereinsmaschine wieder in die Planung darf',
+          nextStep: 'Adapter, Freigabezettel und Prüfmappe werden am Hallentor abgeglichen, bevor die Vereinsmaschine wieder in die Planung darf',
           detail: 'kleine Technikladung mit mehr Zeitwert als Gewicht',
           passenger: { name: 'Nina Kraus', role: 'Technikwartin', gender: 'female', personality: 'sorgfaeltig, direkt, kollegial', greetingText: `Hi, das Technikzeug ist klein, aber wichtig. In ${target} wartet die Maschine auf den kurzen Abgleich.` }
         };
@@ -1042,9 +1042,10 @@ function buildMissionAiPayload(prompt) {
         passenger: { name: 'Lena Hartig', role: 'Vereinskoordinatorin', gender: 'female', personality: 'pragmatisch, freundlich, organisiert', greetingText: `Hi, die Vereinsladung ist dabei. In ${target} wartet der Kontakt am Clubheim.` }
       };
     })();
+    const routeSentence = `Die Route führt von ${start} nach ${target} über rund ${distanceLabel} NM; für den Piloten ist das ein kleiner Vereinsflug mit Zeit für Wetter, Funk und saubere Anflugplanung.`;
     return {
       title: `Vereins-/Utility-Flug nach ${target}`,
-      story: `Heute gehen ${cargoClean} nach ${target}. Am Zielplatz wartet ${clubSeed.receiver}. Nach der Landung folgt direkt der naechste Vereinsschritt: ${clubSeed.nextStep}. Der Flug bleibt ein normaler A-B-Utility-Lauf, aber die Ladung ist ${clubSeed.detail}. Nach dem Abstellen uebernimmt der Vereinskontakt direkt am Vorfeld.`,
+      story: `Heute gehen ${cargoClean} nach ${target}, weil dort ein kleiner Vereinsablauf vorbereitet ist. ${routeSentence} An Bord ist ${clubSeed.passenger.role.toLowerCase().startsWith('event') ? 'eine Eventhelferin' : clubSeed.passenger.role} mit dem passenden Blick für den Zielkontakt; am Ziel zählen Übergabe und nächster Vereinsschritt, keine große Logistiknummer. Nach der Landung übernimmt ${clubSeed.receiver}; ${clubSeed.nextStep}.`,
       pax: String(dispatchForm?.selectedLoadout?.paxText || '').trim() || `1 PAX (${clubSeed.passenger.role})`,
       cargo: cargoRaw,
       sceneIntent: {
