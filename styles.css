@@ -4969,36 +4969,37 @@ body.map-is-fullscreen #mapTableOverlay {
 }
 
 @media (max-width: 1249px) {
-    body.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn {
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn {
         position: absolute;
-        top: max(10px, env(safe-area-inset-top));
-        right: max(10px, env(safe-area-inset-right));
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right));
         z-index: 100130;
-        width: 42px;
-        height: 42px;
-        min-height: 42px;
+        width: 36px;
+        height: 32px;
+        min-height: 32px;
         display: flex !important;
         align-items: center;
         justify-content: center;
         padding: 0 !important;
-        border: 1px solid rgba(255, 255, 255, 0.26);
-        border-radius: 12px;
-        background: rgba(10, 14, 18, 0.82);
-        color: #fff;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
-        font-family: Arial, sans-serif;
-        font-size: 25px;
-        font-weight: 800;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+        border-radius: 0;
+        background: #c0c0c0;
+        color: #000;
+        box-shadow: 1px 1px 0 #000;
+        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-size: 18px;
+        font-weight: 700;
         line-height: 1;
         cursor: pointer;
-        -webkit-backdrop-filter: blur(8px);
-        backdrop-filter: blur(8px);
         touch-action: manipulation;
     }
 
-    body.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn:active {
-        background: rgba(70, 78, 88, 0.9);
-        transform: translateY(1px);
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .map-fullscreen-close-btn:active {
+        border-color: #404040 #fff #fff #404040;
+        background: #c0c0c0;
+        box-shadow: none;
+        transform: translate(1px, 1px);
     }
 }
 
