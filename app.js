@@ -721,6 +721,7 @@ function changeThemeFromSlider(val) {
     else if (v === 1) setTheme('retro');
     else if (v === 2) setTheme('navcom');
     else if (v === 3) setTheme('ops1940');
+    else if (v === 4) setTheme('win95');
 }
 
 const APP_UI_SCALE_STORAGE_KEY = 'ga_ui_scale_percent';
@@ -861,6 +862,537 @@ window.isNavcomRackV2Enabled = isNavcomRackV2Enabled;
 window.toggleNavcomRackV2 = toggleNavcomRackV2;
 window.updateNavcomRackV2ButtonUi = updateNavcomRackV2ButtonUi;
 
+function isWin95DesktopMode() {
+    if (!document.body || !document.body.classList.contains('theme-win95')) return false;
+    return true;
+}
+
+const WIN95_MAIN_CLOSED_STORAGE_KEY = 'ga_win95_main_closed';
+const WIN95_MAIN_MINIMIZED_STORAGE_KEY = 'ga_win95_main_minimized';
+const WIN95_WINDOW_DRAG_THRESHOLD = 4;
+const WIN95_WINDOW_MIN_SIZES = {
+    mapTableOverlay: { width: 520, height: 340 },
+    pinboardOverlay: { width: 420, height: 320 },
+    default: { width: 320, height: 240 }
+};
+let win95WindowDragState = null;
+let win95WindowResizeState = null;
+let win95SuppressSettingsToggleClick = false;
+let win95LastPointerDragStartAt = 0;
+let win95LastPointerResizeStartAt = 0;
+
+function isWin95MainClosedPreference() {
+    try {
+        return localStorage.getItem(WIN95_MAIN_CLOSED_STORAGE_KEY) === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+
+function isWin95MainMinimizedPreference() {
+    try {
+        return localStorage.getItem(WIN95_MAIN_MINIMIZED_STORAGE_KEY) === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+
+function applyWin95MainClosedState() {
+    const closed = document.body?.classList.contains('theme-win95') && isWin95MainClosedPreference();
+    const minimized = document.body?.classList.contains('theme-win95') && !closed && isWin95MainMinimizedPreference();
+    document.body?.classList.toggle('win95-main-closed', !!closed);
+    document.body?.classList.toggle('win95-main-minimized', !!minimized);
+    if (closed || minimized) setWin95DesktopTaskActive(null);
+    return { closed, minimized };
+}
+
+function setWin95MainClosed(closed, persist = true) {
+    if (closed) setSettingsPanelOpen(false, true);
+    if (persist) {
+        try {
+            localStorage.setItem(WIN95_MAIN_CLOSED_STORAGE_KEY, closed ? 'true' : 'false');
+            localStorage.setItem(WIN95_MAIN_MINIMIZED_STORAGE_KEY, 'false');
+        } catch (_) {}
+    }
+    applyWin95MainClosedState();
+    if (!closed) setWin95DesktopTaskActive(GA_VIEW_MAIN);
+}
+
+function setWin95MainMinimized(minimized, persist = true) {
+    if (minimized) setSettingsPanelOpen(false, true);
+    if (persist) {
+        try {
+            localStorage.setItem(WIN95_MAIN_CLOSED_STORAGE_KEY, 'false');
+            localStorage.setItem(WIN95_MAIN_MINIMIZED_STORAGE_KEY, minimized ? 'true' : 'false');
+        } catch (_) {}
+    }
+    applyWin95MainClosedState();
+    if (!minimized) setWin95DesktopTaskActive(GA_VIEW_MAIN);
+}
+
+function closeWin95MainMenu() {
+    setWin95MainClosed(true, true);
+}
+
+function minimizeWin95MainMenu() {
+    setWin95MainMinimized(true, true);
+}
+
+function getWin95WindowViewportBounds() {
+    const margin = 8;
+    const taskbarHeight = document.querySelector('.win95-taskbar')?.getBoundingClientRect?.().height || 0;
+    const bottomReserve = isWin95DesktopMode() && taskbarHeight ? Math.round(taskbarHeight) + 2 : margin;
+    return {
+        minLeft: margin,
+        minTop: margin,
+        maxRight: Math.max(margin, window.innerWidth - margin),
+        maxBottom: Math.max(margin, window.innerHeight - bottomReserve),
+        margin
+    };
+}
+
+function getWin95WindowMinSize(element, bounds = getWin95WindowViewportBounds()) {
+    const baseSize = WIN95_WINDOW_MIN_SIZES[element?.id] || WIN95_WINDOW_MIN_SIZES.default;
+    return {
+        width: Math.min(baseSize.width, Math.max(220, bounds.maxRight - bounds.minLeft)),
+        height: Math.min(baseSize.height, Math.max(180, bounds.maxBottom - bounds.minTop))
+    };
+}
+
+function clampWin95WindowDragPosition(left, top, rect) {
+    const bounds = getWin95WindowViewportBounds();
+    const minVisible = 48;
+    const margin = bounds.margin;
+    const viewportWidth = bounds.maxRight - bounds.minLeft;
+    const viewportHeight = bounds.maxBottom - bounds.minTop;
+    const fitsWidth = rect.width <= viewportWidth;
+    const fitsHeight = rect.height <= viewportHeight;
+    const minLeft = fitsWidth ? bounds.minLeft : bounds.minLeft - Math.max(0, rect.width - minVisible);
+    const maxLeft = fitsWidth ? Math.max(bounds.minLeft, bounds.maxRight - rect.width) : Math.max(bounds.minLeft, window.innerWidth - minVisible);
+    const maxTop = fitsHeight ? Math.max(bounds.minTop, bounds.maxBottom - rect.height) : Math.max(bounds.minTop, window.innerHeight - minVisible);
+    return {
+        left: Math.min(maxLeft, Math.max(minLeft, left)),
+        top: Math.min(maxTop, Math.max(bounds.minTop, top))
+    };
+}
+
+function resetWin95WindowDragStyle(element) {
+    if (!element) return;
+    element.style.position = '';
+    element.style.left = '';
+    element.style.top = '';
+    element.style.right = '';
+    element.style.bottom = '';
+    element.style.width = '';
+    element.style.height = '';
+    element.style.margin = '';
+    element.style.transform = '';
+}
+
+function resetWin95WindowDragPositions() {
+    resetWin95WindowDragStyle(document.querySelector('.container'));
+    resetWin95WindowDragStyle(document.querySelector('.settings-shell'));
+    resetWin95WindowDragStyle(document.getElementById('mapTableOverlay'));
+    resetWin95WindowDragStyle(document.getElementById('pinboardOverlay'));
+}
+
+function win95OverlayTaskForElement(element) {
+    if (!element) return null;
+    if (element.id === 'mapTableOverlay') return 'map';
+    if (element.id === 'pinboardOverlay') return 'pinboard';
+    return null;
+}
+
+function win95OverlayElementForTask(task) {
+    const view = String(task || '').toLowerCase();
+    if (view === 'map') return document.getElementById('mapTableOverlay');
+    if (view === 'pinboard') return document.getElementById('pinboardOverlay');
+    return null;
+}
+
+function focusWin95OverlayWindow(taskOrElement) {
+    if (!isWin95DesktopMode()) return;
+    const overlay = typeof taskOrElement === 'string' ? win95OverlayElementForTask(taskOrElement) : taskOrElement;
+    if (!overlay || !overlay.classList.contains('active')) return;
+    const task = win95OverlayTaskForElement(overlay);
+    document.querySelectorAll('.pinboard-overlay.win95-window-focused').forEach(item => {
+        if (item !== overlay) item.classList.remove('win95-window-focused');
+    });
+    overlay.classList.add('win95-window-focused');
+    if (task) setWin95DesktopTaskActive(task);
+}
+
+function toggleWin95OverlayWindow(task) {
+    const view = String(task || '').toLowerCase();
+    if (view === 'map' && typeof toggleMapTable === 'function') {
+        document.body.classList.remove('map-is-fullscreen');
+        document.documentElement.classList.remove('map-is-fullscreen');
+        toggleMapTable(true);
+        return;
+    }
+    if (view === 'pinboard' && typeof togglePinboard === 'function') {
+        togglePinboard(true);
+    }
+}
+
+function focusNextWin95OverlayWindow() {
+    if (!isWin95DesktopMode()) return;
+    const nextOverlay = document.querySelector('.pinboard-overlay.active');
+    if (nextOverlay) {
+        focusWin95OverlayWindow(nextOverlay);
+    } else if (typeof window.persistMainViewFromOverlays === 'function') {
+        window.persistMainViewFromOverlays();
+    }
+}
+
+function closeWin95OverlayWindow(task, event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const overlay = win95OverlayElementForTask(task);
+    if (overlay?.classList.contains('active')) {
+        toggleWin95OverlayWindow(task);
+        overlay.classList.remove('win95-window-focused');
+        focusNextWin95OverlayWindow();
+    }
+}
+
+function minimizeWin95OverlayWindow(task, event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    closeWin95OverlayWindow(task, event);
+}
+
+function scheduleWin95WindowLayoutRefresh(element, reason = 'win95-window-resize') {
+    if (!element || element.id !== 'mapTableOverlay' || !element.classList.contains('active')) return;
+    if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+        window.gaScheduleRouteMapLayoutRefresh(reason, { fitRoute: false, preserveView: true });
+    } else if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+        map.invalidateSize({ pan: false });
+    }
+}
+
+function getWin95WindowDragPoint(event) {
+    const touch = event?.touches?.[0] || event?.changedTouches?.[0];
+    if (touch && Number.isFinite(touch.clientX) && Number.isFinite(touch.clientY)) {
+        return { clientX: touch.clientX, clientY: touch.clientY };
+    }
+    if (Number.isFinite(event?.clientX) && Number.isFinite(event?.clientY)) {
+        return { clientX: event.clientX, clientY: event.clientY };
+    }
+    return null;
+}
+
+function getWin95WindowDragInputType(event) {
+    if (String(event?.type || '').startsWith('touch')) return 'touch';
+    if (String(event?.type || '').startsWith('mouse')) return 'mouse';
+    return 'pointer';
+}
+
+function endWin95WindowDrag(event) {
+    const state = win95WindowDragState;
+    if (!state) return;
+    if (state.inputType === 'pointer' && event?.pointerId != null && state.pointerId != null && event.pointerId !== state.pointerId) return;
+
+    document.removeEventListener('pointermove', handleWin95WindowDragMove, true);
+    document.removeEventListener('pointerup', endWin95WindowDrag, true);
+    document.removeEventListener('pointercancel', endWin95WindowDrag, true);
+    document.removeEventListener('mousemove', handleWin95WindowDragMove, true);
+    document.removeEventListener('mouseup', endWin95WindowDrag, true);
+    document.removeEventListener('touchmove', handleWin95WindowDragMove, true);
+    document.removeEventListener('touchend', endWin95WindowDrag, true);
+    document.removeEventListener('touchcancel', endWin95WindowDrag, true);
+    document.body?.classList.remove('win95-window-dragging');
+    try {
+        if (state.pointerId != null) state.handle?.releasePointerCapture?.(state.pointerId);
+    } catch (_) {}
+
+    if (state.suppressSettingsClick && state.moved) {
+        win95SuppressSettingsToggleClick = true;
+        window.setTimeout(() => {
+            win95SuppressSettingsToggleClick = false;
+        }, 0);
+    }
+    win95WindowDragState = null;
+}
+
+function endWin95WindowResize(event) {
+    const state = win95WindowResizeState;
+    if (!state) return;
+    if (state.inputType === 'pointer' && event?.pointerId != null && state.pointerId != null && event.pointerId !== state.pointerId) return;
+
+    document.removeEventListener('pointermove', handleWin95WindowResizeMove, true);
+    document.removeEventListener('pointerup', endWin95WindowResize, true);
+    document.removeEventListener('pointercancel', endWin95WindowResize, true);
+    document.removeEventListener('mousemove', handleWin95WindowResizeMove, true);
+    document.removeEventListener('mouseup', endWin95WindowResize, true);
+    document.removeEventListener('touchmove', handleWin95WindowResizeMove, true);
+    document.removeEventListener('touchend', endWin95WindowResize, true);
+    document.removeEventListener('touchcancel', endWin95WindowResize, true);
+    document.body?.classList.remove('win95-window-resizing');
+    try {
+        if (state.pointerId != null) state.handle?.releasePointerCapture?.(state.pointerId);
+    } catch (_) {}
+    scheduleWin95WindowLayoutRefresh(state.windowEl, 'win95-window-resize-end');
+    win95WindowResizeState = null;
+}
+
+function handleWin95WindowDragMove(event) {
+    const state = win95WindowDragState;
+    if (!state) return;
+    if (state.inputType === 'pointer' && event.pointerId != null && state.pointerId != null && event.pointerId !== state.pointerId) return;
+    const point = getWin95WindowDragPoint(event);
+    if (!point) return;
+    const deltaX = point.clientX - state.startX;
+    const deltaY = point.clientY - state.startY;
+    if (!state.moved && Math.hypot(deltaX, deltaY) >= WIN95_WINDOW_DRAG_THRESHOLD) {
+        state.moved = true;
+    }
+    const pos = clampWin95WindowDragPosition(
+        point.clientX - state.offsetX,
+        point.clientY - state.offsetY,
+        state.rect
+    );
+    state.windowEl.style.setProperty('left', `${Math.round(pos.left)}px`, 'important');
+    state.windowEl.style.setProperty('top', `${Math.round(pos.top)}px`, 'important');
+    event.preventDefault();
+}
+
+function clampWin95ResizeRect(state, point) {
+    const bounds = getWin95WindowViewportBounds();
+    const minSize = state.minSize;
+    const edge = state.edge;
+    let left = state.startRect.left;
+    let top = state.startRect.top;
+    let right = state.startRect.right;
+    let bottom = state.startRect.bottom;
+
+    if (edge.includes('e')) right = point.clientX;
+    if (edge.includes('s')) bottom = point.clientY;
+    if (edge.includes('w')) left = point.clientX;
+    if (edge.includes('n')) top = point.clientY;
+
+    if (edge.includes('w')) {
+        left = Math.max(bounds.minLeft, Math.min(left, state.startRect.right - minSize.width));
+    } else if (edge.includes('e')) {
+        right = Math.min(bounds.maxRight, Math.max(right, state.startRect.left + minSize.width));
+    }
+
+    if (edge.includes('n')) {
+        top = Math.max(bounds.minTop, Math.min(top, state.startRect.bottom - minSize.height));
+    } else if (edge.includes('s')) {
+        bottom = Math.min(bounds.maxBottom, Math.max(bottom, state.startRect.top + minSize.height));
+    }
+
+    let width = Math.max(minSize.width, right - left);
+    let height = Math.max(minSize.height, bottom - top);
+
+    if (left + width > bounds.maxRight) width = Math.max(minSize.width, bounds.maxRight - left);
+    if (top + height > bounds.maxBottom) height = Math.max(minSize.height, bounds.maxBottom - top);
+
+    return { left, top, width, height };
+}
+
+function applyWin95WindowRect(element, rect) {
+    element.style.position = 'fixed';
+    element.style.setProperty('left', `${Math.round(rect.left)}px`, 'important');
+    element.style.setProperty('top', `${Math.round(rect.top)}px`, 'important');
+    element.style.setProperty('width', `${Math.round(rect.width)}px`, 'important');
+    element.style.setProperty('height', `${Math.round(rect.height)}px`, 'important');
+    element.style.right = 'auto';
+    element.style.bottom = 'auto';
+    element.style.margin = '0';
+    element.style.transform = 'none';
+}
+
+function handleWin95WindowResizeMove(event) {
+    const state = win95WindowResizeState;
+    if (!state) return;
+    if (state.inputType === 'pointer' && event.pointerId != null && state.pointerId != null && event.pointerId !== state.pointerId) return;
+    const point = getWin95WindowDragPoint(event);
+    if (!point) return;
+    const deltaX = point.clientX - state.startX;
+    const deltaY = point.clientY - state.startY;
+    if (!state.moved && Math.hypot(deltaX, deltaY) >= WIN95_WINDOW_DRAG_THRESHOLD) {
+        state.moved = true;
+    }
+    applyWin95WindowRect(state.windowEl, clampWin95ResizeRect(state, point));
+    event.preventDefault();
+}
+
+function beginWin95WindowDrag(event, windowEl, options = {}) {
+    if (!isWin95DesktopMode() || !windowEl) return false;
+    if (event.button != null && event.button !== 0) return false;
+    if (options.requireSettingsWindow && !document.body.classList.contains('win95-settings-window-open')) return false;
+    const point = getWin95WindowDragPoint(event);
+    if (!point) return false;
+    if (win95WindowDragState) endWin95WindowDrag({ pointerId: win95WindowDragState.pointerId });
+    if (win95WindowResizeState) endWin95WindowResize({ pointerId: win95WindowResizeState.pointerId });
+
+    const rect = windowEl.getBoundingClientRect();
+    const pos = clampWin95WindowDragPosition(rect.left, rect.top, rect);
+    windowEl.style.position = 'fixed';
+    windowEl.style.setProperty('left', `${Math.round(pos.left)}px`, 'important');
+    windowEl.style.setProperty('top', `${Math.round(pos.top)}px`, 'important');
+    windowEl.style.right = 'auto';
+    windowEl.style.bottom = 'auto';
+    windowEl.style.margin = '0';
+    windowEl.style.transform = 'none';
+
+    win95WindowDragState = {
+        pointerId: event.pointerId ?? null,
+        inputType: getWin95WindowDragInputType(event),
+        handle: event.currentTarget,
+        windowEl,
+        startX: point.clientX,
+        startY: point.clientY,
+        offsetX: point.clientX - pos.left,
+        offsetY: point.clientY - pos.top,
+        rect: { width: rect.width, height: rect.height },
+        moved: false,
+        suppressSettingsClick: !!options.suppressSettingsClick
+    };
+
+    document.body.classList.add('win95-window-dragging');
+    try {
+        if (event.pointerId != null) event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch (_) {}
+    document.addEventListener('pointermove', handleWin95WindowDragMove, true);
+    document.addEventListener('pointerup', endWin95WindowDrag, true);
+    document.addEventListener('pointercancel', endWin95WindowDrag, true);
+    document.addEventListener('mousemove', handleWin95WindowDragMove, true);
+    document.addEventListener('mouseup', endWin95WindowDrag, true);
+    document.addEventListener('touchmove', handleWin95WindowDragMove, { capture: true, passive: false });
+    document.addEventListener('touchend', endWin95WindowDrag, true);
+    document.addEventListener('touchcancel', endWin95WindowDrag, true);
+    event.preventDefault?.();
+    return true;
+}
+
+function beginWin95WindowResize(event, handle) {
+    if (!isWin95DesktopMode() || !handle) return false;
+    if (event.button != null && event.button !== 0) return false;
+    const windowEl = document.getElementById(handle.dataset.win95ResizeTarget || '');
+    const edge = String(handle.dataset.win95ResizeEdge || '').toLowerCase();
+    if (!windowEl?.classList.contains('active') || !/^[nsew]{1,2}$/.test(edge)) return false;
+    const point = getWin95WindowDragPoint(event);
+    if (!point) return false;
+    if (win95WindowDragState) endWin95WindowDrag({ pointerId: win95WindowDragState.pointerId });
+    if (win95WindowResizeState) endWin95WindowResize({ pointerId: win95WindowResizeState.pointerId });
+
+    focusWin95OverlayWindow(windowEl);
+    const rect = windowEl.getBoundingClientRect();
+    const bounds = getWin95WindowViewportBounds();
+    const minSize = getWin95WindowMinSize(windowEl, bounds);
+    const startRect = {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+    };
+    applyWin95WindowRect(windowEl, startRect);
+
+    win95WindowResizeState = {
+        pointerId: event.pointerId ?? null,
+        inputType: getWin95WindowDragInputType(event),
+        handle,
+        windowEl,
+        edge,
+        minSize,
+        startX: point.clientX,
+        startY: point.clientY,
+        startRect,
+        moved: false
+    };
+
+    document.body.classList.add('win95-window-resizing');
+    try {
+        if (event.pointerId != null) handle.setPointerCapture?.(event.pointerId);
+    } catch (_) {}
+    document.addEventListener('pointermove', handleWin95WindowResizeMove, true);
+    document.addEventListener('pointerup', endWin95WindowResize, true);
+    document.addEventListener('pointercancel', endWin95WindowResize, true);
+    document.addEventListener('mousemove', handleWin95WindowResizeMove, true);
+    document.addEventListener('mouseup', endWin95WindowResize, true);
+    document.addEventListener('touchmove', handleWin95WindowResizeMove, { capture: true, passive: false });
+    document.addEventListener('touchend', endWin95WindowResize, true);
+    document.addEventListener('touchcancel', endWin95WindowResize, true);
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    return true;
+}
+
+function bindWin95WindowDragHandle(handle, resolveWindow, options = {}) {
+    if (!handle) return;
+    const startDrag = (event) => {
+        if (event.type === 'mousedown' && Date.now() - win95LastPointerDragStartAt < 400) return;
+        const windowEl = typeof resolveWindow === 'function' ? resolveWindow(event, handle) : resolveWindow;
+        const dragOptions = typeof options === 'function' ? options(event, handle) : options;
+        const started = beginWin95WindowDrag(event, windowEl, dragOptions || {});
+        if (started && event.type === 'pointerdown') win95LastPointerDragStartAt = Date.now();
+    };
+    handle.addEventListener('pointerdown', startDrag);
+    handle.addEventListener('mousedown', startDrag);
+    handle.addEventListener('touchstart', startDrag, { passive: false });
+}
+
+function bindWin95WindowResizeHandle(handle) {
+    if (!handle) return;
+    const startResize = (event) => {
+        if (event.type === 'mousedown' && Date.now() - win95LastPointerResizeStartAt < 400) return;
+        const started = beginWin95WindowResize(event, handle);
+        if (started && event.type === 'pointerdown') win95LastPointerResizeStartAt = Date.now();
+    };
+    handle.addEventListener('pointerdown', startResize);
+    handle.addEventListener('mousedown', startResize);
+    handle.addEventListener('touchstart', startResize, { passive: false });
+}
+
+function initWin95WindowDragging() {
+    if (window.__gaWin95WindowDraggingInstalled) return;
+    window.__gaWin95WindowDraggingInstalled = true;
+
+    const mainHandle = document.getElementById('win95MainDragbar');
+    if (mainHandle) {
+        bindWin95WindowDragHandle(mainHandle, () => {
+            if (document.body.classList.contains('win95-main-closed') || document.body.classList.contains('win95-main-minimized')) return;
+            return document.querySelector('.container');
+        });
+    }
+
+    const settingsHandle = document.getElementById('settingsToggleBtn');
+    if (settingsHandle) {
+        bindWin95WindowDragHandle(settingsHandle, () => document.querySelector('.settings-shell'), {
+            requireSettingsWindow: true,
+            suppressSettingsClick: true
+        });
+    }
+
+    document.querySelectorAll('.win95-overlay-dragbar[data-win95-drag-target]').forEach((handle) => {
+        bindWin95WindowDragHandle(handle, () => {
+            const overlay = document.getElementById(handle.dataset.win95DragTarget || '');
+            if (!overlay?.classList.contains('active')) return null;
+            focusWin95OverlayWindow(overlay);
+            return overlay;
+        });
+    });
+
+    document.querySelectorAll('.win95-window-resize-handle[data-win95-resize-target]').forEach(bindWin95WindowResizeHandle);
+
+    document.querySelectorAll('.pinboard-overlay').forEach((overlay) => {
+        overlay.addEventListener('pointerdown', () => {
+            if (overlay.classList.contains('active')) focusWin95OverlayWindow(overlay);
+        }, true);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWin95WindowDragging, { once: true });
+} else {
+    initWin95WindowDragging();
+}
+
 function setSettingsPanelOpen(open, persist = true) {
     const shell = document.querySelector('.settings-shell');
     const panel = document.getElementById('settingsPanel');
@@ -868,15 +1400,84 @@ function setSettingsPanelOpen(open, persist = true) {
     const chevron = document.getElementById('settingsToggleChevron');
     if (!shell || !panel) return;
     shell.classList.toggle('is-open', !!open);
+    document.body.classList.toggle('win95-settings-window-open', !!open && isWin95DesktopMode());
+    if (open && isWin95DesktopMode()) {
+        setWin95DesktopTaskActive('settings');
+    } else if (!open && typeof window.persistMainViewFromOverlays === 'function') {
+        window.persistMainViewFromOverlays();
+    }
     if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (chevron) chevron.innerText = '▾';
     if (persist) localStorage.setItem('ga_settings_open', open ? 'true' : 'false');
 }
 
 function toggleSettingsPanel() {
+    if (win95SuppressSettingsToggleClick) {
+        win95SuppressSettingsToggleClick = false;
+        return;
+    }
     const shell = document.querySelector('.settings-shell');
+    if (isWin95DesktopMode() && shell?.classList.contains('is-open')) return;
     setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')));
 }
+
+function closeWin95SettingsWindow(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setSettingsPanelOpen(false, true);
+}
+
+function minimizeWin95SettingsWindow(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setSettingsPanelOpen(false, true);
+}
+
+function openWin95DesktopApp(target) {
+    const app = String(target || '').toLowerCase();
+    if (app === 'map') {
+        setSettingsPanelOpen(false, true);
+        const mapOpen = !!document.getElementById('mapTableOverlay')?.classList.contains('active');
+        if (!mapOpen && typeof toggleMapTable === 'function') toggleMapTable();
+        saveLastMainView(GA_VIEW_MAP);
+        if (isWin95DesktopMode()) focusWin95OverlayWindow(GA_VIEW_MAP);
+        else setWin95DesktopTaskActive(GA_VIEW_MAP);
+        return;
+    }
+    if (app === 'pinboard') {
+        setSettingsPanelOpen(false, true);
+        const pinboardOpen = !!document.getElementById('pinboardOverlay')?.classList.contains('active');
+        if (!pinboardOpen && typeof togglePinboard === 'function') togglePinboard();
+        saveLastMainView(GA_VIEW_PINBOARD);
+        if (isWin95DesktopMode()) focusWin95OverlayWindow(GA_VIEW_PINBOARD);
+        else setWin95DesktopTaskActive(GA_VIEW_PINBOARD);
+        return;
+    }
+    if (app === 'settings') {
+        setSettingsPanelOpen(true);
+        setWin95DesktopTaskActive('settings');
+        return;
+    }
+
+    const pinboardOpen = !!document.getElementById('pinboardOverlay')?.classList.contains('active');
+    const mapOpen = !!document.getElementById('mapTableOverlay')?.classList.contains('active');
+    if (pinboardOpen && typeof togglePinboard === 'function') togglePinboard();
+    if (mapOpen && typeof toggleMapTable === 'function') toggleMapTable();
+    setWin95MainClosed(false, true);
+    setSettingsPanelOpen(false, true);
+    saveLastMainView(GA_VIEW_MAIN);
+    setWin95DesktopTaskActive(GA_VIEW_MAIN);
+    window.scrollTo(0, 0);
+}
+
+window.openWin95DesktopApp = openWin95DesktopApp;
+window.closeWin95MainMenu = closeWin95MainMenu;
+window.minimizeWin95MainMenu = minimizeWin95MainMenu;
+window.closeWin95SettingsWindow = closeWin95SettingsWindow;
+window.minimizeWin95SettingsWindow = minimizeWin95SettingsWindow;
+window.focusWin95OverlayWindow = focusWin95OverlayWindow;
+window.closeWin95OverlayWindow = closeWin95OverlayWindow;
+window.minimizeWin95OverlayWindow = minimizeWin95OverlayWindow;
 
 const SETTINGS_HELP_CONTENT = {
     dispatch: {
@@ -1042,7 +1643,8 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Analog', text: 'Klassischere Panel-Optik mit Instrumenten-Gefuehl.' },
             { term: 'NavCom', text: 'Funkgeraete-Look mit dunkler Bedienoberflaeche.' },
             { term: 'Ops 1940', text: 'Militaerisch angelehnte Retro-Bedienoberflaeche.' },
-            { term: 'Schieberegler', text: 'Wechselt zwischen den vier Darstellungsarten.' },
+            { term: 'Win95', text: 'Fensterrahmen-, Button- und Desktop-Optik im Stil frueher Windows-Oberflaechen.' },
+            { term: 'Schieberegler', text: 'Wechselt zwischen den fuenf Darstellungsarten.' },
             { term: 'Seitengröße', text: 'Skaliert die gesamte Webapp im Browser von 30% bis 150%. Minus und Plus aendern den Wert in 5%-Schritten; Reset stellt 100% wieder her.' },
             { term: 'Wofuer gut?', text: 'Hilft, wenn die App im Browser zu gross oder zu klein wirkt: zum Beispiel auf Quest/VR, Tablet, Handy, kleinen Fenstern oder sehr hoch aufloesenden Monitoren.' },
             { term: 'Schaerfe-Grenze', text: 'Diese Einstellung vergroessert oder verkleinert die App, erzeugt aber keine zusaetzlichen physischen Pixel. Wenn ein VR-Browser sein Fenster nur hochskaliert, bleibt der Inhalt trotz groesserer Darstellung weich.' },
@@ -1179,18 +1781,22 @@ window.showSettingsHelp = showSettingsHelp;
 window.closeSettingsHelp = closeSettingsHelp;
 
 function setTheme(mode) {
+    mode = mode === 'win31' ? 'win95' : mode;
     const wasNavcom = document.body.classList.contains('theme-navcom');
-    document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940');
+    document.documentElement.classList.toggle('theme-win95-root', mode === 'win95');
+    document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940', 'theme-win95', 'win95-settings-window-open', 'win95-main-closed', 'win95-main-minimized');
     const lblClassic = document.getElementById('lbl-classic');
     const lblRetro = document.getElementById('lbl-retro');
     const lblNavcom = document.getElementById('lbl-navcom');
     const lblOps1940 = document.getElementById('lbl-ops1940');
+    const lblWin95 = document.getElementById('lbl-win95');
     const slider = document.getElementById('themeSlider');
 
     if (lblClassic) lblClassic.style.color = '#888';
     if (lblRetro) lblRetro.style.color = '#888';
     if (lblNavcom) lblNavcom.style.color = '#888';
     if (lblOps1940) lblOps1940.style.color = '#888';
+    if (lblWin95) lblWin95.style.color = '#888';
 
     if (mode === 'retro') {
         document.body.classList.add('theme-retro');
@@ -1207,11 +1813,21 @@ function setTheme(mode) {
         localStorage.setItem('ga_theme', 'ops1940');
         if (slider) slider.value = 3;
         if (lblOps1940) lblOps1940.style.color = '#d0a44f';
+    } else if (mode === 'win95') {
+        document.body.classList.add('theme-win95');
+        localStorage.setItem('ga_theme', 'win95');
+        [lblClassic, lblRetro, lblNavcom, lblOps1940].forEach(lbl => { if (lbl) lbl.style.color = '#000'; });
+        if (slider) slider.value = 4;
+        if (lblWin95) lblWin95.style.color = '#000080';
     } else {
         localStorage.setItem('ga_theme', 'classic');
         if (slider) slider.value = 0;
         if (lblClassic) lblClassic.style.color = '#4da6ff';
     }
+    if (mode !== 'win95') resetWin95WindowDragPositions();
+    applyWin95MainClosedState();
+    const settingsShell = document.querySelector('.settings-shell');
+    document.body.classList.toggle('win95-settings-window-open', !!settingsShell?.classList.contains('is-open') && isWin95DesktopMode());
     applySavedPanelTheme();
     applyNavcomRackV2State();
     updateDynamicColors();
@@ -3884,15 +4500,16 @@ function toggleWikiPhoto(event, containerId) {
 function updateDynamicColors() {
     const isNavcom = document.body.classList.contains('theme-navcom');
     const isOps1940 = document.body.classList.contains('theme-ops1940');
+    const isWin95 = document.body.classList.contains('theme-win95');
     const isRetro = document.body.classList.contains('theme-retro') && !isNavcom;
 
-    const primColor = isNavcom ? '#33ff33' : (isOps1940 ? '#e2c27b' : (isRetro ? 'var(--piper-white)' : 'var(--blue)'));
-    const titleColor = isNavcom ? '#33ff33' : (isOps1940 ? '#d0a44f' : (isRetro ? 'var(--piper-white)' : 'var(--blue)'));
-    const hlColor = isNavcom ? '#33ff33' : (isOps1940 ? '#f5d78a' : (isRetro ? 'var(--piper-yellow)' : 'var(--green)'));
+    const primColor = isNavcom ? '#33ff33' : (isOps1940 ? '#e2c27b' : (isWin95 ? '#000080' : (isRetro ? 'var(--piper-white)' : 'var(--blue)')));
+    const titleColor = isNavcom ? '#33ff33' : (isOps1940 ? '#d0a44f' : (isWin95 ? '#000080' : (isRetro ? 'var(--piper-white)' : 'var(--blue)')));
+    const hlColor = isNavcom ? '#33ff33' : (isOps1940 ? '#f5d78a' : (isWin95 ? '#000080' : (isRetro ? 'var(--piper-yellow)' : 'var(--green)')));
 
     const mainTitle = document.getElementById('mainTitle');
-    if (mainTitle) mainTitle.style.color = isRetro || isNavcom || isOps1940 ? '' : titleColor;
-    document.querySelectorAll('.theme-color-text').forEach(el => el.style.color = isRetro || isNavcom || isOps1940 ? '' : primColor);
+    if (mainTitle) mainTitle.style.color = isRetro || isNavcom || isOps1940 || isWin95 ? '' : titleColor;
+    document.querySelectorAll('.theme-color-text').forEach(el => el.style.color = isRetro || isNavcom || isOps1940 || isWin95 ? '' : primColor);
     document.querySelectorAll('.theme-green-text').forEach(el => el.style.color = hlColor);
 }
 
@@ -4914,6 +5531,13 @@ const GA_VIEW_MAIN = 'main';
 const GA_VIEW_MAP = 'map';
 const GA_VIEW_PINBOARD = 'pinboard';
 
+function setWin95DesktopTaskActive(view) {
+    document.querySelectorAll('.win95-task-button[data-win95-task]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.win95Task === view);
+    });
+}
+window.setWin95DesktopTaskActive = setWin95DesktopTaskActive;
+
 function saveLastMainView(view) {
     if (![GA_VIEW_MAIN, GA_VIEW_MAP, GA_VIEW_PINBOARD].includes(view)) return;
     try {
@@ -4932,8 +5556,13 @@ function getLastMainView() {
 window.persistMainViewFromOverlays = function persistMainViewFromOverlays() {
     const mapOpen = !!document.getElementById('mapTableOverlay')?.classList.contains('active');
     const pinboardOpen = !!document.getElementById('pinboardOverlay')?.classList.contains('active');
-    const view = pinboardOpen ? GA_VIEW_PINBOARD : (mapOpen ? GA_VIEW_MAP : GA_VIEW_MAIN);
+    const focusedOverlay = document.querySelector('.pinboard-overlay.win95-window-focused.active');
+    const focusedView = win95OverlayTaskForElement(focusedOverlay);
+    const view = (focusedView && ((focusedView === GA_VIEW_MAP && mapOpen) || (focusedView === GA_VIEW_PINBOARD && pinboardOpen)))
+        ? focusedView
+        : (pinboardOpen ? GA_VIEW_PINBOARD : (mapOpen ? GA_VIEW_MAP : GA_VIEW_MAIN));
     saveLastMainView(view);
+    setWin95DesktopTaskActive(view);
     return view;
 };
 
@@ -39605,7 +40234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1345', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1364', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

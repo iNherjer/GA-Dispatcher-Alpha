@@ -5521,7 +5521,7 @@ body.theme-retro .wp-data {
     }
 
     body.theme-retro .notes-stack,
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .notes-stack {
         min-width: 0;
     }
 }
@@ -6993,7 +6993,7 @@ body.theme-navcom .discord-link:hover {
 
     /* --- Zettelstapel: bis an die Container-Kante (Retro + NavCom) --- */
     body.theme-retro .notes-stack,
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .notes-stack {
         margin-left: -14px;
         margin-right: -14px;
     }
@@ -10763,7 +10763,7 @@ body.map-is-fullscreen #paxVoiceWidget {
 /* ==========================================================================
    23. MODERN LIQUID GLASS THEME
    ========================================================================== */
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) {
     --blue: #7ec7ff;
     --bg-dark: #071018;
     --card: rgba(14, 25, 37, 0.62);
@@ -10787,7 +10787,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) {
     color: var(--text);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940)::before {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95)::before {
     content: '';
     position: fixed;
     inset: 0;
@@ -10805,7 +10805,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940)::before {
     z-index: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .container {
     max-width: 520px;
     padding: 26px 18px 20px;
     background:
@@ -10821,7 +10821,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container {
     -webkit-backdrop-filter: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container::before {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .container::before {
     content: '';
     position: absolute;
     inset: 1px;
@@ -10830,7 +10830,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container::before
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) h1 {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) h1 {
     color: #f8fcff;
     margin: 0 0 8px;
     border-bottom: 0;
@@ -10842,7 +10842,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) h1 {
     text-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .help-icon {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .help-icon {
     width: 22px;
     height: 22px;
     line-height: 22px;
@@ -10852,7 +10852,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .help-icon {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #searchIndicator {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #searchIndicator {
     color: rgba(214, 237, 255, 0.82);
     margin: 0 auto 7px;
     padding: 7px 12px;
@@ -10864,7 +10864,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #searchIndicator {
     font-style: normal;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-generation-progress {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-generation-progress {
     margin: 0 auto;
 }
 
@@ -10886,18 +10886,18 @@ body.theme-ops1940 .modern-proposal-mode-control {
     display: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #classicInputs {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #classicInputs {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .grid-2,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .grid-3 {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .grid-2,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .grid-3 {
     gap: 10px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) label {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) label {
     color: rgba(228, 241, 250, 0.72);
     margin: 0 0 6px;
     font-size: 10px;
@@ -10905,8 +10905,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) label {
     letter-spacing: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select {
     min-height: 48px;
     margin-bottom: 0;
     padding: 12px 13px;
@@ -10922,16 +10922,16 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select {
     outline: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select {
     color-scheme: dark;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input::placeholder {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input::placeholder {
     color: rgba(238, 246, 255, 0.46);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input:focus,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select:focus {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:focus,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select:focus {
     border-color: rgba(126, 199, 255, 0.72);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.16),
@@ -10939,19 +10939,19 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) select:focus {
         0 14px 32px rgba(0, 0, 0, 0.22);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-type-control {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-type-control {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 52px;
     gap: 8px;
     align-items: end;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-type-control #targetType {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-type-control #targetType {
     width: 100%;
     min-width: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-control {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-control {
     display: flex;
     flex-direction: column;
     min-height: 48px;
@@ -10965,7 +10965,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-m
     user-select: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-text {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-text {
     display: block;
     width: 100%;
     text-align: center;
@@ -10976,7 +10976,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-m
     letter-spacing: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-checkbox {
     -webkit-appearance: none;
     appearance: none;
     position: relative;
@@ -10998,7 +10998,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-m
     cursor: pointer;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox::after {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-checkbox::after {
     content: '';
     position: absolute;
     left: 9px;
@@ -11013,7 +11013,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-m
     transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox:checked {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-checkbox:checked {
     border-color: rgba(104, 242, 160, 0.7);
     background:
         linear-gradient(145deg, rgba(126, 199, 255, 0.96), rgba(104, 242, 160, 0.92)),
@@ -11024,23 +11024,23 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-m
         0 10px 24px rgba(0, 0, 0, 0.25);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-checkbox:checked::after {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-checkbox:checked::after {
     opacity: 1;
     transform: rotate(-45deg) scale(1);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .modern-proposal-mode-control.is-active .modern-proposal-mode-text {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .modern-proposal-mode-control.is-active .modern-proposal-mode-text {
     color: rgba(199, 255, 223, 0.94);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .preset-row {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .preset-row {
     gap: 8px;
     margin: 2px 0 4px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-preset,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pb-btn,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pb-tab {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-preset,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pb-btn,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pb-tab {
     border-radius: 999px;
     color: #eaf7ff;
     background: rgba(255, 255, 255, 0.10);
@@ -11049,16 +11049,16 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pb-tab {
     text-transform: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-preset:hover,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pb-btn:hover,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pb-tab:hover {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-preset:hover,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pb-btn:hover,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pb-tab:hover {
     background: rgba(255, 255, 255, 0.16);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .slider-container,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .briefing,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .logbook,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .slider-container,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .briefing,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .logbook,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055)),
         rgba(6, 14, 22, 0.26);
@@ -11070,20 +11070,20 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
     box-sizing: border-box;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .slider-container {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .slider-container {
     padding: 9px 13px;
     margin-bottom: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .slider-header {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .slider-header {
     align-items: center;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .slider-label {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .slider-label {
     color: rgba(228, 241, 250, 0.76);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .drum-readout-container {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .drum-readout-container {
     min-width: 58px;
     justify-content: center;
     padding: 4px 9px;
@@ -11093,7 +11093,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .drum-readout-cont
     box-shadow: 0 6px 18px rgba(126, 199, 255, 0.28);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range] {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range] {
     height: 26px;
     margin: 8px 0 1px;
     padding: 0;
@@ -11103,21 +11103,21 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range] 
     appearance: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-runnable-track {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-webkit-slider-runnable-track {
     height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-moz-range-track {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-moz-range-track {
     height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-thumb {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-webkit-slider-thumb {
     width: 13px;
     height: 13px;
     margin-top: 3.5px;
@@ -11128,8 +11128,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]:
         0 0 0 5px rgba(255, 255, 255, 0.13);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mapTableBtn,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #pinboardMenuBtn {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mapTableBtn,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #pinboardMenuBtn {
     padding: 10px 12px;
     min-height: 34px;
     margin-top: 8px;
@@ -11137,9 +11137,9 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #pinboardMenuBtn {
     border-radius: 14px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-main,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-log,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-menu {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-main,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-log,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-menu {
     color: #041018;
     background: linear-gradient(180deg, #effbff, #8bd8ff 48%, #68f2c1);
     border: 1px solid rgba(255, 255, 255, 0.44);
@@ -11151,18 +11151,18 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-menu {
     letter-spacing: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-main:hover,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-log:hover,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .btn-menu:hover {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-main:hover,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-log:hover,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .btn-menu:hover {
     filter: brightness(1.06);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .action-bar {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .action-bar {
     gap: 10px;
     margin-top: 4px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #importHubBtn {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #importHubBtn {
     background: rgba(255, 255, 255, 0.14) !important;
     color: #eaf7ff !important;
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
@@ -11170,7 +11170,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #importHubBtn {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .emergency-reset {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .emergency-reset {
     width: 48px;
     height: 48px;
     border: 1px solid rgba(255, 255, 255, 0.20);
@@ -11178,16 +11178,16 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .emergency-reset {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .emergency-reset-inner {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .emergency-reset-inner {
     background: linear-gradient(180deg, #ff8b8b, #ff4057);
     border: 1px solid rgba(255, 255, 255, 0.34);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .aero-info-box,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .log-entry,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .copy-box,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pin-modal-box {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .aero-info-box,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .log-entry,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .copy-box,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pin-modal-box {
     background: var(--glass-surface-strong);
     border: 1px solid var(--glass-line-soft);
     border-radius: 18px;
@@ -11196,61 +11196,61 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pin-modal-box {
         0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mapArea #map {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mapArea #map {
     background: #d9e6ec;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 18px;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mapArea #map.leaflet-container {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mapArea #map.leaflet-container {
     background: #d9e6ec;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .aero-info-box {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .aero-info-box {
     border-left: 1px solid var(--glass-line-soft);
     padding: 16px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .briefing,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .logbook,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .briefing,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .logbook,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings {
     padding-left: 16px;
     padding-right: 16px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .logbook,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .logbook,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings {
     padding-bottom: 16px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings > div {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings > div {
     min-width: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings input {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings input {
     min-width: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-hint {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-hint {
     padding: 0 2px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .box-title,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .route-data,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest span {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .box-title,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .route-data,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .note-manifest span {
     color: #ffffff;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .route-label,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .rwy-info,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .story,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-info-note,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-hint {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .route-label,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .rwy-info,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .story,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .wiki-info-note,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-hint {
     color: rgba(229, 241, 250, 0.76);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .notes-stack {
     display: grid;
     grid-template-areas: "stack";
     position: relative;
@@ -11264,7 +11264,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
     -webkit-user-select: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page {
     grid-area: stack;
     background-color: #fdf5e6;
     background-image: repeating-linear-gradient(transparent, transparent 23px, #a6bccc 24px);
@@ -11279,7 +11279,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page
     opacity: 1 !important;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page::before {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page::before {
     content: '';
     position: absolute;
     top: 0;
@@ -11289,42 +11289,42 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page
     background-color: rgba(220, 50, 50, 0.4);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .front-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .front-note {
     z-index: 2;
     transform: rotate(-1.5deg) !important;
     box-shadow: 3px 5px 12px rgba(0, 0, 0, 0.6);
     opacity: 1;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .back-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .back-note {
     z-index: 1;
     transform: rotate(2deg) translate(8px, 6px) !important;
     box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.5);
     filter: brightness(0.85);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .third-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .third-note {
     z-index: 0;
     transform: rotate(-3deg) translate(14px, 12px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4);
     filter: brightness(0.7);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .fourth-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .fourth-note {
     z-index: -1;
     transform: rotate(1deg) translate(2px, 18px) !important;
     box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.3);
     filter: brightness(0.6);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .fifth-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .fifth-note {
     z-index: -2;
     transform: rotate(-2deg) translate(-4px, 24px) !important;
     box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
     filter: brightness(0.5);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .paperclip {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .paperclip {
     display: block;
     position: absolute;
     top: -18px;
@@ -11339,7 +11339,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .paperclip {
     transform: rotate(-15deg);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .page-number {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .page-number {
     display: block;
     position: absolute;
     bottom: 5px;
@@ -11350,8 +11350,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .page-number {
     opacity: 0.6;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mTitle,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-title {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mTitle,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .wiki-title {
     display: block;
     font-family: 'Caveat', cursive;
     font-size: 28px;
@@ -11363,8 +11363,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-title {
     line-height: 1.2;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mStory,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-info-note {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mStory,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .wiki-info-note {
     font-family: 'Courier New', Courier, monospace;
     font-size: 14px;
     font-weight: bold;
@@ -11378,14 +11378,14 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-info-note {
     font-style: normal;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .note-manifest {
     display: block;
     margin-top: 24px;
     padding-top: 0;
     border-top: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest div {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .note-manifest div {
     line-height: 24px;
     font-family: 'Courier New', Courier, monospace;
     font-size: 14px;
@@ -11393,7 +11393,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest div
     color: #222;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest strong {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .note-manifest strong {
     display: inline;
     font-size: 14px;
     color: #d93829;
@@ -11401,84 +11401,84 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest str
     text-transform: uppercase;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest span {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .note-manifest span {
     font-size: 14px;
     font-weight: bold;
     color: #222;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) .briefing-photo-attachment,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) a,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) button,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) .retro-switch-container {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page:not(.front-note) .briefing-photo-attachment,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page:not(.front-note) a,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page:not(.front-note) button,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .mission-note-page:not(.front-note) .retro-switch-container {
     pointer-events: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .theme-switch-wrapper {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .theme-switch-wrapper {
     margin-top: 22px !important;
     padding: 16px 16px 0 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #themeSlider {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #themeSlider {
     width: 180px !important;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .version-info {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .version-info {
     color: rgba(231, 241, 250, 0.58);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .discord-link {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .discord-link {
     color: rgba(185, 224, 255, 0.78);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pinboard-header {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pinboard-header {
     background: rgba(7, 16, 24, 0.70);
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .pinboard-overlay {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pinboard-overlay {
     background: rgba(7, 13, 20, 0.78);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
 }
 
 @media (max-width: 767px) {
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) {
         padding: 12px 8px;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .container {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .container {
         border-radius: 24px;
         padding: 20px 12px 16px !important;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .briefing,
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .logbook,
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .briefing,
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .logbook,
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .api-settings {
         padding-left: 14px;
         padding-right: 14px;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) h1 {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) h1 {
         font-size: 23px;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .grid-3 {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .grid-3 {
         grid-template-columns: 1fr 1fr;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .grid-3 > div:last-child {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .grid-3 > div:last-child {
         grid-column: 1 / -1;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .action-bar {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .action-bar {
         align-items: stretch;
     }
 
-    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .analog-meter {
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .analog-meter {
         display: none;
     }
 }
@@ -14451,6 +14451,1620 @@ body.theme-ops1940 .map-mission-btn.is-active {
 @media (max-width: 520px) {
     body.theme-ops1940 .mission-control-row {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   25. WINDOWS 95 THEME
+   ========================================================================== */
+.win95-desktop-decor {
+    display: none;
+}
+
+body.theme-win95 {
+    --blue: #000080;
+    --bg-dark: #008080;
+    --card: #c0c0c0;
+    --text: #000;
+    --warn: #ffff00;
+    --red: #800000;
+    --green: #008000;
+    --navlog-text: #000;
+    --navlog-heading: #000080;
+    --navlog-data: #800000;
+    --navlog-freq: #000080;
+    --navlog-border: #808080;
+    --drawer-font: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    --drawer-font-mono: "Courier New", Courier, monospace;
+    --drawer-panel-bg: #c0c0c0;
+    --drawer-text: #000;
+    --drawer-heading: #000080;
+    --drawer-muted: #404040;
+    --drawer-accent: #000080;
+    --drawer-accent-2: #ffff00;
+    --drawer-border: #808080;
+    --drawer-border-soft: #a0a0a0;
+    --drawer-surface: #dfdfdf;
+    --drawer-surface-strong: #fff;
+    --drawer-row-bg: #d8d8d8;
+    --drawer-good: #008000;
+    --drawer-warn: #808000;
+    --drawer-danger: #800000;
+    --drawer-back-bg: #800000;
+    --drawer-back-border: #400000;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    background-color: #008080;
+    color: #000;
+    transition: none;
+    overflow: hidden;
+}
+
+html.theme-win95-root {
+    overflow-y: hidden;
+    scrollbar-gutter: auto;
+}
+
+body.theme-win95::before {
+    background: #008080;
+    background-size: auto;
+    opacity: 1;
+}
+
+body.theme-win95 * {
+    text-shadow: none !important;
+}
+
+body.theme-win95 .container {
+    display: flex;
+    flex-direction: column;
+    max-width: 520px;
+    padding: 34px 12px 14px;
+    overflow: hidden;
+    background: #c0c0c0;
+    color: #000;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.45);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: none;
+}
+
+body.theme-win95 .win95-main-window-body {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+}
+
+body.theme-win95 .settings-shell {
+    flex: 0 0 auto;
+    margin: 8px 0 0;
+}
+
+body.theme-win95 .win95-main-window-body,
+body.theme-win95.win95-settings-window-open .settings-panel {
+    scrollbar-color: #808080 #c0c0c0;
+    scrollbar-width: auto;
+}
+
+body.theme-win95 .win95-main-window-body::-webkit-scrollbar,
+body.theme-win95.win95-settings-window-open .settings-panel::-webkit-scrollbar {
+    width: 17px;
+    height: 17px;
+    background: #c0c0c0;
+}
+
+body.theme-win95 .win95-main-window-body::-webkit-scrollbar-track,
+body.theme-win95.win95-settings-window-open .settings-panel::-webkit-scrollbar-track {
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+}
+
+body.theme-win95 .win95-main-window-body::-webkit-scrollbar-thumb,
+body.theme-win95.win95-settings-window-open .settings-panel::-webkit-scrollbar-thumb {
+    min-height: 34px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+}
+
+body.theme-win95 .win95-main-window-body::-webkit-scrollbar-button,
+body.theme-win95.win95-settings-window-open .settings-panel::-webkit-scrollbar-button {
+    width: 17px;
+    height: 17px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+}
+
+body.theme-win95 .win95-main-window-body::-webkit-scrollbar-corner,
+body.theme-win95.win95-settings-window-open .settings-panel::-webkit-scrollbar-corner {
+    background: #c0c0c0;
+}
+
+body.theme-win95 .container::before {
+    content: "VFR Multitool - Dispatcher 95";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    box-sizing: border-box;
+    background: #000080;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+}
+
+body.theme-win95 .container::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    right: 31px;
+    display: none;
+    width: 12px;
+    height: 12px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: -20px 0 0 #c0c0c0, -20px 0 0 2px #fff;
+    pointer-events: none;
+}
+
+.win95-window-dragbar,
+.win95-window-close-btn,
+.win95-window-minimize-btn,
+.win95-window-resize-handle {
+    display: none;
+}
+
+body.theme-win95 .win95-window-dragbar {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 52px;
+    z-index: 7;
+    height: 22px;
+    display: block;
+    cursor: move;
+    touch-action: none;
+}
+
+body.theme-win95.win95-settings-window-open .settings-toggle-btn {
+    cursor: move;
+    touch-action: none;
+}
+
+body.theme-win95 .win95-window-close-btn,
+body.theme-win95 .win95-window-minimize-btn {
+    position: absolute;
+    top: 7px;
+    right: 9px;
+    z-index: 8;
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    background: #c0c0c0 !important;
+    color: #000 !important;
+    border-radius: 0 !important;
+    border: 2px solid !important;
+    border-color: #fff #404040 #404040 #fff !important;
+    box-shadow: none !important;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: default;
+}
+
+body.theme-win95 .win95-window-minimize-btn {
+    right: 31px;
+}
+
+body.theme-win95 .win95-window-minimize-btn::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 3px;
+    height: 2px;
+    background: #000;
+}
+
+body.theme-win95 .win95-settings-close-btn,
+body.theme-win95 .win95-settings-minimize-btn {
+    display: none;
+}
+
+body.theme-win95.win95-settings-window-open .win95-settings-close-btn,
+body.theme-win95.win95-settings-window-open .win95-settings-minimize-btn {
+    top: 4px;
+    display: flex;
+}
+
+body.theme-win95.win95-settings-window-open .win95-settings-close-btn {
+    right: 5px;
+}
+
+body.theme-win95.win95-settings-window-open .win95-settings-minimize-btn {
+    right: 27px;
+}
+
+body.theme-win95 .win95-window-close-btn:active,
+body.theme-win95 .win95-window-minimize-btn:active {
+    border-color: #404040 #fff #fff #404040 !important;
+    background: #a8a8a8 !important;
+}
+
+body.theme-win95.win95-main-closed .container,
+body.theme-win95.win95-main-minimized .container {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    pointer-events: none;
+}
+
+body.theme-win95.win95-main-closed .container::before,
+body.theme-win95.win95-main-closed .container::after,
+body.theme-win95.win95-main-minimized .container::before,
+body.theme-win95.win95-main-minimized .container::after {
+    display: none;
+}
+
+body.theme-win95.win95-main-closed .container > :not(.settings-shell),
+body.theme-win95.win95-main-minimized .container > :not(.settings-shell) {
+    display: none !important;
+}
+
+body.theme-win95.win95-main-closed .settings-shell,
+body.theme-win95.win95-main-minimized .settings-shell {
+    pointer-events: auto;
+}
+
+body.theme-win95.win95-main-closed:not(.win95-settings-window-open) .settings-shell,
+body.theme-win95.win95-main-minimized:not(.win95-settings-window-open) .settings-shell {
+    display: none !important;
+}
+
+body.theme-win95.win95-main-closed .win95-task-button[data-win95-task="main"] {
+    display: none;
+}
+
+body.theme-win95.win95-main-closed .version-info,
+body.theme-win95.win95-main-minimized .version-info {
+    display: none !important;
+}
+
+body.theme-win95.win95-window-dragging,
+body.theme-win95.win95-window-resizing {
+    user-select: none;
+}
+
+body.theme-win95.win95-main-closed .win95-desktop-decor,
+body.theme-win95.win95-main-minimized .win95-desktop-decor {
+    z-index: 130000;
+}
+
+body.theme-win95.win95-settings-window-open.win95-main-closed .container,
+body.theme-win95.win95-settings-window-open.win95-main-minimized .container {
+    z-index: 130020;
+}
+
+body.theme-win95.maptable-open .container,
+body.theme-win95.pinboard-open .container {
+    transform: none !important;
+}
+
+body.theme-win95 .pinboard-overlay {
+    position: fixed !important;
+    right: auto !important;
+    bottom: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box;
+    padding: 34px 6px 6px !important;
+    overflow: hidden !important;
+    background: #c0c0c0 !important;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    border-radius: 0 !important;
+    box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: none !important;
+    transition: none !important;
+    z-index: 100070;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+}
+
+body.theme-win95 #mapTableOverlay {
+    --win95-overlay-left: clamp(150px, 22vw, 270px);
+    top: 54px !important;
+    left: var(--win95-overlay-left) !important;
+    width: min(980px, calc(100vw - var(--win95-overlay-left) - 28px)) !important;
+    height: min(640px, calc(100vh - 100px)) !important;
+}
+
+body.theme-win95 #pinboardOverlay {
+    --win95-overlay-left: clamp(132px, 18vw, 220px);
+    top: 92px !important;
+    left: var(--win95-overlay-left) !important;
+    width: min(820px, calc(100vw - var(--win95-overlay-left) - 28px)) !important;
+    height: min(590px, calc(100vh - 128px)) !important;
+}
+
+body.theme-win95 .pinboard-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 100070;
+}
+
+body.theme-win95 #mapTableOverlay.active,
+body.theme-win95 #pinboardOverlay.active {
+    z-index: 100070;
+}
+
+body.theme-win95 .pinboard-overlay.win95-window-focused,
+body.theme-win95 #mapTableOverlay.win95-window-focused,
+body.theme-win95 #pinboardOverlay.win95-window-focused {
+    z-index: 100115;
+}
+
+body.theme-win95 .pinboard-overlay::before {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: #000080;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+body.theme-win95 #mapTableOverlay::before {
+    content: "Kartentisch - NAV STATION";
+}
+
+body.theme-win95 #pinboardOverlay::before {
+    content: "Pinnwand - AIRCRAFT STATUS LOG";
+}
+
+body.theme-win95 .pinboard-overlay .win95-overlay-dragbar {
+    top: 4px;
+    left: 4px;
+    right: 52px;
+}
+
+body.theme-win95 .pinboard-overlay .win95-overlay-close-btn,
+body.theme-win95 .pinboard-overlay .win95-overlay-minimize-btn {
+    top: 7px;
+    display: flex;
+}
+
+body.theme-win95 .pinboard-overlay .win95-overlay-close-btn {
+    right: 9px;
+}
+
+body.theme-win95 .pinboard-overlay .win95-overlay-minimize-btn {
+    right: 31px;
+}
+
+body.theme-win95 .pinboard-overlay .win95-window-resize-handle {
+    position: absolute;
+    z-index: 10;
+    display: block;
+    background: rgba(0, 0, 0, 0.001);
+    pointer-events: auto;
+    touch-action: none;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-n {
+    top: -4px;
+    left: 12px;
+    right: 12px;
+    height: 8px;
+    cursor: n-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-e {
+    top: 12px;
+    right: 0;
+    bottom: 12px;
+    width: 12px;
+    cursor: e-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-s {
+    left: 12px;
+    right: 12px;
+    bottom: -4px;
+    height: 8px;
+    cursor: s-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-w {
+    top: 12px;
+    left: 0;
+    bottom: 12px;
+    width: 12px;
+    cursor: w-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-ne,
+body.theme-win95 .pinboard-overlay .win95-resize-se,
+body.theme-win95 .pinboard-overlay .win95-resize-sw,
+body.theme-win95 .pinboard-overlay .win95-resize-nw {
+    width: 14px;
+    height: 14px;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-ne {
+    top: -4px;
+    right: -4px;
+    cursor: ne-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-se {
+    right: -4px;
+    bottom: -4px;
+    cursor: se-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-sw {
+    left: -4px;
+    bottom: -4px;
+    cursor: sw-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-nw {
+    top: -4px;
+    left: -4px;
+    cursor: nw-resize;
+}
+
+body.theme-win95 .pinboard-overlay .win95-resize-se::before {
+    content: "";
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 9px;
+    height: 9px;
+    background:
+        linear-gradient(135deg, transparent 0 39%, #808080 40% 48%, transparent 49% 100%),
+        linear-gradient(135deg, transparent 0 58%, #404040 59% 67%, transparent 68% 100%);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-header {
+    min-height: 0;
+    flex: 0 0 auto;
+    margin: 0 0 6px;
+    padding: 4px;
+    gap: 4px;
+    overflow: visible;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    color: #000;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-header span,
+body.theme-win95 .pinboard-overlay .pinboard-header label {
+    color: #000 !important;
+}
+
+body.theme-win95 .pinboard-overlay .pb-tabs {
+    gap: 3px;
+}
+
+body.theme-win95 .pinboard-overlay .pb-btn.close {
+    display: none !important;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area {
+    flex: 1 1 auto !important;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    overflow: auto !important;
+    padding: 6px !important;
+    background: #808080;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    overscroll-behavior: contain;
+}
+
+body.theme-win95 #mapTableOverlay .pinboard-scroll-area {
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden !important;
+    background: #404040;
+}
+
+body.theme-win95 #pinboardOverlay .pinboard-scroll-area {
+    -webkit-overflow-scrolling: touch;
+}
+
+body.theme-win95 #mapTableOverlay .maptable-content {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-height: 0;
+    aspect-ratio: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+body.theme-win95 #pinboardOverlay .pinboard-content {
+    width: min(900px, 100%) !important;
+    height: auto !important;
+    aspect-ratio: 16 / 10 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: auto !important;
+    padding: 5% 6% 6% 6%;
+    box-sizing: border-box;
+    transform: none !important;
+    opacity: 1 !important;
+    border-radius: 0 !important;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area,
+body.theme-win95 .pinboard-overlay .pinboard-header {
+    scrollbar-color: #808080 #c0c0c0;
+    scrollbar-width: auto;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area::-webkit-scrollbar,
+body.theme-win95 .pinboard-overlay .pinboard-header::-webkit-scrollbar {
+    width: 17px;
+    height: 17px;
+    background: #c0c0c0;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area::-webkit-scrollbar-track,
+body.theme-win95 .pinboard-overlay .pinboard-header::-webkit-scrollbar-track {
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area::-webkit-scrollbar-thumb,
+body.theme-win95 .pinboard-overlay .pinboard-header::-webkit-scrollbar-thumb {
+    min-height: 34px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+}
+
+body.theme-win95 .pinboard-overlay .pinboard-scroll-area::-webkit-scrollbar-button,
+body.theme-win95 .pinboard-overlay .pinboard-header::-webkit-scrollbar-button {
+    width: 17px;
+    height: 17px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+}
+
+body.theme-win95 .glareshield,
+body.theme-win95 .screw {
+    display: none;
+}
+
+body.theme-win95 h1 {
+    margin: 0 0 10px;
+    padding: 4px 0 8px;
+    color: #000080;
+    border-bottom: 2px solid;
+    border-color: #808080 #fff #fff #808080;
+    font-size: 18px;
+    letter-spacing: 0;
+}
+
+body.theme-win95 .help-icon {
+    color: #000080;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    background: #c0c0c0;
+}
+
+body.theme-win95 #searchIndicator,
+body.theme-win95 label,
+body.theme-win95 .slider-label,
+body.theme-win95 .settings-section-kicker,
+body.theme-win95 .settings-section-title,
+body.theme-win95 .settings-section-status,
+body.theme-win95 .api-hint,
+body.theme-win95 .route-label,
+body.theme-win95 .rwy-info,
+body.theme-win95 .story,
+body.theme-win95 .wiki-info-note {
+    color: #000;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+}
+
+body.theme-win95 label,
+body.theme-win95 .settings-section-kicker,
+body.theme-win95 .slider-label {
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+body.theme-win95 input,
+body.theme-win95 select,
+body.theme-win95 textarea {
+    background: #fff;
+    color: #000;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #404040 #fff #fff #404040;
+    box-shadow: none;
+    padding: 8px;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    transition: none;
+}
+
+body.theme-win95 input:focus,
+body.theme-win95 select:focus,
+body.theme-win95 textarea:focus {
+    outline: 1px dotted #000;
+    outline-offset: -4px;
+    border-color: #000 #fff #fff #000;
+    box-shadow: none;
+}
+
+body.theme-win95 input::placeholder {
+    color: #606060;
+}
+
+body.theme-win95 select option {
+    background: #fff;
+    color: #000;
+}
+
+body.theme-win95 button,
+body.theme-win95 .btn-main,
+body.theme-win95 .btn-log,
+body.theme-win95 .btn-menu,
+body.theme-win95 .btn-preset,
+body.theme-win95 .pb-btn,
+body.theme-win95 .pb-tab,
+body.theme-win95 .settings-help-btn,
+body.theme-win95 .ui-scale-step-btn,
+body.theme-win95 .ui-scale-reset-btn,
+body.theme-win95 .modern-proposal-mode-control,
+body.theme-win95 .analog-proposal-mode-label,
+body.theme-win95 .map-mission-btn {
+    background: #c0c0c0 !important;
+    color: #000 !important;
+    border-radius: 0 !important;
+    border: 2px solid !important;
+    border-color: #fff #404040 #404040 #fff !important;
+    box-shadow: none !important;
+    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif !important;
+    font-weight: 700;
+    letter-spacing: 0;
+    transition: none !important;
+}
+
+body.theme-win95 button:hover,
+body.theme-win95 .btn-main:hover,
+body.theme-win95 .btn-log:hover,
+body.theme-win95 .btn-menu:hover,
+body.theme-win95 .btn-preset:hover,
+body.theme-win95 .pb-btn:hover,
+body.theme-win95 .pb-tab:hover {
+    background: #dfdfdf !important;
+}
+
+body.theme-win95 button:active,
+body.theme-win95 .btn-main:active,
+body.theme-win95 .btn-main.active,
+body.theme-win95 .btn-log:active,
+body.theme-win95 .btn-menu:active,
+body.theme-win95 .btn-preset:active,
+body.theme-win95 .btn-preset.active,
+body.theme-win95 .pb-tab.active,
+body.theme-win95 .map-mission-btn.is-active {
+    background: #a8a8a8 !important;
+    border-color: #404040 #fff #fff #404040 !important;
+}
+
+body.theme-win95 .theme-switch-wrapper,
+body.theme-win95 .slider-container,
+body.theme-win95 .briefing,
+body.theme-win95 .logbook,
+body.theme-win95 .api-settings,
+body.theme-win95 .settings-panel,
+body.theme-win95 .settings-section,
+body.theme-win95 .settings-help-popover,
+body.theme-win95 .aero-info-box,
+body.theme-win95 .route-weather-card,
+body.theme-win95 .copy-box,
+body.theme-win95 .log-entry,
+body.theme-win95 .pin-modal-box,
+body.theme-win95 .mission-note-page,
+body.theme-win95 .airport-autocomplete {
+    background: #c0c0c0 !important;
+    color: #000;
+    border-radius: 0 !important;
+    border: 2px solid !important;
+    border-color: #fff #404040 #404040 #fff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.theme-win95 .settings-panel-inner {
+    background: #c0c0c0;
+}
+
+body.theme-win95 .settings-section-head,
+body.theme-win95 .settings-form-row,
+body.theme-win95 .settings-action-row,
+body.theme-win95 .settings-sync-row,
+body.theme-win95 .mission-control-row {
+    background: #d8d8d8;
+    border-radius: 0;
+    border: 1px solid #808080;
+}
+
+body.theme-win95 .theme-switch-wrapper {
+    align-items: center !important;
+    padding: 12px !important;
+    border-top: 2px solid #fff !important;
+}
+
+body.theme-win95 .theme-switch-wrapper > div {
+    justify-content: space-between !important;
+    width: min(330px, 100%) !important;
+}
+
+body.theme-win95 .theme-switch-wrapper span {
+    padding: 2px 3px;
+    color: #000;
+    white-space: nowrap;
+}
+
+body.theme-win95 #themeSlider,
+body.theme-win95 input[type=range] {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 18px;
+    min-height: 18px;
+    padding: 0;
+    background: #c0c0c0;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #404040 #fff #fff #404040;
+}
+
+body.theme-win95 #themeSlider {
+    width: min(290px, 100%) !important;
+}
+
+body.theme-win95 input[type=range]::-webkit-slider-runnable-track {
+    height: 14px;
+    background: repeating-linear-gradient(90deg, #808080 0 1px, transparent 1px 18px), #c0c0c0;
+}
+
+body.theme-win95 input[type=range]::-moz-range-track {
+    height: 14px;
+    background: repeating-linear-gradient(90deg, #808080 0 1px, transparent 1px 18px), #c0c0c0;
+}
+
+body.theme-win95 input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 22px;
+    margin-top: -4px;
+    background: #c0c0c0;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: none;
+}
+
+body.theme-win95 input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 22px;
+    background: #c0c0c0;
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #fff #404040 #404040 #fff;
+    box-shadow: none;
+}
+
+body.theme-win95 .mission-generation-progress-track {
+    height: 14px;
+    border-radius: 0;
+    background: #fff;
+    border: 2px solid;
+    border-color: #404040 #fff #fff #404040;
+    box-shadow: none;
+}
+
+body.theme-win95 .mission-generation-progress-fill {
+    border-radius: 0;
+    background: repeating-linear-gradient(90deg, #000080 0 6px, #1084d0 6px 12px);
+    box-shadow: none;
+}
+
+body.theme-win95 .mission-generation-progress-label {
+    color: #000;
+}
+
+body.theme-win95 .drum-window,
+body.theme-win95 .drum-readout-container,
+body.theme-win95 .copy-box,
+body.theme-win95 .route-data,
+body.theme-win95 .note-manifest,
+body.theme-win95 .aero-info-box {
+    color: #000;
+}
+
+body.theme-win95 #mapArea #map,
+body.theme-win95 #mapArea #map.leaflet-container {
+    border-radius: 0;
+    border: 2px solid;
+    border-color: #404040 #fff #fff #404040;
+    box-shadow: none;
+}
+
+body.theme-win95 .airport-autocomplete {
+    padding: 3px;
+    border-color: #404040 #fff #fff #404040 !important;
+}
+
+body.theme-win95 .airport-autocomplete-option {
+    color: #000;
+    border-radius: 0;
+}
+
+body.theme-win95 .airport-autocomplete-option:hover,
+body.theme-win95 .airport-autocomplete-option.is-active {
+    background: #000080;
+    color: #fff;
+}
+
+body.theme-win95 .box-title,
+body.theme-win95 #mTitle,
+body.theme-win95 .wiki-title,
+body.theme-win95 .settings-help-popover-title,
+body.theme-win95 .route-weather-card-title,
+body.theme-win95 .route-weather-value {
+    color: #000080 !important;
+}
+
+body.theme-win95 .front-note,
+body.theme-win95 .back-note,
+body.theme-win95 .third-note,
+body.theme-win95 .fourth-note,
+body.theme-win95 .fifth-note {
+    transform: none;
+}
+
+body.theme-win95 .mission-note-page {
+    background: #fff !important;
+    color: #000;
+    font-family: "Times New Roman", Times, serif;
+}
+
+body.theme-win95 .mission-note-page::before,
+body.theme-win95 .paperclip {
+    display: none;
+}
+
+body.theme-win95 .page-number {
+    color: #404040;
+}
+
+body.theme-win95 .ui-scale-control {
+    width: min(290px, 100%);
+}
+
+@media (min-width: 900px) {
+    body.theme-win95 {
+        align-items: flex-start;
+        min-height: 100vh;
+        padding: 30px 28px 76px min(30vw, 340px);
+    }
+
+    body.theme-win95 .container {
+        z-index: 2;
+        max-width: 560px;
+        max-height: calc(100vh - 106px);
+        margin: 0;
+    }
+
+    body.theme-win95 .win95-desktop-decor {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 10040;
+        pointer-events: none;
+        color: #fff;
+        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-size: 11px;
+        line-height: 1.15;
+    }
+
+    body.theme-win95 .win95-desktop-icon {
+        position: absolute;
+        left: 22px;
+        width: 84px;
+        min-height: 76px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 4px 2px !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        text-align: center;
+        color: #fff !important;
+        font-size: 11px !important;
+        font-weight: 400 !important;
+        line-height: 1.15;
+        letter-spacing: 0;
+        text-transform: none;
+        pointer-events: auto;
+        cursor: default;
+    }
+
+    body.theme-win95 .win95-desktop-icon:hover,
+    body.theme-win95 .win95-desktop-icon:focus-visible {
+        background: transparent !important;
+        outline: 1px dotted #fff;
+        outline-offset: 1px;
+    }
+
+    body.theme-win95 .win95-desktop-icon:active .win95-icon-label {
+        background: #000080;
+        color: #fff;
+    }
+
+    body.theme-win95 .win95-icon-main { top: 30px; }
+    body.theme-win95 .win95-icon-map { top: 120px; }
+    body.theme-win95 .win95-icon-pinboard { top: 210px; }
+    body.theme-win95 .win95-icon-settings { top: 300px; }
+
+    body.theme-win95 .win95-icon-glyph {
+        display: block;
+        position: relative;
+        width: 36px;
+        height: 30px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+    }
+
+    body.theme-win95 .win95-icon-glyph::before,
+    body.theme-win95 .win95-icon-glyph::after {
+        content: "";
+        position: absolute;
+        box-sizing: border-box;
+    }
+
+    body.theme-win95 .win95-icon-main .win95-icon-glyph::before {
+        left: 7px;
+        top: 5px;
+        width: 18px;
+        height: 13px;
+        background: #000080;
+        border: 1px solid #fff;
+    }
+
+    body.theme-win95 .win95-icon-main .win95-icon-glyph::after {
+        left: 12px;
+        bottom: 2px;
+        width: 9px;
+        height: 5px;
+        background: #808080;
+        border-top: 1px solid #404040;
+    }
+
+    body.theme-win95 .win95-icon-map .win95-icon-glyph {
+        background:
+            linear-gradient(135deg, transparent 0 34%, #000080 34% 41%, transparent 41% 100%),
+            linear-gradient(45deg, transparent 0 46%, #800000 46% 52%, transparent 52% 100%),
+            #fff;
+    }
+
+    body.theme-win95 .win95-icon-map .win95-icon-glyph::before {
+        inset: 5px;
+        border: 1px dotted #008000;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph {
+        background: #fff7b0;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph::before {
+        left: 7px;
+        top: 6px;
+        width: 20px;
+        height: 15px;
+        background: repeating-linear-gradient(180deg, #fffce0 0 4px, #808080 4px 5px);
+        border: 1px solid #404040;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph::after {
+        left: 15px;
+        top: 2px;
+        width: 6px;
+        height: 6px;
+        background: #800000;
+        border: 1px solid #fff;
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph {
+        background: #c0c0c0;
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph::before {
+        left: 7px;
+        top: 6px;
+        width: 20px;
+        height: 15px;
+        background:
+            linear-gradient(90deg, transparent 0 6px, #000 6px 8px, transparent 8px 100%),
+            repeating-linear-gradient(180deg, transparent 0 4px, #000 4px 5px, transparent 5px 7px);
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph::after {
+        left: 6px;
+        top: 7px;
+        width: 5px;
+        height: 5px;
+        background: #000080;
+        box-shadow: 15px 7px 0 #800000;
+    }
+
+    body.theme-win95 .win95-icon-label {
+        display: inline-block;
+        padding: 2px 3px;
+        color: #fff !important;
+        background: #008080;
+        font-weight: 400;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    body.theme-win95 .win95-taskbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        box-sizing: border-box;
+        background: #c0c0c0;
+        color: #000;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+        pointer-events: auto;
+        z-index: 10045;
+    }
+
+    body.theme-win95 .win95-start-button,
+    body.theme-win95 .win95-task-button {
+        height: 26px;
+        min-height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        padding: 0 10px !important;
+        background: #c0c0c0 !important;
+        color: #000 !important;
+        border-radius: 0 !important;
+        border: 2px solid !important;
+        border-color: #fff #404040 #404040 #fff !important;
+        box-shadow: none !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: none;
+        cursor: default;
+    }
+
+    body.theme-win95 .win95-start-button::before {
+        content: "";
+        width: 13px;
+        height: 13px;
+        margin-right: 5px;
+        background:
+            linear-gradient(90deg, #d00000 0 50%, #0000a8 50% 100%) top / 100% 50% no-repeat,
+            linear-gradient(90deg, #008000 0 50%, #d8d000 50% 100%) bottom / 100% 50% no-repeat;
+        border: 1px solid #808080;
+    }
+
+    body.theme-win95 .win95-task-button {
+        min-width: 108px;
+        justify-content: flex-start;
+        font-weight: 400 !important;
+    }
+
+    body.theme-win95 .win95-task-button.is-active {
+        border-color: #404040 #fff #fff #404040 !important;
+        background: #d8d8d8 !important;
+    }
+
+    body.theme-win95 .win95-task-clock {
+        margin-left: auto;
+        min-width: 54px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        color: #000;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #808080 #fff #fff #808080;
+        font-size: 11px;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-shell {
+        position: fixed;
+        top: 62px;
+        right: 30px;
+        width: min(420px, calc(100vw - 150px));
+        max-height: calc(100vh - 112px);
+        margin: 0;
+        z-index: 100120;
+        overflow: hidden;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+        box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-btn {
+        min-height: 24px;
+        height: 24px;
+        padding: 0 8px !important;
+        background: #000080 !important;
+        color: #fff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        font-size: 12px !important;
+        justify-content: space-between;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-icon {
+        display: none;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-label,
+    body.theme-win95.win95-settings-window-open .settings-toggle-chevron {
+        color: #fff !important;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-panel {
+        max-height: calc(100vh - 138px);
+        overflow: auto;
+        padding: 8px;
+        box-sizing: border-box;
+        border-top: 2px solid;
+        border-color: #808080 #fff #fff #808080;
+        background: #c0c0c0 !important;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-panel .api-settings:first-child {
+        margin-top: 0;
+    }
+
+    body.theme-win95 #mapTableOverlay {
+        --win95-overlay-left: clamp(150px, 22vw, 270px);
+        top: 54px !important;
+        left: var(--win95-overlay-left) !important;
+        width: min(980px, calc(100vw - var(--win95-overlay-left) - 28px)) !important;
+        height: min(640px, calc(100vh - 100px)) !important;
+    }
+
+    body.theme-win95 #pinboardOverlay {
+        --win95-overlay-left: clamp(132px, 18vw, 220px);
+        top: 92px !important;
+        left: var(--win95-overlay-left) !important;
+        width: min(820px, calc(100vw - var(--win95-overlay-left) - 28px)) !important;
+        height: min(590px, calc(100vh - 128px)) !important;
+    }
+}
+
+@media (max-width: 899px) {
+    body.theme-win95 {
+        align-items: flex-start;
+        min-height: 100vh;
+        padding: 96px 8px 48px;
+    }
+
+    body.theme-win95 .container {
+        position: relative;
+        z-index: 2;
+        max-height: calc(100vh - 144px);
+        margin: 0 auto;
+    }
+
+    body.theme-win95 .win95-desktop-decor {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 10040;
+        pointer-events: none;
+        color: #fff;
+        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-size: 10px;
+        line-height: 1.1;
+    }
+
+    body.theme-win95 .win95-desktop-icon {
+        position: fixed;
+        top: 8px;
+        width: 66px;
+        min-height: 76px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 5px;
+        padding: 4px 1px !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        text-align: center;
+        color: #fff !important;
+        font-size: 10px !important;
+        font-weight: 400 !important;
+        line-height: 1.1;
+        letter-spacing: 0;
+        text-transform: none;
+        pointer-events: auto;
+        cursor: default;
+    }
+
+    body.theme-win95 #mapTableOverlay,
+    body.theme-win95 #pinboardOverlay {
+        top: 96px !important;
+        left: 8px !important;
+        width: calc(100vw - 16px) !important;
+        height: calc(100vh - 144px) !important;
+        height: calc(100dvh - 144px) !important;
+    }
+
+    body.theme-win95 .pinboard-overlay .win95-window-resize-handle {
+        display: none;
+    }
+
+    body.theme-win95 .win95-desktop-icon:hover,
+    body.theme-win95 .win95-desktop-icon:focus-visible {
+        background: transparent !important;
+        outline: 1px dotted #fff;
+        outline-offset: 1px;
+    }
+
+    body.theme-win95 .win95-desktop-icon:active .win95-icon-label {
+        background: #000080;
+        color: #fff;
+    }
+
+    body.theme-win95 .win95-icon-main { left: 4px; }
+    body.theme-win95 .win95-icon-map { left: 73px; }
+    body.theme-win95 .win95-icon-pinboard { left: 142px; }
+    body.theme-win95 .win95-icon-settings { left: 211px; }
+
+    body.theme-win95 .win95-icon-glyph {
+        display: block;
+        position: relative;
+        width: 32px;
+        height: 28px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+    }
+
+    body.theme-win95 .win95-icon-glyph::before,
+    body.theme-win95 .win95-icon-glyph::after {
+        content: "";
+        position: absolute;
+        box-sizing: border-box;
+    }
+
+    body.theme-win95 .win95-icon-main .win95-icon-glyph::before {
+        left: 6px;
+        top: 5px;
+        width: 16px;
+        height: 12px;
+        background: #000080;
+        border: 1px solid #fff;
+    }
+
+    body.theme-win95 .win95-icon-main .win95-icon-glyph::after {
+        left: 11px;
+        bottom: 2px;
+        width: 8px;
+        height: 5px;
+        background: #808080;
+        border-top: 1px solid #404040;
+    }
+
+    body.theme-win95 .win95-icon-map .win95-icon-glyph {
+        background:
+            linear-gradient(135deg, transparent 0 34%, #000080 34% 41%, transparent 41% 100%),
+            linear-gradient(45deg, transparent 0 46%, #800000 46% 52%, transparent 52% 100%),
+            #fff;
+    }
+
+    body.theme-win95 .win95-icon-map .win95-icon-glyph::before {
+        inset: 5px;
+        border: 1px dotted #008000;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph {
+        background: #fff7b0;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph::before {
+        left: 6px;
+        top: 6px;
+        width: 18px;
+        height: 14px;
+        background: repeating-linear-gradient(180deg, #fffce0 0 4px, #808080 4px 5px);
+        border: 1px solid #404040;
+    }
+
+    body.theme-win95 .win95-icon-pinboard .win95-icon-glyph::after {
+        left: 13px;
+        top: 2px;
+        width: 6px;
+        height: 6px;
+        background: #800000;
+        border: 1px solid #fff;
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph {
+        background: #c0c0c0;
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph::before {
+        left: 6px;
+        top: 6px;
+        width: 18px;
+        height: 14px;
+        background:
+            linear-gradient(90deg, transparent 0 5px, #000 5px 7px, transparent 7px 100%),
+            repeating-linear-gradient(180deg, transparent 0 4px, #000 4px 5px, transparent 5px 7px);
+    }
+
+    body.theme-win95 .win95-icon-settings .win95-icon-glyph::after {
+        left: 5px;
+        top: 7px;
+        width: 5px;
+        height: 5px;
+        background: #000080;
+        box-shadow: 13px 7px 0 #800000;
+    }
+
+    body.theme-win95 .win95-icon-label {
+        display: inline-block;
+        padding: 2px 3px;
+        color: #fff !important;
+        background: #008080;
+        font-weight: 400;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    body.theme-win95 .win95-taskbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        box-sizing: border-box;
+        overflow-x: auto;
+        background: #c0c0c0;
+        color: #000;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+        pointer-events: auto;
+        z-index: 10045;
+    }
+
+    body.theme-win95 .win95-start-button,
+    body.theme-win95 .win95-task-button {
+        height: 26px;
+        min-height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        padding: 0 7px !important;
+        background: #c0c0c0 !important;
+        color: #000 !important;
+        border-radius: 0 !important;
+        border: 2px solid !important;
+        border-color: #fff #404040 #404040 #fff !important;
+        box-shadow: none !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: none;
+        cursor: default;
+        white-space: nowrap;
+    }
+
+    body.theme-win95 .win95-start-button::before {
+        content: "";
+        width: 12px;
+        height: 12px;
+        margin-right: 4px;
+        background:
+            linear-gradient(90deg, #d00000 0 50%, #0000a8 50% 100%) top / 100% 50% no-repeat,
+            linear-gradient(90deg, #008000 0 50%, #d8d000 50% 100%) bottom / 100% 50% no-repeat;
+        border: 1px solid #808080;
+    }
+
+    body.theme-win95 .win95-task-button {
+        min-width: 82px;
+        justify-content: flex-start;
+        font-weight: 400 !important;
+    }
+
+    body.theme-win95 .win95-task-button.is-active {
+        border-color: #404040 #fff #fff #404040 !important;
+        background: #d8d8d8 !important;
+    }
+
+    body.theme-win95 .win95-task-clock {
+        display: none;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-shell {
+        position: fixed;
+        top: 88px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-height: calc(100vh - 132px);
+        margin: 0;
+        z-index: 100120;
+        overflow: hidden;
+        background: #c0c0c0;
+        border: 2px solid;
+        border-color: #fff #404040 #404040 #fff;
+        box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-btn {
+        min-height: 24px;
+        height: 24px;
+        padding: 0 8px !important;
+        background: #000080 !important;
+        color: #fff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        font-size: 12px !important;
+        justify-content: space-between;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-icon {
+        display: none;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-label,
+    body.theme-win95.win95-settings-window-open .settings-toggle-chevron {
+        color: #fff !important;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-panel {
+        max-height: calc(100vh - 158px);
+        overflow: auto;
+        padding: 8px;
+        box-sizing: border-box;
+        border-top: 2px solid;
+        border-color: #808080 #fff #fff #808080;
+        background: #c0c0c0 !important;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-panel .api-settings:first-child {
+        margin-top: 0;
+    }
+}
+
+body.theme-win95.win95-settings-window-open .settings-toggle-btn {
+    padding-right: 54px !important;
+}
+
+body.theme-win95.win95-settings-window-open .settings-toggle-chevron {
+    display: none;
+}
+
+@media (max-width: 520px) {
+    body.theme-win95 {
+        padding: 96px 8px 48px;
+    }
+
+    body.theme-win95 .container {
+        width: min(100%, calc(100vw - 16px));
+        padding: 34px 10px 12px;
+    }
+
+    body.theme-win95 .grid-2,
+    body.theme-win95 .grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+    body.theme-win95 .theme-switch-wrapper > div {
+        justify-content: center !important;
     }
 }
 

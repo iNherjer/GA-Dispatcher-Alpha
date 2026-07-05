@@ -9444,11 +9444,12 @@ function toggleMapTable(forceInternal) {
     if (!board || !pinBoard) return;
 
     const force = !!forceInternal;
+    const win95WindowMode = document.body.classList.contains('theme-win95');
     if (isDrawerTransitionBusy() && !force) return;
     if (!force) setDrawerTransitionBusy(true);
 
     try {
-        if (pinBoard.classList.contains('active') && typeof togglePinboard === 'function') {
+        if (!win95WindowMode && pinBoard.classList.contains('active') && typeof togglePinboard === 'function') {
             togglePinboard(true);
         }
 
@@ -9464,7 +9465,7 @@ function toggleMapTable(forceInternal) {
             const autoFs = shouldAutoStartMapFullscreen();
             if (autoFs) {
                 enterMapFullscreenMode();
-            } else {
+            } else if (!win95WindowMode) {
                 lockBodyScroll();
             }
             if (!map) initMapBase();
@@ -9482,13 +9483,16 @@ function toggleMapTable(forceInternal) {
             }, 500);
         } else {
             if (typeof window.gaChecklistCloseDrawer === 'function') window.gaChecklistCloseDrawer();
-            unlockBodyScroll();
+            if (!win95WindowMode) unlockBodyScroll();
             exitMapFullscreenMode();
             if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
         }
 
         if (typeof window.persistMainViewFromOverlays === 'function') {
             window.persistMainViewFromOverlays();
+        }
+        if (board.classList.contains('active') && win95WindowMode && typeof window.focusWin95OverlayWindow === 'function') {
+            window.focusWin95OverlayWindow('map');
         }
     } catch (error) {
         console.error('Map table toggle failed:', error);
@@ -9503,6 +9507,7 @@ function toggleMapTable(forceInternal) {
 }
 
 function shouldAutoStartMapFullscreen() {
+    if (document.body.classList.contains('theme-win95')) return false;
     return window.innerWidth < 1250;
 }
 

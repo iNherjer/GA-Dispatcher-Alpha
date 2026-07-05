@@ -388,11 +388,12 @@ function togglePinboard(forceInternal) {
     if (!board || !mapBoard) return;
 
     const force = !!forceInternal;
+    const win95WindowMode = document.body.classList.contains('theme-win95');
     if (typeof isDrawerTransitionBusy === 'function' && isDrawerTransitionBusy() && !force) return;
     if (typeof setDrawerTransitionBusy === 'function' && !force) setDrawerTransitionBusy(true);
 
     try {
-        if (mapBoard.classList.contains('active') && typeof toggleMapTable === 'function') {
+        if (!win95WindowMode && mapBoard.classList.contains('active') && typeof toggleMapTable === 'function') {
             toggleMapTable(true);
         }
         if (document.body.classList.contains('map-is-fullscreen')) {
@@ -408,12 +409,12 @@ function togglePinboard(forceInternal) {
         document.body.classList.toggle('pinboard-open');
 
         if (board.classList.contains('active')) {
-            if (window.innerWidth < 1250) lockBodyScroll();
+            if (!win95WindowMode && window.innerWidth < 1250) lockBodyScroll();
             renderNotes();
             silentSyncLoad();
             if (getGroupName()) silentGroupSync();
         } else {
-            unlockBodyScroll();
+            if (!win95WindowMode) unlockBodyScroll();
             triggerCloudSave();
             if (getGroupName()) triggerGroupSave();
         }
@@ -422,6 +423,9 @@ function togglePinboard(forceInternal) {
         }
         if (typeof window.persistMainViewFromOverlays === 'function') {
             window.persistMainViewFromOverlays();
+        }
+        if (board.classList.contains('active') && win95WindowMode && typeof window.focusWin95OverlayWindow === 'function') {
+            window.focusWin95OverlayWindow('pinboard');
         }
     } catch (error) {
         console.error('Pinboard toggle failed:', error);

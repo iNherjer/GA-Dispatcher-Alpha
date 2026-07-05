@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=mission-confirm-20260703-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=win95-resizable-windows-20260705-03" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=mission-confirm-20260703-01">
+        <link rel="stylesheet" href="styles.css?v=win95-resizable-windows-20260705-03">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -109,6 +109,32 @@
             <button type="button" class="boot-splash-action" id="bootSplashReloadBtn">Neu laden</button>
             <button type="button" class="boot-splash-action" id="bootSplashLaterBtn">Später</button>
         </div>
+    </div>
+</div>
+<div class="win95-desktop-decor">
+    <button type="button" class="win95-desktop-icon win95-icon-main" onclick="openWin95DesktopApp('main')" aria-label="VFR Multitool Hauptfenster">
+        <span class="win95-icon-glyph"></span>
+        <span class="win95-icon-label">VFR Multitool</span>
+    </button>
+    <button type="button" class="win95-desktop-icon win95-icon-map" onclick="openWin95DesktopApp('map')" aria-label="Kartentisch oeffnen">
+        <span class="win95-icon-glyph"></span>
+        <span class="win95-icon-label">Kartentisch</span>
+    </button>
+    <button type="button" class="win95-desktop-icon win95-icon-pinboard" onclick="openWin95DesktopApp('pinboard')" aria-label="Pinnwand oeffnen">
+        <span class="win95-icon-glyph"></span>
+        <span class="win95-icon-label">Pinnwand</span>
+    </button>
+    <button type="button" class="win95-desktop-icon win95-icon-settings" onclick="openWin95DesktopApp('settings')" aria-label="Einstellungen oeffnen">
+        <span class="win95-icon-glyph"></span>
+        <span class="win95-icon-label">Einstellungen</span>
+    </button>
+    <div class="win95-taskbar" aria-hidden="true">
+        <button type="button" class="win95-start-button" onclick="openWin95DesktopApp('settings')" tabindex="-1">Start</button>
+        <button type="button" class="win95-task-button is-active" data-win95-task="main" onclick="openWin95DesktopApp('main')" tabindex="-1">VFR Multitool</button>
+        <button type="button" class="win95-task-button" data-win95-task="map" onclick="openWin95DesktopApp('map')" tabindex="-1">Kartentisch</button>
+        <button type="button" class="win95-task-button" data-win95-task="pinboard" onclick="openWin95DesktopApp('pinboard')" tabindex="-1">Pinnwand</button>
+        <button type="button" class="win95-task-button" data-win95-task="settings" onclick="openWin95DesktopApp('settings')" tabindex="-1">Einstellungen</button>
+        <span class="win95-task-clock">95</span>
     </div>
 </div>
     <script>
@@ -128,7 +154,11 @@
 
 <div class="container">
     <div class="glareshield"></div>
+    <div class="win95-window-dragbar" id="win95MainDragbar" aria-hidden="true"></div>
+    <button type="button" class="win95-window-minimize-btn" id="win95MainMinimizeBtn" onclick="minimizeWin95MainMenu()" aria-label="Hauptmenue minimieren" title="Hauptmenue minimieren"></button>
+    <button type="button" class="win95-window-close-btn" id="win95MainCloseBtn" onclick="closeWin95MainMenu()" aria-label="Hauptmenue schliessen" title="Hauptmenue schliessen">X</button>
 
+    <div class="win95-main-window-body">
     <div class="screw top-left" onclick="cyclePanelColor()" title="Panel-Lackierung ändern" style="cursor: pointer; z-index: 20;"></div>
     <div class="screw top-right"></div>
     <div class="screw bottom-left"></div>
@@ -720,6 +750,7 @@
         <h3 class="theme-title-text">Flugbuch <button style="font-size:10px; background:none; border:1px solid #555; color:#888; cursor:pointer; padding:2px 5px;" onclick="clearLog()">Clear</button></h3>
         <div id="logContent"></div>
     </div>
+    </div>
 
     <div class="settings-shell">
         <button class="settings-toggle-btn" id="settingsToggleBtn" type="button" onclick="toggleSettingsPanel()" aria-expanded="false" aria-controls="settingsPanel">
@@ -727,6 +758,8 @@
             <span class="settings-toggle-label">Einstellungen</span>
             <span class="settings-toggle-chevron" id="settingsToggleChevron">▾</span>
         </button>
+        <button type="button" class="win95-window-minimize-btn win95-settings-minimize-btn" id="win95SettingsMinimizeBtn" onclick="minimizeWin95SettingsWindow(event)" aria-label="Einstellungen minimieren" title="Einstellungen minimieren"></button>
+        <button type="button" class="win95-window-close-btn win95-settings-close-btn" id="win95SettingsCloseBtn" onclick="closeWin95SettingsWindow(event)" aria-label="Einstellungen schliessen" title="Einstellungen schliessen">X</button>
         <div class="settings-panel" id="settingsPanel">
         <div class="settings-panel-inner">
 
@@ -955,13 +988,14 @@
             </div>
             <button type="button" class="settings-help-btn" onclick="showSettingsHelp('appearance', event)" aria-label="Hilfe zur Darstellung" aria-expanded="false">?</button>
         </div>
-        <div style="display: flex; justify-content: space-between; width: 210px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+        <div style="display: flex; justify-content: space-between; gap: 8px; width: min(330px, 100%); font-size: 10px; font-weight: bold; text-transform: uppercase; flex-wrap: wrap;">
             <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
             <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>
             <span id="lbl-navcom" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(2)">NavCom</span>
             <span id="lbl-ops1940" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(3)">Ops 1940</span>
+            <span id="lbl-win95" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(4)">Win95</span>
         </div>
-        <input type="range" id="themeSlider" min="0" max="3" value="0" style="width: 210px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
+        <input type="range" id="themeSlider" min="0" max="4" value="0" style="width: min(290px, 100%); margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
         <div class="ui-scale-control">
             <div class="ui-scale-control-head">
                 <span class="ui-scale-label">Seitengröße</span>
@@ -1076,6 +1110,19 @@
 </div>
 
 <div id="pinboardOverlay" class="pinboard-overlay">
+    <div class="win95-window-dragbar win95-overlay-dragbar" data-win95-drag-target="pinboardOverlay" aria-hidden="true"></div>
+    <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('pinboard', event)" aria-label="Pinnwand minimieren" title="Pinnwand minimieren"></button>
+    <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('pinboard', event)" aria-label="Pinnwand schliessen" title="Pinnwand schliessen">X</button>
+    <div class="win95-window-resize-handles" aria-hidden="true">
+        <div class="win95-window-resize-handle win95-resize-n" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="n"></div>
+        <div class="win95-window-resize-handle win95-resize-e" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="e"></div>
+        <div class="win95-window-resize-handle win95-resize-s" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="s"></div>
+        <div class="win95-window-resize-handle win95-resize-w" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="w"></div>
+        <div class="win95-window-resize-handle win95-resize-ne" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="ne"></div>
+        <div class="win95-window-resize-handle win95-resize-se" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="se"></div>
+        <div class="win95-window-resize-handle win95-resize-sw" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="sw"></div>
+        <div class="win95-window-resize-handle win95-resize-nw" data-win95-resize-target="pinboardOverlay" data-win95-resize-edge="nw"></div>
+    </div>
     <div class="pinboard-header">
         <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <span style="color: #fff; font-weight: bold; font-family: monospace;">AIRCRAFT STATUS LOG</span>
@@ -1098,6 +1145,19 @@
 </div>
 
 <div id="mapTableOverlay" class="pinboard-overlay">
+    <div class="win95-window-dragbar win95-overlay-dragbar" data-win95-drag-target="mapTableOverlay" aria-hidden="true"></div>
+    <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('map', event)" aria-label="Kartentisch minimieren" title="Kartentisch minimieren"></button>
+    <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('map', event)" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">X</button>
+    <div class="win95-window-resize-handles" aria-hidden="true">
+        <div class="win95-window-resize-handle win95-resize-n" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="n"></div>
+        <div class="win95-window-resize-handle win95-resize-e" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="e"></div>
+        <div class="win95-window-resize-handle win95-resize-s" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="s"></div>
+        <div class="win95-window-resize-handle win95-resize-w" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="w"></div>
+        <div class="win95-window-resize-handle win95-resize-ne" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="ne"></div>
+        <div class="win95-window-resize-handle win95-resize-se" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="se"></div>
+        <div class="win95-window-resize-handle win95-resize-sw" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="sw"></div>
+        <div class="win95-window-resize-handle win95-resize-nw" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="nw"></div>
+    </div>
     <div class="pinboard-header">
         <div id="mapToolbarInner">
         <div class="map-toolbar-title-row">
@@ -2445,13 +2505,13 @@
 <script defer src="sync.js?v=mission-confirm-20260703-01"></script>
 <script defer src="checklists.js?v=minimap-attribution-20260702-01"></script>
 <script defer src="profile.js?v=profile-refresh-cleanup-20260703-01"></script>
-<script defer src="map.js?v=route-viewport-preserve-20260703-01"></script>
+<script defer src="map.js?v=win95-overlay-windows-20260705-06"></script>
 <script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
-<script defer src="app.js?v=mission-confirm-20260703-01"></script>
+<script defer src="app.js?v=win95-resizable-windows-20260705-03"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
-<script defer src="board.js?v=pinboard-storage-rescue-20260703-02"></script>
+<script defer src="board.js?v=win95-overlay-windows-20260705-06"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
 <script defer src="passenger-voice.js?v=comfort-weather-attribution-20260703-01"></script>
