@@ -17985,6 +17985,14 @@ function _missionPrivateOutingProfilePersonaForPassenger(passenger = {}, profile
     if (nameKey) {
         const exact = personas.find(item => normalizeMissionText(item?.name || '') === nameKey);
         if (exact) return exact;
+        const firstNameKey = nameKey.split(/\s+/)[0] || '';
+        if (firstNameKey) {
+            const firstNameMatch = personas.find(item => {
+                const personaFirstName = normalizeMissionText(item?.name || '').split(/\s+/)[0] || '';
+                return personaFirstName && personaFirstName === firstNameKey;
+            });
+            if (firstNameMatch) return firstNameMatch;
+        }
     }
     return null;
 }
@@ -18138,9 +18146,9 @@ function _missionPrivateOutingActivityKind(text = '') {
     if (/\b(museum|ausstellung|galerie)\b/.test(s)) return 'museum';
     if (/\b(stadtbummel|stadtetrip|staedtetrip|städtetrip|ortskern|altstadt|ortsrunde|markt)\b/.test(s)) return 'city';
     if (/\b(einkauf|einkaufen|shopping|besorgung|besorgungen|laden)\b/.test(s)) return 'shopping';
-    if (/\b(foto|kamera|spaziergang)\b/.test(s)) return 'photo';
-    if (/\b(kaffee|kuchen|flugplatzcafe|flugplatzcafé|cafe|café)\b/.test(s)) return 'cafe';
     if (/\b(wellness|paar|partner|partnerin)\b/.test(s)) return 'wellness';
+    if (/\b(kaffee|kuchen|flugplatzcafe|flugplatzcafé|cafe|café)\b/.test(s)) return 'cafe';
+    if (/\b(foto|kamera|spaziergang)\b/.test(s)) return 'photo';
     if (/\b(wander|wanderung|wanderschuhe|rucksack|trail|berg|berge|alm)\b/.test(s)) return 'hiking';
     if (/\b(familie|familienkontakt|schwester|bruder|geschwister|abholung)\b/.test(s)) return 'family';
     return 'outing';
@@ -18162,10 +18170,10 @@ function _missionPrivateOutingActivityAnchor(passenger = {}, cargoText = '', sto
         passenger?.paxBriefingSeed,
         passenger?.greetingText,
         cargoText,
+        storyText,
         frame?.trigger,
         frame?.subjectDetail,
-        frame?.whyNow,
-        storyText
+        frame?.whyNow
     ].filter(Boolean));
 }
 
@@ -18190,6 +18198,32 @@ function _missionPrivateOutingStableVariant(parts = [], count = 1) {
         hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
     }
     return Math.abs(hash) % max;
+}
+
+function _missionPrivateOutingCargoMotif(cargoText = '', spec = {}) {
+    const cargo = String(cargoText || '')
+        .replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*lbs\s*\)\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!cargo || /^\d+\s*lbs\b/i.test(cargo)) return String(spec?.cargo || 'Tagesgepäck').trim() || 'Tagesgepäck';
+    if (cargo.length <= 80) return cargo;
+    const firstPart = cargo.split(/\s*(?:,| und | & |\+)\s*/i).find(Boolean);
+    return String(firstPart || spec?.cargo || 'Tagesgepäck').trim();
+}
+
+function _missionPrivateOutingRouteMood(targetName = '', distanceNm = null) {
+    const target = String(targetName || 'dem Ziel').trim() || 'dem Ziel';
+    const nm = Number(distanceNm);
+    if (Number.isFinite(nm) && nm > 0 && nm <= 25) {
+        return `Der kurze Hop nach ${target} lässt euch genug Luft, um schon unterwegs in den freien Teil des Tages umzuschalten.`;
+    }
+    if (Number.isFinite(nm) && nm >= 70) {
+        return `Der Weg nach ${target} gibt euch genug Flugzeit, um aus dem Alltag rauszukommen und langsam in den Ausflug hineinzufinden.`;
+    }
+    if (Number.isFinite(nm) && nm > 0) {
+        return `Der Flug nach ${target} ist ein guter Übergang: ruhig raus aus dem Alltag, sauber ankommen und dann nicht mehr auf die Uhr schauen.`;
+    }
+    return `Der Hinflug nach ${target} soll sich wie der erste Teil des freien Tages anfühlen.`;
 }
 
 function _missionPrivateOutingSupportLine(targetName = '', activityKind = 'outing') {
@@ -18287,7 +18321,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
             return {
                 plan: 'einen ruhigen Wellness- oder Spaziergangstag anfangen',
                 draw: 'ein ruhiger Tag ohne Pflichtprogramm',
-                hook: 'Heute soll aus dem Flug ein ruhiger gemeinsamer Tag werden, nicht nur ein Zielwechsel.',
+                hook: 'Heute soll aus dem Flug direkt ein ruhiger gemeinsamer Tag werden.',
                 reward: 'die gemeinsame Zeit ohne Termindruck',
                 cargo: 'Wellness- oder Wochenendtasche'
             };
@@ -18304,7 +18338,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
             return {
                 plan: 'eine kleine Runde durch den Ort drehen',
                 draw: 'private Fotos plus Café-Stopp',
-                hook: 'Die Kamera bleibt im Flug weg; die guten Motive und der Café-Stopp warten am Boden.',
+                hook: 'Die Kamera ist dabei, aber die guten Motive und der Café-Stopp warten nach der Landung am Boden.',
                 reward: 'den Stadtbummel mit Café und ein paar privaten Fotos',
                 cargo: 'kleine Tasche'
             };
@@ -18367,18 +18401,17 @@ function _missionPrivateOutingWeatherDispatchLine(weather = null, activityKind =
     }
     if (weatherBits.length) {
         const compact = weatherBits.join(', ');
-        const paired = weatherBits.join(' und ');
         const options = [
-            `Das Wetter spielt mit: ${compact}; genau richtig für einen kleinen Fly-out mit Vorfreude.`,
-            `Mit ${paired} passt das Fenster gut für einen ruhigen privaten Hinflug und einen schönen Plan am Ziel.`,
-            `${compact}: Das reicht für einen unkomplizierten Hinflug und gute Laune am Ziel.`
+            `Mit ${compact} spricht nichts dagegen, den Hinflug ruhig anzugehen und schon unterwegs runterzufahren.`,
+            `Bei ${compact} darf der Flug selbst schon zum entspannten Teil eures Plans werden.`,
+            `Bei ${compact} darf der Flug selbst schon zum entspannten Teil des Tages werden.`
         ];
         return options[Math.abs(variant) % options.length];
     }
     const options = [
-        'Macht euch den Hinflug entspannt; am Ziel wartet der gute Grund für den Fly-out schon mit einem Grinsen.',
-        'Haltet den Flug ruhig; das eigentliche Tagesziel ist euer gemeinsamer Plan am Boden.',
-        'Heute muss nichts dramatisch werden: sauber hinfliegen, abstellen, und direkt in den freien Tag wechseln.'
+        'Lasst den Flug ruhig anlaufen, am Ziel wartet der Teil, für den ihr euch freigemacht habt.',
+        'Der Flug darf ruhig und sauber bleiben, am Boden wartet dann euer eigentlicher Plan.',
+        'Kein Grund zur Eile, nehmt den Hinflug als ruhigen Einstieg in euren gemeinsamen Tag.'
     ];
     return options[Math.abs(variant) % options.length];
 }
@@ -18387,22 +18420,43 @@ function _missionPrivateOutingEnjoyLine(weather = null, activityKind = 'outing',
     const { temp } = _missionPrivateOutingWeatherSnapshot(weather);
     if (Number.isFinite(temp) && temp >= 30 && activityKind === 'swimming') {
         const options = [
-            `Genießt den Flug; danach habt ihr euch ${reward} wirklich verdient. Viel Spaß.`,
-            `Fliegt ruhig hin; nach dem Abstellen wartet ${reward}, und die ist heute ehrlich verdient. Viel Spaß.`,
-            `Sauber ankommen, Tasche raus, dann gehört der Rest des Tages der Abkühlung. Viel Spaß.`
+            'Nach dem Abstellen heißt es Tasche raus und weiter Richtung Wasser.',
+            'Fliegt ruhig hin, dann fühlt sich der Sprung ans Wasser nach genau der richtigen Entscheidung an.',
+            `Sauber ankommen, Tasche raus, und der Rest des Tages gehört der Abkühlung.`
         ];
         return options[Math.abs(variant) % options.length];
     }
     const options = [
-        `Genießt den Flug; danach habt ihr euch ${reward} redlich verdient. Viel Spaß.`,
-        `Fliegt entspannt hin; danach könnt ihr euch ${reward} in Ruhe gönnen. Genau dafür lohnt sich der kleine Fly-out. Viel Spaß.`,
-        'Macht euch keinen Stress, genießt den Flug und stellt sauber ab. Danach gehört der Rest des Tages eurem privaten Plan. Viel Spaß.',
-        'Macht euch einen angenehmen Hinflug; am Ziel wartet genau der kleine Genussgrund, wegen dem ihr losgeflogen seid. Viel Spaß.'
+        'Dann nehmt ihr die Tasche und lasst den Tag einfach weiterlaufen.',
+        'Ruhig ankommen, sauber parken, und danach gehört der Nachmittag euch.',
+        'Macht euch keinen Stress, stellt sauber ab und lasst den Rest des Tages privat weiterlaufen.',
+        'Sobald der Motor aus ist, kann genau der Teil beginnen, auf den ihr euch eigentlich freut.'
     ];
     return options[Math.abs(variant) % options.length];
 }
 
-function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger = {}, weather = null, frame = {}, activityHint = '', cargoText = '', distanceNm = null } = {}) {
+function _missionPrivateOutingPolishSpokenBriefing(text = '') {
+    let clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    clean = clean
+        .replace(/\s*;\s*/g, '. ')
+        .replace(/\bHeute bleibt es herrlich privat:\s*/gi, '')
+        .replace(/\bEuer Plan ist simpel:\s*/gi, '')
+        .replace(/\bViel Spaß\.?/gi, '')
+        .replace(/\b([A-ZÄÖÜ][a-zäöüß]+)\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]+\s+ist mit dabei\b/g, '$1 ist mit dabei')
+        .replace(/\bFür\s+([A-ZÄÖÜ][a-zäöüß]+)\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]+\s+und dich\b/g, 'Für $1 und dich')
+        .replace(/\bdie\s+(\d+(?:[.,]\d+)?)\s*(?:NM|nm|Meilen|Seemeilen)\s+führen\s+dich\b/g, 'der Weg führt euch')
+        .replace(/\bder Burger, von dem ihr schon länger redet wartet\b/g, 'der Burger, von dem ihr schon länger redet, wartet')
+        .replace(/\bGenießt den Flug\.?\s*/gi, '')
+        .replace(/([.!?]\s+)([a-zäöüß])/g, (_, sep, char) => sep + char.toUpperCase())
+        .replace(/\s+([,.!?])/g, '$1')
+        .replace(/\.\s*\./g, '.')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return _missionPipelineV4PolishGermanVisibleText(clean);
+}
+
+function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger = {}, weather = null, frame = {}, activityHint = '', cargoText = '', distanceNm = null, activityKind = '' } = {}) {
     const target = String(targetName || 'dem Ziel').trim() || 'dem Ziel';
     const place = _missionPrivateOutingPlaceLabel(target);
     const source = [
@@ -18416,18 +18470,22 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         frame?.subjectDetail,
         frame?.whyNow
     ].filter(Boolean).join(' ');
-    const resolvedActivityKind = _missionPrivateOutingActivityAnchor(passenger, cargoText, source, frame);
+    const forcedActivityKind = String(activityKind || '').trim().toLowerCase();
+    const resolvedActivityKind = forcedActivityKind && forcedActivityKind !== 'outing'
+        ? forcedActivityKind
+        : _missionPrivateOutingActivityAnchor(passenger, cargoText, source, frame);
     const spec = _missionPrivateOutingActivitySpec(resolvedActivityKind, target);
     const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
     const firstName = String(paxName.split(/\s+/)[0] || '').trim();
+    const hasFirstName = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName);
     const pair = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName)
         ? `${firstName} und du`
         : _missionPrivateOutingPairPhrase(passenger);
-    const withPax = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName)
-        ? `Mit ${firstName}`
-        : `Mit ${_missionPrivateOutingRelationPhrase(passenger)}`;
+    const companionIntro = hasFirstName ? `${firstName} ist mit dabei` : 'Ihr seid heute zu zweit unterwegs';
+    const pairDative = hasFirstName ? `${firstName} und dich` : 'euch beide';
     const title = place && !/^dem ziel/i.test(place) ? place : target;
-    const routePhrase = _missionPrivateOutingRoutePhrase(title, distanceNm);
+    const cargoMotif = _missionPrivateOutingCargoMotif(cargoText, spec);
+    const routeMood = _missionPrivateOutingRouteMood(title, distanceNm);
     const variant = _missionPrivateOutingStableVariant([
         target,
         pair,
@@ -18441,19 +18499,26 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         weather?.raw?.raw,
         weather?.raw,
         distanceNm
-    ], 15);
+    ], 20);
     const line1Options = [
-        `Servus! Heute geht's ganz entspannt ${routePhrase}; ${pair} wollt dort ${spec.plan}. ${spec.hook}`,
-        `Ab nach ${title}: Euer Plan ist simpel: ${spec.draw}. ${spec.hook}`,
-        `${title} ist heute euer kleiner Vorfreude-Punkt: ${pair} wollt dort ${spec.plan}. ${spec.hook}`,
-        `${withPax} geht es heute nach ${title}; dort wartet ${spec.draw}. ${spec.hook}`,
-        `Heute bleibt es herrlich privat: ${withPax} nimmst du Kurs auf ${title}; ${spec.draw} ist der Plan. ${spec.hook}`
+        `${companionIntro}, und ${title} ist heute eure Ausrede, den Alltag ein paar Stunden stehen zu lassen. ${spec.hook}`,
+        `Für ${pairDative} ist ${title} heute vor allem der Start in ${spec.reward}. ${spec.hook}`,
+        `${title} ist heute nur der erste Schritt: ruhig hinfliegen, abstellen und dann ${spec.plan}.`,
+        `Der Plan ist schön unkompliziert: ${title} anfliegen, Maschine abstellen und dann ${spec.draw}. ${spec.hook}`,
+        `${companionIntro}. Ihr wollt nach ${title}, weil dort genau dieser kleine Plan wartet: ${spec.draw}. Danach läuft der Tag ohne Programmzettel weiter.`
     ];
     const line1 = line1Options[variant % line1Options.length];
     const weatherForStory = weather || { summary: source };
-    const line2 = _missionPrivateOutingWeatherDispatchLine(weatherForStory, resolvedActivityKind, Math.floor(variant / line1Options.length));
-    const line3 = _missionPrivateOutingEnjoyLine(weatherForStory, resolvedActivityKind, spec.reward, variant);
-    return _missionPipelineV4PolishGermanVisibleText([line1, line2, line3].filter(Boolean).join(' '));
+    const cargoLineOptions = [
+        `Die Tasche hinten passt genau dazu und macht den Plan schon beim Rollen ein bisschen greifbarer.`,
+        `Das Gepäck ist kein großes Thema, aber es erzählt schon, dass ihr nach der Landung wirklich etwas vorhabt.`,
+        `Hinten liegt nur Tageskram, aber genau daran merkt man, dass der Flug heute zu einem freien Tag gehört.`
+    ];
+    const cargoLine = cargoMotif ? cargoLineOptions[Math.floor(variant / line1Options.length) % cargoLineOptions.length] : '';
+    const weatherLine = _missionPrivateOutingWeatherDispatchLine(weatherForStory, resolvedActivityKind, Math.floor(variant / 3));
+    const arrivalLine = _missionPrivateOutingEnjoyLine(weatherForStory, resolvedActivityKind, spec.reward, variant);
+    const routeLine = routeMood;
+    return _missionPrivateOutingPolishSpokenBriefing([line1, routeLine, cargoLine, weatherLine, arrivalLine].filter(Boolean).join(' '));
 }
 
 function _missionPrivateOutingWeatherLine(weather = null, activityKind = 'outing', fallbackWeatherText = '') {
@@ -18498,6 +18563,7 @@ function _missionPrivateOutingArrivalLine(activityKind = 'outing') {
 function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
     if (!missionLike || typeof missionLike !== 'object') return missionLike;
     let passenger = (missionLike.passenger && typeof missionLike.passenger === 'object') ? missionLike.passenger : null;
+    const originalPassenger = passenger ? { ...passenger } : null;
     if (passenger) {
         passenger = _missionPrivateOutingNormalizePassenger(passenger, profile, missionLike);
         missionLike.passenger = passenger;
@@ -18512,24 +18578,32 @@ function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
     };
     const storyContract = _missionPrivateOutingBuildStoryContract(missionLike, profile);
     const currentStory = String(missionLike.s || missionLike.story || missionLike.missionStory || '').replace(/\s+/g, ' ').trim();
+    const profilePassengerNeedsFallback = currentStory
+        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, passenger, storyContract)
+        : true;
+    const originalPassengerNeedsFallback = currentStory && originalPassenger
+        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, originalPassenger, storyContract)
+        : profilePassengerNeedsFallback;
+    const fallbackHintParts = [
+        passenger?.storySeed,
+        passenger?.personalStoryCue,
+        passenger?.paxBriefingSeed,
+        passenger?.greetingText,
+        missionLike.cargoText,
+        missionLike.cargo,
+        missionLike.c
+    ];
+    if (currentStory && !profilePassengerNeedsFallback) fallbackHintParts.push(currentStory);
     const fallback = _missionPipelineV4ComposeStoryFallback(storyContract, {
         passenger,
-        privateOutingActivityHint: [
-            passenger?.storySeed,
-            passenger?.personalStoryCue,
-            passenger?.paxBriefingSeed,
-            passenger?.greetingText,
-            missionLike.cargoText,
-            missionLike.cargo,
-            missionLike.c,
-            currentStory
-        ].filter(Boolean).join(' ')
+        privateOutingActivityHint: fallbackHintParts.filter(Boolean).join(' '),
+        ignorePrivateOutingFrame: profilePassengerNeedsFallback
     });
     const needsStoryFallback = !currentStory
         || currentStory.length < 90
         || _missionPrivateOutingGenericNarrativeText(currentStory)
-        || _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, passenger, storyContract);
-    const finalStory = needsStoryFallback ? fallback : currentStory;
+        || (profilePassengerNeedsFallback && originalPassengerNeedsFallback);
+    const finalStory = _missionPrivateOutingPolishSpokenBriefing(needsStoryFallback ? fallback : currentStory);
     if (finalStory) {
         missionLike.s = finalStory;
         missionLike.story = finalStory;
@@ -20181,7 +20255,12 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
             const sightseeingAnchor = has(/\bsightseeing|panorama|rundflug|aussicht|blick|sehenswuerdig|sehenswürdig|landmarke|landmarken|altstadt|ortskern|schloss|museum|fotomotiv|fotomotive|fotos|spaziergang|zielregion/);
             return hardConflict || (softPrivateCue && !sightseeingAnchor);
         }
-        if (profile === 'private_outing') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|report|redaktion|sightseeing|panorama|rundflug|ueberflug|überflug/);
+        if (profile === 'private_outing') {
+            const privateCheckText = hay
+                .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+einen|nicht\s+als|ohne)\s+(?:rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion)\b/g, ' ')
+                .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+eine|nicht\s+als|ohne)\s+(?:sightseeing[-\s]?tour|panorama[-\s]?tour|frachtmission|charterlogik|arbeitsmission)\b/g, ' ');
+            return /\b(verein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|report|redaktion|sightseeing|panorama|rundflug|ueberflug|überflug)\b/.test(privateCheckText);
+        }
         if (profile === 'cargo_fragile') return has(/\bverein|vereins|stammtisch|fly in|sightseeing|panorama|kuchen|burger|wellness|tour|konzert|city\b/);
         if (profile === 'animal_transport') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|sightseeing|panorama|training|fluglehrer/);
         if (profile === 'medical_transfer') return has(/\bverein|vereins|sightseeing|panorama|kuchen|burger|tierschutz|tiertransport/);
@@ -28354,7 +28433,7 @@ Arbeitsweise:
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
-9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt", sondern Vorfreude auf einen kleinen persoenlichen Motiv-Haken: der Platzburger darf als bester Burger weit und breit gelten, der Kaffee am Platz darf den Ausflug wert sein, die Abkuehlung am See ist bei Hitze der Grund, die erste Berg-/Wanderrunde lockt, die Ausstellung ist der ruhige Anlass. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer einen kurzen freundlichen Dispatchzettel mit Lust auf den Ausflug: lockerer Einstieg, Zielstrecke, Mitflieger, Anlass, Wetterstimmung und ein entspannter "macht euch keinen Stress"-Abschluss. Beispielton: "Servus! Heute geht's die Meilen rueber nach ...; Clara und du wollen dort ...; bei 36°C passt die Abkuehlung." mustMention darf leer bleiben; keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
+9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt", sondern Vorfreude auf einen kleinen persoenlichen Motiv-Haken: der Platzburger darf als bester Burger weit und breit gelten, der Kaffee am Platz darf den Ausflug wert sein, die Abkuehlung am See ist bei Hitze der Grund, die erste Berg-/Wanderrunde lockt, die Ausstellung ist der ruhige Anlass. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer ein gesprochenes, persoenliches Dispatcher-Briefing: warum die beiden heute rauswollen, was sie nach dem Abstellen vorhaben, was das Gepaeck verrät und welche Route-/Wetterstimmung den Hinflug rund macht. Keine Beispielsaetze oder Satzmodule in den Plan schreiben; mustMention darf leer bleiben. Keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
 9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern": Nutze CONTEXT_BUNDLE.loadout.cargoText als bindende Ladung, benenne was genau damit am Ziel passiert, wer es uebernimmt und welcher naechste Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt daran haengt. Gute Details sind z.B. Banner probehaengen, Funkakkus nummerieren, Helferliste ans Board haengen, Schluessel quittieren, Pruefadapter mit Mappe abgleichen, Leuchtmittel in den Materialschrank legen, Checkkarten verteilen oder Lash-Straps an die Stellplatztafel bringen. Wenn die Ladung nur ein kleiner Anlass ist, erzaehle zusaetzlich natuerlich ueber Strecke, Wetter, Terrain, Pax oder Reisegrund, statt die Ladung mehrfach zu paraphrasieren. Bleibe A-B mit Handoff am Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
@@ -28823,7 +28902,7 @@ Regeln:
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe wie eine professionelle, warme Sightseeing-Notiz: ein konkreter Gast oder eine kleine Gästerunde freut sich auf genau dieses Ziel, der Zielbereich ist der Reisegrund, und der Flug liefert den besonderen Blick aus der Luft. Wenn CONTRACT.knowledgeContext.status="accept", nutze title und 1-2 facts als belegten Anlass: Der Pax will dieses Ziel sehen, einordnen, fotografieren oder jemandem zeigen, weil daran etwas Besonderes hängt. Forme Fakten zu Begeisterung und Kontext, nicht zu einer Liste; keine Begriffe wie Wiki, Faktenbasis oder knowledgeContext im Briefing. Der POI bleibt ein Luft-Blickmoment mit Rückkehr zum Startplatz, nicht der Beginn einer Bodenaktivität. Halte den Ton ruhig, gastorientiert und etwas hochwertiger als einen privaten Spaßflug; Arbeitswörter wie Erfassung, Inspektion, Lagebild, Befund oder abgearbeitet passen hier nicht.
 19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Die Gäste fliegen zum Zielplatz, weil sie nach der Landung einen konkreten Besuchswunsch am Zielort haben. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir sie dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
-19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: eine kurze handgeschriebene Dispatch-/Pinnwand-Notiz mit lockerem Einstieg ("Servus!" oder "Heute geht's ..."), Zielstrecke, Mitflieger, kleinem Insider zum Anlass und einem entspannten Abschluss wie "macht euch keinen Stress, geniesst den Flug". Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Baue immer einen konkreten, sinnlichen Motiv-Haken ein statt nur "nach dem Flug beginnt die Aktivitaet": z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Namens-/Rollenformel wie "X ist als Y an Bord". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
+19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: ein gesprochenes Dispatcher-Briefing mit persoenlichem Touch, als wuerde ein Vereinskollege kurz erklaeren, warum die beiden heute rauswollen. Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Baue immer einen konkreten, sinnlichen Motiv-Haken ein statt nur "nach dem Flug beginnt die Aktivitaet": z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Semikolons, keine Namens-/Rollenformel wie "X ist als Y an Bord", keine Standardanfaenge wie "Heute bleibt es herrlich privat" oder "Euer Plan ist simpel", kein aufgesetztes "Viel Spaß". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Wenn CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm vorhanden sind, baue Route und Entfernung als natuerlichen Story-Satz ein, nicht als technische Liste. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
 20a. medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
@@ -29309,6 +29388,34 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         storyDetailPrompt,
         visibleContext
     };
+    if (taskDomain === 'private_outing') {
+        const passenger = context?.passenger || contract?.passenger || contract?.activePassenger || {};
+        const cargoText = _missionPipelineV4CargoLabel(contract, context) || contract?.cargoText || '';
+        const activitySource = [
+            cargoText,
+            passenger?.storySeed,
+            passenger?.personalStoryCue,
+            passenger?.paxBriefingSeed,
+            passenger?.greetingText,
+            frame.trigger,
+            frame.subjectDetail,
+            frame.whyNow
+        ].filter(Boolean).join(' ');
+        const activityKind = _missionPrivateOutingActivityAnchor(passenger, cargoText, activitySource, frame);
+        const spec = _missionPrivateOutingActivitySpec(activityKind, targetName);
+        const pair = _missionPrivateOutingPairPhrase(passenger);
+        const route = contract?.route || {};
+        spine.premise = `${pair} nutzen den Flug als privaten Auftakt in einen freien Tag, nicht als Auftrag.`;
+        spine.subject = `${pair} und ${spec.draw}`;
+        spine.concreteAngle = spec.hook;
+        spine.openQuestion = '';
+        spine.whyNow = `Der Anlass darf klein bleiben: genau heute passt der Flug, weil Ziel, Zeitfenster, Mitflieger und Tagesgepäck zusammenkommen.`;
+        spine.flightValue = _missionPrivateOutingRouteMood(targetName, route.distanceNm);
+        spine.stakes = 'Es geht um Vorfreude, gemeinsame Zeit und einen sauberen Hinflug, nicht um Arbeit, Sightseeing oder eine Pflichtübergabe.';
+        spine.outcome = `Nach dem Abstellen wechseln beide vom Vorfeld in ${spec.reward}.`;
+        spine.completion = spine.outcome;
+        spine.softFreedom = 'Erzähle frei, warm und direkt aus Dispatcher-Rolle. Die Daten sind Rohmaterial, keine Satzbausteine; baue eine kleine persönliche Tagesgeschichte und lasse Nebeninformationen weg, wenn sie den Fluss stören.';
+    }
     if (taskDomain === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
@@ -29370,13 +29477,13 @@ function _missionWriterV5QualityQuestions(taskDomain = '', family = '') {
 
 const MISSION_WRITER_V5_DOMAIN_RECIPES = {
     apt_private_outing: {
-        tone: 'warme, lockere Pinnwand-Notiz mit Lust auf den privaten Fly-out',
-        perspective: 'Dispatcher an Pilot; privater gemeinsamer Tag, kein Auftrag',
-        length: '3-5 Sätze',
-        softFreedom: 'Private Genussgründe dürfen charmant erfunden werden, solange sie keine harten Ortsfakten behaupten.',
+        tone: 'gesprochenes, warmes privates Fly-out-Briefing mit persönlicher Vorfreude',
+        perspective: 'Dispatcher spricht den Piloten direkt an; Pax, Gepäck, Route und Zielplan werden zu einer kleinen gemeinsamen Tagesgeschichte',
+        length: '3-5 fließende Sätze',
+        softFreedom: 'Nutze Pax, Beziehung, Tagesgepäck, Wetter, Route oder Zielstimmung frei als Rohmaterial. Private Genussgründe dürfen charmant erfunden werden, solange sie keine harten Ortsfakten behaupten.',
         requiredMeaning: [
             'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel.',
-            'Der Zielplan hat einen konkreten, sinnlichen Grund.',
+            'Der Zielplan hat einen konkreten, persönlichen Grund.',
             'Der Flug wirkt wie Teil des gemeinsamen Tages, nicht wie Taxi oder Sightseeing.'
         ],
         qualityQuestions: [
@@ -29384,7 +29491,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Welcher kleine Genuss- oder Tagesplan macht den Fly-out besonders?',
             'Klingen Route, Wetter und Abschluss wie ein natürlicher Dispatch-Zettel?'
         ],
-        styleRecipe: 'Pilot und Mitflieger fliegen gemeinsam privat zum Ziel; der Zielplan darf charmant und sinnlich sein, z.B. Burger, Kaffee, See, Museum, Wandern oder ein anderer plausibler Privatgrund. Der Genussgrund darf frei erfunden werden, solange er keine harte Ortsfakt-Behauptung wird.'
+        styleRecipe: 'Schreibe wie ein kurzer Zuruf aus dem Clubbüro: warum die beiden heute rauswollen, was sie am Ziel vorhaben, warum das Gepäck dazu passt und wie der Tag nach dem Abstellen weitergeht. Keine Formularsprache, keine Standard-Eröffnungen, keine Semikolons und kein aufgesetztes Viel Spaß.'
     },
     apt_sightseeing: {
         tone: 'professionelle, freundliche A-B-Sightseeing-Notiz mit konkretem Zielort-Grund',
@@ -29682,10 +29789,50 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
     const place = parts.place || _missionWriterV5PlaceLabel(contract);
     const passenger = context?.passenger || contract?.passenger || {};
     if (family === 'apt_private_outing') {
+        const cargoText = _missionPipelineV4CargoLabel(contract, context) || context?.cargoText || contract?.cargoText || '';
+        const activitySource = [
+            cargoText,
+            passenger?.storySeed,
+            passenger?.personalStoryCue,
+            passenger?.paxBriefingSeed,
+            passenger?.greetingText,
+            contract?.storyFrame?.trigger,
+            contract?.storyFrame?.subjectDetail,
+            contract?.storyFrame?.whyNow
+        ].filter(Boolean).join(' ');
+        const activityKind = _missionPrivateOutingActivityAnchor(passenger, cargoText, activitySource, contract?.storyFrame || {});
+        const spec = _missionPrivateOutingActivitySpec(activityKind, targetName);
+        const route = contract?.route || {};
+        const distance = Number(route.distanceNm);
         return {
+            passengerHint: _missionPrivateOutingPairPhrase(passenger),
             privateActivity: _missionWriterV5PrivateHook(contract, passenger, context),
-            dayFeeling: _missionWriterV5FirstSpineValue([spine.whyNow, parts.weather], 180),
-            arrivalMood: 'Nach dem Abstellen beginnt der private Plan am Ziel, ohne Arbeits- oder Sightseeing-Auftrag.'
+            activityKind,
+            activityDraw: spec.draw,
+            activityHook: spec.hook,
+            cargoMotif: _missionPrivateOutingCargoMotif(cargoText, spec),
+            routeHint: {
+                from: _missionWriterV5Text(route.startName || route.startIcao || '', 80),
+                to: _missionWriterV5Text(route.targetName || targetName || '', 80),
+                distanceNm: Number.isFinite(distance) && distance > 0 ? Math.round(distance) : null,
+                mood: _missionPrivateOutingRouteMood(targetName, route.distanceNm)
+            },
+            dayFeeling: _missionWriterV5FirstSpineValue([spine.whyNow, parts.weather, spec.hook], 220),
+            arrivalMood: `Nach dem Abstellen beginnt ${spec.reward}, ohne Arbeits-, Taxi- oder Sightseeing-Auftrag.`,
+            briefingIntent: 'Schreibe ein warmes gesprochenes Briefing aus Dispatcher-Rolle: Hier sind die Flugdaten, mach daraus eine kleine persönliche Tagesgeschichte.',
+            freedom: 'Du musst keine Felder sichtbar abhaken. Wenn die Story dünn ist, dürfen Pax, Gepäck, Wetter, Strecke oder die Stimmung am Ziel den Text tragen.',
+            avoidPhrases: [
+                'Heute bleibt es herrlich privat',
+                'Euer Plan ist simpel',
+                'Die [Zahl] NM führen dich',
+                'Das Wetter spielt mit',
+                'Genießt den Flug; danach',
+                'redlich verdient',
+                'Viel Spaß',
+                'privater GA-Fly-out nutzen',
+                'der schöne Zugang',
+                'Aktivität beginnt'
+            ]
         };
     }
     if (family === 'apt_sightseeing') {
@@ -29971,6 +30118,29 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         ...(Array.isArray(plan.localFacts) ? plan.localFacts : []),
         plan.realismBrief
     ], 9, 220);
+    if (String(profile.taskDomain || '').toLowerCase() === 'private_outing') {
+        const cargoText = _missionPipelineV4CargoLabel(contract, context) || context?.cargoText || contract?.cargoText || '';
+        const activitySource = [
+            cargoText,
+            context?.privateOutingActivityHint,
+            context?.passenger?.storySeed,
+            context?.passenger?.personalStoryCue,
+            context?.passenger?.paxBriefingSeed,
+            context?.passenger?.greetingText,
+            frame.trigger,
+            frame.subjectDetail,
+            frame.whyNow
+        ].filter(Boolean).join(' ');
+        const activityKind = _missionPrivateOutingActivityAnchor(context?.passenger || contract?.passenger || {}, cargoText, activitySource, frame);
+        const spec = _missionPrivateOutingActivitySpec(activityKind, contract?.target?.name || contract?.route?.targetName || '');
+        ingredients = _missionWriterV5Unique([
+            `${_missionPrivateOutingPairPhrase(context?.passenger || contract?.passenger || {})} wollen am Ziel ${spec.plan}.`,
+            `Der persönliche Haken: ${spec.hook}`,
+            cargoText ? `${_missionPrivateOutingCargoMotif(cargoText, spec)} ist ein Motiv im Gepäck, keine Frachtliste.` : '',
+            _missionPrivateOutingRouteMood(contract?.target?.name || contract?.route?.targetName || '', contract?.route?.distanceNm),
+            _missionWriterV5WeatherSummary(contract) ? `Wetter darf als Stimmung mitlaufen, wenn es natürlich passt: ${_missionWriterV5WeatherSummary(contract)}.` : ''
+        ], 5, 190);
+    }
     if (String(profile.taskDomain || '').toLowerCase() === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || '', 120),
@@ -30069,6 +30239,9 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const historianPromptRule = promptTaskDomain === 'historian_guided_tour'
         ? '\n14. HISTORIKER: Schreibe eine historische Ortslesart mit einem weichen fachlichen Anlass, nicht eine Checkliste. "Warum heute" bedeutet hier Arbeitsstand oder Weiterverwendung, z.B. Archivnotiz, Infotafel-Entwurf, Führungsvorbereitung oder kurzer Chronikbeitrag; es darf beiläufig sein und muss nicht als eigener Pflichtsatz erscheinen. Wetter ist nur Flugrahmen und darf nicht noch einmal als eigentliche Begründung dienen, wenn es schon genannt wurde. Wähle wenige passende Belege wie Lage, Wege, Ortsbild, Hang/Tal oder Bauwerk; nicht alles aufzählen.'
         : '';
+    const privateOutingPromptRule = promptTaskDomain === 'private_outing'
+        ? '\n14. PRIVATE-OUTING: Denk dir: "Hier im JSON sind die Daten zum privaten Fly-out, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, als würde dir ein Vereinskollege kurz erzählen, warum ihr heute zusammen dorthin fliegt. Baue eine kleine Hintergrundgeschichte: Warum wollen Pilot und Pax heute raus, was reizt sie am Ziel, was verrät das Gepäck, wie passt der Hinflug zur Stimmung, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Ihr-/Wir-Form nutzen, aber keine Ich-Form im story-Feld. Die Daten sind Rohmaterial, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen. Wenn der Anlass dünn ist, dürfen Route, Wetter, Tagesstimmung, Pax oder Gepäck die Geschichte tragen. Keine Semikolons, keine abgehackten Einzelsätze, keine dritte-Person-Distanz, keine Inventar- oder Motivliste. Vermeide Baukastenanfänge wie "Heute bleibt es herrlich privat", "Heute geht es mit ...", "Euer Plan ist simpel", "Die [Zahl] NM führen dich ...", "Das Wetter spielt mit", "Genießt den Flug; danach", "redlich verdient", "Viel Spaß", "privater GA-Fly-out nutzen", "der schöne Zugang" oder "nach dem Flug beginnt die Aktivität". Private Gründe dürfen warm und bildhaft sein, bleiben aber weich: keine echten Sehenswürdigkeiten, Veranstaltungen oder Ortsfakten erfinden, wenn sie nicht in den Daten stehen. Zähle nicht ausdrücklich auf, was es alles nicht ist; erzähle positiv, was die beiden vorhaben. Kein Sightseeing-, Charter-, Fracht- oder Arbeitsauftrag.'
+        : '';
     const clubUtilityPromptRule = promptTaskDomain === 'club_utility'
         ? '\n14. CLUB-UTILITY: Denk dir: "Hier im JSON sind die Daten zum Flug, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, nicht wie ein Formular. Baue eine kleine Hintergrundgeschichte: Was ist am Ziel gerade los, warum können wir unkompliziert helfen, wer oder was kommt mit, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Wir-Form nutzen. Die Ladung ist Wahrheit, aber keine sichtbare Inventarliste; fasse sie frei zu einem natürlichen Motiv zusammen und erwähne nur das, was der Geschichte hilft. Route, Wetter, Tagesstimmung oder Pax dürfen die Geschichte tragen, wenn der eigentliche Auftrag klein ist. Keine Semikolons, keine abgehackten Einzelsätze, keine kopierten StoryCore- oder domainDetails-Sätze. Vermeide Baukastenanfänge wie "Heute geht es mit ...", "Nimm [Name] bitte mit", "Die [Zahl] NM führen dich ...", "Am Ziel geht es kurz ...", "Keine anonyme Fracht", "nicht nur eine beliebige Box", "kennt den Ablauf am Boden", "die Sache direkt mit", "müssen heute", "nicht um eine große Logistiknummer", "bergig und waldig genug" oder "saubere VFR-Planung".'
         : '';
@@ -30089,7 +30262,7 @@ Arbeitsweise:
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${clubUtilityPromptRule}
+13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${privateOutingPromptRule}${clubUtilityPromptRule}
 
 <MISSION_BRIEF_FORM>
 ${JSON.stringify(missionBriefForm)}
@@ -31884,18 +32057,28 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}, context = {}) {
     if (taskDomain === 'private_outing') {
         const privateProfile = getMissionTaskProfile('private_outing', 'apt');
         const activePassenger = _missionPrivateOutingNormalizePassenger(passenger, privateProfile, contract);
+        const privateFrame = context?.ignorePrivateOutingFrame ? {} : frame;
         const activityHint = [
             context?.privateOutingActivityHint,
             contract?.cargoText
         ].filter(Boolean).join(' ');
+        const forcedActivityKind = _missionPrivateOutingActivityKindFromParts([
+            activePassenger?.storySeed,
+            activePassenger?.personalStoryCue,
+            activePassenger?.paxBriefingSeed,
+            activePassenger?.greetingText,
+            contract?.cargoText,
+            context?.privateOutingActivityHint
+        ]);
         return _missionPrivateOutingComposeDispatchStory({
             targetName,
             passenger: activePassenger,
             weather,
-            frame,
+            frame: privateFrame,
             activityHint,
             cargoText: contract?.cargoText || '',
-            distanceNm: contract?.route?.distanceNm
+            distanceNm: contract?.route?.distanceNm,
+            activityKind: forcedActivityKind
         });
     }
     if (taskDomain === 'sightseeing_tour') {
@@ -31984,7 +32167,12 @@ function _missionPipelineV4PrivateOutingBriefingNeedsFallback(text = '', passeng
     if (/\b(entspannten privaten ausflug von|sommerwetter fuer einen entspannten privaten ausflug|sommerwetter fur einen entspannten privaten ausflug|ein paar schoene stunden abseits des alltags|ein paar schone stunden abseits des alltags|die zeit in der luft zu geniessen|optimal auszunutzen)\b/.test(normalized)) return true;
     if (/\b(herrliche[snr]? sommerwetter|ruhige[nr]? sichten|laden heute foermlich|gemuetliche[nr]? nachmittag|kuehle[snr]? getraenk oder einen kleinen snack|flug ueber das land|perfekte einstimmung|alltag fuer ein paar stunden hinter uns|freiheit in der luft|gute stimmung am boden|ideale[rmn]? tag)\b/.test(normalized)) return true;
     if (/\broute\s+(?:ueber|uber)\s+\d+\s+(?:meilen|nm|seemeilen)\b/.test(normalized)) return true;
-    if (/\b(rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat|heimatflugplatz|rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion|profil|pipeline|muss\s+nennen|handoff)\b/.test(normalized)) return true;
+    if (_missionPipelineV4SentenceCount(text) < 3) return true;
+    if (/\b(es\s+geht\s+nicht\s+um|nicht\s+um\s+(?:einen|eine|das)\s+.+?\s+sondern|kein(?:e|en)?\s+(?:rundflug|sightseeing|arbeitsauftrag|auftrag|charter|fracht))\b/.test(normalized)) return true;
+    const driftCheckText = normalized
+        .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+einen|nicht\s+als|ohne)\s+(?:rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion)\b/g, ' ')
+        .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+eine|nicht\s+als|ohne)\s+(?:sightseeing[-\s]?tour|panorama[-\s]?tour|frachtmission|charterlogik|arbeitsmission)\b/g, ' ');
+    if (/\b(rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat|heimatflugplatz|rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion|profil|pipeline|muss\s+nennen|handoff)\b/.test(driftCheckText)) return true;
     const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     const firstName = String(paxName.split(/\s+/)[0] || '').trim();
     const hasNamedPassenger = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName)
@@ -31993,12 +32181,24 @@ function _missionPipelineV4PrivateOutingBriefingNeedsFallback(text = '', passeng
     const hasPairLanguage = /\b(beide|ihr|euch|zusammen|gemeinsam|wir|uns|unser)\b/.test(normalized)
         && !/\b(deinem begleiter|deiner begleiterin|begleitperson|privater begleiter|private begleiterin)\b/.test(normalized);
     const hasPrivateCompanion = Boolean(hasNamedPassenger || hasSpecificRelation || hasPairLanguage);
-    const hasPrivateActivity = /\b(burger|\$100|100\s*\$|flugplatzcafe|flugplatzcafé|platzlokal|cafe|café|kaffee|kuchen|eiskaffee|eis|eisdiele|essen|restaurant|steak|pizza|bbq|wellness|wander|wanderung|berg|berge|see|meer|strand|baden|schwimmen|museum|ausstellung|einkauf|einkaufen|besorgung|familienbesuch|paartag|tagesausflug|stadtbummel|stadtetrip|staedtetrip|städtetrip|spaziergang|wochenend|wochenende|badetasche|rucksack|wanderschuhe|getraenk|getränk)\b/.test(normalized);
-    if (!hasPrivateCompanion || !hasPrivateActivity) return true;
+    const hasPrivateActivity = /\b(burger|\$100|100\s*\$|flugplatzcafe|flugplatzcafé|platzlokal|cafe|café|kaffee|kuchen|eiskaffee|eis|eisdiele|essen|restaurant|steak|pizza|bbq|wellness|wander|wanderung|berg|berge|see|meer|strand|baden|schwimmen|museum|ausstellung|einkauf|einkaufen|besorgung|familienbesuch|paartag|tagesausflug|stadtbummel|stadtetrip|staedtetrip|städtetrip|spaziergang|wochenend|wochenende|badetasche|rucksack|wanderschuhe|getraenk|getränk|freier\s+tag|freier\s+nachmittag|freie\s+zeit|auszeit|tapetenwechsel|raus\s+aus\s+dem\s+alltag|gemeinsame\s+zeit|zeit\s+miteinander|runterkommen)\b/.test(normalized);
+    const hasSpokenPersonalBriefing = hasPrivateCompanion
+        && /\b(du|ihr|euch|wir|uns|zusammen|gemeinsam|nach\s+dem\s+abstellen|vorfeld|gepaeck|gepäck|tasche|rucksack|handtuch|kaffee|wasser|auszeit|freier\s+tag|freier\s+nachmittag)\b/.test(normalized)
+        && _missionPipelineV4SentenceCount(text) >= 3;
+    if (!hasPrivateCompanion || (!hasPrivateActivity && !hasSpokenPersonalBriefing)) return true;
     const cargoText = normalizeMissionText(contract?.cargoText || contract?.cargo || contract?.c || '');
-    const anchorActivity = _missionPrivateOutingActivityAnchor(passenger, cargoText, '', contract?.storyFrame);
     const storyActivity = _missionPrivateOutingActivityKind(text);
-    if (!_missionPrivateOutingActivitiesCompatible(anchorActivity, storyActivity)) return true;
+    const passengerActivity = _missionPrivateOutingActivityKindFromParts([
+        passenger?.storySeed,
+        passenger?.personalStoryCue,
+        passenger?.paxBriefingSeed,
+        passenger?.greetingText,
+        passenger?.role
+    ]);
+    if (passengerActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesCompatible(passengerActivity, storyActivity)) return true;
+    const cargoActivity = _missionPrivateOutingActivityKind(cargoText);
+    const cargoIsStrongActivityAnchor = /\b(badetasche|handtuch|handtuecher|handtücher|badehose|bikini|wanderschuhe|trekkingschuhe|museum|ausstellung|kamera|stativ|einkaufskorb|einkaufstasche|wellness|wochenendtasche)\b/.test(cargoText);
+    if (cargoIsStrongActivityAnchor && cargoActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesCompatible(cargoActivity, storyActivity)) return true;
     if (cargoText && /\b(?:wellness|wochenendtasche)\b/.test(cargoText) && /\b(kuehle[rmn]? kaffee|kuhle[rmn]? kaffee|stadtbummel)\b/.test(normalized) && !/\b(?:wellness|wochenend|spaziergang|paartag|partner|partnerin)\b/.test(normalized)) return true;
     return false;
 }
@@ -32357,9 +32557,12 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         || (isBushPickupReturn && _missionPipelineV4LooksBushPickupFragmentText(raw));
     const finalizeDomainStory = candidate => {
         const text = isBushPickupReturn ? _missionPipelineV4EnsureBushPickupConditions(candidate, contract) : candidate;
-        const domainStory = taskDomain === 'inspection_infra' && !deferInfraPassengerStory
+        let domainStory = taskDomain === 'inspection_infra' && !deferInfraPassengerStory
             ? _missionPipelineV4EnsureInfraPassengerStory(text, contract, passenger)
             : text;
+        if (taskDomain === 'private_outing') {
+            domainStory = _missionPrivateOutingPolishSpokenBriefing(domainStory);
+        }
         return _missionPipelineV4EnsureCargoRouteContext(domainStory, contract);
     };
     const fallbackStory = () => isBushPickupReturn
@@ -32367,7 +32570,8 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
         : finalizeDomainStory(_missionPipelineV4ComposeStoryFallback(contract, {
             passenger: deferInfraPassengerStory ? {} : sightseeingPassengerContext,
             suppressInfraPassengerStory: deferInfraPassengerStory,
-            privateOutingActivityHint: raw,
+            privateOutingActivityHint: taskDomain === 'private_outing' && privateOutingNeedsFallback ? '' : raw,
+            ignorePrivateOutingFrame: taskDomain === 'private_outing' && privateOutingNeedsFallback,
             cargoText: context?.cargoText || ''
         }));
     const chainForFinalize = contract?.poiChain || contract?.missionPlan?.poiChain || contract?.missionPlanV4?.poiChain || contract?.plan?.poiChain || null;
@@ -32403,6 +32607,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}
     }
     if (isBushPickupReturn && (rawLooksBad || _missionPipelineV4BushPickupBriefingLooksPaxPerspective(raw))) return fallbackStory();
     if (rawLooksBad) return fallbackStory();
+    if (taskDomain === 'private_outing') return finalizeDomainStory(raw);
     if (taskDomain === 'search_and_rescue' && (
         _missionPipelineV4SarTextConflictsIncidentType(raw, frame.incidentType)
         || _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
@@ -32511,7 +32716,7 @@ function _missionWriterV5SightseeingGroupLabel(passenger = {}) {
 }
 
 function _missionWriterV5PrivateHook(contract = {}, passenger = {}, context = {}) {
-    const cargo = normalizeMissionText(context?.cargoText || contract?.storyFrame?.shipment || contract?.missionPlan?.plan?.cargo || '');
+    const cargo = normalizeMissionText(context?.cargoText || contract?.cargoText || contract?.storyFrame?.shipment || contract?.missionPlan?.plan?.cargo || '');
     const place = _missionWriterV5PlaceLabel(contract);
     if (/\b(bade|schwimm|see|meer|handtuch|bikini|badehose)\b/.test(cargo)) {
         return `am Ziel eine verdiente Abkühlung am Wasser einplanen`;
@@ -33395,14 +33600,32 @@ function _missionWriterV5ComposeFallbackStory(contract = {}, context = {}) {
     const targetName = _missionWriterV5Text(contract?.target?.name || contract?.route?.targetName || 'das Ziel', 120);
     const place = _missionWriterV5PlaceLabel(contract);
     if (family === 'apt_private_outing') {
-        const hook = _missionWriterV5PrivateHook(contract, passenger, context);
-        const pax = _missionWriterV5PassengerFirstName(passenger) || 'dein Mitflieger';
-        return _missionWriterV5SentenceJoin([
-            routeSentence || `Heute geht es nach ${targetName}`,
-            `${pax} und du wollt dort ${_missionPipelineV4LowerFirst(_missionPipelineV4StripSentenceEnd(hook))}`,
-            weatherSentence,
-            `Nach dem Abstellen reicht ein ruhiger Gang vom Vorfeld; macht euch keinen Stress, genießt den Flug und nehmt den freien Tag am Ziel mit`
+        const privateProfile = getMissionTaskProfile('private_outing', 'apt');
+        const activePassenger = _missionPrivateOutingNormalizePassenger(passenger, privateProfile, contract);
+        const privateCargoText = _missionPipelineV4CargoLabel(contract, context) || context?.cargoText || contract?.cargoText || '';
+        const forcedActivityKind = _missionPrivateOutingActivityKindFromParts([
+            activePassenger?.storySeed,
+            activePassenger?.personalStoryCue,
+            activePassenger?.paxBriefingSeed,
+            activePassenger?.greetingText,
+            privateCargoText
         ]);
+        return _missionPrivateOutingComposeDispatchStory({
+            targetName,
+            passenger: activePassenger,
+            weather: contract?.weather?.dest || contract?.weather?.destination || contract?.weather || null,
+            frame: {},
+            activityHint: [
+                activePassenger?.storySeed,
+                activePassenger?.personalStoryCue,
+                activePassenger?.paxBriefingSeed,
+                activePassenger?.greetingText,
+                privateCargoText
+            ].filter(Boolean).join(' '),
+            cargoText: privateCargoText,
+            distanceNm: contract?.route?.distanceNm,
+            activityKind: forcedActivityKind
+        });
     }
     if (family === 'apt_sightseeing') {
         const attractions = _missionWriterV5AptSightseeingAttractions(contract);
@@ -33926,6 +34149,28 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         cargoText: storyCargoText
     });
     let finalStory = finalized.story;
+    if (requiredTaskDomain === 'private_outing' && _missionPipelineV4PrivateOutingBriefingNeedsFallback(finalStory, passenger, {
+        ...contract,
+        cargoText: storyCargoText || contract?.cargoText || ''
+    })) {
+        finalStory = _missionPrivateOutingPolishSpokenBriefing(_missionPipelineV4ComposeStoryFallback({
+            ...contract,
+            cargoText: storyCargoText || contract?.cargoText || ''
+        }, {
+            passenger,
+            cargoText: storyCargoText || contract?.cargoText || '',
+            privateOutingActivityHint: [
+                passenger?.storySeed,
+                passenger?.personalStoryCue,
+                passenger?.paxBriefingSeed,
+                passenger?.greetingText,
+                storyCargoText
+            ].filter(Boolean).join(' '),
+            ignorePrivateOutingFrame: true
+        }));
+        finalized.fallbackReason = [finalized.fallbackReason, 'private_outing_post_fallback_mismatch'].filter(Boolean).join(',');
+        finalized.acceptedRaw = false;
+    }
     if (!finalized.acceptedRaw || _missionWriterV5DomainStoryNeedsRepair(requiredTaskDomain, _missionWriterV5SceneIntentText(sceneIntent), contract, {
         passenger,
         cargoText: storyCargoText
@@ -34106,6 +34351,28 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
     passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+    if (requiredTaskDomain === 'private_outing' && _missionPipelineV4PrivateOutingBriefingNeedsFallback(finalStory, passenger, {
+        ...contract,
+        cargoText: finalCargo || src.cargo || context.cargoText || contract?.cargoText || ''
+    })) {
+        const cleanCargoText = finalCargo || src.cargo || context.cargoText || contract?.cargoText || '';
+        finalStory = _missionPrivateOutingPolishSpokenBriefing(_missionPipelineV4ComposeStoryFallback({
+            ...contract,
+            cargoText: cleanCargoText
+        }, {
+            passenger,
+            cargoText: cleanCargoText,
+            privateOutingActivityHint: [
+                passenger?.storySeed,
+                passenger?.personalStoryCue,
+                passenger?.paxBriefingSeed,
+                passenger?.greetingText,
+                cleanCargoText
+            ].filter(Boolean).join(' '),
+            ignorePrivateOutingFrame: true
+        }));
+        passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
+    }
     if (requiredTaskDomain === 'infra_chain_recon' && contract?.poiChain?.points?.length >= 2) {
         finalStory = _missionPipelineV4PolishGermanVisibleText(finalStory);
         if (passenger?.greetingText) passenger.greetingText = _missionPipelineV4PolishGermanVisibleText(passenger.greetingText);
