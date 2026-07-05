@@ -5534,6 +5534,44 @@ body.theme-retro .wp-data {
         border-radius: 0 !important;
     }
 
+    #pinboardOverlay .post-it {
+        width: clamp(132px, 22cqw, 220px) !important;
+        height: clamp(132px, 22cqw, 220px) !important;
+        padding: clamp(22px, 3cqw, 34px) clamp(10px, 1.4cqw, 18px) clamp(10px, 1.4cqw, 18px) !important;
+        font-size: clamp(12px, 2cqw, 18px) !important;
+        line-height: 1.22;
+        box-sizing: border-box;
+    }
+
+    #pinboardOverlay .post-it.flight-card {
+        width: clamp(190px, 30cqw, 320px) !important;
+        min-height: clamp(136px, 18cqw, 220px) !important;
+        height: auto !important;
+    }
+
+    #pinboardOverlay .post-it-del,
+    #pinboardOverlay .post-it-edit {
+        top: 6px !important;
+        width: clamp(20px, 2.5cqw, 28px) !important;
+        height: clamp(20px, 2.5cqw, 28px) !important;
+        line-height: clamp(20px, 2.5cqw, 28px) !important;
+        font-size: clamp(11px, 1.4cqw, 15px) !important;
+    }
+
+    #pinboardOverlay .post-it-del {
+        right: 6px !important;
+    }
+
+    #pinboardOverlay .post-it-edit {
+        left: 6px !important;
+    }
+
+    #pinboardOverlay .post-it-pin {
+        top: 7px !important;
+        width: clamp(11px, 1.3cqw, 17px) !important;
+        height: clamp(11px, 1.3cqw, 17px) !important;
+    }
+
     body.theme-retro .container {
         padding: 30px 15px 20px 15px !important;
     }
