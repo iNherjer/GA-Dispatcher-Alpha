@@ -867,6 +867,17 @@ function isWin95DesktopMode() {
     return true;
 }
 
+function isWin95MobileWindowMode() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 899px)').matches);
+}
+
+function canFloatWin95Windows() {
+    return isWin95DesktopMode() && !isWin95MobileWindowMode();
+}
+
+window.isWin95MobileWindowMode = isWin95MobileWindowMode;
+window.canFloatWin95Windows = canFloatWin95Windows;
+
 const WIN95_MAIN_CLOSED_STORAGE_KEY = 'ga_win95_main_closed';
 const WIN95_MAIN_MINIMIZED_STORAGE_KEY = 'ga_win95_main_minimized';
 const WIN95_WINDOW_DRAG_THRESHOLD = 4;
@@ -994,6 +1005,15 @@ function resetWin95WindowDragPositions() {
     resetWin95WindowDragStyle(document.querySelector('.settings-shell'));
     resetWin95WindowDragStyle(document.getElementById('mapTableOverlay'));
     resetWin95WindowDragStyle(document.getElementById('pinboardOverlay'));
+}
+
+function syncWin95ResponsiveWindowMode() {
+    const mobile = isWin95DesktopMode() && isWin95MobileWindowMode();
+    document.body?.classList.toggle('win95-mobile-window-mode', !!mobile);
+    if (!mobile) return;
+    if (win95WindowDragState) endWin95WindowDrag({ pointerId: win95WindowDragState.pointerId });
+    if (win95WindowResizeState) endWin95WindowResize({ pointerId: win95WindowResizeState.pointerId });
+    resetWin95WindowDragPositions();
 }
 
 function win95OverlayTaskForElement(element) {
@@ -1220,7 +1240,7 @@ function handleWin95WindowResizeMove(event) {
 }
 
 function beginWin95WindowDrag(event, windowEl, options = {}) {
-    if (!isWin95DesktopMode() || !windowEl) return false;
+    if (!canFloatWin95Windows() || !windowEl) return false;
     if (event.button != null && event.button !== 0) return false;
     if (options.requireSettingsWindow && !document.body.classList.contains('win95-settings-window-open')) return false;
     const point = getWin95WindowDragPoint(event);
@@ -1269,7 +1289,7 @@ function beginWin95WindowDrag(event, windowEl, options = {}) {
 }
 
 function beginWin95WindowResize(event, handle) {
-    if (!isWin95DesktopMode() || !handle) return false;
+    if (!canFloatWin95Windows() || !handle) return false;
     if (event.button != null && event.button !== 0) return false;
     const windowEl = document.getElementById(handle.dataset.win95ResizeTarget || '');
     const edge = String(handle.dataset.win95ResizeEdge || '').toLowerCase();
@@ -1388,10 +1408,17 @@ function initWin95WindowDragging() {
 }
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initWin95WindowDragging, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+        initWin95WindowDragging();
+        syncWin95ResponsiveWindowMode();
+    }, { once: true });
 } else {
     initWin95WindowDragging();
+    syncWin95ResponsiveWindowMode();
 }
+
+window.addEventListener('resize', syncWin95ResponsiveWindowMode, { passive: true });
+window.addEventListener('orientationchange', syncWin95ResponsiveWindowMode, { passive: true });
 
 function setSettingsPanelOpen(open, persist = true) {
     const shell = document.querySelector('.settings-shell');
@@ -1784,7 +1811,7 @@ function setTheme(mode) {
     mode = mode === 'win31' ? 'win95' : mode;
     const wasNavcom = document.body.classList.contains('theme-navcom');
     document.documentElement.classList.toggle('theme-win95-root', mode === 'win95');
-    document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940', 'theme-win95', 'win95-settings-window-open', 'win95-main-closed', 'win95-main-minimized');
+    document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940', 'theme-win95', 'win95-settings-window-open', 'win95-main-closed', 'win95-main-minimized', 'win95-mobile-window-mode');
     const lblClassic = document.getElementById('lbl-classic');
     const lblRetro = document.getElementById('lbl-retro');
     const lblNavcom = document.getElementById('lbl-navcom');
@@ -1826,6 +1853,7 @@ function setTheme(mode) {
     }
     if (mode !== 'win95') resetWin95WindowDragPositions();
     applyWin95MainClosedState();
+    syncWin95ResponsiveWindowMode();
     const settingsShell = document.querySelector('.settings-shell');
     document.body.classList.toggle('win95-settings-window-open', !!settingsShell?.classList.contains('is-open') && isWin95DesktopMode());
     applySavedPanelTheme();
@@ -40234,7 +40262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1364', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1365', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

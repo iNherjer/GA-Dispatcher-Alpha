@@ -9444,7 +9444,9 @@ function toggleMapTable(forceInternal) {
     if (!board || !pinBoard) return;
 
     const force = !!forceInternal;
-    const win95WindowMode = document.body.classList.contains('theme-win95');
+    const win95WindowMode = typeof window.canFloatWin95Windows === 'function'
+        ? window.canFloatWin95Windows()
+        : document.body.classList.contains('theme-win95') && !(window.matchMedia && window.matchMedia('(max-width: 899px)').matches);
     if (isDrawerTransitionBusy() && !force) return;
     if (!force) setDrawerTransitionBusy(true);
 
@@ -9507,7 +9509,8 @@ function toggleMapTable(forceInternal) {
 }
 
 function shouldAutoStartMapFullscreen() {
-    if (document.body.classList.contains('theme-win95')) return false;
+    if (typeof window.canFloatWin95Windows === 'function' && window.canFloatWin95Windows()) return false;
+    if (document.body.classList.contains('theme-win95') && !(window.matchMedia && window.matchMedia('(max-width: 899px)').matches)) return false;
     return window.innerWidth < 1250;
 }
 

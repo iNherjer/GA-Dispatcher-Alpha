@@ -388,7 +388,9 @@ function togglePinboard(forceInternal) {
     if (!board || !mapBoard) return;
 
     const force = !!forceInternal;
-    const win95WindowMode = document.body.classList.contains('theme-win95');
+    const win95WindowMode = typeof window.canFloatWin95Windows === 'function'
+        ? window.canFloatWin95Windows()
+        : document.body.classList.contains('theme-win95') && !(window.matchMedia && window.matchMedia('(max-width: 899px)').matches);
     if (typeof isDrawerTransitionBusy === 'function' && isDrawerTransitionBusy() && !force) return;
     if (typeof setDrawerTransitionBusy === 'function' && !force) setDrawerTransitionBusy(true);
 

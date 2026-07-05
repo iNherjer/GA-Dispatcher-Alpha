@@ -15732,17 +15732,48 @@ body.theme-win95 .ui-scale-control {
 }
 
 @media (max-width: 899px) {
+    html.theme-win95-root {
+        overflow-y: auto;
+    }
+
     body.theme-win95 {
-        align-items: flex-start;
+        align-items: stretch;
         min-height: 100vh;
-        padding: 96px 8px 48px;
+        min-height: 100dvh;
+        height: auto;
+        padding: 0;
+        overflow: auto;
+    }
+
+    body.theme-win95.maptable-open,
+    body.theme-win95.pinboard-open,
+    body.theme-win95.win95-settings-window-open {
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
     }
 
     body.theme-win95 .container {
         position: relative;
+        width: 100%;
+        max-width: none;
+        min-height: 100vh;
+        min-height: 100dvh;
+        max-height: none;
         z-index: 2;
-        max-height: calc(100vh - 144px);
-        margin: 0 auto;
+        margin: 0;
+        overflow: visible;
+        box-shadow: none;
+    }
+
+    body.theme-win95.maptable-open .container,
+    body.theme-win95.pinboard-open .container {
+        display: none;
+    }
+
+    body.theme-win95 .win95-main-window-body {
+        overflow: visible;
+        padding-right: 0;
     }
 
     body.theme-win95 .win95-desktop-decor {
@@ -15755,6 +15786,13 @@ body.theme-win95 .ui-scale-control {
         font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
         font-size: 10px;
         line-height: 1.1;
+    }
+
+    body.theme-win95:not(.win95-main-closed):not(.win95-main-minimized) .win95-desktop-decor,
+    body.theme-win95.maptable-open .win95-desktop-decor,
+    body.theme-win95.pinboard-open .win95-desktop-decor,
+    body.theme-win95.win95-settings-window-open .win95-desktop-decor {
+        display: none;
     }
 
     body.theme-win95 .win95-desktop-icon {
@@ -15785,11 +15823,38 @@ body.theme-win95 .ui-scale-control {
 
     body.theme-win95 #mapTableOverlay,
     body.theme-win95 #pinboardOverlay {
-        top: 96px !important;
-        left: 8px !important;
-        width: calc(100vw - 16px) !important;
-        height: calc(100vh - 144px) !important;
-        height: calc(100dvh - 144px) !important;
+        --win95-overlay-left: 0px;
+        top: 0 !important;
+        left: 0 !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-width: none !important;
+        max-height: none !important;
+        box-shadow: none;
+    }
+
+    body.theme-win95.map-is-fullscreen #mapTableOverlay {
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        padding-right: env(safe-area-inset-right, 0px) !important;
+        padding-bottom: 0 !important;
+        padding-left: env(safe-area-inset-left, 0px) !important;
+        background: #111 !important;
+        border: 0 !important;
+    }
+
+    body.theme-win95.map-is-fullscreen #mapTableOverlay::before,
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-overlay-dragbar,
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-window-resize-handles,
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-overlay-minimize-btn,
+    body.theme-win95.map-is-fullscreen #mapTableOverlay .win95-overlay-close-btn {
+        display: none !important;
+    }
+
+    body.theme-win95 .win95-window-dragbar {
+        display: none;
     }
 
     body.theme-win95 .pinboard-overlay .win95-window-resize-handle {
@@ -15987,20 +16052,36 @@ body.theme-win95 .ui-scale-control {
         display: none;
     }
 
+    body.theme-win95:not(.win95-main-closed):not(.win95-main-minimized) .win95-taskbar,
+    body.theme-win95.maptable-open .win95-taskbar,
+    body.theme-win95.pinboard-open .win95-taskbar,
+    body.theme-win95.win95-settings-window-open .win95-taskbar {
+        display: none;
+    }
+
     body.theme-win95.win95-settings-window-open .settings-shell {
         position: fixed;
-        top: 88px;
-        left: 8px;
-        right: 8px;
-        width: auto;
-        max-height: calc(100vh - 132px);
+        top: 0;
+        left: 0;
+        right: auto;
+        bottom: auto;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
         margin: 0;
+        box-sizing: border-box;
         z-index: 100120;
         overflow: hidden;
         background: #c0c0c0;
         border: 2px solid;
         border-color: #fff #404040 #404040 #fff;
-        box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+        box-shadow: none;
+    }
+
+    body.theme-win95.win95-settings-window-open .settings-toggle-btn {
+        cursor: default;
+        touch-action: auto;
     }
 
     body.theme-win95.win95-settings-window-open .settings-toggle-btn {
@@ -16026,7 +16107,9 @@ body.theme-win95 .ui-scale-control {
     }
 
     body.theme-win95.win95-settings-window-open .settings-panel {
-        max-height: calc(100vh - 158px);
+        height: calc(100vh - 28px);
+        height: calc(100dvh - 28px);
+        max-height: none;
         overflow: auto;
         padding: 8px;
         box-sizing: border-box;
@@ -16050,11 +16133,11 @@ body.theme-win95.win95-settings-window-open .settings-toggle-chevron {
 
 @media (max-width: 520px) {
     body.theme-win95 {
-        padding: 96px 8px 48px;
+        padding: 0;
     }
 
     body.theme-win95 .container {
-        width: min(100%, calc(100vw - 16px));
+        width: 100%;
         padding: 34px 10px 12px;
     }
 
