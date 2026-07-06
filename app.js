@@ -17934,7 +17934,8 @@ function _missionPrivateOutingGenericNarrativeText(value = '') {
         || /\b(ein reibungsloser|ein effizienter|effiziente anreise|gewinnt zeit fuer freizeitaktivitaeten|gewinnt zeit für freizeitaktivitäten)\b/.test(s)
         || /\b(begleitperson|privater begleiter|private begleiterin|privaten ga-fly-out|privater ga-fly-out|freien tag wie einen echten|gemeinsam etwas am boden anfangen|der schoene zugang|der schöne zugang|der schoene hinweg|der schöne hinweg|nur der schoene zugang|nur der schöne zugang|tagesplan|zielplan|kurze orientierung|weg ans wasser|wechsel vom flug)\b/.test(s)
         || /\b(schoene stunden abseits des alltags|schone stunden abseits des alltags|zeit in der luft geniessen|zeit in der luft geniessen|tag und die gemeinsame zeit optimal auszunutzen|route ueber \d+|route uber \d+)\b/.test(s)
-        || /\b(herrliche[snr]? sommerwetter|ruhige[nr]? sichten|laedt heute foermlich|laden heute foermlich|laden heute förmlich|gemuetliche[nr]? nachmittag|gemütliche[nr]? nachmittag|kuehle[snr]? getraenk oder einen kleinen snack|kühle[snr]? getränk oder einen kleinen snack|flug ueber das land|flug über das land|perfekte einstimmung|alltag fuer ein paar stunden hinter uns|alltag für ein paar stunden hinter uns|freiheit in der luft|gute stimmung am boden|ideale[rmn]? tag)\b/.test(s);
+        || /\b(herrliche[snr]? sommerwetter|ruhige[nr]? sichten|laedt heute foermlich|laden heute foermlich|laden heute förmlich|gemuetliche[nr]? nachmittag|gemütliche[nr]? nachmittag|kuehle[snr]? getraenk oder einen kleinen snack|kühle[snr]? getränk oder einen kleinen snack|flug ueber das land|flug über das land|perfekte einstimmung|alltag fuer ein paar stunden hinter uns|alltag für ein paar stunden hinter uns|freiheit in der luft|gute stimmung am boden|ideale[rmn]? tag)\b/.test(s)
+        || /\b(genau dieser kleine plan|kleine[rmn]? plan wartet|dort .* plan wartet|ohne programmzettel|erster teil des freien tages|teil des freien tages|freien teil des tages|gepaeck ist kein grosses thema|gepäck ist kein großes thema|wirklich etwas vorhabt|teil fuer den ihr euch freigemacht|teil für den ihr euch freigemacht|danach gehoert der nachmittag euch|danach gehört der nachmittag euch|rest des tages|privaten plan am ziel|eigentliche[rmn]? plan|gute[rmn]? teil des tages)\b/.test(s);
 }
 
 function _missionPrivateOutingBriefingHasRelationConflict(text = '', passenger = {}) {
@@ -18211,19 +18212,28 @@ function _missionPrivateOutingCargoMotif(cargoText = '', spec = {}) {
     return String(firstPart || spec?.cargo || 'Tagesgepäck').trim();
 }
 
-function _missionPrivateOutingRouteMood(targetName = '', distanceNm = null) {
+function _missionPrivateOutingForPhrase(value = '') {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!text) return 'den Anlass am Ziel';
+    return text
+        .replace(/^der\s+/i, 'den ')
+        .replace(/^ein\s+/i, 'einen ');
+}
+
+function _missionPrivateOutingRouteMood(targetName = '', distanceNm = null, activityKind = 'outing', spec = null) {
     const target = String(targetName || 'dem Ziel').trim() || 'dem Ziel';
     const nm = Number(distanceNm);
+    const reason = _missionPrivateOutingForPhrase(spec?.draw || spec?.reward || 'den Anlass am Ziel');
     if (Number.isFinite(nm) && nm > 0 && nm <= 25) {
-        return `Der kurze Hop nach ${target} lässt euch genug Luft, um schon unterwegs in den freien Teil des Tages umzuschalten.`;
+        return `Der kurze Hop nach ${target} lässt euch mehr Zeit für ${reason}, statt den Ausflug in die Anfahrt zu legen.`;
     }
     if (Number.isFinite(nm) && nm >= 70) {
-        return `Der Weg nach ${target} gibt euch genug Flugzeit, um aus dem Alltag rauszukommen und langsam in den Ausflug hineinzufinden.`;
+        return `Der Weg nach ${target} ist lang genug, dass ihr euch schon in der Luft auf ${reason} freuen könnt.`;
     }
     if (Number.isFinite(nm) && nm > 0) {
-        return `Der Flug nach ${target} ist ein guter Übergang: ruhig raus aus dem Alltag, sauber ankommen und dann nicht mehr auf die Uhr schauen.`;
+        return `Der Flug nach ${target} gibt euch genug Ruhe, euch schon unterwegs auf ${reason} einzustimmen.`;
     }
-    return `Der Hinflug nach ${target} soll sich wie der erste Teil des freien Tages anfühlen.`;
+    return '';
 }
 
 function _missionPrivateOutingSupportLine(targetName = '', activityKind = 'outing') {
@@ -18275,7 +18285,11 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'die Abkühlung am Wasser',
                 hook: 'Der See ist heute die eigentliche Belohnung, und die Badetasche liegt nicht ohne Grund hinten.',
                 reward: 'die Abkühlung am Wasser',
-                cargo: 'Badetasche und Handtuch'
+                cargo: 'Badetasche und Handtuch',
+                occasion: '{pair} fliegen nach {title}, weil die Abkühlung am Wasser heute der ganze Grund für den Fly-out ist.',
+                whyNow: 'Badetasche, warmes Wetter und ein freier Nachmittag greifen ineinander; deshalb lohnt sich der kurze Weg durch die Luft.',
+                cargoUse: '{cargo} liegt hinten, weil ihr nach dem Abstellen direkt Richtung Wasser weiterwollt.',
+                arrival: 'Nach dem Parken wird nur noch kurz sortiert, dann geht es mit Tasche und Handtuch weiter zur Abkühlung.'
             };
         case 'burger':
             return {
@@ -18283,7 +18297,11 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'der Burger, von dem ihr schon länger redet',
                 hook: 'Ihr habt euch eingeredet, dass es dort die besten Burger weit und breit gibt, und heute wird das ausprobiert.',
                 reward: 'den Burger und ein kaltes Getränk am Flugplatz',
-                cargo: 'Jacken und Sonnenbrillen'
+                cargo: 'Jacken und Sonnenbrillen',
+                occasion: '{pair} fliegen nach {title}, weil dieser Burger inzwischen mehr Vereinslegende als Mittagessen ist.',
+                whyNow: 'Heute passt das Wetterfenster, und der Burger ist genau die Art kleiner Grund, für den man privat gern ein Flugzeug aus dem Hangar zieht.',
+                cargoUse: '{cargo} reicht völlig; am Ziel warten Tisch, Burger und ein kaltes Getränk.',
+                arrival: 'Nach dem Abstellen geht es ohne Umwege zum Platzlokal, damit ihr endlich klärt, ob der Burger den Ruf verdient.'
             };
         case 'cafe':
             return {
@@ -18291,7 +18309,11 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'Kaffee und Kuchen am Platz',
                 hook: 'Der Kaffee am Platz soll den kleinen Fly-out wert sein, und Kuchen macht aus dem Flug endgültig einen freien Tag.',
                 reward: 'Kaffee, Kuchen und ein bisschen Flugplatzzeit',
-                cargo: 'Tagesrucksack und Jacke'
+                cargo: 'Tagesrucksack und Jacke',
+                occasion: '{pair} fliegen nach {title}, weil der Kaffee am Ziel heute die Ausrede ist, aus einem normalen Vormittag einen kleinen Reiseflug zu machen.',
+                whyNow: 'Der Café-Stopp ist nicht Beiwerk: Ihr nehmt euch bewusst Zeit für Anflug, Vorfeld, Kuchen und eine Stunde ohne Termine.',
+                cargoUse: '{cargo} passt dazu, weil ihr am Ziel wirklich am Platz bleiben wollt.',
+                arrival: 'Nach dem Parken geht es zum Café-Stopp, und genau dort soll der Fly-out seinen kleinen Wert bekommen.'
             };
         case 'hiking':
             return {
@@ -18299,7 +18321,11 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'die kleine Runde mit Aussicht',
                 hook: 'Die Wanderschuhe liegen hinten; nach dem Abstellen geht es direkt raus auf den ersten ruhigen Weg.',
                 reward: 'den ersten ruhigen Weg mit Rucksack und Wanderschuhen',
-                cargo: 'Rucksack und Wanderschuhe'
+                cargo: 'Rucksack und Wanderschuhe',
+                occasion: '{pair} fliegen nach {title}, weil der erste Weg am Boden schon ausgesucht ist und die Aussicht gleich am Ziel beginnen soll.',
+                whyNow: 'Rucksack und Schuhe sind der eigentliche Plan; der Flug bringt euch direkt in den Kopfmodus für eine kleine Runde draußen.',
+                cargoUse: '{cargo} erzählt die Geschichte besser als jede Erklärung: Nach dem Abstellen wird aus dem Flug ein Gang in die Landschaft.',
+                arrival: 'Am Ziel wechseln Rucksack und Schuhe aus dem Flugzeug in den Start der Tour.'
             };
         case 'museum':
             return {
@@ -18307,7 +18333,11 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'die Ausstellung ohne Uhr im Nacken',
                 hook: 'Ihr habt euch diese Ausstellung als ruhigen Grund ausgesucht; danach bleibt noch Zeit für Kaffee.',
                 reward: 'den Museumsnachmittag ohne Uhr im Nacken',
-                cargo: 'Museumsrucksack'
+                cargo: 'Museumsrucksack',
+                occasion: '{pair} fliegen nach {title}, weil die Ausstellung heute der ruhige Anlass ist und danach noch Zeit für Kaffee bleiben soll.',
+                whyNow: 'Der Flug macht aus dem Museumsbesuch keinen Termin, sondern einen kleinen Tag mit Anreise, Ankommen und genug Luft.',
+                cargoUse: '{cargo} reicht, weil ihr nach der Landung leicht weiterkommt und den Nachmittag nicht mit Umwegen füllen müsst.',
+                arrival: 'Nach dem Abstellen geht es vom Vorfeld weiter zur Ausstellung, danach bleibt der Kaffee als weicher Abschluss.'
             };
         case 'shopping':
             return {
@@ -18315,15 +18345,23 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'der Stadtbummel mit Kaffee als Ausrede',
                 hook: 'Die Besorgungen sind nur die Ausrede; eigentlich geht es um einen lockeren Stadtbummel mit Kaffee.',
                 reward: 'den lockeren Stadtbummel ohne Autofahrerei',
-                cargo: 'leichte Einkaufstasche'
+                cargo: 'leichte Einkaufstasche',
+                occasion: '{pair} fliegen nach {title}, weil ein paar kleine Besorgungen heute die perfekte Ausrede für Kaffee und Stadtbummel sind.',
+                whyNow: 'Der Café-Stopp trägt den Ausflug mindestens genauso wie die Einkaufsliste; ohne den wäre es nur Erledigung, mit Flug wird daraus ein freier Vormittag.',
+                cargoUse: '{cargo} bleibt leicht, weil ihr nach der Landung zu Fuß weiterzieht und euch den Kaffee bewusst in Ruhe nehmt.',
+                arrival: 'Nach dem Parken geht es mit leichter Tasche in den Ort: erst die Kleinigkeiten, dann Kaffee ohne Uhr im Nacken.'
             };
         case 'wellness':
             return {
                 plan: 'einen ruhigen Wellness- oder Spaziergangstag anfangen',
-                draw: 'ein ruhiger Tag ohne Pflichtprogramm',
-                hook: 'Heute soll aus dem Flug direkt ein ruhiger gemeinsamer Tag werden.',
+                draw: 'Spaziergang, Ruhe und ein bisschen Wellness-Zeit',
+                hook: 'Tasche und Jacke liegen bereit; nach dem Abstellen soll es direkt in Spaziergang, Ruhe und ein bisschen Wellness-Zeit gehen.',
                 reward: 'die gemeinsame Zeit ohne Termindruck',
-                cargo: 'Wellness- oder Wochenendtasche'
+                cargo: 'Wellness- oder Wochenendtasche',
+                occasion: '{pair} fliegen nach {title}, weil ihr euch dort eine ruhige Runde mit Spaziergang und Wellness-Zeit freigehalten habt.',
+                whyNow: 'Die Tasche hinten macht den Anlass greifbar: ankommen, kurz durchatmen und den Tag ohne Termine weiterlaufen lassen.',
+                cargoUse: '{cargo} passt dazu, weil nach dem Abstellen kein Termin drückt, sondern Spaziergang, Ruhe und gemeinsame Zeit.',
+                arrival: 'Nach dem Parken nehmt ihr die Tasche und wechselt direkt in Spaziergang, Ruhe und die Wellness-Zeit, wegen der ihr gestartet seid.'
             };
         case 'family':
             return {
@@ -18331,24 +18369,36 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 draw: 'der Familienbesuch ohne lange Autofahrt',
                 hook: 'Der Besuch wartet schon, und mit dem Flug fühlt sich der Weg eher wie Auftakt als Pflichtfahrt an.',
                 reward: 'den Familienbesuch ohne lange Autofahrt',
-                cargo: 'Tagesgepäck'
+                cargo: 'Tagesgepäck',
+                occasion: '{pair} fliegen nach {title}, weil der Familienbesuch heute nicht mit einer langen Autofahrt anfangen soll.',
+                whyNow: 'Die Abholung am Ziel macht den Flug zum entspannten Auftakt, bevor am Boden der private Teil losgeht.',
+                cargoUse: '{cargo} reicht, weil ihr nach dem Abstellen direkt weiter zum Treffen könnt.',
+                arrival: 'Am GA-Bereich wartet der private Anschluss, danach kann der Besuch ohne Umweg anfangen.'
             };
         case 'city':
         case 'photo':
             return {
-                plan: 'eine kleine Runde durch den Ort drehen',
-                draw: 'private Fotos plus Café-Stopp',
-                hook: 'Die Kamera ist dabei, aber die guten Motive und der Café-Stopp warten nach der Landung am Boden.',
+                plan: 'eine kleine Fotorunde mit Café-Stopp machen',
+                draw: 'eine kleine Fotorunde mit Café-Stopp',
+                hook: 'Der Café-Stopp ist heute kein Anhängsel, sondern die Ausrede für die ganze kleine Runde: erst ankommen, Kamera mitnehmen, dann in Ruhe Kaffee trinken.',
                 reward: 'den Stadtbummel mit Café und ein paar privaten Fotos',
-                cargo: 'kleine Tasche'
+                cargo: 'kleine Tasche',
+                occasion: '{pair} fliegen nach {title}, weil ihr euch dort eine kleine Fotorunde mit Café-Stopp vorgenommen habt.',
+                whyNow: 'Die Kamera macht den Anlass greifbar, aber der Kaffee danach ist der Punkt, an dem aus dem Flug ein gemeinsamer Nachmittag wird.',
+                cargoUse: '{cargo} passt dazu, weil ihr nach dem Abstellen direkt zu Fuß in diese Runde startet.',
+                arrival: 'Nach dem Parken bleibt die Kamera nicht lange in der Tasche: erst ein paar Motive am Boden, dann der Café-Stopp, für den ihr überhaupt losgeflogen seid.'
             };
         default:
             return {
-                plan: 'den freien Tag gemeinsam anfangen',
-                draw: 'ein kleiner Tapetenwechsel ohne Pflichtprogramm',
-                hook: 'Ihr habt euch einen kleinen Tapetenwechsel gegönnt; genau dafür ist so ein privater Fly-out da.',
-                reward: 'den privaten Plan am Ziel',
-                cargo: 'Tagesgepäck'
+                plan: 'einen kleinen privaten Anlass am Ziel aufnehmen',
+                draw: 'ein konkreter Grund für den gemeinsamen Fly-out',
+                hook: 'Der Zielplatz ist heute die Abkürzung zu einem kleinen privaten Anlass, der den Flug trägt.',
+                reward: 'den gemeinsamen Plan am Boden',
+                cargo: 'Tagesgepäck',
+                occasion: '{pair} fliegen nach {title}, weil dort ein kleiner privater Anlass wartet, den ihr nicht zwischen Tür und Angel erledigen wollt.',
+                whyNow: 'Der Flug macht aus dem Weg einen sauberen Auftakt, und nach dem Abstellen geht es direkt in diesen Anlass hinein.',
+                cargoUse: '{cargo} bleibt Tagesgepäck, aber es zeigt, dass nach der Landung wirklich ein Stück gemeinsamer Tag folgt.',
+                arrival: 'Nach dem Parken nehmt ihr die Tasche mit und geht direkt in den Plan, der diesen Fly-out ausgelöst hat.'
             };
     }
 }
@@ -18387,31 +18437,59 @@ function _missionPrivateOutingWeatherDispatchLine(weather = null, activityKind =
         const options = [
             `Bei ${temp}°C${sky ? ` und ${sky}` : ''} ist die Abkühlung am Wasser wirklich nötig.`,
             `Mit ${temp}°C${sky ? ` und ${sky}` : ''} klingt der Sprung ans Wasser nach genau dem richtigen Ziel.`,
-            `Bei ${temp}°C ist der See nach der Landung kein Luxus, sondern der beste Teil des Plans.`
+            `Bei ${temp}°C ist der Weg ans Wasser nach der Landung kein Luxus, sondern der Grund für den Fly-out.`
         ];
         return options[Math.abs(variant) % options.length];
     }
     if (Number.isFinite(temp) && temp >= 28) {
         const options = [
-            `Bei ${temp}°C darf der Plan am Ziel ruhig leicht sein: Schatten, ein kaltes Getränk und kein bisschen Pflichtprogramm.`,
-            `Mit ${temp}°C im Zielgebiet klingt dieser Fly-out nach genau der richtigen Ausrede für einen freien Nachmittag.`,
-            `Bei ${temp}°C passt ein kurzer, sauberer Hinflug perfekt, damit am Ziel gleich der angenehme Teil wartet.`
+            `Bei ${temp}°C darf der Anlass am Ziel ruhig leicht sein: Schatten, ein kaltes Getränk und kein bisschen Pflichtprogramm.`,
+            `Mit ${temp}°C im Zielgebiet klingt dieser Fly-out nach genau der richtigen Ausrede für den konkreten Plan am Boden.`,
+            `Bei ${temp}°C passt ein kurzer, sauberer Hinflug perfekt, damit ihr am Ziel direkt in euren Anlass kommt.`
         ];
         return options[Math.abs(variant) % options.length];
     }
     if (weatherBits.length) {
         const compact = weatherBits.join(', ');
         const options = [
-            `Mit ${compact} spricht nichts dagegen, den Hinflug ruhig anzugehen und schon unterwegs runterzufahren.`,
-            `Bei ${compact} darf der Flug selbst schon zum entspannten Teil eures Plans werden.`,
-            `Bei ${compact} darf der Flug selbst schon zum entspannten Teil des Tages werden.`
+            `Mit ${compact} spricht nichts dagegen, den Hinflug ruhig anzugehen und den Anlass am Ziel schon im Kopf zu haben.`,
+            `Bei ${compact} passt der Hinflug als ruhiger Auftakt zu eurem Anlass am Ziel.`,
+            `Bei ${compact} habt ihr genug Ruhe, den Zielplan schon im Anflug vor Augen zu haben.`
         ];
         return options[Math.abs(variant) % options.length];
     }
+    const specificOptions = [
+        activityKind === 'cafe'
+            ? 'Nehmt den Hinflug ruhig, der Kaffee am Ziel ist heute der sichtbare Grund für den Flug.'
+            : '',
+        activityKind === 'photo' || activityKind === 'city'
+            ? 'Nehmt den Hinflug ruhig, nach der Landung zählen Kamera, Café und der kleine Weg zu Fuß.'
+            : '',
+        activityKind === 'shopping'
+            ? 'Nehmt den Hinflug ruhig, die Besorgungen sind nur der Vorwand und der Kaffee macht den Ausflug rund.'
+            : '',
+        activityKind === 'burger'
+            ? 'Nehmt den Hinflug ruhig, der Burger am Ziel darf heute ruhig den ganzen Aufwand rechtfertigen.'
+            : '',
+        activityKind === 'museum'
+            ? 'Nehmt den Hinflug ruhig, die Ausstellung und der Kaffee danach sind heute der Grund für den Weg.'
+            : '',
+        activityKind === 'wellness'
+            ? 'Nehmt den Hinflug ruhig, damit Spaziergang und Wellness-Zeit am Ziel entspannt anfangen.'
+            : '',
+        activityKind === 'swimming'
+            ? 'Nehmt den Hinflug ruhig, danach zählen Tasche, Handtuch und der Weg ans Wasser.'
+            : '',
+        activityKind === 'hiking'
+            ? 'Nehmt den Hinflug ruhig, nach dem Abstellen werden aus Rucksack und Schuhen direkt die ersten Schritte draußen.'
+            : '',
+        activityKind === 'family'
+            ? 'Nehmt den Hinflug ruhig, am Ziel wartet der private Anschluss und dann beginnt der Besuch.'
+            : ''
+    ].filter(Boolean);
+    if (specificOptions.length) return specificOptions[Math.abs(variant) % specificOptions.length];
     const options = [
-        'Lasst den Flug ruhig anlaufen, am Ziel wartet der Teil, für den ihr euch freigemacht habt.',
-        'Der Flug darf ruhig und sauber bleiben, am Boden wartet dann euer eigentlicher Plan.',
-        'Kein Grund zur Eile, nehmt den Hinflug als ruhigen Einstieg in euren gemeinsamen Tag.'
+        'Kein Grund zur Eile, nehmt den Hinflug als ruhigen Einstieg in den konkreten Anlass am Ziel.'
     ];
     return options[Math.abs(variant) % options.length];
 }
@@ -18422,16 +18500,25 @@ function _missionPrivateOutingEnjoyLine(weather = null, activityKind = 'outing',
         const options = [
             'Nach dem Abstellen heißt es Tasche raus und weiter Richtung Wasser.',
             'Fliegt ruhig hin, dann fühlt sich der Sprung ans Wasser nach genau der richtigen Entscheidung an.',
-            `Sauber ankommen, Tasche raus, und der Rest des Tages gehört der Abkühlung.`
+            `Sauber ankommen, Tasche raus, und dann wird aus dem Fly-out sofort der Weg zur Abkühlung.`
         ];
         return options[Math.abs(variant) % options.length];
     }
     const options = [
-        'Dann nehmt ihr die Tasche und lasst den Tag einfach weiterlaufen.',
-        'Ruhig ankommen, sauber parken, und danach gehört der Nachmittag euch.',
-        'Macht euch keinen Stress, stellt sauber ab und lasst den Rest des Tages privat weiterlaufen.',
-        'Sobald der Motor aus ist, kann genau der Teil beginnen, auf den ihr euch eigentlich freut.'
-    ];
+        activityKind === 'cafe'
+            ? 'Sauber ankommen, Jacke greifen und dann zum Kaffee, der diesen Fly-out ausgelöst hat.'
+            : '',
+        activityKind === 'photo' || activityKind === 'city'
+            ? 'Sauber ankommen, Kamera rausnehmen und dann die Runde gehen, wegen der ihr überhaupt losgeflogen seid.'
+            : '',
+        activityKind === 'shopping'
+            ? 'Sauber ankommen, Tasche greifen, Kleinigkeiten erledigen und den Kaffee bewusst in Ruhe trinken.'
+            : '',
+        activityKind === 'burger'
+            ? 'Sauber ankommen, aussteigen und dann zum Tisch, an dem der Burger endlich beweisen darf, ob er den Flug wert war.'
+            : '',
+        'Sauber ankommen, Tasche mitnehmen und direkt in den Anlass wechseln, für den ihr gestartet seid.'
+    ].filter(Boolean);
     return options[Math.abs(variant) % options.length];
 }
 
@@ -18479,13 +18566,24 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
     const firstName = String(paxName.split(/\s+/)[0] || '').trim();
     const hasFirstName = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName);
     const pair = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName)
-        ? `${firstName} und du`
+        ? `Du und ${firstName}`
         : _missionPrivateOutingPairPhrase(passenger);
     const companionIntro = hasFirstName ? `${firstName} ist mit dabei` : 'Ihr seid heute zu zweit unterwegs';
     const pairDative = hasFirstName ? `${firstName} und dich` : 'euch beide';
     const title = place && !/^dem ziel/i.test(place) ? place : target;
     const cargoMotif = _missionPrivateOutingCargoMotif(cargoText, spec);
-    const routeMood = _missionPrivateOutingRouteMood(title, distanceNm);
+    const routeMood = _missionPrivateOutingRouteMood(title, distanceNm, resolvedActivityKind, spec);
+    const fillSpec = value => String(value || '')
+        .replace(/\{pair\}/g, pair)
+        .replace(/\{pairDative\}/g, pairDative)
+        .replace(/\{title\}/g, title)
+        .replace(/\{target\}/g, target)
+        .replace(/\{place\}/g, place)
+        .replace(/\{firstName\}/g, firstName || 'ihr')
+        .replace(/\{cargoMotif\}/g, cargoMotif || spec.cargo || 'Tagesgepäck')
+        .replace(/\{cargo\}/g, 'Das Gepäck')
+        .replace(/\s+/g, ' ')
+        .trim();
     const variant = _missionPrivateOutingStableVariant([
         target,
         pair,
@@ -18501,22 +18599,15 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         distanceNm
     ], 20);
     const line1Options = [
-        `${companionIntro}, und ${title} ist heute eure Ausrede, den Alltag ein paar Stunden stehen zu lassen. ${spec.hook}`,
-        `Für ${pairDative} ist ${title} heute vor allem der Start in ${spec.reward}. ${spec.hook}`,
-        `${title} ist heute nur der erste Schritt: ruhig hinfliegen, abstellen und dann ${spec.plan}.`,
-        `Der Plan ist schön unkompliziert: ${title} anfliegen, Maschine abstellen und dann ${spec.draw}. ${spec.hook}`,
-        `${companionIntro}. Ihr wollt nach ${title}, weil dort genau dieser kleine Plan wartet: ${spec.draw}. Danach läuft der Tag ohne Programmzettel weiter.`
-    ];
+        fillSpec(spec.occasion),
+        `${pair} habt euch ${title} heute für ${_missionPrivateOutingForPhrase(spec.draw)} ausgesucht. ${fillSpec(spec.whyNow || spec.hook)}`,
+        `${fillSpec(spec.hook)} ${pair} machen genau daraus den Grund für den Hinflug nach ${title}.`
+    ].filter(Boolean);
     const line1 = line1Options[variant % line1Options.length];
     const weatherForStory = weather || { summary: source };
-    const cargoLineOptions = [
-        `Die Tasche hinten passt genau dazu und macht den Plan schon beim Rollen ein bisschen greifbarer.`,
-        `Das Gepäck ist kein großes Thema, aber es erzählt schon, dass ihr nach der Landung wirklich etwas vorhabt.`,
-        `Hinten liegt nur Tageskram, aber genau daran merkt man, dass der Flug heute zu einem freien Tag gehört.`
-    ];
-    const cargoLine = cargoMotif ? cargoLineOptions[Math.floor(variant / line1Options.length) % cargoLineOptions.length] : '';
+    const cargoLine = cargoMotif ? fillSpec(spec.cargoUse || '{cargo} gehört zu diesem Anlass und bleibt der kleine sichtbare Hinweis, was nach der Landung passiert.') : '';
     const weatherLine = _missionPrivateOutingWeatherDispatchLine(weatherForStory, resolvedActivityKind, Math.floor(variant / 3));
-    const arrivalLine = _missionPrivateOutingEnjoyLine(weatherForStory, resolvedActivityKind, spec.reward, variant);
+    const arrivalLine = fillSpec(spec.arrival) || _missionPrivateOutingEnjoyLine(weatherForStory, resolvedActivityKind, spec.reward, variant);
     const routeLine = routeMood;
     return _missionPrivateOutingPolishSpokenBriefing([line1, routeLine, cargoLine, weatherLine, arrivalLine].filter(Boolean).join(' '));
 }
@@ -28433,7 +28524,7 @@ Arbeitsweise:
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 9d. Bei APT-Sightseeing und CONTEXT_BUNDLE.knowledgeContext.status="accept": Nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial fuer eine natuerliche Besuchsabsicht. Plane nicht "wir haben Fakten ueber X", sondern "die Gaeste fliegen dorthin, weil sie nach der Landung X und Y anschauen, Fotos machen oder durch den Ort gehen wollen". Waehle 1-2 passende Sehenswuerdigkeiten aus; keine Listen weiterreichen, keine Begriffe wie Wiki, GeoSearch, Zielanker, Faktenbasis oder knowledgeContext im Plantext. Erfinde keine weiteren harten Ortsfakten, Namen, Baujahre oder touristischen Details ausserhalb von knowledgeContext, targetGeoContext und missionTruth. Wenn knowledgeContext fehlt oder abgelehnt ist, bleibe bei allgemeinen Zielort-Ankern wie Ortskern, Aussicht, Cafe, Spaziergang oder Fotos.
-9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt", sondern Vorfreude auf einen kleinen persoenlichen Motiv-Haken: der Platzburger darf als bester Burger weit und breit gelten, der Kaffee am Platz darf den Ausflug wert sein, die Abkuehlung am See ist bei Hitze der Grund, die erste Berg-/Wanderrunde lockt, die Ausstellung ist der ruhige Anlass. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer ein gesprochenes, persoenliches Dispatcher-Briefing: warum die beiden heute rauswollen, was sie nach dem Abstellen vorhaben, was das Gepaeck verrät und welche Route-/Wetterstimmung den Hinflug rund macht. Keine Beispielsaetze oder Satzmodule in den Plan schreiben; mustMention darf leer bleiben. Keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
+9e. Bei APT-private_outing plane einen offenen privaten Fly-out statt einer mustMention-Checkliste: Pilot und Pax fliegen gemeinsam irgendwo hin, wie man privat mit Freund, Partner, Familie oder aehnlicher Begleitung fliegt. Waehle frei genau einen netten Anlass, z.B. Burger, Kaffee, Einkaufen, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch oder Paartag. Dieser Anlass muss das Rueckgrat der Story sein, nicht nur ein Stichwort: Warum ist der Kaffee den Flug wert, warum reizt genau diese Fotorunde, warum macht der Burger den Zielplatz zur Ausrede, warum ist die Abkuehlung oder Ausstellung heute der Grund? Lege Beziehung, Ausflugsgrund, Tagesgepaeck, Wetterstimmung und Ankunft am Vorfeld in storyFrame, localFacts, narrativeHooks oder operationalDetails ab. Plane nicht nur "Aktivitaet beginnt" oder "ein kleiner Plan wartet", sondern Vorfreude auf einen persoenlichen Motiv-Haken. Solche privaten Genussgruende duerfen phantasievoll sein, solange sie nicht zu harten Geofakten, echten Sehenswuerdigkeiten oder operativen Auftraegen aufgeblasen werden. Gib dem Writer Rohmaterial fuer ein gesprochenes, persoenliches Dispatcher-Briefing: warum die beiden heute rauswollen, was sie nach dem Abstellen vorhaben, was das Gepaeck verrät und welche Route-/Wetterstimmung den Hinflug rund macht. Keine Beispielsaetze oder Satzmodule in den Plan schreiben; mustMention darf leer bleiben. Keine Rueckkehr zum Heimatplatz als Pflichtpunkt setzen und keine Sightseeing-/Panorama-/Rundflugstory planen.
 9f. Bei APT-club_utility plane eine kleine, originelle Vereinsgeschichte statt "irgendwas liefern": Nutze CONTEXT_BUNDLE.loadout.cargoText als bindende Ladung, benenne was genau damit am Ziel passiert, wer es uebernimmt und welcher naechste Club-, Hangar-, Flugtag-, Werkstatt- oder Briefingtisch-Schritt daran haengt. Gute Details sind z.B. Banner probehaengen, Funkakkus nummerieren, Helferliste ans Board haengen, Schluessel quittieren, Pruefadapter mit Mappe abgleichen, Leuchtmittel in den Materialschrank legen, Checkkarten verteilen oder Lash-Straps an die Stellplatztafel bringen. Wenn die Ladung nur ein kleiner Anlass ist, erzaehle zusaetzlich natuerlich ueber Strecke, Wetter, Terrain, Pax oder Reisegrund, statt die Ladung mehrfach zu paraphrasieren. Bleibe A-B mit Handoff am Zielplatz; kein POI-Arbeitsauftrag, kein kuenstlicher Notfall.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
@@ -28902,7 +28993,7 @@ Regeln:
 19h. Follow-up-Zeitkontext: Wenn CONTRACT.missionTemporalContext oder followUpContext.temporalContext vorhanden ist, nutze stayText/stayDays nur als natürliche Aufenthaltsdauer oder Vorbereitungszeit. Keine technischen Feldnamen, keine Datumsrechnung, keine explizite Systemlogik.
 19i. sightseeing_tour + POI: Schreibe wie eine professionelle, warme Sightseeing-Notiz: ein konkreter Gast oder eine kleine Gästerunde freut sich auf genau dieses Ziel, der Zielbereich ist der Reisegrund, und der Flug liefert den besonderen Blick aus der Luft. Wenn CONTRACT.knowledgeContext.status="accept", nutze title und 1-2 facts als belegten Anlass: Der Pax will dieses Ziel sehen, einordnen, fotografieren oder jemandem zeigen, weil daran etwas Besonderes hängt. Forme Fakten zu Begeisterung und Kontext, nicht zu einer Liste; keine Begriffe wie Wiki, Faktenbasis oder knowledgeContext im Briefing. Der POI bleibt ein Luft-Blickmoment mit Rückkehr zum Startplatz, nicht der Beginn einer Bodenaktivität. Halte den Ton ruhig, gastorientiert und etwas hochwertiger als einen privaten Spaßflug; Arbeitswörter wie Erfassung, Inspektion, Lagebild, Befund oder abgearbeitet passen hier nicht.
 19k. sightseeing_tour + APT: Schreibe einen professionell klingenden A-B-Sightseeing-Ausflug zur Zielregion: Die Gäste fliegen zum Zielplatz, weil sie nach der Landung einen konkreten Besuchswunsch am Zielort haben. Nutze die Leitfragen als Auswahl, nicht als Checkliste: Gast + Reisegrund + Zielflugplatz + Wetterstimmung oder Gast + Sehenswürdigkeit + erster Weg am Boden reicht oft. Wenn CONTRACT.knowledgeContext.status="accept", nutze knowledgeContext.sightseeingLandmarks und knowledgeContext.facts als Rohmaterial für 1-2 konkrete Besuchswünsche am Zielort. Verwandle die Fakten in eine kurze Geschichte: Die Pax wollen am Zielort bestimmte schöne oder interessante Stellen anschauen, Fotos machen und den Ort erleben, darum fliegen wir sie dorthin. Reiche keine ganzen Wiki-Sätze als Sehenswürdigkeit weiter; topografische oder historische Fakten sind Hintergrundfarbe, nicht automatisch Besuchsziele. Wenn keine geprüften Sehenswürdigkeiten vorhanden sind, bleibe bei allgemeinen, plausiblen Zielort-Ankern wie Ortskern, Aussicht, Café, Spaziergang oder Fotos. Varriere Einstieg, Wetteranker und Bodenplan sichtbar; nicht jede APT-Sightseeing-Mission soll mit derselben "Tagesziel/Fotos/Ortskern"-Schablone klingen. Der Zielflugplatz ist Gateway zur Aktivität am Boden; keine Rückkehr zum Heimatplatz behaupten, wenn der Contract APT/A-B ist.
-19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: ein gesprochenes Dispatcher-Briefing mit persoenlichem Touch, als wuerde ein Vereinskollege kurz erklaeren, warum die beiden heute rauswollen. Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Baue immer einen konkreten, sinnlichen Motiv-Haken ein statt nur "nach dem Flug beginnt die Aktivitaet": z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Semikolons, keine Namens-/Rollenformel wie "X ist als Y an Bord", keine Standardanfaenge wie "Heute bleibt es herrlich privat" oder "Euer Plan ist simpel", kein aufgesetztes "Viel Spaß". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
+19l. private_outing + APT: Schreibe eine warme private Fly-out-Story, keine Formularantwort. Pilot und Pax fliegen zusammen als Freund, Partner, Familie oder aehnliche private Begleitung irgendwo hin, weil der Zielplan selbst Spass macht. Zielton: ein gesprochenes Dispatcher-Briefing mit persoenlichem Touch, als wuerde ein Vereinskollege kurz erklaeren, warum die beiden heute rauswollen. Nutze storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen; mustMention ist hier keine abzuarbeitende Liste. Ein gutes Briefing darf frei variieren: Burger, Kaffee, Einkauf, Wandern, Berge, Schwimmen am See/Meer, Museum, Wellness, Familienbesuch, Paartag oder ein anderer plausibler Privatgrund. Waehle einen konkreten, sinnlichen Motiv-Haken und mache ihn zum Rueckgrat des Textes statt nur "nach dem Flug beginnt die Aktivitaet" zu sagen: z.B. der beste Burger weit und breit, ein Eiskaffee statt kuehler Kaffee, der Kaffee am Platz, der den Fly-out wert ist, der See als verdiente Abkuehlung, die Wanderrunde in den Bergen, die Ausstellung als ruhiger Anlass. Du darfst solche privaten Genussgruende phantasievoll erfinden; halte sie als charmante Privatstory, nicht als neue harten Ortsfakten, echte Landmarken, Einsatzlage oder Arbeitsauftrag. Beantworte nur so viel wie die Geschichte braucht, in 3-4 natuerlichen Saetzen. Keine Semikolons, keine Namens-/Rollenformel wie "X ist als Y an Bord", keine Standardanfaenge wie "Heute bleibt es herrlich privat", "Euer Plan ist simpel" oder "dort wartet genau dieser kleine Plan", kein aufgesetztes "Viel Spaß". Keine Rueckkehr zum Heimatplatz als Abschluss behaupten. Keine Sightseeing-/Panorama-/Rundflugstory, keine Arbeits-/Charterlogik und keine Begriffe wie Profil, Pipeline, Muss nennen oder Handoff.
 19j. poi_learning_guide + CONTRACT.knowledgeContext: Wenn knowledgeContext.status="accept", nutze knowledgeContext.facts als geprüfte Wissensbasis für Story und greetingText. Der Passagier ist dann ein Guide, der dem Piloten und ggf. Mitfliegenden unterwegs Interessantes zum POI erklärt. Greife 1-2 konkrete Fakten natürlich auf, aber erfinde keine zusätzlichen Ortsdaten, Baujahre, Größen, Namen oder historischen Details außerhalb von knowledgeContext, missionTruth und targetGeoContext. Story und greetingText dürfen die Fakten nur anteasern; die ausführliche Faktenfolge bleibt den Voice-Meldungen vorbehalten. Keine Zielhöhe, keine targetAltFt/radius/dwell-Angaben, keine Pilot-Anweisungen wie "Achten Sie", kein formelles "Sie", kein "Ziel ist es" und kein Arbeitswort wie "Informationsflug" oder "durchführen".
 20. cargo_fragile und APT-Cargo: Schreibe eine kleine Frachtgeschichte aus Dispatcher-Perspektive. Wenn CONTRACT.route.startName, CONTRACT.route.targetName und CONTRACT.route.distanceNm vorhanden sind, baue Route und Entfernung als natuerlichen Story-Satz ein, nicht als technische Liste. Im Mittelpunkt stehen konkrete Sendung, Grund fuer den Flug, Empfaenger oder Zielkontakt, ruhige Behandlung unterwegs und der naechste Schritt nach der Landung. Diese Punkte sind Rohmaterial; ein gutes Briefing darf 4-5 fluessige Saetze bilden und muss nicht jeden Punkt sichtbar abhaken.
 20a. medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
@@ -29409,12 +29500,12 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         spine.subject = `${pair} und ${spec.draw}`;
         spine.concreteAngle = spec.hook;
         spine.openQuestion = '';
-        spine.whyNow = `Der Anlass darf klein bleiben: genau heute passt der Flug, weil Ziel, Zeitfenster, Mitflieger und Tagesgepäck zusammenkommen.`;
+        spine.whyNow = spec.whyNow || spec.hook || `Der Anlass darf klein bleiben, muss aber konkret sein: ${spec.draw} trägt den Flug.`;
         spine.flightValue = _missionPrivateOutingRouteMood(targetName, route.distanceNm);
         spine.stakes = 'Es geht um Vorfreude, gemeinsame Zeit und einen sauberen Hinflug, nicht um Arbeit, Sightseeing oder eine Pflichtübergabe.';
-        spine.outcome = `Nach dem Abstellen wechseln beide vom Vorfeld in ${spec.reward}.`;
+        spine.outcome = spec.arrival || `Nach dem Abstellen wechseln beide vom Vorfeld in ${spec.reward}.`;
         spine.completion = spine.outcome;
-        spine.softFreedom = 'Erzähle frei, warm und direkt aus Dispatcher-Rolle. Die Daten sind Rohmaterial, keine Satzbausteine; baue eine kleine persönliche Tagesgeschichte und lasse Nebeninformationen weg, wenn sie den Fluss stören.';
+        spine.softFreedom = 'Erzähle frei, warm und direkt aus Dispatcher-Rolle. Der private Anlass muss das Rückgrat der Geschichte sein; Daten sind Rohmaterial, keine Satzbausteine.';
     }
     if (taskDomain === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
@@ -29491,7 +29582,7 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Welcher kleine Genuss- oder Tagesplan macht den Fly-out besonders?',
             'Klingen Route, Wetter und Abschluss wie ein natürlicher Dispatch-Zettel?'
         ],
-        styleRecipe: 'Schreibe wie ein kurzer Zuruf aus dem Clubbüro: warum die beiden heute rauswollen, was sie am Ziel vorhaben, warum das Gepäck dazu passt und wie der Tag nach dem Abstellen weitergeht. Keine Formularsprache, keine Standard-Eröffnungen, keine Semikolons und kein aufgesetztes Viel Spaß.'
+        styleRecipe: 'Schreibe wie ein kurzer Zuruf aus dem Clubbüro: genau ein privater Anlass trägt den ganzen Text. Café, Burger, Foto, Badesee, Museum, Familienbesuch oder Paartag sind nicht Nebenwörter, sondern der Grund, warum man heute fliegt. Keine Formularsprache, keine Standard-Eröffnungen, keine Semikolons und kein aufgesetztes Viel Spaß.'
     },
     apt_sightseeing: {
         tone: 'professionelle, freundliche A-B-Sightseeing-Notiz mit konkretem Zielort-Grund',
@@ -29810,6 +29901,8 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             activityKind,
             activityDraw: spec.draw,
             activityHook: spec.hook,
+            concreteOccasion: spec.occasion || '',
+            whyThisFlight: spec.whyNow || '',
             cargoMotif: _missionPrivateOutingCargoMotif(cargoText, spec),
             routeHint: {
                 from: _missionWriterV5Text(route.startName || route.startIcao || '', 80),
@@ -29818,9 +29911,9 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
                 mood: _missionPrivateOutingRouteMood(targetName, route.distanceNm)
             },
             dayFeeling: _missionWriterV5FirstSpineValue([spine.whyNow, parts.weather, spec.hook], 220),
-            arrivalMood: `Nach dem Abstellen beginnt ${spec.reward}, ohne Arbeits-, Taxi- oder Sightseeing-Auftrag.`,
+            arrivalMood: spec.arrival || `Nach dem Abstellen beginnt ${spec.reward}.`,
             briefingIntent: 'Schreibe ein warmes gesprochenes Briefing aus Dispatcher-Rolle: Hier sind die Flugdaten, mach daraus eine kleine persönliche Tagesgeschichte.',
-            freedom: 'Du musst keine Felder sichtbar abhaken. Wenn die Story dünn ist, dürfen Pax, Gepäck, Wetter, Strecke oder die Stimmung am Ziel den Text tragen.',
+            freedom: 'Du musst keine Felder sichtbar abhaken. Wenn die Story dünn ist, erfinde einen konkreten weichen Privatgrund und mache ihn zum Rückgrat; Pax, Gepäck, Wetter und Strecke dürfen nur stützen.',
             avoidPhrases: [
                 'Heute bleibt es herrlich privat',
                 'Euer Plan ist simpel',
@@ -29831,7 +29924,12 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
                 'Viel Spaß',
                 'privater GA-Fly-out nutzen',
                 'der schöne Zugang',
-                'Aktivität beginnt'
+                'Aktivität beginnt',
+                'genau dieser kleine Plan',
+                'der eigentliche Plan',
+                'Teil des freien Tages',
+                'Gepäck ist kein großes Thema',
+                'dort wartet der gute Teil'
             ]
         };
     }
@@ -30134,12 +30232,14 @@ function _missionWriterV5BuildBriefingBrief(contract = {}, context = {}) {
         const activityKind = _missionPrivateOutingActivityAnchor(context?.passenger || contract?.passenger || {}, cargoText, activitySource, frame);
         const spec = _missionPrivateOutingActivitySpec(activityKind, contract?.target?.name || contract?.route?.targetName || '');
         ingredients = _missionWriterV5Unique([
-            `${_missionPrivateOutingPairPhrase(context?.passenger || contract?.passenger || {})} wollen am Ziel ${spec.plan}.`,
+            spec.occasion || `${_missionPrivateOutingPairPhrase(context?.passenger || contract?.passenger || {})} wollen am Ziel ${spec.plan}.`,
             `Der persönliche Haken: ${spec.hook}`,
+            spec.whyNow ? `Warum heute: ${spec.whyNow}` : '',
             cargoText ? `${_missionPrivateOutingCargoMotif(cargoText, spec)} ist ein Motiv im Gepäck, keine Frachtliste.` : '',
+            spec.arrival ? `Nach der Landung: ${spec.arrival}` : '',
             _missionPrivateOutingRouteMood(contract?.target?.name || contract?.route?.targetName || '', contract?.route?.distanceNm),
             _missionWriterV5WeatherSummary(contract) ? `Wetter darf als Stimmung mitlaufen, wenn es natürlich passt: ${_missionWriterV5WeatherSummary(contract)}.` : ''
-        ], 5, 190);
+        ], 6, 220);
     }
     if (String(profile.taskDomain || '').toLowerCase() === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
@@ -30240,7 +30340,7 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
         ? '\n14. HISTORIKER: Schreibe eine historische Ortslesart mit einem weichen fachlichen Anlass, nicht eine Checkliste. "Warum heute" bedeutet hier Arbeitsstand oder Weiterverwendung, z.B. Archivnotiz, Infotafel-Entwurf, Führungsvorbereitung oder kurzer Chronikbeitrag; es darf beiläufig sein und muss nicht als eigener Pflichtsatz erscheinen. Wetter ist nur Flugrahmen und darf nicht noch einmal als eigentliche Begründung dienen, wenn es schon genannt wurde. Wähle wenige passende Belege wie Lage, Wege, Ortsbild, Hang/Tal oder Bauwerk; nicht alles aufzählen.'
         : '';
     const privateOutingPromptRule = promptTaskDomain === 'private_outing'
-        ? '\n14. PRIVATE-OUTING: Denk dir: "Hier im JSON sind die Daten zum privaten Fly-out, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, als würde dir ein Vereinskollege kurz erzählen, warum ihr heute zusammen dorthin fliegt. Baue eine kleine Hintergrundgeschichte: Warum wollen Pilot und Pax heute raus, was reizt sie am Ziel, was verrät das Gepäck, wie passt der Hinflug zur Stimmung, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Ihr-/Wir-Form nutzen, aber keine Ich-Form im story-Feld. Die Daten sind Rohmaterial, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen. Wenn der Anlass dünn ist, dürfen Route, Wetter, Tagesstimmung, Pax oder Gepäck die Geschichte tragen. Keine Semikolons, keine abgehackten Einzelsätze, keine dritte-Person-Distanz, keine Inventar- oder Motivliste. Vermeide Baukastenanfänge wie "Heute bleibt es herrlich privat", "Heute geht es mit ...", "Euer Plan ist simpel", "Die [Zahl] NM führen dich ...", "Das Wetter spielt mit", "Genießt den Flug; danach", "redlich verdient", "Viel Spaß", "privater GA-Fly-out nutzen", "der schöne Zugang" oder "nach dem Flug beginnt die Aktivität". Private Gründe dürfen warm und bildhaft sein, bleiben aber weich: keine echten Sehenswürdigkeiten, Veranstaltungen oder Ortsfakten erfinden, wenn sie nicht in den Daten stehen. Zähle nicht ausdrücklich auf, was es alles nicht ist; erzähle positiv, was die beiden vorhaben. Kein Sightseeing-, Charter-, Fracht- oder Arbeitsauftrag.'
+        ? '\n14. PRIVATE-OUTING: Denk dir: "Hier im JSON sind die Daten zum privaten Fly-out, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, als würde dir ein Vereinskollege kurz erzählen, warum ihr heute zusammen dorthin fliegt. Baue eine kleine Hintergrundgeschichte mit genau einem tragenden Anlass: der Café-Stopp, der Burger, die Fotorunde, der Badesee, das Museum, der Familienbesuch oder der Paartag muss das Rückgrat des Briefings sein, nicht nur ein Teilsatz. Erfinde einen weichen privaten Grund, warum dieser Anlass den Flug wert ist: das Café am Platz soll gut sein, der Kaffee ist die Ausrede für den Fly-out, die Kamera kommt erst nach der Landung raus, die Abkühlung lohnt die Strecke, der Besuch startet entspannter per Flugzeug. Du darfst direkt ansprechen und Du-/Ihr-/Wir-Form nutzen, aber keine Ich-Form im story-Feld. Die Daten sind Rohmaterial, keine Textbausteine; du musst nicht jede Nebeninformation erwähnen. Route, Wetter, Tagesstimmung, Pax oder Gepäck dürfen stützen, aber der Anlass trägt die Geschichte. Keine Semikolons, keine abgehackten Einzelsätze, keine dritte-Person-Distanz, keine Inventar- oder Motivliste. Vermeide vage Platzhalter wie "genau dieser kleine Plan", "der eigentliche Plan", "Teil des freien Tages", "Gepäck ist kein großes Thema", "dort wartet der gute Teil" oder "nach dem Flug beginnt die Aktivität". Vermeide auch Baukastenanfänge wie "Heute bleibt es herrlich privat", "Heute geht es mit ...", "Euer Plan ist simpel", "Die [Zahl] NM führen dich ...", "Das Wetter spielt mit", "Genießt den Flug; danach", "redlich verdient", "Viel Spaß", "privater GA-Fly-out nutzen" oder "der schöne Zugang". Private Gründe dürfen warm und bildhaft sein, bleiben aber weich: keine echten Sehenswürdigkeiten, Veranstaltungen oder Ortsfakten erfinden, wenn sie nicht in den Daten stehen. Zähle nicht ausdrücklich auf, was es alles nicht ist; erzähle positiv, was die beiden vorhaben. Kein Sightseeing-, Charter-, Fracht- oder Arbeitsauftrag.'
         : '';
     const clubUtilityPromptRule = promptTaskDomain === 'club_utility'
         ? '\n14. CLUB-UTILITY: Denk dir: "Hier im JSON sind die Daten zum Flug, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, nicht wie ein Formular. Baue eine kleine Hintergrundgeschichte: Was ist am Ziel gerade los, warum können wir unkompliziert helfen, wer oder was kommt mit, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Wir-Form nutzen. Die Ladung ist Wahrheit, aber keine sichtbare Inventarliste; fasse sie frei zu einem natürlichen Motiv zusammen und erwähne nur das, was der Geschichte hilft. Route, Wetter, Tagesstimmung oder Pax dürfen die Geschichte tragen, wenn der eigentliche Auftrag klein ist. Keine Semikolons, keine abgehackten Einzelsätze, keine kopierten StoryCore- oder domainDetails-Sätze. Vermeide Baukastenanfänge wie "Heute geht es mit ...", "Nimm [Name] bitte mit", "Die [Zahl] NM führen dich ...", "Am Ziel geht es kurz ...", "Keine anonyme Fracht", "nicht nur eine beliebige Box", "kennt den Ablauf am Boden", "die Sache direkt mit", "müssen heute", "nicht um eine große Logistiknummer", "bergig und waldig genug" oder "saubere VFR-Planung".'
