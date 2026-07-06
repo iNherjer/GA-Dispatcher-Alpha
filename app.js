@@ -18599,7 +18599,42 @@ function _missionPrivateOutingRouteMood(targetName = '', distanceNm = null, acti
         return `Der Weg nach ${target} ist lang genug, dass schon der Hinflug ein Stück von der kleinen Auszeit wird.`;
     }
     if (Number.isFinite(nm) && nm > 0) {
-        return `Der Flug nach ${target} gibt euch genug Ruhe, dass der private Plan schon unterwegs anfangen kann.`;
+        switch (activityKind) {
+            case 'burger':
+                return `Der Hinflug nach ${target} macht aus dem Burger keine Pflichtnummer, sondern genau den kleinen Ausflug, ueber den man spaeter noch grinst.`;
+            case 'picnic':
+                return `Der Weg nach ${target} gibt der Picknicktasche genug Vorfreude, bevor am Boden Decke und Zeit dran sind.`;
+            case 'cafe':
+                return `Der Flug nach ${target} ist genau lang genug, damit Kaffee und Kuchen am Platz wie ein echter kleiner Ausflug wirken.`;
+            case 'icecream':
+                return `Der Hinflug nach ${target} macht aus dem Eis-Stopp mehr als einen kurzen Halt nebenbei.`;
+            case 'breakfast':
+                return `Der Flug nach ${target} lässt den Vormittag schon unterwegs langsamer werden.`;
+            case 'dinner':
+                return `Der Hinflug nach ${target} ist der kleine Auftakt, bevor der Abend am Tisch weitergeht.`;
+            case 'swimming':
+                return `Der Hinflug nach ${target} ist kurz genug fuer Vorfreude und lang genug, um schon an Wasser und freie Zeit zu denken.`;
+            case 'hiking':
+                return `Auf dem Weg nach ${target} darf der Kopf schon in Richtung Rucksack, erster Pfad und Aussicht umschalten.`;
+            case 'museum':
+                return `Der Flug nach ${target} nimmt dem Museumsplan die Alltagskante und macht aus dem Weg schon den ruhigen Auftakt.`;
+            case 'shopping':
+            case 'market':
+                return `Der Weg durch die Luft macht aus den kleinen Erledigungen eher einen freien Vormittag als eine normale Anfahrt.`;
+            case 'photo':
+            case 'city':
+                return `Der Hinflug nach ${target} gibt euch Abstand vom Alltag, bevor ihr am Boden die kleine Runde anfangt.`;
+            case 'route':
+                return `Gerade diese Strecke ist heute Teil des Plans: ruhig rueberfliegen, nicht kreisen, wirklich ankommen.`;
+            case 'place':
+                return `Schon der Weg nach ${target} hilft beim Tapetenwechsel, ohne daraus eine grosse Reise machen zu muessen.`;
+            case 'family':
+                return `Der Flug nach ${target} macht aus dem Besuch keinen Pflichtweg, sondern einen leichten gemeinsamen Auftakt.`;
+            case 'wellness':
+                return `Der Hinflug nach ${target} darf heute schon der erste Abstand zum Alltag sein.`;
+            default:
+                return `Der Flug nach ${target} trägt euch ruhig in den freien Teil des Tages.`;
+        }
     }
     return '';
 }
@@ -18656,7 +18691,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Badetasche und Handtuch',
                 occasion: '{pair} fliegen nach {title}, weil die Abkühlung am Wasser heute der ganze Grund für den Fly-out ist.',
                 whyNow: 'Badetasche, warmes Wetter und ein freier Nachmittag greifen ineinander; deshalb lohnt sich der kurze Weg durch die Luft.',
-                cargoUse: '{cargo} liegt hinten, weil Wasser, Schatten und ein leichter Nachmittag den Anlass tragen.',
+                cargoUse: '{cargo} liegt hinten, und damit ist der Plan ziemlich klar: Wasser, Schatten und ein leichter Nachmittag.',
                 arrival: 'Am Ziel wird nur kurz sortiert, dann gehoeren Tasche und Handtuch zur Abkühlung.'
             };
         case 'burger':
@@ -18680,7 +18715,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Picknicktasche',
                 occasion: '{pair} fliegen nach {title}, weil die Picknicktasche heute nicht im Auto landen soll, sondern nach einem kleinen Flug am Ziel ausgepackt wird.',
                 whyNow: 'Decke ausbreiten, Kaffee einschenken und ein bisschen Zeit ohne Uhr: genau dafür lohnt sich der kleine Flug.',
-                cargoUse: '{cargo} passt dazu, weil der Plan klein bleiben darf: Tasche raus, Platz suchen, durchatmen.',
+                cargoUse: '{cargo} macht den Plan greifbar: Tasche raus, Platz suchen, durchatmen.',
                 arrival: 'Aus dem Flug soll ein Picknick mit kurzem Weg in den ruhigen Teil des Tages werden.'
             };
         case 'icecream':
@@ -18692,7 +18727,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'leichte Tasche und Sonnenbrillen',
                 occasion: '{pair} fliegen nach {title}, weil der Eis-Stopp am Ziel heute genau der kleine Grund ist, für den man privat losfliegt.',
                 whyNow: 'Es braucht keinen großen Plan; ein gutes Eis, ein kurzer Bummel und der Flug dorthin machen den Nachmittag rund.',
-                cargoUse: '{cargo} bleibt leicht, weil am Ziel nur Sonnenbrille, kurze Runde und Eiskaffee zählen.',
+                cargoUse: '{cargo} bleibt leicht; am Ziel zählen Sonnenbrille, kurze Runde und Eiskaffee.',
                 arrival: 'Der Eis-Stopp ist der lockere Anker, und der Zielort darf danach einfach ein bisschen wirken.'
             };
         case 'breakfast':
@@ -18716,7 +18751,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Jacken und kleine Tasche',
                 occasion: '{pair} fliegen nach {title}, weil am Ziel ein Abendessen wartet und der Hinflug schon zum gemeinsamen Auftakt gehört.',
                 whyNow: 'Das Zeitfenster passt: losfliegen, in Ruhe ankommen, Jacke greifen und den Abend am Boden weiterlaufen lassen.',
-                cargoUse: '{cargo} passt dazu, weil nur der kurze Weg zum Tisch zählt.',
+                cargoUse: '{cargo} ist mehr nicht als der kleine Tageskram fuer den Weg zum Tisch.',
                 arrival: 'Der Flug bleibt Auftakt, der Abend geht am Tisch weiter, fuer den ihr gestartet seid.'
             };
         case 'cafe':
@@ -18728,7 +18763,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Tagesrucksack und Jacke',
                 occasion: '{pair} fliegen nach {title}, weil der Kaffee am Ziel heute die Ausrede ist, aus einem normalen Vormittag einen kleinen Reiseflug zu machen.',
                 whyNow: 'Der Café-Stopp ist nicht Beiwerk: Ihr nehmt euch bewusst Zeit für Anflug, Vorfeld, Kuchen und eine Stunde ohne Termine.',
-                cargoUse: '{cargo} passt dazu, weil ihr am Ziel wirklich am Platz bleiben wollt.',
+                cargoUse: '{cargo} reicht, weil ihr am Ziel wirklich am Platz bleiben wollt.',
                 arrival: 'Der Café-Stopp darf den Nachmittag einfach eine Weile stehen lassen.'
             };
         case 'hiking':
@@ -18764,7 +18799,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'leichte Einkaufstasche',
                 occasion: '{pair} fliegen nach {title}, weil ein paar kleine Besorgungen heute die perfekte Ausrede für einen gemeinsamen Stadtbummel sind.',
                 whyNow: 'Die Einkaufsliste ist kurz genug, dass sie nicht nach Pflicht klingt; mit dem Flug wird daraus ein freier Vormittag.',
-                cargoUse: '{cargo} bleibt leicht, weil ein paar Kleinigkeiten und Zeit mehr nicht brauchen.',
+                cargoUse: '{cargo} bleibt leicht; ein paar Kleinigkeiten und Zeit brauchen nicht mehr.',
                 arrival: 'Leichte Tasche, ein paar Besorgungen und kein enger Plan tragen den Stadtbummel.'
             };
         case 'market':
@@ -18776,7 +18811,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'leichte Tasche',
                 occasion: '{pair} fliegen nach {title}, weil der kleine Markt am Ziel heute den ganzen Fly-out trägt.',
                 whyNow: 'Marktstand, Tasche und ein bisschen Proviant machen aus dem Hinflug einen echten kleinen Vormittag statt einer Erledigung.',
-                cargoUse: '{cargo} bleibt leicht, weil ihr nur ein paar Kleinigkeiten und Zeit mitnehmen wollt.',
+                cargoUse: '{cargo} bleibt leicht; ihr wollt nur ein paar Kleinigkeiten und Zeit mitnehmen.',
                 arrival: 'Marktstand, leichte Tasche und ein kurzer Bummel machen den kleinen Vormittag rund.'
             };
         case 'wellness':
@@ -18812,7 +18847,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Tagesrucksack und Jacke',
                 occasion: '{pair} fliegen nach {title}, weil schon der Hinflug dorthin ein kleiner Tapetenwechsel sein soll.',
                 whyNow: 'Die Strecke trägt den Anlass mit: nicht kreisen, nicht Sightseeing abhaken, sondern ruhig A-B fliegen und das Ziel am Ende wirklich erreichen.',
-                cargoUse: '{cargo} bleibt schlicht, weil es heute mehr um den Weg, das Ankommen und den Zielort als ruhigen Abschluss geht.',
+                cargoUse: '{cargo} bleibt schlicht; heute zaehlen Weg, Ankommen und der Zielort als ruhiger Abschluss.',
                 arrival: 'Der Zielort ist der ruhige Abschluss dieses kleinen Reiseflugs.'
             };
         case 'place':
@@ -18824,7 +18859,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'leichter Tagesrucksack',
                 occasion: '{pair} fliegen nach {title}, weil der Zielort selbst heute der Grund ist: kurz raus, ankommen und eine kleine Runde bleiben.',
                 whyNow: 'Der Anlass muss nicht größer sein als ein anderer Ort, ein erster Weg und das Gefühl, wirklich weggekommen zu sein.',
-                cargoUse: '{cargo} passt dazu, weil ihr nicht viel braucht außer Zeit und einen ersten Weg am Boden.',
+                cargoUse: '{cargo} erzaehlt schon genug: viel braucht ihr nicht ausser Zeit und einen ersten Weg am Boden.',
                 arrival: 'Ohne große Agenda: kurz orientieren, einen ersten Weg suchen und den Tapetenwechsel wirken lassen.'
             };
         case 'city':
@@ -18837,7 +18872,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'kleine Tasche',
                 occasion: '{pair} fliegen nach {title}, weil ihr euch dort eine kleine Fotorunde oder Ortsrunde vorgenommen habt.',
                 whyNow: 'Die Kamera macht den Anlass greifbar, und der Hinflug gibt der Runde genug Abstand vom normalen Alltag.',
-                cargoUse: '{cargo} passt dazu, weil die Runde klein bleibt: Kamera mitnehmen, Motive finden, langsam weitergehen.',
+                cargoUse: '{cargo} bleibt Teil einer kleinen Runde: Kamera mitnehmen, Motive finden, langsam weitergehen.',
                 arrival: 'Kamera und erster Weg gehoeren zusammen: ein paar Motive am Boden, dann darf der Zielort selbst wirken.'
             };
         default:
