@@ -18775,7 +18775,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Rucksack und Wanderschuhe',
                 occasion: '{pair} fliegen nach {title}, weil der erste Weg am Boden schon ausgesucht ist und die Aussicht gleich am Ziel beginnen soll.',
                 whyNow: 'Rucksack und Schuhe sind der eigentliche Plan; der Flug bringt euch direkt in den Kopfmodus für eine kleine Runde draußen.',
-                cargoUse: '{cargo} erzählt die Geschichte besser als jede Erklärung: Aus dem Flug soll ein Gang in die Landschaft werden.',
+                cargoUse: 'Mit {cargo} wird aus dem Ziel kein bloßer Stopp, sondern der Start für den ersten Weg draußen.',
                 arrival: 'Am Ziel wechseln Rucksack und Schuhe aus dem Flugzeug in den Start der Tour.'
             };
         case 'museum':
@@ -18847,7 +18847,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'Tagesrucksack und Jacke',
                 occasion: '{pair} fliegen nach {title}, weil schon der Hinflug dorthin ein kleiner Tapetenwechsel sein soll.',
                 whyNow: 'Die Strecke trägt den Anlass mit: nicht kreisen, nicht Sightseeing abhaken, sondern ruhig A-B fliegen und das Ziel am Ende wirklich erreichen.',
-                cargoUse: '{cargo} bleibt schlicht; heute zaehlen Weg, Ankommen und der Zielort als ruhiger Abschluss.',
+                cargoUse: '',
                 arrival: 'Der Zielort ist der ruhige Abschluss dieses kleinen Reiseflugs.'
             };
         case 'place':
@@ -18859,7 +18859,7 @@ function _missionPrivateOutingActivitySpec(activityKind = 'outing', targetName =
                 cargo: 'leichter Tagesrucksack',
                 occasion: '{pair} fliegen nach {title}, weil der Zielort selbst heute der Grund ist: kurz raus, ankommen und eine kleine Runde bleiben.',
                 whyNow: 'Der Anlass muss nicht größer sein als ein anderer Ort, ein erster Weg und das Gefühl, wirklich weggekommen zu sein.',
-                cargoUse: '{cargo} erzaehlt schon genug: viel braucht ihr nicht ausser Zeit und einen ersten Weg am Boden.',
+                cargoUse: '',
                 arrival: 'Ohne große Agenda: kurz orientieren, einen ersten Weg suchen und den Tapetenwechsel wirken lassen.'
             };
         case 'city':
@@ -19002,6 +19002,118 @@ function _missionPrivateOutingWeatherDispatchLine(weather = null, activityKind =
     return options[Math.abs(variant) % options.length];
 }
 
+function _missionPrivateOutingStoryColorLine({ weather = null, activityKind = 'outing', targetName = '', place = '', distanceNm = null, variant = 0 } = {}) {
+    const target = String(place || targetName || 'dem Ziel').trim() || 'dem Ziel';
+    const normalizedTarget = normalizeMissionText(`${targetName || ''} ${place || ''}`);
+    const { temp, cat, sky } = _missionPrivateOutingWeatherSnapshot(weather);
+    const nm = Number(distanceNm);
+    const distLabel = Number.isFinite(nm) && nm > 0 ? nm.toFixed(nm >= 50 ? 0 : 1).replace(/\.0$/, '') : '';
+    const weatherLabel = Number.isFinite(temp)
+        ? `${Math.round(temp)} Grad`
+        : [cat, sky].map(value => String(value || '').trim()).filter(Boolean).join(', ');
+    const warm = Number.isFinite(temp) && temp >= 22;
+    const hot = Number.isFinite(temp) && temp >= 28;
+    const coolEnough = Number.isFinite(temp) && temp <= 18;
+    const scenicTarget = /(schwarzwald|alb|allgaeu|allgäu|alpen|wald|see|plateau|berg|huegel|hügel)/i.test(normalizedTarget);
+    const longEnoughForRoute = Number.isFinite(nm) && nm >= 55;
+    const shortHop = Number.isFinite(nm) && nm > 0 && nm <= 25;
+    const options = [];
+
+    if (activityKind === 'swimming' && warm) {
+        options.push(`Bei ${weatherLabel} muss man so einen Badetag nicht lange verkaufen, da reicht der Blick aus dem Fenster und die Tasche im Gepäck.`);
+    }
+    if (activityKind === 'icecream' && warm) {
+        options.push(`Bei ${weatherLabel} klingt Eis nicht nach Programmpunkt, sondern nach der einzig vernünftigen Idee nach der Landung.`);
+    }
+    if (activityKind === 'picnic' && (warm || sky)) {
+        options.push('Das Wetter spielt euch in die Karten, und genau deshalb lohnt sich der kleine Umweg durch die Luft statt einfach irgendwo zuhause die Decke auszubreiten.');
+    }
+    if (activityKind === 'wellness' && coolEnough) {
+        options.push('Gerade weil es draußen eher frisch bleibt, passt der ruhige Flug als Auftakt zu einem Nachmittag, der danach bewusst langsamer werden darf.');
+    }
+    if (activityKind === 'cafe' && warm) {
+        options.push(`Mit ${weatherLabel} am Ziel wird der Kaffee vermutlich nicht lange allein bleiben, eher wird daraus diese halbe Stunde Platzsonne, die man nicht geplant bekommt.`);
+    }
+    if ((activityKind === 'photo' || activityKind === 'city') && (sky || scenicTarget || longEnoughForRoute)) {
+        options.push('Nehmt euch für den Hinflug ruhig den Blick nach draußen, denn auf so einer Strecke entstehen die ersten Bilder oft schon lange vor dem Aussteigen.');
+    }
+    if (activityKind === 'hiking' && (weatherLabel || scenicTarget)) {
+        options.push('Wenn die Sicht mitspielt, beginnt der Spaziergang im Grunde schon im Cockpit, erst von oben und später mit festen Schuhen am Boden.');
+    }
+    if ((activityKind === 'route' || activityKind === 'place' || scenicTarget || longEnoughForRoute) && distLabel) {
+        options.push(`Rund ${distLabel} NM sind genug, damit der Kopf wirklich umschaltet, ohne dass daraus ein großer Reisestress wird.`);
+        options.push(`Der Hinflug darf hier ruhig mitspielen: ein Stück Strecke, ein anderes Vorfeld am Ende und dazwischen genug Abstand vom Alltag.`);
+        options.push(`Gerade die Strecke macht den kleinen Plan reizvoll, weil der Tag schon in der Luft anders anfängt als sonst.`);
+    }
+    if (shortHop && ['breakfast', 'market', 'shopping', 'family', 'cafe'].includes(activityKind)) {
+        options.push('Der kurze Hüpfer ist genau richtig dafür: nicht groß planen, sauber rüberfliegen und den Anlass am Ziel den Ton angeben lassen.');
+    }
+    if (hot && ['breakfast', 'market', 'shopping'].includes(activityKind)) {
+        options.push('Weil es später warm wird, ist der frühe Flug fast schon Teil des Plans: erst entspannt ankommen, dann in Ruhe losziehen.');
+    }
+
+    const line = options.length ? options[Math.abs(variant) % options.length] : '';
+    return _missionPipelineV4EnsureSentence(line || '');
+}
+
+function _missionPrivateOutingClosingStoryLine(activityKind = 'outing', spec = {}, targetName = '', variant = 0) {
+    const target = String(targetName || 'dem Ziel').trim() || 'dem Ziel';
+    const optionsByKind = {
+        cafe: [
+            'Am Ziel reicht dann der kurze Weg zum Tisch, denn der Kaffee ist heute nicht der Zusatz, sondern der kleine Grund für den ganzen Flug.',
+            'Danach darf der Nachmittag am Platz einfach kurz stehen bleiben, mit Tasse, Blick aufs Vorfeld und ohne weiteren Auftrag.'
+        ],
+        burger: [
+            'Am Ziel darf der Burger dann zeigen, ob er die Reise wert war, und genau diese Frage macht den kleinen Ausflug rund.'
+        ],
+        icecream: [
+            'Nach der Landung geht es ohne großes Programm weiter zum Eis, genau so leicht soll sich der ganze Ausflug anfühlen.'
+        ],
+        picnic: [
+            'Am Ziel zählt dann nur noch ein guter Platz für die Decke und genug Ruhe, damit aus dem Flug wirklich ein freier Tag wird.'
+        ],
+        swimming: [
+            'Wenn ihr abgestellt habt, ist der Rest einfach: Tasche raus, weiter ans Wasser und den Flug als schönen Auftakt mitnehmen.'
+        ],
+        wellness: [
+            'Am Ziel nehmt ihr nur die Tasche mit und lasst den Rest bewusst langsamer werden.'
+        ],
+        hiking: [
+            'Am Ziel wechseln Rucksack und Schuhe aus dem Flugzeug in den eigentlichen Ausflug, ohne dass daraus ein Pflichtmarsch werden muss.'
+        ],
+        photo: [
+            'Am Boden geht es dann mit der Kamera weiter, aber der erste Teil der Geschichte entsteht schon auf dem Hinflug.'
+        ],
+        city: [
+            'Am Ziel reicht ein kurzer Ortswechsel, danach darf der kleine Stadtgang den Rest des Tages erzählen.'
+        ],
+        market: [
+            'Am Ziel geht es mit leichter Tasche weiter, und der Markt darf den Rest ganz ohne großen Plan sortieren.'
+        ],
+        shopping: [
+            'Danach wird aus der Besorgung ein gemeinsamer Bummel, und genau dafür lohnt sich der kurze Weg durch die Luft.'
+        ],
+        breakfast: [
+            'Nach der Landung soll der Vormittag mit Kaffee und Frühstück anfangen, nicht mit weiterer Anfahrt.'
+        ],
+        dinner: [
+            'Der Abend beginnt damit eigentlich schon im Anflug, und am Ziel läuft er nur noch am Tisch weiter.'
+        ],
+        route: [
+            `Wenn ihr in ${target} aussteigt, war der Hinflug nicht nur Transport, sondern schon der erste Teil des Ausflugs.`
+        ],
+        place: [
+            `In ${target} soll nicht viel erklärt werden müssen: aussteigen, kurz orientieren und den Tapetenwechsel wirken lassen.`
+        ],
+        family: [
+            'Am Ziel wartet der private Anschluss, und genau deshalb soll der Flug ruhig bleiben und den Besuch gut anfangen lassen.'
+        ]
+    };
+    const options = (optionsByKind[activityKind] || []).concat(spec?.arrival ? [String(spec.arrival)] : []).filter(Boolean);
+    const line = options.length ? options[Math.abs(variant) % options.length] : '';
+    return _missionPipelineV4EnsureSentence(line || '');
+}
+
 function _missionPrivateOutingEnjoyLine(weather = null, activityKind = 'outing', reward = 'den privaten Plan am Ziel', variant = 0) {
     const { temp } = _missionPrivateOutingWeatherSnapshot(weather);
     if (Number.isFinite(temp) && temp >= 30 && activityKind === 'swimming') {
@@ -19105,14 +19217,22 @@ function _missionPrivateOutingEnrichShortBriefing(story = '', contract = {}, pas
         || null;
     const additions = [];
     const normalized = normalizeMissionText(base);
-    const routeLine = _missionPrivateOutingRouteMood(place || targetName, route.distanceNm, resolvedActivityKind, spec);
-    if (routeLine && !/\b(strecke|route|weg\s+nach|hinflug|durch\s+die\s+luft|in\s+der\s+luft|nm|seemeilen)\b/.test(normalized)) {
-        additions.push(routeLine);
+    const colorLine = _missionPrivateOutingStoryColorLine({
+        weather,
+        activityKind: resolvedActivityKind,
+        targetName,
+        place,
+        distanceNm: route.distanceNm,
+        variant: sentenceCount
+    });
+    if (colorLine
+        && !/\b(strecke|route|weg\s+nach|hinflug|durch\s+die\s+luft|in\s+der\s+luft|nm|seemeilen|°c|grad|wetter|sicht|wind|wolken|bewoelkung|bewölkung|vfr|cavok)\b/.test(normalized)
+        && !_missionPipelineV4StoryFieldCovered(base, colorLine, 3)) {
+        additions.push(colorLine);
     }
-    const weatherSnapshot = _missionPrivateOutingWeatherSnapshot(weather);
-    const hasWeatherSignal = Number.isFinite(weatherSnapshot.temp) || Boolean(weatherSnapshot.cat || weatherSnapshot.sky);
-    if ((base.length < 190 || sentenceCount < 3) && hasWeatherSignal && !/\b(°c|grad|wetter|sicht|wind|wolken|bewoelkung|bewölkung|vfr|cavok)\b/.test(normalized)) {
-        additions.push(_missionPrivateOutingWeatherDispatchLine(weather, resolvedActivityKind, additions.length + sentenceCount));
+    if (!additions.length && base.length < 170 && sentenceCount < 3) {
+        const closingLine = _missionPrivateOutingClosingStoryLine(resolvedActivityKind, spec, targetName, sentenceCount);
+        if (closingLine && !_missionPipelineV4StoryFieldCovered(base, closingLine, 3)) additions.push(closingLine);
     }
     if (!additions.length) return base;
     return _missionPrivateOutingPolishSpokenBriefing([base, ...additions].join(' '));
@@ -19147,7 +19267,6 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
     const pairDative = hasFirstName ? `${firstName} und dich` : 'euch beide';
     const title = place && !/^dem ziel/i.test(place) ? place : target;
     const cargoMotif = _missionPrivateOutingCargoMotif(cargoText, spec);
-    const routeMood = _missionPrivateOutingRouteMood(title, distanceNm, resolvedActivityKind, spec);
     const fillSpec = value => String(value || '')
         .replace(/\{pair\}/g, pair)
         .replace(/\{pairDative\}/g, pairDative)
@@ -19156,7 +19275,7 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         .replace(/\{place\}/g, place)
         .replace(/\{firstName\}/g, firstName || 'ihr')
         .replace(/\{cargoMotif\}/g, cargoMotif || spec.cargo || 'Tagesgepäck')
-        .replace(/\{cargo\}/g, 'Das Gepäck')
+        .replace(/\{cargo\}/g, cargoMotif || spec.cargo || 'Das Gepäck')
         .replace(/\s+/g, ' ')
         .trim();
     const variant = _missionPrivateOutingStableVariant([
@@ -19179,18 +19298,30 @@ function _missionPrivateOutingComposeDispatchStory({ targetName = '', passenger 
         fillSpec(spec.hook)
     ].filter(Boolean);
     const line1 = line1Options[variant % line1Options.length];
-    const weatherForStory = weather || { summary: source };
-    const rawCargoLine = cargoMotif ? fillSpec(spec.cargoUse || '{cargo} gehört zu diesem Anlass und bleibt der kleine sichtbare Hinweis, was ihr am Ziel vorhabt.') : '';
-    const line1AlreadyCarriesCargo = /\b(gepaeck|gepäck|tasche|rucksack|jacke|handtuch|kamera|picknick|sonnenbrille|thermos|decke|wochenendtasche|wellness)\b/.test(normalizeMissionText(line1));
-    const cargoLineHelps = ['swimming', 'hiking', 'shopping', 'market', 'family', 'route', 'place'].includes(resolvedActivityKind);
-    const cargoLine = cargoLineHelps && !line1AlreadyCarriesCargo ? rawCargoLine : '';
-    const weatherSnapshot = _missionPrivateOutingWeatherSnapshot(weatherForStory);
-    const hasWeatherSignal = Number.isFinite(weatherSnapshot.temp) || Boolean(weatherSnapshot.cat || weatherSnapshot.sky);
-    const rawWeatherLine = _missionPrivateOutingWeatherDispatchLine(weatherForStory, resolvedActivityKind, Math.floor(variant / 3));
-    const weatherLineHelpsWithoutWeather = ['swimming', 'route', 'place'].includes(resolvedActivityKind);
-    const weatherLine = (hasWeatherSignal || weatherLineHelpsWithoutWeather) ? rawWeatherLine : '';
-    const routeLine = routeMood;
-    const baseLines = [line1, routeLine, cargoLine, weatherLine].filter(Boolean);
+    const cargoLine = '';
+    const colorLine = _missionPrivateOutingStoryColorLine({
+        weather,
+        activityKind: resolvedActivityKind,
+        targetName: target,
+        place: title,
+        distanceNm,
+        variant: Math.floor(variant / 3)
+    });
+    const closeLine = _missionPrivateOutingClosingStoryLine(resolvedActivityKind, spec, title, Math.floor(variant / 5));
+    const baseLines = [line1];
+    if (colorLine && !_missionPipelineV4StoryFieldCovered(baseLines.join(' '), colorLine, 3)) {
+        baseLines.push(colorLine);
+    } else if (cargoLine && !_missionPipelineV4StoryFieldCovered(baseLines.join(' '), cargoLine, 3)) {
+        baseLines.push(cargoLine);
+    }
+    if (cargoLine && baseLines.length < 3 && !_missionPipelineV4StoryFieldCovered(baseLines.join(' '), cargoLine, 3)) {
+        baseLines.push(cargoLine);
+    }
+    if (closeLine
+        && baseLines.length < 3
+        && !_missionPipelineV4StoryFieldCovered(baseLines.join(' '), closeLine, 3)) {
+        baseLines.push(closeLine);
+    }
     const composed = _missionPrivateOutingPolishSpokenBriefing(baseLines.join(' '));
     return _missionPrivateOutingEnrichShortBriefing(composed, {
         target: { name: target },
