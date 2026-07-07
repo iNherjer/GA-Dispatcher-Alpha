@@ -1912,6 +1912,35 @@ function parseMSFSCoords(coordStr) {
     return { lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lon.toFixed(6)) };
 }
 
+function missionMSFSUsesSarHeliCustomDestination(lastWp = null) {
+    if (lastWp?.isSarHeliHospital === true) return true;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+        ? currentMissionData
+        : null;
+    if (!md) return false;
+    try {
+        if (typeof missionIsSarHeliMission === 'function' && missionIsSarHeliMission(md)) return true;
+    } catch (_) {}
+    const contract = md.missionContract || md.missionContractV4 || md._missionContractV4 || null;
+    const sarHeli = md.sarHeli || contract?.sarHeli || null;
+    return !!(sarHeli && sarHeli.enabled);
+}
+
+function getMSFSWaypointProfileAlt(index) {
+    const profileAlt = typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints && vpAltWaypoints[index]
+        ? Number(vpAltWaypoints[index].altFt)
+        : NaN;
+    return Number.isFinite(profileAlt) ? profileAlt : NaN;
+}
+
+function getMSFSWaypointAltFt(wp = null, index = -1, fallbackAlt = 0) {
+    const explicitAlt = Number(wp?.altFt ?? wp?.elevationFt);
+    if (Number.isFinite(explicitAlt)) return explicitAlt;
+    const profileAlt = getMSFSWaypointProfileAlt(index);
+    if (Number.isFinite(profileAlt)) return profileAlt;
+    return Number.isFinite(Number(fallbackAlt)) ? Number(fallbackAlt) : 0;
+}
+
 window.exportMSFS = function() {
     if (!currentMissionData || routeWaypoints.length < 2) { alert("Kein aktiver Flugplan!"); return; }
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
@@ -1921,20 +1950,24 @@ window.exportMSFS = function() {
     const cruiseAlt = Number(document.getElementById('altSlider')?.value) || 4500;
     const firstWp = routeWaypoints[0];
     const lastWp = routeWaypoints[routeWaypoints.length - 1];
+    const sarHeliCustomDestination = missionMSFSUsesSarHeliCustomDestination(lastWp);
     const departureAirport = isMSFSAirportIdent(currentStartICAO);
-    const destinationAirport = isMSFSAirportIdent(currentDestICAO);
+    const destinationAirport = isMSFSAirportIdent(currentDestICAO) && !sarHeliCustomDestination;
     const departureId = departureAirport ? normalizeMSFSIdent(currentStartICAO) : sanitizeMSFSWaypointId(firstWp?.name, 'START');
     const destinationId = destinationAirport ? normalizeMSFSIdent(currentDestICAO) : sanitizeMSFSWaypointId(lastWp?.name, 'DEST');
     const depElevRaw = typeof currentDepElev !== 'undefined' ? currentDepElev : 0;
     const destElevRaw = typeof currentDestElev !== 'undefined' ? currentDestElev : 0;
     const depElevation = Number.isFinite(Number(depElevRaw)) ? Number(depElevRaw) : 0;
     const destElevation = Number.isFinite(Number(destElevRaw)) ? Number(destElevRaw) : 0;
+    const destinationElevation = destinationAirport
+        ? destElevation
+        : (sarHeliCustomDestination ? getMSFSWaypointAltFt(lastWp, routeWaypoints.length - 1, cruiseAlt) : 0);
     const depName = typeof currentSName !== 'undefined' ? currentSName : '';
     const destName = typeof currentDName !== 'undefined' ? currentDName : '';
     const planTitle = `${departureId} to ${destinationId}`;
     const planDescr = String(currentMissionData.mission || planTitle).slice(0, 180);
 
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<SimBase.Document Type="AceXML" version="1,0">\n  <Descr>AceXML Document</Descr>\n  <FlightPlan.FlightPlan>\n    <Title>${escapeMSFSXml(planTitle)}</Title>\n    <FPType>VFR</FPType>\n    <CruisingAlt>${escapeMSFSXml(cruiseAlt.toFixed(0))}</CruisingAlt>\n    <DepartureID>${escapeMSFSXml(departureId)}</DepartureID>\n    <DepartureLLA>${formatMSFSCoords(firstWp.lat, firstWp.lng || firstWp.lon)}, ${formatMSFSElevation(departureAirport ? depElevation : 0)}</DepartureLLA>\n    <DestinationID>${escapeMSFSXml(destinationId)}</DestinationID>\n    <DestinationLLA>${formatMSFSCoords(lastWp.lat, lastWp.lng || lastWp.lon)}, ${formatMSFSElevation(destinationAirport ? destElevation : 0)}</DestinationLLA>\n    <Descr>${escapeMSFSXml(planDescr)}</Descr>\n    <DepartureName>${escapeMSFSXml(depName || departureId)}</DepartureName>\n    <DestinationName>${escapeMSFSXml(destName || destinationId)}</DestinationName>\n    <AppVersion>\n      <AppVersionMajor>11</AppVersionMajor>\n      <AppVersionBuild>282174</AppVersionBuild>\n    </AppVersion>\n`;
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<SimBase.Document Type="AceXML" version="1,0">\n  <Descr>AceXML Document</Descr>\n  <FlightPlan.FlightPlan>\n    <Title>${escapeMSFSXml(planTitle)}</Title>\n    <FPType>VFR</FPType>\n    <CruisingAlt>${escapeMSFSXml(cruiseAlt.toFixed(0))}</CruisingAlt>\n    <DepartureID>${escapeMSFSXml(departureId)}</DepartureID>\n    <DepartureLLA>${formatMSFSCoords(firstWp.lat, firstWp.lng || firstWp.lon)}, ${formatMSFSElevation(departureAirport ? depElevation : 0)}</DepartureLLA>\n    <DestinationID>${escapeMSFSXml(destinationId)}</DestinationID>\n    <DestinationLLA>${formatMSFSCoords(lastWp.lat, lastWp.lng || lastWp.lon)}, ${formatMSFSElevation(destinationElevation)}</DestinationLLA>\n    <Descr>${escapeMSFSXml(planDescr)}</Descr>\n    <DepartureName>${escapeMSFSXml(depName || departureId)}</DepartureName>\n    <DestinationName>${escapeMSFSXml(destName || destinationId)}</DestinationName>\n    <AppVersion>\n      <AppVersionMajor>11</AppVersionMajor>\n      <AppVersionBuild>282174</AppVersionBuild>\n    </AppVersion>\n`;
     
     routeWaypoints.forEach((wp, i) => {
         const isFirst = i === 0;
@@ -1942,14 +1975,11 @@ window.exportMSFS = function() {
         const airportIdent = isFirst && departureAirport
             ? departureId
             : (isLast && destinationAirport ? destinationId : '');
-        const wpName = airportIdent || sanitizeMSFSWaypointId(wp.name, `WP${i}`);
+        const wpName = airportIdent || (isLast ? destinationId : sanitizeMSFSWaypointId(wp.name, `WP${i}`));
         const wpType = airportIdent ? 'Airport' : 'User';
-        const profileAlt = typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints && vpAltWaypoints[i]
-            ? Number(vpAltWaypoints[i].altFt)
-            : NaN;
         const alt = airportIdent
             ? (isFirst ? depElevation : destElevation)
-            : (Number.isFinite(profileAlt) ? profileAlt : cruiseAlt);
+            : getMSFSWaypointAltFt(wp, i, cruiseAlt);
         xml += `    <ATCWaypoint id="${escapeMSFSXml(wpName)}">\n      <ATCWaypointType>${wpType}</ATCWaypointType>\n      <WorldPosition>${formatMSFSCoords(wp.lat, wp.lng || wp.lon)}, ${formatMSFSElevation(alt)}</WorldPosition>\n      <SpeedMaxFP>-1</SpeedMaxFP>\n`;
         if (airportIdent) {
             xml += `      <ICAO>\n        <ICAOIdent>${escapeMSFSXml(airportIdent)}</ICAOIdent>\n      </ICAO>\n`;
@@ -1962,7 +1992,7 @@ window.exportMSFS = function() {
     const a = document.createElement('a');
     const objectUrl = URL.createObjectURL(blob);
     a.href = objectUrl;
-    a.download = `VFR_${sanitizeMSFSWaypointId(currentStartICAO, 'START')}_to_${sanitizeMSFSWaypointId(currentDestICAO, 'DEST')}.pln`;
+    a.download = `VFR_${departureId}_to_${destinationId}.pln`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     closeTransferModal();
