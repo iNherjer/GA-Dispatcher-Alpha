@@ -56,6 +56,7 @@ const BUG_REPORT_PREFIX = "bug:report:";
 const BUG_OPEN_PREFIX = "bug:open:";
 const BUG_REPORT_TTL = 180 * 24 * 60 * 60; // 180 Tage
 const BUG_MAX_BODY_BYTES = 350 * 1024;
+const ADMIN_KV_LIST_MAX = 5000;
 
 const COMMUNITY_CHECKLIST_PREFIX = "checklist:community:";
 const COMMUNITY_CHECKLIST_INDEX_PREFIX = "checklist:community:index:";
@@ -74,6 +75,23 @@ function safeJsonParse(raw, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function parseDateMs(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value < 10000000000 ? value * 1000 : value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Date.parse(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric < 10000000000 ? numeric * 1000 : numeric;
+  }
+  return null;
+}
+
+function isoFromMs(ms) {
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : "";
 }
 
 function clampNumber(value, min, max, fallback = null) {
@@ -624,6 +642,252 @@ function projectBugListItem(report) {
   };
 }
 
+function kvListLimit(value, fallback = 1000) {
+  const parsed = Number.parseInt(value || "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, 1), ADMIN_KV_LIST_MAX);
+}
+
+async function listKvKeys(env, options = {}) {
+  const prefix = String(options.prefix || "");
+  const requestedLimit = kvListLimit(options.limit, 1000);
+  const perPage = Math.min(1000, requestedLimit);
+  const keys = [];
+  let cursor = "";
+  let listComplete = true;
+  let pages = 0;
+
+  do {
+    const request = { prefix, limit: Math.min(perPage, requestedLimit - keys.length) };
+    if (cursor) request.cursor = cursor;
+    const listed = await env.GA_SYNC_KV.list(request);
+    const pageKeys = Array.isArray(listed?.keys) ? listed.keys : [];
+    keys.push(...pageKeys);
+    cursor = String(listed?.cursor || "");
+    listComplete = listed?.list_complete !== false;
+    pages++;
+  } while (keys.length < requestedLimit && cursor && !listComplete && pages < 20);
+
+  return {
+    keys: keys.slice(0, requestedLimit),
+    listComplete: listComplete && !cursor,
+    cursor
+  };
+}
+
+function isReservedSyncKvKey(keyName) {
+  const name = String(keyName || "");
+  return !name
+    || name.startsWith("GROUP_")
+    || name.startsWith(BUG_REPORT_PREFIX)
+    || name.startsWith(BUG_OPEN_PREFIX)
+    || name.startsWith(COMMUNITY_CHECKLIST_PREFIX)
+    || name.startsWith(COMMUNITY_CHECKLIST_INDEX_PREFIX)
+    || name === COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY;
+}
+
+function pickString(...values) {
+  for (const value of values) {
+    const str = trimText(value, 240);
+    if (str) return str;
+  }
+  return "";
+}
+
+function isLikelySyncUserRecord(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (typeof data.pin === "string" || typeof data.pin === "number") return true;
+  return !!(
+    data.registeredAt
+    || data.registeredAtMs
+    || data.lastModified
+    || Array.isArray(data.pinboard)
+    || Array.isArray(data.logbook)
+    || Array.isArray(data.flights)
+    || data.activeMission
+    || data.profile
+  );
+}
+
+function projectSyncUser(keyName, data) {
+  const registeredMs = parseDateMs(data.registeredAt)
+    || parseDateMs(data.registeredAtMs)
+    || parseDateMs(data.createdAt)
+    || parseDateMs(data.createdAtMs)
+    || parseDateMs(data.firstSeenAt)
+    || parseDateMs(data.firstSeenAtMs);
+  const lastModifiedMs = parseDateMs(data.lastModified)
+    || parseDateMs(data.updatedAt)
+    || parseDateMs(data.savedAt);
+  const profile = data.profile && typeof data.profile === "object" ? data.profile : {};
+  const name = pickString(
+    profile.name,
+    profile.displayName,
+    data.pilotName,
+    data.displayName,
+    data.name,
+    data.groupNick,
+    data.syncId,
+    keyName
+  );
+
+  return {
+    id: String(keyName || ""),
+    name: name || String(keyName || ""),
+    registeredAt: isoFromMs(registeredMs),
+    registrationKnown: !!registeredMs,
+    lastModified: isoFromMs(lastModifiedMs),
+    hasPinboard: Array.isArray(data.pinboard) && data.pinboard.length > 0,
+    hasLogbook: Array.isArray(data.logbook) && data.logbook.length > 0,
+    hasActiveMission: !!data.activeMission
+  };
+}
+
+async function handleAdminUsers(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env) || typeof env.GA_SYNC_KV.list !== "function") {
+    return json({
+      error: "Sync KV binding missing (GA_SYNC_KV). Add KV binding in worker settings or wrangler.toml."
+    }, 503);
+  }
+  if (!isBugAdminAuthorized(request, requestUrl, env)) {
+    return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  const limit = kvListLimit(requestUrl.searchParams.get("limit"), 1000);
+  const listed = await listKvKeys(env, { limit: Math.min(ADMIN_KV_LIST_MAX, Math.max(limit * 4, limit)) });
+  const items = [];
+  let scanned = 0;
+
+  for (const key of listed.keys || []) {
+    const keyName = String(key?.name || "");
+    scanned++;
+    if (isReservedSyncKvKey(keyName)) continue;
+    let raw = null;
+    try {
+      raw = await env.GA_SYNC_KV.get(keyName);
+    } catch {
+      continue;
+    }
+    const data = safeJsonParse(raw, null);
+    if (!isLikelySyncUserRecord(data)) continue;
+    items.push(projectSyncUser(keyName, data));
+    if (items.length >= limit) break;
+  }
+
+  items.sort((a, b) => {
+    const bReg = parseDateMs(b.registeredAt) || parseDateMs(b.lastModified) || 0;
+    const aReg = parseDateMs(a.registeredAt) || parseDateMs(a.lastModified) || 0;
+    if (bReg !== aReg) return bReg - aReg;
+    return String(a.name || a.id).localeCompare(String(b.name || b.id), "de");
+  });
+
+  return json({
+    ok: true,
+    count: items.length,
+    scanned,
+    truncated: items.length >= limit || !listed.listComplete,
+    items
+  }, 200, { "Cache-Control": "no-store" });
+}
+
+function bugOpenCreatedMsFromKey(keyName) {
+  const part = String(keyName || "").slice(BUG_OPEN_PREFIX.length).split(":")[0];
+  const reversed = Number(part);
+  if (!Number.isFinite(reversed)) return null;
+  const createdMs = 9999999999999 - reversed;
+  return Number.isFinite(createdMs) && createdMs > 0 ? createdMs : null;
+}
+
+async function handleBugReportPurge(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env) || typeof env.GA_SYNC_KV.list !== "function" || typeof env.GA_SYNC_KV.delete !== "function") {
+    return json({
+      error: "Sync KV binding missing (GA_SYNC_KV). Add KV binding in worker settings or wrangler.toml."
+    }, 503);
+  }
+  if (!isBugAdminAuthorized(request, requestUrl, env)) {
+    return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  const rawBody = await request.text();
+  const payload = rawBody ? safeJsonParse(rawBody, {}) : {};
+  const olderThanDays = clampNumber(
+    payload?.olderThanDays ?? requestUrl.searchParams.get("olderThanDays"),
+    0,
+    3650,
+    30
+  );
+  const includeUnknown = !!(payload && payload.includeUnknown);
+  const dryRun = payload?.dryRun !== false && requestUrl.searchParams.get("dryRun") !== "false";
+  const limit = kvListLimit(payload?.limit ?? requestUrl.searchParams.get("limit"), ADMIN_KV_LIST_MAX);
+  const cutoffMs = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+  const keysToDelete = new Set();
+  const reportIdsToDelete = new Set();
+  let scannedReports = 0;
+  let scannedOpenKeys = 0;
+  let unknownDateReports = 0;
+
+  const reportKeys = await listKvKeys(env, { prefix: BUG_REPORT_PREFIX, limit });
+  for (const key of reportKeys.keys || []) {
+    const keyName = String(key?.name || "");
+    scannedReports++;
+    let raw = null;
+    try {
+      raw = await env.GA_SYNC_KV.get(keyName);
+    } catch {
+      raw = null;
+    }
+    const report = safeJsonParse(raw, null) || {};
+    const id = trimText(report.id, 160) || keyName.slice(BUG_REPORT_PREFIX.length);
+    const createdMs = parseDateMs(report.createdAt);
+    if (!createdMs) unknownDateReports++;
+    if ((createdMs && createdMs < cutoffMs) || (!createdMs && includeUnknown)) {
+      keysToDelete.add(keyName);
+      if (id) reportIdsToDelete.add(id);
+      if (report.openKey) keysToDelete.add(String(report.openKey));
+    }
+  }
+
+  const openKeys = await listKvKeys(env, { prefix: BUG_OPEN_PREFIX, limit });
+  for (const key of openKeys.keys || []) {
+    const keyName = String(key?.name || "");
+    scannedOpenKeys++;
+    const id = keyName.split(":").pop();
+    const createdMs = bugOpenCreatedMsFromKey(keyName);
+    if ((id && reportIdsToDelete.has(id)) || (createdMs && createdMs < cutoffMs)) {
+      keysToDelete.add(keyName);
+    }
+  }
+
+  let deleted = 0;
+  if (!dryRun) {
+    for (const keyName of keysToDelete) {
+      try {
+        await env.GA_SYNC_KV.delete(keyName);
+        deleted++;
+      } catch (error) {
+        return json({ ok: false, error: "KV-Delete fehlgeschlagen", key: keyName, message: String(error?.message || error) }, 502);
+      }
+    }
+  }
+
+  return json({
+    ok: true,
+    dryRun,
+    olderThanDays,
+    cutoff: isoFromMs(cutoffMs),
+    scannedReports,
+    scannedOpenKeys,
+    unknownDateReports,
+    matchedKeys: keysToDelete.size,
+    deleted,
+    truncated: !reportKeys.listComplete || !openKeys.listComplete,
+    sampleKeys: Array.from(keysToDelete).slice(0, 80)
+  }, 200, { "Cache-Control": "no-store" });
+}
+
 async function handleProblemReports(request, requestUrl, env, ctx) {
   if (!hasSyncKvBinding(env)) {
     return json({
@@ -637,6 +901,10 @@ async function handleProblemReports(request, requestUrl, env, ctx) {
   // /api/problem-reports/:id/ack
   const reportId = pathParts[2] || "";
   const subAction = pathParts[3] || "";
+
+  if (reportId === "purge") {
+    return handleBugReportPurge(request, requestUrl, env);
+  }
 
   if (request.method === "POST" && !reportId) {
     const rawBody = await request.text();
@@ -1617,6 +1885,10 @@ export default {
 
     const requestUrl = new URL(request.url);
 
+    if (requestUrl.pathname === "/api/admin/users") {
+      return handleAdminUsers(request, requestUrl, env);
+    }
+
     // ==========================================
     // 1. CLOUD-SYNC (MIT STRIKTER PIN-PRÜFUNG)
     // ==========================================
@@ -1665,7 +1937,7 @@ export default {
       }
 
       if (request.method === "POST") {
-        const rawBody = await request.text();
+        let rawBody = await request.text();
         if (rawBody.length > 100 * 1024) {
           return json({ error: "Zu groß" }, 413);
         }
@@ -1684,6 +1956,20 @@ export default {
             if (!isGroupKey && existingData.pin && existingData.pin !== incomingData.pin) {
               return json({ error: "Falscher PIN" }, 401);
             }
+            if (!isGroupKey) {
+              const registeredAt = isoFromMs(parseDateMs(existingData.registeredAt) || parseDateMs(existingData.createdAt) || parseDateMs(existingData.firstSeenAt));
+              const registeredAtMs = parseDateMs(existingData.registeredAtMs) || parseDateMs(registeredAt);
+              if (registeredAt && !incomingData.registeredAt) incomingData.registeredAt = registeredAt;
+              if (registeredAtMs && !incomingData.registeredAtMs) incomingData.registeredAtMs = registeredAtMs;
+              if (!incomingData.syncId) incomingData.syncId = pilotId;
+              rawBody = JSON.stringify(incomingData);
+            }
+          } else if (!isGroupKey) {
+            const registeredAt = nowIso();
+            incomingData.registeredAt = registeredAt;
+            incomingData.registeredAtMs = Date.parse(registeredAt);
+            if (!incomingData.syncId) incomingData.syncId = pilotId;
+            rawBody = JSON.stringify(incomingData);
           }
 
           try {

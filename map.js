@@ -924,6 +924,19 @@ window.isMapHintEnabled = function(key) {
     return window.mapHints[key] !== false;
 };
 
+function refreshCompassHintVisibility() {
+    const wrap = document.getElementById('compassRoseWrap');
+    if (!wrap) return;
+    const enabled = window.mapHints.compass !== false;
+    wrap.classList.toggle('compass-hint-off', !enabled);
+    if (!enabled) return;
+
+    const hdg = Number(window.lastLiveGpsPos?.hdg ?? window.lastLiveFlightData?.hdg ?? window.lastLiveFlightData?.headingDeg ?? window.lastLiveFlightData?.heading);
+    if (Number.isFinite(hdg) && typeof window.updateCompassHeading === 'function') {
+        window.updateCompassHeading(hdg);
+    }
+}
+
 function isMapWeatherMasterEnabled() {
     return !(window.mapHints && window.mapHints.weather === false);
 }
@@ -1064,8 +1077,7 @@ function applyMapHintEffects(key) {
         if (typeof window.refreshRouteProgressBar === 'function') window.refreshRouteProgressBar();
     }
     if (key === 'compass') {
-        const wrap = document.getElementById('compassRoseWrap');
-        if (wrap) wrap.classList.toggle('compass-hint-off', !window.mapHints.compass);
+        refreshCompassHintVisibility();
     }
     if (key === 'magentaLine' && window.mapHints.magentaLine === false) {
         if (typeof window.clearLiveToWpLine === 'function') window.clearLiveToWpLine();
@@ -6041,6 +6053,7 @@ function syncMapDrawUi() {
     const measureToolBtn = document.getElementById('mapToolMeasure');
     const stopwatchToolBtn = document.getElementById('mapToolStopwatch');
     const calculatorToolBtn = document.getElementById('mapToolCalculator');
+    const e6bToolBtn = document.getElementById('mapToolE6B');
     const menu = document.getElementById('mapDrawMenu');
     const weightInput = document.getElementById('mapDrawWeightInput');
     document.body.classList.toggle('map-drawing-active', mapDrawState.enabled);
@@ -6068,6 +6081,10 @@ function syncMapDrawUi() {
     if (calculatorToolBtn) {
         const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('calculator');
         calculatorToolBtn.classList.toggle('active', !!open);
+    }
+    if (e6bToolBtn) {
+        const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('e6b');
+        e6bToolBtn.classList.toggle('active', !!open);
     }
     if (menu) {
         const shouldOpen = mapDrawState.menuOpen;
@@ -6248,6 +6265,10 @@ function activateMapDrawTool(kind, evt) {
         mapDrawState.menuOpen = false;
     } else if (kind === 'calculator') {
         if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('calculator');
+        mapDrawState.menuOpen = false;
+    } else if (kind === 'e6b') {
+        if (typeof window.openMapUtilityTool === 'function') window.openMapUtilityTool('e6b');
+        if (mapDrawState.enabled) toggleMapDrawMode(false);
         mapDrawState.menuOpen = false;
     }
     syncMapDrawUi();
@@ -9484,6 +9505,7 @@ function toggleMapTable(forceInternal) {
                 }
             }, 500);
         } else {
+            if (typeof window.closeMapUtilityTool === 'function') window.closeMapUtilityTool('e6b');
             if (typeof window.gaChecklistCloseDrawer === 'function') window.gaChecklistCloseDrawer();
             if (!win95WindowMode) unlockBodyScroll();
             exitMapFullscreenMode();
@@ -9840,6 +9862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('traffic');
     applyMapHintEffects('autoZoom');
     applyMapHintEffects('routeProgress');
+    applyMapHintEffects('compass');
     applyMapHintEffects('lowFps');
     vpUpdateVfrUi();
 

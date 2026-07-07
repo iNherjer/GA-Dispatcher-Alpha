@@ -11,5 +11,8 @@
   "_pbfTtlDays_help": "Lokale Geofabrik-PBFs im cacheDir/pbf werden erst nach dieser Anzahl Tage neu geladen.",
 
   "infraBatchTileMax": 10,
-  "_infraBatchTileMax_help": "Maximale Anzahl ausgewaehlter Tiles, die pro Infra-Lade-Queue in PBF-Batches zusammengefasst werden."
+  "_infraBatchTileMax_help": "Maximale Anzahl ausgewaehlter Tiles, die pro Infra-Lade-Queue in PBF-Batches zusammengefasst werden.",
+
+  "completeBatchTileMax": 10,
+  "_completeBatchTileMax_help": "Maximale Anzahl normaler Core/POI/Infra-Tiles, die bei gleicher einzelner PBF-Quelle in einem Complete-PBF-Batch verarbeitet werden."
 }

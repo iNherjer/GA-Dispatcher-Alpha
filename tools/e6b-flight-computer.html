@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E6B Flight Computer Prototype</title>
+    <link rel="stylesheet" href="./e6b-flight-computer.css?v=20260707-chromesync01">
+</head>
+<body>
+    <header class="e6b-topbar">
+        <div>
+            <h1>E6B Flight Computer</h1>
+            <span>SVG-Scheiben-Prototyp</span>
+        </div>
+        <nav class="side-switch" aria-label="E6B Seite">
+            <button type="button" class="active" data-side="front">CONV</button>
+            <button type="button" data-side="wind">WIND</button>
+        </nav>
+    </header>
+
+    <main class="e6b-layout">
+        <section class="e6b-stage" aria-label="E6B Flight Computer">
+            <div id="e6bComputer" class="e6b-computer showing-front">
+                <div id="e6bFrontStack" class="e6b-stack front-stack" data-dial="front" aria-label="E6B Conversion Seite">
+                    <img class="e6b-board-layer e6b-reference-art" src="./e6b-assets/reference-front-fixed.svg?v=20260706-windde01" alt="">
+                    <svg class="e6b-board-layer e6b-reference-cleanup-overlay e6b-reference-cleanup-fixed" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                        <path class="e6b-cleanup-title-band" d="M112 62 A250 250 0 0 1 398 62 L385 96 A214 214 0 0 0 125 96 Z"></path>
+                        <path class="e6b-cleanup-window-fill" d="M130.15 238.22 L109.67 228.92 A160.18 160.18 0 0 1 193.75 147.57 L202.38 168.34 A137.66 137.66 0 0 0 130.15 238.22 Z"></path>
+                        <path class="e6b-cleanup-window-fill" d="M351.29 259.14 A103.21 103.21 0 0 0 294.29 199.96 L302.83 179.45 A125.52 125.52 0 0 1 372.08 251.45 Z"></path>
+                        <path class="e6b-cleanup-window-fill" d="M362.3 150.7 C379.5 162.9 394.1 178.3 405.2 196.2 L388.7 206.5 C378.9 190.8 366.2 177.2 351.1 166.5 Z"></path>
+                        <path class="e6b-cleanup-window-fill" d="M211 184 L299 184 L288 156 L222 156 Z"></path>
+                    </svg>
+                    <svg class="e6b-board-layer e6b-front-window-plan-overlay e6b-front-window-plan-fixed-overlay" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                        <g class="e6b-window-plan-scales e6b-window-plan-background-scales" data-scale-layer-root="background"></g>
+                    </svg>
+                    <div id="e6bFrontRotor" class="e6b-board-layer e6b-rotating-board e6b-front-rotor">
+                        <img class="e6b-board-layer e6b-reference-art" src="./e6b-assets/reference-front-rotor.svg?v=20260706-windde01" alt="">
+                        <svg class="e6b-board-layer e6b-reference-cleanup-overlay e6b-reference-cleanup-rotor" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                            <circle class="e6b-cleanup-center-fill" cx="255" cy="295" r="137"></circle>
+                            <path class="e6b-cleanup-window-fill" d="M351.29 259.14 A103.21 103.21 0 0 0 294.29 199.96 L302.83 179.45 A125.52 125.52 0 0 1 372.08 251.45 Z"></path>
+                            <path class="e6b-cleanup-window-fill" d="M362.3 150.7 C379.5 162.9 394.1 178.3 405.2 196.2 L388.7 206.5 C378.9 190.8 366.2 177.2 351.1 166.5 Z"></path>
+                            <path class="e6b-cleanup-window-fill" d="M211 184 L299 184 L288 156 L222 156 Z"></path>
+                        </svg>
+                        <svg class="e6b-front-label-overlay" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                            <defs>
+                                <clipPath id="e6bFrontTextDisc">
+                                    <circle cx="255" cy="295" r="160"></circle>
+                                </clipPath>
+                            </defs>
+                            <g clip-path="url(#e6bFrontTextDisc)" transform="rotate(11.43 255 295)">
+                                <line class="e6b-front-separator" x1="102" y1="336" x2="408" y2="336"></line>
+                                <line class="e6b-front-separator" x1="255" y1="220" x2="255" y2="438"></line>
+
+                                <text class="e6b-front-heading" x="196" y="258">
+                                    <tspan x="196" dy="0">FÜR HÖHEN-</tspan>
+                                    <tspan x="196" dy="10">BERECHNUNGEN</tspan>
+                                </text>
+                                <text class="e6b-front-copy" x="196" y="290">
+                                    <tspan x="196" dy="0">EINSTELLEN: AUSSENTEMP.</tspan>
+                                    <tspan x="196" dy="7.2">ÜBER DRUCKHÖHE</tspan>
+                                    <tspan x="196" dy="8.5">ABLESEN: WAHRE HÖHE</tspan>
+                                    <tspan x="196" dy="7.2">ÜBER KALIBRIERTER HÖHE</tspan>
+                                </text>
+
+                                <text class="e6b-front-heading" x="314" y="258">
+                                    <tspan x="314" dy="0">FÜR TAS &</tspan>
+                                    <tspan x="314" dy="10">DICHTEHÖHE</tspan>
+                                </text>
+                                <text class="e6b-front-copy" x="314" y="290">
+                                    <tspan x="314" dy="0">EINSTELLEN: AUSSENTEMP.</tspan>
+                                    <tspan x="314" dy="7.2">ÜBER DRUCKHÖHE</tspan>
+                                    <tspan x="314" dy="8.5">ABLESEN: TAS ÜBER CAS</tspan>
+                                    <tspan x="314" dy="7.2">(DICHTEHÖHE IM FENSTER)</tspan>
+                                </text>
+
+                                <text class="e6b-front-heading" x="196" y="360">FÜR ZEIT UND STRECKE</text>
+                                <text class="e6b-front-copy" x="196" y="383">
+                                    <tspan x="196" dy="0">GESCHWINDIGKEIT</tspan>
+                                    <tspan x="196" dy="7.8">STRECKE</tspan>
+                                    <tspan x="196" dy="7.8">MINUTEN / STUNDEN</tspan>
+                                </text>
+
+                                <text class="e6b-front-heading" x="314" y="360">FÜR KRAFTSTOFF</text>
+                                <text class="e6b-front-copy" x="314" y="383">
+                                    <tspan x="314" dy="0">VERBRAUCH PRO STUNDE</tspan>
+                                    <tspan x="314" dy="7.8">MENGE</tspan>
+                                    <tspan x="314" dy="7.8">MINUTEN / STUNDEN</tspan>
+                                </text>
+
+                                <circle class="e6b-front-center-dot" cx="255" cy="295" r="2.7"></circle>
+                            </g>
+                        </svg>
+                        <svg class="e6b-board-layer e6b-front-window-plan-overlay" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                            <g class="e6b-window-plan-geometry">
+                                <circle class="e6b-window-plan-ring" cx="255" cy="295" r="160"></circle>
+                                <circle class="e6b-window-plan-ring" cx="255" cy="295" r="136"></circle>
+                                <circle class="e6b-window-plan-ring density-radius" cx="255" cy="295" r="122"></circle>
+                                <circle class="e6b-window-plan-ring density-radius" cx="255" cy="295" r="101"></circle>
+                                <line class="e6b-window-plan-axis" x1="255" y1="135" x2="255" y2="260"></line>
+                            </g>
+                            <path class="e6b-window-plan-slot left-temp-window-slot" data-e6b-sector data-sector-id="leftTemp" data-sector-label="Left Temp Window" data-cx="255" data-cy="295" data-outer-radius="160" data-inner-radius="136" data-start-angle="-144.4" data-end-angle="-101"></path>
+                            <path class="e6b-window-plan-slot right-pressure-window-slot" data-e6b-sector data-sector-id="rightPressure" data-sector-label="Right PA Window" data-cx="255" data-cy="295" data-outer-radius="136" data-inner-radius="112" data-start-angle="-56.7" data-end-angle="-9.3"></path>
+                            <path class="e6b-window-plan-slot density-window-slot" data-e6b-sector data-sector-id="densityWindow" data-sector-label="Density Window" data-cx="255" data-cy="295" data-outer-radius="110" data-inner-radius="86" data-start-angle="-98.5" data-end-angle="-58.1"></path>
+                            <path class="e6b-window-plan-slot density-readout-slot" data-e6b-sector data-sector-id="densityReadout" data-sector-label="DA Scale / Readout" data-cx="255" data-cy="295" data-outer-radius="110" data-inner-radius="86" data-start-angle="-98.5" data-end-angle="-58.1"></path>
+                            <g class="e6b-window-plan-scales" data-scale-layer-root="rotor">
+                                <g class="e6b-window-plan-scale left-temp-scale" data-e6b-scale data-scale-id="leftTempScale" data-scale-label="Left Temp Scale" data-scale-layer="background" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="148" data-start-angle="-144.4" data-end-angle="-101" data-min="-60" data-max="40" data-minor-step="5" data-major-step="10" data-tick-length="7" data-label-radius="160" data-font-size="6"></g>
+                                <g class="e6b-window-plan-scale left-pressure-scale" data-e6b-scale data-scale-id="leftPressureScale" data-scale-label="Left PA Readout Scale" data-scale-layer="rotor" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="124" data-start-angle="-144.4" data-end-angle="-101" data-min="0" data-max="50" data-minor-step="5" data-major-step="10" data-tick-length="-7" data-label-radius="112" data-font-size="6"></g>
+                                <g class="e6b-window-plan-scale right-pressure-scale" data-e6b-scale data-scale-id="rightPressureScale" data-scale-label="Right PA Window Scale" data-scale-layer="background" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="124" data-start-angle="-56.7" data-end-angle="-9.3" data-min="0" data-max="50" data-minor-step="5" data-major-step="10" data-tick-length="-7" data-label-radius="112" data-font-size="6"></g>
+                                <g class="e6b-window-plan-scale right-temp-scale" data-e6b-scale data-scale-id="rightTempScale" data-scale-label="Right OAT Scale" data-scale-layer="rotor" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="148" data-start-angle="-56.7" data-end-angle="-9.3" data-min="-60" data-max="60" data-minor-step="5" data-major-step="10" data-tick-length="7" data-label-radius="160" data-font-size="6"></g>
+                                <g class="e6b-window-plan-scale density-window-scale" data-e6b-scale data-scale-id="densityWindowScale" data-scale-label="Density Window Scale" data-scale-layer="rotor" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="98" data-start-angle="-98.5" data-end-angle="-58.1" data-min="-10" data-max="10" data-minor-step="1" data-major-step="5" data-tick-length="-6" data-label-radius="86" data-font-size="5.4"></g>
+                                <g class="e6b-window-plan-scale density-readout-scale" data-e6b-scale data-scale-id="densityReadoutScale" data-scale-label="Density Readout Scale" data-scale-layer="background" data-scale-mapping="linear" data-cx="255" data-cy="295" data-radius="98" data-start-angle="-98.5" data-end-angle="-58.1" data-min="0" data-max="50" data-minor-step="5" data-major-step="10" data-tick-length="6" data-label-radius="112" data-font-size="5.4"></g>
+                            </g>
+                            <g class="e6b-window-plan-labels">
+                                <text x="185" y="171">LEFT TEMP WINDOW</text>
+                                <text x="345" y="184">RIGHT PA WINDOW</text>
+                                <text x="255" y="190">DENSITY WINDOW + DA SCALE</text>
+                            </g>
+                        </svg>
+                    </div>
+                    <svg class="e6b-board-layer e6b-front-fixed-overlay" viewBox="0 0 510 590" aria-hidden="true" focusable="false">
+                        <defs>
+                            <path id="e6bFrontTitleArc" d="M126 76 A250 250 0 0 1 384 76"></path>
+                        </defs>
+                        <text class="e6b-device-title">
+                            <textPath href="#e6bFrontTitleArc" startOffset="50%">E6B FLIGHT COMPUTER</textPath>
+                        </text>
+                    </svg>
+                </div>
+                <div id="e6bWindStack" class="e6b-stack wind-stack" data-dial="wind" aria-label="E6B Wind Seite">
+                    <div id="e6bWindSlider" class="e6b-board-layer e6b-wind-slider">
+                        <img class="e6b-board-layer" src="./e6b-assets/reference-wind-fixed.svg?v=20260706-windde01" alt="">
+                    </div>
+                    <img id="e6bWindIndex" class="e6b-board-layer e6b-wind-index" src="./e6b-assets/reference-wind-index.svg?v=20260706-windde01" alt="">
+                    <div id="e6bWindRotor" class="e6b-board-layer e6b-wind-rotor">
+                        <img class="e6b-board-layer" src="./e6b-assets/reference-wind-plot.svg?v=20260706-windde01" alt="">
+                        <div id="e6bWindDot" class="e6b-wind-dot" aria-hidden="true"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="e6b-controls">
+            <section class="control-section preview-controls" aria-label="E6B Preview">
+                <div class="control-title">Preview</div>
+                <label class="window-plan-toggle-label">
+                    <input id="e6bPreviewOriginalVisible" type="checkbox" checked>
+                    Original Labels / Fenster
+                </label>
+                <label class="window-plan-toggle-label">
+                    <input id="e6bPreviewReferenceFaded" type="checkbox">
+                    Original halbtransparent
+                </label>
+                <label class="window-plan-toggle-label">
+                    <input id="e6bPreviewNewVisible" type="checkbox" checked>
+                    Neue Labels / Fenster
+                </label>
+                <label class="window-plan-toggle-label">
+                    <input id="e6bPreviewHelpersVisible" type="checkbox" checked>
+                    Kalibrier-Hilfen
+                </label>
+                <label class="window-plan-select-label preview-zoom-label">Zoom
+                    <span class="window-plan-field-row preview-zoom-row">
+                        <input id="e6bPreviewZoomRange" type="range" min="50" max="320" step="5" value="100">
+                        <input id="e6bPreviewZoom" type="number" min="50" max="320" step="5" value="100">
+                    </span>
+                </label>
+                <div class="button-row preview-view-buttons">
+                    <button type="button" id="e6bPreviewViewReset">Ansicht reset</button>
+                </div>
+            </section>
+            <section class="control-section front-controls">
+                <div class="control-title">Conversion Side</div>
+                <div class="control-grid">
+                    <label>Speed kt<input id="e6bSpeed" type="number" inputmode="decimal" min="10" max="999" step="1" value="120"></label>
+                    <label>Minutes<input id="e6bMinutes" type="number" inputmode="decimal" min="1" max="600" step="1" value="10"></label>
+                    <label>GPH<input id="e6bFuelRate" type="number" inputmode="decimal" min="0.1" max="99" step="0.1" value="9.5"></label>
+                    <label>Fuel min<input id="e6bFuelMinutes" type="number" inputmode="decimal" min="1" max="600" step="1" value="45"></label>
+                </div>
+                <div class="button-row">
+                    <button type="button" data-align="speed">Set 60 / Speed</button>
+                    <button type="button" data-align="fuel">Set 60 / GPH</button>
+                </div>
+                <dl class="readout">
+                    <div><dt>Distance</dt><dd id="e6bDistanceReadout">--</dd></div>
+                    <div><dt>Fuel</dt><dd id="e6bFuelReadout">--</dd></div>
+                    <div><dt>Rotor</dt><dd id="e6bRingReadout">--</dd></div>
+                </dl>
+            </section>
+
+            <section class="control-section front-controls">
+                <div class="control-title">Altitude / TAS</div>
+                <div class="control-grid">
+                    <label>PA ft<input id="e6bPressureAlt" type="number" inputmode="decimal" step="100" value="5000"></label>
+                    <label>OAT C<input id="e6bOat" type="number" inputmode="decimal" step="1" value="25"></label>
+                    <label>CAS kt<input id="e6bCas" type="number" inputmode="decimal" step="1" value="100"></label>
+                </div>
+                <dl class="readout">
+                    <div><dt>Density Alt</dt><dd id="e6bDensityReadout">--</dd></div>
+                    <div><dt>TAS approx</dt><dd id="e6bTasReadout">--</dd></div>
+                </dl>
+            </section>
+
+            <section class="control-section wind-controls">
+                <div class="control-title">Wind Side</div>
+                <div class="control-grid">
+                    <label>Course<input id="e6bCourse" type="number" inputmode="numeric" min="0" max="359" step="1" value="90"></label>
+                    <label>TAS kt<input id="e6bWindTas" type="number" inputmode="decimal" min="20" max="650" step="1" value="100"></label>
+                    <label>Wind from<input id="e6bWindFrom" type="number" inputmode="numeric" min="0" max="359" step="1" value="360"></label>
+                    <label>Wind kt<input id="e6bWindSpeed" type="number" inputmode="decimal" min="0" max="200" step="1" value="20"></label>
+                </div>
+                <div class="button-row">
+                    <button type="button" class="active" data-wind-tool="rotate">Rotate</button>
+                    <button type="button" data-wind-tool="slide">Slide TAS</button>
+                </div>
+                <dl class="readout">
+                    <div><dt>Heading</dt><dd id="e6bHeadingReadout">--</dd></div>
+                    <div><dt>WCA</dt><dd id="e6bWcaReadout">--</dd></div>
+                    <div><dt>GS</dt><dd id="e6bGsReadout">--</dd></div>
+                    <div><dt>Compass</dt><dd id="e6bCompassReadout">--</dd></div>
+                </dl>
+            </section>
+
+            <section class="control-section window-plan-controls" aria-label="Fenster-Kalibrierung">
+                <div class="control-title">Window Plan</div>
+                <label class="window-plan-select-label">Window
+                    <select id="e6bPlanSectorSelect"></select>
+                </label>
+                <label class="window-plan-toggle-label">
+                    <input id="e6bPlanLabelsVisible" type="checkbox" checked>
+                    Help labels
+                </label>
+                <div class="window-plan-fields">
+                    <label data-plan-field="startAngle">Start angle
+                        <span class="window-plan-field-row">
+                            <input id="e6bPlanStartAngleRange" type="range" min="-180" max="0" step="0.1">
+                            <input id="e6bPlanStartAngle" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-plan-field="endAngle">End angle
+                        <span class="window-plan-field-row">
+                            <input id="e6bPlanEndAngleRange" type="range" min="-180" max="0" step="0.1">
+                            <input id="e6bPlanEndAngle" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-plan-field="outerRadius">Outer radius
+                        <span class="window-plan-field-row">
+                            <input id="e6bPlanOuterRadiusRange" type="range" min="60" max="210" step="0.1">
+                            <input id="e6bPlanOuterRadius" type="number" min="1" step="0.1">
+                        </span>
+                    </label>
+                    <label data-plan-field="innerRadius">Inner radius
+                        <span class="window-plan-field-row">
+                            <input id="e6bPlanInnerRadiusRange" type="range" min="40" max="200" step="0.1">
+                            <input id="e6bPlanInnerRadius" type="number" min="1" step="0.1">
+                        </span>
+                    </label>
+                </div>
+                <div class="button-row window-plan-buttons">
+                    <button type="button" id="e6bPlanCopy">Copy</button>
+                    <button type="button" id="e6bPlanReset">Reset</button>
+                </div>
+                <textarea id="e6bPlanExport" class="window-plan-export" spellcheck="false" readonly></textarea>
+            </section>
+            <section class="control-section scale-plan-controls" aria-label="Skalen-Kalibrierung">
+                <div class="control-title">Scale Plan</div>
+                <label class="window-plan-select-label">Scale
+                    <select id="e6bScalePlanSelect"></select>
+                </label>
+                <label class="window-plan-select-label">Layer
+                    <select id="e6bScalePlanLayer">
+                        <option value="rotor">Rotor disc</option>
+                        <option value="background">Background disc</option>
+                    </select>
+                </label>
+                <label class="window-plan-select-label">Mapping
+                    <select id="e6bScalePlanMapping">
+                        <option value="linear">Linear</option>
+                        <option value="log10">Log10 range</option>
+                        <option value="e6bLog60">E6B log 60</option>
+                    </select>
+                </label>
+                <div class="window-plan-fields">
+                    <label data-scale-plan-field="startAngle">Start angle
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanStartAngleRange" type="range" min="-220" max="220" step="0.1">
+                            <input id="e6bScalePlanStartAngle" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="endAngle">End angle
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanEndAngleRange" type="range" min="-220" max="220" step="0.1">
+                            <input id="e6bScalePlanEndAngle" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="radius">Radius
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanRadiusRange" type="range" min="20" max="260" step="0.1">
+                            <input id="e6bScalePlanRadius" type="number" min="1" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="tickLength">Tick length
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanTickLengthRange" type="range" min="-35" max="35" step="0.1">
+                            <input id="e6bScalePlanTickLength" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="labelRadius">Label radius
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanLabelRadiusRange" type="range" min="20" max="280" step="0.1">
+                            <input id="e6bScalePlanLabelRadius" type="number" min="1" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="min">Min value
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanMinRange" type="range" min="-100" max="100" step="0.1">
+                            <input id="e6bScalePlanMin" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="max">Max value
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanMaxRange" type="range" min="-100" max="100" step="0.1">
+                            <input id="e6bScalePlanMax" type="number" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="minorStep">Minor step
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanMinorStepRange" type="range" min="0.1" max="25" step="0.1">
+                            <input id="e6bScalePlanMinorStep" type="number" min="0.1" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="majorStep">Major step
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanMajorStepRange" type="range" min="0.1" max="50" step="0.1">
+                            <input id="e6bScalePlanMajorStep" type="number" min="0.1" step="0.1">
+                        </span>
+                    </label>
+                    <label data-scale-plan-field="fontSize">Number size
+                        <span class="window-plan-field-row">
+                            <input id="e6bScalePlanFontSizeRange" type="range" min="2" max="18" step="0.1">
+                            <input id="e6bScalePlanFontSize" type="number" min="1" step="0.1">
+                        </span>
+                    </label>
+                </div>
+                <div class="button-row window-plan-buttons">
+                    <button type="button" id="e6bScalePlanCopy">Copy</button>
+                    <button type="button" id="e6bScalePlanReset">Reset</button>
+                </div>
+                <textarea id="e6bScalePlanExport" class="window-plan-export" spellcheck="false" readonly></textarea>
+            </section>
+        </aside>
+    </main>
+
+    <script src="./e6b-core.js?v=20260707-chromesync01"></script>
+    <script src="./e6b-flight-computer.js?v=20260707-chromesync01"></script>
+</body>
+</html>

@@ -91,10 +91,10 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=win95-map-close-20260705-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=e6b-chrome-sync-20260707-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=win95-map-close-20260705-01">
+        <link rel="stylesheet" href="styles.css?v=e6b-chrome-sync-20260707-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -225,7 +225,7 @@
         
         <div class="grid-3 ops-filter-fields">
             <div><label>Region</label><select id="regionFilter" onchange="syncOpsSelectField('regionFilter', this.value)">
-                <option value="any" selected>Europaweit</option>
+                <option value="any" selected>International</option>
                 <option value="de">Nur DE</option>
                 <option value="int">Nur Ausland</option>
             </select></div>
@@ -1015,6 +1015,7 @@
 
 <div class="version-info">
     VFR Multitool <span id="swVersionDisplay" style="color: var(--blue); font-weight: bold; cursor: pointer; text-decoration: underline; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.2);" onclick="forceAppUpdate()" title="Update erzwingen">(Lade Version...)</span>
+    <span id="localFreshnessDisplay" style="display:none; margin-left:6px; color:#9fc8ef; font-weight:bold; letter-spacing:0; text-transform:none;" title="Lokale Server-Dateistempel"></span>
     <button onclick="exportFor2DSim()" style="background: transparent; color: #888; border: 1px dashed #555; padding: 2px 5px; border-radius: 4px; cursor: pointer; font-size: 0.7em; margin-left: 10px; opacity: 0.5;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">
         🤫 2D Export
     </button><br>
@@ -1445,6 +1446,7 @@
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
                         <button id="mapToolStopwatch" class="map-draw-tool-btn" type="button" title="Stoppuhr" onclick="window.activateMapDrawTool && activateMapDrawTool('stopwatch', event)">⏱</button>
                         <button id="mapToolCalculator" class="map-draw-tool-btn" type="button" title="Taschenrechner" onclick="window.activateMapDrawTool && activateMapDrawTool('calculator', event)">▦</button>
+                        <button id="mapToolE6B" class="map-draw-tool-btn map-draw-tool-btn-text" type="button" title="E6B Flight Computer" onclick="window.activateMapDrawTool && activateMapDrawTool('e6b', event)">E6B</button>
                     </div>
                 </div>
                 <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
@@ -1801,6 +1803,18 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<div id="mapE6BDevice" class="map-utility-device map-e6b-device map-e6b-half" aria-hidden="true" style="display:none;">
+    <div class="map-e6b-shell">
+        <div id="mapE6BHandle" class="map-e6b-drag-strip map-utility-drag-handle" aria-label="E6B Flight Computer verschieben" title="E6B verschieben"></div>
+        <div class="map-e6b-window-controls" aria-label="E6B Fenstersteuerung">
+            <button id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>
+            <button id="mapE6BScale" class="map-e6b-window-btn" type="button" title="E6B auf ganze Bildschirmhöhe" aria-label="E6B Größe umschalten">⇕</button>
+            <button id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">x</button>
+        </div>
+        <iframe id="mapE6BFrame" class="map-e6b-frame" title="E6B Flight Computer" src="tools/e6b-flight-computer.html?embedded=1&amp;v=20260707-chromesync01" loading="lazy" allowtransparency="true"></iframe>
     </div>
 </div>
 
@@ -2506,8 +2520,8 @@
 <script defer src="sync.js?v=mission-confirm-20260703-01"></script>
 <script defer src="checklists.js?v=minimap-attribution-20260702-01"></script>
 <script defer src="profile.js?v=profile-refresh-cleanup-20260703-01"></script>
-<script defer src="map.js?v=win95-mobile-overlay-logic-20260705-01"></script>
-<script defer src="map-utility-tools.js?v=formula-drawer-width-20260702-01"></script>
+<script defer src="map.js?v=e6b-map-tool-20260706-01"></script>
+<script defer src="map-utility-tools.js?v=e6b-chrome-sync-20260707-01"></script>
 <script defer src="app.js?v=apt-private-literary-flow-20260706-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>

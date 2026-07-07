@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GA Nutzer Admin</title>
+  <style>
+    :root {
+      --bg: #101419;
+      --panel: #171d24;
+      --panel-alt: #1d2530;
+      --border: #304052;
+      --text: #dde8f5;
+      --muted: #92a5bb;
+      --accent: #58a8ff;
+      --ok: #72d98f;
+      --warn: #f0c45a;
+      --danger: #ff8282;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: linear-gradient(180deg, #101821, var(--bg));
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(1120px, 96vw);
+      margin: 18px auto 34px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .bar, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 2fr 1fr 110px auto auto;
+      gap: 10px;
+      align-items: end;
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+    }
+
+    .cleanup {
+      display: grid;
+      grid-template-columns: 2fr 120px auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input, button {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: var(--panel-alt);
+      font: inherit;
+    }
+
+    input:focus, button:focus {
+      outline: 2px solid #2e77b6;
+      outline-offset: 1px;
+    }
+
+    button {
+      cursor: pointer;
+      white-space: nowrap;
+      background: linear-gradient(180deg, #2b3745, #222b36);
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .55; cursor: default; }
+    .danger-btn { border-color: #7c3838; color: #ffd5d5; }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .status strong { color: var(--text); }
+    .error { color: var(--danger); }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 10px 11px;
+      text-align: left;
+      border-bottom: 1px solid #283748;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      background: #151b23;
+      font-weight: 600;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    tbody tr { background: #171e27; }
+    tbody tr:nth-child(even) { background: #19222d; }
+    .name { font-weight: 700; }
+    .id { color: var(--muted); font-size: 12px; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 24px;
+      border: 1px dashed #34465b;
+      border-radius: 8px;
+      background: rgba(23, 31, 42, .7);
+    }
+
+    pre {
+      margin: 10px 0 0;
+      white-space: pre-wrap;
+      color: #c9d9ec;
+      background: #111820;
+      border: 1px solid #263647;
+      border-radius: 6px;
+      padding: 10px;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    @media (max-width: 940px) {
+      .bar, .cleanup { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="bar">
+      <div class="field">
+        <label for="usersApi">Nutzer API</label>
+        <input id="usersApi" value="/api/admin/users">
+      </div>
+      <div class="field">
+        <label for="token">Admin Token</label>
+        <input id="token" type="password" placeholder="nur fuer Worker-URL">
+      </div>
+      <div class="field">
+        <label for="limit">Limit</label>
+        <input id="limit" type="number" min="1" max="5000" value="1000">
+      </div>
+      <button id="refreshBtn">Aktualisieren</button>
+      <button id="copyBtn">CSV kopieren</button>
+    </div>
+
+    <div class="status">
+      <span>Nutzer: <strong id="countUsers">0</strong></span>
+      <span>Gescannt: <strong id="countScanned">0</strong></span>
+      <span id="lastSync">Noch kein Sync</span>
+      <span id="message"></span>
+    </div>
+
+    <div id="tableHost"></div>
+
+    <section class="panel">
+      <div class="cleanup">
+        <div class="field">
+          <label for="purgeApi">Bugreport Purge API</label>
+          <input id="purgeApi" value="/api/problem-reports/purge">
+        </div>
+        <div class="field">
+          <label for="olderThan">Aelter als Tage</label>
+          <input id="olderThan" type="number" min="0" max="3650" value="30">
+        </div>
+        <button id="previewPurgeBtn">Vorschau</button>
+        <button id="purgeBtn" class="danger-btn">Loeschen</button>
+      </div>
+      <pre id="purgeResult">Keine Vorschau geladen.</pre>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE = {
+      usersApi: "ga_user_admin_users_api",
+      purgeApi: "ga_user_admin_purge_api",
+      token: "ga_user_admin_token",
+      limit: "ga_user_admin_limit",
+      olderThan: "ga_user_admin_older_than"
+    };
+
+    const state = { users: [] };
+    const el = {
+      usersApi: document.getElementById("usersApi"),
+      purgeApi: document.getElementById("purgeApi"),
+      token: document.getElementById("token"),
+      limit: document.getElementById("limit"),
+      olderThan: document.getElementById("olderThan"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      copyBtn: document.getElementById("copyBtn"),
+      previewPurgeBtn: document.getElementById("previewPurgeBtn"),
+      purgeBtn: document.getElementById("purgeBtn"),
+      countUsers: document.getElementById("countUsers"),
+      countScanned: document.getElementById("countScanned"),
+      lastSync: document.getElementById("lastSync"),
+      message: document.getElementById("message"),
+      tableHost: document.getElementById("tableHost"),
+      purgeResult: document.getElementById("purgeResult")
+    };
+
+    function loadPrefs() {
+      const localHost = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+      for (const [key, storageKey] of Object.entries(STORAGE)) {
+        const saved = localStorage.getItem(storageKey);
+        if (!saved || !el[key]) continue;
+        const savedWorkerUrl = /^https:\/\/ga-proxy\.einherjer\.workers\.dev\/api\//i.test(saved);
+        if (localHost && (key === "usersApi" || key === "purgeApi") && savedWorkerUrl) continue;
+        el[key].value = saved;
+      }
+    }
+
+    function savePrefs() {
+      for (const [key, storageKey] of Object.entries(STORAGE)) {
+        if (el[key]) localStorage.setItem(storageKey, el[key].value.trim());
+      }
+    }
+
+    function headers() {
+      const out = { "Content-Type": "application/json" };
+      const token = el.token.value.trim();
+      if (token) out["x-bug-admin-token"] = token;
+      return out;
+    }
+
+    function setMessage(text = "", type = "") {
+      el.message.textContent = text;
+      el.message.className = type;
+    }
+
+    function buildUsersUrl() {
+      const url = new URL(el.usersApi.value.trim(), window.location.href);
+      url.searchParams.set("limit", String(Math.max(1, Math.min(5000, Number(el.limit.value) || 1000))));
+      return url.toString();
+    }
+
+    async function refreshUsers() {
+      savePrefs();
+      setMessage("");
+      el.refreshBtn.disabled = true;
+      try {
+        const res = await fetch(buildUsersUrl(), { headers: headers(), cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        state.users = Array.isArray(data.items) ? data.items : [];
+        el.countUsers.textContent = String(data.count || state.users.length);
+        el.countScanned.textContent = String(data.scanned || 0);
+        el.lastSync.textContent = `Letzter Sync: ${new Date().toLocaleTimeString("de-DE")}`;
+        if (data.truncated) setMessage("Liste wurde gekuerzt.", "warn");
+        renderUsers();
+      } catch (error) {
+        setMessage(`Laden fehlgeschlagen: ${error.message}`, "error");
+      } finally {
+        el.refreshBtn.disabled = false;
+      }
+    }
+
+    function fmtDay(value, known = true) {
+      if (!value) return known ? "-" : "unbekannt";
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleDateString("de-DE");
+    }
+
+    function renderUsers() {
+      if (!state.users.length) {
+        el.tableHost.innerHTML = '<div class="empty">Keine Nutzer gefunden.</div>';
+        return;
+      }
+      const rows = state.users.map(user => `
+        <tr>
+          <td>
+            <div class="name">${escapeHtml(user.name || user.id || "-")}</div>
+            ${user.id && user.id !== user.name ? `<div class="id">${escapeHtml(user.id)}</div>` : ""}
+          </td>
+          <td class="${user.registrationKnown ? "" : "warn"}">${escapeHtml(fmtDay(user.registeredAt, user.registrationKnown))}</td>
+          <td>${escapeHtml(fmtDay(user.lastModified, true))}</td>
+        </tr>
+      `).join("");
+      el.tableHost.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Registrierung</th>
+              <th>Letzte Aenderung</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function csvText() {
+      const lines = [["Name", "Registrierung", "Letzte Aenderung"]];
+      for (const user of state.users) {
+        lines.push([
+          user.name || user.id || "",
+          fmtDay(user.registeredAt, user.registrationKnown),
+          fmtDay(user.lastModified, true)
+        ]);
+      }
+      return lines.map(row => row.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\n");
+    }
+
+    async function copyCsv() {
+      try {
+        await navigator.clipboard.writeText(csvText());
+        setMessage("CSV kopiert.", "ok");
+      } catch (error) {
+        setMessage(`CSV konnte nicht kopiert werden: ${error.message}`, "error");
+      }
+    }
+
+    async function runPurge(dryRun) {
+      savePrefs();
+      const days = Math.max(0, Math.min(3650, Number(el.olderThan.value) || 0));
+      if (!dryRun && !confirm(`Bugreport-KV-Eintraege aelter als ${days} Tage wirklich loeschen?`)) return;
+      const btn = dryRun ? el.previewPurgeBtn : el.purgeBtn;
+      btn.disabled = true;
+      try {
+        const res = await fetch(el.purgeApi.value.trim(), {
+          method: "POST",
+          headers: headers(),
+          cache: "no-store",
+          body: JSON.stringify({ olderThanDays: days, dryRun })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        el.purgeResult.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        el.purgeResult.textContent = `Fehler: ${error.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    el.refreshBtn.addEventListener("click", refreshUsers);
+    el.copyBtn.addEventListener("click", copyCsv);
+    el.previewPurgeBtn.addEventListener("click", () => runPurge(true));
+    el.purgeBtn.addEventListener("click", () => runPurge(false));
+    [el.usersApi, el.purgeApi, el.token, el.limit, el.olderThan].forEach(input => input.addEventListener("change", savePrefs));
+
+    loadPrefs();
+    refreshUsers();
+  </script>
+</body>
+</html>

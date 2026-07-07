@@ -55,6 +55,7 @@ const FAILED_PATH = path.join(OBST_DIR, 'failed-split-tiles.json');
 const WORKBENCH_TMP_DIR = path.join(CACHE_BASE, 'obs-split');
 const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_ENRICH_DIR = path.join(WORKBENCH_TMP_DIR, 'infra-enrichment');
+const WORKBENCH_DUCKDB_TMP_DIR = path.join(WORKBENCH_TMP_DIR, 'duckdb-temp');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
@@ -64,6 +65,8 @@ const WORKBENCH_PBF_THIN_EXTEND = String(process.env.OBS_WORKBENCH_PBF_THIN_EXTE
 const WORKBENCH_PBF_THIN_OBS_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_OBS_MAX || 1));
 const WORKBENCH_PBF_THIN_LIN_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_LIN_MAX || 250));
 const WORKBENCH_PBF_THIN_POI_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_POI_MAX || 250));
+const WORKBENCH_DUCKDB_MEMORY_LIMIT = String(process.env.OBS_WORKBENCH_DUCKDB_MEMORY_LIMIT || _cfg.duckdbMemoryLimit || '768MB').trim() || '768MB';
+const WORKBENCH_DUCKDB_THREADS = Math.max(1, Number(process.env.OBS_WORKBENCH_DUCKDB_THREADS || _cfg.duckdbThreads || 2));
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_DAYS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || _cfg.pbfTtlDays || 7));
@@ -732,6 +735,21 @@ async function runCmd(bin, args, opts = {}) {
   });
 }
 
+async function runPbfPythonCmd(args) {
+  await ensureDir(WORKBENCH_DUCKDB_TMP_DIR);
+  return await runCmd('python3', args, {
+    cwd: ROOT,
+    env: {
+      OBS_WORKBENCH_DUCKDB_TEMP_DIR: WORKBENCH_DUCKDB_TMP_DIR,
+      OBS_WORKBENCH_DUCKDB_MEMORY_LIMIT: WORKBENCH_DUCKDB_MEMORY_LIMIT,
+      OBS_WORKBENCH_DUCKDB_THREADS: String(WORKBENCH_DUCKDB_THREADS),
+      TMPDIR: WORKBENCH_DUCKDB_TMP_DIR,
+      TMP: WORKBENCH_DUCKDB_TMP_DIR,
+      TEMP: WORKBENCH_DUCKDB_TMP_DIR
+    }
+  });
+}
+
 async function downloadPbfRegion(region) {
   await ensureDir(PBF_CACHE_DIR);
   const targetPath = path.join(PBF_CACHE_DIR, `${region.id}.osm.pbf`);
@@ -1018,7 +1036,7 @@ async function extractPbfChunksForTile(tileKey, pbfPaths, combinedFile) {
       '--out', path.relative(ROOT, combinedFile) + `.pbf-${path.basename(pbfPath, '.osm.pbf')}.tmp`
     ];
     const tmpOut = path.resolve(ROOT, pbfCmd[pbfCmd.indexOf('--out') + 1]);
-    const r = await runCmd('python3', pbfCmd, { cwd: ROOT });
+    const r = await runPbfPythonCmd(pbfCmd);
     if (r.code === 0 && existsSync(tmpOut)) {
       try {
         const raw = await fs.readFile(tmpOut, 'utf8');
@@ -1043,7 +1061,7 @@ async function extractPbfCombinedBatchForPbf(tileKeys, pbfPath) {
     '--tiles', cleanTiles.join(','),
     '--out-dir', path.relative(ROOT, tmpDir)
   ];
-  const run = await runCmd('python3', cmd, { cwd: ROOT });
+  const run = await runPbfPythonCmd(cmd);
   const filesByTile = new Map();
   for (const tileKey of cleanTiles) {
     const filePath = path.join(tmpDir, `${tileKey.replace('|', '_')}.combined.json`);
@@ -2198,6 +2216,37 @@ async function collectTileState() {
   const recent = {};
   for (const [k, v] of lastResults.entries()) recent[k] = v;
 
+  const regionRows = [];
+  for (const r of REGIONS) {
+    const id = String(r.id);
+    const download = pbfDownloads.get(id) || {};
+    const pbfPath = path.join(PBF_CACHE_DIR, `${id}.osm.pbf`);
+    let pbfCached = false;
+    let pbfMtimeMs = 0;
+    let pbfSizeBytes = 0;
+    try {
+      const stat = await fs.stat(pbfPath);
+      pbfCached = stat.isFile();
+      pbfMtimeMs = Number(stat.mtimeMs || 0);
+      pbfSizeBytes = Number(stat.size || 0);
+    } catch (_) {}
+    const ageMs = pbfCached && pbfMtimeMs ? Date.now() - pbfMtimeMs : 0;
+    regionRows.push({
+      id,
+      name: String(r.name),
+      continent: String(r.continent || ''),
+      sizeMb: Number(r.sizeMb || 0),
+      bbox: Array.isArray(r.bbox) ? r.bbox.map(Number) : [],
+      coverage: (regionPolyCache.get(id) || {}).mode || 'unknown',
+      pbfCached,
+      pbfFresh: pbfCached && ageMs >= 0 && ageMs < PBF_CACHE_TTL_MS,
+      pbfAgeDays: pbfCached && ageMs >= 0 ? Math.round(ageMs / (24 * 60 * 60 * 1000)) : null,
+      pbfSizeBytes,
+      pbfStatus: String(download.status || (pbfCached ? 'ready' : 'missing')),
+      pbfError: String(download.error || '')
+    });
+  }
+
   return {
     ok: true,
     root: ROOT,
@@ -2211,6 +2260,9 @@ async function collectTileState() {
       pbfMaxRegions: WORKBENCH_PBF_MAX_REGIONS,
       pbfBorderExtraMinRatio: WORKBENCH_PBF_BORDER_EXTRA_MIN_RATIO,
       pbfThinExtend: WORKBENCH_PBF_THIN_EXTEND,
+      duckdbTempDir: WORKBENCH_DUCKDB_TMP_DIR,
+      duckdbMemoryLimit: WORKBENCH_DUCKDB_MEMORY_LIMIT,
+      duckdbThreads: WORKBENCH_DUCKDB_THREADS,
       pbfThinThresholds: {
         obsMax: WORKBENCH_PBF_THIN_OBS_MAX,
         linMax: WORKBENCH_PBF_THIN_LIN_MAX,
@@ -2222,14 +2274,7 @@ async function collectTileState() {
       maxRegionsPerTile: WORKBENCH_PBF_MAX_REGIONS,
       enabled: !WORKBENCH_PBF_PATH
     },
-    regions: REGIONS.map(r => ({
-      id: String(r.id),
-      name: String(r.name),
-      continent: String(r.continent || ''),
-      sizeMb: Number(r.sizeMb || 0),
-      bbox: Array.isArray(r.bbox) ? r.bbox.map(Number) : [],
-      coverage: (regionPolyCache.get(String(r.id)) || {}).mode || 'unknown'
-    })),
+    regions: regionRows,
     downloads: Object.fromEntries(pbfDownloads),
     processing,
     currentTile,
@@ -2884,7 +2929,7 @@ async function extractInfraEnrichmentForTile(tileKey, pbfPaths) {
       '--tile', tileKey,
       '--out', path.relative(ROOT, tmpOut)
     ];
-    const r = await runCmd('python3', cmd, { cwd: ROOT });
+    const r = await runPbfPythonCmd(cmd);
     run = r;
     if (r.code === 0 && existsSync(tmpOut)) {
       try {
@@ -2916,7 +2961,7 @@ async function extractInfraEnrichmentBatchForPbf(tileKeys, pbfPath) {
     '--out-dir', path.relative(ROOT, tmpDir)
   ];
   try {
-    run = await runCmd('python3', cmd, { cwd: ROOT });
+    run = await runPbfPythonCmd(cmd);
     if (run.code === 0) {
       let files = [];
       try { files = await fs.readdir(tmpDir); } catch (_) { files = []; }

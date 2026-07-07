@@ -133,7 +133,7 @@ Wichtige Felder:
 - **DEST / Ziel**: optional. Leer, `RNDM` oder `----` bedeutet: die App sucht selbst.
 - **TYPE / Typ**: APT, POI, Bush oder Spezialprofil.
 - **RANGE / Distanz**: Egal, Short, Medium oder Long.
-- **Region**: Europaweit, nur Deutschland oder Ausland.
+- **Region**: International, nur Deutschland oder Ausland.
 - **Richtung**: bevorzugte Himmelsrichtung.
 - **RDM / PICK**: Direkt zufaellig erzeugen oder erst 2-3 Vorschlaege anzeigen.
 

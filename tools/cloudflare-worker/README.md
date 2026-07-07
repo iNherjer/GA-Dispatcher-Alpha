@@ -12,6 +12,8 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/problem-reports?status=open&limit=120` (Admin, offene Reports)
 - `GET /api/problem-reports/:id` (Admin, voller Report)
 - `POST /api/problem-reports/:id/ack` (Admin, als behoben quittieren)
+- `POST /api/problem-reports/purge` (Admin, alte Bugreport-KV-Einträge löschen; `dryRun` standardmäßig aktiv)
+- `GET /api/admin/users?limit=1000` (Admin, Sync-Nutzer kompakt anzeigen)
 
 ## Dateien
 
@@ -48,6 +50,8 @@ Hinweis:
 - Für den Bugtracker kann optional ein Secret gesetzt werden:
   - `BUG_TRACKER_ADMIN_TOKEN` (als Worker Secret, nicht als plain var)
   - Wenn kein Secret gesetzt ist, sind List/Detail/Ack-Endpoints offen.
+- Der Nutzer-Admin und der Bugreport-Purge nutzen denselben Admin-Token. Der Nutzer-Endpunkt liefert nur kompakte Metadaten (`id`, `name`, `registeredAt`, `lastModified`) und nie PINs, Pinnwand, Logbuch oder Missionsdaten.
+- Neue Sync-Profile bekommen serverseitig `registeredAt`; alte Profile ohne dieses Feld können kein verlässliches Registrierungsdatum liefern. In der Admin-Ansicht wird dann `unbekannt` angezeigt.
 - Für Benachrichtigungen bei neuen Bug-Reports:
   - Option A (E-Mail über Resend):
     - Secret: `RESEND_API_KEY`

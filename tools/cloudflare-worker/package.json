@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node aip-chart-worker.test.mjs",
+    "test": "node aip-chart-worker.test.mjs && node checklist-community.test.mjs && node admin-tools.test.mjs",
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy --env production"
   }

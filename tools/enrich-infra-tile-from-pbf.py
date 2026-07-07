@@ -24,6 +24,28 @@ def tile_bounds_from_key(key: str):
     }
 
 
+def sql_quote(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def configure_duckdb(con):
+    temp_dir = os.environ.get("OBS_WORKBENCH_DUCKDB_TEMP_DIR", "").strip()
+    memory_limit = os.environ.get("OBS_WORKBENCH_DUCKDB_MEMORY_LIMIT", "1GB").strip() or "1GB"
+    threads_raw = os.environ.get("OBS_WORKBENCH_DUCKDB_THREADS", "4").strip()
+    try:
+        threads = max(1, int(threads_raw))
+    except Exception:
+        threads = 4
+    con.execute(f"SET threads TO {threads};")
+    con.execute(f"SET memory_limit = {sql_quote(memory_limit)};")
+    if temp_dir:
+        os.makedirs(temp_dir, exist_ok=True)
+        try:
+            con.execute(f"SET temp_directory = {sql_quote(temp_dir)};")
+        except Exception:
+            pass
+
+
 def clean_value(value, lower=False):
     if value is None:
         return ""
@@ -1372,8 +1394,7 @@ def main():
     import duckdb
     con = duckdb.connect()
     con.execute("LOAD spatial;")
-    con.execute("SET threads TO 4;")
-    con.execute("SET memory_limit = '1GB';")
+    configure_duckdb(con)
 
     t0 = time.time()
     if len(tiles) == 1:

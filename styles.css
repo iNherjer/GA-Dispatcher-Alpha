@@ -8056,6 +8056,11 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     box-shadow: 0 4px 14px rgba(0,0,0,0.45);
 }
 
+.map-draw-tool-btn-text {
+    font: 900 10px/1 'Courier New', monospace;
+    letter-spacing: 0;
+}
+
 .map-draw-tool-btn.active {
     background: var(--warn);
     color: #111;
@@ -8126,9 +8131,105 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .timer-picker-digit button:active,
 .timer-picker-actions button:active,
 .calculator-keypad button:active,
-.calculator-formula-tab:active {
+.calculator-formula-tab:active,
+.map-e6b-window-btn:active {
     transform: translateY(1px);
     filter: brightness(1.12);
+}
+
+.map-e6b-device {
+    --e6b-panel-height: min(50vh, calc(100vh - 32px));
+    --e6b-tool-stack-left: 0px;
+    --e6b-tool-stack-top: 0px;
+    --e6b-tool-stack-right: 100%;
+    --e6b-tool-stack-bottom: 100%;
+    --e6b-tool-stack-width: 100%;
+    --e6b-tool-stack-height: 100%;
+    width: clamp(300px, calc(var(--e6b-panel-height) * 0.8644), calc(100vw - 16px));
+    height: var(--e6b-panel-height);
+}
+
+.map-e6b-device.map-e6b-full {
+    --e6b-panel-height: calc(100vh - 32px);
+}
+
+.map-e6b-shell {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(235, 226, 190, 0.18);
+    background: transparent;
+    box-shadow: none;
+}
+
+.map-e6b-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+}
+
+.map-e6b-drag-strip {
+    position: absolute;
+    z-index: 4;
+    left: calc(var(--e6b-tool-stack-left, 0px) + 8px);
+    top: calc(var(--e6b-tool-stack-top, 0px) + 8px);
+    width: 31px;
+    height: 31px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.42);
+    background: rgba(248, 243, 218, 0.86);
+    color: #111;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.34);
+}
+
+.map-e6b-drag-strip::before {
+    content: "+";
+    font: 900 18px/1 'Courier New', monospace;
+}
+
+.map-e6b-device.is-dragging .map-e6b-drag-strip {
+    cursor: grabbing;
+}
+
+.map-e6b-window-controls {
+    position: absolute;
+    z-index: 5;
+    top: calc(var(--e6b-tool-stack-top, 0px) + 8px);
+    left: calc(var(--e6b-tool-stack-right, 100%) - 8px);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    pointer-events: auto;
+    transform: translateX(-100%);
+}
+
+.map-e6b-window-btn,
+.map-e6b-close {
+    width: 31px;
+    height: 31px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.42);
+    background: rgba(248, 243, 218, 0.9);
+    color: #111;
+    cursor: pointer;
+    font: 900 16px/1 'Courier New', monospace;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.34);
+}
+
+.map-e6b-window-btn {
+    display: grid;
+    place-items: center;
+}
+
+.map-e6b-close {
+    background: linear-gradient(145deg, #7c2727, #2b0f0f);
+    color: #fff3e6;
 }
 
 .stopwatch-crown-reset:active,
@@ -9288,6 +9389,70 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         width: var(--formula-drawer-width, calc(100vw - 24px));
         max-width: calc(100vw - 24px);
         max-height: var(--formula-drawer-max-height, 62vh);
+    }
+}
+
+@media (max-width: 767px), (pointer: coarse) and (max-width: 900px) {
+    .map-e6b-device,
+    .map-e6b-device.map-e6b-half,
+    .map-e6b-device.map-e6b-full {
+        --e6b-mobile-front-width: min(100vw, calc(100dvh * 510 / 590));
+        --e6b-mobile-front-height: calc(var(--e6b-mobile-front-width) * 590 / 510);
+        --e6b-mobile-front-top: max(env(safe-area-inset-top), calc((100dvh - var(--e6b-mobile-front-height)) / 2));
+        --e6b-mobile-front-side: calc((100vw - var(--e6b-mobile-front-width)) / 2);
+        --e6b-tool-stack-left: var(--e6b-mobile-front-side);
+        --e6b-tool-stack-top: var(--e6b-mobile-front-top);
+        --e6b-tool-stack-right: calc(var(--e6b-mobile-front-side) + var(--e6b-mobile-front-width));
+        --e6b-tool-stack-bottom: calc(var(--e6b-mobile-front-top) + var(--e6b-mobile-front-height));
+        --e6b-tool-stack-width: var(--e6b-mobile-front-width);
+        --e6b-tool-stack-height: var(--e6b-mobile-front-height);
+        position: fixed;
+        left: 0 !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw;
+        height: 100dvh;
+        max-width: none;
+        padding: 0;
+        transform: none !important;
+        z-index: 100500;
+    }
+
+    .map-e6b-shell {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .map-e6b-drag-strip {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: rgba(248, 243, 218, 0.92);
+    }
+
+    .map-e6b-drag-strip::before {
+        content: "≡";
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .map-e6b-window-controls {
+        gap: 7px;
+    }
+
+    .map-e6b-window-btn,
+    .map-e6b-close {
+        width: 34px;
+        height: 34px;
+        font-size: 17px;
+    }
+
+    #mapE6BScale {
+        display: none;
     }
 }
 

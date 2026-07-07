@@ -12,12 +12,15 @@
       --panel-2: #213044;
       --text: #e8eef5;
       --muted: #9eb2c8;
-      --ok: #ff3cf7;
-      --stale: #ff9d2e;
+      --ok: #39d36b;
+      --missing: #ff3cf7;
+      --empty: #adff9b;
+      --loading: #ff9d2e;
+      --stale: #ffd166;
       --failed: #ff3d3d;
       --queued: #ffd54a;
-      --active: #59ff7d;
-      --selected: #56b8ff;
+      --active: #ff9d2e;
+      --selected: #929aa5;
     }
     * { box-sizing: border-box; }
     body {
@@ -54,7 +57,24 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
+      margin: 8px 0 0;
+    }
+    .button-section {
       margin: 12px 0;
+      border: 1px solid #2f4358;
+      border-radius: 8px;
+      padding: 9px;
+      background: #0f1722;
+    }
+    .section-title {
+      color: #dcecff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .wide {
+      grid-column: 1 / -1;
     }
     button {
       border: 1px solid #49617a;
@@ -102,7 +122,8 @@
     }
     .region-box select {
       width: 100%;
-      min-height: 110px;
+      min-height: 260px;
+      height: min(38vh, 420px);
       border: 1px solid #3f5670;
       border-radius: 6px;
       background: #101b28;
@@ -110,9 +131,14 @@
       padding: 6px;
       font-size: 12px;
     }
+    .region-cache-summary {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
     .region-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-top: 8px;
     }
@@ -128,17 +154,23 @@
       font-size: 12px;
       pointer-events: none;
     }
-    .enrich-badge {
+    .tile-file-badges {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .tile-file-badge {
       width: 14px;
       height: 14px;
-      border-radius: 50%;
-      background: rgba(255, 224, 102, .92);
-      border: 1px solid rgba(34, 28, 0, .8);
-      color: #16120a;
+      border-radius: 4px;
+      background: rgba(9, 18, 28, .92);
+      border: 1px solid rgba(230, 242, 255, .82);
+      color: #ecf7ff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       line-height: 1;
       box-shadow: 0 1px 4px rgba(0,0,0,.35);
@@ -157,7 +189,7 @@
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
       <div class="stat"><span>Davon leer</span><strong id="stEmpty">0</strong></div>
-      <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
+      <div class="stat"><span>Stale-Scan</span><strong id="stStale">bei Aktualisierung</strong></div>
       <div class="stat"><span>Fehlgeschlagen</span><strong id="stFailed">0</strong></div>
       <div class="stat"><span>Ausgewählt</span><strong id="stSelected">0</strong></div>
       <div class="stat"><span>Queue</span><strong id="stQueue">0</strong></div>
@@ -171,38 +203,63 @@
       <div class="region-box">
         <div class="muted" style="margin-bottom:6px;">Region(en) wählen und komplett in die Queue legen</div>
         <select id="regionSelect" multiple></select>
+        <div class="region-cache-summary" id="regionCacheSummary">PBF-Cache: -</div>
         <div class="region-actions">
           <button id="btnMarkRegionTiles" title="Markiert nur Tiles, die laut Regionskontur (poly) oder BBox zur Region gehören">Region markieren</button>
           <button id="btnEnqueueRegion">Region laden</button>
+          <button id="btnEnqueueRegionFresh" title="Region frisch laden und vorhandene Core/POI/Infra-Daten ohne Merge ersetzen">Region frisch laden</button>
           <button id="btnEnqueueRegionAndPush" title="Ausgewählte Regionen laden und danach automatisch pushen">Region laden + pushen</button>
         </div>
       </div>
 
-      <div class="buttons">
-        <button id="btnRefresh">Status neu laden</button>
-        <button id="btnClearSelection">Auswahl leeren</button>
-        <button id="btnEnqueue">Auswahl laden</button>
-        <button id="btnEnqueueFresh" title="Lädt ausgewählte Tiles frisch und ersetzt vorhandene Daten (ohne Merge)">Auswahl frisch laden</button>
-        <button id="btnEnrichInfra" title="Schreibt für vorhandene Tiles den separaten Infra-Layer per PBF, ohne Core/POI neu zu laden">Auswahl Infra laden</button>
-        <button id="btnEnqueueAndPush" title="Ausgewählte Tiles neu laden und danach automatisch pushen">Auswahl laden + pushen</button>
-        <button id="btnRetryFailed">Failed erneut laden</button>
-        <button id="btnClearQueue">Queue leeren</button>
-        <button id="btnRefreshAll" title="Alle vorhandenen Tiles neu generieren (z.B. nach PBF-Update)">Alle Tiles aktualisieren</button>
-        <button id="btnPush">Neue Ergebnisse pushen</button>
-        <button id="btnRepoSync">Repo-Sync prüfen</button>
+      <div class="button-section">
+        <div class="section-title">Markieren</div>
+        <div class="buttons">
+          <button id="btnRefresh">Status neu laden</button>
+          <button id="btnClearSelection">Auswahl leeren</button>
+          <button id="btnRetryFailed">Failed erneut laden</button>
+          <button id="btnClearQueue">Queue leeren</button>
+        </div>
+      </div>
+
+      <div class="button-section">
+        <div class="section-title">Komplette Tiles</div>
+        <div class="buttons">
+          <button id="btnEnqueue" title="Lädt Core, POI und Infra für die Auswahl">Auswahl laden</button>
+          <button id="btnEnqueueFresh" title="Lädt ausgewählte Tiles frisch und ersetzt vorhandene Core/POI/Infra-Daten (ohne Merge)">Auswahl frisch laden</button>
+          <button id="btnEnqueueAndPush" title="Ausgewählte Tiles laden und danach automatisch pushen">Auswahl laden + pushen</button>
+          <button id="btnRefreshAll" title="Alle vorhandenen Core-Tiles neu generieren (z.B. nach PBF-Update)">Alle Tiles aktualisieren</button>
+        </div>
+      </div>
+
+      <div class="button-section">
+        <div class="section-title">Infra Tiles</div>
+        <div class="buttons">
+          <button id="btnEnrichInfra" title="Ergänzt oder aktualisiert für vorhandene Tiles nur den separaten Infra-Layer per PBF">Auswahl Infra laden</button>
+          <button id="btnEnrichInfraFresh" title="Ersetzt nur den Infra-Layer der Auswahl frisch aus PBF, ohne Core/POI anzufassen">Auswahl Infra neu laden</button>
+          <button id="btnEnrichInfraRegion" title="Lädt den Infra-Layer für die gewählten Regionen region-anchored und merged vorhandene Randdaten">Region Infra laden</button>
+          <button id="btnEnrichInfraRegionFresh" title="Lädt den Infra-Layer für die gewählten Regionen neu, merged aber Randdaten anderer Regionsläufe">Region Infra neu</button>
+        </div>
+      </div>
+
+      <div class="button-section">
+        <div class="section-title">Push / Repo</div>
+        <div class="buttons">
+          <button id="btnPush">Neue Ergebnisse pushen</button>
+          <button id="btnRepoSync">Repo-Sync prüfen</button>
+        </div>
       </div>
 
       <div class="legend">
-        <span><i class="dot" style="background:#ff3cf7"></i> Magenta: geladen und frisch</span>
-        <span><i class="dot" style="background:#8bd3ff"></i> Hellblau: leer, aber erfolgreich geprüft</span>
-        <span><i class="dot" style="background:#ff9d2e"></i> Orange: geladen, aber &gt; 3 Monate alt</span>
+        <span><i class="dot" style="background:#929aa5"></i> Grau: ausgewählt</span>
+        <span><i class="dot" style="background:#ff9d2e"></i> Orange: lädt gerade oder wartet in Queue</span>
+        <span><i class="dot" style="background:#39d36b"></i> Grün: Core + POI + Infra vollständig geladen</span>
+        <span><i class="dot" style="background:#ff3cf7"></i> Magenta: mindestens eine Datei fehlt</span>
+        <span><i class="dot" style="background:#adff9b"></i> Hellgrün: vollständig, aber leer geprüft</span>
         <span><i class="dot" style="background:#ff3d3d"></i> Rot: fehlgeschlagen (Retry per Klick oder Button)</span>
-        <span><i class="dot" style="background:#ff5d5d"></i> Rot blinkend: lokal geladen, aber im Repo fehlend</span>
-        <span><i class="dot" style="background:#ffd54a"></i> Gelb: in Queue</span>
-        <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
-        <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
+        <span><i class="dot" style="background:#ff5d5d"></i> Rot blinkend: lokal vollständig geladen, aber im Repo fehlend</span>
         <span><i class="dot" style="background:#ffe066"></i> Gelb/Magenta gestrichelt: Lückenverdacht (Region-Overlap &gt; Limit)</span>
-        <span><i class="dot" style="background:#ffe066"></i> Kleine 1: Infra-Layer vorhanden (ab Zoom 10)</span>
+        <span><i class="dot" style="background:#ecf7ff"></i> C/P/I: vorhandene Core-, POI- und Infra-Datei (bei mittlerem Zoom)</span>
         <span><i class="dot" style="background:#00ffee"></i> Cyan: Shift-Anker (Bereichsstart)</span>
       </div>
 
@@ -226,6 +283,7 @@
       queueFresh: new Set(),
       currentTile: null,
       infraEnrichQueue: [],
+      infraEnrichFresh: new Set(),
       infraEnrichCurrentTile: null,
       recent: {},
       selected: new Set(),
@@ -246,10 +304,19 @@
     const hint = document.getElementById('hint');
     let lastRectClickAt = 0;
     let refreshStateInFlight = null;
+    let refreshStateTimer = null;
 
-    function log(msg) {
-      const t = new Date().toLocaleTimeString();
-      logView.textContent = `[${t}] ${msg}\n` + logView.textContent;
+    function formatLogClock(ms) {
+      const n = Number(ms || 0);
+      return new Date(Number.isFinite(n) && n > 0 ? n : Date.now()).toLocaleTimeString();
+    }
+
+    function log(msg, eventTs = null) {
+      const eventMs = Number(eventTs || 0);
+      const hasEventTime = Number.isFinite(eventMs) && eventMs > 0;
+      const lagSec = hasEventTime ? Math.max(0, Math.round((Date.now() - eventMs) / 1000)) : 0;
+      const lagText = lagSec >= 2 ? ` +${lagSec}s` : '';
+      logView.textContent = `[${formatLogClock(hasEventTime ? eventMs : Date.now())}${lagText}] ${msg}\n` + logView.textContent;
     }
 
     function yn(v) {
@@ -269,6 +336,20 @@
       if (ev === 'tile-start') {
         return `Workbench: aktuell lädt ${tile}${fresh ? ' [fresh]' : ''} | PBF ${regs} | niedrige Abdeckung erkannt (${yn(entry && entry.lowCoverage)})`;
       }
+      if (ev === 'tile-batch-start') {
+        const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
+        return `Workbench: Complete-PBF-Batch startet ${tile}${fresh ? ' [fresh]' : ''} | ${n} Tiles | ${entry && entry.pbf || '-'} | PBF ${regs}`;
+      }
+      if (ev === 'tile-batch-pbf') {
+        const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
+        return `Workbench: Complete-PBF-Batch liest ${entry && entry.pbf || '-'} | ${n} Tiles`;
+      }
+      if (ev === 'tile-batch-fallback') {
+        return `Workbench: Complete-Batch Fallback | ${String(entry && entry.message || '-')}`;
+      }
+      if (ev === 'tile-batch-miss') {
+        return `Workbench: ${tile} Batch-Datei fehlt | Einzelpfad wird genutzt`;
+      }
       if (ev === 'pbf-thin-extend') {
         return `Workbench: ${tile} Thin-Extend aktiv | extra PBF ${fmtRegions(entry && entry.pbfRegionsExtra)}`;
       }
@@ -285,7 +366,7 @@
       }
       if (ev === 'infra-enrich-start') {
         const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
-        return `Workbench: Infra-Layer startet ${tile}${n ? ` | ${n} Tiles` : ''} | PBF ${regs}`;
+        return `Workbench: Infra-Layer startet ${tile}${fresh ? ' [fresh]' : ''}${n ? ` | ${n} Tiles` : ''} | PBF ${regs}`;
       }
       if (ev === 'infra-enrich-pbf-batch') {
         const n = Array.isArray(entry && entry.tiles) ? entry.tiles.length : 0;
@@ -294,7 +375,7 @@
       if (ev === 'infra-enrich-done') {
         const c = entry && entry.counts || {};
         const status = entry && entry.ok ? 'fertig' : 'fehlerhaft';
-        return `Workbench: Infra-Layer ${tile} ${status} | incoming ${Number(c.incoming || 0)}, neu ${Number(c.added || 0)}, aktualisiert ${Number(c.updated || 0)}, infra ${Number(c.infra || c.poi || 0)}, cluster ${Number(c.clusters || 0)}`;
+        return `Workbench: Infra-Layer ${tile}${fresh ? ' [fresh]' : ''} ${status} | incoming ${Number(c.incoming || 0)}, neu ${Number(c.added || 0)}, aktualisiert ${Number(c.updated || 0)}, infra ${Number(c.infra || c.poi || 0)}, cluster ${Number(c.clusters || 0)}`;
       }
       if (ev === 'push-status') {
         const msg = String(entry && entry.message || '-');
@@ -313,7 +394,7 @@
       for (const e of entries) {
         const seq = Number(e && e.seq || 0);
         if (!seq || seq <= Number(state.lastProcessSeq || 0)) continue;
-        log(formatProcessEvent(e));
+        log(formatProcessEvent(e), e && e.ts);
         if (seq > maxSeq) maxSeq = seq;
       }
       const remoteSeq = Number(s && s.processSeq || 0);
@@ -395,14 +476,15 @@
     const badges = new Map();
 
     function tileStyle(key) {
-      const inQueue = state.queue.includes(key);
+      const inQueue = state.queue.includes(key) || state.infraEnrichQueue.includes(key);
       const isCurrent = state.currentTile === key || state.infraEnrichCurrentTile === key;
       const isSelected = state.selected.has(key);
       const failed = !!state.failed[key] || (state.recent[key] && state.recent[key].ok === false);
       const loaded = state.loaded[key];
       const partial = !!(loaded && loaded.partialCoveragePossible);
       const repoKnown = state.repoTiles && state.repoTiles.size > 0;
-      const repoMissing = repoKnown && !state.repoTiles.has(key);
+      const locallyComplete = !!(loaded && loaded.hasCore && loaded.hasPoi && loaded.hasInfra);
+      const repoMissing = repoKnown && locallyComplete && !state.repoTiles.has(key);
       const blinkOn = (Math.floor(Date.now() / 450) % 2) === 0;
 
       let color = '#41566f';
@@ -412,20 +494,18 @@
       let weight = 1;
       let dashArray = null;
 
-      if (repoMissing && loaded) {
-        color = '#ff5d5d';
-        fill = '#ff5d5d';
-        fillOpacity = blinkOn ? 0.30 : 0.08;
-        opacity = 0.95;
-        weight = blinkOn ? 2 : 1;
-        dashArray = '4 3';
-      }
       if (loaded) {
-        const isEmpty = loaded.dataStatus === 'empty' || loaded.empty;
-        color = isEmpty ? '#8bd3ff' : (loaded.stale ? '#ff9d2e' : '#ff3cf7');
-        fill = isEmpty ? '#8bd3ff' : (loaded.stale ? '#ff9d2e' : '#ff3cf7');
-        fillOpacity = isEmpty ? 0.14 : (loaded.stale ? 0.22 : 0.28);
+        const hasAllFiles = !!(loaded.hasCore && loaded.hasPoi && loaded.hasInfra);
+        const countsReady = !!loaded.countsReady;
+        const isEmpty = hasAllFiles && (loaded.dataStatus === 'empty' || loaded.empty || (countsReady && Number(loaded.totalCount || 0) === 0));
+        color = !hasAllFiles ? '#ff3cf7' : (isEmpty ? '#adff9b' : '#39d36b');
+        fill = color;
+        fillOpacity = isEmpty ? 0.16 : (!hasAllFiles ? 0.26 : 0.24);
         opacity = 0.9;
+        if (loaded.stale) {
+          dashArray = '2 4';
+          weight = Math.max(weight, 2);
+        }
       }
       if (loaded && partial) {
         color = '#ffe066';
@@ -435,27 +515,37 @@
         weight = 2;
         dashArray = '6 4';
       }
+      if (isSelected && !isCurrent) {
+        color = '#929aa5';
+        fill = '#929aa5';
+        fillOpacity = 0.22;
+        weight = Math.max(weight, 2);
+      }
+      if (inQueue) {
+        color = '#ff9d2e';
+        fill = '#ff9d2e';
+        fillOpacity = 0.24;
+      }
+      if (isCurrent) {
+        color = '#ff9d2e';
+        fill = '#ff9d2e';
+        fillOpacity = 0.34;
+        weight = 2;
+        dashArray = '6 4';
+      }
+      if (repoMissing && loaded) {
+        color = '#ff5d5d';
+        fill = '#ff5d5d';
+        fillOpacity = blinkOn ? 0.30 : 0.08;
+        opacity = 0.95;
+        weight = blinkOn ? 2 : 1;
+        dashArray = '4 3';
+      }
       if (failed) {
         color = '#ff3d3d';
         fill = '#ff3d3d';
         fillOpacity = 0.26;
         opacity = 0.95;
-      }
-      if (inQueue) {
-        color = '#ffd54a';
-        fill = '#ffd54a';
-        fillOpacity = 0.20;
-      }
-      if (isCurrent) {
-        color = '#59ff7d';
-        fill = '#59ff7d';
-        fillOpacity = 0.30;
-        weight = 2;
-        dashArray = '6 4';
-      }
-      if (isSelected && !isCurrent) {
-        color = '#56b8ff';
-        weight = Math.max(weight, 2);
       }
       if (state.shiftAnchor === key) {
         color = '#00ffee';
@@ -467,6 +557,28 @@
       }
 
       return { color, fillColor: fill, opacity, fillOpacity, weight, dashArray };
+    }
+
+    function fileBadgeSig(loaded) {
+      if (!loaded) return '';
+      return [
+        loaded.hasCore ? 'C' : '',
+        loaded.hasPoi ? 'P' : '',
+        loaded.hasInfra ? 'I' : ''
+      ].filter(Boolean).join('');
+    }
+
+    function shouldShowFileBadges(keys = []) {
+      const zoom = map.getZoom();
+      if (zoom < 8) return false;
+      if (Array.isArray(keys) && keys.length > 220) return false;
+      const center = map.getCenter();
+      const sampleKey = tileKeyFromLatLon(center.lat, center.lng);
+      const bounds = tileBounds(sampleKey);
+      if (!bounds) return zoom >= 9;
+      const west = map.latLngToLayerPoint([center.lat, bounds[0][1]]);
+      const east = map.latLngToLayerPoint([center.lat, bounds[1][1]]);
+      return Math.abs(east.x - west.x) >= 52;
     }
 
     function visibleTileKeys() {
@@ -521,7 +633,7 @@
             const loaded = state.loaded[key];
             const failed = state.failed[key];
             const c = loaded && loaded.counts ? loaded.counts : {};
-            const countText = loaded ? ` • counts ${Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0) + Number(c.infra || 0) + Number(c.clusters || 0)} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)}, infra ${Number(c.infra || 0)}, cluster ${Number(c.clusters || 0)})` : '';
+            const countText = loaded && loaded.countsReady ? ` • counts ${Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0) + Number(c.infra || 0) + Number(c.clusters || 0)} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)}, infra ${Number(c.infra || 0)}, cluster ${Number(c.clusters || 0)})` : '';
             const layerText = loaded
               ? [
                   loaded.hasCore ? 'core' : '',
@@ -553,9 +665,10 @@
         }
       }
 
-      const badgeZoom = map.getZoom() >= 10;
+      const badgeZoom = shouldShowFileBadges(keys);
       for (const [k, marker] of badges.entries()) {
-        if (!set.has(k) || !badgeZoom || !(state.loaded[k] && state.loaded[k].infraEnriched)) {
+        const sig = fileBadgeSig(state.loaded[k]);
+        if (!set.has(k) || !badgeZoom || !sig || marker._badgeSig !== sig) {
           badgeLayer.removeLayer(marker);
           badges.delete(k);
         }
@@ -563,25 +676,57 @@
       if (badgeZoom) {
         for (const key of keys) {
           const loaded = state.loaded[key];
-          if (!(loaded && loaded.infraEnriched) || badges.has(key)) continue;
+          if (!loaded || badges.has(key)) continue;
           const bounds = tileBounds(key);
           if (!bounds) continue;
+          const sig = fileBadgeSig(loaded);
+          if (!sig) continue;
           const south = bounds[0][0];
           const east = bounds[1][1];
           const pos = [south + TILE_STEP * 0.08, east - TILE_STEP * 0.08];
+          const parts = [
+            loaded.hasCore ? '<span class="tile-file-badge">C</span>' : '',
+            loaded.hasPoi ? '<span class="tile-file-badge">P</span>' : '',
+            loaded.hasInfra ? '<span class="tile-file-badge">I</span>' : ''
+          ].filter(Boolean).join('');
           const marker = L.marker(pos, {
             interactive: false,
             icon: L.divIcon({
               className: '',
-              html: '<div class="enrich-badge">1</div>',
-              iconSize: [14, 14],
-              iconAnchor: [7, 7]
+              html: `<div class="tile-file-badges">${parts}</div>`,
+              iconSize: [48, 14],
+              iconAnchor: [44, 7]
             })
           });
+          marker._badgeSig = sig;
           marker.addTo(badgeLayer);
           badges.set(key, marker);
         }
       }
+    }
+
+    function hasActiveWorkbenchWork() {
+      return !!(
+        state.currentTile ||
+        state.infraEnrichCurrentTile ||
+        state.queue.length > 0 ||
+        state.infraEnrichQueue.length > 0 ||
+        (state.pushStatus && state.pushStatus.running) ||
+        (state.repoSync && state.repoSync.running)
+      );
+    }
+
+    function shouldAnimateRepoMissing() {
+      return !!(state.repoTiles && state.repoTiles.size > 0 && state.repoSync && Number(state.repoSync.missingInRepoCount || 0) > 0);
+    }
+
+    function scheduleRefreshState() {
+      if (refreshStateTimer) clearTimeout(refreshStateTimer);
+      const delay = hasActiveWorkbenchWork() ? 1500 : 5000;
+      refreshStateTimer = setTimeout(async () => {
+        await refreshState(true);
+        scheduleRefreshState();
+      }, delay);
     }
 
     async function api(path, method = 'GET', body = null, options = {}) {
@@ -633,10 +778,11 @@
     function renderRegionOptions() {
       const sel = document.getElementById('regionSelect');
       const sig = (state.regions || [])
-        .map(r => `${r.id}:${r.name}:${r.sizeMb}:${r.coverage}:${r.continent || ''}`)
+        .map(r => `${r.id}:${r.name}:${r.sizeMb}:${r.coverage}:${r.continent || ''}:${r.pbfStatus || ''}:${r.pbfCached ? 1 : 0}:${r.pbfFresh ? 1 : 0}:${r.pbfSizeBytes || 0}`)
         .join('|');
       if (sig === state.regionsSig) return;
       state.regionsSig = sig;
+      const selectedValues = new Set(Array.from(sel.selectedOptions || []).map(opt => String(opt.value || '')));
       sel.innerHTML = '';
       const regions = Array.isArray(state.regions) ? state.regions.slice() : [];
       const groups = new Map();
@@ -660,8 +806,22 @@
           const size = Number(r.sizeMb || 0);
           const cov = String(r.coverage || 'unknown');
           const covLabel = cov === 'poly' ? 'poly' : (cov === 'bbox' ? 'bbox' : 'auto');
+          const pbfStatus = String(r.pbfStatus || '').toLowerCase();
+          const cached = !!r.pbfCached;
+          const fresh = !!r.pbfFresh;
+          const age = Number(r.pbfAgeDays);
+          const mark = cached ? (fresh ? '✓' : '✓ alt') : (pbfStatus === 'downloading' ? '↓' : (pbfStatus === 'error' ? '!' : ''));
+          const cacheLabel = cached
+            ? `${mark} PBF${Number.isFinite(age) ? ` ${age}d` : ''}`
+            : (mark ? `${mark} PBF` : 'PBF -');
           opt.value = String(r.id || '');
-          opt.textContent = `${r.name} (${r.id}) • ${size} MB • ${covLabel}`;
+          opt.textContent = `${cacheLabel} • ${r.name} (${r.id}) • ${size} MB • ${covLabel}`;
+          if (selectedValues.has(opt.value)) opt.selected = true;
+          if (cached) opt.dataset.cached = '1';
+          if (pbfStatus === 'error') opt.dataset.error = '1';
+          opt.title = cached
+            ? `PBF im Cache${Number.isFinite(age) ? `, Alter: ${age} Tage` : ''}`
+            : (pbfStatus === 'downloading' ? 'PBF-Download läuft' : (pbfStatus === 'error' ? String(r.pbfError || 'PBF-Fehler') : 'PBF noch nicht geladen'));
           optgroup.appendChild(opt);
         }
         sel.appendChild(optgroup);
@@ -679,11 +839,14 @@
     function updateUi() {
       const loadedCount = Object.keys(state.loaded).length;
       const emptyCount = Object.values(state.loaded).filter(v => v && (v.dataStatus === 'empty' || v.empty)).length;
-      const staleCount = Object.values(state.loaded).filter(v => v && v.stale).length;
+      const staleCount = 'bei Aktualisierung';
       const partialCount = Object.values(state.loaded).filter(v => v && v.partialCoveragePossible).length;
       const failedCount = Object.keys(state.failed).length;
       const repoMissing = state.repoSync ? Number(state.repoSync.missingInRepoCount || 0) : 0;
       const localMissing = state.repoSync ? Number(state.repoSync.missingLocalCount || 0) : 0;
+      const cachedRegions = Object.values(state.regions || []).filter(r => r && r.pbfCached).length;
+      const stalePbfRegions = Object.values(state.regions || []).filter(r => r && r.pbfCached && !r.pbfFresh).length;
+      const downloadingRegions = Object.values(state.regions || []).filter(r => String(r && r.pbfStatus || '') === 'downloading').length;
 
       document.getElementById('stLoaded').textContent = String(loadedCount);
       document.getElementById('stEmpty').textContent = String(emptyCount);
@@ -696,8 +859,13 @@
       document.getElementById('stRepoMissing').textContent = String(repoMissing);
       document.getElementById('stLocalMissing').textContent = String(localMissing);
       document.getElementById('stPush').textContent = formatPushStatus(state.pushStatus);
+      document.getElementById('regionCacheSummary').textContent = [
+        `PBF-Cache: ${cachedRegions}/${Array.isArray(state.regions) ? state.regions.length : 0} Regionen`,
+        stalePbfRegions ? `${stalePbfRegions} alt` : '',
+        downloadingRegions ? `${downloadingRegions} lädt` : ''
+      ].filter(Boolean).join(' • ');
       const normalQueue = state.queue.map(k => state.queueFresh.has(k) ? `${k} [fresh]` : k);
-      const enrichQueue = state.infraEnrichQueue.map(k => `${k} [infra]`);
+      const enrichQueue = state.infraEnrichQueue.map(k => state.infraEnrichFresh.has(k) ? `${k} [infra fresh]` : `${k} [infra]`);
       const combinedQueue = normalQueue.concat(enrichQueue);
       queueView.textContent = combinedQueue.length
         ? `Queue: ${combinedQueue.join(', ')}`
@@ -707,6 +875,7 @@
       document.getElementById('btnEnqueue').disabled = state.selected.size === 0;
       document.getElementById('btnEnqueueFresh').disabled = state.selected.size === 0;
       document.getElementById('btnEnrichInfra').disabled = state.selected.size === 0;
+      document.getElementById('btnEnrichInfraFresh').disabled = state.selected.size === 0;
       document.getElementById('btnEnqueueAndPush').disabled = state.selected.size === 0;
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
       document.getElementById('btnClearQueue').disabled = state.queue.length === 0 && state.infraEnrichQueue.length === 0;
@@ -716,7 +885,10 @@
       const hasRegionSelection = Array.from(regionSelect.selectedOptions || []).length > 0;
       document.getElementById('btnMarkRegionTiles').disabled = !hasRegionSelection;
       document.getElementById('btnEnqueueRegion').disabled = !hasRegionSelection;
+      document.getElementById('btnEnqueueRegionFresh').disabled = !hasRegionSelection;
       document.getElementById('btnEnqueueRegionAndPush').disabled = !hasRegionSelection;
+      document.getElementById('btnEnrichInfraRegion').disabled = !hasRegionSelection;
+      document.getElementById('btnEnrichInfraRegionFresh').disabled = !hasRegionSelection;
 
       if (state.shiftAnchor) {
         hint.textContent = `Shift-Anker: ${state.shiftAnchor} — Shift+Klick zweites Tile für Bereich`;
@@ -763,6 +935,7 @@
         state.queueFresh = new Set(Array.isArray(s.queueFresh) ? s.queueFresh : []);
         state.currentTile = s.currentTile || null;
         state.infraEnrichQueue = Array.isArray(s.infraEnrichQueue) ? s.infraEnrichQueue : [];
+        state.infraEnrichFresh = new Set(Array.isArray(s.infraEnrichFresh) ? s.infraEnrichFresh : []);
         state.infraEnrichCurrentTile = s.infraEnrichCurrentTile || null;
         state.recent = s.recent || {};
         state.regions = Array.isArray(s.regions) ? s.regions : state.regions;
@@ -910,29 +1083,58 @@
       }
     });
 
-    document.getElementById('btnEnrichInfra').addEventListener('click', async () => {
+    async function enqueueInfraForSelection(options = {}) {
       const tiles = Array.from(state.selected);
       if (!tiles.length) return;
-      const btn = document.getElementById('btnEnrichInfra');
+      const fresh = !!options.fresh;
+      if (fresh && !confirm('Infra-Layer der Auswahl frisch ersetzen? Core/POI bleiben unverändert, alte Infra-Einträge werden verworfen.')) return;
+      const btn = document.getElementById(fresh ? 'btnEnrichInfraFresh' : 'btnEnrichInfra');
       const prevText = btn.textContent;
       try {
         btn.disabled = true;
-        btn.textContent = 'Infra-Layer...';
-        log(`Infra-Layer angefragt: ${tiles.join(', ')}`);
-        const out = await api('/api/enrich-infra', 'POST', { tiles }, { timeoutMs: 15000 });
+        btn.textContent = fresh ? 'Infra neu...' : 'Infra-Layer...';
+        log(`${fresh ? 'Infra-Reload' : 'Infra-Layer'} angefragt: ${tiles.join(', ')}`);
+        const out = await api('/api/enrich-infra', 'POST', { tiles, fresh }, { timeoutMs: 15000 });
         const added = Array.isArray(out.added) ? out.added : [];
         log(added.length
-          ? `Infra-Layer Queue: ${added.join(', ')}`
+          ? `${fresh ? 'Infra-Reload' : 'Infra-Layer'} Queue: ${added.join(', ')}`
           : 'Infra-Layer: keine neuen Tiles eingereiht (bereits aktiv oder schon in Queue)');
         if (added.length) state.selected.clear();
         await refreshState(true);
       } catch (e) {
-        log(`Infra-Layer Fehler: ${e.message || e}`);
+        log(`${fresh ? 'Infra-Reload' : 'Infra-Layer'} Fehler: ${e.message || e}`);
       } finally {
         btn.textContent = prevText;
         updateUi();
       }
-    });
+    }
+
+    async function enqueueInfraForRegions(options = {}) {
+      const regionIds = getSelectedRegionIds();
+      if (!regionIds.length) return;
+      const fresh = !!options.fresh;
+      if (fresh && !confirm('Infra-Layer der Region(en) neu laden? Randdaten vorhandener Nachbar-Regionsläufe werden gemerged.')) return;
+      const btn = document.getElementById(fresh ? 'btnEnrichInfraRegionFresh' : 'btnEnrichInfraRegion');
+      const prevText = btn.textContent;
+      try {
+        btn.disabled = true;
+        btn.textContent = fresh ? 'Region Infra neu...' : 'Region Infra...';
+        const out = await api('/api/enrich-infra', 'POST', { regionIds, fresh }, { timeoutMs: 60000 });
+        const added = Array.isArray(out.added) ? out.added : [];
+        log(`${fresh ? 'Region-Infra-Reload' : 'Region-Infra'}: ${regionIds.join(', ')} | Tiles gefunden: ${Number(out.foundTiles || 0)} | neu eingereiht: ${added.length}`);
+        await refreshState(true);
+      } catch (e) {
+        log(`${fresh ? 'Region-Infra-Reload' : 'Region-Infra'} Fehler: ${e.message || e}`);
+      } finally {
+        btn.textContent = prevText;
+        updateUi();
+      }
+    }
+
+    document.getElementById('btnEnrichInfra').addEventListener('click', () => enqueueInfraForSelection());
+    document.getElementById('btnEnrichInfraFresh').addEventListener('click', () => enqueueInfraForSelection({ fresh: true }));
+    document.getElementById('btnEnrichInfraRegion').addEventListener('click', () => enqueueInfraForRegions());
+    document.getElementById('btnEnrichInfraRegionFresh').addEventListener('click', () => enqueueInfraForRegions({ fresh: true }));
 
     document.getElementById('btnEnqueueAndPush').addEventListener('click', async () => {
       const tiles = Array.from(state.selected);
@@ -979,6 +1181,19 @@
         await refreshState(true);
       } catch (e) {
         log(`Region-Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnEnqueueRegionFresh').addEventListener('click', async () => {
+      const regionIds = getSelectedRegionIds();
+      if (!regionIds.length) return;
+      if (!confirm(`Region(en) frisch laden? Vorhandene Core/POI/Infra-Dateien werden ohne Merge ersetzt.`)) return;
+      try {
+        const out = await api('/api/enqueue-region', 'POST', { regionIds, fresh: true });
+        log(`Region-Fresh-Queue: ${regionIds.join(', ')} | Tiles gefunden: ${out.foundTiles} | neu eingereiht: ${Array.isArray(out.added) ? out.added.length : 0}`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Region-Fresh-Queue-Fehler: ${e.message || e}`);
       }
     });
 
@@ -1059,10 +1274,10 @@
       handleTileClick(key, shiftHeld);
     });
 
-    refreshState(true);
-    runRepoSyncCheck();
-    setInterval(() => refreshState(true), 1500);
-    setInterval(() => renderGrid(), 450);
+    refreshState(true).finally(scheduleRefreshState);
+    setInterval(() => {
+      if (shouldAnimateRepoMissing()) renderGrid();
+    }, 700);
   </script>
 </body>
 </html>
