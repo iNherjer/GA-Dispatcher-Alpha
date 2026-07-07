@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1414';
+const CACHE = 'ga-dispatcher-v1415';
 
 const STATIC = [
     './',
@@ -26,15 +26,15 @@ const STATIC = [
     './profile.js',
     './map.js',
     './map-utility-tools.js',
-    './tools/e6b-flight-computer.html',
-    './tools/e6b-flight-computer.css',
-    './tools/e6b-flight-computer.js',
-    './tools/e6b-core.js',
-    './tools/e6b-assets/reference-front-fixed.svg',
-    './tools/e6b-assets/reference-front-rotor.svg',
-    './tools/e6b-assets/reference-wind-fixed.svg',
-    './tools/e6b-assets/reference-wind-index.svg',
-    './tools/e6b-assets/reference-wind-plot.svg',
+    './e6b/e6b-flight-computer.html',
+    './e6b/e6b-flight-computer.css',
+    './e6b/e6b-flight-computer.js',
+    './e6b/e6b-core.js',
+    './e6b/e6b-assets/reference-front-fixed.svg',
+    './e6b/e6b-assets/reference-front-rotor.svg',
+    './e6b/e6b-assets/reference-wind-fixed.svg',
+    './e6b/e6b-assets/reference-wind-index.svg',
+    './e6b/e6b-assets/reference-wind-plot.svg',
     './board.js',
     './tutorial.js',
     './datenbank.js',
