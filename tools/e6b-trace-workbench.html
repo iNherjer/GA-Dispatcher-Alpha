@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E6B Trace Workbench</title>
+    <link rel="stylesheet" href="./e6b-trace-workbench.css?v=20260708-wind06">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <h1>E6B Trace Workbench</h1>
+            <span>Scan normalisieren, Skalen kalibrieren, SVG-Geometrie exportieren</span>
+        </div>
+        <div class="topbar-actions">
+            <button type="button" id="togglePreviewMode" aria-pressed="false">EDIT</button>
+            <button type="button" id="resetPreviewRotation">Reset Preview</button>
+            <button type="button" id="undoChange" disabled>Undo</button>
+            <button type="button" id="redoChange" disabled>Redo</button>
+            <button type="button" id="fitView">Fit</button>
+            <button type="button" id="zoomIn">+</button>
+            <button type="button" id="zoomOut">-</button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="stage-panel" aria-label="E6B Scan Arbeitsflaeche">
+            <svg id="traceStage" class="trace-stage" viewBox="0 0 1858 2270" role="img" aria-label="E6B Trace Canvas">
+                <defs>
+                    <filter id="labelHalo" x="-20%" y="-20%" width="140%" height="140%">
+                        <feFlood flood-color="#f2f5f8" flood-opacity="0.72" result="bg"></feFlood>
+                        <feComposite in="bg" in2="SourceGraphic" operator="out" result="halo"></feComposite>
+                        <feMerge>
+                            <feMergeNode in="halo"></feMergeNode>
+                            <feMergeNode in="SourceGraphic"></feMergeNode>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <image id="scanImage" href="./e6b-assets/scans/e6b-front-scan-original.jpeg?v=20260707-01" x="0" y="0" width="1858" height="2270"></image>
+                <g id="traceOverlay"></g>
+            </svg>
+        </section>
+
+        <aside class="control-panel" aria-label="Trace Werkzeuge">
+            <section class="control-section">
+                <h2>Bild</h2>
+                <label>Arbeitsfläche
+                    <select id="workfaceSelect">
+                        <option value="front">Vorderseite</option>
+                        <option value="wind-rotor">Rückseite Drehscheibe</option>
+                        <option value="wind-slider">Rückseite Schieber</option>
+                    </select>
+                </label>
+                <label>Scan Preset
+                    <select id="scanPresetSelect">
+                        <option value="">Aktuelles Bild</option>
+                        <option value="front">Vorderseite Scan</option>
+                        <option value="wind-rotor">Rückseite Drehscheibe</option>
+                        <option value="wind-slider">Rückseite Schieber</option>
+                    </select>
+                </label>
+                <label class="file-label">JPG laden
+                    <input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp,image/tiff">
+                </label>
+                <div class="field-grid two">
+                    <label>Scan Deckkraft<input id="imageOpacity" type="range" min="0" max="1" step="0.01"></label>
+                    <label>Overlay Deckkraft<input id="overlayOpacity" type="range" min="0" max="1" step="0.01"></label>
+                </div>
+                <label class="check-label"><input id="showScan" type="checkbox" checked> Scan zeigen</label>
+                <label class="check-label"><input id="showOverlay" type="checkbox" checked> Overlay zeigen</label>
+                <label class="check-label"><input id="showCalibrationMarkers" type="checkbox" checked> Kalibrierpunkte zeigen</label>
+            </section>
+
+            <section class="control-section">
+                <h2>Normalisierung</h2>
+                <label>Scheibe
+                    <select id="calSurfaceSelect"></select>
+                </label>
+                <div class="field-grid two">
+                    <label>Center X<input id="calCx" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Center Y<input id="calCy" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Außenradius<input id="calRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Fenster Radius<input id="calInnerRadius" type="number" min="0" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Rotation deg<input id="calRotation" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Außen Outline<input id="calOutlineWidth" type="number" min="0" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Fenster Outline<input id="calInnerOutlineWidth" type="number" min="0" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Eckenradius<input id="calCornerRadius" type="number" min="0" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Füllung 0-1<input id="calFillOpacity" type="number" min="0" max="1" step="0.05" inputmode="decimal" data-number-field="1"></label>
+                </div>
+                <div id="activeSurfaceStatus" class="save-status" aria-live="polite"></div>
+                <div class="button-row">
+                    <button type="button" id="pickCenter">Center klicken</button>
+                    <button type="button" id="pickRadius">Radius klicken</button>
+                    <button type="button" id="pickRotorCircle">3-Punkt-Kreis</button>
+                    <button type="button" id="pickWindDot">Windpunkt setzen</button>
+                    <button type="button" id="resetCalibration">Seed</button>
+                    <button type="button" id="downloadNormalized">PNG normalisieren</button>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h2>Hilfsradial</h2>
+                <label class="check-label"><input id="showHelperRadial" type="checkbox"> Radial zeigen</label>
+                <div class="field-grid two">
+                    <label>Winkel deg<input id="helperRadialAngle" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h2>Vorschau</h2>
+                <div class="field-grid two">
+                    <label>Front Ende r<input id="previewFrontRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Wind Rotation<input id="previewWindRotation" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Schieber Y<input id="previewSliderY" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h2>Schrift global</h2>
+                <div class="field-grid two">
+                    <label>Familie<input id="globalFontFamily" type="text" list="fontFamilyOptions" placeholder="Arial"></label>
+                    <label>Breite
+                        <select id="globalFontWidth">
+                            <option value="normal">Normal</option>
+                            <option value="narrow">Narrow</option>
+                        </select>
+                    </label>
+                    <label>Starke
+                        <select id="globalFontWeight">
+                            <option value="normal">Normal</option>
+                            <option value="bold">Bold</option>
+                        </select>
+                    </label>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <h2>Elemente</h2>
+                <div class="button-row compact">
+                    <button type="button" data-add="ring">Ring</button>
+                    <button type="button" data-add="window">Fenster</button>
+                    <button type="button" data-add="scale">Skala</button>
+                    <button type="button" data-add="label">Label</button>
+                    <button type="button" data-add="index">Index</button>
+                    <button type="button" data-add="radial">Radial</button>
+                </div>
+                <select id="elementSelect" class="wide-select" aria-label="Element auswaehlen"></select>
+                <div class="button-row compact">
+                    <button type="button" id="duplicateElement">Duplizieren</button>
+                    <button type="button" id="deleteElement">Loeschen</button>
+                    <button type="button" id="resetElements">Front Seed</button>
+                    <button type="button" id="appendIndexes">Front Indexe</button>
+                    <button type="button" id="applyIndexPattern">Front Muster</button>
+                    <button type="button" id="appendWindSeeds">Wind Seed</button>
+                </div>
+            </section>
+
+            <section class="control-section" id="elementEditor">
+                <h2>Auswahl</h2>
+                <div class="field-grid two">
+                    <label>Name<input id="editLabel" type="text"></label>
+                    <label>Typ<input id="editType" type="text" readonly></label>
+                    <label>Scheibe
+                        <select id="editDisc">
+                            <option value="front">Front</option>
+                            <option value="back">Back</option>
+                            <option value="wind-rotor-back">Wind Rotor Back</option>
+                            <option value="wind-rotor-front">Wind Rotor Front</option>
+                            <option value="wind-slider">Wind Schieber</option>
+                        </select>
+                    </label>
+                    <label>Radius<input id="editRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Label Radius<input id="editLabelRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Start deg<input id="editStartAngle" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>End deg<input id="editEndAngle" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Innenradius<input id="editInnerRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Aussenradius<input id="editOuterRadius" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Tick klein<input id="editMinorTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Tick mittel<input id="editMediumTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Tick gross<input id="editMajorTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Schrift<input id="editFontSize" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Font Override<input id="editFontFamily" type="text" list="fontFamilyOptions" placeholder="Global"></label>
+                    <label>Font Breite
+                        <select id="editFontWidth">
+                            <option value="">Global</option>
+                            <option value="normal">Normal</option>
+                            <option value="narrow">Narrow</option>
+                        </select>
+                    </label>
+                    <label>Font Starke
+                        <select id="editFontWeight">
+                            <option value="">Global</option>
+                            <option value="normal">Normal</option>
+                            <option value="bold">Bold</option>
+                        </select>
+                    </label>
+                    <label>Text Rotation<input id="editTextRotation" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Text Ausrichtung
+                        <select id="editTextOrientation">
+                            <option value="free">Frei</option>
+                            <option value="radial">Radial</option>
+                            <option value="radial-upright">Radial lesbar</option>
+                            <option value="tangent">Tangential</option>
+                            <option value="tangent-upright">Tangential lesbar</option>
+                            <option value="arc">Tangential folgend</option>
+                            <option value="arc-upright">Tangential folgend lesbar</option>
+                        </select>
+                    </label>
+                    <label>Index Laenge<input id="editIndexLength" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Label Winkelversatz<input id="editLabelAngleOffset" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Index Breite<input id="editIndexWidth" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Index Stiel<input id="editStemLength" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                </div>
+                <label class="wide-field">Text / Werte
+                    <textarea id="editValues" spellcheck="false"></textarea>
+                </label>
+                <label class="wide-field">Mittlere Ticks
+                    <textarea id="editMediumValues" spellcheck="false" placeholder="z.B. 1..9/0.083333 fuer 5-Minuten-Ticks"></textarea>
+                </label>
+                <label class="wide-field">Kleine Ticks
+                    <textarea id="editMinorValues" spellcheck="false" placeholder="z.B. 1..9/0.016667 fuer Minuten-Ticks"></textarea>
+                </label>
+                <label class="wide-field">Kalibrierpunkte Wert=Winkel
+                    <textarea id="editCalibration" spellcheck="false"></textarea>
+                </label>
+            </section>
+
+            <section class="control-section">
+                <h2>Export</h2>
+                <div class="button-row compact">
+                    <button type="button" id="copyJson">JSON kopieren</button>
+                    <button type="button" id="downloadJson">JSON laden</button>
+                    <button type="button" id="publishFrontDisc">Front speichern</button>
+                    <button type="button" id="publishWindDisc">Wind speichern</button>
+                </div>
+                <div id="publishedFrontStatus" class="save-status" aria-live="polite"></div>
+                <div id="publishedWindStatus" class="save-status" aria-live="polite"></div>
+                <textarea id="jsonExport" class="json-export" spellcheck="false" readonly></textarea>
+            </section>
+        </aside>
+    </main>
+
+    <datalist id="fontFamilyOptions">
+        <option value="Arial"></option>
+        <option value="Arial Narrow"></option>
+        <option value="Helvetica Neue"></option>
+        <option value="Avenir Next Condensed"></option>
+        <option value="DIN Condensed"></option>
+        <option value="DIN Alternate"></option>
+        <option value="SF Pro Display"></option>
+        <option value="Verdana"></option>
+        <option value="Courier New"></option>
+    </datalist>
+    <script src="./e6b-trace-workbench.js?v=20260708-wind06"></script>
+</body>
+</html>

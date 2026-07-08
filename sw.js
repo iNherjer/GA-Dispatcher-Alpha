@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1416';
+const CACHE = 'ga-dispatcher-v1422';
 
 const STATIC = [
     './',
@@ -30,11 +30,8 @@ const STATIC = [
     './e6b/e6b-flight-computer.css',
     './e6b/e6b-flight-computer.js',
     './e6b/e6b-core.js',
-    './e6b/e6b-assets/reference-front-fixed.svg',
-    './e6b/e6b-assets/reference-front-rotor.svg',
-    './e6b/e6b-assets/reference-wind-fixed.svg',
-    './e6b/e6b-assets/reference-wind-index.svg',
-    './e6b/e6b-assets/reference-wind-plot.svg',
+    './e6b/e6b-workbench-front-disc.json',
+    './e6b/e6b-workbench-wind-disc.json',
     './board.js',
     './tutorial.js',
     './datenbank.js',

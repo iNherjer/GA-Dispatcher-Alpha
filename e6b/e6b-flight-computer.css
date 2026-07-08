@@ -198,340 +198,136 @@ body.e6b-embedded .wind-stack {
 
 .e6b-rotating-board {
     transform: rotate(var(--e6b-rotation, 0deg));
+    will-change: transform;
 }
 
 .e6b-front-rotor {
     pointer-events: none;
+    transform-origin: var(--e6b-front-origin-x, 50%) var(--e6b-front-origin-y, 50%);
 }
 
-.e6b-front-label-overlay,
-.e6b-front-fixed-overlay,
-.e6b-reference-cleanup-overlay,
-.e6b-front-window-plan-overlay {
-    position: absolute;
-    inset: 0;
+.e6b-workbench-front-layer {
+    display: none;
+    overflow: visible;
+}
+
+.e6b-workbench-front-layer svg {
     display: block;
     width: 100%;
     height: 100%;
-    pointer-events: none;
+    overflow: visible;
 }
 
-.e6b-reference-cleanup-overlay {
+.e6b-workbench-wind-layer {
     display: none;
+    overflow: visible;
 }
 
-.e6b-reference-art {
-    opacity: 1;
-    transition: opacity 0.12s ease;
-}
-
-.e6b-cleanup-title-band,
-.e6b-cleanup-center-fill,
-.e6b-cleanup-window-fill {
-    fill: #d8dadd;
-    stroke: none;
-}
-
-.e6b-cleanup-center-fill {
-    fill: #d3d5d8;
-}
-
-body.e6b-preview-hide-reference .e6b-reference-cleanup-overlay {
-    display: none;
-}
-
-body.e6b-preview-reference-faded .e6b-reference-art {
-    opacity: 0.48;
-}
-
-body.e6b-preview-hide-reference .e6b-reference-art {
-    opacity: 0;
-}
-
-body.e6b-preview-hide-new .e6b-front-label-overlay,
-body.e6b-preview-hide-new .e6b-front-fixed-overlay,
-body.e6b-preview-hide-new .e6b-window-plan-slot,
-body.e6b-preview-hide-new .e6b-window-plan-scale {
-    display: none;
-}
-
-body.e6b-preview-hide-helpers .e6b-window-plan-geometry,
-body.e6b-preview-hide-helpers .e6b-window-plan-labels {
-    display: none;
-}
-
-.e6b-front-label-overlay text,
-.e6b-front-fixed-overlay text {
-    fill: var(--ink);
-    font-family: var(--e6b-ui-font);
-    text-anchor: middle;
-    letter-spacing: 0;
-}
-
-.e6b-device-title {
-    font-size: 15px;
-    font-weight: 800;
-}
-
-.e6b-front-separator {
-    stroke: var(--ink);
-    stroke-width: 2.3;
-    stroke-linecap: square;
-}
-
-.e6b-front-heading {
-    font-size: 8.3px;
-    font-weight: 800;
-}
-
-.e6b-front-copy {
-    font-size: 5.55px;
-    font-weight: 700;
-}
-
-.e6b-front-center-dot {
-    fill: var(--ink);
-    stroke: none;
-}
-
-.e6b-front-window-plan-overlay {
-    display: none;
-}
-
-body.e6b-window-plan .e6b-front-window-plan-overlay {
+.e6b-workbench-wind-layer svg {
     display: block;
-    pointer-events: auto;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
 }
 
-body.e6b-window-plan .e6b-front-rotor {
-    pointer-events: auto;
+.e6b-workbench-wind-layer .trace-preview-surface-outline {
+    fill: none !important;
+    stroke: rgba(18, 22, 25, 0.82);
+    vector-effect: non-scaling-stroke;
 }
 
-.window-plan-controls,
-.preview-controls,
-.scale-plan-controls {
-    display: none;
+.e6b-workbench-wind-layer .trace-preview-wind-rotor-back-surface {
+    fill: #d0d4d7;
 }
 
-body.e6b-window-plan .window-plan-controls,
-body.e6b-window-plan .preview-controls,
-body.e6b-window-plan .scale-plan-controls {
+.e6b-workbench-wind-layer .trace-preview-wind-rotor-front-surface {
+    fill: #c9cdd1;
+}
+
+body.e6b-workbench-wind-active .e6b-workbench-wind-layer {
     display: block;
 }
 
-.e6b-window-plan-ring,
-.e6b-window-plan-axis {
-    fill: none;
-    stroke: rgba(0, 119, 255, 0.72);
-    stroke-width: 1.1;
-    stroke-dasharray: 4 4;
-    vector-effect: non-scaling-stroke;
-}
-
-.e6b-window-plan-slot {
-    stroke-width: 2;
-    vector-effect: non-scaling-stroke;
-    cursor: pointer;
-    pointer-events: visiblePainted;
-}
-
-.e6b-window-plan-slot.active {
-    stroke-width: 4;
-}
-
-.left-temp-window-slot {
-    fill: rgba(28, 126, 255, 0.24);
-    stroke: rgba(0, 83, 190, 0.95);
-}
-
-.right-pressure-window-slot {
-    fill: rgba(255, 174, 0, 0.32);
-    stroke: rgba(218, 111, 0, 0.98);
-}
-
-.density-window-slot {
-    fill: rgba(0, 190, 150, 0.28);
-    stroke: rgba(0, 124, 104, 0.98);
-}
-
-.density-readout-slot {
-    fill: none;
-    stroke: rgba(112, 44, 214, 0.98);
-    stroke-dasharray: 5 3;
-}
-
-.e6b-window-plan-scale {
-    cursor: pointer;
-    pointer-events: visiblePainted;
-}
-
-.e6b-window-plan-scale .scale-arc {
-    fill: none;
-    stroke: rgba(20, 20, 20, 0.74);
-    stroke-width: 1.3;
-    vector-effect: non-scaling-stroke;
-}
-
-.e6b-window-plan-scale .scale-tick {
-    stroke: rgba(20, 20, 20, 0.78);
-    stroke-width: 0.85;
-    vector-effect: non-scaling-stroke;
-}
-
-.e6b-window-plan-scale .scale-tick.major {
-    stroke-width: 1.5;
-}
-
-.e6b-window-plan-scale text {
-    fill: #111;
-    paint-order: stroke;
-    stroke: rgba(255, 255, 255, 0.72);
-    stroke-width: 2px;
-    font-family: var(--e6b-ui-font);
-    font-size: 6px;
-    font-weight: 800;
-    text-anchor: middle;
-    dominant-baseline: central;
-    letter-spacing: 0;
-}
-
-.left-temp-scale .scale-arc,
-.left-temp-scale .scale-tick,
-.left-pressure-scale .scale-arc,
-.left-pressure-scale .scale-tick {
-    stroke: rgba(0, 83, 190, 0.78);
-}
-
-.right-pressure-scale .scale-arc,
-.right-pressure-scale .scale-tick,
-.right-temp-scale .scale-arc,
-.right-temp-scale .scale-tick {
-    stroke: rgba(218, 111, 0, 0.86);
-}
-
-.density-window-scale .scale-arc,
-.density-window-scale .scale-tick,
-.density-readout-scale .scale-arc,
-.density-readout-scale .scale-tick {
-    stroke: rgba(0, 124, 104, 0.88);
-}
-
-.e6b-window-plan-scale.active .scale-arc,
-.e6b-window-plan-scale.active .scale-tick {
-    stroke: #ff2d55;
-}
-
-.e6b-window-plan-scale.active text {
-    fill: #ff2d55;
-}
-
-.e6b-window-plan-labels text {
-    fill: #111;
-    paint-order: stroke;
-    stroke: rgba(255, 255, 255, 0.78);
-    stroke-width: 3px;
-    font-family: var(--e6b-ui-font);
-    font-size: 6.8px;
-    font-weight: 800;
-    text-anchor: middle;
-    letter-spacing: 0;
-}
-
-body.e6b-hide-window-plan-labels .e6b-window-plan-labels {
+.e6b-workbench-wind-layer .trace-wind-marked-point {
     display: none;
 }
 
-.window-plan-toggle-label {
+body.e6b-workbench-front-active .e6b-workbench-front-layer {
+    display: block;
+}
+
+.e6b-workbench-front-missing {
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: rgba(246,241,222,0.76);
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.window-plan-toggle-label input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent);
-}
-
-.window-plan-select-label,
-.window-plan-fields label {
-    display: grid;
-    gap: 6px;
-    color: rgba(246,241,222,0.7);
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.window-plan-select-label select,
-.window-plan-field-row input,
-.window-plan-export {
-    width: 100%;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: #11161b;
-    color: #f6f1de;
-    font-family: var(--e6b-mono-font);
+    justify-content: center;
+    color: rgba(18, 22, 25, 0.72);
+    font-family: var(--e6b-ui-font);
     font-size: 13px;
     font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    letter-spacing: 0;
+    background:
+        radial-gradient(circle at center, rgba(210, 215, 219, 0.94) 0 65%, transparent 66%);
 }
 
-.window-plan-select-label select {
-    min-height: 32px;
-    padding: 5px 7px;
+.e6b-workbench-front-missing span {
+    max-width: 150px;
+    padding: 8px 10px;
+    border: 1px solid rgba(18, 22, 25, 0.28);
+    border-radius: 6px;
+    background: rgba(238, 241, 243, 0.82);
 }
 
-.window-plan-fields {
-    display: grid;
-    gap: 10px;
-    margin-top: 10px;
+body.e6b-workbench-front-active .e6b-workbench-front-missing {
+    display: none;
 }
 
-.window-plan-field-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 76px;
-    gap: 8px;
+.e6b-workbench-wind-missing {
+    display: flex;
     align-items: center;
+    justify-content: center;
+    color: rgba(18, 22, 25, 0.72);
+    font-family: var(--e6b-ui-font);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    letter-spacing: 0;
+    background:
+        linear-gradient(rgba(18, 22, 25, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 22, 25, 0.16) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(230, 232, 234, 0.74), rgba(213, 216, 219, 0.74));
+    background-size: 24px 24px, 24px 24px, auto;
 }
 
-.window-plan-field-row input[type="range"] {
-    padding: 0;
+.e6b-workbench-wind-missing span {
+    max-width: 170px;
+    padding: 8px 10px;
+    border: 1px solid rgba(18, 22, 25, 0.28);
+    border-radius: 6px;
+    background: rgba(238, 241, 243, 0.82);
 }
 
-.window-plan-field-row input[type="number"] {
-    min-height: 30px;
-    padding: 5px 6px;
-}
-
-.window-plan-buttons {
-    grid-template-columns: 1fr 1fr;
-}
-
-.window-plan-export {
-    min-height: 116px;
-    margin-top: 10px;
-    padding: 8px;
-    resize: vertical;
-    line-height: 1.35;
-    white-space: pre;
-}
-
-.preview-zoom-label {
-    margin-top: 10px;
-}
-
-.preview-view-buttons {
-    grid-template-columns: 1fr;
+body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
+    display: none;
 }
 
 .e6b-wind-slider {
     transform: translateY(var(--e6b-wind-slide-y, 0px));
+    will-change: transform;
 }
 
 .e6b-wind-rotor {
     transform: rotate(var(--e6b-rotation, 0deg));
+    transform-origin: var(--e6b-wind-origin-x, 50%) var(--e6b-wind-origin-y, 50%);
+    will-change: transform;
+}
+
+.e6b-wind-rotor-placeholder {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .e6b-center-pin {
@@ -553,6 +349,7 @@ body.e6b-hide-window-plan-labels .e6b-window-plan-labels {
     top: var(--e6b-wind-dot-y, 50%);
     width: 14px;
     height: 14px;
+    z-index: 4;
     border: 4px solid #3757ff;
     border-radius: 50%;
     background: #f6f0d2;

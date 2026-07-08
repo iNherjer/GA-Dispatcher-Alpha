@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const e6b = require('./e6b-core.js');
+const e6b = require('../e6b/e6b-core.js');
 
 function near(actual, expected, tolerance, label) {
     assert.ok(

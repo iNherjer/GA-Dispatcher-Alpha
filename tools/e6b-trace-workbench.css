@@ -1,0 +1,722 @@
+:root {
+    --bg: #11161b;
+    --panel: #20262d;
+    --panel-2: #171d23;
+    --line: rgba(245, 238, 210, 0.16);
+    --text: #f4efd7;
+    --muted: rgba(244, 239, 215, 0.62);
+    --accent: #e6b844;
+    --blue: #54a6ff;
+    --cyan: #42d4c8;
+    --red: #ff5f5f;
+    --green: #78d36f;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 58px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    background: #0b0f13;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.1;
+    letter-spacing: 0;
+}
+
+.topbar span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 6px;
+}
+
+button {
+    min-height: 30px;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 6px;
+    background: linear-gradient(#343d46, #171d23);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+button:hover {
+    border-color: rgba(230,184,68,0.65);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+}
+
+#togglePreviewMode[aria-pressed="true"] {
+    border-color: rgba(66,212,200,0.85);
+    background: linear-gradient(#167c86, #0c3940);
+    color: #e8fbff;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    height: calc(100dvh - 58px);
+    min-height: 0;
+}
+
+.stage-panel {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background:
+        linear-gradient(rgba(70,76,82,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(70,76,82,0.08) 1px, transparent 1px),
+        #d7d9dc;
+    background-size: 24px 24px;
+}
+
+.trace-stage {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+}
+
+#scanImage {
+    pointer-events: none;
+}
+
+#traceOverlay {
+    pointer-events: auto;
+}
+
+.preview-mode .layout {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.preview-mode .control-panel {
+    display: none;
+}
+
+.trace-preview-disc {
+    cursor: grab;
+}
+
+.trace-preview-disc:active {
+    cursor: grabbing;
+}
+
+.trace-preview-surface {
+    stroke: none;
+    stroke-width: 0;
+    vector-effect: non-scaling-stroke;
+    pointer-events: all;
+}
+
+.trace-preview-surface-outline {
+    fill: none;
+    stroke: rgba(18,22,25,0.94);
+    stroke-width: 5;
+    vector-effect: non-scaling-stroke;
+    pointer-events: all;
+}
+
+.trace-preview-back-surface {
+    fill: #d1d5d8;
+}
+
+.trace-preview-front-surface {
+    fill: #c5cacf;
+}
+
+.trace-preview-wind-rotor-back-surface {
+    fill: #d0d4d7;
+}
+
+.trace-preview-wind-rotor-front-surface {
+    fill: #c9cdd1;
+    fill-opacity: 0;
+}
+
+.trace-preview-slider-surface {
+    fill: rgba(210, 216, 220, 0.72);
+    stroke: rgba(18,22,25,0.7);
+}
+
+.trace-slider-origin {
+    fill: #ff00c8;
+    stroke: rgba(8,10,12,0.92);
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-wind-marked-point {
+    fill: #3757ff;
+    stroke: rgba(255,255,255,0.95);
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.preview-mode .trace-ring,
+.preview-mode .trace-scale-guide {
+    stroke: rgba(18,22,25,0.7);
+    stroke-dasharray: none;
+}
+
+.preview-mode .trace-scale.back-disc .trace-tick,
+.preview-mode .trace-tick {
+    stroke: rgba(18,22,25,0.92);
+}
+
+.preview-mode .trace-number,
+.preview-mode .trace-label,
+.preview-mode .trace-index-label,
+.preview-mode .trace-scale.back-disc .trace-number,
+.preview-mode .trace-label.back-disc,
+.preview-mode .trace-index.back-disc .trace-index-label {
+    fill: #101418;
+    stroke: rgba(218,223,227,0.72);
+}
+
+.preview-mode .trace-window {
+    fill: none;
+    stroke: rgba(18,22,25,0.9);
+}
+
+.preview-mode .trace-window-edge,
+.preview-mode .back-disc .trace-window-edge {
+    stroke: rgba(18,22,25,0.9);
+}
+
+.preview-mode .trace-index-head {
+    fill: rgba(18,22,25,0.86);
+    stroke: rgba(18,22,25,0.96);
+}
+
+.preview-mode .trace-index-stem {
+    stroke: rgba(18,22,25,0.96);
+}
+
+.trace-ring,
+.trace-scale-guide {
+    fill: none;
+    stroke: rgba(84,166,255,0.82);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-radial {
+    stroke: rgba(84,166,255,0.82);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    cursor: grab;
+}
+
+.trace-ring.selected,
+.trace-radial.selected,
+.trace-window.selected,
+.trace-scale.selected .trace-scale-guide,
+.trace-label.selected,
+.trace-index.selected {
+    filter: drop-shadow(0 0 6px rgba(230,184,68,0.95));
+}
+
+.trace-ring.back-disc,
+.trace-scale.back-disc .trace-scale-guide {
+    stroke: rgba(0,185,255,0.82);
+    stroke-dasharray: 10 7;
+}
+
+.trace-ring.wind-rotor-back-disc,
+.trace-radial.wind-rotor-back-disc,
+.trace-scale.wind-rotor-back-disc .trace-scale-guide {
+    stroke: rgba(111,95,255,0.86);
+    stroke-dasharray: 10 6;
+}
+
+.trace-ring.wind-rotor-front-disc,
+.trace-radial.wind-rotor-front-disc,
+.trace-scale.wind-rotor-front-disc .trace-scale-guide {
+    stroke: rgba(255,92,192,0.86);
+    stroke-dasharray: 10 6;
+}
+
+.trace-ring.wind-slider-disc,
+.trace-radial.wind-slider-disc,
+.trace-scale.wind-slider-disc .trace-scale-guide {
+    stroke: rgba(0,151,126,0.88);
+    stroke-dasharray: 12 7;
+}
+
+.trace-scale.back-disc .trace-tick {
+    stroke: rgba(0,112,172,0.94);
+}
+
+.trace-scale.wind-rotor-back-disc .trace-tick {
+    stroke: rgba(77,63,194,0.96);
+}
+
+.trace-scale.wind-rotor-front-disc .trace-tick {
+    stroke: rgba(180,30,132,0.96);
+}
+
+.trace-scale.wind-slider-disc .trace-tick {
+    stroke: rgba(0,110,92,0.96);
+}
+
+.trace-scale.back-disc .trace-number,
+.trace-label.back-disc,
+.trace-index.back-disc .trace-index-label {
+    fill: rgba(0,85,130,0.98);
+}
+
+.trace-scale.wind-rotor-back-disc .trace-number,
+.trace-label.wind-rotor-back-disc,
+.trace-index.wind-rotor-back-disc .trace-index-label {
+    fill: rgba(62,48,166,0.98);
+}
+
+.trace-scale.wind-rotor-front-disc .trace-number,
+.trace-label.wind-rotor-front-disc,
+.trace-index.wind-rotor-front-disc .trace-index-label {
+    fill: rgba(142,15,100,0.98);
+}
+
+.trace-scale.wind-slider-disc .trace-number,
+.trace-label.wind-slider-disc,
+.trace-index.wind-slider-disc .trace-index-label {
+    fill: rgba(0,90,76,0.98);
+}
+
+.trace-window.back-disc,
+.back-disc .trace-window,
+.back-disc .trace-window-edge,
+.trace-index.back-disc .trace-index-head,
+.trace-index.back-disc .trace-index-stem {
+    stroke: rgba(0,185,255,0.92);
+}
+
+.back-disc .trace-window {
+    fill: rgba(0,185,255,0.12);
+}
+
+.wind-rotor-back-disc .trace-window {
+    fill: rgba(111,95,255,0.13);
+}
+
+.wind-rotor-front-disc .trace-window {
+    fill: rgba(255,92,192,0.13);
+}
+
+.wind-slider-disc .trace-window {
+    fill: rgba(0,151,126,0.13);
+}
+
+.trace-circle-pick-point {
+    fill: #ff00c8;
+    stroke: rgba(255,255,255,0.96);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-circle-pick-label {
+    fill: #ff00c8;
+    stroke: rgba(0,0,0,0.72);
+    stroke-width: 3px;
+    paint-order: stroke;
+    font-family: "Courier New", monospace;
+    font-weight: 900;
+}
+
+.preview-mode .trace-ring.back-disc,
+.preview-mode .trace-scale.back-disc .trace-scale-guide {
+    stroke: rgba(18,22,25,0.7);
+    stroke-dasharray: none;
+}
+
+.preview-mode .trace-window.back-disc,
+.preview-mode .back-disc .trace-window,
+.preview-mode .back-disc .trace-window-edge,
+.preview-mode .trace-index.back-disc .trace-index-head,
+.preview-mode .trace-index.back-disc .trace-index-stem {
+    stroke: rgba(18,22,25,0.9);
+}
+
+.preview-mode .back-disc .trace-window {
+    fill: none;
+}
+
+.trace-center-cross {
+    stroke: var(--accent);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-radius-line {
+    stroke: rgba(230,184,68,0.72);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-helper-radial {
+    cursor: grab;
+}
+
+.trace-helper-radial:active {
+    cursor: grabbing;
+}
+
+.trace-helper-radial-line {
+    stroke: #ff00c8;
+    stroke-width: 3.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-helper-radial-hitbox {
+    fill: rgba(255,0,200,0);
+    stroke: rgba(255,0,200,0);
+    pointer-events: all;
+}
+
+.trace-helper-radial-handle {
+    fill: #ff00c8;
+    stroke: rgba(8,10,12,0.96);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-helper-radial-label {
+    fill: #ffd8f7;
+    stroke: rgba(0,0,0,0.72);
+    stroke-width: 2.5px;
+    paint-order: stroke;
+    font-family: "Courier New", monospace;
+    font-weight: 900;
+    user-select: none;
+}
+
+.trace-window {
+    fill: rgba(66,212,200,0.18);
+    stroke: rgba(66,212,200,0.92);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-window-edge {
+    stroke: rgba(66,212,200,0.92);
+    stroke-width: 1.4;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-tick {
+    stroke: rgba(20,24,28,0.92);
+    stroke-width: 1.4;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-tick.major {
+    stroke-width: 2;
+}
+
+.trace-tick.medium {
+    opacity: 0.86;
+    stroke-width: 1.7;
+}
+
+.trace-tick.minor {
+    opacity: 0.72;
+}
+
+.trace-scale-point {
+    cursor: grab;
+}
+
+.trace-scale-point:active {
+    cursor: grabbing;
+}
+
+.trace-point-hitbox {
+    fill: rgba(230,184,68,0);
+    stroke: none;
+    pointer-events: all;
+}
+
+.trace-scale-point:hover .trace-point-hitbox {
+    fill: rgba(230,184,68,0.16);
+    stroke: rgba(230,184,68,0.78);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-scale-point:hover .trace-tick.major,
+.trace-scale-point.selected .trace-tick.major {
+    stroke: var(--accent);
+}
+
+.trace-scale-point.calibrated .trace-tick.major {
+    stroke: #ff00c8;
+    stroke-width: 3.5;
+}
+
+.trace-calibration-marker {
+    fill: #ff00c8;
+    stroke: rgba(255,255,255,0.92);
+    stroke-width: 2.5;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.trace-scale-point:hover .trace-number,
+.trace-scale-point.selected .trace-number {
+    fill: #000;
+}
+
+.trace-number,
+.trace-label,
+.trace-index-label {
+    fill: #0b0d10;
+    font-family: "Courier New", monospace;
+    font-weight: 900;
+    paint-order: stroke;
+    stroke: rgba(245,248,250,0.78);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    cursor: pointer;
+    user-select: none;
+}
+
+.trace-label {
+    fill: rgba(255,240,190,0.96);
+    stroke: rgba(0,0,0,0.76);
+    stroke-width: 2.5px;
+}
+
+.trace-index {
+    cursor: grab;
+}
+
+.trace-index:active {
+    cursor: grabbing;
+}
+
+.trace-index-head {
+    fill: rgba(255,126,95,0.55);
+    stroke: rgba(160,44,26,0.95);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-index-stem {
+    stroke: rgba(160,44,26,0.95);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-index-hitbox {
+    fill: rgba(230,184,68,0);
+    stroke: none;
+    pointer-events: all;
+}
+
+.trace-index:hover .trace-index-hitbox {
+    fill: rgba(230,184,68,0.14);
+    stroke: rgba(230,184,68,0.82);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-index.selected .trace-index-head,
+.trace-index.selected .trace-index-stem,
+.trace-index:hover .trace-index-head,
+.trace-index:hover .trace-index-stem {
+    stroke: var(--accent);
+}
+
+.trace-index-label {
+    fill: rgba(255,214,102,0.98);
+    stroke: rgba(0,0,0,0.78);
+    stroke-width: 2.5px;
+}
+
+.trace-handle {
+    fill: var(--accent);
+    stroke: #111;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.control-panel {
+    min-height: 0;
+    overflow-y: auto;
+    border-left: 1px solid var(--line);
+    background: var(--panel-2);
+    padding: 10px;
+}
+
+.control-section {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.control-section h2 {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 11px;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.field-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.field-grid.two {
+    grid-template-columns: 1fr 1fr;
+}
+
+label,
+.file-label,
+.check-label {
+    display: grid;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.check-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px;
+    background: #0e1318;
+    color: var(--text);
+    font-family: "Courier New", monospace;
+    font-weight: 800;
+}
+
+input[type="number"],
+input[type="text"],
+select {
+    min-height: 30px;
+    padding: 5px 7px;
+}
+
+input[type="range"] {
+    padding: 0;
+}
+
+input[type="file"] {
+    min-height: 34px;
+    padding: 6px;
+}
+
+textarea {
+    min-height: 74px;
+    padding: 7px;
+    line-height: 1.32;
+    resize: vertical;
+    white-space: pre;
+}
+
+.json-export {
+    min-height: 210px;
+    color: #dff7ff;
+}
+
+.wide-select {
+    margin: 4px 0 8px;
+}
+
+.wide-field {
+    margin-top: 8px;
+}
+
+.save-status {
+    min-height: 16px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.button-row.compact {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.button-row.compact button:first-child:nth-last-child(4),
+.button-row.compact button:first-child:nth-last-child(4) ~ button {
+    min-width: 0;
+}
+
+.pick-mode .stage-panel {
+    cursor: crosshair;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(360px, 58dvh) minmax(0, 1fr);
+    }
+
+    .control-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+}
