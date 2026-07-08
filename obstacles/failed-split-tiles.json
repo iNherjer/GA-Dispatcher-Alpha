@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-08T12:56:14.595Z",
-  "failed": 3,
+  "generatedAt": "2026-07-08T16:54:21.244Z",
+  "failed": 2,
   "failedTiles": [
     {
       "tile": "339|431",
@@ -15,13 +15,6 @@
       "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
       "server": "https://overpass-api.de/api/interpreter",
       "at": "2026-06-25T05:52:42.382Z"
-    },
-    {
-      "tile": "333|437",
-      "status": 0,
-      "error": "RangeError: Invalid string length\n    at readFileHandle (node:internal/fs/promises:587:25)\n    at async main (file:///home/jofaist/Schreibtisch/tile-workbench-linux-portable/repo/tools/split-combined-tile.mjs:794:15)",
-      "server": "",
-      "at": "2026-07-08T08:15:18.352Z"
     }
   ]
 }
