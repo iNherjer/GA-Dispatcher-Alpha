@@ -45,6 +45,34 @@ absichtlich und einzeln mit `git add -f <datei>` gestaged werden. Vor jedem Comm
 den staged Diff mit `git diff --cached --stat` und bei Bedarf mit
 `git diff --cached -- <datei>` kontrollieren.
 
+## 1c) Tile-Workbench-Branch
+
+Die Tile-Workbench pusht Tile-Daten nicht direkt nach `origin/main`, sondern nach
+`origin/tile-workbench` (konfigurierbar ueber `OBS_WORKBENCH_PUSH_BRANCH` oder
+`tools/workbench.config.json`).
+
+Auf dem Linux-/Workbench-Rechner soll deshalb dauerhaft dieser Branch aktiv sein:
+
+```bash
+git fetch origin
+git switch tile-workbench || git switch -c tile-workbench origin/main
+```
+
+Die Workbench blockt Tile-Pushes, wenn sie auf `main` laeuft oder wenn ein
+Merge-/Rebase-Konflikt offen ist.
+
+Vor einem normalen App-Push nach `origin/main` sollen vorhandene Tile-Commits
+kontrolliert mitgenommen werden:
+
+```bash
+git fetch origin main tile-workbench
+git merge --no-ff origin/tile-workbench -m "Merge tile workbench updates"
+```
+
+Danach den normalen App-Push fortsetzen. In einem gemischten Worktree diesen
+Merge nur ausfuehren, wenn die betroffenen App-Aenderungen bereits bewusst
+committed sind oder der Release in einem separaten sauberen Worktree gebaut wird.
+
 ## 2) Sonderfall: `ga-tracker-client/tracker.js` wurde geaendert
 
 1. Tracker-Version vor dem Build erhoehen:

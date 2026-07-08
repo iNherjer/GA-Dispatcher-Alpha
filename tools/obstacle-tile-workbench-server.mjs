@@ -67,6 +67,11 @@ const WORKBENCH_PBF_THIN_LIN_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_
 const WORKBENCH_PBF_THIN_POI_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_POI_MAX || 250));
 const WORKBENCH_DUCKDB_MEMORY_LIMIT = String(process.env.OBS_WORKBENCH_DUCKDB_MEMORY_LIMIT || _cfg.duckdbMemoryLimit || '768MB').trim() || '768MB';
 const WORKBENCH_DUCKDB_THREADS = Math.max(1, Number(process.env.OBS_WORKBENCH_DUCKDB_THREADS || _cfg.duckdbThreads || 2));
+const WORKBENCH_PUSH_REMOTE = normalizeGitRemoteName(process.env.OBS_WORKBENCH_PUSH_REMOTE || _cfg.pushRemote || 'origin', 'origin');
+const WORKBENCH_MAIN_BRANCH = normalizeGitBranchName(process.env.OBS_WORKBENCH_MAIN_BRANCH || _cfg.mainBranch || 'main', 'main');
+const WORKBENCH_PUSH_BRANCH = normalizeGitBranchName(process.env.OBS_WORKBENCH_PUSH_BRANCH || _cfg.pushBranch || 'tile-workbench', 'tile-workbench');
+const WORKBENCH_MAIN_REF = `${WORKBENCH_PUSH_REMOTE}/${WORKBENCH_MAIN_BRANCH}`;
+const WORKBENCH_PUSH_REF = `${WORKBENCH_PUSH_REMOTE}/${WORKBENCH_PUSH_BRANCH}`;
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_DAYS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || _cfg.pbfTtlDays || 7));
@@ -128,7 +133,7 @@ let lastRepoSync = {
   startedAt: 0,
   checkedAt: 0,
   message: 'Noch nicht geprüft.',
-  remoteRef: 'origin/main',
+  remoteRef: WORKBENCH_PUSH_REF,
   remoteTileCount: 0,
   localTileCount: 0,
   missingInRepoCount: 0,
@@ -217,6 +222,30 @@ class CacheUnavailableError extends Error {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms || 0))));
+}
+
+function normalizeGitRemoteName(value, fallback) {
+  const s = String(value || '').trim();
+  if (!s) return fallback;
+  if (!/^[A-Za-z0-9._-]+$/.test(s)) return fallback;
+  return s;
+}
+
+function normalizeGitBranchName(value, fallback) {
+  const s = String(value || '').trim();
+  if (!s) return fallback;
+  if (
+    !/^[A-Za-z0-9._/-]+$/.test(s) ||
+    s.startsWith('-') ||
+    s.startsWith('/') ||
+    s.endsWith('/') ||
+    s.includes('..') ||
+    s.includes('//') ||
+    s.endsWith('.lock')
+  ) {
+    return fallback;
+  }
+  return s;
 }
 
 function looksLikeCacheUnavailable(text) {
@@ -1909,15 +1938,81 @@ async function getTileGitStatus() {
   return { ok: true, lines, raw: lines.join('\n') };
 }
 
-async function getRemoteSyncState() {
-  const fetchRes = await runCmd('git', ['fetch', 'origin', 'main'], { cwd: ROOT });
-  if (fetchRes.code !== 0) {
+async function getCurrentGitBranch() {
+  const r = await runCmd('git', ['branch', '--show-current'], { cwd: ROOT });
+  if (r.code !== 0) return { ok: false, branch: '', message: (r.stderr || r.stdout || '').trim() || 'aktueller Git-Branch konnte nicht gelesen werden' };
+  return { ok: true, branch: String(r.stdout || '').trim() };
+}
+
+async function getUnmergedGitPaths() {
+  const r = await runCmd('git', ['diff', '--name-only', '--diff-filter=U'], { cwd: ROOT });
+  if (r.code !== 0) return { ok: false, paths: [], message: (r.stderr || r.stdout || '').trim() || 'Git-Konfliktstatus konnte nicht gelesen werden' };
+  const paths = String(r.stdout || '').split('\n').map(s => s.trim()).filter(Boolean);
+  return { ok: true, paths };
+}
+
+async function remoteRefExists(ref) {
+  const r = await runCmd('git', ['rev-parse', '--verify', '--quiet', ref], { cwd: ROOT });
+  return r.code === 0;
+}
+
+async function fetchWorkbenchRefs() {
+  const mainFetch = await runCmd('git', ['fetch', '--no-tags', WORKBENCH_PUSH_REMOTE, WORKBENCH_MAIN_BRANCH], { cwd: ROOT });
+  if (mainFetch.code !== 0) {
     return {
       ok: false,
-      message: (fetchRes.stderr || fetchRes.stdout || '').trim() || 'git fetch fehlgeschlagen'
+      message: (mainFetch.stderr || mainFetch.stdout || '').trim() || `${WORKBENCH_MAIN_REF} konnte nicht gefetcht werden`
     };
   }
-  const cmp = await runCmd('git', ['rev-list', '--left-right', '--count', 'origin/main...HEAD'], { cwd: ROOT });
+
+  const branchFetch = await runCmd('git', ['fetch', '--no-tags', WORKBENCH_PUSH_REMOTE, WORKBENCH_PUSH_BRANCH], { cwd: ROOT });
+  const hasPushRef = await remoteRefExists(WORKBENCH_PUSH_REF);
+  if (branchFetch.code !== 0) {
+    const msg = (branchFetch.stderr || branchFetch.stdout || '').trim();
+    if (hasPushRef) {
+      return { ok: false, message: msg || `${WORKBENCH_PUSH_REF} konnte nicht gefetcht werden` };
+    }
+  }
+
+  return {
+    ok: true,
+    remoteRef: hasPushRef ? WORKBENCH_PUSH_REF : WORKBENCH_MAIN_REF,
+    pushRefExists: hasPushRef
+  };
+}
+
+async function assertTileWorkbenchBranchReady() {
+  const unmerged = await getUnmergedGitPaths();
+  if (!unmerged.ok) return unmerged;
+  if (unmerged.paths.length > 0) {
+    return {
+      ok: false,
+      message: `Git-Konflikt offen (${unmerged.paths.length} Datei(en)). Bitte im Linux-Repo erst "git rebase --abort" oder "git merge --abort" ausfuehren, dann erneut starten.`,
+      unmergedPaths: unmerged.paths
+    };
+  }
+
+  const branch = await getCurrentGitBranch();
+  if (!branch.ok) return branch;
+  if (branch.branch !== WORKBENCH_PUSH_BRANCH) {
+    return {
+      ok: false,
+      message: `Tile-Push ist auf Branch "${WORKBENCH_PUSH_BRANCH}" konfiguriert, aktueller Branch ist "${branch.branch || '(detached)'}". Bitte im Linux-Repo auf den Tile-Branch wechseln: git fetch ${WORKBENCH_PUSH_REMOTE}; git switch ${WORKBENCH_PUSH_BRANCH} || git switch -c ${WORKBENCH_PUSH_BRANCH} ${WORKBENCH_MAIN_REF}`,
+      currentBranch: branch.branch
+    };
+  }
+
+  return { ok: true, currentBranch: branch.branch };
+}
+
+async function getRemoteSyncState() {
+  const ready = await assertTileWorkbenchBranchReady();
+  if (!ready.ok) return ready;
+
+  const refs = await fetchWorkbenchRefs();
+  if (!refs.ok) return refs;
+
+  const cmp = await runCmd('git', ['rev-list', '--left-right', '--count', `${refs.remoteRef}...HEAD`], { cwd: ROOT });
   if (cmp.code !== 0) {
     return {
       ok: false,
@@ -1927,7 +2022,15 @@ async function getRemoteSyncState() {
   const parts = String(cmp.stdout || '').trim().split(/\s+/).map(Number);
   const behind = Number(parts[0] || 0);
   const ahead = Number(parts[1] || 0);
-  return { ok: true, behind, ahead };
+  return {
+    ok: true,
+    behind,
+    ahead,
+    remoteRef: refs.remoteRef,
+    pushBranch: WORKBENCH_PUSH_BRANCH,
+    pushRemote: WORKBENCH_PUSH_REMOTE,
+    currentBranch: ready.currentBranch
+  };
 }
 
 async function collectLocalTileKeysFromFs(baseDir) {
@@ -1957,15 +2060,15 @@ async function collectLocalTileKeysFromFs(baseDir) {
   return out;
 }
 
-async function loadRemoteManifestTiles(manifestPathInRepo, fallbackPathInRepo = null) {
-  const show = await runCmd('git', ['show', `origin/main:${manifestPathInRepo}`], {
+async function loadRemoteManifestTiles(remoteRef, manifestPathInRepo, fallbackPathInRepo = null) {
+  const show = await runCmd('git', ['show', `${remoteRef}:${manifestPathInRepo}`], {
     cwd: ROOT,
     timeoutMs: 8000,
     env: { GIT_TERMINAL_PROMPT: '0' }
   });
   let payloadText = String(show.stdout || '');
   if (show.code !== 0 && fallbackPathInRepo) {
-    const fb = await runCmd('git', ['show', `origin/main:${fallbackPathInRepo}`], {
+    const fb = await runCmd('git', ['show', `${remoteRef}:${fallbackPathInRepo}`], {
       cwd: ROOT,
       timeoutMs: 8000,
       env: { GIT_TERMINAL_PROMPT: '0' }
@@ -2012,34 +2115,44 @@ async function runRepoSyncCheck() {
     phase: 'fetch',
     startedAt: Date.now(),
     checkedAt: Date.now(),
-    message: 'Repo-Sync: fetch origin/main...'
+    message: `Repo-Sync: fetch ${WORKBENCH_MAIN_REF} / ${WORKBENCH_PUSH_REF}...`
   };
 
   try {
-    const fetched = await runCmd('git', ['fetch', '--no-tags', 'origin', 'main'], {
-      cwd: ROOT,
-      timeoutMs: WORKBENCH_REPO_SYNC_TIMEOUT_MS,
-      env: { GIT_TERMINAL_PROMPT: '0' }
-    });
-    if (fetched.code !== 0) {
+    const ready = await assertTileWorkbenchBranchReady();
+    if (!ready.ok) {
       lastRepoSync = {
         ...lastRepoSync,
         ok: false,
         running: false,
         phase: 'failed',
         checkedAt: Date.now(),
-        message: (fetched.stderr || fetched.stdout || '').trim() || 'git fetch fehlgeschlagen'
+        message: ready.message || 'Tile-Branch ist nicht bereit'
       };
       return lastRepoSync;
     }
+
+    const fetched = await fetchWorkbenchRefs();
+    if (!fetched.ok) {
+      lastRepoSync = {
+        ...lastRepoSync,
+        ok: false,
+        running: false,
+        phase: 'failed',
+        checkedAt: Date.now(),
+        message: fetched.message || 'git fetch fehlgeschlagen'
+      };
+      return lastRepoSync;
+    }
+    const remoteRef = fetched.remoteRef;
 
     lastRepoSync = {
       ...lastRepoSync,
       phase: 'remote-manifest',
       checkedAt: Date.now(),
-      message: 'Repo-Sync: Remote-Manifeste lesen...'
+      message: `Repo-Sync: Remote-Manifeste aus ${remoteRef} lesen...`
     };
-    const remoteCoreRes = await loadRemoteManifestTiles('obstacles/core-manifest.v1.json', 'obstacles/manifest.v1.json');
+    const remoteCoreRes = await loadRemoteManifestTiles(remoteRef, 'obstacles/core-manifest.v1.json', 'obstacles/manifest.v1.json');
     if (!remoteCoreRes.ok) {
       lastRepoSync = {
         ...lastRepoSync,
@@ -2051,9 +2164,9 @@ async function runRepoSyncCheck() {
       };
       return lastRepoSync;
     }
-    const remotePoiRes = await loadRemoteManifestTiles('obstacles/poi-manifest.v1.json');
+    const remotePoiRes = await loadRemoteManifestTiles(remoteRef, 'obstacles/poi-manifest.v1.json');
     const remotePoiTiles = remotePoiRes.ok ? remotePoiRes.tiles : new Set();
-    const remoteInfraRes = await loadRemoteManifestTiles('obstacles/infra-manifest.v1.json');
+    const remoteInfraRes = await loadRemoteManifestTiles(remoteRef, 'obstacles/infra-manifest.v1.json');
     const remoteInfraTiles = remoteInfraRes.ok ? remoteInfraRes.tiles : new Set();
 
     lastRepoSync = {
@@ -2084,7 +2197,7 @@ async function runRepoSyncCheck() {
       startedAt: Number(lastRepoSync.startedAt || 0),
       checkedAt: Date.now(),
       message: 'Repo-Sync geprüft',
-      remoteRef: 'origin/main',
+      remoteRef,
       remoteTileCount: remoteCompleteTiles.size,
       localTileCount: localCompleteTiles.size,
       missingInRepoCount: missingInRepo.length,
@@ -2251,6 +2364,13 @@ async function collectTileState() {
     ok: true,
     root: ROOT,
     port: PORT,
+    gitConfig: {
+      pushRemote: WORKBENCH_PUSH_REMOTE,
+      pushBranch: WORKBENCH_PUSH_BRANCH,
+      pushRef: WORKBENCH_PUSH_REF,
+      mainBranch: WORKBENCH_MAIN_BRANCH,
+      mainRef: WORKBENCH_MAIN_REF
+    },
     sourceConfig: {
       pbfPath: WORKBENCH_PBF_PATH,
       pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH),
@@ -2313,7 +2433,7 @@ async function collectTileState() {
       startedAt: Number(lastRepoSync.startedAt || 0),
       checkedAt: Number(lastRepoSync.checkedAt || 0),
       message: String(lastRepoSync.message || ''),
-      remoteRef: String(lastRepoSync.remoteRef || 'origin/main'),
+      remoteRef: String(lastRepoSync.remoteRef || WORKBENCH_PUSH_REF),
       remoteTileCount: Number(lastRepoSync.remoteTileCount || 0),
       localTileCount: Number(lastRepoSync.localTileCount || 0),
       missingInRepoCount: Number(lastRepoSync.missingInRepoCount || 0),
@@ -3783,7 +3903,7 @@ async function handlePush() {
       ok: false,
       code: 409,
       step: 'behind_remote',
-      message: `Lokaler Stand ist ${syncState.behind} Commit(s) hinter origin/main. Bitte erst syncen/pullen, dann erneut pushen.`,
+      message: `Lokaler Tile-Branch ist ${syncState.behind} Commit(s) hinter ${syncState.remoteRef || WORKBENCH_PUSH_REF}. Bitte erst den Tile-Branch syncen/pullen, dann erneut pushen.`,
       behind: syncState.behind,
       ahead: syncState.ahead
     }, 'blocked');
@@ -3853,22 +3973,24 @@ async function handlePush() {
     running: true,
     phase: 'push',
     step: 'push',
-    message: 'Push: Commit wird zu origin/main gesendet...',
+    message: `Push: Commit wird zu ${WORKBENCH_PUSH_REF} gesendet...`,
     commitMessage: msg,
     stagedFiles
   });
 
-  const push = await runCmd('git', ['push', 'origin', 'main'], { cwd: ROOT });
+  const push = await runCmd('git', ['push', WORKBENCH_PUSH_REMOTE, `HEAD:${WORKBENCH_PUSH_BRANCH}`], { cwd: ROOT });
   if (push.code !== 0) {
     return finishPush({ ok: false, step: 'push', message: (push.stderr || push.stdout || '').trim() || 'git push failed', commit: msg, stagedFiles }, 'failed');
   }
 
   return finishPush({
     ok: true,
-    message: `Tiles erfolgreich committed und gepusht (${stagedFiles.length} Datei(en)).`,
+    message: `Tiles erfolgreich committed und nach ${WORKBENCH_PUSH_REF} gepusht (${stagedFiles.length} Datei(en)).`,
     commitMessage: msg,
     pushOut: (push.stdout || push.stderr || '').trim(),
     stagedFiles,
+    pushBranch: WORKBENCH_PUSH_BRANCH,
+    pushRemote: WORKBENCH_PUSH_REMOTE,
     aheadBeforePush: syncState.ahead,
     behindBeforePush: syncState.behind,
     changedBeforeAdd: before.lines

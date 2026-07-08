@@ -7,6 +7,9 @@
   "cacheDir": "/Volumes/ggg/tools/workbench-cache",
   "_cacheDir_help": "/Volumes/ggg/tools/workbench-cache",
 
+  "pushBranch": "tile-workbench",
+  "_pushBranch_help": "Branch fuer Tile-Workbench-Commits. App-Code bleibt auf main; Tile-Commits werden vor einem App-Release kontrolliert nach main gemerged.",
+
   "pbfTtlDays": 90,
   "_pbfTtlDays_help": "Lokale Geofabrik-PBFs im cacheDir/pbf werden erst nach dieser Anzahl Tage neu geladen.",
 

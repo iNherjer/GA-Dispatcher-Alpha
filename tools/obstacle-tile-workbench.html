@@ -294,6 +294,7 @@
       missingInRepoTiles: new Set(),
       lastFailedSig: '',
       sourceConfigSig: '',
+      gitConfigSig: '',
       regions: [],
       regionsSig: '',
       lastProcessSeq: 0
@@ -941,6 +942,12 @@
         state.regions = Array.isArray(s.regions) ? s.regions : state.regions;
         state.repoSync = s.repoSync || state.repoSync || null;
         state.pushStatus = s.pushStatus || state.pushStatus || null;
+        const gitCfg = s.gitConfig || {};
+        const gitSig = `${gitCfg.pushRemote || ''}|${gitCfg.pushBranch || ''}|${gitCfg.mainBranch || ''}`;
+        if (gitSig !== state.gitConfigSig) {
+          state.gitConfigSig = gitSig;
+          log(`Git-Ziel: ${gitCfg.pushRemote || 'origin'}/${gitCfg.pushBranch || 'tile-workbench'} | App-Branch: ${gitCfg.mainBranch || 'main'}`);
+        }
         const sourceCfg = s.sourceConfig || {};
         const srcSig = `${sourceCfg.pbfPath || ''}|${sourceCfg.pbfAvailable ? 1 : 0}`;
         if (srcSig !== state.sourceConfigSig) {

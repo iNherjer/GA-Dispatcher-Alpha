@@ -93,6 +93,22 @@ Behavior:
   - `obstacles/infra-manifest.v1.json`
   - `obstacles/failed-split-tiles.json`
 
+Tile commits are pushed to `origin/tile-workbench` by default, not directly to
+`origin/main`. The workbench must run on the configured tile branch:
+
+```bash
+git fetch origin
+git switch tile-workbench || git switch -c tile-workbench origin/main
+```
+
+Before an app release, merge the tile branch into `main` from a clean release
+state:
+
+```bash
+git fetch origin main tile-workbench
+git merge --no-ff origin/tile-workbench -m "Merge tile workbench updates"
+```
+
 Status colors in grid:
 
 - Magenta: loaded + fresh
