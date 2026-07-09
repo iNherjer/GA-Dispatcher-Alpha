@@ -2435,10 +2435,12 @@
         const stage = qs('.e6b-stage');
         if (stage) stage.addEventListener('wheel', handleViewWheel, { passive: false });
         window.addEventListener('resize', () => setViewTransform(viewState.scale, viewState.x, viewState.y));
-        window.addEventListener('focus', () => {
-            loadWorkbenchFrontDisc();
-            loadWorkbenchWindDisc();
-        });
+        if (!embeddedMode) {
+            window.addEventListener('focus', () => {
+                loadWorkbenchFrontDisc();
+                loadWorkbenchWindDisc();
+            });
+        }
         window.addEventListener('storage', event => {
             if (event.key === WORKBENCH_FRONT_STORAGE_KEY) loadWorkbenchFrontDisc();
             if (event.key === WORKBENCH_WIND_STORAGE_KEY) loadWorkbenchWindDisc();

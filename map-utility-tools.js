@@ -222,6 +222,7 @@
     let dragState = null;
     let timerDigitDragState = null;
     const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {} };
+    let pendingE6BSide = '';
 
     function el(id) {
         return document.getElementById(id);
@@ -369,8 +370,22 @@
         } catch (_) {}
     }
 
+    function requestE6BSide(side) {
+        const target = side === 'wind' ? 'wind' : 'front';
+        pendingE6BSide = target;
+        e6bChromeState.side = target;
+        postE6BMessage({ type: 'ga-e6b-set-side', side: target });
+        window.setTimeout(() => {
+            if (pendingE6BSide === target) postE6BMessage({ type: 'ga-e6b-set-side', side: target });
+        }, 80);
+        window.setTimeout(() => {
+            if (pendingE6BSide === target) postE6BMessage({ type: 'ga-e6b-set-side', side: target });
+        }, 240);
+    }
+
     function toggleE6BSide() {
-        postE6BMessage({ type: 'ga-e6b-toggle-side' });
+        const baseSide = pendingE6BSide || e6bChromeState.side;
+        requestE6BSide(baseSide === 'wind' ? 'front' : 'wind');
     }
 
     function zoomE6BView(factor) {
@@ -541,7 +556,14 @@
         e6bChromeState.x = finiteE6BNumber(data.x, e6bChromeState.x);
         e6bChromeState.y = finiteE6BNumber(data.y, e6bChromeState.y);
         e6bChromeState.scale = Math.max(0.1, finiteE6BNumber(data.scale, e6bChromeState.scale));
-        e6bChromeState.side = data.side === 'wind' ? 'wind' : 'front';
+        const reportedSide = data.side === 'wind' ? 'wind' : 'front';
+        if (pendingE6BSide && pendingE6BSide !== reportedSide) {
+            e6bChromeState.side = pendingE6BSide;
+            postE6BMessage({ type: 'ga-e6b-set-side', side: pendingE6BSide });
+        } else {
+            e6bChromeState.side = reportedSide;
+            if (pendingE6BSide === reportedSide) pendingE6BSide = '';
+        }
         e6bChromeState.stack = {
             left: finiteE6BNumber(stack.left),
             top: finiteE6BNumber(stack.top),
