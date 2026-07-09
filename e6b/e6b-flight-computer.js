@@ -9,9 +9,32 @@
         min: WIND_VIEWBOX.cy - WIND_SLIDER_CENTER_RANGE.max,
         max: WIND_VIEWBOX.cy - WIND_SLIDER_CENTER_RANGE.min
     };
-    const WIND_SLIDER_HIT = { minX: 52, maxX: 458, compassClearance: 252 };
+    const WIND_SLIDER_HIT = {
+        minX: 52,
+        maxX: 458,
+        compassClearance: 178,
+        sliderClearance: 286,
+        panInnerRadius: 240,
+        panOuterRadius: 286
+    };
+    const EMBEDDED_CONTROL_KEYS = ['flip', 'zoomOut', 'zoomIn', 'close'];
+    const EMBEDDED_CONTROL_FALLBACKS = {
+        front: {
+            flip: { x: 0.72, y: 0.16 },
+            zoomOut: { x: 0.80, y: 0.18 },
+            zoomIn: { x: 0.87, y: 0.22 },
+            close: { x: 0.92, y: 0.28 }
+        },
+        wind: {
+            flip: { x: 0.72, y: 0.31 },
+            zoomOut: { x: 0.79, y: 0.34 },
+            zoomIn: { x: 0.85, y: 0.38 },
+            close: { x: 0.89, y: 0.43 }
+        }
+    };
     const CLICK_MOVE_THRESHOLD_PX = 4;
     const EMBEDDED_VIEW_SCALE = { min: 0.55, max: 3.4 };
+    const EMBEDDED_VIEW_RESOLUTION_STEPS = [0.65, 0.82, 1, 1.22, 1.48, 1.8, 2.18, 2.65, 3.2, 3.6];
     const PREVIEW_VIEW_SCALE = { min: 0.5, max: 3.2 };
     const WINDOW_PLAN_STORAGE_KEY = 'ga-e6b-window-plan-sectors';
     const WINDOW_PLAN_LABELS_STORAGE_KEY = 'ga-e6b-window-plan-labels-visible';
@@ -20,7 +43,7 @@
     const WORKBENCH_FRONT_STORAGE_KEY = 'ga-e6b-workbench-front-disc-v1';
     const WORKBENCH_FRONT_JSON_VERSION = '20260708-workbenchfront06';
     const WORKBENCH_WIND_STORAGE_KEY = 'ga-e6b-workbench-wind-disc-v1';
-    const WORKBENCH_WIND_JSON_VERSION = '20260709-windslider03';
+    const WORKBENCH_WIND_JSON_VERSION = '20260709-windperf02';
     const WINDOW_PLAN_FIELDS = ['startAngle', 'endAngle', 'outerRadius', 'innerRadius'];
     const SCALE_PLAN_NUMERIC_FIELDS = ['startAngle', 'endAngle', 'radius', 'tickLength', 'labelRadius', 'min', 'max', 'minorStep', 'majorStep', 'fontSize'];
     const SCALE_PLAN_MAX_TICKS = 1200;
@@ -64,7 +87,14 @@
     let activeScalePlanId = 'leftTempScale';
     let initialWindowPlanSectors = null;
     let initialScalePlanScales = null;
-    const viewState = { scale: 1, x: 0, y: 0 };
+    const viewState = { scale: 1, renderScale: 1, resolutionScale: 1, x: 0, y: 0 };
+    const embeddedBaseSize = {
+        frontWidth: 0,
+        windWidth: 0,
+        appliedResolutionScale: 0,
+        appliedFrontWidth: 0,
+        appliedWindWidth: 0
+    };
     const viewPointers = new Map();
     let viewGesture = null;
     let embeddedViewStatePostPending = false;
@@ -73,6 +103,8 @@
     let dragFramePending = false;
     let dragSequence = 0;
     const workbenchSvgCache = { fixed: '', rotor: '', windSlider: '', windRotorBack: '', windRotorFront: '' };
+    let activeWorkbenchFrontSnapshot = null;
+    let activeWorkbenchWindSnapshot = null;
 
     if (embeddedMode && document.body) {
         document.body.classList.add('e6b-embedded');
@@ -121,8 +153,9 @@
     function clampViewPan(x, y, scale) {
         const stage = qs('.e6b-stage');
         const rect = stage ? stage.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
-        const embeddedSlackX = embeddedMode ? rect.width * 0.42 : 0;
-        const embeddedSlackY = embeddedMode ? rect.height * 0.42 : 0;
+        const embeddedSlack = embeddedMode ? (scale > 1.01 ? 1.15 : 0.42) : 0;
+        const embeddedSlackX = rect.width * embeddedSlack;
+        const embeddedSlackY = rect.height * embeddedSlack;
         const maxX = Math.max(0, (scale - 1) * rect.width / 2) + embeddedSlackX;
         const maxY = Math.max(0, (scale - 1) * rect.height / 2) + embeddedSlackY;
         return {
@@ -131,22 +164,62 @@
         };
     }
 
+    function embeddedResolutionForScale(scale) {
+        if (!embeddedMode) return 1;
+        if (embeddedBaseSize.frontWidth <= 0 && embeddedBaseSize.windWidth <= 0) return 1;
+        const target = clamp(scale, EMBEDDED_VIEW_SCALE.min, EMBEDDED_VIEW_SCALE.max);
+        for (const step of EMBEDDED_VIEW_RESOLUTION_STEPS) {
+            if (step >= target - 0.001) return step;
+        }
+        return EMBEDDED_VIEW_RESOLUTION_STEPS[EMBEDDED_VIEW_RESOLUTION_STEPS.length - 1] || 1;
+    }
+
+    function applyEmbeddedResolutionScale(resolutionScale) {
+        if (!embeddedMode) return;
+        const scale = Number.isFinite(resolutionScale) && resolutionScale > 0 ? resolutionScale : 1;
+        const frontWidth = embeddedBaseSize.frontWidth > 0 ? embeddedBaseSize.frontWidth * scale : 0;
+        const windWidth = embeddedBaseSize.windWidth > 0 ? embeddedBaseSize.windWidth * scale : 0;
+        if (
+            embeddedBaseSize.appliedResolutionScale === scale &&
+            embeddedBaseSize.appliedFrontWidth === frontWidth &&
+            embeddedBaseSize.appliedWindWidth === windWidth
+        ) {
+            return;
+        }
+        const target = document.documentElement;
+        if (frontWidth > 0) {
+            target.style.setProperty('--e6b-embedded-front-width', `${frontWidth.toFixed(2)}px`);
+        }
+        if (windWidth > 0) {
+            target.style.setProperty('--e6b-embedded-wind-width', `${windWidth.toFixed(2)}px`);
+        }
+        embeddedBaseSize.appliedResolutionScale = scale;
+        embeddedBaseSize.appliedFrontWidth = frontWidth;
+        embeddedBaseSize.appliedWindWidth = windWidth;
+    }
+
     function applyViewTransform() {
         const computer = qs('#e6bComputer');
         if (!computer) return;
-        computer.style.setProperty('--e6b-view-scale', String(viewState.scale));
+        computer.style.setProperty('--e6b-view-scale', String(viewState.renderScale || viewState.scale));
         computer.style.setProperty('--e6b-view-x', `${viewState.x}px`);
         computer.style.setProperty('--e6b-view-y', `${viewState.y}px`);
         document.body.classList.toggle('e6b-view-zoomed', viewState.scale > 1.01);
         syncPreviewZoomControls();
+        syncEmbeddedLocalChrome();
         scheduleEmbeddedViewStatePost();
     }
 
     function setViewTransform(scale, x, y) {
         const limits = embeddedMode ? EMBEDDED_VIEW_SCALE : PREVIEW_VIEW_SCALE;
         const nextScale = clamp(scale, limits.min, limits.max);
+        const resolutionScale = embeddedMode ? embeddedResolutionForScale(nextScale) : 1;
+        const renderScale = resolutionScale > 0 ? nextScale / resolutionScale : nextScale;
+        applyEmbeddedResolutionScale(resolutionScale);
         const pan = clampViewPan(x, y, nextScale);
         viewState.scale = nextScale;
+        viewState.renderScale = renderScale;
+        viewState.resolutionScale = resolutionScale;
         viewState.x = pan.x;
         viewState.y = pan.y;
         applyViewTransform();
@@ -191,6 +264,19 @@
         document.body.classList.remove('e6b-view-gesturing');
     }
 
+    function setEmbeddedBaseSize(frontWidth, windWidth) {
+        if (!embeddedMode) return;
+        const front = Number(frontWidth);
+        const wind = Number(windWidth);
+        if (Number.isFinite(front) && front > 0) {
+            embeddedBaseSize.frontWidth = front;
+        }
+        if (Number.isFinite(wind) && wind > 0) {
+            embeddedBaseSize.windWidth = wind;
+        }
+        setViewTransform(viewState.scale, viewState.x, viewState.y);
+    }
+
     function releasePointerCapture(stack, pointerId) {
         if (!stack || typeof stack.releasePointerCapture !== 'function') return;
         try {
@@ -204,16 +290,66 @@
         return state.side === 'wind' ? qs('#e6bWindStack') : qs('#e6bFrontStack');
     }
 
+    function controlKeyToCssName(key) {
+        return String(key || '').replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
+    }
+
+    function embeddedControlRatios(side = state.side) {
+        const snapshot = side === 'wind' ? activeWorkbenchWindSnapshot : activeWorkbenchFrontSnapshot;
+        const controls = snapshot && snapshot.controls && typeof snapshot.controls === 'object' ? snapshot.controls : {};
+        const fallbacks = EMBEDDED_CONTROL_FALLBACKS[side === 'wind' ? 'wind' : 'front'];
+        return EMBEDDED_CONTROL_KEYS.reduce((result, key) => {
+            const control = controls[key];
+            const ratio = control ? controlPointToStackRatio(side, snapshot, control) : null;
+            result[key] = ratio || fallbacks[key] || { x: 0.5, y: 0.5 };
+            return result;
+        }, {});
+    }
+
+    function embeddedControlPositions(stackRect) {
+        if (!stackRect) return {};
+        const ratios = embeddedControlRatios(state.side);
+        return EMBEDDED_CONTROL_KEYS.reduce((result, key) => {
+            const ratio = ratios[key];
+            if (!ratio) return result;
+            result[key] = {
+                x: ratio.x * stackRect.width,
+                y: ratio.y * stackRect.height
+            };
+            return result;
+        }, {});
+    }
+
+    function syncEmbeddedLocalChrome() {
+        if (!embeddedMode) return;
+        const chrome = qs('#e6bEmbeddedChrome');
+        const stack = getActiveViewStack();
+        if (!chrome || !stack) return;
+        const stackLeft = stack.offsetLeft || 0;
+        const stackTop = stack.offsetTop || 0;
+        const stackWidth = Math.max(1, stack.offsetWidth || stack.getBoundingClientRect().width || 1);
+        const stackHeight = Math.max(1, stack.offsetHeight || stack.getBoundingClientRect().height || 1);
+        const ratios = embeddedControlRatios(state.side);
+        EMBEDDED_CONTROL_KEYS.forEach(key => {
+            const ratio = ratios[key] || { x: 0.5, y: 0.5 };
+            const cssName = controlKeyToCssName(key);
+            chrome.style.setProperty(`--e6b-local-control-${cssName}-x`, `${stackLeft + ratio.x * stackWidth}px`);
+            chrome.style.setProperty(`--e6b-local-control-${cssName}-y`, `${stackTop + ratio.y * stackHeight}px`);
+        });
+    }
+
     function postEmbeddedViewState() {
         if (!embeddedMode || !window.parent || window.parent === window) return;
         const stack = getActiveViewStack();
         const stage = qs('.e6b-stage');
         if (!stack) return;
+        syncEmbeddedLocalChrome();
         const stackRect = stack.getBoundingClientRect();
         const stageRect = stage ? stage.getBoundingClientRect() : { left: 0, top: 0 };
         try {
             window.parent.postMessage({
                 type: 'ga-e6b-view-state',
+                localControls: true,
                 side: state.side,
                 scale: viewState.scale,
                 x: viewState.x,
@@ -225,7 +361,8 @@
                     bottom: stackRect.bottom - stageRect.top,
                     width: stackRect.width,
                     height: stackRect.height
-                }
+                },
+                controls: embeddedControlPositions(stackRect)
             }, '*');
         } catch (_) {}
     }
@@ -802,11 +939,56 @@
         return String(Math.round(Number(value || 0) * 100) / 100).replace(/\.00$/, '');
     }
 
+    function clearWorkbenchSvg(container, cacheKey) {
+        if (container) container.replaceChildren();
+        if (cacheKey) {
+            workbenchSvgCache[cacheKey] = '';
+        }
+    }
+
+    function svgWithRuntimeStyle(svgText, cssText) {
+        if (!cssText) return svgText;
+        return String(svgText || '').replace(/(<svg\b[^>]*>)/i, `$1<style>${cssText}</style>`);
+    }
+
+    function prepareWorkbenchSvgText(svgText, cacheKey) {
+        let prepared = String(svgText || '');
+        if (cacheKey === 'windSlider') {
+            prepared = svgWithRuntimeStyle(prepared, [
+                'svg{overflow:visible;}',
+                '.trace-preview-slider-surface{fill:#d2d8dc!important;fill-opacity:1!important;opacity:1!important;}'
+            ].join(''));
+        } else if (cacheKey === 'windRotorBack' || cacheKey === 'windRotorFront') {
+            prepared = svgWithRuntimeStyle(prepared, 'svg{overflow:visible;}');
+        }
+        return prepared;
+    }
+
+    function shouldRenderWorkbenchSvgAsImage(cacheKey) {
+        return embeddedMode && cacheKey === 'windSlider';
+    }
+
+    function injectWorkbenchSvgImage(container, svgText, cacheKey) {
+        const img = document.createElement('img');
+        img.className = 'e6b-workbench-render-image';
+        img.alt = cacheKey === 'windSlider' ? 'E6B Wind Schieber' : 'E6B Grafik';
+        img.decoding = 'async';
+        img.draggable = false;
+        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+        container.replaceChildren(img);
+        if (cacheKey) workbenchSvgCache[cacheKey] = svgText;
+    }
+
     function injectWorkbenchSvg(container, svgText, cacheKey) {
         if (!container || typeof svgText !== 'string' || !svgText.trim()) return;
-        if (cacheKey && workbenchSvgCache[cacheKey] === svgText) return;
-        container.innerHTML = svgText;
-        if (cacheKey) workbenchSvgCache[cacheKey] = svgText;
+        const preparedSvg = prepareWorkbenchSvgText(svgText, cacheKey);
+        if (cacheKey && workbenchSvgCache[cacheKey] === preparedSvg && container.childElementCount) return;
+        if (shouldRenderWorkbenchSvgAsImage(cacheKey)) {
+            injectWorkbenchSvgImage(container, preparedSvg, cacheKey);
+            return;
+        }
+        container.innerHTML = preparedSvg;
+        if (cacheKey) workbenchSvgCache[cacheKey] = preparedSvg;
         const svg = container.querySelector('svg');
         if (!svg) return;
         svg.classList.add('e6b-workbench-front-svg');
@@ -865,23 +1047,20 @@
 
         document.body.classList.toggle('e6b-workbench-front-active', valid);
         document.body.classList.toggle('e6b-workbench-front-missing-active', !valid);
+        activeWorkbenchFrontSnapshot = valid ? snapshot : null;
 
         if (!valid) {
-            if (fixed) {
-                fixed.replaceChildren();
-            }
-            if (rotor) {
-                rotor.replaceChildren();
-            }
-            workbenchSvgCache.fixed = '';
-            workbenchSvgCache.rotor = '';
+            clearWorkbenchSvg(fixed, 'fixed');
+            clearWorkbenchSvg(rotor, 'rotor');
             applyWorkbenchFrontOrigin(null);
+            syncEmbeddedLocalChrome();
             return;
         }
 
         applyWorkbenchFrontOrigin(snapshot);
         injectWorkbenchSvg(fixed, snapshot.svgs.back, 'fixed');
         injectWorkbenchSvg(rotor, snapshot.svgs.front, 'rotor');
+        syncEmbeddedLocalChrome();
     }
 
     function loadWorkbenchFrontDisc() {
@@ -908,10 +1087,9 @@
         };
     }
 
-    function viewBoxPointToStackRatio(viewBox, x, y) {
+    function viewBoxPointToStackRatioForAspect(viewBox, x, y, elementAspect) {
         let xRatio = (Number(x) - Number(viewBox.minX || 0)) / Math.max(1, Number(viewBox.width || 1));
         let yRatio = (Number(y) - Number(viewBox.minY || 0)) / Math.max(1, Number(viewBox.height || 1));
-        const elementAspect = WIND_VIEWBOX.width / WIND_VIEWBOX.height;
         const viewAspect = Math.max(1, Number(viewBox.width || 1)) / Math.max(1, Number(viewBox.height || 1));
         if (elementAspect > viewAspect) {
             const usedWidthRatio = viewAspect / elementAspect;
@@ -924,6 +1102,42 @@
             x: clamp(xRatio, 0, 1),
             y: clamp(yRatio, 0, 1)
         };
+    }
+
+    function viewBoxPointToStackRatio(viewBox, x, y) {
+        return viewBoxPointToStackRatioForAspect(viewBox, x, y, WIND_VIEWBOX.width / WIND_VIEWBOX.height);
+    }
+
+    function frontDiscViewBox(snapshot) {
+        const svgs = snapshot && snapshot.svgs ? snapshot.svgs : {};
+        const fallback = snapshot && snapshot.viewBox ? snapshot.viewBox : {};
+        return svgViewBoxFromText(svgs.back || svgs.front || '', {
+            minX: 0,
+            minY: 0,
+            width: fallback.width || 1858,
+            height: fallback.height || 2270
+        });
+    }
+
+    function controlPointToStackRatio(side, snapshot, control) {
+        if (!snapshot || !control) return null;
+        const x = Number(control.x);
+        const y = Number(control.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        if (side === 'wind') {
+            return viewBoxPointToStackRatioForAspect(
+                windRotorViewBox(snapshot),
+                x,
+                y,
+                WIND_VIEWBOX.width / WIND_VIEWBOX.height
+            );
+        }
+        return viewBoxPointToStackRatioForAspect(
+            frontDiscViewBox(snapshot),
+            x,
+            y,
+            FRONT_VIEWBOX.width / FRONT_VIEWBOX.height
+        );
     }
 
     function windRotorViewBox(snapshot) {
@@ -980,17 +1194,16 @@
 
         document.body.classList.toggle('e6b-workbench-wind-active', valid);
         document.body.classList.toggle('e6b-workbench-wind-missing-active', !valid);
+        activeWorkbenchWindSnapshot = valid ? snapshot : null;
 
         if (!valid) {
-            if (slider) slider.replaceChildren();
-            if (rotorBack) rotorBack.replaceChildren();
-            if (rotorFront) rotorFront.replaceChildren();
-            workbenchSvgCache.windSlider = '';
-            workbenchSvgCache.windRotorBack = '';
-            workbenchSvgCache.windRotorFront = '';
+            clearWorkbenchSvg(slider, 'windSlider');
+            clearWorkbenchSvg(rotorBack, 'windRotorBack');
+            clearWorkbenchSvg(rotorFront, 'windRotorFront');
             state.windCenterX = WIND_VIEWBOX.cx;
             state.windCenterY = WIND_VIEWBOX.cy;
             applyRotations();
+            syncEmbeddedLocalChrome();
             return;
         }
 
@@ -1000,6 +1213,7 @@
         injectWorkbenchSvg(rotorFront, svgs.rotorFront || svgs.rotor || '', 'windRotorFront');
         applyWorkbenchWindGeometry(snapshot);
         applyRotations();
+        syncEmbeddedLocalChrome();
     }
 
     function loadWorkbenchWindDisc() {
@@ -1831,6 +2045,7 @@
             button.classList.toggle('active', button.dataset.windTool === state.windTool);
         });
         scheduleRotationRender();
+        syncEmbeddedLocalChrome();
         scheduleEmbeddedViewStatePost();
     }
 
@@ -1909,7 +2124,7 @@
         const radius = windRotorRadiusFromEvent(stack, event);
         return point.x >= WIND_SLIDER_HIT.minX
             && point.x <= WIND_SLIDER_HIT.maxX
-            && radius > WIND_SLIDER_HIT.compassClearance;
+            && radius > WIND_SLIDER_HIT.sliderClearance;
     }
 
     function isWindDotSetArea(stack, event) {
@@ -1923,9 +2138,26 @@
             && radius <= WIND_SLIDER_HIT.compassClearance;
     }
 
+    function isWindViewPanHit(stack, event) {
+        if (!viewTransformMode || !stack || stack.dataset.dial !== 'wind' || state.side !== 'wind') return false;
+        const radius = windRotorRadiusFromEvent(stack, event);
+        if (radius >= WIND_SLIDER_HIT.panInnerRadius && radius <= WIND_SLIDER_HIT.panOuterRadius) return true;
+        return false;
+    }
+
+    function isFrontViewPanHit(stack, event) {
+        if (!viewTransformMode || !stack || stack.dataset.dial !== 'front' || state.side !== 'front') return false;
+        const rect = stack.getBoundingClientRect();
+        const x = event.clientX - rect.left - rect.width / 2;
+        const y = event.clientY - rect.top - rect.height / 2;
+        const radius = Math.hypot(x, y);
+        const reference = Math.max(1, Math.min(rect.width, rect.height));
+        return radius >= reference * 0.36 && radius <= reference * 0.58;
+    }
+
     function clearWindCursor(stack) {
         if (!stack) return;
-        stack.classList.remove('wind-dot-cursor');
+        stack.classList.remove('wind-dot-cursor', 'view-pan-cursor', 'wind-slider-cursor', 'wind-rotate-cursor');
     }
 
     function updateWindCursor(stack, event) {
@@ -1933,7 +2165,17 @@
             clearWindCursor(stack);
             return;
         }
-        stack.classList.toggle('wind-dot-cursor', isWindDotSetArea(stack, event));
+        const panHit = isFrontViewPanHit(stack, event) || isWindViewPanHit(stack, event);
+        const sliderHit = stack.dataset.dial === 'wind' && isWindSliderHit(stack, event);
+        const rotateHit = stack.dataset.dial === 'wind'
+            && !panHit
+            && !sliderHit
+            && windRotorRadiusFromEvent(stack, event) > WIND_SLIDER_HIT.compassClearance
+            && windRotorRadiusFromEvent(stack, event) <= WIND_SLIDER_HIT.panInnerRadius;
+        stack.classList.toggle('view-pan-cursor', panHit);
+        stack.classList.toggle('wind-slider-cursor', sliderHit);
+        stack.classList.toggle('wind-rotate-cursor', rotateHit);
+        stack.classList.toggle('wind-dot-cursor', isWindDotSetArea(stack, event) && !panHit && !sliderHit);
     }
 
     function setWindDotFromPointer(stack, event) {
@@ -1958,11 +2200,14 @@
         clearWindCursor(stack);
         const kind = stack.dataset.dial;
         const rect = stack.getBoundingClientRect();
-        const action = kind === 'wind' && isWindSliderHit(stack, event)
-            ? 'wind-slide'
-            : kind === 'wind'
-                ? 'wind-rotate'
-                : 'front-rotate';
+        let action = kind === 'front' ? 'front-rotate' : 'wind-rotate';
+        if (kind === 'front' && isFrontViewPanHit(stack, event)) {
+            action = 'view-pan';
+        } else if (kind === 'wind' && isWindSliderHit(stack, event)) {
+            action = 'wind-slide';
+        } else if (kind === 'wind' && isWindViewPanHit(stack, event)) {
+            action = 'view-pan';
+        }
         const token = ++dragSequence;
         drag = {
             token,
@@ -1973,6 +2218,9 @@
             startAngle: pointerAngleFromClient(stack, event.clientX, event.clientY, rect),
             startRotation: kind === 'wind' ? state.windRotation : state.frontRotation,
             startSlideY: state.windSlideY,
+            startViewX: viewState.x,
+            startViewY: viewState.y,
+            startViewScale: viewState.scale,
             startClientX: event.clientX,
             startClientY: event.clientY,
             lastClientX: event.clientX,
@@ -1993,6 +2241,13 @@
         drag.moved = true;
         if (drag.action === 'wind-slide') {
             state.windSlideY = clampWindSlide(drag.startSlideY + windSlideDeltaFromClient(activeStack, clientY));
+        } else if (drag.action === 'view-pan') {
+            setViewTransform(
+                drag.startViewScale,
+                drag.startViewX + clientX - drag.startClientX,
+                drag.startViewY + clientY - drag.startClientY
+            );
+            return;
         } else if (drag.action === 'wind-rotate') {
             const delta = pointerAngleFromClient(activeStack, clientX, clientY, drag.rect) - drag.startAngle;
             state.windRotation = drag.startRotation + delta;
@@ -2081,11 +2336,69 @@
         stopDrag(stack, event, allowClick);
     }
 
+    function wheelDeltaPixels(event) {
+        if (event.deltaMode === 1) return event.deltaY * 16;
+        if (event.deltaMode === 2) return event.deltaY * Math.max(window.innerHeight, 1);
+        return event.deltaY;
+    }
+
     function handleViewWheel(event) {
-        if (!viewTransformMode || (!event.ctrlKey && !event.metaKey)) return;
-        const zoomFactor = Math.exp(-event.deltaY * 0.01);
-        setViewTransform(viewState.scale * zoomFactor, viewState.x, viewState.y);
+        if (!viewTransformMode) return;
+        const directWheelZoom = embeddedMode;
+        if (!directWheelZoom && !event.ctrlKey && !event.metaKey) return;
+        const stage = qs('.e6b-stage');
+        const rect = stage ? stage.getBoundingClientRect() : {
+            left: 0,
+            top: 0,
+            width: Math.max(window.innerWidth, 1),
+            height: Math.max(window.innerHeight, 1)
+        };
+        const beforeScale = viewState.scale || 1;
+        const zoomFactor = Math.exp(-wheelDeltaPixels(event) * 0.0025);
+        const limits = embeddedMode ? EMBEDDED_VIEW_SCALE : PREVIEW_VIEW_SCALE;
+        const nextScale = clamp(beforeScale * zoomFactor, limits.min, limits.max);
+        const anchorX = event.clientX - rect.left - rect.width / 2;
+        const anchorY = event.clientY - rect.top - rect.height / 2;
+        const localX = (anchorX - viewState.x) / beforeScale;
+        const localY = (anchorY - viewState.y) / beforeScale;
+        const nextX = anchorX - localX * nextScale;
+        const nextY = anchorY - localY * nextScale;
+        setViewTransform(nextScale, nextX, nextY);
         event.preventDefault();
+    }
+
+    function zoomViewByFactor(factor) {
+        const nextFactor = Number(factor);
+        if (!Number.isFinite(nextFactor) || nextFactor <= 0) return;
+        setViewTransform(viewState.scale * nextFactor, viewState.x, viewState.y);
+    }
+
+    function postCloseRequestToParent() {
+        if (!embeddedMode || !window.parent || window.parent === window) return;
+        try {
+            window.parent.postMessage({ type: 'ga-e6b-close' }, '*');
+        } catch (_) {}
+    }
+
+    function handleEmbeddedControlClick(event) {
+        const button = event.currentTarget;
+        const action = button ? button.dataset.e6bControl : '';
+        if (action === 'flip') toggleSide();
+        if (action === 'zoomOut') zoomViewByFactor(0.86);
+        if (action === 'zoomIn') zoomViewByFactor(1.16);
+        if (action === 'close') postCloseRequestToParent();
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    function bindEmbeddedChromeControls() {
+        if (!embeddedMode) return;
+        qsa('[data-e6b-control]').forEach(button => {
+            if (button.dataset.bound === '1') return;
+            button.addEventListener('click', handleEmbeddedControlClick);
+            button.dataset.bound = '1';
+        });
+        syncEmbeddedLocalChrome();
     }
 
     function bindEvents() {
@@ -2135,6 +2448,7 @@
             if (!data || typeof data !== 'object') return;
             if (data.type === 'ga-e6b-toggle-side') toggleSide();
             if (data.type === 'ga-e6b-set-side') setSide(data.side);
+            if (data.type === 'ga-e6b-set-base-size') setEmbeddedBaseSize(data.frontWidth, data.windWidth);
             if (data.type === 'ga-e6b-reset-view') setViewTransform(1, 0, 0);
             if (data.type === 'ga-e6b-set-view') {
                 setViewTransform(Number(data.scale) || 1, Number(data.x) || 0, Number(data.y) || 0);
@@ -2142,11 +2456,13 @@
             if (data.type === 'ga-e6b-pan-view') {
                 setViewTransform(viewState.scale, viewState.x + Number(data.dx || 0), viewState.y + Number(data.dy || 0));
             }
+            if (data.type === 'ga-e6b-zoom-view') zoomViewByFactor(data.factor);
             if (data.type === 'ga-e6b-report-view') scheduleEmbeddedViewStatePost();
         });
         bindWindowPlanControls();
         bindScalePlanControls();
         bindPreviewControls();
+        bindEmbeddedChromeControls();
     }
 
     function init() {

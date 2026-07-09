@@ -102,6 +102,7 @@ body.e6b-embedded .e6b-layout {
     height: 100dvh;
     min-height: 100dvh;
     padding: 0;
+    overflow: visible;
 }
 
 body.e6b-embedded .e6b-stage,
@@ -115,6 +116,7 @@ body.e6b-embedded .e6b-stage {
     top: auto;
     height: 100%;
     background: transparent;
+    overflow: visible;
 }
 
 .e6b-stage {
@@ -130,6 +132,7 @@ body.e6b-embedded .e6b-stage {
 }
 
 .e6b-computer {
+    position: relative;
     display: grid;
     place-items: center;
     width: 100%;
@@ -155,15 +158,24 @@ body.e6b-view-gesturing .e6b-stack {
     box-shadow: none;
     touch-action: none;
     user-select: none;
-    cursor: grab;
+    cursor: default;
 }
 
-.e6b-stack:active {
+.e6b-stack.view-pan-cursor:active,
+.e6b-stack.wind-slider-cursor:active,
+.e6b-stack.wind-rotate-cursor:active {
     cursor: grabbing;
 }
 
 .wind-stack.wind-dot-cursor:not(:active) {
     cursor: crosshair;
+}
+
+.e6b-stack.view-pan-cursor:not(:active),
+.wind-stack.view-pan-cursor.wind-dot-cursor:not(:active),
+.e6b-stack.wind-slider-cursor:not(:active),
+.e6b-stack.wind-rotate-cursor:not(:active) {
+    cursor: grab;
 }
 
 .front-stack {
@@ -177,13 +189,14 @@ body.e6b-view-gesturing .e6b-stack {
 }
 
 body.e6b-embedded .front-stack {
-    width: min(100vw, calc(100dvh * 510 / 590));
+    width: var(--e6b-embedded-front-width, min(100vw, calc(100dvh * 510 / 590)));
     max-width: none;
+    overflow: visible;
     border-radius: 0;
 }
 
 body.e6b-embedded .wind-stack {
-    width: min(100vw, calc(100dvh * 510 / 1000));
+    width: var(--e6b-embedded-wind-width, min(100vw, calc(100dvh * 510 / 1000)));
     max-width: none;
     overflow: visible;
     border-radius: 0;
@@ -219,7 +232,7 @@ body.e6b-embedded .wind-stack {
     display: block;
     width: 100%;
     height: 100%;
-    overflow: visible;
+    overflow: visible !important;
 }
 
 .e6b-workbench-wind-layer {
@@ -231,7 +244,19 @@ body.e6b-embedded .wind-stack {
     display: block;
     width: 100%;
     height: 100%;
-    overflow: visible;
+    overflow: visible !important;
+}
+
+.e6b-workbench-render-image {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
 .e6b-workbench-front-layer .trace-preview-surface-outline,
@@ -324,6 +349,70 @@ body.e6b-workbench-front-active .e6b-workbench-front-missing {
 
 body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
     display: none;
+}
+
+.e6b-embedded-chrome {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    overflow: visible;
+    pointer-events: none;
+}
+
+body.e6b-embedded .e6b-embedded-chrome {
+    display: block;
+}
+
+.e6b-embedded-btn {
+    position: absolute;
+    left: var(--e6b-local-control-x, 0px);
+    top: var(--e6b-local-control-y, 0px);
+    display: grid;
+    place-items: center;
+    width: 31px;
+    height: 31px;
+    border: 1px solid rgba(0, 0, 0, 0.42);
+    border-radius: 50%;
+    background: rgba(248, 243, 218, 0.9);
+    color: #111;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.34);
+    cursor: pointer;
+    font: 900 16px/1 "Courier New", monospace;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+    user-select: none;
+    touch-action: none;
+}
+
+.e6b-embedded-btn:active {
+    transform: translate(-50%, calc(-50% + 1px));
+    filter: brightness(1.12);
+}
+
+.e6b-embedded-close {
+    background: linear-gradient(145deg, #7c2727, #2b0f0f);
+    color: #fff3e6;
+}
+
+.e6b-embedded-btn[data-e6b-control="flip"] {
+    left: var(--e6b-local-control-flip-x, var(--e6b-local-control-x, 0px));
+    top: var(--e6b-local-control-flip-y, var(--e6b-local-control-y, 0px));
+}
+
+.e6b-embedded-btn[data-e6b-control="zoomOut"] {
+    left: var(--e6b-local-control-zoom-out-x, var(--e6b-local-control-x, 0px));
+    top: var(--e6b-local-control-zoom-out-y, var(--e6b-local-control-y, 0px));
+}
+
+.e6b-embedded-btn[data-e6b-control="zoomIn"] {
+    left: var(--e6b-local-control-zoom-in-x, var(--e6b-local-control-x, 0px));
+    top: var(--e6b-local-control-zoom-in-y, var(--e6b-local-control-y, 0px));
+}
+
+.e6b-embedded-btn[data-e6b-control="close"] {
+    left: var(--e6b-local-control-close-x, var(--e6b-local-control-x, 0px));
+    top: var(--e6b-local-control-close-y, var(--e6b-local-control-y, 0px));
 }
 
 .e6b-wind-slider {

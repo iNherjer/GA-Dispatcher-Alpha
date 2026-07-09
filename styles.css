@@ -8157,35 +8157,40 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     position: relative;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    border-radius: 10px;
-    border: 1px solid rgba(235, 226, 190, 0.18);
+    overflow: visible;
+    border-radius: 0;
+    border: 0;
     background: transparent;
     box-shadow: none;
 }
 
 .map-e6b-frame {
+    position: absolute;
+    left: 50%;
+    top: 50%;
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 320%;
+    height: 320%;
     border: 0;
     background: transparent;
+    transform: translate(-50%, -50%);
 }
 
 .map-e6b-drag-strip {
     position: absolute;
     z-index: 4;
-    left: calc(var(--e6b-tool-stack-left, 0px) + 8px);
-    top: calc(var(--e6b-tool-stack-top, 0px) + 8px);
+    left: var(--e6b-control-move-x, calc(var(--e6b-tool-stack-left, 0px) + 22px));
+    top: var(--e6b-control-move-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
     width: 31px;
     height: 31px;
     border-radius: 50%;
     border: 1px solid rgba(0,0,0,0.42);
     background: rgba(248, 243, 218, 0.86);
     color: #111;
-    display: grid;
+    display: none !important;
     place-items: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.34);
+    transform: translate(-50%, -50%);
 }
 
 .map-e6b-drag-strip::before {
@@ -8197,20 +8202,21 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     cursor: grabbing;
 }
 
+.map-e6b-device.e6b-iframe-controls .map-e6b-drag-strip,
+.map-e6b-device.e6b-iframe-controls .map-e6b-window-controls {
+    display: none;
+}
+
 .map-e6b-window-controls {
     position: absolute;
     z-index: 5;
-    top: calc(var(--e6b-tool-stack-top, 0px) + 8px);
-    left: calc(var(--e6b-tool-stack-right, 100%) - 8px);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    pointer-events: auto;
-    transform: translateX(-100%);
+    inset: 0;
+    pointer-events: none;
 }
 
 .map-e6b-window-btn,
 .map-e6b-close {
+    position: absolute;
     width: 31px;
     height: 31px;
     border-radius: 50%;
@@ -8220,6 +8226,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     cursor: pointer;
     font: 900 16px/1 'Courier New', monospace;
     box-shadow: 0 4px 12px rgba(0,0,0,0.34);
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
 }
 
 .map-e6b-window-btn {
@@ -8230,6 +8238,32 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .map-e6b-close {
     background: linear-gradient(145deg, #7c2727, #2b0f0f);
     color: #fff3e6;
+}
+
+#mapE6BFlip {
+    left: var(--e6b-control-flip-x, calc(var(--e6b-tool-stack-right, 100%) - 82px));
+    top: var(--e6b-control-flip-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
+}
+
+#mapE6BZoomOut {
+    left: var(--e6b-control-zoom-out-x, calc(var(--e6b-tool-stack-right, 100%) - 54px));
+    top: var(--e6b-control-zoom-out-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
+}
+
+#mapE6BZoomIn {
+    left: var(--e6b-control-zoom-in-x, calc(var(--e6b-tool-stack-right, 100%) - 26px));
+    top: var(--e6b-control-zoom-in-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
+}
+
+#mapE6BClose {
+    left: var(--e6b-control-close-x, calc(var(--e6b-tool-stack-right, 100%) + 2px));
+    top: var(--e6b-control-close-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
+}
+
+.map-e6b-drag-strip:active,
+.map-e6b-window-btn:active,
+.map-e6b-close:active {
+    transform: translate(-50%, calc(-50% + 1px));
 }
 
 .stopwatch-crown-reset:active,
@@ -9426,6 +9460,14 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         box-shadow: none;
     }
 
+    .map-e6b-frame {
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        transform: none;
+    }
+
     .map-e6b-drag-strip {
         display: grid;
         width: 34px;
@@ -9440,19 +9482,11 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
         line-height: 1;
     }
 
-    .map-e6b-window-controls {
-        gap: 7px;
-    }
-
     .map-e6b-window-btn,
     .map-e6b-close {
         width: 34px;
         height: 34px;
         font-size: 17px;
-    }
-
-    #mapE6BScale {
-        display: none;
     }
 }
 

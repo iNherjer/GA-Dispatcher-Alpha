@@ -110,6 +110,8 @@
         editFillOpacity: 'fillOpacity',
         editFontSize: 'fontSize',
         editTextRotation: 'textRotation',
+        editTextOffsetX: 'textOffsetX',
+        editTextOffsetY: 'textOffsetY',
         editLabelAngleOffset: 'labelAngleOffset',
         editIndexLength: 'indexLength',
         editIndexWidth: 'indexWidth',
@@ -139,6 +141,8 @@
         'editFontWidth',
         'editFontWeight',
         'editTextRotation',
+        'editTextOffsetX',
+        'editTextOffsetY',
         'editTextOrientation',
         'editLabelAngleOffset',
         'editIndexLength',
@@ -150,6 +154,31 @@
         'editCalibration'
     ];
     const INDEX_PATTERN_SKIP_IDS = new Set(['idx-rate-60']);
+    const CONTROL_ANCHOR_ACTIONS = new Set(['move', 'flip', 'zoomIn', 'zoomOut', 'close']);
+    const CONTROL_ANCHOR_ALIASES = {
+        drag: 'move',
+        handle: 'move',
+        move: 'move',
+        pan: 'move',
+        verschieben: 'move',
+        flip: 'flip',
+        turn: 'flip',
+        umdrehen: 'flip',
+        rotate: 'flip',
+        plus: 'zoomIn',
+        '+': 'zoomIn',
+        zoomin: 'zoomIn',
+        'zoom-in': 'zoomIn',
+        minus: 'zoomOut',
+        '-': 'zoomOut',
+        '−': 'zoomOut',
+        zoomout: 'zoomOut',
+        'zoom-out': 'zoomOut',
+        close: 'close',
+        schliessen: 'close',
+        schließen: 'close',
+        x: 'close'
+    };
     const STANDARD_INDEX_PATTERN = {
         fontSize: 40,
         textRotation: 52.2,
@@ -173,7 +202,6 @@
         'idx-true-alt': 'TRUE ALT.',
         'idx-density-pointer': 'DENSITY ALTITUDE'
     };
-
     const state = {
         image: {
             src: DEFAULT_IMAGE,
@@ -1583,6 +1611,7 @@
         if (element.type === 'line') renderLine(parent, element);
         if (element.type === 'polygon') renderPolygon(parent, element);
         if (element.type === 'text-box') renderTextBox(parent, element);
+        if (element.type === 'control-anchor') renderControlAnchor(parent, element);
     }
 
     function elementDisc(element) {
@@ -1600,6 +1629,29 @@
 
     function selectedClass(element) {
         return isPreviewMode() ? '' : (element.id === state.selectedId ? 'selected' : '');
+    }
+
+    function normalizeControlAnchorAction(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        if (CONTROL_ANCHOR_ACTIONS.has(raw)) return raw;
+        const normalized = raw
+            .toLowerCase()
+            .replace(/\s+/g, '')
+            .replace(/[–—]/g, '-');
+        return CONTROL_ANCHOR_ALIASES[normalized] || '';
+    }
+
+    function controlAnchorAction(element) {
+        return normalizeControlAnchorAction(element && (element.controlAction || element.text || element.label)) || 'move';
+    }
+
+    function controlAnchorGlyph(action) {
+        if (action === 'flip') return '↻';
+        if (action === 'zoomIn') return '+';
+        if (action === 'zoomOut') return '−';
+        if (action === 'close') return 'x';
+        return '≡';
     }
 
     function textOrientation(element) {
@@ -2391,10 +2443,14 @@
         const fontSize = Number(element.fontSize || 28);
         const lines = String(element.text || element.label || '').split(/\\n|\n/);
         const lineGap = fontSize * 1.12;
+        const offsetX = Number(element.textOffsetX || 0);
+        const offsetY = Number(element.textOffsetY || 0);
+        const textX = center.x + (Number.isFinite(offsetX) ? offsetX : 0);
+        const textY = center.y + (Number.isFinite(offsetY) ? offsetY : 0);
         const text = svgEl('text', {
             class: 'trace-text-box-label',
-            x: center.x,
-            y: center.y - ((lines.length - 1) * lineGap) / 2,
+            x: textX,
+            y: textY - ((lines.length - 1) * lineGap) / 2,
             'font-size': fontSize,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
@@ -2403,13 +2459,44 @@
         });
         lines.forEach((line, index) => {
             const tspan = svgEl('tspan', {
-                x: center.x,
+                x: textX,
                 dy: index === 0 ? 0 : lineGap
             });
             tspan.textContent = line;
             text.appendChild(tspan);
         });
         group.appendChild(text);
+        parent.appendChild(group);
+    }
+
+    function renderControlAnchor(parent, element) {
+        const angle = Number(element.startAngle || 0);
+        const center = polarPoint(Number(element.radius || 0), angle);
+        const size = Math.max(20, Number(element.outerRadius || element.fontSize || 40));
+        const action = controlAnchorAction(element);
+        const group = svgEl('g', {
+            class: `trace-control-anchor ${selectedClass(element)} ${elementDiscClass(element)}`,
+            'data-trace-id': element.id
+        });
+        group.appendChild(svgEl('circle', {
+            class: 'trace-control-anchor-dot',
+            cx: center.x,
+            cy: center.y,
+            r: size / 2,
+            style: 'fill:rgba(245,202,67,.82);stroke:#101418;stroke-width:2;vector-effect:non-scaling-stroke;'
+        }));
+        const label = svgEl('text', {
+            class: 'trace-control-anchor-label',
+            x: center.x,
+            y: center.y,
+            'font-size': Math.max(12, Number(element.fontSize || size * 0.42)),
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            ...typographyAttrs(element),
+            style: 'fill:#101418;stroke:none;font-weight:900;'
+        });
+        label.textContent = controlAnchorGlyph(action);
+        group.appendChild(label);
         parent.appendChild(group);
     }
 
@@ -2575,12 +2662,14 @@
         setInput('editFontWidth', FONT_WIDTH_VALUES.has(element.fontWidth) ? element.fontWidth : '');
         setInput('editFontWeight', FONT_WEIGHT_VALUES.has(element.fontWeight) ? element.fontWeight : '');
         setInput('editTextRotation', element.textRotation ?? '');
+        setInput('editTextOffsetX', element.textOffsetX ?? '');
+        setInput('editTextOffsetY', element.textOffsetY ?? '');
         setInput('editTextOrientation', textOrientation(element));
         setInput('editLabelAngleOffset', element.labelAngleOffset ?? 0);
         setInput('editIndexLength', element.indexLength ?? '');
         setInput('editIndexWidth', element.indexWidth ?? '');
         setInput('editStemLength', element.stemLength ?? '');
-        setInput('editValues', element.type === 'label' || element.type === 'index' || element.type === 'text-box'
+        setInput('editValues', element.type === 'label' || element.type === 'index' || element.type === 'text-box' || element.type === 'control-anchor'
             ? (element.text || '')
             : element.type === 'polygon'
                 ? (element.pointsText || element.valuesText || '')
@@ -2603,8 +2692,39 @@
             scanAlignment: scanAlignmentSnapshot(),
             workface: state.workface,
             typography: state.typography,
+            controls: {
+                front: runtimeControlAnchors('front'),
+                wind: runtimeControlAnchors('wind')
+            },
             elements: state.elements
         }, null, 2);
+    }
+
+    function runtimeControlSurfaces(side) {
+        return side === 'wind'
+            ? ['wind-rotor-back', 'wind-rotor-front']
+            : ['back', 'front'];
+    }
+
+    function runtimeControlAnchors(side) {
+        const surfaces = runtimeControlSurfaces(side);
+        return state.elements
+            .filter(element => element.type === 'control-anchor' && surfaces.includes(elementSurface(element)))
+            .reduce((result, element) => {
+                const action = controlAnchorAction(element);
+                if (!CONTROL_ANCHOR_ACTIONS.has(action)) return result;
+                const surface = elementSurface(element);
+                const point = withCalibration(calibrationForSurface(surface), () => polarPoint(Number(element.radius || 0), Number(element.startAngle || 0)));
+                result[action] = {
+                    action,
+                    surface,
+                    x: round(point.x),
+                    y: round(point.y),
+                    radius: round(Number(element.radius || 0)),
+                    angle: round(Number(element.startAngle || 0))
+                };
+                return result;
+            }, {});
     }
 
     function renderPublishedFrontStatus() {
@@ -2670,9 +2790,11 @@
                 cy: state.calibration.cy,
                 radius: state.calibration.radius
             },
+            runtime: runtimeExportMetadata('front'),
+            controls: runtimeControlAnchors('front'),
             svgs: {
-                back: renderStandaloneDiscSvg('back'),
-                front: renderStandaloneDiscSvg('front')
+                back: renderRuntimeDiscSvg('back'),
+                front: renderRuntimeDiscSvg('front')
             }
         };
         try {
@@ -2719,11 +2841,13 @@
                 height: state.image.height
             },
             wind: windStorageState(),
+            runtime: runtimeExportMetadata('wind'),
+            controls: runtimeControlAnchors('wind'),
             svgs: {
-                slider: renderStandaloneDiscSvg('wind-slider'),
-                rotor: renderStandaloneDiscSvg('wind-rotor-front'),
-                rotorBack: renderStandaloneDiscSvg('wind-rotor-back'),
-                rotorFront: renderStandaloneDiscSvg('wind-rotor-front')
+                slider: renderRuntimeDiscSvg('wind-slider'),
+                rotor: renderRuntimeDiscSvg('wind-rotor-front'),
+                rotorBack: renderRuntimeDiscSvg('wind-rotor-back'),
+                rotorFront: renderRuntimeDiscSvg('wind-rotor-front')
             }
         };
         try {
@@ -2791,6 +2915,61 @@
             state.image.width = previousImageSize.width;
             state.image.height = previousImageSize.height;
         }
+    }
+
+    function renderRuntimeDiscSvg(disc) {
+        return optimizeRuntimeSvg(renderStandaloneDiscSvg(disc), disc);
+    }
+
+    function runtimeExportMetadata(side) {
+        return {
+            side,
+            format: 'inline-svg',
+            optimized: true,
+            removes: ['editor-hitboxes', 'data-attributes'],
+            generatedAt: new Date().toISOString()
+        };
+    }
+
+    function optimizeRuntimeSvg(svgText, disc) {
+        let doc = null;
+        try {
+            doc = new DOMParser().parseFromString(String(svgText || ''), 'image/svg+xml');
+        } catch (_) {
+            return svgText;
+        }
+        if (!doc || doc.querySelector('parsererror')) return svgText;
+        const svg = doc.documentElement;
+        if (!svg || String(svg.nodeName || '').toLowerCase() !== 'svg') return svgText;
+
+        svg.setAttribute('style', `${svg.getAttribute('style') || ''};overflow:visible;`.replace(/^;/, ''));
+        svg.querySelectorAll('.trace-index-hitbox, .trace-point-hitbox, .trace-calibration-marker, .trace-control-anchor').forEach(element => element.remove());
+        svg.querySelectorAll('*').forEach(element => {
+            Array.from(element.attributes || []).forEach(attribute => {
+                if (attribute.name.startsWith('data-')) element.removeAttribute(attribute.name);
+            });
+        });
+        svg.setAttribute('data-e6b-runtime', '1');
+
+        const style = svg.querySelector('style');
+        if (style) style.textContent = runtimeSvgStyle(style.textContent, disc);
+
+        try {
+            return new XMLSerializer().serializeToString(svg);
+        } catch (_) {
+            return svg.outerHTML || svgText;
+        }
+    }
+
+    function runtimeSvgStyle(existingStyle, disc) {
+        const extra = [
+            'svg{overflow:visible;}',
+            '.trace-index-hitbox,.trace-point-hitbox,.trace-calibration-marker,.trace-control-anchor{display:none!important;}'
+        ];
+        if (disc === 'wind-slider') {
+            extra.push('.trace-preview-slider-surface{fill:#d2d8dc!important;fill-opacity:1!important;opacity:1!important;}');
+        }
+        return `${existingStyle || ''}\n${extra.join('\n')}`;
     }
 
     function standaloneSurfaceSize(surface) {
@@ -3130,7 +3309,7 @@
         bindUndoableInput(qs('#editValues'), 'input', event => {
             const element = selectedElement();
             if (!element) return;
-            if (element.type === 'label' || element.type === 'index' || element.type === 'text-box') element.text = event.target.value;
+            if (element.type === 'label' || element.type === 'index' || element.type === 'text-box' || element.type === 'control-anchor') element.text = event.target.value;
             else if (element.type === 'polygon') element.pointsText = event.target.value;
             else element.valuesText = event.target.value;
             render();
@@ -3291,9 +3470,21 @@
             strokeOpacity: 0.9,
             fillOpacity: 1,
             fontSize: 30,
+            textOffsetX: 0,
+            textOffsetY: 0,
             fontWeight: 'bold',
             backgroundFill: '#101418',
             textFill: '#f7f1df'
+        });
+        if (type === 'control-anchor') Object.assign(base, {
+            label: 'Button-Anker',
+            text: 'move',
+            radius: Math.max(120, Number(calibrationForSurface(defaultElementSurface()).radius || 720) - 55),
+            startAngle: -135,
+            endAngle: -135,
+            outerRadius: 44,
+            fontSize: 30,
+            fontWeight: 'bold'
         });
         state.elements.push(base);
         state.selectedId = base.id;
@@ -3615,7 +3806,7 @@
             }
             if (!drag.element) return;
             pushDragUndoSnapshot();
-            if (element.type === 'label' || element.type === 'text-box') {
+            if (element.type === 'label' || element.type === 'text-box' || element.type === 'control-anchor') {
                 element.startAngle = round(elementAngle);
                 element.radius = round(elementRadius);
             } else if (element.type === 'index') {

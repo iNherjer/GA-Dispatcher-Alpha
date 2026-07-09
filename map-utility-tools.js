@@ -17,12 +17,13 @@
         },
         e6b: {
             panel: 'mapE6BDevice',
-            handle: 'mapE6BHandle',
+            handle: '',
             button: 'mapToolE6B',
             storage: `${STORAGE_PREFIX}e6b_pos`
         }
     };
     const E6B_SIZE_STORAGE = `${STORAGE_PREFIX}e6b_size`;
+    const E6B_CONTROL_KEYS = ['flip', 'zoomOut', 'zoomIn', 'close'];
     const TIMER_MIN_MS = 1000;
     const TIMER_MAX_SECONDS = 99 * 60 + 59;
     const TIMER_MAX_MS = TIMER_MAX_SECONDS * 1000;
@@ -220,7 +221,7 @@
 
     let dragState = null;
     let timerDigitDragState = null;
-    const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null };
+    const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {} };
 
     function el(id) {
         return document.getElementById(id);
@@ -338,15 +339,10 @@
 
     function applyE6BSize(mode, persist = true) {
         const panel = el('mapE6BDevice');
-        const scaleButton = el('mapE6BScale');
         const nextMode = mode === 'full' ? 'full' : 'half';
         if (!panel) return;
         panel.classList.toggle('map-e6b-full', nextMode === 'full');
         panel.classList.toggle('map-e6b-half', nextMode !== 'full');
-        if (scaleButton) {
-            scaleButton.title = nextMode === 'full' ? 'E6B auf halbe Bildschirmhöhe' : 'E6B auf ganze Bildschirmhöhe';
-            scaleButton.setAttribute('aria-label', scaleButton.title);
-        }
         if (persist) {
             try { localStorage.setItem(E6B_SIZE_STORAGE, nextMode); } catch (_) {}
         }
@@ -354,6 +350,7 @@
             clampPanel(panel);
             const cfg = getToolConfig('e6b');
             if (cfg && panel.style.display !== 'none') savePanelPosition(cfg);
+            syncE6BBaseSize(panel);
             postE6BMessage({ type: 'ga-e6b-report-view' });
         });
     }
@@ -376,9 +373,13 @@
         postE6BMessage({ type: 'ga-e6b-toggle-side' });
     }
 
+    function zoomE6BView(factor) {
+        postE6BMessage({ type: 'ga-e6b-zoom-view', factor });
+    }
+
     function clampE6BViewOffset(x, y) {
-        const maxX = Math.max(0, window.innerWidth * 0.42);
-        const maxY = Math.max(0, window.innerHeight * 0.42);
+        const maxX = Math.max(0, window.innerWidth * 0.9);
+        const maxY = Math.max(0, window.innerHeight * 0.9);
         return {
             x: Math.min(Math.max(Number(x) || 0, -maxX), maxX),
             y: Math.min(Math.max(Number(y) || 0, -maxY), maxY)
@@ -403,20 +404,43 @@
         };
     }
 
+    function getE6BFrameOffset(panel) {
+        const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
+        const frame = el('mapE6BFrame');
+        const shellRect = shell ? shell.getBoundingClientRect() : null;
+        const frameRect = frame ? frame.getBoundingClientRect() : null;
+        return {
+            x: shellRect && frameRect ? frameRect.left - shellRect.left : 0,
+            y: shellRect && frameRect ? frameRect.top - shellRect.top : 0
+        };
+    }
+
+    function getE6BBaseSize(panel) {
+        const size = getE6BShellSize(panel);
+        const frontWidth = Math.min(size.width, size.height * 510 / 590);
+        const windWidth = Math.min(size.width * 1.25, size.height * 510 / 1000 * 1.38);
+        return { frontWidth, windWidth };
+    }
+
+    function syncE6BBaseSize(panel) {
+        const size = getE6BBaseSize(panel || el('mapE6BDevice'));
+        postE6BMessage({
+            type: 'ga-e6b-set-base-size',
+            frontWidth: size.frontWidth,
+            windWidth: size.windWidth
+        });
+    }
+
     function clampE6BStackForChrome(stack, panel) {
         if (!stack) return null;
-        const shellSize = getE6BShellSize(panel);
-        const minControlWidth = 42;
-        const minControlRight = Math.min(shellSize.width, 124);
-        const maxLeft = Math.max(0, shellSize.width - minControlWidth);
-        const maxTop = Math.max(0, shellSize.height - minControlWidth);
+        const offset = getE6BFrameOffset(panel);
         return {
-            left: Math.min(Math.max(finiteE6BNumber(stack.left), 0), maxLeft),
-            top: Math.min(Math.max(finiteE6BNumber(stack.top), 0), maxTop),
-            right: Math.min(Math.max(finiteE6BNumber(stack.right, shellSize.width), minControlRight), shellSize.width),
-            bottom: Math.min(Math.max(finiteE6BNumber(stack.bottom, shellSize.height), minControlWidth), shellSize.height),
-            width: Math.max(1, finiteE6BNumber(stack.width, shellSize.width)),
-            height: Math.max(1, finiteE6BNumber(stack.height, shellSize.height))
+            left: finiteE6BNumber(stack.left) + offset.x,
+            top: finiteE6BNumber(stack.top) + offset.y,
+            right: finiteE6BNumber(stack.right, 1) + offset.x,
+            bottom: finiteE6BNumber(stack.bottom, 1) + offset.y,
+            width: Math.max(1, finiteE6BNumber(stack.width, 1)),
+            height: Math.max(1, finiteE6BNumber(stack.height, 1))
         };
     }
 
@@ -442,6 +466,48 @@
         setE6BPixelVar(panel, '--e6b-tool-stack-bottom', stack.bottom);
         setE6BPixelVar(panel, '--e6b-tool-stack-width', stack.width);
         setE6BPixelVar(panel, '--e6b-tool-stack-height', stack.height);
+        applyE6BControlPositions(panel, stack);
+    }
+
+    function fallbackE6BControlPoint(key, stack) {
+        const points = e6bChromeState.side === 'wind'
+            ? {
+                flip: { x: 0.72, y: 0.31 },
+                zoomOut: { x: 0.79, y: 0.34 },
+                zoomIn: { x: 0.85, y: 0.38 },
+                close: { x: 0.89, y: 0.43 }
+            }
+            : {
+                flip: { x: 0.72, y: 0.16 },
+                zoomOut: { x: 0.80, y: 0.18 },
+                zoomIn: { x: 0.87, y: 0.22 },
+                close: { x: 0.92, y: 0.28 }
+            };
+        const point = points[key] || points.flip;
+        return {
+            x: stack.left + stack.width * point.x,
+            y: stack.top + stack.height * point.y
+        };
+    }
+
+    function e6bControlPoint(key, stack) {
+        const control = e6bChromeState.controls && e6bChromeState.controls[key];
+        if (control && Number.isFinite(Number(control.x)) && Number.isFinite(Number(control.y))) {
+            return {
+                x: stack.left + Number(control.x),
+                y: stack.top + Number(control.y)
+            };
+        }
+        return fallbackE6BControlPoint(key, stack);
+    }
+
+    function applyE6BControlPositions(panel, stack) {
+        E6B_CONTROL_KEYS.forEach(key => {
+            const point = e6bControlPoint(key, stack);
+            const cssKey = key.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
+            setE6BPixelVar(panel, `--e6b-control-${cssKey}-x`, point.x);
+            setE6BPixelVar(panel, `--e6b-control-${cssKey}-y`, point.y);
+        });
     }
 
     function moveE6BViewBy(dx, dy) {
@@ -484,6 +550,9 @@
             width: Math.max(1, finiteE6BNumber(stack.width, 1)),
             height: Math.max(1, finiteE6BNumber(stack.height, 1))
         };
+        e6bChromeState.controls = data.controls && typeof data.controls === 'object' ? data.controls : {};
+        const panel = el('mapE6BDevice');
+        if (panel) panel.classList.toggle('e6b-iframe-controls', data.localControls === true);
         applyE6BChromePosition();
     }
 
@@ -491,7 +560,12 @@
         const frame = el('mapE6BFrame');
         if (!frame || event.source !== frame.contentWindow) return;
         const data = event && event.data;
-        if (!data || typeof data !== 'object' || data.type !== 'ga-e6b-view-state') return;
+        if (!data || typeof data !== 'object') return;
+        if (data.type === 'ga-e6b-close') {
+            closeMapUtilityTool('e6b');
+            return;
+        }
+        if (data.type !== 'ga-e6b-view-state') return;
         updateE6BChromeFromFrame(data);
     }
 
@@ -520,6 +594,7 @@
         bringToFront(panel);
         if (tool === 'e6b') requestAnimationFrame(() => {
             clampPanel(panel);
+            syncE6BBaseSize(panel);
             reclampE6BViewOffset();
         });
         syncToolButtons();
@@ -563,7 +638,7 @@
         handle.addEventListener('pointerdown', event => {
             if (event.button !== undefined && event.button !== 0) return;
             if (event.target && event.target.closest('button, input, select, textarea, .stopwatch-timer-picker')) return;
-            const e6bPanMode = isMobileE6BOverlay(tool);
+            const e6bPanMode = tool === 'e6b' || isMobileE6BOverlay(tool);
             const styleLeft = Number.parseFloat(panel.style.left);
             const styleTop = Number.parseFloat(panel.style.top);
             const startLeft = Number.isFinite(styleLeft) ? styleLeft : panel.offsetLeft;
@@ -1988,7 +2063,8 @@
         const closeCalculator = el('mapCalculatorClose');
         const closeE6B = el('mapE6BClose');
         const flipE6B = el('mapE6BFlip');
-        const scaleE6B = el('mapE6BScale');
+        const zoomOutE6B = el('mapE6BZoomOut');
+        const zoomInE6B = el('mapE6BZoomIn');
         const formulaToggle = el('mapCalculatorFormulaToggle');
         const formulaDrawer = el('mapCalculatorFormulaDrawer');
         const formulaHelpOverlay = el('mapFormulaHelpOverlay');
@@ -2063,12 +2139,19 @@
             });
             flipE6B.dataset.bound = '1';
         }
-        if (scaleE6B && scaleE6B.dataset.bound !== '1') {
-            scaleE6B.addEventListener('click', () => {
+        if (zoomOutE6B && zoomOutE6B.dataset.bound !== '1') {
+            zoomOutE6B.addEventListener('click', () => {
                 bringToFront(el('mapE6BDevice'));
-                toggleE6BSize();
+                zoomE6BView(0.86);
             });
-            scaleE6B.dataset.bound = '1';
+            zoomOutE6B.dataset.bound = '1';
+        }
+        if (zoomInE6B && zoomInE6B.dataset.bound !== '1') {
+            zoomInE6B.addEventListener('click', () => {
+                bringToFront(el('mapE6BDevice'));
+                zoomE6BView(1.16);
+            });
+            zoomInE6B.dataset.bound = '1';
         }
         if (formulaToggle && formulaToggle.dataset.bound !== '1') {
             formulaToggle.addEventListener('click', () => toggleFormulaDrawer());
@@ -2106,7 +2189,10 @@
         window.addEventListener('message', handleE6BFrameMessage);
         const e6bFrame = el('mapE6BFrame');
         if (e6bFrame && e6bFrame.dataset.e6bViewBound !== '1') {
-            e6bFrame.addEventListener('load', () => postE6BMessage({ type: 'ga-e6b-report-view' }));
+            e6bFrame.addEventListener('load', () => {
+                syncE6BBaseSize(el('mapE6BDevice'));
+                postE6BMessage({ type: 'ga-e6b-report-view' });
+            });
             e6bFrame.dataset.e6bViewBound = '1';
         }
         let storedScale = '';
@@ -2130,7 +2216,10 @@
                 const panel = el(cfg.panel);
                 if (panel && panel.style.display !== 'none') {
                     clampPanel(panel);
-                    if (tool === 'e6b') reclampE6BViewOffset();
+                    if (tool === 'e6b') {
+                        syncE6BBaseSize(panel);
+                        reclampE6BViewOffset();
+                    }
                     savePanelPosition(cfg);
                 }
             });

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>E6B Flight Computer Prototype</title>
-    <link rel="stylesheet" href="./e6b-flight-computer.css?v=20260709-windslider03">
+    <link rel="stylesheet" href="./e6b-flight-computer.css?v=20260709-windperf02">
 </head>
 <body>
     <header class="e6b-topbar">
@@ -40,6 +40,12 @@
                     <div id="e6bWorkbenchWindMissing" class="e6b-board-layer e6b-workbench-wind-missing" aria-hidden="true">
                         <span>Wind-Workbench-Stand speichern</span>
                     </div>
+                </div>
+                <div id="e6bEmbeddedChrome" class="e6b-embedded-chrome" aria-label="E6B Fenstersteuerung">
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="flip" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="zoomOut" title="E6B herauszoomen" aria-label="E6B herauszoomen">−</button>
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="zoomIn" title="E6B hineinzoomen" aria-label="E6B hineinzoomen">+</button>
+                    <button type="button" class="e6b-embedded-btn e6b-embedded-close" data-e6b-control="close" title="E6B schließen" aria-label="E6B schließen">x</button>
                 </div>
             </div>
         </section>
@@ -101,6 +107,6 @@
     </main>
 
     <script src="./e6b-core.js?v=20260708-workbenchfront01"></script>
-    <script src="./e6b-flight-computer.js?v=20260709-windslider03"></script>
+    <script src="./e6b-flight-computer.js?v=20260709-windperf02"></script>
 </body>
 </html>

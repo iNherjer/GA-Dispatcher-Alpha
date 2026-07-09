@@ -156,6 +156,7 @@
                     <button type="button" data-add="line">Linie</button>
                     <button type="button" data-add="polygon">Vieleck</button>
                     <button type="button" data-add="text-box">Textfeld</button>
+                    <button type="button" data-add="control-anchor">Button-Anker</button>
                 </div>
                 <select id="elementSelect" class="wide-select" aria-label="Element auswaehlen"></select>
                 <div class="button-row compact">
@@ -215,6 +216,8 @@
                         </select>
                     </label>
                     <label>Text Rotation<input id="editTextRotation" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Text X<input id="editTextOffsetX" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Text Y<input id="editTextOffsetY" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
                     <label>Text Ausrichtung
                         <select id="editTextOrientation">
                             <option value="free">Frei</option>
@@ -271,6 +274,6 @@
         <option value="Verdana"></option>
         <option value="Courier New"></option>
     </datalist>
-    <script src="./e6b-trace-workbench.js?v=20260709-shape05"></script>
+    <script src="./e6b-trace-workbench.js?v=20260709-textboxoffset01"></script>
 </body>
 </html>
