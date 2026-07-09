@@ -251,6 +251,10 @@ button:disabled {
 
 .trace-ring.selected,
 .trace-radial.selected,
+.trace-circle.selected,
+.trace-line.selected,
+.trace-polygon.selected,
+.trace-text-box.selected,
 .trace-window.selected,
 .trace-scale.selected .trace-scale-guide,
 .trace-label.selected,
@@ -280,9 +284,103 @@ button:disabled {
 
 .trace-ring.wind-slider-disc,
 .trace-radial.wind-slider-disc,
+.trace-circle.wind-slider-disc,
+.trace-line.wind-slider-disc,
+.trace-polygon.wind-slider-disc,
 .trace-scale.wind-slider-disc .trace-scale-guide {
     stroke: rgba(0,151,126,0.88);
     stroke-dasharray: 12 7;
+}
+
+.trace-circle,
+.trace-line,
+.trace-polygon,
+.trace-text-box {
+    fill: none;
+    stroke: rgba(18,22,25,0.82);
+    stroke-width: 2;
+    stroke-dasharray: none;
+    vector-effect: non-scaling-stroke;
+    cursor: grab;
+}
+
+.trace-circle.back-disc,
+.trace-line.back-disc,
+.trace-polygon.back-disc {
+    stroke: rgba(0,112,172,0.94);
+}
+
+.trace-circle.wind-rotor-back-disc,
+.trace-line.wind-rotor-back-disc,
+.trace-polygon.wind-rotor-back-disc {
+    stroke: rgba(77,63,194,0.96);
+}
+
+.trace-circle.wind-rotor-front-disc,
+.trace-line.wind-rotor-front-disc,
+.trace-polygon.wind-rotor-front-disc {
+    stroke: rgba(180,30,132,0.96);
+}
+
+.trace-text-box-bg {
+    fill: #101418;
+    stroke: #101418;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-text-box-label {
+    fill: #f7f1df;
+    stroke: none;
+    paint-order: stroke;
+    pointer-events: none;
+}
+
+.trace-radial.wind-slider-disc.fine {
+    opacity: 0.36;
+}
+
+.trace-slider-radius-line {
+    fill: none;
+    stroke: rgba(0,83,72,0.25);
+    stroke-width: 0.55;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-slider-radius-line.major {
+    stroke: rgba(0,83,72,0.62);
+    stroke-width: 1.2;
+}
+
+.trace-slider-radial-emphasis {
+    fill: none;
+    stroke: rgba(0,83,72,0.72);
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-slider-radius-label-bg {
+    fill: rgba(255,255,255,0.94);
+    stroke: rgba(22,28,32,0.48);
+    stroke-width: 0.9;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-slider-radius-label {
+    fill: #101418;
+    stroke: none;
+    font-weight: 700;
+}
+
+.trace-slider-radial-label-bg {
+    fill: rgba(255,255,255,0.92);
+    stroke: rgba(22,28,32,0.42);
+    stroke-width: 0.75;
+    vector-effect: non-scaling-stroke;
+}
+
+.trace-slider-radial-label {
+    fill: #101418;
+    stroke: none;
+    font-weight: 700;
 }
 
 .trace-scale.back-disc .trace-tick {

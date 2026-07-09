@@ -4,20 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>E6B Trace Workbench</title>
-    <link rel="stylesheet" href="./e6b-trace-workbench.css?v=20260708-wind06">
+    <link rel="stylesheet" href="./e6b-trace-workbench.css?v=20260709-shape05">
 </head>
 <body>
     <header class="topbar">
         <div>
             <h1>E6B Trace Workbench</h1>
-            <span>Scan normalisieren, Skalen kalibrieren, SVG-Geometrie exportieren</span>
+            <span>Scan ausrichten, Skalen kalibrieren und SVG-Geometrie speichern</span>
         </div>
         <div class="topbar-actions">
-            <button type="button" id="togglePreviewMode" aria-pressed="false">EDIT</button>
-            <button type="button" id="resetPreviewRotation">Reset Preview</button>
-            <button type="button" id="undoChange" disabled>Undo</button>
-            <button type="button" id="redoChange" disabled>Redo</button>
-            <button type="button" id="fitView">Fit</button>
+            <button type="button" id="togglePreviewMode" aria-pressed="false">BEARBEITEN</button>
+            <button type="button" id="resetPreviewRotation">Vorschau zurücksetzen</button>
+            <button type="button" id="undoChange" disabled>Rückgängig</button>
+            <button type="button" id="redoChange" disabled>Wiederholen</button>
+            <button type="button" id="fitView">Einpassen</button>
             <button type="button" id="zoomIn">+</button>
             <button type="button" id="zoomOut">-</button>
         </div>
@@ -51,7 +51,7 @@
                         <option value="wind-slider">Rückseite Schieber</option>
                     </select>
                 </label>
-                <label>Scan Preset
+                <label>Scan-Vorlage
                     <select id="scanPresetSelect">
                         <option value="">Aktuelles Bild</option>
                         <option value="front">Vorderseite Scan</option>
@@ -65,6 +65,15 @@
                 <div class="field-grid two">
                     <label>Scan Deckkraft<input id="imageOpacity" type="range" min="0" max="1" step="0.01"></label>
                     <label>Overlay Deckkraft<input id="overlayOpacity" type="range" min="0" max="1" step="0.01"></label>
+                </div>
+                <div class="field-grid two">
+                    <label>Scan X<input id="scanOffsetX" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Scan Y<input id="scanOffsetY" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Scan Rotation<input id="scanRotation" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                </div>
+                <div class="button-row compact">
+                    <button type="button" id="centerScanOnAxis">Bild X zur Mittellinie</button>
+                    <button type="button" id="resetScanAlignment">Scan Reset</button>
                 </div>
                 <label class="check-label"><input id="showScan" type="checkbox" checked> Scan zeigen</label>
                 <label class="check-label"><input id="showOverlay" type="checkbox" checked> Overlay zeigen</label>
@@ -143,6 +152,10 @@
                     <button type="button" data-add="label">Label</button>
                     <button type="button" data-add="index">Index</button>
                     <button type="button" data-add="radial">Radial</button>
+                    <button type="button" data-add="circle">Kreis</button>
+                    <button type="button" data-add="line">Linie</button>
+                    <button type="button" data-add="polygon">Vieleck</button>
+                    <button type="button" data-add="text-box">Textfeld</button>
                 </div>
                 <select id="elementSelect" class="wide-select" aria-label="Element auswaehlen"></select>
                 <div class="button-row compact">
@@ -152,6 +165,7 @@
                     <button type="button" id="appendIndexes">Front Indexe</button>
                     <button type="button" id="applyIndexPattern">Front Muster</button>
                     <button type="button" id="appendWindSeeds">Wind Seed</button>
+                    <button type="button" id="appendShapePattern">Form Muster</button>
                 </div>
             </section>
 
@@ -178,6 +192,12 @@
                     <label>Tick klein<input id="editMinorTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
                     <label>Tick mittel<input id="editMediumTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
                     <label>Tick gross<input id="editMajorTick" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Linie duenn<input id="editThinLineWidth" type="number" min="0" step="0.05" inputmode="decimal" data-number-field="1"></label>
+                    <label>Linie 5er<input id="editMediumLineWidth" type="number" min="0" step="0.05" inputmode="decimal" data-number-field="1"></label>
+                    <label>Linie dick<input id="editThickLineWidth" type="number" min="0" step="0.05" inputmode="decimal" data-number-field="1"></label>
+                    <label>Umriss<input id="editStrokeWidth" type="number" min="0" step="0.1" inputmode="decimal" data-number-field="1"></label>
+                    <label>Linie Opazitaet<input id="editStrokeOpacity" type="number" min="0" max="1" step="0.05" inputmode="decimal" data-number-field="1"></label>
+                    <label>Fuellung<input id="editFillOpacity" type="number" min="0" max="1" step="0.05" inputmode="decimal" data-number-field="1"></label>
                     <label>Schrift<input id="editFontSize" type="number" step="0.1" inputmode="decimal" data-number-field="1"></label>
                     <label>Font Override<input id="editFontFamily" type="text" list="fontFamilyOptions" placeholder="Global"></label>
                     <label>Font Breite
@@ -251,6 +271,6 @@
         <option value="Verdana"></option>
         <option value="Courier New"></option>
     </datalist>
-    <script src="./e6b-trace-workbench.js?v=20260708-wind06"></script>
+    <script src="./e6b-trace-workbench.js?v=20260709-shape05"></script>
 </body>
 </html>

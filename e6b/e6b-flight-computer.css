@@ -162,6 +162,10 @@ body.e6b-view-gesturing .e6b-stack {
     cursor: grabbing;
 }
 
+.wind-stack.wind-dot-cursor:not(:active) {
+    cursor: crosshair;
+}
+
 .front-stack {
     width: min(650px, 100%, calc((100vh - 116px) * 0.864));
     aspect-ratio: 510 / 590;
@@ -230,10 +234,19 @@ body.e6b-embedded .wind-stack {
     overflow: visible;
 }
 
+.e6b-workbench-front-layer .trace-preview-surface-outline,
 .e6b-workbench-wind-layer .trace-preview-surface-outline {
     fill: none !important;
     stroke: rgba(18, 22, 25, 0.82);
     vector-effect: non-scaling-stroke;
+}
+
+.e6b-workbench-front-layer .trace-preview-back-surface {
+    fill: #d1d5d8;
+}
+
+.e6b-workbench-front-layer .trace-preview-front-surface {
+    fill: #c5cacf;
 }
 
 .e6b-workbench-wind-layer .trace-preview-wind-rotor-back-surface {
@@ -314,8 +327,20 @@ body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
 }
 
 .e6b-wind-slider {
-    transform: translateY(var(--e6b-wind-slide-y, 0px));
+    transform: translate3d(0, var(--e6b-wind-slide-y, 0px), 0);
     will-change: transform;
+    backface-visibility: hidden;
+    contain: layout paint;
+}
+
+.e6b-workbench-wind-slider-art svg {
+    opacity: 1 !important;
+}
+
+.e6b-workbench-wind-slider-art .trace-preview-slider-surface {
+    fill: #d2d8dc !important;
+    fill-opacity: 1 !important;
+    opacity: 1 !important;
 }
 
 .e6b-wind-rotor {

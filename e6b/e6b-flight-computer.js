@@ -18,9 +18,9 @@
     const PREVIEW_STORAGE_KEY = 'ga-e6b-preview-toggles';
     const SCALE_PLAN_STORAGE_KEY = 'ga-e6b-window-plan-scales-v2';
     const WORKBENCH_FRONT_STORAGE_KEY = 'ga-e6b-workbench-front-disc-v1';
-    const WORKBENCH_FRONT_JSON_VERSION = '20260708-workbenchfront05';
+    const WORKBENCH_FRONT_JSON_VERSION = '20260708-workbenchfront06';
     const WORKBENCH_WIND_STORAGE_KEY = 'ga-e6b-workbench-wind-disc-v1';
-    const WORKBENCH_WIND_JSON_VERSION = '20260708-workbenchwind02';
+    const WORKBENCH_WIND_JSON_VERSION = '20260709-windslider03';
     const WINDOW_PLAN_FIELDS = ['startAngle', 'endAngle', 'outerRadius', 'innerRadius'];
     const SCALE_PLAN_NUMERIC_FIELDS = ['startAngle', 'endAngle', 'radius', 'tickLength', 'labelRadius', 'min', 'max', 'minorStep', 'majorStep', 'fontSize'];
     const SCALE_PLAN_MAX_TICKS = 1200;
@@ -70,6 +70,8 @@
     let embeddedViewStatePostPending = false;
     let rotationFramePending = false;
     let windDotUserSet = false;
+    let dragFramePending = false;
+    let dragSequence = 0;
     const workbenchSvgCache = { fixed: '', rotor: '', windSlider: '', windRotorBack: '', windRotorFront: '' };
 
     if (embeddedMode && document.body) {
@@ -1834,6 +1836,7 @@
 
     function setSide(side) {
         state.side = side === 'wind' ? 'wind' : 'front';
+        clearWindCursor(qs('#e6bWindStack'));
         render();
     }
 
@@ -1848,21 +1851,27 @@
         render();
     }
 
-    function pointerAngle(stack, event) {
-        const rect = stack.getBoundingClientRect();
+    function pointerAngleFromClient(stack, clientX, clientY, rect = stack.getBoundingClientRect()) {
         const centerX = stack.dataset.dial === 'wind' ? state.windCenterX / WIND_VIEWBOX.width * rect.width : rect.width / 2;
         const centerY = stack.dataset.dial === 'wind' ? state.windCenterY / WIND_VIEWBOX.height * rect.height : rect.height / 2;
-        const x = event.clientX - rect.left - centerX;
-        const y = centerY - (event.clientY - rect.top);
+        const x = clientX - rect.left - centerX;
+        const y = centerY - (clientY - rect.top);
         return Math.atan2(x, y) * 180 / Math.PI;
     }
 
-    function windSvgPointFromEvent(stack, event) {
-        const rect = stack.getBoundingClientRect();
+    function pointerAngle(stack, event) {
+        return pointerAngleFromClient(stack, event.clientX, event.clientY);
+    }
+
+    function windSvgPointFromClient(stack, clientX, clientY, rect = stack.getBoundingClientRect()) {
         return {
-            x: core.clamp((event.clientX - rect.left) / rect.width * WIND_VIEWBOX.width, 0, WIND_VIEWBOX.width),
-            y: core.clamp((event.clientY - rect.top) / rect.height * WIND_VIEWBOX.height, 0, WIND_VIEWBOX.height)
+            x: core.clamp((clientX - rect.left) / rect.width * WIND_VIEWBOX.width, 0, WIND_VIEWBOX.width),
+            y: core.clamp((clientY - rect.top) / rect.height * WIND_VIEWBOX.height, 0, WIND_VIEWBOX.height)
         };
+    }
+
+    function windSvgPointFromEvent(stack, event) {
+        return windSvgPointFromClient(stack, event.clientX, event.clientY);
     }
 
     function rotateWindPoint(point, degrees) {
@@ -1903,6 +1912,30 @@
             && radius > WIND_SLIDER_HIT.compassClearance;
     }
 
+    function isWindDotSetArea(stack, event) {
+        if (!stack || stack.dataset.dial !== 'wind' || state.side !== 'wind') return false;
+        const point = windSvgPointFromEvent(stack, event);
+        const radius = windRotorRadiusFromEvent(stack, event);
+        return point.x >= 0
+            && point.x <= WIND_VIEWBOX.width
+            && point.y >= 0
+            && point.y <= WIND_VIEWBOX.height
+            && radius <= WIND_SLIDER_HIT.compassClearance;
+    }
+
+    function clearWindCursor(stack) {
+        if (!stack) return;
+        stack.classList.remove('wind-dot-cursor');
+    }
+
+    function updateWindCursor(stack, event) {
+        if (!stack || event.pointerType !== 'mouse' || drag || viewGesture || viewPointers.size) {
+            clearWindCursor(stack);
+            return;
+        }
+        stack.classList.toggle('wind-dot-cursor', isWindDotSetArea(stack, event));
+    }
+
     function setWindDotFromPointer(stack, event) {
         const rotorPoint = windRotorPointFromEvent(stack, event);
         state.windDotX = core.clamp(rotorPoint.x, 0, WIND_VIEWBOX.width);
@@ -1911,9 +1944,9 @@
         applyRotations();
     }
 
-    function windSlideDeltaFromEvent(stack, event) {
-        const rect = stack.getBoundingClientRect();
-        return (event.clientY - drag.startClientY) / rect.height * WIND_VIEWBOX.height;
+    function windSlideDeltaFromClient(stack, clientY) {
+        const rect = drag && drag.rect ? drag.rect : stack.getBoundingClientRect();
+        return (clientY - drag.startClientY) / rect.height * WIND_VIEWBOX.height;
     }
 
     function clampWindSlide(slideY) {
@@ -1922,50 +1955,87 @@
 
     function startDrag(stack, event) {
         if (event.button !== undefined && event.button !== 0) return;
+        clearWindCursor(stack);
         const kind = stack.dataset.dial;
+        const rect = stack.getBoundingClientRect();
         const action = kind === 'wind' && isWindSliderHit(stack, event)
             ? 'wind-slide'
             : kind === 'wind'
                 ? 'wind-rotate'
                 : 'front-rotate';
+        const token = ++dragSequence;
         drag = {
+            token,
+            stack,
+            rect,
             kind,
             action,
-            startAngle: pointerAngle(stack, event),
+            startAngle: pointerAngleFromClient(stack, event.clientX, event.clientY, rect),
             startRotation: kind === 'wind' ? state.windRotation : state.frontRotation,
             startSlideY: state.windSlideY,
             startClientX: event.clientX,
             startClientY: event.clientY,
+            lastClientX: event.clientX,
+            lastClientY: event.clientY,
             moved: false
         };
         stack.setPointerCapture(event.pointerId);
         event.preventDefault();
     }
 
-    function moveDrag(stack, event) {
+    function applyDragMove(stack) {
         if (!drag) return;
-        const movement = Math.hypot(event.clientX - drag.startClientX, event.clientY - drag.startClientY);
+        const activeStack = drag.stack || stack;
+        const clientX = drag.lastClientX;
+        const clientY = drag.lastClientY;
+        const movement = Math.hypot(clientX - drag.startClientX, clientY - drag.startClientY);
         if (!drag.moved && movement < CLICK_MOVE_THRESHOLD_PX) return;
         drag.moved = true;
         if (drag.action === 'wind-slide') {
-            state.windSlideY = clampWindSlide(drag.startSlideY + windSlideDeltaFromEvent(stack, event));
+            state.windSlideY = clampWindSlide(drag.startSlideY + windSlideDeltaFromClient(activeStack, clientY));
         } else if (drag.action === 'wind-rotate') {
-            const delta = pointerAngle(stack, event) - drag.startAngle;
+            const delta = pointerAngleFromClient(activeStack, clientX, clientY, drag.rect) - drag.startAngle;
             state.windRotation = drag.startRotation + delta;
         } else {
-            const delta = pointerAngle(stack, event) - drag.startAngle;
+            const delta = pointerAngleFromClient(activeStack, clientX, clientY, drag.rect) - drag.startAngle;
             state.frontRotation = drag.startRotation + delta;
         }
-        scheduleRotationRender();
+        applyRotations();
+        updateReadouts();
+    }
+
+    function flushDragMove(stack, token) {
+        if (!drag || drag.token !== token) return;
+        dragFramePending = false;
+        applyDragMove(stack);
+    }
+
+    function moveDrag(stack, event) {
+        if (!drag) return;
+        drag.lastClientX = event.clientX;
+        drag.lastClientY = event.clientY;
+        if (!dragFramePending) {
+            dragFramePending = true;
+            const token = drag.token;
+            requestAnimationFrame(() => flushDragMove(stack, token));
+        }
+        event.preventDefault();
     }
 
     function stopDrag(stack, event, allowClick = true) {
         if (!drag) return;
+        if (event) {
+            drag.lastClientX = event.clientX;
+            drag.lastClientY = event.clientY;
+            applyDragMove(stack);
+        }
         if (allowClick && drag.action === 'wind-rotate' && !drag.moved) {
             setWindDotFromPointer(stack, event);
         }
         if (event) releasePointerCapture(stack, event.pointerId);
         drag = null;
+        dragFramePending = false;
+        if (event) updateWindCursor(stack, event);
     }
 
     function handleStackPointerDown(stack, event) {
@@ -1993,6 +2063,7 @@
                 return;
             }
         }
+        if (!drag) updateWindCursor(stack, event);
         moveDrag(stack, event);
     }
 
@@ -2046,6 +2117,7 @@
             stack.addEventListener('pointermove', event => handleStackPointerMove(stack, event));
             stack.addEventListener('pointerup', event => handleStackPointerEnd(stack, event));
             stack.addEventListener('pointercancel', event => handleStackPointerEnd(stack, event, false));
+            stack.addEventListener('pointerleave', () => clearWindCursor(stack));
         });
         const stage = qs('.e6b-stage');
         if (stage) stage.addEventListener('wheel', handleViewWheel, { passive: false });

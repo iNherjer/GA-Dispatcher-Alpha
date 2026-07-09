@@ -11,6 +11,12 @@
     const DEFAULT_WIND_ROTOR_BACK_CALIBRATION = { cx: 936, cy: 1055, radius: 790, innerRadius: 0, rotation: 0, outlineWidth: 5, innerOutlineWidth: 5, cornerRadius: 0, fillOpacity: 1 };
     const DEFAULT_WIND_ROTOR_FRONT_CALIBRATION = { cx: 936, cy: 1055, radius: 650, innerRadius: 525, rotation: 0, outlineWidth: 5, innerOutlineWidth: 5, cornerRadius: 0, fillOpacity: 0 };
     const DEFAULT_WIND_SLIDER_CALIBRATION = { cx: 716, cy: 3820, radius: 3350, innerRadius: 0, rotation: 0, outlineWidth: 2, innerOutlineWidth: 2, cornerRadius: 42, fillOpacity: 0.72 };
+    const WIND_SLIDER_AXIS_ANGLE = -90;
+    const WIND_SLIDER_LEFT_ANGLE = -150;
+    const WIND_SLIDER_RIGHT_ANGLE = -30;
+    const WIND_SLIDER_MIN_RADIUS_VALUE = 30;
+    const WIND_SLIDER_MAX_RADIUS_VALUE = 270;
+    const WIND_SLIDER_UNIT_SCALE = 10;
     const HISTORY_LIMIT = 50;
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const SCAN_PRESETS = {
@@ -41,6 +47,7 @@
     };
     const DEFAULT_IMAGE = SCAN_PRESETS.front.src;
     const DEFAULT_SIZE = { width: SCAN_PRESETS.front.width, height: SCAN_PRESETS.front.height };
+    const SCAN_ALIGNMENT_KEYS = ['front', 'wind-rotor', 'wind-slider', 'custom'];
     const SURFACE_OPTIONS = new Set(['back', 'front', 'wind-slider', 'wind-rotor-back', 'wind-rotor-front']);
     const LEGACY_SURFACE_ALIASES = {
         'wind-rotor': 'wind-rotor-front'
@@ -66,6 +73,11 @@
     const HELPER_INPUT_KEYS = {
         helperRadialAngle: 'angle'
     };
+    const SCAN_ALIGNMENT_INPUT_KEYS = {
+        scanOffsetX: 'x',
+        scanOffsetY: 'y',
+        scanRotation: 'rotation'
+    };
     const PREVIEW_INPUT_KEYS = {
         previewFrontRadius: 'frontRadius'
     };
@@ -90,6 +102,12 @@
         editMinorTick: 'minorTick',
         editMediumTick: 'mediumTick',
         editMajorTick: 'majorTick',
+        editThinLineWidth: 'thinLineWidth',
+        editMediumLineWidth: 'mediumLineWidth',
+        editThickLineWidth: 'thickLineWidth',
+        editStrokeWidth: 'strokeWidth',
+        editStrokeOpacity: 'strokeOpacity',
+        editFillOpacity: 'fillOpacity',
         editFontSize: 'fontSize',
         editTextRotation: 'textRotation',
         editLabelAngleOffset: 'labelAngleOffset',
@@ -110,6 +128,12 @@
         'editMinorTick',
         'editMediumTick',
         'editMajorTick',
+        'editThinLineWidth',
+        'editMediumLineWidth',
+        'editThickLineWidth',
+        'editStrokeWidth',
+        'editStrokeOpacity',
+        'editFillOpacity',
         'editFontSize',
         'editFontFamily',
         'editFontWidth',
@@ -185,6 +209,7 @@
             circlePoints: [],
             markedPoint: { radius: 120, angle: -90 }
         },
+        scanAlignment: defaultScanAlignmentState(),
         typography: { ...DEFAULT_TYPOGRAPHY },
         workface: 'front',
         calibrationSurface: 'front',
@@ -226,6 +251,36 @@
         while (next <= -180) next += 360;
         while (next > 180) next -= 360;
         return next;
+    }
+
+    function rangeInclusive(start, end, step) {
+        const values = [];
+        if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(step) || step === 0) return values;
+        const direction = end >= start ? 1 : -1;
+        const delta = Math.abs(step) * direction;
+        for (let value = start; direction > 0 ? value <= end + 1e-9 : value >= end - 1e-9; value += delta) {
+            values.push(round(value));
+        }
+        return values;
+    }
+
+    function windSliderRadius(value) {
+        return Number(value || 0) * WIND_SLIDER_UNIT_SCALE;
+    }
+
+    function mirrorAngleAround(angle, axis = WIND_SLIDER_AXIS_ANGLE) {
+        return normalizeAngle(Number(axis || 0) * 2 - Number(angle || 0));
+    }
+
+    function defaultScanAlignment() {
+        return { x: 0, y: 0, rotation: 0 };
+    }
+
+    function defaultScanAlignmentState() {
+        return SCAN_ALIGNMENT_KEYS.reduce((result, key) => {
+            result[key] = defaultScanAlignment();
+            return result;
+        }, {});
     }
 
     function normalizeSurface(value) {
@@ -590,7 +645,7 @@
         ];
     }
 
-    function defaultWindElements() {
+    function defaultWindRotorElements() {
         const compassValues = Array.from({ length: 37 }, (_, index) => {
             const value = index * 10;
             if (value === 0 || value === 360) return `${value}=N`;
@@ -612,28 +667,271 @@
             { id: 'wind-s-label', type: 'label', label: 'S', text: 'S', disc: 'wind-rotor-front', surface: 'wind-rotor-front', radius: 520, startAngle: 90, fontSize: 58, textRotation: 0 },
             { id: 'wind-w-label', type: 'label', label: 'W', text: 'W', disc: 'wind-rotor-front', surface: 'wind-rotor-front', radius: 520, startAngle: 180, fontSize: 58, textRotation: 0 }
         ];
-        const sliderRings = [200, 300, 400, 500, 600, 700, 800, 900].map(radius => ({
-            id: `wind-slider-ring-${radius}`,
-            type: 'ring',
-            label: `Slider radius ${radius}`,
+        return [...windRotorBack, ...windRotorFront];
+    }
+
+    function defaultWindSliderElements() {
+        const sliderRadiusGrid = {
+            id: 'wind-slider-radius-grid',
+            type: 'slider-radius-grid',
+            label: 'Interpolierte Schieber-Radien',
             disc: 'wind-slider',
             surface: 'wind-slider',
-            radius,
-            startAngle: -180,
-            endAngle: 180
+            minValue: WIND_SLIDER_MIN_RADIUS_VALUE,
+            maxValue: WIND_SLIDER_MAX_RADIUS_VALUE,
+            minorStep: 1,
+            majorStep: 10,
+            minAnchorId: `wind-slider-ring-${WIND_SLIDER_MIN_RADIUS_VALUE}`,
+            maxAnchorId: `wind-slider-ring-${WIND_SLIDER_MAX_RADIUS_VALUE}`,
+            startAngle: WIND_SLIDER_LEFT_ANGLE,
+            endAngle: WIND_SLIDER_RIGHT_ANGLE,
+            labelAngle: WIND_SLIDER_AXIS_ANGLE,
+            fontSize: 34,
+            radialLabelFontSize: 21,
+            radialLabelRadiusStep: 50,
+            radialLabelMajorStep: 10,
+            radialLabelMediumStep: 5,
+            radialLabelMediumMinValue: 150,
+            thinLineWidth: 0.48,
+            mediumLineWidth: 1.28,
+            thickLineWidth: 1.7
+        };
+        const sliderRings = [WIND_SLIDER_MIN_RADIUS_VALUE, WIND_SLIDER_MAX_RADIUS_VALUE].map(value => ({
+            id: `wind-slider-ring-${value}`,
+            type: 'ring',
+            label: `Schieber Radius-Anker ${value}`,
+            disc: 'wind-slider',
+            surface: 'wind-slider',
+            radius: windSliderRadius(value),
+            startAngle: WIND_SLIDER_LEFT_ANGLE,
+            endAngle: WIND_SLIDER_RIGHT_ANGLE,
+            strokeWidth: 2.35,
+            strokeOpacity: 0.86,
+            strokeDasharray: 'none'
         }));
-        const sliderRadials = Array.from({ length: 17 }, (_, index) => -130 + index * 10).map(angle => ({
+
+        const radialAngles = rangeInclusive(WIND_SLIDER_LEFT_ANGLE, WIND_SLIDER_AXIS_ANGLE, 2);
+        const sliderRadials = radialAngles.map(angle => ({
             id: `wind-slider-radial-${angle}`,
             type: 'radial',
-            label: `Slider radial ${angle}`,
+            label: `Schieber Radial ${Math.abs(angle - WIND_SLIDER_AXIS_ANGLE)} Grad`,
             disc: 'wind-slider',
             surface: 'wind-slider',
-            innerRadius: 180,
-            outerRadius: 980,
+            innerValue: WIND_SLIDER_MIN_RADIUS_VALUE,
+            outerValue: WIND_SLIDER_MAX_RADIUS_VALUE,
             startAngle: angle,
-            endAngle: angle
+            endAngle: angle,
+            mirrorAxis: WIND_SLIDER_AXIS_ANGLE,
+            strokeWidth: angle === WIND_SLIDER_AXIS_ANGLE ? 1.85 : (Math.abs(angle - WIND_SLIDER_AXIS_ANGLE) % 10 === 0 ? 1.35 : 0.95),
+            strokeOpacity: angle === WIND_SLIDER_AXIS_ANGLE ? 0.82 : (Math.abs(angle - WIND_SLIDER_AXIS_ANGLE) % 10 === 0 ? 0.7 : 0.48),
+            strokeDasharray: 'none'
         }));
-        return [...windRotorBack, ...windRotorFront, ...sliderRings, ...sliderRadials];
+
+        const fineRadials = rangeInclusive(WIND_SLIDER_LEFT_ANGLE + 1, WIND_SLIDER_AXIS_ANGLE - 1, 2).map(angle => ({
+            id: `wind-slider-radial-fine-${angle}`,
+            type: 'radial',
+            label: `Schieber 1 Grad Lineatur ${Math.abs(angle - WIND_SLIDER_AXIS_ANGLE)} Grad`,
+            disc: 'wind-slider',
+            surface: 'wind-slider',
+            innerValue: 150,
+            outerValue: WIND_SLIDER_MAX_RADIUS_VALUE,
+            startAngle: angle,
+            endAngle: angle,
+            mirrorAxis: WIND_SLIDER_AXIS_ANGLE,
+            variant: 'fine',
+            strokeWidth: 0.55,
+            strokeOpacity: 0.36,
+            strokeDasharray: 'none'
+        }));
+
+        const sliderInstruction = {
+            id: 'wind-slider-instruction-panel',
+            type: 'text-box',
+            label: 'Schieber Anleitung',
+            text: 'WINDSEITE\\n1 WINDRICHTUNG AM TRUE INDEX\\n2 WINDGESCHW. AB ZENTRUM MARKIEREN\\n3 KURS AM TRUE INDEX EINSTELLEN\\n4 SCHIEBER BIS ZUM TAS-BOGEN\\n5 STEUERKURS UND GS ABLESEN',
+            disc: 'wind-slider',
+            surface: 'wind-slider',
+            radius: 3776.8,
+            startAngle: -93.4,
+            innerRadius: 720,
+            outerRadius: 190,
+            endAngle: 14,
+            strokeWidth: 3,
+            strokeOpacity: 0.92,
+            fillOpacity: 1,
+            fontSize: 24,
+            fontWeight: 'bold',
+            fontWidth: 'narrow',
+            backgroundFill: '#101418',
+            textFill: '#f7f1df'
+        };
+        const sliderFormula = {
+            id: 'wind-slider-formula-panel',
+            type: 'text-box',
+            label: 'Schieber Formeln',
+            text: 'FORMELN\\nA = WIND-KURS-WINKEL\\nHW = W * COS A\\nXW = W * SIN A\\nWCA = ASIN(XW / TAS)\\nGS = TAS * COS WCA - HW',
+            disc: 'wind-slider',
+            surface: 'wind-slider',
+            radius: 3787.3,
+            startAngle: -84.5,
+            innerRadius: 450,
+            outerRadius: 190,
+            endAngle: 14,
+            strokeWidth: 3,
+            strokeOpacity: 0.92,
+            fillOpacity: 1,
+            fontSize: 23,
+            fontWeight: 'bold',
+            fontWidth: 'narrow',
+            backgroundFill: '#101418',
+            textFill: '#f7f1df'
+        };
+
+        return [sliderRadiusGrid, ...sliderRings, ...sliderRadials, ...fineRadials, sliderInstruction, sliderFormula];
+    }
+
+    function defaultWindElements() {
+        return [...defaultWindRotorElements(), ...defaultWindSliderElements()];
+    }
+
+    function windSeedElementsForWorkface() {
+        if (state.workface === 'wind-slider') return defaultWindSliderElements();
+        if (state.workface === 'wind-rotor') return defaultWindRotorElements();
+        return defaultWindElements();
+    }
+
+    function defaultWindSliderGridSeedElements() {
+        const seedIds = new Set([
+            'wind-slider-radius-grid',
+            windSliderAnchorId(WIND_SLIDER_MIN_RADIUS_VALUE),
+            windSliderAnchorId(WIND_SLIDER_MAX_RADIUS_VALUE),
+            'wind-slider-instruction-panel',
+            'wind-slider-formula-panel'
+        ]);
+        return defaultWindSliderElements().filter(element => seedIds.has(element.id));
+    }
+
+    function ensureWindSliderRadiusGridSeed() {
+        const hasSliderElements = state.elements.some(element => elementSurface(element) === 'wind-slider');
+        if (!hasSliderElements) return false;
+        const existingIds = new Set(state.elements.map(element => element.id));
+        const missing = defaultWindSliderGridSeedElements().filter(element => !existingIds.has(element.id));
+        if (!missing.length) return false;
+        const anchors = missing.filter(element => element.type === 'ring');
+        const grids = missing.filter(element => element.type === 'slider-radius-grid');
+        state.elements.push(...anchors.map(element => JSON.parse(JSON.stringify(element))));
+        state.elements.push(...grids.map(element => JSON.parse(JSON.stringify(element))));
+        return true;
+    }
+
+    function elementById(id) {
+        return state.elements.find(element => element && element.id === id) || null;
+    }
+
+    function windSliderAnchorId(value) {
+        return `wind-slider-ring-${value}`;
+    }
+
+    function windSliderAnchorRadius(value, explicitId = '') {
+        const id = explicitId || windSliderAnchorId(value);
+        const anchor = elementById(id);
+        const radius = Number(anchor && anchor.radius);
+        return Number.isFinite(radius) && radius > 0 ? radius : windSliderRadius(value);
+    }
+
+    function windSliderInterpolatedRadius(value, grid = null) {
+        const minValue = Number(grid && grid.minValue) || WIND_SLIDER_MIN_RADIUS_VALUE;
+        const maxValue = Number(grid && grid.maxValue) || WIND_SLIDER_MAX_RADIUS_VALUE;
+        const minRadius = windSliderAnchorRadius(minValue, grid && grid.minAnchorId);
+        const maxRadius = windSliderAnchorRadius(maxValue, grid && grid.maxAnchorId);
+        if (Math.abs(maxValue - minValue) < 1e-9) return minRadius;
+        const t = (Number(value || 0) - minValue) / (maxValue - minValue);
+        return minRadius + (maxRadius - minRadius) * t;
+    }
+
+    function windSliderElementRadius(element, radiusKey, valueKey, fallbackValue) {
+        const value = Number(element && element[valueKey]);
+        if (elementSurface(element) === 'wind-slider' && Number.isFinite(value)) {
+            return windSliderInterpolatedRadius(value);
+        }
+        const inferredValue = inferredWindSliderRadialValue(element, valueKey);
+        if (Number.isFinite(inferredValue)) return windSliderInterpolatedRadius(inferredValue);
+        const radius = Number(element && element[radiusKey]);
+        if (Number.isFinite(radius)) return radius;
+        return elementSurface(element) === 'wind-slider' ? windSliderRadius(fallbackValue) : 0;
+    }
+
+    function windSliderRadialOffset(angle) {
+        return Math.abs(normalizeAngle(Number(angle || 0) - WIND_SLIDER_AXIS_ANGLE));
+    }
+
+    function isStepMultiple(value, step) {
+        const number = Number(value);
+        const interval = Number(step);
+        if (!Number.isFinite(number) || !Number.isFinite(interval) || interval <= 0) return false;
+        return Math.abs(number / interval - Math.round(number / interval)) < 1e-6;
+    }
+
+    function positiveNumber(value, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) && number >= 0 ? number : fallback;
+    }
+
+    function windSliderRadiusGridElement() {
+        return elementById('wind-slider-radius-grid') || defaultWindSliderElements().find(element => element.id === 'wind-slider-radius-grid');
+    }
+
+    function windSliderLineWidths(grid = windSliderRadiusGridElement()) {
+        return {
+            thin: positiveNumber(grid && grid.thinLineWidth, 0.48),
+            medium: positiveNumber(grid && grid.mediumLineWidth, 1.28),
+            thick: positiveNumber(grid && grid.thickLineWidth, 1.7)
+        };
+    }
+
+    function windSliderRadialStyle(element, angle) {
+        if (!element || elementSurface(element) !== 'wind-slider' || element.type !== 'radial') return '';
+        const lineWidths = windSliderLineWidths();
+        const offset = windSliderRadialOffset(angle);
+        const innerValue = windSliderElementValue(element, 'innerValue');
+        const tenDegree = isStepMultiple(offset, 10);
+        const fiveDegreeOuter = innerValue >= 150 && isStepMultiple(offset, 5);
+        const centerAxis = offset < 0.001;
+        if (centerAxis || tenDegree) {
+            return `stroke-width:${lineWidths.thick};opacity:.86;stroke-dasharray:none;`;
+        }
+        if (fiveDegreeOuter) {
+            return `stroke-width:${lineWidths.medium};opacity:.72;stroke-dasharray:none;`;
+        }
+        return `stroke-width:${lineWidths.thin};opacity:.34;stroke-dasharray:none;`;
+    }
+
+    function windSliderElementValue(element, key) {
+        const value = Number(element && element[key]);
+        if (Number.isFinite(value)) return value;
+        const inferred = inferredWindSliderRadialValue(element, key);
+        return Number.isFinite(inferred) ? inferred : NaN;
+    }
+
+    function inferredWindSliderRadialValue(element, valueKey) {
+        if (!element || elementSurface(element) !== 'wind-slider' || element.type !== 'radial') return NaN;
+        const id = String(element.id || '');
+        if (!id.startsWith('wind-slider-radial-')) return NaN;
+        if (valueKey === 'outerValue') return WIND_SLIDER_MAX_RADIUS_VALUE;
+        if (valueKey === 'innerValue') {
+            return id.includes('radial-fine') || element.variant === 'fine'
+                ? 150
+                : WIND_SLIDER_MIN_RADIUS_VALUE;
+        }
+        return NaN;
+    }
+
+    function isLegacyWindSliderIntermediateRing(element) {
+        if (!element || elementSurface(element) !== 'wind-slider' || element.type !== 'ring') return false;
+        const match = String(element.id || '').match(/^wind-slider-ring-(\d+(?:\.\d+)?)$/);
+        if (!match) return false;
+        const value = Number(match[1]);
+        return Number.isFinite(value) && value !== WIND_SLIDER_MIN_RADIUS_VALUE && value !== WIND_SLIDER_MAX_RADIUS_VALUE;
     }
 
     function loadStoredState() {
@@ -656,10 +954,12 @@
         Object.assign(state.guide, stored.guide || {});
         Object.assign(state.preview, stored.preview || {});
         hydrateWindState(stored.wind);
+        hydrateScanAlignment(stored.scanAlignment);
         Object.assign(state.typography, stored.typography || {});
         state.workface = normalizeWorkface(stored.workface);
         state.calibrationSurface = normalizeCalibrationSurface(stored.calibrationSurface, state.workface);
         state.elements = normalizeStoredElements(Array.isArray(stored.elements) ? stored.elements : defaultElements());
+        ensureWindSliderRadiusGridSeed();
         state.selectedId = stored.selectedId || (state.elements[0] || {}).id || '';
         ensureCalibrationSurface();
         ensureVisibleSelection();
@@ -679,6 +979,7 @@
             guide: { ...state.guide },
             preview: { ...state.preview },
             wind: windStorageState(),
+            scanAlignment: scanAlignmentSnapshot(),
             typography: { ...state.typography },
             workface: state.workface,
             calibrationSurface: state.calibrationSurface,
@@ -695,6 +996,7 @@
             guide: { ...state.guide },
             preview: { ...state.preview },
             wind: windStorageState(),
+            scanAlignment: scanAlignmentSnapshot(),
             typography: { ...state.typography },
             workface: state.workface,
             calibrationSurface: state.calibrationSurface,
@@ -731,6 +1033,19 @@
         Object.assign(state.wind.markedPoint, { radius: 120, angle: -90 }, next.markedPoint || {});
     }
 
+    function hydrateScanAlignment(nextAlignment) {
+        const next = nextAlignment && typeof nextAlignment === 'object' ? nextAlignment : {};
+        state.scanAlignment = defaultScanAlignmentState();
+        SCAN_ALIGNMENT_KEYS.forEach(key => {
+            const stored = next[key] && typeof next[key] === 'object' ? next[key] : {};
+            Object.assign(state.scanAlignment[key], {
+                x: Number.isFinite(Number(stored.x)) ? Number(stored.x) : 0,
+                y: Number.isFinite(Number(stored.y)) ? Number(stored.y) : 0,
+                rotation: Number.isFinite(Number(stored.rotation)) ? Number(stored.rotation) : 0
+            });
+        });
+    }
+
     function normalizeWorkface(value) {
         return value === 'wind-slider' || value === 'wind-rotor' ? value : 'front';
     }
@@ -747,6 +1062,28 @@
 
     function scanPresetForCurrentImage() {
         return Object.entries(SCAN_PRESETS).find(([, preset]) => preset.src === state.image.src)?.[0] || '';
+    }
+
+    function scanAlignmentKey() {
+        return scanPresetForCurrentImage() || presetForWorkface(state.workface) || 'custom';
+    }
+
+    function activeScanAlignment() {
+        const key = scanAlignmentKey();
+        if (!state.scanAlignment || typeof state.scanAlignment !== 'object') {
+            state.scanAlignment = defaultScanAlignmentState();
+        }
+        if (!state.scanAlignment[key]) state.scanAlignment[key] = defaultScanAlignment();
+        return state.scanAlignment[key];
+    }
+
+    function scanAlignmentSnapshot() {
+        const snapshot = defaultScanAlignmentState();
+        Object.entries(state.scanAlignment || {}).forEach(([key, value]) => {
+            if (!snapshot[key]) return;
+            Object.assign(snapshot[key], value || {});
+        });
+        return snapshot;
     }
 
     function presetForWorkface(workface) {
@@ -829,10 +1166,12 @@
         Object.assign(state.guide, { show: false, angle: -90 }, next.guide || {});
         Object.assign(state.preview, { frontRotation: 0, backRotation: 0, frontRadius: 0, windRotation: 0, sliderY: 0 }, next.preview || {});
         hydrateWindState(next.wind);
+        hydrateScanAlignment(next.scanAlignment);
         Object.assign(state.typography, DEFAULT_TYPOGRAPHY, next.typography || {});
         state.workface = normalizeWorkface(next.workface);
         state.calibrationSurface = normalizeCalibrationSurface(next.calibrationSurface, state.workface);
         state.elements = normalizeStoredElements(Array.isArray(next.elements) ? next.elements : defaultElements());
+        ensureWindSliderRadiusGridSeed();
         state.selectedId = next.selectedId || (state.elements[0] || {}).id || '';
         ensureCalibrationSurface();
         ensureVisibleSelection();
@@ -944,9 +1283,30 @@
         const image = qs('#scanImage');
         if (!image) return;
         image.setAttribute('href', state.image.src || DEFAULT_IMAGE);
+        image.setAttribute('x', 0);
+        image.setAttribute('y', 0);
         image.setAttribute('width', state.image.width);
         image.setAttribute('height', state.image.height);
+        const transform = scanImageTransform();
+        if (transform) image.setAttribute('transform', transform);
+        else image.removeAttribute('transform');
         image.style.opacity = isPreviewMode() ? '0' : (state.image.showScan ? String(state.image.opacity) : '0');
+    }
+
+    function scanImageTransform() {
+        const alignment = activeScanAlignment();
+        const cal = activeCalibration();
+        const x = Number(alignment.x || 0);
+        const y = Number(alignment.y || 0);
+        const rotation = Number(alignment.rotation || 0);
+        const parts = [];
+        if (Math.abs(x) > 0.001 || Math.abs(y) > 0.001) {
+            parts.push(`translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+        }
+        if (Math.abs(rotation) > 0.001) {
+            parts.push(`rotate(${rotation.toFixed(3)} ${Number(cal.cx || 0).toFixed(2)} ${Number(cal.cy || 0).toFixed(2)})`);
+        }
+        return parts.join(' ');
     }
 
     function renderView() {
@@ -971,6 +1331,14 @@
             return;
         }
         renderCalibrationGuides(overlay);
+        if (state.workface === 'wind-slider') {
+            const sliderGroup = svgEl('g', { class: 'trace-edit-wind-slider' });
+            withCalibration(calibrationForSurface('wind-slider'), () => {
+                renderSliderMaskedLayer(sliderGroup, 'trace-slider-edit-mask');
+            });
+            overlay.appendChild(sliderGroup);
+            return;
+        }
         [...state.elements]
             .filter(element => elementVisibleOnWorkface(element))
             .sort((a, b) => elementDiscRank(a) - elementDiscRank(b))
@@ -1008,10 +1376,7 @@
             transform: `translate(0 ${Number(state.preview.sliderY || 0).toFixed(2)})`
         });
         withCalibration(sliderCal, () => {
-            renderSliderPreviewSurface(sliderGroup);
-            state.elements
-                .filter(element => elementSurface(element) === 'wind-slider')
-                .forEach(element => renderTraceElement(sliderGroup, element));
+            renderSliderMaskedLayer(sliderGroup, 'trace-slider-preview-mask');
         });
         parent.appendChild(sliderGroup);
 
@@ -1080,6 +1445,49 @@
             r: Math.max(0, Number(radius || 0)),
             style: previewSurfaceOutlineStyle(surface, kind)
         }));
+    }
+
+    function renderSliderMaskedLayer(parent, clipId) {
+        appendSliderClip(parent, clipId);
+        const clipped = svgEl('g', {
+            class: 'trace-slider-masked-content',
+            'clip-path': `url(#${clipId})`
+        });
+        renderSliderPreviewSurface(clipped);
+        state.elements
+            .filter(element => elementSurface(element) === 'wind-slider')
+            .sort((a, b) => windSliderRenderRank(a) - windSliderRenderRank(b))
+            .forEach(element => renderTraceElement(clipped, element));
+        parent.appendChild(clipped);
+    }
+
+    function windSliderRenderRank(element) {
+        if (element.type === 'text-box') return 60;
+        if (element.type === 'slider-radius-grid') return 30;
+        if (element.type === 'ring') return 20;
+        return 10;
+    }
+
+    function appendSliderClip(parent, clipId) {
+        const defs = svgEl('defs');
+        const clipPath = svgEl('clipPath', {
+            id: clipId,
+            clipPathUnits: 'userSpaceOnUse'
+        });
+        clipPath.appendChild(svgEl('rect', sliderMaskRectAttrs()));
+        defs.appendChild(clipPath);
+        parent.appendChild(defs);
+    }
+
+    function sliderMaskRectAttrs() {
+        return {
+            x: 0,
+            y: 0,
+            width: state.image.width,
+            height: state.image.height,
+            rx: surfaceCornerRadius('wind-slider'),
+            ry: surfaceCornerRadius('wind-slider')
+        };
     }
 
     function renderSliderPreviewSurface(parent) {
@@ -1156,7 +1564,7 @@
 
     function previewSurfaceOutlineStyle(surface, kind) {
         const width = kind === 'inner' ? surfaceInnerOutlineWidth(surface) : surfaceOutlineWidth(surface);
-        return `stroke-width:${width};`;
+        return `fill:none;stroke:rgba(18,22,25,.82);stroke-width:${width};vector-effect:non-scaling-stroke;`;
     }
 
     function previewSurfaceStyle(surface) {
@@ -1164,12 +1572,17 @@
     }
 
     function renderTraceElement(parent, element) {
+        if (element.type === 'slider-radius-grid') renderSliderRadiusGrid(parent, element);
         if (element.type === 'ring') renderRing(parent, element);
         if (element.type === 'window') renderWindow(parent, element);
         if (element.type === 'scale') renderScale(parent, element);
         if (element.type === 'label') renderLabel(parent, element);
         if (element.type === 'index') renderIndex(parent, element);
         if (element.type === 'radial') renderRadial(parent, element);
+        if (element.type === 'circle') renderCircle(parent, element);
+        if (element.type === 'line') renderLine(parent, element);
+        if (element.type === 'polygon') renderPolygon(parent, element);
+        if (element.type === 'text-box') renderTextBox(parent, element);
     }
 
     function elementDisc(element) {
@@ -1347,7 +1760,7 @@
         document.body.classList.toggle('preview-mode', isPreviewMode());
         const toggle = qs('#togglePreviewMode');
         if (toggle) {
-            toggle.textContent = isPreviewMode() ? 'VORSCHAU' : 'EDIT';
+            toggle.textContent = isPreviewMode() ? 'VORSCHAU' : 'BEARBEITEN';
             toggle.setAttribute('aria-pressed', isPreviewMode() ? 'true' : 'false');
         }
         const reset = qs('#resetPreviewRotation');
@@ -1369,7 +1782,11 @@
         setButtonAvailability('#resetElements', frontElementActionsAllowed(), 'Front-Elemente neu aus Seed erzeugen.', 'Front Seed ist nur auf der Vorderseite aktiv.');
         setButtonAvailability('#appendIndexes', frontElementActionsAllowed(), 'Front-Indexe ergaenzen.', 'Front Indexe ist nur auf der Vorderseite aktiv.');
         setButtonAvailability('#applyIndexPattern', frontElementActionsAllowed(), 'Front-Index-Muster anwenden.', 'Front Muster ist nur auf der Vorderseite aktiv.');
-        setButtonAvailability('#appendWindSeeds', windElementActionsAllowed(), 'Wind-Rotor und Wind-Schieber Seed ergaenzen.', 'Wind Seed ist nur auf der Rueckseite aktiv.');
+        const windSeedTitle = state.workface === 'wind-slider'
+            ? 'Schieber-Seed mit Maske, Radien und gespiegelter Winkel-Lineatur ergaenzen.'
+            : 'Wind-Rotor-Seed fuer hintere und vordere Drehscheibe ergaenzen.';
+        setButtonAvailability('#appendWindSeeds', windElementActionsAllowed(), windSeedTitle, 'Wind Seed ist nur auf der Rueckseite aktiv.');
+        setButtonAvailability('#appendShapePattern', !isPreviewMode(), 'Form-Muster fuer die aktive Arbeitsflaeche einfuegen.', 'Form Muster ist nur im Bearbeiten-Modus aktiv.');
     }
 
     function setButtonAvailability(selector, enabled, enabledTitle, disabledTitle) {
@@ -1454,16 +1871,184 @@
         parent.appendChild(group);
     }
 
+    function renderSliderRadiusGrid(parent, element) {
+        const minValue = Number(element.minValue || WIND_SLIDER_MIN_RADIUS_VALUE);
+        const maxValue = Number(element.maxValue || WIND_SLIDER_MAX_RADIUS_VALUE);
+        const minorStep = Math.max(1, Number(element.minorStep || 1));
+        const majorStep = Math.max(minorStep, Number(element.majorStep || 10));
+        const startAngle = Number(element.startAngle ?? WIND_SLIDER_LEFT_ANGLE);
+        const endAngle = Number(element.endAngle ?? WIND_SLIDER_RIGHT_ANGLE);
+        const labelAngle = Number(element.labelAngle ?? WIND_SLIDER_AXIS_ANGLE);
+        const lineWidths = windSliderLineWidths(element);
+        const group = svgEl('g', {
+            class: `trace-slider-radius-grid ${selectedClass(element)} ${elementDiscClass(element)}`,
+            'data-trace-id': element.id,
+            'pointer-events': 'none'
+        });
+
+        rangeInclusive(minValue, maxValue, minorStep).forEach(value => {
+            const radius = windSliderInterpolatedRadius(value, element);
+            const isMajor = Math.abs(value / majorStep - Math.round(value / majorStep)) < 1e-6;
+            group.appendChild(svgEl('path', {
+                class: `trace-slider-radius-line ${isMajor ? 'major' : 'minor'}`,
+                d: arcPath(radius, startAngle, endAngle),
+                style: isMajor
+                    ? `fill:none;stroke:rgba(0,83,72,.76);stroke-width:${lineWidths.thick};vector-effect:non-scaling-stroke;`
+                    : `fill:none;stroke:rgba(0,83,72,.30);stroke-width:${lineWidths.thin};vector-effect:non-scaling-stroke;`
+            }));
+            if (isMajor) renderSliderRadiusLabel(group, element, value, radius, labelAngle);
+        });
+
+        renderSliderRadialEmphasis(group, element);
+        renderSliderRadialLabels(group, element);
+
+        parent.appendChild(group);
+    }
+
+    function renderSliderRadialEmphasis(parent, element) {
+        const minValue = Number(element.minValue || WIND_SLIDER_MIN_RADIUS_VALUE);
+        const maxValue = Number(element.maxValue || WIND_SLIDER_MAX_RADIUS_VALUE);
+        const majorStep = Math.max(1, Number(element.radialLabelMajorStep || 10));
+        const mediumStep = Math.max(1, Number(element.radialLabelMediumStep || 5));
+        const mediumMinValue = Number(element.radialLabelMediumMinValue || 150);
+        const lineWidths = windSliderLineWidths(element);
+        const minRadius = windSliderInterpolatedRadius(minValue, element);
+        const maxRadius = windSliderInterpolatedRadius(maxValue, element);
+        const mediumMinRadius = windSliderInterpolatedRadius(Math.max(minValue, mediumMinValue), element);
+
+        for (let offset = majorStep; offset <= 60 + 1e-9; offset += majorStep) {
+            renderSliderRadialGuide(parent, offset, minRadius, maxRadius, lineWidths.thick, 0.78, 'major');
+        }
+
+        for (let offset = mediumStep; offset <= 60 + 1e-9; offset += mediumStep) {
+            if (isStepMultiple(offset, majorStep)) continue;
+            renderSliderRadialGuide(parent, offset, mediumMinRadius, maxRadius, lineWidths.medium, 0.66, 'medium');
+        }
+    }
+
+    function renderSliderRadialGuide(parent, offset, innerRadius, outerRadius, strokeWidth, opacity, variant) {
+        [WIND_SLIDER_AXIS_ANGLE - offset, WIND_SLIDER_AXIS_ANGLE + offset].forEach(angle => {
+            const inner = polarPoint(innerRadius, angle);
+            const outer = polarPoint(outerRadius, angle);
+            parent.appendChild(svgEl('line', {
+                class: `trace-slider-radial-emphasis ${variant}`,
+                x1: inner.x,
+                y1: inner.y,
+                x2: outer.x,
+                y2: outer.y,
+                style: `fill:none;stroke:rgba(0,83,72,.72);stroke-width:${strokeWidth};opacity:${opacity};stroke-dasharray:none;vector-effect:non-scaling-stroke;`
+            }));
+        });
+    }
+
+    function renderSliderRadiusLabel(parent, element, value, radius, angle) {
+        const label = String(value);
+        const fontSize = Number(element.fontSize || 34);
+        const p = polarPoint(radius, angle);
+        const width = Math.max(fontSize * 1.6, label.length * fontSize * 0.66 + fontSize * 0.7);
+        const height = fontSize * 1.15;
+        parent.appendChild(svgEl('rect', {
+            class: 'trace-slider-radius-label-bg',
+            x: (p.x - width / 2).toFixed(2),
+            y: (p.y - height / 2).toFixed(2),
+            width: width.toFixed(2),
+            height: height.toFixed(2),
+            style: 'fill:rgba(255,255,255,.96);stroke:rgba(18,22,25,.62);stroke-width:1;vector-effect:non-scaling-stroke;'
+        }));
+        const text = svgEl('text', {
+            class: 'trace-slider-radius-label',
+            x: p.x,
+            y: p.y,
+            'font-size': fontSize,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            ...typographyAttrs(element),
+            style: `${typographyAttrs(element).style};fill:#101418;stroke:none;font-weight:700;`
+        });
+        text.textContent = label;
+        parent.appendChild(text);
+    }
+
+    function renderSliderRadialLabels(parent, element) {
+        const minValue = Number(element.minValue || WIND_SLIDER_MIN_RADIUS_VALUE);
+        const maxValue = Number(element.maxValue || WIND_SLIDER_MAX_RADIUS_VALUE);
+        const radiusStep = Math.max(1, Number(element.radialLabelRadiusStep || 50));
+        const majorStep = Math.max(1, Number(element.radialLabelMajorStep || 10));
+        const mediumStep = Math.max(1, Number(element.radialLabelMediumStep || 5));
+        const mediumMinValue = Number(element.radialLabelMediumMinValue || 150);
+        const labelRadii = rangeInclusive(Math.ceil(minValue / radiusStep) * radiusStep, maxValue, radiusStep);
+        labelRadii.forEach(radiusValue => {
+            const offsets = [];
+            for (let offset = majorStep; offset <= 60 + 1e-9; offset += majorStep) offsets.push(offset);
+            if (radiusValue >= mediumMinValue) {
+                for (let offset = mediumStep; offset <= 60 + 1e-9; offset += mediumStep) {
+                    if (!isStepMultiple(offset, majorStep)) offsets.push(offset);
+                }
+            }
+            offsets
+                .sort((a, b) => a - b)
+                .forEach(offset => {
+                    const radius = windSliderInterpolatedRadius(radiusValue, element);
+                    renderSliderRadialLabel(parent, element, offset, radius, WIND_SLIDER_AXIS_ANGLE - offset);
+                    renderSliderRadialLabel(parent, element, offset, radius, WIND_SLIDER_AXIS_ANGLE + offset);
+                });
+        });
+    }
+
+    function renderSliderRadialLabel(parent, element, value, radius, angle) {
+        const label = String(value);
+        const fontSize = Number(element.radialLabelFontSize || 21);
+        const p = polarPoint(radius, angle);
+        const width = Math.max(fontSize * 1.35, label.length * fontSize * 0.62 + fontSize * 0.48);
+        const height = fontSize * 1.05;
+        parent.appendChild(svgEl('rect', {
+            class: 'trace-slider-radial-label-bg',
+            x: (p.x - width / 2).toFixed(2),
+            y: (p.y - height / 2).toFixed(2),
+            width: width.toFixed(2),
+            height: height.toFixed(2),
+            style: 'fill:rgba(255,255,255,.92);stroke:rgba(18,22,25,.42);stroke-width:.75;vector-effect:non-scaling-stroke;'
+        }));
+        const attrs = typographyAttrs(element);
+        const text = svgEl('text', {
+            class: 'trace-slider-radial-label',
+            x: p.x,
+            y: p.y,
+            'font-size': fontSize,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            ...attrs,
+            style: `${attrs.style};fill:#101418;stroke:none;font-weight:700;`
+        });
+        text.textContent = label;
+        parent.appendChild(text);
+    }
+
     function renderRing(parent, element) {
+        if (isLegacyWindSliderIntermediateRing(element)) return;
         const cal = activeCalibration();
-        const circle = svgEl('circle', {
+        const startAngle = Number(element.startAngle ?? -180);
+        const endAngle = Number(element.endAngle ?? 180);
+        const radius = Number(element.radius || 0);
+        const span = angleDelta(startAngle, endAngle);
+        const commonAttrs = {
             class: `trace-ring ${selectedClass(element)} ${elementDiscClass(element)}`,
+            'data-trace-id': element.id,
+            style: traceElementStrokeStyle(element)
+        };
+        if (span > 0.1 && span < 359.9) {
+            parent.appendChild(svgEl('path', {
+                ...commonAttrs,
+                d: arcPath(radius, startAngle, endAngle)
+            }));
+            return;
+        }
+        parent.appendChild(svgEl('circle', {
+            ...commonAttrs,
             cx: cal.cx,
             cy: cal.cy,
-            r: Number(element.radius || 0),
-            'data-trace-id': element.id
-        });
-        parent.appendChild(circle);
+            r: radius
+        }));
     }
 
     function renderWindow(parent, element) {
@@ -1550,7 +2135,7 @@
                 'text-anchor': 'middle',
                 'dominant-baseline': 'middle',
                 ...typographyAttrs(scale),
-                transform: `rotate(${(angle + activeCalibration().rotation + 90).toFixed(2)} ${p.x.toFixed(2)} ${p.y.toFixed(2)})`
+                transform: `rotate(${scaleLabelRotation(scale, angle).toFixed(2)} ${p.x.toFixed(2)} ${p.y.toFixed(2)})`
             });
             text.textContent = item.label;
             tickParent.appendChild(text);
@@ -1565,6 +2150,12 @@
             }
             parent.appendChild(tickParent);
         }
+    }
+
+    function scaleLabelRotation(scale, angle) {
+        const baseRotation = angle + activeCalibration().rotation + 90;
+        const textRotation = Number(scale.textRotation);
+        return baseRotation + (Number.isFinite(textRotation) ? textRotation : 0);
     }
 
     function tickLengthForKind(scale, kind) {
@@ -1684,16 +2275,182 @@
 
     function renderRadial(parent, element) {
         const angle = Number(element.startAngle || 0);
-        const inner = polarPoint(Number(element.innerRadius || 0), angle);
-        const outer = polarPoint(Number(element.outerRadius || element.radius || 0), angle);
+        renderSingleRadial(parent, element, angle);
+        const mirrorAxis = Number(element.mirrorAxis);
+        if (Number.isFinite(mirrorAxis)) {
+            const mirroredAngle = mirrorAngleAround(angle, mirrorAxis);
+            if (Math.abs(normalizeAngle(mirroredAngle - angle)) > 0.01) {
+                renderSingleRadial(parent, element, mirroredAngle);
+            }
+        }
+    }
+
+    function renderSingleRadial(parent, element, angle) {
+        const innerRadius = windSliderElementRadius(element, 'innerRadius', 'innerValue', WIND_SLIDER_MIN_RADIUS_VALUE);
+        const outerRadius = windSliderElementRadius(element, 'outerRadius', 'outerValue', WIND_SLIDER_MAX_RADIUS_VALUE);
+        const inner = polarPoint(innerRadius, angle);
+        const outer = polarPoint(outerRadius, angle);
+        const variant = element.variant ? ` ${String(element.variant).replace(/[^a-z0-9_-]/gi, '-')}` : '';
         parent.appendChild(svgEl('line', {
-            class: `trace-radial ${selectedClass(element)} ${elementDiscClass(element)}`,
+            class: `trace-radial${variant} ${selectedClass(element)} ${elementDiscClass(element)}`,
             x1: inner.x,
             y1: inner.y,
             x2: outer.x,
             y2: outer.y,
-            'data-trace-id': element.id
+            'data-trace-id': element.id,
+            style: traceElementStrokeStyle(element, angle)
         }));
+    }
+
+    function renderCircle(parent, element) {
+        const center = polarPoint(Number(element.radius || 0), Number(element.startAngle || 0));
+        parent.appendChild(svgEl('circle', {
+            class: `trace-circle ${selectedClass(element)} ${elementDiscClass(element)}`,
+            cx: center.x,
+            cy: center.y,
+            r: Math.max(0, Number(element.outerRadius || element.innerRadius || 40)),
+            'data-trace-id': element.id,
+            style: traceShapeStyle(element)
+        }));
+    }
+
+    function renderLine(parent, element) {
+        const start = polarPoint(Number(element.innerRadius || 0), Number(element.startAngle || 0));
+        const end = polarPoint(Number(element.outerRadius || element.radius || 0), Number(element.endAngle ?? element.startAngle ?? 0));
+        parent.appendChild(svgEl('line', {
+            class: `trace-line ${selectedClass(element)} ${elementDiscClass(element)}`,
+            x1: start.x,
+            y1: start.y,
+            x2: end.x,
+            y2: end.y,
+            'data-trace-id': element.id,
+            style: traceElementStrokeStyle(element)
+        }));
+    }
+
+    function renderPolygon(parent, element) {
+        const points = polygonPoints(element);
+        if (points.length < 2) return;
+        parent.appendChild(svgEl('polygon', {
+            class: `trace-polygon ${selectedClass(element)} ${elementDiscClass(element)}`,
+            points: points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' '),
+            'data-trace-id': element.id,
+            style: traceShapeStyle(element)
+        }));
+    }
+
+    function polygonPoints(element) {
+        const text = String(element.pointsText || element.valuesText || '');
+        const points = [];
+        text.split(/\n|;/).forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            let match = trimmed.match(/^(-?\d+(?:[.,]\d+)?)\s*[:=\/]\s*(-?\d+(?:[.,]\d+)?)$/);
+            if (!match) match = trimmed.match(/^(-?\d+(?:[.,]\d+)?)\s*,\s*(-?\d+(?:[.,]\d+)?)$/);
+            if (!match) return;
+            const angle = Number(match[1].replace(',', '.'));
+            const radius = Number(match[2].replace(',', '.'));
+            if (Number.isFinite(angle) && Number.isFinite(radius)) points.push(polarPoint(radius, angle));
+        });
+        if (points.length >= 2) return points;
+        const innerRadius = Number(element.innerRadius || Math.max(0, Number(element.radius || 380) - 40));
+        const outerRadius = Number(element.outerRadius || Number(element.radius || 420));
+        const startAngle = Number(element.startAngle ?? -140);
+        const endAngle = Number(element.endAngle ?? -40);
+        return [
+            polarPoint(innerRadius, startAngle),
+            polarPoint(outerRadius, startAngle),
+            polarPoint(outerRadius, endAngle),
+            polarPoint(innerRadius, endAngle)
+        ];
+    }
+
+    function renderTextBox(parent, element) {
+        const center = polarPoint(Number(element.radius || 0), Number(element.startAngle || 0));
+        const width = Math.max(1, Number(element.innerRadius || element.width || 520));
+        const height = Math.max(1, Number(element.outerRadius || element.height || 120));
+        const corner = Math.max(0, Number(element.endAngle || element.cornerRadius || 0));
+        const rotation = Number(element.textRotation || 0);
+        const group = svgEl('g', {
+            class: `trace-text-box ${selectedClass(element)} ${elementDiscClass(element)}`,
+            'data-trace-id': element.id,
+            transform: Number.isFinite(rotation) && Math.abs(rotation) > 0.001
+                ? `rotate(${rotation.toFixed(2)} ${center.x.toFixed(2)} ${center.y.toFixed(2)})`
+                : null
+        });
+        group.appendChild(svgEl('rect', {
+            class: 'trace-text-box-bg',
+            x: (center.x - width / 2).toFixed(2),
+            y: (center.y - height / 2).toFixed(2),
+            width: width.toFixed(2),
+            height: height.toFixed(2),
+            rx: corner,
+            ry: corner,
+            style: textBoxRectStyle(element)
+        }));
+        const fontSize = Number(element.fontSize || 28);
+        const lines = String(element.text || element.label || '').split(/\\n|\n/);
+        const lineGap = fontSize * 1.12;
+        const text = svgEl('text', {
+            class: 'trace-text-box-label',
+            x: center.x,
+            y: center.y - ((lines.length - 1) * lineGap) / 2,
+            'font-size': fontSize,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            ...typographyAttrs(element),
+            style: textBoxTextStyle(element)
+        });
+        lines.forEach((line, index) => {
+            const tspan = svgEl('tspan', {
+                x: center.x,
+                dy: index === 0 ? 0 : lineGap
+            });
+            tspan.textContent = line;
+            text.appendChild(tspan);
+        });
+        group.appendChild(text);
+        parent.appendChild(group);
+    }
+
+    function traceElementStrokeStyle(element, angle = Number(element && element.startAngle || 0)) {
+        const dynamicRadialStyle = windSliderRadialStyle(element, angle);
+        if (dynamicRadialStyle) return dynamicRadialStyle;
+        const parts = [];
+        const strokeWidth = Number(element.strokeWidth);
+        const strokeOpacity = Number(element.strokeOpacity);
+        if (Number.isFinite(strokeWidth)) parts.push(`stroke-width:${Math.max(0, strokeWidth)}`);
+        if (Number.isFinite(strokeOpacity)) parts.push(`opacity:${clamp(strokeOpacity, 0, 1)}`);
+        if (element.strokeDasharray) parts.push(`stroke-dasharray:${element.strokeDasharray}`);
+        return parts.length ? parts.join(';') : undefined;
+    }
+
+    function traceShapeStyle(element) {
+        const parts = [traceElementStrokeStyle(element)].filter(Boolean);
+        const fillOpacity = Number(element.fillOpacity);
+        parts.push(Number.isFinite(fillOpacity) && fillOpacity > 0
+            ? `fill:rgba(210,216,220,${clamp(fillOpacity, 0, 1)})`
+            : 'fill:none');
+        return parts.join(';');
+    }
+
+    function textBoxRectStyle(element) {
+        const fillOpacity = Number(element.fillOpacity);
+        const strokeWidth = Number(element.strokeWidth);
+        const strokeOpacity = Number(element.strokeOpacity);
+        return [
+            `fill:${element.backgroundFill || '#101418'}`,
+            `fill-opacity:${Number.isFinite(fillOpacity) ? clamp(fillOpacity, 0, 1) : 1}`,
+            `stroke:${element.stroke || element.backgroundFill || '#101418'}`,
+            `stroke-width:${Number.isFinite(strokeWidth) ? Math.max(0, strokeWidth) : 0}`,
+            `stroke-opacity:${Number.isFinite(strokeOpacity) ? clamp(strokeOpacity, 0, 1) : 1}`,
+            'vector-effect:non-scaling-stroke'
+        ].join(';');
+    }
+
+    function textBoxTextStyle(element) {
+        const attrs = typographyAttrs(element);
+        return `${attrs.style};fill:${element.textFill || '#f7f1df'};stroke:${element.textStroke || 'none'};`;
     }
 
     function renderElementSelect() {
@@ -1767,12 +2524,20 @@
         setInput('calFillOpacity', cal.fillOpacity ?? 1);
         const activeSurfaceStatus = qs('#activeSurfaceStatus');
         if (activeSurfaceStatus) {
-            activeSurfaceStatus.textContent = `Normalisierung aktiv: ${SURFACE_LABELS[activeSurface()] || activeSurface()}`;
+            const surface = activeSurface();
+            const suffix = surface === 'wind-slider'
+                ? ' - Center Y verschiebt das Kreiszentrum des Schiebers nach oben/unten.'
+                : '';
+            activeSurfaceStatus.textContent = `Normalisierung aktiv: ${SURFACE_LABELS[surface] || surface}${suffix}`;
         }
         setInput('helperRadialAngle', round(state.guide.angle));
         setInput('previewFrontRadius', state.preview.frontRadius || 0);
         setInput('previewWindRotation', state.preview.windRotation || 0);
         setInput('previewSliderY', state.preview.sliderY || 0);
+        const scanAlignment = activeScanAlignment();
+        setInput('scanOffsetX', round(scanAlignment.x || 0));
+        setInput('scanOffsetY', round(scanAlignment.y || 0));
+        setInput('scanRotation', round(scanAlignment.rotation || 0));
         setInput('imageOpacity', state.image.opacity);
         setInput('overlayOpacity', state.image.overlayOpacity);
         setInput('globalFontFamily', state.typography.fontFamily ?? DEFAULT_TYPOGRAPHY.fontFamily);
@@ -1798,6 +2563,13 @@
         setInput('editMinorTick', element.minorTick ?? '');
         setInput('editMediumTick', element.mediumTick ?? '');
         setInput('editMajorTick', element.majorTick ?? '');
+        const sliderLineWidths = element.type === 'slider-radius-grid' ? windSliderLineWidths(element) : null;
+        setInput('editThinLineWidth', element.thinLineWidth ?? (sliderLineWidths ? sliderLineWidths.thin : ''));
+        setInput('editMediumLineWidth', element.mediumLineWidth ?? (sliderLineWidths ? sliderLineWidths.medium : ''));
+        setInput('editThickLineWidth', element.thickLineWidth ?? (sliderLineWidths ? sliderLineWidths.thick : ''));
+        setInput('editStrokeWidth', element.strokeWidth ?? '');
+        setInput('editStrokeOpacity', element.strokeOpacity ?? '');
+        setInput('editFillOpacity', element.fillOpacity ?? '');
         setInput('editFontSize', element.fontSize ?? '');
         setInput('editFontFamily', element.fontFamily || '');
         setInput('editFontWidth', FONT_WIDTH_VALUES.has(element.fontWidth) ? element.fontWidth : '');
@@ -1808,7 +2580,11 @@
         setInput('editIndexLength', element.indexLength ?? '');
         setInput('editIndexWidth', element.indexWidth ?? '');
         setInput('editStemLength', element.stemLength ?? '');
-        setInput('editValues', element.type === 'label' || element.type === 'index' ? (element.text || '') : (element.valuesText || ''));
+        setInput('editValues', element.type === 'label' || element.type === 'index' || element.type === 'text-box'
+            ? (element.text || '')
+            : element.type === 'polygon'
+                ? (element.pointsText || element.valuesText || '')
+                : (element.valuesText || ''));
         setInput('editMediumValues', element.mediumValuesText || '');
         setInput('editMinorValues', element.minorValuesText || '');
         setInput('editCalibration', element.calibrationText || '');
@@ -1824,6 +2600,7 @@
             },
             calibration: state.calibration,
             wind: windStorageState(),
+            scanAlignment: scanAlignmentSnapshot(),
             workface: state.workface,
             typography: state.typography,
             elements: state.elements
@@ -1997,11 +2774,14 @@
             svg.appendChild(style);
             const group = svgEl('g', { class: `trace-preview-disc trace-preview-${disc}` });
             withCalibration(cal, () => {
-                if (disc === 'wind-slider') renderSliderPreviewSurface(group);
-                else renderPreviewDiscSurface(group, disc);
-                state.elements
-                    .filter(element => elementSurface(element) === disc)
-                    .forEach(element => renderTraceElement(group, element));
+                if (disc === 'wind-slider') {
+                    renderSliderMaskedLayer(group, 'trace-slider-standalone-mask');
+                } else {
+                    renderPreviewDiscSurface(group, disc);
+                    state.elements
+                        .filter(element => elementSurface(element) === disc)
+                        .forEach(element => renderTraceElement(group, element));
+                }
                 if (disc === 'wind-rotor-front') renderWindMarkedPoint(group);
             });
             svg.appendChild(group);
@@ -2039,10 +2819,21 @@
             .trace-preview-front-surface{fill:#c5cacf;}
             .trace-preview-wind-rotor-back-surface{fill:#d0d4d7;}
             .trace-preview-wind-rotor-front-surface{fill:#c9cdd1;fill-opacity:0;}
+            .trace-preview-surface-outline{fill:none;stroke:rgba(18,22,25,.82);vector-effect:non-scaling-stroke;}
             .trace-preview-slider-surface{fill:rgba(210,216,220,.72);stroke:rgba(18,22,25,.7);stroke-width:2;vector-effect:non-scaling-stroke;}
             .trace-slider-origin{fill:#101418;stroke:none;}
             .trace-wind-marked-point{fill:#3757ff;stroke:#fff;stroke-width:4;vector-effect:non-scaling-stroke;}
-            .trace-ring,.trace-scale-guide{fill:none;stroke:rgba(18,22,25,.74);stroke-width:1.4;vector-effect:non-scaling-stroke;}
+            .trace-ring,.trace-radial,.trace-circle,.trace-line,.trace-polygon,.trace-scale-guide{fill:none;stroke:rgba(18,22,25,.74);stroke-width:1.4;vector-effect:non-scaling-stroke;}
+            .trace-radial.fine{opacity:.42;}
+            .trace-slider-radius-line{fill:none;stroke:rgba(18,22,25,.28);stroke-width:.55;vector-effect:non-scaling-stroke;}
+            .trace-slider-radius-line.major{stroke:rgba(18,22,25,.68);stroke-width:1.2;}
+            .trace-slider-radial-emphasis{fill:none;stroke:rgba(18,22,25,.68);vector-effect:non-scaling-stroke;}
+            .trace-slider-radius-label-bg{fill:rgba(255,255,255,.94);stroke:rgba(18,22,25,.48);stroke-width:.9;vector-effect:non-scaling-stroke;}
+            .trace-slider-radius-label{fill:#101418;stroke:none;font-weight:700;}
+            .trace-slider-radial-label-bg{fill:rgba(255,255,255,.92);stroke:rgba(18,22,25,.42);stroke-width:.75;vector-effect:non-scaling-stroke;}
+            .trace-slider-radial-label{fill:#101418;stroke:none;font-weight:700;}
+            .trace-text-box-bg{fill:#101418;stroke:#101418;vector-effect:non-scaling-stroke;}
+            .trace-text-box-label{fill:#f7f1df;stroke:none;paint-order:stroke;}
             .trace-window{fill:rgba(255,255,255,.03);stroke:rgba(18,22,25,.78);stroke-width:2;vector-effect:non-scaling-stroke;}
             .trace-window-edge{stroke:rgba(18,22,25,.78);stroke-width:1.3;vector-effect:non-scaling-stroke;}
             .trace-tick{stroke:rgba(18,22,25,.94);stroke-width:1.4;vector-effect:non-scaling-stroke;}
@@ -2097,6 +2888,24 @@
                 state.guide[key] = value;
                 render();
             });
+        });
+        Object.entries(SCAN_ALIGNMENT_INPUT_KEYS).forEach(([id, key]) => {
+            bindUndoableInput(qs(`#${id}`), 'input', event => {
+                const value = parseNumberFieldValue(event.target.value);
+                if (value === null) return;
+                activeScanAlignment()[key] = value;
+                render();
+            });
+        });
+        qs('#centerScanOnAxis').addEventListener('click', () => {
+            pushUndoSnapshot();
+            activeScanAlignment().x = round(Number(activeCalibration().cx || 0) - Number(state.image.width || 0) / 2);
+            render();
+        });
+        qs('#resetScanAlignment').addEventListener('click', () => {
+            pushUndoSnapshot();
+            Object.assign(activeScanAlignment(), defaultScanAlignment());
+            render();
         });
         Object.entries(PREVIEW_INPUT_KEYS).forEach(([id, key]) => {
             bindUndoableInput(qs(`#${id}`), 'input', event => {
@@ -2228,6 +3037,8 @@
         if (calibrationKey) return { owner: activeCalibration(), key: calibrationKey };
         const helperKey = HELPER_INPUT_KEYS[input.id];
         if (helperKey) return { owner: state.guide, key: helperKey };
+        const scanAlignmentKey = SCAN_ALIGNMENT_INPUT_KEYS[input.id];
+        if (scanAlignmentKey) return { owner: activeScanAlignment(), key: scanAlignmentKey };
         const previewKey = PREVIEW_INPUT_KEYS[input.id];
         if (previewKey) return { owner: state.preview, key: previewKey };
         const windPreviewKey = WIND_PREVIEW_INPUT_KEYS[input.id];
@@ -2319,7 +3130,8 @@
         bindUndoableInput(qs('#editValues'), 'input', event => {
             const element = selectedElement();
             if (!element) return;
-            if (element.type === 'label' || element.type === 'index') element.text = event.target.value;
+            if (element.type === 'label' || element.type === 'index' || element.type === 'text-box') element.text = event.target.value;
+            else if (element.type === 'polygon') element.pointsText = event.target.value;
             else element.valuesText = event.target.value;
             render();
         });
@@ -2417,6 +3229,7 @@
         qs('#appendIndexes').addEventListener('click', appendDefaultIndexes);
         qs('#applyIndexPattern').addEventListener('click', applyIndexPattern);
         qs('#appendWindSeeds').addEventListener('click', appendWindSeeds);
+        qs('#appendShapePattern').addEventListener('click', appendShapePattern);
         qs('#copyJson').addEventListener('click', copyJson);
         qs('#downloadJson').addEventListener('click', downloadJson);
         qs('#publishFrontDisc').addEventListener('click', publishFrontDisc);
@@ -2454,6 +3267,34 @@
         if (type === 'label') Object.assign(base, { text: 'LABEL', textRotation: 0 });
         if (type === 'index') Object.assign(base, { text: '', labelRadius: 660, indexLength: 70, indexWidth: 36, stemLength: 0, textRotation: 0 });
         if (type === 'radial') Object.assign(base, { innerRadius: 120, outerRadius: 720, endAngle: -120 });
+        if (type === 'circle') Object.assign(base, { radius: 0, startAngle: -90, outerRadius: 42, strokeWidth: 3, strokeOpacity: 0.9, fillOpacity: 0 });
+        if (type === 'line') Object.assign(base, { innerRadius: 120, outerRadius: 720, startAngle: -120, endAngle: -60, strokeWidth: 2.6, strokeOpacity: 0.9 });
+        if (type === 'polygon') Object.assign(base, {
+            innerRadius: 320,
+            outerRadius: 430,
+            startAngle: -145,
+            endAngle: -35,
+            strokeWidth: 2.4,
+            strokeOpacity: 0.88,
+            fillOpacity: 0,
+            pointsText: '-145:320\n-35:320\n-35:430\n-145:430'
+        });
+        if (type === 'text-box') Object.assign(base, {
+            label: 'Neues Textfeld',
+            text: 'TEXTFELD',
+            radius: 420,
+            startAngle: -90,
+            innerRadius: 520,
+            outerRadius: 120,
+            endAngle: 10,
+            strokeWidth: 2,
+            strokeOpacity: 0.9,
+            fillOpacity: 1,
+            fontSize: 30,
+            fontWeight: 'bold',
+            backgroundFill: '#101418',
+            textFill: '#f7f1df'
+        });
         state.elements.push(base);
         state.selectedId = base.id;
         render();
@@ -2463,6 +3304,114 @@
         if (state.workface === 'wind-slider') return 'wind-slider';
         if (state.workface === 'wind-rotor') return 'wind-rotor-front';
         return 'front';
+    }
+
+    function shapePatternElements() {
+        const surface = defaultElementSurface();
+        if (state.workface === 'wind-rotor') {
+            return [
+                {
+                    id: uid('ring'),
+                    type: 'ring',
+                    label: 'Wind Center Kreis',
+                    disc: surface,
+                    surface,
+                    radius: 525,
+                    startAngle: -180,
+                    endAngle: 180,
+                    strokeWidth: 4,
+                    strokeOpacity: 0.9
+                },
+                {
+                    id: uid('circle'),
+                    type: 'circle',
+                    label: 'Wind Mittelpunkt Kreis',
+                    disc: surface,
+                    surface,
+                    radius: 0,
+                    startAngle: -90,
+                    outerRadius: 18,
+                    strokeWidth: 3,
+                    strokeOpacity: 0.9,
+                    fillOpacity: 0
+                }
+            ];
+        }
+        if (state.workface === 'wind-slider') {
+            const defaultSliderElements = defaultWindSliderElements();
+            const instruction = JSON.parse(JSON.stringify(
+                defaultSliderElements.find(element => element.id === 'wind-slider-instruction-panel')
+            ));
+            const formula = JSON.parse(JSON.stringify(
+                defaultSliderElements.find(element => element.id === 'wind-slider-formula-panel')
+            ));
+            return [
+                {
+                    id: uid('line'),
+                    type: 'line',
+                    label: 'Schieber Mittellinie',
+                    disc: surface,
+                    surface,
+                    innerRadius: 30,
+                    outerRadius: 2700,
+                    startAngle: -90,
+                    endAngle: -90,
+                    strokeWidth: 2.2,
+                    strokeOpacity: 0.72
+                },
+                instruction,
+                formula
+            ].filter(Boolean);
+        }
+        return [
+            {
+                id: uid('line'),
+                type: 'line',
+                label: 'Calc Trennlinie horizontal',
+                disc: surface,
+                surface,
+                innerRadius: 420,
+                outerRadius: 420,
+                startAngle: 180,
+                endAngle: 0,
+                strokeWidth: 3,
+                strokeOpacity: 0.9
+            },
+            {
+                id: uid('line'),
+                type: 'line',
+                label: 'Calc Trennlinie vertikal',
+                disc: surface,
+                surface,
+                innerRadius: 420,
+                outerRadius: 420,
+                startAngle: -90,
+                endAngle: 90,
+                strokeWidth: 3,
+                strokeOpacity: 0.9
+            },
+            {
+                id: uid('polygon'),
+                type: 'polygon',
+                label: 'Calc Vieleck Umriss',
+                disc: surface,
+                surface,
+                pointsText: '-145:320\n-35:320\n-20:455\n-160:455',
+                strokeWidth: 2.4,
+                strokeOpacity: 0.9,
+                fillOpacity: 0
+            }
+        ];
+    }
+
+    function appendShapePattern() {
+        const existingIds = new Set(state.elements.map(element => element.id));
+        const elements = shapePatternElements().filter(element => !element.id || !existingIds.has(element.id));
+        if (!elements.length) return;
+        pushUndoSnapshot();
+        state.elements.push(...elements);
+        state.selectedId = elements[0].id;
+        render();
     }
 
     function appendDefaultIndexes() {
@@ -2479,11 +3428,10 @@
     function appendWindSeeds() {
         if (!windElementActionsAllowed()) return;
         const existingIds = new Set(state.elements.map(element => element.id));
-        const missing = defaultWindElements().filter(element => !existingIds.has(element.id));
+        const missing = windSeedElementsForWorkface().filter(element => !existingIds.has(element.id));
         if (!missing.length) return;
         pushUndoSnapshot();
         state.elements.push(...missing.map(element => JSON.parse(JSON.stringify(element))));
-        state.workface = 'wind-rotor';
         state.selectedId = missing[0].id;
         render();
     }
@@ -2667,7 +3615,7 @@
             }
             if (!drag.element) return;
             pushDragUndoSnapshot();
-            if (element.type === 'label') {
+            if (element.type === 'label' || element.type === 'text-box') {
                 element.startAngle = round(elementAngle);
                 element.radius = round(elementRadius);
             } else if (element.type === 'index') {
@@ -2682,6 +3630,12 @@
                 if (!Number.isFinite(Number(element.outerRadius || element.radius))) {
                     element.outerRadius = round(elementRadius);
                 }
+            } else if (element.type === 'circle') {
+                element.startAngle = round(elementAngle);
+                element.radius = round(elementRadius);
+            } else if (element.type === 'line') {
+                element.endAngle = round(elementAngle);
+                element.outerRadius = round(elementRadius);
             } else if (element.type === 'window') {
                 const width = Number(drag.element.endAngle || 0) - Number(drag.element.startAngle || 0);
                 element.startAngle = round(elementAngle - width / 2);
@@ -2765,12 +3719,27 @@
             ctx.rotate(degToRad(-cal.rotation));
             const scale = outputRadius / Math.max(1, cal.radius);
             ctx.scale(scale, scale);
-            ctx.drawImage(image, -cal.cx, -cal.cy);
+            ctx.translate(-cal.cx, -cal.cy);
+            applyScanAlignmentToCanvas(ctx, cal);
+            ctx.drawImage(image, 0, 0);
             canvas.toBlob(blob => {
                 if (blob) downloadBlob(blob, `e6b-normalized-${activeSurface()}.png`);
             }, 'image/png');
         };
         image.src = state.image.src || DEFAULT_IMAGE;
+    }
+
+    function applyScanAlignmentToCanvas(ctx, cal) {
+        const alignment = activeScanAlignment();
+        const x = Number(alignment.x || 0);
+        const y = Number(alignment.y || 0);
+        const rotation = Number(alignment.rotation || 0);
+        ctx.translate(x, y);
+        if (Math.abs(rotation) > 0.001) {
+            ctx.translate(Number(cal.cx || 0), Number(cal.cy || 0));
+            ctx.rotate(degToRad(rotation));
+            ctx.translate(-Number(cal.cx || 0), -Number(cal.cy || 0));
+        }
     }
 
     function downloadBlob(blob, filename) {
