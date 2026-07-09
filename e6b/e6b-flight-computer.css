@@ -372,13 +372,15 @@ body.e6b-embedded .e6b-embedded-chrome {
     place-items: center;
     width: 31px;
     height: 31px;
-    border: 1px solid rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(43, 49, 53, 0.72);
     border-radius: 50%;
-    background: rgba(248, 243, 218, 0.9);
-    color: #111;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.34);
+    background: rgba(190, 196, 200, 0.96);
+    color: #202427;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.52),
+        0 1px 2px rgba(0, 0, 0, 0.28);
     cursor: pointer;
-    font: 900 16px/1 "Courier New", monospace;
+    font: 700 16px/1 Arial, Helvetica, sans-serif;
     pointer-events: auto;
     transform: translate(-50%, -50%);
     user-select: none;
@@ -387,12 +389,22 @@ body.e6b-embedded .e6b-embedded-chrome {
 
 .e6b-embedded-btn:active {
     transform: translate(-50%, calc(-50% + 1px));
-    filter: brightness(1.12);
+    background: rgba(166, 173, 178, 0.98);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.e6b-embedded-btn:focus {
+    outline: none;
+}
+
+.e6b-embedded-btn:focus-visible {
+    outline: 2px solid rgba(65, 72, 77, 0.92);
+    outline-offset: 2px;
 }
 
 .e6b-embedded-close {
-    background: linear-gradient(145deg, #7c2727, #2b0f0f);
-    color: #fff3e6;
+    background: rgba(157, 163, 167, 0.98);
+    color: #202427;
 }
 
 .e6b-embedded-btn[data-e6b-control="flip"] {

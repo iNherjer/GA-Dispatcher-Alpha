@@ -8220,12 +8220,12 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
     width: 31px;
     height: 31px;
     border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.42);
-    background: rgba(248, 243, 218, 0.9);
-    color: #111;
+    border: 1px solid rgba(43,49,53,0.72);
+    background: rgba(190,196,200,0.96);
+    color: #202427;
     cursor: pointer;
-    font: 900 16px/1 'Courier New', monospace;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.34);
+    font: 700 16px/1 Arial, Helvetica, sans-serif;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.52), 0 1px 2px rgba(0,0,0,0.28);
     pointer-events: auto;
     transform: translate(-50%, -50%);
 }
@@ -8236,8 +8236,19 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 .map-e6b-close {
-    background: linear-gradient(145deg, #7c2727, #2b0f0f);
-    color: #fff3e6;
+    background: rgba(157,163,167,0.98);
+    color: #202427;
+}
+
+.map-e6b-window-btn:focus,
+.map-e6b-close:focus {
+    outline: none;
+}
+
+.map-e6b-window-btn:focus-visible,
+.map-e6b-close:focus-visible {
+    outline: 2px solid rgba(65,72,77,0.92);
+    outline-offset: 2px;
 }
 
 #mapE6BFlip {
@@ -8264,6 +8275,8 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 .map-e6b-window-btn:active,
 .map-e6b-close:active {
     transform: translate(-50%, calc(-50% + 1px));
+    background: rgba(166,173,178,0.98);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.24);
 }
 
 .stopwatch-crown-reset:active,
