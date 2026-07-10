@@ -32,6 +32,7 @@ window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;
 window.vpAnimFrameTimerId = null;
 window.vpAnimFrameMeta = window.vpAnimFrameMeta || { lastPaintMs: 0, lastTargetFps: 0 };
+window.vpProfilePanActive = false;
 window._vpLastScrollLeft = 0;
 window._vpProfileRenderTimer = null;
 window.vpScheduleProfileRender = function(reason = 'profile', delayMs = 50) {
@@ -199,9 +200,11 @@ const VP_OBS_HOSTED_ENDPOINTS = [
     './obstacles/tiles/{latI}/{lonI}.json',
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
-const VP_PROFILE_FPS_IDLE = 10;
-const VP_PROFILE_FPS_ACTIVE = 16;
+const VP_PROFILE_FPS_IDLE = 2;
+const VP_PROFILE_FPS_ACTIVE = 12;
+const VP_PROFILE_FPS_ACTIVE_LOW = 8;
 const VP_PROFILE_FPS_INTERACT = 30;
+const VP_PROFILE_FPS_INTERACT_LOW = 16;
 const VP_OBS_TILE_FAILED_KEY = 'ga_obs_tile_failed_v1';
 const VP_OBS_TILE_FAILED_MAX = 1200;
 let vpOverpassStateHydrated = false;
@@ -7567,6 +7570,39 @@ function vpHexToRgba(hex, alpha) {
    ========================================================= */
 let vpMapProfileVisible = true;
 
+function vpCanRunVisibleMapProfileWork() {
+    const mapTable = document.getElementById('mapTableOverlay');
+    return !document.hidden &&
+        !!(mapTable && mapTable.classList.contains('active')) &&
+        vpMapProfileVisible;
+}
+
+function vpPauseMapProfileWork(reason = 'hidden') {
+    vpStopMapProfileFrameLoop();
+    if (typeof vpMode !== 'undefined' && vpMode === 'HDG') {
+        vpHdgRefreshPending = true;
+        if (vpHdgWeatherAbortController && !vpHdgWeatherAbortController.signal.aborted) {
+            vpHdgWeatherAbortController.abort();
+        }
+    }
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Map profile paused', { reason: String(reason || '') });
+}
+
+function vpResumeMapProfile(reason = 'visible') {
+    window.vpBgNeedsUpdate = true;
+    if (!vpCanRunVisibleMapProfileWork()) return false;
+
+    // Explizite Sichtbarkeits-/Routenereignisse umgehen den FPS-Timer bewusst.
+    vpRequestMapProfileFrameNow();
+    if (typeof vpMode !== 'undefined' && vpMode === 'HDG') {
+        vpQueueHdgProfileUpdate({ force: true, reason });
+    }
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Map profile resumed', { reason: String(reason || '') });
+    return true;
+}
+window.vpPauseMapProfile = vpPauseMapProfileWork;
+window.vpResumeMapProfile = vpResumeMapProfile;
+
 function toggleMapProfile() {
     vpMapProfileVisible = !vpMapProfileVisible;
     const strip = document.getElementById('mapProfileStrip');
@@ -7578,9 +7614,11 @@ function toggleMapProfile() {
     }
     if (vpMapProfileVisible) {
         renderMapProfile();
+        vpResumeMapProfile('profile-toggle');
         // Marker wieder anzeigen, falls er existiert
         if (vpPositionLeafletMarker && map) vpPositionLeafletMarker.addTo(map);
     } else {
+        vpPauseMapProfileWork('profile-toggle');
         // Marker von der Karte entfernen, wenn Profil ausgeblendet
         if (vpPositionLeafletMarker && map) map.removeLayer(vpPositionLeafletMarker);
     }
@@ -7608,9 +7646,15 @@ function vpEnsureMapProfileVisible(reason = 'route') {
         renderVerticalProfile('verticalProfileCanvas');
     }
     if (typeof renderMapProfile === 'function') renderMapProfile();
+    vpResumeMapProfile(reason);
     if (window.gaDebugPush) window.gaDebugPush('profile', 'Map profile ensured visible', { reason, hasRoute });
 }
 window.vpEnsureMapProfileVisible = vpEnsureMapProfileVisible;
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) vpPauseMapProfileWork('document-hidden');
+    else vpResumeMapProfile('document-visible');
+});
 
 function syncAltFromMap(val) {
     const mainSlider = document.getElementById('altSlider');
@@ -7630,7 +7674,7 @@ function vpZoom(delta) {
     const zd = document.getElementById('vpZoomDisplay');
     if (zd) zd.textContent = Math.round((100 - vpZoomLevel) / 90 * 100) + '%';
 
-    // Ruckelfrei mit 60 FPS rendern statt bei jedem Event
+    // Ruckelfrei mit der Interaktions-Framerate rendern statt bei jedem Event
     if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
 
     // High-Res API Debounce
@@ -7741,14 +7785,29 @@ function vpGetMapProfileElevationData(isHdgMode) {
     return null;
 }
 
+function vpIsProfileLowFpsMode() {
+    try {
+        if (typeof window.isLowFpsMode === 'function') return !!window.isLowFpsMode();
+        if (typeof window.isMapHintEnabled === 'function') return !!window.isMapHintEnabled('lowFps');
+        if (document.body && document.body.classList.contains('low-fps-mode')) return true;
+        return localStorage.getItem('ga_map_hint_lowFps') === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+
 function vpGetMapProfileTargetFps(isHdgMode) {
+    const lowFpsMode = vpIsProfileLowFpsMode();
     const isInteracting = !!(
         window.vpIsFastRendering ||
+        window.vpUIInteractionActive === true ||
+        window.vpProfilePanActive === true ||
         window.vpDraggingPosMarker === true ||
+        (typeof vpResizeActive !== 'undefined' && vpResizeActive) ||
         (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) ||
         (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment)
     );
-    if (isInteracting) return VP_PROFILE_FPS_INTERACT;
+    if (isInteracting) return lowFpsMode ? VP_PROFILE_FPS_INTERACT_LOW : VP_PROFILE_FPS_INTERACT;
 
     const obsSrc = isHdgMode ? vpHdgObstacles : vpObstacles;
     const hasObstacleAnim = vpShowObstacles && Array.isArray(obsSrc) && obsSrc.length > 0;
@@ -7757,12 +7816,9 @@ function vpGetMapProfileTargetFps(isHdgMode) {
     const hasTrafficAnim = !!(window.vpTrafficProfileVisible && window.vpTrafficData && window.vpTrafficData.length);
     const hasPrediction = !!(window.vpPredictionData && window.vpPredictionData.length);
 
-    let fps = (hasObstacleAnim || hasWeatherAnim || hasAirspacePulse || hasTrafficAnim || hasPrediction || isHdgMode)
-        ? VP_PROFILE_FPS_ACTIVE
-        : VP_PROFILE_FPS_IDLE;
-
-    if (document.hidden) fps = Math.min(fps, 8);
-    return fps;
+    const hasActiveAnimation = hasObstacleAnim || hasWeatherAnim || hasAirspacePulse || hasTrafficAnim || hasPrediction || isHdgMode;
+    if (!hasActiveAnimation) return VP_PROFILE_FPS_IDLE;
+    return lowFpsMode ? VP_PROFILE_FPS_ACTIVE_LOW : VP_PROFILE_FPS_ACTIVE;
 }
 
 // ─── TRAFFIC PROJEKTION AUF ROUTE ────────────────────────────────────────────
@@ -7873,8 +7929,7 @@ window.vpToggleTrafficProfile = function() {
 
 function renderMapProfileFrames(timeMs) {
     const frameT0 = performance && performance.now ? performance.now() : Date.now();
-    const mapTable = document.getElementById('mapTableOverlay');
-    if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
+    if (!vpCanRunVisibleMapProfileWork()) {
         vpStopMapProfileFrameLoop();
         return;
     }
@@ -9029,6 +9084,7 @@ function initAltWaypoints() {
         const touch = e.touches[0];
         vpWasDragging = false;
         vpIsPanning = false;
+        window.vpProfilePanActive = false;
         const m = vpGetCanvasMetrics();
         if (!m) return;
         const { mx, my } = vpClientToCanvas(touch.clientX, touch.clientY, m);
@@ -9071,6 +9127,7 @@ function initAltWaypoints() {
         if (vpZoomLevel < 100) {
             e.preventDefault();
             vpIsPanning = true;
+            window.vpProfilePanActive = true;
             const scrollContainer = document.getElementById('mapProfileScroll');
             vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
             vpPanStartX = touch.clientX;
@@ -9123,19 +9180,26 @@ function initAltWaypoints() {
 
     canvas.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) { initialPinchDist = null; initialTwoFingerY = null; }
-        if (vpIsPanning) { vpIsPanning = false; return; }
+        if (vpIsPanning) {
+            vpIsPanning = false;
+            window.vpProfilePanActive = false;
+            return;
+        }
+        window.vpProfilePanActive = false;
         if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
     });
 
     canvas.addEventListener('touchcancel', (e) => {
         initialPinchDist = null; initialTwoFingerY = null;
         vpIsPanning = false; vpWasDragging = false;
+        window.vpProfilePanActive = false;
         if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
     });
 
     // === MOUSE WHEEL ZOOM & PAN (Multi-Achsen) ===
     canvas.addEventListener('wheel', (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
+        if (typeof window.activateFastRender === 'function') window.activateFastRender();
         if (e.ctrlKey) {
             let yDelta = e.deltaY > 0 ? 1000 : -1000;
             vpChangeYAxis(yDelta);
@@ -9894,6 +9958,10 @@ let vpHdgLandmarks = [];
 let vpHdgObstacles = [];
 let vpHdgLinearFeatures = [];
 let vpHdgUpdateTimer = null;
+let vpHdgUpdateInFlight = false;
+let vpHdgRefreshPending = false;
+let vpHdgPendingReason = '';
+let vpHdgCycleGeneration = 0;
 let vpHdgLastUpdate = { lat: 0, lon: 0, hdg: -999 };
 let vpHdgLastTurnSample = { hdg: -999, ts: 0 };
 let vpHdgWeatherTurnRate = 0;
@@ -9938,17 +10006,22 @@ window.vpEnsureRouteMode = function () {
 };
 
 function startHdgCycle() {
+    vpHdgCycleGeneration += 1;
     vpWeatherData = null;
     vpHdgWeatherLastSignature = '';
     vpHdgWeatherFetchTs = 0;
     vpHdgWeatherCoverageKey = '';
     vpHdgWeatherLastHardRefreshTs = 0;
     vpHdgLastTurnSample = { hdg: -999, ts: 0 };
-    updateHdgProfile();
-    vpHdgUpdateTimer = setInterval(updateHdgProfile, 1000);
+    vpHdgRefreshPending = true;
+    vpHdgPendingReason = 'hdg-start';
+    vpQueueHdgProfileUpdate({ force: true, reason: 'hdg-start' });
+    if (vpHdgUpdateTimer) clearInterval(vpHdgUpdateTimer);
+    vpHdgUpdateTimer = setInterval(() => vpQueueHdgProfileUpdate({ reason: 'hdg-cycle' }), 1000);
 }
 
 function stopHdgCycle() {
+    vpHdgCycleGeneration += 1;
     clearInterval(vpHdgUpdateTimer);
     vpHdgUpdateTimer = null;
     vpHdgElevData = null;
@@ -9964,6 +10037,8 @@ function stopHdgCycle() {
     vpHdgWeatherFetchTs = 0;
     vpHdgWeatherCoverageKey = '';
     vpHdgWeatherLastHardRefreshTs = 0;
+    vpHdgRefreshPending = false;
+    vpHdgPendingReason = '';
     vpMode = 'ROUTE';
     window.vpBgNeedsUpdate = true;
     if (window._lastVpRouteKey && typeof triggerVerticalProfileUpdate === 'function') {
@@ -10121,6 +10196,7 @@ function vpSetHdgWeatherChunkCache(key, zones, now = Date.now()) {
 }
 
 async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
+    if (!vpCanRunVisibleMapProfileWork()) return;
     const weatherNeeded = vpShowClouds || vpShowIsobars || vpShowWindComponents;
     if (!weatherNeeded || !Array.isArray(vpHdgElevData) || vpHdgElevData.length < 2) return;
     if (vpHdgWeatherInFlight) return;
@@ -10193,7 +10269,7 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     try {
         if (window.vpWeatherDebug) window.vpWeatherDebug.hdgFetches += 1;
         const zonesNm = await fetchRouteWeather(routePts, elevNm, signal);
-        if (signal.aborted || vpMode !== 'HDG') return;
+        if (signal.aborted || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return;
         if (!Array.isArray(zonesNm) || zonesNm.length === 0) return;
         vpSetHdgWeatherChunkCache(hdgChunkKey, zonesNm, now);
 
@@ -10213,30 +10289,83 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     }
 }
 
-async function updateHdgProfile() {
+function vpQueueHdgProfileUpdate(options = {}) {
+    const force = options.force === true;
+    const reason = String(options.reason || 'hdg-cycle');
     if (vpMode !== 'HDG') return;
+    if (!vpCanRunVisibleMapProfileWork()) {
+        if (force) {
+            vpHdgRefreshPending = true;
+            vpHdgPendingReason = reason;
+        }
+        return;
+    }
+    if (vpHdgUpdateInFlight) {
+        if (force) {
+            vpHdgRefreshPending = true;
+            vpHdgPendingReason = reason;
+        }
+        return;
+    }
+
+    const runForced = force || vpHdgRefreshPending;
+    const runReason = vpHdgPendingReason || reason;
+    vpHdgRefreshPending = false;
+    vpHdgPendingReason = '';
+    void updateHdgProfile({ force: runForced, reason: runReason }).catch((e) => {
+        console.warn('[HDG] Profil-Update fehlgeschlagen:', e);
+        if (window.gaDebugPush) window.gaDebugPush('profile', '[HDG] Profile update failed', { reason: runReason, error: String(e && e.message || e) });
+    });
+}
+
+async function updateHdgProfile(options = {}) {
+    const force = options.force === true;
+    if (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) {
+        if (force) vpHdgRefreshPending = true;
+        return;
+    }
     if (!window.lastLiveGpsPos) return;
 
-    const { lat, lon, hdg, alt } = window.lastLiveGpsPos;
-    const gs = (typeof smoothedGS !== 'undefined' && smoothedGS > 20) ? smoothedGS : 80;
+    const runGeneration = vpHdgCycleGeneration;
+    vpHdgUpdateInFlight = true;
 
-    // Change-Detection: nur updaten wenn Kurs/Position sich nennenswert geändert hat
-    const dHdg = Math.abs(((hdg - vpHdgLastUpdate.hdg) + 540) % 360 - 180);
-    const dPos = Math.abs(lat - vpHdgLastUpdate.lat) + Math.abs(lon - vpHdgLastUpdate.lon);
-    if (vpHdgElevData && dHdg < 2 && dPos < 0.003) return;
+    try {
+        const { lat, lon, hdg, alt } = window.lastLiveGpsPos;
+        const gs = (typeof smoothedGS !== 'undefined' && smoothedGS > 20) ? smoothedGS : 80;
 
-    vpHdgLastUpdate = { lat, lon, hdg };
-    await generateHdgProfile(lat, lon, hdg, alt, gs);
-    await vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos);
-    computeHdgLandmarks(lat, lon, hdg, gs);
-    computeHdgObstacles(lat, lon, hdg, gs);
-    computeHdgLinearFeatures(lat, lon, hdg, gs);
-    window.vpBgNeedsUpdate = true;
+        // Change-Detection: nur updaten wenn Kurs/Position sich nennenswert geändert hat.
+        // Sichtbarwerden und explizite Refreshes dürfen diese Schwelle einmalig umgehen.
+        const dHdg = Math.abs(((hdg - vpHdgLastUpdate.hdg) + 540) % 360 - 180);
+        const dPos = Math.abs(lat - vpHdgLastUpdate.lat) + Math.abs(lon - vpHdgLastUpdate.lon);
+        if (!force && vpHdgElevData && dHdg < 2 && dPos < 0.003) return;
+
+        vpHdgLastUpdate = { lat, lon, hdg };
+        const nextElevData = await generateHdgProfile(lat, lon, hdg, alt, gs);
+        if (runGeneration !== vpHdgCycleGeneration || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return;
+        if (Array.isArray(nextElevData) && nextElevData.length >= 2) vpHdgElevData = nextElevData;
+
+        await vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos);
+        if (runGeneration !== vpHdgCycleGeneration || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return;
+        computeHdgLandmarks(lat, lon, hdg, gs);
+        computeHdgObstacles(lat, lon, hdg, gs);
+        computeHdgLinearFeatures(lat, lon, hdg, gs);
+        window.vpBgNeedsUpdate = true;
+        vpRequestMapProfileFrameNow();
+    } finally {
+        vpHdgUpdateInFlight = false;
+        if (vpHdgRefreshPending && vpMode === 'HDG' && vpCanRunVisibleMapProfileWork()) {
+            const pendingReason = vpHdgPendingReason || 'hdg-pending';
+            vpHdgRefreshPending = false;
+            vpHdgPendingReason = '';
+            vpQueueHdgProfileUpdate({ force: true, reason: pendingReason });
+        }
+    }
 }
 
 // ── Terrain-Sampling entlang der Flugrichtung ────────────
 async function generateHdgProfile(lat, lon, hdg, alt, gs) {
-    if (typeof sampleTerrainElevation !== 'function') return;
+    if (typeof sampleTerrainElevation !== 'function') return null;
+    if (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return null;
 
     const totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
     const totalNM  = gs * (totalMin / 60);
@@ -10272,10 +10401,12 @@ async function generateHdgProfile(lat, lon, hdg, alt, gs) {
         }
     }
     if (tilePromises.length) await Promise.all(tilePromises);
+    if (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()) return null;
 
     // Höhen sampeln (synchron aus Cache)
     const result = [];
     for (const p of points) {
+        if ((result.length % 8) === 0 && (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) return null;
         try {
             const elevFt = await sampleTerrainElevation(p.lat, p.lon);
             result.push({ distNM: p.distNM, elevFt: Math.max(0, elevFt), lat: p.lat, lon: p.lon });
@@ -10283,7 +10414,7 @@ async function generateHdgProfile(lat, lon, hdg, alt, gs) {
             result.push({ distNM: p.distNM, elevFt: 0, lat: p.lat, lon: p.lon });
         }
     }
-    vpHdgElevData = result;
+    return result;
 }
 
 // ── Landmarks (Städte & Airports) entlang Heading ────────

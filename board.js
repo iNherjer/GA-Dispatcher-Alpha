@@ -101,6 +101,49 @@ function pinboardCompactFlightDataState(state, level = 1) {
     return out;
 }
 
+function pinboardStoreActiveMissionStateForRestore(state) {
+    const sharedStore = (typeof window.storeActiveMissionStateSafely === 'function')
+        ? window.storeActiveMissionStateSafely
+        : null;
+    if (sharedStore) {
+        try {
+            return sharedStore(state, { refreshActiveMissionTimestamp: false });
+        } catch (err) {
+            try { console.warn('[Pinboard] Shared mission-state storage failed; using local fallback.', err); } catch (_) {}
+        }
+    }
+
+    const candidates = [
+        state,
+        pinboardCompactFlightDataState(state, 1),
+        pinboardCompactFlightDataState(state, 2),
+        pinboardCompactFlightDataState(state, 3)
+    ].filter(Boolean);
+    let quotaCleanupApplied = false;
+    let lastError = null;
+
+    for (let i = 0; i < candidates.length; i++) {
+        try {
+            localStorage.setItem('ga_active_mission', JSON.stringify(candidates[i]));
+            try { delete window.__gaActiveMissionStorageFallback; } catch (_) { window.__gaActiveMissionStorageFallback = null; }
+            return true;
+        } catch (err) {
+            lastError = err;
+            if (pinboardIsQuotaError(err) && !quotaCleanupApplied) {
+                pinboardPruneLocalStorageForQuota();
+                try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
+                quotaCleanupApplied = true;
+                i -= 1;
+            }
+        }
+    }
+
+    const memoryFallback = pinboardJsonClone(candidates[candidates.length - 1] || state) || state;
+    try { window.__gaActiveMissionStorageFallback = memoryFallback; } catch (_) {}
+    try { console.warn('[Pinboard] Active mission state kept in memory after storage failure.', lastError); } catch (_) {}
+    return false;
+}
+
 function pinboardCompactNotesForStorage(notes, options = {}) {
     if (typeof _syncCompactPinboard === 'function') {
         try {
@@ -783,9 +826,7 @@ async function loadPinnedFlight(id, isGroup) {
         return;
     }
     try {
-        try {
-            localStorage.setItem('ga_active_mission', JSON.stringify(note.flightData));
-        } catch (_) {}
+        pinboardStoreActiveMissionStateForRestore(note.flightData);
         const restored = await restoreMissionState(note.flightData, { source: 'pinboard' });
         if (restored === false) {
             alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
@@ -803,6 +844,82 @@ async function loadPinnedFlight(id, isGroup) {
         alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
     }
 }
+
+function pinboardCreateElement(tagName, className = '', text = '') {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    if (text !== '') element.textContent = text;
+    return element;
+}
+
+function pinboardCreateAction(tagName, className, text, handler, title = '') {
+    const action = pinboardCreateElement(tagName, className, text);
+    if (title) action.title = title;
+    action.addEventListener('click', handler);
+    return action;
+}
+
+function pinboardAppendRichFlightMarkup(container, markup) {
+    const raw = String(markup || '');
+    if (typeof DOMParser !== 'function') {
+        const fallback = pinboardCreateElement('span', '', raw.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ''));
+        fallback.style.whiteSpace = 'pre-wrap';
+        container.appendChild(fallback);
+        return;
+    }
+
+    const parsed = new DOMParser().parseFromString(raw, 'text/html');
+    const allowedInlineTags = new Set(['B', 'STRONG', 'EM', 'I', 'SPAN']);
+    const blockedTags = new Set(['SCRIPT', 'STYLE', 'TEMPLATE', 'SVG', 'MATH', 'IFRAME', 'OBJECT', 'EMBED']);
+
+    const appendSafeNode = (sourceNode, targetNode) => {
+        if (sourceNode.nodeType === 3) {
+            targetNode.appendChild(document.createTextNode(sourceNode.textContent || ''));
+            return;
+        }
+        if (sourceNode.nodeType !== 1 || blockedTags.has(sourceNode.tagName)) return;
+        if (sourceNode.tagName === 'BR') {
+            targetNode.appendChild(document.createElement('br'));
+            return;
+        }
+
+        let childTarget = targetNode;
+        if (allowedInlineTags.has(sourceNode.tagName)) {
+            const safeTagName = sourceNode.tagName.toLowerCase();
+            const safeElement = document.createElement(safeTagName);
+            if (sourceNode.tagName === 'SPAN') {
+                const fontSize = sourceNode.style.fontSize;
+                const color = sourceNode.style.color;
+                if (fontSize) safeElement.style.fontSize = fontSize;
+                if (color) safeElement.style.color = color;
+            }
+            targetNode.appendChild(safeElement);
+            childTarget = safeElement;
+        }
+        Array.from(sourceNode.childNodes).forEach(child => appendSafeNode(child, childTarget));
+    };
+
+    Array.from(parsed.body.childNodes).forEach(child => appendSafeNode(child, container));
+}
+
+function pinboardAppendNoteChrome(container, note, isGroup) {
+    if (note.isNew) container.appendChild(pinboardCreateElement('div', 'post-it-new-badge', 'NEU'));
+    container.appendChild(pinboardCreateElement('div', 'post-it-pin'));
+
+    const canEdit = !isGroup || note.author === getGroupNick();
+    if (note.type !== 'flight' && note.type !== 'flight_record' && canEdit) {
+        container.appendChild(pinboardCreateAction('div', 'post-it-edit', '✏️', () => editNote(note.id, isGroup)));
+    }
+    container.appendChild(pinboardCreateAction('div', 'post-it-del', '✖', () => deleteNote(note.id, isGroup)));
+}
+
+function pinboardAppendAuthor(container, note, isGroup) {
+    if (!isGroup || !note.author) return;
+    const author = pinboardCreateElement('div', '', `@${String(note.author)}`);
+    author.style.cssText = 'position:absolute; bottom:0.4cqw; right:0.8cqw; font-size:0.8cqw; color:#888; font-family:sans-serif;';
+    container.appendChild(author);
+}
+
 function renderNotes() {
     const board = document.getElementById('pinboard');
     if (!board) return;
@@ -820,20 +937,41 @@ function renderNotes() {
         roster.style.transform = 'rotate(-2deg)';
         
         const amIAdmin = (groupDataCache.members || []).find(m => m.syncId === getSyncId())?.isAdmin;
-        let membersHtml = (groupDataCache.members || []).map(m => {
+        const pin = pinboardCreateElement('div', 'post-it-pin');
+        const rosterTitle = pinboardCreateElement('div', '', `👥 CREW: ${String(getGroupName())}`);
+        rosterTitle.style.cssText = 'font-weight:bold; font-size:1.4cqw; border-bottom:2px solid #aaa; padding-bottom:4px; margin-bottom:4px;';
+        const rosterList = pinboardCreateElement('div', 'roster-list');
+
+        (groupDataCache.members || []).forEach(m => {
+            if (!m || typeof m !== 'object') return;
             const isMe = m.syncId === getSyncId();
             const timeoutMs = m.isAdmin ? (365 * 24 * 60 * 60 * 1000) : (28 * 24 * 60 * 60 * 1000); // Admin=12Mon, Normal=28Tage
             const isStale = (Date.now() - m.lastSeen) > timeoutMs;
-            if(isStale) return '';
+            if(isStale) return;
 
-            const displayName = m.nick || m.syncId;
-            const adminIcon = m.isAdmin ? '<span title="Admin">👑 </span>' : '';
-            const kickBtn = (amIAdmin && !isMe) ? `<span onclick="kickGroupUser('${m.syncId}')" style="cursor:pointer; font-size:1cqw; margin-left:6px; transition:transform 0.2s;" title="Mitglied kicken">👢</span>` : '';
+            const rosterItem = pinboardCreateElement('div', 'roster-item');
+            const displayName = pinboardCreateElement('span');
+            displayName.style.fontWeight = isMe ? 'bold' : 'normal';
+            if (m.isAdmin) {
+                const adminIcon = pinboardCreateElement('span', '', '👑 ');
+                adminIcon.title = 'Admin';
+                displayName.appendChild(adminIcon);
+            }
+            displayName.appendChild(document.createTextNode(String(m.nick || m.syncId || 'Pilot')));
 
-            return `<div class="roster-item"><span style="font-weight:${isMe?'bold':'normal'}">${adminIcon}${displayName}</span><span class="roster-status" style="display:flex; align-items:center;">${isMe?'Online':'Aktiv'}${kickBtn}</span></div>`;
-        }).join('');
-        
-        roster.innerHTML = `<div class="post-it-pin"></div><div style="font-weight:bold; font-size:1.4cqw; border-bottom:2px solid #aaa; padding-bottom:4px; margin-bottom:4px;">👥 CREW: ${getGroupName()}</div><div class="roster-list">${membersHtml}</div>`;
+            const status = pinboardCreateElement('span', 'roster-status', isMe ? 'Online' : 'Aktiv');
+            status.style.cssText = 'display:flex; align-items:center;';
+            if (amIAdmin && !isMe) {
+                const targetSyncId = m.syncId;
+                const kickButton = pinboardCreateAction('span', '', '👢', () => kickGroupUser(targetSyncId), 'Mitglied kicken');
+                kickButton.style.cssText = 'cursor:pointer; font-size:1cqw; margin-left:6px; transition:transform 0.2s;';
+                status.appendChild(kickButton);
+            }
+            rosterItem.append(displayName, status);
+            rosterList.appendChild(rosterItem);
+        });
+
+        roster.append(pin, rosterTitle, rosterList);
         board.appendChild(roster);
         // Render Group Notes
         let gNotes = groupDataCache.notes || [];
@@ -860,19 +998,28 @@ function createNoteDOM(note, isGroup) {
     let posX = note.x > 100 ? (note.x / 1000) * 100 : note.x;
     let posY = note.y > 100 ? (note.y / 600) * 100 : note.y;
     div.style.left = posX + '%'; div.style.top = posY + '%'; div.style.transform = `rotate(${note.rot}deg)`;
-    
-    let badgeHtml = note.isNew ? `<div class="post-it-new-badge">NEU</div>` : '';
-    let authorHtml = isGroup && note.author ? `<div style="position:absolute; bottom:0.4cqw; right:0.8cqw; font-size:0.8cqw; color:#888; font-family:sans-serif;">@${note.author}</div>` : '';
-    
+
+    pinboardAppendNoteChrome(div, note, isGroup);
     if (note.type === 'flight') {
-        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<button class="flight-load-btn" onclick="loadPinnedFlight(${note.id}, ${isGroup})">📂 Flug laden</button>${authorHtml}`;
+        pinboardAppendRichFlightMarkup(div, note.text);
+        div.appendChild(pinboardCreateAction('button', 'flight-load-btn', '📂 Flug laden', () => loadPinnedFlight(note.id, isGroup)));
     } else if (note.type === 'flight_record') {
-        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<div style="display:flex; gap:6px; margin-top:0.8cqw;"><button class="flight-load-btn" style="flex:1; width:auto;" onclick="loadPinnedFlightRecord(${note.id}, ${isGroup})">🗺️ Karte</button><button class="flight-load-btn" style="flex:1; width:auto;" onclick="openPinnedFlightDebrief(${note.id}, ${isGroup})">📊 Debrief</button></div>${authorHtml}`;
+        pinboardAppendRichFlightMarkup(div, note.text);
+        const actions = pinboardCreateElement('div');
+        actions.style.cssText = 'display:flex; gap:6px; margin-top:0.8cqw;';
+        const mapButton = pinboardCreateAction('button', 'flight-load-btn', '🗺️ Karte', () => window.loadPinnedFlightRecord(note.id, isGroup));
+        const debriefButton = pinboardCreateAction('button', 'flight-load-btn', '📊 Debrief', () => window.openPinnedFlightDebrief(note.id, isGroup));
+        mapButton.style.cssText = 'flex:1; width:auto;';
+        debriefButton.style.cssText = 'flex:1; width:auto;';
+        actions.append(mapButton, debriefButton);
+        div.appendChild(actions);
     } else {
-        let editBtn = (!isGroup || note.author === getGroupNick()) ? `<div class="post-it-edit" onclick="editNote(${note.id}, ${isGroup})">✏️</div>` : '';
-        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div>${editBtn}<div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text.replace(/\n/g, '<br>')}${authorHtml}`;
+        const noteText = pinboardCreateElement('span', '', String(note.text || ''));
+        noteText.style.whiteSpace = 'pre-wrap';
+        div.appendChild(noteText);
     }
-    
+
+    pinboardAppendAuthor(div, note, isGroup);
     div.addEventListener('mousedown', () => clearNewBadge(note.id));
     div.addEventListener('touchstart', () => clearNewBadge(note.id), {passive:true});
     makeDraggable(div, note.id, isGroup);

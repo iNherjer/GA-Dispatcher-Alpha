@@ -4724,6 +4724,7 @@ let currentDepElev = null;
 let currentDestElev = null;
 let globalAirports = null, globalMedicalHelipads = null, runwayCache = {}, freqCache = {};
 let globalAirportsLoadPromise = null;
+let globalAirportsIntentPreloadPromise = null;
 let airportSearchIndex = null;
 let airportSearchIndexSourceSize = 0;
 const airportAutocompleteTimers = new WeakMap();
@@ -5377,6 +5378,18 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
     }
 }
 
+function preloadGlobalAirportsOnIntent() {
+    if (globalAirports && Object.keys(globalAirports).length > 0) return Promise.resolve();
+    if (globalAirportsIntentPreloadPromise) return globalAirportsIntentPreloadPromise;
+
+    globalAirportsIntentPreloadPromise = loadGlobalAirports()
+        .catch(() => {})
+        .finally(() => {
+            globalAirportsIntentPreloadPromise = null;
+        });
+    return globalAirportsIntentPreloadPromise;
+}
+
 function initAirportAutocompleteFields() {
     Object.entries(AIRPORT_SEARCH_FIELD_CONFIG).forEach(([classicId, cfg]) => {
         [cfg.classicId, cfg.opsId, cfg.radioId].forEach(id => {
@@ -5387,12 +5400,18 @@ function initAirportAutocompleteFields() {
             input.setAttribute('spellcheck', 'false');
             input.setAttribute('aria-autocomplete', 'list');
             if (id === cfg.radioId) input.setAttribute('maxlength', '64');
+            const preloadAirports = () => { void preloadGlobalAirportsOnIntent(); };
+            input.addEventListener('pointerdown', preloadAirports, { passive: true });
+            input.addEventListener('touchstart', preloadAirports, { passive: true });
             input.addEventListener('input', () => {
                 syncAirportFieldValue(classicId, input.value, { sourceInput: input, resolved: false });
                 updateOps1940Panel();
                 queueAirportAutocomplete(input, classicId);
             });
-            input.addEventListener('focus', () => queueAirportAutocomplete(input, classicId));
+            input.addEventListener('focus', () => {
+                preloadAirports();
+                queueAirportAutocomplete(input, classicId);
+            });
             input.addEventListener('keydown', event => handleAirportAutocompleteKeydown(event, input, classicId));
             input.addEventListener('blur', () => {
                 setTimeout(() => {
@@ -5744,6 +5763,119 @@ window.hideBootSplash = function hideBootSplash() {
     }, waitMs);
 };
 
+function initLazyPayPalDonateButton() {
+    const block = document.querySelector('.support-donate-block');
+    const buttonHost = document.getElementById('donate-button');
+    if (!block || !buttonHost || block.dataset.paypalLazyBound === '1') return;
+    block.dataset.paypalLazyBound = '1';
+
+    const sdkUrl = 'https://www.paypalobjects.com/donate/sdk/donate-sdk.js';
+    const hasDonationApi = () => !!(
+        window.PayPal
+        && window.PayPal.Donation
+        && typeof window.PayPal.Donation.Button === 'function'
+    );
+
+    const showFallbackLink = () => {
+        if (buttonHost.querySelector('[data-paypal-donate-fallback]')) return;
+        buttonHost.innerHTML = '';
+        const link = document.createElement('a');
+        link.href = 'https://www.paypal.com/donate/?hosted_button_id=EN9U3WB88EF9A';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.dataset.paypalDonateFallback = '1';
+        link.textContent = 'Mit PayPal unterstützen';
+        link.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:176px;min-height:38px;margin-top:4px;border:1px solid #6f9bc4;border-radius:6px;background:#1c3550;color:#e6f3ff;font:700 12px/1.2 sans-serif;text-decoration:none;';
+        buttonHost.appendChild(link);
+        block.dataset.paypalState = 'fallback';
+    };
+
+    const renderDonateButton = () => {
+        if (!hasDonationApi()) return false;
+        try {
+            buttonHost.innerHTML = '';
+            window.PayPal.Donation.Button({
+                env: 'production',
+                hosted_button_id: 'EN9U3WB88EF9A',
+                image: {
+                    src: 'https://pics.paypal.com/00/s/ZGM3NjA5MDQtNDI1Mi00M2U3LWI0NTAtMWExYjIwNjdmZWZm/file.PNG',
+                    alt: 'Spenden mit dem PayPal-Button',
+                    title: 'PayPal - The safer, easier way to pay online!',
+                }
+            }).render('#donate-button');
+            block.dataset.paypalState = 'ready';
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    let loadStarted = false;
+    let observer = null;
+    let stopFallbackVisibilityCheck = () => {};
+
+    const requestDonateLoad = () => {
+        if (loadStarted) return;
+        loadStarted = true;
+        observer?.disconnect();
+        stopFallbackVisibilityCheck();
+
+        if (hasDonationApi()) {
+            if (!renderDonateButton()) showFallbackLink();
+            return;
+        }
+
+        block.dataset.paypalState = 'loading';
+        const script = document.createElement('script');
+        let settled = false;
+        const settle = shouldRender => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            if (!shouldRender || !renderDonateButton()) showFallbackLink();
+        };
+        const timeoutId = setTimeout(() => settle(false), 15000);
+        script.src = sdkUrl;
+        script.async = true;
+        script.charset = 'UTF-8';
+        script.dataset.gaPaypalDonateSdk = '1';
+        script.addEventListener('load', () => settle(true), { once: true });
+        script.addEventListener('error', () => settle(false), { once: true });
+        document.head.appendChild(script);
+    };
+
+    block.addEventListener('pointerdown', requestDonateLoad, { once: true, passive: true });
+    block.addEventListener('touchstart', requestDonateLoad, { once: true, passive: true });
+    block.addEventListener('focusin', requestDonateLoad, { once: true });
+
+    if ('IntersectionObserver' in window) {
+        observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) requestDonateLoad();
+        }, { threshold: 0.01 });
+        observer.observe(block);
+    } else {
+        let fallbackVisibilityScheduled = false;
+        const checkFallbackVisibility = () => {
+            fallbackVisibilityScheduled = false;
+            const rect = block.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            if (rect.bottom >= 0 && rect.top <= viewportHeight) requestDonateLoad();
+        };
+        const scheduleFallbackVisibilityCheck = () => {
+            if (fallbackVisibilityScheduled) return;
+            fallbackVisibilityScheduled = true;
+            requestAnimationFrame(checkFallbackVisibility);
+        };
+        stopFallbackVisibilityCheck = () => {
+            window.removeEventListener('scroll', scheduleFallbackVisibilityCheck);
+            window.removeEventListener('resize', scheduleFallbackVisibilityCheck);
+        };
+        window.addEventListener('scroll', scheduleFallbackVisibilityCheck, { passive: true });
+        window.addEventListener('resize', scheduleFallbackVisibilityCheck);
+        scheduleFallbackVisibilityCheck();
+    }
+}
+
 function bootAppOnce() {
     if (window.__gaAppBooted) return;
     window.__gaAppBooted = true;
@@ -5756,7 +5888,7 @@ function bootAppOnce() {
     loadAircraftPresets();
     applyPersistedMainPerformanceSettings();
     applyPersistedMissionParameterSettings();
-    setTimeout(() => { loadGlobalAirports(); }, 2000);
+    initLazyPayPalDonateButton();
     const lastDest = localStorage.getItem('last_icao_dest');
     if (lastDest) document.getElementById('startLoc').value = lastDest;
 
@@ -8012,6 +8144,7 @@ function storeActiveMissionStateSafely(state = {}, options = {}) {
         }
     }
 }
+window.storeActiveMissionStateSafely = storeActiveMissionStateSafely;
 
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
@@ -43983,7 +44116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1366', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1445', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

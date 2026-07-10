@@ -367,6 +367,7 @@ let terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
 let terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
 let terrainAvoidWasAirborne = false;
 let terrainAvoidPausedReason = '';
+let terrainAvoidUiSignature = '';
 const terrainAvoidTileCache = new Map();
 const terrainAvoidTileInFlightCache = new Map();
 const terrainAvoidRenderedTileCache = new Map();
@@ -1263,14 +1264,26 @@ function updateTerrainAvoidThresholdUi() {
     const warnLabel = document.getElementById('terrainAvoidWarnValue');
     const safeLabel = document.getElementById('terrainAvoidSafeValue');
     const statusLabel = document.getElementById('terrainAvoidStatus');
+    const on = !!(window.mapHints && window.mapHints.terrainAvoid !== false);
+    const available = terrainAvoidCanRenderNow();
+    const liveSource = terrainAvoidCanActivate();
+    const planningFallback = terrainAvoidUsingPlanningFallback();
+    const signature = [
+        Math.round(terrainAvoidWarnFt),
+        Math.round(terrainAvoidSafeFt),
+        on ? 1 : 0,
+        available ? 1 : 0,
+        liveSource ? 1 : 0,
+        planningFallback ? 1 : 0,
+        terrainAvoidPausedReason
+    ].join('|');
+    if (signature === terrainAvoidUiSignature) return;
+    terrainAvoidUiSignature = signature;
     if (warnSlider) warnSlider.value = String(Math.round(terrainAvoidWarnFt));
     if (safeSlider) safeSlider.value = String(Math.round(terrainAvoidSafeFt));
     if (warnLabel) warnLabel.textContent = `${Math.round(terrainAvoidWarnFt)} ft`;
     if (safeLabel) safeLabel.textContent = `${Math.round(terrainAvoidSafeFt)} ft`;
     if (statusLabel) {
-        const on = window.mapHints && window.mapHints.terrainAvoid !== false;
-        const available = terrainAvoidCanRenderNow();
-        const liveSource = terrainAvoidCanActivate();
         if (!on) {
             statusLabel.textContent = 'Live-Layer aus';
             statusLabel.style.color = '#9a9a9a';
@@ -1283,7 +1296,7 @@ function updateTerrainAvoidThresholdUi() {
         } else if (!available || terrainAvoidPausedReason === 'source') {
             statusLabel.textContent = 'Pausiert - keine Referenzhöhe';
             statusLabel.style.color = '#d2ab7a';
-        } else if (terrainAvoidUsingPlanningFallback()) {
+        } else if (planningFallback) {
             statusLabel.textContent = 'CRZ-Fallback aktiv (Live-Höhe fehlt)';
             statusLabel.style.color = '#9fc3e3';
         } else if (!liveSource) {
@@ -1661,6 +1674,11 @@ window.terrainAvoidPauseForSimEnd = function() {
 
 window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
     if (!map) return;
+    if (!window.mapHints || window.mapHints.terrainAvoid === false) {
+        if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
+        terrainAvoidRefreshTimer = null;
+        return;
+    }
     updateTerrainAvoidThresholdUi();
     ensureTerrainAvoidOverlayLayer();
     if (!terrainAvoidOverlayLayer) return;
@@ -1689,17 +1707,27 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
         }
     }
     const curAltFt = getTerrainAvoidAircraftAltFt();
+    const now = Date.now();
+    if (!forceFetch) {
+        if ((now - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
+        if (Number.isFinite(curAltFt) && Number.isFinite(terrainAvoidLastRenderAltFt)) {
+            const dAlt = Math.abs(curAltFt - terrainAvoidLastRenderAltFt);
+            if (dAlt < TERRAIN_AVOID_MIN_ALT_DELTA_FT) return;
+        }
+        if (terrainAvoidRefreshTimer) return;
+    }
     if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
     const delay = forceFetch ? 30 : 60;
     terrainAvoidRefreshTimer = setTimeout(() => {
+        terrainAvoidRefreshTimer = null;
         if (!terrainAvoidOverlayLayer || !map.hasLayer(terrainAvoidOverlayLayer)) return;
-        const now = Date.now();
-        if (!forceFetch && (now - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
+        const renderNow = Date.now();
+        if (!forceFetch && (renderNow - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
         if (!forceFetch && Number.isFinite(curAltFt) && Number.isFinite(terrainAvoidLastRenderAltFt)) {
             const dAlt = Math.abs(curAltFt - terrainAvoidLastRenderAltFt);
             if (dAlt < TERRAIN_AVOID_MIN_ALT_DELTA_FT) return;
         }
-        terrainAvoidLastRenderAt = now;
+        terrainAvoidLastRenderAt = renderNow;
         terrainAvoidLastRenderAltFt = Number.isFinite(curAltFt) ? curAltFt : terrainAvoidLastRenderAltFt;
         if (!terrainAvoidRepaintVisibleTiles(curAltFt) && typeof terrainAvoidOverlayLayer.redraw === 'function') {
             terrainAvoidOverlayLayer.redraw();
@@ -7334,6 +7362,9 @@ window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route', options = {}
     const delays = [0, 120, 420, 900, 1600];
     const fitRoute = !(options && options.fitRoute === false);
     const preserveView = !fitRoute || !!(options && options.preserveView === true);
+    if (typeof window.vpResumeMapProfile === 'function') {
+        window.vpResumeMapProfile(`route:${reason}`);
+    }
     if (Array.isArray(window._routeMapLayoutRefreshTimers)) {
         window._routeMapLayoutRefreshTimers.forEach(timerId => clearTimeout(timerId));
     }
@@ -8366,7 +8397,9 @@ function updateRoutePerformance() {
         let isStart = (i === 0);
         let isEnd = (i === routeWaypoints.length - 2);
 
-        let name1 = isStart ? currentStartICAO : (routeWaypoints[i].name || `WP ${i}`);
+        let name1 = isStart
+            ? (currentStartICAO || routeWaypoints[i].name || 'START')
+            : (routeWaypoints[i].name || `WP ${i}`);
         
         let name2;
         if (isEnd) {
@@ -8382,13 +8415,15 @@ function updateRoutePerformance() {
             );
             name2 = isSarHeliFinal
                 ? (finalWp.name || currentMissionData?.sarHeli?.hospitalRef?.name || currentDestICAO || 'HOSP')
-                : ((currentMissionData && currentMissionData.poiName) ? currentStartICAO : currentDestICAO);
+                : ((currentMissionData && currentMissionData.poiName)
+                    ? (currentStartICAO || finalWp.name || 'START')
+                    : (currentDestICAO || finalWp.name || 'ZIEL'));
         } else {
             name2 = routeWaypoints[i + 1].name || `WP ${i + 1}`;
         }
 
-        let cleanName1 = name1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
-        let cleanName2 = name2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
+        let cleanName1 = String(name1 ?? '').replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
+        let cleanName2 = String(name2 ?? '').replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
 
         // Frequenz aus Namen extrahieren
         let f1 = "";
@@ -9482,6 +9517,9 @@ function toggleMapTable(forceInternal) {
         if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
 
         if (board.classList.contains('active')) {
+            if (typeof window.vpResumeMapProfile === 'function') {
+                window.vpResumeMapProfile('map-open');
+            }
             if (typeof window.resetMissionStartBannerDismiss === 'function') {
                 window.resetMissionStartBannerDismiss();
             }
@@ -9505,6 +9543,9 @@ function toggleMapTable(forceInternal) {
                 }
             }, 500);
         } else {
+            if (typeof window.vpPauseMapProfile === 'function') {
+                window.vpPauseMapProfile('map-close');
+            }
             if (typeof window.closeMapUtilityTool === 'function') window.closeMapUtilityTool('e6b');
             if (typeof window.gaChecklistCloseDrawer === 'function') window.gaChecklistCloseDrawer();
             if (!win95WindowMode) unlockBodyScroll();

@@ -1041,20 +1041,6 @@
         <div id="donate-button-container" class="paypal-donate-container">
             <div id="donate-button"></div>
         </div>
-        <script src="https://www.paypalobjects.com/donate/sdk/donate-sdk.js" charset="UTF-8"></script>
-        <script>
-            if (window.PayPal && PayPal.Donation && typeof PayPal.Donation.Button === 'function') {
-                PayPal.Donation.Button({
-                    env: 'production',
-                    hosted_button_id: 'EN9U3WB88EF9A',
-                    image: {
-                        src: 'https://pics.paypal.com/00/s/ZGM3NjA5MDQtNDI1Mi00M2U3LWI0NTAtMWExYjIwNjdmZWZm/file.PNG',
-                        alt: 'Spenden mit dem PayPal-Button',
-                        title: 'PayPal - The safer, easier way to pay online!',
-                    }
-                }).render('#donate-button');
-            }
-        </script>
         <details class="support-donate-note">
             <summary>Hinweis zur freiwilligen Unterstützung</summary>
             <p>Dein Beitrag unterstützt Entwicklung und laufende Kosten. Er ist freiwillig und keine Bestellung, Lizenz, Supportvertrag oder Gegenleistung. Daraus entstehen keine Ansprüche auf Rückerstattung, individuellen Support, Feature-Umsetzung, Priorisierung, Updates, Verfügbarkeit oder sonstige Leistungen, soweit gesetzlich zulässig. Gesetzliche Rechte und die PayPal-Bedingungen bleiben unberührt. Es wird keine Spendenquittung ausgestellt.</p>
@@ -2401,12 +2387,24 @@
             }, 1000);
         };
 
+        const FREEZE_WATCH_VISIBLE_INTERVAL_MS = 250;
+        const FREEZE_WATCH_HIDDEN_INTERVAL_MS = 1000;
         let lastFrameTs = performance && performance.now ? performance.now() : Date.now();
         let lastFreezeLogTs = 0;
-        function watchFrame(ts) {
-            const now = Number(ts || ((performance && performance.now) ? performance.now() : Date.now()));
-            const gap = now - lastFrameTs;
-            if (gap > 350 && (now - lastFreezeLogTs) > 1500) {
+        let freezeWatchTimer = null;
+        let freezeWatchExpectedDelayMs = FREEZE_WATCH_VISIBLE_INTERVAL_MS;
+        function scheduleFreezeWatch() {
+            freezeWatchExpectedDelayMs = document.hidden
+                ? FREEZE_WATCH_HIDDEN_INTERVAL_MS
+                : FREEZE_WATCH_VISIBLE_INTERVAL_MS;
+            freezeWatchTimer = setTimeout(watchFrame, freezeWatchExpectedDelayMs);
+        }
+        function watchFrame() {
+            freezeWatchTimer = null;
+            const now = (performance && performance.now) ? performance.now() : Date.now();
+            const elapsedMs = now - lastFrameTs;
+            const stallMs = Math.max(0, elapsedMs - freezeWatchExpectedDelayMs);
+            if (!document.hidden && stallMs > 350 && (now - lastFreezeLogTs) > 1500) {
                 lastFreezeLogTs = now;
                 const active = window.gaGetActivePerf ? window.gaGetActivePerf() : [];
                 const recent = buffer.slice(-8).map((entry) => ({
@@ -2416,22 +2414,29 @@
                     extra: entry.extra || null
                 }));
                 const payload = {
-                    gapMs: Math.round(gap),
+                    gapMs: Math.round(elapsedMs),
+                    stallMs: Math.round(stallMs),
                     visibilityState: document.visibilityState,
                     activePerf: active,
                     recent
                 };
                 push('freeze', ['[FREEZE] main thread gap'], payload);
-                if (gap >= 700) {
-                    originals.warn('[FREEZE] main thread gap', Math.round(gap), 'ms', payload);
+                if (stallMs >= 700) {
+                    originals.warn('[FREEZE] main thread gap', Math.round(elapsedMs), 'ms', payload);
                 } else if (originals.debug) {
-                    originals.debug('[FREEZE] short main thread gap', Math.round(gap), 'ms', payload);
+                    originals.debug('[FREEZE] short main thread gap', Math.round(elapsedMs), 'ms', payload);
                 }
             }
             lastFrameTs = now;
-            requestAnimationFrame(watchFrame);
+            scheduleFreezeWatch();
         }
-        requestAnimationFrame(watchFrame);
+        document.addEventListener('visibilitychange', () => {
+            if (freezeWatchTimer) clearTimeout(freezeWatchTimer);
+            freezeWatchTimer = null;
+            lastFrameTs = (performance && performance.now) ? performance.now() : Date.now();
+            scheduleFreezeWatch();
+        }, { passive: true });
+        scheduleFreezeWatch();
 
         if ('PerformanceObserver' in window) {
             try {
@@ -2517,16 +2522,16 @@
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-followup.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-poi-chain.js?v=poi-chain-20260620-01"></script>
-<script defer src="sync.js?v=mission-confirm-20260703-01"></script>
+<script defer src="sync.js?v=runtime-perf-20260710-01"></script>
 <script defer src="checklists.js?v=minimap-attribution-20260702-01"></script>
-<script defer src="profile.js?v=profile-refresh-cleanup-20260703-01"></script>
-<script defer src="map.js?v=e6b-map-tool-20260706-01"></script>
+<script defer src="profile.js?v=profile-perf-20260710-01"></script>
+<script defer src="map.js?v=runtime-perf-20260710-01"></script>
 <script defer src="map-utility-tools.js?v=e6b-flipfix-20260709-01"></script>
-<script defer src="app.js?v=apt-private-literary-flow-20260706-01"></script>
+<script defer src="app.js?v=startup-quota-20260710-01"></script>
 <script defer src="mission-survey-pattern.js?v=survey-pattern-20260617-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=poi-chain-runtime-20260622-01"></script>
-<script defer src="board.js?v=msfs-sar-heli-user-waypoints-20260707-01"></script>
+<script defer src="board.js?v=board-safety-20260710-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
 <script defer src="passenger-voice.js?v=comfort-weather-attribution-20260703-01"></script>
