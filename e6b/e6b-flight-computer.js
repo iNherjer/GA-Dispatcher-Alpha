@@ -41,9 +41,9 @@
     const PREVIEW_STORAGE_KEY = 'ga-e6b-preview-toggles';
     const SCALE_PLAN_STORAGE_KEY = 'ga-e6b-window-plan-scales-v2';
     const WORKBENCH_FRONT_STORAGE_KEY = 'ga-e6b-workbench-front-disc-v1';
-    const WORKBENCH_FRONT_JSON_VERSION = '20260708-workbenchfront06';
+    const WORKBENCH_FRONT_JSON_VERSION = '20260710-workbenchfront01';
     const WORKBENCH_WIND_STORAGE_KEY = 'ga-e6b-workbench-wind-disc-v1';
-    const WORKBENCH_WIND_JSON_VERSION = '20260709-windperf02';
+    const WORKBENCH_WIND_JSON_VERSION = '20260710-workbenchwind01';
     const WINDOW_PLAN_FIELDS = ['startAngle', 'endAngle', 'outerRadius', 'innerRadius'];
     const SCALE_PLAN_NUMERIC_FIELDS = ['startAngle', 'endAngle', 'radius', 'tickLength', 'labelRadius', 'min', 'max', 'minorStep', 'majorStep', 'fontSize'];
     const SCALE_PLAN_MAX_TICKS = 1200;
