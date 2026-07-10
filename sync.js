@@ -10622,6 +10622,10 @@ function _syncActiveMissionPayload() {
     return fallback || null;
 }
 
+function _syncShouldPreserveLocalMissionWithoutCloud(state = null) {
+    return _syncMissionStateIsDraft(state) || _missionIsFreeflightOnly(state);
+}
+
 function _syncHasLocalDraftMission() {
     try {
         return _syncMissionStateIsDraft(JSON.parse(localStorage.getItem('ga_active_mission') || 'null'));
@@ -10683,7 +10687,10 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
         }
     }
     try {
-        if (_syncMissionStateIsDraft(localMission)) return false;
+        // Entwuerfe und reine Freiflug-/Planungsrouten werden absichtlich nicht
+        // in die Cloud geladen. Ein leerer Cloud-Missionsslot darf sie daher
+        // beim Reload nicht als vermeintlich beendete Mission entfernen.
+        if (_syncShouldPreserveLocalMissionWithoutCloud(localMission)) return false;
     } catch (_) {}
     if (!_syncConfirmReplaceRunningLocalMission(null, localMission, { source: 'cloud-no-active-mission' })) {
         return false;

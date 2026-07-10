@@ -7706,7 +7706,15 @@ function renderMainRoute() {
 
             marker.on('dragend', function (e) {
                 let dropLatLng = marker.getLatLng();
-                const origLatLng = { lat: routeWaypoints[index].lat, lng: routeWaypoints[index].lng || routeWaypoints[index].lon };
+                const routeWaypoint = Array.isArray(routeWaypoints) ? routeWaypoints[index] : null;
+                if (!routeWaypoint) {
+                    // Der Cloud-/Restore-Pfad kann die Route zwischen Marker-Aufbau
+                    // und Touch-Ende ersetzen. Alte Marker duerfen dann weder werfen
+                    // noch einen inzwischen anderen Wegpunkt veraendern.
+                    renderMainRoute();
+                    return;
+                }
+                const origLatLng = { lat: routeWaypoint.lat, lng: routeWaypoint.lng || routeWaypoint.lon };
 
                 // === NEU: SPEZIELLE POI LOGIK (Auto-Name & Fallback) ===
                 if (isPOI) {
@@ -7716,6 +7724,10 @@ function renderMainRoute() {
                         if (mDestName) mDestName.innerText = "Ermittle Ort...";
                         
                         setTimeout(async () => {
+                            if (!Array.isArray(routeWaypoints) || routeWaypoints[index] !== routeWaypoint) {
+                                renderMainRoute();
+                                return;
+                            }
                             let newName = "Neuer Wendepunkt";
                             
                             // 1. Ort via Wikipedia (Geosearch) ermitteln
@@ -7733,9 +7745,9 @@ function renderMainRoute() {
                             } catch(e) {}
                             
                             // 2. POI aktualisieren
-                            routeWaypoints[index].lat = dropLatLng.lat;
-                            routeWaypoints[index].lng = dropLatLng.lng;
-                            routeWaypoints[index].name = "🎯 " + newName;
+                            routeWaypoint.lat = dropLatLng.lat;
+                            routeWaypoint.lng = dropLatLng.lng;
+                            routeWaypoint.name = "🎯 " + newName;
                             
                             if (typeof currentMissionData !== 'undefined' && currentMissionData) {
                                 currentMissionData.poiName = newName;
@@ -7832,8 +7844,8 @@ function renderMainRoute() {
                         return;
                     } else {
                         // Abbruch: Marker schnipst an Original-Position zurück
-                        routeWaypoints[index].lat = origLatLng.lat;
-                        routeWaypoints[index].lng = origLatLng.lng;
+                        routeWaypoint.lat = origLatLng.lat;
+                        routeWaypoint.lng = origLatLng.lng;
                     }
                     renderMainRoute();
                     return;
@@ -7861,21 +7873,21 @@ function renderMainRoute() {
                     });
 
                     if (closest) {
-                        routeWaypoints[index].lat = closest.lat;
-                        routeWaypoints[index].lng = closest.lng;
-                        routeWaypoints[index].name = closest.name;
-                        routeWaypoints[index].rppAirportIcao = closest.rppAirportIcao || '';
+                        routeWaypoint.lat = closest.lat;
+                        routeWaypoint.lng = closest.lng;
+                        routeWaypoint.name = closest.name;
+                        routeWaypoint.rppAirportIcao = closest.rppAirportIcao || '';
                     } else {
-                        routeWaypoints[index].lat = dropLatLng.lat;
-                        routeWaypoints[index].lng = dropLatLng.lng;
-                        routeWaypoints[index].name = null;
-                        routeWaypoints[index].rppAirportIcao = '';
+                        routeWaypoint.lat = dropLatLng.lat;
+                        routeWaypoint.lng = dropLatLng.lng;
+                        routeWaypoint.name = null;
+                        routeWaypoint.rppAirportIcao = '';
                     }
                 } else {
-                    routeWaypoints[index].lat = dropLatLng.lat;
-                    routeWaypoints[index].lng = dropLatLng.lng;
-                    routeWaypoints[index].name = null;
-                    routeWaypoints[index].rppAirportIcao = '';
+                    routeWaypoint.lat = dropLatLng.lat;
+                    routeWaypoint.lng = dropLatLng.lng;
+                    routeWaypoint.name = null;
+                    routeWaypoint.rppAirportIcao = '';
                 }
                 renderMainRoute();
             });
