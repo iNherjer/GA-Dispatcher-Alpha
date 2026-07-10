@@ -34,6 +34,29 @@
     let activeState = null;
     let activeSpecKey = '';
     let overlayLayer = null;
+    let lastOverlayVisualKey = '';
+
+    function canRenderOverlayNow() {
+        if (typeof document === 'undefined') return true;
+        if (document.hidden) return false;
+        const board = document.getElementById('mapTableOverlay');
+        return !board || board.classList.contains('active');
+    }
+
+    function overlayVisualKey(spec = null, state = null) {
+        if (!spec) return '';
+        const completedLines = state?.scan?.completedLineIds instanceof Set
+            ? Array.from(state.scan.completedLineIds).map(String).sort().join(',')
+            : '';
+        return [
+            spec.key,
+            spec.type,
+            state?.satisfied ? 1 : 0,
+            String(state?.scan?.active?.lineId || ''),
+            completedLines,
+            Math.max(0, Number(state?.orbit?.completedTurns || 0))
+        ].join('|');
+    }
 
     function activeMissionDataFromHost() {
         try {
@@ -653,6 +676,7 @@
             try { mapInstance.removeLayer(overlayLayer); } catch (_) {}
         }
         overlayLayer = null;
+        lastOverlayVisualKey = '';
     }
 
     function lineStyleFor(lineId, state) {
@@ -754,6 +778,15 @@
         return true;
     }
 
+    function renderOverlayIfNeeded(spec, state, force = false) {
+        if (!canRenderOverlayNow()) return false;
+        const visualKey = overlayVisualKey(spec, state);
+        if (!force && visualKey && visualKey === lastOverlayVisualKey) return false;
+        const rendered = drawOverlay(spec, state);
+        if (rendered) lastOverlayVisualKey = visualKey;
+        return rendered;
+    }
+
     function tick(input = {}) {
         const spec = getMissionSpec(input.missionData || null, input.passenger || null);
         if (!spec) {
@@ -766,7 +799,7 @@
         }
         const result = tickState(spec, activeState, sampleFromInput(input));
         activeState = result.state;
-        drawOverlay(spec, activeState);
+        renderOverlayIfNeeded(spec, activeState);
         return { ...result, spec, progress: snapshotState(activeState) };
     }
 
@@ -775,7 +808,7 @@
         if (!spec || !progress) return false;
         activeState = hydrateState(spec, progress);
         activeSpecKey = spec.key;
-        drawOverlay(spec, activeState);
+        renderOverlayIfNeeded(spec, activeState, true);
         return true;
     }
 
@@ -795,7 +828,7 @@
             activeState = createInitialState(spec);
             activeSpecKey = spec.key;
         }
-        return drawOverlay(spec, activeState);
+        return renderOverlayIfNeeded(spec, activeState, true);
     }
 
     function refreshActiveMissionOverlay() {
@@ -836,7 +869,8 @@
             haversineNm,
             bearingDeg,
             interpolateLine,
-            projectPointToLineNm
+            projectPointToLineNm,
+            overlayVisualKey
         }
     };
 

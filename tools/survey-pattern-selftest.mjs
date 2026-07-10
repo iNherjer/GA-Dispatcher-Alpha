@@ -145,8 +145,24 @@ function runOrbitCompletion() {
     assertOk(snap.orbit.completedTurns === 3, `expected 3 completed turns, got ${snap.orbit.completedTurns}`);
 }
 
+function runOverlayVisualKeyStability() {
+    const spec = api.normalizeSpec({
+        taskDomain: 'mapping_survey',
+        type: 'north_south_scan',
+        center: { lat: 48.1, lon: 8.2 },
+        scan: { lineCount: 1 }
+    });
+    const state = api.createInitialState(spec);
+    const initialKey = api.overlayVisualKey(spec, state);
+    state.updatedAt = 100;
+    assertOk(api.overlayVisualKey(spec, state) === initialKey, 'timestamp-only update must not invalidate survey overlay');
+    state.scan.active = { lineId: spec.scan.lines[0].id };
+    assertOk(api.overlayVisualKey(spec, state) !== initialKey, 'active survey line must invalidate overlay');
+}
+
 runScanCompletion();
 runScanReset();
 runOrbitCompletion();
+runOverlayVisualKeyStability();
 
 console.log('survey-pattern selftest ok');

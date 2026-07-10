@@ -27,6 +27,34 @@
     let activeState = null;
     let activeSpecKey = '';
     let overlayLayer = null;
+    let lastOverlayVisualKey = '';
+
+    function canRenderOverlayNow() {
+        if (typeof document === 'undefined') return true;
+        if (document.hidden) return false;
+        const board = document.getElementById('mapTableOverlay');
+        return !board || board.classList.contains('active');
+    }
+
+    function overlayVisualKey(spec = null, state = null) {
+        if (!spec) return '';
+        const completedPoints = state?.completedPointIds instanceof Set
+            ? Array.from(state.completedPointIds).map(String).sort().join(',')
+            : '';
+        const completedSegments = state?.corridor?.completedSegmentIds instanceof Set
+            ? Array.from(state.corridor.completedSegmentIds).map(String).sort().join(',')
+            : '';
+        return [
+            spec.key,
+            Math.max(0, Number(state?.currentIndex || 0)),
+            state?.areaEntered ? 1 : 0,
+            state?.satisfied ? 1 : 0,
+            completedPoints,
+            Math.max(0, Number(state?.corridor?.currentSegmentIndex || 0)),
+            state?.corridor?.satisfied ? 1 : 0,
+            completedSegments
+        ].join('|');
+    }
 
     function activeMissionDataFromHost() {
         try {
@@ -586,6 +614,7 @@
             try { mapInstance.removeLayer(overlayLayer); } catch (_) {}
         }
         overlayLayer = null;
+        lastOverlayVisualKey = '';
     }
 
     function pointStyle(point, idx, state) {
@@ -827,6 +856,15 @@
             drawMarkerLabel(layer, point, idx, spec, progressState);
         });
         return true;
+    }
+
+    function renderOverlayIfNeeded(spec, state, force = false) {
+        if (!canRenderOverlayNow()) return false;
+        const visualKey = overlayVisualKey(spec, state);
+        if (!force && visualKey && visualKey === lastOverlayVisualKey) return false;
+        const rendered = drawOverlay(spec, state);
+        if (rendered) lastOverlayVisualKey = visualKey;
+        return rendered;
     }
 
     function sampleFromInput(input = {}) {
@@ -1071,7 +1109,6 @@
         if (state.satisfied && !wasSatisfied) events.push({ type: 'chain_complete' });
         state.updatedAt = nowMs;
         state.events = events;
-        drawOverlay(spec, state);
         return { handled: true, state, events, satisfied: !!state.satisfied, progress: snapshotState(state) };
     }
 
@@ -1096,7 +1133,7 @@
         };
         const result = tickState(spec, activeState, sample);
         activeState = result.state;
-        drawOverlay(spec, activeState);
+        renderOverlayIfNeeded(spec, activeState);
         return { ...result, spec, progress: snapshotState(activeState) };
     }
 
@@ -1105,7 +1142,7 @@
         if (!spec || !progress) return false;
         activeState = hydrateState(spec, progress);
         activeSpecKey = spec.key;
-        drawOverlay(spec, activeState);
+        renderOverlayIfNeeded(spec, activeState, true);
         return true;
     }
 
@@ -1125,7 +1162,7 @@
             activeState = createInitialState(spec);
             activeSpecKey = spec.key;
         }
-        return drawOverlay(spec, activeState);
+        return renderOverlayIfNeeded(spec, activeState, true);
     }
 
     function refreshActiveMissionOverlay() {
@@ -1165,7 +1202,8 @@
             haversineNm,
             bearingDeg,
             projectPointToSegmentNm,
-            normalizeCorridor
+            normalizeCorridor,
+            overlayVisualKey
         }
     };
 

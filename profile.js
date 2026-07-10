@@ -8715,7 +8715,7 @@ function vpUpdateLiveAircraft(fraction, altFt, hdg) {
     vpLiveAltFt = altFt;
     vpLiveHdg = hdg;
 
-    if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) vpRequestMapProfileFrameNow();
+    if (vpCanRunVisibleMapProfileWork()) vpRequestMapProfileFrameNow();
 }
 
 /* =========================================================

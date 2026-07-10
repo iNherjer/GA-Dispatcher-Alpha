@@ -124,8 +124,19 @@ function getSyncPin() {
 
 let liveSnailTrail = null;
 let lastTrailPoint = null;
+let liveSnailTrailPoints = [];
+let liveSnailTrailDirty = false;
+let liveSnailTrailRenderedCount = 0;
+let liveSnailTrailNeedsFullSync = false;
+let lastLiveSnailTrailRenderAt = 0;
 const LIVE_SNAIL_TRAIL_TRIM_AT = 12000;
 const LIVE_SNAIL_TRAIL_KEEP_POINTS = 8000;
+const LIVE_SNAIL_TRAIL_RENDER_INTERVAL_MS = 250;
+const LIVE_TRAFFIC_RENDER_INTERVAL_MS = 250;
+let liveTrafficRenderTimer = null;
+let liveTrafficRenderPending = null;
+let lastLiveTrafficRenderAt = 0;
+let forceLiveMapVisualRefresh = false;
 let isAutoFollow = true;
 let lastGpsTickDetails = null;
 let lastTelemetryUpdateAt = 0;
@@ -499,6 +510,7 @@ window.setBoardingMarkerOption = function(enabled) {
 let predictionLine = null;
 let predictionMarkers = [];
 let lastPredictionUpdate = 0;
+let livePredictionGeneration = 0;
 let smoothedGS = 0;
 let smoothedVS = 0;
 let liveToWpLine = null;
@@ -1715,6 +1727,7 @@ let missionStartActionPromise = null;
 const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 let missionRuntimeSnapshotTimer = null;
 let missionRuntimeLastPersistAt = 0;
+let missionRuntimePendingSnapshotReason = '';
 let missionRuntimeResumeAppliedFor = '';
 let missionRuntimeResumeSuppressedFor = '';
 let missionRuntimeResumeConflictLastSig = '';
@@ -2031,6 +2044,7 @@ function _clearMissionRuntimeSnapshot(reason = 'mission-runtime-clear') {
         clearTimeout(missionRuntimeSnapshotTimer);
         missionRuntimeSnapshotTimer = null;
     }
+    missionRuntimePendingSnapshotReason = '';
     try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
     missionRuntimeResumeSuppressedFor = _activeMissionRuntimeId('') || missionRuntimeResumeSuppressedFor;
     missionRuntimeResumeAppliedFor = '';
@@ -2199,23 +2213,30 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
 }
 
 function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
-    const snapshot = _buildMissionRuntimeSnapshot(reason);
-    if (!snapshot) return false;
-    const runtimeStarted = !!(
-        snapshot.runtime?.active
-        || snapshot.runtime?.closingPending
-        || _missionRuntimePhaseCountsAsStarted(snapshot.startPhase)
-        || _missionRuntimePhaseCountsAsStarted(snapshot.runtime?.phase)
-    );
-    if (runtimeStarted) {
-        if (!missionRuntime.startedAt) missionRuntime.startedAt = Date.now();
-        snapshot.startedAt = Number(snapshot.startedAt || missionRuntime.startedAt || Date.now());
-        if (snapshot.runtime && typeof snapshot.runtime === 'object') snapshot.runtime.startedAt = snapshot.startedAt;
-        _touchActiveMissionRuntimeMarker(reason);
-    }
     const immediate = options.immediate === true;
     const minIntervalMs = Math.max(250, Number(options.minIntervalMs) || 2500);
+    missionRuntimePendingSnapshotReason = String(reason || 'runtime');
     const writeNow = () => {
+        if (missionRuntimeSnapshotTimer) {
+            clearTimeout(missionRuntimeSnapshotTimer);
+            missionRuntimeSnapshotTimer = null;
+        }
+        const latestReason = missionRuntimePendingSnapshotReason || String(reason || 'runtime');
+        missionRuntimePendingSnapshotReason = '';
+        const snapshot = _buildMissionRuntimeSnapshot(latestReason);
+        if (!snapshot) return false;
+        const runtimeStarted = !!(
+            snapshot.runtime?.active
+            || snapshot.runtime?.closingPending
+            || _missionRuntimePhaseCountsAsStarted(snapshot.startPhase)
+            || _missionRuntimePhaseCountsAsStarted(snapshot.runtime?.phase)
+        );
+        if (runtimeStarted) {
+            if (!missionRuntime.startedAt) missionRuntime.startedAt = Date.now();
+            snapshot.startedAt = Number(snapshot.startedAt || missionRuntime.startedAt || Date.now());
+            if (snapshot.runtime && typeof snapshot.runtime === 'object') snapshot.runtime.startedAt = snapshot.startedAt;
+            _touchActiveMissionRuntimeMarker(latestReason);
+        }
         missionRuntimeSnapshotTimer = null;
         missionRuntimeLastPersistAt = Date.now();
         return _writeMissionRuntimeSnapshot(snapshot);
@@ -8537,24 +8558,30 @@ function _activeSarHeliProgress() {
     return md.sarHeliProgress;
 }
 
+let sarHeliLastCheckpointAt = 0;
+let sarHeliLastUiRefreshAt = 0;
+let sarHeliLastProgressTickToken = '';
+
 function _persistSarHeliProgress(next = null, reason = 'sar-heli-progress') {
     if (!_missionSceneIsSarHeliMission()) return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return null;
     const prev = { ...(_activeSarHeliProgress() || _sarHeliInitialProgress()) };
+    const now = Date.now();
     const progress = {
         ...prev,
         ...(next && typeof next === 'object' ? next : {}),
-        lastUpdatedAt: Date.now()
+        lastUpdatedAt: now
     };
     md.sarHeliProgress = progress;
     if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.sarHeliProgress = progress;
     if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.sarHeliProgress = progress;
+    const statusChanged = String(prev.status || '') !== String(progress.status || '');
+    const targetChanged = !!prev.targetConfirmed !== !!progress.targetConfirmed;
+    const loadedChanged = !!prev.patientLoaded !== !!progress.patientLoaded;
+    const readyChanged = !!prev.readyToClose !== !!progress.readyToClose;
+    const semanticChange = statusChanged || targetChanged || loadedChanged || readyChanged;
     try {
-        const statusChanged = String(prev.status || '') !== String(progress.status || '');
-        const targetChanged = !!prev.targetConfirmed !== !!progress.targetConfirmed;
-        const loadedChanged = !!prev.patientLoaded !== !!progress.patientLoaded;
-        const readyChanged = !!prev.readyToClose !== !!progress.readyToClose;
         if (statusChanged || targetChanged || loadedChanged || readyChanged) {
             _missionPhaseDebugPush('sar_heli_progress', {
                 from: String(prev.status || 'unknown'),
@@ -8568,12 +8595,24 @@ function _persistSarHeliProgress(next = null, reason = 'sar-heli-progress') {
             });
         }
     } catch (_) {}
+    const highFrequencyHold = String(reason || '') === 'sar-heli-hold-progress';
+    const checkpointDue = (now - sarHeliLastCheckpointAt) >= 1000;
+    const shouldCheckpoint = semanticChange || !highFrequencyHold || checkpointDue;
     try {
-        if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot(reason, { immediate: true });
-        else if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
-        else if (typeof saveMissionState === 'function') saveMissionState();
+        if (shouldCheckpoint) {
+            sarHeliLastCheckpointAt = now;
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+                window.missionPersistRuntimeSnapshot(reason, semanticChange || !highFrequencyHold
+                    ? { immediate: true }
+                    : { minIntervalMs: 1000 });
+            } else if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+            else if (typeof saveMissionState === 'function') saveMissionState();
+        }
     } catch (_) {}
-    try { _updateMissionRuntimeUi(); } catch (_) {}
+    if (semanticChange || (now - sarHeliLastUiRefreshAt) >= 500) {
+        sarHeliLastUiRefreshAt = now;
+        try { _updateMissionRuntimeUi(); } catch (_) {}
+    }
     return progress;
 }
 
@@ -8815,6 +8854,12 @@ window.missionSarHeliGroundEndReady = function(endReady = null) {
 window.missionSarHeliUpdateProgress = function(lat = null, lon = null, now = Date.now(), flightData = null) {
     if (!_missionSceneIsSarHeliMission()) return null;
     const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const missionKey = String(md?.id || md?.missionId || md?.generatedAt || 'sar-heli');
+    const telemetryAt = Number(window.gaLastTrackerTelemetryAt || 0);
+    const tickToken = `${missionKey}:${telemetryAt > 0 ? telemetryAt : Math.floor(Number(now || Date.now()) / 50)}`;
+    if (tickToken === sarHeliLastProgressTickToken) return progress;
+    sarHeliLastProgressTickToken = tickToken;
     if (progress.patientLoaded) {
         window.missionSarHeliGroundEndReady();
         return progress;
@@ -9232,6 +9277,9 @@ function _activeBushMissionProgress() {
     };
 }
 
+let bushProgressLastCheckpointAt = 0;
+let bushProgressLastMissionKey = '';
+
 function _persistBushMissionProgress(progress = null) {
     if (!progress || typeof progress !== 'object') return null;
     if (typeof currentMissionData === 'undefined' || !currentMissionData || typeof currentMissionData !== 'object') return null;
@@ -9241,7 +9289,19 @@ function _persistBushMissionProgress(progress = null) {
     currentMissionData.bushProgress = { ...progress };
     const prevStatus = String(prev?.status || '');
     const nextStatus = String(progress?.status || '');
-    if (prevStatus !== nextStatus || !!prev?.pickupReady !== !!progress?.pickupReady || !!prev?.pickupConfirmed !== !!progress?.pickupConfirmed) {
+    const semanticChange = !!(
+        prevStatus !== nextStatus
+        || !!prev?.pickupReady !== !!progress?.pickupReady
+        || !!prev?.pickupCompleted !== !!progress?.pickupCompleted
+        || !!prev?.pickupConfirmed !== !!progress?.pickupConfirmed
+        || !!prev?.targetReached !== !!progress?.targetReached
+        || !!prev?.areaQualified !== !!progress?.areaQualified
+        || !!prev?.groundStopQualified !== !!progress?.groundStopQualified
+        || !!prev?.returnHomeQualified !== !!progress?.returnHomeQualified
+        || !!prev?.cargoDelivered !== !!progress?.cargoDelivered
+        || !!prev?.passengerDropped !== !!progress?.passengerDropped
+    );
+    if (semanticChange) {
         _missionPhaseDebugPush('bush_progress', {
             from: prevStatus || '-',
             to: nextStatus || '-',
@@ -9252,11 +9312,21 @@ function _persistBushMissionProgress(progress = null) {
             groundStopQualified: !!progress?.groundStopQualified
         });
     }
-    try {
-        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
-        else if (typeof saveMissionState === 'function') saveMissionState();
-    } catch (_) {}
-    _persistMissionRuntimeSnapshot('bush-progress');
+    const missionKey = String(currentMissionData?.id || currentMissionData?.missionId || currentMissionData?.generatedAt || 'bush');
+    if (missionKey !== bushProgressLastMissionKey) {
+        bushProgressLastMissionKey = missionKey;
+        bushProgressLastCheckpointAt = 0;
+    }
+    const now = Date.now();
+    const checkpointDue = (now - bushProgressLastCheckpointAt) >= 1000;
+    if (semanticChange || checkpointDue) {
+        bushProgressLastCheckpointAt = now;
+        try {
+            if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+            else if (typeof saveMissionState === 'function') saveMissionState();
+        } catch (_) {}
+        _persistMissionRuntimeSnapshot('bush-progress', semanticChange ? { immediate: true } : { minIntervalMs: 1000 });
+    }
     return currentMissionData.bushProgress;
 }
 
@@ -12347,9 +12417,7 @@ window.connectToLiveGPS = async function(syncId) {
                         return true;
                     });
                     window.vpTrafficData = filteredTraffic;
-                    if (window.vpTrafficMapVisible) {
-                        updateTrafficOnMap(filteredTraffic, data.alt);
-                    }
+                    _scheduleLiveTrafficMapRender(filteredTraffic, data.alt);
                 }
 
                 const ind = document.getElementById('liveGpsIndicator');
@@ -12372,9 +12440,7 @@ window.connectToLiveGPS = async function(syncId) {
             }
             if (data.type === 'traffic') {
                 window.vpTrafficData = data.aircraft || [];
-                if (window.vpTrafficMapVisible) {
-                    updateTrafficOnMap(window.vpTrafficData, window.lastLiveGpsPos?.alt);
-                }
+                _scheduleLiveTrafficMapRender(window.vpTrafficData, window.lastLiveGpsPos?.alt);
             }
         } catch (e) {
             console.error('[GPS] Fehler beim Lesen der Daten:', e);
@@ -12472,28 +12538,41 @@ function _profileIdxScore(ed, i, lat, lon, hdg) {
     return { score, distNm };
 }
 
-function updateLivePlanePosition(lat, lon, alt, hdg) {
-    const now = Date.now();
-    lastTelemetryUpdateAt = now;
-    window.gaLastTrackerTelemetryAt = now;
-    const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
-    const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
-    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
-    _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'gps-tick');
-    if (now - lastMissionRuntimeLiveUiRefreshAt > 650) {
-        lastMissionRuntimeLiveUiRefreshAt = now;
-        _updateMissionRuntimeUi();
-    }
-    if (missionRuntime.active || missionRuntime.closingPending || ['prepare', 'boarding', 'boarded'].includes(_missionStartPhase())) {
-        _persistMissionRuntimeSnapshot('gps-tick', { minIntervalMs: 3500 });
-    }
-    if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
+function _canRunLiveMapVisualWork() {
+    if (typeof document === 'undefined' || document.hidden) return false;
+    const board = document.getElementById('mapTableOverlay');
+    return !!(board && board.classList.contains('active'));
+}
 
-    if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
-    if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
-    window.updateCompassHeading(hdg);
+function _liveTrailDistanceM(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return Number.POSITIVE_INFINITY;
+    if (typeof map !== 'undefined' && map && typeof map.distance === 'function') {
+        return map.distance(a, b);
+    }
+    const lat1 = Number(a[0]) * Math.PI / 180;
+    const lat2 = Number(b[0]) * Math.PI / 180;
+    const dLat = lat2 - lat1;
+    const dLon = (Number(b[1]) - Number(a[1])) * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+}
 
-    // --- FEATURE 1: SNAIL TRAIL ---
+function _recordLiveTrailPoint(lat, lon) {
+    const point = [Number(lat), Number(lon)];
+    if (!point.every(Number.isFinite)) return false;
+    if (lastTrailPoint && _liveTrailDistanceM(lastTrailPoint, point) <= 20) return false;
+    liveSnailTrailPoints.push(point);
+    lastTrailPoint = point;
+    if (liveSnailTrailPoints.length > LIVE_SNAIL_TRAIL_TRIM_AT) {
+        liveSnailTrailPoints = liveSnailTrailPoints.slice(-LIVE_SNAIL_TRAIL_KEEP_POINTS);
+        liveSnailTrailNeedsFullSync = true;
+    }
+    liveSnailTrailDirty = true;
+    return true;
+}
+
+function _renderLiveTrailIfNeeded(now = Date.now(), force = false) {
+    if (!_canRunLiveMapVisualWork() || typeof map === 'undefined' || !map || typeof L === 'undefined') return false;
     if (!liveSnailTrail) {
         liveSnailTrail = L.polyline([], {
             color: '#1a4bb3',
@@ -12502,17 +12581,132 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             dashArray: '5, 10',
             interactive: false
         }).addTo(map);
+        liveSnailTrailNeedsFullSync = true;
     }
-    
-    // Nur Punkt hinzufügen, wenn > 20 Meter vom letzten Punkt entfernt
-    if (!lastTrailPoint || map.distance(lastTrailPoint, [lat, lon]) > 20) {
-        liveSnailTrail.addLatLng([lat, lon]);
-        lastTrailPoint = [lat, lon];
-        const trailPoints = liveSnailTrail.getLatLngs();
-        if (trailPoints.length > LIVE_SNAIL_TRAIL_TRIM_AT) {
-            liveSnailTrail.setLatLngs(trailPoints.slice(-LIVE_SNAIL_TRAIL_KEEP_POINTS));
+    if (!force && (!liveSnailTrailDirty || (now - lastLiveSnailTrailRenderAt) < LIVE_SNAIL_TRAIL_RENDER_INTERVAL_MS)) return false;
+    if (liveSnailTrailNeedsFullSync || liveSnailTrailRenderedCount > liveSnailTrailPoints.length) {
+        liveSnailTrail.setLatLngs(liveSnailTrailPoints);
+    } else {
+        for (let i = liveSnailTrailRenderedCount; i < liveSnailTrailPoints.length; i += 1) {
+            liveSnailTrail.addLatLng(liveSnailTrailPoints[i]);
         }
     }
+    liveSnailTrailRenderedCount = liveSnailTrailPoints.length;
+    liveSnailTrailNeedsFullSync = false;
+    liveSnailTrailDirty = false;
+    lastLiveSnailTrailRenderAt = now;
+    return true;
+}
+
+function _runLiveMissionTriggerTick(lat, lon, alt) {
+    updateFlightRecorder(lat, lon, alt);
+    if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
+        window.missionSmokeEnsureSpawned('gps-tick');
+    }
+    if (missionRuntime.active && typeof window.missionTargetSceneEnsureSpawned === 'function') {
+        window.missionTargetSceneEnsureSpawned('gps-tick');
+    }
+    if (missionRuntime.active && typeof window.missionAptArrivalEnsureSpawned === 'function') {
+        window.missionAptArrivalEnsureSpawned('gps-tick');
+    }
+    const paxMissionTickActive = !!(
+        missionRuntime.active
+        && !missionRuntime.closingPending
+        && String(missionRuntime.phase || '').toLowerCase() !== 'closing'
+    );
+    if (paxMissionTickActive && typeof window.checkPaxPoiProximity === 'function') {
+        const paxAlt = Math.max(0, Math.round(alt));
+        const aglFromTracker = Number(window.lastLiveFlightData?.aglFt);
+        const paxFlightData = Object.assign({}, window.lastLiveFlightData || {}, {
+            mslFt: paxAlt,
+            aglFt: Number.isFinite(aglFromTracker) ? Math.max(0, Math.round(aglFromTracker)) : paxAlt
+        });
+        window.checkPaxPoiProximity(lat, lon, paxFlightData);
+    }
+}
+
+function _flushPendingLiveTrafficMapRender() {
+    if (liveTrafficRenderTimer) {
+        clearTimeout(liveTrafficRenderTimer);
+        liveTrafficRenderTimer = null;
+    }
+    if (!_canRunLiveMapVisualWork() || !window.vpTrafficMapVisible) return false;
+    const pending = liveTrafficRenderPending || {
+        aircraft: Array.isArray(window.vpTrafficData) ? window.vpTrafficData : [],
+        ownAlt: window.lastLiveGpsPos?.alt
+    };
+    liveTrafficRenderPending = null;
+    updateTrafficOnMap(pending.aircraft, pending.ownAlt);
+    lastLiveTrafficRenderAt = Date.now();
+    return true;
+}
+
+function _scheduleLiveTrafficMapRender(aircraft, ownAlt, options = {}) {
+    liveTrafficRenderPending = {
+        aircraft: Array.isArray(aircraft) ? aircraft : [],
+        ownAlt
+    };
+    if (!_canRunLiveMapVisualWork() || !window.vpTrafficMapVisible) return false;
+    const now = Date.now();
+    const waitMs = LIVE_TRAFFIC_RENDER_INTERVAL_MS - (now - lastLiveTrafficRenderAt);
+    if (options.immediate === true || waitMs <= 0) return _flushPendingLiveTrafficMapRender();
+    if (!liveTrafficRenderTimer) {
+        liveTrafficRenderTimer = setTimeout(_flushPendingLiveTrafficMapRender, Math.max(16, waitMs));
+    }
+    return true;
+}
+
+window.gaRequestLiveMapVisualRefresh = function(reason = 'map-visible') {
+    forceLiveMapVisualRefresh = true;
+    lastPredictionUpdate = 0;
+    liveSnailTrailDirty = true;
+    if (_canRunLiveMapVisualWork()) {
+        _scheduleLiveTrafficMapRender(window.vpTrafficData || [], window.lastLiveGpsPos?.alt, { immediate: true });
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') {
+            window.scheduleTerrainAvoidOverlayUpdate(true);
+        }
+    }
+    if (window.gaDebugPush) window.gaDebugPush('performance', 'Live map visual refresh requested', { reason: String(reason || '') });
+};
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _canRunLiveMapVisualWork()) window.gaRequestLiveMapVisualRefresh('document-visible');
+}, { passive: true });
+
+function updateLivePlanePosition(lat, lon, alt, hdg) {
+    const now = Date.now();
+    lastTelemetryUpdateAt = now;
+    window.gaLastTrackerTelemetryAt = now;
+    const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
+    const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
+    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
+    _recordLiveTrailPoint(lat, lon);
+    _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'gps-tick');
+    if (now - lastMissionRuntimeLiveUiRefreshAt > 650) {
+        lastMissionRuntimeLiveUiRefreshAt = now;
+        _updateMissionRuntimeUi();
+    }
+    if (missionRuntime.active || missionRuntime.closingPending || ['prepare', 'boarding', 'boarded'].includes(_missionStartPhase())) {
+        _persistMissionRuntimeSnapshot('gps-tick', { minIntervalMs: 3500 });
+    }
+    if (typeof map === 'undefined' || !map || typeof L === 'undefined') {
+        // Missionslogik ist ausdrücklich unabhängig davon, ob der Kartentisch
+        // bereits initialisiert oder gerade geöffnet ist.
+        _runLiveMissionTriggerTick(lat, lon, alt);
+        return;
+    }
+    const liveMapVisualActive = _canRunLiveMapVisualWork();
+
+    if (liveMapVisualActive && typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') {
+        window.scheduleTerrainAvoidOverlayUpdate(false);
+    }
+    if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
+    if (liveMapVisualActive) window.updateCompassHeading(hdg);
+
+    // --- FEATURE 1: SNAIL TRAIL ---
+    // Positionspunkte werden oben immer gepuffert; nur die Leaflet-Linie pausiert
+    // bei geschlossenem Kartentisch. So gehen keine geflogenen Abschnitte verloren.
+    _renderLiveTrailIfNeeded(now, forceLiveMapVisualRefresh);
 
     let autoFollowGs = curGs;
 
@@ -12568,7 +12762,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
     // --- FEATURE 3: AUTO-FOLLOW ---
     const lowFpsMode = isLowFpsModeActive();
-    if (isAutoFollow) {
+    if (liveMapVisualActive && isAutoFollow) {
         const autoFollowViewApplied = applyAutoFollowViewNow({
             sample: { lat, lon, alt, gs: autoFollowGs, hdg, now, lowFpsMode },
             panFallback: false
@@ -12640,17 +12834,20 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
         const lineCoords = [[lat, lon], ...predPoints.map(p => [p.lat, p.lon])];
 
-        // Linie zeichnen/updaten
-        if (!predictionLine) {
-            predictionLine = L.polyline(lineCoords, {
-                color: '#ffffff',
-                weight: 2,
-                opacity: 0.7,
-                dashArray: '8, 6',
-                interactive: false
-            }).addTo(map);
-        } else {
-            predictionLine.setLatLngs(lineCoords);
+        // Linie nur zeichnen, wenn der Kartentisch sichtbar ist. Die darunterliegende
+        // TAWS-/Airspace-Auswertung läuft unabhängig davon weiter.
+        if (liveMapVisualActive) {
+            if (!predictionLine) {
+                predictionLine = L.polyline(lineCoords, {
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 0.7,
+                    dashArray: '8, 6',
+                    interactive: false
+                }).addTo(map);
+            } else {
+                predictionLine.setLatLngs(lineCoords);
+            }
         }
 
         // Lufträume positions-basiert nachladen wenn:
@@ -12696,8 +12893,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
         // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
         if (typeof checkTerrainAlongPath === 'function') {
+            const predictionGeneration = ++livePredictionGeneration;
             checkTerrainAlongPath(_tawsPredPoints).then(results => {
-                if (!results || !predictionLine) return;
+                if (!results || predictionGeneration !== livePredictionGeneration) return;
                 // Airspace-Warnungen mit Terrain-Info füttern (AGL-Limits korrekt auswerten).
                 if (typeof checkAirspaceWarnings === 'function') {
                     const terrainFallback = Number(window.lastLiveTerrainFt) || 0;
@@ -12708,29 +12906,30 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                     checkAirspaceWarnings(awmPts);
                 }
 
-                // Worst-case Threat bestimmt Linienfarbe
-                let worst = 'green';
-                for (const r of results.slice(0, predPoints.length)) {
-                    if (r.threat === 'red') { worst = 'red'; break; }
-                    if (r.threat === 'amber') worst = 'amber';
-                }
-                const color = worst === 'red' ? '#ff2222' : worst === 'amber' ? '#ffaa00' : '#ffffff';
-                predictionLine.setStyle({ color });
-
-                // Marker-Farben: Terrain hat Priorität, danach Luftraum-Farbe
-                predictionMarkers.forEach((m, i) => {
-                    const pt = predPoints[i];
-                    const terrain = results[i];
-                    let c = '#ffffff';
-                    if (terrain?.threat === 'red')   c = '#ff2222';
-                    else if (terrain?.threat === 'amber') c = '#ffaa00';
-                    else if (pt) {
-                        // Luftraum-Check für visuelle Rückmeldung
-                        const asC = _getAirspaceColorForPredPoint(pt);
-                        if (asC) c = asC;
+                if (_canRunLiveMapVisualWork()) {
+                    // Worst-case Threat bestimmt Linienfarbe
+                    let worst = 'green';
+                    for (const r of results.slice(0, predPoints.length)) {
+                        if (r.threat === 'red') { worst = 'red'; break; }
+                        if (r.threat === 'amber') worst = 'amber';
                     }
-                    m.setStyle({ color: c, fillColor: c });
-                });
+                    const color = worst === 'red' ? '#ff2222' : worst === 'amber' ? '#ffaa00' : '#ffffff';
+                    if (predictionLine) predictionLine.setStyle({ color });
+
+                    // Marker-Farben: Terrain hat Priorität, danach Luftraum-Farbe
+                    predictionMarkers.forEach((m, i) => {
+                        const pt = predPoints[i];
+                        const terrain = results[i];
+                        let c = '#ffffff';
+                        if (terrain?.threat === 'red') c = '#ff2222';
+                        else if (terrain?.threat === 'amber') c = '#ffaa00';
+                        else if (pt) {
+                            const asC = _getAirspaceColorForPredPoint(pt);
+                            if (asC) c = asC;
+                        }
+                        m.setStyle({ color: c, fillColor: c });
+                    });
+                }
 
                 // Threats + Airspace-Farbe ans Vertikalprofil weitergeben
                 if (window.vpPredictionData) {
@@ -12751,25 +12950,27 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(_awmPredPoints);
         }
 
-        // Zeitmarker zeichnen/updaten
-        while (predictionMarkers.length < predPoints.length) {
-            const idx = predictionMarkers.length;
-            const m = L.circleMarker([0, 0], {
-                radius: 4,
-                color: '#ffffff',
-                fillColor: '#ffffff',
-                fillOpacity: 0.9,
-                weight: 1.5,
-                interactive: false
-            }).addTo(map);
-            m.bindTooltip('', { permanent: true, direction: 'top', offset: [0, -8], className: 'prediction-tooltip' });
-            predictionMarkers.push(m);
+        if (liveMapVisualActive) {
+            // Zeitmarker zeichnen/updaten
+            while (predictionMarkers.length < predPoints.length) {
+                const m = L.circleMarker([0, 0], {
+                    radius: 4,
+                    color: '#ffffff',
+                    fillColor: '#ffffff',
+                    fillOpacity: 0.9,
+                    weight: 1.5,
+                    interactive: false
+                }).addTo(map);
+                m.bindTooltip('', { permanent: true, direction: 'top', offset: [0, -8], className: 'prediction-tooltip' });
+                predictionMarkers.push(m);
+            }
+            predPoints.forEach((p, i) => {
+                predictionMarkers[i].setLatLng([p.lat, p.lon]);
+                predictionMarkers[i].setTooltipContent(`${p.min}m`);
+            });
         }
-        predPoints.forEach((p, i) => {
-            predictionMarkers[i].setLatLng([p.lat, p.lon]);
-            predictionMarkers[i].setTooltipContent(`${p.min}m`);
-        });
     } else if (smoothedGS <= 30) {
+        livePredictionGeneration += 1;
         // Zu langsam → Prediction ausblenden
         if (predictionLine) { predictionLine.remove(); predictionLine = null; }
         predictionMarkers.forEach(m => m.remove());
@@ -12778,7 +12979,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
     // --- ICON A: KARTE ---
     // SVG nur einmal bauen, danach nur per CSS-Transform rotieren (kein innerHTML-Rebuild pro Paket!)
-    if (!liveGpsMarker) {
+    if (liveMapVisualActive && !liveGpsMarker) {
         const _planeSvgTemplate = `
         <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative; transform: translate(-50%, -37%);">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform-origin: 50% 37%; width: 100%; height: 100%; will-change: transform;">
@@ -12810,7 +13011,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
 
         bindAutoFollowMapInteractionHandlers();
-    } else {
+    } else if (liveMapVisualActive) {
         liveGpsMarker.setLatLng([lat, lon]);
         // Im Low-FPS-Mode die Heading-Rotation leicht drosseln, um Repaint-Spitzen zu vermeiden.
         if (!lowFpsMode || (now - lastLivePlaneHeadingUpdateAt) >= 120) {
@@ -12890,7 +13091,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         const terrainFt = bestDistNm < 10 ? (ed[bestIdx].elevFt ?? 0) : 0;
         window.lastLiveTerrainFt = terrainFt;
         const mslFt = Math.max(0, Math.round(alt));
-        const aglEl = document.getElementById('teleAGL');
+        const aglEl = liveMapVisualActive ? document.getElementById('teleAGL') : null;
         if (aglEl) {
             aglEl.textContent = mslFt;
             aglEl.style.color = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
@@ -12908,30 +13109,8 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
     }
 
-    updateFlightRecorder(lat, lon, alt);
-    if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
-        window.missionSmokeEnsureSpawned('gps-tick');
-    }
-    if (missionRuntime.active && typeof window.missionTargetSceneEnsureSpawned === 'function') {
-        window.missionTargetSceneEnsureSpawned('gps-tick');
-    }
-    if (missionRuntime.active && typeof window.missionAptArrivalEnsureSpawned === 'function') {
-        window.missionAptArrivalEnsureSpawned('gps-tick');
-    }
-    const paxMissionTickActive = !!(
-        missionRuntime.active
-        && !missionRuntime.closingPending
-        && String(missionRuntime.phase || '').toLowerCase() !== 'closing'
-    );
-    if (paxMissionTickActive && typeof window.checkPaxPoiProximity === 'function') {
-        const _paxAlt = Math.max(0, Math.round(alt));
-        const _aglFromTracker = Number(window.lastLiveFlightData?.aglFt);
-        const _paxFd  = Object.assign({}, window.lastLiveFlightData || {}, {
-            mslFt: _paxAlt,
-            aglFt: Number.isFinite(_aglFromTracker) ? Math.max(0, Math.round(_aglFromTracker)) : _paxAlt
-        });
-        window.checkPaxPoiProximity(lat, lon, _paxFd);
-    }
+    if (liveMapVisualActive) forceLiveMapVisualRefresh = false;
+    _runLiveMissionTriggerTick(lat, lon, alt);
 }
 
 function resetFlightRecorder() {
@@ -13468,11 +13647,16 @@ function updateTrafficOnMap(aircraft, ownAlt) {
 
 window.applyTrafficVisibility = function() {
     if (!isMapHintOn('traffic', true) || !window.vpTrafficMapVisible) {
+        if (liveTrafficRenderTimer) {
+            clearTimeout(liveTrafficRenderTimer);
+            liveTrafficRenderTimer = null;
+        }
+        liveTrafficRenderPending = null;
         Object.values(liveTrafficMarkers).forEach(t => t.marker.remove());
         liveTrafficMarkers = {};
         return;
     }
-    if (window.vpTrafficData?.length) updateTrafficOnMap(window.vpTrafficData, window.lastLiveGpsPos?.alt);
+    _scheduleLiveTrafficMapRender(window.vpTrafficData || [], window.lastLiveGpsPos?.alt, { immediate: true });
 };
 
 window.toggleTrafficMap = function(forceState = null) {
@@ -13498,6 +13682,11 @@ window.hideLivePlane = function (options = {}) {
     lastLivePlaneHeadingUpdateAt = 0;
     if (typeof window.resetMapAutoZoomState === 'function') window.resetMapAutoZoomState();
     if (liveSnailTrail) { liveSnailTrail.setLatLngs([]); }
+    liveSnailTrailPoints = [];
+    liveSnailTrailDirty = false;
+    liveSnailTrailRenderedCount = 0;
+    liveSnailTrailNeedsFullSync = false;
+    lastLiveSnailTrailRenderAt = 0;
     if (liveToWpLine) { liveToWpLine.remove(); liveToWpLine = null; }
     // Prediction-Vektoren entfernen
     if (predictionLine) { predictionLine.setLatLngs([]); }
@@ -13513,6 +13702,8 @@ window.hideLivePlane = function (options = {}) {
     vpProfileLockSig = '';
     lastGpsTickDetails = null;
     lastTrailPoint = null;
+    forceLiveMapVisualRefresh = false;
+    livePredictionGeneration += 1;
     resetFlightRecorder();
     if (options?.preserveMissionRuntime !== true) _resetMissionRuntime();
     hideNextWpTelemetry();

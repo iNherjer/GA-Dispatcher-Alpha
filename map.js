@@ -9530,11 +9530,23 @@ function toggleMapTable(forceInternal) {
                 lockBodyScroll();
             }
             if (!map) initMapBase();
+            if (typeof window.gaRequestLiveMapVisualRefresh === 'function') {
+                window.gaRequestLiveMapVisualRefresh('map-open');
+            }
 
             setTimeout(() => {
                 refreshMapTableLayout().catch((error) => {
                     console.error('Map table refresh failed:', error);
                 });
+                if (typeof window.refreshMissionSurveyOverlaySoon === 'function') {
+                    window.refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'map-open');
+                }
+                if (typeof window.refreshMissionPoiChainOverlaySoon === 'function') {
+                    window.refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'map-open');
+                }
+                if (typeof window.gaRequestLiveMapVisualRefresh === 'function') {
+                    window.gaRequestLiveMapVisualRefresh('map-open-layout');
+                }
                 if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
                     window.gaScheduleRouteMapLayoutRefresh('map-open');
                 }
