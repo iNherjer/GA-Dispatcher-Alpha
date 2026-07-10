@@ -114,6 +114,7 @@
         editTextOffsetY: 'textOffsetY',
         editLabelAngleOffset: 'labelAngleOffset',
         editIndexLength: 'indexLength',
+        editIndexRotation: 'indexRotation',
         editIndexWidth: 'indexWidth',
         editStemLength: 'stemLength'
     };
@@ -146,6 +147,7 @@
         'editTextOrientation',
         'editLabelAngleOffset',
         'editIndexLength',
+        'editIndexRotation',
         'editIndexWidth',
         'editStemLength',
         'editValues',
@@ -489,10 +491,17 @@
         const length = Number(element.indexLength ?? element.majorTick ?? 62);
         const width = Number(element.indexWidth ?? element.minorTick ?? 38);
         const stemLength = Number(element.stemLength || 0);
+        const rotation = Number(element.indexRotation || 0);
+        const markerAngle = angle + rotation;
         const tip = polarPoint(radius, angle);
-        const base = polarPoint(radius + length, angle);
-        const stemEnd = polarPoint(radius + length + stemLength, angle);
-        const radians = degToRad(angle + Number(activeCalibration().rotation || 0));
+        const markerRadians = degToRad(markerAngle + Number(activeCalibration().rotation || 0));
+        const direction = { x: Math.cos(markerRadians), y: Math.sin(markerRadians) };
+        const base = { x: tip.x + direction.x * length, y: tip.y + direction.y * length };
+        const stemEnd = {
+            x: tip.x + direction.x * (length + stemLength),
+            y: tip.y + direction.y * (length + stemLength)
+        };
+        const radians = markerRadians;
         const perp = { x: -Math.sin(radians), y: Math.cos(radians) };
         const halfWidth = Math.abs(width) / 2;
         return {
@@ -2667,6 +2676,7 @@
         setInput('editTextOrientation', textOrientation(element));
         setInput('editLabelAngleOffset', element.labelAngleOffset ?? 0);
         setInput('editIndexLength', element.indexLength ?? '');
+        setInput('editIndexRotation', element.indexRotation ?? '');
         setInput('editIndexWidth', element.indexWidth ?? '');
         setInput('editStemLength', element.stemLength ?? '');
         setInput('editValues', element.type === 'label' || element.type === 'index' || element.type === 'text-box' || element.type === 'control-anchor'
@@ -3444,7 +3454,7 @@
         if (type === 'window') Object.assign(base, { innerRadius: 500, outerRadius: 620 });
         if (type === 'scale') Object.assign(base, { labelRadius: 650, majorTick: 34, mediumTick: 26, minorTick: 18, valuesText: '0,10,20,30,40,50', mediumValuesText: '', minorValuesText: '0..50/5', calibrationText: '0=-120, 50=-60' });
         if (type === 'label') Object.assign(base, { text: 'LABEL', textRotation: 0 });
-        if (type === 'index') Object.assign(base, { text: '', labelRadius: 660, indexLength: 70, indexWidth: 36, stemLength: 0, textRotation: 0 });
+        if (type === 'index') Object.assign(base, { text: '', labelRadius: 660, indexLength: 70, indexRotation: 0, indexWidth: 36, stemLength: 0, textRotation: 0 });
         if (type === 'radial') Object.assign(base, { innerRadius: 120, outerRadius: 720, endAngle: -120 });
         if (type === 'circle') Object.assign(base, { radius: 0, startAngle: -90, outerRadius: 42, strokeWidth: 3, strokeOpacity: 0.9, fillOpacity: 0 });
         if (type === 'line') Object.assign(base, { innerRadius: 120, outerRadius: 720, startAngle: -120, endAngle: -60, strokeWidth: 2.6, strokeOpacity: 0.9 });

@@ -750,10 +750,16 @@
         const length = Number(element.indexLength ?? element.majorTick ?? 62);
         const width = Number(element.indexWidth ?? element.minorTick ?? 38);
         const stemLength = Number(element.stemLength || 0);
+        const rotation = Number(element.indexRotation || 0);
+        const markerAngle = angle + rotation;
         const tip = bundledPolarPoint(source, radius, angle);
-        const base = bundledPolarPoint(source, radius + length, angle);
-        const stemEnd = bundledPolarPoint(source, radius + length + stemLength, angle);
-        const radians = (angle + Number(source.calibration.rotation || 0)) * Math.PI / 180;
+        const radians = (markerAngle + Number(source.calibration.rotation || 0)) * Math.PI / 180;
+        const direction = { x: Math.cos(radians), y: Math.sin(radians) };
+        const base = { x: tip.x + direction.x * length, y: tip.y + direction.y * length };
+        const stemEnd = {
+            x: tip.x + direction.x * (length + stemLength),
+            y: tip.y + direction.y * (length + stemLength)
+        };
         const perp = { x: -Math.sin(radians), y: Math.cos(radians) };
         const halfWidth = Math.abs(width) / 2;
         return {
