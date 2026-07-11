@@ -760,6 +760,18 @@ function _missionCargoManualPassengerBusyMessage() {
     return 'Passenger-Animation laeuft bereits.';
 }
 
+function _missionCargoPassengerBusyLabel() {
+    const status = window.missionSceneStatus || {};
+    if (status.boardingPreparing || status.boardingRequested || status.boardingActive) return 'Boarding läuft';
+    if (status.deboardingRequested || status.deboardingActive) return 'Aussteigen läuft';
+    const action = String(window.missionCargoStatus?.lastCommand?.type === 'mission_scene_manual_pax'
+        ? window.missionCargoStatus.lastCommand.action || ''
+        : '').toLowerCase();
+    if (action === 'load') return 'Einsteigen läuft';
+    if (action === 'unload') return 'Aussteigen läuft';
+    return 'PAX-Aktion läuft';
+}
+
 function _missionCargoSendManualPassengerCommand(item = null, action = 'unload', options = {}) {
     if (!item || window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
     if (_missionCargoManualPassengerSceneBusy()) {
@@ -2028,7 +2040,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             && item.pickupLocation !== 'target'
             && item.status !== 'unloaded'
             && !missionRuntime.active;
-        const passengerSceneBusyLabel = passengerSceneBusy ? '... Szene' : '';
+        const passengerSceneBusyLabel = passengerSceneBusy ? _missionCargoPassengerBusyLabel() : '';
         let action = '';
         if (isUnload && isPassenger && !unloaded && unloadCompletesMission) {
             action = '<button class="mission-cargo-row-btn" disabled>Nach Farewell</button>';
@@ -2039,7 +2051,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                     : (unloaded
                     ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canReloadNearby || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${passengerSceneBusy ? passengerSceneBusyLabel : (!groundHandlingAllowed ? 'Nur am Boden' : (canReloadNearby ? (isPassenger ? 'Einsteigen' : 'Wieder laden') : 'Zu weit weg'))}</button>`
                     : `<button class="mission-cargo-row-btn" ${((!groundHandlingAllowed && isPassenger) || passengerSceneBusy) ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${passengerSceneBusy ? passengerSceneBusyLabel : (groundHandlingAllowed ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Nur am Boden' : 'Abwerfen'))}</button>`))
-                : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed || !_missionCargoItemCanLoadAtCurrentStage(item) || pickupBoardingActive || passengerSceneBusy || passengerUsesMainBoarding) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${isPickup ? 'pickup' : 'load'}' })">${passengerUsesMainBoarding ? 'Via Boarding' : (passengerSceneBusy ? passengerSceneBusyLabel : (pickupBoardingActive ? '... Boarding' : (!groundHandlingAllowed ? 'Nur am Boden' : (!_missionCargoItemCanLoadAtCurrentStage(item) ? 'Am Ziel' : (dropped ? 'Abgeworfen' : (loaded ? (isPassenger ? 'An Bord' : 'Geladen') : (isPassenger ? 'Einsteigen' : 'Laden')))))))}</button>`;
+                : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed || !_missionCargoItemCanLoadAtCurrentStage(item) || pickupBoardingActive || passengerSceneBusy || passengerUsesMainBoarding) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${isPickup ? 'pickup' : 'load'}' })">${passengerSceneBusy ? passengerSceneBusyLabel : (passengerUsesMainBoarding ? 'Via Boarding' : (pickupBoardingActive ? 'Boarding läuft' : (!groundHandlingAllowed ? 'Nur am Boden' : (!_missionCargoItemCanLoadAtCurrentStage(item) ? 'Am Ziel' : (dropped ? 'Abgeworfen' : (loaded ? (isPassenger ? 'An Bord' : 'Geladen') : (isPassenger ? 'Einsteigen' : 'Laden')))))))}</button>`;
         }
         const status = dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen'));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))

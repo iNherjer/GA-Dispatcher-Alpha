@@ -72,6 +72,11 @@ assert.match(cargo, /manual-passenger-rollback/);
 assert.match(cargo, /Via Boarding/);
 assert.match(cargo, /const passengerUsesMainBoarding = isPassenger[\s\S]{0,180}item\.status !== 'unloaded'[\s\S]{0,120}!missionRuntime\.active/);
 assert.match(cargo, /item\.pickupLocation !== 'target'[\s\S]{0,120}item\.status !== 'unloaded'[\s\S]{0,120}!missionRuntime\.active/);
+assert.match(cargo, /function _missionCargoPassengerBusyLabel\(\)/);
+assert.match(cargo, /Boarding läuft/);
+assert.match(cargo, /Einsteigen läuft/);
+assert.match(cargo, /Aussteigen läuft/);
+assert.match(cargo, /passengerSceneBusy \? passengerSceneBusyLabel : \(passengerUsesMainBoarding/);
 assert.match(sync, /boarding-sim-passenger-sync/);
 assert.match(sync, /showClose \|\| showDeboarding \|\| showEnd/);
 assert.doesNotMatch(sync, /touchdown-farewell|flight-finalize-farewell/);
@@ -87,9 +92,9 @@ assert.match(sync, /missionInterruptedDeboardingRecovery/);
 assert.match(sync, /cancel-interrupted-deboarding/);
 assert.match(tracker, /TRACKER_VERSION = 'v278'/);
 assert.match(sync, /MIN_TRACKER_VERSION_CODE = 278/);
-assert.match(serviceWorker, /ga-dispatcher-v1454/);
-assert.match(app, /sw\.js\?v=ga-dispatcher-v1454/);
-assert.match(index, /pax-reboard-20260711-01/);
+assert.match(serviceWorker, /ga-dispatcher-v1455/);
+assert.match(app, /sw\.js\?v=ga-dispatcher-v1455/);
+assert.match(index, /pax-animation-status-20260711-01/);
 
 const context = {
     window: {
