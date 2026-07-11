@@ -85,8 +85,8 @@ assert.match(sync, /missionInterruptedDeboardingRecovery/);
 assert.match(sync, /cancel-interrupted-deboarding/);
 assert.match(tracker, /TRACKER_VERSION = 'v278'/);
 assert.match(sync, /MIN_TRACKER_VERSION_CODE = 278/);
-assert.match(serviceWorker, /ga-dispatcher-v1449/);
-assert.match(app, /sw\.js\?v=ga-dispatcher-v1449/);
+assert.match(serviceWorker, /ga-dispatcher-v1450/);
+assert.match(app, /sw\.js\?v=ga-dispatcher-v1450/);
 assert.match(index, /mission-ground-flow-20260710-01/);
 
 const context = {

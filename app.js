@@ -8976,7 +8976,7 @@ const MISSION_GENERATION_PROGRESS_PHASES = [
     { test: phase => phase.startsWith('planner_'), start: 61, done: 68, label: 'Plane Missionsstruktur...', doneLabel: 'Missionsstruktur geplant.' },
     { test: phase => phase === 'build_v4_contract', start: 69, done: 73, label: 'Baue Mission-Contract fuer den Writer...', doneLabel: 'Mission-Contract bereit.' },
     { test: phase => phase === 'mission_content', start: 74, done: 76, label: 'Bereite Missionsinhalt vor...', doneLabel: 'Missionsinhalt vorbereitet.' },
-    { test: phase => phase === 'writer_v4_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
+    { test: phase => phase === 'writer_v4_bush' || phase === 'writer_v5_bush', start: 77, done: 84, label: 'KI schreibt Bush-Dispatcher-Briefing...', doneLabel: 'Bush-Briefing geschrieben.' },
     { test: phase => phase === 'writer_v5_main', start: 77, done: 84, label: 'Writer V5 schreibt Dispatcher-Zettel...', doneLabel: 'Dispatcher-Zettel geschrieben.' },
     { test: phase => phase === 'writer_legacy_bush', start: 77, done: 84, label: 'KI formuliert Bush-Auftrag...', doneLabel: 'Bush-Auftrag formuliert.' },
     { test: phase => phase === 'writer_v4_main', start: 77, done: 84, label: 'KI schreibt Dispatcher-Briefing...', doneLabel: 'Dispatcher-Briefing geschrieben.' },
@@ -31405,6 +31405,7 @@ function _missionWriterV5DefaultTitle(contract = {}, family = '') {
     if (family === 'apt_private_outing') return `Privater Fly-out nach ${target}`;
     if (family === 'apt_sightseeing') return `Sightseeing-Ausflug nach ${target}`;
     if (family === 'poi_sightseeing') return `Blickrunde: ${target}`;
+    if (family === 'bush_pickup_return') return `Bush-Pickup bei ${target}`;
     if (family === 'cargo_transport') return `Transport nach ${target}`;
     if (family === 'animal_transport') return `Tiertransport nach ${target}`;
     if (family === 'media_photo') return `Bildserie: ${target}`;
@@ -31477,6 +31478,10 @@ function _missionWriterV5TitleNeedsFallback(title = '', contract = {}, taskDomai
     if (domain === 'sightseeing_tour') {
         if (/\b(verein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer|charter|shuttle)\b/.test(normalized)) return true;
         if (!isPOI && /\b(burger|flugplatzcafe|flugplatzcafé|wellness|wandern|wanderung|familienbesuch)\b/.test(normalized)) return true;
+    }
+    if (domain === 'bush_pickup_return') {
+        return /\b(verein|vereins|shuttle|charter|lieferung|fracht|kurier|transfer)\b/.test(normalized)
+            || !/\b(bush|backcountry|pickup|abhol|strip)\b/.test(normalized);
     }
     if (domain === 'media_photo') {
         return /\b(ufer[-\s]?check|wasserbehoerde|wasserbehörde|inspektion|pruefung|prüfung|technikteam|betreibercheck|rettung|sar|brand|feuer)\b/.test(normalized);
@@ -31813,6 +31818,45 @@ function _missionWriterV5BuildStorySpine(contract = {}, context = {}) {
         spine.occasionCreativeCue = wildcard.hook;
         spine.softFreedom = 'Erzähle frei, warm und direkt aus Dispatcher-Rolle. Der private Anlass muss das Rückgrat der Geschichte sein: erst Menschen, Anlass und Zielanschluss, dann Route oder Wetter nur als Stimmung, wenn sie den Anlass stärker machen. Wenn der Anlass dünn wirkt, nutze den Creative-Cue als weichen erfundenen Aufhänger statt den Text zu erklären.';
     }
+    if (taskDomain === 'bush_pickup_return') {
+        const homeName = _missionPipelineV4ContractHomeName(contract, 'der Heimatbasis');
+        const candidate = Array.isArray(contract?.pickupCreativeBrief?.candidateShortlist)
+            ? contract.pickupCreativeBrief.candidateShortlist[0] || null
+            : null;
+        const candidateFrame = _missionPipelineV4BushPickupCandidateNarrativeDefaults(
+            { targetLabel: targetName },
+            { focusLock: { taskDomain, primarySubjectLabel: targetName } },
+            {},
+            { pickupCreativeBrief: contract?.pickupCreativeBrief || null, homeName }
+        ) || {};
+        const role = _missionPipelineV4BushPickupDisplayText(candidate?.roleIdeas?.[0] || '')
+            || _missionPipelineV4BushPickupDisplayText(frame.focusSubject || '')
+            || 'Backcountry-Kontakt';
+        const taskIdeas = Array.isArray(candidate?.taskIdeas)
+            ? candidate.taskIdeas.slice(0, 2).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+            : [];
+        const objects = Array.isArray(candidate?.objectIdeas)
+            ? candidate.objectIdeas.slice(0, 3).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+            : [];
+        const returnReason = _missionPipelineV4BushPickupDisplayText(candidate?.returnDrivers?.[0] || candidateFrame.whyNow || frame.whyNow || '');
+        spine.premise = candidateFrame.trigger || `${role} wartet nach abgeschlossener Arbeit draußen am Zielstrip auf den Rückflug.`;
+        spine.subject = role;
+        spine.concreteAngle = candidateFrame.incidentContext || frame.incidentContext || frame.subjectDetail || '';
+        spine.openQuestion = '';
+        spine.whyNow = returnReason || candidateFrame.whyNow || frame.whyNow || '';
+        spine.flightValue = `Der Leerflug nach ${targetName}, die Landung am Strip und der direkte Rückflug nach ${homeName} schließen dieselbe Backcountry-Geschichte ab.`;
+        spine.stakes = candidateFrame.stakes || frame.stakes || '';
+        spine.outcome = candidateFrame.soughtOutcome || frame.soughtOutcome || '';
+        spine.completion = candidateFrame.completionSignal || frame.completionSignal || '';
+        spine.bushPickupCreativeCue = _missionWriterV5Unique([
+            candidate?.label,
+            taskIdeas.length ? `Arbeit draußen: ${_missionPipelineV4JoinNaturalList(taskIdeas)}` : '',
+            objects.length ? `Am Wartepunkt: ${_missionPipelineV4JoinNaturalList(objects)}` : '',
+            candidate?.accessReasons?.[0],
+            returnReason
+        ], 5, 220).join(' | ');
+        spine.softFreedom = 'Erzähle genau diese eine Pickup-Richtung als kleine mündliche Bush-Geschichte. Du darfst glaubwürdige weiche Abenteuerfarbe ergänzen, aber Rolle, Tätigkeit, Gegenstände, Wartepunkt und Rückkehrgrund nicht mit anderen Kandidaten vermischen. Der Pilot wird direkt angesprochen; der Pickup-Gast spricht im Briefing nicht selbst.';
+    }
     if (taskDomain === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
@@ -32116,6 +32160,23 @@ const MISSION_WRITER_V5_DOMAIN_RECIPES = {
             'Wer übernimmt am Ziel und wie geht es danach weiter?'
         ],
         styleRecipe: 'Tiertransport bleibt Tierschutz-/Veterinärtransfer: konkrete Box oder Begleitung, ruhiger Flug, Zielkontakt und nächster Versorgungsschritt. Keine generische Cargo- oder Vereinsstory.'
+    },
+    bush_pickup_return: {
+        tone: 'gesprochenes, persönliches Bush-Dispatcher-Briefing mit Abenteuergefühl und klarer Rückholgeschichte',
+        perspective: 'Dispatcher spricht den Piloten direkt mit du an; der Pickup-Gast bleibt in der dritten Person, spätere Ich-Perspektive gehört nur in die Passenger-Voice',
+        length: '4-6 fließende, in sich geschlossene Sätze',
+        softFreedom: 'Nutze genau eine Richtung aus pickupCreativeBrief als roten Faden. Du darfst weiche Backcountry-Details und kleine glaubwürdige Erlebnisse ergänzen, solange Rolle, Tätigkeit, Ausrüstung, Strip, Rückkehrgrund und Basisablauf konsistent bleiben. Harte Ortsfakten, Notfälle und neue Eigennamen nicht erfinden.',
+        requiredMeaning: [
+            'Eine konkrete Person mit passender Rolle wartet nach einer nachvollziehbaren Arbeit draußen am Zielstrip.',
+            'Wartepunkt, leichte Ausrüstung und Rückkehrgrund gehören zur selben Geschichte.',
+            'Der Pilot fliegt zunächst leer hinaus, nimmt die Person auf und bringt sie mit einem klaren nächsten Schritt zur Basis zurück.'
+        ],
+        qualityQuestions: [
+            'Klingt der Text wie ein mündlicher Auftrag des Bush-Dispatchers statt wie fünf Formularfelder?',
+            'Erzählen Name, Rolle, Tätigkeit, Gegenstände und Rückkehrgrund erkennbar dieselbe Geschichte?',
+            'Sind Leerflug, Strip-Anflug, Pickup und Rückkehr vollständig, aber natürlich in die Handlung eingebettet?'
+        ],
+        styleRecipe: 'Erzähle einen kleinen Backcountry-Auftrag mit Anfang, Szene am Strip und sinnvoller Rückkehr. Sprich den Piloten direkt an und beginne gern mit einem natürlichen Zuruf wie "Für dich liegt heute ein echter Abholer an". Wähle einen konkreten menschlichen oder operativen Haken und trage ihn durch den ganzen Absatz. Kein Steckbriefanfang, keine sichtbare Inventarliste, keine Satzfolge nach dem Muster Rolle, Tätigkeit, Route, Rückkehr. Wenn belastbare Wetter- oder Pistenangaben natürlich zur Szene passen, dürfen sie als erlebter Flugrahmen mitlaufen; lieber weglassen als als Datenblock anhängen.'
     },
     default: {
         tone: 'kurzer, klarer Dispatcher-Zettel',
@@ -32488,6 +32549,39 @@ function _missionWriterV5BuildDomainDetails(family = '', contract = {}, context 
             handoffSentence: animalBrief.handoffSentence || ''
         };
     }
+    if (taskDomain === 'bush_pickup_return') {
+        const candidate = Array.isArray(contract?.pickupCreativeBrief?.candidateShortlist)
+            ? contract.pickupCreativeBrief.candidateShortlist[0] || null
+            : null;
+        const homeName = _missionPipelineV4ContractHomeName(contract, 'der Heimatbasis');
+        const role = _missionPipelineV4BushPickupDisplayText(candidate?.roleIdeas?.[0] || spine.subject || 'Backcountry-Kontakt');
+        const tasks = Array.isArray(candidate?.taskIdeas)
+            ? candidate.taskIdeas.slice(0, 2).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+            : [];
+        const objects = Array.isArray(candidate?.objectIdeas)
+            ? candidate.objectIdeas.slice(0, 3).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+            : [];
+        return {
+            pickupRole: role,
+            workOutside: tasks,
+            waitingEquipment: objects,
+            exactMeetingPoint: _missionPipelineV4BushPickupDisplayText(candidate?.accessReasons?.[0] || contract?.storyFrame?.lastSeenContext || `am Striprand bei ${targetName}`),
+            returnReason: _missionPipelineV4BushPickupDisplayText(candidate?.returnDrivers?.[0] || contract?.storyFrame?.whyNow || spine.whyNow || ''),
+            routeTruth: {
+                outbound: `zunächst leer nach ${targetName}`,
+                pickup: 'Landung und Aufnahme am vereinbarten Wartepunkt',
+                return: `anschließend zurück nach ${homeName}`
+            },
+            briefingIntent: 'Schreibe einen zusammenhängenden, persönlich an den Piloten gerichteten Bush-Dispatcher-Text mit Abenteuergefühl. Genau eine Person und eine Tätigkeit bilden den roten Faden.',
+            creativeFreedom: 'Weiche Wilderness- und Arbeitsdetails dürfen die Szene lebendig machen. Keine neuen harten Ortsfakten, keine Notlage und keine Mischung mit anderen Candidate-Rollen.',
+            avoidStructure: [
+                'Name, Rolle, wartet heute ... als isolierter Steckbriefsatz',
+                'Tätigkeit, Wartepunkt, Route und Rückkehr als vier sichtbare Listenfelder',
+                'Ich-Perspektive des Pickup-Gasts im story-Feld',
+                'zusätzliche Personen oder eine andere Berufsrolle als im gewählten Kandidaten'
+            ]
+        };
+    }
     if (taskDomain === 'club_utility') {
         const seed = _missionPipelineV4ClubUtilitySeed({
             targetLabel: targetName,
@@ -32767,6 +32861,9 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const clubUtilityPromptRule = promptTaskDomain === 'club_utility'
         ? '\n14. CLUB-UTILITY: Denk dir: "Hier im JSON sind die Daten zum Flug, schreib dem Piloten daraus ein freundliches, kreatives, kollegiales Briefing aus deiner Rolle als Dispatcher." Es soll wie gesprochen klingen, nicht wie ein Formular. Baue eine kleine Hintergrundgeschichte: Was ist am Ziel gerade los, warum können wir unkompliziert helfen, wer oder was kommt mit, und was passiert nach dem Abstellen? Du darfst direkt ansprechen und Du-/Wir-Form nutzen. Die Ladung ist Wahrheit, aber keine sichtbare Inventarliste; fasse sie frei zu einem natürlichen Motiv zusammen und erwähne nur das, was der Geschichte hilft. Route, Wetter, Tagesstimmung oder Pax dürfen die Geschichte tragen, wenn der eigentliche Auftrag klein ist. Keine Semikolons, keine abgehackten Einzelsätze, keine kopierten StoryCore- oder domainDetails-Sätze. Vermeide Baukastenanfänge wie "Heute geht es mit ...", "Nimm [Name] bitte mit", "Die [Zahl] NM führen dich ...", "Am Ziel geht es kurz ...", "Keine anonyme Fracht", "nicht nur eine beliebige Box", "kennt den Ablauf am Boden", "die Sache direkt mit", "müssen heute", "nicht um eine große Logistiknummer", "bergig und waldig genug" oder "saubere VFR-Planung".'
         : '';
+    const bushPickupPromptRule = promptTaskDomain === 'bush_pickup_return'
+        ? '\n14. BUSH-PICKUP: Schreib so, als würdest du dem Piloten den Auftrag gerade mündlich im Bush-Dispatch erzählen. Sprich ihn direkt mit du an und mache aus genau einer Richtung in pickupCreativeBrief beziehungsweise MISSION_BRIEF_FORM.domainDetails eine kleine Abenteuergeschichte mit Anfang, Szene am Strip und sinnvoller Rückkehr. Name, Rolle, Arbeit draußen, Gegenstände am Wartepunkt und Rückkehrgrund müssen aus derselben Richtung stammen. Der Ablauf bleibt fest: leer hinaus, am Strip landen, genau eine Person aufnehmen, zur Heimatbasis zurück. Du darfst weiche glaubwürdige Wilderness-Details erfinden und Spannung aufbauen, aber keine neuen Ortsnamen, Notfälle, harten Geofakten oder weiteren Personen hinzufügen. Wenn belastbare Wetter- oder Pistenangaben vorhanden sind und ohne Zusatzsatz in die Erzählung passen, darfst du sie als erlebten Flugrahmen verwenden. Wetter ist kein Pflichtpunkt; lieber weglassen als den Erzählfluss mit einem Datenanhang oder einer erzwungenen Wetterbegründung zu belasten. Keine Steckbrieferöffnung nach dem Muster "Name, Rolle, wartet heute", keine Inventarliste, keine Semikolons und keine sichtbare Folge von Formularfeldern. Das story-Feld bleibt Dispatcher-Perspektive; Ich-Sätze des Pickup-Gasts gehören ausschließlich in passenger.greetingText und pickupStory-Voice-Cues.'
+        : '';
     return `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
@@ -32784,7 +32881,7 @@ Arbeitsweise:
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${privateOutingDirectPromptRule}${clubUtilityPromptRule}
+13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${privateOutingDirectPromptRule}${clubUtilityPromptRule}${bushPickupPromptRule}
 
 <MISSION_BRIEF_FORM>
 ${JSON.stringify(missionBriefForm)}
@@ -33225,8 +33322,9 @@ function _missionPipelineV4WeatherBitsForBriefing(wx = null) {
     } else if (Number.isFinite(windKts)) {
         bits.push(`Wind ${Math.round(windKts)} kt`);
     }
-    const visKm = Number(raw?.visKm);
-    if (Number.isFinite(visKm)) bits.push(visKm >= 10 ? 'Sicht >10 km' : `Sicht ${visKm.toFixed(1)} km`);
+    const visRaw = raw?.visKm;
+    const visKm = visRaw === null || visRaw === undefined || visRaw === '' ? NaN : Number(visRaw);
+    if (Number.isFinite(visKm) && visKm > 0) bits.push(visKm >= 10 ? 'Sicht >10 km' : `Sicht ${visKm.toFixed(1)} km`);
     const fltCat = String(raw?.fltCat || '').trim().toUpperCase();
     if (fltCat && !bits.some(bit => bit.toUpperCase().includes(fltCat))) bits.push(fltCat);
     const tempC = Number(raw?.tempC);
@@ -33239,13 +33337,13 @@ function _missionPipelineV4BushPickupConditionSentence(contract = {}) {
     const depWeather = contract?.weather?.dep || null;
     const bits = _missionPipelineV4WeatherBitsForBriefing(destWeather);
     if (bits.length) {
-        return `Bei ${bits.join(', ')} am Ziel bleibt der Anflug ein Bush-Strip-Anflug: lies Zielpiste, Wind und Randbereich sauber mit, bevor du zum Wartepunkt rollst.`;
+        return `Am Ziel geben ${bits.join(', ')} den Rahmen vor, trotzdem bleibt es ein echter Bush-Strip: lies Piste, Wind und Randbereich sauber, bevor du zum Wartepunkt rollst.`;
     }
     const depBits = _missionPipelineV4WeatherBitsForBriefing(depWeather).slice(0, 2);
     if (depBits.length) {
-        return `Mit ${depBits.join(', ')} am Start bleibt der Zielstrip trotzdem der entscheidende Punkt: lies Zielpiste, Wind und Randbereich sauber mit, bevor du zum Wartepunkt rollst.`;
+        return `Mit ${depBits.join(', ')} am Start wirkt der Leerflug freundlich, doch am Ziel zählt weiterhin der Strip: lies Piste, Wind und Randbereich sauber, bevor du zum Wartepunkt rollst.`;
     }
-    return 'Der Zielstrip bleibt ein Bush-Strip: lies Zielpiste, Wind und Randbereich sauber mit, bevor du zum Wartepunkt rollst.';
+    return 'Am Ziel wartet ein echter Bush-Strip auf dich: lies Piste, Wind und Randbereich sauber, bevor du zum Wartepunkt rollst.';
 }
 
 function _missionPipelineV4BushPickupStoryHasConditionCue(text = '') {
@@ -35082,7 +35180,10 @@ function _missionPipelineV4BushPickupReturnSentence(value = '', homeName = 'der 
 
 function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passenger = {}, sourceStory = '') {
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
-    const pax = (passenger && typeof passenger === 'object') ? passenger : {};
+    const pax = _missionWriterV5BushPickupCanonicalPassenger(
+        (passenger && typeof passenger === 'object') ? passenger : {},
+        contract
+    );
     const pickupStory = (pax.pickupStory && typeof pax.pickupStory === 'object') ? pax.pickupStory : {};
     const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
     const homeName = _missionPipelineV4ContractHomeName(contract, 'dem Heimatplatz');
@@ -35104,10 +35205,14 @@ function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passeng
         _missionPipelineV4BushPickupNeutralField(pickupStory.returnReason, backFallback, { rejectFragments: false }),
         homeName
     );
-    const roleLine = role ? `${name}, ${role}, wartet heute ${where}.` : `${name} wartet heute ${where}.`;
-    const pickupLine = `Flieg leer von ${homeName} nach ${targetName}, setz die Maschine sauber am Strip ab und nimm ${pronoun} am Wartepunkt auf.`;
-    const returnLine = `Bring ${pronoun} anschließend zurück nach ${homeName}. ${back}`;
-    return [roleLine, why, pickupLine, returnLine].filter(Boolean).join(' ');
+    const opening = role
+        ? `Für dich liegt heute ein echter Backcountry-Abholer an: ${name} wartet ${where}, nachdem ${gender === 'female' ? 'sie' : 'er'} als ${role} die Arbeit draußen abgeschlossen hat.`
+        : `Für dich liegt heute ein echter Backcountry-Abholer an, und ${name} wartet ${where}.`;
+    const stripCondition = _missionPipelineV4BushPickupConditionSentence(contract);
+    const outboundLine = `Du gehst zunächst leer von ${homeName} nach ${targetName} hinaus – ${_missionPipelineV4LowerFirst(stripCondition)}`;
+    const pickupLine = `Nach der Landung rollst du zu ${name}, nimmst ${pronoun} samt der leichten Ausrüstung auf und machst die Maschine für den Heimweg bereit.`;
+    const returnLine = `Sobald alles sitzt, geht es direkt zurück nach ${homeName}. ${back}`;
+    return [opening, why, outboundLine, pickupLine, returnLine].filter(Boolean).join(' ');
 }
 
 function _missionPipelineV4CleanSarHeliBriefingInput(text = '') {
@@ -36829,6 +36934,31 @@ function _missionWriterV5SightseeingWrongDomain(normalized = '', isAptSightseein
     return Boolean(isAptSightseeing && /\b(airport operations|airport_operations|flughafengelaende|flughafengelände|flughafenbetrieb|airportbetrieb|betrieb am flughafen|betrieb am flugplatz|besichtigung des flughafens|flughafen erkundung|flugplatz erkundung|gates?|rollwege?|vorfeldbetrieb|hangars?|ground vehicles|bodenfahrzeuge|betrieb simulieren|ga-bereich.*uebernimmt|ga-bereich.*übernimmt)\b/.test(normalized));
 }
 
+function _missionWriterV5BushPickupStoryNeedsRepair(raw = '', contract = {}, context = {}) {
+    const normalized = normalizeMissionText(raw);
+    if (!normalized) return true;
+    const wrongDomain = /\b(verein|vereins|zielverein|clubheim|clubrunde|flugtag|fly-in|ersatzpumpe|vereinscrew|vereinsladung|frachtkontakt|kurierflug|charterflug|shuttle)\b/.test(normalized);
+    const hasDirectDispatcherVoice = /\b(du|dich|dein|deine|deinen|flieg|gehst|setzt|rollst|nimmst|bringst|liest)\b/.test(normalized);
+    const hasEmptyOutbound = /\b(leerflug|leer\s+(?:nach|zum|zur|hinaus)|zunaechst\s+leer|zunächst\s+leer|ohne\s+(?:gast|passagier|pickup-gast)|allein\s+(?:nach|zum|zur|hinaus))\b/.test(normalized);
+    const hasPickup = /\b(abhol|pickup|wartepunkt|striprand|aufnehmen|aufnahme|nimmst?\s+(?:ihn|sie|den|die)|wartet\s+(?:am|auf|beim))\b/.test(normalized);
+    const hasReturn = /\b(rueckflug|rückflug|zurueck|zurück|heimweg|heimatbasis|zur\s+basis|zum\s+heimatplatz)\b/.test(normalized);
+    const hasStripContext = /\b(bush|backcountry|strip|piste|bahn|randbereich|wilderness|ranch)\b/.test(normalized);
+    const passenger = (context?.passenger && typeof context.passenger === 'object') ? context.passenger : {};
+    const identityWords = normalizeMissionText([passenger.name, passenger.role].filter(Boolean).join(' '))
+        .split(/\s+/)
+        .filter(word => word.length >= 5 && !/^(pickup|backcountry|kontakt|gaeste?|gäste?)$/.test(word));
+    const hasPersonAnchor = !identityWords.length
+        || identityWords.some(word => normalized.includes(word))
+        || /\b(gast|kontakt|techniker|technikerin|ranger|rangerin|koordinator|koordinatorin|forscher|forscherin|fotograf|fotografin)\b/.test(normalized);
+    return wrongDomain
+        || !hasDirectDispatcherVoice
+        || !hasEmptyOutbound
+        || !hasPickup
+        || !hasReturn
+        || !hasStripContext
+        || !hasPersonAnchor;
+}
+
 function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context = {}) {
     const raw = String(story || '').replace(/\s+/g, ' ').trim();
     const reasons = [];
@@ -36857,6 +36987,12 @@ function _missionWriterV5StoryFallbackReasons(story = '', contract = {}, context
             if (_missionWriterV5NewsCoverageNeedsRepair(raw, contract, context)) {
                 reasons.push('news_coverage_weak_spine');
             }
+        } else if (taskDomain === 'bush_pickup_return') {
+            const stockPickupOpening = /^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'’.-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'’.-]+){1,2}\s*,\s*[^.!?]{2,80}\s*,?\s*wartet\s+heute\b/.test(raw);
+            if (_missionPipelineV4BushPickupBriefingLooksPaxPerspective(raw)) reasons.push('bush_pickup_pax_perspective');
+            if (_missionPipelineV4LooksBushPickupFragmentText(raw)) reasons.push('bush_pickup_fragmented');
+            if (stockPickupOpening) reasons.push('bush_pickup_stock_opening');
+            if (_missionWriterV5BushPickupStoryNeedsRepair(raw, contract, context)) reasons.push('bush_pickup_weak_spine');
         } else if (_missionPipelineV4IsCargoTransportContract(contract, taskDomain, context)) {
             if (_missionPipelineV4CargoStoryNeedsFallback(raw, contract, context)) {
                 reasons.push(`${taskDomain || 'cargo'}_weak_domain_story`);
@@ -36994,6 +37130,92 @@ function _missionWriterV5EnsurePassenger(passenger = {}, contract = {}, context 
     return pax;
 }
 
+function _missionWriterV5BushPickupCanonicalPassenger(passenger = {}, contract = {}) {
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    const profileId = String(contract?.profile?.id || '').trim().toLowerCase();
+    if (taskDomain !== 'bush_pickup_return' && profileId !== 'bush_pickup_strip') {
+        return (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+    }
+    const lockedPassenger = contract?.followUpContext?.lockedPassenger && typeof contract.followUpContext.lockedPassenger === 'object'
+        ? contract.followUpContext.lockedPassenger
+        : null;
+    if (lockedPassenger?.name) {
+        return {
+            ...((passenger && typeof passenger === 'object') ? passenger : {}),
+            ...lockedPassenger,
+            roleProfile: 'bush_pickup_guest_v1',
+            taskDomain: 'bush_pickup_return'
+        };
+    }
+    const candidate = Array.isArray(contract?.pickupCreativeBrief?.candidateShortlist)
+        ? contract.pickupCreativeBrief.candidateShortlist[0] || null
+        : null;
+    if (!candidate || typeof candidate !== 'object') {
+        return (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+    }
+    const pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+    const role = _missionPipelineV4BushPickupDisplayText(candidate.roleIdeas?.[0] || pax.role || 'Backcountry-Kontakt');
+    const roleNorm = normalizeMissionText(role);
+    const gender = /(?:in|frau|managerin|leiterin|koordinatorin|wartin|prueferin|prüferin|fotografin|macherin|beobachterin)\b/.test(roleNorm)
+        ? 'female'
+        : 'male';
+    const currentRoleNorm = normalizeMissionText(pax.role || '');
+    const currentGender = String(pax.gender || '').trim().toLowerCase();
+    const keepCurrentIdentity = !!(
+        String(pax.name || '').trim()
+        && currentRoleNorm
+        && (currentRoleNorm.includes(roleNorm) || roleNorm.includes(currentRoleNorm))
+        && currentGender === gender
+    );
+    const nameCandidates = (Array.isArray(contract?.varietyHints?.passengerNameCandidates)
+        ? contract.varietyHints.passengerNameCandidates
+        : [])
+        .map(item => ({
+            name: String(item?.name || '').trim(),
+            gender: String(item?.gender || '').trim().toLowerCase() === 'female' ? 'female' : 'male'
+        }))
+        .filter(item => item.name);
+    const selectedName = keepCurrentIdentity
+        ? String(pax.name || '').trim()
+        : String(nameCandidates.find(item => item.gender === gender)?.name || nameCandidates[0]?.name || pax.name || (gender === 'female' ? 'Mara Ellison' : 'Caleb Turner')).trim();
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
+    const homeName = _missionPipelineV4ContractHomeName(contract, 'der Heimatbasis');
+    const tasks = Array.isArray(candidate.taskIdeas)
+        ? candidate.taskIdeas.slice(0, 2).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+        : [];
+    const objects = Array.isArray(candidate.objectIdeas)
+        ? candidate.objectIdeas.slice(0, 3).map(item => _missionPipelineV4BushPickupDisplayText(item)).filter(Boolean)
+        : [];
+    const returnReason = _missionPipelineV4BushPickupDisplayText(candidate.returnDrivers?.[0] || 'in der Basis wartet der nächste konkrete Arbeitsschritt');
+    const taskText = tasks.length
+        ? _missionPipelineV4JoinNaturalList(tasks)
+        : 'die Arbeit draußen abgeschlossen und die wichtigsten Punkte für die Basis notiert';
+    const equipmentText = objects.length
+        ? `, wo ${_missionPipelineV4JoinNaturalList(objects)} für den Rückflug ${objects.length === 1 ? 'bereitliegt' : 'bereitliegen'}`
+        : '';
+    const exactWhere = `am Striprand bei ${targetName}, beim vereinbarten Pickup${equipmentText}`;
+    const subjectPronoun = gender === 'female' ? 'Sie' : 'Er';
+    return {
+        ...pax,
+        name: selectedName,
+        role,
+        gender,
+        roleProfile: 'bush_pickup_guest_v1',
+        taskDomain: 'bush_pickup_return',
+        greetingText: `Gut, dass du da bist. Ich habe hier draußen ${taskText}. Bring mich bitte zurück nach ${homeName}, denn ${_missionPipelineV4LowerFirst(returnReason)}.`,
+        pickupStory: {
+            ...(pax.pickupStory && typeof pax.pickupStory === 'object' ? pax.pickupStory : {}),
+            personName: selectedName,
+            role,
+            exactWhere,
+            whyThere: `${subjectPronoun} hat vor Ort ${taskText}.`,
+            returnReason: _missionPipelineV4EnsureSentence(returnReason),
+            boardingCue: `Die Arbeit draußen ist abgeschlossen, ${objects.length ? `${_missionPipelineV4JoinNaturalList(objects)} sind` : 'meine Sachen sind'} bereit für den Rückflug.`,
+            departureCue: `${_missionPipelineV4EnsureSentence(returnReason)} Unterwegs kann ich dir erzählen, was draußen hängen geblieben ist.`
+        }
+    };
+}
+
 function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const src = (raw && typeof raw === 'object') ? raw : {};
     const contract = context.missionContractV4 || {};
@@ -37041,6 +37263,9 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         ...context,
         storyHint: src.story || ''
     });
+    if (requiredTaskDomain === 'bush_pickup_return') {
+        passenger = _missionWriterV5BushPickupCanonicalPassenger(passenger, contract);
+    }
     passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
     if (requiredTaskDomain === 'private_outing') {
         passenger = _missionPrivateOutingNormalizePassenger(passenger, getMissionTaskProfile('private_outing', 'apt'), contract);
@@ -37264,6 +37489,9 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
     passenger.gender = genderRaw === 'female' ? 'female' : 'male';
     passenger.roleProfile = requiredRoleProfile;
     passenger.taskDomain = requiredTaskDomain;
+    if (requiredTaskDomain === 'bush_pickup_return') {
+        passenger = _missionWriterV5BushPickupCanonicalPassenger(passenger, contract);
+    }
     passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
     if (requiredTaskDomain === 'private_outing') {
         passenger = _missionPrivateOutingNormalizePassenger(passenger, getMissionTaskProfile('private_outing', 'apt'), contract);
@@ -41757,6 +41985,11 @@ async function generateMission(options = {}) {
         }
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
+                const writerMode = getMissionWriterMode();
+                const writerPassenger = _missionWriterV5BushPickupCanonicalPassenger(
+                    plannerContext.followUpContext?.lockedPassenger || {},
+                    missionContractV4
+                );
                 const writerContext = {
                     missionContractV4,
                     missionPlanV2,
@@ -41765,6 +41998,7 @@ async function generateMission(options = {}) {
                     requestedCategory: selectedAptCategory,
                     isPOI: false,
                     cargoText,
+                    passenger: writerPassenger,
                     selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
                     poiTerrainFt,
                     targetGeoContext: preMissionTargetGeoContext,
@@ -41778,7 +42012,12 @@ async function generateMission(options = {}) {
                         storyHint: initialBushPickupStoryHint
                     })
                 };
-                m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4(writerContext));
+                m = await dispatchMeasure(
+                    writerMode === 'v5' ? 'writer_v5_bush' : 'writer_v4_bush',
+                    async () => writerMode === 'v5'
+                        ? fetchMissionWriterV5(writerContext)
+                        : fetchMissionWriterV4(writerContext)
+                );
             }
             if (!m) {
                 m = await dispatchMeasure('writer_legacy_bush', async () => fetchGeminiMission(
@@ -44116,7 +44355,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1449', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1450', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

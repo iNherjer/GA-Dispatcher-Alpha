@@ -978,6 +978,59 @@ function buildMissionAiPayload(prompt) {
       }
     };
   }
+  if (formTaskDomain === 'bush_pickup_return') {
+    const domain = briefForm?.domainDetails || {};
+    const people = briefForm?.people || {};
+    const facts = briefForm?.facts || {};
+    const role = String(domain.pickupRole || people.passengerRole || 'Backcountry-Kontakt').trim();
+    const name = String(people.passengerName || 'Caleb Turner').trim();
+    const gender = /in\b|leiterin|koordinatorin|wartin|managerin|prueferin|prüferin|fotografin|beobachterin/i.test(role) ? 'female' : 'male';
+    const pronoun = gender === 'female' ? 'sie' : 'ihn';
+    const subjectPronoun = gender === 'female' ? 'sie' : 'er';
+    const work = Array.isArray(domain.workOutside) ? domain.workOutside.filter(Boolean).slice(0, 2) : [];
+    const equipment = Array.isArray(domain.waitingEquipment) ? domain.waitingEquipment.filter(Boolean).slice(0, 3) : [];
+    const workText = work.length ? work.join(' und ') : 'seinen Auftrag draußen abgeschlossen und die Ergebnisse für die Basis gesichert';
+    const equipmentText = equipment.length ? equipment.join(', ') : 'Notizen und leichte Ausrüstung';
+    const returnReason = String(domain.returnReason || briefForm?.storyCore?.whyToday || 'in der Basis wartet der nächste Arbeitsschritt').replace(/[.!?]+$/, '').trim();
+    const weatherRaw = String(facts.weatherAnchor || '').trim();
+    const weatherText = weatherRaw.match(/Wind\s+\d+°\/\d+\s+kt(?:,\s*Sicht\s*(?:>\s*)?\d+(?:\.\d+)?\s*km)?(?:,\s*-?\d+°C)?(?:,\s*WX\s+[^,|]+)?(?:,\s*Kategorie\s+\w+)?/i)?.[0]
+      || weatherRaw.split('|').map(part => part.trim()).filter(Boolean)[0]
+      || '';
+    return {
+      title: `Bush-Pickup bei ${target}`,
+      story: `Draußen bei ${target} ist ${name} mit der Arbeit durch, und als ${role} hat ${subjectPronoun} ${workText}. Du fliegst zunächst leer hinaus und hältst im Anflug den Bush-Strip und seinen Randbereich im Blick. Am vereinbarten Wartepunkt stehen ${equipmentText} schon für den Rückflug bereit. Nach der Landung rollst du zu ${gender === 'female' ? 'ihr' : 'ihm'}, nimmst ${pronoun} auf und machst die Maschine für den Heimweg klar. ${weatherText ? `${weatherText} gibt dir dafür den fliegerischen Rahmen. ` : ''}Danach bringst du ${name} direkt zurück nach ${start}, denn ${returnReason}.`,
+      pax: `0 PAX am Start · 1 PAX Pickup (${role})`,
+      cargo: '-',
+      sceneIntent: {
+        summary: 'A-B-Flug mit Pickup am Bush-Strip; nur der vereinbarte Kontakt wartet am Striprand.',
+        environment: 'Bush-Strip',
+        visibleIdeas: [],
+        avoid: ['keine Notlage', 'keine zweite Arbeitsstelle'],
+        densityHint: 'none',
+        notes: 'Pickup-Objekte kommen aus dem APT/Bush-Arrival-Plan.'
+      },
+      passenger: {
+        name,
+        role,
+        gender,
+        personality: 'ruhig, erfahren, pragmatisch',
+        dialectHint: 'neutral',
+        roleProfile: 'bush_pickup_guest_v1',
+        taskDomain: 'bush_pickup_return',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'niedrig',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Gut, dass du da bist. Die Arbeit ist erledigt und alles ist für den Rückflug nach ${start} bereit.`,
+        trainingPlan: null
+      }
+    };
+  }
   if (formTaskDomain === 'club_utility') {
     const cargoRaw = String(
       dispatchForm?.selectedLoadout?.cargoText
