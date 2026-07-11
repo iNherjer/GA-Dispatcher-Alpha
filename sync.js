@@ -11670,6 +11670,97 @@ let gpsWatchdog;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveGpsConnectionSeq = 0;
 let liveGpsReconnectTimer = null;
+const LIVE_GPS_WAKE_LOCK_STALE_MS = 15000;
+let liveGpsWakeLock = null;
+let liveGpsWakeLockRequestPending = false;
+let liveGpsWakeLockTelemetryTimer = null;
+let liveGpsWakeLockRequestGeneration = 0;
+let liveGpsWakeLockRetryAfter = 0;
+
+function _hasFreshLiveGpsTelemetry(now = Date.now()) {
+    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    return !!window.liveTrackerConnected
+        && Number.isFinite(lastTelemetryAt)
+        && (now - lastTelemetryAt) < LIVE_GPS_WAKE_LOCK_STALE_MS;
+}
+
+function _clearLiveGpsWakeLockTelemetryTimer() {
+    if (!liveGpsWakeLockTelemetryTimer) return;
+    clearTimeout(liveGpsWakeLockTelemetryTimer);
+    liveGpsWakeLockTelemetryTimer = null;
+}
+
+function _scheduleLiveGpsWakeLockTelemetryTimeout() {
+    _clearLiveGpsWakeLockTelemetryTimer();
+    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    if (!window.liveTrackerConnected || !Number.isFinite(lastTelemetryAt)) return;
+    const remainingMs = Math.max(0, LIVE_GPS_WAKE_LOCK_STALE_MS - (Date.now() - lastTelemetryAt));
+    liveGpsWakeLockTelemetryTimer = setTimeout(() => {
+        liveGpsWakeLockTelemetryTimer = null;
+        if (!_hasFreshLiveGpsTelemetry()) {
+            _releaseLiveGpsScreenWakeLock('telemetry-stale');
+        }
+    }, remainingMs + 100);
+}
+
+async function _requestLiveGpsScreenWakeLock(reason = 'tracker-live') {
+    if (!('wakeLock' in navigator) || document.visibilityState !== 'visible' || !_hasFreshLiveGpsTelemetry()) return false;
+    if (liveGpsWakeLock && !liveGpsWakeLock.released) return true;
+    if (liveGpsWakeLockRequestPending || Date.now() < liveGpsWakeLockRetryAfter) return false;
+
+    const requestGeneration = liveGpsWakeLockRequestGeneration;
+    liveGpsWakeLockRequestPending = true;
+    try {
+        const wakeLock = await navigator.wakeLock.request('screen');
+        if (requestGeneration !== liveGpsWakeLockRequestGeneration
+            || document.visibilityState !== 'visible'
+            || !_hasFreshLiveGpsTelemetry()) {
+            try { await wakeLock.release(); } catch (_) {}
+            return false;
+        }
+        liveGpsWakeLock = wakeLock;
+        wakeLock.addEventListener('release', () => {
+            if (liveGpsWakeLock === wakeLock) liveGpsWakeLock = null;
+        }, { once: true });
+        console.info(`[GPS] Bildschirm-Wake-Lock aktiv (${reason}).`);
+        return true;
+    } catch (error) {
+        liveGpsWakeLockRetryAfter = Date.now() + 30000;
+        console.warn('[GPS] Bildschirm-Wake-Lock konnte nicht aktiviert werden:', error?.message || error);
+        return false;
+    } finally {
+        liveGpsWakeLockRequestPending = false;
+    }
+}
+
+async function _releaseLiveGpsScreenWakeLock(reason = 'tracker-offline') {
+    liveGpsWakeLockRequestGeneration += 1;
+    _clearLiveGpsWakeLockTelemetryTimer();
+    const wakeLock = liveGpsWakeLock;
+    liveGpsWakeLock = null;
+    if (!wakeLock || wakeLock.released) return;
+    try {
+        await wakeLock.release();
+        console.info(`[GPS] Bildschirm-Wake-Lock beendet (${reason}).`);
+    } catch (_) {}
+}
+
+function _handleLiveGpsTelemetryForWakeLock() {
+    _scheduleLiveGpsWakeLockTelemetryTimeout();
+    _requestLiveGpsScreenWakeLock('tracker-telemetry');
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') {
+        _releaseLiveGpsScreenWakeLock('document-hidden');
+        return;
+    }
+    if (_hasFreshLiveGpsTelemetry()) {
+        liveGpsWakeLockRetryAfter = 0;
+        _scheduleLiveGpsWakeLockTelemetryTimeout();
+        _requestLiveGpsScreenWakeLock('document-visible');
+    }
+}, { passive: true });
 window.addEventListener('ga-sleepchange', (event) => {
     if (!event?.detail?.sleeping) return;
     const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
@@ -12921,6 +13012,7 @@ window.connectToLiveGPS = async function(syncId) {
                     window.lastLiveFlightData = data.flight;
                 }
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
+                _handleLiveGpsTelemetryForWakeLock();
 
                 // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
                 if (data.traffic && Array.isArray(data.traffic)) {
@@ -12973,6 +13065,7 @@ window.connectToLiveGPS = async function(syncId) {
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
+        _releaseLiveGpsScreenWakeLock('websocket-close');
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');
@@ -13007,6 +13100,7 @@ window.connectToLiveGPS = async function(syncId) {
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
+        _releaseLiveGpsScreenWakeLock('websocket-error');
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');

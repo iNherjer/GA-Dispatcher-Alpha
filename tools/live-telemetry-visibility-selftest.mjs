@@ -34,4 +34,22 @@ assert.match(noMapBranch, /_runLiveMissionTriggerTick\(lat, lon, alt\)/, 'trigge
 assert.match(liveUpdate, /const liveMapVisualActive = _canRunLiveMapVisualWork\(\)/, 'visual visibility gate missing');
 assert.match(liveUpdate, /if \(liveMapVisualActive\) forceLiveMapVisualRefresh = false;\s*_runLiveMissionTriggerTick\(lat, lon, alt\);/, 'visible-map path must finish with trigger tick');
 
+const wakeLockHelpers = sourceBetween(
+    'const LIVE_GPS_WAKE_LOCK_STALE_MS = 15000;',
+    "window.addEventListener('ga-sleepchange'"
+);
+assert.match(wakeLockHelpers, /navigator\.wakeLock\.request\('screen'\)/, 'screen wake lock request missing');
+assert.match(wakeLockHelpers, /_hasFreshLiveGpsTelemetry\(\)/, 'wake lock must require fresh tracker telemetry');
+assert.match(wakeLockHelpers, /_releaseLiveGpsScreenWakeLock\('telemetry-stale'\)/, 'stale telemetry must release wake lock');
+assert.match(wakeLockHelpers, /visibilitychange/, 'visibility recovery for wake lock missing');
+assert.match(wakeLockHelpers, /_requestLiveGpsScreenWakeLock\('document-visible'\)/, 'wake lock must be reacquired when document becomes visible');
+
+const liveSocketHandlers = sourceBetween(
+    'liveGpsSocket.onmessage = (event) =>',
+    'function _headingDiffDeg(a, b)'
+);
+assert.match(liveSocketHandlers, /updateLivePlanePosition\(data\.lat, data\.lon, data\.alt, data\.hdg\);\s*_handleLiveGpsTelemetryForWakeLock\(\);/, 'GPS telemetry must drive wake lock');
+assert.match(liveSocketHandlers, /_releaseLiveGpsScreenWakeLock\('websocket-close'\)/, 'websocket close must release wake lock');
+assert.match(liveSocketHandlers, /_releaseLiveGpsScreenWakeLock\('websocket-error'\)/, 'websocket error must release wake lock');
+
 console.log('[ok] live telemetry visibility selftest');
