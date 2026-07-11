@@ -4574,6 +4574,13 @@ window.paxPlayAudioCue = function(cueId = 'none', options = {}) {
     return _paxPlayAudioCue(id, seed, options || {}, _paxMissionEpoch);
 };
 
+window.paxPrepareAudioCue = function(cueId = 'none') {
+    const id = _paxNormalizeAudioCueId(cueId, 'none');
+    const def = _paxAudioCueDef(id);
+    if (!def || def.disabled) return Promise.resolve(false);
+    return _paxResolveAudioCueClips(def.id).then(clips => Array.isArray(clips) && clips.length > 0);
+};
+
 window.paxGetAudioCueCatalog = function() {
     return Object.fromEntries(Object.entries(_PAX_AUDIO_CUE_CATALOG).map(([id, def]) => [
         id,
@@ -6382,7 +6389,7 @@ window.paxVoicePrepareBoarding = function() {
     return textPromise;
 };
 
-window.paxVoicePlayBoarding = async function() {
+window.paxVoicePlayBoarding = async function(options = {}) {
     const epoch = _paxMissionEpoch;
     const key = _paxMissionAudioKey('boarding');
     if (_paxBoardingDone) return true;
@@ -6401,7 +6408,7 @@ window.paxVoicePlayBoarding = async function() {
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
-        const cueId = (window.activePassenger || _missionHasPax())
+        const cueId = options?.playCue !== false && (window.activePassenger || _missionHasPax())
             ? _paxMissionAudioCueId('cargo', 'passenger_load', 'boarding_pax')
             : 'none';
         await _speakPreparedText(key, text, speaker, 'Boarding', {
@@ -7795,7 +7802,7 @@ ${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : '
 TASK-DOMAIN: ${cargoCtx.taskDomain}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
 
-Moment: Boarding und Verladen laufen gerade, der Start steht gleich an.${wx ? ` ${wx}` : ''}
+Moment: Die Verladung läuft gerade, der Start steht gleich an.${wx ? ` ${wx}` : ''}
 Sprich direkt zum Piloten als Lademeister am Heimatplatz. Sag kurz, was wir heute laden, warum diese Fracht am Ziel gebraucht wird und worauf beim Flug oder bei der Uebergabe zu achten ist. Erwaehne die Ladung immer direkt beim Namen: ${cargoLine}. Keine Passagierrolle, kein Einsteigen, kein Smalltalk ueber Sitzplaetze.${opsNotes ? ` Nutze diese Einsatznotizen grob als Leitplanke: ${opsNotes}.` : ''}
 Max 3-4 Sätze.${_toneHint()}`;
     }
@@ -7821,8 +7828,8 @@ Max 3-4 Sätze.${_toneHint()}`;
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
-Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
-Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz beim Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
+Moment: Das Boarding ist abgeschlossen, die Tür ist geschlossen und der Start steht gleich an.${wx ? ' ' + wx : ''}
+Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz direkt nach dem Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
 Kein fester Satzbau und keine Vorlage nachsprechen; variiere natürlich.
 	${equipmentContextLine}
 	${guidance.reqLine}${boardingKnowledgeFact}${trainingBoardingRule}
@@ -8208,6 +8215,7 @@ function _farewellPrompt(record) {
     return `${ctx}
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
+ABLAUF: Die Flugzeugtür ist geöffnet; du sitzt noch an Bord und verabschiedest dich unmittelbar vor dem Aussteigen. Behaupte nicht, bereits ausgestiegen, am Fahrzeug oder abgeholt zu sein.
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
 ${farewellTask}${poiRideHomeTask}${bushContinuityHint}${bushReconOutcomeHint}${followUpDeboardingHint}${profLandingHint}${farewellDriftGuard} Max 3 Sätze.${_toneHint()}`;
 }
@@ -8312,6 +8320,24 @@ function _activeBushPickupPassengerContract() {
     return isBushPickupPassenger ? { contract, bush } : null;
 }
 
+function _bushPickupArrivalVoiceBlockedAtPickupStrip() {
+    const active = _activeBushPickupPassengerContract();
+    if (!active) return false;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const progress = md?.bushProgress
+        || md?.missionContract?.bushProgress
+        || window.activeMissionContract?.bushProgress
+        || null;
+    const status = String(progress?.status || '').trim().toLowerCase();
+    return [
+        'outbound_empty',
+        'pickup_ready',
+        'pickup_loading',
+        'pickup_complete',
+        'return_leg'
+    ].includes(status);
+}
+
 function _pickupBoardingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -8327,12 +8353,12 @@ function _pickupBoardingPrompt() {
     const manifestSpeechRule = 'WICHTIG: Keine Manifest- oder UI-Sprache. Sage nie Dinge wie "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload" oder "ich bin jetzt als PAX geladen". Sprich einfach natuerlich als Person, die gerade eingestiegen ist.';
     return `${ctx}
 
-Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch ${pickupPlaceText} oder rollen langsam an.${wx ? ' ' + wx : ''}
+Moment: Der Pickup ist gerade abgeschlossen, die Tür ist geschlossen und ich bin jetzt an Bord; wir stehen noch ${pickupPlaceText} oder rollen langsam an.${wx ? ' ' + wx : ''}
 ${storyAnchor}
 ${betweenFlights}
 ${storyData.boardingCue ? `Ich-Cue für diesen Moment: "${storyData.boardingCue}"` : ''}
 ${_bushPickupStageProgression('boarding')}
-Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz und natürlich, dass du bereit bist, verorte dich am Treffpunkt (${storyData.exactWhere}) und erwähne ein konkretes Detail aus der Zeit seit dem ersten Flug. Lege dabei den thematischen Faden für die spätere Rückflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein längerer Debrief.
+Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz und natürlich, dass du bereit bist, verorte dich am Treffpunkt (${storyData.exactWhere}) und erwähne ein konkretes Detail aus der Zeit seit dem ersten Flug. Lege dabei den thematischen Faden für die spätere Rückflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt nach dem Einsteigen und Türschließen, noch kein längerer Debrief.
 Harte Perspektiv-Regel: Verwende "ich" für den abgeholten Gast. Sage niemals, du hättest "den Gast", "den Passagier", "ihn" oder "sie" eingesammelt, eingeladen oder abgeholt. Das hat der Pilot getan.
 ${manifestSpeechRule}
 Max 3 Sätze.${_toneHint()}`;
@@ -8533,6 +8559,10 @@ window.triggerPaxGreeting = async function(lat, lon, options = {}) {
 window.triggerPaxAtTarget = async function(flightData) {
     _paxLog(`triggerPaxAtTarget | tts:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
     if (_paxAtTargetDone || !window.activePassenger || !_missionHasPax()) return;
+    if (_bushPickupArrivalVoiceBlockedAtPickupStrip()) {
+        _paxLog('AtTarget unterdrueckt: Bush-Pickup steht noch am Abholstrip', 'state');
+        return;
+    }
     if (_paxMissionEndVoiceActive()) {
         _paxAtTargetDone = true;
         _paxLandingPhaseAnnounced = true;
@@ -8735,6 +8765,10 @@ window.triggerPaxFarewell = async function(record) {
 
 window.triggerPaxLandingRoll = async function(record) {
     if (!window.activePassenger || !_missionHasPax()) return;
+    if (_bushPickupArrivalVoiceBlockedAtPickupStrip()) {
+        _paxLog('Landing-Roll unterdrueckt: Bush-Pickup steht noch am Abholstrip', 'state');
+        return;
+    }
     if (_paxMissionEndVoiceActive()) return;
     const prompt = _landingRollPrompt(record);
     if (!prompt) return;

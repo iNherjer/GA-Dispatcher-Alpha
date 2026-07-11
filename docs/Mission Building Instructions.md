@@ -198,9 +198,18 @@ Wichtig: Der Voice-Layer sollte auf Runtime-Phasen reagieren, nicht selbst Missi
 1. `handleMissionStartBannerAction()`
 2. `planned -> prepare`
 3. `prepare -> boarding`
-4. `finishMissionCargoLoadingAndStart()`
-5. `boarding -> boarded`
-6. `manualMissionStart()` oder Sim-Äquivalent
+4. Bei PAX: Person läuft zum Flugzeug, Tür ist offen, Person verschwindet am Boarding-Punkt
+5. Tracker meldet `mission_scene_boarding_stage: passenger_boarded`
+6. Boarding-Cue läuft während die Tür schließt
+7. Nach dem finalen Boarding-ACK folgt die Boarding-Voice
+8. Pflichtladung vollständig laden, Dispatch-Liste unterschreiben und Sim-Payload prüfen
+9. `finishMissionCargoLoadingAndStart()`
+10. Erst nach Boarding-Voice und bestätigter Verladung: `boarding -> boarded`
+11. `manualMissionStart()` oder Sim-Äquivalent
+
+Cargo-only mit `0 PAX` überspringt die Personenanimation vollständig. Ground Crew darf weder als Ersatzpassagier boarden noch beim Missionsende als Phantom-PAX gespawnt werden.
+
+Die koordinierte Deboarding-Sequenz setzt Tracker `v278` oder neuer voraus. Mit einem älteren/unerkannten Tracker läuft der Farewell-Fallback ohne unkoordinierte Personenanimation.
 
 ### 4.3 Unterwegs
 
@@ -238,12 +247,18 @@ Normaler Abschlussweg:
 
 1. Runtime erkennt endfähigen Zustand
 2. ggf. Unload/Pickup-Dialog
-3. Farewell
-4. Deboarding/Handoff
-5. Outcome finalisieren
-6. `closingPending`
-7. `completeMissionClose()`
-8. `missionRuntimeReset()`
+3. Bei PAX: Deboarding-Cue, dann Tür öffnen
+4. Tracker meldet `mission_scene_deboarding_stage: door_open`
+5. Farewell läuft bei offener Tür
+6. Nach Ende der Farewell-Voice erhält der Tracker `mission_scene_deboarding_continue`
+7. PAX spawnt neben dem Flugzeug, Tür schließt, PAX läuft zum Fahrzeug/Handoff
+8. PAX despawnt, Fahrzeug fährt ab und despawnt
+9. Erst nach finalem Deboarding-ACK Outcome finalisieren
+10. `closingPending`
+11. `completeMissionClose()`
+12. `missionRuntimeReset()`
+
+Cargo-only spricht nach der Übergabe die Receiver-/Empfänger-Voice, startet aber keine Deboarding-Animation.
 
 ## 5. Ground Actions als Kernvertrag
 

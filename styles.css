@@ -16909,16 +16909,6 @@ body.theme-ops1940 .boarding-toggle input[type="checkbox"]:checked::after {
     background: linear-gradient(180deg, #4a2d29, #21100e);
 }
 
-.mission-cargo-auto-btn.is-on {
-    color: #dffff8;
-    border-color: rgba(68, 255, 204, 0.55);
-    background: linear-gradient(180deg, rgba(34, 98, 86, 0.92), rgba(10, 38, 34, 0.94));
-}
-
-.mission-cargo-auto-btn.is-off {
-    color: rgba(255, 213, 208, 0.86);
-}
-
 body.theme-ops1940 .boarding-scene-toolbar {
     align-items: center;
 }
@@ -16990,15 +16980,6 @@ body.theme-ops1940 .mission-reset-btn {
     border-color: #7a321f;
     background:
         linear-gradient(180deg, #6a2d20, #31110c 64%, #090302),
-        var(--ops-atlas);
-    background-size: auto, 200% 200%;
-}
-
-body.theme-ops1940 .mission-cargo-auto-btn.is-on {
-    color: #d8fff3;
-    border-color: rgba(93, 210, 175, 0.58);
-    background:
-        linear-gradient(180deg, #23614f, #09231d 64%, #020605),
         var(--ops-atlas);
     background-size: auto, 200% 200%;
 }

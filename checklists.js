@@ -956,7 +956,8 @@
     function cargoPassengerSceneBusy() {
         const status = window.missionSceneStatus || {};
         return !!(
-            status.boardingRequested
+            status.boardingPreparing
+            || status.boardingRequested
             || status.boardingActive
             || status.deboardingRequested
             || status.deboardingActive
