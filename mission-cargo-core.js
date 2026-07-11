@@ -2024,7 +2024,10 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const reloadDistanceM = _missionCargoDistanceToUnloadM(item, livePos);
         const canReloadNearby = _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
         const passengerSceneBusy = isPassenger && manualPassengerSceneBusy;
-        const passengerUsesMainBoarding = isPassenger && item.pickupLocation !== 'target' && !missionRuntime.active;
+        const passengerUsesMainBoarding = isPassenger
+            && item.pickupLocation !== 'target'
+            && item.status !== 'unloaded'
+            && !missionRuntime.active;
         const passengerSceneBusyLabel = passengerSceneBusy ? '... Szene' : '';
         let action = '';
         if (isUnload && isPassenger && !unloaded && unloadCompletesMission) {
@@ -2249,6 +2252,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     }
     if (_missionCargoIsPassengerItem(item)
         && item.pickupLocation !== 'target'
+        && item.status !== 'unloaded'
         && !missionRuntime.active
         && options.skipAnimation !== true) {
         window.missionCargoStatus.error = 'Der Passagier steigt über den regulären Boarding-Ablauf ein.';
