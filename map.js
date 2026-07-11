@@ -6,7 +6,9 @@ if (!document.getElementById('route-anim-style')) {
     style.innerHTML = `
         @keyframes routeDashAnim { to { stroke-dashoffset: -20; } }
         .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }
+        .mission-arrival-guide-line { animation: routeDashAnim 1.5s linear infinite; }
         .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
+        .low-fps-mode .mission-arrival-guide-line { animation: none !important; }
         .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
         .mission-target-location-label {
             background: rgba(17, 24, 39, 0.92);
@@ -342,6 +344,7 @@ let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
 let vpMissionSceneDebugLayer = null;
 let vpMissionSceneTargetLayer = null;
+let vpMissionArrivalGuideLine = null;
 window.vpMissionSceneDebugOverlayEnabled = localStorage.getItem('ga_debug_mission_scene_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
@@ -887,6 +890,69 @@ function renderMissionSceneTargetMarker() {
     if (typeof marker.bringToFront === 'function') marker.bringToFront();
 }
 window.vpRenderMissionSceneTargetMarker = renderMissionSceneTargetMarker;
+
+const MISSION_ARRIVAL_GUIDE_MAX_NM = 1.0;
+
+function clearMissionArrivalGuideLine() {
+    if (!vpMissionArrivalGuideLine) return false;
+    try {
+        if (map && map.hasLayer(vpMissionArrivalGuideLine)) map.removeLayer(vpMissionArrivalGuideLine);
+    } catch (_) {}
+    vpMissionArrivalGuideLine = null;
+    return true;
+}
+
+function ensureMissionArrivalGuidePane() {
+    if (!map || typeof L === 'undefined') return null;
+    const name = 'missionArrivalGuidePane';
+    let pane = map.getPane(name);
+    if (!pane && typeof map.createPane === 'function') pane = map.createPane(name);
+    if (pane) {
+        pane.style.zIndex = '765';
+        pane.style.pointerEvents = 'none';
+    }
+    return name;
+}
+
+function updateMissionArrivalGuideLine(options = {}) {
+    if (!map || typeof L === 'undefined') return false;
+    const lat = Number(options.lat ?? window.lastLiveGpsPos?.lat);
+    const lon = Number(options.lon ?? window.lastLiveGpsPos?.lon);
+    const missionActive = options.missionActive === true;
+    const onGround = options.onGround === true;
+    const target = collectMissionAptArrivalLocation();
+    if (!missionActive || !onGround || !Number.isFinite(lat) || !Number.isFinite(lon) || !target) {
+        clearMissionArrivalGuideLine();
+        return false;
+    }
+
+    const distanceNm = map.distance([lat, lon], [target.lat, target.lon]) / 1852;
+    if (!Number.isFinite(distanceNm) || distanceNm > MISSION_ARRIVAL_GUIDE_MAX_NM) {
+        clearMissionArrivalGuideLine();
+        return false;
+    }
+
+    const points = [[lat, lon], [target.lat, target.lon]];
+    if (!vpMissionArrivalGuideLine) {
+        vpMissionArrivalGuideLine = L.polyline(points, {
+            pane: ensureMissionArrivalGuidePane() || undefined,
+            color: '#ff9f1c',
+            opacity: 0.96,
+            weight: 2,
+            lineCap: 'round',
+            lineJoin: 'round',
+            dashArray: '6,8',
+            className: 'mission-arrival-guide-line',
+            interactive: false
+        }).addTo(map);
+    } else {
+        vpMissionArrivalGuideLine.setLatLngs(points);
+        if (!map.hasLayer(vpMissionArrivalGuideLine)) vpMissionArrivalGuideLine.addTo(map);
+    }
+    return true;
+}
+window.vpUpdateMissionArrivalGuideLine = updateMissionArrivalGuideLine;
+window.vpClearMissionArrivalGuideLine = clearMissionArrivalGuideLine;
 
 window.vpToggleMissionSceneDebugOverlay = function(forceState) {
     const next = (typeof forceState === 'boolean') ? forceState : !window.vpMissionSceneDebugOverlayEnabled;

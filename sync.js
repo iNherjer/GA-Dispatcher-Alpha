@@ -13159,6 +13159,18 @@ function _canRunLiveMapVisualWork() {
     return !!(board && board.classList.contains('active'));
 }
 
+function _refreshMissionArrivalGuideLine(lat = null, lon = null) {
+    if (typeof window.vpUpdateMissionArrivalGuideLine !== 'function') return false;
+    const pos = window.lastLiveGpsPos || {};
+    const phase = String(missionRuntime.phase || '').toLowerCase();
+    return window.vpUpdateMissionArrivalGuideLine({
+        lat: Number(lat ?? pos.lat),
+        lon: Number(lon ?? pos.lon),
+        onGround: window.lastLiveFlightData?.onGround === true,
+        missionActive: !!missionRuntime.active && !missionRuntime.closingPending && phase !== 'closing'
+    });
+}
+
 function _liveTrailDistanceM(a, b) {
     if (!Array.isArray(a) || !Array.isArray(b)) return Number.POSITIVE_INFINITY;
     if (typeof map !== 'undefined' && map && typeof map.distance === 'function') {
@@ -13276,6 +13288,7 @@ window.gaRequestLiveMapVisualRefresh = function(reason = 'map-visible') {
     lastPredictionUpdate = 0;
     liveSnailTrailDirty = true;
     if (_canRunLiveMapVisualWork()) {
+        _refreshMissionArrivalGuideLine();
         _scheduleLiveTrafficMapRender(window.vpTrafficData || [], window.lastLiveGpsPos?.alt, { immediate: true });
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') {
             window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -13312,6 +13325,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
     const liveMapVisualActive = _canRunLiveMapVisualWork();
 
+    if (liveMapVisualActive) _refreshMissionArrivalGuideLine(lat, lon);
     if (liveMapVisualActive && typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') {
         window.scheduleTerrainAvoidOverlayUpdate(false);
     }
