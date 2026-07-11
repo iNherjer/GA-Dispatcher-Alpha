@@ -1425,11 +1425,17 @@ function _missionCargoPayloadStatusMessageHtml() {
         return '<div class="mission-cargo-payload-message is-pending">Sim-Zuladung wird nach dem Setzen erneut geprueft ...</div>';
     }
     if (verification?.status === 'unstable') {
-        const mismatch = Array.isArray(verification?.check?.mismatches) ? verification.check.mismatches[0] : null;
-        const detail = mismatch
-            ? ` S${Math.round(Number(mismatch.index) || 0)} Ziel ${Math.round(Number(mismatch.targetWeightLbs) || 0)} lbs, Sim ${Number.isFinite(Number(mismatch.actualWeightLbs)) ? Math.round(Number(mismatch.actualWeightLbs)) : '-'} lbs.`
+        const plan = window.missionCargoStatus?.payloadPlan || null;
+        const missionWeight = Number(plan?.missionWeightLbs);
+        const stationTargets = (Array.isArray(plan?.stations) ? plan.stations : [])
+            .filter(row => Number.isFinite(Number(row?.weightLbs)))
+            .map(row => `S${Math.round(Number(row.index) || 0)} ${Math.round(Number(row.weightLbs))} lbs`)
+            .join(' · ');
+        const weightHint = Number.isFinite(missionWeight)
+            ? ` Missionszuladung: ${Math.round(missionWeight)} lbs.`
             : '';
-        return `<div class="mission-cargo-payload-message is-warn">Sim hat die Zuladung kurz angenommen, aber wieder zurueckgesetzt.${detail} Dieses Flugzeug verwaltet Weight & Balance vermutlich selbst; bitte im aircraft-eigenen Lade-/Tablet-Menue setzen.</div>`;
+        const stationHint = stationTargets ? ` Zielwerte: ${stationTargets}.` : '';
+        return `<div class="mission-cargo-payload-message is-warn">Die automatische Sim-Zuladung ist bei diesem Flugzeug nicht moeglich.${weightHint}${stationHint} Wenn du die Zuladung im Simulator abbilden moechtest, setze diese Werte bitte manuell im Weight-&amp;-Balance- oder Tablet-Menue. Die Mission kann trotzdem gestartet werden.</div>`;
     }
     if (verification?.status === 'ok') {
         return '<div class="mission-cargo-payload-message is-ok">Sim-Zuladung stabil uebernommen.</div>';
@@ -2081,21 +2087,25 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · ${signatureAnimating ? 'wird eingetragen' : (signatureReady ? 'Klick: Signatur löschen' : (signatureActionEnabled ? 'Klick: unterschreiben' : 'Pflichtladung zuerst vollständig laden'))}</div>
         </div>` : '';
     const pickupReadyToConfirm = isPickup && requiredPickupMissing === 0 && visibleItems.length > 0;
-    const primaryActionJs = (!isUnload && !isPickup && !signatureReady)
+    const primaryActionJs = (!isUnload && !isPickup && window.missionCargoStatus?.loadConfirmed)
+        ? 'window.closeMissionCargoDialog && closeMissionCargoDialog()'
+        : ((!isUnload && !isPickup && !signatureReady)
         ? 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()'
         : (isUnload
         ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
         : (isPickup
             ? 'window.finishMissionCargoPickupAndContinue && finishMissionCargoPickupAndContinue()'
-            : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'));
+            : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()')));
     const primaryActionLabel = payloadFinalizeRunning && !isUnload && !isPickup
         ? 'Sim-Zuladung wird geprüft ...'
+        : ((!isUnload && !isPickup && window.missionCargoStatus?.loadConfirmed)
+        ? 'Hinweis verstanden - Fenster schließen'
         : ((!isUnload && !isPickup && !signatureReady)
         ? (signatureAnimating ? 'Unterschrift wird eingetragen ...' : 'Unterschrift eintragen')
         : (isUnload
         ? (unloadCompletesMission && passengerDeboardPending && requiredUnloadBlockingMissing === 0 ? 'Abschied und Deboarding starten' : (unloadCompletesMission ? 'Entladung abgeschlossen - Mission beenden' : 'Entladung abschliessen'))
-        : (isPickup ? 'Pickup bestätigen und Rückflug freigeben' : 'Verladung abschließen')));
-    const secondaryAction = (!isUnload && !isPickup && signatureReady)
+        : (isPickup ? 'Pickup bestätigen und Rückflug freigeben' : 'Verladung abschließen'))));
+    const secondaryAction = (!isUnload && !isPickup && signatureReady && !window.missionCargoStatus?.loadConfirmed)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
     const listMarkup = (!isUnload && !isPickup)
@@ -2535,22 +2545,17 @@ window.finishMissionCargoLoadingAndStart = async function() {
             _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
             return false;
         }
-        const detail = String(window.missionCargoStatus?.error || payloadAck?.error || payloadAck?.status || 'nicht bestätigt');
-        let proceed = false;
-        try {
-            proceed = !!confirm(`Die Sim-Zuladung konnte nicht stabil bestätigt werden (${detail}).\n\nWenn dieses Flugzeug Weight & Balance selbst verwaltet, dort bitte kontrollieren. Mission trotzdem startbereit machen?`);
-        } catch (_) {}
-        if (!proceed) {
-            _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-            return false;
-        }
         window.missionCargoStatus.payloadStartOverride = true;
     }
     window.missionCargoStatus.loadConfirmed = true;
     _missionCargoRemoveLoadedSceneObjects('cargo-finish-loading');
-    window.closeMissionCargoDialog?.();
     if (!_missionCargoMaybePromoteStartReady('cargo-finish-loading')) {
         _missionCargoScheduleStartReadyPromotion('cargo-finish-loading');
+    }
+    if (window.missionCargoStatus.payloadStartOverride) {
+        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    } else {
+        window.closeMissionCargoDialog?.();
     }
     _updateMissionRuntimeUi();
     return true;
