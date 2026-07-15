@@ -2,61 +2,100 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-test-assets",
-    "version": "0.5.9",
+    "version": "0.5.10",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
     {
-      "key": "hangar",
-      "folder": "VFRHomebaseTestHangar",
-      "title": "VFR Multitool Homebase Test Hangar",
-      "kind": "hangar",
-      "label": "Homebase-Hangar",
-      "version": "1.0.0",
-      "missionSpawnable": false,
-      "missionTags": [
-        "homebase",
-        "hangar",
-        "shelter"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "openParking",
-      "folder": "VFRHomebaseOpenParking",
-      "title": "VFR Multitool Homebase Open Parking",
-      "kind": "hangar",
-      "label": "Offener Parkbereich",
-      "version": "1.0.0",
-      "missionSpawnable": false,
-      "missionTags": [
-        "homebase",
-        "parking"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "generator",
-      "folder": "VFRHomebaseGenerator",
-      "title": "VFR Multitool Homebase Generator",
-      "kind": "object",
+      "key": "assetShelf",
+      "version": "1.0.1",
+      "folder": "VFRHomebaseAssetShelf",
+      "title": "VFR Multitool Homebase Asset Shelf",
+      "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
       "group": "Ausstattung",
-      "label": "Mobiles Aggregat",
-      "icon": "⚡",
-      "version": "1.0.0",
+      "kind": "object",
       "missionSpawnable": true,
       "missionTags": [
-        "power",
-        "equipment",
+        "tools",
+        "supplies",
         "maintenance"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "briefcase",
+      "folder": "VFRHomebaseBriefcase",
+      "title": "VFR Multitool Homebase Briefcase",
+      "label": "Briefcase",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "supplies"
       ],
       "missionRoles": [
         "cargo",
         "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T13:19:47.423Z"
+    },
+    {
+      "key": "cabin-trolley",
+      "folder": "VFRHomebaseCabinTrolley",
+      "title": "VFR Multitool Homebase Cabin Trolley",
+      "label": "Cabin Trolley",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T13:19:55.267Z"
+    },
+    {
+      "key": "chair",
+      "folder": "VFRHomebaseChair",
+      "title": "VFR Multitool Homebase Chair",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Stuhl",
+      "icon": "S",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "office",
+        "furniture"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "customWindsock",
+      "folder": "VFRHomebaseWindsock",
+      "title": "VFR Multitool Homebase Windsock",
+      "kind": "internal",
+      "preview": false,
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "internal",
+        "weather"
+      ],
+      "missionRoles": [
+        "internal"
       ]
     },
     {
@@ -78,40 +117,21 @@
       ]
     },
     {
-      "key": "pinboard",
-      "folder": "VFRHomebasePinboard",
-      "title": "VFR Multitool Homebase Pinboard",
+      "key": "europeanCaravan",
+      "folder": "VFRHomebaseEuropeanCaravan",
+      "title": "VFR Multitool Homebase European Caravan",
       "kind": "object",
       "group": "Ausstattung",
-      "label": "Pinnwand",
+      "label": "Wohnwagen (einachsig)",
       "icon": "W",
       "version": "1.0.0",
       "missionSpawnable": true,
       "missionTags": [
-        "office",
-        "planning"
+        "vehicle",
+        "support",
+        "accommodation"
       ],
       "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "toolCart",
-      "folder": "VFRHomebaseToolCart",
-      "title": "VFR Multitool Homebase Tool Cart",
-      "kind": "object",
-      "group": "Ausstattung",
-      "label": "Werkzeugwagen",
-      "icon": "R",
-      "version": "1.0.0",
-      "missionSpawnable": true,
-      "missionTags": [
-        "tools",
-        "maintenance",
-        "cargo"
-      ],
-      "missionRoles": [
-        "cargo",
         "scene-prop"
       ]
     },
@@ -136,6 +156,43 @@
       ]
     },
     {
+      "key": "generator",
+      "folder": "VFRHomebaseGenerator",
+      "title": "VFR Multitool Homebase Generator",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Mobiles Aggregat",
+      "icon": "⚡",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "power",
+        "equipment",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "hangar",
+      "folder": "VFRHomebaseTestHangar",
+      "title": "VFR Multitool Homebase Test Hangar",
+      "kind": "hangar",
+      "label": "Homebase-Hangar",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "hangar",
+        "shelter"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
       "key": "mxPavilion",
       "folder": "VFRHomebaseMXPavilion",
       "title": "VFR Multitool Homebase MX Pavilion",
@@ -155,12 +212,120 @@
       ]
     },
     {
-      "key": "woodCrateSmall",
-      "folder": "VFRHomebaseWoodCrateSmall",
-      "title": "VFR Multitool Homebase Wood Crate Small",
+      "key": "openParking",
+      "folder": "VFRHomebaseOpenParking",
+      "title": "VFR Multitool Homebase Open Parking",
+      "kind": "hangar",
+      "label": "Offener Parkbereich",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "parking"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "pinboard",
+      "folder": "VFRHomebasePinboard",
+      "title": "VFR Multitool Homebase Pinboard",
       "kind": "object",
       "group": "Ausstattung",
-      "label": "Holzkiste klein",
+      "label": "Pinnwand",
+      "icon": "W",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "office",
+        "planning"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "spawnProbe",
+      "folder": "VFRHomebaseSpawnProbe",
+      "title": "VFR Multitool Homebase Spawn Probe",
+      "kind": "internal",
+      "label": "Gelber Spawnpunkt-Messkegel",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "internal",
+        "diagnostic"
+      ],
+      "missionRoles": [
+        "internal"
+      ]
+    },
+    {
+      "key": "toolCart",
+      "folder": "VFRHomebaseToolCart",
+      "title": "VFR Multitool Homebase Tool Cart",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Werkzeugwagen",
+      "icon": "R",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "tools",
+        "maintenance",
+        "cargo"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "trafficCone",
+      "folder": "VFRHomebaseTrafficCone",
+      "title": "VFR Multitool Homebase Traffic Cone",
+      "kind": "object",
+      "group": "Flugplatz",
+      "label": "Traffic Cone",
+      "icon": "K",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "ground-support",
+        "safety"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ]
+    },
+    {
+      "key": "travel-suitcase",
+      "folder": "VFRHomebaseTravelSuitcase",
+      "title": "VFR Multitool Homebase Travel Suitcase",
+      "label": "Travel Suitcase",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T13:20:04.415Z"
+    },
+    {
+      "key": "woodCrateLarge",
+      "folder": "VFRHomebaseWoodCrateLarge",
+      "title": "VFR Multitool Homebase Wood Crate Large",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Holzkiste groß",
       "icon": "K",
       "version": "1.0.0",
       "missionSpawnable": true,
@@ -195,12 +360,12 @@
       ]
     },
     {
-      "key": "woodCrateLarge",
-      "folder": "VFRHomebaseWoodCrateLarge",
-      "title": "VFR Multitool Homebase Wood Crate Large",
+      "key": "woodCrateSmall",
+      "folder": "VFRHomebaseWoodCrateSmall",
+      "title": "VFR Multitool Homebase Wood Crate Small",
       "kind": "object",
       "group": "Ausstattung",
-      "label": "Holzkiste groß",
+      "label": "Holzkiste klein",
       "icon": "K",
       "version": "1.0.0",
       "missionSpawnable": true,
@@ -213,112 +378,7 @@
         "cargo",
         "scene-prop"
       ]
-    },
-    {
-      "key": "europeanCaravan",
-      "folder": "VFRHomebaseEuropeanCaravan",
-      "title": "VFR Multitool Homebase European Caravan",
-      "kind": "object",
-      "group": "Ausstattung",
-      "label": "Wohnwagen (einachsig)",
-      "icon": "W",
-      "version": "1.0.0",
-      "missionSpawnable": true,
-      "missionTags": [
-        "vehicle",
-        "support",
-        "accommodation"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "chair",
-      "folder": "VFRHomebaseChair",
-      "title": "VFR Multitool Homebase Chair",
-      "kind": "object",
-      "group": "Ausstattung",
-      "label": "Stuhl",
-      "icon": "S",
-      "version": "1.0.0",
-      "missionSpawnable": true,
-      "missionTags": [
-        "office",
-        "furniture"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "trafficCone",
-      "folder": "VFRHomebaseTrafficCone",
-      "title": "VFR Multitool Homebase Traffic Cone",
-      "kind": "object",
-      "group": "Flugplatz",
-      "label": "Traffic Cone",
-      "icon": "K",
-      "version": "1.0.0",
-      "missionSpawnable": true,
-      "missionTags": [
-        "ground-support",
-        "safety"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
-    },
-    {
-      "key": "spawnProbe",
-      "folder": "VFRHomebaseSpawnProbe",
-      "title": "VFR Multitool Homebase Spawn Probe",
-      "kind": "internal",
-      "label": "Gelber Spawnpunkt-Messkegel",
-      "version": "1.0.0",
-      "missionSpawnable": false,
-      "missionTags": [
-        "internal",
-        "diagnostic"
-      ],
-      "missionRoles": [
-        "internal"
-      ]
-    },
-    {
-      "key": "customWindsock",
-      "folder": "VFRHomebaseWindsock",
-      "title": "VFR Multitool Homebase Windsock",
-      "kind": "internal",
-      "preview": false,
-      "version": "1.0.0",
-      "missionSpawnable": false,
-      "missionTags": [
-        "internal",
-        "weather"
-      ],
-      "missionRoles": [
-        "internal"
-      ]
-    },
-    {
-      "key": "assetShelf",
-      "version": "1.0.1",
-      "folder": "VFRHomebaseAssetShelf",
-      "title": "VFR Multitool Homebase Asset Shelf",
-      "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
-      "group": "Ausstattung",
-      "kind": "object",
-      "missionSpawnable": true,
-      "missionTags": [
-        "tools",
-        "supplies",
-        "maintenance"
-      ],
-      "missionRoles": [
-        "scene-prop"
-      ]
     }
   ],
-  "updatedAt": "2026-07-15T12:06:33.967Z"
+  "updatedAt": "2026-07-15T13:21:45.030Z"
 }
