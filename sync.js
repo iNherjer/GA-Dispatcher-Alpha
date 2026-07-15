@@ -11235,6 +11235,27 @@ function setLastSyncedPayload() {
     };
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
 }
+
+async function _syncHomebasePush(reason = 'app-push') {
+    if (typeof window.homebaseCloudPush !== 'function') return { ok: true, skipped: true };
+    try {
+        return await window.homebaseCloudPush(reason);
+    } catch (error) {
+        try { console.warn('[Sync] Homebase-Push fehlgeschlagen:', error); } catch (_) {}
+        return { ok: false, error: error?.message || String(error) };
+    }
+}
+
+async function _syncHomebasePull(reason = 'app-pull') {
+    if (typeof window.homebaseCloudPull !== 'function') return { ok: true, skipped: true };
+    try {
+        return await window.homebaseCloudPull(reason);
+    } catch (error) {
+        try { console.warn('[Sync] Homebase-Pull fehlgeschlagen:', error); } catch (_) {}
+        return { ok: false, error: error?.message || String(error) };
+    }
+}
+
 async function triggerCloudSave(immediate = false) {
     const id = getSyncId();
     const t = document.getElementById('syncToggle');
@@ -11248,7 +11269,12 @@ async function triggerCloudSave(immediate = false) {
         if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) return;
         setNavComLed('navcomSaveBtn', 'syncing');
     }
+    // Homebase bleibt ein eigener, revisionsgesicherter Datensatz. Der normale
+    // App-Push startet beide Uploads gemeinsam, ohne eine nie geöffnete bzw.
+    // unveränderte Workbench als leeren Entwurf hochzuladen.
+    const homebasePushPromise = _syncHomebasePush(immediate === 'manual' ? 'app-manual-push' : 'app-close-push');
     if (immediate !== 'manual' && _syncHasLocalDraftMission()) {
+        await homebasePushPromise;
         updateSyncStatus("Cloud: Missionsentwurf lokal");
         return;
     }
@@ -11267,11 +11293,13 @@ async function triggerCloudSave(immediate = false) {
 
     const currentPayloadStr = JSON.stringify(payloadToCompare);
     if (currentPayloadStr === lastSyncedPayloadStr && immediate !== 'manual') {
+        await homebasePushPromise;
         updateSyncStatus("Cloud: Aktuell ✅");
         return;
     }
     updateSyncStatus("Speichere in Cloud...");
     localStorage.setItem('ga_sync_time', localSyncTime);
+    let profileSaved = false;
     try {
         const id = getSyncId();
         const pin = getSyncPin();
@@ -11294,6 +11322,7 @@ async function triggerCloudSave(immediate = false) {
         }
         const res = await fetch(SYNC_URL + id + "?pin=" + pin, fetchOptions);
         if (res.ok) {
+            profileSaved = true;
             lastSyncedPayloadStr = currentPayloadStr;
             updateSyncStatus("Cloud: Gespeichert ✅");
             flashSyncIndicator('up');
@@ -11318,6 +11347,16 @@ async function triggerCloudSave(immediate = false) {
         if (immediate === 'manual') {
             setNavComLed('navcomSaveBtn', 'error');
             setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
+        }
+    }
+    const homebaseResult = await homebasePushPromise;
+    if (immediate === 'manual' && profileSaved) {
+        if (homebaseResult?.saved) {
+            updateSyncStatus("Cloud + Homebase: Gespeichert ✅");
+        } else if (homebaseResult?.conflict) {
+            updateSyncStatus("App gespeichert · Homebase-Konflikt ⚠️", true);
+        } else if (homebaseResult?.ok === false && !homebaseResult?.disabled) {
+            updateSyncStatus("App gespeichert · Homebase nicht gespeichert ⚠️", true);
         }
     }
 }
@@ -11349,6 +11388,7 @@ async function forceSyncLoad() {
         }
         if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
+        const homebasePullPromise = _syncHomebasePull('app-manual-pull');
 
         if (data.lastModified) {
             localSyncTime = data.lastModified;
@@ -11379,6 +11419,12 @@ async function forceSyncLoad() {
         setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
         if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
         renderLog();
+        const homebaseResult = await homebasePullPromise;
+        if (homebaseResult?.ok && homebaseResult?.record) {
+            updateSyncStatus("Cloud geladen · Homebase geprüft ✅");
+        } else if (homebaseResult?.ok === false && !homebaseResult?.disabled) {
+            updateSyncStatus("App geladen · Homebase nicht geladen ⚠️", true);
+        }
     } catch (e) {
         try { console.error("[Sync] Cloud load failed:", e); } catch (_) {}
         const msg = String(e?.message || '');

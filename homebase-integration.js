@@ -11,6 +11,8 @@
   let homebaseSyncTimer = null;
   let homebaseSaveInFlight = false;
   let homebaseSaveQueued = false;
+  let homebaseWorkbenchReady = false;
+  let pendingHomebaseLoadResult = null;
 
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
@@ -45,12 +47,21 @@
     postToWorkbench('sync-status', { text, status: kind });
   }
 
-  async function loadHomebaseFromCloud() {
+  function deliverHomebaseLoadResult(payload) {
+    if (!homebaseWorkbenchReady) {
+      pendingHomebaseLoadResult = payload;
+      return false;
+    }
+    pendingHomebaseLoadResult = null;
+    return postToWorkbench('sync-load-result', payload);
+  }
+
+  async function loadHomebaseFromCloud(reason = 'manual') {
     const context = getHomebaseSyncContext();
     if (!context.enabled || !context.pilotId || !context.pin) {
       reportHomebaseSync('Nur lokal gespeichert', 'muted');
-      postToWorkbench('sync-load-result', { ok: false, disabled: true });
-      return;
+      deliverHomebaseLoadResult({ ok: false, disabled: true, reason });
+      return { ok: false, disabled: true };
     }
     reportHomebaseSync('Cloud wird geprüft …', 'warn');
     try {
@@ -59,17 +70,19 @@
         cache: 'no-store'
       });
       if (response.status === 404) {
-        postToWorkbench('sync-load-result', { ok: true, record: null, pilotId: context.pilotId });
-        reportHomebaseSync('Cloud bereit', 'ok');
-        return;
+        const delivered = deliverHomebaseLoadResult({ ok: true, record: null, pilotId: context.pilotId, reason });
+        return { ok: true, record: null, deferred: !delivered };
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
-      postToWorkbench('sync-load-result', { ok: true, record: data.record || null, pilotId: context.pilotId });
-      reportHomebaseSync('Cloud geladen', 'ok');
+      const record = data.record || null;
+      const delivered = deliverHomebaseLoadResult({ ok: true, record, pilotId: context.pilotId, reason });
+      return { ok: true, record, deferred: !delivered };
     } catch (error) {
-      postToWorkbench('sync-load-result', { ok: false, error: error?.message || String(error) });
+      const message = error?.message || String(error);
+      deliverHomebaseLoadResult({ ok: false, error: message, reason });
       reportHomebaseSync('Cloud derzeit nicht erreichbar', 'bad');
+      return { ok: false, error: message };
     }
   }
 
@@ -95,12 +108,12 @@
   async function flushHomebaseDraft(reason = 'manual') {
     clearTimeout(homebaseSyncTimer);
     homebaseSyncTimer = null;
-    if (!latestHomebaseDraft?.dirty || !latestHomebaseDraft.plan) return false;
+    if (!latestHomebaseDraft?.dirty || !latestHomebaseDraft.plan) return { ok: true, skipped: true };
     const context = getHomebaseSyncContext();
-    if (!context.enabled || !context.pilotId || !context.pin) return false;
+    if (!context.enabled || !context.pilotId || !context.pin) return { ok: false, disabled: true };
     if (homebaseSaveInFlight) {
       homebaseSaveQueued = true;
-      return false;
+      return { ok: true, queued: true };
     }
 
     homebaseSaveInFlight = true;
@@ -117,16 +130,16 @@
       if (response.status === 409 && data.record) {
         postToWorkbench('sync-save-result', { ok: false, conflict: true, record: data.record, reason });
         reportHomebaseSync('Cloud-Konflikt erkannt', 'bad');
-        return false;
+        return { ok: false, conflict: true, record: data.record };
       }
       if (!response.ok) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
       postToWorkbench('sync-save-result', { ok: true, record: data.record || null, reason });
-      reportHomebaseSync('Homebase synchronisiert', 'ok');
-      return true;
+      return { ok: true, saved: true, record: data.record || null };
     } catch (error) {
-      postToWorkbench('sync-save-result', { ok: false, error: error?.message || String(error), reason });
+      const message = error?.message || String(error);
+      postToWorkbench('sync-save-result', { ok: false, error: message, reason });
       reportHomebaseSync('Cloud-Speichern fehlgeschlagen', 'bad');
-      return false;
+      return { ok: false, error: message };
     } finally {
       homebaseSaveInFlight = false;
       if (homebaseSaveQueued) {
@@ -439,10 +452,17 @@
       scheduleHomebaseSave();
     }
     if (message.kind === 'sync-save-now') flushHomebaseDraft(message.reason || 'workbench');
-    if (message.kind === 'sync-load') loadHomebaseFromCloud();
+    if (message.kind === 'sync-load') loadHomebaseFromCloud('workbench');
     if (message.kind === 'workbench-ready') {
+      homebaseWorkbenchReady = true;
       if (overlay()?.classList.contains('active')) postToWorkbench('environment-opened');
-      loadHomebaseFromCloud();
+      if (pendingHomebaseLoadResult) {
+        const pending = pendingHomebaseLoadResult;
+        pendingHomebaseLoadResult = null;
+        postToWorkbench('sync-load-result', pending);
+      } else {
+        loadHomebaseFromCloud('workbench-ready');
+      }
     }
   });
   window.addEventListener('pagehide', flushHomebaseOnPageExit);
@@ -455,4 +475,6 @@
   window.openHomebaseEnvironment = openHomebaseEnvironment;
   window.closeHomebaseEnvironment = closeHomebaseEnvironment;
   window.homebaseUpdateAssetStatus = updateAssetStatus;
+  window.homebaseCloudPush = (reason = 'app-push') => flushHomebaseDraft(reason);
+  window.homebaseCloudPull = (reason = 'app-pull') => loadHomebaseFromCloud(reason);
 })();
