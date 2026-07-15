@@ -6,7 +6,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
-const { createHomebasePackageService, createSceneXml, tasklistHasSimulatorProcess, waitForSimulatorExit } = require('./homebase-package-service.js');
+const {
+  createHomebasePackageService,
+  createSceneXml,
+  tasklistHasSimulatorProcess,
+  waitForSimulatorExit,
+  discoverCommunityFolders,
+  selectCommunityFolder
+} = require('./homebase-package-service.js');
 const { compareVersions, extractZipBuffer } = require('./homebase-asset-updater.js');
 const catalog = require('./homebase-asset-catalog.js');
 
@@ -268,10 +275,58 @@ async function run() {
     const embeddedAssetPackagePath = process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE
       ? path.resolve(process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE)
       : path.resolve(__dirname, 'embedded-homebase-assets', catalog.assetPackageName);
+    const appData = path.join(testRoot, 'AppData', 'Roaming');
+    const localAppData = path.join(testRoot, 'AppData', 'Local');
+    const fakeSteamCommunity = path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages', 'Community');
+    const storeLocalCache = path.join(localAppData, 'Packages', 'Microsoft.Limitless_8wekyb3d8bbwe', 'LocalCache');
+    const storePackages = path.join(testRoot, 'StorePackages');
+    const storeCommunity = path.join(storePackages, 'Community');
+    fs.mkdirSync(fakeSteamCommunity, { recursive: true });
+    fs.mkdirSync(storeCommunity, { recursive: true });
+    fs.mkdirSync(storeLocalCache, { recursive: true });
+    fs.writeFileSync(path.join(storeLocalCache, 'UserCfg.opt'), `InstalledPackagesPath "${storePackages}"\n`, 'utf8');
+
+    const storeDiscovery = discoverCommunityFolders({ appData, localAppData });
+    if (storeDiscovery.entries.length !== 1 || path.resolve(storeDiscovery.entries[0].path) !== path.resolve(storeCommunity)) {
+      throw new Error(`Store UserCfg path did not override the misleading Steam fallback: ${JSON.stringify(storeDiscovery)}`);
+    }
+
+    const steamAppData = path.join(testRoot, 'SteamAppData');
+    const steamPackages = path.join(testRoot, 'SteamPackages');
+    const steamCommunity = path.join(steamPackages, 'Community');
+    const steamCommunity2024 = path.join(steamPackages, 'Community2024');
+    const steamUserCfg = path.join(steamAppData, 'Microsoft Flight Simulator 2024', 'UserCfg.opt');
+    fs.mkdirSync(path.dirname(steamUserCfg), { recursive: true });
+    fs.mkdirSync(steamCommunity, { recursive: true });
+    fs.mkdirSync(steamCommunity2024, { recursive: true });
+    fs.writeFileSync(steamUserCfg, `InstalledPackagesPath "${steamPackages}"\n`, 'utf8');
+    const steamDiscovery = discoverCommunityFolders({ appData: steamAppData, localAppData: path.join(testRoot, 'NoStore') });
+    if (selectCommunityFolder(steamDiscovery) !== path.resolve(steamCommunity2024)) {
+      throw new Error(`MSFS 2024 Community2024 was not preferred: ${JSON.stringify(steamDiscovery)}`);
+    }
+    let ambiguousRejected = false;
+    try {
+      selectCommunityFolder({ entries: [...storeDiscovery.entries, ...steamDiscovery.entries], error: '' });
+    } catch (error) {
+      ambiguousRejected = error?.code === 'COMMUNITY_AMBIGUOUS';
+    }
+    if (!ambiguousRejected) throw new Error('Multiple configured MSFS package roots were not rejected safely.');
+
+    const missingUserCfg = path.join(testRoot, 'MissingConfig', 'UserCfg.opt');
+    fs.mkdirSync(path.dirname(missingUserCfg), { recursive: true });
+    fs.writeFileSync(missingUserCfg, `InstalledPackagesPath "${path.join(testRoot, 'MissingPackages')}"\n`, 'utf8');
+    const missingDiscovery = discoverCommunityFolders({ appData, localAppData, userCfgFiles: [missingUserCfg] });
+    if (missingDiscovery.entries.length || !missingDiscovery.error) {
+      throw new Error('An invalid configured package path incorrectly fell back to an unrelated Community folder.');
+    }
+
+    const packageAcks = [];
     const packageService = createHomebasePackageService({
       runtimeDir: testRoot,
-      appData: path.join(testRoot, 'AppData', 'Roaming'),
+      appData,
+      localAppData,
       embeddedAssetPackagePath,
+      sendAck: (ack) => packageAcks.push(ack),
       isSimulatorRunning: () => false
     });
     if (!packageService.capabilities.includes('homebase-assets-install')) throw new Error('Asset install capability missing.');
@@ -281,10 +336,25 @@ async function run() {
     }
     const installed = packageService.installAssets();
     if (installed.packageVersion !== catalog.assetPackageVersion || installed.unchanged) throw new Error('Atomic asset installation failed.');
+    if (path.resolve(installed.communityPath) !== path.resolve(storeCommunity) || fs.existsSync(path.join(fakeSteamCommunity, catalog.assetPackageName))) {
+      throw new Error(`Store asset package was installed into the wrong Community folder: ${JSON.stringify(installed)}`);
+    }
     const inspected = packageService.inspectAssets();
     if (!inspected.packageComplete || inspected.packageVersion !== catalog.assetPackageVersion) throw new Error('Installed asset validation failed.');
     const repeated = packageService.installAssets();
     if (!repeated.unchanged) throw new Error('Repeated asset installation must be idempotent.');
+    const sceneOutput = path.join(testRoot, 'homebase-generated', 'vfr-multitool-homebase', 'Packages', catalog.scenePackageName);
+    fs.mkdirSync(sceneOutput, { recursive: true });
+    fs.writeFileSync(path.join(sceneOutput, 'manifest.json'), '{"package_version":"0.5.0"}\n', 'utf8');
+    fs.writeFileSync(path.join(sceneOutput, 'layout.json'), '{"content":[]}\n', 'utf8');
+    packageService.handleCommand({ type: 'homebase_v1.package.install', commandId: 'scene-store-path', confirmed: true });
+    const sceneInstallAck = await waitForAck(packageAcks, 'homebase_v1.package.install_ack');
+    if (sceneInstallAck.status !== 'ok' || path.resolve(sceneInstallAck.communityPath) !== path.resolve(storeCommunity)) {
+      throw new Error(`Store scene package was installed into the wrong Community folder: ${JSON.stringify(sceneInstallAck)}`);
+    }
+    if (!fs.existsSync(path.join(storeCommunity, catalog.scenePackageName)) || fs.existsSync(path.join(fakeSteamCommunity, catalog.scenePackageName))) {
+      throw new Error('Compiled Homebase scene package did not follow the detected Store Community path.');
+    }
     const interruptedBackup = `${installed.path}.__backup`;
     fs.renameSync(installed.path, interruptedBackup);
     if (fs.existsSync(installed.path) || !fs.existsSync(interruptedBackup)) throw new Error('Interrupted-install fixture could not be prepared.');
@@ -299,7 +369,8 @@ async function run() {
     const remoteAcks = [];
     const remoteService = createHomebasePackageService({
       runtimeDir: path.join(testRoot, 'remote-runtime'),
-      appData: path.join(testRoot, 'AppData', 'Roaming'),
+      appData,
+      localAppData,
       embeddedAssetPackagePath,
       assetChannelUrl: remoteRelease.channelUrl,
       remoteRequestBuffer: remoteRelease.requestBuffer,
@@ -353,7 +424,8 @@ async function run() {
     });
     const badHashService = createHomebasePackageService({
       runtimeDir: path.join(testRoot, 'bad-hash-runtime'),
-      appData: path.join(testRoot, 'AppData', 'Roaming'),
+      appData,
+      localAppData,
       embeddedAssetPackagePath,
       assetChannelUrl: badHashRelease.channelUrl,
       remoteRequestBuffer: badHashRelease.requestBuffer,
@@ -376,7 +448,8 @@ async function run() {
     });
     const rollbackService = createHomebasePackageService({
       runtimeDir: path.join(testRoot, 'rollback-runtime'),
-      appData: path.join(testRoot, 'AppData', 'Roaming'),
+      appData,
+      localAppData,
       embeddedAssetPackagePath,
       assetChannelUrl: rollbackRelease.channelUrl,
       remoteRequestBuffer: rollbackRelease.requestBuffer,

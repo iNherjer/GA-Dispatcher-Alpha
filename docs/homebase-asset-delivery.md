@@ -60,6 +60,16 @@ Für einen isolierten PC-Test kann die Umgebungsvariable
 8. Der geprüfte aktive Paketindex wird im Laufzeitordner unter
    `homebase-asset-cache/active-package-index.json` gespeichert.
 
+Vor jeder Prüfung oder Installation ermittelt der Tracker den aktiven MSFS-2024-
+Paketpfad aus `UserCfg.opt`. Dabei werden Steam (`%APPDATA%`) und Microsoft Store/
+Xbox (`%LOCALAPPDATA%\\Packages\\Microsoft.Limitless_*`) sowie benutzerdefinierte
+`InstalledPackagesPath`-Werte unterstützt. Existiert sowohl `Community2024` als auch
+`Community`, wird für neue 2024-Pakete `Community2024` bevorzugt; bereits vorhandene
+Pakete werden an ihrem aktiven Ort aktualisiert. Ein bloß vorhandener Standardordner
+einer anderen Edition gilt nicht als Installationsnachweis und wird nicht automatisch
+neu angelegt. Bei mehreren tatsächlich konfigurierten Paketpfaden bricht die
+Installation mit einer eindeutigen Meldung ab, statt einen Zielordner zu erraten.
+
 ## Offline-Fallback und Versionsschutz
 
 Die Tracker-EXE enthält weiterhin das bei ihrem Build aktuelle Paket. Ist der Releasekanal

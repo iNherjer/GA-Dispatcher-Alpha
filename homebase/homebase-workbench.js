@@ -901,12 +901,15 @@
       return;
     }
     if (localAssetInspection.packageComplete) {
+      const community = localAssetInspection.communityPath
+        ? ` Community-Ordner: ${localAssetInspection.communityPath}.`
+        : '';
       const remote = localAssetInspection.remoteAvailable
         ? ` Der geprüfte Serverstand ist ${localAssetInspection.remoteVersion}.`
         : localAssetInspection.remoteError
           ? ` Serverprüfung derzeit nicht möglich: ${localAssetInspection.remoteError}`
           : '';
-      setResult('assetPackageResult', `Homebase-Assetpaket ${localAssetInspection.packageVersion} ist installiert und vollständig.${remote}`, true);
+      setResult('assetPackageResult', `Homebase-Assetpaket ${localAssetInspection.packageVersion} ist installiert und vollständig.${community}${remote}`, true);
       $('assetPackageBtn').textContent = 'Assetpaket erneut prüfen';
       return;
     }
@@ -916,7 +919,10 @@
     const fallback = localAssetInspection.embeddedPackageComplete
       ? ` Der Tracker enthält Version ${localAssetInspection.embeddedPackageVersion} zur sicheren Installation.`
       : ' Der Tracker enthält kein verwendbares Offline-Paket.';
-    setResult('assetPackageResult', `${found}${fallback}`, false);
+    const detection = localAssetInspection.communityDetectionError
+      ? ` ${localAssetInspection.communityDetectionError}`
+      : '';
+    setResult('assetPackageResult', `${found}${fallback}${detection}`, false);
     $('assetPackageBtn').textContent = 'Assetpaket prüfen oder installieren';
   }
 
@@ -986,7 +992,8 @@
         : await postJson('/api/assets/install', { confirmed: true });
       await refreshLocalAssetInspection({ remote: true });
       log(installed.message || `Homebase-Assetpaket ${installed.packageVersion || ''} installiert.`, 'ok');
-      setResult('assetPackageResult', `${installed.message || 'Homebase-Assetpaket installiert.'} MSFS anschließend neu starten.`, true);
+      const installPath = installed.communityPath ? ` Ziel: ${installed.communityPath}.` : '';
+      setResult('assetPackageResult', `${installed.message || 'Homebase-Assetpaket installiert.'}${installPath} MSFS anschließend neu starten.`, true);
     } catch (error) {
       setResult('assetPackageResult', `Assetpaket konnte nicht installiert werden: ${error?.message || error}`, false);
       log(`Assetpaket-Installation: ${error?.message || error}`, 'error');

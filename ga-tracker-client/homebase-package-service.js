@@ -19,6 +19,153 @@ const ALLOWED_OBJECT_TITLES = new Set([
 const HANGAR_TITLES = new Set(catalog.assets.filter((entry) => entry.kind === 'hangar').map((entry) => entry.title));
 const DEFAULT_HANGAR = catalog.assets.find((entry) => entry.key === 'hangar')?.title;
 
+function existingDirectory(value) {
+  try { return Boolean(value && fs.statSync(value).isDirectory()); } catch (_) { return false; }
+}
+
+function existingFile(value) {
+  try { return Boolean(value && fs.statSync(value).isFile()); } catch (_) { return false; }
+}
+
+function uniquePaths(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    if (!value) continue;
+    const resolved = path.resolve(String(value));
+    const key = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(resolved);
+  }
+  return result;
+}
+
+function samePath(left, right) {
+  const a = path.resolve(String(left || ''));
+  const b = path.resolve(String(right || ''));
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+function expandEnvironmentPath(value, environment = process.env) {
+  return String(value || '').replace(/%([^%]+)%/g, (_match, name) => environment[name] || environment[String(name).toUpperCase()] || _match);
+}
+
+function parseInstalledPackagesPath(userCfgPath, environment = process.env) {
+  try {
+    const text = fs.readFileSync(userCfgPath, 'utf8').replace(/^\uFEFF/, '');
+    const match = text.match(/InstalledPackagesPath\s+"([^"]+)"/i);
+    if (!match) return '';
+    const configured = expandEnvironmentPath(match[1], environment);
+    return path.isAbsolute(configured) ? path.normalize(configured) : path.resolve(path.dirname(userCfgPath), configured);
+  } catch (_) {
+    return '';
+  }
+}
+
+function candidateUserCfgFiles(options = {}) {
+  if (Array.isArray(options.userCfgFiles)) return uniquePaths(options.userCfgFiles);
+  const appData = options.appData || process.env.APPDATA || '';
+  const localAppData = options.localAppData || process.env.LOCALAPPDATA || '';
+  const candidates = [];
+  if (appData) {
+    candidates.push(path.join(appData, 'Microsoft Flight Simulator 2024', 'UserCfg.opt'));
+  }
+  if (localAppData) {
+    const packagesDir = path.join(localAppData, 'Packages');
+    try {
+      for (const name of fs.readdirSync(packagesDir)) {
+        if (/^Microsoft\.Limitless(?:_|$)/i.test(name)) {
+          candidates.push(path.join(packagesDir, name, 'LocalCache', 'UserCfg.opt'));
+        }
+      }
+    } catch (_) {}
+  }
+  return uniquePaths(candidates);
+}
+
+function communityEntriesForPackageRoot(packageRoot, source) {
+  if (!existingDirectory(packageRoot)) return [];
+  return ['Community2024', 'Community']
+    .map((name) => ({ path: path.join(packageRoot, name), packageRoot, source, name }))
+    .filter((entry) => existingDirectory(entry.path));
+}
+
+function discoverCommunityFolders(options = {}) {
+  const environment = options.environment || process.env;
+  const manualCommunity = options.communityPath || environment.VFR_MSFS_COMMUNITY_PATH || '';
+  if (manualCommunity) {
+    const manualPath = path.resolve(expandEnvironmentPath(manualCommunity, environment));
+    return existingDirectory(manualPath)
+      ? { entries: [{ path: manualPath, packageRoot: path.dirname(manualPath), source: 'manual', name: path.basename(manualPath) }], userCfgFiles: [], configuredPackageRoots: [], error: '' }
+      : { entries: [], userCfgFiles: [], configuredPackageRoots: [], error: `Der manuell konfigurierte Community-Ordner wurde nicht gefunden: ${manualPath}` };
+  }
+
+  const configuredPackageRoots = [];
+  const validUserCfgFiles = [];
+  for (const userCfgPath of candidateUserCfgFiles(options)) {
+    if (!existingFile(userCfgPath)) continue;
+    const packageRoot = parseInstalledPackagesPath(userCfgPath, environment);
+    if (!packageRoot) continue;
+    validUserCfgFiles.push(userCfgPath);
+    configuredPackageRoots.push(packageRoot);
+  }
+
+  const explicitPackageRoot = options.packagesPath || environment.MSFS2024_PACKAGES || '';
+  const configuredRoots = uniquePaths((explicitPackageRoot ? [explicitPackageRoot] : configuredPackageRoots)
+    .map((value) => expandEnvironmentPath(value, environment)));
+  if (configuredRoots.length) {
+    const entries = configuredRoots.flatMap((root) => communityEntriesForPackageRoot(root, 'UserCfg.opt'));
+    return {
+      entries,
+      userCfgFiles: validUserCfgFiles,
+      configuredPackageRoots: configuredRoots,
+      error: entries.length ? '' : `Der in UserCfg.opt konfigurierte MSFS-Paketpfad enthält weder Community2024 noch Community: ${configuredRoots.join(', ')}`
+    };
+  }
+
+  const appData = options.appData || environment.APPDATA || '';
+  const localAppData = options.localAppData || environment.LOCALAPPDATA || '';
+  const fallbackPackageRoots = [];
+  if (appData) fallbackPackageRoots.push(path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages'));
+  if (localAppData) {
+    const packagesDir = path.join(localAppData, 'Packages');
+    try {
+      for (const name of fs.readdirSync(packagesDir)) {
+        if (/^Microsoft\.Limitless(?:_|$)/i.test(name)) {
+          fallbackPackageRoots.push(path.join(packagesDir, name, 'LocalCache', 'Packages'));
+        }
+      }
+    } catch (_) {}
+  }
+  const entries = uniquePaths(fallbackPackageRoots).flatMap((root) => communityEntriesForPackageRoot(root, 'existing fallback'));
+  return {
+    entries,
+    userCfgFiles: validUserCfgFiles,
+    configuredPackageRoots: [],
+    error: entries.length ? '' : 'Der aktive MSFS-2024-Community-Ordner wurde nicht gefunden. Bitte MSFS einmal starten und den Paketpfad in UserCfg.opt prüfen.'
+  };
+}
+
+function selectCommunityFolder(discovery, packageNames = []) {
+  const entries = Array.isArray(discovery?.entries) ? discovery.entries : [];
+  if (!entries.length) {
+    const error = new Error(discovery?.error || 'Der aktive MSFS-2024-Community-Ordner wurde nicht gefunden.');
+    error.code = 'COMMUNITY_NOT_FOUND';
+    throw error;
+  }
+  const activePackageRoots = uniquePaths(entries.map((entry) => entry.packageRoot));
+  if (activePackageRoots.length > 1) {
+    const error = new Error(`Mehrere aktive MSFS-Paketpfade wurden erkannt. Bitte einen Community-Ordner über VFR_MSFS_COMMUNITY_PATH festlegen: ${entries.map((entry) => entry.path).join(', ')}`);
+    error.code = 'COMMUNITY_AMBIGUOUS';
+    error.communityPaths = entries.map((entry) => entry.path);
+    throw error;
+  }
+  const installed = entries.filter((entry) => packageNames.some((name) => existingDirectory(path.join(entry.path, name))));
+  const candidates = installed.length ? installed : entries;
+  return candidates[0].path;
+}
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -213,8 +360,15 @@ function createHomebasePackageService(options = {}) {
   const log = typeof options.log === 'function' ? options.log : () => {};
   const simulatorRunning = typeof options.isSimulatorRunning === 'function' ? options.isSimulatorRunning : isSimulatorRunning;
   const appData = options.appData || process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  const communityPrimary = path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages', 'Community');
-  const community2024 = path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages', 'Community2024');
+  const localAppData = options.localAppData || process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+  const communityDiscovery = () => discoverCommunityFolders({
+    appData,
+    localAppData,
+    userCfgFiles: options.userCfgFiles,
+    packagesPath: options.packagesPath,
+    communityPath: options.communityPath,
+    environment: options.environment || process.env
+  });
   const embeddedAssetPackage = path.resolve(
     options.embeddedAssetPackagePath
       || path.join(__dirname, 'embedded-homebase-assets', catalog.assetPackageName)
@@ -257,14 +411,19 @@ function createHomebasePackageService(options = {}) {
     ...payload
   });
 
-  const status = () => ({
-    installed: fs.existsSync(packageTool),
-    sdkInstalled: fs.existsSync(packageTool),
-    sdkPath: packageTool,
-    simulatorRunning: simulatorRunning(),
-    built: fs.existsSync(path.join(outputPackage, 'manifest.json')) && fs.existsSync(path.join(outputPackage, 'layout.json')),
-    outputPath: outputPackage
-  });
+  const status = () => {
+    const discovery = communityDiscovery();
+    return {
+      installed: fs.existsSync(packageTool),
+      sdkInstalled: fs.existsSync(packageTool),
+      sdkPath: packageTool,
+      simulatorRunning: simulatorRunning(),
+      built: fs.existsSync(path.join(outputPackage, 'manifest.json')) && fs.existsSync(path.join(outputPackage, 'layout.json')),
+      outputPath: outputPackage,
+      communityPaths: discovery.entries.map((entry) => entry.path),
+      communityDetectionError: discovery.error || ''
+    };
+  };
 
   const prepare = (rawConfig) => {
     const { config, content } = createSceneXml(rawConfig);
@@ -328,13 +487,14 @@ function createHomebasePackageService(options = {}) {
       throw error;
     }
     validateLayoutPackage(outputPackage);
-    const target = path.join(communityPrimary, catalog.scenePackageName);
-    const staging = path.join(communityPrimary, `${catalog.scenePackageName}.__staging`);
-    const backup = path.join(communityPrimary, `${catalog.scenePackageName}.__backup`);
-    assertCommunityChild(target, communityPrimary);
-    assertCommunityChild(staging, communityPrimary);
-    assertCommunityChild(backup, communityPrimary);
-    fs.mkdirSync(communityPrimary, { recursive: true });
+    const discovery = communityDiscovery();
+    const communityRoot = selectCommunityFolder(discovery, [catalog.scenePackageName, catalog.assetPackageName]);
+    const target = path.join(communityRoot, catalog.scenePackageName);
+    const staging = path.join(communityRoot, `${catalog.scenePackageName}.__staging`);
+    const backup = path.join(communityRoot, `${catalog.scenePackageName}.__backup`);
+    assertCommunityChild(target, communityRoot);
+    assertCommunityChild(staging, communityRoot);
+    assertCommunityChild(backup, communityRoot);
     fs.rmSync(staging, { recursive: true, force: true });
     fs.rmSync(backup, { recursive: true, force: true });
     copyRecursive(outputPackage, staging);
@@ -354,15 +514,20 @@ function createHomebasePackageService(options = {}) {
       fs.rmSync(staging, { recursive: true, force: true });
       throw new Error(`Homebase-Installation zurückgerollt: ${error?.message || error}`);
     }
-    for (const stale of [path.join(community2024, catalog.scenePackageName)]) {
+    const selectedEntry = discovery.entries.find((entry) => samePath(entry.path, communityRoot));
+    const siblingRoots = discovery.entries.filter((entry) => (
+      selectedEntry && samePath(entry.packageRoot, selectedEntry.packageRoot) && !samePath(entry.path, communityRoot)
+    ));
+    for (const stale of siblingRoots.map((entry) => path.join(entry.path, catalog.scenePackageName))) {
       try { fs.rmSync(stale, { recursive: true, force: true }); } catch (_) {}
     }
-    return { path: target };
+    return { path: target, communityPath: communityRoot };
   };
 
   const uninstall = () => {
     const removedPaths = [];
-    for (const root of [communityPrimary, community2024]) {
+    const discovery = communityDiscovery();
+    for (const root of discovery.entries.map((entry) => entry.path)) {
       for (const name of [catalog.scenePackageName]) {
         const target = path.join(root, name);
         assertCommunityChild(target, root);
@@ -415,17 +580,23 @@ function createHomebasePackageService(options = {}) {
   };
 
   const inspectAssets = () => {
+    const discovery = communityDiscovery();
+    const communityInfo = {
+      communityPaths: discovery.entries.map((entry) => entry.path),
+      communityDetectionError: discovery.error || ''
+    };
     let fallback = null;
-    for (const root of [communityPrimary, community2024]) {
+    for (const root of discovery.entries.map((entry) => entry.path)) {
       const packagePath = path.join(root, catalog.assetPackageName);
       if (!fs.existsSync(packagePath)) continue;
       try {
-        const result = { communityFound: true, communityPath: root, ...inspectAssetPackage(packagePath) };
+        const result = { ...communityInfo, communityFound: true, communityPath: root, ...inspectAssetPackage(packagePath) };
         if (result.packageComplete) return result;
         if (!fallback) fallback = result;
       } catch (error) {
         if (!fallback) {
           fallback = {
+            ...communityInfo,
             communityFound: true,
             communityPath: root,
             packagePath,
@@ -440,6 +611,7 @@ function createHomebasePackageService(options = {}) {
       }
     }
     return fallback || {
+      ...communityInfo,
       communityFound: false,
       packageComplete: false,
       packageFilesComplete: false,
@@ -477,13 +649,14 @@ function createHomebasePackageService(options = {}) {
   const atomicallyInstallAssetPackage = (sourcePackage, expectedVersion, installOptions = {}) => {
     const source = inspectAssetPackage(sourcePackage, { packageVersion: expectedVersion, assets: catalog.assets });
     if (!source.packageComplete) throw new Error(`Assetquelle ${expectedVersion} ist unvollständig oder hat die falsche Version.`);
-    const target = path.join(communityPrimary, catalog.assetPackageName);
-    const staging = path.join(communityPrimary, `${catalog.assetPackageName}.__staging`);
-    const backup = path.join(communityPrimary, `${catalog.assetPackageName}.__backup`);
-    assertCommunityChild(target, communityPrimary);
-    assertCommunityChild(staging, communityPrimary);
-    assertCommunityChild(backup, communityPrimary);
-    fs.mkdirSync(communityPrimary, { recursive: true });
+    const discovery = communityDiscovery();
+    const communityRoot = selectCommunityFolder(discovery, [catalog.assetPackageName, catalog.scenePackageName]);
+    const target = path.join(communityRoot, catalog.assetPackageName);
+    const staging = path.join(communityRoot, `${catalog.assetPackageName}.__staging`);
+    const backup = path.join(communityRoot, `${catalog.assetPackageName}.__backup`);
+    assertCommunityChild(target, communityRoot);
+    assertCommunityChild(staging, communityRoot);
+    assertCommunityChild(backup, communityRoot);
     fs.rmSync(staging, { recursive: true, force: true });
     if (!fs.existsSync(target) && fs.existsSync(backup)) {
       fs.renameSync(backup, target);
@@ -492,9 +665,9 @@ function createHomebasePackageService(options = {}) {
       fs.rmSync(backup, { recursive: true, force: true });
     }
     const previous = inspectAssets();
-    const sameTarget = path.resolve(previous.packagePath || '') === path.resolve(target);
+    const sameTarget = samePath(previous.packagePath, target);
     if (installOptions.skipIfSameOrNewer && previous.packageComplete && sameTarget && compareVersions(previous.packageVersion, expectedVersion) >= 0) {
-      return { path: target, packageVersion: previous.packageVersion, unchanged: true, previousVersion: previous.packageVersion, source: installOptions.source || 'embedded' };
+      return { path: target, communityPath: communityRoot, packageVersion: previous.packageVersion, unchanged: true, previousVersion: previous.packageVersion, source: installOptions.source || 'embedded' };
     }
     copyRecursive(sourcePackage, staging);
     const staged = inspectAssetPackage(staging, { packageVersion: expectedVersion, assets: catalog.assets });
@@ -515,13 +688,17 @@ function createHomebasePackageService(options = {}) {
       fs.rmSync(staging, { recursive: true, force: true });
       throw new Error(`Asset-Installation zurückgerollt: ${error?.message || error}`);
     }
-    const stale = path.join(community2024, catalog.assetPackageName);
-    if (path.resolve(stale) !== path.resolve(target)) {
+    const selectedEntry = discovery.entries.find((entry) => samePath(entry.path, communityRoot));
+    const siblingRoots = discovery.entries.filter((entry) => (
+      selectedEntry && samePath(entry.packageRoot, selectedEntry.packageRoot) && !samePath(entry.path, communityRoot)
+    ));
+    for (const stale of siblingRoots.map((entry) => path.join(entry.path, catalog.assetPackageName))) {
       try { fs.rmSync(stale, { recursive: true, force: true }); } catch (_) {}
     }
     log(`HOMEBASE_ASSETS_INSTALLED source=${installOptions.source || 'embedded'} version=${expectedVersion} previous=${previous.packageVersion || 'none'} path="${target}"`);
     return {
       path: target,
+      communityPath: communityRoot,
       packageVersion: expectedVersion,
       previousVersion: previous.packageVersion || '',
       unchanged: false,
@@ -568,7 +745,7 @@ function createHomebasePackageService(options = {}) {
     const previous = inspectAssets();
     const prepared = await remoteUpdater.prepare(previous);
     if (prepared.unchanged) {
-      return { path: previous.packagePath || '', packageVersion: previous.packageVersion, previousVersion: previous.packageVersion, unchanged: true, source: 'remote' };
+      return { path: previous.packagePath || '', communityPath: previous.communityPath || '', packageVersion: previous.packageVersion, previousVersion: previous.packageVersion, unchanged: true, source: 'remote' };
     }
     try {
       const version = prepared.release.stable.packageVersion;
@@ -699,4 +876,15 @@ function createHomebasePackageService(options = {}) {
   };
 }
 
-module.exports = { createHomebasePackageService, createSceneXml, normalizeConfig, tasklistHasSimulatorProcess, validateLayoutPackage, waitForSimulatorExit };
+module.exports = {
+  createHomebasePackageService,
+  createSceneXml,
+  normalizeConfig,
+  tasklistHasSimulatorProcess,
+  validateLayoutPackage,
+  waitForSimulatorExit,
+  candidateUserCfgFiles,
+  parseInstalledPackagesPath,
+  discoverCommunityFolders,
+  selectCommunityFolder
+};

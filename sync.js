@@ -11805,9 +11805,10 @@ let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
 // Das produktive Homebase-v1-Protokoll inklusive gezieltem Live-Despawn ist ab
-// v288 enthalten; die Workbench-Sichtbarkeit aus Remote-Katalogen benötigt v289.
-const MIN_TRACKER_VERSION_CODE = 289;
-const MIN_TRACKER_VERSION_LABEL = 'v289';
+// v288 enthalten; dynamische Assetmetadaten benötigen v289 und die sichere
+// Steam-/Store-Community-Pfaderkennung v290.
+const MIN_TRACKER_VERSION_CODE = 290;
+const MIN_TRACKER_VERSION_LABEL = 'v290';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {
