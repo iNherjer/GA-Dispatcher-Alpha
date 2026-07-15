@@ -1,0 +1,76 @@
+{
+  "packageVersion": "0.5.8",
+  "fullArchive": "vfr-multitool-homebase-test-assets-0.5.8-full.zip",
+  "assetArchives": [
+    {
+      "name": "vfr-multitool-homebase-test-assets-hangar-1.0.0.zip",
+      "size": 152511
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-openParking-1.0.0.zip",
+      "size": 18156
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-generator-1.0.0.zip",
+      "size": 11017
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-desk-1.0.0.zip",
+      "size": 6376
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-pinboard-1.0.0.zip",
+      "size": 5685
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-toolCart-1.0.0.zip",
+      "size": 10066
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-fuelDrum-1.0.0.zip",
+      "size": 20809
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-mxPavilion-1.0.0.zip",
+      "size": 17317
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-woodCrateSmall-1.0.0.zip",
+      "size": 7397
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-woodCrateMedium-1.0.0.zip",
+      "size": 8320
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-woodCrateLarge-1.0.0.zip",
+      "size": 8286
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-europeanCaravan-1.0.0.zip",
+      "size": 31204
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-chair-1.0.0.zip",
+      "size": 4461
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-trafficCone-1.0.0.zip",
+      "size": 5912
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-spawnProbe-1.0.0.zip",
+      "size": 5909
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-customWindsock-1.0.0.zip",
+      "size": 6751
+    },
+    {
+      "name": "vfr-multitool-homebase-test-assets-assetShelf-1.0.1.zip",
+      "size": 43864
+    }
+  ],
+  "changedAssets": [],
+  "removedAssets": []
+}
