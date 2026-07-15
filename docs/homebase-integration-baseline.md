@@ -39,6 +39,12 @@ Der Projektinhaber hat die Integration am 15.07.2026 nach den gemeinsamen Live-T
 zur Veröffentlichung freigegeben. Das erste Produktionsrelease mit Homebase ist
 `v286`. Der oben dokumentierte Stand `v278` bleibt als bekannter Rückfallstand erhalten.
 
+Tracker `v288` ist die erste vollständig bereinigte Produktionslinie: App, Workbench
+und Tracker verwenden ausschließlich das Protokoll `homebase_v1`; das gemeinsame
+Assetpaket heißt `vfr-multitool-homebase-assets` und beginnt unter dieser Identität mit
+Version `0.6.0`. Die Angaben im Abschnitt „Teststand“ bleiben ausschließlich als
+historische Rückfall- und Prüfspur erhalten.
+
 ## Geräteübergreifende Planung
 
 - Die Workbench speichert jede Änderung sofort lokal.

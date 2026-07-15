@@ -7,8 +7,6 @@
     "start": "node tracker.js",
     "prebuild:tracker": "node prepare-embedded-homebase-assets.js",
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
-    "prebuild:homebase-test": "node prepare-embedded-homebase-assets.js",
-    "build:homebase-test": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker-Homebase-Test.exe",
     "prepare:homebase-assets": "node prepare-embedded-homebase-assets.js",
     "test:homebase": "node homebase-self-test.js",
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",

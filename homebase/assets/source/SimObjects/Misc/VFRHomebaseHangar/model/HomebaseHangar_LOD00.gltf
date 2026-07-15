@@ -6,7 +6,7 @@
   "buffers": [
     {
       "byteLength": 688704,
-      "uri": "HomebaseTestHangar_LOD00.bin"
+      "uri": "HomebaseHangar_LOD00.bin"
     }
   ],
   "bufferViews": [
@@ -382,7 +382,7 @@
   ],
   "meshes": [
     {
-      "name": "HomebaseTestHangar_mesh",
+      "name": "HomebaseHangar_mesh",
       "primitives": [
         {
           "attributes": {
@@ -440,7 +440,7 @@
   "nodes": [
     {
       "mesh": 0,
-      "name": "HomebaseTestHangar_node"
+      "name": "HomebaseHangar_node"
     }
   ],
   "scenes": [

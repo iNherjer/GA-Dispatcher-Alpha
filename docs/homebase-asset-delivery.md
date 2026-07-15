@@ -3,14 +3,14 @@
 ## Zielbild
 
 Alle Homebase-SimObjects bleiben gemeinsam im einzigen Community-Paket
-`vfr-multitool-homebase-test-assets`. Der Publisher versioniert und veröffentlicht dieses
+`vfr-multitool-homebase-assets`. Der Publisher versioniert und veröffentlicht dieses
 Paket unabhängig von App und Tracker. Der produktive Tracker prüft den Releasekanal,
 lädt ein bestätigtes Update, validiert es vollständig und tauscht das Community-Paket
 atomar aus.
 
-Die Remote-Installation wurde zunächst im getrennten Test-Tracker bis
-`v285-homebase-test7` validiert und ist seit dem Produktionsrelease `v286` Bestandteil
-des normalen Trackers.
+Die Remote-Installation ist seit Tracker `v286` produktiv. Seit `v288` verwendet die
+gesamte Lieferkette die endgültige Paketidentität ohne Testnamen; der erste Stand unter
+diesem Namen ist Assetpaket `0.6.0`.
 
 ## Veröffentlichungsvertrag
 

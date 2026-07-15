@@ -103,7 +103,7 @@ Tipps:
 
 Die **Homebase Workbench** wird im Bereich **Einstellungen** geoeffnet. Dort lassen sich Hangar, Spawnpunkt und beliebig viele Ausstattungsobjekte auf der Karte platzieren, verschieben, drehen und in der Hoehe anpassen.
 
-- Die Live-Vorschau benoetigt den produktiven PC-Tracker ab **v286** und eine aktive SimConnect-Verbindung.
+- Die Live-Vorschau benoetigt den produktiven PC-Tracker ab **v288** und eine aktive SimConnect-Verbindung.
 - Der Tracker prueft das gemeinsame Homebase-Assetpaket und bietet neue Versionen nach ausdruecklicher Bestaetigung zum Download und zur Installation an.
 - **Vorschau neu laden** baut die nicht kompilierten Arbeitsobjekte neu auf; ein bereits kompilierter Flugplatz bleibt davon getrennt.
 - Die Planung wird sofort lokal und bei aktiviertem Auto-Sync 30 Sekunden nach der letzten Aenderung sowie beim Schliessen oder Verlassen geraeteuebergreifend gespeichert.

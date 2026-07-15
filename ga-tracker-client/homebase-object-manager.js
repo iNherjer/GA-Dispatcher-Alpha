@@ -85,6 +85,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-preview',
     'homebase-ground-probe',
     'homebase-object-move',
+    'homebase-object-remove',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
   let generation = 0;
@@ -343,6 +344,34 @@ function createHomebaseObjectManager(handle, options = {}) {
     });
   };
 
+  const handleObjectRemove = async (command) => {
+    const id = String(command?.id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    if (!id) throw new Error('Objekt-ID fehlt.');
+    const record = objectsById.get(id);
+    if (!record) {
+      sendAck({
+        type: 'homebase_v1.preview.object.remove_ack',
+        commandId: command?.commandId || null,
+        status: 'noop',
+        message: `${String(command?.label || id)} war in der aktiven Vorschau nicht registriert.`,
+        id,
+        removedCount: 0
+      });
+      return;
+    }
+    const result = await removeRecord(record);
+    if (!result.ok) throw new Error(`${record.item.label} konnte nicht bestätigt entfernt werden: ${result.error}`);
+    sendAck({
+      type: 'homebase_v1.preview.object.remove_ack',
+      commandId: command?.commandId || null,
+      status: 'ok',
+      message: `${record.item.label} wurde aus der Live-Vorschau entfernt.`,
+      id: record.item.id,
+      objectId: record.objectId,
+      removedCount: 1
+    });
+  };
+
   try {
     handle.addToDataDefinition(INIT_POSITION_DEFINITION, 'Initial Position', null, SimConnectDataType.INITPOSITION);
     handle.addToDataDefinition(OBJECT_ALTITUDE_DEFINITION, 'Plane Altitude', 'feet', SimConnectDataType.FLOAT64, 0, SimConnectConstants.UNUSED);
@@ -460,6 +489,10 @@ function createHomebaseObjectManager(handle, options = {}) {
       }
       if (type === 'homebase_v1.preview.object.add') {
         enqueue(() => handleObjectAdd(command)).catch((error) => sendError(type, command, error, { failedObjects: [{ ...command?.object, error: error?.message || String(error) }] }));
+        return true;
+      }
+      if (type === 'homebase_v1.preview.object.remove') {
+        enqueue(() => handleObjectRemove(command)).catch((error) => sendError(type, command, error, { id: command?.id || '' }));
         return true;
       }
       if (type === 'homebase_v1.preview.object.move') {

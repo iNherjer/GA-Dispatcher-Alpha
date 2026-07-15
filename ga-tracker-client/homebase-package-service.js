@@ -353,11 +353,7 @@ function createHomebasePackageService(options = {}) {
       fs.rmSync(staging, { recursive: true, force: true });
       throw new Error(`Homebase-Installation zurückgerollt: ${error?.message || error}`);
     }
-    for (const stale of [
-      path.join(communityPrimary, catalog.legacyScenePackageName),
-      path.join(community2024, catalog.scenePackageName),
-      path.join(community2024, catalog.legacyScenePackageName)
-    ]) {
+    for (const stale of [path.join(community2024, catalog.scenePackageName)]) {
       try { fs.rmSync(stale, { recursive: true, force: true }); } catch (_) {}
     }
     return { path: target };
@@ -366,7 +362,7 @@ function createHomebasePackageService(options = {}) {
   const uninstall = () => {
     const removedPaths = [];
     for (const root of [communityPrimary, community2024]) {
-      for (const name of [catalog.scenePackageName, catalog.legacyScenePackageName]) {
+      for (const name of [catalog.scenePackageName]) {
         const target = path.join(root, name);
         assertCommunityChild(target, root);
         if (!fs.existsSync(target)) continue;

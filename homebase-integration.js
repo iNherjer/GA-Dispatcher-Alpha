@@ -164,7 +164,7 @@
       } else {
         relayMessage({
           trackerAck: {
-            type: `${meta.legacyType || command.type}_ack`,
+            type: `${command.type}_ack`,
             commandId: command.commandId || null,
             status: 'error',
             message: 'Der PC-Tracker ist nicht verbunden.'
@@ -188,18 +188,18 @@
     return commandId;
   }
 
-  function translateLegacyRelay(payload = {}) {
+  function translateWorkbenchRelay(payload = {}) {
     const trackerCommand = payload.trackerCommand;
     const stabilizerCommand = payload.stabilizerCommand;
-    if (trackerCommand?.type === 'hb_test.capabilities') {
+    if (trackerCommand?.type === 'homebase_v1.capabilities') {
       sendTracker({ type: 'homebase_v1.capabilities', commandId: trackerCommand.commandId }, { kind: 'capabilities' });
       return;
     }
-    if (trackerCommand?.type === 'hb_test.preview.clear') {
+    if (trackerCommand?.type === 'homebase_v1.preview.clear') {
       sendTracker({ type: 'homebase_v1.preview.clear', commandId: trackerCommand.commandId }, { kind: 'primary-clear' });
       return;
     }
-    if (trackerCommand?.type === 'hb_test.preview.set') {
+    if (trackerCommand?.type === 'homebase_v1.preview.set') {
       const config = trackerCommand.config || {};
       const hangar = config.hangar ? [{ id: 'hangar', title: config.hangar.objectTitle, label: 'Homebase-Hangar', ...config.hangar }] : [];
       sendTracker({
@@ -210,11 +210,11 @@
       return;
     }
     if (!stabilizerCommand) return;
-    if (stabilizerCommand.type === 'hb_test.preview.extras.clear') {
+    if (stabilizerCommand.type === 'homebase_v1.preview.extras.clear') {
       sendTracker({ type: 'homebase_v1.preview.clear', commandId: stabilizerCommand.commandId }, { kind: 'extras-clear' });
       return;
     }
-    if (stabilizerCommand.type === 'hb_test.preview.extras.set_standalone') {
+    if (stabilizerCommand.type === 'homebase_v1.preview.extras.set_standalone') {
       sendTracker({
         type: 'homebase_v1.preview.set',
         commandId: stabilizerCommand.commandId,
@@ -223,11 +223,20 @@
       }, { kind: 'preview-set', parentCommandId: stabilizerCommand.parentCommandId });
       return;
     }
-    if (stabilizerCommand.type === 'hb_test.preview.object.add') {
+    if (stabilizerCommand.type === 'homebase_v1.preview.object.add') {
       sendTracker({ type: 'homebase_v1.preview.object.add', commandId: stabilizerCommand.commandId, object: stabilizerCommand.object }, { kind: 'object-add' });
       return;
     }
-    if (stabilizerCommand.type === 'hb_test.preview.object.move' || stabilizerCommand.type === 'hb_test.preview.hangar.move') {
+    if (stabilizerCommand.type === 'homebase_v1.preview.object.remove') {
+      sendTracker({
+        type: 'homebase_v1.preview.object.remove',
+        commandId: stabilizerCommand.commandId,
+        id: stabilizerCommand.id,
+        label: stabilizerCommand.label
+      }, { kind: 'object-remove' });
+      return;
+    }
+    if (stabilizerCommand.type === 'homebase_v1.preview.object.move' || stabilizerCommand.type === 'homebase_v1.preview.hangar.move') {
       sendTracker({ type: 'homebase_v1.preview.object.move', commandId: stabilizerCommand.commandId, object: stabilizerCommand.object }, {
         kind: stabilizerCommand.type.endsWith('hangar.move') ? 'hangar-move' : 'object-move'
       });
@@ -303,7 +312,7 @@
     }
     if (ack.type === 'homebase_v1.capabilities_ack' || meta.kind === 'capabilities') {
       relayMessage({
-        hbTestHello: {
+        homebaseHello: {
           version: ack.protocol ? `v1 / Tracker ${window.liveTrackerVersionCode || ''}` : 'nicht verfügbar',
           simConnected: ack.simConnected === true,
           capabilities: Array.isArray(ack.capabilities) ? ack.capabilities : []
@@ -312,13 +321,13 @@
       return;
     }
     if (meta.kind === 'extras-clear') {
-      relayMessage({ stabilizerAck: { ...ack, type: 'hb_test.preview.extras.clear_ack' } });
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.extras.clear_ack' } });
       return;
     }
     if (meta.kind === 'primary-clear') {
       relayMessage({
-        trackerAck: { ...ack, type: 'hb_test.preview.clear_ack' },
-        stabilizerAck: { ...ack, type: 'hb_test.preview.primary.clear_ack' }
+        trackerAck: { ...ack, type: 'homebase_v1.preview.clear_ack' },
+        stabilizerAck: { ...ack, type: 'homebase_v1.preview.primary.clear_ack' }
       });
       return;
     }
@@ -326,25 +335,29 @@
       relayMessage({
         stabilizerAck: {
           ...ack,
-          type: 'hb_test.preview.extras.set_ack',
+          type: 'homebase_v1.preview.extras.set_ack',
           parentCommandId: meta.parentCommandId || ack.parentCommandId || commandId
         }
       });
       return;
     }
     if (meta.kind === 'legacy-preview-set') {
-      relayMessage({ trackerAck: { ...ack, type: 'hb_test.preview.set_ack' } });
+      relayMessage({ trackerAck: { ...ack, type: 'homebase_v1.preview.set_ack' } });
       return;
     }
     if (meta.kind === 'object-add') {
-      relayMessage({ stabilizerAck: { ...ack, type: 'hb_test.preview.object.add_ack' } });
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.object.add_ack' } });
+      return;
+    }
+    if (meta.kind === 'object-remove') {
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.object.remove_ack' } });
       return;
     }
     if (meta.kind === 'object-move' || meta.kind === 'hangar-move') {
       relayMessage({
         stabilizerAck: {
           ...ack,
-          type: meta.kind === 'hangar-move' ? 'hb_test.preview.hangar.move_ack' : 'hb_test.preview.object.move_ack'
+          type: meta.kind === 'hangar-move' ? 'homebase_v1.preview.hangar.move_ack' : 'homebase_v1.preview.object.move_ack'
         }
       });
     }
@@ -413,7 +426,7 @@
     if (event.origin !== window.location.origin || event.source !== frame()?.contentWindow) return;
     const message = event.data;
     if (!message || message.channel !== CHANNEL) return;
-    if (message.kind === 'relay-command') translateLegacyRelay(message.payload || {});
+    if (message.kind === 'relay-command') translateWorkbenchRelay(message.payload || {});
     if (message.kind === 'rpc') handleRpc(message);
     if (message.kind === 'sync-draft') {
       latestHomebaseDraft = {

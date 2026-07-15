@@ -21,7 +21,7 @@ const env = { GA_SYNC_KV: kv };
 const headers = { "Content-Type": "application/json", "X-Pilot-ID": "pilotA", "X-Pilot-PIN": "0815" };
 const plan = {
   spawn: { lat: 48.1, lon: 8.2, altFt: 1234, heading: 361 },
-  hangar: { northM: 2, eastM: -3, heading: -1, heightFt: 1, widthM: 18, depthM: 22, objectTitle: "VFR Multitool Homebase Test Hangar" },
+  hangar: { northM: 2, eastM: -3, heading: -1, heightFt: 1, widthM: 18, depthM: 22, objectTitle: "VFR Multitool Homebase Hangar" },
   objects: [{ id: "box-1", title: "VFR Multitool Homebase Box", label: "Karton", northM: 1, eastM: 2, heading: 90, heightFt: 0, scale: 1 }]
 };
 

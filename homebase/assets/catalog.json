@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "package": {
-    "name": "vfr-multitool-homebase-test-assets",
-    "version": "0.5.10",
+    "name": "vfr-multitool-homebase-assets",
+    "version": "0.6.0",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -11,7 +11,7 @@
       "version": "1.0.1",
       "folder": "VFRHomebaseAssetShelf",
       "title": "VFR Multitool Homebase Asset Shelf",
-      "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
+      "label": "Asset-Regal (Eimer, Ölkanne, Kartons)",
       "group": "Ausstattung",
       "kind": "object",
       "missionSpawnable": true,
@@ -177,8 +177,8 @@
     },
     {
       "key": "hangar",
-      "folder": "VFRHomebaseTestHangar",
-      "title": "VFR Multitool Homebase Test Hangar",
+      "folder": "VFRHomebaseHangar",
+      "title": "VFR Multitool Homebase Hangar",
       "kind": "hangar",
       "label": "Homebase-Hangar",
       "version": "1.0.0",

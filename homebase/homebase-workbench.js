@@ -1,10 +1,11 @@
 (() => {
   'use strict';
 
-  const TEST_ID = 'Test2';
-  const TEST_PIN = 'Test2';
   const RELAY_URL = 'wss://websocketrelais.onrender.com/';
-  const INTEGRATED = new URLSearchParams(window.location.search).get('integrated') === '1' && window.parent !== window;
+  const URL_PARAMS = new URLSearchParams(window.location.search);
+  const INTEGRATED = URL_PARAMS.get('integrated') === '1' && window.parent !== window;
+  const STANDALONE_ID = String(URL_PARAMS.get('syncId') || '').trim();
+  const STANDALONE_PIN = String(URL_PARAMS.get('pin') || '').trim();
   const PARENT_ORIGIN = window.location.origin;
   const STORAGE_KEY = 'vfr-homebase-workbench-v2';
   const SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
@@ -99,7 +100,8 @@
   }
 
   function normalizeHangarTitle(value) {
-    const title = String(value || '');
+    const rawTitle = String(value || '');
+    const title = LEGACY_TITLE_ALIASES.get(rawTitle) || rawTitle;
     return HANGAR_TITLES.has(title) ? title : HANGAR_TITLE;
   }
 
@@ -548,7 +550,23 @@
     if (index < 0) return;
     const [removed] = state.objects.splice(index, 1);
     selectedObjectId = state.objects[Math.min(index, state.objects.length - 1)]?.id || null;
-    saveState(); syncInputsFromState(); updateMap(); invalidateLivePreview();
+    clearTimeout(liveMoveTimers.get(removed.id));
+    liveMoveTimers.delete(removed.id);
+    liveObjectIds.delete(removed.id);
+    saveState(); syncInputsFromState(); updateMap();
+    if (!PERSISTENT_ONLY_TITLES.has(removed.title)) {
+      const commandId = sendStabilizerCommand('homebase_v1.preview.object.remove', {
+        id: removed.id,
+        label: removed.label
+      });
+      setResult(
+        'previewResult',
+        commandId
+          ? `${removed.label} wird aus der Live-Vorschau entfernt …`
+          : `${removed.label} wurde aus dem Plan entfernt; die Live-Vorschau konnte nicht erreicht werden.`,
+        commandId ? undefined : false
+      );
+    }
     log(`${removed.label} entfernt.`);
   }
 
@@ -582,8 +600,8 @@
     }
     const commandId = `hb-${Date.now()}-${++commandSeq}`;
     socket.send(JSON.stringify({
-      type: 'gps', syncId: TEST_ID, pin: TEST_PIN, target: 'tracker', commandOnly: true,
-      trackerCommand: { type, commandId, pin: TEST_PIN, ...extra }
+      type: 'gps', syncId: STANDALONE_ID, pin: STANDALONE_PIN, target: 'tracker', commandOnly: true,
+      trackerCommand: { type, commandId, pin: STANDALONE_PIN, ...extra }
     }));
     log(`${type} gesendet (${commandId}).`);
     return commandId;
@@ -593,8 +611,8 @@
     if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     const commandId = `hb-stabilizer-${Date.now()}-${++commandSeq}`;
     socket.send(JSON.stringify({
-      type: 'gps', syncId: TEST_ID, pin: TEST_PIN, target: 'stabilizer', commandOnly: true,
-      stabilizerCommand: { type, commandId, pin: TEST_PIN, ...extra }
+      type: 'gps', syncId: STANDALONE_ID, pin: STANDALONE_PIN, target: 'stabilizer', commandOnly: true,
+      stabilizerCommand: { type, commandId, pin: STANDALONE_PIN, ...extra }
     }));
     return commandId;
   }
@@ -619,7 +637,7 @@
     queueLiveMove('hangar', () => {
       const config = buildConfig();
       const object = { id: 'hangar', title: config.hangar.objectTitle, label: config.hangar.objectTitle === OPEN_PARKING_TITLE ? 'Offener Parkbereich' : 'Hangar', ...config.hangar };
-      if (!sendStabilizerCommand('hb_test.preview.hangar.move', { object })) {
+      if (!sendStabilizerCommand('homebase_v1.preview.hangar.move', { object })) {
         setResult('previewResult', 'Hangar konnte nicht verschoben werden: Relay ist nicht verbunden.', false);
       }
     });
@@ -633,7 +651,7 @@
     }
     queueLiveMove(item.id, () => {
       const object = buildConfig().objects.find((entry) => entry.id === item.id);
-      const commandId = object && sendStabilizerCommand('hb_test.preview.object.move', { object });
+      const commandId = object && sendStabilizerCommand('homebase_v1.preview.object.move', { object });
       if (!commandId) {
         setResult('previewResult', `${item.label} konnte nicht verschoben werden: Relay ist nicht verbunden.`, false);
         return;
@@ -649,7 +667,7 @@
       return;
     }
     const object = buildConfig().objects.find((entry) => entry.id === item.id);
-    if (!object || !sendStabilizerCommand('hb_test.preview.object.add', { object })) {
+    if (!object || !sendStabilizerCommand('homebase_v1.preview.object.add', { object })) {
       setResult('previewResult', `${item.label} wurde gespeichert, konnte aber nicht direkt an den Simulator gesendet werden.`, false);
       return;
     }
@@ -672,7 +690,7 @@
 
   function requestSpawnProbeMove() {
     spawnProbeEnabled = true;
-    const commandId = sendStabilizerCommand('hb_test.preview.object.move', { object: spawnProbeObject() });
+    const commandId = sendStabilizerCommand('homebase_v1.preview.object.move', { object: spawnProbeObject() });
     if (!commandId) {
       spawnProbeEnabled = false;
       setResult('previewResult', 'Messkegel konnte nicht gesetzt werden: Relay ist nicht verbunden.', false);
@@ -683,7 +701,7 @@
   }
 
   function addSpawnProbe() {
-    if (!sendStabilizerCommand('hb_test.preview.object.add', { object: spawnProbeObject() })) {
+    if (!sendStabilizerCommand('homebase_v1.preview.object.add', { object: spawnProbeObject() })) {
       setResult('previewResult', 'Messkegel konnte nicht erzeugt werden: Relay ist nicht verbunden.', false);
       return;
     }
@@ -691,7 +709,7 @@
   }
 
   function beginPreviewTeardown(kind, payload = null) {
-    const commandId = sendStabilizerCommand('hb_test.preview.extras.clear');
+    const commandId = sendStabilizerCommand('homebase_v1.preview.extras.clear');
     if (!commandId) return false;
     previewTeardown = { commandId, kind, payload };
     clearTimeout(previewWatchdog);
@@ -736,7 +754,7 @@
   }
 
   function beginPrimaryTeardown(transition) {
-    const id = sendCommand('hb_test.preview.clear');
+    const id = sendCommand('homebase_v1.preview.clear');
     if (!id) {
       previewQueued = false;
       clearQueued = false;
@@ -773,7 +791,7 @@
     previewWaitsForExtras = true;
     clearTimeout(previewWatchdog);
     previewWatchdog = setTimeout(() => finishPreviewRequest(id), 75000);
-    const sent = sendStabilizerCommand('hb_test.preview.extras.set_standalone', {
+    const sent = sendStabilizerCommand('homebase_v1.preview.extras.set_standalone', {
       parentCommandId: id,
       objects: [hangar, ...payload.companionObjects]
     });
@@ -903,7 +921,7 @@
     const force = options.force === true;
     if (!INTEGRATED) {
       await refreshLocalAssetInspection();
-      log('Die automatische Assetinstallation steht in der integrierten Haupt-App über den PC-Tracker ab v286 bereit.');
+      log('Die automatische Assetinstallation steht in der integrierten Haupt-App über den PC-Tracker ab v288 bereit.');
       return;
     }
     if (assetInstallCheckInFlight) return;
@@ -1230,31 +1248,36 @@
     }
     socket.onopen = () => {
       setPill('relayPill', INTEGRATED ? 'Haupt-App verbunden' : 'Relay verbunden', 'ok');
-      socket.send(JSON.stringify({ type: 'join', syncId: TEST_ID, pin: TEST_PIN }));
+      if (!INTEGRATED && (!STANDALONE_ID || !STANDALONE_PIN)) {
+        setPill('relayPill', 'Nur über Haupt-App', 'warn');
+        log('Standalone-Verbindung benötigt ?syncId=…&pin=…. In der Haupt-App werden die Pilot-Zugangsdaten automatisch verwendet.', 'error');
+        return;
+      }
+      socket.send(JSON.stringify({ type: 'join', syncId: STANDALONE_ID, pin: STANDALONE_PIN }));
       log(INTEGRATED ? 'Mit der VFR-Multitool-Haupt-App verbunden.' : 'Mit dem VFR-Multitool-Relay verbunden.', 'ok');
-      setTimeout(() => sendCommand('hb_test.capabilities'), 150);
+      setTimeout(() => sendCommand('homebase_v1.capabilities'), 150);
     };
     socket.onmessage = (event) => {
       let data;
       try { data = JSON.parse(event.data); } catch (_) { return; }
       if (data.type === 'error') { log(data.message || 'Relay-Fehler', 'error'); return; }
       if (data.trackerCommand || data.commandOnly) return;
-      if (data.hbTestHello) {
+      if (data.homebaseHello) {
         trackerLastSeen = Date.now();
-        const caps = Array.isArray(data.hbTestHello.capabilities) ? data.hbTestHello.capabilities : [];
-        const helloSignature = `${data.hbTestHello.version || ''}|${Boolean(data.hbTestHello.simConnected)}|${caps.join(',')}`;
-        setPill('trackerPill', `Homebase-Tracker ${data.hbTestHello.version || 'bereit'}`, 'ok');
-        setPill('simPill', data.hbTestHello.simConnected ? 'MSFS verbunden' : 'MSFS wartet', data.hbTestHello.simConnected ? 'ok' : 'warn');
+        const caps = Array.isArray(data.homebaseHello.capabilities) ? data.homebaseHello.capabilities : [];
+        const helloSignature = `${data.homebaseHello.version || ''}|${Boolean(data.homebaseHello.simConnected)}|${caps.join(',')}`;
+        setPill('trackerPill', `Homebase-Tracker ${data.homebaseHello.version || 'bereit'}`, 'ok');
+        setPill('simPill', data.homebaseHello.simConnected ? 'MSFS verbunden' : 'MSFS wartet', data.homebaseHello.simConnected ? 'ok' : 'warn');
         if (helloSignature !== connect.lastHelloSignature) {
           connect.lastHelloSignature = helloSignature;
           log(`Homebase-Tracker erkannt: ${caps.join(', ')}`, 'ok');
         }
         if (environmentOpened) offerAssetPackageInstall().catch(() => {});
       }
-      if (data.trackerAck && String(data.trackerAck.type || '').startsWith('hb_test.')) {
+      if (data.trackerAck && String(data.trackerAck.type || '').startsWith('homebase_v1.')) {
         trackerLastSeen = Date.now(); handleAck(data.trackerAck);
       }
-      if (data.stabilizerAck?.type === 'hb_test.preview.extras.clear_ack') {
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.extras.clear_ack') {
         const ack = data.stabilizerAck;
         if (previewTeardown?.commandId === ack.commandId) {
           const transition = previewTeardown;
@@ -1273,7 +1296,7 @@
           }
         }
       }
-      if (data.stabilizerAck?.type === 'hb_test.preview.primary.clear_ack') {
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.primary.clear_ack') {
         const ack = data.stabilizerAck;
         if (primaryTeardown?.commandId === ack.commandId) {
           primaryTeardown.observerAck = ack;
@@ -1283,7 +1306,7 @@
             setTimeout(() => {
               if (primaryTeardown?.commandId !== commandId || primaryTeardown.trackerAck) return;
               primaryTeardown.trackerAck = {
-                type: 'hb_test.preview.clear_ack', commandId, status: 'ok',
+                type: 'homebase_v1.preview.clear_ack', commandId, status: 'ok',
                 message: 'Kein live erzeugter Tracker-Hangar war registriert.'
               };
               log('Tracker-Clear ohne ACK: bestätigten Null-Abbau des Stabilizers übernommen.', 'ok');
@@ -1292,7 +1315,7 @@
           }
         }
       }
-      if (data.stabilizerAck?.type === 'hb_test.preview.extras.set_ack') {
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.extras.set_ack') {
         const ack = data.stabilizerAck;
         finishPreviewRequest(ack.parentCommandId);
         const failed = Array.isArray(ack.failedObjects) && ack.failedObjects.length ? ` Nicht erzeugt: ${ack.failedObjects.map((item) => item.label || item.title).join(', ')}.` : '';
@@ -1303,7 +1326,7 @@
         }
         setResult('previewResult', `Vorschau gesetzt. ${ack.extraCount || 0} Zusatzobjekte aktiv.${failed}`, livePreviewReady);
       }
-      if (data.stabilizerAck?.type === 'hb_test.preview.object.add_ack') {
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.object.add_ack') {
         const ack = data.stabilizerAck;
         const ok = ack.status === 'ok';
         const spawned = Array.isArray(ack.spawnedObjects) ? ack.spawnedObjects[0] : null;
@@ -1319,7 +1342,14 @@
         setResult('previewResult', ack.message || (ok ? 'Objekt wurde direkt erzeugt.' : 'Objekt konnte nicht erzeugt werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
-      if (['hb_test.preview.object.move_ack', 'hb_test.preview.hangar.move_ack'].includes(data.stabilizerAck?.type)) {
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.object.remove_ack') {
+        const ack = data.stabilizerAck;
+        const ok = ack.status === 'ok' || ack.status === 'noop';
+        if (ack.id) liveObjectIds.delete(ack.id);
+        setResult('previewResult', ack.message || (ok ? 'Objekt wurde aus der Live-Vorschau entfernt.' : 'Objekt konnte nicht entfernt werden.'), ok);
+        log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
+      }
+      if (['homebase_v1.preview.object.move_ack', 'homebase_v1.preview.hangar.move_ack'].includes(data.stabilizerAck?.type)) {
         const ack = data.stabilizerAck;
         const ok = ack.status === 'ok';
         if (ack.commandId === pendingProbeMoveCommandId) {
@@ -1382,11 +1412,11 @@
     const ok = ack.status === 'ok';
     const message = ack.message || ack.error || ack.status || 'Antwort empfangen';
     log(`${ack.type}: ${message}`, ok ? 'ok' : 'error');
-    if (ack.type === 'hb_test.preview.set_ack') {
+    if (ack.type === 'homebase_v1.preview.set_ack') {
       if (!previewWaitsForExtras || !ok) finishPreviewRequest(ack.commandId);
       const failed = Array.isArray(ack.failedObjects) && ack.failedObjects.length ? ` Nicht erzeugt: ${ack.failedObjects.map((item) => item.label || item.title).join(', ')}.` : '';
       setResult('previewResult', `${message}${Number.isFinite(ack.objectCount) ? ` ${ack.objectCount} Ausstattungsobjekte aktiv.` : ''}${failed}`, ok && !failed);
-    } else if (ack.type === 'hb_test.preview.clear_ack') {
+    } else if (ack.type === 'homebase_v1.preview.clear_ack') {
       if (primaryTeardown?.commandId === ack.commandId) {
         primaryTeardown.trackerAck = ack;
         finishPrimaryTeardownIfReady();
@@ -1396,7 +1426,7 @@
         setResult('previewResult', message, ok);
         finishPreviewRequest(ack.commandId);
       }
-    } else if (ack.type.startsWith('hb_test.package.')) {
+    } else if (ack.type.startsWith('homebase_v1.package.')) {
       setResult('packageResult', `${message}${ack.path ? ` ${ack.path}` : ''}`, ok);
     }
   }
@@ -1485,5 +1515,5 @@
     postSyncDraft();
     window.parent.postMessage({ channel: 'vfr-homebase', kind: 'workbench-ready' }, PARENT_ORIGIN);
   }
-  log(INTEGRATED ? 'Homebase Workbench v0.5.0 in der VFR-Multitool-Haupt-App gestartet.' : 'Homebase Workbench v0.5.0 gestartet. Raum: Test2 / Test2.');
+  log(INTEGRATED ? 'Homebase Workbench v1.0.0 in der VFR-Multitool-Haupt-App gestartet.' : 'Homebase Workbench v1.0.0 im Standalone-Modus gestartet.');
 })();

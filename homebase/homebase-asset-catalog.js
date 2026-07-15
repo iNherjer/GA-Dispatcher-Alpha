@@ -7,10 +7,10 @@
 
   return Object.freeze({
     schemaVersion: 1,
-    assetPackageVersion: '0.5.6',
-    assetPackageName: 'vfr-multitool-homebase-test-assets',
+    assetPackageVersion: '0.6.0',
+    assetPackageName: 'vfr-multitool-homebase-assets',
     assets: Object.freeze([
-      { key: 'hangar', folder: 'VFRHomebaseTestHangar', title: 'VFR Multitool Homebase Test Hangar', kind: 'hangar', label: 'Homebase-Hangar' },
+      { key: 'hangar', folder: 'VFRHomebaseHangar', title: 'VFR Multitool Homebase Hangar', kind: 'hangar', label: 'Homebase-Hangar' },
       { key: 'openParking', folder: 'VFRHomebaseOpenParking', title: 'VFR Multitool Homebase Open Parking', kind: 'hangar', label: 'Offener Parkbereich' },
       { key: 'generator', folder: 'VFRHomebaseGenerator', title: 'VFR Multitool Homebase Generator', kind: 'object', group: 'Ausstattung', label: 'Mobiles Aggregat', icon: '⚡' },
       { key: 'desk', folder: 'VFRHomebaseDesk', title: 'VFR Multitool Homebase Desk', kind: 'object', group: 'Ausstattung', label: 'Schreibtisch', icon: 'T' },
@@ -23,6 +23,9 @@
       { key: 'woodCrateLarge', folder: 'VFRHomebaseWoodCrateLarge', title: 'VFR Multitool Homebase Wood Crate Large', kind: 'object', group: 'Ausstattung', label: 'Holzkiste groß', icon: 'K' },
       { key: 'europeanCaravan', folder: 'VFRHomebaseEuropeanCaravan', title: 'VFR Multitool Homebase European Caravan', kind: 'object', group: 'Ausstattung', label: 'Wohnwagen (einachsig)', icon: 'W' },
       { key: 'assetShelf', folder: 'VFRHomebaseAssetShelf', title: 'VFR Multitool Homebase Asset Shelf', kind: 'object', group: 'Ausstattung', label: 'Asset-Regal (Eimer, Ölkanne, Kartons)', icon: 'R' },
+      { key: 'briefcase', folder: 'VFRHomebaseBriefcase', title: 'VFR Multitool Homebase Briefcase', kind: 'object', group: 'Gepäck & Fracht', label: 'Briefcase', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'cabin-trolley', folder: 'VFRHomebaseCabinTrolley', title: 'VFR Multitool Homebase Cabin Trolley', kind: 'object', group: 'Gepäck & Fracht', label: 'Cabin Trolley', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'travel-suitcase', folder: 'VFRHomebaseTravelSuitcase', title: 'VFR Multitool Homebase Travel Suitcase', kind: 'object', group: 'Gepäck & Fracht', label: 'Travel Suitcase', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
       { key: 'chair', folder: 'VFRHomebaseChair', title: 'VFR Multitool Homebase Chair', kind: 'object', group: 'Ausstattung', label: 'Stuhl', icon: 'S' },
       { key: 'trafficCone', folder: 'VFRHomebaseTrafficCone', title: 'VFR Multitool Homebase Traffic Cone', kind: 'object', group: 'Flugplatz', label: 'Traffic Cone', icon: 'K' },
       { key: 'spawnProbe', folder: 'VFRHomebaseSpawnProbe', title: 'VFR Multitool Homebase Spawn Probe', kind: 'internal', label: 'Gelber Spawnpunkt-Messkegel' },
@@ -42,6 +45,9 @@
       { title: 'Microsoft_Car_EUR_04', group: 'Fahrzeuge', label: 'Pkw Europa 4', icon: 'A' },
       { title: 'Microsoft_Van_EUR', group: 'Fahrzeuge', label: 'Van Europa', icon: 'V' }
     ]),
-    legacyTitleAliases: Object.freeze({ 'VFR Multitool Homebase Windsock': 'Windsock' })
+    legacyTitleAliases: Object.freeze({
+      'VFR Multitool Homebase Windsock': 'Windsock',
+      'VFR Multitool Homebase Test Hangar': 'VFR Multitool Homebase Hangar'
+    })
   });
 }));

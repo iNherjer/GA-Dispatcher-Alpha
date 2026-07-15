@@ -11804,10 +11804,10 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-// Homebase, Asset-Updates und die stabilisierte Objektplatzierung sind ab v286
-// Bestandteil des produktiven Trackers.
-const MIN_TRACKER_VERSION_CODE = 286;
-const MIN_TRACKER_VERSION_LABEL = 'v286';
+// Das produktive Homebase-v1-Protokoll inklusive gezieltem Live-Despawn ist ab
+// v288 Bestandteil des produktiven Trackers.
+const MIN_TRACKER_VERSION_CODE = 288;
+const MIN_TRACKER_VERSION_LABEL = 'v288';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

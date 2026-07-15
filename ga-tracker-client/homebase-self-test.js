@@ -203,13 +203,14 @@ async function run() {
   manager.handleCommand({ type: 'homebase_v1.capabilities', commandId: 'cap-1' });
   const capabilityAck = await waitForAck(acks, 'homebase_v1.capabilities_ack');
   if (capabilityAck.status !== 'ok' || capabilityAck.protocol !== 1) throw new Error('Capability contract failed.');
+  if (!capabilityAck.capabilities.includes('homebase-object-remove')) throw new Error('Object remove capability missing.');
 
   manager.handleCommand({
     type: 'homebase_v1.preview.set',
     commandId: 'set-1',
     parentCommandId: 'parent-1',
     objects: [
-      { id: 'hangar', title: 'VFR Multitool Homebase Test Hangar', label: 'Hangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 },
+      { id: 'hangar', title: 'VFR Multitool Homebase Hangar', label: 'Hangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 },
       { id: 'box-1', title: 'Cardboard', label: 'Karton', lat: 48.00001, lon: 8.00001, altFt: 514, heightOffsetFt: 0, heading: 0 }
     ]
   });
@@ -224,13 +225,24 @@ async function run() {
   const moveAck = await waitForAck(acks, 'homebase_v1.preview.object.move_ack');
   if (moveAck.status !== 'ok' || moveAck.groundAltitudeFt !== 514.25) throw new Error('Preview move/ground query failed.');
 
+  manager.handleCommand({
+    type: 'homebase_v1.preview.object.remove',
+    commandId: 'remove-1',
+    id: 'box-1',
+    label: 'Karton'
+  });
+  const removeAck = await waitForAck(acks, 'homebase_v1.preview.object.remove_ack');
+  if (removeAck.status !== 'ok' || removeAck.removedCount !== 1 || manager.snapshot().objectCount !== 1) {
+    throw new Error('Confirmed object remove failed.');
+  }
+
   manager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: 'clear-1' });
   const clearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');
-  if (clearAck.status !== 'ok' || clearAck.removedCount !== 2 || manager.snapshot().objectCount !== 0) throw new Error('Confirmed preview clear failed.');
+  if (clearAck.status !== 'ok' || clearAck.removedCount !== 1 || manager.snapshot().objectCount !== 0) throw new Error('Confirmed preview clear failed.');
 
   const scene = createSceneXml({
     spawn: { lat: 48, lon: 8, altFt: 500, heading: 90 },
-    hangar: { lat: 48, lon: 8, heading: 270, objectTitle: 'VFR Multitool Homebase Test Hangar' },
+    hangar: { lat: 48, lon: 8, heading: 270, objectTitle: 'VFR Multitool Homebase Hangar' },
     objects: [
       { id: 'box', title: 'Cardboard', lat: 48, lon: 8, heightOffsetFt: 0, heading: 0, scale: 1 },
       { id: 'pallet', title: 'Pallet01_01', lat: 48.00001, lon: 8.00001, heightOffsetFt: 0, heading: 0, scale: 1 }
@@ -250,15 +262,9 @@ async function run() {
   const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'homebase-assets-test-'));
   try {
     const { createZip, entriesFromDirectory } = await import('../homebase/asset-publisher/zip-utils.mjs');
-    const embeddedAssetPackagePath = path.resolve(
-      __dirname,
-      '..',
-      'homebase',
-      'generated',
-      'vfr-multitool-homebase-assets-sdk',
-      'Packages',
-      catalog.assetPackageName
-    );
+    const embeddedAssetPackagePath = process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE
+      ? path.resolve(process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE)
+      : path.resolve(__dirname, 'embedded-homebase-assets', catalog.assetPackageName);
     const packageService = createHomebasePackageService({
       runtimeDir: testRoot,
       appData: path.join(testRoot, 'AppData', 'Roaming'),
@@ -283,7 +289,7 @@ async function run() {
     const remoteRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.5.7',
+      version: '0.6.1',
       createZip,
       entriesFromDirectory
     });
@@ -300,21 +306,21 @@ async function run() {
     });
     if (!remoteService.capabilities.includes('homebase-assets-remote-update')) throw new Error('Remote asset update capability missing.');
     const remoteStatus = await remoteService.checkRemoteAssets({ force: true });
-    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.5.7') {
+    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.1') {
       throw new Error(`Remote asset check failed: ${JSON.stringify(remoteStatus)}`);
     }
     if (!Array.isArray(remoteStatus.remoteAssets) || remoteStatus.remoteAssets.length !== catalog.assets.length) {
       throw new Error('Remote asset catalog was not exposed to the app.');
     }
     const remoteInstalled = await remoteService.installRemoteAssets();
-    if (remoteInstalled.packageVersion !== '0.5.7' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
+    if (remoteInstalled.packageVersion !== '0.6.1' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
       throw new Error(`Remote asset installation failed: ${JSON.stringify(remoteInstalled)}`);
     }
     const remoteInspection = remoteService.inspectAssets();
-    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.5.7') throw new Error('Remote package inspection failed.');
+    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.1') throw new Error('Remote package inspection failed.');
     if (fs.existsSync(interruptedBackup)) throw new Error('Interrupted package backup was not recovered and cleaned.');
     const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-asset-cache', 'active-package-index.json');
-    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.5.7') {
+    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.1') {
       throw new Error('Active remote package index was not persisted.');
     }
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
@@ -322,7 +328,7 @@ async function run() {
       throw new Error('Installed asset catalog was not restored from the active package index.');
     }
     const noDowngrade = remoteService.installAssets();
-    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.5.7') throw new Error('Embedded fallback downgraded a newer remote package.');
+    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.1') throw new Error('Embedded fallback downgraded a newer remote package.');
 
     remoteService.handleCommand({ type: 'homebase_v1.assets.update.install', commandId: 'remote-no-confirm' });
     const confirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.update.install_ack');
@@ -331,7 +337,7 @@ async function run() {
     const badHashRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.5.8',
+      version: '0.6.2',
       createZip,
       entriesFromDirectory,
       archiveHashOverride: '0'.repeat(64)
@@ -350,12 +356,12 @@ async function run() {
     } catch (error) {
       hashRejected = /SHA-256/.test(error?.message || '');
     }
-    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.5.7') throw new Error('Hash rejection did not preserve the installed package.');
+    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.1') throw new Error('Hash rejection did not preserve the installed package.');
 
     const rollbackRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.5.8',
+      version: '0.6.2',
       createZip,
       entriesFromDirectory
     });
@@ -382,7 +388,7 @@ async function run() {
     } finally {
       fs.renameSync = originalRenameSync;
     }
-    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.5.7') throw new Error('Atomic rollback failed to restore the previous package.');
+    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.1') throw new Error('Atomic rollback failed to restore the previous package.');
 
     const traversalZipPath = path.join(testRoot, 'traversal.zip');
     createZip([{ name: 'evil.txt', data: Buffer.from('blocked') }], traversalZipPath);

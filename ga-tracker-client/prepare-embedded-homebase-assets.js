@@ -4,15 +4,17 @@ const fs = require('fs');
 const path = require('path');
 const catalog = require('./homebase-asset-catalog.js');
 
-const source = path.resolve(
-  __dirname,
-  '..',
-  'homebase',
-  'generated',
-  'vfr-multitool-homebase-assets-sdk',
-  'Packages',
-  catalog.assetPackageName
-);
+const source = process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE
+  ? path.resolve(process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE)
+  : path.resolve(
+      __dirname,
+      '..',
+      'homebase',
+      'generated',
+      'vfr-multitool-homebase-assets-sdk',
+      'Packages',
+      catalog.assetPackageName
+    );
 const targetRoot = path.join(__dirname, 'embedded-homebase-assets');
 const target = path.join(targetRoot, catalog.assetPackageName);
 
