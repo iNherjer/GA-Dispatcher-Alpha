@@ -1,0 +1,449 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "VFR Multitool procedural asset generator"
+  },
+  "buffers": [
+    {
+      "byteLength": 37128,
+      "uri": "HomebaseBackpack_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 2160,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 2160,
+      "byteLength": 2160,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4320,
+      "byteLength": 1440,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 5760,
+      "byteLength": 360,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 6120,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 6984,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 7848,
+      "byteLength": 576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8424,
+      "byteLength": 144,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8568,
+      "byteLength": 8784,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 17352,
+      "byteLength": 8784,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 26136,
+      "byteLength": 5856,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 31992,
+      "byteLength": 1464,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 33456,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 34320,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 35184,
+      "byteLength": 576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 35760,
+      "byteLength": 144,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 35904,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 36336,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 36768,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 37056,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 180,
+      "min": [
+        -0.19,
+        0.04,
+        -0.19
+      ],
+      "max": [
+        0.19,
+        0.48,
+        0.19
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 180,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 180,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 180,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 72,
+      "min": [
+        -0.18,
+        0,
+        -0.1
+      ],
+      "max": [
+        0.18,
+        0.11,
+        0.1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 72,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 732,
+      "min": [
+        -0.15364899077054556,
+        0.0984405428461205,
+        -0.17898253274428982
+      ],
+      "max": [
+        0.15364899077054556,
+        0.5820000000000001,
+        0.18495131446207222
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 732,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 732,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 732,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 72,
+      "min": [
+        -0.1375,
+        0.195,
+        0.16249999999999998
+      ],
+      "max": [
+        0.1375,
+        0.305,
+        0.1875
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 72,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.065,
+        0.2,
+        -0.18
+      ],
+      "max": [
+        0.065,
+        0.36000000000000004,
+        -0.16799999999999998
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Rucksack_Stoff_Blau",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.025,
+          0.11,
+          0.22,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.82
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Rucksack_Boden_Schwarz",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.014,
+          0.018,
+          0.02,
+          1
+        ],
+        "metallicFactor": 0.02,
+        "roughnessFactor": 0.86
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Rucksack_Gurte_Grau",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.12,
+          0.14,
+          0.14,
+          1
+        ],
+        "metallicFactor": 0.12,
+        "roughnessFactor": 0.62
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Rucksack_Schnallen",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.46,
+          0.5,
+          0.5,
+          1
+        ],
+        "metallicFactor": 0.82,
+        "roughnessFactor": 0.23
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Rucksack_Reflektor_Orange",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.86,
+          0.22,
+          0.025,
+          1
+        ],
+        "metallicFactor": 0.12,
+        "roughnessFactor": 0.44
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseBackpack_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseBackpack_node"
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

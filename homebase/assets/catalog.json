@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -11,7 +11,7 @@
       "version": "1.0.1",
       "folder": "VFRHomebaseAssetShelf",
       "title": "VFR Multitool Homebase Asset Shelf",
-      "label": "Asset-Regal (Eimer, Ölkanne, Kartons)",
+      "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
       "group": "Ausstattung",
       "kind": "object",
       "missionSpawnable": true,
@@ -23,6 +23,24 @@
       "missionRoles": [
         "scene-prop"
       ]
+    },
+    {
+      "key": "backpack",
+      "folder": "VFRHomebaseBackpack",
+      "title": "VFR Multitool Homebase Backpack",
+      "label": "Backpack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "missionSpawnable": true,
+      "missionTags": [
+        "homebase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T17:14:06.636Z"
     },
     {
       "key": "briefcase",
@@ -380,5 +398,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-07-15T13:21:45.030Z"
+  "updatedAt": "2026-07-15T17:14:20.503Z"
 }

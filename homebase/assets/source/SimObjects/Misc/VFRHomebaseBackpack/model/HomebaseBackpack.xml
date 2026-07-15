@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseBackpack" guid="{5F2BCE18-7B5F-46D3-8E5D-4C9A2F3176D0}">
+  <LODS><LOD ModelFile="HomebaseBackpack_LOD00.gltf" MinSize="0.0000"/></LODS>
+</ModelInfo>
