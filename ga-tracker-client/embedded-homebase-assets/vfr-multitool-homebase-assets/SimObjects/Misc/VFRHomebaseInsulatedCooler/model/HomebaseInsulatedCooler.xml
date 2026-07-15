@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseInsulatedCooler" guid="{E9C0A2D4-5F61-4B78-8D3E-1A7F6C2B4D90}">
+	<LODS>
+		<LOD ModelFile="HomebaseInsulatedCooler_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

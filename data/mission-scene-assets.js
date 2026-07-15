@@ -2,8 +2,8 @@
 // the SimObjects_Visuals.pdf visual pass. VFX entries are kept as known/ACK-tested assets
 // because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-06-16-msfs-visual-pdf-tags',
-    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, plus known VFX',
+    version: '2026-07-15-homebase-cargo-v0.6.2',
+    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.2',
     targetSceneKinds: {
         none: {
             label: 'Keine Zielszene',
@@ -38,7 +38,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         cargo_site: {
             label: 'Fracht-/Materialpunkt',
-            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.animal_transport_box'],
+            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.animal_transport_box'],
             useFor: ['cargo_fragile', 'club_utility', 'animal_transport']
         },
         construction_site: {
@@ -633,6 +633,34 @@ window.MISSION_SCENE_ASSETS = {
         'cargo.small_box': [
             'Cardboard',
             'CoffeeCup'
+        ],
+        'cargo.luggage.backpack': [
+            'VFR Multitool Homebase Backpack',
+            'VFR Multitool Homebase Daypack'
+        ],
+        'cargo.luggage.duffel': [
+            'VFR Multitool Homebase Duffel Bag'
+        ],
+        'cargo.toolbox': [
+            'VFR Multitool Homebase Portable Toolbox',
+            'VFR Multitool Homebase Toolbox'
+        ],
+        'cargo.tool_cart': [
+            'VFR Multitool Homebase Tool Cart'
+        ],
+        'cargo.cooler': [
+            'VFR Multitool Homebase Insulated Cooler'
+        ],
+        'cargo.jerrycan_pair': [
+            'VFR Multitool Homebase Jerrycan Pair'
+        ],
+        'cargo.mail_sack': [
+            'VFR Multitool Homebase Mail Sack'
+        ],
+        'cargo.wood_crate': [
+            'VFR Multitool Homebase Wood Crate Small',
+            'VFR Multitool Homebase Wood Crate Medium',
+            'VFR Multitool Homebase Wood Crate Large'
         ],
         'cargo.medical_kit': [
             'Cardboard'

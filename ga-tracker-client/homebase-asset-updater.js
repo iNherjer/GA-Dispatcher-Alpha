@@ -390,7 +390,8 @@ function createHomebaseAssetUpdater(options = {}) {
         version: String(asset?.version || ''),
         kind: String(asset?.kind || ''),
         group: String(asset?.group || ''),
-        workbenchVisible: asset?.workbenchVisible !== false,
+        workbenchVisible: asset?.workbenchVisible !== false && asset?.homebasePlaceable !== false,
+        homebasePlaceable: asset?.homebasePlaceable !== false,
         missionSpawnable: asset?.missionSpawnable === true,
         missionTags: Array.isArray(asset?.missionTags) ? asset.missionTags.map(String).slice(0, 20) : [],
         missionRoles: Array.isArray(asset?.missionRoles) ? asset.missionRoles.map(String).slice(0, 20) : []

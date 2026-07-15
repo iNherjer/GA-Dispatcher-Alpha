@@ -381,7 +381,7 @@ async function run() {
     const remoteRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.1',
+      version: '0.6.3',
       createZip,
       entriesFromDirectory
     });
@@ -399,7 +399,7 @@ async function run() {
     });
     if (!remoteService.capabilities.includes('homebase-assets-remote-update')) throw new Error('Remote asset update capability missing.');
     const remoteStatus = await remoteService.checkRemoteAssets({ force: true });
-    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.1') {
+    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.3') {
       throw new Error(`Remote asset check failed: ${JSON.stringify(remoteStatus)}`);
     }
     if (!Array.isArray(remoteStatus.remoteAssets) || remoteStatus.remoteAssets.length !== catalog.assets.length) {
@@ -409,14 +409,14 @@ async function run() {
       throw new Error('Remote workbench visibility was not exposed to the app.');
     }
     const remoteInstalled = await remoteService.installRemoteAssets();
-    if (remoteInstalled.packageVersion !== '0.6.1' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
+    if (remoteInstalled.packageVersion !== '0.6.3' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
       throw new Error(`Remote asset installation failed: ${JSON.stringify(remoteInstalled)}`);
     }
     const remoteInspection = remoteService.inspectAssets();
-    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.1') throw new Error('Remote package inspection failed.');
+    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.3') throw new Error('Remote package inspection failed.');
     if (fs.existsSync(interruptedBackup)) throw new Error('Interrupted package backup was not recovered and cleaned.');
     const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-asset-cache', 'active-package-index.json');
-    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.1') {
+    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.3') {
       throw new Error('Active remote package index was not persisted.');
     }
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
@@ -427,7 +427,7 @@ async function run() {
       throw new Error('Installed workbench visibility was not restored from the active package index.');
     }
     const noDowngrade = remoteService.installAssets();
-    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.1') throw new Error('Embedded fallback downgraded a newer remote package.');
+    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.3') throw new Error('Embedded fallback downgraded a newer remote package.');
 
     remoteService.handleCommand({ type: 'homebase_v1.assets.update.install', commandId: 'remote-no-confirm' });
     const confirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.update.install_ack');
@@ -436,7 +436,7 @@ async function run() {
     const badHashRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.2',
+      version: '0.6.4',
       createZip,
       entriesFromDirectory,
       archiveHashOverride: '0'.repeat(64)
@@ -456,12 +456,12 @@ async function run() {
     } catch (error) {
       hashRejected = /SHA-256/.test(error?.message || '');
     }
-    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.1') throw new Error('Hash rejection did not preserve the installed package.');
+    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.3') throw new Error('Hash rejection did not preserve the installed package.');
 
     const rollbackRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.2',
+      version: '0.6.4',
       createZip,
       entriesFromDirectory
     });
@@ -489,7 +489,7 @@ async function run() {
     } finally {
       fs.renameSync = originalRenameSync;
     }
-    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.1') throw new Error('Atomic rollback failed to restore the previous package.');
+    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.3') throw new Error('Atomic rollback failed to restore the previous package.');
 
     const traversalZipPath = path.join(testRoot, 'traversal.zip');
     createZip([{ name: 'evil.txt', data: Buffer.from('blocked') }], traversalZipPath);

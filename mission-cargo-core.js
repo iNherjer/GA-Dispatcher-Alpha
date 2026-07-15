@@ -377,6 +377,8 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         }
         const primaryWeightLbs = _missionCargoExtractWeight(cargoText, cargoAsset?.cargoWeightLbs || 20);
         if (
+            !cargoAsset?.semanticAsset
+            &&
             typeof _missionSceneCargoLooksLikeSmallLoosePayload === 'function'
             && _missionSceneCargoLooksLikeSmallLoosePayload(primaryLabel, primaryWeightLbs)
         ) {

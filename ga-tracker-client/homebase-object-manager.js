@@ -24,7 +24,7 @@ const MAX_CREW_OBJECTS = 100;
 
 const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
 const allowedPreviewTitles = new Set([
-  ...catalog.assets.filter((entry) => entry.preview !== false && entry.kind !== 'internal').map((entry) => entry.title),
+  ...catalog.assets.filter((entry) => entry.preview !== false && entry.homebasePlaceable !== false && entry.kind !== 'internal').map((entry) => entry.title),
   ...catalog.stockObjects.filter((entry) => entry.preview !== false).map((entry) => entry.title),
   assetByKey.get('spawnProbe')?.title
 ].filter(Boolean));
@@ -59,6 +59,7 @@ function normalizeItem(raw, fallbackId = '') {
   const runtimeDefinition = catalog.objectDefinitionForTitle(title);
   const runtimeAllowed = runtimeDefinition?.runtimeAsset === true
     && runtimeDefinition.preview !== false
+    && runtimeDefinition.homebasePlaceable !== false
     && runtimeDefinition.kind !== 'internal';
   if (!allowedPreviewTitles.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
   const lat = Number(raw?.lat);

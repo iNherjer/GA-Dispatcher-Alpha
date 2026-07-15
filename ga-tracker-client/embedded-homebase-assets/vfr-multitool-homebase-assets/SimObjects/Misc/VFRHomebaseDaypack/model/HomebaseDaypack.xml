@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseDaypack" guid="{F4C3B2A1-96D5-4E2A-B74F-0A8C1D6E9F20}">
+	<LODS>
+		<LOD ModelFile="HomebaseDaypack_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

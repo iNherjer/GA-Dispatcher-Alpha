@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseToolbox" guid="{A31D8F79-AC7A-42A1-90E5-E8A4B1C5D2F6}">
+	<LODS>
+		<LOD ModelFile="HomebaseToolbox_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

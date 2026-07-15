@@ -190,6 +190,14 @@ const MISSION_SCENE_ASSET_POOLS = {
         'Cardboard',
         'Pallet01_03'
     ]),
+    luggageBackpacks: _sceneCatalogRoleTitles('cargo.luggage.backpack'),
+    luggageDuffels: _sceneCatalogRoleTitles('cargo.luggage.duffel'),
+    toolboxes: _sceneCatalogRoleTitles('cargo.toolbox'),
+    toolCarts: _sceneCatalogRoleTitles('cargo.tool_cart'),
+    coolers: _sceneCatalogRoleTitles('cargo.cooler'),
+    jerrycanPairs: _sceneCatalogRoleTitles('cargo.jerrycan_pair'),
+    mailSacks: _sceneCatalogRoleTitles('cargo.mail_sack'),
+    woodCrates: _sceneCatalogRoleTitles('cargo.wood_crate'),
     palletCargo: _sceneCatalogRoleMerge(['cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small'], [
         'Pallet01_01',
         'Pallet01_02',
@@ -4215,6 +4223,19 @@ function _missionSceneCargoTitleIsTruckContainer(title = '') {
     return /(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || ''));
 }
 
+function _missionSceneCargoIsSemanticHomebaseTitle(title = '') {
+    return _sceneUniqueTitles(
+        MISSION_SCENE_ASSET_POOLS.luggageBackpacks,
+        MISSION_SCENE_ASSET_POOLS.luggageDuffels,
+        MISSION_SCENE_ASSET_POOLS.toolboxes,
+        MISSION_SCENE_ASSET_POOLS.toolCarts,
+        MISSION_SCENE_ASSET_POOLS.coolers,
+        MISSION_SCENE_ASSET_POOLS.jerrycanPairs,
+        MISSION_SCENE_ASSET_POOLS.mailSacks,
+        MISSION_SCENE_ASSET_POOLS.woodCrates
+    ).includes(String(title || '').trim());
+}
+
 function _missionSceneCargoLooksLikeSmallLoosePayload(text = '', weightLbs = null) {
     const label = String(text || '').toLowerCase();
     const weight = Number(weightLbs);
@@ -4227,16 +4248,54 @@ function _missionSceneCargoLooksLikeSmallLoosePayload(text = '', weightLbs = nul
 
 function _missionSceneSafeBoardingCargoTitle(title = '', label = '', weightLbs = null) {
     const rawTitle = String(title || '').trim();
+    if (_missionSceneCargoIsSemanticHomebaseTitle(rawTitle)) return rawTitle;
     const context = `${label || ''} ${rawTitle}`;
     if (_missionSceneCargoLooksLikeSmallLoosePayload(context, weightLbs)) return 'Cardboard';
     if (_missionSceneCargoTitleIsTruckContainer(rawTitle)) return 'Cardboard';
     return rawTitle || 'Cardboard';
 }
 
+function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) {
+    const text = String(cargoText || '').toLowerCase();
+    const weight = Number(cargoWeightLbs);
+    const pick = (pool, salt, fallback = '') => {
+        const title = _scenePickTitle(pool, salt, fallback || pool[0] || '');
+        return title ? { title, candidates: _sceneAssetCandidates(title, pool) } : null;
+    };
+    if (/(postsack|postsendung|postbeutel|briefsendung)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.mailSacks, `cargo-mail-${text}`);
+    if (/(kuehlbox|kühlbox|blutkonserven|serum|laborproben|probenbeutel)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.coolers, `cargo-cooler-${text}`);
+    if (/(kanister|kraftstoff|treibstoff)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.jerrycanPairs, `cargo-jerrycan-${text}`);
+    if (/(werkzeugwagen|tool\s*cart)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolCarts, `cargo-tool-cart-${text}`);
+    if (/(werkzeug|toolbox|werkzeugkiste|werkzeugtasche|wartungskit|prueflampe|prüflampe|sicherungsdraht)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolboxes, `cargo-toolbox-${text}`);
+    if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageDuffels, `cargo-duffel-${text}`);
+    if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks.slice(1), `cargo-daypack-${text}`, MISSION_SCENE_ASSET_POOLS.luggageBackpacks[0]);
+    if (/(rucksack|rucksäcke|kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+    if (/(holz\s*kiste|versorgungskisten?|ersatzteilkiste|materialkiste|utility-kiste|frachtkiste)/i.test(text)) {
+        const crateIndex = Number.isFinite(weight) && weight >= 75 ? 2 : (Number.isFinite(weight) && weight >= 35 ? 1 : 0);
+        const title = MISSION_SCENE_ASSET_POOLS.woodCrates[crateIndex] || MISSION_SCENE_ASSET_POOLS.woodCrates[0] || '';
+        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.woodCrates) } : null;
+    }
+    return null;
+}
+
 function _missionSceneCargoAsset() {
     const taskDomain = _missionSceneTaskDomain();
     const cargoText = _missionSceneCargoText().toLowerCase();
     const cargoWeightLbs = _missionSceneCargoWeightLbs();
+    const semanticAsset = _missionSceneSemanticCargoAsset(cargoText, cargoWeightLbs);
+    if (semanticAsset) {
+        const title = _missionSceneSafeBoardingCargoTitle(_sceneObjectTitleOverride('cargo', semanticAsset.title), cargoText, cargoWeightLbs);
+        return {
+            title,
+            candidates: _missionSceneSafeBoardingCargoCandidates(_sceneAssetCandidates(title, semanticAsset.candidates)),
+            taskDomain,
+            sizePrimary: title,
+            cargoText,
+            cargoWeightLbs,
+            smallLoosePayload: false,
+            semanticAsset: true
+        };
+    }
     const smallLoosePayload = _missionSceneCargoLooksLikeSmallLoosePayload(cargoText, cargoWeightLbs);
     const palletPool = MISSION_SCENE_ASSET_POOLS.palletCargo;
     const sizePrimary = Number.isFinite(cargoWeightLbs)
@@ -4380,8 +4439,9 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
         _sceneAssetCandidates(title || 'Cardboard', candidates).concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
     );
     const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0, weightLbs = null) => {
-        const safeTitle = _missionSceneSafeBoardingCargoTitle(title, label, weightLbs);
-        const candidateSource = _missionSceneCargoLooksLikeSmallLoosePayload(`${label || ''} ${title || ''}`, weightLbs)
+        const semanticHomebaseAsset = _missionSceneCargoIsSemanticHomebaseTitle(title);
+        const safeTitle = semanticHomebaseAsset ? title : _missionSceneSafeBoardingCargoTitle(title, label, weightLbs);
+        const candidateSource = !semanticHomebaseAsset && _missionSceneCargoLooksLikeSmallLoosePayload(`${label || ''} ${title || ''}`, weightLbs)
             ? (MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
             : candidates;
         return {
