@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "package": {
-    "name": "vfr-multitool-homebase-test-assets",
-    "version": "0.5.10",
+    "name": "vfr-multitool-homebase-assets",
+    "version": "0.6.0",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -177,8 +177,8 @@
     },
     {
       "key": "hangar",
-      "folder": "VFRHomebaseTestHangar",
-      "title": "VFR Multitool Homebase Test Hangar",
+      "folder": "VFRHomebaseHangar",
+      "title": "VFR Multitool Homebase Hangar",
       "kind": "hangar",
       "label": "Homebase-Hangar",
       "version": "1.0.0",
