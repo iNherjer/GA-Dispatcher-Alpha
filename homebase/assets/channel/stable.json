@@ -1,35 +1,21 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-07-15T12:07:24.656Z",
+  "publishedAt": "2026-07-15T13:23:10.236Z",
   "packageName": "vfr-multitool-homebase-test-assets",
-  "packageVersion": "0.5.9",
-  "releaseTag": "homebase-assets-v0.5.9",
-  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.5.9/package-index.json",
-  "contentHash": "d44e20469840791526a114b2c98e06bcf71d7ee38f7194d7a50a5a827bc7a0af",
+  "packageVersion": "0.5.10",
+  "releaseTag": "homebase-assets-v0.5.10",
+  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.5.10/package-index.json",
+  "contentHash": "a8defac44b547a579892deec1ffa995641234e702e31c43dc6499c830431ec14",
   "fullArchive": {
-    "name": "vfr-multitool-homebase-test-assets-0.5.9-full.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.5.9/vfr-multitool-homebase-test-assets-0.5.9-full.zip",
-    "size": 356337,
-    "sha256": "6e270dc8faa8c9a343ba8a997c73599983793838d812ffe9d22e610a16ba5c22"
+    "name": "vfr-multitool-homebase-test-assets-0.5.10-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.5.10/vfr-multitool-homebase-test-assets-0.5.10-full.zip",
+    "size": 381459,
+    "sha256": "00554c49d4817743911b5422135eb92c9937d496c9e6c0516a296ac73c7b7cc8"
   },
   "changedAssets": [
-    "hangar",
-    "openParking",
-    "generator",
-    "desk",
-    "pinboard",
-    "toolCart",
-    "fuelDrum",
-    "mxPavilion",
-    "woodCrateSmall",
-    "woodCrateMedium",
-    "woodCrateLarge",
-    "europeanCaravan",
-    "chair",
-    "trafficCone",
-    "spawnProbe",
-    "customWindsock",
-    "assetShelf"
+    "briefcase",
+    "cabin-trolley",
+    "travel-suitcase"
   ],
   "removedAssets": []
 }
