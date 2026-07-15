@@ -63,6 +63,7 @@ function normalizeRuntimeAsset(raw) {
     label: String(raw?.label || title.replace(/^VFR Multitool Homebase /, '')).trim().slice(0, 120),
     icon: String(raw?.icon || (kind === 'hangar' ? 'H' : '◆')).trim().slice(0, 4),
     preview: raw?.preview !== false,
+    workbenchVisible: raw?.workbenchVisible !== false,
     runtimeAsset: true,
     missionSpawnable: raw?.missionSpawnable === true,
     missionTags: Array.isArray(raw?.missionTags) ? raw.missionTags.map(String).slice(0, 20) : [],

@@ -71,3 +71,10 @@ Ein reines Modell- oder Texturupdate benötigt damit keine neue Tracker-EXE. Neu
 SimObjects werden zwar als Teil des gemeinsamen Pakets synchronisiert, müssen aber
 zusätzlich in App-/Tracker-Katalog und gegebenenfalls Missionslogik aufgenommen werden,
 bevor sie in Workbench oder Missionen auswählbar sind.
+
+Die Auswahl in der Homebase-Workbench wird unabhängig von der Missionsfreigabe über
+`workbenchVisible` gesteuert. Nur der ausdrückliche Wert `false` blendet ein Asset aus;
+fehlende Werte bleiben für ältere Kataloge rückwärtskompatibel sichtbar. Das Asset bleibt
+dabei installiert und kann mit `missionSpawnable: true` weiterhin von Missionen genutzt
+werden. Bereits gespeicherte Homebases mit einem später ausgeblendeten Objekt bleiben
+ladbar und kompilierbar; lediglich das erneute Hinzufügen über den Katalog entfällt.

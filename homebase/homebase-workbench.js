@@ -15,12 +15,14 @@
   const ASSET_BY_KEY = new Map(ASSET_CATALOG.assets.map((entry) => [entry.key, entry]));
   const HANGAR_TITLE = ASSET_BY_KEY.get('hangar').title;
   const OPEN_PARKING_TITLE = ASSET_BY_KEY.get('openParking').title;
-  const HANGAR_TITLES = new Set(ASSET_CATALOG.assets.filter((entry) => entry.kind === 'hangar').map((entry) => entry.title));
+  const HANGAR_TITLES = new Set(ASSET_CATALOG.assets
+    .filter((entry) => entry.kind === 'hangar' && entry.workbenchVisible !== false)
+    .map((entry) => entry.title));
   const SPAWN_PROBE_ID = '__homebase_spawn_probe__';
   const SPAWN_PROBE_TITLE = ASSET_BY_KEY.get('spawnProbe').title;
   const OBJECT_CATALOG = [
-    ...ASSET_CATALOG.stockObjects.map((entry) => ({ ...entry })),
-    ...ASSET_CATALOG.assets.filter((entry) => entry.kind === 'object').map((entry) => ({
+    ...ASSET_CATALOG.stockObjects.filter((entry) => entry.workbenchVisible !== false).map((entry) => ({ ...entry })),
+    ...ASSET_CATALOG.assets.filter((entry) => entry.kind === 'object' && entry.workbenchVisible !== false).map((entry) => ({
       group: entry.group, title: entry.title, label: entry.label, icon: entry.icon, companion: true
     }))
   ];
@@ -363,6 +365,7 @@
       const kind = String(raw?.kind || '').trim().toLowerCase();
       if (!title.startsWith('VFR Multitool Homebase ') || !/^VFRHomebase[A-Za-z0-9_-]+$/.test(folder)) continue;
       if (!['object', 'hangar'].includes(kind)) continue;
+      if (raw?.workbenchVisible === false) continue;
       if (kind === 'hangar') {
         if (HANGAR_TITLES.has(title)) continue;
         HANGAR_TITLES.add(title);

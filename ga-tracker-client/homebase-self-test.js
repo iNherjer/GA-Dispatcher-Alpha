@@ -117,7 +117,10 @@ function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, e
     releaseTag: tag,
     contentHash: packageHash,
     files,
-    assets: catalog.assets.map((asset) => ({ ...asset })),
+    assets: catalog.assets.map((asset) => ({
+      ...asset,
+      ...(asset.key === 'generator' ? { workbenchVisible: false } : {})
+    })),
     changedAssets: catalog.assets.map((asset) => asset.key),
     removedAssets: [],
     // A locally prepared publisher index may not know its final release URL yet;
@@ -312,6 +315,9 @@ async function run() {
     if (!Array.isArray(remoteStatus.remoteAssets) || remoteStatus.remoteAssets.length !== catalog.assets.length) {
       throw new Error('Remote asset catalog was not exposed to the app.');
     }
+    if (remoteStatus.remoteAssets.find((asset) => asset.key === 'generator')?.workbenchVisible !== false) {
+      throw new Error('Remote workbench visibility was not exposed to the app.');
+    }
     const remoteInstalled = await remoteService.installRemoteAssets();
     if (remoteInstalled.packageVersion !== '0.6.1' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
       throw new Error(`Remote asset installation failed: ${JSON.stringify(remoteInstalled)}`);
@@ -326,6 +332,9 @@ async function run() {
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
     if (!Array.isArray(activeCatalog) || activeCatalog.length !== catalog.assets.length) {
       throw new Error('Installed asset catalog was not restored from the active package index.');
+    }
+    if (activeCatalog.find((asset) => asset.key === 'generator')?.workbenchVisible !== false) {
+      throw new Error('Installed workbench visibility was not restored from the active package index.');
     }
     const noDowngrade = remoteService.installAssets();
     if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.1') throw new Error('Embedded fallback downgraded a newer remote package.');

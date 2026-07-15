@@ -11805,9 +11805,9 @@ let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
 // Das produktive Homebase-v1-Protokoll inklusive gezieltem Live-Despawn ist ab
-// v288 Bestandteil des produktiven Trackers.
-const MIN_TRACKER_VERSION_CODE = 288;
-const MIN_TRACKER_VERSION_LABEL = 'v288';
+// v288 enthalten; die Workbench-Sichtbarkeit aus Remote-Katalogen benötigt v289.
+const MIN_TRACKER_VERSION_CODE = 289;
+const MIN_TRACKER_VERSION_LABEL = 'v289';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {
