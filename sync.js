@@ -4000,10 +4000,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
             objectTitle: asset.title,
             titleCandidates: asset.candidates,
             headingMode: 'with_aircraft',
-            altOffsetFt: Math.max(
-                Number.isFinite(Number(item.altOffsetFt)) ? Number(item.altOffsetFt) : 0,
-                _missionSceneGroundAltOffsetForTitle(asset.title)
-            )
+            altOffsetFt: Number.isFinite(Number(item.altOffsetFt)) ? Number(item.altOffsetFt) : 0
         };
     }).filter(Boolean);
 }
@@ -4374,12 +4371,6 @@ function _missionSceneRescueTargetTitle(salt = 'rescue-target') {
     return pick('mmh_HikerRescue');
 }
 
-function _missionSceneGroundAltOffsetForTitle(title) {
-    const s = String(title || '').trim();
-    if (/^(Cardboard|Coffee[_\s-]?Cup)$/i.test(s)) return 1;
-    return 0;
-}
-
 function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     if (_missionIsFreeflightOnly()) return [];
     const baseForward = Number.isFinite(Number(cargoPoint?.forwardM)) ? Number(cargoPoint.forwardM) : 4;
@@ -4401,7 +4392,9 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
             forwardM: baseForward + forwardOffset,
             rightM: baseRight + rightOffset,
             headingMode: 'with_aircraft',
-            altOffsetFt: baseAlt + _missionSceneGroundAltOffsetForTitle(safeTitle)
+            // The tracker measures local terrain and applies the model clearance once.
+            // Keep only the configurable cargo/item offset in the app payload.
+            altOffsetFt: baseAlt
         };
     };
     const manifest = _missionCargoEnsureManifest(cargoAsset);
@@ -7447,6 +7440,12 @@ function _missionSceneCancelInterruptedDeboarding(reason = 'mission-resume') {
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     _trackerPendingHandleAck(ack);
+    if (String(ack.type || '').startsWith('homebase_v1.')) {
+        try {
+            window.dispatchEvent(new CustomEvent('homebasetrackerack', { detail: { ack } }));
+        } catch (_) {}
+        return;
+    }
     if ((/^mission_(scene|smoke)_/i.test(String(ack.type || '')) || String(ack.type || '') === 'mission_lifecycle_ack') && !_trackerAckMatchesActiveMission(ack)) {
         _missionSceneDebugPatch({ lastIgnoredAck: ack }, `tracker-ack-ignored:${ack.type}`);
         return;
@@ -11805,8 +11804,10 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 278;
-const MIN_TRACKER_VERSION_LABEL = 'v278';
+// Homebase, Asset-Updates und die stabilisierte Objektplatzierung sind ab v286
+// Bestandteil des produktiven Trackers.
+const MIN_TRACKER_VERSION_CODE = 286;
+const MIN_TRACKER_VERSION_LABEL = 'v286';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {
@@ -13001,6 +13002,9 @@ window.connectToLiveGPS = async function(syncId) {
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
                 _maybePromptTrackerUpdate(data);
+                try {
+                    window.dispatchEvent(new CustomEvent('homebasetelemetry', { detail: { data } }));
+                } catch (_) {}
                 if (data.trackerMissionStatus && typeof data.trackerMissionStatus === 'object') {
                     window.lastTrackerMissionStatus = {
                         ...data.trackerMissionStatus,

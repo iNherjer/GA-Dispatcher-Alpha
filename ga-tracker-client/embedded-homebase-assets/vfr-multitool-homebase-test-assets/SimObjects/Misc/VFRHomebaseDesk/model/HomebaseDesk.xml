@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseDesk" guid="{8d601c0c-81ad-4fd8-82ba-5db4f151d071}">
+	<LODS>
+		<LOD ModelFile="HomebaseDesk_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

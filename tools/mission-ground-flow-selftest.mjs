@@ -14,6 +14,10 @@ const voice = read('passenger-voice.js');
 const index = read('index.html');
 const app = read('app.js');
 const serviceWorker = read('sw.js');
+const homebaseIntegration = read('homebase-integration.js');
+const homebaseWorkbench = read('homebase/homebase-workbench.js');
+const homebasePackageService = read('ga-tracker-client/homebase-package-service.js');
+const trackerPackage = read('ga-tracker-client/package.json');
 
 function section(source, start, end) {
     const from = source.indexOf(start);
@@ -90,11 +94,21 @@ assert.match(sync, /const vehicleSupportEnabled = !aptPickupPoint/);
 assert.match(sync, /tracker_v278_required/);
 assert.match(sync, /missionInterruptedDeboardingRecovery/);
 assert.match(sync, /cancel-interrupted-deboarding/);
-assert.match(tracker, /TRACKER_VERSION = 'v278'/);
-assert.match(sync, /MIN_TRACKER_VERSION_CODE = 278/);
-assert.match(serviceWorker, /ga-dispatcher-v1455/);
-assert.match(app, /sw\.js\?v=ga-dispatcher-v1455/);
+assert.match(tracker, /TRACKER_VERSION = IS_HOMEBASE_TEST_BUILD \? 'v285-homebase-test7' : 'v286'/);
+assert.match(tracker, /HOMEBASE_ENABLED = true/);
+assert.match(sync, /MIN_TRACKER_VERSION_CODE = 286/);
+assert.match(tracker, /stabilizeSceneGroundObject/);
+assert.match(tracker, /SCENE_GROUND_STABILIZED/);
+assert.doesNotMatch(sync, /function _missionSceneGroundAltOffsetForTitle/);
+assert.match(serviceWorker, /ga-dispatcher-v1462/);
+assert.match(app, /sw\.js\?v=ga-dispatcher-v1462/);
 assert.match(index, /pax-animation-status-20260711-01/);
+assert.match(homebaseIntegration, /'\/api\/assets\/install': 'homebase_v1\.assets\.install'/);
+assert.match(homebaseWorkbench, /offerAssetPackageInstall/);
+assert.match(homebaseWorkbench, /\/api\/assets\/install/);
+assert.match(homebasePackageService, /HOMEBASE_ASSETS_INSTALLED/);
+assert.match(homebasePackageService, /homebase-assets-install/);
+assert.match(trackerPackage, /embedded-homebase-assets\/\*\*\/\*/);
 
 const context = {
     window: {

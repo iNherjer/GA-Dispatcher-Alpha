@@ -99,6 +99,18 @@ Tipps:
 - Wenn Live-GPS aktiv ist, nutzt **Direct To** automatisch die echte aktuelle Position als Start.
 - Bei Sync-Konflikten nicht hektisch Push/Pull druecken. Erst pruefen, welches Geraet den gewuenschten Stand hat.
 
+### Homebase planen und installieren
+
+Die **Homebase Workbench** wird im Bereich **Einstellungen** geoeffnet. Dort lassen sich Hangar, Spawnpunkt und beliebig viele Ausstattungsobjekte auf der Karte platzieren, verschieben, drehen und in der Hoehe anpassen.
+
+- Die Live-Vorschau benoetigt den produktiven PC-Tracker ab **v286** und eine aktive SimConnect-Verbindung.
+- Der Tracker prueft das gemeinsame Homebase-Assetpaket und bietet neue Versionen nach ausdruecklicher Bestaetigung zum Download und zur Installation an.
+- **Vorschau neu laden** baut die nicht kompilierten Arbeitsobjekte neu auf; ein bereits kompilierter Flugplatz bleibt davon getrennt.
+- Die Planung wird sofort lokal und bei aktiviertem Auto-Sync 30 Sekunden nach der letzten Aenderung sowie beim Schliessen oder Verlassen geraeteuebergreifend gespeichert.
+- Der SDK-Bau erzeugt das Homebase-Paket. Falls MSFS beendet werden muss, wartet der Tracker mit Wiederholungspruefungen auf das vollstaendige Prozessende.
+
+Vor dem ersten Einsatz das angebotene Assetpaket installieren und danach Tracker, App und MSFS einmal gemeinsam neu starten.
+
 ### Missionsstatus, Reset und Auto Load
 
 Der Bereich **Cloud & Mission** zeigt, was die laufende Mission erwartet: zum Beispiel Bodenstabilisierung, Boarding, Fracht oder naechsten Schritt.
@@ -155,7 +167,7 @@ Der Basic-Picker deckt die wichtigsten Faelle ab:
 Der erweiterte Picker enthaelt Spezialprofile:
 
 - **APT**: Verein, Privat, Charter, Cargo, Training, Medizin-Transfer, fragile Fracht, Tiertransport, Reporter, Sightseeing.
-- **POI**: Training, Infrastruktur-Inspektion, Ketten-Erstbefund, Foto/Film, Mapping/Survey, Reporter, Sightseeing, Lern-Guide, Historiker, Bio/Umwelt, Geo/Relief, SAR/Rescue, SAR Heli, Fire Watch.
+- **POI**: Training, Infrastruktur-Inspektion, Ketten-Erstbefund, Foto/Film, Mapping/Survey, Reporter, Sightseeing, Lern-Guide, Historiker, Bio/Umwelt, Geo/Relief, SAR/Rescue, Fire Watch.
 - **Bush**: Versorgung, Charter, Adventure, Recon Return, Pickup Return, Cargo Pickup Return.
 - **Zielkategorien**: Bruecken, Strasse/Autobahn, Staudamm/Talsperre, Funkmast, Industrie, Infrastruktur, Burg/Schloss, Wasser, Berg/Tal, Stadt/Turm, Sonstige.
 

@@ -3,6 +3,9 @@ const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
+const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
+const { createHomebasePackageService } = require('./homebase-package-service.js');
+const homebaseAssetCatalog = require('./homebase-asset-catalog.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -12,17 +15,20 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
-const CONFIG_BASENAME = 'tracker-config.json';
+const IS_HOMEBASE_TEST_BUILD = process.env.VFR_HOMEBASE_TEST_BUILD === '1'
+  || (process.pkg && /homebase-test/i.test(path.basename(process.execPath)));
+const HOMEBASE_ENABLED = true;
+const CONFIG_BASENAME = IS_HOMEBASE_TEST_BUILD ? 'tracker-homebase-test-config.json' : 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v278';
-const TRACKER_VERSION_CODE = 278;
+const TRACKER_VERSION = IS_HOMEBASE_TEST_BUILD ? 'v285-homebase-test7' : 'v286';
+const TRACKER_VERSION_CODE = IS_HOMEBASE_TEST_BUILD ? 285 : 286;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
-const TRACKER_DEBUG_FILE = path.join(RUNTIME_DIR, 'ga-tracker-debug.txt');
+const TRACKER_DEBUG_FILE = path.join(RUNTIME_DIR, IS_HOMEBASE_TEST_BUILD ? 'homebase-tracker-test-debug.txt' : 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -32,6 +38,9 @@ const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
 const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
 const PARKING_BRAKE_DEF_ID = 9371;
 const INPUT_EVENT_ENUM_REQUEST_ID = 9372;
+const SCENE_GROUND_FREEZE_ALTITUDE_EVENT_ID = 9380;
+const SCENE_GROUND_EVENT_GROUP_PRIORITY_HIGHEST = 1;
+const SCENE_GROUND_EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
 const PA24_LATCH_INPUT_EVENTS = ['LEVER_door_latch_2States_Toggle', 'B:LEVER_door_latch_2States_Toggle'];
 const CONSOLE_MODES = new Set(['status', 'full', 'quiet']);
 let consoleMode = 'status';
@@ -274,6 +283,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const lateAssignedRequests = new Map();
   const lateAssignedSceneObjects = new Map();
   const pendingPayloadReads = new Map();
+  const pendingSceneGroundReads = new Map();
   const payloadReadDefCache = new Map();
   const payloadSetDefCache = new Map();
   const namedVarSetDefCache = new Map();
@@ -289,6 +299,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let teleportDefReady = false;
   let waypointDefReady = false;
   let parkingBrakeDefReady = false;
+  let sceneGroundPositionDefId = null;
+  let sceneGroundAltitudeDefId = null;
+  let sceneGroundDefinitionsReady = false;
   let doorEventsReady = false;
   let inputEventsEnumerating = false;
   let inputEventsEnumerationDone = false;
@@ -388,6 +401,93 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     } catch (err) {
       debugLog(`TELEPORT_ERROR objectId=${objectId} error=${err?.message || err}`);
       return false;
+    }
+  };
+
+  const ensureSceneGroundDefinitions = () => {
+    if (sceneGroundDefinitionsReady) return true;
+    try {
+      sceneGroundPositionDefId = nextDefId++;
+      sceneGroundAltitudeDefId = nextDefId++;
+      handle.addToDataDefinition(sceneGroundPositionDefId, 'Initial Position', null, SimConnectDataType.INITPOSITION);
+      handle.addToDataDefinition(sceneGroundAltitudeDefId, 'Plane Altitude', 'feet', SimConnectDataType.FLOAT64, 0, SimConnectConstants.UNUSED);
+      handle.mapClientEventToSimEvent(SCENE_GROUND_FREEZE_ALTITUDE_EVENT_ID, 'FREEZE_ALTITUDE_SET');
+      sceneGroundDefinitionsReady = true;
+      debugLog(`SCENE_GROUND_DEFS_READY positionDef=${sceneGroundPositionDefId} altitudeDef=${sceneGroundAltitudeDefId}`);
+      return true;
+    } catch (err) {
+      debugLog(`SCENE_GROUND_DEFS_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const requestSceneObjectGroundAltitude = (objectId, timeoutMs = 6000) => new Promise((resolve, reject) => {
+    if (!ensureSceneGroundDefinitions()) return reject(new Error('scene_ground_definitions_unavailable'));
+    const requestId = nextReqId++;
+    const timer = setTimeout(() => {
+      pendingSceneGroundReads.delete(requestId);
+      reject(new Error('scene_ground_altitude_timeout'));
+    }, Math.max(1500, Number(timeoutMs) || 6000));
+    const pending = { resolve, reject, timer, objectId, sendId: null };
+    pendingSceneGroundReads.set(requestId, pending);
+    try {
+      pending.sendId = handle.requestDataOnSimObject(
+        requestId,
+        sceneGroundAltitudeDefId,
+        objectId,
+        SimConnectPeriod.ONCE,
+        0,
+        0,
+        0,
+        0
+      );
+    } catch (err) {
+      clearTimeout(timer);
+      pendingSceneGroundReads.delete(requestId);
+      reject(err);
+    }
+  });
+
+  const stabilizeSceneGroundObject = async (objectId, title, plan = {}) => {
+    const meta = homebaseAssetCatalog.objectDefinitionForTitle(title) || {};
+    if (meta.liveGroundStabilization !== true) return { applied: false };
+    if (!objectId || !ensureSceneGroundDefinitions()) return { applied: false, error: 'definitions_unavailable' };
+    const userOffsetFt = toFiniteNumber(plan?.altOffsetFt, 0) || 0;
+    const modelClearanceFt = toFiniteNumber(meta.groundClearanceFt, 0) || 0;
+    try {
+      // AssignedObjectID may arrive slightly before the object is fully writable.
+      await sleep(180);
+      handle.setDataOnSimObject(
+        sceneGroundPositionDefId,
+        objectId,
+        [buildInitPos(plan.lat, plan.lon, plan.altFt, plan.hdg, true)]
+      );
+      await sleep(350);
+      const groundAltitudeFt = await requestSceneObjectGroundAltitude(objectId);
+      const altitudeFt = groundAltitudeFt + userOffsetFt + modelClearanceFt;
+      handle.transmitClientEvent(
+        objectId,
+        SCENE_GROUND_FREEZE_ALTITUDE_EVENT_ID,
+        1,
+        SCENE_GROUND_EVENT_GROUP_PRIORITY_HIGHEST,
+        SCENE_GROUND_EVENT_FLAG_GROUP_ID_IS_PRIORITY
+      );
+      const finalPosition = buildInitPos(plan.lat, plan.lon, altitudeFt, plan.hdg, false);
+      handle.setDataOnSimObject(sceneGroundPositionDefId, objectId, [finalPosition]);
+      await sleep(250);
+      handle.setDataOnSimObject(sceneGroundPositionDefId, objectId, [finalPosition]);
+      Object.assign(plan, {
+        altitudeFt,
+        altFt: altitudeFt,
+        groundAltitudeFt,
+        modelGroundClearanceFt,
+        groundStabilized: true
+      });
+      debugLog(`SCENE_GROUND_STABILIZED objectId=${objectId} title="${title}" groundAltFt=${groundAltitudeFt} userOffsetFt=${userOffsetFt} clearanceFt=${modelClearanceFt} finalAltFt=${altitudeFt}`);
+      return { applied: true, altitudeFt, groundAltitudeFt, modelGroundClearanceFt };
+    } catch (err) {
+      debugLog(`SCENE_GROUND_STABILIZE_ERROR objectId=${objectId} title="${title}" error=${err?.message || err}`);
+      return { applied: false, error: err?.message || String(err) };
     }
   };
 
@@ -1321,6 +1421,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           plan,
           requestedTitle: plan.title
         });
+        await stabilizeSceneGroundObject(objectId, candidate, plan);
         trackObjectId(objectId);
         const spawnedObj = { objectId, ...plan, title: candidate, requestedTitle: plan.title };
         trackerLog(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
@@ -2347,14 +2448,24 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     rec.positions.push(...positions);
     const byKind = countByKind(objects);
-    debugLog(`SCENE_OBJECT_SPAWN_DONE scene=${sceneId} spawned=${objects.length} byKind=${JSON.stringify(byKind)}`);
+    const stabilized = objects.filter((obj) => obj.groundStabilized === true).length;
+    debugLog(`SCENE_OBJECT_SPAWN_DONE scene=${sceneId} spawned=${objects.length} stabilized=${stabilized} byKind=${JSON.stringify(byKind)}`);
     sendAck({
       type: 'mission_scene_object_spawn_ack',
       commandId,
       sceneId,
       status: objects.length ? 'ok' : 'error',
       spawned: objects.length,
+      stabilized,
       spawnedByKind: byKind,
+      objects: objects.map((obj) => ({
+        objectId: obj.objectId,
+        kind: obj.kind,
+        title: obj.title,
+        groundStabilized: obj.groundStabilized === true,
+        groundAltitudeFt: Number.isFinite(Number(obj.groundAltitudeFt)) ? Number(obj.groundAltitudeFt) : null,
+        modelGroundClearanceFt: Number.isFinite(Number(obj.modelGroundClearanceFt)) ? Number(obj.modelGroundClearanceFt) : null
+      })),
       error: objects.length ? '' : 'spawn_failed'
     });
     return { spawned: objects.length };
@@ -2515,6 +2626,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
             plan: p,
             requestedTitle: p.title
           });
+          await stabilizeSceneGroundObject(objectId, candidate, p);
           const spawnedObj = { objectId, ...p, title: candidate, requestedTitle: p.title };
           objects.push(spawnedObj);
           trackerLog(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
@@ -2553,7 +2665,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       spawned: objects.length,
       requestedByKind: countByKind(positions),
       spawnedByKind: countByKind(objects),
-      objects: objects.map(o => ({ objectId: o.objectId, index: o.index, kind: o.kind }))
+      objects: objects.map(o => ({
+        objectId: o.objectId,
+        index: o.index,
+        kind: o.kind,
+        title: o.title,
+        groundStabilized: o.groundStabilized === true,
+        groundAltitudeFt: Number.isFinite(Number(o.groundAltitudeFt)) ? Number(o.groundAltitudeFt) : null,
+        modelGroundClearanceFt: Number.isFinite(Number(o.modelGroundClearanceFt)) ? Number(o.modelGroundClearanceFt) : null
+      }))
     });
   };
 
@@ -2795,11 +2915,30 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         lateAssigned: true
       };
       if (late.sceneId) addLateAssignedSceneObject(late.sceneId, spawnedObj);
+      stabilizeSceneGroundObject(objectId, spawnedObj.title, spawnedObj).catch((err) => {
+        debugLog(`SCENE_GROUND_LATE_ERROR objectId=${objectId} title="${spawnedObj.title || ''}" error=${err?.message || err}`);
+      });
       debugLog(`ASSIGNED_LATE_TRACKED requestId=${recv.requestID} objectId=${objectId} scene=${late.sceneId || ''} kind=${spawnedObj.kind || ''} title="${spawnedObj.title || ''}" reason=${late.reason || ''}`);
     }
   });
 
   handle.on('simObjectData', (recv) => {
+    const groundPending = pendingSceneGroundReads.get(recv.requestID);
+    if (groundPending) {
+      pendingSceneGroundReads.delete(recv.requestID);
+      clearTimeout(groundPending.timer);
+      try {
+        const readFn = typeof recv?.data?.readFloat64 === 'function'
+          ? recv.data.readFloat64.bind(recv.data)
+          : recv.data.readDouble.bind(recv.data);
+        const altitudeFt = Number(readFn());
+        if (!Number.isFinite(altitudeFt)) throw new Error('scene_ground_altitude_invalid');
+        groundPending.resolve(altitudeFt);
+      } catch (err) {
+        groundPending.reject(err);
+      }
+      return;
+    }
     const pending = pendingPayloadReads.get(recv.requestID);
     if (!pending) return;
     pendingPayloadReads.delete(recv.requestID);
@@ -2854,6 +2993,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   handle.on('exception', (recv) => {
     const name = recv.exceptionName || String(recv.exception);
+    const groundEntry = [...pendingSceneGroundReads.entries()]
+      .find(([, pending]) => pending?.sendId != null && Number(pending.sendId) === Number(recv.sendId));
+    if (groundEntry) {
+      const [requestId, pending] = groundEntry;
+      pendingSceneGroundReads.delete(requestId);
+      clearTimeout(pending.timer);
+      pending.reject(new Error(name));
+      debugLog(`SCENE_GROUND_EXCEPTION objectId=${pending.objectId || ''} sendId=${recv.sendId ?? ''} error=${name}`);
+      return;
+    }
     lastExceptions.push(name);
     if (pendingAssign.size > 0) {
       trackerWarn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
@@ -3112,6 +3261,50 @@ function startTracker(syncId, pin) {
   const MAX_PENDING_TRACKER_COMMANDS = 64;
 
   const getWs = () => _currentWs;
+  const sendHomebaseAck = (payload = {}) => {
+    const ws = getWs();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      ws.send(JSON.stringify({
+        type: 'gps',
+        syncId,
+        pin,
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        commandAckOnly: true,
+        trackerAck: { source: 'tracker', ...payload, at: Date.now() }
+      }));
+      debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}`);
+      return true;
+    } catch (error) {
+      debugLog(`HOMEBASE_ACK_ERROR type=${payload?.type || 'unknown'} error=${error?.message || error}`);
+      return false;
+    }
+  };
+  const homebasePackageService = HOMEBASE_ENABLED
+    ? createHomebasePackageService({
+        runtimeDir: RUNTIME_DIR,
+        sendAck: sendHomebaseAck,
+        log: debugLog
+      })
+    : null;
+  const handleAlwaysAvailableHomebaseCommand = (command) => {
+    if (!HOMEBASE_ENABLED || !homebasePackageService) return false;
+    if (homebasePackageService.handleCommand(command)) return true;
+    if (String(command?.type || '') === 'homebase_v1.capabilities' && typeof _trackerCommandHandler !== 'function') {
+      sendHomebaseAck({
+        type: 'homebase_v1.capabilities_ack',
+        commandId: command?.commandId || null,
+        status: 'ok',
+        protocol: 1,
+        simConnected: false,
+        assetPackageVersion: homebaseAssetCatalog.assetPackageVersion,
+        capabilities: homebasePackageService.capabilities
+      });
+      return true;
+    }
+    return false;
+  };
   const setTrackerCommandHandler = (handler) => {
     _trackerCommandHandler = handler;
     if (typeof _trackerCommandHandler !== 'function' || !_pendingTrackerCommands.length) return;
@@ -3133,6 +3326,7 @@ function startTracker(syncId, pin) {
     if (data.syncId && String(data.syncId) !== String(syncId)) return;
     if (data.pin && String(data.pin) !== String(pin)) return;
     if (command.pin && String(command.pin) !== String(pin)) return;
+    if (handleAlwaysAvailableHomebaseCommand(command)) return;
     if (typeof _trackerCommandHandler === 'function') {
       _trackerCommandHandler(command);
       return;
@@ -3184,6 +3378,15 @@ function startTracker(syncId, pin) {
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
       trackerLog(`📡 Verbunden mit Pilot-ID: ${syncId} (Auth aktiv)`);
+      if (homebasePackageService) {
+        setTimeout(() => {
+          homebasePackageService.checkRemoteAssets({ notify: true }).then((status) => {
+            debugLog(`HOMEBASE_ASSET_REMOTE_CHECK available=${status.remoteAvailable} update=${status.updateAvailable} installed=${status.installedVersion || 'none'} remote=${status.remoteVersion || 'none'} error=${status.remoteError || 'none'}`);
+          }).catch((error) => {
+            debugLog(`HOMEBASE_ASSET_REMOTE_CHECK_ERROR error=${error?.message || error}`);
+          });
+        }, 1200);
+      }
       pingInterval = setInterval(() => {
         try {
           if (ws.readyState !== WebSocket.OPEN) return;
@@ -3226,8 +3429,43 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       let lastGpsMsg = null;
       let latestGroundTrafficSnapshot = [];
       const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg, () => latestGroundTrafficSnapshot);
+      const sendHomebaseAck = (payload = {}) => {
+        const ws = getWs();
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        try {
+          const msg = {
+            type: 'gps',
+            syncId,
+            pin,
+            trackerVersion: TRACKER_VERSION,
+            trackerVersionCode: TRACKER_VERSION_CODE,
+            commandAckOnly: true,
+            trackerAck: { source: 'tracker', ...payload, at: Date.now() }
+          };
+          if (lastGpsMsg && Number.isFinite(Number(lastGpsMsg.lat)) && Number.isFinite(Number(lastGpsMsg.lon))) {
+            msg.lat = Number(lastGpsMsg.lat);
+            msg.lon = Number(lastGpsMsg.lon);
+            msg.alt = Number.isFinite(Number(lastGpsMsg.alt)) ? Number(lastGpsMsg.alt) : 0;
+            msg.hdg = Number.isFinite(Number(lastGpsMsg.hdg)) ? Number(lastGpsMsg.hdg) : 0;
+          }
+          ws.send(JSON.stringify(msg));
+          debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}`);
+        } catch (error) {
+          debugLog(`HOMEBASE_ACK_ERROR type=${payload?.type || 'unknown'} error=${error?.message || error}`);
+        }
+      };
+      const homebaseManager = HOMEBASE_ENABLED
+        ? createHomebaseObjectManager(handle, {
+            sendAck: sendHomebaseAck,
+            log: debugLog,
+            extraCapabilities: ['homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback']
+          })
+        : null;
       if (typeof setTrackerCommandHandler === 'function') {
-        setTrackerCommandHandler((command) => missionSmokeController.handleCommand(command));
+        setTrackerCommandHandler((command) => {
+          if (homebaseManager?.handleCommand(command)) return true;
+          return missionSmokeController.handleCommand(command);
+        });
       }
 
       let lastSent = 0;
@@ -3510,6 +3748,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   hdg: Math.round(hdg),
                   flight
                 };
+                if (homebaseManager) {
+                  gpsMsg.homebase = {
+                    protocol: homebaseManager.protocol,
+                    capabilities: homebaseManager.capabilities,
+                    ...homebaseManager.snapshot()
+                  };
+                }
                 const trackerMissionStatus = missionSmokeController.getTrackerMissionStatus();
                 if (trackerMissionStatus?.missionId) {
                   gpsMsg.trackerMissionStatus = trackerMissionStatus;

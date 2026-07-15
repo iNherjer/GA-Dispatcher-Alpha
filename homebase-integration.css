@@ -1,0 +1,137 @@
+.homebase-settings-launch {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 12px;
+    padding: 10px;
+    border: 1px solid rgba(187, 244, 81, 0.35);
+    border-radius: 7px;
+    background: rgba(38, 63, 48, 0.28);
+}
+
+.homebase-settings-launch > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.homebase-settings-launch strong {
+    color: #bbf451;
+    font-size: 13px;
+}
+
+.homebase-settings-launch span {
+    color: #aab7c6;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.homebase-settings-launch .homebase-asset-status {
+    width: fit-content;
+    margin-top: 3px;
+    padding: 2px 6px;
+    border: 1px solid rgba(170, 183, 198, 0.24);
+    border-radius: 999px;
+    color: #aab7c6;
+    background: rgba(170, 183, 198, 0.06);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.homebase-settings-launch .homebase-asset-status.ok {
+    color: #dfff9d;
+    border-color: rgba(187, 244, 81, 0.4);
+    background: rgba(187, 244, 81, 0.08);
+}
+
+.homebase-settings-launch .homebase-asset-status.update {
+    color: #ffe0a8;
+    border-color: rgba(255, 180, 74, 0.55);
+    background: rgba(255, 180, 74, 0.12);
+}
+
+.homebase-settings-launch .homebase-asset-status.warn {
+    color: #ffd0ca;
+    border-color: rgba(255, 111, 97, 0.38);
+    background: rgba(255, 111, 97, 0.08);
+}
+
+.homebase-settings-launch button {
+    margin: 0;
+    color: #dfff9d;
+    border-color: rgba(187, 244, 81, 0.45);
+    background: rgba(187, 244, 81, 0.09);
+}
+
+.homebase-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100300;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.82);
+}
+
+.homebase-overlay.active {
+    display: flex;
+}
+
+.homebase-overlay-window {
+    display: grid;
+    grid-template-rows: 38px minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 2px solid #708179;
+    border-radius: 8px;
+    background: #07100f;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.62);
+}
+
+.homebase-overlay-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 7px 5px 12px;
+    color: #f2f7f4;
+    background: linear-gradient(90deg, #164b2b, #0b3531);
+    font: 700 12px/1.1 "Segoe UI", sans-serif;
+}
+
+.homebase-overlay-titlebar button {
+    min-height: 26px;
+    padding: 4px 10px;
+    border: 1px solid #a9b8b1;
+    border-radius: 4px;
+    color: #f5f7f6;
+    background: #27332f;
+    cursor: pointer;
+}
+
+#homebaseFrame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #07100f;
+}
+
+body.homebase-environment-open {
+    overflow: hidden;
+}
+
+@media (max-width: 650px) {
+    .homebase-settings-launch {
+        grid-template-columns: 1fr;
+    }
+
+    .homebase-overlay {
+        padding: 0;
+    }
+
+    .homebase-overlay-window {
+        border: 0;
+        border-radius: 0;
+    }
+}

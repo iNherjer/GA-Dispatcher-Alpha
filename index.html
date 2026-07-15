@@ -92,6 +92,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="styles.css?v=mission-ground-flow-20260710-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="stylesheet" href="homebase-integration.css?v=homebase-release1-20260715">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
         <link rel="stylesheet" href="styles.css?v=mission-ground-flow-20260710-01">
@@ -849,6 +850,14 @@
             <a href="https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/VFRMultitool/VFR-Multitool-Tracker.exe" target="_blank" class="btn-preset" style="font-size: 0.85em; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; background: rgba(77, 166, 255, 0.1); border: 1px solid var(--blue); color: var(--blue); border-radius: 6px; font-weight: bold; transition: all 0.2s; width: 100%; justify-content: center;">
                 <span>📥</span> PC-Tracker (.exe) laden
             </a>
+        </div>
+        <div class="homebase-settings-launch">
+            <div>
+                <strong>Homebase</strong>
+                <span>Hangar, Spawnpunkt und Ausstattung im Simulator platzieren</span>
+                <span id="homebaseAssetStatus" class="homebase-asset-status">Assetpaket wird beim Trackerstart geprüft</span>
+            </div>
+            <button type="button" class="btn-preset" onclick="openHomebaseEnvironment()">Homebase öffnen</button>
         </div>
 
         <div class="settings-sync-row">
@@ -2508,6 +2517,16 @@
     })();
 </script>
 
+<div id="homebaseOverlay" class="homebase-overlay" hidden>
+    <div class="homebase-overlay-window" role="dialog" aria-modal="true" aria-label="VFR Multitool Homebase">
+        <div class="homebase-overlay-titlebar">
+            <span>VFR Multitool – Homebase</span>
+            <button type="button" onclick="closeHomebaseEnvironment()" aria-label="Homebase schließen">Schließen</button>
+        </div>
+        <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-release1-20260715" title="Homebase Workbench" loading="lazy"></iframe>
+    </div>
+</div>
+
 <script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
@@ -2521,7 +2540,8 @@
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-followup.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-poi-chain.js?v=poi-chain-20260620-01"></script>
-<script defer src="sync.js?v=arrival-guide-line-20260711-01"></script>
+<script defer src="sync.js?v=homebase-release1-20260715"></script>
+<script defer src="homebase-integration.js?v=homebase-release1-20260715"></script>
 <script defer src="checklists.js?v=mission-ground-flow-20260710-01"></script>
 <script defer src="profile.js?v=telemetry-visibility-20260710-01"></script>
 <script defer src="map.js?v=arrival-guide-line-20260711-01"></script>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseWindsock" guid="{6dbbd794-f3ae-4e19-a53c-54cf40fded4f}">
+	<LODS>
+		<LOD ModelFile="HomebaseWindsock_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

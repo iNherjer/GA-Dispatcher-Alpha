@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseGenerator" guid="{5E09FB85-FDC7-4CD1-B90D-2F81F2798D21}">
+	<LODS>
+		<LOD ModelFile="HomebaseGenerator_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

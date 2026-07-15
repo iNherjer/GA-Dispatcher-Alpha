@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseAssetShelf" guid="{3D5C4F0C-0B57-4F9E-9B26-6D2C8F8E2F41}">
+	<LODS>
+		<LOD ModelFile="HomebaseAssetShelf_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

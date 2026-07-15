@@ -1,0 +1,47 @@
+(function publishHomebaseAssetCatalog(root, factory) {
+  const catalog = factory();
+  if (typeof module === 'object' && module.exports) module.exports = catalog;
+  if (root) root.HOMEBASE_ASSET_CATALOG = catalog;
+}(typeof globalThis !== 'undefined' ? globalThis : this, function createCatalog() {
+  'use strict';
+
+  return Object.freeze({
+    schemaVersion: 1,
+    assetPackageVersion: '0.5.6',
+    assetPackageName: 'vfr-multitool-homebase-test-assets',
+    assets: Object.freeze([
+      { key: 'hangar', folder: 'VFRHomebaseTestHangar', title: 'VFR Multitool Homebase Test Hangar', kind: 'hangar', label: 'Homebase-Hangar' },
+      { key: 'openParking', folder: 'VFRHomebaseOpenParking', title: 'VFR Multitool Homebase Open Parking', kind: 'hangar', label: 'Offener Parkbereich' },
+      { key: 'generator', folder: 'VFRHomebaseGenerator', title: 'VFR Multitool Homebase Generator', kind: 'object', group: 'Ausstattung', label: 'Mobiles Aggregat', icon: '⚡' },
+      { key: 'desk', folder: 'VFRHomebaseDesk', title: 'VFR Multitool Homebase Desk', kind: 'object', group: 'Ausstattung', label: 'Schreibtisch', icon: 'T' },
+      { key: 'pinboard', folder: 'VFRHomebasePinboard', title: 'VFR Multitool Homebase Pinboard', kind: 'object', group: 'Ausstattung', label: 'Pinnwand', icon: 'W' },
+      { key: 'toolCart', folder: 'VFRHomebaseToolCart', title: 'VFR Multitool Homebase Tool Cart', kind: 'object', group: 'Ausstattung', label: 'Werkzeugwagen', icon: 'R' },
+      { key: 'fuelDrum', folder: 'VFRHomebaseFuelDrum', title: 'VFR Multitool Homebase Fuel Drum', kind: 'object', group: 'Ausstattung', label: 'Treibstofffass mit Handpumpe', icon: 'F' },
+      { key: 'mxPavilion', folder: 'VFRHomebaseMXPavilion', title: 'VFR Multitool Homebase MX Pavilion', kind: 'object', group: 'Ausstattung', label: 'MX24 Pavillon 3 x 3 m', icon: 'P' },
+      { key: 'woodCrateSmall', folder: 'VFRHomebaseWoodCrateSmall', title: 'VFR Multitool Homebase Wood Crate Small', kind: 'object', group: 'Ausstattung', label: 'Holzkiste klein', icon: 'K' },
+      { key: 'woodCrateMedium', folder: 'VFRHomebaseWoodCrateMedium', title: 'VFR Multitool Homebase Wood Crate Medium', kind: 'object', group: 'Ausstattung', label: 'Holzkiste mittel', icon: 'K' },
+      { key: 'woodCrateLarge', folder: 'VFRHomebaseWoodCrateLarge', title: 'VFR Multitool Homebase Wood Crate Large', kind: 'object', group: 'Ausstattung', label: 'Holzkiste groß', icon: 'K' },
+      { key: 'europeanCaravan', folder: 'VFRHomebaseEuropeanCaravan', title: 'VFR Multitool Homebase European Caravan', kind: 'object', group: 'Ausstattung', label: 'Wohnwagen (einachsig)', icon: 'W' },
+      { key: 'assetShelf', folder: 'VFRHomebaseAssetShelf', title: 'VFR Multitool Homebase Asset Shelf', kind: 'object', group: 'Ausstattung', label: 'Asset-Regal (Eimer, Ölkanne, Kartons)', icon: 'R' },
+      { key: 'chair', folder: 'VFRHomebaseChair', title: 'VFR Multitool Homebase Chair', kind: 'object', group: 'Ausstattung', label: 'Stuhl', icon: 'S' },
+      { key: 'trafficCone', folder: 'VFRHomebaseTrafficCone', title: 'VFR Multitool Homebase Traffic Cone', kind: 'object', group: 'Flugplatz', label: 'Traffic Cone', icon: 'K' },
+      { key: 'spawnProbe', folder: 'VFRHomebaseSpawnProbe', title: 'VFR Multitool Homebase Spawn Probe', kind: 'internal', label: 'Gelber Spawnpunkt-Messkegel' },
+      { key: 'customWindsock', folder: 'VFRHomebaseWindsock', title: 'VFR Multitool Homebase Windsock', kind: 'internal', preview: false }
+    ]),
+    stockObjects: Object.freeze([
+      { title: 'CoffeeCup', group: 'Ausstattung', label: 'Kaffeebecher', icon: '☕' },
+      { title: 'Windsock', group: 'Flugplatz', label: 'Windsack (nur Paket)', icon: 'F', persistentOnly: true, preview: false },
+      { title: 'Cardboard', group: 'Fracht', label: 'Karton', icon: '▣', groundClearanceFt: 0.30, liveGroundStabilization: true },
+      { title: 'Pallet01_01', group: 'Fracht', label: 'Palette groß', icon: 'P', groundClearanceFt: 0.08, liveGroundStabilization: true, lowResAltitude: true },
+      { title: 'Pallet01_02', group: 'Fracht', label: 'Palette mittel', icon: 'P', groundClearanceFt: 0.08, liveGroundStabilization: true, lowResAltitude: true },
+      { title: 'Pallet01_03', group: 'Fracht', label: 'Palette klein', icon: 'P', groundClearanceFt: 0.08, liveGroundStabilization: true, lowResAltitude: true },
+      { title: 'Drop_Container', group: 'Fracht', label: 'Frachtcontainer', icon: 'C' },
+      { title: 'Microsoft_Car_EUR_01', group: 'Fahrzeuge', label: 'Pkw Europa 1', icon: 'A' },
+      { title: 'Microsoft_Car_EUR_02', group: 'Fahrzeuge', label: 'Pkw Europa 2', icon: 'A' },
+      { title: 'Microsoft_Car_EUR_03', group: 'Fahrzeuge', label: 'Pkw Europa 3', icon: 'A' },
+      { title: 'Microsoft_Car_EUR_04', group: 'Fahrzeuge', label: 'Pkw Europa 4', icon: 'A' },
+      { title: 'Microsoft_Van_EUR', group: 'Fahrzeuge', label: 'Van Europa', icon: 'V' }
+    ]),
+    legacyTitleAliases: Object.freeze({ 'VFR Multitool Homebase Windsock': 'Windsock' })
+  });
+}));

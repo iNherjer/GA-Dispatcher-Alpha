@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseMXPavilion" guid="{C45E5B8E-4B28-4B87-8A78-0E7A0F5A6C2D}">
+	<LODS>
+		<LOD ModelFile="HomebaseMXPavilion_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

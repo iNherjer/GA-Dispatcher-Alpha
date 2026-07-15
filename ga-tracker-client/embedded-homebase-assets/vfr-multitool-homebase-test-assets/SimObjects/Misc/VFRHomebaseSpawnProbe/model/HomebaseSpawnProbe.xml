@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseSpawnProbe" guid="{A3F2AB24-996C-48C9-9399-46E14C3B7A31}">
+	<LODS>
+		<LOD ModelFile="HomebaseSpawnProbe_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+</ModelInfo>
+

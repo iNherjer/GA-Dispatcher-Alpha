@@ -1,0 +1,483 @@
+'use strict';
+
+const {
+  SimConnectDataType,
+  SimConnectPeriod,
+  SimConnectConstants,
+  InitPosition
+} = require('node-simconnect');
+const catalog = require('./homebase-asset-catalog.js');
+
+const INIT_POSITION_DEFINITION = 52001;
+const OBJECT_ALTITUDE_DEFINITION = 52002;
+const EVENT_FREEZE_LAT_LON = 52101;
+const EVENT_FREEZE_ALTITUDE = 52102;
+const EVENT_FREEZE_ATTITUDE = 52103;
+const EVENT_OBJECT_ADDED = 52104;
+const EVENT_OBJECT_REMOVED = 52105;
+const EVENT_GROUP_PRIORITY_HIGHEST = 1;
+const EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
+const CREATE_TIMEOUT_MS = 12000;
+const REMOVE_TIMEOUT_MS = 12000;
+const MAX_OBJECTS = 100;
+
+const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
+const allowedPreviewTitles = new Set([
+  ...catalog.assets.filter((entry) => entry.preview !== false && entry.kind !== 'internal').map((entry) => entry.title),
+  ...catalog.stockObjects.filter((entry) => entry.preview !== false).map((entry) => entry.title),
+  assetByKey.get('spawnProbe')?.title
+].filter(Boolean));
+
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function heading(value) {
+  return ((finite(value) % 360) + 360) % 360;
+}
+
+function buildPosition(item, altitudeFt = finite(item?.altFt), onGround = true) {
+  const position = new InitPosition();
+  position.latitude = finite(item?.lat);
+  position.longitude = finite(item?.lon);
+  position.altitude = finite(altitudeFt);
+  position.pitch = 0;
+  position.bank = 0;
+  position.heading = heading(item?.heading ?? item?.hdg);
+  position.onGround = !!onGround;
+  position.airspeed = 0;
+  return position;
+}
+
+function normalizeItem(raw, fallbackId = '') {
+  const sourceTitle = String(raw?.title || raw?.objectTitle || '').trim();
+  const title = catalog.legacyTitleAliases[sourceTitle] || sourceTitle;
+  const id = String(raw?.id || fallbackId || title).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+  if (!id) throw new Error('Objekt-ID fehlt.');
+  const runtimeDefinition = catalog.objectDefinitionForTitle(title);
+  const runtimeAllowed = runtimeDefinition?.runtimeAsset === true
+    && runtimeDefinition.preview !== false
+    && runtimeDefinition.kind !== 'internal';
+  if (!allowedPreviewTitles.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
+  const lat = Number(raw?.lat);
+  const lon = Number(raw?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    throw new Error(`Ungültige Koordinaten für ${raw?.label || title}.`);
+  }
+  return {
+    id,
+    title,
+    label: String(raw?.label || catalog.objectDefinitionForTitle(title)?.label || title),
+    lat,
+    lon,
+    altFt: finite(raw?.altFt),
+    heightOffsetFt: Math.max(-20, Math.min(200, finite(raw?.heightOffsetFt))),
+    heading: heading(raw?.heading ?? raw?.hdg),
+    scale: Math.max(0.1, Math.min(10, finite(raw?.scale, 1)))
+  };
+}
+
+function createHomebaseObjectManager(handle, options = {}) {
+  const sendAck = typeof options.sendAck === 'function' ? options.sendAck : () => {};
+  const log = typeof options.log === 'function' ? options.log : () => {};
+  const capabilities = Object.freeze([
+    'homebase-preview',
+    'homebase-ground-probe',
+    'homebase-object-move',
+    ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
+  ]);
+  let generation = 0;
+  let nextRequestId = 53000;
+  const objectsById = new Map();
+  const objectsBySimId = new Map();
+  const pendingCreates = new Map();
+  const pendingCreatesByObjectId = new Map();
+  const recentlyAddedObjectIds = new Set();
+  const pendingGround = new Map();
+  const pendingRemovals = new Map();
+  let operationQueue = Promise.resolve();
+
+  const nextId = () => {
+    const id = nextRequestId++;
+    if (nextRequestId > 64900) nextRequestId = 53000;
+    return id;
+  };
+
+  const enqueue = (operation) => {
+    const current = operationQueue.catch(() => {}).then(operation);
+    operationQueue = current.catch(() => {});
+    return current;
+  };
+
+  const transmitFreeze = (objectId, eventId, enabled) => {
+    handle.transmitClientEvent(
+      objectId,
+      eventId,
+      enabled ? 1 : 0,
+      EVENT_GROUP_PRIORITY_HIGHEST,
+      EVENT_FLAG_GROUP_ID_IS_PRIORITY
+    );
+  };
+
+  const modelDefinition = (item) => catalog.objectDefinitionForTitle(item.title) || {};
+  const effectiveOffsetFt = (item) => finite(item.heightOffsetFt) + finite(modelDefinition(item).groundClearanceFt);
+  const isParkedVehicle = (item) => modelDefinition(item).parkedVehicle === true;
+
+  const applyFinalPosition = (record, groundAltitudeFt) => {
+    if (!record || record.generation !== generation) return;
+    const offsetFt = effectiveOffsetFt(record.item);
+    const vehicle = isParkedVehicle(record.item);
+    const altitudeFt = finite(groundAltitudeFt, record.item.altFt) + offsetFt;
+    if (vehicle) {
+      transmitFreeze(record.objectId, EVENT_FREEZE_LAT_LON, true);
+      transmitFreeze(record.objectId, EVENT_FREEZE_ATTITUDE, true);
+    }
+    transmitFreeze(record.objectId, EVENT_FREEZE_ALTITUDE, Math.abs(offsetFt) >= 0.005 || vehicle);
+    const position = buildPosition(record.item, altitudeFt, Math.abs(offsetFt) < 0.005 && !vehicle);
+    handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [position]);
+    setTimeout(() => {
+      if (record.generation !== generation || !objectsBySimId.has(record.objectId)) return;
+      try { handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [position]); } catch (_) {}
+    }, 250);
+  };
+
+  const readGroundAtObject = (record, reason = 'place') => new Promise((resolve, reject) => {
+    if (!record || record.generation !== generation) return reject(new Error('Vorschaugeneration ist veraltet.'));
+    const requestId = nextId();
+    const timer = setTimeout(() => {
+      pendingGround.delete(requestId);
+      reject(new Error('Zeitüberschreitung beim Lesen der lokalen Bodenhöhe.'));
+    }, 6000);
+    pendingGround.set(requestId, { record, resolve, reject, timer, reason });
+    try {
+      handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [buildPosition(record.item, record.item.altFt, true)]);
+      setTimeout(() => {
+        if (!pendingGround.has(requestId) || record.generation !== generation) return;
+        try {
+          handle.requestDataOnSimObject(
+            requestId,
+            OBJECT_ALTITUDE_DEFINITION,
+            record.objectId,
+            SimConnectPeriod.ONCE,
+            0,
+            0,
+            0,
+            0
+          );
+        } catch (error) {
+          clearTimeout(timer);
+          pendingGround.delete(requestId);
+          reject(error);
+        }
+      }, 350);
+    } catch (error) {
+      clearTimeout(timer);
+      pendingGround.delete(requestId);
+      reject(error);
+    }
+  });
+
+  const finishCreate = (pending, objectId) => {
+    if (!pending || pending.settled) return;
+    pending.settled = true;
+    clearTimeout(pending.timer);
+    pendingCreates.delete(pending.requestId);
+    pendingCreatesByObjectId.delete(objectId);
+    const record = { objectId, item: pending.item, generation: pending.generation, addedAt: Date.now() };
+    objectsById.set(pending.item.id, record);
+    objectsBySimId.set(objectId, record);
+    log(`HOMEBASE_OBJECT_ADDED id=${pending.item.id} objectId=${objectId} title="${pending.item.title}" generation=${pending.generation}`);
+    pending.resolve(record);
+  };
+
+  const spawnObject = (raw, targetGeneration = generation) => new Promise((resolve, reject) => {
+    let item;
+    try { item = normalizeItem(raw); } catch (error) { reject(error); return; }
+    if (objectsById.has(item.id)) { reject(new Error(`${item.label} ist bereits aktiv.`)); return; }
+    const requestId = nextId();
+    const pending = {
+      requestId,
+      item,
+      generation: targetGeneration,
+      resolve,
+      reject,
+      objectId: null,
+      settled: false,
+      timer: null
+    };
+    pending.timer = setTimeout(() => {
+      if (pending.settled) return;
+      pending.settled = true;
+      pendingCreates.delete(requestId);
+      if (pending.objectId) pendingCreatesByObjectId.delete(pending.objectId);
+      reject(new Error(`Keine ObjectAdded-Bestätigung für ${item.label}.`));
+    }, CREATE_TIMEOUT_MS);
+    pendingCreates.set(requestId, pending);
+    try {
+      const sendId = handle.aICreateSimulatedObject(item.title, buildPosition(item, item.altFt, true), requestId);
+      pending.sendId = sendId;
+      log(`HOMEBASE_OBJECT_CREATE_REQUEST id=${item.id} requestId=${requestId} sendId=${sendId} title="${item.title}"`);
+    } catch (error) {
+      clearTimeout(pending.timer);
+      pendingCreates.delete(requestId);
+      pending.settled = true;
+      reject(error);
+    }
+  });
+
+  const stabilizeRecord = async (record, alwaysReadGround = false) => {
+    if (!record || record.generation !== generation) throw new Error('Vorschaugeneration ist veraltet.');
+    const offset = effectiveOffsetFt(record.item);
+    if (!alwaysReadGround && Math.abs(offset) < 0.005 && !isParkedVehicle(record.item)) return null;
+    const groundAltitudeFt = await readGroundAtObject(record, alwaysReadGround ? 'move' : 'spawn');
+    applyFinalPosition(record, groundAltitudeFt);
+    return groundAltitudeFt;
+  };
+
+  const removeRecord = (record) => new Promise((resolve) => {
+    if (!record?.objectId) { resolve({ ok: true, record }); return; }
+    const objectId = record.objectId;
+    const requestId = nextId();
+    const timer = setTimeout(() => {
+      pendingRemovals.delete(objectId);
+      resolve({ ok: false, record, error: 'Keine ObjectRemoved-Bestätigung' });
+    }, REMOVE_TIMEOUT_MS);
+    pendingRemovals.set(objectId, { record, requestId, timer, resolve });
+    try {
+      const sendId = handle.aIRemoveObject(objectId, requestId);
+      log(`HOMEBASE_OBJECT_REMOVE_REQUEST id=${record.item.id} objectId=${objectId} requestId=${requestId} sendId=${sendId}`);
+    } catch (error) {
+      clearTimeout(timer);
+      pendingRemovals.delete(objectId);
+      resolve({ ok: false, record, error: error?.message || String(error) });
+    }
+  });
+
+  const clearAll = async () => {
+    const records = [...objectsById.values()];
+    const removed = [];
+    const failed = [];
+    for (const record of records) {
+      const result = await removeRecord(record);
+      if (result.ok) removed.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId });
+      else failed.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, error: result.error });
+    }
+    return { removed, failed };
+  };
+
+  const sendError = (type, command, error, extra = {}) => {
+    sendAck({
+      type: `${type}_ack`,
+      commandId: command?.commandId || null,
+      status: 'error',
+      error: error?.message || String(error),
+      message: error?.message || String(error),
+      ...extra
+    });
+  };
+
+  const handlePreviewSet = async (command) => {
+    generation += 1;
+    const targetGeneration = generation;
+    for (const pending of pendingGround.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Vorschau wurde ersetzt.'));
+    }
+    pendingGround.clear();
+    const teardown = await clearAll();
+    if (teardown.failed.length) throw new Error(`${teardown.failed.length} vorhandene Objekt(e) wurden nicht bestätigt entfernt.`);
+    const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_OBJECTS) : [];
+    const spawned = [];
+    const failed = [];
+    for (const raw of input) {
+      try {
+        const record = await spawnObject(raw, targetGeneration);
+        if (record.generation !== generation) throw new Error('Vorschau wurde während des Aufbaus ersetzt.');
+        const groundAltitudeFt = await stabilizeRecord(record, record.item.id === '__homebase_spawn_probe__');
+        spawned.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, groundAltitudeFt });
+      } catch (error) {
+        failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
+      }
+    }
+    sendAck({
+      type: 'homebase_v1.preview.set_ack',
+      commandId: command?.commandId || null,
+      parentCommandId: command?.parentCommandId || command?.commandId || null,
+      status: failed.length ? 'error' : 'ok',
+      message: failed.length ? `Vorschau mit ${failed.length} Fehler(n) aufgebaut.` : 'Homebase-Vorschau gesetzt.',
+      extraCount: spawned.length,
+      objectCount: spawned.length,
+      spawnedObjects: spawned,
+      failedObjects: failed,
+      generation
+    });
+  };
+
+  const handleObjectAdd = async (command) => {
+    const record = await spawnObject(command?.object, generation);
+    const groundAltitudeFt = await stabilizeRecord(record, record.item.id === '__homebase_spawn_probe__');
+    sendAck({
+      type: 'homebase_v1.preview.object.add_ack',
+      commandId: command?.commandId || null,
+      status: 'ok',
+      message: `${record.item.label} wurde erzeugt.`,
+      spawnedObjects: [{ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, groundAltitudeFt }]
+    });
+  };
+
+  const handleObjectMove = async (command) => {
+    const item = normalizeItem(command?.object);
+    const record = objectsById.get(item.id);
+    if (!record) throw new Error(`${item.label} ist in der aktiven Vorschau nicht registriert.`);
+    record.item = item;
+    const groundAltitudeFt = await stabilizeRecord(record, true);
+    sendAck({
+      type: 'homebase_v1.preview.object.move_ack',
+      commandId: command?.commandId || null,
+      status: 'ok',
+      message: `${item.label} wurde ohne neuen Spawn verschoben.`,
+      id: item.id,
+      objectId: record.objectId,
+      groundAltitudeFt
+    });
+  };
+
+  try {
+    handle.addToDataDefinition(INIT_POSITION_DEFINITION, 'Initial Position', null, SimConnectDataType.INITPOSITION);
+    handle.addToDataDefinition(OBJECT_ALTITUDE_DEFINITION, 'Plane Altitude', 'feet', SimConnectDataType.FLOAT64, 0, SimConnectConstants.UNUSED);
+    handle.mapClientEventToSimEvent(EVENT_FREEZE_LAT_LON, 'FREEZE_LATITUDE_LONGITUDE_SET');
+    handle.mapClientEventToSimEvent(EVENT_FREEZE_ALTITUDE, 'FREEZE_ALTITUDE_SET');
+    handle.mapClientEventToSimEvent(EVENT_FREEZE_ATTITUDE, 'FREEZE_ATTITUDE_SET');
+    handle.subscribeToSystemEvent(EVENT_OBJECT_ADDED, 'ObjectAdded');
+    handle.subscribeToSystemEvent(EVENT_OBJECT_REMOVED, 'ObjectRemoved');
+  } catch (error) {
+    log(`HOMEBASE_INIT_ERROR ${error?.message || error}`);
+    throw error;
+  }
+
+  handle.on('assignedObjectID', (recv) => {
+    const pending = pendingCreates.get(recv.requestID);
+    if (!pending) return;
+    const objectId = Number(recv.objectID);
+    pending.objectId = objectId;
+    pendingCreatesByObjectId.set(objectId, pending);
+    if (recentlyAddedObjectIds.has(objectId)) finishCreate(pending, objectId);
+  });
+
+  handle.on('eventAddRemove', (recv) => {
+    const objectId = Number(recv.data);
+    if (!objectId) return;
+    if (recv.clientEventId === EVENT_OBJECT_ADDED) {
+      recentlyAddedObjectIds.add(objectId);
+      const recentTimer = setTimeout(() => recentlyAddedObjectIds.delete(objectId), 30000);
+      recentTimer.unref?.();
+      const pending = pendingCreatesByObjectId.get(objectId);
+      if (pending) finishCreate(pending, objectId);
+      return;
+    }
+    if (recv.clientEventId !== EVENT_OBJECT_REMOVED) return;
+    recentlyAddedObjectIds.delete(objectId);
+    const record = objectsBySimId.get(objectId);
+    if (record) {
+      objectsBySimId.delete(objectId);
+      if (objectsById.get(record.item.id)?.objectId === objectId) objectsById.delete(record.item.id);
+    }
+    const pending = pendingRemovals.get(objectId);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pendingRemovals.delete(objectId);
+      pending.resolve({ ok: true, record: pending.record });
+    }
+    log(`HOMEBASE_OBJECT_REMOVED objectId=${objectId} id=${record?.item?.id || ''}`);
+  });
+
+  handle.on('simObjectData', (recv) => {
+    const pending = pendingGround.get(recv.requestID);
+    if (!pending) return;
+    pendingGround.delete(recv.requestID);
+    clearTimeout(pending.timer);
+    try {
+      const read = typeof recv?.data?.readFloat64 === 'function'
+        ? recv.data.readFloat64.bind(recv.data)
+        : recv.data.readDouble.bind(recv.data);
+      const altitudeFt = Number(read());
+      if (!Number.isFinite(altitudeFt)) throw new Error('Ungültige Bodenhöhe empfangen.');
+      pending.resolve(altitudeFt);
+    } catch (error) {
+      pending.reject(error);
+    }
+  });
+
+  handle.on('exception', (recv) => {
+    const pending = [...pendingCreates.values()].find((entry) => entry.sendId === recv.sendId);
+    if (!pending || pending.settled) return;
+    pending.settled = true;
+    clearTimeout(pending.timer);
+    pendingCreates.delete(pending.requestId);
+    if (pending.objectId) pendingCreatesByObjectId.delete(pending.objectId);
+    pending.reject(new Error(recv.exceptionName || recv.exception || 'CREATE_OBJECT_FAILED'));
+  });
+
+  return {
+    protocol: 1,
+    capabilities,
+    handleCommand(command) {
+      const type = String(command?.type || '').trim();
+      if (!type.startsWith('homebase_v1.')) return false;
+      if (type === 'homebase_v1.capabilities') {
+        sendAck({
+          type: 'homebase_v1.capabilities_ack',
+          commandId: command?.commandId || null,
+          status: 'ok',
+          protocol: 1,
+          simConnected: true,
+          assetPackageVersion: catalog.assetPackageVersion,
+          capabilities
+        });
+        return true;
+      }
+      if (type === 'homebase_v1.preview.set') {
+        enqueue(() => handlePreviewSet(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.preview.clear') {
+        enqueue(async () => {
+          generation += 1;
+          const result = await clearAll();
+          sendAck({
+            type: 'homebase_v1.preview.clear_ack',
+            commandId: command?.commandId || null,
+            status: result.failed.length ? 'error' : 'ok',
+            message: result.failed.length ? 'Nicht alle Homebase-Objekte wurden bestätigt entfernt.' : 'Homebase-Vorschau bestätigt entfernt.',
+            removedCount: result.removed.length,
+            removedObjects: result.removed,
+            failedObjects: result.failed,
+            generation
+          });
+        }).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.preview.object.add') {
+        enqueue(() => handleObjectAdd(command)).catch((error) => sendError(type, command, error, { failedObjects: [{ ...command?.object, error: error?.message || String(error) }] }));
+        return true;
+      }
+      if (type === 'homebase_v1.preview.object.move') {
+        enqueue(() => handleObjectMove(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      sendError(type, command, new Error(`Unbekannter Homebase-Befehl: ${type}`));
+      return true;
+    },
+    clearAll,
+    snapshot() {
+      return {
+        generation,
+        objectCount: objectsById.size,
+        objects: [...objectsById.values()].map((record) => ({ id: record.item.id, title: record.item.title, objectId: record.objectId }))
+      };
+    }
+  };
+}
+
+module.exports = { createHomebaseObjectManager, normalizeItem, allowedPreviewTitles };

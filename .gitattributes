@@ -1,0 +1,3 @@
+# Compiled MSFS source assets are copied byte-for-byte from the SDK package.
+# Their formatting is part of the validated package layout and must not be normalized.
+ga-tracker-client/embedded-homebase-assets/** -whitespace

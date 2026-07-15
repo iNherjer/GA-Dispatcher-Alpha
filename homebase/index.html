@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VFR Multitool Homebase Workbench</title>
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-release1-20260715">
+</head>
+<body>
+  <header class="topbar">
+    <div><p class="eyebrow">VFR MULTITOOL</p><h1>Homebase Workbench</h1></div>
+    <div class="connection-pills" aria-label="Verbindungsstatus">
+      <span id="syncPill" class="pill muted">Nur lokal gespeichert</span>
+      <span id="relayPill" class="pill warn">Relay getrennt</span>
+      <span id="trackerPill" class="pill muted">Homebase-Tracker fehlt</span>
+      <span id="simPill" class="pill muted">MSFS fehlt</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="map-panel" aria-label="Homebase-Karte">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span><i class="legend-dot aircraft"></i>Flugzeug</span>
+        <span><i class="legend-dot spawn"></i>Spawn</span>
+        <span><i class="legend-box hangar"></i>Hangar</span>
+        <span><i class="legend-dot object"></i>Objekte</span>
+      </div>
+      <div class="map-hint">Ein Kartenklick verschiebt nichts. Spawn, Hangar und Ausstattung nur bewusst an ihren Markern ziehen.</div>
+    </section>
+
+    <aside class="control-panel">
+      <section class="card identity-card">
+        <div><span class="label">Verbindung</span><strong>VFR Haupt-App</strong></div>
+        <div><span class="label">Protokoll</span><strong>Homebase v1</strong></div>
+        <button id="connectBtn" class="secondary">Neu verbinden</button>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <div><span class="step">01</span><h2>Startpunkt festlegen</h2></div>
+        </div>
+        <button id="useAircraftBtn" class="primary wide">Startpunkt auf die Flugzeugposition setzen</button>
+        <p class="small-note">Übernimmt die aktuelle Position und Ausrichtung deines Flugzeugs. Der Startpunkt-Marker wird dort automatisch gesetzt.</p>
+        <div class="field-grid three">
+          <label>Breite<input id="spawnLat" type="number" step="0.000001" inputmode="decimal"></label>
+          <label>Länge<input id="spawnLon" type="number" step="0.000001" inputmode="decimal"></label>
+          <label>MSL ft<input id="spawnAlt" type="number" step="1" inputmode="decimal"></label>
+        </div>
+        <div class="field-grid two">
+          <label>Spawn-Heading
+            <input id="spawnHeading" type="range" min="0" max="359" step="1">
+            <output id="spawnHeadingOut">0°</output>
+          </label>
+          <label>Startart<input value="GA-Parkplatz am Boden" readonly></label>
+        </div>
+        <input id="spawnMode" type="hidden" value="airport_parking">
+        <button id="placeSpawnProbeBtn" class="secondary wide">Startpunkt-Marker anzeigen</button>
+        <p class="small-note">Setzt den Kegel erneut, falls er im Simulator fehlt. Der Kegel markiert den Startpunkt, ermittelt dort die Bodenhöhe und gehört nicht zum fertigen Flugplatz.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <div><span class="step">02</span><h2>Hangar platzieren</h2></div>
+        </div>
+        <div class="catalog-row">
+          <label>Hangarmodell<select id="hangarSelect">
+            <option value="VFR Multitool Homebase Test Hangar">Homebase-Hangar 18 × 22 m</option>
+            <option value="VFR Multitool Homebase Open Parking">Offener Parkbereich mit Containerbüro 18 × 22 m</option>
+          </select></label>
+          <button id="placeHangarBtn" class="primary">Hangar platzieren</button>
+        </div>
+        <p class="small-note">Der Hangar wird zunächst am Startpunkt ausgerichtet. Danach kannst du ihn auf der Karte ziehen oder unten fein verschieben.</p>
+        <div class="nudge-grid" aria-label="Hangar verschieben">
+          <button data-nudge="north" aria-label="Hangar nach Norden">N</button>
+          <button data-nudge="west" aria-label="Hangar nach Westen">W</button>
+          <div class="nudge-center">Schritt<br><select id="nudgeStep"><option>0.25</option><option selected>1</option><option>5</option><option>10</option></select> m</div>
+          <button data-nudge="east" aria-label="Hangar nach Osten">E</button>
+          <button data-nudge="south" aria-label="Hangar nach Süden">S</button>
+        </div>
+        <div class="field-grid two">
+          <label>Nordversatz m<input id="hangarNorth" type="number" step="0.25"></label>
+          <label>Ostversatz m<input id="hangarEast" type="number" step="0.25"></label>
+          <label>Hangar-Heading
+            <input id="hangarHeading" type="range" min="0" max="359" step="1">
+            <output id="hangarHeadingOut">0°</output>
+          </label>
+          <label>Höhenkorrektur ft<input id="hangarHeight" type="number" step="0.25"></label>
+        </div>
+        <div class="field-grid two compact">
+          <label>Breite m<input id="hangarWidth" type="number" value="18" readonly title="Das Hangarmodell ist fest 18 m breit."></label>
+          <label>Tiefe m<input id="hangarDepth" type="number" value="22" readonly title="Das Hangarmodell ist fest 22 m tief."></label>
+        </div>
+        <p class="small-note">Das Modell ist 18 × 22 m groß. Plane und Seiten reichen 2 m unter den Nullpunkt; die Höhenkorrektur dient nur zur Feinlage im Gelände.</p>
+      </section>
+
+      <section class="card object-card">
+        <div class="section-title">
+          <div><span class="step">03</span><h2>Homebase ausstatten</h2></div>
+          <span id="objectCount" class="count-badge">0 Objekte</span>
+        </div>
+        <div class="catalog-row">
+          <label>Objektkatalog<select id="catalogSelect"></select></label>
+          <button id="addObjectBtn" class="primary">Hinzufügen</button>
+        </div>
+        <div id="objectList" class="object-list" aria-label="Platzierte Objekte"></div>
+        <div id="objectEmpty" class="object-empty">Noch keine Ausstattung platziert. Jedes Objekt kann mehrfach hinzugefügt werden.</div>
+        <fieldset id="objectEditor" class="object-editor" disabled>
+          <legend id="objectEditorTitle">Objekt bearbeiten</legend>
+          <div class="field-grid two">
+            <label>Nordversatz m<input id="objectNorth" type="number" step="0.1"></label>
+            <label>Ostversatz m<input id="objectEast" type="number" step="0.1"></label>
+            <label>Objekt-Heading
+              <input id="objectHeading" type="range" min="0" max="359" step="1">
+              <output id="objectHeadingOut">0°</output>
+            </label>
+            <label>Höhe über Grund ft<input id="objectHeight" type="number" min="-20" max="200" step="0.1"></label>
+            <label>Maßstab<input id="objectScale" type="number" min="0.1" max="10" step="0.05"></label>
+          </div>
+          <div class="object-nudge" aria-label="Ausgewähltes Objekt verschieben">
+            <button data-object-nudge="north">N</button>
+            <button data-object-nudge="west">W</button>
+            <span>Schritt <select id="objectNudgeStep"><option>0.1</option><option selected>0.5</option><option>1</option><option>5</option></select> m</span>
+            <button data-object-nudge="east">E</button>
+            <button data-object-nudge="south">S</button>
+          </div>
+          <div class="action-row object-actions">
+            <button id="duplicateObjectBtn" class="secondary">Duplizieren</button>
+            <button id="deleteObjectBtn" class="danger">Löschen</button>
+          </div>
+        </fieldset>
+        <p class="small-note">Stapelbar über „Höhe über Grund“. Kaffee, Kartons, Paletten, Container, eigenes Aggregat, Asset-Regal, drei Holzkisten, Wohnwagen, Treibstofffass und MX24-Pavillon sowie bestätigte Pkw und Van sind verfügbar.</p>
+      </section>
+
+      <section class="card actions-card">
+        <div class="section-title"><div><span class="step">04</span><h2>Vorschau verwalten</h2></div></div>
+        <div class="action-row">
+          <button id="previewBtn" class="primary wide">Vorschau neu laden</button>
+          <button id="clearBtn" class="danger">Vorschau entfernen</button>
+        </div>
+        <p class="small-note">Beim Öffnen bleibt die Live-Vorschau standardmäßig aus, damit eine kompilierte Homebase nicht doppelt dargestellt wird. Neu gesetzte oder bewusst bewegte Objekte erscheinen weiterhin sofort. „Vorschau neu laden“ baut Hangar und Ausstattung vollständig neu auf. „Vorschau entfernen“ entfernt nur die vorübergehend von der Workbench erzeugten Objekte.</p>
+        <p id="previewResult" class="result-line">Noch keine Vorschau angefordert.</p>
+      </section>
+
+      <section class="card build-card">
+        <div class="section-title"><div><span class="step">05</span><h2>Flugplatz bauen</h2></div></div>
+        <p id="assetPackageResult" class="result-line">Homebase-Assetpaket wird geprüft …</p>
+        <button id="assetPackageBtn" class="secondary wide">Assetpaket prüfen oder installieren</button>
+        <p class="small-note">Der PC-Tracker ab v286 prüft den veröffentlichten Assetkanal und verwendet sein eingebettetes Paket als Offline-Fallback. Ein Download oder Austausch erfolgt ausschließlich nach deiner Bestätigung und wird per SHA-256, Dateiindex, Manifest und Layout kontrolliert.</p>
+        <button id="buildAirportBtn" class="primary wide">Flugplatz bauen und installieren</button>
+        <p class="small-note">Ein Assistent erstellt das Projekt, bittet vor dem Beenden von MSFS um Erlaubnis, baut das Paket mit dem offiziellen SDK und fragt anschließend vor der Installation in Community2024 noch einmal nach.</p>
+        <button id="uninstallAirportBtn" class="danger wide">Homebase deinstallieren</button>
+        <p class="small-note">Entfernt nach einer Sicherheitsabfrage nur den installierten Homebase-Flugplatz aus dem Community-Ordner. Assetpaket, Workbench und gespeicherter Entwurf bleiben erhalten.</p>
+        <div class="build-progress" aria-live="polite">
+          <div class="progress-track"><span id="buildProgressBar"></span></div>
+          <ol id="buildProgressList">
+            <li data-build-step="project">Projekt erstellen</li>
+            <li data-build-step="simulator">Simulator schließen</li>
+            <li data-build-step="sdk">Paket mit SDK bauen</li>
+            <li data-build-step="install">In Community2024 installieren</li>
+            <li data-build-step="done">Fertig</li>
+          </ol>
+        </div>
+        <p id="packageResult" class="result-line">Noch kein Bau gestartet.</p>
+        <details id="sdkHelp" class="help-box">
+          <summary>Hilfe: MSFS 2024 SDK fehlt</summary>
+          <p>Das SDK enthält das offizielle Package Tool. Es übersetzt die Homebase-Beschreibung in eine BGL-Datei, die MSFS als Flugplatz laden kann.</p>
+          <ol>
+            <li>In MSFS 2024 den Entwicklermodus aktivieren.</li>
+            <li>Oben in der DevMode-Menüleiste <strong>Help/Hilfe → SDK Installer</strong> wählen und die heruntergeladene MSI-Datei ausführen.</li>
+            <li>Den vorgeschlagenen Standardordner <code>C:\MSFS 2024 SDK</code> verwenden.</li>
+            <li>Workbench danach erneut starten und „Flugplatz bauen“ wiederholen.</li>
+          </ol>
+          <p><a href="https://docs.flightsimulator.com/msfs2024/html/1_Introduction/SDK_Overview.htm" target="_blank" rel="noreferrer">Offizielle SDK-Anleitung öffnen</a></p>
+        </details>
+      </section>
+
+      <section class="card log-card">
+        <div class="section-title">
+          <div><span class="step">LOG</span><h2>Protokoll</h2></div>
+          <button id="clearLogBtn" class="ghost">Leeren</button>
+        </div>
+        <pre id="log" aria-live="polite"></pre>
+      </section>
+    </aside>
+  </main>
+
+  <script src="../vendor/leaflet/leaflet.js"></script>
+  <script src="./homebase-asset-catalog.js?v=homebase-release1-20260715"></script>
+  <script src="./homebase-workbench.js?v=homebase-release1-20260715"></script>
+</body>
+</html>

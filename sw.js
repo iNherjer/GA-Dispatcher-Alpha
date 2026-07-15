@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1455';
+const CACHE = 'ga-dispatcher-v1462';
 
 const STATIC = [
     './',
@@ -11,6 +11,12 @@ const STATIC = [
     './mission-variety-core.js',
     './mission-arrival-core.js',
     './sync.js',
+    './homebase-integration.js',
+    './homebase-integration.css',
+    './homebase/index.html',
+    './homebase/homebase-workbench.js',
+    './homebase/homebase-workbench.css',
+    './homebase/homebase-asset-catalog.js',
     './mission-runtime-core.js',
     './mission-cargo-core.js',
     './mission-infra-outcome-core.js',

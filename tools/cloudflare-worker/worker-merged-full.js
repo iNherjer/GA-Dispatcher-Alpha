@@ -65,6 +65,11 @@ const COMMUNITY_CHECKLIST_MAX_BODY_BYTES = 160 * 1024;
 const COMMUNITY_CHECKLIST_MAX_CHAPTERS = 20;
 const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
 
+const HOMEBASE_PREFIX = "homebase:";
+const HOMEBASE_MAX_BODY_BYTES = 64 * 1024;
+const HOMEBASE_MAX_OBJECTS = 100;
+const HOMEBASE_TTL = 31536000;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -88,6 +93,123 @@ function parseDateMs(value) {
     if (Number.isFinite(numeric) && numeric > 0) return numeric < 10000000000 ? numeric * 1000 : numeric;
   }
   return null;
+}
+
+function normalizeFinite(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, number));
+}
+
+function normalizeHeading(value) {
+  const number = Math.round(normalizeFinite(value, 0, -100000, 100000));
+  return ((number % 360) + 360) % 360;
+}
+
+function normalizeHomebaseObject(raw, index) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const id = normalizeOneLine(source.id || `object-${index + 1}`, 64).replace(/[^a-zA-Z0-9_-]/g, "");
+  const title = normalizeOneLine(source.title, 160);
+  if (!id || !title) return null;
+  return {
+    id,
+    title,
+    label: normalizeOneLine(source.label || title, 160),
+    northM: normalizeFinite(source.northM, 0, -2000, 2000),
+    eastM: normalizeFinite(source.eastM, 0, -2000, 2000),
+    heading: normalizeHeading(source.heading),
+    heightFt: normalizeFinite(source.heightFt, 0, -20, 200),
+    scale: normalizeFinite(source.scale, 1, 0.1, 10)
+  };
+}
+
+function normalizeHomebasePlan(raw) {
+  if (!raw || typeof raw !== "object") throw new Error("missing_plan");
+  const spawn = raw.spawn && typeof raw.spawn === "object" ? raw.spawn : {};
+  const hangar = raw.hangar && typeof raw.hangar === "object" ? raw.hangar : {};
+  const objects = (Array.isArray(raw.objects) ? raw.objects : [])
+    .slice(0, HOMEBASE_MAX_OBJECTS)
+    .map(normalizeHomebaseObject)
+    .filter(Boolean);
+  return {
+    spawn: {
+      lat: normalizeFinite(spawn.lat, 48.1504, -90, 90),
+      lon: normalizeFinite(spawn.lon, 7.7099, -180, 180),
+      altFt: normalizeFinite(spawn.altFt, 0, -2000, 60000),
+      heading: normalizeHeading(spawn.heading),
+      mode: "airport_parking"
+    },
+    hangar: {
+      northM: normalizeFinite(hangar.northM, 0, -2000, 2000),
+      eastM: normalizeFinite(hangar.eastM, 0, -2000, 2000),
+      heading: normalizeHeading(hangar.heading),
+      heightFt: normalizeFinite(hangar.heightFt, 0, -50, 200),
+      widthM: normalizeFinite(hangar.widthM, 18, 4, 80),
+      depthM: normalizeFinite(hangar.depthM, 22, 4, 100),
+      objectTitle: normalizeOneLine(hangar.objectTitle, 160)
+    },
+    objects
+  };
+}
+
+async function handleHomebaseSync(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env)) {
+    return json({ error: "Sync KV binding missing (GA_SYNC_KV)." }, 503);
+  }
+  const pilotId = decodeURIComponent(requestUrl.pathname.split("/").filter(Boolean)[2] || "");
+  if (!pilotId || pilotId.length > 160 || pilotId.startsWith("GROUP_")) {
+    return json({ error: "Ungültige Pilot-ID" }, 400);
+  }
+  const auth = await verifySyncProfileAuth(request, env);
+  if (!auth.ok) return auth.response;
+  if (auth.ownerId !== pilotId) return json({ error: "Pilot-ID stimmt nicht überein" }, 403);
+
+  const key = `${HOMEBASE_PREFIX}${pilotId}`;
+  let existing = null;
+  try {
+    const raw = await env.GA_SYNC_KV.get(key);
+    existing = raw ? safeJsonParse(raw, null) : null;
+  } catch (error) {
+    return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+  }
+
+  if (request.method === "GET") {
+    return existing ? json({ ok: true, record: existing }) : json({ error: "Keine Homebase gespeichert" }, 404);
+  }
+  if (request.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+
+  const rawBody = await request.text();
+  if (rawBody.length > HOMEBASE_MAX_BODY_BYTES) return json({ error: "Homebase ist zu groß" }, 413);
+  const incoming = safeJsonParse(rawBody, null);
+  if (!incoming || typeof incoming !== "object") return json({ error: "Ungültiges JSON" }, 400);
+
+  const baseRevision = normalizeOneLine(incoming.baseRevision, 100);
+  const currentRevision = normalizeOneLine(existing?.revision, 100);
+  if (existing && baseRevision !== currentRevision) {
+    return json({ error: "Versionskonflikt", conflict: true, record: existing }, 409);
+  }
+
+  let plan;
+  try {
+    plan = normalizeHomebasePlan(incoming.plan);
+  } catch {
+    return json({ error: "Homebase-Plan fehlt oder ist ungültig" }, 400);
+  }
+  const updatedAt = Date.now();
+  const record = {
+    schemaVersion: 1,
+    revision: `${updatedAt}-${crypto.randomUUID().slice(0, 8)}`,
+    updatedAt,
+    clientUpdatedAt: normalizeFinite(incoming.clientUpdatedAt, updatedAt, 1, updatedAt + 86400000),
+    deviceId: normalizeOneLine(incoming.deviceId, 100),
+    plan
+  };
+  try {
+    await env.GA_SYNC_KV.put(key, JSON.stringify(record), { expirationTtl: HOMEBASE_TTL });
+  } catch (error) {
+    return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+  }
+  return json({ ok: true, record });
 }
 
 function isoFromMs(ms) {
@@ -681,6 +803,7 @@ function isReservedSyncKvKey(keyName) {
     || name.startsWith("GROUP_")
     || name.startsWith(BUG_REPORT_PREFIX)
     || name.startsWith(BUG_OPEN_PREFIX)
+    || name.startsWith(HOMEBASE_PREFIX)
     || name.startsWith(COMMUNITY_CHECKLIST_PREFIX)
     || name.startsWith(COMMUNITY_CHECKLIST_INDEX_PREFIX)
     || name === COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY;
@@ -1887,6 +2010,10 @@ export default {
 
     if (requestUrl.pathname === "/api/admin/users") {
       return handleAdminUsers(request, requestUrl, env);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/homebase/")) {
+      return handleHomebaseSync(request, requestUrl, env);
     }
 
     // ==========================================

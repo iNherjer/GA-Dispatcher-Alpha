@@ -1974,6 +1974,9 @@ function cycleRadioOption(selectId) {
 
 const MISSION_PICKER_STORAGE_KEY = 'ga_mission_picker_mode';
 const SAR_HELI_PROFILE_ID = 'sar_heli';
+// Die Sonderlogik bleibt fuer bestehende Missionen und spaetere Weiterarbeit erhalten,
+// ist aber bis auf Weiteres nicht als neuer Auftrag im Mission Picker waehlbar.
+const SAR_HELI_PICKER_ACTIVE = false;
 const SAR_HELI_RECOVERABLE_INCIDENT_IDS = Object.freeze([
     'missing_hiker',
     'fallen_climber',
@@ -2152,7 +2155,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:all+science_bio', classic: 'POI · Bio/Umwelt', radioShort: 'POI BIO', radioFull: 'POI · Biologie/Umwelt' },
         { value: 'poi:all+science_geo', classic: 'POI · Geo/Relief', radioShort: 'POI GEO', radioFull: 'POI · Geologie/Relief' },
         { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
-        { value: 'poi:all+sar_heli', classic: 'POI · SAR Heli', radioShort: 'SAR HELI', radioFull: 'POI · SAR Heli (Bergung + Klinik)' },
+        { value: 'poi:all+sar_heli', classic: 'POI · SAR Heli', radioShort: 'SAR HELI', radioFull: 'POI · SAR Heli (Bergung + Klinik)', active: SAR_HELI_PICKER_ACTIVE },
         { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' },
         { value: 'bush:all', classic: 'BUSH (Auto)', radioShort: 'BUSH ALL', radioFull: 'Bush (Auto/Backcountry)' },
         { value: 'bush:all+bush_supply_strip', classic: 'BUSH · Versorgung', radioShort: 'BUSH SUP', radioFull: 'Bush · Supply Run' },
@@ -4023,8 +4026,12 @@ function _setMissionPickerMode(nextMode) {
     localStorage.setItem(MISSION_PICKER_STORAGE_KEY, nextMode === 'full' ? 'full' : 'basic');
 }
 
+function _activeMissionPickerOptions(mode) {
+    return (MISSION_PICKER_OPTIONS[mode] || []).filter(option => option?.active !== false);
+}
+
 function _optionByValue(mode, value) {
-    return (MISSION_PICKER_OPTIONS[mode] || []).find(o => !o.disabled && o.value === value) || null;
+    return _activeMissionPickerOptions(mode).find(o => !o.disabled && o.value === value) || null;
 }
 
 function _populateMissionTypeSelects(mode, preferredValue = null) {
@@ -4046,7 +4053,7 @@ function _populateMissionTypeSelects(mode, preferredValue = null) {
         normalizedTarget = _optionByValue(mode, withProfile) ? withProfile : `${parsed.baseType}:all`;
     }
 
-    const options = MISSION_PICKER_OPTIONS[mode] || MISSION_PICKER_OPTIONS.basic;
+    const options = _activeMissionPickerOptions(mode);
     classic.innerHTML = '';
     radio.innerHTML = '';
     options.forEach(opt => {
@@ -16223,6 +16230,29 @@ function _charterStoryLooksGeneric(story = '', passenger = null) {
     return !(hasName || hasRole) || !hasPersonalHook;
 }
 
+function _charterPlannerStoryTakesPriority(context = {}) {
+    const plans = [
+        context?.missionContractV4?.missionPlan?.plan,
+        context?.missionContractV4?.plan,
+        context?.missionPlanV4?.plan,
+        context?.missionPlanV2?.plan,
+        context?.mission?.missionContractV4?.missionPlan?.plan,
+        context?.mission?._missionContractV4?.missionPlan?.plan,
+        context?.mission?._missionPlanV4?.plan,
+        context?.mission?._missionPlanV2?.plan
+    ].filter(plan => plan && typeof plan === 'object');
+    return plans.some(plan => [
+        plan.primaryObjective,
+        plan.missionTrigger,
+        plan.focusSubject,
+        plan.storyFrame?.trigger,
+        plan.storyFrame?.subjectDetail,
+        plan.storyFrame?.incidentContext,
+        ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : []),
+        ...(Array.isArray(plan.mustMention) ? plan.mustMention : [])
+    ].some(value => String(value || '').replace(/\s+/g, ' ').trim().length >= 12));
+}
+
 function _charterStoryHasWeather(story = '') {
     const s = _charterNormalizeText(story);
     return /(?:\bwetter\b|\bwind\b|\bsicht\b|\bvfr\b|\bmvfr\b|\bifr\b|temperatur|\bgrad\b|\bkt\b|\bknoten\b|regen|niesel|schauer|bewolkt|bewoelkt|wolken|cavok|metar|°c)/.test(s);
@@ -16279,13 +16309,19 @@ function personalizeAptCharterMission(mission = null, context = {}, preferredPer
         paxText: context.paxText || m.paxText || m.pax || '',
         mission: m
     };
-    if (_charterStoryLooksGeneric(existingStory, passenger)) {
+    // Der V4-Plan darf fuer Charter eine eigene, aus Ziel und Anlass abgeleitete
+    // Geschichte festlegen. Eine spaetere Cargo-/Persona-Schablone darf diesen
+    // Writer-Text nicht mehr durch ein anderes Thema ersetzen.
+    const keepPlannerStory = !!existingStory && _charterPlannerStoryTakesPriority(storyContext);
+    if (!keepPlannerStory && _charterStoryLooksGeneric(existingStory, passenger)) {
         m[storyKey] = buildPersonalAptCharterStory(passenger, storyContext);
-    } else if (!_charterStoryHasWeather(existingStory)) {
+    } else if (existingStory && !_charterStoryHasWeather(existingStory)) {
         const weather = _charterWeatherSentence(storyContext);
         if (weather) m[storyKey] = _cleanupNarrativeArtifacts(`${existingStory} ${weather}`);
     }
-    passenger.greetingText = buildPersonalAptCharterGreeting(passenger, storyContext);
+    if (!keepPlannerStory || !String(passenger.greetingText || '').trim()) {
+        passenger.greetingText = buildPersonalAptCharterGreeting(passenger, storyContext);
+    }
     m.passenger = passenger;
     if (!String(m[titleKey] || '').trim()) {
         m[titleKey] = targetName ? `Charter nach ${targetName}` : 'Persönlicher Charterflug';
@@ -31249,7 +31285,7 @@ Regeln:
 18a. media_photo: Gib eine Story-Spine fuer die Bildserie: Auftraggeber/Verwendungszweck + Motivlogik + was nach dem Flug mit dem Material passiert. Gute City-Anlaesse sind Tourismusbroschuere, Gemeindeaufnahme, Ortsmarketing, Jubiläumsfilm, Immobilien-/Projektbild oder redaktionelle Establishing Shots. Nicht in Sightseeing kippen.
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
-19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt.
+19. charter und club_utility: Die im MISSION_BRIEF_FORM und der Story-Spine festgelegte Geschichte hat Vorrang. Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt. Ersetze einen konkreten Planner-Anlass nie durch ein anderes Thema, nur weil Gepäck oder Cargo dazu passen könnte. Erzähle zuerst Menschen, Anlass und Zielmoment; Wetter, Flug und Route sind danach nur natürliche Stütze der Geschichte.
 19club. club_utility + APT: Nutze CONTRACT.cargoText oder CONTRACT.storyFrame.shipment als bindendes Rohmaterial, aber lies es richtig. Wenn es konkrete Vereinsladung ist, erzaehle konkret, was geliefert wird und was danach passiert: wer uebernimmt am Ziel, wofuer wird die Ladung dort gebraucht, welcher naechste Club-, Flugtag-, Hangar-, Werkstatt- oder Briefingtisch-Schritt folgt. Wenn CONTRACT.storyFrame.noDelivery=true oder cargoText nach Clubjacke, Bordtasche, Notizbuch, Sonnenbrille, persoenlichen Sachen, Fly-In-Besuch, Grillwurst, Stammtisch oder VFR-Planungstool klingt, erzaehle einen Clubbesuch ohne erfundene Uebergabe: Einladung, Mitflieger, Flug zum Zielplatz, Clubheim, Stammtisch, Fly-In oder Fachsimpeln tragen dann die Geschichte. Wiederhole Ladung oder Bordzeug nicht als Motiv in jedem Satz. Route, Wetter, Terrain und Pax-Rolle duerfen den Vereinsmoment lebendiger machen. Originell ist erlaubt, aber klein und glaubwuerdig.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
@@ -44355,7 +44391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const swBypassMode = params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1455', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1462', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

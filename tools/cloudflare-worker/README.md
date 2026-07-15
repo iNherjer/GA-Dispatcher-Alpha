@@ -14,6 +14,8 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `POST /api/problem-reports/:id/ack` (Admin, als behoben quittieren)
 - `POST /api/problem-reports/purge` (Admin, alte Bugreport-KV-Einträge löschen; `dryRun` standardmäßig aktiv)
 - `GET /api/admin/users?limit=1000` (Admin, Sync-Nutzer kompakt anzeigen)
+- `GET /api/homebase/:pilotId` (Homebase-Plan der Pilot-ID laden)
+- `POST /api/homebase/:pilotId` (Homebase-Plan mit Revisionsprüfung speichern)
 
 ## Dateien
 
@@ -52,6 +54,7 @@ Hinweis:
   - Wenn kein Secret gesetzt ist, sind List/Detail/Ack-Endpoints offen.
 - Der Nutzer-Admin und der Bugreport-Purge nutzen denselben Admin-Token. Der Nutzer-Endpunkt liefert nur kompakte Metadaten (`id`, `name`, `registeredAt`, `lastModified`) und nie PINs, Pinnwand, Logbuch oder Missionsdaten.
 - Neue Sync-Profile bekommen serverseitig `registeredAt`; alte Profile ohne dieses Feld können kein verlässliches Registrierungsdatum liefern. In der Admin-Ansicht wird dann `unbekannt` angezeigt.
+- Homebase-Pläne liegen getrennt unter `homebase:<pilotId>`, werden über das bestehende Pilot-Profil authentifiziert und enthalten niemals den PIN. Der Endpunkt akzeptiert höchstens 64 KiB und 100 Ausstattungsobjekte. Bei einer veralteten `baseRevision` antwortet er mit HTTP 409 und dem aktuellen Cloud-Stand.
 - Für Benachrichtigungen bei neuen Bug-Reports:
   - Option A (E-Mail über Resend):
     - Secret: `RESEND_API_KEY`
