@@ -1,0 +1,449 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "VFR Multitool procedural asset generator"
+  },
+  "buffers": [
+    {
+      "byteLength": 53856,
+      "uri": "HomebaseMailSack_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 8208,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8208,
+      "byteLength": 8208,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 16416,
+      "byteLength": 5472,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 21888,
+      "byteLength": 1368,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 23256,
+      "byteLength": 2016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 25272,
+      "byteLength": 2016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 27288,
+      "byteLength": 1344,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 28632,
+      "byteLength": 336,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 28968,
+      "byteLength": 6624,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 35592,
+      "byteLength": 6624,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 42216,
+      "byteLength": 4416,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 46632,
+      "byteLength": 1104,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 47736,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48168,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48600,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48888,
+      "byteLength": 72,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48960,
+      "byteLength": 1728,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 50688,
+      "byteLength": 1728,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 52416,
+      "byteLength": 1152,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 53568,
+      "byteLength": 288,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 684,
+      "min": [
+        -0.25835589672818327,
+        0,
+        -0.265
+      ],
+      "max": [
+        0.25835589672818327,
+        0.7,
+        0.265
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 684,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 684,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 684,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 168,
+      "min": [
+        -0.011699134946181885,
+        0.07941532935543909,
+        -0.26998574821349874
+      ],
+      "max": [
+        0.011699134946181885,
+        0.4905846706445609,
+        0.2687987859988794
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 168,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 168,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 168,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 552,
+      "min": [
+        -0.13843976352981893,
+        0.585,
+        -0.142
+      ],
+      "max": [
+        0.175527761061588,
+        0.748172252728563,
+        0.142
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 552,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 552,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 552,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.11,
+        0.26,
+        -0.259
+      ],
+      "max": [
+        0.11,
+        0.42000000000000004,
+        -0.247
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 144,
+      "min": [
+        -0.045,
+        0.265,
+        -0.282
+      ],
+      "max": [
+        0.045,
+        0.355,
+        -0.267
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 144,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 144,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 144,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Postsack_Jute",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.42,
+          0.26,
+          0.11,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.92
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Postsack_Naht_Dunkel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.15,
+          0.085,
+          0.028,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.84
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Postsack_Kordel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.62,
+          0.48,
+          0.25,
+          1
+        ],
+        "metallicFactor": 0.03,
+        "roughnessFactor": 0.72
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Postsack_Postetikett_Rot",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.63,
+          0.028,
+          0.018,
+          1
+        ],
+        "metallicFactor": 0.08,
+        "roughnessFactor": 0.48
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Postsack_Wachssiegel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.46,
+          0.012,
+          0.008,
+          1
+        ],
+        "metallicFactor": 0.12,
+        "roughnessFactor": 0.42
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseMailSack_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseMailSack_node"
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

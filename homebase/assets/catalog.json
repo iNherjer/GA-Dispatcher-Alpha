@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -14,6 +14,7 @@
       "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
       "group": "Ausstattung",
       "kind": "object",
+      "homebasePlaceable": true,
       "missionSpawnable": true,
       "missionTags": [
         "tools",
@@ -22,65 +23,78 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "backpack",
       "folder": "VFRHomebaseBackpack",
       "title": "VFR Multitool Homebase Backpack",
-      "label": "Backpack",
+      "label": "Rucksack",
       "version": "1.0.0",
       "kind": "object",
-      "group": "Ausstattung",
+      "group": "Fracht",
       "missionSpawnable": true,
       "missionTags": [
-        "homebase"
+        "cargo",
+        "luggage",
+        "passenger",
+        "travel",
+        "supplies"
       ],
       "missionRoles": [
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T17:14:06.636Z"
+      "updatedAt": "2026-07-15T19:05:32.018Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "briefcase",
       "folder": "VFRHomebaseBriefcase",
       "title": "VFR Multitool Homebase Briefcase",
-      "label": "Briefcase",
+      "label": "Aktenkoffer",
       "version": "1.0.0",
       "kind": "object",
-      "group": "Gepäck & Fracht",
+      "group": "Fracht",
       "missionSpawnable": true,
       "missionTags": [
         "cargo",
         "luggage",
-        "supplies"
+        "passenger",
+        "travel"
       ],
       "missionRoles": [
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T13:19:47.423Z"
+      "updatedAt": "2026-07-15T19:05:31.914Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
-      "key": "cabin-trolley",
+      "key": "cabinTrolley",
       "folder": "VFRHomebaseCabinTrolley",
       "title": "VFR Multitool Homebase Cabin Trolley",
-      "label": "Cabin Trolley",
+      "label": "Trolley klein",
       "version": "1.0.0",
       "kind": "object",
-      "group": "Gepäck & Fracht",
+      "group": "Fracht",
       "missionSpawnable": true,
       "missionTags": [
         "cargo",
         "luggage",
-        "supplies"
+        "passenger",
+        "travel"
       ],
       "missionRoles": [
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T13:19:55.267Z"
+      "updatedAt": "2026-07-15T19:05:31.953Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "chair",
@@ -98,7 +112,8 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "customWindsock",
@@ -114,7 +129,31 @@
       ],
       "missionRoles": [
         "internal"
-      ]
+      ],
+      "workbenchVisible": true
+    },
+    {
+      "key": "daypack",
+      "folder": "VFRHomebaseDaypack",
+      "title": "VFR Multitool Homebase Daypack",
+      "label": "Tagesrucksack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "outdoor",
+        "personal"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.061Z"
     },
     {
       "key": "desk",
@@ -132,7 +171,31 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
+    },
+    {
+      "key": "duffelBag",
+      "folder": "VFRHomebaseDuffelBag",
+      "title": "VFR Multitool Homebase Duffel Bag",
+      "label": "Duffelbag / Reisetasche",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "charter",
+        "outdoor"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.079Z"
     },
     {
       "key": "europeanCaravan",
@@ -151,7 +214,8 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "fuelDrum",
@@ -171,7 +235,8 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "generator",
@@ -191,7 +256,8 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "hangar",
@@ -208,7 +274,79 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
+    },
+    {
+      "key": "insulatedCooler",
+      "folder": "VFRHomebaseInsulatedCooler",
+      "title": "VFR Multitool Homebase Insulated Cooler",
+      "label": "Isolierte Kühlbox",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "cooler",
+        "medical",
+        "samples",
+        "outdoor"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.135Z"
+    },
+    {
+      "key": "jerrycanPair",
+      "folder": "VFRHomebaseJerrycanPair",
+      "title": "VFR Multitool Homebase Jerrycan Pair",
+      "label": "Kanister-Doppelpack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "fuel",
+        "supply",
+        "bush",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.117Z"
+    },
+    {
+      "key": "mailSack",
+      "folder": "VFRHomebaseMailSack",
+      "title": "VFR Multitool Homebase Mail Sack",
+      "label": "Postsack (zugebunden)",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "mail",
+        "delivery",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:31.999Z"
     },
     {
       "key": "mxPavilion",
@@ -227,7 +365,8 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "openParking",
@@ -243,7 +382,8 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "pinboard",
@@ -261,7 +401,32 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
+    },
+    {
+      "key": "portableToolbox",
+      "folder": "VFRHomebasePortableToolbox",
+      "title": "VFR Multitool Homebase Portable Toolbox",
+      "label": "Tragbare Werkzeugkiste",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "tools",
+        "maintenance",
+        "club",
+        "bush"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.097Z"
     },
     {
       "key": "spawnProbe",
@@ -277,7 +442,31 @@
       ],
       "missionRoles": [
         "internal"
-      ]
+      ],
+      "workbenchVisible": true
+    },
+    {
+      "key": "toolbox",
+      "folder": "VFRHomebaseToolbox",
+      "title": "VFR Multitool Homebase Toolbox",
+      "label": "Werkzeugkiste",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "tools",
+        "maintenance",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.039Z"
     },
     {
       "key": "toolCart",
@@ -297,7 +486,8 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "trafficCone",
@@ -315,27 +505,31 @@
       ],
       "missionRoles": [
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
-      "key": "travel-suitcase",
+      "key": "travelSuitcase",
       "folder": "VFRHomebaseTravelSuitcase",
       "title": "VFR Multitool Homebase Travel Suitcase",
-      "label": "Travel Suitcase",
+      "label": "Reisekoffer groß",
       "version": "1.0.0",
       "kind": "object",
-      "group": "Gepäck & Fracht",
+      "group": "Fracht",
       "missionSpawnable": true,
       "missionTags": [
         "cargo",
         "luggage",
-        "supplies"
+        "passenger",
+        "travel"
       ],
       "missionRoles": [
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T13:20:04.415Z"
+      "updatedAt": "2026-07-15T19:05:31.976Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "woodCrateLarge",
@@ -355,7 +549,8 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "woodCrateMedium",
@@ -375,7 +570,8 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     },
     {
       "key": "woodCrateSmall",
@@ -395,8 +591,10 @@
       "missionRoles": [
         "cargo",
         "scene-prop"
-      ]
+      ],
+      "workbenchVisible": true
     }
   ],
-  "updatedAt": "2026-07-15T17:14:20.503Z"
+  "updatedAt": "2026-07-15T19:05:32.154Z",
+  "stockObjects": []
 }
