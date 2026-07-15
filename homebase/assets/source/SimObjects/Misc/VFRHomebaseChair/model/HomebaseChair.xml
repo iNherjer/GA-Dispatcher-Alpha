@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseChair" guid="{5fe0f247-15ad-48dd-8675-c6e0ea0fa78c}">
+  <LODS><LOD ModelFile="HomebaseChair_LOD00.gltf" MinSize="0.0000"/></LODS>
+</ModelInfo>

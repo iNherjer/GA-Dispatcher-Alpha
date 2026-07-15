@@ -1,0 +1,367 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "VFR Multitool procedural asset generator"
+  },
+  "buffers": [
+    {
+      "byteLength": 29376,
+      "uri": "HomebaseWoodCrateLarge_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 8640,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8640,
+      "byteLength": 8640,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 17280,
+      "byteLength": 5760,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 23040,
+      "byteLength": 1440,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 24480,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 25344,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 26208,
+      "byteLength": 576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 26784,
+      "byteLength": 144,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 26928,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 27360,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 27792,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 28080,
+      "byteLength": 72,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 28152,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 28584,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 29016,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 29304,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 720,
+      "min": [
+        -0.63,
+        0,
+        -0.43999999999999995
+      ],
+      "max": [
+        0.63,
+        0.72,
+        0.43999999999999995
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 720,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 720,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 720,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 72,
+      "min": [
+        -0.6,
+        0,
+        -0.41
+      ],
+      "max": [
+        0.6,
+        0.075,
+        0.41
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 72,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 72,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.14,
+        0.32400000000000007,
+        -0.45099999999999996
+      ],
+      "max": [
+        0.14,
+        0.4536,
+        -0.43299999999999994
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.09,
+        0.3798,
+        -0.45999999999999996
+      ],
+      "max": [
+        0.09,
+        0.39780000000000004,
+        -0.44799999999999995
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Holzkiste_Bretter",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.38,
+          0.18,
+          0.06,
+          1
+        ],
+        "metallicFactor": 0.02,
+        "roughnessFactor": 0.86
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Holzkiste_Boden_Dunkel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.19,
+          0.08,
+          0.025,
+          1
+        ],
+        "metallicFactor": 0.02,
+        "roughnessFactor": 0.9
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Holzkiste_Markierung",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.78,
+          0.52,
+          0.08,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.58
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Holzkiste_Markierung_Dunkel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.07,
+          0.045,
+          0.018,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.72
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseWoodCrateLarge_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseWoodCrateLarge_node"
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

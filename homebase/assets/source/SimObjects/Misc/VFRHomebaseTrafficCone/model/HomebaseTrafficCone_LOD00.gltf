@@ -1,0 +1,285 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "VFR Multitool procedural asset generator"
+  },
+  "buffers": [
+    {
+      "byteLength": 14076,
+      "uri": "HomebaseTrafficCone_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 3240,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3240,
+      "byteLength": 3240,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 6480,
+      "byteLength": 2160,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8640,
+      "byteLength": 540,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 9180,
+      "byteLength": 1296,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 10476,
+      "byteLength": 1296,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 11772,
+      "byteLength": 864,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 12636,
+      "byteLength": 216,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 12852,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 13284,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 13716,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 14004,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 270,
+      "min": [
+        -0.235,
+        0.07,
+        -0.2314298219578689
+      ],
+      "max": [
+        0.235,
+        0.75,
+        0.23142982195786888
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 270,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 270,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 270,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 108,
+      "min": [
+        -0.15955882352941175,
+        0.34,
+        -0.15713476647327143
+      ],
+      "max": [
+        0.15955882352941175,
+        0.47,
+        0.1571347664732714
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 108,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 108,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 108,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.29,
+        0,
+        -0.29
+      ],
+      "max": [
+        0.29,
+        0.07,
+        0.29
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Leitkegel_Orange",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.92,
+          0.18,
+          0.015,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.62
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Leitkegel_Reflektor",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.88,
+          0.88,
+          0.82,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.42
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Leitkegel_Fuss",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.035,
+          0.04,
+          0.04,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.82
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseTrafficCone_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseTrafficCone_node"
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

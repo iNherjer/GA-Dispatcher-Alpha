@@ -1,0 +1,454 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "VFR Multitool procedural asset generator"
+  },
+  "buffers": [
+    {
+      "byteLength": 688704,
+      "uri": "HomebaseTestHangar_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 3024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3024,
+      "byteLength": 3024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 6048,
+      "byteLength": 2016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8064,
+      "byteLength": 504,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 8568,
+      "byteLength": 3024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 11592,
+      "byteLength": 3024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 14616,
+      "byteLength": 2016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 16632,
+      "byteLength": 504,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 17136,
+      "byteLength": 233856,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 250992,
+      "byteLength": 233856,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 484848,
+      "byteLength": 155904,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 640752,
+      "byteLength": 38976,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 679728,
+      "byteLength": 2736,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 682464,
+      "byteLength": 2736,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 685200,
+      "byteLength": 1824,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 687024,
+      "byteLength": 456,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 687480,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 687912,
+      "byteLength": 432,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 688344,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 688632,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 252,
+      "min": [
+        -9,
+        -2,
+        -11
+      ],
+      "max": [
+        9,
+        7,
+        11
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 252,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 252,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 252,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 252,
+      "min": [
+        -8.88,
+        -2,
+        -10.95
+      ],
+      "max": [
+        8.88,
+        6.880000000000001,
+        10.94
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 252,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 252,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 252,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 19488,
+      "min": [
+        -8.949889877051248,
+        -2.075,
+        -10.97
+      ],
+      "max": [
+        8.949889877051248,
+        6.949889877051248,
+        10.97
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 19488,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 19488,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 19488,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 228,
+      "min": [
+        -1.075,
+        6.02,
+        -0.14
+      ],
+      "max": [
+        1.075,
+        6.82,
+        0.14
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 228,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 228,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 228,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 36,
+      "min": [
+        -0.96,
+        5.9875,
+        -0.1
+      ],
+      "max": [
+        0.96,
+        6.0225,
+        0.1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Hangarplane_Aussen_Dunkelgruen",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.035,
+          0.19,
+          0.095,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.92
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Hangarplane_Innen_Hellgrau",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.68,
+          0.7,
+          0.69,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.88
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Rohrrahmen_Dunkelgrau",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.12,
+          0.14,
+          0.14,
+          1
+        ],
+        "metallicFactor": 0.72,
+        "roughnessFactor": 0.34
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Lampengehaeuse_Dunkelgrau",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.08,
+          0.09,
+          0.1,
+          1
+        ],
+        "metallicFactor": 0.55,
+        "roughnessFactor": 0.36
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "LIGHTS_Homebase_Deckenlampe",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.92,
+          0.9,
+          0.78,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.24
+      },
+      "emissiveFactor": [
+        1,
+        0.92,
+        0.72
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseTestHangar_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseTestHangar_node"
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0
+}

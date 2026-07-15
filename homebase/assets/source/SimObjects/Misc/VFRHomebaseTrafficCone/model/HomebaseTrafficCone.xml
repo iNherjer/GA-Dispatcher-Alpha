@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseTrafficCone" guid="{9d4869af-6baa-46ac-9980-8824182577fb}">
+  <LODS><LOD ModelFile="HomebaseTrafficCone_LOD00.gltf" MinSize="0.0000"/></LODS>
+</ModelInfo>
