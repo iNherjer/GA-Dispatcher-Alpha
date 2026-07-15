@@ -7191,6 +7191,53 @@ body.theme-navcom .pb-tab.active { background: #4a5056; color: #f1f3f4; box-shad
     border: 2px solid #ccc;
     cursor: default;
 }
+.post-it.homebase-directory-card {
+    background: #dff4d4;
+    border: 2px solid #95bf7b;
+    width: 26cqw !important;
+    height: auto !important;
+    min-height: 17cqw !important;
+    max-height: 34cqw;
+    padding-bottom: 1.1cqw !important;
+}
+.homebase-directory-title {
+    font-size: 1.5cqw;
+    border-bottom: 2px solid #94b987;
+    padding-bottom: .45cqw;
+}
+.homebase-directory-subtitle {
+    color: #476042;
+    font: normal 1cqw/1.2 sans-serif;
+    margin: .45cqw 0 .7cqw;
+}
+.homebase-directory-list {
+    max-height: 23cqw;
+    overflow: auto;
+    padding-right: .25cqw;
+}
+.homebase-directory-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: .45cqw;
+    padding: .38cqw 0;
+    border-bottom: 1px dashed #9fbd96;
+    font: normal 1.05cqw/1.1 sans-serif;
+}
+.homebase-directory-owner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+.homebase-directory-apt { color: #41623c; font-family: 'Courier New', monospace; }
+.crew-homebase-visit-btn {
+    border: 1px solid #49733e;
+    border-radius: 3px;
+    background: #5f9e52;
+    color: #fff;
+    cursor: pointer;
+    padding: .3cqw .5cqw;
+    font-size: .9cqw;
+    font-weight: bold;
+}
+.crew-homebase-visit-btn:hover { background: #467b3b; }
+.homebase-directory-empty { color: #5b6c57; font: normal 1.05cqw/1.2 sans-serif; padding: .7cqw 0; }
 .roster-list {
     font-size: 1.1cqw;
     margin-top: 1cqw;

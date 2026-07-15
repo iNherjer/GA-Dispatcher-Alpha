@@ -4,6 +4,7 @@ let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
 let pinnedReplayLayer = null;
 let debriefOverlayEl = null;
+let homebaseDirectoryAirportLoadRequested = false;
 
 window.clearPinnedFlightReplay = function() {
     if (pinnedReplayLayer) {
@@ -283,6 +284,7 @@ async function joinGroup() {
         document.getElementById('groupStatus').style.color = "var(--green)";
 
         forceGroupSync();
+        window.homebaseGroupRefresh?.('group-joined');
         triggerCloudSave(true);
         alert("🤝 Du bist der Crew '" + gName + "' beigetreten!");
     } catch(e) {
@@ -327,6 +329,7 @@ function leaveGroup(isBanned = false) {
     localStorage.removeItem('ga_group_name');
     localStorage.removeItem('ga_group_nick');
     localStorage.removeItem('ga_group_pin');
+    window.homebaseGroupClear?.();
     document.getElementById('groupNameInput').value = "";
     document.getElementById('groupStatus').innerText = "Nicht verbunden";
     document.getElementById('groupStatus').style.color = "#888";
@@ -929,6 +932,7 @@ function renderNotes() {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         notes.forEach(note => createNoteDOM(note, false));
     } else {
+        renderCrewHomebaseDirectory(board);
         // Render Crew Roster
         const roster = document.createElement('div');
         roster.className = 'post-it roster-card';
@@ -991,6 +995,73 @@ function renderNotes() {
         });
     }
 }
+
+function homebaseDirectoryDistanceNm(latA, lonA, latB, lonB) {
+    const toRad = Math.PI / 180;
+    const dLat = (latB - latA) * toRad;
+    const dLon = (lonB - lonA) * toRad;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(latA * toRad) * Math.cos(latB * toRad) * Math.sin(dLon / 2) ** 2;
+    return 3440.065 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+}
+
+function nearestHomebaseAirport(spawn) {
+    const lat = Number(spawn?.lat);
+    const lon = Number(spawn?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || typeof globalAirports === 'undefined' || !globalAirports || typeof globalAirports !== 'object') return '';
+    let best = null;
+    Object.entries(globalAirports).forEach(([fallbackIcao, airport]) => {
+        const aptLat = Number(airport?.lat);
+        const aptLon = Number(airport?.lon ?? airport?.lng);
+        if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) return;
+        const distance = homebaseDirectoryDistanceNm(lat, lon, aptLat, aptLon);
+        if (!best || distance < best.distance) best = { icao: String(airport?.icao || fallbackIcao || '').toUpperCase(), distance };
+    });
+    return best?.icao || '';
+}
+
+function renderCrewHomebaseDirectory(board) {
+    if (!homebaseDirectoryAirportLoadRequested && (typeof globalAirports === 'undefined' || !Object.keys(globalAirports || {}).length) && typeof loadGlobalAirports === 'function') {
+        homebaseDirectoryAirportLoadRequested = true;
+        loadGlobalAirports().then(() => {
+            if (currentBoardMode === 'group' && document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+        }).catch(() => {});
+    }
+    const note = document.createElement('div');
+    note.className = 'post-it homebase-directory-card';
+    const localPos = JSON.parse(localStorage.getItem('ga_group_positions')) || {};
+    const savedPos = localPos['crew-homebases'];
+    note.style.left = `${savedPos?.x ?? 56}%`;
+    note.style.top = `${savedPos?.y ?? 4}%`;
+    note.style.transform = 'rotate(2deg)';
+    const pin = pinboardCreateElement('div', 'post-it-pin');
+    const title = pinboardCreateElement('div', 'homebase-directory-title', '🏠 HOMEBASES');
+    const subtitle = pinboardCreateElement('div', 'homebase-directory-subtitle', 'Crew-Ziele für private Besuche');
+    const list = pinboardCreateElement('div', 'homebase-directory-list');
+    const entries = (Array.isArray(window.homebaseGroupDirectory) ? window.homebaseGroupDirectory : [])
+        .filter((entry) => entry?.hasHomebase && entry?.crewShareEnabled === true);
+    if (!entries.length) {
+        list.appendChild(pinboardCreateElement('div', 'homebase-directory-empty', 'Noch keine Homebases freigegeben.'));
+    }
+    entries.forEach((entry) => {
+        const row = pinboardCreateElement('div', 'homebase-directory-row');
+        const who = pinboardCreateElement('span', 'homebase-directory-owner', String(entry?.nick || entry?.pilotId || 'Pilot'));
+        const airport = nearestHomebaseAirport(entry?.spawn);
+        const destination = airport || 'Koordinaten';
+        const label = pinboardCreateElement('span', 'homebase-directory-apt', destination);
+        row.append(who, label);
+        if (entry?.hasHomebase && Number.isFinite(Number(entry?.spawn?.lat)) && Number.isFinite(Number(entry?.spawn?.lon))) {
+            const visit = pinboardCreateAction('button', 'crew-homebase-visit-btn', 'Besuchen', async () => {
+                const ok = await window.createCrewHomebaseVisitRoute?.(entry);
+                if (ok && document.getElementById('pinboardOverlay')?.classList.contains('active')) togglePinboard(true);
+            });
+            row.appendChild(visit);
+        }
+        list.appendChild(row);
+    });
+    note.append(pin, title, subtitle, list);
+    makeDraggable(note, 'crew-homebases', true);
+    board.appendChild(note);
+}
 function createNoteDOM(note, isGroup) {
     const board = document.getElementById('pinboard');
     const div = document.createElement('div');
@@ -1043,7 +1114,7 @@ function makeDraggable(element, noteId, isGroup) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     element.onmousedown = dragMouseDown; element.ontouchstart = dragMouseDown;
     function dragMouseDown(e) {
-        if (e.target.className === 'post-it-del' || e.target.className === 'post-it-edit' || e.target.className === 'flight-load-btn' || e.target.className === 'flight-replay-btn') return;
+        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn')) return;
         e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX, clientY = e.touches ? e.touches[0].clientY : e.clientY;
         pos3 = clientX; pos4 = clientY;
@@ -1086,6 +1157,10 @@ function makeDraggable(element, noteId, isGroup) {
         }
     }
 }
+
+window.addEventListener('homebase-directory-changed', () => {
+    if (currentBoardMode === 'group' && document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+});
 
 
 // =========================================================

@@ -163,11 +163,12 @@
           localUpdatedAt: finite(saved.localUpdatedAt, 0),
           baseRevision: String(saved.baseRevision || ''),
           cloudUpdatedAt: finite(saved.cloudUpdatedAt, 0),
-          dirty: saved.dirty === true
+          dirty: saved.dirty === true,
+          crewShareEnabled: saved.crewShareEnabled !== false
         };
       }
     } catch (_) {}
-    return { deviceId: getDeviceId(), localUpdatedAt: hadLocalState ? Date.now() : 0, baseRevision: '', cloudUpdatedAt: 0, dirty: hadLocalState };
+    return { deviceId: getDeviceId(), localUpdatedAt: hadLocalState ? Date.now() : 0, baseRevision: '', cloudUpdatedAt: 0, dirty: hadLocalState, crewShareEnabled: true };
   }
 
   function persistSyncMeta() {
@@ -183,7 +184,8 @@
       dirty: syncMeta.dirty,
       baseRevision: syncMeta.baseRevision,
       localUpdatedAt: syncMeta.localUpdatedAt,
-      deviceId: syncMeta.deviceId
+      deviceId: syncMeta.deviceId,
+      crewShareEnabled: syncMeta.crewShareEnabled === true
     }, PARENT_ORIGIN);
   }
 
@@ -222,6 +224,7 @@
     syncMeta.baseRevision = String(record?.revision || '');
     syncMeta.cloudUpdatedAt = finite(record?.updatedAt, Date.now());
     syncMeta.localUpdatedAt = finite(record?.clientUpdatedAt, syncMeta.cloudUpdatedAt);
+    syncMeta.crewShareEnabled = record?.crewShareEnabled !== false;
     syncMeta.dirty = false;
     saveState({ markDirty: false });
     syncInputsFromState();
@@ -235,7 +238,8 @@
 
   function resolveCloudConflict(record, source = 'load') {
     if (!record?.plan) return;
-    if (plansEqual(state, record.plan)) {
+    const crewShareMatches = (record?.crewShareEnabled !== false) === (syncMeta.crewShareEnabled === true);
+    if (plansEqual(state, record.plan) && crewShareMatches) {
       syncMeta.baseRevision = String(record.revision || '');
       syncMeta.cloudUpdatedAt = finite(record.updatedAt, Date.now());
       syncMeta.dirty = false;
@@ -445,6 +449,7 @@
     $('hangarWidth').value = state.hangar.widthM;
     $('hangarDepth').value = state.hangar.depthM;
     $('hangarSelect').value = normalizeHangarTitle(state.hangar.objectTitle);
+    $('crewShareToggle').checked = syncMeta.crewShareEnabled === true;
     renderObjectList();
   }
 
@@ -1513,6 +1518,15 @@
   $('addObjectBtn').addEventListener('click', () => addObject($('catalogSelect').value));
   $('duplicateObjectBtn').addEventListener('click', () => { const item = selectedObject(); if (item) addObject(item.title, item); });
   $('deleteObjectBtn').addEventListener('click', deleteSelectedObject);
+  $('crewShareToggle').addEventListener('change', () => {
+    syncMeta.crewShareEnabled = $('crewShareToggle').checked === true;
+    syncMeta.dirty = true;
+    syncMeta.localUpdatedAt = Date.now();
+    persistSyncMeta();
+    postSyncDraft();
+    if (INTEGRATED) window.parent.postMessage({ channel: 'vfr-homebase', kind: 'sync-save-now', reason: 'crew-share-change' }, PARENT_ORIGIN);
+    setPill('syncPill', syncMeta.crewShareEnabled ? 'Crew-Freigabe wird gespeichert' : 'Crew-Freigabe wird aufgehoben', 'warn');
+  });
   $('previewBtn').addEventListener('click', sendPreview);
   $('clearBtn').addEventListener('click', clearPreview);
   $('buildAirportBtn').addEventListener('click', buildAirportGuided);

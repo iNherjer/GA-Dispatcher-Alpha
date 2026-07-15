@@ -11527,6 +11527,7 @@ async function silentGroupSync() {
                 triggerCloudSave(true); // Ins Profil sichern
             }
             groupDataCache = data;
+            window.homebaseGroupRefresh?.('group-sync');
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active') && currentBoardMode === 'group') {
                 renderNotes();
@@ -11852,9 +11853,9 @@ let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
 // Das produktive Homebase-v1-Protokoll inklusive gezieltem Live-Despawn ist ab
 // v288 enthalten; dynamische Assetmetadaten benötigen v289 und die sichere
-// Steam-/Store-Community-Pfaderkennung v290.
-const MIN_TRACKER_VERSION_CODE = 290;
-const MIN_TRACKER_VERSION_LABEL = 'v290';
+// Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases benötigen v291.
+const MIN_TRACKER_VERSION_CODE = 291;
+const MIN_TRACKER_VERSION_LABEL = 'v291';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

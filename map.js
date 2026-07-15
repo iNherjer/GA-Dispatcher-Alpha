@@ -8415,6 +8415,74 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
     return applyAirportDirectTo({ icao, name, lat, lon }, { forceGpsStart });
 };
 
+window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
+    const lat = Number(homebase.lat ?? homebase.spawn?.lat);
+    const lon = Number(homebase.lon ?? homebase.spawn?.lon);
+    const departureIcao = String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
+    if (!departureIcao) {
+        alert('Bitte zuerst im DEP-Feld einen Startflugplatz eintragen.');
+        return false;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        alert('Für diese Homebase fehlen gültige Koordinaten.');
+        return false;
+    }
+    const startData = await getAirportData(departureIcao);
+    if (!startData || !Number.isFinite(Number(startData.lat)) || !Number.isFinite(Number(startData.lon))) {
+        alert(`Startflugplatz ${departureIcao} wurde nicht gefunden.`);
+        return false;
+    }
+
+    const owner = String(homebase.nick || homebase.pilotId || 'Crew').trim().slice(0, 64);
+    const targetName = `Homebase von ${owner}`;
+    currentStartICAO = String(startData.icao || departureIcao).toUpperCase();
+    currentDestICAO = 'HOMEBASE';
+    currentSName = startData.n || startData.name || currentStartICAO;
+    currentDName = targetName;
+    currentDepElev = startData.elevation ?? globalAirports?.[currentStartICAO]?.elevation ?? null;
+    currentDestElev = null;
+    const nav = calcNav(Number(startData.lat), Number(startData.lon), lat, lon);
+    routeWaypoints = [
+        { lat: Number(startData.lat), lng: Number(startData.lon), lon: Number(startData.lon), name: currentSName, icao: currentStartICAO },
+        { lat, lng: lon, lon, name: `🏠 ${targetName}`, isPOI: true, isCrewHomebase: true }
+    ];
+    currentMissionData = {
+        start: currentStartICAO,
+        dest: currentDestICAO,
+        poiName: targetName,
+        mission: 'Privater Homebase-Besuch',
+        dist: nav.dist,
+        ac: typeof selectedAC !== 'undefined' ? selectedAC : 'N/A',
+        heading: nav.brng
+    };
+    markDirectToFreeflightMissionData(currentMissionData, 'crew-homebase-visit');
+    syncDirectToFreeflightRouteState();
+    currentDepFreq = '';
+    currentDestFreq = '';
+    const startLoc = document.getElementById('startLoc');
+    const startLocRadio = document.getElementById('startLocRadio');
+    const destLoc = document.getElementById('destLoc');
+    const destLocRadio = document.getElementById('destLocRadio');
+    if (startLoc) startLoc.value = currentStartICAO;
+    if (startLocRadio) startLocRadio.value = currentStartICAO;
+    if (destLoc) destLoc.value = '';
+    if (destLocRadio) destLocRadio.value = '';
+
+    if (!map && typeof initMapBase === 'function') initMapBase();
+    if (typeof populateBriefingUI === 'function') {
+        populateBriefingUI('🏠 Privater Homebase-Besuch', `Private Route zu ${targetName}.`, 'N/A', 'N/A', true, routeWaypoints, startData, { lat, lon, n: targetName });
+    }
+    refreshDirectToRouteLikeDispatch(
+        { lat: Number(startData.lat), lng: Number(startData.lon) },
+        { lat, lng: lon },
+        currentSName,
+        targetName,
+        'crew-homebase-visit'
+    );
+    showMapToast(`Route zu ${targetName}`);
+    return true;
+};
+
 function scheduleRouteDerivedDataRefresh(options = {}) {
     const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 2200;
     const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 2800;

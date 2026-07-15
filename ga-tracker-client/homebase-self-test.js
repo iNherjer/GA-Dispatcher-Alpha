@@ -250,6 +250,25 @@ async function run() {
   const clearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');
   if (clearAck.status !== 'ok' || clearAck.removedCount !== 1 || manager.snapshot().objectCount !== 0) throw new Error('Confirmed preview clear failed.');
 
+  manager.handleCommand({
+    type: 'homebase_v1.crew.set',
+    commandId: 'crew-1',
+    objects: [
+      { id: 'crew-alpha-hangar', title: 'VFR Multitool Homebase Hangar', label: 'Alpha · Hangar', lat: 48.01, lon: 8.01, altFt: 514, heightOffsetFt: 0, heading: 90 },
+      { id: 'crew-alpha-box', title: 'Cardboard', label: 'Alpha · Karton', lat: 48.01001, lon: 8.01001, altFt: 514, heightOffsetFt: 0, heading: 90 }
+    ]
+  });
+  const crewAck = await waitForAck(acks, 'homebase_v1.crew.set_ack');
+  if (crewAck.status !== 'ok' || crewAck.objectCount !== 2 || manager.snapshot().crewObjectCount !== 2) throw new Error('Crew scene set failed.');
+
+  manager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: 'clear-crew-isolated' });
+  const isolatedClearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');
+  if (isolatedClearAck.status !== 'ok' || manager.snapshot().crewObjectCount !== 2) throw new Error('Preview clear removed crew objects.');
+
+  manager.handleCommand({ type: 'homebase_v1.crew.set', commandId: 'crew-clear', objects: [] });
+  const crewClearAck = await waitForAck(acks, 'homebase_v1.crew.set_ack');
+  if (crewClearAck.status !== 'ok' || crewClearAck.objectCount !== 0 || manager.snapshot().objectCount !== 0) throw new Error('Crew scene clear failed.');
+
   const scene = createSceneXml({
     spawn: { lat: 48, lon: 8, altFt: 500, heading: 90 },
     hangar: { lat: 48, lon: 8, heading: 270, objectTitle: 'VFR Multitool Homebase Hangar' },

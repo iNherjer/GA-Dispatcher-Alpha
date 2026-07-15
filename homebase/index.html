@@ -133,8 +133,14 @@
         <p class="small-note">Stapelbar über „Höhe über Grund“. Kaffee, Kartons, Paletten, Container, eigenes Aggregat, Asset-Regal, drei Holzkisten, Wohnwagen, Treibstofffass und MX24-Pavillon sowie bestätigte Pkw und Van sind verfügbar.</p>
       </section>
 
+      <section class="card crew-share-card">
+        <div class="section-title"><div><span class="step">04</span><h2>Crew-Homebase</h2></div></div>
+        <label class="toggle"><input id="crewShareToggle" type="checkbox"> Meine Homebase für die aktuelle Crew freigeben</label>
+        <p id="crewShareHint" class="small-note">Freigegeben werden Hangar und bis zu 20 Ausstattungsobjekte. Andere aktive Crew-Mitglieder sehen sie nur in einem Umkreis von 10 NM im Simulator.</p>
+      </section>
+
       <section class="card actions-card">
-        <div class="section-title"><div><span class="step">04</span><h2>Vorschau verwalten</h2></div></div>
+        <div class="section-title"><div><span class="step">05</span><h2>Vorschau verwalten</h2></div></div>
         <div class="action-row">
           <button id="previewBtn" class="primary wide">Vorschau neu laden</button>
           <button id="clearBtn" class="danger">Vorschau entfernen</button>
@@ -144,7 +150,7 @@
       </section>
 
       <section class="card build-card">
-        <div class="section-title"><div><span class="step">05</span><h2>Flugplatz bauen</h2></div></div>
+        <div class="section-title"><div><span class="step">06</span><h2>Flugplatz bauen</h2></div></div>
         <p id="assetPackageResult" class="result-line">Homebase-Assetpaket wird geprüft …</p>
         <button id="assetPackageBtn" class="secondary wide">Assetpaket prüfen oder installieren</button>
         <p class="small-note">Der PC-Tracker ab v288 prüft den veröffentlichten Assetkanal und verwendet sein eingebettetes Paket als Offline-Fallback. Ein Download oder Austausch erfolgt ausschließlich nach deiner Bestätigung und wird per SHA-256, Dateiindex, Manifest und Layout kontrolliert.</p>
@@ -188,6 +194,6 @@
 
   <script src="../vendor/leaflet/leaflet.js"></script>
   <script src="./homebase-asset-catalog.js?v=homebase-production4-20260715"></script>
-  <script src="./homebase-workbench.js?v=homebase-production4-20260715"></script>
+  <script src="./homebase-workbench.js?v=crew-homebase-directory-20260715-02"></script>
 </body>
 </html>

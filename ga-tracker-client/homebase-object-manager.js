@@ -20,6 +20,7 @@ const EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
 const CREATE_TIMEOUT_MS = 12000;
 const REMOVE_TIMEOUT_MS = 12000;
 const MAX_OBJECTS = 100;
+const MAX_CREW_OBJECTS = 100;
 
 const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
 const allowedPreviewTitles = new Set([
@@ -86,9 +87,10 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-ground-probe',
     'homebase-object-move',
     'homebase-object-remove',
+    'homebase-crew-scene',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
-  let generation = 0;
+  const generations = { preview: 0, crew: 0 };
   let nextRequestId = 53000;
   const objectsById = new Map();
   const objectsBySimId = new Map();
@@ -111,6 +113,15 @@ function createHomebaseObjectManager(handle, options = {}) {
     return current;
   };
 
+  const collectionFor = (record) => record?.collection === 'crew' ? 'crew' : 'preview';
+  const generationFor = (collection) => generations[collection === 'crew' ? 'crew' : 'preview'];
+  const isCurrentRecord = (record) => !!record && record.generation === generationFor(collectionFor(record));
+  const advanceGeneration = (collection) => {
+    const key = collection === 'crew' ? 'crew' : 'preview';
+    generations[key] += 1;
+    return generations[key];
+  };
+
   const transmitFreeze = (objectId, eventId, enabled) => {
     handle.transmitClientEvent(
       objectId,
@@ -126,7 +137,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const isParkedVehicle = (item) => modelDefinition(item).parkedVehicle === true;
 
   const applyFinalPosition = (record, groundAltitudeFt) => {
-    if (!record || record.generation !== generation) return;
+    if (!isCurrentRecord(record)) return;
     const offsetFt = effectiveOffsetFt(record.item);
     const vehicle = isParkedVehicle(record.item);
     const altitudeFt = finite(groundAltitudeFt, record.item.altFt) + offsetFt;
@@ -138,13 +149,13 @@ function createHomebaseObjectManager(handle, options = {}) {
     const position = buildPosition(record.item, altitudeFt, Math.abs(offsetFt) < 0.005 && !vehicle);
     handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [position]);
     setTimeout(() => {
-      if (record.generation !== generation || !objectsBySimId.has(record.objectId)) return;
+      if (!isCurrentRecord(record) || !objectsBySimId.has(record.objectId)) return;
       try { handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [position]); } catch (_) {}
     }, 250);
   };
 
   const readGroundAtObject = (record, reason = 'place') => new Promise((resolve, reject) => {
-    if (!record || record.generation !== generation) return reject(new Error('Vorschaugeneration ist veraltet.'));
+    if (!isCurrentRecord(record)) return reject(new Error('Homebase-Objektgeneration ist veraltet.'));
     const requestId = nextId();
     const timer = setTimeout(() => {
       pendingGround.delete(requestId);
@@ -154,7 +165,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     try {
       handle.setDataOnSimObject(INIT_POSITION_DEFINITION, record.objectId, [buildPosition(record.item, record.item.altFt, true)]);
       setTimeout(() => {
-        if (!pendingGround.has(requestId) || record.generation !== generation) return;
+        if (!pendingGround.has(requestId) || !isCurrentRecord(record)) return;
         try {
           handle.requestDataOnSimObject(
             requestId,
@@ -185,14 +196,14 @@ function createHomebaseObjectManager(handle, options = {}) {
     clearTimeout(pending.timer);
     pendingCreates.delete(pending.requestId);
     pendingCreatesByObjectId.delete(objectId);
-    const record = { objectId, item: pending.item, generation: pending.generation, addedAt: Date.now() };
+    const record = { objectId, item: pending.item, collection: pending.collection, generation: pending.generation, addedAt: Date.now() };
     objectsById.set(pending.item.id, record);
     objectsBySimId.set(objectId, record);
-    log(`HOMEBASE_OBJECT_ADDED id=${pending.item.id} objectId=${objectId} title="${pending.item.title}" generation=${pending.generation}`);
+    log(`HOMEBASE_OBJECT_ADDED id=${pending.item.id} objectId=${objectId} title="${pending.item.title}" collection=${pending.collection} generation=${pending.generation}`);
     pending.resolve(record);
   };
 
-  const spawnObject = (raw, targetGeneration = generation) => new Promise((resolve, reject) => {
+  const spawnObject = (raw, collection = 'preview', targetGeneration = generationFor(collection)) => new Promise((resolve, reject) => {
     let item;
     try { item = normalizeItem(raw); } catch (error) { reject(error); return; }
     if (objectsById.has(item.id)) { reject(new Error(`${item.label} ist bereits aktiv.`)); return; }
@@ -200,6 +211,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     const pending = {
       requestId,
       item,
+      collection: collection === 'crew' ? 'crew' : 'preview',
       generation: targetGeneration,
       resolve,
       reject,
@@ -228,7 +240,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   });
 
   const stabilizeRecord = async (record, alwaysReadGround = false) => {
-    if (!record || record.generation !== generation) throw new Error('Vorschaugeneration ist veraltet.');
+    if (!isCurrentRecord(record)) throw new Error('Homebase-Objektgeneration ist veraltet.');
     const offset = effectiveOffsetFt(record.item);
     if (!alwaysReadGround && Math.abs(offset) < 0.005 && !isParkedVehicle(record.item)) return null;
     const groundAltitudeFt = await readGroundAtObject(record, alwaysReadGround ? 'move' : 'spawn');
@@ -255,8 +267,8 @@ function createHomebaseObjectManager(handle, options = {}) {
     }
   });
 
-  const clearAll = async () => {
-    const records = [...objectsById.values()];
+  const clearCollection = async (collection) => {
+    const records = [...objectsById.values()].filter((record) => collectionFor(record) === collection);
     const removed = [];
     const failed = [];
     for (const record of records) {
@@ -265,6 +277,12 @@ function createHomebaseObjectManager(handle, options = {}) {
       else failed.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, error: result.error });
     }
     return { removed, failed };
+  };
+
+  const clearAll = async () => {
+    const preview = await clearCollection('preview');
+    const crew = await clearCollection('crew');
+    return { removed: [...preview.removed, ...crew.removed], failed: [...preview.failed, ...crew.failed] };
   };
 
   const sendError = (type, command, error, extra = {}) => {
@@ -279,22 +297,22 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const handlePreviewSet = async (command) => {
-    generation += 1;
-    const targetGeneration = generation;
-    for (const pending of pendingGround.values()) {
+    const targetGeneration = advanceGeneration('preview');
+    for (const [requestId, pending] of pendingGround.entries()) {
+      if (collectionFor(pending.record) !== 'preview') continue;
       clearTimeout(pending.timer);
       pending.reject(new Error('Vorschau wurde ersetzt.'));
+      pendingGround.delete(requestId);
     }
-    pendingGround.clear();
-    const teardown = await clearAll();
+    const teardown = await clearCollection('preview');
     if (teardown.failed.length) throw new Error(`${teardown.failed.length} vorhandene Objekt(e) wurden nicht bestätigt entfernt.`);
     const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_OBJECTS) : [];
     const spawned = [];
     const failed = [];
     for (const raw of input) {
       try {
-        const record = await spawnObject(raw, targetGeneration);
-        if (record.generation !== generation) throw new Error('Vorschau wurde während des Aufbaus ersetzt.');
+        const record = await spawnObject(raw, 'preview', targetGeneration);
+        if (!isCurrentRecord(record)) throw new Error('Vorschau wurde während des Aufbaus ersetzt.');
         const groundAltitudeFt = await stabilizeRecord(record, record.item.id === '__homebase_spawn_probe__');
         spawned.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, groundAltitudeFt });
       } catch (error) {
@@ -311,12 +329,47 @@ function createHomebaseObjectManager(handle, options = {}) {
       objectCount: spawned.length,
       spawnedObjects: spawned,
       failedObjects: failed,
-      generation
+      generation: targetGeneration
+    });
+  };
+
+  const handleCrewSet = async (command) => {
+    const targetGeneration = advanceGeneration('crew');
+    for (const [requestId, pending] of pendingGround.entries()) {
+      if (collectionFor(pending.record) !== 'crew') continue;
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Crew-Szene wurde ersetzt.'));
+      pendingGround.delete(requestId);
+    }
+    const teardown = await clearCollection('crew');
+    if (teardown.failed.length) throw new Error(`${teardown.failed.length} Crew-Objekt(e) wurden nicht bestätigt entfernt.`);
+    const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_CREW_OBJECTS) : [];
+    const spawned = [];
+    const failed = [];
+    for (const raw of input) {
+      try {
+        const record = await spawnObject(raw, 'crew', targetGeneration);
+        if (!isCurrentRecord(record)) throw new Error('Crew-Szene wurde während des Aufbaus ersetzt.');
+        const groundAltitudeFt = await stabilizeRecord(record);
+        spawned.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, groundAltitudeFt });
+      } catch (error) {
+        failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
+      }
+    }
+    sendAck({
+      type: 'homebase_v1.crew.set_ack',
+      commandId: command?.commandId || null,
+      status: failed.length ? 'error' : 'ok',
+      message: failed.length ? `Crew-Szene mit ${failed.length} Fehler(n) aufgebaut.` : 'Crew-Homebases aktualisiert.',
+      objectCount: spawned.length,
+      spawnedObjects: spawned,
+      failedObjects: failed,
+      generation: targetGeneration
     });
   };
 
   const handleObjectAdd = async (command) => {
-    const record = await spawnObject(command?.object, generation);
+    const record = await spawnObject(command?.object, 'preview');
     const groundAltitudeFt = await stabilizeRecord(record, record.item.id === '__homebase_spawn_probe__');
     sendAck({
       type: 'homebase_v1.preview.object.add_ack',
@@ -472,8 +525,8 @@ function createHomebaseObjectManager(handle, options = {}) {
       }
       if (type === 'homebase_v1.preview.clear') {
         enqueue(async () => {
-          generation += 1;
-          const result = await clearAll();
+          const generation = advanceGeneration('preview');
+          const result = await clearCollection('preview');
           sendAck({
             type: 'homebase_v1.preview.clear_ack',
             commandId: command?.commandId || null,
@@ -485,6 +538,10 @@ function createHomebaseObjectManager(handle, options = {}) {
             generation
           });
         }).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.crew.set') {
+        enqueue(() => handleCrewSet(command)).catch((error) => sendError(type, command, error));
         return true;
       }
       if (type === 'homebase_v1.preview.object.add') {
@@ -505,9 +562,10 @@ function createHomebaseObjectManager(handle, options = {}) {
     clearAll,
     snapshot() {
       return {
-        generation,
+        generation: generations.preview,
         objectCount: objectsById.size,
-        objects: [...objectsById.values()].map((record) => ({ id: record.item.id, title: record.item.title, objectId: record.objectId }))
+        crewObjectCount: [...objectsById.values()].filter((record) => collectionFor(record) === 'crew').length,
+        objects: [...objectsById.values()].map((record) => ({ id: record.item.id, title: record.item.title, collection: collectionFor(record), objectId: record.objectId }))
       };
     }
   };

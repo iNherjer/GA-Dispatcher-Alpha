@@ -16,6 +16,7 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/admin/users?limit=1000` (Admin, Sync-Nutzer kompakt anzeigen)
 - `GET /api/homebase/:pilotId` (Homebase-Plan der Pilot-ID laden)
 - `POST /api/homebase/:pilotId` (Homebase-Plan mit Revisionsprüfung speichern)
+- `GET /api/homebase-group/:groupName` (freigegebene Crew-Homebases der eigenen Gruppe laden)
 
 ## Dateien
 
@@ -55,6 +56,7 @@ Hinweis:
 - Der Nutzer-Admin und der Bugreport-Purge nutzen denselben Admin-Token. Der Nutzer-Endpunkt liefert nur kompakte Metadaten (`id`, `name`, `registeredAt`, `lastModified`) und nie PINs, Pinnwand, Logbuch oder Missionsdaten.
 - Neue Sync-Profile bekommen serverseitig `registeredAt`; alte Profile ohne dieses Feld können kein verlässliches Registrierungsdatum liefern. In der Admin-Ansicht wird dann `unbekannt` angezeigt.
 - Homebase-Pläne liegen getrennt unter `homebase:<pilotId>`, werden über das bestehende Pilot-Profil authentifiziert und enthalten niemals den PIN. Der Endpunkt akzeptiert höchstens 64 KiB und 100 Ausstattungsobjekte. Bei einer veralteten `baseRevision` antwortet er mit HTTP 409 und dem aktuellen Cloud-Stand.
+- Die Crew-Ansicht prüft die anfragende Pilot-ID samt PIN sowie die aktive Mitgliedschaft im `GROUP_`-Datensatz. Der Gruppen-Endpunkt liefert die opt-in-Pläne anderer aktiver Mitglieder (`crewShareEnabled`, pro Base höchstens Hangar plus 20 Ausstattungsobjekte) und ein Crew-Verzeichnis. Nur bei aktivierter Freigabe enthält dessen Eintrag die Homebase-Startkoordinate; das Verzeichnis enthält weder PINs noch Ausstattungsobjekte.
 - Für Benachrichtigungen bei neuen Bug-Reports:
   - Option A (E-Mail über Resend):
     - Secret: `RESEND_API_KEY`

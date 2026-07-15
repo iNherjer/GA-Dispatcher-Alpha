@@ -16,7 +16,18 @@ async function call(env, path, options = {}) {
   return { response, body: text ? JSON.parse(text) : null };
 }
 
-const kv = makeKv({ pilotA: JSON.stringify({ pin: "0815" }) });
+const kv = makeKv({
+  pilotA: JSON.stringify({ pin: "0815" }),
+  pilotB: JSON.stringify({ pin: "4711" }),
+  pilotC: JSON.stringify({ pin: "9999" }),
+  GROUP_TEST: JSON.stringify({
+    members: [
+      { syncId: "pilotA", nick: "Alpha", lastSeen: Date.now(), isAdmin: true },
+      { syncId: "pilotB", nick: "Bravo", lastSeen: Date.now(), isAdmin: false }
+    ],
+    kicked: []
+  })
+});
 const env = { GA_SYNC_KV: kv };
 const headers = { "Content-Type": "application/json", "X-Pilot-ID": "pilotA", "X-Pilot-PIN": "0815" };
 const plan = {
@@ -63,5 +74,44 @@ assert.equal(updated.body.record.plan.spawn.lat, 49.5);
 const loaded = await call(env, "/api/homebase/pilotA", { headers });
 assert.equal(loaded.response.status, 200);
 assert.equal(loaded.body.record.revision, updated.body.record.revision);
+
+const crewDisabled = await call(env, "/api/homebase-group/TEST", { headers });
+assert.equal(crewDisabled.response.status, 200);
+assert.equal(crewDisabled.body.bases.length, 0);
+assert.equal(crewDisabled.body.directory.length, 2);
+assert.equal(crewDisabled.body.directory.find((entry) => entry.pilotId === "pilotA")?.hasHomebase, false);
+assert.equal(crewDisabled.body.directory.find((entry) => entry.pilotId === "pilotA")?.spawn, undefined);
+
+const sharedPlan = structuredClone(plan);
+sharedPlan.objects = Array.from({ length: 25 }, (_, index) => ({
+  id: `box-${index + 1}`,
+  title: "VFR Multitool Homebase Box",
+  label: "Karton",
+  northM: index,
+  eastM: index,
+  heading: 90,
+  heightFt: 0,
+  scale: 1
+}));
+const shared = await call(env, "/api/homebase/pilotB", {
+  method: "POST",
+  headers: { ...headers, "X-Pilot-ID": "pilotB", "X-Pilot-PIN": "4711" },
+  body: JSON.stringify({ baseRevision: "", clientUpdatedAt: Date.now(), deviceId: "bravo-device", crewShareEnabled: true, plan: sharedPlan })
+});
+assert.equal(shared.response.status, 200);
+
+const crew = await call(env, "/api/homebase-group/TEST", { headers });
+assert.equal(crew.response.status, 200);
+assert.equal(crew.body.bases.length, 1);
+assert.equal(crew.body.bases[0].pilotId, "pilotB");
+assert.equal(crew.body.bases[0].nick, "Bravo");
+assert.equal(crew.body.bases[0].plan.objects.length, 20);
+assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.hasHomebase, true);
+assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.spawn.lat, 48.1);
+assert.equal(JSON.stringify(crew.body.directory).includes("VFR Multitool Homebase Box"), false);
+assert.equal(JSON.stringify(crew.body).includes("4711"), false);
+
+const outsider = await call(env, "/api/homebase-group/TEST", { headers: { ...headers, "X-Pilot-ID": "pilotC", "X-Pilot-PIN": "9999" } });
+assert.equal(outsider.response.status, 403);
 
 console.log("homebase-sync tests ok");

@@ -68,6 +68,7 @@ const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
 const HOMEBASE_PREFIX = "homebase:";
 const HOMEBASE_MAX_BODY_BYTES = 64 * 1024;
 const HOMEBASE_MAX_OBJECTS = 100;
+const HOMEBASE_CREW_OBJECTS_PER_BASE = 20;
 const HOMEBASE_TTL = 31536000;
 
 function nowIso() {
@@ -202,6 +203,7 @@ async function handleHomebaseSync(request, requestUrl, env) {
     updatedAt,
     clientUpdatedAt: normalizeFinite(incoming.clientUpdatedAt, updatedAt, 1, updatedAt + 86400000),
     deviceId: normalizeOneLine(incoming.deviceId, 100),
+    crewShareEnabled: incoming.crewShareEnabled === true,
     plan
   };
   try {
@@ -210,6 +212,80 @@ async function handleHomebaseSync(request, requestUrl, env) {
     return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
   }
   return json({ ok: true, record });
+}
+
+function activeGroupMember(group, pilotId, now = Date.now()) {
+  const id = normalizeOneLine(pilotId, 160);
+  if (!id || !group || typeof group !== "object") return null;
+  const kicked = new Set(Array.isArray(group.kicked) ? group.kicked.map((value) => String(value || "")) : []);
+  if (kicked.has(id)) return null;
+  const members = Array.isArray(group.members) ? group.members : [];
+  return members.find((member) => {
+    if (!member || String(member.syncId || "") !== id) return false;
+    const lastSeen = normalizeFinite(member.lastSeen, 0, 0, now + 86400000);
+    const timeout = member.isAdmin === true ? 365 * 86400000 : 28 * 86400000;
+    return now - lastSeen < timeout;
+  }) || null;
+}
+
+async function handleCrewHomebases(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env)) return json({ error: "Sync KV binding missing (GA_SYNC_KV)." }, 503);
+  const groupName = normalizeOneLine(decodeURIComponent(requestUrl.pathname.split("/").filter(Boolean)[2] || ""), 80).toUpperCase();
+  if (!groupName) return json({ error: "Ungültige Gruppe" }, 400);
+  const auth = await verifySyncProfileAuth(request, env);
+  if (!auth.ok) return auth.response;
+
+  let group = null;
+  try {
+    const raw = await env.GA_SYNC_KV.get(`GROUP_${groupName}`);
+    group = raw ? safeJsonParse(raw, null) : null;
+  } catch (error) {
+    return json({ error: "Gruppen-KV konnte nicht gelesen werden", message: String(error?.message || error) }, 502);
+  }
+  const requester = activeGroupMember(group, auth.ownerId);
+  if (!requester) return json({ error: "Kein aktives Mitglied dieser Crew" }, 403);
+
+  const now = Date.now();
+  const members = (Array.isArray(group?.members) ? group.members : [])
+    .map((member) => ({ member, active: activeGroupMember(group, member?.syncId, now) }))
+    .filter(({ active }) => active);
+  const bases = [];
+  const directory = [];
+  for (const { active } of members) {
+    const pilotId = String(active.syncId || "");
+    try {
+      const raw = await env.GA_SYNC_KV.get(`${HOMEBASE_PREFIX}${pilotId}`);
+      const record = raw ? safeJsonParse(raw, null) : null;
+      const nick = normalizeOneLine(active.nick, 64) || "Pilot";
+      if (!record?.plan) {
+        directory.push({ pilotId, nick, hasHomebase: false, crewShareEnabled: false });
+        continue;
+      }
+      const plan = normalizeHomebasePlan(record.plan);
+      const crewShareEnabled = record.crewShareEnabled === true;
+      directory.push({
+        pilotId,
+        nick,
+        hasHomebase: crewShareEnabled,
+        crewShareEnabled
+      });
+      if (!crewShareEnabled) continue;
+      directory[directory.length - 1].updatedAt = normalizeFinite(record.updatedAt, 0, 0, now + 86400000);
+      directory[directory.length - 1].spawn = plan.spawn;
+      if (pilotId === auth.ownerId) continue;
+      bases.push({
+        pilotId,
+        nick,
+        revision: normalizeOneLine(record.revision, 100),
+        updatedAt: normalizeFinite(record.updatedAt, 0, 0, now + 86400000),
+        plan: { ...plan, objects: plan.objects.slice(0, HOMEBASE_CREW_OBJECTS_PER_BASE) }
+      });
+    } catch (error) {
+      console.error("Crew homebase read failed:", pilotId, String(error?.message || error));
+      directory.push({ pilotId, nick: normalizeOneLine(active.nick, 64) || "Pilot", hasHomebase: false, crewShareEnabled: false });
+    }
+  }
+  return json({ ok: true, groupName, bases, directory, maxObjectsPerBase: HOMEBASE_CREW_OBJECTS_PER_BASE }, 200, { "Cache-Control": "no-store" });
 }
 
 function isoFromMs(ms) {
@@ -2010,6 +2086,10 @@ export default {
 
     if (requestUrl.pathname === "/api/admin/users") {
       return handleAdminUsers(request, requestUrl, env);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/homebase-group/")) {
+      return handleCrewHomebases(request, requestUrl, env);
     }
 
     if (requestUrl.pathname.startsWith("/api/homebase/")) {
