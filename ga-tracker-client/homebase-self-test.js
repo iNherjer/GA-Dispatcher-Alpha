@@ -45,6 +45,9 @@ class FakeHandle extends EventEmitter {
     return requestId + 2000;
   }
   setDataOnSimObject(_definitionId, objectId, data) {
+    if (data?.buffer && typeof data.buffer.getBuffer !== 'function') {
+      throw new Error('SimConnect buffer payload must use RawBuffer.');
+    }
     this.positions.set(objectId, data);
     return 0;
   }
@@ -152,15 +155,21 @@ function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, e
     [indexUrl, Buffer.from(JSON.stringify(index))],
     [archiveUrl, archive]
   ]);
+  const requestedUrls = [];
   return {
     channelUrl,
     index,
     stable,
     archive,
     requestBuffer: async (url) => {
-      if (!responses.has(url)) throw new Error(`Unerwartete Test-URL: ${url}`);
-      return Buffer.from(responses.get(url));
-    }
+      requestedUrls.push(url);
+      const normalizedUrl = new URL(url);
+      normalizedUrl.searchParams.delete('_vfrcb');
+      const key = normalizedUrl.toString();
+      if (!responses.has(key)) throw new Error(`Unerwartete Test-URL: ${url}`);
+      return Buffer.from(responses.get(key));
+    },
+    requestedUrls
   };
 }
 
@@ -206,6 +215,20 @@ async function run() {
     throw new Error('Pallet ground placement metadata is incomplete.');
   }
 
+  catalog.registerRuntimeAssets([{
+    key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar',
+    kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', homebasePlaceable: true,
+    controls: [{
+      schemaVersion: 1, id: 'light', type: 'light', label: 'Rundhangar Licht', transport: 'simconnect-lvar',
+      simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on',
+      states: [{ id: 'off', label: 'Aus', value: 0 }, { id: 'on', label: 'An', value: 1 }]
+    }]
+  }]);
+  const roundHangar = catalog.objectDefinitionForTitle('VFR Multitool Homebase Round Hangar');
+  if (roundHangar?.headingCorrectionDeg !== 0 || !roundHangar?.controls?.some((control) => control.id === 'door') || !roundHangar?.controls?.some((control) => control.id === 'light')) {
+    throw new Error('Runtime catalog update did not preserve and extend the round-hangar controls.');
+  }
+
   const acks = [];
   const handle = new FakeHandle();
   const manager = createHomebaseObjectManager(handle, { sendAck: (ack) => acks.push(ack) });
@@ -214,6 +237,54 @@ async function run() {
   const capabilityAck = await waitForAck(acks, 'homebase_v1.capabilities_ack');
   if (capabilityAck.status !== 'ok' || capabilityAck.protocol !== 1) throw new Error('Capability contract failed.');
   if (!capabilityAck.capabilities.includes('homebase-object-remove')) throw new Error('Object remove capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-hangar-animation')) throw new Error('Hangar animation capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-object-controls-v1')) throw new Error('Generic object control capability missing.');
+
+  manager.handleCommand({
+    type: 'homebase_v1.object.control.set',
+    commandId: 'round-hangar-generic-close',
+    title: 'VFR Multitool Homebase Round Hangar',
+    controlId: 'door',
+    state: 'closed'
+  });
+  const genericControlAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
+  if (genericControlAck.status !== 'ok' || genericControlAck.controlId !== 'door' || genericControlAck.state !== 'closed' || genericControlAck.value !== 1) {
+    throw new Error(`Generic object control failed: ${JSON.stringify(genericControlAck)}`);
+  }
+  manager.handleCommand({
+    type: 'homebase_v1.object.control.set', commandId: 'round-hangar-light-off',
+    title: 'VFR Multitool Homebase Round Hangar', controlId: 'light', state: 'off'
+  });
+  const lightControlAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
+  if (lightControlAck.status !== 'ok' || lightControlAck.controlId !== 'light' || lightControlAck.state !== 'off' || lightControlAck.value !== 0) {
+    throw new Error(`Generic light control failed: ${JSON.stringify(lightControlAck)}`);
+  }
+
+  manager.handleCommand({
+    type: 'homebase_v1.hangar.animation.set',
+    commandId: 'round-hangar-close',
+    title: 'VFR Multitool Homebase Round Hangar',
+    state: 'closed'
+  });
+  const closeHangarAck = await waitForAck(acks, 'homebase_v1.hangar.animation.set_ack');
+  if (closeHangarAck.status !== 'ok' || closeHangarAck.state !== 'closed' || closeHangarAck.controlScope !== 'global') {
+    throw new Error(`Hangar close command failed: ${JSON.stringify(closeHangarAck)}`);
+  }
+  const closePayload = handle.positions.get(0);
+  const closeBuffer = closePayload?.buffer?.getBuffer?.();
+  if (!closeBuffer || closeBuffer.readDoubleLE(0) !== 1) throw new Error('Hangar close command did not write L:variable value 1 via RawBuffer.');
+
+  manager.handleCommand({
+    type: 'homebase_v1.hangar.animation.set',
+    commandId: 'round-hangar-open',
+    title: 'VFR Multitool Homebase Round Hangar',
+    state: 'open'
+  });
+  const openHangarAck = await waitForAck(acks, 'homebase_v1.hangar.animation.set_ack');
+  if (openHangarAck.status !== 'ok' || openHangarAck.state !== 'open') throw new Error(`Hangar open command failed: ${JSON.stringify(openHangarAck)}`);
+  const openPayload = handle.positions.get(0);
+  const openBuffer = openPayload?.buffer?.getBuffer?.();
+  if (!openBuffer || openBuffer.readDoubleLE(0) !== 0) throw new Error('Hangar open command did not write L:variable value 0 via RawBuffer.');
 
   manager.handleCommand({
     type: 'homebase_v1.preview.set',
@@ -269,12 +340,27 @@ async function run() {
   const crewClearAck = await waitForAck(acks, 'homebase_v1.crew.set_ack');
   if (crewClearAck.status !== 'ok' || crewClearAck.objectCount !== 0 || manager.snapshot().objectCount !== 0) throw new Error('Crew scene clear failed.');
 
+  catalog.registerRuntimeAssets([{
+    key: 'collisionTest', folder: 'VFRHomebaseCollisionTest', title: 'VFR Multitool Homebase Collision Test',
+    kind: 'object', group: 'Test', label: 'Collision Test', homebasePlaceable: true,
+    collisionProfile: {
+      schemaVersion: 1,
+      mode: 'static-model-lib',
+      modelLibGuid: '{29BB5A2A-1961-4947-BB68-BB6B12C33F4E}',
+      sourceFolder: 'VFRHomebaseRoundHangarCollision',
+      placement: 'coincident',
+      groundSurface: 'continuous-terrain-apron-floor',
+      defaultHeightOffsetFt: 0,
+      warnOnHeightOffset: true
+    }
+  }]);
   const scene = createSceneXml({
     spawn: { lat: 48, lon: 8, altFt: 500, heading: 90 },
-    hangar: { lat: 48, lon: 8, heading: 270, objectTitle: 'VFR Multitool Homebase Hangar' },
+    hangar: { lat: 48, lon: 8, heading: 270, objectTitle: 'VFR Multitool Homebase Round Hangar' },
     objects: [
       { id: 'box', title: 'Cardboard', lat: 48, lon: 8, heightOffsetFt: 0, heading: 0, scale: 1 },
-      { id: 'pallet', title: 'Pallet01_01', lat: 48.00001, lon: 8.00001, heightOffsetFt: 0, heading: 0, scale: 1 }
+      { id: 'pallet', title: 'Pallet01_01', lat: 48.00001, lon: 8.00001, heightOffsetFt: 0, heading: 0, scale: 1 },
+      { id: 'collision', title: 'VFR Multitool Homebase Collision Test', lat: 48.00002, lon: 8.00002, heightOffsetFt: 0, heading: 15, scale: 1 }
     ]
   });
   if (!scene.content.includes('applyFlatten="FALSE"')) throw new Error('Terrain flatten guard missing.');
@@ -287,6 +373,9 @@ async function run() {
     throw new Error('LowResAltitude must stay pallet-specific.');
   }
   if (!scene.content.includes('type="RAMP_GA_SMALL"')) throw new Error('Homebase spawn parking missing.');
+  if (!scene.content.includes('name="VegetationScale"') || !scene.content.includes('name="VegetationFalloff"')) throw new Error('Round-hangar vegetation exclusion missing.');
+  if (scene.content.includes('name="FlattenMode"') || scene.content.includes('name="ForceElevation"')) throw new Error('Vegetation exclusion unexpectedly alters terrain elevation.');
+  if (!scene.content.includes('<LibraryObject name="{29BB5A2A-1961-4947-BB68-BB6B12C33F4E}" scale="1.000"/>')) throw new Error('Static collision companion missing.');
 
   const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'homebase-assets-test-'));
   try {
@@ -381,7 +470,7 @@ async function run() {
     const remoteRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.3',
+      version: '0.6.5',
       createZip,
       entriesFromDirectory
     });
@@ -399,8 +488,11 @@ async function run() {
     });
     if (!remoteService.capabilities.includes('homebase-assets-remote-update')) throw new Error('Remote asset update capability missing.');
     const remoteStatus = await remoteService.checkRemoteAssets({ force: true });
-    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.3') {
+    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.5') {
       throw new Error(`Remote asset check failed: ${JSON.stringify(remoteStatus)}`);
+    }
+    if (!remoteRelease.requestedUrls.some((url) => new URL(url).searchParams.has('_vfrcb'))) {
+      throw new Error('Forced remote asset check did not bypass intermediary caches.');
     }
     if (!Array.isArray(remoteStatus.remoteAssets) || remoteStatus.remoteAssets.length !== catalog.assets.length) {
       throw new Error('Remote asset catalog was not exposed to the app.');
@@ -408,15 +500,18 @@ async function run() {
     if (remoteStatus.remoteAssets.find((asset) => asset.key === 'generator')?.workbenchVisible !== false) {
       throw new Error('Remote workbench visibility was not exposed to the app.');
     }
+    if (!remoteStatus.remoteAssets.find((asset) => asset.key === 'roundHangar')?.controls?.some((control) => control.id === 'door')) {
+      throw new Error('Remote object controls were not exposed to the app.');
+    }
     const remoteInstalled = await remoteService.installRemoteAssets();
-    if (remoteInstalled.packageVersion !== '0.6.3' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
+    if (remoteInstalled.packageVersion !== '0.6.5' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
       throw new Error(`Remote asset installation failed: ${JSON.stringify(remoteInstalled)}`);
     }
     const remoteInspection = remoteService.inspectAssets();
-    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.3') throw new Error('Remote package inspection failed.');
+    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.5') throw new Error('Remote package inspection failed.');
     if (fs.existsSync(interruptedBackup)) throw new Error('Interrupted package backup was not recovered and cleaned.');
     const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-asset-cache', 'active-package-index.json');
-    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.3') {
+    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.5') {
       throw new Error('Active remote package index was not persisted.');
     }
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
@@ -426,8 +521,12 @@ async function run() {
     if (activeCatalog.find((asset) => asset.key === 'generator')?.workbenchVisible !== false) {
       throw new Error('Installed workbench visibility was not restored from the active package index.');
     }
+    const activeRoundHangar = activeCatalog.find((asset) => asset.key === 'roundHangar');
+    if (activeRoundHangar?.headingCorrectionDeg !== 0 || !activeRoundHangar?.controls?.some((control) => control.id === 'door') || activeRoundHangar?.vegetationExclusion?.shape !== 'circle') {
+      throw new Error('Installed round-hangar runtime metadata was not restored from the active package index.');
+    }
     const noDowngrade = remoteService.installAssets();
-    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.3') throw new Error('Embedded fallback downgraded a newer remote package.');
+    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.5') throw new Error('Embedded fallback downgraded a newer remote package.');
 
     remoteService.handleCommand({ type: 'homebase_v1.assets.update.install', commandId: 'remote-no-confirm' });
     const confirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.update.install_ack');
@@ -436,7 +535,7 @@ async function run() {
     const badHashRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.4',
+      version: '0.6.6',
       createZip,
       entriesFromDirectory,
       archiveHashOverride: '0'.repeat(64)
@@ -456,12 +555,12 @@ async function run() {
     } catch (error) {
       hashRejected = /SHA-256/.test(error?.message || '');
     }
-    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.3') throw new Error('Hash rejection did not preserve the installed package.');
+    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.5') throw new Error('Hash rejection did not preserve the installed package.');
 
     const rollbackRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.4',
+      version: '0.6.6',
       createZip,
       entriesFromDirectory
     });
@@ -489,7 +588,7 @@ async function run() {
     } finally {
       fs.renameSync = originalRenameSync;
     }
-    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.3') throw new Error('Atomic rollback failed to restore the previous package.');
+    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.5') throw new Error('Atomic rollback failed to restore the previous package.');
 
     const traversalZipPath = path.join(testRoot, 'traversal.zip');
     createZip([{ name: 'evil.txt', data: Buffer.from('blocked') }], traversalZipPath);

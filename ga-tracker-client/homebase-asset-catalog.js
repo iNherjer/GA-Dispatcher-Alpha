@@ -2,6 +2,7 @@
 
 const assets = Object.freeze([
   { key: 'hangar', folder: 'VFRHomebaseHangar', title: 'VFR Multitool Homebase Hangar', kind: 'hangar', label: 'Homebase-Hangar', headingCorrectionDeg: 180 },
+  { key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar', kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', icon: 'H', headingCorrectionDeg: 0, homebasePlaceable: true, footprint: { widthM: 25, depthM: 25 }, vegetationExclusion: { shape: 'circle', radiusM: 17.3, falloffM: 0.5 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Rundhangar Tor', transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'global', defaultState: 'open', durationMs: 5000, states: [{ id: 'open', label: 'Öffnen', value: 0 }, { id: 'closed', label: 'Schließen', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'open', control: { transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'global', values: { open: 0, closed: 1 } } } },
   { key: 'openParking', folder: 'VFRHomebaseOpenParking', title: 'VFR Multitool Homebase Open Parking', kind: 'hangar', label: 'Offener Parkbereich', headingCorrectionDeg: 180 },
   { key: 'generator', folder: 'VFRHomebaseGenerator', title: 'VFR Multitool Homebase Generator', kind: 'object', group: 'Ausstattung', label: 'Mobiles Aggregat', icon: '⚡' },
   { key: 'desk', folder: 'VFRHomebaseDesk', title: 'VFR Multitool Homebase Desk', kind: 'object', group: 'Ausstattung', label: 'Schreibtisch', icon: 'T' },
@@ -56,12 +57,139 @@ const legacyTitleAliases = Object.freeze({
   'VFR Multitool Homebase Test Hangar': 'VFR Multitool Homebase Hangar'
 });
 
+function normalizeDoorAnimation(raw) {
+  if (!raw || typeof raw !== 'object' || String(raw.type || '').toLowerCase() !== 'door') return null;
+  const control = raw.control && typeof raw.control === 'object' ? raw.control : raw;
+  const simvar = String(control.simvar || control.variable || '').trim().toUpperCase();
+  if (control.transport !== 'simconnect-lvar' || !/^L:[A-Z0-9_]{3,120}$/.test(simvar)) return null;
+  const values = control.values && typeof control.values === 'object' ? control.values : {};
+  const open = Number(values.open ?? control.openValue ?? 0);
+  const closed = Number(values.closed ?? control.closedValue ?? 1);
+  if (!Number.isFinite(open) || !Number.isFinite(closed) || open === closed) return null;
+  return Object.freeze({
+    schemaVersion: 1,
+    type: 'door',
+    defaultState: String(raw.defaultState || 'open').toLowerCase() === 'closed' ? 'closed' : 'open',
+    control: Object.freeze({
+      transport: 'simconnect-lvar', simvar, unit: 'number', scope: 'global',
+      values: Object.freeze({ open, closed })
+    })
+  });
+}
+
+function controlFromLegacyAnimation(raw) {
+  const animation = normalizeDoorAnimation(raw);
+  if (!animation) return null;
+  return {
+    schemaVersion: 1,
+    id: 'door',
+    type: 'animation',
+    label: 'Hangartor',
+    transport: animation.control.transport,
+    simvar: animation.control.simvar,
+    unit: 'number',
+    scope: 'global',
+    defaultState: animation.defaultState,
+    durationMs: 5000,
+    states: [
+      { id: 'open', label: 'Öffnen', value: animation.control.values.open },
+      { id: 'closed', label: 'Schließen', value: animation.control.values.closed }
+    ]
+  };
+}
+
+function normalizeControls(rawControls, legacyAnimation = null) {
+  const source = Array.isArray(rawControls) && rawControls.length
+    ? rawControls
+    : [controlFromLegacyAnimation(legacyAnimation)].filter(Boolean);
+  const ids = new Set();
+  const normalized = [];
+  for (const raw of source.slice(0, 12)) {
+    const id = String(raw?.id || '').trim().toLowerCase();
+    const type = String(raw?.type || '').trim().toLowerCase();
+    const simvar = String(raw?.simvar || '').trim().toUpperCase();
+    const states = [];
+    const stateIds = new Set();
+    const stateValues = new Set();
+    if (!/^[a-z][a-z0-9_-]{0,31}$/.test(id) || ids.has(id)) continue;
+    if (!['animation', 'light'].includes(type)) continue;
+    if (raw?.transport !== 'simconnect-lvar' || !/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) continue;
+    if (raw?.scope !== 'global') continue;
+    for (const rawState of Array.isArray(raw?.states) ? raw.states.slice(0, 12) : []) {
+      const stateId = String(rawState?.id || '').trim().toLowerCase();
+      const value = Number(rawState?.value);
+      if (!/^[a-z][a-z0-9_-]{0,31}$/.test(stateId) || stateIds.has(stateId) || !Number.isFinite(value) || stateValues.has(value)) continue;
+      stateIds.add(stateId);
+      stateValues.add(value);
+      states.push(Object.freeze({ id: stateId, label: String(rawState?.label || stateId).trim().slice(0, 40), value }));
+    }
+    if (states.length < 2) continue;
+    const defaultState = stateIds.has(String(raw?.defaultState || '').toLowerCase())
+      ? String(raw.defaultState).toLowerCase()
+      : states[0].id;
+    ids.add(id);
+    normalized.push(Object.freeze({
+      schemaVersion: 1,
+      id,
+      type,
+      label: String(raw?.label || id).trim().slice(0, 80),
+      transport: 'simconnect-lvar',
+      simvar,
+      unit: 'number',
+      scope: 'global',
+      defaultState,
+      durationMs: Math.max(0, Math.min(600000, Math.round(Number(raw?.durationMs) || 0))),
+      states: Object.freeze(states)
+    }));
+  }
+  return Object.freeze(normalized);
+}
+
+function normalizeFootprint(raw) {
+  const widthM = Number(raw?.widthM);
+  const depthM = Number(raw?.depthM);
+  if (!Number.isFinite(widthM) || !Number.isFinite(depthM)) return null;
+  if (widthM < 1 || widthM > 200 || depthM < 1 || depthM > 200) return null;
+  return Object.freeze({ widthM, depthM });
+}
+
+function normalizeVegetationExclusion(raw) {
+  if (!raw || String(raw.shape || '').toLowerCase() !== 'circle') return null;
+  const radiusM = Number(raw.radiusM);
+  const falloffM = Number(raw.falloffM);
+  if (!Number.isFinite(radiusM) || radiusM < 1 || radiusM > 250) return null;
+  return Object.freeze({ shape: 'circle', radiusM, falloffM: Number.isFinite(falloffM) ? Math.max(0, Math.min(50, falloffM)) : 0.5 });
+}
+
+function normalizeCollisionProfile(raw) {
+  if (!raw || !['static-model-lib', 'static-scenery-companion'].includes(String(raw.mode || ''))) return null;
+  const modelLibGuid = String(raw.modelLibGuid || raw.modelGuid || '').trim().toUpperCase();
+  if (!/^\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}$/.test(modelLibGuid)) return null;
+  const defaultHeightOffsetFt = Number(raw.defaultHeightOffsetFt);
+  return Object.freeze({
+    schemaVersion: 1,
+    mode: 'static-model-lib',
+    modelLibGuid,
+    sourceFolder: String(raw.sourceFolder || '').trim().slice(0, 120),
+    placement: String(raw.placement || 'coincident').trim().slice(0, 40),
+    groundSurface: String(raw.groundSurface || '').trim().slice(0, 80),
+    defaultHeightOffsetFt: Number.isFinite(defaultHeightOffsetFt) ? Math.max(-100, Math.min(100, defaultHeightOffsetFt)) : 0,
+    warnOnHeightOffset: raw.warnOnHeightOffset !== false,
+    driveable: raw.driveable === true || raw.groundSurface === 'continuous-terrain-apron-floor'
+  });
+}
+
 function normalizeRuntimeAsset(raw) {
   const title = String(raw?.title || '').trim().slice(0, 160);
   const folder = String(raw?.folder || '').trim().slice(0, 120);
   const kind = String(raw?.kind || '').trim().toLowerCase();
   if (!title.startsWith('VFR Multitool Homebase ') || !/^VFRHomebase[A-Za-z0-9_-]+$/.test(folder)) return null;
   if (!['object', 'hangar'].includes(kind)) return null;
+  const animation = normalizeDoorAnimation(raw?.animation);
+  const controls = normalizeControls(raw?.controls, raw?.animation);
+  const footprint = normalizeFootprint(raw?.footprint);
+  const vegetationExclusion = normalizeVegetationExclusion(raw?.vegetationExclusion);
+  const collisionProfile = normalizeCollisionProfile(raw?.collisionProfile);
   return Object.freeze({
     key: String(raw?.key || folder).trim().slice(0, 120),
     folder,
@@ -71,12 +199,20 @@ function normalizeRuntimeAsset(raw) {
     label: String(raw?.label || title.replace(/^VFR Multitool Homebase /, '')).trim().slice(0, 120),
     icon: String(raw?.icon || (kind === 'hangar' ? 'H' : '◆')).trim().slice(0, 4),
     preview: raw?.preview !== false,
-    workbenchVisible: raw?.workbenchVisible !== false && raw?.homebasePlaceable !== false,
+    workbenchVisible: raw?.workbenchVisible !== false,
     homebasePlaceable: raw?.homebasePlaceable !== false,
+    ...(Number.isFinite(Number(raw?.headingCorrectionDeg))
+      ? { headingCorrectionDeg: ((Number(raw.headingCorrectionDeg) % 360) + 360) % 360 }
+      : {}),
     runtimeAsset: true,
     missionSpawnable: raw?.missionSpawnable === true,
     missionTags: Array.isArray(raw?.missionTags) ? raw.missionTags.map(String).slice(0, 20) : [],
-    missionRoles: Array.isArray(raw?.missionRoles) ? raw.missionRoles.map(String).slice(0, 20) : []
+    missionRoles: Array.isArray(raw?.missionRoles) ? raw.missionRoles.map(String).slice(0, 20) : [],
+    ...(footprint ? { footprint } : {}),
+    ...(animation ? { animation } : {}),
+    ...(controls.length ? { controls } : {}),
+    ...(vegetationExclusion ? { vegetationExclusion } : {}),
+    ...(collisionProfile ? { collisionProfile } : {})
   });
 }
 
@@ -84,10 +220,24 @@ function registerRuntimeAssets(entries) {
   let added = 0;
   for (const raw of Array.isArray(entries) ? entries : []) {
     const entry = normalizeRuntimeAsset(raw);
-    if (!entry || definitionByTitle.has(entry.title)) continue;
-    runtimeAssetsByTitle.set(entry.title, entry);
-    definitionByTitle.set(entry.title, entry);
-    added += 1;
+    if (!entry) continue;
+    const existing = definitionByTitle.get(entry.title) || {};
+    const mergedControls = normalizeControls([
+      ...(Array.isArray(entry.controls) ? entry.controls : []),
+      ...(Array.isArray(existing.controls) ? existing.controls : [])
+    ], entry.animation || existing.animation);
+    const merged = Object.freeze({
+      ...existing,
+      ...entry,
+      ...(mergedControls.length ? { controls: mergedControls } : {}),
+      ...(entry.animation ? { animation: entry.animation } : existing.animation ? { animation: existing.animation } : {}),
+      ...(entry.footprint ? { footprint: entry.footprint } : existing.footprint ? { footprint: existing.footprint } : {}),
+      ...(entry.vegetationExclusion ? { vegetationExclusion: entry.vegetationExclusion } : existing.vegetationExclusion ? { vegetationExclusion: existing.vegetationExclusion } : {}),
+      ...(entry.collisionProfile ? { collisionProfile: entry.collisionProfile } : existing.collisionProfile ? { collisionProfile: existing.collisionProfile } : {})
+    });
+    runtimeAssetsByTitle.set(entry.title, merged);
+    definitionByTitle.set(entry.title, merged);
+    added += existing.runtimeAsset === true ? 0 : 1;
   }
   return added;
 }
@@ -99,8 +249,8 @@ function objectDefinitionForTitle(rawTitle) {
 }
 
 const catalog = Object.freeze({
-  schemaVersion: 2,
-  assetPackageVersion: '0.6.2',
+  schemaVersion: 3,
+  assetPackageVersion: '0.6.4',
   assetPackageName: 'vfr-multitool-homebase-assets',
   scenePackageName: 'vfr-multitool-homebase',
   assets,

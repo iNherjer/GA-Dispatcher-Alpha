@@ -2502,10 +2502,7 @@
             if (!params.has('swBypass')) return;
             const freshUrl = new URL(window.location.href);
             freshUrl.searchParams.delete('swBypass');
-            freshUrl.searchParams.set('fireCacheFresh', '1');
-            const reloadKey = `ga-sw-bypass:${freshUrl.search}`;
-            if (sessionStorage.getItem(reloadKey) === '1') return;
-            sessionStorage.setItem(reloadKey, '1');
+            freshUrl.searchParams.set('fireCacheFresh', String(Date.now()));
             const unregisterSw = ('serviceWorker' in navigator)
                 ? navigator.serviceWorker.getRegistrations().then(regs => Promise.all(regs.map(reg => reg.unregister())))
                 : Promise.resolve();
@@ -2523,7 +2520,7 @@
             <span>VFR Multitool – Homebase</span>
             <button type="button" onclick="closeHomebaseEnvironment()" aria-label="Homebase schließen">Schließen</button>
         </div>
-        <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-runtime-catalog-20260716-01" title="Homebase Workbench" loading="lazy"></iframe>
+        <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-object-controls-v297-20260716-01" title="Homebase Workbench" loading="lazy"></iframe>
     </div>
 </div>
 
@@ -2540,8 +2537,8 @@
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-followup.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-poi-chain.js?v=poi-chain-20260620-01"></script>
-<script defer src="sync.js?v=homebase-cargo-20260715-01"></script>
-<script defer src="homebase-integration.js?v=crew-homebase-directory-20260715-01"></script>
+<script defer src="sync.js?v=homebase-object-controls-v297-20260716-01"></script>
+<script defer src="homebase-integration.js?v=homebase-object-controls-v297-20260716-01"></script>
 <script defer src="checklists.js?v=mission-ground-flow-20260710-01"></script>
 <script defer src="profile.js?v=telemetry-visibility-20260710-01"></script>
 <script defer src="map.js?v=crew-homebase-directory-20260715-01"></script>

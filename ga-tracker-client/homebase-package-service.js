@@ -14,7 +14,7 @@ const SCENE_PACKAGE_VERSION = '0.5.0';
 const DEFAULT_ASSET_CHANNEL_URL = 'https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/homebase/assets/channel/stable.json';
 const ALLOWED_OBJECT_TITLES = new Set([
   ...catalog.stockObjects.map((entry) => entry.title),
-  ...catalog.assets.filter((entry) => entry.kind === 'object').map((entry) => entry.title)
+  ...catalog.assets.filter((entry) => (entry.kind === 'object' || entry.kind === 'hangar') && entry.homebasePlaceable !== false).map((entry) => entry.title)
 ]);
 const HANGAR_TITLES = new Set(catalog.assets.filter((entry) => entry.kind === 'hangar').map((entry) => entry.title));
 const DEFAULT_HANGAR = catalog.assets.find((entry) => entry.key === 'hangar')?.title;
@@ -249,7 +249,7 @@ function normalizeConfig(input) {
   if (!Number.isFinite(normalized.hangar.lat) || !Number.isFinite(normalized.hangar.lon)) throw new Error('Der Hangar enthält keine gültigen Koordinaten.');
   for (const item of normalized.objects) {
     const definition = catalog.objectDefinitionForTitle(item.title);
-    if (!ALLOWED_OBJECT_TITLES.has(item.title) && !(definition?.runtimeAsset === true && definition.kind === 'object')) {
+    if (!ALLOWED_OBJECT_TITLES.has(item.title) && !(definition?.runtimeAsset === true && ['object', 'hangar'].includes(definition.kind) && definition.homebasePlaceable !== false)) {
       throw new Error(`Objekttitel ist nicht für den Paketgenerator freigegeben: ${item.title}`);
     }
     if (!Number.isFinite(item.lat) || !Number.isFinite(item.lon)) throw new Error(`${item.label} enthält keine gültigen Koordinaten.`);
@@ -266,6 +266,34 @@ function sceneryObject(item, title, child) {
   return `  <SceneryObject instanceId="${guid()}" lat="${item.lat.toFixed(8)}" lon="${item.lon.toFixed(8)}" alt="${offsetM.toFixed(3)}" altitudeIsAgl="TRUE" snapToGround="${snap ? 'TRUE' : 'FALSE'}" snapToNormal="FALSE" pitch="0" bank="0" heading="${heading(item.heading).toFixed(3)}" imageComplexity="VERY_SPARSE">\n${altitudeStabilizer}    ${child}\n  </SceneryObject>`;
 }
 
+function collisionCompanion(item, title, scale = 1) {
+  const profile = catalog.objectDefinitionForTitle(title)?.collisionProfile;
+  const modelGuid = String(profile?.modelLibGuid || profile?.modelGuid || '').trim().toUpperCase();
+  if (!['static-model-lib', 'static-scenery-companion'].includes(profile?.mode) || !/^\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}$/.test(modelGuid)) return '';
+  return sceneryObject(item, title, `<LibraryObject name="${modelGuid}" scale="${Math.max(0.1, Math.min(10, finite(scale, 1))).toFixed(3)}"/>`);
+}
+
+function vegetationExclusionPolygon(item, title, altitudeM, groupIndex) {
+  const exclusion = catalog.objectDefinitionForTitle(title)?.vegetationExclusion;
+  const radiusM = Number(exclusion?.radiusM);
+  if (exclusion?.shape !== 'circle' || !Number.isFinite(radiusM) || radiusM < 1 || radiusM > 250) return '';
+  const falloffM = Math.max(0, Math.min(50, finite(exclusion.falloffM, 0.5)));
+  const vertices = [];
+  for (let index = 0; index < 24; index += 1) {
+    const point = offsetLatLon(item.lat, item.lon, radiusM, index * 15);
+    vertices.push(`    <Vertex lat="${point.lat.toFixed(8)}" lon="${point.lon.toFixed(8)}"/>`);
+  }
+  return [
+    `  <Polygon displayName="${xml(title)} Vegetation" parentGroupID="1" groupIndex="${groupIndex}" altitude="${finite(altitudeM).toFixed(3)}">`,
+    `    <Attribute name="UniqueGUID" guid="{359C73E8-06BE-4FB2-ABCB-EC942F7761D0}" type="GUID" value="${guid()}"/>`,
+    '    <Attribute name="VegetationScale" guid="{6A043F59-E6F2-4117-A2E4-D510E7317C29}" type="UINT32" value="0"/>',
+    '    <Attribute name="VegetationDensity" guid="{41EFF715-C392-4B31-A457-50A504353A90}" type="UINT32" value="0"/>',
+    `    <Attribute name="VegetationFalloff" guid="{E82ABE17-FB4C-4F67-A28C-ED41969AEAD6}" type="FLOAT32" value="${falloffM.toFixed(3)}"/>`,
+    ...vertices,
+    '  </Polygon>'
+  ].join('\n');
+}
+
 function createSceneXml(input) {
   const config = normalizeConfig(input);
   const spawnAltM = config.spawn.altFt * 0.3048;
@@ -276,13 +304,23 @@ function createSceneXml(input) {
   lines.push(`    <TaxiwayParking index="0" type="RAMP_GA_SMALL" name="PARKING" number="1" radius="7.6" heading="${config.spawn.heading.toFixed(3)}" lat="${config.spawn.lat.toFixed(8)}" lon="${config.spawn.lon.toFixed(8)}"/>`);
   lines.push('  </Airport>');
   lines.push(sceneryObject(config.hangar, config.hangar.objectTitle, `<SimObject containerTitle="${xml(config.hangar.objectTitle)}" scale="1.000"/>`));
+  const hangarCollision = collisionCompanion(config.hangar, config.hangar.objectTitle, 1);
+  if (hangarCollision) lines.push(hangarCollision);
+  const vegetationPolygons = [];
+  const hangarVegetation = vegetationExclusionPolygon(config.hangar, config.hangar.objectTitle, spawnAltM, vegetationPolygons.length + 1);
+  if (hangarVegetation) vegetationPolygons.push(hangarVegetation);
   for (const item of config.objects) {
     if (item.title === 'Windsock') {
       lines.push(sceneryObject(item, item.title, '<Windsock poleHeight="5.000" sockLength="2.500" lighted="TRUE" containerTitle="Windsock"/>'));
     } else {
       lines.push(sceneryObject(item, item.title, `<SimObject containerTitle="${xml(item.title)}" scale="${item.scale.toFixed(3)}"/>`));
     }
+    const companion = collisionCompanion(item, item.title, item.scale);
+    if (companion) lines.push(companion);
+    const vegetation = vegetationExclusionPolygon(item, item.title, spawnAltM, vegetationPolygons.length + 1);
+    if (vegetation) vegetationPolygons.push(vegetation);
   }
+  lines.push(...vegetationPolygons);
   lines.push('</FSData>', '');
   return { config, content: lines.join('\n') };
 }
@@ -392,15 +430,24 @@ function createHomebasePackageService(options = {}) {
       if (index?.packageName !== catalog.assetPackageName || index?.packageVersion !== installed.packageVersion || !installed.packageComplete) return [];
       const assets = Array.isArray(index.assets) ? index.assets : [];
       catalog.registerRuntimeAssets(assets);
-      return assets.map((asset) => ({
-        key: String(asset?.key || ''), folder: String(asset?.folder || ''), title: String(asset?.title || ''),
-        label: String(asset?.label || ''), version: String(asset?.version || ''), kind: String(asset?.kind || ''),
-        group: String(asset?.group || ''), workbenchVisible: asset?.workbenchVisible !== false && asset?.homebasePlaceable !== false,
-        homebasePlaceable: asset?.homebasePlaceable !== false,
-        missionSpawnable: asset?.missionSpawnable === true,
-        missionTags: Array.isArray(asset?.missionTags) ? asset.missionTags.map(String).slice(0, 20) : [],
-        missionRoles: Array.isArray(asset?.missionRoles) ? asset.missionRoles.map(String).slice(0, 20) : []
-      }));
+      return assets.map((asset) => {
+        const definition = catalog.objectDefinitionForTitle(asset?.title) || asset || {};
+        return {
+          key: String(definition?.key || ''), folder: String(definition?.folder || ''), title: String(definition?.title || ''),
+          label: String(definition?.label || ''), version: String(asset?.version || ''), kind: String(definition?.kind || ''),
+          group: String(definition?.group || ''), workbenchVisible: definition?.workbenchVisible !== false && definition?.homebasePlaceable !== false,
+          homebasePlaceable: definition?.homebasePlaceable !== false,
+          missionSpawnable: definition?.missionSpawnable === true,
+          missionTags: Array.isArray(definition?.missionTags) ? definition.missionTags.map(String).slice(0, 20) : [],
+          missionRoles: Array.isArray(definition?.missionRoles) ? definition.missionRoles.map(String).slice(0, 20) : [],
+          ...(Number.isFinite(Number(definition?.headingCorrectionDeg)) ? { headingCorrectionDeg: Number(definition.headingCorrectionDeg) } : {}),
+          ...(definition?.footprint ? { footprint: definition.footprint } : {}),
+          ...(definition?.animation ? { animation: definition.animation } : {}),
+          ...(Array.isArray(definition?.controls) ? { controls: definition.controls } : {}),
+          ...(definition?.vegetationExclusion ? { vegetationExclusion: definition.vegetationExclusion } : {}),
+          ...(definition?.collisionProfile ? { collisionProfile: definition.collisionProfile } : {})
+        };
+      });
     } catch (_) {
       return [];
     }

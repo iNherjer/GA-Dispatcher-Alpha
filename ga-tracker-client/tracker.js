@@ -19,8 +19,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v291';
-const TRACKER_VERSION_CODE = 291;
+const TRACKER_VERSION = 'v297';
+const TRACKER_VERSION_CODE = 297;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3257,13 +3257,26 @@ function startTracker(syncId, pin) {
   let _trackerCommandHandler = null;
   const _pendingTrackerCommands = [];
   const MAX_PENDING_TRACKER_COMMANDS = 64;
+  const DIRECT_HANGAR_FALLBACK_DELAY_MS = 750;
+  const _pendingDirectHangarCommands = new Map();
+  const _dispatchedHangarCommandIds = new Map();
+  const _directHangarAckCommandIds = new Map();
+  const isHomebaseObjectControlType = (type) => [
+    'homebase_v1.hangar.animation.set',
+    'homebase_v1.object.control.set'
+  ].includes(String(type || '').trim());
+  const controlAckTypeFor = (type) => String(type || '') === 'homebase_v1.object.control.set'
+    ? 'homebase_v1.object.control.set_ack'
+    : 'homebase_v1.hangar.animation.set_ack';
 
   const getWs = () => _currentWs;
   const sendHomebaseAck = (payload = {}) => {
     const ws = getWs();
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     try {
-      ws.send(JSON.stringify({
+      const commandId = String(payload?.commandId || '');
+      const directHangarAck = commandId && _directHangarAckCommandIds.has(commandId);
+      const message = {
         type: 'gps',
         syncId,
         pin,
@@ -3271,8 +3284,14 @@ function startTracker(syncId, pin) {
         trackerVersionCode: TRACKER_VERSION_CODE,
         commandAckOnly: true,
         trackerAck: { source: 'tracker', ...payload, at: Date.now() }
-      }));
+      };
+      if (directHangarAck) {
+        message.target = 'workbench';
+        message.stabilizerAck = { ...payload, at: Date.now() };
+      }
+      ws.send(JSON.stringify(message));
       debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}`);
+      if (directHangarAck) debugLog(`HANGAR_DIRECT_ACK type=${payload?.type || 'unknown'} commandId=${commandId}`);
       return true;
     } catch (error) {
       debugLog(`HOMEBASE_ACK_ERROR type=${payload?.type || 'unknown'} error=${error?.message || error}`);
@@ -3316,24 +3335,141 @@ function startTracker(syncId, pin) {
       }
     }
   };
-  const handleTrackerMessage = (raw) => {
-    let data = null;
-    try { data = JSON.parse(String(raw || '')); } catch (_) { return; }
-    const command = data?.trackerCommand || (data?.target === 'tracker' ? data : null);
-    if (!command || typeof command !== 'object') return;
-    if (data.syncId && String(data.syncId) !== String(syncId)) return;
-    if (data.pin && String(data.pin) !== String(pin)) return;
-    if (command.pin && String(command.pin) !== String(pin)) return;
+  const pruneHangarCommandState = (now = Date.now()) => {
+    for (const [commandId, at] of _dispatchedHangarCommandIds) {
+      if ((now - at) > 30000) _dispatchedHangarCommandIds.delete(commandId);
+    }
+    for (const [commandId, at] of _directHangarAckCommandIds) {
+      if ((now - at) > 30000) _directHangarAckCommandIds.delete(commandId);
+    }
+  };
+  const dispatchTrackerCommand = (command, source = 'tracker-relay') => {
+    const type = String(command?.type || '');
+    const commandId = String(command?.commandId || '');
+    const isHangarDoor = isHomebaseObjectControlType(type);
+    pruneHangarCommandState();
+    if (isHangarDoor && commandId) {
+      if (_dispatchedHangarCommandIds.has(commandId)) {
+        debugLog(`HANGAR_COMMAND_DUPLICATE_SKIP source=${source} commandId=${commandId}`);
+        return;
+      }
+      _dispatchedHangarCommandIds.set(commandId, Date.now());
+      if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
+      debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
+    }
     if (handleAlwaysAvailableHomebaseCommand(command)) return;
     if (typeof _trackerCommandHandler === 'function') {
-      _trackerCommandHandler(command);
+      try {
+        const handled = _trackerCommandHandler(command);
+        if (isHangarDoor && handled === false) {
+          debugLog(`HANGAR_COMMAND_REJECT commandId=${commandId || 'none'} reason=no-handler-accepted-command`);
+          sendHomebaseAck({
+            type: controlAckTypeFor(type),
+            commandId: commandId || null,
+            status: 'error',
+            error: 'Der Tracker konnte die Objektsteuerung keinem SimConnect-Handler zuordnen.',
+            message: 'Der Tracker konnte die Objektsteuerung keinem SimConnect-Handler zuordnen.'
+          });
+        }
+      } catch (error) {
+        debugLog(`COMMAND_DISPATCH_ERROR type=${type || 'unknown'} commandId=${commandId || 'none'} error=${error?.message || error}`);
+        if (isHangarDoor) {
+          sendHomebaseAck({
+            type: controlAckTypeFor(type),
+            commandId: commandId || null,
+            status: 'error',
+            error: error?.message || String(error),
+            message: error?.message || String(error)
+          });
+        }
+      }
       return;
     }
-    if (_pendingTrackerCommands.length >= MAX_PENDING_TRACKER_COMMANDS) {
-      _pendingTrackerCommands.shift();
+    if (isHangarDoor) {
+      debugLog(`HANGAR_COMMAND_REJECT commandId=${commandId || 'none'} reason=simconnect-handler-not-ready`);
+      sendHomebaseAck({
+        type: controlAckTypeFor(type),
+        commandId: commandId || null,
+        status: 'error',
+        error: 'SimConnect ist für die Objektsteuerung noch nicht bereit.',
+        message: 'SimConnect ist für die Objektsteuerung noch nicht bereit.'
+      });
+      return;
     }
+    if (_pendingTrackerCommands.length >= MAX_PENDING_TRACKER_COMMANDS) _pendingTrackerCommands.shift();
     _pendingTrackerCommands.push(command);
     debugLog(`COMMAND_QUEUE_BUFFERED type=${command?.type || 'unknown'} size=${_pendingTrackerCommands.length}`);
+  };
+  const handleTrackerMessage = (raw) => {
+    let data = null;
+    const rawText = String(raw || '');
+    try {
+      data = JSON.parse(rawText);
+    } catch (error) {
+      debugLog(`RELAY_MESSAGE_PARSE_REJECT bytes=${Buffer.byteLength(rawText)} error=${error?.message || error}`);
+      return;
+    }
+    const parseEmbeddedCommand = (candidate) => {
+      if (candidate && typeof candidate === 'object') return candidate;
+      if (typeof candidate !== 'string' || !candidate.trim()) return null;
+      try {
+        const parsed = JSON.parse(candidate);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    };
+    const target = String(data?.target || '').trim().toLowerCase();
+    const embeddedTrackerCommand = parseEmbeddedCommand(data?.trackerCommand);
+    const trackerCommand = embeddedTrackerCommand || (target === 'tracker' && !data?.trackerCommand ? data : null);
+    const embeddedStabilizerCommand = parseEmbeddedCommand(data?.stabilizerCommand);
+    const stabilizerCommand = isHomebaseObjectControlType(embeddedStabilizerCommand?.type)
+      ? embeddedStabilizerCommand
+      : null;
+    const command = trackerCommand || stabilizerCommand;
+    if (!command || typeof command !== 'object') return;
+    const commandType = String(command?.type || '').trim();
+    const commandId = String(command?.commandId || '');
+    const envelope = trackerCommand ? 'trackerCommand' : 'stabilizerCommand';
+    debugLog(`RELAY_COMMAND_RX envelope=${envelope} target=${target || 'none'} type=${commandType || 'unknown'} commandId=${commandId || 'none'} outerPin=${data?.pin ? 'present' : 'none'} commandPin=${command?.pin ? 'present' : 'none'}`);
+    if (data.syncId && String(data.syncId) !== String(syncId)) {
+      debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=sync-id-mismatch`);
+      return;
+    }
+    if (data.pin && String(data.pin) !== String(pin)) {
+      debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=outer-pin-mismatch`);
+      return;
+    }
+    if (command.pin && String(command.pin) !== String(pin)) {
+      debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=command-pin-mismatch`);
+      return;
+    }
+    if (trackerCommand) {
+      const pendingDirect = commandId ? _pendingDirectHangarCommands.get(commandId) : null;
+      if (pendingDirect) {
+        clearTimeout(pendingDirect);
+        _pendingDirectHangarCommands.delete(commandId);
+        debugLog(`HANGAR_DIRECT_FALLBACK_CANCEL relay=received commandId=${commandId}`);
+      }
+      if (isHomebaseObjectControlType(commandType)) {
+        debugLog(`HOMEBASE_CONTROL_RELAY_RX type=${commandType} commandId=${commandId || 'none'} controlId=${command?.controlId || 'door'} state=${command?.state || ''} title=${command?.title || command?.objectTitle || ''}`);
+        dispatchTrackerCommand(trackerCommand, 'tracker-relay');
+        return;
+      }
+      dispatchTrackerCommand(trackerCommand, 'tracker-relay');
+      return;
+    }
+    if (!commandId) {
+      debugLog('HANGAR_DIRECT_FALLBACK_REJECT reason=missing-command-id');
+      return;
+    }
+    if (_pendingDirectHangarCommands.has(commandId) || _dispatchedHangarCommandIds.has(commandId)) return;
+    const timer = setTimeout(() => {
+      _pendingDirectHangarCommands.delete(commandId);
+      dispatchTrackerCommand(stabilizerCommand, 'direct-stabilizer-fallback');
+    }, DIRECT_HANGAR_FALLBACK_DELAY_MS);
+    _pendingDirectHangarCommands.set(commandId, timer);
+    debugLog(`HANGAR_DIRECT_FALLBACK_WAIT commandId=${commandId} delayMs=${DIRECT_HANGAR_FALLBACK_DELAY_MS}`);
   };
   const scheduleReconnect = (reason, delayMs = 5000) => {
     if (_reconnectTimer) return;
@@ -3399,7 +3535,13 @@ function startTracker(syncId, pin) {
       }, 25000);
       if (!_simStarted) {
         _simStarted = true;
-        connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler);
+        connectSimConnect(
+          getWs,
+          syncId,
+          pin,
+          setTrackerCommandHandler,
+          (commandId) => _directHangarAckCommandIds.has(String(commandId || ''))
+        );
       }
     });
     ws.on('pong', () => { awaitingPong = false; });
@@ -3420,7 +3562,7 @@ function startTracker(syncId, pin) {
   connect();
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
@@ -3440,6 +3582,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
             commandAckOnly: true,
             trackerAck: { source: 'tracker', ...payload, at: Date.now() }
           };
+          if (typeof isDirectHangarAckCommand === 'function' && isDirectHangarAckCommand(payload?.commandId)) {
+            msg.target = 'workbench';
+            msg.stabilizerAck = { ...payload, at: Date.now() };
+            debugLog(`HANGAR_DIRECT_ACK type=${payload?.type || 'unknown'} commandId=${payload?.commandId || ''}`);
+          }
           if (lastGpsMsg && Number.isFinite(Number(lastGpsMsg.lat)) && Number.isFinite(Number(lastGpsMsg.lon))) {
             msg.lat = Number(lastGpsMsg.lat);
             msg.lon = Number(lastGpsMsg.lon);
@@ -3858,7 +4005,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
         const ws = getWs();
         if (ws && ws.readyState === WebSocket.OPEN) {
           trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
+          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand), 5000);
         }
       });
     })
@@ -3866,7 +4013,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       const ws = getWs();
       if (ws && ws.readyState === WebSocket.OPEN) {
         trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand), 5000);
       }
     });
 }

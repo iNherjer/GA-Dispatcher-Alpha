@@ -4,7 +4,8 @@ const {
   SimConnectDataType,
   SimConnectPeriod,
   SimConnectConstants,
-  InitPosition
+  InitPosition,
+  RawBuffer
 } = require('node-simconnect');
 const catalog = require('./homebase-asset-catalog.js');
 
@@ -15,6 +16,8 @@ const EVENT_FREEZE_ALTITUDE = 52102;
 const EVENT_FREEZE_ATTITUDE = 52103;
 const EVENT_OBJECT_ADDED = 52104;
 const EVENT_OBJECT_REMOVED = 52105;
+const HANGAR_ANIMATION_DEFINITION_START = 52200;
+const HANGAR_ANIMATION_DEFINITION_LIMIT = 32;
 const EVENT_GROUP_PRIORITY_HIGHEST = 1;
 const EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
 const CREATE_TIMEOUT_MS = 12000;
@@ -24,7 +27,7 @@ const MAX_CREW_OBJECTS = 100;
 
 const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
 const allowedPreviewTitles = new Set([
-  ...catalog.assets.filter((entry) => entry.preview !== false && entry.homebasePlaceable !== false && entry.kind !== 'internal').map((entry) => entry.title),
+  ...catalog.assets.filter((entry) => entry.preview !== false && entry.kind !== 'internal' && (entry.kind === 'hangar' || entry.homebasePlaceable !== false)).map((entry) => entry.title),
   ...catalog.stockObjects.filter((entry) => entry.preview !== false).map((entry) => entry.title),
   assetByKey.get('spawnProbe')?.title
 ].filter(Boolean));
@@ -59,8 +62,8 @@ function normalizeItem(raw, fallbackId = '') {
   const runtimeDefinition = catalog.objectDefinitionForTitle(title);
   const runtimeAllowed = runtimeDefinition?.runtimeAsset === true
     && runtimeDefinition.preview !== false
-    && runtimeDefinition.homebasePlaceable !== false
-    && runtimeDefinition.kind !== 'internal';
+    && runtimeDefinition.kind !== 'internal'
+    && (runtimeDefinition.kind === 'hangar' || runtimeDefinition.homebasePlaceable !== false);
   if (!allowedPreviewTitles.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
   const lat = Number(raw?.lat);
   const lon = Number(raw?.lon);
@@ -89,6 +92,8 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-object-move',
     'homebase-object-remove',
     'homebase-crew-scene',
+    'homebase-hangar-animation',
+    'homebase-object-controls-v1',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
   const generations = { preview: 0, crew: 0 };
@@ -100,6 +105,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const recentlyAddedObjectIds = new Set();
   const pendingGround = new Map();
   const pendingRemovals = new Map();
+  const hangarAnimationDefinitions = new Map();
   let operationQueue = Promise.resolve();
 
   const nextId = () => {
@@ -136,6 +142,46 @@ function createHomebaseObjectManager(handle, options = {}) {
   const modelDefinition = (item) => catalog.objectDefinitionForTitle(item.title) || {};
   const effectiveOffsetFt = (item) => finite(item.heightOffsetFt) + finite(modelDefinition(item).groundClearanceFt);
   const isParkedVehicle = (item) => modelDefinition(item).parkedVehicle === true;
+
+  const hangarDoorAnimationForTitle = (rawTitle) => {
+    const definition = catalog.objectDefinitionForTitle(rawTitle);
+    const animation = definition?.kind === 'hangar' ? definition.animation : null;
+    if (!animation || animation.type !== 'door' || animation.control?.transport !== 'simconnect-lvar') return null;
+    const simvar = String(animation.control.simvar || '').trim().toUpperCase();
+    const open = Number(animation.control.values?.open);
+    const closed = Number(animation.control.values?.closed);
+    if (!/^L:[A-Z0-9_]{3,120}$/.test(simvar) || !Number.isFinite(open) || !Number.isFinite(closed) || open === closed) return null;
+    return { simvar, open, closed, defaultState: animation.defaultState === 'closed' ? 'closed' : 'open' };
+  };
+
+  const objectControlForTitle = (rawTitle, rawControlId) => {
+    const definition = catalog.objectDefinitionForTitle(rawTitle);
+    const controlId = String(rawControlId || '').trim().toLowerCase();
+    const control = Array.isArray(definition?.controls)
+      ? definition.controls.find((entry) => entry.id === controlId)
+      : null;
+    if (!control || control.transport !== 'simconnect-lvar' || control.scope !== 'global') return null;
+    const simvar = String(control.simvar || '').trim().toUpperCase();
+    if (!/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) return null;
+    const states = Array.isArray(control.states)
+      ? control.states.filter((entry) => Number.isFinite(Number(entry?.value))).map((entry) => ({
+          id: String(entry.id || '').trim().toLowerCase(),
+          label: String(entry.label || entry.id || ''),
+          value: Number(entry.value)
+        }))
+      : [];
+    if (states.length < 2) return null;
+    return { ...control, simvar, states };
+  };
+
+  const dataDefinitionForHangarAnimation = (animation) => {
+    if (hangarAnimationDefinitions.has(animation.simvar)) return hangarAnimationDefinitions.get(animation.simvar);
+    if (hangarAnimationDefinitions.size >= HANGAR_ANIMATION_DEFINITION_LIMIT) throw new Error('Zu viele unterschiedliche Hangar-Animationsvariablen aktiv.');
+    const definitionId = HANGAR_ANIMATION_DEFINITION_START + hangarAnimationDefinitions.size;
+    handle.addToDataDefinition(definitionId, animation.simvar, 'number', SimConnectDataType.FLOAT64, 0, SimConnectConstants.UNUSED);
+    hangarAnimationDefinitions.set(animation.simvar, definitionId);
+    return definitionId;
+  };
 
   const applyFinalPosition = (record, groundAltitudeFt) => {
     if (!isCurrentRecord(record)) return;
@@ -426,6 +472,83 @@ function createHomebaseObjectManager(handle, options = {}) {
     });
   };
 
+  const writeObjectControl = async ({ command, title, control, stateDefinition, ackType }) => {
+    const commandId = String(command?.commandId || '');
+    const definitionId = dataDefinitionForHangarAnimation(control);
+    const value = stateDefinition.value;
+    const buffer = new RawBuffer(8);
+    buffer.writeFloat64(value);
+    const userObjectId = Number.isFinite(Number(SimConnectConstants.OBJECT_ID_USER))
+      ? Number(SimConnectConstants.OBJECT_ID_USER)
+      : 0;
+    log(`OBJECT_CONTROL_LVAR_WRITE_BEGIN commandId=${commandId || 'none'} title=${title} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value}`);
+    try {
+      await Promise.resolve(handle.setDataOnSimObject(definitionId, userObjectId, { buffer, arrayCount: 0, tagged: false }));
+    } catch (error) {
+      log(`OBJECT_CONTROL_LVAR_WRITE_ERROR commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value} error=${error?.message || error}`);
+      throw error;
+    }
+    log(`OBJECT_CONTROL_LVAR_WRITE_OK commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value}`);
+    const action = stateDefinition.id === 'open' ? 'wird geöffnet'
+      : stateDefinition.id === 'closed' ? 'wird geschlossen'
+        : stateDefinition.id === 'on' ? 'wird eingeschaltet'
+          : stateDefinition.id === 'off' ? 'wird ausgeschaltet'
+            : `wird auf „${stateDefinition.label}“ gesetzt`;
+    sendAck({
+      type: ackType,
+      commandId: commandId || null,
+      status: 'ok',
+      title,
+      controlId: control.id || 'door',
+      controlType: control.type || 'animation',
+      state: stateDefinition.id,
+      value,
+      simvar: control.simvar,
+      controlScope: 'global',
+      durationMs: Number(control.durationMs) || 0,
+      message: `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`
+    });
+    log(`OBJECT_CONTROL_ACK_SENT commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} type=${ackType}`);
+  };
+
+  const handleObjectControl = async (command) => {
+    const title = String(command?.title || command?.objectTitle || '').trim();
+    const controlId = String(command?.controlId || '').trim().toLowerCase();
+    const state = String(command?.state || '').trim().toLowerCase();
+    if (!title) throw new Error('Objekttitel fehlt.');
+    if (!controlId) throw new Error('Steuerungs-ID fehlt.');
+    const control = objectControlForTitle(title, controlId);
+    if (!control) throw new Error(`${title} hat keine freigegebene Steuerung „${controlId}“.`);
+    const stateDefinition = control.states.find((entry) => entry.id === state);
+    if (!stateDefinition) throw new Error(`Status „${state}“ ist für ${control.label || controlId} nicht definiert.`);
+    await writeObjectControl({ command, title, control, stateDefinition, ackType: 'homebase_v1.object.control.set_ack' });
+  };
+
+  const handleHangarAnimation = async (command) => {
+    const title = String(command?.title || command?.objectTitle || '').trim();
+    const state = String(command?.state || '').trim().toLowerCase();
+    if (!title) throw new Error('Hangartitel fehlt.');
+    if (!['open', 'closed'].includes(state)) throw new Error('Hangarstatus muss "open" oder "closed" sein.');
+    const generic = objectControlForTitle(title, 'door');
+    if (generic) {
+      const stateDefinition = generic.states.find((entry) => entry.id === state);
+      if (!stateDefinition) throw new Error(`${title} hat für das Tor keinen Status „${state}“.`);
+      await writeObjectControl({ command, title, control: generic, stateDefinition, ackType: 'homebase_v1.hangar.animation.set_ack' });
+      return;
+    }
+    const animation = hangarDoorAnimationForTitle(title);
+    if (!animation) throw new Error(`${title} hat keine steuerbare Toranimation.`);
+    const legacyControl = {
+      id: 'door', type: 'animation', label: 'Hangartor', simvar: animation.simvar, durationMs: 0,
+      states: [{ id: 'open', label: 'Öffnen', value: animation.open }, { id: 'closed', label: 'Schließen', value: animation.closed }]
+    };
+    await writeObjectControl({
+      command, title, control: legacyControl,
+      stateDefinition: legacyControl.states.find((entry) => entry.id === state),
+      ackType: 'homebase_v1.hangar.animation.set_ack'
+    });
+  };
+
   try {
     handle.addToDataDefinition(INIT_POSITION_DEFINITION, 'Initial Position', null, SimConnectDataType.INITPOSITION);
     handle.addToDataDefinition(OBJECT_ALTITUDE_DEFINITION, 'Plane Altitude', 'feet', SimConnectDataType.FLOAT64, 0, SimConnectConstants.UNUSED);
@@ -543,6 +666,14 @@ function createHomebaseObjectManager(handle, options = {}) {
       }
       if (type === 'homebase_v1.crew.set') {
         enqueue(() => handleCrewSet(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.hangar.animation.set') {
+        enqueue(() => handleHangarAnimation(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.object.control.set') {
+        enqueue(() => handleObjectControl(command)).catch((error) => sendError(type, command, error));
         return true;
       }
       if (type === 'homebase_v1.preview.object.add') {

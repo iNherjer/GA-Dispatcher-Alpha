@@ -200,7 +200,8 @@ function defaultRequestBuffer(rawUrl, options = {}, redirects = 0) {
       headers: {
         'User-Agent': 'VFR-Multitool-Homebase-Tracker',
         Accept: options.accept || '*/*',
-        'Accept-Encoding': 'identity'
+        'Accept-Encoding': 'identity',
+        ...(options.noCache === true ? { 'Cache-Control': 'no-cache, no-store', Pragma: 'no-cache' } : {})
       }
     }, (response) => {
       const status = Number(response.statusCode || 0);
@@ -238,6 +239,12 @@ function defaultRequestBuffer(rawUrl, options = {}, redirects = 0) {
     request.setTimeout(timeoutMs, () => request.destroy(new Error(`Zeitüberschreitung beim Assetdownload: ${url}`)));
     request.on('error', reject);
   });
+}
+
+function cacheBustedUrl(rawUrl, nonce = Date.now()) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('_vfrcb', String(nonce));
+  return url.toString();
 }
 
 function asBuffer(value) {
@@ -394,7 +401,13 @@ function createHomebaseAssetUpdater(options = {}) {
         homebasePlaceable: asset?.homebasePlaceable !== false,
         missionSpawnable: asset?.missionSpawnable === true,
         missionTags: Array.isArray(asset?.missionTags) ? asset.missionTags.map(String).slice(0, 20) : [],
-        missionRoles: Array.isArray(asset?.missionRoles) ? asset.missionRoles.map(String).slice(0, 20) : []
+        missionRoles: Array.isArray(asset?.missionRoles) ? asset.missionRoles.map(String).slice(0, 20) : [],
+        ...(Number.isFinite(Number(asset?.headingCorrectionDeg)) ? { headingCorrectionDeg: Number(asset.headingCorrectionDeg) } : {}),
+        ...(asset?.footprint && typeof asset.footprint === 'object' ? { footprint: asset.footprint } : {}),
+        ...(asset?.animation && typeof asset.animation === 'object' ? { animation: asset.animation } : {}),
+        ...(Array.isArray(asset?.controls) ? { controls: asset.controls.slice(0, 12) } : {}),
+        ...(asset?.vegetationExclusion && typeof asset.vegetationExclusion === 'object' ? { vegetationExclusion: asset.vegetationExclusion } : {}),
+        ...(asset?.collisionProfile && typeof asset.collisionProfile === 'object' ? { collisionProfile: asset.collisionProfile } : {})
       })),
       changedAssets: release?.stable?.changedAssets || [],
       removedAssets: release?.stable?.removedAssets || [],
@@ -413,9 +426,20 @@ function createHomebaseAssetUpdater(options = {}) {
     }
     try {
       onProgress({ phase: 'check', message: 'Asset-Releasekanal wird geprüft.' });
-      const stableBuffer = asBuffer(await requestBuffer(channelUrl, { maxBytes: DEFAULT_MAX_JSON_BYTES, timeoutMs: 12000, accept: 'application/json' }));
+      const stableRequestUrl = force ? cacheBustedUrl(channelUrl) : channelUrl;
+      const stableBuffer = asBuffer(await requestBuffer(stableRequestUrl, {
+        maxBytes: DEFAULT_MAX_JSON_BYTES,
+        timeoutMs: 12000,
+        accept: 'application/json',
+        noCache: force
+      }));
       const stable = validateStable(parseJsonBuffer(stableBuffer, 'Stable-Kanal'), packageName, allowHttpForTests);
-      const indexBuffer = asBuffer(await requestBuffer(stable.indexUrl, { maxBytes: DEFAULT_MAX_JSON_BYTES, timeoutMs: 15000, accept: 'application/json' }));
+      const indexBuffer = asBuffer(await requestBuffer(force ? cacheBustedUrl(stable.indexUrl) : stable.indexUrl, {
+        maxBytes: DEFAULT_MAX_JSON_BYTES,
+        timeoutMs: 15000,
+        accept: 'application/json',
+        noCache: force
+      }));
       const index = validateIndex(parseJsonBuffer(indexBuffer, 'Paketindex'), stable, requiredAssets, allowHttpForTests);
       cachedRelease = { stable, index };
       cachedAt = Date.now();

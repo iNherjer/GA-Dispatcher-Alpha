@@ -87,6 +87,12 @@ input[type="range"] { padding: 0; accent-color: var(--lime); } output { float: r
 .object-nudge span { color: var(--muted); font-size: .62rem; text-align: center; }
 .object-nudge select { display: inline; width: 58px; margin: 0 0 0 .2rem; padding: .25rem; }
 .object-actions { margin-top: .7rem; justify-content: flex-end; }
+.homebase-controls { display: grid; gap: .65rem; }
+.homebase-control-group { padding: .75rem; border: 1px solid rgba(84,215,208,.24); border-radius: 12px; background: rgba(84,215,208,.055); }
+.homebase-control-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .65rem; }
+.homebase-control-heading strong { font-size: .78rem; }
+.homebase-control-heading span { color: var(--muted); font-size: .65rem; text-align: right; }
+.homebase-control-group .result-line { margin-top: .55rem; }
 .toggle { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; } .toggle input { width: auto; margin: 0; }
 .result-line { margin: .75rem 0 0; color: #c9d9d4; font-size: .75rem; line-height: 1.45; }
 .result-line.ok { color: #dfff9d; } .result-line.bad { color: #ffc0b9; }

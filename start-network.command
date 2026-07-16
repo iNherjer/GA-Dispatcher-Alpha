@@ -71,20 +71,21 @@ fi
 
 LAN_IP="$(detect_lan_ip || true)"
 TAILSCALE_IP="$(detect_tailscale_ip || true)"
-LOCAL_URL="http://127.0.0.1:${PORT}/index.html?swBypass=1"
+LAUNCH_ID="$(date +%s)"
+LOCAL_URL="http://127.0.0.1:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 if [[ -n "$LAN_IP" ]]; then
-  LAN_URL="http://${LAN_IP}:${PORT}/index.html?swBypass=1"
+  LAN_URL="http://${LAN_IP}:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 else
-  LAN_URL="http://DEINE-MAC-IP:${PORT}/index.html?swBypass=1"
+  LAN_URL="http://DEINE-MAC-IP:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 fi
 if [[ -n "$TAILSCALE_IP" ]]; then
-  TAILSCALE_URL="http://${TAILSCALE_IP}:${PORT}/index.html?swBypass=1"
+  TAILSCALE_URL="http://${TAILSCALE_IP}:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 else
   TAILSCALE_URL=""
 fi
 
 if [[ "$BIND_HOST" != "0.0.0.0" && "$BIND_HOST" != "::" && "$BIND_HOST" != "127.0.0.1" && "$BIND_HOST" != "localhost" ]]; then
-  LOCAL_URL="http://${BIND_HOST}:${PORT}/index.html?swBypass=1"
+  LOCAL_URL="http://${BIND_HOST}:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 fi
 
 open_browser() {

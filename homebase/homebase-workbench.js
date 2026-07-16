@@ -13,18 +13,23 @@
   const ASSET_CATALOG = globalThis.HOMEBASE_ASSET_CATALOG;
   if (!ASSET_CATALOG?.assets?.length) throw new Error('Der gemeinsame Homebase-Assetkatalog wurde nicht geladen.');
   const ASSET_BY_KEY = new Map(ASSET_CATALOG.assets.map((entry) => [entry.key, entry]));
+  const ASSET_DEFINITIONS = new Map([
+    ...ASSET_CATALOG.assets.map((entry) => [entry.title, { ...entry }]),
+    ...ASSET_CATALOG.stockObjects.map((entry) => [entry.title, { ...entry }])
+  ]);
   const HANGAR_TITLE = ASSET_BY_KEY.get('hangar').title;
   const OPEN_PARKING_TITLE = ASSET_BY_KEY.get('openParking').title;
+  const HANGAR_DEFINITIONS = new Map(ASSET_CATALOG.assets
+    .filter((entry) => entry.kind === 'hangar')
+    .map((entry) => [entry.title, entry]));
   const HANGAR_TITLES = new Set(ASSET_CATALOG.assets
-    .filter((entry) => entry.kind === 'hangar' && entry.workbenchVisible !== false && entry.homebasePlaceable !== false)
+    .filter((entry) => entry.kind === 'hangar' && entry.workbenchVisible !== false)
     .map((entry) => entry.title));
   const SPAWN_PROBE_ID = '__homebase_spawn_probe__';
   const SPAWN_PROBE_TITLE = ASSET_BY_KEY.get('spawnProbe').title;
   const OBJECT_CATALOG = [
     ...ASSET_CATALOG.stockObjects.filter((entry) => entry.workbenchVisible !== false).map((entry) => ({ ...entry })),
-    ...ASSET_CATALOG.assets.filter((entry) => entry.kind === 'object' && entry.workbenchVisible !== false && entry.homebasePlaceable !== false).map((entry) => ({
-      group: entry.group, title: entry.title, label: entry.label, icon: entry.icon, companion: true
-    }))
+    ...ASSET_CATALOG.assets.filter((entry) => (entry.kind === 'object' || entry.kind === 'hangar') && entry.workbenchVisible !== false && entry.homebasePlaceable !== false).map((entry) => ({ ...entry, companion: true }))
   ];
   const CATALOG_BY_TITLE = new Map(OBJECT_CATALOG.map((entry) => [entry.title, entry]));
   const LEGACY_TITLE_ALIASES = new Map(Object.entries(ASSET_CATALOG.legacyTitleAliases || {}));
@@ -71,9 +76,10 @@
   let integratedMessageBound = false;
 
   const $ = (id) => document.getElementById(id);
-  const map = L.map('map', { zoomControl: true }).setView([state.spawn.lat, state.spawn.lon], 16);
+  const map = L.map('map', { zoomControl: true, maxZoom: 23 }).setView([state.spawn.lat, state.spawn.lon], 16);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 20,
+    maxNativeZoom: 19,
+    maxZoom: 23,
     attribution: '&copy; OpenStreetMap-Mitwirkende'
   }).addTo(map);
 
@@ -91,6 +97,7 @@
   const hp0 = hangarPosition();
   const hangarHeadingLine = L.polyline(headingLine(hp0.lat, hp0.lng, state.hangar.heading, Math.max(10, state.hangar.depthM * .65)), { color: '#bbf451', weight: 3 }).addTo(map);
   const objectMarkers = new Map();
+  const objectHeadingLines = new Map();
 
   function finite(value, fallback = 0) {
     const number = Number(value);
@@ -105,6 +112,70 @@
     const rawTitle = String(value || '');
     const title = LEGACY_TITLE_ALIASES.get(rawTitle) || rawTitle;
     return HANGAR_TITLES.has(title) ? title : HANGAR_TITLE;
+  }
+
+  function hangarDefinitionFor(title = state?.hangar?.objectTitle) {
+    return HANGAR_DEFINITIONS.get(normalizeHangarTitle(title)) || null;
+  }
+
+  function hangarFootprintFor(title = state?.hangar?.objectTitle) {
+    const footprint = hangarDefinitionFor(title)?.footprint;
+    const widthM = Number(footprint?.widthM);
+    const depthM = Number(footprint?.depthM);
+    return Number.isFinite(widthM) && Number.isFinite(depthM) ? { widthM, depthM } : { widthM: 18, depthM: 22 };
+  }
+
+  function normalizeControls(rawControls, legacyAnimation = null) {
+    let controls = Array.isArray(rawControls) ? rawControls : [];
+    if (!controls.length && legacyAnimation?.type === 'door') {
+      const legacyControl = legacyAnimation.control;
+      controls = [{
+        schemaVersion: 1, id: 'door', type: 'animation', label: 'Hangartor',
+        transport: legacyControl?.transport, simvar: legacyControl?.simvar, unit: 'number', scope: 'global',
+        defaultState: legacyAnimation.defaultState || 'open', durationMs: 5000,
+        states: [
+          { id: 'open', label: 'Öffnen', value: legacyControl?.values?.open },
+          { id: 'closed', label: 'Schließen', value: legacyControl?.values?.closed }
+        ]
+      }];
+    }
+    const ids = new Set();
+    return controls.slice(0, 12).flatMap((raw) => {
+      const id = String(raw?.id || '').trim().toLowerCase();
+      const type = String(raw?.type || '').trim().toLowerCase();
+      const simvar = String(raw?.simvar || '').trim().toUpperCase();
+      if (!/^[a-z][a-z0-9_-]{0,31}$/.test(id) || ids.has(id)) return [];
+      if (!['animation', 'light'].includes(type) || raw?.transport !== 'simconnect-lvar' || raw?.scope !== 'global') return [];
+      if (!/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) return [];
+      const stateIds = new Set();
+      const values = new Set();
+      const states = (Array.isArray(raw?.states) ? raw.states : []).slice(0, 12).flatMap((item) => {
+        const stateId = String(item?.id || '').trim().toLowerCase();
+        const value = Number(item?.value);
+        if (!/^[a-z][a-z0-9_-]{0,31}$/.test(stateId) || stateIds.has(stateId) || !Number.isFinite(value) || values.has(value)) return [];
+        stateIds.add(stateId); values.add(value);
+        return [{ id: stateId, label: String(item?.label || stateId).trim().slice(0, 40), value }];
+      });
+      if (states.length < 2) return [];
+      ids.add(id);
+      return [{
+        schemaVersion: 1, id, type, label: String(raw?.label || id).trim().slice(0, 80),
+        transport: 'simconnect-lvar', simvar, unit: 'number', scope: 'global',
+        defaultState: stateIds.has(String(raw?.defaultState || '').toLowerCase()) ? String(raw.defaultState).toLowerCase() : states[0].id,
+        durationMs: Math.max(0, Math.min(600000, Math.round(Number(raw?.durationMs) || 0))), states
+      }];
+    });
+  }
+
+  function controlsForTitle(rawTitle) {
+    const title = LEGACY_TITLE_ALIASES.get(String(rawTitle || '')) || String(rawTitle || '');
+    const definition = ASSET_DEFINITIONS.get(title);
+    return normalizeControls(definition?.controls, definition?.animation);
+  }
+
+  function headingCorrectionFor(rawTitle) {
+    const title = LEGACY_TITLE_ALIASES.get(String(rawTitle || '')) || String(rawTitle || '');
+    return finite(ASSET_DEFINITIONS.get(title)?.headingCorrectionDeg, 0);
   }
 
   function clamp(value, min, max) {
@@ -296,6 +367,13 @@
     return [[lat, lon], [end.lat, end.lng]];
   }
 
+  function objectHeadingLineLengthM(lat) {
+    const latitudeScale = Math.max(.05, Math.cos(finite(lat) * Math.PI / 180));
+    const metersPerPixel = latitudeScale * 2 * Math.PI * 6378137 / (256 * (2 ** map.getZoom()));
+    const linePixels = clamp(18 + (map.getZoom() - 15) * 2, 18, 28);
+    return metersPerPixel * linePixels;
+  }
+
   function hangarPosition() {
     return offsetLatLon(state.spawn.lat, state.spawn.lon, state.hangar.northM, state.hangar.eastM);
   }
@@ -363,26 +441,45 @@
 
   function mergeRuntimeAssetCatalog(entries) {
     let added = 0;
+    let updated = 0;
     for (const raw of Array.isArray(entries) ? entries : []) {
       const title = String(raw?.title || '').trim().slice(0, 160);
       const folder = String(raw?.folder || '').trim().slice(0, 120);
       const kind = String(raw?.kind || '').trim().toLowerCase();
       if (!title.startsWith('VFR Multitool Homebase ') || !/^VFRHomebase[A-Za-z0-9_-]+$/.test(folder)) continue;
       if (!['object', 'hangar'].includes(kind)) continue;
-      if (raw?.workbenchVisible === false || raw?.homebasePlaceable === false) continue;
+      if (raw?.workbenchVisible === false) continue;
+      const existingDefinition = ASSET_DEFINITIONS.get(title) || {};
+      const mergedDefinition = {
+        ...existingDefinition,
+        ...raw,
+        controls: normalizeControls([
+          ...(Array.isArray(raw?.controls) ? raw.controls : []),
+          ...(Array.isArray(existingDefinition?.controls) ? existingDefinition.controls : [])
+        ], raw?.animation || existingDefinition.animation)
+      };
+      ASSET_DEFINITIONS.set(title, mergedDefinition);
       if (kind === 'hangar') {
-        if (HANGAR_TITLES.has(title)) continue;
-        HANGAR_TITLES.add(title);
-        const option = document.createElement('option');
-        option.value = title;
-        option.textContent = String(raw?.label || title.replace(/^VFR Multitool Homebase /, '')).slice(0, 120);
-        $('hangarSelect').append(option);
-        added += 1;
-        continue;
+        const existingHangar = HANGAR_DEFINITIONS.get(title) || {};
+        HANGAR_DEFINITIONS.set(title, {
+          ...existingHangar,
+          ...mergedDefinition,
+          ...(raw?.footprint || existingHangar?.footprint ? { footprint: raw?.footprint || existingHangar.footprint } : {}),
+          ...(raw?.animation || existingHangar?.animation ? { animation: raw?.animation || existingHangar.animation } : {})
+        });
+        if (!HANGAR_TITLES.has(title)) {
+          HANGAR_TITLES.add(title);
+          const option = document.createElement('option');
+          option.value = title;
+          option.textContent = String(raw?.label || title.replace(/^VFR Multitool Homebase /, '')).slice(0, 120);
+          $('hangarSelect').append(option);
+          added += 1;
+        }
       }
-      if (CATALOG_BY_TITLE.has(title)) continue;
-      const group = String(raw?.group || 'Weitere Objekte').trim().slice(0, 80);
+      if (raw?.homebasePlaceable === false) continue;
+      const group = String(raw?.group || (kind === 'hangar' ? 'Hangars' : 'Weitere Objekte')).trim().slice(0, 80);
       const entry = {
+        ...mergedDefinition,
         key: String(raw?.key || folder).trim().slice(0, 120),
         folder,
         title,
@@ -392,18 +489,25 @@
         icon: group.toLowerCase().includes('gepäck') ? '🧳' : '◆',
         companion: true
       };
-      OBJECT_CATALOG.push(entry);
-      CATALOG_BY_TITLE.set(title, entry);
+      const existingCatalog = CATALOG_BY_TITLE.get(title);
+      if (existingCatalog) {
+        Object.assign(existingCatalog, entry);
+        updated += 1;
+      } else {
+        OBJECT_CATALOG.push(entry);
+        CATALOG_BY_TITLE.set(title, entry);
+        added += 1;
+      }
       COMPANION_TITLES.add(title);
-      added += 1;
     }
-    if (added) {
+    if (added || updated) {
       fillCatalog();
       renderObjectList();
+      renderHomebaseControls();
       updateMap();
-      log(`${added} neue Asset-Katalogeinträge vom installierten Paket übernommen.`, 'ok');
+      log(`${added} neue und ${updated} aktualisierte Asset-Katalogeinträge vom installierten Paket übernommen.`, 'ok');
     }
-    return added;
+    return added + updated;
   }
 
   function renderObjectList() {
@@ -434,7 +538,115 @@
     }
   }
 
+  function controlGroupKey(title, control) {
+    return `${title}|${control.id}|${control.simvar}`;
+  }
+
+  function activeControlGroups() {
+    const instances = [
+      { title: normalizeHangarTitle(state.hangar.objectTitle), id: 'hangar' },
+      ...state.objects.map((item) => ({ title: item.title, id: item.id }))
+    ];
+    const groups = new Map();
+    for (const instance of instances) {
+      const definition = ASSET_DEFINITIONS.get(instance.title) || {};
+      for (const control of controlsForTitle(instance.title)) {
+        const key = controlGroupKey(instance.title, control);
+        const existing = groups.get(key);
+        if (existing) {
+          existing.count += 1;
+          existing.instanceIds.push(instance.id);
+        } else {
+          groups.set(key, {
+            key, title: instance.title, assetLabel: String(definition.label || instance.title.replace(/^VFR Multitool Homebase /, '')),
+            control, count: 1, instanceIds: [instance.id]
+          });
+        }
+      }
+    }
+    return [...groups.values()];
+  }
+
+  function setControlResult(key, message, ok = null) {
+    const element = [...document.querySelectorAll('[data-control-result-key]')]
+      .find((candidate) => candidate.dataset.controlResultKey === key);
+    if (!element) return;
+    element.textContent = message;
+    element.className = `result-line${ok === true ? ' ok' : ok === false ? ' bad' : ''}`;
+  }
+
+  function actionProgressMessage(control, nextState) {
+    if (nextState === 'open') return `${control.label} wird geöffnet …`;
+    if (nextState === 'closed') return `${control.label} wird geschlossen …`;
+    if (nextState === 'on') return `${control.label} wird eingeschaltet …`;
+    if (nextState === 'off') return `${control.label} wird ausgeschaltet …`;
+    const stateDefinition = control.states.find((item) => item.id === nextState);
+    return `${control.label}: ${stateDefinition?.label || nextState} …`;
+  }
+
+  function requestObjectControlState(group, nextState) {
+    const stateDefinition = group?.control?.states?.find((item) => item.id === nextState);
+    if (!stateDefinition) return;
+    const commandId = sendStabilizerCommand('homebase_v1.object.control.set', {
+      title: group.title,
+      controlId: group.control.id,
+      state: stateDefinition.id
+    });
+    const message = commandId
+      ? actionProgressMessage(group.control, stateDefinition.id)
+      : `${group.control.label} konnte nicht gesteuert werden: Relay ist nicht verbunden.`;
+    setControlResult(group.key, message, commandId ? null : false);
+    setResult('previewResult', message, commandId ? null : false);
+    log(commandId
+      ? `homebase_v1.object.control.set gesendet (${commandId}, ${group.control.id}=${stateDefinition.id}).`
+      : `${group.control.label}: Relay ist nicht verbunden.`, commandId ? 'info' : 'error');
+  }
+
+  function renderHomebaseControls() {
+    const container = $('homebaseControls');
+    const empty = $('homebaseControlsEmpty');
+    if (!container || !empty) return;
+    const groups = activeControlGroups();
+    container.textContent = '';
+    empty.hidden = groups.length > 0;
+    for (const group of groups) {
+      const card = document.createElement('article');
+      card.className = 'homebase-control-group';
+      const heading = document.createElement('div');
+      heading.className = 'homebase-control-heading';
+      const title = document.createElement('strong');
+      title.textContent = group.control.label;
+      const scope = document.createElement('span');
+      scope.textContent = group.count === 1 ? group.assetLabel : `${group.assetLabel} · ${group.count} Exemplare`;
+      heading.append(title, scope);
+      const actions = document.createElement('div');
+      actions.className = 'action-row wrap';
+      for (const stateDefinition of group.control.states) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = group.count > 1 && group.control.scope === 'global'
+          ? `Alle: ${stateDefinition.label}`
+          : stateDefinition.label;
+        button.addEventListener('click', () => requestObjectControlState(group, stateDefinition.id));
+        actions.append(button);
+      }
+      const result = document.createElement('p');
+      result.className = 'result-line';
+      result.dataset.controlResultKey = group.key;
+      result.textContent = group.control.scope === 'global' && group.count > 1
+        ? 'Diese Steuerung wirkt gleichzeitig auf alle platzierten Exemplare.'
+        : 'Bereit.';
+      card.append(heading, actions, result);
+      container.append(card);
+    }
+  }
+
   function syncInputsFromState() {
+    state.hangar.objectTitle = normalizeHangarTitle(state.hangar.objectTitle);
+    const footprint = hangarFootprintFor(state.hangar.objectTitle);
+    state.hangar.widthM = footprint.widthM;
+    state.hangar.depthM = footprint.depthM;
     $('spawnLat').value = state.spawn.lat.toFixed(7);
     $('spawnLon').value = state.spawn.lon.toFixed(7);
     $('spawnAlt').value = Math.round(state.spawn.altFt);
@@ -446,34 +658,58 @@
     $('hangarHeading').value = normalizeHeading(state.hangar.heading);
     $('hangarHeadingOut').textContent = `${normalizeHeading(state.hangar.heading)}°`;
     $('hangarHeight').value = Number(state.hangar.heightFt.toFixed(2));
-    $('hangarWidth').value = state.hangar.widthM;
-    $('hangarDepth').value = state.hangar.depthM;
-    $('hangarSelect').value = normalizeHangarTitle(state.hangar.objectTitle);
+    $('hangarWidth').value = footprint.widthM;
+    $('hangarDepth').value = footprint.depthM;
+    $('hangarSelect').value = state.hangar.objectTitle;
+    const sizeText = footprint.widthM === footprint.depthM ? `Das Modell hat einen Durchmesser von ${footprint.widthM} m.` : `Das Modell ist ${footprint.widthM} × ${footprint.depthM} m groß.`;
+    $('hangarWidth').title = sizeText;
+    $('hangarDepth').title = sizeText;
+    const footprintHint = $('hangarFootprintHint');
+    if (footprintHint) footprintHint.textContent = `${sizeText} Plane und Seiten reichen 2 m unter den Nullpunkt; die Höhenkorrektur dient nur zur Feinlage im Gelände.`;
     $('crewShareToggle').checked = syncMeta.crewShareEnabled === true;
     renderObjectList();
+    renderHomebaseControls();
   }
 
   function updateObjectMarkers() {
     const currentIds = new Set(state.objects.map((item) => item.id));
     objectMarkers.forEach((marker, id) => {
-      if (!currentIds.has(id)) { map.removeLayer(marker); objectMarkers.delete(id); }
+      if (!currentIds.has(id)) {
+        map.removeLayer(marker);
+        objectMarkers.delete(id);
+        const headingLineLayer = objectHeadingLines.get(id);
+        if (headingLineLayer) map.removeLayer(headingLineLayer);
+        objectHeadingLines.delete(id);
+      }
     });
     state.objects.forEach((item, index) => {
       const catalog = CATALOG_BY_TITLE.get(item.title);
       let marker = objectMarkers.get(item.id);
+      let headingLineLayer = objectHeadingLines.get(item.id);
       if (!marker) {
+        const markerId = item.id;
         marker = L.marker(objectPosition(item), { icon: markerIcon('object-icon', String(index + 1)), draggable: true }).addTo(map);
-        marker.on('click', (event) => { L.DomEvent.stopPropagation(event); selectObject(item.id); });
+        marker.on('click', (event) => { L.DomEvent.stopPropagation(event); selectObject(markerId); });
         marker.on('dragend', () => {
+          const currentItem = state.objects.find((entry) => entry.id === markerId);
+          if (!currentItem) { updateMap(); return; }
           const point = marker.getLatLng();
           const offset = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
-          item.northM = offset.northM; item.eastM = offset.eastM;
-          selectedObjectId = item.id;
-          saveState(); syncInputsFromState(); updateMap(); scheduleLiveObjectMove(item);
+          currentItem.northM = offset.northM; currentItem.eastM = offset.eastM;
+          selectedObjectId = markerId;
+          saveState(); syncInputsFromState(); updateMap(); scheduleLiveObjectMove(currentItem);
         });
         objectMarkers.set(item.id, marker);
       }
-      marker.setLatLng(objectPosition(item));
+      const position = objectPosition(item);
+      if (!headingLineLayer) {
+        headingLineLayer = L.polyline([], { color: '#54d7d0', weight: 2, opacity: .7, interactive: false }).addTo(map);
+        objectHeadingLines.set(item.id, headingLineLayer);
+      }
+      const selected = item.id === selectedObjectId;
+      headingLineLayer.setLatLngs(headingLine(position.lat, position.lng, item.heading, objectHeadingLineLengthM(position.lat)));
+      headingLineLayer.setStyle({ weight: selected ? 3 : 2, opacity: selected ? 1 : .7 });
+      marker.setLatLng(position);
       marker.setIcon(markerIcon(`object-icon${item.id === selectedObjectId ? ' selected' : ''}`, String(index + 1)));
       marker.bindTooltip(`${catalog?.icon || '•'} ${item.label}`, { direction: 'top', offset: [0, -12] });
       marker.setZIndexOffset(item.id === selectedObjectId ? 1000 : 100 + index);
@@ -489,6 +725,8 @@
     hangarHeadingLine.setLatLngs(headingLine(hp.lat, hp.lng, state.hangar.heading, Math.max(10, state.hangar.depthM * .65)));
     updateObjectMarkers();
   }
+
+  map.on('zoomend', updateObjectMarkers);
 
   function readSpawnStateFromInputs() {
     state.spawn.lat = clamp($('spawnLat').value, -90, 90);
@@ -586,7 +824,7 @@
       spawn: { lat: state.spawn.lat, lon: state.spawn.lon, altFt: state.spawn.altFt, heading: normalizeHeading(state.spawn.heading), mode: 'airport_parking' },
       hangar: {
         lat: hp.lat, lon: hp.lng, altFt: state.spawn.altFt + state.hangar.heightFt,
-        heightOffsetFt: state.hangar.heightFt, heading: normalizeHeading(state.hangar.heading + 180),
+        heightOffsetFt: state.hangar.heightFt, heading: normalizeHeading(state.hangar.heading + headingCorrectionFor(state.hangar.objectTitle)),
         widthM: state.hangar.widthM, depthM: state.hangar.depthM, objectTitle: normalizeHangarTitle(state.hangar.objectTitle)
       },
       objects: state.objects.map((item) => {
@@ -595,7 +833,7 @@
           id: item.id, title: item.title, label: item.label,
           lat: position.lat, lon: position.lng,
           altFt: state.spawn.altFt + item.heightFt, heightOffsetFt: item.heightFt,
-          heading: normalizeHeading(item.heading), scale: item.scale
+          heading: normalizeHeading(item.heading + headingCorrectionFor(item.title)), scale: item.scale
         };
       })
     };
@@ -1362,6 +1600,18 @@
         const ok = ack.status === 'ok' || ack.status === 'noop';
         if (ack.id) liveObjectIds.delete(ack.id);
         setResult('previewResult', ack.message || (ok ? 'Objekt wurde aus der Live-Vorschau entfernt.' : 'Objekt konnte nicht entfernt werden.'), ok);
+        log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
+      }
+      if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack'].includes(data.stabilizerAck?.type)) {
+        const ack = data.stabilizerAck;
+        const ok = ack.status === 'ok';
+        const message = ack.message || (ok ? 'Objektsteuerung wurde ausgeführt.' : 'Objekt konnte nicht gesteuert werden.');
+        const group = activeControlGroups().find((candidate) => (
+          candidate.title === String(ack.title || '')
+          && candidate.control.id === String(ack.controlId || (ack.type.includes('hangar.animation') ? 'door' : ''))
+        )) || activeControlGroups().find((candidate) => candidate.control.simvar === String(ack.simvar || '').toUpperCase());
+        if (group) setControlResult(group.key, message, ok);
+        setResult('previewResult', message, ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
       if (['homebase_v1.preview.object.move_ack', 'homebase_v1.preview.hangar.move_ack'].includes(data.stabilizerAck?.type)) {

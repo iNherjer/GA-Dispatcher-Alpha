@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>VFR Multitool Homebase Workbench</title>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-production4-20260715">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-object-controls-v297-20260716-01">
 </head>
 <body>
   <header class="topbar">
@@ -67,6 +67,7 @@
         <div class="catalog-row">
           <label>Hangarmodell<select id="hangarSelect">
             <option value="VFR Multitool Homebase Hangar">Homebase-Hangar 18 × 22 m</option>
+            <option value="VFR Multitool Homebase Round Hangar">Rundhangar mit Schiebetor Ø 25 m</option>
             <option value="VFR Multitool Homebase Open Parking">Offener Parkbereich mit Containerbüro 18 × 22 m</option>
           </select></label>
           <button id="placeHangarBtn" class="primary">Hangar platzieren</button>
@@ -92,7 +93,16 @@
           <label>Breite m<input id="hangarWidth" type="number" value="18" readonly title="Das Hangarmodell ist fest 18 m breit."></label>
           <label>Tiefe m<input id="hangarDepth" type="number" value="22" readonly title="Das Hangarmodell ist fest 22 m tief."></label>
         </div>
-        <p class="small-note">Das Modell ist 18 × 22 m groß. Plane und Seiten reichen 2 m unter den Nullpunkt; die Höhenkorrektur dient nur zur Feinlage im Gelände.</p>
+        <p id="hangarFootprintHint" class="small-note">Das Modell ist 18 × 22 m groß. Plane und Seiten reichen 2 m unter den Nullpunkt; die Höhenkorrektur dient nur zur Feinlage im Gelände.</p>
+      </section>
+
+      <section class="card homebase-controls-card">
+        <div class="section-title">
+          <div><span class="step">STEUERUNG</span><h2>Homebase-Steuerung</h2></div>
+        </div>
+        <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
+        <div id="homebaseControlsEmpty" class="object-empty">Für die aktuell platzierten Objekte sind keine steuerbaren Funktionen definiert.</div>
+        <p class="small-note">Animationen und Lichter erscheinen hier automatisch, sobald das installierte Assetpaket passende Steuerungsdefinitionen mitliefert. Globale Modellsteuerungen wirken auf alle Exemplare desselben Assets.</p>
       </section>
 
       <section class="card object-card">
@@ -193,7 +203,7 @@
   </main>
 
   <script src="../vendor/leaflet/leaflet.js"></script>
-  <script src="./homebase-asset-catalog.js?v=homebase-production4-20260715"></script>
-  <script src="./homebase-workbench.js?v=crew-homebase-directory-20260715-02"></script>
+  <script src="./homebase-asset-catalog.js?v=homebase-object-controls-v297-20260716-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-object-controls-v297-20260716-01"></script>
 </body>
 </html>

@@ -1,6 +1,16 @@
 {
   "content": [
     {
+      "path": "bglindex.bout",
+      "size": 577,
+      "date": 134286771410031417
+    },
+    {
+      "path": "scenery/vfr-multitool-homebase-assets/modellib/vfrhomebaseroundhangarcollision.bgl",
+      "size": 15556,
+      "date": 134286771410000006
+    },
+    {
       "path": "simobjects/misc/vfrhomebaseassetshelf/model/homebaseassetshelf.xml",
       "size": 236,
       "date": 134285869170000003
@@ -474,6 +484,31 @@
       "path": "simobjects/misc/vfrhomebaseportabletoolbox/sim.cfg",
       "size": 289,
       "date": 134286075440000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar.xml",
+      "size": 1254,
+      "date": 134286771410000003
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod00.bin",
+      "size": 581596,
+      "date": 134286771410262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod00.gltf",
+      "size": 30477,
+      "date": 134286771410262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/model.cfg",
+      "size": 40,
+      "date": 134286577760000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/sim.cfg",
+      "size": 474,
+      "date": 134286577760000000
     },
     {
       "path": "simobjects/misc/vfrhomebasespawnprobe/model/homebasespawnprobe.xml",

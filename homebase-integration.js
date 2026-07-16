@@ -429,6 +429,38 @@
       }, { kind: 'object-remove' });
       return;
     }
+    if (stabilizerCommand.type === 'homebase_v1.hangar.animation.set') {
+      console.info('[Homebase] Hangartor-Befehl aus der Workbench übernommen.', {
+        commandId: stabilizerCommand.commandId,
+        state: stabilizerCommand.state,
+        title: stabilizerCommand.title
+      });
+      const sent = sendTracker({
+        type: 'homebase_v1.hangar.animation.set',
+        commandId: stabilizerCommand.commandId,
+        title: stabilizerCommand.title,
+        state: stabilizerCommand.state
+      }, { kind: 'hangar-animation' });
+      if (!sent) console.warn('[Homebase] Hangartor-Befehl konnte nicht an den Tracker gesendet werden.');
+      return;
+    }
+    if (stabilizerCommand.type === 'homebase_v1.object.control.set') {
+      console.info('[Homebase] Objektsteuerung aus der Workbench übernommen.', {
+        commandId: stabilizerCommand.commandId,
+        title: stabilizerCommand.title,
+        controlId: stabilizerCommand.controlId,
+        state: stabilizerCommand.state
+      });
+      const sent = sendTracker({
+        type: 'homebase_v1.object.control.set',
+        commandId: stabilizerCommand.commandId,
+        title: stabilizerCommand.title,
+        controlId: stabilizerCommand.controlId,
+        state: stabilizerCommand.state
+      }, { kind: 'object-control' });
+      if (!sent) console.warn('[Homebase] Objektsteuerung konnte nicht an den Tracker gesendet werden.');
+      return;
+    }
     if (stabilizerCommand.type === 'homebase_v1.preview.object.move' || stabilizerCommand.type === 'homebase_v1.preview.hangar.move') {
       sendTracker({ type: 'homebase_v1.preview.object.move', commandId: stabilizerCommand.commandId, object: stabilizerCommand.object }, {
         kind: stabilizerCommand.type.endsWith('hangar.move') ? 'hangar-move' : 'object-move'
@@ -551,6 +583,14 @@
     }
     if (meta.kind === 'object-remove') {
       relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.object.remove_ack' } });
+      return;
+    }
+    if (meta.kind === 'hangar-animation') {
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.hangar.animation.set_ack' } });
+      return;
+    }
+    if (meta.kind === 'object-control') {
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.object.control.set_ack' } });
       return;
     }
     if (meta.kind === 'object-move' || meta.kind === 'hangar-move') {

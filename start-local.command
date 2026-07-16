@@ -27,7 +27,8 @@ if [[ -z "$PORT" ]]; then
   exit 1
 fi
 
-URL="http://${BIND_HOST}:${PORT}/index.html?swBypass=1"
+LAUNCH_ID="$(date +%s)"
+URL="http://${BIND_HOST}:${PORT}/index.html?swBypass=1&launch=${LAUNCH_ID}"
 
 open_browser() {
   if command -v open >/dev/null 2>&1; then
