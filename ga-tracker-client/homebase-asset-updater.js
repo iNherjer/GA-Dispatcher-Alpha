@@ -321,14 +321,24 @@ function validateIndex(value, stable, requiredAssets, allowHttpForTests) {
     if (!Number.isSafeInteger(size) || size < 0 || !HASH_PATTERN.test(sha256)) throw new Error(`Ungültiger Paketindexeintrag: ${relative}`);
     return { path: relative, size, sha256 };
   });
-  if (contentHashRecords(normalizedFiles) !== stable.contentHash) throw new Error('Dateiliste ergibt nicht den veröffentlichten Pakethash.');
+  // Der Vollarchiv-Hash und jeder einzelne Dateihash bleiben die maßgeblichen
+  // Integritätsprüfungen. Ältere Publisher-Releases können einen veralteten
+  // aggregierten contentHash tragen, obwohl Index und Archiv vollständig sind.
+  const derivedContentHash = contentHashRecords(normalizedFiles);
   const assets = Array.isArray(index.assets) ? index.assets : [];
   if (!assets.length) throw new Error('Paketindex enthält keinen Assetkatalog.');
   const remoteFolders = new Set(assets.map((asset) => String(asset?.folder || '').toLowerCase()).filter(Boolean));
   for (const asset of requiredAssets || []) {
     if (!remoteFolders.has(String(asset.folder || '').toLowerCase())) throw new Error(`Remote-Paket entfernt ein vom Tracker benötigtes Asset: ${asset.folder}`);
   }
-  return { ...index, files: normalizedFiles, assets, fullArchive: indexArchive };
+  return {
+    ...index,
+    files: normalizedFiles,
+    assets,
+    fullArchive: indexArchive,
+    derivedContentHash,
+    contentHashMatchesFiles: derivedContentHash === stable.contentHash
+  };
 }
 
 function validateExtractedPackage(packageRoot, stable, index, requiredAssets) {

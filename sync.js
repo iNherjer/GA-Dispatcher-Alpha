@@ -11915,9 +11915,9 @@ const liveFreqLookupPending = {};
 // v288 enthalten; dynamische Assetmetadaten benötigen v289 und die sichere
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
-// die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v297.
-const MIN_TRACKER_VERSION_CODE = 297;
-const MIN_TRACKER_VERSION_LABEL = 'v297';
+// die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
+const MIN_TRACKER_VERSION_CODE = 298;
+const MIN_TRACKER_VERSION_LABEL = 'v298';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

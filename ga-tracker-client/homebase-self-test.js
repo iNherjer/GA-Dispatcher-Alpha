@@ -98,7 +98,7 @@ function contentHash(files) {
   return sha256(Buffer.from(files.map((file) => `${file.path}:${file.size}:${file.sha256}`).join('\n')));
 }
 
-function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, entriesFromDirectory, archiveHashOverride = '' }) {
+function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, entriesFromDirectory, archiveHashOverride = '', contentHashOverride = '' }) {
   const packageRoot = path.join(root, `package-${version}`, catalog.assetPackageName);
   fs.cpSync(sourcePackage, packageRoot, { recursive: true });
   const manifestPath = path.join(packageRoot, 'manifest.json');
@@ -125,7 +125,7 @@ function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, e
     packageName: catalog.assetPackageName,
     packageVersion: version,
     releaseTag: tag,
-    contentHash: packageHash,
+    contentHash: contentHashOverride || packageHash,
     files,
     assets: catalog.assets.map((asset) => ({
       ...asset,
@@ -144,7 +144,7 @@ function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, e
     packageVersion: version,
     releaseTag: tag,
     indexUrl,
-    contentHash: packageHash,
+    contentHash: contentHashOverride || packageHash,
     fullArchive: archiveDescriptor,
     changedAssets: index.changedAssets,
     removedAssets: []
@@ -472,7 +472,8 @@ async function run() {
       root: testRoot,
       version: '0.6.5',
       createZip,
-      entriesFromDirectory
+      entriesFromDirectory,
+      contentHashOverride: 'f'.repeat(64)
     });
     const remoteAcks = [];
     const remoteService = createHomebasePackageService({
