@@ -7,7 +7,9 @@
 
   return Object.freeze({
     schemaVersion: 1,
-    assetPackageVersion: '0.6.0',
+    // Fallback only: the Workbench augments this from the active asset package index.
+    // New releases must therefore not require a new Tracker EXE just to become selectable.
+    assetPackageVersion: '0.6.2',
     assetPackageName: 'vfr-multitool-homebase-assets',
     assets: Object.freeze([
       { key: 'hangar', folder: 'VFRHomebaseHangar', title: 'VFR Multitool Homebase Hangar', kind: 'hangar', label: 'Homebase-Hangar' },
@@ -23,8 +25,16 @@
       { key: 'woodCrateLarge', folder: 'VFRHomebaseWoodCrateLarge', title: 'VFR Multitool Homebase Wood Crate Large', kind: 'object', group: 'Ausstattung', label: 'Holzkiste groß', icon: 'K' },
       { key: 'europeanCaravan', folder: 'VFRHomebaseEuropeanCaravan', title: 'VFR Multitool Homebase European Caravan', kind: 'object', group: 'Ausstattung', label: 'Wohnwagen (einachsig)', icon: 'W' },
       { key: 'assetShelf', folder: 'VFRHomebaseAssetShelf', title: 'VFR Multitool Homebase Asset Shelf', kind: 'object', group: 'Ausstattung', label: 'Asset-Regal (Eimer, Ölkanne, Kartons)', icon: 'R' },
+      { key: 'backpack', folder: 'VFRHomebaseBackpack', title: 'VFR Multitool Homebase Backpack', kind: 'object', group: 'Gepäck & Fracht', label: 'Rucksack', icon: 'G', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'luggage', 'passenger', 'travel', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
       { key: 'briefcase', folder: 'VFRHomebaseBriefcase', title: 'VFR Multitool Homebase Briefcase', kind: 'object', group: 'Gepäck & Fracht', label: 'Briefcase', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
       { key: 'cabin-trolley', folder: 'VFRHomebaseCabinTrolley', title: 'VFR Multitool Homebase Cabin Trolley', kind: 'object', group: 'Gepäck & Fracht', label: 'Cabin Trolley', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'daypack', folder: 'VFRHomebaseDaypack', title: 'VFR Multitool Homebase Daypack', kind: 'object', group: 'Gepäck & Fracht', label: 'Tagesrucksack', icon: 'G', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'luggage', 'outdoor', 'personal'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'duffelBag', folder: 'VFRHomebaseDuffelBag', title: 'VFR Multitool Homebase Duffel Bag', kind: 'object', group: 'Gepäck & Fracht', label: 'Duffelbag / Reisetasche', icon: 'G', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'luggage', 'charter', 'outdoor'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'insulatedCooler', folder: 'VFRHomebaseInsulatedCooler', title: 'VFR Multitool Homebase Insulated Cooler', kind: 'object', group: 'Gepäck & Fracht', label: 'Isolierte Kühlbox', icon: 'C', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'cooler', 'medical', 'samples', 'outdoor'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'jerrycanPair', folder: 'VFRHomebaseJerrycanPair', title: 'VFR Multitool Homebase Jerrycan Pair', kind: 'object', group: 'Ausstattung', label: 'Kanister-Doppelpack', icon: 'F', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'fuel', 'supply', 'bush', 'maintenance'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'mailSack', folder: 'VFRHomebaseMailSack', title: 'VFR Multitool Homebase Mail Sack', kind: 'object', group: 'Fracht', label: 'Postsack', icon: 'G', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'mail', 'delivery', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'portableToolbox', folder: 'VFRHomebasePortableToolbox', title: 'VFR Multitool Homebase Portable Toolbox', kind: 'object', group: 'Ausstattung', label: 'Tragbare Werkzeugkiste', icon: 'R', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'tools', 'maintenance', 'club', 'bush'], missionRoles: ['cargo', 'scene-prop'] },
+      { key: 'toolbox', folder: 'VFRHomebaseToolbox', title: 'VFR Multitool Homebase Toolbox', kind: 'object', group: 'Fracht', label: 'Werkzeugkiste', icon: 'R', homebasePlaceable: true, missionSpawnable: true, missionTags: ['cargo', 'tools', 'maintenance', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
       { key: 'travel-suitcase', folder: 'VFRHomebaseTravelSuitcase', title: 'VFR Multitool Homebase Travel Suitcase', kind: 'object', group: 'Gepäck & Fracht', label: 'Travel Suitcase', icon: 'G', missionSpawnable: true, missionTags: ['cargo', 'luggage', 'supplies'], missionRoles: ['cargo', 'scene-prop'] },
       { key: 'chair', folder: 'VFRHomebaseChair', title: 'VFR Multitool Homebase Chair', kind: 'object', group: 'Ausstattung', label: 'Stuhl', icon: 'S' },
       { key: 'trafficCone', folder: 'VFRHomebaseTrafficCone', title: 'VFR Multitool Homebase Traffic Cone', kind: 'object', group: 'Flugplatz', label: 'Traffic Cone', icon: 'K' },
