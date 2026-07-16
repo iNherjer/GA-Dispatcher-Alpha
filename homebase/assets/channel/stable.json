@@ -1,30 +1,17 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-07-15T19:12:36.522Z",
+  "publishedAt": "2026-07-16T12:45:14.145Z",
   "packageName": "vfr-multitool-homebase-assets",
-  "packageVersion": "0.6.2",
-  "releaseTag": "homebase-assets-v0.6.2",
-  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.2/package-index.json",
-  "contentHash": "4e614361cc7424179203bb564dc1d26c2fcb00d253dfc279434d173dc9613929",
+  "packageVersion": "0.6.4",
+  "releaseTag": "homebase-assets-v0.6.4",
+  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.4/package-index.json",
+  "contentHash": "a863a0420d5c490057e2408b3b37126c9318b907b371d9bb6c9d43161308ffcf",
   "fullArchive": {
-    "name": "vfr-multitool-homebase-assets-0.6.2-full.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.2/vfr-multitool-homebase-assets-0.6.2-full.zip",
-    "size": 448380,
-    "sha256": "280096397788c10b3f4cd9f652d667c28a956866c0f463c6c2e4c4a9ab02bcaf"
+    "name": "vfr-multitool-homebase-assets-0.6.4-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.4/vfr-multitool-homebase-assets-0.6.4-full.zip",
+    "size": 579621,
+    "sha256": "8003243d293a39f5ec43073e7b494bdaf6a432be08aea8e579639326ba0f9d1e"
   },
-  "changedAssets": [
-    "cabinTrolley",
-    "daypack",
-    "duffelBag",
-    "insulatedCooler",
-    "jerrycanPair",
-    "mailSack",
-    "portableToolbox",
-    "toolbox",
-    "travelSuitcase"
-  ],
-  "removedAssets": [
-    "cabin-trolley",
-    "travel-suitcase"
-  ]
+  "changedAssets": [],
+  "removedAssets": []
 }
