@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseRoundHangar" guid="{d75a2a92-0e48-4ea1-8f75-9f036cdd0d39}">
+  <LODS>
+    <LOD ModelFile="HomebaseRoundHangar_LOD00.gltf" MinSize="0.0000"/>
+  </LODS>
+  <Animation name="RoundHangarDoor" guid="{5f0ac5e6-6f0e-4df1-824e-64b7fd4e6b3f}" type="Standard"/>
+  <Behaviors>
+    <Include ModelBehaviorFile="Asobo\Generic.xml"/>
+    <Component ID="RoundHangarDoor" Node="RoundHangarDoor">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>RoundHangarDoor</ANIM_NAME>
+        <ANIM_CODE>(L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND, number) 0.5 &gt; if{ 100 } els{ 0 }</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+        <ANIM_LAG>5000</ANIM_LAG>
+      </UseTemplate>
+    </Component>
+    <Component ID="RoundHangarLamp" Node="RoundHangarLamp">
+      <UseTemplate Name="ASOBO_GT_Emissive_Gauge">
+        <EMISSIVE_CODE>1</EMISSIVE_CODE>
+      </UseTemplate>
+    </Component>
+  </Behaviors>
+</ModelInfo>

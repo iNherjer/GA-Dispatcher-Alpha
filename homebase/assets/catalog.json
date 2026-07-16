@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -113,7 +113,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "customWindsock",
@@ -130,7 +131,8 @@
       "missionRoles": [
         "internal"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "daypack",
@@ -172,7 +174,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "duffelBag",
@@ -215,7 +218,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "fuelDrum",
@@ -236,7 +240,8 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "generator",
@@ -257,7 +262,8 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "hangar",
@@ -275,7 +281,10 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "group": "Gebäude",
+      "updatedAt": "2026-07-16T07:30:49.118Z"
     },
     {
       "key": "insulatedCooler",
@@ -366,7 +375,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "openParking",
@@ -383,7 +393,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "pinboard",
@@ -402,7 +413,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "portableToolbox",
@@ -429,6 +441,47 @@
       "updatedAt": "2026-07-15T19:05:32.097Z"
     },
     {
+      "key": "roundHangar",
+      "folder": "VFRHomebaseRoundHangar",
+      "title": "VFR Multitool Homebase Round Hangar",
+      "kind": "hangar",
+      "group": "Hangars",
+      "label": "Rundhangar mit Schiebetor",
+      "icon": "H",
+      "version": "1.0.0",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "hangar",
+        "shelter"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "footprint": {
+        "widthM": 25,
+        "depthM": 25
+      },
+      "animation": {
+        "schemaVersion": 1,
+        "type": "door",
+        "durationMs": 5000,
+        "control": {
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "values": {
+            "open": 0,
+            "closed": 1
+          }
+        },
+        "defaultState": "open"
+      }
+    },
+    {
       "key": "spawnProbe",
       "folder": "VFRHomebaseSpawnProbe",
       "title": "VFR Multitool Homebase Spawn Probe",
@@ -443,7 +496,8 @@
       "missionRoles": [
         "internal"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "toolbox",
@@ -487,7 +541,8 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "trafficCone",
@@ -506,7 +561,8 @@
       "missionRoles": [
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "travelSuitcase",
@@ -550,7 +606,8 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "woodCrateMedium",
@@ -571,7 +628,8 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     },
     {
       "key": "woodCrateSmall",
@@ -592,9 +650,10 @@
         "cargo",
         "scene-prop"
       ],
-      "workbenchVisible": true
+      "workbenchVisible": true,
+      "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-15T19:05:32.154Z",
+  "updatedAt": "2026-07-16T07:53:06.926Z",
   "stockObjects": []
 }
