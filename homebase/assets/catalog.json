@@ -284,6 +284,7 @@
       "workbenchVisible": true,
       "homebasePlaceable": true,
       "group": "Gebäude",
+      "headingCorrectionDeg": 180,
       "updatedAt": "2026-07-16T07:30:49.118Z"
     },
     {
@@ -394,7 +395,8 @@
         "scene-prop"
       ],
       "workbenchVisible": true,
-      "homebasePlaceable": true
+      "homebasePlaceable": true,
+      "headingCorrectionDeg": 180
     },
     {
       "key": "pinboard",
@@ -463,6 +465,65 @@
       "footprint": {
         "widthM": 25,
         "depthM": 25
+      },
+      "headingCorrectionDeg": 0,
+      "controls": [
+        {
+          "schemaVersion": 1,
+          "id": "door",
+          "type": "animation",
+          "label": "Rundhangar Tor",
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "defaultState": "open",
+          "durationMs": 5000,
+          "states": [
+            { "id": "open", "label": "Öffnen", "value": 0 },
+            { "id": "closed", "label": "Schließen", "value": 1 }
+          ]
+        },
+        {
+          "schemaVersion": 1,
+          "id": "interiorLight",
+          "type": "light",
+          "label": "Innenbeleuchtung",
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "defaultState": "on",
+          "states": [
+            { "id": "on", "label": "Einschalten", "value": 0 },
+            { "id": "off", "label": "Ausschalten", "value": 1 }
+          ]
+        }
+      ],
+      "collisionProfile": {
+        "schemaVersion": 1,
+        "mode": "static-model-lib",
+        "modelLibGuid": "{B90D5EAB-0F9C-4A2A-9917-F57D81E3A24C}",
+        "sourceFolder": "VFRHomebaseRoundHangarCollision",
+        "placement": "coincident",
+        "groundSurface": "continuous-terrain-apron-floor",
+        "defaultHeightOffsetFt": 0,
+        "warnOnHeightOffset": true
+      },
+      "vegetationExclusion": {
+        "schemaVersion": 1,
+        "shape": "circle",
+        "radiusM": 17.3,
+        "segments": 48,
+        "vegetationScale": 0,
+        "vegetationDensity": 0,
+        "falloffM": 0.5,
+        "terrainAdjustment": "none",
+        "attributes": [
+          { "name": "VegetationScale", "guid": "{6A043F59-E6F2-4117-A2E4-D510E7317C29}", "type": "UINT32", "value": 0 },
+          { "name": "VegetationDensity", "guid": "{41EFF715-C392-4B31-A457-50A504353A90}", "type": "UINT32", "value": 0 },
+          { "name": "VegetationFalloff", "guid": "{E82ABE17-FB4C-4F67-A28C-ED41969AEAD6}", "type": "FLOAT32", "value": 0.5 }
+        ]
       },
       "animation": {
         "schemaVersion": 1,

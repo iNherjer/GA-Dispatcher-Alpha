@@ -1,21 +1,33 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T07:54:38.235Z",
+  "generatedAt": "2026-07-16T12:39:56.010Z",
   "packageName": "vfr-multitool-homebase-assets",
   "packageVersion": "0.6.3",
   "releaseTag": "homebase-assets-v0.6.3",
   "repository": "iNherjer/GA-Dispatcher-Alpha",
-  "contentHash": "c2230966b10dfd407119814d037e43874e80a9001325468c1076cf69545494d4",
+  "contentHash": "5193912a5dd04c6fddbf011af9f100b4ee29e2dbe0cbb4b9704c1fb64c645b86",
+  "packageContentHash": "ab6ce7528f1d45cadc104660ddde4e381a69a4bbf4472dbcd6b78bccd4cdc21e",
+  "metadataHash": "957d600881c43f88d7f66a187e759c7d73be0572b266677a213b43b430dec946",
   "files": [
     {
+      "path": "bglIndex.bout",
+      "size": 577,
+      "sha256": "9cffd321972d3b1e4ef2823ab3eecaf8b5fba55033883fc39422ad51f6a951d6"
+    },
+    {
       "path": "layout.json",
-      "size": 21106,
-      "sha256": "fe270dc99873fe1902954e4a954d84761f4c47277f9f691e35698cba489615b4"
+      "size": 21370,
+      "sha256": "95b2767c34f8318310b6aea7d939a73c46627cf2f8296785c6b68521c3dfb483"
     },
     {
       "path": "manifest.json",
       "size": 517,
-      "sha256": "57fc3a6d41e1ea267865e9d565c964c67d78e1dd61bca36637fa84ddad511671"
+      "sha256": "a1986f92af68494f88d79d2a670f379aca259145bc073651ab5c2c26a50e88e0"
+    },
+    {
+      "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
+      "size": 15556,
+      "sha256": "5c04c6c45dcef5085b721cd6b87adab99ab5b7b648090efa206e92bade31b6f6"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.bin",
@@ -494,18 +506,18 @@
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.bin",
-      "size": 566080,
-      "sha256": "0b2e3d1139c5465939572371cd2626f6959ac6b287233b2c4738a88b8bb8cdf3"
+      "size": 581596,
+      "sha256": "354a1ab0f758fe203f92a77346cd61d3ebf2afe3e6fa0214571f32333b0a07a1"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.gltf",
-      "size": 30462,
-      "sha256": "13e485be779f1e5867cc20580c8feef4c90e031666ed07b723258a781f75296f"
+      "size": 30477,
+      "sha256": "8bb0bc6d89bb4917eb1821c71fd333231816c3285390aa0a586746b135239335"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar.xml",
-      "size": 939,
-      "sha256": "91fbd87a5c15bfd12dbbc8dd7d4c072a67fa4c400ce6f8d709ddf1153f674feb"
+      "size": 1254,
+      "sha256": "27333d708826c90252a5e1e804e3cd7a2702b40d0d672acaf7828e69848d101e"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/model.CFG",
@@ -763,8 +775,10 @@
         "scene-prop"
       ],
       "workbenchVisible": true,
-      "contentHash": "2129f1e917062e75439f1753a240de8c72e277b28ad300b6db2a4e1ea74e57e9",
-      "changed": false,
+      "modelHash": "2129f1e917062e75439f1753a240de8c72e277b28ad300b6db2a4e1ea74e57e9",
+      "metadataHash": "1e99d05512c3cd433d9ca61b660b712192879fb4497fb61c2de454870eb1b68b",
+      "contentHash": "219d769b0313955c592f7306da443485c8011579f7d208c2f2c249b0fed319ae",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.bin",
@@ -796,8 +810,8 @@
         "name": "assetShelf-1.0.1.zip",
         "path": "assets/assetShelf-1.0.1.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/assetShelf-1.0.1.zip",
-        "size": 43478,
-        "sha256": "530794f834cfcaabdd6e879b4be65733d10a178b8bc6245007653e41a3673d3b"
+        "size": 43569,
+        "sha256": "3a28d165a77f0b318be2c82818eae7ad3feb8462c601693d83eff3450399b6b9"
       }
     },
     {
@@ -823,8 +837,10 @@
       "updatedAt": "2026-07-15T19:05:32.018Z",
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "cdf2edc4b80d0bdfab6cb1a337b01ef101fae6815a55fa73f88cb3a0b1eddeb2",
-      "changed": false,
+      "modelHash": "cdf2edc4b80d0bdfab6cb1a337b01ef101fae6815a55fa73f88cb3a0b1eddeb2",
+      "metadataHash": "a7297e9a7053766b03f9cbb65ca06f90828c5ec056a339a290526edd4a0ec87f",
+      "contentHash": "5b1c83e996096d6dd0a58bb6707986ddc2cea11bf5e68de9df70079a92ccb60d",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack_LOD00.bin",
@@ -856,8 +872,8 @@
         "name": "backpack-1.0.0.zip",
         "path": "assets/backpack-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/backpack-1.0.0.zip",
-        "size": 10408,
-        "sha256": "a18866a704d963c058bad37223fb3361f4bad4442c4407d3f7d395dfd054308c"
+        "size": 10500,
+        "sha256": "e56f1d72ef2258f6db64487a67aabaddbabb1ae3077864e4b8c04ee4db68e351"
       }
     },
     {
@@ -882,8 +898,10 @@
       "updatedAt": "2026-07-15T19:05:31.914Z",
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "37d84bce111f16c178a83825572a12690c5998c08f455c34fe120d87c70b0f82",
-      "changed": false,
+      "modelHash": "37d84bce111f16c178a83825572a12690c5998c08f455c34fe120d87c70b0f82",
+      "metadataHash": "79bcbb82d49e6ab328b11cd67b3861123401f8b6bfc635ce05c7ed7ba055fe5b",
+      "contentHash": "f46a606b20b3676ac544f0ce49b9d19252aaae0c870f0982796667a938eeefc0",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase_LOD00.bin",
@@ -915,8 +933,8 @@
         "name": "briefcase-1.0.0.zip",
         "path": "assets/briefcase-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/briefcase-1.0.0.zip",
-        "size": 7493,
-        "sha256": "0d433b9595ea6c80efcb4692824979f6ace1de43e4971c7baa1f13e472eee18f"
+        "size": 7587,
+        "sha256": "10d4b58accfffef171ad3fd8b1c388a3ec0e43ae31cbaf49cb17e993066981c1"
       }
     },
     {
@@ -941,8 +959,10 @@
       "updatedAt": "2026-07-15T19:05:31.953Z",
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "24f4af0af628ed83e4fc48d3227c4dae01f07fef3a5024ea05eb3b47353eff9b",
-      "changed": false,
+      "modelHash": "24f4af0af628ed83e4fc48d3227c4dae01f07fef3a5024ea05eb3b47353eff9b",
+      "metadataHash": "912919eb01a84c0546cc93f20e93b519f54b9ff507e9646bb4d85c4a09a03fc8",
+      "contentHash": "3ba3e111227e1bac5ebdca15156aea9e75d7c854b25d3f3e16ebe74e8d5bfd46",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley_LOD00.bin",
@@ -974,8 +994,8 @@
         "name": "cabinTrolley-1.0.0.zip",
         "path": "assets/cabinTrolley-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/cabinTrolley-1.0.0.zip",
-        "size": 8625,
-        "sha256": "dad052e4b722f5df8ed57d89ce0bd871240e6beec36f3fe90a340f7c71053824"
+        "size": 8720,
+        "sha256": "e09a82778658d37378cc98400ccfb52f797be8d169309172d48647bc1642fae6"
       }
     },
     {
@@ -997,8 +1017,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "a7b13e9d277da6089cb3658fea1415a48d0aa64583948cd94ba4d324acf8884f",
-      "changed": false,
+      "modelHash": "a7b13e9d277da6089cb3658fea1415a48d0aa64583948cd94ba4d324acf8884f",
+      "metadataHash": "c68c0c1fe144b52da32bae9a6373beba8d51070438a01c19e5f15ae302322560",
+      "contentHash": "9feb7a2ef2e7ec9a396ffea5dd2c29e08408f84a2bfb76094adcf075149d133b",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair_LOD00.bin",
@@ -1030,8 +1052,8 @@
         "name": "chair-1.0.0.zip",
         "path": "assets/chair-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/chair-1.0.0.zip",
-        "size": 4633,
-        "sha256": "efbcbfb1d692d85bcb6edc66727660cdbd01840778e2272e33cb76b4aa954715"
+        "size": 4723,
+        "sha256": "c5be8fba02bb066de76c17a5819e7e37cdd2a5a036f8588b77ef999fec74a1fb"
       }
     },
     {
@@ -1051,8 +1073,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "a664326793d62443f6bc5f05c263f2574e1c9b87918d004f01a0247955b1103b",
-      "changed": false,
+      "modelHash": "a664326793d62443f6bc5f05c263f2574e1c9b87918d004f01a0247955b1103b",
+      "metadataHash": "cf08eed2df5e482a391b41543f706cbdd65f2808e1fcb5a98ecb4846cd78a2de",
+      "contentHash": "4809bb926f973ad7b9ad01f55408d9912a6b352880619afed8fc2a56ffcc618b",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock_LOD00.bin",
@@ -1084,8 +1108,8 @@
         "name": "customWindsock-1.0.0.zip",
         "path": "assets/customWindsock-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/customWindsock-1.0.0.zip",
-        "size": 6858,
-        "sha256": "93257fc13ded73bd2f2b2f6b54b3a0614052af9b2206064499b50b903125c7d7"
+        "size": 6952,
+        "sha256": "fed96516a686b12857ca2ad07849b417496198fdcb175f16eabc4202a4080483"
       }
     },
     {
@@ -1110,8 +1134,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.061Z",
-      "contentHash": "2287d7cfc99e2bf18996c6e69d8bab21358972e6aceef7fd883995c4939e236d",
-      "changed": false,
+      "modelHash": "2287d7cfc99e2bf18996c6e69d8bab21358972e6aceef7fd883995c4939e236d",
+      "metadataHash": "622e107edf629fe7409d6e0c8e8486580a113257687ffa5ae21d710bb123c2c4",
+      "contentHash": "28a29fd7e412285c3b675ecfda4016b236c2a4900cbae5fca7567cf8b320b9a2",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack_LOD00.bin",
@@ -1143,8 +1169,8 @@
         "name": "daypack-1.0.0.zip",
         "path": "assets/daypack-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/daypack-1.0.0.zip",
-        "size": 9147,
-        "sha256": "62b8bb1985f2208af4b26a5fef8d669039e8aa38f4313432451f19d17153bd04"
+        "size": 9239,
+        "sha256": "afd4b15bda75eaa7ed0c93ac4c49d4ab79e8f9911b67a84c77d69a3b26c74b50"
       }
     },
     {
@@ -1166,8 +1192,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "d42b3b57ebf9477f8ae0ff2f53eaa713f139af7491a173b91b882ab32b86cfa4",
-      "changed": false,
+      "modelHash": "d42b3b57ebf9477f8ae0ff2f53eaa713f139af7491a173b91b882ab32b86cfa4",
+      "metadataHash": "e72c4c1d64dd347c49b0aeb5ebe99bf2f7375e62b7eaf71b801a229454d876aa",
+      "contentHash": "b3e35e9ebad4a2a74a4869224245c26bb1abcfc361400a8782bb805f503e94f1",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk_LOD00.bin",
@@ -1199,8 +1227,8 @@
         "name": "desk-1.0.0.zip",
         "path": "assets/desk-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/desk-1.0.0.zip",
-        "size": 6542,
-        "sha256": "a3fc1198d9a64039b5c27a1471bb161f86fc311b7a15c252556567e383644f18"
+        "size": 6634,
+        "sha256": "b4f05b89e2918107b7908663add27a17b71b242090b6a352c1e74ac09d380aed"
       }
     },
     {
@@ -1225,8 +1253,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.079Z",
-      "contentHash": "6b615fe5afce7a684bbbbbb01efcf4925fde5b2f9415d05ee2a843fe717d7ee4",
-      "changed": false,
+      "modelHash": "6b615fe5afce7a684bbbbbb01efcf4925fde5b2f9415d05ee2a843fe717d7ee4",
+      "metadataHash": "c575c3f7d2fc32cc444dc92242bcf0377e3bd0d3527094a9119a75e0ea88a9df",
+      "contentHash": "9d18205166a2737b06fe941e5619f9f7089fb88ae4c07756636b02ab65bb3407",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag_LOD00.bin",
@@ -1258,8 +1288,8 @@
         "name": "duffelBag-1.0.0.zip",
         "path": "assets/duffelBag-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/duffelBag-1.0.0.zip",
-        "size": 9370,
-        "sha256": "7022a8ca464fe5c36c6af3ddc2f2dfad98d54268297d28bd76e78b9d1b442934"
+        "size": 9463,
+        "sha256": "78331c067db1d6e4242092e1447d5f117a1449ba1ad2a5527a53ff96af18861b"
       }
     },
     {
@@ -1282,8 +1312,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "7d61528c6dfc666b1809b100a64ef518059a1d47160b48887a43a09917660040",
-      "changed": false,
+      "modelHash": "7d61528c6dfc666b1809b100a64ef518059a1d47160b48887a43a09917660040",
+      "metadataHash": "69a6e7789051868b4c67e6ef04cbe8d434cb7379fc0b7d88bc3e3e907b5866c9",
+      "contentHash": "e57ae25dff892aa78dfb548e64e243c46a7eb1bcfd4a00d1ad85ae617509d6fb",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan_LOD00.bin",
@@ -1315,8 +1347,8 @@
         "name": "europeanCaravan-1.0.0.zip",
         "path": "assets/europeanCaravan-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/europeanCaravan-1.0.0.zip",
-        "size": 31055,
-        "sha256": "af2fac6dd4a7475a0d62a6867b11d9be80a0712c4d5d53073b193dcc39c6d1a2"
+        "size": 31145,
+        "sha256": "eb96b084e55e78e535f93678b545240f0501c9d890dd29b6c657dbbea86580b0"
       }
     },
     {
@@ -1340,8 +1372,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "23a01c6e67391338fd89dca23544fa5229ab84f51978d7fafc39e746e8ae0835",
-      "changed": false,
+      "modelHash": "23a01c6e67391338fd89dca23544fa5229ab84f51978d7fafc39e746e8ae0835",
+      "metadataHash": "207a63a8a5273772cf9c9fad5346cfa01c4058a5bb8ae76e49a4be6b9d2c60b0",
+      "contentHash": "96bd98266879e1ce5424097cec245fe6687d4c1369afa6440aee4241a52975ea",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.bin",
@@ -1373,8 +1407,8 @@
         "name": "fuelDrum-1.0.0.zip",
         "path": "assets/fuelDrum-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/fuelDrum-1.0.0.zip",
-        "size": 20702,
-        "sha256": "c8dc024f66222d321c960ad13f5f39d9966b52253499640e05895406c2b1f5f6"
+        "size": 20791,
+        "sha256": "7e4dbfded1a9d82e6e707d556dfc10dade36cda0aba426cbfed85d9c6607d497"
       }
     },
     {
@@ -1398,8 +1432,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "53a4547c448aa97fd8de617d360c7db01848268792865a70bb355988dc8f5b4f",
-      "changed": false,
+      "modelHash": "53a4547c448aa97fd8de617d360c7db01848268792865a70bb355988dc8f5b4f",
+      "metadataHash": "8ccd1eceb38910bea69e86ccedc28f89e917f8c9bbaaa1e5670d620de143d290",
+      "contentHash": "21681a320b57a324169d3db31f3fe0b654042174378a675bb773583fec86fa7e",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator_LOD00.bin",
@@ -1431,8 +1467,8 @@
         "name": "generator-1.0.0.zip",
         "path": "assets/generator-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/generator-1.0.0.zip",
-        "size": 11071,
-        "sha256": "6dcb481d241826440714f6cb766b09a6aefa5832f7ecf6bc32f650c635d5a39a"
+        "size": 11161,
+        "sha256": "1b5ec014b23d9b28c532e02d5bacec0a761845b5452caceeb4d8f46a48c3636e"
       }
     },
     {
@@ -1454,9 +1490,12 @@
       "workbenchVisible": true,
       "homebasePlaceable": true,
       "group": "Gebäude",
+      "headingCorrectionDeg": 180,
       "updatedAt": "2026-07-16T07:30:49.118Z",
-      "contentHash": "bf8bdc53e64e532ce1b9386525a95c7182eda043789584f72520a86c0265170f",
-      "changed": false,
+      "modelHash": "bf8bdc53e64e532ce1b9386525a95c7182eda043789584f72520a86c0265170f",
+      "metadataHash": "cf9371f19f0d4229d982bae05fc0d0e1058d4e2e762b0780ec2a907d18b01859",
+      "contentHash": "2637c647266506d9e94e2dc3c1f03a7617fc244b6f91b3960d6a7a8c9ab63ce5",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar_LOD00.bin",
@@ -1488,8 +1527,8 @@
         "name": "hangar-1.0.0.zip",
         "path": "assets/hangar-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/hangar-1.0.0.zip",
-        "size": 150570,
-        "sha256": "11df44a5f7cf78aa5995270e128065da3ff7efe32bd29b2226d988f393200163"
+        "size": 150682,
+        "sha256": "1f6a47ca6c2434266f89c0bb0b2550c6835e9c943ca73e12c3e36e26b6462eb8"
       }
     },
     {
@@ -1515,8 +1554,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.135Z",
-      "contentHash": "296ccf524f3b6991cf8efe5594da7bb2ff699ef9456e422d2d88625fbd245a44",
-      "changed": false,
+      "modelHash": "296ccf524f3b6991cf8efe5594da7bb2ff699ef9456e422d2d88625fbd245a44",
+      "metadataHash": "d72e5558457b60d606bf38db884fa438185b05826203ca1d186d2c0a9fe2f4bc",
+      "contentHash": "34ad702c2a6cfa732a08e88433fa37e13931f6ad60f589faa5ccab390a1a432b",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.bin",
@@ -1548,8 +1589,8 @@
         "name": "insulatedCooler-1.0.0.zip",
         "path": "assets/insulatedCooler-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/insulatedCooler-1.0.0.zip",
-        "size": 6865,
-        "sha256": "995c8610cc922a0837eea639568946aa73f64702a27edbb3b94e3fd0a725dbce"
+        "size": 6959,
+        "sha256": "7fc6a111dfa56ccbdfffc5e3db9b2934fb17d9a0c46ce3a98f2411de647e58f6"
       }
     },
     {
@@ -1575,8 +1616,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.117Z",
-      "contentHash": "7f8aa73725923b90e97c33498982e3b7a5e8aa8abbf5a0cb1f86ce049717262d",
-      "changed": false,
+      "modelHash": "7f8aa73725923b90e97c33498982e3b7a5e8aa8abbf5a0cb1f86ce049717262d",
+      "metadataHash": "b0732fcdd80b532b9272cd3f3eeb504066fd720b1649ff6d60d328ad2da1a7a9",
+      "contentHash": "1b4c7de5790e343a0d2df1b4a69fb331a3f784c663d2ef5e598207c241941785",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair_LOD00.bin",
@@ -1608,8 +1651,8 @@
         "name": "jerrycanPair-1.0.0.zip",
         "path": "assets/jerrycanPair-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/jerrycanPair-1.0.0.zip",
-        "size": 8499,
-        "sha256": "d87053fc0d50c4294a49d929badff8b0a3c4c2167415cd0187660f015aad725b"
+        "size": 8592,
+        "sha256": "ac51feda52ff94fcf51979c6a413141f32479dd76527709e265ce22aadaad9f8"
       }
     },
     {
@@ -1634,8 +1677,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:31.999Z",
-      "contentHash": "374c601c63b80f4412d6e991dea917897d10ed1e615860ec0abf64d969af6a71",
-      "changed": false,
+      "modelHash": "374c601c63b80f4412d6e991dea917897d10ed1e615860ec0abf64d969af6a71",
+      "metadataHash": "c448e1db4aa7be9a28080538fceef7a6d65e74d691af92e24c522dea92f8bd3e",
+      "contentHash": "0dab202f2df6ab6ff46731e5375444ab107d8314f1447d1bf5dbb026e520115a",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack_LOD00.bin",
@@ -1667,8 +1712,8 @@
         "name": "mailSack-1.0.0.zip",
         "path": "assets/mailSack-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/mailSack-1.0.0.zip",
-        "size": 14079,
-        "sha256": "ae29c0ce1e41c5b13b9c32e89f73e52be72acf089c4a771e5ec533e5e94509fd"
+        "size": 14171,
+        "sha256": "575a8021bcfde3efb6043bef0eb673b9d5c90c37d60d240d324a35fec241763b"
       }
     },
     {
@@ -1691,8 +1736,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "ee488eb9a9d690e465f6fbb14447a6d7bd802580ed80d2d136208439c0963eb2",
-      "changed": false,
+      "modelHash": "ee488eb9a9d690e465f6fbb14447a6d7bd802580ed80d2d136208439c0963eb2",
+      "metadataHash": "524465ae912089ee9b3c199b52bd389a09296ab86ca822875b45168321bb6b86",
+      "contentHash": "4ea221bf5000e24294e24ed515876900ac2dd2f9758f8e0dd89fb56d37d8ddce",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion_LOD00.bin",
@@ -1724,8 +1771,8 @@
         "name": "mxPavilion-1.0.0.zip",
         "path": "assets/mxPavilion-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/mxPavilion-1.0.0.zip",
-        "size": 17071,
-        "sha256": "dcbf67c3010a8b252f38ccfbdb636671b775857ff470d67d25b4e27ed654d9d9"
+        "size": 17161,
+        "sha256": "204622c96e8e2263c249ea7419532f31996a64446affd7f4f87eda9374ffb790"
       }
     },
     {
@@ -1745,8 +1792,11 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "7996398948f1a5bc1e44bfef60c2a0b05744dea561c8374afcdaf22b66c9d604",
-      "changed": false,
+      "headingCorrectionDeg": 180,
+      "modelHash": "7996398948f1a5bc1e44bfef60c2a0b05744dea561c8374afcdaf22b66c9d604",
+      "metadataHash": "f609831435d539efa3ac5ae5db13264dc1dd1f837b84946a418a0add01534be0",
+      "contentHash": "f93983a89550bc593c6a98d158f8456583520f155d925ca4007990e1ce84b2c2",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking_LOD00.bin",
@@ -1778,8 +1828,8 @@
         "name": "openParking-1.0.0.zip",
         "path": "assets/openParking-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/openParking-1.0.0.zip",
-        "size": 18175,
-        "sha256": "f8b33af28f918dcb5375898f53fd5c9dcba4b80a514f904b1a9f11960f810e55"
+        "size": 18290,
+        "sha256": "36d9fcddfb0c10d216f1e432c2913628e3834593083de302f1df7c63338bba86"
       }
     },
     {
@@ -1801,8 +1851,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "bfd74c98c3ab3bad71aea55d64d54bd1cf2b339fd44a8bf3659dd1df7aefc11e",
-      "changed": false,
+      "modelHash": "bfd74c98c3ab3bad71aea55d64d54bd1cf2b339fd44a8bf3659dd1df7aefc11e",
+      "metadataHash": "e3c875126bebc88658eaf5b15a19db41bdb67e56e6a65c0167a667b230d5bfb8",
+      "contentHash": "1b4f5d15d094a0b2e94affd9c9b13d07235773a544e06a7cfba1c48961ec152f",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard_LOD00.bin",
@@ -1834,8 +1886,8 @@
         "name": "pinboard-1.0.0.zip",
         "path": "assets/pinboard-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/pinboard-1.0.0.zip",
-        "size": 5861,
-        "sha256": "6667746edab5f7d8669683d47f343112f44d228d018166dc87ab26e2fd26da35"
+        "size": 5951,
+        "sha256": "d292351fea3910665c483cde6bf2d2782dc5ce442a73d3c8f5ba3a38cbee7f20"
       }
     },
     {
@@ -1861,8 +1913,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.097Z",
-      "contentHash": "7f918679d3a65b24a21f77b6aaa1e542c5b7a1725af27b93048fb4da3692c147",
-      "changed": false,
+      "modelHash": "7f918679d3a65b24a21f77b6aaa1e542c5b7a1725af27b93048fb4da3692c147",
+      "metadataHash": "cbcd9738ae28de3b24eec66c16e9c8f9312d94b730c125134fa8e2a99b7d813c",
+      "contentHash": "79bc6a729b4787ae4035163995fb444c719ae5d8ae3b96f06594195cdab48578",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox_LOD00.bin",
@@ -1894,8 +1948,8 @@
         "name": "portableToolbox-1.0.0.zip",
         "path": "assets/portableToolbox-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/portableToolbox-1.0.0.zip",
-        "size": 6435,
-        "sha256": "78d89348e6902525d5f81b922023bd411ae55f1bd656973b1008186eae2f4a97"
+        "size": 6527,
+        "sha256": "ebfd54bf7ef50beb3f02dc5a1d4619edbeebff6a2b18bd1c356746e2ffb844c9"
       }
     },
     {
@@ -1922,6 +1976,96 @@
         "widthM": 25,
         "depthM": 25
       },
+      "headingCorrectionDeg": 0,
+      "controls": [
+        {
+          "schemaVersion": 1,
+          "id": "door",
+          "type": "animation",
+          "label": "Rundhangar Tor",
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "defaultState": "open",
+          "durationMs": 5000,
+          "states": [
+            {
+              "id": "open",
+              "label": "Öffnen",
+              "value": 0
+            },
+            {
+              "id": "closed",
+              "label": "Schließen",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "schemaVersion": 1,
+          "id": "interiorLight",
+          "type": "light",
+          "label": "Innenbeleuchtung",
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "defaultState": "on",
+          "states": [
+            {
+              "id": "on",
+              "label": "Einschalten",
+              "value": 0
+            },
+            {
+              "id": "off",
+              "label": "Ausschalten",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "collisionProfile": {
+        "schemaVersion": 1,
+        "mode": "static-model-lib",
+        "modelLibGuid": "{B90D5EAB-0F9C-4A2A-9917-F57D81E3A24C}",
+        "sourceFolder": "VFRHomebaseRoundHangarCollision",
+        "placement": "coincident",
+        "groundSurface": "continuous-terrain-apron-floor",
+        "defaultHeightOffsetFt": 0,
+        "warnOnHeightOffset": true
+      },
+      "vegetationExclusion": {
+        "schemaVersion": 1,
+        "shape": "circle",
+        "radiusM": 17.3,
+        "segments": 48,
+        "vegetationScale": 0,
+        "vegetationDensity": 0,
+        "falloffM": 0.5,
+        "terrainAdjustment": "none",
+        "attributes": [
+          {
+            "name": "VegetationScale",
+            "guid": "{6A043F59-E6F2-4117-A2E4-D510E7317C29}",
+            "type": "UINT32",
+            "value": 0
+          },
+          {
+            "name": "VegetationDensity",
+            "guid": "{41EFF715-C392-4B31-A457-50A504353A90}",
+            "type": "UINT32",
+            "value": 0
+          },
+          {
+            "name": "VegetationFalloff",
+            "guid": "{E82ABE17-FB4C-4F67-A28C-ED41969AEAD6}",
+            "type": "FLOAT32",
+            "value": 0.5
+          }
+        ]
+      },
       "animation": {
         "schemaVersion": 1,
         "type": "door",
@@ -1938,23 +2082,25 @@
         },
         "defaultState": "open"
       },
-      "contentHash": "b020ad4bf6dc24c2c7c5c5bb1498823162fab2ac7f6207378d168b2ff463a3eb",
+      "modelHash": "208250a230792e346193eaef7ca99a1b157f57d2660ee707e9a04ba90b450f88",
+      "metadataHash": "ca31789ad87e4ac492c23a557e59359c8c8a3db253c532d7d42c241e0590ec46",
+      "contentHash": "f316c27b931c1bb02db692800a9536d97953ba504d7ce8a3f92ed1344baa09b0",
       "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.bin",
-          "size": 566080,
-          "sha256": "0b2e3d1139c5465939572371cd2626f6959ac6b287233b2c4738a88b8bb8cdf3"
+          "size": 581596,
+          "sha256": "354a1ab0f758fe203f92a77346cd61d3ebf2afe3e6fa0214571f32333b0a07a1"
         },
         {
           "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.gltf",
-          "size": 30462,
-          "sha256": "13e485be779f1e5867cc20580c8feef4c90e031666ed07b723258a781f75296f"
+          "size": 30477,
+          "sha256": "8bb0bc6d89bb4917eb1821c71fd333231816c3285390aa0a586746b135239335"
         },
         {
           "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar.xml",
-          "size": 939,
-          "sha256": "91fbd87a5c15bfd12dbbc8dd7d4c072a67fa4c400ce6f8d709ddf1153f674feb"
+          "size": 1254,
+          "sha256": "27333d708826c90252a5e1e804e3cd7a2702b40d0d672acaf7828e69848d101e"
         },
         {
           "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/model.CFG",
@@ -1965,14 +2111,19 @@
           "path": "SimObjects/Misc/VFRHomebaseRoundHangar/sim.cfg",
           "size": 474,
           "sha256": "509293862d765c14ac7be3a77c9f20545cdd0f9c7908d86183eae5514f210693"
+        },
+        {
+          "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
+          "size": 15556,
+          "sha256": "5c04c6c45dcef5085b721cd6b87adab99ab5b7b648090efa206e92bade31b6f6"
         }
       ],
       "archive": {
         "name": "roundHangar-1.0.0.zip",
         "path": "assets/roundHangar-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/roundHangar-1.0.0.zip",
-        "size": 113615,
-        "sha256": "fd8be7aa26e9af8e3b6a84280058056b22bc6855a13d6de074d376c22dec6726"
+        "size": 132091,
+        "sha256": "0e8aa9792ea1ebe3861e4150580f57019469501ee3ffb0d295d898ac412f6212"
       }
     },
     {
@@ -1992,8 +2143,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "bd9a794ba5c77003dc3f8da697df03afa8e22e696911cd2f83fdd81b2e4878d6",
-      "changed": false,
+      "modelHash": "bd9a794ba5c77003dc3f8da697df03afa8e22e696911cd2f83fdd81b2e4878d6",
+      "metadataHash": "5963671c40d1012888bdfb006dc708f63ac57274be44684e51cef563a7541477",
+      "contentHash": "16079b1faa310f8112fea1ee965ade0d9609f4c3a6a6c234881772bb31d6f287",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe_LOD00.bin",
@@ -2025,8 +2178,8 @@
         "name": "spawnProbe-1.0.0.zip",
         "path": "assets/spawnProbe-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/spawnProbe-1.0.0.zip",
-        "size": 6029,
-        "sha256": "26fb721123f92e2d07d78d561228903b5fe6bd195296178f6efcf554feb6fcde"
+        "size": 6125,
+        "sha256": "faebdab4096ab9d88b0d2fee46bcdf15a4d6c5d29bf05ce99d3d36db9395d766"
       }
     },
     {
@@ -2051,8 +2204,10 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:32.039Z",
-      "contentHash": "0c744238eba922937e17f1a60f08ef0671d0197d73ef23a552d79bcd4878590c",
-      "changed": false,
+      "modelHash": "0c744238eba922937e17f1a60f08ef0671d0197d73ef23a552d79bcd4878590c",
+      "metadataHash": "12bf7208e7417dede97848703cacd0f67dcdb2fb4a84a9d323ab35b7576eb9d5",
+      "contentHash": "e9074099886f80083b564d065bd0547c6beb8f13fdffc5879f0f0193ad6626c8",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox_LOD00.bin",
@@ -2084,8 +2239,8 @@
         "name": "toolbox-1.0.0.zip",
         "path": "assets/toolbox-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/toolbox-1.0.0.zip",
-        "size": 7254,
-        "sha256": "520c5b59159b6265bc61c9550e7599f5a162e659555d07be198877603b0ac26f"
+        "size": 7348,
+        "sha256": "f2271afc23a8b88d9fe040cebf39d82b8fa61fbac2b5e03c47df053dd01246c0"
       }
     },
     {
@@ -2109,8 +2264,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "90196b60a903e2a955c97cf53cb466002c0b1bbdb102dd8f46a5b31cf5d68900",
-      "changed": false,
+      "modelHash": "90196b60a903e2a955c97cf53cb466002c0b1bbdb102dd8f46a5b31cf5d68900",
+      "metadataHash": "fcab402e66c4448d45628b5a45526bf7ecbbd129f3a0cc06fcc25e2a14d32f57",
+      "contentHash": "881b864777f60d8e32dd74e21e06d4531c0ee453b26085ebd5e7863f433d9ecc",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart_LOD00.bin",
@@ -2142,8 +2299,8 @@
         "name": "toolCart-1.0.0.zip",
         "path": "assets/toolCart-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/toolCart-1.0.0.zip",
-        "size": 10165,
-        "sha256": "41e6f55866a117091d2dd6c14fb501c8b40f4c8bf434fb02e5f8d4cc7962c7ac"
+        "size": 10252,
+        "sha256": "03c631c31d551074c38b415d62b1a722fed949baf89f1f527f6e99f5e550b382"
       }
     },
     {
@@ -2165,8 +2322,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "22995e21e4da5b6b8a89b61a58c06f56d495eaf1609362eb15eb52800f02ff70",
-      "changed": false,
+      "modelHash": "22995e21e4da5b6b8a89b61a58c06f56d495eaf1609362eb15eb52800f02ff70",
+      "metadataHash": "f915fb256c29da004ce602b3e654eaa820f5e576d0611e53de070155d4f7db78",
+      "contentHash": "533eadb927ca38cbc9b77160820b690e63e8fc12ddb4c465ad3af30cb31c233d",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone_LOD00.bin",
@@ -2198,8 +2357,8 @@
         "name": "trafficCone-1.0.0.zip",
         "path": "assets/trafficCone-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/trafficCone-1.0.0.zip",
-        "size": 6045,
-        "sha256": "c6a59745becf457a52c2c57ba2749c9400c81ebb3250ad154594419632ecf91f"
+        "size": 6138,
+        "sha256": "5a4fd5cd07cd7b6d0a70275c6263559815f067872908c5c36241ff71fdc3e053"
       }
     },
     {
@@ -2224,8 +2383,10 @@
       "updatedAt": "2026-07-15T19:05:31.976Z",
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "afaaee0492059165f3688f9f97cdd5384d72454dd4abfe8653031561ae194a24",
-      "changed": false,
+      "modelHash": "afaaee0492059165f3688f9f97cdd5384d72454dd4abfe8653031561ae194a24",
+      "metadataHash": "7e192595d15130edabd68886a538f7a221dda03c674afc3eb889d875a67ccaae",
+      "contentHash": "39cc28b1f300d44d44c8116591c06f3a174f52a06bd619563681ec01524048b9",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase_LOD00.bin",
@@ -2257,8 +2418,8 @@
         "name": "travelSuitcase-1.0.0.zip",
         "path": "assets/travelSuitcase-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/travelSuitcase-1.0.0.zip",
-        "size": 10324,
-        "sha256": "f1c0211643a34c6b46dce7ad90c5eb06ba86383e75ab981b90781e8d82c247b5"
+        "size": 10417,
+        "sha256": "05112666aeb9c370f58030fd2b4230c8a4e8ddb648301d66feca824f0e8d344c"
       }
     },
     {
@@ -2282,8 +2443,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "c75df7f219bc7dd43cc6abea3e78fedfa70ca31da3e9f70c07ee896fa6f49bfc",
-      "changed": false,
+      "modelHash": "c75df7f219bc7dd43cc6abea3e78fedfa70ca31da3e9f70c07ee896fa6f49bfc",
+      "metadataHash": "7adad8ef32e5a0dea26be7340692290ee352c1b82ecda9fb9a145927888e7795",
+      "contentHash": "546bcfd46df809425f6972fff5df299a8750a8566efc08cb100af0e912a7d8c8",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge_LOD00.bin",
@@ -2315,8 +2478,8 @@
         "name": "woodCrateLarge-1.0.0.zip",
         "path": "assets/woodCrateLarge-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/woodCrateLarge-1.0.0.zip",
-        "size": 8404,
-        "sha256": "4bcdd84a75777b8d5ea68265c750ea5498d5f8e8958978291969d407577e33e9"
+        "size": 8495,
+        "sha256": "b1b71e61ab4aec68d1d510fb01beaafe5803a24258fa9afbd6bef36b05b87fcb"
       }
     },
     {
@@ -2340,8 +2503,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "f67003e9c73a3a704c5a7b604c819ef2bd34fc2704704f64ec2382808353d7f3",
-      "changed": false,
+      "modelHash": "f67003e9c73a3a704c5a7b604c819ef2bd34fc2704704f64ec2382808353d7f3",
+      "metadataHash": "06562600e133b8e440d2ecd85f3399109643afb7dfddf642070f30a4ce2407e2",
+      "contentHash": "0dca64f7a0303f9bf8df2157a6db0eeef57159fe411ce0f8902b9aacdcfeaf24",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium_LOD00.bin",
@@ -2373,8 +2538,8 @@
         "name": "woodCrateMedium-1.0.0.zip",
         "path": "assets/woodCrateMedium-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/woodCrateMedium-1.0.0.zip",
-        "size": 8427,
-        "sha256": "dad2563931b6c4135d70a3956d4c0f05106e594420597fc145a37ea87009eab7"
+        "size": 8518,
+        "sha256": "82702628b82df1133126c5524f514e20e303a1030e6e10fa358159eda116b5e1"
       }
     },
     {
@@ -2398,8 +2563,10 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "contentHash": "7de3cf6c2e57607e62627ce55492434325401ecdf339ef964855d53b13a38c94",
-      "changed": false,
+      "modelHash": "7de3cf6c2e57607e62627ce55492434325401ecdf339ef964855d53b13a38c94",
+      "metadataHash": "5eadf5e711d2b3438ca0a346dd395d94f0d09c87cd96cf14e0020a67adee4783",
+      "contentHash": "cb50eca8d7aefb7244080bb4ae24a6e6e144b27ccb21f492afd530d914cfb8be",
+      "changed": true,
       "files": [
         {
           "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall_LOD00.bin",
@@ -2431,19 +2598,47 @@
         "name": "woodCrateSmall-1.0.0.zip",
         "path": "assets/woodCrateSmall-1.0.0.zip",
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/woodCrateSmall-1.0.0.zip",
-        "size": 7535,
-        "sha256": "4aca8b898f9005d81d7f4bd2338a14f97073223f49f9f4d54881729a5a47a046"
+        "size": 7625,
+        "sha256": "50dd7e816ca5995e9daf29ab47eb9f6a4ffc5946e18d8391f0f44a0a48eefae6"
       }
     }
   ],
   "changedAssets": [
-    "roundHangar"
+    "assetShelf",
+    "backpack",
+    "briefcase",
+    "cabinTrolley",
+    "chair",
+    "customWindsock",
+    "daypack",
+    "desk",
+    "duffelBag",
+    "europeanCaravan",
+    "fuelDrum",
+    "generator",
+    "hangar",
+    "insulatedCooler",
+    "jerrycanPair",
+    "mailSack",
+    "mxPavilion",
+    "openParking",
+    "pinboard",
+    "portableToolbox",
+    "roundHangar",
+    "spawnProbe",
+    "toolbox",
+    "toolCart",
+    "trafficCone",
+    "travelSuitcase",
+    "woodCrateLarge",
+    "woodCrateMedium",
+    "woodCrateSmall"
   ],
   "removedAssets": [],
   "fullArchive": {
     "name": "vfr-multitool-homebase-assets-0.6.3-full.zip",
     "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.3/vfr-multitool-homebase-assets-0.6.3-full.zip",
-    "size": 561358,
-    "sha256": "5d2ff39d9da3bf6f4961b0f3c85d64e61a83f243c234bb0c90596dbeff47b22f"
+    "size": 579619,
+    "sha256": "e38c6d9db5f4d7e9993ed73e58906bd6b594f9a53de895d4142a75db860ce0e1"
   }
 }

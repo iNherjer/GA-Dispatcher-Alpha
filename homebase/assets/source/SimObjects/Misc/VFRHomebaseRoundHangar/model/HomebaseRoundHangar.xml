@@ -11,12 +11,17 @@
         <ANIM_NAME>RoundHangarDoor</ANIM_NAME>
         <ANIM_CODE>(L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND, number) 0.5 &gt; if{ 100 } els{ 0 }</ANIM_CODE>
         <ANIM_LENGTH>100</ANIM_LENGTH>
-        <ANIM_LAG>5000</ANIM_LAG>
+        <ANIM_LAG>20</ANIM_LAG>
       </UseTemplate>
     </Component>
-    <Component ID="RoundHangarLamp" Node="RoundHangarLamp">
+    <Component ID="RoundHangarLampEmissive" Node="RoundHangarLamp">
       <UseTemplate Name="ASOBO_GT_Emissive_Gauge">
-        <EMISSIVE_CODE>1</EMISSIVE_CODE>
+        <EMISSIVE_CODE>(L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND, number) 0.5 &lt;</EMISSIVE_CODE>
+      </UseTemplate>
+    </Component>
+    <Component ID="RoundHangarLampLight" Node="RoundHangarLampLight">
+      <UseTemplate Name="ASOBO_GT_Visibility_Code">
+        <VISIBILITY_CODE>(L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND, number) 0.5 &lt;</VISIBILITY_CODE>
       </UseTemplate>
     </Component>
   </Behaviors>
