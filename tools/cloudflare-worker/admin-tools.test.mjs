@@ -111,8 +111,8 @@ const register = await call(registerEnv, "/api/sync/newPilot", {
   body: JSON.stringify({ pin: "3333", flights: [], lastModified: Date.now() })
 });
 assert.equal(register.response.status, 200);
-const registeredProfile = JSON.parse(registerKv.store.get("newPilot"));
-assert.equal(registeredProfile.syncId, "newPilot");
+const registeredProfile = JSON.parse(registerKv.store.get("NEWPILOT"));
+assert.equal(registeredProfile.syncId, "NEWPILOT");
 assert.ok(registeredProfile.registeredAt);
 assert.ok(registeredProfile.registeredAtMs);
 
@@ -122,7 +122,7 @@ const update = await call(registerEnv, "/api/sync/newPilot", {
   body: JSON.stringify({ pin: "3333", pinboard: [], lastModified: Date.now() + 1000 })
 });
 assert.equal(update.response.status, 200);
-const updatedProfile = JSON.parse(registerKv.store.get("newPilot"));
+const updatedProfile = JSON.parse(registerKv.store.get("NEWPILOT"));
 assert.equal(updatedProfile.registeredAt, registeredProfile.registeredAt);
 assert.equal(updatedProfile.registeredAtMs, registeredProfile.registeredAtMs);
 

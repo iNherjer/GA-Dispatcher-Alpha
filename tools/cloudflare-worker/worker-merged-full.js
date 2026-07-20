@@ -25,7 +25,8 @@ const FILE_ALLOWED_HOSTS = new Set([
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "*"
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Expose-Headers": "X-Pilot-ID"
 };
 
 const MOSMIX_STATION_CATALOG_URL = "https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490";
@@ -206,9 +207,9 @@ async function handleHomebaseSync(request, requestUrl, env) {
   }
   const auth = await verifySyncProfileAuth(request, env);
   if (!auth.ok) return auth.response;
-  if (auth.ownerId !== pilotId) return json({ error: "Pilot-ID stimmt nicht überein" }, 403);
+  if (normalizePilotIdLookup(auth.ownerId) !== normalizePilotIdLookup(pilotId)) return json({ error: "Pilot-ID stimmt nicht überein" }, 403);
 
-  const key = `${HOMEBASE_PREFIX}${pilotId}`;
+  const key = `${HOMEBASE_PREFIX}${auth.ownerId}`;
   let existing = null;
   try {
     const raw = await env.GA_SYNC_KV.get(key);
@@ -556,43 +557,37 @@ function normalizeCommunityChecklist(input, fallbackId = "") {
 }
 
 async function verifyChecklistCommunityAuth(request, env) {
-  const ownerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
+  const requestedOwnerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
   const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
-  if (!ownerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
+  if (!requestedOwnerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
 
-  let rawProfile = null;
-  try {
-    rawProfile = await env.GA_SYNC_KV.get(ownerId);
-  } catch (error) {
-    return { ok: false, response: json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502) };
-  }
+  const resolution = await resolveSyncPilotId(env, requestedOwnerId);
+  const resolutionError = syncPilotResolutionError(resolution);
+  if (resolutionError) return { ok: false, response: resolutionError };
 
-  const profile = rawProfile ? safeJsonParse(rawProfile, null) : null;
-  if (!profile || profile.pin !== pin) {
+  const profile = resolution.raw ? safeJsonParse(resolution.raw, null) : null;
+  if (resolution.status !== "found" || !profile || String(profile.pin ?? "") !== pin) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId };
+  return { ok: true, ownerId: resolution.pilotId };
 }
 
 async function verifySyncProfileAuth(request, env) {
-  const ownerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
+  const requestedOwnerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
   const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
-  if (!ownerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
+  if (!requestedOwnerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
 
-  let rawProfile = null;
-  try {
-    rawProfile = await env.GA_SYNC_KV.get(ownerId);
-  } catch (error) {
-    return { ok: false, response: json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502) };
-  }
+  const resolution = await resolveSyncPilotId(env, requestedOwnerId);
+  const resolutionError = syncPilotResolutionError(resolution);
+  if (resolutionError) return { ok: false, response: resolutionError };
 
-  const profile = rawProfile ? safeJsonParse(rawProfile, null) : null;
-  if (!profile || profile.pin !== pin) {
+  const profile = resolution.raw ? safeJsonParse(resolution.raw, null) : null;
+  if (resolution.status !== "found" || !profile || String(profile.pin ?? "") !== pin) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId };
+  return { ok: true, ownerId: resolution.pilotId };
 }
 
 async function getCommunityRecord(env, id) {
@@ -926,6 +921,95 @@ function isReservedSyncKvKey(keyName) {
     || name.startsWith(COMMUNITY_CHECKLIST_PREFIX)
     || name.startsWith(COMMUNITY_CHECKLIST_INDEX_PREFIX)
     || name === COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY;
+}
+
+function normalizePilotIdLookup(value) {
+  return normalizeOneLine(value, 160).normalize("NFKC").toLowerCase();
+}
+
+function canonicalNewPilotId(value) {
+  return normalizeOneLine(value, 160).normalize("NFKC").toUpperCase();
+}
+
+async function resolveSyncPilotId(env, requestedPilotId) {
+  const requested = normalizeOneLine(requestedPilotId, 160);
+  const lookup = normalizePilotIdLookup(requested);
+  if (!requested || !lookup || requested.startsWith("GROUP_") || isReservedSyncKvKey(requested)) {
+    return { status: "invalid", pilotId: "", raw: null };
+  }
+
+  let exactRaw = null;
+  try {
+    exactRaw = await env.GA_SYNC_KV.get(requested);
+  } catch (error) {
+    return { status: "error", error, pilotId: "", raw: null };
+  }
+  if (exactRaw) return { status: "found", pilotId: requested, raw: exactRaw };
+
+  if (typeof env.GA_SYNC_KV.list !== "function") return { status: "missing", pilotId: "", raw: null };
+
+  let listed;
+  try {
+    listed = await listKvKeys(env, { limit: ADMIN_KV_LIST_MAX });
+  } catch (error) {
+    return { status: "error", error, pilotId: "", raw: null };
+  }
+  const matches = (listed.keys || [])
+    .map(key => String(key?.name || ""))
+    .filter(key => !isReservedSyncKvKey(key) && normalizePilotIdLookup(key) === lookup);
+  if (matches.length > 1) return { status: "collision", pilotId: "", raw: null };
+  if (!matches.length) return { status: "missing", pilotId: "", raw: null };
+
+  try {
+    const raw = await env.GA_SYNC_KV.get(matches[0]);
+    return raw
+      ? { status: "found", pilotId: matches[0], raw }
+      : { status: "missing", pilotId: "", raw: null };
+  } catch (error) {
+    return { status: "error", error, pilotId: "", raw: null };
+  }
+}
+
+function syncPilotResolutionError(resolution) {
+  if (resolution?.status === "invalid") return json({ ok: false, code: "invalid_pilot_id", error: "Ungültige Pilot-ID" }, 400);
+  if (resolution?.status === "collision") return json({ ok: false, code: "pilot_id_collision", error: "Pilot-ID ist nicht eindeutig" }, 409);
+  if (resolution?.status === "error") return json({ ok: false, code: "kv_read_failed", error: "KV-Read fehlgeschlagen", message: String(resolution.error?.message || resolution.error) }, 502);
+  return null;
+}
+
+async function handlePilotAuthVerify(request, env) {
+  if (!hasSyncKvBinding(env) || typeof env.GA_SYNC_KV.list !== "function") {
+    return json({ ok: false, code: "sync_unavailable", error: "Sync KV binding missing (GA_SYNC_KV)." }, 503);
+  }
+  if (request.method !== "POST") return json({ ok: false, code: "method_not_allowed", error: "Method not allowed" }, 405);
+
+  let payload;
+  try {
+    const raw = await request.text();
+    if (raw.length > 4096) return json({ ok: false, code: "request_too_large", error: "Anfrage zu groß" }, 413);
+    payload = JSON.parse(raw || "{}");
+  } catch {
+    return json({ ok: false, code: "invalid_json", error: "Ungültiges JSON" }, 400);
+  }
+
+  const requestedPilotId = normalizeOneLine(payload?.pilotId, 160);
+  const pin = trimText(payload?.pin, 160);
+  if (!requestedPilotId || !pin) return json({ ok: false, code: "credentials_missing", error: "Pilot-ID/PIN fehlen" }, 400);
+
+  const resolution = await resolveSyncPilotId(env, requestedPilotId);
+  const resolutionError = syncPilotResolutionError(resolution);
+  if (resolutionError) return resolutionError;
+  if (resolution.status === "missing") return json({ ok: false, code: "pilot_not_found", error: "Pilot-ID nicht gefunden" }, 404);
+
+  const profile = safeJsonParse(resolution.raw, null);
+  if (!profile || String(profile.pin ?? "") !== pin) {
+    return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
+  }
+
+  return json({ ok: true, pilotId: resolution.pilotId }, 200, {
+    "Cache-Control": "no-store",
+    "X-Pilot-ID": resolution.pilotId
+  });
 }
 
 function pickString(...values) {
@@ -2135,6 +2219,10 @@ export default {
       return handleAdminUsers(request, requestUrl, env);
     }
 
+    if (requestUrl.pathname === "/api/auth/verify") {
+      return handlePilotAuthVerify(request, env);
+    }
+
     if (requestUrl.pathname.startsWith("/api/homebase-group/")) {
       return handleCrewHomebases(request, requestUrl, env);
     }
@@ -2153,7 +2241,7 @@ export default {
         }, 503);
       }
       const pathParts = requestUrl.pathname.split("/").filter(Boolean);
-      const pilotId = pathParts[2];
+      const pilotId = decodeURIComponent(pathParts[2] || "");
       const isGroupKey = typeof pilotId === "string" && pilotId.startsWith("GROUP_");
 
       if (!pilotId) {
@@ -2167,10 +2255,21 @@ export default {
 
       if (request.method === "GET") {
         let rawData = null;
-        try {
-          rawData = await env.GA_SYNC_KV.get(pilotId);
-        } catch (error) {
-          return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+        let storagePilotId = pilotId;
+        if (isGroupKey) {
+          try {
+            rawData = await env.GA_SYNC_KV.get(pilotId);
+          } catch (error) {
+            return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+          }
+        } else {
+          const resolution = await resolveSyncPilotId(env, pilotId);
+          const resolutionError = syncPilotResolutionError(resolution);
+          if (resolutionError) return resolutionError;
+          if (resolution.status === "found") {
+            storagePilotId = resolution.pilotId;
+            rawData = resolution.raw;
+          }
         }
         if (!rawData) {
           return json({ error: "Leer oder abgelaufen" }, 404);
@@ -2184,7 +2283,7 @@ export default {
             return json({ error: "Falscher PIN" }, 401);
           }
 
-          return new Response(rawData, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          return new Response(rawData, { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store", "X-Pilot-ID": storagePilotId } });
         } catch {
           return json({ error: "Datenformat ungültig" }, 500);
         }
@@ -2199,10 +2298,23 @@ export default {
         try {
           const incomingData = JSON.parse(rawBody);
           let existingRaw = null;
-          try {
-            existingRaw = await env.GA_SYNC_KV.get(pilotId);
-          } catch (error) {
-            return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+          let storagePilotId = pilotId;
+          if (isGroupKey) {
+            try {
+              existingRaw = await env.GA_SYNC_KV.get(pilotId);
+            } catch (error) {
+              return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+            }
+          } else {
+            const resolution = await resolveSyncPilotId(env, pilotId);
+            const resolutionError = syncPilotResolutionError(resolution);
+            if (resolutionError) return resolutionError;
+            if (resolution.status === "found") {
+              storagePilotId = resolution.pilotId;
+              existingRaw = resolution.raw;
+            } else {
+              storagePilotId = canonicalNewPilotId(pilotId);
+            }
           }
 
           if (existingRaw) {
@@ -2215,23 +2327,23 @@ export default {
               const registeredAtMs = parseDateMs(existingData.registeredAtMs) || parseDateMs(registeredAt);
               if (registeredAt && !incomingData.registeredAt) incomingData.registeredAt = registeredAt;
               if (registeredAtMs && !incomingData.registeredAtMs) incomingData.registeredAtMs = registeredAtMs;
-              if (!incomingData.syncId) incomingData.syncId = pilotId;
+              incomingData.syncId = storagePilotId;
               rawBody = JSON.stringify(incomingData);
             }
           } else if (!isGroupKey) {
             const registeredAt = nowIso();
             incomingData.registeredAt = registeredAt;
             incomingData.registeredAtMs = Date.parse(registeredAt);
-            if (!incomingData.syncId) incomingData.syncId = pilotId;
+            incomingData.syncId = storagePilotId;
             rawBody = JSON.stringify(incomingData);
           }
 
           try {
-            await env.GA_SYNC_KV.put(pilotId, rawBody, { expirationTtl: 31536000 });
+            await env.GA_SYNC_KV.put(storagePilotId, rawBody, { expirationTtl: 31536000 });
           } catch (error) {
             return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
           }
-          return json({ success: true }, 200);
+          return json({ success: true, pilotId: storagePilotId }, 200, { "X-Pilot-ID": storagePilotId });
         } catch {
           return json({ error: "Ungültiges JSON beim Speichern" }, 400);
         }

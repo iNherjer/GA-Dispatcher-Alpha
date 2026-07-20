@@ -3,6 +3,7 @@
    CLOUD SYNC LOGIC (Adaptive, Diffing, Debounce & Toggle)
    ========================================================= */
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
+const AUTH_VERIFY_URL = 'https://ga-proxy.einherjer.workers.dev/api/auth/verify';
 const SYNC_MAX_UPLOAD_BYTES = 95000;
 let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 let lastSyncedPayloadStr = "";
@@ -120,6 +121,16 @@ function getSyncId() {
 
 function getSyncPin() {
     return document.getElementById('syncPinInput')?.value.trim() || localStorage.getItem('ga_sync_pin') || "";
+}
+
+function applyCanonicalSyncId(pilotId, { authenticated = false } = {}) {
+    const canonicalId = String(pilotId || '').trim();
+    if (!canonicalId) return '';
+    const input = document.getElementById('syncIdInput');
+    if (input) input.value = canonicalId;
+    localStorage.setItem('ga_sync_id', canonicalId);
+    if (authenticated) localStorage.setItem('ga_saved_id', canonicalId);
+    return canonicalId;
 }
 
 let liveSnailTrail = null;
@@ -10488,42 +10499,53 @@ async function triggerLoginFlow(isAutoLogin = false) {
     }
 
     try {
-        // Fall A: Existenz-Prüfung & PIN-Check (GET)
-        const res = await fetch(SYNC_URL + id + "?pin=" + pin, {
-            headers: { 'X-Pilot-PIN': pin }
+        // Konto und PIN minimal prüfen; der Worker liefert die gespeicherte
+        // kanonische Schreibweise zurück, damit Sync und Relay denselben Raum nutzen.
+        const res = await fetch(AUTH_VERIFY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pilotId: id, pin })
         });
 
         if (res.status === 200) {
-            // Erfolg (Existiert & PIN stimmt)
-            localStorage.setItem('ga_saved_id', id);
+            const authData = await res.json();
+            const canonicalId = applyCanonicalSyncId(authData?.pilotId || id, { authenticated: true });
             localStorage.setItem('ga_saved_pin', pin);
-            if (!isAutoLogin) alert("✅ Erfolgreich angemeldet!");
+            if (!isAutoLogin) alert(`✅ Erfolgreich angemeldet als ${canonicalId}!`);
             setSyncLoginState(true);
         } else if (res.status === 401) {
-            // ID existiert, aber PIN falsch
             if (!isAutoLogin) {
-                alert("❌ Zugriff verweigert: Passwort falsch oder ID bereits vergeben!");
+                alert("❌ Der PIN für diese Pilot-ID ist falsch.");
             } else {
-                // Bei stillem Auto-Login Fehler: Daten löschen, damit nicht bei jedem Load der Fehler passiert
                 localStorage.removeItem('ga_saved_id');
                 localStorage.removeItem('ga_saved_pin');
             }
             setSyncLoginState(false);
         } else if (res.status === 404) {
-            // ID ist noch frei! -> Fall C: Registrieren (POST)
-            const registerRes = await fetch(SYNC_URL + id, {
+            if (isAutoLogin) {
+                localStorage.removeItem('ga_saved_id');
+                localStorage.removeItem('ga_saved_pin');
+                setSyncLoginState(false);
+                return;
+            }
+            // Unbekannte ID bleibt im manuellen Login der bestehende Registrierungsweg.
+            const registerRes = await fetch(SYNC_URL + encodeURIComponent(id), {
                 method: 'POST',
                 headers: { 'X-Pilot-PIN': pin, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pin: pin, flights: [], lastModified: Date.now() })
             });
             if (registerRes.ok) {
-                localStorage.setItem('ga_saved_id', id);
+                const registerData = await registerRes.json();
+                const canonicalId = applyCanonicalSyncId(registerData?.pilotId || id, { authenticated: true });
                 localStorage.setItem('ga_saved_pin', pin);
-                if (!isAutoLogin) alert("✅ Neuer Pilot erfolgreich registriert!");
+                alert(`✅ Neuer Pilot ${canonicalId} erfolgreich registriert!`);
                 setSyncLoginState(true);
             } else {
                 throw new Error("Registrierung fehlgeschlagen");
             }
+        } else if (res.status === 409) {
+            if (!isAutoLogin) alert("❌ Diese Pilot-ID ist nicht eindeutig. Bitte den Support kontaktieren.");
+            setSyncLoginState(false);
         } else {
             throw new Error("Server-Fehler");
         }
@@ -11916,8 +11938,8 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 300;
-const MIN_TRACKER_VERSION_LABEL = 'v300';
+const MIN_TRACKER_VERSION_CODE = 301;
+const MIN_TRACKER_VERSION_LABEL = 'v301';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

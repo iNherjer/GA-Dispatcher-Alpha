@@ -10,6 +10,7 @@
     "prepare:homebase-assets": "node prepare-embedded-homebase-assets.js",
     "test:homebase": "node homebase-self-test.js",
     "test:door-proximity": "node homebase-door-proximity-test-selftest.js",
+    "test:auth": "node tracker-auth.test.js",
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
     "asset-scan": "node msfs-asset-scanner.js",
     "asset-validate": "node msfs-asset-validator.js",

@@ -6,6 +6,7 @@ const path = require('path');
 const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
 const { createHomebasePackageService } = require('./homebase-package-service.js');
 const homebaseAssetCatalog = require('./homebase-asset-catalog.js');
+const { verifyTrackerCredentials } = require('./tracker-auth.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -19,8 +20,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v300';
-const TRACKER_VERSION_CODE = 300;
+const TRACKER_VERSION = 'v301';
+const TRACKER_VERSION_CODE = 301;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3514,7 +3515,7 @@ function startTracker(syncId, pin) {
       _reconnecting = false;
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
-      trackerLog(`📡 Verbunden mit Pilot-ID: ${syncId} (Auth aktiv)`);
+      trackerLog(`📡 Relay verbunden für Pilot-ID: ${syncId} (Konto verifiziert)`);
       if (homebasePackageService) {
         setTimeout(() => {
           homebasePackageService.checkRemoteAssets({ notify: true }).then((status) => {
@@ -4051,14 +4052,49 @@ function writeTrackerConfig(data = {}) {
 function askCredentials() {
   rl.question("Bitte gib deine Pilot-ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
     const finalId = idAnswer.trim();
-    if (!finalId) { trackerLog("Fehler: Keine Pilot-ID eingegeben."); return process.exit(1); }
+    if (!finalId) {
+      trackerLog("❌ Keine Pilot-ID eingegeben.");
+      return setTimeout(askCredentials, 50);
+    }
     
     rl.question("Bitte gib deinen 4-stelligen PIN ein: ", (pinAnswer) => {
       const finalPin = pinAnswer.trim();
-      writeTrackerConfig({ syncId: finalId, pin: finalPin, consoleMode });
-      startTracker(finalId, finalPin);
+      if (!finalPin) {
+        trackerLog("❌ Kein PIN eingegeben.");
+        return setTimeout(askCredentials, 50);
+      }
+      verifyAndStartTracker(finalId, finalPin, { promptOnFailure: true });
     });
   });
+}
+
+async function verifyAndStartTracker(syncId, pin, { promptOnFailure = false } = {}) {
+  const requestedId = String(syncId || '').trim();
+  trackerLog(`🔐 Prüfe Pilot-Konto: ${requestedId} ...`);
+  const auth = await verifyTrackerCredentials(requestedId, pin);
+  if (!auth.ok) {
+    debugLog(`AUTH_REJECT requestedId=${requestedId} code=${auth.code || 'unknown'}`);
+    if (auth.code === 'pilot_not_found') {
+      trackerError("❌ Pilot-ID nicht gefunden. Bitte Schreibweise und Eingabe prüfen.");
+    } else if (auth.code === 'pin_invalid') {
+      trackerError("❌ Der PIN für diese Pilot-ID ist falsch.");
+    } else {
+      trackerError(`❌ ${auth.message || 'Konto-Prüfung fehlgeschlagen.'}`);
+    }
+    trackerWarn("⚠️  Keine Anmeldung bestätigt; der Tracker sendet keine Sim-Daten.");
+    if (promptOnFailure) setTimeout(askCredentials, 100);
+    return false;
+  }
+
+  const canonicalId = String(auth.pilotId || requestedId).trim();
+  if (canonicalId !== requestedId) {
+    trackerLog(`ℹ️  Pilot-ID erkannt: ${requestedId} → ${canonicalId}`);
+  }
+  saveTrackerConfig(canonicalId, pin);
+  debugLog(`AUTH_OK requestedId=${requestedId} canonicalId=${canonicalId}`);
+  trackerLog(`✅ Angemeldet als ${canonicalId}`);
+  startTracker(canonicalId, pin);
+  return true;
 }
 
 function saveTrackerConfig(syncId, pin, extra = {}) {
@@ -4115,8 +4151,8 @@ function main() {
         clearInterval(countdownInterval);
         if (!timerCompleted) {
           timerCompleted = true;
-          trackerLog(`\n\n✅ Starte automatisch mit Pilot-ID: ${savedId}`);
-          startTracker(savedId, savedPin);
+          trackerLog(`\n\n🚀 Autostart mit Pilot-ID: ${savedId}`);
+          verifyAndStartTracker(savedId, savedPin, { promptOnFailure: true });
         }
       }
     }, 1000);
@@ -4129,7 +4165,7 @@ function main() {
         clearInterval(countdownInterval);
         const input = String(line || '').trim().toLowerCase();
         if (input === 'm' || input === 'menu' || input === 'modus' || input === 'display') {
-          askConsoleMode(savedId, savedPin, () => startTracker(savedId, savedPin));
+          askConsoleMode(savedId, savedPin, () => verifyAndStartTracker(savedId, savedPin, { promptOnFailure: true }));
         } else {
           trackerLog(`\n\n--- Neueingabe gestartet ---`);
           askCredentials();

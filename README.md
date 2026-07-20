@@ -93,6 +93,8 @@ PC-Tracker einrichten:
 3. Dieselbe Pilot-ID und denselben PIN eintragen.
 4. Auf Tablet, iPad oder Zweit-PC die App mit derselben Pilot-ID oeffnen.
 
+Der Tracker prueft Pilot-ID und PIN vor dem Verbindungsaufbau beim Sync-Dienst. Groß-/Kleinschreibung wird automatisch auf die gespeicherte Pilot-ID aufgeloest; erst nach erfolgreicher Pruefung meldet der Tracker die Anmeldung und startet die Live-Uebertragung.
+
 Tipps:
 
 - Die Reihenfolge ist unkritisch: Tracker und MSFS koennen vor oder nach der App starten.
