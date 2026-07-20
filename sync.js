@@ -11910,12 +11910,7 @@ window.addEventListener('ga-sleepchange', (event) => {
         liveGpsSocket = null;
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
-        const ind = document.getElementById('liveGpsIndicator');
-        if (ind) {
-            ind.innerHTML = '🛰️ OFF';
-            ind.style.color = '#666';
-            ind.style.textShadow = 'none';
-        }
+        _setLiveGpsIndicator('off');
     }
     if (hadLiveGpsSession && reconnectId) {
         window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(reconnectId));
@@ -11965,10 +11960,56 @@ function _extractTrackerVersionCode(pkt) {
     return null;
 }
 
+function _trackerVersionLabel(pkt = null) {
+    const explicit = String(pkt?.trackerVersion || '').trim();
+    const code = _extractTrackerVersionCode(pkt);
+    if (explicit) return explicit;
+    if (Number.isFinite(code)) return `v${code}`;
+    return String(window.liveTrackerVersionLabel || '').trim();
+}
+
+function _setLiveGpsIndicator(state, pkt = null) {
+    const ind = document.getElementById('liveGpsIndicator');
+    if (!ind) return;
+    const nextState = String(state || 'off').toLowerCase();
+    const packetLabel = _trackerVersionLabel(pkt);
+    if (packetLabel) window.liveTrackerVersionLabel = packetLabel;
+    const versionLabel = String(window.liveTrackerVersionLabel || '').trim();
+    ind.dataset.trackerState = nextState;
+    ind.style.textShadow = 'none';
+
+    if (nextState === 'live') {
+        ind.textContent = `🛰️ LIVE${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.style.color = '#44ff44';
+        ind.style.textShadow = '0 0 8px #44ff44';
+        ind.title = `PC-Tracker verbunden${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        return;
+    }
+    if (nextState === 'wait') {
+        ind.textContent = `🛰️ WAIT${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.style.color = '#f2c12e';
+        ind.title = versionLabel
+            ? `Relay verbunden; Tracker ${versionLabel} sendet momentan keine frische Telemetrie`
+            : 'Relay verbunden; warte auf Telemetrie vom PC-Tracker';
+        return;
+    }
+    if (nextState === 'wake') {
+        ind.textContent = '🛰️ WAKE';
+        ind.style.color = '#f2c12e';
+        ind.title = 'Relay wird gestartet';
+        return;
+    }
+    window.liveTrackerVersionLabel = '';
+    ind.textContent = '🛰️ OFF';
+    ind.style.color = '#666';
+    ind.title = 'Kein PC-Tracker verbunden';
+}
+
 function _maybePromptTrackerUpdate(pkt) {
     const code = _extractTrackerVersionCode(pkt);
     window.liveTrackerVersionCode = Number.isFinite(code) ? code : null;
-    const reportedLabel = String(pkt?.trackerVersion || '').trim() || (Number.isFinite(code) ? `v${code}` : 'keine Versionsnummer');
+    const reportedLabel = _trackerVersionLabel(pkt) || 'keine Versionsnummer';
+    if (reportedLabel !== 'keine Versionsnummer') window.liveTrackerVersionLabel = reportedLabel;
     const outdated = !Number.isFinite(code) || code < MIN_TRACKER_VERSION_CODE;
     if (!outdated || trackerVersionPromptShown) return;
     trackerVersionPromptShown = true;
@@ -13044,8 +13085,9 @@ window.connectToLiveGPS = async function(syncId) {
     console.log(`[GPS] 📡 Verbinde mit Live-Tracking für Pilot-ID ${syncId}...`);
 
     // Wake-up Ping: Render.com Free Tier aus dem Schlaf holen bevor WebSocket versucht wird
-    const ind0 = document.getElementById('liveGpsIndicator');
-    if (ind0) { ind0.innerHTML = '🛰️ WAKE'; ind0.style.color = '#f2c12e'; ind0.style.textShadow = 'none'; }
+    window.liveTrackerVersionCode = null;
+    window.liveTrackerVersionLabel = '';
+    _setLiveGpsIndicator('wake');
     try {
         await fetch('https://websocketrelais.onrender.com/', { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
     } catch(e) { /* Server schläft evtl. noch – WebSocket versucht es trotzdem */ }
@@ -13098,12 +13140,7 @@ window.connectToLiveGPS = async function(syncId) {
             }, 650);
         }
 
-        const ind = document.getElementById('liveGpsIndicator');
-        if (ind) {
-            ind.innerHTML = '🛰️ WAIT';
-            ind.style.color = '#f2c12e'; // Orange
-            ind.style.textShadow = 'none';
-        }
+        _setLiveGpsIndicator('wait');
         if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
             setTimeout(() => window.missionSmokeEnsureSpawned('websocket-open'), 500);
         }
@@ -13167,23 +13204,14 @@ window.connectToLiveGPS = async function(syncId) {
                     _scheduleLiveTrafficMapRender(filteredTraffic, data.alt);
                 }
 
-                const ind = document.getElementById('liveGpsIndicator');
-                if (ind) {
-                    ind.innerHTML = '🛰️ LIVE'; 
-                    ind.style.color = '#44ff44'; // Grün
-                    ind.style.textShadow = '0 0 8px #44ff44';
-                    
-                    // Watchdog: Timer bei jedem neuen Paket zurücksetzen
-                    clearTimeout(gpsWatchdog);
-                    gpsWatchdog = setTimeout(() => {
-                        // Wenn 3 Sekunden lang kein Paket mehr kam -> Zurück auf WAIT
-                        if (ind.innerHTML === '🛰️ LIVE') {
-                            ind.innerHTML = '🛰️ WAIT';
-                            ind.style.color = '#f2c12e';
-                            ind.style.textShadow = 'none';
-                        }
-                    }, 3000);
-                }
+                _setLiveGpsIndicator('live', data);
+
+                // Watchdog: Timer bei jedem neuen Paket zurücksetzen
+                clearTimeout(gpsWatchdog);
+                gpsWatchdog = setTimeout(() => {
+                    const ind = document.getElementById('liveGpsIndicator');
+                    if (ind?.dataset?.trackerState === 'live') _setLiveGpsIndicator('wait');
+                }, 3000);
             }
             if (data.type === 'traffic') {
                 window.vpTrafficData = data.aircraft || [];
@@ -13204,12 +13232,7 @@ window.connectToLiveGPS = async function(syncId) {
         _releaseLiveGpsScreenWakeLock('websocket-close');
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
-        const ind = document.getElementById('liveGpsIndicator');
-        if (ind) {
-            ind.innerHTML = '🛰️ OFF';
-            ind.style.color = '#666';
-            ind.style.textShadow = 'none';
-        }
+        _setLiveGpsIndicator('off');
         hideNextWpTelemetry();
 
         // Auto-HDG zurücksetzen damit es bei der nächsten Verbindung wieder greift
@@ -13239,12 +13262,7 @@ window.connectToLiveGPS = async function(syncId) {
         _releaseLiveGpsScreenWakeLock('websocket-error');
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
-        const ind = document.getElementById('liveGpsIndicator');
-        if (ind) { 
-            ind.innerHTML = '🛰️ OFF'; 
-            ind.style.color = '#666'; // Grau
-            ind.style.textShadow = 'none';
-        }
+        _setLiveGpsIndicator('off');
         hideNextWpTelemetry();
     };
 };
