@@ -1,0 +1,2592 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-20T12:55:53.916Z",
+  "packageName": "vfr-multitool-homebase-assets",
+  "packageVersion": "0.6.6",
+  "releaseTag": "homebase-assets-v0.6.6",
+  "repository": "iNherjer/GA-Dispatcher-Alpha",
+  "contentHash": "5e88d81f7ac8de6f2e4b9fa34e0a9dee2e8fbdf1f226e32a7806b8c7bd4d9a19",
+  "packageContentHash": "18dadb8b087ae1dfca252168ece05acf6b699ae05bd17a86ae553a979376a414",
+  "metadataHash": "2db4e9dd7af0b4551d76b96e8f215e6d65cda25ef3f0e6496f71bd9d435e4c59",
+  "files": [
+    {
+      "path": "bglIndex.bout",
+      "size": 577,
+      "sha256": "055214b04628a5fd6ca87255a2da1f814a9d172c1fef76861d856b861bd20f69"
+    },
+    {
+      "path": "layout.json",
+      "size": 21369,
+      "sha256": "fd41ff9c182a58b74cb0d41be571ec16126916ae6998415b238bb73bdcfe9a2b"
+    },
+    {
+      "path": "manifest.json",
+      "size": 517,
+      "sha256": "fe25121f3418bd109ebb819d41a52529f656aa39cde9bf00cf1122d8e04184fe"
+    },
+    {
+      "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
+      "size": 9104,
+      "sha256": "cc18771700d27e133aad70cfc6f3c457a306b88dcda639761b50b0bf6e75c986"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.bin",
+      "size": 249432,
+      "sha256": "5d48fa3e2dd1137d2d723d147033ded8425b57caf22ce6a0c9a35709586d7ed4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.gltf",
+      "size": 11227,
+      "sha256": "4a1e99cacbb2defb625e3a59c45fde3bf4a0af3894944c640264a552ba1f5a4c"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf.xml",
+      "size": 236,
+      "sha256": "ab8d956df8219b268f2c7e9e7e4ebe9f90360a43dca86e14ce8304254c5b2c05"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/model.CFG",
+      "size": 39,
+      "sha256": "f609cd478526dc132747cd9ec420b95ec5aacaf88ff3977565be9cfaacf08918"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAssetShelf/sim.cfg",
+      "size": 304,
+      "sha256": "0df2c3ea7f2ed891142bd9ffc61c7f263cd3a1bff5bb79961c51caebd1b0467f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack_LOD00.bin",
+      "size": 41496,
+      "sha256": "c9398b06e6b20a39c170393f19309a247060aa5607f5cef1f4fd9eb04883d042"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack_LOD00.gltf",
+      "size": 4307,
+      "sha256": "3ac4232ee3dd14ca368ff5a016216decb302a77bcd34fbabb021ca6d3d594ae4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack.xml",
+      "size": 232,
+      "sha256": "4197a2a16a3d6b326fdffc9fc566e30e0a59f7750e55a59fd9872e15de9c78c7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBackpack/model/model.CFG",
+      "size": 37,
+      "sha256": "a0e358d1d3d66558615ec0c5f84a884a05e4c8297a900454166961a69589614f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBackpack/sim.cfg",
+      "size": 275,
+      "sha256": "2a497ff88a8df2129e766f33c3a2ff42f919e1ab8ade9d9e0bb9ffe38193f024"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase_LOD00.bin",
+      "size": 25992,
+      "sha256": "ef58c16c72a433e77688c9ff2ef36821491bda669d72a66145c255512e69c6ed"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase_LOD00.gltf",
+      "size": 3827,
+      "sha256": "ae0d4e2edc8f7fcab5c65c5806df9bac438219f8412b1b2d323028f6b5de3d40"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase.xml",
+      "size": 234,
+      "sha256": "8c1f35c64cf4b62dbe874b6dfe83542be42d9f88dda5f23e1e59c86cd21b2a05"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/model.CFG",
+      "size": 38,
+      "sha256": "c3c8156d1e28af549ad5d2b3fefd419b3bf019d859abc8dc6fd4637c77604207"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseBriefcase/sim.cfg",
+      "size": 272,
+      "sha256": "e10a45e7d4c576a85f901701aa3b1f8e370e805d340b9aae08dcb70c6b9a68a0"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley_LOD00.bin",
+      "size": 34656,
+      "sha256": "103a9e023a303c1ed9aedf48edacfc1a2648a82f3fbb954593df4b1ef081159b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley_LOD00.gltf",
+      "size": 4340,
+      "sha256": "9fd481c21b055a10cf3db4ce908156228536985bfb6574b449d54812c505b225"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley.xml",
+      "size": 240,
+      "sha256": "42c7ca86338a68b567cee99d1847d9a467f69782c811d1990d14d716b96c674e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/model.CFG",
+      "size": 41,
+      "sha256": "c76e6618c6cd2ca05af4fd4bcbf8d80c1dbb133da40f35812913db58422fae2a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/sim.cfg",
+      "size": 296,
+      "sha256": "029d115b64eea22f2218e11c7c7f0145802b19f32360a2e9ee2d317191a01116"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair_LOD00.bin",
+      "size": 10944,
+      "sha256": "3cbaa0f29f79197423d09ef9d9a59de47a9bcedfd2ea34b8a8098462172e656a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair_LOD00.gltf",
+      "size": 2701,
+      "sha256": "3741a666e48e0c9846736cfa625e6891bcb222d405c432184da2888a09bfe118"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair.xml",
+      "size": 226,
+      "sha256": "946f9af86324d4d09a746324b7cb585a725d09e0272e29f9cd7b1e124b5c2c20"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseChair/model/model.CFG",
+      "size": 34,
+      "sha256": "9d094fc3e068dd11f81905aa970777e89d32ecdfcfa667526f285167f81a0247"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseChair/sim.cfg",
+      "size": 260,
+      "sha256": "d41361a4f2b510a0975964510e8945b123b72c3eac52e3991ae0b014012e9796"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack_LOD00.bin",
+      "size": 36480,
+      "sha256": "159e891e8bcb17b11fcd2301e4482eff703a30c5ad3e9232ebd5d4fefb8c1dbd"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack_LOD00.gltf",
+      "size": 4246,
+      "sha256": "839d45089d6c6ffd4b2372bdb3d9f3620f48127cd3635f26e3feba9d64ae2ee2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack.xml",
+      "size": 230,
+      "sha256": "b9b6912e19f6fe0a583ce2e25c225f5ed40e1a34bc69c57a345454a780c4bb38"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDaypack/model/model.CFG",
+      "size": 36,
+      "sha256": "d98851ac440d709a2f5a81f660bcb2ff8037835cfb547bc6021b77b02651c07d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDaypack/sim.cfg",
+      "size": 292,
+      "sha256": "33d360c97dd34a5a0d1e83167019c21b25346831edc215e9cb6e7d374a4c1b03"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk_LOD00.bin",
+      "size": 24624,
+      "sha256": "c2b313c61acc9e6b3e56ab45089432ca6dbae0a1cc67bc1668810830c2ec4440"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk_LOD00.gltf",
+      "size": 3701,
+      "sha256": "96a243b9bc033cdb4d1f7b1a68e994a1d37a1fb955a482e94e16fdb15a083202"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk.xml",
+      "size": 224,
+      "sha256": "f3b95610625472bca4fc61338817cebad1586c1ff1bb18cb2dceb83bdb0a72ea"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDesk/model/model.CFG",
+      "size": 33,
+      "sha256": "b284782159f48de356442bdb989fc6099e628e09bbc41f76beb13356305751f7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDesk/sim.cfg",
+      "size": 254,
+      "sha256": "fdd4bb01bb60e5ebf8a3ed4d870a205941c074a1d617d624032ecd3e3ed1aa18"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag_LOD00.bin",
+      "size": 37392,
+      "sha256": "3dcdb7436b7fd8f95ae6da49de9671507ba67bd8cfcbd5754bdf0968f447c2c8"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag_LOD00.gltf",
+      "size": 4293,
+      "sha256": "d36fdf6ff9874ea87d41862e38ebd45216a91e5bcb585c39eaee6e705c49281e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag.xml",
+      "size": 234,
+      "sha256": "dd65ffe5fa4eb550ed05f4f39a48d9cecb28b96827b570410849ba4dc22d4be1"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/model.CFG",
+      "size": 38,
+      "sha256": "7bdea7b67153bb86d858eba92d2c68d9b055c3f692ff6bbf1912e1aa6b2027ae"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseDuffelBag/sim.cfg",
+      "size": 292,
+      "sha256": "ae16c4105c2214774fe00d53967be6283c7c6d85e2eb3095410a7db065301eec"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan_LOD00.bin",
+      "size": 172824,
+      "sha256": "96986d45832233b554b2b3324c5172f5a478beb6aa3f15bd0b2ac8a84cc2655e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan_LOD00.gltf",
+      "size": 7825,
+      "sha256": "7572d97d2c9b8b5928f80d199ffd5515e6998a9bc8996c320ec5c3ac78c5019b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan.xml",
+      "size": 246,
+      "sha256": "667d8f1bf0097f75e25a67b657073db85f1a4e8523ea4557d03374f00fa91614"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/model.CFG",
+      "size": 44,
+      "sha256": "b59b462a606dc74d9fb9eac0e32cc937299df26048d407f4bc22e03203b6e7c3"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/sim.cfg",
+      "size": 323,
+      "sha256": "0a6404eac283847959004e21012f1b26aae615bc849ff4000fbbdbff5e2457f5"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.bin",
+      "size": 99408,
+      "sha256": "9f21f75918f49e09fad69365e7629b75ccf6e073f9b474a6b0d7eac7ec7078c7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.gltf",
+      "size": 5293,
+      "sha256": "8b9f393444f7d0ff14d45e2bb246d9084add60a9c6bdcd32eb2928aa91748418"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum.xml",
+      "size": 232,
+      "sha256": "0f7e9eff99e9d4203c0d6afef3cb7e0d0be68d1c3baccd4a4ee18cd4de56cf23"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/model.CFG",
+      "size": 37,
+      "sha256": "861733be693d05d595ec3ea88ac065a27410b9ce8747cf02c8f29765faad0c6d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFuelDrum/sim.cfg",
+      "size": 271,
+      "sha256": "ae557b8ca1f62b10810bf4ddc0c6e1c6e36b0081a2dc3a68b53494f578322933"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator_LOD00.bin",
+      "size": 47424,
+      "sha256": "a718e6f911f1c62b3ae36c18a465e6ddb4edcac932a1603f160ebcf25bb552f9"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator_LOD00.gltf",
+      "size": 3357,
+      "sha256": "c45729b4473a9922f31369a4f393dbee37ac1a798afa4e4813a4c5a99dc23963"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator.xml",
+      "size": 234,
+      "sha256": "7fddd63e0d6d03504d66cb2fcd4a9c9497ab3dbda14f8b605a5f7b9ebdba2ca7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseGenerator/model/model.CFG",
+      "size": 38,
+      "sha256": "daa8179e98fbcc8f70afbbfddbac6e5bc9b0d1489fe8bf8f8016bb1794a44c84"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseGenerator/sim.cfg",
+      "size": 266,
+      "sha256": "48789d0a58e972a0ab9e9350a2b8e679d040210cf23944f0530abb4383d81380"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar_LOD00.bin",
+      "size": 769728,
+      "sha256": "20c3201e2be3b52e1987a4f423f8c2b65ed63d3d4fd5e7b06325512abbbaf587"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar_LOD00.gltf",
+      "size": 4283,
+      "sha256": "f59859504ffe25bc74e97f5a9f8f31d2cc1c3206d958bc700ee494067f2bcb0e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar.xml",
+      "size": 228,
+      "sha256": "c40eb9d15e964705d0b1c53070b3e884bc5b516bfaae2176fbf942687379948b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHangar/model/model.CFG",
+      "size": 35,
+      "sha256": "dc0ca4f9e578edd23bcff23df9534430a0cd9ad3e725f3ed517f0c908c49c7c8"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHangar/sim.cfg",
+      "size": 271,
+      "sha256": "bbe4a39cb482dabd178bf711cda56318036f88b025205064b7c3b136b233cc02"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.bin",
+      "size": 22800,
+      "sha256": "78d025e493bf811101da0350d65156a2b888997c2c2c108816a96520dba63cc9"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.gltf",
+      "size": 4360,
+      "sha256": "34ef0193ce36db00d62ae59536408d0fdf9f76d2f49df9ba61b255320ab38e1b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler.xml",
+      "size": 246,
+      "sha256": "a96e2a079efbc5a309dcaa4a04c42d3df4c02f89baffdef20ec3d7fa7c6e6299"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/model.CFG",
+      "size": 44,
+      "sha256": "b747bae3e7085990d6fff40de5094c495ab789ecbc25c74ae28729b800db88f8"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/sim.cfg",
+      "size": 295,
+      "sha256": "14c67433e9b4a5567610295e2a5c770915c195710e0cc51227a3cdfe770029cc"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair_LOD00.bin",
+      "size": 32832,
+      "sha256": "4ca900c22ca7ebaff3701a79e6fea04156c8739c695d50fbd0dc60ceca501854"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair_LOD00.gltf",
+      "size": 3827,
+      "sha256": "b6eff63434a8e346f002aeba94b46f42fcba49db56213fbe4f1a7d3dc9503e98"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair.xml",
+      "size": 240,
+      "sha256": "b3c8eee4d6f660d3b9fb5372a0d3a990708658c86eeac8e27fea6415992516db"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/model.CFG",
+      "size": 41,
+      "sha256": "71ce7582207495224731af494802f592f4c06b161d6dbef053bf4ece8a3063a1"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/sim.cfg",
+      "size": 289,
+      "sha256": "8497ec3001ebc0ec5f2f19afbb2f616da5fcd7fb41a333011479a02375f29da0"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack_LOD00.bin",
+      "size": 60192,
+      "sha256": "ee9505fd2a9c5662eeabe9d0600faa5ac9ba9bac0f2b9e12ec055284f64f52a6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack_LOD00.gltf",
+      "size": 4312,
+      "sha256": "1d108eead912fdc87ae9d908e01c3170e4fb52e290d878ebc95923261a499e8c"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack.xml",
+      "size": 232,
+      "sha256": "a53aac04c5fc250ef9f6a50c77a677b6cdbf3ebda382c0697bf048972c5167f2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMailSack/model/model.CFG",
+      "size": 37,
+      "sha256": "14e1f184440123a5b751c74881dc525114db1243adeaff7fd0f890dc48f20e1d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMailSack/sim.cfg",
+      "size": 274,
+      "sha256": "da74d1f29520d5e43522ea03fa6acdb9a48ef0aa9afe41644c21fc616e8cd9d2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion_LOD00.bin",
+      "size": 71592,
+      "sha256": "1f3eb9c86d7a4c1af020325516b920bb08a2d86a89ed02f1ea69ed22902b7061"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion_LOD00.gltf",
+      "size": 3841,
+      "sha256": "6b287ef0e0c66ee60dbbca4acad700b2cca5772b81f3dfd16bb89e852b80fc80"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion.xml",
+      "size": 236,
+      "sha256": "4108b5dfc74088c5255cd2c092285ac75ec7ccd3ea1faf97f7ddff2082225fcc"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/model.CFG",
+      "size": 39,
+      "sha256": "fcc2e8eef6768adafb8ceb6d4faa8635e9291522f3107504c435cfad1d6fafdc"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseMXPavilion/sim.cfg",
+      "size": 279,
+      "sha256": "fe8216ac5f1049af214f574ed766510fb6a12957f226e2f76e7e4cab3de6984f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking_LOD00.bin",
+      "size": 104880,
+      "sha256": "8a9783b6424877121d440084dfa297ac49bd1b4fbc9b381b2510e0d3f95ca78f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking_LOD00.gltf",
+      "size": 7807,
+      "sha256": "2b27ee4ad81e87191306f8f1bc1068e422394f6d87a78dabdf225f6cd2697ad4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking.xml",
+      "size": 238,
+      "sha256": "9dad87c216a58bfff7246c7716de3803336042724bc0cbd5b330ff5deed0bfbe"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/model.CFG",
+      "size": 40,
+      "sha256": "0dd9efd51c89a12bb904d622e3cf507210b73d9db76ff5dfced2fd38eade8546"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseOpenParking/sim.cfg",
+      "size": 321,
+      "sha256": "cb71da3f75f4228af15b17aaf89a7b6545305f5973d01e5e05d50d1d33efc1e5"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard_LOD00.bin",
+      "size": 18240,
+      "sha256": "9aa9d2956bbdf1bfb1fb2b571edff8732f60f60c3d569c17abc92ad60941591a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard_LOD00.gltf",
+      "size": 3771,
+      "sha256": "802778a70ece93e4719674c029b58701de1289a85400d9a7f4e5eb5296afc1b4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard.xml",
+      "size": 232,
+      "sha256": "23cc3f2e3fb0a8fab9d6d3a89781c07e344634e6a36a40ff63d086e7a46bc834"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePinboard/model/model.CFG",
+      "size": 37,
+      "sha256": "e71ae1c73ea42331234319d8c65b31e0c0ac06b9786c2c8e0215c1eebcc5ded3"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePinboard/sim.cfg",
+      "size": 263,
+      "sha256": "0c773c3d7ca00845c318649d16df5a6606e704ca109e8b47e0c0d32c0ec931b2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox_LOD00.bin",
+      "size": 19152,
+      "sha256": "02e2df76b0c017b5d64667d1f650be72d88bcf3f964212d1f5464ba4370008ca"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox_LOD00.gltf",
+      "size": 4374,
+      "sha256": "2600990720c9a75f5c0f92c054e61e0ce4f8873fb8a055b31e5c066bd233e7a4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox.xml",
+      "size": 246,
+      "sha256": "6f0daa3372cc8ced5f2302d82913f60bdcf71b1305d7b4ed2c35ac307f5c0616"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/model.CFG",
+      "size": 44,
+      "sha256": "7aa69a285954d3c97d2bd8a3ef42be1cb0191e0dc57dd23448812d2a6b572926"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebasePortableToolbox/sim.cfg",
+      "size": 289,
+      "sha256": "00b775be3ea172b7db2a12cca04452d5f3bc3a83ba1dcb162c4d5b25f2721167"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.bin",
+      "size": 417172,
+      "sha256": "c17669ce18348f40f057865f9eebf9b6116d12542cbb4739ec684616d07d2e88"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.gltf",
+      "size": 27276,
+      "sha256": "86ccbe2c804c5591ad7fa036bc0628d44e00a30cb4fed0a8f05c0c2aa1a7d804"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar.xml",
+      "size": 1256,
+      "sha256": "35725d075684c6ace7f7922e1514d175b4bb3a699aed30cda5dae5109e13f183"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/model.CFG",
+      "size": 40,
+      "sha256": "671e3ecea1f3d82fa717ef54cc82c7f853d32de0bba4d0a2dd30402af7bc2346"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseRoundHangar/sim.cfg",
+      "size": 571,
+      "sha256": "a1aef1ee33408f42dfce3253458db12d3f95adb23956b0993fff3a802bffec25"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe_LOD00.bin",
+      "size": 15732,
+      "sha256": "31cb4ccfa66dd5fe16c12e8db11980dc85d000584f8e866f069cd2a99e458faf"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe_LOD00.gltf",
+      "size": 3291,
+      "sha256": "10e3babc2fc72842bd78872a68413dc156e09b3b2dd1f34925fbe32599177e31"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe.xml",
+      "size": 236,
+      "sha256": "2363e282706ee5aadb576e3d42faae18520182913259e2a0f7d43abbf0aebbeb"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/model.CFG",
+      "size": 39,
+      "sha256": "48d0111a1bda26dcda9f8b82d0c05f67c5b78c3d4317c72b7a92f085fb8b41ae"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/sim.cfg",
+      "size": 291,
+      "sha256": "18d0c339d7dcdadc29ddd632563ab01c307e36e56988176f92c35cd2ea716453"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox_LOD00.bin",
+      "size": 27360,
+      "sha256": "48f3bbceab0e75f0315b43990c2087da6aa9c9efa627f88ce780b7dcd823eb87"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox_LOD00.gltf",
+      "size": 4296,
+      "sha256": "d970c9539db408063fd56dfc1ddc91081367b52d713abd1192600f1a1e5dcb5f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox.xml",
+      "size": 230,
+      "sha256": "0b71c8f730763fa2729e8ef37cd008895c27ea04339fe6d4cce6a86acd92556f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolbox/model/model.CFG",
+      "size": 36,
+      "sha256": "aa06466ed3db688b1ce57db405b4a2ea44107d104e9a1004fe48451cb7946250"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolbox/sim.cfg",
+      "size": 275,
+      "sha256": "9036058f5a29132f99efa51d188a713585f19f76ebc4068d28572146e44a971f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart_LOD00.bin",
+      "size": 48336,
+      "sha256": "384ba59b67ad0d277f3b9bc643e3b177a8d52a6fcecdd78b9fd24d7ea6ecca49"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart_LOD00.gltf",
+      "size": 3806,
+      "sha256": "df772011d8f0ebef27fbde84b5d9375034dec3b7d530fc9917ce7d1100ecf9fe"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart.xml",
+      "size": 232,
+      "sha256": "ffcb661558eb1fc00951819bdbe55d8448bc9cb9e0f39a2ff5c9bace6e9a0ea6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolCart/model/model.CFG",
+      "size": 37,
+      "sha256": "427736d40458e379dc06c4ca8bd2c2bf0d745ca3cdacd25dc78ab3b2aab46f92"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseToolCart/sim.cfg",
+      "size": 258,
+      "sha256": "69f3beea7cb0df77e938c044d635496be5f2da3904aaee7c03507275fb8f97b4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone_LOD00.bin",
+      "size": 15732,
+      "sha256": "31cb4ccfa66dd5fe16c12e8db11980dc85d000584f8e866f069cd2a99e458faf"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone_LOD00.gltf",
+      "size": 3304,
+      "sha256": "7822eb1b93160fa2fb3bb741794334e63b76407fdb49ef2732e4db6a1859f7a3"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone.xml",
+      "size": 238,
+      "sha256": "e09a21e932f7ecca830ac0662ae281d07d3563c13209ed243a085a19d6c595d6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/model.CFG",
+      "size": 40,
+      "sha256": "9ca7bc45505a3a7dcbc24871963899cf804610f48bc8c9b07df3496bebfb2185"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTrafficCone/sim.cfg",
+      "size": 270,
+      "sha256": "2f1b94d3d8f6f463eb1f8228d18e4bb9d1f54b050a11cb7f42de9a121971ee33"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase_LOD00.bin",
+      "size": 44688,
+      "sha256": "26def88734953806032a8ac336a10f628e236a22019860be56ebbb5e63795a79"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase_LOD00.gltf",
+      "size": 4852,
+      "sha256": "355a8ffb8fc0e75eea637ebea2fefdd24985c0a1b4f79a752c987a2f27db2340"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase.xml",
+      "size": 244,
+      "sha256": "ca70fb74780075f03cf15f3d22f33d24f3f9d5fa37d9e1130a8aa0c3b17e175f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/model.CFG",
+      "size": 43,
+      "sha256": "3f48eea5e75da0f0360347edf5e5dba93cb474a898ecd9c3ea1e78359e7e4c92"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/sim.cfg",
+      "size": 311,
+      "sha256": "56ae7f8ab0059e180139f56476188969f682f2b45060183e59e9c2875d129daa"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock_LOD00.bin",
+      "size": 20976,
+      "sha256": "bc2ca4460ec6de74820b618c0889df329142429a3e2a89e6655f8883c142bfac"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock_LOD00.gltf",
+      "size": 3288,
+      "sha256": "56de21efefa19a4b6771ba81a458f707fb618c943c1ae9178fd50255f7d744ba"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock.xml",
+      "size": 232,
+      "sha256": "682172a6d82a8b1baca4010fded74e1db408d140e32840d35c8a3dd3845e5387"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWindsock/model/model.CFG",
+      "size": 37,
+      "sha256": "9c4870514dd2f1e6c678c466160afd4d8a0186db2c916f4a07796ec4c381e9c2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWindsock/sim.cfg",
+      "size": 266,
+      "sha256": "4a61ed8043c0837ecbf12ab51ad2dd0cf22200458d33b7d820ccccc4cabc7235"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge_LOD00.bin",
+      "size": 32832,
+      "sha256": "1cd737cf536f7b446677c0cf6acd0d2a6278278202d36d0dd62a99a82589ac7d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge_LOD00.gltf",
+      "size": 3869,
+      "sha256": "05f793f47218941679a9e5bc674d56aefb940c4c9869a2f95941d6ca599c2667"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge.xml",
+      "size": 244,
+      "sha256": "79662365e0373fe6516492dfb49341f9d03e248235fa250ec262b2aa261fdc5e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/model.CFG",
+      "size": 43,
+      "sha256": "7665b8c4fa874233250e24fb6bef1f01108972d2ed2025a708a5deecad0f47f7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/sim.cfg",
+      "size": 278,
+      "sha256": "01b93a4a244d77f3053c6841305c00f0416ce4777159095136ca155b89560d54"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium_LOD00.bin",
+      "size": 32832,
+      "sha256": "09541a46cd092058a6abcf654a6e02ee24119b62c04354fe10b0be262df561da"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium_LOD00.gltf",
+      "size": 3881,
+      "sha256": "04704c014d37619390d00f05922fb8879f8629bac9a8b52114a4435bcb14fd0d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium.xml",
+      "size": 246,
+      "sha256": "9ca2e37fa6a2852ddaa690160b2c83f0fdbe758fbd0ac8e5fcb13e91519b00bb"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/model.CFG",
+      "size": 44,
+      "sha256": "de463a39c56087a383014567365e800fb76d713eb80824a765712713a53b9e4b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/sim.cfg",
+      "size": 280,
+      "sha256": "0970ead94263b3d323f635c73215e67f70e76bb1f5aca4c74776da5b1a5012a1"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall_LOD00.bin",
+      "size": 27360,
+      "sha256": "d8911c625b223e33abe466d481a4b5cb8e4fb5dbaae3178bedd999bc84339fb8"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall_LOD00.gltf",
+      "size": 3871,
+      "sha256": "2347f8a38dcad1a060751f79f302b756333dc643e095357eb45f7626dbe77479"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall.xml",
+      "size": 244,
+      "sha256": "695b5fd24fc0979452e9b1730ac1eb170afc6501c6479f424de373e45c31a41b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/model.CFG",
+      "size": 43,
+      "sha256": "648f3c13eb21f46ea7a7baa35f6d17e6d1a0d03e7a4137b07d5199a5d2fd112e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/sim.cfg",
+      "size": 278,
+      "sha256": "5a9919866c9cca85ceccfce2112e9eba629683a65cd7420ae97e324d1a1ce40f"
+    }
+  ],
+  "assets": [
+    {
+      "key": "assetShelf",
+      "version": "1.0.1",
+      "folder": "VFRHomebaseAssetShelf",
+      "title": "VFR Multitool Homebase Asset Shelf",
+      "label": "Asset-Regal (Eimer, �lkanne, Kartons)",
+      "group": "Ausstattung",
+      "kind": "object",
+      "homebasePlaceable": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "tools",
+        "supplies",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "modelHash": "2129f1e917062e75439f1753a240de8c72e277b28ad300b6db2a4e1ea74e57e9",
+      "metadataHash": "1e99d05512c3cd433d9ca61b660b712192879fb4497fb61c2de454870eb1b68b",
+      "contentHash": "219d769b0313955c592f7306da443485c8011579f7d208c2f2c249b0fed319ae",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.bin",
+          "size": 249432,
+          "sha256": "5d48fa3e2dd1137d2d723d147033ded8425b57caf22ce6a0c9a35709586d7ed4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.gltf",
+          "size": 11227,
+          "sha256": "4a1e99cacbb2defb625e3a59c45fde3bf4a0af3894944c640264a552ba1f5a4c"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf.xml",
+          "size": 236,
+          "sha256": "ab8d956df8219b268f2c7e9e7e4ebe9f90360a43dca86e14ce8304254c5b2c05"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/model.CFG",
+          "size": 39,
+          "sha256": "f609cd478526dc132747cd9ec420b95ec5aacaf88ff3977565be9cfaacf08918"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAssetShelf/sim.cfg",
+          "size": 304,
+          "sha256": "0df2c3ea7f2ed891142bd9ffc61c7f263cd3a1bff5bb79961c51caebd1b0467f"
+        }
+      ],
+      "archive": {
+        "name": "assetShelf-1.0.1.zip",
+        "path": "assets/assetShelf-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/assetShelf-1.0.1.zip",
+        "size": 43569,
+        "sha256": "bacbb6914dc05c6845fd380a374f281553fa959d68f49d4536dfa150c2201ee8"
+      }
+    },
+    {
+      "key": "backpack",
+      "folder": "VFRHomebaseBackpack",
+      "title": "VFR Multitool Homebase Backpack",
+      "label": "Rucksack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "passenger",
+        "travel",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.018Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "cdf2edc4b80d0bdfab6cb1a337b01ef101fae6815a55fa73f88cb3a0b1eddeb2",
+      "metadataHash": "a7297e9a7053766b03f9cbb65ca06f90828c5ec056a339a290526edd4a0ec87f",
+      "contentHash": "5b1c83e996096d6dd0a58bb6707986ddc2cea11bf5e68de9df70079a92ccb60d",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack_LOD00.bin",
+          "size": 41496,
+          "sha256": "c9398b06e6b20a39c170393f19309a247060aa5607f5cef1f4fd9eb04883d042"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack_LOD00.gltf",
+          "size": 4307,
+          "sha256": "3ac4232ee3dd14ca368ff5a016216decb302a77bcd34fbabb021ca6d3d594ae4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBackpack/model/HomebaseBackpack.xml",
+          "size": 232,
+          "sha256": "4197a2a16a3d6b326fdffc9fc566e30e0a59f7750e55a59fd9872e15de9c78c7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBackpack/model/model.CFG",
+          "size": 37,
+          "sha256": "a0e358d1d3d66558615ec0c5f84a884a05e4c8297a900454166961a69589614f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBackpack/sim.cfg",
+          "size": 275,
+          "sha256": "2a497ff88a8df2129e766f33c3a2ff42f919e1ab8ade9d9e0bb9ffe38193f024"
+        }
+      ],
+      "archive": {
+        "name": "backpack-1.0.0.zip",
+        "path": "assets/backpack-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/backpack-1.0.0.zip",
+        "size": 10500,
+        "sha256": "ef63445706258b2fd8901b016f18959c79ef5691e5b8cb54c3b5ead71e01cbac"
+      }
+    },
+    {
+      "key": "briefcase",
+      "folder": "VFRHomebaseBriefcase",
+      "title": "VFR Multitool Homebase Briefcase",
+      "label": "Aktenkoffer",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "passenger",
+        "travel"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:31.914Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "37d84bce111f16c178a83825572a12690c5998c08f455c34fe120d87c70b0f82",
+      "metadataHash": "79bcbb82d49e6ab328b11cd67b3861123401f8b6bfc635ce05c7ed7ba055fe5b",
+      "contentHash": "f46a606b20b3676ac544f0ce49b9d19252aaae0c870f0982796667a938eeefc0",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase_LOD00.bin",
+          "size": 25992,
+          "sha256": "ef58c16c72a433e77688c9ff2ef36821491bda669d72a66145c255512e69c6ed"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase_LOD00.gltf",
+          "size": 3827,
+          "sha256": "ae0d4e2edc8f7fcab5c65c5806df9bac438219f8412b1b2d323028f6b5de3d40"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/HomebaseBriefcase.xml",
+          "size": 234,
+          "sha256": "8c1f35c64cf4b62dbe874b6dfe83542be42d9f88dda5f23e1e59c86cd21b2a05"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBriefcase/model/model.CFG",
+          "size": 38,
+          "sha256": "c3c8156d1e28af549ad5d2b3fefd419b3bf019d859abc8dc6fd4637c77604207"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseBriefcase/sim.cfg",
+          "size": 272,
+          "sha256": "e10a45e7d4c576a85f901701aa3b1f8e370e805d340b9aae08dcb70c6b9a68a0"
+        }
+      ],
+      "archive": {
+        "name": "briefcase-1.0.0.zip",
+        "path": "assets/briefcase-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/briefcase-1.0.0.zip",
+        "size": 7587,
+        "sha256": "2006b11ecf430123f47717f6b146273904d18219f49f599833cc3600c02d1ddc"
+      }
+    },
+    {
+      "key": "cabinTrolley",
+      "folder": "VFRHomebaseCabinTrolley",
+      "title": "VFR Multitool Homebase Cabin Trolley",
+      "label": "Trolley klein",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "passenger",
+        "travel"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:31.953Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "24f4af0af628ed83e4fc48d3227c4dae01f07fef3a5024ea05eb3b47353eff9b",
+      "metadataHash": "912919eb01a84c0546cc93f20e93b519f54b9ff507e9646bb4d85c4a09a03fc8",
+      "contentHash": "3ba3e111227e1bac5ebdca15156aea9e75d7c854b25d3f3e16ebe74e8d5bfd46",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley_LOD00.bin",
+          "size": 34656,
+          "sha256": "103a9e023a303c1ed9aedf48edacfc1a2648a82f3fbb954593df4b1ef081159b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley_LOD00.gltf",
+          "size": 4340,
+          "sha256": "9fd481c21b055a10cf3db4ce908156228536985bfb6574b449d54812c505b225"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/HomebaseCabinTrolley.xml",
+          "size": 240,
+          "sha256": "42c7ca86338a68b567cee99d1847d9a467f69782c811d1990d14d716b96c674e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/model/model.CFG",
+          "size": 41,
+          "sha256": "c76e6618c6cd2ca05af4fd4bcbf8d80c1dbb133da40f35812913db58422fae2a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseCabinTrolley/sim.cfg",
+          "size": 296,
+          "sha256": "029d115b64eea22f2218e11c7c7f0145802b19f32360a2e9ee2d317191a01116"
+        }
+      ],
+      "archive": {
+        "name": "cabinTrolley-1.0.0.zip",
+        "path": "assets/cabinTrolley-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/cabinTrolley-1.0.0.zip",
+        "size": 8720,
+        "sha256": "f95606268285f8d037b2427d0e463e8298d993dc4576352999c27bf8167c4b24"
+      }
+    },
+    {
+      "key": "chair",
+      "folder": "VFRHomebaseChair",
+      "title": "VFR Multitool Homebase Chair",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Stuhl",
+      "icon": "S",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "office",
+        "furniture"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "a7b13e9d277da6089cb3658fea1415a48d0aa64583948cd94ba4d324acf8884f",
+      "metadataHash": "c68c0c1fe144b52da32bae9a6373beba8d51070438a01c19e5f15ae302322560",
+      "contentHash": "9feb7a2ef2e7ec9a396ffea5dd2c29e08408f84a2bfb76094adcf075149d133b",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair_LOD00.bin",
+          "size": 10944,
+          "sha256": "3cbaa0f29f79197423d09ef9d9a59de47a9bcedfd2ea34b8a8098462172e656a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair_LOD00.gltf",
+          "size": 2701,
+          "sha256": "3741a666e48e0c9846736cfa625e6891bcb222d405c432184da2888a09bfe118"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseChair/model/HomebaseChair.xml",
+          "size": 226,
+          "sha256": "946f9af86324d4d09a746324b7cb585a725d09e0272e29f9cd7b1e124b5c2c20"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseChair/model/model.CFG",
+          "size": 34,
+          "sha256": "9d094fc3e068dd11f81905aa970777e89d32ecdfcfa667526f285167f81a0247"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseChair/sim.cfg",
+          "size": 260,
+          "sha256": "d41361a4f2b510a0975964510e8945b123b72c3eac52e3991ae0b014012e9796"
+        }
+      ],
+      "archive": {
+        "name": "chair-1.0.0.zip",
+        "path": "assets/chair-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/chair-1.0.0.zip",
+        "size": 4723,
+        "sha256": "a39e4b0bb28ba5a6b30c10bcb89d31ce05fd31d1a96fbb845233b30333411981"
+      }
+    },
+    {
+      "key": "customWindsock",
+      "folder": "VFRHomebaseWindsock",
+      "title": "VFR Multitool Homebase Windsock",
+      "kind": "internal",
+      "preview": false,
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "internal",
+        "weather"
+      ],
+      "missionRoles": [
+        "internal"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "a664326793d62443f6bc5f05c263f2574e1c9b87918d004f01a0247955b1103b",
+      "metadataHash": "cf08eed2df5e482a391b41543f706cbdd65f2808e1fcb5a98ecb4846cd78a2de",
+      "contentHash": "4809bb926f973ad7b9ad01f55408d9912a6b352880619afed8fc2a56ffcc618b",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock_LOD00.bin",
+          "size": 20976,
+          "sha256": "bc2ca4460ec6de74820b618c0889df329142429a3e2a89e6655f8883c142bfac"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock_LOD00.gltf",
+          "size": 3288,
+          "sha256": "56de21efefa19a4b6771ba81a458f707fb618c943c1ae9178fd50255f7d744ba"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWindsock/model/HomebaseWindsock.xml",
+          "size": 232,
+          "sha256": "682172a6d82a8b1baca4010fded74e1db408d140e32840d35c8a3dd3845e5387"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWindsock/model/model.CFG",
+          "size": 37,
+          "sha256": "9c4870514dd2f1e6c678c466160afd4d8a0186db2c916f4a07796ec4c381e9c2"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWindsock/sim.cfg",
+          "size": 266,
+          "sha256": "4a61ed8043c0837ecbf12ab51ad2dd0cf22200458d33b7d820ccccc4cabc7235"
+        }
+      ],
+      "archive": {
+        "name": "customWindsock-1.0.0.zip",
+        "path": "assets/customWindsock-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/customWindsock-1.0.0.zip",
+        "size": 6952,
+        "sha256": "cd2b4ee15cc32a71a0669449db119efd715c5aeb1d84b8544ad0284ad7ae132e"
+      }
+    },
+    {
+      "key": "daypack",
+      "folder": "VFRHomebaseDaypack",
+      "title": "VFR Multitool Homebase Daypack",
+      "label": "Tagesrucksack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "outdoor",
+        "personal"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.061Z",
+      "modelHash": "2287d7cfc99e2bf18996c6e69d8bab21358972e6aceef7fd883995c4939e236d",
+      "metadataHash": "622e107edf629fe7409d6e0c8e8486580a113257687ffa5ae21d710bb123c2c4",
+      "contentHash": "28a29fd7e412285c3b675ecfda4016b236c2a4900cbae5fca7567cf8b320b9a2",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack_LOD00.bin",
+          "size": 36480,
+          "sha256": "159e891e8bcb17b11fcd2301e4482eff703a30c5ad3e9232ebd5d4fefb8c1dbd"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack_LOD00.gltf",
+          "size": 4246,
+          "sha256": "839d45089d6c6ffd4b2372bdb3d9f3620f48127cd3635f26e3feba9d64ae2ee2"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDaypack/model/HomebaseDaypack.xml",
+          "size": 230,
+          "sha256": "b9b6912e19f6fe0a583ce2e25c225f5ed40e1a34bc69c57a345454a780c4bb38"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDaypack/model/model.CFG",
+          "size": 36,
+          "sha256": "d98851ac440d709a2f5a81f660bcb2ff8037835cfb547bc6021b77b02651c07d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDaypack/sim.cfg",
+          "size": 292,
+          "sha256": "33d360c97dd34a5a0d1e83167019c21b25346831edc215e9cb6e7d374a4c1b03"
+        }
+      ],
+      "archive": {
+        "name": "daypack-1.0.0.zip",
+        "path": "assets/daypack-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/daypack-1.0.0.zip",
+        "size": 9239,
+        "sha256": "96645ffbdef451aa3b0274bc0e7d1c2d408e0bf1341453f7b6797bfa1e2c8920"
+      }
+    },
+    {
+      "key": "desk",
+      "folder": "VFRHomebaseDesk",
+      "title": "VFR Multitool Homebase Desk",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Schreibtisch",
+      "icon": "T",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "office",
+        "equipment"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "d42b3b57ebf9477f8ae0ff2f53eaa713f139af7491a173b91b882ab32b86cfa4",
+      "metadataHash": "e72c4c1d64dd347c49b0aeb5ebe99bf2f7375e62b7eaf71b801a229454d876aa",
+      "contentHash": "b3e35e9ebad4a2a74a4869224245c26bb1abcfc361400a8782bb805f503e94f1",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk_LOD00.bin",
+          "size": 24624,
+          "sha256": "c2b313c61acc9e6b3e56ab45089432ca6dbae0a1cc67bc1668810830c2ec4440"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk_LOD00.gltf",
+          "size": 3701,
+          "sha256": "96a243b9bc033cdb4d1f7b1a68e994a1d37a1fb955a482e94e16fdb15a083202"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDesk/model/HomebaseDesk.xml",
+          "size": 224,
+          "sha256": "f3b95610625472bca4fc61338817cebad1586c1ff1bb18cb2dceb83bdb0a72ea"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDesk/model/model.CFG",
+          "size": 33,
+          "sha256": "b284782159f48de356442bdb989fc6099e628e09bbc41f76beb13356305751f7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDesk/sim.cfg",
+          "size": 254,
+          "sha256": "fdd4bb01bb60e5ebf8a3ed4d870a205941c074a1d617d624032ecd3e3ed1aa18"
+        }
+      ],
+      "archive": {
+        "name": "desk-1.0.0.zip",
+        "path": "assets/desk-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/desk-1.0.0.zip",
+        "size": 6634,
+        "sha256": "550c0e774918c54f05f3ca2923e8c6e02cf7fc73f3fed71f070668ae64b12017"
+      }
+    },
+    {
+      "key": "duffelBag",
+      "folder": "VFRHomebaseDuffelBag",
+      "title": "VFR Multitool Homebase Duffel Bag",
+      "label": "Duffelbag / Reisetasche",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "charter",
+        "outdoor"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.079Z",
+      "modelHash": "6b615fe5afce7a684bbbbbb01efcf4925fde5b2f9415d05ee2a843fe717d7ee4",
+      "metadataHash": "c575c3f7d2fc32cc444dc92242bcf0377e3bd0d3527094a9119a75e0ea88a9df",
+      "contentHash": "9d18205166a2737b06fe941e5619f9f7089fb88ae4c07756636b02ab65bb3407",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag_LOD00.bin",
+          "size": 37392,
+          "sha256": "3dcdb7436b7fd8f95ae6da49de9671507ba67bd8cfcbd5754bdf0968f447c2c8"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag_LOD00.gltf",
+          "size": 4293,
+          "sha256": "d36fdf6ff9874ea87d41862e38ebd45216a91e5bcb585c39eaee6e705c49281e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/HomebaseDuffelBag.xml",
+          "size": 234,
+          "sha256": "dd65ffe5fa4eb550ed05f4f39a48d9cecb28b96827b570410849ba4dc22d4be1"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDuffelBag/model/model.CFG",
+          "size": 38,
+          "sha256": "7bdea7b67153bb86d858eba92d2c68d9b055c3f692ff6bbf1912e1aa6b2027ae"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseDuffelBag/sim.cfg",
+          "size": 292,
+          "sha256": "ae16c4105c2214774fe00d53967be6283c7c6d85e2eb3095410a7db065301eec"
+        }
+      ],
+      "archive": {
+        "name": "duffelBag-1.0.0.zip",
+        "path": "assets/duffelBag-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/duffelBag-1.0.0.zip",
+        "size": 9463,
+        "sha256": "365df65d178030cee7ddec3da025f2a4a550af48788402acb6be731307ac3e96"
+      }
+    },
+    {
+      "key": "europeanCaravan",
+      "folder": "VFRHomebaseEuropeanCaravan",
+      "title": "VFR Multitool Homebase European Caravan",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Wohnwagen (einachsig)",
+      "icon": "W",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "vehicle",
+        "support",
+        "accommodation"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "7d61528c6dfc666b1809b100a64ef518059a1d47160b48887a43a09917660040",
+      "metadataHash": "69a6e7789051868b4c67e6ef04cbe8d434cb7379fc0b7d88bc3e3e907b5866c9",
+      "contentHash": "e57ae25dff892aa78dfb548e64e243c46a7eb1bcfd4a00d1ad85ae617509d6fb",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan_LOD00.bin",
+          "size": 172824,
+          "sha256": "96986d45832233b554b2b3324c5172f5a478beb6aa3f15bd0b2ac8a84cc2655e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan_LOD00.gltf",
+          "size": 7825,
+          "sha256": "7572d97d2c9b8b5928f80d199ffd5515e6998a9bc8996c320ec5c3ac78c5019b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/HomebaseEuropeanCaravan.xml",
+          "size": 246,
+          "sha256": "667d8f1bf0097f75e25a67b657073db85f1a4e8523ea4557d03374f00fa91614"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/model/model.CFG",
+          "size": 44,
+          "sha256": "b59b462a606dc74d9fb9eac0e32cc937299df26048d407f4bc22e03203b6e7c3"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseEuropeanCaravan/sim.cfg",
+          "size": 323,
+          "sha256": "0a6404eac283847959004e21012f1b26aae615bc849ff4000fbbdbff5e2457f5"
+        }
+      ],
+      "archive": {
+        "name": "europeanCaravan-1.0.0.zip",
+        "path": "assets/europeanCaravan-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/europeanCaravan-1.0.0.zip",
+        "size": 31145,
+        "sha256": "d3dd89fac8e83bc3431820cc07eeacc4a2d0f486c28014cb6c0f7f6f768f9880"
+      }
+    },
+    {
+      "key": "fuelDrum",
+      "folder": "VFRHomebaseFuelDrum",
+      "title": "VFR Multitool Homebase Fuel Drum",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Treibstofffass mit Handpumpe",
+      "icon": "F",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "fuel",
+        "maintenance",
+        "hazardous"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "23a01c6e67391338fd89dca23544fa5229ab84f51978d7fafc39e746e8ae0835",
+      "metadataHash": "207a63a8a5273772cf9c9fad5346cfa01c4058a5bb8ae76e49a4be6b9d2c60b0",
+      "contentHash": "96bd98266879e1ce5424097cec245fe6687d4c1369afa6440aee4241a52975ea",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.bin",
+          "size": 99408,
+          "sha256": "9f21f75918f49e09fad69365e7629b75ccf6e073f9b474a6b0d7eac7ec7078c7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.gltf",
+          "size": 5293,
+          "sha256": "8b9f393444f7d0ff14d45e2bb246d9084add60a9c6bdcd32eb2928aa91748418"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum.xml",
+          "size": 232,
+          "sha256": "0f7e9eff99e9d4203c0d6afef3cb7e0d0be68d1c3baccd4a4ee18cd4de56cf23"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/model.CFG",
+          "size": 37,
+          "sha256": "861733be693d05d595ec3ea88ac065a27410b9ce8747cf02c8f29765faad0c6d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFuelDrum/sim.cfg",
+          "size": 271,
+          "sha256": "ae557b8ca1f62b10810bf4ddc0c6e1c6e36b0081a2dc3a68b53494f578322933"
+        }
+      ],
+      "archive": {
+        "name": "fuelDrum-1.0.0.zip",
+        "path": "assets/fuelDrum-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/fuelDrum-1.0.0.zip",
+        "size": 20791,
+        "sha256": "c22bc3e049f970780464bb613538b24fba8c21039462fec5ef3be9cccecbeb05"
+      }
+    },
+    {
+      "key": "generator",
+      "folder": "VFRHomebaseGenerator",
+      "title": "VFR Multitool Homebase Generator",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Mobiles Aggregat",
+      "icon": "⚡",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "power",
+        "equipment",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "53a4547c448aa97fd8de617d360c7db01848268792865a70bb355988dc8f5b4f",
+      "metadataHash": "8ccd1eceb38910bea69e86ccedc28f89e917f8c9bbaaa1e5670d620de143d290",
+      "contentHash": "21681a320b57a324169d3db31f3fe0b654042174378a675bb773583fec86fa7e",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator_LOD00.bin",
+          "size": 47424,
+          "sha256": "a718e6f911f1c62b3ae36c18a465e6ddb4edcac932a1603f160ebcf25bb552f9"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator_LOD00.gltf",
+          "size": 3357,
+          "sha256": "c45729b4473a9922f31369a4f393dbee37ac1a798afa4e4813a4c5a99dc23963"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseGenerator/model/HomebaseGenerator.xml",
+          "size": 234,
+          "sha256": "7fddd63e0d6d03504d66cb2fcd4a9c9497ab3dbda14f8b605a5f7b9ebdba2ca7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseGenerator/model/model.CFG",
+          "size": 38,
+          "sha256": "daa8179e98fbcc8f70afbbfddbac6e5bc9b0d1489fe8bf8f8016bb1794a44c84"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseGenerator/sim.cfg",
+          "size": 266,
+          "sha256": "48789d0a58e972a0ab9e9350a2b8e679d040210cf23944f0530abb4383d81380"
+        }
+      ],
+      "archive": {
+        "name": "generator-1.0.0.zip",
+        "path": "assets/generator-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/generator-1.0.0.zip",
+        "size": 11161,
+        "sha256": "a116c4ed78b76af73623991fc0df61e186c595d19cc566900a1817ca57237c45"
+      }
+    },
+    {
+      "key": "hangar",
+      "folder": "VFRHomebaseHangar",
+      "title": "VFR Multitool Homebase Hangar",
+      "kind": "hangar",
+      "label": "Homebase-Hangar",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "hangar",
+        "shelter"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "group": "Gebäude",
+      "headingCorrectionDeg": 180,
+      "updatedAt": "2026-07-16T07:30:49.118Z",
+      "modelHash": "bf8bdc53e64e532ce1b9386525a95c7182eda043789584f72520a86c0265170f",
+      "metadataHash": "cf9371f19f0d4229d982bae05fc0d0e1058d4e2e762b0780ec2a907d18b01859",
+      "contentHash": "2637c647266506d9e94e2dc3c1f03a7617fc244b6f91b3960d6a7a8c9ab63ce5",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar_LOD00.bin",
+          "size": 769728,
+          "sha256": "20c3201e2be3b52e1987a4f423f8c2b65ed63d3d4fd5e7b06325512abbbaf587"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar_LOD00.gltf",
+          "size": 4283,
+          "sha256": "f59859504ffe25bc74e97f5a9f8f31d2cc1c3206d958bc700ee494067f2bcb0e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHangar/model/HomebaseHangar.xml",
+          "size": 228,
+          "sha256": "c40eb9d15e964705d0b1c53070b3e884bc5b516bfaae2176fbf942687379948b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHangar/model/model.CFG",
+          "size": 35,
+          "sha256": "dc0ca4f9e578edd23bcff23df9534430a0cd9ad3e725f3ed517f0c908c49c7c8"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHangar/sim.cfg",
+          "size": 271,
+          "sha256": "bbe4a39cb482dabd178bf711cda56318036f88b025205064b7c3b136b233cc02"
+        }
+      ],
+      "archive": {
+        "name": "hangar-1.0.0.zip",
+        "path": "assets/hangar-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/hangar-1.0.0.zip",
+        "size": 150682,
+        "sha256": "f64c602982ce07ae5bc0b5fab623e44f20d47a91160c7b1a1d20c178bc7788af"
+      }
+    },
+    {
+      "key": "insulatedCooler",
+      "folder": "VFRHomebaseInsulatedCooler",
+      "title": "VFR Multitool Homebase Insulated Cooler",
+      "label": "Isolierte Kühlbox",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "cooler",
+        "medical",
+        "samples",
+        "outdoor"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.135Z",
+      "modelHash": "296ccf524f3b6991cf8efe5594da7bb2ff699ef9456e422d2d88625fbd245a44",
+      "metadataHash": "d72e5558457b60d606bf38db884fa438185b05826203ca1d186d2c0a9fe2f4bc",
+      "contentHash": "34ad702c2a6cfa732a08e88433fa37e13931f6ad60f589faa5ccab390a1a432b",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.bin",
+          "size": 22800,
+          "sha256": "78d025e493bf811101da0350d65156a2b888997c2c2c108816a96520dba63cc9"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.gltf",
+          "size": 4360,
+          "sha256": "34ef0193ce36db00d62ae59536408d0fdf9f76d2f49df9ba61b255320ab38e1b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler.xml",
+          "size": 246,
+          "sha256": "a96e2a079efbc5a309dcaa4a04c42d3df4c02f89baffdef20ec3d7fa7c6e6299"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/model.CFG",
+          "size": 44,
+          "sha256": "b747bae3e7085990d6fff40de5094c495ab789ecbc25c74ae28729b800db88f8"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/sim.cfg",
+          "size": 295,
+          "sha256": "14c67433e9b4a5567610295e2a5c770915c195710e0cc51227a3cdfe770029cc"
+        }
+      ],
+      "archive": {
+        "name": "insulatedCooler-1.0.0.zip",
+        "path": "assets/insulatedCooler-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/insulatedCooler-1.0.0.zip",
+        "size": 6959,
+        "sha256": "eb4d5c08c46dfba18eff597a5c0a7829c40612c0279b691e6dba255351230719"
+      }
+    },
+    {
+      "key": "jerrycanPair",
+      "folder": "VFRHomebaseJerrycanPair",
+      "title": "VFR Multitool Homebase Jerrycan Pair",
+      "label": "Kanister-Doppelpack",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "fuel",
+        "supply",
+        "bush",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.117Z",
+      "modelHash": "7f8aa73725923b90e97c33498982e3b7a5e8aa8abbf5a0cb1f86ce049717262d",
+      "metadataHash": "b0732fcdd80b532b9272cd3f3eeb504066fd720b1649ff6d60d328ad2da1a7a9",
+      "contentHash": "1b4c7de5790e343a0d2df1b4a69fb331a3f784c663d2ef5e598207c241941785",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair_LOD00.bin",
+          "size": 32832,
+          "sha256": "4ca900c22ca7ebaff3701a79e6fea04156c8739c695d50fbd0dc60ceca501854"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair_LOD00.gltf",
+          "size": 3827,
+          "sha256": "b6eff63434a8e346f002aeba94b46f42fcba49db56213fbe4f1a7d3dc9503e98"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/HomebaseJerrycanPair.xml",
+          "size": 240,
+          "sha256": "b3c8eee4d6f660d3b9fb5372a0d3a990708658c86eeac8e27fea6415992516db"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/model/model.CFG",
+          "size": 41,
+          "sha256": "71ce7582207495224731af494802f592f4c06b161d6dbef053bf4ece8a3063a1"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseJerrycanPair/sim.cfg",
+          "size": 289,
+          "sha256": "8497ec3001ebc0ec5f2f19afbb2f616da5fcd7fb41a333011479a02375f29da0"
+        }
+      ],
+      "archive": {
+        "name": "jerrycanPair-1.0.0.zip",
+        "path": "assets/jerrycanPair-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/jerrycanPair-1.0.0.zip",
+        "size": 8592,
+        "sha256": "2809dd4daa667169ddb2552df2905815b77d775bfd3cb393597a74046813afe5"
+      }
+    },
+    {
+      "key": "mailSack",
+      "folder": "VFRHomebaseMailSack",
+      "title": "VFR Multitool Homebase Mail Sack",
+      "label": "Postsack (zugebunden)",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "mail",
+        "delivery",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:31.999Z",
+      "modelHash": "374c601c63b80f4412d6e991dea917897d10ed1e615860ec0abf64d969af6a71",
+      "metadataHash": "c448e1db4aa7be9a28080538fceef7a6d65e74d691af92e24c522dea92f8bd3e",
+      "contentHash": "0dab202f2df6ab6ff46731e5375444ab107d8314f1447d1bf5dbb026e520115a",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack_LOD00.bin",
+          "size": 60192,
+          "sha256": "ee9505fd2a9c5662eeabe9d0600faa5ac9ba9bac0f2b9e12ec055284f64f52a6"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack_LOD00.gltf",
+          "size": 4312,
+          "sha256": "1d108eead912fdc87ae9d908e01c3170e4fb52e290d878ebc95923261a499e8c"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMailSack/model/HomebaseMailSack.xml",
+          "size": 232,
+          "sha256": "a53aac04c5fc250ef9f6a50c77a677b6cdbf3ebda382c0697bf048972c5167f2"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMailSack/model/model.CFG",
+          "size": 37,
+          "sha256": "14e1f184440123a5b751c74881dc525114db1243adeaff7fd0f890dc48f20e1d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMailSack/sim.cfg",
+          "size": 274,
+          "sha256": "da74d1f29520d5e43522ea03fa6acdb9a48ef0aa9afe41644c21fc616e8cd9d2"
+        }
+      ],
+      "archive": {
+        "name": "mailSack-1.0.0.zip",
+        "path": "assets/mailSack-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/mailSack-1.0.0.zip",
+        "size": 14171,
+        "sha256": "86bab244830b0f12d704df6ef6ebb2f97e8ba89fe7efcf6542b611df5970674c"
+      }
+    },
+    {
+      "key": "mxPavilion",
+      "folder": "VFRHomebaseMXPavilion",
+      "title": "VFR Multitool Homebase MX Pavilion",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "MX24 Pavillon 3 x 3 m",
+      "icon": "P",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "shelter",
+        "event",
+        "maintenance"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "ee488eb9a9d690e465f6fbb14447a6d7bd802580ed80d2d136208439c0963eb2",
+      "metadataHash": "524465ae912089ee9b3c199b52bd389a09296ab86ca822875b45168321bb6b86",
+      "contentHash": "4ea221bf5000e24294e24ed515876900ac2dd2f9758f8e0dd89fb56d37d8ddce",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion_LOD00.bin",
+          "size": 71592,
+          "sha256": "1f3eb9c86d7a4c1af020325516b920bb08a2d86a89ed02f1ea69ed22902b7061"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion_LOD00.gltf",
+          "size": 3841,
+          "sha256": "6b287ef0e0c66ee60dbbca4acad700b2cca5772b81f3dfd16bb89e852b80fc80"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/HomebaseMXPavilion.xml",
+          "size": 236,
+          "sha256": "4108b5dfc74088c5255cd2c092285ac75ec7ccd3ea1faf97f7ddff2082225fcc"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMXPavilion/model/model.CFG",
+          "size": 39,
+          "sha256": "fcc2e8eef6768adafb8ceb6d4faa8635e9291522f3107504c435cfad1d6fafdc"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseMXPavilion/sim.cfg",
+          "size": 279,
+          "sha256": "fe8216ac5f1049af214f574ed766510fb6a12957f226e2f76e7e4cab3de6984f"
+        }
+      ],
+      "archive": {
+        "name": "mxPavilion-1.0.0.zip",
+        "path": "assets/mxPavilion-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/mxPavilion-1.0.0.zip",
+        "size": 17161,
+        "sha256": "8fab115a7799f463b7a6fa52dba0fb16d0cf04865e4c10ecec8643e2aa395cce"
+      }
+    },
+    {
+      "key": "openParking",
+      "folder": "VFRHomebaseOpenParking",
+      "title": "VFR Multitool Homebase Open Parking",
+      "kind": "hangar",
+      "label": "Offener Parkbereich",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "parking"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "headingCorrectionDeg": 180,
+      "modelHash": "7996398948f1a5bc1e44bfef60c2a0b05744dea561c8374afcdaf22b66c9d604",
+      "metadataHash": "f609831435d539efa3ac5ae5db13264dc1dd1f837b84946a418a0add01534be0",
+      "contentHash": "f93983a89550bc593c6a98d158f8456583520f155d925ca4007990e1ce84b2c2",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking_LOD00.bin",
+          "size": 104880,
+          "sha256": "8a9783b6424877121d440084dfa297ac49bd1b4fbc9b381b2510e0d3f95ca78f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking_LOD00.gltf",
+          "size": 7807,
+          "sha256": "2b27ee4ad81e87191306f8f1bc1068e422394f6d87a78dabdf225f6cd2697ad4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/HomebaseOpenParking.xml",
+          "size": 238,
+          "sha256": "9dad87c216a58bfff7246c7716de3803336042724bc0cbd5b330ff5deed0bfbe"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseOpenParking/model/model.CFG",
+          "size": 40,
+          "sha256": "0dd9efd51c89a12bb904d622e3cf507210b73d9db76ff5dfced2fd38eade8546"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseOpenParking/sim.cfg",
+          "size": 321,
+          "sha256": "cb71da3f75f4228af15b17aaf89a7b6545305f5973d01e5e05d50d1d33efc1e5"
+        }
+      ],
+      "archive": {
+        "name": "openParking-1.0.0.zip",
+        "path": "assets/openParking-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/openParking-1.0.0.zip",
+        "size": 18290,
+        "sha256": "780fc2306c8277af6c2d889c4385d610fb498d5d91b82e3e8774bde535168b81"
+      }
+    },
+    {
+      "key": "pinboard",
+      "folder": "VFRHomebasePinboard",
+      "title": "VFR Multitool Homebase Pinboard",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Pinnwand",
+      "icon": "W",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "office",
+        "planning"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "bfd74c98c3ab3bad71aea55d64d54bd1cf2b339fd44a8bf3659dd1df7aefc11e",
+      "metadataHash": "e3c875126bebc88658eaf5b15a19db41bdb67e56e6a65c0167a667b230d5bfb8",
+      "contentHash": "1b4f5d15d094a0b2e94affd9c9b13d07235773a544e06a7cfba1c48961ec152f",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard_LOD00.bin",
+          "size": 18240,
+          "sha256": "9aa9d2956bbdf1bfb1fb2b571edff8732f60f60c3d569c17abc92ad60941591a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard_LOD00.gltf",
+          "size": 3771,
+          "sha256": "802778a70ece93e4719674c029b58701de1289a85400d9a7f4e5eb5296afc1b4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePinboard/model/HomebasePinboard.xml",
+          "size": 232,
+          "sha256": "23cc3f2e3fb0a8fab9d6d3a89781c07e344634e6a36a40ff63d086e7a46bc834"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePinboard/model/model.CFG",
+          "size": 37,
+          "sha256": "e71ae1c73ea42331234319d8c65b31e0c0ac06b9786c2c8e0215c1eebcc5ded3"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePinboard/sim.cfg",
+          "size": 263,
+          "sha256": "0c773c3d7ca00845c318649d16df5a6606e704ca109e8b47e0c0d32c0ec931b2"
+        }
+      ],
+      "archive": {
+        "name": "pinboard-1.0.0.zip",
+        "path": "assets/pinboard-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/pinboard-1.0.0.zip",
+        "size": 5951,
+        "sha256": "d90e97c4a605d83b183dc1b151563694a71eee9ca07ff9387f9e1775b535d70f"
+      }
+    },
+    {
+      "key": "portableToolbox",
+      "folder": "VFRHomebasePortableToolbox",
+      "title": "VFR Multitool Homebase Portable Toolbox",
+      "label": "Tragbare Werkzeugkiste",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "tools",
+        "maintenance",
+        "club",
+        "bush"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.097Z",
+      "modelHash": "7f918679d3a65b24a21f77b6aaa1e542c5b7a1725af27b93048fb4da3692c147",
+      "metadataHash": "cbcd9738ae28de3b24eec66c16e9c8f9312d94b730c125134fa8e2a99b7d813c",
+      "contentHash": "79bc6a729b4787ae4035163995fb444c719ae5d8ae3b96f06594195cdab48578",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox_LOD00.bin",
+          "size": 19152,
+          "sha256": "02e2df76b0c017b5d64667d1f650be72d88bcf3f964212d1f5464ba4370008ca"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox_LOD00.gltf",
+          "size": 4374,
+          "sha256": "2600990720c9a75f5c0f92c054e61e0ce4f8873fb8a055b31e5c066bd233e7a4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/HomebasePortableToolbox.xml",
+          "size": 246,
+          "sha256": "6f0daa3372cc8ced5f2302d82913f60bdcf71b1305d7b4ed2c35ac307f5c0616"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePortableToolbox/model/model.CFG",
+          "size": 44,
+          "sha256": "7aa69a285954d3c97d2bd8a3ef42be1cb0191e0dc57dd23448812d2a6b572926"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebasePortableToolbox/sim.cfg",
+          "size": 289,
+          "sha256": "00b775be3ea172b7db2a12cca04452d5f3bc3a83ba1dcb162c4d5b25f2721167"
+        }
+      ],
+      "archive": {
+        "name": "portableToolbox-1.0.0.zip",
+        "path": "assets/portableToolbox-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/portableToolbox-1.0.0.zip",
+        "size": 6527,
+        "sha256": "f36f67cf8f4d9dfdf0b2215c59112eea64e29257b724b5baea48013c6fcc8763"
+      }
+    },
+    {
+      "key": "roundHangar",
+      "folder": "VFRHomebaseRoundHangar",
+      "title": "VFR Multitool Homebase Round Hangar",
+      "kind": "hangar",
+      "group": "Hangars",
+      "label": "Rundhangar mit Schiebetor",
+      "icon": "H",
+      "version": "1.0.2",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "hangar",
+        "shelter"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "footprint": {
+        "widthM": 25,
+        "depthM": 25
+      },
+      "headingCorrectionDeg": 0,
+      "controls": [
+        {
+          "schemaVersion": 1,
+          "id": "door",
+          "type": "animation",
+          "label": "Rundhangar Tor",
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "defaultState": "open",
+          "durationMs": 5000,
+          "states": [
+            {
+              "id": "open",
+              "label": "Öffnen",
+              "value": 0
+            },
+            {
+              "id": "closed",
+              "label": "Schließen",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "schemaVersion": 1,
+          "id": "interiorLight",
+          "type": "light",
+          "label": "Innenbeleuchtung",
+          "transport": "simconnect-lvar",
+          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND",
+          "unit": "number",
+          "scope": "global",
+          "defaultState": "on",
+          "states": [
+            {
+              "id": "on",
+              "label": "Einschalten",
+              "value": 0
+            },
+            {
+              "id": "off",
+              "label": "Ausschalten",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "collisionProfile": {
+        "schemaVersion": 1,
+        "mode": "static-model-lib",
+        "modelLibGuid": "{B90D5EAB-0F9C-4A2A-9917-F57D81E3A24C}",
+        "sourceFolder": "VFRHomebaseRoundHangarCollision",
+        "placement": "coincident",
+        "groundSurface": "walls-and-columns-only",
+        "belowGradeExtensionM": 1.5,
+        "collidesWith": [
+          "walls",
+          "columns"
+        ],
+        "floorCollision": false,
+        "defaultHeightOffsetFt": 0,
+        "warnOnHeightOffset": true
+      },
+      "animation": {
+        "schemaVersion": 1,
+        "type": "door",
+        "durationMs": 5000,
+        "control": {
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "values": {
+            "open": 0,
+            "closed": 1
+          }
+        },
+        "defaultState": "open"
+      },
+      "modelHash": "f2a356471f72ff0d9571699be3447988fe86c4994996cb3c3867a11667306944",
+      "metadataHash": "306f32b1868d9f386aed91a15cddaec7535e9d3108c2da290874c8944268ab8f",
+      "contentHash": "c4393375b5dba3a4a1550b3878316582fdc02a212c01a07c6a510ef1885163db",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.bin",
+          "size": 417172,
+          "sha256": "c17669ce18348f40f057865f9eebf9b6116d12542cbb4739ec684616d07d2e88"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar_LOD00.gltf",
+          "size": 27276,
+          "sha256": "86ccbe2c804c5591ad7fa036bc0628d44e00a30cb4fed0a8f05c0c2aa1a7d804"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/HomebaseRoundHangar.xml",
+          "size": 1256,
+          "sha256": "35725d075684c6ace7f7922e1514d175b4bb3a699aed30cda5dae5109e13f183"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseRoundHangar/model/model.CFG",
+          "size": 40,
+          "sha256": "671e3ecea1f3d82fa717ef54cc82c7f853d32de0bba4d0a2dd30402af7bc2346"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseRoundHangar/sim.cfg",
+          "size": 571,
+          "sha256": "a1aef1ee33408f42dfce3253458db12d3f95adb23956b0993fff3a802bffec25"
+        },
+        {
+          "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
+          "size": 9104,
+          "sha256": "cc18771700d27e133aad70cfc6f3c457a306b88dcda639761b50b0bf6e75c986"
+        }
+      ],
+      "archive": {
+        "name": "roundHangar-1.0.2.zip",
+        "path": "assets/roundHangar-1.0.2.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/roundHangar-1.0.2.zip",
+        "size": 89033,
+        "sha256": "c65a2a9f2aba69e710c07fb9f46bb19ff2d25aeb7951e7218bc4db1faa5f9b00"
+      }
+    },
+    {
+      "key": "spawnProbe",
+      "folder": "VFRHomebaseSpawnProbe",
+      "title": "VFR Multitool Homebase Spawn Probe",
+      "kind": "internal",
+      "label": "Gelber Spawnpunkt-Messkegel",
+      "version": "1.0.0",
+      "missionSpawnable": false,
+      "missionTags": [
+        "internal",
+        "diagnostic"
+      ],
+      "missionRoles": [
+        "internal"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "bd9a794ba5c77003dc3f8da697df03afa8e22e696911cd2f83fdd81b2e4878d6",
+      "metadataHash": "5963671c40d1012888bdfb006dc708f63ac57274be44684e51cef563a7541477",
+      "contentHash": "16079b1faa310f8112fea1ee965ade0d9609f4c3a6a6c234881772bb31d6f287",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe_LOD00.bin",
+          "size": 15732,
+          "sha256": "31cb4ccfa66dd5fe16c12e8db11980dc85d000584f8e866f069cd2a99e458faf"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe_LOD00.gltf",
+          "size": 3291,
+          "sha256": "10e3babc2fc72842bd78872a68413dc156e09b3b2dd1f34925fbe32599177e31"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/HomebaseSpawnProbe.xml",
+          "size": 236,
+          "sha256": "2363e282706ee5aadb576e3d42faae18520182913259e2a0f7d43abbf0aebbeb"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/model/model.CFG",
+          "size": 39,
+          "sha256": "48d0111a1bda26dcda9f8b82d0c05f67c5b78c3d4317c72b7a92f085fb8b41ae"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseSpawnProbe/sim.cfg",
+          "size": 291,
+          "sha256": "18d0c339d7dcdadc29ddd632563ab01c307e36e56988176f92c35cd2ea716453"
+        }
+      ],
+      "archive": {
+        "name": "spawnProbe-1.0.0.zip",
+        "path": "assets/spawnProbe-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/spawnProbe-1.0.0.zip",
+        "size": 6125,
+        "sha256": "17fa74b654dd269bc9bdb167de74aeb1b5add7baaf7fcc8289db06bf8742f17b"
+      }
+    },
+    {
+      "key": "toolbox",
+      "folder": "VFRHomebaseToolbox",
+      "title": "VFR Multitool Homebase Toolbox",
+      "label": "Werkzeugkiste",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "tools",
+        "maintenance",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:32.039Z",
+      "modelHash": "0c744238eba922937e17f1a60f08ef0671d0197d73ef23a552d79bcd4878590c",
+      "metadataHash": "12bf7208e7417dede97848703cacd0f67dcdb2fb4a84a9d323ab35b7576eb9d5",
+      "contentHash": "e9074099886f80083b564d065bd0547c6beb8f13fdffc5879f0f0193ad6626c8",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox_LOD00.bin",
+          "size": 27360,
+          "sha256": "48f3bbceab0e75f0315b43990c2087da6aa9c9efa627f88ce780b7dcd823eb87"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox_LOD00.gltf",
+          "size": 4296,
+          "sha256": "d970c9539db408063fd56dfc1ddc91081367b52d713abd1192600f1a1e5dcb5f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolbox/model/HomebaseToolbox.xml",
+          "size": 230,
+          "sha256": "0b71c8f730763fa2729e8ef37cd008895c27ea04339fe6d4cce6a86acd92556f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolbox/model/model.CFG",
+          "size": 36,
+          "sha256": "aa06466ed3db688b1ce57db405b4a2ea44107d104e9a1004fe48451cb7946250"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolbox/sim.cfg",
+          "size": 275,
+          "sha256": "9036058f5a29132f99efa51d188a713585f19f76ebc4068d28572146e44a971f"
+        }
+      ],
+      "archive": {
+        "name": "toolbox-1.0.0.zip",
+        "path": "assets/toolbox-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/toolbox-1.0.0.zip",
+        "size": 7348,
+        "sha256": "0a1bcfa21111976445680fe49292b6763c24a7e8ad86bc3964979b0259a49751"
+      }
+    },
+    {
+      "key": "toolCart",
+      "folder": "VFRHomebaseToolCart",
+      "title": "VFR Multitool Homebase Tool Cart",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Werkzeugwagen",
+      "icon": "R",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "tools",
+        "maintenance",
+        "cargo"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "90196b60a903e2a955c97cf53cb466002c0b1bbdb102dd8f46a5b31cf5d68900",
+      "metadataHash": "fcab402e66c4448d45628b5a45526bf7ecbbd129f3a0cc06fcc25e2a14d32f57",
+      "contentHash": "881b864777f60d8e32dd74e21e06d4531c0ee453b26085ebd5e7863f433d9ecc",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart_LOD00.bin",
+          "size": 48336,
+          "sha256": "384ba59b67ad0d277f3b9bc643e3b177a8d52a6fcecdd78b9fd24d7ea6ecca49"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart_LOD00.gltf",
+          "size": 3806,
+          "sha256": "df772011d8f0ebef27fbde84b5d9375034dec3b7d530fc9917ce7d1100ecf9fe"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolCart/model/HomebaseToolCart.xml",
+          "size": 232,
+          "sha256": "ffcb661558eb1fc00951819bdbe55d8448bc9cb9e0f39a2ff5c9bace6e9a0ea6"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolCart/model/model.CFG",
+          "size": 37,
+          "sha256": "427736d40458e379dc06c4ca8bd2c2bf0d745ca3cdacd25dc78ab3b2aab46f92"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseToolCart/sim.cfg",
+          "size": 258,
+          "sha256": "69f3beea7cb0df77e938c044d635496be5f2da3904aaee7c03507275fb8f97b4"
+        }
+      ],
+      "archive": {
+        "name": "toolCart-1.0.0.zip",
+        "path": "assets/toolCart-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/toolCart-1.0.0.zip",
+        "size": 10252,
+        "sha256": "eb31d8b7aade3d93615af91a0a1ade1fa002be206de64d59e94ba6a7c41341ba"
+      }
+    },
+    {
+      "key": "trafficCone",
+      "folder": "VFRHomebaseTrafficCone",
+      "title": "VFR Multitool Homebase Traffic Cone",
+      "kind": "object",
+      "group": "Flugplatz",
+      "label": "Traffic Cone",
+      "icon": "K",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "ground-support",
+        "safety"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "22995e21e4da5b6b8a89b61a58c06f56d495eaf1609362eb15eb52800f02ff70",
+      "metadataHash": "f915fb256c29da004ce602b3e654eaa820f5e576d0611e53de070155d4f7db78",
+      "contentHash": "533eadb927ca38cbc9b77160820b690e63e8fc12ddb4c465ad3af30cb31c233d",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone_LOD00.bin",
+          "size": 15732,
+          "sha256": "31cb4ccfa66dd5fe16c12e8db11980dc85d000584f8e866f069cd2a99e458faf"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone_LOD00.gltf",
+          "size": 3304,
+          "sha256": "7822eb1b93160fa2fb3bb741794334e63b76407fdb49ef2732e4db6a1859f7a3"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/HomebaseTrafficCone.xml",
+          "size": 238,
+          "sha256": "e09a21e932f7ecca830ac0662ae281d07d3563c13209ed243a085a19d6c595d6"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTrafficCone/model/model.CFG",
+          "size": 40,
+          "sha256": "9ca7bc45505a3a7dcbc24871963899cf804610f48bc8c9b07df3496bebfb2185"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTrafficCone/sim.cfg",
+          "size": 270,
+          "sha256": "2f1b94d3d8f6f463eb1f8228d18e4bb9d1f54b050a11cb7f42de9a121971ee33"
+        }
+      ],
+      "archive": {
+        "name": "trafficCone-1.0.0.zip",
+        "path": "assets/trafficCone-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/trafficCone-1.0.0.zip",
+        "size": 6138,
+        "sha256": "712516aa0b9fd3990b0400aac8c63b2501a8be3f00742d28a4250b2cc35b8f98"
+      }
+    },
+    {
+      "key": "travelSuitcase",
+      "folder": "VFRHomebaseTravelSuitcase",
+      "title": "VFR Multitool Homebase Travel Suitcase",
+      "label": "Reisekoffer groß",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "luggage",
+        "passenger",
+        "travel"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "updatedAt": "2026-07-15T19:05:31.976Z",
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "afaaee0492059165f3688f9f97cdd5384d72454dd4abfe8653031561ae194a24",
+      "metadataHash": "7e192595d15130edabd68886a538f7a221dda03c674afc3eb889d875a67ccaae",
+      "contentHash": "39cc28b1f300d44d44c8116591c06f3a174f52a06bd619563681ec01524048b9",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase_LOD00.bin",
+          "size": 44688,
+          "sha256": "26def88734953806032a8ac336a10f628e236a22019860be56ebbb5e63795a79"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase_LOD00.gltf",
+          "size": 4852,
+          "sha256": "355a8ffb8fc0e75eea637ebea2fefdd24985c0a1b4f79a752c987a2f27db2340"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/HomebaseTravelSuitcase.xml",
+          "size": 244,
+          "sha256": "ca70fb74780075f03cf15f3d22f33d24f3f9d5fa37d9e1130a8aa0c3b17e175f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/model/model.CFG",
+          "size": 43,
+          "sha256": "3f48eea5e75da0f0360347edf5e5dba93cb474a898ecd9c3ea1e78359e7e4c92"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseTravelSuitcase/sim.cfg",
+          "size": 311,
+          "sha256": "56ae7f8ab0059e180139f56476188969f682f2b45060183e59e9c2875d129daa"
+        }
+      ],
+      "archive": {
+        "name": "travelSuitcase-1.0.0.zip",
+        "path": "assets/travelSuitcase-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/travelSuitcase-1.0.0.zip",
+        "size": 10417,
+        "sha256": "8d3bb843afeb1facfdc20522c6b4d02eb09c22df6963f0be9464a72a40b8424e"
+      }
+    },
+    {
+      "key": "woodCrateLarge",
+      "folder": "VFRHomebaseWoodCrateLarge",
+      "title": "VFR Multitool Homebase Wood Crate Large",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Holzkiste groß",
+      "icon": "K",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "freight",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "c75df7f219bc7dd43cc6abea3e78fedfa70ca31da3e9f70c07ee896fa6f49bfc",
+      "metadataHash": "7adad8ef32e5a0dea26be7340692290ee352c1b82ecda9fb9a145927888e7795",
+      "contentHash": "546bcfd46df809425f6972fff5df299a8750a8566efc08cb100af0e912a7d8c8",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge_LOD00.bin",
+          "size": 32832,
+          "sha256": "1cd737cf536f7b446677c0cf6acd0d2a6278278202d36d0dd62a99a82589ac7d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge_LOD00.gltf",
+          "size": 3869,
+          "sha256": "05f793f47218941679a9e5bc674d56aefb940c4c9869a2f95941d6ca599c2667"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/HomebaseWoodCrateLarge.xml",
+          "size": 244,
+          "sha256": "79662365e0373fe6516492dfb49341f9d03e248235fa250ec262b2aa261fdc5e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/model/model.CFG",
+          "size": 43,
+          "sha256": "7665b8c4fa874233250e24fb6bef1f01108972d2ed2025a708a5deecad0f47f7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateLarge/sim.cfg",
+          "size": 278,
+          "sha256": "01b93a4a244d77f3053c6841305c00f0416ce4777159095136ca155b89560d54"
+        }
+      ],
+      "archive": {
+        "name": "woodCrateLarge-1.0.0.zip",
+        "path": "assets/woodCrateLarge-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/woodCrateLarge-1.0.0.zip",
+        "size": 8495,
+        "sha256": "a23a8fe6e84c6eedbb39a4688a1b5462d63d956088d564cceaa615b6a8cac219"
+      }
+    },
+    {
+      "key": "woodCrateMedium",
+      "folder": "VFRHomebaseWoodCrateMedium",
+      "title": "VFR Multitool Homebase Wood Crate Medium",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Holzkiste mittel",
+      "icon": "K",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "freight",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "f67003e9c73a3a704c5a7b604c819ef2bd34fc2704704f64ec2382808353d7f3",
+      "metadataHash": "06562600e133b8e440d2ecd85f3399109643afb7dfddf642070f30a4ce2407e2",
+      "contentHash": "0dca64f7a0303f9bf8df2157a6db0eeef57159fe411ce0f8902b9aacdcfeaf24",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium_LOD00.bin",
+          "size": 32832,
+          "sha256": "09541a46cd092058a6abcf654a6e02ee24119b62c04354fe10b0be262df561da"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium_LOD00.gltf",
+          "size": 3881,
+          "sha256": "04704c014d37619390d00f05922fb8879f8629bac9a8b52114a4435bcb14fd0d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/HomebaseWoodCrateMedium.xml",
+          "size": 246,
+          "sha256": "9ca2e37fa6a2852ddaa690160b2c83f0fdbe758fbd0ac8e5fcb13e91519b00bb"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/model/model.CFG",
+          "size": 44,
+          "sha256": "de463a39c56087a383014567365e800fb76d713eb80824a765712713a53b9e4b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateMedium/sim.cfg",
+          "size": 280,
+          "sha256": "0970ead94263b3d323f635c73215e67f70e76bb1f5aca4c74776da5b1a5012a1"
+        }
+      ],
+      "archive": {
+        "name": "woodCrateMedium-1.0.0.zip",
+        "path": "assets/woodCrateMedium-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/woodCrateMedium-1.0.0.zip",
+        "size": 8517,
+        "sha256": "699bf6bdcee4f8cee9c69d2701e745581ccc590b6e9b19a8961244ed02521eaf"
+      }
+    },
+    {
+      "key": "woodCrateSmall",
+      "folder": "VFRHomebaseWoodCrateSmall",
+      "title": "VFR Multitool Homebase Wood Crate Small",
+      "kind": "object",
+      "group": "Ausstattung",
+      "label": "Holzkiste klein",
+      "icon": "K",
+      "version": "1.0.0",
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "freight",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "workbenchVisible": true,
+      "homebasePlaceable": true,
+      "modelHash": "7de3cf6c2e57607e62627ce55492434325401ecdf339ef964855d53b13a38c94",
+      "metadataHash": "5eadf5e711d2b3438ca0a346dd395d94f0d09c87cd96cf14e0020a67adee4783",
+      "contentHash": "cb50eca8d7aefb7244080bb4ae24a6e6e144b27ccb21f492afd530d914cfb8be",
+      "changed": false,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall_LOD00.bin",
+          "size": 27360,
+          "sha256": "d8911c625b223e33abe466d481a4b5cb8e4fb5dbaae3178bedd999bc84339fb8"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall_LOD00.gltf",
+          "size": 3871,
+          "sha256": "2347f8a38dcad1a060751f79f302b756333dc643e095357eb45f7626dbe77479"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/HomebaseWoodCrateSmall.xml",
+          "size": 244,
+          "sha256": "695b5fd24fc0979452e9b1730ac1eb170afc6501c6479f424de373e45c31a41b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/model/model.CFG",
+          "size": 43,
+          "sha256": "648f3c13eb21f46ea7a7baa35f6d17e6d1a0d03e7a4137b07d5199a5d2fd112e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/sim.cfg",
+          "size": 278,
+          "sha256": "5a9919866c9cca85ceccfce2112e9eba629683a65cd7420ae97e324d1a1ce40f"
+        }
+      ],
+      "archive": {
+        "name": "woodCrateSmall-1.0.0.zip",
+        "path": "assets/woodCrateSmall-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/woodCrateSmall-1.0.0.zip",
+        "size": 7625,
+        "sha256": "681a521d34141e0c1b12a824464ef2dd6ef603246138eb84f2f5c018340b1013"
+      }
+    }
+  ],
+  "changedAssets": [
+    "roundHangar"
+  ],
+  "removedAssets": [],
+  "fullArchive": {
+    "name": "vfr-multitool-homebase-assets-0.6.6-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.6/vfr-multitool-homebase-assets-0.6.6-full.zip",
+    "size": 536745,
+    "sha256": "35562c6fbbfecbec64ee7df8262854cbc8888bebecba1ef6ac4556737498bfb6"
+  }
+}

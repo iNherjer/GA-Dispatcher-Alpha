@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.5",
+    "version": "0.6.6",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -450,7 +450,7 @@
       "group": "Hangars",
       "label": "Rundhangar mit Schiebetor",
       "icon": "H",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "homebasePlaceable": true,
       "workbenchVisible": true,
       "missionSpawnable": false,
@@ -474,9 +474,9 @@
           "type": "animation",
           "label": "Rundhangar Tor",
           "transport": "simconnect-lvar",
-          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "simvar": "L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
           "unit": "number",
-          "scope": "global",
+          "scope": "simobject",
           "defaultState": "open",
           "durationMs": 5000,
           "states": [
@@ -538,9 +538,9 @@
         "durationMs": 5000,
         "control": {
           "transport": "simconnect-lvar",
-          "simvar": "L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
+          "simvar": "L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND",
           "unit": "number",
-          "scope": "global",
+          "scope": "simobject",
           "values": {
             "open": 0,
             "closed": 1
@@ -722,6 +722,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-20T06:31:57.012Z",
+  "updatedAt": "2026-07-20T12:04:49.616Z",
   "stockObjects": []
 }
