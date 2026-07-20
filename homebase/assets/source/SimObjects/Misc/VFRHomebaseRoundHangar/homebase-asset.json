@@ -4,7 +4,7 @@
   "label": "Rundhangar mit Schiebetor",
   "kind": "hangar",
   "group": "Hangars",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "homebasePlaceable": true,
   "workbenchVisible": true,
   "missionSpawnable": false,
@@ -51,18 +51,11 @@
     "modelLibGuid": "{B90D5EAB-0F9C-4A2A-9917-F57D81E3A24C}",
     "sourceFolder": "VFRHomebaseRoundHangarCollision",
     "placement": "coincident",
-    "groundSurface": "continuous-terrain-apron-floor",
+    "groundSurface": "walls-and-columns-only",
+    "belowGradeExtensionM": 1.5,
+    "collidesWith": ["walls", "columns"],
+    "floorCollision": false,
     "defaultHeightOffsetFt": 0,
     "warnOnHeightOffset": true
-  },
-  "vegetationExclusion": {
-    "schemaVersion": 1,
-    "shape": "circle",
-    "radiusM": 17.3,
-    "segments": 48,
-    "vegetationScale": 0,
-    "vegetationDensity": 0,
-    "falloffM": 0.5,
-    "terrainAdjustment": "none"
   }
 }

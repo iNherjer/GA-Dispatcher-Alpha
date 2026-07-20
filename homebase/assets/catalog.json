@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.4",
+    "version": "0.6.5",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -450,7 +450,7 @@
       "group": "Hangars",
       "label": "Rundhangar mit Schiebetor",
       "icon": "H",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "homebasePlaceable": true,
       "workbenchVisible": true,
       "missionSpawnable": false,
@@ -522,39 +522,15 @@
         "modelLibGuid": "{B90D5EAB-0F9C-4A2A-9917-F57D81E3A24C}",
         "sourceFolder": "VFRHomebaseRoundHangarCollision",
         "placement": "coincident",
-        "groundSurface": "continuous-terrain-apron-floor",
+        "groundSurface": "walls-and-columns-only",
+        "belowGradeExtensionM": 1.5,
+        "collidesWith": [
+          "walls",
+          "columns"
+        ],
+        "floorCollision": false,
         "defaultHeightOffsetFt": 0,
         "warnOnHeightOffset": true
-      },
-      "vegetationExclusion": {
-        "schemaVersion": 1,
-        "shape": "circle",
-        "radiusM": 17.3,
-        "segments": 48,
-        "vegetationScale": 0,
-        "vegetationDensity": 0,
-        "falloffM": 0.5,
-        "terrainAdjustment": "none",
-        "attributes": [
-          {
-            "name": "VegetationScale",
-            "guid": "{6A043F59-E6F2-4117-A2E4-D510E7317C29}",
-            "type": "UINT32",
-            "value": 0
-          },
-          {
-            "name": "VegetationDensity",
-            "guid": "{41EFF715-C392-4B31-A457-50A504353A90}",
-            "type": "UINT32",
-            "value": 0
-          },
-          {
-            "name": "VegetationFalloff",
-            "guid": "{E82ABE17-FB4C-4F67-A28C-ED41969AEAD6}",
-            "type": "FLOAT32",
-            "value": 0.5
-          }
-        ]
       },
       "animation": {
         "schemaVersion": 1,
@@ -746,6 +722,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-16T12:42:36.318Z",
+  "updatedAt": "2026-07-20T06:31:57.012Z",
   "stockObjects": []
 }
