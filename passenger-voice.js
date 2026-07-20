@@ -67,6 +67,13 @@ window.paxVoiceGetDebugState = function() {
         poiEntryDone: !!_poiEntryDone,
         poiDwellSec: Number(_poiDwellSec || 0),
         poiAttempts: Number(_poiAttempts || 0),
+        comfortHintCount: Number(_paxComfortCount || 0),
+        comfortHintBusy: !!_paxComfortBusy,
+        comfortPending: Object.fromEntries(Object.entries(_paxComfortBreachState).map(([metric, state]) => [metric, {
+            level: state?.level || null,
+            activeMs: Math.max(0, Date.now() - Number(state?.firstAt || Date.now()))
+        }])),
+        comfortMotionAnalysis: _paxComfortLastMotionAnalysis ? { ..._paxComfortLastMotionAnalysis } : null,
         lastSpokenText: _lastSpokenText ? String(_lastSpokenText) : '',
         lastSpeakerName: _lastSpokenSpeaker?.name || null
     };
@@ -370,6 +377,9 @@ let _paxFarewellDone  = false;
 let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
+let _paxComfortBreachState = Object.create(null);
+let _paxComfortMotionSamples = [];
+let _paxComfortLastMotionAnalysis = null;
 let _paxLandingPhaseAnnounced = false;
 let _paxPickupBoardingDone = false;
 let _paxPickupDepartureDone = false;
@@ -464,6 +474,9 @@ window.paxVoiceResetMission = function() {
     _paxComfortLastAt = 0;
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
+    _paxComfortBreachState = Object.create(null);
+    _paxComfortMotionSamples = [];
+    _paxComfortLastMotionAnalysis = null;
     _paxLandingPhaseAnnounced = false;
     _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
@@ -2191,6 +2204,13 @@ function _injectPaxUI() {
     const textEl = document.createElement('div');
     textEl.id = 'paxVoiceText';
 
+    const debugEl = document.createElement('div');
+    debugEl.id = 'paxVoiceDebugDetail';
+    debugEl.style.cssText = `
+        display:none; margin-top:8px; padding-top:7px; border-top:1px dashed #31516d;
+        color:#8fb4cf; font-size:10px; line-height:1.4; font-family:monospace;
+    `;
+
     const knowledgeMenu = document.createElement('div');
     knowledgeMenu.id = 'paxKnowledgeGuideMenu';
     knowledgeMenu.style.cssText = `
@@ -2250,6 +2270,7 @@ function _injectPaxUI() {
     panel.appendChild(closeBtn);
     panel.appendChild(nameEl);
     panel.appendChild(textEl);
+    panel.appendChild(debugEl);
     panel.appendChild(knowledgeMenu);
     panel.appendChild(fireMenu);
     panel.appendChild(missionMenu);
@@ -2374,11 +2395,12 @@ function _ensurePaxWidgetOnScreen(persist = false) {
     }
 }
 
-function _showPaxMessage(text, eventLabel) {
+function _showPaxMessage(text, eventLabel, debugDetail = '') {
     const widget = document.getElementById('paxVoiceWidget');
     const panel  = document.getElementById('paxVoicePanel');
     const nameEl = document.getElementById('paxVoiceName');
     const textEl = document.getElementById('paxVoiceText');
+    const debugEl = document.getElementById('paxVoiceDebugDetail');
     const badge  = document.getElementById('paxVoiceBadge');
     const btn    = document.getElementById('paxVoiceBtn');
 
@@ -2388,6 +2410,10 @@ function _showPaxMessage(text, eventLabel) {
     const pax = window.activePassenger;
     if (nameEl) nameEl.textContent = pax ? `${pax.name} · ${eventLabel}` : eventLabel;
     if (textEl) textEl.textContent = text;
+    if (debugEl) {
+        debugEl.textContent = String(debugDetail || '');
+        debugEl.style.display = debugDetail ? 'block' : 'none';
+    }
     _refreshPoiKnowledgeGuideMenu();
     _refreshFireMissionMenu();
     _refreshMissionActionMenu();
@@ -6238,7 +6264,7 @@ async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch) {
     if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
 }
 
-async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch) {
+async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch, options = {}) {
     if (!_paxEpochCurrent(epoch)) return;
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
@@ -6270,7 +6296,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _capturePoiNarrativeMemory(eventLabel, spokenText);
     _captureBushPickupNarrativeMemory(eventLabel, spokenText);
     _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText);
-    _showPaxMessage(spokenText, eventLabel);
+    _showPaxMessage(spokenText, eventLabel, options.debugDetail || '');
 
     if (!_paxVoiceEnabled) {
         _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
@@ -6279,7 +6305,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     await _playTextAsTTS(spokenText, speakerSnapshot, epoch);
 }
 
-function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null) {
+function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null, options = {}) {
     const epoch = _paxMissionEpoch;
     _paxLog(`Queue +1 | Event: ${eventLabel}`, 'state');
     const run = async () => {
@@ -6287,7 +6313,7 @@ function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null) {
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             if (epoch !== _paxMissionEpoch) return;
-            await _speakAndShowNow(situationPrompt, eventLabel, speakerOverride, epoch);
+            await _speakAndShowNow(situationPrompt, eventLabel, speakerOverride, epoch, options);
         } catch (e) {
             _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
         } finally {
@@ -7984,14 +8010,146 @@ Gib dem Piloten jetzt eine kurze, konkrete Airwork-Arbeitsanweisung (Reihenfolge
 Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
 
-function _evaluateComfortBreach(flightData, pax) {
+const _PAX_COMFORT_MOTION_WINDOW_MS = 3500;
+const _PAX_COMFORT_MOTION_MIN_WINDOW_MS = 2200;
+const _PAX_COMFORT_MOTION_MAX_GAP_MS = 750;
+
+function _resetPaxComfortMotionAnalysis() {
+    _paxComfortMotionSamples = [];
+    _paxComfortLastMotionAnalysis = null;
+}
+
+function _paxComfortPercentile(values, fraction) {
+    const sorted = (Array.isArray(values) ? values : [])
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    if (!sorted.length) return 0;
+    const pos = Math.max(0, Math.min(sorted.length - 1, (sorted.length - 1) * Number(fraction || 0)));
+    const lo = Math.floor(pos);
+    const hi = Math.ceil(pos);
+    if (lo === hi) return sorted[lo];
+    const mix = pos - lo;
+    return sorted[lo] * (1 - mix) + sorted[hi] * mix;
+}
+
+function _paxComfortSeriesReversals(values, minStep) {
+    const nums = (Array.isArray(values) ? values : []).map(Number);
+    let previousSign = 0;
+    let reversals = 0;
+    for (let i = 1; i < nums.length; i += 1) {
+        if (!Number.isFinite(nums[i]) || !Number.isFinite(nums[i - 1])) continue;
+        const delta = nums[i] - nums[i - 1];
+        if (Math.abs(delta) < minStep) continue;
+        const sign = delta > 0 ? 1 : -1;
+        if (previousSign && sign !== previousSign) reversals += 1;
+        previousSign = sign;
+    }
+    return reversals;
+}
+
+function _analyzePaxComfortMotion(samples, now = Date.now()) {
+    const valid = (Array.isArray(samples) ? samples : [])
+        .filter(sample => sample && Number.isFinite(Number(sample.t)))
+        .sort((a, b) => Number(a.t) - Number(b.t));
+    const empty = {
+        detected: false, severity: null, derivedTurbulencePct: 0,
+        windowMs: 0, samples: valid.length, signalCount: 0, hardSignalCount: 0,
+        gSwing: 0, vsSwing: 0, bankSwing: 0, pitchSwing: 0,
+        gReversals: 0, vsReversals: 0, bankReversals: 0, pitchReversals: 0
+    };
+    if (valid.length < 12) return empty;
+    const windowMs = Math.max(0, Number(valid[valid.length - 1].t) - Number(valid[0].t));
+    if (windowMs < _PAX_COMFORT_MOTION_MIN_WINDOW_MS) return { ...empty, windowMs };
+
+    const series = key => valid.map(sample => Number(sample[key])).filter(Number.isFinite);
+    const swing = values => Math.max(0, _paxComfortPercentile(values, 0.9) - _paxComfortPercentile(values, 0.1));
+    const gValues = series('g');
+    const vsValues = series('vs');
+    const bankValues = series('bank');
+    const pitchValues = series('pitch');
+    const gSwing = swing(gValues);
+    const vsSwing = swing(vsValues);
+    const bankSwing = swing(bankValues);
+    const pitchSwing = swing(pitchValues);
+    const gReversals = _paxComfortSeriesReversals(gValues, 0.015);
+    const vsReversals = _paxComfortSeriesReversals(vsValues, 35);
+    const bankReversals = _paxComfortSeriesReversals(bankValues, 0.25);
+    const pitchReversals = _paxComfortSeriesReversals(pitchValues, 0.15);
+
+    const gWarn = gSwing >= 0.16 && gReversals >= 3;
+    const gHard = gSwing >= 0.28 && gReversals >= 4;
+    const vsWarn = vsSwing >= 220 && vsReversals >= 3;
+    const vsHard = vsSwing >= 420 && vsReversals >= 4;
+    const bankWarn = bankSwing >= 3.5 && bankReversals >= 3;
+    const bankHard = bankSwing >= 6.5 && bankReversals >= 4;
+    const pitchWarn = pitchSwing >= 2.0 && pitchReversals >= 3;
+    const pitchHard = pitchSwing >= 3.5 && pitchReversals >= 4;
+    const attitudeWarn = bankWarn || pitchWarn;
+    const attitudeHard = bankHard || pitchHard;
+    const signalCount = [gWarn, vsWarn, attitudeWarn].filter(Boolean).length;
+    const hardSignalCount = [gHard, vsHard, attitudeHard].filter(Boolean).length;
+    const detected = signalCount >= 2;
+    const hard = detected && hardSignalCount >= 2;
+
+    return {
+        detected,
+        severity: detected ? (hard ? 'hard' : 'warn') : null,
+        derivedTurbulencePct: detected ? (hard ? 80 : 60) : 0,
+        windowMs,
+        samples: valid.length,
+        signalCount,
+        hardSignalCount,
+        gSwing,
+        vsSwing,
+        bankSwing,
+        pitchSwing,
+        gReversals,
+        vsReversals,
+        bankReversals,
+        pitchReversals
+    };
+}
+
+function _samplePaxComfortMotion(flightData, now = Date.now()) {
+    if (!flightData || _activeTaskDomain() === 'training') {
+        _resetPaxComfortMotionAnalysis();
+        return null;
+    }
+    const sample = {
+        t: now,
+        g: Number(flightData.gForce),
+        vs: Number.isFinite(Number(flightData.vsFpm)) ? Number(flightData.vsFpm) : Number(flightData.vs),
+        bank: Number(flightData.bankDeg),
+        pitch: Number(flightData.pitchDeg)
+    };
+    if (!Number.isFinite(sample.g) || !Number.isFinite(sample.vs) || !Number.isFinite(sample.bank)) {
+        _resetPaxComfortMotionAnalysis();
+        return null;
+    }
+    const previous = _paxComfortMotionSamples[_paxComfortMotionSamples.length - 1];
+    if (previous && (now - Number(previous.t || 0)) > _PAX_COMFORT_MOTION_MAX_GAP_MS) {
+        _paxComfortMotionSamples = [];
+    }
+    _paxComfortMotionSamples.push(sample);
+    const cutoff = now - _PAX_COMFORT_MOTION_WINDOW_MS;
+    _paxComfortMotionSamples = _paxComfortMotionSamples.filter(item => Number(item.t) >= cutoff);
+    _paxComfortLastMotionAnalysis = _analyzePaxComfortMotion(_paxComfortMotionSamples, now);
+    return _paxComfortLastMotionAnalysis;
+}
+
+function _evaluateComfortBreach(flightData, pax, motionTurbulence = null) {
     if (!flightData || !pax) return null;
     const g = Number(flightData.gForce || 1.0);
     const bank = Math.abs(Number(flightData.bankDeg || 0));
     const wind = Number(flightData.windKts || 0);
     const gust = Number(flightData.windGustKts || 0);
     const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
-    const turbulence = Number(flightData.turbulencePct || 0);
+    const directTurbulence = Number(flightData.turbulencePct || 0);
+    const derivedTurbulence = motionTurbulence?.detected
+        ? Number(motionTurbulence.derivedTurbulencePct || 0)
+        : 0;
+    const turbulence = Math.max(directTurbulence, derivedTurbulence);
     const precipRate = Number(flightData.precipRateMmH || 0);
     const vsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
     const policy = _comfortFeedbackPolicy(pax);
@@ -8015,13 +8173,121 @@ function _evaluateComfortBreach(flightData, pax) {
     const bLevel = bThr ? (bank >= bThr.hard ? 'hard' : bank >= bThr.warn ? 'warn' : null) : null;
     const wLevel = wThr ? (wind >= wThr.hard ? 'hard' : wind >= wThr.warn ? 'warn' : null) : null;
     const gsLevel = gsThr ? (gustSpread >= gsThr.hard ? 'hard' : gustSpread >= gsThr.warn ? 'warn' : null) : null;
-    const tLevel = tThr ? (turbulence >= tThr.hard ? 'hard' : turbulence >= tThr.warn ? 'warn' : null) : null;
+    const directTLevel = tThr
+        ? (directTurbulence >= tThr.hard ? 'hard' : directTurbulence >= tThr.warn ? 'warn' : null)
+        : null;
+    const motionTLevel = tThr && motionTurbulence?.detected
+        ? (motionTurbulence.severity === 'hard' ? 'hard' : 'warn')
+        : null;
+    const tLevel = (directTLevel === 'hard' || motionTLevel === 'hard')
+        ? 'hard'
+        : ((directTLevel || motionTLevel) ? 'warn' : null);
     const pLevel = pThr ? (precipRate >= pThr.hard ? 'hard' : precipRate >= pThr.warn ? 'warn' : null) : null;
     const dLevel = dThr ? (vsFpm <= dThr.hard ? 'hard' : vsFpm <= dThr.warn ? 'warn' : null) : null;
     if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
     const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || gsLevel === 'hard' || tLevel === 'hard' || pLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
-    return { severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm, gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy };
+    return {
+        severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm,
+        gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy,
+        directTurbulence,
+        motionTurbulence: motionTurbulence?.detected ? { ...motionTurbulence } : null,
+        preconfirmedMs: motionTurbulence?.detected ? { turbulence: Number(motionTurbulence.windowMs || 0) } : {},
+        thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: pThr, descent: dThr }
+    };
+}
+
+const _PAX_COMFORT_CONFIRM_WARN_MS = 2000;
+const _PAX_COMFORT_CONFIRM_HARD_MS = 1000;
+const _PAX_COMFORT_METRICS = [
+    ['g', 'gLevel'], ['bank', 'bLevel'], ['wind', 'wLevel'], ['gust', 'gsLevel'],
+    ['turbulence', 'tLevel'], ['precip', 'pLevel'], ['descent', 'dLevel']
+];
+
+function _confirmComfortBreach(breach, now = Date.now()) {
+    if (!breach) {
+        _paxComfortBreachState = Object.create(null);
+        return null;
+    }
+    const confirmed = Object.create(null);
+    for (const [metric, levelKey] of _PAX_COMFORT_METRICS) {
+        const level = breach[levelKey];
+        if (!level) {
+            delete _paxComfortBreachState[metric];
+            continue;
+        }
+        const previous = _paxComfortBreachState[metric];
+        // Nach einer Telemetriepause nicht so tun, als sei der Grenzwert in der
+        // Zwischenzeit durchgehend ueberschritten gewesen.
+        const preconfirmedMs = Math.max(0, Math.min(
+            _PAX_COMFORT_MOTION_WINDOW_MS,
+            Number(breach.preconfirmedMs?.[metric] || 0)
+        ));
+        const state = (!previous || (now - Number(previous.lastAt || 0)) > 750)
+            ? { firstAt: now - preconfirmedMs }
+            : previous;
+        state.lastAt = now;
+        state.level = level;
+        _paxComfortBreachState[metric] = state;
+        const elapsedMs = Math.max(0, now - state.firstAt);
+        const requiredMs = level === 'hard' ? _PAX_COMFORT_CONFIRM_HARD_MS : _PAX_COMFORT_CONFIRM_WARN_MS;
+        if (elapsedMs >= requiredMs) confirmed[metric] = { elapsedMs, requiredMs, level };
+    }
+    const confirmedMetrics = Object.keys(confirmed);
+    if (!confirmedMetrics.length) return null;
+
+    const filtered = { ...breach, confirmed };
+    for (const [metric, levelKey] of _PAX_COMFORT_METRICS) {
+        if (!confirmed[metric]) filtered[levelKey] = null;
+    }
+    filtered.severity = confirmedMetrics.some(metric => confirmed[metric].level === 'hard') ? 'hard' : 'warn';
+    return filtered;
+}
+
+function _comfortBreachDebugDetail(breach) {
+    if (!breach) return '';
+    const parts = [];
+    const add = (metric, label, value, unit = '', digits = 0) => {
+        const detail = breach.confirmed?.[metric];
+        const threshold = breach.thresholds?.[metric]?.[detail?.level];
+        if (!detail || !Number.isFinite(Number(threshold))) return;
+        const renderedValue = Number(value).toFixed(digits).replace('.', ',');
+        const renderedThreshold = Number(threshold).toFixed(digits).replace('.', ',');
+        parts.push(`${label} ${renderedValue}${unit} ≥ ${renderedThreshold}${unit} (${(detail.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
+    };
+    add('g', 'G', breach.g, ' g', 2);
+    add('bank', 'Bank', breach.bank, '°');
+    add('wind', 'Wind', breach.wind, ' kt');
+    add('gust', 'Böendifferenz', breach.gustSpread, ' kt');
+    if (breach.confirmed?.turbulence && breach.motionTurbulence?.detected) {
+        const motion = breach.motionTurbulence;
+        const motionBits = [];
+        if (motion.gSwing >= 0.16 && motion.gReversals >= 3) {
+            motionBits.push(`ΔG ${motion.gSwing.toFixed(2).replace('.', ',')} g / ${motion.gReversals} Wechsel`);
+        }
+        if (motion.vsSwing >= 220 && motion.vsReversals >= 3) {
+            motionBits.push(`ΔVS ${Math.round(motion.vsSwing)} ft/min / ${motion.vsReversals} Wechsel`);
+        }
+        if (motion.bankSwing >= 3.5 && motion.bankReversals >= 3) {
+            motionBits.push(`ΔBank ${motion.bankSwing.toFixed(1).replace('.', ',')}° / ${motion.bankReversals} Wechsel`);
+        } else if (motion.pitchSwing >= 2.0 && motion.pitchReversals >= 3) {
+            motionBits.push(`ΔPitch ${motion.pitchSwing.toFixed(1).replace('.', ',')}° / ${motion.pitchReversals} Wechsel`);
+        }
+        parts.push(`Unruhe-Muster ${motionBits.join(' · ')} (${(motion.windowMs / 1000).toFixed(1).replace('.', ',')} s)`);
+        const directThreshold = breach.thresholds?.turbulence?.[breach.confirmed.turbulence.level];
+        if (breach.directTurbulence >= directThreshold) {
+            parts.push(`Sim-Turbulenz ${Math.round(breach.directTurbulence)}% ≥ ${Math.round(directThreshold)}%`);
+        }
+    } else {
+        add('turbulence', 'Turbulenz', breach.turbulence, '%');
+    }
+    add('precip', 'Niederschlag', breach.precipRate, ' mm/h', 1);
+    const descent = breach.confirmed?.descent;
+    if (descent) {
+        const threshold = breach.thresholds?.descent?.[descent.level];
+        parts.push(`Sinkrate ${Math.round(breach.vsFpm)} ft/min ≤ ${Math.round(threshold)} ft/min (${(descent.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
+    }
+    return parts.length ? `Auslöser: ${parts.join(' · ')}` : '';
 }
 
 function _comfortBreachPrompt(flightData, breach, count) {
@@ -8034,7 +8300,13 @@ function _comfortBreachPrompt(flightData, breach, count) {
     if (breach.bLevel) bits.push(`Bank aktuell ${breach.bank.toFixed(0)}°`);
     if (breach.wLevel) bits.push(`Wind ${breach.wind.toFixed(0)} kts`);
     if (breach.gsLevel) bits.push(`Böenspitzen +${Math.round(breach.gustSpread)} kts`);
-    if (breach.tLevel) bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
+    if (breach.tLevel) {
+        if (breach.motionTurbulence?.detected) {
+            bits.push(`wechselnde, unruhige Flugbewegungen über ${(breach.motionTurbulence.windowMs / 1000).toFixed(1)} Sekunden`);
+        } else {
+            bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
+        }
+    }
     if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
     if (breach.dLevel) bits.push(`Sinkflug ${Math.round(breach.vsFpm)} ft/min`);
     const hasPilotIssue = !!(breach.gLevel || breach.bLevel || breach.dLevel);
@@ -8062,32 +8334,39 @@ Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_toneHin
 }
 
 function _maybePaxComfortFeedback(flightData, lat, lon) {
-    if (!window.activePassenger || !_missionHasPax() || !flightData) return;
-    if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) return;
-    if (_paxLandingPhaseAnnounced || _aptTrainingLandingBriefDone || _poiTrainingLandingBriefDone) return;
-    if (_paxComfortBusy) return;
+    const resetDetection = () => {
+        _paxComfortBreachState = Object.create(null);
+        _resetPaxComfortMotionAnalysis();
+    };
+    if (!window.activePassenger || !_missionHasPax() || !flightData) { resetDetection(); return; }
+    if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) { resetDetection(); return; }
+    if (_paxLandingPhaseAnnounced || _aptTrainingLandingBriefDone || _poiTrainingLandingBriefDone) { resetDetection(); return; }
+    if (_paxComfortBusy) { resetDetection(); return; }
     if (_paxComfortCount >= 3) return;
     const onGround = (typeof flightData?.onGround === 'boolean')
         ? !!flightData.onGround
         : (Number(flightData?.aglFt || 0) <= 12 && Number(flightData?.gs || flightData?.gsKts || 0) < 30);
-    if (onGround) return;
+    if (onGround) { resetDetection(); return; }
     const depDistNm = _distanceFromDepartureNm(Number(lat), Number(lon));
-    if (Number.isFinite(depDistNm) && depDistNm < 4.0) return;
+    if (Number.isFinite(depDistNm) && depDistNm < 4.0) { resetDetection(); return; }
     const comfortPolicy = _comfortFeedbackPolicy(window.activePassenger);
-    if (!comfortPolicy.reactiveAny) return;
+    if (!comfortPolicy.reactiveAny) { resetDetection(); return; }
+
+    const motionTurbulence = _samplePaxComfortMotion(flightData);
+    const rawBreach = _evaluateComfortBreach(flightData, window.activePassenger, motionTurbulence);
+    const breach = _confirmComfortBreach(rawBreach);
+    if (!breach) return;
 
     const now = Date.now();
     const cooldownMs = 90 * 1000;
     if ((now - _paxComfortLastAt) < cooldownMs) return;
 
-    const breach = _evaluateComfortBreach(flightData, window.activePassenger);
-    if (!breach) return;
-
     _paxComfortBusy = true;
     _paxComfortLastAt = now;
     _paxComfortCount += 1;
+    const debugDetail = _comfortBreachDebugDetail(breach);
     _paxLog(
-        `Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}° | Wind ${breach.wind.toFixed(0)}kts | Böen+ ${Math.round(breach.gustSpread || 0)}kts | Turb ${Math.round(breach.turbulence || 0)}% | Mode G:${breach.policy?.metricModes?.g || '-'} B:${breach.policy?.metricModes?.bank || '-'} W:${breach.policy?.metricModes?.wind || '-'} T:${breach.policy?.metricModes?.turb || '-'} D:${breach.policy?.metricModes?.descent || '-'}`,
+        `Komfort-Hinweis #${_paxComfortCount} | ${debugDetail || 'Auslöser unbekannt'} | Mode G:${breach.policy?.metricModes?.g || '-'} B:${breach.policy?.metricModes?.bank || '-'} W:${breach.policy?.metricModes?.wind || '-'} T:${breach.policy?.metricModes?.turb || '-'} D:${breach.policy?.metricModes?.descent || '-'}`,
         'event'
     );
 
@@ -8095,7 +8374,7 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
     if (!prompt) { _paxComfortBusy = false; return; }
     _paxMissionTimeout(async () => {
         try {
-            await _speakAndShow(prompt, 'Komfort-Hinweis');
+            await _speakAndShow(prompt, 'Komfort-Hinweis', null, { debugDetail });
         } finally {
             _paxComfortBusy = false;
         }

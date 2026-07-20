@@ -7,6 +7,15 @@
   const STANDALONE_ID = String(URL_PARAMS.get('syncId') || '').trim();
   const STANDALONE_PIN = String(URL_PARAMS.get('pin') || '').trim();
   const PARENT_ORIGIN = window.location.origin;
+
+  function applyWorkbenchTheme(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    const theme = raw === 'win31' ? 'win95' : (['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(raw) ? raw : 'classic');
+    document.documentElement.dataset.theme = theme;
+    return theme;
+  }
+
+  applyWorkbenchTheme(document.documentElement.dataset.theme || localStorage.getItem('ga_theme'));
   const STORAGE_KEY = 'vfr-homebase-workbench-v2';
   const SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
   const DEVICE_ID_KEY = 'vfr-homebase-device-id';
@@ -432,7 +441,7 @@
       entries.forEach((entry) => {
         const option = document.createElement('option');
         option.value = entry.title;
-        option.textContent = `${entry.icon} ${entry.label}`;
+        option.textContent = `${entry.icon || '•'} ${entry.label}`;
         optgroup.append(option);
       });
       $('catalogSelect').append(optgroup);
@@ -594,12 +603,12 @@
     });
     const message = commandId
       ? actionProgressMessage(group.control, stateDefinition.id)
-      : `${group.control.label} konnte nicht gesteuert werden: Relay ist nicht verbunden.`;
+      : `${group.control.label} konnte nicht gesteuert werden. Bitte prüfe die Verbindung zur VFR-Haupt-App und zum PC-Tracker.`;
     setControlResult(group.key, message, commandId ? null : false);
     setResult('previewResult', message, commandId ? null : false);
     log(commandId
       ? `homebase_v1.object.control.set gesendet (${commandId}, ${group.control.id}=${stateDefinition.id}).`
-      : `${group.control.label}: Relay ist nicht verbunden.`, commandId ? 'info' : 'error');
+      : `${group.control.label}: Verbindung zur Haupt-App oder zum PC-Tracker fehlt.`, commandId ? 'info' : 'error');
   }
 
   function renderHomebaseControls() {
@@ -665,7 +674,7 @@
     $('hangarWidth').title = sizeText;
     $('hangarDepth').title = sizeText;
     const footprintHint = $('hangarFootprintHint');
-    if (footprintHint) footprintHint.textContent = `${sizeText} Plane und Seiten reichen 2 m unter den Nullpunkt; die Höhenkorrektur dient nur zur Feinlage im Gelände.`;
+    if (footprintHint) footprintHint.textContent = `${sizeText} Die Abmessungen sind fest vorgegeben. Mit „Hangar höher / tiefer“ gleichst du nur kleine Unebenheiten im Gelände aus.`;
     $('crewShareToggle').checked = syncMeta.crewShareEnabled === true;
     renderObjectList();
     renderHomebaseControls();
@@ -760,7 +769,7 @@
     item.scale = clamp($('objectScale').value, .1, 10);
     saveState(); syncInputsFromState(); updateMap();
     if (event?.target?.id === 'objectScale') {
-      setResult('previewResult', 'Maßstabsänderungen werden beim nächsten vollständigen Vorschau-Aufbau übernommen.');
+      setResult('previewResult', 'Die neue Objektgröße wird übernommen, sobald du die Homebase im Simulator neu anzeigen lässt.');
     } else {
       scheduleLiveObjectMove(item);
     }
@@ -841,7 +850,7 @@
 
   function sendCommand(type, extra = {}) {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      log(`${type}: Relay ist nicht verbunden.`, 'error');
+      log(`${type}: Verbindung zur Haupt-App oder zum PC-Tracker fehlt.`, 'error');
       return false;
     }
     const commandId = `hb-${Date.now()}-${++commandSeq}`;
@@ -884,7 +893,7 @@
       const config = buildConfig();
       const object = { id: 'hangar', title: config.hangar.objectTitle, label: config.hangar.objectTitle === OPEN_PARKING_TITLE ? 'Offener Parkbereich' : 'Hangar', ...config.hangar };
       if (!sendStabilizerCommand('homebase_v1.preview.hangar.move', { object })) {
-        setResult('previewResult', 'Hangar konnte nicht verschoben werden: Relay ist nicht verbunden.', false);
+        setResult('previewResult', 'Der Hangar wurde im Entwurf verschoben. Für die sofortige Anzeige im Simulator muss der PC-Tracker verbunden sein.', false);
       }
     });
   }
@@ -892,14 +901,14 @@
   function scheduleLiveObjectMove(item) {
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
-      setResult('previewResult', `${item.label} ist nur im fertigen Paket enthalten und kann nicht live verschoben werden.`);
+      setResult('previewResult', `${item.label} wird gespeichert, erscheint aber erst im kompilierten Homebase-Mod.`);
       return;
     }
     queueLiveMove(item.id, () => {
       const object = buildConfig().objects.find((entry) => entry.id === item.id);
       const commandId = object && sendStabilizerCommand('homebase_v1.preview.object.move', { object });
       if (!commandId) {
-        setResult('previewResult', `${item.label} konnte nicht verschoben werden: Relay ist nicht verbunden.`, false);
+        setResult('previewResult', `${item.label} wurde im Entwurf verschoben. Für die sofortige Anzeige im Simulator muss der PC-Tracker verbunden sein.`, false);
         return;
       }
       pendingLiveObjectMoves.set(commandId, object);
@@ -909,22 +918,22 @@
   function sendLiveObjectAdd(item) {
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
-      setResult('previewResult', `${item.label} wird als stock-basiertes Objekt erst im fertigen Paket erzeugt.`);
+      setResult('previewResult', `${item.label} wird gespeichert und erscheint erst im kompilierten Homebase-Mod.`);
       return;
     }
     const object = buildConfig().objects.find((entry) => entry.id === item.id);
     if (!object || !sendStabilizerCommand('homebase_v1.preview.object.add', { object })) {
-      setResult('previewResult', `${item.label} wurde gespeichert, konnte aber nicht direkt an den Simulator gesendet werden.`, false);
+      setResult('previewResult', `${item.label} wurde gespeichert. Für die sofortige Anzeige im Simulator muss der PC-Tracker verbunden sein.`, false);
       return;
     }
-    setResult('previewResult', `${item.label} wird als einzelnes Objekt im Simulator erzeugt …`);
+    setResult('previewResult', `${item.label} wird im Simulator angezeigt …`);
   }
 
   function spawnProbeObject() {
     return {
       id: SPAWN_PROBE_ID,
       title: SPAWN_PROBE_TITLE,
-      label: 'Gelber Spawnpunkt-Messkegel',
+      label: 'Gelber Startpunkt-Messkegel',
       lat: state.spawn.lat,
       lon: state.spawn.lon,
       altFt: state.spawn.altFt,
@@ -939,19 +948,19 @@
     const commandId = sendStabilizerCommand('homebase_v1.preview.object.move', { object: spawnProbeObject() });
     if (!commandId) {
       spawnProbeEnabled = false;
-      setResult('previewResult', 'Messkegel konnte nicht gesetzt werden: Relay ist nicht verbunden.', false);
+      setResult('previewResult', 'Der Startpunkt wurde gespeichert. Zum Anzeigen des gelben Kegels muss der PC-Tracker verbunden sein.', false);
       return;
     }
     pendingProbeMoveCommandId = commandId;
-    setResult('previewResult', 'Messkegel wird zum Spawnpunkt bewegt und die Bodenhöhe wird gelesen …');
+    setResult('previewResult', 'Der gelbe Kegel wird zum Startpunkt bewegt und die Bodenhöhe wird gemessen …');
   }
 
   function addSpawnProbe() {
     if (!sendStabilizerCommand('homebase_v1.preview.object.add', { object: spawnProbeObject() })) {
-      setResult('previewResult', 'Messkegel konnte nicht erzeugt werden: Relay ist nicht verbunden.', false);
+      setResult('previewResult', 'Der Startpunkt wurde gespeichert. Zum Anzeigen des gelben Kegels muss der PC-Tracker verbunden sein.', false);
       return;
     }
-    setResult('previewResult', 'Gelber Messkegel wird am Spawnpunkt erzeugt …');
+    setResult('previewResult', 'Der gelbe Kegel wird am Startpunkt angezeigt …');
   }
 
   function beginPreviewTeardown(kind, payload = null) {
@@ -962,7 +971,7 @@
     previewWatchdog = setTimeout(() => {
       if (previewTeardown?.commandId !== commandId) return;
       previewTeardown = null;
-      setResult('previewResult', 'Zeitüberschreitung beim bestätigten Abbau der Zusatzobjekte.', false);
+      setResult('previewResult', 'Die Live-Vorschau konnte nicht vollständig ausgeblendet werden. Bitte prüfe die Verbindung zum PC-Tracker und versuche es erneut.', false);
       previewQueued = false;
       clearQueued = false;
     }, 90000);
@@ -983,7 +992,7 @@
       previewWatchdog = null;
       previewQueued = false;
       clearQueued = false;
-      setResult('previewResult', `Der Hangar-Abbau wurde gestoppt.${detail}`, false);
+      setResult('previewResult', `Die Live-Vorschau konnte nicht vollständig ausgeblendet werden.${detail}`, false);
       return;
     }
     const transition = primaryTeardown;
@@ -994,7 +1003,7 @@
     if (transition.kind === 'set') {
       dispatchPreview(transition.payload);
     } else {
-      setResult('previewResult', 'Zusatzobjekte und Hangar wurden bestätigt entfernt.', true);
+      setResult('previewResult', 'Die vorübergehende Live-Vorschau wurde ausgeblendet. Dein Entwurf bleibt gespeichert.', true);
       releasePreviewQueue();
     }
   }
@@ -1004,7 +1013,7 @@
     if (!id) {
       previewQueued = false;
       clearQueued = false;
-      setResult('previewResult', 'Tracker-Clear konnte nicht gesendet werden.', false);
+      setResult('previewResult', 'Die Live-Vorschau konnte nicht ausgeblendet werden, weil der PC-Tracker nicht erreichbar ist.', false);
       return false;
     }
     primaryTeardown = { ...transition, commandId: id, trackerAck: null, observerAck: null };
@@ -1019,9 +1028,9 @@
       previewInFlightId = null;
       previewQueued = false;
       clearQueued = false;
-      setResult('previewResult', 'Zeitüberschreitung beim bestätigten Hangar-Abbau.', false);
+      setResult('previewResult', 'Die Live-Vorschau konnte nicht vollständig ausgeblendet werden. Bitte versuche es erneut.', false);
     }, 35000);
-    setResult('previewResult', 'Zusatzobjekte entfernt; warte auf ObjectRemoved für den Hangar …');
+    setResult('previewResult', 'Objekte sind ausgeblendet; der Hangar wird noch entfernt …');
     return true;
   }
 
@@ -1043,18 +1052,18 @@
     });
     if (!sent) {
       finishPreviewRequest(id);
-      setResult('previewResult', 'Das gewählte Vorschaumodell konnte nicht an den Simulator gesendet werden.', false);
+      setResult('previewResult', 'Die Homebase konnte nicht im Simulator angezeigt werden. Bitte prüfe PC-Tracker und MSFS.', false);
       return;
     }
-    const persistentNote = payload.persistentObjects.length ? ` ${payload.persistentObjects.length} Paketobjekt(e) werden in der Live-Vorschau ausgelassen.` : '';
-    setResult('previewResult', `${hangar.label} und ${state.objects.length - payload.persistentObjects.length} Objekte werden im Simulator aktualisiert …${persistentNote}`);
+    const persistentNote = payload.persistentObjects.length ? ` ${payload.persistentObjects.length} Objekt(e) erscheinen erst im kompilierten Mod.` : '';
+    setResult('previewResult', `${hangar.label} und ${state.objects.length - payload.persistentObjects.length} Objekt(e) werden im Simulator angezeigt …${persistentNote}`);
   }
 
   function sendPreview() {
     if (previewInFlightId || previewTeardown || primaryTeardown) {
       previewQueued = true;
       clearQueued = false;
-      setResult('previewResult', 'Eine Vorschau wird gerade aufgebaut; die neueste Änderung ist vorgemerkt.');
+      setResult('previewResult', 'Die Live-Vorschau wird bereits aktualisiert. Deine letzte Änderung wird direkt danach übernommen.');
       return;
     }
     invalidateLivePreview();
@@ -1064,7 +1073,7 @@
     const trackerConfig = { ...fullConfig, objects: fullConfig.objects.filter((item) => !COMPANION_TITLES.has(item.title) && !PERSISTENT_ONLY_TITLES.has(item.title)) };
     previewQueued = false;
     if (beginPreviewTeardown('set', { trackerConfig, companionObjects, persistentObjects })) {
-      setResult('previewResult', 'Vorhandene Zusatzobjekte werden bestätigt und nacheinander abgebaut …');
+      setResult('previewResult', 'Die bisherige Live-Vorschau wird kurz ausgeblendet und danach neu aufgebaut …');
     }
   }
 
@@ -1095,10 +1104,10 @@
     if (previewInFlightId || previewTeardown || primaryTeardown) {
       clearQueued = true;
       previewQueued = false;
-      setResult('previewResult', 'Entfernen ist vorgemerkt und beginnt nach dem laufenden Vorschauauftrag.');
+      setResult('previewResult', 'Die Live-Vorschau wird ausgeblendet, sobald die laufende Aktualisierung fertig ist.');
       return;
     }
-    if (beginPreviewTeardown('clear')) setResult('previewResult', 'Zusatzobjekte werden bestätigt und nacheinander entfernt …');
+    if (beginPreviewTeardown('clear')) setResult('previewResult', 'Die vorübergehende Live-Vorschau wird aus dem Simulator entfernt …');
   }
 
   async function refreshLocalAssetInspection(options = {}) {
@@ -1130,17 +1139,17 @@
 
   function renderAssetInspection() {
     if (!localAssetInspection) {
-      setResult('assetPackageResult', 'Assetpaket-Status ist noch nicht verfügbar.', null);
+      setResult('assetPackageResult', 'Die Homebase-Objekte können erst geprüft werden, wenn der PC-Tracker verbunden ist.', null);
       return;
     }
     if (localAssetInspection.updateAvailable) {
       const installed = localAssetInspection.packageComplete
         ? `Installiert: ${localAssetInspection.packageVersion}.`
-        : 'Es ist kein vollständiges Assetpaket installiert.';
+        : 'Die benötigten Homebase-Objekte sind noch nicht vollständig installiert.';
       const sizeMb = Number(localAssetInspection.remoteArchiveSize || 0) / 1024 / 1024;
       const size = sizeMb > 0 ? ` Download: ${sizeMb.toFixed(sizeMb >= 10 ? 0 : 1)} MB.` : '';
-      setResult('assetPackageResult', `${installed} Serverversion ${localAssetInspection.remoteVersion} ist verfügbar.${size}`, false);
-      $('assetPackageBtn').textContent = `Assetpaket auf ${localAssetInspection.remoteVersion} aktualisieren`;
+      setResult('assetPackageResult', `${installed} Eine neuere Version ${localAssetInspection.remoteVersion} ist verfügbar.${size}`, false);
+      $('assetPackageBtn').textContent = `Homebase-Objekte auf ${localAssetInspection.remoteVersion} aktualisieren`;
       return;
     }
     if (localAssetInspection.packageComplete) {
@@ -1152,28 +1161,28 @@
         : localAssetInspection.remoteError
           ? ` Serverprüfung derzeit nicht möglich: ${localAssetInspection.remoteError}`
           : '';
-      setResult('assetPackageResult', `Homebase-Assetpaket ${localAssetInspection.packageVersion} ist installiert und vollständig.${community}${remote}`, true);
-      $('assetPackageBtn').textContent = 'Assetpaket erneut prüfen';
+      setResult('assetPackageResult', `Die Homebase-Objekte ${localAssetInspection.packageVersion} sind vollständig installiert.${community}${remote}`, true);
+      $('assetPackageBtn').textContent = 'Homebase-Objekte erneut prüfen';
       return;
     }
     const found = localAssetInspection.communityFound
       ? `Installiert ist ${localAssetInspection.packageVersion || 'eine unvollständige Version'}.`
-      : 'Es ist noch kein Homebase-Assetpaket installiert.';
+      : 'Die benötigten Homebase-Objekte sind noch nicht installiert.';
     const fallback = localAssetInspection.embeddedPackageComplete
-      ? ` Der Tracker enthält Version ${localAssetInspection.embeddedPackageVersion} zur sicheren Installation.`
-      : ' Der Tracker enthält kein verwendbares Offline-Paket.';
+      ? ` Der PC-Tracker kann Version ${localAssetInspection.embeddedPackageVersion} auch ohne Download installieren.`
+      : ' Der PC-Tracker enthält keine verwendbare Offline-Version.';
     const detection = localAssetInspection.communityDetectionError
       ? ` ${localAssetInspection.communityDetectionError}`
       : '';
     setResult('assetPackageResult', `${found}${fallback}${detection}`, false);
-    $('assetPackageBtn').textContent = 'Assetpaket prüfen oder installieren';
+    $('assetPackageBtn').textContent = 'Homebase-Objekte prüfen oder installieren';
   }
 
   async function offerAssetPackageInstall(options = {}) {
     const force = options.force === true;
     if (!INTEGRATED) {
       await refreshLocalAssetInspection();
-      log('Die automatische Assetinstallation steht in der integrierten Haupt-App über den PC-Tracker ab v288 bereit.');
+      log('Die Homebase-Objekte können über die VFR-Haupt-App und den PC-Tracker geprüft oder installiert werden.');
       return;
     }
     if (assetInstallCheckInFlight) return;
@@ -1182,15 +1191,15 @@
     button.disabled = true;
     try {
       const inspection = await refreshLocalAssetInspection({ remote: true, force });
-      if (!inspection) throw new Error('Der Assetpaket-Status konnte nicht vom Tracker gelesen werden.');
+      if (!inspection) throw new Error('Der PC-Tracker konnte den Zustand der Homebase-Objekte nicht ermitteln.');
       if (inspection.packageComplete && !inspection.updateAvailable) {
-        if (force) log(`Homebase-Assetpaket ${inspection.packageVersion} ist bereits aktuell.`, 'ok');
+        if (force) log(`Die Homebase-Objekte ${inspection.packageVersion} sind bereits aktuell.`, 'ok');
         if (force && inspection.remoteError) log(`Remote-Prüfung nicht möglich; installierte Version bleibt unverändert: ${inspection.remoteError}`, 'error');
         return;
       }
       const useRemote = inspection.remoteAvailable === true && inspection.updateAvailable === true;
       if (!useRemote && (!inspection.embeddedAvailable || !inspection.embeddedPackageComplete)) {
-        throw new Error(`Der Tracker enthält kein gültiges Offline-Assetpaket ${inspection.expectedPackageVersion || ''}.`);
+        throw new Error(`Der PC-Tracker enthält keine gültige Offline-Version der Homebase-Objekte ${inspection.expectedPackageVersion || ''}.`);
       }
       const availableVersion = useRemote ? inspection.remoteVersion : inspection.embeddedPackageVersion;
       const signature = `${inspection.packageVersion || 'missing'}>${useRemote ? 'remote' : 'embedded'}:${availableVersion}`;
@@ -1207,18 +1216,18 @@
         ? `Verfügbar auf dem Assetserver: ${availableVersion}\nDownloadgröße: ${sizeMb.toFixed(sizeMb >= 10 ? 0 : 1)} MB${changed}`
         : `Offline im Tracker verfügbar: ${availableVersion}`;
       const confirmed = window.confirm(
-        `Das Homebase-Assetpaket fehlt oder ist veraltet.\n\n${current}\n${source}\n\n` +
-        'Soll das geprüfte Paket jetzt in den aktiven MSFS-Community-Ordner installiert werden? Download, Prüfsummen und Paketinhalt werden vor dem Austausch vollständig kontrolliert.'
+        `Die Modelle für deine Homebase fehlen oder sind veraltet.\n\n${current}\n${source}\n\n` +
+        'Sollen die geprüften Homebase-Objekte jetzt in den aktiven MSFS-Community-Ordner installiert werden? Der PC-Tracker kontrolliert Download und Inhalt vor jeder Änderung.'
       );
       if (!confirmed) {
-        log('Installation des Homebase-Assetpakets durch den Benutzer pausiert.');
+        log('Die Installation der Homebase-Objekte wurde pausiert.');
         return;
       }
       const simulator = await requestJson('/api/simulator/status');
       if (simulator.running) {
         const stopConfirmed = window.confirm(
-          'MSFS läuft noch. Damit das Assetpaket sicher ersetzt und beim nächsten Start geladen wird, muss der Simulator geschlossen werden.\n\n' +
-          'Nicht gespeicherter Flugfortschritt kann verloren gehen. MSFS jetzt schließen und das Assetpaket installieren?'
+          'MSFS läuft noch. Damit die Homebase-Objekte sicher ersetzt und beim nächsten Start geladen werden, muss der Simulator geschlossen werden.\n\n' +
+          'Nicht gespeicherter Flugfortschritt kann verloren gehen. MSFS jetzt schließen und die Homebase-Objekte installieren?'
         );
         if (!stopConfirmed) {
           log('Assetinstallation pausiert; MSFS wurde nicht beendet.');
@@ -1228,18 +1237,18 @@
         log('MSFS wurde nach Bestätigung für die Assetinstallation geschlossen.', 'ok');
       }
       setResult('assetPackageResult', useRemote
-        ? `Assetpaket ${availableVersion} wird heruntergeladen, geprüft und atomar installiert …`
-        : `Offline-Assetpaket ${availableVersion} wird geprüft und atomar installiert …`);
+        ? `Die Homebase-Objekte ${availableVersion} werden heruntergeladen, geprüft und installiert …`
+        : `Die Offline-Version ${availableVersion} wird geprüft und installiert …`);
       const installed = useRemote
         ? await postJson('/api/assets/update-install', { confirmed: true })
         : await postJson('/api/assets/install', { confirmed: true });
       await refreshLocalAssetInspection({ remote: true });
-      log(installed.message || `Homebase-Assetpaket ${installed.packageVersion || ''} installiert.`, 'ok');
+      log(installed.message || `Homebase-Objekte ${installed.packageVersion || ''} installiert.`, 'ok');
       const installPath = installed.communityPath ? ` Ziel: ${installed.communityPath}.` : '';
-      setResult('assetPackageResult', `${installed.message || 'Homebase-Assetpaket installiert.'}${installPath} MSFS anschließend neu starten.`, true);
+      setResult('assetPackageResult', `${installed.message || 'Die Homebase-Objekte wurden installiert.'}${installPath} Starte MSFS anschließend neu.`, true);
     } catch (error) {
-      setResult('assetPackageResult', `Assetpaket konnte nicht installiert werden: ${error?.message || error}`, false);
-      log(`Assetpaket-Installation: ${error?.message || error}`, 'error');
+      setResult('assetPackageResult', `Die Homebase-Objekte konnten nicht installiert werden: ${error?.message || error}`, false);
+      log(`Homebase-Objekte konnten nicht installiert werden: ${error?.message || error}`, 'error');
     } finally {
       button.disabled = false;
       assetInstallCheckInFlight = false;
@@ -1307,24 +1316,24 @@
     button.disabled = true;
     $('sdkHelp').open = false;
     try {
-      showBuildStage('project', 'Schritt 1 von 5: Das Homebase-Projekt wird aus deiner aktuellen Szene erstellt …');
+      showBuildStage('project', 'Deine aktuelle Homebase wird für die Mod-Erstellung vorbereitet …');
       const prepared = await postJson('/api/package/prepare', { config: buildConfig() });
       log(prepared.message || 'Homebase-Projekt erstellt.', 'ok');
 
       const sdk = await requestJson('/api/sdk/status');
       if (!sdk.installed) {
-        const error = new Error('Das MSFS 2024 SDK wurde nicht gefunden. Öffne die Anleitung unten, installiere das SDK und starte diesen Schritt danach erneut.');
+        const error = new Error('Das kostenlose Zusatzprogramm für die Mod-Erstellung wurde nicht gefunden. Öffne die Anleitung unten, installiere das MSFS 2024 SDK und starte diesen Schritt danach erneut.');
         error.code = 'SDK_MISSING';
         throw error;
       }
 
-      showBuildStage('simulator', 'Projekt erstellt. Prüfe jetzt, ob MSFS für den Paketbau geschlossen werden muss …');
+      showBuildStage('simulator', 'Die Homebase ist vorbereitet. Jetzt wird geprüft, ob MSFS für die Kompilierung geschlossen werden muss …');
       const simulator = await requestJson('/api/simulator/status');
       if (simulator.running) {
-        const confirmed = window.confirm('Das Homebase-Projekt wurde erstellt.\n\nFür den offiziellen Paketbau muss MSFS jetzt beendet werden. Nicht gespeicherter Flugfortschritt kann dabei verloren gehen.\n\nMSFS jetzt schließen und mit dem Bau fortfahren?');
+        const confirmed = window.confirm('Deine Homebase ist für die Kompilierung vorbereitet.\n\nDamit daraus ein vollständiger Mod entstehen kann, muss MSFS jetzt beendet werden. Nicht gespeicherter Flugfortschritt kann dabei verloren gehen.\n\nMSFS jetzt schließen und die Homebase kompilieren?');
         if (!confirmed) {
-          showBuildStage('simulator', 'Pausiert: MSFS wurde nicht beendet. Das Projekt ist gespeichert; du kannst den Bau später erneut starten.');
-          log('Flugplatzbau vor dem Beenden von MSFS durch den Benutzer pausiert.');
+          showBuildStage('simulator', 'Pausiert: MSFS wurde nicht beendet. Deine Vorbereitung ist gespeichert; du kannst die Kompilierung später erneut starten.');
+          log('Homebase-Kompilierung vor dem Beenden von MSFS durch den Benutzer pausiert.');
           return;
         }
         showBuildStage('simulator', 'MSFS wird geschlossen. Bitte einen Moment warten …');
@@ -1334,28 +1343,28 @@
         log('MSFS war bereits geschlossen.', 'ok');
       }
 
-      showBuildStage('sdk', 'Schritt 3 von 5: Der Tracker wartet bei Bedarf auf das vollständige Beenden von MSFS und startet danach das offizielle Package Tool …');
+      showBuildStage('sdk', 'Der PC-Tracker wartet, bis MSFS vollständig beendet ist, und kompiliert danach deine Homebase …');
       const built = await postJson('/api/package/build', { config: buildConfig() });
       const waited = Number(built.simulatorExit?.waitedMs || 0);
       log(`${built.message || 'Homebase-Paket gebaut.'}${waited > 0 ? ` Nach ${Math.round(waited / 1000)} Sekunde(n) Wartezeit auf MSFS.` : ''}`, 'ok');
 
-      showBuildStage('install', 'Das Flugplatzpaket wurde gebaut und ist bereit zur Installation.');
-      const installConfirmed = window.confirm('Der Flugplatz wurde erfolgreich gebaut.\n\nSoll er jetzt sauber in den aktiven MSFS-Community-Ordner installiert werden? Eine ältere Homebase-Version wird dabei ersetzt.');
+      showBuildStage('install', 'Der vollständige Homebase-Mod wurde kompiliert und kann jetzt installiert werden.');
+      const installConfirmed = window.confirm('Dein Homebase-Mod wurde erfolgreich kompiliert.\n\nSoll er jetzt in den aktiven MSFS-Community-Ordner installiert werden? Eine ältere Version deiner Homebase wird dabei ersetzt.');
       if (!installConfirmed) {
-        showBuildStage('install', 'Pausiert: Das fertige Paket wurde noch nicht installiert. Du kannst den Bauassistenten später erneut starten.');
+        showBuildStage('install', 'Pausiert: Der fertige Homebase-Mod wurde noch nicht installiert. Du kannst den Assistenten später erneut starten.');
         log('Installation des gebauten Homebase-Pakets durch den Benutzer pausiert.');
         return;
       }
 
-      showBuildStage('install', 'Das alte Homebase-Paket wird entfernt und die neue Version in den Community-Ordner installiert …');
+      showBuildStage('install', 'Eine ältere Homebase-Version wird ersetzt und der neue Mod in den Community-Ordner installiert …');
       const installed = await postJson('/api/package/install', { confirmed: true });
       log(installed.message || 'Homebase-Mod installiert.', 'ok');
-      showBuildStage('done', 'Fertig: Homebase wurde installiert. Starte MSFS neu, damit der Flugplatz geladen wird.', 'complete');
+      showBuildStage('done', 'Fertig: Der Homebase-Mod ist installiert. Nach dem Neustart von MSFS bleibt die Homebase auch ohne laufendes Tool sichtbar und steht als Startplatz bereit.', 'complete');
     } catch (error) {
       const active = document.querySelector('[data-build-step].active')?.dataset.buildStep || 'project';
-      showBuildStage(active, `Der Bau wurde gestoppt: ${error?.message || error}`, 'failed');
+      showBuildStage(active, `Die Kompilierung wurde gestoppt: ${error?.message || error}`, 'failed');
       if (error?.code === 'SDK_MISSING' || String(error?.message || '').toLowerCase().includes('package tool')) $('sdkHelp').open = true;
-      log(`Flugplatzbau: ${error?.message || error}`, 'error');
+      log(`Homebase-Kompilierung: ${error?.message || error}`, 'error');
     } finally {
       button.disabled = false;
     }
@@ -1363,8 +1372,8 @@
 
   async function uninstallAirport() {
     const confirmed = window.confirm(
-      'Soll der installierte Flugplatz „Homebase“ wirklich aus dem MSFS-Community-Ordner gelöscht werden?\n\n' +
-      'Das gemeinsame Assetpaket, die Workbench und dein gespeicherter Entwurf bleiben erhalten. ' +
+      'Soll der installierte Homebase-Mod wirklich aus dem MSFS-Community-Ordner gelöscht werden?\n\n' +
+      'Die Homebase-Objekte, die Workbench und dein gespeicherter Entwurf bleiben erhalten. ' +
       'Damit die Änderung im Simulator wirksam wird, muss MSFS anschließend neu gestartet werden.'
     );
     if (!confirmed) {
@@ -1373,7 +1382,7 @@
     }
     const button = $('uninstallAirportBtn');
     button.disabled = true;
-    setResult('packageResult', 'Homebase wird aus dem Community-Ordner entfernt …');
+    setResult('packageResult', 'Der installierte Homebase-Mod wird aus dem Community-Ordner entfernt …');
     try {
       const result = await postJson('/api/package/uninstall', { confirmed: true });
       setResult('packageResult', result.message || 'Homebase wurde deinstalliert.', true);
@@ -1393,7 +1402,7 @@
       try { socket.close(); } catch (_) {}
     }
     if (INTEGRATED) {
-      setPill('relayPill', 'Haupt-App verbindet …', 'warn');
+      setPill('relayPill', 'Haupt-App wird verbunden …', 'warn');
       socket = {
         readyState: WebSocket.OPEN,
         send(raw) {
@@ -1410,6 +1419,10 @@
           if (event.origin !== PARENT_ORIGIN || event.source !== window.parent) return;
           const message = event.data;
           if (!message || message.channel !== 'vfr-homebase') return;
+          if (message.kind === 'theme-change') {
+            applyWorkbenchTheme(message.theme);
+            return;
+          }
           if (message.kind === 'environment-opened') {
             environmentOpened = true;
             offerAssetPackageInstall().catch(() => {});
@@ -1494,36 +1507,36 @@
         });
       }
     } else {
-      setPill('relayPill', 'Relay wecken …', 'warn');
+      setPill('relayPill', 'Verbindung wird vorbereitet …', 'warn');
       try { await fetch('https://websocketrelais.onrender.com/', { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) }); } catch (_) {}
-      setPill('relayPill', 'Relay verbindet …', 'warn');
+      setPill('relayPill', 'Verbindung wird aufgebaut …', 'warn');
       socket = new WebSocket(RELAY_URL);
     }
     socket.onopen = () => {
-      setPill('relayPill', INTEGRATED ? 'Haupt-App verbunden' : 'Relay verbunden', 'ok');
+      setPill('relayPill', INTEGRATED ? 'Haupt-App verbunden' : 'Verbindung bereit', 'ok');
       if (!INTEGRATED && (!STANDALONE_ID || !STANDALONE_PIN)) {
-        setPill('relayPill', 'Nur über Haupt-App', 'warn');
-        log('Standalone-Verbindung benötigt ?syncId=…&pin=…. In der Haupt-App werden die Pilot-Zugangsdaten automatisch verwendet.', 'error');
+        setPill('relayPill', 'Bitte über Haupt-App öffnen', 'warn');
+        log('Öffne die Workbench über die VFR-Haupt-App. Dort werden deine Zugangsdaten automatisch übernommen.', 'error');
         return;
       }
       socket.send(JSON.stringify({ type: 'join', syncId: STANDALONE_ID, pin: STANDALONE_PIN }));
-      log(INTEGRATED ? 'Mit der VFR-Multitool-Haupt-App verbunden.' : 'Mit dem VFR-Multitool-Relay verbunden.', 'ok');
+      log(INTEGRATED ? 'Mit der VFR-Multitool-Haupt-App verbunden.' : 'Die Verbindung zur VFR-Haupt-App ist bereit.', 'ok');
       setTimeout(() => sendCommand('homebase_v1.capabilities'), 150);
     };
     socket.onmessage = (event) => {
       let data;
       try { data = JSON.parse(event.data); } catch (_) { return; }
-      if (data.type === 'error') { log(data.message || 'Relay-Fehler', 'error'); return; }
+      if (data.type === 'error') { log(data.message || 'Die Verbindung ist fehlgeschlagen.', 'error'); return; }
       if (data.trackerCommand || data.commandOnly) return;
       if (data.homebaseHello) {
         trackerLastSeen = Date.now();
         const caps = Array.isArray(data.homebaseHello.capabilities) ? data.homebaseHello.capabilities : [];
         const helloSignature = `${data.homebaseHello.version || ''}|${Boolean(data.homebaseHello.simConnected)}|${caps.join(',')}`;
-        setPill('trackerPill', `Homebase-Tracker ${data.homebaseHello.version || 'bereit'}`, 'ok');
-        setPill('simPill', data.homebaseHello.simConnected ? 'MSFS verbunden' : 'MSFS wartet', data.homebaseHello.simConnected ? 'ok' : 'warn');
+        setPill('trackerPill', `PC-Tracker ${data.homebaseHello.version || 'bereit'}`, 'ok');
+        setPill('simPill', data.homebaseHello.simConnected ? 'MSFS verbunden' : 'MSFS noch nicht verbunden', data.homebaseHello.simConnected ? 'ok' : 'warn');
         if (helloSignature !== connect.lastHelloSignature) {
           connect.lastHelloSignature = helloSignature;
-          log(`Homebase-Tracker erkannt: ${caps.join(', ')}`, 'ok');
+          log(`PC-Tracker erkannt: ${caps.join(', ')}`, 'ok');
         }
         if (environmentOpened) offerAssetPackageInstall().catch(() => {});
       }
@@ -1577,7 +1590,7 @@
           liveObjectIds.clear();
           for (const item of state.objects) if (!PERSISTENT_ONLY_TITLES.has(item.title)) liveObjectIds.add(item.id);
         }
-        setResult('previewResult', `Vorschau gesetzt. ${ack.extraCount || 0} Zusatzobjekte aktiv.${failed}`, livePreviewReady);
+        setResult('previewResult', `Die Homebase wird im Simulator angezeigt. ${ack.extraCount || 0} Ausstattungsobjekte sind aktiv.${failed}`, livePreviewReady);
       }
       if (data.stabilizerAck?.type === 'homebase_v1.preview.object.add_ack') {
         const ack = data.stabilizerAck;
@@ -1628,8 +1641,8 @@
             // Die Messung aktualisiert nur die gespeicherte Bodenhöhe. Die bereits
             // erzeugten SimConnect-Objekte bleiben dabei gültig und beweglich.
             saveState(); syncInputsFromState(); updateMap();
-            setResult('previewResult', `Messkegel steht am Spawnpunkt. Bodenhöhe: ${state.spawn.altFt.toFixed(1)} ft MSL.`, true);
-            log(`Spawnpunkt-Bodenhöhe über Messkegel gelesen: ${state.spawn.altFt.toFixed(2)} ft MSL.`, 'ok');
+            setResult('previewResult', `Der gelbe Messkegel steht am Startpunkt. Gemessene Bodenhöhe: ${state.spawn.altFt.toFixed(1)} ft.`, true);
+            log(`Bodenhöhe am Startpunkt über den Messkegel gelesen: ${state.spawn.altFt.toFixed(2)} ft.`, 'ok');
           } else {
             setResult('previewResult', ack.message || 'Die Bodenhöhe am Messkegel konnte nicht gelesen werden.', false);
           }
@@ -1644,7 +1657,7 @@
           return;
         }
         if (movedObject && ok) liveObjectIds.add(movedObject.id);
-        setResult('previewResult', ack.message || (ok ? 'Objekt wurde ohne neuen Spawn verschoben.' : 'Objekt konnte nicht verschoben werden.'), ok);
+        setResult('previewResult', ack.message || (ok ? 'Das Objekt wurde an die neue Position verschoben.' : 'Das Objekt konnte nicht verschoben werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
       if (data.type === 'gps' && Number.isFinite(Number(data.lat)) && Number.isFinite(Number(data.lon))) {
@@ -1654,20 +1667,20 @@
         }
         lastTelemetry = { lat: Number(data.lat), lon: Number(data.lon), altFt: finite(data.alt, 0), heading: normalizeHeading(data.hdg), flight: data.flight || {} };
         planeMarker.setLatLng([lastTelemetry.lat, lastTelemetry.lon]).setOpacity(1);
-        setPill('trackerPill', `Homebase-Tracker ${data.trackerVersion || 'online'}`, 'ok');
+        setPill('trackerPill', `PC-Tracker ${data.trackerVersion || 'online'}`, 'ok');
         setPill('simPill', 'MSFS verbunden', 'ok');
         if (!centeredOnce) {
           centeredOnce = true;
           map.setView([lastTelemetry.lat, lastTelemetry.lon], 18);
-          setResult('previewResult', 'Die gespeicherte Homebase wurde nicht automatisch als Live-Vorschau geladen. „Vorschau neu laden“ baut sie bei Bedarf vollständig auf.');
+          setResult('previewResult', 'Deine gespeicherte Homebase wurde noch nicht im Simulator eingeblendet. Mit „Homebase im Simulator neu anzeigen“ baust du die Live-Vorschau vollständig auf.');
         }
       }
     };
-    socket.onerror = () => setPill('relayPill', 'Relay-Fehler', 'bad');
+    socket.onerror = () => setPill('relayPill', 'Verbindung fehlgeschlagen', 'bad');
     socket.onclose = () => {
       invalidateLivePreview();
-      setPill('relayPill', INTEGRATED ? 'Haupt-App getrennt' : 'Relay getrennt', 'warn');
-      setPill('trackerPill', 'Homebase-Tracker unbekannt', 'muted');
+      setPill('relayPill', INTEGRATED ? 'Haupt-App getrennt' : 'Verbindung getrennt', 'warn');
+      setPill('trackerPill', 'PC-Tracker nicht verbunden', 'muted');
       if (!INTEGRATED) reconnectTimer = setTimeout(connect, 4000);
     };
     if (INTEGRATED) setTimeout(() => socket?.onopen?.(), 0);
@@ -1694,6 +1707,36 @@
     } else if (ack.type.startsWith('homebase_v1.package.')) {
       setResult('packageResult', `${message}${ack.path ? ` ${ack.path}` : ''}`, ok);
     }
+  }
+
+  function setupMobileMapPin() {
+    const mobileQuery = window.matchMedia('(max-width: 900px)');
+    const root = document.documentElement;
+    const topbar = document.querySelector('.topbar');
+    const mapPanel = document.querySelector('.map-panel');
+    if (!topbar || !mapPanel) return;
+    let scheduled = false;
+    const sync = () => {
+      scheduled = false;
+      if (!mobileQuery.matches) {
+        root.classList.remove('mobile-map-pinned');
+        root.style.removeProperty('--mobile-map-height');
+        return;
+      }
+      const mapHeight = Math.round(mapPanel.getBoundingClientRect().height);
+      if (mapHeight > 0) root.style.setProperty('--mobile-map-height', `${mapHeight}px`);
+      root.classList.toggle('mobile-map-pinned', window.scrollY >= topbar.offsetHeight);
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(sync);
+    };
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    window.visualViewport?.addEventListener('resize', schedule, { passive: true });
+    mobileQuery.addEventListener?.('change', schedule);
+    sync();
   }
 
   spawnMarker.on('dragend', () => {
@@ -1784,6 +1827,7 @@
   $('uninstallAirportBtn').addEventListener('click', uninstallAirport);
   $('connectBtn').addEventListener('click', connect);
   $('clearLogBtn').addEventListener('click', () => { $('log').textContent = ''; });
+  setupMobileMapPin();
   fillCatalog(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
   if (INTEGRATED) {
     postSyncDraft();

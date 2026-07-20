@@ -3,6 +3,8 @@ const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dis
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
 const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles";
 const DEFAULT_OBS_INFRA_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/infra-tiles";
+const TRACKER_STABLE_CHANNEL_URL = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/ga-tracker-client/channel/stable.json";
+const TRACKER_RELEASE_ASSET_NAME = "VFR-Multitool-Tracker.exe";
 
 const AIP_POPUP_ROUTES = {
   AT: "/at/en/vfr/",
@@ -45,6 +47,46 @@ function json(data, status = 200, extraHeaders = {}) {
       "Content-Type": "application/json; charset=utf-8",
       ...extraHeaders
     }
+  });
+}
+
+function normalizeTrackerChannel(raw) {
+  const channel = raw && typeof raw === "object" ? raw : null;
+  const version = String(channel?.version || "").trim();
+  const releaseTag = String(channel?.releaseTag || "").trim();
+  const versionCode = Number(channel?.versionCode);
+  const assetName = String(channel?.asset?.name || "").trim();
+  const assetUrl = String(channel?.asset?.url || "").trim();
+  const size = Number(channel?.asset?.size);
+  const sha256 = String(channel?.asset?.sha256 || "").trim().toLowerCase();
+  if (channel?.schemaVersion !== 1 || !/^v[1-9][0-9]*$/.test(version) || releaseTag !== version) return null;
+  if (!Number.isInteger(versionCode) || versionCode !== Number(version.slice(1))) return null;
+  if (assetName !== TRACKER_RELEASE_ASSET_NAME || !Number.isInteger(size) || size <= 0 || !/^[a-f0-9]{64}$/.test(sha256)) return null;
+  let parsed;
+  try { parsed = new URL(assetUrl); } catch { return null; }
+  const expectedPath = `/iNherjer/GA-Dispatcher-Alpha/releases/download/${releaseTag}/${TRACKER_RELEASE_ASSET_NAME}`;
+  if (parsed.protocol !== "https:" || parsed.hostname !== "github.com" || parsed.pathname !== expectedPath || parsed.search || parsed.hash) return null;
+  return { schemaVersion: 1, publishedAt: String(channel.publishedAt || ""), version, versionCode, releaseTag, asset: { name: assetName, url: assetUrl, size, sha256 } };
+}
+
+async function handleTrackerDownload(requestUrl) {
+  let upstream;
+  try {
+    const channelUrl = new URL(TRACKER_STABLE_CHANNEL_URL);
+    channelUrl.searchParams.set("_vfrcb", String(Date.now()));
+    upstream = await fetch(channelUrl.toString(), { headers: { Accept: "application/json", "Cache-Control": "no-cache" } });
+  } catch (error) {
+    return json({ ok: false, error: "Tracker-Kanal ist derzeit nicht erreichbar.", detail: String(error?.message || error) }, 502, { "Cache-Control": "no-store" });
+  }
+  if (!upstream.ok) return json({ ok: false, error: "Tracker-Kanal antwortete nicht erfolgreich.", status: upstream.status }, 502, { "Cache-Control": "no-store" });
+  let raw;
+  try { raw = await upstream.json(); } catch { return json({ ok: false, error: "Tracker-Kanal enthält kein gültiges JSON." }, 502, { "Cache-Control": "no-store" }); }
+  const channel = normalizeTrackerChannel(raw);
+  if (!channel) return json({ ok: false, error: "Tracker-Kanal ist ungültig." }, 502, { "Cache-Control": "no-store" });
+  if (requestUrl.searchParams.get("format") === "json") return json({ ok: true, ...channel }, 200, { "Cache-Control": "public, max-age=60" });
+  return new Response(null, {
+    status: 302,
+    headers: { ...corsHeaders, Location: channel.asset.url, "Cache-Control": "no-store", "X-Tracker-Version": channel.version }
   });
 }
 
@@ -2083,6 +2125,10 @@ export default {
     }
 
     const requestUrl = new URL(request.url);
+
+    if (requestUrl.pathname === "/api/tracker/download" && request.method === "GET") {
+      return handleTrackerDownload(requestUrl);
+    }
 
     if (requestUrl.pathname === "/api/admin/users") {
       return handleAdminUsers(request, requestUrl, env);

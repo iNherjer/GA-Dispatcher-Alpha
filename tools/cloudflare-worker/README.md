@@ -17,6 +17,8 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/homebase/:pilotId` (Homebase-Plan der Pilot-ID laden)
 - `POST /api/homebase/:pilotId` (Homebase-Plan mit Revisionsprüfung speichern)
 - `GET /api/homebase-group/:groupName` (freigegebene Crew-Homebases der eigenen Gruppe laden)
+- `GET /api/tracker/download` (stabile Weiterleitung auf den aktuellen versionierten Tracker-Release)
+- `GET /api/tracker/download?format=json` (aktuelle Tracker-Version, Größe und SHA-256)
 
 ## Dateien
 

@@ -219,13 +219,13 @@ async function run() {
     key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar',
     kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', homebasePlaceable: true,
     controls: [{
-      schemaVersion: 1, id: 'light', type: 'light', label: 'Rundhangar Licht', transport: 'simconnect-lvar',
+      schemaVersion: 1, id: 'interiorLight', type: 'light', label: 'Innenbeleuchtung', transport: 'simconnect-lvar',
       simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on',
-      states: [{ id: 'off', label: 'Aus', value: 0 }, { id: 'on', label: 'An', value: 1 }]
+      states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }]
     }]
   }]);
   const roundHangar = catalog.objectDefinitionForTitle('VFR Multitool Homebase Round Hangar');
-  if (roundHangar?.headingCorrectionDeg !== 0 || !roundHangar?.controls?.some((control) => control.id === 'door') || !roundHangar?.controls?.some((control) => control.id === 'light')) {
+  if (roundHangar?.headingCorrectionDeg !== 0 || !roundHangar?.controls?.some((control) => control.id === 'door') || !roundHangar?.controls?.some((control) => control.id === 'interiorlight')) {
     throw new Error('Runtime catalog update did not preserve and extend the round-hangar controls.');
   }
 
@@ -253,10 +253,10 @@ async function run() {
   }
   manager.handleCommand({
     type: 'homebase_v1.object.control.set', commandId: 'round-hangar-light-off',
-    title: 'VFR Multitool Homebase Round Hangar', controlId: 'light', state: 'off'
+    title: 'VFR Multitool Homebase Round Hangar', controlId: 'interiorLight', state: 'off'
   });
   const lightControlAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
-  if (lightControlAck.status !== 'ok' || lightControlAck.controlId !== 'light' || lightControlAck.state !== 'off' || lightControlAck.value !== 0) {
+  if (lightControlAck.status !== 'ok' || lightControlAck.controlId !== 'interiorlight' || lightControlAck.state !== 'off' || lightControlAck.value !== 1) {
     throw new Error(`Generic light control failed: ${JSON.stringify(lightControlAck)}`);
   }
 

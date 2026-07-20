@@ -84,7 +84,10 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
    - Im Ordner `ga-tracker-client`:
    - `npm run build:tracker`
 3. Danach zusaetzlich auf `origin` releasen:
+   - Jede Version als eigenen unveraenderlichen Release `v<code>` veroeffentlichen.
    - Nur die gebaute Datei `ga-tracker-client/VFR-Multitool-Tracker.exe` als Release-Asset veroeffentlichen.
+   - `ga-tracker-client/channel/stable.json` auf denselben Tag, die exakte Dateigroesse und SHA-256 setzen.
+   - Der dauerhafte App-Link `/api/tracker/download` liest diesen Kanal; `index.html` muss bei kuenftigen Tracker-Releases nicht erneut angepasst werden.
 
 ## 3) Prioritaet
 

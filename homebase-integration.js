@@ -28,11 +28,30 @@
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
 
+  function normalizeHomebaseTheme(value) {
+    const theme = String(value || '').trim().toLowerCase();
+    if (theme === 'win31') return 'win95';
+    return ['classic', 'retro', 'navcom', 'ops1940', 'win95'].includes(theme) ? theme : 'classic';
+  }
+
+  function currentHomebaseTheme() {
+    const body = document.body;
+    if (body?.classList.contains('theme-win95')) return 'win95';
+    if (body?.classList.contains('theme-ops1940')) return 'ops1940';
+    if (body?.classList.contains('theme-navcom')) return 'navcom';
+    if (body?.classList.contains('theme-retro')) return 'retro';
+    return normalizeHomebaseTheme(localStorage.getItem('ga_theme'));
+  }
+
   function postToWorkbench(kind, payload = {}) {
     const target = frame()?.contentWindow;
     if (!target) return false;
     target.postMessage({ channel: CHANNEL, kind, ...payload }, window.location.origin);
     return true;
+  }
+
+  function syncHomebaseTheme() {
+    return postToWorkbench('theme-change', { theme: currentHomebaseTheme() });
   }
 
   function relayMessage(payload) {
@@ -650,6 +669,7 @@
     document.body.classList.add('homebase-environment-open');
     setTimeout(() => {
       frame()?.focus();
+      syncHomebaseTheme();
       postToWorkbench('environment-opened');
     }, 0);
   }
@@ -684,6 +704,7 @@
     if (message.kind === 'sync-load') loadHomebaseFromCloud('workbench');
     if (message.kind === 'workbench-ready') {
       homebaseWorkbenchReady = true;
+      syncHomebaseTheme();
       if (overlay()?.classList.contains('active')) postToWorkbench('environment-opened');
       if (pendingHomebaseLoadResult) {
         const pending = pendingHomebaseLoadResult;
@@ -701,12 +722,23 @@
   window.addEventListener('homebasetrackerack', handleHomebaseAck);
   window.addEventListener('homebasetelemetry', handleTelemetry);
 
+  if (document.body && typeof MutationObserver === 'function') {
+    let lastTheme = currentHomebaseTheme();
+    new MutationObserver(() => {
+      const nextTheme = currentHomebaseTheme();
+      if (nextTheme === lastTheme) return;
+      lastTheme = nextTheme;
+      syncHomebaseTheme();
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+
   window.openHomebaseEnvironment = openHomebaseEnvironment;
   window.closeHomebaseEnvironment = closeHomebaseEnvironment;
   window.homebaseUpdateAssetStatus = updateAssetStatus;
   window.homebaseCloudPush = (reason = 'app-push') => flushHomebaseDraft(reason);
   window.homebaseCloudPull = (reason = 'app-pull') => loadHomebaseFromCloud(reason);
   window.homebaseGroupRefresh = (reason = 'external') => refreshCrewHomebases(reason);
+  window.homebaseApplyTheme = syncHomebaseTheme;
   window.homebaseGroupClear = () => {
     crewHomebases = [];
     crewHomebaseDirectory = [];
