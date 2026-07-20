@@ -2126,7 +2126,7 @@ export default {
 
     const requestUrl = new URL(request.url);
 
-    if (requestUrl.pathname === "/api/tracker/download" && request.method === "GET") {
+    if (requestUrl.pathname === "/api/tracker/download" && (request.method === "GET" || request.method === "HEAD")) {
       return handleTrackerDownload(requestUrl);
     }
 

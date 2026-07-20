@@ -23,6 +23,11 @@ try {
   assert.equal(redirect.headers.get("location"), channel.asset.url);
   assert.equal(redirect.headers.get("x-tracker-version"), "v299");
 
+  const headRedirect = await worker.fetch(new Request("https://ga-proxy.example/api/tracker/download", { method: "HEAD" }), {}, {});
+  assert.equal(headRedirect.status, 302);
+  assert.equal(headRedirect.headers.get("location"), channel.asset.url);
+  assert.equal(headRedirect.headers.get("x-tracker-version"), "v299");
+
   const metadata = await worker.fetch(new Request("https://ga-proxy.example/api/tracker/download?format=json"), {}, {});
   assert.equal(metadata.status, 200);
   assert.equal((await metadata.json()).asset.sha256, channel.asset.sha256);
