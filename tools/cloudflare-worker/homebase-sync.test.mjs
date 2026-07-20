@@ -31,6 +31,7 @@ const kv = makeKv({
 const env = { GA_SYNC_KV: kv };
 const headers = { "Content-Type": "application/json", "X-Pilot-ID": "pilotA", "X-Pilot-PIN": "0815" };
 const plan = {
+  doorAutomationEnabled: false,
   spawn: { lat: 48.1, lon: 8.2, altFt: 1234, heading: 361 },
   hangar: { northM: 2, eastM: -3, heading: -1, heightFt: 1, widthM: 18, depthM: 22, objectTitle: "VFR Multitool Homebase Hangar" },
   objects: [{ id: "box-1", title: "VFR Multitool Homebase Box", label: "Karton", northM: 1, eastM: 2, heading: 90, heightFt: 0, scale: 1 }]
@@ -51,6 +52,7 @@ assert.equal(created.response.status, 200);
 assert.equal(created.body.record.plan.spawn.heading, 1);
 assert.equal(created.body.record.plan.hangar.heading, 359);
 assert.equal(created.body.record.plan.objects.length, 1);
+assert.equal(created.body.record.plan.doorAutomationEnabled, false);
 assert.equal(JSON.stringify(created.body).includes("0815"), false);
 
 const conflict = await call(env, "/api/homebase/pilotA", {

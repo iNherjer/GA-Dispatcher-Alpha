@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VFR Multitool Homebase Asset Publisher</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .drop-zone{margin:14px 0 10px;border:2px dashed #567d64;border-radius:10px;padding:16px;text-align:center;background:#122016;cursor:pointer;color:#dcffa1}.drop-zone span{display:block;margin-top:4px;color:#9eb0ad;font-size:12px}.drop-zone.dragging{border-color:#b8ee59;background:#24391d}.source-scan{display:flex;gap:10px;margin-bottom:12px}.asset-candidates{display:grid;gap:8px;margin:10px 0 14px}.asset-candidate{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid #2c3c43;border-radius:9px;background:#0d1519}.asset-candidate small{display:block;margin-top:3px;color:#9eb0ad}.asset-candidate.bad{border-color:#843d3d}.roles{margin:0;border:1px solid #3a4b52;border-radius:8px;padding:8px 10px;color:#9eb0ad;display:flex;gap:8px;flex-wrap:wrap}.roles legend{padding:0 4px;font-size:12px;font-weight:700}.roles label{flex-direction:row;align-items:center;font-weight:500}.roles input{width:auto}.controls-editor{display:grid;gap:10px;margin-top:10px}.control-card{border:1px solid #3a4b52;border-radius:10px;padding:12px;background:#0d1519}.control-head,.state-row{display:flex;gap:8px;align-items:center}.control-head{justify-content:space-between;margin-bottom:10px}.state-row{margin-top:8px}.state-row input{min-width:0}.control-card h4{margin:0}.danger-small{background:#5d2929;color:#fff;border-color:#8c4646}.metadata-panel{margin-top:12px;padding-top:12px;border-top:1px solid #2c3c43}@media(max-width:850px){.source-scan{flex-direction:column}.asset-candidate,.state-row{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">VFR MULTITOOL · ENTWICKLERWERKZEUG</p>
+      <h1>Homebase Asset Publisher</h1>
+      <p class="subtitle">Rohquellen verwalten, mit dem offiziellen MSFS-2024-SDK bauen und als synchronisierbares Assetrelease veröffentlichen.</p>
+    </div>
+    <div class="status-row">
+      <span id="sdkPill" class="pill muted">SDK wird geprüft</span>
+      <span id="repoPill" class="pill muted">Repository wird geprüft</span>
+      <span id="ghPill" class="pill muted">GitHub wird geprüft</span>
+      <span id="simPill" class="pill muted">MSFS wird geprüft</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card wide">
+      <div class="section-head"><div><span class="step">01</span><h2>Arbeitsumgebung</h2></div><button id="refreshBtn" class="secondary">Neu prüfen</button></div>
+      <div class="grid two">
+        <label>Repository-Pfad auf diesem PC<input id="repoPath" placeholder="C:\Projekte\GA-Dispatcher-Alpha"></label>
+        <label>MSFS Package Tool<input id="sdkPath" placeholder="C:\MSFS 2024 SDK\Tools\bin\fspackagetool.exe"></label>
+        <label>Git-Remote<input id="remote" value="origin"></label>
+        <label>Publish-Branch<input id="branch" value="main"></label>
+      </div>
+      <div class="actions"><button id="saveConfigBtn" class="primary">Einstellungen speichern</button><button id="openDataBtn" class="secondary">Arbeitsordner öffnen</button></div>
+      <p id="environmentResult" class="result">Noch nicht geprüft.</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><div><span class="step">02</span><h2>Asset importieren oder ersetzen</h2></div></div>
+      <p class="note">Der Quellordner muss eine rohe SDK-SimObject-Struktur mit <code>sim.cfg</code> und <code>model</code>-Ordner enthalten. Bereits kompilierte ASOBO-Ausgaben werden als Quelle abgelehnt. Vorhandene Assets werden über Key, Ordner oder exakten Titel erkannt; der Publisher trägt automatisch die nächste Patchversion ein und sichert die bisherige Rohquelle unveränderlich unter <code>source-history</code>, bevor sie ersetzt wird.</p>
+      <div id="assetDropZone" class="drop-zone" tabindex="0"><strong>Asset-Ordner hier ablegen</strong><span>oder Quellenordner unten eintragen und auslesen</span></div>
+      <div class="source-scan"><input id="assetScanPath" placeholder="C:\Projekte\Quellen oder …\VFRHomebaseBriefcase"><button id="scanAssetsBtn" class="secondary">Quellen auslesen</button></div>
+      <div id="assetCandidates" class="asset-candidates" hidden></div>
+      <div class="grid two">
+        <label>Asset-Key<input id="assetKey" placeholder="tool-cart"></label>
+        <label>Asset-Version<input id="assetVersion" value="1.0.0"></label>
+        <label>Asset-Typ<select id="assetKind"><option value="object">Objekt / Fracht / Deko</option><option value="hangar">Hangar</option><option value="internal">Intern</option></select></label>
+        <label>Gruppe<select id="assetGroup"><option value="Ausstattung">Ausstattung</option><option value="Fracht">Fracht</option><option value="Gepäck &amp; Fracht">Gepäck &amp; Fracht</option><option value="Fahrzeuge">Fahrzeuge</option><option value="Flugplatz">Flugplatz</option><option value="Gebäude">Gebäude</option><option value="Hangars">Hangars</option></select></label>
+        <label>SimObject-Ordner<input id="assetFolder" placeholder="VFRHomebaseToolCart"></label>
+        <label>SimObject-Titel<input id="assetTitle" placeholder="VFR Multitool Homebase Tool Cart"></label>
+        <label>Anzeige-Name<input id="assetLabel" placeholder="Werkzeugwagen"></label>
+        <label class="span-two">Quellordner auf diesem PC<input id="assetSourcePath" placeholder="D:\Assets\VFRHomebaseToolCart"></label>
+        <label>Missions-Tags<input id="assetTags" placeholder="tools, maintenance, cargo"></label>
+        <fieldset class="roles"><legend>Missions-Rollen</legend><label><input type="checkbox" name="assetRole" value="cargo"> Fracht</label><label><input type="checkbox" name="assetRole" value="scene-prop"> Szenenobjekt</label><label><input type="checkbox" name="assetRole" value="vehicle"> Fahrzeug</label><label><input type="checkbox" name="assetRole" value="landmark"> Landmarke</label><label><input type="checkbox" name="assetRole" value="internal"> Intern</label></fieldset>
+      </div>
+      <label class="check"><input id="assetMissionSpawnable" type="checkbox"> Dieses Asset darf später von Missionen gezielt gespawnt werden</label>
+      <label class="check"><input id="assetWorkbenchVisible" type="checkbox" checked> Dieses Asset in der Homebase-Workbench zur Auswahl anbieten</label>
+      <label class="check"><input id="assetHomebasePlaceable" type="checkbox" checked> Zusätzlich als frei platzierbare Homebase-Deko anbieten</label>
+      <div id="hangarDefinitionFields" class="grid two" hidden>
+        <label>Footprint Breite m<input id="assetFootprintWidth" type="number" min="1" max="200" step="0.1" placeholder="25"></label>
+        <label>Footprint Tiefe m<input id="assetFootprintDepth" type="number" min="1" max="200" step="0.1" placeholder="25"></label>
+      </div>
+      <div id="advancedDefinitionFields" class="metadata-panel">
+        <div class="grid two">
+          <label>Heading-Korrektur Grad<input id="assetHeadingCorrection" type="number" step="0.1" value="0"></label>
+          <label>Collision ModelLib-GUID<input id="assetCollisionGuid" placeholder="{00000000-0000-0000-0000-000000000000}"></label>
+          <label>Collision-Quellordner<input id="assetCollisionSourceFolder" placeholder="VFRHomebaseRoundHangarCollision"></label>
+          <label>Collision-Standardhöhe ft<input id="assetCollisionDefaultHeight" type="number" step="0.01" value="0"></label>
+          <label class="check"><input id="assetCollisionHeightWarning" type="checkbox" checked> Bei manueller Höhenabweichung warnen</label>
+          <span></span>
+          <label>Vegetationsradius m<input id="assetVegetationRadius" type="number" min="0" max="200" step="0.1"></label>
+          <label>Polygon-Segmente<input id="assetVegetationSegments" type="number" min="12" max="256" step="1" value="48"></label>
+          <label>Vegetations-Falloff m<input id="assetVegetationFalloff" type="number" min="0" max="20" step="0.1" value="0.5"></label>
+        </div>
+        <p class="note">Collision und Vegetationsausschluss sind optional. Der Publisher erzwingt für Vegetation ausschließlich Scale/Density/Falloff ohne FlattenMode, ForceElevation oder Geländeverschiebung.</p>
+      </div>
+      <div id="controlsDefinitionFields" class="metadata-panel">
+        <div class="section-head"><div><h3>Steuerbare Funktionen</h3></div><button id="addControlBtn" type="button" class="secondary">Steuerung hinzufügen</button></div>
+        <div id="controlsEditor" class="controls-editor"></div>
+        <p class="note">Controls sind für Hangars und Objekte erlaubt. <code>L:VFR_HOMEBASE_</code> steuert global alle Modellkopien; <code>L:1:VFR_HOMEBASE_</code> oder <code>Z:VFR_HOMEBASE_</code> ist für die Steuerung eines einzelnen SimObjects vorgesehen. Die Variable muss im Modell-XML vorkommen. Der erste passende Tor-Control wird zusätzlich als kompatibles <code>animation.type = door</code> ausgegeben.</p>
+      </div>
+      <label class="check"><input id="assetMetadataOnly" type="checkbox"> Nur Metadaten speichern; vorhandene unveränderte Rohmodellquelle nicht erneut kopieren</label>
+      <p class="note">Ein vorhandenes Asset unten mit „Bearbeiten“ wählen. Die Werte werden hier geladen; erst „Asset prüfen und übernehmen“ speichert sie wieder in den Katalog und ersetzt die Rohquelle sicher.</p>
+      <div class="actions"><button id="importAssetBtn" class="primary">Asset prüfen und übernehmen</button></div>
+      <p id="importResult" class="result">Noch kein Import durchgeführt.</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><div><span class="step">03</span><h2>Gesamtpaket bauen</h2></div></div>
+      <div class="grid two compact">
+        <label>Paketversion<input id="packageVersion" value="0.6.0"></label>
+        <div class="metric"><span>Assets im Katalog</span><strong id="assetCount">–</strong></div>
+      </div>
+      <p class="note">Der Publisher erzeugt immer ein vollständiges SDK-Projekt aus allen Assets im aktuellen Katalog. MSFS muss vor dem eigentlichen Build geschlossen sein.</p>
+      <div class="actions"><button id="saveVersionBtn" class="secondary">Paketversion übernehmen</button><button id="prepareBtn" class="secondary">SDK-Projekt vorbereiten</button><button id="buildBtn" class="primary">Mit MSFS SDK kompilieren</button></div>
+      <p id="buildResult" class="result">Noch kein Publisher-Build durchgeführt.</p>
+    </section>
+
+    <section class="card wide">
+      <div class="section-head"><div><span class="step">04</span><h2>Release vorbereiten und veröffentlichen</h2></div></div>
+      <p class="note">Die Release-Vorschau ist optional. Beim Veröffentlichen werden Vollpaket, Asset-ZIPs und <code>package-index.json</code> automatisch erzeugt, zunächst Quellen, Katalog und Index nach <code>homebase/assets</code> gepusht, anschließend das GitHub-Release hochgeladen und erst danach der Stable-Kanal aktualisiert.</p>
+      <div class="actions"><button id="prepareReleaseBtn" class="secondary">Release-Vorschau erzeugen (optional)</button><button id="publishBtn" class="danger">Nach Origin und GitHub veröffentlichen</button><button id="openReleaseBtn" class="secondary">Release-Ordner öffnen</button></div>
+      <p id="releaseResult" class="result">Noch kein Release vorbereitet.</p>
+      <div id="releaseSummary" class="release-summary" hidden></div>
+    </section>
+
+    <section class="card wide">
+      <div class="section-head"><div><span class="step">KATALOG</span><h2>Verwaltete Assets</h2></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Key</th><th>Version</th><th>Typ</th><th>SimObject</th><th>Workbench</th><th>Mission</th><th>Animation</th><th>Tags</th><th>Aktion</th></tr></thead><tbody id="assetTable"></tbody></table></div>
+    </section>
+
+    <section class="card wide log-card">
+      <div class="section-head"><div><span class="step">LOG</span><h2>Publisher-Protokoll</h2></div><button id="clearLogBtn" class="secondary">Leeren</button></div>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

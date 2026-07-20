@@ -2,7 +2,7 @@
 
 const assets = Object.freeze([
   { key: 'hangar', folder: 'VFRHomebaseHangar', title: 'VFR Multitool Homebase Hangar', kind: 'hangar', label: 'Homebase-Hangar', headingCorrectionDeg: 180 },
-  { key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar', kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', icon: 'H', headingCorrectionDeg: 0, homebasePlaceable: true, footprint: { widthM: 25, depthM: 25 }, vegetationExclusion: { shape: 'circle', radiusM: 17.3, falloffM: 0.5 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Rundhangar Tor', transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'global', defaultState: 'open', durationMs: 5000, states: [{ id: 'open', label: 'Öffnen', value: 0 }, { id: 'closed', label: 'Schließen', value: 1 }] }, { schemaVersion: 1, id: 'interiorLight', type: 'light', label: 'Innenbeleuchtung', transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on', durationMs: 0, states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'open', control: { transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'global', values: { open: 0, closed: 1 } } } },
+  { key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar', kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', icon: 'H', headingCorrectionDeg: 0, homebasePlaceable: true, footprint: { widthM: 25, depthM: 25 }, vegetationExclusion: { shape: 'circle', radiusM: 17.3, falloffM: 0.5 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Rundhangar Tor', transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'open', durationMs: 5000, states: [{ id: 'open', label: 'Öffnen', value: 0 }, { id: 'closed', label: 'Schließen', value: 1 }] }, { schemaVersion: 1, id: 'interiorLight', type: 'light', label: 'Innenbeleuchtung', transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on', durationMs: 0, states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'open', control: { transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'simobject', values: { open: 0, closed: 1 } } } },
   { key: 'openParking', folder: 'VFRHomebaseOpenParking', title: 'VFR Multitool Homebase Open Parking', kind: 'hangar', label: 'Offener Parkbereich', headingCorrectionDeg: 180 },
   { key: 'generator', folder: 'VFRHomebaseGenerator', title: 'VFR Multitool Homebase Generator', kind: 'object', group: 'Ausstattung', label: 'Mobiles Aggregat', icon: '⚡' },
   { key: 'desk', folder: 'VFRHomebaseDesk', title: 'VFR Multitool Homebase Desk', kind: 'object', group: 'Ausstattung', label: 'Schreibtisch', icon: 'T' },
@@ -61,7 +61,11 @@ function normalizeDoorAnimation(raw) {
   if (!raw || typeof raw !== 'object' || String(raw.type || '').toLowerCase() !== 'door') return null;
   const control = raw.control && typeof raw.control === 'object' ? raw.control : raw;
   const simvar = String(control.simvar || control.variable || '').trim().toUpperCase();
-  if (control.transport !== 'simconnect-lvar' || !/^L:[A-Z0-9_]{3,120}$/.test(simvar)) return null;
+  const scope = String(control.scope || 'global').toLowerCase();
+  const validVariable = scope === 'simobject'
+    ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
+    : /^L:[A-Z0-9_]{3,120}$/.test(simvar);
+  if (control.transport !== 'simconnect-lvar' || !validVariable || !['global', 'simobject'].includes(scope)) return null;
   const values = control.values && typeof control.values === 'object' ? control.values : {};
   const open = Number(values.open ?? control.openValue ?? 0);
   const closed = Number(values.closed ?? control.closedValue ?? 1);
@@ -71,7 +75,7 @@ function normalizeDoorAnimation(raw) {
     type: 'door',
     defaultState: String(raw.defaultState || 'open').toLowerCase() === 'closed' ? 'closed' : 'open',
     control: Object.freeze({
-      transport: 'simconnect-lvar', simvar, unit: 'number', scope: 'global',
+      transport: 'simconnect-lvar', simvar, unit: 'number', scope,
       values: Object.freeze({ open, closed })
     })
   });
@@ -88,7 +92,7 @@ function controlFromLegacyAnimation(raw) {
     transport: animation.control.transport,
     simvar: animation.control.simvar,
     unit: 'number',
-    scope: 'global',
+    scope: animation.control.scope,
     defaultState: animation.defaultState,
     durationMs: 5000,
     states: [
@@ -113,8 +117,11 @@ function normalizeControls(rawControls, legacyAnimation = null) {
     const stateValues = new Set();
     if (!/^[a-z][a-z0-9_-]{0,31}$/.test(id) || ids.has(id)) continue;
     if (!['animation', 'light'].includes(type)) continue;
-    if (raw?.transport !== 'simconnect-lvar' || !/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) continue;
-    if (raw?.scope !== 'global') continue;
+    const scope = String(raw?.scope || 'global').toLowerCase();
+    const validVariable = scope === 'simobject'
+      ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
+      : /^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar);
+    if (raw?.transport !== 'simconnect-lvar' || !validVariable || !['global', 'simobject'].includes(scope)) continue;
     for (const rawState of Array.isArray(raw?.states) ? raw.states.slice(0, 12) : []) {
       const stateId = String(rawState?.id || '').trim().toLowerCase();
       const value = Number(rawState?.value);
@@ -136,7 +143,7 @@ function normalizeControls(rawControls, legacyAnimation = null) {
       transport: 'simconnect-lvar',
       simvar,
       unit: 'number',
-      scope: 'global',
+      scope,
       defaultState,
       durationMs: Math.max(0, Math.min(600000, Math.round(Number(raw?.durationMs) || 0))),
       states: Object.freeze(states)

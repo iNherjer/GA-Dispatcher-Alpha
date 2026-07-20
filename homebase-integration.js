@@ -8,6 +8,10 @@
   const HOMEBASE_CREW_POLL_MS = 45000;
   const HOMEBASE_CREW_RADIUS_NM = 10;
   const HOMEBASE_CREW_MAX_OBJECTS = 100;
+  const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
+  const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
+  const HOMEBASE_LOCAL_STORAGE_KEY = 'vfr-homebase-workbench-v2';
+  const HOMEBASE_SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
   const pendingCommands = new Map();
   const pendingRpc = new Map();
   let commandSeq = 0;
@@ -24,6 +28,19 @@
   let crewRefreshTimer = null;
   let crewTrackerSupported = false;
   let crewCapabilityRequestedAt = 0;
+  let ownCloudPlan = null;
+  let ownCloudLoadStarted = false;
+  let ownCloudLoadComplete = false;
+  let ownPackageStatus = null;
+  let ownPackageStatusRequestedAt = 0;
+  let ownAutoInside = false;
+  let ownAutoSuppressedUntilExit = false;
+  let ownAutoInFlight = false;
+  let ownAutoQueued = false;
+  let ownLastAppliedSignature = '';
+  let ownLastTelemetry = null;
+  let ownAutoPlanSettlesAt = 0;
+  let ownAutoPlanApplyTimer = null;
 
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
@@ -100,13 +117,17 @@
         cache: 'no-store'
       });
       if (response.status === 404) {
+        ownCloudPlan = null;
         const delivered = deliverHomebaseLoadResult({ ok: true, record: null, pilotId: context.pilotId, reason });
+        applyOwnHomebaseScene(ownLastTelemetry, `${reason}-empty`);
         return { ok: true, record: null, deferred: !delivered };
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
       const record = data.record || null;
+      ownCloudPlan = record?.plan || null;
       const delivered = deliverHomebaseLoadResult({ ok: true, record, pilotId: context.pilotId, reason });
+      applyOwnHomebaseScene(ownLastTelemetry, `${reason}-loaded`);
       return { ok: true, record, deferred: !delivered };
     } catch (error) {
       const message = error?.message || String(error);
@@ -180,6 +201,237 @@
     const a = Math.sin(dLat / 2) ** 2
       + Math.cos(latA * toRad) * Math.cos(latB * toRad) * Math.sin(dLon / 2) ** 2;
     return 3440.065 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+  }
+
+  function readJsonStorage(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
+  }
+
+  function currentOwnHomebasePlan() {
+    if (latestHomebaseDraft?.plan) return latestHomebaseDraft.plan;
+    const localPlan = readJsonStorage(HOMEBASE_LOCAL_STORAGE_KEY);
+    const localMeta = readJsonStorage(HOMEBASE_SYNC_META_KEY);
+    if (localMeta?.dirty === true && localPlan) return localPlan;
+    return ownCloudPlan || localPlan;
+  }
+
+  function homebaseCatalogDefinition(title) {
+    const source = globalThis.HOMEBASE_ASSET_CATALOG;
+    return [...(source?.assets || []), ...(source?.stockObjects || [])].find((entry) => entry.title === title) || null;
+  }
+
+  function homebaseHeadingCorrection(title) {
+    return finite(homebaseCatalogDefinition(title)?.headingCorrectionDeg, 0);
+  }
+
+  function isPersistentOnlyHomebaseObject(title) {
+    return homebaseCatalogDefinition(title)?.persistentOnly === true;
+  }
+
+  function ownRuntimeConfigFromPlan(plan) {
+    if (!plan?.spawn || !plan?.hangar) return null;
+    const spawn = plan.spawn;
+    const hangar = plan.hangar;
+    const spawnLat = finite(spawn.lat, NaN);
+    const spawnLon = finite(spawn.lon, NaN);
+    if (!Number.isFinite(spawnLat) || !Number.isFinite(spawnLon)) return null;
+    const hangarPosition = offsetLatLon(spawnLat, spawnLon, finite(hangar.northM), finite(hangar.eastM));
+    return {
+      protocol: 2,
+      name: 'VFR Multitool Homebase',
+      doorAutomationEnabled: plan.doorAutomationEnabled !== false,
+      spawn: {
+        lat: spawnLat,
+        lon: spawnLon,
+        altFt: finite(spawn.altFt),
+        heading: heading(spawn.heading),
+        mode: 'airport_parking'
+      },
+      hangar: {
+        lat: hangarPosition.lat,
+        lon: hangarPosition.lon,
+        altFt: finite(spawn.altFt) + finite(hangar.heightFt),
+        heightOffsetFt: finite(hangar.heightFt),
+        heading: heading(finite(hangar.heading) + homebaseHeadingCorrection(hangar.objectTitle)),
+        widthM: finite(hangar.widthM, 18),
+        depthM: finite(hangar.depthM, 22),
+        objectTitle: String(hangar.objectTitle || '')
+      },
+      objects: (Array.isArray(plan.objects) ? plan.objects : []).slice(0, 100).map((item, index) => {
+        const position = offsetLatLon(spawnLat, spawnLon, finite(item?.northM), finite(item?.eastM));
+        return {
+          id: String(item?.id || `object-${index + 1}`),
+          title: String(item?.title || ''),
+          label: String(item?.label || item?.title || `Objekt ${index + 1}`),
+          lat: position.lat,
+          lon: position.lon,
+          altFt: finite(spawn.altFt) + finite(item?.heightFt),
+          heightOffsetFt: finite(item?.heightFt),
+          heading: heading(finite(item?.heading) + homebaseHeadingCorrection(item?.title)),
+          scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
+        };
+      }).filter((item) => item.title)
+    };
+  }
+
+  function currentOwnRuntimeConfig() {
+    return latestHomebaseDraft?.runtimeConfig || ownRuntimeConfigFromPlan(currentOwnHomebasePlan());
+  }
+
+  function runtimeObjectsFromConfig(config) {
+    if (!config?.hangar) return [];
+    const hangar = {
+      id: 'hangar',
+      title: String(config.hangar.objectTitle || config.hangar.title || ''),
+      label: String(config.hangar.objectTitle || config.hangar.title || '') === 'VFR Multitool Homebase Open Parking' ? 'Offener Parkbereich' : 'Homebase-Hangar',
+      ...config.hangar,
+      scale: 1
+    };
+    return [hangar, ...(Array.isArray(config.objects) ? config.objects : [])]
+      .filter((item) => item?.title && !isPersistentOnlyHomebaseObject(item.title));
+  }
+
+  function angularDifference(left, right) {
+    const difference = Math.abs(heading(left) - heading(right));
+    return Math.min(difference, 360 - difference);
+  }
+
+  function sameCompiledPlacement(current, compiled) {
+    return !!compiled
+      && String(current?.title || '') === String(compiled?.title || compiled?.objectTitle || '')
+      && Math.abs(finite(current?.lat) - finite(compiled?.lat)) <= 0.0000001
+      && Math.abs(finite(current?.lon) - finite(compiled?.lon)) <= 0.0000001
+      && Math.abs(finite(current?.altFt) - finite(compiled?.altFt)) <= 0.1
+      && Math.abs(finite(current?.heightOffsetFt) - finite(compiled?.heightOffsetFt)) <= 0.02
+      && angularDifference(current?.heading, compiled?.heading) <= 0.1
+      && Math.abs(finite(current?.scale, 1) - finite(compiled?.scale, 1)) <= 0.005;
+  }
+
+  function ownHomebaseDelta() {
+    const config = currentOwnRuntimeConfig();
+    if (!config) return { ready: false, reason: 'no-plan', objects: [], stats: {} };
+    const currentObjects = runtimeObjectsFromConfig(config);
+    if (!ownPackageStatus?.sceneInstalled) {
+      return {
+        ready: true,
+        objects: currentObjects,
+        stats: { compiled: 0, dynamic: currentObjects.length, newObjects: currentObjects.length, changedCompiled: 0, staleCompiled: 0 }
+      };
+    }
+    const installedConfig = ownPackageStatus.snapshotTrusted ? ownPackageStatus.installedSnapshot?.config : null;
+    if (!installedConfig) return { ready: false, reason: 'snapshot-missing', objects: [], stats: {} };
+    const compiledObjects = runtimeObjectsFromConfig(installedConfig);
+    const compiledById = new Map(compiledObjects.map((item) => [String(item.id || ''), item]));
+    const currentIds = new Set(currentObjects.map((item) => String(item.id || '')));
+    const dynamicObjects = [];
+    let changedCompiled = 0;
+    let newObjects = 0;
+    for (const item of currentObjects) {
+      const compiled = compiledById.get(String(item.id || ''));
+      if (sameCompiledPlacement(item, compiled)) continue;
+      dynamicObjects.push(item);
+      if (compiled) changedCompiled += 1;
+      else newObjects += 1;
+    }
+    const staleCompiled = compiledObjects.filter((item) => !currentIds.has(String(item.id || ''))).length;
+    return {
+      ready: true,
+      objects: dynamicObjects,
+      stats: { compiled: compiledObjects.length, dynamic: dynamicObjects.length, newObjects, changedCompiled, staleCompiled }
+    };
+  }
+
+  function publishOwnAutoStatus(payload = {}) {
+    postToWorkbench('owner-auto-status', payload);
+  }
+
+  function updateOwnPackageStatus(status = null) {
+    ownPackageStatus = status;
+    ownPackageStatusRequestedAt = 0;
+    ownLastAppliedSignature = '';
+    postToWorkbench('compiled-snapshot', {
+      sceneInstalled: status?.sceneInstalled === true,
+      snapshotTrusted: status?.snapshotTrusted === true,
+      snapshot: status?.installedSnapshot || null
+    });
+  }
+
+  function requestOwnPackageStatus() {
+    if (ownPackageStatusRequestedAt && Date.now() - ownPackageStatusRequestedAt < 15000) return false;
+    ownPackageStatusRequestedAt = Date.now();
+    const sent = sendTracker({ type: 'homebase_v1.package.status' }, { kind: 'owner-package-status' });
+    if (!sent) ownPackageStatusRequestedAt = 0;
+    return !!sent;
+  }
+
+  function ensureOwnHomebaseCloudLoaded() {
+    if (ownCloudLoadStarted) return;
+    ownCloudLoadStarted = true;
+    loadHomebaseFromCloud('owner-auto').catch(() => {}).finally(() => {
+      ownCloudLoadComplete = true;
+      applyOwnHomebaseScene(ownLastTelemetry, 'owner-cloud-ready');
+    });
+  }
+
+  function applyOwnHomebaseScene(position, reason = 'telemetry') {
+    if (!position || !Number.isFinite(Number(position.lat)) || !Number.isFinite(Number(position.lon))) return false;
+    if (reason === 'telemetry' && Date.now() < ownAutoPlanSettlesAt) return false;
+    ownLastTelemetry = position;
+    ensureOwnHomebaseCloudLoaded();
+    const syncContext = getHomebaseSyncContext();
+    const localSyncMeta = readJsonStorage(HOMEBASE_SYNC_META_KEY);
+    if (syncContext.enabled && localSyncMeta?.dirty !== true && !latestHomebaseDraft?.dirty && !ownCloudLoadComplete) return false;
+    const plan = currentOwnHomebasePlan();
+    const baseLat = finite(plan?.spawn?.lat, NaN);
+    const baseLon = finite(plan?.spawn?.lon, NaN);
+    if (!Number.isFinite(baseLat) || !Number.isFinite(baseLon)) return false;
+    const distance = distanceNm(Number(position.lat), Number(position.lon), baseLat, baseLon);
+    const inside = ownAutoInside ? distance <= HOMEBASE_OWN_EXIT_RADIUS_NM : distance <= HOMEBASE_OWN_ENTER_RADIUS_NM;
+    if (!inside) {
+      ownAutoInside = false;
+      ownAutoSuppressedUntilExit = false;
+    } else {
+      ownAutoInside = true;
+    }
+    if (!ownPackageStatus) {
+      requestOwnPackageStatus();
+      return false;
+    }
+    const delta = ownHomebaseDelta();
+    if (!delta.ready) {
+      if (inside && delta.reason === 'snapshot-missing') {
+        publishOwnAutoStatus({ status: 'warn', distanceNm: distance, message: 'Installierter Homebase-Mod ohne Vergleichsstand erkannt. Bitte die Homebase einmal neu kompilieren und installieren.' });
+      }
+      return false;
+    }
+    const objects = inside && !ownAutoSuppressedUntilExit ? delta.objects : [];
+    const signature = JSON.stringify(objects);
+    const activePreviewIds = new Set((Array.isArray(position?.homebase?.objects) ? position.homebase.objects : [])
+      .filter((item) => item?.collection === 'preview').map((item) => String(item.id || '')));
+    const expectedIds = objects.map((item) => String(item.id || ''));
+    const trackerSceneMatches = expectedIds.length === activePreviewIds.size && expectedIds.every((id) => activePreviewIds.has(id));
+    if (signature === ownLastAppliedSignature && trackerSceneMatches) return false;
+    if (ownAutoInFlight) {
+      ownAutoQueued = true;
+      return false;
+    }
+    const commandId = sendTracker({ type: 'homebase_v1.preview.set', objects }, {
+      kind: 'owner-auto-set',
+      reason,
+      signature,
+      stats: delta.stats,
+      distanceNm: distance,
+      active: objects.length > 0 || (inside && !ownAutoSuppressedUntilExit)
+    });
+    if (!commandId) return false;
+    ownAutoInFlight = true;
+    publishOwnAutoStatus({
+      status: 'warn',
+      distanceNm: distance,
+      stats: delta.stats,
+      message: objects.length ? `Automatische Homebase-Ergänzung wird mit ${objects.length} Objekt(en) aufgebaut …` : (inside ? 'Der installierte Homebase-Mod ist bereits vollständig aktuell.' : 'Live-Ergänzungen werden außerhalb des Homebase-Radius entfernt …')
+    });
+    return true;
   }
 
   function compactCrewId(value) {
@@ -458,7 +710,11 @@
         type: 'homebase_v1.hangar.animation.set',
         commandId: stabilizerCommand.commandId,
         title: stabilizerCommand.title,
-        state: stabilizerCommand.state
+        state: stabilizerCommand.state,
+        instanceId: stabilizerCommand.instanceId,
+        objectId: stabilizerCommand.objectId,
+        lat: stabilizerCommand.lat,
+        lon: stabilizerCommand.lon
       }, { kind: 'hangar-animation' });
       if (!sent) console.warn('[Homebase] Hangartor-Befehl konnte nicht an den Tracker gesendet werden.');
       return;
@@ -475,9 +731,22 @@
         commandId: stabilizerCommand.commandId,
         title: stabilizerCommand.title,
         controlId: stabilizerCommand.controlId,
-        state: stabilizerCommand.state
+        state: stabilizerCommand.state,
+        instanceId: stabilizerCommand.instanceId,
+        objectId: stabilizerCommand.objectId,
+        lat: stabilizerCommand.lat,
+        lon: stabilizerCommand.lon
       }, { kind: 'object-control' });
       if (!sent) console.warn('[Homebase] Objektsteuerung konnte nicht an den Tracker gesendet werden.');
+      return;
+    }
+    if (stabilizerCommand.type === 'homebase_v1.door_automation.set') {
+      sendTracker({
+        type: 'homebase_v1.door_automation.set',
+        commandId: stabilizerCommand.commandId,
+        enabled: stabilizerCommand.enabled !== false,
+        resetManualOverrides: stabilizerCommand.resetManualOverrides === true
+      }, { kind: 'door-automation' });
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.preview.object.move' || stabilizerCommand.type === 'homebase_v1.preview.hangar.move') {
@@ -528,7 +797,15 @@
     }
     let result = { ...ack, ok: true };
     if (meta.pathname === '/api/sdk/status') {
-      result = { ok: true, installed: ack.sdkInstalled === true, path: ack.sdkPath || '', built: ack.built === true };
+      result = {
+        ok: true,
+        installed: ack.sdkInstalled === true,
+        path: ack.sdkPath || '',
+        built: ack.built === true,
+        sceneInstalled: ack.sceneInstalled === true,
+        snapshotTrusted: ack.snapshotTrusted === true,
+        installedSnapshot: ack.installedSnapshot || null
+      };
     } else if (meta.pathname === '/api/simulator/status') {
       result = { ok: true, running: ack.running === true };
     }
@@ -551,7 +828,41 @@
     if (ack.type === 'homebase_v1.assets.update.progress' || ack.type === 'homebase_v1.assets.update.status') return;
 
     if (meta.kind === 'rpc') {
+      if (meta.pathname === '/api/sdk/status') updateOwnPackageStatus(ack);
+      if (meta.pathname === '/api/package/install' && ack.status === 'ok') {
+        updateOwnPackageStatus({ ...ack, sceneInstalled: true });
+        applyOwnHomebaseScene(ownLastTelemetry, 'package-installed');
+      }
+      if (meta.pathname === '/api/package/uninstall' && (ack.status === 'ok' || ack.status === 'noop')) {
+        updateOwnPackageStatus({ sceneInstalled: false, snapshotTrusted: false, installedSnapshot: null });
+        applyOwnHomebaseScene(ownLastTelemetry, 'package-uninstalled');
+      }
       rpcResultFromAck(meta, ack);
+      return;
+    }
+    if (meta.kind === 'owner-package-status') {
+      updateOwnPackageStatus(ack.status === 'ok' ? ack : null);
+      applyOwnHomebaseScene(ownLastTelemetry, 'package-status');
+      return;
+    }
+    if (meta.kind === 'owner-auto-set') {
+      ownAutoInFlight = false;
+      const ok = ack.status === 'ok';
+      if (ok) ownLastAppliedSignature = String(meta.signature || '');
+      else ownLastAppliedSignature = '';
+      publishOwnAutoStatus({
+        status: ok ? 'ok' : 'bad',
+        distanceNm: meta.distanceNm,
+        stats: meta.stats || {},
+        active: meta.active === true,
+        message: ok
+          ? (meta.active ? `${Number(meta.stats?.dynamic || 0)} Live-Ergänzung(en) aktiv; ${Number(meta.stats?.compiled || 0)} Objekt(e) kommen aus dem installierten Mod.` : 'Automatische Homebase-Ergänzung außerhalb des Radius entfernt.')
+          : (ack.error || ack.message || 'Automatische Homebase-Ergänzung konnte nicht aufgebaut werden.')
+      });
+      if (ownAutoQueued) {
+        ownAutoQueued = false;
+        setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'queued'), 250);
+      }
       return;
     }
     if (meta.kind === 'crew-scene') return;
@@ -612,6 +923,10 @@
       relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.object.control.set_ack' } });
       return;
     }
+    if (meta.kind === 'door-automation') {
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.door_automation.set_ack' } });
+      return;
+    }
     if (meta.kind === 'object-move' || meta.kind === 'hangar-move') {
       relayMessage({
         stabilizerAck: {
@@ -659,6 +974,7 @@
     if (!data || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
     relayMessage(data);
     applyCrewScene(data, 'telemetry');
+    applyOwnHomebaseScene(data, 'telemetry');
   }
 
   function openHomebaseEnvironment() {
@@ -692,6 +1008,7 @@
     if (message.kind === 'sync-draft') {
       latestHomebaseDraft = {
         plan: message.plan,
+        runtimeConfig: message.runtimeConfig || null,
         dirty: message.dirty === true,
         baseRevision: String(message.baseRevision || ''),
         localUpdatedAt: Number(message.localUpdatedAt || Date.now()),
@@ -699,12 +1016,28 @@
         crewShareEnabled: message.crewShareEnabled === true
       };
       scheduleHomebaseSave();
+      ownLastAppliedSignature = '';
+      ownAutoPlanSettlesAt = Date.now() + 500;
+      clearTimeout(ownAutoPlanApplyTimer);
+      ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'draft-change'), 500);
+    }
+    if (message.kind === 'owner-auto-refresh') {
+      ownAutoSuppressedUntilExit = false;
+      ownLastAppliedSignature = '';
+      applyOwnHomebaseScene(ownLastTelemetry, 'workbench-refresh');
+    }
+    if (message.kind === 'owner-auto-clear') {
+      ownAutoSuppressedUntilExit = true;
+      ownLastAppliedSignature = '';
+      applyOwnHomebaseScene(ownLastTelemetry, 'workbench-clear');
     }
     if (message.kind === 'sync-save-now') flushHomebaseDraft(message.reason || 'workbench');
     if (message.kind === 'sync-load') loadHomebaseFromCloud('workbench');
     if (message.kind === 'workbench-ready') {
       homebaseWorkbenchReady = true;
       syncHomebaseTheme();
+      if (ownPackageStatus) updateOwnPackageStatus(ownPackageStatus);
+      else requestOwnPackageStatus();
       if (overlay()?.classList.contains('active')) postToWorkbench('environment-opened');
       if (pendingHomebaseLoadResult) {
         const pending = pendingHomebaseLoadResult;

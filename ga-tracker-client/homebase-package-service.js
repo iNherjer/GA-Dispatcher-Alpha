@@ -212,6 +212,7 @@ function normalizeConfig(input) {
   const normalized = {
     protocol: 2,
     name: 'VFR Multitool Homebase',
+    doorAutomationEnabled: input.doorAutomationEnabled !== false,
     spawn: {
       lat: finite(spawn.lat, NaN),
       lon: finite(spawn.lon, NaN),
@@ -414,6 +415,7 @@ function createHomebasePackageService(options = {}) {
   const project = path.join(runtimeDir, 'homebase-generated', 'vfr-multitool-homebase');
   const projectXmlPath = path.join(project, 'HomebaseProject.xml');
   const outputPackage = path.join(project, 'Packages', catalog.scenePackageName);
+  const installedStatePath = path.join(runtimeDir, 'homebase-generated', 'installed-homebase-state.json');
   const packageTool = process.env.MSFS_PACKAGE_TOOL || 'C:\\MSFS 2024 SDK\\Tools\\bin\\fspackagetool.exe';
   const assetCacheRoot = path.join(runtimeDir, 'homebase-asset-cache');
   const assetChannelUrl = options.assetChannelUrl || process.env.VFR_HOMEBASE_ASSET_CHANNEL_URL || DEFAULT_ASSET_CHANNEL_URL;
@@ -459,6 +461,88 @@ function createHomebasePackageService(options = {}) {
     ...payload
   });
 
+  const packageFingerprint = (packagePath) => {
+    const manifest = fs.readFileSync(path.join(packagePath, 'manifest.json'));
+    const layout = fs.readFileSync(path.join(packagePath, 'layout.json'));
+    return crypto.createHash('sha256').update(manifest).update(layout).digest('hex');
+  };
+
+  const readInstalledState = () => {
+    try {
+      const raw = JSON.parse(fs.readFileSync(installedStatePath, 'utf8'));
+      if (raw?.schemaVersion !== 1 || !raw.config) return null;
+      return { ...raw, config: normalizeConfig(raw.config) };
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const inspectInstalledScene = () => {
+    const discovery = communityDiscovery();
+    let installedPath = '';
+    let fingerprint = '';
+    for (const root of discovery.entries.map((entry) => entry.path)) {
+      const candidate = path.join(root, catalog.scenePackageName);
+      if (!fs.existsSync(candidate)) continue;
+      try {
+        validateLayoutPackage(candidate);
+        installedPath = candidate;
+        fingerprint = packageFingerprint(candidate);
+        break;
+      } catch (_) {}
+    }
+    if (!installedPath) {
+      return {
+        sceneInstalled: false,
+        installedScenePath: '',
+        snapshotTrusted: false,
+        installedSnapshot: null
+      };
+    }
+    const state = readInstalledState();
+    const snapshotTrusted = !!state
+      && samePath(state.packagePath, installedPath)
+      && state.packageFingerprint === fingerprint;
+    return {
+      sceneInstalled: true,
+      installedScenePath: installedPath,
+      snapshotTrusted,
+      installedSnapshot: snapshotTrusted ? state : null
+    };
+  };
+
+  const writeInstalledState = (packagePath, communityPath, config) => {
+    const state = {
+      schemaVersion: 1,
+      installedAt: Date.now(),
+      packagePath,
+      communityPath,
+      packageFingerprint: packageFingerprint(packagePath),
+      config: normalizeConfig(config)
+    };
+    fs.mkdirSync(path.dirname(installedStatePath), { recursive: true });
+    const temporaryPath = `${installedStatePath}.tmp`;
+    const backupPath = `${installedStatePath}.backup`;
+    fs.rmSync(temporaryPath, { force: true });
+    fs.rmSync(backupPath, { force: true });
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    let previousMoved = false;
+    try {
+      if (fs.existsSync(installedStatePath)) {
+        fs.renameSync(installedStatePath, backupPath);
+        previousMoved = true;
+      }
+      fs.renameSync(temporaryPath, installedStatePath);
+      fs.rmSync(backupPath, { force: true });
+    } catch (error) {
+      fs.rmSync(installedStatePath, { force: true });
+      if (previousMoved && fs.existsSync(backupPath)) fs.renameSync(backupPath, installedStatePath);
+      fs.rmSync(temporaryPath, { force: true });
+      throw error;
+    }
+    return state;
+  };
+
   const status = () => {
     const discovery = communityDiscovery();
     return {
@@ -469,7 +553,8 @@ function createHomebasePackageService(options = {}) {
       built: fs.existsSync(path.join(outputPackage, 'manifest.json')) && fs.existsSync(path.join(outputPackage, 'layout.json')),
       outputPath: outputPackage,
       communityPaths: discovery.entries.map((entry) => entry.path),
-      communityDetectionError: discovery.error || ''
+      communityDetectionError: discovery.error || '',
+      ...inspectInstalledScene()
     };
   };
 
@@ -569,7 +654,23 @@ function createHomebasePackageService(options = {}) {
     for (const stale of siblingRoots.map((entry) => path.join(entry.path, catalog.scenePackageName))) {
       try { fs.rmSync(stale, { recursive: true, force: true }); } catch (_) {}
     }
-    return { path: target, communityPath: communityRoot };
+    let installedSnapshot = null;
+    let snapshotError = '';
+    try {
+      const config = JSON.parse(fs.readFileSync(path.join(project, 'homebase-config.json'), 'utf8'));
+      installedSnapshot = writeInstalledState(target, communityRoot, config);
+    } catch (error) {
+      snapshotError = error?.message || String(error);
+      try { fs.rmSync(installedStatePath, { force: true }); } catch (_) {}
+      log(`HOMEBASE_INSTALLED_SNAPSHOT_ERROR error=${snapshotError}`);
+    }
+    return {
+      path: target,
+      communityPath: communityRoot,
+      snapshotTrusted: !!installedSnapshot,
+      installedSnapshot,
+      snapshotError
+    };
   };
 
   const uninstall = () => {
@@ -584,6 +685,7 @@ function createHomebasePackageService(options = {}) {
         removedPaths.push(target);
       }
     }
+    try { fs.rmSync(installedStatePath, { force: true }); } catch (_) {}
     return { removedPaths };
   };
 
@@ -918,6 +1020,7 @@ function createHomebasePackageService(options = {}) {
     inspectAssets,
     inspectEmbeddedAssets,
     inspectAssetState,
+    inspectInstalledScene,
     installAssets,
     checkRemoteAssets,
     installRemoteAssets

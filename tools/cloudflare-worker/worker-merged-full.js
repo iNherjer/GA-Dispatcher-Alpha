@@ -175,6 +175,7 @@ function normalizeHomebasePlan(raw) {
     .map(normalizeHomebaseObject)
     .filter(Boolean);
   return {
+    doorAutomationEnabled: raw.doorAutomationEnabled !== false,
     spawn: {
       lat: normalizeFinite(spawn.lat, 48.1504, -90, 90),
       lon: normalizeFinite(spawn.lon, 7.7099, -180, 180),

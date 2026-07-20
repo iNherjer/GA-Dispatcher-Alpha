@@ -239,16 +239,29 @@ async function run() {
   if (!capabilityAck.capabilities.includes('homebase-object-remove')) throw new Error('Object remove capability missing.');
   if (!capabilityAck.capabilities.includes('homebase-hangar-animation')) throw new Error('Hangar animation capability missing.');
   if (!capabilityAck.capabilities.includes('homebase-object-controls-v1')) throw new Error('Generic object control capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-door-automation-v1')) throw new Error('Door automation capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-door-manual-override-v1')) throw new Error('Door manual override capability missing.');
+
+  manager.handleCommand({
+    type: 'homebase_v1.preview.set',
+    commandId: 'round-hangar-preview',
+    objects: [
+      { id: 'hangar', title: 'VFR Multitool Homebase Round Hangar', label: 'Rundhangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 }
+    ]
+  });
+  const roundHangarPreviewAck = await waitForAck(acks, 'homebase_v1.preview.set_ack');
+  if (roundHangarPreviewAck.status !== 'ok' || roundHangarPreviewAck.objectCount !== 1) throw new Error('Round-hangar preview setup failed.');
 
   manager.handleCommand({
     type: 'homebase_v1.object.control.set',
     commandId: 'round-hangar-generic-close',
     title: 'VFR Multitool Homebase Round Hangar',
     controlId: 'door',
-    state: 'closed'
+    state: 'closed',
+    instanceId: 'hangar'
   });
   const genericControlAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
-  if (genericControlAck.status !== 'ok' || genericControlAck.controlId !== 'door' || genericControlAck.state !== 'closed' || genericControlAck.value !== 1) {
+  if (genericControlAck.status !== 'ok' || genericControlAck.controlId !== 'door' || genericControlAck.state !== 'closed' || genericControlAck.value !== 1 || genericControlAck.manualOverrideActive !== true) {
     throw new Error(`Generic object control failed: ${JSON.stringify(genericControlAck)}`);
   }
   manager.handleCommand({
@@ -264,13 +277,14 @@ async function run() {
     type: 'homebase_v1.hangar.animation.set',
     commandId: 'round-hangar-close',
     title: 'VFR Multitool Homebase Round Hangar',
-    state: 'closed'
+    state: 'closed',
+    instanceId: 'hangar'
   });
   const closeHangarAck = await waitForAck(acks, 'homebase_v1.hangar.animation.set_ack');
-  if (closeHangarAck.status !== 'ok' || closeHangarAck.state !== 'closed' || closeHangarAck.controlScope !== 'global') {
+  if (closeHangarAck.status !== 'ok' || closeHangarAck.state !== 'closed' || closeHangarAck.controlScope !== 'simobject' || closeHangarAck.objectId !== 7000) {
     throw new Error(`Hangar close command failed: ${JSON.stringify(closeHangarAck)}`);
   }
-  const closePayload = handle.positions.get(0);
+  const closePayload = handle.positions.get(7000);
   const closeBuffer = closePayload?.buffer?.getBuffer?.();
   if (!closeBuffer || closeBuffer.readDoubleLE(0) !== 1) throw new Error('Hangar close command did not write L:variable value 1 via RawBuffer.');
 
@@ -278,13 +292,23 @@ async function run() {
     type: 'homebase_v1.hangar.animation.set',
     commandId: 'round-hangar-open',
     title: 'VFR Multitool Homebase Round Hangar',
-    state: 'open'
+    state: 'open',
+    instanceId: 'hangar'
   });
   const openHangarAck = await waitForAck(acks, 'homebase_v1.hangar.animation.set_ack');
   if (openHangarAck.status !== 'ok' || openHangarAck.state !== 'open') throw new Error(`Hangar open command failed: ${JSON.stringify(openHangarAck)}`);
-  const openPayload = handle.positions.get(0);
+  const openPayload = handle.positions.get(7000);
   const openBuffer = openPayload?.buffer?.getBuffer?.();
   if (!openBuffer || openBuffer.readDoubleLE(0) !== 0) throw new Error('Hangar open command did not write L:variable value 0 via RawBuffer.');
+
+  manager.handleCommand({ type: 'homebase_v1.door_automation.set', commandId: 'door-auto-off', enabled: false, resetManualOverrides: true });
+  const automationOffAck = await waitForAck(acks, 'homebase_v1.door_automation.set_ack');
+  if (automationOffAck.status !== 'ok' || automationOffAck.enabled !== false || automationOffAck.resetManualOverrides !== 1 || manager.snapshot().doorAutomationEnabled !== false) {
+    throw new Error(`Door automation disable failed: ${JSON.stringify(automationOffAck)}`);
+  }
+  manager.handleCommand({ type: 'homebase_v1.door_automation.set', commandId: 'door-auto-on', enabled: true });
+  const automationOnAck = await waitForAck(acks, 'homebase_v1.door_automation.set_ack');
+  if (automationOnAck.status !== 'ok' || automationOnAck.enabled !== true) throw new Error('Door automation enable failed.');
 
   manager.handleCommand({
     type: 'homebase_v1.preview.set',
@@ -455,10 +479,15 @@ async function run() {
     fs.mkdirSync(sceneOutput, { recursive: true });
     fs.writeFileSync(path.join(sceneOutput, 'manifest.json'), '{"package_version":"0.5.0"}\n', 'utf8');
     fs.writeFileSync(path.join(sceneOutput, 'layout.json'), '{"content":[]}\n', 'utf8');
+    fs.writeFileSync(path.join(path.dirname(path.dirname(sceneOutput)), 'homebase-config.json'), `${JSON.stringify(scene.config, null, 2)}\n`, 'utf8');
     packageService.handleCommand({ type: 'homebase_v1.package.install', commandId: 'scene-store-path', confirmed: true });
     const sceneInstallAck = await waitForAck(packageAcks, 'homebase_v1.package.install_ack');
-    if (sceneInstallAck.status !== 'ok' || path.resolve(sceneInstallAck.communityPath) !== path.resolve(storeCommunity)) {
+    if (sceneInstallAck.status !== 'ok' || path.resolve(sceneInstallAck.communityPath) !== path.resolve(storeCommunity) || !sceneInstallAck.snapshotTrusted) {
       throw new Error(`Store scene package was installed into the wrong Community folder: ${JSON.stringify(sceneInstallAck)}`);
+    }
+    const sceneStatus = packageService.inspectInstalledScene();
+    if (!sceneStatus.sceneInstalled || !sceneStatus.snapshotTrusted || sceneStatus.installedSnapshot?.config?.objects?.[0]?.id !== scene.config.objects[0].id) {
+      throw new Error(`Installed Homebase snapshot was not retained: ${JSON.stringify(sceneStatus)}`);
     }
     if (!fs.existsSync(path.join(storeCommunity, catalog.scenePackageName)) || fs.existsSync(path.join(fakeSteamCommunity, catalog.scenePackageName))) {
       throw new Error('Compiled Homebase scene package did not follow the detected Store Community path.');

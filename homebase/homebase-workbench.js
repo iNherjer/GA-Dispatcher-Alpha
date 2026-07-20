@@ -45,6 +45,7 @@
   const COMPANION_TITLES = new Set(OBJECT_CATALOG.filter((entry) => !entry.persistentOnly).map((entry) => entry.title));
   const PERSISTENT_ONLY_TITLES = new Set(OBJECT_CATALOG.filter((entry) => entry.persistentOnly).map((entry) => entry.title));
   const DEFAULT = {
+    doorAutomationEnabled: true,
     spawn: { lat: 48.1504, lon: 7.7099, altFt: 620, heading: 90, mode: 'airport_parking' },
     hangar: { northM: 0, eastM: 0, heading: 90, heightFt: 0, widthM: 18, depthM: 22, objectTitle: HANGAR_TITLE },
     objects: []
@@ -83,6 +84,9 @@
   const integratedRpcPending = new Map();
   let integratedRpcSeq = 0;
   let integratedMessageBound = false;
+  let installedCompiledConfig = null;
+  let installedCompiledSignature = '';
+  const approvedCompiledChanges = new Set();
 
   const $ = (id) => document.getElementById(id);
   const map = L.map('map', { zoomControl: true, maxZoom: 23 }).setView([state.spawn.lat, state.spawn.lon], 16);
@@ -140,7 +144,7 @@
       const legacyControl = legacyAnimation.control;
       controls = [{
         schemaVersion: 1, id: 'door', type: 'animation', label: 'Hangartor',
-        transport: legacyControl?.transport, simvar: legacyControl?.simvar, unit: 'number', scope: 'global',
+        transport: legacyControl?.transport, simvar: legacyControl?.simvar, unit: 'number', scope: legacyControl?.scope || 'global',
         defaultState: legacyAnimation.defaultState || 'open', durationMs: 5000,
         states: [
           { id: 'open', label: 'Öffnen', value: legacyControl?.values?.open },
@@ -154,8 +158,11 @@
       const type = String(raw?.type || '').trim().toLowerCase();
       const simvar = String(raw?.simvar || '').trim().toUpperCase();
       if (!/^[a-z][a-z0-9_-]{0,31}$/.test(id) || ids.has(id)) return [];
-      if (!['animation', 'light'].includes(type) || raw?.transport !== 'simconnect-lvar' || raw?.scope !== 'global') return [];
-      if (!/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) return [];
+      const scope = String(raw?.scope || 'global').toLowerCase();
+      const validVariable = scope === 'simobject'
+        ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
+        : /^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar);
+      if (!['animation', 'light'].includes(type) || raw?.transport !== 'simconnect-lvar' || !validVariable || !['global', 'simobject'].includes(scope)) return [];
       const stateIds = new Set();
       const values = new Set();
       const states = (Array.isArray(raw?.states) ? raw.states : []).slice(0, 12).flatMap((item) => {
@@ -169,7 +176,7 @@
       ids.add(id);
       return [{
         schemaVersion: 1, id, type, label: String(raw?.label || id).trim().slice(0, 80),
-        transport: 'simconnect-lvar', simvar, unit: 'number', scope: 'global',
+        transport: 'simconnect-lvar', simvar, unit: 'number', scope,
         defaultState: stateIds.has(String(raw?.defaultState || '').toLowerCase()) ? String(raw.defaultState).toLowerCase() : states[0].id,
         durationMs: Math.max(0, Math.min(600000, Math.round(Number(raw?.durationMs) || 0))), states
       }];
@@ -212,6 +219,7 @@
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (saved?.spawn && saved?.hangar) {
         return {
+          doorAutomationEnabled: saved.doorAutomationEnabled !== false,
           spawn: { ...DEFAULT.spawn, ...saved.spawn },
           hangar: { ...DEFAULT.hangar, ...saved.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(saved.hangar.objectTitle) },
           objects: Array.isArray(saved.objects) ? saved.objects.slice(0, 100).map(normalizeObject) : []
@@ -219,7 +227,7 @@
       }
       const legacy = JSON.parse(localStorage.getItem('vfr-homebase-workbench-v1') || 'null');
       if (legacy?.spawn && legacy?.hangar) {
-        return { spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [] };
+        return { doorAutomationEnabled: true, spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [] };
       }
     } catch (_) {}
     return JSON.parse(JSON.stringify(DEFAULT));
@@ -261,6 +269,7 @@
       channel: 'vfr-homebase',
       kind: 'sync-draft',
       plan: state,
+      runtimeConfig: buildConfig(),
       dirty: syncMeta.dirty,
       baseRevision: syncMeta.baseRevision,
       localUpdatedAt: syncMeta.localUpdatedAt,
@@ -282,6 +291,7 @@
   function normalizedPlan(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
     return {
+      doorAutomationEnabled: source.doorAutomationEnabled !== false,
       spawn: { ...DEFAULT.spawn, ...(source.spawn || {}), heading: normalizeHeading(source.spawn?.heading), mode: 'airport_parking' },
       hangar: {
         ...DEFAULT.hangar,
@@ -299,6 +309,7 @@
     state.spawn = plan.spawn;
     state.hangar = plan.hangar;
     state.objects = plan.objects;
+    state.doorAutomationEnabled = plan.doorAutomationEnabled;
     selectedObjectId = state.objects[0]?.id || null;
     objectSeq = state.objects.length;
     syncMeta.baseRevision = String(record?.revision || '');
@@ -547,28 +558,33 @@
     }
   }
 
-  function controlGroupKey(title, control) {
-    return `${title}|${control.id}|${control.simvar}`;
+  function controlGroupKey(title, control, instanceId = '') {
+    return `${title}|${control.id}|${control.simvar}|${control.scope === 'simobject' ? instanceId : 'global'}`;
   }
 
   function activeControlGroups() {
+    const primaryPosition = hangarPosition();
     const instances = [
-      { title: normalizeHangarTitle(state.hangar.objectTitle), id: 'hangar' },
-      ...state.objects.map((item) => ({ title: item.title, id: item.id }))
+      { title: normalizeHangarTitle(state.hangar.objectTitle), id: 'hangar', label: 'Haupt-Hangar', lat: primaryPosition.lat, lon: primaryPosition.lng },
+      ...state.objects.map((item) => {
+        const position = objectPosition(item);
+        return { title: item.title, id: item.id, label: item.label, lat: position.lat, lon: position.lng };
+      })
     ];
     const groups = new Map();
     for (const instance of instances) {
       const definition = ASSET_DEFINITIONS.get(instance.title) || {};
       for (const control of controlsForTitle(instance.title)) {
-        const key = controlGroupKey(instance.title, control);
+        const key = controlGroupKey(instance.title, control, instance.id);
         const existing = groups.get(key);
         if (existing) {
           existing.count += 1;
           existing.instanceIds.push(instance.id);
         } else {
           groups.set(key, {
-            key, title: instance.title, assetLabel: String(definition.label || instance.title.replace(/^VFR Multitool Homebase /, '')),
-            control, count: 1, instanceIds: [instance.id]
+            key, title: instance.title,
+            assetLabel: control.scope === 'simobject' ? instance.label : String(definition.label || instance.title.replace(/^VFR Multitool Homebase /, '')),
+            control, count: 1, instanceIds: [instance.id], instanceId: instance.id, lat: instance.lat, lon: instance.lon
           });
         }
       }
@@ -599,7 +615,10 @@
     const commandId = sendStabilizerCommand('homebase_v1.object.control.set', {
       title: group.title,
       controlId: group.control.id,
-      state: stateDefinition.id
+      state: stateDefinition.id,
+      instanceId: group.instanceId,
+      lat: group.lat,
+      lon: group.lon
     });
     const message = commandId
       ? actionProgressMessage(group.control, stateDefinition.id)
@@ -676,6 +695,7 @@
     const footprintHint = $('hangarFootprintHint');
     if (footprintHint) footprintHint.textContent = `${sizeText} Die Abmessungen sind fest vorgegeben. Mit „Hangar höher / tiefer“ gleichst du nur kleine Unebenheiten im Gelände aus.`;
     $('crewShareToggle').checked = syncMeta.crewShareEnabled === true;
+    $('doorAutomationToggle').checked = state.doorAutomationEnabled !== false;
     renderObjectList();
     renderHomebaseControls();
   }
@@ -702,6 +722,7 @@
         marker.on('dragend', () => {
           const currentItem = state.objects.find((entry) => entry.id === markerId);
           if (!currentItem) { updateMap(); return; }
+          if (!confirmCompiledChange(markerId, currentItem.label || 'Dieses Objekt')) return;
           const point = marker.getLatLng();
           const offset = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
           currentItem.northM = offset.northM; currentItem.eastM = offset.eastM;
@@ -738,20 +759,36 @@
   map.on('zoomend', updateObjectMarkers);
 
   function readSpawnStateFromInputs() {
-    state.spawn.lat = clamp($('spawnLat').value, -90, 90);
-    state.spawn.lon = clamp($('spawnLon').value, -180, 180);
-    state.spawn.altFt = finite($('spawnAlt').value, state.spawn.altFt);
-    state.spawn.heading = normalizeHeading($('spawnHeading').value);
+    const next = {
+      lat: clamp($('spawnLat').value, -90, 90),
+      lon: clamp($('spawnLon').value, -180, 180),
+      altFt: finite($('spawnAlt').value, state.spawn.altFt),
+      heading: normalizeHeading($('spawnHeading').value)
+    };
+    const changed = next.lat !== state.spawn.lat || next.lon !== state.spawn.lon || next.altFt !== state.spawn.altFt || next.heading !== normalizeHeading(state.spawn.heading);
+    if (changed && !confirmCompiledBaseMove()) return;
+    state.spawn.lat = next.lat;
+    state.spawn.lon = next.lon;
+    state.spawn.altFt = next.altFt;
+    state.spawn.heading = next.heading;
     state.spawn.mode = 'airport_parking';
     saveState(); syncInputsFromState(); updateMap();
     invalidateLivePreview();
   }
 
   function readHangarStateFromInputs(event) {
-    state.hangar.northM = clamp($('hangarNorth').value, -1000, 1000);
-    state.hangar.eastM = clamp($('hangarEast').value, -1000, 1000);
-    state.hangar.heading = normalizeHeading($('hangarHeading').value);
-    state.hangar.heightFt = clamp($('hangarHeight').value, -50, 200);
+    const next = {
+      northM: clamp($('hangarNorth').value, -1000, 1000),
+      eastM: clamp($('hangarEast').value, -1000, 1000),
+      heading: normalizeHeading($('hangarHeading').value),
+      heightFt: clamp($('hangarHeight').value, -50, 200)
+    };
+    const transformChanged = next.northM !== state.hangar.northM || next.eastM !== state.hangar.eastM || next.heading !== normalizeHeading(state.hangar.heading) || next.heightFt !== state.hangar.heightFt;
+    if (transformChanged && !confirmCompiledChange('hangar', 'Der Hangar')) return;
+    state.hangar.northM = next.northM;
+    state.hangar.eastM = next.eastM;
+    state.hangar.heading = next.heading;
+    state.hangar.heightFt = next.heightFt;
     state.hangar.widthM = clamp($('hangarWidth').value, 4, 80);
     state.hangar.depthM = clamp($('hangarDepth').value, 4, 100);
     state.hangar.objectTitle = normalizeHangarTitle($('hangarSelect').value || state.hangar.objectTitle);
@@ -762,11 +799,20 @@
   function readSelectedObjectFromInputs(event) {
     const item = selectedObject();
     if (!item) return;
-    item.northM = clamp($('objectNorth').value, -2000, 2000);
-    item.eastM = clamp($('objectEast').value, -2000, 2000);
-    item.heading = normalizeHeading($('objectHeading').value);
-    item.heightFt = clamp($('objectHeight').value, -20, 200);
-    item.scale = clamp($('objectScale').value, .1, 10);
+    const next = {
+      northM: clamp($('objectNorth').value, -2000, 2000),
+      eastM: clamp($('objectEast').value, -2000, 2000),
+      heading: normalizeHeading($('objectHeading').value),
+      heightFt: clamp($('objectHeight').value, -20, 200),
+      scale: clamp($('objectScale').value, .1, 10)
+    };
+    const changed = next.northM !== item.northM || next.eastM !== item.eastM || next.heading !== normalizeHeading(item.heading) || next.heightFt !== item.heightFt || next.scale !== item.scale;
+    if (changed && !confirmCompiledChange(item.id, item.label || 'Dieses Objekt')) return;
+    item.northM = next.northM;
+    item.eastM = next.eastM;
+    item.heading = next.heading;
+    item.heightFt = next.heightFt;
+    item.scale = next.scale;
     saveState(); syncInputsFromState(); updateMap();
     if (event?.target?.id === 'objectScale') {
       setResult('previewResult', 'Die neue Objektgröße wird übernommen, sobald du die Homebase im Simulator neu anzeigen lässt.');
@@ -809,6 +855,11 @@
     liveMoveTimers.delete(removed.id);
     liveObjectIds.delete(removed.id);
     saveState(); syncInputsFromState(); updateMap();
+    if (INTEGRATED) {
+      setResult('previewResult', `${removed.label} wurde aus dem Entwurf entfernt. Die automatische Homebase-Ergänzung wird aktualisiert …`);
+      log(`${removed.label} entfernt.`);
+      return;
+    }
     if (!PERSISTENT_ONLY_TITLES.has(removed.title)) {
       const commandId = sendStabilizerCommand('homebase_v1.preview.object.remove', {
         id: removed.id,
@@ -830,6 +881,7 @@
     return {
       protocol: 2,
       name: 'VFR Multitool Homebase',
+      doorAutomationEnabled: state.doorAutomationEnabled !== false,
       spawn: { lat: state.spawn.lat, lon: state.spawn.lon, altFt: state.spawn.altFt, heading: normalizeHeading(state.spawn.heading), mode: 'airport_parking' },
       hangar: {
         lat: hp.lat, lon: hp.lng, altFt: state.spawn.altFt + state.hangar.heightFt,
@@ -846,6 +898,55 @@
         };
       })
     };
+  }
+
+  function compiledRuntimeObject(id) {
+    if (!installedCompiledConfig) return null;
+    if (id === 'hangar' && installedCompiledConfig.hangar) {
+      return { id: 'hangar', title: installedCompiledConfig.hangar.objectTitle, ...installedCompiledConfig.hangar };
+    }
+    return (Array.isArray(installedCompiledConfig.objects) ? installedCompiledConfig.objects : [])
+      .find((item) => String(item?.id || '') === String(id || '')) || null;
+  }
+
+  function confirmCompiledChange(id, label = 'Dieses Objekt') {
+    const key = String(id || '');
+    if (!key || approvedCompiledChanges.has(key)) return true;
+    const compiled = compiledRuntimeObject(key);
+    if (!compiled) return true;
+    const accepted = window.confirm(
+      `${label} ist Bestandteil des aktuell installierten Homebase-Mods.\n\n` +
+      'Wenn du Position, Höhe, Ausrichtung oder Größe jetzt änderst, kann im Simulator vorübergehend eine zweite Kopie erscheinen. ' +
+      'Das alte kompilierte Objekt verschwindet erst, nachdem du die Homebase erneut kompiliert und installiert hast.\n\n' +
+      'Änderung trotzdem ausführen?'
+    );
+    if (accepted) {
+      approvedCompiledChanges.add(key);
+      return true;
+    }
+    setResult('previewResult', `${label} wurde nicht verändert. Der installierte Mod bleibt unverändert.`, true);
+    syncInputsFromState();
+    updateMap();
+    return false;
+  }
+
+  function confirmCompiledBaseMove() {
+    if (!installedCompiledConfig) return true;
+    const keys = ['hangar', ...(Array.isArray(installedCompiledConfig.objects) ? installedCompiledConfig.objects.map((item) => String(item?.id || '')).filter(Boolean) : [])];
+    if (keys.every((key) => approvedCompiledChanges.has(key))) return true;
+    const accepted = window.confirm(
+      'Der Startpunkt gehört zum aktuell installierten Homebase-Mod. Eine Änderung verschiebt den aktuellen Entwurf gegenüber allen kompilierten Objekten.\n\n' +
+      'Dadurch können im Simulator vorübergehend doppelte beziehungsweise veraltete Objekte erscheinen. Der alte Stand verschwindet erst nach erneutem Kompilieren und Installieren.\n\n' +
+      'Startpunkt trotzdem verschieben?'
+    );
+    if (accepted) {
+      for (const key of keys) approvedCompiledChanges.add(key);
+      return true;
+    }
+    setResult('previewResult', 'Der Startpunkt wurde nicht verändert. Der installierte Mod bleibt unverändert.', true);
+    syncInputsFromState();
+    updateMap();
+    return false;
   }
 
   function sendCommand(type, extra = {}) {
@@ -889,6 +990,10 @@
   }
 
   function scheduleLiveHangarMove() {
+    if (INTEGRATED) {
+      setResult('previewResult', 'Die Hangaränderung wird in die automatische Homebase-Ergänzung übernommen …');
+      return;
+    }
     queueLiveMove('hangar', () => {
       const config = buildConfig();
       const object = { id: 'hangar', title: config.hangar.objectTitle, label: config.hangar.objectTitle === OPEN_PARKING_TITLE ? 'Offener Parkbereich' : 'Hangar', ...config.hangar };
@@ -902,6 +1007,10 @@
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
       setResult('previewResult', `${item.label} wird gespeichert, erscheint aber erst im kompilierten Homebase-Mod.`);
+      return;
+    }
+    if (INTEGRATED) {
+      setResult('previewResult', `${item.label} wird in der automatischen Homebase-Ergänzung aktualisiert …`);
       return;
     }
     queueLiveMove(item.id, () => {
@@ -919,6 +1028,10 @@
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
       setResult('previewResult', `${item.label} wird gespeichert und erscheint erst im kompilierten Homebase-Mod.`);
+      return;
+    }
+    if (INTEGRATED) {
+      setResult('previewResult', `${item.label} wird innerhalb von 20 NM automatisch im Simulator ergänzt …`);
       return;
     }
     const object = buildConfig().objects.find((entry) => entry.id === item.id);
@@ -1060,6 +1173,11 @@
   }
 
   function sendPreview() {
+    if (INTEGRATED) {
+      window.parent.postMessage({ channel: 'vfr-homebase', kind: 'owner-auto-refresh' }, PARENT_ORIGIN);
+      setResult('previewResult', 'Die automatische Homebase-Ergänzung wird anhand des installierten Mod-Stands neu aufgebaut …');
+      return;
+    }
     if (previewInFlightId || previewTeardown || primaryTeardown) {
       previewQueued = true;
       clearQueued = false;
@@ -1101,6 +1219,11 @@
   function clearPreview() {
     spawnProbeEnabled = false;
     invalidateLivePreview();
+    if (INTEGRATED) {
+      window.parent.postMessage({ channel: 'vfr-homebase', kind: 'owner-auto-clear' }, PARENT_ORIGIN);
+      setResult('previewResult', 'Die automatische Homebase-Ergänzung wird bis zum Verlassen des Homebase-Radius ausgeblendet …');
+      return;
+    }
     if (previewInFlightId || previewTeardown || primaryTeardown) {
       clearQueued = true;
       previewQueued = false;
@@ -1358,6 +1481,11 @@
 
       showBuildStage('install', 'Eine ältere Homebase-Version wird ersetzt und der neue Mod in den Community-Ordner installiert …');
       const installed = await postJson('/api/package/install', { confirmed: true });
+      if (installed.snapshotTrusted && installed.installedSnapshot?.config) {
+        installedCompiledConfig = installed.installedSnapshot.config;
+        installedCompiledSignature = JSON.stringify(installedCompiledConfig);
+        approvedCompiledChanges.clear();
+      }
       log(installed.message || 'Homebase-Mod installiert.', 'ok');
       showBuildStage('done', 'Fertig: Der Homebase-Mod ist installiert. Nach dem Neustart von MSFS bleibt die Homebase auch ohne laufendes Tool sichtbar und steht als Startplatz bereit.', 'complete');
     } catch (error) {
@@ -1385,6 +1513,9 @@
     setResult('packageResult', 'Der installierte Homebase-Mod wird aus dem Community-Ordner entfernt …');
     try {
       const result = await postJson('/api/package/uninstall', { confirmed: true });
+      installedCompiledConfig = null;
+      installedCompiledSignature = '';
+      approvedCompiledChanges.clear();
       setResult('packageResult', result.message || 'Homebase wurde deinstalliert.', true);
       log(result.message || 'Homebase wurde deinstalliert.', 'ok');
     } catch (error) {
@@ -1430,6 +1561,25 @@
           }
           if (message.kind === 'sync-status') {
             setPill('syncPill', message.text || 'Cloud-Sync', message.status || 'muted');
+            return;
+          }
+          if (message.kind === 'compiled-snapshot') {
+            const nextConfig = message.snapshotTrusted === true ? message.snapshot?.config || null : null;
+            const nextSignature = nextConfig ? JSON.stringify(nextConfig) : '';
+            if (nextSignature !== installedCompiledSignature) approvedCompiledChanges.clear();
+            installedCompiledSignature = nextSignature;
+            installedCompiledConfig = nextConfig;
+            return;
+          }
+          if (message.kind === 'owner-auto-status') {
+            const stats = message.stats || {};
+            const changed = Number(stats.changedCompiled || 0);
+            const stale = Number(stats.staleCompiled || 0);
+            const suffix = changed || stale
+              ? ` ${changed + stale} Änderung(en) am kompilierten Stand benötigen für eine vollständig saubere Base eine erneute Kompilierung.`
+              : '';
+            livePreviewReady = message.status === 'ok' && message.active === true;
+            setResult('previewResult', `${message.message || 'Automatische Homebase-Ergänzung aktualisiert.'}${suffix}`, message.status === 'ok' ? true : message.status === 'bad' ? false : null);
             return;
           }
           if (message.kind === 'sync-load-result') {
@@ -1521,7 +1671,10 @@
       }
       socket.send(JSON.stringify({ type: 'join', syncId: STANDALONE_ID, pin: STANDALONE_PIN }));
       log(INTEGRATED ? 'Mit der VFR-Multitool-Haupt-App verbunden.' : 'Die Verbindung zur VFR-Haupt-App ist bereit.', 'ok');
-      setTimeout(() => sendCommand('homebase_v1.capabilities'), 150);
+      setTimeout(() => {
+        sendCommand('homebase_v1.capabilities');
+        sendStabilizerCommand('homebase_v1.door_automation.set', { enabled: state.doorAutomationEnabled !== false, resetManualOverrides: false });
+      }, 150);
     };
     socket.onmessage = (event) => {
       let data;
@@ -1531,6 +1684,9 @@
       if (data.homebaseHello) {
         trackerLastSeen = Date.now();
         const caps = Array.isArray(data.homebaseHello.capabilities) ? data.homebaseHello.capabilities : [];
+        if (caps.includes('homebase-door-automation-v1')) {
+          sendStabilizerCommand('homebase_v1.door_automation.set', { enabled: state.doorAutomationEnabled !== false, resetManualOverrides: false });
+        }
         const helloSignature = `${data.homebaseHello.version || ''}|${Boolean(data.homebaseHello.simConnected)}|${caps.join(',')}`;
         setPill('trackerPill', `PC-Tracker ${data.homebaseHello.version || 'bereit'}`, 'ok');
         setPill('simPill', data.homebaseHello.simConnected ? 'MSFS verbunden' : 'MSFS noch nicht verbunden', data.homebaseHello.simConnected ? 'ok' : 'warn');
@@ -1622,9 +1778,16 @@
         const group = activeControlGroups().find((candidate) => (
           candidate.title === String(ack.title || '')
           && candidate.control.id === String(ack.controlId || (ack.type.includes('hangar.animation') ? 'door' : ''))
+          && (!ack.instanceId || candidate.instanceId === String(ack.instanceId))
         )) || activeControlGroups().find((candidate) => candidate.control.simvar === String(ack.simvar || '').toUpperCase());
         if (group) setControlResult(group.key, message, ok);
         setResult('previewResult', message, ok);
+        log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
+      }
+      if (data.stabilizerAck?.type === 'homebase_v1.door_automation.set_ack') {
+        const ack = data.stabilizerAck;
+        const ok = ack.status === 'ok';
+        setResult('previewResult', ack.message || (ok ? 'Automatische Hangartorsteuerung aktualisiert.' : 'Automatische Hangartorsteuerung konnte nicht aktualisiert werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
       if (['homebase_v1.preview.object.move_ack', 'homebase_v1.preview.hangar.move_ack'].includes(data.stabilizerAck?.type)) {
@@ -1672,7 +1835,7 @@
         if (!centeredOnce) {
           centeredOnce = true;
           map.setView([lastTelemetry.lat, lastTelemetry.lon], 18);
-          setResult('previewResult', 'Deine gespeicherte Homebase wurde noch nicht im Simulator eingeblendet. Mit „Homebase im Simulator neu anzeigen“ baust du die Live-Vorschau vollständig auf.');
+          setResult('previewResult', 'Die automatische Homebase wird aktiviert, sobald du dich innerhalb von 20 NM ihres Standorts befindest.');
         }
       }
     };
@@ -1706,6 +1869,8 @@
       }
     } else if (ack.type.startsWith('homebase_v1.package.')) {
       setResult('packageResult', `${message}${ack.path ? ` ${ack.path}` : ''}`, ok);
+    } else if (ack.type === 'homebase_v1.door_automation.set_ack') {
+      setResult('previewResult', message, ok);
     }
   }
 
@@ -1740,11 +1905,13 @@
   }
 
   spawnMarker.on('dragend', () => {
+    if (!confirmCompiledBaseMove()) return;
     const point = spawnMarker.getLatLng();
     state.spawn.lat = point.lat; state.spawn.lon = point.lng;
     saveState(); syncInputsFromState(); updateMap(); invalidateLivePreview();
   });
   hangarMarker.on('dragend', () => {
+    if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     const point = hangarMarker.getLatLng();
     const offset = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
     state.hangar.northM = offset.northM; state.hangar.eastM = offset.eastM;
@@ -1764,6 +1931,7 @@
     $(id).addEventListener('change', readSelectedObjectFromInputs);
   });
   document.querySelectorAll('[data-nudge]').forEach((button) => button.addEventListener('click', () => {
+    if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     const step = finite($('nudgeStep').value, 1);
     if (button.dataset.nudge === 'north') state.hangar.northM += step;
     if (button.dataset.nudge === 'south') state.hangar.northM -= step;
@@ -1774,6 +1942,7 @@
   document.querySelectorAll('[data-object-nudge]').forEach((button) => button.addEventListener('click', () => {
     const item = selectedObject();
     if (!item) return;
+    if (!confirmCompiledChange(item.id, item.label || 'Dieses Objekt')) return;
     const step = finite($('objectNudgeStep').value, .5);
     if (button.dataset.objectNudge === 'north') item.northM += step;
     if (button.dataset.objectNudge === 'south') item.northM -= step;
@@ -1784,6 +1953,7 @@
 
   $('useAircraftBtn').addEventListener('click', () => {
     if (!lastTelemetry) { log('Noch keine MSFS-Telemetrie vorhanden.', 'error'); return; }
+    if (!confirmCompiledBaseMove()) return;
     state.spawn.lat = lastTelemetry.lat; state.spawn.lon = lastTelemetry.lon;
     state.spawn.heading = lastTelemetry.heading;
     state.hangar.heading = lastTelemetry.heading; state.hangar.northM = 0; state.hangar.eastM = 0;
@@ -1795,6 +1965,7 @@
   });
   $('placeSpawnProbeBtn').addEventListener('click', requestSpawnProbeMove);
   $('placeHangarBtn').addEventListener('click', () => {
+    if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     state.hangar.northM = 0; state.hangar.eastM = 0;
     state.hangar.heading = state.spawn.heading;
     state.hangar.objectTitle = normalizeHangarTitle($('hangarSelect').value);
@@ -1803,6 +1974,7 @@
     sendPreview();
   });
   $('hangarSelect').addEventListener('change', () => {
+    if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     state.hangar.objectTitle = normalizeHangarTitle($('hangarSelect').value);
     saveState(); syncInputsFromState(); updateMap();
     log(`${$('hangarSelect').selectedOptions[0]?.textContent || 'Vorschaumodell'} ausgewählt. Die Vorschau wird ersetzt.`);
@@ -1819,6 +1991,14 @@
     postSyncDraft();
     if (INTEGRATED) window.parent.postMessage({ channel: 'vfr-homebase', kind: 'sync-save-now', reason: 'crew-share-change' }, PARENT_ORIGIN);
     setPill('syncPill', syncMeta.crewShareEnabled ? 'Crew-Freigabe wird gespeichert' : 'Crew-Freigabe wird aufgehoben', 'warn');
+  });
+  $('doorAutomationToggle').addEventListener('change', () => {
+    state.doorAutomationEnabled = $('doorAutomationToggle').checked === true;
+    saveState();
+    const commandId = sendStabilizerCommand('homebase_v1.door_automation.set', { enabled: state.doorAutomationEnabled, resetManualOverrides: true });
+    setResult('previewResult', commandId
+      ? (state.doorAutomationEnabled ? 'Automatische Hangartorsteuerung wird aktiviert …' : 'Automatische Hangartorsteuerung wird deaktiviert …')
+      : 'Die Einstellung wurde gespeichert; der Tracker ist momentan nicht erreichbar.', commandId ? null : false);
   });
   $('previewBtn').addEventListener('click', sendPreview);
   $('clearBtn').addEventListener('click', clearPreview);

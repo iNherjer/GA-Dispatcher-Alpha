@@ -8,6 +8,7 @@ const {
   RawBuffer
 } = require('node-simconnect');
 const catalog = require('./homebase-asset-catalog.js');
+const { createHomebaseDoorAutomation } = require('./homebase-door-automation.js');
 
 const INIT_POSITION_DEFINITION = 52001;
 const OBJECT_ALTITUDE_DEFINITION = 52002;
@@ -94,6 +95,8 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-crew-scene',
     'homebase-hangar-animation',
     'homebase-object-controls-v1',
+    'homebase-door-automation-v1',
+    'homebase-door-manual-override-v1',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
   const generations = { preview: 0, crew: 0 };
@@ -107,6 +110,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const pendingRemovals = new Map();
   const hangarAnimationDefinitions = new Map();
   let operationQueue = Promise.resolve();
+  const doorAutomation = createHomebaseDoorAutomation(handle, { log });
 
   const nextId = () => {
     const id = nextRequestId++;
@@ -148,10 +152,14 @@ function createHomebaseObjectManager(handle, options = {}) {
     const animation = definition?.kind === 'hangar' ? definition.animation : null;
     if (!animation || animation.type !== 'door' || animation.control?.transport !== 'simconnect-lvar') return null;
     const simvar = String(animation.control.simvar || '').trim().toUpperCase();
+    const scope = String(animation.control.scope || 'global').toLowerCase();
     const open = Number(animation.control.values?.open);
     const closed = Number(animation.control.values?.closed);
-    if (!/^L:[A-Z0-9_]{3,120}$/.test(simvar) || !Number.isFinite(open) || !Number.isFinite(closed) || open === closed) return null;
-    return { simvar, open, closed, defaultState: animation.defaultState === 'closed' ? 'closed' : 'open' };
+    const validVariable = scope === 'simobject'
+      ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
+      : /^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar);
+    if (!validVariable || !['global', 'simobject'].includes(scope) || !Number.isFinite(open) || !Number.isFinite(closed) || open === closed) return null;
+    return { simvar, scope, open, closed, defaultState: animation.defaultState === 'closed' ? 'closed' : 'open' };
   };
 
   const objectControlForTitle = (rawTitle, rawControlId) => {
@@ -160,9 +168,13 @@ function createHomebaseObjectManager(handle, options = {}) {
     const control = Array.isArray(definition?.controls)
       ? definition.controls.find((entry) => entry.id === controlId)
       : null;
-    if (!control || control.transport !== 'simconnect-lvar' || control.scope !== 'global') return null;
+    const scope = String(control?.scope || 'global').toLowerCase();
+    if (!control || control.transport !== 'simconnect-lvar' || !['global', 'simobject'].includes(scope)) return null;
     const simvar = String(control.simvar || '').trim().toUpperCase();
-    if (!/^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)) return null;
+    const validVariable = scope === 'simobject'
+      ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
+      : /^L:VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar);
+    if (!validVariable) return null;
     const states = Array.isArray(control.states)
       ? control.states.filter((entry) => Number.isFinite(Number(entry?.value))).map((entry) => ({
           id: String(entry.id || '').trim().toLowerCase(),
@@ -171,7 +183,7 @@ function createHomebaseObjectManager(handle, options = {}) {
         }))
       : [];
     if (states.length < 2) return null;
-    return { ...control, simvar, states };
+    return { ...control, scope, simvar, states };
   };
 
   const dataDefinitionForHangarAnimation = (animation) => {
@@ -478,22 +490,49 @@ function createHomebaseObjectManager(handle, options = {}) {
     const value = stateDefinition.value;
     const buffer = new RawBuffer(8);
     buffer.writeFloat64(value);
-    const userObjectId = Number.isFinite(Number(SimConnectConstants.OBJECT_ID_USER))
+    const instanceId = String(command?.instanceId || command?.id || '').trim();
+    let targetObjectId = Number.isFinite(Number(SimConnectConstants.OBJECT_ID_USER))
       ? Number(SimConnectConstants.OBJECT_ID_USER)
       : 0;
-    log(`OBJECT_CONTROL_LVAR_WRITE_BEGIN commandId=${commandId || 'none'} title=${title} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value}`);
+    if (control.scope === 'simobject') {
+      const tracked = instanceId ? objectsById.get(instanceId) : null;
+      const scanned = tracked || doorAutomation.resolveTarget({
+        objectId: command?.objectId,
+        title,
+        lat: command?.lat,
+        lon: command?.lon
+      });
+      targetObjectId = Number(scanned?.objectId);
+      if (!Number.isFinite(targetObjectId) || targetObjectId <= 0) {
+        throw new Error(`${control.label || 'Objektsteuerung'} konnte die gewählte Hangarinstanz noch nicht in MSFS finden.`);
+      }
+    }
+    log(`OBJECT_CONTROL_LVAR_WRITE_BEGIN commandId=${commandId || 'none'} instanceId=${instanceId || 'none'} objectId=${targetObjectId} title=${title} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value}`);
     try {
-      await Promise.resolve(handle.setDataOnSimObject(definitionId, userObjectId, { buffer, arrayCount: 0, tagged: false }));
+      await Promise.resolve(handle.setDataOnSimObject(definitionId, targetObjectId, { buffer, arrayCount: 0, tagged: false }));
     } catch (error) {
       log(`OBJECT_CONTROL_LVAR_WRITE_ERROR commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value} error=${error?.message || error}`);
       throw error;
     }
+    const manualAutomation = control.scope === 'simobject' && String(control.id || '').toLowerCase() === 'door'
+      ? doorAutomation.noteManualState({ objectId: targetObjectId, title }, stateDefinition.id)
+      : null;
     log(`OBJECT_CONTROL_LVAR_WRITE_OK commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} simvar=${control.simvar} value=${value}`);
     const action = stateDefinition.id === 'open' ? 'wird geöffnet'
       : stateDefinition.id === 'closed' ? 'wird geschlossen'
         : stateDefinition.id === 'on' ? 'wird eingeschaltet'
           : stateDefinition.id === 'off' ? 'wird ausgeschaltet'
             : `wird auf „${stateDefinition.label}“ gesetzt`;
+    const scopeMessage = control.scope === 'simobject'
+      ? `${control.label || 'Objektsteuerung'} ${action}. Nur die gewählte Hangarinstanz wird angesteuert.`
+      : `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`;
+    const automationMessage = manualAutomation?.active
+      ? stateDefinition.id === 'open'
+        ? ' Die manuelle Öffnung bleibt bestehen, bis die Automatik beim nächsten Annähern auf höchstens 36 m wieder übernimmt.'
+        : ' Die manuelle Schließung bleibt bestehen, bis die Automatik nach dem nächsten Entfernen auf mindestens 40 m und drei Sekunden wieder übernimmt.'
+      : manualAutomation
+        ? ' Die automatische Torsteuerung ist global deaktiviert.'
+        : '';
     sendAck({
       type: ackType,
       commandId: commandId || null,
@@ -504,9 +543,14 @@ function createHomebaseObjectManager(handle, options = {}) {
       state: stateDefinition.id,
       value,
       simvar: control.simvar,
-      controlScope: 'global',
+      controlScope: control.scope,
+      instanceId: instanceId || null,
+      objectId: control.scope === 'simobject' ? targetObjectId : null,
+      manualOverrideActive: manualAutomation?.active === true,
+      automaticResumeOnState: manualAutomation?.active ? stateDefinition.id : null,
+      doorAutomationEnabled: manualAutomation ? manualAutomation.enabled : null,
       durationMs: Number(control.durationMs) || 0,
-      message: `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`
+      message: `${scopeMessage}${automationMessage}`
     });
     log(`OBJECT_CONTROL_ACK_SENT commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} type=${ackType}`);
   };
@@ -522,6 +566,28 @@ function createHomebaseObjectManager(handle, options = {}) {
     const stateDefinition = control.states.find((entry) => entry.id === state);
     if (!stateDefinition) throw new Error(`Status „${state}“ ist für ${control.label || controlId} nicht definiert.`);
     await writeObjectControl({ command, title, control, stateDefinition, ackType: 'homebase_v1.object.control.set_ack' });
+  };
+
+  const handleDoorAutomation = async (command) => {
+    const result = doorAutomation.setEnabled(command?.enabled !== false, {
+      resetManualOverrides: command?.resetManualOverrides === true
+    });
+    sendAck({
+      type: 'homebase_v1.door_automation.set_ack',
+      commandId: command?.commandId || null,
+      status: 'ok',
+      enabled: result.enabled,
+      changed: result.changed,
+      resetManualOverrides: result.resetManualOverrides,
+      openRadiusM: 36,
+      closeRadiusM: 40,
+      closeDelayMs: 3000,
+      message: result.enabled
+        ? result.resetManualOverrides
+          ? `Automatische Hangartorsteuerung ist aktiv. ${result.resetManualOverrides} manuelle Vorgabe(n) wurden zurückgesetzt.`
+          : 'Automatische Hangartorsteuerung ist aktiv.'
+        : 'Automatische Hangartorsteuerung ist deaktiviert.'
+    });
   };
 
   const handleHangarAnimation = async (command) => {
@@ -540,6 +606,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     if (!animation) throw new Error(`${title} hat keine steuerbare Toranimation.`);
     const legacyControl = {
       id: 'door', type: 'animation', label: 'Hangartor', simvar: animation.simvar, durationMs: 0,
+      scope: animation.scope,
       states: [{ id: 'open', label: 'Öffnen', value: animation.open }, { id: 'closed', label: 'Schließen', value: animation.closed }]
     };
     await writeObjectControl({
@@ -676,6 +743,10 @@ function createHomebaseObjectManager(handle, options = {}) {
         enqueue(() => handleObjectControl(command)).catch((error) => sendError(type, command, error));
         return true;
       }
+      if (type === 'homebase_v1.door_automation.set') {
+        enqueue(() => handleDoorAutomation(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
       if (type === 'homebase_v1.preview.object.add') {
         enqueue(() => handleObjectAdd(command)).catch((error) => sendError(type, command, error, { failedObjects: [{ ...command?.object, error: error?.message || String(error) }] }));
         return true;
@@ -697,6 +768,7 @@ function createHomebaseObjectManager(handle, options = {}) {
         generation: generations.preview,
         objectCount: objectsById.size,
         crewObjectCount: [...objectsById.values()].filter((record) => collectionFor(record) === 'crew').length,
+        doorAutomationEnabled: doorAutomation.isEnabled(),
         objects: [...objectsById.values()].map((record) => ({ id: record.item.id, title: record.item.title, collection: collectionFor(record), objectId: record.objectId }))
       };
     }

@@ -19,8 +19,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v299';
-const TRACKER_VERSION_CODE = 299;
+const TRACKER_VERSION = 'v300';
+const TRACKER_VERSION_CODE = 300;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3263,11 +3263,14 @@ function startTracker(syncId, pin) {
   const _directHangarAckCommandIds = new Map();
   const isHomebaseObjectControlType = (type) => [
     'homebase_v1.hangar.animation.set',
-    'homebase_v1.object.control.set'
+    'homebase_v1.object.control.set',
+    'homebase_v1.door_automation.set'
   ].includes(String(type || '').trim());
   const controlAckTypeFor = (type) => String(type || '') === 'homebase_v1.object.control.set'
     ? 'homebase_v1.object.control.set_ack'
-    : 'homebase_v1.hangar.animation.set_ack';
+    : String(type || '') === 'homebase_v1.door_automation.set'
+      ? 'homebase_v1.door_automation.set_ack'
+      : 'homebase_v1.hangar.animation.set_ack';
 
   const getWs = () => _currentWs;
   const sendHomebaseAck = (payload = {}) => {

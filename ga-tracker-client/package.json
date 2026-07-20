@@ -9,12 +9,14 @@
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
     "prepare:homebase-assets": "node prepare-embedded-homebase-assets.js",
     "test:homebase": "node homebase-self-test.js",
+    "test:door-proximity": "node homebase-door-proximity-test-selftest.js",
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
     "asset-scan": "node msfs-asset-scanner.js",
     "asset-validate": "node msfs-asset-validator.js",
     "build:smoke-test": "pkg spawn-edtw-smoke-test.js --target node20-win-x64 --output dist/edtw-smoke-test.exe",
     "build:asset-scanner": "pkg msfs-asset-scanner.js --target node18-win-x64 --output MSFS2024-Asset-Scanner.exe",
-    "build:asset-validator": "pkg msfs-asset-validator.js --target node18-win-x64 --output MSFS2024-Asset-Validator.exe"
+    "build:asset-validator": "pkg msfs-asset-validator.js --target node18-win-x64 --output MSFS2024-Asset-Validator.exe",
+    "build:door-proximity-test": "pkg homebase-door-proximity-test.js --target node18-win-x64 --output dist/VFR-Multitool-Homebase-Door-Test.exe"
   },
   "pkg": {
     "scripts": "spawn-edtw-smoke-test.js",
