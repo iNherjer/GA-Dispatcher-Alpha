@@ -1545,12 +1545,20 @@ let flightRecorder = {
     track: [],
     lastSample: null,
     maxBankDeg: 0,
+    bankSamples: 0,
     maxGForce: 1.0,
     sumGForce: 0,
     gForceSamples: 0,
     maxAglFt: 0,
     maxClimbFpm: 0,
-    maxDescentFpm: 0
+    maxDescentFpm: 0,
+    minEnrouteAglFt: null,
+    levelAltSamples: 0,
+    levelAltMeanFt: 0,
+    levelAltM2: 0,
+    levelAltMinFt: null,
+    levelAltMaxFt: null,
+    levelAltDurationSec: 0
 };
 
 let missionRuntime = {
@@ -1577,6 +1585,7 @@ let missionRuntime = {
     farewellDoorReady: false,
     pendingFarewellRecord: null,
     pendingFarewellReason: '',
+    completionRecord: null,
     endDeboardingAnimationExpected: false,
     endDeboardingCompleted: false,
     endDeboardingCommandId: '',
@@ -2194,7 +2203,10 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             waitingFarewellDeboarding: !!missionRuntime.waitingFarewellDeboarding,
             deboardingAfterFarewellStarted: !!missionRuntime.deboardingAfterFarewellStarted,
             endDeboardingCommandId: String(missionRuntime.endDeboardingCommandId || ''),
-            endReadinessKey: String(missionRuntime.endReadinessKey || '')
+            endReadinessKey: String(missionRuntime.endReadinessKey || ''),
+            completionRecord: missionRuntime.completionRecord
+                ? _safeCloneJson(missionRuntime.completionRecord, null)
+                : null
         },
         poiProgress: poiProgress ? {
             satisfied: !!poiProgress.satisfied,
@@ -2218,7 +2230,25 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             maxAltFt: Math.max(0, Number(flightRecorder.maxAltFt || 0)),
             distNm: Math.max(0, Number(flightRecorder.distNm || 0)),
             startTs: Number(flightRecorder.startTs || 0),
-            endTs: Number(flightRecorder.endTs || 0)
+            endTs: Number(flightRecorder.endTs || 0),
+            maxGs: Math.max(0, Number(flightRecorder.maxGs || 0)),
+            sumGs: Math.max(0, Number(flightRecorder.sumGs || 0)),
+            gsSamples: Math.max(0, Number(flightRecorder.gsSamples || 0)),
+            maxBankDeg: Math.max(0, Number(flightRecorder.maxBankDeg || 0)),
+            bankSamples: Math.max(0, Number(flightRecorder.bankSamples || 0)),
+            maxGForce: Math.max(0, Number(flightRecorder.maxGForce || 1)),
+            sumGForce: Math.max(0, Number(flightRecorder.sumGForce || 0)),
+            gForceSamples: Math.max(0, Number(flightRecorder.gForceSamples || 0)),
+            maxClimbFpm: Math.max(0, Number(flightRecorder.maxClimbFpm || 0)),
+            maxDescentFpm: Math.min(0, Number(flightRecorder.maxDescentFpm || 0)),
+            touchdownVsFpm: flightRecorder.touchdownVsFpm != null && Number.isFinite(Number(flightRecorder.touchdownVsFpm)) ? Number(flightRecorder.touchdownVsFpm) : null,
+            minEnrouteAglFt: flightRecorder.minEnrouteAglFt != null && Number.isFinite(Number(flightRecorder.minEnrouteAglFt)) ? Number(flightRecorder.minEnrouteAglFt) : null,
+            levelAltSamples: Math.max(0, Number(flightRecorder.levelAltSamples || 0)),
+            levelAltMeanFt: Number(flightRecorder.levelAltMeanFt || 0),
+            levelAltM2: Math.max(0, Number(flightRecorder.levelAltM2 || 0)),
+            levelAltMinFt: flightRecorder.levelAltMinFt != null && Number.isFinite(Number(flightRecorder.levelAltMinFt)) ? Number(flightRecorder.levelAltMinFt) : null,
+            levelAltMaxFt: flightRecorder.levelAltMaxFt != null && Number.isFinite(Number(flightRecorder.levelAltMaxFt)) ? Number(flightRecorder.levelAltMaxFt) : null,
+            levelAltDurationSec: Math.max(0, Number(flightRecorder.levelAltDurationSec || 0))
         } : null,
         sceneStatus: {
             sceneId: window.missionSceneStatus?.sceneId || null,
@@ -3556,6 +3586,24 @@ function _restoreFlightRecorderFromRuntimeSnapshot(snapshot = null) {
     flightRecorder.distNm = Math.max(0, Number(src.distNm || 0));
     flightRecorder.startTs = Number(src.startTs || 0);
     flightRecorder.endTs = Number(src.endTs || 0);
+    flightRecorder.maxGs = Math.max(0, Number(src.maxGs || 0));
+    flightRecorder.sumGs = Math.max(0, Number(src.sumGs || 0));
+    flightRecorder.gsSamples = Math.max(0, Number(src.gsSamples || 0));
+    flightRecorder.maxBankDeg = Math.max(0, Number(src.maxBankDeg || 0));
+    flightRecorder.bankSamples = Math.max(0, Number(src.bankSamples || 0));
+    flightRecorder.maxGForce = Math.max(0, Number(src.maxGForce || 1));
+    flightRecorder.sumGForce = Math.max(0, Number(src.sumGForce || 0));
+    flightRecorder.gForceSamples = Math.max(0, Number(src.gForceSamples || 0));
+    flightRecorder.maxClimbFpm = Math.max(0, Number(src.maxClimbFpm || 0));
+    flightRecorder.maxDescentFpm = Math.min(0, Number(src.maxDescentFpm || 0));
+    flightRecorder.touchdownVsFpm = src.touchdownVsFpm != null && Number.isFinite(Number(src.touchdownVsFpm)) ? Number(src.touchdownVsFpm) : null;
+    flightRecorder.minEnrouteAglFt = src.minEnrouteAglFt != null && Number.isFinite(Number(src.minEnrouteAglFt)) ? Number(src.minEnrouteAglFt) : null;
+    flightRecorder.levelAltSamples = Math.max(0, Number(src.levelAltSamples || 0));
+    flightRecorder.levelAltMeanFt = Number(src.levelAltMeanFt || 0);
+    flightRecorder.levelAltM2 = Math.max(0, Number(src.levelAltM2 || 0));
+    flightRecorder.levelAltMinFt = src.levelAltMinFt != null && Number.isFinite(Number(src.levelAltMinFt)) ? Number(src.levelAltMinFt) : null;
+    flightRecorder.levelAltMaxFt = src.levelAltMaxFt != null && Number.isFinite(Number(src.levelAltMaxFt)) ? Number(src.levelAltMaxFt) : null;
+    flightRecorder.levelAltDurationSec = Math.max(0, Number(src.levelAltDurationSec || 0));
     return true;
 }
 
@@ -3578,7 +3626,9 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     if (!snap || !_snapshotMatchesActiveMission(snap)) return false;
     const snapId = _missionRuntimeSnapshotMissionId(snap);
     const ageMs = Date.now() - Number(snap.savedAt || 0);
-    if (!Number.isFinite(ageMs) || ageMs > 12 * 60 * 60 * 1000) {
+    const pendingCompletion = _readPendingMissionDebrief();
+    const hasPendingCompletion = !!(pendingCompletion?.missionId && pendingCompletion.missionId === snapId);
+    if (!Number.isFinite(ageMs) || (ageMs > 12 * 60 * 60 * 1000 && !hasPendingCompletion)) {
         _missionPhaseDebugPush('resume_snapshot_stale', {
             missionId: snapId,
             ageMin: Number.isFinite(ageMs) ? Math.round(ageMs / 60000) : null,
@@ -3633,6 +3683,9 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     missionRuntime.farewellDoorReady = false;
     missionRuntime.pendingFarewellRecord = null;
     missionRuntime.pendingFarewellReason = '';
+    missionRuntime.completionRecord = runtime.completionRecord && typeof runtime.completionRecord === 'object'
+        ? _safeCloneJson(runtime.completionRecord, null)
+        : null;
     missionRuntime.endDeboardingAnimationExpected = false;
     missionRuntime.endDeboardingCompleted = false;
     missionRuntime.endDeboardingCommandId = '';
@@ -3673,6 +3726,13 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
         setTimeout(() => _missionSceneCancelInterruptedDeboarding('mission-resume'), 250);
     }
     _updateMissionRuntimeUi();
+    if (shouldBeClosing) {
+        const pendingDebrief = pendingCompletion || _readPendingMissionDebrief();
+        if (pendingDebrief && pendingDebrief.missionId === snapId) {
+            missionRuntime.completionRecord = pendingDebrief;
+            _showMissionCompletionDebrief(pendingDebrief);
+        }
+    }
     return true;
 }
 
@@ -8134,12 +8194,12 @@ window.missionPrepareEmptyPickupStart = _missionPrepareEmptyPickupStart;
 
 function _missionCloseOutcomeSummaryText(outcome = null) {
     const o = (outcome && typeof outcome === 'object') ? outcome : null;
-    if (!o) return 'Missionabschluss bereit. Mit "Mission schliessen" wird alles zurueckgesetzt.';
+    if (!o) return 'Missionabschluss bereit. Die Auswertung wird jetzt festgeschrieben; aufgeraeumt wird erst beim Schliessen des Debriefs.';
     if (!o.failed) {
         const requiredLoaded = Number.isFinite(Number(o.requiredLoaded)) ? Number(o.requiredLoaded) : 0;
         const requiredTotal = Number.isFinite(Number(o.requiredTotal)) ? Number(o.requiredTotal) : 0;
         const loadedWeight = Number.isFinite(Number(o.loadedWeightLbs)) ? Number(o.loadedWeightLbs) : 0;
-        return `Mission waere erfolgreich (${requiredLoaded}/${requiredTotal} Pflicht-Items, ${loadedWeight} lbs). Mit "Mission schliessen" wird alles zurueckgesetzt.`;
+        return `Mission erfolgreich (${requiredLoaded}/${requiredTotal} Pflicht-Items, ${loadedWeight} lbs). Jetzt Abschluss und Debrief oeffnen.`;
     }
     const reasons = [
         ...(Array.isArray(o.missingRequired) ? o.missingRequired : []),
@@ -8149,8 +8209,8 @@ function _missionCloseOutcomeSummaryText(outcome = null) {
     ].filter(Boolean);
     const preview = reasons.slice(0, 3).join(', ');
     return preview
-        ? `Mission wuerde mit Fehlschlag enden: ${preview}. Mit "Mission schliessen" wird alles zurueckgesetzt.`
-        : 'Mission wuerde mit Fehlschlag enden. Mit "Mission schliessen" wird alles zurueckgesetzt.';
+        ? `Mission endet mit Fehlschlag: ${preview}. Jetzt Abschluss und Debrief oeffnen.`
+        : 'Mission endet mit Fehlschlag. Jetzt Abschluss und Debrief oeffnen.';
 }
 
 function _missionOutcomeApplyEndReadiness(outcome = null, endReady = null) {
@@ -8282,8 +8342,269 @@ function _missionCargoHardFailurePreview() {
     }
 }
 
+const MISSION_DEBRIEF_PENDING_KEY = 'ga_pending_mission_debrief_v1';
+
+function _completionFinite(value, digits = null) {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return digits == null ? n : Number(n.toFixed(digits));
+}
+
+function _completionText(value, max = 180) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function _completionList(value, maxItems = 6) {
+    return Array.isArray(value)
+        ? value.map(item => _completionText(item, 80)).filter(Boolean).slice(0, maxItems)
+        : [];
+}
+
+function _readPendingMissionDebrief() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(MISSION_DEBRIEF_PENDING_KEY) || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _missionCompletionHasCargo() {
+    try {
+        const manifest = typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null;
+        return !!(Array.isArray(manifest?.items) && manifest.items.some(item => {
+            try { return typeof _missionCargoIsPassengerItem !== 'function' || !_missionCargoIsPassengerItem(item); }
+            catch (_) { return true; }
+        }));
+    } catch (_) {
+        return false;
+    }
+}
+
+function _missionCompletionHasPassengers() {
+    if (window.activePassenger) return true;
+    try {
+        const manifest = typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null;
+        if (Array.isArray(manifest?.items) && manifest.items.some(item => typeof _missionCargoIsPassengerItem === 'function' && _missionCargoIsPassengerItem(item))) return true;
+    } catch (_) {}
+    try { return typeof _missionScenePaxCount === 'function' && _missionScenePaxCount() > 0; } catch (_) { return false; }
+}
+
+function _buildMissionCompletionRecord(options = {}) {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+        ? currentMissionData
+        : {};
+    const missionId = _activeMissionRuntimeId('mission');
+    const existing = _readPendingMissionDebrief();
+    if (existing?.missionId === missionId) return existing;
+    const flight = options.flightRecord || missionRuntime.pendingFarewellRecord || missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || {};
+    const endedAt = Number(flight.createdAt || flight.endTs || Date.now()) || Date.now();
+    const startedAt = Number(flight.startTs || missionRuntime.startedAt || 0);
+    const durationSec = _completionFinite(flight.durationSec)
+        ?? (startedAt > 0 ? Math.max(1, Math.round((endedAt - startedAt) / 1000)) : null);
+    const distanceNm = _completionFinite(flight.distanceNm, 1)
+        ?? _completionFinite(parseFloat(String(md.dist ?? md.distanceNm ?? '').replace(',', '.')), 1);
+    const cargoOutcome = options.outcome || flight.missionCargoOutcome || missionRuntime.closingOutcome || null;
+    let comfort = null;
+    if (_missionCompletionHasPassengers() && typeof window.paxVoiceGetComfortSummary === 'function') {
+        try { comfort = window.paxVoiceGetComfortSummary(); } catch (_) {}
+    }
+    const completionId = `${missionId}-${Math.round(endedAt)}`;
+    const start = _completionText(flight.depLabel || md.start || (typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || 'START', 64);
+    const actualLanding = _completionText(flight.arrLabel || md.dest || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || 'LANDUNG', 64);
+    const assignment = _completionText(md.mission || md.title || md.missionTitle || md.task || 'Mission', 220);
+    const cruiseCount = Math.max(0, Math.round(Number(flight.cruiseSampleCount || 0)));
+    const cruiseDurationSec = Math.max(0, Math.round(Number(flight.cruiseDurationSec || 0)));
+    const hasCruiseEvidence = cruiseCount >= 10 && cruiseDurationSec >= 20;
+    return {
+        schemaVersion: 2,
+        id: completionId,
+        completionId,
+        missionId,
+        createdAt: endedAt,
+        endedAt,
+        date: new Date(endedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        dateLabel: new Date(endedAt).toLocaleString('de-DE'),
+        start,
+        dest: actualLanding,
+        depLabel: start,
+        arrLabel: actualLanding,
+        plannedDest: _completionText(md.dest || '', 64),
+        mission: assignment,
+        missionTitle: assignment,
+        taskDomain: _completionText(md.taskDomain || md.missionContract?.taskDomain || '', 80),
+        aircraft: _completionText(md.ac || md.aircraft || '', 80),
+        ac: _completionText(md.ac || md.aircraft || '', 80),
+        durationSec: durationSec == null ? null : Math.round(durationSec),
+        distanceNm,
+        dist: distanceNm,
+        result: cargoOutcome?.failed || flight.missionFailed ? 'failed' : 'completed',
+        failed: !!(cargoOutcome?.failed || flight.missionFailed),
+        simulated: !!window.simModeActive,
+        maxGForce: _completionFinite(flight.maxGForce, 2),
+        maxBankDeg: _completionFinite(flight.maxBankDeg, 1),
+        touchdownVsFpm: _completionFinite(flight.touchdownVsFpm),
+        maxClimbFpm: _completionFinite(flight.maxClimbFpm),
+        maxDescentFpm: _completionFinite(flight.maxDescentFpm),
+        minEnrouteAglFt: _completionFinite(flight.minEnrouteAglFt),
+        cruiseAltitudeMeanFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeMeanFt) : null,
+        cruiseAltitudeStdDevFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeStdDevFt) : null,
+        cruiseAltitudeRangeFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeRangeFt) : null,
+        cruiseSampleCount: cruiseCount,
+        cruiseDurationSec,
+        comfort: comfort ? {
+            score: _completionFinite(comfort.comfortScore),
+            mood: _completionText(comfort.mood, 80),
+            pilotEvents: Math.max(0, Math.round(Number(comfort.pilotEvents || 0))),
+            pilotSevere: Math.max(0, Math.round(Number(comfort.pilotSevere || 0))),
+            weatherEvents: Math.max(0, Math.round(Number(comfort.weatherEvents || 0))),
+            weatherSevere: Math.max(0, Math.round(Number(comfort.weatherSevere || 0)))
+        } : null,
+        cargo: _missionCompletionHasCargo() && cargoOutcome ? {
+            status: _completionText(cargoOutcome.status || (cargoOutcome.failed ? 'failed' : 'completed'), 32),
+            failed: !!cargoOutcome.failed,
+            conditionPct: _completionFinite(cargoOutcome.conditionPct),
+            stressDamagePct: _completionFinite(cargoOutcome.stressDamagePct),
+            requiredTotal: Math.max(0, Math.round(Number(cargoOutcome.requiredTotal || 0))),
+            requiredLoaded: Math.max(0, Math.round(Number(cargoOutcome.requiredLoaded || 0))),
+            missingRequired: _completionList(cargoOutcome.missingRequired),
+            droppedRequired: _completionList(cargoOutcome.droppedRequired),
+            notDeliveredRequired: _completionList(cargoOutcome.notDeliveredRequired),
+            damagedRequired: _completionList(cargoOutcome.damagedRequired)
+        } : null
+    };
+}
+
+function _compactLegacyLogbookEntry(entry = {}, index = 0) {
+    if (entry?.schemaVersion === 2 && entry?.completionId) return entry;
+    const createdAt = Number(entry.createdAt || entry.endedAt || entry.id || 0) || 0;
+    const legacySignature = [entry.date || entry.dateLabel || '', entry.start || entry.depLabel || '', entry.dest || entry.arrLabel || '', entry.mission || entry.title || '', entry.dist || entry.distanceNm || '', entry.ac || entry.aircraft || ''].join('-');
+    const fallbackId = `legacy-${createdAt || _completionText(legacySignature, 105) || index}`;
+    return {
+        schemaVersion: 1,
+        id: _completionText(entry.completionId || entry.id || fallbackId, 120),
+        completionId: _completionText(entry.completionId || entry.id || fallbackId, 120),
+        createdAt: createdAt || null,
+        date: _completionText(entry.date || entry.dateLabel || '', 80),
+        dateLabel: _completionText(entry.dateLabel || entry.date || '', 80),
+        start: _completionText(entry.start || entry.depLabel || 'START', 64),
+        dest: _completionText(entry.dest || entry.arrLabel || 'LANDUNG', 64),
+        depLabel: _completionText(entry.depLabel || entry.start || 'START', 64),
+        arrLabel: _completionText(entry.arrLabel || entry.dest || 'LANDUNG', 64),
+        mission: _completionText(entry.mission || entry.missionTitle || entry.title || 'Mission', 220),
+        missionTitle: _completionText(entry.missionTitle || entry.mission || entry.title || 'Mission', 220),
+        aircraft: _completionText(entry.aircraft || entry.ac || '', 80),
+        ac: _completionText(entry.ac || entry.aircraft || '', 80),
+        durationSec: _completionFinite(entry.durationSec),
+        distanceNm: _completionFinite(entry.distanceNm ?? entry.dist, 1),
+        dist: _completionFinite(entry.distanceNm ?? entry.dist, 1),
+        result: _completionText(entry.result || (entry.failed ? 'failed' : 'completed'), 24),
+        failed: !!entry.failed
+    };
+}
+
+function _upsertMissionLogbook(record) {
+    if (!record?.completionId) return false;
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
+    const compact = (Array.isArray(log) ? log : []).map(_compactLegacyLogbookEntry);
+    const idx = compact.findIndex(entry => entry?.completionId === record.completionId || entry?.id === record.completionId);
+    if (idx >= 0) compact[idx] = record;
+    else compact.unshift(record);
+    compact.sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0));
+    localStorage.setItem('ga_logbook', JSON.stringify(compact.slice(0, 50)));
+    try { window.renderLog?.(); } catch (_) { try { renderLog(); } catch (_) {} }
+    return true;
+}
+window.upsertMissionLogbook = _upsertMissionLogbook;
+
+function _missionLogbookForSync(source = null) {
+    let entries = source;
+    if (!Array.isArray(entries)) {
+        try { entries = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) { entries = []; }
+    }
+    return (Array.isArray(entries) ? entries : [])
+        .map(_compactLegacyLogbookEntry)
+        .filter(entry => entry?.completionId)
+        .slice(0, 50);
+}
+
+function _mergeMissionLogbooks(remoteEntries = []) {
+    const merged = new Map();
+    _missionLogbookForSync(remoteEntries).forEach(entry => merged.set(entry.completionId, entry));
+    _missionLogbookForSync().forEach(entry => merged.set(entry.completionId, entry));
+    const result = Array.from(merged.values())
+        .sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0))
+        .slice(0, 50);
+    localStorage.setItem('ga_logbook', JSON.stringify(result));
+    return result;
+}
+
+function _persistMissionCompletion(record) {
+    if (!record?.completionId) return false;
+    localStorage.setItem(MISSION_DEBRIEF_PENDING_KEY, JSON.stringify(record));
+    localStorage.setItem('last_icao_dest', String(record.dest || ''));
+    _upsertMissionLogbook(record);
+    try {
+        if (typeof currentMissionData === 'object' && currentMissionData) {
+            currentMissionData.missionCompletionState = 'completed_awaiting_cleanup';
+            currentMissionData.missionCompletionId = record.completionId;
+            currentMissionData.missionCompletionRecord = record;
+        }
+        _mutateStoredActiveMissionRuntimeMarker(state => {
+            state.missionCompletionState = 'completed_awaiting_cleanup';
+            state.missionCompletionId = record.completionId;
+            state.missionCompletionRecord = record;
+            if (state.currentMissionData) {
+                state.currentMissionData.missionCompletionState = 'completed_awaiting_cleanup';
+                state.currentMissionData.missionCompletionId = record.completionId;
+                state.currentMissionData.missionCompletionRecord = record;
+            }
+        });
+    } catch (_) {}
+    return true;
+}
+
+function _showMissionCompletionDebrief(record) {
+    let attempts = 0;
+    const show = () => {
+        if (typeof window.showFlightDebrief === 'function') {
+            window.showFlightDebrief(record, { awaitingCleanup: true });
+            return;
+        }
+        if (++attempts < 20) setTimeout(show, 100);
+    };
+    setTimeout(show, 0);
+}
+
+window.restoreMissionCompletionFromCloud = function(record = null, reason = 'cloud-completion-restore') {
+    if (!record || typeof record !== 'object' || !record.completionId) return false;
+    missionRuntime.phase = 'closing';
+    missionRuntime.active = false;
+    missionRuntime.armed = false;
+    missionRuntime.manual = false;
+    missionRuntime.closingPending = true;
+    missionRuntime.closingReason = reason;
+    missionRuntime.closingRequestedAt = Number(record.endedAt || record.createdAt || Date.now());
+    missionRuntime.completionRecord = record;
+    missionRuntime.closingOutcome = record.cargo ? {
+        ...record.cargo,
+        failed: !!record.failed
+    } : { status: record.failed ? 'failed' : 'completed', failed: !!record.failed };
+    _persistMissionCompletion(record);
+    _persistMissionRuntimeSnapshot(reason, { immediate: true });
+    _updateMissionRuntimeUi();
+    _showMissionCompletionDebrief(record);
+    return true;
+};
+
 function _setMissionClosePending(options = {}) {
-    const outcome = options?.outcome && typeof options.outcome === 'object' ? options.outcome : null;
+    const sourceRecord = missionRuntime.pendingFarewellRecord || missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || null;
+    let outcome = options?.outcome && typeof options.outcome === 'object' ? options.outcome : null;
+    if (typeof _missionCargoFinalizeMissionOutcome === 'function') {
+        try { outcome = _missionCargoFinalizeMissionOutcome({ source: 'mission-close-pending', record: sourceRecord }) || outcome; } catch (_) {}
+    }
     missionRuntime.phase = 'closing';
     missionRuntime.active = false;
     missionRuntime.armed = false;
@@ -8303,6 +8624,7 @@ function _setMissionClosePending(options = {}) {
         }
     }
     missionRuntime.closingRequestedAt = Date.now();
+    missionRuntime.completionRecord = _buildMissionCompletionRecord({ flightRecord: sourceRecord, outcome: missionRuntime.closingOutcome });
     missionRuntime.readySince = 0;
     missionRuntime.pendingEndAt = 0;
     missionRuntime.lastOffDestAt = 0;
@@ -8539,7 +8861,7 @@ function _updateMissionStartBanner() {
     banner.classList.toggle('is-begin-action', showStart && phase === 'planned');
     banner.classList.toggle('is-final-action', showFinalEndAction);
     if (showClose) {
-        if (kickerEl) kickerEl.textContent = 'Mission schliessen';
+        if (kickerEl) kickerEl.textContent = 'Mission auswerten';
         if (closeBtn) closeBtn.style.display = 'none';
         if (textEl) {
             const waitHint = window.missionSceneStatus?.deboardingActive
@@ -8547,7 +8869,7 @@ function _updateMissionStartBanner() {
                 : '';
             textEl.textContent = `${_missionCloseOutcomeSummaryText(missionRuntime.closingOutcome)}${waitHint}`;
         }
-        if (btn) btn.textContent = 'Mission schliessen';
+        if (btn) btn.textContent = 'Abschluss & Debrief';
         return;
     }
     if (showDeboarding) {
@@ -8857,10 +9179,10 @@ function _updateMissionRuntimeUi() {
     if (bMap) {
         if (missionRuntime.closingPending) {
             bMap.style.display = 'inline-flex';
-            bMap.textContent = deboardingBusy ? '… Deboarding läuft' : '■ Mission schliessen';
+            bMap.textContent = deboardingBusy ? '… Deboarding läuft' : '■ Abschluss & Debrief';
             bMap.title = deboardingBusy
                 ? 'Deboarding laeuft noch'
-                : 'Mission abschliessen und Szene/Status zuruecksetzen';
+                : 'Mission auswerten und Debrief oeffnen';
             bMap.disabled = deboardingBusy;
         } else {
             bMap.style.display = (missionRuntime.active || (validMission && groundReady)) ? 'inline-flex' : 'none';
@@ -8916,6 +9238,7 @@ function _resetMissionRuntime() {
         farewellDoorReady: false,
         pendingFarewellRecord: null,
         pendingFarewellReason: '',
+        completionRecord: null,
         endDeboardingAnimationExpected: false,
         endDeboardingCompleted: false,
         endDeboardingCommandId: '',
@@ -10221,17 +10544,49 @@ window.manualMissionEnd = function(options = {}) {
 
 window.completeMissionClose = function(reason = 'mission-close', options = {}) {
     if (!missionRuntime.closingPending) return false;
-    if (!options?.skipConfirm && !_confirmMissionCriticalAction('close', options)) return false;
     if (typeof _missionCargoFinalizeMissionOutcome === 'function' && !missionRuntime.closingOutcome) {
         try {
             missionRuntime.closingOutcome = _missionCargoFinalizeMissionOutcome({ source: reason });
         } catch (_) {}
     }
+    const record = missionRuntime.completionRecord || _buildMissionCompletionRecord({ outcome: missionRuntime.closingOutcome });
+    if (!record) return false;
+    missionRuntime.completionRecord = record;
+    _persistMissionCompletion(record);
+    _persistMissionRuntimeSnapshot('mission-debrief-open', { immediate: true });
+    _showMissionCompletionDebrief(record);
+    try { triggerCloudSave(true); } catch (_) {}
+    return true;
+};
+
+window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-close-cleanup') {
+    const pending = record && typeof record === 'object' ? record : (_readPendingMissionDebrief() || missionRuntime.completionRecord);
+    if (!pending) return false;
+    const nextStart = _completionText(pending.dest || pending.arrLabel || '', 64);
+    try { localStorage.removeItem(MISSION_DEBRIEF_PENDING_KEY); } catch (_) {}
     if (typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
-        return true;
     }
-    return false;
+    if (typeof window.clearAppMissionState === 'function') {
+        window.clearAppMissionState({
+            skipRuntimeReset: true,
+            abortDispatch: false,
+            nextStart,
+            reason
+        });
+    } else {
+        localStorage.removeItem('ga_active_mission');
+        localStorage.removeItem('ga_active_mission_contract');
+        localStorage.removeItem('ga_active_passenger');
+        localStorage.removeItem('ga_active_mission_runtime');
+        try { currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; } catch (_) {}
+        window.activeMissionContract = null;
+        window.activePassenger = null;
+        const briefing = document.getElementById('briefingBox');
+        if (briefing) briefing.style.display = 'none';
+    }
+    try { triggerCloudSave(true); } catch (_) {}
+    return true;
 };
 
 window.toggleManualMissionRuntime = function() {
@@ -11264,6 +11619,11 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
                 try { console.warn('[SYNC] Cloud-Active-Mission konnte nur im Speicher-Fallback gehalten werden.'); } catch (_) {}
             }
             const restored = await restoreMissionState(activeMission, { source: 'cloud', resumeRuntime });
+            const completionState = String(activeMission.missionCompletionState || activeMission.currentMissionData?.missionCompletionState || '');
+            const completionRecord = activeMission.missionCompletionRecord || activeMission.currentMissionData?.missionCompletionRecord || null;
+            if (restored !== false && completionState === 'completed_awaiting_cleanup' && completionRecord && typeof window.restoreMissionCompletionFromCloud === 'function') {
+                window.restoreMissionCompletionFromCloud(completionRecord, 'cloud-completion-restore');
+            }
             return restored !== false;
         } catch (err) {
             try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
@@ -11306,7 +11666,7 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
 function setLastSyncedPayload() {
     const payloadToCompare = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
-        logbook: JSON.parse(localStorage.getItem('ga_logbook') || '[]'),
+        logbook: _missionLogbookForSync(),
         activeMission: _syncActiveMissionPayload(),
         groupName: getGroupName(),
         groupNick: getGroupNick(),
@@ -11363,7 +11723,7 @@ async function triggerCloudSave(immediate = false) {
     localSyncTime = Date.now();
     const payloadToCompare = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
-        logbook: JSON.parse(localStorage.getItem('ga_logbook') || '[]'),
+        logbook: _missionLogbookForSync(),
         activeMission: _syncActiveMissionPayload(),
         groupName: getGroupName(),
         groupNick: getGroupNick(),
@@ -11477,7 +11837,7 @@ async function forceSyncLoad() {
             localStorage.setItem('ga_sync_time', localSyncTime);
         }
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-        if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
+        if (data.logbook) _mergeMissionLogbooks(data.logbook);
         await _syncApplyActiveMissionFromCloud(data.activeMission || null);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -11535,7 +11895,7 @@ async function silentSyncLoad() {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
-            if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
+            if (data.logbook) _mergeMissionLogbooks(data.logbook);
             await _syncApplyActiveMissionFromCloud(data.activeMission || null);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -11706,7 +12066,7 @@ async function checkCloudAfterIdle() {
             // Lokalen Status abgleichen (Habe ich hier ungespeicherte Änderungen?)
             const payloadToCompare = {
                 pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
-                logbook: JSON.parse(localStorage.getItem('ga_logbook') || '[]'),
+                logbook: _missionLogbookForSync(),
                 activeMission: _syncActiveMissionPayload(),
                 groupName: getGroupName(),
                 groupNick: getGroupNick(),
@@ -11726,7 +12086,7 @@ async function checkCloudAfterIdle() {
                 localSyncTime = data.lastModified;
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
-                if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
+                if (data.logbook) _mergeMissionLogbooks(data.logbook);
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -11795,10 +12155,13 @@ let lastAutoFollowPanAt = 0;
 let lastAutoFollowPanPos = null;
 let lastLivePlaneHeadingUpdateAt = 0;
 let gpsWatchdog;
+let trackerHeartbeatWatchdog = null;
+let lastTrackerHeartbeatAt = 0;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveGpsConnectionSeq = 0;
 let liveGpsReconnectTimer = null;
 const LIVE_GPS_WAKE_LOCK_STALE_MS = 15000;
+const TRACKER_HEARTBEAT_STALE_MS = 12000;
 let liveGpsWakeLock = null;
 let liveGpsWakeLockRequestPending = false;
 let liveGpsWakeLockTelemetryTimer = null;
@@ -11910,6 +12273,7 @@ window.addEventListener('ga-sleepchange', (event) => {
         liveGpsSocket = null;
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
+        _clearTrackerHeartbeat();
         _setLiveGpsIndicator('off');
     }
     if (hadLiveGpsSession && reconnectId) {
@@ -11933,8 +12297,8 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 301;
-const MIN_TRACKER_VERSION_LABEL = 'v301';
+const MIN_TRACKER_VERSION_CODE = 302;
+const MIN_TRACKER_VERSION_LABEL = 'v302';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {
@@ -11982,7 +12346,14 @@ function _setLiveGpsIndicator(state, pkt = null) {
         ind.textContent = `🛰️ LIVE${versionLabel ? ` · ${versionLabel}` : ''}`;
         ind.style.color = '#44ff44';
         ind.style.textShadow = '0 0 8px #44ff44';
-        ind.title = `PC-Tracker verbunden${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        ind.title = `PC-Tracker verbunden; Telemetrie aktiv${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        return;
+    }
+    if (nextState === 'link') {
+        ind.textContent = `🛰️ LINK${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.style.color = '#55d7ff';
+        ind.style.textShadow = '0 0 7px rgba(85, 215, 255, 0.75)';
+        ind.title = `PC-Tracker am Relay verbunden; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
         return;
     }
     if (nextState === 'wait') {
@@ -12003,6 +12374,35 @@ function _setLiveGpsIndicator(state, pkt = null) {
     ind.textContent = '🛰️ OFF';
     ind.style.color = '#666';
     ind.title = 'Kein PC-Tracker verbunden';
+}
+
+function _trackerHeartbeatIsFresh(now = Date.now()) {
+    return Number.isFinite(lastTrackerHeartbeatAt)
+        && lastTrackerHeartbeatAt > 0
+        && (now - lastTrackerHeartbeatAt) < TRACKER_HEARTBEAT_STALE_MS;
+}
+
+function _clearTrackerHeartbeat() {
+    if (trackerHeartbeatWatchdog) {
+        clearTimeout(trackerHeartbeatWatchdog);
+        trackerHeartbeatWatchdog = null;
+    }
+    lastTrackerHeartbeatAt = 0;
+}
+
+function _markTrackerHeartbeat(pkt) {
+    lastTrackerHeartbeatAt = Date.now();
+    _maybePromptTrackerUpdate(pkt);
+    if (trackerHeartbeatWatchdog) clearTimeout(trackerHeartbeatWatchdog);
+    trackerHeartbeatWatchdog = setTimeout(() => {
+        trackerHeartbeatWatchdog = null;
+        lastTrackerHeartbeatAt = 0;
+        if (liveGpsSocket?.readyState === WebSocket.OPEN) {
+            window.liveTrackerVersionCode = null;
+            window.liveTrackerVersionLabel = '';
+            _setLiveGpsIndicator('wait');
+        }
+    }, TRACKER_HEARTBEAT_STALE_MS);
 }
 
 function _maybePromptTrackerUpdate(pkt) {
@@ -13066,6 +13466,7 @@ window.connectToLiveGPS = async function(syncId) {
 
     const wsUrl = 'wss://websocketrelais.onrender.com/';
     const connectionSeq = ++liveGpsConnectionSeq;
+    _clearTrackerHeartbeat();
     if (liveGpsReconnectTimer) {
         clearTimeout(liveGpsReconnectTimer);
         liveGpsReconnectTimer = null;
@@ -13168,9 +13569,18 @@ window.connectToLiveGPS = async function(syncId) {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
             }
             if (data.trackerCommand || data.commandOnly) return;
+            if (data.type === 'gps'
+                && data.trackerStatusOnly === true
+                && data.source === 'tracker'
+                && data.status === 'connected') {
+                _markTrackerHeartbeat(data);
+                const indicatorState = document.getElementById('liveGpsIndicator')?.dataset?.trackerState;
+                if (indicatorState !== 'live') _setLiveGpsIndicator('link', data);
+                return;
+            }
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
-                _maybePromptTrackerUpdate(data);
+                _markTrackerHeartbeat(data);
                 try {
                     window.dispatchEvent(new CustomEvent('homebasetelemetry', { detail: { data } }));
                 } catch (_) {}
@@ -13210,7 +13620,9 @@ window.connectToLiveGPS = async function(syncId) {
                 clearTimeout(gpsWatchdog);
                 gpsWatchdog = setTimeout(() => {
                     const ind = document.getElementById('liveGpsIndicator');
-                    if (ind?.dataset?.trackerState === 'live') _setLiveGpsIndicator('wait');
+                    if (ind?.dataset?.trackerState === 'live') {
+                        _setLiveGpsIndicator(_trackerHeartbeatIsFresh() ? 'link' : 'wait');
+                    }
                 }, 3000);
             }
             if (data.type === 'traffic') {
@@ -13225,6 +13637,7 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onclose = () => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         clearTimeout(gpsWatchdog);
+        _clearTrackerHeartbeat();
         liveGpsSocket = null;
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
@@ -13256,6 +13669,7 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onerror = () => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         clearTimeout(gpsWatchdog);
+        _clearTrackerHeartbeat();
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
@@ -13919,12 +14333,20 @@ function resetFlightRecorder() {
         track: [],
         lastSample: null,
         maxBankDeg: 0,
+        bankSamples: 0,
         maxGForce: 1.0,
         sumGForce: 0,
         gForceSamples: 0,
         maxAglFt: 0,
         maxClimbFpm: 0,
-        maxDescentFpm: 0
+        maxDescentFpm: 0,
+        minEnrouteAglFt: null,
+        levelAltSamples: 0,
+        levelAltMeanFt: 0,
+        levelAltM2: 0,
+        levelAltMinFt: null,
+        levelAltMaxFt: null,
+        levelAltDurationSec: 0
     };
 }
 
@@ -14032,11 +14454,19 @@ function _buildFlightRecordSnapshot(now) {
         maxAltFt: Math.round(r.maxAltFt),
         touchdownVsFpm: Number.isFinite(r.touchdownVsFpm) ? Math.round(r.touchdownVsFpm) : null,
         track,
-        maxBankDeg: Number((r.maxBankDeg || 0).toFixed(1)),
-        maxGForce: Number((r.maxGForce || 1.0).toFixed(2)),
-        avgGForce: r.gForceSamples > 0 ? Number((r.sumGForce / r.gForceSamples).toFixed(2)) : 1.0,
+        maxBankDeg: r.bankSamples > 0 ? Number((r.maxBankDeg || 0).toFixed(1)) : null,
+        maxGForce: r.gForceSamples > 0 ? Number((r.maxGForce || 1.0).toFixed(2)) : null,
+        avgGForce: r.gForceSamples > 0 ? Number((r.sumGForce / r.gForceSamples).toFixed(2)) : null,
         maxClimbFpm: Number.isFinite(r.maxClimbFpm) ? Math.round(r.maxClimbFpm) : 0,
-        maxDescentFpm: Number.isFinite(r.maxDescentFpm) ? Math.round(r.maxDescentFpm) : 0
+        maxDescentFpm: Number.isFinite(r.maxDescentFpm) ? Math.round(r.maxDescentFpm) : 0,
+        minEnrouteAglFt: Number.isFinite(r.minEnrouteAglFt) ? Math.round(r.minEnrouteAglFt) : null,
+        cruiseAltitudeMeanFt: r.levelAltSamples >= 10 ? Math.round(r.levelAltMeanFt) : null,
+        cruiseAltitudeStdDevFt: r.levelAltSamples >= 10 ? Math.round(Math.sqrt(r.levelAltM2 / Math.max(1, r.levelAltSamples - 1))) : null,
+        cruiseAltitudeRangeFt: r.levelAltSamples >= 10 && Number.isFinite(r.levelAltMinFt) && Number.isFinite(r.levelAltMaxFt)
+            ? Math.round(r.levelAltMaxFt - r.levelAltMinFt)
+            : null,
+        cruiseSampleCount: Math.round(r.levelAltSamples || 0),
+        cruiseDurationSec: Math.round(r.levelAltDurationSec || 0)
     };
     if (cargoOutcome) record.missionCargoOutcome = cargoOutcome;
     return record;
@@ -14053,19 +14483,9 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
         const record = _buildFlightRecordSnapshot(now);
         if (!record) return;
 
-        const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
-        hist.unshift(record);
-        localStorage.setItem('ga_flight_history', JSON.stringify(hist.slice(0, 80)));
-
-        if (typeof window.pinCompletedFlightRecord === 'function') {
-            window.pinCompletedFlightRecord(record);
-            console.log(`[FlightRec] 🧾 Flug ausgewertet & an Pinwand gehängt: ${record.depLabel} ➔ ${record.arrLabel} (${record.distanceNm} NM, ${Math.round(record.durationSec / 60)} min)`);
-        } else {
-            console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
-        }
-        triggerCloudSave();
-        // Der Recorder liefert nur den Abschlussdatensatz. Farewell und
-        // Deboarding werden von der fachlichen Ground-Action gestartet.
+        // Der Recorder liefert nur einen kurzlebigen Abschlussdatensatz.
+        // Roh-Track und Telemetrie werden nicht automatisch im Local Storage
+        // oder an der Pinnwand abgelegt.
         missionRuntime.arrivalFlightRecord = record;
     } finally {
         resetFlightRecorder();
@@ -14207,7 +14627,10 @@ function updateFlightRecorder(lat, lon, alt) {
     r.armed = r.hadAirbornePhase;
 
     if (_lfd) {
-        if (Number.isFinite(_lfd.bankDeg)) r.maxBankDeg = Math.max(r.maxBankDeg, Math.abs(_lfd.bankDeg));
+        if (Number.isFinite(_lfd.bankDeg)) {
+            r.maxBankDeg = Math.max(r.maxBankDeg, Math.abs(_lfd.bankDeg));
+            r.bankSamples += 1;
+        }
         if (Number.isFinite(_lfd.gForce) && _lfd.gForce > 0.1) {
             r.maxGForce = Math.max(r.maxGForce, _lfd.gForce);
             r.sumGForce += _lfd.gForce;
@@ -14217,6 +14640,33 @@ function updateFlightRecorder(lat, lon, alt) {
     if (Number.isFinite(smoothedVS)) {
         if (smoothedVS > 0) r.maxClimbFpm = Math.max(r.maxClimbFpm, smoothedVS);
         if (smoothedVS < 0) r.maxDescentFpm = Math.min(r.maxDescentFpm, smoothedVS);
+    }
+
+    // Nur Streckenflug auswerten: stabil airborne, bereits von der Abflugphase
+    // entfernt und (falls bestimmbar) noch nicht im Zielanflug. Gespeichert
+    // werden ausschliesslich Aggregate, keine Telemetriepunkte.
+    let dTargetNm = null;
+    try { dTargetNm = _distanceToMissionTargetNm(lat, lon); } catch (_) {}
+    const enrouteSample = airborneNow
+        && r.airborneEvidenceSec >= 30
+        && r.distNm >= 2
+        && gs >= 35
+        && (dTargetNm == null || !Number.isFinite(Number(dTargetNm)) || Number(dTargetNm) > 2);
+    if (enrouteSample && _lfd?.aglFt != null && Number.isFinite(Number(_lfd.aglFt))) {
+        const directAgl = Math.max(0, Number(_lfd.aglFt));
+        r.minEnrouteAglFt = Number.isFinite(r.minEnrouteAglFt)
+            ? Math.min(r.minEnrouteAglFt, directAgl)
+            : directAgl;
+    }
+    if (enrouteSample && Number.isFinite(Number(alt)) && Number.isFinite(smoothedVS) && Math.abs(smoothedVS) <= 350) {
+        const altitudeFt = Number(alt);
+        r.levelAltSamples += 1;
+        const delta = altitudeFt - r.levelAltMeanFt;
+        r.levelAltMeanFt += delta / r.levelAltSamples;
+        r.levelAltM2 += delta * (altitudeFt - r.levelAltMeanFt);
+        r.levelAltMinFt = Number.isFinite(r.levelAltMinFt) ? Math.min(r.levelAltMinFt, altitudeFt) : altitudeFt;
+        r.levelAltMaxFt = Number.isFinite(r.levelAltMaxFt) ? Math.max(r.levelAltMaxFt, altitudeFt) : altitudeFt;
+        r.levelAltDurationSec += Math.min(2, Math.max(0, dtSec));
     }
 
     addFlightTrackPoint(lat, lon, alt, now, false);

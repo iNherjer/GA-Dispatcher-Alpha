@@ -4,6 +4,8 @@ let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
 let pinnedReplayLayer = null;
 let debriefOverlayEl = null;
+let currentDebriefRecord = null;
+let currentDebriefAwaitingCleanup = false;
 let homebaseDirectoryAirportLoadRequested = false;
 
 window.clearPinnedFlightReplay = function() {
@@ -614,63 +616,197 @@ function ensureDebriefOverlay() {
     if (debriefOverlayEl) return debriefOverlayEl;
     const ov = document.createElement('div');
     ov.id = 'flightDebriefOverlay';
-    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:10050; display:none; align-items:center; justify-content:center; padding:20px;';
+    ov.className = 'flight-debrief-overlay';
     ov.innerHTML = `
-        <div style="width:min(820px,96vw); max-height:92vh; overflow:auto; background:#111a24; color:#eaf2ff; border:1px solid #2f4866; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5);">
-            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #2f4866;">
-                <div style="font-weight:bold; font-size:18px;">Flight Debrief</div>
-                <button id="flightDebriefCloseBtn" style="background:#2a3f58; color:#fff; border:1px solid #3f5b7f; border-radius:8px; padding:6px 10px; cursor:pointer;">Schließen</button>
+        <div class="flight-debrief-paper" role="dialog" aria-modal="true" aria-labelledby="flightDebriefTitle">
+            <div class="flight-debrief-head">
+                <div>
+                    <div class="flight-debrief-kicker">VFR MULTITOOL · MISSIONSABSCHLUSS</div>
+                    <div id="flightDebriefTitle" class="flight-debrief-title">Flight Debrief</div>
+                </div>
+                <button id="flightDebriefCloseBtn" class="flight-debrief-icon-close" type="button" aria-label="Debrief schließen">×</button>
             </div>
-            <div id="flightDebriefBody" style="padding:14px 16px 18px 16px;"></div>
+            <div id="flightDebriefBody" class="flight-debrief-body"></div>
+            <div class="flight-debrief-actions">
+                <button id="flightDebriefPdfBtn" class="flight-debrief-btn secondary" type="button">PDF herunterladen</button>
+                <button id="flightDebriefFinishBtn" class="flight-debrief-btn primary" type="button">Schließen</button>
+            </div>
         </div>
     `;
-    ov.addEventListener('click', (e) => { if (e.target === ov) ov.style.display = 'none'; });
+    ov.addEventListener('click', (e) => {
+        if (e.target === ov && !currentDebriefAwaitingCleanup) ov.style.display = 'none';
+    });
     document.body.appendChild(ov);
-    const btn = ov.querySelector('#flightDebriefCloseBtn');
-    if (btn) btn.addEventListener('click', () => { ov.style.display = 'none'; });
+    const closeBtn = ov.querySelector('#flightDebriefCloseBtn');
+    const finishBtn = ov.querySelector('#flightDebriefFinishBtn');
+    const pdfBtn = ov.querySelector('#flightDebriefPdfBtn');
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        if (!currentDebriefAwaitingCleanup) ov.style.display = 'none';
+    });
+    if (finishBtn) finishBtn.addEventListener('click', () => {
+        if (currentDebriefAwaitingCleanup) {
+            const record = currentDebriefRecord;
+            finishBtn.disabled = true;
+            finishBtn.textContent = 'Mission wird aufgeräumt…';
+            const cleaned = typeof window.completeMissionCloseCleanup === 'function'
+                ? window.completeMissionCloseCleanup(record, 'debrief-finish')
+                : false;
+            if (!cleaned) {
+                finishBtn.disabled = false;
+                finishBtn.textContent = 'Debrief schließen & Mission aufräumen';
+                return;
+            }
+            currentDebriefAwaitingCleanup = false;
+        }
+        ov.style.display = 'none';
+    });
+    if (pdfBtn) pdfBtn.addEventListener('click', async () => {
+        if (!currentDebriefRecord) return;
+        pdfBtn.disabled = true;
+        const oldText = pdfBtn.textContent;
+        pdfBtn.textContent = 'PDF wird erstellt…';
+        try { await window.generateDebriefPDF(currentDebriefRecord); }
+        catch (err) {
+            console.error('[Debrief] PDF export failed:', err);
+            alert('Das Debrief-PDF konnte nicht erstellt werden.');
+        } finally {
+            pdfBtn.disabled = false;
+            pdfBtn.textContent = oldText;
+        }
+    });
     debriefOverlayEl = ov;
     return ov;
 }
 
-window.showFlightDebrief = function(record) {
+function _debriefFinite(value) {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+function _debriefAltitudeAssessment(record) {
+    const sd = _debriefFinite(record?.cruiseAltitudeStdDevFt);
+    const range = _debriefFinite(record?.cruiseAltitudeRangeFt);
+    if (sd == null) return { value: 'Nicht verfügbar', text: 'Für eine belastbare Bewertung gab es zu wenige stabile Streckenflug-Proben.' };
+    const rating = sd <= 75 ? 'sehr konstant' : sd <= 150 ? 'konstant' : sd <= 300 ? 'wechselhaft' : 'deutlich wechselhaft';
+    return {
+        value: `± ${Math.round(sd)} ft`,
+        text: `Die Flughöhe war im waagerechten Streckenflug ${rating} (Standardabweichung ${Math.round(sd)} ft${range == null ? '' : `, Spannweite ${Math.round(range)} ft`}).`
+    };
+}
+
+function _debriefComfortText(record) {
+    const comfort = record?.comfort;
+    if (!comfort || _debriefFinite(comfort.score) == null) return 'Für diesen Auftrag wurde kein Passagier-Komfortindex geführt.';
+    const causes = [];
+    if (Number(comfort.pilotSevere || 0) > 0) causes.push('deutliche pilotenseitige Belastungsspitzen');
+    else if (Number(comfort.pilotEvents || 0) > 0) causes.push('einzelne Manöverbelastungen');
+    if (Number(comfort.weatherSevere || 0) > 0) causes.push('anspruchsvolles Wetter');
+    else if (Number(comfort.weatherEvents || 0) > 0) causes.push('spürbare Wettereinflüsse');
+    return `Die Passagiere waren ${comfort.mood || 'bewertet'}: ${Math.round(Number(comfort.score))} von 100 Komfortpunkten${causes.length ? `; prägend waren ${causes.join(' und ')}` : ''}.`;
+}
+
+function _debriefCargoText(record) {
+    const cargo = record?.cargo;
+    if (!cargo) return 'Für diesen Auftrag war keine separate Frachtbewertung erforderlich.';
+    const issues = [
+        ...(cargo.missingRequired || []),
+        ...(cargo.droppedRequired || []),
+        ...(cargo.notDeliveredRequired || []),
+        ...(cargo.damagedRequired || [])
+    ];
+    const condition = _debriefFinite(cargo.conditionPct);
+    if (cargo.failed) return `Die Ladung wurde nicht vollständig sicher zugestellt${issues.length ? `: ${issues.slice(0, 3).join(', ')}` : '.'}`;
+    if (condition == null) return 'Die vorgeschriebene Ladung wurde vollständig und ohne registrierten Verlust transportiert.';
+    const rating = condition >= 95 ? 'sehr sicher' : condition >= 80 ? 'sicher' : condition >= 60 ? 'mit spürbarer Beanspruchung' : 'kritisch beansprucht';
+    return `Die Ladung wurde ${rating} transportiert. Ermittelter Zustand: ${Math.round(condition)} %.`;
+}
+
+function _debriefFlightText(record, altitude) {
+    const g = _debriefFinite(record?.maxGForce);
+    const bank = _debriefFinite(record?.maxBankDeg);
+    const agl = _debriefFinite(record?.minEnrouteAglFt);
+    const parts = [];
+    if (g != null) parts.push(`Die höchste gemessene Last betrug ${g.toFixed(2)} g`);
+    if (bank != null) parts.push(`der größte Bankwinkel ${bank.toFixed(1)}°`);
+    if (agl != null) parts.push(`die geringste direkte AGL-Höhe auf Strecke ${Math.round(agl)} ft`);
+    const metrics = parts.length ? `${parts.join(', ')}.` : 'Für Belastung und Streckenhöhe lagen keine belastbaren Live-Daten vor.';
+    return `${metrics} ${altitude.text}`;
+}
+
+function _appendDebriefMetric(grid, label, value) {
+    const card = document.createElement('div');
+    card.className = 'flight-debrief-metric';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'flight-debrief-metric-label';
+    labelEl.textContent = label;
+    const valueEl = document.createElement('div');
+    valueEl.className = 'flight-debrief-metric-value';
+    valueEl.textContent = value;
+    card.append(labelEl, valueEl);
+    grid.appendChild(card);
+}
+
+function _appendDebriefSection(body, title, text) {
+    const section = document.createElement('section');
+    section.className = 'flight-debrief-section';
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    const para = document.createElement('p');
+    para.textContent = text;
+    section.append(heading, para);
+    body.appendChild(section);
+}
+
+window.showFlightDebrief = function(record, options = {}) {
     if (!record) return;
     const ov = ensureDebriefOverlay();
     const body = ov.querySelector('#flightDebriefBody');
     if (!body) return;
+    currentDebriefRecord = record;
+    currentDebriefAwaitingCleanup = options.awaitingCleanup === true;
+    body.replaceChildren();
+    const dep = String(record.depLabel || record.start || 'START');
+    const arr = String(record.arrLabel || record.dest || 'LANDUNG');
+    const dateText = String(record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE'));
+    const mission = String(record.missionTitle || record.mission || 'Mission');
+    const route = document.createElement('div');
+    route.className = 'flight-debrief-route';
+    route.textContent = `${dep} ➔ ${arr}`;
+    const meta = document.createElement('div');
+    meta.className = 'flight-debrief-meta';
+    meta.textContent = `${dateText} · ${record.failed ? 'NICHT ERFÜLLT' : 'ERFÜLLT'}`;
+    const assignment = document.createElement('div');
+    assignment.className = 'flight-debrief-assignment';
+    assignment.textContent = mission;
+    body.append(route, meta, assignment);
 
-    const dep = record.depLabel || 'START';
-    const arr = record.arrLabel || 'LANDUNG';
-    const mins = Math.max(1, Math.round((record.durationSec || 0) / 60));
-    const avg = Number(record.avgGs || 0).toFixed(0);
-    const maxGs = Number(record.maxGs || 0).toFixed(0);
-    const dist = Number(record.distanceNm || 0).toFixed(1);
-    const maxAlt = Math.round(record.maxAltFt || 0);
-    const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
-    const maxBank = Number.isFinite(record.maxBankDeg) ? `${Number(record.maxBankDeg).toFixed(1)}°` : '-';
-    const maxG = Number.isFinite(record.maxGForce) ? `${Number(record.maxGForce).toFixed(2)} g` : '-';
-    const maxClimb = Number.isFinite(record.maxClimbFpm) ? `${Math.round(record.maxClimbFpm)} fpm` : '-';
-    const maxDescRaw = Number.isFinite(record.maxDescentFpm) ? Math.round(record.maxDescentFpm) : null;
-    const maxDescent = Number.isFinite(maxDescRaw) ? `${Math.abs(maxDescRaw)} fpm` : '-';
-    const dateText = record.dateLabel || new Date(record.createdAt || Date.now()).toLocaleString('de-DE');
-    const pts = Array.isArray(record.track) ? record.track.length : 0;
+    const grid = document.createElement('div');
+    grid.className = 'flight-debrief-metrics';
+    const duration = _debriefFinite(record.durationSec);
+    const distance = _debriefFinite(record.distanceNm ?? record.dist);
+    const g = _debriefFinite(record.maxGForce);
+    const bank = _debriefFinite(record.maxBankDeg);
+    const agl = _debriefFinite(record.minEnrouteAglFt);
+    const altitude = _debriefAltitudeAssessment(record);
+    _appendDebriefMetric(grid, 'Flugzeit', duration == null ? '–' : `${Math.max(1, Math.round(duration / 60))} min`);
+    _appendDebriefMetric(grid, 'Distanz', distance == null ? '–' : `${distance.toFixed(1)} NM`);
+    _appendDebriefMetric(grid, 'Höchstes G', g == null ? '–' : `${g.toFixed(2)} g`);
+    _appendDebriefMetric(grid, 'Max. Bank', bank == null ? '–' : `${bank.toFixed(1)}°`);
+    _appendDebriefMetric(grid, 'Höhenkonstanz', altitude.value);
+    _appendDebriefMetric(grid, 'Min. AGL Strecke', agl == null ? '–' : `${Math.round(agl)} ft`);
+    body.appendChild(grid);
+    _appendDebriefSection(body, 'Flugdurchführung', _debriefFlightText(record, altitude));
+    _appendDebriefSection(body, 'Passagierkomfort', _debriefComfortText(record));
+    _appendDebriefSection(body, 'Ladungssicherheit', _debriefCargoText(record));
 
-    body.innerHTML = `
-        <div style="font-size:20px; font-weight:bold; margin-bottom:8px;">${dep} ➔ ${arr}</div>
-        <div style="color:#9fc0e8; margin-bottom:14px;">${dateText}</div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px;">
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Distanz</div><div style="font-size:18px; font-weight:bold;">${dist} NM</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Flugzeit</div><div style="font-size:18px; font-weight:bold;">${mins} min</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Ø GS</div><div style="font-size:18px; font-weight:bold;">${avg} kt</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max GS</div><div style="font-size:18px; font-weight:bold;">${maxGs} kt</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max ALT</div><div style="font-size:18px; font-weight:bold;">${maxAlt} ft</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Touchdown VS</div><div style="font-size:18px; font-weight:bold;">${td}</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Bank</div><div style="font-size:18px; font-weight:bold;">${maxBank}</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max G</div><div style="font-size:18px; font-weight:bold;">${maxG}</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Climb</div><div style="font-size:18px; font-weight:bold;">${maxClimb}</div></div>
-            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Descent</div><div style="font-size:18px; font-weight:bold;">${maxDescent}</div></div>
-        </div>
-        <div style="font-size:12px; color:#9fc0e8;">Trackpunkte gespeichert: ${pts}</div>
-    `;
+    const closeBtn = ov.querySelector('#flightDebriefCloseBtn');
+    const finishBtn = ov.querySelector('#flightDebriefFinishBtn');
+    if (closeBtn) closeBtn.style.display = currentDebriefAwaitingCleanup ? 'none' : '';
+    if (finishBtn) {
+        finishBtn.disabled = false;
+        finishBtn.textContent = currentDebriefAwaitingCleanup ? 'Debrief schließen & Mission aufräumen' : 'Schließen';
+    }
     ov.style.display = 'flex';
 };
 
@@ -1508,7 +1644,7 @@ function latLngToPixel(lat, lng, zoom) {
     return { x, y };
 }
 
-function drawNotebookBackground(doc, pageNum, totalPages) {
+function drawNotebookBackground(doc, pageNum, totalPages, footerLabel = 'Briefing Pack') {
     const W = 210, H = 297;
     doc.setFillColor(253, 245, 230); doc.rect(0, 0, W, H, 'F');
     doc.setDrawColor(180, 200, 215); doc.setLineWidth(0.15);
@@ -1519,7 +1655,7 @@ function drawNotebookBackground(doc, pageNum, totalPages) {
     doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120, 115, 100);
     doc.text(`Seite ${pageNum} / ${totalPages}`, W - 15, H - 12, { align: 'right' });
     doc.setFontSize(7); doc.setTextColor(170, 165, 150);
-    doc.text('VFR Multitool \u2013 Briefing Pack', W / 2, H - 6, { align: 'center' });
+    doc.text(`VFR Multitool \u2013 ${footerLabel}`, W / 2, H - 6, { align: 'center' });
 }
 
 function pdfWrappedText(doc, text, x, y, maxWidth, lineHeight) {
@@ -1527,6 +1663,96 @@ function pdfWrappedText(doc, text, x, y, maxWidth, lineHeight) {
     lines.forEach((line, i) => doc.text(line, x, y + (i * lineHeight)));
     return y + (lines.length * lineHeight);
 }
+
+function _drawDebriefPdfSection(doc, title, text, y) {
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(11, 31, 101);
+    doc.text(stripEmojis(String(title || '')), 32, y);
+    y += 6;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(45, 45, 40);
+    return pdfWrappedText(doc, stripEmojis(String(text || '')), 32, y, 155, 5.2) + 8;
+}
+
+window.buildDebriefPdfDocument = async function(record) {
+    if (!record) throw new Error('Debrief-Datensatz fehlt.');
+    await ensureBriefingPdfLibraries();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    drawNotebookBackground(doc, 1, 1, 'Mission Debrief');
+    const dep = String(record.depLabel || record.start || 'START');
+    const arr = String(record.arrLabel || record.dest || 'LANDUNG');
+    const altitude = _debriefAltitudeAssessment(record);
+    const duration = _debriefFinite(record.durationSec);
+    const distance = _debriefFinite(record.distanceNm ?? record.dist);
+    const g = _debriefFinite(record.maxGForce);
+    const bank = _debriefFinite(record.maxBankDeg);
+    const agl = _debriefFinite(record.minEnrouteAglFt);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(135, 45, 35);
+    doc.text('MISSIONSABSCHLUSS · FLIGHT DEBRIEF', 32, 28);
+    doc.setFontSize(20);
+    doc.setTextColor(11, 31, 101);
+    doc.text(stripEmojis(`${dep}  >  ${arr}`), 32, 39);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(90, 85, 75);
+    doc.text(stripEmojis(String(record.dateLabel || record.date || '')), 32, 47);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(45, 45, 40);
+    let y = pdfWrappedText(doc, stripEmojis(String(record.missionTitle || record.mission || 'Mission')), 32, 58, 155, 6) + 7;
+
+    const metrics = [
+        ['FLUGZEIT', duration == null ? '-' : `${Math.max(1, Math.round(duration / 60))} min`],
+        ['DISTANZ', distance == null ? '-' : `${distance.toFixed(1)} NM`],
+        ['HOECHSTES G', g == null ? '-' : `${g.toFixed(2)} g`],
+        ['MAX. BANK', bank == null ? '-' : `${bank.toFixed(1)} deg`],
+        ['HOEHENKONSTANZ', altitude.value.replace('±', '+/-')],
+        ['MIN. AGL STRECKE', agl == null ? '-' : `${Math.round(agl)} ft`]
+    ];
+    const colW = 51;
+    metrics.forEach((metric, index) => {
+        const col = index % 3;
+        const row = Math.floor(index / 3);
+        const x = 32 + col * colW;
+        const yy = y + row * 19;
+        doc.setFillColor(247, 236, 213);
+        doc.setDrawColor(185, 170, 140);
+        doc.roundedRect(x, yy, 47, 15, 1.5, 1.5, 'FD');
+        doc.setFont('Helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(115, 85, 55);
+        doc.text(metric[0], x + 3, yy + 5);
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(30, 35, 40);
+        doc.text(stripEmojis(metric[1]), x + 3, yy + 11.5);
+    });
+    y += 45;
+    y = _drawDebriefPdfSection(doc, 'Flugdurchfuehrung', _debriefFlightText(record, altitude), y);
+    y = _drawDebriefPdfSection(doc, 'Passagierkomfort', _debriefComfortText(record), y);
+    y = _drawDebriefPdfSection(doc, 'Ladungssicherheit', _debriefCargoText(record), y);
+
+    doc.setDrawColor(record.failed ? 165 : 45, record.failed ? 55 : 120, record.failed ? 45 : 65);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(32, Math.min(245, y + 2), 155, 18, 2, 2);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(record.failed ? 150 : 30, record.failed ? 45 : 105, record.failed ? 35 : 55);
+    doc.text(record.failed ? 'MISSION NICHT ERFUELLT' : 'MISSION ERFUELLT', 109.5, Math.min(256, y + 13), { align: 'center' });
+    doc.setProperties({ title: `Mission Debrief ${dep} - ${arr}`, subject: String(record.missionTitle || record.mission || '') });
+    return doc;
+};
+
+window.generateDebriefPDF = async function(record) {
+    const doc = await window.buildDebriefPdfDocument(record);
+    const dep = String(record?.depLabel || record?.start || 'START').replace(/[^a-z0-9_-]+/gi, '-');
+    const arr = String(record?.arrLabel || record?.dest || 'LANDUNG').replace(/[^a-z0-9_-]+/gi, '-');
+    const stamp = new Date(record?.createdAt || Date.now()).toISOString().slice(0, 10);
+    doc.save(`Debrief_${dep}_${arr}_${stamp}.pdf`);
+    return true;
+};
 
 function drawMissionBriefingPage(doc, data, mapImage) {
     let y = 30;

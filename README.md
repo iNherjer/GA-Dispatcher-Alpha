@@ -84,7 +84,7 @@ Funktionen:
 - **Push**: aktuellen Stand in die Cloud schreiben.
 - **Pull**: Cloud-Stand auf dieses Geraet holen.
 - **Live GPS**: zeigt, ob Daten vom PC-Tracker ankommen.
-- Bei aktiver Telemetrie zeigt der Live-GPS-Status zusätzlich die erkannte Tracker-Version, zum Beispiel `LIVE · v301`; `WAIT` bedeutet dagegen nur, dass der Relay verbunden ist und gerade keine frischen Tracker-Daten ankommen.
+- Der Live-GPS-Status unterscheidet drei Stufen: `WAIT` bedeutet, dass nur die App am Relay verbunden ist; `LINK · v302` bestätigt den verbundenen PC-Tracker ohne frische Sim-Telemetrie; `LIVE · v302` zeigt aktive Telemetrie. Bei `LINK` und `LIVE` wird die erkannte Tracker-Version mit angezeigt.
 - **PC-Tracker (.exe)**: sendet MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App.
 
 PC-Tracker einrichten:

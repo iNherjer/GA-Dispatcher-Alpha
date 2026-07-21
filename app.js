@@ -8664,9 +8664,9 @@ async function restoreMissionState(state, options = {}) {
 
 }
 
-function resetApp() {
-    if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
-    _abortDispatchRun('Clear');
+function clearAppMissionState(options = {}) {
+    const nextStart = String(options.nextStart || '').trim();
+    if (options.abortDispatch !== false) _abortDispatchRun(options.reason || 'Clear');
     if (window.meterInterval) {
         clearInterval(window.meterInterval);
         window.meterInterval = null;
@@ -8676,13 +8676,19 @@ function resetApp() {
     const led = document.getElementById('meterLed');
     if (led) led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
     document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
-    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
-    localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
+    if (!options.skipRuntimeReset && typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    localStorage.removeItem('ga_active_mission');
+    localStorage.removeItem('ga_active_mission_contract');
+    localStorage.removeItem('ga_active_passenger');
+    localStorage.removeItem('ga_active_mission_runtime');
+    localStorage.removeItem('ga_pending_mission_debrief_v1');
+    const briefingBox = document.getElementById('briefingBox');
+    if (briefingBox) briefingBox.style.display = 'none';
     rememberActiveMissionStateMemoryFallback(null);
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;
-    localStorage.removeItem('ga_active_mission_contract');
-    clearMissionDebugSnapshot('reset-app');
+    window.activePassenger = null;
+    clearMissionDebugSnapshot(options.reason || 'reset-app');
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';
@@ -8694,9 +8700,18 @@ function resetApp() {
 
     const destLocEl = document.getElementById('destLoc');
     const destLocRadioEl = document.getElementById('destLocRadio');
+    const startLocEl = document.getElementById('startLoc');
+    const startLocRadioEl = document.getElementById('startLocRadio');
     setMissionNoteFrontIndex(0);
     if (destLocEl) destLocEl.value = '';
     if (destLocRadioEl) destLocRadioEl.value = '';
+    currentDestICAO = '';
+    if (nextStart) {
+        currentStartICAO = nextStart;
+        if (startLocEl) startLocEl.value = nextStart;
+        if (startLocRadioEl) startLocRadioEl.value = nextStart;
+        localStorage.setItem('last_icao_dest', nextStart);
+    }
 
     document.getElementById('searchIndicator').innerText = "System bereit."; setMissionGenerationProgress({ visible: false, force: true }); setDrumCounter('distDrum', 0); recalculatePerformance();
     setDispatchLampState('idle');
@@ -8725,6 +8740,13 @@ function resetApp() {
 
     // Höhenband: Bereitschaftsstand (leeres Profil)
     if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    return true;
+}
+window.clearAppMissionState = clearAppMissionState;
+
+function resetApp() {
+    if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return false;
+    return clearAppMissionState({ reason: 'reset-app' });
 }
 /* =========================================================
    4. HELPER-FUNKTIONEN (UI & Mathe)
@@ -43744,63 +43766,54 @@ function openAIP(t) {
 function openMetar(t) { window.open(`https://metar-taf.com/de/${t === 'dep' ? currentStartICAO : currentDestICAO}`, '_blank'); }
 
 function logCurrentFlight() {
-    if (!currentMissionData) return;
-    if (typeof window.openMissionCargoDialog === 'function') {
-        const groundAction = typeof window.missionResolveGroundAction === 'function'
-            ? window.missionResolveGroundAction()
-            : null;
-        if (groundAction?.action === 'pickup') {
-            window.openMissionCargoDialog('pickup');
-            return;
-        }
-        if (groundAction?.action === 'unload') {
-            window.openMissionCargoDialog('unload');
-            return;
-        }
-        if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
-            window.openMissionCargoDialog('unload');
-            return;
-        }
-    }
-    const cargoOutcome = (typeof window.missionCargoFinalizeMissionOutcome === 'function')
-        ? window.missionCargoFinalizeMissionOutcome({ source: 'logbook' })
-        : null;
-    if (typeof window.missionFollowupMaybeCreateFromCompletedMission === 'function') {
-        try {
-            window.missionFollowupMaybeCreateFromCompletedMission(currentMissionData, cargoOutcome, { source: 'logbook' });
-        } catch (err) {
-            console.warn('[FollowUp] Logbook-Hook fehlgeschlagen:', err?.message || err);
-        }
-    }
-    const log = JSON.parse(localStorage.getItem('ga_logbook')) || [];
-    log.unshift({ ...currentMissionData, date: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) });
-    localStorage.setItem('ga_logbook', JSON.stringify(log.slice(0, 50)));
-    localStorage.setItem('last_icao_dest', currentMissionData.dest);
-    const newStart = currentMissionData.dest || '';
-    document.getElementById('startLoc').value = newStart;
-    document.getElementById('destLoc').value = "";
-    const startLocRadioEl = document.getElementById('startLocRadio');
-    const destLocRadioEl = document.getElementById('destLocRadio');
-    if (startLocRadioEl) startLocRadioEl.value = newStart;
-    if (destLocRadioEl) destLocRadioEl.value = '';
-    renderLog(); alert(cargoOutcome?.failed ? `Flug geloggt, aber Mission fehlgeschlagen: Pflichtladung fehlt oder wurde nicht abgeliefert. Du bist in ${currentMissionData.dest}.` : `Flug geloggt! Du bist in ${currentMissionData.dest}.`);
-    triggerCloudSave();
+    // Legacy-Einstieg: Logbuchdaten werden ausschliesslich vom finalen
+    // Missionsabschluss erzeugt, damit kein voller Missions-/Telemetrieblock
+    // mehr im Local Storage landet.
+    if (typeof window.completeMissionClose === 'function' && window.completeMissionClose('legacy-log-button', { skipConfirm: true })) return;
+    alert('Das Flugbuch wird beim finalen Missionsabschluss automatisch geschrieben.');
 }
 
 function renderLog() {
-    const log = JSON.parse(localStorage.getItem('ga_logbook')) || [];
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
+    if (!Array.isArray(log)) log = [];
     const container = document.getElementById('logContent');
-    container.innerHTML = log.length ? '' : '<div style="color:#888; font-size:11px;">Keine Einträge vorhanden.</div>';
-    const isRetro = document.body.classList.contains('theme-retro');
+    if (!container) return;
+    container.replaceChildren();
+    if (!log.length) {
+        const empty = document.createElement('div');
+        empty.className = 'log-empty';
+        empty.textContent = 'Keine Einträge vorhanden.';
+        container.appendChild(empty);
+        return;
+    }
     log.forEach(e => {
-        const div = document.createElement('div'); div.className = 'log-entry';
-        const routeStr = e.poiName ? `<b>${e.start} ➔ ${e.poiName} ➔ ${e.dest}</b>` : `<b>${e.start} ➔ ${e.dest}</b>`;
-        const hlColor = isRetro ? 'var(--piper-yellow)' : 'var(--blue)', subColor = isRetro ? '#aaa' : '#888';
-        div.innerHTML = `<span style="color:${subColor};">${e.date} • ${e.ac}</span><br>${routeStr}<br><span style="color:${hlColor}">${e.mission} (${e.dist} NM)</span>`;
+        const div = document.createElement('button');
+        div.type = 'button';
+        div.className = 'log-entry';
+        const meta = document.createElement('span');
+        meta.className = 'log-entry-meta';
+        const durationMin = e.durationSec != null && Number.isFinite(Number(e.durationSec)) ? `${Math.max(1, Math.round(Number(e.durationSec) / 60))} min` : '';
+        meta.textContent = [e.date || e.dateLabel || '', e.ac || e.aircraft || '', durationMin].filter(Boolean).join(' • ');
+        const route = document.createElement('strong');
+        route.className = 'log-entry-route';
+        route.textContent = e.poiName
+            ? `${e.start || e.depLabel || 'START'} ➔ ${e.poiName} ➔ ${e.dest || e.arrLabel || 'LANDUNG'}`
+            : `${e.start || e.depLabel || 'START'} ➔ ${e.dest || e.arrLabel || 'LANDUNG'}`;
+        const mission = document.createElement('span');
+        mission.className = 'log-entry-mission';
+        const rawDist = e.distanceNm ?? e.dist;
+        const dist = rawDist == null || rawDist === '' ? null : Number(rawDist);
+        mission.textContent = `${e.mission || e.missionTitle || 'Mission'}${Number.isFinite(dist) ? ` (${dist.toFixed(1)} NM)` : ''}`;
+        div.append(meta, route, mission);
+        div.addEventListener('click', () => {
+            if (typeof window.showFlightDebrief === 'function') window.showFlightDebrief(e, { awaitingCleanup: false });
+        });
         container.appendChild(div);
     });
 }
-function clearLog() { if (confirm("Gesamtes Logbuch löschen?")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); renderLog(); triggerCloudSave(); } }
+window.renderLog = renderLog;
+function clearLog() { if (confirm("Gesamtes Logbuch löschen?")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); renderLog(); triggerCloudSave(true); } }
 
 /* =========================================================
    10. HANGAR PINNWAND & CREW BOARD MULTIPLAYER

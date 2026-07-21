@@ -399,6 +399,8 @@ let _pattonvilleReportingPointsMentioned = false;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 const _UNIFIED_INSTRUCTOR_BASELINE = true;
+// Die Baseline gilt nur fuer Instruktor-/Training-Personas; normale Missionsrollen
+// behalten ihre eigene Sprachsignatur.
 const _USE_COMBINED_BOARDING_GREETING = true;
 let _trainingEval = null;
 
@@ -1292,6 +1294,7 @@ function _normTaskDomain(value) {
         'historian_guided_tour',
         'poi_learning_guide',
         'mapping_survey',
+        'cargo',
         'cargo_fragile',
         'search_and_rescue',
         'fire_watch',
@@ -1306,6 +1309,15 @@ function _normTaskDomain(value) {
 
 function _activeTaskDomain() {
     return _normTaskDomain(window.activePassenger?.taskDomain || '');
+}
+
+function _paxUsesInstructorBaseline(pax = window.activePassenger) {
+    const roleProfile = String(pax?.roleProfile || '').trim().toLowerCase();
+    const taskDomain = _normTaskDomain(pax?.taskDomain || '');
+    return taskDomain === 'training'
+        || taskDomain === 'club_training_basic'
+        || taskDomain === 'club_training_advanced'
+        || roleProfile === 'instructor_calm_precise_v1';
 }
 
 function _normLevel3(v) {
@@ -3513,6 +3525,16 @@ function _missionComfortSummary() {
         maxPrecipRate: Number(score.maxPrecipRate || 0).toFixed(1)
     };
 }
+
+// Read-only Abschluss-Snapshot fuer Logbuch/Debrief. Die Voice-Schicht bleibt
+// alleinige Quelle der Komfortwertung; der Missionsabschluss liest sie nur aus.
+window.paxVoiceGetComfortSummary = function() {
+    try {
+        return JSON.parse(JSON.stringify(_missionComfortSummary()));
+    } catch (_) {
+        return null;
+    }
+};
 
 function _missionWeatherReactionLine(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
@@ -6798,6 +6820,8 @@ function _baseContext() {
         : (payload || (_missionHasPax() ? '1 PAX' : '0 PAX'));
     const onboardCargo = cargo || 'keine besondere Ausruestung';
     const roleStyle = _roleStyleHint(pax.role, pax);
+    const personalityLabel = _personaPersonalityLabel(pax);
+    const personaSpeechSignature = _personaSpeechSignature(pax);
     const urgency = _normUrgencyPriority(pax?.urgencyPriority);
     const urgencyLine = urgency === 'hoch'
         ? 'ZEITRAHMEN: Zeitkritisch, Zeitdruck darf kurz genannt werden.'
@@ -6809,6 +6833,15 @@ function _baseContext() {
         try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
     }
     let storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
+    const personaNarrativeSeedAllowed = _personaNarrativeSeedAllowed(pax);
+    const personaCue = String(personaNarrativeSeedAllowed ? (pax?.personalStoryCue || pax?.storySeed || '') : '')
+        .replace(/\{name\}/g, String(pax?.name || ''))
+        .replace(/\{firstName\}/g, String(pax?.name || '').split(/\s+/)[0] || '')
+        .replace(/\{targetName\}/g, String(md?.poiName || md?.targetName || md?.dest || 'dem Ziel'))
+        .replace(/\{homeName\}/g, String(md?.start || 'dem Heimatplatz'))
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 320);
     if (pickupPaxActive) {
         const pickupStory = _bushPickupStoryData(pickupPaxContext, pax);
         const why = pickupStory.boardingCue
@@ -6838,7 +6871,7 @@ function _baseContext() {
         ? (pickupPaxContext?.bush?.homeRef?.name || md.start || '?')
         : (md.poiName || md.dest || '?');
     const lines = [
-`ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
+`ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${personalityLabel}
 FLUG: ${flightStart} → ${flightDest} · ${md.dist || '?'} NM
 AN BORD: ${onboardPax}
 AUSRUESTUNG: ${onboardCargo}
@@ -6847,6 +6880,9 @@ STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
 ${urgencyLine}`
     ];
+    lines.push(`SPRACH-PERSONA: ${personaSpeechSignature}`);
+    if (personaCue && !pickupPaxActive) lines.push(`PERSÖNLICHER FADEN: ${personaCue}`);
+    lines.push('PERSONA-GRENZE: Persönlichkeit verändert nur Wortwahl, Rhythmus und persönliche Reaktion. Keine neuen Fakten, Ziele, Rollen, Gefahren oder Missionsergebnisse erfinden; Story, TaskDomain und Mission-Lage bleiben bindend.');
     if (trainingDiscipline) lines.push(trainingDiscipline);
     if (trainingScheduleLine) lines.push(`TRAINING-STUNDENPLAN: ${trainingScheduleLine}`);
     if (contractSummary) lines.push(`MISSION-CONTRACT: ${contractSummary}`);
@@ -7036,6 +7072,30 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'media_photo') {
         return 'bildredaktionell und ruhig: Motiv, Perspektive, Ortsbezug und verwertbares Material stehen im Vordergrund, kein Sightseeing-Ton.';
     }
+    if (taskDomain === 'inspection_infra') {
+        return 'praktisch, genau und trocken-professionell: konkrete sichtbare Beobachtungen statt Checklisten- oder Gutachtensprache; ein persönlicher kurzer Eindruck ist okay.';
+    }
+    if (taskDomain === 'infra_chain_recon') {
+        return 'strukturiert, kollegial und knapp: Punkte nacheinander natürlich einordnen, ohne wie ein Prüfprotokoll oder eine UI-Liste zu klingen.';
+    }
+    if (taskDomain === 'medical_transfer') {
+        return 'ruhig, empathisch und unaufgeregt: medizinische Verantwortung spürbar machen, ohne Drama, Diagnosemonolog oder sterile Klinikformeln.';
+    }
+    if (taskDomain === 'animal_transport') {
+        return 'fürsorglich, aufmerksam und praktisch: natürlich über das Tier, sein Befinden und die Übergabe sprechen, ohne Verniedlichung oder Fachvortrag.';
+    }
+    if (taskDomain === 'cargo_fragile') {
+        return 'verantwortungsbewusst, konkret und menschlich: den persönlichen Bezug zur empfindlichen Sendung zeigen, ohne Loadsheet-, Kurier- oder Werbesprache.';
+    }
+    if (taskDomain === 'club_utility') {
+        return 'vertraut, hilfsbereit und vereinsnah: wie jemand aus dem Fliegerclub sprechen, direkt und kollegial statt wie ein Dispatcher.';
+    }
+    if (taskDomain === 'charter') {
+        return 'souverän, höflich und persönlich: den eigenen Anlass und den nächsten Schritt am Ziel natürlich anklingen lassen, ohne Business-Floskeln.';
+    }
+    if (taskDomain === 'bush_pickup_return') {
+        return 'bodenständig, erleichtert und persönlich: aus der eigenen Zeit draußen erzählen, mit einem konkreten Detail und ohne Einsatzbericht- oder Abholerperspektive.';
+    }
     if (taskDomain === 'historian_guided_tour') {
         return 'anschaulich-historisch und bildungsorientiert: Ortsbild, alte Wege, Lagebezug oder fruehere Nutzung konkret einordnen, keine Technik-Inspektion.';
     }
@@ -7074,6 +7134,85 @@ function _roleStyleHint(roleRaw, pax = null) {
         return 'interessiert, lernorientiert, respektvoll und eher zurückhaltend.';
     }
     return 'natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.';
+}
+
+function _personaPersonalityLabel(pax = null) {
+    const explicit = String(pax?.personality || '').replace(/\s+/g, ' ').trim();
+    if (explicit && explicit.toLowerCase() !== 'undefined') return explicit;
+    const taskDomain = _activeTaskDomain();
+    const fallbackByDomain = {
+        training: 'ruhig, präzise, motivierend',
+        charter: 'höflich, souverän, aufmerksam',
+        inspection_infra: 'praktisch, aufmerksam, trocken',
+        infra_chain_recon: 'strukturiert, ruhig, kollegial',
+        medical_transfer: 'empathisch, konzentriert, leise',
+        animal_transport: 'fürsorglich, wach, pragmatisch',
+        cargo_fragile: 'sorgfältig, verbindlich, ruhig',
+        club_utility: 'kollegial, direkt, hilfsbereit',
+        bush_pickup_return: 'bodenständig, erleichtert, erfahren',
+        bush_adventure: 'neugierig, entspannt, naturverbunden'
+    };
+    return fallbackByDomain[taskDomain] || 'natürlich, aufmerksam, glaubwürdig';
+}
+
+function _personaSpeechSignature(pax = null) {
+    const roleProfile = String(pax?.roleProfile || '').trim().toLowerCase();
+    const taskDomain = _activeTaskDomain();
+    const byDomain = {
+        animal_transport: 'Sprich fürsorglich und praktisch aus Sicht der Begleitperson; das Tier und die ruhige Übergabe stehen persönlich im Mittelpunkt.',
+        private_outing: 'Sprich alltagsnah und persönlich über den gemeinsamen Plan; kleine Vorfreude ist wichtiger als Missionssprache.',
+        bush_pickup_return: 'Sprich bodenständig aus der eigenen Zeit draußen; Erleichterung und ein konkretes Erlebnis dürfen hörbar werden.'
+    };
+    const byProfile = {
+        technical_inspector_v1: 'Sprich wie eine erfahrene Fachperson im Cockpit: konkrete Beobachtung, kurze Einordnung, dann der nächste sinnvolle Gedanke.',
+        medical_sensitive_v1: 'Sprich ruhig und menschlich; Verantwortung zeigt sich in kleinen, konkreten Sorgen statt in dramatischen Formulierungen.',
+        news_reporter_professional_v1: 'Sprich neugierig und wach, mit einem greifbaren Detail, das dir als Reporter gerade auffällt.',
+        media_observer_v1: 'Sprich visuell und konkret; ein Motiv, Licht, Perspektive oder verwertbarer Bildmoment darf deine Wortwahl prägen.',
+        tour_guide_relaxed_v1: 'Sprich warm und spontan wie ein echter Mitflieger; kleine Vorfreude oder eine persönliche Reaktion ist erwünscht.',
+        tour_guide_learning_v1: 'Erkläre anschaulich und gesprächig, aber nicht dozierend; ein guter Fakt soll wie eine interessante Beobachtung klingen.',
+        historian_storyteller_v1: 'Erzähle anschaulich und ruhig; verbinde einen gesicherten historischen Punkt mit dem sichtbaren Ort, ohne etwas hinzuzuerfinden.',
+        science_field_v1: 'Sprich wie bei einer Feldbeobachtung mit einem Kollegen: neugierig, konkret und fachlich, aber nicht wie ein Paper.',
+        photogrammetry_precision_v1: 'Sprich präzise und kollegial; technische Qualität benennen, ohne Software-, UI- oder Protokollsprache.',
+        cargo_fragile_highcare_v1: 'Lass erkennen, warum dir genau diese Sendung wichtig ist; praktisch und persönlich, nicht wie eine Frachtliste.',
+        club_utility_v1: 'Sprich vertraut und kollegial wie im Vereinsbetrieb; kurze praktische Bemerkungen dürfen etwas Eigenart haben.',
+        rescue_coordination_v1: 'Sprich ruhig unter Druck: klare Priorität, konkrete Beobachtung, kein Pathos.',
+        fire_observer_ops_v1: 'Sprich wach und lagebezogen; kurze präzise Calls, keine künstliche Dramatik.',
+        charter_professional_neutral_v1: 'Sprich gepflegt, aber nicht steif; der persönliche Anlass darf zwischen den professionellen Sätzen sichtbar werden.',
+        general_passenger_v1: 'Sprich wie eine echte Privatperson mit eigener Vorfreude, Sorge oder kleinen Alltagsbeobachtung.',
+        bush_charter_guest_v1: 'Sprich direkt und draußen-erfahren; konkrete Dinge am Strip oder nach der Landung sind besser als allgemeine Wildnisromantik.',
+        bush_adventure_guest_v1: 'Sprich naturverbunden und leicht gespannt; ein kleines sinnliches Detail darf die Vorfreude tragen.',
+        bush_pickup_guest_v1: 'Sprich aus eigener Erfahrung am abgelegenen Ort; erleichtert, glaubwürdig und mit einem konkreten Detail von draußen.',
+        instructor_calm_precise_v1: 'Sprich ruhig, präzise und motivierend; Persönlichkeit zeigt sich nur in knapper, fairer Rückmeldung.'
+    };
+    const domainFallback = {
+        medical_transfer: 'Ruhig, empathisch und konkret sprechen.',
+        cargo_fragile: 'Persönlichen Verantwortungsbezug zur Sendung zeigen.',
+        sightseeing_tour: 'Spontan, warm und mit echter Vorfreude reagieren.',
+        bush_adventure: 'Naturverbunden und mit echter Vorfreude auf den Aufenthalt sprechen.'
+    };
+    const signature = byDomain[taskDomain] || byProfile[roleProfile] || domainFallback[taskDomain] || 'Sprich als eigenständige Person und nicht als austauschbare Missionsstimme.';
+    return `${signature} Persönlichkeitsfarbe: ${_personaPersonalityLabel(pax)}.`;
+}
+
+function _personaNarrativeSeedAllowed(pax = null) {
+    // Rohe Persona-Seeds duerfen nur dort in den Voice-Prompt, wo der persoenliche
+    // Anlass selbst der Missionskern ist. Operative Missionen bleiben ausschliesslich
+    // an finaler Story, Contract und Mission-Lage geerdet, damit z.B. Tierart,
+    // Frachtstueck oder Einsatzbefund nicht aus einem aelteren Persona-Seed driften.
+    if (_isBushVoiceMission()) return true;
+    const taskDomain = _activeTaskDomain();
+    return new Set([
+        'training',
+        'club_training_basic',
+        'club_training_advanced',
+        'charter',
+        'private_outing',
+        'sightseeing_tour',
+        'historian_guided_tour',
+        'poi_learning_guide',
+        'bush_adventure',
+        'bush_pickup_return'
+    ]).has(taskDomain);
 }
 
 function _rolePrefersNeutralSpeech(roleRaw) {
@@ -7137,7 +7276,7 @@ function _regionalSpeechProfileForCoords(lat, lon) {
 }
 
 function _contextualDialectProfile(pax) {
-    if (_UNIFIED_INSTRUCTOR_BASELINE) {
+    if (_UNIFIED_INSTRUCTOR_BASELINE && _paxUsesInstructorBaseline(pax)) {
         return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Global: instructor_baseline' };
     }
     const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
@@ -7601,13 +7740,13 @@ Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und dir
 
 // Shared tone instruction appended to every prompt
 function _toneHint() {
-    if (_UNIFIED_INSTRUCTOR_BASELINE) {
+    if (_UNIFIED_INSTRUCTOR_BASELINE && _paxUsesInstructorBaseline()) {
         const greetingLine = _paxGreetingDone ? 'Keine neue Begrüßung am Satzanfang.' : 'Begrüßung höchstens sehr kurz.';
         const humorLine = _paxHumorLevel === 'subtle'
             ? 'Kein Witz.'
             : _paxHumorLevel === 'bold'
                 ? 'Genau eine kurze, sympathische Pointe (nur wenn nicht sicherheitskritisch).'
-                : 'Humor kurz und freundlich.';
+                : 'Kein erzwungener Humor.';
         return `
 Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze.
 Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.
@@ -7623,7 +7762,7 @@ Nur Deutsch, kein Markdown.`;
         ? 'Kein Witz.'
         : _paxHumorLevel === 'bold'
             ? 'Genau eine kurze, sympathische Pointe (nur wenn nicht sicherheitskritisch).'
-            : 'Humor kurz und freundlich.';
+            : 'Humor nur, wenn er zur beschriebenen Person und zum Moment passt; keine erzwungene Pointe.';
     const greetingLine = _paxGreetingDone
         ? 'Keine neue Begrüßung am Satzanfang.'
         : (isBush ? 'Begrüßung höchstens kurz und unaufgeregt.' : 'Begrüßung höchstens kurz (z.B. "Hi").');
@@ -7638,9 +7777,10 @@ Nur Deutsch, kein Markdown.`;
             ? 'Leicht raue, praktische Alltagssprache ist okay; kurz, bodenstaendig und glaubwuerdig bleiben.'
             : 'Leichte Umgangssprache okay, normal schreiben.');
     return `
-Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze.
+Du-Form, nie mit Namen. Ich-Form. Natürlich gesprochene Sätze mit leicht wechselndem Rhythmus; nicht wie Briefing, Bericht, Checkliste oder Werbetext.
 ${registerLine}
 ${colloquialLine}
+Ein kurzer persönlicher Einschub oder eine spontane Reaktion ist willkommen, solange keine neuen Missionsfakten erfunden werden.
 ${greetingLine}
 ${humorLine}
 Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.
@@ -7851,10 +7991,22 @@ Max 3-4 Sätze.${_toneHint()}`;
     const trainingBoardingRule = trainingSchedule
         ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass der Pilot erst im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button "Bereit fuer Uebung" freigeben soll. Sage auch, dass nach den zwei vorbereiteten Uebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen. Keine Woerter wie Pflichtprogramm, Pflichtteil, Optional oder voller Plan.`
         : '';
+    const personaGreetingSeed = String(_personaNarrativeSeedAllowed(pax) ? (pax?.greetingText || '') : '')
+        .replace(/\{name\}/g, String(pax?.name || ''))
+        .replace(/\{firstName\}/g, String(pax?.name || '').split(/\s+/)[0] || '')
+        .replace(/\{targetName\}/g, String(_activeMissionData()?.poiName || _activeMissionData()?.targetName || _activeMissionData()?.dest || 'dem Ziel'))
+        .replace(/\{homeName\}/g, String(_activeMissionData()?.start || 'dem Heimatplatz'))
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 320);
+    const personaGreetingLine = personaGreetingSeed
+        ? `\nPERSONA-STARTIMPULS: "${personaGreetingSeed}" Nutze daraus Ton, persönlichen Anlass und höchstens ein konkretes Detail. Frei und natürlich formulieren, nicht wortgleich nachsprechen. Wenn der Impuls AUFTRAG, TaskDomain oder MISSION-LAGE widerspricht, ignoriere ihn vollständig.`
+        : '';
     const manifestSpeechRule = 'WICHTIG: Schreibe von Anfang an wie eine echte Person, nicht wie ein Loadsheet. Wenn du dich vorstellst, dann nur natürlich in Alltagssprache. Technische Felder wie PAX, AN BORD, AUSRÜSTUNG, Payload oder Zuladung sind Kontextdaten und keine Wörter für die gesprochene Ansage. Personen sind keine Ausrüstung: ein Mensch steigt ein, setzt sich, schnallt sich an oder ist bereit; nur Gepäck, Werkzeug, Taschen oder Material werden verstaut oder gesichert.';
     return `${ctx}
 
 Moment: Das Boarding ist abgeschlossen, die Tür ist geschlossen und der Start steht gleich an.${wx ? ' ' + wx : ''}
+${personaGreetingLine}
 Erzeuge eine kurze, nette Boarding-Ansage aus Sicht des Passagiers in einem Block. Sie soll wie ein spontaner Satz direkt nach dem Einsteigen oder Anschnallen klingen: kurze Begrüßung oder Bereitschaft, ein sinnvoller Bezug zu Ziel/Auftrag, optional ein natürliches Detail zu Gepäck oder Ausrüstung.
 Kein fester Satzbau und keine Vorlage nachsprechen; variiere natürlich.
 	${equipmentContextLine}

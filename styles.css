@@ -771,8 +771,252 @@ input[type=range]::-webkit-slider-thumb {
     padding: 10px;
     border-radius: 8px;
     margin-bottom: 8px;
+    border: 0;
     border-left: 3px solid var(--blue);
     font-size: 12px;
+    display: block;
+    width: 100%;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.log-entry:hover {
+    transform: translateX(2px);
+    filter: brightness(1.12);
+}
+
+.log-entry-meta,
+.log-entry-route,
+.log-entry-mission {
+    display: block;
+}
+
+.log-entry-meta {
+    color: #888;
+    font-size: 10px;
+    margin-bottom: 3px;
+}
+
+.log-entry-route {
+    margin-bottom: 3px;
+}
+
+.log-entry-mission {
+    color: var(--blue);
+}
+
+.log-empty {
+    color: #888;
+    font-size: 11px;
+}
+
+.flight-debrief-overlay {
+    --debrief-heading-font: 'Caveat', 'Segoe Print', cursive;
+    --debrief-copy-font: 'Courier New', Courier, monospace;
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000 !important;
+    isolation: isolate;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(13, 18, 23, 0.82);
+    backdrop-filter: blur(5px);
+}
+
+.flight-debrief-paper {
+    position: relative;
+    width: min(850px, 96vw);
+    max-height: 92vh;
+    overflow: auto;
+    color: #302b24;
+    font-family: var(--debrief-copy-font);
+    border: 1px solid #c7b895;
+    border-radius: 4px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+    background-color: #fdf5e6;
+    background-image:
+        linear-gradient(90deg, transparent 0, transparent 48px, rgba(187, 55, 55, 0.34) 48px, rgba(187, 55, 55, 0.34) 50px, transparent 50px),
+        repeating-linear-gradient(0deg, transparent 0, transparent 27px, rgba(100, 145, 175, 0.18) 27px, rgba(100, 145, 175, 0.18) 28px);
+}
+
+.flight-debrief-paper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.22;
+    background: radial-gradient(circle at 12% 18%, #ab8b58 0 1px, transparent 1.5px), radial-gradient(circle at 78% 64%, #8f744c 0 1px, transparent 1.5px);
+    background-size: 37px 43px, 53px 47px;
+}
+
+.flight-debrief-head,
+.flight-debrief-body,
+.flight-debrief-actions {
+    position: relative;
+    z-index: 1;
+    padding-left: 70px;
+    padding-right: 28px;
+}
+
+.flight-debrief-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding-top: 26px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(91, 76, 54, 0.35);
+}
+
+.flight-debrief-kicker {
+    color: #9a372f;
+    font: 700 10px/1.2 var(--debrief-copy-font);
+    letter-spacing: 0.16em;
+}
+
+.flight-debrief-title {
+    margin-top: 3px;
+    color: #0b1f65;
+    font: 600 34px/1.05 var(--debrief-heading-font);
+}
+
+.flight-debrief-icon-close {
+    border: 0;
+    background: transparent;
+    color: #62594b;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.flight-debrief-body {
+    padding-top: 18px;
+    padding-bottom: 10px;
+}
+
+.flight-debrief-route {
+    color: #0b1f65;
+    font: 600 31px/1.1 var(--debrief-heading-font);
+}
+
+.flight-debrief-meta {
+    margin-top: 4px;
+    color: #756a5b;
+    font: 700 10px/1.3 var(--debrief-copy-font);
+    letter-spacing: 0.08em;
+}
+
+.flight-debrief-assignment {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 3px solid #9a372f;
+    background: rgba(255, 255, 255, 0.34);
+    font: 700 14px/1.55 var(--debrief-copy-font);
+}
+
+.flight-debrief-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 18px;
+}
+
+.flight-debrief-metric {
+    min-height: 62px;
+    padding: 9px 10px;
+    border: 1px solid rgba(126, 100, 62, 0.38);
+    border-radius: 3px;
+    background: rgba(250, 239, 215, 0.74);
+}
+
+.flight-debrief-metric-label {
+    color: #825539;
+    font: 700 9px/1.2 var(--debrief-copy-font);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.flight-debrief-metric-value {
+    margin-top: 5px;
+    color: #25231f;
+    font: 600 24px/1.05 var(--debrief-heading-font);
+}
+
+.flight-debrief-section {
+    margin-top: 18px;
+}
+
+.flight-debrief-section h3 {
+    margin: 0 0 5px;
+    color: #0b1f65;
+    font: 600 24px/1.05 var(--debrief-heading-font);
+}
+
+.flight-debrief-section p {
+    margin: 0;
+    color: #3d382f;
+    font: 700 14px/24px var(--debrief-copy-font);
+    letter-spacing: -0.35px;
+}
+
+.flight-debrief-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 15px;
+    padding-bottom: 24px;
+    border-top: 1px solid rgba(91, 76, 54, 0.35);
+}
+
+.flight-debrief-btn {
+    min-height: 40px;
+    padding: 9px 15px;
+    border-radius: 3px;
+    font: 700 12px/1.2 var(--debrief-copy-font);
+    cursor: pointer;
+}
+
+.flight-debrief-btn.secondary {
+    border: 1px solid #756a5b;
+    background: rgba(255, 255, 255, 0.38);
+    color: #51493e;
+}
+
+.flight-debrief-btn.primary {
+    border: 1px solid #0b1f65;
+    background: #0b1f65;
+    color: #fffaf0;
+}
+
+.flight-debrief-btn:disabled {
+    cursor: wait;
+    opacity: 0.62;
+}
+
+body.theme-ops1940 .flight-debrief-overlay {
+    --debrief-heading-font: Georgia, 'Times New Roman', serif;
+    --debrief-copy-font: 'Courier Prime', 'Courier New', monospace;
+}
+
+body.theme-win95 .flight-debrief-overlay {
+    --debrief-heading-font: 'Times New Roman', Times, serif;
+    --debrief-copy-font: 'Times New Roman', Times, serif;
+}
+
+@media (max-width: 640px) {
+    .flight-debrief-overlay { padding: 8px; }
+    .flight-debrief-paper { width: 100%; max-height: 96vh; }
+    .flight-debrief-head,
+    .flight-debrief-body,
+    .flight-debrief-actions { padding-left: 38px; padding-right: 16px; }
+    .flight-debrief-paper { background-image: repeating-linear-gradient(0deg, transparent 0, transparent 27px, rgba(100, 145, 175, 0.18) 27px, rgba(100, 145, 175, 0.18) 28px); }
+    .flight-debrief-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .flight-debrief-actions { flex-direction: column; }
+    .flight-debrief-btn { width: 100%; }
 }
 
 .version-info {

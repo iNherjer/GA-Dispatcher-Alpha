@@ -20,8 +20,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v301';
-const TRACKER_VERSION_CODE = 301;
+const TRACKER_VERSION = 'v302';
+const TRACKER_VERSION_CODE = 302;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3495,6 +3495,8 @@ function startTracker(syncId, pin) {
     let opened = false;
     let awaitingPong = false;
     let pingInterval = null;
+    let trackerStatusInterval = null;
+    let trackerStatusStartTimer = null;
     const connectWatchdog = setTimeout(() => {
       if (!opened) {
         trackerWarn("⚠️  WebSocket-Handshake Timeout. Erzwinge Neuverbindung...");
@@ -3508,6 +3510,29 @@ function startTracker(syncId, pin) {
         clearInterval(pingInterval);
         pingInterval = null;
       }
+      if (trackerStatusInterval) {
+        clearInterval(trackerStatusInterval);
+        trackerStatusInterval = null;
+      }
+      if (trackerStatusStartTimer) {
+        clearTimeout(trackerStatusStartTimer);
+        trackerStatusStartTimer = null;
+      }
+    };
+
+    const sendTrackerStatus = () => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({
+        type: 'gps',
+        syncId,
+        pin,
+        trackerStatusOnly: true,
+        source: 'tracker',
+        status: 'connected',
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        sentAt: Date.now()
+      }));
     };
 
     ws.on('open', () => {
@@ -3516,6 +3541,11 @@ function startTracker(syncId, pin) {
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
       trackerLog(`📡 Relay verbunden für Pilot-ID: ${syncId} (Konto verifiziert)`);
+      trackerStatusStartTimer = setTimeout(() => {
+        trackerStatusStartTimer = null;
+        sendTrackerStatus();
+        trackerStatusInterval = setInterval(sendTrackerStatus, 5000);
+      }, 250);
       if (homebasePackageService) {
         setTimeout(() => {
           homebasePackageService.checkRemoteAssets({ notify: true }).then((status) => {

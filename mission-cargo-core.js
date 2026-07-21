@@ -1678,6 +1678,13 @@ function _missionCargoEvaluateOutcome(manifest = _missionCargoEnsureManifest()) 
     const damaged = required.filter(item => Number(item.healthPct ?? 100) <= 35);
     const failed = missing.length > 0 || dropped.length > 0 || notDelivered.length > 0 || damaged.length > 0;
     const loadedWeightLbs = items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0);
+    const healthValues = items
+        .filter(item => !_missionCargoIsPassengerItem(item))
+        .filter(item => item.status === 'loaded' || item.status === 'unloaded' || item.status === 'dropped')
+        .map(item => Math.max(0, Math.min(100, Number(item.healthPct ?? 100))))
+        .filter(Number.isFinite);
+    const minHealthPct = healthValues.length ? Math.min(...healthValues) : 100;
+    const stressDamagePct = Math.max(0, Math.min(100, Number(manifest?.maxStressDamagePct || 0)));
     return {
         status: failed ? 'failed' : 'completed',
         failed,
@@ -1688,7 +1695,10 @@ function _missionCargoEvaluateOutcome(manifest = _missionCargoEnsureManifest()) 
         notDeliveredRequired: notDelivered.map(item => item.storyName || item.label),
         damagedRequired: damaged.map(item => item.storyName || item.label),
         loadedWeightLbs: Math.round(loadedWeightLbs),
-        totalWeightLbs: Math.round(items.reduce((sum, item) => sum + Number(item.weightLbs || 0), 0))
+        totalWeightLbs: Math.round(items.reduce((sum, item) => sum + Number(item.weightLbs || 0), 0)),
+        stressDamagePct: Math.round(stressDamagePct),
+        minHealthPct: Math.round(minHealthPct),
+        conditionPct: Math.round(Math.min(minHealthPct, 100 - stressDamagePct))
     };
 }
 
