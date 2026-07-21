@@ -20,8 +20,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v303';
-const TRACKER_VERSION_CODE = 303;
+const TRACKER_VERSION = 'v305';
+const TRACKER_VERSION_CODE = 305;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3294,7 +3294,12 @@ function startTracker(syncId, pin) {
         message.stabilizerAck = { ...payload, at: Date.now() };
       }
       ws.send(JSON.stringify(message));
-      debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}`);
+      const errorDetails = payload?.status === 'error' ? JSON.stringify({
+        error: payload?.error || payload?.message || '',
+        failedObjects: Array.isArray(payload?.failedObjects) ? payload.failedObjects.slice(0, 5) : [],
+        failedPeople: Array.isArray(payload?.failedPeople) ? payload.failedPeople.slice(0, 3) : []
+      }).slice(0, 4000) : '';
+      debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}${errorDetails ? ` details=${errorDetails}` : ''}`);
       if (directHangarAck) debugLog(`HANGAR_DIRECT_ACK type=${payload?.type || 'unknown'} commandId=${commandId}`);
       return true;
     } catch (error) {
@@ -3628,7 +3633,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             msg.hdg = Number.isFinite(Number(lastGpsMsg.hdg)) ? Number(lastGpsMsg.hdg) : 0;
           }
           ws.send(JSON.stringify(msg));
-          debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}`);
+          const errorDetails = payload?.status === 'error' ? JSON.stringify({
+            error: payload?.error || payload?.message || '',
+            failedObjects: Array.isArray(payload?.failedObjects) ? payload.failedObjects.slice(0, 5) : [],
+            failedPeople: Array.isArray(payload?.failedPeople) ? payload.failedPeople.slice(0, 3) : []
+          }).slice(0, 4000) : '';
+          debugLog(`HOMEBASE_ACK type=${payload?.type || 'unknown'} status=${payload?.status || ''} commandId=${payload?.commandId || ''}${errorDetails ? ` details=${errorDetails}` : ''}`);
         } catch (error) {
           debugLog(`HOMEBASE_ACK_ERROR type=${payload?.type || 'unknown'} error=${error?.message || error}`);
         }

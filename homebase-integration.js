@@ -43,6 +43,9 @@
   let ownLastTelemetry = null;
   let ownAutoPlanSettlesAt = 0;
   let ownAutoPlanApplyTimer = null;
+  let ownWorkbenchPeopleSyncInFlight = false;
+  let ownFailedPeopleSignature = '';
+  let ownFailedPeopleRetryAt = 0;
 
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
@@ -222,6 +225,30 @@
     return [...(source?.assets || []), ...(source?.stockObjects || [])].find((entry) => entry.title === title) || null;
   }
 
+  function normalizeHomebasePersonTitle(rawTitle) {
+    const source = globalThis.HOMEBASE_ASSET_CATALOG;
+    const requested = String(rawTitle || '').trim();
+    const migrated = source?.legacyPersonTitleAliases?.[requested] || requested;
+    const allowed = Array.isArray(source?.tarmacPeople) ? source.tarmacPeople : [];
+    const selected = allowed.find((entry) => entry.title === migrated) || allowed[0] || null;
+    return String(selected?.title || '').trim();
+  }
+
+  function sanitizeHomebaseRuntimeConfig(config) {
+    if (!config || typeof config !== 'object') return null;
+    const people = (Array.isArray(config.people) ? config.people : []).slice(0, 3).flatMap((person, index) => {
+      const title = normalizeHomebasePersonTitle(person?.title);
+      if (!title) return [];
+      return [{
+        ...person,
+        id: String(person?.id || `person-${index + 1}`),
+        title,
+        label: String(person?.label || `Mitarbeiter ${index + 1}`)
+      }];
+    });
+    return { ...config, people };
+  }
+
   function homebaseHeadingCorrection(title) {
     return finite(homebaseCatalogDefinition(title)?.headingCorrectionDeg, 0);
   }
@@ -315,13 +342,29 @@
           scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
         };
       }).filter((item) => item.title),
-      people: (Array.isArray(plan.people) ? plan.people : []).slice(0, 3).map((person, index) => ({
-        id: String(person?.id || `person-${index + 1}`), title: String(person?.title || ''),
-        label: String(person?.label || `Mitarbeiter ${index + 1}`),
-        startNorthM: finite(person?.startNorthM), startEastM: finite(person?.startEastM),
-        speedKts: Math.max(1, Math.min(5, finite(person?.speedKts, 2.6))),
-        destinations: (Array.isArray(person?.stops) ? person.stops : []).slice(0, 20).map((stop) => ({ ...stop }))
-      })).filter((person) => /^Tarmac_/i.test(person.title)),
+      people: (Array.isArray(plan.people) ? plan.people : []).slice(0, 3).map((person, index) => {
+        const randomTargets = person?.randomTargets === true;
+        const waitMinS = Math.max(0, Math.min(3600, finite(person?.randomWaitMinS, 5)));
+        const waitMaxS = Math.max(0, Math.min(3600, finite(person?.randomWaitMaxS, 30)));
+        const destinations = randomTargets
+          ? (Array.isArray(plan.objects) ? plan.objects : []).slice(0, 100).flatMap((item, targetIndex) => {
+              const targetId = String(item?.id || '').trim();
+              if (!targetId) return [];
+              return [{
+                id: `auto-${targetId || targetIndex + 1}`.slice(0, 64),
+                targetType: 'object', targetId, northM: 0, eastM: 0, waitMinS, waitMaxS
+              }];
+            })
+          : (Array.isArray(person?.stops) ? person.stops : []).slice(0, 20).map((stop) => ({ ...stop }));
+        return {
+          id: String(person?.id || `person-${index + 1}`), title: normalizeHomebasePersonTitle(person?.title),
+          label: String(person?.label || `Mitarbeiter ${index + 1}`),
+          startNorthM: finite(person?.startNorthM), startEastM: finite(person?.startEastM),
+          speedKts: Math.max(1, Math.min(5, finite(person?.speedKts, 2.6))),
+          targetMode: randomTargets ? 'all-objects' : 'manual',
+          destinations
+        };
+      }).filter((person) => person.title),
       navigation: {
         spawn: { lat: spawnLat, lon: spawnLon, altFt: finite(spawn.altFt), heading: heading(spawn.heading) },
         hangar: primaryHangarZone,
@@ -343,7 +386,7 @@
   }
 
   function currentOwnRuntimeConfig() {
-    return latestHomebaseDraft?.runtimeConfig || ownRuntimeConfigFromPlan(currentOwnHomebasePlan());
+    return sanitizeHomebaseRuntimeConfig(latestHomebaseDraft?.runtimeConfig || ownRuntimeConfigFromPlan(currentOwnHomebasePlan()));
   }
 
   function runtimeObjectsFromConfig(config) {
@@ -414,20 +457,6 @@
     const delta = ownHomebaseDelta();
     if (!delta.ready) return false;
     ownLastAppliedObjectsSignature = JSON.stringify(delta.objects || []);
-    ownLastAppliedAt = Date.now();
-    return true;
-  }
-
-  function noteOwnPeoplePlanApplied() {
-    if (!ownAutoInside || ownAutoSuppressedUntilExit) return false;
-    const delta = ownHomebaseDelta();
-    const config = currentOwnRuntimeConfig();
-    if (!delta.ready || !config) return false;
-    const objects = delta.objects || [];
-    const people = config.people || [];
-    const navigation = config.navigation || null;
-    ownLastAppliedObjectsSignature = JSON.stringify(objects);
-    ownLastAppliedSignature = JSON.stringify({ objects, people, navigation });
     ownLastAppliedAt = Date.now();
     return true;
   }
@@ -509,12 +538,13 @@
     const navigation = config?.navigation || null;
     const signature = JSON.stringify({ objects, people, navigation });
     const objectsSignature = JSON.stringify(objects);
+    if (signature === ownFailedPeopleSignature && Date.now() < ownFailedPeopleRetryAt) return false;
     const activePreviewIds = new Set((Array.isArray(position?.homebase?.objects) ? position.homebase.objects : [])
       .filter((item) => item?.collection === 'preview').map((item) => String(item.id || '')));
     const expectedIds = [...objects, ...people].map((item) => String(item.id || ''));
     const trackerSceneMatches = expectedIds.length === activePreviewIds.size && expectedIds.every((id) => activePreviewIds.has(id));
     if (signature === ownLastAppliedSignature && (trackerSceneMatches || Date.now() - ownLastAppliedAt < 5000)) return false;
-    if (ownAutoInFlight) {
+    if (ownAutoInFlight || ownWorkbenchPeopleSyncInFlight) {
       ownAutoQueued = true;
       return false;
     }
@@ -828,12 +858,46 @@
         });
         return;
       }
-      sendTracker({
-        type: 'homebase_v1.preview.people.sync',
-        commandId: stabilizerCommand.commandId,
+      if (ownAutoInFlight || ownWorkbenchPeopleSyncInFlight) {
+        ownAutoQueued = true;
+        relayMessage({
+          stabilizerAck: {
+            type: 'homebase_v1.preview.people.sync_ack',
+            commandId: stabilizerCommand.commandId,
+            status: 'noop',
+            message: 'Personenänderung wurde mit der laufenden Aktualisierung gebündelt.'
+          }
+        });
+        return;
+      }
+      const config = sanitizeHomebaseRuntimeConfig({
         people: Array.isArray(stabilizerCommand.people) ? stabilizerCommand.people : [],
         navigation: stabilizerCommand.navigation || null
-      }, { kind: 'people-live-sync' });
+      });
+      const delta = ownHomebaseDelta();
+      const objects = delta.ready ? (delta.objects || []) : [];
+      const people = config?.people || [];
+      const navigation = config?.navigation || null;
+      const signature = JSON.stringify({ objects, people, navigation });
+      const objectsSignature = JSON.stringify(objects);
+      if (signature === ownFailedPeopleSignature && Date.now() < ownFailedPeopleRetryAt) {
+        relayMessage({
+          stabilizerAck: {
+            type: 'homebase_v1.preview.people.sync_ack',
+            commandId: stabilizerCommand.commandId,
+            status: 'error',
+            message: 'Diese Personenänderung ist gerade fehlgeschlagen und wird erst nach einer kurzen Pause erneut versucht.'
+          }
+        });
+        return;
+      }
+      const commandId = sendTracker({
+        type: 'homebase_v1.preview.people.sync',
+        commandId: stabilizerCommand.commandId,
+        people,
+        navigation
+      }, { kind: 'people-live-sync', signature, objectsSignature });
+      if (commandId) ownWorkbenchPeopleSyncInFlight = true;
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.hangar.animation.set') {
@@ -984,11 +1048,25 @@
     }
     if (meta.kind === 'owner-auto-set' || meta.kind === 'owner-auto-people-sync') {
       ownAutoInFlight = false;
-      const ok = ack.status === 'ok';
+      const ok = ack.status === 'ok' || ack.status === 'noop';
+      const failedEntries = Array.isArray(ack.failedObjects) ? ack.failedObjects : [];
+      const legacyPeopleOnlyFailure = failedEntries.length > 0
+        && failedEntries.every((entry) => /^Tarmac_/i.test(String(entry?.title || '')));
+      const peopleOnlyFailure = ack.status === 'error'
+        && ((Number(ack.objectFailureCount || 0) === 0 && Number(ack.peopleFailureCount || 0) > 0)
+          || legacyPeopleOnlyFailure);
       if (ok) {
         ownLastAppliedSignature = String(meta.signature || '');
         ownLastAppliedObjectsSignature = String(meta.objectsSignature || '');
         ownLastAppliedAt = Date.now();
+        ownFailedPeopleSignature = '';
+        ownFailedPeopleRetryAt = 0;
+      } else if (meta.kind === 'owner-auto-people-sync' || peopleOnlyFailure) {
+        ownLastAppliedSignature = '';
+        ownLastAppliedObjectsSignature = String(meta.objectsSignature || ownLastAppliedObjectsSignature || '');
+        ownLastAppliedAt = Date.now();
+        ownFailedPeopleSignature = String(meta.signature || '');
+        ownFailedPeopleRetryAt = Date.now() + 10000;
       } else {
         ownLastAppliedSignature = '';
         ownLastAppliedObjectsSignature = '';
@@ -1062,8 +1140,25 @@
       return;
     }
     if (meta.kind === 'people-live-sync') {
-      if (ack.status === 'ok' || ack.status === 'noop') noteOwnPeoplePlanApplied();
+      ownWorkbenchPeopleSyncInFlight = false;
+      if (ack.status === 'ok' || ack.status === 'noop') {
+        ownLastAppliedSignature = String(meta.signature || '');
+        ownLastAppliedObjectsSignature = String(meta.objectsSignature || ownLastAppliedObjectsSignature || '');
+        ownLastAppliedAt = Date.now();
+        ownFailedPeopleSignature = '';
+        ownFailedPeopleRetryAt = 0;
+      } else {
+        ownLastAppliedSignature = '';
+        ownLastAppliedObjectsSignature = String(meta.objectsSignature || ownLastAppliedObjectsSignature || '');
+        ownLastAppliedAt = Date.now();
+        ownFailedPeopleSignature = String(meta.signature || '');
+        ownFailedPeopleRetryAt = Date.now() + 10000;
+      }
       relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.people.sync_ack' } });
+      if (ownAutoQueued) {
+        ownAutoQueued = false;
+        setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'people-sync-queued'), 250);
+      }
       return;
     }
     if (meta.kind === 'hangar-animation') {

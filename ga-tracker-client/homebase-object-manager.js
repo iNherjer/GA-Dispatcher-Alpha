@@ -29,7 +29,7 @@ const REMOVE_TIMEOUT_MS = 12000;
 const MAX_OBJECTS = 100;
 const MAX_CREW_OBJECTS = 100;
 const MAX_HOMEBASE_PEOPLE = 3;
-const MAX_PERSON_DESTINATIONS = 20;
+const MAX_PERSON_DESTINATIONS = 100;
 const MAX_NAVIGATION_OBSTACLES = 300;
 
 const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
@@ -39,6 +39,7 @@ const allowedPreviewTitles = new Set([
   assetByKey.get('spawnProbe')?.title
 ].filter(Boolean));
 const allowedTarmacPeople = new Set((catalog.tarmacPeople || []).map((entry) => entry.title));
+const legacyPersonTitleAliases = catalog.legacyPersonTitleAliases || {};
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -94,6 +95,7 @@ function normalizeItem(raw, fallbackId = '') {
 function createHomebaseObjectManager(handle, options = {}) {
   const sendAck = typeof options.sendAck === 'function' ? options.sendAck : () => {};
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const random = typeof options.random === 'function' ? options.random : Math.random;
   const getLastGps = typeof options.getLastGps === 'function' ? options.getLastGps : () => null;
   const capabilities = Object.freeze([
     'homebase-preview',
@@ -261,9 +263,10 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const normalizePersonPlan = (raw, index, navigation) => {
-    const title = String(raw?.title || '').trim();
+    const requestedTitle = String(raw?.title || '').trim();
+    const title = legacyPersonTitleAliases[requestedTitle] || requestedTitle;
     if (!allowedTarmacPeople.has(title)) throw new Error(`Personenmodell ist nicht als Tarmac-Modell freigegeben: ${title || '(leer)'}`);
-    const id = String(raw?.id || `homebase-person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const id = personIdFromRaw(raw, index);
     const start = { northM: finite(raw?.startNorthM), eastM: finite(raw?.startEastM) };
     const destinations = (Array.isArray(raw?.destinations) ? raw.destinations : []).slice(0, MAX_PERSON_DESTINATIONS).flatMap((destination, targetIndex) => {
       const targetType = destination?.targetType === 'waypoint' ? 'waypoint' : 'object';
@@ -281,9 +284,15 @@ function createHomebaseObjectManager(handle, options = {}) {
     return {
       id, title, label: String(raw?.label || `Mitarbeiter ${index + 1}`).slice(0, 80), start,
       lat: absolute.lat, lon: absolute.lon, altFt: navigation.spawn.altFt,
-      heading: navigation.spawn.heading, speedKts: Math.max(1, Math.min(5, finite(raw?.speedKts, 2.6))), destinations
+      heading: navigation.spawn.heading, speedKts: Math.max(1, Math.min(5, finite(raw?.speedKts, 2.6))),
+      targetMode: raw?.targetMode === 'all-objects' ? 'all-objects' : 'manual', destinations
     };
   };
+
+  const personIdFromRaw = (raw, index = 0) => (
+    String(raw?.id || `homebase-person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64)
+    || `homebase-person-${index + 1}`
+  );
 
   const collectionFor = (record) => record?.collection === 'crew' ? 'crew' : 'preview';
   const generationFor = (collection) => generations[collection === 'crew' ? 'crew' : 'preview'];
@@ -352,19 +361,30 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const chooseNextDestination = (controller) => {
-    const candidates = controller.person.destinations.filter((destination) => destination.id !== controller.lastDestinationId);
-    const pool = candidates.length ? candidates : controller.person.destinations;
-    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    const blocked = controller.unreachableDestinationIds || new Set();
+    const available = controller.person.destinations.filter((destination) => !blocked.has(destination.id));
+    const candidates = available.filter((destination) => destination.id !== controller.lastDestinationId);
+    const pool = candidates.length ? candidates : available;
+    return pool.length ? pool[Math.floor(random() * pool.length)] : null;
   };
 
   const runPersonLoop = async (controller, runToken = controller.runToken) => {
     while (controller.active && controller.runToken === runToken && isCurrentRecord(controller.record)) {
       const destination = chooseNextDestination(controller);
-      if (!destination) break;
+      if (!destination) {
+        if (controller.person.destinations.length && controller.unreachableDestinationIds?.size) {
+          log(`HOMEBASE_PERSON_ROUTE_RETRY id=${controller.person.id} skipped=${controller.unreachableDestinationIds.size}`);
+          controller.unreachableDestinationIds.clear();
+          controller.lastDestinationId = '';
+          if (!await waitWhileCurrent(controller, 3000, runToken)) break;
+          continue;
+        }
+        break;
+      }
       const result = planPersonLeg(controller.navigation, controller.current, destination);
       if (!result.ok || !Array.isArray(result.path) || result.path.length < 2) {
-        log(`HOMEBASE_PERSON_ROUTE_ERROR id=${controller.person.id} target=${destination.id} error=${result.error || 'no_route'}`);
-        if (!await waitWhileCurrent(controller, 3000, runToken)) break;
+        controller.unreachableDestinationIds.add(destination.id);
+        log(`HOMEBASE_PERSON_ROUTE_SKIP id=${controller.person.id} target=${destination.id} error=${result.error || 'no_route'}`);
         controller.lastDestinationId = destination.id;
         continue;
       }
@@ -382,7 +402,8 @@ function createHomebaseObjectManager(handle, options = {}) {
         if (!await followRouteWhileCurrent(controller, result.path, travelMs, runToken)) break;
       } catch (error) {
         log(`HOMEBASE_PERSON_WAYPOINT_ERROR id=${controller.person.id} error=${error?.message || error}`);
-        if (!await waitWhileCurrent(controller, 3000, runToken)) break;
+        controller.unreachableDestinationIds.add(destination.id);
+        controller.lastDestinationId = destination.id;
         continue;
       }
       const distanceM = routeCore.pathDistance(result.path);
@@ -393,7 +414,7 @@ function createHomebaseObjectManager(handle, options = {}) {
       refreshPersonDoorSources();
       const minWait = Math.min(destination.waitMinS, destination.waitMaxS);
       const maxWait = Math.max(destination.waitMinS, destination.waitMaxS);
-      const waitMs = (minWait + Math.random() * (maxWait - minWait)) * 1000;
+      const waitMs = (minWait + random() * (maxWait - minWait)) * 1000;
       if (!await waitWhileCurrent(controller, Math.max(250, waitMs), runToken)) break;
     }
     if (controller.runToken === runToken) {
@@ -405,6 +426,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const startPersonLoop = (controller) => {
     controller.active = true;
     controller.runToken = finite(controller.runToken) + 1;
+    controller.unreachableDestinationIds = new Set();
     const runToken = controller.runToken;
     runPersonLoop(controller, runToken).catch((error) => log(`HOMEBASE_PERSON_LOOP_ERROR id=${controller.person.id} error=${error?.message || error}`));
   };
@@ -651,7 +673,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     if (teardown.failed.length) throw new Error(`${teardown.failed.length} vorhandene Objekt(e) wurden nicht bestätigt entfernt.`);
     const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_OBJECTS) : [];
     const spawned = [];
-    const failed = [];
+    const failedObjects = [];
     for (const raw of input) {
       try {
         const record = await spawnObject(raw, 'preview', targetGeneration);
@@ -659,12 +681,13 @@ function createHomebaseObjectManager(handle, options = {}) {
         const groundAltitudeFt = await stabilizeRecord(record, record.item.id === '__homebase_spawn_probe__');
         spawned.push({ id: record.item.id, title: record.item.title, label: record.item.label, objectId: record.objectId, groundAltitudeFt });
       } catch (error) {
-        failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
+        failedObjects.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
       }
     }
     const navigation = normalizeNavigation(command?.navigation || { spawn: command?.spawn, obstacles: [] });
     const peopleInput = (Array.isArray(command?.people) ? command.people : []).slice(0, MAX_HOMEBASE_PEOPLE);
     const spawnedPeople = [];
+    const failedPeople = [];
     for (let index = 0; index < peopleInput.length; index += 1) {
       const raw = peopleInput[index];
       try {
@@ -676,22 +699,26 @@ function createHomebaseObjectManager(handle, options = {}) {
         spawnedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: record.objectId, destinationCount: person.destinations.length });
         startPersonLoop(controller);
       } catch (error) {
-        failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
+        failedPeople.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
       }
     }
     refreshPersonDoorSources();
+    const failures = [...failedObjects, ...failedPeople];
     sendAck({
       type: 'homebase_v1.preview.set_ack',
       commandId: command?.commandId || null,
       parentCommandId: command?.parentCommandId || command?.commandId || null,
-      status: failed.length ? 'error' : 'ok',
-      message: failed.length ? `Vorschau mit ${failed.length} Fehler(n) aufgebaut.` : 'Homebase-Vorschau gesetzt.',
+      status: failures.length ? 'error' : 'ok',
+      message: failures.length ? `Vorschau mit ${failures.length} Fehler(n) aufgebaut.` : 'Homebase-Vorschau gesetzt.',
       extraCount: spawned.length,
       objectCount: spawned.length + spawnedPeople.length,
       spawnedObjects: spawned,
       spawnedPeople,
       peopleCount: spawnedPeople.length,
-      failedObjects: failed,
+      failedObjects: failures,
+      failedPeople,
+      objectFailureCount: failedObjects.length,
+      peopleFailureCount: failedPeople.length,
       generation: targetGeneration
     });
   };
@@ -699,8 +726,21 @@ function createHomebaseObjectManager(handle, options = {}) {
   const handlePeopleSync = async (command) => {
     const navigation = normalizeNavigation(command?.navigation || { spawn: command?.spawn, obstacles: [] });
     const input = (Array.isArray(command?.people) ? command.people : []).slice(0, MAX_HOMEBASE_PEOPLE);
-    const plans = input.map((raw, index) => normalizePersonPlan(raw, index, navigation));
-    const desiredIds = new Set(plans.map((person) => person.id));
+    const plans = [];
+    const failedPeople = [];
+    input.forEach((raw, index) => {
+      try {
+        plans.push(normalizePersonPlan(raw, index, navigation));
+      } catch (error) {
+        failedPeople.push({
+          id: personIdFromRaw(raw, index),
+          title: String(raw?.title || ''),
+          label: String(raw?.label || `Mitarbeiter ${index + 1}`),
+          error: error?.message || String(error)
+        });
+      }
+    });
+    const desiredIds = new Set(input.map((raw, index) => personIdFromRaw(raw, index)));
     const removedPeople = [];
     const updatedPeople = [];
     const spawnedPeople = [];
@@ -709,57 +749,111 @@ function createHomebaseObjectManager(handle, options = {}) {
       if (desiredIds.has(id)) continue;
       controller.active = false;
       controller.runToken = finite(controller.runToken) + 1;
-      personControllers.delete(id);
       const result = await removeRecord(controller.record);
-      if (!result.ok) throw new Error(`${controller.person.label} konnte nicht bestätigt entfernt werden: ${result.error}`);
+      if (!result.ok) {
+        startPersonLoop(controller);
+        failedPeople.push({ id, title: controller.person.title, label: controller.person.label, error: `Entfernen nicht bestätigt: ${result.error}` });
+        continue;
+      }
+      personControllers.delete(id);
       removedPeople.push({ id, title: controller.person.title, objectId: controller.record.objectId });
     }
 
     for (const person of plans) {
       let controller = personControllers.get(person.id);
-      if (controller && controller.person.title !== person.title) {
+      try {
+        if (controller && controller.person.title !== person.title) {
+          const replacementId = `${person.id.slice(0, 38)}-swap-${nextId()}`.slice(0, 64);
+          const replacementRecord = await spawnObject({ ...person, id: replacementId }, 'preview', generationFor('preview'));
+          controller.active = false;
+          controller.runToken = finite(controller.runToken) + 1;
+          const removal = await removeRecord(controller.record);
+          if (!removal.ok) {
+            const rollback = await removeRecord(replacementRecord);
+            if (!rollback.ok) log(`HOMEBASE_PERSON_SWAP_ROLLBACK_ERROR id=${person.id} objectId=${replacementRecord.objectId} error=${rollback.error}`);
+            startPersonLoop(controller);
+            throw new Error(`${controller.person.label} konnte für den Modellwechsel nicht bestätigt entfernt werden: ${removal.error}`);
+          }
+          personControllers.delete(person.id);
+          objectsById.delete(replacementId);
+          replacementRecord.item = normalizeItem(person);
+          objectsById.set(person.id, replacementRecord);
+          const next = { active: false, runToken: 0, person, record: replacementRecord, navigation, current: { ...person.start }, doorCurrent: { ...person.start }, lastDestinationId: '' };
+          personControllers.set(person.id, next);
+          startPersonLoop(next);
+          spawnedPeople.push({
+            id: person.id,
+            title: person.title,
+            label: person.label,
+            objectId: replacementRecord.objectId,
+            replacedObjectId: controller.record.objectId,
+            destinationCount: person.destinations.length
+          });
+          continue;
+        }
+        if (!controller) {
+          const record = await spawnObject(person, 'preview', generationFor('preview'));
+          const next = { active: false, runToken: 0, person, record, navigation, current: { ...person.start }, doorCurrent: { ...person.start }, lastDestinationId: '' };
+          personControllers.set(person.id, next);
+          startPersonLoop(next);
+          spawnedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: record.objectId, destinationCount: person.destinations.length });
+          continue;
+        }
+
+        const previous = {
+          person: controller.person,
+          navigation: controller.navigation,
+          current: { ...controller.current },
+          doorCurrent: { ...controller.doorCurrent },
+          lastDestinationId: controller.lastDestinationId,
+          item: controller.record.item
+        };
+        const startChanged = Math.abs(controller.person.start.northM - person.start.northM) > .01
+          || Math.abs(controller.person.start.eastM - person.start.eastM) > .01;
         controller.active = false;
         controller.runToken = finite(controller.runToken) + 1;
-        personControllers.delete(person.id);
-        const result = await removeRecord(controller.record);
-        if (!result.ok) throw new Error(`${controller.person.label} konnte für den Modellwechsel nicht bestätigt entfernt werden: ${result.error}`);
-        controller = null;
+        try {
+          if (startChanged) {
+            controller.record.item = normalizeItem(person);
+            await stabilizeRecord(controller.record, true);
+            controller.current = { ...person.start };
+            controller.doorCurrent = { ...person.start };
+          }
+          controller.person = person;
+          controller.navigation = navigation;
+          controller.lastDestinationId = '';
+          startPersonLoop(controller);
+        } catch (error) {
+          controller.person = previous.person;
+          controller.navigation = previous.navigation;
+          controller.current = previous.current;
+          controller.doorCurrent = previous.doorCurrent;
+          controller.lastDestinationId = previous.lastDestinationId;
+          controller.record.item = previous.item;
+          startPersonLoop(controller);
+          throw error;
+        }
+        updatedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: controller.record.objectId, destinationCount: person.destinations.length, repositioned: startChanged });
+      } catch (error) {
+        failedPeople.push({ id: person.id, title: person.title, label: person.label, error: error?.message || String(error) });
       }
-      if (!controller) {
-        const record = await spawnObject(person, 'preview', generationFor('preview'));
-        const next = { active: false, runToken: 0, person, record, navigation, current: { ...person.start }, doorCurrent: { ...person.start }, lastDestinationId: '' };
-        personControllers.set(person.id, next);
-        startPersonLoop(next);
-        spawnedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: record.objectId, destinationCount: person.destinations.length });
-        continue;
-      }
-
-      const startChanged = Math.abs(controller.person.start.northM - person.start.northM) > .01
-        || Math.abs(controller.person.start.eastM - person.start.eastM) > .01;
-      controller.active = false;
-      controller.runToken = finite(controller.runToken) + 1;
-      controller.person = person;
-      controller.navigation = navigation;
-      controller.lastDestinationId = '';
-      if (startChanged) {
-        controller.record.item = normalizeItem(person);
-        await stabilizeRecord(controller.record, true);
-        controller.current = { ...person.start };
-        controller.doorCurrent = { ...person.start };
-      }
-      startPersonLoop(controller);
-      updatedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: controller.record.objectId, destinationCount: person.destinations.length, repositioned: startChanged });
     }
     refreshPersonDoorSources();
     sendAck({
       type: 'homebase_v1.preview.people.sync_ack',
       commandId: command?.commandId || null,
-      status: 'ok',
-      message: 'Homebase-Personen und Wegpunkte wurden live aktualisiert.',
+      status: failedPeople.length ? 'error' : 'ok',
+      message: failedPeople.length
+        ? `${failedPeople.length} Homebase-Person(en) konnten nicht aktualisiert werden; die übrige Szene bleibt aktiv.`
+        : 'Homebase-Personen und Wegpunkte wurden live aktualisiert.',
       peopleCount: plans.length,
       spawnedPeople,
       updatedPeople,
-      removedPeople
+      removedPeople,
+      failedPeople,
+      failedObjects: failedPeople,
+      objectFailureCount: 0,
+      peopleFailureCount: failedPeople.length
     });
   };
 

@@ -130,6 +130,9 @@
     ].map(withNavigationFootprint)),
     navigationFootprints,
     tarmacPeople,
+    legacyPersonTitleAliases: Object.freeze({
+      Tarmac_Male_Summer_Black: 'Tarmac_Male_Summer_African'
+    }),
     legacyTitleAliases: Object.freeze({
       'VFR Multitool Homebase Windsock': 'Windsock',
       'VFR Multitool Homebase Test Hangar': 'VFR Multitool Homebase Hangar'

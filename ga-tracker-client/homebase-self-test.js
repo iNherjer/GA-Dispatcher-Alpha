@@ -25,6 +25,7 @@ class FakeHandle extends EventEmitter {
     this.removedEventId = null;
     this.positions = new Map();
     this.waypointRoutes = [];
+    this.failedTitles = new Set();
   }
 
   addToDataDefinition() { return 0; }
@@ -35,11 +36,16 @@ class FakeHandle extends EventEmitter {
     if (name === 'ObjectRemoved') this.removedEventId = eventId;
     return 0;
   }
-  aICreateSimulatedObject(_title, _position, requestId) {
+  aICreateSimulatedObject(title, _position, requestId) {
+    const sendId = requestId + 1000;
+    if (this.failedTitles.has(title)) {
+      setTimeout(() => this.emit('exception', { sendId, exceptionName: `TEST_CREATE_FAILED:${title}` }), 2);
+      return sendId;
+    }
     const objectId = this.nextObjectId++;
     setTimeout(() => this.emit('assignedObjectID', { requestID: requestId, objectID: objectId }), 2);
     setTimeout(() => this.emit('eventAddRemove', { clientEventId: this.addedEventId, data: objectId }), 4);
-    return requestId + 1000;
+    return sendId;
   }
   aIRemoveObject(objectId, requestId) {
     setTimeout(() => this.emit('eventAddRemove', { clientEventId: this.removedEventId, data: objectId }), 3);
@@ -266,8 +272,9 @@ async function run() {
   }
 
   const acks = [];
+  const logs = [];
   const handle = new FakeHandle();
-  const manager = createHomebaseObjectManager(handle, { sendAck: (ack) => acks.push(ack) });
+  const manager = createHomebaseObjectManager(handle, { sendAck: (ack) => acks.push(ack), log: (entry) => logs.push(entry), random: () => 0 });
 
   manager.handleCommand({ type: 'homebase_v1.capabilities', commandId: 'cap-1' });
   const capabilityAck = await waitForAck(acks, 'homebase_v1.capabilities_ack');
@@ -442,6 +449,37 @@ async function run() {
     throw new Error(`Homebase people cold-start clear failed: ${JSON.stringify(coldClearAck)}`);
   }
 
+  const skipRouteCount = handle.waypointRoutes.length;
+  const skipNavigation = {
+    spawn: { lat: 48, lon: 8, altFt: 514, heading: 0 },
+    obstacles: [
+      { id: 'blocked-object', northM: 20, eastM: 0, heading: 0, widthM: 1, depthM: 1 },
+      { id: 'blocked-wall-north', northM: 24, eastM: 0, heading: 0, widthM: 8, depthM: .5 },
+      { id: 'blocked-wall-south', northM: 16, eastM: 0, heading: 0, widthM: 8, depthM: .5 },
+      { id: 'blocked-wall-west', northM: 20, eastM: -4, heading: 0, widthM: .5, depthM: 8 },
+      { id: 'blocked-wall-east', northM: 20, eastM: 4, heading: 0, widthM: .5, depthM: 8 }
+    ]
+  };
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-random-skip-unreachable',
+    navigation: skipNavigation,
+    people: [{
+      id: 'person-skip', title: 'Tarmac_Male_Summer_Asian', label: 'Zufallsziel-Test',
+      startNorthM: 0, startEastM: 0, speedKts: 2.6, targetMode: 'all-objects',
+      destinations: [
+        { id: 'auto-blocked', targetType: 'object', targetId: 'blocked-object', waitMinS: 1, waitMaxS: 1 },
+        { id: 'auto-reachable', targetType: 'waypoint', northM: 4, eastM: 0, waitMinS: 3600, waitMaxS: 3600 }
+      ]
+    }]
+  });
+  const skipAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  if (skipAck.status !== 'ok' || skipAck.spawnedPeople.length !== 1) throw new Error(`Random-target skip setup failed: ${JSON.stringify(skipAck)}`);
+  await waitForCondition(() => logs.some((entry) => entry.includes('HOMEBASE_PERSON_ROUTE_SKIP id=person-skip target=auto-blocked')), 1500);
+  await waitForCondition(() => handle.waypointRoutes.length > skipRouteCount, 1500);
+  manager.handleCommand({ type: 'homebase_v1.preview.people.sync', commandId: 'people-random-skip-clear', navigation: skipNavigation, people: [] });
+  const skipClearAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  if (skipClearAck.status !== 'ok' || manager.snapshot().objects.some((item) => item.id === 'person-skip')) throw new Error('Random-target skip cleanup failed.');
+
   manager.handleCommand({
     type: 'homebase_v1.preview.set', commandId: 'people-routes-1', objects: [],
     navigation: { spawn: { lat: 48, lon: 8, altFt: 514, heading: 90 }, obstacles: [] },
@@ -471,6 +509,39 @@ async function run() {
   if (peopleUpdateAck.status !== 'ok' || peopleUpdateAck.spawnedPeople.length !== 0 || peopleUpdateAck.updatedPeople.length !== 1
     || updatedPersonObjectId !== personObjectId || handle.waypointRoutes.length <= routeCountBeforeUpdate) {
     throw new Error(`Homebase people route live update respawned the person or did not replace its route: ${JSON.stringify(peopleUpdateAck)}`);
+  }
+
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-model-alias-swap',
+    navigation: { spawn: { lat: 48, lon: 8, altFt: 514, heading: 90 }, obstacles: [] },
+    people: [{
+      id: 'person-1', title: 'Tarmac_Male_Summer_Black', label: 'Mitarbeiter 1',
+      startNorthM: 0, startEastM: 0, speedKts: 3, destinations: []
+    }]
+  });
+  const aliasSwapAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  const aliasedPerson = manager.snapshot().objects.find((item) => item.id === 'person-1');
+  if (aliasSwapAck.status !== 'ok' || aliasedPerson?.title !== 'Tarmac_Male_Summer_African'
+    || aliasedPerson.objectId === updatedPersonObjectId || manager.snapshot().objectCount !== 1) {
+    throw new Error(`Legacy Homebase person title was not migrated safely: ${JSON.stringify(aliasSwapAck)}`);
+  }
+
+  handle.failedTitles.add('Tarmac_Female_Winter_Asian');
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-model-swap-failure',
+    navigation: { spawn: { lat: 48, lon: 8, altFt: 514, heading: 90 }, obstacles: [] },
+    people: [{
+      id: 'person-1', title: 'Tarmac_Female_Winter_Asian', label: 'Mitarbeiter 1',
+      startNorthM: 0, startEastM: 0, speedKts: 3, destinations: []
+    }]
+  });
+  const failedSwapAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  handle.failedTitles.delete('Tarmac_Female_Winter_Asian');
+  const preservedPerson = manager.snapshot().objects.find((item) => item.id === 'person-1');
+  if (failedSwapAck.status !== 'error' || failedSwapAck.failedPeople?.length !== 1
+    || preservedPerson?.title !== 'Tarmac_Male_Summer_African'
+    || preservedPerson.objectId !== aliasedPerson.objectId || manager.snapshot().objectCount !== 1) {
+    throw new Error(`Failed Homebase person replacement did not preserve the previous person: ${JSON.stringify(failedSwapAck)}`);
   }
   manager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: 'people-routes-clear' });
   const peopleClearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');

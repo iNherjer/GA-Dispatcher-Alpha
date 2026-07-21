@@ -66,6 +66,9 @@ const tarmacPeople = Object.freeze([
   { title: 'Tarmac_Female_Winter_Hispanic', label: 'Tarmac-Person (weiblich, Winter, hispanisch)' },
   { title: 'Tarmac_Female_Winter_Indian', label: 'Tarmac-Person (weiblich, Winter, indisch)' }
 ]);
+const legacyPersonTitleAliases = Object.freeze({
+  Tarmac_Male_Summer_Black: 'Tarmac_Male_Summer_African'
+});
 
 function withNavigationFootprint(entry) {
   const footprint = entry.footprint || navigationFootprints[entry.title];
@@ -336,6 +339,7 @@ const catalog = Object.freeze({
   stockObjects,
   navigationFootprints,
   tarmacPeople,
+  legacyPersonTitleAliases,
   legacyTitleAliases,
   registerRuntimeAssets,
   runtimeAssets: () => [...runtimeAssetsByTitle.values()],

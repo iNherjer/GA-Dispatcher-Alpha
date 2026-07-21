@@ -29,6 +29,7 @@
     ...ASSET_CATALOG.stockObjects.map((entry) => [entry.title, { ...entry }])
   ]);
   const TARMAC_PEOPLE = Array.isArray(ASSET_CATALOG.tarmacPeople) ? ASSET_CATALOG.tarmacPeople : [];
+  const TARMAC_PERSON_TITLE_ALIASES = ASSET_CATALOG.legacyPersonTitleAliases || {};
   const HANGAR_TITLE = ASSET_BY_KEY.get('hangar').title;
   const OPEN_PARKING_TITLE = ASSET_BY_KEY.get('openParking').title;
   const HANGAR_DEFINITIONS = new Map(ASSET_CATALOG.assets
@@ -250,7 +251,9 @@
 
   function normalizePerson(raw, index = 0) {
     const fallback = TARMAC_PEOPLE[0] || { title: 'Tarmac_Male_Summer_Asian', label: 'Tarmac-Person' };
-    const selectedModel = TARMAC_PEOPLE.find((entry) => entry.title === raw?.title) || fallback;
+    const requestedTitle = String(raw?.title || '').trim();
+    const migratedTitle = TARMAC_PERSON_TITLE_ALIASES[requestedTitle] || requestedTitle;
+    const selectedModel = TARMAC_PEOPLE.find((entry) => entry.title === migratedTitle) || fallback;
     return {
       id: String(raw?.id || `person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `person-${index + 1}`,
       title: selectedModel.title,
@@ -258,8 +261,29 @@
       startNorthM: clamp(raw?.startNorthM ?? 12 + index * 2, -2000, 2000),
       startEastM: clamp(raw?.startEastM ?? index * 2, -2000, 2000),
       speedKts: clamp(raw?.speedKts ?? 2.6, 1, 5),
+      randomTargets: raw?.randomTargets === true,
+      randomWaitMinS: clamp(raw?.randomWaitMinS ?? 5, 0, 3600),
+      randomWaitMaxS: clamp(raw?.randomWaitMaxS ?? 30, 0, 3600),
       stops: Array.isArray(raw?.stops) ? raw.stops.slice(0, 20).map(normalizePersonStop) : []
     };
+  }
+
+  function automaticPersonDestinations(person) {
+    return state.objects.slice(0, 100).map((item, index) => ({
+      id: `auto-${String(item.id || index + 1)}`.slice(0, 64),
+      targetType: 'object',
+      targetId: String(item.id || ''),
+      northM: 0,
+      eastM: 0,
+      waitMinS: clamp(person?.randomWaitMinS ?? 5, 0, 3600),
+      waitMaxS: clamp(person?.randomWaitMaxS ?? 30, 0, 3600)
+    })).filter((destination) => destination.targetId);
+  }
+
+  function personRuntimeDestinations(person) {
+    return person?.randomTargets === true
+      ? automaticPersonDestinations(person)
+      : (Array.isArray(person?.stops) ? person.stops.map((stop) => ({ ...stop })) : []);
   }
 
   function loadState() {
@@ -726,7 +750,7 @@
     const start = { northM: person.startNorthM, eastM: person.startEastM };
     start.insideHangar = pointInsideHangar(start);
     const routes = [];
-    for (const stop of person.stops) {
+    for (const stop of personRuntimeDestinations(person)) {
       const leg = compilePersonLeg(start, stop);
       if (!leg.ok || !leg.path?.length) return { ok: false, error: leg.error || 'no_route', stopId: stop.id, routes };
       routes.push({ stop, path: leg.path, distanceM: ROUTE_CORE.pathDistance(leg.path) });
@@ -738,7 +762,7 @@
     personRouteLayer.clearLayers();
     const person = selectedPerson();
     if (!person) return;
-    const route = compilePersonRoute(person);
+    const route = person.randomTargets === true ? { ok: true, routes: [] } : compilePersonRoute(person);
     const spawnMarker = L.marker(routePointLatLng({ northM: person.startNorthM, eastM: person.startEastM }), {
       icon: markerIcon('route-debug-start-icon', 'P'), draggable: true, autoPan: true
     }).bindTooltip(`${person.label} · Startpunkt ziehen`).addTo(personRouteLayer);
@@ -749,6 +773,7 @@
       person.startEastM = clamp(local.eastM, -2000, 2000);
       saveState(); syncInputsFromState(); updateMap(); schedulePeopleLiveSync();
     });
+    if (person.randomTargets === true) return;
     route.routes.forEach((candidate, index) => {
       L.polyline(candidate.path.map(routePointLatLng), { color: '#bbf451', weight: 3, opacity: .65, dashArray: '9 5', interactive: false }).addTo(personRouteLayer);
     });
@@ -907,7 +932,9 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `object-list-item${person.id === selectedPersonId ? ' selected' : ''}`;
-      button.textContent = `${index + 1}. ${person.label} · ${person.stops.length} Ziele`;
+      button.textContent = person.randomTargets === true
+        ? `${index + 1}. ${person.label} · Zufallsziele (${state.objects.length})`
+        : `${index + 1}. ${person.label} · ${person.stops.length} Ziele`;
       button.addEventListener('click', () => { selectedPersonId = person.id; renderPeople(); updateMap(); });
       list.append(button);
     });
@@ -928,11 +955,24 @@
     $('personStartNorth').value = Number(person.startNorthM.toFixed(1));
     $('personStartEast').value = Number(person.startEastM.toFixed(1));
     $('personSpeed').value = Number(person.speedKts.toFixed(1));
-    renderPersonStops(person);
-    const route = compilePersonRoute(person);
-    setResult('peopleResult', route.ok
-      ? `${person.stops.length} mögliche Ziele; der nächste Abschnitt wird jeweils zufällig und neu geplant.`
-      : (person.stops.length ? `Mindestens ein Ziel ist derzeit nicht erreichbar (${route.error}).` : 'Füge mögliche Objektziele oder freie Wegpunkte hinzu.'), route.ok ? true : null);
+    $('personRandomTargetsToggle').checked = person.randomTargets === true;
+    $('personRandomWaitMin').value = Number(person.randomWaitMinS.toFixed(0));
+    $('personRandomWaitMax').value = Number(person.randomWaitMaxS.toFixed(0));
+    $('personRandomTargetsSettings').hidden = person.randomTargets !== true;
+    $('personManualTargets').hidden = person.randomTargets === true;
+    $('personRandomTargetsHint').textContent = state.objects.length
+      ? `${state.objects.length} platzierte Objekt(e) werden automatisch als Ziele verwendet. Unerreichbare Ziele werden übersprungen.`
+      : 'Noch keine platzierten Objekte vorhanden. Der Mitarbeiter wartet, bis ein Objekt als Ziel verfügbar ist.';
+    if (person.randomTargets === true) $('personStops').textContent = '';
+    else renderPersonStops(person);
+    const route = person.randomTargets === true ? null : compilePersonRoute(person);
+    setResult('peopleResult', person.randomTargets === true
+      ? (state.objects.length
+        ? `Zufallsmodus aktiv: ${state.objects.length} Objektziel(e); unerreichbare Ziele werden automatisch übersprungen.`
+        : 'Zufallsmodus aktiv, aber noch keine Objektziele vorhanden.')
+      : (route.ok
+        ? `${person.stops.length} mögliche Ziele; der nächste Abschnitt wird jeweils zufällig und neu geplant.`
+        : (person.stops.length ? `Mindestens ein Ziel ist derzeit nicht erreichbar (${route.error}).` : 'Füge mögliche Objektziele oder freie Wegpunkte hinzu.')), person.randomTargets === true ? state.objects.length > 0 : route.ok ? true : null);
     renderSelectedPersonRoute();
   }
 
@@ -953,7 +993,7 @@
 
   function addPersonDestination() {
     const person = selectedPerson();
-    if (!person || person.stops.length >= 20) return;
+    if (!person || person.randomTargets === true || person.stops.length >= 20) return;
     const firstTarget = state.hangar.objectTitle !== OPEN_PARKING_TITLE ? 'hangar' : state.objects[0]?.id;
     person.stops.push(normalizePersonStop({
       id: `destination-${Date.now().toString(36)}-${person.stops.length + 1}`,
@@ -972,6 +1012,17 @@
     person.speedKts = clamp($('personSpeed').value, 1, 5);
     saveState();
     if (event?.target?.id === 'personModelSelect') renderPeople();
+    updateMap(); schedulePeopleLiveSync();
+  }
+
+  function readSelectedPersonRandomTargets(event) {
+    const person = selectedPerson();
+    if (!person) return;
+    person.randomTargets = $('personRandomTargetsToggle').checked;
+    person.randomWaitMinS = clamp($('personRandomWaitMin').value, 0, 3600);
+    person.randomWaitMaxS = clamp($('personRandomWaitMax').value, 0, 3600);
+    saveState();
+    if (event?.target?.id === 'personRandomTargetsToggle') renderPeople();
     updateMap(); schedulePeopleLiveSync();
   }
 
@@ -1416,7 +1467,8 @@
       people: state.people.map((person) => ({
         id: person.id, title: person.title, label: person.label,
         startNorthM: person.startNorthM, startEastM: person.startEastM, speedKts: person.speedKts,
-        destinations: person.stops.map((stop) => ({ ...stop }))
+        targetMode: person.randomTargets === true ? 'all-objects' : 'manual',
+        destinations: personRuntimeDestinations(person)
       })),
       navigation: {
         spawn: { lat: state.spawn.lat, lon: state.spawn.lon, altFt: state.spawn.altFt, heading: state.spawn.heading },
@@ -2468,6 +2520,11 @@
   ['personStartNorth', 'personStartEast', 'personSpeed'].forEach((id) => {
     $(id).addEventListener('input', readSelectedPersonFromInputs);
     $(id).addEventListener('change', readSelectedPersonFromInputs);
+  });
+  $('personRandomTargetsToggle').addEventListener('change', readSelectedPersonRandomTargets);
+  ['personRandomWaitMin', 'personRandomWaitMax'].forEach((id) => {
+    $(id).addEventListener('input', readSelectedPersonRandomTargets);
+    $(id).addEventListener('change', readSelectedPersonRandomTargets);
   });
   document.querySelectorAll('[data-nudge]').forEach((button) => button.addEventListener('click', () => {
     if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
