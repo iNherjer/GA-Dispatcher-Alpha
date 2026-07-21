@@ -609,6 +609,20 @@ async function run() {
   if (!scene.content.includes('name="VegetationScale"') || !scene.content.includes('name="VegetationFalloff"')) throw new Error('Round-hangar vegetation exclusion missing.');
   if (scene.content.includes('name="FlattenMode"') || scene.content.includes('name="ForceElevation"')) throw new Error('Vegetation exclusion unexpectedly alters terrain elevation.');
   if (!scene.content.includes('<LibraryObject name="{29BB5A2A-1961-4947-BB68-BB6B12C33F4E}" scale="1.000"/>')) throw new Error('Static collision companion missing.');
+  if (scene.config.compileMode !== 'full') throw new Error('Legacy Homebase builds must default to full mode.');
+
+  const spawnOnlyScene = createSceneXml({
+    ...scene.config,
+    compileMode: 'spawn-only'
+  });
+  if (spawnOnlyScene.config.compileMode !== 'spawn-only') throw new Error('Spawn-only compile mode was not retained.');
+  if (!spawnOnlyScene.content.includes('type="RAMP_GA_SMALL"')) throw new Error('Spawn-only Homebase parking missing.');
+  if (spawnOnlyScene.content.includes('<SceneryObject') || spawnOnlyScene.content.includes('<Polygon')) {
+    throw new Error('Spawn-only Homebase unexpectedly contains visual, collision, or vegetation scenery.');
+  }
+  if (spawnOnlyScene.config.objects.length !== scene.config.objects.length) {
+    throw new Error('Spawn-only snapshot did not retain the editable Homebase plan.');
+  }
 
   const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'homebase-assets-test-'));
   try {

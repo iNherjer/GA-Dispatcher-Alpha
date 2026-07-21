@@ -229,11 +229,13 @@
       </section>
 
       <section class="card build-card">
-        <div class="section-title"><div><span class="step">OPTIONAL</span><h2>Homebase als vollständigen Mod installieren</h2></div></div>
-        <p class="small-note"><strong>Dieser Schritt ist nicht zwingend erforderlich.</strong> Mit laufender VFR-Haupt-App und PC-Tracker kannst du deine Homebase bereits sehen und bearbeiten. Beim Kompilieren entsteht zusätzlich ein vollständiger MSFS-Mod: Die Homebase bleibt dann auch ohne laufendes Tool sichtbar, und du kannst einen Flug direkt am Parkplatz deiner Homebase beginnen.</p>
+        <div class="section-title"><div><span class="step">OPTIONAL</span><h2>Homebase als Mod installieren</h2></div></div>
+        <p class="small-note"><strong>Dieser Schritt ist nicht zwingend erforderlich.</strong> Mit laufender VFR-Haupt-App und PC-Tracker kannst du deine Homebase bereits sehen und bearbeiten. Beim Kompilieren entsteht zusätzlich ein MSFS-Mod, über den du einen Flug direkt am Parkplatz deiner Homebase beginnen kannst.</p>
         <p id="assetPackageResult" class="result-line">Die benötigten Homebase-Objekte werden geprüft …</p>
         <button id="assetPackageBtn" class="secondary wide">Homebase-Objekte prüfen oder installieren</button>
         <p class="small-note">Hier prüfst du, ob die Modelle für Hangar und Ausstattung im MSFS-Community-Ordner vorhanden sind. Falls etwas fehlt oder veraltet ist, fragt dich der PC-Tracker vor dem Download und vor jeder Änderung.</p>
+        <label class="toggle"><input id="compileSpawnOnlyToggle" type="checkbox"> Nur den Startplatz kompilieren</label>
+        <p id="compileModeHint" class="small-note">Der vollständige Mod enthält Startplatz, Hangar und Ausstattung. Änderungen an kompilierten Objekten werden erst nach einer erneuten Kompilierung vollständig sichtbar.</p>
         <button id="buildAirportBtn" class="primary wide">Homebase kompilieren und installieren</button>
         <p class="small-note">Ein Assistent führt dich durch alle Schritte. Falls MSFS geschlossen werden muss oder ein Mod installiert wird, wirst du vorher ausdrücklich gefragt.</p>
         <button id="uninstallAirportBtn" class="danger wide">Installierten Homebase-Mod entfernen</button>
@@ -275,6 +277,6 @@
   <script src="../vendor/leaflet/leaflet.js"></script>
   <script src="./homebase-asset-catalog.js?v=homebase-people-routes-v1-20260721-01"></script>
   <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-random-worker-targets-20260721-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-spawn-only-mod-v307-20260721-01"></script>
 </body>
 </html>

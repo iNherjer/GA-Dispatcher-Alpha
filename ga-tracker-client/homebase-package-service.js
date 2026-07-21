@@ -212,6 +212,7 @@ function normalizeConfig(input) {
   const normalized = {
     protocol: 2,
     name: 'VFR Multitool Homebase',
+    compileMode: input.compileMode === 'spawn-only' ? 'spawn-only' : 'full',
     doorAutomationEnabled: input.doorAutomationEnabled !== false,
     spawn: {
       lat: finite(spawn.lat, NaN),
@@ -304,24 +305,26 @@ function createSceneXml(input) {
   lines.push(`    <Runway lat="${technicalRunway.lat.toFixed(8)}" lon="${technicalRunway.lon.toFixed(8)}" alt="${spawnAltM.toFixed(3)}" altType="GEOID" surface="UNKNOWN" transparent="TRUE" heading="${config.spawn.heading.toFixed(3)}" length="1" width="1" number="${runwayNumber(config.spawn.heading)}" designator="NONE" groundMerging="FALSE" excludeVegetationAround="FALSE" excludeBuildingAround="FALSE"></Runway>`);
   lines.push(`    <TaxiwayParking index="0" type="RAMP_GA_SMALL" name="PARKING" number="1" radius="7.6" heading="${config.spawn.heading.toFixed(3)}" lat="${config.spawn.lat.toFixed(8)}" lon="${config.spawn.lon.toFixed(8)}"/>`);
   lines.push('  </Airport>');
-  lines.push(sceneryObject(config.hangar, config.hangar.objectTitle, `<SimObject containerTitle="${xml(config.hangar.objectTitle)}" scale="1.000"/>`));
-  const hangarCollision = collisionCompanion(config.hangar, config.hangar.objectTitle, 1);
-  if (hangarCollision) lines.push(hangarCollision);
-  const vegetationPolygons = [];
-  const hangarVegetation = vegetationExclusionPolygon(config.hangar, config.hangar.objectTitle, spawnAltM, vegetationPolygons.length + 1);
-  if (hangarVegetation) vegetationPolygons.push(hangarVegetation);
-  for (const item of config.objects) {
-    if (item.title === 'Windsock') {
-      lines.push(sceneryObject(item, item.title, '<Windsock poleHeight="5.000" sockLength="2.500" lighted="TRUE" containerTitle="Windsock"/>'));
-    } else {
-      lines.push(sceneryObject(item, item.title, `<SimObject containerTitle="${xml(item.title)}" scale="${item.scale.toFixed(3)}"/>`));
+  if (config.compileMode !== 'spawn-only') {
+    lines.push(sceneryObject(config.hangar, config.hangar.objectTitle, `<SimObject containerTitle="${xml(config.hangar.objectTitle)}" scale="1.000"/>`));
+    const hangarCollision = collisionCompanion(config.hangar, config.hangar.objectTitle, 1);
+    if (hangarCollision) lines.push(hangarCollision);
+    const vegetationPolygons = [];
+    const hangarVegetation = vegetationExclusionPolygon(config.hangar, config.hangar.objectTitle, spawnAltM, vegetationPolygons.length + 1);
+    if (hangarVegetation) vegetationPolygons.push(hangarVegetation);
+    for (const item of config.objects) {
+      if (item.title === 'Windsock') {
+        lines.push(sceneryObject(item, item.title, '<Windsock poleHeight="5.000" sockLength="2.500" lighted="TRUE" containerTitle="Windsock"/>'));
+      } else {
+        lines.push(sceneryObject(item, item.title, `<SimObject containerTitle="${xml(item.title)}" scale="${item.scale.toFixed(3)}"/>`));
+      }
+      const companion = collisionCompanion(item, item.title, item.scale);
+      if (companion) lines.push(companion);
+      const vegetation = vegetationExclusionPolygon(item, item.title, spawnAltM, vegetationPolygons.length + 1);
+      if (vegetation) vegetationPolygons.push(vegetation);
     }
-    const companion = collisionCompanion(item, item.title, item.scale);
-    if (companion) lines.push(companion);
-    const vegetation = vegetationExclusionPolygon(item, item.title, spawnAltM, vegetationPolygons.length + 1);
-    if (vegetation) vegetationPolygons.push(vegetation);
+    lines.push(...vegetationPolygons);
   }
-  lines.push(...vegetationPolygons);
   lines.push('</FSData>', '');
   return { config, content: lines.join('\n') };
 }
@@ -572,7 +575,7 @@ function createHomebasePackageService(options = {}) {
     fs.writeFileSync(path.join(project, 'PackageDefinitions', `${catalog.scenePackageName}.xml`), packageXml, 'utf8');
     fs.writeFileSync(path.join(project, 'PackageSources', 'scenery', 'homebase.xml'), content, 'utf8');
     fs.writeFileSync(path.join(project, 'homebase-config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf8');
-    return { path: project, objectCount: config.objects.length };
+    return { path: project, objectCount: config.compileMode === 'spawn-only' ? 0 : config.objects.length, compileMode: config.compileMode };
   };
 
   const runPackageTool = () => new Promise((resolve, reject) => {
@@ -976,7 +979,11 @@ function createHomebasePackageService(options = {}) {
     }
     if (type === 'homebase_v1.package.prepare') {
       const result = prepare(command?.config);
-      ack(command, 'package.prepare', { status: 'ok', message: `SDK-Projekt mit ${result.objectCount} Objekt(en) erzeugt.`, ...result });
+      ack(command, 'package.prepare', {
+        status: 'ok',
+        message: result.compileMode === 'spawn-only' ? 'SDK-Projekt nur mit dem startbaren Parkplatz erzeugt.' : `SDK-Projekt mit ${result.objectCount} Objekt(en) erzeugt.`,
+        ...result
+      });
       return;
     }
     if (type === 'homebase_v1.package.build') {

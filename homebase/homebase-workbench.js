@@ -19,6 +19,7 @@
   const STORAGE_KEY = 'vfr-homebase-workbench-v2';
   const SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
   const DEVICE_ID_KEY = 'vfr-homebase-device-id';
+  const COMPILE_MODE_KEY = 'vfr-homebase-compile-mode-v1';
   const ASSET_CATALOG = globalThis.HOMEBASE_ASSET_CATALOG;
   if (!ASSET_CATALOG?.assets?.length) throw new Error('Der gemeinsame Homebase-Assetkatalog wurde nicht geladen.');
   const ROUTE_CORE = globalThis.HOMEBASE_ROUTE_CORE;
@@ -1479,8 +1480,24 @@
     };
   }
 
+  function selectedCompileMode() {
+    return $('compileSpawnOnlyToggle')?.checked === true ? 'spawn-only' : 'full';
+  }
+
+  function buildPackageConfig() {
+    return { ...buildConfig(), compileMode: selectedCompileMode() };
+  }
+
+  function syncCompileModeUi() {
+    const spawnOnly = selectedCompileMode() === 'spawn-only';
+    $('compileModeHint').textContent = spawnOnly
+      ? 'Der Mod enthält nur den startbaren Parkplatz. Hangar, Ausstattung und Personen bleiben vollständig live editierbar und werden durch App oder Tracker aufgebaut; feste Kollisionsmodelle sind in diesem Modus nicht enthalten.'
+      : 'Der vollständige Mod enthält Startplatz, Hangar und Ausstattung. Änderungen an kompilierten Objekten werden erst nach einer erneuten Kompilierung vollständig sichtbar.';
+  }
+
   function compiledRuntimeObject(id) {
     if (!installedCompiledConfig) return null;
+    if (installedCompiledConfig.compileMode === 'spawn-only') return null;
     if (id === 'hangar' && installedCompiledConfig.hangar) {
       return { id: 'hangar', title: installedCompiledConfig.hangar.objectTitle, ...installedCompiledConfig.hangar };
     }
@@ -1511,11 +1528,16 @@
 
   function confirmCompiledBaseMove() {
     if (!installedCompiledConfig) return true;
-    const keys = ['hangar', ...(Array.isArray(installedCompiledConfig.objects) ? installedCompiledConfig.objects.map((item) => String(item?.id || '')).filter(Boolean) : [])];
+    const spawnOnly = installedCompiledConfig.compileMode === 'spawn-only';
+    const keys = spawnOnly
+      ? ['spawn']
+      : ['hangar', ...(Array.isArray(installedCompiledConfig.objects) ? installedCompiledConfig.objects.map((item) => String(item?.id || '')).filter(Boolean) : [])];
     if (keys.every((key) => approvedCompiledChanges.has(key))) return true;
     const accepted = window.confirm(
-      'Der Startpunkt gehört zum aktuell installierten Homebase-Mod. Eine Änderung verschiebt den aktuellen Entwurf gegenüber allen kompilierten Objekten.\n\n' +
-      'Dadurch können im Simulator vorübergehend doppelte beziehungsweise veraltete Objekte erscheinen. Der alte Stand verschwindet erst nach erneutem Kompilieren und Installieren.\n\n' +
+      (spawnOnly
+        ? 'Der Startpunkt gehört zum aktuell installierten Startplatz-Mod. Eine Änderung verschiebt nur den Live-Entwurf; der startbare Parkplatz bleibt bis zur nächsten Kompilierung an seiner bisherigen Position.\n\n'
+        : 'Der Startpunkt gehört zum aktuell installierten Homebase-Mod. Eine Änderung verschiebt den aktuellen Entwurf gegenüber allen kompilierten Objekten.\n\n' +
+          'Dadurch können im Simulator vorübergehend doppelte beziehungsweise veraltete Objekte erscheinen. Der alte Stand verschwindet erst nach erneutem Kompilieren und Installieren.\n\n') +
       'Startpunkt trotzdem verschieben?'
     );
     if (accepted) {
@@ -2017,9 +2039,11 @@
     const button = $('buildAirportBtn');
     button.disabled = true;
     $('sdkHelp').open = false;
+    const packageConfig = buildPackageConfig();
+    const spawnOnly = packageConfig.compileMode === 'spawn-only';
     try {
-      showBuildStage('project', 'Deine aktuelle Homebase wird für die Mod-Erstellung vorbereitet …');
-      const prepared = await postJson('/api/package/prepare', { config: buildConfig() });
+      showBuildStage('project', spawnOnly ? 'Der startbare Parkplatz wird für die Mod-Erstellung vorbereitet …' : 'Deine aktuelle Homebase wird für die Mod-Erstellung vorbereitet …');
+      const prepared = await postJson('/api/package/prepare', { config: packageConfig });
       log(prepared.message || 'Homebase-Projekt erstellt.', 'ok');
 
       const sdk = await requestJson('/api/sdk/status');
@@ -2032,7 +2056,7 @@
       showBuildStage('simulator', 'Die Homebase ist vorbereitet. Jetzt wird geprüft, ob MSFS für die Kompilierung geschlossen werden muss …');
       const simulator = await requestJson('/api/simulator/status');
       if (simulator.running) {
-        const confirmed = window.confirm('Deine Homebase ist für die Kompilierung vorbereitet.\n\nDamit daraus ein vollständiger Mod entstehen kann, muss MSFS jetzt beendet werden. Nicht gespeicherter Flugfortschritt kann dabei verloren gehen.\n\nMSFS jetzt schließen und die Homebase kompilieren?');
+        const confirmed = window.confirm(`${spawnOnly ? 'Dein Startplatz' : 'Deine Homebase'} ist für die Kompilierung vorbereitet.\n\nDamit daraus ein Mod entstehen kann, muss MSFS jetzt beendet werden. Nicht gespeicherter Flugfortschritt kann dabei verloren gehen.\n\nMSFS jetzt schließen und ${spawnOnly ? 'den Startplatz' : 'die Homebase'} kompilieren?`);
         if (!confirmed) {
           showBuildStage('simulator', 'Pausiert: MSFS wurde nicht beendet. Deine Vorbereitung ist gespeichert; du kannst die Kompilierung später erneut starten.');
           log('Homebase-Kompilierung vor dem Beenden von MSFS durch den Benutzer pausiert.');
@@ -2046,12 +2070,12 @@
       }
 
       showBuildStage('sdk', 'Der PC-Tracker wartet, bis MSFS vollständig beendet ist, und kompiliert danach deine Homebase …');
-      const built = await postJson('/api/package/build', { config: buildConfig() });
+      const built = await postJson('/api/package/build', { config: packageConfig });
       const waited = Number(built.simulatorExit?.waitedMs || 0);
       log(`${built.message || 'Homebase-Paket gebaut.'}${waited > 0 ? ` Nach ${Math.round(waited / 1000)} Sekunde(n) Wartezeit auf MSFS.` : ''}`, 'ok');
 
-      showBuildStage('install', 'Der vollständige Homebase-Mod wurde kompiliert und kann jetzt installiert werden.');
-      const installConfirmed = window.confirm('Dein Homebase-Mod wurde erfolgreich kompiliert.\n\nSoll er jetzt in den aktiven MSFS-Community-Ordner installiert werden? Eine ältere Version deiner Homebase wird dabei ersetzt.');
+      showBuildStage('install', `${spawnOnly ? 'Der Startplatz-Mod' : 'Der vollständige Homebase-Mod'} wurde kompiliert und kann jetzt installiert werden.`);
+      const installConfirmed = window.confirm(`${spawnOnly ? 'Dein Startplatz-Mod' : 'Dein Homebase-Mod'} wurde erfolgreich kompiliert.\n\nSoll er jetzt in den aktiven MSFS-Community-Ordner installiert werden? Eine ältere Version deiner Homebase wird dabei ersetzt.`);
       if (!installConfirmed) {
         showBuildStage('install', 'Pausiert: Der fertige Homebase-Mod wurde noch nicht installiert. Du kannst den Assistenten später erneut starten.');
         log('Installation des gebauten Homebase-Pakets durch den Benutzer pausiert.');
@@ -2066,7 +2090,9 @@
         approvedCompiledChanges.clear();
       }
       log(installed.message || 'Homebase-Mod installiert.', 'ok');
-      showBuildStage('done', 'Fertig: Der Homebase-Mod ist installiert. Nach dem Neustart von MSFS bleibt die Homebase auch ohne laufendes Tool sichtbar und steht als Startplatz bereit.', 'complete');
+      showBuildStage('done', spawnOnly
+        ? 'Fertig: Der Startplatz-Mod ist installiert. Nach dem Neustart von MSFS ist die Homebase als Startplatz verfügbar; Hangar, Ausstattung und Personen bleiben live über App oder Tracker editierbar.'
+        : 'Fertig: Der Homebase-Mod ist installiert. Nach dem Neustart von MSFS bleibt die Homebase auch ohne laufendes Tool sichtbar und steht als Startplatz bereit.', 'complete');
     } catch (error) {
       const active = document.querySelector('[data-build-step].active')?.dataset.buildStep || 'project';
       showBuildStage(active, `Die Kompilierung wurde gestoppt: ${error?.message || error}`, 'failed');
@@ -2623,10 +2649,16 @@
   $('previewBtn').addEventListener('click', sendPreview);
   $('clearBtn').addEventListener('click', clearPreview);
   $('buildAirportBtn').addEventListener('click', buildAirportGuided);
+  $('compileSpawnOnlyToggle').checked = localStorage.getItem(COMPILE_MODE_KEY) === 'spawn-only';
+  $('compileSpawnOnlyToggle').addEventListener('change', () => {
+    localStorage.setItem(COMPILE_MODE_KEY, selectedCompileMode());
+    syncCompileModeUi();
+  });
   $('assetPackageBtn').addEventListener('click', () => offerAssetPackageInstall({ force: true }));
   $('uninstallAirportBtn').addEventListener('click', uninstallAirport);
   $('connectBtn').addEventListener('click', connect);
   $('clearLogBtn').addEventListener('click', () => { $('log').textContent = ''; });
+  syncCompileModeUi();
   setupMobileMapPin();
   fillCatalog(); fillPersonCatalog(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
   if (INTEGRATED) {

@@ -476,6 +476,7 @@
   }
 
   function runtimeObjectsFromConfig(config) {
+    if (config?.compileMode === 'spawn-only') return [];
     if (!config?.hangar) return [];
     const hangar = {
       id: 'hangar',
