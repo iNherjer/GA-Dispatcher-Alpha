@@ -8591,7 +8591,7 @@ function _upsertMissionLogbook(record) {
     if (idx >= 0) compact[idx] = record;
     else compact.unshift(record);
     compact.sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0));
-    localStorage.setItem('ga_logbook', JSON.stringify(compact.slice(0, 50)));
+    _storeMissionLogbookEntries(compact);
     try { window.renderLog?.(); } catch (_) { try { renderLog(); } catch (_) {} }
     return true;
 }
@@ -8608,15 +8608,75 @@ function _missionLogbookForSync(source = null) {
         .slice(0, 50);
 }
 
-function _mergeMissionLogbooks(remoteEntries = []) {
+function _storeMissionLogbookEntries(entries = [], options = {}) {
+    const source = (Array.isArray(entries) ? entries : [])
+        .map(_compactLegacyLogbookEntry)
+        .filter(entry => entry?.completionId)
+        .slice(0, 50);
+    const limits = Array.from(new Set([
+        source.length,
+        40,
+        25,
+        10,
+        5,
+        2,
+        1
+    ].filter(limit => limit > 0 && limit <= source.length)));
+    if (!source.length) limits.push(0);
+
+    let lastError = null;
+    let storageRescued = false;
+    for (const limit of limits) {
+        const candidate = source.slice(0, limit);
+        for (let pass = 0; pass < 2; pass++) {
+            try {
+                if (storageRescued) {
+                    try { localStorage.removeItem('ga_logbook'); } catch (_) {}
+                }
+                localStorage.setItem('ga_logbook', JSON.stringify(candidate));
+                const compacted = candidate.length < source.length;
+                if (storageRescued || compacted) {
+                    try {
+                        console.warn('[Sync] Logbook storage adjusted for local quota.', {
+                            kept: candidate.length,
+                            available: source.length,
+                            storageRescued
+                        });
+                    } catch (_) {}
+                }
+                return {
+                    entries: candidate,
+                    totalEntries: source.length,
+                    compacted,
+                    storageRescued
+                };
+            } catch (err) {
+                lastError = err;
+                if (!_syncIsStorageQuotaError(err)) throw err;
+                if (!storageRescued) {
+                    _syncPruneLocalStorageForQuota({
+                        replacePinboard: options.replacePinboard === true,
+                        replaceActiveMission: false
+                    });
+                    try { localStorage.removeItem('ga_logbook'); } catch (_) {}
+                    storageRescued = true;
+                    continue;
+                }
+                break;
+            }
+        }
+    }
+    throw lastError || new Error('Logbuch konnte lokal nicht gespeichert werden');
+}
+
+function _mergeMissionLogbooks(remoteEntries = [], options = {}) {
     const merged = new Map();
     _missionLogbookForSync(remoteEntries).forEach(entry => merged.set(entry.completionId, entry));
     _missionLogbookForSync().forEach(entry => merged.set(entry.completionId, entry));
     const result = Array.from(merged.values())
         .sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0))
         .slice(0, 50);
-    localStorage.setItem('ga_logbook', JSON.stringify(result));
-    return result;
+    return _storeMissionLogbookEntries(result, options);
 }
 
 function _persistMissionCompletion(record) {
@@ -11914,8 +11974,10 @@ async function forceSyncLoad() {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
         }
+        const logbookStore = data.logbook
+            ? _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard })
+            : null;
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-        if (data.logbook) _mergeMissionLogbooks(data.logbook);
         await _syncApplyActiveMissionFromCloud(data.activeMission || null);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -11927,11 +11989,15 @@ async function forceSyncLoad() {
         }
         setLastSyncedPayload();
         updateGroupBadgeUI();
+        const storageAdjusted = !!(
+            pinboardStore?.storageRescued
+            || pinboardStore?.compacted
+            || logbookStore?.storageRescued
+            || logbookStore?.compacted
+        );
         const pinboardStatus = pinboardStore?.dropped
             ? "Cloud: Geladen (ohne Pinnwand) ⚠️"
-            : (pinboardStore?.storageRescued
-                ? "Cloud: Geladen (Speicher bereinigt) ✅"
-                : (pinboardStore?.compacted ? "Cloud: Geladen (kompakt) ✅" : "Cloud: Geladen ✅"));
+            : (storageAdjusted ? "Cloud: Geladen (Speicher angepasst) ✅" : "Cloud: Geladen ✅");
         updateSyncStatus(pinboardStatus);
         flashSyncIndicator('down');
 
@@ -11972,8 +12038,8 @@ async function silentSyncLoad() {
         if (data.lastModified && data.lastModified > localSyncTime) {
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
+            if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
             if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
-            if (data.logbook) _mergeMissionLogbooks(data.logbook);
             await _syncApplyActiveMissionFromCloud(data.activeMission || null);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -12163,8 +12229,8 @@ async function checkCloudAfterIdle() {
                 // User will laden -> Daten anwenden
                 localSyncTime = data.lastModified;
                 localStorage.setItem('ga_sync_time', localSyncTime);
+                if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
                 if (data.pinboard) _syncStoreCloudPinboard(data.pinboard);
-                if (data.logbook) _mergeMissionLogbooks(data.logbook);
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
