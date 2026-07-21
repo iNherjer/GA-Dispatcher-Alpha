@@ -8056,7 +8056,9 @@ function _analyzePaxComfortMotion(samples, now = Date.now()) {
         detected: false, severity: null, derivedTurbulencePct: 0,
         windowMs: 0, samples: valid.length, signalCount: 0, hardSignalCount: 0,
         gSwing: 0, vsSwing: 0, bankSwing: 0, pitchSwing: 0,
-        gReversals: 0, vsReversals: 0, bankReversals: 0, pitchReversals: 0
+        gReversals: 0, vsReversals: 0, bankReversals: 0, pitchReversals: 0,
+        gHigh: 0, gLow: 0, vsLow: 0, bankAbsHigh: 0, pitchAbsHigh: 0,
+        pilotEvidenceMs: 0, maneuverLike: false, maneuverReasons: []
     };
     if (valid.length < 12) return empty;
     const windowMs = Math.max(0, Number(valid[valid.length - 1].t) - Number(valid[0].t));
@@ -8077,19 +8079,37 @@ function _analyzePaxComfortMotion(samples, now = Date.now()) {
     const bankReversals = _paxComfortSeriesReversals(bankValues, 0.25);
     const pitchReversals = _paxComfortSeriesReversals(pitchValues, 0.15);
 
-    const gWarn = gSwing >= 0.16 && gReversals >= 3;
-    const gHard = gSwing >= 0.28 && gReversals >= 4;
-    const vsWarn = vsSwing >= 220 && vsReversals >= 3;
-    const vsHard = vsSwing >= 420 && vsReversals >= 4;
-    const bankWarn = bankSwing >= 3.5 && bankReversals >= 3;
-    const bankHard = bankSwing >= 6.5 && bankReversals >= 4;
-    const pitchWarn = pitchSwing >= 2.0 && pitchReversals >= 3;
-    const pitchHard = pitchSwing >= 3.5 && pitchReversals >= 4;
+    // P80/P20 statt Einzel-Maximum: Eine echte Rolle oder steile Kurve bleibt
+    // sichtbar, ein einzelner Telemetrie-Spike dagegen nicht.
+    const gHigh = _paxComfortPercentile(gValues, 0.8);
+    const gLow = _paxComfortPercentile(gValues, 0.2);
+    const vsLow = _paxComfortPercentile(vsValues, 0.2);
+    const bankAbsHigh = _paxComfortPercentile(bankValues.map(Math.abs), 0.8);
+    const pitchAbsHigh = _paxComfortPercentile(pitchValues.map(Math.abs), 0.8);
+    const pilotEvidenceMs = Math.min(1000, Math.round(windowMs * 0.2));
+    const maneuverReasons = [];
+    if (bankAbsHigh >= 30) maneuverReasons.push('bank');
+    if (gHigh >= 1.45 || gLow <= 0.65) maneuverReasons.push('g');
+    if (pitchAbsHigh >= 15) maneuverReasons.push('pitch');
+    const maneuverLike = maneuverReasons.length > 0;
+
+    // Wetterunruhe ist schnell und wechselhaft. Drei Richtungswechsel waren in
+    // der Praxis zu leicht durch normale Pilotenkorrekturen zu erreichen.
+    const gWarn = gSwing >= 0.16 && gReversals >= 5;
+    const gHard = gSwing >= 0.28 && gReversals >= 7;
+    const vsWarn = vsSwing >= 220 && vsReversals >= 5;
+    const vsHard = vsSwing >= 420 && vsReversals >= 7;
+    const bankWarn = bankSwing >= 3.5 && bankReversals >= 5;
+    const bankHard = bankSwing >= 6.5 && bankReversals >= 7;
+    const pitchWarn = pitchSwing >= 2.0 && pitchReversals >= 5;
+    const pitchHard = pitchSwing >= 3.5 && pitchReversals >= 7;
     const attitudeWarn = bankWarn || pitchWarn;
     const attitudeHard = bankHard || pitchHard;
     const signalCount = [gWarn, vsWarn, attitudeWarn].filter(Boolean).length;
     const hardSignalCount = [gHard, vsHard, attitudeHard].filter(Boolean).length;
-    const detected = signalCount >= 2;
+    // Ein klares Extremmanoever (Rolle, sehr steile Kurve, starke G-/Pitch-
+    // Auslenkung) hat Vorrang vor der abgeleiteten Turbulenzklassifikation.
+    const detected = signalCount >= 2 && !maneuverLike;
     const hard = detected && hardSignalCount >= 2;
 
     return {
@@ -8107,7 +8127,15 @@ function _analyzePaxComfortMotion(samples, now = Date.now()) {
         gReversals,
         vsReversals,
         bankReversals,
-        pitchReversals
+        pitchReversals,
+        gHigh,
+        gLow,
+        vsLow,
+        bankAbsHigh,
+        pitchAbsHigh,
+        pilotEvidenceMs,
+        maneuverLike,
+        maneuverReasons
     };
 }
 
@@ -8138,20 +8166,26 @@ function _samplePaxComfortMotion(flightData, now = Date.now()) {
     return _paxComfortLastMotionAnalysis;
 }
 
-function _evaluateComfortBreach(flightData, pax, motionTurbulence = null) {
+function _evaluateComfortBreach(flightData, pax, motionAnalysis = null) {
     if (!flightData || !pax) return null;
-    const g = Number(flightData.gForce || 1.0);
-    const bank = Math.abs(Number(flightData.bankDeg || 0));
+    const currentG = Number(flightData.gForce || 1.0);
+    const currentBank = Math.abs(Number(flightData.bankDeg || 0));
+    const currentVsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
+    const motionG = Number(motionAnalysis?.gHigh);
+    const motionBank = Number(motionAnalysis?.bankAbsHigh);
+    const motionVs = Number(motionAnalysis?.vsLow);
+    const g = Number.isFinite(motionG) ? Math.max(currentG, motionG) : currentG;
+    const bank = Number.isFinite(motionBank) ? Math.max(currentBank, motionBank) : currentBank;
+    const vsFpm = Number.isFinite(motionVs) ? Math.min(currentVsFpm, motionVs) : currentVsFpm;
     const wind = Number(flightData.windKts || 0);
     const gust = Number(flightData.windGustKts || 0);
     const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
     const directTurbulence = Number(flightData.turbulencePct || 0);
-    const derivedTurbulence = motionTurbulence?.detected
-        ? Number(motionTurbulence.derivedTurbulencePct || 0)
+    const derivedTurbulence = motionAnalysis?.detected
+        ? Number(motionAnalysis.derivedTurbulencePct || 0)
         : 0;
     const turbulence = Math.max(directTurbulence, derivedTurbulence);
     const precipRate = Number(flightData.precipRateMmH || 0);
-    const vsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
     const policy = _comfortFeedbackPolicy(pax);
     const chooseThreshold = (level, highPair, mediumPair) => {
         const lvl = _normLevel3(level);
@@ -8173,11 +8207,20 @@ function _evaluateComfortBreach(flightData, pax, motionTurbulence = null) {
     const bLevel = bThr ? (bank >= bThr.hard ? 'hard' : bank >= bThr.warn ? 'warn' : null) : null;
     const wLevel = wThr ? (wind >= wThr.hard ? 'hard' : wind >= wThr.warn ? 'warn' : null) : null;
     const gsLevel = gsThr ? (gustSpread >= gsThr.hard ? 'hard' : gustSpread >= gsThr.warn ? 'warn' : null) : null;
-    const directTLevel = tThr
+    const directTurbulenceSupported = !!(
+        motionAnalysis
+        && !motionAnalysis.maneuverLike
+        && Number(motionAnalysis.windowMs || 0) >= _PAX_COMFORT_MOTION_MIN_WINDOW_MS
+        && Number(motionAnalysis.signalCount || 0) >= 1
+    );
+    // Der optionale SimConnect-Wert kann je nach Flugzeug/Sim dauerhaft hoch
+    // oder unplausibel sein. Er darf die Bewegungsanalyse verstaerken, aber
+    // ohne wenigstens eine passende Bewegungsachse keine Meldung ausloesen.
+    const directTLevel = tThr && directTurbulenceSupported
         ? (directTurbulence >= tThr.hard ? 'hard' : directTurbulence >= tThr.warn ? 'warn' : null)
         : null;
-    const motionTLevel = tThr && motionTurbulence?.detected
-        ? (motionTurbulence.severity === 'hard' ? 'hard' : 'warn')
+    const motionTLevel = tThr && motionAnalysis?.detected
+        ? (motionAnalysis.severity === 'hard' ? 'hard' : 'warn')
         : null;
     const tLevel = (directTLevel === 'hard' || motionTLevel === 'hard')
         ? 'hard'
@@ -8187,12 +8230,25 @@ function _evaluateComfortBreach(flightData, pax, motionTurbulence = null) {
     if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
     const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || gsLevel === 'hard' || tLevel === 'hard' || pLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
+    const pilotEvidenceMs = Math.max(0, Number(motionAnalysis?.pilotEvidenceMs || 0));
+    const preconfirmedMs = {};
+    if (gThr && Number(motionAnalysis?.gHigh) >= gThr.warn) preconfirmedMs.g = pilotEvidenceMs;
+    if (bThr && Number(motionAnalysis?.bankAbsHigh) >= bThr.warn) preconfirmedMs.bank = pilotEvidenceMs;
+    if (dThr && Number(motionAnalysis?.vsLow) <= dThr.warn) preconfirmedMs.descent = pilotEvidenceMs;
+    if (motionAnalysis?.detected) preconfirmedMs.turbulence = Number(motionAnalysis.windowMs || 0);
     return {
         severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm,
         gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy,
         directTurbulence,
-        motionTurbulence: motionTurbulence?.detected ? { ...motionTurbulence } : null,
-        preconfirmedMs: motionTurbulence?.detected ? { turbulence: Number(motionTurbulence.windowMs || 0) } : {},
+        directTurbulenceSupported,
+        motionTurbulence: motionAnalysis?.detected ? { ...motionAnalysis } : null,
+        maneuverMotion: motionAnalysis?.maneuverLike ? { ...motionAnalysis } : null,
+        metricSources: {
+            g: Number.isFinite(motionG) && motionG > currentG ? 'window' : 'current',
+            bank: Number.isFinite(motionBank) && motionBank > currentBank ? 'window' : 'current',
+            descent: Number.isFinite(motionVs) && motionVs < currentVsFpm ? 'window' : 'current'
+        },
+        preconfirmedMs,
         thresholds: { g: gThr, bank: bThr, wind: wThr, gust: gsThr, turbulence: tThr, precip: pThr, descent: dThr }
     };
 }
@@ -8255,22 +8311,22 @@ function _comfortBreachDebugDetail(breach) {
         const renderedThreshold = Number(threshold).toFixed(digits).replace('.', ',');
         parts.push(`${label} ${renderedValue}${unit} ≥ ${renderedThreshold}${unit} (${(detail.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
     };
-    add('g', 'G', breach.g, ' g', 2);
-    add('bank', 'Bank', breach.bank, '°');
+    add('g', breach.metricSources?.g === 'window' ? 'G-Spitze' : 'G', breach.g, ' g', 2);
+    add('bank', breach.metricSources?.bank === 'window' ? 'Bank-Spitze' : 'Bank', breach.bank, '°');
     add('wind', 'Wind', breach.wind, ' kt');
     add('gust', 'Böendifferenz', breach.gustSpread, ' kt');
     if (breach.confirmed?.turbulence && breach.motionTurbulence?.detected) {
         const motion = breach.motionTurbulence;
         const motionBits = [];
-        if (motion.gSwing >= 0.16 && motion.gReversals >= 3) {
+        if (motion.gSwing >= 0.16 && motion.gReversals >= 5) {
             motionBits.push(`ΔG ${motion.gSwing.toFixed(2).replace('.', ',')} g / ${motion.gReversals} Wechsel`);
         }
-        if (motion.vsSwing >= 220 && motion.vsReversals >= 3) {
+        if (motion.vsSwing >= 220 && motion.vsReversals >= 5) {
             motionBits.push(`ΔVS ${Math.round(motion.vsSwing)} ft/min / ${motion.vsReversals} Wechsel`);
         }
-        if (motion.bankSwing >= 3.5 && motion.bankReversals >= 3) {
+        if (motion.bankSwing >= 3.5 && motion.bankReversals >= 5) {
             motionBits.push(`ΔBank ${motion.bankSwing.toFixed(1).replace('.', ',')}° / ${motion.bankReversals} Wechsel`);
-        } else if (motion.pitchSwing >= 2.0 && motion.pitchReversals >= 3) {
+        } else if (motion.pitchSwing >= 2.0 && motion.pitchReversals >= 5) {
             motionBits.push(`ΔPitch ${motion.pitchSwing.toFixed(1).replace('.', ',')}° / ${motion.pitchReversals} Wechsel`);
         }
         parts.push(`Unruhe-Muster ${motionBits.join(' · ')} (${(motion.windowMs / 1000).toFixed(1).replace('.', ',')} s)`);
@@ -8285,7 +8341,8 @@ function _comfortBreachDebugDetail(breach) {
     const descent = breach.confirmed?.descent;
     if (descent) {
         const threshold = breach.thresholds?.descent?.[descent.level];
-        parts.push(`Sinkrate ${Math.round(breach.vsFpm)} ft/min ≤ ${Math.round(threshold)} ft/min (${(descent.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
+        const label = breach.metricSources?.descent === 'window' ? 'Sinkraten-Spitze' : 'Sinkrate';
+        parts.push(`${label} ${Math.round(breach.vsFpm)} ft/min ≤ ${Math.round(threshold)} ft/min (${(descent.elapsedMs / 1000).toFixed(1).replace('.', ',')} s)`);
     }
     return parts.length ? `Auslöser: ${parts.join(' · ')}` : '';
 }
@@ -8296,8 +8353,8 @@ function _comfortBreachPrompt(flightData, breach, count) {
     if (!ctx || !pax || !breach) return null;
     const wx = _weatherContext(flightData);
     const bits = [];
-    if (breach.gLevel) bits.push(`G-Last gerade ${breach.g.toFixed(2)}g`);
-    if (breach.bLevel) bits.push(`Bank aktuell ${breach.bank.toFixed(0)}°`);
+    if (breach.gLevel) bits.push(`${breach.metricSources?.g === 'window' ? 'G-Spitze' : 'G-Last gerade'} ${breach.g.toFixed(2)}g`);
+    if (breach.bLevel) bits.push(`${breach.metricSources?.bank === 'window' ? 'Bank-Spitze' : 'Bank aktuell'} ${breach.bank.toFixed(0)}°`);
     if (breach.wLevel) bits.push(`Wind ${breach.wind.toFixed(0)} kts`);
     if (breach.gsLevel) bits.push(`Böenspitzen +${Math.round(breach.gustSpread)} kts`);
     if (breach.tLevel) {
@@ -8308,7 +8365,7 @@ function _comfortBreachPrompt(flightData, breach, count) {
         }
     }
     if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
-    if (breach.dLevel) bits.push(`Sinkflug ${Math.round(breach.vsFpm)} ft/min`);
+    if (breach.dLevel) bits.push(`${breach.metricSources?.descent === 'window' ? 'Sinkraten-Spitze' : 'Sinkflug'} ${Math.round(breach.vsFpm)} ft/min`);
     const hasPilotIssue = !!(breach.gLevel || breach.bLevel || breach.dLevel);
     const hasWeatherIssue = !!(breach.wLevel || breach.gsLevel || breach.tLevel || breach.pLevel);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
