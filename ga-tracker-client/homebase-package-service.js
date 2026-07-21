@@ -415,12 +415,15 @@ function createHomebasePackageService(options = {}) {
     options.embeddedAssetPackagePath
       || path.join(__dirname, 'embedded-homebase-assets', catalog.assetPackageName)
   );
-  const project = path.join(runtimeDir, 'homebase-generated', 'vfr-multitool-homebase');
+  const generatedRoot = path.join(runtimeDir, 'homebase-generated');
+  const project = path.join(generatedRoot, 'vfr-multitool-homebase');
   const projectXmlPath = path.join(project, 'HomebaseProject.xml');
   const outputPackage = path.join(project, 'Packages', catalog.scenePackageName);
-  const installedStatePath = path.join(runtimeDir, 'homebase-generated', 'installed-homebase-state.json');
+  const stateRoot = path.join(runtimeDir, 'homebase-state');
+  const installedStatePath = path.join(stateRoot, 'installed-homebase-state.json');
   const packageTool = process.env.MSFS_PACKAGE_TOOL || 'C:\\MSFS 2024 SDK\\Tools\\bin\\fspackagetool.exe';
   const assetCacheRoot = path.join(runtimeDir, 'homebase-asset-cache');
+  const activeAssetIndexPath = path.join(stateRoot, 'active-package-index.json');
   const assetChannelUrl = options.assetChannelUrl || process.env.VFR_HOMEBASE_ASSET_CHANNEL_URL || DEFAULT_ASSET_CHANNEL_URL;
   const simulatorExitMaxChecks = Math.max(1, Math.min(60, Math.round(Number(options.simulatorExitMaxChecks) || 60)));
   const simulatorExitRetryDelayMs = Math.max(0, Math.min(10000, Math.round(Number(options.simulatorExitRetryDelayMs) || 2000)));
@@ -428,7 +431,43 @@ function createHomebasePackageService(options = {}) {
   let queue = Promise.resolve();
   let remoteUpdater = null;
 
-  const activeAssetIndexPath = path.join(assetCacheRoot, 'active-package-index.json');
+  const removeDirectoryIfEmpty = (target) => {
+    if (!fs.existsSync(target) || fs.readdirSync(target).length) return false;
+    fs.rmdirSync(target);
+    return true;
+  };
+
+  const migrateLegacyStateFile = (source, target) => {
+    if (!fs.existsSync(source)) return false;
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    if (!fs.existsSync(target) || fs.statSync(source).mtimeMs > fs.statSync(target).mtimeMs) {
+      fs.copyFileSync(source, target);
+    }
+    fs.rmSync(source, { force: true });
+    log(`HOMEBASE_STATE_MIGRATED from="${source}" to="${target}"`);
+    return true;
+  };
+
+  migrateLegacyStateFile(path.join(generatedRoot, 'installed-homebase-state.json'), installedStatePath);
+  migrateLegacyStateFile(path.join(assetCacheRoot, 'active-package-index.json'), activeAssetIndexPath);
+  removeDirectoryIfEmpty(generatedRoot);
+
+  const cleanupAssetStaging = () => {
+    if (!fs.existsSync(assetCacheRoot)) return [];
+    const removed = [];
+    for (const name of fs.readdirSync(assetCacheRoot)) {
+      if (!/^release-[a-z0-9._-]+-[0-9a-f-]{20,}$/i.test(name) && !/\.tmp$/i.test(name)) continue;
+      const target = path.join(assetCacheRoot, name);
+      fs.rmSync(target, { recursive: true, force: true });
+      removed.push(name);
+    }
+    removeDirectoryIfEmpty(assetCacheRoot);
+    if (removed.length) log(`HOMEBASE_CACHE_CLEANUP removed="${removed.join(',')}"`);
+    return removed;
+  };
+
+  cleanupAssetStaging();
+
   const readActiveAssetCatalog = (installed = inspectAssets()) => {
     try {
       const index = JSON.parse(fs.readFileSync(activeAssetIndexPath, 'utf8'));
@@ -563,7 +602,6 @@ function createHomebasePackageService(options = {}) {
 
   const prepare = (rawConfig) => {
     const { config, content } = createSceneXml(rawConfig);
-    const generatedRoot = path.join(runtimeDir, 'homebase-generated');
     const relative = path.relative(generatedRoot, project);
     if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Unsicherer Homebase-Projektpfad.');
     fs.rmSync(project, { recursive: true, force: true });
@@ -667,12 +705,18 @@ function createHomebasePackageService(options = {}) {
       try { fs.rmSync(installedStatePath, { force: true }); } catch (_) {}
       log(`HOMEBASE_INSTALLED_SNAPSHOT_ERROR error=${snapshotError}`);
     }
+    if (installedSnapshot) {
+      fs.rmSync(project, { recursive: true, force: true });
+      removeDirectoryIfEmpty(generatedRoot);
+      log(`HOMEBASE_BUILD_WORKSPACE_CLEANUP path="${project}"`);
+    }
     return {
       path: target,
       communityPath: communityRoot,
       snapshotTrusted: !!installedSnapshot,
       installedSnapshot,
-      snapshotError
+      snapshotError,
+      workspaceCleaned: !!installedSnapshot
     };
   };
 
@@ -896,18 +940,18 @@ function createHomebasePackageService(options = {}) {
       throw error;
     }
     const previous = inspectAssets();
-    const prepared = await remoteUpdater.prepare(previous);
-    if (prepared.unchanged) {
-      return { path: previous.packagePath || '', communityPath: previous.communityPath || '', packageVersion: previous.packageVersion, previousVersion: previous.packageVersion, unchanged: true, source: 'remote' };
-    }
+    let prepared = null;
     try {
+      prepared = await remoteUpdater.prepare(previous);
+      if (prepared.unchanged) {
+        return { path: previous.packagePath || '', communityPath: previous.communityPath || '', packageVersion: previous.packageVersion, previousVersion: previous.packageVersion, unchanged: true, source: 'remote' };
+      }
       const version = prepared.release.stable.packageVersion;
       const result = atomicallyInstallAssetPackage(prepared.packageRoot, version, { source: 'remote', skipIfSameOrNewer: false });
-      fs.mkdirSync(assetCacheRoot, { recursive: true });
-      const activeIndex = path.join(assetCacheRoot, 'active-package-index.json');
-      const temporary = `${activeIndex}.tmp`;
+      fs.mkdirSync(stateRoot, { recursive: true });
+      const temporary = `${activeAssetIndexPath}.tmp`;
       fs.writeFileSync(temporary, `${JSON.stringify(prepared.release.index, null, 2)}\n`, 'utf8');
-      fs.renameSync(temporary, activeIndex);
+      fs.renameSync(temporary, activeAssetIndexPath);
       catalog.registerRuntimeAssets(prepared.release.index.assets);
       sendAck({
         type: 'homebase_v1.assets.update.status',
@@ -917,7 +961,8 @@ function createHomebasePackageService(options = {}) {
       });
       return result;
     } finally {
-      prepared.cleanup?.();
+      prepared?.cleanup?.();
+      cleanupAssetStaging();
     }
   };
 

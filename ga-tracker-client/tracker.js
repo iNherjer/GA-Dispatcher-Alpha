@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
+const { prepareTrackerStorage } = require('./tracker-storage.js');
 const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
 const { createHomebasePackageService } = require('./homebase-package-service.js');
 const homebaseAssetCatalog = require('./homebase-asset-catalog.js');
@@ -21,18 +22,20 @@ const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
+const TRACKER_STORAGE = prepareTrackerStorage({ legacyDirectory: RUNTIME_DIR });
+const TRACKER_DATA_DIR = TRACKER_STORAGE.dataDirectory;
 const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
-const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
+const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v307';
-const TRACKER_VERSION_CODE = 307;
+const TRACKER_VERSION = 'v308';
+const TRACKER_VERSION_CODE = 308;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
-const TRACKER_DEBUG_FILE = path.join(RUNTIME_DIR, 'ga-tracker-debug.txt');
+const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -105,6 +108,7 @@ function trackerStatus(line = '') {
 function debugLog(line) {
   try {
     const ts = new Date().toISOString();
+    fs.mkdirSync(path.dirname(TRACKER_DEBUG_FILE), { recursive: true });
     fs.appendFileSync(TRACKER_DEBUG_FILE, `[${ts}] ${line}\n`, 'utf8');
   } catch (_) {}
 }
@@ -3254,7 +3258,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 }
 
 function startTracker(syncId, pin) {
-  debugLog(`START ${TRACKER_DISPLAY_NAME} debugFile=${TRACKER_DEBUG_FILE}`);
+  debugLog(`START ${TRACKER_DISPLAY_NAME} dataDir=${TRACKER_DATA_DIR} debugFile=${TRACKER_DEBUG_FILE}`);
+  for (const event of TRACKER_STORAGE.events) debugLog(event);
   let _reconnecting = false;
   let _reconnectTimer = null;
   let _simStarted = false;
@@ -3334,7 +3339,7 @@ function startTracker(syncId, pin) {
   };
   const homebasePackageService = HOMEBASE_ENABLED
     ? createHomebasePackageService({
-        runtimeDir: RUNTIME_DIR,
+        runtimeDir: TRACKER_DATA_DIR,
         sendAck: sendHomebaseAck,
         log: debugLog
       })
@@ -4206,11 +4211,11 @@ function readTrackerConfig() {
 
 function writeTrackerConfig(data = {}) {
   try {
-    fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+    fs.mkdirSync(TRACKER_DATA_DIR, { recursive: true });
     fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...(data || {}) }, null, 2), 'utf8');
     return true;
   } catch (err) {
-    trackerWarn(`⚠️  Konnte ${CONFIG_BASENAME} nicht neben der Tracker-EXE speichern: ${err?.message || err}`);
+    trackerWarn(`⚠️  Konnte ${CONFIG_BASENAME} nicht im Tracker-Datenordner speichern: ${err?.message || err}`);
     debugLog(`CONFIG_WRITE_ERROR file=${CONFIG_FILE} error=${err?.message || err}`);
     return false;
   }

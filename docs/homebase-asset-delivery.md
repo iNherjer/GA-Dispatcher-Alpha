@@ -57,8 +57,24 @@ Für einen isolierten PC-Test kann die Umgebungsvariable
 7. Das validierte Paket wird als `.__staging` neben das Ziel kopiert. Die vorhandene
    Version wird nach `.__backup` verschoben. Erst nach erfolgreicher Zielprüfung wird
    das Backup gelöscht; bei jedem Austauschfehler wird es wiederhergestellt.
-8. Der geprüfte aktive Paketindex wird im Laufzeitordner unter
-   `homebase-asset-cache/active-package-index.json` gespeichert.
+8. Der geprüfte aktive Paketindex wird dauerhaft unter
+   `Dokumente/VFR Multitool/Tracker/homebase-state/active-package-index.json`
+   gespeichert. Download- und Entpackordner werden nach der Installation entfernt.
+
+## Lokaler Tracker-Datenordner
+
+Der produktive Tracker schreibt keine Arbeitsordner mehr neben die EXE. Konfiguration,
+Diagnoselog und Homebase-Arbeitsdaten liegen gemeinsam unter
+`Dokumente/VFR Multitool/Tracker`. Beim ersten Start werden vorhandene
+`tracker-config.json`, `ga-tracker-debug.txt`, `homebase-generated` und
+`homebase-asset-cache` aus dem bisherigen EXE-Ordner automatisch dorthin verschoben.
+
+Das erzeugte SDK-Projekt unter `homebase-generated` bleibt bis zur erfolgreichen
+Installation erhalten, damit ein abgebrochener oder fehlgeschlagener Ablauf analysiert
+und erneut ausgeführt werden kann. Nach erfolgreicher Installation wird dieses Projekt
+gelöscht; die kleine Installations-Momentaufnahme bleibt erhalten. Im Assetcache bleiben
+keine regulären Daten zurück. Dauerhafte Installations- und Indexdaten liegen getrennt
+unter `homebase-state`.
 
 Vor jeder Prüfung oder Installation ermittelt der Tracker den aktiven MSFS-2024-
 Paketpfad aus `UserCfg.opt`. Dabei werden Steam (`%APPDATA%`) und Microsoft Store/

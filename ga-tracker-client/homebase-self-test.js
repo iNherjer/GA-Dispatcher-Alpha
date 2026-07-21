@@ -715,6 +715,10 @@ async function run() {
     if (!fs.existsSync(path.join(storeCommunity, catalog.scenePackageName)) || fs.existsSync(path.join(fakeSteamCommunity, catalog.scenePackageName))) {
       throw new Error('Compiled Homebase scene package did not follow the detected Store Community path.');
     }
+    if (fs.existsSync(path.join(testRoot, 'homebase-generated'))
+      || !fs.existsSync(path.join(testRoot, 'homebase-state', 'installed-homebase-state.json'))) {
+      throw new Error('Temporary scene build data was not cleaned or persistent scene state was not retained.');
+    }
     const interruptedBackup = `${installed.path}.__backup`;
     fs.renameSync(installed.path, interruptedBackup);
     if (fs.existsSync(installed.path) || !fs.existsSync(interruptedBackup)) throw new Error('Interrupted-install fixture could not be prepared.');
@@ -763,9 +767,12 @@ async function run() {
     const remoteInspection = remoteService.inspectAssets();
     if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== remoteVersion) throw new Error('Remote package inspection failed.');
     if (fs.existsSync(interruptedBackup)) throw new Error('Interrupted package backup was not recovered and cleaned.');
-    const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-asset-cache', 'active-package-index.json');
+    const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-state', 'active-package-index.json');
     if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== remoteVersion) {
       throw new Error('Active remote package index was not persisted.');
+    }
+    if (fs.existsSync(path.join(testRoot, 'remote-runtime', 'homebase-asset-cache'))) {
+      throw new Error('Temporary remote asset cache was not removed after installation.');
     }
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
     if (!Array.isArray(activeCatalog) || activeCatalog.length !== catalog.assets.length) {
