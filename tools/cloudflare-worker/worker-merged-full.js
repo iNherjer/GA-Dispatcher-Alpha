@@ -111,6 +111,8 @@ const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
 const HOMEBASE_PREFIX = "homebase:";
 const HOMEBASE_MAX_BODY_BYTES = 64 * 1024;
 const HOMEBASE_MAX_OBJECTS = 100;
+const HOMEBASE_MAX_PEOPLE = 3;
+const HOMEBASE_MAX_PERSON_DESTINATIONS = 20;
 const HOMEBASE_CREW_OBJECTS_PER_BASE = 20;
 const HOMEBASE_TTL = 31536000;
 
@@ -167,6 +169,35 @@ function normalizeHomebaseObject(raw, index) {
   };
 }
 
+function normalizeHomebasePersonDestination(raw, index) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const targetType = source.targetType === "waypoint" ? "waypoint" : "object";
+  return {
+    id: normalizeOneLine(source.id || `destination-${index + 1}`, 64).replace(/[^a-zA-Z0-9_-]/g, ""),
+    targetType,
+    targetId: targetType === "object" ? normalizeOneLine(source.targetId, 64).replace(/[^a-zA-Z0-9_-]/g, "") : "",
+    northM: normalizeFinite(source.northM, 0, -2000, 2000),
+    eastM: normalizeFinite(source.eastM, 0, -2000, 2000),
+    waitMinS: normalizeFinite(source.waitMinS, 0, 0, 3600),
+    waitMaxS: normalizeFinite(source.waitMaxS, normalizeFinite(source.waitMinS, 0, 0, 3600), 0, 3600)
+  };
+}
+
+function normalizeHomebasePerson(raw, index) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const title = normalizeOneLine(source.title, 160);
+  if (!/^Tarmac_[A-Za-z0-9_]+$/.test(title)) return null;
+  return {
+    id: normalizeOneLine(source.id || `person-${index + 1}`, 64).replace(/[^a-zA-Z0-9_-]/g, ""),
+    title,
+    label: normalizeOneLine(source.label || `Mitarbeiter ${index + 1}`, 80),
+    startNorthM: normalizeFinite(source.startNorthM, 0, -2000, 2000),
+    startEastM: normalizeFinite(source.startEastM, 0, -2000, 2000),
+    speedKts: normalizeFinite(source.speedKts, 2.6, 1, 5),
+    stops: (Array.isArray(source.stops) ? source.stops : []).slice(0, HOMEBASE_MAX_PERSON_DESTINATIONS).map(normalizeHomebasePersonDestination)
+  };
+}
+
 function normalizeHomebasePlan(raw) {
   if (!raw || typeof raw !== "object") throw new Error("missing_plan");
   const spawn = raw.spawn && typeof raw.spawn === "object" ? raw.spawn : {};
@@ -174,6 +205,10 @@ function normalizeHomebasePlan(raw) {
   const objects = (Array.isArray(raw.objects) ? raw.objects : [])
     .slice(0, HOMEBASE_MAX_OBJECTS)
     .map(normalizeHomebaseObject)
+    .filter(Boolean);
+  const people = (Array.isArray(raw.people) ? raw.people : [])
+    .slice(0, HOMEBASE_MAX_PEOPLE)
+    .map(normalizeHomebasePerson)
     .filter(Boolean);
   return {
     doorAutomationEnabled: raw.doorAutomationEnabled !== false,
@@ -193,7 +228,8 @@ function normalizeHomebasePlan(raw) {
       depthM: normalizeFinite(hangar.depthM, 22, 4, 100),
       objectTitle: normalizeOneLine(hangar.objectTitle, 160)
     },
-    objects
+    objects,
+    people
   };
 }
 

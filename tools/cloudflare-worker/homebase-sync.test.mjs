@@ -34,7 +34,12 @@ const plan = {
   doorAutomationEnabled: false,
   spawn: { lat: 48.1, lon: 8.2, altFt: 1234, heading: 361 },
   hangar: { northM: 2, eastM: -3, heading: -1, heightFt: 1, widthM: 18, depthM: 22, objectTitle: "VFR Multitool Homebase Hangar" },
-  objects: [{ id: "box-1", title: "VFR Multitool Homebase Box", label: "Karton", northM: 1, eastM: 2, heading: 90, heightFt: 0, scale: 1 }]
+  objects: [{ id: "box-1", title: "VFR Multitool Homebase Box", label: "Karton", northM: 1, eastM: 2, heading: 90, heightFt: 0, scale: 1 }],
+  people: [{
+    id: "person-1", title: "Tarmac_Male_Summer_Asian", label: "Mitarbeiter 1",
+    startNorthM: 12, startEastM: 3, speedKts: 2.6,
+    stops: [{ id: "waypoint-1", targetType: "waypoint", northM: 24.5, eastM: -2, waitMinS: 5, waitMaxS: 30 }]
+  }]
 };
 
 const missing = await call(env, "/api/homebase/pilotA", { headers });
@@ -52,6 +57,9 @@ assert.equal(created.response.status, 200);
 assert.equal(created.body.record.plan.spawn.heading, 1);
 assert.equal(created.body.record.plan.hangar.heading, 359);
 assert.equal(created.body.record.plan.objects.length, 1);
+assert.equal(created.body.record.plan.people.length, 1);
+assert.equal(created.body.record.plan.people[0].title, "Tarmac_Male_Summer_Asian");
+assert.equal(created.body.record.plan.people[0].stops[0].northM, 24.5);
 assert.equal(created.body.record.plan.doorAutomationEnabled, false);
 assert.equal(JSON.stringify(created.body).includes("0815"), false);
 
@@ -76,6 +84,8 @@ assert.equal(updated.body.record.plan.spawn.lat, 49.5);
 const loaded = await call(env, "/api/homebase/pilotA", { headers });
 assert.equal(loaded.response.status, 200);
 assert.equal(loaded.body.record.revision, updated.body.record.revision);
+assert.equal(loaded.body.record.plan.people.length, 1);
+assert.equal(loaded.body.record.plan.people[0].stops[0].targetType, "waypoint");
 
 const crewDisabled = await call(env, "/api/homebase-group/TEST", { headers });
 assert.equal(crewDisabled.response.status, 200);

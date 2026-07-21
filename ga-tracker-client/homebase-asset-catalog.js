@@ -1,5 +1,77 @@
 'use strict';
 
+const navigationFootprints = Object.freeze({
+  'VFR Multitool Homebase Hangar': { widthM: 18, depthM: 22 },
+  'VFR Multitool Homebase Round Hangar': { widthM: 25, depthM: 25 },
+  'VFR Multitool Homebase Open Parking': { widthM: 18, depthM: 22 },
+  'VFR Multitool Homebase Generator': { widthM: 1.6, depthM: 0.9 },
+  'VFR Multitool Homebase Desk': { widthM: 1.6, depthM: 0.8 },
+  'VFR Multitool Homebase Pinboard': { widthM: 1.8, depthM: 0.25 },
+  'VFR Multitool Homebase Tool Cart': { widthM: 1.2, depthM: 0.7 },
+  'VFR Multitool Homebase Fuel Drum': { widthM: 0.8, depthM: 0.8 },
+  'VFR Multitool Homebase MX Pavilion': { widthM: 3, depthM: 3 },
+  'VFR Multitool Homebase Wood Crate Small': { widthM: 0.8, depthM: 0.6 },
+  'VFR Multitool Homebase Wood Crate Medium': { widthM: 1.2, depthM: 0.8 },
+  'VFR Multitool Homebase Wood Crate Large': { widthM: 1.6, depthM: 1 },
+  'VFR Multitool Homebase European Caravan': { widthM: 2.5, depthM: 6.5 },
+  'VFR Multitool Homebase Asset Shelf': { widthM: 2, depthM: 0.7 },
+  'VFR Multitool Homebase Backpack': { widthM: 0.6, depthM: 0.45 },
+  'VFR Multitool Homebase Briefcase': { widthM: 0.55, depthM: 0.2 },
+  'VFR Multitool Homebase Cabin Trolley': { widthM: 0.45, depthM: 0.3 },
+  'VFR Multitool Homebase Daypack': { widthM: 0.55, depthM: 0.4 },
+  'VFR Multitool Homebase Duffel Bag': { widthM: 0.8, depthM: 0.45 },
+  'VFR Multitool Homebase Insulated Cooler': { widthM: 0.75, depthM: 0.45 },
+  'VFR Multitool Homebase Jerrycan Pair': { widthM: 0.7, depthM: 0.35 },
+  'VFR Multitool Homebase Mail Sack': { widthM: 0.7, depthM: 0.45 },
+  'VFR Multitool Homebase Portable Toolbox': { widthM: 0.65, depthM: 0.35 },
+  'VFR Multitool Homebase Toolbox': { widthM: 0.8, depthM: 0.45 },
+  'VFR Multitool Homebase Travel Suitcase': { widthM: 0.55, depthM: 0.35 },
+  'VFR Multitool Homebase Chair': { widthM: 0.6, depthM: 0.6 },
+  'VFR Multitool Homebase Traffic Cone': { widthM: 0.4, depthM: 0.4 },
+  CoffeeCup: { widthM: 0.25, depthM: 0.25 },
+  Cardboard: { widthM: 1, depthM: 0.8 },
+  Pallet01_01: { widthM: 1.2, depthM: 1.2 },
+  Pallet01_02: { widthM: 1.2, depthM: 0.8 },
+  Pallet01_03: { widthM: 0.8, depthM: 0.6 },
+  Drop_Container: { widthM: 2.5, depthM: 6 },
+  Microsoft_Car_EUR_01: { widthM: 2.1, depthM: 4.8 },
+  Microsoft_Car_EUR_02: { widthM: 2.1, depthM: 4.8 },
+  Microsoft_Car_EUR_03: { widthM: 2.1, depthM: 4.8 },
+  Microsoft_Car_EUR_04: { widthM: 2.1, depthM: 4.8 },
+  Microsoft_Van_EUR: { widthM: 2.4, depthM: 6 }
+});
+const tarmacPeople = Object.freeze([
+  { title: 'Tarmac_Male_Summer_African', label: 'Tarmac-Person (männlich, Sommer, afrikanisch)' },
+  { title: 'Tarmac_Male_Summer_Arab', label: 'Tarmac-Person (männlich, Sommer, arabisch)' },
+  { title: 'Tarmac_Male_Summer_Asian', label: 'Tarmac-Person (männlich, Sommer, asiatisch)' },
+  { title: 'Tarmac_Male_Summer_Caucasian', label: 'Tarmac-Person (männlich, Sommer, kaukasisch)' },
+  { title: 'Tarmac_Male_Summer_Hispanic', label: 'Tarmac-Person (männlich, Sommer, hispanisch)' },
+  { title: 'Tarmac_Male_Summer_Indian', label: 'Tarmac-Person (männlich, Sommer, indisch)' },
+  { title: 'Tarmac_Male_Winter_African', label: 'Tarmac-Person (männlich, Winter, afrikanisch)' },
+  { title: 'Tarmac_Male_Winter_Arab', label: 'Tarmac-Person (männlich, Winter, arabisch)' },
+  { title: 'Tarmac_Male_Winter_Asian', label: 'Tarmac-Person (männlich, Winter, asiatisch)' },
+  { title: 'Tarmac_Male_Winter_Caucasian', label: 'Tarmac-Person (männlich, Winter, kaukasisch)' },
+  { title: 'Tarmac_Male_Winter_Hispanic', label: 'Tarmac-Person (männlich, Winter, hispanisch)' },
+  { title: 'Tarmac_Male_Winter_Indian', label: 'Tarmac-Person (männlich, Winter, indisch)' },
+  { title: 'Tarmac_Female_Summer_African', label: 'Tarmac-Person (weiblich, Sommer, afrikanisch)' },
+  { title: 'Tarmac_Female_Summer_Arab', label: 'Tarmac-Person (weiblich, Sommer, arabisch)' },
+  { title: 'Tarmac_Female_Summer_Asian', label: 'Tarmac-Person (weiblich, Sommer, asiatisch)' },
+  { title: 'Tarmac_Female_Summer_Caucasian', label: 'Tarmac-Person (weiblich, Sommer, kaukasisch)' },
+  { title: 'Tarmac_Female_Summer_Hispanic', label: 'Tarmac-Person (weiblich, Sommer, hispanisch)' },
+  { title: 'Tarmac_Female_Summer_Indian', label: 'Tarmac-Person (weiblich, Sommer, indisch)' },
+  { title: 'Tarmac_Female_Winter_African', label: 'Tarmac-Person (weiblich, Winter, afrikanisch)' },
+  { title: 'Tarmac_Female_Winter_Arab', label: 'Tarmac-Person (weiblich, Winter, arabisch)' },
+  { title: 'Tarmac_Female_Winter_Asian', label: 'Tarmac-Person (weiblich, Winter, asiatisch)' },
+  { title: 'Tarmac_Female_Winter_Caucasian', label: 'Tarmac-Person (weiblich, Winter, kaukasisch)' },
+  { title: 'Tarmac_Female_Winter_Hispanic', label: 'Tarmac-Person (weiblich, Winter, hispanisch)' },
+  { title: 'Tarmac_Female_Winter_Indian', label: 'Tarmac-Person (weiblich, Winter, indisch)' }
+]);
+
+function withNavigationFootprint(entry) {
+  const footprint = entry.footprint || navigationFootprints[entry.title];
+  return footprint ? Object.freeze({ ...entry, footprint }) : Object.freeze(entry);
+}
+
 const assets = Object.freeze([
   { key: 'hangar', folder: 'VFRHomebaseHangar', title: 'VFR Multitool Homebase Hangar', kind: 'hangar', label: 'Homebase-Hangar', headingCorrectionDeg: 180 },
   { key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar', kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', icon: 'H', headingCorrectionDeg: 0, homebasePlaceable: true, footprint: { widthM: 25, depthM: 25 }, vegetationExclusion: { shape: 'circle', radiusM: 17.3, falloffM: 0.5 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Rundhangar Tor', transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'open', durationMs: 5000, states: [{ id: 'open', label: 'Öffnen', value: 0 }, { id: 'closed', label: 'Schließen', value: 1 }] }, { schemaVersion: 1, id: 'interiorLight', type: 'light', label: 'Innenbeleuchtung', transport: 'simconnect-lvar', simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on', durationMs: 0, states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'open', control: { transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND', unit: 'number', scope: 'simobject', values: { open: 0, closed: 1 } } } },
@@ -30,7 +102,7 @@ const assets = Object.freeze([
   { key: 'trafficCone', folder: 'VFRHomebaseTrafficCone', title: 'VFR Multitool Homebase Traffic Cone', kind: 'object', group: 'Flugplatz', label: 'Traffic Cone', icon: 'K' },
   { key: 'spawnProbe', folder: 'VFRHomebaseSpawnProbe', title: 'VFR Multitool Homebase Spawn Probe', kind: 'internal', label: 'Gelber Spawnpunkt-Messkegel', persistent: false },
   { key: 'customWindsock', folder: 'VFRHomebaseWindsock', title: 'VFR Multitool Homebase Windsock', kind: 'internal', preview: false }
-]);
+].map(withNavigationFootprint));
 
 const stockObjects = Object.freeze([
   { title: 'CoffeeCup', group: 'Ausstattung', label: 'Kaffeebecher', icon: '☕' },
@@ -45,7 +117,7 @@ const stockObjects = Object.freeze([
   { title: 'Microsoft_Car_EUR_03', group: 'Fahrzeuge', label: 'Pkw Europa 3', icon: 'A', parkedVehicle: true },
   { title: 'Microsoft_Car_EUR_04', group: 'Fahrzeuge', label: 'Pkw Europa 4', icon: 'A', parkedVehicle: true },
   { title: 'Microsoft_Van_EUR', group: 'Fahrzeuge', label: 'Van Europa', icon: 'V', parkedVehicle: true }
-]);
+].map(withNavigationFootprint));
 
 const definitionByTitle = new Map([
   ...assets.map((entry) => [entry.title, entry]),
@@ -156,7 +228,7 @@ function normalizeFootprint(raw) {
   const widthM = Number(raw?.widthM);
   const depthM = Number(raw?.depthM);
   if (!Number.isFinite(widthM) || !Number.isFinite(depthM)) return null;
-  if (widthM < 1 || widthM > 200 || depthM < 1 || depthM > 200) return null;
+  if (widthM < 0.1 || widthM > 200 || depthM < 0.1 || depthM > 200) return null;
   return Object.freeze({ widthM, depthM });
 }
 
@@ -257,11 +329,13 @@ function objectDefinitionForTitle(rawTitle) {
 
 const catalog = Object.freeze({
   schemaVersion: 3,
-  assetPackageVersion: '0.6.5',
+  assetPackageVersion: '0.6.6',
   assetPackageName: 'vfr-multitool-homebase-assets',
   scenePackageName: 'vfr-multitool-homebase',
   assets,
   stockObjects,
+  navigationFootprints,
+  tarmacPeople,
   legacyTitleAliases,
   registerRuntimeAssets,
   runtimeAssets: () => [...runtimeAssetsByTitle.values()],

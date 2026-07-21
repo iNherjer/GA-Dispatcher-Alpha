@@ -24,6 +24,7 @@ class FakeHandle extends EventEmitter {
     this.addedEventId = null;
     this.removedEventId = null;
     this.positions = new Map();
+    this.waypointRoutes = [];
   }
 
   addToDataDefinition() { return 0; }
@@ -48,6 +49,7 @@ class FakeHandle extends EventEmitter {
     if (data?.buffer && typeof data.buffer.getBuffer !== 'function') {
       throw new Error('SimConnect buffer payload must use RawBuffer.');
     }
+    if (Array.isArray(data)) this.waypointRoutes.push({ objectId, points: data.length });
     this.positions.set(objectId, data);
     return 0;
   }
@@ -68,6 +70,18 @@ function waitForAck(acks, type, timeoutMs = 3000) {
       if (index >= 0) return resolve(acks.splice(index, 1)[0]);
       if (Date.now() - started > timeoutMs) return reject(new Error(`ACK timeout: ${type}`));
       setTimeout(tick, 5);
+    };
+    tick();
+  });
+}
+
+function waitForCondition(predicate, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const tick = () => {
+      if (predicate()) return resolve(true);
+      if (Date.now() - started > timeoutMs) return reject(new Error('Condition timeout'));
+      setTimeout(tick, 10);
     };
     tick();
   });
@@ -96,6 +110,12 @@ function packageFileRecords(root) {
 
 function contentHash(files) {
   return sha256(Buffer.from(files.map((file) => `${file.path}:${file.size}:${file.sha256}`).join('\n')));
+}
+
+function bumpPatchVersion(version, increment = 1) {
+  const match = String(version || '').match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) throw new Error(`Unsupported test asset version: ${version}`);
+  return `${match[1]}.${match[2]}.${Number(match[3]) + increment}`;
 }
 
 function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, entriesFromDirectory, archiveHashOverride = '', contentHashOverride = '' }) {
@@ -174,9 +194,25 @@ function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, e
 }
 
 async function run() {
+  const expectedTarmacTitles = new Set();
+  for (const gender of ['Male', 'Female']) {
+    for (const season of ['Summer', 'Winter']) {
+      for (const ethnicity of ['African', 'Arab', 'Asian', 'Caucasian', 'Hispanic', 'Indian']) {
+        expectedTarmacTitles.add(`Tarmac_${gender}_${season}_${ethnicity}`);
+      }
+    }
+  }
+  const actualTarmacTitles = new Set((catalog.tarmacPeople || []).map((entry) => entry.title));
+  if (actualTarmacTitles.size !== expectedTarmacTitles.size
+    || [...expectedTarmacTitles].some((title) => !actualTarmacTitles.has(title))
+    || [...actualTarmacTitles].some((title) => /_Black$/.test(title))) {
+    throw new Error(`Tarmac people catalog mismatch: ${JSON.stringify([...actualTarmacTitles])}`);
+  }
   if (compareVersions('0.5.7', '0.5.6') <= 0 || compareVersions('0.5.7', '0.5.7') !== 0 || compareVersions('1.0.0-beta.1', '1.0.0') >= 0) {
     throw new Error('Asset version comparison failed.');
   }
+  const remoteVersion = bumpPatchVersion(catalog.assetPackageVersion);
+  const nextRemoteVersion = bumpPatchVersion(catalog.assetPackageVersion, 2);
   if (!tasklistHasSimulatorProcess('"FlightSimulator2024.exe","1234","Console","1","1,234 K"')) {
     throw new Error('Exact simulator tasklist detection failed.');
   }
@@ -241,6 +277,8 @@ async function run() {
   if (!capabilityAck.capabilities.includes('homebase-object-controls-v1')) throw new Error('Generic object control capability missing.');
   if (!capabilityAck.capabilities.includes('homebase-door-automation-v1')) throw new Error('Door automation capability missing.');
   if (!capabilityAck.capabilities.includes('homebase-door-manual-override-v1')) throw new Error('Door manual override capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-people-routes-v1')) throw new Error('Homebase people route capability missing.');
+  if (!capabilityAck.capabilities.includes('homebase-people-live-update-v1')) throw new Error('Homebase people live-update capability missing.');
 
   manager.handleCommand({
     type: 'homebase_v1.preview.set',
@@ -363,6 +401,80 @@ async function run() {
   manager.handleCommand({ type: 'homebase_v1.crew.set', commandId: 'crew-clear', objects: [] });
   const crewClearAck = await waitForAck(acks, 'homebase_v1.crew.set_ack');
   if (crewClearAck.status !== 'ok' || crewClearAck.objectCount !== 0 || manager.snapshot().objectCount !== 0) throw new Error('Crew scene clear failed.');
+
+  const coldRouteCount = handle.waypointRoutes.length;
+  const coldNavigation = {
+    spawn: { lat: 48, lon: 8, altFt: 514, heading: 0 },
+    hangar: { id: 'hangar', northM: -100, eastM: 0, heading: 0, widthM: 18, depthM: 22 },
+    hangars: [
+      { id: 'hangar', northM: -100, eastM: 0, heading: 0, widthM: 18, depthM: 22 },
+      { id: 'round-hangar-15', northM: 0, eastM: 0, heading: 0, widthM: 18, depthM: 22 }
+    ],
+    obstacles: [
+      { id: 'round-hangar-15-wall-back', northM: -11, eastM: 0, heading: 0, widthM: 18, depthM: .3 },
+      { id: 'round-hangar-15-wall-left', northM: 0, eastM: -9, heading: 0, widthM: .3, depthM: 22 },
+      { id: 'round-hangar-15-wall-right', northM: 0, eastM: 9, heading: 0, widthM: .3, depthM: 22 },
+      { id: 'round-hangar-15-wall-front-left', northM: 11, eastM: -5.75, heading: 0, widthM: 6.5, depthM: .3 },
+      { id: 'round-hangar-15-wall-front-right', northM: 11, eastM: 5.75, heading: 0, widthM: 6.5, depthM: .3 },
+      { id: 'toolbox-16', northM: 0, eastM: 0, heading: 0, widthM: .8, depthM: .45 }
+    ]
+  };
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-cold-start',
+    navigation: coldNavigation,
+    people: [{
+      id: 'person-cold', title: 'Tarmac_Male_Summer_Asian', label: 'Kaltstart-Person',
+      startNorthM: 14, startEastM: 0, speedKts: 2.6,
+      destinations: [{ id: 'cold-toolbox', targetType: 'object', targetId: 'toolbox-16', waitMinS: 1, waitMaxS: 2 }]
+    }]
+  });
+  const coldStartAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  if (coldStartAck.status !== 'ok' || coldStartAck.spawnedPeople.length !== 1 || manager.snapshot().objects.find((item) => item.id === 'person-cold') == null) {
+    throw new Error(`Homebase people cold-start sync failed: ${JSON.stringify(coldStartAck)}`);
+  }
+  await waitForCondition(() => handle.waypointRoutes.length >= coldRouteCount + 1);
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-cold-clear',
+    navigation: coldNavigation, people: []
+  });
+  const coldClearAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  if (coldClearAck.status !== 'ok' || coldClearAck.removedPeople.length !== 1 || manager.snapshot().objects.some((item) => item.id === 'person-cold')) {
+    throw new Error(`Homebase people cold-start clear failed: ${JSON.stringify(coldClearAck)}`);
+  }
+
+  manager.handleCommand({
+    type: 'homebase_v1.preview.set', commandId: 'people-routes-1', objects: [],
+    navigation: { spawn: { lat: 48, lon: 8, altFt: 514, heading: 90 }, obstacles: [] },
+    people: [{
+      id: 'person-1', title: 'Tarmac_Male_Summer_Asian', label: 'Mitarbeiter 1',
+      startNorthM: 0, startEastM: 0, speedKts: 2.6,
+      destinations: [{ id: 'waypoint-1', targetType: 'waypoint', northM: 4, eastM: 0, waitMinS: 1, waitMaxS: 2 }]
+    }]
+  });
+  const peopleAck = await waitForAck(acks, 'homebase_v1.preview.set_ack');
+  if (peopleAck.status !== 'ok' || peopleAck.peopleCount !== 1 || peopleAck.objectCount !== 1 || handle.waypointRoutes.length < 1) {
+    throw new Error(`Homebase people route setup failed: ${JSON.stringify(peopleAck)}`);
+  }
+  const personObjectId = manager.snapshot().objects.find((item) => item.id === 'person-1')?.objectId;
+  const routeCountBeforeUpdate = handle.waypointRoutes.length;
+  manager.handleCommand({
+    type: 'homebase_v1.preview.people.sync', commandId: 'people-routes-live-update',
+    navigation: { spawn: { lat: 48, lon: 8, altFt: 514, heading: 90 }, obstacles: [] },
+    people: [{
+      id: 'person-1', title: 'Tarmac_Male_Summer_Asian', label: 'Mitarbeiter 1',
+      startNorthM: 0, startEastM: 0, speedKts: 3,
+      destinations: [{ id: 'waypoint-2', targetType: 'waypoint', northM: 0, eastM: 6, waitMinS: 1, waitMaxS: 2 }]
+    }]
+  });
+  const peopleUpdateAck = await waitForAck(acks, 'homebase_v1.preview.people.sync_ack');
+  const updatedPersonObjectId = manager.snapshot().objects.find((item) => item.id === 'person-1')?.objectId;
+  if (peopleUpdateAck.status !== 'ok' || peopleUpdateAck.spawnedPeople.length !== 0 || peopleUpdateAck.updatedPeople.length !== 1
+    || updatedPersonObjectId !== personObjectId || handle.waypointRoutes.length <= routeCountBeforeUpdate) {
+    throw new Error(`Homebase people route live update respawned the person or did not replace its route: ${JSON.stringify(peopleUpdateAck)}`);
+  }
+  manager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: 'people-routes-clear' });
+  const peopleClearAck = await waitForAck(acks, 'homebase_v1.preview.clear_ack');
+  if (peopleClearAck.status !== 'ok' || manager.snapshot().objectCount !== 0) throw new Error('Homebase people route clear failed.');
 
   catalog.registerRuntimeAssets([{
     key: 'collisionTest', folder: 'VFRHomebaseCollisionTest', title: 'VFR Multitool Homebase Collision Test',
@@ -499,7 +611,7 @@ async function run() {
     const remoteRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.5',
+      version: remoteVersion,
       createZip,
       entriesFromDirectory,
       contentHashOverride: 'f'.repeat(64)
@@ -518,7 +630,7 @@ async function run() {
     });
     if (!remoteService.capabilities.includes('homebase-assets-remote-update')) throw new Error('Remote asset update capability missing.');
     const remoteStatus = await remoteService.checkRemoteAssets({ force: true });
-    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== '0.6.5') {
+    if (!remoteStatus.remoteAvailable || !remoteStatus.updateAvailable || remoteStatus.remoteVersion !== remoteVersion) {
       throw new Error(`Remote asset check failed: ${JSON.stringify(remoteStatus)}`);
     }
     if (!remoteRelease.requestedUrls.some((url) => new URL(url).searchParams.has('_vfrcb'))) {
@@ -534,14 +646,14 @@ async function run() {
       throw new Error('Remote object controls were not exposed to the app.');
     }
     const remoteInstalled = await remoteService.installRemoteAssets();
-    if (remoteInstalled.packageVersion !== '0.6.5' || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
+    if (remoteInstalled.packageVersion !== remoteVersion || remoteInstalled.source !== 'remote' || remoteInstalled.unchanged) {
       throw new Error(`Remote asset installation failed: ${JSON.stringify(remoteInstalled)}`);
     }
     const remoteInspection = remoteService.inspectAssets();
-    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== '0.6.5') throw new Error('Remote package inspection failed.');
+    if (!remoteInspection.packageComplete || remoteInspection.packageVersion !== remoteVersion) throw new Error('Remote package inspection failed.');
     if (fs.existsSync(interruptedBackup)) throw new Error('Interrupted package backup was not recovered and cleaned.');
     const activeIndexPath = path.join(testRoot, 'remote-runtime', 'homebase-asset-cache', 'active-package-index.json');
-    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== '0.6.5') {
+    if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== remoteVersion) {
       throw new Error('Active remote package index was not persisted.');
     }
     const activeCatalog = remoteService.inspectAssetState().assetCatalog;
@@ -556,7 +668,7 @@ async function run() {
       throw new Error('Installed round-hangar runtime metadata was not restored from the active package index.');
     }
     const noDowngrade = remoteService.installAssets();
-    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== '0.6.5') throw new Error('Embedded fallback downgraded a newer remote package.');
+    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== remoteVersion) throw new Error('Embedded fallback downgraded a newer remote package.');
 
     remoteService.handleCommand({ type: 'homebase_v1.assets.update.install', commandId: 'remote-no-confirm' });
     const confirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.update.install_ack');
@@ -565,7 +677,7 @@ async function run() {
     const badHashRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.6',
+      version: nextRemoteVersion,
       createZip,
       entriesFromDirectory,
       archiveHashOverride: '0'.repeat(64)
@@ -585,12 +697,12 @@ async function run() {
     } catch (error) {
       hashRejected = /SHA-256/.test(error?.message || '');
     }
-    if (!hashRejected || badHashService.inspectAssets().packageVersion !== '0.6.5') throw new Error('Hash rejection did not preserve the installed package.');
+    if (!hashRejected || badHashService.inspectAssets().packageVersion !== remoteVersion) throw new Error('Hash rejection did not preserve the installed package.');
 
     const rollbackRelease = createRemoteReleaseFixture({
       sourcePackage: embeddedAssetPackagePath,
       root: testRoot,
-      version: '0.6.6',
+      version: nextRemoteVersion,
       createZip,
       entriesFromDirectory
     });
@@ -618,7 +730,7 @@ async function run() {
     } finally {
       fs.renameSync = originalRenameSync;
     }
-    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== '0.6.5') throw new Error('Atomic rollback failed to restore the previous package.');
+    if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== remoteVersion) throw new Error('Atomic rollback failed to restore the previous package.');
 
     const traversalZipPath = path.join(testRoot, 'traversal.zip');
     createZip([{ name: 'evil.txt', data: Buffer.from('blocked') }], traversalZipPath);

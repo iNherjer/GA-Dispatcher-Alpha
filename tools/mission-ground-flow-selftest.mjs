@@ -66,8 +66,15 @@ assert.match(deboarding, /boarderCount \?\? command\?\.passengerCount \?\? 1, 0,
 assert.match(deboarding, /stagedPickupVehicle/);
 assert.match(deboarding, /boarding-finally-close|deboarding-finally-close/);
 
+const movingTarmacCatalog = section(sync, 'const MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES', 'const MISSION_SCENE_DEBUG_MAX_EVENTS');
+const movingTarmacTitles = Array.from(movingTarmacCatalog.matchAll(/'((?:Tarmac)_(?:Male|Female)_(?:Summer|Winter)_(?:African|Arab|Asian|Caucasian|Hispanic|Indian))'/g), match => match[1]);
+assert.equal(movingTarmacTitles.length, 24);
+assert.equal(new Set(movingTarmacTitles).size, 24);
+assert.equal(movingTarmacTitles.filter(title => title.includes('_Male_')).length, 12);
+assert.equal(movingTarmacTitles.filter(title => title.includes('_Female_')).length, 12);
+assert.doesNotMatch(movingTarmacCatalog, /Black|Tarmac_(?:Male|Female)_(?:Summer|Winter)'/i);
 const movingPersonPool = section(sync, 'function _missionSceneMovingPersonPool', 'function _missionSceneHeadingOffsetBetween');
-assert.match(movingPersonPool, /\^tarmac_/i);
+assert.match(movingPersonPool, /MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES/);
 assert.doesNotMatch(movingPersonPool, /Marshaller_/i);
 const boardingSceneSpawn = section(sync, 'window.missionSceneSpawn = function', 'window.missionSceneClear = function');
 assert.match(boardingSceneSpawn, /_missionSceneMovingPersonTitle\(primaryGender, 'boarding-primary'\)/);

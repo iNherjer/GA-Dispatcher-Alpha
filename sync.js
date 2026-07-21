@@ -1963,6 +1963,32 @@ const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-04';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
+const MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES = Object.freeze([
+    'Tarmac_Male_Summer_African',
+    'Tarmac_Male_Summer_Arab',
+    'Tarmac_Male_Summer_Asian',
+    'Tarmac_Male_Summer_Caucasian',
+    'Tarmac_Male_Summer_Hispanic',
+    'Tarmac_Male_Summer_Indian',
+    'Tarmac_Male_Winter_African',
+    'Tarmac_Male_Winter_Arab',
+    'Tarmac_Male_Winter_Asian',
+    'Tarmac_Male_Winter_Caucasian',
+    'Tarmac_Male_Winter_Hispanic',
+    'Tarmac_Male_Winter_Indian',
+    'Tarmac_Female_Summer_African',
+    'Tarmac_Female_Summer_Arab',
+    'Tarmac_Female_Summer_Asian',
+    'Tarmac_Female_Summer_Caucasian',
+    'Tarmac_Female_Summer_Hispanic',
+    'Tarmac_Female_Summer_Indian',
+    'Tarmac_Female_Winter_African',
+    'Tarmac_Female_Winter_Arab',
+    'Tarmac_Female_Winter_Asian',
+    'Tarmac_Female_Winter_Caucasian',
+    'Tarmac_Female_Winter_Hispanic',
+    'Tarmac_Female_Winter_Indian'
+]);
 const MISSION_SCENE_DEBUG_MAX_EVENTS = 50;
 const MISSION_PHASE_DEBUG_MAX_EVENTS = 180;
 const MISSION_SCENE_SPAWN_ERROR_COOLDOWN_MS = 60000;
@@ -4677,15 +4703,11 @@ function _missionScenePersonCandidates(gender = 'female', preferredTitle = '') {
 
 function _missionSceneMovingPersonPool(gender = 'female', includeFallbackGender = false) {
     const normalizedGender = String(gender || '').toLowerCase() === 'male' ? 'male' : 'female';
-    const primaryPool = normalizedGender === 'male'
-        ? MISSION_SCENE_ASSET_POOLS.peopleMale
-        : MISSION_SCENE_ASSET_POOLS.peopleFemale;
-    const fallbackPool = normalizedGender === 'male'
-        ? MISSION_SCENE_ASSET_POOLS.peopleFemale
-        : MISSION_SCENE_ASSET_POOLS.peopleMale;
-    const tarmacOnly = values => _sceneUniqueTitles(values).filter(title => /^tarmac_/i.test(String(title || '').trim()));
-    const primary = tarmacOnly(primaryPool);
-    const secondary = includeFallbackGender ? tarmacOnly(fallbackPool) : [];
+    const titleGender = title => /_Female_/i.test(String(title || '')) ? 'female' : 'male';
+    const primary = MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES.filter(title => titleGender(title) === normalizedGender);
+    const secondary = includeFallbackGender
+        ? MISSION_SCENE_MOVING_TARMAC_PERSON_TITLES.filter(title => titleGender(title) !== normalizedGender)
+        : [];
     const defaultTitle = normalizedGender === 'male'
         ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE
         : MISSION_SCENE_DEFAULT_PERSON_TITLE;
@@ -12353,8 +12375,8 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 302;
-const MIN_TRACKER_VERSION_LABEL = 'v302';
+const MIN_TRACKER_VERSION_CODE = 303;
+const MIN_TRACKER_VERSION_LABEL = 'v303';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

@@ -20,8 +20,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v302';
-const TRACKER_VERSION_CODE = 302;
+const TRACKER_VERSION = 'v303';
+const TRACKER_VERSION_CODE = 303;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3637,6 +3637,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         ? createHomebaseObjectManager(handle, {
             sendAck: sendHomebaseAck,
             log: debugLog,
+            getLastGps: () => lastGpsMsg,
             extraCapabilities: ['homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback']
           })
         : null;

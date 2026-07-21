@@ -4,7 +4,7 @@
   "title": "VFR Multitool Homebase Assets",
   "manufacturer": "",
   "creator": "VFR Multitool",
-  "package_version": "0.6.5",
+  "package_version": "0.6.6",
   "minimum_game_version": "1.7.35",
   "minimum_compatibility_version": "7.26.0.214",
   "export_type": "Community",
@@ -16,5 +16,5 @@
       "OlderHistory": ""
     }
   },
-  "total_package_size": "2743656"
+  "total_package_size": "2743681"
 }

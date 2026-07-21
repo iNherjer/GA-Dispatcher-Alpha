@@ -9,7 +9,7 @@
 		<Component ID="RoundHangarDoor" Node="RoundHangarDoor">
 			<UseTemplate Name="ASOBO_GT_Anim_Code">
 				<ANIM_NAME>RoundHangarDoor</ANIM_NAME>
-				<ANIM_CODE>(L:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND, number) 0.5 &gt; if{ 100 } els{ 0 }</ANIM_CODE>
+				<ANIM_CODE>(L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND, Number) 0.5 &gt; if{ 100 } els{ 0 }</ANIM_CODE>
 				<ANIM_LENGTH>100</ANIM_LENGTH>
 				<ANIM_LAG>20</ANIM_LAG>
 			</UseTemplate>

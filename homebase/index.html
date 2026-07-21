@@ -111,7 +111,7 @@
           <div><span class="step">FUNKTIONEN</span><h2>Türen, Lichter und weitere Funktionen</h2></div>
         </div>
         <label class="toggle"><input id="doorAutomationToggle" type="checkbox" checked> Hangartore bei Annäherung automatisch öffnen und schließen</label>
-        <p id="doorAutomationHint" class="small-note">Öffnet jedes Tor einzeln bei höchstens 36 m und schließt es ab 40 m nach drei Sekunden. Flugzeug und Walkaround-Position werden berücksichtigt. Eine manuelle Betätigung bleibt bestehen, bis die Automatik denselben Zustand im nächsten Distanzzyklus erreicht.</p>
+        <p id="doorAutomationHint" class="small-note">Öffnet jedes Tor einzeln bei höchstens 18 m und schließt es ab 20 m nach einer Sekunde. Flugzeug und Walkaround-Position werden berücksichtigt. Eine manuelle Betätigung bleibt bestehen, bis die Automatik denselben Zustand im nächsten Distanzzyklus erreicht.</p>
         <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
         <div id="homebaseControlsEmpty" class="object-empty">Die aktuell platzierten Modelle haben keine bedienbaren Türen, Lichter oder Animationen.</div>
         <p class="small-note">Wenn ein Modell bedienbare Funktionen besitzt, erscheinen die passenden Schalter hier automatisch. Instanzlokale Tore werden pro platziertem Hangar einzeln angezeigt.</p>
@@ -153,6 +153,53 @@
           </div>
         </fieldset>
         <p class="small-note">Ziehe einen nummerierten Marker auf der Karte oder nutze die Felder für eine genaue Position. Über „Höhe über dem Boden“ kannst du Gegenstände stapeln. Einige von MSFS bereitgestellte Objekte erscheinen erst im kompilierten Homebase-Mod.</p>
+      </section>
+
+      <section class="card route-debug-card">
+        <div class="section-title">
+          <div><span class="step">DEBUG</span><h2>Personen-Routenplaner</h2></div>
+        </div>
+        <label class="toggle"><input id="routeDebugToggle" type="checkbox"> Routenplanung auf der Karte anzeigen</label>
+        <div id="routeDebugPanel" class="route-debug-panel" hidden>
+          <div class="field-grid two">
+            <label>Start nördlich, m<input id="routeStartNorth" type="number" step="0.5" value="12"></label>
+            <label>Start östlich, m<input id="routeStartEast" type="number" step="0.5" value="0"></label>
+          </div>
+          <label>Zielobjekt<select id="routeTargetSelect"></select></label>
+          <label class="toggle"><input id="routeAircraftZoneToggle" type="checkbox" checked> Flugzeug als dynamische 10 × 10 m Sperrfläche</label>
+          <button id="routePlanBtn" class="secondary wide">Route neu berechnen</button>
+          <div class="route-debug-legend" aria-hidden="true">
+            <span><i class="route-swatch route-swatch-path"></i>geglättete Route</span>
+            <span><i class="route-swatch route-swatch-raw"></i>Routengitter</span>
+            <span><i class="route-swatch route-swatch-blocked"></i>Sperrflächen</span>
+          </div>
+          <p id="routeDebugResult" class="result-line">Wähle ein Zielobjekt und berechne die Route.</p>
+        </div>
+        <p class="small-note">Der Debug-Modus plant lokal in der normalen Homebase-Workbench. Platzierte Objekte und der Hangar werden anhand ihrer Grundfläche umgangen; das Zielobjekt erhält automatisch einen ungefähr einen Meter entfernten Interaktionspunkt.</p>
+      </section>
+
+      <section class="card people-card">
+        <div class="section-title">
+          <div><span class="step">PERSONEN</span><h2>Dynamische Homebase-Mitarbeiter</h2></div>
+          <span id="peopleCount" class="count-badge">0 / 3</span>
+        </div>
+        <button id="addPersonBtn" class="primary wide">Tarmac-Person hinzufügen</button>
+        <div id="peopleList" class="object-list" aria-label="Homebase-Mitarbeiter"></div>
+        <div id="peopleEmpty" class="object-empty">Noch keine dynamische Person angelegt.</div>
+        <fieldset id="personEditor" class="object-editor" disabled>
+          <legend id="personEditorTitle">Person bearbeiten</legend>
+          <label>Modell<select id="personModelSelect"></select></label>
+          <div class="field-grid three">
+            <label>Start nördlich, m<input id="personStartNorth" type="number" step="0.5"></label>
+            <label>Start östlich, m<input id="personStartEast" type="number" step="0.5"></label>
+            <label>Tempo, kt<input id="personSpeed" type="number" min="1" max="5" step="0.1"></label>
+          </div>
+          <div class="section-title person-route-title"><div><h3>Zielpool der ausgewählten Person</h3></div><button id="addPersonStopBtn" class="secondary">Ziel hinzufügen</button></div>
+          <div id="personStops" class="person-stops"></div>
+          <p class="small-note">Nach jeder Wartezeit wird zufällig ein anderes Ziel aus diesem Pool gewählt und die Route dorthin neu berechnet. Bei Objekten wählt der Planer automatisch einen freien Interaktionspunkt; freie Wegpunkte verwenden ihre genaue Nord-/Ostposition.</p>
+          <button id="deletePersonBtn" class="danger wide">Person löschen</button>
+        </fieldset>
+        <p id="peopleResult" class="result-line">Personen werden zusammen mit der automatischen Homebase geladen.</p>
       </section>
 
       <section class="card crew-share-card">
@@ -216,7 +263,8 @@
   </main>
 
   <script src="../vendor/leaflet/leaflet.js"></script>
-  <script src="./homebase-asset-catalog.js?v=homebase-object-controls-v299-20260720-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-auto-delta-20260720-01"></script>
+  <script src="./homebase-asset-catalog.js?v=homebase-people-routes-v1-20260721-01"></script>
+  <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-people-routes-v1-20260721-01"></script>
 </body>
 </html>

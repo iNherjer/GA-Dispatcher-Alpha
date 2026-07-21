@@ -21,11 +21,14 @@
   const DEVICE_ID_KEY = 'vfr-homebase-device-id';
   const ASSET_CATALOG = globalThis.HOMEBASE_ASSET_CATALOG;
   if (!ASSET_CATALOG?.assets?.length) throw new Error('Der gemeinsame Homebase-Assetkatalog wurde nicht geladen.');
+  const ROUTE_CORE = globalThis.HOMEBASE_ROUTE_CORE;
+  if (!ROUTE_CORE?.planRouteToObject) throw new Error('Der Homebase-Routenplaner wurde nicht geladen.');
   const ASSET_BY_KEY = new Map(ASSET_CATALOG.assets.map((entry) => [entry.key, entry]));
   const ASSET_DEFINITIONS = new Map([
     ...ASSET_CATALOG.assets.map((entry) => [entry.title, { ...entry }]),
     ...ASSET_CATALOG.stockObjects.map((entry) => [entry.title, { ...entry }])
   ]);
+  const TARMAC_PEOPLE = Array.isArray(ASSET_CATALOG.tarmacPeople) ? ASSET_CATALOG.tarmacPeople : [];
   const HANGAR_TITLE = ASSET_BY_KEY.get('hangar').title;
   const OPEN_PARKING_TITLE = ASSET_BY_KEY.get('openParking').title;
   const HANGAR_DEFINITIONS = new Map(ASSET_CATALOG.assets
@@ -48,7 +51,8 @@
     doorAutomationEnabled: true,
     spawn: { lat: 48.1504, lon: 7.7099, altFt: 620, heading: 90, mode: 'airport_parking' },
     hangar: { northM: 0, eastM: 0, heading: 90, heightFt: 0, widthM: 18, depthM: 22, objectTitle: HANGAR_TITLE },
-    objects: []
+    objects: [],
+    people: []
   };
 
   const hadLocalState = localStorage.getItem(STORAGE_KEY) !== null || localStorage.getItem('vfr-homebase-workbench-v1') !== null;
@@ -63,6 +67,7 @@
   let spawnProbeEnabled = false;
   let commandSeq = 0;
   let objectSeq = state.objects.length;
+  let personSeq = state.people.length;
   let previewInFlightId = null;
   let previewWaitsForExtras = false;
   let previewQueued = false;
@@ -73,6 +78,11 @@
   let previewWatchdog = null;
   let centeredOnce = false;
   let selectedObjectId = state.objects[0]?.id || null;
+  let selectedPersonId = state.people[0]?.id || null;
+  let routeDebugEnabled = false;
+  let routeDebugStart = { northM: 12, eastM: 0 };
+  let routeDebugResult = null;
+  let routeDebugLastAircraft = null;
   let localAssetInspection = null;
   let assetInstallCheckInFlight = false;
   let assetPromptedSignature = '';
@@ -81,6 +91,7 @@
   const liveMoveTimers = new Map();
   const liveObjectIds = new Set();
   const pendingLiveObjectMoves = new Map();
+  let peopleLiveSyncTimer = null;
   const integratedRpcPending = new Map();
   let integratedRpcSeq = 0;
   let integratedMessageBound = false;
@@ -111,6 +122,12 @@
   const hangarHeadingLine = L.polyline(headingLine(hp0.lat, hp0.lng, state.hangar.heading, Math.max(10, state.hangar.depthM * .65)), { color: '#bbf451', weight: 3 }).addTo(map);
   const objectMarkers = new Map();
   const objectHeadingLines = new Map();
+  const routeDebugLayer = L.layerGroup().addTo(map);
+  const personRouteLayer = L.layerGroup().addTo(map);
+  const routeDebugStartMarker = L.marker(
+    offsetLatLon(state.spawn.lat, state.spawn.lon, routeDebugStart.northM, routeDebugStart.eastM),
+    { icon: markerIcon('route-debug-start-icon', 'P'), draggable: true, opacity: 0 }
+  ).addTo(map);
 
   function finite(value, fallback = 0) {
     const number = Number(value);
@@ -136,6 +153,10 @@
     const widthM = Number(footprint?.widthM);
     const depthM = Number(footprint?.depthM);
     return Number.isFinite(widthM) && Number.isFinite(depthM) ? { widthM, depthM } : { widthM: 18, depthM: 22 };
+  }
+
+  function isNavigableHangarTitle(title) {
+    return HANGAR_DEFINITIONS.has(title) || ASSET_DEFINITIONS.get(title)?.kind === 'hangar';
   }
 
   function normalizeControls(rawControls, legacyAnimation = null) {
@@ -214,6 +235,33 @@
     };
   }
 
+  function normalizePersonStop(raw, index = 0) {
+    const targetType = raw?.targetType === 'waypoint' ? 'waypoint' : 'object';
+    return {
+      id: String(raw?.id || `stop-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `stop-${index + 1}`,
+      targetType,
+      targetId: String(raw?.targetId || 'hangar').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64),
+      northM: clamp(raw?.northM, -2000, 2000),
+      eastM: clamp(raw?.eastM, -2000, 2000),
+      waitMinS: clamp(raw?.waitMinS ?? raw?.waitS ?? 0, 0, 3600),
+      waitMaxS: clamp(raw?.waitMaxS ?? raw?.waitMinS ?? raw?.waitS ?? 0, 0, 3600)
+    };
+  }
+
+  function normalizePerson(raw, index = 0) {
+    const fallback = TARMAC_PEOPLE[0] || { title: 'Tarmac_Male_Summer_Asian', label: 'Tarmac-Person' };
+    const selectedModel = TARMAC_PEOPLE.find((entry) => entry.title === raw?.title) || fallback;
+    return {
+      id: String(raw?.id || `person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `person-${index + 1}`,
+      title: selectedModel.title,
+      label: String(raw?.label || `Mitarbeiter ${index + 1}`).slice(0, 80),
+      startNorthM: clamp(raw?.startNorthM ?? 12 + index * 2, -2000, 2000),
+      startEastM: clamp(raw?.startEastM ?? index * 2, -2000, 2000),
+      speedKts: clamp(raw?.speedKts ?? 2.6, 1, 5),
+      stops: Array.isArray(raw?.stops) ? raw.stops.slice(0, 20).map(normalizePersonStop) : []
+    };
+  }
+
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
@@ -222,12 +270,13 @@
           doorAutomationEnabled: saved.doorAutomationEnabled !== false,
           spawn: { ...DEFAULT.spawn, ...saved.spawn },
           hangar: { ...DEFAULT.hangar, ...saved.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(saved.hangar.objectTitle) },
-          objects: Array.isArray(saved.objects) ? saved.objects.slice(0, 100).map(normalizeObject) : []
+          objects: Array.isArray(saved.objects) ? saved.objects.slice(0, 100).map(normalizeObject) : [],
+          people: Array.isArray(saved.people) ? saved.people.slice(0, 3).map(normalizePerson) : []
         };
       }
       const legacy = JSON.parse(localStorage.getItem('vfr-homebase-workbench-v1') || 'null');
       if (legacy?.spawn && legacy?.hangar) {
-        return { doorAutomationEnabled: true, spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [] };
+        return { doorAutomationEnabled: true, spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [], people: [] };
       }
     } catch (_) {}
     return JSON.parse(JSON.stringify(DEFAULT));
@@ -300,27 +349,47 @@
         widthM: clamp(source.hangar?.widthM ?? 18, 4, 80),
         depthM: clamp(source.hangar?.depthM ?? 22, 4, 100)
       },
-      objects: Array.isArray(source.objects) ? source.objects.slice(0, 100).map(normalizeObject) : []
+      objects: Array.isArray(source.objects) ? source.objects.slice(0, 100).map(normalizeObject) : [],
+      people: Array.isArray(source.people) ? source.people.slice(0, 3).map(normalizePerson) : []
     };
   }
 
-  function applyCloudRecord(record) {
-    const plan = normalizedPlan(record?.plan);
+  function applyCloudRecord(record, options = {}) {
+    const localPeople = state.people.slice(0, 3).map(normalizePerson);
+    const cloudPeople = record?.plan?.people;
+    const cloudClientUpdatedAt = finite(record?.clientUpdatedAt, 0);
+    const preserveLocalPeople = options.preserveLocalPeople !== false
+      && localPeople.length > 0
+      && (!Array.isArray(cloudPeople)
+        || (cloudPeople.length === 0 && cloudClientUpdatedAt <= syncMeta.localUpdatedAt));
+    const plan = normalizedPlan(preserveLocalPeople
+      ? { ...(record?.plan || {}), people: localPeople }
+      : record?.plan);
     state.spawn = plan.spawn;
     state.hangar = plan.hangar;
     state.objects = plan.objects;
+    state.people = plan.people;
     state.doorAutomationEnabled = plan.doorAutomationEnabled;
     selectedObjectId = state.objects[0]?.id || null;
+    selectedPersonId = state.people[0]?.id || null;
     objectSeq = state.objects.length;
+    personSeq = state.people.length;
     syncMeta.baseRevision = String(record?.revision || '');
     syncMeta.cloudUpdatedAt = finite(record?.updatedAt, Date.now());
-    syncMeta.localUpdatedAt = finite(record?.clientUpdatedAt, syncMeta.cloudUpdatedAt);
+    syncMeta.localUpdatedAt = preserveLocalPeople
+      ? Math.max(syncMeta.localUpdatedAt, cloudClientUpdatedAt)
+      : finite(record?.clientUpdatedAt, syncMeta.cloudUpdatedAt);
     syncMeta.crewShareEnabled = record?.crewShareEnabled !== false;
-    syncMeta.dirty = false;
+    syncMeta.dirty = preserveLocalPeople;
     saveState({ markDirty: false });
     syncInputsFromState();
     updateMap();
     map.setView([state.spawn.lat, state.spawn.lon], map.getZoom());
+    if (preserveLocalPeople) {
+      setPill('syncPill', 'Personen lokal erhalten – Cloud-Abgleich wartet', 'warn');
+      log('Der Cloud-Stand enthielt keinen aktuellen Personenplan. Die lokal gespeicherten Personen und Wegpunkte wurden beibehalten.', 'info');
+    }
+    return { preservedLocalPeople: preserveLocalPeople };
   }
 
   function plansEqual(left, right) {
@@ -339,9 +408,11 @@
       return;
     }
     if (!syncMeta.dirty) {
-      applyCloudRecord(record);
-      setPill('syncPill', 'Cloud-Version geladen', 'ok');
-      log('Aktuellere Homebase-Planung der Pilot-ID geladen.', 'ok');
+      const applied = applyCloudRecord(record);
+      if (!applied.preservedLocalPeople) {
+        setPill('syncPill', 'Cloud-Version geladen', 'ok');
+        log('Aktuellere Homebase-Planung der Pilot-ID geladen.', 'ok');
+      }
       return;
     }
     const cloudTime = finite(record.updatedAt, 0) ? new Date(record.updatedAt).toLocaleString('de-DE') : 'unbekannt';
@@ -350,7 +421,7 @@
       'OK lädt die Cloud-Version.\nAbbrechen behält diese lokale Version und speichert sie als neuen Stand.'
     );
     if (useCloud) {
-      applyCloudRecord(record);
+      applyCloudRecord(record, { preserveLocalPeople: false });
       setPill('syncPill', 'Cloud-Version geladen', 'ok');
       log('Cloud-Version der Homebase übernommen.', 'ok');
       return;
@@ -415,6 +486,297 @@
     });
   }
 
+  function routeFootprintForTitle(title) {
+    const definition = ASSET_DEFINITIONS.get(String(title || ''));
+    const footprint = definition?.footprint || ASSET_CATALOG.navigationFootprints?.[title];
+    const widthM = Math.max(.1, finite(footprint?.widthM, 1));
+    const depthM = Math.max(.1, finite(footprint?.depthM, 1));
+    return { widthM, depthM };
+  }
+
+  function hangarWallObstaclesFor(zone, title = '') {
+    const widthM = Math.max(4, finite(zone.widthM, 18));
+    const depthM = Math.max(4, finite(zone.depthM, 22));
+    const wallM = .3;
+    const openingM = Math.min(widthM - 2, 5);
+    const frontSegmentM = Math.max(.5, (widthM - openingM) / 2);
+    const center = { northM: zone.northM, eastM: zone.eastM };
+    const place = (suffix, label, forwardM, rightM, segmentWidthM, segmentDepthM) => {
+      const radians = normalizeHeading(zone.heading) * Math.PI / 180;
+      return {
+        id: `${zone.id}-wall-${suffix}`, label, kind: title === OPEN_PARKING_TITLE ? 'open-parking-wall' : 'hangar-wall',
+        northM: center.northM + Math.cos(radians) * forwardM - Math.sin(radians) * rightM,
+        eastM: center.eastM + Math.sin(radians) * forwardM + Math.cos(radians) * rightM,
+        heading: zone.heading, widthM: segmentWidthM, depthM: segmentDepthM
+      };
+    };
+    return [
+      place('back', 'Hangarwand hinten', -depthM / 2, 0, widthM, wallM),
+      place('left', 'Hangarwand links', 0, -widthM / 2, wallM, depthM),
+      place('right', 'Hangarwand rechts', 0, widthM / 2, wallM, depthM),
+      place('front-left', 'Hangarwand am Tor links', depthM / 2, -(openingM + frontSegmentM) / 2, frontSegmentM, wallM),
+      place('front-right', 'Hangarwand am Tor rechts', depthM / 2, (openingM + frontSegmentM) / 2, frontSegmentM, wallM)
+    ];
+  }
+
+  function routeHangarBoundary() {
+    return {
+      id: 'hangar', label: 'Hangar-Innenraum', kind: 'hangar-zone',
+      northM: state.hangar.northM, eastM: state.hangar.eastM,
+      heading: state.hangar.heading, widthM: state.hangar.widthM, depthM: state.hangar.depthM
+    };
+  }
+
+  function routeHangarBoundaries() {
+    const zones = [routeHangarBoundary()];
+    state.objects.forEach((item) => {
+      if (!isNavigableHangarTitle(item.title)) return;
+      const footprint = routeFootprintForTitle(item.title);
+      const scale = finite(item.scale, 1);
+      zones.push({
+        id: item.id, label: item.label || item.title, kind: 'hangar-zone', title: item.title,
+        northM: item.northM, eastM: item.eastM, heading: item.heading,
+        widthM: footprint.widthM * scale, depthM: footprint.depthM * scale
+      });
+    });
+    return zones;
+  }
+
+  function routeDebugObstacles() {
+    const obstacles = [];
+    obstacles.push(...hangarWallObstaclesFor(routeHangarBoundary(), state.hangar.objectTitle));
+    state.objects.forEach((item) => {
+      const footprint = routeFootprintForTitle(item.title);
+      if (isNavigableHangarTitle(item.title)) {
+        const scale = finite(item.scale, 1);
+        obstacles.push(...hangarWallObstaclesFor({
+          id: item.id, northM: item.northM, eastM: item.eastM, heading: item.heading,
+          widthM: footprint.widthM * scale, depthM: footprint.depthM * scale
+        }, item.title));
+        return;
+      }
+      obstacles.push({
+        id: item.id, label: item.label || item.title, kind: 'object',
+        northM: item.northM, eastM: item.eastM, heading: item.heading,
+        widthM: footprint.widthM, depthM: footprint.depthM, scale: finite(item.scale, 1)
+      });
+    });
+    return obstacles;
+  }
+
+  function routeAircraftObstacle() {
+    if (!$('routeAircraftZoneToggle')?.checked) return null;
+    const position = lastTelemetry
+      ? localOffsetMeters(state.spawn.lat, state.spawn.lon, lastTelemetry.lat, lastTelemetry.lon)
+      : { northM: 0, eastM: 0 };
+    return {
+      id: '__aircraft__', label: 'Flugzeug 10 × 10 m', kind: 'aircraft',
+      northM: position.northM, eastM: position.eastM,
+      heading: lastTelemetry?.heading ?? state.spawn.heading, sizeM: 10
+    };
+  }
+
+  function routePointLatLng(point) {
+    const result = offsetLatLon(state.spawn.lat, state.spawn.lon, finite(point?.northM), finite(point?.eastM));
+    return [result.lat, result.lng];
+  }
+
+  function updateRouteDebugTargets() {
+    const select = $('routeTargetSelect');
+    if (!select) return;
+    const selected = select.value;
+    const targets = [];
+    if (state.hangar.objectTitle !== OPEN_PARKING_TITLE) targets.push({ id: 'hangar', label: 'Hangar / Torbereich' });
+    state.objects.forEach((item, index) => targets.push({ id: item.id, label: `${index + 1}. ${item.label || item.title}` }));
+    select.textContent = '';
+    targets.forEach((target) => {
+      const option = document.createElement('option');
+      option.value = target.id;
+      option.textContent = target.label;
+      select.append(option);
+    });
+    if (targets.some((target) => target.id === selected)) select.value = selected;
+    select.disabled = targets.length === 0;
+    $('routePlanBtn').disabled = targets.length === 0;
+  }
+
+  function renderRouteDebug(result = routeDebugResult) {
+    routeDebugLayer.clearLayers();
+    routeDebugStartMarker.setOpacity(routeDebugEnabled ? 1 : 0);
+    routeDebugStartMarker.setLatLng(routePointLatLng(routeDebugStart));
+    if (!routeDebugEnabled || !result) return;
+    const polygons = result.debug?.obstaclePolygons || (result.obstacles || []).map((obstacle) => ({
+      id: obstacle.id, label: obstacle.label, points: ROUTE_CORE.obstacleCorners(obstacle, true)
+    }));
+    polygons.forEach((polygon) => {
+      const aircraft = polygon.id === '__aircraft__';
+      const hangar = polygon.id === 'hangar';
+      L.polygon(polygon.points.map(routePointLatLng), {
+        color: aircraft ? '#ffb44a' : hangar ? '#bbf451' : '#ff645e',
+        weight: 2, dashArray: aircraft ? '7 5' : null,
+        fillColor: aircraft ? '#a65a14' : hangar ? '#456a1b' : '#7d2428', fillOpacity: .22,
+        interactive: false
+      }).bindTooltip(polygon.label || 'Sperrfläche').addTo(routeDebugLayer);
+    });
+    if (result.ok && result.rawPath?.length > 1) {
+      L.polyline(result.rawPath.map(routePointLatLng), { color: '#d4dde0', weight: 2, opacity: .6, dashArray: '4 5', interactive: false }).addTo(routeDebugLayer);
+    }
+    if (result.ok && result.path?.length > 1) {
+      L.polyline(result.path.map(routePointLatLng), { color: '#54d7d0', weight: 5, opacity: .95, interactive: false }).addTo(routeDebugLayer);
+      L.marker(routePointLatLng(result.goal), { icon: markerIcon('route-debug-target-icon', 'Z'), interactive: false }).addTo(routeDebugLayer);
+    }
+  }
+
+  function planRouteDebug() {
+    if (!routeDebugEnabled) return;
+    routeDebugStart = {
+      northM: clamp($('routeStartNorth').value, -1000, 1000),
+      eastM: clamp($('routeStartEast').value, -1000, 1000)
+    };
+    const targetObjectId = String($('routeTargetSelect').value || '');
+    if (!targetObjectId) {
+      routeDebugResult = null;
+      renderRouteDebug();
+      setResult('routeDebugResult', 'Platziere zuerst einen Hangar oder ein Ausstattungsobjekt.', false);
+      return;
+    }
+    routeDebugResult = compilePersonLeg(
+      routeDebugStart,
+      { targetType: 'object', targetId: targetObjectId },
+      routeAircraftObstacle()
+    );
+    renderRouteDebug(routeDebugResult);
+    if (!routeDebugResult.ok) {
+      setResult('routeDebugResult', `Keine freie Route zum gewählten Ziel (${routeDebugResult.error || 'unbekannter Fehler'}).`, false);
+      return;
+    }
+    const sideNames = { front: 'Vorderseite', right: 'rechte Seite', back: 'Rückseite', left: 'linke Seite' };
+    const distanceM = Number.isFinite(routeDebugResult.distanceM) ? routeDebugResult.distanceM : ROUTE_CORE.pathDistance(routeDebugResult.path);
+    const interaction = routeDebugResult.interactionSide ? `; Interaktion an der ${sideNames[routeDebugResult.interactionSide] || routeDebugResult.interactionSide}` : '';
+    setResult('routeDebugResult', `${distanceM.toFixed(1)} m über ${Math.max(0, routeDebugResult.path.length - 1)} Wegabschnitte${interaction}.`, true);
+  }
+
+  function aircraftMovedForRoutePlanner() {
+    const next = routeAircraftObstacle();
+    if (!next) return false;
+    const previous = routeDebugLastAircraft;
+    routeDebugLastAircraft = next;
+    if (!previous) return true;
+    const distance = Math.hypot(next.northM - previous.northM, next.eastM - previous.eastM);
+    const headingDelta = Math.abs((((next.heading - previous.heading) % 360) + 540) % 360 - 180);
+    return distance >= 1 || headingDelta >= 10;
+  }
+
+  function selectedPerson() {
+    return state.people.find((item) => item.id === selectedPersonId) || null;
+  }
+
+  function hangarRouteObstacle() {
+    return routeHangarBoundary();
+  }
+
+  function hangarContaining(point) {
+    return routeHangarBoundaries().find((hangar) => ROUTE_CORE.pointInsideObstacle(point, ROUTE_CORE.normalizeObstacle({ ...hangar, clearanceM: 0 }))) || null;
+  }
+
+  function pointInsideHangar(point) {
+    return !!hangarContaining(point);
+  }
+
+  function hangarEntryPoint(hangar = hangarRouteObstacle()) {
+    if (!hangar) return null;
+    const normalized = ROUTE_CORE.normalizeObstacle(hangar, { clearanceM: .65 });
+    return ROUTE_CORE.interactionCandidates(normalized, { interactionOffsetM: 1 })[0];
+  }
+
+  function routeGoalForStop(stop) {
+    if (stop.targetType === 'waypoint') return { northM: stop.northM, eastM: stop.eastM, targetId: null };
+    if (stop.targetId === 'hangar') return { northM: state.hangar.northM, eastM: state.hangar.eastM, targetId: 'hangar', insideHangar: true };
+    return { targetId: stop.targetId };
+  }
+
+  function compilePersonLeg(start, stop, aircraft = routeAircraftObstacle()) {
+    const obstacles = routeDebugObstacles();
+    const goal = routeGoalForStop(stop);
+    const startHangar = hangarContaining(start);
+    const targetHangar = goal.targetId ? routeHangarBoundaries().find((hangar) => hangar.id === goal.targetId) || null : null;
+    const targetObstacle = goal.targetId && goal.targetId !== 'hangar' ? obstacles.find((obstacle) => obstacle.id === goal.targetId) : null;
+    const goalPoint = targetHangar || targetObstacle || goal;
+    const goalHangar = targetHangar || (goal.insideHangar === true ? routeHangarBoundary() : hangarContaining(goalPoint));
+    const entry = goalHangar ? hangarEntryPoint(goalHangar) : null;
+    const planToGoal = (routeStart) => goal.targetId && goal.targetId !== 'hangar' && !targetHangar
+      ? ROUTE_CORE.planRouteToObject({ start: routeStart, targetObjectId: goal.targetId, obstacles, aircraft, cellSizeM: .5, clearanceM: .65, interactionOffsetM: 1 })
+      : ROUTE_CORE.planRoute({ start: routeStart, goal: { northM: goalPoint.northM, eastM: goalPoint.eastM }, obstacles, aircraft, cellSizeM: .5, clearanceM: .65 });
+    if (!entry || startHangar?.id === goalHangar?.id) return planToGoal(start);
+    if (goalHangar) {
+      const approach = ROUTE_CORE.planRoute({ start, goal: entry, obstacles, aircraft, cellSizeM: .5, clearanceM: .65 });
+      if (!approach.ok) return approach;
+      const interior = planToGoal(entry);
+      if (!interior.ok) return interior;
+      const path = [...approach.path, ...interior.path.slice(1)];
+      return {
+        ...interior, path, distanceM: ROUTE_CORE.pathDistance(path), hangarId: goalHangar.id
+      };
+    }
+    return planToGoal(start);
+  }
+
+  function compilePersonRoute(person) {
+    if (!person) return { ok: false, error: 'person_not_found', points: [] };
+    const start = { northM: person.startNorthM, eastM: person.startEastM };
+    start.insideHangar = pointInsideHangar(start);
+    const routes = [];
+    for (const stop of person.stops) {
+      const leg = compilePersonLeg(start, stop);
+      if (!leg.ok || !leg.path?.length) return { ok: false, error: leg.error || 'no_route', stopId: stop.id, routes };
+      routes.push({ stop, path: leg.path, distanceM: ROUTE_CORE.pathDistance(leg.path) });
+    }
+    return { ok: routes.length > 0, error: routes.length ? null : 'no_stops', routes };
+  }
+
+  function renderSelectedPersonRoute() {
+    personRouteLayer.clearLayers();
+    const person = selectedPerson();
+    if (!person) return;
+    const route = compilePersonRoute(person);
+    const spawnMarker = L.marker(routePointLatLng({ northM: person.startNorthM, eastM: person.startEastM }), {
+      icon: markerIcon('route-debug-start-icon', 'P'), draggable: true, autoPan: true
+    }).bindTooltip(`${person.label} · Startpunkt ziehen`).addTo(personRouteLayer);
+    spawnMarker.on('dragend', () => {
+      const point = spawnMarker.getLatLng();
+      const local = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
+      person.startNorthM = clamp(local.northM, -2000, 2000);
+      person.startEastM = clamp(local.eastM, -2000, 2000);
+      saveState(); syncInputsFromState(); updateMap(); schedulePeopleLiveSync();
+    });
+    route.routes.forEach((candidate, index) => {
+      L.polyline(candidate.path.map(routePointLatLng), { color: '#bbf451', weight: 3, opacity: .65, dashArray: '9 5', interactive: false }).addTo(personRouteLayer);
+    });
+    const routeByStopId = new Map(route.routes.map((candidate) => [candidate.stop.id, candidate]));
+    person.stops.forEach((stop, index) => {
+      const candidate = routeByStopId.get(stop.id);
+      if (stop.targetType !== 'waypoint' && !candidate) return;
+      const target = stop.targetType === 'waypoint'
+        ? { northM: stop.northM, eastM: stop.eastM }
+        : candidate.path[candidate.path.length - 1];
+      const marker = L.marker(routePointLatLng(target), {
+        icon: markerIcon('route-debug-target-icon', String(index + 1)),
+        draggable: stop.targetType === 'waypoint',
+        autoPan: stop.targetType === 'waypoint',
+        interactive: true
+      }).bindTooltip(stop.targetType === 'waypoint' ? `Freier Wegpunkt ${index + 1} ziehen` : `Objektziel ${index + 1}`)
+        .addTo(personRouteLayer);
+      if (stop.targetType !== 'waypoint') return;
+      marker.on('dragend', () => {
+        const point = marker.getLatLng();
+        const local = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
+        stop.northM = clamp(local.northM, -2000, 2000);
+        stop.eastM = clamp(local.eastM, -2000, 2000);
+        saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync();
+      });
+    });
+  }
+
   function selectedObject() {
     return state.objects.find((item) => item.id === selectedObjectId) || null;
   }
@@ -457,6 +819,160 @@
       });
       $('catalogSelect').append(optgroup);
     });
+  }
+
+  function fillPersonCatalog() {
+    const select = $('personModelSelect');
+    select.textContent = '';
+    TARMAC_PEOPLE.forEach((person) => {
+      const option = document.createElement('option');
+      option.value = person.title;
+      option.textContent = person.label;
+      select.append(option);
+    });
+  }
+
+  function personDestinationOptions(selectedValue = '') {
+    const options = [];
+    if (state.hangar.objectTitle !== OPEN_PARKING_TITLE) options.push({ value: 'hangar', label: 'Hangar innen' });
+    state.objects.forEach((item, index) => options.push({ value: item.id, label: `${index + 1}. ${item.label || item.title}` }));
+    options.push({ value: '__waypoint__', label: 'Freier Wegpunkt' });
+    return options.map((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.value;
+      option.textContent = entry.label;
+      option.selected = entry.value === selectedValue;
+      return option;
+    });
+  }
+
+  function renderPersonStops(person) {
+    const container = $('personStops');
+    container.textContent = '';
+    person.stops.forEach((stop, index) => {
+      const root = document.createElement('div');
+      root.className = 'person-stop';
+      const head = document.createElement('div');
+      head.className = 'person-stop-head';
+      const title = document.createElement('strong');
+      title.textContent = `Mögliches Ziel ${index + 1}`;
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'danger person-stop-remove'; remove.textContent = 'Entfernen';
+      remove.addEventListener('click', () => { person.stops.splice(index, 1); saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync(); });
+      head.append(title, remove);
+      const fields = document.createElement('div');
+      fields.className = 'person-stop-fields';
+      const targetLabel = document.createElement('label');
+      targetLabel.className = 'person-stop-target'; targetLabel.textContent = 'Ziel';
+      const target = document.createElement('select');
+      const selectedTarget = stop.targetType === 'waypoint' ? '__waypoint__' : stop.targetId;
+      personDestinationOptions(selectedTarget).forEach((option) => target.append(option));
+      target.addEventListener('change', () => {
+        stop.targetType = target.value === '__waypoint__' ? 'waypoint' : 'object';
+        stop.targetId = stop.targetType === 'object' ? target.value : '';
+        saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync();
+      });
+      targetLabel.append(target);
+      fields.append(targetLabel);
+      const coordinateLabels = [['northM', 'Wegpunkt nördlich, m'], ['eastM', 'Wegpunkt östlich, m']].map(([key, text]) => {
+        const label = document.createElement('label');
+        label.className = 'person-stop-coordinate'; label.hidden = stop.targetType !== 'waypoint'; label.textContent = text;
+        const input = document.createElement('input'); input.type = 'number'; input.step = '.5'; input.value = stop[key];
+        const persistCoordinate = () => { stop[key] = clamp(input.value, -2000, 2000); saveState(); updateMap(); schedulePeopleLiveSync(); };
+        input.addEventListener('input', persistCoordinate);
+        input.addEventListener('change', persistCoordinate);
+        label.append(input); return label;
+      });
+      fields.append(...coordinateLabels);
+      [['waitMinS', 'Wartezeit min., s'], ['waitMaxS', 'Wartezeit max., s']].forEach(([key, text]) => {
+        const label = document.createElement('label'); label.textContent = text;
+        const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = '3600'; input.step = '1'; input.value = stop[key];
+        const persistWait = () => { stop[key] = clamp(input.value, 0, 3600); saveState(); updateMap(); schedulePeopleLiveSync(); };
+        input.addEventListener('input', persistWait);
+        input.addEventListener('change', persistWait);
+        label.append(input); fields.append(label);
+      });
+      root.append(head, fields);
+      container.append(root);
+    });
+    if (!person.stops.length) {
+      const empty = document.createElement('div'); empty.className = 'object-empty'; empty.textContent = 'Füge mindestens ein mögliches Ziel hinzu.'; container.append(empty);
+    }
+  }
+
+  function renderPeople() {
+    const list = $('peopleList');
+    list.textContent = '';
+    state.people.forEach((person, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `object-list-item${person.id === selectedPersonId ? ' selected' : ''}`;
+      button.textContent = `${index + 1}. ${person.label} · ${person.stops.length} Ziele`;
+      button.addEventListener('click', () => { selectedPersonId = person.id; renderPeople(); updateMap(); });
+      list.append(button);
+    });
+    $('peopleCount').textContent = `${state.people.length} / 3`;
+    $('peopleEmpty').hidden = state.people.length > 0;
+    $('addPersonBtn').disabled = state.people.length >= 3 || TARMAC_PEOPLE.length === 0;
+    const person = selectedPerson();
+    $('personEditor').disabled = !person;
+    if (!person) {
+      $('personEditorTitle').textContent = 'Person bearbeiten';
+      $('personStops').textContent = '';
+      setResult('peopleResult', 'Personen werden zusammen mit der automatischen Homebase geladen.');
+      renderSelectedPersonRoute();
+      return;
+    }
+    $('personEditorTitle').textContent = person.label;
+    $('personModelSelect').value = person.title;
+    $('personStartNorth').value = Number(person.startNorthM.toFixed(1));
+    $('personStartEast').value = Number(person.startEastM.toFixed(1));
+    $('personSpeed').value = Number(person.speedKts.toFixed(1));
+    renderPersonStops(person);
+    const route = compilePersonRoute(person);
+    setResult('peopleResult', route.ok
+      ? `${person.stops.length} mögliche Ziele; der nächste Abschnitt wird jeweils zufällig und neu geplant.`
+      : (person.stops.length ? `Mindestens ein Ziel ist derzeit nicht erreichbar (${route.error}).` : 'Füge mögliche Objektziele oder freie Wegpunkte hinzu.'), route.ok ? true : null);
+    renderSelectedPersonRoute();
+  }
+
+  function addPerson() {
+    if (state.people.length >= 3 || !TARMAC_PEOPLE.length) return;
+    const person = normalizePerson({ id: `person-${Date.now().toString(36)}-${++personSeq}`, label: `Mitarbeiter ${state.people.length + 1}` }, state.people.length);
+    state.people.push(person); selectedPersonId = person.id;
+    saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync();
+  }
+
+  function deleteSelectedPerson() {
+    const index = state.people.findIndex((person) => person.id === selectedPersonId);
+    if (index < 0) return;
+    state.people.splice(index, 1);
+    selectedPersonId = state.people[Math.min(index, state.people.length - 1)]?.id || null;
+    saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync();
+  }
+
+  function addPersonDestination() {
+    const person = selectedPerson();
+    if (!person || person.stops.length >= 20) return;
+    const firstTarget = state.hangar.objectTitle !== OPEN_PARKING_TITLE ? 'hangar' : state.objects[0]?.id;
+    person.stops.push(normalizePersonStop({
+      id: `destination-${Date.now().toString(36)}-${person.stops.length + 1}`,
+      targetType: firstTarget ? 'object' : 'waypoint', targetId: firstTarget || '',
+      northM: person.startNorthM + 5, eastM: person.startEastM, waitMinS: 5, waitMaxS: 30
+    }, person.stops.length));
+    saveState(); renderPeople(); updateMap(); schedulePeopleLiveSync();
+  }
+
+  function readSelectedPersonFromInputs(event) {
+    const person = selectedPerson();
+    if (!person) return;
+    person.title = TARMAC_PEOPLE.some((entry) => entry.title === $('personModelSelect').value) ? $('personModelSelect').value : TARMAC_PEOPLE[0].title;
+    person.startNorthM = clamp($('personStartNorth').value, -2000, 2000);
+    person.startEastM = clamp($('personStartEast').value, -2000, 2000);
+    person.speedKts = clamp($('personSpeed').value, 1, 5);
+    saveState();
+    if (event?.target?.id === 'personModelSelect') renderPeople();
+    updateMap(); schedulePeopleLiveSync();
   }
 
   function mergeRuntimeAssetCatalog(entries) {
@@ -697,6 +1213,7 @@
     $('crewShareToggle').checked = syncMeta.crewShareEnabled === true;
     $('doorAutomationToggle').checked = state.doorAutomationEnabled !== false;
     renderObjectList();
+    renderPeople();
     renderHomebaseControls();
   }
 
@@ -754,6 +1271,9 @@
     spawnHeadingLine.setLatLngs(headingLine(state.spawn.lat, state.spawn.lon, state.spawn.heading, 15));
     hangarHeadingLine.setLatLngs(headingLine(hp.lat, hp.lng, state.hangar.heading, Math.max(10, state.hangar.depthM * .65)));
     updateObjectMarkers();
+    updateRouteDebugTargets();
+    if (routeDebugEnabled) planRouteDebug();
+    renderSelectedPersonRoute();
   }
 
   map.on('zoomend', updateObjectMarkers);
@@ -850,16 +1370,12 @@
     const index = state.objects.findIndex((item) => item.id === selectedObjectId);
     if (index < 0) return;
     const [removed] = state.objects.splice(index, 1);
+    state.people.forEach((person) => { person.stops = person.stops.filter((stop) => stop.targetType !== 'object' || stop.targetId !== removed.id); });
     selectedObjectId = state.objects[Math.min(index, state.objects.length - 1)]?.id || null;
     clearTimeout(liveMoveTimers.get(removed.id));
     liveMoveTimers.delete(removed.id);
     liveObjectIds.delete(removed.id);
     saveState(); syncInputsFromState(); updateMap();
-    if (INTEGRATED) {
-      setResult('previewResult', `${removed.label} wurde aus dem Entwurf entfernt. Die automatische Homebase-Ergänzung wird aktualisiert …`);
-      log(`${removed.label} entfernt.`);
-      return;
-    }
     if (!PERSISTENT_ONLY_TITLES.has(removed.title)) {
       const commandId = sendStabilizerCommand('homebase_v1.preview.object.remove', {
         id: removed.id,
@@ -896,7 +1412,18 @@
           altFt: state.spawn.altFt + item.heightFt, heightOffsetFt: item.heightFt,
           heading: normalizeHeading(item.heading + headingCorrectionFor(item.title)), scale: item.scale
         };
-      })
+      }),
+      people: state.people.map((person) => ({
+        id: person.id, title: person.title, label: person.label,
+        startNorthM: person.startNorthM, startEastM: person.startEastM, speedKts: person.speedKts,
+        destinations: person.stops.map((stop) => ({ ...stop }))
+      })),
+      navigation: {
+        spawn: { lat: state.spawn.lat, lon: state.spawn.lon, altFt: state.spawn.altFt, heading: state.spawn.heading },
+        hangar: routeHangarBoundary(),
+        hangars: routeHangarBoundaries(),
+        obstacles: routeDebugObstacles()
+      }
     };
   }
 
@@ -973,6 +1500,18 @@
     return commandId;
   }
 
+  function schedulePeopleLiveSync() {
+    clearTimeout(peopleLiveSyncTimer);
+    peopleLiveSyncTimer = setTimeout(() => {
+      peopleLiveSyncTimer = null;
+      const config = buildConfig();
+      sendStabilizerCommand('homebase_v1.preview.people.sync', {
+        people: config.people,
+        navigation: config.navigation
+      });
+    }, 120);
+  }
+
   function invalidateLivePreview() {
     livePreviewReady = false;
     liveObjectIds.clear();
@@ -990,27 +1529,19 @@
   }
 
   function scheduleLiveHangarMove() {
-    if (INTEGRATED) {
-      setResult('previewResult', 'Die Hangaränderung wird in die automatische Homebase-Ergänzung übernommen …');
-      return;
-    }
     queueLiveMove('hangar', () => {
       const config = buildConfig();
       const object = { id: 'hangar', title: config.hangar.objectTitle, label: config.hangar.objectTitle === OPEN_PARKING_TITLE ? 'Offener Parkbereich' : 'Hangar', ...config.hangar };
       if (!sendStabilizerCommand('homebase_v1.preview.hangar.move', { object })) {
         setResult('previewResult', 'Der Hangar wurde im Entwurf verschoben. Für die sofortige Anzeige im Simulator muss der PC-Tracker verbunden sein.', false);
       }
-    });
+    }, INTEGRATED || livePreviewReady);
   }
 
   function scheduleLiveObjectMove(item) {
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
       setResult('previewResult', `${item.label} wird gespeichert, erscheint aber erst im kompilierten Homebase-Mod.`);
-      return;
-    }
-    if (INTEGRATED) {
-      setResult('previewResult', `${item.label} wird in der automatischen Homebase-Ergänzung aktualisiert …`);
       return;
     }
     queueLiveMove(item.id, () => {
@@ -1028,10 +1559,6 @@
     if (!item) return;
     if (PERSISTENT_ONLY_TITLES.has(item.title)) {
       setResult('previewResult', `${item.label} wird gespeichert und erscheint erst im kompilierten Homebase-Mod.`);
-      return;
-    }
-    if (INTEGRATED) {
-      setResult('previewResult', `${item.label} wird innerhalb von 20 NM automatisch im Simulator ergänzt …`);
       return;
     }
     const object = buildConfig().objects.find((entry) => entry.id === item.id);
@@ -1771,6 +2298,12 @@
         setResult('previewResult', ack.message || (ok ? 'Objekt wurde aus der Live-Vorschau entfernt.' : 'Objekt konnte nicht entfernt werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
+      if (data.stabilizerAck?.type === 'homebase_v1.preview.people.sync_ack') {
+        const ack = data.stabilizerAck;
+        const ok = ack.status === 'ok' || ack.status === 'noop';
+        setResult('peopleResult', ack.message || (ok ? 'Personen und Wegpunkte wurden live aktualisiert.' : 'Personen konnten nicht aktualisiert werden.'), ok);
+        log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
+      }
       if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack'].includes(data.stabilizerAck?.type)) {
         const ack = data.stabilizerAck;
         const ok = ack.status === 'ok';
@@ -1830,6 +2363,7 @@
         }
         lastTelemetry = { lat: Number(data.lat), lon: Number(data.lon), altFt: finite(data.alt, 0), heading: normalizeHeading(data.hdg), flight: data.flight || {} };
         planeMarker.setLatLng([lastTelemetry.lat, lastTelemetry.lon]).setOpacity(1);
+        if (routeDebugEnabled && aircraftMovedForRoutePlanner()) planRouteDebug();
         setPill('trackerPill', `PC-Tracker ${data.trackerVersion || 'online'}`, 'ok');
         setPill('simPill', 'MSFS verbunden', 'ok');
         if (!centeredOnce) {
@@ -1930,6 +2464,11 @@
     $(id).addEventListener('input', readSelectedObjectFromInputs);
     $(id).addEventListener('change', readSelectedObjectFromInputs);
   });
+  $('personModelSelect').addEventListener('change', readSelectedPersonFromInputs);
+  ['personStartNorth', 'personStartEast', 'personSpeed'].forEach((id) => {
+    $(id).addEventListener('input', readSelectedPersonFromInputs);
+    $(id).addEventListener('change', readSelectedPersonFromInputs);
+  });
   document.querySelectorAll('[data-nudge]').forEach((button) => button.addEventListener('click', () => {
     if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     const step = finite($('nudgeStep').value, 1);
@@ -1976,6 +2515,9 @@
   $('hangarSelect').addEventListener('change', () => {
     if (!confirmCompiledChange('hangar', 'Der Hangar')) return;
     state.hangar.objectTitle = normalizeHangarTitle($('hangarSelect').value);
+    if (state.hangar.objectTitle === OPEN_PARKING_TITLE) {
+      state.people.forEach((person) => { person.stops = person.stops.filter((stop) => stop.targetType !== 'object' || stop.targetId !== 'hangar'); });
+    }
     saveState(); syncInputsFromState(); updateMap();
     log(`${$('hangarSelect').selectedOptions[0]?.textContent || 'Vorschaumodell'} ausgewählt. Die Vorschau wird ersetzt.`);
     sendPreview();
@@ -1983,13 +2525,15 @@
   $('addObjectBtn').addEventListener('click', () => addObject($('catalogSelect').value));
   $('duplicateObjectBtn').addEventListener('click', () => { const item = selectedObject(); if (item) addObject(item.title, item); });
   $('deleteObjectBtn').addEventListener('click', deleteSelectedObject);
+  $('addPersonBtn').addEventListener('click', addPerson);
+  $('addPersonStopBtn').addEventListener('click', addPersonDestination);
+  $('deletePersonBtn').addEventListener('click', deleteSelectedPerson);
   $('crewShareToggle').addEventListener('change', () => {
     syncMeta.crewShareEnabled = $('crewShareToggle').checked === true;
     syncMeta.dirty = true;
     syncMeta.localUpdatedAt = Date.now();
     persistSyncMeta();
     postSyncDraft();
-    if (INTEGRATED) window.parent.postMessage({ channel: 'vfr-homebase', kind: 'sync-save-now', reason: 'crew-share-change' }, PARENT_ORIGIN);
     setPill('syncPill', syncMeta.crewShareEnabled ? 'Crew-Freigabe wird gespeichert' : 'Crew-Freigabe wird aufgehoben', 'warn');
   });
   $('doorAutomationToggle').addEventListener('change', () => {
@@ -2000,6 +2544,25 @@
       ? (state.doorAutomationEnabled ? 'Automatische Hangartorsteuerung wird aktiviert …' : 'Automatische Hangartorsteuerung wird deaktiviert …')
       : 'Die Einstellung wurde gespeichert; der Tracker ist momentan nicht erreichbar.', commandId ? null : false);
   });
+  $('routeDebugToggle').addEventListener('change', () => {
+    routeDebugEnabled = $('routeDebugToggle').checked === true;
+    $('routeDebugPanel').hidden = !routeDebugEnabled;
+    routeDebugLastAircraft = null;
+    updateRouteDebugTargets();
+    if (routeDebugEnabled) planRouteDebug();
+    else { routeDebugResult = null; renderRouteDebug(); }
+  });
+  ['routeStartNorth', 'routeStartEast'].forEach((id) => $(id).addEventListener('change', planRouteDebug));
+  $('routeTargetSelect').addEventListener('change', planRouteDebug);
+  $('routeAircraftZoneToggle').addEventListener('change', () => { routeDebugLastAircraft = null; planRouteDebug(); });
+  $('routePlanBtn').addEventListener('click', planRouteDebug);
+  routeDebugStartMarker.on('dragend', () => {
+    const point = routeDebugStartMarker.getLatLng();
+    routeDebugStart = localOffsetMeters(state.spawn.lat, state.spawn.lon, point.lat, point.lng);
+    $('routeStartNorth').value = Number(routeDebugStart.northM.toFixed(1));
+    $('routeStartEast').value = Number(routeDebugStart.eastM.toFixed(1));
+    planRouteDebug();
+  });
   $('previewBtn').addEventListener('click', sendPreview);
   $('clearBtn').addEventListener('click', clearPreview);
   $('buildAirportBtn').addEventListener('click', buildAirportGuided);
@@ -2008,7 +2571,7 @@
   $('connectBtn').addEventListener('click', connect);
   $('clearLogBtn').addEventListener('click', () => { $('log').textContent = ''; });
   setupMobileMapPin();
-  fillCatalog(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
+  fillCatalog(); fillPersonCatalog(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
   if (INTEGRATED) {
     postSyncDraft();
     window.parent.postMessage({ channel: 'vfr-homebase', kind: 'workbench-ready' }, PARENT_ORIGIN);

@@ -4,7 +4,7 @@ Stand: 20.07.2026
 
 ## Ziel
 
-Das Tor jedes platzierten Hangars soll einzeln steuerbar sein. Das gilt fuer den Haupt-Hangar, als Dekoration platzierte Hangars, die Live-Vorschau und den kompilierten Flugplatz. Die automatische Steuerung oeffnet pro Instanz bei hoechstens 36 m und schliesst pro Instanz ab 40 m nach drei Sekunden. Flugzeug und Walkaround-Position gelten beide als Naehequelle. Die Automatik ist in der Workbench global abschaltbar; manuelle Einzelbefehle bleiben verfuegbar.
+Das Tor jedes platzierten Hangars soll einzeln steuerbar sein. Das gilt fuer den Haupt-Hangar, als Dekoration platzierte Hangars, die Live-Vorschau und den kompilierten Flugplatz. Die automatische Steuerung oeffnet pro Instanz bei hoechstens 18 m und schliesst pro Instanz ab 20 m nach einer Sekunde. Flugzeug und Walkaround-Position gelten beide als Naehequelle. Die Automatik ist in der Workbench global abschaltbar; manuelle Einzelbefehle bleiben verfuegbar.
 
 Es werden keine Modellkopien, nummerierten LVars oder zehn XML-Dateien fuer zehn Hangars benoetigt. Eine gemeinsame Modell-XML verwendet eine objektlokale Variable. SimConnect schreibt denselben Variablennamen an die konkrete SimObject-ID.
 
@@ -128,8 +128,8 @@ Version `0.3.15` beherrscht ebenfalls die instanzlokale Torsteuerung und wird nu
 2. In der Workbench pruefen, dass fuer beide Hangars je eine eigene Karte `Rundhangar Tor` erscheint.
 3. Hangar A manuell schliessen und oeffnen; Hangar B darf sich nicht bewegen.
 4. Dasselbe mit Hangar B wiederholen.
-5. Automatik einschalten und sich nur Hangar A bis auf 36 m naehern; nur A muss oeffnen.
-6. Mindestens 40 m von A entfernen und drei Sekunden warten; A muss schliessen.
+5. Automatik einschalten und sich nur Hangar A bis auf 18 m naehern; nur A muss oeffnen.
+6. Mindestens 20 m von A entfernen und eine Sekunde warten; A muss schliessen.
 7. Den Test im Walkaround wiederholen.
 8. Automatik in der Workbench ausschalten; danach darf keine automatische Bewegung mehr erfolgen.
 9. Tracker neu starten; die Workbench muss den gespeicherten Schalter nach dem neuen Tracker-Hello erneut uebertragen.

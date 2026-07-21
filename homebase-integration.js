@@ -4,7 +4,7 @@
   const CHANNEL = 'vfr-homebase';
   const HOMEBASE_SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase/';
   const HOMEBASE_CREW_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase-group/';
-  const HOMEBASE_SYNC_DELAY_MS = 30000;
+  const HOMEBASE_SYNC_DELAY_MS = 20000;
   const HOMEBASE_CREW_POLL_MS = 45000;
   const HOMEBASE_CREW_RADIUS_NM = 10;
   const HOMEBASE_CREW_MAX_OBJECTS = 100;
@@ -38,6 +38,8 @@
   let ownAutoInFlight = false;
   let ownAutoQueued = false;
   let ownLastAppliedSignature = '';
+  let ownLastAppliedObjectsSignature = '';
+  let ownLastAppliedAt = 0;
   let ownLastTelemetry = null;
   let ownAutoPlanSettlesAt = 0;
   let ownAutoPlanApplyTimer = null;
@@ -228,6 +230,11 @@
     return homebaseCatalogDefinition(title)?.persistentOnly === true;
   }
 
+  function homebaseNavigationFootprint(title) {
+    const footprint = homebaseCatalogDefinition(title)?.footprint || globalThis.HOMEBASE_ASSET_CATALOG?.navigationFootprints?.[title];
+    return { widthM: Math.max(.1, finite(footprint?.widthM, 1)), depthM: Math.max(.1, finite(footprint?.depthM, 1)) };
+  }
+
   function ownRuntimeConfigFromPlan(plan) {
     if (!plan?.spawn || !plan?.hangar) return null;
     const spawn = plan.spawn;
@@ -236,6 +243,43 @@
     const spawnLon = finite(spawn.lon, NaN);
     if (!Number.isFinite(spawnLat) || !Number.isFinite(spawnLon)) return null;
     const hangarPosition = offsetLatLon(spawnLat, spawnLon, finite(hangar.northM), finite(hangar.eastM));
+    const primaryHangarZone = {
+      id: 'hangar', northM: finite(hangar.northM), eastM: finite(hangar.eastM), heading: heading(hangar.heading),
+      widthM: finite(hangar.widthM, 18), depthM: finite(hangar.depthM, 22),
+      title: String(hangar.objectTitle || '')
+    };
+    const placedHangarZones = (Array.isArray(plan.objects) ? plan.objects : []).slice(0, 100).flatMap((item, index) => {
+      if (homebaseCatalogDefinition(item?.title)?.kind !== 'hangar') return [];
+      const footprint = homebaseNavigationFootprint(item?.title);
+      const scale = Math.max(.1, Math.min(10, finite(item?.scale, 1)));
+      return [{
+        id: String(item?.id || `object-${index + 1}`), title: String(item?.title || ''),
+        northM: finite(item?.northM), eastM: finite(item?.eastM), heading: heading(item?.heading),
+        widthM: footprint.widthM * scale, depthM: footprint.depthM * scale
+      }];
+    });
+    const hangarZones = [primaryHangarZone, ...placedHangarZones];
+    const hangarWalls = (zone) => {
+      const widthM = Math.max(4, finite(zone.widthM, 18));
+      const depthM = Math.max(4, finite(zone.depthM, 22));
+      const wallM = .3;
+      const openingM = Math.min(widthM - 2, 5);
+      const frontSegmentM = Math.max(.5, (widthM - openingM) / 2);
+      const radians = heading(zone.heading) * Math.PI / 180;
+      const place = (suffix, label, forwardM, rightM, segmentWidthM, segmentDepthM) => ({
+        id: `${zone.id}-wall-${suffix}`, label, kind: zone.title === 'VFR Multitool Homebase Open Parking' ? 'open-parking-wall' : 'hangar-wall',
+        northM: finite(zone.northM) + Math.cos(radians) * forwardM - Math.sin(radians) * rightM,
+        eastM: finite(zone.eastM) + Math.sin(radians) * forwardM + Math.cos(radians) * rightM,
+        heading: heading(zone.heading), widthM: segmentWidthM, depthM: segmentDepthM, scale: 1
+      });
+      return [
+        place('back', 'Hangarwand hinten', -depthM / 2, 0, widthM, wallM),
+        place('left', 'Hangarwand links', 0, -widthM / 2, wallM, depthM),
+        place('right', 'Hangarwand rechts', 0, widthM / 2, wallM, depthM),
+        place('front-left', 'Hangarwand am Tor links', depthM / 2, -(openingM + frontSegmentM) / 2, frontSegmentM, wallM),
+        place('front-right', 'Hangarwand am Tor rechts', depthM / 2, (openingM + frontSegmentM) / 2, frontSegmentM, wallM)
+      ];
+    };
     return {
       protocol: 2,
       name: 'VFR Multitool Homebase',
@@ -270,7 +314,31 @@
           heading: heading(finite(item?.heading) + homebaseHeadingCorrection(item?.title)),
           scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
         };
-      }).filter((item) => item.title)
+      }).filter((item) => item.title),
+      people: (Array.isArray(plan.people) ? plan.people : []).slice(0, 3).map((person, index) => ({
+        id: String(person?.id || `person-${index + 1}`), title: String(person?.title || ''),
+        label: String(person?.label || `Mitarbeiter ${index + 1}`),
+        startNorthM: finite(person?.startNorthM), startEastM: finite(person?.startEastM),
+        speedKts: Math.max(1, Math.min(5, finite(person?.speedKts, 2.6))),
+        destinations: (Array.isArray(person?.stops) ? person.stops : []).slice(0, 20).map((stop) => ({ ...stop }))
+      })).filter((person) => /^Tarmac_/i.test(person.title)),
+      navigation: {
+        spawn: { lat: spawnLat, lon: spawnLon, altFt: finite(spawn.altFt), heading: heading(spawn.heading) },
+        hangar: primaryHangarZone,
+        hangars: hangarZones,
+        obstacles: [
+          ...hangarZones.flatMap(hangarWalls),
+          ...(Array.isArray(plan.objects) ? plan.objects : []).slice(0, 100).flatMap((item, index) => {
+            if (homebaseCatalogDefinition(item?.title)?.kind === 'hangar') return [];
+            const footprint = homebaseNavigationFootprint(item?.title);
+            return [{
+              id: String(item?.id || `object-${index + 1}`), label: String(item?.label || item?.title || 'Objekt'), kind: 'object',
+              northM: finite(item?.northM), eastM: finite(item?.eastM), heading: heading(item?.heading),
+              widthM: footprint.widthM, depthM: footprint.depthM, scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
+            }];
+          })
+        ]
+      }
     };
   }
 
@@ -341,6 +409,35 @@
     };
   }
 
+  function noteOwnObjectDeltaApplied() {
+    if (!ownAutoInside || ownAutoSuppressedUntilExit) return false;
+    const delta = ownHomebaseDelta();
+    if (!delta.ready) return false;
+    ownLastAppliedObjectsSignature = JSON.stringify(delta.objects || []);
+    ownLastAppliedAt = Date.now();
+    return true;
+  }
+
+  function noteOwnPeoplePlanApplied() {
+    if (!ownAutoInside || ownAutoSuppressedUntilExit) return false;
+    const delta = ownHomebaseDelta();
+    const config = currentOwnRuntimeConfig();
+    if (!delta.ready || !config) return false;
+    const objects = delta.objects || [];
+    const people = config.people || [];
+    const navigation = config.navigation || null;
+    ownLastAppliedObjectsSignature = JSON.stringify(objects);
+    ownLastAppliedSignature = JSON.stringify({ objects, people, navigation });
+    ownLastAppliedAt = Date.now();
+    return true;
+  }
+
+  function deferOwnAutoApplyForDelta() {
+    ownAutoPlanSettlesAt = Date.now() + 5000;
+    clearTimeout(ownAutoPlanApplyTimer);
+    ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'delta-fallback'), 5000);
+  }
+
   function publishOwnAutoStatus(payload = {}) {
     postToWorkbench('owner-auto-status', payload);
   }
@@ -349,6 +446,8 @@
     ownPackageStatus = status;
     ownPackageStatusRequestedAt = 0;
     ownLastAppliedSignature = '';
+    ownLastAppliedObjectsSignature = '';
+    ownLastAppliedAt = 0;
     postToWorkbench('compiled-snapshot', {
       sceneInstalled: status?.sceneInstalled === true,
       snapshotTrusted: status?.snapshotTrusted === true,
@@ -405,23 +504,34 @@
       return false;
     }
     const objects = inside && !ownAutoSuppressedUntilExit ? delta.objects : [];
-    const signature = JSON.stringify(objects);
+    const config = currentOwnRuntimeConfig();
+    const people = inside && !ownAutoSuppressedUntilExit ? (config?.people || []) : [];
+    const navigation = config?.navigation || null;
+    const signature = JSON.stringify({ objects, people, navigation });
+    const objectsSignature = JSON.stringify(objects);
     const activePreviewIds = new Set((Array.isArray(position?.homebase?.objects) ? position.homebase.objects : [])
       .filter((item) => item?.collection === 'preview').map((item) => String(item.id || '')));
-    const expectedIds = objects.map((item) => String(item.id || ''));
+    const expectedIds = [...objects, ...people].map((item) => String(item.id || ''));
     const trackerSceneMatches = expectedIds.length === activePreviewIds.size && expectedIds.every((id) => activePreviewIds.has(id));
-    if (signature === ownLastAppliedSignature && trackerSceneMatches) return false;
+    if (signature === ownLastAppliedSignature && (trackerSceneMatches || Date.now() - ownLastAppliedAt < 5000)) return false;
     if (ownAutoInFlight) {
       ownAutoQueued = true;
       return false;
     }
-    const commandId = sendTracker({ type: 'homebase_v1.preview.set', objects }, {
-      kind: 'owner-auto-set',
+    const canSyncPeopleLive = ownLastAppliedObjectsSignature
+      && objectsSignature === ownLastAppliedObjectsSignature
+      && (objects.every((item) => activePreviewIds.has(String(item.id || '')))
+        || Date.now() - ownLastAppliedAt < 5000);
+    const commandId = sendTracker(canSyncPeopleLive
+      ? { type: 'homebase_v1.preview.people.sync', people, navigation }
+      : { type: 'homebase_v1.preview.set', objects, people, navigation }, {
+      kind: canSyncPeopleLive ? 'owner-auto-people-sync' : 'owner-auto-set',
       reason,
       signature,
+      objectsSignature,
       stats: delta.stats,
       distanceNm: distance,
-      active: objects.length > 0 || (inside && !ownAutoSuppressedUntilExit)
+      active: objects.length > 0 || people.length > 0 || (inside && !ownAutoSuppressedUntilExit)
     });
     if (!commandId) return false;
     ownAutoInFlight = true;
@@ -429,7 +539,9 @@
       status: 'warn',
       distanceNm: distance,
       stats: delta.stats,
-      message: objects.length ? `Automatische Homebase-Ergänzung wird mit ${objects.length} Objekt(en) aufgebaut …` : (inside ? 'Der installierte Homebase-Mod ist bereits vollständig aktuell.' : 'Live-Ergänzungen werden außerhalb des Homebase-Radius entfernt …')
+      message: canSyncPeopleLive
+        ? `${people.length} Homebase-Person(en) und ihre Wegpunkte werden live aktualisiert …`
+        : (objects.length || people.length ? `Automatische Homebase-Ergänzung wird mit ${objects.length} Objekt(en) und ${people.length} Person(en) aufgebaut …` : (inside ? 'Der installierte Homebase-Mod ist bereits vollständig aktuell.' : 'Live-Ergänzungen werden außerhalb des Homebase-Radius entfernt …'))
     });
     return true;
   }
@@ -669,7 +781,9 @@
       sendTracker({
         type: 'homebase_v1.preview.set',
         commandId: trackerCommand.commandId,
-        objects: [...hangar, ...(Array.isArray(config.objects) ? config.objects : [])]
+        objects: [...hangar, ...(Array.isArray(config.objects) ? config.objects : [])],
+        people: Array.isArray(config.people) ? config.people : [],
+        navigation: config.navigation || null
       }, { kind: 'legacy-preview-set' });
       return;
     }
@@ -688,16 +802,38 @@
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.preview.object.add') {
+      deferOwnAutoApplyForDelta();
       sendTracker({ type: 'homebase_v1.preview.object.add', commandId: stabilizerCommand.commandId, object: stabilizerCommand.object }, { kind: 'object-add' });
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.preview.object.remove') {
+      deferOwnAutoApplyForDelta();
       sendTracker({
         type: 'homebase_v1.preview.object.remove',
         commandId: stabilizerCommand.commandId,
         id: stabilizerCommand.id,
         label: stabilizerCommand.label
       }, { kind: 'object-remove' });
+      return;
+    }
+    if (stabilizerCommand.type === 'homebase_v1.preview.people.sync') {
+      if (!ownAutoInside || ownAutoSuppressedUntilExit) {
+        relayMessage({
+          stabilizerAck: {
+            type: 'homebase_v1.preview.people.sync_ack',
+            commandId: stabilizerCommand.commandId,
+            status: 'noop',
+            message: 'Personenplan gespeichert; die Homebase ist derzeit nicht aktiv.'
+          }
+        });
+        return;
+      }
+      sendTracker({
+        type: 'homebase_v1.preview.people.sync',
+        commandId: stabilizerCommand.commandId,
+        people: Array.isArray(stabilizerCommand.people) ? stabilizerCommand.people : [],
+        navigation: stabilizerCommand.navigation || null
+      }, { kind: 'people-live-sync' });
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.hangar.animation.set') {
@@ -750,6 +886,7 @@
       return;
     }
     if (stabilizerCommand.type === 'homebase_v1.preview.object.move' || stabilizerCommand.type === 'homebase_v1.preview.hangar.move') {
+      deferOwnAutoApplyForDelta();
       sendTracker({ type: 'homebase_v1.preview.object.move', commandId: stabilizerCommand.commandId, object: stabilizerCommand.object }, {
         kind: stabilizerCommand.type.endsWith('hangar.move') ? 'hangar-move' : 'object-move'
       });
@@ -845,11 +982,18 @@
       applyOwnHomebaseScene(ownLastTelemetry, 'package-status');
       return;
     }
-    if (meta.kind === 'owner-auto-set') {
+    if (meta.kind === 'owner-auto-set' || meta.kind === 'owner-auto-people-sync') {
       ownAutoInFlight = false;
       const ok = ack.status === 'ok';
-      if (ok) ownLastAppliedSignature = String(meta.signature || '');
-      else ownLastAppliedSignature = '';
+      if (ok) {
+        ownLastAppliedSignature = String(meta.signature || '');
+        ownLastAppliedObjectsSignature = String(meta.objectsSignature || '');
+        ownLastAppliedAt = Date.now();
+      } else {
+        ownLastAppliedSignature = '';
+        ownLastAppliedObjectsSignature = '';
+        ownLastAppliedAt = 0;
+      }
       publishOwnAutoStatus({
         status: ok ? 'ok' : 'bad',
         distanceNm: meta.distanceNm,
@@ -908,11 +1052,18 @@
       return;
     }
     if (meta.kind === 'object-add') {
+      if (ack.status === 'ok' && noteOwnObjectDeltaApplied()) applyOwnHomebaseScene(ownLastTelemetry, 'object-add-delta');
       relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.object.add_ack' } });
       return;
     }
     if (meta.kind === 'object-remove') {
+      if ((ack.status === 'ok' || ack.status === 'noop') && noteOwnObjectDeltaApplied()) applyOwnHomebaseScene(ownLastTelemetry, 'object-remove-delta');
       relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.object.remove_ack' } });
+      return;
+    }
+    if (meta.kind === 'people-live-sync') {
+      if (ack.status === 'ok' || ack.status === 'noop') noteOwnPeoplePlanApplied();
+      relayMessage({ stabilizerAck: { ...ack, type: 'homebase_v1.preview.people.sync_ack' } });
       return;
     }
     if (meta.kind === 'hangar-animation') {
@@ -928,6 +1079,7 @@
       return;
     }
     if (meta.kind === 'object-move' || meta.kind === 'hangar-move') {
+      if (ack.status === 'ok' && noteOwnObjectDeltaApplied()) applyOwnHomebaseScene(ownLastTelemetry, `${meta.kind}-delta`);
       relayMessage({
         stabilizerAck: {
           ...ack,
@@ -1017,18 +1169,22 @@
       };
       scheduleHomebaseSave();
       ownLastAppliedSignature = '';
-      ownAutoPlanSettlesAt = Date.now() + 500;
+      ownAutoPlanSettlesAt = Date.now() + 1200;
       clearTimeout(ownAutoPlanApplyTimer);
-      ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'draft-change'), 500);
+      ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'draft-change'), 1200);
     }
     if (message.kind === 'owner-auto-refresh') {
       ownAutoSuppressedUntilExit = false;
       ownLastAppliedSignature = '';
+      ownLastAppliedObjectsSignature = '';
+      ownLastAppliedAt = 0;
       applyOwnHomebaseScene(ownLastTelemetry, 'workbench-refresh');
     }
     if (message.kind === 'owner-auto-clear') {
       ownAutoSuppressedUntilExit = true;
       ownLastAppliedSignature = '';
+      ownLastAppliedObjectsSignature = '';
+      ownLastAppliedAt = 0;
       applyOwnHomebaseScene(ownLastTelemetry, 'workbench-clear');
     }
     if (message.kind === 'sync-save-now') flushHomebaseDraft(message.reason || 'workbench');

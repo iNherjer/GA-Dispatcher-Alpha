@@ -8,9 +8,9 @@ const {
 } = require('node-simconnect');
 const catalog = require('./homebase-asset-catalog.js');
 
-const OPEN_RADIUS_M = 36;
-const CLOSE_RADIUS_M = 40;
-const CLOSE_DELAY_MS = 3000;
+const OPEN_RADIUS_M = 18;
+const CLOSE_RADIUS_M = 20;
+const CLOSE_DELAY_MS = 1000;
 const SCAN_RADIUS_M = 1000;
 const USER_POLL_MS = 400;
 const HANGAR_SCAN_MS = 1500;
@@ -165,6 +165,7 @@ function createHomebaseDoorAutomation(handle, options = {}) {
   let lastUser = null;
   let lastAvatar = null;
   let lastCurrent = null;
+  let dynamicSources = [];
   let scanBuffer = new Map();
   let hangarFinalizeTimer = null;
   let userTimer = null;
@@ -198,7 +199,7 @@ function createHomebaseDoorAutomation(handle, options = {}) {
   const evaluate = () => {
     if (!enabled || stopped) return;
     const now = Date.now();
-    const sources = [lastUser, lastAvatar, lastCurrent].filter(Boolean);
+    const sources = [lastUser, lastAvatar, lastCurrent, ...dynamicSources.map((source) => ({ ...source, at: now }))].filter(Boolean);
     for (const hangar of hangars.values()) {
       const nearest = nearestSource(sources, hangar, now);
       if (!nearest) continue;
@@ -324,6 +325,13 @@ function createHomebaseDoorAutomation(handle, options = {}) {
       return { enabled, changed, resetManualOverrides };
     },
     isEnabled: () => enabled,
+    setDynamicSources(sources = []) {
+      dynamicSources = (Array.isArray(sources) ? sources : []).map((source) => finitePosition(
+        source?.lat, source?.lon, source?.altFt, { kind: String(source?.kind || 'Homebase-Person'), objectId: Number(source?.objectId || 0) }
+      )).filter(Boolean);
+      evaluate();
+      return dynamicSources.length;
+    },
     noteManualState(hangar, state) {
       const objectId = Number(hangar?.objectId);
       const normalizedState = String(state || '').toLowerCase();

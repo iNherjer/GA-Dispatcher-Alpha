@@ -26,10 +26,10 @@ assert.ok(controls.every((control) => control.title && control.simvar.startsWith
 assert.ok(controls.every((control) => Number.isFinite(control.openValue) && Number.isFinite(control.closedValue)));
 assert.ok(CLOSE_RADIUS_M > OPEN_RADIUS_M);
 assert.ok(CLOSE_DELAY_MS >= 1000);
-assert.equal(proximityZone(35.9), 'open');
-assert.equal(proximityZone(36), 'open');
-assert.equal(proximityZone(38), 'hold');
-assert.equal(proximityZone(40), 'close');
+assert.equal(proximityZone(OPEN_RADIUS_M - .1), 'open');
+assert.equal(proximityZone(OPEN_RADIUS_M), 'open');
+assert.equal(proximityZone((OPEN_RADIUS_M + CLOSE_RADIUS_M) / 2), 'hold');
+assert.equal(proximityZone(CLOSE_RADIUS_M), 'close');
 assert.equal(proximityZone(Infinity), 'unknown');
 
 const now = Date.now();

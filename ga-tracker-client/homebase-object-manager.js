@@ -5,9 +5,11 @@ const {
   SimConnectPeriod,
   SimConnectConstants,
   InitPosition,
-  RawBuffer
+  RawBuffer,
+  Waypoint
 } = require('node-simconnect');
 const catalog = require('./homebase-asset-catalog.js');
+const routeCore = require('./homebase-route-core.js');
 const { createHomebaseDoorAutomation } = require('./homebase-door-automation.js');
 
 const INIT_POSITION_DEFINITION = 52001;
@@ -19,12 +21,16 @@ const EVENT_OBJECT_ADDED = 52104;
 const EVENT_OBJECT_REMOVED = 52105;
 const HANGAR_ANIMATION_DEFINITION_START = 52200;
 const HANGAR_ANIMATION_DEFINITION_LIMIT = 32;
+const PERSON_WAYPOINT_DEFINITION = 52250;
 const EVENT_GROUP_PRIORITY_HIGHEST = 1;
 const EVENT_FLAG_GROUP_ID_IS_PRIORITY = 16;
 const CREATE_TIMEOUT_MS = 12000;
 const REMOVE_TIMEOUT_MS = 12000;
 const MAX_OBJECTS = 100;
 const MAX_CREW_OBJECTS = 100;
+const MAX_HOMEBASE_PEOPLE = 3;
+const MAX_PERSON_DESTINATIONS = 20;
+const MAX_NAVIGATION_OBSTACLES = 300;
 
 const assetByKey = new Map(catalog.assets.map((entry) => [entry.key, entry]));
 const allowedPreviewTitles = new Set([
@@ -32,6 +38,7 @@ const allowedPreviewTitles = new Set([
   ...catalog.stockObjects.filter((entry) => entry.preview !== false).map((entry) => entry.title),
   assetByKey.get('spawnProbe')?.title
 ].filter(Boolean));
+const allowedTarmacPeople = new Set((catalog.tarmacPeople || []).map((entry) => entry.title));
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -65,7 +72,7 @@ function normalizeItem(raw, fallbackId = '') {
     && runtimeDefinition.preview !== false
     && runtimeDefinition.kind !== 'internal'
     && (runtimeDefinition.kind === 'hangar' || runtimeDefinition.homebasePlaceable !== false);
-  if (!allowedPreviewTitles.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
+  if (!allowedPreviewTitles.has(title) && !allowedTarmacPeople.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
   const lat = Number(raw?.lat);
   const lon = Number(raw?.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
@@ -87,6 +94,7 @@ function normalizeItem(raw, fallbackId = '') {
 function createHomebaseObjectManager(handle, options = {}) {
   const sendAck = typeof options.sendAck === 'function' ? options.sendAck : () => {};
   const log = typeof options.log === 'function' ? options.log : () => {};
+  const getLastGps = typeof options.getLastGps === 'function' ? options.getLastGps : () => null;
   const capabilities = Object.freeze([
     'homebase-preview',
     'homebase-ground-probe',
@@ -97,6 +105,8 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-object-controls-v1',
     'homebase-door-automation-v1',
     'homebase-door-manual-override-v1',
+    'homebase-people-routes-v1',
+    'homebase-people-live-update-v1',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
   const generations = { preview: 0, crew: 0 };
@@ -109,6 +119,8 @@ function createHomebaseObjectManager(handle, options = {}) {
   const pendingGround = new Map();
   const pendingRemovals = new Map();
   const hangarAnimationDefinitions = new Map();
+  const personControllers = new Map();
+  let personWaypointDefinitionReady = false;
   let operationQueue = Promise.resolve();
   const doorAutomation = createHomebaseDoorAutomation(handle, { log });
 
@@ -124,6 +136,155 @@ function createHomebaseObjectManager(handle, options = {}) {
     return current;
   };
 
+  const offsetLatLon = (lat, lon, northM, eastM) => {
+    const radius = 6371000;
+    const latRad = finite(lat) * Math.PI / 180;
+    return {
+      lat: finite(lat) + (finite(northM) / radius) * 180 / Math.PI,
+      lon: finite(lon) + (finite(eastM) / (radius * Math.max(.05, Math.cos(latRad)))) * 180 / Math.PI
+    };
+  };
+
+  const localOffsetMeters = (baseLat, baseLon, lat, lon) => {
+    const radius = 6371000;
+    return {
+      northM: (finite(lat) - finite(baseLat)) * Math.PI / 180 * radius,
+      eastM: (finite(lon) - finite(baseLon)) * Math.PI / 180 * radius * Math.cos(finite(baseLat) * Math.PI / 180)
+    };
+  };
+
+  const waitWhileCurrent = async (controller, durationMs, runToken = controller.runToken) => {
+    let remaining = Math.max(0, finite(durationMs));
+    while (remaining > 0 && controller.active && controller.runToken === runToken && isCurrentRecord(controller.record)) {
+      const chunk = Math.min(500, remaining);
+      await new Promise((resolve) => setTimeout(resolve, chunk));
+      remaining -= chunk;
+    }
+    return controller.active && controller.runToken === runToken && isCurrentRecord(controller.record);
+  };
+
+  const pointAlongRoute = (path, progress) => {
+    const points = Array.isArray(path) ? path : [];
+    if (!points.length) return null;
+    if (points.length === 1) return { ...points[0] };
+    const lengths = [];
+    let total = 0;
+    for (let index = 1; index < points.length; index += 1) {
+      const length = Math.hypot(
+        finite(points[index].northM) - finite(points[index - 1].northM),
+        finite(points[index].eastM) - finite(points[index - 1].eastM)
+      );
+      lengths.push(length);
+      total += length;
+    }
+    if (total <= .001) return { ...points[points.length - 1] };
+    let remaining = Math.max(0, Math.min(1, finite(progress))) * total;
+    for (let index = 0; index < lengths.length; index += 1) {
+      const length = lengths[index];
+      if (remaining <= length || index === lengths.length - 1) {
+        const ratio = length > .001 ? Math.max(0, Math.min(1, remaining / length)) : 1;
+        return {
+          northM: finite(points[index].northM) + (finite(points[index + 1].northM) - finite(points[index].northM)) * ratio,
+          eastM: finite(points[index].eastM) + (finite(points[index + 1].eastM) - finite(points[index].eastM)) * ratio
+        };
+      }
+      remaining -= length;
+    }
+    return { ...points[points.length - 1] };
+  };
+
+  const followRouteWhileCurrent = async (controller, path, durationMs, runToken = controller.runToken) => {
+    const totalMs = Math.max(1, finite(durationMs));
+    let elapsedMs = 0;
+    while (elapsedMs < totalMs && controller.active && controller.runToken === runToken && isCurrentRecord(controller.record)) {
+      const chunk = Math.min(500, totalMs - elapsedMs);
+      await new Promise((resolve) => setTimeout(resolve, chunk));
+      elapsedMs += chunk;
+      const position = pointAlongRoute(path, elapsedMs / totalMs);
+      if (position) {
+        controller.current = { ...position };
+        controller.doorCurrent = { ...position };
+        refreshPersonDoorSources();
+      }
+    }
+    return controller.active && controller.runToken === runToken && isCurrentRecord(controller.record);
+  };
+
+  const ensurePersonWaypointDefinition = () => {
+    if (personWaypointDefinitionReady) return true;
+    handle.addToDataDefinition(PERSON_WAYPOINT_DEFINITION, 'AI WAYPOINT LIST', 'number', SimConnectDataType.WAYPOINT);
+    personWaypointDefinitionReady = true;
+    return true;
+  };
+
+  const sendPersonWaypointRoute = (objectId, points, speedKts) => {
+    if (!ensurePersonWaypointDefinition()) return false;
+    const route = (Array.isArray(points) ? points : []).map((point) => {
+      const waypoint = new Waypoint();
+      waypoint.latitude = finite(point.lat);
+      waypoint.longitude = finite(point.lon);
+      waypoint.altitude = finite(point.altFt);
+      waypoint.flags = SimConnectConstants.WAYPOINT_ON_GROUND | SimConnectConstants.WAYPOINT_SPEED_REQUESTED;
+      waypoint.speed = Math.max(1, Math.min(5, finite(speedKts, 2.6)));
+      waypoint.throttle = 0;
+      return waypoint;
+    });
+    if (!route.length) return false;
+    handle.setDataOnSimObject(PERSON_WAYPOINT_DEFINITION, objectId, route);
+    return true;
+  };
+
+  const normalizeNavigation = (raw = {}) => {
+    const spawn = raw.spawn || {};
+    const rawHangars = Array.isArray(raw.hangars) && raw.hangars.length ? raw.hangars : (raw.hangar ? [raw.hangar] : []);
+    const obstacles = (Array.isArray(raw.obstacles) ? raw.obstacles : []).slice(0, MAX_NAVIGATION_OBSTACLES).map((obstacle, index) => ({
+      id: String(obstacle?.id || `obstacle-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64),
+      label: String(obstacle?.label || obstacle?.id || `Hindernis ${index + 1}`).slice(0, 120),
+      northM: finite(obstacle?.northM), eastM: finite(obstacle?.eastM), heading: heading(obstacle?.heading),
+      widthM: Math.max(.1, finite(obstacle?.widthM, 1)), depthM: Math.max(.1, finite(obstacle?.depthM, 1)),
+      scale: Math.max(.1, Math.min(10, finite(obstacle?.scale, 1))), kind: String(obstacle?.kind || 'object')
+    }));
+    const hangars = rawHangars.slice(0, 32).map((rawHangar, index) => ({
+      id: String(rawHangar?.id || (index === 0 ? 'hangar' : `hangar-${index + 1}`)).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64),
+      label: String(rawHangar?.label || 'Hangar-Innenraum').slice(0, 120), kind: 'hangar-zone',
+      northM: finite(rawHangar?.northM), eastM: finite(rawHangar?.eastM), heading: heading(rawHangar?.heading),
+      widthM: Math.max(4, finite(rawHangar?.widthM, 18)), depthM: Math.max(4, finite(rawHangar?.depthM, 22))
+    }));
+    const hangar = hangars.find((candidate) => candidate.id === 'hangar') || hangars[0] || null;
+    return {
+      spawn: { lat: finite(spawn.lat), lon: finite(spawn.lon), altFt: finite(spawn.altFt), heading: heading(spawn.heading) },
+      obstacles,
+      hangar,
+      hangars,
+      hangarId: hangar ? 'hangar' : (obstacles.some((obstacle) => obstacle.id === 'hangar') ? 'hangar' : '')
+    };
+  };
+
+  const normalizePersonPlan = (raw, index, navigation) => {
+    const title = String(raw?.title || '').trim();
+    if (!allowedTarmacPeople.has(title)) throw new Error(`Personenmodell ist nicht als Tarmac-Modell freigegeben: ${title || '(leer)'}`);
+    const id = String(raw?.id || `homebase-person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const start = { northM: finite(raw?.startNorthM), eastM: finite(raw?.startEastM) };
+    const destinations = (Array.isArray(raw?.destinations) ? raw.destinations : []).slice(0, MAX_PERSON_DESTINATIONS).flatMap((destination, targetIndex) => {
+      const targetType = destination?.targetType === 'waypoint' ? 'waypoint' : 'object';
+      const targetId = String(destination?.targetId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+      if (targetType === 'object' && !navigation.hangars.some((hangar) => hangar.id === targetId) && !navigation.obstacles.some((obstacle) => obstacle.id === targetId)) return [];
+      return [{
+        id: String(destination?.id || `destination-${targetIndex + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64),
+        targetType, targetId,
+        northM: finite(destination?.northM), eastM: finite(destination?.eastM),
+        waitMinS: Math.max(0, Math.min(3600, finite(destination?.waitMinS))),
+        waitMaxS: Math.max(0, Math.min(3600, finite(destination?.waitMaxS, destination?.waitMinS)))
+      }];
+    });
+    const absolute = offsetLatLon(navigation.spawn.lat, navigation.spawn.lon, start.northM, start.eastM);
+    return {
+      id, title, label: String(raw?.label || `Mitarbeiter ${index + 1}`).slice(0, 80), start,
+      lat: absolute.lat, lon: absolute.lon, altFt: navigation.spawn.altFt,
+      heading: navigation.spawn.heading, speedKts: Math.max(1, Math.min(5, finite(raw?.speedKts, 2.6))), destinations
+    };
+  };
+
   const collectionFor = (record) => record?.collection === 'crew' ? 'crew' : 'preview';
   const generationFor = (collection) => generations[collection === 'crew' ? 'crew' : 'preview'];
   const isCurrentRecord = (record) => !!record && record.generation === generationFor(collectionFor(record));
@@ -131,6 +292,127 @@ function createHomebaseObjectManager(handle, options = {}) {
     const key = collection === 'crew' ? 'crew' : 'preview';
     generations[key] += 1;
     return generations[key];
+  };
+
+  const refreshPersonDoorSources = () => {
+    const sources = [...personControllers.values()].filter((controller) => controller.active && controller.current).map((controller) => {
+      const position = controller.doorCurrent || controller.current;
+      const absolute = offsetLatLon(controller.navigation.spawn.lat, controller.navigation.spawn.lon, position.northM, position.eastM);
+      return { ...absolute, altFt: controller.navigation.spawn.altFt, kind: `Homebase-Person:${controller.person.id}`, objectId: controller.record?.objectId };
+    });
+    doorAutomation.setDynamicSources(sources);
+  };
+
+  const aircraftObstacleForNavigation = (navigation) => {
+    const gps = getLastGps();
+    if (!Number.isFinite(Number(gps?.lat)) || !Number.isFinite(Number(gps?.lon))) return null;
+    const local = localOffsetMeters(navigation.spawn.lat, navigation.spawn.lon, gps.lat, gps.lon);
+    return { ...local, heading: heading(gps?.hdg ?? gps?.heading), sizeM: 10, clearanceM: .65 };
+  };
+
+  const navigationHangarContaining = (navigation, point) => {
+    return (navigation.hangars || []).find((hangar) => routeCore.pointInsideObstacle(point, routeCore.normalizeObstacle({ ...hangar, clearanceM: 0 }))) || null;
+  };
+
+  const pointInsideNavigationHangar = (navigation, point) => {
+    return !!navigationHangarContaining(navigation, point);
+  };
+
+  const navigationHangarEntry = (navigation, hangar = navigation.hangar) => {
+    return hangar ? routeCore.interactionCandidates(routeCore.normalizeObstacle(hangar, { clearanceM: .65 }), { interactionOffsetM: 1 })[0] : null;
+  };
+
+  const planPersonLeg = (navigation, start, destination) => {
+    const obstacles = navigation.obstacles;
+    const aircraft = aircraftObstacleForNavigation(navigation);
+    const targetHangar = destination.targetType === 'object'
+      ? navigation.hangars.find((hangar) => hangar.id === destination.targetId) || null
+      : null;
+    const goal = destination.targetType === 'waypoint'
+      ? { northM: destination.northM, eastM: destination.eastM }
+      : targetHangar
+        ? { ...targetHangar, insideHangar: true }
+        : { targetId: destination.targetId };
+    const startHangar = navigationHangarContaining(navigation, start);
+    const targetObstacle = goal.targetId ? obstacles.find((obstacle) => obstacle.id === goal.targetId) : null;
+    const goalHangar = targetHangar || navigationHangarContaining(navigation, targetObstacle || goal);
+    const entry = goalHangar ? navigationHangarEntry(navigation, goalHangar) : null;
+    const planToGoal = (routeStart) => goal.targetId
+      ? routeCore.planRouteToObject({ start: routeStart, targetObjectId: goal.targetId, obstacles, aircraft, cellSizeM: .5, clearanceM: .65, interactionOffsetM: 1 })
+      : routeCore.planRoute({ start: routeStart, goal: { northM: goal.northM, eastM: goal.eastM }, obstacles, aircraft, cellSizeM: .5, clearanceM: .65 });
+    if (!entry || startHangar?.id === goalHangar?.id) return planToGoal(start);
+    if (goalHangar) {
+      const approach = routeCore.planRoute({ start, goal: entry, obstacles, aircraft, cellSizeM: .5, clearanceM: .65 });
+      if (!approach.ok) return approach;
+      const interior = planToGoal(entry);
+      if (!interior.ok) return interior;
+      return { ...interior, path: [...approach.path, ...interior.path.slice(1)], hangarId: goalHangar.id };
+    }
+    return planToGoal(start);
+  };
+
+  const chooseNextDestination = (controller) => {
+    const candidates = controller.person.destinations.filter((destination) => destination.id !== controller.lastDestinationId);
+    const pool = candidates.length ? candidates : controller.person.destinations;
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  };
+
+  const runPersonLoop = async (controller, runToken = controller.runToken) => {
+    while (controller.active && controller.runToken === runToken && isCurrentRecord(controller.record)) {
+      const destination = chooseNextDestination(controller);
+      if (!destination) break;
+      const result = planPersonLeg(controller.navigation, controller.current, destination);
+      if (!result.ok || !Array.isArray(result.path) || result.path.length < 2) {
+        log(`HOMEBASE_PERSON_ROUTE_ERROR id=${controller.person.id} target=${destination.id} error=${result.error || 'no_route'}`);
+        if (!await waitWhileCurrent(controller, 3000, runToken)) break;
+        controller.lastDestinationId = destination.id;
+        continue;
+      }
+      const sendPath = (path) => {
+        const routePoints = path.slice(1).map((point) => {
+          const absolute = offsetLatLon(controller.navigation.spawn.lat, controller.navigation.spawn.lon, point.northM, point.eastM);
+          return { ...absolute, altFt: controller.navigation.spawn.altFt };
+        });
+        return sendPersonWaypointRoute(controller.record.objectId, routePoints, controller.person.speedKts);
+      };
+      const travelTimeMs = (path) => Math.max(800, (routeCore.pathDistance(path) / Math.max(.5, controller.person.speedKts * .514444)) * 1000 + 500);
+      try {
+        sendPath(result.path);
+        const travelMs = travelTimeMs(result.path);
+        if (!await followRouteWhileCurrent(controller, result.path, travelMs, runToken)) break;
+      } catch (error) {
+        log(`HOMEBASE_PERSON_WAYPOINT_ERROR id=${controller.person.id} error=${error?.message || error}`);
+        if (!await waitWhileCurrent(controller, 3000, runToken)) break;
+        continue;
+      }
+      const distanceM = routeCore.pathDistance(result.path);
+      log(`HOMEBASE_PERSON_ROUTE id=${controller.person.id} target=${destination.id} distanceM=${distanceM.toFixed(1)}`);
+      controller.current = { ...result.path[result.path.length - 1] };
+      controller.doorCurrent = { ...controller.current };
+      controller.lastDestinationId = destination.id;
+      refreshPersonDoorSources();
+      const minWait = Math.min(destination.waitMinS, destination.waitMaxS);
+      const maxWait = Math.max(destination.waitMinS, destination.waitMaxS);
+      const waitMs = (minWait + Math.random() * (maxWait - minWait)) * 1000;
+      if (!await waitWhileCurrent(controller, Math.max(250, waitMs), runToken)) break;
+    }
+    if (controller.runToken === runToken) {
+      controller.active = false;
+      refreshPersonDoorSources();
+    }
+  };
+
+  const startPersonLoop = (controller) => {
+    controller.active = true;
+    controller.runToken = finite(controller.runToken) + 1;
+    const runToken = controller.runToken;
+    runPersonLoop(controller, runToken).catch((error) => log(`HOMEBASE_PERSON_LOOP_ERROR id=${controller.person.id} error=${error?.message || error}`));
+  };
+
+  const stopPersonControllers = () => {
+    for (const controller of personControllers.values()) controller.active = false;
+    personControllers.clear();
+    doorAutomation.setDynamicSources([]);
   };
 
   const transmitFreeze = (objectId, eventId, enabled) => {
@@ -339,6 +621,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const clearAll = async () => {
+    stopPersonControllers();
     const preview = await clearCollection('preview');
     const crew = await clearCollection('crew');
     return { removed: [...preview.removed, ...crew.removed], failed: [...preview.failed, ...crew.failed] };
@@ -357,6 +640,7 @@ function createHomebaseObjectManager(handle, options = {}) {
 
   const handlePreviewSet = async (command) => {
     const targetGeneration = advanceGeneration('preview');
+    stopPersonControllers();
     for (const [requestId, pending] of pendingGround.entries()) {
       if (collectionFor(pending.record) !== 'preview') continue;
       clearTimeout(pending.timer);
@@ -378,6 +662,24 @@ function createHomebaseObjectManager(handle, options = {}) {
         failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
       }
     }
+    const navigation = normalizeNavigation(command?.navigation || { spawn: command?.spawn, obstacles: [] });
+    const peopleInput = (Array.isArray(command?.people) ? command.people : []).slice(0, MAX_HOMEBASE_PEOPLE);
+    const spawnedPeople = [];
+    for (let index = 0; index < peopleInput.length; index += 1) {
+      const raw = peopleInput[index];
+      try {
+        const person = normalizePersonPlan(raw, index, navigation);
+        const record = await spawnObject(person, 'preview', targetGeneration);
+        if (!isCurrentRecord(record)) throw new Error('Personenszene wurde während des Aufbaus ersetzt.');
+        const controller = { active: false, runToken: 0, person, record, navigation, current: { ...person.start }, doorCurrent: { ...person.start }, lastDestinationId: '' };
+        personControllers.set(person.id, controller);
+        spawnedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: record.objectId, destinationCount: person.destinations.length });
+        startPersonLoop(controller);
+      } catch (error) {
+        failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
+      }
+    }
+    refreshPersonDoorSources();
     sendAck({
       type: 'homebase_v1.preview.set_ack',
       commandId: command?.commandId || null,
@@ -385,10 +687,79 @@ function createHomebaseObjectManager(handle, options = {}) {
       status: failed.length ? 'error' : 'ok',
       message: failed.length ? `Vorschau mit ${failed.length} Fehler(n) aufgebaut.` : 'Homebase-Vorschau gesetzt.',
       extraCount: spawned.length,
-      objectCount: spawned.length,
+      objectCount: spawned.length + spawnedPeople.length,
       spawnedObjects: spawned,
+      spawnedPeople,
+      peopleCount: spawnedPeople.length,
       failedObjects: failed,
       generation: targetGeneration
+    });
+  };
+
+  const handlePeopleSync = async (command) => {
+    const navigation = normalizeNavigation(command?.navigation || { spawn: command?.spawn, obstacles: [] });
+    const input = (Array.isArray(command?.people) ? command.people : []).slice(0, MAX_HOMEBASE_PEOPLE);
+    const plans = input.map((raw, index) => normalizePersonPlan(raw, index, navigation));
+    const desiredIds = new Set(plans.map((person) => person.id));
+    const removedPeople = [];
+    const updatedPeople = [];
+    const spawnedPeople = [];
+
+    for (const [id, controller] of [...personControllers.entries()]) {
+      if (desiredIds.has(id)) continue;
+      controller.active = false;
+      controller.runToken = finite(controller.runToken) + 1;
+      personControllers.delete(id);
+      const result = await removeRecord(controller.record);
+      if (!result.ok) throw new Error(`${controller.person.label} konnte nicht bestätigt entfernt werden: ${result.error}`);
+      removedPeople.push({ id, title: controller.person.title, objectId: controller.record.objectId });
+    }
+
+    for (const person of plans) {
+      let controller = personControllers.get(person.id);
+      if (controller && controller.person.title !== person.title) {
+        controller.active = false;
+        controller.runToken = finite(controller.runToken) + 1;
+        personControllers.delete(person.id);
+        const result = await removeRecord(controller.record);
+        if (!result.ok) throw new Error(`${controller.person.label} konnte für den Modellwechsel nicht bestätigt entfernt werden: ${result.error}`);
+        controller = null;
+      }
+      if (!controller) {
+        const record = await spawnObject(person, 'preview', generationFor('preview'));
+        const next = { active: false, runToken: 0, person, record, navigation, current: { ...person.start }, doorCurrent: { ...person.start }, lastDestinationId: '' };
+        personControllers.set(person.id, next);
+        startPersonLoop(next);
+        spawnedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: record.objectId, destinationCount: person.destinations.length });
+        continue;
+      }
+
+      const startChanged = Math.abs(controller.person.start.northM - person.start.northM) > .01
+        || Math.abs(controller.person.start.eastM - person.start.eastM) > .01;
+      controller.active = false;
+      controller.runToken = finite(controller.runToken) + 1;
+      controller.person = person;
+      controller.navigation = navigation;
+      controller.lastDestinationId = '';
+      if (startChanged) {
+        controller.record.item = normalizeItem(person);
+        await stabilizeRecord(controller.record, true);
+        controller.current = { ...person.start };
+        controller.doorCurrent = { ...person.start };
+      }
+      startPersonLoop(controller);
+      updatedPeople.push({ id: person.id, title: person.title, label: person.label, objectId: controller.record.objectId, destinationCount: person.destinations.length, repositioned: startChanged });
+    }
+    refreshPersonDoorSources();
+    sendAck({
+      type: 'homebase_v1.preview.people.sync_ack',
+      commandId: command?.commandId || null,
+      status: 'ok',
+      message: 'Homebase-Personen und Wegpunkte wurden live aktualisiert.',
+      peopleCount: plans.length,
+      spawnedPeople,
+      updatedPeople,
+      removedPeople
     });
   };
 
@@ -528,8 +899,8 @@ function createHomebaseObjectManager(handle, options = {}) {
       : `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`;
     const automationMessage = manualAutomation?.active
       ? stateDefinition.id === 'open'
-        ? ' Die manuelle Öffnung bleibt bestehen, bis die Automatik beim nächsten Annähern auf höchstens 36 m wieder übernimmt.'
-        : ' Die manuelle Schließung bleibt bestehen, bis die Automatik nach dem nächsten Entfernen auf mindestens 40 m und drei Sekunden wieder übernimmt.'
+        ? ' Die manuelle Öffnung bleibt bestehen, bis die Automatik beim nächsten Annähern auf höchstens 18 m wieder übernimmt.'
+        : ' Die manuelle Schließung bleibt bestehen, bis die Automatik nach dem nächsten Entfernen auf mindestens 20 m wieder übernimmt.'
       : manualAutomation
         ? ' Die automatische Torsteuerung ist global deaktiviert.'
         : '';
@@ -579,9 +950,9 @@ function createHomebaseObjectManager(handle, options = {}) {
       enabled: result.enabled,
       changed: result.changed,
       resetManualOverrides: result.resetManualOverrides,
-      openRadiusM: 36,
-      closeRadiusM: 40,
-      closeDelayMs: 3000,
+      openRadiusM: 18,
+      closeRadiusM: 20,
+      closeDelayMs: 1000,
       message: result.enabled
         ? result.resetManualOverrides
           ? `Automatische Hangartorsteuerung ist aktiv. ${result.resetManualOverrides} manuelle Vorgabe(n) wurden zurückgesetzt.`
@@ -717,6 +1088,7 @@ function createHomebaseObjectManager(handle, options = {}) {
       if (type === 'homebase_v1.preview.clear') {
         enqueue(async () => {
           const generation = advanceGeneration('preview');
+          stopPersonControllers();
           const result = await clearCollection('preview');
           sendAck({
             type: 'homebase_v1.preview.clear_ack',
@@ -757,6 +1129,10 @@ function createHomebaseObjectManager(handle, options = {}) {
       }
       if (type === 'homebase_v1.preview.object.move') {
         enqueue(() => handleObjectMove(command)).catch((error) => sendError(type, command, error));
+        return true;
+      }
+      if (type === 'homebase_v1.preview.people.sync') {
+        enqueue(() => handlePeopleSync(command)).catch((error) => sendError(type, command, error));
         return true;
       }
       sendError(type, command, new Error(`Unbekannter Homebase-Befehl: ${type}`));
