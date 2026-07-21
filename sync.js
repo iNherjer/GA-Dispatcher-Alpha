@@ -4022,10 +4022,13 @@ function _missionAptArrivalStatusMatchesPlan(status = {}, plan = {}, planSignatu
     return compared;
 }
 
-function _missionAptArrivalAssetForItem(item = {}, index = 0) {
+function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
     const role = String(item.role || '').trim();
     const semanticTitle = String(item.objectTitle || item.title || item.label || '').trim();
     const provided = Array.isArray(item.titleCandidates) ? item.titleCandidates : [];
+    const allowedProvided = options.movingPerson === true
+        ? provided.filter(title => /^tarmac_/i.test(String(title || '').trim()))
+        : provided;
     let pool = [];
     let fallback = semanticTitle || 'Cardboard';
     if (role === 'vehicle.emergency.medical') {
@@ -4056,22 +4059,38 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0) {
         pool = MISSION_SCENE_ASSET_POOLS.cargo;
         fallback = semanticTitle || 'Cardboard';
     } else if (role === 'person.ground_crew' || /^person\./.test(role)) {
-        pool = MISSION_SCENE_ASSET_POOLS.people;
-        fallback = _missionScenePersonTitle(_missionScenePassengerGender(), `apt-arrival-${index}`);
+        const gender = _missionScenePassengerGender();
+        if (options.movingPerson === true) {
+            pool = _missionSceneMovingPersonPool(gender, true);
+            fallback = _missionSceneMovingPersonTitle(gender, `apt-arrival-moving-${index}`);
+        } else {
+            pool = MISSION_SCENE_ASSET_POOLS.people;
+            fallback = _missionScenePersonTitle(gender, `apt-arrival-${index}`);
+        }
     } else if (role) {
-        pool = _sceneCatalogRoleTitles(role, provided);
+        pool = _sceneCatalogRoleTitles(role, allowedProvided);
         fallback = pool[0] || semanticTitle;
     }
-    const title = _scenePickTitle(pool.length ? pool : provided, `apt-arrival-${role}-${index}`, fallback);
+    const title = _scenePickTitle(pool.length ? pool : allowedProvided, `apt-arrival-${role}-${index}`, fallback);
     return {
         title: title || fallback,
-        candidates: _sceneAssetCandidates(title || fallback, provided.concat(pool, [fallback]).filter(Boolean))
+        candidates: _sceneAssetCandidates(title || fallback, allowedProvided.concat(pool, [fallback]).filter(Boolean))
     };
 }
 
 function _missionAptArrivalSceneItems(plan = {}) {
-    return _missionAptArrivalPreviewItems(plan).map((item, index) => {
-        const asset = _missionAptArrivalAssetForItem(item, index);
+    const items = _missionAptArrivalPreviewItems(plan);
+    const movingPickupPersonIndex = _missionBushIsPickupPassengerMission()
+        ? items.findIndex(item => {
+            const role = String(item?.role || '').trim();
+            const kind = String(item?.kind || '').toLowerCase();
+            return role === 'person.ground_crew' || /^person\./.test(role) || kind.includes('arrival_person');
+        })
+        : -1;
+    return items.map((item, index) => {
+        const asset = _missionAptArrivalAssetForItem(item, index, {
+            movingPerson: index === movingPickupPersonIndex
+        });
         if (!asset.title) return null;
         return {
             ...item,
@@ -4656,6 +4675,40 @@ function _missionScenePersonCandidates(gender = 'female', preferredTitle = '') {
     return _sceneTitleCandidates(preferred, normalizedGender === 'male' ? male : female);
 }
 
+function _missionSceneMovingPersonPool(gender = 'female', includeFallbackGender = false) {
+    const normalizedGender = String(gender || '').toLowerCase() === 'male' ? 'male' : 'female';
+    const primaryPool = normalizedGender === 'male'
+        ? MISSION_SCENE_ASSET_POOLS.peopleMale
+        : MISSION_SCENE_ASSET_POOLS.peopleFemale;
+    const fallbackPool = normalizedGender === 'male'
+        ? MISSION_SCENE_ASSET_POOLS.peopleFemale
+        : MISSION_SCENE_ASSET_POOLS.peopleMale;
+    const tarmacOnly = values => _sceneUniqueTitles(values).filter(title => /^tarmac_/i.test(String(title || '').trim()));
+    const primary = tarmacOnly(primaryPool);
+    const secondary = includeFallbackGender ? tarmacOnly(fallbackPool) : [];
+    const defaultTitle = normalizedGender === 'male'
+        ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE
+        : MISSION_SCENE_DEFAULT_PERSON_TITLE;
+    return _sceneUniqueTitles(primary, secondary, [defaultTitle]);
+}
+
+function _missionSceneMovingPersonTitle(gender = 'female', salt = 'moving-person') {
+    const pool = _missionSceneMovingPersonPool(gender, false);
+    const fallback = String(gender || '').toLowerCase() === 'male'
+        ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE
+        : MISSION_SCENE_DEFAULT_PERSON_TITLE;
+    return _scenePickTitle(pool, `${gender}-${salt}`, fallback);
+}
+
+function _missionSceneMovingPersonCandidates(gender = 'female', preferredTitle = '') {
+    const preferred = /^tarmac_/i.test(String(preferredTitle || '').trim())
+        ? String(preferredTitle).trim()
+        : _missionSceneMovingPersonTitle(gender, 'moving-candidate');
+    const pool = _missionSceneMovingPersonPool(gender, true);
+    const aliases = pool.flatMap(title => _sceneTitleCandidates(title, [title]));
+    return _sceneTitleCandidates(preferred, aliases);
+}
+
 function _missionSceneHeadingOffsetBetween(fromPoint, toPoint, fallbackDeg = 0) {
     const forwardDelta = Number(toPoint?.forwardM) - Number(fromPoint?.forwardM);
     const rightDelta = Number(toPoint?.rightM) - Number(fromPoint?.rightM);
@@ -4810,8 +4863,9 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const boarderCount = _missionSceneBoarderCount();
     const primaryGender = _missionScenePassengerGender();
     const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
-    const primaryPersonTitle = _missionScenePersonTitle(primaryGender, 'boarding-primary');
-    const secondaryPersonTitle = _missionScenePersonTitle(secondaryGender, 'boarding-secondary');
+    const primaryPersonTitle = _missionSceneMovingPersonTitle(primaryGender, 'boarding-primary');
+    const secondaryBoarderTitle = _missionSceneMovingPersonTitle(secondaryGender, 'boarding-secondary');
+    const secondaryIdleTitle = _missionScenePersonTitle(secondaryGender, 'vehicle-idle-secondary');
     const idlePersonTitle = _missionScenePersonTitle(primaryGender, 'vehicle-idle');
     const vehicleCrewOne = { forwardM: 19.5, rightM: -14 };
     const vehicleCrewTwo = { forwardM: 19, rightM: -11.5 };
@@ -4820,7 +4874,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             kind: 'person_boarder_1',
             label: 'Boarding Pax 1',
             objectTitle: primaryPersonTitle,
-            titleCandidates: _missionScenePersonCandidates(primaryGender, primaryPersonTitle),
+            titleCandidates: _missionSceneMovingPersonCandidates(primaryGender, primaryPersonTitle),
             forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
             rightM: Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8,
             headingMode: 'face_aircraft',
@@ -4829,8 +4883,10 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         {
             kind: boarderCount >= 2 ? 'person_boarder_2' : 'person_idle_1',
             label: boarderCount >= 2 ? 'Boarding Pax 2' : 'Crew Fahrzeug 1',
-            objectTitle: secondaryPersonTitle,
-            titleCandidates: _missionScenePersonCandidates(secondaryGender, secondaryPersonTitle),
+            objectTitle: boarderCount >= 2 ? secondaryBoarderTitle : secondaryIdleTitle,
+            titleCandidates: boarderCount >= 2
+                ? _missionSceneMovingPersonCandidates(secondaryGender, secondaryBoarderTitle)
+                : _missionScenePersonCandidates(secondaryGender, secondaryIdleTitle),
             forwardM: vehicleCrewOne.forwardM,
             rightM: vehicleCrewOne.rightM,
             headingMode: 'with_aircraft',
@@ -4850,12 +4906,12 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         }
     ] : Array.from({ length: boarderCount }, (_, idx) => {
         const gender = idx % 2 === 0 ? primaryGender : secondaryGender;
-        const title = idx % 2 === 0 ? primaryPersonTitle : secondaryPersonTitle;
+        const title = idx % 2 === 0 ? primaryPersonTitle : secondaryBoarderTitle;
         return {
             kind: `person_boarder_${idx + 1}`,
             label: `Boarding Pax ${idx + 1}`,
             objectTitle: title,
-            titleCandidates: _missionScenePersonCandidates(gender, title),
+            titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
             forwardM: (Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16),
             rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + (idx * 0.8),
             headingMode: 'face_aircraft',
@@ -7491,7 +7547,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
         commonFields.vehicleSpeedKts = 7;
     }
     const primaryGender = _missionScenePassengerGender();
-    const personTitle = _missionScenePersonTitle(primaryGender, 'deboarding');
+    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
     const command = {
         type: 'mission_scene_deboarding',
         sceneId,
@@ -7505,7 +7561,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
         boarderCount: deboardingPaxCount,
         passengerCount: deboardingPaxCount,
         personTitle,
-        personTitleCandidates: _missionScenePersonCandidates(primaryGender, personTitle)
+        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
     };
     if (vehicleAsset) {
         command.vehicleTitle = vehicleTitle;

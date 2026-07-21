@@ -66,6 +66,25 @@ assert.match(deboarding, /boarderCount \?\? command\?\.passengerCount \?\? 1, 0,
 assert.match(deboarding, /stagedPickupVehicle/);
 assert.match(deboarding, /boarding-finally-close|deboarding-finally-close/);
 
+const movingPersonPool = section(sync, 'function _missionSceneMovingPersonPool', 'function _missionSceneHeadingOffsetBetween');
+assert.match(movingPersonPool, /\^tarmac_/i);
+assert.doesNotMatch(movingPersonPool, /Marshaller_/i);
+const boardingSceneSpawn = section(sync, 'window.missionSceneSpawn = function', 'window.missionSceneClear = function');
+assert.match(boardingSceneSpawn, /_missionSceneMovingPersonTitle\(primaryGender, 'boarding-primary'\)/);
+assert.match(boardingSceneSpawn, /_missionSceneMovingPersonCandidates\(primaryGender, primaryPersonTitle\)/);
+assert.match(boardingSceneSpawn, /_missionScenePersonTitle\(primaryGender, 'vehicle-idle'\)/);
+const appDeboarding = section(sync, 'window.missionSceneDeboarding = function', 'window.missionSceneContinueDeboarding = function');
+assert.match(appDeboarding, /_missionSceneMovingPersonTitle\(primaryGender, 'deboarding'\)/);
+assert.match(appDeboarding, /_missionSceneMovingPersonCandidates\(primaryGender, personTitle\)/);
+const aptArrivalItems = section(sync, 'function _missionAptArrivalSceneItems', 'window.missionAptArrivalEnsureSpawned = function');
+assert.match(aptArrivalItems, /movingPickupPersonIndex/);
+assert.match(aptArrivalItems, /movingPerson: index === movingPickupPersonIndex/);
+const aptArrivalAsset = section(sync, 'function _missionAptArrivalAssetForItem', 'function _missionAptArrivalSceneItems');
+assert.match(aptArrivalAsset, /options\.movingPerson === true[\s\S]*\^tarmac_/i);
+const manualPax = section(cargo, 'function _missionCargoSendManualPassengerCommand', 'function _missionCargoVisibleKind');
+assert.match(manualPax, /_missionSceneMovingPersonTitle/);
+assert.match(manualPax, /_missionSceneMovingPersonCandidates/);
+
 assert.doesNotMatch(index, /missionCargoAutoLoad|AUTO LOAD/);
 assert.doesNotMatch(cargo, /missionCargoAutoLoad|MISSION_CARGO_AUTO_LOAD|cargo-auto-load/);
 const cargoCueQueue = section(cargo, 'function _missionCargoPlayAudioCue(', 'function _missionCargoTrackManualPassengerCommand');

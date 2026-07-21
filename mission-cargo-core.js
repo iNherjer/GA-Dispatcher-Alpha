@@ -791,7 +791,12 @@ function _missionCargoSendManualPassengerCommand(item = null, action = 'unload',
         : {};
     const boardingPoint = options.boardingPoint || _missionCargoPassengerBoardingPoint();
     const gender = _missionScenePassengerGender();
-    const personTitle = options.personTitle || item.objectTitle || _missionScenePersonTitle(gender, `manual-passenger-${normalizedAction}`);
+    const requestedPersonTitle = String(options.personTitle || item.objectTitle || '').trim();
+    const personTitle = /^tarmac_/i.test(requestedPersonTitle)
+        ? requestedPersonTitle
+        : (typeof _missionSceneMovingPersonTitle === 'function'
+            ? _missionSceneMovingPersonTitle(gender, `manual-passenger-${normalizedAction}`)
+            : _missionScenePersonTitle(gender, `manual-passenger-${normalizedAction}`));
     const defaultPersonKind = `unloaded_${item.sceneKind || item.id}`;
     const personKind = String(options.personKind || defaultPersonKind).trim() || defaultPersonKind;
     const personKinds = Array.isArray(options.personKinds) ? options.personKinds.map(v => String(v || '').trim()).filter(Boolean) : [];
@@ -814,7 +819,9 @@ function _missionCargoSendManualPassengerCommand(item = null, action = 'unload',
         personLabel,
         personLabels,
         personTitle,
-        personTitleCandidates: options.personTitleCandidates || item.titleCandidates || _missionScenePersonCandidates(gender, personTitle),
+        personTitleCandidates: typeof _missionSceneMovingPersonCandidates === 'function'
+            ? _missionSceneMovingPersonCandidates(gender, personTitle)
+            : _missionScenePersonCandidates(gender, personTitle),
         doorOpenWaitMs: 2000,
         doorCloseWaitMs: 1000,
         hdgOffsetDeg: 165
