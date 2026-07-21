@@ -6,6 +6,11 @@ const path = require('path');
 const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
 const { createHomebasePackageService } = require('./homebase-package-service.js');
 const homebaseAssetCatalog = require('./homebase-asset-catalog.js');
+const {
+  normalizeHomebaseFallbackCache,
+  compatibleHomebaseFallbackCache,
+  fallbackShouldBeActive
+} = require('./homebase-fallback-cache.js');
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 
 /**
@@ -20,8 +25,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v305';
-const TRACKER_VERSION_CODE = 305;
+const TRACKER_VERSION = 'v306';
+const TRACKER_VERSION_CODE = 306;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3262,6 +3267,7 @@ function startTracker(syncId, pin) {
   const _pendingDirectHangarCommands = new Map();
   const _dispatchedHangarCommandIds = new Map();
   const _directHangarAckCommandIds = new Map();
+  let _homebaseFallbackCache = null;
   const isHomebaseObjectControlType = (type) => [
     'homebase_v1.hangar.animation.set',
     'homebase_v1.object.control.set',
@@ -3274,6 +3280,25 @@ function startTracker(syncId, pin) {
       : 'homebase_v1.hangar.animation.set_ack';
 
   const getWs = () => _currentWs;
+  const readCurrentHomebaseFallback = () => {
+    const config = readTrackerConfig();
+    const candidate = config?.homebaseFallback;
+    if (!candidate) {
+      _homebaseFallbackCache = null;
+      return null;
+    }
+    const result = compatibleHomebaseFallbackCache(candidate, { pilotId: syncId, trackerVersionCode: TRACKER_VERSION_CODE });
+    if (result.ok) {
+      _homebaseFallbackCache = result.cache;
+      return _homebaseFallbackCache;
+    }
+    delete config.homebaseFallback;
+    writeTrackerConfig(config);
+    _homebaseFallbackCache = null;
+    debugLog(`HOMEBASE_FALLBACK_DISCARD reason=${result.reason || 'incompatible'}`);
+    return null;
+  };
+  readCurrentHomebaseFallback();
   const sendHomebaseAck = (payload = {}) => {
     const ws = getWs();
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
@@ -3316,8 +3341,53 @@ function startTracker(syncId, pin) {
     : null;
   const handleAlwaysAvailableHomebaseCommand = (command) => {
     if (!HOMEBASE_ENABLED || !homebasePackageService) return false;
+    const type = String(command?.type || '');
+    if (type === 'homebase_v1.fallback.store') {
+      try {
+        const cache = normalizeHomebaseFallbackCache(command?.cache, {
+          pilotId: syncId,
+          trackerVersionCode: TRACKER_VERSION_CODE,
+          savedAt: Date.now()
+        });
+        const config = readTrackerConfig();
+        config.homebaseFallback = cache;
+        if (!writeTrackerConfig(config)) throw new Error('Tracker-Konfiguration konnte nicht geschrieben werden.');
+        _homebaseFallbackCache = cache;
+        sendHomebaseAck({
+          type: 'homebase_v1.fallback.store_ack',
+          commandId: command?.commandId || null,
+          status: 'ok',
+          message: 'Homebase-Fallback wurde im Tracker gespeichert.',
+          sceneSignature: cache.sceneSignature,
+          savedAt: cache.savedAt
+        });
+        debugLog(`HOMEBASE_FALLBACK_STORE signature=${cache.sceneSignature} objects=${cache.objects.length} people=${cache.people.length}`);
+      } catch (error) {
+        sendHomebaseAck({
+          type: 'homebase_v1.fallback.store_ack',
+          commandId: command?.commandId || null,
+          status: 'error',
+          error: error?.message || String(error),
+          message: error?.message || String(error)
+        });
+      }
+      return true;
+    }
+    if (type === 'homebase_v1.fallback.clear') {
+      const config = readTrackerConfig();
+      delete config.homebaseFallback;
+      const ok = writeTrackerConfig(config);
+      _homebaseFallbackCache = null;
+      sendHomebaseAck({
+        type: 'homebase_v1.fallback.clear_ack',
+        commandId: command?.commandId || null,
+        status: ok ? 'ok' : 'error',
+        message: ok ? 'Homebase-Fallback wurde aus dem Tracker entfernt.' : 'Homebase-Fallback konnte nicht entfernt werden.'
+      });
+      return true;
+    }
     if (homebasePackageService.handleCommand(command)) return true;
-    if (String(command?.type || '') === 'homebase_v1.capabilities' && typeof _trackerCommandHandler !== 'function') {
+    if (type === 'homebase_v1.capabilities' && typeof _trackerCommandHandler !== 'function') {
       sendHomebaseAck({
         type: 'homebase_v1.capabilities_ack',
         commandId: command?.commandId || null,
@@ -3325,7 +3395,7 @@ function startTracker(syncId, pin) {
         protocol: 1,
         simConnected: false,
         assetPackageVersion: homebaseAssetCatalog.assetPackageVersion,
-        capabilities: homebasePackageService.capabilities
+        capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1']
       });
       return true;
     }
@@ -3579,7 +3649,8 @@ function startTracker(syncId, pin) {
           syncId,
           pin,
           setTrackerCommandHandler,
-          (commandId) => _directHangarAckCommandIds.has(String(commandId || ''))
+          (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
+          () => _homebaseFallbackCache
         );
       }
     });
@@ -3601,7 +3672,7 @@ function startTracker(syncId, pin) {
   connect();
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
@@ -3648,15 +3719,66 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             sendAck: sendHomebaseAck,
             log: debugLog,
             getLastGps: () => lastGpsMsg,
-            extraCapabilities: ['homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback']
+            extraCapabilities: ['homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback', 'homebase-fallback-cache-v1']
           })
         : null;
+      let homebaseSceneSignature = '';
+      let homebaseFallbackInside = false;
+      let homebaseAppAuthorityUntil = 0;
+      const sceneMutationTypes = new Set([
+        'homebase_v1.preview.set',
+        'homebase_v1.preview.clear',
+        'homebase_v1.preview.object.add',
+        'homebase_v1.preview.object.remove',
+        'homebase_v1.preview.object.move',
+        'homebase_v1.preview.people.sync'
+      ]);
       if (typeof setTrackerCommandHandler === 'function') {
         setTrackerCommandHandler((command) => {
+          const type = String(command?.type || '');
+          if (sceneMutationTypes.has(type)) {
+            homebaseAppAuthorityUntil = Date.now() + 5000;
+            if (type === 'homebase_v1.preview.clear') homebaseSceneSignature = '';
+            else if (command?.sceneSignature) homebaseSceneSignature = String(command.sceneSignature).slice(0, 96);
+          }
           if (homebaseManager?.handleCommand(command)) return true;
           return missionSmokeController.handleCommand(command);
         });
       }
+
+      const applyHomebaseFallback = (position) => {
+        if (!homebaseManager || typeof getHomebaseFallback !== 'function' || Date.now() < homebaseAppAuthorityUntil) return;
+        const cache = getHomebaseFallback();
+        if (!cache) return;
+        const shouldBeActive = fallbackShouldBeActive(cache, position, homebaseFallbackInside);
+        if (shouldBeActive) {
+          homebaseFallbackInside = true;
+          if (homebaseSceneSignature === cache.sceneSignature) return;
+          const commandId = `homebase-fallback-${Date.now()}`;
+          homebaseSceneSignature = cache.sceneSignature;
+          homebaseManager.handleCommand({
+            type: 'homebase_v1.preview.set',
+            commandId,
+            objects: cache.objects,
+            people: cache.people,
+            navigation: cache.navigation,
+            sceneSignature: cache.sceneSignature
+          });
+          homebaseManager.handleCommand({
+            type: 'homebase_v1.door_automation.set',
+            commandId: `${commandId}-doors`,
+            enabled: cache.doorAutomationEnabled !== false,
+            resetManualOverrides: false
+          });
+          debugLog(`HOMEBASE_FALLBACK_APPLY signature=${cache.sceneSignature} objects=${cache.objects.length} people=${cache.people.length}`);
+          return;
+        }
+        homebaseFallbackInside = false;
+        if (homebaseSceneSignature !== cache.sceneSignature) return;
+        homebaseSceneSignature = '';
+        homebaseManager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: `homebase-fallback-clear-${Date.now()}` });
+        debugLog(`HOMEBASE_FALLBACK_CLEAR signature=${cache.sceneSignature}`);
+      };
 
       let lastSent = 0;
       let lastFlightLog = 0;
@@ -3884,6 +4006,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const ws = getWs();
               if (ws && ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
+                lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
+                applyHomebaseFallback(lastGpsMsg);
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
                   mslFt: Math.round(alt || 0),
@@ -3939,9 +4063,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   flight
                 };
                 if (homebaseManager) {
+                  const currentFallback = typeof getHomebaseFallback === 'function' ? getHomebaseFallback() : null;
                   gpsMsg.homebase = {
                     protocol: homebaseManager.protocol,
                     capabilities: homebaseManager.capabilities,
+                    sceneSignature: homebaseSceneSignature,
+                    fallbackActive: homebaseFallbackInside && currentFallback?.sceneSignature === homebaseSceneSignature,
                     ...homebaseManager.snapshot()
                   };
                 }
@@ -3953,7 +4080,6 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   gpsMsg.traffic = latestTrafficSnapshot;
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
-                lastGpsMsg = { lat: gpsMsg.lat, lon: gpsMsg.lon, alt: gpsMsg.alt, hdg: gpsMsg.hdg };
                 ws.send(JSON.stringify(gpsMsg));
                 if (now - lastFlightLog >= 1000) {
                   lastFlightLog = now;
@@ -4050,7 +4176,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         const ws = getWs();
         if (ws && ws.readyState === WebSocket.OPEN) {
           trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand), 5000);
+          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
         }
       });
     })
@@ -4058,7 +4184,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const ws = getWs();
       if (ws && ws.readyState === WebSocket.OPEN) {
         trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
       }
     });
 }
@@ -4139,7 +4265,7 @@ async function verifyAndStartTracker(syncId, pin, { promptOnFailure = false } = 
 }
 
 function saveTrackerConfig(syncId, pin, extra = {}) {
-  writeTrackerConfig({ syncId, pin, consoleMode, ...extra });
+  writeTrackerConfig({ ...readTrackerConfig(), syncId, pin, consoleMode, ...extra });
 }
 
 function askConsoleMode(savedId, savedPin, afterSave) {

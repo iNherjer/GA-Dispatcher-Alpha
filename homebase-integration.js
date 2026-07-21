@@ -10,6 +10,8 @@
   const HOMEBASE_CREW_MAX_OBJECTS = 100;
   const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
   const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
+  const HOMEBASE_FALLBACK_SCHEMA_VERSION = 1;
+  const HOMEBASE_FALLBACK_SYNC_DELAY_MS = 750;
   const HOMEBASE_LOCAL_STORAGE_KEY = 'vfr-homebase-workbench-v2';
   const HOMEBASE_SYNC_META_KEY = 'vfr-homebase-workbench-sync-v1';
   const pendingCommands = new Map();
@@ -29,6 +31,7 @@
   let crewTrackerSupported = false;
   let crewCapabilityRequestedAt = 0;
   let ownCloudPlan = null;
+  let ownCloudRecord = null;
   let ownCloudLoadStarted = false;
   let ownCloudLoadComplete = false;
   let ownPackageStatus = null;
@@ -46,6 +49,12 @@
   let ownWorkbenchPeopleSyncInFlight = false;
   let ownFailedPeopleSignature = '';
   let ownFailedPeopleRetryAt = 0;
+  let ownFallbackCacheTimer = null;
+  let ownFallbackCacheWatchdog = null;
+  let ownFallbackCacheInFlight = false;
+  let ownFallbackCacheQueued = false;
+  let ownLastFallbackCacheSignature = '';
+  let ownFallbackCacheRetryAt = 0;
 
   const overlay = () => document.getElementById('homebaseOverlay');
   const frame = () => document.getElementById('homebaseFrame');
@@ -123,6 +132,7 @@
       });
       if (response.status === 404) {
         ownCloudPlan = null;
+        ownCloudRecord = null;
         const delivered = deliverHomebaseLoadResult({ ok: true, record: null, pilotId: context.pilotId, reason });
         applyOwnHomebaseScene(ownLastTelemetry, `${reason}-empty`);
         return { ok: true, record: null, deferred: !delivered };
@@ -131,6 +141,7 @@
       if (!response.ok) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
       const record = data.record || null;
       ownCloudPlan = record?.plan || null;
+      ownCloudRecord = record;
       const delivered = deliverHomebaseLoadResult({ ok: true, record, pilotId: context.pilotId, reason });
       applyOwnHomebaseScene(ownLastTelemetry, `${reason}-loaded`);
       return { ok: true, record, deferred: !delivered };
@@ -217,7 +228,17 @@
     const localPlan = readJsonStorage(HOMEBASE_LOCAL_STORAGE_KEY);
     const localMeta = readJsonStorage(HOMEBASE_SYNC_META_KEY);
     if (localMeta?.dirty === true && localPlan) return localPlan;
-    return ownCloudPlan || localPlan;
+    if (ownCloudPlan) {
+      const localPeople = Array.isArray(localPlan?.people) ? localPlan.people.slice(0, 3) : [];
+      const cloudPeople = ownCloudPlan?.people;
+      const cloudClientUpdatedAt = finite(ownCloudRecord?.clientUpdatedAt, 0);
+      if (localPeople.length > 0
+        && (!Array.isArray(cloudPeople) || (cloudPeople.length === 0 && cloudClientUpdatedAt <= finite(localMeta?.localUpdatedAt, 0)))) {
+        return { ...ownCloudPlan, people: localPeople };
+      }
+      return ownCloudPlan;
+    }
+    return localPlan;
   }
 
   function homebaseCatalogDefinition(title) {
@@ -389,6 +410,71 @@
     return sanitizeHomebaseRuntimeConfig(latestHomebaseDraft?.runtimeConfig || ownRuntimeConfigFromPlan(currentOwnHomebasePlan()));
   }
 
+  function compactSceneSignature(serialized) {
+    let hash = 2166136261;
+    const text = String(serialized || '');
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `hb1-${(hash >>> 0).toString(16).padStart(8, '0')}-${text.length}`;
+  }
+
+  function ownFallbackCachePayload() {
+    const config = currentOwnRuntimeConfig();
+    const delta = ownHomebaseDelta();
+    if (!config?.spawn || !delta.ready) return null;
+    const objects = delta.objects || [];
+    const people = config.people || [];
+    const navigation = config.navigation || null;
+    const serializedScene = JSON.stringify({ objects, people, navigation });
+    return {
+      schemaVersion: HOMEBASE_FALLBACK_SCHEMA_VERSION,
+      sceneSignature: compactSceneSignature(serializedScene),
+      base: {
+        lat: finite(config.spawn.lat),
+        lon: finite(config.spawn.lon),
+        enterRadiusNm: HOMEBASE_OWN_ENTER_RADIUS_NM,
+        exitRadiusNm: HOMEBASE_OWN_EXIT_RADIUS_NM
+      },
+      doorAutomationEnabled: config.doorAutomationEnabled !== false,
+      objects,
+      people,
+      navigation
+    };
+  }
+
+  function sendOwnFallbackCache(reason = 'auto') {
+    clearTimeout(ownFallbackCacheTimer);
+    ownFallbackCacheTimer = null;
+    const cache = ownFallbackCachePayload();
+    if (!cache || ownFallbackCacheInFlight || Date.now() < ownFallbackCacheRetryAt) {
+      if (ownFallbackCacheInFlight) ownFallbackCacheQueued = true;
+      return false;
+    }
+    const signature = JSON.stringify(cache);
+    if (signature === ownLastFallbackCacheSignature) return false;
+    const commandId = sendTracker({ type: 'homebase_v1.fallback.store', cache }, {
+      kind: 'fallback-store', reason, fallbackCacheSignature: signature
+    });
+    if (!commandId) return false;
+    ownFallbackCacheInFlight = true;
+    clearTimeout(ownFallbackCacheWatchdog);
+    ownFallbackCacheWatchdog = setTimeout(() => {
+      ownFallbackCacheWatchdog = null;
+      ownFallbackCacheInFlight = false;
+      ownFallbackCacheRetryAt = Date.now() + 3000;
+      scheduleOwnFallbackCache('retry');
+    }, 10000);
+    return true;
+  }
+
+  function scheduleOwnFallbackCache(reason = 'auto') {
+    const cache = ownFallbackCachePayload();
+    if (!cache || JSON.stringify(cache) === ownLastFallbackCacheSignature || ownFallbackCacheTimer) return;
+    ownFallbackCacheTimer = setTimeout(() => sendOwnFallbackCache(reason), HOMEBASE_FALLBACK_SYNC_DELAY_MS);
+  }
+
   function runtimeObjectsFromConfig(config) {
     if (!config?.hangar) return [];
     const hangar = {
@@ -537,12 +623,20 @@
     const people = inside && !ownAutoSuppressedUntilExit ? (config?.people || []) : [];
     const navigation = config?.navigation || null;
     const signature = JSON.stringify({ objects, people, navigation });
+    const sceneSignature = compactSceneSignature(signature);
     const objectsSignature = JSON.stringify(objects);
+    scheduleOwnFallbackCache(reason);
     if (signature === ownFailedPeopleSignature && Date.now() < ownFailedPeopleRetryAt) return false;
     const activePreviewIds = new Set((Array.isArray(position?.homebase?.objects) ? position.homebase.objects : [])
       .filter((item) => item?.collection === 'preview').map((item) => String(item.id || '')));
     const expectedIds = [...objects, ...people].map((item) => String(item.id || ''));
     const trackerSceneMatches = expectedIds.length === activePreviewIds.size && expectedIds.every((id) => activePreviewIds.has(id));
+    if (trackerSceneMatches && String(position?.homebase?.sceneSignature || '') === sceneSignature) {
+      ownLastAppliedSignature = signature;
+      ownLastAppliedObjectsSignature = objectsSignature;
+      ownLastAppliedAt = Date.now();
+      return false;
+    }
     if (signature === ownLastAppliedSignature && (trackerSceneMatches || Date.now() - ownLastAppliedAt < 5000)) return false;
     if (ownAutoInFlight || ownWorkbenchPeopleSyncInFlight) {
       ownAutoQueued = true;
@@ -553,8 +647,8 @@
       && (objects.every((item) => activePreviewIds.has(String(item.id || '')))
         || Date.now() - ownLastAppliedAt < 5000);
     const commandId = sendTracker(canSyncPeopleLive
-      ? { type: 'homebase_v1.preview.people.sync', people, navigation }
-      : { type: 'homebase_v1.preview.set', objects, people, navigation }, {
+      ? { type: 'homebase_v1.preview.people.sync', people, navigation, sceneSignature }
+      : { type: 'homebase_v1.preview.set', objects, people, navigation, sceneSignature }, {
       kind: canSyncPeopleLive ? 'owner-auto-people-sync' : 'owner-auto-set',
       reason,
       signature,
@@ -895,7 +989,8 @@
         type: 'homebase_v1.preview.people.sync',
         commandId: stabilizerCommand.commandId,
         people,
-        navigation
+        navigation,
+        sceneSignature: compactSceneSignature(signature)
       }, { kind: 'people-live-sync', signature, objectsSignature });
       if (commandId) ownWorkbenchPeopleSyncInFlight = true;
       return;
@@ -1044,6 +1139,22 @@
     if (meta.kind === 'owner-package-status') {
       updateOwnPackageStatus(ack.status === 'ok' ? ack : null);
       applyOwnHomebaseScene(ownLastTelemetry, 'package-status');
+      return;
+    }
+    if (meta.kind === 'fallback-store') {
+      clearTimeout(ownFallbackCacheWatchdog);
+      ownFallbackCacheWatchdog = null;
+      ownFallbackCacheInFlight = false;
+      if (ack.status === 'ok') {
+        ownLastFallbackCacheSignature = String(meta.fallbackCacheSignature || '');
+        ownFallbackCacheRetryAt = 0;
+      } else {
+        ownFallbackCacheRetryAt = Date.now() + 15000;
+      }
+      if (ownFallbackCacheQueued) {
+        ownFallbackCacheQueued = false;
+        scheduleOwnFallbackCache('queued');
+      }
       return;
     }
     if (meta.kind === 'owner-auto-set' || meta.kind === 'owner-auto-people-sync') {
@@ -1253,6 +1364,7 @@
     if (message.kind === 'relay-command') translateWorkbenchRelay(message.payload || {});
     if (message.kind === 'rpc') handleRpc(message);
     if (message.kind === 'sync-draft') {
+      const previousRuntimeSignature = JSON.stringify(currentOwnRuntimeConfig());
       latestHomebaseDraft = {
         plan: message.plan,
         runtimeConfig: message.runtimeConfig || null,
@@ -1263,10 +1375,14 @@
         crewShareEnabled: message.crewShareEnabled === true
       };
       scheduleHomebaseSave();
-      ownLastAppliedSignature = '';
-      ownAutoPlanSettlesAt = Date.now() + 1200;
-      clearTimeout(ownAutoPlanApplyTimer);
-      ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'draft-change'), 1200);
+      scheduleOwnFallbackCache('draft-change');
+      const nextRuntimeSignature = JSON.stringify(currentOwnRuntimeConfig());
+      if (previousRuntimeSignature !== nextRuntimeSignature) {
+        ownLastAppliedSignature = '';
+        ownAutoPlanSettlesAt = Date.now() + 1200;
+        clearTimeout(ownAutoPlanApplyTimer);
+        ownAutoPlanApplyTimer = setTimeout(() => applyOwnHomebaseScene(ownLastTelemetry, 'draft-change'), 1200);
+      }
     }
     if (message.kind === 'owner-auto-refresh') {
       ownAutoSuppressedUntilExit = false;

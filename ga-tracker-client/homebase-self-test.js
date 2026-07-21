@@ -15,6 +15,11 @@ const {
   selectCommunityFolder
 } = require('./homebase-package-service.js');
 const { compareVersions, extractZipBuffer } = require('./homebase-asset-updater.js');
+const {
+  normalizeHomebaseFallbackCache,
+  compatibleHomebaseFallbackCache,
+  fallbackShouldBeActive
+} = require('./homebase-fallback-cache.js');
 const catalog = require('./homebase-asset-catalog.js');
 
 class FakeHandle extends EventEmitter {
@@ -213,6 +218,27 @@ async function run() {
     || [...expectedTarmacTitles].some((title) => !actualTarmacTitles.has(title))
     || [...actualTarmacTitles].some((title) => /_Black$/.test(title))) {
     throw new Error(`Tarmac people catalog mismatch: ${JSON.stringify([...actualTarmacTitles])}`);
+  }
+  const fallbackCache = normalizeHomebaseFallbackCache({
+    schemaVersion: 1,
+    sceneSignature: 'hb1-test-42',
+    base: { lat: 48.1, lon: 7.9, enterRadiusNm: 20, exitRadiusNm: 22 },
+    objects: [{ id: 'crate-1', title: 'Test crate' }],
+    people: [{ id: 'person-1', title: 'Tarmac_Female_Summer_Asian' }],
+    navigation: { spawn: { lat: 48.1, lon: 7.9 } }
+  }, { pilotId: 'TESTER', trackerVersionCode: 306, savedAt: 12345 });
+  if (fallbackCache.pilotId !== 'TESTER' || fallbackCache.trackerVersionCode !== 306 || fallbackCache.objects.length !== 1 || fallbackCache.people.length !== 1) {
+    throw new Error(`Homebase fallback normalization failed: ${JSON.stringify(fallbackCache)}`);
+  }
+  if (!compatibleHomebaseFallbackCache(fallbackCache, { pilotId: 'TESTER', trackerVersionCode: 306 }).ok) {
+    throw new Error('Compatible Homebase fallback was rejected.');
+  }
+  if (compatibleHomebaseFallbackCache(fallbackCache, { pilotId: 'TESTER', trackerVersionCode: 307 }).reason !== 'tracker-version-mismatch') {
+    throw new Error('Old Homebase fallback tracker version was not rejected.');
+  }
+  if (!fallbackShouldBeActive(fallbackCache, { lat: 48.1, lon: 7.9 }, false)
+    || fallbackShouldBeActive(fallbackCache, { lat: 49, lon: 9 }, true)) {
+    throw new Error('Homebase fallback radius hysteresis failed.');
   }
   if (compareVersions('0.5.7', '0.5.6') <= 0 || compareVersions('0.5.7', '0.5.7') !== 0 || compareVersions('1.0.0-beta.1', '1.0.0') >= 0) {
     throw new Error('Asset version comparison failed.');
