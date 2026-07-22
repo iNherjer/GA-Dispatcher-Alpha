@@ -204,13 +204,64 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
 
 const APT_ARRIVAL_GEO_CONTEXT_RADIUS_M = 1400;
 const APT_ARRIVAL_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+const APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX = 'ga_apt_arrival_geo_context_v1_';
+const APT_ARRIVAL_GEO_CONTEXT_SESSION_MAX_ENTRIES = 8;
 const aptArrivalGeoContextInflight = new Map();
+
+function aptArrivalClearPersistentGeoContextCache() {
+    if (typeof localStorage === 'undefined' || typeof localStorage.key !== 'function') return 0;
+    let removed = 0;
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX)) {
+                localStorage.removeItem(key);
+                removed++;
+            }
+        }
+    } catch (err) {
+        try { console.warn('[APT ARRIVAL GEO] Persistenter Cache konnte nicht vollstaendig entfernt werden.', err); } catch (_) {}
+    }
+    if (removed > 0) {
+        try { console.info(`[APT ARRIVAL GEO] ${removed} persistente Cache-Eintraege entfernt.`); } catch (_) {}
+    }
+    return removed;
+}
+
+function aptArrivalPruneSessionGeoContextCache(keepKey = '') {
+    if (typeof sessionStorage === 'undefined' || typeof sessionStorage.key !== 'function') return 0;
+    const entries = [];
+    try {
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (!key || !key.startsWith(APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX)) continue;
+            let fetchedAt = 0;
+            try { fetchedAt = Number(JSON.parse(sessionStorage.getItem(key) || 'null')?.fetchedAt || 0); } catch (_) {}
+            entries.push({ key, fetchedAt });
+        }
+        entries.sort((a, b) => {
+            if (a.key === keepKey) return -1;
+            if (b.key === keepKey) return 1;
+            return b.fetchedAt - a.fetchedAt;
+        });
+        let removed = 0;
+        entries.slice(APT_ARRIVAL_GEO_CONTEXT_SESSION_MAX_ENTRIES).forEach(entry => {
+            sessionStorage.removeItem(entry.key);
+            removed++;
+        });
+        return removed;
+    } catch (_) {
+        return 0;
+    }
+}
+
+try { window.gaAptArrivalPersistentCacheRemoved = aptArrivalClearPersistentGeoContextCache(); } catch (_) {}
 
 function aptArrivalGeoContextCacheKey(icao = '', lat = null, lon = null, radiusM = APT_ARRIVAL_GEO_CONTEXT_RADIUS_M) {
     const code = String(icao || '').trim().toUpperCase() || 'APT';
     const la = Math.round(Number(lat) * 1000) / 1000;
     const lo = Math.round(Number(lon) * 1000) / 1000;
-    return `ga_apt_arrival_geo_context_v1_${code}_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+    return `${APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX}${code}_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
 }
 
 function aptArrivalRoundPoint(point = null) {
@@ -456,13 +507,17 @@ async function fetchAptArrivalGeoContext(plan = null) {
             const raw = store?.getItem?.(key);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
-            if (!parsed || (Date.now() - Number(parsed.fetchedAt || 0)) > APT_ARRIVAL_GEO_CONTEXT_TTL_MS) return null;
+            if (!parsed || (Date.now() - Number(parsed.fetchedAt || 0)) > APT_ARRIVAL_GEO_CONTEXT_TTL_MS) {
+                try { store?.removeItem?.(key); } catch (_) {}
+                return null;
+            }
             return parsed;
         } catch (_) {
+            try { store?.removeItem?.(key); } catch (_) {}
             return null;
         }
     };
-    const cached = readCache(sessionStorage) || readCache(localStorage);
+    const cached = readCache(sessionStorage);
     if (cached) return cached;
     if (aptArrivalGeoContextInflight.has(key)) return aptArrivalGeoContextInflight.get(key);
     const query = `[out:json][timeout:8];
@@ -495,7 +550,7 @@ out tags center geom 240;`;
             const normalized = normalizeAptArrivalGeoContext(raw, airportLat, airportLon, radiusM);
             if (normalized) {
                 try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
-                try { localStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
+                aptArrivalPruneSessionGeoContextCache(key);
             }
             return normalized;
         } catch (err) {
