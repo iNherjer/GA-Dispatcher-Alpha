@@ -10,6 +10,8 @@ const catalog = require('./homebase-asset-catalog.js');
 
 const OPEN_RADIUS_M = 18;
 const CLOSE_RADIUS_M = 20;
+const PLAYER_OPEN_RADIUS_M = 28;
+const PLAYER_CLOSE_RADIUS_M = 30;
 const CLOSE_DELAY_MS = 1000;
 const SCAN_RADIUS_M = 1000;
 const USER_POLL_MS = 400;
@@ -81,10 +83,16 @@ function distanceMeters(a, b) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
 }
 
-function proximityZone(distanceM) {
+function isPlayerSource(source) {
+  return ['Flugzeug', 'Avatar', 'Aktiver Benutzer'].includes(String(source?.kind || ''));
+}
+
+function proximityZone(distanceM, source = null) {
   if (!Number.isFinite(distanceM)) return 'unknown';
-  if (distanceM <= OPEN_RADIUS_M) return 'open';
-  if (distanceM >= CLOSE_RADIUS_M) return 'close';
+  const openRadiusM = isPlayerSource(source) ? PLAYER_OPEN_RADIUS_M : OPEN_RADIUS_M;
+  const closeRadiusM = isPlayerSource(source) ? PLAYER_CLOSE_RADIUS_M : CLOSE_RADIUS_M;
+  if (distanceM <= openRadiusM) return 'open';
+  if (distanceM >= closeRadiusM) return 'close';
   return 'hold';
 }
 
@@ -103,6 +111,21 @@ function nearestSource(sources, hangar, now = Date.now()) {
     if (!nearest || distanceM < nearest.distanceM) nearest = { source, distanceM };
   }
   return nearest;
+}
+
+function proximityForSources(sources, hangar, now = Date.now()) {
+  const zoneRank = { open: 0, hold: 1, close: 2 };
+  let selected = null;
+  for (const source of sources) {
+    if (!source || now - source.at > SOURCE_FRESH_MS) continue;
+    const distanceM = distanceMeters(source, hangar);
+    const zone = proximityZone(distanceM, source);
+    if (zone === 'unknown') continue;
+    const candidate = { source, distanceM, zone };
+    if (!selected || zoneRank[zone] < zoneRank[selected.zone]
+      || (zone === selected.zone && distanceM < selected.distanceM)) selected = candidate;
+  }
+  return selected;
 }
 
 function advanceDoorAutomationState(rawRecord = {}, zone, now = Date.now()) {
@@ -201,11 +224,11 @@ function createHomebaseDoorAutomation(handle, options = {}) {
     const now = Date.now();
     const sources = [lastUser, lastAvatar, lastCurrent, ...dynamicSources.map((source) => ({ ...source, at: now }))].filter(Boolean);
     for (const hangar of hangars.values()) {
-      const nearest = nearestSource(sources, hangar, now);
+      const nearest = proximityForSources(sources, hangar, now);
       if (!nearest) continue;
       const objectId = Number(hangar.objectId);
       const record = states.get(objectId) || { commandedState: 'unknown', lastCommandAt: 0, outsideSince: null };
-      const zone = proximityZone(nearest.distanceM);
+      const zone = nearest.zone;
       const transition = advanceDoorAutomationState(record, zone, now);
       states.set(objectId, transition.record);
       if (transition.manualOverrideReleased) {
@@ -375,11 +398,14 @@ function createHomebaseDoorAutomation(handle, options = {}) {
 module.exports = {
   OPEN_RADIUS_M,
   CLOSE_RADIUS_M,
+  PLAYER_OPEN_RADIUS_M,
+  PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
   SOURCE_FRESH_MS,
   collectDoorControls,
   distanceMeters,
   proximityZone,
+  proximityForSources,
   finitePosition,
   nearestSource,
   advanceDoorAutomationState,

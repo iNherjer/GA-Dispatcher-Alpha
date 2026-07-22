@@ -6,10 +6,13 @@ const { open, Protocol } = require('node-simconnect');
 const {
   OPEN_RADIUS_M,
   CLOSE_RADIUS_M,
+  PLAYER_OPEN_RADIUS_M,
+  PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
   collectDoorControls,
   distanceMeters,
   proximityZone,
+  proximityForSources,
   finitePosition,
   nearestSource,
   createHomebaseDoorAutomation
@@ -39,8 +42,8 @@ function startConnection() {
         handle = connection.handle;
         controller = createHomebaseDoorAutomation(handle, { log: writeLog, enabled: true });
         writeLog(
-          `Instanztest aktiv: jedes Tor öffnet bei <= ${OPEN_RADIUS_M} m und schließt bei >= ${CLOSE_RADIUS_M} m ` +
-          `nach ${Math.round(CLOSE_DELAY_MS / 1000)} s. Flugzeug und Walkaround-Position werden berücksichtigt.`
+          `Instanztest aktiv: Spieler öffnen jedes Tor bei <= ${PLAYER_OPEN_RADIUS_M} m und schließen es bei >= ${PLAYER_CLOSE_RADIUS_M} m; ` +
+          `Homebase-Mitarbeiter verwenden ${OPEN_RADIUS_M}/${CLOSE_RADIUS_M} m. Schließverzögerung: ${Math.round(CLOSE_DELAY_MS / 1000)} s.`
         );
         handle.on('exception', (recv) => {
           writeLog(`SimConnect-Ausnahme: ${recv.exceptionName || recv.exception || 'unbekannt'} (sendId ${recv.sendId ?? '?'})`);
@@ -86,10 +89,13 @@ if (require.main === module) {
 module.exports = {
   OPEN_RADIUS_M,
   CLOSE_RADIUS_M,
+  PLAYER_OPEN_RADIUS_M,
+  PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
   collectDoorControls,
   distanceMeters,
   proximityZone,
+  proximityForSources,
   finitePosition,
   nearestSource,
   startConnection

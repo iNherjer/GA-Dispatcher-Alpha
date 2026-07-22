@@ -6,11 +6,14 @@ const catalog = require('./homebase-asset-catalog.js');
 const {
   OPEN_RADIUS_M,
   CLOSE_RADIUS_M,
+  PLAYER_OPEN_RADIUS_M,
+  PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
   collectDoorControls,
   distanceMeters,
   nearestSource,
   proximityZone,
+  proximityForSources,
   finitePosition
 } = require('./homebase-door-proximity-test.js');
 const { createHomebaseDoorAutomation, advanceDoorAutomationState } = require('./homebase-door-automation.js');
@@ -25,14 +28,29 @@ assert.ok(controls.some((control) => control.simvar === 'L:1:VFR_HOMEBASE_ROUND_
 assert.ok(controls.every((control) => control.title && control.simvar.startsWith('L:1:')));
 assert.ok(controls.every((control) => Number.isFinite(control.openValue) && Number.isFinite(control.closedValue)));
 assert.ok(CLOSE_RADIUS_M > OPEN_RADIUS_M);
+assert.equal(PLAYER_OPEN_RADIUS_M, OPEN_RADIUS_M + 10);
+assert.ok(PLAYER_CLOSE_RADIUS_M > PLAYER_OPEN_RADIUS_M);
 assert.ok(CLOSE_DELAY_MS >= 1000);
 assert.equal(proximityZone(OPEN_RADIUS_M - .1), 'open');
 assert.equal(proximityZone(OPEN_RADIUS_M), 'open');
 assert.equal(proximityZone((OPEN_RADIUS_M + CLOSE_RADIUS_M) / 2), 'hold');
 assert.equal(proximityZone(CLOSE_RADIUS_M), 'close');
+assert.equal(proximityZone(PLAYER_OPEN_RADIUS_M, { kind: 'Flugzeug' }), 'open');
+assert.equal(proximityZone((PLAYER_OPEN_RADIUS_M + PLAYER_CLOSE_RADIUS_M) / 2, { kind: 'Avatar' }), 'hold');
+assert.equal(proximityZone(PLAYER_CLOSE_RADIUS_M, { kind: 'Aktiver Benutzer' }), 'close');
 assert.equal(proximityZone(Infinity), 'unknown');
 
 const now = Date.now();
+const pointNorth = (meters, kind) => ({
+  lat: 48 + (meters / 6371000) * (180 / Math.PI), lon: 8, kind, at: now
+});
+const mixedProximity = proximityForSources([
+  pointNorth(19, 'Homebase-Person:person-1'),
+  pointNorth(27, 'Flugzeug')
+], origin, now);
+assert.equal(mixedProximity.zone, 'open');
+assert.equal(mixedProximity.source.kind, 'Flugzeug');
+
 const nearest = nearestSource(
   [
     { ...origin, kind: 'Flugzeug', at: now },

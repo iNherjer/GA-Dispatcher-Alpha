@@ -993,8 +993,8 @@ function createHomebaseObjectManager(handle, options = {}) {
       : `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`;
     const automationMessage = manualAutomation?.active
       ? stateDefinition.id === 'open'
-        ? ' Die manuelle Öffnung bleibt bestehen, bis die Automatik beim nächsten Annähern auf höchstens 18 m wieder übernimmt.'
-        : ' Die manuelle Schließung bleibt bestehen, bis die Automatik nach dem nächsten Entfernen auf mindestens 20 m wieder übernimmt.'
+        ? ' Die manuelle Öffnung bleibt bestehen, bis sich ein Spieler auf höchstens 28 m oder ein Mitarbeiter auf höchstens 18 m nähert.'
+        : ' Die manuelle Schließung bleibt bestehen, bis Spieler mindestens 30 m und Mitarbeiter mindestens 20 m entfernt sind.'
       : manualAutomation
         ? ' Die automatische Torsteuerung ist global deaktiviert.'
         : '';
