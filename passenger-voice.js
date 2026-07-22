@@ -3577,6 +3577,69 @@ window.paxVoiceGetComfortSummary = function() {
     }
 };
 
+// Kompakter, reloadfester Komfortzustand. Es werden nur laufende Aggregate
+// und Event-Latches gesichert, niemals einzelne Telemetrieproben.
+window.paxVoiceGetComfortState = function() {
+    try {
+        const score = _missionComfortScoreState();
+        return JSON.parse(JSON.stringify({
+            version: 1,
+            startedAt: Number(score.startedAt || 0),
+            samples: Math.max(0, Math.round(Number(score.samples || 0))),
+            pilotEvents: Math.max(0, Math.round(Number(score.pilotEvents || 0))),
+            pilotSevere: Math.max(0, Math.round(Number(score.pilotSevere || 0))),
+            weatherEvents: Math.max(0, Math.round(Number(score.weatherEvents || 0))),
+            weatherSevere: Math.max(0, Math.round(Number(score.weatherSevere || 0))),
+            cargoRiskEvents: Math.max(0, Math.round(Number(score.cargoRiskEvents || 0))),
+            gEvents: Math.max(0, Math.round(Number(score.gEvents || 0))),
+            bankEvents: Math.max(0, Math.round(Number(score.bankEvents || 0))),
+            descentEvents: Math.max(0, Math.round(Number(score.descentEvents || 0))),
+            maxG: Math.max(0, Number(score.maxG || 1)),
+            maxBankDeg: Math.max(0, Number(score.maxBankDeg || 0)),
+            maxDescentFpm: Math.min(0, Number(score.maxDescentFpm || 0)),
+            maxWindKts: Math.max(0, Number(score.maxWindKts || 0)),
+            maxGustSpreadKts: Math.max(0, Number(score.maxGustSpreadKts || 0)),
+            maxTurbulencePct: Math.max(0, Number(score.maxTurbulencePct || 0)),
+            maxPrecipRate: Math.max(0, Number(score.maxPrecipRate || 0)),
+            flags: Object.fromEntries(
+                Object.entries(score.flags || {}).slice(0, 20).map(([key, value]) => [String(key).slice(0, 32), !!value])
+            )
+        }));
+    } catch (_) {
+        return null;
+    }
+};
+
+window.paxVoiceRestoreComfortState = function(snapshot = null) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const restored = _createMissionComfortScore();
+    const counterKeys = [
+        'samples', 'pilotEvents', 'pilotSevere', 'weatherEvents', 'weatherSevere',
+        'cargoRiskEvents', 'gEvents', 'bankEvents', 'descentEvents'
+    ];
+    counterKeys.forEach(key => {
+        const value = Number(snapshot[key]);
+        if (Number.isFinite(value)) restored[key] = Math.max(0, Math.round(value));
+    });
+    const maxKeys = [
+        'maxG', 'maxBankDeg', 'maxWindKts', 'maxGustSpreadKts',
+        'maxTurbulencePct', 'maxPrecipRate'
+    ];
+    maxKeys.forEach(key => {
+        const value = Number(snapshot[key]);
+        if (Number.isFinite(value)) restored[key] = Math.max(0, value);
+    });
+    const descent = Number(snapshot.maxDescentFpm);
+    if (Number.isFinite(descent)) restored.maxDescentFpm = Math.min(0, descent);
+    const startedAt = Number(snapshot.startedAt);
+    if (Number.isFinite(startedAt) && startedAt > 0) restored.startedAt = startedAt;
+    restored.flags = Object.fromEntries(
+        Object.entries(snapshot.flags || {}).slice(0, 20).map(([key, value]) => [String(key).slice(0, 32), !!value])
+    );
+    _missionComfortScore = restored;
+    return true;
+};
+
 function _missionWeatherReactionLine(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
     const parts = [];

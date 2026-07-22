@@ -7792,6 +7792,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionSubType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
+        'poiTerrainFt', 'poiTerrainMaxFt', 'poiTerrainRadiusNm', 'poiTerrainEnvelope',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'cargoText', 'passenger',
@@ -14841,6 +14842,7 @@ function parseRunwayFromWikitext(wikitext) {
 }
 
 const _poiTerrainCache = new Map();
+const _poiTerrainEnvelopeCache = new Map();
 const _missionWxCache = new Map();
 const _dwdWbiStationCache = { ts: 0, stations: [] };
 const _dwdWbiByStationCache = new Map();
@@ -15040,6 +15042,57 @@ async function fetchPoiTerrainElevationFt(lat, lon) {
     return normalized;
 }
 
+async function fetchPoiTerrainEnvelopeFt(lat, lon, radiusNm = 1) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const safeRadiusNm = Math.max(0.1, Math.min(5, Number(radiusNm) || 1));
+    const key = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}|${safeRadiusNm.toFixed(2)}`;
+    if (_poiTerrainEnvelopeCache.has(key)) return _poiTerrainEnvelopeCache.get(key);
+
+    let envelope = null;
+    try {
+        if (typeof sampleTerrainEnvelope === 'function') {
+            envelope = await Promise.race([
+                sampleTerrainEnvelope(lat, lon, safeRadiusNm),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('terrain-envelope-timeout')), 4000))
+            ]);
+        }
+    } catch (e) {}
+
+    if (
+        envelope
+        && envelope.centerFt !== null
+        && envelope.maxFt !== null
+        && Number.isFinite(Number(envelope.centerFt))
+        && Number.isFinite(Number(envelope.maxFt))
+    ) {
+        const normalized = {
+            centerFt: Math.max(0, Math.round(Number(envelope.centerFt))),
+            maxFt: Math.max(0, Math.round(Number(envelope.maxFt))),
+            radiusNm: safeRadiusNm,
+            zoom: Number.isFinite(Number(envelope.zoom)) ? Math.round(Number(envelope.zoom)) : null,
+            sampleCount: Math.max(0, Math.round(Number(envelope.sampleCount) || 0)),
+            complete: true,
+            source: 'terrarium-area'
+        };
+        _poiTerrainCache.set(`${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`, normalized.centerFt);
+        _poiTerrainEnvelopeCache.set(key, normalized);
+        return normalized;
+    }
+
+    const centerFt = await fetchPoiTerrainElevationFt(lat, lon);
+    const fallback = centerFt !== null && Number.isFinite(Number(centerFt)) ? {
+        centerFt: Math.max(0, Math.round(Number(centerFt))),
+        maxFt: null,
+        radiusNm: safeRadiusNm,
+        zoom: null,
+        sampleCount: 1,
+        complete: false,
+        source: 'target-point-fallback'
+    } : null;
+    _poiTerrainEnvelopeCache.set(key, fallback);
+    return fallback;
+}
+
 function _summarizeMissionWeather(wx) {
     if (!wx) return 'Keine aktuellen Wetterdaten verfügbar.';
     const visTxt = Number.isFinite(wx.visKm)
@@ -15212,6 +15265,28 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
 
     _missionWxCache.set(key, out);
     return out;
+}
+
+function resolvePoiAltitudeTerrainFt(poiTerrainFt = null, poiTerrainMaxFt = null) {
+    if (poiTerrainMaxFt !== null && poiTerrainMaxFt !== '' && Number.isFinite(Number(poiTerrainMaxFt))) {
+        return Math.max(0, Math.round(Number(poiTerrainMaxFt)));
+    }
+    if (poiTerrainFt !== null && poiTerrainFt !== '' && Number.isFinite(Number(poiTerrainFt))) {
+        return Math.max(0, Math.round(Number(poiTerrainFt)));
+    }
+    return null;
+}
+
+function missionPoiAltitudeToleranceFt(passenger = null) {
+    const taskDomain = String(passenger?.taskDomain || '').trim().toLowerCase();
+    return /^(fire_watch|search_and_rescue|inspection_infra|infra_chain_recon|mapping_survey)$/.test(taskDomain)
+        ? 300
+        : 600;
+}
+
+function minimumPoiWorkAltitudeFt(terrainFt = null, passenger = null) {
+    if (!Number.isFinite(terrainFt)) return 0;
+    return Math.round(Number(terrainFt) + 500 + missionPoiAltitudeToleranceFt(passenger));
 }
 
 function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, options = null) {
@@ -15392,7 +15467,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
     if (!(normalized.targetDwellMin > 0) && defaultTargetDwellMin > 0) normalized.targetDwellMin = defaultTargetDwellMin;
 
     if (normalized.targetAltFt > 0) {
-        const minMslByTerrain = Number.isFinite(poiTerrainFt) ? Math.round(poiTerrainFt + 500) : 0;
+        const minMslByTerrain = minimumPoiWorkAltitudeFt(poiTerrainFt, normalized);
         const minRequired = Math.max(500, minMslByTerrain);
         if (normalized.targetAltFt < minRequired) normalized.targetAltFt = minRequired;
         normalized.targetAltFt = roundPoiWorkAltitudeFt(normalized.targetAltFt, minRequired);
@@ -17201,14 +17276,15 @@ function missionUsesPoiPresentation(mission = null) {
     return !!(md.isPOI || md.poiPresentation || missionUsesPoiTaskRecipe(md));
 }
 
-function getPoiTaskPassengerDefaults({ mission = null, isPOI = false, poiTerrainFt = null } = {}) {
+function getPoiTaskPassengerDefaults({ mission = null, isPOI = false, poiTerrainFt = null, poiTerrainMaxFt = null } = {}) {
     const usesPoiTaskRecipe = !!(isPOI || missionUsesPoiTaskRecipe(mission));
     if (!usesPoiTaskRecipe) {
         return { treatAsPoiTask: false, defaultTargetAltFt: 0, defaultTargetRadiusNm: 0, defaultTargetDwellMin: 0 };
     }
     const bush = (mission?.bush && typeof mission.bush === 'object') ? mission.bush : null;
-    const terrainFt = Number.isFinite(Number(poiTerrainFt))
-        ? Math.round(Number(poiTerrainFt))
+    const resolvedTerrainFt = resolvePoiAltitudeTerrainFt(poiTerrainFt, poiTerrainMaxFt);
+    const terrainFt = Number.isFinite(resolvedTerrainFt)
+        ? resolvedTerrainFt
         : Math.round(Number(mission?.poiTerrainFt ?? mission?.targetAltFt ?? currentDestElev) || 0);
     const areaRadiusNm = Math.max(1.5, Number(bush?.areaRef?.radiusNm) || 0);
     const successMinAreaTimeSec = Math.max(0, Number(bush?.success?.minAreaTimeSec) || 0);
@@ -25589,6 +25665,8 @@ function buildMissionPlannerV2Draft({
     selectedCategory = 'all',
     requestedCategory = 'all',
     poiTerrainFt = null,
+    poiTerrainMaxFt = null,
+    poiTerrainRadiusNm = null,
     missionWeather = null,
     missionFireHazard = null,
     targetGeoContext = null,
@@ -25629,6 +25707,8 @@ function buildMissionPlannerV2Draft({
             lat: Number.isFinite(Number(draftTargetRef?.lat)) ? Number(draftTargetRef.lat) : (Number.isFinite(Number(dest?.lat)) ? Number(dest.lat) : null),
             lon: Number.isFinite(Number(draftTargetRef?.lon)) ? Number(draftTargetRef.lon) : (Number.isFinite(Number(dest?.lon)) ? Number(dest.lon) : null),
             terrainFt: Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
+            terrainMaxFt: poiTerrainMaxFt !== null && Number.isFinite(Number(poiTerrainMaxFt)) ? Math.round(Number(poiTerrainMaxFt)) : null,
+            terrainRadiusNm: poiTerrainRadiusNm !== null && Number.isFinite(Number(poiTerrainRadiusNm)) ? Number(poiTerrainRadiusNm) : null,
             poiSource: String(dest?.poiSource || ''),
             poiCategory: String(draftTargetRef?.poiCategory || dest?.poiCategory || '')
         },
@@ -31241,7 +31321,9 @@ function buildMissionContractV4({
             lon: Number.isFinite(Number(plannerContext.dest?.lon)) ? Number(plannerContext.dest.lon) : null,
             poiSource: String(plannerContext.dest?.poiSource || ''),
             poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || ''),
-            terrainFt: Number.isFinite(Number(plannerContext.poiTerrainFt)) ? Math.round(Number(plannerContext.poiTerrainFt)) : null
+            terrainFt: Number.isFinite(Number(plannerContext.poiTerrainFt)) ? Math.round(Number(plannerContext.poiTerrainFt)) : null,
+            terrainMaxFt: plannerContext.poiTerrainMaxFt !== null && plannerContext.poiTerrainMaxFt !== undefined && Number.isFinite(Number(plannerContext.poiTerrainMaxFt)) ? Math.round(Number(plannerContext.poiTerrainMaxFt)) : null,
+            terrainRadiusNm: plannerContext.poiTerrainRadiusNm !== null && plannerContext.poiTerrainRadiusNm !== undefined && Number.isFinite(Number(plannerContext.poiTerrainRadiusNm)) ? Number(plannerContext.poiTerrainRadiusNm) : null
         },
         poiChain,
         knowledgeContext,
@@ -37312,7 +37394,7 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
         taskDomain: requiredTaskDomain
-    }, isPOI, context.poiTerrainFt);
+    }, isPOI, resolvePoiAltitudeTerrainFt(context.poiTerrainFt, context.poiTerrainMaxFt));
     if (contract?.knowledgeContext && typeof contract.knowledgeContext === 'object') {
         passenger.knowledgeContext = contract.knowledgeContext;
     }
@@ -37538,7 +37620,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
         taskDomain: requiredTaskDomain
-    }, isPOI, context.poiTerrainFt);
+    }, isPOI, resolvePoiAltitudeTerrainFt(context.poiTerrainFt, context.poiTerrainMaxFt));
     if (contract?.knowledgeContext && typeof contract.knowledgeContext === 'object') {
         passenger.knowledgeContext = contract.knowledgeContext;
     }
@@ -38339,11 +38421,14 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     };
 
     const poiLikeTask = !!(isPOI || missionUsesPoiTaskRecipe({ missionType: missionBaseType, bush: provisionalBushSpec }));
+    const poiPromptMinimumAltFt = Number.isFinite(poiTerrainFt)
+        ? minimumPoiWorkAltitudeFt(poiTerrainFt, { taskDomain: forcedProfile?.taskDomain || forcedProfile?.id || '' })
+        : 0;
     const poiAltRule = isSarHeliLegacy
         ? 'SAR-HELI-EINSATZPARAMETER: Das ist keine normale POI-Verweil-/Fotoaufgabe. Am POI wird nach Fundbestätigung gelandet oder stabil gehovert; danach Weiterflug zum Krankenhaus-Helipad oder medizinischen Fallback-Ziel. targetDwellMin soll 0 bleiben; die eigentliche Bergungsfreigabe steuert die Runtime.'
         : (poiLikeTask && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
-            ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetAltFt immer als 500-ft-Rasterwert ausgeben (z.B. 2500, 3000, 3500), nicht als ungerundete Terrain-Höhe. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
+            ? `POI-Einsatzparameter: Die Terrain-Basis ist der höchste topographische Punkt im 1-NM-Arbeitsumkreis. targetAltFt (MSL) darf NICHT unter ${poiPromptMinimumAltFt} ft liegen, damit auch die Unterkante des erlaubten Höhenbands mindestens 500 ft über diesem Terrain bleibt. targetAltFt immer als 500-ft-Rasterwert ausgeben (z.B. 2500, 3000, 3500), nicht als ungerundete Terrain-Höhe. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
             : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetAltFt immer als 500-ft-Rasterwert ausgeben (z.B. 2500, 3000, 3500), nicht als ungerundete Terrain-Höhe. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
         : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.";
 
@@ -41564,10 +41649,15 @@ async function generateMission(options = {}) {
     const nav = calcNav(start.lat, start.lon, dest.lat, dest.lon);
     let totalDist = isPOI ? nav.dist * 2 : nav.dist;
     currentDestICAO = isPOI ? currentStartICAO : dest.icao;
-    const terrainPromise = (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon))
-        ? dispatchMeasure('resolve_poi_terrain', async () => fetchPoiTerrainElevationFt(dest.lat, dest.lon), {
+    const needsMissionTerrainEnvelope = !!(
+        isPOI
+        || (isBushDispatch && String(dispatchProfileId || '').toLowerCase() === 'bush_recon_return')
+    );
+    const terrainPromise = (needsMissionTerrainEnvelope && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon))
+        ? dispatchMeasure('resolve_poi_terrain', async () => fetchPoiTerrainEnvelopeFt(dest.lat, dest.lon, 1), {
             lat: Number(dest.lat),
-            lon: Number(dest.lon)
+            lon: Number(dest.lon),
+            radiusNm: 1
         })
         : Promise.resolve(null);
     const depWeatherPromise = dispatchMeasure('weather_departure', async () => fetchMissionWeatherSnapshot(currentStartICAO, start.lat, start.lon), {
@@ -41576,12 +41666,22 @@ async function generateMission(options = {}) {
     const destWeatherPromise = dispatchMeasure('weather_destination', async () => fetchMissionWeatherSnapshot(isPOI ? 'POI' : currentDestICAO, dest.lat, dest.lon), {
         icao: isPOI ? 'POI' : currentDestICAO
     });
-    const [poiTerrainFt, depWeatherSnap, destWeatherSnap] = await Promise.all([
+    const [poiTerrainEnvelope, depWeatherSnap, destWeatherSnap] = await Promise.all([
         terrainPromise,
         depWeatherPromise,
         destWeatherPromise
     ]);
     _ensureDispatchAlive();
+    const poiTerrainFt = poiTerrainEnvelope?.centerFt !== null && poiTerrainEnvelope?.centerFt !== undefined && Number.isFinite(Number(poiTerrainEnvelope.centerFt))
+        ? Math.round(Number(poiTerrainEnvelope.centerFt))
+        : null;
+    const poiTerrainMaxFt = poiTerrainEnvelope?.maxFt !== null && poiTerrainEnvelope?.maxFt !== undefined && Number.isFinite(Number(poiTerrainEnvelope.maxFt))
+        ? Math.round(Number(poiTerrainEnvelope.maxFt))
+        : null;
+    const poiTerrainRadiusNm = poiTerrainEnvelope?.radiusNm !== null && poiTerrainEnvelope?.radiusNm !== undefined && Number.isFinite(Number(poiTerrainEnvelope.radiusNm))
+        ? Number(poiTerrainEnvelope.radiusNm)
+        : 1;
+    const poiAltitudeTerrainFt = resolvePoiAltitudeTerrainFt(poiTerrainFt, poiTerrainMaxFt);
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
     const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     let preMissionTargetGeoContext = null;
@@ -41762,6 +41862,8 @@ async function generateMission(options = {}) {
         selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
         requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
         poiTerrainFt,
+        poiTerrainMaxFt,
+        poiTerrainRadiusNm,
         missionWeather,
         missionFireHazard,
         paxText,
@@ -42058,6 +42160,7 @@ async function generateMission(options = {}) {
                     passenger: writerPassenger,
                     selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
                     poiTerrainFt,
+                    poiTerrainMaxFt,
                     targetGeoContext: preMissionTargetGeoContext,
                     sarHeli: sarHeliSpec,
                     bushSpec: buildFollowupAwareBushSpec({
@@ -42470,6 +42573,7 @@ async function generateMission(options = {}) {
                 passenger: writerPassengerSeed,
                 selectedMissionProposal: compactMissionProposalChoice(missionProposalChoice),
                 poiTerrainFt,
+                poiTerrainMaxFt,
                 targetGeoContext: preMissionTargetGeoContext,
                 sarHeli: sarHeliSpec,
                 bushSpec: null
@@ -42496,7 +42600,7 @@ async function generateMission(options = {}) {
                 isPOI,
                 paxText,
                 cargoText,
-                poiTerrainFt,
+                poiAltitudeTerrainFt,
                 missionWeather,
                 missionPickerResolved,
                 missionFireHazard,
@@ -42976,11 +43080,13 @@ async function generateMission(options = {}) {
     const poiTaskDefaults = getPoiTaskPassengerDefaults({
         mission: { ...m, missionType, bush: bushSpec },
         isPOI,
-        poiTerrainFt
+        poiTerrainFt,
+        poiTerrainMaxFt
     });
     const effectiveTargetTerrainFt = Number.isFinite(Number(poiTerrainFt))
         ? Math.round(Number(poiTerrainFt))
         : (poiTaskDefaults.defaultTargetAltFt > 0 ? Math.max(0, poiTaskDefaults.defaultTargetAltFt - 1000) : null);
+    const effectiveWorkAreaTerrainFt = resolvePoiAltitudeTerrainFt(effectiveTargetTerrainFt, poiTerrainMaxFt);
     const missionCreatedAt = Date.now();
     const missionRuntimeId = `mission-${missionCreatedAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const followupMissionKeyTag = (followupSeed || m?.followUpRequestId || m?.followUpContinuation)
@@ -43049,6 +43155,9 @@ async function generateMission(options = {}) {
         targetLon: Number(dest.lon),
         targetAltFt: Number.isFinite(Number(effectiveTargetTerrainFt)) ? Math.round(Number(effectiveTargetTerrainFt)) : null,
         poiTerrainFt: Number.isFinite(Number(effectiveTargetTerrainFt)) ? Math.round(Number(effectiveTargetTerrainFt)) : null,
+        poiTerrainMaxFt: poiTerrainMaxFt !== null && Number.isFinite(Number(poiTerrainMaxFt)) ? Math.round(Number(poiTerrainMaxFt)) : null,
+        poiTerrainRadiusNm: poiTerrainRadiusNm !== null && Number.isFinite(Number(poiTerrainRadiusNm)) ? Number(poiTerrainRadiusNm) : null,
+        poiTerrainEnvelope: poiTerrainEnvelope ? { ...poiTerrainEnvelope } : null,
         passenger: m?.passenger || null,
         mission: m.t,
         story: m.s,
@@ -43220,7 +43329,7 @@ async function generateMission(options = {}) {
         )
     );
     window.activePassenger = shouldActivateMissionPassenger
-        ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveTargetTerrainFt, poiTaskDefaults)
+        ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveWorkAreaTerrainFt, poiTaskDefaults)
         : null;
     if (window.activePassenger && knowledgeContext) {
         window.activePassenger.knowledgeContext = knowledgeContext;

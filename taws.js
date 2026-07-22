@@ -3,6 +3,7 @@
 /* Kein API-Key, keine Rate-Limits                         */
 
 const TAWS_TILE_ZOOM = 10;
+const TAWS_MISSION_TERRAIN_ZOOM = 12;
 const TAWS_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const TAWS_SAFETY_RED = 500;     // ft - TERRAIN WARNING
 const TAWS_SAFETY_AMBER = 1000;  // ft - TERRAIN CAUTION
@@ -723,6 +724,25 @@ function _tawsLoadTile(tileX, tileY, zoom) {
     });
 }
 
+function _tawsDecodeElevationFt(imageData, px, py) {
+    if (!imageData?.data) return null;
+    const safePx = Math.max(0, Math.min(255, Math.floor(Number(px) || 0)));
+    const safePy = Math.max(0, Math.min(255, Math.floor(Number(py) || 0)));
+    const idx = (safePy * 256 + safePx) * 4;
+    const r = imageData.data[idx];
+    const g = imageData.data[idx + 1];
+    const b = imageData.data[idx + 2];
+    if (![r, g, b].every(Number.isFinite)) return null;
+    const elevM = (r * 256 + g + b / 256) - 32768;
+    return Math.round(elevM * 3.28084);
+}
+
+async function sampleTerrainElevationAtZoom(lat, lon, zoom = TAWS_TILE_ZOOM) {
+    const { tile, px, py } = _tawsLatLonToPixel(lat, lon, zoom);
+    const imageData = await _tawsLoadTile(tile.x, tile.y, zoom);
+    return _tawsDecodeElevationFt(imageData, px, py);
+}
+
 /**
  * Terrain-Hoehe an einem Punkt abtasten (in Fuss)
  * @param {number} lat
@@ -730,18 +750,89 @@ function _tawsLoadTile(tileX, tileY, zoom) {
  * @returns {Promise<number>} Elevation in feet MSL
  */
 async function sampleTerrainElevation(lat, lon) {
-    const { tile, px, py } = _tawsLatLonToPixel(lat, lon, TAWS_TILE_ZOOM);
-    const imageData = await _tawsLoadTile(tile.x, tile.y, TAWS_TILE_ZOOM);
-
-    const idx = (py * 256 + px) * 4;
-    const r = imageData.data[idx];
-    const g = imageData.data[idx + 1];
-    const b = imageData.data[idx + 2];
-
-    // Terrarium encoding: elevation_m = (R * 256 + G + B / 256) - 32768
-    const elevM = (r * 256 + g + b / 256) - 32768;
-    return Math.round(elevM * 3.28084); // -> feet
+    return sampleTerrainElevationAtZoom(lat, lon, TAWS_TILE_ZOOM);
 }
+
+/**
+ * Hoechsten topographischen Punkt in einem kreisfoermigen Arbeitsgebiet bestimmen.
+ * Die Missionsplanung nutzt dafuer bewusst eine feinere Kachelstufe als das Live-TAWS.
+ * @returns {Promise<{centerFt:number,maxFt:number,radiusNm:number,zoom:number,sampleCount:number}>}
+ */
+async function sampleTerrainEnvelope(lat, lon, radiusNm = 1, options = {}) {
+    const centerLat = Number(lat);
+    const centerLon = Number(lon);
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) throw new Error('invalid-terrain-center');
+
+    const safeRadiusNm = Math.max(0.1, Math.min(5, Number(radiusNm) || 1));
+    const radiusM = safeRadiusNm * 1852;
+    const zoom = Math.max(8, Math.min(13, Math.round(Number(options.zoom) || TAWS_MISSION_TERRAIN_ZOOM)));
+    const cosLat = Math.max(0.15, Math.cos(centerLat * Math.PI / 180));
+    const rasterM = 156543.03392 * cosLat / Math.pow(2, zoom);
+    const stepM = Math.max(25, Math.min(80, Number(options.stepM) || rasterM));
+    const latMetersPerDeg = 111320;
+    const lonMetersPerDeg = latMetersPerDeg * cosLat;
+    const points = [{ lat: centerLat, lon: centerLon, center: true }];
+
+    for (let northM = -radiusM; northM <= radiusM; northM += stepM) {
+        const halfWidthM = Math.sqrt(Math.max(0, radiusM * radiusM - northM * northM));
+        for (let eastM = -halfWidthM; eastM <= halfWidthM; eastM += stepM) {
+            points.push({
+                lat: centerLat + northM / latMetersPerDeg,
+                lon: centerLon + eastM / lonMetersPerDeg,
+                center: false
+            });
+        }
+    }
+
+    // Der Rand gehoert zum Arbeitsgebiet und wird unabhaengig vom quadratischen Raster erfasst.
+    const ringSamples = Math.max(24, Math.ceil((2 * Math.PI * radiusM) / stepM));
+    for (let i = 0; i < ringSamples; i++) {
+        const angle = (i / ringSamples) * Math.PI * 2;
+        const northM = Math.cos(angle) * radiusM;
+        const eastM = Math.sin(angle) * radiusM;
+        points.push({
+            lat: centerLat + northM / latMetersPerDeg,
+            lon: centerLon + eastM / lonMetersPerDeg,
+            center: false
+        });
+    }
+
+    const tileRefs = new Map();
+    for (const point of points) {
+        const pixel = _tawsLatLonToPixel(point.lat, point.lon, zoom);
+        point.pixel = pixel;
+        const key = `${zoom}/${pixel.tile.x}/${pixel.tile.y}`;
+        if (!tileRefs.has(key)) tileRefs.set(key, pixel.tile);
+    }
+
+    const loaded = await Promise.all([...tileRefs.entries()].map(async ([key, tile]) => {
+        const imageData = await _tawsLoadTile(tile.x, tile.y, zoom);
+        return [key, imageData];
+    }));
+    const imageByTile = new Map(loaded);
+    let centerFt = null;
+    let maxFt = -Infinity;
+    let sampleCount = 0;
+    for (const point of points) {
+        const { tile, px, py } = point.pixel;
+        const imageData = imageByTile.get(`${zoom}/${tile.x}/${tile.y}`);
+        const elevFt = _tawsDecodeElevationFt(imageData, px, py);
+        if (!Number.isFinite(elevFt)) continue;
+        if (point.center) centerFt = elevFt;
+        if (elevFt > maxFt) maxFt = elevFt;
+        sampleCount += 1;
+    }
+    if (!Number.isFinite(centerFt) || !Number.isFinite(maxFt)) throw new Error('terrain-envelope-empty');
+    return {
+        centerFt: Math.round(centerFt),
+        maxFt: Math.round(maxFt),
+        radiusNm: safeRadiusNm,
+        zoom,
+        sampleCount
+    };
+}
+
+window.sampleTerrainEnvelope = sampleTerrainEnvelope;
 
 /**
  * Terrain entlang eines Pfades pruefen (Prediction-Punkte)

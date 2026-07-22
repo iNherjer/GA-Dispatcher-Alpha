@@ -709,7 +709,18 @@ function _debriefFinite(value) {
 function _debriefAltitudeAssessment(record) {
     const sd = _debriefFinite(record?.cruiseAltitudeStdDevFt);
     const range = _debriefFinite(record?.cruiseAltitudeRangeFt);
-    if (sd == null) return { value: 'Nicht verfügbar', text: 'Für eine belastbare Bewertung gab es zu wenige stabile Streckenflug-Proben.' };
+    if (sd == null) {
+        const enrouteSamples = Math.max(0, Math.round(Number(record?.enrouteSampleCount || 0)));
+        const cruiseSamples = Math.max(0, Math.round(Number(record?.cruiseSampleCount || 0)));
+        const cruiseDurationSec = Math.max(0, Math.round(Number(record?.cruiseDurationSec || 0)));
+        let text = 'Für eine belastbare Bewertung gab es zu wenige stabile Streckenflug-Proben.';
+        if (enrouteSamples <= 0 && record?.telemetryStatus) {
+            text = 'Es wurde kein Abschnitt sicher als Streckenflug erkannt; deshalb wird die Höhenkonstanz nicht bewertet.';
+        } else if (enrouteSamples > 0) {
+            text = `Es wurden ${enrouteSamples} Streckenflug-Proben erkannt, davon aber nur ${cruiseSamples} über ${cruiseDurationSec} Sekunden als stabiler Höhenflug.`;
+        }
+        return { value: 'Nicht verfügbar', text };
+    }
     const rating = sd <= 75 ? 'sehr konstant' : sd <= 150 ? 'konstant' : sd <= 300 ? 'wechselhaft' : 'deutlich wechselhaft';
     return {
         value: `± ${Math.round(sd)} ft`,
@@ -752,7 +763,13 @@ function _debriefFlightText(record, altitude) {
     if (g != null) parts.push(`Die höchste gemessene Last betrug ${g.toFixed(2)} g`);
     if (bank != null) parts.push(`der größte Bankwinkel ${bank.toFixed(1)}°`);
     if (agl != null) parts.push(`die geringste direkte AGL-Höhe auf Strecke ${Math.round(agl)} ft`);
-    const metrics = parts.length ? `${parts.join(', ')}.` : 'Für Belastung und Streckenhöhe lagen keine belastbaren Live-Daten vor.';
+    let metrics = parts.length ? `${parts.join(', ')}.` : 'Für Belastung und Streckenhöhe lagen keine belastbaren Live-Daten vor.';
+    if (!parts.length && record?.telemetryStatus) {
+        const samples = Math.max(0, Math.round(Number(record.telemetrySampleCount || 0)));
+        metrics = samples > 0
+            ? `Der Recorder erhielt ${samples} Live-Proben, aber keine auswertbaren G-, Bank- oder Streckenhöhenwerte.`
+            : 'Der Recorder erhielt während dieses Fluges keine auswertbaren Live-Proben.';
+    }
     return `${metrics} ${altitude.text}`;
 }
 

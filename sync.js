@@ -1553,6 +1553,8 @@ let flightRecorder = {
     maxClimbFpm: 0,
     maxDescentFpm: 0,
     minEnrouteAglFt: null,
+    enrouteSamples: 0,
+    aglSamples: 0,
     levelAltSamples: 0,
     levelAltMeanFt: 0,
     levelAltM2: 0,
@@ -2201,6 +2203,46 @@ function _clearActiveMissionRuntimeMarker(reason = 'runtime-clear') {
     });
 }
 
+function _compactFlightRecordForRuntime(record = null) {
+    if (!record || typeof record !== 'object') return null;
+    const finiteOrNull = value => value != null && Number.isFinite(Number(value)) ? Number(value) : null;
+    return {
+        createdAt: finiteOrNull(record.createdAt),
+        endTs: finiteOrNull(record.endTs),
+        startTs: finiteOrNull(record.startTs),
+        depLabel: String(record.depLabel || '').slice(0, 64),
+        arrLabel: String(record.arrLabel || '').slice(0, 64),
+        durationSec: finiteOrNull(record.durationSec),
+        distanceNm: finiteOrNull(record.distanceNm),
+        distanceSource: String(record.distanceSource || '').slice(0, 24),
+        maxGs: finiteOrNull(record.maxGs),
+        maxAltFt: finiteOrNull(record.maxAltFt),
+        touchdownVsFpm: finiteOrNull(record.touchdownVsFpm),
+        maxBankDeg: finiteOrNull(record.maxBankDeg),
+        maxGForce: finiteOrNull(record.maxGForce),
+        avgGForce: finiteOrNull(record.avgGForce),
+        maxClimbFpm: finiteOrNull(record.maxClimbFpm),
+        maxDescentFpm: finiteOrNull(record.maxDescentFpm),
+        minEnrouteAglFt: finiteOrNull(record.minEnrouteAglFt),
+        cruiseAltitudeMeanFt: finiteOrNull(record.cruiseAltitudeMeanFt),
+        cruiseAltitudeStdDevFt: finiteOrNull(record.cruiseAltitudeStdDevFt),
+        cruiseAltitudeRangeFt: finiteOrNull(record.cruiseAltitudeRangeFt),
+        telemetrySampleCount: Math.max(0, Math.round(Number(record.telemetrySampleCount || 0))),
+        bankSampleCount: Math.max(0, Math.round(Number(record.bankSampleCount || 0))),
+        gForceSampleCount: Math.max(0, Math.round(Number(record.gForceSampleCount || 0))),
+        enrouteSampleCount: Math.max(0, Math.round(Number(record.enrouteSampleCount || 0))),
+        aglSampleCount: Math.max(0, Math.round(Number(record.aglSampleCount || 0))),
+        cruiseSampleCount: Math.max(0, Math.round(Number(record.cruiseSampleCount || 0))),
+        cruiseDurationSec: Math.max(0, Math.round(Number(record.cruiseDurationSec || 0))),
+        telemetryStatus: String(record.telemetryStatus || '').slice(0, 24),
+        missionCargoOutcome: record.missionCargoOutcome
+            ? _safeCloneJson(record.missionCargoOutcome, null)
+            : null,
+        missionFailed: !!record.missionFailed,
+        poiNeedsRideHome: !!record.poiNeedsRideHome
+    };
+}
+
 function _buildMissionRuntimeSnapshot(reason = 'runtime') {
     const missionId = _activeMissionRuntimeId('');
     if (!missionId) return null;
@@ -2232,7 +2274,9 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             endReadinessKey: String(missionRuntime.endReadinessKey || ''),
             completionRecord: missionRuntime.completionRecord
                 ? _safeCloneJson(missionRuntime.completionRecord, null)
-                : null
+                : null,
+            arrivalFlightRecord: _compactFlightRecordForRuntime(missionRuntime.arrivalFlightRecord),
+            pendingFarewellRecord: _compactFlightRecordForRuntime(missionRuntime.pendingFarewellRecord)
         },
         poiProgress: poiProgress ? {
             satisfied: !!poiProgress.satisfied,
@@ -2269,13 +2313,24 @@ function _buildMissionRuntimeSnapshot(reason = 'runtime') {
             maxDescentFpm: Math.min(0, Number(flightRecorder.maxDescentFpm || 0)),
             touchdownVsFpm: flightRecorder.touchdownVsFpm != null && Number.isFinite(Number(flightRecorder.touchdownVsFpm)) ? Number(flightRecorder.touchdownVsFpm) : null,
             minEnrouteAglFt: flightRecorder.minEnrouteAglFt != null && Number.isFinite(Number(flightRecorder.minEnrouteAglFt)) ? Number(flightRecorder.minEnrouteAglFt) : null,
+            enrouteSamples: Math.max(0, Number(flightRecorder.enrouteSamples || 0)),
+            aglSamples: Math.max(0, Number(flightRecorder.aglSamples || 0)),
             levelAltSamples: Math.max(0, Number(flightRecorder.levelAltSamples || 0)),
             levelAltMeanFt: Number(flightRecorder.levelAltMeanFt || 0),
             levelAltM2: Math.max(0, Number(flightRecorder.levelAltM2 || 0)),
             levelAltMinFt: flightRecorder.levelAltMinFt != null && Number.isFinite(Number(flightRecorder.levelAltMinFt)) ? Number(flightRecorder.levelAltMinFt) : null,
             levelAltMaxFt: flightRecorder.levelAltMaxFt != null && Number.isFinite(Number(flightRecorder.levelAltMaxFt)) ? Number(flightRecorder.levelAltMaxFt) : null,
-            levelAltDurationSec: Math.max(0, Number(flightRecorder.levelAltDurationSec || 0))
+            levelAltDurationSec: Math.max(0, Number(flightRecorder.levelAltDurationSec || 0)),
+            lastSample: Array.isArray(flightRecorder.lastSample)
+                && flightRecorder.lastSample.length >= 2
+                && Number.isFinite(Number(flightRecorder.lastSample[0]))
+                && Number.isFinite(Number(flightRecorder.lastSample[1]))
+                ? [Number(flightRecorder.lastSample[0]), Number(flightRecorder.lastSample[1])]
+                : null
         } : null,
+        comfort: typeof window.paxVoiceGetComfortState === 'function'
+            ? _safeCloneJson(window.paxVoiceGetComfortState(), null)
+            : null,
         sceneStatus: {
             sceneId: window.missionSceneStatus?.sceneId || null,
             spawned: !!window.missionSceneStatus?.spawned,
@@ -3624,12 +3679,20 @@ function _restoreFlightRecorderFromRuntimeSnapshot(snapshot = null) {
     flightRecorder.maxDescentFpm = Math.min(0, Number(src.maxDescentFpm || 0));
     flightRecorder.touchdownVsFpm = src.touchdownVsFpm != null && Number.isFinite(Number(src.touchdownVsFpm)) ? Number(src.touchdownVsFpm) : null;
     flightRecorder.minEnrouteAglFt = src.minEnrouteAglFt != null && Number.isFinite(Number(src.minEnrouteAglFt)) ? Number(src.minEnrouteAglFt) : null;
+    flightRecorder.enrouteSamples = Math.max(0, Number(src.enrouteSamples || 0));
+    flightRecorder.aglSamples = Math.max(0, Number(src.aglSamples || 0));
     flightRecorder.levelAltSamples = Math.max(0, Number(src.levelAltSamples || 0));
     flightRecorder.levelAltMeanFt = Number(src.levelAltMeanFt || 0);
     flightRecorder.levelAltM2 = Math.max(0, Number(src.levelAltM2 || 0));
     flightRecorder.levelAltMinFt = src.levelAltMinFt != null && Number.isFinite(Number(src.levelAltMinFt)) ? Number(src.levelAltMinFt) : null;
     flightRecorder.levelAltMaxFt = src.levelAltMaxFt != null && Number.isFinite(Number(src.levelAltMaxFt)) ? Number(src.levelAltMaxFt) : null;
     flightRecorder.levelAltDurationSec = Math.max(0, Number(src.levelAltDurationSec || 0));
+    flightRecorder.lastSample = Array.isArray(src.lastSample)
+        && src.lastSample.length >= 2
+        && Number.isFinite(Number(src.lastSample[0]))
+        && Number.isFinite(Number(src.lastSample[1]))
+        ? [Number(src.lastSample[0]), Number(src.lastSample[1])]
+        : null;
     return true;
 }
 
@@ -3679,6 +3742,9 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     }
     _restoreCargoManifestFromRuntimeSnapshot(snap);
     _restoreFlightRecorderFromRuntimeSnapshot(snap);
+    if (snap.comfort && typeof window.paxVoiceRestoreComfortState === 'function') {
+        try { window.paxVoiceRestoreComfortState(snap.comfort); } catch (_) {}
+    }
 
     if (shouldBeActive) {
         _setMissionStartPhase('boarded');
@@ -3709,6 +3775,12 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     missionRuntime.farewellDoorReady = false;
     missionRuntime.pendingFarewellRecord = null;
     missionRuntime.pendingFarewellReason = '';
+    missionRuntime.arrivalFlightRecord = runtime.arrivalFlightRecord && typeof runtime.arrivalFlightRecord === 'object'
+        ? _safeCloneJson(runtime.arrivalFlightRecord, null)
+        : null;
+    missionRuntime.pendingFarewellRecord = runtime.pendingFarewellRecord && typeof runtime.pendingFarewellRecord === 'object'
+        ? _safeCloneJson(runtime.pendingFarewellRecord, null)
+        : null;
     missionRuntime.completionRecord = runtime.completionRecord && typeof runtime.completionRecord === 'object'
         ? _safeCloneJson(runtime.completionRecord, null)
         : null;
@@ -8481,13 +8553,29 @@ function _buildMissionCompletionRecord(options = {}) {
     const startedAt = Number(flight.startTs || missionRuntime.startedAt || 0);
     const durationSec = _completionFinite(flight.durationSec)
         ?? (startedAt > 0 ? Math.max(1, Math.round((endedAt - startedAt) / 1000)) : null);
-    const distanceNm = _completionFinite(flight.distanceNm, 1)
+    const recordedDistanceNm = _completionFinite(flight.distanceNm, 1);
+    const distanceNm = recordedDistanceNm
         ?? _completionFinite(parseFloat(String(md.dist ?? md.distanceNm ?? '').replace(',', '.')), 1);
     const cargoOutcome = options.outcome || flight.missionCargoOutcome || missionRuntime.closingOutcome || null;
     let comfort = null;
     if (_missionCompletionHasPassengers() && typeof window.paxVoiceGetComfortSummary === 'function') {
         try { comfort = window.paxVoiceGetComfortSummary(); } catch (_) {}
     }
+    const comfortHasSamples = Number(comfort?.samples || 0) > 0;
+    const maxGForce = _completionFinite(flight.maxGForce, 2)
+        ?? (comfortHasSamples ? _completionFinite(comfort?.maxG, 2) : null);
+    const maxBankDeg = _completionFinite(flight.maxBankDeg, 1)
+        ?? (comfortHasSamples ? _completionFinite(comfort?.maxBankDeg, 1) : null);
+    const telemetrySampleCount = Math.max(0, Math.round(Number(flight.telemetrySampleCount || 0)));
+    const bankSampleCount = Math.max(0, Math.round(Number(flight.bankSampleCount || 0)));
+    const gForceSampleCount = Math.max(0, Math.round(Number(flight.gForceSampleCount || 0)));
+    const enrouteSampleCount = Math.max(0, Math.round(Number(flight.enrouteSampleCount || 0)));
+    const aglSampleCount = Math.max(0, Math.round(Number(flight.aglSampleCount || 0)));
+    const telemetryStatus = _completionText(
+        flight.telemetryStatus
+        || ((maxGForce != null || maxBankDeg != null) ? 'partial' : 'unavailable'),
+        24
+    );
     const completionId = `${missionId}-${Math.round(endedAt)}`;
     const start = _completionText(flight.depLabel || md.start || (typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || 'START', 64);
     const actualLanding = _completionText(flight.arrLabel || md.dest || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || 'LANDUNG', 64);
@@ -8517,11 +8605,12 @@ function _buildMissionCompletionRecord(options = {}) {
         durationSec: durationSec == null ? null : Math.round(durationSec),
         distanceNm,
         dist: distanceNm,
+        distanceSource: _completionText(recordedDistanceNm != null ? (flight.distanceSource || 'gps') : 'planned', 24),
         result: cargoOutcome?.failed || flight.missionFailed ? 'failed' : 'completed',
         failed: !!(cargoOutcome?.failed || flight.missionFailed),
         simulated: !!window.simModeActive,
-        maxGForce: _completionFinite(flight.maxGForce, 2),
-        maxBankDeg: _completionFinite(flight.maxBankDeg, 1),
+        maxGForce,
+        maxBankDeg,
         touchdownVsFpm: _completionFinite(flight.touchdownVsFpm),
         maxClimbFpm: _completionFinite(flight.maxClimbFpm),
         maxDescentFpm: _completionFinite(flight.maxDescentFpm),
@@ -8529,6 +8618,12 @@ function _buildMissionCompletionRecord(options = {}) {
         cruiseAltitudeMeanFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeMeanFt) : null,
         cruiseAltitudeStdDevFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeStdDevFt) : null,
         cruiseAltitudeRangeFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeRangeFt) : null,
+        telemetryStatus,
+        telemetrySampleCount,
+        bankSampleCount: bankSampleCount || (comfortHasSamples ? Math.max(0, Math.round(Number(comfort.samples || 0))) : 0),
+        gForceSampleCount: gForceSampleCount || (comfortHasSamples ? Math.max(0, Math.round(Number(comfort.samples || 0))) : 0),
+        enrouteSampleCount,
+        aglSampleCount,
         cruiseSampleCount: cruiseCount,
         cruiseDurationSec,
         comfort: comfort ? {
@@ -8537,7 +8632,11 @@ function _buildMissionCompletionRecord(options = {}) {
             pilotEvents: Math.max(0, Math.round(Number(comfort.pilotEvents || 0))),
             pilotSevere: Math.max(0, Math.round(Number(comfort.pilotSevere || 0))),
             weatherEvents: Math.max(0, Math.round(Number(comfort.weatherEvents || 0))),
-            weatherSevere: Math.max(0, Math.round(Number(comfort.weatherSevere || 0)))
+            weatherSevere: Math.max(0, Math.round(Number(comfort.weatherSevere || 0))),
+            samples: Math.max(0, Math.round(Number(comfort.samples || 0))),
+            maxG: _completionFinite(comfort.maxG, 2),
+            maxBankDeg: _completionFinite(comfort.maxBankDeg, 1),
+            maxDescentFpm: _completionFinite(comfort.maxDescentFpm)
         } : null,
         cargo: _missionCompletionHasCargo() && cargoOutcome ? {
             status: _completionText(cargoOutcome.status || (cargoOutcome.failed ? 'failed' : 'completed'), 32),
@@ -10672,11 +10771,11 @@ window.manualMissionEnd = function(options = {}) {
         bushGroundEndReady: !!bushGroundEndReady,
         poiGroundEndReady: !!poiGroundEndReady
     });
-    _setMissionClosePending({ reason: 'manual-mission-end', outcome: cargoOutcome });
     const pos = window.lastLiveGpsPos;
     const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
     if (shouldFinalize) finalizeFlightRecorder(Date.now(), pos?.lat ?? null, pos?.lon ?? null);
     else resetFlightRecorder();
+    _setMissionClosePending({ reason: 'manual-mission-end', outcome: cargoOutcome });
     return endSceneStarted || cargoOutcome || true;
 };
 
@@ -11204,6 +11303,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'poiPresentation', 'isPOI', 'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
+        'poiTerrainFt', 'poiTerrainMaxFt', 'poiTerrainRadiusNm', 'poiTerrainEnvelope',
         'missionSubType', 'poiChain',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
@@ -14478,6 +14578,8 @@ function resetFlightRecorder() {
         maxClimbFpm: 0,
         maxDescentFpm: 0,
         minEnrouteAglFt: null,
+        enrouteSamples: 0,
+        aglSamples: 0,
         levelAltSamples: 0,
         levelAltMeanFt: 0,
         levelAltM2: 0,
@@ -14492,7 +14594,7 @@ function addFlightTrackPoint(lat, lon, alt, now, force = false) {
     const prev = r.track.length ? r.track[r.track.length - 1] : null;
     if (!force && prev) {
         const prevLatLng = [prev[0], prev[1]];
-        const dM = map && typeof map.distance === 'function' ? map.distance(prevLatLng, [lat, lon]) : 0;
+        const dM = _liveTrailDistanceM(prevLatLng, [lat, lon]);
         const dtMs = now - ((prev[3] || 0) + r.startTs);
         if (dtMs < 1000) return; // max 1 Punkt/s
         if (dM < 180 && dtMs < 15000) return;
@@ -14562,18 +14664,28 @@ function _buildFlightRecordSnapshot(now) {
     const endTs = Number.isFinite(now) ? now : Date.now();
     const durationSec = Math.max(1, Math.round((endTs - r.startTs) / 1000));
     const avgGs = r.gsSamples > 0 ? (r.sumGs / r.gsSamples) : 0;
-    if (r.distNm < 2 || durationSec < 120 || r.track.length < 2) {
+    const telemetrySampleCount = Math.max(r.gsSamples || 0, r.bankSamples || 0, r.gForceSamples || 0);
+    const hasFlightEvidence = !!(
+        r.hadAirbornePhase
+        || Number(r.airborneEvidenceSec || 0) >= 8
+        || Number(r.maxAglFt || 0) >= 500
+    );
+    if (!hasFlightEvidence || durationSec < 15 || telemetrySampleCount < 2) {
         return null;
     }
 
     const track = compactFlightTrackForStorage(r.track, 220);
-
-    const dep = track[0];
-    const arr = track[track.length - 1];
-    const depLabel = (typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : nearestAirportLabel(dep[0], dep[1]);
+    const dep = track.length ? track[0] : null;
+    const arr = track.length ? track[track.length - 1] : null;
+    const depLabel = (typeof currentStartICAO !== 'undefined' && currentStartICAO)
+        ? currentStartICAO
+        : (dep ? nearestAirportLabel(dep[0], dep[1]) : 'START');
     const arrLabel = (typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI')
         ? currentDestICAO
-        : nearestAirportLabel(arr[0], arr[1]);
+        : (arr ? nearestAirportLabel(arr[0], arr[1]) : 'LANDUNG');
+    const measuredDistanceNm = Number.isFinite(Number(r.distNm)) && Number(r.distNm) >= 0.05
+        ? Number(Number(r.distNm).toFixed(1))
+        : null;
 
     const cargoOutcome = (typeof currentMissionData !== 'undefined' && currentMissionData)
         ? (currentMissionData.cargoOutcome || currentMissionData.missionContract?.cargoOutcome || null)
@@ -14585,7 +14697,8 @@ function _buildFlightRecordSnapshot(now) {
         depLabel,
         arrLabel,
         durationSec,
-        distanceNm: Number(r.distNm.toFixed(1)),
+        distanceNm: measuredDistanceNm,
+        distanceSource: measuredDistanceNm == null ? 'unavailable' : 'gps',
         avgGs: Number(avgGs.toFixed(1)),
         maxGs: Number(r.maxGs.toFixed(1)),
         maxAltFt: Math.round(r.maxAltFt),
@@ -14602,8 +14715,16 @@ function _buildFlightRecordSnapshot(now) {
         cruiseAltitudeRangeFt: r.levelAltSamples >= 10 && Number.isFinite(r.levelAltMinFt) && Number.isFinite(r.levelAltMaxFt)
             ? Math.round(r.levelAltMaxFt - r.levelAltMinFt)
             : null,
+        telemetrySampleCount: Math.round(telemetrySampleCount),
+        bankSampleCount: Math.round(r.bankSamples || 0),
+        gForceSampleCount: Math.round(r.gForceSamples || 0),
+        enrouteSampleCount: Math.round(r.enrouteSamples || 0),
+        aglSampleCount: Math.round(r.aglSamples || 0),
         cruiseSampleCount: Math.round(r.levelAltSamples || 0),
-        cruiseDurationSec: Math.round(r.levelAltDurationSec || 0)
+        cruiseDurationSec: Math.round(r.levelAltDurationSec || 0),
+        telemetryStatus: r.bankSamples > 0 && r.gForceSamples > 0
+            ? 'complete'
+            : (telemetrySampleCount > 0 ? 'partial' : 'unavailable')
     };
     if (cargoOutcome) record.missionCargoOutcome = cargoOutcome;
     return record;
@@ -14740,8 +14861,8 @@ function updateFlightRecorder(lat, lon, alt) {
     }
 
     // Reposition/Teleport erkannt (typisch nach falschem Start + neu laden): Recorder sauber verwerfen.
-    if (r.lastSample && map && typeof map.distance === 'function') {
-        const dM = map.distance(r.lastSample, [lat, lon]);
+    if (r.lastSample) {
+        const dM = _liveTrailDistanceM(r.lastSample, [lat, lon]);
         const dNm = dM / 1852;
         if (dNm > 5 && gs < 40 && (hasOnGroundFlag ? onGroundNow : agl < 200)) {
             console.warn(`[FlightRec] Reposition erkannt (${dNm.toFixed(1)} NM Sprung) -> Recorder reset`);
@@ -14789,11 +14910,13 @@ function updateFlightRecorder(lat, lon, alt) {
         && r.distNm >= 2
         && gs >= 35
         && (dTargetNm == null || !Number.isFinite(Number(dTargetNm)) || Number(dTargetNm) > 2);
+    if (enrouteSample) r.enrouteSamples += 1;
     if (enrouteSample && _lfd?.aglFt != null && Number.isFinite(Number(_lfd.aglFt))) {
         const directAgl = Math.max(0, Number(_lfd.aglFt));
         r.minEnrouteAglFt = Number.isFinite(r.minEnrouteAglFt)
             ? Math.min(r.minEnrouteAglFt, directAgl)
             : directAgl;
+        r.aglSamples += 1;
     }
     if (enrouteSample && Number.isFinite(Number(alt)) && Number.isFinite(smoothedVS) && Math.abs(smoothedVS) <= 350) {
         const altitudeFt = Number(alt);
