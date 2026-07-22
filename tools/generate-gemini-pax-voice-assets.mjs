@@ -67,6 +67,18 @@ const TRAINING_CLIPS = [
     text: 'Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.'
   },
   {
+    key: 'training_start_available',
+    text: 'Ausgangslage passt. Wenn du bereit bist, starte jetzt die Uebung im Pax-Fenster.'
+  },
+  {
+    key: 'training_values_correct',
+    text: 'Die Werte passen. Genau so weiter.'
+  },
+  {
+    key: 'training_values_deviation',
+    text: 'Die Sollwerte sind verlassen. Ruhig zurueck ins Band korrigieren.'
+  },
+  {
     key: 'training_optional_started',
     text: 'Zusatzuebung angenommen. Das ist freiwillig; wir fliegen sie sauber, aber der Pflichtteil ist schon erledigt.'
   },
@@ -89,6 +101,26 @@ const TRAINING_CLIPS = [
   {
     key: 'training_instruction_stall',
     text: 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen.'
+  },
+  {
+    key: 'training_setup_turn_360_30',
+    text: 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten. Nimm zuerst eine ruhige Ausgangslage ein; danach startest du die Uebung im Pax-Fenster.'
+  },
+  {
+    key: 'training_setup_turn_360_45',
+    text: 'Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten. Erst stabilisieren, dann die Uebung im Pax-Fenster starten.'
+  },
+  {
+    key: 'training_setup_turn_180',
+    text: 'Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen. Erst stabilisieren, dann die Uebung im Pax-Fenster starten.'
+  },
+  {
+    key: 'training_setup_altitude_step',
+    text: 'Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus. Erst die Ausgangslage beruhigen, dann im Pax-Fenster starten.'
+  },
+  {
+    key: 'training_setup_stall',
+    text: 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen. Erst eine sichere stabile Ausgangslage herstellen, dann im Pax-Fenster starten.'
   },
   {
     key: 'training_turn_entry',
@@ -463,20 +495,33 @@ async function requestGeminiTts(apiKey, model, text, voice) {
     }
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-  );
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Gemini TTS HTTP ${res.status}: ${body.slice(0, 240)}`);
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      const dailyQuota = /per_model_per_day|per day/i.test(body);
+      const retryMatch = body.match(/retry in\s+([0-9.]+)s/i);
+      if (res.status === 429 && !dailyQuota && attempt < 6) {
+        const retryMs = retryMatch
+          ? Math.min(60000, Math.max(1000, Math.ceil(Number(retryMatch[1]) * 1000) + 500))
+          : 60000;
+        console.log(`[quota] ${model} ${voice}: retry ${attempt}/5 in ${Math.ceil(retryMs / 1000)}s`);
+        await delay(retryMs);
+        continue;
+      }
+      throw new Error(`Gemini TTS HTTP ${res.status}: ${body.slice(0, 1200)}`);
+    }
+    const data = await res.json();
+    const inline = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    const b64 = inline?.data;
+    const mimeType = inline?.mimeType || '';
+    if (!b64) throw new Error('Gemini TTS lieferte keine inlineData');
+    return { bytes: Buffer.from(b64, 'base64'), mimeType };
   }
-  const data = await res.json();
-  const inline = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-  const b64 = inline?.data;
-  const mimeType = inline?.mimeType || '';
-  if (!b64) throw new Error('Gemini TTS lieferte keine inlineData');
-  return { bytes: Buffer.from(b64, 'base64'), mimeType };
+  throw new Error('Gemini TTS Retry-Limit erreicht');
 }
 
 function encodeAudioForFile(bytes, mimeType) {

@@ -2275,7 +2275,8 @@ function _injectPaxUI() {
         grid-template-columns:1fr; gap:6px;
     `;
     trainingMenu.innerHTML = `
-        <button type="button" id="paxTrainingReadyBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureReady && paxTrainingProcedureReady()">Bereit für Übung</button>
+        <button type="button" id="paxTrainingReadyBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureReady && paxTrainingProcedureReady()">Übung starten</button>
+        <button type="button" id="paxTrainingAbortBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureAbort && paxTrainingProcedureAbort()">Übung abbrechen</button>
         <button type="button" id="paxTrainingExtraBtn" class="pax-fire-btn pax-training-action-btn" onclick="window.paxTrainingProcedureRequestExtra && paxTrainingProcedureRequestExtra()">Weitere Übung</button>
     `;
 
@@ -3249,17 +3250,21 @@ function _trainingProcedureControlState() {
     const requiredComplete = !!snap?.requiredComplete;
     const ready = !!snap?.ready;
     const readyPrompted = !!snap?.readyPrompted;
+    const startAvailable = !!snap?.startAvailable;
     const activeExercise = !!(snap?.activeExercise && String(snap.activeExercise.status || '') === 'active');
     const optionalAvailable = !!snap?.optionalAvailable;
     return {
         active: true,
-        readyVisible: !requiredComplete && !ready && readyPrompted,
-        readyEnabled: !requiredComplete && !ready && readyPrompted,
-        extraVisible: requiredComplete && optionalAvailable,
+        readyVisible: !ready && readyPrompted && (!requiredComplete || !!snap?.optionalRequested),
+        readyEnabled: !ready && readyPrompted && startAvailable && (!requiredComplete || !!snap?.optionalRequested),
+        abortVisible: activeExercise,
+        abortEnabled: activeExercise,
+        extraVisible: requiredComplete && optionalAvailable && !snap?.optionalRequested,
         extraEnabled: requiredComplete && optionalAvailable && !activeExercise && !snap?.optionalRequested,
         requiredComplete,
         ready,
         readyPrompted,
+        startAvailable,
         activeExercise,
         optionalAvailable,
         snap,
@@ -3269,21 +3274,29 @@ function _trainingProcedureControlState() {
 
 function _trainingProcedureMenuAvailable() {
     const state = _trainingProcedureControlState();
-    return !!(state.active && (state.readyVisible || state.extraVisible));
+    return !!(state.active && (state.readyVisible || state.abortVisible || state.extraVisible));
 }
 
 function _refreshTrainingProcedureMenu() {
     const menu = document.getElementById('paxTrainingProcedureMenu');
     if (!menu) return;
     const state = _trainingProcedureControlState();
-    const visible = !!(state.active && (state.readyVisible || state.extraVisible));
+    const visible = !!(state.active && (state.readyVisible || state.abortVisible || state.extraVisible));
     menu.style.display = visible ? 'grid' : 'none';
     const readyBtn = document.getElementById('paxTrainingReadyBtn');
+    const abortBtn = document.getElementById('paxTrainingAbortBtn');
     const extraBtn = document.getElementById('paxTrainingExtraBtn');
     if (readyBtn) {
         readyBtn.style.display = state.readyVisible ? 'block' : 'none';
         readyBtn.disabled = !state.readyEnabled;
-        readyBtn.title = 'Startet die zwei vorbereiteten Uebungen, sobald die Maschine stabil in Trainingshoehe ist.';
+        readyBtn.title = state.readyEnabled
+            ? 'Legt mit dem nächsten Live-Tick Ausgangskurs und Ausgangshöhe fest und startet nur diese Übung.'
+            : 'Erst mindestens drei Sekunden mit ruhigen Flügeln und stabiler Vertikalgeschwindigkeit fliegen.';
+    }
+    if (abortBtn) {
+        abortBtn.style.display = state.abortVisible ? 'block' : 'none';
+        abortBtn.disabled = !state.abortEnabled;
+        abortBtn.title = 'Bricht nur den aktuellen Durchlauf ab und kehrt zur stabilen Ausgangslage mit neuer Startfreigabe zurück.';
     }
     if (extraBtn) {
         extraBtn.style.display = state.extraVisible ? 'block' : 'none';
@@ -3300,8 +3313,12 @@ function _refreshTrainingProcedureMenu() {
     }
     if (visible && textEl && !textEl.textContent) {
         textEl.textContent = state.readyVisible
-            ? 'Trainingshoehe erreicht? Dann melde die Bereitschaft, sobald du stabil bist.'
-            : 'Die vorbereiteten Uebungen sitzen. Du kannst freiwillig noch eine Uebung anfragen.';
+            ? (state.startAvailable
+                ? 'Ausgangslage ist stabil. Mit „Übung starten“ werden Kurs und Höhe neu als Referenz gesetzt.'
+                : 'Einweisung läuft. Flügel ruhig halten und die Vertikalgeschwindigkeit stabilisieren.')
+            : (state.abortVisible
+                ? 'Der Durchlauf läuft. Du kannst ihn jederzeit abbrechen und neu stabilisieren.'
+                : 'Die vorbereiteten Uebungen sitzen. Du kannst freiwillig noch eine Uebung anfragen.');
     }
 }
 
@@ -3322,13 +3339,37 @@ window.paxTrainingProcedureReady = function() {
         window.activePassenger || null
     );
     const text = result?.ok
-        ? 'Alles klar, Bereitschaft ist notiert. Ich starte jetzt mit den zwei vorbereiteten Uebungen und sage die erste Aufgabe an.'
+        ? 'Übung läuft ab jetzt. Ausgangskurs und Ausgangshöhe werden mit dem nächsten Messwert festgelegt.'
         : (result?.reason === 'required_complete'
             ? 'Die vorbereiteten Uebungen sind bereits erledigt. Wenn du noch mehr willst, frag eine Zusatzuebung an.'
-            : 'Ich finde gerade keinen aktiven Trainingsplan. Halte den Flug stabil, dann versuchen wir es gleich nochmal.');
-    _trainingProcedureControlSpeak(text, 'Training bereit');
+            : (result?.reason === 'departure_distance'
+                ? 'Noch keine Freigabe. Wir müssen zuerst mindestens fünf nautische Meilen vom Startplatz entfernt sein.'
+                : (result?.reason === 'not_stable'
+                    ? 'Noch nicht stabil genug. Halte die Flügel ruhig und die Vertikalgeschwindigkeit klein, dann wird der Startknopf frei.'
+                    : 'Die Einweisung für diese Übung ist noch nicht abgeschlossen. Warte kurz auf meine Ansage.')));
+    _trainingProcedureControlSpeak(text, 'Übungsstart');
     if (typeof window.missionPersistRuntimeSnapshot === 'function') {
         window.missionPersistRuntimeSnapshot('training-ready-button', { immediate: true });
+    }
+    _refreshTrainingProcedureMenu();
+    _refreshPaxWidgetVisibility();
+};
+
+window.paxTrainingProcedureAbort = function() {
+    if (typeof window.missionTrainingProcedure?.abortExercise !== 'function') {
+        _trainingProcedureControlSpeak('Der Abbruch ist gerade nicht verfügbar.', 'Training Abbruch');
+        return;
+    }
+    const result = window.missionTrainingProcedure.abortExercise(
+        (typeof currentMissionData !== 'undefined' ? currentMissionData : null),
+        window.activePassenger || null
+    );
+    const text = result?.ok
+        ? 'Übung abgebrochen. Geh zurück in eine ruhige Ausgangslage. Ich erkläre den Durchlauf gleich noch einmal; danach startest du ihn erneut per Knopf.'
+        : 'Es läuft gerade keine Übung, die ich abbrechen kann.';
+    _trainingProcedureControlSpeak(text, 'Training Abbruch');
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+        window.missionPersistRuntimeSnapshot('training-abort-button', { immediate: true });
     }
     _refreshTrainingProcedureMenu();
     _refreshPaxWidgetVisibility();
@@ -4302,7 +4343,7 @@ const _paxPreparedAudio = new Map();
 const _paxBoardingRecentPlayByKey = new Map();
 const _PAX_STATIC_VOICE_CATALOG_URLS = Object.freeze({
     survey: './audio-pax/gemini-survey-v1/catalog.json',
-    training: './audio-pax/gemini-training-v1/catalog.json'
+    training: './audio-pax/gemini-training-v1/catalog.json?v=20260722-2'
 });
 const _PAX_AUDIO_CUE_VARIANT_MAX = 8;
 const _PAX_AUDIO_CUE_CATALOG = Object.freeze({
@@ -4896,7 +4937,7 @@ function _trainingProcedureScheduleText() {
     return [
         required ? `Ich habe heute zwei Uebungen fuer dich vorbereitet: ${required}.` : 'Ich habe heute zwei saubere Uebungen fuer dich vorbereitet.',
         optional ? `Wenn das gut sitzt, kannst du spaeter noch eine Zusatzuebung anfragen.` : 'Wenn das gut sitzt, bleiben wir bei Rueckkehr und Debriefing.',
-        'Im Flug steigen wir erst auf Trainingshoehe. Wenn die Maschine stabil ist, gibst du mir im Pax-Fenster mit dem Bereit-Button frei.'
+        'Freigabe gibt es erst mindestens fuenf nautische Meilen vom Startplatz entfernt. Jede Uebung wird einzeln angesagt; danach stabilisierst du die Maschine und startest nur diesen Durchlauf im Pax-Fenster.'
     ].join(' ');
 }
 
@@ -5612,16 +5653,19 @@ function _trainingProcedureEventKind(event = null) {
     if (type === 'training_complete') return 'training_complete';
     if (type === 'training_required_complete') return 'training_required_complete';
     if (type === 'training_ready_available') return 'training_ready_available';
+    if (type === 'training_start_available') return 'training_start_available';
+    if (type === 'training_values_correct') return 'training_values_correct';
+    if (type === 'training_values_deviation') return 'training_values_deviation';
     if (type === 'training_optional_started') return 'training_optional_started';
     if (type === 'stall_break_detected') return 'stall_break_detected';
     if (type === 'training_wait_altitude') return 'training_wait_altitude';
     if (type === 'exercise_instruction') {
         const exerciseType = String(event?.exerciseType || '').toLowerCase();
         const bank = Math.round(Number(event?.targetBankDeg || 0));
-        if (exerciseType === 'constant_bank_360') return bank >= 40 ? 'training_instruction_turn_360_45' : 'training_instruction_turn_360_30';
-        if (exerciseType === 'turn_180') return 'training_instruction_turn_180';
-        if (exerciseType === 'altitude_step_hold') return 'training_instruction_altitude_step';
-        if (exerciseType === 'stall_recovery') return 'training_instruction_stall';
+        if (exerciseType === 'constant_bank_360') return bank >= 40 ? 'training_setup_turn_360_45' : 'training_setup_turn_360_30';
+        if (exerciseType === 'turn_180') return 'training_setup_turn_180';
+        if (exerciseType === 'altitude_step_hold') return 'training_setup_altitude_step';
+        if (exerciseType === 'stall_recovery') return 'training_setup_stall';
         return 'training_exercise_started';
     }
     if (type === 'training_caution') {
@@ -5680,18 +5724,34 @@ function _trainingProcedureVoiceText(kind = 'training_started') {
             return 'Neue Uebung. Erst stabilisieren, dann sauber und ohne Hast einleiten.';
         case 'training_ready_available':
             return 'Das ist eine gute Trainingshoehe. Stabilisiere die Maschine, und wenn du bereit bist, gib mir im Pax-Fenster die Bereitschaft.';
+        case 'training_start_available':
+            return 'Ausgangslage passt. Wenn du bereit bist, starte jetzt die Übung im Pax-Fenster.';
         case 'training_optional_started':
             return 'Zusatzuebung angenommen. Das ist freiwillig; die vorbereiteten Uebungen sitzen, jetzt fliegen wir sauber weiter.';
         case 'training_instruction_turn_360_30':
-            return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten.';
+            return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten. Nimm zuerst eine ruhige Ausgangslage ein; danach startest du die Übung im Pax-Fenster.';
         case 'training_instruction_turn_360_45':
-            return 'Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten.';
+            return 'Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten. Erst stabilisieren, dann die Übung im Pax-Fenster starten.';
         case 'training_instruction_turn_180':
-            return 'Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen.';
+            return 'Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen. Erst stabilisieren, dann die Übung im Pax-Fenster starten.';
         case 'training_instruction_altitude_step':
-            return 'Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus.';
+            return 'Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus. Erst die Ausgangslage beruhigen, dann im Pax-Fenster starten.';
         case 'training_instruction_stall':
-            return 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen.';
+            return 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen. Erst eine sichere stabile Ausgangslage herstellen, dann im Pax-Fenster starten.';
+        case 'training_setup_turn_360_30':
+            return 'Aufgabe: ein Vollkreis mit dreissig Grad Bank. Hoehe maximal fuenfzig Fuss abweichen lassen und sauber auf Ausgangskurs ausleiten. Nimm zuerst eine ruhige Ausgangslage ein; danach startest du die Übung im Pax-Fenster.';
+        case 'training_setup_turn_360_45':
+            return 'Aufgabe: ein Vollkreis mit fuenfundvierzig Grad Bank. Hoehe verteidigen, G-Belastung ruhig halten und sauber ausleiten. Erst stabilisieren, dann die Übung im Pax-Fenster starten.';
+        case 'training_setup_turn_180':
+            return 'Aufgabe: eine hundertachtzig-Grad-Wende. Hoehe halten, gleichmaessig drehen und den Zielkurs innerhalb von fuenf Grad treffen. Erst stabilisieren, dann die Übung im Pax-Fenster starten.';
+        case 'training_setup_altitude_step':
+            return 'Aufgabe: eine Minute Kurs und Hoehe halten, dann fuenfhundert Fuss wechseln und danach wieder eine Minute stabil geradeaus. Erst die Ausgangslage beruhigen, dann im Pax-Fenster starten.';
+        case 'training_setup_stall':
+            return 'Aufgabe: Stall bis zum echten Break. Hoehe halten, nicht vorzeitig nachdruecken, dann sauber abfangen. Erst eine sichere stabile Ausgangslage herstellen, dann im Pax-Fenster starten.';
+        case 'training_values_correct':
+            return 'Die Werte passen. Genau so weiter.';
+        case 'training_values_deviation':
+            return 'Die Sollwerte sind verlassen. Ruhig zurück ins Band korrigieren.';
         case 'training_turn_entry':
             return 'Jetzt den Ziel-Bankwinkel aufnehmen und die Hoehe halten.';
         case 'training_turn_rollout':
@@ -5781,6 +5841,7 @@ function _trainingProcedurePickEvent(events = []) {
         'training_repeat_bank',
         'training_repeat_speed',
         'training_repeat_required',
+        'training_values_deviation',
         'stall_caution_secondary',
         'stall_caution_stop_sink',
         'stall_caution_recovery',
@@ -5798,13 +5859,15 @@ function _trainingProcedurePickEvent(events = []) {
         'training_pass_clean',
         'training_pass_turn',
         'training_pass_altitude',
+        'training_values_correct',
         'stall_good_recovery',
-        'training_instruction_turn_360_30',
-        'training_instruction_turn_360_45',
-        'training_instruction_turn_180',
-        'training_instruction_altitude_step',
-        'training_instruction_stall',
+        'training_setup_turn_360_30',
+        'training_setup_turn_360_45',
+        'training_setup_turn_180',
+        'training_setup_altitude_step',
+        'training_setup_stall',
         'training_ready_available',
+        'training_start_available',
         'training_optional_started',
         'stall_hold_to_break',
         'stall_recovery',
@@ -5837,12 +5900,14 @@ window.paxVoicePrepareTrainingProcedure = function() {
     const epoch = _paxMissionEpoch;
     const speaker = _speakerSnapshotForMissionVoice('training-procedure');
     const kinds = [
-        'training_instruction_turn_360_30',
-        'training_instruction_turn_360_45',
-        'training_instruction_turn_180',
-        'training_instruction_altitude_step',
-        'training_instruction_stall',
-        'training_ready_available',
+        'training_setup_turn_360_30',
+        'training_setup_turn_360_45',
+        'training_setup_turn_180',
+        'training_setup_altitude_step',
+        'training_setup_stall',
+        'training_start_available',
+        'training_values_correct',
+        'training_values_deviation',
         'training_pass_turn',
         'training_pass_altitude',
         'stall_good_recovery',
@@ -6208,6 +6273,7 @@ function _tickTrainingProcedureTask(lat, lon, flightData) {
         result = window.missionTrainingProcedure.tick({
             lat,
             lon,
+            departureDistanceNm: _distanceFromDepartureNm(lat, lon),
             flightData,
             missionData: md,
             passenger: window.activePassenger || null
@@ -7369,6 +7435,7 @@ function _poiEntryPrompt(flightData) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
+    if (_activeAptTrainingPlan()) return null;
     const md    = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     const altFt = Math.round(flightData?.mslFt || 0);
     const wx    = _weatherContext(flightData);
@@ -7503,8 +7570,8 @@ function _poiTrainingPreZonePrompt(flightData, distNm) {
     return `${ctx}
 
 Moment: Wir sind noch ca. ${distTxt} NM vor dem Übungsgebiet.${wx ? ' ' + wx : ''}
-Briefing für die nächste Phase: ${focus}. Gib dem Piloten jetzt eine kurze, klare Vorbereitung auf die Übung.
-Keine Objektbeschreibung, kein "in Sicht", nur Verfahren/Sicherheit. Max 2 Sätze.${_toneHint()}`;
+Der Prüfer soll jetzt sagen, dass wir gleich im Übungsgebiet sind und der Pilot seine Bereitschaft über „Übung starten“ melden soll, sobald Fluglage und Vertikalgeschwindigkeit stabil sind. Der geplante Fokus ist: ${focus}.
+Keine Objektbeschreibung, kein "in Sicht", noch keine Startanweisung für ein Manöver. Max 2 Sätze.${_toneHint()}`;
 }
 
 function _poiTrainingZoneEntryPrompt(flightData) {
@@ -7919,7 +7986,7 @@ function _greetingMissionGuidance() {
             reqLine = `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`;
         }
     } else if (trainingPlan) {
-        reqLine = `Sprich als Instruktor. Nenne kurz, dass du zwei Uebungen vorbereitet hast, und erklaere, dass der Pilot im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button die Bereitschaft gibt. Weitere Uebungen nur auf freiwillige Anfrage. Keine Listenlogik mit Pflicht/Optional, keine Ortsstory, kein Sightseeing.`;
+        reqLine = `Sprich als Instruktor. Nenne kurz, dass du zwei Uebungen vorbereitet hast. Erklaere: Freigabe erst mindestens fuenf nautische Meilen vom Startplatz entfernt; jede Uebung wird zuerst angesagt und danach vom Piloten aus stabiler Fluglage einzeln über "Übung starten" begonnen. Weitere Uebungen nur auf freiwillige Anfrage. Keine Listenlogik mit Pflicht/Optional, keine Ortsstory, kein Sightseeing.`;
     } else if (isReporterApt) {
         reqLine = comfortHintNeeded
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
@@ -7989,7 +8056,7 @@ Max 3-4 Sätze.${_toneHint()}`;
         : '';
     const trainingSchedule = _trainingProcedureScheduleText();
     const trainingBoardingRule = trainingSchedule
-        ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass der Pilot erst im Flug bei stabiler Trainingshoehe per Pax-Fenster-Button "Bereit fuer Uebung" freigeben soll. Sage auch, dass nach den zwei vorbereiteten Uebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen. Keine Woerter wie Pflichtprogramm, Pflichtteil, Optional oder voller Plan.`
+        ? `\nTRAINING-BOARDING: ${trainingSchedule} Sage ausdruecklich, dass die Freigabe erst mindestens fuenf nautische Meilen vom Startplatz entfernt erfolgt und jede angesagte Uebung danach aus stabiler Fluglage einzeln per Pax-Fenster-Button "Uebung starten" beginnt. Sage auch, dass nach den zwei vorbereiteten Uebungen die Rueckkehr frei ist und weitere Uebungen nur per Zusatzbutton kommen. Keine Woerter wie Pflichtprogramm, Pflichtteil, Optional oder voller Plan.`
         : '';
     const personaGreetingSeed = String(_personaNarrativeSeedAllowed(pax) ? (pax?.greetingText || '') : '')
         .replace(/\{name\}/g, String(pax?.name || ''))
@@ -9337,21 +9404,24 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
             _poiTrainingLastDistToDestNm = distToDestNm;
 
             // 1) 4 NM vor Trainingsgebiet: Übungsbeschreibung/Einweisung
-            if (!_poiTrainingPreBriefDone && approaching && distToDestNm <= 4.0) {
+            const trainingSnapshot = _trainingProcedureSnapshot();
+            const trainingNotStarted = !trainingSnapshot?.startedAt
+                && !trainingSnapshot?.ready
+                && !trainingSnapshot?.active;
+            if (!_poiTrainingPreBriefDone && trainingNotStarted && approaching && distToDestNm <= 4.0) {
                 _poiTrainingPreBriefDone = true;
                 _paxLog(`Training-Trigger poi_prebrief_4nm | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
                 const p = _poiTrainingPreZonePrompt(flightData, distToDestNm);
-                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Prüfer'), 300);
             }
 
-            // 2) Beim Einflug in die Zone: Übung starten
+            // 2) Beim Einflug in die Zone nur den Gebietsstatus setzen. Die eigentliche
+            // Uebung startet ausschliesslich per Pilot-Button und kommentiert den POI nicht.
             const zoneNm = Math.max(1.2, Number(window.activePassenger?.targetRadiusNm || 0) || 0);
             if (!_poiTrainingZoneStartDone && distToDestNm <= zoneNm) {
                 _poiTrainingZoneStartDone = true;
                 _trainingEvalBegin();
                 _paxLog(`Training-Trigger poi_zone_entry | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
-                const p = _poiTrainingZoneEntryPrompt(flightData);
-                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
             }
 
             // 3) Rückanflug: entweder 5 NM (Pattern) oder 4 NM (normale Landung)

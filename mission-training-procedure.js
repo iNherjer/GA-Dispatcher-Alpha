@@ -4,6 +4,7 @@
     const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
 
     const DEFAULTS = {
+        minDepartureDistanceNm: 5,
         minAglFt: 1200,
         stallMinAglFt: 2500,
         requiredExerciseCount: 2,
@@ -265,6 +266,7 @@
             stallMinAglFt: clamp(source?.stallMinAglFt ?? DEFAULTS.stallMinAglFt, 1000, 10000),
             requiredCount,
             readyMinAglFt: clamp(source?.readyMinAglFt ?? plan?.readyMinAglFt ?? requiredMinAglFt, 500, 10000),
+            minDepartureDistanceNm: clamp(source?.minDepartureDistanceNm ?? DEFAULTS.minDepartureDistanceNm, 0, 50),
             exercises
         };
     }
@@ -277,8 +279,12 @@
             updatedAt: 0,
             satisfied: false,
             requiredComplete: false,
+            departureGatePassed: false,
             ready: false,
             readyPrompted: false,
+            startAvailable: false,
+            preStartStableSince: 0,
+            nextInstructionAt: 0,
             optionalRequested: false,
             optionalActive: false,
             lastGateEventAt: {},
@@ -304,8 +310,12 @@
         state.updatedAt = Number(saved.updatedAt || 0);
         state.satisfied = !!saved.satisfied;
         state.requiredComplete = !!(saved.requiredComplete || saved.satisfied);
-        state.ready = !!saved.ready || state.requiredComplete;
+        state.departureGatePassed = !!(saved.departureGatePassed || saved.startedAt || saved.active);
+        state.ready = !!saved.ready;
         state.readyPrompted = !!saved.readyPrompted;
+        state.startAvailable = !!saved.startAvailable;
+        state.preStartStableSince = Number(saved.preStartStableSince || 0);
+        state.nextInstructionAt = Number(saved.nextInstructionAt || 0);
         state.optionalRequested = !!saved.optionalRequested;
         state.optionalActive = !!saved.optionalActive;
         state.lastGateEventAt = saved.lastGateEventAt && typeof saved.lastGateEventAt === 'object' ? { ...saved.lastGateEventAt } : {};
@@ -335,8 +345,10 @@
             updatedAt: Number(state.updatedAt || 0),
             satisfied: !!(state.satisfied || state.requiredComplete),
             requiredComplete: !!state.requiredComplete,
+            departureGatePassed: !!state.departureGatePassed,
             ready: !!state.ready,
             readyPrompted: !!state.readyPrompted,
+            startAvailable: !!state.startAvailable,
             optionalRequested: !!state.optionalRequested,
             optionalAvailable: !!(state.requiredComplete && Number(state.activeIndex || 0) < Number((state.exercises || []).length || 0)),
             activeIndex: Math.max(0, Number(state.activeIndex || 0)),
@@ -397,6 +409,7 @@
             aoaDeg: finiteNumber(flightData.aoaDeg ?? input.aoaDeg, null),
             stallState: toBool(flightData.stallState ?? input.stallState),
             onGround: flightData.onGround === true || input.onGround === true,
+            departureDistanceNm: finiteNumber(input.departureDistanceNm, null),
             nowMs: finiteNumber(input.nowMs ?? Date.now(), Date.now())
         };
     }
@@ -468,16 +481,6 @@
                 index: state.activeIndex + 1,
                 total: recipe.exercises.length
             });
-            events.push({
-                type: 'exercise_instruction',
-                exerciseId: ex.id,
-                exerciseType: ex.type,
-                label: ex.label,
-                targetBankDeg: Number.isFinite(Number(ex.targetBankDeg)) ? Number(ex.targetBankDeg) : null,
-                altitudeStepFt: Number.isFinite(Number(ex.altitudeStepFt)) ? Number(ex.altitudeStepFt) : null,
-                index: state.activeIndex + 1,
-                total: recipe.exercises.length
-            });
         }
         return ex;
     }
@@ -488,6 +491,9 @@
         active.phaseStartedAt = now;
         active.badSince = 0;
         active.stableSince = 0;
+        active.valuesCorrect = null;
+        active.valueFeedbackStarted = false;
+        active.lastValueDeviationAt = 0;
         events.push({
             type: 'phase_started',
             phase,
@@ -521,7 +527,7 @@
         if (!active.cautionAt || typeof active.cautionAt !== 'object') active.cautionAt = {};
         const key = String(kind);
         const last = Number(active.cautionAt[key] || 0);
-        const minMs = Number(extra.minIntervalMs || 8500);
+        const minMs = Number(extra.minIntervalMs || 10000);
         if (last && (now - last) < minMs) return;
         active.cautionAt[key] = now;
         events.push({
@@ -532,6 +538,48 @@
             label: active.label,
             ...extra
         });
+    }
+
+    function updateValueFeedback(active, events, good, now, extra = {}) {
+        if (!active) return;
+        if (good) {
+            if (active.valuesCorrect !== true) {
+                active.valuesCorrect = true;
+                active.valueFeedbackStarted = true;
+                events.push({
+                    type: 'training_values_correct',
+                    exerciseId: active.exerciseId,
+                    exerciseType: active.exerciseType,
+                    label: active.label,
+                    ...extra
+                });
+            }
+            return;
+        }
+        const last = Number(active.lastValueDeviationAt || 0);
+        const firstDue = !active.valueFeedbackStarted
+            && (now - Number(active.phaseStartedAt || active.startedAt || now)) >= 10000;
+        const leftGoodBand = active.valuesCorrect === true;
+        const repeatDue = !!active.valueFeedbackStarted && (!last || (now - last) >= 10000);
+        if (!leftGoodBand && !firstDue && !repeatDue) return;
+        active.valuesCorrect = false;
+        active.valueFeedbackStarted = true;
+        active.lastValueDeviationAt = now;
+        events.push({
+            type: 'training_values_deviation',
+            exerciseId: active.exerciseId,
+            exerciseType: active.exerciseType,
+            label: active.label,
+            ...extra
+        });
+    }
+
+    function resetExerciseStartGate(state, now = 0, instructionDelayMs = 0) {
+        state.ready = false;
+        state.readyPrompted = false;
+        state.startAvailable = false;
+        state.preStartStableSince = 0;
+        state.nextInstructionAt = Number(now || 0) + Math.max(0, Number(instructionDelayMs || 0));
     }
 
     function pushGateEvent(state, events, kind, sample, extra = {}) {
@@ -559,8 +607,12 @@
             maxAltDevFt: Math.round(Number(active.maxAltDevFt || 0)),
             maxHeadingDevDeg: roundNumber(active.maxHeadingDevDeg || 0, 1)
         });
+        const retryOptional = !!state.optionalActive;
         state.active = null;
         state.lastSample = null;
+        state.optionalActive = false;
+        if (retryOptional) state.optionalRequested = true;
+        resetExerciseStartGate(state, sample.nowMs, 8000);
     }
 
     function completeExercise(recipe, state, ex, sample, events, summary = {}) {
@@ -596,6 +648,9 @@
                 remainingOptional: Math.max(0, recipe.exercises.length - state.activeIndex)
             });
             return;
+        }
+        if (state.activeIndex < recipe.exercises.length) {
+            resetExerciseStartGate(state, sample.nowMs);
         }
         if (state.activeIndex >= recipe.exercises.length) {
             state.satisfied = true;
@@ -641,11 +696,15 @@
         if (active.phase === 'hold_initial' || active.phase === 'hold_final') {
             const bad = altDev > Number(ex.maxAltitudeDeltaFt || 50) || courseBad || speedBad;
             const reason = altDev > Number(ex.maxAltitudeDeltaFt || 50) ? 'altitude' : (headingDev > Number(ex.maxHeadingDeltaDeg || 5) ? 'heading' : (speedBad ? 'speed' : 'bank'));
-            if (altDev > Number(ex.maxAltitudeDeltaFt || 50) * 0.65) pushCaution(active, events, 'altitude', now, { altDevFt: Math.round(altDev) });
-            if (headingDev > Number(ex.maxHeadingDeltaDeg || 5) * 0.65) pushCaution(active, events, 'heading', now, { headingDevDeg: roundNumber(headingDev, 1) });
-            if (bank > Math.max(3, Number(ex.maxBankDeg || 8) - 2)) pushCaution(active, events, 'bank', now, { bankDeg: roundNumber(bank, 1) });
-            if (speedBad) pushCaution(active, events, 'speed', now);
-            if (badFor(active, bad, now, ex.violationGraceSec)) {
+            updateValueFeedback(active, events, !bad, now, {
+                altDevFt: Math.round(altDev),
+                headingDevDeg: roundNumber(headingDev, 1),
+                bankDeg: roundNumber(bank, 1)
+            });
+            const severe = altDev > Math.max(200, Number(ex.maxAltitudeDeltaFt || 50) * 4)
+                || headingDev > Math.max(30, Number(ex.maxHeadingDeltaDeg || 5) * 5)
+                || bank > 35;
+            if (badFor(active, severe, now, Math.max(10, Number(ex.violationGraceSec || 0)))) {
                 repeatExercise(state, ex, sample, events, reason);
                 return;
             }
@@ -668,9 +727,15 @@
             const bad = courseBad || speedBad || vs > Number(ex.maxVsFpm || 900) + 250;
             const reason = headingDev > Number(ex.maxHeadingDeltaDeg || 5) ? 'heading' : (speedBad ? 'speed' : 'vertical_speed');
             if (targetDev <= Math.max(90, Number(ex.maxAltitudeDeltaFt || 50) * 2.2) && vs > 350) pushCaution(active, events, 'leveloff', now, { targetDevFt: Math.round(targetDev), minIntervalMs: 20000 });
-            if (headingDev > Number(ex.maxHeadingDeltaDeg || 5) * 0.65) pushCaution(active, events, 'heading', now, { headingDevDeg: roundNumber(headingDev, 1) });
-            if (speedBad) pushCaution(active, events, 'speed', now);
-            if (badFor(active, bad, now, ex.violationGraceSec)) {
+            updateValueFeedback(active, events, !bad, now, {
+                targetAltDevFt: Math.round(targetDev),
+                headingDevDeg: roundNumber(headingDev, 1),
+                vsFpm: Math.round(vs)
+            });
+            const severe = headingDev > Math.max(30, Number(ex.maxHeadingDeltaDeg || 5) * 5)
+                || Math.abs(Number(sample.altFt || 0) - Number(active.startAltFt || 0)) > Math.max(1800, Number(ex.altitudeStepFt || 500) * 3)
+                || vs > Number(ex.maxVsFpm || 900) + 900;
+            if (badFor(active, severe, now, Math.max(10, Number(ex.violationGraceSec || 0)))) {
                 repeatExercise(state, ex, sample, events, reason);
                 return;
             }
@@ -727,17 +792,22 @@
             active.maxBankDevDeg = Math.max(Number(active.maxBankDevDeg || 0), bankDev);
             const opposite = directedDelta < -8;
             const bad = opposite
-                || altDev > Number(ex.maxAltitudeDeltaFt || 50)
-                || bankDev > Number(ex.bankToleranceDeg || DEFAULTS.bankToleranceDeg) + 3
-                || absBank < Number(ex.minEntryBankDeg || 20) - 5
+                || altDev > Math.max(200, Number(ex.maxAltitudeDeltaFt || 50) * 4)
+                || absBank > Number(ex.targetBankDeg || 30) + 25
                 || Number(sample.gForce || 1) > Number(ex.maxG || 2.2);
             const reason = opposite ? 'wrong_direction'
                 : (altDev > Number(ex.maxAltitudeDeltaFt || 50) ? 'altitude'
                     : (Number(sample.gForce || 1) > Number(ex.maxG || 2.2) ? 'g_load' : 'bank'));
-            if (altDev > Number(ex.maxAltitudeDeltaFt || 50) * 0.65) pushCaution(active, events, 'altitude', now, { altDevFt: Math.round(altDev) });
-            if (bankDev > Math.max(4, Number(ex.bankToleranceDeg || DEFAULTS.bankToleranceDeg) * 0.75)) pushCaution(active, events, 'bank', now, { bankDevDeg: roundNumber(bankDev, 1), targetBankDeg: Number(ex.targetBankDeg || 30) });
+            const valuesGood = altDev <= Number(ex.maxAltitudeDeltaFt || 50)
+                && bankDev <= Number(ex.bankToleranceDeg || DEFAULTS.bankToleranceDeg)
+                && Number(sample.gForce || 1) <= Number(ex.maxG || 2.2);
+            updateValueFeedback(active, events, valuesGood, now, {
+                altDevFt: Math.round(altDev),
+                bankDevDeg: roundNumber(bankDev, 1),
+                targetBankDeg: Number(ex.targetBankDeg || 30)
+            });
             if (active.progressDeg >= targetDeg - 35 && active.progressDeg < targetDeg - 5) pushCaution(active, events, 'rollout_soon', now, { targetHeadingDeg: active.targetHeadingDeg, minIntervalMs: 30000 });
-            if (badFor(active, bad, now, ex.violationGraceSec)) {
+            if (badFor(active, bad, now, Math.max(10, Number(ex.violationGraceSec || 0)))) {
                 repeatExercise(state, ex, sample, events, reason);
                 return;
             }
@@ -765,8 +835,9 @@
                     turnRateAvgDegSec: avg == null ? null : roundNumber(avg, 2),
                     turnRateStdDevDegSec: std == null ? null : roundNumber(std, 2)
                 });
-            } else if (active.progressDeg > targetDeg + Number(ex.maxOvershootDeg || 30)) {
-                repeatExercise(state, ex, sample, events, 'overshoot');
+            } else {
+                const rolloutSevere = headingDev > 35 || absBank > 35;
+                if (badFor(active, rolloutSevere, now, 10)) repeatExercise(state, ex, sample, events, 'rollout');
             }
         }
     }
@@ -889,6 +960,15 @@
             state.updatedAt = Number(sample.nowMs || Date.now());
             return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
         }
+        if (!state.departureGatePassed) {
+            const minDepartureDistanceNm = Number(recipe.minDepartureDistanceNm || 0);
+            if (minDepartureDistanceNm <= 0 || (Number.isFinite(sample.departureDistanceNm) && sample.departureDistanceNm >= minDepartureDistanceNm)) {
+                state.departureGatePassed = true;
+            } else {
+                state.updatedAt = Number(sample.nowMs || Date.now());
+                return { handled: true, state, events, satisfied: false, progress: snapshotState(state), recipe };
+            }
+        }
         if (state.requiredComplete && !state.optionalRequested && !state.active) {
             state.updatedAt = Number(sample.nowMs || Date.now());
             return { handled: true, state, events, satisfied: true, progress: snapshotState(state), recipe };
@@ -916,20 +996,43 @@
             state.events = events;
             return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
         }
-        if (!state.ready && !state.requiredComplete) {
+        const waitingForExerciseStart = !state.ready && (!state.requiredComplete || state.optionalRequested);
+        if (waitingForExerciseStart) {
             if (!state.readyPrompted) {
+                if (sample.nowMs < Number(state.nextInstructionAt || 0)) {
+                    state.updatedAt = Number(sample.nowMs || Date.now());
+                    return { handled: true, state, events, satisfied: !!state.requiredComplete, progress: snapshotState(state), recipe };
+                }
                 events.push({
-                    type: 'training_ready_available',
-                    minAglFt: minAgl,
-                    requiredCount: Number(recipe.requiredCount || DEFAULTS.requiredExerciseCount)
+                    type: 'exercise_instruction',
+                    exerciseId: nextEx.id,
+                    exerciseType: nextEx.type,
+                    label: nextEx.label,
+                    targetBankDeg: Number.isFinite(Number(nextEx.targetBankDeg)) ? Number(nextEx.targetBankDeg) : null,
+                    altitudeStepFt: Number.isFinite(Number(nextEx.altitudeStepFt)) ? Number(nextEx.altitudeStepFt) : null,
+                    retry: Number(state.exercises?.[state.activeIndex]?.attempts || 0) > 0,
+                    index: state.activeIndex + 1,
+                    total: recipe.exercises.length
                 });
                 state.readyPrompted = true;
+            }
+            const stable = Math.abs(Number(sample.bankDeg || 0)) <= 8
+                && Math.abs(Number(sample.vsFpm || 0)) <= 350;
+            if (stable) {
+                if (!state.preStartStableSince) state.preStartStableSince = sample.nowMs;
+                if (!state.startAvailable && (sample.nowMs - state.preStartStableSince) >= 3000) {
+                    state.startAvailable = true;
+                    events.push({ type: 'training_start_available', exerciseId: nextEx.id, exerciseType: nextEx.type, label: nextEx.label });
+                }
+            } else {
+                state.preStartStableSince = 0;
+                state.startAvailable = false;
             }
             state.updatedAt = Number(sample.nowMs || Date.now());
             state.events = events;
             return { handled: true, state, events, satisfied: false, progress: snapshotState(state), recipe };
         }
-        if (state.requiredComplete && state.optionalRequested && !state.active) {
+        if (state.requiredComplete && state.optionalRequested && state.ready && !state.active) {
             state.optionalRequested = false;
             state.optionalActive = true;
             events.push({
@@ -1002,9 +1105,13 @@
     function signalReady(missionData = null, passenger = null) {
         const ctx = ensureStateForControl(missionData, passenger);
         if (!ctx) return { ok: false, reason: 'no_training' };
-        if (ctx.state.requiredComplete) return { ok: false, reason: 'required_complete', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (ctx.state.requiredComplete && !ctx.state.optionalRequested) return { ok: false, reason: 'required_complete', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (!ctx.state.departureGatePassed) return { ok: false, reason: 'departure_distance', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (!ctx.state.readyPrompted) return { ok: false, reason: 'not_briefed', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        if (!ctx.state.startAvailable) return { ok: false, reason: 'not_stable', state: snapshotState(ctx.state), recipe: ctx.recipe };
         ctx.state.ready = true;
         ctx.state.readyPrompted = true;
+        ctx.state.startAvailable = false;
         ctx.state.updatedAt = Date.now();
         return { ok: true, state: snapshotState(ctx.state), recipe: ctx.recipe };
     }
@@ -1018,6 +1125,24 @@
             return { ok: false, reason: 'no_optional_left', state: snapshotState(ctx.state), recipe: ctx.recipe };
         }
         ctx.state.optionalRequested = true;
+        ctx.state.optionalActive = false;
+        resetExerciseStartGate(ctx.state);
+        ctx.state.updatedAt = Date.now();
+        return { ok: true, state: snapshotState(ctx.state), recipe: ctx.recipe };
+    }
+
+    function abortExercise(missionData = null, passenger = null) {
+        const ctx = ensureStateForControl(missionData, passenger);
+        if (!ctx) return { ok: false, reason: 'no_training' };
+        if (!ctx.state.active) return { ok: false, reason: 'no_active', state: snapshotState(ctx.state), recipe: ctx.recipe };
+        const rec = ctx.state.exercises?.[ctx.state.activeIndex] || null;
+        if (rec) rec.status = 'repeat';
+        const wasOptional = !!ctx.state.optionalActive;
+        ctx.state.active = null;
+        ctx.state.lastSample = null;
+        ctx.state.optionalActive = false;
+        if (wasOptional) ctx.state.optionalRequested = true;
+        resetExerciseStartGate(ctx.state, Date.now(), 5000);
         ctx.state.updatedAt = Date.now();
         return { ok: true, state: snapshotState(ctx.state), recipe: ctx.recipe };
     }
@@ -1035,6 +1160,7 @@
         restoreProgress,
         reset,
         signalReady,
+        abortExercise,
         requestOptionalExercise,
         _test: {
             angleDiffAbs,
