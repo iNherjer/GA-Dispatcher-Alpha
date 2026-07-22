@@ -2,18 +2,11 @@
 let currentBoardMode = 'private'; 
 let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
-let pinnedReplayLayer = null;
 let debriefOverlayEl = null;
 let currentDebriefRecord = null;
 let currentDebriefAwaitingCleanup = false;
 let homebaseDirectoryAirportLoadRequested = false;
 
-window.clearPinnedFlightReplay = function() {
-    if (pinnedReplayLayer) {
-        try { pinnedReplayLayer.remove(); } catch (e) {}
-        pinnedReplayLayer = null;
-    }
-};
 const tutorialNotes = [
     { id: 101, text: "👋 WILLKOMMEN!\n\nZiehe diese Zettel umher, bearbeite sie (✏️) oder lösch sie (✖).", x: 4, y: 6, rot: -2 },
     { id: 102, text: "📻 NAVCOM THEME\n\nZieh mit gedrückter Maus an den runden Drehknöpfen, um TAS und GPH schnell einzustellen!", x: 28, y: 10, rot: 3 },
@@ -33,6 +26,30 @@ function pinboardJsonClone(value) {
         return null;
     }
 }
+
+function pinboardWithoutLegacyFlightRecords(notes) {
+    return (Array.isArray(notes) ? notes : []).filter(note => note?.type !== 'flight_record');
+}
+
+function pinboardMigrateLegacyFlightRecords() {
+    try {
+        const raw = localStorage.getItem('ga_pinboard');
+        if (!raw) return 0;
+        const notes = JSON.parse(raw);
+        if (!Array.isArray(notes)) return 0;
+        const clean = pinboardWithoutLegacyFlightRecords(notes);
+        const removed = notes.length - clean.length;
+        if (removed <= 0) return 0;
+        localStorage.setItem('ga_pinboard', JSON.stringify(clean));
+        try { console.info(`[Pinboard] ${removed} alte Flugtrack-Eintraege entfernt.`); } catch (_) {}
+        return removed;
+    } catch (err) {
+        try { console.warn('[Pinboard] Alte Flugtrack-Eintraege konnten nicht migriert werden:', err); } catch (_) {}
+        return 0;
+    }
+}
+
+try { window.gaLegacyFlightRecordsRemoved = pinboardMigrateLegacyFlightRecords(); } catch (_) {}
 
 function pinboardIsQuotaError(err) {
     const name = String(err?.name || '');
@@ -153,7 +170,9 @@ function pinboardCompactNotesForStorage(notes, options = {}) {
             return _syncCompactPinboard(notes, options);
         } catch (_) {}
     }
-    let out = Array.isArray(notes) ? notes.map(n => pinboardJsonClone(n)).filter(Boolean) : [];
+    let out = pinboardWithoutLegacyFlightRecords(
+        Array.isArray(notes) ? notes.map(n => pinboardJsonClone(n)).filter(Boolean) : []
+    );
     const maxNotes = Number(options.maxNotes);
     if (Number.isFinite(maxNotes) && out.length > maxNotes) out = out.slice(Math.max(0, out.length - maxNotes));
     const pruneByType = (type, maxKeep) => {
@@ -166,7 +185,6 @@ function pinboardCompactNotesForStorage(notes, options = {}) {
             for (let i = 0; i < indexes.length; i++) indexes[i] -= 1;
         }
     };
-    pruneByType('flight_record', options.maxFlightRecords);
     pruneByType('flight', options.maxPinnedFlights);
     const level = Number.isFinite(Number(options.flightDataLevel)) ? Number(options.flightDataLevel) : 1;
     const textMax = Number.isFinite(Number(options.textMax)) ? Number(options.textMax) : 8000;
@@ -179,21 +197,25 @@ function pinboardCompactNotesForStorage(notes, options = {}) {
 }
 
 function pinboardSavePrivateNotes(notes) {
+    const cleanNotes = pinboardWithoutLegacyFlightRecords(notes);
     const attempts = [
         { raw: true },
-        { maxFlightRecords: 12, maxPinnedFlights: 10, maxTrack: 100, flightDataLevel: 1 },
-        { maxFlightRecords: 8, maxPinnedFlights: 8, maxTrack: 70, flightDataLevel: 1 },
-        { maxFlightRecords: 5, maxPinnedFlights: 6, maxTrack: 40, flightDataLevel: 2 },
-        { maxFlightRecords: 2, maxPinnedFlights: 4, maxTrack: 20, flightDataLevel: 2, maxNotes: 80, textMax: 3000 },
-        { maxFlightRecords: 0, maxPinnedFlights: 2, maxTrack: 0, flightDataLevel: 3, maxNotes: 50, textMax: 1000 },
-        { maxFlightRecords: 0, maxPinnedFlights: 1, maxTrack: 0, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
+        { maxPinnedFlights: 10, flightDataLevel: 1 },
+        { maxPinnedFlights: 8, flightDataLevel: 1 },
+        { maxPinnedFlights: 6, flightDataLevel: 2 },
+        { maxPinnedFlights: 4, flightDataLevel: 2, maxNotes: 80, textMax: 3000 },
+        { maxPinnedFlights: 2, flightDataLevel: 3, maxNotes: 50, textMax: 1000 },
+        { maxPinnedFlights: 1, flightDataLevel: 3, maxNotes: 30, textMax: 600 }
     ];
     let lastError = null;
     let storageRescued = false;
     let previousRaw = null;
-    try { previousRaw = localStorage.getItem('ga_pinboard'); } catch (_) {}
+    try {
+        const previousNotes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]');
+        previousRaw = JSON.stringify(pinboardWithoutLegacyFlightRecords(previousNotes));
+    } catch (_) {}
     for (const attempt of attempts) {
-        const candidate = attempt.raw ? notes : pinboardCompactNotesForStorage(notes, attempt);
+        const candidate = attempt.raw ? cleanNotes : pinboardCompactNotesForStorage(cleanNotes, attempt);
         const raw = JSON.stringify(candidate);
         for (let pass = 0; pass < 2; pass++) {
             try {
@@ -810,109 +832,6 @@ window.showFlightDebrief = function(record, options = {}) {
     ov.style.display = 'flex';
 };
 
-window.pinCompletedFlightRecord = function(record, opts = {}) {
-    if (!record || !Array.isArray(record.track) || record.track.length < 2) return;
-    const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
-    const dep = record.depLabel || 'START';
-    const arr = record.arrLabel || 'LANDUNG';
-    const mins = Math.max(1, Math.round((record.durationSec || 0) / 60));
-    const avg = Number(record.avgGs || 0).toFixed(0);
-    const dist = Number(record.distanceNm || 0).toFixed(1);
-    const maxAlt = Math.round(record.maxAltFt || 0);
-    const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
-    const maxBank = Number.isFinite(record.maxBankDeg) ? `${Number(record.maxBankDeg).toFixed(1)}°` : '-';
-    const maxG = Number.isFinite(record.maxGForce) ? `${Number(record.maxGForce).toFixed(2)}g` : '-';
-    const maxDescRaw = Number.isFinite(record.maxDescentFpm) ? Math.round(record.maxDescentFpm) : null;
-    const maxDescent = Number.isFinite(maxDescRaw) ? `${Math.abs(maxDescRaw)} fpm` : '-';
-    const dateText = record.dateLabel || new Date().toLocaleString('de-DE');
-
-    const note = {
-        id: Date.now(),
-        type: 'flight_record',
-        flightRecord: record,
-        text: `🛬 <b>${dep} ➔ ${arr}</b><br><span style="font-size:11px; color:#555;">${dateText}</span><br><span style="font-size:11px;">${dist} NM • ${mins} min • Ø ${avg} kt<br>MAX ${maxAlt} ft • TD ${td}<br>G ${maxG} • Bank ${maxBank} • DESC ${maxDescent}</span>`,
-        x: 35 + Math.random() * 15,
-        y: 20 + Math.random() * 15,
-        rot: Math.floor(Math.random() * 9) - 4
-    };
-
-    notes.push(note);
-
-    // Rolling limit nur für aufgezeichnete Flüge (älteste zuerst weg)
-    const recIdx = [];
-    notes.forEach((n, i) => { if (n.type === 'flight_record') recIdx.push(i); });
-    while (recIdx.length > 40) {
-        const idx = recIdx.shift();
-        notes.splice(idx, 1);
-        for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
-    }
-
-    const saved = !!pinboardTrySavePrivateNotes(notes);
-    if (saved) {
-        triggerCloudSave(true);
-        if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
-    } else {
-        console.warn('[Pinboard] FlightRecord konnte nicht gespeichert werden (Quota).');
-    }
-
-    if (opts.openDebrief) {
-        window.showFlightDebrief(record);
-    }
-};
-
-window.loadPinnedFlightRecord = function(id, isGroup) {
-    let note;
-    if (isGroup) {
-        note = (groupDataCache.notes || []).find(n => n.id === id);
-    } else {
-        const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
-        note = notes.find(n => n.id === id);
-    }
-    if (!note?.flightRecord?.track?.length || typeof map === 'undefined' || !map || typeof L === 'undefined') return;
-
-    window.clearPinnedFlightReplay();
-
-    const latlngs = note.flightRecord.track
-        .filter(p => Array.isArray(p) && p.length >= 2)
-        .map(p => [p[0], p[1]]);
-    if (latlngs.length < 2) return;
-
-    const start = latlngs[0];
-    const end = latlngs[latlngs.length - 1];
-
-    const line = L.polyline(latlngs, {
-        color: '#ff00d6',
-        weight: 4,
-        opacity: 0.9,
-        dashArray: '10,7',
-        interactive: false
-    });
-    const mStart = L.circleMarker(start, {
-        radius: 5, color: '#00ff8f', fillColor: '#00ff8f', fillOpacity: 0.9, weight: 1
-    }).bindTooltip('Start', { permanent: false });
-    const mEnd = L.circleMarker(end, {
-        radius: 5, color: '#ff3b3b', fillColor: '#ff3b3b', fillOpacity: 0.9, weight: 1
-    }).bindTooltip('Landung', { permanent: false });
-
-    pinnedReplayLayer = L.layerGroup([line, mStart, mEnd]).addTo(map);
-    try {
-        map.fitBounds(line.getBounds(), { padding: [40, 40] });
-    } catch (e) {}
-
-    togglePinboard();
-};
-
-window.openPinnedFlightDebrief = function(id, isGroup) {
-    let note;
-    if (isGroup) {
-        note = (groupDataCache.notes || []).find(n => n.id === id);
-    } else {
-        const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
-        note = notes.find(n => n.id === id);
-    }
-    if (!note?.flightRecord) return;
-    window.showFlightDebrief(note.flightRecord);
-};
 function closePinModal() {
     document.getElementById('pinModalOverlay').style.display = 'none';
     pendingPinNote = null;
@@ -1046,7 +965,7 @@ function pinboardAppendNoteChrome(container, note, isGroup) {
     container.appendChild(pinboardCreateElement('div', 'post-it-pin'));
 
     const canEdit = !isGroup || note.author === getGroupNick();
-    if (note.type !== 'flight' && note.type !== 'flight_record' && canEdit) {
+    if (note.type !== 'flight' && canEdit) {
         container.appendChild(pinboardCreateAction('div', 'post-it-edit', '✏️', () => editNote(note.id, isGroup)));
     }
     container.appendChild(pinboardCreateAction('div', 'post-it-del', '✖', () => deleteNote(note.id, isGroup)));
@@ -1210,16 +1129,6 @@ function createNoteDOM(note, isGroup) {
     if (note.type === 'flight') {
         pinboardAppendRichFlightMarkup(div, note.text);
         div.appendChild(pinboardCreateAction('button', 'flight-load-btn', '📂 Flug laden', () => loadPinnedFlight(note.id, isGroup)));
-    } else if (note.type === 'flight_record') {
-        pinboardAppendRichFlightMarkup(div, note.text);
-        const actions = pinboardCreateElement('div');
-        actions.style.cssText = 'display:flex; gap:6px; margin-top:0.8cqw;';
-        const mapButton = pinboardCreateAction('button', 'flight-load-btn', '🗺️ Karte', () => window.loadPinnedFlightRecord(note.id, isGroup));
-        const debriefButton = pinboardCreateAction('button', 'flight-load-btn', '📊 Debrief', () => window.openPinnedFlightDebrief(note.id, isGroup));
-        mapButton.style.cssText = 'flex:1; width:auto;';
-        debriefButton.style.cssText = 'flex:1; width:auto;';
-        actions.append(mapButton, debriefButton);
-        div.appendChild(actions);
     } else {
         const noteText = pinboardCreateElement('span', '', String(note.text || ''));
         noteText.style.whiteSpace = 'pre-wrap';

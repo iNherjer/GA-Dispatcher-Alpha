@@ -8690,7 +8690,6 @@ function clearAppMissionState(options = {}) {
     window.activePassenger = null;
     clearMissionDebugSnapshot(options.reason || 'reset-app');
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
-    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';
     vpAltWaypoints = []; vpSegmentAlts = [];
     vpElevationData = null; window.vpElevationData = null;

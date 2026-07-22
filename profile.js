@@ -3778,6 +3778,124 @@ function vpFormatBytes(bytes) {
     return `${(b / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+let vpStorageEstimateSnapshot = null;
+let vpStorageEstimateInFlight = false;
+
+function vpRequestStorageEstimate() {
+    if (vpStorageEstimateInFlight || !navigator.storage || typeof navigator.storage.estimate !== 'function') return;
+    const now = Date.now();
+    if (vpStorageEstimateSnapshot && now - Number(vpStorageEstimateSnapshot.ts || 0) < 60000) return;
+    vpStorageEstimateInFlight = true;
+    Promise.resolve(navigator.storage.estimate())
+        .then(estimate => {
+            vpStorageEstimateSnapshot = {
+                ts: Date.now(),
+                usage: Number(estimate?.usage || 0),
+                quota: Number(estimate?.quota || 0)
+            };
+        })
+        .catch(() => {})
+        .finally(() => { vpStorageEstimateInFlight = false; });
+}
+
+function vpStorageCategoryForKey(key = '') {
+    const k = String(key || '');
+    if (k === 'ga_pinboard') return 'Pinnwand/Flugarchiv';
+    if (k === 'ga_logbook' || k === 'last_icao_dest') return 'Logbuch';
+    if (/^ga_(?:active_mission|active_passenger|pending_mission_debrief)/.test(k)) return 'Aktive Mission';
+    if (/debug|trace|snapshot/i.test(k)) return 'Debug/Snapshots';
+    if (/^ga_(?:obs_|om_|lms_|vfr_overlay_|metar_|weather_)/.test(k)) return 'Wetter/Obstacle-Caches';
+    if (/^ga_/.test(k)) return 'App-Einstellungen';
+    return 'Sonstige';
+}
+
+function vpCollectLocalStorageInventory() {
+    const entries = [];
+    const groups = new Map();
+    let totalBytes = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            const raw = localStorage.getItem(key) || '';
+            // localStorage speichert DOMStrings; UTF-16 ist fuer die Quota-Diagnose
+            // die nuetzlichere Naeherung als die UTF-8-Netzwerkgroesse.
+            const bytes = (key.length + raw.length) * 2;
+            const category = vpStorageCategoryForKey(key);
+            entries.push({ key, bytes, chars: raw.length, category });
+            totalBytes += bytes;
+            groups.set(category, Number(groups.get(category) || 0) + bytes);
+        }
+    } catch (_) {}
+    entries.sort((a, b) => b.bytes - a.bytes || a.key.localeCompare(b.key));
+    const groupEntries = Array.from(groups.entries())
+        .map(([category, bytes]) => ({ category, bytes }))
+        .sort((a, b) => b.bytes - a.bytes || a.category.localeCompare(b.category));
+    return { totalBytes, entries, groups: groupEntries };
+}
+
+function vpPinboardStorageStats() {
+    try {
+        const raw = localStorage.getItem('ga_pinboard') || '[]';
+        const notes = JSON.parse(raw);
+        if (!Array.isArray(notes)) return null;
+        let pinnedFlights = 0;
+        let recordedFlights = 0;
+        let trackPoints = 0;
+        notes.forEach(note => {
+            if (note?.type === 'flight') pinnedFlights++;
+            if (note?.type === 'flight_record') {
+                recordedFlights++;
+                if (Array.isArray(note?.flightRecord?.track)) trackPoints += note.flightRecord.track.length;
+            }
+        });
+        return { notes: notes.length, pinnedFlights, recordedFlights, trackPoints };
+    } catch (_) {
+        return null;
+    }
+}
+
+function vpBuildStorageDiagnosticsLines() {
+    vpRequestStorageEstimate();
+    const inventory = vpCollectLocalStorageInventory();
+    const pinboard = vpPinboardStorageStats();
+    const lines = ['Lokaler Browser-Speicher'];
+    lines.push(`- localStorage gesamt: ca. ${vpFormatBytes(inventory.totalBytes)} | Keys: ${inventory.entries.length} | Berechnung: UTF-16 inkl. Keynamen`);
+    if (vpStorageEstimateSnapshot) {
+        const usage = Number(vpStorageEstimateSnapshot.usage || 0);
+        const quota = Number(vpStorageEstimateSnapshot.quota || 0);
+        const pct = quota > 0 ? ((usage / quota) * 100).toFixed(1) : '-';
+        lines.push(`- Origin-Schaetzung: ${vpFormatBytes(usage)} / ${vpFormatBytes(quota)} (${pct}%) | umfasst ggf. auch IndexedDB/CacheStorage; localStorage-Limit separat`);
+    } else {
+        lines.push('- Origin-Schaetzung: noch nicht verfuegbar');
+    }
+    if (pinboard) {
+        lines.push(`- Pinnwand-Inhalt: ${pinboard.notes} Zettel | gepinnte Missionen ${pinboard.pinnedFlights} | Legacy-Flugtracks ${pinboard.recordedFlights} mit ${pinboard.trackPoints} Punkten`);
+    }
+    const groupSummary = inventory.groups
+        .slice(0, 8)
+        .map(group => `${group.category} ${vpFormatBytes(group.bytes)}`)
+        .join(' | ');
+    lines.push(`- Gruppen: ${groupSummary || '-'}`);
+    lines.push('- Groesste Keys:');
+    if (!inventory.entries.length) {
+        lines.push('  * -');
+    } else {
+        inventory.entries.slice(0, 15).forEach((entry, index) => {
+            const share = inventory.totalBytes > 0 ? ((entry.bytes / inventory.totalBytes) * 100).toFixed(1) : '0.0';
+            const safeKey = String(entry.key || '').replace(/[\r\n\t]/g, ' ').slice(0, 100);
+            lines.push(`  * ${index + 1}. ${safeKey}: ${vpFormatBytes(entry.bytes)} (${share}%) | ${entry.category}`);
+        });
+    }
+    return lines;
+}
+
+try {
+    window.vpCollectLocalStorageInventory = vpCollectLocalStorageInventory;
+    window.vpBuildStorageDiagnosticsReport = () => vpBuildStorageDiagnosticsLines().join('\n');
+} catch (_) {}
+vpRequestStorageEstimate();
+
 function vpBuildDisplayDiagnosticsLines() {
     const fmt = (value, digits = 0) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '-';
     const fmtRect = (rect) => {
@@ -3905,6 +4023,8 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`Follow-up Requests: Debug-Fehler (${err?.message || err})`);
         }
     }
+    lines.push('');
+    lines.push(...vpBuildStorageDiagnosticsLines());
     lines.push('');
     lines.push('Wetter / Open-Meteo kurz');
     lines.push(`- Requests: OM ${approxCalls}, Elevation ${dbg.elevationNetworkRequests || 0}, Batches ${dbg.openMeteoBatchCalls || 0}/${dbg.openMeteoBatchPoints || 0} Punkte`);
