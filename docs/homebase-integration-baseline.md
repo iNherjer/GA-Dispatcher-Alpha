@@ -28,7 +28,7 @@ Die folgenden Prüfpunkte bildeten die Release-Sperre während der Entwicklung:
 1. Vorschau: Setzen, Verschieben, Stapeln, Entfernen und Wiederherstellen.
 2. Ground-Probe, Karton- und Palettenhöhen auf ebenem und geneigtem Boden.
 3. Hangarausrichtung und Fahrzeuge.
-4. Assetinstallation: Remote-Prüfung, Nutzerbestätigung, Hash-/Indexprüfung, fehlend, veraltet, abgelehnt, idempotent, Offline-Fallback und Rollback.
+4. Assetinstallation: Remote-Prüfung, Nutzerbestätigung, Hash-/Indexprüfung, fehlend, veraltet, abgelehnt, idempotent und Rollback.
 5. SDK-Build, atomare Installation, Rollback und Deinstallation.
 6. Spawnpunkt `VFHB` in der MSFS-Weltkarte.
 7. Regressionstest bestehender Missions-, Cargo-, Passagier-, Feuer- und Rauchszenen.

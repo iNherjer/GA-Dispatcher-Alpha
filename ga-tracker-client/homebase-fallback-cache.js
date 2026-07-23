@@ -11,6 +11,19 @@ function cloneJson(value, fallback) {
   try { return JSON.parse(JSON.stringify(value)); } catch (_) { return fallback; }
 }
 
+function normalizeControlStates(raw) {
+  return (Array.isArray(raw) ? raw : []).slice(0, 200).flatMap((entry) => {
+    const instanceId = String(entry?.instanceId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const title = String(entry?.title || '').trim().slice(0, 160);
+    const controlId = String(entry?.controlId || '').trim().toLowerCase();
+    const stateId = String(entry?.stateId ?? entry?.state ?? '').trim().toLowerCase();
+    if (!instanceId || !title
+      || !/^[a-z][a-z0-9_-]{0,31}$/.test(controlId)
+      || !/^[a-z][a-z0-9_-]{0,31}$/.test(stateId)) return [];
+    return [{ instanceId, title, controlId, stateId }];
+  });
+}
+
 function normalizeHomebaseFallbackCache(raw, options = {}) {
   if (!raw || typeof raw !== 'object') throw new Error('Homebase-Fallback fehlt.');
   if (Number(raw.schemaVersion) !== HOMEBASE_FALLBACK_SCHEMA_VERSION) {
@@ -42,7 +55,8 @@ function normalizeHomebaseFallbackCache(raw, options = {}) {
     doorAutomationEnabled: raw.doorAutomationEnabled !== false,
     objects: cloneJson(Array.isArray(raw.objects) ? raw.objects.slice(0, 100) : [], []),
     people: cloneJson(Array.isArray(raw.people) ? raw.people.slice(0, 3) : [], []),
-    navigation: cloneJson(raw.navigation && typeof raw.navigation === 'object' ? raw.navigation : null, null)
+    navigation: cloneJson(raw.navigation && typeof raw.navigation === 'object' ? raw.navigation : null, null),
+    controlStates: normalizeControlStates(raw.controlStates)
   };
 }
 
@@ -50,11 +64,7 @@ function compatibleHomebaseFallbackCache(raw, options = {}) {
   try {
     const cache = normalizeHomebaseFallbackCache(raw);
     const expectedPilotId = String(options.pilotId || '').trim();
-    const expectedTrackerVersionCode = Math.max(0, Math.trunc(finite(options.trackerVersionCode)));
     if (expectedPilotId && cache.pilotId !== expectedPilotId) return { ok: false, reason: 'pilot-mismatch', cache: null };
-    if (expectedTrackerVersionCode && cache.trackerVersionCode !== expectedTrackerVersionCode) {
-      return { ok: false, reason: 'tracker-version-mismatch', cache: null };
-    }
     return { ok: true, reason: '', cache };
   } catch (error) {
     return { ok: false, reason: error?.message || String(error), cache: null };

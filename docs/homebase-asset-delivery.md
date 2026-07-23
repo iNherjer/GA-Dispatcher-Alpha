@@ -86,17 +86,20 @@ einer anderen Edition gilt nicht als Installationsnachweis und wird nicht automa
 neu angelegt. Bei mehreren tatsächlich konfigurierten Paketpfaden bricht die
 Installation mit einer eindeutigen Meldung ab, statt einen Zielordner zu erraten.
 
-## Offline-Fallback und Versionsschutz
+## Online-Auslieferung und Versionsschutz
 
-Die Tracker-EXE enthält weiterhin das bei ihrem Build aktuelle Paket. Ist der Releasekanal
-nicht erreichbar oder noch nicht veröffentlicht, kann der Benutzer dieses eingebettete
-Paket installieren. Ein bereits vollständig installiertes Paket mit gleicher oder
-höherer Version wird durch den Fallback nicht zurückgestuft.
+Ab Tracker `v313` enthält die EXE keine Kopie des Assetpakets mehr. Bei einer bestätigten
+Installation lädt der Tracker das vollständige Paket aus dem Stable-Kanal, prüft Archiv,
+Index und Inhalt und installiert es anschließend atomar. Ist der Releasekanal vorübergehend
+nicht erreichbar, bleibt ein bereits vollständig installiertes Paket unverändert nutzbar;
+eine Erstinstallation oder Aktualisierung wird bis zur nächsten erfolgreichen Prüfung
+pausiert.
 
-Ein reines Modell- oder Texturupdate benötigt damit keine neue Tracker-EXE. Neue
-SimObjects werden zwar als Teil des gemeinsamen Pakets synchronisiert, müssen aber
-zusätzlich in App-/Tracker-Katalog und gegebenenfalls Missionslogik aufgenommen werden,
-bevor sie in Workbench oder Missionen auswählbar sind.
+Ein reines Modell- oder Texturupdate benötigt damit keine neue Tracker-EXE. Der im
+Releaseindex veröffentlichte Assetkatalog wird nach der Installation als aktive
+Katalogquelle verwendet. Dadurch kann die Workbench neue, katalogkonforme Homebase-
+Objekte und Controls übernehmen; neue Transportarten oder Missionslogik benötigen
+weiterhin eine passende App-/Tracker-Version.
 
 Die Auswahl in der Homebase-Workbench wird unabhängig von der Missionsfreigabe über
 `workbenchVisible` gesteuert. Nur der ausdrückliche Wert `false` blendet ein Asset aus;

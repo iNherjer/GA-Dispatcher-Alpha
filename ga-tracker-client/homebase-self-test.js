@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 const { createHomebaseObjectManager } = require('./homebase-object-manager.js');
 const {
   createHomebasePackageService,
@@ -129,6 +130,110 @@ function bumpPatchVersion(version, increment = 1) {
   return `${match[1]}.${match[2]}.${Number(match[3]) + increment}`;
 }
 
+const ZIP_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+    table[index] = value >>> 0;
+  }
+  return table;
+})();
+
+function zipCrc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) crc = ZIP_CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function testZipEntriesFromDirectory(root, prefix = '') {
+  const entries = [];
+  const walk = (directory) => {
+    for (const item of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const absolute = path.join(directory, item.name);
+      if (item.isDirectory()) walk(absolute);
+      else if (item.isFile()) {
+        const relative = path.relative(root, absolute).split(path.sep).join('/');
+        entries.push({ name: prefix ? `${prefix}/${relative}` : relative, data: fs.readFileSync(absolute) });
+      }
+    }
+  };
+  walk(root);
+  return entries;
+}
+
+function createTestZip(entries, outputPath) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const name = Buffer.from(String(entry.name).replaceAll('\\', '/'), 'utf8');
+    const data = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(entry.data);
+    const compressed = zlib.deflateRawSync(data, { level: 9 });
+    const checksum = zipCrc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(33, 12);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(0x0314, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(33, 14);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(compressed.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    localParts.push(local, name, compressed);
+    centralParts.push(central, name);
+    offset += local.length + name.length + compressed.length;
+  }
+  const central = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(central.length, 12);
+  end.writeUInt32LE(offset, 16);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, Buffer.concat([...localParts, central, end]));
+}
+
+function createMinimalAssetPackageFixture(root) {
+  const packageRoot = path.join(root, catalog.assetPackageName);
+  const content = [];
+  for (const asset of catalog.assets) {
+    const relative = `SimObjects/Misc/${asset.folder}/sim.cfg`;
+    const absolute = path.join(packageRoot, ...relative.split('/'));
+    const data = Buffer.from(`[VERSION]\nmajor=1\nminor=0\n\n[GENERAL]\ntitle=${asset.title}\n`);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, data);
+    content.push({ path: relative, size: data.length, date: 0 });
+  }
+  fs.writeFileSync(path.join(packageRoot, 'manifest.json'), `${JSON.stringify({
+    dependencies: [],
+    content_type: 'MISC',
+    title: 'Homebase self-test assets',
+    manufacturer: 'VFR Multitool',
+    creator: 'VFR Multitool',
+    package_version: catalog.assetPackageVersion,
+    minimum_game_version: '1.0.0'
+  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(packageRoot, 'layout.json'), `${JSON.stringify({ content }, null, 2)}\n`);
+  return packageRoot;
+}
+
 function createRemoteReleaseFixture({ sourcePackage, root, version, createZip, entriesFromDirectory, archiveHashOverride = '', contentHashOverride = '' }) {
   const packageRoot = path.join(root, `package-${version}`, catalog.assetPackageName);
   fs.cpSync(sourcePackage, packageRoot, { recursive: true });
@@ -225,16 +330,25 @@ async function run() {
     base: { lat: 48.1, lon: 7.9, enterRadiusNm: 20, exitRadiusNm: 22 },
     objects: [{ id: 'crate-1', title: 'Test crate' }],
     people: [{ id: 'person-1', title: 'Tarmac_Female_Summer_Asian' }],
-    navigation: { spawn: { lat: 48.1, lon: 7.9 } }
+    navigation: { spawn: { lat: 48.1, lon: 7.9 } },
+    controlStates: [{
+      instanceId: 'lantern-1',
+      title: 'VFR Multitool Homebase Stable Lantern',
+      controlId: 'light',
+      stateId: 'off',
+      simvar: 'L:UNTRUSTED_CLIENT_VALUE',
+      value: 999
+    }]
   }, { pilotId: 'TESTER', trackerVersionCode: 306, savedAt: 12345 });
-  if (fallbackCache.pilotId !== 'TESTER' || fallbackCache.trackerVersionCode !== 306 || fallbackCache.objects.length !== 1 || fallbackCache.people.length !== 1) {
+  if (fallbackCache.pilotId !== 'TESTER' || fallbackCache.trackerVersionCode !== 306 || fallbackCache.objects.length !== 1 || fallbackCache.people.length !== 1
+    || fallbackCache.controlStates.length !== 1 || 'simvar' in fallbackCache.controlStates[0] || 'value' in fallbackCache.controlStates[0]) {
     throw new Error(`Homebase fallback normalization failed: ${JSON.stringify(fallbackCache)}`);
   }
   if (!compatibleHomebaseFallbackCache(fallbackCache, { pilotId: 'TESTER', trackerVersionCode: 306 }).ok) {
     throw new Error('Compatible Homebase fallback was rejected.');
   }
-  if (compatibleHomebaseFallbackCache(fallbackCache, { pilotId: 'TESTER', trackerVersionCode: 307 }).reason !== 'tracker-version-mismatch') {
-    throw new Error('Old Homebase fallback tracker version was not rejected.');
+  if (!compatibleHomebaseFallbackCache(fallbackCache, { pilotId: 'TESTER', trackerVersionCode: 313 }).ok) {
+    throw new Error('Schema-compatible Homebase fallback did not survive a tracker update.');
   }
   if (!fallbackShouldBeActive(fallbackCache, { lat: 48.1, lon: 7.9 }, false)
     || fallbackShouldBeActive(fallbackCache, { lat: 49, lon: 9 }, true)) {
@@ -350,10 +464,19 @@ async function run() {
       { id: 'hangar', title: 'VFR Multitool Homebase Round Hangar', label: 'Rundhangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 },
       { id: 'lantern', title: 'VFR Multitool Homebase Stable Lantern', label: 'Stalllaterne', lat: 48.00001, lon: 8.00001, altFt: 514, heightOffsetFt: 0, heading: 0 },
       { id: 'construction-floodlight', title: 'VFR Multitool Homebase Construction Floodlight Tripod', label: 'Baustrahler mit Stativ', lat: 48.00002, lon: 8.00002, altFt: 514, heightOffsetFt: 0, heading: 0 }
+    ],
+    controlStates: [
+      { instanceId: 'hangar', title: 'VFR Multitool Homebase Round Hangar', controlId: 'door', stateId: 'closed', value: 0 },
+      { instanceId: 'lantern', title: 'VFR Multitool Homebase Stable Lantern', controlId: 'light', stateId: 'off', value: 0 }
     ]
   });
   const roundHangarPreviewAck = await waitForAck(acks, 'homebase_v1.preview.set_ack');
-  if (roundHangarPreviewAck.status !== 'ok' || roundHangarPreviewAck.objectCount !== 3) throw new Error('Controlled-object preview setup failed.');
+  if (roundHangarPreviewAck.status !== 'ok' || roundHangarPreviewAck.objectCount !== 3
+    || roundHangarPreviewAck.controlStateCount !== 2 || roundHangarPreviewAck.controlFailureCount !== 0
+    || handle.positions.get(7000)?.buffer?.getBuffer?.().readDoubleLE(0) !== 1
+    || handle.positions.get(7001)?.buffer?.getBuffer?.().readDoubleLE(0) !== 1) {
+    throw new Error(`Controlled-object preview state restoration failed: ${JSON.stringify(roundHangarPreviewAck)}`);
+  }
 
   manager.handleCommand({
     type: 'homebase_v1.object.control.set',
@@ -692,10 +815,11 @@ async function run() {
 
   const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'homebase-assets-test-'));
   try {
-    const { createZip, entriesFromDirectory } = await import('../homebase/asset-publisher/zip-utils.mjs');
-    const embeddedAssetPackagePath = process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE
+    const createZip = createTestZip;
+    const entriesFromDirectory = testZipEntriesFromDirectory;
+    const assetPackageSourcePath = process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE
       ? path.resolve(process.env.VFR_HOMEBASE_ASSET_PACKAGE_SOURCE)
-      : path.resolve(__dirname, 'embedded-homebase-assets', catalog.assetPackageName);
+      : createMinimalAssetPackageFixture(path.join(testRoot, 'source-fixture'));
     const appData = path.join(testRoot, 'AppData', 'Roaming');
     const localAppData = path.join(testRoot, 'AppData', 'Local');
     const fakeSteamCommunity = path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages', 'Community');
@@ -706,6 +830,13 @@ async function run() {
     fs.mkdirSync(storeCommunity, { recursive: true });
     fs.mkdirSync(storeLocalCache, { recursive: true });
     fs.writeFileSync(path.join(storeLocalCache, 'UserCfg.opt'), `InstalledPackagesPath "${storePackages}"\n`, 'utf8');
+    const initialRemoteRelease = createRemoteReleaseFixture({
+      sourcePackage: assetPackageSourcePath,
+      root: path.join(testRoot, 'initial-release'),
+      version: remoteVersion,
+      createZip,
+      entriesFromDirectory
+    });
 
     const storeDiscovery = discoverCommunityFolders({ appData, localAppData });
     if (storeDiscovery.entries.length !== 1 || path.resolve(storeDiscovery.entries[0].path) !== path.resolve(storeCommunity)) {
@@ -746,22 +877,24 @@ async function run() {
       runtimeDir: testRoot,
       appData,
       localAppData,
-      embeddedAssetPackagePath,
+      assetChannelUrl: initialRemoteRelease.channelUrl,
+      remoteRequestBuffer: initialRemoteRelease.requestBuffer,
       sendAck: (ack) => packageAcks.push(ack),
       isSimulatorRunning: () => false
     });
     if (!packageService.capabilities.includes('homebase-assets-install')) throw new Error('Asset install capability missing.');
+    if (!packageService.capabilities.includes('homebase-assets-online-only-v1')) throw new Error('Online-only asset capability missing.');
     const embedded = packageService.inspectEmbeddedAssets();
-    if (!embedded.embeddedAvailable || !embedded.embeddedPackageComplete || embedded.embeddedPackageVersion !== catalog.assetPackageVersion) {
-      throw new Error(`Embedded asset inspection failed: ${JSON.stringify(embedded)}`);
+    if (embedded.deliveryMode !== 'online-only' || embedded.embeddedAvailable || embedded.embeddedPackageComplete) {
+      throw new Error(`Online-only asset inspection failed: ${JSON.stringify(embedded)}`);
     }
-    const installed = packageService.installAssets();
-    if (installed.packageVersion !== catalog.assetPackageVersion || installed.unchanged) throw new Error('Atomic asset installation failed.');
+    const installed = await packageService.installAssets();
+    if (installed.packageVersion !== remoteVersion || installed.source !== 'remote' || installed.unchanged) throw new Error('Remote-first asset installation failed.');
     if (path.resolve(installed.communityPath) !== path.resolve(storeCommunity) || fs.existsSync(path.join(fakeSteamCommunity, catalog.assetPackageName))) {
       throw new Error(`Store asset package was installed into the wrong Community folder: ${JSON.stringify(installed)}`);
     }
     const inspected = packageService.inspectAssets();
-    if (!inspected.packageComplete || inspected.packageVersion !== catalog.assetPackageVersion) throw new Error('Installed asset validation failed.');
+    if (!inspected.packageComplete || inspected.packageVersion !== remoteVersion) throw new Error('Installed asset validation failed.');
     const localAssetCatalog = packageService.inspectAssetState().assetCatalog;
     const localLantern = localAssetCatalog.find((asset) => asset.key === 'stableLantern');
     if (!localLantern?.controls?.some((control) => control.id === 'light'
@@ -773,8 +906,8 @@ async function run() {
       && control.simvar === 'L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND')) {
       throw new Error('Locally installed package did not expose the built-in construction-floodlight catalog to the app.');
     }
-    const repeated = packageService.installAssets();
-    if (!repeated.unchanged) throw new Error('Repeated asset installation must be idempotent.');
+    const repeated = await packageService.installAssets();
+    if (!repeated.unchanged || repeated.source !== 'remote') throw new Error('Repeated online asset installation must be idempotent.');
     const sceneOutput = path.join(testRoot, 'homebase-generated', 'vfr-multitool-homebase', 'Packages', catalog.scenePackageName);
     fs.mkdirSync(sceneOutput, { recursive: true });
     fs.writeFileSync(path.join(sceneOutput, 'manifest.json'), '{"package_version":"0.5.0"}\n', 'utf8');
@@ -801,7 +934,7 @@ async function run() {
     if (fs.existsSync(installed.path) || !fs.existsSync(interruptedBackup)) throw new Error('Interrupted-install fixture could not be prepared.');
 
     const remoteRelease = createRemoteReleaseFixture({
-      sourcePackage: embeddedAssetPackagePath,
+      sourcePackage: assetPackageSourcePath,
       root: testRoot,
       version: remoteVersion,
       createZip,
@@ -813,7 +946,6 @@ async function run() {
       runtimeDir: path.join(testRoot, 'remote-runtime'),
       appData,
       localAppData,
-      embeddedAssetPackagePath,
       assetChannelUrl: remoteRelease.channelUrl,
       remoteRequestBuffer: remoteRelease.requestBuffer,
       remoteCacheTtlMs: 1,
@@ -862,15 +994,15 @@ async function run() {
     if (activeRoundHangar?.headingCorrectionDeg !== 0 || !activeRoundHangar?.controls?.some((control) => control.id === 'door') || activeRoundHangar?.vegetationExclusion?.shape !== 'circle') {
       throw new Error('Installed round-hangar runtime metadata was not restored from the active package index.');
     }
-    const noDowngrade = remoteService.installAssets();
-    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== remoteVersion) throw new Error('Embedded fallback downgraded a newer remote package.');
+    const noDowngrade = await remoteService.installAssets();
+    if (!noDowngrade.unchanged || noDowngrade.packageVersion !== remoteVersion || noDowngrade.source !== 'remote') throw new Error('Online compatibility install changed the current remote package.');
 
     remoteService.handleCommand({ type: 'homebase_v1.assets.update.install', commandId: 'remote-no-confirm' });
     const confirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.update.install_ack');
     if (confirmationAck.status !== 'error' || confirmationAck.code !== 'CONFIRMATION_REQUIRED') throw new Error('Remote install confirmation guard failed.');
 
     const badHashRelease = createRemoteReleaseFixture({
-      sourcePackage: embeddedAssetPackagePath,
+      sourcePackage: assetPackageSourcePath,
       root: testRoot,
       version: nextRemoteVersion,
       createZip,
@@ -881,7 +1013,6 @@ async function run() {
       runtimeDir: path.join(testRoot, 'bad-hash-runtime'),
       appData,
       localAppData,
-      embeddedAssetPackagePath,
       assetChannelUrl: badHashRelease.channelUrl,
       remoteRequestBuffer: badHashRelease.requestBuffer,
       isSimulatorRunning: () => false
@@ -895,7 +1026,7 @@ async function run() {
     if (!hashRejected || badHashService.inspectAssets().packageVersion !== remoteVersion) throw new Error('Hash rejection did not preserve the installed package.');
 
     const rollbackRelease = createRemoteReleaseFixture({
-      sourcePackage: embeddedAssetPackagePath,
+      sourcePackage: assetPackageSourcePath,
       root: testRoot,
       version: nextRemoteVersion,
       createZip,
@@ -905,7 +1036,6 @@ async function run() {
       runtimeDir: path.join(testRoot, 'rollback-runtime'),
       appData,
       localAppData,
-      embeddedAssetPackagePath,
       assetChannelUrl: rollbackRelease.channelUrl,
       remoteRequestBuffer: rollbackRelease.requestBuffer,
       isSimulatorRunning: () => false

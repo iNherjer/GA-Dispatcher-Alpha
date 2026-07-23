@@ -253,6 +253,19 @@
     return String(selected?.title || '').trim();
   }
 
+  function normalizeHomebaseControlStates(raw) {
+    return (Array.isArray(raw) ? raw : []).slice(0, 200).flatMap((entry) => {
+      const instanceId = String(entry?.instanceId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+      const title = String(entry?.title || '').trim().slice(0, 160);
+      const controlId = String(entry?.controlId || '').trim().toLowerCase();
+      const stateId = String(entry?.stateId ?? entry?.state ?? '').trim().toLowerCase();
+      if (!instanceId || !title
+        || !/^[a-z][a-z0-9_-]{0,31}$/.test(controlId)
+        || !/^[a-z][a-z0-9_-]{0,31}$/.test(stateId)) return [];
+      return [{ instanceId, title, controlId, stateId }];
+    });
+  }
+
   function sanitizeHomebaseRuntimeConfig(config) {
     if (!config || typeof config !== 'object') return null;
     const people = (Array.isArray(config.people) ? config.people : []).slice(0, 3).flatMap((person, index) => {
@@ -265,7 +278,7 @@
         label: String(person?.label || `Mitarbeiter ${index + 1}`)
       }];
     });
-    return { ...config, people };
+    return { ...config, people, controlStates: normalizeHomebaseControlStates(config.controlStates) };
   }
 
   function homebaseHeadingCorrection(title) {
@@ -384,6 +397,7 @@
           destinations
         };
       }).filter((person) => person.title),
+      controlStates: normalizeHomebaseControlStates(plan.controlStates),
       navigation: {
         spawn: { lat: spawnLat, lon: spawnLon, altFt: finite(spawn.altFt), heading: heading(spawn.heading) },
         hangar: primaryHangarZone,
@@ -438,7 +452,8 @@
       doorAutomationEnabled: config.doorAutomationEnabled !== false,
       objects,
       people,
-      navigation
+      navigation,
+      controlStates: normalizeHomebaseControlStates(config.controlStates)
     };
   }
 
@@ -620,6 +635,9 @@
     const objects = inside && !ownAutoSuppressedUntilExit ? delta.objects : [];
     const config = currentOwnRuntimeConfig();
     const people = inside && !ownAutoSuppressedUntilExit ? (config?.people || []) : [];
+    const controlStates = inside && !ownAutoSuppressedUntilExit
+      ? normalizeHomebaseControlStates(config?.controlStates)
+      : [];
     const navigation = config?.navigation || null;
     const signature = JSON.stringify({ objects, people, navigation });
     const sceneSignature = compactSceneSignature(signature);
@@ -647,7 +665,7 @@
         || Date.now() - ownLastAppliedAt < 5000);
     const commandId = sendTracker(canSyncPeopleLive
       ? { type: 'homebase_v1.preview.people.sync', people, navigation, sceneSignature }
-      : { type: 'homebase_v1.preview.set', objects, people, navigation, sceneSignature }, {
+      : { type: 'homebase_v1.preview.set', objects, people, navigation, controlStates, sceneSignature }, {
       kind: canSyncPeopleLive ? 'owner-auto-people-sync' : 'owner-auto-set',
       reason,
       signature,

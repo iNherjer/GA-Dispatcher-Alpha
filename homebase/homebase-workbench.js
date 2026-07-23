@@ -54,7 +54,8 @@
     spawn: { lat: 48.1504, lon: 7.7099, altFt: 620, heading: 90, mode: 'airport_parking' },
     hangar: { northM: 0, eastM: 0, heading: 90, heightFt: 0, widthM: 18, depthM: 22, objectTitle: HANGAR_TITLE },
     objects: [],
-    people: []
+    people: [],
+    controlStates: []
   };
 
   const hadLocalState = localStorage.getItem(STORAGE_KEY) !== null || localStorage.getItem('vfr-homebase-workbench-v1') !== null;
@@ -276,6 +277,19 @@
     };
   }
 
+  function normalizePersistedControlStates(raw) {
+    return (Array.isArray(raw) ? raw : []).slice(0, 200).flatMap((entry) => {
+      const instanceId = String(entry?.instanceId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+      const title = String(entry?.title || '').trim().slice(0, 160);
+      const controlId = String(entry?.controlId || '').trim().toLowerCase();
+      const stateId = String(entry?.stateId ?? entry?.state ?? '').trim().toLowerCase();
+      if (!instanceId || !title
+        || !/^[a-z][a-z0-9_-]{0,31}$/.test(controlId)
+        || !/^[a-z][a-z0-9_-]{0,31}$/.test(stateId)) return [];
+      return [{ instanceId, title, controlId, stateId }];
+    });
+  }
+
   function automaticPersonDestinations(person) {
     return state.objects.slice(0, 100).map((item, index) => ({
       id: `auto-${String(item.id || index + 1)}`.slice(0, 64),
@@ -303,12 +317,13 @@
           spawn: { ...DEFAULT.spawn, ...saved.spawn },
           hangar: { ...DEFAULT.hangar, ...saved.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(saved.hangar.objectTitle) },
           objects: Array.isArray(saved.objects) ? saved.objects.slice(0, 100).map(normalizeObject) : [],
-          people: Array.isArray(saved.people) ? saved.people.slice(0, 3).map(normalizePerson) : []
+          people: Array.isArray(saved.people) ? saved.people.slice(0, 3).map(normalizePerson) : [],
+          controlStates: normalizePersistedControlStates(saved.controlStates)
         };
       }
       const legacy = JSON.parse(localStorage.getItem('vfr-homebase-workbench-v1') || 'null');
       if (legacy?.spawn && legacy?.hangar) {
-        return { doorAutomationEnabled: true, spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [], people: [] };
+        return { doorAutomationEnabled: true, spawn: { ...DEFAULT.spawn, ...legacy.spawn }, hangar: { ...DEFAULT.hangar, ...legacy.hangar, widthM: 18, depthM: 22, objectTitle: normalizeHangarTitle(legacy.hangar.objectTitle) }, objects: [], people: [], controlStates: [] };
       }
     } catch (_) {}
     return JSON.parse(JSON.stringify(DEFAULT));
@@ -361,6 +376,7 @@
   }
 
   function saveState(options = {}) {
+    state.controlStates = serializeAcknowledgedControlStates();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     if (options.markDirty !== false) {
       syncMeta.dirty = true;
@@ -383,7 +399,8 @@
         depthM: clamp(source.hangar?.depthM ?? 22, 4, 100)
       },
       objects: Array.isArray(source.objects) ? source.objects.slice(0, 100).map(normalizeObject) : [],
-      people: Array.isArray(source.people) ? source.people.slice(0, 3).map(normalizePerson) : []
+      people: Array.isArray(source.people) ? source.people.slice(0, 3).map(normalizePerson) : [],
+      controlStates: normalizePersistedControlStates(source.controlStates)
     };
   }
 
@@ -401,6 +418,7 @@
     state.hangar = plan.hangar;
     state.objects = plan.objects;
     state.people = plan.people;
+    state.controlStates = plan.controlStates;
     state.doorAutomationEnabled = plan.doorAutomationEnabled;
     selectedObjectId = state.objects[0]?.id || null;
     selectedPersonId = state.people[0]?.id || null;
@@ -413,6 +431,7 @@
       : finite(record?.clientUpdatedAt, syncMeta.cloudUpdatedAt);
     syncMeta.crewShareEnabled = record?.crewShareEnabled !== false;
     syncMeta.dirty = preserveLocalPeople;
+    hydrateAcknowledgedControlStatesFromPlan();
     saveState({ markDirty: false });
     syncInputsFromState();
     updateMap();
@@ -1101,6 +1120,7 @@
       COMPANION_TITLES.add(title);
     }
     if (added || updated) {
+      hydrateAcknowledgedControlStatesFromPlan();
       fillCatalog();
       renderObjectList();
       renderHomebaseControls();
@@ -1173,6 +1193,51 @@
       }
     }
     return [...groups.values()];
+  }
+
+  function serializeAcknowledgedControlStates() {
+    const groups = activeControlGroups();
+    const serialized = groups.flatMap((group) => {
+      const stateId = String(acknowledgedControlStates.get(group.key) || '').toLowerCase();
+      if (!group.control.states.some((entry) => entry.id === stateId)) return [];
+      return [{
+        instanceId: group.instanceId,
+        title: group.title,
+        controlId: group.control.id,
+        stateId
+      }];
+    });
+    const activeInstances = new Map([
+      ['hangar', normalizeHangarTitle(state.hangar.objectTitle)],
+      ...state.objects.map((item) => [item.id, item.title])
+    ]);
+    for (const entry of normalizePersistedControlStates(state.controlStates)) {
+      if (serialized.some((item) => item.instanceId === entry.instanceId
+        && item.title === entry.title && item.controlId === entry.controlId)) continue;
+      const knownGroup = groups.some((group) => (
+        group.title === entry.title
+        && String(group.control.id || '').toLowerCase() === entry.controlId
+        && (group.control.scope !== 'simobject' || group.instanceId === entry.instanceId)
+      ));
+      if (!knownGroup && activeInstances.get(entry.instanceId) === entry.title) serialized.push(entry);
+    }
+    return serialized.slice(0, 200);
+  }
+
+  function hydrateAcknowledgedControlStatesFromPlan() {
+    acknowledgedControlStates.clear();
+    const persisted = normalizePersistedControlStates(state.controlStates);
+    for (const group of activeControlGroups()) {
+      const match = persisted.find((entry) => (
+        entry.title === group.title
+        && entry.controlId === String(group.control.id || '').toLowerCase()
+        && (group.control.scope !== 'simobject' || entry.instanceId === group.instanceId)
+      ));
+      if (match && group.control.states.some((entry) => entry.id === match.stateId)) {
+        acknowledgedControlStates.set(group.key, match.stateId);
+      }
+    }
+    state.controlStates = serializeAcknowledgedControlStates();
   }
 
   function controlPanels(groups) {
@@ -1346,7 +1411,10 @@
     handledControlAckIds.add(commandId);
     if (handledControlAckIds.size > 100) handledControlAckIds.delete(handledControlAckIds.values().next().value);
     const ok = ack.status === 'ok';
-    if (ok) acknowledgedControlStates.set(pending.key, String(ack.state || ack.stateId || pending.state));
+    if (ok) {
+      acknowledgedControlStates.set(pending.key, String(ack.state || ack.stateId || pending.state));
+      saveState();
+    }
     const operation = pending.batchId
       ? [...globalControlOperations.values()].find((entry) => entry.id === pending.batchId)
       : null;
@@ -1738,6 +1806,7 @@
         targetMode: person.randomTargets === true ? 'all-objects' : 'manual',
         destinations: personRuntimeDestinations(person)
       })),
+      controlStates: serializeAcknowledgedControlStates(),
       navigation: {
         spawn: { lat: state.spawn.lat, lon: state.spawn.lon, altFt: state.spawn.altFt, heading: state.spawn.heading },
         hangar: routeHangarBoundary(),
@@ -2164,9 +2233,7 @@
     const found = localAssetInspection.communityFound
       ? `Installiert ist ${localAssetInspection.packageVersion || 'eine unvollständige Version'}.`
       : 'Die benötigten Homebase-Objekte sind noch nicht installiert.';
-    const fallback = localAssetInspection.embeddedPackageComplete
-      ? ` Der PC-Tracker kann Version ${localAssetInspection.embeddedPackageVersion} auch ohne Download installieren.`
-      : ' Der PC-Tracker enthält keine verwendbare Offline-Version.';
+    const fallback = ' Der PC-Tracker lädt das geprüfte Paket bei Bedarf aus dem Releasekanal.';
     const detection = localAssetInspection.communityDetectionError
       ? ` ${localAssetInspection.communityDetectionError}`
       : '';
@@ -2194,11 +2261,11 @@
         return;
       }
       const useRemote = inspection.remoteAvailable === true && inspection.updateAvailable === true;
-      if (!useRemote && (!inspection.embeddedAvailable || !inspection.embeddedPackageComplete)) {
-        throw new Error(`Der PC-Tracker enthält keine gültige Offline-Version der Homebase-Objekte ${inspection.expectedPackageVersion || ''}.`);
+      if (!useRemote) {
+        throw new Error(inspection.remoteError || 'Der Asset-Releasekanal ist derzeit nicht erreichbar.');
       }
-      const availableVersion = useRemote ? inspection.remoteVersion : inspection.embeddedPackageVersion;
-      const signature = `${inspection.packageVersion || 'missing'}>${useRemote ? 'remote' : 'embedded'}:${availableVersion}`;
+      const availableVersion = inspection.remoteVersion;
+      const signature = `${inspection.packageVersion || 'missing'}>remote:${availableVersion}`;
       if (!force && assetPromptedSignature === signature) return;
       assetPromptedSignature = signature;
       const current = inspection.communityFound
@@ -2208,9 +2275,7 @@
       const changed = Array.isArray(inspection.changedAssets) && inspection.changedAssets.length
         ? `\nGeänderte Assets: ${inspection.changedAssets.join(', ')}`
         : '';
-      const source = useRemote
-        ? `Verfügbar auf dem Assetserver: ${availableVersion}\nDownloadgröße: ${sizeMb.toFixed(sizeMb >= 10 ? 0 : 1)} MB${changed}`
-        : `Offline im Tracker verfügbar: ${availableVersion}`;
+      const source = `Verfügbar auf dem Assetserver: ${availableVersion}\nDownloadgröße: ${sizeMb.toFixed(sizeMb >= 10 ? 0 : 1)} MB${changed}`;
       const confirmed = window.confirm(
         `Die Modelle für deine Homebase fehlen oder sind veraltet.\n\n${current}\n${source}\n\n` +
         'Sollen die geprüften Homebase-Objekte jetzt in den aktiven MSFS-Community-Ordner installiert werden? Der PC-Tracker kontrolliert Download und Inhalt vor jeder Änderung.'
@@ -2232,12 +2297,8 @@
         await postJson('/api/simulator/stop', { confirmed: true });
         log('MSFS wurde nach Bestätigung für die Assetinstallation geschlossen.', 'ok');
       }
-      setResult('assetPackageResult', useRemote
-        ? `Die Homebase-Objekte ${availableVersion} werden heruntergeladen, geprüft und installiert …`
-        : `Die Offline-Version ${availableVersion} wird geprüft und installiert …`);
-      const installed = useRemote
-        ? await postJson('/api/assets/update-install', { confirmed: true })
-        : await postJson('/api/assets/install', { confirmed: true });
+      setResult('assetPackageResult', `Die Homebase-Objekte ${availableVersion} werden heruntergeladen, geprüft und installiert …`);
+      const installed = await postJson('/api/assets/update-install', { confirmed: true });
       await refreshLocalAssetInspection({ remote: true });
       log(installed.message || `Homebase-Objekte ${installed.packageVersion || ''} installiert.`, 'ok');
       const installPath = installed.communityPath ? ` Ziel: ${installed.communityPath}.` : '';
@@ -2673,7 +2734,7 @@
         setResult('peopleResult', ack.message || (ok ? 'Personen und Wegpunkte wurden live aktualisiert.' : 'Personen konnten nicht aktualisiert werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
-      if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack', 'hb_test.preview.control.set_ack'].includes(data.stabilizerAck?.type)) {
+      if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack'].includes(data.stabilizerAck?.type)) {
         handleControlAck(data.stabilizerAck);
       }
       if (data.stabilizerAck?.type === 'homebase_v1.door_automation.set_ack') {
@@ -2944,7 +3005,7 @@
   $('clearLogBtn').addEventListener('click', () => { $('log').textContent = ''; });
   syncCompileModeUi();
   setupMobileMapPin();
-  fillCatalog(); fillPersonCatalog(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
+  fillCatalog(); fillPersonCatalog(); hydrateAcknowledgedControlStatesFromPlan(); syncInputsFromState(); updateMap(); refreshLocalAssetInspection(); connect();
   if (INTEGRATED) {
     postSyncDraft();
     window.parent.postMessage({ channel: 'vfr-homebase', kind: 'workbench-ready' }, PARENT_ORIGIN);

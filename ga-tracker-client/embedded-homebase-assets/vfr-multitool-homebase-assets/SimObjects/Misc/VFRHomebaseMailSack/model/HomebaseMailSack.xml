@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseMailSack" guid="{D72E1A6B-594F-4E80-8FA8-31C4B9A6E2D7}">
-	<LODS>
-		<LOD ModelFile="HomebaseMailSack_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

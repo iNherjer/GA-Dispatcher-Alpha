@@ -372,8 +372,8 @@ function copyRecursive(source, target) {
     return;
   }
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  // process.pkg exposes embedded assets through a read-only virtual filesystem.
-  // readFile/writeFile works reliably when the target is a real Community folder.
+  // Copy file contents explicitly so package sources and real Community folders
+  // use the same verified installation path.
   fs.writeFileSync(target, fs.readFileSync(source));
 }
 
@@ -411,10 +411,6 @@ function createHomebasePackageService(options = {}) {
     communityPath: options.communityPath,
     environment: options.environment || process.env
   });
-  const embeddedAssetPackage = path.resolve(
-    options.embeddedAssetPackagePath
-      || path.join(__dirname, 'embedded-homebase-assets', catalog.assetPackageName)
-  );
   const generatedRoot = path.join(runtimeDir, 'homebase-generated');
   const project = path.join(generatedRoot, 'vfr-multitool-homebase');
   const projectXmlPath = path.join(project, 'HomebaseProject.xml');
@@ -766,24 +762,14 @@ function createHomebasePackageService(options = {}) {
   };
 
   const inspectEmbeddedAssets = () => {
-    try {
-      const result = inspectAssetPackage(embeddedAssetPackage, { packageVersion: catalog.assetPackageVersion, assets: catalog.assets });
-      return {
-        embeddedAvailable: true,
-        embeddedPath: embeddedAssetPackage,
-        embeddedPackageComplete: result.packageComplete,
-        embeddedPackageVersion: result.packageVersion,
-        embeddedError: ''
-      };
-    } catch (error) {
-      return {
-        embeddedAvailable: false,
-        embeddedPath: embeddedAssetPackage,
-        embeddedPackageComplete: false,
-        embeddedPackageVersion: '',
-        embeddedError: error?.message || String(error)
-      };
-    }
+    return {
+      deliveryMode: 'online-only',
+      embeddedAvailable: false,
+      embeddedPath: '',
+      embeddedPackageComplete: false,
+      embeddedPackageVersion: '',
+      embeddedError: ''
+    };
   };
 
   const inspectAssets = () => {
@@ -913,21 +899,6 @@ function createHomebasePackageService(options = {}) {
     };
   };
 
-  const installAssets = () => {
-    if (simulatorRunning()) {
-      const error = new Error('MSFS läuft noch. Vor der Asset-Installation bitte den Simulator schließen.');
-      error.code = 'SIM_RUNNING';
-      throw error;
-    }
-    const embedded = inspectEmbeddedAssets();
-    if (!embedded.embeddedAvailable || !embedded.embeddedPackageComplete) {
-      const error = new Error(`Das in der Tracker-EXE enthaltene Assetpaket ist nicht verfügbar oder ungültig: ${embedded.embeddedError || embedded.embeddedPackageVersion || 'unbekannter Fehler'}`);
-      error.code = 'EMBEDDED_ASSETS_INVALID';
-      throw error;
-    }
-    return atomicallyInstallAssetPackage(embeddedAssetPackage, catalog.assetPackageVersion, { source: 'embedded', skipIfSameOrNewer: true });
-  };
-
   const checkRemoteAssets = async (checkOptions = {}) => {
     const installed = inspectAssets();
     const remote = await remoteUpdater.check(installed, { force: checkOptions.force === true });
@@ -976,6 +947,10 @@ function createHomebasePackageService(options = {}) {
     }
   };
 
+  // Compatibility alias for older app versions. Future tracker builds no
+  // longer contain an offline copy and always use the verified release channel.
+  const installAssets = async () => installRemoteAssets();
+
   readActiveAssetCatalog();
 
   const stopSimulator = () => {
@@ -992,12 +967,12 @@ function createHomebasePackageService(options = {}) {
     }
     if (type === 'homebase_v1.assets.install') {
       if (command?.confirmed !== true) throw Object.assign(new Error('Ausdrückliche Bestätigung zur Asset-Installation fehlt.'), { code: 'CONFIRMATION_REQUIRED' });
-      const result = installAssets();
+      const result = await installAssets();
       ack(command, 'assets.install', {
         status: 'ok',
         message: result.unchanged
-          ? `Homebase-Assetpaket ${result.packageVersion} ist bereits aktuell.`
-          : `Homebase-Assetpaket ${result.packageVersion} wurde sicher installiert${result.previousVersion ? ` und ersetzte ${result.previousVersion}` : ''}.`,
+          ? `Homebase-Assetpaket ${result.packageVersion} ist bereits auf dem Serverstand.`
+          : `Homebase-Assetpaket ${result.packageVersion} wurde vom Releasekanal geladen, geprüft und sicher installiert.`,
         ...result
       });
       return;
@@ -1062,7 +1037,7 @@ function createHomebasePackageService(options = {}) {
   };
 
   return {
-    capabilities: ['homebase-assets-install', 'homebase-assets-remote-update', 'homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback'],
+    capabilities: ['homebase-assets-install', 'homebase-assets-online-only-v1', 'homebase-assets-remote-update', 'homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback'],
     handleCommand(command) {
       const type = String(command?.type || '');
       if (!/^homebase_v1\.(assets|package|simulator)\./.test(type)) return false;

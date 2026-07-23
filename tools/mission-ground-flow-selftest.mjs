@@ -136,10 +136,11 @@ assert.match(homebaseIntegration, /'\/api\/assets\/install': 'homebase_v1\.asset
 assert.doesNotMatch(homebaseIntegration, /hb_test|hbTestHello/);
 assert.doesNotMatch(homebaseWorkbench, /hb_test|hbTestHello|Test2/);
 assert.match(homebaseWorkbench, /offerAssetPackageInstall/);
-assert.match(homebaseWorkbench, /\/api\/assets\/install/);
+assert.match(homebaseWorkbench, /\/api\/assets\/update-install/);
 assert.match(homebasePackageService, /HOMEBASE_ASSETS_INSTALLED/);
 assert.match(homebasePackageService, /homebase-assets-install/);
-assert.match(trackerPackage, /embedded-homebase-assets\/\*\*\/\*/);
+assert.doesNotMatch(trackerPackage, /embedded-homebase-assets/);
+assert.doesNotMatch(trackerPackage, /prebuild:tracker/);
 
 const context = {
     window: {

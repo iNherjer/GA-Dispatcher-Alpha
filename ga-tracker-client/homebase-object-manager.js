@@ -709,7 +709,8 @@ function createHomebaseObjectManager(handle, options = {}) {
       }
     }
     refreshPersonDoorSources();
-    const failures = [...failedObjects, ...failedPeople];
+    const restoredControls = await restorePreviewControlStates(command?.controlStates, command);
+    const failures = [...failedObjects, ...failedPeople, ...restoredControls.failed];
     sendAck({
       type: 'homebase_v1.preview.set_ack',
       commandId: command?.commandId || null,
@@ -721,7 +722,11 @@ function createHomebaseObjectManager(handle, options = {}) {
       spawnedObjects: spawned,
       spawnedPeople,
       peopleCount: spawnedPeople.length,
-      failedObjects: failures,
+      appliedControlStates: restoredControls.applied,
+      failedControlStates: restoredControls.failed,
+      controlStateCount: restoredControls.applied.length,
+      controlFailureCount: restoredControls.failed.length,
+      failedObjects,
       failedPeople,
       objectFailureCount: failedObjects.length,
       peopleFailureCount: failedPeople.length,
@@ -955,7 +960,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     });
   };
 
-  const writeObjectControl = async ({ command, title, control, stateDefinition, ackType }) => {
+  const writeObjectControl = async ({ command, title, control, stateDefinition, ackType, emitAck = true }) => {
     const commandId = String(command?.commandId || '');
     const definitionId = dataDefinitionForHangarAnimation(control);
     const value = stateDefinition.value;
@@ -967,6 +972,9 @@ function createHomebaseObjectManager(handle, options = {}) {
       : 0;
     if (control.scope === 'simobject') {
       const tracked = instanceId ? objectsById.get(instanceId) : null;
+      if (tracked && tracked.item.title !== title) {
+        throw new Error(`${control.label || 'Objektsteuerung'} passt nicht zur gewählten Objektinstanz.`);
+      }
       const scanned = tracked || doorAutomation.resolveTarget({
         objectId: command?.objectId,
         title,
@@ -1004,7 +1012,7 @@ function createHomebaseObjectManager(handle, options = {}) {
       : manualAutomation
         ? ' Die automatische Torsteuerung ist global deaktiviert.'
         : '';
-    sendAck({
+    const result = {
       type: ackType,
       commandId: commandId || null,
       status: 'ok',
@@ -1023,8 +1031,46 @@ function createHomebaseObjectManager(handle, options = {}) {
       doorAutomationEnabled: manualAutomation ? manualAutomation.enabled : null,
       durationMs: Number(control.durationMs) || 0,
       message: `${scopeMessage}${automationMessage}`
-    });
-    log(`OBJECT_CONTROL_ACK_SENT commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} type=${ackType}`);
+    };
+    if (emitAck) {
+      sendAck(result);
+      log(`OBJECT_CONTROL_ACK_SENT commandId=${commandId || 'none'} controlId=${control.id || 'door'} state=${stateDefinition.id} type=${ackType}`);
+    }
+    return result;
+  };
+
+  const restorePreviewControlStates = async (rawStates, parentCommand = {}) => {
+    const applied = [];
+    const failed = [];
+    for (const raw of (Array.isArray(rawStates) ? rawStates : []).slice(0, 200)) {
+      const instanceId = String(raw?.instanceId || '').trim();
+      const title = String(raw?.title || '').trim();
+      const controlId = String(raw?.controlId || '').trim().toLowerCase();
+      const stateId = String(raw?.stateId ?? raw?.state ?? '').trim().toLowerCase();
+      try {
+        if (!instanceId || !title || !controlId || !stateId) throw new Error('Unvollständiger gespeicherter Objektzustand.');
+        const control = objectControlForTitle(title, controlId);
+        if (!control) throw new Error(`${title} hat keine freigegebene Steuerung „${controlId}“.`);
+        const stateDefinition = control.states.find((entry) => entry.id === stateId);
+        if (!stateDefinition) throw new Error(`Status „${stateId}“ ist für ${control.label || controlId} nicht definiert.`);
+        const result = await writeObjectControl({
+          command: {
+            commandId: `${String(parentCommand?.commandId || 'preview')}:restore:${instanceId}:${controlId}`,
+            instanceId,
+            object: { id: instanceId, title }
+          },
+          title,
+          control,
+          stateDefinition,
+          ackType: 'homebase_v1.object.control.restore_ack',
+          emitAck: false
+        });
+        applied.push({ instanceId, title, controlId, stateId, objectId: result.objectId });
+      } catch (error) {
+        failed.push({ instanceId, title, controlId, stateId, error: error?.message || String(error) });
+      }
+    }
+    return { applied, failed };
   };
 
   const handleObjectControl = async (command) => {

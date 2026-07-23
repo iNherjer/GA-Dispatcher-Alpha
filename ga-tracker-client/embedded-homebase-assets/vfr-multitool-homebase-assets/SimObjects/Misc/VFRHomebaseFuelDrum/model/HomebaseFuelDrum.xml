@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseFuelDrum" guid="{6A4EA1F1-7F87-48F2-9F02-4F1B40D0E8A7}">
-	<LODS>
-		<LOD ModelFile="HomebaseFuelDrum_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseOpenParking" guid="{B5E7D5B0-3436-4F27-9EB8-DA3D84389C92}">
-	<LODS>
-		<LOD ModelFile="HomebaseOpenParking_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

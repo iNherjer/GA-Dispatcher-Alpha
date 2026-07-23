@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseEuropeanCaravan" guid="{E7A2C4D1-6F5B-4B8E-9C21-3D7A0F84B6E9}">
-	<LODS>
-		<LOD ModelFile="HomebaseEuropeanCaravan_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

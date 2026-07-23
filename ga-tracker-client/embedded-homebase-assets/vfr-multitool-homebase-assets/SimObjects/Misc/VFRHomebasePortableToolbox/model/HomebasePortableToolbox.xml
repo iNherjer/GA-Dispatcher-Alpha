@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebasePortableToolbox" guid="{0C8F4D1E-2B73-46A5-8F01-9E7B3A6C5D22}">
-	<LODS>
-		<LOD ModelFile="HomebasePortableToolbox_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

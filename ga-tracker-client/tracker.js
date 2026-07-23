@@ -28,8 +28,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v312';
-const TRACKER_VERSION_CODE = 312;
+const TRACKER_VERSION = 'v313';
+const TRACKER_VERSION_CODE = 313;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -3400,7 +3400,7 @@ function startTracker(syncId, pin) {
         protocol: 1,
         simConnected: false,
         assetPackageVersion: homebaseAssetCatalog.assetPackageVersion,
-        capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1']
+        capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1', 'homebase-fallback-control-state-v1']
       });
       return true;
     }
@@ -3564,6 +3564,18 @@ function startTracker(syncId, pin) {
       connect();
     }, delayMs);
   };
+  const startSimConnectOnce = () => {
+    if (_simStarted) return;
+    _simStarted = true;
+    connectSimConnect(
+      getWs,
+      syncId,
+      pin,
+      setTrackerCommandHandler,
+      (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
+      () => _homebaseFallbackCache
+    );
+  };
 
   function connect() {
     if (_reconnecting) return;
@@ -3647,17 +3659,7 @@ function startTracker(syncId, pin) {
           ws.ping();
         } catch (_) {}
       }, 25000);
-      if (!_simStarted) {
-        _simStarted = true;
-        connectSimConnect(
-          getWs,
-          syncId,
-          pin,
-          setTrackerCommandHandler,
-          (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
-          () => _homebaseFallbackCache
-        );
-      }
+      startSimConnectOnce();
     });
     ws.on('pong', () => { awaitingPong = false; });
     ws.on('message', handleTrackerMessage);
@@ -3674,6 +3676,7 @@ function startTracker(syncId, pin) {
     });
   }
 
+  startSimConnectOnce();
   connect();
 }
 
@@ -3767,6 +3770,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             objects: cache.objects,
             people: cache.people,
             navigation: cache.navigation,
+            controlStates: cache.controlStates,
             sceneSignature: cache.sceneSignature
           });
           homebaseManager.handleCommand({
@@ -4009,10 +4013,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const simPausedFromEvent = (runtimeState.pauseFlags || 0) !== 0;
 
               const ws = getWs();
-              if (ws && ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
+              const validPosition = lat !== 0 || lon !== 0;
+              if (validPosition) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
                 applyHomebaseFallback(lastGpsMsg);
+              }
+              if (ws && ws.readyState === WebSocket.OPEN && validPosition) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
                   mslFt: Math.round(alt || 0),
@@ -4177,20 +4184,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
-        // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
-        const ws = getWs();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
-        }
+        trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
       });
     })
     .catch(err => {
-      const ws = getWs();
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
-      }
+      trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
     });
 }
 

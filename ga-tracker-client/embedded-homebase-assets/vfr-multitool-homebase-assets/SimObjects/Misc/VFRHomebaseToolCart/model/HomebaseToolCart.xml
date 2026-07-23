@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseToolCart" guid="{b20b71e5-a6e3-4db7-8b83-0999195072db}">
-	<LODS>
-		<LOD ModelFile="HomebaseToolCart_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseDuffelBag" guid="{8D2A6F1B-3C94-41E2-97F8-5B0D6C7A1E34}">
-	<LODS>
-		<LOD ModelFile="HomebaseDuffelBag_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-

@@ -5,9 +5,7 @@
   "main": "tracker.js",
   "scripts": {
     "start": "node tracker.js",
-    "prebuild:tracker": "node prepare-embedded-homebase-assets.js",
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
-    "prepare:homebase-assets": "node prepare-embedded-homebase-assets.js",
     "test:homebase": "node homebase-self-test.js",
     "test:storage": "node tracker-storage-selftest.js",
     "test:door-proximity": "node homebase-door-proximity-test-selftest.js",
@@ -22,7 +20,6 @@
   },
   "pkg": {
     "scripts": "spawn-edtw-smoke-test.js",
-    "assets": ["embedded-homebase-assets/**/*"],
     "targets": ["node20-win-x64"],
     "outputPath": "dist"
   },

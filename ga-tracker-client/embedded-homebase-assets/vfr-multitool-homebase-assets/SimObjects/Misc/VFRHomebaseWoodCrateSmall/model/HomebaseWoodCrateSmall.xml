@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ModelInfo version="1.1" name="HomebaseWoodCrateSmall" guid="{A8D8DCA7-4EC5-4EF5-BA9D-4180AF56BC01}">
-	<LODS>
-		<LOD ModelFile="HomebaseWoodCrateSmall_LOD00.gltf" MinSize="0.0000"/>
-	</LODS>
-</ModelInfo>
-
