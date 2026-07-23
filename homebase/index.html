@@ -15,7 +15,7 @@
     })();
   </script>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-mobile-pin-fallback-20260720-01">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-controls-v312-20260723-01">
 </head>
 <body>
   <header class="topbar">
@@ -111,7 +111,7 @@
           <div><span class="step">FUNKTIONEN</span><h2>Türen, Lichter und weitere Funktionen</h2></div>
         </div>
         <label class="toggle"><input id="doorAutomationToggle" type="checkbox" checked> Hangartore bei Annäherung automatisch öffnen und schließen</label>
-        <p id="doorAutomationHint" class="small-note">Für Flugzeug und Walkaround öffnet jedes Tor einzeln bei höchstens 28 m und schließt ab 30 m nach einer Sekunde. Homebase-Mitarbeiter verwenden weiterhin die kleinere 18/20-m-Zone. Eine manuelle Betätigung bleibt bestehen, bis die Automatik denselben Zustand im nächsten Distanzzyklus erreicht.</p>
+        <p id="doorAutomationHint" class="small-note">Für Flugzeug und Walkaround öffnet jedes Tor einzeln bei höchstens 33 m und schließt ab 35 m nach einer Sekunde. Homebase-Mitarbeiter verwenden weiterhin die kleinere 18/20-m-Zone. Eine manuelle Betätigung bleibt bestehen, bis die Automatik denselben Zustand im nächsten Distanzzyklus erreicht.</p>
         <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
         <div id="homebaseControlsEmpty" class="object-empty">Die aktuell platzierten Modelle haben keine bedienbaren Türen, Lichter oder Animationen.</div>
         <p class="small-note">Wenn ein Modell bedienbare Funktionen besitzt, erscheinen die passenden Schalter hier automatisch. Instanzlokale Tore werden pro platziertem Hangar einzeln angezeigt.</p>
@@ -275,8 +275,8 @@
   </main>
 
   <script src="../vendor/leaflet/leaflet.js"></script>
-  <script src="./homebase-asset-catalog.js?v=homebase-people-routes-v1-20260721-01"></script>
+  <script src="./homebase-asset-catalog.js?v=homebase-controls-v312-20260723-01"></script>
   <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-spawn-only-mod-v307-20260721-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-controls-v312-20260723-01"></script>
 </body>
 </html>

@@ -10,7 +10,13 @@ const {
 } = require('node-simconnect');
 const catalog = require('./homebase-asset-catalog.js');
 const routeCore = require('./homebase-route-core.js');
-const { createHomebaseDoorAutomation } = require('./homebase-door-automation.js');
+const {
+  OPEN_RADIUS_M,
+  CLOSE_RADIUS_M,
+  PLAYER_OPEN_RADIUS_M,
+  PLAYER_CLOSE_RADIUS_M,
+  createHomebaseDoorAutomation
+} = require('./homebase-door-automation.js');
 
 const INIT_POSITION_DEFINITION = 52001;
 const OBJECT_ALTITUDE_DEFINITION = 52002;
@@ -470,7 +476,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     const definition = catalog.objectDefinitionForTitle(rawTitle);
     const controlId = String(rawControlId || '').trim().toLowerCase();
     const control = Array.isArray(definition?.controls)
-      ? definition.controls.find((entry) => entry.id === controlId)
+      ? definition.controls.find((entry) => String(entry?.id || '').toLowerCase() === controlId)
       : null;
     const scope = String(control?.scope || 'global').toLowerCase();
     if (!control || control.transport !== 'simconnect-lvar' || !['global', 'simobject'].includes(scope)) return null;
@@ -993,8 +999,8 @@ function createHomebaseObjectManager(handle, options = {}) {
       : `${control.label || 'Objektsteuerung'} ${action}. Die Steuerung gilt für alle Kopien dieses Modells.`;
     const automationMessage = manualAutomation?.active
       ? stateDefinition.id === 'open'
-        ? ' Die manuelle Öffnung bleibt bestehen, bis sich ein Spieler auf höchstens 28 m oder ein Mitarbeiter auf höchstens 18 m nähert.'
-        : ' Die manuelle Schließung bleibt bestehen, bis Spieler mindestens 30 m und Mitarbeiter mindestens 20 m entfernt sind.'
+        ? ` Die manuelle Öffnung bleibt bestehen, bis sich ein Spieler auf höchstens ${PLAYER_OPEN_RADIUS_M} m oder ein Mitarbeiter auf höchstens ${OPEN_RADIUS_M} m nähert.`
+        : ` Die manuelle Schließung bleibt bestehen, bis Spieler mindestens ${PLAYER_CLOSE_RADIUS_M} m und Mitarbeiter mindestens ${CLOSE_RADIUS_M} m entfernt sind.`
       : manualAutomation
         ? ' Die automatische Torsteuerung ist global deaktiviert.'
         : '';
@@ -1006,6 +1012,7 @@ function createHomebaseObjectManager(handle, options = {}) {
       controlId: control.id || 'door',
       controlType: control.type || 'animation',
       state: stateDefinition.id,
+      stateId: stateDefinition.id,
       value,
       simvar: control.simvar,
       controlScope: control.scope,
@@ -1023,7 +1030,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const handleObjectControl = async (command) => {
     const title = String(command?.title || command?.objectTitle || '').trim();
     const controlId = String(command?.controlId || '').trim().toLowerCase();
-    const state = String(command?.state || '').trim().toLowerCase();
+    const state = String(command?.state ?? command?.stateId ?? '').trim().toLowerCase();
     if (!title) throw new Error('Objekttitel fehlt.');
     if (!controlId) throw new Error('Steuerungs-ID fehlt.');
     const control = objectControlForTitle(title, controlId);
@@ -1044,8 +1051,10 @@ function createHomebaseObjectManager(handle, options = {}) {
       enabled: result.enabled,
       changed: result.changed,
       resetManualOverrides: result.resetManualOverrides,
-      openRadiusM: 18,
-      closeRadiusM: 20,
+      openRadiusM: OPEN_RADIUS_M,
+      closeRadiusM: CLOSE_RADIUS_M,
+      playerOpenRadiusM: PLAYER_OPEN_RADIUS_M,
+      playerCloseRadiusM: PLAYER_CLOSE_RADIUS_M,
       closeDelayMs: 1000,
       message: result.enabled
         ? result.resetManualOverrides
@@ -1116,6 +1125,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     }
     if (recv.clientEventId !== EVENT_OBJECT_REMOVED) return;
     recentlyAddedObjectIds.delete(objectId);
+    doorAutomation.forgetObject(objectId);
     const record = objectsBySimId.get(objectId);
     if (record) {
       objectsBySimId.delete(objectId);

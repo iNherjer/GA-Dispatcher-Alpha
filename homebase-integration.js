@@ -164,7 +164,7 @@
 
   function homebaseSaveBody(draft) {
     return JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       baseRevision: draft.baseRevision || '',
       clientUpdatedAt: draft.localUpdatedAt || Date.now(),
       deviceId: draft.deviceId || '',
@@ -230,10 +230,8 @@
     if (localMeta?.dirty === true && localPlan) return localPlan;
     if (ownCloudPlan) {
       const localPeople = Array.isArray(localPlan?.people) ? localPlan.people.slice(0, 3) : [];
-      const cloudPeople = ownCloudPlan?.people;
-      const cloudClientUpdatedAt = finite(ownCloudRecord?.clientUpdatedAt, 0);
-      if (localPeople.length > 0
-        && (!Array.isArray(cloudPeople) || (cloudPeople.length === 0 && cloudClientUpdatedAt <= finite(localMeta?.localUpdatedAt, 0)))) {
+      const legacyPeopleRecord = finite(ownCloudRecord?.schemaVersion, 1) < 2;
+      if (localPeople.length > 0 && legacyPeopleRecord) {
         return { ...ownCloudPlan, people: localPeople };
       }
       return ownCloudPlan;
@@ -695,7 +693,7 @@
       id: `${prefix}hangar`, title: String(hangar.objectTitle), label: `${owner} · Hangar`,
       lat: hangarPosition.lat, lon: hangarPosition.lon,
       altFt: finite(spawn.altFt) + finite(hangar.heightFt), heightOffsetFt: finite(hangar.heightFt),
-      heading: heading(finite(hangar.heading) + 180), scale: 1
+      heading: heading(finite(hangar.heading) + homebaseHeadingCorrection(hangar.objectTitle)), scale: 1
     } : null;
     const extras = (Array.isArray(plan.objects) ? plan.objects : []).slice(0, 20).map((item, index) => {
       const position = offsetLatLon(lat, lon, finite(item?.northM), finite(item?.eastM));
@@ -704,7 +702,7 @@
         label: `${owner} · ${String(item?.label || 'Ausstattung').slice(0, 48)}`,
         lat: position.lat, lon: position.lon,
         altFt: finite(spawn.altFt) + finite(item?.heightFt), heightOffsetFt: finite(item?.heightFt),
-        heading: heading(item?.heading), scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
+        heading: heading(finite(item?.heading) + homebaseHeadingCorrection(item?.title)), scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
       };
     }).filter((item) => item.title);
     return { hangar: hangarObject, extras };
@@ -816,12 +814,22 @@
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 409 && data.record) {
-        postToWorkbench('sync-save-result', { ok: false, conflict: true, record: data.record, reason });
+        postToWorkbench('sync-save-result', {
+          ok: false, conflict: true, record: data.record, reason,
+          savedPlan: draft.plan,
+          savedClientUpdatedAt: draft.localUpdatedAt,
+          savedCrewShareEnabled: draft.crewShareEnabled === true
+        });
         reportHomebaseSync('Cloud-Konflikt erkannt', 'bad');
         return { ok: false, conflict: true, record: data.record };
       }
       if (!response.ok) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
-      postToWorkbench('sync-save-result', { ok: true, record: data.record || null, reason });
+      postToWorkbench('sync-save-result', {
+        ok: true, record: data.record || null, reason,
+        savedPlan: draft.plan,
+        savedClientUpdatedAt: draft.localUpdatedAt,
+        savedCrewShareEnabled: draft.crewShareEnabled === true
+      });
       return { ok: true, saved: true, record: data.record || null };
     } catch (error) {
       const message = error?.message || String(error);
@@ -1375,7 +1383,7 @@
         deviceId: String(message.deviceId || ''),
         crewShareEnabled: message.crewShareEnabled === true
       };
-      scheduleHomebaseSave();
+      if (message.suppressAutoSave !== true) scheduleHomebaseSave();
       scheduleOwnFallbackCache('draft-change');
       const nextRuntimeSignature = JSON.stringify(currentOwnRuntimeConfig());
       if (previousRuntimeSignature !== nextRuntimeSignature) {

@@ -136,6 +136,31 @@
       "date": 132223032000000000
     },
     {
+      "path": "simobjects/misc/vfrhomebaseconstructionfloodlighttripod/model/homebaseconstructionfloodlighttripod.xml",
+      "size": 1496,
+      "date": 134292821700000003
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseconstructionfloodlighttripod/model/homebaseconstructionfloodlighttripod_lod00.bin",
+      "size": 484476,
+      "date": 134292821700262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseconstructionfloodlighttripod/model/homebaseconstructionfloodlighttripod_lod00.gltf",
+      "size": 75475,
+      "date": 134292821700262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseconstructionfloodlighttripod/model/model.cfg",
+      "size": 57,
+      "date": 134292821700000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseconstructionfloodlighttripod/sim.cfg",
+      "size": 411,
+      "date": 134292821700000000
+    },
+    {
       "path": "simobjects/misc/vfrhomebasedaypack/model/homebasedaypack.xml",
       "size": 230,
       "date": 134286075910000003
@@ -287,28 +312,108 @@
     },
     {
       "path": "simobjects/misc/vfrhomebasehangar/model/homebasehangar.xml",
-      "size": 228,
-      "date": 134286000510000003
+      "size": 1320,
+      "date": 134291834440000003
     },
     {
       "path": "simobjects/misc/vfrhomebasehangar/model/homebasehangar_lod00.bin",
-      "size": 769728,
-      "date": 134286000510262163
+      "size": 584504,
+      "date": 134292621350262163
     },
     {
       "path": "simobjects/misc/vfrhomebasehangar/model/homebasehangar_lod00.gltf",
-      "size": 4283,
-      "date": 134286000510262163
+      "size": 43978,
+      "date": 134292621350262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/model/homebasehangar_lod01.bin",
+      "size": 39272,
+      "date": 134292621370262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/model/homebasehangar_lod01.gltf",
+      "size": 13698,
+      "date": 134292621370262163
     },
     {
       "path": "simobjects/misc/vfrhomebasehangar/model/model.cfg",
       "size": 35,
-      "date": 134286000510000000
+      "date": 134292173800000000
     },
     {
       "path": "simobjects/misc/vfrhomebasehangar/sim.cfg",
-      "size": 271,
-      "date": 134286000510000000
+      "size": 649,
+      "date": 134292173800000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_door_albedo_v2.png.ktx2",
+      "size": 699624,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_door_albedo_v2.png.ktx2.json",
+      "size": 102,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_exterior_albedo_v2.png.ktx2",
+      "size": 2796808,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_exterior_albedo_v2.png.ktx2.json",
+      "size": 102,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_fabric_detailcolor_v1.png.ktx2",
+      "size": 1398704,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_fabric_detailcolor_v1.png.ktx2.json",
+      "size": 119,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_fabric_detailnormal_directx_v1.png.ktx2",
+      "size": 1398736,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_fabric_detailnormal_directx_v1.png.ktx2.json",
+      "size": 160,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_front_albedo_v2.png.ktx2",
+      "size": 699624,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_front_albedo_v2.png.ktx2.json",
+      "size": 102,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_interior_albedo_v2.png.ktx2",
+      "size": 699624,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_interior_albedo_v2.png.ktx2.json",
+      "size": 102,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_shell_normal_directx_v2.png.ktx2",
+      "size": 5593056,
+      "date": 134292621360000006
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasehangar/texture/homebasehangar_shell_normal_directx_v2.png.ktx2.json",
+      "size": 160,
+      "date": 134292621360000006
     },
     {
       "path": "simobjects/misc/vfrhomebaseinsulatedcooler/model/homebaseinsulatedcooler.xml",
@@ -487,28 +592,38 @@
     },
     {
       "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar.xml",
-      "size": 1256,
-      "date": 134290214380000003
+      "size": 1329,
+      "date": 134291955900000003
     },
     {
       "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod00.bin",
       "size": 417172,
-      "date": 134290057650262163
+      "date": 134291955900262163
     },
     {
       "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod00.gltf",
-      "size": 27276,
-      "date": 134290057650262163
+      "size": 27247,
+      "date": 134291955900262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod01.bin",
+      "size": 7564,
+      "date": 134291963020262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebaseroundhangar/model/homebaseroundhangar_lod01.gltf",
+      "size": 6509,
+      "date": 134291963020262163
     },
     {
       "path": "simobjects/misc/vfrhomebaseroundhangar/model/model.cfg",
       "size": 40,
-      "date": 134290214380000000
+      "date": 134291955210000000
     },
     {
       "path": "simobjects/misc/vfrhomebaseroundhangar/sim.cfg",
-      "size": 571,
-      "date": 134290214380000000
+      "size": 591,
+      "date": 134291955210000000
     },
     {
       "path": "simobjects/misc/vfrhomebasespawnprobe/model/homebasespawnprobe.xml",
@@ -534,6 +649,31 @@
       "path": "simobjects/misc/vfrhomebasespawnprobe/sim.cfg",
       "size": 291,
       "date": 132223032000000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasestablelantern/model/homebasestablelantern.xml",
+      "size": 821,
+      "date": 134292821660000003
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasestablelantern/model/homebasestablelantern_lod00.bin",
+      "size": 1319616,
+      "date": 134292821660262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasestablelantern/model/homebasestablelantern_lod00.gltf",
+      "size": 121004,
+      "date": 134292821660262163
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasestablelantern/model/model.cfg",
+      "size": 42,
+      "date": 134292821660000000
+    },
+    {
+      "path": "simobjects/misc/vfrhomebasestablelantern/sim.cfg",
+      "size": 420,
+      "date": 134292821660000000
     },
     {
       "path": "simobjects/misc/vfrhomebasetoolbox/model/homebasetoolbox.xml",

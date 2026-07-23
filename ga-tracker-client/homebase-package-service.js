@@ -468,33 +468,43 @@ function createHomebasePackageService(options = {}) {
 
   cleanupAssetStaging();
 
+  const publicAssetCatalog = (assets) => assets.map((asset) => {
+    const definition = catalog.objectDefinitionForTitle(asset?.title) || asset || {};
+    return {
+      key: String(definition?.key || ''), folder: String(definition?.folder || ''), title: String(definition?.title || ''),
+      label: String(definition?.label || ''), version: String(asset?.version || ''), kind: String(definition?.kind || ''),
+      group: String(definition?.group || ''), workbenchVisible: definition?.workbenchVisible !== false && definition?.homebasePlaceable !== false,
+      homebasePlaceable: definition?.homebasePlaceable !== false,
+      missionSpawnable: definition?.missionSpawnable === true,
+      missionTags: Array.isArray(definition?.missionTags) ? definition.missionTags.map(String).slice(0, 20) : [],
+      missionRoles: Array.isArray(definition?.missionRoles) ? definition.missionRoles.map(String).slice(0, 20) : [],
+      ...(Number.isFinite(Number(definition?.headingCorrectionDeg)) ? { headingCorrectionDeg: Number(definition.headingCorrectionDeg) } : {}),
+      ...(definition?.footprint ? { footprint: definition.footprint } : {}),
+      ...(definition?.animation ? { animation: definition.animation } : {}),
+      ...(Array.isArray(definition?.controls) ? { controls: definition.controls } : {}),
+      ...(definition?.vegetationExclusion ? { vegetationExclusion: definition.vegetationExclusion } : {}),
+      ...(definition?.collisionProfile ? { collisionProfile: definition.collisionProfile } : {})
+    };
+  });
+
   const readActiveAssetCatalog = (installed = inspectAssets()) => {
+    let assets = [];
     try {
       const index = JSON.parse(fs.readFileSync(activeAssetIndexPath, 'utf8'));
-      if (index?.packageName !== catalog.assetPackageName || index?.packageVersion !== installed.packageVersion || !installed.packageComplete) return [];
-      const assets = Array.isArray(index.assets) ? index.assets : [];
-      catalog.registerRuntimeAssets(assets);
-      return assets.map((asset) => {
-        const definition = catalog.objectDefinitionForTitle(asset?.title) || asset || {};
-        return {
-          key: String(definition?.key || ''), folder: String(definition?.folder || ''), title: String(definition?.title || ''),
-          label: String(definition?.label || ''), version: String(asset?.version || ''), kind: String(definition?.kind || ''),
-          group: String(definition?.group || ''), workbenchVisible: definition?.workbenchVisible !== false && definition?.homebasePlaceable !== false,
-          homebasePlaceable: definition?.homebasePlaceable !== false,
-          missionSpawnable: definition?.missionSpawnable === true,
-          missionTags: Array.isArray(definition?.missionTags) ? definition.missionTags.map(String).slice(0, 20) : [],
-          missionRoles: Array.isArray(definition?.missionRoles) ? definition.missionRoles.map(String).slice(0, 20) : [],
-          ...(Number.isFinite(Number(definition?.headingCorrectionDeg)) ? { headingCorrectionDeg: Number(definition.headingCorrectionDeg) } : {}),
-          ...(definition?.footprint ? { footprint: definition.footprint } : {}),
-          ...(definition?.animation ? { animation: definition.animation } : {}),
-          ...(Array.isArray(definition?.controls) ? { controls: definition.controls } : {}),
-          ...(definition?.vegetationExclusion ? { vegetationExclusion: definition.vegetationExclusion } : {}),
-          ...(definition?.collisionProfile ? { collisionProfile: definition.collisionProfile } : {})
-        };
-      });
-    } catch (_) {
-      return [];
+      if (index?.packageName === catalog.assetPackageName
+        && index?.packageVersion === installed.packageVersion
+        && installed.packageComplete) {
+        assets = Array.isArray(index.assets) ? index.assets : [];
+      }
+    } catch (_) {}
+    if (!assets.length
+      && installed.packageComplete
+      && installed.packageVersion === catalog.assetPackageVersion) {
+      assets = catalog.assets;
     }
+    if (!assets.length) return [];
+    catalog.registerRuntimeAssets(assets);
+    return publicAssetCatalog(assets);
   };
 
   const ack = (command, suffix, payload = {}) => sendAck({

@@ -282,19 +282,49 @@ async function run() {
   if (pallet?.groundClearanceFt !== 0.08 || pallet?.liveGroundStabilization !== true || pallet?.lowResAltitude !== true) {
     throw new Error('Pallet ground placement metadata is incomplete.');
   }
+  const tentHangar = catalog.objectDefinitionForTitle('VFR Multitool Homebase Hangar');
+  const tentDoor = tentHangar?.controls?.find((control) => control.id === 'door');
+  const tentLight = tentHangar?.controls?.find((control) => control.id === 'interiorLight');
+  if (tentHangar?.headingCorrectionDeg !== 0
+    || tentDoor?.simvar !== 'L:1:VFR_HOMEBASE_HANGAR_DOOR_COMMAND'
+    || tentDoor?.scope !== 'simobject'
+    || tentLight?.simvar !== 'L:1:VFR_HOMEBASE_HANGAR_LIGHT_COMMAND'
+    || tentLight?.scope !== 'simobject') {
+    throw new Error('Tent-hangar controls or heading correction are incomplete.');
+  }
 
   catalog.registerRuntimeAssets([{
     key: 'roundHangar', folder: 'VFRHomebaseRoundHangar', title: 'VFR Multitool Homebase Round Hangar',
     kind: 'hangar', group: 'Hangars', label: 'Rundhangar mit Schiebetor', homebasePlaceable: true,
     controls: [{
       schemaVersion: 1, id: 'interiorLight', type: 'light', label: 'Innenbeleuchtung', transport: 'simconnect-lvar',
-      simvar: 'L:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'global', defaultState: 'on',
+      simvar: 'L:1:VFR_HOMEBASE_ROUND_HANGAR_LIGHT_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'on',
       states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }]
     }]
   }]);
   const roundHangar = catalog.objectDefinitionForTitle('VFR Multitool Homebase Round Hangar');
-  if (roundHangar?.headingCorrectionDeg !== 0 || !roundHangar?.controls?.some((control) => control.id === 'door') || !roundHangar?.controls?.some((control) => control.id === 'interiorlight')) {
+  if (roundHangar?.headingCorrectionDeg !== 0 || !roundHangar?.controls?.some((control) => control.id === 'door') || !roundHangar?.controls?.some((control) => control.id === 'interiorLight')) {
     throw new Error('Runtime catalog update did not preserve and extend the round-hangar controls.');
+  }
+  const stableLantern = catalog.objectDefinitionForTitle('VFR Multitool Homebase Stable Lantern');
+  const stableLanternLight = stableLantern?.controls?.find((control) => control.id === 'light');
+  if (stableLantern?.key !== 'stableLantern'
+    || stableLanternLight?.simvar !== 'L:1:VFR_HOMEBASE_STABLE_LANTERN_LIGHT_COMMAND'
+    || stableLanternLight?.scope !== 'simobject'
+    || stableLanternLight?.states?.find((state) => state.id === 'on')?.value !== 0
+    || stableLanternLight?.states?.find((state) => state.id === 'off')?.value !== 1) {
+    throw new Error('Stable-lantern control contract is incomplete.');
+  }
+  const constructionFloodlight = catalog.objectDefinitionForTitle('VFR Multitool Homebase Construction Floodlight Tripod');
+  const constructionFloodlightLight = constructionFloodlight?.controls?.find((control) => control.id === 'light');
+  if (constructionFloodlight?.key !== 'constructionFloodlightTripod'
+    || constructionFloodlight?.version !== '1.0.1'
+    || constructionFloodlight?.group !== 'Beleuchtung'
+    || constructionFloodlightLight?.simvar !== 'L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND'
+    || constructionFloodlightLight?.scope !== 'simobject'
+    || constructionFloodlightLight?.states?.find((state) => state.id === 'on')?.value !== 0
+    || constructionFloodlightLight?.states?.find((state) => state.id === 'off')?.value !== 1) {
+    throw new Error('Construction-floodlight control contract is incomplete.');
   }
 
   const acks = [];
@@ -317,11 +347,13 @@ async function run() {
     type: 'homebase_v1.preview.set',
     commandId: 'round-hangar-preview',
     objects: [
-      { id: 'hangar', title: 'VFR Multitool Homebase Round Hangar', label: 'Rundhangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 }
+      { id: 'hangar', title: 'VFR Multitool Homebase Round Hangar', label: 'Rundhangar', lat: 48, lon: 8, altFt: 514, heightOffsetFt: 0, heading: 270 },
+      { id: 'lantern', title: 'VFR Multitool Homebase Stable Lantern', label: 'Stalllaterne', lat: 48.00001, lon: 8.00001, altFt: 514, heightOffsetFt: 0, heading: 0 },
+      { id: 'construction-floodlight', title: 'VFR Multitool Homebase Construction Floodlight Tripod', label: 'Baustrahler mit Stativ', lat: 48.00002, lon: 8.00002, altFt: 514, heightOffsetFt: 0, heading: 0 }
     ]
   });
   const roundHangarPreviewAck = await waitForAck(acks, 'homebase_v1.preview.set_ack');
-  if (roundHangarPreviewAck.status !== 'ok' || roundHangarPreviewAck.objectCount !== 1) throw new Error('Round-hangar preview setup failed.');
+  if (roundHangarPreviewAck.status !== 'ok' || roundHangarPreviewAck.objectCount !== 3) throw new Error('Controlled-object preview setup failed.');
 
   manager.handleCommand({
     type: 'homebase_v1.object.control.set',
@@ -337,11 +369,45 @@ async function run() {
   }
   manager.handleCommand({
     type: 'homebase_v1.object.control.set', commandId: 'round-hangar-light-off',
-    title: 'VFR Multitool Homebase Round Hangar', controlId: 'interiorLight', state: 'off'
+    title: 'VFR Multitool Homebase Round Hangar', controlId: 'interiorLight', state: 'off', instanceId: 'hangar'
   });
   const lightControlAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
-  if (lightControlAck.status !== 'ok' || lightControlAck.controlId !== 'interiorlight' || lightControlAck.state !== 'off' || lightControlAck.value !== 1) {
+  if (lightControlAck.status !== 'ok' || lightControlAck.controlId !== 'interiorLight' || lightControlAck.state !== 'off' || lightControlAck.value !== 1 || lightControlAck.controlScope !== 'simobject' || lightControlAck.objectId !== 7000) {
     throw new Error(`Generic light control failed: ${JSON.stringify(lightControlAck)}`);
+  }
+  manager.handleCommand({
+    type: 'homebase_v1.object.control.set',
+    commandId: 'stable-lantern-light-off',
+    title: 'VFR Multitool Homebase Stable Lantern',
+    controlId: 'light',
+    stateId: 'off',
+    instanceId: 'lantern'
+  });
+  const lanternLightAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
+  if (lanternLightAck.status !== 'ok' || lanternLightAck.controlId !== 'light' || lanternLightAck.stateId !== 'off'
+    || lanternLightAck.value !== 1 || lanternLightAck.controlScope !== 'simobject' || lanternLightAck.objectId !== 7001) {
+    throw new Error(`Stable-lantern light control failed: ${JSON.stringify(lanternLightAck)}`);
+  }
+  const lanternPayload = handle.positions.get(7001);
+  const lanternBuffer = lanternPayload?.buffer?.getBuffer?.();
+  if (!lanternBuffer || lanternBuffer.readDoubleLE(0) !== 1) throw new Error('Stable-lantern light did not write value 1 to its own Object-ID.');
+  manager.handleCommand({
+    type: 'homebase_v1.object.control.set',
+    commandId: 'construction-floodlight-light-off',
+    title: 'VFR Multitool Homebase Construction Floodlight Tripod',
+    controlId: 'light',
+    stateId: 'off',
+    instanceId: 'construction-floodlight'
+  });
+  const constructionFloodlightAck = await waitForAck(acks, 'homebase_v1.object.control.set_ack');
+  if (constructionFloodlightAck.status !== 'ok' || constructionFloodlightAck.controlId !== 'light' || constructionFloodlightAck.stateId !== 'off'
+    || constructionFloodlightAck.value !== 1 || constructionFloodlightAck.controlScope !== 'simobject' || constructionFloodlightAck.objectId !== 7002) {
+    throw new Error(`Construction-floodlight light control failed: ${JSON.stringify(constructionFloodlightAck)}`);
+  }
+  const constructionFloodlightPayload = handle.positions.get(7002);
+  const constructionFloodlightBuffer = constructionFloodlightPayload?.buffer?.getBuffer?.();
+  if (!constructionFloodlightBuffer || constructionFloodlightBuffer.readDoubleLE(0) !== 1) {
+    throw new Error('Construction-floodlight light did not write value 1 to its own Object-ID.');
   }
 
   manager.handleCommand({
@@ -696,6 +762,17 @@ async function run() {
     }
     const inspected = packageService.inspectAssets();
     if (!inspected.packageComplete || inspected.packageVersion !== catalog.assetPackageVersion) throw new Error('Installed asset validation failed.');
+    const localAssetCatalog = packageService.inspectAssetState().assetCatalog;
+    const localLantern = localAssetCatalog.find((asset) => asset.key === 'stableLantern');
+    if (!localLantern?.controls?.some((control) => control.id === 'light'
+      && control.simvar === 'L:1:VFR_HOMEBASE_STABLE_LANTERN_LIGHT_COMMAND')) {
+      throw new Error('Locally installed package did not expose the built-in stable-lantern catalog to the app.');
+    }
+    const localConstructionFloodlight = localAssetCatalog.find((asset) => asset.key === 'constructionFloodlightTripod');
+    if (!localConstructionFloodlight?.controls?.some((control) => control.id === 'light'
+      && control.simvar === 'L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND')) {
+      throw new Error('Locally installed package did not expose the built-in construction-floodlight catalog to the app.');
+    }
     const repeated = packageService.installAssets();
     if (!repeated.unchanged) throw new Error('Repeated asset installation must be idempotent.');
     const sceneOutput = path.join(testRoot, 'homebase-generated', 'vfr-multitool-homebase', 'Packages', catalog.scenePackageName);

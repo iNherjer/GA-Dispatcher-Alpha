@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseStableLantern" guid="{D7B227E9-B6AA-47A0-9DB0-F052E164349C}">
+	<LODS>
+		<LOD ModelFile="HomebaseStableLantern_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+	<Behaviors>
+		<Include ModelBehaviorFile="Asobo\Generic.xml"/>
+		<Component ID="StableLanternEmissive" Node="StableLanternEmissive">
+			<UseTemplate Name="ASOBO_GT_Emissive_Gauge">
+				<EMISSIVE_CODE>(L:1:VFR_HOMEBASE_STABLE_LANTERN_LIGHT_COMMAND, number) 0.5 &lt;</EMISSIVE_CODE>
+			</UseTemplate>
+		</Component>
+		<Component ID="StableLanternLight" Node="StableLanternLight">
+			<UseTemplate Name="ASOBO_GT_Visibility_Code">
+				<VISIBILITY_CODE>(L:1:VFR_HOMEBASE_STABLE_LANTERN_LIGHT_COMMAND, number) 0.5 &lt;</VISIBILITY_CODE>
+			</UseTemplate>
+		</Component>
+	</Behaviors>
+</ModelInfo>
+

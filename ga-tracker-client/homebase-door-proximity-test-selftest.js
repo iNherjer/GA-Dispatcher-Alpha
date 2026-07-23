@@ -9,6 +9,7 @@ const {
   PLAYER_OPEN_RADIUS_M,
   PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
+  DOOR_STATE_RETENTION_MS,
   collectDoorControls,
   distanceMeters,
   nearestSource,
@@ -16,7 +17,7 @@ const {
   proximityForSources,
   finitePosition
 } = require('./homebase-door-proximity-test.js');
-const { createHomebaseDoorAutomation, advanceDoorAutomationState } = require('./homebase-door-automation.js');
+const { createHomebaseDoorAutomation, advanceDoorAutomationState, doorStateExpired } = require('./homebase-door-automation.js');
 
 const origin = { lat: 48, lon: 8 };
 const aboutTenMetersNorth = { lat: 48 + (10 / 6371000) * (180 / Math.PI), lon: 8 };
@@ -28,7 +29,8 @@ assert.ok(controls.some((control) => control.simvar === 'L:1:VFR_HOMEBASE_ROUND_
 assert.ok(controls.every((control) => control.title && control.simvar.startsWith('L:1:')));
 assert.ok(controls.every((control) => Number.isFinite(control.openValue) && Number.isFinite(control.closedValue)));
 assert.ok(CLOSE_RADIUS_M > OPEN_RADIUS_M);
-assert.equal(PLAYER_OPEN_RADIUS_M, OPEN_RADIUS_M + 10);
+assert.equal(PLAYER_OPEN_RADIUS_M, 33);
+assert.equal(PLAYER_CLOSE_RADIUS_M, 35);
 assert.ok(PLAYER_CLOSE_RADIUS_M > PLAYER_OPEN_RADIUS_M);
 assert.ok(CLOSE_DELAY_MS >= 1000);
 assert.equal(proximityZone(OPEN_RADIUS_M - .1), 'open');
@@ -39,6 +41,9 @@ assert.equal(proximityZone(PLAYER_OPEN_RADIUS_M, { kind: 'Flugzeug' }), 'open');
 assert.equal(proximityZone((PLAYER_OPEN_RADIUS_M + PLAYER_CLOSE_RADIUS_M) / 2, { kind: 'Avatar' }), 'hold');
 assert.equal(proximityZone(PLAYER_CLOSE_RADIUS_M, { kind: 'Aktiver Benutzer' }), 'close');
 assert.equal(proximityZone(Infinity), 'unknown');
+assert.equal(doorStateExpired({ lastSeenAt: 1000, lastCommandAt: 1000 }, 1000 + DOOR_STATE_RETENTION_MS), false);
+assert.equal(doorStateExpired({ lastSeenAt: 1000, lastCommandAt: 1000 }, 1001 + DOOR_STATE_RETENTION_MS), true);
+assert.equal(doorStateExpired({ lastSeenAt: 5000, lastCommandAt: 1000 }, 5000 + DOOR_STATE_RETENTION_MS), false);
 
 const now = Date.now();
 const pointNorth = (meters, kind) => ({
@@ -133,6 +138,9 @@ assert.equal(controller.snapshot().states.find(([objectId]) => objectId === 101)
 const resetResult = controller.setEnabled(true, { resetManualOverrides: true });
 assert.equal(resetResult.resetManualOverrides, 1);
 assert.equal(controller.snapshot().states.find(([objectId]) => objectId === 101)?.[1]?.manualOverrideState, null);
+controller.noteManualState({ objectId: 202, title: 'VFR Multitool Homebase Round Hangar' }, 'closed');
+assert.equal(controller.forgetObject(202), true);
+assert.equal(controller.snapshot().states.some(([objectId]) => objectId === 202), false);
 controller.stop();
 assert.deepEqual(handle.writes.map((write) => [write.objectId, write.value]), [[101, 0], [202, 1]]);
 

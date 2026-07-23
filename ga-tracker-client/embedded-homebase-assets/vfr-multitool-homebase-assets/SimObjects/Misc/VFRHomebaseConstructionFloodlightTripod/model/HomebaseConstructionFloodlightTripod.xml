@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseConstructionFloodlightTripod" guid="{D0021AD6-84F5-41F3-982A-E01F3BA6E66D}">
+	<LODS>
+		<LOD ModelFile="HomebaseConstructionFloodlightTripod_LOD00.gltf" MinSize="0.0000"/>
+	</LODS>
+	<Behaviors>
+		<Include ModelBehaviorFile="Asobo\Generic.xml"/>
+		<Component ID="ConstructionFloodlightEmissiveLeft" Node="ConstructionFloodlightEmissiveLeft">
+			<UseTemplate Name="ASOBO_GT_Emissive_Gauge">
+				<EMISSIVE_CODE>(L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND, number) 0.5 &lt;</EMISSIVE_CODE>
+			</UseTemplate>
+		</Component>
+		<Component ID="ConstructionFloodlightEmissiveRight" Node="ConstructionFloodlightEmissiveRight">
+			<UseTemplate Name="ASOBO_GT_Emissive_Gauge">
+				<EMISSIVE_CODE>(L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND, number) 0.5 &lt;</EMISSIVE_CODE>
+			</UseTemplate>
+		</Component>
+		<Component ID="ConstructionFloodlightLightLeft" Node="ConstructionFloodlightLightLeft">
+			<UseTemplate Name="ASOBO_GT_Visibility_Code">
+				<VISIBILITY_CODE>(L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND, number) 0.5 &lt;</VISIBILITY_CODE>
+			</UseTemplate>
+		</Component>
+		<Component ID="ConstructionFloodlightLightRight" Node="ConstructionFloodlightLightRight">
+			<UseTemplate Name="ASOBO_GT_Visibility_Code">
+				<VISIBILITY_CODE>(L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND, number) 0.5 &lt;</VISIBILITY_CODE>
+			</UseTemplate>
+		</Component>
+	</Behaviors>
+</ModelInfo>
+

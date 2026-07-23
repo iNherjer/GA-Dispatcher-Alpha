@@ -10,9 +10,10 @@ const catalog = require('./homebase-asset-catalog.js');
 
 const OPEN_RADIUS_M = 18;
 const CLOSE_RADIUS_M = 20;
-const PLAYER_OPEN_RADIUS_M = 28;
-const PLAYER_CLOSE_RADIUS_M = 30;
+const PLAYER_OPEN_RADIUS_M = 33;
+const PLAYER_CLOSE_RADIUS_M = 35;
 const CLOSE_DELAY_MS = 1000;
+const DOOR_STATE_RETENTION_MS = 10000;
 const SCAN_RADIUS_M = 1000;
 const USER_POLL_MS = 400;
 const HANGAR_SCAN_MS = 1500;
@@ -165,6 +166,11 @@ function advanceDoorAutomationState(rawRecord = {}, zone, now = Date.now()) {
   return { record, automaticTarget, writeState, manualOverrideReleased: null };
 }
 
+function doorStateExpired(record, now = Date.now()) {
+  const lastSeenAt = Math.max(Number(record?.lastSeenAt) || 0, Number(record?.lastCommandAt) || 0);
+  return lastSeenAt <= 0 || now - lastSeenAt > DOOR_STATE_RETENTION_MS;
+}
+
 function readFloat64(data) {
   if (typeof data?.readFloat64 === 'function') return data.readFloat64();
   if (typeof data?.readDouble === 'function') return data.readDouble();
@@ -214,7 +220,8 @@ function createHomebaseDoorAutomation(handle, options = {}) {
     buffer.writeFloat64(value);
     handle.setDataOnSimObject(definitionFor(control), objectId, { buffer, arrayCount: 0, tagged: false });
     const record = states.get(objectId) || {};
-    states.set(objectId, { ...record, commandedState: state, lastCommandAt: Date.now(), outsideSince: null });
+    const now = Date.now();
+    states.set(objectId, { ...record, commandedState: state, lastCommandAt: now, lastSeenAt: now, outsideSince: null });
     log(`HOMEBASE_DOOR_${state.toUpperCase()} objectId=${objectId} title="${hangar.title}" reason=${reason}`);
     return { objectId, title: hangar.title, state, value, simvar: control.simvar };
   };
@@ -230,6 +237,7 @@ function createHomebaseDoorAutomation(handle, options = {}) {
       const record = states.get(objectId) || { commandedState: 'unknown', lastCommandAt: 0, outsideSince: null };
       const zone = nearest.zone;
       const transition = advanceDoorAutomationState(record, zone, now);
+      transition.record.lastSeenAt = now;
       states.set(objectId, transition.record);
       if (transition.manualOverrideReleased) {
         log(`HOMEBASE_DOOR_MANUAL_OVERRIDE_RELEASED objectId=${objectId} title="${hangar.title}" state=${transition.manualOverrideReleased} distance=${nearest.distanceM.toFixed(1)}m`);
@@ -268,7 +276,14 @@ function createHomebaseDoorAutomation(handle, options = {}) {
       hangars.clear();
       for (const [objectId, hangar] of scanBuffer) hangars.set(objectId, hangar);
       const activeIds = new Set(hangars.keys());
-      for (const objectId of states.keys()) if (!activeIds.has(objectId)) states.delete(objectId);
+      const now = Date.now();
+      for (const objectId of activeIds) {
+        const record = states.get(objectId);
+        if (record) record.lastSeenAt = now;
+      }
+      for (const [objectId, record] of states) {
+        if (!activeIds.has(objectId) && !record.manualOverrideState && doorStateExpired(record, now)) states.delete(objectId);
+      }
       log(`HOMEBASE_DOOR_SCAN count=${hangars.size}`);
       evaluate();
     }, HANGAR_SCAN_SETTLE_MS);
@@ -361,13 +376,23 @@ function createHomebaseDoorAutomation(handle, options = {}) {
       if (!Number.isFinite(objectId) || objectId <= 0 || !['open', 'closed'].includes(normalizedState)) {
         throw new Error('Manueller Hangartorstatus konnte keiner gültigen SimObject-Instanz zugeordnet werden.');
       }
+      const now = Date.now();
       const record = states.get(objectId) || { commandedState: 'unknown', lastCommandAt: 0, outsideSince: null, manualOverrideState: null };
       record.commandedState = normalizedState;
-      record.lastCommandAt = Date.now();
+      record.lastCommandAt = now;
+      record.lastSeenAt = now;
       record.manualOverrideState = enabled ? normalizedState : null;
       states.set(objectId, record);
       log(`HOMEBASE_DOOR_MANUAL_OVERRIDE objectId=${objectId} title="${hangar?.title || ''}" state=${normalizedState} active=${record.manualOverrideState ? 1 : 0}`);
       return { enabled, active: Boolean(record.manualOverrideState), state: normalizedState, objectId };
+    },
+    forgetObject(objectId) {
+      const normalizedObjectId = Number(objectId);
+      if (!Number.isFinite(normalizedObjectId) || normalizedObjectId <= 0) return false;
+      hangars.delete(normalizedObjectId);
+      const removed = states.delete(normalizedObjectId);
+      if (removed) log(`HOMEBASE_DOOR_STATE_REMOVED objectId=${normalizedObjectId}`);
+      return removed;
     },
     writeState,
     resolveTarget(input = {}) {
@@ -401,6 +426,7 @@ module.exports = {
   PLAYER_OPEN_RADIUS_M,
   PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
+  DOOR_STATE_RETENTION_MS,
   SOURCE_FRESH_MS,
   collectDoorControls,
   distanceMeters,
@@ -409,5 +435,6 @@ module.exports = {
   finitePosition,
   nearestSource,
   advanceDoorAutomationState,
+  doorStateExpired,
   createHomebaseDoorAutomation
 };

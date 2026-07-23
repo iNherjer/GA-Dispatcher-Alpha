@@ -12115,6 +12115,7 @@ async function silentSyncLoad() {
     const id = getSyncId();
     const t = document.getElementById('syncToggle');
     if (!id || (t && !t.checked)) return;
+    const homebasePullPromise = _syncHomebasePull('app-silent-pull');
     try {
         const res = await fetch(SYNC_URL + id + "?pin=" + getSyncPin(), {
             headers: { 'X-Pilot-PIN': getSyncPin() }
@@ -12151,6 +12152,8 @@ async function silentSyncLoad() {
         }
     } catch (e) {
         try { console.warn('[SYNC] Silent Cloud Load fehlgeschlagen:', e); } catch (_) {}
+    } finally {
+        await homebasePullPromise;
     }
 }
 // === GROUP SYNC LOGIC ===
@@ -12534,8 +12537,8 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 309;
-const MIN_TRACKER_VERSION_LABEL = 'v309';
+const MIN_TRACKER_VERSION_CODE = 312;
+const MIN_TRACKER_VERSION_LABEL = 'v312';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

@@ -93,6 +93,12 @@
   const liveMoveTimers = new Map();
   const liveObjectIds = new Set();
   const pendingLiveObjectMoves = new Map();
+  const pendingControlCommands = new Map();
+  const handledControlAckIds = new Set();
+  const acknowledgedControlStates = new Map();
+  const globalControlOperations = new Map();
+  let globalControlSequence = 0;
+  let controlReapplyTimer = null;
   let peopleLiveSyncTimer = null;
   const integratedRpcPending = new Map();
   let integratedRpcSeq = 0;
@@ -177,10 +183,11 @@
     }
     const ids = new Set();
     return controls.slice(0, 12).flatMap((raw) => {
-      const id = String(raw?.id || '').trim().toLowerCase();
+      const id = String(raw?.id || '').trim();
+      const idKey = id.toLowerCase();
       const type = String(raw?.type || '').trim().toLowerCase();
       const simvar = String(raw?.simvar || '').trim().toUpperCase();
-      if (!/^[a-z][a-z0-9_-]{0,31}$/.test(id) || ids.has(id)) return [];
+      if (!/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(id) || ids.has(idKey)) return [];
       const scope = String(raw?.scope || 'global').toLowerCase();
       const validVariable = scope === 'simobject'
         ? /^(?:L:1:|Z:)VFR_HOMEBASE_[A-Z0-9_]{1,100}$/.test(simvar)
@@ -196,7 +203,7 @@
         return [{ id: stateId, label: String(item?.label || stateId).trim().slice(0, 40), value }];
       });
       if (states.length < 2) return [];
-      ids.add(id);
+      ids.add(idKey);
       return [{
         schemaVersion: 1, id, type, label: String(raw?.label || id).trim().slice(0, 80),
         transport: 'simconnect-lvar', simvar, unit: 'number', scope,
@@ -337,7 +344,7 @@
     localStorage.setItem(SYNC_META_KEY, JSON.stringify(syncMeta));
   }
 
-  function postSyncDraft() {
+  function postSyncDraft(options = {}) {
     if (!INTEGRATED) return;
     window.parent.postMessage({
       channel: 'vfr-homebase',
@@ -348,7 +355,8 @@
       baseRevision: syncMeta.baseRevision,
       localUpdatedAt: syncMeta.localUpdatedAt,
       deviceId: syncMeta.deviceId,
-      crewShareEnabled: syncMeta.crewShareEnabled === true
+      crewShareEnabled: syncMeta.crewShareEnabled === true,
+      suppressAutoSave: options.suppressAutoSave === true
     }, PARENT_ORIGIN);
   }
 
@@ -381,12 +389,11 @@
 
   function applyCloudRecord(record, options = {}) {
     const localPeople = state.people.slice(0, 3).map(normalizePerson);
-    const cloudPeople = record?.plan?.people;
     const cloudClientUpdatedAt = finite(record?.clientUpdatedAt, 0);
+    const legacyPeopleRecord = finite(record?.schemaVersion, 1) < 2;
     const preserveLocalPeople = options.preserveLocalPeople !== false
       && localPeople.length > 0
-      && (!Array.isArray(cloudPeople)
-        || (cloudPeople.length === 0 && cloudClientUpdatedAt <= syncMeta.localUpdatedAt));
+      && legacyPeopleRecord;
     const plan = normalizedPlan(preserveLocalPeople
       ? { ...(record?.plan || {}), people: localPeople }
       : record?.plan);
@@ -411,8 +418,8 @@
     updateMap();
     map.setView([state.spawn.lat, state.spawn.lon], map.getZoom());
     if (preserveLocalPeople) {
-      setPill('syncPill', 'Personen lokal erhalten – Cloud-Abgleich wartet', 'warn');
-      log('Der Cloud-Stand enthielt keinen aktuellen Personenplan. Die lokal gespeicherten Personen und Wegpunkte wurden beibehalten.', 'info');
+      setPill('syncPill', 'Alter Personenstand wird migriert', 'warn');
+      log('Der Cloud-Stand stammt aus dem alten Homebase-Schema. Die lokal gespeicherten Personen und Routen wurden beibehalten und werden in das vollständige Schema übertragen.', 'info');
     }
     return { preservedLocalPeople: preserveLocalPeople };
   }
@@ -424,7 +431,8 @@
   function resolveCloudConflict(record, source = 'load') {
     if (!record?.plan) return;
     const crewShareMatches = (record?.crewShareEnabled !== false) === (syncMeta.crewShareEnabled === true);
-    if (plansEqual(state, record.plan) && crewShareMatches) {
+    const completePeopleSchema = finite(record?.schemaVersion, 1) >= 2 || state.people.length === 0;
+    if (plansEqual(state, record.plan) && crewShareMatches && completePeopleSchema) {
       syncMeta.baseRevision = String(record.revision || '');
       syncMeta.cloudUpdatedAt = finite(record.updatedAt, Date.now());
       syncMeta.dirty = false;
@@ -1038,9 +1046,13 @@
       if (!['object', 'hangar'].includes(kind)) continue;
       if (raw?.workbenchVisible === false) continue;
       const existingDefinition = ASSET_DEFINITIONS.get(title) || {};
+      const legacyTentHeadingCorrection = title === HANGAR_TITLE
+        && Number(raw?.headingCorrectionDeg) === 180
+        && Number(existingDefinition?.headingCorrectionDeg) === 0;
       const mergedDefinition = {
         ...existingDefinition,
         ...raw,
+        ...(legacyTentHeadingCorrection ? { headingCorrectionDeg: 0 } : {}),
         controls: normalizeControls([
           ...(Array.isArray(raw?.controls) ? raw.controls : []),
           ...(Array.isArray(existingDefinition?.controls) ? existingDefinition.controls : [])
@@ -1132,8 +1144,10 @@
 
   function activeControlGroups() {
     const primaryPosition = hangarPosition();
+    const primaryTitle = normalizeHangarTitle(state.hangar.objectTitle);
+    const primaryDefinition = ASSET_DEFINITIONS.get(primaryTitle) || {};
     const instances = [
-      { title: normalizeHangarTitle(state.hangar.objectTitle), id: 'hangar', label: 'Haupt-Hangar', lat: primaryPosition.lat, lon: primaryPosition.lng },
+      { title: primaryTitle, id: 'hangar', label: String(primaryDefinition.label || 'Haupt-Hangar'), lat: primaryPosition.lat, lon: primaryPosition.lng },
       ...state.objects.map((item) => {
         const position = objectPosition(item);
         return { title: item.title, id: item.id, label: item.label, lat: position.lat, lon: position.lng };
@@ -1152,12 +1166,33 @@
           groups.set(key, {
             key, title: instance.title,
             assetLabel: control.scope === 'simobject' ? instance.label : String(definition.label || instance.title.replace(/^VFR Multitool Homebase /, '')),
+            modelLabel: String(definition.label || instance.title.replace(/^VFR Multitool Homebase /, '')),
             control, count: 1, instanceIds: [instance.id], instanceId: instance.id, lat: instance.lat, lon: instance.lon
           });
         }
       }
     }
     return [...groups.values()];
+  }
+
+  function controlPanels(groups) {
+    const panels = new Map();
+    for (const group of groups) {
+      const sharedGlobal = group.control.scope === 'global' && group.count > 1;
+      const panelKey = sharedGlobal
+        ? `global|${group.title}`
+        : `instance|${group.title}|${group.instanceId}`;
+      if (!panels.has(panelKey)) {
+        panels.set(panelKey, {
+          key: panelKey,
+          label: group.assetLabel,
+          detail: sharedGlobal ? `${group.count} Exemplare gemeinsam` : '',
+          groups: []
+        });
+      }
+      panels.get(panelKey).groups.push(group);
+    }
+    return [...panels.values()];
   }
 
   function setControlResult(key, message, ok = null) {
@@ -1169,25 +1204,71 @@
   }
 
   function actionProgressMessage(control, nextState) {
-    if (nextState === 'open') return `${control.label} wird geöffnet …`;
-    if (nextState === 'closed') return `${control.label} wird geschlossen …`;
-    if (nextState === 'on') return `${control.label} wird eingeschaltet …`;
-    if (nextState === 'off') return `${control.label} wird ausgeschaltet …`;
+    if (control.id === 'door' && nextState === 'open') return 'Tor wird geöffnet …';
+    if (control.id === 'door' && nextState === 'closed') return 'Tor wird geschlossen …';
+    if (control.type === 'light' && nextState === 'on') return 'Licht wird eingeschaltet …';
+    if (control.type === 'light' && nextState === 'off') return 'Licht wird ausgeschaltet …';
     const stateDefinition = control.states.find((item) => item.id === nextState);
     return `${control.label}: ${stateDefinition?.label || nextState} …`;
   }
 
-  function requestObjectControlState(group, nextState) {
+  function controlFunctionLabel(control) {
+    if (control.id === 'door') return 'Tor';
+    if (control.type === 'light') return 'Licht';
+    return control.label;
+  }
+
+  function globalControlKind(control) {
+    if (String(control?.id || '').toLowerCase() === 'door') return 'door';
+    if (control?.type === 'light') return 'light';
+    return '';
+  }
+
+  function controlButtonLabel(control, stateDefinition) {
+    if (control.id === 'door' && stateDefinition.id === 'open') return 'Tor öffnen';
+    if (control.id === 'door' && stateDefinition.id === 'closed') return 'Tor schließen';
+    if (control.type === 'light' && stateDefinition.id === 'on') return 'Licht an';
+    if (control.type === 'light' && stateDefinition.id === 'off') return 'Licht aus';
+    return `${controlFunctionLabel(control)}: ${stateDefinition.label}`;
+  }
+
+  function confirmedControlMessage(control, state) {
+    if (control.id === 'door' && state === 'open') return 'Bestätigt: Tor geöffnet. Bereit.';
+    if (control.id === 'door' && state === 'closed') return 'Bestätigt: Tor geschlossen. Bereit.';
+    if (control.type === 'light' && state === 'on') return 'Bestätigt: Licht an. Bereit.';
+    if (control.type === 'light' && state === 'off') return 'Bestätigt: Licht aus. Bereit.';
+    const stateDefinition = control.states.find((item) => item.id === state);
+    return `Bestätigt: ${stateDefinition?.label || state}. Bereit.`;
+  }
+
+  function requestObjectControlState(group, nextState, options = {}) {
     const stateDefinition = group?.control?.states?.find((item) => item.id === nextState);
-    if (!stateDefinition) return;
+    if (!stateDefinition || [...pendingControlCommands.values()].some((entry) => entry.key === group.key)) return false;
+    const controlKind = globalControlKind(group.control);
+    if (!options.batchId && !options.preserveGlobalStatus && controlKind) globalControlOperations.delete(controlKind);
     const commandId = sendStabilizerCommand('homebase_v1.object.control.set', {
       title: group.title,
       controlId: group.control.id,
       state: stateDefinition.id,
+      stateId: stateDefinition.id,
+      value: stateDefinition.value,
       instanceId: group.instanceId,
+      object: { id: group.instanceId, title: group.title },
       lat: group.lat,
       lon: group.lon
     });
+    if (commandId) {
+      pendingControlCommands.set(commandId, {
+        key: group.key,
+        title: group.title,
+        controlId: group.control.id,
+        instanceId: group.instanceId,
+        state: stateDefinition.id,
+        value: stateDefinition.value,
+        batchId: String(options.batchId || '')
+      });
+      if (!options.deferRender) renderHomebaseControls();
+    }
     const message = commandId
       ? actionProgressMessage(group.control, stateDefinition.id)
       : `${group.control.label} konnte nicht gesteuert werden. Bitte prüfe die Verbindung zur VFR-Haupt-App und zum PC-Tracker.`;
@@ -1196,6 +1277,96 @@
     log(commandId
       ? `homebase_v1.object.control.set gesendet (${commandId}, ${group.control.id}=${stateDefinition.id}).`
       : `${group.control.label}: Verbindung zur Haupt-App oder zum PC-Tracker fehlt.`, commandId ? 'info' : 'error');
+    return !!commandId;
+  }
+
+  function requestGlobalControlState(kind, nextState) {
+    const groups = activeControlGroups().filter((group) => (
+      globalControlKind(group.control) === kind
+      && group.control.states.some((stateDefinition) => stateDefinition.id === nextState)
+    ));
+    if (!groups.length || groups.some((group) => [...pendingControlCommands.values()].some((entry) => entry.key === group.key))) return false;
+    const operation = {
+      id: `global-${kind}-${Date.now()}-${++globalControlSequence}`,
+      kind,
+      state: nextState,
+      total: groups.length,
+      targetCount: groups.reduce((sum, group) => sum + group.count, 0),
+      pending: 0,
+      ok: 0,
+      failed: 0,
+      lastError: '',
+      completedAt: 0
+    };
+    globalControlOperations.set(kind, operation);
+    for (const group of groups) {
+      if (requestObjectControlState(group, nextState, { batchId: operation.id, deferRender: true })) operation.pending += 1;
+      else operation.failed += 1;
+    }
+    if (!operation.pending) operation.completedAt = Date.now();
+    renderHomebaseControls();
+    const label = kind === 'door' ? 'Tore' : 'Lichter';
+    const action = kind === 'door'
+      ? nextState === 'open' ? 'geöffnet' : 'geschlossen'
+      : nextState === 'on' ? 'eingeschaltet' : 'ausgeschaltet';
+    const message = operation.pending
+      ? `${operation.targetCount} ${label} werden ${action} …`
+      : `Keine ${label} konnten angesteuert werden.`;
+    setResult('previewResult', message, operation.pending ? null : false);
+    log(`${label}-Sammelbefehl: ${nextState}, ${operation.pending}/${operation.total} gesendet.`, operation.pending ? 'info' : 'error');
+    return operation.pending > 0;
+  }
+
+  function reapplyAcknowledgedControlStates() {
+    for (const group of activeControlGroups()) {
+      const desiredState = acknowledgedControlStates.get(group.key);
+      if (!desiredState) continue;
+      if ([...pendingControlCommands.values()].some((entry) => entry.key === group.key)) continue;
+      requestObjectControlState(group, desiredState, { preserveGlobalStatus: true });
+    }
+  }
+
+  function scheduleControlStateReapply() {
+    clearTimeout(controlReapplyTimer);
+    controlReapplyTimer = setTimeout(() => {
+      controlReapplyTimer = null;
+      reapplyAcknowledgedControlStates();
+    }, 350);
+  }
+
+  function handleControlAck(ack) {
+    const commandId = String(ack?.commandId || '');
+    if (handledControlAckIds.has(commandId)) return;
+    const pending = pendingControlCommands.get(commandId);
+    if (!pending) {
+      log(`${ack?.type || 'control_ack'}: ACK mit unbekannter commandId ignoriert.`, 'error');
+      return;
+    }
+    pendingControlCommands.delete(commandId);
+    handledControlAckIds.add(commandId);
+    if (handledControlAckIds.size > 100) handledControlAckIds.delete(handledControlAckIds.values().next().value);
+    const ok = ack.status === 'ok';
+    if (ok) acknowledgedControlStates.set(pending.key, String(ack.state || ack.stateId || pending.state));
+    const operation = pending.batchId
+      ? [...globalControlOperations.values()].find((entry) => entry.id === pending.batchId)
+      : null;
+    if (operation) {
+      operation.pending = Math.max(0, operation.pending - 1);
+      if (ok) operation.ok += 1;
+      else {
+        operation.failed += 1;
+        operation.lastError = String(ack.message || 'Objekt konnte nicht gesteuert werden.');
+      }
+      if (!operation.pending) operation.completedAt = Date.now();
+    }
+    renderHomebaseControls();
+    const group = activeControlGroups().find((entry) => entry.key === pending.key);
+    const message = ok && group
+      ? confirmedControlMessage(group.control, String(ack.state || ack.stateId || pending.state))
+      : ack.message || 'Objekt konnte nicht gesteuert werden.';
+    setControlResult(pending.key, message, ok);
+    setResult('previewResult', message, ok);
+    log(`${ack.type}: ${message}`, ok ? 'ok' : 'error');
   }
 
   function renderHomebaseControls() {
@@ -1203,37 +1374,133 @@
     const empty = $('homebaseControlsEmpty');
     if (!container || !empty) return;
     const groups = activeControlGroups();
+    const panels = controlPanels(groups);
     container.textContent = '';
     empty.hidden = groups.length > 0;
-    for (const group of groups) {
+    const globalDefinitions = [
+      {
+        kind: 'door',
+        title: 'Alle Tore',
+        singular: 'Tor',
+        states: [
+          { id: 'open', label: 'Alle Tore öffnen', confirmed: 'Bestätigt: Alle Tore geöffnet. Bereit.' },
+          { id: 'closed', label: 'Alle Tore schließen', confirmed: 'Bestätigt: Alle Tore geschlossen. Bereit.' }
+        ]
+      },
+      {
+        kind: 'light',
+        title: 'Alle Lichter',
+        singular: 'Licht',
+        states: [
+          { id: 'on', label: 'Alle Lichter an', confirmed: 'Bestätigt: Alle Lichter an. Bereit.' },
+          { id: 'off', label: 'Alle Lichter aus', confirmed: 'Bestätigt: Alle Lichter aus. Bereit.' }
+        ]
+      }
+    ].map((definition) => ({
+      ...definition,
+      groups: groups.filter((group) => globalControlKind(group.control) === definition.kind)
+    })).filter((definition) => definition.groups.length > 0);
+    if (globalDefinitions.length) {
+      const globalGrid = document.createElement('div');
+      globalGrid.className = `homebase-global-control-grid${globalDefinitions.length === 1 ? ' is-single' : ''}`;
+      for (const definition of globalDefinitions) {
+        const operation = globalControlOperations.get(definition.kind) || null;
+        const targetCount = definition.groups.reduce((sum, group) => sum + group.count, 0);
+        const groupKeys = new Set(definition.groups.map((group) => group.key));
+        const busy = (operation?.pending || 0) > 0
+          || [...pendingControlCommands.values()].some((entry) => groupKeys.has(entry.key));
+        const card = document.createElement('article');
+        card.className = 'homebase-control-group homebase-control-global';
+        const heading = document.createElement('div');
+        heading.className = 'homebase-control-heading';
+        const title = document.createElement('strong');
+        title.textContent = definition.title;
+        const detail = document.createElement('span');
+        detail.textContent = `${targetCount} ${targetCount === 1 ? definition.singular : definition.title.replace(/^Alle /, '')}`;
+        heading.append(title, detail);
+        const actions = document.createElement('div');
+        actions.className = 'homebase-control-actions';
+        for (const stateDefinition of definition.states) {
+          const button = document.createElement('button');
+          const stateConfirmed = definition.groups.every((group) => acknowledgedControlStates.get(group.key) === stateDefinition.id);
+          button.type = 'button';
+          button.className = 'secondary';
+          button.textContent = stateDefinition.label;
+          button.disabled = busy;
+          button.classList.toggle('is-active', !busy && stateConfirmed);
+          button.setAttribute('aria-pressed', String(!busy && stateConfirmed));
+          button.addEventListener('click', () => requestGlobalControlState(definition.kind, stateDefinition.id));
+          actions.append(button);
+        }
+        const result = document.createElement('p');
+        result.className = 'result-line';
+        if (operation?.pending) {
+          result.textContent = `${operation.ok + operation.failed}/${operation.total} Befehle bestätigt …`;
+        } else if (operation?.failed) {
+          result.classList.add('bad');
+          result.textContent = `${operation.failed} von ${operation.total} Befehlen fehlgeschlagen.${operation.lastError ? ` ${operation.lastError}` : ''}`;
+        } else if (operation?.completedAt) {
+          const stateDefinition = definition.states.find((entry) => entry.id === operation.state);
+          result.classList.add('ok');
+          result.textContent = stateDefinition?.confirmed || 'Bestätigt. Bereit.';
+        } else {
+          result.textContent = 'Bereit.';
+        }
+        card.append(heading, actions, result);
+        globalGrid.append(card);
+      }
+      container.append(globalGrid);
+    }
+    for (const panel of panels) {
       const card = document.createElement('article');
-      card.className = 'homebase-control-group';
+      card.className = 'homebase-control-group homebase-control-object';
       const heading = document.createElement('div');
       heading.className = 'homebase-control-heading';
       const title = document.createElement('strong');
-      title.textContent = group.control.label;
-      const scope = document.createElement('span');
-      scope.textContent = group.count === 1 ? group.assetLabel : `${group.assetLabel} · ${group.count} Exemplare`;
-      heading.append(title, scope);
-      const actions = document.createElement('div');
-      actions.className = 'action-row wrap';
-      for (const stateDefinition of group.control.states) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'secondary';
-        button.textContent = group.count > 1 && group.control.scope === 'global'
-          ? `Alle: ${stateDefinition.label}`
-          : stateDefinition.label;
-        button.addEventListener('click', () => requestObjectControlState(group, stateDefinition.id));
-        actions.append(button);
+      title.textContent = panel.label;
+      heading.append(title);
+      if (panel.detail) {
+        const detail = document.createElement('span');
+        detail.textContent = panel.detail;
+        heading.append(detail);
       }
-      const result = document.createElement('p');
-      result.className = 'result-line';
-      result.dataset.controlResultKey = group.key;
-      result.textContent = group.control.scope === 'global' && group.count > 1
-        ? 'Diese Steuerung wirkt gleichzeitig auf alle platzierten Exemplare.'
-        : 'Bereit.';
-      card.append(heading, actions, result);
+      const controlGrid = document.createElement('div');
+      controlGrid.className = `homebase-control-grid${panel.groups.length === 1 ? ' is-single' : ''}`;
+      for (const group of panel.groups) {
+        const pending = [...pendingControlCommands.values()].find((entry) => entry.key === group.key) || null;
+        const acknowledgedState = acknowledgedControlStates.get(group.key) || '';
+        const controlCard = document.createElement('section');
+        controlCard.className = 'homebase-control-function';
+        const controlTitle = document.createElement('strong');
+        controlTitle.className = 'homebase-control-function-title';
+        controlTitle.textContent = controlFunctionLabel(group.control);
+        const actions = document.createElement('div');
+        actions.className = 'homebase-control-actions';
+        for (const stateDefinition of group.control.states) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'secondary';
+          button.textContent = controlButtonLabel(group.control, stateDefinition);
+          button.disabled = !!pending;
+          button.classList.toggle('is-active', !pending && acknowledgedState === stateDefinition.id);
+          button.setAttribute('aria-pressed', String(!pending && acknowledgedState === stateDefinition.id));
+          button.addEventListener('click', () => requestObjectControlState(group, stateDefinition.id));
+          actions.append(button);
+        }
+        const result = document.createElement('p');
+        result.className = 'result-line';
+        result.dataset.controlResultKey = group.key;
+        result.textContent = pending
+          ? actionProgressMessage(group.control, pending.state)
+          : acknowledgedState
+            ? confirmedControlMessage(group.control, acknowledgedState)
+            : group.control.scope === 'global' && group.count > 1
+              ? `Bereit. Wirkt auf alle ${group.count} Exemplare.`
+              : 'Bereit.';
+        controlCard.append(controlTitle, actions, result);
+        controlGrid.append(controlCard);
+      }
+      card.append(heading, controlGrid);
       container.append(card);
     }
   }
@@ -1589,8 +1856,13 @@
   function invalidateLivePreview() {
     livePreviewReady = false;
     liveObjectIds.clear();
+    clearTimeout(controlReapplyTimer);
+    controlReapplyTimer = null;
+    pendingControlCommands.clear();
+    globalControlOperations.clear();
     for (const timer of liveMoveTimers.values()) clearTimeout(timer);
     liveMoveTimers.clear();
+    renderHomebaseControls();
   }
 
   function queueLiveMove(key, callback, ready = livePreviewReady) {
@@ -2219,7 +2491,22 @@
             const record = message.record || {};
             syncMeta.baseRevision = String(record.revision || syncMeta.baseRevision || '');
             syncMeta.cloudUpdatedAt = finite(record.updatedAt, Date.now());
-            if (syncMeta.localUpdatedAt <= finite(record.clientUpdatedAt, syncMeta.localUpdatedAt)) syncMeta.dirty = false;
+            const savedPlan = message.savedPlan;
+            const savedCrewShareEnabled = message.savedCrewShareEnabled === true;
+            const serverMatchesSavedDraft = finite(record.schemaVersion, 1) >= 2
+              && !!record.plan
+              && !!savedPlan
+              && plansEqual(record.plan, savedPlan)
+              && (record.crewShareEnabled === true) === savedCrewShareEnabled;
+            if (!serverMatchesSavedDraft) {
+              syncMeta.dirty = true;
+              persistSyncMeta();
+              postSyncDraft({ suppressAutoSave: true });
+              setPill('syncPill', 'Cloud-Datensatz unvollständig', 'bad');
+              log('Der Cloud-Server hat den Homebase-Plan nicht vollständig zurückgegeben. Der lokale Stand mit Personen und Routen bleibt erhalten und wartet auf einen vollständigen Cloud-Abgleich.', 'error');
+              return;
+            }
+            if (syncMeta.localUpdatedAt <= finite(message.savedClientUpdatedAt, finite(record.clientUpdatedAt, syncMeta.localUpdatedAt))) syncMeta.dirty = false;
             persistSyncMeta();
             postSyncDraft();
             setPill('syncPill', syncMeta.dirty ? 'Weitere Änderung wartet' : 'Homebase synchronisiert', syncMeta.dirty ? 'warn' : 'ok');
@@ -2350,6 +2637,7 @@
         if (livePreviewReady) {
           liveObjectIds.clear();
           for (const item of state.objects) if (!PERSISTENT_ONLY_TITLES.has(item.title)) liveObjectIds.add(item.id);
+          scheduleControlStateReapply();
         }
         setResult('previewResult', `Die Homebase wird im Simulator angezeigt. ${ack.extraCount || 0} Ausstattungsobjekte sind aktiv.${failed}`, livePreviewReady);
       }
@@ -2365,7 +2653,10 @@
           }
           return;
         }
-        if (ok && spawned?.id) liveObjectIds.add(spawned.id);
+        if (ok && spawned?.id) {
+          liveObjectIds.add(spawned.id);
+          scheduleControlStateReapply();
+        }
         setResult('previewResult', ack.message || (ok ? 'Objekt wurde direkt erzeugt.' : 'Objekt konnte nicht erzeugt werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
@@ -2382,18 +2673,8 @@
         setResult('peopleResult', ack.message || (ok ? 'Personen und Wegpunkte wurden live aktualisiert.' : 'Personen konnten nicht aktualisiert werden.'), ok);
         log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
       }
-      if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack'].includes(data.stabilizerAck?.type)) {
-        const ack = data.stabilizerAck;
-        const ok = ack.status === 'ok';
-        const message = ack.message || (ok ? 'Objektsteuerung wurde ausgeführt.' : 'Objekt konnte nicht gesteuert werden.');
-        const group = activeControlGroups().find((candidate) => (
-          candidate.title === String(ack.title || '')
-          && candidate.control.id === String(ack.controlId || (ack.type.includes('hangar.animation') ? 'door' : ''))
-          && (!ack.instanceId || candidate.instanceId === String(ack.instanceId))
-        )) || activeControlGroups().find((candidate) => candidate.control.simvar === String(ack.simvar || '').toUpperCase());
-        if (group) setControlResult(group.key, message, ok);
-        setResult('previewResult', message, ok);
-        log(`${ack.type}: ${ack.message || ack.status}`, ok ? 'ok' : 'error');
+      if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack', 'hb_test.preview.control.set_ack'].includes(data.stabilizerAck?.type)) {
+        handleControlAck(data.stabilizerAck);
       }
       if (data.stabilizerAck?.type === 'homebase_v1.door_automation.set_ack') {
         const ack = data.stabilizerAck;
@@ -2469,6 +2750,7 @@
       if (!previewWaitsForExtras || !ok) finishPreviewRequest(ack.commandId);
       const failed = Array.isArray(ack.failedObjects) && ack.failedObjects.length ? ` Nicht erzeugt: ${ack.failedObjects.map((item) => item.label || item.title).join(', ')}.` : '';
       setResult('previewResult', `${message}${Number.isFinite(ack.objectCount) ? ` ${ack.objectCount} Ausstattungsobjekte aktiv.` : ''}${failed}`, ok && !failed);
+      if (ok && !failed) scheduleControlStateReapply();
     } else if (ack.type === 'homebase_v1.preview.clear_ack') {
       if (primaryTeardown?.commandId === ack.commandId) {
         primaryTeardown.trackerAck = ack;
@@ -2479,6 +2761,8 @@
         setResult('previewResult', message, ok);
         finishPreviewRequest(ack.commandId);
       }
+    } else if (['homebase_v1.object.control.set_ack', 'homebase_v1.hangar.animation.set_ack'].includes(ack.type)) {
+      handleControlAck(ack);
     } else if (ack.type.startsWith('homebase_v1.package.')) {
       setResult('packageResult', `${message}${ack.path ? ` ${ack.path}` : ''}`, ok);
     } else if (ack.type === 'homebase_v1.door_automation.set_ack') {
