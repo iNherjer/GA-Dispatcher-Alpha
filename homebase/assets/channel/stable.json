@@ -1,21 +1,19 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-07-23T11:54:24.693Z",
+  "publishedAt": "2026-07-23T12:38:51.230Z",
   "packageName": "vfr-multitool-homebase-assets",
-  "packageVersion": "0.6.15",
-  "releaseTag": "homebase-assets-v0.6.15",
-  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.15/package-index.json",
-  "contentHash": "084e9e2ce63a06f9c47380ad5413ebc89690c4c784f0e553bbe2c44893363c13",
+  "packageVersion": "0.6.16",
+  "releaseTag": "homebase-assets-v0.6.16",
+  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.16/package-index.json",
+  "contentHash": "d6fc476304851af675885aee700143e87e702d0321449bacf3a0167ee9448549",
   "fullArchive": {
-    "name": "vfr-multitool-homebase-assets-0.6.15-full.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.15/vfr-multitool-homebase-assets-0.6.15-full.zip",
-    "size": 6849418,
-    "sha256": "2677f038ae55412e312db04c32eda45f4a6c602810084bb165ff9ae7aa68de30"
+    "name": "vfr-multitool-homebase-assets-0.6.16-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.16/vfr-multitool-homebase-assets-0.6.16-full.zip",
+    "size": 6849337,
+    "sha256": "d4598422e2fc11c8e9ace45a2d9b3fe92ac3c5aad3054ee37cb020a6c5939a2e"
   },
   "changedAssets": [
     "constructionFloodlightTripod",
-    "hangar",
-    "roundHangar",
     "stableLantern"
   ],
   "removedAssets": []
