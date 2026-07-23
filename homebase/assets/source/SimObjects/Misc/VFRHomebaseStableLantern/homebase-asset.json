@@ -3,9 +3,9 @@
   "folder": "VFRHomebaseStableLantern",
   "title": "VFR Multitool Homebase Stable Lantern",
   "label": "Stalllaterne",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "object",
-  "group": "Ausstattung",
+  "group": "Beleuchtung",
   "homebasePlaceable": true,
   "workbenchVisible": true,
   "missionSpawnable": true,
@@ -48,5 +48,5 @@
   "headingCorrectionDeg": 0,
   "collisionProfile": null,
   "vegetationExclusion": null,
-  "updatedAt": "2026-07-23T07:50:27.525Z"
+  "updatedAt": "2026-07-23T12:10:30.830Z"
 }

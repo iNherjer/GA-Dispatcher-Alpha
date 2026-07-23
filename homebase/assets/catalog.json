@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.15",
+    "version": "0.6.16",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -121,9 +121,9 @@
       "folder": "VFRHomebaseConstructionFloodlightTripod",
       "title": "VFR Multitool Homebase Construction Floodlight Tripod",
       "label": "Baustrahler mit Stativ",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "object",
-      "group": "Ausstattung",
+      "group": "Beleuchtung",
       "homebasePlaceable": true,
       "workbenchVisible": true,
       "missionSpawnable": true,
@@ -167,7 +167,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-23T11:05:29.493Z"
+      "updatedAt": "2026-07-23T12:10:30.980Z"
     },
     {
       "key": "customWindsock",
@@ -698,9 +698,9 @@
       "folder": "VFRHomebaseStableLantern",
       "title": "VFR Multitool Homebase Stable Lantern",
       "label": "Stalllaterne",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "object",
-      "group": "Ausstattung",
+      "group": "Beleuchtung",
       "homebasePlaceable": true,
       "workbenchVisible": true,
       "missionSpawnable": true,
@@ -743,7 +743,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-23T07:50:27.525Z"
+      "updatedAt": "2026-07-23T12:10:30.830Z"
     },
     {
       "key": "toolbox",
@@ -900,6 +900,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-23T11:05:29.912Z",
+  "updatedAt": "2026-07-23T12:10:31.114Z",
   "stockObjects": []
 }
