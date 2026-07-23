@@ -1,0 +1,52 @@
+{
+  "key": "stableLantern",
+  "folder": "VFRHomebaseStableLantern",
+  "title": "VFR Multitool Homebase Stable Lantern",
+  "label": "Stalllaterne",
+  "version": "1.0.0",
+  "kind": "object",
+  "group": "Ausstattung",
+  "homebasePlaceable": true,
+  "workbenchVisible": true,
+  "missionSpawnable": true,
+  "missionTags": [
+    "lighting",
+    "lantern",
+    "stable",
+    "scene-prop"
+  ],
+  "missionRoles": [
+    "scene-prop"
+  ],
+  "controls": [
+    {
+      "schemaVersion": 1,
+      "id": "light",
+      "type": "light",
+      "label": "Laternenlicht",
+      "transport": "simconnect-lvar",
+      "simvar": "L:1:VFR_HOMEBASE_STABLE_LANTERN_LIGHT_COMMAND",
+      "unit": "number",
+      "scope": "simobject",
+      "defaultState": "on",
+      "states": [
+        {
+          "id": "on",
+          "label": "Einschalten",
+          "value": 0
+        },
+        {
+          "id": "off",
+          "label": "Ausschalten",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null,
+  "updatedAt": "2026-07-23T07:50:27.525Z"
+}

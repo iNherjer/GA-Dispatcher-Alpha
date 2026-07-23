@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModelInfo version="1.1" name="HomebaseHangar" guid="{fab92e1a-9942-41b9-9cf1-b94945c360db}">
-  <LODS><LOD ModelFile="HomebaseHangar_LOD00.gltf" MinSize="0.0000"/></LODS>
+  <LODS>
+    <LOD ModelFile="HomebaseHangar_LOD00.gltf" MinSize="1.0000"/>
+    <LOD ModelFile="HomebaseHangar_LOD01.gltf" MinSize="0.0000"/>
+  </LODS>
+  <Animation name="HomebaseHangarDoor" guid="{A9D4501E-8C59-4A9F-8E68-96A7D365822B}" type="Standard"/>
+  <Behaviors>
+    <Include ModelBehaviorFile="Asobo\Generic.xml"/>
+    <Component ID="HomebaseHangarDoor" Node="HomebaseHangarDoor">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>HomebaseHangarDoor</ANIM_NAME>
+        <ANIM_CODE>(L:1:VFR_HOMEBASE_HANGAR_DOOR_COMMAND, number) 0.5 &gt; if{ 100 } els{ 0 }</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+        <ANIM_LAG>20</ANIM_LAG>
+      </UseTemplate>
+    </Component>
+    <Component ID="HomebaseHangarLampEmissive" Node="HomebaseHangarLamp">
+      <UseTemplate Name="ASOBO_GT_Emissive_Gauge">
+        <EMISSIVE_CODE>(L:1:VFR_HOMEBASE_HANGAR_LIGHT_COMMAND, number) 0.5 &lt;</EMISSIVE_CODE>
+      </UseTemplate>
+    </Component>
+    <Component ID="HomebaseHangarLampLight" Node="HomebaseHangarLampLight">
+      <UseTemplate Name="ASOBO_GT_Visibility_Code">
+        <VISIBILITY_CODE>(L:1:VFR_HOMEBASE_HANGAR_LIGHT_COMMAND, number) 0.5 &lt;</VISIBILITY_CODE>
+      </UseTemplate>
+    </Component>
+  </Behaviors>
 </ModelInfo>

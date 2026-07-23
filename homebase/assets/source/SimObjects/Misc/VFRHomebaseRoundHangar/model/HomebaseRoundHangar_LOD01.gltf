@@ -1,0 +1,339 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v4.5.48",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2,
+        3
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "RoundHangarFarShell_LOD01_Source"
+    },
+    {
+      "mesh": 1,
+      "name": "RoundHangarDoor",
+      "rotation": [
+        0,
+        0.8660253882408142,
+        0,
+        0.4999999701976776
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "RoundHangarLamp"
+    },
+    {
+      "name": "RoundHangarLampLight",
+      "translation": [
+        0.0,
+        6.17,
+        -1.0
+      ],
+      "extensions": {
+        "ASOBO_advanced_light": {
+          "color": [
+            1.0,
+            0.72,
+            0.48
+          ],
+          "intensity": 9000.0,
+          "shape_type": 1,
+          "source_radius": 1.5,
+          "inner_cone_angle": 360.0,
+          "outer_cone_angle": 360.0,
+          "channel_exterior": true,
+          "channel_interior": true,
+          "flare_enabled": false
+        }
+      }
+    }
+  ],
+  "animations": [
+    {
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 1,
+            "path": "rotation"
+          }
+        }
+      ],
+      "name": "RoundHangarDoor",
+      "samplers": [
+        {
+          "input": 9,
+          "interpolation": "LINEAR",
+          "output": 10
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "RoundHangarFar_Grey",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.3400000035762787,
+          0.3700000047683716,
+          0.4000000059604645,
+          1
+        ],
+        "metallicFactor": 0.6499999761581421,
+        "roughnessFactor": 0.46000000834465027
+      }
+    },
+    {
+      "doubleSided": true,
+      "emissiveFactor": [
+        1,
+        0.41999998688697815,
+        0.07999999821186066
+      ],
+      "name": "RoundHangarFar_Lights",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          1,
+          0.6299999952316284,
+          0.20000000298023224,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.25
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "RoundHangarFarShell_LOD01_Source_mesh.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "RoundHangarDoor_LOD01_Source_mesh.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 5,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "RoundHangarLamp_LOD01_Source_mesh.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7
+          },
+          "indices": 8,
+          "material": 1
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 113,
+      "max": [
+        12.5,
+        7.099999904632568,
+        12.5
+      ],
+      "min": [
+        -12.5,
+        -1.5,
+        -12.5
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 113,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 192,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        10.686753273010254,
+        6.369999885559082,
+        12.34000015258789
+      ],
+      "min": [
+        -10.686753273010254,
+        -1.5,
+        6.170000076293945
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        0.3499999940395355,
+        6.380000114440918,
+        -0.6499999761581421
+      ],
+      "min": [
+        -0.3499999940395355,
+        6.380000114440918,
+        -1.350000023841858
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 101,
+      "max": [
+        5
+      ],
+      "min": [
+        0
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 1356,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1356,
+      "byteOffset": 1356,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 384,
+      "byteOffset": 2712,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 3096,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 3384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 72,
+      "byteOffset": 3672,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 3744,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 3792,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12,
+      "byteOffset": 3840,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 404,
+      "byteOffset": 3852
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 4256
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 5872,
+      "uri": "HomebaseRoundHangar_LOD01.bin"
+    }
+  ],
+  "extensionsUsed": [
+    "ASOBO_advanced_light"
+  ]
+}

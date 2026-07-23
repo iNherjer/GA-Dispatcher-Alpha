@@ -1,0 +1,1102 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v4.5.48",
+    "version": "2.0"
+  },
+  "extensionsUsed": [
+    "KHR_materials_emissive_strength",
+    "ASOBO_advanced_light"
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        13,
+        14,
+        15
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HomebaseHangar_LOD01"
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat01",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        9.890000343322754
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat02",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        9.396666526794434
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat03",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        8.90333366394043
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat04",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        8.40999984741211
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat05",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        7.916666507720947
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat06",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        7.423333168029785
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat07",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        6.929999828338623
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat08",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        6.436666488647461
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat09",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        5.943333148956299
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat10",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        5.449999809265137
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat11",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        4.956666469573975
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "HomebaseHangarDoorSlat12",
+      "rotation": [
+        -0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        0,
+        4.315666675567627,
+        4.4633331298828125
+      ]
+    },
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "name": "HomebaseHangarDoor"
+    },
+    {
+      "mesh": 2,
+      "name": "HomebaseHangarLamp"
+    },
+    {
+      "name": "HomebaseHangarLampLight",
+      "translation": [
+        0.0,
+        6.18,
+        0.0
+      ],
+      "extensions": {
+        "ASOBO_advanced_light": {
+          "color": [
+            1.0,
+            0.72,
+            0.48
+          ],
+          "intensity": 8000.0,
+          "shape_type": 1,
+          "source_radius": 1.35,
+          "inner_cone_angle": 360.0,
+          "outer_cone_angle": 360.0,
+          "channel_exterior": true,
+          "channel_interior": true,
+          "flare_enabled": false
+        }
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "HomebaseHangarDoor",
+      "samplers": [
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 12
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 13
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 14
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 15
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 16
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 17
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 18
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 19
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 20
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 21
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 22
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 23
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 24
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 25
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 26
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 27
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 28
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 29
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 30
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 31
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 32
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 33
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 34
+        },
+        {
+          "input": 11,
+          "interpolation": "LINEAR",
+          "output": 35
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 1,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 1,
+          "target": {
+            "node": 1,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 2,
+          "target": {
+            "node": 2,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 3,
+          "target": {
+            "node": 2,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 4,
+          "target": {
+            "node": 3,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 5,
+          "target": {
+            "node": 3,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 6,
+          "target": {
+            "node": 4,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 7,
+          "target": {
+            "node": 4,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 8,
+          "target": {
+            "node": 5,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 9,
+          "target": {
+            "node": 5,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 10,
+          "target": {
+            "node": 6,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 11,
+          "target": {
+            "node": 6,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 12,
+          "target": {
+            "node": 7,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 13,
+          "target": {
+            "node": 7,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 14,
+          "target": {
+            "node": 8,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 15,
+          "target": {
+            "node": 8,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 16,
+          "target": {
+            "node": 9,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 17,
+          "target": {
+            "node": 9,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 18,
+          "target": {
+            "node": 10,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 19,
+          "target": {
+            "node": 10,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 20,
+          "target": {
+            "node": 11,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 21,
+          "target": {
+            "node": 11,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 22,
+          "target": {
+            "node": 12,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 23,
+          "target": {
+            "node": 12,
+            "path": "rotation"
+          }
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Hangarplane_Aussen_Dunkelgruen_LOD01",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.03500000014901161,
+          0.1899999976158142,
+          0.0949999988079071,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.9200000166893005
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "HomebaseHangar_Door_Canvas_LOD01",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.10499999672174454,
+          0.2849999964237213,
+          0.17000000178813934,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.7799999713897705
+      }
+    },
+    {
+      "doubleSided": true,
+      "emissiveFactor": [
+        1,
+        0.6600000262260437,
+        0.3199999928474426
+      ],
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 7
+        }
+      },
+      "name": "HomebaseHangar_Lamp_Emissive",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.9200000166893005,
+          0.6899999976158142,
+          0.41999998688697815,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.30000001192092896
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseHangar_LOD01_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "HomebaseHangarDoorSlat01_LOD01_Source_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "HomebaseHangarLamp_LOD01_Source_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 7,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 114,
+      "max": [
+        9,
+        7,
+        11.119999885559082
+      ],
+      "min": [
+        -9,
+        -2.075000047683716,
+        -11
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 114,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 114,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 186,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        5.949999809265137,
+        0.4933333396911621,
+        0
+      ],
+      "min": [
+        -5.949999809265137,
+        0,
+        0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        0.3199999928474426,
+        6.480000019073486,
+        0.3199999928474426
+      ],
+      "min": [
+        -0.3199999928474426,
+        6.480000019073486,
+        -0.3199999928474426
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 101,
+      "max": [
+        5
+      ],
+      "min": [
+        0
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 25,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 26,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 27,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 28,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 29,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 30,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 31,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 32,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 33,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 34,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 35,
+      "componentType": 5126,
+      "count": 101,
+      "type": "VEC4"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 1368,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1368,
+      "byteOffset": 1368,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 912,
+      "byteOffset": 2736,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 372,
+      "byteOffset": 3648,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 4020,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 4068,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 32,
+      "byteOffset": 4116,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12,
+      "byteOffset": 4148,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 4160,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 4208,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 32,
+      "byteOffset": 4256,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 404,
+      "byteOffset": 4288
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 4692
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 5904
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 7520
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 8732
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 10348
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 11560
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 13176
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 14388
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 16004
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 17216
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 18832
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 20044
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 21660
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 22872
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 24488
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 25700
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 27316
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 28528
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 30144
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 31356
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 32972
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 34184
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1212,
+      "byteOffset": 35800
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1616,
+      "byteOffset": 37012
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 38628,
+      "uri": "HomebaseHangar_LOD01.bin"
+    }
+  ]
+}
