@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.18",
+    "version": "0.6.19",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -488,9 +488,9 @@
       "title": "VFR Multitool Homebase MX Pavilion",
       "kind": "object",
       "group": "Ausstattung",
-      "label": "MX24 Pavillon 3 x 3 m",
+      "label": "Faltpavillon 3 x 3 m",
       "icon": "P",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "missionSpawnable": true,
       "missionTags": [
         "shelter",
@@ -501,7 +501,55 @@
         "scene-prop"
       ],
       "workbenchVisible": true,
-      "homebasePlaceable": true
+      "homebasePlaceable": true,
+      "controls": [
+        {
+          "schemaVersion": 1,
+          "id": "door",
+          "type": "animation",
+          "label": "Pavillon-Seitenwände",
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "defaultState": "closed",
+          "states": [
+            {
+              "id": "open",
+              "label": "Ausblenden",
+              "value": 0
+            },
+            {
+              "id": "closed",
+              "label": "Einblenden",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "animation": {
+        "schemaVersion": 1,
+        "type": "door",
+        "control": {
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "values": {
+            "open": 0,
+            "closed": 1
+          }
+        },
+        "defaultState": "closed"
+      },
+      "footprint": {
+        "widthM": 3.054,
+        "depthM": 3.054
+      },
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-24T09:21:06.179Z"
     },
     {
       "key": "officeContainer",
@@ -1003,6 +1051,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-23T19:39:01.262Z",
+  "updatedAt": "2026-07-24T09:21:06.246Z",
   "stockObjects": []
 }

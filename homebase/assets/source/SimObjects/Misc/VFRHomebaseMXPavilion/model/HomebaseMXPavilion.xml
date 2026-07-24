@@ -1,4 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModelInfo version="1.1" name="HomebaseMXPavilion" guid="{C45E5B8E-4B28-4B87-8A78-0E7A0F5A6C2D}">
-  <LODS><LOD ModelFile="HomebaseMXPavilion_LOD00.gltf" MinSize="0.0000"/></LODS>
+  <LODS>
+    <LOD ModelFile="HomebaseMXPavilion_LOD00.gltf" MinSize="1.0000"/>
+    <LOD ModelFile="HomebaseMXPavilion_LOD01.gltf" MinSize="0.0000"/>
+  </LODS>
+  <Animation name="MXPavilionWallWindLoadSides" guid="{BEB69A93-5D7D-532D-8BFB-C385561872F0}" type="Standard"/>
+  <Animation name="MXPavilionWallWindLoadRear" guid="{D7B6C0EA-05A2-5347-857E-81BDD67E4270}" type="Standard"/>
+  <Animation name="MXPavilionWallFlutter00Kt" guid="{26CFB819-2D65-53BE-9324-B005C61D41B6}" type="Standard"/>
+  <Animation name="MXPavilionWallFlutter05Kt" guid="{74E9FF29-F81F-5C65-BE0A-1C223D2507B8}" type="Standard"/>
+  <Animation name="MXPavilionWallFlutter12Kt" guid="{3B3A760D-6910-5623-92A1-B0420E417778}" type="Standard"/>
+  <Animation name="MXPavilionWallFlutter25Kt" guid="{332EA5E6-0036-58B5-9D57-AFECA517201C}" type="Standard"/>
+  <AnimGraph>
+    <DefaultState name="WindFlutter"/>
+    <BlendTreeState name="WindFlutter" doBlend="TRUE">
+      <Animations>
+        <Animation guid="{26CFB819-2D65-53BE-9324-B005C61D41B6}" loop="True" speed="0.18" threshold="0"/>
+        <Animation guid="{74E9FF29-F81F-5C65-BE0A-1C223D2507B8}" loop="True" speed="0.48" threshold="5"/>
+        <Animation guid="{3B3A760D-6910-5623-92A1-B0420E417778}" loop="True" speed="0.95" threshold="12"/>
+        <Animation guid="{332EA5E6-0036-58B5-9D57-AFECA517201C}" loop="True" speed="1.95" threshold="25"/>
+      </Animations>
+      <Value>(A:AMBIENT WIND VELOCITY, KNOTS)</Value>
+    </BlendTreeState>
+  </AnimGraph>
+  <Behaviors>
+    <Include ModelBehaviorFile="Asobo\Generic.xml"/>
+    <Component ID="MXPavilionWallWindLoadSides" Node="MXPavilionWallWindRig">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>MXPavilionWallWindLoadSides</ANIM_NAME>
+        <ANIM_CODE>(A:AMBIENT WIND DIRECTION,degrees) (A:PLANE HEADING DEGREES TRUE,degrees) - 180 + dnor dgrd sin (A:AMBIENT WIND VELOCITY,knots) * 25 / 1 min -1 max 1 + 50 *</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+      </UseTemplate>
+    </Component>
+    <Component ID="MXPavilionWallWindLoadRear" Node="MXPavilionWallWindRig">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>MXPavilionWallWindLoadRear</ANIM_NAME>
+        <ANIM_CODE>(A:AMBIENT WIND DIRECTION,degrees) (A:PLANE HEADING DEGREES TRUE,degrees) - 180 + dnor dgrd cos (A:AMBIENT WIND VELOCITY,knots) * 25 / 1 min -1 max 1 + 50 *</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+      </UseTemplate>
+    </Component>
+    <Component ID="HomebaseMXPavilionWalls" Node="HomebaseMXPavilionWalls">
+      <UseTemplate Name="ASOBO_GT_Visibility_Code">
+        <VISIBILITY_CODE>(L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND, number) 0.5 &gt;</VISIBILITY_CODE>
+      </UseTemplate>
+    </Component>
+  </Behaviors>
 </ModelInfo>

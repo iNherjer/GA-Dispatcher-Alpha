@@ -1,0 +1,803 @@
+{
+  "asset": {
+    "generator": "VFR Multitool MX Pavilion raw glTF exporter",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "HomebaseMXPavilionDetailWindPrototype",
+      "nodes": [
+        12
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "MXPavilionWallWindRig"
+    },
+    {
+      "mesh": 0,
+      "name": "PavilionWallLeftLOD01"
+    },
+    {
+      "mesh": 1,
+      "name": "PavilionWallRearLOD01"
+    },
+    {
+      "mesh": 2,
+      "name": "PavilionWallRightLOD01"
+    },
+    {
+      "children": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "name": "HomebaseMXPavilionWalls"
+    },
+    {
+      "mesh": 3,
+      "name": "PavilionLegLOD01_01"
+    },
+    {
+      "mesh": 4,
+      "name": "PavilionLegLOD01_02"
+    },
+    {
+      "mesh": 5,
+      "name": "PavilionLegLOD01_03"
+    },
+    {
+      "mesh": 6,
+      "name": "PavilionLegLOD01_04"
+    },
+    {
+      "mesh": 7,
+      "name": "PavilionPeakPoleLOD01"
+    },
+    {
+      "mesh": 8,
+      "name": "PavilionRoofLOD01"
+    },
+    {
+      "mesh": 9,
+      "name": "PavilionRoofValanceLOD01"
+    },
+    {
+      "children": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "name": "HomebaseMXPavilionRoot"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Pavillon_Wandstoff_Schwarz_LOD01",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.012000000104308128,
+          0.014999999664723873,
+          0.019999999552965164,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8999999761581421
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Pavillon_Rahmen_Schwarz_LOD01",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.03500000014901161,
+          0.041999999433755875,
+          0.05000000074505806,
+          1
+        ],
+        "metallicFactor": 0.6600000262260437,
+        "roughnessFactor": 0.4000000059604645
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Pavillon_Stoff_Schwarz_LOD01",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.006000000052154064,
+          0.00800000037997961,
+          0.010999999940395355,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8799999952316284
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "PavilionWallLeftLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "PavilionWallRearLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 3,
+            "NORMAL": 4
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "PavilionWallRightLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 5,
+            "NORMAL": 6
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "PavilionLegLOD01_01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 7,
+            "NORMAL": 8
+          },
+          "indices": 9,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "PavilionLegLOD01_02Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 10,
+            "NORMAL": 11
+          },
+          "indices": 9,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "PavilionLegLOD01_03Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13
+          },
+          "indices": 9,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "PavilionLegLOD01_04Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 14,
+            "NORMAL": 15
+          },
+          "indices": 9,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "PavilionPeakPoleLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17
+          },
+          "indices": 9,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "PavilionRoofLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 18,
+            "NORMAL": 19
+          },
+          "indices": 20,
+          "material": 2
+        }
+      ]
+    },
+    {
+      "name": "PavilionRoofValanceLOD01Mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 21,
+            "NORMAL": 22
+          },
+          "indices": 23,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        -1.3849999904632568,
+        2.015000104904175,
+        1.3849999904632568
+      ],
+      "min": [
+        -1.3849999904632568,
+        0.11500000208616257,
+        -1.3849999904632568
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        1.3849999904632568,
+        2.015000104904175,
+        -1.3849999904632568
+      ],
+      "min": [
+        -1.3849999904632568,
+        0.11500000208616257,
+        -1.3849999904632568
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 4,
+      "max": [
+        1.3849999904632568,
+        2.015000104904175,
+        1.3849999904632568
+      ],
+      "min": [
+        1.3849999904632568,
+        0.11500000208616257,
+        -1.3849999904632568
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -1.36899995803833,
+        2.1600000858306885,
+        1.4509999752044678
+      ],
+      "min": [
+        -1.4509999752044678,
+        0,
+        1.36899995803833
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        1.4509999752044678,
+        2.1600000858306885,
+        1.4509999752044678
+      ],
+      "min": [
+        1.36899995803833,
+        0,
+        1.36899995803833
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        1.4509999752044678,
+        2.1600000858306885,
+        -1.36899995803833
+      ],
+      "min": [
+        1.36899995803833,
+        0,
+        -1.4509999752044678
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -1.36899995803833,
+        2.1600000858306885,
+        -1.36899995803833
+      ],
+      "min": [
+        -1.4509999752044678,
+        0,
+        -1.4509999752044678
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        0.027499999850988388,
+        3.0250000953674316,
+        0.027499999850988388
+      ],
+      "min": [
+        -0.027499999850988388,
+        2.0950000286102295,
+        -0.027499999850988388
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 12,
+      "max": [
+        1.5269999504089355,
+        3.049999952316284,
+        1.5269999504089355
+      ],
+      "min": [
+        -1.5269999504089355,
+        2.1600000858306885,
+        -1.5269999504089355
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5126,
+      "count": 12,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5123,
+      "count": 12,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 16,
+      "max": [
+        1.5269999504089355,
+        2.1600000858306885,
+        1.5269999504089355
+      ],
+      "min": [
+        -1.5269999504089355,
+        1.9249999523162842,
+        -1.5269999504089355
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 16,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5123,
+      "count": 24,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5126,
+      "count": 2,
+      "type": "SCALAR",
+      "min": [
+        0.0
+      ],
+      "max": [
+        2.0
+      ]
+    },
+    {
+      "bufferView": 25,
+      "componentType": 5126,
+      "count": 2,
+      "type": "VEC3"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 48,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12,
+      "byteOffset": 96,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 108,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 156,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 204,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 252,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 300,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 588,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 72,
+      "byteOffset": 876,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 948,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 1236,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 1524,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 1812,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 2100,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 2388,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 2676,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 288,
+      "byteOffset": 2964,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 144,
+      "byteOffset": 3252,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 144,
+      "byteOffset": 3396,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 24,
+      "byteOffset": 3540,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 192,
+      "byteOffset": 3564,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 192,
+      "byteOffset": 3756,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 48,
+      "byteOffset": 3948,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 3996,
+      "byteLength": 8
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4004,
+      "byteLength": 24
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 4028,
+      "uri": "HomebaseMXPavilion_LOD01.bin"
+    }
+  ],
+  "animations": [
+    {
+      "name": "MXPavilionWallWindLoadSides",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MXPavilionWallWindLoadRear",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MXPavilionWallFlutter00Kt",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MXPavilionWallFlutter05Kt",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MXPavilionWallFlutter12Kt",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MXPavilionWallFlutter25Kt",
+      "samplers": [
+        {
+          "input": 24,
+          "output": 25,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "translation"
+          }
+        }
+      ]
+    }
+  ],
+  "extras": {
+    "homebaseLod": "LOD01"
+  }
+}
