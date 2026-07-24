@@ -194,6 +194,9 @@ function normalizeHomebasePerson(raw, index) {
     startNorthM: normalizeFinite(source.startNorthM, 0, -2000, 2000),
     startEastM: normalizeFinite(source.startEastM, 0, -2000, 2000),
     speedKts: normalizeFinite(source.speedKts, 2.6, 1, 5),
+    randomTargets: source.randomTargets === true,
+    randomWaitMinS: normalizeFinite(source.randomWaitMinS, 5, 0, 3600),
+    randomWaitMaxS: normalizeFinite(source.randomWaitMaxS, 30, 0, 3600),
     stops: (Array.isArray(source.stops) ? source.stops : []).slice(0, HOMEBASE_MAX_PERSON_DESTINATIONS).map(normalizeHomebasePersonDestination)
   };
 }
@@ -278,7 +281,7 @@ async function handleHomebaseSync(request, requestUrl, env) {
   }
   const updatedAt = Date.now();
   const record = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: `${updatedAt}-${crypto.randomUUID().slice(0, 8)}`,
     updatedAt,
     clientUpdatedAt: normalizeFinite(incoming.clientUpdatedAt, updatedAt, 1, updatedAt + 86400000),

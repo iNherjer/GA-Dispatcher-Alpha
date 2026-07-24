@@ -38,7 +38,11 @@ const plan = {
   people: [{
     id: "person-1", title: "Tarmac_Male_Summer_Asian", label: "Mitarbeiter 1",
     startNorthM: 12, startEastM: 3, speedKts: 2.6,
-    stops: [{ id: "waypoint-1", targetType: "waypoint", northM: 24.5, eastM: -2, waitMinS: 5, waitMaxS: 30 }]
+    randomTargets: true, randomWaitMinS: 11, randomWaitMaxS: 44,
+    stops: [
+      { id: "waypoint-1", targetType: "waypoint", northM: 24.5, eastM: -2, waitMinS: 5, waitMaxS: 30 },
+      { id: "waypoint-2", targetType: "waypoint", northM: -8, eastM: 16.25, waitMinS: 2, waitMaxS: 9 }
+    ]
   }]
 };
 
@@ -54,12 +58,18 @@ const created = await call(env, "/api/homebase/pilotA", {
   body: JSON.stringify({ baseRevision: "", clientUpdatedAt: Date.now(), deviceId: "test-device", plan })
 });
 assert.equal(created.response.status, 200);
+assert.equal(created.body.record.schemaVersion, 2);
 assert.equal(created.body.record.plan.spawn.heading, 1);
 assert.equal(created.body.record.plan.hangar.heading, 359);
 assert.equal(created.body.record.plan.objects.length, 1);
 assert.equal(created.body.record.plan.people.length, 1);
 assert.equal(created.body.record.plan.people[0].title, "Tarmac_Male_Summer_Asian");
+assert.equal(created.body.record.plan.people[0].randomTargets, true);
+assert.equal(created.body.record.plan.people[0].randomWaitMinS, 11);
+assert.equal(created.body.record.plan.people[0].randomWaitMaxS, 44);
+assert.equal(created.body.record.plan.people[0].stops.length, 2);
 assert.equal(created.body.record.plan.people[0].stops[0].northM, 24.5);
+assert.equal(created.body.record.plan.people[0].stops[1].eastM, 16.25);
 assert.equal(created.body.record.plan.doorAutomationEnabled, false);
 assert.equal(JSON.stringify(created.body).includes("0815"), false);
 
@@ -85,7 +95,39 @@ const loaded = await call(env, "/api/homebase/pilotA", { headers });
 assert.equal(loaded.response.status, 200);
 assert.equal(loaded.body.record.revision, updated.body.record.revision);
 assert.equal(loaded.body.record.plan.people.length, 1);
+assert.equal(loaded.body.record.plan.people[0].randomTargets, true);
+assert.equal(loaded.body.record.plan.people[0].randomWaitMinS, 11);
+assert.equal(loaded.body.record.plan.people[0].randomWaitMaxS, 44);
 assert.equal(loaded.body.record.plan.people[0].stops[0].targetType, "waypoint");
+assert.equal(loaded.body.record.plan.people[0].stops[1].targetType, "waypoint");
+
+const deletedPeoplePlan = structuredClone(updatedPlan);
+deletedPeoplePlan.people = [];
+const deletedPeople = await call(env, "/api/homebase/pilotA", {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    baseRevision: loaded.body.record.revision,
+    clientUpdatedAt: Date.now(),
+    deviceId: "second-device",
+    plan: deletedPeoplePlan
+  })
+});
+assert.equal(deletedPeople.response.status, 200);
+assert.deepEqual(deletedPeople.body.record.plan.people, []);
+
+const staleDeviceAfterDelete = await call(env, "/api/homebase/pilotA", {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    baseRevision: loaded.body.record.revision,
+    clientUpdatedAt: Date.now(),
+    deviceId: "stale-device",
+    plan: updatedPlan
+  })
+});
+assert.equal(staleDeviceAfterDelete.response.status, 409);
+assert.deepEqual(staleDeviceAfterDelete.body.record.plan.people, []);
 
 const crewDisabled = await call(env, "/api/homebase-group/TEST", { headers });
 assert.equal(crewDisabled.response.status, 200);
