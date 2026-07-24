@@ -1,4 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModelInfo version="1.1" name="HomebaseOpenParking" guid="{B5E7D5B0-3436-4F27-9EB8-DA3D84389C92}">
-  <LODS><LOD ModelFile="HomebaseOpenParking_LOD00.gltf" MinSize="0.0000"/></LODS>
+  <LODS>
+    <LOD ModelFile="HomebaseOpenParking_LOD00.gltf" MinSize="1.0000"/>
+    <LOD ModelFile="HomebaseOpenParking_LOD01.gltf" MinSize="0.0000"/>
+  </LODS>
+  <Animation name="OpenParkingTapeWindLoadSides" guid="{CBC4E9E7-9EA4-5938-A996-C828A56BC4E8}" type="Standard"/>
+  <Animation name="OpenParkingTapeWindLoadRear" guid="{EF356323-9B5F-53CA-8FE2-CD2E8C1B279F}" type="Standard"/>
+  <Animation name="OpenParkingTapeFlutter00Kt" guid="{F9E8EED0-0877-56F2-BE8F-FE54E60168B3}" type="Standard"/>
+  <Animation name="OpenParkingTapeFlutter05Kt" guid="{38969983-D7E6-5C5D-B8D3-A129570C6932}" type="Standard"/>
+  <Animation name="OpenParkingTapeFlutter12Kt" guid="{FAFD43E5-E790-56B3-965D-E97222025A0E}" type="Standard"/>
+  <Animation name="OpenParkingTapeFlutter25Kt" guid="{67B0525B-DA16-54E8-912D-0254C43A0837}" type="Standard"/>
+  <AnimGraph>
+    <DefaultState name="WindFlutter"/>
+    <BlendTreeState name="WindFlutter" doBlend="TRUE">
+      <Animations>
+        <Animation guid="{F9E8EED0-0877-56F2-BE8F-FE54E60168B3}" loop="True" speed="0.18" threshold="0"/>
+        <Animation guid="{38969983-D7E6-5C5D-B8D3-A129570C6932}" loop="True" speed="0.55" threshold="5"/>
+        <Animation guid="{FAFD43E5-E790-56B3-965D-E97222025A0E}" loop="True" speed="1.00" threshold="12"/>
+        <Animation guid="{67B0525B-DA16-54E8-912D-0254C43A0837}" loop="True" speed="2.15" threshold="25"/>
+      </Animations>
+      <Value>(A:AMBIENT WIND VELOCITY, KNOTS)</Value>
+    </BlendTreeState>
+  </AnimGraph>
+  <Behaviors>
+    <Include ModelBehaviorFile="Asobo\Generic.xml"/>
+    <Component ID="OpenParkingTapeWindLoadSides" Node="OpenParkingTapeWindRig">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>OpenParkingTapeWindLoadSides</ANIM_NAME>
+        <ANIM_CODE>(A:AMBIENT WIND DIRECTION,degrees) (A:PLANE HEADING DEGREES TRUE,degrees) - 180 + dnor dgrd sin (A:AMBIENT WIND VELOCITY,knots) * 25 / 1 min -1 max 1 + 50 *</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+      </UseTemplate>
+    </Component>
+    <Component ID="OpenParkingTapeWindLoadRear" Node="OpenParkingTapeWindRig">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>OpenParkingTapeWindLoadRear</ANIM_NAME>
+        <ANIM_CODE>(A:AMBIENT WIND DIRECTION,degrees) (A:PLANE HEADING DEGREES TRUE,degrees) - 180 + dnor dgrd cos (A:AMBIENT WIND VELOCITY,knots) * 25 / 1 min -1 max 1 + 50 *</ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+      </UseTemplate>
+    </Component>
+  </Behaviors>
 </ModelInfo>

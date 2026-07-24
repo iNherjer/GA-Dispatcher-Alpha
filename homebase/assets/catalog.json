@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.16",
+    "version": "0.6.18",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -504,12 +504,105 @@
       "homebasePlaceable": true
     },
     {
+      "key": "officeContainer",
+      "folder": "VFRHomebaseOfficeContainer",
+      "title": "VFR Multitool Homebase Office Container",
+      "label": "Bürocontainer",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Gebäude",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": false,
+      "missionTags": [
+        "homebase",
+        "office",
+        "container"
+      ],
+      "missionRoles": [
+        "scene-prop"
+      ],
+      "controls": [
+        {
+          "schemaVersion": 1,
+          "id": "door",
+          "type": "animation",
+          "label": "Bürocontainertür",
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_OFFICE_CONTAINER_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "defaultState": "open",
+          "durationMs": 4000,
+          "states": [
+            {
+              "id": "open",
+              "label": "Öffnen",
+              "value": 0
+            },
+            {
+              "id": "closed",
+              "label": "Schließen",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "schemaVersion": 1,
+          "id": "interiorLight",
+          "type": "light",
+          "label": "Innenlicht",
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_OFFICE_CONTAINER_LIGHT_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "defaultState": "on",
+          "states": [
+            {
+              "id": "on",
+              "label": "Einschalten",
+              "value": 0
+            },
+            {
+              "id": "off",
+              "label": "Ausschalten",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "animation": {
+        "schemaVersion": 1,
+        "type": "door",
+        "durationMs": 4000,
+        "control": {
+          "transport": "simconnect-lvar",
+          "simvar": "L:1:VFR_HOMEBASE_OFFICE_CONTAINER_DOOR_COMMAND",
+          "unit": "number",
+          "scope": "simobject",
+          "values": {
+            "open": 0,
+            "closed": 1
+          }
+        },
+        "defaultState": "open"
+      },
+      "footprint": {
+        "widthM": 6.06,
+        "depthM": 2.44
+      },
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-23T19:39:01.209Z"
+    },
+    {
       "key": "openParking",
       "folder": "VFRHomebaseOpenParking",
       "title": "VFR Multitool Homebase Open Parking",
       "kind": "hangar",
       "label": "Offener Parkbereich",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "missionSpawnable": false,
       "missionTags": [
         "homebase",
@@ -520,7 +613,17 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true,
-      "headingCorrectionDeg": 180
+      "headingCorrectionDeg": 180,
+      "group": "Hangars",
+      "controls": [],
+      "animation": null,
+      "footprint": {
+        "widthM": 18,
+        "depthM": 22
+      },
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-23T19:39:00.817Z"
     },
     {
       "key": "pinboard",
@@ -900,6 +1003,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-23T12:10:31.114Z",
+  "updatedAt": "2026-07-23T19:39:01.262Z",
   "stockObjects": []
 }

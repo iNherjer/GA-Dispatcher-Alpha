@@ -1,0 +1,29 @@
+{
+  "key": "openParking",
+  "folder": "VFRHomebaseOpenParking",
+  "title": "VFR Multitool Homebase Open Parking",
+  "kind": "hangar",
+  "label": "Offener Parkbereich",
+  "version": "1.0.1",
+  "missionSpawnable": false,
+  "missionTags": [
+    "homebase",
+    "parking"
+  ],
+  "missionRoles": [
+    "scene-prop"
+  ],
+  "workbenchVisible": true,
+  "homebasePlaceable": true,
+  "headingCorrectionDeg": 180,
+  "group": "Gebäude",
+  "controls": [],
+  "animation": null,
+  "footprint": {
+    "widthM": 18,
+    "depthM": 22
+  },
+  "collisionProfile": null,
+  "vegetationExclusion": null,
+  "updatedAt": "2026-07-23T15:49:44.814Z"
+}
