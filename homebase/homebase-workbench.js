@@ -1264,6 +1264,12 @@
     const element = [...document.querySelectorAll('[data-control-result-key]')]
       .find((candidate) => candidate.dataset.controlResultKey === key);
     if (!element) return;
+    if (element.classList.contains('homebase-control-tile-status')) {
+      element.textContent = compactControlMessage(message);
+      element.classList.toggle('ok', ok === true);
+      element.classList.toggle('bad', ok === false);
+      return;
+    }
     element.textContent = message;
     element.className = `result-line${ok === true ? ' ok' : ok === false ? ' bad' : ''}`;
   }
@@ -1304,6 +1310,96 @@
     if (control.type === 'light' && state === 'off') return 'Bestätigt: Licht aus. Bereit.';
     const stateDefinition = control.states.find((item) => item.id === state);
     return `Bestätigt: ${stateDefinition?.label || state}. Bereit.`;
+  }
+
+  function controlVisualKind(control) {
+    if (String(control?.id || '').toLowerCase() === 'door') return 'door';
+    if (control?.type === 'light' || String(control?.id || '').toLowerCase().includes('light')) return 'light';
+    return 'switch';
+  }
+
+  function isHighlightedControlState(control, state) {
+    const kind = controlVisualKind(control);
+    if (kind === 'door') return state === 'open';
+    if (kind === 'light') return state === 'on';
+    return !!state && state === control.states?.[0]?.id;
+  }
+
+  function nextControlState(control, currentState = '') {
+    const states = Array.isArray(control?.states) ? control.states : [];
+    if (!states.length) return '';
+    const currentIndex = states.findIndex((item) => item.id === currentState);
+    return states[currentIndex < 0 ? 0 : (currentIndex + 1) % states.length]?.id || '';
+  }
+
+  function knownControlState(group) {
+    return acknowledgedControlStates.get(group.key) || group.control?.defaultState || '';
+  }
+
+  function compactControlMessage(message) {
+    const text = String(message || '').trim();
+    if (/Tor wird geöffnet/i.test(text)) return 'Öffnet …';
+    if (/Tor wird geschlossen/i.test(text)) return 'Schließt …';
+    if (/Licht wird eingeschaltet/i.test(text)) return 'Schaltet ein …';
+    if (/Licht wird ausgeschaltet/i.test(text)) return 'Schaltet aus …';
+    if (/Tor geöffnet/i.test(text)) return 'Offen';
+    if (/Tor geschlossen/i.test(text)) return 'Geschlossen';
+    if (/Licht an/i.test(text)) return 'An';
+    if (/Licht aus/i.test(text)) return 'Aus';
+    if (/fehlgeschlagen|nicht gesteuert|fehlt/i.test(text)) return 'Nicht erreichbar';
+    if (/Bereit/i.test(text)) return 'Bereit';
+    return text.length > 34 ? `${text.slice(0, 31).trim()}…` : text;
+  }
+
+  function controlTileStatus(control, state, pendingState = '') {
+    if (pendingState) return compactControlMessage(actionProgressMessage(control, pendingState));
+    const kind = controlVisualKind(control);
+    if (kind === 'door' && state === 'open') return 'Offen';
+    if (kind === 'door' && state === 'closed') return 'Geschlossen';
+    if (kind === 'light' && state === 'on') return 'An';
+    if (kind === 'light' && state === 'off') return 'Aus';
+    if (!state) return 'Bereit';
+    return control.states?.find((item) => item.id === state)?.label || state;
+  }
+
+  function createControlTile({ name, functionLabel, control, currentState = '', pendingState = '', busy = false, status = '', resultKey = '', onToggle }) {
+    const visualState = pendingState || currentState;
+    const kind = controlVisualKind(control);
+    const nextState = nextControlState(control, visualState);
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = `homebase-control-tile homebase-control-tile-${kind}`;
+    tile.disabled = busy || !nextState;
+    tile.classList.toggle('is-active', isHighlightedControlState(control, visualState));
+    tile.classList.toggle('is-pending', !!pendingState);
+    if (visualState) tile.classList.add(`state-${String(visualState).replace(/[^a-z0-9_-]/gi, '-').toLowerCase()}`);
+    tile.setAttribute('aria-pressed', String(isHighlightedControlState(control, currentState)));
+    tile.setAttribute('aria-label', `${name}, ${functionLabel}: ${status || controlTileStatus(control, currentState, pendingState)}. Zustand umschalten`);
+
+    const objectName = document.createElement('span');
+    objectName.className = 'homebase-control-tile-name';
+    objectName.textContent = name;
+    const pictogram = document.createElement('span');
+    pictogram.className = `homebase-control-pictogram homebase-control-pictogram-${kind}`;
+    pictogram.setAttribute('aria-hidden', 'true');
+    if (kind === 'light') {
+      pictogram.innerHTML = `
+        <svg viewBox="0 0 48 48" focusable="false">
+          <circle class="bulb-glow" cx="24" cy="18" r="11"></circle>
+          <path class="bulb-outline" d="M24 4.5c-8.1 0-14.7 6.2-14.7 13.9 0 5.1 2.7 9.1 7.1 11.9 1 .7 1.6 1.6 1.6 2.7h12c0-1.1.6-2 1.6-2.7 4.4-2.8 7.1-6.8 7.1-11.9C38.7 10.7 32.1 4.5 24 4.5Z"></path>
+          <path class="bulb-socket" d="M17.5 36h13M18.8 40h10.4M21.2 44h5.6"></path>
+        </svg>`;
+    }
+    const functionName = document.createElement('span');
+    functionName.className = 'homebase-control-tile-function';
+    functionName.textContent = functionLabel;
+    const statusLine = document.createElement('span');
+    statusLine.className = 'homebase-control-tile-status';
+    statusLine.textContent = status || controlTileStatus(control, currentState, pendingState);
+    if (resultKey) statusLine.dataset.controlResultKey = resultKey;
+    tile.append(objectName, pictogram, functionName, statusLine);
+    tile.addEventListener('click', () => onToggle?.(nextState));
+    return tile;
   }
 
   function requestObjectControlState(group, nextState, options = {}) {
@@ -1445,6 +1541,7 @@
     const panels = controlPanels(groups);
     container.textContent = '';
     empty.hidden = groups.length > 0;
+
     const globalDefinitions = [
       {
         kind: 'door',
@@ -1468,109 +1565,75 @@
       ...definition,
       groups: groups.filter((group) => globalControlKind(group.control) === definition.kind)
     })).filter((definition) => definition.groups.length > 0);
+
     if (globalDefinitions.length) {
       const globalGrid = document.createElement('div');
-      globalGrid.className = `homebase-global-control-grid${globalDefinitions.length === 1 ? ' is-single' : ''}`;
+      globalGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-global';
+      globalGrid.setAttribute('aria-label', 'Sammelsteuerung');
       for (const definition of globalDefinitions) {
         const operation = globalControlOperations.get(definition.kind) || null;
         const targetCount = definition.groups.reduce((sum, group) => sum + group.count, 0);
         const groupKeys = new Set(definition.groups.map((group) => group.key));
         const busy = (operation?.pending || 0) > 0
           || [...pendingControlCommands.values()].some((entry) => groupKeys.has(entry.key));
-        const card = document.createElement('article');
-        card.className = 'homebase-control-group homebase-control-global';
-        const heading = document.createElement('div');
-        heading.className = 'homebase-control-heading';
-        const title = document.createElement('strong');
-        title.textContent = definition.title;
-        const detail = document.createElement('span');
-        detail.textContent = `${targetCount} ${targetCount === 1 ? definition.singular : definition.title.replace(/^Alle /, '')}`;
-        heading.append(title, detail);
-        const actions = document.createElement('div');
-        actions.className = 'homebase-control-actions';
-        for (const stateDefinition of definition.states) {
-          const button = document.createElement('button');
-          const stateConfirmed = definition.groups.every((group) => acknowledgedControlStates.get(group.key) === stateDefinition.id);
-          button.type = 'button';
-          button.className = 'secondary';
-          button.textContent = stateDefinition.label;
-          button.disabled = busy;
-          button.classList.toggle('is-active', !busy && stateConfirmed);
-          button.setAttribute('aria-pressed', String(!busy && stateConfirmed));
-          button.addEventListener('click', () => requestGlobalControlState(definition.kind, stateDefinition.id));
-          actions.append(button);
-        }
-        const result = document.createElement('p');
-        result.className = 'result-line';
+        const commonState = definition.states.find((stateDefinition) => (
+          definition.groups.every((group) => knownControlState(group) === stateDefinition.id)
+        ))?.id || '';
+        const pendingState = operation?.pending ? operation.state : '';
+        const control = {
+          id: definition.kind === 'door' ? 'door' : 'light',
+          type: definition.kind === 'light' ? 'light' : 'animation',
+          states: definition.states
+        };
+        let status = controlTileStatus(control, commonState, pendingState);
         if (operation?.pending) {
-          result.textContent = `${operation.ok + operation.failed}/${operation.total} Befehle bestätigt …`;
+          status = `${operation.ok + operation.failed}/${operation.total} bestätigt …`;
         } else if (operation?.failed) {
-          result.classList.add('bad');
-          result.textContent = `${operation.failed} von ${operation.total} Befehlen fehlgeschlagen.${operation.lastError ? ` ${operation.lastError}` : ''}`;
+          status = `${operation.failed} fehlgeschlagen`;
         } else if (operation?.completedAt) {
-          const stateDefinition = definition.states.find((entry) => entry.id === operation.state);
-          result.classList.add('ok');
-          result.textContent = stateDefinition?.confirmed || 'Bestätigt. Bereit.';
-        } else {
-          result.textContent = 'Bereit.';
+          status = controlTileStatus(control, operation.state);
         }
-        card.append(heading, actions, result);
-        globalGrid.append(card);
+        const tile = createControlTile({
+          name: definition.title,
+          functionLabel: `${targetCount} ${targetCount === 1 ? definition.singular : definition.title.replace(/^Alle /, '')}`,
+          control,
+          currentState: commonState || (operation?.completedAt ? operation.state : ''),
+          pendingState,
+          busy,
+          status,
+          onToggle: (nextState) => requestGlobalControlState(definition.kind, nextState)
+        });
+        tile.classList.add('homebase-control-tile-global');
+        if (operation?.failed) tile.classList.add('has-error');
+        globalGrid.append(tile);
       }
       container.append(globalGrid);
     }
+
+    if (!panels.length) return;
+    const objectGrid = document.createElement('div');
+    objectGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-objects';
+    objectGrid.setAttribute('aria-label', 'Einzelsteuerung');
     for (const panel of panels) {
-      const card = document.createElement('article');
-      card.className = 'homebase-control-group homebase-control-object';
-      const heading = document.createElement('div');
-      heading.className = 'homebase-control-heading';
-      const title = document.createElement('strong');
-      title.textContent = panel.label;
-      heading.append(title);
-      if (panel.detail) {
-        const detail = document.createElement('span');
-        detail.textContent = panel.detail;
-        heading.append(detail);
-      }
-      const controlGrid = document.createElement('div');
-      controlGrid.className = `homebase-control-grid${panel.groups.length === 1 ? ' is-single' : ''}`;
       for (const group of panel.groups) {
         const pending = [...pendingControlCommands.values()].find((entry) => entry.key === group.key) || null;
-        const acknowledgedState = acknowledgedControlStates.get(group.key) || '';
-        const controlCard = document.createElement('section');
-        controlCard.className = 'homebase-control-function';
-        const controlTitle = document.createElement('strong');
-        controlTitle.className = 'homebase-control-function-title';
-        controlTitle.textContent = controlFunctionLabel(group.control);
-        const actions = document.createElement('div');
-        actions.className = 'homebase-control-actions';
-        for (const stateDefinition of group.control.states) {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'secondary';
-          button.textContent = controlButtonLabel(group.control, stateDefinition);
-          button.disabled = !!pending;
-          button.classList.toggle('is-active', !pending && acknowledgedState === stateDefinition.id);
-          button.setAttribute('aria-pressed', String(!pending && acknowledgedState === stateDefinition.id));
-          button.addEventListener('click', () => requestObjectControlState(group, stateDefinition.id));
-          actions.append(button);
-        }
-        const result = document.createElement('p');
-        result.className = 'result-line';
-        result.dataset.controlResultKey = group.key;
-        result.textContent = pending
-          ? actionProgressMessage(group.control, pending.state)
-          : acknowledgedState
-            ? confirmedControlMessage(group.control, acknowledgedState)
-            : group.control.scope === 'global' && group.count > 1
-              ? `Bereit. Wirkt auf alle ${group.count} Exemplare.`
-              : 'Bereit.';
-        controlCard.append(controlTitle, actions, result);
-        controlGrid.append(controlCard);
+        const acknowledgedState = knownControlState(group);
+        const functionLabel = panel.detail
+          ? `${controlFunctionLabel(group.control)} · ${panel.detail}`
+          : controlFunctionLabel(group.control);
+        objectGrid.append(createControlTile({
+          name: panel.label,
+          functionLabel,
+          control: group.control,
+          currentState: acknowledgedState,
+          pendingState: pending?.state || '',
+          busy: !!pending,
+          resultKey: group.key,
+          onToggle: (nextState) => requestObjectControlState(group, nextState)
+        }));
       }
-      card.append(heading, controlGrid);
-      container.append(card);
     }
+    container.append(objectGrid);
   }
 
   function syncInputsFromState() {
@@ -3001,7 +3064,6 @@
   });
   $('assetPackageBtn').addEventListener('click', () => offerAssetPackageInstall({ force: true }));
   $('uninstallAirportBtn').addEventListener('click', uninstallAirport);
-  $('connectBtn').addEventListener('click', connect);
   $('clearLogBtn').addEventListener('click', () => { $('log').textContent = ''; });
   syncCompileModeUi();
   setupMobileMapPin();

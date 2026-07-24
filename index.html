@@ -92,7 +92,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="styles.css?v=mission-debrief-20260721-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="stylesheet" href="homebase-integration.css?v=homebase-theme-sync-20260720-01">
+    <link rel="stylesheet" href="homebase-integration.css?v=homebase-main-launch-20260724-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
         <link rel="stylesheet" href="styles.css?v=mission-debrief-20260721-02">
@@ -751,6 +751,19 @@
         <h3 class="theme-title-text">Flugbuch <button style="font-size:10px; background:none; border:1px solid #555; color:#888; cursor:pointer; padding:2px 5px;" onclick="clearLog()">Clear</button></h3>
         <div id="logContent"></div>
     </div>
+
+    <div class="homebase-main-launch" role="group" aria-labelledby="homebaseMainTitle">
+        <span class="homebase-main-icon" aria-hidden="true">⌂</span>
+        <span class="homebase-main-copy">
+            <span class="homebase-main-kicker">Dein Stützpunkt</span>
+            <span class="homebase-main-title" id="homebaseMainTitle">Homebase</span>
+            <span class="homebase-main-description">Startplatz, Hangar und Ausstattung im Simulator planen</span>
+            <span id="homebaseAssetStatus" class="homebase-asset-status">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
+        </span>
+        <button type="button" class="btn-preset homebase-main-action" onclick="openHomebaseEnvironment()" aria-describedby="homebaseAssetStatus">
+            Öffnen <span aria-hidden="true">›</span>
+        </button>
+    </div>
     </div>
 
     <div class="settings-shell">
@@ -851,15 +864,6 @@
                 <span>📥</span> Aktuellen PC-Tracker (.exe) laden
             </a>
         </div>
-        <div class="homebase-settings-launch">
-            <div>
-                <strong>Homebase</strong>
-                <span>Startplatz, Hangar und Ausstattung im Simulator planen</span>
-                <span id="homebaseAssetStatus" class="homebase-asset-status">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
-            </div>
-            <button type="button" class="btn-preset" onclick="openHomebaseEnvironment()">Homebase öffnen</button>
-        </div>
-
         <div class="settings-sync-row">
             <label class="switch" style="transform: scale(0.6); margin: 0; transform-origin: left;">
                 <input type="checkbox" id="syncToggle" onchange="saveSyncToggle()" disabled>

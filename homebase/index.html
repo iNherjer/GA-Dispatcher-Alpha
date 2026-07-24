@@ -15,7 +15,7 @@
     })();
   </script>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-controls-v313-20260723-01">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-control-tiles-20260724-01">
 </head>
 <body>
   <header class="topbar">
@@ -41,12 +41,6 @@
     </section>
 
     <aside class="control-panel">
-      <section class="card identity-card">
-        <div><span class="label">Geöffnet über</span><strong>VFR Haupt-App</strong></div>
-        <div><span class="label">Arbeitsweise</span><strong>Direkt verbunden</strong></div>
-        <button id="connectBtn" class="secondary">Verbindung neu aufbauen</button>
-      </section>
-
       <section class="card">
         <div class="section-title">
           <div><span class="step">01</span><h2>Startpunkt festlegen</h2></div>
@@ -111,10 +105,8 @@
           <div><span class="step">FUNKTIONEN</span><h2>Türen, Lichter und weitere Funktionen</h2></div>
         </div>
         <label class="toggle"><input id="doorAutomationToggle" type="checkbox" checked> Hangartore bei Annäherung automatisch öffnen und schließen</label>
-        <p id="doorAutomationHint" class="small-note">Für Flugzeug und Walkaround öffnet jedes Tor einzeln bei höchstens 33 m und schließt ab 35 m nach einer Sekunde. Homebase-Mitarbeiter verwenden weiterhin die kleinere 18/20-m-Zone. Eine manuelle Betätigung bleibt bestehen, bis die Automatik denselben Zustand im nächsten Distanzzyklus erreicht.</p>
         <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
         <div id="homebaseControlsEmpty" class="object-empty">Die aktuell platzierten Modelle haben keine bedienbaren Türen, Lichter oder Animationen.</div>
-        <p class="small-note">Wenn ein Modell bedienbare Funktionen besitzt, erscheinen die passenden Schalter hier automatisch. Instanzlokale Tore werden pro platziertem Hangar einzeln angezeigt.</p>
       </section>
 
       <section class="card object-card">
@@ -153,29 +145,6 @@
           </div>
         </fieldset>
         <p class="small-note">Ziehe einen nummerierten Marker auf der Karte oder nutze die Felder für eine genaue Position. Über „Höhe über dem Boden“ kannst du Gegenstände stapeln. Einige von MSFS bereitgestellte Objekte erscheinen erst im kompilierten Homebase-Mod.</p>
-      </section>
-
-      <section class="card route-debug-card">
-        <div class="section-title">
-          <div><span class="step">DEBUG</span><h2>Personen-Routenplaner</h2></div>
-        </div>
-        <label class="toggle"><input id="routeDebugToggle" type="checkbox"> Routenplanung auf der Karte anzeigen</label>
-        <div id="routeDebugPanel" class="route-debug-panel" hidden>
-          <div class="field-grid two">
-            <label>Start nördlich, m<input id="routeStartNorth" type="number" step="0.5" value="12"></label>
-            <label>Start östlich, m<input id="routeStartEast" type="number" step="0.5" value="0"></label>
-          </div>
-          <label>Zielobjekt<select id="routeTargetSelect"></select></label>
-          <label class="toggle"><input id="routeAircraftZoneToggle" type="checkbox" checked> Flugzeug als dynamische 10 × 10 m Sperrfläche</label>
-          <button id="routePlanBtn" class="secondary wide">Route neu berechnen</button>
-          <div class="route-debug-legend" aria-hidden="true">
-            <span><i class="route-swatch route-swatch-path"></i>geglättete Route</span>
-            <span><i class="route-swatch route-swatch-raw"></i>Routengitter</span>
-            <span><i class="route-swatch route-swatch-blocked"></i>Sperrflächen</span>
-          </div>
-          <p id="routeDebugResult" class="result-line">Wähle ein Zielobjekt und berechne die Route.</p>
-        </div>
-        <p class="small-note">Der Debug-Modus plant lokal in der normalen Homebase-Workbench. Platzierte Objekte und der Hangar werden anhand ihrer Grundfläche umgangen; das Zielobjekt erhält automatisch einen ungefähr einen Meter entfernten Interaktionspunkt.</p>
       </section>
 
       <section class="card people-card">
@@ -224,7 +193,6 @@
           <button id="previewBtn" class="primary wide">Homebase jetzt neu abgleichen</button>
           <button id="clearBtn" class="danger" aria-label="Live-Vorschau ausblenden">Ausblenden</button>
         </div>
-        <p class="small-note">Innerhalb von 20 NM wird deine Homebase automatisch aktiviert. Objekte, die unverändert im installierten Mod enthalten sind, werden nicht doppelt erzeugt; spätere Ergänzungen erscheinen live. Wenn du ein kompiliertes Objekt verschiebst, bleibt dessen alte Mod-Version bis zur nächsten Kompilierung sichtbar. Vor dieser Änderung fragt die Workbench deshalb ausdrücklich nach.</p>
         <p id="previewResult" class="result-line">Die automatische Homebase wartet auf PC-Tracker und MSFS.</p>
       </section>
 
@@ -271,12 +239,34 @@
         </div>
         <pre id="log" aria-live="polite"></pre>
       </section>
+
+      <details class="card route-debug-card">
+        <summary><span class="step">DEBUG</span><strong>Routen-Debug</strong></summary>
+        <div class="route-debug-body">
+          <label class="toggle"><input id="routeDebugToggle" type="checkbox"> Auf der Karte anzeigen</label>
+          <div id="routeDebugPanel" class="route-debug-panel" hidden>
+            <div class="field-grid two">
+              <label>Start nördlich, m<input id="routeStartNorth" type="number" step="0.5" value="12"></label>
+              <label>Start östlich, m<input id="routeStartEast" type="number" step="0.5" value="0"></label>
+            </div>
+            <label>Zielobjekt<select id="routeTargetSelect"></select></label>
+            <label class="toggle"><input id="routeAircraftZoneToggle" type="checkbox" checked> Flugzeug als 10 × 10 m Sperrfläche</label>
+            <button id="routePlanBtn" class="secondary wide">Route neu berechnen</button>
+            <div class="route-debug-legend" aria-hidden="true">
+              <span><i class="route-swatch route-swatch-path"></i>Route</span>
+              <span><i class="route-swatch route-swatch-raw"></i>Gitter</span>
+              <span><i class="route-swatch route-swatch-blocked"></i>Sperrflächen</span>
+            </div>
+            <p id="routeDebugResult" class="result-line">Wähle ein Zielobjekt und berechne die Route.</p>
+          </div>
+        </div>
+      </details>
     </aside>
   </main>
 
   <script src="../vendor/leaflet/leaflet.js"></script>
   <script src="./homebase-asset-catalog.js?v=homebase-controls-v313-20260723-01"></script>
   <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-controls-v313-20260723-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-control-tiles-20260724-01"></script>
 </body>
 </html>
