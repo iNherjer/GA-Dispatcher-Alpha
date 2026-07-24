@@ -101,7 +101,8 @@
   const controlCategoryOpenState = new Map([
     ['global', true],
     ['buildings', true],
-    ['lighting', true]
+    ['lighting', true],
+    ['other', true]
   ]);
   let globalControlSequence = 0;
   let controlReapplyTimer = null;
@@ -1268,7 +1269,9 @@
   function isBuildingControlGroup(group) {
     const definition = ASSET_DEFINITIONS.get(group?.title) || {};
     const catalogGroup = String(definition.group || '').trim().toLowerCase();
-    return definition.kind === 'hangar' || ['gebäude', 'gebaeude', 'hangars'].includes(catalogGroup);
+    return controlVisualKind(group?.control) === 'door'
+      || definition.kind === 'hangar'
+      || ['gebäude', 'gebaeude', 'hangars'].includes(catalogGroup);
   }
 
   function createControlCategory(key, title, itemCount) {
@@ -1329,8 +1332,8 @@
   }
 
   function actionProgressMessage(control, nextState) {
-    if (control.id === 'door' && nextState === 'open') return 'Tor wird geöffnet …';
-    if (control.id === 'door' && nextState === 'closed') return 'Tor wird geschlossen …';
+    if (controlVisualKind(control) === 'door' && nextState === 'open') return 'Tor wird geöffnet …';
+    if (controlVisualKind(control) === 'door' && nextState === 'closed') return 'Tor wird geschlossen …';
     if (control.type === 'light' && nextState === 'on') return 'Licht wird eingeschaltet …';
     if (control.type === 'light' && nextState === 'off') return 'Licht wird ausgeschaltet …';
     const stateDefinition = control.states.find((item) => item.id === nextState);
@@ -1338,28 +1341,30 @@
   }
 
   function controlFunctionLabel(control) {
-    if (control.id === 'door') return 'Tor';
+    if (controlVisualKind(control) === 'door') {
+      return String(control?.id || '').toLowerCase() === 'door' ? 'Tor' : (control.label || 'Tür');
+    }
     if (control.type === 'light') return 'Licht';
     return control.label;
   }
 
   function globalControlKind(control) {
-    if (String(control?.id || '').toLowerCase() === 'door') return 'door';
-    if (control?.type === 'light') return 'light';
+    const kind = controlVisualKind(control);
+    if (kind === 'door' || kind === 'light') return kind;
     return '';
   }
 
   function controlButtonLabel(control, stateDefinition) {
-    if (control.id === 'door' && stateDefinition.id === 'open') return 'Tor öffnen';
-    if (control.id === 'door' && stateDefinition.id === 'closed') return 'Tor schließen';
+    if (controlVisualKind(control) === 'door' && stateDefinition.id === 'open') return 'Tor öffnen';
+    if (controlVisualKind(control) === 'door' && stateDefinition.id === 'closed') return 'Tor schließen';
     if (control.type === 'light' && stateDefinition.id === 'on') return 'Licht an';
     if (control.type === 'light' && stateDefinition.id === 'off') return 'Licht aus';
     return `${controlFunctionLabel(control)}: ${stateDefinition.label}`;
   }
 
   function confirmedControlMessage(control, state) {
-    if (control.id === 'door' && state === 'open') return 'Bestätigt: Tor geöffnet. Bereit.';
-    if (control.id === 'door' && state === 'closed') return 'Bestätigt: Tor geschlossen. Bereit.';
+    if (controlVisualKind(control) === 'door' && state === 'open') return 'Bestätigt: Tor geöffnet. Bereit.';
+    if (controlVisualKind(control) === 'door' && state === 'closed') return 'Bestätigt: Tor geschlossen. Bereit.';
     if (control.type === 'light' && state === 'on') return 'Bestätigt: Licht an. Bereit.';
     if (control.type === 'light' && state === 'off') return 'Bestätigt: Licht aus. Bereit.';
     const stateDefinition = control.states.find((item) => item.id === state);
@@ -1368,6 +1373,9 @@
 
   function controlVisualKind(control) {
     if (String(control?.id || '').toLowerCase() === 'door') return 'door';
+    const stateIds = new Set((Array.isArray(control?.states) ? control.states : [])
+      .map((stateDefinition) => String(stateDefinition?.id || '').toLowerCase()));
+    if (control?.type === 'animation' && stateIds.has('open') && stateIds.has('closed')) return 'door';
     if (control?.type === 'light' || String(control?.id || '').toLowerCase().includes('light')) return 'light';
     return 'switch';
   }
@@ -1711,6 +1719,26 @@
       const lightingControlCount = lightingPanels.reduce((sum, panel) => sum + panel.groups.length, 0);
       const { category, body } = createControlCategory('lighting', 'Beleuchtung', lightingControlCount);
       body.append(lightingGrid);
+      container.append(category);
+    }
+
+    const otherPanels = panels.map((panel) => ({
+      ...panel,
+      groups: panel.groups.filter((group) => (
+        !isBuildingControlGroup(group)
+        && controlVisualKind(group.control) !== 'light'
+      ))
+    })).filter((panel) => panel.groups.length > 0);
+    if (otherPanels.length) {
+      const otherGrid = document.createElement('div');
+      otherGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-other';
+      otherGrid.setAttribute('aria-label', 'Weitere Objektsteuerungen');
+      for (const panel of otherPanels) {
+        panel.groups.forEach((group) => otherGrid.append(createGroupControlTile(group, panel)));
+      }
+      const otherControlCount = otherPanels.reduce((sum, panel) => sum + panel.groups.length, 0);
+      const { category, body } = createControlCategory('other', 'Weitere Steuerungen', otherControlCount);
+      body.append(otherGrid);
       container.append(category);
     }
   }
