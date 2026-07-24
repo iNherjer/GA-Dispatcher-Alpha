@@ -15,7 +15,7 @@
     })();
   </script>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-control-tiles-20260724-01">
+  <link rel="stylesheet" href="./homebase-workbench.css?v=homebase-control-categories-20260724-01">
 </head>
 <body>
   <header class="topbar">
@@ -100,14 +100,17 @@
         <p id="hangarFootprintHint" class="small-note">Die Größe kommt fest vom gewählten Modell. Mit der Höheneinstellung gleichst du nur kleine Unebenheiten im Gelände aus.</p>
       </section>
 
-      <section class="card homebase-controls-card">
-        <div class="section-title">
+      <details class="card homebase-controls-card" open>
+        <summary class="section-title homebase-controls-summary">
           <div><span class="step">FUNKTIONEN</span><h2>Türen, Lichter und weitere Funktionen</h2></div>
+          <span class="collapse-indicator" aria-hidden="true"></span>
+        </summary>
+        <div class="homebase-controls-body">
+          <label class="toggle"><input id="doorAutomationToggle" type="checkbox" checked> Hangartore bei Annäherung automatisch öffnen und schließen</label>
+          <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
+          <div id="homebaseControlsEmpty" class="object-empty">Die aktuell platzierten Modelle haben keine bedienbaren Türen, Lichter oder Animationen.</div>
         </div>
-        <label class="toggle"><input id="doorAutomationToggle" type="checkbox" checked> Hangartore bei Annäherung automatisch öffnen und schließen</label>
-        <div id="homebaseControls" class="homebase-controls" aria-live="polite"></div>
-        <div id="homebaseControlsEmpty" class="object-empty">Die aktuell platzierten Modelle haben keine bedienbaren Türen, Lichter oder Animationen.</div>
-      </section>
+      </details>
 
       <section class="card object-card">
         <div class="section-title">
@@ -125,10 +128,15 @@
           <div class="field-grid two">
             <label>Nach Norden (+) / Süden (−), m<input id="objectNorth" type="number" step="0.1"></label>
             <label>Nach Osten (+) / Westen (−), m<input id="objectEast" type="number" step="0.1"></label>
-            <label>Ausrichtung des Objekts
-              <input id="objectHeading" type="range" min="0" max="359" step="1">
-              <output id="objectHeadingOut">0°</output>
-            </label>
+            <div class="rotation-field">
+              <span class="field-label">Ausrichtung des Objekts</span>
+              <div class="rotation-control">
+                <button type="button" class="rotation-step" data-object-rotate="-1" aria-label="Objekt um ein Grad gegen den Uhrzeigersinn drehen">−</button>
+                <input id="objectHeading" type="range" min="0" max="359" step="1" aria-label="Ausrichtung des Objekts">
+                <button type="button" class="rotation-step" data-object-rotate="1" aria-label="Objekt um ein Grad im Uhrzeigersinn drehen">+</button>
+              </div>
+              <output id="objectHeadingOut" for="objectHeading">0°</output>
+            </div>
             <label>Höhe über dem Boden (ft)<input id="objectHeight" type="number" min="-20" max="200" step="0.1"></label>
             <label>Objektgröße<input id="objectScale" type="number" min="0.1" max="10" step="0.05"></label>
           </div>
@@ -265,8 +273,8 @@
   </main>
 
   <script src="../vendor/leaflet/leaflet.js"></script>
-  <script src="./homebase-asset-catalog.js?v=homebase-controls-v313-20260723-01"></script>
+  <script src="./homebase-asset-catalog.js?v=homebase-open-parking-heading-20260724-01"></script>
   <script src="./homebase-route-core.js?v=homebase-route-planner-v1-20260721-01"></script>
-  <script src="./homebase-workbench.js?v=homebase-control-tiles-20260724-01"></script>
+  <script src="./homebase-workbench.js?v=homebase-control-categories-20260724-01"></script>
 </body>
 </html>

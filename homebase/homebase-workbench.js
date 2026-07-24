@@ -98,6 +98,11 @@
   const handledControlAckIds = new Set();
   const acknowledgedControlStates = new Map();
   const globalControlOperations = new Map();
+  const controlCategoryOpenState = new Map([
+    ['global', true],
+    ['buildings', true],
+    ['lighting', true]
+  ]);
   let globalControlSequence = 0;
   let controlReapplyTimer = null;
   let peopleLiveSyncTimer = null;
@@ -1065,13 +1070,13 @@
       if (!['object', 'hangar'].includes(kind)) continue;
       if (raw?.workbenchVisible === false) continue;
       const existingDefinition = ASSET_DEFINITIONS.get(title) || {};
-      const legacyTentHeadingCorrection = title === HANGAR_TITLE
+      const obsoleteHeadingCorrection = [HANGAR_TITLE, OPEN_PARKING_TITLE].includes(title)
         && Number(raw?.headingCorrectionDeg) === 180
         && Number(existingDefinition?.headingCorrectionDeg) === 0;
       const mergedDefinition = {
         ...existingDefinition,
         ...raw,
-        ...(legacyTentHeadingCorrection ? { headingCorrectionDeg: 0 } : {}),
+        ...(obsoleteHeadingCorrection ? { headingCorrectionDeg: 0 } : {}),
         controls: normalizeControls([
           ...(Array.isArray(raw?.controls) ? raw.controls : []),
           ...(Array.isArray(existingDefinition?.controls) ? existingDefinition.controls : [])
@@ -1258,6 +1263,55 @@
       panels.get(panelKey).groups.push(group);
     }
     return [...panels.values()];
+  }
+
+  function isBuildingControlGroup(group) {
+    const definition = ASSET_DEFINITIONS.get(group?.title) || {};
+    const catalogGroup = String(definition.group || '').trim().toLowerCase();
+    return definition.kind === 'hangar' || ['gebäude', 'gebaeude', 'hangars'].includes(catalogGroup);
+  }
+
+  function createControlCategory(key, title, itemCount) {
+    const category = document.createElement('details');
+    category.className = 'homebase-control-category';
+    category.dataset.controlCategory = key;
+    category.open = controlCategoryOpenState.get(key) !== false;
+    category.addEventListener('toggle', () => controlCategoryOpenState.set(key, category.open));
+
+    const summary = document.createElement('summary');
+    summary.className = 'homebase-control-category-summary';
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    const count = document.createElement('span');
+    count.className = 'homebase-control-category-count';
+    count.textContent = String(itemCount);
+    count.setAttribute('aria-label', `${itemCount} ${itemCount === 1 ? 'Bedienfeld' : 'Bedienfelder'}`);
+    const indicator = document.createElement('span');
+    indicator.className = 'collapse-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    summary.append(heading, count, indicator);
+
+    const body = document.createElement('div');
+    body.className = 'homebase-control-category-body';
+    category.append(summary, body);
+    return { category, body };
+  }
+
+  function createGroupControlTile(group, panel) {
+    const pending = [...pendingControlCommands.values()].find((entry) => entry.key === group.key) || null;
+    const functionLabel = panel.detail
+      ? `${controlFunctionLabel(group.control)} · ${panel.detail}`
+      : controlFunctionLabel(group.control);
+    return createControlTile({
+      name: panel.label,
+      functionLabel,
+      control: group.control,
+      currentState: knownControlState(group),
+      pendingState: pending?.state || '',
+      busy: !!pending,
+      resultKey: group.key,
+      onToggle: (nextState) => requestObjectControlState(group, nextState)
+    });
   }
 
   function setControlResult(key, message, ok = null) {
@@ -1569,7 +1623,7 @@
     if (globalDefinitions.length) {
       const globalGrid = document.createElement('div');
       globalGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-global';
-      globalGrid.setAttribute('aria-label', 'Sammelsteuerung');
+      globalGrid.setAttribute('aria-label', 'Gesamtsteuerung');
       for (const definition of globalDefinitions) {
         const operation = globalControlOperations.get(definition.kind) || null;
         const targetCount = definition.groups.reduce((sum, group) => sum + group.count, 0);
@@ -1607,33 +1661,58 @@
         if (operation?.failed) tile.classList.add('has-error');
         globalGrid.append(tile);
       }
-      container.append(globalGrid);
+      const { category, body } = createControlCategory('global', 'Gesamtsteuerung', globalDefinitions.length);
+      body.append(globalGrid);
+      container.append(category);
     }
 
     if (!panels.length) return;
-    const objectGrid = document.createElement('div');
-    objectGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-objects';
-    objectGrid.setAttribute('aria-label', 'Einzelsteuerung');
-    for (const panel of panels) {
-      for (const group of panel.groups) {
-        const pending = [...pendingControlCommands.values()].find((entry) => entry.key === group.key) || null;
-        const acknowledgedState = knownControlState(group);
-        const functionLabel = panel.detail
-          ? `${controlFunctionLabel(group.control)} · ${panel.detail}`
-          : controlFunctionLabel(group.control);
-        objectGrid.append(createControlTile({
-          name: panel.label,
-          functionLabel,
-          control: group.control,
-          currentState: acknowledgedState,
-          pendingState: pending?.state || '',
-          busy: !!pending,
-          resultKey: group.key,
-          onToggle: (nextState) => requestObjectControlState(group, nextState)
-        }));
+
+    const buildingPanels = panels.map((panel) => ({
+      ...panel,
+      groups: panel.groups.filter(isBuildingControlGroup)
+    })).filter((panel) => panel.groups.length > 0);
+    if (buildingPanels.length) {
+      const buildingList = document.createElement('div');
+      buildingList.className = 'homebase-building-control-list';
+      buildingList.setAttribute('aria-label', 'Gebäudesteuerung: Tore links, Lampen rechts');
+      for (const panel of buildingPanels) {
+        const row = document.createElement('div');
+        row.className = 'homebase-building-control-row';
+        const doorGroups = panel.groups.filter((group) => controlVisualKind(group.control) === 'door');
+        const lightGroups = panel.groups.filter((group) => controlVisualKind(group.control) === 'light');
+        const otherGroups = panel.groups.filter((group) => !['door', 'light'].includes(controlVisualKind(group.control)));
+        doorGroups.forEach((group) => row.append(createGroupControlTile(group, panel)));
+        lightGroups.forEach((group) => {
+          const tile = createGroupControlTile(group, panel);
+          if (!doorGroups.length) tile.classList.add('homebase-building-light-only');
+          row.append(tile);
+        });
+        otherGroups.forEach((group) => row.append(createGroupControlTile(group, panel)));
+        buildingList.append(row);
       }
+      const buildingControlCount = buildingPanels.reduce((sum, panel) => sum + panel.groups.length, 0);
+      const { category, body } = createControlCategory('buildings', 'Gebäude', buildingControlCount);
+      body.append(buildingList);
+      container.append(category);
     }
-    container.append(objectGrid);
+
+    const lightingPanels = panels.map((panel) => ({
+      ...panel,
+      groups: panel.groups.filter((group) => !isBuildingControlGroup(group) && controlVisualKind(group.control) === 'light')
+    })).filter((panel) => panel.groups.length > 0);
+    if (lightingPanels.length) {
+      const lightingGrid = document.createElement('div');
+      lightingGrid.className = 'homebase-control-tile-grid homebase-control-tile-grid-lighting';
+      lightingGrid.setAttribute('aria-label', 'Eigenständige Beleuchtung');
+      for (const panel of lightingPanels) {
+        panel.groups.forEach((group) => lightingGrid.append(createGroupControlTile(group, panel)));
+      }
+      const lightingControlCount = lightingPanels.reduce((sum, panel) => sum + panel.groups.length, 0);
+      const { category, body } = createControlCategory('lighting', 'Beleuchtung', lightingControlCount);
+      body.append(lightingGrid);
+      container.append(category);
+    }
   }
 
   function syncInputsFromState() {
@@ -2978,6 +3057,13 @@
     if (button.dataset.objectNudge === 'south') item.northM -= step;
     if (button.dataset.objectNudge === 'east') item.eastM += step;
     if (button.dataset.objectNudge === 'west') item.eastM -= step;
+    saveState(); syncInputsFromState(); updateMap(); scheduleLiveObjectMove(item);
+  }));
+  document.querySelectorAll('[data-object-rotate]').forEach((button) => button.addEventListener('click', () => {
+    const item = selectedObject();
+    if (!item) return;
+    if (!confirmCompiledChange(item.id, item.label || 'Dieses Objekt')) return;
+    item.heading = normalizeHeading(item.heading + finite(button.dataset.objectRotate));
     saveState(); syncInputsFromState(); updateMap(); scheduleLiveObjectMove(item);
   }));
 
