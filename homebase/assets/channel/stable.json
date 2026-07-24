@@ -1,20 +1,19 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-07-24T05:39:14.680Z",
+  "publishedAt": "2026-07-24T09:42:18.212Z",
   "packageName": "vfr-multitool-homebase-assets",
-  "packageVersion": "0.6.18",
-  "releaseTag": "homebase-assets-v0.6.18",
-  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.18/package-index.json",
-  "contentHash": "7aa3b01828741477871f56145ddf827bf1fff5737372fe5bbe7633811eee53a0",
+  "packageVersion": "0.6.19",
+  "releaseTag": "homebase-assets-v0.6.19",
+  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/package-index.json",
+  "contentHash": "0dec3beaf954a5134fc1b542288955e2a2b54d0f7ca7368706ea83c49f5aaab7",
   "fullArchive": {
-    "name": "vfr-multitool-homebase-assets-0.6.18-full.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.18/vfr-multitool-homebase-assets-0.6.18-full.zip",
-    "size": 14828755,
-    "sha256": "d9811d040a006f55fd4b2fec80800707a5f7dedd29aba915eb93a1755c9be4cf"
+    "name": "vfr-multitool-homebase-assets-0.6.19-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/vfr-multitool-homebase-assets-0.6.19-full.zip",
+    "size": 16654284,
+    "sha256": "5fc097f249122f506cc446f55ab24169a973c8963bfcc5b6d992ee6411cf000c"
   },
   "changedAssets": [
-    "officeContainer",
-    "openParking"
+    "mxPavilion"
   ],
   "removedAssets": []
 }
