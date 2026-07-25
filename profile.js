@@ -4496,6 +4496,108 @@ window.vpBuildWeatherDebugReport = function() {
         sceneEvents.forEach(ev => lines.push(`  ${vpFormatDebugTs(ev.ts)} :: ${ev.event}`));
     }
     lines.push('');
+    lines.push('PAX / Boarding / Voice Diagnose');
+    const phaseDbg = (typeof window.gaMissionPhaseDebugGet === 'function')
+        ? window.gaMissionPhaseDebugGet()
+        : (window.gaMissionPhaseDebug || {});
+    const phaseEvents = Array.isArray(phaseDbg?.events) ? phaseDbg.events : [];
+    const paxFlowKinds = new Set([
+        'runtime_reset',
+        'runtime_phase',
+        'start_phase',
+        'scene_command',
+        'scene_ack',
+        'boarding_command',
+        'boarding_result',
+        'boarding_wait_timeout',
+        'boarding_reset',
+        'boarding_reused',
+        'boarding_blocked',
+        'start_boarding_attempt',
+        'start_boarding_blocked',
+        'start_boarding_failed',
+        'start_boarding_complete',
+        'mission_start_attempt',
+        'mission_start_blocked',
+        'mission_start_active',
+        'pax_manifest_status',
+        'pax_manifest_load_blocked',
+        'pax_manifest_unload_blocked',
+        'voice_reset',
+        'voice_boarding_attempt',
+        'voice_boarding_result',
+        'voice_greeting_attempt',
+        'voice_greeting_result',
+        'tracker_connection',
+        'resume_restore',
+        'resume_conflict',
+        'resume_suppressed',
+        'resume_snapshot_clear'
+    ]);
+    const paxFlowEvents = phaseEvents.filter(entry => paxFlowKinds.has(String(entry?.kind || ''))).slice(-80);
+    const runtimeSnapshot = (() => {
+        try { return JSON.parse(localStorage.getItem('ga_active_mission_runtime') || 'null'); } catch (_) { return null; }
+    })();
+    let cargoManifest = null;
+    try {
+        const missionData = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+            ? currentMissionData
+            : null;
+        cargoManifest = missionData?.cargoManifest
+            || missionData?.missionContract?.cargoManifest
+            || window.activeMissionContract?.cargoManifest
+            || null;
+    } catch (_) {
+        cargoManifest = null;
+    }
+    const passengerItems = Array.isArray(cargoManifest?.items)
+        ? cargoManifest.items.filter(item => String(item?.itemType || '').toLowerCase() === 'passenger')
+        : [];
+    let voiceState = null;
+    try {
+        voiceState = typeof window.paxVoiceGetDebugState === 'function' ? window.paxVoiceGetDebugState() : null;
+    } catch (_) {
+        voiceState = null;
+    }
+    const runtimePhase = typeof window.missionRuntimePhase === 'function'
+        ? window.missionRuntimePhase()
+        : (runtimeSnapshot?.runtime?.phase || runtimeSnapshot?.startPhase || '-');
+    lines.push(`- Historie: persistent=${phaseDbg?.persistenceEnabled ? 'ja' : 'nein'} | wiederhergestellt=${Number(phaseDbg?.restoredEventCount || 0)} | Events gesamt=${phaseEvents.length} | PAX-relevant=${paxFlowEvents.length}`);
+    lines.push(`- Runtime: phase=${runtimePhase || '-'} | startPhase=${runtimeSnapshot?.startPhase || '-'} | active=${runtimeSnapshot?.runtime?.active ? '1' : '0'} | closing=${runtimeSnapshot?.runtime?.closingPending ? '1' : '0'} | missionId=${runtimeSnapshot?.missionId || '-'}`);
+    lines.push(`- Tracker: connected=${window.liveTrackerConnected ? '1' : '0'} | version=${window.liveTrackerVersionLabel || '-'} | code=${Number.isFinite(Number(window.liveTrackerVersionCode)) ? Number(window.liveTrackerVersionCode) : '-'}`);
+    lines.push(`- Startszene: id=${window.missionSceneStatus?.sceneId || '-'} | spawned=${window.missionSceneStatus?.spawned ? '1' : '0'}(${Number(window.missionSceneStatus?.spawnedCount || 0)}) | spawnReq=${window.missionSceneStatus?.spawnRequested ? '1' : '0'} | clearReq=${window.missionSceneStatus?.clearRequested ? '1' : '0'} | respawn=${window.missionSceneStatus?.respawnAfterClear ? '1' : '0'}:${window.missionSceneStatus?.respawnAfterClearReason || '-'} | block=${window.missionSceneStatus?.blockReason || '-'}`);
+    lines.push(`- Boarding: preparing=${window.missionSceneStatus?.boardingPreparing ? '1' : '0'} | requested=${window.missionSceneStatus?.boardingRequested ? '1' : '0'} | active=${window.missionSceneStatus?.boardingActive ? '1' : '0'} | complete=${window.missionSceneStatus?.boardingComplete ? '1' : '0'} | personBoarded=${window.missionSceneStatus?.personBoarded ? '1' : '0'} | voiceComplete=${window.missionSceneStatus?.boardingVoiceComplete ? '1' : '0'} | error=${window.missionSceneStatus?.boardingError || '-'}`);
+    if (window.missionSceneStatus?.lastCommand) lines.push(`- Startszene letzter Command: ${flattenText(JSON.stringify(window.missionSceneStatus.lastCommand), 520)}`);
+    if (window.missionSceneStatus?.lastAck) lines.push(`- Startszene letztes ACK: ${flattenText(JSON.stringify(window.missionSceneStatus.lastAck), 760)}`);
+    if (passengerItems.length) {
+        lines.push(`- Manifest PAX: ${passengerItems.map(item => `${item.id || '?'}=${item.status || '?'} count=${Number(item.passengerCount || 1)} load=${vpFormatDebugTs(item.loadedAt)} unload=${vpFormatDebugTs(item.unloadedAt)}`).join(' | ')}`);
+    } else {
+        lines.push('- Manifest PAX: (kein Passenger-Item)');
+    }
+    if (voiceState) {
+        lines.push(`- Voice: enabled=${voiceState.voiceEnabled ? '1' : '0'} | effects=${voiceState.audioEffectsEnabled ? '1' : '0'} | apiKey=${voiceState.hasApiKey ? '1' : '0'} | hasPassenger=${voiceState.hasPassenger ? '1' : '0'} | pax=${flattenText(voiceState.passengerName || '-', 80)}`);
+        lines.push(`- Voice Audio: context=${voiceState.audioContextState || '-'} | gain=${Number.isFinite(Number(voiceState.masterGain)) ? Number(voiceState.masterGain).toFixed(2) : '-'} | epoch=${voiceState.missionEpoch ?? '-'} | playback=${voiceState.playbackActive ? '1' : '0'} | prepared=${Array.isArray(voiceState.preparedAudio) ? voiceState.preparedAudio.length : 0}`);
+        lines.push(`- Voice Flags: boarding=${voiceState.boardingDone ? '1' : '0'} | greeting=${voiceState.greetingDone ? '1' : '0'} | target=${voiceState.atTargetDone ? '1' : '0'} | farewell=${voiceState.farewellDone ? '1' : '0'} | endLock=${voiceState.missionEndVoiceActive ? '1' : '0'}`);
+        const recentVoiceLog = Array.isArray(voiceState.recentLog) ? voiceState.recentLog.slice(0, 30).reverse() : [];
+        if (recentVoiceLog.length) {
+            lines.push('- Voice Verlauf:');
+            recentVoiceLog.forEach(entry => lines.push(`  ${entry.at ? vpFormatDebugTs(entry.at) : (entry.ts || '-')} [${entry.type || 'event'}] ${flattenText(entry.msg, 520)}`));
+        }
+    } else {
+        lines.push('- Voice: Debug-State nicht verfügbar');
+    }
+    if (paxFlowEvents.length) {
+        lines.push('- Persistenter PAX-Flow:');
+        paxFlowEvents.forEach(entry => {
+            const payload = entry?.payload && typeof entry.payload === 'object'
+                ? ` | ${flattenText(JSON.stringify(entry.payload), 900)}`
+                : '';
+            lines.push(`  ${vpFormatDebugTs(entry.ts)} :: ${entry.kind}${payload}`);
+        });
+    } else {
+        lines.push('- Persistenter PAX-Flow: (noch keine Ereignisse)');
+    }
+    lines.push('');
     lines.push('Konsolenfehler / relevante Logs');
     const consoleLogs = collectConsoleLogs();
     const importantLogs = consoleLogs.filter(isImportantConsoleLog);

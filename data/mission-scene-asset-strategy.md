@@ -53,8 +53,7 @@ MSFS 2024 standard content may be streamed or hidden behind the VFS. If the file
 - `Chimney_Smoke_V1`
 - `VO_Fire_R1_40`
 - `Car Bush Firefighting`
-- `Tarmac_Female_Summer_Asian`
-- `Tarmac_Male_Summer_Asian`
+- Tarmac person pool (all 24 titles; see below)
 - `Drop_Container`
 - `Cardboard`
 - `Pallet01_01`
@@ -71,3 +70,33 @@ MSFS 2024 standard content may be streamed or hidden behind the VFS. If the file
 - `Microsoft_Van_EUR`
 - `Log`
 
+### Confirmed Tarmac Person Pool
+
+All 24 titles are confirmed through the Homebase moving-person flow:
+
+- `Tarmac_Female_Summer_African`
+- `Tarmac_Female_Summer_Arab`
+- `Tarmac_Female_Summer_Asian`
+- `Tarmac_Female_Summer_Caucasian`
+- `Tarmac_Female_Summer_Hispanic`
+- `Tarmac_Female_Summer_Indian`
+- `Tarmac_Female_Winter_African`
+- `Tarmac_Female_Winter_Arab`
+- `Tarmac_Female_Winter_Asian`
+- `Tarmac_Female_Winter_Caucasian`
+- `Tarmac_Female_Winter_Hispanic`
+- `Tarmac_Female_Winter_Indian`
+- `Tarmac_Male_Summer_African`
+- `Tarmac_Male_Summer_Arab`
+- `Tarmac_Male_Summer_Asian`
+- `Tarmac_Male_Summer_Caucasian`
+- `Tarmac_Male_Summer_Hispanic`
+- `Tarmac_Male_Summer_Indian`
+- `Tarmac_Male_Winter_African`
+- `Tarmac_Male_Winter_Arab`
+- `Tarmac_Male_Winter_Asian`
+- `Tarmac_Male_Winter_Caucasian`
+- `Tarmac_Male_Winter_Hispanic`
+- `Tarmac_Male_Winter_Indian`
+
+Homebase confirmation proves that these exact SimObject titles can be spawned and moved. Mission boarding still has a separate command/ACK and spawn/remove lifecycle and must be diagnosed independently if a person reappears after boarding.

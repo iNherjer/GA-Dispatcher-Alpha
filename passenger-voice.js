@@ -13,10 +13,17 @@
 const _paxLogEntries = [];
 const _PAX_LOG_MAX   = 120;
 
+function _paxFlowRecord(kind, payload = {}) {
+    try {
+        window.gaMissionPhaseDebugRecord?.(String(kind || 'voice_event'), payload && typeof payload === 'object' ? payload : { value: payload });
+    } catch (_) {}
+}
+
 // type: 'event' | 'send' | 'recv' | 'audio' | 'warn' | 'state'
 function _paxLog(msg, type = 'event') {
+    const at = Date.now();
     const ts = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    _paxLogEntries.unshift({ ts, msg, type });
+    _paxLogEntries.unshift({ at, ts, msg, type });
     if (_paxLogEntries.length > _PAX_LOG_MAX) _paxLogEntries.length = _PAX_LOG_MAX;
     console.log(`[PaxVoice] ${msg}`);
     _paxLogRender();
@@ -39,15 +46,33 @@ window.paxVoiceOpenLog  = function() {
     _paxLogRender();
 };
 window.paxVoiceGetLogEntries = function() {
-    return _paxLogEntries.map(e => ({ ts: e.ts, type: e.type, msg: e.msg }));
+    return _paxLogEntries.map(e => ({ at: e.at || null, ts: e.ts, type: e.type, msg: e.msg }));
 };
 window.paxVoiceGetDebugState = function() {
     const pax = window.activePassenger && typeof window.activePassenger === 'object' ? window.activePassenger : null;
+    const audioCtx = window._tawsAudioCtx || null;
+    const gainValue = Number(window._awmMasterGain?.gain?.value);
+    const preparedAudio = (typeof _paxPreparedAudio !== 'undefined' && _paxPreparedAudio instanceof Map)
+        ? Array.from(_paxPreparedAudio.entries()).slice(-12).map(([key, rec]) => ({
+            key: String(key || ''),
+            epoch: Number(rec?.epoch || 0),
+            hasText: !!String(rec?.text || ''),
+            hasAudio: !!rec?.audio,
+            pendingText: !!rec?.textPromise,
+            pendingAudio: !!rec?.promise
+        }))
+        : [];
     return {
         voiceEnabled: !!_paxVoiceEnabled,
         audioEffectsEnabled: !!_paxAudioEffectsEnabled,
         strictMode: !!_paxStrictMode,
         hasApiKey: !!_getApiKey(),
+        audioContextState: audioCtx?.state || 'unavailable',
+        masterGain: Number.isFinite(gainValue) ? gainValue : null,
+        missionEpoch: Number(_paxMissionEpoch || 0),
+        playbackActive: !!_paxCurrentPlayback,
+        playbackEpoch: Number(_paxCurrentPlayback?.epoch || 0) || null,
+        preparedAudio,
         hasPassenger: !!pax,
         passengerName: pax?.name || null,
         passengerRole: pax?.role || null,
@@ -75,7 +100,13 @@ window.paxVoiceGetDebugState = function() {
         }])),
         comfortMotionAnalysis: _paxComfortLastMotionAnalysis ? { ..._paxComfortLastMotionAnalysis } : null,
         lastSpokenText: _lastSpokenText ? String(_lastSpokenText) : '',
-        lastSpeakerName: _lastSpokenSpeaker?.name || null
+        lastSpeakerName: _lastSpokenSpeaker?.name || null,
+        recentLog: _paxLogEntries.slice(0, 30).map(entry => ({
+            at: entry.at || null,
+            ts: entry.ts,
+            type: entry.type,
+            msg: entry.msg
+        }))
     };
 };
 
@@ -467,6 +498,16 @@ function _paxMissionTimeout(fn, delayMs) {
 }
 
 window.paxVoiceResetMission = function() {
+    _paxFlowRecord('voice_reset', {
+        epochBefore: Number(_paxMissionEpoch || 0),
+        voiceEnabled: !!_paxVoiceEnabled,
+        hasPassenger: !!window.activePassenger,
+        hasPaxMission: _missionHasPax(),
+        boardingDone: !!_paxBoardingDone,
+        greetingDone: !!_paxGreetingDone,
+        playbackActive: !!_paxCurrentPlayback,
+        preparedAudioCount: typeof _paxPreparedAudio !== 'undefined' && _paxPreparedAudio instanceof Map ? _paxPreparedAudio.size : 0
+    });
     _paxMissionEpoch += 1;
     if (!Number.isFinite(_paxMissionEpoch) || _paxMissionEpoch > 1e9) _paxMissionEpoch = 1;
     _paxStopCurrentPlayback('mission-reset');
@@ -6569,22 +6610,45 @@ window.paxVoicePrepareBoarding = function() {
 window.paxVoicePlayBoarding = async function(options = {}) {
     const epoch = _paxMissionEpoch;
     const key = _paxMissionAudioKey('boarding');
-    if (_paxBoardingDone) return true;
+    _paxFlowRecord('voice_boarding_attempt', {
+        epoch,
+        key,
+        voiceEnabled: !!_paxVoiceEnabled,
+        audioEffectsEnabled: !!_paxAudioEffectsEnabled,
+        hasPassenger: !!window.activePassenger,
+        hasPaxMission: _missionHasPax(),
+        boardingDone: !!_paxBoardingDone,
+        promiseActive: !!_paxBoardingPromise
+    });
+    if (_paxBoardingDone) {
+        _paxFlowRecord('voice_boarding_result', { epoch, key, status: 'already_done' });
+        return true;
+    }
     if (_paxBoardingReplayBlocked(key)) {
         _paxLog(`Boarding-Replay unterdrueckt (cooldown) | key:${key}`, 'state');
         _paxBoardingDone = true;
         _paxGreetingDone = true;
+        _paxFlowRecord('voice_boarding_result', { epoch, key, status: 'replay_blocked' });
         return true;
     }
-    if (_paxBoardingPromise) return _paxBoardingPromise;
+    if (_paxBoardingPromise) {
+        _paxFlowRecord('voice_boarding_result', { epoch, key, status: 'reused_promise' });
+        return _paxBoardingPromise;
+    }
     _paxBoardingPromise = (async () => {
         let prepared = await window.paxVoicePrepareBoarding();
         if (!_paxEpochCurrent(epoch)) return false;
         prepared = prepared || _paxPreparedAudio.get(key) || null;
-        if (!prepared?.text && !window.activePassenger && !_missionHasPax()) return false;
+        if (!prepared?.text && !window.activePassenger && !_missionHasPax()) {
+            _paxFlowRecord('voice_boarding_result', { epoch, key, status: 'no_passenger_or_text' });
+            return false;
+        }
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
-        if (!text) return false;
+        if (!text) {
+            _paxFlowRecord('voice_boarding_result', { epoch, key, status: 'empty_text' });
+            return false;
+        }
         const cueId = options?.playCue !== false && (window.activePassenger || _missionHasPax())
             ? _paxMissionAudioCueId('cargo', 'passenger_load', 'boarding_pax')
             : 'none';
@@ -6600,6 +6664,13 @@ window.paxVoicePlayBoarding = async function(options = {}) {
         _paxBoardingDone = true;
         _paxGreetingDone = true;
         _markPaxBoardingPlayed(key);
+        _paxFlowRecord('voice_boarding_result', {
+            epoch,
+            key,
+            status: 'complete',
+            voiceEnabled: !!_paxVoiceEnabled,
+            audioContextState: window._tawsAudioCtx?.state || 'unavailable'
+        });
         return true;
     })();
     try {
@@ -9128,19 +9199,37 @@ window.triggerPaxCargoPickupDeparture = async function() {
 
 window.triggerPaxGreeting = async function(lat, lon, options = {}) {
     const epoch = _paxMissionEpoch;
+    _paxFlowRecord('voice_greeting_attempt', {
+        epoch,
+        voiceEnabled: !!_paxVoiceEnabled,
+        greetingDone: !!_paxGreetingDone,
+        hasPassenger: !!window.activePassenger,
+        hasPaxMission: _missionHasPax(),
+        hasApiKey: !!_getApiKey(),
+        combinedBoardingGreeting: !!_USE_COMBINED_BOARDING_GREETING,
+        overrideText: !!String(options?.overrideText || '').trim()
+    });
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
     const overrideText = String(options?.overrideText || '').trim();
     if (overrideText && window.activePassenger && _missionHasPax()) {
         _paxGreetingDone = true;
         _paxSpeakTextDirect(overrideText, 'Begrüßung');
+        _paxFlowRecord('voice_greeting_result', { epoch, status: 'override_started' });
         return;
     }
     if (_USE_COMBINED_BOARDING_GREETING) {
         _paxGreetingDone = true;
         _paxLog('Greeting unterdrueckt: kombinierter Boarding/Begruessungsblock aktiv', 'state');
+        _paxFlowRecord('voice_greeting_result', { epoch, status: 'combined_boarding_greeting' });
         return;
     }
-    if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return;
+    if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) {
+        _paxFlowRecord('voice_greeting_result', {
+            epoch,
+            status: _paxGreetingDone ? 'already_done' : (!window.activePassenger ? 'no_active_passenger' : 'no_pax_mission')
+        });
+        return;
+    }
     _paxGreetingDone = true;
 
     // Location check: must be within 1 NM of the briefed departure airport

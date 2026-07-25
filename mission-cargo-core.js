@@ -1821,9 +1821,18 @@ function _missionCargoManualPassengerLoadOptions(item = null, wasUnloaded = fals
 function _missionCargoMarkPassengerLoaded(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(_missionCargoIsPassengerItem);
-    if (!item) return false;
-    if (!_missionCargoItemCanLoadAtCurrentStage(item)) return false;
-    if (item.status === 'loaded') return false;
+    if (!item) {
+        window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', { reason: 'no_passenger_item', source: options.reason || null });
+        return false;
+    }
+    if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
+        window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', { reason: 'wrong_stage', itemId: item.id || null, status: item.status || null, source: options.reason || null });
+        return false;
+    }
+    if (item.status === 'loaded') {
+        window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', { reason: 'already_loaded', itemId: item.id || null, source: options.reason || null });
+        return false;
+    }
     const wasUnloaded = item.status === 'unloaded';
     if (options.manualAnimation === true && _missionCargoManualPassengerSceneBusy()) {
         window.missionCargoStatus.error = _missionCargoManualPassengerBusyMessage();
@@ -1842,6 +1851,15 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     item.droppedAltFt = null;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
+    window.gaMissionPhaseDebugRecord?.('pax_manifest_status', {
+        action: 'load',
+        itemId: item.id || null,
+        from: wasUnloaded ? 'unloaded' : 'planned',
+        to: 'loaded',
+        passengerCount: Number(item.passengerCount || 1),
+        manualAnimation: options.manualAnimation === true,
+        source: options.reason || null
+    });
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = true;
     }
@@ -1893,7 +1911,10 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
 function _missionCargoMarkPassengerUnloaded(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(entry => _missionCargoIsPassengerItem(entry) && entry.status === 'loaded');
-    if (!item) return false;
+    if (!item) {
+        window.gaMissionPhaseDebugRecord?.('pax_manifest_unload_blocked', { reason: 'no_loaded_passenger_item', source: options.reason || null });
+        return false;
+    }
     if (options.manualAnimation === true && _missionCargoManualPassengerSceneBusy()) {
         window.missionCargoStatus.error = _missionCargoManualPassengerBusyMessage();
         return false;
@@ -1914,6 +1935,20 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     }
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
+    window.gaMissionPhaseDebugRecord?.('pax_manifest_status', {
+        action: 'unload',
+        itemId: item.id || null,
+        from: 'loaded',
+        to: 'unloaded',
+        passengerCount: Number(item.passengerCount || 1),
+        manualAnimation: options.manualAnimation === true,
+        source: options.reason || null,
+        position: {
+            lat: item.unloadLat,
+            lon: item.unloadLon,
+            altFt: item.unloadAltFt
+        }
+    });
     if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
