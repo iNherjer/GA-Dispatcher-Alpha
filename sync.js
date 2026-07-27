@@ -201,6 +201,9 @@ const MISSION_SCENE_ASSET_POOLS = {
         'Cardboard',
         'Pallet01_03'
     ]),
+    cameraEquipment: _sceneCatalogRoleTitles('cargo.camera_equipment', ['Cardboard']),
+    campingEquipment: _sceneCatalogRoleTitles('cargo.camping_equipment', ['Cardboard']),
+    equipmentCases: _sceneCatalogRoleTitles('cargo.equipment_case', ['Cardboard']),
     luggageBackpacks: _sceneCatalogRoleTitles('cargo.luggage.backpack'),
     luggageDuffels: _sceneCatalogRoleTitles('cargo.luggage.duffel'),
     toolboxes: _sceneCatalogRoleTitles('cargo.toolbox'),
@@ -365,6 +368,7 @@ const MISSION_SCENE_ASSET_POOLS = {
         'LFPB_AS_Tent_01',
         'LFPB_AS_Tent_Dome_Blue'
     ]),
+    campLanterns: _sceneCatalogRoleTitles('scene.lighting.lantern'),
     campTrailers: _sceneCatalogRoleTitles('camp.trailer', [
         'MICROSOFT_ASSET_GlidersTrailerGlobal'
     ]),
@@ -4163,6 +4167,7 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
         : provided;
     let pool = [];
     let fallback = semanticTitle || 'Cardboard';
+    let preferFirst = false;
     if (role === 'vehicle.emergency.medical') {
         pool = MISSION_SCENE_ASSET_POOLS.medicalVehicles;
         fallback = pool[0] || 'Car Bush Medic';
@@ -4183,10 +4188,24 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
         fallback = pool[0] || 'Truck Utility Europe Flush';
     } else if (role === 'cargo.medical_kit') {
         pool = MISSION_SCENE_ASSET_POOLS.medicalEquipment;
-        fallback = 'Cardboard';
+        fallback = pool[0] || 'Cardboard';
+        preferFirst = true;
     } else if (role === 'cargo.animal_transport_box') {
         pool = MISSION_SCENE_ASSET_POOLS.animalTransportBoxes;
-        fallback = semanticTitle || 'Cardboard';
+        fallback = semanticTitle || pool[0] || 'Cardboard';
+        preferFirst = !semanticTitle;
+    } else if (role === 'cargo.camera_equipment') {
+        pool = MISSION_SCENE_ASSET_POOLS.cameraEquipment;
+        fallback = semanticTitle || pool[0] || 'Cardboard';
+        preferFirst = !semanticTitle;
+    } else if (role === 'cargo.camping_equipment') {
+        pool = MISSION_SCENE_ASSET_POOLS.campingEquipment;
+        fallback = semanticTitle || pool[0] || 'Cardboard';
+        preferFirst = !semanticTitle;
+    } else if (role === 'cargo.equipment_case') {
+        pool = MISSION_SCENE_ASSET_POOLS.equipmentCases;
+        fallback = semanticTitle || pool[0] || 'Cardboard';
+        preferFirst = !semanticTitle;
     } else if (/^cargo\./.test(role)) {
         pool = MISSION_SCENE_ASSET_POOLS.cargo;
         fallback = semanticTitle || 'Cardboard';
@@ -4203,7 +4222,10 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
         pool = _sceneCatalogRoleTitles(role, allowedProvided);
         fallback = pool[0] || semanticTitle;
     }
-    const title = _scenePickTitle(pool.length ? pool : allowedProvided, `apt-arrival-${role}-${index}`, fallback);
+    const titlePool = pool.length ? pool : allowedProvided;
+    const title = preferFirst
+        ? (titlePool[0] || fallback)
+        : _scenePickTitle(titlePool, `apt-arrival-${role}-${index}`, fallback);
     return {
         title: title || fallback,
         candidates: _sceneAssetCandidates(title || fallback, allowedProvided.concat(pool, [fallback]).filter(Boolean))
@@ -4454,7 +4476,12 @@ function _missionSceneCargoIsSemanticHomebaseTitle(title = '') {
         MISSION_SCENE_ASSET_POOLS.coolers,
         MISSION_SCENE_ASSET_POOLS.jerrycanPairs,
         MISSION_SCENE_ASSET_POOLS.mailSacks,
-        MISSION_SCENE_ASSET_POOLS.woodCrates
+        MISSION_SCENE_ASSET_POOLS.woodCrates,
+        MISSION_SCENE_ASSET_POOLS.cameraEquipment,
+        MISSION_SCENE_ASSET_POOLS.campingEquipment,
+        MISSION_SCENE_ASSET_POOLS.equipmentCases,
+        MISSION_SCENE_ASSET_POOLS.medicalEquipment,
+        MISSION_SCENE_ASSET_POOLS.animalTransportBoxes
     ).includes(String(title || '').trim());
 }
 
@@ -4484,14 +4511,36 @@ function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) 
         const title = _scenePickTitle(pool, salt, fallback || pool[0] || '');
         return title ? { title, candidates: _sceneAssetCandidates(title, pool) } : null;
     };
+    const pickPrimary = (pool, fallback = '') => {
+        const title = String(pool?.[0] || fallback || '').trim();
+        return title ? { title, candidates: _sceneAssetCandidates(title, pool) } : null;
+    };
     if (/(postsack|postsendung|postbeutel|briefsendung)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.mailSacks, `cargo-mail-${text}`);
     if (/(kuehlbox|kühlbox|blutkonserven|serum|laborproben|probenbeutel)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.coolers, `cargo-cooler-${text}`);
+    if (/(transportbox|tiertransportbox|reisebox|reha[\s-]?box|vogelbox|wildvogelbox|greifvogelbox|igelbox|fledermaus[\s-]?kleinbox|tiertransport)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.animalTransportBoxes);
+    }
+    if (/(sanitaets|sanitäts|sanitaet|sanität|medpack|hems[\s-]?rucksack|erste[\s-]?hilfe[\s-]?(?:pack|tasche|kit)|rettungs[\s-]?(?:und[\s-]?)?sanitaetskit|rettungs[\s-]?(?:und[\s-]?)?sanitätskit|medizinischer notfallkoffer|notfallkoffer)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.medicalEquipment);
+    }
     if (/(kanister|kraftstoff|treibstoff)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.jerrycanPairs, `cargo-jerrycan-${text}`);
     if (/(werkzeugwagen|tool\s*cart)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolCarts, `cargo-tool-cart-${text}`);
     if (/(werkzeug|toolbox|werkzeugkiste|werkzeugtasche|wartungskit|prueflampe|prüflampe|sicherungsdraht)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolboxes, `cargo-toolbox-${text}`);
+    if (/(kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+    if (/(campingausruestung|campingausrüstung|camp[\s-]?proviant|angel[\s-]?(?:und[\s-]?)?camptaschen|packraft|trockenbeutel|provianttasche|wasserfilter|solarlader|trail[\s-]?crew[\s-]?proviant)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.campingEquipment);
+    }
+    if (/(kamera|camera|fotoequipment|fotoausruestung|fotoausrüstung|foto[\s-]?kit|stativ|gimbal|teleobjektiv|film[\s-]?(?:und[\s-]?)?akkukoffer|audio[\s-]?set|waermebildkamera|wärmebildkamera|thermal[\s-]?handkamera)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.cameraEquipment);
+    }
+    if (/(hardcase|flightcase|schutzcase|transportcase|kuriercase|klimacase|schaumcase|polstercase|acrylcase|alukoffer|schutzverpackung|instrumentenkoffer|sensorkoffer|kalibrierkoffer|messkoffer|probenkoffer|arbeitskoffer|funkakku[\s-]?case|tabletcase|koffer)/i.test(text)) {
+        const caseIndex = Number.isFinite(weight) && weight >= 36 ? 2 : (Number.isFinite(weight) && weight >= 20 ? 1 : 0);
+        const title = MISSION_SCENE_ASSET_POOLS.equipmentCases[caseIndex] || MISSION_SCENE_ASSET_POOLS.equipmentCases[0] || '';
+        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.equipmentCases) } : null;
+    }
     if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageDuffels, `cargo-duffel-${text}`);
     if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks.slice(1), `cargo-daypack-${text}`, MISSION_SCENE_ASSET_POOLS.luggageBackpacks[0]);
-    if (/(rucksack|rucksäcke|kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+    if (/(rucksack|rucksäcke)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
     if (/(holz\s*kiste|versorgungskisten?|ersatzteilkiste|materialkiste|utility-kiste|frachtkiste)/i.test(text)) {
         const crateIndex = Number.isFinite(weight) && weight >= 75 ? 2 : (Number.isFinite(weight) && weight >= 35 ? 1 : 0);
         const title = MISSION_SCENE_ASSET_POOLS.woodCrates[crateIndex] || MISSION_SCENE_ASSET_POOLS.woodCrates[0] || '';
@@ -4596,8 +4645,9 @@ function _missionSceneAnimalTransportSpec(salt = 'animal-transport') {
     const byText = fallback.find(opt => opt.keywords && opt.keywords.test(text));
     const pickPool = byText ? fallback : (visibleOptions.length ? visibleOptions : fallback);
     const picked = byText || pickPool[_stableHashText(`${_missionSceneId()}|${_missionSceneTaskDomain()}|${salt}|${text}`) % pickPool.length];
+    const preferredAnimalBox = MISSION_SCENE_ASSET_POOLS.animalTransportBoxes[0] || 'Cardboard';
     if (picked?.visible === false) {
-        const cargoTitle = picked.cargoTitle || 'Cardboard';
+        const cargoTitle = preferredAnimalBox;
         return {
             visible: false,
             label: picked.label || 'Tiertransportbox',
@@ -4612,8 +4662,8 @@ function _missionSceneAnimalTransportSpec(salt = 'animal-transport') {
         title,
         label: picked?.label || 'Tier',
         cargoLabel: 'Tiertransportbox',
-        cargoTitle: 'Cardboard',
-        cargoCandidates: _sceneAssetCandidates('Cardboard', MISSION_SCENE_ASSET_POOLS.animalTransportBoxes),
+        cargoTitle: preferredAnimalBox,
+        cargoCandidates: _sceneAssetCandidates(preferredAnimalBox, MISSION_SCENE_ASSET_POOLS.animalTransportBoxes),
         candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.animalTransportAnimals)
     };
 }
@@ -5735,7 +5785,8 @@ function _missionTargetSceneFeatureHintsFromSpec(kind = 'survey_context') {
             if (r === 'animal.wildlife' || r === 'animal.deer') add('wildlife_animals');
             if (r === 'animal.grazing') add('animal_herd');
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
-            if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box') add('cargo_material');
+            if (r === 'scene.lighting.lantern') add('lantern');
+            if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box' || r === 'cargo.camera_equipment' || r === 'cargo.camping_equipment' || r === 'cargo.equipment_case') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
             if (r === 'aircraft.wreck') add('aircraft_wreck');
             if (r.startsWith('debris.')) add('debris');
@@ -5761,7 +5812,7 @@ function _missionTargetSceneKindFromFeatureHints(text = '') {
     if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
     if (has('cargo_material') || has('pallet_stack')) return 'cargo_site';
     if (has('watercraft') || has('waterfowl')) return 'water_context';
-    if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire')) return 'wildlife_site';
+    if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire') || has('lantern')) return 'wildlife_site';
     if (has('bus')) return 'event_site';
     if (has('road_vehicles') || has('parked_vehicle') || has('people') || has('small_equipment') || has('cones') || has('logs') || has('debris')) return 'survey_context';
     return null;
@@ -6044,6 +6095,10 @@ function _missionTargetSceneNormalizeFeature(value) {
         campfire: 'campfire',
         firepit: 'campfire',
         feuerstelle: 'campfire',
+        lantern: 'lantern',
+        laterne: 'lantern',
+        stalllaterne: 'lantern',
+        camp_lantern: 'lantern',
         bus_shuttle: 'bus',
         smoke: 'smoke_light',
         light_smoke: 'smoke_light',
@@ -6117,9 +6172,9 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'animal.wildlife' || r === 'animal.deer') add('wildlife_animals');
             if (r === 'animal.grazing') add('animal_herd');
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
+            if (r === 'scene.lighting.lantern') add('lantern');
             if (r === 'vehicle.car') add((kind === 'road_incident' || kind === 'event_site') ? 'road_vehicles' : 'parked_vehicle');
-            if (r === 'cargo.medical_kit') add('cargo_material');
-            if (r === 'cargo.animal_transport_box') add('cargo_material');
+            if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box' || r === 'cargo.camera_equipment' || r === 'cargo.camping_equipment' || r === 'cargo.equipment_case') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
             if (r === 'aircraft.wreck') add('aircraft_wreck');
             if (r.startsWith('debris.')) add('debris');
@@ -6158,6 +6213,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
         if (/(rauch|smoke|qualm)/.test(text)) add('smoke_light');
     }
     if (/(lagerfeuer|campfire|firepit|feuerstelle)/.test(text)) add('campfire');
+    if (/(stalllaterne|camp[\s-]?laterne|laterne|lantern)/.test(text)) add('lantern');
     if (/(bus|shuttle)/.test(text)) add('bus');
     return out;
 }
@@ -6482,6 +6538,11 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'campfire') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-campfire-${i}`, 'VO_Fire_R1_40');
                 add(`feature_campfire_${i + 1}`, 'Zusatz Lagerfeuer', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, -7 - step, 8 + step, { hdgOffsetDeg: 0 });
+            } else if (feature === 'lantern') {
+                const lantern = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.campLanterns, `feature-lantern-${i}`, MISSION_SCENE_ASSET_POOLS.campLanterns[0] || '');
+                if (!lantern) continue;
+                const pos = _missionTargetGeoOffset(['path', 'forest', 'meadow', 'parking'], -10 - step, 9 + step, { minM: 10, maxM: 90, lateralM: i * 3, hdgOffsetDeg: 15 });
+                add(`feature_lantern_${i + 1}`, 'Zusatz Stall-/Camp-Laterne', lantern, MISSION_SCENE_ASSET_POOLS.campLanterns, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'bus') {
                 const bus = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.buses, `feature-bus-${i}`, 'Bus');
                 add(`feature_bus_${i + 1}`, 'Zusatz Bus/Shuttle', bus, MISSION_SCENE_ASSET_POOLS.buses, -20 - step, 16 + step, { hdgOffsetDeg: 210 });
@@ -6786,7 +6847,7 @@ function _missionTargetSceneItems(kind) {
     if (kind === 'medical_pickup') {
         const vehicle = _scenePickTitle(primarySupportVehiclePool, 'medical-vehicle', 'Car Bush Medic');
         const medicalPool = MISSION_SCENE_ASSET_POOLS.medicalEquipment.concat(MISSION_SCENE_ASSET_POOLS.smallCargo, MISSION_SCENE_ASSET_POOLS.cargo);
-        const cargo = _scenePickTitle(medicalPool, 'medical-cargo', 'Cardboard');
+        const cargo = MISSION_SCENE_ASSET_POOLS.medicalEquipment[0] || _scenePickTitle(medicalPool, 'medical-cargo', 'Cardboard');
         add('medical_vehicle', 'Medizinisches Fahrzeug', vehicle, MISSION_SCENE_ASSET_POOLS.medicalVehicles.concat(vanPool), -13, 9, { hdgOffsetDeg: 205 });
         add('person_1', 'Medizinisches Team', personA, peoplePool, 1, 5, { hdgOffsetDeg: 180 });
         add('person_2', 'Medizinisches Team', personB, peoplePool, 4, 7, { hdgOffsetDeg: 220 });
@@ -6796,10 +6857,14 @@ function _missionTargetSceneItems(kind) {
 
     if (kind === 'cargo_site') {
         const vehicle = _scenePickTitle(primaryTruckPool, 'target-cargo-vehicle', primaryTruckPool[0] || 'Microsoft_Van_EUR');
-        const cargoA = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.cargo, 'target-cargo-a', 'Pallet01_02');
+        const semanticCargo = _missionSceneSemanticCargoAsset(_missionSceneCargoText(), _missionSceneCargoWeightLbs());
+        const semanticCargoPool = semanticCargo?.candidates?.length
+            ? semanticCargo.candidates
+            : MISSION_SCENE_ASSET_POOLS.cargo;
+        const cargoA = semanticCargo?.title || _scenePickTitle(semanticCargoPool, 'target-cargo-a', 'Pallet01_02');
         const cargoB = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 'target-cargo-b', 'Cardboard');
         add('cargo_vehicle', 'Frachtfahrzeug', vehicle, truckPool, -14, 9, { hdgOffsetDeg: 205 });
-        add('cargo_1', 'Fracht', cargoA, MISSION_SCENE_ASSET_POOLS.cargo, 1, 4);
+        add('cargo_1', 'Fracht', cargoA, semanticCargoPool, 1, 4);
         add('cargo_2', 'Fracht klein', cargoB, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 3, 8);
         add('person_1', 'Bodencrew', personA, peoplePool, 6, 6, { hdgOffsetDeg: 230 });
         return finish();
@@ -6807,9 +6872,10 @@ function _missionTargetSceneItems(kind) {
 
     if (kind === 'media_site') {
         const vehicle = _scenePickTitle(vanPool, `${kind}-vehicle`, vanPool[0] || 'Microsoft_Van_EUR');
-        const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), `${kind}-kit`, 'Cardboard');
+        const mediaEquipmentPool = MISSION_SCENE_ASSET_POOLS.cameraEquipment.concat(MISSION_SCENE_ASSET_POOLS.equipmentCases, MISSION_SCENE_ASSET_POOLS.smallCargo);
+        const cargo = MISSION_SCENE_ASSET_POOLS.cameraEquipment[0] || _scenePickTitle(mediaEquipmentPool, `${kind}-kit`, 'Cardboard');
         add('work_vehicle', 'Medienfahrzeug', vehicle, vanPool, -12, 8, { hdgOffsetDeg: 210 });
-        add('equipment_1', 'Kameraausruestung', cargo, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 2, 6);
+        add('equipment_1', 'Kameraausruestung', cargo, mediaEquipmentPool, 2, 6);
         add('person_1', 'Kamerateam', personA, peoplePool, 5, 5, { hdgOffsetDeg: 200 });
         add('marker_1', 'Markierung', cone, markerPool, -1, -3);
         return finish();

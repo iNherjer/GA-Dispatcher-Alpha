@@ -2,8 +2,8 @@
 // the SimObjects_Visuals.pdf visual pass. VFX entries are kept as known/ACK-tested assets
 // because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-07-15-homebase-cargo-v0.6.2',
-    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.2',
+    version: '2026-07-27-homebase-cargo-v0.6.20',
+    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.20',
     targetSceneKinds: {
         none: {
             label: 'Keine Zielszene',
@@ -38,7 +38,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         cargo_site: {
             label: 'Fracht-/Materialpunkt',
-            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.animal_transport_box'],
+            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.camera_equipment', 'cargo.camping_equipment', 'cargo.equipment_case', 'cargo.animal_transport_box'],
             useFor: ['cargo_fragile', 'club_utility', 'animal_transport']
         },
         construction_site: {
@@ -98,7 +98,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         media_site: {
             label: 'Event / Medienbeobachtung',
-            roles: ['vehicle.van', 'cargo.small_box', 'marker.cone'],
+            roles: ['vehicle.van', 'cargo.camera_equipment', 'marker.cone'],
             useFor: ['news_coverage', 'media_photo']
         },
         event_site: {
@@ -280,6 +280,10 @@ window.MISSION_SCENE_ASSETS = {
         campfire: {
             label: 'kleines Lagerfeuer / Feuerstelle',
             roles: ['vfx.fire']
+        },
+        lantern: {
+            label: 'Stall-/Camp-Laterne',
+            roles: ['scene.lighting.lantern']
         },
         bus: {
             label: 'Bus/Shuttle',
@@ -662,12 +666,28 @@ window.MISSION_SCENE_ASSETS = {
             'VFR Multitool Homebase Wood Crate Medium',
             'VFR Multitool Homebase Wood Crate Large'
         ],
+        'cargo.camera_equipment': [
+            'VFR Multitool Mission Camera Equipment Cargo'
+        ],
+        'cargo.camping_equipment': [
+            'VFR Multitool Mission Camping Equipment Cargo'
+        ],
+        'cargo.equipment_case': [
+            'VFR Multitool Homebase Hardcase Yellow Small',
+            'VFR Multitool Homebase Hardcase Red Pro',
+            'VFR Multitool Homebase Flight Case Black'
+        ],
         'cargo.medical_kit': [
+            'VFR Multitool Mission Medical Backpack Cargo',
             'Cardboard'
         ],
         'cargo.animal_transport_box': [
+            'VFR Multitool Mission Pet Carrier Cargo',
             'Cardboard',
             'Pallet01_03'
+        ],
+        'scene.lighting.lantern': [
+            'VFR Multitool Homebase Stable Lantern'
         ],
         'cargo.pallet_large': [
             'Pallet01_01'
