@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.19",
+    "version": "0.6.20",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -1256,6 +1256,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-27T10:05:24.983Z",
+  "updatedAt": "2026-07-27T10:09:43.976Z",
   "stockObjects": []
 }
