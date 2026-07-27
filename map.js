@@ -6966,6 +6966,18 @@ function clampMapDrawFloatingButtonPosition(rawPosition) {
     return clamped;
 }
 
+function resetMapDrawFloatingButtonPosition() {
+    const rail = document.getElementById('mapDrawRail');
+    const area = document.getElementById('mapArea');
+    if (!rail || !area) return;
+    const railWidth = rail.offsetWidth || 46;
+    const railHeight = rail.offsetHeight || 46;
+    const bounds = getMapDrawSafeBounds(area, railWidth, railHeight);
+    if (!isMapDrawFloatingAreaUsable(bounds.areaRect, railWidth, railHeight, bounds)) return;
+    const position = getMapDrawFloatingDefaultPosition(bounds.areaRect, railWidth, railHeight, bounds);
+    clampMapDrawFloatingButtonPosition(position);
+}
+
 function initMapDrawFloatingButton() {
     const rail = document.getElementById('mapDrawRail');
     const button = document.getElementById('mapDrawFloatingBtn');
@@ -9610,6 +9622,7 @@ async function refreshMapTableLayout() {
     if (!map) initMapBase();
     await nextFrame();
     await nextFrame();
+    resetMapDrawFloatingButtonPosition();
 
     if (map) {
         map.invalidateSize();

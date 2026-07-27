@@ -156,7 +156,8 @@
         placeInfoReturn: 'place',
         cargoExpandedItemId: '',
         cargoPayloadRequestedAt: 0,
-        cargoPayloadLoading: false
+        cargoPayloadLoading: false,
+        missionStoryExpanded: false
     };
 
     const toolState = {
@@ -745,6 +746,7 @@
         else if (state.view === 'nearest') renderNearestTool();
         else if (state.view === 'airport-info') renderAirportInfoTool();
         else if (state.view === 'cargo') renderCargoTool();
+        else if (state.view === 'mission') renderMissionTool();
         else renderHome();
         renderStatus();
     }
@@ -761,6 +763,14 @@
                     <span>
                         <span class="checklist-tool-name">Checklist</span>
                         <span class="checklist-tool-count">${count} sichtbar · ${communityMeta.length} Community</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="checklist-tool-tile mission-tool-home-tile" type="button" data-action="open-tool" data-tool="mission">
+                    <span class="checklist-tool-icon" aria-hidden="true">🎯</span>
+                    <span>
+                        <span class="checklist-tool-name">Mission</span>
+                        <span class="checklist-tool-count">${escapeHtml(missionHomeSummary())}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
@@ -827,6 +837,553 @@
 
     function renderToolEmpty(text) {
         return `<div class="route-tool-empty">${escapeHtml(text)}</div>`;
+    }
+
+    function missionText(value, max = 560) {
+        const text = String(value || '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return Number.isFinite(max) ? text.slice(0, Math.max(0, max)) : text;
+    }
+
+    function missionGlobalData() {
+        let md = null;
+        try {
+            md = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+                ? currentMissionData
+                : null;
+        } catch (_) {}
+        if (!md && window.currentMissionData && typeof window.currentMissionData === 'object') md = window.currentMissionData;
+        const contract = (window.activeMissionContract && typeof window.activeMissionContract === 'object')
+            ? window.activeMissionContract
+            : ((md?.missionContract && typeof md.missionContract === 'object') ? md.missionContract : null);
+        const passenger = (window.activePassenger && typeof window.activePassenger === 'object')
+            ? window.activePassenger
+            : ((md?.passenger && typeof md.passenger === 'object')
+                ? md.passenger
+                : ((contract?.passenger && typeof contract.passenger === 'object') ? contract.passenger : null));
+        let freeflightOnly = false;
+        try {
+            freeflightOnly = typeof window.missionIsFreeflightOnly === 'function'
+                ? !!window.missionIsFreeflightOnly({ currentMissionData: md, activeMissionContract: contract })
+                : false;
+        } catch (_) {}
+        let accepted = false;
+        try {
+            accepted = typeof window.isAcceptedOrActiveMissionPresent === 'function'
+                ? !!window.isAcceptedOrActiveMissionPresent()
+                : !!(md && md.sceneAccepted !== false);
+        } catch (_) {
+            accepted = !!(md && md.sceneAccepted !== false);
+        }
+        return {
+            md,
+            contract,
+            passenger,
+            freeflightOnly,
+            accepted,
+            exists: !!(md && !freeflightOnly)
+        };
+    }
+
+    function missionRuntimeText(id, fallback = '') {
+        const text = missionText(document.getElementById(id)?.textContent || '', 360);
+        return text || fallback;
+    }
+
+    function missionPoiProgress() {
+        try {
+            if (typeof window.paxVoiceGetPoiMissionProgress === 'function') {
+                const progress = window.paxVoiceGetPoiMissionProgress();
+                return progress && typeof progress === 'object' ? progress : null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function missionRuntimePhaseSnapshot() {
+        try {
+            if (typeof window.missionRuntimeGetPhaseSnapshot === 'function') {
+                const snapshot = window.missionRuntimeGetPhaseSnapshot();
+                return snapshot && typeof snapshot === 'object' ? snapshot : null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function missionComfortSummary() {
+        try {
+            if (typeof window.paxVoiceGetComfortSummary === 'function') {
+                const summary = window.paxVoiceGetComfortSummary();
+                return summary && typeof summary === 'object' ? summary : null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function missionCargoOutcome() {
+        try {
+            if (typeof window.missionCargoEvaluateOutcome === 'function') {
+                const outcome = window.missionCargoEvaluateOutcome();
+                return outcome && outcome.status !== 'none' ? outcome : null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function missionSurveySpec(data) {
+        try {
+            if (typeof window.missionSurveyPattern?.getActiveSpec === 'function') {
+                const spec = window.missionSurveyPattern.getActiveSpec(data.md, data.passenger);
+                if (spec && typeof spec === 'object') return spec;
+            }
+        } catch (_) {}
+        return data.md?.surveyPattern || data.contract?.surveyPattern || null;
+    }
+
+    function missionPoiChainSpec(data) {
+        try {
+            if (typeof window.missionPoiChainRuntime?.getActiveSpec === 'function') {
+                const spec = window.missionPoiChainRuntime.getActiveSpec(data.md, data.passenger);
+                if (spec && typeof spec === 'object') return spec;
+            }
+        } catch (_) {}
+        return data.md?.poiChain || data.contract?.poiChain || null;
+    }
+
+    function missionTaskDomain(data) {
+        return String(
+            data.passenger?.taskDomain
+            || data.contract?.taskDomain
+            || data.md?.taskDomain
+            || ''
+        ).trim().toLowerCase();
+    }
+
+    function missionDomainLabel(domain = '') {
+        const labels = {
+            inspection_infra: 'Infrastruktur-Inspektion',
+            infra_chain_recon: 'Infrastruktur-Kette',
+            mapping_survey: 'Mapping / Survey',
+            search_and_rescue: 'Suche und Rettung',
+            fire_watch: 'Feuerbeobachtung',
+            training: 'Training',
+            club_training_basic: 'Basistraining',
+            club_training_advanced: 'Aufbautraining',
+            sightseeing_tour: 'Sightseeing',
+            news_coverage: 'Reportage',
+            science_bio: 'Umweltbeobachtung',
+            science_geo: 'Geländebeobachtung',
+            cargo_fragile: 'Sensible Fracht',
+            medical_transfer: 'Medizintransfer',
+            animal_transport: 'Tiertransport',
+            charter: 'Charter',
+            club_utility: 'Vereinsflug'
+        };
+        return labels[domain] || missionText(domain.replace(/_/g, ' '), 80) || 'Flugauftrag';
+    }
+
+    function missionLiveState() {
+        const fd = window.lastLiveFlightData || {};
+        const pos = getLiveAircraftPosition(45000);
+        const mslFt = Number(fd.mslFt ?? fd.altFt ?? pos?.altFt);
+        const aglFt = Number(fd.aglFt);
+        const gsKts = Number(fd.gsKts ?? fd.gs ?? pos?.gs);
+        const onGround = typeof fd.onGround === 'boolean'
+            ? fd.onGround
+            : (Number.isFinite(aglFt) && Number.isFinite(gsKts) ? aglFt < 80 && gsKts < 30 : null);
+        return {
+            pos,
+            mslFt: Number.isFinite(mslFt) ? Math.round(mslFt) : null,
+            aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
+            gsKts: Number.isFinite(gsKts) ? Math.round(gsKts) : null,
+            onGround,
+            trackerLive: !!(pos && (window.liveTrackerConnected || window.simModeActive))
+        };
+    }
+
+    function missionTargetNav(data, live) {
+        const lat = Number(
+            data.md?.targetLat
+            ?? data.md?.bush?.targetRef?.lat
+            ?? data.contract?.bush?.targetRef?.lat
+        );
+        const lon = Number(
+            data.md?.targetLon
+            ?? data.md?.targetLng
+            ?? data.md?.bush?.targetRef?.lon
+            ?? data.contract?.bush?.targetRef?.lon
+        );
+        if (!live.pos || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const nav = navBetween(live.pos.lat, live.pos.lon, lat, lon);
+        return Number.isFinite(Number(nav?.dist)) ? nav : null;
+    }
+
+    function missionTargetName(data) {
+        return missionText(
+            data.md?.targetName
+            || data.md?.poiName
+            || data.md?.bush?.targetRef?.name
+            || data.contract?.bush?.targetRef?.name
+            || data.md?.dest
+            || 'Missionsziel',
+            120
+        );
+    }
+
+    function missionFormatDuration(sec) {
+        const value = Math.max(0, Math.round(Number(sec) || 0));
+        const min = Math.floor(value / 60);
+        const rest = value % 60;
+        return `${min}:${String(rest).padStart(2, '0')}`;
+    }
+
+    function missionClampPct(value) {
+        return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    }
+
+    function missionProgressRow(label, value, detail, tone = '') {
+        const pct = missionClampPct(value);
+        return `
+            <div class="mission-control-progress-row">
+                <div class="mission-control-progress-head">
+                    <span>${escapeHtml(label)}</span>
+                    <b>${escapeHtml(detail)}</b>
+                </div>
+                <div class="mission-control-progress-track is-${escapeAttr(tone || (pct >= 100 ? 'good' : 'active'))}">
+                    <span style="width:${pct}%"></span>
+                </div>
+            </div>
+        `;
+    }
+
+    function missionWorkProgressRows(runtimeSnapshot, progress, cargoOutcome) {
+        const rows = [];
+        const runtimeMetrics = Array.isArray(runtimeSnapshot?.workProgress)
+            ? runtimeSnapshot.workProgress
+            : [];
+        runtimeMetrics.forEach(metric => {
+            const tone = metric.satisfied ? 'good' : (progress?.aborted ? 'danger' : '');
+            if (metric.kind === 'count') {
+                const activeText = Number(metric.activePct || 0) > 0 && Number(metric.completed || 0) < Number(metric.total || 0)
+                    ? ` · aktueller Abschnitt ${Math.round(Number(metric.activePct))}%`
+                    : '';
+                rows.push(missionProgressRow(
+                    metric.label,
+                    metric.percent,
+                    `${Math.round(Number(metric.completed || 0))} von ${Math.round(Number(metric.total || 0))} erfolgreich${activeText}`,
+                    tone
+                ));
+            } else if (metric.kind === 'duration') {
+                rows.push(missionProgressRow(
+                    metric.label,
+                    metric.percent,
+                    `${missionFormatDuration(metric.completedSec)} / ${missionFormatDuration(metric.requiredSec)}${metric.satisfied ? ' · erfüllt' : ''}`,
+                    tone
+                ));
+            } else if (metric.kind === 'distance') {
+                rows.push(missionProgressRow(
+                    metric.label,
+                    metric.percent,
+                    `${Number(metric.completedNm || 0).toFixed(1)} / ${Number(metric.requiredNm || 0).toFixed(1)} NM${metric.satisfied ? ' · erfüllt' : ''}`,
+                    tone
+                ));
+            }
+        });
+        if (cargoOutcome?.requiredTotal > 0) {
+            const cargoHasHardFailure = (cargoOutcome.droppedRequired || []).length > 0 || (cargoOutcome.damagedRequired || []).length > 0;
+            rows.push(missionProgressRow(
+                'Pflichtmanifest',
+                (Number(cargoOutcome.requiredLoaded || 0) / Number(cargoOutcome.requiredTotal || 1)) * 100,
+                `${cargoOutcome.requiredLoaded || 0}/${cargoOutcome.requiredTotal} an Bord`,
+                cargoHasHardFailure ? 'danger' : ''
+            ));
+        }
+        if (!rows.length && runtimeSnapshot?.flags?.taskSatisfied) {
+            rows.push(missionProgressRow('Arbeitsauftrag', 100, 'erfolgreich abgeschlossen', 'good'));
+        }
+        return rows;
+    }
+
+    function missionCurrentTask(data, active, progress, live) {
+        const runtimeNext = missionRuntimeText('missionRuntimeNextStep');
+        if (runtimeNext) return runtimeNext.replace(/^Nächster Schritt:\s*/i, '');
+        if (!data.accepted) return 'Mission im Briefing annehmen';
+        if (!active) return 'Mission vorbereiten und starten';
+        if (progress?.aborted) return 'Sicher landen und Mission mit Abweichung abschließen';
+        if (progress?.satisfied) return 'Zum vorgesehenen Landeplatz zurückkehren und landen';
+        if (progress?.surveyPattern?.startedAt) return 'Offenen Mapping-Sektor im Höhenband sauber abfliegen';
+        if (progress?.poiChain?.startedAt) return 'Nächsten markierten Inspektionspunkt anfliegen';
+        if (progress?.hasSignal && window.paxVoiceGetDebugState?.().poiInRadius) return 'Arbeitsprofil im Zielgebiet halten';
+        const target = missionTargetName(data);
+        if (live.onGround === true) return `Startfreigabe herstellen und nach ${target} abfliegen`;
+        return `${target} anfliegen`;
+    }
+
+    function missionPhaseModel(runtimeSnapshot, active) {
+        if (runtimeSnapshot && Array.isArray(runtimeSnapshot.stages) && runtimeSnapshot.stages.length) {
+            return {
+                stages: runtimeSnapshot.stages.map(stage => String(stage?.label || stage?.id || 'Phase')),
+                current: Math.max(0, Math.min(
+                    runtimeSnapshot.stages.length - 1,
+                    Number(runtimeSnapshot.currentIndex || 0)
+                ))
+            };
+        }
+        return {
+            stages: ['Vorbereitung', 'Reiseflug', 'Ankunft', 'Abschluss'],
+            current: active ? 1 : 0
+        };
+    }
+
+    function missionRequirementRows(data, runtimeSnapshot, progress, surveySpec, chainSpec, live, targetNav, cargoOutcome) {
+        const rows = [];
+        const target = missionTargetName(data);
+        const domain = missionTaskDomain(data);
+        const start = missionText(data.md?.start || '', 12);
+        const dest = missionText(data.md?.dest || '', 12);
+        const isPoi = !!(data.md?.isPOI || data.md?.poiName || data.md?.poiPresentation);
+        const requiresReturn = runtimeSnapshot
+            ? !!runtimeSnapshot.requiresReturnHome
+            : !!(data.md?.bush?.requiresReturnHome || data.contract?.bush?.requiresReturnHome);
+        const altitude = Math.max(0, Number(surveySpec?.targetAltFt || data.passenger?.targetAltFt || 0));
+        const altitudeTolerance = Math.max(0, Number(surveySpec?.altitudeToleranceFt || 0));
+        const radius = Math.max(0, Number(data.passenger?.targetRadiusNm || 0));
+        const dwellMin = Math.max(0, Number(data.passenger?.targetDwellMin || 0));
+        const add = (label, value, state = '') => rows.push({ label, value, state });
+        add('Auftrag', `${missionDomainLabel(domain)} · ${target}`);
+        if (start || dest) {
+            const routeLabels = isPoi
+                ? [start, target, requiresReturn ? start : '']
+                : [start, dest || target, requiresReturn && start !== (dest || target) ? start : ''];
+            add('Route', routeLabels.filter(Boolean).join(' → '));
+        }
+        if (radius > 0) {
+            const within = Number.isFinite(Number(targetNav?.dist)) && Number(targetNav.dist) <= radius;
+            add('Arbeitsbereich', `Radius ${radius.toFixed(1)} NM${Number.isFinite(Number(targetNav?.dist)) ? ` · aktuell ${Number(targetNav.dist).toFixed(1)} NM` : ''}`, within ? 'good' : '');
+        }
+        if (altitude > 0) {
+            const deviation = live.mslFt !== null ? live.mslFt - altitude : null;
+            const within = deviation !== null && (altitudeTolerance > 0 ? Math.abs(deviation) <= altitudeTolerance : Math.abs(deviation) <= 150);
+            const band = altitudeTolerance > 0 ? ` ±${Math.round(altitudeTolerance)} ft` : '';
+            add('Arbeitshöhe', `${Math.round(altitude)} ft MSL${band}${deviation !== null ? ` · ${Math.abs(deviation) <= 50 ? 'im Soll' : `${Math.abs(Math.round(deviation))} ft ${deviation > 0 ? 'zu hoch' : 'zu niedrig'}`}` : ''}`, within ? 'good' : (deviation !== null ? 'warn' : ''));
+        }
+        if (dwellMin > 0 && !surveySpec && !chainSpec) add('Verweilzeit', `${dwellMin} Min. laut Briefing${progress?.dwellSec ? ` · ${missionFormatDuration(progress.dwellSec)} erfasst` : ''}`);
+        if (surveySpec) {
+            const surveyLabel = String(surveySpec.type || '').toLowerCase() === 'orbit'
+                ? `${Math.max(1, Number(surveySpec.orbit?.requiredTurns || 3))} vollständige Orbits`
+                : `${Array.isArray(surveySpec.scan?.lines) ? surveySpec.scan.lines.length : Math.max(1, Number(surveySpec.scan?.lineCount || 1))} Mapping-Linien`;
+            add('Aufnahmemuster', surveyLabel, progress?.surveyPattern?.satisfied ? 'good' : '');
+        }
+        if (chainSpec) {
+            const total = Array.isArray(chainSpec.points) ? chainSpec.points.filter(point => point?.required !== false).length : 0;
+            if (total) add('Inspektionskette', `${total} Pflichtpunkte`, progress?.poiChain?.satisfied ? 'good' : '');
+        }
+        if (cargoOutcome?.requiredTotal > 0) {
+            const cargoHasHardFailure = (cargoOutcome.droppedRequired || []).length > 0 || (cargoOutcome.damagedRequired || []).length > 0;
+            const cargoState = cargoHasHardFailure
+                ? 'danger'
+                : (Number(cargoOutcome.requiredLoaded || 0) < Number(cargoOutcome.requiredTotal || 0) ? 'warn' : 'good');
+            add('Pflichtladung', `${cargoOutcome.requiredLoaded || 0}/${cargoOutcome.requiredTotal} an Bord · Zustand ${cargoOutcome.conditionPct ?? 100}%`, cargoState);
+        }
+        const temporal = data.md?.missionTemporalContext || data.md?.followUpProspect?.temporalContext || data.passenger?.missionTemporalContext;
+        const stayText = missionText(temporal?.stayText || '', 100);
+        if (stayText) add('Zeitkontext', stayText);
+        return rows;
+    }
+
+    function missionFeedbackItems(data, progress, comfort, cargoOutcome, live, targetNav, surveySpec, active) {
+        const items = [];
+        const altitude = Math.max(0, Number(surveySpec?.targetAltFt || data.passenger?.targetAltFt || 0));
+        const tolerance = Math.max(150, Number(surveySpec?.altitudeToleranceFt || 300));
+        const radius = Math.max(0, Number(data.passenger?.targetRadiusNm || 0));
+        const inWorkArea = radius > 0 && Number.isFinite(Number(targetNav?.dist)) && Number(targetNav.dist) <= radius;
+        if (progress?.aborted) items.push({ tone: 'danger', text: 'Der Arbeitsauftrag wurde als fehlgeschlagen markiert. Sicher landen; das Debriefing erklärt die Abweichung.' });
+        if (inWorkArea && altitude > 0 && live.mslFt !== null && Math.abs(live.mslFt - altitude) > tolerance) {
+            const diff = live.mslFt - altitude;
+            items.push({ tone: 'warn', text: `Die Arbeitshöhe passt noch nicht: ${Math.abs(Math.round(diff))} ft ${diff > 0 ? 'zu hoch' : 'zu niedrig'}. In dieser Lage zählt die Arbeitszeit nicht zuverlässig weiter.` });
+        }
+        if (Number(progress?.attempts || 0) > 0) {
+            items.push({ tone: 'warn', text: `${Math.round(Number(progress.attempts))} Missionshinweis${Number(progress.attempts) === 1 ? '' : 'e'} wurden bereits ausgelöst. Profil jetzt stabilisieren.` });
+        }
+        const cargoProblems = [
+            ...(cargoOutcome?.droppedRequired || []),
+            ...(cargoOutcome?.damagedRequired || [])
+        ].filter(Boolean);
+        if (cargoProblems.length) items.push({ tone: 'danger', text: `Pflichtladung kritisch: ${cargoProblems.join(', ')}.` });
+        else if ((cargoOutcome?.missingRequired || []).length) {
+            const missing = (cargoOutcome.missingRequired || []).filter(Boolean);
+            items.push({
+                tone: active ? 'danger' : 'warn',
+                text: `${active ? 'Pflichtladung fehlt an Bord' : 'Vor dem Start noch laden'}: ${missing.join(', ')}.`
+            });
+        }
+        else if (cargoOutcome && Number(cargoOutcome.conditionPct) < 75) items.push({ tone: 'warn', text: `Die Ladung hat Belastung abbekommen und liegt nur noch bei ${Math.round(Number(cargoOutcome.conditionPct))}%. Ruhiger weiterfliegen.` });
+        if (comfort && Number(comfort.pilotSevere || 0) > 0) {
+            items.push({ tone: 'danger', text: `${comfort.pilotSevere} harte${Number(comfort.pilotSevere) === 1 ? 's' : ''} Flugereignis${Number(comfort.pilotSevere) === 1 ? '' : 'se'} hat den Pax-Komfort deutlich belastet.` });
+        } else if (comfort && Number(comfort.pilotEvents || 0) > 0) {
+            items.push({ tone: 'warn', text: `Der Passagier hat ${comfort.pilotEvents} auffällige Flugbewegung${Number(comfort.pilotEvents) === 1 ? '' : 'en'} registriert. Ruhige Kurven und Sinkraten helfen.` });
+        }
+        if (comfort && Number(comfort.weatherEvents || 0) > 0) {
+            items.push({ tone: 'info', text: `Das Wetter war spürbar (${comfort.weatherEvents} Ereignis${Number(comfort.weatherEvents) === 1 ? '' : 'se'}), wird aber nicht als Pilotenfehler gewertet.` });
+        }
+        if (!items.length) items.push({ tone: 'good', text: 'Der Auftrag läuft sauber. Keine kritische Abweichung erkannt.' });
+        return items.slice(0, 4);
+    }
+
+    function missionHomeSummary() {
+        const data = missionGlobalData();
+        if (!data.exists) return 'Keine aktive Mission';
+        const runtimeSnapshot = missionRuntimePhaseSnapshot();
+        const active = runtimeSnapshot
+            ? !!runtimeSnapshot.active
+            : (typeof window.missionRuntimeIsActive === 'function' && window.missionRuntimeIsActive());
+        const next = missionRuntimeText('missionRuntimeNextStep');
+        if (next) return next.replace(/^Nächster Schritt:\s*/i, '').slice(0, 88);
+        if (!data.accepted) return 'Entwurf · im Briefing annehmen';
+        return active ? `${missionDomainLabel(missionTaskDomain(data))} läuft` : 'Mission liegt bereit';
+    }
+
+    function renderMissionTool() {
+        setTitle('Mission Control');
+        const data = missionGlobalData();
+        if (!data.exists) {
+            bodyEl.innerHTML = `
+                ${toolTopline('mission')}
+                <div class="mission-control-empty">
+                    <span aria-hidden="true">🎯</span>
+                    <b>Keine aktive Mission</b>
+                    <p>Nach dem Annehmen eines Auftrags erscheinen hier Aufgabe, Bedingungen, Live-Fortschritt, Pax-Stimmung und Ladungszustand.</p>
+                </div>
+            `;
+            return;
+        }
+        const runtimeSnapshot = missionRuntimePhaseSnapshot();
+        const active = runtimeSnapshot
+            ? !!runtimeSnapshot.active
+            : (typeof window.missionRuntimeIsActive === 'function' && window.missionRuntimeIsActive());
+        const progress = missionPoiProgress();
+        const comfort = missionComfortSummary();
+        const cargoOutcome = missionCargoOutcome();
+        const live = missionLiveState();
+        const targetNav = missionTargetNav(data, live);
+        const surveySpec = missionSurveySpec(data);
+        const chainSpec = missionPoiChainSpec(data);
+        const title = missionText(data.md?.missionTitle || data.md?.mission || data.md?.title || 'Aktive Mission', 150);
+        const story = missionText(data.md?.missionStory || data.md?.story || data.md?.s || data.contract?.summary || '', Infinity);
+        const runtimeStatus = missionRuntimeText('missionRuntimeStatus', active ? 'Mission aktiv' : (data.accepted ? 'Mission liegt bereit' : 'Missionsentwurf'));
+        const runtimeDetail = missionRuntimeText('missionRuntimeDetail', data.accepted ? 'Missionsdaten geladen.' : 'Mission muss noch angenommen werden.');
+        const storyText = story || runtimeDetail;
+        const storyExpandable = storyText.length > 160;
+        const currentTask = runtimeSnapshot?.nextStep || missionCurrentTask(data, active, progress, live);
+        const phase = missionPhaseModel(runtimeSnapshot, active);
+        const progressRows = missionWorkProgressRows(runtimeSnapshot, progress, cargoOutcome);
+        const requirements = missionRequirementRows(data, runtimeSnapshot, progress, surveySpec, chainSpec, live, targetNav, cargoOutcome);
+        const feedback = missionFeedbackItems(data, progress, comfort, cargoOutcome, live, targetNav, surveySpec, active);
+        const cargoHasHardFailure = (cargoOutcome?.droppedRequired || []).length > 0 || (cargoOutcome?.damagedRequired || []).length > 0;
+        const taskTone = progress?.aborted || (active && cargoHasHardFailure) ? 'danger' : (progress?.satisfied ? 'good' : 'active');
+        const targetLine = Number.isFinite(Number(targetNav?.dist))
+            ? `${Number(targetNav.dist).toFixed(1)} NM · ${String(Math.round(Number(targetNav.brng) || 0)).padStart(3, '0')}°`
+            : (live.trackerLive ? 'Zielposition offen' : 'Tracker wartet');
+        const altitudeLine = live.mslFt !== null ? `${live.mslFt.toLocaleString('de-DE')} ft MSL` : 'Keine Live-Höhe';
+        const comfortScore = comfort ? missionClampPct(comfort.comfortScore) : null;
+        const comfortTone = comfortScore === null ? 'muted' : (comfortScore >= 72 ? 'good' : (comfortScore >= 55 ? 'warn' : 'danger'));
+        const cargoCondition = cargoOutcome ? missionClampPct(cargoOutcome.conditionPct ?? 100) : null;
+        const cargoTone = cargoCondition === null
+            ? 'muted'
+            : (cargoHasHardFailure || cargoCondition <= 35
+                ? 'danger'
+                : (Number(cargoOutcome?.requiredLoaded || 0) < Number(cargoOutcome?.requiredTotal || 0) || cargoCondition < 75 ? 'warn' : 'good'));
+        const phaseHtml = phase.stages.map((label, index) => `
+            <div class="mission-control-phase ${index < phase.current ? 'is-done' : ''} ${index === phase.current ? 'is-current' : ''}">
+                <span>${index < phase.current ? '✓' : (index + 1)}</span>
+                <b>${escapeHtml(label)}</b>
+            </div>
+        `).join('');
+        const requirementHtml = requirements.map(row => `
+            <div class="mission-control-requirement is-${escapeAttr(row.state || 'neutral')}">
+                <span>${escapeHtml(row.label)}</span>
+                <b>${escapeHtml(row.value)}</b>
+            </div>
+        `).join('');
+        const feedbackHtml = feedback.map(item => `
+            <div class="mission-control-feedback is-${escapeAttr(item.tone)}">
+                <span aria-hidden="true">${item.tone === 'danger' ? '!' : (item.tone === 'warn' ? '△' : (item.tone === 'good' ? '✓' : 'i'))}</span>
+                <p>${escapeHtml(item.text)}</p>
+            </div>
+        `).join('');
+        bodyEl.innerHTML = `
+            ${toolTopline('mission')}
+            <section class="mission-control-hero is-${escapeAttr(taskTone)}">
+                <div class="mission-control-hero-top">
+                    <span class="mission-control-live ${live.trackerLive ? 'is-live' : ''}">${live.trackerLive ? '● LIVE' : '○ STANDBY'}</span>
+                    <span>${escapeHtml(runtimeStatus)}</span>
+                </div>
+                <h3>${escapeHtml(title)}</h3>
+                <div class="mission-control-story ${storyExpandable ? (state.missionStoryExpanded ? 'is-expanded' : 'is-collapsed') : 'is-static'}">
+                    <p id="missionControlStory">${escapeHtml(storyText)}</p>
+                    ${storyExpandable ? `
+                        <button class="mission-control-story-toggle" type="button" data-action="toggle-mission-story" aria-controls="missionControlStory" aria-expanded="${state.missionStoryExpanded ? 'true' : 'false'}">
+                            <span>${state.missionStoryExpanded ? 'Missionstext einklappen' : 'Gesamten Missionstext lesen'}</span>
+                            <b aria-hidden="true">${state.missionStoryExpanded ? '⌃' : '⌄'}</b>
+                        </button>
+                    ` : ''}
+                </div>
+            </section>
+            <section class="mission-control-order is-${escapeAttr(taskTone)}">
+                <div class="mission-control-section-kicker">AKTUELLER AUFTRAG</div>
+                <div class="mission-control-order-text">${escapeHtml(currentTask)}</div>
+                <div class="mission-control-order-detail">${escapeHtml(runtimeDetail)}</div>
+            </section>
+            <section class="mission-control-card">
+                <div class="mission-control-section-kicker">MISSIONSVERLAUF</div>
+                <div class="mission-control-phase-rail">${phaseHtml}</div>
+            </section>
+            <div class="mission-control-metrics">
+                <div class="mission-control-metric">
+                    <span>ZIEL</span>
+                    <b>${escapeHtml(targetLine)}</b>
+                    <small>${escapeHtml(missionTargetName(data))}</small>
+                </div>
+                <div class="mission-control-metric">
+                    <span>FLUGHÖHE</span>
+                    <b>${escapeHtml(altitudeLine)}</b>
+                    <small>${live.aglFt !== null ? `${live.aglFt.toLocaleString('de-DE')} ft AGL` : (live.gsKts !== null ? `${live.gsKts} kt GS` : 'Live-Daten offen')}</small>
+                </div>
+            </div>
+            ${progressRows.length ? `
+                <section class="mission-control-card">
+                    <div class="mission-control-section-kicker">LIVE-FORTSCHRITT</div>
+                    ${progressRows.join('')}
+                </section>
+            ` : ''}
+            <section class="mission-control-card">
+                <div class="mission-control-section-kicker">BEDINGUNGEN</div>
+                <div class="mission-control-requirements">${requirementHtml}</div>
+            </section>
+            <div class="mission-control-condition-grid">
+                <section class="mission-control-condition is-${escapeAttr(comfortTone)}">
+                    <span>PAX-STIMMUNG</span>
+                    <strong>${comfortScore === null ? '—' : `${comfortScore}%`}</strong>
+                    <b>${escapeHtml(comfort?.mood || (data.passenger ? 'Noch ohne Wertung' : 'Kein Pax an Bord'))}</b>
+                    <small>${comfort ? `${comfort.pilotEvents || 0} Pilot · ${comfort.weatherEvents || 0} Wetter` : (data.passenger?.role || 'Unbegleiteter Auftrag')}</small>
+                </section>
+                <section class="mission-control-condition is-${escapeAttr(cargoTone)}">
+                    <span>LADUNGSZUSTAND</span>
+                    <strong>${cargoCondition === null ? '—' : `${cargoCondition}%`}</strong>
+                    <b>${cargoOutcome ? (cargoHasHardFailure ? 'kritisch' : (Number(cargoOutcome.requiredLoaded || 0) < Number(cargoOutcome.requiredTotal || 0) ? 'noch offen' : 'gesichert')) : 'Keine Ladung'}</b>
+                    <small>${cargoOutcome ? `${cargoOutcome.loadedWeightLbs || 0}/${cargoOutcome.totalWeightLbs || 0} lbs erfasst` : cargoHomeSummary()}</small>
+                </section>
+            </div>
+            <section class="mission-control-card">
+                <div class="mission-control-section-kicker">LAGEBERICHT</div>
+                <div class="mission-control-feedback-list">${feedbackHtml}</div>
+            </section>
+            <div class="mission-control-updated">Stand ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · aktualisiert sich automatisch</div>
+        `;
     }
 
     function cargoManifestSnapshot() {
@@ -1057,7 +1614,7 @@
     }
 
     function openTool(tool, force = false) {
-        const valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest', 'cargo']);
+        const valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest', 'cargo', 'mission']);
         if (!valid.has(tool)) return;
         abortOtherToolRequests(tool);
         state.view = tool;
@@ -3418,6 +3975,9 @@ ${routeLines}`;
             openTool(button.dataset.tool || '', false);
         } else if (action === 'refresh-tool') {
             openTool(button.dataset.tool || state.view, true);
+        } else if (action === 'toggle-mission-story') {
+            state.missionStoryExpanded = !state.missionStoryExpanded;
+            render();
         } else if (action === 'open-list') {
             abortOtherToolRequests('');
             openList();
@@ -3678,6 +4238,7 @@ ${routeLines}`;
             if (state.view === 'place') ensurePlaceTool(false);
             if (state.view === 'nearest') ensureNearestTool(false);
             if (state.view === 'cargo') render();
+            if (state.view === 'mission') render();
         }
     };
 
@@ -3694,7 +4255,7 @@ ${routeLines}`;
     };
 
     window.addEventListener('missioncargochange', () => {
-        if (state.view === 'cargo') render();
+        if (state.view === 'cargo' || state.view === 'mission') render();
     });
     window.addEventListener('missioncargopayloadchange', () => {
         if (state.view === 'cargo') render();
@@ -3706,6 +4267,12 @@ ${routeLines}`;
             if (state.view === 'list' || state.view === 'manager' || state.view === 'home') maybePullCommunity(true);
         }
     });
+    setInterval(() => {
+        if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;
+        const scrollTop = bodyEl.scrollTop;
+        renderMissionTool();
+        bodyEl.scrollTop = scrollTop;
+    }, 1000);
 
     document.addEventListener('DOMContentLoaded', init);
 })();

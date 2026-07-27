@@ -57,6 +57,451 @@ function _missionPoiTaskProgressState() {
     }
 }
 
+function _missionRuntimeViewMissionData() {
+    try {
+        return (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+            ? currentMissionData
+            : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _missionRuntimeViewPassenger(md = _missionRuntimeViewMissionData()) {
+    if (window.activePassenger && typeof window.activePassenger === 'object') return window.activePassenger;
+    if (md?.passenger && typeof md.passenger === 'object') return md.passenger;
+    if (md?.missionContract?.passenger && typeof md.missionContract.passenger === 'object') return md.missionContract.passenger;
+    return null;
+}
+
+function _missionRuntimeViewRouteReturnsHome() {
+    const points = typeof _missionRuntimeRouteWaypoints === 'function'
+        ? _missionRuntimeRouteWaypoints()
+        : null;
+    if (!Array.isArray(points) || points.length < 3) return false;
+    const first = points[0];
+    const last = points[points.length - 1];
+    const firstLat = Number(first?.lat);
+    const firstLon = Number(first?.lng ?? first?.lon);
+    const lastLat = Number(last?.lat);
+    const lastLon = Number(last?.lng ?? last?.lon);
+    if (![firstLat, firstLon, lastLat, lastLon].every(Number.isFinite)) return false;
+    return _haversineNmLocal(firstLat, firstLon, lastLat, lastLon) <= 0.5;
+}
+
+function _missionRuntimeViewSurveySpec(md, passenger) {
+    if (typeof window.missionSurveyPattern?.getActiveSpec === 'function') {
+        try {
+            const spec = window.missionSurveyPattern.getActiveSpec(md, passenger);
+            if (spec && typeof spec === 'object') return spec;
+        } catch (_) {}
+    }
+    return md?.surveyPattern || md?.missionContract?.surveyPattern || null;
+}
+
+function _missionRuntimeViewPoiChainSpec(md, passenger) {
+    if (typeof window.missionPoiChainRuntime?.getActiveSpec === 'function') {
+        try {
+            const spec = window.missionPoiChainRuntime.getActiveSpec(md, passenger);
+            if (spec && typeof spec === 'object') return spec;
+        } catch (_) {}
+    }
+    return md?.poiChain || md?.missionContract?.poiChain || null;
+}
+
+function _missionRuntimeViewWorkProgress({ md, passenger, poiProgress, bush, bushProgress }) {
+    const metrics = [];
+    const strict = !!window.paxVoiceGetDebugState?.().strictMode;
+    const surveySpec = _missionRuntimeViewSurveySpec(md, passenger);
+    const survey = poiProgress?.surveyPattern || null;
+    if (survey && surveySpec) {
+        if (String(surveySpec.type || '').toLowerCase() === 'orbit') {
+            const total = Math.max(1, Math.round(Number(surveySpec.orbit?.requiredTurns || survey.orbit?.requiredTurns || 3)));
+            const completed = Math.max(0, Math.min(total, Math.round(Number(survey.orbit?.completedTurns || 0))));
+            const activeFraction = Math.max(0, Math.min(1, Number(survey.orbit?.activeCoverage || 0)));
+            metrics.push({
+                id: 'survey_orbits',
+                kind: 'count',
+                label: 'Survey-Kreise',
+                completed,
+                total,
+                activePct: Math.round(activeFraction * 100),
+                percent: Math.min(100, ((completed + activeFraction) / total) * 100),
+                satisfied: !!survey.satisfied
+            });
+        } else {
+            const total = Array.isArray(surveySpec.scan?.lines)
+                ? Math.max(1, surveySpec.scan.lines.length)
+                : Math.max(1, Math.round(Number(surveySpec.scan?.lineCount || survey.scan?.totalLines || 1)));
+            const completed = Array.isArray(survey.scan?.completedLineIds)
+                ? survey.scan.completedLineIds.length
+                : Math.max(0, Math.round(Number(survey.scan?.completedCount || 0)));
+            const activeFraction = Math.max(0, Math.min(1, Number(survey.scan?.activeCoverage || 0)));
+            metrics.push({
+                id: 'survey_sectors',
+                kind: 'count',
+                label: 'Mapping-Sektoren',
+                completed: Math.min(total, completed),
+                total,
+                activePct: Math.round(activeFraction * 100),
+                percent: Math.min(100, ((Math.min(total, completed) + activeFraction) / total) * 100),
+                satisfied: !!survey.satisfied
+            });
+        }
+    }
+
+    const chainSpec = _missionRuntimeViewPoiChainSpec(md, passenger);
+    const chain = poiProgress?.poiChain || null;
+    if (chain && chainSpec) {
+        const requiredPoints = Array.isArray(chainSpec.points)
+            ? chainSpec.points.filter(point => point?.required !== false)
+            : [];
+        const total = Math.max(1, requiredPoints.length || Number(chain.totalPoints || 0) || 1);
+        const completed = Array.isArray(chain.completedPointIds)
+            ? chain.completedPointIds.length
+            : Math.max(0, Number(chain.completedCount || 0));
+        metrics.push({
+            id: 'poi_chain_points',
+            kind: 'count',
+            label: 'Inspektionspunkte',
+            completed: Math.min(total, completed),
+            total,
+            activePct: 0,
+            percent: Math.min(100, (completed / total) * 100),
+            satisfied: !!chain.satisfied
+        });
+    }
+
+    const training = poiProgress?.trainingProcedure || null;
+    if (training) {
+        const total = Math.max(1, Math.round(Number(training.requiredCount || training.totalExercises || 1)));
+        const completed = Math.max(0, Math.min(total, Math.round(Number(training.completedCount || 0))));
+        metrics.push({
+            id: 'training_exercises',
+            kind: 'count',
+            label: 'Pflichtübungen',
+            completed,
+            total,
+            activePct: 0,
+            percent: Math.min(100, (completed / total) * 100),
+            satisfied: !!(training.requiredComplete || training.satisfied)
+        });
+    }
+
+    const hasSpecialWorkCounter = metrics.some(metric => [
+        'survey_orbits',
+        'survey_sectors',
+        'poi_chain_points',
+        'training_exercises'
+    ].includes(metric.id));
+    const briefDwellSec = Math.max(0, Number(passenger?.targetDwellMin || 0) * 60);
+    if (!hasSpecialWorkCounter && briefDwellSec > 0) {
+        const requiredSec = briefDwellSec * (strict ? 1 : 0.5);
+        const completedSec = Math.max(0, Number(poiProgress?.dwellSec || 0));
+        metrics.push({
+            id: 'poi_work_time',
+            kind: 'duration',
+            label: 'Zeit im Arbeitsbereich',
+            completedSec,
+            requiredSec,
+            briefRequiredSec: briefDwellSec,
+            percent: requiredSec > 0 ? Math.min(100, (completedSec / requiredSec) * 100) : 100,
+            satisfied: !!poiProgress?.satisfied,
+            strict
+        });
+    }
+
+    const minAreaTimeSec = Math.max(0, Number(bush?.success?.minAreaTimeSec || 0));
+    if (bushProgress && minAreaTimeSec > 0 && !metrics.some(metric => metric.id === 'poi_work_time')) {
+        const completedSec = Math.max(0, Number(bushProgress.areaDwellSec || 0));
+        metrics.push({
+            id: 'bush_area_time',
+            kind: 'duration',
+            label: 'Zeit im Arbeitsbereich',
+            completedSec,
+            requiredSec: minAreaTimeSec,
+            briefRequiredSec: minAreaTimeSec,
+            percent: Math.min(100, (completedSec / minAreaTimeSec) * 100),
+            satisfied: !!bushProgress.areaQualified
+        });
+    }
+
+    const minAreaTrackNm = Math.max(0, Number(bush?.success?.minAreaTrackNm || 0));
+    if (bushProgress && minAreaTrackNm > 0) {
+        const completedNm = Math.max(0, Number(bushProgress.areaTrackNm || 0));
+        metrics.push({
+            id: 'bush_area_track',
+            kind: 'distance',
+            label: 'Strecke im Arbeitsbereich',
+            completedNm,
+            requiredNm: minAreaTrackNm,
+            percent: Math.min(100, (completedNm / minAreaTrackNm) * 100),
+            satisfied: !!bushProgress.areaQualified
+        });
+    }
+    return metrics;
+}
+
+function _missionRuntimeViewStageSet(missionType, requiresReturnHome, bush = null) {
+    if (missionType === 'sar_heli') {
+        return [
+            { id: 'preparation', label: 'Vorbereitung' },
+            { id: 'outbound', label: 'Anflug' },
+            { id: 'search', label: 'Suche' },
+            { id: 'recovery', label: 'Bergung' },
+            { id: 'medical_leg', label: 'Medizinflug' },
+            { id: 'handoff', label: 'Übergabe' },
+            { id: 'complete', label: 'Abschluss' }
+        ];
+    }
+    if (missionType === 'bush_pickup') {
+        return [
+            { id: 'preparation', label: 'Vorbereitung' },
+            { id: 'outbound', label: 'Leerflug' },
+            { id: 'pickup', label: 'Pickup' },
+            { id: 'return_leg', label: 'Rückflug' },
+            { id: 'handoff', label: 'Übergabe' },
+            { id: 'complete', label: 'Abschluss' }
+        ];
+    }
+    if (missionType === 'bush_target') {
+        const completionMode = String(bush?.completionMode || '').toLowerCase();
+        const targetLabel = completionMode === 'unload_at_target'
+            ? 'Entladen'
+            : (completionMode === 'passenger_dropoff' ? 'Aussteigen' : 'Zielstrip');
+        return [
+            { id: 'preparation', label: 'Vorbereitung' },
+            { id: 'outbound', label: 'Hinflug' },
+            { id: 'target', label: targetLabel },
+            { id: 'complete', label: 'Abschluss' }
+        ];
+    }
+    if (missionType === 'apt') {
+        return [
+            { id: 'preparation', label: 'Vorbereitung' },
+            { id: 'enroute', label: 'Reiseflug' },
+            { id: 'arrival', label: 'Ankunft' },
+            { id: 'complete', label: 'Abschluss' }
+        ];
+    }
+    const workLabel = missionType === 'survey'
+        ? 'Mapping'
+        : (missionType === 'poi_chain'
+            ? 'Inspektion'
+            : (missionType === 'training' ? 'Training' : 'Arbeitsbereich'));
+    return [
+        { id: 'preparation', label: 'Vorbereitung' },
+        { id: 'outbound', label: 'Anflug' },
+        { id: 'work', label: workLabel },
+        ...(requiresReturnHome ? [{ id: 'return_leg', label: 'Rückflug' }] : []),
+        { id: 'landing', label: 'Landung' },
+        { id: 'complete', label: 'Abschluss' }
+    ];
+}
+
+function _missionRuntimeViewType({ isPoi, isBush, bush, poiProgress, taskDomain }) {
+    if (typeof window.missionSceneIsSarHeliMission === 'function' && window.missionSceneIsSarHeliMission()) return 'sar_heli';
+    if (isBush && _missionBushIsPickupMission()) return 'bush_pickup';
+    if (isBush && !_missionBushUsesPoiTaskRecipe()) return 'bush_target';
+    if (taskDomain === 'mapping_survey' || poiProgress?.surveyPattern) return 'survey';
+    if (poiProgress?.poiChain) return 'poi_chain';
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain) || poiProgress?.trainingProcedure) return 'training';
+    if (isPoi || (isBush && _missionBushUsesPoiTaskRecipe())) return 'poi';
+    return 'apt';
+}
+
+function _missionRuntimeViewCurrentPhase(context) {
+    const {
+        runtimePhase,
+        missionType,
+        meaningfulFlight,
+        endReady,
+        runtimeGroundEndReady,
+        poiProgress,
+        bushProgress,
+        workEntered,
+        taskResolved,
+        requiresReturnHome,
+        dTargetNm
+    } = context;
+    if (runtimePhase === 'closing') return 'complete';
+    if (!context.active) return 'preparation';
+
+    if (missionType === 'apt') {
+        if (!meaningfulFlight) return 'preparation';
+        const arrivalApproach = runtimeGroundEndReady
+            || runtimePhase === 'end_ready'
+            || (Number.isFinite(dTargetNm) && dTargetNm <= 4.5);
+        return arrivalApproach ? 'arrival' : 'enroute';
+    }
+
+    if (missionType === 'bush_pickup') {
+        const status = String(bushProgress?.status || '').toLowerCase();
+        if (runtimeGroundEndReady || runtimePhase === 'end_ready' || ['home_unloading', 'ready_to_close'].includes(status)) return 'handoff';
+        if (status === 'return_leg' || bushProgress?.pickupConfirmed) return 'return_leg';
+        if (['pickup_ready', 'pickup_loading', 'pickup_complete'].includes(status) || bushProgress?.pickupReady || bushProgress?.pickupCompleted) return 'pickup';
+        return meaningfulFlight ? 'outbound' : 'preparation';
+    }
+
+    if (missionType === 'bush_target') {
+        if (runtimeGroundEndReady || runtimePhase === 'end_ready' || endReady?.atTarget) return 'target';
+        return meaningfulFlight ? 'outbound' : 'preparation';
+    }
+
+    if (missionType === 'sar_heli') {
+        const sar = poiProgress?.sarHeli || null;
+        if (runtimeGroundEndReady || runtimePhase === 'end_ready' || sar?.readyToClose) return 'handoff';
+        if (sar?.patientLoaded) return 'medical_leg';
+        if (sar?.targetConfirmed) return 'recovery';
+        if (sar?.targetAreaEnteredAt || workEntered) return 'search';
+        return meaningfulFlight ? 'outbound' : 'preparation';
+    }
+
+    if (runtimeGroundEndReady || runtimePhase === 'end_ready') return 'landing';
+    if (taskResolved) return requiresReturnHome ? 'return_leg' : 'landing';
+    if (workEntered) return 'work';
+    return meaningfulFlight ? 'outbound' : 'preparation';
+}
+
+function _missionRuntimePhaseViewSnapshot() {
+    const md = _missionRuntimeViewMissionData();
+    const passenger = _missionRuntimeViewPassenger(md);
+    const poiProgress = _missionPoiTaskProgressState();
+    const bush = typeof _activeBushMissionSpec === 'function' ? _activeBushMissionSpec() : null;
+    const bushProgress = typeof _activeBushMissionProgress === 'function' ? _activeBushMissionProgress() : null;
+    const isBush = typeof _missionSceneIsBushMission === 'function' && _missionSceneIsBushMission();
+    const isPoi = typeof _missionSceneIsPoiMission === 'function' && _missionSceneIsPoiMission();
+    const taskDomain = String(
+        passenger?.taskDomain
+        || md?.missionContract?.taskDomain
+        || md?.taskDomain
+        || ''
+    ).trim().toLowerCase();
+    const poiRecipeId = typeof window.missionPoiRecipeId === 'function'
+        ? String(window.missionPoiRecipeId(md) || '').trim().toLowerCase()
+        : '';
+    const bushRecipeId = bush && typeof _bushRecipeIdFromSpec === 'function'
+        ? String(_bushRecipeIdFromSpec(bush) || '').trim().toLowerCase()
+        : '';
+    const routeReturnsHome = _missionRuntimeViewRouteReturnsHome();
+    const requiresReturnHome = !!(
+        bush?.requiresReturnHome
+        || bushRecipeId === 'pickup_return'
+        || bushRecipeId === 'poi_on_task_return'
+        || poiRecipeId === 'poi_on_task_return'
+        || ((isPoi || _missionBushUsesPoiTaskRecipe()) && routeReturnsHome)
+    );
+    const missionType = _missionRuntimeViewType({ isPoi, isBush, bush, poiProgress, taskDomain });
+    const runtimePhase = typeof _missionRuntimePhaseSnapshot === 'function'
+        ? String(_missionRuntimePhaseSnapshot() || 'idle')
+        : (missionRuntime?.active ? 'active' : 'idle');
+    const active = !!missionRuntime?.active;
+    const meaningfulFlight = active && typeof _missionHasReachedEndEligibleFlightPhase === 'function'
+        ? !!_missionHasReachedEndEligibleFlightPhase()
+        : false;
+    const pos = window.lastLiveGpsPos || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    const hasPosition = Number.isFinite(lat) && Number.isFinite(lon);
+    const endReady = hasPosition && typeof _missionEndReadiness === 'function'
+        ? _missionEndReadiness(lat, lon)
+        : null;
+    const runtimeGroundEndReady = active && typeof _missionRuntimeGroundEndReady === 'function'
+        ? !!_missionRuntimeGroundEndReady(endReady)
+        : runtimePhase === 'end_ready';
+    const dTargetNm = hasPosition && typeof _distanceToMissionTargetNm === 'function'
+        ? Number(_distanceToMissionTargetNm(lat, lon))
+        : NaN;
+    const dHomeNm = hasPosition && typeof _distanceToMissionHomeNm === 'function'
+        ? Number(_distanceToMissionHomeNm(lat, lon))
+        : NaN;
+    const targetRadiusNm = Math.max(
+        0,
+        Number(passenger?.targetRadiusNm || bush?.areaRef?.radiusNm || 0)
+    );
+    const surveyStarted = !!poiProgress?.surveyPattern?.startedAt;
+    const chainStarted = !!poiProgress?.poiChain?.startedAt;
+    const trainingStarted = !!(
+        poiProgress?.trainingProcedure?.startedAt
+        || poiProgress?.trainingProcedure?.ready
+        || poiProgress?.trainingProcedure?.activeExercise
+    );
+    const bushOnTask = String(bushProgress?.status || '').toLowerCase() === 'on_task';
+    const workEntered = !!(
+        surveyStarted
+        || chainStarted
+        || trainingStarted
+        || bushOnTask
+        || poiProgress?.sarHeli?.targetAreaEnteredAt
+        || (meaningfulFlight && targetRadiusNm > 0 && Number.isFinite(dTargetNm) && dTargetNm <= targetRadiusNm)
+    );
+    const taskSatisfied = !!(
+        poiProgress?.satisfied
+        || bushProgress?.areaQualified
+        || bushProgress?.pickupCompleted
+    );
+    const taskAborted = !!poiProgress?.aborted;
+    const taskResolved = taskSatisfied || taskAborted;
+    const stages = _missionRuntimeViewStageSet(missionType, requiresReturnHome, bush);
+    const currentPhase = _missionRuntimeViewCurrentPhase({
+        active,
+        runtimePhase,
+        missionType,
+        meaningfulFlight,
+        endReady,
+        runtimeGroundEndReady,
+        poiProgress,
+        bushProgress,
+        workEntered,
+        taskResolved,
+        requiresReturnHome,
+        dTargetNm
+    });
+    const currentIndex = Math.max(0, stages.findIndex(stage => stage.id === currentPhase));
+    const poiStatus = active && isPoi && typeof _missionPoiRuntimeStatus === 'function'
+        ? _missionPoiRuntimeStatus(endReady)
+        : null;
+    return {
+        schema: 'ga.missionPhaseView.v1',
+        source: 'mission-runtime-core',
+        missionId: typeof _activeMissionRuntimeId === 'function' ? _activeMissionRuntimeId('') : '',
+        runtimePhase,
+        domainPhase: String(
+            bushProgress?.status
+            || poiStatus?.stage
+            || currentPhase
+        ),
+        missionType,
+        taskDomain,
+        recipeId: bushRecipeId || poiRecipeId || (missionType === 'apt' ? 'apt_arrival' : 'poi_on_task'),
+        active,
+        requiresReturnHome,
+        routeReturnsHome,
+        currentPhase,
+        currentIndex,
+        stages,
+        nextStep: String(poiStatus?.nextStep || '').replace(/^Nächster Schritt:\s*/i, ''),
+        flags: {
+            meaningfulFlight,
+            workEntered,
+            taskSatisfied,
+            taskAborted,
+            taskResolved,
+            atTarget: !!endReady?.atTarget,
+            atHome: Number.isFinite(dHomeNm) && dHomeNm <= 0.35,
+            groundStill: !!endReady?.groundStill,
+            endReady: runtimeGroundEndReady || runtimePhase === 'end_ready'
+        },
+        distances: {
+            targetNm: Number.isFinite(dTargetNm) ? dTargetNm : null,
+            homeNm: Number.isFinite(dHomeNm) ? dHomeNm : null,
+            arrivalNm: Number.isFinite(Number(endReady?.dArrivalNm)) ? Number(endReady.dArrivalNm) : null
+        },
+        workProgress: _missionRuntimeViewWorkProgress({ md, passenger, poiProgress, bush, bushProgress })
+    };
+}
+window.missionRuntimeGetPhaseSnapshot = _missionRuntimePhaseViewSnapshot;
+
 function _missionBushPickupItem(manifest = _missionCargoEnsureManifest()) {
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
     return items.find(item => item && item.pickupLocation === 'target') || null;

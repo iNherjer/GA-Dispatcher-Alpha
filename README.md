@@ -274,11 +274,13 @@ Zeichen- und Planungstools:
 - Stoppuhr mit Timer, UTC und Lokalzeit.
 - VFR-Rechner mit Formel-Spickzettel fuer Navigation, Fuel, Sinkflug, Wind, Performance und Einheiten.
 - Seitendrawer mit Checklisten und Kartenwerkzeugen.
+- **Mission Control** im Seitendrawer zeigt waehrend eines Auftrags die aktuelle Aufgabe, Missionsphasen, Zielentfernung, Arbeitshoehe, Arbeitszeit bzw. Mapping-/Kettenfortschritt, Pflichtbedingungen, Pax-Stimmung, Ladungszustand und konkrete Abweichungshinweise.
 
 Tipps:
 
 - Fuer schnelle VFR-Notizen Stift + Messwerkzeug nutzen, statt die Hauptflugroute zu verbiegen.
 - Die Formelhilfe im Rechner ist besonders nuetzlich fuer Windkorrektur, Sinkflug und Fuel-Reserve.
+- Mission Control liest den vorhandenen Missionszustand; massgeblich fuer den Ablauf bleiben die Missionstrigger, das Manifest und der Live-Tracker.
 
 ### Layer, Wetter und Live-Hinweise
 

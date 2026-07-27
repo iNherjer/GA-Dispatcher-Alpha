@@ -3857,6 +3857,530 @@ body.theme-retro .api-fuel-meter .api-scale {
     background: var(--drawer-row-bg);
 }
 
+.mission-tool-home-tile {
+    border-color: color-mix(in srgb, var(--drawer-accent) 52%, var(--drawer-border-soft));
+    background:
+        linear-gradient(120deg, color-mix(in srgb, var(--drawer-accent) 16%, transparent), transparent 62%),
+        var(--drawer-surface-strong);
+}
+
+.mission-tool-home-tile .checklist-tool-icon {
+    background: color-mix(in srgb, var(--drawer-accent) 30%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--drawer-accent) 20%, transparent);
+}
+
+.mission-control-hero,
+.mission-control-order,
+.mission-control-card,
+.mission-control-metric,
+.mission-control-condition,
+.mission-control-empty {
+    border: 1px solid var(--drawer-border-soft);
+    border-radius: 10px;
+    background: var(--drawer-surface);
+    box-sizing: border-box;
+}
+
+.mission-control-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 14px;
+    margin-bottom: 10px;
+    background:
+        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--drawer-accent) 28%, transparent), transparent 52%),
+        linear-gradient(145deg, color-mix(in srgb, var(--drawer-surface-strong) 90%, #07111b), var(--drawer-surface));
+}
+
+.mission-control-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--drawer-accent);
+}
+
+.mission-control-hero.is-good::before {
+    background: var(--drawer-good);
+}
+
+.mission-control-hero.is-danger::before {
+    background: var(--drawer-danger);
+}
+
+.mission-control-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--drawer-muted);
+    font-family: var(--drawer-font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.mission-control-live {
+    color: var(--drawer-muted);
+}
+
+.mission-control-live.is-live {
+    color: var(--drawer-good);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--drawer-good) 58%, transparent);
+}
+
+.mission-control-hero h3 {
+    position: relative;
+    margin: 12px 0 7px;
+    color: var(--drawer-heading);
+    font-size: 20px;
+    line-height: 1.15;
+}
+
+.mission-control-hero p {
+    position: relative;
+    margin: 0;
+    color: var(--drawer-text);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.mission-control-story {
+    position: relative;
+}
+
+.mission-control-story.is-collapsed p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+}
+
+.mission-control-story-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 10px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--drawer-accent);
+    font-family: var(--drawer-font-mono);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.mission-control-story-toggle:hover,
+.mission-control-story-toggle:focus-visible {
+    color: var(--drawer-heading);
+}
+
+.mission-control-story-toggle:focus-visible {
+    outline: 1px solid var(--drawer-accent);
+    outline-offset: 4px;
+    border-radius: 2px;
+}
+
+.mission-control-story-toggle b {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.mission-control-order {
+    padding: 13px 14px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--drawer-accent);
+    background: color-mix(in srgb, var(--drawer-accent) 10%, var(--drawer-surface));
+}
+
+.mission-control-order.is-good {
+    border-left-color: var(--drawer-good);
+}
+
+.mission-control-order.is-danger {
+    border-left-color: var(--drawer-danger);
+    background: color-mix(in srgb, var(--drawer-danger) 9%, var(--drawer-surface));
+}
+
+.mission-control-section-kicker {
+    margin-bottom: 8px;
+    color: var(--drawer-accent);
+    font-family: var(--drawer-font-mono);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.mission-control-order-text {
+    color: var(--drawer-heading);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.mission-control-order-detail {
+    margin-top: 7px;
+    color: var(--drawer-muted);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.mission-control-card {
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.mission-control-phase-rail {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+}
+
+.mission-control-phase {
+    position: relative;
+    flex: 1 0 68px;
+    min-width: 68px;
+    padding-top: 26px;
+    color: var(--drawer-muted);
+    text-align: center;
+}
+
+.mission-control-phase::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    background: var(--drawer-border-soft);
+}
+
+.mission-control-phase:first-child::before {
+    display: none;
+}
+
+.mission-control-phase > span {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: calc(50% - 11px);
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--drawer-border-soft);
+    border-radius: 999px;
+    background: var(--drawer-row-bg);
+    color: var(--drawer-muted);
+    font-family: var(--drawer-font-mono);
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.mission-control-phase b {
+    display: block;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.mission-control-phase.is-done::before,
+.mission-control-phase.is-current::before {
+    background: color-mix(in srgb, var(--drawer-good) 55%, var(--drawer-border-soft));
+}
+
+.mission-control-phase.is-done > span {
+    border-color: color-mix(in srgb, var(--drawer-good) 70%, transparent);
+    background: color-mix(in srgb, var(--drawer-good) 24%, var(--drawer-row-bg));
+    color: var(--drawer-good);
+}
+
+.mission-control-phase.is-current > span {
+    border-color: var(--drawer-accent);
+    background: color-mix(in srgb, var(--drawer-accent) 34%, var(--drawer-row-bg));
+    color: var(--drawer-heading);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--drawer-accent) 35%, transparent);
+}
+
+.mission-control-phase.is-current b {
+    color: var(--drawer-heading);
+}
+
+.mission-control-metrics,
+.mission-control-condition-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mission-control-metric {
+    min-width: 0;
+    padding: 11px;
+}
+
+.mission-control-metric > span,
+.mission-control-condition > span {
+    display: block;
+    color: var(--drawer-muted);
+    font-family: var(--drawer-font-mono);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.07em;
+}
+
+.mission-control-metric > b {
+    display: block;
+    margin-top: 6px;
+    color: var(--drawer-heading);
+    font-size: 15px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+
+.mission-control-metric > small,
+.mission-control-condition > small {
+    display: block;
+    margin-top: 5px;
+    color: var(--drawer-muted);
+    font-size: 10px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.mission-control-progress-row + .mission-control-progress-row {
+    margin-top: 12px;
+}
+
+.mission-control-progress-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--drawer-text);
+    font-size: 11px;
+}
+
+.mission-control-progress-head b {
+    color: var(--drawer-heading);
+    font-family: var(--drawer-font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.mission-control-progress-track {
+    height: 7px;
+    margin-top: 6px;
+    overflow: hidden;
+    border: 1px solid var(--drawer-border-soft);
+    border-radius: 999px;
+    background: var(--drawer-row-bg);
+}
+
+.mission-control-progress-track > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--drawer-accent) 65%, #fff), var(--drawer-accent));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--drawer-accent) 38%, transparent);
+    transition: width 240ms ease;
+}
+
+.mission-control-progress-track.is-good > span {
+    background: var(--drawer-good);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--drawer-good) 42%, transparent);
+}
+
+.mission-control-progress-track.is-danger > span {
+    background: var(--drawer-danger);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--drawer-danger) 42%, transparent);
+}
+
+.mission-control-requirements {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mission-control-requirement {
+    display: grid;
+    grid-template-columns: minmax(84px, 0.42fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--drawer-border-soft);
+}
+
+.mission-control-requirement:last-child {
+    border-bottom: 0;
+    padding-bottom: 1px;
+}
+
+.mission-control-requirement > span {
+    color: var(--drawer-muted);
+    font-size: 10px;
+}
+
+.mission-control-requirement > b {
+    color: var(--drawer-heading);
+    font-size: 11px;
+    line-height: 1.3;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.mission-control-requirement.is-good > b {
+    color: var(--drawer-good);
+}
+
+.mission-control-requirement.is-warn > b {
+    color: var(--drawer-warn);
+}
+
+.mission-control-requirement.is-danger > b {
+    color: var(--drawer-danger);
+}
+
+.mission-control-condition {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    padding: 11px;
+}
+
+.mission-control-condition::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+    background: var(--drawer-border-soft);
+}
+
+.mission-control-condition.is-good::before {
+    background: var(--drawer-good);
+}
+
+.mission-control-condition.is-warn::before {
+    background: var(--drawer-warn);
+}
+
+.mission-control-condition.is-danger::before {
+    background: var(--drawer-danger);
+}
+
+.mission-control-condition > strong {
+    display: block;
+    margin-top: 7px;
+    color: var(--drawer-heading);
+    font-family: var(--drawer-font-mono);
+    font-size: 25px;
+    line-height: 1;
+}
+
+.mission-control-condition > b {
+    display: block;
+    margin-top: 5px;
+    color: var(--drawer-text);
+    font-size: 11px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.mission-control-feedback-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.mission-control-feedback {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 9px;
+    border: 1px solid var(--drawer-border-soft);
+    border-radius: 8px;
+    background: var(--drawer-row-bg);
+}
+
+.mission-control-feedback > span {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--drawer-accent) 18%, transparent);
+    color: var(--drawer-accent);
+    font-family: var(--drawer-font-mono);
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.mission-control-feedback p {
+    margin: 1px 0 0;
+    color: var(--drawer-text);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.mission-control-feedback.is-good > span {
+    background: color-mix(in srgb, var(--drawer-good) 18%, transparent);
+    color: var(--drawer-good);
+}
+
+.mission-control-feedback.is-warn > span {
+    background: color-mix(in srgb, var(--drawer-warn) 18%, transparent);
+    color: var(--drawer-warn);
+}
+
+.mission-control-feedback.is-danger > span {
+    background: color-mix(in srgb, var(--drawer-danger) 18%, transparent);
+    color: var(--drawer-danger);
+}
+
+.mission-control-updated {
+    padding: 2px 2px 4px;
+    color: var(--drawer-muted);
+    font-family: var(--drawer-font-mono);
+    font-size: 9px;
+    text-align: center;
+}
+
+.mission-control-empty {
+    padding: 28px 18px;
+    color: var(--drawer-muted);
+    text-align: center;
+}
+
+.mission-control-empty > span {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 34px;
+}
+
+.mission-control-empty > b {
+    display: block;
+    color: var(--drawer-heading);
+    font-size: 18px;
+}
+
+.mission-control-empty > p {
+    margin: 9px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .cargo-health-row {
     display: flex;
     justify-content: space-between;
@@ -4933,6 +5457,10 @@ body.theme-ops1940 .route-weather-source {
 
     .route-tool-place-visual {
         grid-template-columns: 1fr;
+    }
+
+    .mission-control-order-text {
+        font-size: 17px;
     }
 
     .route-tool-context {
