@@ -39378,7 +39378,7 @@ async function fetchRouteAirspaces(routePts) {
         let page = 1;
         let totalPages = 1;
         while (page <= totalPages && page <= 5) {
-            const url = `https://ga-proxy.einherjer.workers.dev/api/airspaces?bbox=${minLon},${minLat},${maxLon},${maxLat}&limit=200&page=${page}`;
+            const url = `https://ga-proxy.einherjer.workers.dev/api/airspaces?bbox=${minLon},${minLat},${maxLon},${maxLat}&limit=250&page=${page}&fields=_id,name,type,icaoClass,lowerLimit,upperLimit,geometry,frequencies`;
             const res = await fetch(url);
             if (!res.ok) throw new Error('API Error');
             const data = await res.json();
