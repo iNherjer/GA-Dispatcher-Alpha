@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseFlightCaseBlack" guid="{9E48962E-35A2-4FD6-B0FE-E14B687D2F20}">
+  <LODS>
+    <LOD ModelFile="HomebaseFlightCaseBlack_LOD00.gltf" MinSize="0.0000"/>
+  </LODS>
+</ModelInfo>

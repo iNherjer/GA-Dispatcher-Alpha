@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="MissionMedicalBackpackCargo" guid="{40F1CF07-4A2E-45DA-A887-15D7784C4E37}">
+  <LODS>
+    <LOD minSize="0" ModelFile="MissionMedicalBackpackCargo_LOD00.gltf"/>
+  </LODS>
+</ModelInfo>

@@ -1,0 +1,557 @@
+{
+  "asset": {
+    "generator": "VFR Multitool flightCaseBlack raw glTF exporter",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "FlightCaseBlackPanels"
+    },
+    {
+      "mesh": 1,
+      "name": "FlightCaseBlackAluminiumFrame"
+    },
+    {
+      "mesh": 2,
+      "name": "FlightCaseBlackHardware"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "HomebaseFlightCaseBlackPrimaryShell",
+      "normalTexture": {
+        "index": 0,
+        "scale": 0.11999999731779099
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.46000000834465027
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "HomebaseFlightCaseBlackBrushedAluminium",
+      "normalTexture": {
+        "index": 2,
+        "scale": 0.20000000298023224
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 3
+        },
+        "metallicFactor": 0.8600000143051147,
+        "roughnessFactor": 0.23999999463558197
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "HomebaseFlightCaseBlackDarkHardware",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.03500000014901161,
+          0.03999999910593033,
+          0.04699999839067459,
+          1
+        ],
+        "metallicFactor": 0.5199999809265137,
+        "roughnessFactor": 0.30000001192092896
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "HomebaseFlightCaseBlackGripRubber",
+      "normalTexture": {
+        "index": 4,
+        "scale": 0.41999998688697815
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 5
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.7799999713897705
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "FlightCaseBlackPanelsMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "FlightCaseBlackAluminiumFrameMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "FlightCaseBlackHardwareMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10,
+            "TEXCOORD_1": 11
+          },
+          "indices": 12,
+          "material": 2
+        },
+        {
+          "attributes": {
+            "POSITION": 13,
+            "NORMAL": 14,
+            "TEXCOORD_0": 15,
+            "TEXCOORD_1": 16
+          },
+          "indices": 17,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 18,
+            "NORMAL": 19,
+            "TEXCOORD_0": 20,
+            "TEXCOORD_1": 21
+          },
+          "indices": 22,
+          "material": 3
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Primary_Normal",
+      "uri": "textures/HomebaseFlightCaseBlack_Primary_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Primary_BaseColor",
+      "uri": "textures/HomebaseFlightCaseBlack_Primary_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Metal_Normal",
+      "uri": "textures/HomebaseFlightCaseBlack_Metal_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Metal_BaseColor",
+      "uri": "textures/HomebaseFlightCaseBlack_Metal_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Rubber_Normal",
+      "uri": "textures/HomebaseFlightCaseBlack_Rubber_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFlightCaseBlack_Rubber_BaseColor",
+      "uri": "textures/HomebaseFlightCaseBlack_Rubber_BaseColor.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 2304,
+      "max": [
+        0.31700000166893005,
+        0.5160000324249268,
+        0.2369999885559082
+      ],
+      "min": [
+        -0.31700000166893005,
+        0.011000007390975952,
+        -0.2370000034570694
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2304,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 2304,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 3384,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 7976,
+      "max": [
+        0.33299997448921204,
+        0.5399999618530273,
+        0.25200000405311584
+      ],
+      "min": [
+        -0.33299997448921204,
+        0,
+        -0.25200000405311584
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 7976,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 7976,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 17664,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 1200,
+      "max": [
+        0.3370000123977661,
+        0.39250001311302185,
+        0.2770000100135803
+      ],
+      "min": [
+        -0.21400000154972076,
+        0.20499998331069946,
+        -0.0924999862909317
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 1200,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 1200,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 1200,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5123,
+      "count": 2052,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 3382,
+      "max": [
+        0.3449999988079071,
+        0.5041999816894531,
+        0.2749338448047638
+      ],
+      "min": [
+        -0.3309999704360962,
+        0.025799989700317383,
+        -0.08749999105930328
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 3382,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5126,
+      "count": 3382,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 3382,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5123,
+      "count": 6912,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 1635,
+      "max": [
+        0.39419040083885193,
+        0.30038970708847046,
+        0.20750001072883606
+      ],
+      "min": [
+        -0.2874999940395355,
+        0,
+        -0.20750002562999725
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5126,
+      "count": 1635,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5126,
+      "count": 1635,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 1635,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5123,
+      "count": 2736,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 27648,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27648,
+      "byteOffset": 27648,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18432,
+      "byteOffset": 55296,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 6768,
+      "byteOffset": 73728,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 95712,
+      "byteOffset": 80496,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 95712,
+      "byteOffset": 176208,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 63808,
+      "byteOffset": 271920,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 35328,
+      "byteOffset": 335728,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14400,
+      "byteOffset": 371056,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14400,
+      "byteOffset": 385456,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9600,
+      "byteOffset": 399856,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9600,
+      "byteOffset": 409456,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4104,
+      "byteOffset": 419056,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 40584,
+      "byteOffset": 423160,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 40584,
+      "byteOffset": 463744,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27056,
+      "byteOffset": 504328,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27056,
+      "byteOffset": 531384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13824,
+      "byteOffset": 558440,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19620,
+      "byteOffset": 572264,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19620,
+      "byteOffset": 591884,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13080,
+      "byteOffset": 611504,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13080,
+      "byteOffset": 624584,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5472,
+      "byteOffset": 637664,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 643136,
+      "uri": "HomebaseFlightCaseBlack_LOD00.bin"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="MissionCameraEquipmentCargo" guid="{56B67E02-1AB0-4BEF-AC3B-9AEA62348A9A}">
+  <LODS>
+    <LOD ModelFile="MissionCameraEquipmentCargo_LOD00.gltf" MinSize="0.0000"/>
+  </LODS>
+</ModelInfo>

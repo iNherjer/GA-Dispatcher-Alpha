@@ -1,0 +1,926 @@
+{
+  "asset": {
+    "generator": "VFR medicalBackpackCargo raw glTF exporter; source asset-tools/create-medical-backpack-cargo.py",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "MedicalBackpackSoftBody"
+    },
+    {
+      "mesh": 1,
+      "name": "MedicalBackpackPouches"
+    },
+    {
+      "mesh": 2,
+      "name": "MedicalBackpackHardware"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoRedWovenFabric",
+      "normalTexture": {
+        "index": 0,
+        "scale": 0.3799999952316284
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6399999856948853
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoBlackWovenFabric",
+      "normalTexture": {
+        "index": 2,
+        "scale": 0.41999998688697815
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 3
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.7200000286102295
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoFrontGraphicFabric",
+      "normalTexture": {
+        "index": 4,
+        "scale": 0.3400000035762787
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 5
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.49000000953674316
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoSideGraphicFabric",
+      "normalTexture": {
+        "index": 6,
+        "scale": 0.3400000035762787
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 7
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.5
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoFluorescentPiping",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.699999988079071,
+          0.949999988079071,
+          0.02500000037252903,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.4300000071525574
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoZipperHardware",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.4300000071525574,
+          0.49000000953674316,
+          0.550000011920929,
+          1
+        ],
+        "metallicFactor": 0.7799999713897705,
+        "roughnessFactor": 0.23999999463558197
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoHandleRubber",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.07500000298023224,
+          0.08500000089406967,
+          0.0949999988079071,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.7599999904632568
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "MissionMedicalBackpackCargoRedWebbing",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.44999998807907104,
+          0.014999999664723873,
+          0.019999999552965164,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8399999737739563
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "W\u00fcrfel",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "W\u00fcrfel.003",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3
+        }
+      ]
+    },
+    {
+      "name": "MedicalBackpackMainFluorescentPipingCurve",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18,
+            "TEXCOORD_1": 19
+          },
+          "indices": 20,
+          "material": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 21,
+            "NORMAL": 22,
+            "TEXCOORD_0": 23,
+            "TEXCOORD_1": 24
+          },
+          "indices": 25,
+          "material": 5
+        },
+        {
+          "attributes": {
+            "POSITION": 26,
+            "NORMAL": 27,
+            "TEXCOORD_0": 28,
+            "TEXCOORD_1": 29
+          },
+          "indices": 30,
+          "material": 6
+        },
+        {
+          "attributes": {
+            "POSITION": 31,
+            "NORMAL": 32,
+            "TEXCOORD_0": 33,
+            "TEXCOORD_1": 34
+          },
+          "indices": 35,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 36,
+            "NORMAL": 37,
+            "TEXCOORD_0": 38,
+            "TEXCOORD_1": 39
+          },
+          "indices": 40,
+          "material": 7
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 6
+    },
+    {
+      "sampler": 0,
+      "source": 7
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_RedFabric_Normal",
+      "uri": "textures/MissionMedicalBackpackCargo_RedFabric_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_RedFabric_BaseColor",
+      "uri": "textures/MissionMedicalBackpackCargo_RedFabric_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_BlackFabric_Normal",
+      "uri": "textures/MissionMedicalBackpackCargo_BlackFabric_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_BlackFabric_BaseColor",
+      "uri": "textures/MissionMedicalBackpackCargo_BlackFabric_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_FrontGraphicFabric_Normal",
+      "uri": "textures/MissionMedicalBackpackCargo_FrontGraphicFabric_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_FrontGraphicFabric_BaseColor",
+      "uri": "textures/MissionMedicalBackpackCargo_FrontGraphicFabric_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_SideGraphicFabric_Normal",
+      "uri": "textures/MissionMedicalBackpackCargo_SideGraphicFabric_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionMedicalBackpackCargo_SideGraphicFabric_BaseColor",
+      "uri": "textures/MissionMedicalBackpackCargo_SideGraphicFabric_BaseColor.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 894,
+      "max": [
+        0.20507611334323883,
+        0.6169977188110352,
+        0.10215916484594345
+      ],
+      "min": [
+        -0.20507611334323883,
+        0.004009813070297241,
+        -0.125078022480011
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 894,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 894,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 3588,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 1796,
+      "max": [
+        0.2136005461215973,
+        0.5119866132736206,
+        0.10678993165493011
+      ],
+      "min": [
+        -0.2136005461215973,
+        0,
+        -0.15040461719036102
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 1796,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 1796,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 7176,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 892,
+      "max": [
+        0.19038859009742737,
+        0.4194958508014679,
+        0.19408464431762695
+      ],
+      "min": [
+        -0.166388601064682,
+        0.061514779925346375,
+        0.07812376320362091
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 892,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 892,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 3588,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 1774,
+      "max": [
+        0.272335022687912,
+        0.3626005947589874,
+        0.09162366390228271
+      ],
+      "min": [
+        -0.2726341784000397,
+        0.08845792710781097,
+        -0.09646663069725037
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 1774,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 1774,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 7176,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 1683,
+      "max": [
+        0.20373769104480743,
+        0.7155357599258423,
+        0.19100713729858398
+      ],
+      "min": [
+        -0.20374801754951477,
+        0.08986273407936096,
+        -0.020503293722867966
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 1683,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 1683,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5126,
+      "count": 1683,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5123,
+      "count": 9000,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 9266,
+      "max": [
+        0.2715926468372345,
+        0.6184979677200317,
+        0.1905779391527176
+      ],
+      "min": [
+        -0.2716485261917114,
+        0.0902438759803772,
+        0.0673207938671112
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 9266,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5126,
+      "count": 9266,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5126,
+      "count": 9266,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 25,
+      "componentType": 5123,
+      "count": 20316,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 26,
+      "componentType": 5126,
+      "count": 885,
+      "max": [
+        0.07498113065958023,
+        0.7149972915649414,
+        0.014643178321421146
+      ],
+      "min": [
+        -0.07898112386465073,
+        0.6800087690353394,
+        -0.02532016485929489
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 27,
+      "componentType": 5126,
+      "count": 885,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 28,
+      "componentType": 5126,
+      "count": 885,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 29,
+      "componentType": 5126,
+      "count": 885,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 30,
+      "componentType": 5123,
+      "count": 3588,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 31,
+      "componentType": 5126,
+      "count": 154,
+      "max": [
+        0.17180046439170837,
+        0.5542283058166504,
+        -0.11533325910568237
+      ],
+      "min": [
+        -0.17180044949054718,
+        0.0821102038025856,
+        -0.1802748292684555
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 32,
+      "componentType": 5126,
+      "count": 154,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 33,
+      "componentType": 5126,
+      "count": 154,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 34,
+      "componentType": 5126,
+      "count": 154,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 35,
+      "componentType": 5123,
+      "count": 720,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 36,
+      "componentType": 5126,
+      "count": 1536,
+      "max": [
+        0.28200000524520874,
+        0.305497944355011,
+        0.0925000011920929
+      ],
+      "min": [
+        -0.28200000524520874,
+        0.17549796402454376,
+        -0.0925000011920929
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 37,
+      "componentType": 5126,
+      "count": 1536,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 38,
+      "componentType": 5126,
+      "count": 1536,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 39,
+      "componentType": 5126,
+      "count": 1536,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 40,
+      "componentType": 5123,
+      "count": 2256,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 10728,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10728,
+      "byteOffset": 10728,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7152,
+      "byteOffset": 21456,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7176,
+      "byteOffset": 28608,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 21552,
+      "byteOffset": 35784,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 21552,
+      "byteOffset": 57336,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14368,
+      "byteOffset": 78888,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14352,
+      "byteOffset": 93256,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10704,
+      "byteOffset": 107608,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10704,
+      "byteOffset": 118312,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7136,
+      "byteOffset": 129016,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7176,
+      "byteOffset": 136152,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 21288,
+      "byteOffset": 143328,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 21288,
+      "byteOffset": 164616,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14192,
+      "byteOffset": 185904,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14352,
+      "byteOffset": 200096,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 20196,
+      "byteOffset": 214448,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 20196,
+      "byteOffset": 234644,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13464,
+      "byteOffset": 254840,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13464,
+      "byteOffset": 268304,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18000,
+      "byteOffset": 281768,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 111192,
+      "byteOffset": 299768,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 111192,
+      "byteOffset": 410960,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 74128,
+      "byteOffset": 522152,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 74128,
+      "byteOffset": 596280,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 40632,
+      "byteOffset": 670408,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10620,
+      "byteOffset": 711040,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10620,
+      "byteOffset": 721660,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7080,
+      "byteOffset": 732280,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7080,
+      "byteOffset": 739360,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7176,
+      "byteOffset": 746440,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1848,
+      "byteOffset": 753616,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1848,
+      "byteOffset": 755464,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1232,
+      "byteOffset": 757312,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1232,
+      "byteOffset": 758544,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1440,
+      "byteOffset": 759776,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18432,
+      "byteOffset": 761216,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18432,
+      "byteOffset": 779648,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12288,
+      "byteOffset": 798080,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12288,
+      "byteOffset": 810368,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4512,
+      "byteOffset": 822656,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 827168,
+      "uri": "MissionMedicalBackpackCargo_LOD00.bin"
+    }
+  ]
+}

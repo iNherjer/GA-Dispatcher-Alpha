@@ -1,0 +1,609 @@
+{
+  "asset": {
+    "generator": "VFR petCarrierCargo raw glTF exporter; source asset-tools/create-pet-carrier-cargo.py",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "extras": {
+        "homebase_status": "ROHMODELL; Publisher raw source prepared; no SDK build or install",
+        "homebase_asset_key": "petCarrierCargo",
+        "homebase_simobject_folder": "VFRMissionPetCarrierCargo",
+        "homebase_title": "VFR Multitool Mission Pet Carrier Cargo",
+        "homebase_asset_version": "1.0.0",
+        "homebase_catalog_group": "Missionsfracht",
+        "homebase_master_source": "C:\\RohDaten\\VFR-Multitool-Homebase-Asset-Publisher\\asset-library\\VFRMissionPetCarrierCargo\\editable-source\\MissionPetCarrierCargo.blend",
+        "homebase_publisher_handoff": "C:\\Users\\einhe\\Desktop\\VFR-Multitool-Homebase-Prototype-v0.2.1\\VFR-Multitool-Homebase-Prototype-v0.2.1\\Quellen\\VFRMissionPetCarrierCargo",
+        "homebase_placeable": false,
+        "workbench_visible": false,
+        "mission_spawnable": true,
+        "mission_tags": "cargo,animal,pet,carrier,transport,equipment",
+        "mission_roles": "cargo",
+        "animation_contract": "none; static closed pet-carrier cargo",
+        "origin_contract": "centered on footprint with origin at ground",
+        "grid_contract": "all door and roof rods terminate on their mathematically shared rounded frame centerlines",
+        "contact_contract": "all bars frames latches handle feet and shell parts overlap their supports; no floating parts",
+        "reference_image": "C:\\Users\\einhe\\Desktop\\dehner-tiertransportbox-hunde-transportbox-katzen-transportbox-robbi-35-x-37-x-57-cm-komfortabler-transport-fur-haustiere.jpg",
+        "dimensions_m": "approximately 0.36 x 0.58 x 0.48 including handle"
+      },
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "extras": {
+        "homebase_function": "static grounded pet carrier with fitted front and roof grids",
+        "homebase_no_floating_parts": true,
+        "homebase_material_groups": "MissionPetCarrierCargoDarkMouldedPlastic,MissionPetCarrierCargoCreamMouldedPlastic,MissionPetCarrierCargoRecessedInterior,MissionPetCarrierCargoPowderCoatedSteel,MissionPetCarrierCargoLatchPlastic",
+        "homebase_grounded": true,
+        "homebase_door_vertical_bar_count": 7,
+        "homebase_door_horizontal_bar_count": 7,
+        "homebase_top_longitudinal_bar_count": 9,
+        "homebase_top_cross_bar_count": 7,
+        "homebase_grid_endpoint_contract": "all rod centerlines terminate exactly on shared rounded-frame centerlines",
+        "homebase_grid_rods_smaller_than_frames": true,
+        "homebase_door_grid_contract_json": "[{\"axis\":\"vertical\",\"fixed\":-0.108,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":-0.072,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":-0.036,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":0.0,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":0.036,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":0.072,\"extent\":0.145},{\"axis\":\"vertical\",\"fixed\":0.108,\"extent\":0.145},{\"axis\":\"horizontal\",\"fixed\":-0.112,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":-0.075,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":-0.038,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":0.0,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":0.038,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":0.075,\"extent\":0.142},{\"axis\":\"horizontal\",\"fixed\":0.112,\"extent\":0.142}]",
+        "homebase_top_grid_contract_json": "[{\"axis\":\"longitudinal\",\"fixed\":-0.088,\"extent\":0.16497999199359362},{\"axis\":\"longitudinal\",\"fixed\":-0.066,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":-0.044,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":-0.022,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":0.0,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":0.022,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":0.044,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":0.066,\"extent\":0.165},{\"axis\":\"longitudinal\",\"fixed\":0.088,\"extent\":0.16497999199359362},{\"axis\":\"cross\",\"fixed\":-0.13,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":-0.087,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":-0.043,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":0.0,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":0.043,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":0.087,\"extent\":0.112},{\"axis\":\"cross\",\"fixed\":0.13,\"extent\":0.112}]",
+        "homebase_contact_verified": true
+      },
+      "mesh": 0,
+      "name": "PetCarrierCargo"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_material_role": "MissionPetCarrierCargoDarkMouldedPlastic",
+        "homebase_pbr_textured": true
+      },
+      "name": "MissionPetCarrierCargoDarkMouldedPlastic",
+      "normalTexture": {
+        "index": 0,
+        "scale": 0.3400000035762787
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6800000071525574
+      }
+    },
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_material_role": "MissionPetCarrierCargoCreamMouldedPlastic",
+        "homebase_pbr_textured": true
+      },
+      "name": "MissionPetCarrierCargoCreamMouldedPlastic",
+      "normalTexture": {
+        "index": 2,
+        "scale": 0.30000001192092896
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 3
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.5199999809265137
+      }
+    },
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_material_role": "MissionPetCarrierCargoRecessedInterior",
+        "homebase_pbr_textured": false
+      },
+      "name": "MissionPetCarrierCargoRecessedInterior",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.00800000037997961,
+          0.009999999776482582,
+          0.010999999940395355,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8199999928474426
+      }
+    },
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_material_role": "MissionPetCarrierCargoPowderCoatedSteel",
+        "homebase_pbr_textured": false
+      },
+      "name": "MissionPetCarrierCargoPowderCoatedSteel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.019999999552965164,
+          0.02199999988079071,
+          0.023000000044703484,
+          1
+        ],
+        "metallicFactor": 0.6499999761581421,
+        "roughnessFactor": 0.3199999928474426
+      }
+    },
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_material_role": "MissionPetCarrierCargoLatchPlastic",
+        "homebase_pbr_textured": false
+      },
+      "name": "MissionPetCarrierCargoLatchPlastic",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.11999999731779099,
+          0.11500000208616257,
+          0.10499999672174454,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.47999998927116394
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "W\u00fcrfel",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "indices": 4,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 5,
+            "NORMAL": 6,
+            "TEXCOORD_0": 7,
+            "TEXCOORD_1": 8
+          },
+          "indices": 9,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 10,
+            "NORMAL": 11,
+            "TEXCOORD_0": 12,
+            "TEXCOORD_1": 13
+          },
+          "indices": 14,
+          "material": 2
+        },
+        {
+          "attributes": {
+            "POSITION": 15,
+            "NORMAL": 16,
+            "TEXCOORD_0": 17,
+            "TEXCOORD_1": 18
+          },
+          "indices": 19,
+          "material": 3
+        },
+        {
+          "attributes": {
+            "POSITION": 20,
+            "NORMAL": 21,
+            "TEXCOORD_0": 22,
+            "TEXCOORD_1": 23
+          },
+          "indices": 24,
+          "material": 4
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "MissionPetCarrierCargo_MouldedPlastic_Normal",
+      "uri": "textures/MissionPetCarrierCargo_MouldedPlastic_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionPetCarrierCargo_DarkPlastic_BaseColor",
+      "uri": "textures/MissionPetCarrierCargo_DarkPlastic_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionPetCarrierCargo_CreamPlastic_BaseColor",
+      "uri": "textures/MissionPetCarrierCargo_CreamPlastic_BaseColor.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 11782,
+      "max": [
+        0.18299999833106995,
+        0.47699999809265137,
+        0.30799996852874756
+      ],
+      "min": [
+        -0.18299999833106995,
+        0,
+        -0.284000039100647
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 11782,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 11782,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 11782,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5123,
+      "count": 39528,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 1638,
+      "max": [
+        0.18000000715255737,
+        0.3895000219345093,
+        0.32899999618530273
+      ],
+      "min": [
+        -0.18000000715255737,
+        0.0390000082552433,
+        -0.2799999713897705
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 1638,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 1638,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 1638,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5123,
+      "count": 6420,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 7657,
+      "max": [
+        0.18299999833106995,
+        0.468999981880188,
+        0.296999990940094
+      ],
+      "min": [
+        -0.18299999833106995,
+        0.036000002175569534,
+        -0.1665000021457672
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 7657,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 7657,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 7657,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5123,
+      "count": 29532,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5126,
+      "count": 3158,
+      "max": [
+        0.14769414067268372,
+        0.40723082423210144,
+        0.3084999918937683
+      ],
+      "min": [
+        -0.15450000762939453,
+        0.0343058817088604,
+        -0.15548822283744812
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 3158,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 3158,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 3158,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 8016,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5126,
+      "count": 1660,
+      "max": [
+        0.1939999759197235,
+        0.2290000021457672,
+        0.33799999952316284
+      ],
+      "min": [
+        -0.1940000057220459,
+        0.16599999368190765,
+        -0.203000009059906
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 1660,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 1660,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5126,
+      "count": 1660,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5123,
+      "count": 6420,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 141384,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 141384,
+      "byteOffset": 141384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 94256,
+      "byteOffset": 282768,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 94256,
+      "byteOffset": 377024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 79056,
+      "byteOffset": 471280,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19656,
+      "byteOffset": 550336,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19656,
+      "byteOffset": 569992,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13104,
+      "byteOffset": 589648,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13104,
+      "byteOffset": 602752,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12840,
+      "byteOffset": 615856,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 91884,
+      "byteOffset": 628696,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 91884,
+      "byteOffset": 720580,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 61256,
+      "byteOffset": 812464,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 61256,
+      "byteOffset": 873720,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 59064,
+      "byteOffset": 934976,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 37896,
+      "byteOffset": 994040,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 37896,
+      "byteOffset": 1031936,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25264,
+      "byteOffset": 1069832,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25264,
+      "byteOffset": 1095096,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 16032,
+      "byteOffset": 1120360,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19920,
+      "byteOffset": 1136392,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19920,
+      "byteOffset": 1156312,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13280,
+      "byteOffset": 1176232,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13280,
+      "byteOffset": 1189512,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 12840,
+      "byteOffset": 1202792,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 1215632,
+      "uri": "MissionPetCarrierCargo_LOD00.bin"
+    }
+  ]
+}

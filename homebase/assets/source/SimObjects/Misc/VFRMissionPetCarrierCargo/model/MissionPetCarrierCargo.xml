@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" guid="{F48BFBE5-6EB9-4A0E-ADE7-2D04FC85AFF0}">
+  <LODS>
+    <LOD minSize="0" ModelFile="MissionPetCarrierCargo_LOD00.gltf"/>
+  </LODS>
+  <ModelBehaviors>
+    <Component ID="MissionPetCarrierCargo" Node="PetCarrierCargo"/>
+  </ModelBehaviors>
+</ModelInfo>

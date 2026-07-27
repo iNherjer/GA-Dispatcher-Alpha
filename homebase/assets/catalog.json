@@ -97,6 +97,65 @@
       "homebasePlaceable": true
     },
     {
+      "key": "cameraEquipmentCargo",
+      "folder": "VFRMissionCameraEquipmentCargo",
+      "title": "VFR Multitool Mission Camera Equipment Cargo",
+      "label": "Fotoausrüstung im offenen Hardcase",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "camera",
+        "photography",
+        "equipment",
+        "media"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.451Z"
+    },
+    {
+      "key": "campingEquipmentCargo",
+      "folder": "VFRMissionCampingEquipmentCargo",
+      "title": "VFR Multitool Mission Camping Equipment Cargo",
+      "label": "Campingausrüstung – verladefertig",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "camping",
+        "hiking",
+        "outdoor",
+        "equipment",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.630Z"
+    },
+    {
       "key": "chair",
       "folder": "VFRHomebaseChair",
       "title": "VFR Multitool Homebase Chair",
@@ -275,6 +334,35 @@
       "homebasePlaceable": true
     },
     {
+      "key": "flightCaseBlack",
+      "folder": "VFRHomebaseFlightCaseBlack",
+      "title": "VFR Multitool Homebase Flight Case Black",
+      "label": "Flightcase schwarz",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.506Z"
+    },
+    {
       "key": "fuelDrum",
       "folder": "VFRHomebaseFuelDrum",
       "title": "VFR Multitool Homebase Fuel Drum",
@@ -412,6 +500,64 @@
       "vegetationExclusion": null
     },
     {
+      "key": "hardcaseRedPro",
+      "folder": "VFRHomebaseHardcaseRedPro",
+      "title": "VFR Multitool Homebase Hardcase Red Pro",
+      "label": "Hardcase rot Pro",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.570Z"
+    },
+    {
+      "key": "hardcaseYellowSmall",
+      "folder": "VFRHomebaseHardcaseYellowSmall",
+      "title": "VFR Multitool Homebase Hardcase Yellow Small",
+      "label": "Hardcase gelb klein",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.538Z"
+    },
+    {
       "key": "insulatedCooler",
       "folder": "VFRHomebaseInsulatedCooler",
       "title": "VFR Multitool Homebase Insulated Cooler",
@@ -481,6 +627,35 @@
         "scene-prop"
       ],
       "updatedAt": "2026-07-15T19:05:31.999Z"
+    },
+    {
+      "key": "medicalBackpackCargo",
+      "folder": "VFRMissionMedicalBackpackCargo",
+      "title": "VFR Multitool Mission Medical Backpack Cargo",
+      "label": "Sanitätsrucksack",
+      "version": "1.0.2",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "medical",
+        "first-aid",
+        "emergency",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.599Z"
     },
     {
       "key": "mxPavilion",
@@ -672,6 +847,36 @@
       "collisionProfile": null,
       "vegetationExclusion": null,
       "updatedAt": "2026-07-23T19:39:00.817Z"
+    },
+    {
+      "key": "petCarrierCargo",
+      "folder": "VFRMissionPetCarrierCargo",
+      "title": "VFR Multitool Mission Pet Carrier Cargo",
+      "label": "Tiertransportbox",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "animal",
+        "pet",
+        "carrier",
+        "transport",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T10:05:24.885Z"
     },
     {
       "key": "pinboard",
@@ -1051,6 +1256,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-24T09:21:06.246Z",
+  "updatedAt": "2026-07-27T10:05:24.983Z",
   "stockObjects": []
 }

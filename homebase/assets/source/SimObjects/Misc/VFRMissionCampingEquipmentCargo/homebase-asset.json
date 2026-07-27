@@ -1,0 +1,30 @@
+{
+  "key": "campingEquipmentCargo",
+  "folder": "VFRMissionCampingEquipmentCargo",
+  "title": "VFR Multitool Mission Camping Equipment Cargo",
+  "label": "Campingausrüstung – verladefertig",
+  "version": "1.0.1",
+  "kind": "object",
+  "group": "Missionsfracht",
+  "homebasePlaceable": false,
+  "workbenchVisible": false,
+  "missionSpawnable": true,
+  "missionTags": [
+    "cargo",
+    "camping",
+    "hiking",
+    "outdoor",
+    "equipment",
+    "supplies"
+  ],
+  "missionRoles": [
+    "cargo"
+  ],
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null,
+  "updatedAt": "2026-07-27T09:44:57.630Z"
+}

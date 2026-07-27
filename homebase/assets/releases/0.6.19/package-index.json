@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T09:41:55.848Z",
+  "generatedAt": "2026-07-27T10:07:30.688Z",
   "packageName": "vfr-multitool-homebase-assets",
   "packageVersion": "0.6.19",
   "releaseTag": "homebase-assets-v0.6.19",
   "repository": "iNherjer/GA-Dispatcher-Alpha",
-  "contentHash": "0dec3beaf954a5134fc1b542288955e2a2b54d0f7ca7368706ea83c49f5aaab7",
-  "packageContentHash": "a84e23a87f81a151ae4dfa76ab97a81431d940ca3014afb0f5a60d1e559e51e1",
-  "metadataHash": "38a0e403b3426fff2a343d4dafa37729b6a30544c57514ba9a28d0a06004753b",
+  "contentHash": "185df5a18461a15f4e16db2731c322c2613c3675fa99b96d13607eb922f7cd94",
+  "packageContentHash": "3352beadb3cee66f83c14ebc69249f02bf8eb6b220bb6c478362c4941ff03f59",
+  "metadataHash": "e544b8666241d96ae3113a9cf950110834a62121d9019f9574aac846c44f101c",
   "files": [
     {
       "path": "bglIndex.bout",
@@ -16,13 +16,13 @@
     },
     {
       "path": "layout.json",
-      "size": 30599,
-      "sha256": "ada6e8c62202a7dae8c62caaaca7d65fdf3160ae8e5e452a509376ed8512d8c4"
+      "size": 36094,
+      "sha256": "b026e69d0e735400668acc902b06c36d5bb440b0647666e41cca60c0969cd98c"
     },
     {
       "path": "manifest.json",
       "size": 519,
-      "sha256": "d9df3878d24c776a932199d5b543efd4dd977dbcc433ee6d6985512b242d3fed"
+      "sha256": "af4e08222ae9355ed0966c6cedef0a04f2294c92752cc49ad7de87b4ed39f756"
     },
     {
       "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
@@ -280,6 +280,31 @@
       "sha256": "0a6404eac283847959004e21012f1b26aae615bc849ff4000fbbdbff5e2457f5"
     },
     {
+      "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack_LOD00.bin",
+      "size": 664500,
+      "sha256": "d26f54dee2075b8300944e3c40797cc62ea47f1bc932ca971fd464a9616f2de6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack_LOD00.gltf",
+      "size": 8341,
+      "sha256": "7ae8141db1073deb14078b2c4b4b19a86608eb5a314dddf29f4d57a26b638304"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack.xml",
+      "size": 246,
+      "sha256": "1f73c0847dcd0b42b35d7daa49492759e7ce83184f6dd4893b711976f00909c4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/model.CFG",
+      "size": 44,
+      "sha256": "8adfbf43aae017a78563f013bbe87d31c0bd00acce30315c176e044a80abf065"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/sim.cfg",
+      "size": 411,
+      "sha256": "2f078e0349753645d0f03825702d44b4ccdbdc9f83758ac8128196721417ea52"
+    },
+    {
       "path": "SimObjects/Misc/VFRHomebaseFuelDrum/model/HomebaseFuelDrum_LOD00.bin",
       "size": 99408,
       "sha256": "9f21f75918f49e09fad69365e7629b75ccf6e073f9b474a6b0d7eac7ec7078c7"
@@ -433,6 +458,56 @@
       "path": "SimObjects/Misc/VFRHomebaseHangar/texture/HOMEBASEHANGAR_SHELL_NORMAL_DIRECTX_V2.PNG.KTX2.json",
       "size": 160,
       "sha256": "6125b60ec254bb22aba3db6f2a025eb6518722942ce299cb9a4409ce29922654"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro_LOD00.bin",
+      "size": 910188,
+      "sha256": "1b557184699e80a79a5eeeb8228dc67d55f059a457c8ee4344afecc86f08fcbd"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro_LOD00.gltf",
+      "size": 9106,
+      "sha256": "d4d53d9f05a3a3bdc5e4c357669ea6b6be8f5ca9a74f0f43b30e03acba09225a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro.xml",
+      "size": 244,
+      "sha256": "1df23d7d1952028823be281db206d9838f3229ab7dd4c94ed3e970860647e063"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/model.CFG",
+      "size": 43,
+      "sha256": "3ff8f60b3f43bd10ffb270492e4bb67fb3a2522dd14f0a0911aea446c940ee4b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/sim.cfg",
+      "size": 426,
+      "sha256": "57a5b846950e04b305401a0ddaebb79c59cb86ba1386dbd5c8c903b4b569f689"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall_LOD00.bin",
+      "size": 971580,
+      "sha256": "5c845d0f94487f58ea57e06a4c88b56b97fd487e11aa201ba14d907015dfd016"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall_LOD00.gltf",
+      "size": 9551,
+      "sha256": "33508bf5ee45544afaedfe4a63bcd6125f088341a430b9142b93a77b43094a2c"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall.xml",
+      "size": 254,
+      "sha256": "7ae55118dbef26d8a60363a18c3f99630aecaa28b09e5a72269e28bbabdcd46b"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/model.CFG",
+      "size": 48,
+      "sha256": "19059dee3720fc64efe8a8ff3a267635074184c9bb300f2ef8a9858080d59b46"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/sim.cfg",
+      "size": 426,
+      "sha256": "9e46566d44672281db5d00ffd5193a40061dff73dc572f0dcc8414f4063fab2c"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseInsulatedCooler/model/HomebaseInsulatedCooler_LOD00.bin",
@@ -1028,6 +1103,106 @@
       "path": "SimObjects/Misc/VFRHomebaseWoodCrateSmall/sim.cfg",
       "size": 278,
       "sha256": "5a9919866c9cca85ceccfce2112e9eba629683a65cd7420ae97e324d1a1ce40f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo_LOD00.bin",
+      "size": 1745016,
+      "sha256": "ccb3299a31ef4f4ad01e9f77c8bfe71cca44e1a9e94f62be3918b35f69532a81"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo_LOD00.gltf",
+      "size": 23250,
+      "sha256": "a37c9bce9ff26d6e2380d49e3e554117bd73402319b35842dd087c813c547d3f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo.xml",
+      "size": 254,
+      "sha256": "1855f5bc3f2235edf8cd5708019ea898ad576f4ff5899496ff3615817940486f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/model.CFG",
+      "size": 48,
+      "sha256": "5055dfa7a70e0309c2e9d189842816f367303e39e249cabe9996a743300133bd"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/sim.cfg",
+      "size": 376,
+      "sha256": "1c05361b366eeeffba9387cfc4402fc844d0cf0513299095f49750b5f6732058"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo_LOD00.bin",
+      "size": 1944876,
+      "sha256": "0cf14894d6ea4526de4ff1285df304720a8ea5c0a7982c5531c98c6cb5ea413c"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo_LOD00.gltf",
+      "size": 16456,
+      "sha256": "e9393f5afabbf06b0e0da347c3c3f314e0a594779ba5af67326d4c1d56d16393"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo.xml",
+      "size": 251,
+      "sha256": "2541d5b449f020d846b83e901543bd16333b13abf022915aca16d93ea64539a4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/model.CFG",
+      "size": 49,
+      "sha256": "d6bd009750623c21387da6545ddddb89047cdd619814394e2a6ce25fc1852641"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/sim.cfg",
+      "size": 552,
+      "sha256": "7cb3705f66b60da41817e34055204ac33672c2f2064c55419149640332ff97a6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo_LOD00.bin",
+      "size": 820056,
+      "sha256": "8474674083038c24b00d32601ac35dcfb72a5d8d506cc84cdeddb409117081fc"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo_LOD00.gltf",
+      "size": 11104,
+      "sha256": "d49cf98a9342ea71c04811392f46de4c8311494db08288e0e547d29e1b81916d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo.xml",
+      "size": 249,
+      "sha256": "065ea17b449bf8c1a30c2a64af00fd1a10815110cefae1687a889a1aad046d01"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/model.CFG",
+      "size": 48,
+      "sha256": "cfc03a5e55e7aed75166a6794530a7ce1efc450ef28d5c69b843b12773c3f72d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/sim.cfg",
+      "size": 522,
+      "sha256": "418dd86f97c7ef8b3141b040e197574c176d51f48554aea863a7bc388c372d4a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo_LOD00.bin",
+      "size": 1153344,
+      "sha256": "f756b71ded46e17a11d1c4479b1feabfdc4cdefd2fb3745343e9761029fb06a6"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo_LOD00.gltf",
+      "size": 9484,
+      "sha256": "0a6acf96670c5f02fc0a51e6b44199a59205cbed1f6b3750be78dce725dd5ea2"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo.xml",
+      "size": 312,
+      "sha256": "66ea5414ac8a1b40574f0313dfa0aef8a2568155aa9a7d8a49b6c8310d759b5a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/model.CFG",
+      "size": 43,
+      "sha256": "271f1e7cf91ab4adadee4a57e0ddabfa9f60aa064a748ea6442b3db89c3dc549"
+    },
+    {
+      "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/sim.cfg",
+      "size": 491,
+      "sha256": "5e4604bd6f2e0f2d09ec112d7d16be37e12d9b71968f630d6793d4927c66a872"
     }
   ],
   "assets": [
@@ -1271,6 +1446,141 @@
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/cabinTrolley-1.0.0.zip",
         "size": 8720,
         "sha256": "d072916d36c2e210a62df7f9b1b235ca3a744bee732a8e443478ac2892b5eeaa"
+      }
+    },
+    {
+      "key": "cameraEquipmentCargo",
+      "folder": "VFRMissionCameraEquipmentCargo",
+      "title": "VFR Multitool Mission Camera Equipment Cargo",
+      "label": "Fotoausrüstung im offenen Hardcase",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "camera",
+        "photography",
+        "equipment",
+        "media"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.451Z",
+      "modelHash": "4be79855d31fb9c3955ac03659eabd5c12154863774b731d3b658f336f9c8a1d",
+      "metadataHash": "bf6c72a023f04ac1269f0426fcce6b73c7708939054bc1e2c02afa5ef025409d",
+      "contentHash": "273cac0ee904d8902a541b945ebf02659f2ae7043053fcb98660c3211598e116",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo_LOD00.bin",
+          "size": 1745016,
+          "sha256": "ccb3299a31ef4f4ad01e9f77c8bfe71cca44e1a9e94f62be3918b35f69532a81"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo_LOD00.gltf",
+          "size": 23250,
+          "sha256": "a37c9bce9ff26d6e2380d49e3e554117bd73402319b35842dd087c813c547d3f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/MissionCameraEquipmentCargo.xml",
+          "size": 254,
+          "sha256": "1855f5bc3f2235edf8cd5708019ea898ad576f4ff5899496ff3615817940486f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/model/model.CFG",
+          "size": 48,
+          "sha256": "5055dfa7a70e0309c2e9d189842816f367303e39e249cabe9996a743300133bd"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCameraEquipmentCargo/sim.cfg",
+          "size": 376,
+          "sha256": "1c05361b366eeeffba9387cfc4402fc844d0cf0513299095f49750b5f6732058"
+        }
+      ],
+      "archive": {
+        "name": "cameraEquipmentCargo-1.0.0.zip",
+        "path": "assets/cameraEquipmentCargo-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/cameraEquipmentCargo-1.0.0.zip",
+        "size": 576597,
+        "sha256": "feb2395ac96fac5b6202c57230f858e7851483016271c53aa3474dc474b4bec4"
+      }
+    },
+    {
+      "key": "campingEquipmentCargo",
+      "folder": "VFRMissionCampingEquipmentCargo",
+      "title": "VFR Multitool Mission Camping Equipment Cargo",
+      "label": "Campingausrüstung – verladefertig",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "camping",
+        "hiking",
+        "outdoor",
+        "equipment",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.630Z",
+      "modelHash": "0d91d8107be816830d2289bbafcb26ccbae267da46ac5d9f476c904225610167",
+      "metadataHash": "a1dbb6023d69fd47d0a1028aa335b464460037321e427644e1b6ac2b2193eb24",
+      "contentHash": "96415940c1f5942830d9322f51ab54763661490caf994e7a7488fa2301d370ca",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo_LOD00.bin",
+          "size": 1944876,
+          "sha256": "0cf14894d6ea4526de4ff1285df304720a8ea5c0a7982c5531c98c6cb5ea413c"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo_LOD00.gltf",
+          "size": 16456,
+          "sha256": "e9393f5afabbf06b0e0da347c3c3f314e0a594779ba5af67326d4c1d56d16393"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/MissionCampingEquipmentCargo.xml",
+          "size": 251,
+          "sha256": "2541d5b449f020d846b83e901543bd16333b13abf022915aca16d93ea64539a4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/model/model.CFG",
+          "size": 49,
+          "sha256": "d6bd009750623c21387da6545ddddb89047cdd619814394e2a6ce25fc1852641"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionCampingEquipmentCargo/sim.cfg",
+          "size": 552,
+          "sha256": "7cb3705f66b60da41817e34055204ac33672c2f2064c55419149640332ff97a6"
+        }
+      ],
+      "archive": {
+        "name": "campingEquipmentCargo-1.0.1.zip",
+        "path": "assets/campingEquipmentCargo-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/campingEquipmentCargo-1.0.1.zip",
+        "size": 749878,
+        "sha256": "4e5480e3c9a121093280e833d6b3901a08ffbec78aa08504d932b5a859fadf91"
       }
     },
     {
@@ -1718,6 +2028,73 @@
       }
     },
     {
+      "key": "flightCaseBlack",
+      "folder": "VFRHomebaseFlightCaseBlack",
+      "title": "VFR Multitool Homebase Flight Case Black",
+      "label": "Flightcase schwarz",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.506Z",
+      "modelHash": "2b7ee7a6cd0fa1c4ee16c39fc7749894d145e6e71550fcb44f2b047565285eaa",
+      "metadataHash": "5ede46a3a8280f0c9e6c80c84763f6389b140b1dd5ae48055a9a2e4169d86fdd",
+      "contentHash": "f7fb58a9724037d550e19cdb7c28e7ce9d482f1a3e14075c71fc29ea52744eff",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack_LOD00.bin",
+          "size": 664500,
+          "sha256": "d26f54dee2075b8300944e3c40797cc62ea47f1bc932ca971fd464a9616f2de6"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack_LOD00.gltf",
+          "size": 8341,
+          "sha256": "7ae8141db1073deb14078b2c4b4b19a86608eb5a314dddf29f4d57a26b638304"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/HomebaseFlightCaseBlack.xml",
+          "size": 246,
+          "sha256": "1f73c0847dcd0b42b35d7daa49492759e7ce83184f6dd4893b711976f00909c4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/model/model.CFG",
+          "size": 44,
+          "sha256": "8adfbf43aae017a78563f013bbe87d31c0bd00acce30315c176e044a80abf065"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseFlightCaseBlack/sim.cfg",
+          "size": 411,
+          "sha256": "2f078e0349753645d0f03825702d44b4ccdbdc9f83758ac8128196721417ea52"
+        }
+      ],
+      "archive": {
+        "name": "flightCaseBlack-1.0.1.zip",
+        "path": "assets/flightCaseBlack-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/flightCaseBlack-1.0.1.zip",
+        "size": 173859,
+        "sha256": "998a3a5230ac948746367c5ab0a424257d8be9ad4c623fdaf14b14d75152ed07"
+      }
+    },
+    {
       "key": "fuelDrum",
       "folder": "VFRHomebaseFuelDrum",
       "title": "VFR Multitool Homebase Fuel Drum",
@@ -2049,6 +2426,140 @@
       }
     },
     {
+      "key": "hardcaseRedPro",
+      "folder": "VFRHomebaseHardcaseRedPro",
+      "title": "VFR Multitool Homebase Hardcase Red Pro",
+      "label": "Hardcase rot Pro",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.570Z",
+      "modelHash": "ac5e72a07cc4fbaa06ea6ef0023a7283277fd865d459b30396240b934fd7a3be",
+      "metadataHash": "eb716a67504413c92234febe7fdab5b7771abdbea33b077e71ae112ecc1149a5",
+      "contentHash": "17efe12d7f7ec537a3365dbd5deabfd881291ca1c9130430835f9bf26347404a",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro_LOD00.bin",
+          "size": 910188,
+          "sha256": "1b557184699e80a79a5eeeb8228dc67d55f059a457c8ee4344afecc86f08fcbd"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro_LOD00.gltf",
+          "size": 9106,
+          "sha256": "d4d53d9f05a3a3bdc5e4c357669ea6b6be8f5ca9a74f0f43b30e03acba09225a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/HomebaseHardcaseRedPro.xml",
+          "size": 244,
+          "sha256": "1df23d7d1952028823be281db206d9838f3229ab7dd4c94ed3e970860647e063"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/model/model.CFG",
+          "size": 43,
+          "sha256": "3ff8f60b3f43bd10ffb270492e4bb67fb3a2522dd14f0a0911aea446c940ee4b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseRedPro/sim.cfg",
+          "size": 426,
+          "sha256": "57a5b846950e04b305401a0ddaebb79c59cb86ba1386dbd5c8c903b4b569f689"
+        }
+      ],
+      "archive": {
+        "name": "hardcaseRedPro-1.0.1.zip",
+        "path": "assets/hardcaseRedPro-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/hardcaseRedPro-1.0.1.zip",
+        "size": 307423,
+        "sha256": "e7735a656ed1cf484dec957352eb1038654b2d414293e8b2ee18b34da14e8829"
+      }
+    },
+    {
+      "key": "hardcaseYellowSmall",
+      "folder": "VFRHomebaseHardcaseYellowSmall",
+      "title": "VFR Multitool Homebase Hardcase Yellow Small",
+      "label": "Hardcase gelb klein",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Gepäck & Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "equipment",
+        "protective-case",
+        "hardcase"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.538Z",
+      "modelHash": "72da9b318b62db759cb73e3dca98016b1ef192f7029d2b667c8f690e4dd574f7",
+      "metadataHash": "a2b49b0db301b3736fce8ac0f4a8104fa5169c996fb2480f58df5a22a86a8e7d",
+      "contentHash": "7831e44b3b3e4de082341c39d492c98b997c7593de8851cc9885d4fe2bdc3dc1",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall_LOD00.bin",
+          "size": 971580,
+          "sha256": "5c845d0f94487f58ea57e06a4c88b56b97fd487e11aa201ba14d907015dfd016"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall_LOD00.gltf",
+          "size": 9551,
+          "sha256": "33508bf5ee45544afaedfe4a63bcd6125f088341a430b9142b93a77b43094a2c"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/HomebaseHardcaseYellowSmall.xml",
+          "size": 254,
+          "sha256": "7ae55118dbef26d8a60363a18c3f99630aecaa28b09e5a72269e28bbabdcd46b"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/model/model.CFG",
+          "size": 48,
+          "sha256": "19059dee3720fc64efe8a8ff3a267635074184c9bb300f2ef8a9858080d59b46"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseHardcaseYellowSmall/sim.cfg",
+          "size": 426,
+          "sha256": "9e46566d44672281db5d00ffd5193a40061dff73dc572f0dcc8414f4063fab2c"
+        }
+      ],
+      "archive": {
+        "name": "hardcaseYellowSmall-1.0.1.zip",
+        "path": "assets/hardcaseYellowSmall-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/hardcaseYellowSmall-1.0.1.zip",
+        "size": 316400,
+        "sha256": "7dabd00e6f17f50c90f44ed645e0e7a872a7997c1208a9c0e598b93ac9c61294"
+      }
+    },
+    {
       "key": "insulatedCooler",
       "folder": "VFRHomebaseInsulatedCooler",
       "title": "VFR Multitool Homebase Insulated Cooler",
@@ -2231,6 +2742,73 @@
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/mailSack-1.0.0.zip",
         "size": 14171,
         "sha256": "711f8bd55c1e7c94a7cb2c6cc60fb2e1acedc6656797ddef6d30f566d7254ba8"
+      }
+    },
+    {
+      "key": "medicalBackpackCargo",
+      "folder": "VFRMissionMedicalBackpackCargo",
+      "title": "VFR Multitool Mission Medical Backpack Cargo",
+      "label": "Sanitätsrucksack",
+      "version": "1.0.2",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "medical",
+        "first-aid",
+        "emergency",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T09:44:57.599Z",
+      "modelHash": "bc0d9245aebbc31ae1c8977767db89f14b8e47125c0bc8c2620bef7c053d5292",
+      "metadataHash": "37be652d5c676507590c3a23056d42b49d3471229cfb69c11afc57e29f78efe3",
+      "contentHash": "c835b2572af295aae99323d3eb4e2191f946b2b483418dc9490f72ea7ebeef95",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo_LOD00.bin",
+          "size": 820056,
+          "sha256": "8474674083038c24b00d32601ac35dcfb72a5d8d506cc84cdeddb409117081fc"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo_LOD00.gltf",
+          "size": 11104,
+          "sha256": "d49cf98a9342ea71c04811392f46de4c8311494db08288e0e547d29e1b81916d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/MissionMedicalBackpackCargo.xml",
+          "size": 249,
+          "sha256": "065ea17b449bf8c1a30c2a64af00fd1a10815110cefae1687a889a1aad046d01"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/model/model.CFG",
+          "size": 48,
+          "sha256": "cfc03a5e55e7aed75166a6794530a7ce1efc450ef28d5c69b843b12773c3f72d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionMedicalBackpackCargo/sim.cfg",
+          "size": 522,
+          "sha256": "418dd86f97c7ef8b3141b040e197574c176d51f48554aea863a7bc388c372d4a"
+        }
+      ],
+      "archive": {
+        "name": "medicalBackpackCargo-1.0.2.zip",
+        "path": "assets/medicalBackpackCargo-1.0.2.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/medicalBackpackCargo-1.0.2.zip",
+        "size": 321960,
+        "sha256": "7b5aece51a57ca16832e5be38b81a666677ba4ea016eaa1e3b73d80a9adeef8e"
       }
     },
     {
@@ -2646,6 +3224,74 @@
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/openParking-1.0.1.zip",
         "size": 133444,
         "sha256": "16e5aab489b67a4b0167c4ea632c20d44072a8df66dc11c5794da6bb57ab1037"
+      }
+    },
+    {
+      "key": "petCarrierCargo",
+      "folder": "VFRMissionPetCarrierCargo",
+      "title": "VFR Multitool Mission Pet Carrier Cargo",
+      "label": "Tiertransportbox",
+      "version": "1.0.1",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "animal",
+        "pet",
+        "carrier",
+        "transport",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-27T10:05:24.885Z",
+      "modelHash": "9e8f4d95fee2216ab7d58bbeb3567cbd40f77dc4c85f24ab19f2c8f86c69f096",
+      "metadataHash": "8e92c4e8396a8b6e0ff914967e0bc972ca6399659d1b723d5d39b40713f6f529",
+      "contentHash": "9a5dc03799bd1b5abc2beea01d96ef43b1bd2e7ec19bee4f31709fe24477dcc8",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo_LOD00.bin",
+          "size": 1153344,
+          "sha256": "f756b71ded46e17a11d1c4479b1feabfdc4cdefd2fb3745343e9761029fb06a6"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo_LOD00.gltf",
+          "size": 9484,
+          "sha256": "0a6acf96670c5f02fc0a51e6b44199a59205cbed1f6b3750be78dce725dd5ea2"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/MissionPetCarrierCargo.xml",
+          "size": 312,
+          "sha256": "66ea5414ac8a1b40574f0313dfa0aef8a2568155aa9a7d8a49b6c8310d759b5a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/model/model.CFG",
+          "size": 43,
+          "sha256": "271f1e7cf91ab4adadee4a57e0ddabfa9f60aa064a748ea6442b3db89c3dc549"
+        },
+        {
+          "path": "SimObjects/Misc/VFRMissionPetCarrierCargo/sim.cfg",
+          "size": 491,
+          "sha256": "5e4604bd6f2e0f2d09ec112d7d16be37e12d9b71968f630d6793d4927c66a872"
+        }
+      ],
+      "archive": {
+        "name": "petCarrierCargo-1.0.1.zip",
+        "path": "assets/petCarrierCargo-1.0.1.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/petCarrierCargo-1.0.1.zip",
+        "size": 352267,
+        "sha256": "fad13139efbfed206fc79dffd5dfdab4a2ffb34be337d34fc35f1f3228750097"
       }
     },
     {
@@ -3498,13 +4144,20 @@
     }
   ],
   "changedAssets": [
-    "mxPavilion"
+    "cameraEquipmentCargo",
+    "campingEquipmentCargo",
+    "flightCaseBlack",
+    "hardcaseRedPro",
+    "hardcaseYellowSmall",
+    "medicalBackpackCargo",
+    "mxPavilion",
+    "petCarrierCargo"
   ],
   "removedAssets": [],
   "fullArchive": {
     "name": "vfr-multitool-homebase-assets-0.6.19-full.zip",
     "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.19/vfr-multitool-homebase-assets-0.6.19-full.zip",
-    "size": 16654284,
-    "sha256": "5fc097f249122f506cc446f55ab24169a973c8963bfcc5b6d992ee6411cf000c"
+    "size": 19447948,
+    "sha256": "e1433a031079419eeb47a0f45319bba7ff2050f0abb61cb9c54f943a815bb85e"
   }
 }

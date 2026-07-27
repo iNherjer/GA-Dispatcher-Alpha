@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseHardcaseRedPro" guid="{DEE6B9DA-F1F5-4171-91AF-2AEE8A6AD17D}">
+  <LODS>
+    <LOD ModelFile="HomebaseHardcaseRedPro_LOD00.gltf" MinSize="0.0000"/>
+  </LODS>
+</ModelInfo>
