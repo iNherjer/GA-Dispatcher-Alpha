@@ -3,7 +3,7 @@
   "folder": "VFRMissionCameraEquipmentCargo",
   "title": "VFR Multitool Mission Camera Equipment Cargo",
   "label": "Fotoausrüstung im offenen Hardcase",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "object",
   "group": "Missionsfracht",
   "homebasePlaceable": false,
@@ -25,5 +25,5 @@
   "headingCorrectionDeg": 0,
   "collisionProfile": null,
   "vegetationExclusion": null,
-  "updatedAt": "2026-07-27T09:44:57.451Z"
+  "updatedAt": "2026-07-28T16:02:15.993Z"
 }

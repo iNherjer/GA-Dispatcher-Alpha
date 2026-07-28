@@ -1,0 +1,30 @@
+{
+  "key": "insulatedCooler",
+  "folder": "VFRHomebaseInsulatedCooler",
+  "title": "VFR Multitool Homebase Insulated Cooler",
+  "label": "Isolierte Kühlbox",
+  "version": "1.0.1",
+  "kind": "object",
+  "group": "Gepäck & Fracht",
+  "homebasePlaceable": true,
+  "workbenchVisible": true,
+  "missionSpawnable": true,
+  "missionTags": [
+    "cargo",
+    "cooler",
+    "medical",
+    "samples",
+    "outdoor"
+  ],
+  "missionRoles": [
+    "cargo",
+    "scene-prop"
+  ],
+  "updatedAt": "2026-07-28T15:07:50.283Z",
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null
+}

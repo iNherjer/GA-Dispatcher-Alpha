@@ -218,32 +218,32 @@
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Primary_Normal",
-      "uri": "textures/HomebaseHardcaseRedPro_Primary_Normal.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Primary_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Primary_BaseColor",
-      "uri": "textures/HomebaseHardcaseRedPro_Primary_BaseColor.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Primary_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Rubber_Normal",
-      "uri": "textures/HomebaseHardcaseRedPro_Rubber_Normal.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Rubber_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Rubber_BaseColor",
-      "uri": "textures/HomebaseHardcaseRedPro_Rubber_BaseColor.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Rubber_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Metal_Normal",
-      "uri": "textures/HomebaseHardcaseRedPro_Metal_Normal.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Metal_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseHardcaseRedPro_Metal_BaseColor",
-      "uri": "textures/HomebaseHardcaseRedPro_Metal_BaseColor.png"
+      "uri": "../texture/HomebaseHardcaseRedPro_Metal_BaseColor.png"
     }
   ],
   "accessors": [

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" guid="{3E411EA8-A3E7-4C76-A144-51DFB53AA249}">
+  <LODS>
+    <LOD minSize="0" ModelFile="HomebaseFirstAidCase_LOD00.gltf"/>
+  </LODS>
+  <ModelBehaviors>
+    <Component ID="HomebaseFirstAidCase" Node="FirstAidCase"/>
+  </ModelBehaviors>
+</ModelInfo>

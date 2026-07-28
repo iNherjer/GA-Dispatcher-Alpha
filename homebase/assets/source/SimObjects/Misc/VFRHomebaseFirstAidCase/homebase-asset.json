@@ -1,0 +1,30 @@
+{
+  "key": "firstAidCase",
+  "folder": "VFRHomebaseFirstAidCase",
+  "title": "VFR Multitool Homebase First Aid Case",
+  "label": "Erste-Hilfe-Koffer",
+  "version": "1.0.0",
+  "kind": "object",
+  "group": "Ausstattung",
+  "homebasePlaceable": true,
+  "workbenchVisible": true,
+  "missionSpawnable": true,
+  "missionTags": [
+    "cargo",
+    "medical",
+    "first-aid",
+    "emergency",
+    "equipment"
+  ],
+  "missionRoles": [
+    "cargo",
+    "scene-prop"
+  ],
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null,
+  "updatedAt": "2026-07-28T12:04:40.468Z"
+}

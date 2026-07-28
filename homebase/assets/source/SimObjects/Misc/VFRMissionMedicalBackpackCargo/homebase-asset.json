@@ -3,7 +3,7 @@
   "folder": "VFRMissionMedicalBackpackCargo",
   "title": "VFR Multitool Mission Medical Backpack Cargo",
   "label": "Sanitätsrucksack",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kind": "object",
   "group": "Missionsfracht",
   "homebasePlaceable": false,
@@ -25,5 +25,5 @@
   "headingCorrectionDeg": 0,
   "collisionProfile": null,
   "vegetationExclusion": null,
-  "updatedAt": "2026-07-27T09:44:57.599Z"
+  "updatedAt": "2026-07-28T16:02:22.589Z"
 }

@@ -1,0 +1,565 @@
+{
+  "asset": {
+    "generator": "VFR fireExtinguisher raw glTF exporter; source asset-tools/create-homebase-fire-extinguisher.py",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "extras": {
+        "homebase_asset_key": "fireExtinguisher",
+        "homebase_asset_version": "1.0.0",
+        "homebase_asset_folder": "VFRHomebaseFireExtinguisher",
+        "homebase_asset_title": "VFR Multitool Homebase Fire Extinguisher",
+        "homebase_asset_purpose": "Homebase decoration and mission cargo",
+        "homebase_source_generator": "asset-tools/create-homebase-fire-extinguisher.py",
+        "homebase_reference_dimensions_m": "0.180 x 0.131 x 0.526",
+        "homebase_sdk_build_performed": false
+      },
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "extras": {
+        "homebase_function": "pressurized cylinder; decals are part of the body texture",
+        "homebase_asset_key": "fireExtinguisher",
+        "homebase_asset_version": "1.0.0",
+        "homebase_roles": "cargo,scene-prop",
+        "homebase_decals": "body operating label and pressure gauge are raster textures",
+        "homebase_no_floating_parts": true,
+        "homebase_dimensions_m": "0.180 x 0.131 x 0.526",
+        "homebase_static_asset": true
+      },
+      "mesh": 0,
+      "name": "FireExtinguisher"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Extinguisher_RedPaint_WithDecals",
+      "normalTexture": {
+        "index": 0,
+        "scale": 0.3400000035762787
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicFactor": 0.18000000715255737,
+        "roughnessFactor": 0.28999999165534973
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Valve_SatinAluminium",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.5799999833106995,
+          0.6100000143051147,
+          0.6299999952316284,
+          1
+        ],
+        "metallicFactor": 0.8799999952316284,
+        "roughnessFactor": 0.23999999463558197
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Fasteners_DarkSteel",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.04500000178813934,
+          0.05000000074505806,
+          0.054999999701976776,
+          1
+        ],
+        "metallicFactor": 0.8199999928474426,
+        "roughnessFactor": 0.3100000023841858
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "SafetyTether_BlackRubber",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.012000000104308128,
+          0.014000000432133675,
+          0.01600000075995922,
+          1
+        ],
+        "metallicFactor": 0.019999999552965164,
+        "roughnessFactor": 0.550000011920929
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "PressureGauge_PrintedDial",
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 2
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.3400000035762787
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "FireExtinguisherMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TEXCOORD_1": 3
+          },
+          "indices": 4,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 5,
+            "NORMAL": 6,
+            "TEXCOORD_0": 7,
+            "TEXCOORD_1": 8
+          },
+          "indices": 9,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 10,
+            "NORMAL": 11,
+            "TEXCOORD_0": 12,
+            "TEXCOORD_1": 13
+          },
+          "indices": 14,
+          "material": 2
+        },
+        {
+          "attributes": {
+            "POSITION": 15,
+            "NORMAL": 16,
+            "TEXCOORD_0": 17,
+            "TEXCOORD_1": 18
+          },
+          "indices": 19,
+          "material": 3
+        },
+        {
+          "attributes": {
+            "POSITION": 20,
+            "NORMAL": 21,
+            "TEXCOORD_0": 22,
+            "TEXCOORD_1": 23
+          },
+          "indices": 24,
+          "material": 4
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFireExtinguisher_Paint_Normal",
+      "uri": "../texture/HomebaseFireExtinguisher_Paint_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFireExtinguisher_BodyDecal_BaseColor",
+      "uri": "../texture/HomebaseFireExtinguisher_BodyDecal_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseFireExtinguisher_GaugeDial_BaseColor",
+      "uri": "../texture/HomebaseFireExtinguisher_GaugeDial_BaseColor.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3806,
+      "max": [
+        0.061000000685453415,
+        0.45350000262260437,
+        0.061000000685453415
+      ],
+      "min": [
+        -0.061000000685453415,
+        0,
+        -0.061000000685453415
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3806,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3806,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 3806,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5123,
+      "count": 19572,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 5327,
+      "max": [
+        0.07907117158174515,
+        0.5260999798774719,
+        0.06974999606609344
+      ],
+      "min": [
+        -0.0989999994635582,
+        0.3928891718387604,
+        -0.019999999552965164
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 5327,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 5327,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 5327,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5123,
+      "count": 18504,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 2319,
+      "max": [
+        0.03350000083446503,
+        0.5019999742507935,
+        0.057500001043081284
+      ],
+      "min": [
+        -0.03350000083446503,
+        0.4125734269618988,
+        -0.03350000083446503
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 2319,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 2319,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 2319,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5123,
+      "count": 11268,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5126,
+      "count": 973,
+      "max": [
+        0.07961558550596237,
+        0.5066264867782593,
+        0.02132822386920452
+      ],
+      "min": [
+        -0.09995000064373016,
+        0.43160000443458557,
+        -0.00800000037997961
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 973,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 973,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 973,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 4944,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5126,
+      "count": 73,
+      "max": [
+        0.02449999935925007,
+        0.4925000071525574,
+        0.06800000369548798
+      ],
+      "min": [
+        -0.02449999935925007,
+        0.44350001215934753,
+        0.06800000369548798
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 73,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 73,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5126,
+      "count": 73,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5123,
+      "count": 216,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 45672,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 45672,
+      "byteOffset": 45672,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 30448,
+      "byteOffset": 91344,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 30448,
+      "byteOffset": 121792,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 39144,
+      "byteOffset": 152240,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 63924,
+      "byteOffset": 191384,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 63924,
+      "byteOffset": 255308,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 42616,
+      "byteOffset": 319232,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 42616,
+      "byteOffset": 361848,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 37008,
+      "byteOffset": 404464,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27828,
+      "byteOffset": 441472,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 27828,
+      "byteOffset": 469300,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18552,
+      "byteOffset": 497128,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 18552,
+      "byteOffset": 515680,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 22536,
+      "byteOffset": 534232,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 11676,
+      "byteOffset": 556768,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 11676,
+      "byteOffset": 568444,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7784,
+      "byteOffset": 580120,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7784,
+      "byteOffset": 587904,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9888,
+      "byteOffset": 595688,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 876,
+      "byteOffset": 605576,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 876,
+      "byteOffset": 606452,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 584,
+      "byteOffset": 607328,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 584,
+      "byteOffset": 607912,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 608496,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 608928,
+      "uri": "HomebaseFireExtinguisher_LOD00.bin"
+    }
+  ]
+}

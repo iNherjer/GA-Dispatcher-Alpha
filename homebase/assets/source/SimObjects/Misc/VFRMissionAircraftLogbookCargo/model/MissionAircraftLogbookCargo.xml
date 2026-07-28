@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" guid="{D9A646EF-296B-47AF-8E9F-7DB9A4459E16}">
+  <LODS>
+    <LOD minSize="0" ModelFile="MissionAircraftLogbookCargo_LOD00.gltf"/>
+  </LODS>
+  <ModelBehaviors>
+    <Component ID="MissionAircraftLogbookCargo" Node="AircraftLogbookCargo"/>
+  </ModelBehaviors>
+</ModelInfo>

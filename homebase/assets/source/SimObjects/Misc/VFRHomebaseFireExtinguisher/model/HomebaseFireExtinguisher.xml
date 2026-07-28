@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" guid="{7C0D1B6E-BF25-4AC0-9C60-A1852A8C8154}">
+  <LODS>
+    <LOD minSize="0" ModelFile="HomebaseFireExtinguisher_LOD00.gltf"/>
+  </LODS>
+  <ModelBehaviors>
+    <Component ID="HomebaseFireExtinguisher" Node="FireExtinguisher"/>
+  </ModelBehaviors>
+</ModelInfo>

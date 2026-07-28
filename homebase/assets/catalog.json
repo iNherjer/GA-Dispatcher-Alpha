@@ -2,10 +2,39 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.20",
+    "version": "0.6.21",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
+    {
+      "key": "aircraftLogbookCargo",
+      "folder": "VFRMissionAircraftLogbookCargo",
+      "title": "VFR Multitool Mission Aircraft Logbook Cargo",
+      "label": "Luftfahrzeug-Bordbuch",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Missionsfracht",
+      "homebasePlaceable": false,
+      "workbenchVisible": false,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "aviation",
+        "documents",
+        "logbook",
+        "aircraft-records"
+      ],
+      "missionRoles": [
+        "cargo"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-28T12:04:40.418Z"
+    },
     {
       "key": "assetShelf",
       "version": "1.0.1",
@@ -101,7 +130,7 @@
       "folder": "VFRMissionCameraEquipmentCargo",
       "title": "VFR Multitool Mission Camera Equipment Cargo",
       "label": "Fotoausrüstung im offenen Hardcase",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "object",
       "group": "Missionsfracht",
       "homebasePlaceable": false,
@@ -123,14 +152,14 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.451Z"
+      "updatedAt": "2026-07-28T16:02:15.993Z"
     },
     {
       "key": "campingEquipmentCargo",
       "folder": "VFRMissionCampingEquipmentCargo",
       "title": "VFR Multitool Mission Camping Equipment Cargo",
       "label": "Campingausrüstung – verladefertig",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "object",
       "group": "Missionsfracht",
       "homebasePlaceable": false,
@@ -153,7 +182,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.630Z"
+      "updatedAt": "2026-07-28T16:02:17.287Z"
     },
     {
       "key": "chair",
@@ -334,11 +363,72 @@
       "homebasePlaceable": true
     },
     {
+      "key": "fireExtinguisher",
+      "folder": "VFRHomebaseFireExtinguisher",
+      "title": "VFR Multitool Homebase Fire Extinguisher",
+      "label": "Feuerlöscher",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "safety",
+        "emergency",
+        "firefighting",
+        "aviation",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-28T12:04:40.357Z"
+    },
+    {
+      "key": "firstAidCase",
+      "folder": "VFRHomebaseFirstAidCase",
+      "title": "VFR Multitool Homebase First Aid Case",
+      "label": "Erste-Hilfe-Koffer",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "medical",
+        "first-aid",
+        "emergency",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-28T12:04:40.468Z"
+    },
+    {
       "key": "flightCaseBlack",
       "folder": "VFRHomebaseFlightCaseBlack",
       "title": "VFR Multitool Homebase Flight Case Black",
       "label": "Flightcase schwarz",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "object",
       "group": "Gepäck & Fracht",
       "homebasePlaceable": true,
@@ -360,7 +450,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.506Z"
+      "updatedAt": "2026-07-28T16:02:18.756Z"
     },
     {
       "key": "fuelDrum",
@@ -504,7 +594,7 @@
       "folder": "VFRHomebaseHardcaseRedPro",
       "title": "VFR Multitool Homebase Hardcase Red Pro",
       "label": "Hardcase rot Pro",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "object",
       "group": "Gepäck & Fracht",
       "homebasePlaceable": true,
@@ -526,14 +616,14 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.570Z"
+      "updatedAt": "2026-07-28T16:02:21.293Z"
     },
     {
       "key": "hardcaseYellowSmall",
       "folder": "VFRHomebaseHardcaseYellowSmall",
       "title": "VFR Multitool Homebase Hardcase Yellow Small",
       "label": "Hardcase gelb klein",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "object",
       "group": "Gepäck & Fracht",
       "homebasePlaceable": true,
@@ -555,14 +645,14 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.538Z"
+      "updatedAt": "2026-07-28T16:02:20.014Z"
     },
     {
       "key": "insulatedCooler",
       "folder": "VFRHomebaseInsulatedCooler",
       "title": "VFR Multitool Homebase Insulated Cooler",
       "label": "Isolierte Kühlbox",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "object",
       "group": "Gepäck & Fracht",
       "homebasePlaceable": true,
@@ -579,14 +669,20 @@
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T19:05:32.135Z"
+      "updatedAt": "2026-07-28T15:07:50.283Z",
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null
     },
     {
       "key": "jerrycanPair",
       "folder": "VFRHomebaseJerrycanPair",
       "title": "VFR Multitool Homebase Jerrycan Pair",
-      "label": "Kanister-Doppelpack",
-      "version": "1.0.0",
+      "label": "Benzinkanister 20 L – stark gealtert",
+      "version": "1.0.4",
       "kind": "object",
       "group": "Ausstattung",
       "homebasePlaceable": true,
@@ -595,7 +691,9 @@
       "missionTags": [
         "cargo",
         "fuel",
-        "supply",
+        "jerrycan",
+        "20l",
+        "weathered",
         "bush",
         "maintenance"
       ],
@@ -603,7 +701,13 @@
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T19:05:32.117Z"
+      "updatedAt": "2026-07-28T14:49:10.753Z",
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null
     },
     {
       "key": "mailSack",
@@ -633,7 +737,7 @@
       "folder": "VFRMissionMedicalBackpackCargo",
       "title": "VFR Multitool Mission Medical Backpack Cargo",
       "label": "Sanitätsrucksack",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "object",
       "group": "Missionsfracht",
       "homebasePlaceable": false,
@@ -655,7 +759,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T09:44:57.599Z"
+      "updatedAt": "2026-07-28T16:02:22.589Z"
     },
     {
       "key": "mxPavilion",
@@ -853,7 +957,7 @@
       "folder": "VFRMissionPetCarrierCargo",
       "title": "VFR Multitool Mission Pet Carrier Cargo",
       "label": "Tiertransportbox",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "object",
       "group": "Missionsfracht",
       "homebasePlaceable": false,
@@ -876,7 +980,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-27T10:05:24.885Z"
+      "updatedAt": "2026-07-28T16:02:23.937Z"
     },
     {
       "key": "pinboard",
@@ -1256,6 +1360,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-27T10:09:43.976Z",
+  "updatedAt": "2026-07-28T16:02:24.662Z",
   "stockObjects": []
 }

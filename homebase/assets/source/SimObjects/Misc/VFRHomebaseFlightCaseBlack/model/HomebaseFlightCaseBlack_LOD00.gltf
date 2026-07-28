@@ -184,32 +184,32 @@
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Primary_Normal",
-      "uri": "textures/HomebaseFlightCaseBlack_Primary_Normal.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Primary_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Primary_BaseColor",
-      "uri": "textures/HomebaseFlightCaseBlack_Primary_BaseColor.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Primary_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Metal_Normal",
-      "uri": "textures/HomebaseFlightCaseBlack_Metal_Normal.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Metal_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Metal_BaseColor",
-      "uri": "textures/HomebaseFlightCaseBlack_Metal_BaseColor.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Metal_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Rubber_Normal",
-      "uri": "textures/HomebaseFlightCaseBlack_Rubber_Normal.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Rubber_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "HomebaseFlightCaseBlack_Rubber_BaseColor",
-      "uri": "textures/HomebaseFlightCaseBlack_Rubber_BaseColor.png"
+      "uri": "../texture/HomebaseFlightCaseBlack_Rubber_BaseColor.png"
     }
   ],
   "accessors": [

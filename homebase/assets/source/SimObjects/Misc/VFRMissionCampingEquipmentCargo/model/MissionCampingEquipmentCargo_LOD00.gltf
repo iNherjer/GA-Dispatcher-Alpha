@@ -465,42 +465,42 @@
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_Woven_Normal",
-      "uri": "textures/MissionCampingEquipmentCargo_Woven_Normal.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_Woven_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_OliveGraphicFabric_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_OliveGraphicFabric_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_OliveGraphicFabric_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_DarkFabric_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_DarkFabric_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_DarkFabric_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_Leather_Normal",
-      "uri": "textures/MissionCampingEquipmentCargo_Leather_Normal.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_Leather_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_BrownLeather_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_BrownLeather_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_BrownLeather_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_BlueSleepingBag_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_BlueSleepingBag_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_BlueSleepingBag_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_OrangeMat_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_OrangeMat_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_OrangeMat_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionCampingEquipmentCargo_GreyTentPack_BaseColor",
-      "uri": "textures/MissionCampingEquipmentCargo_GreyTentPack_BaseColor.png"
+      "uri": "../texture/MissionCampingEquipmentCargo_GreyTentPack_BaseColor.png"
     }
   ],
   "accessors": [

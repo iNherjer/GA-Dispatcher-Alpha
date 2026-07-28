@@ -11,7 +11,7 @@
         "homebase_asset_key": "petCarrierCargo",
         "homebase_simobject_folder": "VFRMissionPetCarrierCargo",
         "homebase_title": "VFR Multitool Mission Pet Carrier Cargo",
-        "homebase_asset_version": "1.0.0",
+        "homebase_asset_version": "1.0.2",
         "homebase_catalog_group": "Missionsfracht",
         "homebase_master_source": "C:\\RohDaten\\VFR-Multitool-Homebase-Asset-Publisher\\asset-library\\VFRMissionPetCarrierCargo\\editable-source\\MissionPetCarrierCargo.blend",
         "homebase_publisher_handoff": "C:\\Users\\einhe\\Desktop\\VFR-Multitool-Homebase-Prototype-v0.2.1\\VFR-Multitool-Homebase-Prototype-v0.2.1\\Quellen\\VFRMissionPetCarrierCargo",
@@ -227,17 +227,17 @@
     {
       "mimeType": "image/png",
       "name": "MissionPetCarrierCargo_MouldedPlastic_Normal",
-      "uri": "textures/MissionPetCarrierCargo_MouldedPlastic_Normal.png"
+      "uri": "../texture/MissionPetCarrierCargo_MouldedPlastic_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionPetCarrierCargo_DarkPlastic_BaseColor",
-      "uri": "textures/MissionPetCarrierCargo_DarkPlastic_BaseColor.png"
+      "uri": "../texture/MissionPetCarrierCargo_DarkPlastic_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionPetCarrierCargo_CreamPlastic_BaseColor",
-      "uri": "textures/MissionPetCarrierCargo_CreamPlastic_BaseColor.png"
+      "uri": "../texture/MissionPetCarrierCargo_CreamPlastic_BaseColor.png"
     }
   ],
   "accessors": [

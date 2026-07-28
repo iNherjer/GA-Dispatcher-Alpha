@@ -1,0 +1,32 @@
+{
+  "key": "jerrycanPair",
+  "folder": "VFRHomebaseJerrycanPair",
+  "title": "VFR Multitool Homebase Jerrycan Pair",
+  "label": "Benzinkanister 20 L – stark gealtert",
+  "version": "1.0.4",
+  "kind": "object",
+  "group": "Ausstattung",
+  "homebasePlaceable": true,
+  "workbenchVisible": true,
+  "missionSpawnable": true,
+  "missionTags": [
+    "cargo",
+    "fuel",
+    "jerrycan",
+    "20l",
+    "weathered",
+    "bush",
+    "maintenance"
+  ],
+  "missionRoles": [
+    "cargo",
+    "scene-prop"
+  ],
+  "updatedAt": "2026-07-28T14:49:10.753Z",
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null
+}

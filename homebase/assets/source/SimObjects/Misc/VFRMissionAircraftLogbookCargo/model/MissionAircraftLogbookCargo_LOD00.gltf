@@ -1,0 +1,439 @@
+{
+  "asset": {
+    "generator": "VFR aircraftLogbookCargo raw glTF exporter; source asset-tools/create-mission-aircraft-logbook-cargo.py",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "extras": {
+        "homebase_asset_key": "aircraftLogbookCargo",
+        "homebase_asset_version": "1.0.0",
+        "homebase_asset_folder": "VFRMissionAircraftLogbookCargo",
+        "homebase_asset_title": "VFR Multitool Mission Aircraft Logbook Cargo",
+        "homebase_asset_purpose": "mission cargo only",
+        "homebase_reference_dimensions_m": "0.310 x 0.220 x 0.033",
+        "homebase_source_generator": "asset-tools/create-mission-aircraft-logbook-cargo.py",
+        "homebase_sdk_build_performed": false
+      },
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "extras": {
+        "homebase_asset_key": "aircraftLogbookCargo",
+        "homebase_asset_version": "1.0.0",
+        "homebase_roles": "cargo",
+        "homebase_placeable": false,
+        "homebase_decals": "cover title, label window, cloth pattern and page layers are raster textures",
+        "homebase_dimensions_m": "0.310 x 0.220 x 0.0336",
+        "homebase_static_asset": true
+      },
+      "mesh": 0,
+      "name": "AircraftLogbookCargo"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Logbook_CoverEdges",
+      "normalTexture": {
+        "index": 0,
+        "scale": 0.44999998807907104
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.017999999225139618,
+          0.07500000298023224,
+          0.2199999988079071,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.7200000286102295
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Logbook_PageBlockTextured",
+      "normalTexture": {
+        "index": 1,
+        "scale": 0.47999998927116394
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 2
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.8799999952316284
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Logbook_CoverTextured",
+      "normalTexture": {
+        "index": 3,
+        "scale": 0.550000011920929
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicFactor": 0,
+        "roughnessFactor": 0.6700000166893005
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Logbook_HingeGrooves",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.00800000037997961,
+          0.03500000014901161,
+          0.10999999940395355,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.75
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "AircraftLogbookCargoMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1
+        },
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 2
+        },
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 3
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "MissionAircraftLogbookCargo_Cover_Normal",
+      "uri": "../texture/MissionAircraftLogbookCargo_Cover_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionAircraftLogbookCargo_Pages_Normal",
+      "uri": "../texture/MissionAircraftLogbookCargo_Pages_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionAircraftLogbookCargo_Pages_BaseColor",
+      "uri": "../texture/MissionAircraftLogbookCargo_Pages_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "MissionAircraftLogbookCargo_Cover_BaseColor",
+      "uri": "../texture/MissionAircraftLogbookCargo_Cover_BaseColor.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 1664,
+      "max": [
+        0.1550000011920929,
+        0.03212131932377815,
+        0.10999999940395355
+      ],
+      "min": [
+        -0.15600000321865082,
+        -4.656612873077393e-10,
+        -0.10999999940395355
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1664,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1664,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 2550,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 3000,
+      "max": [
+        0.15424999594688416,
+        0.029000001028180122,
+        0.10300000011920929
+      ],
+      "min": [
+        -0.14400000870227814,
+        0.005999999586492777,
+        -0.10300000011920929
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 3000,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 3000,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 4500,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 100,
+      "max": [
+        0.15412132441997528,
+        0.032999999821186066,
+        0.10912132263183594
+      ],
+      "min": [
+        -0.15412132441997528,
+        0.03173204883933067,
+        -0.10912132263183594
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 100,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 100,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 150,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 1200,
+      "max": [
+        -0.1281999945640564,
+        0.03359999880194664,
+        0.10249999910593033
+      ],
+      "min": [
+        -0.13830000162124634,
+        0.03239999711513519,
+        -0.10249999910593033
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 1200,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 1200,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 1800,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 19968,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19968,
+      "byteOffset": 19968,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13312,
+      "byteOffset": 39936,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5100,
+      "byteOffset": 53248,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 36000,
+      "byteOffset": 58348,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 36000,
+      "byteOffset": 94348,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 24000,
+      "byteOffset": 130348,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9000,
+      "byteOffset": 154348,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1200,
+      "byteOffset": 163348,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1200,
+      "byteOffset": 164548,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 800,
+      "byteOffset": 165748,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 300,
+      "byteOffset": 166548,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14400,
+      "byteOffset": 166848,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14400,
+      "byteOffset": 181248,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9600,
+      "byteOffset": 195648,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 3600,
+      "byteOffset": 205248,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 208848,
+      "uri": "MissionAircraftLogbookCargo_LOD00.bin"
+    }
+  ]
+}

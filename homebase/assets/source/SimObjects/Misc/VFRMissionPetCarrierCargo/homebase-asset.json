@@ -3,7 +3,7 @@
   "folder": "VFRMissionPetCarrierCargo",
   "title": "VFR Multitool Mission Pet Carrier Cargo",
   "label": "Tiertransportbox",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kind": "object",
   "group": "Missionsfracht",
   "homebasePlaceable": false,
@@ -26,5 +26,5 @@
   "headingCorrectionDeg": 0,
   "collisionProfile": null,
   "vegetationExclusion": null,
-  "updatedAt": "2026-07-27T10:05:24.885Z"
+  "updatedAt": "2026-07-28T16:02:23.937Z"
 }

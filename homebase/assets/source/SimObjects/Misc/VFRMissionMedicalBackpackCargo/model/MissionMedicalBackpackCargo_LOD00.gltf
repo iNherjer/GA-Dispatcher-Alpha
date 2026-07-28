@@ -287,42 +287,42 @@
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_RedFabric_Normal",
-      "uri": "textures/MissionMedicalBackpackCargo_RedFabric_Normal.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_RedFabric_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_RedFabric_BaseColor",
-      "uri": "textures/MissionMedicalBackpackCargo_RedFabric_BaseColor.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_RedFabric_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_BlackFabric_Normal",
-      "uri": "textures/MissionMedicalBackpackCargo_BlackFabric_Normal.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_BlackFabric_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_BlackFabric_BaseColor",
-      "uri": "textures/MissionMedicalBackpackCargo_BlackFabric_BaseColor.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_BlackFabric_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_FrontGraphicFabric_Normal",
-      "uri": "textures/MissionMedicalBackpackCargo_FrontGraphicFabric_Normal.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_FrontGraphicFabric_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_FrontGraphicFabric_BaseColor",
-      "uri": "textures/MissionMedicalBackpackCargo_FrontGraphicFabric_BaseColor.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_FrontGraphicFabric_BaseColor.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_SideGraphicFabric_Normal",
-      "uri": "textures/MissionMedicalBackpackCargo_SideGraphicFabric_Normal.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_SideGraphicFabric_Normal.png"
     },
     {
       "mimeType": "image/png",
       "name": "MissionMedicalBackpackCargo_SideGraphicFabric_BaseColor",
-      "uri": "textures/MissionMedicalBackpackCargo_SideGraphicFabric_BaseColor.png"
+      "uri": "../texture/MissionMedicalBackpackCargo_SideGraphicFabric_BaseColor.png"
     }
   ],
   "accessors": [
