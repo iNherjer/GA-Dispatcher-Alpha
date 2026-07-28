@@ -13,6 +13,7 @@ const dataset = JSON.parse(fs.readFileSync(path.join(rootDir, 'data', 'openaip-n
 const reportingPointDataset = JSON.parse(
     fs.readFileSync(path.join(rootDir, 'data', 'openaip-reporting-points.json'), 'utf8')
 );
+const airportDataset = JSON.parse(fs.readFileSync(path.join(rootDir, 'airports.json'), 'utf8'));
 
 function extractFunctionDeclaration(name) {
     const marker = `function ${name}(`;
@@ -35,7 +36,15 @@ function extractFunctionDeclaration(name) {
 const context = vm.createContext({
     console,
     cachedNavData: [],
-    collectionAvailable: false,
+    availableCollections: new Set(),
+    globalAirports: airportDataset,
+    snapMode: true,
+    map: { getZoom: () => 6 },
+    OPENAIP_OVERLAY_MIN_ZOOM: 8,
+    GLOBAL_AIRPORT_SNAP_MIN_ZOOM: 6,
+    visibleBounds: { west: 8, south: 48, east: 9, north: 49 },
+    hasGlobalAirportsForMapClicks: () => true,
+    getOpenAipVisibleBounds: () => context.visibleBounds,
     openAipStaticNavaidState: {
         items: dataset.navaids,
         byId: null,
@@ -47,13 +56,13 @@ const context = vm.createContext({
         activeSource: 'none',
         activeCount: 0
     },
-    isOpenAipSnapshotCollectionAvailable: () => context.collectionAvailable,
+    isOpenAipSnapshotCollectionAvailable: (_, key) => context.availableCollections.has(key),
     getOpenAipNavaidCacheBounds: payload => {
         const [west, south, east, north] = payload.bbox;
         return { west, south, east, north };
     },
     extractRppAirportIcao: () => '',
-    normalizeOpenAipAirportForPopup: () => null,
+    normalizeOpenAipAirportForPopup: item => item?.testNormalized || null,
     seedOpenAipAirportFrequencies: () => {},
     seedOpenAipAirportRunways: () => {}
 });
@@ -65,6 +74,8 @@ for (const name of [
     'buildOpenAipReportingPointCacheEntry',
     'getStaticOpenAipReportingPointEntries',
     'setOpenAipActiveReportingPointSource',
+    'buildGlobalAirportSnapEntries',
+    'mergeGlobalAirportSnapEntries',
     'replaceCachedNavDataFromOpenAip'
 ]) {
     vm.runInContext(extractFunctionDeclaration(name), context);
@@ -77,11 +88,13 @@ const fallbackPayload = {
     airports: [],
     meta: {
         collections: {
-            navaids: { errorStatus: 429 }
+            airports: { errorStatus: 429 },
+            navaids: { errorStatus: 429 },
+            reportingPoints: { errorStatus: 429 }
         }
     }
 };
-context.collectionAvailable = false;
+context.availableCollections.clear();
 context.replaceCachedNavDataFromOpenAip(fallbackPayload);
 const staticSul = context.cachedNavData.find(item => item.navaidIdentifier === 'SUL');
 assert.ok(staticSul, 'SUL fehlt im materialisierten statischen Snap-Pool');
@@ -94,8 +107,28 @@ assert.ok(staticVrp, 'VRP fehlt im materialisierten statischen Snap-Pool');
 assert.equal(staticVrp.rppSource, 'static');
 assert.equal(context.openAipStaticReportingPointState.activeSource, 'static');
 assert.ok(context.openAipStaticReportingPointState.activeCount > 0);
+const staticAirport = context.cachedNavData.find(item => item.airportIcao === 'EDTW');
+assert.ok(staticAirport, 'EDTW fehlt im sofort verfügbaren Flugplatz-Snap-Pool');
+assert.equal(staticAirport.type, 'APT');
+assert.equal(staticAirport.airportSnapSource, 'global-fallback');
 
-context.collectionAvailable = true;
+context.visibleBounds = { west: 7, south: 47, east: 12.5, north: 49.5 };
+context.cachedNavData = [{ name: staticSul.name, type: 'VOR', lat: staticSul.lat, lng: staticSul.lng }];
+assert.ok(context.mergeGlobalAirportSnapEntries() > 0, 'sichtbare Flugplätze wurden beim Verschieben nicht ergänzt');
+assert.ok(
+    context.cachedNavData.some(item => item.airportIcao === 'EDTF')
+        && context.cachedNavData.some(item => item.airportIcao === 'EDDM'),
+    'Flugplätze der Übersicht Freiburg–München fehlen nach dem sichtbereichsbezogenen Merge'
+);
+context.visibleBounds = { west: 30, south: -60, east: 31, north: -59 };
+context.mergeGlobalAirportSnapEntries();
+assert.ok(
+    !context.cachedNavData.some(item => item.airportIcao === 'EDTW'),
+    'Flugplatz-Fallback des alten Kartenausschnitts blieb nach dem Verschieben erhalten'
+);
+
+context.availableCollections = new Set(['airports', 'navaids', 'reportingPoints']);
+context.visibleBounds = { west: 8, south: 48, east: 9, north: 49 };
 context.replaceCachedNavDataFromOpenAip({
     ...fallbackPayload,
     navaids: [{
@@ -107,10 +140,44 @@ context.replaceCachedNavDataFromOpenAip({
     }],
     meta: { collections: { navaids: { errorStatus: 0 } } }
 });
-assert.equal(context.cachedNavData.length, 1);
-assert.equal(context.cachedNavData[0].name, 'SULZ LIVE [SUL] (116.100)');
-assert.equal(context.cachedNavData[0].navaidSource, 'live');
+const liveSul = context.cachedNavData.find(item => item.navaidIdentifier === 'SUL');
+const airportAfterEmptyLiveCollection = context.cachedNavData.find(item => item.airportIcao === 'EDTW');
+assert.equal(liveSul?.name, 'SULZ LIVE [SUL] (116.100)');
+assert.equal(liveSul?.navaidSource, 'live');
+assert.equal(
+    airportAfterEmptyLiveCollection?.airportSnapSource,
+    'global-fallback',
+    'ein erfolgreicher, aber leerer OpenAIP-Airport-Teil entfernte den Flugplatz-Fallback'
+);
 assert.equal(context.openAipStaticNavaidState.activeSource, 'live');
 assert.equal(context.openAipStaticNavaidState.activeCount, 1);
 
-console.log(`OpenAIP navigation fallback ok: ${staticSul.name}, VRP ${staticVrp.name}, live priority verified`);
+context.replaceCachedNavDataFromOpenAip({
+    ...fallbackPayload,
+    airports: [{
+        _id: 'live-edtw',
+        frequencies: [],
+        testNormalized: {
+            icao: 'EDTW',
+            name: 'Winzeln-Schramberg LIVE',
+            lat: 48.27917,
+            lon: 8.42833,
+            sourceId: 'live-edtw',
+            country: 'DE'
+        }
+    }],
+    meta: {
+        collections: {
+            airports: { errorStatus: 0 },
+            navaids: { errorStatus: 0 },
+            reportingPoints: { errorStatus: 0 }
+        }
+    }
+});
+const edtwEntries = context.cachedNavData.filter(item => item.airportIcao === 'EDTW');
+assert.equal(edtwEntries.length, 1, 'OpenAIP- und globaler Flugplatz wurden im Snap-Pool dupliziert');
+assert.equal(edtwEntries[0].sourceId, 'live-edtw', 'der OpenAIP-Flugplatz hatte nicht Vorrang vor dem Fallback');
+
+console.log(
+    `OpenAIP navigation fallback ok: ${staticSul.name}, VRP ${staticVrp.name}, APT ${staticAirport.airportIcao}, live priority verified`
+);

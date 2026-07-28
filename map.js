@@ -6092,12 +6092,18 @@ function hasGlobalAirportsForMapClicks() {
 }
 
 async function ensureGlobalAirportsForMapClicks() {
-    if (hasGlobalAirportsForMapClicks()) return true;
+    if (hasGlobalAirportsForMapClicks()) {
+        if (snapMode && map) mergeGlobalAirportSnapEntries();
+        return true;
+    }
     if (typeof loadGlobalAirports !== 'function') return false;
     try {
         await loadGlobalAirports();
     } catch (_) {
         return false;
+    }
+    if (hasGlobalAirportsForMapClicks() && snapMode && map) {
+        mergeGlobalAirportSnapEntries();
     }
     return hasGlobalAirportsForMapClicks();
 }
@@ -8883,6 +8889,7 @@ const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDr
 const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
 const USA_VFR_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_MIN_ZOOM = 8;
+const GLOBAL_AIRPORT_SNAP_MIN_ZOOM = 6;
 const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
 const OPENAIP_OVERLAY_NAVAID_MIN_ZOOM = 9;
 const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
@@ -9707,6 +9714,77 @@ function setOpenAipActiveReportingPointSource(source, count) {
     openAipStaticReportingPointState.activeCount = Math.max(0, Number(count) || 0);
 }
 
+function buildGlobalAirportSnapEntries(bounds) {
+    if (!bounds || typeof globalAirports !== 'object' || !globalAirports) return [];
+    const west = Number(bounds.west);
+    const south = Number(bounds.south);
+    const east = Number(bounds.east);
+    const north = Number(bounds.north);
+    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
+
+    const padLon = Math.min(0.25, Math.max(0.05, (east - west) * 0.15));
+    const padLat = Math.min(0.25, Math.max(0.05, (north - south) * 0.15));
+    const entries = [];
+    for (const key in globalAirports) {
+        const airport = globalAirports[key];
+        const lat = Number(airport?.lat);
+        const lon = Number(airport?.lon ?? airport?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        if (
+            lat < south - padLat
+            || lat > north + padLat
+            || lon < west - padLon
+            || lon > east + padLon
+        ) continue;
+        const icao = String(airport?.icao || key || '').trim().toUpperCase();
+        const airportName = String(airport?.name || airport?.n || airport?.city || icao || 'Flugplatz').trim();
+        entries.push({
+            name: `APT ${icao || airportName}`,
+            lat,
+            lng: lon,
+            type: 'APT',
+            airportIcao: icao || airportName,
+            airportName,
+            country: String(airport?.country || '').trim(),
+            elevation: airport?.elevation ?? null,
+            airportSnapSource: 'global-fallback'
+        });
+    }
+    return entries;
+}
+
+function mergeGlobalAirportSnapEntries(bounds = null) {
+    if (!snapMode || !map || !hasGlobalAirportsForMapClicks()) return 0;
+    const zoom = Number(map.getZoom && map.getZoom());
+    const retained = Array.isArray(cachedNavData)
+        ? cachedNavData.filter(item => item?.airportSnapSource !== 'global-fallback')
+        : [];
+    if (!Number.isFinite(zoom) || zoom < GLOBAL_AIRPORT_SNAP_MIN_ZOOM) {
+        cachedNavData = retained;
+        return 0;
+    }
+    const targetBounds = bounds || getOpenAipVisibleBounds();
+    const fallbackEntries = buildGlobalAirportSnapEntries(targetBounds);
+    const existingAirports = new Set(retained
+        .filter(item => item?.type === 'APT' || String(item?.name || '').startsWith('APT '))
+        .map(item => String(item?.airportIcao || item?.sourceId || `${Number(item?.lat).toFixed(5)},${Number(item?.lng).toFixed(5)}`).trim().toUpperCase())
+        .filter(Boolean));
+    const additions = fallbackEntries.filter(item => {
+        const key = String(item.airportIcao || `${Number(item.lat).toFixed(5)},${Number(item.lng).toFixed(5)}`).trim().toUpperCase();
+        if (!key || existingAirports.has(key)) return false;
+        existingAirports.add(key);
+        return true;
+    });
+    cachedNavData = retained.concat(additions);
+    return additions.length;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('ga:global-airports-ready', () => {
+        if (snapMode && map) mergeGlobalAirportSnapEntries();
+    });
+}
+
 function replaceCachedNavDataWithStaticFallback() {
     if (!snapMode || !map) return;
     const bounds = getOpenAipNavaidCacheBounds();
@@ -9723,6 +9801,7 @@ function replaceCachedNavDataWithStaticFallback() {
     ];
     setOpenAipActiveNavaidSource('static', fallbackEntries.length);
     setOpenAipActiveReportingPointSource('static', reportingPointEntries.length);
+    mergeGlobalAirportSnapEntries(bounds);
 }
 
 function refreshCachedNavDataWithStaticNavaids() {
@@ -9745,6 +9824,7 @@ function replaceCachedNavDataFromOpenAip(payload) {
     const aptArray = Array.isArray(payload?.airports) ? payload.airports : [];
     const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
     const liveReportingPointsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'reportingPoints');
+    const liveAirportsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airports');
     const navaidEntries = liveNavaidsAvailable
         ? navArray.map(item => buildOpenAipNavaidCacheEntry(item, 'live')).filter(Boolean)
         : getStaticOpenAipNavaidEntries(getOpenAipNavaidCacheBounds(payload));
@@ -9758,24 +9838,32 @@ function replaceCachedNavDataFromOpenAip(payload) {
         liveReportingPointsAvailable ? 'live' : 'static',
         reportingPointEntries.length
     );
-    aptArray.forEach((i) => {
-        const apt = normalizeOpenAipAirportForPopup(i);
-        if (!apt) return;
-        const firstFrequency = Array.isArray(i.frequencies) ? i.frequencies[0]?.value : '';
-        next.push({
-            name: `APT ${apt.icao || apt.name}${firstFrequency ? ` (${firstFrequency})` : ''}`,
-            lat: apt.lat,
-            lng: apt.lon,
-            type: 'APT',
-            airportIcao: apt.icao || apt.name,
-            airportName: apt.name,
-            sourceId: apt.sourceId,
-            country: apt.country
+    if (liveAirportsAvailable) {
+        aptArray.forEach((i) => {
+            const apt = normalizeOpenAipAirportForPopup(i);
+            if (!apt) return;
+            const firstFrequency = Array.isArray(i.frequencies) ? i.frequencies[0]?.value : '';
+            next.push({
+                name: `APT ${apt.icao || apt.name}${firstFrequency ? ` (${firstFrequency})` : ''}`,
+                lat: apt.lat,
+                lng: apt.lon,
+                type: 'APT',
+                airportIcao: apt.icao || apt.name,
+                airportName: apt.name,
+                sourceId: apt.sourceId,
+                country: apt.country
+            });
         });
-    });
+    }
     seedOpenAipAirportFrequencies(aptArray);
     seedOpenAipAirportRunways(aptArray);
     cachedNavData = next;
+    // Ein erfolgreicher OpenAIP-Airport-Abruf kann trotzdem leer oder unvollständig
+    // sein. Deshalb den sichtbaren Ausschnitt der bereits geladenen globalen
+    // Flugplatzdatei immer ergänzen; echte OpenAIP-Treffer behalten beim Deduplizieren
+    // Vorrang. So kann ein später Snapshot das funktionierende APT-Snapping nicht
+    // wieder aus dem gemeinsamen Pool entfernen.
+    mergeGlobalAirportSnapEntries();
 }
 
 async function ensureOpenAipRegionSnapshot() {
@@ -10593,6 +10681,7 @@ function initMapBase() {
     let openAipOverlayFetchTimeout = null;
     let openAipRegionFetchTimeout = null;
     map.on('moveend', function () {
+        if (snapMode) void ensureGlobalAirportsForMapClicks();
         if (isOpenAipRegionMode()) {
             if (snapMode || isOpenAipOverlayEnabled()) {
                 clearTimeout(openAipRegionFetchTimeout);
@@ -11387,6 +11476,7 @@ function toggleSnapMode() {
     if (snapMode && map) {
         void loadOpenAipStaticNavaids();
         void loadOpenAipStaticReportingPoints();
+        void ensureGlobalAirportsForMapClicks();
         fetchOpenAIPData();
     } else {
         cachedNavData = [];
@@ -11419,6 +11509,7 @@ async function fetchOpenAIPDataLegacy() {
     // 1. Schutz: Nicht laden, wenn man zu weit rausgezoomt ist (verhindert "Box too large" 500er Fehler)
     if (map.getZoom() < 8) {
         cachedNavData = [];
+        mergeGlobalAirportSnapEntries(getOpenAipVisibleBounds());
         return;
     }
     const b = map.getBounds();
@@ -11483,6 +11574,7 @@ async function fetchOpenAIPDataLegacy() {
                 country: String(i.country || i.countryCode || i.isoCountry || '').trim()
             });
         });
+        mergeGlobalAirportSnapEntries({ west: w, south: s, east: e, north: n });
     } catch (e) {
         // Bei einem vollständigen Netzfehler bleiben wenigstens die statischen
         // Navaids des aktuellen Kartenausschnitts für das Snapping verfügbar.

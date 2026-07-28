@@ -9931,6 +9931,7 @@ function mergeFaaLocalAirportsSupplement(supplement = null) {
     }
     airportSearchIndex = null;
     airportSearchIndexSourceSize = 0;
+    notifyGlobalAirportsReady();
 }
 
 async function loadFaaLocalAirportsSupplement() {
@@ -9986,6 +9987,15 @@ async function loadFaaLocalAirportsSupplement() {
     }
 }
 
+function notifyGlobalAirportsReady() {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    try {
+        window.dispatchEvent(new CustomEvent('ga:global-airports-ready', {
+            detail: { count: Object.keys(globalAirports || {}).length }
+        }));
+    } catch (_) { }
+}
+
 async function loadGlobalAirports() {
     if (globalAirports && Object.keys(globalAirports).length > 0) return;
     if (globalAirportsLoadPromise) {
@@ -10035,6 +10045,7 @@ async function loadGlobalAirports() {
                     const parsed = await tryParseResponse(cached);
                     if (parsed) {
                         globalAirports = parsed;
+                        notifyGlobalAirportsReady();
                         await loadFaaLocalAirportsSupplement();
                         return;
                     }
@@ -10049,6 +10060,7 @@ async function loadGlobalAirports() {
                 const parsed = await tryParseResponse(res);
                 if (parsed) {
                     globalAirports = parsed;
+                    notifyGlobalAirportsReady();
                     await loadFaaLocalAirportsSupplement();
                     return;
                 }
@@ -10062,6 +10074,7 @@ async function loadGlobalAirports() {
                 const parsed = await tryParseResponse(res);
                 if (parsed) {
                     globalAirports = parsed;
+                    notifyGlobalAirportsReady();
                     await loadFaaLocalAirportsSupplement();
                     return;
                 }
