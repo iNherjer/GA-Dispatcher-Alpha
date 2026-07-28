@@ -4035,6 +4035,38 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push('');
     lines.push('OSM / Overpass kurz');
     const poiDbg = (window.gaPoiTileDebug && typeof window.gaPoiTileDebug === 'object') ? window.gaPoiTileDebug : {};
+    if (typeof window.gaGetAviationDataStatus === 'function') {
+        try {
+            const aviationStatus = window.gaGetAviationDataStatus();
+            const hosted = aviationStatus?.hosted || {};
+            const aviationOverlay = aviationStatus?.overlay || {};
+            const formatDeg = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+                ? Number(value).toFixed(2)
+                : '-';
+            lines.push(
+                `- Aviation Data: Modus ${String(aviationStatus?.mode || 'unbekannt')}`
+                + ` | aktiv ${String(aviationStatus?.activeSource || 'none')}`
+                + ` | Dataset ${String(hosted?.datasetVersion || '-')}`
+                + ` | Packs Netz/Cache ${Number(hosted?.packRequests) || 0}/${Number(hosted?.packCacheHits) || 0}`
+                + ` | RAM ${Number(hosted?.packCacheEntries) || 0} (${((Number(hosted?.packCacheBytes) || 0) / (1024 * 1024)).toFixed(1)} MB)`
+            );
+            lines.push(
+                `- Aviation Fallback: zu V2 ${Number(hosted?.fallbackCount) || 0}`
+                + ` | letzter ${vpFormatDebugTs(hosted?.lastFallbackAt)}`
+                + `${hosted?.lastFallbackReason ? ` (${hosted.lastFallbackReason})` : ''}`
+                + ` | Hosted Fehler ${hosted?.lastError || '-'}`
+                + ` | Hosted Erfolg ${vpFormatDebugTs(hosted?.lastSuccessAt)}`
+            );
+            lines.push(
+                `- Aviation Overlay: ${aviationOverlay?.enabled ? 'An' : 'Aus'}`
+                + ` | Zoom ${Number.isFinite(Number(aviationOverlay?.zoom)) ? Number(aviationOverlay.zoom) : '-'}`
+                + ` (min ${Number(aviationOverlay?.minZoom) || '-'})`
+                + ` | View ${formatDeg(aviationOverlay?.viewWidthDeg)}°×${formatDeg(aviationOverlay?.viewHeightDeg)}°`
+                + ` | Coverage ${formatDeg(aviationOverlay?.coverageWidthDeg)}°×${formatDeg(aviationOverlay?.coverageHeightDeg)}°`
+                + ` | Airspaces Payload/Layer ${Number(aviationOverlay?.payloadAirspaces) || 0}/${Number(aviationOverlay?.renderedAirspaceLayers) || 0}`
+            );
+        } catch (_) { }
+    }
     if (typeof window.gaGetOpenAipStaticNavaidStatus === 'function') {
         try {
             const navStatus = window.gaGetOpenAipStaticNavaidStatus();
@@ -4058,6 +4090,15 @@ window.vpBuildWeatherDebugReport = function() {
                 + ` | Datensatz ${Number.isFinite(generatedAt) ? vpFormatDebugTs(generatedAt) : '-'}`
                 + ` | aktiv ${String(rppStatus?.activeSource || 'none')} (${Number(rppStatus?.activeCount) || 0})`
                 + `${rppStatus?.lastError ? ` | Fehler ${rppStatus.lastError}` : ''}`
+            );
+        } catch (_) { }
+    }
+    if (typeof window.getOpenTopoTileStatus === 'function') {
+        try {
+            const topoStatus = window.getOpenTopoTileStatus();
+            lines.push(
+                `- OpenTopoMap Tiles: Primary ok/Fehler/Timeout ${Number(topoStatus?.primaryLoaded) || 0}/${Number(topoStatus?.primaryErrors) || 0}/${Number(topoStatus?.primaryTimeouts) || 0}`
+                + ` | Backup Abruf/ok/Fehler ${Number(topoStatus?.fallbackRequests) || 0}/${Number(topoStatus?.fallbackLoaded) || 0}/${Number(topoStatus?.fallbackErrors) || 0}`
             );
         } catch (_) { }
     }

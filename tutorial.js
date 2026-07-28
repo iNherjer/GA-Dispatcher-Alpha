@@ -316,11 +316,11 @@
                 }
             },
             {
-                title: 'Distanz, Richtung, Region',
-                selector: ['#distRange', '#distRangeRadio', '#opsRangeSelect', '#dirPref', '#regionFilter'],
+                title: 'Distanz, Richtung und Platztypen',
+                selector: ['#distRange', '#distRangeRadio', '#opsRangeSelect', '#dirPref', '#airportTypeFilterButton', '#airportTypeFilterRadioButton', '#opsAirportTypeButton'],
                 body: `
-                    <p>Über <strong>Distanz</strong>, <strong>Richtung</strong> und <strong>Region</strong> steuerst du den Suchraum.</p>
-                    <p>Mit <strong>Egal / Zufall</strong> bleibt die Auswahl random, mit festen Werten wird gezielt gefiltert.</p>
+                    <p>Über <strong>Distanz</strong> und <strong>Richtung</strong> steuerst du den Suchraum.</p>
+                    <p>Unter <strong>Platztypen</strong> kannst du mehrere Kategorien kombinieren, etwa Verkehrslandeplätze, GA-, Segelflug-, UL- oder Militärplätze. Die Suche bleibt weltweit.</p>
                 `,
                 beforeEnter: () => {
                     ensureMapClosed();

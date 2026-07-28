@@ -15373,6 +15373,1032 @@ body.theme-navcom .navcom-dispatch-help-bar {
     }
 }
 
+/* ==========================================================================
+   Mission airport type multi-select
+   ========================================================================== */
+.airport-type-filter-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    overflow: hidden;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    color: inherit;
+    background: #242424;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.airport-type-filter-button [data-airport-type-summary],
+.airport-type-radio-button [data-airport-type-summary] {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.airport-type-filter-chevron {
+    flex: 0 0 auto;
+    opacity: 0.65;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .airport-type-filter-button {
+    min-height: 48px;
+    padding: 12px 13px;
+    color: #f8fcff;
+    border: 1px solid rgba(255, 255, 255, 0.17);
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)),
+        rgba(7, 16, 24, 0.42);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.13),
+        0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+body.theme-retro .airport-type-filter-button {
+    min-height: 40px;
+    padding: 8px 20px 8px 10px;
+    border: 1px solid #c2bba8;
+    border-left: 6px solid #f2c12e;
+    border-right: 0;
+    border-radius: 2px 0 0 2px;
+    color: #111;
+    background: #f0eada;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+body.theme-win95 .airport-type-filter-button {
+    border: 2px outset #dfdfdf;
+    border-radius: 0;
+    color: #000;
+    background: #fff;
+    box-shadow: none;
+}
+
+.airport-type-radio-button {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    white-space: nowrap;
+}
+
+body.theme-navcom .airport-type-radio-button {
+    min-height: 30px;
+    line-height: 30px;
+}
+
+body.theme-ops1940 .ops-airport-type-button {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: min(72%, 180px);
+    min-height: 94px;
+    padding: 16px 12px 12px;
+    transform: translate(-50%, -42%);
+    border: 1px solid #050403;
+    border-radius: 4px;
+    color: #ead8ab;
+    background:
+        linear-gradient(180deg, rgba(70, 62, 48, 0.94), rgba(8, 7, 5, 0.98)),
+        var(--ops-switchgear-atlas);
+    background-size: auto, 400% 300%;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 232, 170, 0.14),
+        inset 0 -8px 16px rgba(0, 0, 0, 0.44),
+        0 6px 12px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-shadow: 0 1px 0 #000;
+    cursor: pointer;
+}
+
+body.theme-ops1940 .ops-airport-type-button small {
+    display: block;
+    margin-top: 9px;
+    color: rgba(234, 216, 171, 0.56);
+    font-size: 8px;
+    letter-spacing: 1px;
+}
+
+body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-airport-type-selector {
+    background-image:
+        linear-gradient(180deg, rgba(255, 244, 206, 0.08), rgba(0, 0, 0, 0.34)),
+        var(--ops-panel-region),
+        linear-gradient(180deg, var(--ops-olive-hi), var(--ops-olive-mid) 56%, var(--ops-olive-lo));
+    background-size: auto, 100% 102%, auto;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-position: center, center, center;
+}
+
+.airport-type-picker-backdrop {
+    position: fixed;
+    z-index: 100700;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(1, 5, 9, 0.7);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+.airport-type-picker-backdrop[hidden] {
+    display: none !important;
+}
+
+body.airport-type-picker-open {
+    overflow: hidden;
+}
+
+.airport-type-picker-dialog {
+    box-sizing: border-box;
+    width: min(620px, 100%);
+    max-height: min(760px, calc(100dvh - 36px));
+    overflow: auto;
+    color: #eaf4fb;
+    border: 1px solid rgba(155, 203, 239, 0.35);
+    border-radius: 18px;
+    background:
+        linear-gradient(145deg, rgba(28, 45, 58, 0.98), rgba(7, 16, 24, 0.99));
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.airport-type-picker-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 22px 22px 10px;
+}
+
+.airport-type-picker-kicker {
+    display: block;
+    margin-bottom: 5px;
+    color: #79bdf0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.6px;
+}
+
+.airport-type-picker-header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(19px, 4vw, 25px);
+    line-height: 1.2;
+}
+
+.airport-type-picker-close {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: #eaf4fb;
+    background: rgba(255, 255, 255, 0.07);
+    font-size: 27px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.airport-type-picker-intro {
+    margin: 0;
+    padding: 0 22px 16px;
+    color: rgba(222, 237, 247, 0.72);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.airport-type-picker-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    padding: 0 22px 20px;
+}
+
+.airport-type-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    min-width: 0;
+    min-height: 68px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    color: #eaf4fb;
+    background: rgba(255, 255, 255, 0.045);
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.airport-type-picker-dialog .airport-type-option {
+    display: flex;
+    margin: 0;
+    padding: 12px;
+    position: relative;
+    z-index: 0;
+}
+
+.airport-type-option:has(input:checked) {
+    border-color: rgba(79, 172, 239, 0.72);
+    background: rgba(52, 145, 211, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(91, 181, 244, 0.16);
+}
+
+.airport-type-option input[type="checkbox"] {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    margin: 0;
+    padding: 0;
+    accent-color: #55b4f3;
+}
+
+.airport-type-picker-dialog .airport-type-option input[type="checkbox"] {
+    -webkit-appearance: checkbox;
+    appearance: auto;
+    min-height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: none;
+    background-image: none;
+    box-shadow: none;
+    position: static;
+    z-index: auto;
+    text-shadow: none;
+    transform: none;
+}
+
+.airport-type-option-copy {
+    min-width: 0;
+}
+
+.airport-type-option-copy strong,
+.airport-type-option-copy small {
+    display: block;
+}
+
+.airport-type-option-copy strong {
+    color: #f8fcff;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.airport-type-option-copy small {
+    margin-top: 4px;
+    color: rgba(218, 234, 245, 0.61);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.airport-type-picker-footer {
+    position: sticky;
+    z-index: 5;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 22px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+    background: rgba(7, 16, 24, 0.96);
+}
+
+.airport-type-picker-count {
+    color: rgba(220, 235, 246, 0.65);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.airport-type-picker-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px;
+}
+
+.airport-type-picker-actions button {
+    min-height: 38px;
+    padding: 8px 13px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: #eaf4fb;
+    background: rgba(255, 255, 255, 0.07);
+    font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    cursor: pointer;
+}
+
+.airport-type-picker-actions .airport-type-picker-done {
+    border-color: rgba(85, 180, 243, 0.6);
+    color: #06121a;
+    background: #63baf4;
+}
+
+.airport-type-picker-close:focus-visible,
+.airport-type-option:has(input:focus-visible),
+.airport-type-picker-actions button:focus-visible {
+    outline: 2px solid #8bcdf8;
+    outline-offset: 2px;
+}
+
+.airport-type-filter-button:focus-visible,
+.airport-type-radio-button:focus-visible,
+.ops-airport-type-button:focus-visible {
+    outline: 2px solid var(--drawer-accent, #8bcdf8);
+    outline-offset: 2px;
+}
+
+/* Retro: Auswahlblatt aus demselben Papier-/Klemmbrettsystem wie das Briefing. */
+body.theme-retro .airport-type-picker-backdrop {
+    background: rgba(34, 28, 17, 0.68);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+
+body.theme-retro .airport-type-picker-dialog {
+    position: relative;
+    overflow: auto;
+    color: #29251e;
+    border: 1px solid #c8b990;
+    border-radius: 2px;
+    background-color: #f4ecd4;
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 27px, rgba(96, 145, 176, 0.16) 27px 28px),
+        radial-gradient(circle at 14% 12%, rgba(126, 100, 62, 0.10) 0 1px, transparent 1.4px),
+        radial-gradient(circle at 78% 68%, rgba(126, 100, 62, 0.08) 0 1px, transparent 1.4px);
+    background-size: auto, 41px 47px, 57px 53px;
+    box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.5) inset,
+        0 25px 65px rgba(20, 15, 8, 0.58);
+    font-family: 'Courier New', Courier, monospace;
+    transform: rotate(-0.25deg);
+}
+
+body.theme-retro .airport-type-picker-dialog::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    top: -2px;
+    left: 50%;
+    width: 108px;
+    height: 19px;
+    transform: translateX(-50%) rotate(0.8deg);
+    border: 1px solid rgba(149, 123, 71, 0.28);
+    background: rgba(220, 203, 151, 0.7);
+    box-shadow: 0 1px 4px rgba(64, 49, 24, 0.16);
+    pointer-events: none;
+}
+
+body.theme-retro .airport-type-picker-header {
+    padding-top: 28px;
+    border-bottom: 1px solid rgba(91, 76, 54, 0.28);
+}
+
+body.theme-retro .airport-type-picker-kicker {
+    color: #9a372f;
+    font-size: 10px;
+    letter-spacing: 1.4px;
+}
+
+body.theme-retro .airport-type-picker-header h2 {
+    color: #0b1f65;
+    font-family: 'Caveat', 'Segoe Print', cursive;
+    font-size: clamp(24px, 5vw, 32px);
+    line-height: 1.05;
+}
+
+body.theme-retro .airport-type-picker-close {
+    border: 0;
+    border-radius: 0;
+    color: #9a372f;
+    background: transparent;
+    box-shadow: none;
+    font-family: 'Caveat', 'Segoe Print', cursive;
+    font-size: 34px;
+}
+
+body.theme-retro .airport-type-picker-intro {
+    padding-top: 13px;
+    color: #62594b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+body.theme-retro .airport-type-option {
+    min-height: 72px;
+    border: 1px dashed rgba(101, 82, 56, 0.48);
+    border-radius: 2px;
+    color: #29251e;
+    background: rgba(255, 252, 239, 0.42);
+    box-shadow: 1px 2px 3px rgba(78, 58, 28, 0.09);
+}
+
+body.theme-retro .airport-type-option:has(input:checked) {
+    border-color: #9a372f;
+    background:
+        linear-gradient(90deg, rgba(242, 193, 46, 0.22), rgba(242, 193, 46, 0.08)),
+        rgba(255, 252, 239, 0.56);
+    box-shadow: inset 4px 0 0 #d93829, 1px 2px 3px rgba(78, 58, 28, 0.10);
+}
+
+body.theme-retro .airport-type-option input[type="checkbox"] {
+    accent-color: #d93829;
+}
+
+body.theme-retro .airport-type-option-copy strong {
+    color: #0b1f65;
+    font-family: 'Caveat', 'Segoe Print', cursive;
+    font-size: 19px;
+    line-height: 1.05;
+}
+
+body.theme-retro .airport-type-option-copy small {
+    color: #62594b;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+body.theme-retro .airport-type-picker-footer {
+    border-top-color: rgba(91, 76, 54, 0.32);
+    background: rgba(244, 236, 212, 0.96);
+}
+
+body.theme-retro .airport-type-picker-count {
+    color: #756a5b;
+    font-weight: 700;
+}
+
+body.theme-retro .airport-type-picker-actions button {
+    border: 1px solid #9b8e70;
+    border-radius: 2px;
+    color: #29251e;
+    background: #eee4c9;
+    box-shadow: 2px 2px 0 rgba(73, 57, 34, 0.22);
+    font-family: 'Courier New', Courier, monospace;
+}
+
+body.theme-retro .airport-type-picker-actions .airport-type-picker-done {
+    border-color: #b18a13;
+    color: #111;
+    background: #f2c12e;
+}
+
+/* NAV/COM: schwarzes Avionikgehäuse mit grüner LCD-Auswahl. */
+body.theme-navcom .airport-type-picker-backdrop {
+    background: rgba(0, 0, 0, 0.78);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+
+body.theme-navcom .airport-type-picker-dialog {
+    color: #eef1f3;
+    border: 2px solid #858b91;
+    border-top-color: #c2c6ca;
+    border-right-color: #474b4f;
+    border-bottom: 4px solid #111214;
+    border-radius: 7px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 14%),
+        linear-gradient(180deg, #30343a, #17191c 58%, #0c0d0f);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.46),
+        0 26px 70px rgba(0, 0, 0, 0.82);
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    transform: none;
+}
+
+body.theme-navcom .airport-type-picker-dialog::before {
+    content: none;
+}
+
+body.theme-navcom .airport-type-picker-header {
+    margin: 10px 12px 0;
+    padding: 13px 14px 12px;
+    border: 2px solid #080808;
+    border-top-color: #4d5155;
+    border-radius: 3px;
+    background: #070908;
+    box-shadow: inset 0 0 14px #000, 0 2px 4px rgba(0, 0, 0, 0.72);
+}
+
+body.theme-navcom .airport-type-picker-kicker {
+    color: #8aa18a;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+}
+
+body.theme-navcom .airport-type-picker-header h2 {
+    color: #33ff33;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: clamp(16px, 4vw, 21px);
+    font-weight: 400;
+    letter-spacing: 0.6px;
+    text-shadow: 0 0 7px rgba(51, 255, 51, 0.56);
+    text-transform: uppercase;
+}
+
+body.theme-navcom .airport-type-picker-close {
+    flex-basis: 35px;
+    width: 35px;
+    height: 35px;
+    border: 1px solid #b9bec2;
+    border-radius: 2px;
+    color: #f4f4f4;
+    background: linear-gradient(180deg, #4a4e52, #1d2023);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 3px #000;
+    font-size: 23px;
+}
+
+body.theme-navcom .airport-type-picker-intro {
+    padding: 14px 22px;
+    color: #b8bec3;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+body.theme-navcom .airport-type-option {
+    min-height: 72px;
+    border: 1px solid #4e5358;
+    border-top-color: #777d82;
+    border-radius: 2px;
+    color: #e8ecef;
+    background: linear-gradient(180deg, #1c1f21, #101214);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-navcom .airport-type-option:has(input:checked) {
+    border-color: #72a672;
+    background: #071009;
+    box-shadow: inset 0 0 12px rgba(51, 255, 51, 0.09), 0 0 0 1px rgba(51, 255, 51, 0.12);
+}
+
+body.theme-navcom .airport-type-option input[type="checkbox"] {
+    accent-color: #33ff33;
+}
+
+body.theme-navcom .airport-type-option input[type="checkbox"]:focus {
+    transform: none !important;
+}
+
+body.theme-navcom .airport-type-option-copy strong {
+    color: #f2f4f5;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+body.theme-navcom .airport-type-option:has(input:checked) .airport-type-option-copy strong {
+    color: #33ff33;
+    text-shadow: 0 0 5px rgba(51, 255, 51, 0.42);
+}
+
+body.theme-navcom .airport-type-option-copy small {
+    color: #929aa1;
+    font-family: Arial, sans-serif;
+    font-size: 10px;
+}
+
+body.theme-navcom .airport-type-picker-footer {
+    border-top: 2px solid #484d51;
+    background: #17191c;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+body.theme-navcom .airport-type-picker-count {
+    color: #9da6ad;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+body.theme-navcom .airport-type-picker-actions button {
+    border: 1px solid #9ba0a5;
+    border-radius: 2px;
+    color: #f3f4f5;
+    background: linear-gradient(180deg, #555a5f, #24272a);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 3px #000;
+    font-family: Arial, sans-serif;
+}
+
+body.theme-navcom .airport-type-picker-actions .airport-type-picker-done {
+    border-color: #56ad56;
+    color: #33ff33;
+    background: #071009;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    text-shadow: 0 0 5px rgba(51, 255, 51, 0.4);
+}
+
+body.theme-navcom .airport-type-picker-close:focus-visible,
+body.theme-navcom .airport-type-option:has(input:focus-visible),
+body.theme-navcom .airport-type-picker-actions button:focus-visible {
+    outline-color: #33ff33;
+}
+
+body.theme-navcom .airport-type-radio-button:focus-visible {
+    outline: 2px solid #33ff33 !important;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgba(51, 255, 51, 0.16);
+}
+
+/* OPS 1940: passend zu den olivfarbenen Metall- und Messingpaneelen. */
+body.theme-ops1940 .airport-type-picker-backdrop {
+    background:
+        radial-gradient(circle at 50% 28%, rgba(242, 202, 103, 0.10), transparent 36%),
+        rgba(7, 6, 4, 0.84);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+
+body.theme-ops1940 .airport-type-picker-dialog {
+    position: relative;
+    color: #ead8ab;
+    border: 1px solid #050403;
+    border-top-color: #77705f;
+    border-left-color: #514a3e;
+    border-right-color: #050403;
+    border-bottom: 4px solid #030302;
+    border-radius: 5px;
+    background:
+        linear-gradient(180deg, rgba(255, 244, 206, 0.06), rgba(0, 0, 0, 0.36)),
+        var(--ops-panel-region),
+        linear-gradient(180deg, #3d4435, #252b21 56%, #11130f);
+    background-size: auto, cover, auto;
+    background-position: center, center, center;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 235, 176, 0.09),
+        inset 0 -18px 34px rgba(0, 0, 0, 0.58),
+        0 28px 72px rgba(0, 0, 0, 0.9);
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-ops1940 .airport-type-picker-dialog::before,
+body.theme-ops1940 .airport-type-picker-dialog::after {
+    content: '';
+    position: absolute;
+    z-index: 3;
+    top: 12px;
+    width: 13px;
+    height: 13px;
+    border: 1px solid #2c1a08;
+    border-radius: 50%;
+    background: var(--ops-screw-r17) center / cover no-repeat;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.62);
+    pointer-events: none;
+}
+
+body.theme-ops1940 .airport-type-picker-dialog::before {
+    left: 12px;
+}
+
+body.theme-ops1940 .airport-type-picker-dialog::after {
+    right: 12px;
+    transform: rotate(51deg);
+}
+
+body.theme-ops1940 .airport-type-picker-header {
+    margin: 10px 34px 0;
+    padding: 10px 14px;
+    border: 1px solid rgba(24, 13, 4, 0.82);
+    border-radius: 2px;
+    background:
+        linear-gradient(180deg, rgba(255, 238, 179, 0.35), rgba(63, 38, 12, 0.34)),
+        var(--ops-atlas);
+    background-size: auto, 200% 200%;
+    background-position: center, right top;
+    box-shadow: inset 0 1px 0 rgba(255, 245, 205, 0.32), 0 3px 8px rgba(0, 0, 0, 0.62);
+}
+
+body.theme-ops1940 .airport-type-picker-kicker {
+    color: #6c210f;
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 9px;
+}
+
+body.theme-ops1940 .airport-type-picker-header h2 {
+    color: #211408;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(16px, 4vw, 21px);
+    letter-spacing: 0.7px;
+    text-shadow: 0 1px 0 rgba(255, 232, 159, 0.34);
+    text-transform: uppercase;
+}
+
+body.theme-ops1940 .airport-type-picker-close {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    border: 1px solid #32130c;
+    border-radius: 2px;
+    color: #f3d7a1;
+    background: linear-gradient(180deg, #8f2419, #43120d);
+    box-shadow: inset 0 1px 0 rgba(255, 213, 158, 0.25), 0 3px 5px rgba(0, 0, 0, 0.56);
+    font-size: 23px;
+}
+
+body.theme-ops1940 .airport-type-picker-intro {
+    padding-top: 14px;
+    color: #cbb889;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+body.theme-ops1940 .airport-type-option {
+    min-height: 72px;
+    border: 1px solid rgba(208, 164, 79, 0.34);
+    border-radius: 3px;
+    color: #ead8ab;
+    background:
+        linear-gradient(180deg, rgba(255, 244, 206, 0.055), rgba(0, 0, 0, 0.25)),
+        #252b21;
+    box-shadow: inset 0 1px 0 rgba(255, 237, 181, 0.07), 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+body.theme-ops1940 .airport-type-option:has(input:checked) {
+    border-color: #d0a44f;
+    background:
+        linear-gradient(180deg, rgba(242, 202, 103, 0.18), rgba(0, 0, 0, 0.22)),
+        #333827;
+    box-shadow: inset 4px 0 0 #8f2419, inset 0 1px 0 rgba(255, 237, 181, 0.12);
+}
+
+body.theme-ops1940 .airport-type-option input[type="checkbox"] {
+    accent-color: #b88935;
+}
+
+body.theme-ops1940 .airport-type-option-copy strong {
+    color: #f2dfb1;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+}
+
+body.theme-ops1940 .airport-type-option-copy small {
+    color: #ae9a70;
+    font-size: 10px;
+}
+
+body.theme-ops1940 .airport-type-picker-footer {
+    border-top-color: rgba(208, 164, 79, 0.34);
+    background: rgba(20, 22, 16, 0.97);
+}
+
+body.theme-ops1940 .airport-type-picker-count {
+    color: #b9a474;
+    font-family: 'MS33558', 'Courier New', monospace;
+}
+
+body.theme-ops1940 .airport-type-picker-actions button {
+    border: 1px solid #332716;
+    border-radius: 2px;
+    color: #2b1b0a;
+    background:
+        linear-gradient(180deg, rgba(255, 238, 179, 0.48), rgba(75, 44, 13, 0.26)),
+        #b88935;
+    box-shadow: inset 0 1px 0 rgba(255, 245, 205, 0.3), 0 3px 5px rgba(0, 0, 0, 0.52);
+    font-family: 'MS33558', 'Courier New', monospace;
+}
+
+body.theme-ops1940 .airport-type-picker-actions .airport-type-picker-done {
+    border-color: #54170f;
+    color: #f2dfb1;
+    background: linear-gradient(180deg, #8f2419, #45130e);
+}
+
+body.theme-ops1940 .airport-type-picker-close:focus-visible,
+body.theme-ops1940 .airport-type-option:has(input:focus-visible),
+body.theme-ops1940 .airport-type-picker-actions button:focus-visible {
+    outline-color: #f2ca67;
+}
+
+/* Windows 95: echter Systemdialog statt moderner Karte. */
+body.theme-win95 .airport-type-picker-backdrop {
+    background: rgba(0, 0, 0, 0.42);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+body.theme-win95 .airport-type-picker-dialog {
+    color: #000;
+    border: 2px outset #dfdfdf;
+    border-radius: 0;
+    background: #c0c0c0;
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
+    font-family: 'MS Sans Serif', Tahoma, sans-serif;
+}
+
+body.theme-win95 .airport-type-picker-header {
+    align-items: center;
+    margin: 2px;
+    padding: 3px 3px 3px 5px;
+    background: linear-gradient(90deg, #000080, #1084d0);
+}
+
+body.theme-win95 .airport-type-picker-kicker {
+    display: none;
+}
+
+body.theme-win95 .airport-type-picker-header h2 {
+    color: #fff;
+    font-family: 'MS Sans Serif', Tahoma, sans-serif;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+body.theme-win95 .airport-type-picker-close {
+    flex-basis: 20px;
+    width: 20px;
+    height: 20px;
+    border: 2px outset #fff;
+    border-radius: 0;
+    color: #000;
+    background: #c0c0c0;
+    box-shadow: none;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 12px;
+}
+
+body.theme-win95 .airport-type-picker-close:active {
+    border-style: inset;
+}
+
+body.theme-win95 .airport-type-picker-intro {
+    padding: 12px 14px 10px;
+    color: #000;
+    font-size: 11px;
+}
+
+body.theme-win95 .airport-type-picker-options {
+    gap: 6px;
+    padding: 0 14px 14px;
+}
+
+body.theme-win95 .airport-type-option {
+    min-height: 64px;
+    border: 2px inset #dfdfdf;
+    border-radius: 0;
+    color: #000;
+    background: #fff;
+    box-shadow: none;
+}
+
+body.theme-win95 .airport-type-option:has(input:checked) {
+    border-color: #dfdfdf;
+    color: #fff;
+    background: #000080;
+    box-shadow: none;
+}
+
+body.theme-win95 .airport-type-option input[type="checkbox"] {
+    accent-color: #000080;
+}
+
+body.theme-win95 .airport-type-option-copy strong,
+body.theme-win95 .airport-type-option-copy small {
+    color: inherit;
+    font-family: 'MS Sans Serif', Tahoma, sans-serif;
+}
+
+body.theme-win95 .airport-type-option-copy strong {
+    font-size: 11px;
+}
+
+body.theme-win95 .airport-type-option-copy small {
+    font-size: 10px;
+}
+
+body.theme-win95 .airport-type-picker-footer {
+    border-top: 1px solid #808080;
+    background: #c0c0c0;
+}
+
+body.theme-win95 .airport-type-picker-count {
+    color: #000;
+    font-size: 11px;
+}
+
+body.theme-win95 .airport-type-picker-actions button,
+body.theme-win95 .airport-type-picker-actions .airport-type-picker-done {
+    min-height: 28px;
+    border: 2px outset #fff;
+    border-radius: 0;
+    color: #000;
+    background: #c0c0c0;
+    box-shadow: none;
+    font-family: 'MS Sans Serif', Tahoma, sans-serif;
+    font-size: 11px;
+}
+
+body.theme-win95 .airport-type-picker-actions button:active {
+    border-style: inset;
+}
+
+body.theme-win95 .airport-type-picker-close:focus-visible,
+body.theme-win95 .airport-type-option:has(input:focus-visible),
+body.theme-win95 .airport-type-picker-actions button:focus-visible {
+    outline: 1px dotted #000;
+    outline-offset: -4px;
+}
+
+@media (max-width: 600px) {
+    .airport-type-picker-backdrop {
+        align-items: end;
+        padding: 0;
+    }
+
+    .airport-type-picker-dialog {
+        width: 100%;
+        max-height: min(780px, 92dvh);
+        border-radius: 20px 20px 0 0;
+        border-width: 1px 0 0;
+    }
+
+    .airport-type-picker-header {
+        padding: 18px 16px 9px;
+    }
+
+    .airport-type-picker-intro {
+        padding: 0 16px 13px;
+    }
+
+    .airport-type-picker-options {
+        grid-template-columns: 1fr;
+        gap: 7px;
+        padding: 0 16px 16px;
+    }
+
+    .airport-type-picker-dialog .airport-type-option {
+        min-height: 62px;
+        padding: 10px 11px;
+    }
+
+    .airport-type-picker-footer {
+        align-items: flex-end;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .airport-type-picker-actions {
+        max-width: 250px;
+    }
+
+    body.theme-ops1940 .ops-airport-type-button {
+        width: 74%;
+        min-height: 68px;
+        padding: 10px 7px 8px;
+        font-size: 10px;
+    }
+
+    body.theme-ops1940 .ops-airport-type-button small {
+        margin-top: 5px;
+        font-size: 6px;
+    }
+
+    body.theme-retro .airport-type-picker-dialog {
+        border-radius: 1px 1px 0 0;
+        transform: none;
+    }
+
+    body.theme-navcom .airport-type-picker-dialog,
+    body.theme-ops1940 .airport-type-picker-dialog,
+    body.theme-win95 .airport-type-picker-dialog {
+        border-radius: 0;
+    }
+
+    body.theme-ops1940 .airport-type-picker-header {
+        margin-left: 29px;
+        margin-right: 29px;
+    }
+
+    body.theme-win95 .airport-type-picker-backdrop {
+        align-items: center;
+        padding: 8px;
+    }
+
+    body.theme-win95 .airport-type-picker-dialog {
+        max-height: calc(100dvh - 16px);
+    }
+}
+
 body.theme-ops1940 .settings-panel {
     margin-top: 10px;
     padding: 8px;

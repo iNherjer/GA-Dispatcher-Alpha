@@ -13588,16 +13588,29 @@ function maybeRefreshCurrentNavData(lat, lon) {
     const bbox = `${w},${s},${e},${n}`;
     const proxy = 'https://ga-proxy.einherjer.workers.dev';
 
-    Promise.all([
-        fetch(`${proxy}/api/navaids?bbox=${bbox}&limit=250&t=${Date.now()}`),
-        fetch(`${proxy}/api/reporting-points?bbox=${bbox}&limit=250&t=${Date.now()}`),
-        fetch(`${proxy}/api/airports?bbox=${bbox}&limit=250&t=${Date.now()}`)
-    ]).then(async ([navRes, repRes, aptRes]) => {
-        if (!navRes.ok || !repRes.ok || !aptRes.ok) return;
-        const [navJson, repJson, aptJson] = await Promise.all([navRes.json(), repRes.json(), aptRes.json()]);
+    const dataPromise = typeof window.gaGetAviationSnapshotForBounds === 'function'
+        ? window.gaGetAviationSnapshotForBounds(
+            { west: w, south: s, east: e, north: n },
+            ['navaids', 'reportingPoints', 'airports']
+        )
+        : Promise.all([
+            fetch(`${proxy}/api/navaids?bbox=${bbox}&limit=250&t=${Date.now()}`),
+            fetch(`${proxy}/api/reporting-points?bbox=${bbox}&limit=250&t=${Date.now()}`),
+            fetch(`${proxy}/api/airports?bbox=${bbox}&limit=250&t=${Date.now()}`)
+        ]).then(async ([navRes, repRes, aptRes]) => {
+            if (!navRes.ok || !repRes.ok || !aptRes.ok) throw new Error('openaip_current_nav_unavailable');
+            const [navJson, repJson, aptJson] = await Promise.all([navRes.json(), repRes.json(), aptRes.json()]);
+            return {
+                navaids: navJson.items || [],
+                reportingPoints: repJson.items || [],
+                airports: aptJson.items || []
+            };
+        });
+
+    Promise.resolve(dataPromise).then((snapshot) => {
         const next = [];
 
-        (navJson.items || []).forEach(i => {
+        (snapshot.navaids || []).forEach(i => {
             const c = currentInfoCoords(i);
             if (!c) return;
             const freqVal = currentInfoReadFreq(i);
@@ -13607,7 +13620,7 @@ function maybeRefreshCurrentNavData(lat, lon) {
             next.push({ name: `${i.name || 'NAV'}${ident}${freq}`, lat: c.lat, lng: c.lng });
         });
 
-        (repJson.items || []).forEach(i => {
+        (snapshot.reportingPoints || []).forEach(i => {
             const c = currentInfoCoords(i);
             if (!c) return;
             next.push({
@@ -13619,7 +13632,7 @@ function maybeRefreshCurrentNavData(lat, lon) {
             });
         });
 
-        (aptJson.items || []).forEach(i => {
+        (snapshot.airports || []).forEach(i => {
             const c = currentInfoCoords(i);
             if (!c) return;
             const freqVal = currentInfoReadFreq(i);

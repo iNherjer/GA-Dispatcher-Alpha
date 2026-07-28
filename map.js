@@ -8338,6 +8338,14 @@ function normalizeOpenAipNavaidForPopup(navaid, source = '') {
 
 let navaidInfoPopupLayer = null;
 
+function getOpenAipPopupSourceLabel(source) {
+    const normalized = String(source || '').toLowerCase();
+    if (normalized === 'hosted') return 'GA Aviation DB (OpenAIP)';
+    if (normalized.startsWith('static')) return 'OpenAIP-Fallback';
+    if (normalized.includes('legacy')) return 'OpenAIP Legacy';
+    return 'OpenAIP V2';
+}
+
 function openNavaidInfoPopup(navaid) {
     if (!map) return;
     const nav = normalizeOpenAipNavaidForPopup(navaid);
@@ -8346,7 +8354,7 @@ function openNavaidInfoPopup(navaid) {
         ? `${escapePopupText(nav.identifier)} · ${escapePopupText(nav.name)}`
         : escapePopupText(nav.name);
     const typeLabel = getOpenAipNavaidTypeLabel(nav.type);
-    const sourceLabel = nav.source.startsWith('static') ? 'OpenAIP-Fallback' : 'OpenAIP live';
+    const sourceLabel = getOpenAipPopupSourceLabel(nav.source);
     const lines = [
         `<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`,
         nav.frequencyValue
@@ -8385,7 +8393,7 @@ function openReportingPointInfoPopup(point) {
     const name = String(raw?.name || point?.name || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
     const airportIcao = String(raw?.airportIcao || point?.rppAirportIcao || '').trim().toUpperCase();
     const description = String(raw?.description || '').trim();
-    const sourceLabel = String(point?.rppSource || '').startsWith('static') ? 'OpenAIP-Fallback' : 'OpenAIP live';
+    const sourceLabel = getOpenAipPopupSourceLabel(point?.rppSource);
     const content = `
         <div style="font-family:'Courier New',monospace; min-width:185px; color:#111;">
             <b style="font-size:13px;">VRP ${escapePopupText(name)}</b>
@@ -8888,25 +8896,46 @@ const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional';
 const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/{z}/{y}/{x}';
 const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
 const USA_VFR_OVERLAY_MIN_ZOOM = 8;
-const OPENAIP_OVERLAY_MIN_ZOOM = 8;
+const OPENAIP_OVERLAY_MIN_ZOOM = 7;
 const GLOBAL_AIRPORT_SNAP_MIN_ZOOM = 6;
 const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
 const OPENAIP_OVERLAY_NAVAID_MIN_ZOOM = 9;
 const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
-const OPENAIP_DATA_MODE_STORAGE_KEY = 'ga_openaip_data_mode';
+const OPEN_TOPO_PRIMARY_TILE_URL = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
+const OPEN_TOPO_BACKUP_TILE_URL = 'https://backup.opentopomap.org/{z}/{x}/{y}.png';
+const OPEN_TOPO_PRIMARY_TIMEOUT_MS = 4500;
+const OPEN_TOPO_BACKUP_TIMEOUT_MS = 7000;
+const OPENAIP_DATA_MODE_STORAGE_KEY = 'ga_aviation_data_mode_v3';
+const OPENAIP_LEGACY_DATA_MODE_STORAGE_KEY = 'ga_openaip_data_mode';
+const OPENAIP_DATA_MODE_HOSTED = 'hosted';
 const OPENAIP_DATA_MODE_REGION = 'region';
 const OPENAIP_DATA_MODE_LEGACY = 'legacy';
 const OPENAIP_REGION_GRID_DEG = 0.5;
 const OPENAIP_REGION_MAX_SPAN_DEG = 5;
+const OPENAIP_VIEWPORT_MAX_SPAN_DEG = 20;
 const OPENAIP_STATIC_NAVAIDS_URL = './data/openaip-navaids.json';
 const OPENAIP_STATIC_NAVAIDS_MIN_COUNT = 1000;
 const OPENAIP_STATIC_REPORTING_POINTS_URL = './data/openaip-reporting-points.json';
 const OPENAIP_STATIC_REPORTING_POINTS_MIN_COUNT = 1000;
+const GA_MAP_OVERLAY_PANES = Object.freeze({
+    localAviation: Object.freeze({ name: 'ga-local-aviation-pane', zIndex: 250 }),
+    vfr: Object.freeze({ name: 'ga-vfr-overlay-pane', zIndex: 280 }),
+    officialChart: Object.freeze({ name: 'ga-official-chart-pane', zIndex: 310 }),
+    weather: Object.freeze({ name: 'ga-weather-overlay-pane', zIndex: 340 })
+});
 let openAipOverlayLayer = null;
 let openAipAirspaceLayer = null;
 let openAipAirportLayer = null;
 let openAipNavaidLayer = null;
 let openAipOverlayFetchSeq = 0;
+const openTopoTileState = {
+    primaryLoaded: 0,
+    primaryErrors: 0,
+    primaryTimeouts: 0,
+    fallbackRequests: 0,
+    fallbackLoaded: 0,
+    fallbackErrors: 0
+};
 const openAipOverlayRenderState = {
     airspaceKey: '',
     airspaceToken: '',
@@ -8937,7 +8966,8 @@ const openAipRegionState = {
     lastError: '',
     retryAfter: 0,
     consecutiveFailures: 0,
-    partial: false
+    partial: false,
+    activeSource: 'none'
 };
 const openAipStaticNavaidState = {
     items: null,
@@ -8960,13 +8990,23 @@ const openAipStaticReportingPointState = {
 };
 
 function getOpenAipDataMode() {
-    return localStorage.getItem(OPENAIP_DATA_MODE_STORAGE_KEY) === OPENAIP_DATA_MODE_LEGACY
+    const stored = localStorage.getItem(OPENAIP_DATA_MODE_STORAGE_KEY);
+    if (stored === OPENAIP_DATA_MODE_LEGACY) return OPENAIP_DATA_MODE_LEGACY;
+    if (stored === OPENAIP_DATA_MODE_REGION) return OPENAIP_DATA_MODE_REGION;
+    if (stored === OPENAIP_DATA_MODE_HOSTED) return OPENAIP_DATA_MODE_HOSTED;
+    // Ein bewusst gewählter alter Legacy-Modus bleibt erhalten. Der frühere
+    // Default "region" wird dagegen einmalig auf Hosted-first migriert.
+    return localStorage.getItem(OPENAIP_LEGACY_DATA_MODE_STORAGE_KEY) === OPENAIP_DATA_MODE_LEGACY
         ? OPENAIP_DATA_MODE_LEGACY
-        : OPENAIP_DATA_MODE_REGION;
+        : OPENAIP_DATA_MODE_HOSTED;
 }
 
 function isOpenAipRegionMode() {
-    return getOpenAipDataMode() === OPENAIP_DATA_MODE_REGION;
+    return getOpenAipDataMode() !== OPENAIP_DATA_MODE_LEGACY;
+}
+
+function isOpenAipHostedMode() {
+    return getOpenAipDataMode() === OPENAIP_DATA_MODE_HOSTED;
 }
 
 function isValidOpenAipStaticNavaidDataset(parsed) {
@@ -9182,18 +9222,25 @@ function updateOpenAipDataModeButtonUi() {
         btn.addEventListener('click', () => window.toggleOpenAipDataMode());
         anchor.insertAdjacentElement('afterend', btn);
     }
-    const regionMode = isOpenAipRegionMode();
+    const mode = getOpenAipDataMode();
+    const regionMode = mode !== OPENAIP_DATA_MODE_LEGACY;
     const coolingDown = regionMode && openAipRegionState.retryAfter > Date.now();
-    btn.textContent = regionMode
-        ? (coolingDown ? '🧭 OpenAIP: Regionscache (wartet)' : '🧭 OpenAIP: Regionscache')
-        : '🧭 OpenAIP: Legacy';
-    btn.style.background = regionMode ? (coolingDown ? '#8a5a20' : '#2E8B57') : '#8a5a20';
+    btn.textContent = mode === OPENAIP_DATA_MODE_HOSTED
+        ? (coolingDown ? '🗃️ Aviation DB: Hosted (wartet)' : '🗃️ Aviation DB: Hosted')
+        : (mode === OPENAIP_DATA_MODE_REGION
+            ? (coolingDown ? '🧭 OpenAIP: V2 (wartet)' : '🧭 OpenAIP: V2')
+            : '🧭 OpenAIP: Legacy');
+    btn.style.background = mode === OPENAIP_DATA_MODE_HOSTED
+        ? (coolingDown ? '#8a5a20' : '#2E8B57')
+        : (mode === OPENAIP_DATA_MODE_REGION ? '#2563a8' : '#8a5a20');
     btn.style.color = '#fff';
-    btn.title = regionMode
+    btn.title = mode === OPENAIP_DATA_MODE_HOSTED
         ? (coolingDown
-            ? 'Der Regionsabruf ist vorübergehend im Fehler-Cooldown. Lokale Flugplatzklicks bleiben verfügbar. Antippen wechselt zu Legacy.'
-            : 'Ein gemeinsamer, gepufferter OpenAIP-Abruf für Overlay, Snapping und Flugplätze. Antippen wechselt zum alten Abrufmodell.')
-        : 'Altes OpenAIP-Abrufmodell mit getrennten Requests. Antippen aktiviert wieder den Regionscache.';
+            ? 'Die gehostete Datenquelle und OpenAIP V2 sind vorübergehend im Cooldown. Vorhandene Daten bleiben sichtbar. Antippen wechselt direkt zu V2.'
+            : 'Primäre, vierwöchig aktualisierte Datenbank. Bei Fehlern wird automatisch OpenAIP V2 verwendet. Antippen wechselt direkt zu V2.')
+        : (mode === OPENAIP_DATA_MODE_REGION
+            ? 'OpenAIP V2 Regionscache ohne gehostete Primärquelle. Antippen wechselt zum alten Abrufmodell.'
+            : 'Altes OpenAIP-Abrufmodell mit getrennten Requests. Antippen aktiviert wieder die gehostete Datenbank.');
 }
 
 function getOpenAipVisibleBounds() {
@@ -9221,19 +9268,22 @@ function fitOpenAipRegionRange(center, span, min, max) {
     return { low: Math.max(min, low), high: Math.min(max, high) };
 }
 
-function buildOpenAipRegionCoverage(view) {
+function buildOpenAipRegionCoverage(view, options = {}) {
     if (!view) return null;
+    const maxSpanDeg = Number.isFinite(Number(options.maxSpanDeg))
+        ? Math.max(OPENAIP_REGION_GRID_DEG, Number(options.maxSpanDeg))
+        : OPENAIP_REGION_MAX_SPAN_DEG;
     const width = view.east - view.west;
     const height = view.north - view.south;
-    if (width <= 0 || height <= 0 || width > OPENAIP_REGION_MAX_SPAN_DEG || height > OPENAIP_REGION_MAX_SPAN_DEG) {
+    if (width <= 0 || height <= 0 || width > maxSpanDeg || height > maxSpanDeg) {
         return null;
     }
 
     const lonPadding = Math.max(0.5, Math.min(0.9, width * 0.3));
     const latPadding = Math.max(0.4, Math.min(0.75, height * 0.3));
     const roundSpan = value => Math.ceil(value / OPENAIP_REGION_GRID_DEG) * OPENAIP_REGION_GRID_DEG;
-    const targetWidth = Math.min(OPENAIP_REGION_MAX_SPAN_DEG, roundSpan(width + (2 * lonPadding)));
-    const targetHeight = Math.min(OPENAIP_REGION_MAX_SPAN_DEG, roundSpan(height + (2 * latPadding)));
+    const targetWidth = Math.min(maxSpanDeg, roundSpan(width + (2 * lonPadding)));
+    const targetHeight = Math.min(maxSpanDeg, roundSpan(height + (2 * latPadding)));
     if (targetWidth < width || targetHeight < height) return null;
 
     const centerLon = Math.round(((view.west + view.east) / 2) / OPENAIP_REGION_GRID_DEG) * OPENAIP_REGION_GRID_DEG;
@@ -9260,8 +9310,10 @@ function openAipRegionContainsView(coverage, view) {
     if (!coverage || !view) return false;
     const viewWidth = view.east - view.west;
     const viewHeight = view.north - view.south;
-    const lonGuardRoom = Math.max(0, ((OPENAIP_REGION_MAX_SPAN_DEG - viewWidth) / 2) - 0.01);
-    const latGuardRoom = Math.max(0, ((OPENAIP_REGION_MAX_SPAN_DEG - viewHeight) / 2) - 0.01);
+    const coverageWidth = Number(coverage.east) - Number(coverage.west);
+    const coverageHeight = Number(coverage.north) - Number(coverage.south);
+    const lonGuardRoom = Math.max(0, ((coverageWidth - viewWidth) / 2) - 0.01);
+    const latGuardRoom = Math.max(0, ((coverageHeight - viewHeight) / 2) - 0.01);
     const lonGuard = Math.min(0.15, Math.max(0.04, viewWidth * 0.08), lonGuardRoom);
     const latGuard = Math.min(0.12, Math.max(0.04, viewHeight * 0.08), latGuardRoom);
     return view.west - lonGuard >= coverage.west
@@ -9293,6 +9345,14 @@ function isOpenAipSnapshotCollectionAvailable(payload, collectionKey) {
     return !collectionMeta || Number(collectionMeta.errorStatus) === 0;
 }
 
+function isOpenAipSnapshotSufficient(payload, requiredCollection = '') {
+    if (requiredCollection) {
+        return isOpenAipSnapshotCollectionAvailable(payload, requiredCollection);
+    }
+    return ['airspaces', 'airports', 'navaids', 'reportingPoints']
+        .every(collection => isOpenAipSnapshotCollectionAvailable(payload, collection));
+}
+
 function rememberOpenAipAuxSnapshot(key, payload) {
     openAipAuxSnapshotCache.delete(key);
     openAipAuxSnapshotCache.set(key, { payload, storedAt: Date.now() });
@@ -9303,44 +9363,85 @@ function rememberOpenAipAuxSnapshot(key, payload) {
     }
 }
 
-async function fetchOpenAipSnapshotCoverage(coverage) {
+async function fetchOpenAipV2SnapshotCoverage(coverage) {
+    const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
+    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+        const error = new Error(`snapshot_http_${response.status}`);
+        error.status = response.status;
+        const retryAfterSeconds = Number(response.headers.get('Retry-After'));
+        error.retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+            ? retryAfterSeconds * 1000
+            : 0;
+        throw error;
+    }
+    const payload = await response.json();
+    if (!payload
+        || !Array.isArray(payload.airports)
+        || !Array.isArray(payload.airspaces)
+        || !Array.isArray(payload.navaids)
+        || !Array.isArray(payload.reportingPoints)) {
+        throw new Error('snapshot_invalid_payload');
+    }
+    payload.meta = {
+        ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+        source: 'v2'
+    };
+    return payload;
+}
+
+async function fetchOpenAipSnapshotCoverage(coverage, requiredCollection = '') {
     if (!coverage?.key) throw new Error('openaip_region_invalid_coverage');
-    if (openAipRegionState.payload && openAipRegionState.key === coverage.key) {
+    if (openAipRegionState.payload
+        && openAipRegionState.key === coverage.key
+        && isOpenAipSnapshotSufficient(openAipRegionState.payload, requiredCollection)) {
         return openAipRegionState.payload;
     }
 
-    const cached = openAipAuxSnapshotCache.get(coverage.key);
+    const sourceMode = isOpenAipHostedMode() ? OPENAIP_DATA_MODE_HOSTED : OPENAIP_DATA_MODE_REGION;
+    const requestKey = `${sourceMode}|${coverage.key}|${requiredCollection || 'all'}`;
+    const cached = openAipAuxSnapshotCache.get(requestKey);
     if (cached && (Date.now() - cached.storedAt) < OPENAIP_AUX_CACHE_MS) {
-        return cached.payload;
+        if (isOpenAipSnapshotSufficient(cached.payload, requiredCollection)) {
+            return cached.payload;
+        }
+        // Ein Teilstand ohne die für diesen Verbraucher nötige Sammlung darf
+        // einen späteren Retry nicht fünf Minuten lang aus dem RAM beantworten.
+        openAipAuxSnapshotCache.delete(requestKey);
     }
-    const existing = openAipAuxSnapshotInflight.get(coverage.key);
+    const existing = openAipAuxSnapshotInflight.get(requestKey);
     if (existing) return existing;
 
     const request = (async () => {
-        const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
-        const response = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!response.ok) {
-            const error = new Error(`snapshot_http_${response.status}`);
-            error.status = response.status;
-            throw error;
+        let payload = null;
+        if (isOpenAipHostedMode() && window.gaHostedAviationData?.fetchSnapshot) {
+            try {
+                payload = await window.gaHostedAviationData.fetchSnapshot(coverage, {
+                    collections: requiredCollection ? [requiredCollection] : undefined
+                });
+            } catch (hostedError) {
+                window.gaHostedAviationData.recordFallback?.(hostedError);
+                console.warn(
+                    '[Aviation Data Hosted] Abruf fehlgeschlagen; OpenAIP V2 übernimmt:',
+                    String(hostedError?.message || hostedError)
+                );
+            }
         }
-        const payload = await response.json();
-        if (!payload
-            || !Array.isArray(payload.airports)
-            || !Array.isArray(payload.airspaces)
-            || !Array.isArray(payload.navaids)
-            || !Array.isArray(payload.reportingPoints)) {
-            throw new Error('snapshot_invalid_payload');
+        if (!payload) {
+            payload = await fetchOpenAipV2SnapshotCoverage(coverage);
         }
-        rememberOpenAipAuxSnapshot(coverage.key, payload);
+        if (!isOpenAipSnapshotSufficient(payload, requiredCollection)) {
+            throw new Error(`openaip_${requiredCollection || 'snapshot'}_temporarily_unavailable`);
+        }
+        rememberOpenAipAuxSnapshot(requestKey, payload);
         return payload;
     })();
-    openAipAuxSnapshotInflight.set(coverage.key, request);
+    openAipAuxSnapshotInflight.set(requestKey, request);
     try {
         return await request;
     } finally {
-        if (openAipAuxSnapshotInflight.get(coverage.key) === request) {
-            openAipAuxSnapshotInflight.delete(coverage.key);
+        if (openAipAuxSnapshotInflight.get(requestKey) === request) {
+            openAipAuxSnapshotInflight.delete(requestKey);
         }
     }
 }
@@ -9394,25 +9495,132 @@ async function getOpenAipSnapshotsForBounds(bounds, requiredCollection = '') {
     // Bewusst nacheinander: Lange Routen dürfen beim Worker keinen Burst aus
     // mehreren Regionssnapshots auslösen.
     for (const coverage of coverages) {
-        const payload = await fetchOpenAipSnapshotCoverage(coverage);
+        const payload = await fetchOpenAipSnapshotCoverage(coverage, requiredCollection);
         if (requiredCollection && !isOpenAipSnapshotCollectionAvailable(payload, requiredCollection)) {
-            throw new Error(`openaip_${requiredCollection}_temporarily_unavailable`);
+            openAipAuxSnapshotCache.delete(coverage.key);
+            const error = new Error(`openaip_${requiredCollection}_temporarily_unavailable`);
+            const collectionStatus = Number(payload?.meta?.collections?.[requiredCollection]?.errorStatus) || 0;
+            const retryAfterSeconds = Number(payload?.meta?.retryAfterSeconds);
+            error.status = collectionStatus;
+            error.retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+                ? retryAfterSeconds * 1000
+                : 0;
+            throw error;
         }
         payloads.push(payload);
     }
     return payloads;
 }
 
-window.gaGetOpenAipRouteAirspaces = async function(bounds) {
-    const payloads = await getOpenAipSnapshotsForBounds(bounds, 'airspaces');
-    const byId = new Map();
+async function getOpenAipV2SnapshotsForBounds(bounds, requiredCollections = '') {
+    const normalized = normalizeOpenAipBounds(bounds);
+    if (!normalized) throw new Error('openaip_region_invalid_bounds');
+    const coverages = buildOpenAipCoveragesForBounds(normalized);
+    if (!coverages.length) throw new Error('openaip_region_invalid_coverage');
+    const required = Array.isArray(requiredCollections)
+        ? requiredCollections
+        : (requiredCollections ? [requiredCollections] : []);
+    const payloads = [];
+    for (const coverage of coverages) {
+        const payload = await fetchOpenAipV2SnapshotCoverage(coverage);
+        const sufficient = required.length
+            ? required.every(collection => isOpenAipSnapshotCollectionAvailable(payload, collection))
+            : isOpenAipSnapshotSufficient(payload);
+        if (!sufficient) {
+            throw new Error(`openaip_${required.join('_') || 'snapshot'}_temporarily_unavailable`);
+        }
+        payloads.push(payload);
+    }
+    return payloads;
+}
+
+window.gaGetAviationSnapshotForBounds = async function(bounds, collections = []) {
+    const knownCollections = ['airspaces', 'airports', 'navaids', 'reportingPoints'];
+    const requestedCollections = Array.isArray(collections) && collections.length
+        ? [...new Set(collections.map(value => String(value || '').trim()).filter(Boolean))]
+        : knownCollections;
+    if (!requestedCollections.length || requestedCollections.some(name => !knownCollections.includes(name))) {
+        throw new Error('aviation_collections_invalid');
+    }
+    const normalized = normalizeOpenAipBounds(bounds);
+    if (!normalized) throw new Error('aviation_bounds_invalid');
+
+    let payloads = null;
+    let hostedFailed = false;
+    if (isOpenAipHostedMode() && window.gaHostedAviationData?.fetchSnapshot) {
+        try {
+            payloads = [await window.gaHostedAviationData.fetchSnapshot(normalized, {
+                collections: requestedCollections
+            })];
+        } catch (hostedError) {
+            hostedFailed = true;
+            window.gaHostedAviationData.recordFallback?.(hostedError);
+            console.warn(
+                `[Aviation Data Hosted] ${requestedCollections.join(', ')} nicht verfügbar; OpenAIP V2 übernimmt:`,
+                String(hostedError?.message || hostedError)
+            );
+        }
+    }
+    if (!payloads) {
+        if (requestedCollections.length > 1) {
+            payloads = await getOpenAipV2SnapshotsForBounds(normalized, requestedCollections);
+        } else {
+            const requiredCollection = requestedCollections[0];
+            payloads = hostedFailed
+                ? await getOpenAipV2SnapshotsForBounds(normalized, requiredCollection)
+                : await getOpenAipSnapshotsForBounds(normalized, requiredCollection);
+        }
+    }
+
+    const payloadSources = [...new Set(
+        payloads.map(payload => String(payload?.meta?.source || 'v2'))
+    )];
+    const result = {
+        bbox: [normalized.west, normalized.south, normalized.east, normalized.north],
+        airspaces: [],
+        airports: [],
+        navaids: [],
+        reportingPoints: [],
+        meta: {
+            source: payloadSources.length === 1 ? payloadSources[0] : 'combined',
+            fetchedAtMs: Date.now(),
+            partial: false,
+            collections: Object.fromEntries(
+                knownCollections.map(collection => [
+                    collection,
+                    requestedCollections.includes(collection)
+                        ? { errorStatus: 0 }
+                        : { errorStatus: 204, skipped: true }
+                ])
+            )
+        }
+    };
+    const byCollection = Object.fromEntries(
+        requestedCollections.map(collection => [collection, new Map()])
+    );
     payloads.forEach((payload) => {
-        payload.airspaces.forEach((airspace, index) => {
-            const key = String(airspace?._id || airspace?.id || `${airspace?.name || 'airspace'}:${index}`);
-            if (!byId.has(key)) byId.set(key, airspace);
+        requestedCollections.forEach((collection) => {
+            const items = Array.isArray(payload?.[collection]) ? payload[collection] : [];
+            items.forEach((item, index) => {
+                const key = String(item?._id || item?.id || `${item?.name || collection}:${index}`);
+                if (!byCollection[collection].has(key)) byCollection[collection].set(key, item);
+            });
         });
     });
-    return [...byId.values()];
+    requestedCollections.forEach((collection) => {
+        result[collection] = [...byCollection[collection].values()];
+    });
+    return result;
+};
+
+window.gaGetAviationCollectionForBounds = async function(collection, bounds) {
+    const collectionName = String(collection || '').trim();
+    const payload = await window.gaGetAviationSnapshotForBounds(bounds, [collectionName]);
+    return payload[collectionName];
+};
+
+window.gaGetOpenAipRouteAirspaces = async function(bounds) {
+    return window.gaGetAviationCollectionForBounds('airspaces', bounds);
 };
 
 function normalizeOpenAipAirportForPopup(airport) {
@@ -9825,17 +10033,18 @@ function replaceCachedNavDataFromOpenAip(payload) {
     const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
     const liveReportingPointsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'reportingPoints');
     const liveAirportsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airports');
+    const payloadSource = payload?.meta?.source === 'hosted' ? 'hosted' : 'live';
     const navaidEntries = liveNavaidsAvailable
-        ? navArray.map(item => buildOpenAipNavaidCacheEntry(item, 'live')).filter(Boolean)
+        ? navArray.map(item => buildOpenAipNavaidCacheEntry(item, payloadSource)).filter(Boolean)
         : getStaticOpenAipNavaidEntries(getOpenAipNavaidCacheBounds(payload));
     next.push(...navaidEntries);
-    setOpenAipActiveNavaidSource(liveNavaidsAvailable ? 'live' : 'static', navaidEntries.length);
+    setOpenAipActiveNavaidSource(liveNavaidsAvailable ? payloadSource : 'static', navaidEntries.length);
     const reportingPointEntries = liveReportingPointsAvailable
-        ? repArray.map(item => buildOpenAipReportingPointCacheEntry(item, 'live')).filter(Boolean)
+        ? repArray.map(item => buildOpenAipReportingPointCacheEntry(item, payloadSource)).filter(Boolean)
         : getStaticOpenAipReportingPointEntries(getOpenAipNavaidCacheBounds(payload));
     next.push(...reportingPointEntries);
     setOpenAipActiveReportingPointSource(
-        liveReportingPointsAvailable ? 'live' : 'static',
+        liveReportingPointsAvailable ? payloadSource : 'static',
         reportingPointEntries.length
     );
     if (liveAirportsAvailable) {
@@ -9866,6 +10075,26 @@ function replaceCachedNavDataFromOpenAip(payload) {
     mergeGlobalAirportSnapEntries();
 }
 
+function getOpenAipViewportCollections(zoom) {
+    const requested = [];
+    if (isOpenAipOverlayEnabled()) {
+        requested.push('airspaces');
+        if (zoom >= OPENAIP_OVERLAY_NAVAID_MIN_ZOOM) requested.push('navaids');
+        if (zoom >= OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM) requested.push('airports');
+    }
+    // Unterhalb Zoom 8 bleiben fürs Snapping die statischen Navaid-/VRP-Daten
+    // und die globale Flughafenbasis aktiv. Dadurch muss ein weiter
+    // Desktop-Ausschnitt nicht alle vier Hosted-Sammlungen auf einmal laden.
+    if (snapMode && zoom >= 8) {
+        requested.push('airports', 'navaids', 'reportingPoints');
+    }
+    return [...new Set(requested)];
+}
+
+function openAipPayloadHasCollections(payload, collections = []) {
+    return collections.every(collection => isOpenAipSnapshotCollectionAvailable(payload, collection));
+}
+
 async function ensureOpenAipRegionSnapshot() {
     if (!map || !isOpenAipRegionMode() || (!snapMode && !isOpenAipOverlayEnabled())) return;
     if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('openaip-region')) {
@@ -9874,17 +10103,27 @@ async function ensureOpenAipRegionSnapshot() {
     }
     const zoom = Number(map.getZoom && map.getZoom());
     if (!Number.isFinite(zoom) || zoom < OPENAIP_OVERLAY_MIN_ZOOM) {
-        if (isOpenAipOverlayEnabled()) clearOpenAipOverlayLayer();
+        if (isOpenAipOverlayEnabled()) setOpenAipOverlayContentVisible(false);
+        if (snapMode) refreshCachedNavDataWithStaticNavaids();
         return;
     }
     const view = getOpenAipVisibleBounds();
     if (!view) return;
+    const requestedCollections = getOpenAipViewportCollections(zoom);
+    if (!requestedCollections.length) {
+        if (snapMode) refreshCachedNavDataWithStaticNavaids();
+        return openAipRegionState.payload;
+    }
+    const currentPayloadHasCollections = openAipPayloadHasCollections(
+        openAipRegionState.payload,
+        requestedCollections
+    );
     if (openAipRegionState.payload && openAipRegionContainsView(openAipRegionState.coverage, view)) {
         if (snapMode && cachedNavData.length === 0) replaceCachedNavDataFromOpenAip(openAipRegionState.payload);
         if (isOpenAipOverlayEnabled()) {
             renderOpenAipOverlayData(openAipRegionState.payload);
         }
-        if (!openAipRegionState.partial || openAipRegionState.retryAfter > Date.now()) {
+        if (currentPayloadHasCollections && (!openAipRegionState.partial || openAipRegionState.retryAfter > Date.now())) {
             return openAipRegionState.payload;
         }
     } else if (openAipRegionState.retryAfter > Date.now()) {
@@ -9893,12 +10132,22 @@ async function ensureOpenAipRegionSnapshot() {
     }
     if (openAipRegionState.inFlight) return openAipRegionState.inFlight;
 
-    const coverage = buildOpenAipRegionCoverage(view);
+    const coverage = buildOpenAipRegionCoverage(view, {
+        maxSpanDeg: OPENAIP_VIEWPORT_MAX_SPAN_DEG
+    });
     if (!coverage) {
-        console.warn('[OpenAIP Region] Kartenausschnitt ist breiter als die zulässige 5°-Abfrage. Bitte etwas hineinzoomen.');
+        console.warn(
+            `[OpenAIP Region] Kartenausschnitt ist breiter als die zulässige ${OPENAIP_VIEWPORT_MAX_SPAN_DEG}°-Viewport-Abdeckung. `
+            + 'Bitte etwas hineinzoomen.'
+        );
         return openAipRegionState.payload;
     }
-    if (openAipRegionState.payload && openAipRegionState.key === coverage.key && !openAipRegionState.partial) {
+    if (
+        openAipRegionState.payload
+        && openAipRegionState.key === coverage.key
+        && currentPayloadHasCollections
+        && !openAipRegionState.partial
+    ) {
         if (isOpenAipOverlayEnabled()) {
             renderOpenAipOverlayData(openAipRegionState.payload);
         }
@@ -9908,25 +10157,12 @@ async function ensureOpenAipRegionSnapshot() {
     const requestSeq = ++openAipRegionState.requestSeq;
     const requestPromise = (async () => {
         try {
-            const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
-            const response = await fetch(url, { headers: { Accept: 'application/json' } });
-            if (!response.ok) {
-                const responseError = new Error(`snapshot_http_${response.status}`);
-                responseError.status = response.status;
-                const retryAfterSeconds = Number(response.headers.get('Retry-After'));
-                responseError.retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-                    ? retryAfterSeconds * 1000
-                    : 0;
-                throw responseError;
-            }
-            const payload = await response.json();
-            if (!payload
-                || !Array.isArray(payload.airports)
-                || !Array.isArray(payload.airspaces)
-                || !Array.isArray(payload.navaids)
-                || !Array.isArray(payload.reportingPoints)) {
-                throw new Error('snapshot_invalid_payload');
-            }
+            const payload = typeof window.gaGetAviationSnapshotForBounds === 'function'
+                ? await window.gaGetAviationSnapshotForBounds(coverage, requestedCollections)
+                : await fetchOpenAipSnapshotCoverage(
+                    coverage,
+                    requestedCollections.length === 1 ? requestedCollections[0] : ''
+                );
             if (requestSeq !== openAipRegionState.requestSeq || !isOpenAipRegionMode()) return payload;
             openAipRegionState.coverage = coverage;
             openAipRegionState.key = coverage.key;
@@ -9934,6 +10170,7 @@ async function ensureOpenAipRegionSnapshot() {
             openAipRegionState.lastFetchedAt = Date.now();
             openAipRegionState.lastError = '';
             openAipRegionState.partial = !!payload?.meta?.partial;
+            openAipRegionState.activeSource = String(payload?.meta?.source || 'v2');
             const partialRetrySeconds = Number(payload?.meta?.retryAfterSeconds);
             openAipRegionState.retryAfter = openAipRegionState.partial
                 ? Date.now() + Math.max(
@@ -9986,11 +10223,22 @@ async function ensureOpenAipRegionSnapshot() {
         if (openAipRegionState.inFlight === requestPromise) {
             openAipRegionState.inFlight = null;
             const latestView = getOpenAipVisibleBounds();
+            const latestZoom = Number(map?.getZoom?.());
+            const latestCollections = Number.isFinite(latestZoom)
+                ? getOpenAipViewportCollections(latestZoom)
+                : [];
+            const missingLatestCollections = !openAipPayloadHasCollections(
+                openAipRegionState.payload,
+                latestCollections
+            );
             if (isOpenAipRegionMode()
                 && latestView
                 && openAipRegionState.payload
                 && openAipRegionState.key === coverage.key
-                && !openAipRegionContainsView(openAipRegionState.coverage, latestView)) {
+                && (
+                    !openAipRegionContainsView(openAipRegionState.coverage, latestView)
+                    || missingLatestCollections
+                )) {
                 setTimeout(ensureOpenAipRegionSnapshot, 0);
             }
         }
@@ -9998,7 +10246,9 @@ async function ensureOpenAipRegionSnapshot() {
 }
 
 window.setOpenAipDataMode = function(mode) {
-    const nextMode = mode === OPENAIP_DATA_MODE_LEGACY ? OPENAIP_DATA_MODE_LEGACY : OPENAIP_DATA_MODE_REGION;
+    const nextMode = mode === OPENAIP_DATA_MODE_LEGACY
+        ? OPENAIP_DATA_MODE_LEGACY
+        : (mode === OPENAIP_DATA_MODE_REGION ? OPENAIP_DATA_MODE_REGION : OPENAIP_DATA_MODE_HOSTED);
     if (nextMode === getOpenAipDataMode()) {
         updateOpenAipDataModeButtonUi();
         return;
@@ -10014,6 +10264,9 @@ window.setOpenAipDataMode = function(mode) {
     openAipRegionState.retryAfter = 0;
     openAipRegionState.consecutiveFailures = 0;
     openAipRegionState.partial = false;
+    openAipRegionState.activeSource = 'none';
+    openAipAuxSnapshotCache.clear();
+    openAipAuxSnapshotInflight.clear();
     openAipOverlayState.inFlight = false;
     openAipOverlayState.lastKey = '';
     openAipOverlayState.lastFetchedAt = 0;
@@ -10022,7 +10275,7 @@ window.setOpenAipDataMode = function(mode) {
     setOpenAipActiveReportingPointSource('none', 0);
     clearOpenAipOverlayLayer();
     updateOpenAipDataModeButtonUi();
-    if (nextMode === OPENAIP_DATA_MODE_REGION) {
+    if (nextMode !== OPENAIP_DATA_MODE_LEGACY) {
         ensureOpenAipRegionSnapshot();
     } else {
         if (snapMode) fetchOpenAIPDataLegacy();
@@ -10031,10 +10284,46 @@ window.setOpenAipDataMode = function(mode) {
 };
 
 window.toggleOpenAipDataMode = function() {
-    window.setOpenAipDataMode(isOpenAipRegionMode() ? OPENAIP_DATA_MODE_LEGACY : OPENAIP_DATA_MODE_REGION);
+    const current = getOpenAipDataMode();
+    window.setOpenAipDataMode(
+        current === OPENAIP_DATA_MODE_HOSTED
+            ? OPENAIP_DATA_MODE_REGION
+            : (current === OPENAIP_DATA_MODE_REGION
+                ? OPENAIP_DATA_MODE_LEGACY
+                : OPENAIP_DATA_MODE_HOSTED)
+    );
 };
 
 window.getOpenAipDataMode = getOpenAipDataMode;
+window.gaGetAviationDataStatus = function() {
+    const hosted = window.gaHostedAviationData?.getStatus?.() || null;
+    const view = getOpenAipVisibleBounds();
+    const coverage = openAipRegionState.coverage;
+    const zoom = Number(map?.getZoom?.());
+    return {
+        mode: getOpenAipDataMode(),
+        activeSource: openAipRegionState.activeSource,
+        regionKey: openAipRegionState.key,
+        regionFetchedAt: openAipRegionState.lastFetchedAt,
+        regionLastError: openAipRegionState.lastError,
+        regionRetryAfter: openAipRegionState.retryAfter,
+        regionPartial: openAipRegionState.partial,
+        overlay: {
+            enabled: isOpenAipOverlayEnabled(),
+            zoom: Number.isFinite(zoom) ? zoom : null,
+            minZoom: OPENAIP_OVERLAY_MIN_ZOOM,
+            viewWidthDeg: view ? Math.max(0, Number(view.east) - Number(view.west)) : null,
+            viewHeightDeg: view ? Math.max(0, Number(view.north) - Number(view.south)) : null,
+            coverageWidthDeg: coverage ? Math.max(0, Number(coverage.east) - Number(coverage.west)) : null,
+            coverageHeightDeg: coverage ? Math.max(0, Number(coverage.north) - Number(coverage.south)) : null,
+            payloadAirspaces: Array.isArray(openAipRegionState.payload?.airspaces)
+                ? openAipRegionState.payload.airspaces.length
+                : 0,
+            renderedAirspaceLayers: Number(openAipAirspaceLayer?.getLayers?.().length) || 0
+        },
+        hosted
+    };
+};
 
 function ensureOpenAipOverlayLayer() {
     if (!openAipAirspaceLayer) openAipAirspaceLayer = L.layerGroup();
@@ -10044,6 +10333,16 @@ function ensureOpenAipOverlayLayer() {
         openAipOverlayLayer = L.layerGroup([openAipAirspaceLayer, openAipNavaidLayer, openAipAirportLayer]);
     }
     return openAipOverlayLayer;
+}
+
+function ensureGaMapOverlayPanes(targetMap) {
+    if (!targetMap || typeof targetMap.createPane !== 'function') return;
+    Object.values(GA_MAP_OVERLAY_PANES).forEach((spec) => {
+        let pane = targetMap.getPane?.(spec.name);
+        if (!pane) pane = targetMap.createPane(spec.name);
+        if (!pane?.style) return;
+        pane.style.zIndex = String(spec.zIndex);
+    });
 }
 
 function isOpenAipOverlayEnabled() {
@@ -10062,6 +10361,21 @@ function clearOpenAipOverlayLayer() {
     openAipOverlayRenderState.navaidKey = '';
     openAipOverlayRenderState.navaidToken = '';
     openAipOverlayRenderState.navaidZoomBand = '';
+}
+
+function setOpenAipOverlaySublayerVisible(layer, visible) {
+    if (!openAipOverlayLayer || !layer) return;
+    const isVisible = openAipOverlayLayer.hasLayer(layer);
+    if (visible && !isVisible) openAipOverlayLayer.addLayer(layer);
+    if (!visible && isVisible) openAipOverlayLayer.removeLayer(layer);
+}
+
+function setOpenAipOverlayContentVisible(visible) {
+    setOpenAipOverlaySublayerVisible(openAipAirspaceLayer, visible);
+    if (!visible) {
+        setOpenAipOverlaySublayerVisible(openAipAirportLayer, false);
+        setOpenAipOverlaySublayerVisible(openAipNavaidLayer, false);
+    }
 }
 
 function getOpenAipOverlayBBoxString() {
@@ -10130,11 +10444,12 @@ function getOpenAipPayloadRenderToken(payload) {
 }
 
 function renderOpenAipAirspaces(airspaces, layer) {
-    layer.clearLayers();
     const relevantTypes = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
     const seenAirspaceIds = new Set();
-    airspaces.forEach((airspace) => {
-        if (!airspace || seenAirspaceIds.has(airspace._id)) return;
+    const nextLayers = [];
+    airspaces.forEach((airspace, index) => {
+        const airspaceId = String(airspace?._id || airspace?.id || `${airspace?.name || 'airspace'}:${index}`);
+        if (!airspace || seenAirspaceIds.has(airspaceId)) return;
         if (!relevantTypes.has(Number(airspace.type))) return;
         const geometry = airspace.geometry;
         if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return;
@@ -10150,23 +10465,30 @@ function renderOpenAipAirspaces(airspaces, layer) {
                 .map((p) => [Number(p[1]), Number(p[0])])
                 .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             if (latlngs.length < 3) return;
-            L.polygon(latlngs, {
+            const polygonLayer = L.polygon(latlngs, {
+                pane: GA_MAP_OVERLAY_PANES.localAviation.name,
                 color: style.color,
                 weight: style.weight,
                 fillColor: style.color,
                 fillOpacity: style.fillOpacity,
                 dashArray: style.dashArray || null,
                 interactive: false
-            }).bindTooltip(tooltip, { sticky: true, className: 'airspace-tooltip' }).addTo(layer);
+            }).bindTooltip(tooltip, { sticky: true, className: 'airspace-tooltip' });
+            nextLayers.push(polygonLayer);
         });
-        seenAirspaceIds.add(airspace._id);
+        seenAirspaceIds.add(airspaceId);
     });
+    // Erst nach vollständig erfolgreichem Aufbau austauschen. Ein beschädigtes
+    // Polygon oder ein Renderfehler darf den letzten gültigen Layer nicht leeren.
+    layer.clearLayers();
+    nextLayers.forEach(polygonLayer => polygonLayer.addTo(layer));
+    return nextLayers.length;
 }
 
 function renderOpenAipAirports(airports, layer) {
-    layer.clearLayers();
     if (!map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM) return;
     const maxAirports = map.getZoom() >= 11 ? 180 : 90;
+    const nextLayers = [];
     airports.slice(0, maxAirports).forEach((airport) => {
         const coords = airport?.geometry?.coordinates;
         if (!Array.isArray(coords) || coords.length < 2) return;
@@ -10175,6 +10497,7 @@ function renderOpenAipAirports(airports, layer) {
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
         const regionMode = isOpenAipRegionMode();
         const marker = L.circleMarker([lat, lon], {
+            pane: GA_MAP_OVERLAY_PANES.localAviation.name,
             radius: map.getZoom() >= 12 ? 4 : 3,
             color: '#fde047',
             fillColor: '#0f172a',
@@ -10193,8 +10516,14 @@ function renderOpenAipAirports(airports, layer) {
                 if (normalized) openAirportInfoPopup(normalized);
             });
         }
-        marker.addTo(layer);
+        nextLayers.push(marker);
     });
+    // Den letzten gültigen Satz erst ersetzen, nachdem alle Marker aufgebaut
+    // wurden. So bleibt der Layer bei einem Renderfehler oder während eines
+    // verspäteten Hosted-Packs vollständig sichtbar.
+    layer.clearLayers();
+    nextLayers.forEach(marker => marker.addTo(layer));
+    return nextLayers.length;
 }
 
 function renderOpenAipNavaids(navaids, layer) {
@@ -10209,6 +10538,7 @@ function renderOpenAipNavaids(navaids, layer) {
             ? ` · ${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`
             : '';
         const marker = L.circleMarker([nav.lat, nav.lon], {
+            pane: GA_MAP_OVERLAY_PANES.localAviation.name,
             radius: map.getZoom() >= 12 ? 4 : 3,
             color: '#67e8f9',
             fillColor: '#083344',
@@ -10230,6 +10560,7 @@ function renderOpenAipNavaids(navaids, layer) {
 
 function renderOpenAipOverlayData(payload) {
     if (!ensureOpenAipOverlayLayer()) return;
+    setOpenAipOverlaySublayerVisible(openAipAirspaceLayer, true);
     const airspaces = Array.isArray(payload?.airspaces) ? payload.airspaces : [];
     const airports = Array.isArray(payload?.airports) ? payload.airports : [];
     const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
@@ -10260,9 +10591,12 @@ function renderOpenAipOverlayData(payload) {
         ? 'hidden'
         : (map.getZoom() >= 11 ? '180' : '90');
     if (zoomBand === 'hidden') {
-        if (openAipAirportLayer.getLayers().length > 0) openAipAirportLayer.clearLayers();
+        // Nicht leeren: Ein kurzer Zoomsprung soll den bereits geladenen
+        // Airport-Pack behalten und beim Zurückzoomen sofort wieder zeigen.
+        setOpenAipOverlaySublayerVisible(openAipAirportLayer, false);
         openAipOverlayRenderState.airportZoomBand = zoomBand;
     } else {
+        setOpenAipOverlaySublayerVisible(openAipAirportLayer, true);
         const airportsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airports');
         const shouldUpdateAirports = airportsAvailable && (
             openAipOverlayRenderState.airportKey !== renderKey
@@ -10289,9 +10623,10 @@ function renderOpenAipOverlayData(payload) {
         ? 'hidden'
         : (map.getZoom() >= 11 ? '240' : '120');
     if (navaidZoomBand === 'hidden') {
-        if (openAipNavaidLayer.getLayers().length > 0) openAipNavaidLayer.clearLayers();
+        setOpenAipOverlaySublayerVisible(openAipNavaidLayer, false);
         openAipOverlayRenderState.navaidZoomBand = navaidZoomBand;
     } else {
+        setOpenAipOverlaySublayerVisible(openAipNavaidLayer, true);
         const navaidSourceToken = liveNavaidsAvailable
             ? renderToken
             : `static:${openAipStaticNavaidState.loadedAt || 0}`;
@@ -10318,7 +10653,7 @@ async function refreshOpenAipOverlayLegacy(forceFetch = false) {
     }
     const zoom = Number(map.getZoom && map.getZoom());
     if (!Number.isFinite(zoom) || zoom < OPENAIP_OVERLAY_MIN_ZOOM) {
-        clearOpenAipOverlayLayer();
+        setOpenAipOverlayContentVisible(false);
         return;
     }
     const bbox = getOpenAipOverlayBBoxString();
@@ -10346,7 +10681,6 @@ async function refreshOpenAipOverlayLegacy(forceFetch = false) {
         openAipOverlayState.lastFetchedAt = now;
     } catch (err) {
         console.warn('[OpenAIP Overlay] Laden fehlgeschlagen:', err && err.message ? err.message : err);
-        if (fetchSeq === openAipOverlayFetchSeq) clearOpenAipOverlayLayer();
     } finally {
         if (fetchSeq === openAipOverlayFetchSeq) openAipOverlayState.inFlight = false;
     }
@@ -10393,6 +10727,83 @@ function configureMapAttributionControl(targetMap) {
     });
 }
 
+function createResilientOpenTopoLayer(options = {}) {
+    const ResilientOpenTopoLayer = L.TileLayer.extend({
+        createTile(coords, done) {
+            const tile = document.createElement('img');
+            tile.alt = '';
+            tile.decoding = 'async';
+            tile.setAttribute('role', 'presentation');
+            if (this.options.crossOrigin || this.options.crossOrigin === '') {
+                tile.crossOrigin = this.options.crossOrigin === true ? '' : this.options.crossOrigin;
+            }
+            if (typeof this.options.referrerPolicy === 'string') {
+                tile.referrerPolicy = this.options.referrerPolicy;
+            }
+
+            let fallbackActive = false;
+            let settled = false;
+            let timeoutId = null;
+            const finish = (error = null) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId) clearTimeout(timeoutId);
+                tile.onload = null;
+                tile.onerror = null;
+                done(error, tile);
+            };
+            const fallbackUrl = L.Util.template(OPEN_TOPO_BACKUP_TILE_URL, {
+                z: typeof this._getZoomForUrl === 'function' ? this._getZoomForUrl() : coords.z,
+                x: coords.x,
+                y: coords.y
+            });
+            const useFallback = (reason) => {
+                if (fallbackActive || settled) return;
+                fallbackActive = true;
+                if (timeoutId) clearTimeout(timeoutId);
+                if (reason === 'timeout') openTopoTileState.primaryTimeouts += 1;
+                else openTopoTileState.primaryErrors += 1;
+                openTopoTileState.fallbackRequests += 1;
+                tile.dataset.gaTopoSource = 'backup';
+                tile.src = fallbackUrl;
+                timeoutId = setTimeout(() => {
+                    openTopoTileState.fallbackErrors += 1;
+                    finish(new Error('opentopo_backup_timeout'));
+                }, OPEN_TOPO_BACKUP_TIMEOUT_MS);
+            };
+
+            tile.onload = () => {
+                if (settled) return;
+                if (fallbackActive) openTopoTileState.fallbackLoaded += 1;
+                else openTopoTileState.primaryLoaded += 1;
+                finish();
+            };
+            tile.onerror = () => {
+                if (settled) return;
+                if (!fallbackActive) {
+                    useFallback('error');
+                    return;
+                }
+                openTopoTileState.fallbackErrors += 1;
+                finish(new Error('opentopo_backup_error'));
+            };
+
+            tile.dataset.gaTopoSource = 'primary';
+            tile.src = this.getTileUrl(coords);
+            timeoutId = setTimeout(
+                () => useFallback('timeout'),
+                OPEN_TOPO_PRIMARY_TIMEOUT_MS
+            );
+            return tile;
+        }
+    });
+    return new ResilientOpenTopoLayer(OPEN_TOPO_PRIMARY_TILE_URL, options);
+}
+
+window.getOpenTopoTileStatus = function() {
+    return { ...openTopoTileState };
+};
+
 function initMapBase() {
     if (map) return;
     const radarActive = localStorage.getItem('ga_radar_active') === 'true';
@@ -10403,7 +10814,9 @@ function initMapBase() {
     
     // Base Maps
     const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
-    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: `${osmAttribution}, <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a>` });
+    const topoMap = createResilientOpenTopoLayer({
+        attribution: `${osmAttribution}, <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a>`
+    });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
     const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: `${osmAttribution}, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>` });
@@ -10411,9 +10824,11 @@ function initMapBase() {
     
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
+        pane: GA_MAP_OVERLAY_PANES.vfr.name,
         attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12
     });
     const usaVfrSectionalOverlay = L.tileLayer(USA_VFR_SECTIONAL_TILE_URL, {
+        pane: GA_MAP_OVERLAY_PANES.officialChart.name,
         attribution: 'FAA VFR Sectional via ArcGIS',
         opacity: 0.92,
         minZoom: USA_VFR_OVERLAY_MIN_ZOOM,
@@ -10426,9 +10841,11 @@ function initMapBase() {
     
     // NEU: Die offizielle DFS ICAO 1:500.000 Karte vom Secais Server
     const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
+        pane: GA_MAP_OVERLAY_PANES.officialChart.name,
         attribution: '© DFS Deutsche Flugsicherung', maxNativeZoom: 11, opacity: 1.0
     });
     const dwdWarningsOverlay = L.tileLayer.wms('https://maps.dwd.de/geoproxy_warnungen/service', {
+        pane: GA_MAP_OVERLAY_PANES.weather.name,
         layers: 'Warnungen_Gemeinden_vereinigt',
         styles: '',
         format: 'image/png',
@@ -10465,6 +10882,7 @@ function initMapBase() {
         }
     });
     const awcSigmetOverlay = new AwcArcgisOverlay({
+        pane: GA_MAP_OVERLAY_PANES.weather.name,
         serviceUrl: 'https://mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather/MapServer',
         arcgisLayers: 'show:112',
         opacity: 0.72,
@@ -10473,12 +10891,13 @@ function initMapBase() {
     ensureTerrainAvoidOverlayLayer();
 
     topoMap.setOpacity(0.5);
-    const startupLayers = [topoMap, aeroOverlay];
-    if (dwdWarningsActive) startupLayers.push(dwdWarningsOverlay);
-    if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
-    if (usaVfrOverlayActive) startupLayers.push(usaVfrSectionalOverlay);
-    if (openAipOverlayActive && openAipVectorOverlay) startupLayers.push(openAipVectorOverlay);
-    map = L.map('map', { layers: startupLayers, attributionControl: true, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
+    map = L.map('map', { layers: [topoMap], attributionControl: true, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
+    ensureGaMapOverlayPanes(map);
+    aeroOverlay.addTo(map);
+    if (dwdWarningsActive) dwdWarningsOverlay.addTo(map);
+    if (awcSigmetActive) awcSigmetOverlay.addTo(map);
+    if (usaVfrOverlayActive) usaVfrSectionalOverlay.addTo(map);
+    if (openAipOverlayActive && openAipVectorOverlay) openAipVectorOverlay.addTo(map);
     configureMapAttributionControl(map);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
@@ -10516,16 +10935,17 @@ function initMapBase() {
             if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
                 const latestRadar = data.radar.past[data.radar.past.length - 1].path;
                 L.tileLayer(`https://tilecache.rainviewer.com${latestRadar}/256/{z}/{x}/{y}/2/1_1.png`, {
+                    pane: GA_MAP_OVERLAY_PANES.weather.name,
                     opacity: 0.65, transparent: true, maxNativeZoom: 7, attribution: 'Radar © RainViewer'
                 }).addTo(radarOverlay); if (radarActive) radarOverlay.addTo(map);
             }
         }).catch(e => console.warn('RainViewer Fetch Fehler:', e));
         
     const overlayMaps = {
-        "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
-        "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
-        [USA_VFR_OVERLAY_LABEL]: usaVfrSectionalOverlay,
         [OPENAIP_OVERLAY_LABEL]: openAipVectorOverlay,
+        "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
+        "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
+        [USA_VFR_OVERLAY_LABEL]: usaVfrSectionalOverlay,
         "🌧️ Wetterradar (Niederschlag)": radarOverlay,
         "⚠️ DWD Warnungen (Test)": dwdWarningsOverlay,
         "🌩️ AWC SIGMET (Test)": awcSigmetOverlay,
@@ -10630,15 +11050,11 @@ function initMapBase() {
     }
     
     map.on('overlayadd', function (e) {
-        // Schaltet DFS ab, wenn VFR-Lufträume aktiviert werden
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
-            if (typeof dfsIcaoOverlay !== 'undefined' && map.hasLayer(dfsIcaoOverlay)) map.removeLayer(dfsIcaoOverlay);
             updateAeroOverlayZoomVisibility();
         }
-        // Schaltet VFR-Lufträume ab, wenn DFS aktiviert wird
         if (e.name === "🗺️ DFS ICAO Karte 1:500k") {
-            if (typeof aeroOverlay !== 'undefined' && map.hasLayer(aeroOverlay)) map.removeLayer(aeroOverlay);
-            topoMap.setOpacity(1.0);
+            if (map.hasLayer(topoMap)) topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'true');
@@ -10659,8 +11075,11 @@ function initMapBase() {
     
     map.on('overlayremove', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
-            aeroOverlay.setOpacity(0.65);
-            topoMap.setOpacity(1.0);
+            // Leaflet hat den Tile-Layer zu diesem Zeitpunkt bereits entfernt;
+            // setOpacity() würde auf dessen nicht mehr existierenden Container
+            // zugreifen und in Safari als "null ... t.style" abbrechen.
+            aeroOverlay.options.opacity = 0.65;
+            if (map.hasLayer(topoMap)) topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'false');
@@ -11382,7 +11801,7 @@ function updateMiniMap(attempt = 0) {
 
         if (!miniMap) {
             miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
-            L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(miniMap);
+            createResilientOpenTopoLayer().addTo(miniMap);
             L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
                 opacity: 0.65,
                 maxNativeZoom: 12

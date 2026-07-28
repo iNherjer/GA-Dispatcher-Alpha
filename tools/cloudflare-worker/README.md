@@ -48,7 +48,18 @@ gebündelt. Die BBox darf entsprechend der OpenAIP-Regel höchstens 5° breit un
 - `X-GA-OpenAIP-Cache` zeigt `MISS`, `HIT`, `REFRESH`, `STALE`, `PARTIAL`, `HIT-PARTIAL`, `STALE-PARTIAL` oder `ERROR`;
 - die alten Catch-All-Endpunkte `/api/airports`, `/api/airspaces`, `/api/navaids` und `/api/reporting-points` bleiben unverändert erhalten.
 
-Im Kartenmenü kann zwischen `OpenAIP: Regionscache` und `OpenAIP: Legacy` gewechselt werden. Die Wahl liegt in `localStorage` unter `ga_openaip_data_mode`. Dadurch ist ein Rückwechsel ohne Code-Rollback möglich.
+Die App verwendet inzwischen standardmäßig die geprüften, räumlich aufgeteilten
+GitHub-Pages-Daten aus `GA-Dispatcher-Aviation-Data`. Ist deren Manifest oder
+ein benötigter Pack nicht erreichbar, formal ungültig oder stimmt dessen
+SHA-256-Prüfsumme nicht, übernimmt automatisch dieser V2-Regionscache. Erst der
+zusätzliche Modus `OpenAIP: Legacy` verwendet wieder die getrennten alten
+Endpunkte.
+
+Im Kartenmenü kann zwischen `Aviation DB: Hosted`, `OpenAIP: V2` und
+`OpenAIP: Legacy` gewechselt werden. Die neue Wahl liegt in `localStorage`
+unter `ga_aviation_data_mode_v3`; ein bewusst gesetzter alter Legacy-Wert unter
+`ga_openaip_data_mode` wird bei der Migration respektiert. Dadurch bleiben V2
+und der alte Abrufpfad als manuell wählbare Rollback-Stufen verfügbar.
 
 ## Deploy (Wrangler)
 
