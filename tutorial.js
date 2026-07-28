@@ -292,11 +292,11 @@
                 }
             },
             {
-                title: 'PC-Tracker (.exe)',
+                title: 'Tracker für Windows',
                 selector: '.tracker-download a',
                 body: `
-                    <p>Lade hier den <strong>PC-Tracker</strong> herunter und starte die EXE.</p>
-                    <p>Im Tracker trägst du ebenfalls <strong>dieselbe Pilot-ID + PIN</strong> ein. Die EXE muss laufen, damit Live-Tracking-Daten kommen.</p>
+                    <p>Lade hier den <strong>Tracker-Installer</strong> herunter und installiere das kleine Windows-Programm.</p>
+                    <p>Beim ersten Start lädt es die aktuelle Tracker-Runtime. Trage dort <strong>dieselbe Pilot-ID + PIN</strong> ein; danach kann der Tracker automatisch im Tray starten.</p>
                 `,
                 beforeEnter: () => {
                     ensureSettingsOpen();

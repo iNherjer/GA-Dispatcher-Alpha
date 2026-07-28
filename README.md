@@ -85,13 +85,13 @@ Funktionen:
 - **Pull**: Cloud-Stand auf dieses Geraet holen.
 - **Live GPS**: zeigt, ob Daten vom PC-Tracker ankommen.
 - Der Live-GPS-Status unterscheidet drei Stufen: `WAIT` bedeutet, dass nur die App am Relay verbunden ist; `LINK · v302` bestätigt den verbundenen PC-Tracker ohne frische Sim-Telemetrie; `LIVE · v302` zeigt aktive Telemetrie. Bei `LINK` und `LIVE` wird die erkannte Tracker-Version mit angezeigt.
-- **PC-Tracker (.exe)**: sendet MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App.
+- **Tracker fuer Windows**: installiert und aktualisiert die Runtime, die MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App sendet.
 
 PC-Tracker einrichten:
 
 1. In der App **Pilot-ID + PIN** setzen und einloggen.
-2. Am MSFS-PC den **VFR-Multitool-Tracker.exe** laden und starten.
-3. Dieselbe Pilot-ID und denselben PIN eintragen.
+2. Am MSFS-PC den **VFR-Multitool-Tracker-Setup** laden und installieren.
+3. Das Programm starten; es laedt die aktuelle Tracker-Runtime und fragt nach derselben Pilot-ID und demselben PIN.
 4. Auf Tablet, iPad oder Zweit-PC die App mit derselben Pilot-ID oeffnen.
 
 Der Tracker prueft Pilot-ID und PIN vor dem Verbindungsaufbau beim Sync-Dienst. Groß-/Kleinschreibung wird automatisch auf die gespeicherte Pilot-ID aufgeloest; erst nach erfolgreicher Pruefung meldet der Tracker die Anmeldung und startet die Live-Uebertragung.
