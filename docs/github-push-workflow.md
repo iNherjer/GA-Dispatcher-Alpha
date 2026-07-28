@@ -95,6 +95,38 @@ Wenn `tracker.js` geaendert wurde, gilt beides:
 1. normaler Push-Workflow (inkl. SW hochzaehlen)
 2. plus EXE-Build und Release auf `origin`.
 
+## 3a) Tracker-Desktop-App und Autoupdater
+
+Die installierbare Desktop-App liegt unter `ga-tracker-client/desktop`. Sie
+ist ein schlanker Bootstrapper und buendelt keine Tracker-EXE. Die Runtime wird
+beim ersten Start aus `ga-tracker-client/channel/stable.json` geladen, geprueft
+und versioniert in LocalAppData abgelegt.
+
+1. Vor einem Desktop-Release:
+   - `version` in `ga-tracker-client/desktop/package.json` als SemVer erhoehen.
+   - Der Tracker-Kanal muss auf ein vorhandenes, vollstaendig getestetes
+     origin-Release nach Abschnitt 2 zeigen.
+2. Desktop-Tests und Build:
+   - `cd ga-tracker-client/desktop`
+   - `npm test`
+   - `npm run build:win`
+3. Release:
+   - Unveraenderlichen Tag `tracker-desktop-v<version>` verwenden.
+   - Installer, Blockmap und die zugehoerigen Update-Metadaten gemeinsam hochladen.
+   - Bei vorhandenem Authenticode-Zertifikat zuerst die separat veroeffentlichte
+     Tracker-Runtime, dann App und Installer signieren und alle Signaturen vor
+     dem Upload pruefen.
+4. Stable-Kanal zuletzt umschalten:
+   - `npm run prepare:channel` erzeugt den Release-spezifischen Stable-Zeiger.
+   - `ga-tracker-client/channel/desktop/latest.yml` muss auf die exakten
+     GitHub-Release-Artefakte dieses Tags zeigen.
+   - Erst nach Download-, Hash-, Installations-, Start- und Update-Test committen.
+
+Ohne oeffentlich vertrauenswuerdiges Zertifikat ist der Build funktionsfaehig,
+kann aber dieselbe SmartScreen-Warnung wie die bisherige portable EXE ausloesen.
+Ein selbst signiertes Entwicklungszertifikat darf nicht als produktive
+Vertrauensloesung dargestellt werden.
+
 ## 4) Beta- und Stable-Synchronisierung
 
 `beta/main` und `stable/main` liegen auf separaten Remotes und sollen jeweils exakt

@@ -1057,6 +1057,23 @@ async function run() {
     }
     if (!rollbackRejected || rollbackService.inspectAssets().packageVersion !== remoteVersion) throw new Error('Atomic rollback failed to restore the previous package.');
 
+    if (!remoteService.capabilities.includes('homebase-assets-uninstall')) throw new Error('Asset uninstall capability missing.');
+    remoteService.handleCommand({ type: 'homebase_v1.assets.uninstall', commandId: 'assets-uninstall-no-confirm' });
+    const uninstallConfirmationAck = await waitForAck(remoteAcks, 'homebase_v1.assets.uninstall_ack');
+    if (uninstallConfirmationAck.status !== 'error' || uninstallConfirmationAck.code !== 'CONFIRMATION_REQUIRED') {
+      throw new Error('Asset uninstall confirmation guard failed.');
+    }
+    const assetsUninstalled = remoteService.uninstallAssets();
+    if (!assetsUninstalled.removedPaths.includes(path.join(storeCommunity, catalog.assetPackageName))) {
+      throw new Error(`Asset uninstall did not remove the shared package: ${JSON.stringify(assetsUninstalled)}`);
+    }
+    if (fs.existsSync(path.join(storeCommunity, catalog.assetPackageName))
+      || !fs.existsSync(path.join(storeCommunity, catalog.scenePackageName))
+      || !fs.existsSync(path.join(testRoot, 'homebase-state', 'installed-homebase-state.json'))) {
+      throw new Error('Asset uninstall removed personal Homebase scene/state or retained the shared package.');
+    }
+    if (fs.existsSync(activeIndexPath)) throw new Error('Asset uninstall retained the machine-specific active asset index.');
+
     const traversalZipPath = path.join(testRoot, 'traversal.zip');
     createZip([{ name: 'evil.txt', data: Buffer.from('blocked') }], traversalZipPath);
     const traversalZip = fs.readFileSync(traversalZipPath);

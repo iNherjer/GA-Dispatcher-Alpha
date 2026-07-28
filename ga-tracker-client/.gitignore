@@ -1,2 +1,5 @@
 node_modules/
 package-lock.json
+desktop/dist/
+desktop/build/
+!desktop/package-lock.json

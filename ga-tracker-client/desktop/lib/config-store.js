@@ -1,0 +1,224 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+const UPDATE_POLICIES = new Set(['ask', 'automatic']);
+
+function normalizeUpdatePolicy(value) {
+  return UPDATE_POLICIES.has(String(value || '').trim()) ? String(value).trim() : 'ask';
+}
+
+function normalizeBoolean(value, fallback) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function resolveTrackerDataDirectory(documentsDirectory) {
+  return path.join(path.resolve(documentsDirectory), 'VFR Multitool', 'Tracker');
+}
+
+function safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+class TrackerConfigStore {
+  constructor({ documentsDirectory, applicationDataDirectory, secureStorage, fsModule = fs } = {}) {
+    if (!documentsDirectory) throw new Error('documentsDirectory fehlt.');
+    if (!applicationDataDirectory) throw new Error('applicationDataDirectory fehlt.');
+    if (!secureStorage) throw new Error('secureStorage fehlt.');
+    this.fs = fsModule;
+    this.secureStorage = secureStorage;
+    this.dataDirectory = resolveTrackerDataDirectory(documentsDirectory);
+    this.applicationDataDirectory = path.resolve(applicationDataDirectory);
+    this.configPath = path.join(this.dataDirectory, 'tracker-config.json');
+    this.desktopSettingsPath = path.join(this.applicationDataDirectory, 'desktop-settings.json');
+  }
+
+  ensureDataDirectory() {
+    this.fs.mkdirSync(this.dataDirectory, { recursive: true });
+    this.fs.mkdirSync(this.applicationDataDirectory, { recursive: true });
+    return this.dataDirectory;
+  }
+
+  readJson(file) {
+    try {
+      if (!this.fs.existsSync(file)) return {};
+      return safeObject(JSON.parse(this.fs.readFileSync(file, 'utf8')));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  writeJson(file, nextConfig) {
+    const data = safeObject(nextConfig);
+    this.fs.mkdirSync(path.dirname(file), { recursive: true });
+    const temporaryPath = `${file}.${process.pid}.tmp`;
+    this.fs.writeFileSync(temporaryPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+    try {
+      this.fs.renameSync(temporaryPath, file);
+    } catch (error) {
+      try {
+        this.fs.copyFileSync(temporaryPath, file);
+        this.fs.rmSync(temporaryPath, { force: true });
+      } catch (_) {
+        try { this.fs.rmSync(temporaryPath, { force: true }); } catch (_) {}
+        throw error;
+      }
+    }
+    return data;
+  }
+
+  // Kompatibilitaet fuer die bestehenden Tracker-/Homebase-Daten in Dokumente.
+  read() {
+    return this.readJson(this.configPath);
+  }
+
+  write(nextConfig) {
+    return this.writeJson(this.configPath, nextConfig);
+  }
+
+  readDesktop() {
+    return this.readJson(this.desktopSettingsPath);
+  }
+
+  writeDesktop(nextConfig) {
+    return this.writeJson(this.desktopSettingsPath, nextConfig);
+  }
+
+  encryptionAvailable() {
+    try {
+      return this.secureStorage.isEncryptionAvailable() === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  publicSettings() {
+    const tracker = this.read();
+    const desktop = this.readDesktop();
+    const preferences = safeObject(desktop.preferences);
+    return {
+      pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
+      hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
+      updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
+      autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
+      startMinimized: normalizeBoolean(preferences.startMinimized, false)
+    };
+  }
+
+  credentials() {
+    const desktop = this.readDesktop();
+    const pilotId = String(desktop.pilotId || '').trim();
+    const encryptedPin = String(desktop.encryptedPin || '').trim();
+    if (!pilotId || !encryptedPin || !this.encryptionAvailable()) return null;
+    try {
+      const pin = String(this.secureStorage.decryptString(Buffer.from(encryptedPin, 'base64')) || '').trim();
+      if (!/^\d{4}$/.test(pin)) return null;
+      return { pilotId, pin };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  hasCredentials() {
+    return Boolean(this.credentials());
+  }
+
+  saveCredentials(pilotId, pin) {
+    const normalizedPilotId = String(pilotId || '').trim();
+    const normalizedPin = String(pin || '').trim();
+    if (!normalizedPilotId || normalizedPilotId.length > 160) throw new Error('Pilot-ID fehlt oder ist zu lang.');
+    if (!/^\d{4}$/.test(normalizedPin)) throw new Error('Der PIN muss aus genau vier Ziffern bestehen.');
+    if (!this.encryptionAvailable()) throw new Error('Der Windows-Schutz für Zugangsdaten ist derzeit nicht verfügbar.');
+
+    const encryptedPin = this.secureStorage.encryptString(normalizedPin).toString('base64');
+    const desktop = this.readDesktop();
+    this.writeDesktop({
+      ...desktop,
+      schemaVersion: 1,
+      pilotId: normalizedPilotId,
+      encryptedPin
+    });
+    const tracker = this.read();
+    const sanitizedTracker = { ...tracker, syncId: normalizedPilotId };
+    delete sanitizedTracker.pin;
+    this.write(sanitizedTracker);
+    return { pilotId: normalizedPilotId };
+  }
+
+  setUpdatePolicy(policy) {
+    const normalized = normalizeUpdatePolicy(policy);
+    const desktop = this.readDesktop();
+    return this.writeDesktop({
+      ...desktop,
+      preferences: {
+        ...safeObject(desktop.preferences),
+        updatePolicy: normalized
+      }
+    });
+  }
+
+  setStartupPreferences(preferences = {}) {
+    const desktop = this.readDesktop();
+    const current = safeObject(desktop.preferences);
+    return this.writeDesktop({
+      ...desktop,
+      preferences: {
+        ...current,
+        autoStartTracker: normalizeBoolean(preferences.autoStartTracker, normalizeBoolean(current.autoStartTracker, true)),
+        startMinimized: normalizeBoolean(preferences.startMinimized, normalizeBoolean(current.startMinimized, false))
+      }
+    });
+  }
+
+  migrateLegacyPreferences() {
+    const tracker = this.read();
+    const legacy = safeObject(tracker.trackerDesktop);
+    const desktop = this.readDesktop();
+    if (!Object.keys(legacy).length || Object.keys(safeObject(desktop.preferences)).length) return false;
+    this.writeDesktop({
+      ...desktop,
+      preferences: {
+        updatePolicy: normalizeUpdatePolicy(legacy.updatePolicy),
+        autoStartTracker: normalizeBoolean(legacy.autoStartTracker, true),
+        startMinimized: normalizeBoolean(legacy.startMinimized, false)
+      }
+    });
+    return true;
+  }
+
+  async migrateLegacyCredentials(verifier) {
+    this.migrateLegacyPreferences();
+    const tracker = this.read();
+    const legacyPilotId = String(tracker.syncId || '').trim();
+    const legacyPin = String(tracker.pin || '').trim();
+    const existing = this.credentials();
+
+    if (existing) {
+      if (legacyPin) {
+        const sanitized = { ...tracker, syncId: existing.pilotId };
+        delete sanitized.pin;
+        this.write(sanitized);
+      }
+      return { migrated: false, alreadySecure: true };
+    }
+    if (!legacyPilotId || !/^\d{4}$/.test(legacyPin)) return { migrated: false };
+    if (typeof verifier !== 'function') return { migrated: false, message: 'Konto-Prüfung fehlt.' };
+
+    const verification = await verifier(legacyPilotId, legacyPin);
+    if (!verification?.ok) {
+      return { migrated: false, verificationFailed: true, message: verification?.message || 'Gespeicherte Zugangsdaten konnten nicht geprüft werden.' };
+    }
+    try {
+      this.saveCredentials(verification.pilotId, legacyPin);
+      return { migrated: true, pilotId: verification.pilotId };
+    } catch (error) {
+      return { migrated: false, verificationFailed: true, message: error?.message || String(error) };
+    }
+  }
+}
+
+module.exports = {
+  TrackerConfigStore,
+  normalizeBoolean,
+  normalizeUpdatePolicy,
+  resolveTrackerDataDirectory
+};

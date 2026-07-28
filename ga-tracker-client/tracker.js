@@ -28,9 +28,11 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v313';
-const TRACKER_VERSION_CODE = 313;
+const TRACKER_VERSION = 'v314';
+const TRACKER_VERSION_CODE = 314;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
+const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
+let credentialsProvidedByDesktop = false;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
@@ -4270,7 +4272,10 @@ async function verifyAndStartTracker(syncId, pin, { promptOnFailure = false } = 
 }
 
 function saveTrackerConfig(syncId, pin, extra = {}) {
-  writeTrackerConfig({ ...readTrackerConfig(), syncId, pin, consoleMode, ...extra });
+  const next = { ...readTrackerConfig(), syncId, consoleMode, ...extra };
+  if (credentialsProvidedByDesktop) delete next.pin;
+  else next.pin = pin;
+  writeTrackerConfig(next);
 }
 
 function askConsoleMode(savedId, savedPin, afterSave) {
@@ -4298,6 +4303,26 @@ function main() {
   let savedPin = '';
 
   const data = readTrackerConfig();
+  if (HEADLESS_MODE) {
+    consoleMode = normalizeConsoleMode(data.consoleMode || data.displayMode || data.logMode);
+    trackerLog(`🔒 Warte auf geschützte Zugangsdaten vom Desktop-Programm.`);
+    rl.once('line', (line) => {
+      let credentials = null;
+      try { credentials = JSON.parse(String(line || '')); } catch (_) {}
+      const syncId = String(credentials?.pilotId || '').trim();
+      const pin = String(credentials?.pin || '').trim();
+      if (!syncId || !/^\d{4}$/.test(pin)) {
+        trackerWarn("⚠️  Keine gültigen Zugangsdaten vom Desktop-Programm empfangen.");
+        rl.close();
+        return;
+      }
+      credentialsProvidedByDesktop = true;
+      rl.close();
+      trackerLog(`🔒 Zugangsdaten wurden über eine lokale Prozess-Pipe übernommen.`);
+      verifyAndStartTracker(syncId, pin, { promptOnFailure: false });
+    });
+    return;
+  }
   savedId = data.syncId || '';
   savedPin = data.pin || '';
   consoleMode = normalizeConsoleMode(data.consoleMode || data.displayMode || data.logMode);
@@ -4324,7 +4349,7 @@ function main() {
         if (!timerCompleted) {
           timerCompleted = true;
           trackerLog(`\n\n🚀 Autostart mit Pilot-ID: ${savedId}`);
-          verifyAndStartTracker(savedId, savedPin, { promptOnFailure: true });
+          verifyAndStartTracker(savedId, savedPin, { promptOnFailure: !HEADLESS_MODE });
         }
       }
     }, 1000);
@@ -4337,7 +4362,7 @@ function main() {
         clearInterval(countdownInterval);
         const input = String(line || '').trim().toLowerCase();
         if (input === 'm' || input === 'menu' || input === 'modus' || input === 'display') {
-          askConsoleMode(savedId, savedPin, () => verifyAndStartTracker(savedId, savedPin, { promptOnFailure: true }));
+          askConsoleMode(savedId, savedPin, () => verifyAndStartTracker(savedId, savedPin, { promptOnFailure: !HEADLESS_MODE }));
         } else {
           trackerLog(`\n\n--- Neueingabe gestartet ---`);
           askCredentials();
@@ -4346,7 +4371,8 @@ function main() {
     });
 
   } else {
-    askCredentials();
+    if (HEADLESS_MODE) trackerWarn("⚠️  Keine geschützten Zugangsdaten vom Desktop-Programm empfangen.");
+    else askCredentials();
   }
 }
 

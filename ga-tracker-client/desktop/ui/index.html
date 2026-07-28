@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+  <title>VFR Multitool Tracker</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="brand-mark" aria-hidden="true">
+        <span class="wing wing-left"></span>
+        <span class="fuselage"></span>
+        <span class="wing wing-right"></span>
+      </div>
+      <div>
+        <p class="eyebrow">VFR MULTITOOL</p>
+        <h1>Tracker</h1>
+        <p id="versionLine" class="version-line">Desktop · Tracker</p>
+      </div>
+      <span id="processBadge" class="process-badge waiting">Bereit</span>
+    </header>
+
+    <section class="status-grid" aria-label="Verbindungsstatus">
+      <article class="status-card">
+        <span id="relayDot" class="status-dot waiting"></span>
+        <div>
+          <small>Cloud Relay</small>
+          <strong id="relayStatus">Wartet</strong>
+        </div>
+      </article>
+      <article class="status-card">
+        <span id="simDot" class="status-dot waiting"></span>
+        <div>
+          <small>MSFS / SimConnect</small>
+          <strong id="simStatus">Wartet</strong>
+        </div>
+      </article>
+      <article class="status-card wide">
+        <span id="telemetryDot" class="status-dot waiting"></span>
+        <div>
+          <small>Live-Telemetrie</small>
+          <strong id="telemetryStatus">Keine Positionsdaten</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">KONTO</p>
+          <h2>Pilot-Verbindung</h2>
+        </div>
+        <button id="openFolderButton" class="text-button" type="button">Datenordner</button>
+      </div>
+      <form id="credentialsForm" class="credentials-form">
+        <label>
+          <span>Pilot-ID</span>
+          <input id="pilotIdInput" name="pilotId" maxlength="160" autocomplete="username" placeholder="Foxtrot-Mike-764">
+        </label>
+        <label>
+          <span>PIN</span>
+          <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" placeholder="••••">
+        </label>
+        <button id="saveCredentialsButton" class="primary-button" type="submit">Prüfen &amp; verbinden</button>
+      </form>
+      <p id="formMessage" class="form-message" role="status"></p>
+    </section>
+
+    <section class="panel startup-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">START</p>
+          <h2>Startverhalten</h2>
+        </div>
+      </div>
+      <label class="toggle-row">
+        <span>
+          <strong>Tracker automatisch starten</strong>
+          <small>Startet die Engine direkt nach der Updateprüfung.</small>
+        </span>
+        <span class="toggle-control">
+          <input id="autoStartTrackerCheckbox" type="checkbox" checked>
+          <span class="toggle-track" aria-hidden="true"></span>
+        </span>
+      </label>
+      <label class="toggle-row">
+        <span>
+          <strong>Minimiert im Tray starten</strong>
+          <small>Zeigt das Fenster nur, wenn eine Eingabe nötig ist.</small>
+        </span>
+        <span class="toggle-control">
+          <input id="startMinimizedCheckbox" type="checkbox">
+          <span class="toggle-track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </section>
+
+    <section class="panel update-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">UPDATES</p>
+          <h2>Tracker-Runtime</h2>
+        </div>
+        <span id="updateBadge" class="mini-badge">Prüfung</span>
+      </div>
+      <label class="policy-row">
+        <span>
+          <strong>Neue Versionen</strong>
+          <small>Beim Start prüfen; Installation nie während eines Flugs.</small>
+        </span>
+        <select id="updatePolicySelect">
+          <option value="ask">Vorher fragen</option>
+          <option value="automatic">Automatisch</option>
+        </select>
+      </label>
+      <div id="updateProgressWrap" class="progress-wrap" hidden>
+        <span id="updateProgress" class="progress-bar"></span>
+      </div>
+      <p id="updateMessage" class="subtle">Updateprüfung wird vorbereitet.</p>
+      <button id="checkRuntimeButton" class="text-button panel-action" type="button">Jetzt prüfen</button>
+    </section>
+
+    <section class="panel asset-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">MSFS COMMUNITY</p>
+          <h2>Homebase Asset Pack</h2>
+        </div>
+        <span id="assetBadge" class="mini-badge">Prüfung</span>
+      </div>
+      <p id="assetMessage" class="subtle">Installationsstatus wird geprüft.</p>
+      <p id="assetPath" class="path-line"></p>
+      <div class="asset-actions">
+        <button id="assetPrimaryButton" class="primary-button" type="button">Installieren</button>
+        <button id="assetRepairButton" class="secondary-button" type="button">Reparieren</button>
+        <button id="assetUninstallButton" class="secondary-button danger-button" type="button">Deinstallieren</button>
+        <button id="assetRefreshButton" class="text-button" type="button">Status prüfen</button>
+      </div>
+      <p class="asset-note">Die Deinstallation entfernt nur das gemeinsame Asset Pack. Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.</p>
+    </section>
+
+    <section class="action-row">
+      <button id="startButton" class="primary-button" type="button">Tracker starten</button>
+      <button id="stopButton" class="secondary-button" type="button">Stoppen</button>
+    </section>
+
+    <details class="log-panel">
+      <summary>
+        <span>Diagnoseprotokoll</span>
+        <span id="detailStatus" class="summary-status">Tracker ist nicht gestartet.</span>
+      </summary>
+      <pre id="logOutput">Noch keine Tracker-Ereignisse.</pre>
+    </details>
+  </main>
+
+  <dialog id="updateDialog">
+    <form method="dialog" class="dialog-card">
+      <p class="eyebrow">NEUE VERSION</p>
+      <h2 id="updateDialogTitle">Tracker-Update verfügbar</h2>
+      <p>Wie möchtest du dieses und künftige Tracker-Updates behandeln?</p>
+      <button data-update-choice="automatic" class="primary-button" value="automatic">Künftig automatisch</button>
+      <button data-update-choice="once" class="secondary-button" value="once">Nur dieses Mal</button>
+      <button data-update-choice="later" class="text-button centered" value="later">Später</button>
+    </form>
+  </dialog>
+
+  <script src="./renderer.js"></script>
+</body>
+</html>

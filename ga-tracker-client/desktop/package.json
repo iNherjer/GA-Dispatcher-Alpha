@@ -1,0 +1,84 @@
+{
+  "name": "vfr-multitool-tracker-desktop",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
+  "author": "VFR Multitool",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "pack:win": "electron-builder --win --x64 --dir",
+    "build:win": "electron-builder --win nsis --x64",
+    "prepare:channel": "node scripts/prepare-channel.js"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8"
+  },
+  "build": {
+    "appId": "de.vfrmultitool.tracker",
+    "productName": "VFR Multitool Tracker",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "ui/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../homebase-package-service.js",
+        "to": "homebase-support/homebase-package-service.js"
+      },
+      {
+        "from": "../homebase-asset-updater.js",
+        "to": "homebase-support/homebase-asset-updater.js"
+      },
+      {
+        "from": "../homebase-asset-catalog.js",
+        "to": "homebase-support/homebase-asset-catalog.js"
+      },
+      {
+        "from": "../../icon-192.png",
+        "to": "assets/icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../../icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "VFR-Multitool-Tracker-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/ga-tracker-client/channel/desktop/"
+      }
+    ]
+  }
+}

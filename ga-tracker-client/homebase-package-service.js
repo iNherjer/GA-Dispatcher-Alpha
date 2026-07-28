@@ -914,7 +914,7 @@ function createHomebasePackageService(options = {}) {
     return remote;
   };
 
-  const installRemoteAssets = async () => {
+  const installRemoteAssets = async (installOptions = {}) => {
     if (simulatorRunning()) {
       const error = new Error('MSFS läuft noch. Vor dem Asset-Update bitte den Simulator schließen.');
       error.code = 'SIM_RUNNING';
@@ -923,7 +923,7 @@ function createHomebasePackageService(options = {}) {
     const previous = inspectAssets();
     let prepared = null;
     try {
-      prepared = await remoteUpdater.prepare(previous);
+      prepared = await remoteUpdater.prepare(installOptions.force === true ? {} : previous);
       if (prepared.unchanged) {
         return { path: previous.packagePath || '', communityPath: previous.communityPath || '', packageVersion: previous.packageVersion, previousVersion: previous.packageVersion, unchanged: true, source: 'remote' };
       }
@@ -945,6 +945,28 @@ function createHomebasePackageService(options = {}) {
       prepared?.cleanup?.();
       cleanupAssetStaging();
     }
+  };
+
+  const uninstallAssets = () => {
+    if (simulatorRunning()) {
+      const error = new Error('MSFS läuft noch. Vor der Asset-Deinstallation bitte den Simulator schließen.');
+      error.code = 'SIM_RUNNING';
+      throw error;
+    }
+    const removedPaths = [];
+    const discovery = communityDiscovery();
+    for (const root of discovery.entries.map((entry) => entry.path)) {
+      const target = path.join(root, catalog.assetPackageName);
+      assertCommunityChild(target, root);
+      if (!fs.existsSync(target)) continue;
+      fs.rmSync(target, { recursive: true, force: true });
+      removedPaths.push(target);
+    }
+    try { fs.rmSync(activeAssetIndexPath, { force: true }); } catch (_) {}
+    try { fs.rmSync(assetCacheRoot, { recursive: true, force: true }); } catch (_) {}
+    remoteUpdater.invalidate();
+    log(`HOMEBASE_ASSETS_UNINSTALLED removed="${removedPaths.join(',')}"`);
+    return { removedPaths };
   };
 
   // Compatibility alias for older app versions. Future tracker builds no
@@ -994,6 +1016,18 @@ function createHomebasePackageService(options = {}) {
       });
       return;
     }
+    if (type === 'homebase_v1.assets.uninstall') {
+      if (command?.confirmed !== true) throw Object.assign(new Error('Ausdrückliche Bestätigung zur Asset-Deinstallation fehlt.'), { code: 'CONFIRMATION_REQUIRED' });
+      const result = uninstallAssets();
+      ack(command, 'assets.uninstall', {
+        status: 'ok',
+        message: result.removedPaths.length
+          ? 'Das gemeinsame Homebase-Assetpaket wurde entfernt. Persönliche Homebase-Daten und Szenen bleiben erhalten.'
+          : 'Das gemeinsame Homebase-Assetpaket war nicht installiert.',
+        ...result
+      });
+      return;
+    }
     if (type === 'homebase_v1.package.status') {
       ack(command, 'package.status', { status: 'ok', ...status() });
       return;
@@ -1037,7 +1071,7 @@ function createHomebasePackageService(options = {}) {
   };
 
   return {
-    capabilities: ['homebase-assets-install', 'homebase-assets-online-only-v1', 'homebase-assets-remote-update', 'homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback'],
+    capabilities: ['homebase-assets-install', 'homebase-assets-online-only-v1', 'homebase-assets-remote-update', 'homebase-assets-uninstall', 'homebase-package-prepare', 'homebase-package-build', 'homebase-package-install', 'homebase-package-rollback'],
     handleCommand(command) {
       const type = String(command?.type || '');
       if (!/^homebase_v1\.(assets|package|simulator)\./.test(type)) return false;
@@ -1060,7 +1094,8 @@ function createHomebasePackageService(options = {}) {
     inspectInstalledScene,
     installAssets,
     checkRemoteAssets,
-    installRemoteAssets
+    installRemoteAssets,
+    uninstallAssets
   };
 }
 
