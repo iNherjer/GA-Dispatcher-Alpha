@@ -9209,19 +9209,8 @@ window.gaGetOpenAipStaticReportingPointStatus = function() {
 };
 
 function updateOpenAipDataModeButtonUi() {
-    const anchor = document.getElementById('hintToggleSnapping');
-    const menu = document.getElementById('mapHintsMenu');
-    if (!anchor || !menu) return;
-    let btn = document.getElementById('hintToggleOpenAipDataMode');
-    if (!btn) {
-        btn = document.createElement('button');
-        btn.id = 'hintToggleOpenAipDataMode';
-        btn.className = anchor.className || 'pb-btn';
-        btn.type = 'button';
-        btn.style.cssText = 'display:block; width:100%; margin:0 0 6px 0; text-align:left;';
-        btn.addEventListener('click', () => window.toggleOpenAipDataMode());
-        anchor.insertAdjacentElement('afterend', btn);
-    }
+    const btn = document.getElementById('btnDebugAviationDataMode');
+    if (!btn) return;
     const mode = getOpenAipDataMode();
     const regionMode = mode !== OPENAIP_DATA_MODE_LEGACY;
     const coolingDown = regionMode && openAipRegionState.retryAfter > Date.now();
@@ -9242,6 +9231,7 @@ function updateOpenAipDataModeButtonUi() {
             ? 'OpenAIP V2 Regionscache ohne gehostete Primärquelle. Antippen wechselt zum alten Abrufmodell.'
             : 'Altes OpenAIP-Abrufmodell mit getrennten Requests. Antippen aktiviert wieder die gehostete Datenbank.');
 }
+window.updateOpenAipDataModeButtonUi = updateOpenAipDataModeButtonUi;
 
 function getOpenAipVisibleBounds() {
     if (!map) return null;

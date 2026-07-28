@@ -4986,6 +4986,7 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
         window.vpUpdateObsTileOverlayButtonUi && window.vpUpdateObsTileOverlayButtonUi();
         window.updateMissionPipelineV2ButtonUi && window.updateMissionPipelineV2ButtonUi();
         window.updateMissionWriterModeButtonUi && window.updateMissionWriterModeButtonUi();
+        window.updateOpenAipDataModeButtonUi && window.updateOpenAipDataModeButtonUi();
         window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
     }
 };

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const toolDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(toolDir, '..');
 const mapSource = fs.readFileSync(path.join(rootDir, 'map.js'), 'utf8');
+const indexSource = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
 
 function extractFunctionDeclaration(source, name) {
     const marker = `function ${name}(`;
@@ -169,6 +170,21 @@ assert.doesNotMatch(
     mapSource,
     /e\.name === "🗺️ DFS ICAO Karte 1:500k"[\s\S]{0,240}removeLayer\(aeroOverlay\)/,
     'DFS-Karte schaltet den darunterliegenden VFR-Layer weiterhin automatisch ab'
+);
+assert.doesNotMatch(
+    mapSource,
+    /hintToggleOpenAipDataMode/,
+    'Aviation-Datenquellen-Schalter wird weiterhin in das normale Kartenmenü eingefügt'
+);
+assert.match(
+    indexSource,
+    /id="btnDebugAviationDataMode"[\s\S]*toggleOpenAipDataMode/,
+    'Aviation-Datenquellen-Schalter fehlt in der Debug-Konsole'
+);
+assert.match(
+    mapSource,
+    /document\.getElementById\('btnDebugAviationDataMode'\)/,
+    'Aviation-Datenquellen-Status aktualisiert nicht den Debug-Schalter'
 );
 
 console.log('OpenAIP hosted viewport ok: coverage, V2 fallback, atomic swap and deterministic overlay panes verified');
