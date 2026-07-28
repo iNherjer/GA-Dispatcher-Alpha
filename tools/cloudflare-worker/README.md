@@ -4,6 +4,7 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 
 - `GET /api/aip-chart/resolve?icao=XXXX&country=YY`
 - `GET /api/aip-chart/file?url=<encoded>`
+- `GET /api/openaip/snapshot?bbox=west,south,east,north` (gemeinsamer OpenAIP-Regionscache)
 - `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=core|poi`
 - `GET /api/checklists/community` (öffentliche Checklist-Metadaten)
 - `GET /api/checklists/community/:id` (öffentliche Checklist-Definition)
@@ -30,8 +31,24 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 
 ```bash
 cd tools/cloudflare-worker
-node aip-chart-worker.test.mjs
+npm test
 ```
+
+## OpenAIP-Regionscache und Rollback
+
+Der Snapshot-Endpunkt lädt Flugplätze einschließlich Pisten, Lufträume, Navaids
+einschließlich Frequenz/Kanal/Reichweite und Reporting Points für dieselbe BBox
+gebündelt. Die BBox darf entsprechend der OpenAIP-Regel höchstens 5° breit und
+5° hoch sein.
+
+- identische Rasterregionen werden im Cloudflare Edge Cache standortnah zwischen Nutzern wiederverwendet;
+- innerhalb der ersten fünf Minuten wird der Cache ohne OpenAIP-Abruf beantwortet;
+- schlägt eine Aktualisierung fehl, kann der letzte erfolgreiche Stand bis zu 24 Stunden als `STALE` weitergegeben werden;
+- fällt nur eine Sammlung aus, liefert der Worker die übrigen Daten als `PARTIAL`, hält diesen Teilstand höchstens fünf Minuten und fragt nach einer Minute gezielt nur die fehlende Sammlung erneut ab;
+- `X-GA-OpenAIP-Cache` zeigt `MISS`, `HIT`, `REFRESH`, `STALE`, `PARTIAL`, `HIT-PARTIAL`, `STALE-PARTIAL` oder `ERROR`;
+- die alten Catch-All-Endpunkte `/api/airports`, `/api/airspaces`, `/api/navaids` und `/api/reporting-points` bleiben unverändert erhalten.
+
+Im Kartenmenü kann zwischen `OpenAIP: Regionscache` und `OpenAIP: Legacy` gewechselt werden. Die Wahl liegt in `localStorage` unter `ga_openaip_data_mode`. Dadurch ist ein Rückwechsel ohne Code-Rollback möglich.
 
 ## Deploy (Wrangler)
 

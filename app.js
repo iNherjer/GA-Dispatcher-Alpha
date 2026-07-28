@@ -4730,6 +4730,11 @@ let currentDestFreq = "";
 let currentDepElev = null;
 let currentDestElev = null;
 let globalAirports = null, globalMedicalHelipads = null, runwayCache = {}, freqCache = {};
+const runwayLookupInflight = new Map();
+const runwayEmptyCache = new Map();
+const runwayTemporaryCache = new Map();
+const RUNWAY_EMPTY_CACHE_MS = 10 * 60 * 1000;
+const RUNWAY_TEMPORARY_RETRY_MS = 15 * 1000;
 let globalAirportsLoadPromise = null;
 let globalAirportsIntentPreloadPromise = null;
 let airportSearchIndex = null;
@@ -14603,67 +14608,146 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     }
 }
 
+function formatOverpassRunwayDetails(data) {
+    const elements = Array.isArray(data?.elements) ? data.elements : [];
+    const trans = {
+        asphalt: 'Asphalt', concrete: 'Beton', grass: 'Gras',
+        paved: 'Asphalt', unpaved: 'Unbefestigt', dirt: 'Erde',
+        gravel: 'Schotter', sand: 'Sand', water: 'Wasser'
+    };
+    const seen = new Set();
+    const parts = [];
+    for (const element of elements) {
+        const tags = element?.tags || {};
+        const ref = String(tags.ref || tags.name || 'Piste').trim();
+        const surfaceRaw = String(tags.surface || '').trim();
+        const surface = surfaceRaw ? (trans[surfaceRaw.toLowerCase()] || surfaceRaw) : '';
+        const lengthRaw = String(tags.length || '').trim();
+        const lengthNumber = Number.parseFloat(lengthRaw.replace(',', '.'));
+        const lengthMeters = Number.isFinite(lengthNumber)
+            ? (/ft|feet/i.test(lengthRaw) ? lengthNumber * 0.3048 : lengthNumber)
+            : null;
+        const key = `${ref}|${surface}|${Number.isFinite(lengthMeters) ? Math.round(lengthMeters) : ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const details = [];
+        if (surface) details.push(surface);
+        if (Number.isFinite(lengthMeters)) details.push(`${Math.round(lengthMeters)}m`);
+        parts.push(`${ref}${details.length ? ` – ${details.join(' · ')}` : ''}`);
+    }
+    return parts.slice(0, 8).join('\n');
+}
+
+async function lookupRunwayDetails(lat, lon, icaoCode) {
+    if (typeof window.gaFetchOpenAipAirportRunwayText === 'function') {
+        try {
+            const openAipText = await window.gaFetchOpenAipAirportRunwayText(icaoCode, lat, lon);
+            if (openAipText) return { status: 'ok', text: openAipText, source: 'openaip-region' };
+        } catch (_) {
+            // Der OSM-Fallback bleibt unabhängig von einem OpenAIP-Teilausfall.
+        }
+    }
+
+    const query = `[out:json][timeout:5];nwr["aeroway"="runway"](around:3000,${lat},${lon});out tags;`;
+    try {
+        const res = await fetchWithTimeout(
+            `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+            6500
+        );
+        if (!res.ok) {
+            const error = new Error(`overpass_http_${res.status}`);
+            error.status = res.status;
+            throw error;
+        }
+        const data = await res.json();
+        const text = formatOverpassRunwayDetails(data);
+        return text
+            ? { status: 'ok', text, source: 'overpass' }
+            : { status: 'empty', text: '', source: 'overpass' };
+    } catch (error) {
+        return {
+            status: 'temporary',
+            text: '',
+            source: 'overpass',
+            error: String(error?.message || error)
+        };
+    }
+}
+
+function renderRunwayDetailsResult(domEl, result, icaoCode) {
+    if (!domEl || !result) return;
+    const hColor = document.body.classList.contains('theme-retro') ? 'var(--piper-yellow)' : 'var(--warn)';
+    let summaryText = '';
+    if (result.status === 'ok' && result.text) {
+        summaryText = result.text;
+        domEl.innerHTML = result.text.replace(/\n/g, '<br>');
+        domEl.style.color = hColor;
+    } else if (result.status === 'empty') {
+        summaryText = 'Keine Pisteninformationen vorhanden';
+        domEl.innerText = summaryText;
+        domEl.style.color = '#888';
+    } else {
+        summaryText = 'Pistendaten vorübergehend nicht verfügbar · erneut antippen';
+        domEl.innerText = summaryText;
+        domEl.style.color = '#b7791f';
+    }
+    if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) {
+        document.getElementById('wikiDepRwyText').innerHTML = `Pisten:<br>${summaryText.replace(/\n/g, '<br>')}`;
+    }
+    if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) {
+        document.getElementById('wikiDestRwyText').innerHTML = `Pisten:<br>${summaryText.replace(/\n/g, '<br>')}`;
+    }
+}
+
 async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
     const domEl = document.getElementById(elementId);
     if (!domEl) return;
-    const hColor = document.body.classList.contains('theme-retro') ? 'var(--piper-yellow)' : 'var(--warn)';
+    const normalizedIcao = String(icaoCode || '').trim().toUpperCase();
+    const lookupKey = normalizedIcao || `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
 
-    // Check Cache first
-    if (icaoCode && runwayCache[icaoCode]) {
-        domEl.innerHTML = runwayCache[icaoCode].replace(/\n/g, '<br>');
-        domEl.style.color = hColor;
-        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
-        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
+    const cachedText = normalizedIcao ? String(runwayCache[normalizedIcao] || '') : '';
+    if (cachedText && cachedText !== 'Keine Daten gefunden') {
+        renderRunwayDetailsResult(domEl, { status: 'ok', text: cachedText, source: 'memory' }, normalizedIcao);
         return;
     }
 
-    const wikiResult = await fetchRunwayFromWikipedia(icaoCode, lat, lon);
-    if (wikiResult) {
-        if (icaoCode) runwayCache[icaoCode] = wikiResult;
-        domEl.innerHTML = wikiResult.replace(/\n/g, '<br>');
-        domEl.style.color = hColor;
-        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
-        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
+    const emptyCachedAt = Number(runwayEmptyCache.get(lookupKey)) || 0;
+    if (emptyCachedAt && (Date.now() - emptyCachedAt) < RUNWAY_EMPTY_CACHE_MS) {
+        renderRunwayDetailsResult(domEl, { status: 'empty', text: '', source: 'memory' }, normalizedIcao);
         return;
     }
+    if (emptyCachedAt) runwayEmptyCache.delete(lookupKey);
+    const temporaryCachedAt = Number(runwayTemporaryCache.get(lookupKey)) || 0;
+    if (temporaryCachedAt && (Date.now() - temporaryCachedAt) < RUNWAY_TEMPORARY_RETRY_MS) {
+        renderRunwayDetailsResult(domEl, { status: 'temporary', text: '', source: 'memory' }, normalizedIcao);
+        return;
+    }
+    if (temporaryCachedAt) runwayTemporaryCache.delete(lookupKey);
 
+    let request = runwayLookupInflight.get(lookupKey);
+    if (!request) {
+        request = lookupRunwayDetails(Number(lat), Number(lon), normalizedIcao);
+        runwayLookupInflight.set(lookupKey, request);
+    }
+
+    let result;
     try {
-        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(`[out:json][timeout:5];way["aeroway"="runway"](around:2000,${lat},${lon});out tags;`)}`);
-        const data = await res.json();
-        if (data?.elements?.length > 0) {
-            const trans = {
-                "asphalt": "Asphalt", "concrete": "Beton", "grass": "Gras",
-                "paved": "Asphalt", "unpaved": "Unbefestigt", "dirt": "Erde", "gravel": "Schotter"
-            };
-            const seen = new Set();
-            const parts = [];
-            for (const el of data.elements) {
-                if (!el.tags?.ref) continue;
-                const key = el.tags.ref;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                const surf = el.tags.surface ? (trans[el.tags.surface.toLowerCase()] || el.tags.surface) : '?';
-                const len = el.tags.length ? ` · ${Math.round(el.tags.length)}m` : '';
-                parts.push(`${key} – ${surf}${len}`);
-            }
-            if (parts.length > 0) {
-                const rwyString = parts.join('\n');
-                if (icaoCode) runwayCache[icaoCode] = rwyString;
-                domEl.innerHTML = rwyString.replace(/\n/g, '<br>');
-                domEl.style.color = hColor;
-                if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
-                if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
-                return;
-            }
-        }
-    } catch (e) { }
-
-    const notFoundStr = "Keine Daten gefunden";
-    domEl.innerText = notFoundStr;
-    domEl.style.color = "#888";
-    if (icaoCode) runwayCache[icaoCode] = notFoundStr;
-    if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + notFoundStr;
-    if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + notFoundStr;
+        result = await request;
+    } finally {
+        if (runwayLookupInflight.get(lookupKey) === request) runwayLookupInflight.delete(lookupKey);
+    }
+    if (result?.status === 'ok' && result.text && normalizedIcao) {
+        runwayCache[normalizedIcao] = result.text;
+        runwayEmptyCache.delete(lookupKey);
+        runwayTemporaryCache.delete(lookupKey);
+    } else if (result?.status === 'empty') {
+        runwayEmptyCache.set(lookupKey, Date.now());
+        runwayTemporaryCache.delete(lookupKey);
+    } else if (result?.status === 'temporary') {
+        runwayTemporaryCache.set(lookupKey, Date.now());
+        console.warn('[Runway] Quelle vorübergehend nicht verfügbar:', normalizedIcao || lookupKey, result.error || result.source);
+    }
+    renderRunwayDetailsResult(domEl, result, normalizedIcao);
 }
 
 const wikiTitleCache = {};
@@ -39350,6 +39434,32 @@ function getAirspaceStyle(a) {
     return { color: '#aaa', icon: '📋', mapColor: '#aaa', category: `Type ${t}` };
 }
 
+async function fetchRouteAirspaceItems(bounds) {
+    if (typeof window.gaGetOpenAipRouteAirspaces === 'function') {
+        const items = await window.gaGetOpenAipRouteAirspaces(bounds);
+        console.debug('[OpenAIP Route] Regionscache verwendet:', items.length, 'Lufträume');
+        return items;
+    }
+
+    // Kompatibilitätsfallback für ältere map.js-Versionen. Im aktuellen Build
+    // wird dieser Pfad nicht mehr verwendet.
+    console.warn('[OpenAIP Route] Legacy-Fallback aktiv; map.js stellt keinen Regionscache bereit.');
+    let allItems = [];
+    let page = 1;
+    let totalPages = 1;
+    while (page <= totalPages && page <= 5) {
+        const url = `https://ga-proxy.einherjer.workers.dev/api/airspaces?bbox=${bounds.west},${bounds.south},${bounds.east},${bounds.north}&limit=250&page=${page}&fields=_id,name,type,icaoClass,lowerLimit,upperLimit,geometry,frequencies`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('API Error');
+        const data = await res.json();
+        if (!data || !data.items) break;
+        allItems = allItems.concat(data.items);
+        totalPages = data.totalPages || 1;
+        page++;
+    }
+    return allItems;
+}
+
 async function fetchRouteAirspaces(routePts) {
     const listEl = document.getElementById('routeAirspacesList');
     const container = document.getElementById('routeAirspacesContainer');
@@ -39374,19 +39484,12 @@ async function fetchRouteAirspaces(routePts) {
     minLon -= 0.25; maxLon += 0.25;
 
     try {
-        let allItems = [];
-        let page = 1;
-        let totalPages = 1;
-        while (page <= totalPages && page <= 5) {
-            const url = `https://ga-proxy.einherjer.workers.dev/api/airspaces?bbox=${minLon},${minLat},${maxLon},${maxLat}&limit=250&page=${page}&fields=_id,name,type,icaoClass,lowerLimit,upperLimit,geometry,frequencies`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('API Error');
-            const data = await res.json();
-            if (!data || !data.items) break;
-            allItems = allItems.concat(data.items);
-            totalPages = data.totalPages || 1;
-            page++;
-        }
+        const allItems = await fetchRouteAirspaceItems({
+            west: minLon,
+            south: minLat,
+            east: maxLon,
+            north: maxLat
+        });
 
         if (allItems.length === 0) {
             listEl.innerHTML = '<span style="color:#888;">Keine Daten gefunden.</span>';
@@ -39572,7 +39675,7 @@ async function fetchRouteAirspaces(routePts) {
 
     } catch (e) {
         console.error("OpenAIP Error", e);
-        listEl.innerHTML = '<span style="color:#d93829;">Fehler beim Laden der Luftraumdaten.</span>';
+        listEl.innerHTML = '<span style="color:#d93829;">Luftraumdaten vorübergehend nicht vollständig verfügbar.</span>';
     }
 }
 
@@ -44217,37 +44320,24 @@ async function renderAirportInfo(left, right, type) {
         return;
     }
 
-    if (!runwayCache[icao] && data) {
-        const wikiResult = await fetchRunwayFromWikipedia(icao, data.lat, data.lon);
-
-        if (wikiResult) {
-            runwayCache[icao] = wikiResult;
-            if (gpsState.mode === mode) renderGPS();
-        } else {
-            try {
-                const ov = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(`[out:json][timeout:8];way["aeroway"="runway"](around:3000,${data.lat},${data.lon});out tags;`)}`).then(r => r.json());
-                if (ov?.elements?.length > 0) {
-                    const trans = { asphalt: 'Asphalt', concrete: 'Beton', grass: 'Gras', paved: 'Asphalt', unpaved: 'Unbefestigt', dirt: 'Erde', gravel: 'Schotter' };
-                    const seen = new Set(), parts = [];
-                    for (const e of ov.elements) {
-                        if (!e.tags?.ref || seen.has(e.tags.ref)) continue;
-                        seen.add(e.tags.ref);
-                        const surf = e.tags.surface ? (trans[e.tags.surface.toLowerCase()] || e.tags.surface) : '?';
-                        const len = e.tags.length ? ' · ' + Math.round(e.tags.length) + 'm' : '';
-                        parts.push(`${e.tags.ref} – ${surf}${len}`);
-                    }
-                    if (parts.length > 0) {
-                        runwayCache[icao] = parts.join('\n');
-                        if (gpsState.mode === mode) renderGPS();
-                    }
-                } else {
-                    runwayCache[icao] = "Keine Daten gefunden";
-                    if (gpsState.mode === mode) renderGPS();
-                }
-            } catch (e) {
-                runwayCache[icao] = "Keine Daten gefunden";
-                if (gpsState.mode === mode) renderGPS();
-            }
+    const gpsRunwayEmptyAt = Number(runwayEmptyCache.get(icao)) || 0;
+    const gpsRunwayTemporaryAt = Number(runwayTemporaryCache.get(icao)) || 0;
+    const gpsRunwayLookupBlocked = (
+        (gpsRunwayEmptyAt && (Date.now() - gpsRunwayEmptyAt) < RUNWAY_EMPTY_CACHE_MS)
+        || (gpsRunwayTemporaryAt && (Date.now() - gpsRunwayTemporaryAt) < RUNWAY_TEMPORARY_RETRY_MS)
+    );
+    if (!runwayCache[icao] && data && !gpsRunwayLookupBlocked) {
+        const runwayResult = await lookupRunwayDetails(data.lat, data.lon, icao);
+        if (runwayResult?.status === 'ok' && runwayResult.text) {
+            runwayCache[icao] = runwayResult.text;
+            runwayEmptyCache.delete(icao);
+            runwayTemporaryCache.delete(icao);
+        } else if (runwayResult?.status === 'empty') {
+            runwayEmptyCache.set(icao, Date.now());
+            runwayTemporaryCache.delete(icao);
+        } else if (runwayResult?.status === 'temporary') {
+            runwayTemporaryCache.set(icao, Date.now());
+            console.warn('[Runway] GPS-Quelle vorübergehend nicht verfügbar:', icao, runwayResult.error || runwayResult.source);
         }
     }
 

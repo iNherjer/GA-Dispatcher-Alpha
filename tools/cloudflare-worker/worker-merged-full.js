@@ -5,6 +5,37 @@ const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA
 const DEFAULT_OBS_INFRA_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/infra-tiles";
 const TRACKER_STABLE_CHANNEL_URL = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/ga-tracker-client/channel/stable.json";
 const TRACKER_RELEASE_ASSET_NAME = "VFR-Multitool-Tracker.exe";
+const OPENAIP_SNAPSHOT_FRESH_MS = 5 * 60 * 1000;
+const OPENAIP_SNAPSHOT_STALE_MS = 24 * 60 * 60 * 1000;
+const OPENAIP_SNAPSHOT_PARTIAL_FRESH_MS = 60 * 1000;
+const OPENAIP_SNAPSHOT_PARTIAL_STALE_MS = 5 * 60 * 1000;
+// OpenAIP beantwortet bbox-Abfragen mit limit=1000 derzeit mit 429,
+// während die dokumentierte/etablierte Seitengröße 250 stabil bleibt.
+const OPENAIP_SNAPSHOT_LIMIT = 250;
+const OPENAIP_SNAPSHOT_MAX_PAGES = 5;
+const OPENAIP_SNAPSHOT_COLLECTIONS = [
+  {
+    key: "airports",
+    path: "/api/airports",
+    fields: "_id,name,icaoCode,country,elevation,geometry,frequencies,runways"
+  },
+  {
+    key: "airspaces",
+    path: "/api/airspaces",
+    fields: "_id,name,type,icaoClass,lowerLimit,upperLimit,geometry,frequencies"
+  },
+  {
+    key: "navaids",
+    path: "/api/navaids",
+    fields: "_id,name,identifier,designator,type,country,frequency,frequencies,channel,range,elevation,geometry,updatedAt"
+  },
+  {
+    key: "reportingPoints",
+    path: "/api/reporting-points",
+    fields: "_id,name,geometry,airport,aerodrome,relatedAirport,location,parent,airports,description,note,remarks"
+  }
+];
+const openAipSnapshotInflight = new Map();
 
 const AIP_POPUP_ROUTES = {
   AT: "/at/en/vfr/",
@@ -26,7 +57,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "*",
-  "Access-Control-Expose-Headers": "X-Pilot-ID"
+  "Access-Control-Expose-Headers": "X-Pilot-ID, X-GA-OpenAIP-Cache"
 };
 
 const MOSMIX_STATION_CATALOG_URL = "https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490";
@@ -2242,6 +2273,286 @@ async function handleAipFile(requestUrl) {
   return new Response(upstream.body, { status: 200, headers });
 }
 
+function normalizeOpenAipSnapshotBbox(rawBbox) {
+  const parts = String(rawBbox || "").split(",").map(value => Number(value.trim()));
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return null;
+  const [west, south, east, north] = parts;
+  const width = east - west;
+  const height = north - south;
+  if (west < -180 || east > 180 || south < -90 || north > 90 || width <= 0 || height <= 0 || width > 5 || height > 5) {
+    return null;
+  }
+  const values = parts.map(value => Number(value.toFixed(3)));
+  return {
+    values,
+    key: values.map(value => value.toFixed(3)).join(",")
+  };
+}
+
+class OpenAipSnapshotUpstreamError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = "OpenAipSnapshotUpstreamError";
+    this.upstreamStatus = Number(status) || 0;
+  }
+}
+
+async function fetchOpenAipSnapshotCollection(spec, bboxKey) {
+  const items = [];
+  const seenIds = new Set();
+  let pages = 0;
+  let truncated = false;
+
+  for (let page = 1; page <= OPENAIP_SNAPSHOT_MAX_PAGES; page += 1) {
+    const targetUrl = new URL(`https://api.core.openaip.net${spec.path}`);
+    targetUrl.searchParams.set("bbox", bboxKey);
+    targetUrl.searchParams.set("limit", String(OPENAIP_SNAPSHOT_LIMIT));
+    targetUrl.searchParams.set("page", String(page));
+    targetUrl.searchParams.set("fields", spec.fields);
+    targetUrl.searchParams.set("apiKey", OPENAIP_KEY);
+
+    let upstream;
+    try {
+      upstream = await fetch(targetUrl.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+    } catch (error) {
+      throw new OpenAipSnapshotUpstreamError(0, String(error?.message || error));
+    }
+
+    const rawBody = await upstream.text();
+    let data;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      throw new OpenAipSnapshotUpstreamError(upstream.status, `OpenAIP ${spec.key} returned invalid JSON`);
+    }
+    if (!upstream.ok) {
+      const upstreamMessage = String(data?.message || data?.error || `HTTP ${upstream.status}`);
+      throw new OpenAipSnapshotUpstreamError(upstream.status, `OpenAIP ${spec.key}: ${upstreamMessage}`);
+    }
+
+    const pageItems = Array.isArray(data?.items) ? data.items : [];
+    pageItems.forEach((item) => {
+      const itemId = String(item?._id || item?.id || "");
+      if (itemId) {
+        if (seenIds.has(itemId)) return;
+        seenIds.add(itemId);
+      }
+      items.push(item);
+    });
+    pages = page;
+    const reportedLimit = Math.max(1, Number(data?.limit) || OPENAIP_SNAPSHOT_LIMIT);
+    if (pageItems.length < reportedLimit) break;
+    if (page === OPENAIP_SNAPSHOT_MAX_PAGES) truncated = true;
+  }
+
+  return { items, pages, truncated };
+}
+
+async function buildOpenAipSnapshot(coverage, reusablePartialPayload = null) {
+  const collections = {};
+  const collectionMeta = {};
+  let successfulCollections = 0;
+  let firstError = null;
+
+  // Absichtlich nacheinander: Ein Kartenabruf erzeugt beim Upstream keinen
+  // gleichzeitigen Vierer-Burst. Der gemeinsame Edge-Cache amortisiert dies.
+  for (const spec of OPENAIP_SNAPSHOT_COLLECTIONS) {
+    const reusableMeta = reusablePartialPayload?.meta?.collections?.[spec.key];
+    const reusableItems = reusablePartialPayload?.[spec.key];
+    if (reusablePartialPayload?.meta?.partial
+      && Array.isArray(reusableItems)
+      && Number(reusableMeta?.errorStatus) === 0) {
+      collections[spec.key] = reusableItems;
+      collectionMeta[spec.key] = {
+        count: reusableItems.length,
+        pages: Math.max(0, Number(reusableMeta?.pages) || 0),
+        truncated: !!reusableMeta?.truncated,
+        errorStatus: 0,
+        reused: true
+      };
+      successfulCollections += 1;
+      continue;
+    }
+    try {
+      const result = await fetchOpenAipSnapshotCollection(spec, coverage.key);
+      collections[spec.key] = result.items;
+      collectionMeta[spec.key] = {
+        count: result.items.length,
+        pages: result.pages,
+        truncated: result.truncated,
+        errorStatus: 0
+      };
+      successfulCollections += 1;
+    } catch (error) {
+      if (!firstError) firstError = error;
+      collections[spec.key] = [];
+      collectionMeta[spec.key] = {
+        count: 0,
+        pages: 0,
+        truncated: false,
+        errorStatus: Number(error?.upstreamStatus) || 0
+      };
+    }
+  }
+  if (successfulCollections === 0) throw firstError || new OpenAipSnapshotUpstreamError(0, "All OpenAIP collections failed");
+
+  const fetchedAtMs = Date.now();
+  const partial = successfulCollections < OPENAIP_SNAPSHOT_COLLECTIONS.length;
+  return {
+    schemaVersion: 2,
+    bbox: coverage.values,
+    airports: collections.airports || [],
+    airspaces: collections.airspaces || [],
+    navaids: collections.navaids || [],
+    reportingPoints: collections.reportingPoints || [],
+    meta: {
+      fetchedAt: new Date(fetchedAtMs).toISOString(),
+      fetchedAtMs,
+      stale: false,
+      partial,
+      retryAfterSeconds: partial ? Math.floor(OPENAIP_SNAPSHOT_PARTIAL_FRESH_MS / 1000) : 0,
+      collections: collectionMeta
+    }
+  };
+}
+
+function getOpenAipSnapshotCache() {
+  try {
+    return (typeof caches !== "undefined" && caches?.default) ? caches.default : null;
+  } catch {
+    return null;
+  }
+}
+
+function makeOpenAipSnapshotCacheRequest(coverage) {
+  // Eigener Cache-Key, damit ältere Snapshots ohne Runway-, ausführliche
+  // Navaid- oder Luftraum-Frequenzfelder nicht bis zum Ablauf ihrer
+  // 24h-Stale-Frist ausgeliefert werden.
+  return new Request(`https://ga-cache.invalid/openaip/snapshot/v4-airspace-frequencies?bbox=${encodeURIComponent(coverage.key)}`, {
+    method: "GET"
+  });
+}
+
+async function readOpenAipSnapshotCache(cache, cacheRequest) {
+  if (!cache) return null;
+  try {
+    const cachedResponse = await cache.match(cacheRequest);
+    if (!cachedResponse) return null;
+    const payload = await cachedResponse.json();
+    if (!payload || !Array.isArray(payload.airports) || !Array.isArray(payload.airspaces)) return null;
+    const fetchedAtMs = Number(payload?.meta?.fetchedAtMs) || Date.parse(payload?.meta?.fetchedAt || "");
+    if (!Number.isFinite(fetchedAtMs)) return null;
+    return {
+      payload,
+      ageMs: Math.max(0, Date.now() - fetchedAtMs)
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeOpenAipSnapshotCache(cache, cacheRequest, payload) {
+  if (!cache) return;
+  const cacheLifetimeMs = payload?.meta?.partial
+    ? OPENAIP_SNAPSHOT_PARTIAL_STALE_MS
+    : OPENAIP_SNAPSHOT_STALE_MS;
+  const cacheResponse = new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": `public, max-age=${Math.floor(cacheLifetimeMs / 1000)}`
+    }
+  });
+  try {
+    await cache.put(cacheRequest, cacheResponse);
+  } catch {
+    // Ein Cache-Schreibfehler darf einen erfolgreichen OpenAIP-Abruf nicht entwerten.
+  }
+}
+
+function openAipSnapshotClientResponse(payload, cacheStatus, stale = false) {
+  const responsePayload = {
+    ...payload,
+    meta: {
+      ...(payload?.meta || {}),
+      stale: !!stale,
+      cache: cacheStatus
+    }
+  };
+  return json(responsePayload, 200, {
+    "Cache-Control": "no-store",
+    "X-GA-OpenAIP-Cache": cacheStatus
+  });
+}
+
+async function refreshOpenAipSnapshotShared(coverage, cache, cacheRequest, reusablePartialPayload = null) {
+  const existing = openAipSnapshotInflight.get(coverage.key);
+  if (existing) return existing;
+
+  const refreshPromise = (async () => {
+    const payload = await buildOpenAipSnapshot(coverage, reusablePartialPayload);
+    await writeOpenAipSnapshotCache(cache, cacheRequest, payload);
+    return payload;
+  })();
+  openAipSnapshotInflight.set(coverage.key, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    if (openAipSnapshotInflight.get(coverage.key) === refreshPromise) {
+      openAipSnapshotInflight.delete(coverage.key);
+    }
+  }
+}
+
+async function handleOpenAipSnapshot(request, requestUrl) {
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed" }, 405, { Allow: "GET" });
+  }
+  const coverage = normalizeOpenAipSnapshotBbox(requestUrl.searchParams.get("bbox"));
+  if (!coverage) {
+    return json({
+      error: "bbox must be west,south,east,north and may span at most 5 degrees per axis"
+    }, 400, { "Cache-Control": "no-store" });
+  }
+
+  const cache = getOpenAipSnapshotCache();
+  const cacheRequest = makeOpenAipSnapshotCacheRequest(coverage);
+  const cached = await readOpenAipSnapshotCache(cache, cacheRequest);
+  const cachedFreshMs = cached?.payload?.meta?.partial
+    ? OPENAIP_SNAPSHOT_PARTIAL_FRESH_MS
+    : OPENAIP_SNAPSHOT_FRESH_MS;
+  if (cached && cached.ageMs <= cachedFreshMs) {
+    return openAipSnapshotClientResponse(cached.payload, cached.payload?.meta?.partial ? "HIT-PARTIAL" : "HIT", false);
+  }
+
+  try {
+    const payload = await refreshOpenAipSnapshotShared(coverage, cache, cacheRequest, cached?.payload || null);
+    const cacheStatus = payload?.meta?.partial
+      ? "PARTIAL"
+      : (cached ? "REFRESH" : "MISS");
+    return openAipSnapshotClientResponse(payload, cacheStatus, false);
+  } catch (error) {
+    const cachedStaleMs = cached?.payload?.meta?.partial
+      ? OPENAIP_SNAPSHOT_PARTIAL_STALE_MS
+      : OPENAIP_SNAPSHOT_STALE_MS;
+    if (cached && cached.ageMs <= cachedStaleMs) {
+      return openAipSnapshotClientResponse(cached.payload, cached.payload?.meta?.partial ? "STALE-PARTIAL" : "STALE", true);
+    }
+    const upstreamStatus = Number(error?.upstreamStatus) || 0;
+    return json({
+      error: "OpenAIP snapshot is currently unavailable",
+      upstreamStatus: upstreamStatus || undefined
+    }, 502, {
+      "Cache-Control": "no-store",
+      "Retry-After": upstreamStatus === 429 ? "60" : "15",
+      "X-GA-OpenAIP-Cache": "ERROR"
+    });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
@@ -2438,7 +2749,14 @@ export default {
     }
 
     // ==========================================
-    // 8. OPENAIP PROXY (Catch-All für Snapping)
+    // 8. OPENAIP REGION SNAPSHOT (gemeinsamer Cache)
+    // ==========================================
+    if (requestUrl.pathname === "/api/openaip/snapshot") {
+      return handleOpenAipSnapshot(request, requestUrl);
+    }
+
+    // ==========================================
+    // 9. OPENAIP PROXY (Legacy Catch-All)
     // ==========================================
     let targetPath = requestUrl.pathname;
     if (targetPath.includes("/v1/")) {

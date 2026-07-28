@@ -4035,6 +4035,32 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push('');
     lines.push('OSM / Overpass kurz');
     const poiDbg = (window.gaPoiTileDebug && typeof window.gaPoiTileDebug === 'object') ? window.gaPoiTileDebug : {};
+    if (typeof window.gaGetOpenAipStaticNavaidStatus === 'function') {
+        try {
+            const navStatus = window.gaGetOpenAipStaticNavaidStatus();
+            const generatedAt = Date.parse(navStatus?.generatedAt || '');
+            lines.push(
+                `- OpenAIP Navaid-Fallback: ${navStatus?.loaded ? 'geladen' : 'nicht geladen'}`
+                + ` | ${Number(navStatus?.count) || 0} Einträge`
+                + ` | Datensatz ${Number.isFinite(generatedAt) ? vpFormatDebugTs(generatedAt) : '-'}`
+                + ` | aktiv ${String(navStatus?.activeSource || 'none')} (${Number(navStatus?.activeCount) || 0})`
+                + `${navStatus?.lastError ? ` | Fehler ${navStatus.lastError}` : ''}`
+            );
+        } catch (_) { }
+    }
+    if (typeof window.gaGetOpenAipStaticReportingPointStatus === 'function') {
+        try {
+            const rppStatus = window.gaGetOpenAipStaticReportingPointStatus();
+            const generatedAt = Date.parse(rppStatus?.generatedAt || '');
+            lines.push(
+                `- OpenAIP VRP-Fallback: ${rppStatus?.loaded ? 'geladen' : 'nicht geladen'}`
+                + ` | ${Number(rppStatus?.count) || 0} Einträge`
+                + ` | Datensatz ${Number.isFinite(generatedAt) ? vpFormatDebugTs(generatedAt) : '-'}`
+                + ` | aktiv ${String(rppStatus?.activeSource || 'none')} (${Number(rppStatus?.activeCount) || 0})`
+                + `${rppStatus?.lastError ? ` | Fehler ${rppStatus.lastError}` : ''}`
+            );
+        } catch (_) { }
+    }
     lines.push(`- Overpass Requests: ${dbg.overpassRequests || 0}, 429/504 ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}, Cooldown-Skips ${dbg.overpassCooldownSkips || 0}, Inflight-Joins ${dbg.overpassInFlightJoins || 0}`);
     lines.push(`- Hosted Tiles Req/Hit/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0} | CORE split/legacy ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
     lines.push(`- POI Tiles Req/Hit/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0} | split/legacy ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0} | fallback ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` last=${poiDbg.lastSource}` : ''}`);

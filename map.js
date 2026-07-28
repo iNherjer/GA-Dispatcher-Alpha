@@ -6077,7 +6077,29 @@ function getAirportTapRadiusPx(basePx = 34) {
     // Beim Rauszoomen deutlich kleinerer Clickspot, beim Reinzoomen komfortabel.
     // z=7 -> ~10px, z=10 -> ~19px, z=14 -> ~34px
     const scaled = 10 + ((z - 7) / 7) * (basePx - 10);
-    return Math.max(8, Math.min(basePx, Math.round(scaled)));
+    const coarsePointer = Boolean(
+        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+        || Number(navigator.maxTouchPoints) > 0
+    );
+    const minimum = coarsePointer ? Math.min(basePx, 28) : 8;
+    return Math.max(minimum, Math.min(basePx, Math.round(scaled)));
+}
+
+function hasGlobalAirportsForMapClicks() {
+    if (typeof globalAirports !== 'object' || !globalAirports) return false;
+    for (const _airportKey in globalAirports) return true;
+    return false;
+}
+
+async function ensureGlobalAirportsForMapClicks() {
+    if (hasGlobalAirportsForMapClicks()) return true;
+    if (typeof loadGlobalAirports !== 'function') return false;
+    try {
+        await loadGlobalAirports();
+    } catch (_) {
+        return false;
+    }
+    return hasGlobalAirportsForMapClicks();
 }
 
 function isMapUiClickTarget(evt) {
@@ -8005,7 +8027,7 @@ window.openRouteWaypointAirportInfo = function (index) {
     const latlng = L.latLng(wp.lat, wp.lng || wp.lon);
     const apt = findNearestAirport(latlng, getAirportTapRadiusPx(18));
     if (!apt) return;
-    openAirportInfoPopup(apt, latlng);
+    openAirportInfoPopup(apt);
 };
 
 function findNearestEditableWaypoint(latlng, maxPixels = 28) {
@@ -8123,58 +8145,257 @@ function getAirportDisplayName(apt) {
 function normalizeAirportForMap(apt) {
     if (!apt) return null;
     return {
-        icao: apt.icao || apt.ident || '',
+        icao: String(apt.icao || apt.ident || '').trim().toUpperCase(),
         name: getAirportDisplayName(apt),
         lat: Number(apt.lat),
         lon: Number(apt.lon ?? apt.lng),
         elevation: apt.elevation ?? null,
-        country: apt.country || apt.iso_country || apt.cc || ''
+        country: apt.country || apt.iso_country || apt.cc || '',
+        sourceId: String(apt.sourceId || apt._id || apt.id || '').trim()
     };
 }
 
-function openAirportInfoPopup(airport, latlng = null) {
+const AIRPORT_INFO_POPUP_CACHE_TTL_MS = 15 * 60 * 1000;
+const AIRPORT_INFO_POPUP_CACHE_MAX = 32;
+const airportInfoPopupCache = new Map();
+let airportInfoPopupLayer = null;
+
+function getAirportInfoPopupCacheKey(apt) {
+    if (!apt) return '';
+    if (apt.icao) return `icao:${apt.icao}`;
+    if (apt.sourceId) return `source:${apt.sourceId}`;
+    return `pos:${apt.lat.toFixed(5)},${apt.lon.toFixed(5)}`;
+}
+
+function rememberAirportInfoPopupEntry(key, entry) {
+    airportInfoPopupCache.delete(key);
+    airportInfoPopupCache.set(key, entry);
+    while (airportInfoPopupCache.size > AIRPORT_INFO_POPUP_CACHE_MAX) {
+        const oldestKey = airportInfoPopupCache.keys().next().value;
+        if (!oldestKey) break;
+        airportInfoPopupCache.delete(oldestKey);
+    }
+}
+
+function updateAirportInfoPopupFrequency(entry, icao) {
+    if (!entry || !entry.content || !icao) return;
+    const el = entry.content.querySelector(`#${entry.freqId}`);
+    if (!el) return;
+    el.innerHTML = buildPopupFrequencyLines(icao);
+}
+
+function openAirportInfoPopup(airport) {
     if (!map) return;
     const apt = normalizeAirportForMap(airport);
     if (!apt || !apt.icao || !Number.isFinite(apt.lat) || !Number.isFinite(apt.lon)) return;
 
-    const popupLatLng = latlng || [apt.lat, apt.lon];
+    const cacheKey = getAirportInfoPopupCacheKey(apt);
+    const now = Date.now();
+    let entry = airportInfoPopupCache.get(cacheKey);
+    if (entry && (now - entry.createdAt) >= AIRPORT_INFO_POPUP_CACHE_TTL_MS) {
+        airportInfoPopupCache.delete(cacheKey);
+        entry = null;
+    }
+
     const popupIdSafe = apt.icao.replace(/[^a-zA-Z0-9_-]/g, '_');
     const runwayId = `wxRwy_${popupIdSafe}`;
     const freqId = `wxFreq_${popupIdSafe}`;
     // Prefix "wxPopup" erzwingt im Widget die gleiche kompakte Start/Ziel-Darstellung
     const wxId = `wxPopupApt_${popupIdSafe}`;
-    const elev = apt.elevation ?? (globalAirports?.[apt.icao]?.elevation ?? null);
-    const countryCode = getAirportCountryCode(apt.icao, apt.country);
-    const title = `<b style="font-size:13px;">${apt.icao}</b><div style="font-size:11px; color:#555; margin-top:2px;">${apt.name}</div>`;
 
-    const html = _buildAptPopup('APT', apt.name, elev, apt.icao, {
-        title,
-        wxContainerId: wxId,
-        runwayContainerId: runwayId,
-        freqContainerId: freqId,
-        countryCode,
-        showDirectTo: true,
-        directToName: apt.name,
-        lat: apt.lat,
-        lon: apt.lon
-    });
+    if (!entry) {
+        const elev = apt.elevation ?? (globalAirports?.[apt.icao]?.elevation ?? null);
+        const countryCode = getAirportCountryCode(apt.icao, apt.country);
+        const title = `<b style="font-size:13px;">${apt.icao}</b><div style="font-size:11px; color:#555; margin-top:2px;">${apt.name}</div>`;
+        const content = document.createElement('div');
+        content.innerHTML = _buildAptPopup('APT', apt.name, elev, apt.icao, {
+            title,
+            wxContainerId: wxId,
+            runwayContainerId: runwayId,
+            freqContainerId: freqId,
+            countryCode,
+            showDirectTo: true,
+            directToName: apt.name,
+            lat: apt.lat,
+            lon: apt.lon
+        });
+        entry = {
+            createdAt: now,
+            content,
+            runwayId,
+            freqId,
+            wxId,
+            loadingStarted: false
+        };
+    }
+    rememberAirportInfoPopupEntry(cacheKey, entry);
 
-    L.popup({ maxWidth: 290 })
-        .setLatLng(popupLatLng)
-        .setContent(html)
+    if (!airportInfoPopupLayer) airportInfoPopupLayer = L.popup({ maxWidth: 290 });
+    airportInfoPopupLayer
+        // Immer am kanonischen Flugplatz statt am zufälligen Klickpunkt verankern.
+        .setLatLng([apt.lat, apt.lon])
+        .setContent(entry.content)
         .openOn(map);
     setTimeout(() => refreshAipOverlayPopupUi(apt.icao), 0);
+    updateAirportInfoPopupFrequency(entry, apt.icao);
 
+    // Pisten dürfen nach einem temporären Quellenfehler beim nächsten Öffnen
+    // erneut versucht werden; positive und echte Leerdaten werden separat gecacht.
     if (typeof fetchRunwayDetails === 'function') {
-        fetchRunwayDetails(apt.lat, apt.lon, runwayId, apt.icao);
+        fetchRunwayDetails(apt.lat, apt.lon, entry.runwayId, apt.icao);
     }
+
+    // Frequenzen und Wetter pro Popup-Eintrag nur einmal starten. Derselbe
+    // Flugplatz behält seinen DOM- und Ladezustand über Folgeklicks.
+    if (entry.loadingStarted) return;
+    entry.loadingStarted = true;
     if (typeof fetchAirportFreq === 'function') {
-        updatePopupFrequencyBlock(freqId, apt.icao);
-        fetchAirportFreq(apt.icao, null, null).finally(() => updatePopupFrequencyBlock(freqId, apt.icao));
+        const hasCachedFrequencies = (
+            typeof freqCache !== 'undefined'
+            && Object.prototype.hasOwnProperty.call(freqCache, apt.icao)
+        );
+        if (!hasCachedFrequencies) {
+            fetchAirportFreq(apt.icao, null, null)
+                .finally(() => updateAirportInfoPopupFrequency(entry, apt.icao));
+        }
     }
     if (typeof loadMetarWidget === 'function') {
-        loadMetarWidget(apt.icao, wxId, apt.lat, apt.lon, true);
+        loadMetarWidget(apt.icao, entry.wxId, apt.lat, apt.lon, true);
     }
+}
+
+function getOpenAipNavaidTypeLabel(type) {
+    const labels = {
+        0: 'DME',
+        1: 'TACAN',
+        2: 'NDB',
+        3: 'VOR',
+        4: 'VOR/DME',
+        5: 'VORTAC',
+        6: 'DVOR',
+        7: 'DVOR/DME',
+        8: 'DVORTAC'
+    };
+    const key = Number(type);
+    return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : 'Funkfeuer';
+}
+
+function normalizeOpenAipNavaidForPopup(navaid, source = '') {
+    const raw = navaid?.navaidData && typeof navaid.navaidData === 'object'
+        ? navaid.navaidData
+        : navaid;
+    if (!raw) return null;
+    const sourceId = String(raw?._id || raw?.id || navaid?.sourceId || '').trim();
+    const staticItem = sourceId && openAipStaticNavaidState.byId instanceof Map
+        ? openAipStaticNavaidState.byId.get(sourceId)
+        : null;
+    const item = staticItem ? { ...staticItem, ...raw } : raw;
+    const coords = item?.geometry?.coordinates;
+    const lat = Number(item?.lat ?? navaid?.lat ?? coords?.[1]);
+    const lon = Number(item?.lon ?? item?.lng ?? navaid?.lng ?? coords?.[0]);
+    if (![lat, lon].every(Number.isFinite)) return null;
+
+    const frequency = item?.frequency ?? (Array.isArray(item?.frequencies) ? item.frequencies[0] : null);
+    const frequencyValue = typeof frequency === 'object'
+        ? String(frequency?.value ?? '').trim()
+        : String(frequency ?? '').trim();
+    const frequencyUnitCode = Number(typeof frequency === 'object' ? frequency?.unit : NaN);
+    const frequencyUnit = frequencyUnitCode === 1
+        ? 'kHz'
+        : (frequencyUnitCode === 2 ? 'MHz' : '');
+    const rangeValue = typeof item?.range === 'object'
+        ? String(item.range?.value ?? '').trim()
+        : String(item?.range ?? '').trim();
+    const rangeUnit = Number(item?.range?.unit) === 2 ? 'NM' : '';
+    const identifier = String(
+        item?.identifier
+        || item?.designator
+        || navaid?.navaidIdentifier
+        || ''
+    ).trim().toUpperCase();
+    return {
+        id: sourceId,
+        name: String(item?.name || identifier || 'Funkfeuer').trim(),
+        identifier,
+        type: item?.type ?? navaid?.navaidType ?? null,
+        country: String(item?.country || '').trim().toUpperCase(),
+        frequencyValue,
+        frequencyUnit,
+        channel: String(item?.channel || '').trim().toUpperCase(),
+        rangeValue,
+        rangeUnit,
+        lat,
+        lon,
+        source: String(source || navaid?.navaidSource || 'live')
+    };
+}
+
+let navaidInfoPopupLayer = null;
+
+function openNavaidInfoPopup(navaid) {
+    if (!map) return;
+    const nav = normalizeOpenAipNavaidForPopup(navaid);
+    if (!nav) return;
+    const title = nav.identifier
+        ? `${escapePopupText(nav.identifier)} · ${escapePopupText(nav.name)}`
+        : escapePopupText(nav.name);
+    const typeLabel = getOpenAipNavaidTypeLabel(nav.type);
+    const sourceLabel = nav.source.startsWith('static') ? 'OpenAIP-Fallback' : 'OpenAIP live';
+    const lines = [
+        `<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`,
+        nav.frequencyValue
+            ? `<b>Frequenz:</b> ${escapePopupText(nav.frequencyValue)}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}`
+            : '<b>Frequenz:</b> Keine Angabe',
+        nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '',
+        nav.rangeValue
+            ? `<b>Reichweite:</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}`
+            : '',
+        nav.country ? `<b>Land:</b> ${escapePopupText(nav.country)}` : '',
+        `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`,
+        `<span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span></div>`
+    ].filter(Boolean).join('<br>');
+    const content = `
+        <div style="font-family:'Courier New',monospace; min-width:190px; color:#111;">
+            <b style="font-size:13px;">${title}</b>
+            <hr style="border-color:#ccc; margin:5px 0;">
+            ${lines}
+        </div>`;
+    if (!navaidInfoPopupLayer) navaidInfoPopupLayer = L.popup({ maxWidth: 285 });
+    navaidInfoPopupLayer
+        .setLatLng([nav.lat, nav.lon])
+        .setContent(content)
+        .openOn(map);
+}
+
+let reportingPointInfoPopupLayer = null;
+
+function openReportingPointInfoPopup(point) {
+    if (!map || !point) return;
+    const raw = point?.rppData && typeof point.rppData === 'object' ? point.rppData : point;
+    const coords = raw?.geometry?.coordinates;
+    const lat = Number(raw?.lat ?? point?.lat ?? coords?.[1]);
+    const lon = Number(raw?.lon ?? raw?.lng ?? point?.lng ?? coords?.[0]);
+    if (![lat, lon].every(Number.isFinite)) return;
+    const name = String(raw?.name || point?.name || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
+    const airportIcao = String(raw?.airportIcao || point?.rppAirportIcao || '').trim().toUpperCase();
+    const description = String(raw?.description || '').trim();
+    const sourceLabel = String(point?.rppSource || '').startsWith('static') ? 'OpenAIP-Fallback' : 'OpenAIP live';
+    const content = `
+        <div style="font-family:'Courier New',monospace; min-width:185px; color:#111;">
+            <b style="font-size:13px;">VRP ${escapePopupText(name)}</b>
+            <hr style="border-color:#ccc; margin:5px 0;">
+            <div style="font-size:11px; line-height:1.65;">
+                ${airportIcao ? `<b>Flugplatz:</b> ${escapePopupText(airportIcao)}<br>` : ''}
+                <b>Position:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}
+                ${description ? `<br><span style="color:#555;">${escapePopupText(description)}</span>` : ''}
+                <br><span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span>
+            </div>
+        </div>`;
+    if (!reportingPointInfoPopupLayer) reportingPointInfoPopupLayer = L.popup({ maxWidth: 285 });
+    reportingPointInfoPopupLayer
+        .setLatLng([lat, lon])
+        .setContent(content)
+        .openOn(map);
 }
 
 function hasActiveBriefingRoute() {
@@ -8656,24 +8877,1084 @@ function updateRoutePerformance() {
 }
 
 const OPENAIP_PROXY_BASE = 'https://ga-proxy.einherjer.workers.dev';
-const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume & Flugplätze';
+const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume, Plätze & Navaids';
 const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional';
 const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/{z}/{y}/{x}';
 const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
 const USA_VFR_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
+const OPENAIP_OVERLAY_NAVAID_MIN_ZOOM = 9;
 const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
+const OPENAIP_DATA_MODE_STORAGE_KEY = 'ga_openaip_data_mode';
+const OPENAIP_DATA_MODE_REGION = 'region';
+const OPENAIP_DATA_MODE_LEGACY = 'legacy';
+const OPENAIP_REGION_GRID_DEG = 0.5;
+const OPENAIP_REGION_MAX_SPAN_DEG = 5;
+const OPENAIP_STATIC_NAVAIDS_URL = './data/openaip-navaids.json';
+const OPENAIP_STATIC_NAVAIDS_MIN_COUNT = 1000;
+const OPENAIP_STATIC_REPORTING_POINTS_URL = './data/openaip-reporting-points.json';
+const OPENAIP_STATIC_REPORTING_POINTS_MIN_COUNT = 1000;
 let openAipOverlayLayer = null;
+let openAipAirspaceLayer = null;
+let openAipAirportLayer = null;
+let openAipNavaidLayer = null;
 let openAipOverlayFetchSeq = 0;
+const openAipOverlayRenderState = {
+    airspaceKey: '',
+    airspaceToken: '',
+    airportKey: '',
+    airportToken: '',
+    airportZoomBand: '',
+    navaidKey: '',
+    navaidToken: '',
+    navaidZoomBand: ''
+};
+const OPENAIP_AUX_CACHE_MS = 5 * 60 * 1000;
+const OPENAIP_ROUTE_TILE_SPAN_DEG = 4;
+const OPENAIP_ROUTE_MAX_REGIONS = 12;
+const openAipAuxSnapshotCache = new Map();
+const openAipAuxSnapshotInflight = new Map();
 const openAipOverlayState = {
     inFlight: false,
     lastKey: '',
     lastFetchedAt: 0
 };
+const openAipRegionState = {
+    coverage: null,
+    key: '',
+    payload: null,
+    inFlight: null,
+    requestSeq: 0,
+    lastFetchedAt: 0,
+    lastError: '',
+    retryAfter: 0,
+    consecutiveFailures: 0,
+    partial: false
+};
+const openAipStaticNavaidState = {
+    items: null,
+    byId: null,
+    loadPromise: null,
+    loadedAt: 0,
+    generatedAt: '',
+    lastError: '',
+    activeSource: 'none',
+    activeCount: 0
+};
+const openAipStaticReportingPointState = {
+    items: null,
+    loadPromise: null,
+    loadedAt: 0,
+    generatedAt: '',
+    lastError: '',
+    activeSource: 'none',
+    activeCount: 0
+};
+
+function getOpenAipDataMode() {
+    return localStorage.getItem(OPENAIP_DATA_MODE_STORAGE_KEY) === OPENAIP_DATA_MODE_LEGACY
+        ? OPENAIP_DATA_MODE_LEGACY
+        : OPENAIP_DATA_MODE_REGION;
+}
+
+function isOpenAipRegionMode() {
+    return getOpenAipDataMode() === OPENAIP_DATA_MODE_REGION;
+}
+
+function isValidOpenAipStaticNavaidDataset(parsed) {
+    if (!parsed || Number(parsed.schemaVersion) !== 1 || !Array.isArray(parsed.navaids)) return false;
+    if (parsed.navaids.length < OPENAIP_STATIC_NAVAIDS_MIN_COUNT) return false;
+    const sample = parsed.navaids.find(item => item?.identifier === 'SUL') || parsed.navaids[0];
+    return !!(
+        sample
+        && typeof sample.name === 'string'
+        && Number.isFinite(Number(sample.lat))
+        && Number.isFinite(Number(sample.lon))
+    );
+}
+
+async function loadOpenAipStaticNavaids() {
+    if (Array.isArray(openAipStaticNavaidState.items)) return openAipStaticNavaidState.items;
+    if (openAipStaticNavaidState.loadPromise) return openAipStaticNavaidState.loadPromise;
+
+    const tryParseResponse = async (response) => {
+        if (!response?.ok) return null;
+        try {
+            const parsed = await response.json();
+            return isValidOpenAipStaticNavaidDataset(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    };
+    const urls = [
+        OPENAIP_STATIC_NAVAIDS_URL,
+        'data/openaip-navaids.json',
+        '/data/openaip-navaids.json',
+        `${OPENAIP_STATIC_NAVAIDS_URL}?t=${Date.now()}`
+    ];
+
+    openAipStaticNavaidState.loadPromise = (async () => {
+        let dataset = null;
+        if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await caches.match(url, { ignoreSearch: true }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await fetch(url, { cache: 'default' }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await fetch(url, { cache: 'reload' }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) throw new Error('static_navaids_unavailable');
+
+        openAipStaticNavaidState.items = dataset.navaids;
+        openAipStaticNavaidState.byId = new Map(
+            dataset.navaids
+                .map(item => [String(item?.id || '').trim(), item])
+                .filter(([id]) => id)
+        );
+        openAipStaticNavaidState.loadedAt = Date.now();
+        openAipStaticNavaidState.generatedAt = String(dataset.generatedAt || '');
+        openAipStaticNavaidState.lastError = '';
+        console.info(
+            '[OpenAIP Navaids] Statischer Fallback geladen:',
+            dataset.navaids.length,
+            'Einträge, Stand',
+            openAipStaticNavaidState.generatedAt || 'unbekannt'
+        );
+        if (snapMode && map) refreshCachedNavDataWithStaticNavaids();
+        if (isOpenAipOverlayEnabled() && openAipRegionState.payload) {
+            openAipOverlayRenderState.navaidToken = '';
+            renderOpenAipOverlayData(openAipRegionState.payload);
+        }
+        return openAipStaticNavaidState.items;
+    })().catch((error) => {
+        openAipStaticNavaidState.lastError = String(error?.message || error);
+        console.warn('[OpenAIP Navaids] Statischer Fallback konnte nicht geladen werden:', openAipStaticNavaidState.lastError);
+        return [];
+    }).finally(() => {
+        openAipStaticNavaidState.loadPromise = null;
+    });
+
+    return openAipStaticNavaidState.loadPromise;
+}
+
+window.gaGetOpenAipStaticNavaidStatus = function() {
+    return {
+        loaded: Array.isArray(openAipStaticNavaidState.items),
+        count: Array.isArray(openAipStaticNavaidState.items) ? openAipStaticNavaidState.items.length : 0,
+        loadedAt: openAipStaticNavaidState.loadedAt,
+        generatedAt: openAipStaticNavaidState.generatedAt,
+        lastError: openAipStaticNavaidState.lastError,
+        activeSource: openAipStaticNavaidState.activeSource,
+        activeCount: openAipStaticNavaidState.activeCount
+    };
+};
+
+function isValidOpenAipStaticReportingPointDataset(parsed) {
+    if (!parsed || Number(parsed.schema) !== 1 || !Array.isArray(parsed.points)) return false;
+    if (parsed.points.length < OPENAIP_STATIC_REPORTING_POINTS_MIN_COUNT) return false;
+    const sample = parsed.points[0];
+    return !!(
+        sample
+        && typeof sample.name === 'string'
+        && Number.isFinite(Number(sample.lat))
+        && Number.isFinite(Number(sample.lon))
+    );
+}
+
+async function loadOpenAipStaticReportingPoints() {
+    if (Array.isArray(openAipStaticReportingPointState.items)) return openAipStaticReportingPointState.items;
+    if (openAipStaticReportingPointState.loadPromise) return openAipStaticReportingPointState.loadPromise;
+
+    const tryParseResponse = async (response) => {
+        if (!response?.ok) return null;
+        try {
+            const parsed = await response.json();
+            return isValidOpenAipStaticReportingPointDataset(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    };
+    const urls = [
+        OPENAIP_STATIC_REPORTING_POINTS_URL,
+        'data/openaip-reporting-points.json',
+        '/data/openaip-reporting-points.json',
+        `${OPENAIP_STATIC_REPORTING_POINTS_URL}?t=${Date.now()}`
+    ];
+
+    openAipStaticReportingPointState.loadPromise = (async () => {
+        let dataset = null;
+        if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await caches.match(url, { ignoreSearch: true }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await fetch(url, { cache: 'default' }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) {
+            for (const url of urls) {
+                try {
+                    dataset = await tryParseResponse(await fetch(url, { cache: 'reload' }));
+                    if (dataset) break;
+                } catch (_) { }
+            }
+        }
+        if (!dataset) throw new Error('static_reporting_points_unavailable');
+
+        openAipStaticReportingPointState.items = dataset.points;
+        openAipStaticReportingPointState.loadedAt = Date.now();
+        openAipStaticReportingPointState.generatedAt = String(dataset.generatedAt || '');
+        openAipStaticReportingPointState.lastError = '';
+        console.info(
+            '[OpenAIP VRPs] Statischer Fallback geladen:',
+            dataset.points.length,
+            'Einträge, Stand',
+            openAipStaticReportingPointState.generatedAt || 'unbekannt'
+        );
+        if (snapMode && map) refreshCachedNavDataWithStaticNavaids();
+        return openAipStaticReportingPointState.items;
+    })().catch((error) => {
+        openAipStaticReportingPointState.lastError = String(error?.message || error);
+        console.warn('[OpenAIP VRPs] Statischer Fallback konnte nicht geladen werden:', openAipStaticReportingPointState.lastError);
+        return [];
+    }).finally(() => {
+        openAipStaticReportingPointState.loadPromise = null;
+    });
+
+    return openAipStaticReportingPointState.loadPromise;
+}
+
+window.gaGetOpenAipStaticReportingPointStatus = function() {
+    return {
+        loaded: Array.isArray(openAipStaticReportingPointState.items),
+        count: Array.isArray(openAipStaticReportingPointState.items) ? openAipStaticReportingPointState.items.length : 0,
+        loadedAt: openAipStaticReportingPointState.loadedAt,
+        generatedAt: openAipStaticReportingPointState.generatedAt,
+        lastError: openAipStaticReportingPointState.lastError,
+        activeSource: openAipStaticReportingPointState.activeSource,
+        activeCount: openAipStaticReportingPointState.activeCount
+    };
+};
+
+function updateOpenAipDataModeButtonUi() {
+    const anchor = document.getElementById('hintToggleSnapping');
+    const menu = document.getElementById('mapHintsMenu');
+    if (!anchor || !menu) return;
+    let btn = document.getElementById('hintToggleOpenAipDataMode');
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'hintToggleOpenAipDataMode';
+        btn.className = anchor.className || 'pb-btn';
+        btn.type = 'button';
+        btn.style.cssText = 'display:block; width:100%; margin:0 0 6px 0; text-align:left;';
+        btn.addEventListener('click', () => window.toggleOpenAipDataMode());
+        anchor.insertAdjacentElement('afterend', btn);
+    }
+    const regionMode = isOpenAipRegionMode();
+    const coolingDown = regionMode && openAipRegionState.retryAfter > Date.now();
+    btn.textContent = regionMode
+        ? (coolingDown ? '🧭 OpenAIP: Regionscache (wartet)' : '🧭 OpenAIP: Regionscache')
+        : '🧭 OpenAIP: Legacy';
+    btn.style.background = regionMode ? (coolingDown ? '#8a5a20' : '#2E8B57') : '#8a5a20';
+    btn.style.color = '#fff';
+    btn.title = regionMode
+        ? (coolingDown
+            ? 'Der Regionsabruf ist vorübergehend im Fehler-Cooldown. Lokale Flugplatzklicks bleiben verfügbar. Antippen wechselt zu Legacy.'
+            : 'Ein gemeinsamer, gepufferter OpenAIP-Abruf für Overlay, Snapping und Flugplätze. Antippen wechselt zum alten Abrufmodell.')
+        : 'Altes OpenAIP-Abrufmodell mit getrennten Requests. Antippen aktiviert wieder den Regionscache.';
+}
+
+function getOpenAipVisibleBounds() {
+    if (!map) return null;
+    const b = map.getBounds();
+    const west = Math.max(-180, Number(b.getWest()));
+    const south = Math.max(-90, Number(b.getSouth()));
+    const east = Math.min(180, Number(b.getEast()));
+    const north = Math.min(90, Number(b.getNorth()));
+    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return null;
+    return { west, south, east, north };
+}
+
+function fitOpenAipRegionRange(center, span, min, max) {
+    let low = center - (span / 2);
+    let high = center + (span / 2);
+    if (low < min) {
+        high += min - low;
+        low = min;
+    }
+    if (high > max) {
+        low -= high - max;
+        high = max;
+    }
+    return { low: Math.max(min, low), high: Math.min(max, high) };
+}
+
+function buildOpenAipRegionCoverage(view) {
+    if (!view) return null;
+    const width = view.east - view.west;
+    const height = view.north - view.south;
+    if (width <= 0 || height <= 0 || width > OPENAIP_REGION_MAX_SPAN_DEG || height > OPENAIP_REGION_MAX_SPAN_DEG) {
+        return null;
+    }
+
+    const lonPadding = Math.max(0.5, Math.min(0.9, width * 0.3));
+    const latPadding = Math.max(0.4, Math.min(0.75, height * 0.3));
+    const roundSpan = value => Math.ceil(value / OPENAIP_REGION_GRID_DEG) * OPENAIP_REGION_GRID_DEG;
+    const targetWidth = Math.min(OPENAIP_REGION_MAX_SPAN_DEG, roundSpan(width + (2 * lonPadding)));
+    const targetHeight = Math.min(OPENAIP_REGION_MAX_SPAN_DEG, roundSpan(height + (2 * latPadding)));
+    if (targetWidth < width || targetHeight < height) return null;
+
+    const centerLon = Math.round(((view.west + view.east) / 2) / OPENAIP_REGION_GRID_DEG) * OPENAIP_REGION_GRID_DEG;
+    const centerLat = Math.round(((view.south + view.north) / 2) / OPENAIP_REGION_GRID_DEG) * OPENAIP_REGION_GRID_DEG;
+    let lonRange = fitOpenAipRegionRange(centerLon, targetWidth, -180, 180);
+    let latRange = fitOpenAipRegionRange(centerLat, targetHeight, -90, 90);
+
+    if (view.west < lonRange.low) lonRange = fitOpenAipRegionRange(view.west + (targetWidth / 2), targetWidth, -180, 180);
+    if (view.east > lonRange.high) lonRange = fitOpenAipRegionRange(view.east - (targetWidth / 2), targetWidth, -180, 180);
+    if (view.south < latRange.low) latRange = fitOpenAipRegionRange(view.south + (targetHeight / 2), targetHeight, -90, 90);
+    if (view.north > latRange.high) latRange = fitOpenAipRegionRange(view.north - (targetHeight / 2), targetHeight, -90, 90);
+
+    const coverage = {
+        west: Number(lonRange.low.toFixed(3)),
+        south: Number(latRange.low.toFixed(3)),
+        east: Number(lonRange.high.toFixed(3)),
+        north: Number(latRange.high.toFixed(3))
+    };
+    coverage.key = `${coverage.west.toFixed(3)},${coverage.south.toFixed(3)},${coverage.east.toFixed(3)},${coverage.north.toFixed(3)}`;
+    return coverage;
+}
+
+function openAipRegionContainsView(coverage, view) {
+    if (!coverage || !view) return false;
+    const viewWidth = view.east - view.west;
+    const viewHeight = view.north - view.south;
+    const lonGuardRoom = Math.max(0, ((OPENAIP_REGION_MAX_SPAN_DEG - viewWidth) / 2) - 0.01);
+    const latGuardRoom = Math.max(0, ((OPENAIP_REGION_MAX_SPAN_DEG - viewHeight) / 2) - 0.01);
+    const lonGuard = Math.min(0.15, Math.max(0.04, viewWidth * 0.08), lonGuardRoom);
+    const latGuard = Math.min(0.12, Math.max(0.04, viewHeight * 0.08), latGuardRoom);
+    return view.west - lonGuard >= coverage.west
+        && view.east + lonGuard <= coverage.east
+        && view.south - latGuard >= coverage.south
+        && view.north + latGuard <= coverage.north;
+}
+
+function openAipCoverageContainsBounds(coverage, bounds) {
+    if (!coverage || !bounds) return false;
+    return bounds.west >= coverage.west
+        && bounds.east <= coverage.east
+        && bounds.south >= coverage.south
+        && bounds.north <= coverage.north;
+}
+
+function normalizeOpenAipBounds(bounds) {
+    const west = Math.max(-180, Number(bounds?.west));
+    const south = Math.max(-90, Number(bounds?.south));
+    const east = Math.min(180, Number(bounds?.east));
+    const north = Math.min(90, Number(bounds?.north));
+    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return null;
+    return { west, south, east, north };
+}
+
+function isOpenAipSnapshotCollectionAvailable(payload, collectionKey) {
+    if (!payload || !Array.isArray(payload[collectionKey])) return false;
+    const collectionMeta = payload?.meta?.collections?.[collectionKey];
+    return !collectionMeta || Number(collectionMeta.errorStatus) === 0;
+}
+
+function rememberOpenAipAuxSnapshot(key, payload) {
+    openAipAuxSnapshotCache.delete(key);
+    openAipAuxSnapshotCache.set(key, { payload, storedAt: Date.now() });
+    while (openAipAuxSnapshotCache.size > OPENAIP_ROUTE_MAX_REGIONS) {
+        const oldestKey = openAipAuxSnapshotCache.keys().next().value;
+        if (!oldestKey) break;
+        openAipAuxSnapshotCache.delete(oldestKey);
+    }
+}
+
+async function fetchOpenAipSnapshotCoverage(coverage) {
+    if (!coverage?.key) throw new Error('openaip_region_invalid_coverage');
+    if (openAipRegionState.payload && openAipRegionState.key === coverage.key) {
+        return openAipRegionState.payload;
+    }
+
+    const cached = openAipAuxSnapshotCache.get(coverage.key);
+    if (cached && (Date.now() - cached.storedAt) < OPENAIP_AUX_CACHE_MS) {
+        return cached.payload;
+    }
+    const existing = openAipAuxSnapshotInflight.get(coverage.key);
+    if (existing) return existing;
+
+    const request = (async () => {
+        const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) {
+            const error = new Error(`snapshot_http_${response.status}`);
+            error.status = response.status;
+            throw error;
+        }
+        const payload = await response.json();
+        if (!payload
+            || !Array.isArray(payload.airports)
+            || !Array.isArray(payload.airspaces)
+            || !Array.isArray(payload.navaids)
+            || !Array.isArray(payload.reportingPoints)) {
+            throw new Error('snapshot_invalid_payload');
+        }
+        rememberOpenAipAuxSnapshot(coverage.key, payload);
+        return payload;
+    })();
+    openAipAuxSnapshotInflight.set(coverage.key, request);
+    try {
+        return await request;
+    } finally {
+        if (openAipAuxSnapshotInflight.get(coverage.key) === request) {
+            openAipAuxSnapshotInflight.delete(coverage.key);
+        }
+    }
+}
+
+function buildOpenAipCoveragesForBounds(bounds) {
+    const normalized = normalizeOpenAipBounds(bounds);
+    if (!normalized) return [];
+    const width = normalized.east - normalized.west;
+    const height = normalized.north - normalized.south;
+    const columns = Math.max(1, Math.ceil(width / OPENAIP_ROUTE_TILE_SPAN_DEG));
+    const rows = Math.max(1, Math.ceil(height / OPENAIP_ROUTE_TILE_SPAN_DEG));
+    if ((columns * rows) > OPENAIP_ROUTE_MAX_REGIONS) {
+        throw new Error('openaip_route_too_many_regions');
+    }
+
+    const coverages = [];
+    const seenKeys = new Set();
+    for (let row = 0; row < rows; row += 1) {
+        const cellSouth = normalized.south + ((height * row) / rows);
+        const cellNorth = normalized.south + ((height * (row + 1)) / rows);
+        for (let column = 0; column < columns; column += 1) {
+            const cellWest = normalized.west + ((width * column) / columns);
+            const cellEast = normalized.west + ((width * (column + 1)) / columns);
+            const coverage = buildOpenAipRegionCoverage({
+                west: cellWest,
+                south: cellSouth,
+                east: cellEast,
+                north: cellNorth
+            });
+            if (!coverage || seenKeys.has(coverage.key)) continue;
+            seenKeys.add(coverage.key);
+            coverages.push(coverage);
+        }
+    }
+    if (!coverages.length) throw new Error('openaip_region_invalid_coverage');
+    return coverages;
+}
+
+async function getOpenAipSnapshotsForBounds(bounds, requiredCollection = '') {
+    const normalized = normalizeOpenAipBounds(bounds);
+    if (!normalized) throw new Error('openaip_region_invalid_bounds');
+
+    if (openAipRegionState.payload
+        && openAipCoverageContainsBounds(openAipRegionState.coverage, normalized)
+        && (!requiredCollection || isOpenAipSnapshotCollectionAvailable(openAipRegionState.payload, requiredCollection))) {
+        return [openAipRegionState.payload];
+    }
+
+    const payloads = [];
+    const coverages = buildOpenAipCoveragesForBounds(normalized);
+    // Bewusst nacheinander: Lange Routen dürfen beim Worker keinen Burst aus
+    // mehreren Regionssnapshots auslösen.
+    for (const coverage of coverages) {
+        const payload = await fetchOpenAipSnapshotCoverage(coverage);
+        if (requiredCollection && !isOpenAipSnapshotCollectionAvailable(payload, requiredCollection)) {
+            throw new Error(`openaip_${requiredCollection}_temporarily_unavailable`);
+        }
+        payloads.push(payload);
+    }
+    return payloads;
+}
+
+window.gaGetOpenAipRouteAirspaces = async function(bounds) {
+    const payloads = await getOpenAipSnapshotsForBounds(bounds, 'airspaces');
+    const byId = new Map();
+    payloads.forEach((payload) => {
+        payload.airspaces.forEach((airspace, index) => {
+            const key = String(airspace?._id || airspace?.id || `${airspace?.name || 'airspace'}:${index}`);
+            if (!byId.has(key)) byId.set(key, airspace);
+        });
+    });
+    return [...byId.values()];
+};
+
+function normalizeOpenAipAirportForPopup(airport) {
+    const coords = airport?.geometry?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) return null;
+    const lat = Number(coords[1]);
+    const lon = Number(coords[0]);
+    const icao = String(
+        airport?.icaoCode
+        || airport?.icao
+        || airport?.designator
+        || airport?.name
+        || ''
+    ).trim().toUpperCase();
+    if (!icao || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const elevationValue = Number(airport?.elevation?.value ?? airport?.elevation);
+    const elevation = Number.isFinite(elevationValue)
+        ? (Number(airport?.elevation?.unit) === 1 ? elevationValue : Math.round(elevationValue * 3.28084))
+        : null;
+    return {
+        icao,
+        name: String(airport?.name || icao).trim(),
+        lat,
+        lon,
+        elevation,
+        country: String(airport?.country || airport?.countryCode || airport?.isoCountry || '').trim(),
+        sourceId: String(airport?._id || airport?.id || '').trim()
+    };
+}
+
+function seedOpenAipAirportFrequencies(airports) {
+    if (typeof freqCache === 'undefined' || !Array.isArray(airports)) return;
+    const labels = {
+        TWR: 'Turm', TOWER: 'Turm',
+        GND: 'Rollkontrolle', GROUND: 'Rollkontrolle',
+        ATIS: 'Information', INFO: 'Information', INFORMATION: 'Information',
+        RADIO: 'Radio', CTAF: 'Radio', UNICOM: 'Radio', MULTICOM: 'Radio',
+        APP: 'Anflug', APPROACH: 'Anflug',
+        DEP: 'Abflug', DEPARTURE: 'Abflug',
+        FIS: 'FIS', APRON: 'Vorfeld', AWOS: 'AWOS'
+    };
+    airports.forEach((airport) => {
+        const icao = String(airport?.icaoCode || airport?.icao || airport?.designator || '').trim().toUpperCase();
+        if (!icao || Object.prototype.hasOwnProperty.call(freqCache, icao)) return;
+        const frequencies = Array.isArray(airport?.frequencies) ? airport.frequencies : [];
+        freqCache[icao] = frequencies
+            .filter(f => f && f.value !== undefined && f.value !== null)
+            .map((f) => {
+                const rawName = String(f.name || '').trim();
+                return {
+                    label: labels[rawName.toUpperCase()] || rawName || 'Freq',
+                    value: f.value
+                };
+            });
+    });
+}
+
+function getOpenAipRunwayCacheKey(airport) {
+    return String(
+        airport?.icaoCode
+        || airport?.icao
+        || airport?.designator
+        || airport?.name
+        || ''
+    ).trim().toUpperCase();
+}
+
+function getReciprocalRunwayDesignator(designator) {
+    const match = String(designator || '').trim().toUpperCase().match(/^(\d{1,2})([LRC]?)$/);
+    if (!match) return '';
+    const number = Number(match[1]);
+    if (!Number.isFinite(number) || number < 1 || number > 36) return '';
+    const reciprocalNumber = ((number + 17) % 36) + 1;
+    const side = match[2] === 'L' ? 'R' : (match[2] === 'R' ? 'L' : match[2]);
+    return `${String(reciprocalNumber).padStart(2, '0')}${side}`;
+}
+
+function getOpenAipRunwayLengthMeters(runway) {
+    const length = Number(runway?.dimension?.length?.value);
+    if (!Number.isFinite(length) || length <= 0) return null;
+    return Number(runway?.dimension?.length?.unit) === 1 ? length * 0.3048 : length;
+}
+
+function getOpenAipRunwaySurfaceLabel(runway) {
+    const explicit = String(
+        runway?.surface?.name
+        || runway?.surface?.label
+        || runway?.surface?.compositionName
+        || runway?.surface?.mainCompositeName
+        || ''
+    ).trim();
+    return explicit;
+}
+
+function formatOpenAipAirportRunways(airport) {
+    const runways = Array.isArray(airport?.runways) ? airport.runways.filter(Boolean) : [];
+    if (!runways.length) return '';
+    const byDesignator = new Map();
+    runways.forEach((runway) => {
+        const designator = String(runway?.designator || '').trim().toUpperCase();
+        if (designator && !byDesignator.has(designator)) byDesignator.set(designator, runway);
+    });
+
+    const used = new Set();
+    const lines = [];
+    runways.forEach((runway, index) => {
+        const designator = String(runway?.designator || '').trim().toUpperCase();
+        const uniqueKey = designator || `index:${index}`;
+        if (used.has(uniqueKey)) return;
+
+        const reciprocal = getReciprocalRunwayDesignator(designator);
+        const reciprocalRunway = reciprocal ? byDesignator.get(reciprocal) : null;
+        used.add(uniqueKey);
+        if (reciprocalRunway) used.add(reciprocal);
+
+        const runwayLabel = reciprocalRunway ? `${designator}/${reciprocal}` : (designator || 'Piste');
+        const lengthMeters = getOpenAipRunwayLengthMeters(runway)
+            ?? getOpenAipRunwayLengthMeters(reciprocalRunway);
+        const surface = getOpenAipRunwaySurfaceLabel(runway)
+            || getOpenAipRunwaySurfaceLabel(reciprocalRunway);
+        const details = [];
+        if (surface) details.push(surface);
+        if (Number.isFinite(lengthMeters)) details.push(`${Math.round(lengthMeters)}m`);
+        lines.push(`${runwayLabel}${details.length ? ` – ${details.join(' · ')}` : ''}`);
+    });
+    return [...new Set(lines)].slice(0, 8).join('\n');
+}
+
+function seedOpenAipAirportRunways(airports) {
+    if (typeof runwayCache === 'undefined' || !Array.isArray(airports)) return;
+    airports.forEach((airport) => {
+        const key = getOpenAipRunwayCacheKey(airport);
+        if (!key) return;
+        const formatted = formatOpenAipAirportRunways(airport);
+        if (!formatted) return;
+        const cached = String(runwayCache[key] || '');
+        if (!cached || cached === 'Keine Daten gefunden') {
+            runwayCache[key] = formatted;
+        }
+    });
+}
+
+function findOpenAipAirportInPayloads(payloads, icao, lat, lon) {
+    const targetCode = String(icao || '').trim().toUpperCase();
+    let nearest = null;
+    let nearestDistance = Infinity;
+    for (const payload of payloads) {
+        for (const airport of (Array.isArray(payload?.airports) ? payload.airports : [])) {
+            const code = getOpenAipRunwayCacheKey(airport);
+            if (targetCode && code === targetCode) return airport;
+            const coords = airport?.geometry?.coordinates;
+            if (!Array.isArray(coords) || coords.length < 2) continue;
+            const aptLon = Number(coords[0]);
+            const aptLat = Number(coords[1]);
+            if (![aptLat, aptLon, lat, lon].every(Number.isFinite)) continue;
+            const dLat = aptLat - lat;
+            const dLon = (aptLon - lon) * Math.cos((lat * Math.PI) / 180);
+            const distanceSq = (dLat * dLat) + (dLon * dLon);
+            if (distanceSq < nearestDistance) {
+                nearestDistance = distanceSq;
+                nearest = airport;
+            }
+        }
+    }
+    return nearestDistance <= (0.05 * 0.05) ? nearest : null;
+}
+
+window.gaFetchOpenAipAirportRunwayText = async function(icao, lat, lon) {
+    const latitude = Number(lat);
+    const longitude = Number(lon);
+    if (![latitude, longitude].every(Number.isFinite)) return '';
+    const lonPadding = 0.45 / Math.max(0.25, Math.abs(Math.cos((latitude * Math.PI) / 180)));
+    const bounds = {
+        west: longitude - lonPadding,
+        south: latitude - 0.45,
+        east: longitude + lonPadding,
+        north: latitude + 0.45
+    };
+    const payloads = await getOpenAipSnapshotsForBounds(bounds, 'airports');
+    payloads.forEach(payload => seedOpenAipAirportRunways(payload.airports));
+    const airport = findOpenAipAirportInPayloads(payloads, icao, latitude, longitude);
+    return airport ? formatOpenAipAirportRunways(airport) : '';
+};
+
+function getOpenAipNavaidCacheBounds(payload = null) {
+    const bbox = payload?.bbox;
+    if (Array.isArray(bbox) && bbox.length === 4) {
+        const [west, south, east, north] = bbox.map(Number);
+        const normalized = normalizeOpenAipBounds({ west, south, east, north });
+        if (normalized) return normalized;
+    }
+    const view = getOpenAipVisibleBounds();
+    if (!view) return null;
+    return buildOpenAipRegionCoverage(view);
+}
+
+function buildOpenAipNavaidCacheEntry(item, source = 'live') {
+    const sourceId = String(item?._id || item?.id || '').trim();
+    const staticItem = sourceId && openAipStaticNavaidState.byId instanceof Map
+        ? openAipStaticNavaidState.byId.get(sourceId)
+        : null;
+    const enrichedItem = staticItem ? { ...staticItem, ...item } : item;
+    const coords = enrichedItem?.geometry?.coordinates;
+    const lat = Number(enrichedItem?.lat ?? coords?.[1]);
+    const lon = Number(enrichedItem?.lon ?? coords?.[0]);
+    if (![lat, lon].every(Number.isFinite)) return null;
+
+    let freqVal = '';
+    if (enrichedItem?.frequency !== undefined && enrichedItem?.frequency !== null) {
+        freqVal = (typeof enrichedItem.frequency === 'object' && enrichedItem.frequency.value)
+            ? enrichedItem.frequency.value
+            : enrichedItem.frequency;
+    } else if (Array.isArray(enrichedItem?.frequencies) && enrichedItem.frequencies.length > 0) {
+        freqVal = enrichedItem.frequencies[0]?.value || enrichedItem.frequencies[0];
+    }
+    const identifier = String(enrichedItem?.identifier || enrichedItem?.designator || '').trim().toUpperCase();
+    const name = String(enrichedItem?.name || identifier || 'Navaid').trim();
+    const identText = identifier ? ` [${identifier}]` : '';
+    const freqText = freqVal ? ` (${freqVal})` : '';
+    return {
+        name: `${name}${identText}${freqText}`,
+        lat,
+        lng: lon,
+        type: 'NAVAID',
+        sourceId,
+        navaidIdentifier: identifier,
+        navaidType: enrichedItem?.type ?? null,
+        navaidSource: source,
+        navaidData: {
+            ...enrichedItem,
+            id: sourceId || enrichedItem?.id || '',
+            lat,
+            lon,
+            identifier,
+            name
+        }
+    };
+}
+
+function getStaticOpenAipNavaidEntries(bounds) {
+    if (!bounds || !Array.isArray(openAipStaticNavaidState.items)) return [];
+    const entries = [];
+    for (const item of openAipStaticNavaidState.items) {
+        const lat = Number(item?.lat);
+        const lon = Number(item?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        if (lat < bounds.south || lat > bounds.north || lon < bounds.west || lon > bounds.east) continue;
+        const entry = buildOpenAipNavaidCacheEntry(item, 'static');
+        if (entry) entries.push(entry);
+    }
+    return entries;
+}
+
+function setOpenAipActiveNavaidSource(source, count) {
+    openAipStaticNavaidState.activeSource = String(source || 'none');
+    openAipStaticNavaidState.activeCount = Math.max(0, Number(count) || 0);
+}
+
+function buildOpenAipReportingPointCacheEntry(item, source = 'live') {
+    const coords = item?.geometry?.coordinates;
+    const lat = Number(item?.lat ?? coords?.[1]);
+    const lon = Number(item?.lon ?? coords?.[0]);
+    const name = String(item?.name || '').trim();
+    if (!name || ![lat, lon].every(Number.isFinite)) return null;
+    return {
+        name: `RPP ${name}`,
+        lat,
+        lng: lon,
+        type: 'RPP',
+        rppAirportIcao: String(item?.airportIcao || extractRppAirportIcao(item) || '').trim().toUpperCase(),
+        sourceId: String(item?._id || item?.id || '').trim(),
+        rppSource: source,
+        rppData: {
+            ...item,
+            id: String(item?._id || item?.id || '').trim(),
+            name,
+            lat,
+            lon
+        }
+    };
+}
+
+function getStaticOpenAipReportingPointEntries(bounds) {
+    if (!bounds || !Array.isArray(openAipStaticReportingPointState.items)) return [];
+    const entries = [];
+    for (const item of openAipStaticReportingPointState.items) {
+        const lat = Number(item?.lat);
+        const lon = Number(item?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        if (lat < bounds.south || lat > bounds.north || lon < bounds.west || lon > bounds.east) continue;
+        const entry = buildOpenAipReportingPointCacheEntry(item, 'static');
+        if (entry) entries.push(entry);
+    }
+    return entries;
+}
+
+function setOpenAipActiveReportingPointSource(source, count) {
+    openAipStaticReportingPointState.activeSource = String(source || 'none');
+    openAipStaticReportingPointState.activeCount = Math.max(0, Number(count) || 0);
+}
+
+function replaceCachedNavDataWithStaticFallback() {
+    if (!snapMode || !map) return;
+    const bounds = getOpenAipNavaidCacheBounds();
+    if (!bounds) return;
+    const retained = Array.isArray(cachedNavData)
+        ? cachedNavData.filter(item => item?.type !== 'NAVAID' && item?.type !== 'RPP')
+        : [];
+    const fallbackEntries = getStaticOpenAipNavaidEntries(bounds);
+    const reportingPointEntries = getStaticOpenAipReportingPointEntries(bounds);
+    cachedNavData = [
+        ...fallbackEntries,
+        ...reportingPointEntries,
+        ...retained
+    ];
+    setOpenAipActiveNavaidSource('static', fallbackEntries.length);
+    setOpenAipActiveReportingPointSource('static', reportingPointEntries.length);
+}
+
+function refreshCachedNavDataWithStaticNavaids() {
+    if (!snapMode || !map) return;
+    const view = getOpenAipVisibleBounds();
+    if (
+        openAipRegionState.payload
+        && openAipCoverageContainsBounds(openAipRegionState.coverage, view)
+    ) {
+        replaceCachedNavDataFromOpenAip(openAipRegionState.payload);
+        return;
+    }
+    replaceCachedNavDataWithStaticFallback();
+}
+
+function replaceCachedNavDataFromOpenAip(payload) {
+    const next = [];
+    const navArray = Array.isArray(payload?.navaids) ? payload.navaids : [];
+    const repArray = Array.isArray(payload?.reportingPoints) ? payload.reportingPoints : [];
+    const aptArray = Array.isArray(payload?.airports) ? payload.airports : [];
+    const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
+    const liveReportingPointsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'reportingPoints');
+    const navaidEntries = liveNavaidsAvailable
+        ? navArray.map(item => buildOpenAipNavaidCacheEntry(item, 'live')).filter(Boolean)
+        : getStaticOpenAipNavaidEntries(getOpenAipNavaidCacheBounds(payload));
+    next.push(...navaidEntries);
+    setOpenAipActiveNavaidSource(liveNavaidsAvailable ? 'live' : 'static', navaidEntries.length);
+    const reportingPointEntries = liveReportingPointsAvailable
+        ? repArray.map(item => buildOpenAipReportingPointCacheEntry(item, 'live')).filter(Boolean)
+        : getStaticOpenAipReportingPointEntries(getOpenAipNavaidCacheBounds(payload));
+    next.push(...reportingPointEntries);
+    setOpenAipActiveReportingPointSource(
+        liveReportingPointsAvailable ? 'live' : 'static',
+        reportingPointEntries.length
+    );
+    aptArray.forEach((i) => {
+        const apt = normalizeOpenAipAirportForPopup(i);
+        if (!apt) return;
+        const firstFrequency = Array.isArray(i.frequencies) ? i.frequencies[0]?.value : '';
+        next.push({
+            name: `APT ${apt.icao || apt.name}${firstFrequency ? ` (${firstFrequency})` : ''}`,
+            lat: apt.lat,
+            lng: apt.lon,
+            type: 'APT',
+            airportIcao: apt.icao || apt.name,
+            airportName: apt.name,
+            sourceId: apt.sourceId,
+            country: apt.country
+        });
+    });
+    seedOpenAipAirportFrequencies(aptArray);
+    seedOpenAipAirportRunways(aptArray);
+    cachedNavData = next;
+}
+
+async function ensureOpenAipRegionSnapshot() {
+    if (!map || !isOpenAipRegionMode() || (!snapMode && !isOpenAipOverlayEnabled())) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('openaip-region')) {
+        window.gaRunWhenAwake?.('openaip-region', () => ensureOpenAipRegionSnapshot());
+        return;
+    }
+    const zoom = Number(map.getZoom && map.getZoom());
+    if (!Number.isFinite(zoom) || zoom < OPENAIP_OVERLAY_MIN_ZOOM) {
+        if (isOpenAipOverlayEnabled()) clearOpenAipOverlayLayer();
+        return;
+    }
+    const view = getOpenAipVisibleBounds();
+    if (!view) return;
+    if (openAipRegionState.payload && openAipRegionContainsView(openAipRegionState.coverage, view)) {
+        if (snapMode && cachedNavData.length === 0) replaceCachedNavDataFromOpenAip(openAipRegionState.payload);
+        if (isOpenAipOverlayEnabled()) {
+            renderOpenAipOverlayData(openAipRegionState.payload);
+        }
+        if (!openAipRegionState.partial || openAipRegionState.retryAfter > Date.now()) {
+            return openAipRegionState.payload;
+        }
+    } else if (openAipRegionState.retryAfter > Date.now()) {
+        if (snapMode) refreshCachedNavDataWithStaticNavaids();
+        return openAipRegionState.payload;
+    }
+    if (openAipRegionState.inFlight) return openAipRegionState.inFlight;
+
+    const coverage = buildOpenAipRegionCoverage(view);
+    if (!coverage) {
+        console.warn('[OpenAIP Region] Kartenausschnitt ist breiter als die zulässige 5°-Abfrage. Bitte etwas hineinzoomen.');
+        return openAipRegionState.payload;
+    }
+    if (openAipRegionState.payload && openAipRegionState.key === coverage.key && !openAipRegionState.partial) {
+        if (isOpenAipOverlayEnabled()) {
+            renderOpenAipOverlayData(openAipRegionState.payload);
+        }
+        return openAipRegionState.payload;
+    }
+
+    const requestSeq = ++openAipRegionState.requestSeq;
+    const requestPromise = (async () => {
+        try {
+            const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) {
+                const responseError = new Error(`snapshot_http_${response.status}`);
+                responseError.status = response.status;
+                const retryAfterSeconds = Number(response.headers.get('Retry-After'));
+                responseError.retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+                    ? retryAfterSeconds * 1000
+                    : 0;
+                throw responseError;
+            }
+            const payload = await response.json();
+            if (!payload
+                || !Array.isArray(payload.airports)
+                || !Array.isArray(payload.airspaces)
+                || !Array.isArray(payload.navaids)
+                || !Array.isArray(payload.reportingPoints)) {
+                throw new Error('snapshot_invalid_payload');
+            }
+            if (requestSeq !== openAipRegionState.requestSeq || !isOpenAipRegionMode()) return payload;
+            openAipRegionState.coverage = coverage;
+            openAipRegionState.key = coverage.key;
+            openAipRegionState.payload = payload;
+            openAipRegionState.lastFetchedAt = Date.now();
+            openAipRegionState.lastError = '';
+            openAipRegionState.partial = !!payload?.meta?.partial;
+            const partialRetrySeconds = Number(payload?.meta?.retryAfterSeconds);
+            openAipRegionState.retryAfter = openAipRegionState.partial
+                ? Date.now() + Math.max(
+                    15 * 1000,
+                    (Number.isFinite(partialRetrySeconds) && partialRetrySeconds > 0 ? partialRetrySeconds : 60) * 1000
+                )
+                : 0;
+            openAipRegionState.consecutiveFailures = 0;
+            updateOpenAipDataModeButtonUi();
+            if (snapMode) replaceCachedNavDataFromOpenAip(payload);
+            const currentView = getOpenAipVisibleBounds();
+            if (isOpenAipOverlayEnabled() && openAipRegionContainsView(coverage, currentView)) {
+                renderOpenAipOverlayData(payload);
+            }
+            if (payload?.meta?.stale) {
+                console.warn('[OpenAIP Region] Letzten erfolgreichen Cache-Stand verwendet; Aktualisierung war nicht möglich.');
+            }
+            if (openAipRegionState.partial) {
+                const missingCollections = Object.entries(payload?.meta?.collections || {})
+                    .filter(([, meta]) => Number(meta?.errorStatus) > 0)
+                    .map(([key]) => key);
+                console.warn(
+                    '[OpenAIP Region] Teilstand geladen; fehlende Sammlungen werden später erneut versucht:',
+                    missingCollections.join(', ') || 'unbekannt'
+                );
+            }
+            return payload;
+        } catch (err) {
+            if (requestSeq === openAipRegionState.requestSeq) {
+                openAipRegionState.lastError = String(err?.message || err);
+                openAipRegionState.consecutiveFailures += 1;
+                const status = Number(err?.status) || 0;
+                const baseDelayMs = status === 429 ? 60 * 1000 : (status >= 500 ? 30 * 1000 : 15 * 1000);
+                const exponentialDelayMs = baseDelayMs * Math.pow(2, Math.min(3, openAipRegionState.consecutiveFailures - 1));
+                openAipRegionState.retryAfter = Date.now() + Math.max(
+                    Number(err?.retryAfterMs) || 0,
+                    Math.min(5 * 60 * 1000, exponentialDelayMs)
+                );
+                updateOpenAipDataModeButtonUi();
+                console.warn('[OpenAIP Region] Laden fehlgeschlagen; vorhandene Kartendaten bleiben sichtbar:', openAipRegionState.lastError);
+                if (snapMode) refreshCachedNavDataWithStaticNavaids();
+            }
+            return openAipRegionState.payload;
+        }
+    })();
+    openAipRegionState.inFlight = requestPromise;
+    try {
+        return await requestPromise;
+    } finally {
+        if (openAipRegionState.inFlight === requestPromise) {
+            openAipRegionState.inFlight = null;
+            const latestView = getOpenAipVisibleBounds();
+            if (isOpenAipRegionMode()
+                && latestView
+                && openAipRegionState.payload
+                && openAipRegionState.key === coverage.key
+                && !openAipRegionContainsView(openAipRegionState.coverage, latestView)) {
+                setTimeout(ensureOpenAipRegionSnapshot, 0);
+            }
+        }
+    }
+}
+
+window.setOpenAipDataMode = function(mode) {
+    const nextMode = mode === OPENAIP_DATA_MODE_LEGACY ? OPENAIP_DATA_MODE_LEGACY : OPENAIP_DATA_MODE_REGION;
+    if (nextMode === getOpenAipDataMode()) {
+        updateOpenAipDataModeButtonUi();
+        return;
+    }
+    localStorage.setItem(OPENAIP_DATA_MODE_STORAGE_KEY, nextMode);
+    ++openAipRegionState.requestSeq;
+    ++openAipOverlayFetchSeq;
+    openAipRegionState.coverage = null;
+    openAipRegionState.key = '';
+    openAipRegionState.payload = null;
+    openAipRegionState.inFlight = null;
+    openAipRegionState.lastError = '';
+    openAipRegionState.retryAfter = 0;
+    openAipRegionState.consecutiveFailures = 0;
+    openAipRegionState.partial = false;
+    openAipOverlayState.inFlight = false;
+    openAipOverlayState.lastKey = '';
+    openAipOverlayState.lastFetchedAt = 0;
+    cachedNavData = [];
+    setOpenAipActiveNavaidSource('none', 0);
+    setOpenAipActiveReportingPointSource('none', 0);
+    clearOpenAipOverlayLayer();
+    updateOpenAipDataModeButtonUi();
+    if (nextMode === OPENAIP_DATA_MODE_REGION) {
+        ensureOpenAipRegionSnapshot();
+    } else {
+        if (snapMode) fetchOpenAIPDataLegacy();
+        if (isOpenAipOverlayEnabled()) refreshOpenAipOverlayLegacy(true);
+    }
+};
+
+window.toggleOpenAipDataMode = function() {
+    window.setOpenAipDataMode(isOpenAipRegionMode() ? OPENAIP_DATA_MODE_LEGACY : OPENAIP_DATA_MODE_REGION);
+};
+
+window.getOpenAipDataMode = getOpenAipDataMode;
 
 function ensureOpenAipOverlayLayer() {
-    if (!openAipOverlayLayer) openAipOverlayLayer = L.layerGroup();
+    if (!openAipAirspaceLayer) openAipAirspaceLayer = L.layerGroup();
+    if (!openAipAirportLayer) openAipAirportLayer = L.layerGroup();
+    if (!openAipNavaidLayer) openAipNavaidLayer = L.layerGroup();
+    if (!openAipOverlayLayer) {
+        openAipOverlayLayer = L.layerGroup([openAipAirspaceLayer, openAipNavaidLayer, openAipAirportLayer]);
+    }
     return openAipOverlayLayer;
 }
 
@@ -8682,8 +9963,17 @@ function isOpenAipOverlayEnabled() {
 }
 
 function clearOpenAipOverlayLayer() {
-    if (!openAipOverlayLayer) return;
-    openAipOverlayLayer.clearLayers();
+    openAipAirspaceLayer?.clearLayers();
+    openAipAirportLayer?.clearLayers();
+    openAipNavaidLayer?.clearLayers();
+    openAipOverlayRenderState.airspaceKey = '';
+    openAipOverlayRenderState.airspaceToken = '';
+    openAipOverlayRenderState.airportKey = '';
+    openAipOverlayRenderState.airportToken = '';
+    openAipOverlayRenderState.airportZoomBand = '';
+    openAipOverlayRenderState.navaidKey = '';
+    openAipOverlayRenderState.navaidToken = '';
+    openAipOverlayRenderState.navaidZoomBand = '';
 }
 
 function getOpenAipOverlayBBoxString() {
@@ -8740,12 +10030,19 @@ async function fetchOpenAipOverlayCollection(kind, bbox, limit = 250, maxPages =
     return items;
 }
 
-function renderOpenAipOverlayData(payload) {
-    const layer = ensureOpenAipOverlayLayer();
-    if (!layer) return;
+function getOpenAipPayloadRenderKey(payload) {
+    const bbox = Array.isArray(payload?.bbox) ? payload.bbox : [];
+    return bbox.length === 4
+        ? bbox.map(value => Number(value).toFixed(3)).join(',')
+        : String(openAipRegionState.key || openAipOverlayState.lastKey || 'legacy');
+}
+
+function getOpenAipPayloadRenderToken(payload) {
+    return String(payload?.meta?.fetchedAtMs || payload?.meta?.fetchedAt || '');
+}
+
+function renderOpenAipAirspaces(airspaces, layer) {
     layer.clearLayers();
-    const airspaces = Array.isArray(payload && payload.airspaces) ? payload.airspaces : [];
-    const airports = Array.isArray(payload && payload.airports) ? payload.airports : [];
     const relevantTypes = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
     const seenAirspaceIds = new Set();
     airspaces.forEach((airspace) => {
@@ -8776,7 +10073,10 @@ function renderOpenAipOverlayData(payload) {
         });
         seenAirspaceIds.add(airspace._id);
     });
+}
 
+function renderOpenAipAirports(airports, layer) {
+    layer.clearLayers();
     if (!map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM) return;
     const maxAirports = map.getZoom() >= 11 ? 180 : 90;
     airports.slice(0, maxAirports).forEach((airport) => {
@@ -8785,21 +10085,144 @@ function renderOpenAipOverlayData(payload) {
         const lat = Number(coords[1]);
         const lon = Number(coords[0]);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-        L.circleMarker([lat, lon], {
+        const regionMode = isOpenAipRegionMode();
+        const marker = L.circleMarker([lat, lon], {
             radius: map.getZoom() >= 12 ? 4 : 3,
             color: '#fde047',
             fillColor: '#0f172a',
             fillOpacity: 0.9,
             weight: 1.6,
-            interactive: false
+            interactive: regionMode,
+            bubblingMouseEvents: !regionMode
         }).bindTooltip(getOpenAipAirportLabel(airport), {
             sticky: true,
             className: 'airspace-tooltip'
-        }).addTo(layer);
+        });
+        if (regionMode) {
+            marker.on('click', (event) => {
+                if (event?.originalEvent) L.DomEvent.stop(event.originalEvent);
+                const normalized = normalizeOpenAipAirportForPopup(airport);
+                if (normalized) openAirportInfoPopup(normalized);
+            });
+        }
+        marker.addTo(layer);
     });
 }
 
-async function refreshOpenAipOverlay(forceFetch = false) {
+function renderOpenAipNavaids(navaids, layer) {
+    layer.clearLayers();
+    if (!map || map.getZoom() < OPENAIP_OVERLAY_NAVAID_MIN_ZOOM) return;
+    const maxNavaids = map.getZoom() >= 11 ? 240 : 120;
+    navaids.slice(0, maxNavaids).forEach((navaid) => {
+        const nav = normalizeOpenAipNavaidForPopup(navaid);
+        if (!nav) return;
+        const typeLabel = getOpenAipNavaidTypeLabel(nav.type);
+        const frequency = nav.frequencyValue
+            ? ` · ${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`
+            : '';
+        const marker = L.circleMarker([nav.lat, nav.lon], {
+            radius: map.getZoom() >= 12 ? 4 : 3,
+            color: '#67e8f9',
+            fillColor: '#083344',
+            fillOpacity: 0.95,
+            weight: 1.6,
+            interactive: true,
+            bubblingMouseEvents: false
+        }).bindTooltip(
+            `${nav.identifier ? `${nav.identifier} · ` : ''}${nav.name} · ${typeLabel}${frequency}`,
+            { sticky: true, className: 'airspace-tooltip' }
+        );
+        marker.on('click', (event) => {
+            if (event?.originalEvent) L.DomEvent.stop(event.originalEvent);
+            openNavaidInfoPopup(navaid);
+        });
+        marker.addTo(layer);
+    });
+}
+
+function renderOpenAipOverlayData(payload) {
+    if (!ensureOpenAipOverlayLayer()) return;
+    const airspaces = Array.isArray(payload?.airspaces) ? payload.airspaces : [];
+    const airports = Array.isArray(payload?.airports) ? payload.airports : [];
+    const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
+    const navaids = liveNavaidsAvailable
+        ? (Array.isArray(payload?.navaids) ? payload.navaids : [])
+        : getStaticOpenAipNavaidEntries(getOpenAipNavaidCacheBounds(payload));
+    const renderKey = getOpenAipPayloadRenderKey(payload);
+    const renderToken = getOpenAipPayloadRenderToken(payload);
+    const collectionMeta = payload?.meta?.collections || {};
+
+    const airspacesAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airspaces');
+    const shouldUpdateAirspaces = airspacesAvailable && (
+        openAipOverlayRenderState.airspaceKey !== renderKey
+        || openAipOverlayRenderState.airspaceToken !== renderToken
+        || openAipAirspaceLayer.getLayers().length === 0
+    ) && !(
+        collectionMeta.airspaces?.reused
+        && openAipOverlayRenderState.airspaceKey === renderKey
+        && openAipAirspaceLayer.getLayers().length > 0
+    );
+    if (shouldUpdateAirspaces) {
+        renderOpenAipAirspaces(airspaces, openAipAirspaceLayer);
+        openAipOverlayRenderState.airspaceKey = renderKey;
+        openAipOverlayRenderState.airspaceToken = renderToken;
+    }
+
+    const zoomBand = !map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM
+        ? 'hidden'
+        : (map.getZoom() >= 11 ? '180' : '90');
+    if (zoomBand === 'hidden') {
+        if (openAipAirportLayer.getLayers().length > 0) openAipAirportLayer.clearLayers();
+        openAipOverlayRenderState.airportZoomBand = zoomBand;
+    } else {
+        const airportsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airports');
+        const shouldUpdateAirports = airportsAvailable && (
+            openAipOverlayRenderState.airportKey !== renderKey
+            || openAipOverlayRenderState.airportToken !== renderToken
+            || openAipOverlayRenderState.airportZoomBand !== zoomBand
+            || openAipAirportLayer.getLayers().length === 0
+        ) && !(
+            collectionMeta.airports?.reused
+            && openAipOverlayRenderState.airportKey === renderKey
+            && openAipOverlayRenderState.airportZoomBand === zoomBand
+            && openAipAirportLayer.getLayers().length > 0
+        );
+        if (shouldUpdateAirports) {
+            seedOpenAipAirportFrequencies(airports);
+            seedOpenAipAirportRunways(airports);
+            renderOpenAipAirports(airports, openAipAirportLayer);
+            openAipOverlayRenderState.airportKey = renderKey;
+            openAipOverlayRenderState.airportToken = renderToken;
+            openAipOverlayRenderState.airportZoomBand = zoomBand;
+        }
+    }
+
+    const navaidZoomBand = !map || map.getZoom() < OPENAIP_OVERLAY_NAVAID_MIN_ZOOM
+        ? 'hidden'
+        : (map.getZoom() >= 11 ? '240' : '120');
+    if (navaidZoomBand === 'hidden') {
+        if (openAipNavaidLayer.getLayers().length > 0) openAipNavaidLayer.clearLayers();
+        openAipOverlayRenderState.navaidZoomBand = navaidZoomBand;
+    } else {
+        const navaidSourceToken = liveNavaidsAvailable
+            ? renderToken
+            : `static:${openAipStaticNavaidState.loadedAt || 0}`;
+        const shouldUpdateNavaids = (
+            openAipOverlayRenderState.navaidKey !== renderKey
+            || openAipOverlayRenderState.navaidToken !== navaidSourceToken
+            || openAipOverlayRenderState.navaidZoomBand !== navaidZoomBand
+            || (navaids.length > 0 && openAipNavaidLayer.getLayers().length === 0)
+        );
+        if (shouldUpdateNavaids) {
+            renderOpenAipNavaids(navaids, openAipNavaidLayer);
+            openAipOverlayRenderState.navaidKey = renderKey;
+            openAipOverlayRenderState.navaidToken = navaidSourceToken;
+            openAipOverlayRenderState.navaidZoomBand = navaidZoomBand;
+        }
+    }
+}
+
+async function refreshOpenAipOverlayLegacy(forceFetch = false) {
     if (!map || !isOpenAipOverlayEnabled()) return;
     if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('openaip-overlay')) {
         window.gaRunWhenAwake?.('openaip-overlay', () => refreshOpenAipOverlay(true));
@@ -8825,7 +10248,12 @@ async function refreshOpenAipOverlay(forceFetch = false) {
             fetchOpenAipOverlayCollection('airports', bbox, 250, 1)
         ]);
         if (fetchSeq !== openAipOverlayFetchSeq || !isOpenAipOverlayEnabled()) return;
-        renderOpenAipOverlayData({ airspaces, airports });
+        renderOpenAipOverlayData({
+            bbox: bbox.split(',').map(Number),
+            airspaces,
+            airports,
+            meta: { fetchedAtMs: Date.now() }
+        });
         openAipOverlayState.lastKey = key;
         openAipOverlayState.lastFetchedAt = now;
     } catch (err) {
@@ -8834,6 +10262,11 @@ async function refreshOpenAipOverlay(forceFetch = false) {
     } finally {
         if (fetchSeq === openAipOverlayFetchSeq) openAipOverlayState.inFlight = false;
     }
+}
+
+async function refreshOpenAipOverlay(forceFetch = false) {
+    if (isOpenAipRegionMode()) return ensureOpenAipRegionSnapshot();
+    return refreshOpenAipOverlayLegacy(forceFetch);
 }
 
 function configureMapAttributionControl(targetMap) {
@@ -9125,6 +10558,7 @@ function initMapBase() {
         if (e.name === USA_VFR_OVERLAY_LABEL) localStorage.setItem('ga_usa_vfr_overlay_active', 'true');
         if (e.name === OPENAIP_OVERLAY_LABEL) {
             localStorage.setItem('ga_openaip_overlay_active', 'true');
+            void loadOpenAipStaticNavaids();
             refreshOpenAipOverlay(true);
         }
         if (e.name === "🏔️ Terrain Avoid (Live)") {
@@ -9157,14 +10591,22 @@ function initMapBase() {
     
     let snapFetchTimeout = null;
     let openAipOverlayFetchTimeout = null;
+    let openAipRegionFetchTimeout = null;
     map.on('moveend', function () {
-        if (snapMode) {
-            clearTimeout(snapFetchTimeout);
-            snapFetchTimeout = setTimeout(fetchOpenAIPData, 600);
-        }
-        if (isOpenAipOverlayEnabled()) {
-            clearTimeout(openAipOverlayFetchTimeout);
-            openAipOverlayFetchTimeout = setTimeout(() => refreshOpenAipOverlay(false), 600);
+        if (isOpenAipRegionMode()) {
+            if (snapMode || isOpenAipOverlayEnabled()) {
+                clearTimeout(openAipRegionFetchTimeout);
+                openAipRegionFetchTimeout = setTimeout(ensureOpenAipRegionSnapshot, 600);
+            }
+        } else {
+            if (snapMode) {
+                clearTimeout(snapFetchTimeout);
+                snapFetchTimeout = setTimeout(fetchOpenAIPDataLegacy, 600);
+            }
+            if (isOpenAipOverlayEnabled()) {
+                clearTimeout(openAipOverlayFetchTimeout);
+                openAipOverlayFetchTimeout = setTimeout(() => refreshOpenAipOverlayLegacy(false), 600);
+            }
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
@@ -9227,8 +10669,8 @@ function initMapBase() {
             return;
         }
 
-        const apt = findNearestAirport(e.latlng, getAirportTapRadiusPx(34));
-        if (apt) openAirportInfoPopup(apt, e.latlng);
+        pendingMapInfoTapSeq += 1;
+        if (!openNearestMapInfoAt(e.latlng)) scheduleMapInfoTapResolution(e.latlng);
     });
     if (!map._routeLegLabelsBound) {
         map.on('zoomend moveend', () => {
@@ -9676,6 +11118,15 @@ function toggleMapTable(forceInternal) {
         if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
 
         if (board.classList.contains('active')) {
+            // Die große Airport-Datei erst laden, wenn der Kartentisch wirklich
+            // geöffnet wird. Verdeckte Karten-/Routeninitialisierung bleibt leicht.
+            void ensureGlobalAirportsForMapClicks();
+            // Der weltweite Navaid-Fallback bleibt ebenfalls aus dem App-Start
+            // heraus und wird nur für Kartentisch/Snapping in den HTTP-/SW-Cache geladen.
+            if (snapMode) {
+                void loadOpenAipStaticNavaids();
+                void loadOpenAipStaticReportingPoints();
+            }
             if (typeof window.vpResumeMapProfile === 'function') {
                 window.vpResumeMapProfile('map-open');
             }
@@ -9933,8 +11384,15 @@ function toggleSnapMode() {
     updateSnapButtonUI();
     updateObsTileOverlayButtonUi();
     if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
-    if (snapMode && map) fetchOpenAIPData();
-    else cachedNavData = [];
+    if (snapMode && map) {
+        void loadOpenAipStaticNavaids();
+        void loadOpenAipStaticReportingPoints();
+        fetchOpenAIPData();
+    } else {
+        cachedNavData = [];
+        setOpenAipActiveNavaidSource('none', 0);
+        setOpenAipActiveReportingPointSource('none', 0);
+    }
 }
 
 function updateSnapButtonUI() {
@@ -9952,9 +11410,10 @@ function updateSnapButtonUI() {
             el.style.color = '#fff';
         }
     });
+    updateOpenAipDataModeButtonUi();
 }
 
-async function fetchOpenAIPData() {
+async function fetchOpenAIPDataLegacy() {
     if (!map || !snapMode) return;
 
     // 1. Schutz: Nicht laden, wenn man zu weit rausgezoomt ist (verhindert "Box too large" 500er Fehler)
@@ -9978,48 +11437,62 @@ async function fetchOpenAIPData() {
             fetch(`${proxy}/api/reporting-points?bbox=${bbox}&limit=250&t=${Date.now()}`),
             fetch(`${proxy}/api/airports?bbox=${bbox}&limit=250&t=${Date.now()}`)
         ]);
-        // 3. Schutz: Falls OpenAIP blockt, breche leise ab statt abzustürzen
-        if (!navRes.ok || !repRes.ok || !aptRes.ok) {
-            return;
-        }
-        const navJson = await navRes.json(), repJson = await repRes.json(), aptJson = await aptRes.json();
+        const navJson = navRes.ok ? await navRes.json() : { items: [] };
+        const repJson = repRes.ok ? await repRes.json() : { items: [] };
+        const aptJson = aptRes.ok ? await aptRes.json() : { items: [] };
         cachedNavData = [];
         let navArray = navJson.items || [];
         let repArray = repJson.items || [];
         let aptArray = aptJson.items || [];
-        navArray.forEach(i => {
-            if (!i.geometry) return;
-            let freqVal = '';
-            if (i.frequency !== undefined && i.frequency !== null) {
-                freqVal = (typeof i.frequency === 'object' && i.frequency.value) ? i.frequency.value : i.frequency;
-            } else if (i.frequencies && i.frequencies.length > 0) {
-                freqVal = i.frequencies[0].value || i.frequencies[0];
-            }
-            let freq = freqVal ? ` (${freqVal})` : '';
-            let idVal = i.identifier || i.designator || '';
-            let ident = idVal ? ` [${idVal}]` : '';
-            cachedNavData.push({ name: `${i.name}${ident}${freq}`, lat: i.geometry.coordinates[1], lng: i.geometry.coordinates[0] });
-        });
-        repArray.forEach(i => {
-            if (!i.geometry) return;
-            cachedNavData.push({
-                name: `RPP ${i.name}`,
-                lat: i.geometry.coordinates[1],
-                lng: i.geometry.coordinates[0],
-                type: 'RPP',
-                rppAirportIcao: extractRppAirportIcao(i),
-                sourceId: i._id || i.id || ''
+        if (navRes.ok) {
+            let liveNavaidCount = 0;
+            navArray.forEach(i => {
+                const entry = buildOpenAipNavaidCacheEntry(i, 'live-legacy');
+                if (entry) {
+                    cachedNavData.push(entry);
+                    liveNavaidCount += 1;
+                }
             });
-        });
+            setOpenAipActiveNavaidSource('live-legacy', liveNavaidCount);
+        } else {
+            const fallbackEntries = getStaticOpenAipNavaidEntries({ west: w, south: s, east: e, north: n });
+            cachedNavData.push(...fallbackEntries);
+            setOpenAipActiveNavaidSource('static', fallbackEntries.length);
+        }
+        const reportingPointEntries = repRes.ok
+            ? repArray.map(item => buildOpenAipReportingPointCacheEntry(item, 'live-legacy')).filter(Boolean)
+            : getStaticOpenAipReportingPointEntries({ west: w, south: s, east: e, north: n });
+        cachedNavData.push(...reportingPointEntries);
+        setOpenAipActiveReportingPointSource(
+            repRes.ok ? 'live-legacy' : 'static',
+            reportingPointEntries.length
+        );
         aptArray.forEach(i => {
             if (!i.geometry) return;
             let freq = (i.frequencies && i.frequencies.length > 0 && i.frequencies[0].value) ? ` (${i.frequencies[0].value})` : '';
-            let displayName = i.icaoCode ? i.icaoCode : i.name;
-            cachedNavData.push({ name: `APT ${displayName}${freq}`, lat: i.geometry.coordinates[1], lng: i.geometry.coordinates[0] });
+            const airportIcao = String(i.icaoCode || i.icao || i.designator || '').trim().toUpperCase();
+            const displayName = airportIcao || i.name;
+            cachedNavData.push({
+                name: `APT ${displayName}${freq}`,
+                lat: i.geometry.coordinates[1],
+                lng: i.geometry.coordinates[0],
+                type: 'APT',
+                airportIcao: airportIcao || String(i.name || '').trim(),
+                airportName: String(i.name || displayName || '').trim(),
+                sourceId: String(i._id || i.id || '').trim(),
+                country: String(i.country || i.countryCode || i.isoCountry || '').trim()
+            });
         });
     } catch (e) {
-        // Leiser Fallback, wenn das Netzwerk mal hakt
+        // Bei einem vollständigen Netzfehler bleiben wenigstens die statischen
+        // Navaids des aktuellen Kartenausschnitts für das Snapping verfügbar.
+        replaceCachedNavDataWithStaticFallback();
     }
+}
+
+async function fetchOpenAIPData() {
+    if (isOpenAipRegionMode()) return ensureOpenAipRegionSnapshot();
+    return fetchOpenAIPDataLegacy();
 }
 /* =========================================================
    WETTER MARKER AUF DER KARTE (VFR / IFR)
@@ -10853,18 +12326,43 @@ function findNearestAirport(latlng, maxPixels) {
 
     // 1. cachedNavData (OpenAIP airports)
     cachedNavData.forEach(nav => {
-        if (!nav.name.startsWith('APT ')) return;
+        if (nav.type !== 'APT' && !nav.name.startsWith('APT ')) return;
         const navPx = map.latLngToLayerPoint([nav.lat, nav.lng]);
         const d = tapPx.distanceTo(navPx);
         if (d < bestDist) {
             bestDist = d;
             const parts = nav.name.replace('APT ', '').split(' (');
-            best = { icao: parts[0].trim(), name: parts[0].trim(), lat: nav.lat, lon: nav.lng };
+            const icao = String(nav.airportIcao || parts[0] || '').trim().toUpperCase();
+            best = {
+                icao,
+                name: nav.airportName || parts[0].trim(),
+                lat: nav.lat,
+                lon: nav.lng,
+                sourceId: nav.sourceId || '',
+                country: nav.country || ''
+            };
         }
     });
     if (best) return best;
 
-    // 2. globalAirports Fallback
+    // 2. Der Regions-Snapshot ist oft deutlich früher verfügbar als die große
+    // globale Airport-Datei. Direkt daraus suchen, damit schon der erste Tap sitzt.
+    const regionAirports = Array.isArray(openAipRegionState?.payload?.airports)
+        ? openAipRegionState.payload.airports
+        : [];
+    for (const airport of regionAirports) {
+        const apt = normalizeOpenAipAirportForPopup(airport);
+        if (!apt) continue;
+        const aptPx = map.latLngToLayerPoint([apt.lat, apt.lon]);
+        const d = tapPx.distanceTo(aptPx);
+        if (d < bestDist) {
+            bestDist = d;
+            best = apt;
+        }
+    }
+    if (best) return best;
+
+    // 3. globalAirports Fallback
     if (typeof globalAirports === 'object' && globalAirports) {
         const latF = latlng.lat, lngF = latlng.lng;
         for (const icao in globalAirports) {
@@ -10883,6 +12381,72 @@ function findNearestAirport(latlng, maxPixels) {
         }
     }
     return best;
+}
+
+function findNearestMapNavigationPoint(latlng, maxPixels) {
+    if (!map || !Array.isArray(cachedNavData)) return null;
+    const tapPx = map.latLngToLayerPoint(latlng);
+    let best = null;
+    let bestDist = Number(maxPixels) + 1;
+    cachedNavData.forEach((nav) => {
+        if (nav?.type !== 'NAVAID' && nav?.type !== 'RPP') return;
+        const lat = Number(nav?.lat);
+        const lon = Number(nav?.lng);
+        if (![lat, lon].every(Number.isFinite)) return;
+        const pointPx = map.latLngToLayerPoint([lat, lon]);
+        const distance = tapPx.distanceTo(pointPx);
+        if (distance < bestDist) {
+            bestDist = distance;
+            best = nav;
+        }
+    });
+    return best;
+}
+
+function openNearestMapInfoAt(latlng) {
+    const radius = getAirportTapRadiusPx(34);
+    const apt = findNearestAirport(latlng, radius);
+    if (apt) {
+        openAirportInfoPopup(apt);
+        return true;
+    }
+    const nav = findNearestMapNavigationPoint(latlng, radius);
+    if (!nav) return false;
+    if (nav.type === 'NAVAID') {
+        openNavaidInfoPopup(nav);
+    } else {
+        openReportingPointInfoPopup(nav);
+    }
+    return true;
+}
+
+let pendingMapInfoTapSeq = 0;
+
+function scheduleMapInfoTapResolution(latlng) {
+    const seq = ++pendingMapInfoTapSeq;
+    const tap = L.latLng(latlng.lat, latlng.lng);
+    const tasks = [
+        Promise.resolve(ensureOpenAipRegionSnapshot()),
+        Promise.resolve(ensureGlobalAirportsForMapClicks()),
+        Promise.resolve(loadOpenAipStaticNavaids()),
+        Promise.resolve(loadOpenAipStaticReportingPoints())
+    ];
+    let resolved = false;
+    const retry = () => {
+        if (resolved || seq !== pendingMapInfoTapSeq || !map) return;
+        if (openNearestMapInfoAt(tap)) {
+            resolved = true;
+            pendingMapInfoTapSeq += 1;
+        }
+    };
+    tasks.forEach(task => task.then(retry, () => {}));
+    if (
+        !hasGlobalAirportsForMapClicks()
+        || !Array.isArray(openAipStaticNavaidState.items)
+        || !Array.isArray(openAipStaticReportingPointState.items)
+    ) {
+        showMapToast('Flugplatz- und Funkfeuerdaten laden – Auswahl wird automatisch nachgeholt', 2400);
+    }
 }
 
 function handleFreeflightMapClick(e) {
