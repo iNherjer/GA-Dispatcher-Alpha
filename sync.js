@@ -2517,6 +2517,8 @@ window.missionCargoStatus = {
     payloadVerificationRunning: false,
     payloadPendingResetStations: null,
     payloadPendingResetMaxStations: 0,
+    payloadPendingResetAdapter: '',
+    payloadPendingResetPa24State: null,
     dialogScroll: null
 };
 window.aircraftPayloadStatus = {
@@ -7449,7 +7451,7 @@ function _resolveTrackerDebugAck(ack) {
 }
 
 window.trackerPayloadGet = async function(options = {}) {
-    const maxStations = Math.max(1, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12)));
+    const maxStations = Math.max(1, Math.min(20, Math.round(Number(options?.maxStations ?? 12) || 12)));
     const commandId = window.sendTrackerCommand({
         type: 'aircraft_payload_get',
         maxStations
@@ -7461,17 +7463,23 @@ window.trackerPayloadGet = async function(options = {}) {
 };
 
 window.trackerPayloadSet = async function(stations = [], options = {}) {
+    const payloadAdapter = String(options?.payloadAdapter || options?.adapter || '').trim();
+    const pa24State = options?.pa24State && typeof options.pa24State === 'object'
+        ? options.pa24State
+        : null;
     const rows = (Array.isArray(stations) ? stations : [])
         .map(row => ({
             index: Math.round(Number(row?.index)),
             weightLbs: Number(row?.weightLbs)
         }))
-        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
-    if (!rows.length) return { status: 'invalid_input', error: 'no_valid_stations' };
+        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 20 && Number.isFinite(row.weightLbs));
+    if (!rows.length && !pa24State) return { status: 'invalid_input', error: 'no_valid_payload_target' };
     const commandId = window.sendTrackerCommand({
         type: 'aircraft_payload_set',
-        maxStations: Math.max(1, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12))),
-        stations: rows
+        maxStations: Math.max(1, Math.min(20, Math.round(Number(options?.maxStations ?? 12) || 12))),
+        stations: rows,
+        payloadAdapter,
+        pa24State
     });
     if (!commandId) return { status: 'not_sent' };
     window.aircraftPayloadStatus.lastCommandAt = Date.now();
@@ -8008,10 +8016,14 @@ function _handleTrackerAck(ack) {
         window.aircraftPayloadStatus.lastAck = ack;
         if (ack.status === 'ok') {
             window.aircraftPayloadStatus.snapshot = {
+                payloadAdapter: String(ack.payloadAdapter || 'msfs_payload_stations'),
+                aircraft: ack.aircraft && typeof ack.aircraft === 'object' ? { ...ack.aircraft } : null,
+                pa24: ack.pa24 && typeof ack.pa24 === 'object' ? JSON.parse(JSON.stringify(ack.pa24)) : null,
                 totalWeightLbs: Number.isFinite(Number(ack.totalWeightLbs)) ? Number(ack.totalWeightLbs) : null,
                 emptyWeightLbs: Number.isFinite(Number(ack.emptyWeightLbs)) ? Number(ack.emptyWeightLbs) : null,
                 fuelWeightLbs: Number.isFinite(Number(ack.fuelWeightLbs)) ? Number(ack.fuelWeightLbs) : null,
                 payloadWeightLbs: Number.isFinite(Number(ack.payloadWeightLbs)) ? Number(ack.payloadWeightLbs) : null,
+                stationPayloadWeightLbs: Number.isFinite(Number(ack.stationPayloadWeightLbs)) ? Number(ack.stationPayloadWeightLbs) : null,
                 payloadStationCount: Number.isFinite(Number(ack.payloadStationCount)) ? Math.round(Number(ack.payloadStationCount)) : null,
                 sampledStationCount: Number.isFinite(Number(ack.sampledStationCount)) ? Math.round(Number(ack.sampledStationCount)) : null,
                 stations: Array.isArray(ack.stations) ? ack.stations.map(row => ({
@@ -12935,8 +12947,8 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 314;
-const MIN_TRACKER_VERSION_LABEL = 'v314';
+const MIN_TRACKER_VERSION_CODE = 315;
+const MIN_TRACKER_VERSION_LABEL = 'v315';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

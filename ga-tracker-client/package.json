@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node tracker.js",
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
+    "build:pa24-payload-probe": "pkg pa24-payload-probe.js --target node18-win-x64 --output dist/PA24-Payload-Probe.exe",
+    "test:pa24-payload-probe": "node pa24-payload-probe.test.js",
     "test:homebase": "node homebase-self-test.js",
     "test:storage": "node tracker-storage-selftest.js",
     "test:door-proximity": "node homebase-door-proximity-test-selftest.js",

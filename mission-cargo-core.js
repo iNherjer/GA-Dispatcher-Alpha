@@ -1299,6 +1299,8 @@ function _missionCargoResetPayloadPlanForMissionKey(manifestKey = '') {
     window.missionCargoStatus.payloadStartOverride = false;
     window.missionCargoStatus.payloadPendingResetStations = null;
     window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+    window.missionCargoStatus.payloadPendingResetAdapter = '';
+    window.missionCargoStatus.payloadPendingResetPa24State = null;
     window.missionCargoStatus.payloadVerification = null;
     window.missionCargoStatus.payloadVerificationRunning = false;
     if (manifestKey) window.missionCargoStatus.payloadNeedsSync = false;
@@ -1308,7 +1310,7 @@ function _missionCargoNormalizePayloadSnapshot(snapshot = null) {
     const raw = snapshot && typeof snapshot === 'object' ? snapshot : null;
     if (!raw) return null;
     const rawCount = (raw.payloadStationCount ?? raw.sampledStationCount ?? (Array.isArray(raw.stations) ? raw.stations.length : 0));
-    const stationCount = Math.max(1, Math.min(15, Math.round(Number(rawCount || 0))));
+    const stationCount = Math.max(1, Math.min(20, Math.round(Number(rawCount || 0))));
     if (!Number.isFinite(stationCount) || stationCount < 1) return null;
     const byIndex = new Map();
     const inputStations = Array.isArray(raw.stations) ? raw.stations : [];
@@ -1322,19 +1324,49 @@ function _missionCargoNormalizePayloadSnapshot(snapshot = null) {
     for (let i = 1; i <= stationCount; i += 1) {
         stations.push({ index: i, weightLbs: Math.round((Number(byIndex.get(i) || 0)) * 10) / 10 });
     }
+    const pa24Raw = raw.pa24 && typeof raw.pa24 === 'object' ? raw.pa24 : null;
+    const pa24Seats = pa24Raw?.seats && typeof pa24Raw.seats === 'object' ? pa24Raw.seats : {};
+    const pa24Weights = pa24Raw?.characterWeights && typeof pa24Raw.characterWeights === 'object'
+        ? pa24Raw.characterWeights
+        : {};
+    const pa24 = pa24Raw ? {
+        seats: {
+            1: Math.max(0, Math.min(4, Math.round(Number(pa24Seats[1] ?? pa24Seats['1'] ?? 0) || 0))),
+            2: Math.max(0, Math.min(4, Math.round(Number(pa24Seats[2] ?? pa24Seats['2'] ?? 0) || 0))),
+            3: Math.max(0, Math.min(4, Math.round(Number(pa24Seats[3] ?? pa24Seats['3'] ?? 0) || 0))),
+            4: Math.max(0, Math.min(4, Math.round(Number(pa24Seats[4] ?? pa24Seats['4'] ?? 0) || 0)))
+        },
+        characterWeights: {
+            1: Math.max(0, Number(pa24Weights[1] ?? pa24Weights['1'] ?? 0) || 0),
+            2: Math.max(0, Number(pa24Weights[2] ?? pa24Weights['2'] ?? 0) || 0),
+            3: Math.max(0, Number(pa24Weights[3] ?? pa24Weights['3'] ?? 0) || 0),
+            4: Math.max(0, Number(pa24Weights[4] ?? pa24Weights['4'] ?? 0) || 0)
+        },
+        baggageWeightLbs: Math.max(0, Number(pa24Raw.baggageWeightLbs || 0)),
+        baggageAWeightLbs: Math.max(0, Number(pa24Raw.baggageAWeightLbs || 0)),
+        baggageBWeightLbs: Math.max(0, Number(pa24Raw.baggageBWeightLbs || 0)),
+        baggageCWeightLbs: Math.max(0, Number(pa24Raw.baggageCWeightLbs || 0)),
+        payloadWeightLbs: Number.isFinite(Number(pa24Raw.payloadWeightLbs)) ? Number(pa24Raw.payloadWeightLbs) : null,
+        totalWeightLbs: Number.isFinite(Number(pa24Raw.totalWeightLbs)) ? Number(pa24Raw.totalWeightLbs) : null,
+        grossWeightLbs: Number.isFinite(Number(pa24Raw.grossWeightLbs)) ? Number(pa24Raw.grossWeightLbs) : null,
+        emptyWeightLbs: Number.isFinite(Number(pa24Raw.emptyWeightLbs)) ? Number(pa24Raw.emptyWeightLbs) : null
+    } : null;
     return {
+        payloadAdapter: String(raw.payloadAdapter || 'msfs_payload_stations'),
+        aircraft: raw.aircraft && typeof raw.aircraft === 'object' ? { ...raw.aircraft } : null,
+        pa24,
         totalWeightLbs: Number.isFinite(Number(raw.totalWeightLbs)) ? Number(raw.totalWeightLbs) : null,
         emptyWeightLbs: Number.isFinite(Number(raw.emptyWeightLbs)) ? Number(raw.emptyWeightLbs) : null,
         fuelWeightLbs: Number.isFinite(Number(raw.fuelWeightLbs ?? window.lastLiveFlightData?.fuelWeightLbs)) ? Number(raw.fuelWeightLbs ?? window.lastLiveFlightData?.fuelWeightLbs) : null,
         payloadWeightLbs: Number.isFinite(Number(raw.payloadWeightLbs)) ? Number(raw.payloadWeightLbs) : null,
         payloadStationCount: stationCount,
-        sampledStationCount: Math.max(stationCount, Math.min(15, Math.round(Number(raw.sampledStationCount || stationCount)))),
+        sampledStationCount: Math.max(stationCount, Math.min(20, Math.round(Number(raw.sampledStationCount || stationCount)))),
         stations
     };
 }
 
 function _missionCargoBuildPayloadLayout(snapshot = null) {
-    const count = Math.max(1, Math.min(15, Math.round(Number(snapshot?.payloadStationCount ?? 1) || 1)));
+    const count = Math.max(1, Math.min(20, Math.round(Number(snapshot?.payloadStationCount ?? 1) || 1)));
     const allIndices = Array.from({ length: count }, (_, idx) => idx + 1);
     const pilotIndex = 1;
     const copilotIndex = count >= 2 ? 2 : 1;
@@ -1430,6 +1462,39 @@ function _missionCargoDetachInheritedEquipmentFromBaseline(item = null) {
     );
     item.persistentEquipmentInherited = false;
     if (!baseline) return false;
+    if (baseline.payloadAdapter === MISSION_CARGO_PA24_ADAPTER && baseline.pa24) {
+        const removedLbs = Math.min(
+            Math.max(0, Number(item.weightLbs || 0)),
+            Math.max(0, Number(baseline.pa24.baggageWeightLbs || 0))
+        );
+        if (!removedLbs) return false;
+        const nextBaseline = {
+            ...baseline,
+            totalWeightLbs: Number.isFinite(Number(baseline.totalWeightLbs))
+                ? Math.max(0, Number(baseline.totalWeightLbs) - removedLbs)
+                : null,
+            payloadWeightLbs: Number.isFinite(Number(baseline.payloadWeightLbs))
+                ? Math.max(0, Number(baseline.payloadWeightLbs) - removedLbs)
+                : null,
+            pa24: {
+                ...baseline.pa24,
+                baggageWeightLbs: Math.round(Math.max(
+                    0,
+                    Number(baseline.pa24.baggageWeightLbs || 0) - removedLbs
+                ) * 10) / 10
+            },
+            stations: baseline.stations.map(row => ({
+                ...row,
+                weightLbs: row.index === 5
+                    ? Math.round(Math.max(0, Number(row.weightLbs || 0) - removedLbs) * 10) / 10
+                    : Number(row.weightLbs || 0)
+            }))
+        };
+        window.missionCargoStatus.payloadBaseline = nextBaseline;
+        window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(nextBaseline);
+        window.missionCargoStatus.payloadPlan = null;
+        return true;
+    }
     const layout = _missionCargoBuildPayloadLayout(baseline);
     const plan = _missionCargoBuildMissionExtraPlan({
         items: [{ ...item, status: 'loaded', persistentEquipmentInherited: false }]
@@ -1463,9 +1528,196 @@ function _missionCargoDetachInheritedEquipmentFromBaseline(item = null) {
     return removedLbs > 0;
 }
 
+const MISSION_CARGO_PA24_ADAPTER = 'pa24_accusim';
+const MISSION_CARGO_PA24_BAGGAGE_MAX_LBS = 200;
+const MISSION_CARGO_PA24_SEAT_MAX_LBS = 300;
+
+function _missionCargoPa24StateFromSnapshot(snapshot = null) {
+    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
+    if (!normalized || normalized.payloadAdapter !== MISSION_CARGO_PA24_ADAPTER || !normalized.pa24) return null;
+    return {
+        seats: {
+            2: Number(normalized.pa24.seats?.[2] || 0),
+            3: Number(normalized.pa24.seats?.[3] || 0),
+            4: Number(normalized.pa24.seats?.[4] || 0)
+        },
+        characterWeights: {
+            2: Number(normalized.pa24.characterWeights?.[2] || 0),
+            3: Number(normalized.pa24.characterWeights?.[3] || 0),
+            4: Number(normalized.pa24.characterWeights?.[4] || 0)
+        },
+        baggageWeightLbs: Math.round(Math.max(0, Number(normalized.pa24.baggageWeightLbs || 0)) * 10) / 10
+    };
+}
+
+function _missionCargoBuildPa24PlanFromManifest(manifest, baseline, options = {}) {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(baseline);
+    const baselineState = _missionCargoPa24StateFromSnapshot(snapshot);
+    if (!snapshot || !baselineState) return null;
+
+    const persistentOnly = options.persistentOnly === true;
+    const state = JSON.parse(JSON.stringify(baselineState));
+    const assignments = [];
+    const occupiedSeats = new Set();
+    const occupiedCharacters = new Set();
+    const changedSeats = new Set();
+    [2, 3, 4].forEach((seat) => {
+        const character = Math.round(Number(state.seats[seat] || 0));
+        if (character > 0) {
+            occupiedSeats.add(seat);
+            occupiedCharacters.add(character);
+        }
+    });
+
+    const assignSeat = (seat, weightLbs, assignment = {}) => {
+        const weight = Math.round(Math.max(0, Number(weightLbs || 0)) * 10) / 10;
+        if (!Number.isFinite(seat) || occupiedSeats.has(seat)) return { ok: false, error: 'pa24_no_free_seat' };
+        if (!weight || weight > MISSION_CARGO_PA24_SEAT_MAX_LBS) {
+            return { ok: false, error: 'pa24_seat_weight_exceeded' };
+        }
+        const preferredCharacter = seat;
+        const character = !occupiedCharacters.has(preferredCharacter)
+            ? preferredCharacter
+            : [2, 3, 4].find(candidate => !occupiedCharacters.has(candidate));
+        if (!Number.isFinite(character)) return { ok: false, error: 'pa24_no_free_character' };
+        state.seats[seat] = character;
+        state.characterWeights[character] = weight;
+        occupiedSeats.add(seat);
+        occupiedCharacters.add(character);
+        changedSeats.add(seat);
+        assignments.push({
+            ...assignment,
+            weightLbs: weight,
+            stations: [seat],
+            seat,
+            character
+        });
+        return { ok: true, seat, character, weightLbs: weight };
+    };
+
+    const passengerItems = persistentOnly
+        ? []
+        : (manifest?.items || []).filter(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
+    let paxCount = passengerItems.reduce(
+        (sum, item) => sum + Math.max(1, Math.round(Number(item.passengerCount) || 1)),
+        0
+    );
+    let paxTotalLbs = passengerItems.reduce((sum, item) => sum + Math.max(0, Number(item.weightLbs || 0)), 0);
+    if (!persistentOnly && paxTotalLbs <= 0) {
+        const fallbackCount = _missionCargoBoardedPaxCount();
+        if (fallbackCount > 0) {
+            paxCount = fallbackCount;
+            paxTotalLbs = fallbackCount * _missionCargoPaxWeightLbs();
+        }
+    }
+    if (paxCount > 0) {
+        const unitWeight = paxTotalLbs / paxCount;
+        for (let index = 0; index < paxCount; index += 1) {
+            const seat = [2, 3, 4].find(candidate => !occupiedSeats.has(candidate));
+            const result = assignSeat(seat, unitWeight, {
+                type: 'pax',
+                label: paxCount > 1 ? `Passagier ${index + 1}` : 'Passagier'
+            });
+            if (!result.ok) {
+                return { payloadAdapter: MISSION_CARGO_PA24_ADAPTER, error: result.error, assignments };
+            }
+        }
+    }
+
+    const loadedItems = (manifest?.items || [])
+        .filter(item => item.status === 'loaded' && !_missionCargoIsPassengerItem(item))
+        .filter(item => options.excludePersistent !== true || item.persistentEquipment !== true)
+        .filter(item => !persistentOnly || item.persistentEquipment === true)
+        .filter(item => options.includeInheritedPersistent === true || item.persistentEquipmentInherited !== true);
+    let baggageTargetLbs = Number(state.baggageWeightLbs || 0);
+    for (const item of loadedItems) {
+        const itemWeight = Math.round(Math.max(0, Number(item?.weightLbs || 0)) * 10) / 10;
+        if (!itemWeight) continue;
+        const bulky = _missionCargoItemIsBulky(item);
+        if (!bulky && (baggageTargetLbs + itemWeight) <= MISSION_CARGO_PA24_BAGGAGE_MAX_LBS) {
+            baggageTargetLbs += itemWeight;
+            assignments.push({
+                type: 'cargo',
+                itemId: item.id,
+                label: item.storyName || item.label || item.id || 'Cargo',
+                weightLbs: itemWeight,
+                bulky: false,
+                stations: [5],
+                baggage: true
+            });
+            continue;
+        }
+        const seat = [4, 3, 2].find(candidate => !occupiedSeats.has(candidate));
+        const result = assignSeat(seat, itemWeight, {
+            type: 'cargo',
+            itemId: item.id,
+            label: item.storyName || item.label || item.id || 'Cargo',
+            bulky,
+            baggage: false
+        });
+        if (!result.ok) {
+            return { payloadAdapter: MISSION_CARGO_PA24_ADAPTER, error: result.error, assignments };
+        }
+    }
+    state.baggageWeightLbs = Math.round(baggageTargetLbs * 10) / 10;
+
+    const missionCargoWeightLbs = loadedItems.reduce((sum, item) => sum + Math.max(0, Number(item.weightLbs || 0)), 0);
+    const missionWeightLbs = Math.round((paxTotalLbs + missionCargoWeightLbs) * 10) / 10;
+    const targetTotalWeightLbs = Number.isFinite(Number(snapshot.totalWeightLbs))
+        ? Number(snapshot.totalWeightLbs) + missionWeightLbs
+        : null;
+    const grossWeightLbs = Number(snapshot.pa24?.grossWeightLbs);
+    if (Number.isFinite(targetTotalWeightLbs) && Number.isFinite(grossWeightLbs) && grossWeightLbs > 0 && targetTotalWeightLbs > grossWeightLbs + 0.5) {
+        return {
+            payloadAdapter: MISSION_CARGO_PA24_ADAPTER,
+            error: 'pa24_gross_weight_exceeded',
+            targetTotalWeightLbs,
+            grossWeightLbs,
+            assignments
+        };
+    }
+
+    const baselineByStation = new Map(snapshot.stations.map(row => [Number(row.index), Number(row.weightLbs || 0)]));
+    const stationTargets = [2, 3, 4, 5].map((index) => {
+        let targetWeight = Number(baselineByStation.get(index) || 0);
+        if (index >= 2 && index <= 4 && changedSeats.has(index) && Number(state.seats[index] || 0) > 0) {
+            targetWeight = Number(state.characterWeights[state.seats[index]] || 0);
+        }
+        if (index === 5) targetWeight = state.baggageWeightLbs;
+        const baselineWeight = Number(baselineByStation.get(index) || 0);
+        return {
+            index,
+            baselineWeightLbs: Math.round(baselineWeight * 10) / 10,
+            missionExtraLbs: Math.round((targetWeight - baselineWeight) * 10) / 10,
+            weightLbs: Math.round(targetWeight * 10) / 10
+        };
+    });
+    return {
+        payloadAdapter: MISSION_CARGO_PA24_ADAPTER,
+        snapshot,
+        layout: _missionCargoBuildPayloadLayout(snapshot),
+        stations: stationTargets,
+        pa24State: state,
+        pa24BaselineState: baselineState,
+        assignments,
+        boardedPaxCount: paxCount,
+        paxWeightLbs: Math.round(paxTotalLbs * 10) / 10,
+        cargoWeightLbs: Math.round(missionCargoWeightLbs * 10) / 10,
+        missionWeightLbs,
+        payloadWeightLbs: Number.isFinite(Number(snapshot.payloadWeightLbs))
+            ? Math.round((Number(snapshot.payloadWeightLbs) + missionWeightLbs) * 10) / 10
+            : null,
+        targetTotalWeightLbs,
+        grossWeightLbs: Number.isFinite(grossWeightLbs) ? grossWeightLbs : null
+    };
+}
+
 function _missionCargoBuildPlanFromManifest(manifest, baseline) {
     const snapshot = _missionCargoNormalizePayloadSnapshot(baseline);
     if (!snapshot) return null;
+    if (snapshot.payloadAdapter === MISSION_CARGO_PA24_ADAPTER) {
+        return _missionCargoBuildPa24PlanFromManifest(manifest, snapshot);
+    }
     const layout = _missionCargoBuildPayloadLayout(snapshot);
     const missionPlan = _missionCargoBuildMissionExtraPlan(manifest, layout);
     const missionByStation = missionPlan.missionByStation;
@@ -1542,12 +1794,12 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
             index: Math.round(Number(row?.index)),
             weightLbs: Math.round(Math.max(0, Number(row?.weightLbs || 0)) * 10) / 10
         }))
-        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
+        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 20 && Number.isFinite(row.weightLbs));
     if (!targets.length) return { status: 'no_targets' };
     const delays = Array.isArray(options.delaysMs) && options.delaysMs.length
         ? options.delaysMs
         : [900, 2400];
-    const maxStations = Math.max(1, Math.min(15, Math.round(Number(options.maxStations || targets.length || 12)) || 12));
+    const maxStations = Math.max(1, Math.min(20, Math.round(Number(options.maxStations || targets.length || 12)) || 12));
     const startedAt = Date.now();
     let lastAck = null;
     let lastCheck = null;
@@ -1611,7 +1863,10 @@ function _missionCargoStorePayloadBaselineIfNeeded(snapshot, manifestKey = '') {
     const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
     if (!normalized) return null;
     _missionCargoResetPayloadPlanForMissionKey(manifestKey);
-    if (!window.missionCargoStatus.payloadBaseline || Number(window.missionCargoStatus.payloadBaseline?.payloadStationCount || 0) !== Number(normalized.payloadStationCount || 0)) {
+    if (!window.missionCargoStatus.payloadBaseline
+        || Number(window.missionCargoStatus.payloadBaseline?.payloadStationCount || 0) !== Number(normalized.payloadStationCount || 0)
+        || String(window.missionCargoStatus.payloadBaseline?.payloadAdapter || '') !== String(normalized.payloadAdapter || '')
+        || String(window.missionCargoStatus.payloadBaseline?.aircraft?.title || '') !== String(normalized.aircraft?.title || '')) {
         window.missionCargoStatus.payloadBaseline = normalized;
         window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(normalized);
     }
@@ -1710,6 +1965,8 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
         _missionCargoResetPayloadPlanForMissionKey('');
         window.missionCargoStatus.payloadPendingResetStations = null;
         window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadPendingResetAdapter = '';
+        window.missionCargoStatus.payloadPendingResetPa24State = null;
         window.missionCargoStatus.payloadNeedsSync = false;
         return { status: 'no_manifest' };
     }
@@ -1722,10 +1979,27 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     }
     let targetStations = [];
     let targetMaxStations = 0;
+    let targetAdapter = '';
+    let targetPa24State = null;
     const hasLoadedPersistentEquipment = manifestBeforeReset.items.some(
         item => item?.persistentEquipment === true && item.status === 'loaded'
     );
-    if (snapshot && hasLoadedPersistentEquipment) {
+    if (baseline?.payloadAdapter === MISSION_CARGO_PA24_ADAPTER && baseline?.pa24) {
+        const resetPlan = _missionCargoBuildPa24PlanFromManifest(
+            hasLoadedPersistentEquipment ? manifestBeforeReset : { items: [] },
+            baseline,
+            { persistentOnly: true }
+        );
+        if (resetPlan?.error || !resetPlan?.pa24State) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            window.missionCargoStatus.error = resetPlan?.error || 'pa24_reset_plan_failed';
+            return { status: 'pa24_reset_plan_failed', error: window.missionCargoStatus.error };
+        }
+        targetStations = resetPlan.stations || [];
+        targetMaxStations = baseline.sampledStationCount || baseline.payloadStationCount || 20;
+        targetAdapter = MISSION_CARGO_PA24_ADAPTER;
+        targetPa24State = resetPlan.pa24State;
+    } else if (snapshot && hasLoadedPersistentEquipment) {
         targetStations = _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshot);
         targetMaxStations = snapshot.sampledStationCount || snapshot.payloadStationCount || targetStations.length;
     } else if (baseline && Array.isArray(baseline.stations) && baseline.stations.length && (!snapshot || baseline.payloadStationCount === snapshot.payloadStationCount)) {
@@ -1743,6 +2017,8 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     _missionCargoResetPayloadPlanForMissionKey('');
     window.missionCargoStatus.payloadPendingResetStations = targetStations.length ? targetStations : null;
     window.missionCargoStatus.payloadPendingResetMaxStations = targetMaxStations || 0;
+    window.missionCargoStatus.payloadPendingResetAdapter = targetAdapter;
+    window.missionCargoStatus.payloadPendingResetPa24State = targetPa24State;
     window.missionCargoStatus.payloadNeedsSync = !!window.missionCargoStatus.payloadPendingResetStations;
 
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function' || !targetStations.length) {
@@ -1752,12 +2028,16 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     const setAck = await window.trackerPayloadSet(targetStations, {
         maxStations: targetMaxStations || 12,
         timeoutMs: 15000,
-        refreshAfter: true
+        refreshAfter: true,
+        payloadAdapter: targetAdapter,
+        pa24State: targetPa24State
     });
     if (setAck?.status === 'ok') {
         window.missionCargoStatus.payloadNeedsSync = false;
         window.missionCargoStatus.payloadPendingResetStations = null;
         window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadPendingResetAdapter = '';
+        window.missionCargoStatus.payloadPendingResetPa24State = null;
         window.missionCargoStatus.payloadBaseline = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
         window.missionCargoStatus.payloadLayout = window.missionCargoStatus.payloadBaseline ? _missionCargoBuildPayloadLayout(window.missionCargoStatus.payloadBaseline) : null;
         window.missionCargoStatus.payloadPlan = null;
@@ -1770,17 +2050,23 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
 
 async function _missionCargoApplyPendingResetStations(reason = 'payload-pending-reset') {
     const rows = Array.isArray(window.missionCargoStatus?.payloadPendingResetStations) ? window.missionCargoStatus.payloadPendingResetStations : [];
-    if (!rows.length) return { status: 'no_pending_reset' };
+    const payloadAdapter = String(window.missionCargoStatus?.payloadPendingResetAdapter || '');
+    const pa24State = window.missionCargoStatus?.payloadPendingResetPa24State || null;
+    if (!rows.length && !pa24State) return { status: 'no_pending_reset' };
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') return { status: 'skipped' };
     const ack = await window.trackerPayloadSet(rows, {
         maxStations: Math.max(1, Number(window.missionCargoStatus?.payloadPendingResetMaxStations || rows.length) || rows.length),
         timeoutMs: 15000,
-        refreshAfter: true
+        refreshAfter: true,
+        payloadAdapter,
+        pa24State
     });
     if (ack?.status === 'ok') {
         window.missionCargoStatus.payloadNeedsSync = false;
         window.missionCargoStatus.payloadPendingResetStations = null;
         window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadPendingResetAdapter = '';
+        window.missionCargoStatus.payloadPendingResetPa24State = null;
         window.missionCargoStatus.payloadBaseline = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
         window.missionCargoStatus.payloadLayout = window.missionCargoStatus.payloadBaseline ? _missionCargoBuildPayloadLayout(window.missionCargoStatus.payloadBaseline) : null;
         window.missionCargoStatus.payloadPlan = null;
@@ -1822,9 +2108,14 @@ function _missionCargoPayloadStatusMessageHtml() {
     }
     const error = String(window.missionCargoStatus?.error || window.aircraftPayloadStatus?.error || '').trim();
     if (window.missionCargoStatus?.payloadNeedsSync && error) {
-        const text = error === 'payload_unstable_aircraft_override'
-            ? 'Sim-Zuladung wurde vom Flugzeug wieder ueberschrieben.'
-            : `Sim-Zuladung noch nicht synchron (${error}).`;
+        const errorMessages = {
+            payload_unstable_aircraft_override: 'Sim-Zuladung wurde vom Flugzeug wieder ueberschrieben.',
+            pa24_no_free_seat: 'In der Comanche ist kein freier Sitz fuer die geplante Zuladung vorhanden.',
+            pa24_no_free_character: 'In der Comanche ist keine freie Character-Zuordnung fuer die geplante Zuladung vorhanden.',
+            pa24_seat_weight_exceeded: `Eine einzelne Fracht ueberschreitet das Sitzlimit von ${MISSION_CARGO_PA24_SEAT_MAX_LBS} lbs.`,
+            pa24_gross_weight_exceeded: 'Die geplante Zuladung wuerde das zulaessige Gesamtgewicht der Comanche ueberschreiten.'
+        };
+        const text = errorMessages[error] || `Sim-Zuladung noch nicht synchron (${error}).`;
         return `<div class="mission-cargo-payload-message is-warn">${_missionCargoEscape(text)}</div>`;
     }
     return '';
@@ -1864,10 +2155,13 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const missionExtra = Number.isFinite(Number(plan?.missionWeightLbs)) ? Number(plan.missionWeightLbs) : null;
     const paxPart = Number.isFinite(Number(plan?.paxWeightLbs)) ? `Pax ${Math.round(plan.paxWeightLbs)} lbs` : 'Pax n/a';
     const cargoPart = Number.isFinite(Number(plan?.cargoWeightLbs)) ? `Cargo ${Math.round(plan.cargoWeightLbs)} lbs` : 'Cargo n/a';
+    const distributionText = snapshot.payloadAdapter === MISSION_CARGO_PA24_ADAPTER
+        ? `Accu-Sim Comanche · Sitze S2/S3/S4 · Baggage S5 (max. ${MISSION_CARGO_PA24_BAGGAGE_MAX_LBS} lbs)`
+        : `Nutzlaststationen: ${snapshot.payloadStationCount} · Verteilung: Copilot S${layout.copilotIndex} · Ruecksitze ${_missionCargoFormatStationList(layout.rearSeatIndices)} · Cargo ${_missionCargoFormatStationList(layout.cargoIndices)}`;
     return `
         <div class="mission-cargo-payload-summary">
             <div>Sim aktuell: Gesamt ${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '-'} lbs · Leer ${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '-'} lbs · Fuel ${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '-'} lbs</div>
-            <div>Nutzlaststationen: ${snapshot.payloadStationCount} · Verteilung: Copilot S${layout.copilotIndex} · Ruecksitze ${_missionCargoFormatStationList(layout.rearSeatIndices)} · Cargo ${_missionCargoFormatStationList(layout.cargoIndices)}</div>
+            <div>${distributionText}</div>
             <div>Mission-Plan (${mode === 'unload' ? 'Entladen' : 'Verladen'}): ${paxPart} · ${cargoPart}${missionExtra == null ? '' : ` · Zusatz ${Math.round(missionExtra)} lbs`}</div>
             <div>Stationen: ${stationRows || '-'}</div>
             ${_missionCargoPayloadStatusMessageHtml()}
@@ -1882,7 +2176,7 @@ async function _missionCargoRefreshPayloadSnapshot(options = {}) {
         return { status: 'cached', snapshot: window.aircraftPayloadStatus.snapshot };
     }
     return window.trackerPayloadGet({
-        maxStations: Math.max(4, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12))),
+        maxStations: Math.max(4, Math.min(20, Math.round(Number(options?.maxStations ?? 12) || 12))),
         timeoutMs: Number(options?.timeoutMs) || 12000
     });
 }
@@ -1912,7 +2206,7 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
         const manifest = _missionCargoEnsureManifest();
         _missionCargoResetPayloadPlanForMissionKey(manifest?.key || '');
         if (!window.missionCargoStatus.payloadBaseline) {
-            const getAck = await _missionCargoRefreshPayloadSnapshot({ force: true, maxStations: 12, timeoutMs: 12000 });
+            const getAck = await _missionCargoRefreshPayloadSnapshot({ force: true, maxStations: 20, timeoutMs: 12000 });
             if (getAck?.status !== 'ok' && !window.aircraftPayloadStatus?.snapshot) {
                 window.missionCargoStatus.payloadNeedsSync = true;
                 return getAck || { status: 'no_snapshot' };
@@ -1924,6 +2218,12 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
             return { status: 'no_baseline' };
         }
         const plan = _missionCargoBuildPlanFromManifest(manifest, baseline);
+        if (plan?.error) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            window.missionCargoStatus.error = plan.error;
+            window.missionCargoStatus.payloadPlan = plan;
+            return { status: 'invalid_plan', error: plan.error, plan };
+        }
         if (!plan || !Array.isArray(plan.stations) || !plan.stations.length) {
             window.missionCargoStatus.payloadNeedsSync = true;
             return { status: 'no_plan' };
@@ -1932,7 +2232,13 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
         window.missionCargoStatus.payloadPlan = plan;
         const setAck = await window.trackerPayloadSet(
             plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })),
-            { maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12, timeoutMs: 15000, refreshAfter: true }
+            {
+                maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12,
+                timeoutMs: 15000,
+                refreshAfter: true,
+                payloadAdapter: plan.payloadAdapter || baseline.payloadAdapter || '',
+                pa24State: plan.pa24State || null
+            }
         );
         window.missionCargoStatus.payloadSyncAt = Date.now();
         if (setAck?.status === 'ok') {

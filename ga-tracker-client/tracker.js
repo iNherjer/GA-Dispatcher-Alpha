@@ -28,8 +28,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v314';
-const TRACKER_VERSION_CODE = 314;
+const TRACKER_VERSION = 'v315';
+const TRACKER_VERSION_CODE = 315;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
 let credentialsProvidedByDesktop = false;
@@ -1101,8 +1101,37 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const clampPayloadStationCount = (value, fallback = 12) => {
     const n = Number(value);
-    if (!Number.isFinite(n)) return Math.max(1, Math.min(15, Math.round(fallback)));
-    return Math.max(1, Math.min(15, Math.round(n)));
+    if (!Number.isFinite(n)) return Math.max(1, Math.min(20, Math.round(fallback)));
+    return Math.max(1, Math.min(20, Math.round(n)));
+  };
+
+  const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';
+  const PA24_PAYLOAD_LVARS = [
+    ...[1, 2, 3, 4].map((seat) => ({
+      key: `Seat${seat}Character`,
+      name: `L:Seat${seat}Character`,
+      units: 'enum'
+    })),
+    ...[1, 2, 3, 4].map((character) => ({
+      key: `Character${character}Weight`,
+      name: `L:Character${character}Weight`,
+      units: 'number'
+    })),
+    { key: 'BaggageWeight', name: 'L:BaggageWeight', units: 'pounds' },
+    { key: 'BaggageAWeight', name: 'L:BaggageAWeight', units: 'pounds' },
+    { key: 'BaggageBWeight', name: 'L:BaggageBWeight', units: 'pounds' },
+    { key: 'BaggageCWeight', name: 'L:BaggageCWeight', units: 'pounds' },
+    { key: 'PayloadWeight', name: 'L:PayloadWeight', units: 'pounds' },
+    { key: 'TotalWeight', name: 'L:TotalWeight', units: 'pounds' },
+    { key: 'GrossWeight', name: 'L:GrossWeight', units: 'pounds' },
+    { key: 'EmptyWeight', name: 'L:EmptyWeight', units: 'pounds' }
+  ];
+
+  const detectPayloadAdapter = (aircraft = {}) => {
+    const haystack = `${aircraft?.title || ''} ${aircraft?.model || ''} ${aircraft?.type || ''}`;
+    return /(?:\bpa\s*-?\s*24\b|\bpa24\b|comanche)/i.test(haystack)
+      ? PA24_PAYLOAD_ADAPTER
+      : 'msfs_payload_stations';
   };
 
   const ensurePayloadReadDefinition = (stationCount) => {
@@ -1110,6 +1139,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const cached = payloadReadDefCache.get(count);
     if (cached) return cached;
     const defId = nextDefId++;
+    handle.addToDataDefinition(defId, 'TITLE', null, SimConnectDataType.STRING256);
+    handle.addToDataDefinition(defId, 'ATC MODEL', null, SimConnectDataType.STRING256);
+    handle.addToDataDefinition(defId, 'ATC TYPE', null, SimConnectDataType.STRING256);
     handle.addToDataDefinition(defId, 'TOTAL WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
     handle.addToDataDefinition(defId, 'EMPTY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
     handle.addToDataDefinition(defId, 'FUEL TOTAL QUANTITY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
@@ -1117,6 +1149,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     for (let i = 1; i <= count; i += 1) {
       handle.addToDataDefinition(defId, `PAYLOAD STATION WEIGHT:${i}`, 'pounds', SimConnectDataType.FLOAT64);
     }
+    PA24_PAYLOAD_LVARS.forEach((entry) => {
+      handle.addToDataDefinition(defId, entry.name, entry.units, SimConnectDataType.FLOAT64);
+    });
     payloadReadDefCache.set(count, defId);
     return defId;
   };
@@ -1124,7 +1159,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const ensurePayloadSetDefinition = (indices = []) => {
     const clean = [...new Set((indices || [])
       .map(v => Math.round(Number(v)))
-      .filter(v => Number.isFinite(v) && v >= 1 && v <= 15))]
+      .filter(v => Number.isFinite(v) && v >= 1 && v <= 20))]
       .sort((a, b) => a - b);
     if (!clean.length) throw new Error('no_valid_station_indices');
     const key = clean.join(',');
@@ -1174,7 +1209,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         index: Math.round(Number(row?.index)),
         weightLbs: Math.max(0, Number(row?.weightLbs))
       }))
-      .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
+      .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 20 && Number.isFinite(row.weightLbs));
     if (!normalized.length) throw new Error('no_valid_station_data');
     const { defId, indices } = ensurePayloadSetDefinition(normalized.map(row => row.index));
     const byIndex = new Map(normalized.map(row => [row.index, row.weightLbs]));
@@ -1187,6 +1222,78 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       changed: indices.length,
       stations: indices.map(idx => ({ index: idx, weightLbs: Math.round((Number(byIndex.get(idx) || 0)) * 10) / 10 }))
     };
+  };
+
+  const normalizePa24PayloadState = (raw = {}) => {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const seatsSource = source.seats && typeof source.seats === 'object' ? source.seats : {};
+    const weightsSource = source.characterWeights && typeof source.characterWeights === 'object'
+      ? source.characterWeights
+      : {};
+    const seats = {};
+    const characterWeights = {};
+    [2, 3, 4].forEach((seat) => {
+      const character = Math.round(Number(seatsSource[seat] ?? seatsSource[String(seat)] ?? 0));
+      if (!Number.isFinite(character) || character < 0 || character > 4) {
+        throw new Error(`pa24_invalid_seat_character_${seat}`);
+      }
+      seats[seat] = character;
+    });
+    [2, 3, 4].forEach((character) => {
+      const weight = Number(weightsSource[character] ?? weightsSource[String(character)] ?? 0);
+      if (!Number.isFinite(weight) || weight < 0 || weight > 500) {
+        throw new Error(`pa24_invalid_character_weight_${character}`);
+      }
+      characterWeights[character] = Math.round(weight * 10) / 10;
+    });
+    const baggageWeightLbs = Number(source.baggageWeightLbs);
+    if (!Number.isFinite(baggageWeightLbs) || baggageWeightLbs < 0 || baggageWeightLbs > 200) {
+      throw new Error('pa24_invalid_baggage_weight');
+    }
+    return {
+      seats,
+      characterWeights,
+      baggageWeightLbs: Math.round(baggageWeightLbs * 10) / 10
+    };
+  };
+
+  const applyPa24PayloadState = async (rawState = {}) => {
+    const state = normalizePa24PayloadState(rawState);
+    let changed = 0;
+    [2, 3, 4].forEach((seat) => {
+      if (!setNamedVarValue(`L:Seat${seat}Character`, 0, 'enum', 'pa24-payload-clear-seat')) {
+        throw new Error(`pa24_seat_clear_failed_${seat}`);
+      }
+      changed += 1;
+    });
+    [2, 3, 4].forEach((character) => {
+      if (!setNamedVarValue(
+        `L:Character${character}Weight`,
+        state.characterWeights[character],
+        'number',
+        'pa24-payload-character-weight'
+      )) {
+        throw new Error(`pa24_character_weight_failed_${character}`);
+      }
+      changed += 1;
+    });
+    if (!setNamedVarValue('L:BaggageWeight', state.baggageWeightLbs, 'pounds', 'pa24-payload-baggage')) {
+      throw new Error('pa24_baggage_weight_failed');
+    }
+    changed += 1;
+    [2, 3, 4].forEach((seat) => {
+      if (state.seats[seat] === 0) return;
+      if (!setNamedVarValue(
+        `L:Seat${seat}Character`,
+        state.seats[seat],
+        'enum',
+        'pa24-payload-occupy-seat'
+      )) {
+        throw new Error(`pa24_seat_occupy_failed_${seat}`);
+      }
+      changed += 1;
+    });
+    return { changed, state };
   };
 
   const resolveDoorProfile = (command) => {
@@ -2954,10 +3061,20 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     pendingPayloadReads.delete(recv.requestID);
     clearTimeout(pending.timer);
     try {
+      const readString = () => {
+        if (typeof recv?.data?.readString256 === 'function') return String(recv.data.readString256() || '').trim();
+        if (typeof recv?.data?.readString === 'function') return String(recv.data.readString(256) || '').trim();
+        throw new Error('payload_read_string_fn_missing');
+      };
       const readFn = (typeof recv?.data?.readFloat64 === 'function')
         ? (() => recv.data.readFloat64())
         : ((typeof recv?.data?.readDouble === 'function') ? (() => recv.data.readDouble()) : null);
       if (!readFn) throw new Error('payload_read_fn_missing');
+      const aircraft = {
+        title: readString(),
+        model: readString(),
+        type: readString()
+      };
       const totalWeightLbs = Number(readFn());
       const emptyWeightLbs = Number(readFn());
       const fuelWeightLbs = Number(readFn());
@@ -2970,13 +3087,51 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           weightLbs: Number.isFinite(weight) ? Math.round(weight * 10) / 10 : null
         });
       }
+      const pa24Raw = {};
+      PA24_PAYLOAD_LVARS.forEach((entry) => {
+        pa24Raw[entry.key] = Number(readFn());
+      });
       const knownStations = stations.filter(s => s.index <= payloadStationCountReported);
-      const payloadWeightLbs = knownStations.reduce((sum, s) => sum + (Number.isFinite(Number(s.weightLbs)) ? Number(s.weightLbs) : 0), 0);
+      const stationPayloadWeightLbs = knownStations.reduce((sum, s) => sum + (Number.isFinite(Number(s.weightLbs)) ? Number(s.weightLbs) : 0), 0);
+      const payloadAdapter = detectPayloadAdapter(aircraft);
+      const isPa24 = payloadAdapter === PA24_PAYLOAD_ADAPTER;
+      const pa24 = isPa24 ? {
+        seats: {
+          1: Math.round(Number(pa24Raw.Seat1Character) || 0),
+          2: Math.round(Number(pa24Raw.Seat2Character) || 0),
+          3: Math.round(Number(pa24Raw.Seat3Character) || 0),
+          4: Math.round(Number(pa24Raw.Seat4Character) || 0)
+        },
+        characterWeights: {
+          1: Math.round((Number(pa24Raw.Character1Weight) || 0) * 10) / 10,
+          2: Math.round((Number(pa24Raw.Character2Weight) || 0) * 10) / 10,
+          3: Math.round((Number(pa24Raw.Character3Weight) || 0) * 10) / 10,
+          4: Math.round((Number(pa24Raw.Character4Weight) || 0) * 10) / 10
+        },
+        baggageWeightLbs: Math.round((Number(pa24Raw.BaggageWeight) || 0) * 10) / 10,
+        baggageAWeightLbs: Math.round((Number(pa24Raw.BaggageAWeight) || 0) * 10) / 10,
+        baggageBWeightLbs: Math.round((Number(pa24Raw.BaggageBWeight) || 0) * 10) / 10,
+        baggageCWeightLbs: Math.round((Number(pa24Raw.BaggageCWeight) || 0) * 10) / 10,
+        payloadWeightLbs: Math.round((Number(pa24Raw.PayloadWeight) || 0) * 10) / 10,
+        totalWeightLbs: Math.round((Number(pa24Raw.TotalWeight) || 0) * 10) / 10,
+        grossWeightLbs: Math.round((Number(pa24Raw.GrossWeight) || 0) * 10) / 10,
+        emptyWeightLbs: Math.round((Number(pa24Raw.EmptyWeight) || 0) * 10) / 10
+      } : null;
       pending.resolve({
-        totalWeightLbs: Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null,
-        emptyWeightLbs: Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null,
+        payloadAdapter,
+        aircraft,
+        pa24,
+        totalWeightLbs: isPa24 && Number.isFinite(pa24?.totalWeightLbs)
+          ? pa24.totalWeightLbs
+          : (Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null),
+        emptyWeightLbs: isPa24 && Number.isFinite(pa24?.emptyWeightLbs)
+          ? pa24.emptyWeightLbs
+          : (Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null),
         fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
-        payloadWeightLbs: Math.round(payloadWeightLbs * 10) / 10,
+        payloadWeightLbs: isPa24 && Number.isFinite(pa24?.payloadWeightLbs)
+          ? pa24.payloadWeightLbs
+          : Math.round(stationPayloadWeightLbs * 10) / 10,
+        stationPayloadWeightLbs: Math.round(stationPayloadWeightLbs * 10) / 10,
         payloadStationCount: payloadStationCountReported,
         sampledStationCount: pending.stationCount,
         stations: knownStations
@@ -3221,16 +3376,34 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const commandId = command?.commandId || null;
         const stations = Array.isArray(command?.stations) ? command.stations : [];
         const maxStations = clampPayloadStationCount(command?.maxStations ?? 12, 12);
-        debugLog(`COMMAND aircraft_payload_set stations=${stations.length} maxStations=${maxStations}`);
-        applyPayloadStations(stations)
-          .then((result) => requestPayloadSnapshot(maxStations).then(snapshot => ({ result, snapshot })))
+        const requestedAdapter = String(command?.payloadAdapter || command?.adapter || '').trim();
+        const pa24State = command?.pa24State && typeof command.pa24State === 'object' ? command.pa24State : null;
+        debugLog(`COMMAND aircraft_payload_set adapter=${requestedAdapter || 'auto'} stations=${stations.length} maxStations=${maxStations}`);
+        requestPayloadSnapshot(maxStations)
+          .then((before) => {
+            if (requestedAdapter === PA24_PAYLOAD_ADAPTER || pa24State) {
+              if (before?.payloadAdapter !== PA24_PAYLOAD_ADAPTER) {
+                throw new Error(`pa24_adapter_aircraft_mismatch:${before?.aircraft?.title || 'unknown'}`);
+              }
+              return applyPa24PayloadState(pa24State).then(result => ({ result, before }));
+            }
+            if (before?.payloadAdapter === PA24_PAYLOAD_ADAPTER) {
+              throw new Error('pa24_adapter_state_required');
+            }
+            return applyPayloadStations(stations).then(result => ({ result, before }));
+          })
+          .then(({ result, before }) => sleep(before?.payloadAdapter === PA24_PAYLOAD_ADAPTER ? 350 : 0)
+            .then(() => requestPayloadSnapshot(maxStations))
+            .then(snapshot => ({ result, snapshot })))
           .then(({ result, snapshot }) => {
             sendAck({
               type: 'aircraft_payload_set_ack',
               commandId,
               status: 'ok',
-              changedStations: result.changed,
-              appliedStations: result.stations,
+              payloadAdapter: snapshot?.payloadAdapter || requestedAdapter || 'msfs_payload_stations',
+              changedStations: Array.isArray(result?.stations) ? result.stations.length : 0,
+              appliedStations: result?.stations || [],
+              appliedPa24State: result?.state || null,
               ...snapshot
             });
           })

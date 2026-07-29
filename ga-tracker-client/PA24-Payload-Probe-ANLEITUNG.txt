@@ -1,0 +1,48 @@
+PA24 Payload Probe 1.1.0
+========================
+
+Zweck
+-----
+Dieses getrennte Testprogramm prueft, welche Accu-Sim-Variablen der
+A2A Comanche 250 Nutzlast beeinflussen und ob gesetzte Werte bestehen
+bleiben oder vom Flugzeug wieder ueberschrieben werden.
+
+Das Programm schreibt KEINE generischen MSFS-Payloadstationen.
+
+Vorbereitung
+------------
+1. Microsoft Flight Simulator und die A2A Comanche vollstaendig laden.
+2. Flugzeug am Boden abstellen und Motor ausschalten.
+3. Den aktuellen Zustand im Comanche-Tablet zur Sicherheit notieren.
+4. PA24-Payload-Probe.exe starten.
+5. Den angezeigten Flugzeugtitel und den Ausgangszustand pruefen.
+6. Zum Start des Schreibtests TEST eingeben.
+
+Testablauf
+----------
+- Vollstaendiger Ausgangszustand und Recovery-Datei
+- BaggageWeight einzeln testen, maximal 200 lbs
+- BaggageAWeight, BaggageBWeight und BaggageCWeight einzeln testen
+- Wenn moeglich: freie Character-ID mit einem freien Sitz verbinden
+- Fuer die Sitzpruefung werden nur die von Accu-Sim ausgewerteten Character-IDs
+  1 bis 4 verwendet; Character-Gewichte werden als rohe Zahlenwerte gelesen
+- Ruecklesen nach 0, 0,25, 1, 3 und 10 Sekunden
+- Jeder Testwert wird danach auf den exakten Ausgangswert zurueckgesetzt
+- JSON- und CSV-Protokoll werden neben der EXE gespeichert
+
+Sicherheit
+----------
+Das Programm erlaubt Schreibtests normalerweise nur, wenn TITLE, ATC MODEL
+oder ATC TYPE eindeutig Comanche beziehungsweise PA-24 enthalten.
+
+Falls eine fruehere Testsession nicht sauber abgeschlossen wurde, verlangt
+das Programm beim naechsten Start zuerst die Eingabe RESTORE.
+
+Optionen
+--------
+--read-only   Nur lesen und Protokoll schreiben
+--force       Erkennung bewusst uebergehen
+--yes         Sicherheitsabfrage automatisch bestaetigen
+--no-pause    Konsole am Ende nicht offenhalten
+
+Bitte fuer die erste echte Messung die erzeugte JSON-Datei aufbewahren.
