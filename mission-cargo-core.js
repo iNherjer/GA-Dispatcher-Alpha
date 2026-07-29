@@ -2,7 +2,12 @@
 // Extrahierte Cargo-/Manifest-/Payload-/Outcome-Logik aus sync.js.
 // Ziel: Strukturgewinn ohne Verhaltensaenderung.
 
+let missionCargoComplianceDebugManifest = null;
+
 function _missionCargoMissionKey() {
+    if (missionCargoComplianceDebugManifest?.key) {
+        return String(missionCargoComplianceDebugManifest.key);
+    }
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const stableKey = String(
         md?.cargoManifest?.key
@@ -414,6 +419,7 @@ window.missionCargoResolveManualPassengerAck = function(ack = {}) {
 };
 
 function _missionCargoHasActiveMission() {
+    if (missionCargoComplianceDebugManifest) return true;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) return false;
     return !!(md || window.activeMissionContract);
@@ -832,6 +838,7 @@ function _missionCargoUpgradePersistentEquipmentManifest(manifest = null) {
 }
 
 function _missionCargoGetManifest() {
+    if (missionCargoComplianceDebugManifest) return missionCargoComplianceDebugManifest;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (md?.cargoManifest && typeof md.cargoManifest === 'object') return md.cargoManifest;
     if (md?.missionContract?.cargoManifest && typeof md.missionContract.cargoManifest === 'object') return md.missionContract.cargoManifest;
@@ -840,27 +847,35 @@ function _missionCargoGetManifest() {
 }
 
 function _missionCargoPersistManifest(manifest) {
+    const isComplianceDebugManifest = !!(
+        missionCargoComplianceDebugManifest
+        && String(manifest?.key || '') === String(missionCargoComplianceDebugManifest.key || '')
+    );
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
-    if (md && typeof md === 'object') {
+    if (isComplianceDebugManifest) {
+        missionCargoComplianceDebugManifest = manifest;
+    } else if (md && typeof md === 'object') {
         md.cargoManifest = manifest;
         if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.cargoManifest = manifest;
     }
-    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+    if (!isComplianceDebugManifest && window.activeMissionContract && typeof window.activeMissionContract === 'object') {
         window.activeMissionContract.cargoManifest = manifest;
     }
     _missionCargoPersistOnboardEquipment(manifest);
     try {
         window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } }));
     } catch (_) {}
-    try {
-        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
-        else if (typeof saveMissionState === 'function') saveMissionState();
-    } catch (_) {}
-    try {
-        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
-            window.missionPersistRuntimeSnapshot('cargo-manifest');
-        }
-    } catch (_) {}
+    if (!isComplianceDebugManifest) {
+        try {
+            if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+            else if (typeof saveMissionState === 'function') saveMissionState();
+        } catch (_) {}
+        try {
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+                window.missionPersistRuntimeSnapshot('cargo-manifest');
+            }
+        } catch (_) {}
+    }
     return manifest;
 }
 
@@ -880,6 +895,11 @@ function _missionCargoEnsureUiSyncHook() {
 function _missionCargoEnsureManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (missionCargoComplianceDebugManifest) {
+        window.missionCargoStatus.manifestKey = missionCargoComplianceDebugManifest.key || key;
+        _missionCargoResetPayloadPlanForMissionKey(missionCargoComplianceDebugManifest.key || key);
+        return missionCargoComplianceDebugManifest;
+    }
     if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
         return {
             version: 1,
@@ -901,6 +921,49 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
     _missionCargoResetPayloadPlanForMissionKey(manifest.key || key);
     return manifest;
 }
+
+window.missionCargoBeginComplianceDebugSession = function(options = {}) {
+    if (missionCargoComplianceDebugManifest) {
+        return JSON.parse(JSON.stringify(missionCargoComplianceDebugManifest));
+    }
+    const startedAt = Math.round(Number(options.startedAt || 0) || Date.now());
+    const landingAt = Math.max(startedAt, Math.round(Number(options.landingAt || 0) || startedAt));
+    const flightId = String(options.flightId || `debug-authority|${startedAt}`);
+    const key = String(options.key || `debug-authority-${startedAt}`);
+    const aircraftSlot = _missionCargoAircraftSlot();
+    const items = _missionCargoPersistentEquipmentDefinitions();
+    _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
+    missionCargoComplianceDebugManifest = {
+        version: 4,
+        key,
+        aircraftSlot,
+        taskDomain: 'flight_compliance',
+        isPoi: false,
+        debugCompliance: true,
+        flightId,
+        createdAt: startedAt,
+        flightEvents: {
+            flightId,
+            startAt: startedAt,
+            landingAt
+        },
+        items
+    };
+    window.missionCargoStatus.error = null;
+    window.missionCargoStatus.manifestKey = key;
+    _missionCargoPersistManifest(missionCargoComplianceDebugManifest);
+    return JSON.parse(JSON.stringify(missionCargoComplianceDebugManifest));
+};
+
+window.missionCargoEndComplianceDebugSession = function(flightId = '') {
+    if (!missionCargoComplianceDebugManifest) return false;
+    const expectedFlightId = String(flightId || '');
+    if (expectedFlightId && expectedFlightId !== String(missionCargoComplianceDebugManifest.flightId || '')) return false;
+    missionCargoComplianceDebugManifest = null;
+    window.missionCargoStatus.manifestKey = '';
+    window.missionCargoStatus.error = null;
+    return true;
+};
 
 function _missionCargoManifestMatchesMissionRecipe(manifest = null) {
     if (!manifest || !Array.isArray(manifest.items)) return false;
@@ -2969,6 +3032,9 @@ window.missionCargoGetManifestSnapshot = function() {
 };
 
 window.missionCargoCurrentFlightId = function() {
+    if (missionCargoComplianceDebugManifest?.flightId) {
+        return String(missionCargoComplianceDebugManifest.flightId);
+    }
     const startedAt = Number(
         (typeof missionRuntime !== 'undefined' && missionRuntime?.startedAt)
         || (typeof flightRecorder !== 'undefined' && flightRecorder?.startTs)
@@ -3010,6 +3076,7 @@ function _missionCargoFormatLogTime(timestamp) {
 }
 
 function _missionCargoFlightEndpointLabel(which = 'start') {
+    if (missionCargoComplianceDebugManifest) return 'Debug-Standort';
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (which === 'landing') {
         return String(

@@ -37,6 +37,7 @@ let missionComplianceDepartureTimer = null;
 let missionComplianceResumeTimer = null;
 let missionComplianceRequestPromise = null;
 let missionComplianceResultPromise = null;
+let missionComplianceStandaloneState = null;
 
 function _missionComplianceClone(value, fallback = null) {
     try { return JSON.parse(JSON.stringify(value)); } catch (_) { return fallback; }
@@ -53,6 +54,9 @@ function _missionComplianceMissionData() {
 }
 
 function _missionComplianceMissionKey() {
+    if (missionComplianceStandaloneState?.missionKey) {
+        return String(missionComplianceStandaloneState.missionKey);
+    }
     const md = _missionComplianceMissionData();
     const contract = md?.missionContract || window.activeMissionContract || null;
     return String(
@@ -93,6 +97,7 @@ function _missionComplianceNormalizeState(raw = null) {
         : { required: false, missingFields: [] };
     return {
         version: 1,
+        debugStandalone: source.debugStandalone === true,
         missionKey: String(source.missionKey || _missionComplianceMissionKey()),
         flightId: String(source.flightId || _missionComplianceFlightId()),
         selected: source.selected === true ? true : (source.selected === false ? false : null),
@@ -126,6 +131,10 @@ function _missionComplianceNormalizeState(raw = null) {
 }
 
 function _missionComplianceGetState(create = false) {
+    if (missionComplianceStandaloneState) {
+        missionComplianceStandaloneState = _missionComplianceNormalizeState(missionComplianceStandaloneState);
+        return missionComplianceStandaloneState;
+    }
     const md = _missionComplianceMissionData();
     if (!md) return null;
     let raw = md.complianceInspection;
@@ -148,20 +157,28 @@ function _missionComplianceGetState(create = false) {
 function _missionCompliancePersist(state = null, reason = 'compliance') {
     const next = state || _missionComplianceGetState(false);
     const md = _missionComplianceMissionData();
-    if (!next || !md) return false;
+    if (!next) return false;
+    const isStandalone = next.debugStandalone === true;
+    if (!isStandalone && !md) return false;
     next.missionKey = next.missionKey || _missionComplianceMissionKey();
     next.flightId = next.flightId || _missionComplianceFlightId();
     next.updatedAt = Date.now();
-    md.complianceInspection = next;
-    if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.complianceInspection = next;
-    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
-        window.activeMissionContract.complianceInspection = next;
+    if (isStandalone) {
+        missionComplianceStandaloneState = next;
+    } else {
+        md.complianceInspection = next;
+        if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.complianceInspection = next;
+        if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+            window.activeMissionContract.complianceInspection = next;
+        }
     }
-    try {
-        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
-        else if (typeof saveMissionState === 'function') saveMissionState();
-    } catch (_) {}
-    try { window.missionPersistRuntimeSnapshot?.(`compliance:${reason}`, { immediate: true }); } catch (_) {}
+    if (!isStandalone) {
+        try {
+            if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+            else if (typeof saveMissionState === 'function') saveMissionState();
+        } catch (_) {}
+        try { window.missionPersistRuntimeSnapshot?.(`compliance:${reason}`, { immediate: true }); } catch (_) {}
+    }
     try {
         window.gaMissionPhaseDebugRecord?.('compliance', {
             reason,
@@ -320,6 +337,65 @@ window.missionComplianceDebugForceCurrentFlight = function() {
     return true;
 };
 
+function _missionComplianceDebugStartError(message) {
+    try { alert(message); } catch (_) {}
+    return false;
+}
+
+window.missionComplianceDebugStartNow = function() {
+    const existing = _missionComplianceGetState(false);
+    if (existing?.selected && existing.phase !== 'released') {
+        return _missionComplianceDebugStartError('Es laeuft bereits eine Behoerdenkontrolle.');
+    }
+    if (typeof window.missionRuntimeIsActive === 'function' && window.missionRuntimeIsActive()) {
+        return _missionComplianceDebugStartError('Bei einer laufenden Mission bitte "Kontrolle forcieren" verwenden. "Kontrolle jetzt" ist fuer den missionslosen Standtest gedacht.');
+    }
+    const readiness = typeof window.missionComplianceDebugGroundVisitStatus === 'function'
+        ? window.missionComplianceDebugGroundVisitStatus()
+        : { ready: false, label: 'Ground-Visit-Pruefung nicht verfuegbar' };
+    if (readiness?.ready !== true) {
+        return _missionComplianceDebugStartError(`Kontrolle kann jetzt nicht starten: ${String(readiness?.label || readiness?.reason || 'Flugzeug nicht bereit')}.`);
+    }
+    if (typeof window.missionCargoBeginComplianceDebugSession !== 'function') {
+        return _missionComplianceDebugStartError('Das temporaere Debug-Pruefmanifest ist nicht verfuegbar.');
+    }
+    const startedAt = Date.now();
+    const flightId = `debug-authority|${startedAt}`;
+    const manifest = window.missionCargoBeginComplianceDebugSession({
+        flightId,
+        startedAt,
+        landingAt: startedAt
+    });
+    if (!manifest || !Array.isArray(manifest.items)) {
+        return _missionComplianceDebugStartError('Das temporaere Debug-Pruefmanifest konnte nicht erstellt werden.');
+    }
+    const state = _missionComplianceNormalizeState({
+        debugStandalone: true,
+        missionKey: String(manifest.key || `debug-authority-${startedAt}`),
+        flightId,
+        selected: true,
+        forced: true,
+        roll: 0,
+        decisionAt: startedAt,
+        phase: 'selected',
+        phaseAt: startedAt,
+        farewellComplete: true
+    });
+    missionComplianceStandaloneState = state;
+    _missionCompliancePersist(state, 'debug-start-now');
+    _missionComplianceTakeSnapshot(state, manifest);
+    _missionCompliancePreloadRequest(state);
+    const started = _missionComplianceStartSelectedArrival(state, 'debug-start-now');
+    if (!started) {
+        missionComplianceStandaloneState = null;
+        window.missionCargoEndComplianceDebugSession?.(flightId);
+        _missionComplianceRender();
+        return _missionComplianceDebugStartError('Die direkte Behoerdenkontrolle konnte nicht gestartet werden.');
+    }
+    try { window.vpRefreshWeatherDebugReport?.(); } catch (_) {}
+    return true;
+};
+
 function _missionComplianceRequestText() {
     return 'Guten Tag, Luftaufsicht. Es handelt sich um eine Behoerdenkontrolle. Bitte laden Sie jetzt das Bordbuch, den Feuerloescher und das Verbandzeug aus. Anschliessend pruefen wir die Gueltigkeit und den Eintrag des aktuellen Fluges.';
 }
@@ -418,10 +494,7 @@ function _missionComplianceTryBeginRequest() {
     return true;
 }
 
-window.missionComplianceStartArrival = function(reason = 'mission-end-action') {
-    const selected = window.missionComplianceEnsureFinalDecision?.();
-    if (selected !== true) return false;
-    const state = _missionComplianceGetState(false);
+function _missionComplianceStartSelectedArrival(state, reason = 'mission-end-action') {
     if (!state || state.phase === 'released') return false;
     if (_missionCompliancePhaseAtLeast(state, 'approach_started')) {
         _missionComplianceTryBeginRequest();
@@ -461,6 +534,16 @@ window.missionComplianceStartArrival = function(reason = 'mission-end-action') {
         }, 700);
     }
     return true;
+}
+
+window.missionComplianceStartArrival = function(reason = 'mission-end-action') {
+    const current = _missionComplianceGetState(false);
+    if (current?.debugStandalone === true) {
+        return _missionComplianceStartSelectedArrival(current, reason);
+    }
+    const selected = window.missionComplianceEnsureFinalDecision?.();
+    if (selected !== true) return false;
+    return _missionComplianceStartSelectedArrival(_missionComplianceGetState(false), reason);
 };
 
 window.missionComplianceHandleGroundVisitAck = function(ack = {}) {
@@ -809,6 +892,18 @@ function _missionComplianceRelease(state, reason = 'released') {
         setTimeout(() => {
             try { window.missionComplianceReleasePendingClose?.(state.pendingClose); } catch (_) {}
         }, 100);
+    }
+    if (state.debugStandalone === true) {
+        const flightId = String(state.flightId || '');
+        setTimeout(() => {
+            if (missionComplianceStandaloneState?.debugStandalone !== true) return;
+            if (String(missionComplianceStandaloneState.flightId || '') !== flightId) return;
+            try { window.closeMissionCargoDialog?.(); } catch (_) {}
+            try { window.missionCargoEndComplianceDebugSession?.(flightId); } catch (_) {}
+            missionComplianceStandaloneState = null;
+            _missionComplianceRender();
+            try { window.vpRefreshWeatherDebugReport?.(); } catch (_) {}
+        }, 250);
     }
     return true;
 }

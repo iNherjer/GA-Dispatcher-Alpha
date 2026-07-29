@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../mission-compliance-core.js', import.meta.url), 'utf8');
+const cargoSource = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
+const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const appSource = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const mapSource = fs.readFileSync(new URL('../map.js', import.meta.url), 'utf8');
 const runtimeSource = fs.readFileSync(new URL('../mission-runtime-core.js', import.meta.url), 'utf8');
@@ -123,5 +125,109 @@ assert.match(mapSource, /window\.freeflightDirectTo[\s\S]{0,300}missionComplianc
 assert.ok(syncSource.includes("window.missionCargoRecordFlightEvent?.('landing', Number(earlyRecord.endTs || now)"), 'landing banner must be scheduled from the actual target touchdown');
 assert.ok(source.includes('_missionComplianceAwaitVoice'), 'inspection voice needs a bounded fallback');
 assert.ok(runtimeSource.includes('_missionRuntimeStartFarewellSpeech:voice-timeout'), 'Farewell voice needs a bounded fallback');
+assert.ok(cargoSource.includes('missionCargoBeginComplianceDebugSession'), 'standalone debug inspection needs an isolated cargo manifest');
+assert.ok(cargoSource.includes('missionCargoEndComplianceDebugSession'), 'standalone debug manifest cleanup missing');
+assert.ok(syncSource.includes('missionComplianceDebugGroundVisitStatus'), 'standalone debug inspection needs a ground-readiness guard');
+assert.ok(indexSource.includes('id="btnDebugComplianceNow"'), 'debug console button for immediate inspection missing');
+
+let standaloneFlightId = '';
+const standaloneManifest = {
+    version: 4,
+    key: 'debug-authority-12345',
+    aircraftSlot: 'C172',
+    flightId: '',
+    items: [
+        { id: 'bordbuch', status: 'loaded', log: {} },
+        { id: 'fire-extinguisher', status: 'loaded', expiresAt: '2099-01-01' },
+        { id: 'first-aid', status: 'loaded', expiresAt: '2099-01-01' }
+    ]
+};
+let standaloneCargoOpened = 0;
+let standaloneCargoEnded = '';
+const standaloneContext = {
+    window: {
+        activeMissionContract: null,
+        addEventListener() {},
+        missionRuntimeIsActive: () => false,
+        missionComplianceDebugGroundVisitStatus: () => ({ ready: true, label: 'Am Boden bereit' }),
+        missionCargoBeginComplianceDebugSession: options => {
+            standaloneFlightId = String(options?.flightId || '');
+            standaloneManifest.flightId = standaloneFlightId;
+            return standaloneManifest;
+        },
+        missionCargoEndComplianceDebugSession: flight => {
+            standaloneCargoEnded = flight;
+            return true;
+        },
+        missionCargoGetManifestSnapshot: () => JSON.parse(JSON.stringify(standaloneManifest)),
+        missionCargoCurrentFlightId: () => standaloneFlightId,
+        missionComplianceStartGroundVisit: () => ({ commandId: 'visit-now', sceneId: 'scene-now' }),
+        missionComplianceReleaseGroundVisit: () => 'release-now',
+        paxVoicePrepareSystemText: () => Promise.resolve(true),
+        paxVoiceSpeakSystemText: () => Promise.resolve(true),
+        openMissionCargoDialog: () => {
+            standaloneCargoOpened += 1;
+            return true;
+        },
+        closeMissionCargoDialog() {},
+        vpRefreshWeatherDebugReport() {}
+    },
+    document: {
+        readyState: 'complete',
+        body: null,
+        addEventListener() {}
+    },
+    currentMissionData: null,
+    alert() {},
+    setTimeout,
+    clearTimeout,
+    Date,
+    JSON,
+    Object,
+    Number,
+    String,
+    Array,
+    Math,
+    Promise,
+    console
+};
+vm.runInNewContext(source, standaloneContext);
+assert.equal(standaloneContext.window.missionComplianceDebugStartNow(), true);
+let standaloneState = standaloneContext.window.missionComplianceGetDebugState();
+assert.equal(standaloneState.debugStandalone, true);
+assert.equal(standaloneState.phase, 'approach_started');
+assert.equal(standaloneState.farewellComplete, true);
+standaloneContext.window.missionComplianceHandleGroundVisitAck({
+    type: 'mission_scene_ground_visit_stage',
+    commandId: 'visit-now',
+    sceneId: 'scene-now',
+    stage: 'visitors_at_aircraft',
+    status: 'ok'
+});
+await new Promise(resolve => setTimeout(resolve, 0));
+standaloneState = standaloneContext.window.missionComplianceGetDebugState();
+assert.equal(standaloneState.phase, 'evidence_open');
+assert.ok(standaloneCargoOpened > 0, 'standalone request must open the unload dialog');
+standaloneManifest.items.forEach(item => {
+    item.status = 'unloaded';
+});
+standaloneManifest.items[0].log = {
+    flightId: standaloneFlightId,
+    startAt: Date.now() - 60000,
+    landingAt: Date.now()
+};
+assert.equal(standaloneContext.window.missionComplianceSubmitEvidence(), true);
+await new Promise(resolve => setTimeout(resolve, 0));
+standaloneState = standaloneContext.window.missionComplianceGetDebugState();
+assert.equal(standaloneState.phase, 'departing');
+standaloneContext.window.missionComplianceHandleGroundVisitAck({
+    type: 'mission_scene_ground_visit_ack',
+    commandId: 'visit-now',
+    sceneId: 'scene-now',
+    status: 'ok'
+});
+await new Promise(resolve => setTimeout(resolve, 300));
+assert.equal(standaloneContext.window.missionComplianceGetDebugState(), null);
+assert.equal(standaloneCargoEnded, standaloneFlightId);
 
 console.log('mission compliance selftest: ok');

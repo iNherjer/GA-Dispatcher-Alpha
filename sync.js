@@ -8011,6 +8011,37 @@ function _missionSceneCancelInterruptedDeboarding(reason = 'mission-resume') {
     return true;
 }
 
+window.missionComplianceDebugGroundVisitStatus = function() {
+    if (window.simModeActive) {
+        return { ready: false, reason: 'sim_mode', label: 'Live-Tracker erforderlich' };
+    }
+    if (!window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') {
+        return { ready: false, reason: 'tracker_offline', label: 'Tracker offline' };
+    }
+    const trackerVersionCode = Number(window.liveTrackerVersionCode);
+    if (!Number.isFinite(trackerVersionCode) || trackerVersionCode < 316) {
+        return { ready: false, reason: 'tracker_version', label: 'Tracker v316 oder neuer erforderlich' };
+    }
+    const pos = window.lastLiveGpsPos || {};
+    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) {
+        return { ready: false, reason: 'no_position', label: 'Keine gueltige Sim-Position' };
+    }
+    const ground = _missionStartGroundStatus();
+    if (!ground?.ready) {
+        return {
+            ...ground,
+            ready: false,
+            label: String(ground?.label || 'Flugzeug nicht am Boden im Stillstand')
+        };
+    }
+    return {
+        ...ground,
+        ready: true,
+        reason: 'ready',
+        label: 'Am Boden bereit'
+    };
+};
+
 window.missionComplianceStartGroundVisit = function(state = null, reason = 'authority-inspection') {
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
