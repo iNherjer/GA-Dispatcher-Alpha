@@ -40,6 +40,20 @@ const MISSION_CARGO_PERSISTENT_EQUIPMENT_IDS = Object.freeze([
 ]);
 let missionCargoManualPaxRollbackTimer = null;
 let missionCargoOnboardEquipmentCloudTimer = null;
+const MISSION_CARGO_PAYLOAD_SYNC_DEBOUNCE_MS = 500;
+const MISSION_CARGO_PAYLOAD_SYNC_MAX_WAIT_MS = 2000;
+const MISSION_CARGO_PA24_VERIFY_DELAYS_MS = Object.freeze([350, 650]);
+const _MISSION_CARGO_PAYLOAD_SYNC_QUEUE = {
+    timer: null,
+    burstStartedAt: 0,
+    lastRequestedAt: 0,
+    pendingReason: '',
+    revision: 0,
+    settledRevision: 0,
+    forceImmediate: false,
+    waiters: [],
+    lastResult: { status: 'idle' }
+};
 
 function _missionCargoAircraftSlot(value = window.selectedAC || window.activeAircraftPresetSettingsSlot || 'PA-24') {
     return String(value || 'PA-24')
@@ -1295,6 +1309,7 @@ function _missionCargoResetPayloadPlanForMissionKey(manifestKey = '') {
     window.missionCargoStatus.payloadLayout = null;
     window.missionCargoStatus.payloadPlan = null;
     window.missionCargoStatus.payloadSyncQueued = '';
+    window.missionCargoStatus.payloadSyncScheduledAt = 0;
     window.missionCargoStatus.payloadFinalizeRunning = false;
     window.missionCargoStatus.payloadStartOverride = false;
     window.missionCargoStatus.payloadPendingResetStations = null;
@@ -1801,6 +1816,8 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
         : [900, 2400];
     const maxStations = Math.max(1, Math.min(20, Math.round(Number(options.maxStations || targets.length || 12)) || 12));
     const startedAt = Date.now();
+    const revision = Math.max(0, Math.round(Number(options.revision || 0)));
+    const isCurrentRevision = () => !revision || _MISSION_CARGO_PAYLOAD_SYNC_QUEUE.revision === revision;
     let lastAck = null;
     let lastCheck = null;
     const renderStatus = () => {
@@ -1820,11 +1837,35 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
     try {
         for (const delayMs of delays) {
             await new Promise(resolve => setTimeout(resolve, Math.max(0, Number(delayMs) || 0)));
+            if (!isCurrentRevision()) {
+                const result = {
+                    status: 'superseded',
+                    reason: 'newer_payload_state_pending',
+                    elapsedMs: Date.now() - startedAt,
+                    revision
+                };
+                window.missionCargoStatus.payloadVerification = null;
+                window.missionCargoStatus.payloadVerificationRunning = false;
+                renderStatus();
+                return result;
+            }
             lastAck = await _missionCargoRefreshPayloadSnapshot({
                 force: true,
                 maxStations,
                 timeoutMs: Number(options.timeoutMs) || 12000
             });
+            if (!isCurrentRevision()) {
+                const result = {
+                    status: 'superseded',
+                    reason: 'newer_payload_state_pending',
+                    elapsedMs: Date.now() - startedAt,
+                    revision
+                };
+                window.missionCargoStatus.payloadVerification = null;
+                window.missionCargoStatus.payloadVerificationRunning = false;
+                renderStatus();
+                return result;
+            }
             const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
             lastCheck = _missionCargoComparePayloadStations(snapshot, targets, options.toleranceLbs || 1);
             if (!lastCheck.ok) break;
@@ -1950,6 +1991,7 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     window.missionCargoStatus.payloadFinalizeRunning = false;
     window.missionCargoStatus.payloadFinalizeSeq = Number(window.missionCargoStatus.payloadFinalizeSeq || 0) + 1;
     window.missionCargoStatus.payloadStartOverride = false;
+    _missionCargoCancelPayloadSyncQueue(reason);
     if (window.missionCargoStatus.payloadSyncRunning) {
         const waitUntil = Date.now() + 2600;
         while (window.missionCargoStatus.payloadSyncRunning && Date.now() < waitUntil) {
@@ -2090,6 +2132,12 @@ function _missionCargoPayloadStatusMessageHtml() {
     if (running || verification?.status === 'running') {
         return '<div class="mission-cargo-payload-message is-pending">Sim-Zuladung wird nach dem Setzen erneut geprueft ...</div>';
     }
+    if (window.missionCargoStatus?.payloadSyncRunning) {
+        return '<div class="mission-cargo-payload-message is-pending">Aktueller Ladezustand wird an den Simulator uebertragen ...</div>';
+    }
+    if (window.missionCargoStatus?.payloadSyncQueued) {
+        return '<div class="mission-cargo-payload-message is-pending">Ladeaenderungen werden kurz gebuendelt ...</div>';
+    }
     if (verification?.status === 'unstable') {
         const plan = window.missionCargoStatus?.payloadPlan || null;
         const missionWeight = Number(plan?.missionWeightLbs);
@@ -2181,17 +2229,89 @@ async function _missionCargoRefreshPayloadSnapshot(options = {}) {
     });
 }
 
-async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
+function _missionCargoPayloadSyncDelayMs(now, burstStartedAt, lastRequestedAt, forceImmediate = false) {
+    if (forceImmediate) return 0;
+    const current = Math.max(0, Number(now) || 0);
+    const burstStart = Math.max(0, Number(burstStartedAt) || current);
+    const lastRequest = Math.max(burstStart, Number(lastRequestedAt) || current);
+    const quietDueAt = lastRequest + MISSION_CARGO_PAYLOAD_SYNC_DEBOUNCE_MS;
+    const maxDueAt = burstStart + MISSION_CARGO_PAYLOAD_SYNC_MAX_WAIT_MS;
+    return Math.max(0, Math.min(quietDueAt, maxDueAt) - current);
+}
+
+function _missionCargoPayloadSyncIsCurrentRevision(revision) {
+    return Math.max(0, Math.round(Number(revision || 0))) === _MISSION_CARGO_PAYLOAD_SYNC_QUEUE.revision;
+}
+
+function _missionCargoResolvePayloadSyncWaiters(revision, result = { status: 'unknown' }) {
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    const settledRevision = Math.max(0, Math.round(Number(revision || 0)));
+    if (settledRevision >= queue.settledRevision) {
+        queue.settledRevision = settledRevision;
+        queue.lastResult = result || { status: 'unknown' };
+    }
+    const pending = queue.waiters.splice(0);
+    pending.forEach((waiter) => {
+        if (waiter.revision <= settledRevision) {
+            waiter.resolve(result || { status: 'unknown' });
+        } else {
+            queue.waiters.push(waiter);
+        }
+    });
+}
+
+function _missionCargoWaitForPayloadSyncRevision(revision) {
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    const targetRevision = Math.max(0, Math.round(Number(revision || 0)));
+    if (targetRevision <= queue.settledRevision) return Promise.resolve(queue.lastResult);
+    return new Promise(resolve => queue.waiters.push({ revision: targetRevision, resolve }));
+}
+
+function _missionCargoCancelPayloadSyncQueue(reason = 'cancelled') {
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.timer = null;
+    queue.burstStartedAt = 0;
+    queue.lastRequestedAt = 0;
+    queue.pendingReason = '';
+    queue.forceImmediate = false;
+    queue.revision += 1;
+    const result = { status: 'cancelled', reason, revision: queue.revision };
+    queue.settledRevision = queue.revision;
+    queue.lastResult = result;
+    queue.waiters.splice(0).forEach(waiter => waiter.resolve(result));
+    if (window.missionCargoStatus) {
+        window.missionCargoStatus.payloadSyncQueued = '';
+        window.missionCargoStatus.payloadSyncScheduledAt = 0;
+        window.missionCargoStatus.payloadSyncRevision = queue.revision;
+    }
+    return result;
+}
+
+function _missionCargoArmPayloadSyncQueue() {
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.timer = null;
+    if (window.missionCargoStatus?.payloadSyncRunning || queue.revision <= queue.settledRevision) return false;
+    const delayMs = _missionCargoPayloadSyncDelayMs(
+        Date.now(),
+        queue.burstStartedAt,
+        queue.lastRequestedAt,
+        queue.forceImmediate
+    );
+    window.missionCargoStatus.payloadSyncScheduledAt = Date.now() + delayMs;
+    queue.timer = setTimeout(() => {
+        queue.timer = null;
+        _missionCargoFlushPayloadSyncQueue().catch(() => {});
+    }, delayMs);
+    return true;
+}
+
+async function _missionCargoRunPayloadSync(reason = 'cargo-sync', revision = 0) {
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') {
         window.missionCargoStatus.payloadNeedsSync = true;
         return { status: 'skipped' };
     }
-    if (window.missionCargoStatus.payloadSyncRunning) {
-        window.missionCargoStatus.payloadSyncQueued = reason;
-        return { status: 'queued' };
-    }
-    window.missionCargoStatus.payloadSyncRunning = true;
-    window.missionCargoStatus.payloadSyncQueued = '';
     window.missionCargoStatus.payloadVerification = null;
     window.missionCargoStatus.payloadVerificationRunning = false;
     try {
@@ -2235,21 +2355,40 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
             {
                 maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12,
                 timeoutMs: 15000,
-                refreshAfter: true,
+                refreshAfter: false,
                 payloadAdapter: plan.payloadAdapter || baseline.payloadAdapter || '',
                 pa24State: plan.pa24State || null
             }
         );
         window.missionCargoStatus.payloadSyncAt = Date.now();
+        if (!_missionCargoPayloadSyncIsCurrentRevision(revision)) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            return {
+                status: 'superseded',
+                reason: 'newer_payload_state_pending',
+                revision,
+                ack: setAck || null
+            };
+        }
         if (setAck?.status === 'ok') {
             const verifyAck = await _missionCargoVerifyPayloadStable(
                 plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })),
                 {
                     reason,
+                    revision,
                     maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12,
-                    timeoutMs: 12000
+                    timeoutMs: 12000,
+                    delaysMs: (plan.payloadAdapter || baseline.payloadAdapter) === MISSION_CARGO_PA24_ADAPTER
+                        ? MISSION_CARGO_PA24_VERIFY_DELAYS_MS
+                        : undefined
                 }
             );
+            if (verifyAck?.status === 'superseded' || !_missionCargoPayloadSyncIsCurrentRevision(revision)) {
+                window.missionCargoStatus.payloadNeedsSync = true;
+                return verifyAck?.status === 'superseded'
+                    ? verifyAck
+                    : { status: 'superseded', reason: 'newer_payload_state_pending', revision };
+            }
             if (verifyAck?.status === 'ok' || verifyAck?.status === 'skipped') {
                 window.missionCargoStatus.payloadNeedsSync = false;
                 if (verifyAck?.status === 'ok') window.missionCargoStatus.error = null;
@@ -2264,19 +2403,83 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
         }
         return setAck || { status: 'unknown' };
     } catch (err) {
+        if (!_missionCargoPayloadSyncIsCurrentRevision(revision)) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            return {
+                status: 'superseded',
+                reason: 'newer_payload_state_pending',
+                revision,
+                error: err?.message || String(err)
+            };
+        }
         window.missionCargoStatus.payloadNeedsSync = true;
         window.missionCargoStatus.error = err?.message || String(err);
         return { status: 'error', error: err?.message || String(err) };
-    } finally {
-        window.missionCargoStatus.payloadSyncRunning = false;
-        const queued = window.missionCargoStatus.payloadSyncQueued;
-        window.missionCargoStatus.payloadSyncQueued = '';
-        if (queued) setTimeout(() => { _missionCargoSyncPayloadToSim(`queued:${queued}`); }, 180);
     }
 }
 
+async function _missionCargoFlushPayloadSyncQueue() {
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    if (window.missionCargoStatus?.payloadSyncRunning) return { status: 'running' };
+    if (queue.revision <= queue.settledRevision) return queue.lastResult;
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.timer = null;
+    const revision = queue.revision;
+    const reason = queue.pendingReason || 'cargo-sync';
+    queue.pendingReason = '';
+    queue.burstStartedAt = 0;
+    queue.lastRequestedAt = 0;
+    queue.forceImmediate = false;
+    window.missionCargoStatus.payloadSyncRunning = true;
+    window.missionCargoStatus.payloadSyncQueued = '';
+    window.missionCargoStatus.payloadSyncScheduledAt = 0;
+    let result = { status: 'unknown', revision };
+    try {
+        result = await _missionCargoRunPayloadSync(reason, revision);
+        return result;
+    } finally {
+        window.missionCargoStatus.payloadSyncRunning = false;
+        _missionCargoResolvePayloadSyncWaiters(revision, result);
+        if (queue.revision > revision && queue.revision > queue.settledRevision) {
+            window.missionCargoStatus.payloadSyncQueued = queue.pendingReason || 'latest-payload-state';
+            _missionCargoArmPayloadSyncQueue();
+        } else {
+            window.missionCargoStatus.payloadSyncQueued = '';
+            window.missionCargoStatus.payloadSyncScheduledAt = 0;
+        }
+    }
+}
+
+function _missionCargoSyncPayloadToSim(reason = 'cargo-sync', options = {}) {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') {
+        window.missionCargoStatus.payloadNeedsSync = true;
+        return Promise.resolve({ status: 'skipped' });
+    }
+    const queue = _MISSION_CARGO_PAYLOAD_SYNC_QUEUE;
+    const now = Date.now();
+    queue.revision += 1;
+    queue.pendingReason = String(reason || 'cargo-sync');
+    queue.lastRequestedAt = now;
+    if (!queue.burstStartedAt) queue.burstStartedAt = now;
+    if (options?.immediate === true) queue.forceImmediate = true;
+    window.missionCargoStatus.payloadNeedsSync = true;
+    window.missionCargoStatus.payloadSyncQueued = queue.pendingReason;
+    window.missionCargoStatus.payloadSyncRevision = queue.revision;
+    try {
+        const manifest = _missionCargoEnsureManifest();
+        const baseline = _missionCargoNormalizePayloadSnapshot(window.missionCargoStatus?.payloadBaseline);
+        if (manifest && baseline) {
+            window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(baseline);
+            window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(manifest, baseline);
+        }
+    } catch (_) {}
+    const waitPromise = _missionCargoWaitForPayloadSyncRevision(queue.revision);
+    _missionCargoArmPayloadSyncQueue();
+    return waitPromise;
+}
+
 async function _missionCargoSyncPayloadBeforeStart(reason = 'cargo-finish-loading') {
-    const ack = await _missionCargoSyncPayloadToSim(reason);
+    const ack = await _missionCargoSyncPayloadToSim(reason, { immediate: true });
     const deadline = Date.now() + 60000;
     let idleSince = 0;
     while (Date.now() < deadline) {

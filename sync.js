@@ -2508,6 +2508,8 @@ window.missionCargoStatus = {
     payloadPlan: null,
     payloadSyncRunning: false,
     payloadSyncQueued: '',
+    payloadSyncRevision: 0,
+    payloadSyncScheduledAt: 0,
     payloadFinalizeRunning: false,
     payloadFinalizeSeq: 0,
     payloadStartOverride: false,
