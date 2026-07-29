@@ -12704,18 +12704,52 @@ body.theme-retro .mission-accept-btn {
 }
 .ga-airport-hover-tooltip {
     display: block;
+    color: #f8fafc;
     font-family: var(--drawer-font, 'Courier New', monospace);
-    font-size: 11px;
-    font-weight: 800;
-    line-height: 1.35;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.4;
     white-space: nowrap;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.82);
 }
 .ga-airport-hover-tooltip b {
     color: #facc15;
+    font-size: 12.5px;
 }
 .ga-airport-hover-tooltip span {
-    color: #d7e3eb;
-    font-size: 10px;
+    color: #e5eef5;
+    font-size: 11px;
+}
+.leaflet-tooltip.ga-airport-tooltip-shell {
+    padding: 7px 9px;
+    color: #f8fafc;
+    background: rgba(5, 18, 28, 0.97);
+    border: 2px solid #facc15;
+    border-radius: 5px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.62);
+}
+.leaflet-tooltip-top.ga-airport-tooltip-shell::before {
+    border-top-color: #facc15;
+}
+.leaflet-tooltip-bottom.ga-airport-tooltip-shell::before {
+    border-bottom-color: #facc15;
+}
+.leaflet-tooltip-left.ga-airport-tooltip-shell::before {
+    border-left-color: #facc15;
+}
+.leaflet-tooltip-right.ga-airport-tooltip-shell::before {
+    border-right-color: #facc15;
+}
+.ga-airport-overlay-marker {
+    cursor: help;
+    pointer-events: auto;
+    vector-effect: non-scaling-stroke;
+    transition: stroke-width 120ms ease, fill 120ms ease;
+}
+.ga-airport-overlay-marker:hover {
+    fill: #12334a;
+    stroke: #fff7b2;
+    stroke-width: 3;
 }
 .ga-map-context-weather-source {
     margin-top: 5px;

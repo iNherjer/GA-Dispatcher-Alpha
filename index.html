@@ -91,11 +91,11 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=map-context-widget-20260729-15" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=airport-hover-20260729-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-main-launch-20260724-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=map-context-widget-20260729-15">
+        <link rel="stylesheet" href="styles.css?v=airport-hover-20260729-02">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1172,7 +1172,7 @@
                 <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()" aria-expanded="false">⚙️ Anzeige</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; width:210px; max-width:calc(100vw - 16px); box-sizing:border-box; overflow:hidden; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
-                    <button id="hintToggleAirportSingleClick" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('airportSingleClick')">🛩️ Einzelklick APT/VRP/Navaid (Aus)</button>
+                    <button id="hintToggleAirportSingleClick" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleMapSingleClickMode && cycleMapSingleClickMode()" aria-label="Einzelklick für Flugplätze, VRPs und Navaids: Aus">🛩️ Einzelklick: Aus</button>
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
                     <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
                         <button id="hintToggleWeather" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
@@ -2573,9 +2573,9 @@
 <script defer src="homebase-integration.js?v=homebase-controls-v313-20260723-01"></script>
 <script defer src="checklists.js?v=mission-phase-view-20260727-01"></script>
 <script defer src="profile.js?v=aviation-mode-debug-20260728-01"></script>
-<script defer src="map.js?v=map-context-widget-20260729-17"></script>
+<script defer src="map.js?v=map-single-click-20260729-07"></script>
 <script defer src="map-utility-tools.js?v=e6b-flipfix-20260709-01"></script>
-<script defer src="app.js?v=map-context-widget-cargo0621-chocks-20260729-06"></script>
+<script defer src="app.js?v=map-single-click-help-20260729-01"></script>
 <script defer src="mission-survey-pattern.js?v=overlay-throttle-20260710-01"></script>
 <script defer src="mission-training-procedure.js?v=training-procedure-20260629-03"></script>
 <script defer src="mission-poi-chain-runtime.js?v=overlay-throttle-20260710-01"></script>

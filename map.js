@@ -70,7 +70,6 @@ const AIP_POPUP_ROUTES = {
 };
 const MAP_HINT_DEFAULTS = {
     magentaLine: true,
-    airportSingleClick: false,
     weather: true,
     windBarbs: true,
     cloudFields: true,
@@ -85,6 +84,14 @@ const MAP_HINT_DEFAULTS = {
     compass: true,
     lowFps: false
 };
+const MAP_SINGLE_CLICK_MODE_KEY = 'ga_map_single_click_mode';
+const MAP_SINGLE_CLICK_MODES = ['off', 'tooltip', 'panels'];
+const MAP_SINGLE_CLICK_MODE_LABELS = {
+    off: 'Aus',
+    tooltip: 'Tooltip',
+    panels: 'Tafeln'
+};
+let mapSingleClickMode = 'off';
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
 Object.keys(MAP_HINT_DEFAULTS).forEach((key) => {
     if (!(key in window.mapHints)) window.mapHints[key] = MAP_HINT_DEFAULTS[key];
@@ -983,6 +990,18 @@ function loadMapHintSettings() {
     // Wetter-/Traffic-Flags mit bestehenden Zuständen synchronisieren
     if (typeof window.vpShowMapMetar === 'boolean') window.mapHints.weather = window.vpShowMapMetar;
     if (typeof window.vpTrafficMapVisible === 'boolean') window.mapHints.traffic = window.vpTrafficMapVisible;
+    const storedSingleClickMode = String(localStorage.getItem(MAP_SINGLE_CLICK_MODE_KEY) || '').trim().toLowerCase();
+    if (MAP_SINGLE_CLICK_MODES.includes(storedSingleClickMode)) {
+        mapSingleClickMode = storedSingleClickMode;
+    } else {
+        // Ein bereits aktivierter alter Ein/Aus-Schalter entspricht der
+        // bisherigen Vollansicht; ansonsten bleibt Einzelklick standardmäßig aus.
+        mapSingleClickMode = localStorage.getItem('ga_map_hint_airportSingleClick') === 'true'
+            ? 'panels'
+            : 'off';
+        localStorage.setItem(MAP_SINGLE_CLICK_MODE_KEY, mapSingleClickMode);
+    }
+    window.mapSingleClickMode = mapSingleClickMode;
 }
 
 function saveMapHintSetting(key) {
@@ -993,6 +1012,33 @@ function saveMapHintSetting(key) {
 window.isMapHintEnabled = function(key) {
     if (!(key in MAP_HINT_DEFAULTS)) return true;
     return window.mapHints[key] !== false;
+};
+
+function getMapSingleClickMode() {
+    return MAP_SINGLE_CLICK_MODES.includes(mapSingleClickMode) ? mapSingleClickMode : 'off';
+}
+
+function setMapSingleClickMode(mode, { persist = true } = {}) {
+    const normalized = MAP_SINGLE_CLICK_MODES.includes(mode) ? mode : 'off';
+    mapSingleClickMode = normalized;
+    window.mapSingleClickMode = normalized;
+    pendingMapInfoTapSeq += 1;
+    clearMapSingleClickTooltip();
+    if (normalized !== 'panels') {
+        if (airportInfoPopupLayer?._map === map) map.closePopup(airportInfoPopupLayer);
+        if (navaidInfoPopupLayer?._map === map) map.closePopup(navaidInfoPopupLayer);
+        if (reportingPointInfoPopupLayer?._map === map) map.closePopup(reportingPointInfoPopupLayer);
+    }
+    if (persist) localStorage.setItem(MAP_SINGLE_CLICK_MODE_KEY, normalized);
+    refreshMapHintMenuUi();
+    return normalized;
+}
+
+window.getMapSingleClickMode = getMapSingleClickMode;
+window.setMapSingleClickMode = setMapSingleClickMode;
+window.cycleMapSingleClickMode = function() {
+    const currentIndex = MAP_SINGLE_CLICK_MODES.indexOf(getMapSingleClickMode());
+    return setMapSingleClickMode(MAP_SINGLE_CLICK_MODES[(currentIndex + 1) % MAP_SINGLE_CLICK_MODES.length]);
 };
 
 function refreshCompassHintVisibility() {
@@ -1153,12 +1199,6 @@ function applyMapHintEffects(key) {
     if (key === 'magentaLine' && window.mapHints.magentaLine === false) {
         if (typeof window.clearLiveToWpLine === 'function') window.clearLiveToWpLine();
     }
-    if (key === 'airportSingleClick' && window.mapHints.airportSingleClick === false) {
-        pendingMapInfoTapSeq += 1;
-        if (airportInfoPopupLayer?._map === map) map.closePopup(airportInfoPopupLayer);
-        if (navaidInfoPopupLayer?._map === map) map.closePopup(navaidInfoPopupLayer);
-        if (reportingPointInfoPopupLayer?._map === map) map.closePopup(reportingPointInfoPopupLayer);
-    }
     if (key === 'lowFps') {
         applyLowFpsModeUi();
     }
@@ -1217,7 +1257,6 @@ window.toggleMapHintSubmenu = function(key, evt) {
 function refreshMapHintMenuUi() {
     const labels = {
         magentaLine: '🟣 Direkt-Linie',
-        airportSingleClick: '🛩️ Einzelklick APT/VRP/Navaid',
         weather: '🌤️ Wetter',
         windBarbs: '🪁 Windbarben',
         cloudFields: '☁️ Wolkenfelder',
@@ -1234,7 +1273,6 @@ function refreshMapHintMenuUi() {
     };
     const ids = {
         magentaLine: 'hintToggleMagentaLine',
-        airportSingleClick: 'hintToggleAirportSingleClick',
         weather: 'hintToggleWeather',
         windBarbs: 'hintToggleWindBarbs',
         cloudFields: 'hintToggleCloudFields',
@@ -1257,6 +1295,19 @@ function refreshMapHintMenuUi() {
         btn.style.background = on ? '#2E8B57' : '#444';
         btn.style.color = '#fff';
     });
+    const singleClickButton = document.getElementById('hintToggleAirportSingleClick');
+    if (singleClickButton) {
+        const singleClickMode = getMapSingleClickMode();
+        singleClickButton.textContent = `🛩️ Einzelklick: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`;
+        singleClickButton.style.background = singleClickMode === 'panels'
+            ? '#2E8B57'
+            : (singleClickMode === 'tooltip' ? '#8a6717' : '#444');
+        singleClickButton.style.color = '#fff';
+        singleClickButton.setAttribute(
+            'aria-label',
+            `Einzelklick für Flugplätze, VRPs und Navaids: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`
+        );
+    }
     updateSnapButtonUI();
     Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
         const isOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[k]);
@@ -6133,6 +6184,19 @@ function hasGlobalAirportsForMapClicks() {
     return false;
 }
 
+function getAirportDatabaseForMapClicks() {
+    if (hasGlobalAirportsForMapClicks()) return globalAirports;
+    if (
+        storedAirportOverlayState?.items
+        && typeof storedAirportOverlayState.items === 'object'
+    ) {
+        for (const _airportKey in storedAirportOverlayState.items) {
+            return storedAirportOverlayState.items;
+        }
+    }
+    return null;
+}
+
 async function ensureGlobalAirportsForMapClicks() {
     if (hasGlobalAirportsForMapClicks()) {
         if (snapMode && map) mergeGlobalAirportSnapEntries();
@@ -8939,14 +9003,14 @@ function updateRoutePerformance() {
 }
 
 const OPENAIP_PROXY_BASE = 'https://ga-proxy.einherjer.workers.dev';
-const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume, Plätze & Navaids';
+const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume & Navaids';
 const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional';
 const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/{z}/{y}/{x}';
 const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
 const USA_VFR_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_MIN_ZOOM = 7;
 const GLOBAL_AIRPORT_SNAP_MIN_ZOOM = 6;
-const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
+const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_NAVAID_MIN_ZOOM = 9;
 const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
 const OPEN_TOPO_PRIMARY_TILE_URL = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
@@ -8975,6 +9039,13 @@ let openAipOverlayLayer = null;
 let openAipAirspaceLayer = null;
 let openAipAirportLayer = null;
 let openAipNavaidLayer = null;
+let airportTooltipRenderTimer = null;
+let openAipOverlayAirportSource = [];
+const storedAirportOverlayState = {
+    items: null,
+    loadPromise: null,
+    lastError: ''
+};
 let openAipOverlayFetchSeq = 0;
 const openTopoTileState = {
     primaryLoaded: 0,
@@ -9663,9 +9734,9 @@ window.gaGetOpenAipRouteAirspaces = async function(bounds) {
 
 function normalizeOpenAipAirportForPopup(airport) {
     const coords = airport?.geometry?.coordinates;
-    if (!Array.isArray(coords) || coords.length < 2) return null;
-    const lat = Number(coords[1]);
-    const lon = Number(coords[0]);
+    const hasGeometryCoordinates = Array.isArray(coords) && coords.length >= 2;
+    const lat = Number(hasGeometryCoordinates ? coords[1] : airport?.lat);
+    const lon = Number(hasGeometryCoordinates ? coords[0] : (airport?.lon ?? airport?.lng));
     const icao = String(
         airport?.icaoCode
         || airport?.icao
@@ -9674,9 +9745,14 @@ function normalizeOpenAipAirportForPopup(airport) {
         || ''
     ).trim().toUpperCase();
     if (!icao || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const elevationValue = Number(airport?.elevation?.value ?? airport?.elevation);
+    const elevationIsObject = airport?.elevation && typeof airport.elevation === 'object';
+    const elevationValue = Number(elevationIsObject ? airport.elevation.value : airport?.elevation);
     const elevation = Number.isFinite(elevationValue)
-        ? (Number(airport?.elevation?.unit) === 1 ? elevationValue : Math.round(elevationValue * 3.28084))
+        ? (
+            elevationIsObject && Number(airport.elevation.unit) !== 1
+                ? Math.round(elevationValue * 3.28084)
+                : elevationValue
+        )
         : null;
     return {
         icao,
@@ -10028,6 +10104,8 @@ function mergeGlobalAirportSnapEntries(bounds = null) {
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('ga:global-airports-ready', () => {
         if (snapMode && map) mergeGlobalAirportSnapEntries();
+        openAipOverlayRenderState.airportKey = '';
+        renderKnownAirportOverlaySources();
     });
 }
 
@@ -10368,7 +10446,10 @@ function ensureOpenAipOverlayLayer() {
     if (!openAipAirportLayer) openAipAirportLayer = L.layerGroup();
     if (!openAipNavaidLayer) openAipNavaidLayer = L.layerGroup();
     if (!openAipOverlayLayer) {
-        openAipOverlayLayer = L.layerGroup([openAipAirspaceLayer, openAipNavaidLayer, openAipAirportLayer]);
+        // Flugplatzmarker bleiben technisch eigenständig, damit die lokalen
+        // Airport-Daten auch ohne OpenAIP für Einzelklicks verfügbar sind.
+        // Sichtbar werden die Marker selbst aber nur mit aktivem Overlay.
+        openAipOverlayLayer = L.layerGroup([openAipAirspaceLayer, openAipNavaidLayer]);
     }
     return openAipOverlayLayer;
 }
@@ -10389,16 +10470,16 @@ function isOpenAipOverlayEnabled() {
 
 function clearOpenAipOverlayLayer() {
     openAipAirspaceLayer?.clearLayers();
-    openAipAirportLayer?.clearLayers();
     openAipNavaidLayer?.clearLayers();
+    setAirportTooltipLayerVisible(false);
     openAipOverlayRenderState.airspaceKey = '';
     openAipOverlayRenderState.airspaceToken = '';
-    openAipOverlayRenderState.airportKey = '';
-    openAipOverlayRenderState.airportToken = '';
-    openAipOverlayRenderState.airportZoomBand = '';
     openAipOverlayRenderState.navaidKey = '';
     openAipOverlayRenderState.navaidToken = '';
     openAipOverlayRenderState.navaidZoomBand = '';
+    // Der Flughafenpuffer bleibt für unsichtbare Einzelklick-Treffer erhalten;
+    // nur seine gelben Kartenmarker werden mit dem Overlay ausgeblendet.
+    scheduleAirportTooltipRender();
 }
 
 function setOpenAipOverlaySublayerVisible(layer, visible) {
@@ -10408,10 +10489,24 @@ function setOpenAipOverlaySublayerVisible(layer, visible) {
     if (!visible && isVisible) openAipOverlayLayer.removeLayer(layer);
 }
 
+function setAirportTooltipLayerVisible(visible) {
+    if (!map || !openAipAirportLayer) return;
+    const isVisible = map.hasLayer(openAipAirportLayer);
+    if (visible && !isVisible) openAipAirportLayer.addTo(map);
+    if (!visible && isVisible) map.removeLayer(openAipAirportLayer);
+}
+
+function scheduleAirportTooltipRender(delayMs = 80) {
+    if (airportTooltipRenderTimer) clearTimeout(airportTooltipRenderTimer);
+    airportTooltipRenderTimer = setTimeout(() => {
+        airportTooltipRenderTimer = null;
+        renderKnownAirportOverlaySources();
+    }, Math.max(0, Number(delayMs) || 0));
+}
+
 function setOpenAipOverlayContentVisible(visible) {
     setOpenAipOverlaySublayerVisible(openAipAirspaceLayer, visible);
     if (!visible) {
-        setOpenAipOverlaySublayerVisible(openAipAirportLayer, false);
         setOpenAipOverlaySublayerVisible(openAipNavaidLayer, false);
     }
 }
@@ -10478,6 +10573,170 @@ function getOpenAipAirportTooltip(airport) {
             ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${escapePopupText(frequencies[0])}</span>` : ''}
         </span>`;
 }
+
+function getOpenAipAirportOverlayCoordinates(airport) {
+    const coords = airport?.geometry?.coordinates;
+    const lat = Number(airport?.lat ?? coords?.[1]);
+    const lon = Number(airport?.lon ?? airport?.lng ?? coords?.[0]);
+    return [lat, lon].every(Number.isFinite) ? { lat, lon } : null;
+}
+
+function getOpenAipAirportOverlayIdentity(airport) {
+    const position = getOpenAipAirportOverlayCoordinates(airport);
+    const icao = String(
+        airport?.icaoCode
+        || airport?.icao
+        || airport?.designator
+        || ''
+    ).trim().toUpperCase();
+    if (icao) return `icao:${icao}`;
+    const sourceId = String(airport?._id || airport?.id || '').trim();
+    if (sourceId) return `source:${sourceId}`;
+    return position ? `pos:${position.lat.toFixed(5)},${position.lon.toFixed(5)}` : '';
+}
+
+function buildStoredAirportOverlayEntries(bounds) {
+    const database = (
+        typeof globalAirports === 'object'
+        && globalAirports
+        && Object.keys(globalAirports).length > 0
+    ) ? globalAirports : storedAirportOverlayState.items;
+    if (!bounds || !database || typeof database !== 'object') return [];
+    const west = Number(bounds.west);
+    const south = Number(bounds.south);
+    const east = Number(bounds.east);
+    const north = Number(bounds.north);
+    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
+
+    const padLon = Math.min(0.35, Math.max(0.08, (east - west) * 0.12));
+    const padLat = Math.min(0.35, Math.max(0.08, (north - south) * 0.12));
+    const byIdentity = new Map();
+    for (const key in database) {
+        const airport = database[key];
+        const lat = Number(airport?.lat);
+        const lon = Number(airport?.lon ?? airport?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        if (
+            lat < south - padLat
+            || lat > north + padLat
+            || lon < west - padLon
+            || lon > east + padLon
+        ) continue;
+
+        const icao = String(
+            airport?.icao
+            || airport?.icao_code
+            || airport?.gps_code
+            || key
+            || ''
+        ).trim().toUpperCase();
+        const name = String(airport?.name || airport?.n || airport?.city || icao || 'Flugplatz').trim();
+        const identity = icao ? `icao:${icao}` : `pos:${lat.toFixed(5)},${lon.toFixed(5)}`;
+        if (byIdentity.has(identity)) continue;
+        const elevationFt = Number(airport?.elevation);
+        byIdentity.set(identity, {
+            _id: `stored:${icao || `${lat.toFixed(5)},${lon.toFixed(5)}`}`,
+            _gaAirportOverlaySource: 'stored',
+            icaoCode: icao,
+            name,
+            country: String(airport?.country || airport?.iso_country || '').trim().toUpperCase(),
+            elevation: Number.isFinite(elevationFt) ? { value: elevationFt, unit: 1 } : null,
+            geometry: { type: 'Point', coordinates: [lon, lat] }
+        });
+    }
+    return [...byIdentity.values()];
+}
+
+async function loadStoredAirportOverlayDatabase() {
+    if (
+        typeof globalAirports === 'object'
+        && globalAirports
+        && Object.keys(globalAirports).length > 0
+    ) {
+        storedAirportOverlayState.items = globalAirports;
+        storedAirportOverlayState.lastError = '';
+        return globalAirports;
+    }
+    if (storedAirportOverlayState.items && Object.keys(storedAirportOverlayState.items).length > 0) {
+        return storedAirportOverlayState.items;
+    }
+    if (storedAirportOverlayState.loadPromise) return storedAirportOverlayState.loadPromise;
+
+    storedAirportOverlayState.loadPromise = (async () => {
+        try {
+            const response = await fetch('./airports.json', { cache: 'default' });
+            if (!response.ok) throw new Error(`airports_json_http_${response.status}`);
+            const parsed = await response.json();
+            const keys = parsed && typeof parsed === 'object' ? Object.keys(parsed) : [];
+            const sanityAirport = parsed?.EDDS || parsed?.EDDM || parsed?.EDDF || parsed?.LOWW;
+            if (
+                keys.length < 1000
+                || !sanityAirport
+                || !Number.isFinite(Number(sanityAirport.lat))
+                || !Number.isFinite(Number(sanityAirport.lon))
+            ) {
+                throw new Error('airports_json_invalid');
+            }
+            storedAirportOverlayState.items = parsed;
+            storedAirportOverlayState.lastError = '';
+            openAipOverlayRenderState.airportKey = '';
+            renderKnownAirportOverlaySources();
+            return parsed;
+        } catch (error) {
+            storedAirportOverlayState.lastError = String(error?.message || error);
+            console.warn('[Airport Overlay] Gespeicherte Airport-Basis nicht verfügbar:', storedAirportOverlayState.lastError);
+            return null;
+        } finally {
+            storedAirportOverlayState.loadPromise = null;
+        }
+    })();
+    return storedAirportOverlayState.loadPromise;
+}
+
+function mergeOpenAipAirportOverlayEntries(airports, bounds = getOpenAipVisibleBounds()) {
+    const merged = new Map();
+    (Array.isArray(airports) ? airports : []).forEach((airport) => {
+        const identity = getOpenAipAirportOverlayIdentity(airport);
+        if (identity && !merged.has(identity)) merged.set(identity, airport);
+    });
+    buildStoredAirportOverlayEntries(bounds).forEach((airport) => {
+        const identity = getOpenAipAirportOverlayIdentity(airport);
+        if (identity && !merged.has(identity)) merged.set(identity, airport);
+    });
+    return [...merged.values()];
+}
+
+function renderKnownAirportOverlaySources() {
+    if (!map || !openAipAirportLayer) return 0;
+    if (
+        !isOpenAipOverlayEnabled()
+        || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM
+    ) {
+        setAirportTooltipLayerVisible(false);
+        return 0;
+    }
+    setAirportTooltipLayerVisible(true);
+    return renderOpenAipAirports(
+        mergeOpenAipAirportOverlayEntries(openAipOverlayAirportSource, getOpenAipVisibleBounds()),
+        openAipAirportLayer
+    );
+}
+
+window.gaGetAirportTooltipStatus = function() {
+    const storedCount = storedAirportOverlayState.items && typeof storedAirportOverlayState.items === 'object'
+        ? Object.keys(storedAirportOverlayState.items).length
+        : 0;
+    return {
+        zoom: Number(map?.getZoom?.()) || 0,
+        minZoom: OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM,
+        layerOnMap: Boolean(map && openAipAirportLayer && map.hasLayer(openAipAirportLayer)),
+        renderedMarkers: Number(openAipAirportLayer?.getLayers?.().length) || 0,
+        liveSourceCount: openAipOverlayAirportSource.length,
+        storedCount,
+        storedError: storedAirportOverlayState.lastError || '',
+        openAipOverlay: isOpenAipOverlayEnabled()
+    };
+};
 
 async function fetchOpenAipOverlayCollection(kind, bbox, limit = 250, maxPages = 1) {
     const items = [];
@@ -10549,30 +10808,60 @@ function renderOpenAipAirspaces(airspaces, layer) {
 
 function renderOpenAipAirports(airports, layer) {
     if (!map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM) return;
-    const maxAirports = map.getZoom() >= 11 ? 180 : 90;
+    const zoom = Number(map.getZoom());
+    const maxAirports = zoom >= 12 ? 260 : (zoom >= 10 ? 200 : 140);
+    const center = map.getCenter();
+    const visibleBounds = map.getBounds().pad(0.12);
     const nextLayers = [];
-    airports.slice(0, maxAirports).forEach((airport) => {
-        const coords = airport?.geometry?.coordinates;
-        if (!Array.isArray(coords) || coords.length < 2) return;
-        const lat = Number(coords[1]);
-        const lon = Number(coords[0]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const candidates = (Array.isArray(airports) ? airports : [])
+        .map((airport) => ({ airport, position: getOpenAipAirportOverlayCoordinates(airport) }))
+        .filter(({ position }) => position && visibleBounds.contains([position.lat, position.lon]))
+        .sort((a, b) => {
+            const aLat = a.position.lat - center.lat;
+            const aLon = (a.position.lon - center.lng) * Math.cos(center.lat * Math.PI / 180);
+            const bLat = b.position.lat - center.lat;
+            const bLon = (b.position.lon - center.lng) * Math.cos(center.lat * Math.PI / 180);
+            return ((aLat * aLat) + (aLon * aLon)) - ((bLat * bLat) + (bLon * bLon));
+        })
+        .slice(0, maxAirports);
+    candidates.forEach(({ airport, position }) => {
+        const { lat, lon } = position;
+        const airportSource = airport?._gaAirportOverlaySource === 'stored' ? 'stored' : 'openaip';
+        const airportLabel = getOpenAipAirportLabel(airport);
+        const airportIcao = String(airport?.icaoCode || airport?.icao || airport?.designator || '').trim().toUpperCase();
         const marker = L.circleMarker([lat, lon], {
             pane: GA_MAP_OVERLAY_PANES.localAviation.name,
-            radius: map.getZoom() >= 12 ? 4 : 3,
+            radius: zoom >= 12 ? 7 : (zoom >= 10 ? 6.2 : 5.5),
             color: '#fde047',
-            fillColor: '#0f172a',
-            fillOpacity: 0.9,
-            weight: 1.6,
+            fillColor: '#07131d',
+            fillOpacity: 0.96,
+            weight: 2,
+            className: `ga-airport-overlay-marker is-${airportSource}`,
+            gaAirportSource: airportSource,
             interactive: true,
             bubblingMouseEvents: false
         }).bindTooltip(getOpenAipAirportTooltip(airport), {
             sticky: true,
-            className: 'airspace-tooltip'
+            direction: 'top',
+            offset: [0, -5],
+            opacity: 1,
+            className: 'airspace-tooltip ga-airport-tooltip-shell'
+        });
+        marker.on('add', () => {
+            const element = marker.getElement?.();
+            if (!element) return;
+            if (airportIcao) element.setAttribute('data-ga-airport-icao', airportIcao);
+            element.setAttribute('data-ga-airport-source', airportSource);
+            element.setAttribute('aria-label', `Flugplatz ${airportLabel}`);
         });
         marker.on('click', (event) => {
-            if (!window.isMapHintEnabled('airportSingleClick')) return;
+            const singleClickMode = getMapSingleClickMode();
+            if (singleClickMode === 'off') return;
             if (event?.originalEvent) L.DomEvent.stop(event.originalEvent);
+            if (singleClickMode === 'tooltip') {
+                openMapPointSingleClickTooltip({ kind: 'airport', data: airport });
+                return;
+            }
             const normalized = normalizeOpenAipAirportForPopup(airport);
             if (normalized) openAirportInfoPopup(normalized);
         });
@@ -10611,8 +10900,13 @@ function renderOpenAipNavaids(navaids, layer) {
             { sticky: true, className: 'airspace-tooltip' }
         );
         marker.on('click', (event) => {
-            if (!window.isMapHintEnabled('airportSingleClick')) return;
+            const singleClickMode = getMapSingleClickMode();
+            if (singleClickMode === 'off') return;
             if (event?.originalEvent) L.DomEvent.stop(event.originalEvent);
+            if (singleClickMode === 'tooltip') {
+                openMapPointSingleClickTooltip({ kind: 'navaid', data: navaid });
+                return;
+            }
             openNavaidInfoPopup(navaid);
         });
         marker.addTo(layer);
@@ -10624,6 +10918,13 @@ function renderOpenAipOverlayData(payload) {
     setOpenAipOverlaySublayerVisible(openAipAirspaceLayer, true);
     const airspaces = Array.isArray(payload?.airspaces) ? payload.airspaces : [];
     const airports = Array.isArray(payload?.airports) ? payload.airports : [];
+    if (isOpenAipSnapshotCollectionAvailable(payload, 'airports')) {
+        openAipOverlayAirportSource = airports;
+    }
+    const airportOverlayEntries = mergeOpenAipAirportOverlayEntries(
+        openAipOverlayAirportSource,
+        getOpenAipVisibleBounds()
+    );
     const liveNavaidsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'navaids');
     const navaids = liveNavaidsAvailable
         ? (Array.isArray(payload?.navaids) ? payload.navaids : [])
@@ -10648,33 +10949,41 @@ function renderOpenAipOverlayData(payload) {
         openAipOverlayRenderState.airspaceToken = renderToken;
     }
 
-    const zoomBand = !map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM
+    const airportRenderKey = `${renderKey}|view:${getOpenAipOverlayBBoxString()}`;
+    const zoomBand = (
+        !map
+        || !isOpenAipOverlayEnabled()
+        || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM
+    )
         ? 'hidden'
-        : (map.getZoom() >= 11 ? '180' : '90');
+        : (map.getZoom() >= 12 ? '260' : (map.getZoom() >= 10 ? '200' : '140'));
     if (zoomBand === 'hidden') {
         // Nicht leeren: Ein kurzer Zoomsprung soll den bereits geladenen
         // Airport-Pack behalten und beim Zurückzoomen sofort wieder zeigen.
-        setOpenAipOverlaySublayerVisible(openAipAirportLayer, false);
+        setAirportTooltipLayerVisible(false);
         openAipOverlayRenderState.airportZoomBand = zoomBand;
     } else {
-        setOpenAipOverlaySublayerVisible(openAipAirportLayer, true);
-        const airportsAvailable = isOpenAipSnapshotCollectionAvailable(payload, 'airports');
+        setAirportTooltipLayerVisible(true);
+        const airportsAvailable = (
+            isOpenAipSnapshotCollectionAvailable(payload, 'airports')
+            || airportOverlayEntries.length > 0
+        );
         const shouldUpdateAirports = airportsAvailable && (
-            openAipOverlayRenderState.airportKey !== renderKey
+            openAipOverlayRenderState.airportKey !== airportRenderKey
             || openAipOverlayRenderState.airportToken !== renderToken
             || openAipOverlayRenderState.airportZoomBand !== zoomBand
             || openAipAirportLayer.getLayers().length === 0
         ) && !(
             collectionMeta.airports?.reused
-            && openAipOverlayRenderState.airportKey === renderKey
+            && openAipOverlayRenderState.airportKey === airportRenderKey
             && openAipOverlayRenderState.airportZoomBand === zoomBand
             && openAipAirportLayer.getLayers().length > 0
         );
         if (shouldUpdateAirports) {
             seedOpenAipAirportFrequencies(airports);
             seedOpenAipAirportRunways(airports);
-            renderOpenAipAirports(airports, openAipAirportLayer);
-            openAipOverlayRenderState.airportKey = renderKey;
+            renderOpenAipAirports(airportOverlayEntries, openAipAirportLayer);
+            openAipOverlayRenderState.airportKey = airportRenderKey;
             openAipOverlayRenderState.airportToken = renderToken;
             openAipOverlayRenderState.airportZoomBand = zoomBand;
         }
@@ -10954,11 +11263,29 @@ function initMapBase() {
     topoMap.setOpacity(0.5);
     map = L.map('map', { layers: [topoMap], attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
     ensureGaMapOverlayPanes(map);
+    setAirportTooltipLayerVisible(
+        isOpenAipOverlayEnabled()
+        && map.getZoom() >= OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM
+    );
+    // Der Kartentisch selbst ist der Lade-Trigger. So ist die gespeicherte
+    // Airport-Basis auch dann bereit, wenn ein zuvor aktiver Overlay-Layer erst
+    // nach der Leaflet-Initialisierung wiederhergestellt wird.
+    void loadStoredAirportOverlayDatabase();
     aeroOverlay.addTo(map);
     if (dwdWarningsActive) dwdWarningsOverlay.addTo(map);
     if (awcSigmetActive) awcSigmetOverlay.addTo(map);
     if (usaVfrOverlayActive) usaVfrSectionalOverlay.addTo(map);
-    if (openAipOverlayActive && openAipVectorOverlay) openAipVectorOverlay.addTo(map);
+    if (openAipOverlayActive && openAipVectorOverlay) {
+        openAipVectorOverlay.addTo(map);
+        // Beim wiederhergestellten Kartentisch ist der Overlay-Layer bereits
+        // aktiv, bevor Leaflets overlayadd-Handler registriert werden. Deshalb
+        // die gespeicherte Airport-Basis auch in diesem Startpfad laden.
+        void ensureGlobalAirportsForMapClicks().then(() => {
+            openAipOverlayRenderState.airportKey = '';
+            renderKnownAirportOverlaySources();
+        });
+        void loadStoredAirportOverlayDatabase();
+    }
     configureMapAttributionControl(map);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
@@ -11124,6 +11451,11 @@ function initMapBase() {
         if (e.name === OPENAIP_OVERLAY_LABEL) {
             localStorage.setItem('ga_openaip_overlay_active', 'true');
             void loadOpenAipStaticNavaids();
+            void ensureGlobalAirportsForMapClicks().then(() => {
+                openAipOverlayRenderState.airportKey = '';
+                renderKnownAirportOverlaySources();
+            });
+            void loadStoredAirportOverlayDatabase();
             refreshOpenAipOverlay(true);
         }
         if (e.name === "🏔️ Terrain Avoid (Live)") {
@@ -11161,6 +11493,7 @@ function initMapBase() {
     let openAipOverlayFetchTimeout = null;
     let openAipRegionFetchTimeout = null;
     map.on('moveend', function () {
+        scheduleAirportTooltipRender();
         if (snapMode) void ensureGlobalAirportsForMapClicks();
         if (isOpenAipRegionMode()) {
             if (snapMode || isOpenAipOverlayEnabled()) {
@@ -11184,6 +11517,7 @@ function initMapBase() {
         updateAeroOverlayZoomVisibility();
     });
     map.on('zoomend', function() {
+        scheduleAirportTooltipRender();
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
         if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
@@ -11241,9 +11575,9 @@ function initMapBase() {
             return;
         }
 
-        if (window.isMapHintEnabled('airportSingleClick')) {
+        if (getMapSingleClickMode() !== 'off') {
             pendingMapInfoTapSeq += 1;
-            if (!openNearestMapInfoAt(e.latlng)) scheduleMapInfoTapResolution(e.latlng);
+            if (!resolveMapSingleClickAt(e.latlng)) scheduleMapInfoTapResolution(e.latlng);
         }
     });
     if (!map._routeLegLabelsBound) {
@@ -12939,11 +13273,14 @@ function findNearestAirport(latlng, maxPixels) {
     }
     if (best) return best;
 
-    // 3. globalAirports Fallback
-    if (typeof globalAirports === 'object' && globalAirports) {
+    // 3. Lokale Airport-Datenbank. Sie ist auch ohne sichtbares
+    // OpenAIP-Overlay geladen und muss deshalb vor einem nahen DME gewinnen
+    // können.
+    const airportDatabase = getAirportDatabaseForMapClicks();
+    if (airportDatabase) {
         const latF = latlng.lat, lngF = latlng.lng;
-        for (const icao in globalAirports) {
-            const apt = globalAirports[icao];
+        for (const icao in airportDatabase) {
+            const apt = airportDatabase[icao];
             const aptLat = Number(apt?.lat);
             const aptLon = Number(apt?.lon ?? apt?.lng);
             if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) continue;
@@ -12961,11 +13298,11 @@ function findNearestAirport(latlng, maxPixels) {
 }
 
 function findNearestMapNavigationPoint(latlng, maxPixels) {
-    if (!map || !Array.isArray(cachedNavData)) return null;
+    if (!map) return null;
     const tapPx = map.latLngToLayerPoint(latlng);
     let best = null;
     let bestDist = Number(maxPixels) + 1;
-    cachedNavData.forEach((nav) => {
+    const consider = (nav) => {
         if (nav?.type !== 'NAVAID' && nav?.type !== 'RPP') return;
         const lat = Number(nav?.lat);
         const lon = Number(nav?.lng);
@@ -12976,26 +13313,153 @@ function findNearestMapNavigationPoint(latlng, maxPixels) {
             bestDist = distance;
             best = nav;
         }
-    });
+    };
+    (Array.isArray(cachedNavData) ? cachedNavData : []).forEach(consider);
+
+    // Die lokalen OpenAIP-Fallbacks stehen unabhängig von Snapping und
+    // Kartenoverlay zur Verfügung. Dadurch funktionieren Tooltip/Tafel auch
+    // dann, wenn cachedNavData für die aktuelle Ansicht noch leer ist.
+    const viewBounds = getOpenAipNavaidCacheBounds();
+    getStaticOpenAipNavaidEntries(viewBounds).forEach(consider);
+    getStaticOpenAipReportingPointEntries(viewBounds).forEach(consider);
     return best;
 }
 
-function openNearestMapInfoAt(latlng) {
-    if (!window.isMapHintEnabled('airportSingleClick')) return false;
+function findNearestMapInfoObject(latlng) {
     const radius = getAirportTapRadiusPx(34);
-    const apt = findNearestAirport(latlng, radius);
-    if (apt) {
-        openAirportInfoPopup(apt);
+    const airport = findNearestAirport(latlng, radius);
+    const navigationPoint = findNearestMapNavigationPoint(latlng, radius);
+    if (!airport && !navigationPoint) return null;
+
+    // Während die lokale Airport-Datei noch lädt, darf ein bereits verfügbares
+    // DME den Tap nicht vorzeitig verbrauchen. Der asynchrone Retry löst den
+    // Treffer unmittelbar nach dem Laden noch einmal auf.
+    if (
+        !airport
+        && !getAirportDatabaseForMapClicks()
+        && storedAirportOverlayState.loadPromise
+    ) {
+        return null;
+    }
+    if (airport && navigationPoint && map) {
+        const tapPx = map.latLngToLayerPoint(latlng);
+        const airportPx = map.latLngToLayerPoint([airport.lat, airport.lon]);
+        const navaidPx = map.latLngToLayerPoint([navigationPoint.lat, navigationPoint.lng]);
+        const airportDistance = tapPx.distanceTo(airportPx);
+        const navigationDistance = tapPx.distanceTo(navaidPx);
+        // Bei praktisch identischer Position gehört der sichtbare Platz zum
+        // Airport; ansonsten entscheidet der näher angetippte Kartenpunkt.
+        if (airportDistance <= navigationDistance + 2) {
+            return { kind: 'airport', data: airport };
+        }
+    } else if (airport) {
+        return { kind: 'airport', data: airport };
+    }
+    if (!navigationPoint) return { kind: 'airport', data: airport };
+    return {
+        kind: navigationPoint.type === 'RPP' ? 'vrp' : 'navaid',
+        data: navigationPoint
+    };
+}
+
+function getMapNavigationPointTooltip(point) {
+    if (!point) return '';
+    if (point.type === 'RPP') {
+        const raw = point?.rppData && typeof point.rppData === 'object' ? point.rppData : point;
+        const name = String(raw?.name || point?.name || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
+        const airportIcao = String(raw?.airportIcao || point?.rppAirportIcao || '').trim().toUpperCase();
+        return `
+            <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
+                <b>VRP</b> · ${escapePopupText(name)}
+                ${airportIcao ? `<br><span>FLUGPLATZ&nbsp; ${escapePopupText(airportIcao)}</span>` : ''}
+            </span>`;
+    }
+    const nav = normalizeOpenAipNavaidForPopup(point);
+    if (!nav) return '';
+    const title = nav.identifier || 'NAVAID';
+    const frequency = nav.frequencyValue
+        ? `${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`
+        : '';
+    return `
+        <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
+            <b>${escapePopupText(title)}</b> · ${escapePopupText(nav.name)}
+            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${escapePopupText(frequency)}` : ''}</span>
+        </span>`;
+}
+
+let mapSingleClickTooltipLayer = null;
+let mapSingleClickTooltipTimer = null;
+
+function clearMapSingleClickTooltip() {
+    if (mapSingleClickTooltipTimer) {
+        clearTimeout(mapSingleClickTooltipTimer);
+        mapSingleClickTooltipTimer = null;
+    }
+    if (map && mapSingleClickTooltipLayer && map.hasLayer(mapSingleClickTooltipLayer)) {
+        map.removeLayer(mapSingleClickTooltipLayer);
+    }
+    mapSingleClickTooltipLayer = null;
+}
+
+function openMapPointSingleClickTooltip(match) {
+    if (!map || getMapSingleClickMode() !== 'tooltip' || !match) return false;
+    const isAirport = match.kind === 'airport';
+    const normalizedAirport = isAirport
+        ? normalizeOpenAipAirportForPopup(match.data)
+        : null;
+    if (isAirport && !normalizedAirport) return false;
+    const rawCoordinates = match.data?.geometry?.coordinates
+        || match.data?.navaidData?.geometry?.coordinates
+        || match.data?.rppData?.geometry?.coordinates;
+    const anchorLat = Number(normalizedAirport?.lat ?? match.data?.lat ?? match.data?.rppData?.lat ?? rawCoordinates?.[1]);
+    const anchorLon = Number(normalizedAirport?.lon ?? match.data?.lng ?? match.data?.lon ?? match.data?.rppData?.lon ?? rawCoordinates?.[0]);
+    if (![anchorLat, anchorLon].every(Number.isFinite)) return false;
+    const anchor = L.latLng(anchorLat, anchorLon);
+    const content = isAirport
+        ? getOpenAipAirportTooltip(match.data)
+        : getMapNavigationPointTooltip(match.data);
+    if (!content) return false;
+
+    clearMapSingleClickTooltip();
+    mapSingleClickTooltipLayer = L.tooltip({
+        direction: 'top',
+        offset: [0, -8],
+        opacity: 1,
+        className: 'airspace-tooltip ga-airport-tooltip-shell ga-map-point-click-tooltip'
+    })
+        .setLatLng(anchor)
+        .setContent(content)
+        .addTo(map);
+    mapSingleClickTooltipTimer = setTimeout(clearMapSingleClickTooltip, 5200);
+    return true;
+}
+
+function openNearestMapTooltipAt(latlng) {
+    if (!map || getMapSingleClickMode() !== 'tooltip') return false;
+    return openMapPointSingleClickTooltip(findNearestMapInfoObject(latlng));
+}
+
+function openNearestMapInfoAt(latlng) {
+    if (getMapSingleClickMode() !== 'panels') return false;
+    const match = findNearestMapInfoObject(latlng);
+    if (!match) return false;
+    if (match.kind === 'airport') {
+        openAirportInfoPopup(match.data);
         return true;
     }
-    const nav = findNearestMapNavigationPoint(latlng, radius);
-    if (!nav) return false;
-    if (nav.type === 'NAVAID') {
-        openNavaidInfoPopup(nav);
+    if (match.kind === 'navaid') {
+        openNavaidInfoPopup(match.data);
     } else {
-        openReportingPointInfoPopup(nav);
+        openReportingPointInfoPopup(match.data);
     }
     return true;
+}
+
+function resolveMapSingleClickAt(latlng) {
+    const mode = getMapSingleClickMode();
+    if (mode === 'tooltip') return openNearestMapTooltipAt(latlng);
+    if (mode === 'panels') return openNearestMapInfoAt(latlng);
+    return false;
 }
 
 const MAP_CONTEXT_LONG_PRESS_MS = 650;
@@ -14776,26 +15240,27 @@ function bindMapContextInteractions() {
 let pendingMapInfoTapSeq = 0;
 
 function scheduleMapInfoTapResolution(latlng) {
-    if (!window.isMapHintEnabled('airportSingleClick')) return;
+    if (getMapSingleClickMode() === 'off') return;
     const seq = ++pendingMapInfoTapSeq;
     const tap = L.latLng(latlng.lat, latlng.lng);
     const tasks = [
         Promise.resolve(ensureOpenAipRegionSnapshot()),
         Promise.resolve(ensureGlobalAirportsForMapClicks()),
+        Promise.resolve(loadStoredAirportOverlayDatabase()),
         Promise.resolve(loadOpenAipStaticNavaids()),
         Promise.resolve(loadOpenAipStaticReportingPoints())
     ];
     let resolved = false;
     const retry = () => {
         if (resolved || seq !== pendingMapInfoTapSeq || !map) return;
-        if (openNearestMapInfoAt(tap)) {
+        if (resolveMapSingleClickAt(tap)) {
             resolved = true;
             pendingMapInfoTapSeq += 1;
         }
     };
     tasks.forEach(task => task.then(retry, () => {}));
     if (
-        !hasGlobalAirportsForMapClicks()
+        !getAirportDatabaseForMapClicks()
         || !Array.isArray(openAipStaticNavaidState.items)
         || !Array.isArray(openAipStaticReportingPointState.items)
     ) {
