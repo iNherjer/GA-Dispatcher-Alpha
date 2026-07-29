@@ -2139,7 +2139,74 @@ function _missionCargoStorePayloadBaselineIfNeeded(snapshot, manifestKey = '') {
         window.missionCargoStatus.payloadBaseline = normalized;
         window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(normalized);
     }
-    return window.missionCargoStatus.payloadBaseline;
+    return _missionCargoMergeFuelIntoPayloadBaseline(window.lastLiveFlightData);
+}
+
+function _missionCargoMergeFuelIntoPayloadBaseline(source = null) {
+    const baseline = _missionCargoNormalizePayloadSnapshot(window.missionCargoStatus?.payloadBaseline);
+    const fuelWeightLbs = Number(source?.fuelWeightLbs);
+    if (!baseline || !Number.isFinite(fuelWeightLbs) || fuelWeightLbs < 0) return baseline;
+    const previousFuelWeightLbs = baseline.fuelWeightLbs == null ? Number.NaN : Number(baseline.fuelWeightLbs);
+    if (!Number.isFinite(previousFuelWeightLbs)) {
+        const nextBaseline = {
+            ...baseline,
+            fuelWeightLbs: Math.round(fuelWeightLbs * 10) / 10
+        };
+        window.missionCargoStatus.payloadBaseline = nextBaseline;
+        return nextBaseline;
+    }
+    const fuelDeltaLbs = fuelWeightLbs - previousFuelWeightLbs;
+    if (Math.abs(fuelDeltaLbs) <= 0.05) return baseline;
+    const nextBaseline = {
+        ...baseline,
+        fuelWeightLbs: Math.round(fuelWeightLbs * 10) / 10,
+        totalWeightLbs: baseline.totalWeightLbs != null && Number.isFinite(Number(baseline.totalWeightLbs))
+            ? Math.round((Number(baseline.totalWeightLbs) + fuelDeltaLbs) * 10) / 10
+            : null,
+        pa24: baseline.pa24 ? {
+            ...baseline.pa24,
+            totalWeightLbs: baseline.pa24.totalWeightLbs != null && Number.isFinite(Number(baseline.pa24.totalWeightLbs))
+                ? Math.round((Number(baseline.pa24.totalWeightLbs) + fuelDeltaLbs) * 10) / 10
+                : baseline.pa24.totalWeightLbs
+        } : null
+    };
+    window.missionCargoStatus.payloadBaseline = nextBaseline;
+    window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(nextBaseline);
+    return nextBaseline;
+}
+
+function _missionCargoMergeFuelIntoCurrentSnapshot(source = null) {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+    const fuelWeightLbs = Number(source?.fuelWeightLbs);
+    if (!snapshot || !Number.isFinite(fuelWeightLbs) || fuelWeightLbs < 0) return snapshot;
+    const previousFuelWeightLbs = snapshot.fuelWeightLbs == null ? Number.NaN : Number(snapshot.fuelWeightLbs);
+    if (!Number.isFinite(previousFuelWeightLbs)) {
+        const nextSnapshot = {
+            ...snapshot,
+            fuelWeightLbs: Math.round(fuelWeightLbs * 10) / 10
+        };
+        window.aircraftPayloadStatus.snapshot = nextSnapshot;
+        return nextSnapshot;
+    }
+    if (Math.abs(fuelWeightLbs - previousFuelWeightLbs) <= 0.05) {
+        return snapshot;
+    }
+    const fuelDeltaLbs = fuelWeightLbs - previousFuelWeightLbs;
+    const nextSnapshot = {
+        ...snapshot,
+        fuelWeightLbs: Math.round(fuelWeightLbs * 10) / 10,
+        totalWeightLbs: snapshot.totalWeightLbs != null && Number.isFinite(Number(snapshot.totalWeightLbs))
+            ? Math.round((Number(snapshot.totalWeightLbs) + fuelDeltaLbs) * 10) / 10
+            : snapshot.totalWeightLbs,
+        pa24: snapshot.pa24 ? {
+            ...snapshot.pa24,
+            totalWeightLbs: snapshot.pa24.totalWeightLbs != null && Number.isFinite(Number(snapshot.pa24.totalWeightLbs))
+                ? Math.round((Number(snapshot.pa24.totalWeightLbs) + fuelDeltaLbs) * 10) / 10
+                : snapshot.pa24.totalWeightLbs
+        } : null
+    };
+    window.aircraftPayloadStatus.snapshot = nextSnapshot;
+    return nextSnapshot;
 }
 
 function _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshotNow) {
@@ -2418,7 +2485,8 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
     }
     const layout = window.missionCargoStatus.payloadLayout || _missionCargoBuildPayloadLayout(snapshot);
     const plan = window.missionCargoStatus.payloadPlan;
-    const fuelWeight = Number.isFinite(Number(snapshot.fuelWeightLbs)) ? Number(snapshot.fuelWeightLbs) : Number(window.lastLiveFlightData?.fuelWeightLbs);
+    const liveFuelWeight = Number(window.lastLiveFlightData?.fuelWeightLbs);
+    const fuelWeight = Number.isFinite(liveFuelWeight) ? liveFuelWeight : Number(snapshot.fuelWeightLbs);
     const stationRows = (plan?.stations || snapshot.stations || []).map((row) => {
         const target = Number(row?.weightLbs);
         const base = Number(row?.baselineWeightLbs);
@@ -2560,6 +2628,7 @@ async function _missionCargoRunPayloadSync(reason = 'cargo-sync', revision = 0) 
                 return getAck || { status: 'no_snapshot' };
             }
         }
+        _missionCargoMergeFuelIntoCurrentSnapshot(window.lastLiveFlightData);
         const baseline = _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, manifest?.key || '');
         if (!baseline) {
             window.missionCargoStatus.payloadNeedsSync = true;
@@ -3321,6 +3390,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const complianceUi = typeof window.missionComplianceGetCargoUiState === 'function'
         ? (window.missionComplianceGetCargoUiState() || { active: false })
         : { active: false };
+    _missionCargoMergeFuelIntoCurrentSnapshot(window.lastLiveFlightData);
     _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, manifest?.key || '');
     if (window.missionCargoStatus.payloadBaseline) {
         window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(manifest, window.missionCargoStatus.payloadBaseline);
@@ -3630,6 +3700,28 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             .catch(() => {});
     }
 }
+
+let _missionCargoLiveFuelRenderTimer = null;
+window.missionCargoHandleLiveFuelUpdate = function(flightData = null) {
+    const baselineFuel = window.missionCargoStatus?.payloadBaseline?.fuelWeightLbs;
+    const beforeFuel = baselineFuel == null ? Number.NaN : Number(baselineFuel);
+    _missionCargoMergeFuelIntoCurrentSnapshot(flightData);
+    const baseline = _missionCargoMergeFuelIntoPayloadBaseline(flightData);
+    const nextFuel = baseline?.fuelWeightLbs == null ? Number.NaN : Number(baseline.fuelWeightLbs);
+    if (!Number.isFinite(nextFuel) || (Number.isFinite(beforeFuel) && Math.abs(nextFuel - beforeFuel) <= 0.05)) return false;
+    const overlay = document.getElementById('missionCargoOverlay');
+    if (!overlay || overlay.style.display !== 'flex') return true;
+    if (_missionCargoLiveFuelRenderTimer) clearTimeout(_missionCargoLiveFuelRenderTimer);
+    _missionCargoLiveFuelRenderTimer = setTimeout(() => {
+        _missionCargoLiveFuelRenderTimer = null;
+        if (document.getElementById('missionCargoOverlay')?.style.display !== 'flex') return;
+        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode || 'load', {
+            skipPayloadRefresh: true,
+            preserveScroll: true
+        });
+    }, 250);
+    return true;
+};
 
 window.openMissionCargoDialog = function(mode = 'load') {
     _missionCargoEnsureUiSyncHook();

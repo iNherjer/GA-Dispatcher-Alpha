@@ -28,8 +28,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v316';
-const TRACKER_VERSION_CODE = 316;
+const TRACKER_VERSION = 'v317';
+const TRACKER_VERSION_CODE = 317;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
 let credentialsProvidedByDesktop = false;
@@ -1175,6 +1175,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';
+  const PA24_PAYLOAD_SEAT_SETTLE_MS = 220;
   const PA24_PAYLOAD_LVARS = [
     ...[1, 2, 3, 4].map((seat) => ({
       key: `Seat${seat}Character`,
@@ -1326,16 +1327,34 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     };
   };
 
-  const applyPa24PayloadState = async (rawState = {}) => {
+  const applyPa24PayloadState = async (rawState = {}, previousRawState = null) => {
     const state = normalizePa24PayloadState(rawState);
+    const previousState = previousRawState && typeof previousRawState === 'object'
+      ? normalizePa24PayloadState({
+        seats: previousRawState.seats,
+        characterWeights: previousRawState.characterWeights,
+        baggageWeightLbs: previousRawState.baggageWeightLbs
+      })
+      : null;
     let changed = 0;
-    [2, 3, 4].forEach((seat) => {
+    const changedSeats = [2, 3, 4].filter((seat) => (
+      !previousState || previousState.seats[seat] !== state.seats[seat]
+    ));
+    let clearedSeats = 0;
+    changedSeats.forEach((seat) => {
+      if (previousState && previousState.seats[seat] === 0) return;
       if (!setNamedVarValue(`L:Seat${seat}Character`, 0, 'enum', 'pa24-payload-clear-seat')) {
         throw new Error(`pa24_seat_clear_failed_${seat}`);
       }
       changed += 1;
+      clearedSeats += 1;
     });
+    if (clearedSeats > 0) await sleep(PA24_PAYLOAD_SEAT_SETTLE_MS);
     [2, 3, 4].forEach((character) => {
+      if (previousState
+          && Math.abs(previousState.characterWeights[character] - state.characterWeights[character]) <= 0.05) {
+        return;
+      }
       if (!setNamedVarValue(
         `L:Character${character}Weight`,
         state.characterWeights[character],
@@ -1346,11 +1365,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       changed += 1;
     });
-    if (!setNamedVarValue('L:BaggageWeight', state.baggageWeightLbs, 'pounds', 'pa24-payload-baggage')) {
-      throw new Error('pa24_baggage_weight_failed');
+    if (!previousState || Math.abs(previousState.baggageWeightLbs - state.baggageWeightLbs) > 0.05) {
+      if (!setNamedVarValue('L:BaggageWeight', state.baggageWeightLbs, 'pounds', 'pa24-payload-baggage')) {
+        throw new Error('pa24_baggage_weight_failed');
+      }
+      changed += 1;
     }
-    changed += 1;
-    [2, 3, 4].forEach((seat) => {
+    changedSeats.forEach((seat) => {
       if (state.seats[seat] === 0) return;
       if (!setNamedVarValue(
         `L:Seat${seat}Character`,
@@ -1362,7 +1383,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       changed += 1;
     });
-    return { changed, state };
+    return { changed, changedSeats, state };
   };
 
   const resolveDoorProfile = (command) => {
@@ -3696,7 +3717,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
               if (before?.payloadAdapter !== PA24_PAYLOAD_ADAPTER) {
                 throw new Error(`pa24_adapter_aircraft_mismatch:${before?.aircraft?.title || 'unknown'}`);
               }
-              return applyPa24PayloadState(pa24State).then(result => ({ result, before }));
+              return applyPa24PayloadState(pa24State, before?.pa24).then(result => ({ result, before }));
             }
             if (before?.payloadAdapter === PA24_PAYLOAD_ADAPTER) {
               throw new Error('pa24_adapter_state_required');

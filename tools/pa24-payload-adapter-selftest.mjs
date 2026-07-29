@@ -44,7 +44,9 @@ vm.runInNewContext([
     functionSource('_missionCargoBuildPayloadLayout'),
     functionSource('_missionCargoItemIsBulky'),
     functionSource('_missionCargoPa24StateFromSnapshot'),
-    functionSource('_missionCargoBuildPa24PlanFromManifest')
+    functionSource('_missionCargoBuildPa24PlanFromManifest'),
+    functionSource('_missionCargoMergeFuelIntoPayloadBaseline'),
+    functionSource('_missionCargoMergeFuelIntoCurrentSnapshot')
 ].join('\n'), context);
 
 const baseline = {
@@ -79,6 +81,29 @@ const manifest = {
         { id: 'crate', itemType: 'cargo', status: 'loaded', weightLbs: 65, label: 'Grosse Kiste' }
     ]
 };
+
+context.window.missionCargoStatus = {
+    payloadBaseline: JSON.parse(JSON.stringify(baseline)),
+    payloadLayout: null
+};
+context.window.aircraftPayloadStatus = {
+    snapshot: JSON.parse(JSON.stringify(baseline))
+};
+const fuelBaseline = context._missionCargoMergeFuelIntoPayloadBaseline({ fuelWeightLbs: 520 });
+assert.equal(fuelBaseline.fuelWeightLbs, 520);
+assert.equal(fuelBaseline.totalWeightLbs, 2425, 'fuel delta must update frozen baseline total');
+assert.equal(fuelBaseline.pa24.totalWeightLbs, 2435, 'fuel delta must update PA24 baseline total');
+assert.equal(fuelBaseline.stations[4].weightLbs, 10, 'fuel update must not rebaseline mission payload');
+assert.equal(
+    context._missionCargoMergeFuelIntoPayloadBaseline({ fuelWeightLbs: 520 }).totalWeightLbs,
+    2425,
+    'same live fuel must not be applied twice'
+);
+const fuelSnapshot = context._missionCargoMergeFuelIntoCurrentSnapshot({ fuelWeightLbs: 510 });
+assert.equal(fuelSnapshot.fuelWeightLbs, 510);
+assert.equal(fuelSnapshot.totalWeightLbs, 2415, 'live fuel delta must update current payload snapshot');
+assert.equal(fuelSnapshot.pa24.totalWeightLbs, 2425);
+
 const plan = context._missionCargoBuildPa24PlanFromManifest(manifest, baseline);
 assert.equal(plan.error, undefined);
 assert.equal(plan.payloadAdapter, 'pa24_accusim');
@@ -152,9 +177,11 @@ const overweightPlan = context._missionCargoBuildPa24PlanFromManifest({
 assert.equal(overweightPlan.error, 'pa24_gross_weight_exceeded');
 
 for (const required of [
-    "const TRACKER_VERSION = 'v316';",
-    "const TRACKER_VERSION_CODE = 316;",
+    "const TRACKER_VERSION = 'v317';",
+    "const TRACKER_VERSION_CODE = 317;",
     "const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';",
+    'const PA24_PAYLOAD_SEAT_SETTLE_MS = 220;',
+    'applyPa24PayloadState(pa24State, before?.pa24)',
     "units: 'number'",
     "name: 'L:BaggageWeight', units: 'pounds'",
     'pa24_adapter_aircraft_mismatch',
@@ -162,7 +189,9 @@ for (const required of [
 ]) {
     assert.ok(trackerSource.includes(required), `tracker contract missing: ${required}`);
 }
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 316;"));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v316';"));
+assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat]'));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 317;"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v317';"));
+assert.ok(syncSource.includes('window.missionCargoHandleLiveFuelUpdate?.(data.flight);'));
 
 console.log('PA24 production payload adapter selftest: ok');
