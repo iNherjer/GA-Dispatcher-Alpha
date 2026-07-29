@@ -36,6 +36,37 @@
       "updatedAt": "2026-07-28T12:04:40.418Z"
     },
     {
+      "key": "aircraftWheelChocks",
+      "folder": "VFRHomebaseAircraftWheelChocks",
+      "title": "VFR Multitool Homebase Aircraft Wheel Chocks",
+      "label": "Radkeile – 2 Paare",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "aviation",
+        "ground-support",
+        "safety",
+        "wheel-chocks",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-29T06:08:08.054Z"
+    },
+    {
       "key": "assetShelf",
       "version": "1.0.1",
       "folder": "VFRHomebaseAssetShelf",
@@ -1360,6 +1391,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-28T16:02:24.662Z",
+  "updatedAt": "2026-07-29T06:08:08.132Z",
   "stockObjects": []
 }

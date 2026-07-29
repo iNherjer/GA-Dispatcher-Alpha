@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-28T16:17:20.845Z",
+  "generatedAt": "2026-07-29T06:34:59.222Z",
   "packageName": "vfr-multitool-homebase-assets",
   "packageVersion": "0.6.21",
   "releaseTag": "homebase-assets-v0.6.21",
   "repository": "iNherjer/GA-Dispatcher-Alpha",
-  "contentHash": "6e3008bc2bc1b010994be0338f39d19a523e50e0ae950e6d6cbd6bda7270073c",
-  "packageContentHash": "4b571f37fa285b1e329c5d791c5c72d8d89700b6121202ad8c4b918973d7d7bc",
-  "metadataHash": "982bb5fea334ce9f72b6667bdc19e2282c4bdb505e473978d3178f8f214f2f07",
+  "contentHash": "22ebd0ecf434283bf613dbfd594e3887d3536bcb3d4d08320845df8e2f47777e",
+  "packageContentHash": "55e7410426ed6a9a9d963db000449a3ca30a758489c226ad08925f434d622677",
+  "metadataHash": "d1d970a802c559e33362a3199bcd5513fe41cbd6cc668c01de28658d1740c426",
   "files": [
     {
       "path": "bglIndex.bout",
@@ -16,18 +16,113 @@
     },
     {
       "path": "layout.json",
-      "size": 62250,
-      "sha256": "26f8a4b485c018f1fbaa3570271eaea83d28fa9901ea7891f6cf6521ded7de37"
+      "size": 65795,
+      "sha256": "f726c2bdc034d7a02767644b6696090d05c4b811030d8a8e0c020e4344f76e7c"
     },
     {
       "path": "manifest.json",
       "size": 519,
-      "sha256": "8652f2f0b3b739e85165803e46dd897aa1db9d50a0246d46dea2d51b0d851edd"
+      "sha256": "a73612cf57b79d25ae6508f009d73c2759a6e3e55cf8e543543fa6acf75f89d4"
     },
     {
       "path": "Scenery/vfr-multitool-homebase-assets/ModelLib/VFRHomebaseRoundHangarCollision.BGL",
       "size": 9104,
       "sha256": "cc18771700d27e133aad70cfc6f3c457a306b88dcda639761b50b0bf6e75c986"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks_LOD00.bin",
+      "size": 231168,
+      "sha256": "47e686b03227e1c7fd2e498a2944bb49d44e744ef520829260e16179faea0cdb"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks_LOD00.gltf",
+      "size": 7299,
+      "sha256": "bd4f7da56838a55ae0245b8e68a217360062cc9eea86e6437a930ea92f4f26ed"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks.xml",
+      "size": 326,
+      "sha256": "112a5a3262dfa357ae2cee585da61e3464833defbb433f8d57c4a10575035396"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/model.CFG",
+      "size": 48,
+      "sha256": "18e5ad381671355f938d979caa8ebf57d0716f804caa5a5c2f4af07c212a48fb"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/sim.cfg",
+      "size": 498,
+      "sha256": "da6dd3674c36cf71edf12e0242d3dd587bf9fb7945b0bb9f9a7daba146dc0d1f"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_BASECOLOR.PNG.KTX2",
+      "size": 175320,
+      "sha256": "7abff164b14f2802f8ed909c8942783ad93b43b7c888b37e349be2163e81a6ac"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_BASECOLOR.PNG.KTX2.json",
+      "size": 102,
+      "sha256": "ea43073398a3ed4adbc2bb54ed71d484703af3646dabeeccca13366137b55399"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_NORMAL.PNG.KTX2",
+      "size": 350128,
+      "sha256": "b5d0ebdc69e440edb1d6473bb5efd6cd4dbd59d9a38c63d26c98527abda4cb78"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_NORMAL.PNG.KTX2.json",
+      "size": 160,
+      "sha256": "807d1350a6a843cdbf8739e16e5bca78be2f212e1e206303d9d5535b20dfcb3e"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_BASECOLOR.PNG.KTX2",
+      "size": 175336,
+      "sha256": "b495be81bfce8c5913ff1a95d9288fcf5c237360786256276ab030d8f1b7558a"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_BASECOLOR.PNG.KTX2.json",
+      "size": 102,
+      "sha256": "7f152118099c5e68bf4acbc3243cd6c4d25fafcba90d136e707a89a694e3fc72"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_METALROUGHAO.PNG.KTX2",
+      "size": 175336,
+      "sha256": "32fbe50a1963ad213db7cbd41aa5af1e4b1ef813c6c1aef3ec9503339bbfbcd7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_METALROUGHAO.PNG.KTX2.json",
+      "size": 166,
+      "sha256": "5a5fb826458c54d8d59efba1eb2217365e3297fc07a7b9e2279aa6303e354d0d"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_NORMAL.PNG.KTX2",
+      "size": 350128,
+      "sha256": "cfb651363575a73f026c70048693f9aeda8376dba906f94cd016fc9d896b7fd4"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_NORMAL.PNG.KTX2.json",
+      "size": 160,
+      "sha256": "f1f23a153740d687e28fdd9323220628f29ead5102825869a4c39b75a64864b7"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_BASECOLOR.PNG.KTX2",
+      "size": 699624,
+      "sha256": "5256ab7cfe8d3a600a98faceda3cb365045b239107d946106ae5d5648251a498"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_BASECOLOR.PNG.KTX2.json",
+      "size": 102,
+      "sha256": "ad03b6faa9be3aa8ec60506a3bf387adb85fcb19333aef32f05e008f9de33434"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_METALROUGHAO.PNG.KTX2",
+      "size": 699656,
+      "sha256": "f16cdfa2dc591f0eb07f5ae9c6103be8793de6cf2f168e5d5a7ea25825e24bfd"
+    },
+    {
+      "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_METALROUGHAO.PNG.KTX2.json",
+      "size": 166,
+      "sha256": "8be89a37c777ec6362aeaca61885f3900fd8b9bef5ba0af02dbbe72b86a9d501"
     },
     {
       "path": "SimObjects/Misc/VFRHomebaseAssetShelf/model/HomebaseAssetShelf_LOD00.bin",
@@ -2016,6 +2111,145 @@
         "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.21/aircraftLogbookCargo-1.0.0.zip",
         "size": 103353,
         "sha256": "1c3ec488702657009d2471c4ea6a3311d3a95b14be31d57ffed8f6410ce2e2b0"
+      }
+    },
+    {
+      "key": "aircraftWheelChocks",
+      "folder": "VFRHomebaseAircraftWheelChocks",
+      "title": "VFR Multitool Homebase Aircraft Wheel Chocks",
+      "label": "Radkeile – 2 Paare",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Ausstattung",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "aviation",
+        "ground-support",
+        "safety",
+        "wheel-chocks",
+        "equipment"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-07-29T06:08:08.054Z",
+      "modelHash": "ccdf39d7af6501af58b2f04efec3cd3d36e80f3254216e898a41c52525a5678c",
+      "metadataHash": "5e45a6c68f2a04c75aa93e698f00fd13ee585a34f141f6f430aee202772cc278",
+      "contentHash": "9c9c50de405b29d1019d240e11c62507442321b18864a9d8b9dcb1cf56e29229",
+      "changed": true,
+      "files": [
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks_LOD00.bin",
+          "size": 231168,
+          "sha256": "47e686b03227e1c7fd2e498a2944bb49d44e744ef520829260e16179faea0cdb"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks_LOD00.gltf",
+          "size": 7299,
+          "sha256": "bd4f7da56838a55ae0245b8e68a217360062cc9eea86e6437a930ea92f4f26ed"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/HomebaseAircraftWheelChocks.xml",
+          "size": 326,
+          "sha256": "112a5a3262dfa357ae2cee585da61e3464833defbb433f8d57c4a10575035396"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/model/model.CFG",
+          "size": 48,
+          "sha256": "18e5ad381671355f938d979caa8ebf57d0716f804caa5a5c2f4af07c212a48fb"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/sim.cfg",
+          "size": 498,
+          "sha256": "da6dd3674c36cf71edf12e0242d3dd587bf9fb7945b0bb9f9a7daba146dc0d1f"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_BASECOLOR.PNG.KTX2",
+          "size": 175320,
+          "sha256": "7abff164b14f2802f8ed909c8942783ad93b43b7c888b37e349be2163e81a6ac"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_BASECOLOR.PNG.KTX2.json",
+          "size": 102,
+          "sha256": "ea43073398a3ed4adbc2bb54ed71d484703af3646dabeeccca13366137b55399"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_NORMAL.PNG.KTX2",
+          "size": 350128,
+          "sha256": "b5d0ebdc69e440edb1d6473bb5efd6cd4dbd59d9a38c63d26c98527abda4cb78"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_ROPE_NORMAL.PNG.KTX2.json",
+          "size": 160,
+          "sha256": "807d1350a6a843cdbf8739e16e5bca78be2f212e1e206303d9d5535b20dfcb3e"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_BASECOLOR.PNG.KTX2",
+          "size": 175336,
+          "sha256": "b495be81bfce8c5913ff1a95d9288fcf5c237360786256276ab030d8f1b7558a"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_BASECOLOR.PNG.KTX2.json",
+          "size": 102,
+          "sha256": "7f152118099c5e68bf4acbc3243cd6c4d25fafcba90d136e707a89a694e3fc72"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_METALROUGHAO.PNG.KTX2",
+          "size": 175336,
+          "sha256": "32fbe50a1963ad213db7cbd41aa5af1e4b1ef813c6c1aef3ec9503339bbfbcd7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_METALROUGHAO.PNG.KTX2.json",
+          "size": 166,
+          "sha256": "5a5fb826458c54d8d59efba1eb2217365e3297fc07a7b9e2279aa6303e354d0d"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_NORMAL.PNG.KTX2",
+          "size": 350128,
+          "sha256": "cfb651363575a73f026c70048693f9aeda8376dba906f94cd016fc9d896b7fd4"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_RUBBER_NORMAL.PNG.KTX2.json",
+          "size": 160,
+          "sha256": "f1f23a153740d687e28fdd9323220628f29ead5102825869a4c39b75a64864b7"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_BASECOLOR.PNG.KTX2",
+          "size": 699624,
+          "sha256": "5256ab7cfe8d3a600a98faceda3cb365045b239107d946106ae5d5648251a498"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_BASECOLOR.PNG.KTX2.json",
+          "size": 102,
+          "sha256": "ad03b6faa9be3aa8ec60506a3bf387adb85fcb19333aef32f05e008f9de33434"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_METALROUGHAO.PNG.KTX2",
+          "size": 699656,
+          "sha256": "f16cdfa2dc591f0eb07f5ae9c6103be8793de6cf2f168e5d5a7ea25825e24bfd"
+        },
+        {
+          "path": "SimObjects/Misc/VFRHomebaseAircraftWheelChocks/texture/HOMEBASEAIRCRAFTWHEELCHOCKS_SAFETYSTRIPE_METALROUGHAO.PNG.KTX2.json",
+          "size": 166,
+          "sha256": "8be89a37c777ec6362aeaca61885f3900fd8b9bef5ba0af02dbbe72b86a9d501"
+        }
+      ],
+      "archive": {
+        "name": "aircraftWheelChocks-1.0.0.zip",
+        "path": "assets/aircraftWheelChocks-1.0.0.zip",
+        "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.21/aircraftWheelChocks-1.0.0.zip",
+        "size": 227732,
+        "sha256": "66ac57df65214c1505ba534072cd24faa2df0746b2c65e37a9e966b83393482d"
       }
     },
     {
@@ -5698,6 +5932,7 @@
   ],
   "changedAssets": [
     "aircraftLogbookCargo",
+    "aircraftWheelChocks",
     "cameraEquipmentCargo",
     "campingEquipmentCargo",
     "fireExtinguisher",
@@ -5714,7 +5949,7 @@
   "fullArchive": {
     "name": "vfr-multitool-homebase-assets-0.6.21-full.zip",
     "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.21/vfr-multitool-homebase-assets-0.6.21-full.zip",
-    "size": 36597765,
-    "sha256": "606734d7618e344a54454ff9307ebf1370e32a088b734c0d11b4d3abfcea6521"
+    "size": 36825002,
+    "sha256": "a4adc1a0b113315fcebeee6e13aa59ef138ffb22bb3588ddd1ead8ec923303ba"
   }
 }
