@@ -1530,15 +1530,38 @@
         const isPassenger = cargoIsPassengerItem(item);
         const passengerBusy = isPassenger && cargoPassengerSceneBusy();
         const airborne = cargoIsAirborne();
-        const canLoad = !passengerBusy && !airborne && (item.status === 'pending' || item.status === 'unloaded') && typeof window.missionCargoLoadItem === 'function';
-        const canUnload = !passengerBusy && item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
+        const isUnloaded = item.status === 'unloaded';
+        const canComplianceLoad = window.missionComplianceCanMutateCargo?.(item.id, 'load') !== false;
+        const canComplianceUnload = window.missionComplianceCanMutateCargo?.(item.id, 'unload') !== false;
+        const canLoad = canComplianceLoad && !passengerBusy && !airborne && (item.status === 'pending' || isUnloaded) && typeof window.missionCargoLoadItem === 'function';
+        const canUnload = canComplianceUnload && !passengerBusy && item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
         const dropMode = canUnload && airborne;
-        const expiry = item.expiresAt ? `<div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt)}</b></div>` : '';
+        let expiry = '';
+        if (isUnloaded && item.equipmentType === 'expiry') {
+            const match = String(item.expiresAt || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            const expiryDay = match ? Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000) : NaN;
+            const now = new Date();
+            const todayDay = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+            const daysRemaining = Number.isFinite(expiryDay) ? expiryDay - todayDay : NaN;
+            const replaceEligible = !Number.isFinite(daysRemaining) || daysRemaining < 5;
+            const replaceLocked = window.missionComplianceReplacementLocked?.() === true;
+            const relative = Number.isFinite(daysRemaining)
+                ? (daysRemaining < 0
+                    ? `seit ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'Tag' : 'Tagen'} abgelaufen`
+                    : `noch ${daysRemaining} ${daysRemaining === 1 ? 'Tag' : 'Tage'} gueltig`)
+                : 'Datum fehlt';
+            expiry = `
+                <div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt || '--')}</b> · ${escapeHtml(relative)}</div>
+                ${replaceEligible ? `<div class="cargo-detail-actions"><button class="checklist-mini-btn" type="button" data-action="cargo-replace" data-item-id="${escapeAttr(item.id)}" ${replaceLocked ? 'disabled aria-disabled="true"' : ''}>${replaceLocked ? 'Austausch gesperrt' : 'Gegen neuen ersetzen'}</button></div>` : ''}
+            `;
+        }
         const log = item.log || {};
-        const boardBook = isBoardBook ? `
+        const startAllowed = window.missionComplianceBoardBookWriteAllowed?.('start', { source: 'side-menu' }) !== false;
+        const landingAllowed = window.missionComplianceBoardBookWriteAllowed?.('landing', { source: 'side-menu' }) !== false;
+        const boardBook = isBoardBook && isUnloaded ? `
             <div class="cargo-detail-actions">
-                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="start">Startzeit eintragen</button>
-                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="landing">Landezeit eintragen</button>
+                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="start" ${startAllowed ? '' : 'disabled aria-disabled="true"'}>Startzeit eintragen</button>
+                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="landing" ${landingAllowed ? '' : 'disabled aria-disabled="true"'}>Landezeit eintragen</button>
             </div>
             <div class="cargo-detail-line">Start: <b>${escapeHtml(log.startTime || '--')}</b> · Landung: <b>${escapeHtml(log.landingTime || '--')}</b></div>
         ` : '';
@@ -4143,6 +4166,12 @@ ${routeLines}`;
                 ok ? 'good' : 'warn'
             );
             render();
+        } else if (action === 'cargo-replace') {
+            const itemId = button.dataset.itemId || '';
+            const ok = typeof window.missionCargoReplaceEquipment === 'function'
+                && window.missionCargoReplaceEquipment(itemId);
+            setStatus(ok ? 'Gegenstand durch ein neues Exemplar ersetzt.' : 'Austausch derzeit nicht moeglich.', ok ? 'good' : 'warn');
+            render();
         } else if (action === 'cargo-open-modal') {
             if (typeof window.openMissionCargoDialog === 'function') {
                 window.openMissionCargoDialog('load');
@@ -4162,7 +4191,8 @@ ${routeLines}`;
         } else if (action === 'cargo-boardbook-time') {
             const itemId = button.dataset.itemId || '';
             const field = button.dataset.field || 'start';
-            const ok = typeof window.missionCargoSetBoardBookTime === 'function' && window.missionCargoSetBoardBookTime(itemId, field);
+            const ok = typeof window.missionCargoSetBoardBookTime === 'function'
+                && window.missionCargoSetBoardBookTime(itemId, field, { source: 'side-menu' });
             setStatus(ok ? 'Bordbuch aktualisiert.' : 'Bordbuch konnte nicht aktualisiert werden.', ok ? 'good' : 'warn');
             render();
         }

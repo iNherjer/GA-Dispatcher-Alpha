@@ -78,11 +78,26 @@ assert.equal(context._missionCargoPersistOnboardEquipment({
 }), true);
 assert.equal(context.window.missionCargoGetOnboardEquipmentForSync().aircraft.C172.items.bordbuch.onboard, false);
 
+const explicitlyUnloadedItems = [
+    { id: 'bordbuch', persistentEquipment: true, status: 'loaded', loadedAt: 123 }
+];
+context._missionCargoApplyStoredOnboardEquipment(explicitlyUnloadedItems, 'C172');
+assert.equal(explicitlyUnloadedItems[0].status, 'pending');
+assert.equal(explicitlyUnloadedItems[0].loadedAt, 0);
+
 const secondAircraftItems = [
     { id: 'bordbuch', persistentEquipment: true, status: 'pending', loadedAt: 0 }
 ];
 context._missionCargoApplyStoredOnboardEquipment(secondAircraftItems, 'PA-24');
 assert.equal(secondAircraftItems[0].status, 'pending');
+
+for (const id of ['bordbuch', 'fire-extinguisher', 'first-aid']) {
+    assert.match(
+        source,
+        new RegExp(`id: '${id}'[\\s\\S]{0,260}status: 'loaded'`),
+        `${id} must initially be onboard`
+    );
+}
 
 for (const requiredText of [
     'VFR Multitool Mission Aircraft Logbook Cargo',

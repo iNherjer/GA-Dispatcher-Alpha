@@ -5392,6 +5392,29 @@ function _speakPreparedText(key, text, speaker, eventLabel, options = {}) {
     return _paxSpeechQueue;
 }
 
+function _paxSystemTextKey(key = '') {
+    return `system:${String(key || 'message').replace(/\s+/g, '-').slice(0, 180)}`;
+}
+
+window.paxVoicePrepareSystemText = function(key, text, speaker = null) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return Promise.resolve(false);
+    return _prepareTextAsTTS(_paxSystemTextKey(key), clean, speaker, _paxMissionEpoch)
+        .then(audio => !!audio)
+        .catch(() => false);
+};
+
+window.paxVoiceSpeakSystemText = function(key, text, speaker = null, eventLabel = 'Systemansage') {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return Promise.resolve(false);
+    return _speakPreparedText(
+        _paxSystemTextKey(key),
+        clean,
+        speaker,
+        String(eventLabel || 'Systemansage')
+    ).then(() => true).catch(() => false);
+};
+
 function _surveyPatternActiveSpec() {
     if (typeof window.missionSurveyPattern?.getActiveSpec !== 'function') return null;
     try {

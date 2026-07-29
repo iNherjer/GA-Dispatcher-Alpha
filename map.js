@@ -7927,6 +7927,12 @@ function renderMainRoute() {
                     return;
                 }
                 const origLatLng = { lat: routeWaypoint.lat, lng: routeWaypoint.lng || routeWaypoint.lon };
+                if (window.missionComplianceBlockReset?.()) {
+                    marker.setLatLng(origLatLng);
+                    renderMainRoute();
+                    try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+                    return;
+                }
 
                 // === NEU: SPEZIELLE POI LOGIK (Auto-Name & Fallback) ===
                 if (isPOI) {
@@ -8664,6 +8670,10 @@ function renderGpsStartBriefing(destAirport, startPoint) {
 }
 
 async function applyAirportDirectTo(airport, options = {}) {
+    if (window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     const destAirport = normalizeAirportForMap(airport);
     if (!destAirport || !destAirport.icao || !Number.isFinite(destAirport.lat) || !Number.isFinite(destAirport.lon)) return false;
 
@@ -8775,6 +8785,10 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
 };
 
 window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
+    if (window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     const lat = Number(homebase.lat ?? homebase.spawn?.lat);
     const lon = Number(homebase.lon ?? homebase.spawn?.lon);
     const departureIcao = String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
@@ -15297,6 +15311,10 @@ function handleFreeflightMapClick(e) {
 }
 
 window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
+    if (window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
     // GPS-Start aktualisieren falls verfuegbar
     if (isGpsLive()) {

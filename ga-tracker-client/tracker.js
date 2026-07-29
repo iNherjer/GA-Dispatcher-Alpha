@@ -28,8 +28,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v315';
-const TRACKER_VERSION_CODE = 315;
+const TRACKER_VERSION = 'v316';
+const TRACKER_VERSION_CODE = 316;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
 let credentialsProvidedByDesktop = false;
@@ -301,8 +301,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const trackedObjectIds = new Set();
   const activeBoardingScenes = new Set();
   const activeDeboardingScenes = new Set();
+  const activeGroundVisitScenes = new Set();
   const activeManualPaxScenes = new Set();
   const pendingDeboardingContinuations = new Map();
+  const pendingGroundVisitReleases = new Map();
   const lastExceptions = [];
   let nextReqId = 9300;
   let nextDefId = 9700;
@@ -378,6 +380,73 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     for (const entry of [...pendingDeboardingContinuations.values()]) {
       if (entry.timer) clearTimeout(entry.timer);
       pendingDeboardingContinuations.delete(entry.key);
+      entry.resolve({ action: 'cancel', reason });
+    }
+  };
+
+  const groundVisitReleaseKey = (commandId, sceneId = '') => String(commandId || sceneId || '').trim();
+
+  const waitForGroundVisitRelease = (commandId, sceneId, timeoutMs = 1800000) => {
+    const key = groundVisitReleaseKey(commandId, sceneId);
+    if (!key) return Promise.resolve({ action: 'cancel', reason: 'missing_command_id' });
+    return new Promise((resolve) => {
+      const previous = pendingGroundVisitReleases.get(key);
+      if (previous?.timer) clearTimeout(previous.timer);
+      if (previous?.resolve) previous.resolve({ action: 'cancel', reason: 'replaced' });
+      const timer = setTimeout(() => {
+        pendingGroundVisitReleases.delete(key);
+        resolve({ action: 'cancel', reason: 'inspection_release_timeout' });
+      }, clampInt(timeoutMs, 30000, 30 * 60 * 1000));
+      pendingGroundVisitReleases.set(key, { key, sceneId: String(sceneId || ''), resolve, timer });
+    });
+  };
+
+  const resolveGroundVisitRelease = (command, action = 'release') => {
+    const targetCommandId = String(command?.visitCommandId || command?.targetCommandId || '').trim();
+    const sceneId = String(command?.sceneId || '').trim();
+    const directKey = groundVisitReleaseKey(targetCommandId, sceneId);
+    let entry = pendingGroundVisitReleases.get(directKey) || null;
+    if (!entry && !targetCommandId && sceneId) {
+      entry = [...pendingGroundVisitReleases.values()].find(candidate => candidate.sceneId === sceneId) || null;
+    }
+    if (!entry) {
+      sendAck({
+        type: 'mission_scene_ground_visit_release_ack',
+        commandId: command?.commandId || null,
+        sceneId,
+        visitCommandId: targetCommandId,
+        status: 'noop',
+        error: 'no_pending_ground_visit'
+      });
+      return false;
+    }
+    if (entry.timer) clearTimeout(entry.timer);
+    pendingGroundVisitReleases.delete(entry.key);
+    entry.resolve({ action, reason: command?.reason || action });
+    sendAck({
+      type: 'mission_scene_ground_visit_release_ack',
+      commandId: command?.commandId || null,
+      sceneId: entry.sceneId || sceneId,
+      visitCommandId: targetCommandId || entry.key,
+      status: 'ok'
+    });
+    return true;
+  };
+
+  const cancelGroundVisitReleasesForScene = (sceneId, reason = 'scene-clear') => {
+    const keySceneId = String(sceneId || '');
+    for (const entry of [...pendingGroundVisitReleases.values()]) {
+      if (entry.sceneId !== keySceneId) continue;
+      if (entry.timer) clearTimeout(entry.timer);
+      pendingGroundVisitReleases.delete(entry.key);
+      entry.resolve({ action: 'cancel', reason });
+    }
+  };
+
+  const cancelAllGroundVisitReleases = (reason = 'scene-clear-all') => {
+    for (const entry of [...pendingGroundVisitReleases.values()]) {
+      if (entry.timer) clearTimeout(entry.timer);
+      pendingGroundVisitReleases.delete(entry.key);
       entry.resolve({ action: 'cancel', reason });
     }
   };
@@ -2441,9 +2510,222 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   };
 
+  const animateMissionSceneGroundVisit = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene-ground-visit');
+    const commandId = command?.commandId || null;
+    const missionId = String(command?.missionId || '').trim();
+    if (activeGroundVisitScenes.has(sceneId)) {
+      sendAck({ type: 'mission_scene_ground_visit_ack', commandId, sceneId, missionId, status: 'noop', error: 'busy' });
+      return;
+    }
+    activeGroundVisitScenes.add(sceneId);
+    const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
+    rec.sceneId = sceneId;
+    rec.missionId = missionId || rec.missionId || '';
+    rec.command = { ...(rec.command || {}), ...command };
+    if (!Array.isArray(rec.objects)) rec.objects = [];
+    scenes.set(sceneId, rec);
+    try {
+      const arrivalRoute = buildRelativeSceneRoute(command, rec, command?.vehicleArrivalPath, [
+        { forwardM: -24, rightM: 18 },
+        { forwardM: 22, rightM: 12 }
+      ]);
+      if (arrivalRoute.length < 2) {
+        sendAck({ type: 'mission_scene_ground_visit_ack', commandId, sceneId, missionId, status: 'error', error: 'invalid_vehicle_route' });
+        return;
+      }
+      const vehicleTitle = String(command?.vehicleTitle || 'Microsoft_Car_EUR_04').trim() || 'Microsoft_Car_EUR_04';
+      const vehicleStart = arrivalRoute[0];
+      const vehiclePark = arrivalRoute[arrivalRoute.length - 1];
+      const vehicle = await spawnSceneObjectFromPlan(sceneId, {
+        index: 1,
+        kind: 'ground_visit_vehicle',
+        label: 'Behoerdenfahrzeug',
+        title: vehicleTitle,
+        titleCandidates: buildTitleCandidates(vehicleTitle, command?.vehicleTitleCandidates || [
+          'Microsoft_Car_EUR_04',
+          'Microsoft_Car_EUR_03',
+          'Microsoft_Car_EUR_02',
+          'Microsoft_Car_EUR_01'
+        ]),
+        lat: vehicleStart.lat,
+        lon: vehicleStart.lon,
+        altFt: vehicleStart.altFt,
+        hdg: headingBetweenOffsets(vehicleStart, arrivalRoute[1] || vehiclePark, command?.hdg || 0),
+        baseAltFt: sceneBaseFromCommand(command, rec).altFt,
+        altOffsetFt: vehicleStart.altOffsetFt || 0,
+        forwardM: vehicleStart.forwardM,
+        rightM: vehicleStart.rightM,
+        northM: vehicleStart.northM,
+        eastM: vehicleStart.eastM
+      }, 3200);
+      if (!vehicle) {
+        sendAck({ type: 'mission_scene_ground_visit_ack', commandId, sceneId, missionId, status: 'error', error: 'vehicle_spawn_failed' });
+        return;
+      }
+      rec.objects.push(vehicle);
+      const vehicleSpeedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || 7) || 7));
+      const vehicleRouteSent = sendWaypointRoute(vehicle.objectId, arrivalRoute.slice(1), vehicleSpeedKts);
+      const vehicleArrivalMs = clampInt(
+        (pathDistanceM(arrivalRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200,
+        2500,
+        26000
+      );
+      if (vehicleRouteSent) {
+        await sleep(vehicleArrivalMs);
+      } else {
+        await sleep(600);
+        teleportObject(vehicle.objectId, vehiclePark);
+      }
+      holdVehicleAtPoint(vehicle.objectId, vehiclePark, 'ground-visit-park');
+      sendAck({
+        type: 'mission_scene_ground_visit_stage',
+        commandId,
+        sceneId,
+        missionId,
+        status: vehicleRouteSent ? 'ok' : 'fallback',
+        stage: 'vehicle_parked'
+      });
+
+      const rawVisitors = Array.isArray(command?.visitorPaths) ? command.visitorPaths.slice(0, 2) : [];
+      const visitors = [];
+      for (let index = 0; index < rawVisitors.length; index++) {
+        const visitor = rawVisitors[index] || {};
+        const route = buildRelativeSceneRoute(command, rec, visitor.path, []);
+        if (route.length < 2) continue;
+        const start = route[0];
+        const title = String(visitor.objectTitle || visitor.title || (index === 0 ? 'Tarmac_Male_Summer_Asian' : 'Termac_Female_Summer_Asian')).trim();
+        const object = await spawnSceneObjectFromPlan(sceneId, {
+          index: index + 2,
+          kind: `ground_visit_person_${index + 1}`,
+          label: String(visitor.label || `Kontrolleur ${index + 1}`),
+          title,
+          titleCandidates: buildTitleCandidates(title, visitor.titleCandidates || []),
+          lat: start.lat,
+          lon: start.lon,
+          altFt: start.altFt,
+          hdg: headingBetweenOffsets(start, route[1], command?.hdg || 0),
+          baseAltFt: sceneBaseFromCommand(command, rec).altFt,
+          altOffsetFt: start.altOffsetFt || 0,
+          forwardM: start.forwardM,
+          rightM: start.rightM,
+          northM: start.northM,
+          eastM: start.eastM
+        }, 3200);
+        if (!object) continue;
+        rec.objects.push(object);
+        visitors.push({ object, route });
+      }
+      if (visitors.length < 2) {
+        sendAck({
+          type: 'mission_scene_ground_visit_ack',
+          commandId,
+          sceneId,
+          missionId,
+          status: 'error',
+          error: 'visitor_spawn_failed',
+          spawned: visitors.length
+        });
+        return;
+      }
+
+      const walkSpeedKts = Math.max(2.5, Math.min(4.5, Number(command?.walkSpeedKts || 3.1) || 3.1));
+      let visitorRouteSentCount = 0;
+      let visitorArrivalMs = 0;
+      visitors.forEach((visitor) => {
+        const sent = sendWaypointRoute(visitor.object.objectId, visitor.route.slice(1), walkSpeedKts);
+        visitor.routeSent = sent;
+        visitorRouteSentCount += sent ? 1 : 0;
+        visitorArrivalMs = Math.max(visitorArrivalMs, clampInt(
+          (pathDistanceM(visitor.route) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1000,
+          2500,
+          26000
+        ));
+      });
+      await sleep(visitorArrivalMs);
+      visitors.filter(visitor => !visitor.routeSent).forEach(visitor => {
+        teleportObject(visitor.object.objectId, visitor.route[visitor.route.length - 1]);
+      });
+      sendAck({
+        type: 'mission_scene_ground_visit_stage',
+        commandId,
+        sceneId,
+        missionId,
+        status: visitorRouteSentCount === visitors.length ? 'ok' : 'fallback',
+        stage: 'visitors_at_aircraft',
+        visitors: visitors.length,
+        routeSentCount: visitorRouteSentCount
+      });
+
+      const gate = await waitForGroundVisitRelease(
+        commandId,
+        sceneId,
+        Number(command?.releaseTimeoutMs || 30 * 60 * 1000)
+      );
+      if (gate?.action !== 'release') {
+        sendAck({
+          type: 'mission_scene_ground_visit_ack',
+          commandId,
+          sceneId,
+          missionId,
+          status: 'error',
+          error: gate?.reason || 'ground_visit_cancelled'
+        });
+        return;
+      }
+
+      let visitorReturnSentCount = 0;
+      let visitorReturnMs = 0;
+      visitors.forEach((visitor) => {
+        const reverseRoute = visitor.route.slice().reverse();
+        const sent = sendWaypointRoute(visitor.object.objectId, reverseRoute.slice(1), walkSpeedKts);
+        visitorReturnSentCount += sent ? 1 : 0;
+        visitorReturnMs = Math.max(visitorReturnMs, clampInt(
+          (pathDistanceM(reverseRoute) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 900,
+          2500,
+          26000
+        ));
+      });
+      await sleep(visitorReturnMs);
+      visitors.forEach(visitor => removeSceneObject(rec, visitor.object, 'ground-visit-person-boarded'));
+
+      const departureRoute = buildRelativeSceneRoute(command, rec, command?.vehicleDeparturePath, arrivalRoute.slice().reverse());
+      let vehicleDepartureSent = false;
+      let vehicleDepartureMs = 900;
+      if (departureRoute.length >= 2) {
+        setObjectParkingBrake(vehicle.objectId, false, 'ground-visit-depart');
+        vehicleDepartureSent = sendWaypointRoute(vehicle.objectId, departureRoute.slice(1), vehicleSpeedKts);
+        vehicleDepartureMs = clampInt(
+          (pathDistanceM(departureRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200,
+          2500,
+          26000
+        );
+      }
+      await sleep(vehicleDepartureSent ? vehicleDepartureMs : 900);
+      removeSceneObject(rec, vehicle, vehicleDepartureSent ? 'ground-visit-vehicle-departed' : 'ground-visit-vehicle-fallback-remove');
+      sendAck({
+        type: 'mission_scene_ground_visit_ack',
+        commandId,
+        sceneId,
+        missionId,
+        status: visitorReturnSentCount === visitors.length && vehicleDepartureSent ? 'ok' : 'fallback',
+        visitors: visitors.length,
+        routeSentCount: visitorReturnSentCount,
+        vehicleDeparture: vehicleDepartureSent ? 1 : 0
+      });
+    } finally {
+      cancelGroundVisitReleasesForScene(sceneId, 'ground-visit-finally');
+      const leftovers = (rec.objects || []).filter(obj => /^ground_visit_/i.test(String(obj?.kind || '')));
+      leftovers.forEach(obj => removeSceneObject(rec, obj, 'ground-visit-finally-cleanup'));
+      activeGroundVisitScenes.delete(sceneId);
+      if (!rec.objects.length) scenes.delete(sceneId);
+    }
+  };
+
   const clearScene = async (sceneId, reason = 'clear', commandId = null, options = {}) => {
     const key = String(sceneId || 'mission-scene');
     cancelDeboardingContinuationsForScene(key, reason || 'scene-clear');
+    cancelGroundVisitReleasesForScene(key, reason || 'scene-clear');
     const ackEnabled = options?.ack !== false;
     const rec = scenes.get(key);
     const missionId = rec?.missionId || rec?.command?.missionId || '';
@@ -2841,7 +3123,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     activeBoardingScenes.clear();
     activeDeboardingScenes.clear();
+    activeGroundVisitScenes.clear();
     activeManualPaxScenes.clear();
+    cancelAllGroundVisitReleases(reason);
     debugLog(`TRACKED_CLEAR_OK reason=${reason} cleared=${cleared}`);
     return { cleared };
   };
@@ -3197,6 +3481,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (type === 'mission_lifecycle') {
         if (/^(ended|closed|reset|cleared|closing)$/i.test(String(command?.state || ''))) {
           cancelAllDeboardingContinuations(command?.reason || `mission-${command?.state || 'ended'}`);
+          cancelAllGroundVisitReleases(command?.reason || `mission-${command?.state || 'ended'}`);
         }
         sendAck({
           type: 'mission_lifecycle_ack',
@@ -3292,10 +3577,35 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         });
         return true;
       }
+      if (type === 'mission_scene_ground_visit_release') {
+        const sceneId = command?.sceneId || 'mission-scene-ground-visit';
+        debugLog(`COMMAND mission_scene_ground_visit_release scene=${sceneId} visitCommandId=${command?.visitCommandId || ''}`);
+        resolveGroundVisitRelease(command, 'release');
+        return true;
+      }
+      if (type === 'mission_scene_ground_visit') {
+        const sceneId = command?.sceneId || 'mission-scene-ground-visit';
+        debugLog(`COMMAND mission_scene_ground_visit scene=${sceneId} visitors=${Array.isArray(command?.visitorPaths) ? command.visitorPaths.length : 0}`);
+        // Nicht in die globale Boarding-/Deboarding-Queue einreihen: Die
+        // Kontrolleure duerfen waehrend Farewell und Deboarding schon anlaufen.
+        animateMissionSceneGroundVisit(command).catch(err => {
+          trackerWarn(`⚠️  Ground visit failed: ${err?.message || err}`);
+          sendAck({
+            type: 'mission_scene_ground_visit_ack',
+            commandId: command?.commandId || null,
+            sceneId,
+            missionId: command?.missionId || '',
+            status: 'error',
+            error: err?.message || String(err)
+          });
+        });
+        return true;
+      }
       if (type === 'mission_scene_clear') {
         const sceneId = command?.sceneId || 'mission-scene';
         debugLog(`COMMAND mission_scene_clear scene=${sceneId}`);
         cancelDeboardingContinuationsForScene(sceneId, command?.reason || 'command');
+        cancelGroundVisitReleasesForScene(sceneId, command?.reason || 'command');
         enqueueSceneOperation(sceneId, () => clearScene(sceneId, command?.reason || 'command', command?.commandId || null)).catch(err => {
           sendAck({ type: 'mission_scene_clear_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
@@ -3307,6 +3617,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const ids = [...scenes.keys()];
         debugLog(`COMMAND mission_scene_clear_all scenes=${ids.length}`);
         cancelAllDeboardingContinuations(command?.reason || 'command-all');
+        cancelAllGroundVisitReleases(command?.reason || 'command-all');
         Promise.all(ids.map(id => enqueueSceneOperation(id, () => clearScene(id, command?.reason || 'command-all', commandId))))
           .then(async (results) => {
             const sceneCleared = results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);

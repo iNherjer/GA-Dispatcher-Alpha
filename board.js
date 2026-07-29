@@ -28,7 +28,28 @@ function pinboardJsonClone(value) {
 }
 
 function pinboardWithoutLegacyFlightRecords(notes) {
-    return (Array.isArray(notes) ? notes : []).filter(note => note?.type !== 'flight_record');
+    const now = Date.now();
+    return (Array.isArray(notes) ? notes : []).filter(note => (
+        note?.type !== 'flight_record'
+        && !(note?.type === 'authority_sanction' && Number(note.expiresAt || 0) > 0 && Number(note.expiresAt) <= now)
+    ));
+}
+
+function pinboardAuthoritySanctionActive(note, now = Date.now()) {
+    return !!(
+        note?.type === 'authority_sanction'
+        && Number(note.expiresAt || note.immutableUntil || 0) > Number(now)
+    );
+}
+
+function pinboardPruneExpiredAuthoritySanctions(notes, now = Date.now()) {
+    const source = Array.isArray(notes) ? notes : [];
+    const next = source.filter(note => !(
+        note?.type === 'authority_sanction'
+        && Number(note.expiresAt || 0) > 0
+        && Number(note.expiresAt) <= Number(now)
+    ));
+    return { notes: next, changed: next.length !== source.length };
 }
 
 function pinboardMigrateLegacyFlightRecords() {
@@ -174,7 +195,13 @@ function pinboardCompactNotesForStorage(notes, options = {}) {
         Array.isArray(notes) ? notes.map(n => pinboardJsonClone(n)).filter(Boolean) : []
     );
     const maxNotes = Number(options.maxNotes);
-    if (Number.isFinite(maxNotes) && out.length > maxNotes) out = out.slice(Math.max(0, out.length - maxNotes));
+    if (Number.isFinite(maxNotes) && out.length > maxNotes) {
+        const protectedIds = new Set(out.filter(note => pinboardAuthoritySanctionActive(note)).map(note => String(note.id)));
+        const removable = out.filter(note => !protectedIds.has(String(note.id)));
+        const keepRemovable = Math.max(0, maxNotes - protectedIds.size);
+        const keepIds = new Set(removable.slice(Math.max(0, removable.length - keepRemovable)).map(note => String(note.id)));
+        out = out.filter(note => protectedIds.has(String(note.id)) || keepIds.has(String(note.id)));
+    }
     const pruneByType = (type, maxKeep) => {
         if (!Number.isFinite(Number(maxKeep))) return;
         const indexes = [];
@@ -190,7 +217,7 @@ function pinboardCompactNotesForStorage(notes, options = {}) {
     const textMax = Number.isFinite(Number(options.textMax)) ? Number(options.textMax) : 8000;
     out.forEach(note => {
         if (!note || typeof note !== 'object') return;
-        if (typeof note.text === 'string' && note.text.length > textMax) note.text = note.text.slice(0, textMax);
+        if (note.type !== 'authority_sanction' && typeof note.text === 'string' && note.text.length > textMax) note.text = note.text.slice(0, textMax);
         if (note.type === 'flight' && note.flightData) note.flightData = pinboardCompactFlightDataState(note.flightData, level);
     });
     return out;
@@ -448,7 +475,12 @@ function clearPinboard() {
         alert("Du kannst nicht das gesamte Crew-Brett löschen. Bitte lösche deine Zettel einzeln."); return;
     }
     if (confirm("🗑️ Möchtest du wirklich ALLE Zettel von deinem privaten Brett in den Müll werfen?")) {
-        localStorage.setItem('ga_pinboard', JSON.stringify([]));
+        const notes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]');
+        const protectedNotes = notes.filter(note => pinboardAuthoritySanctionActive(note));
+        localStorage.setItem('ga_pinboard', JSON.stringify(protectedNotes));
+        if (protectedNotes.length) {
+            alert(`${protectedNotes.length} Behoerdeneintrag${protectedNotes.length === 1 ? '' : 'e'} bleiben bis zum Ablauf der 7-Tage-Frist bestehen.`);
+        }
         renderNotes(); triggerCloudSave();
     }
 }
@@ -544,8 +576,13 @@ function deleteNote(id, isGroup) {
             renderNotes();
         }
     } else {
-        if (!confirm("Zettel wirklich abreißen?")) return;
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+        const note = notes.find(entry => String(entry?.id) === String(id));
+        if (pinboardAuthoritySanctionActive(note)) {
+            alert('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht geloescht werden.');
+            return;
+        }
+        if (!confirm("Zettel wirklich abreißen?")) return;
         notes = notes.filter(n => n.id !== id);
         if (!pinboardTrySavePrivateNotes(notes, "Die Pinnwand konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
         renderNotes(); triggerCloudSave();
@@ -567,6 +604,10 @@ function editNote(id, isGroup) {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         const noteIndex = notes.findIndex(n => n.id === id);
         if (noteIndex > -1) {
+            if (pinboardAuthoritySanctionActive(notes[noteIndex])) {
+                alert('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht bearbeitet werden.');
+                return;
+            }
             const newText = prompt("Notiz bearbeiten:", notes[noteIndex].text);
             const clean = String(newText || '').trim().slice(0, 250);
             if (newText !== null && clean !== "") {
@@ -981,6 +1022,12 @@ function pinboardAppendNoteChrome(container, note, isGroup) {
     if (note.isNew) container.appendChild(pinboardCreateElement('div', 'post-it-new-badge', 'NEU'));
     container.appendChild(pinboardCreateElement('div', 'post-it-pin'));
 
+    if (note.type === 'authority_sanction') {
+        const lock = pinboardCreateElement('div', 'post-it-authority-lock', '🔒 7 TAGE');
+        lock.title = 'Dieser Behoerdeneintrag wird nach sieben Tagen automatisch entfernt.';
+        container.appendChild(lock);
+        return;
+    }
     const canEdit = !isGroup || note.author === getGroupNick();
     if (note.type !== 'flight' && canEdit) {
         container.appendChild(pinboardCreateAction('div', 'post-it-edit', '✏️', () => editNote(note.id, isGroup)));
@@ -1002,6 +1049,12 @@ function renderNotes() {
     
     if (currentBoardMode === 'private') {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+        const pruned = pinboardPruneExpiredAuthoritySanctions(notes);
+        notes = pruned.notes;
+        if (pruned.changed) {
+            pinboardTrySavePrivateNotes(notes);
+            try { triggerCloudSave(true); } catch (_) {}
+        }
         notes.forEach(note => createNoteDOM(note, false));
     } else {
         renderCrewHomebaseDirectory(board);
@@ -1137,7 +1190,9 @@ function renderCrewHomebaseDirectory(board) {
 function createNoteDOM(note, isGroup) {
     const board = document.getElementById('pinboard');
     const div = document.createElement('div');
-    div.className = note.type === 'flight' ? 'post-it flight-card' : 'post-it';
+    div.className = note.type === 'flight'
+        ? 'post-it flight-card'
+        : (note.type === 'authority_sanction' ? 'post-it authority-sanction-card' : 'post-it');
     let posX = note.x > 100 ? (note.x / 1000) * 100 : note.x;
     let posY = note.y > 100 ? (note.y / 600) * 100 : note.y;
     div.style.left = posX + '%'; div.style.top = posY + '%'; div.style.transform = `rotate(${note.rot}deg)`;
@@ -1146,6 +1201,14 @@ function createNoteDOM(note, isGroup) {
     if (note.type === 'flight') {
         pinboardAppendRichFlightMarkup(div, note.text);
         div.appendChild(pinboardCreateAction('button', 'flight-load-btn', '📂 Flug laden', () => loadPinnedFlight(note.id, isGroup)));
+    } else if (note.type === 'authority_sanction') {
+        const heading = pinboardCreateElement('strong', 'authority-sanction-heading', 'BEHOERDENEINTRAG');
+        const noteText = pinboardCreateElement('span', 'authority-sanction-text', String(note.text || '').replace(/^BEHOERDENEINTRAG\s*/i, '').trim());
+        noteText.style.whiteSpace = 'pre-wrap';
+        const remainingMs = Math.max(0, Number(note.expiresAt || 0) - Date.now());
+        const remainingDays = Math.max(1, Math.ceil(remainingMs / 86400000));
+        const expiry = pinboardCreateElement('small', 'authority-sanction-expiry', `Automatische Entfernung in ${remainingDays} ${remainingDays === 1 ? 'Tag' : 'Tagen'}.`);
+        div.append(heading, noteText, expiry);
     } else {
         const noteText = pinboardCreateElement('span', '', String(note.text || ''));
         noteText.style.whiteSpace = 'pre-wrap';
@@ -1158,6 +1221,44 @@ function createNoteDOM(note, isGroup) {
     makeDraggable(div, note.id, isGroup);
     board.appendChild(div);
 }
+
+window.addAuthoritySanctionToCrewboard = function(record = null) {
+    if (!record || typeof record !== 'object' || !String(record.flightId || '').trim()) return false;
+    let notes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]');
+    notes = pinboardPruneExpiredAuthoritySanctions(notes).notes;
+    const existingIndex = notes.findIndex(note => (
+        note?.type === 'authority_sanction'
+        && String(note.flightId || '') === String(record.flightId || '')
+    ));
+    const now = Date.now();
+    const sanction = {
+        ...pinboardJsonClone(record),
+        id: String(record.id || `authority-${now}`),
+        type: 'authority_sanction',
+        createdAt: Number(record.createdAt || now),
+        immutableUntil: Number(record.immutableUntil || (now + 7 * 86400000)),
+        expiresAt: Number(record.expiresAt || (now + 7 * 86400000)),
+        x: Number.isFinite(Number(record.x)) ? Number(record.x) : 68,
+        y: Number.isFinite(Number(record.y)) ? Number(record.y) : 22,
+        rot: Number.isFinite(Number(record.rot)) ? Number(record.rot) : -2
+    };
+    if (existingIndex >= 0) {
+        sanction.id = notes[existingIndex].id;
+        sanction.createdAt = Number(notes[existingIndex].createdAt || sanction.createdAt);
+        sanction.immutableUntil = Math.max(Number(notes[existingIndex].immutableUntil || 0), sanction.immutableUntil);
+        sanction.expiresAt = Math.max(Number(notes[existingIndex].expiresAt || 0), sanction.expiresAt);
+        sanction.x = Number(notes[existingIndex].x ?? sanction.x);
+        sanction.y = Number(notes[existingIndex].y ?? sanction.y);
+        sanction.rot = Number(notes[existingIndex].rot ?? sanction.rot);
+        notes[existingIndex] = sanction;
+    } else {
+        notes.push(sanction);
+    }
+    if (!pinboardTrySavePrivateNotes(notes, 'Der Behoerdeneintrag konnte nicht am Crewboard gespeichert werden.')) return false;
+    if (currentBoardMode === 'private' && document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+    try { triggerCloudSave(true); } catch (_) {}
+    return true;
+};
 function clearNewBadge(id) {
     let newBadges = JSON.parse(localStorage.getItem('ga_group_new')) || [];
     if(newBadges.includes(id)) {

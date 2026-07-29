@@ -1126,6 +1126,14 @@ function _missionRuntimeStartFarewellSpeech(reason = 'pax-farewell') {
                 window.missionSceneStartDeboardingAfterFarewell?.(`${reason}-voice-error`);
             });
         }
+        setTimeout(() => {
+            if (!missionRuntime.waitingFarewellDeboarding || missionRuntime.farewellSpeechComplete) return;
+            _missionPhaseDebugPush('trigger', {
+                name: '_missionRuntimeStartFarewellSpeech:voice-timeout',
+                reason
+            });
+            window.missionSceneStartDeboardingAfterFarewell?.(`${reason}-voice-timeout`);
+        }, 75000);
         _missionPhaseDebugPush('trigger', { name: '_missionRuntimeStartFarewellSpeech', reason });
         return true;
     } catch (err) {
@@ -1255,6 +1263,12 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
     });
     if (!missionRuntime.waitingFarewellDeboarding) return false;
     missionRuntime.farewellSpeechComplete = true;
+    try {
+        window.missionComplianceNotifyFarewellComplete?.({
+            reason,
+            record: missionRuntime.pendingFarewellRecord || missionRuntime.arrivalFlightRecord || null
+        });
+    } catch (_) {}
     if (missionRuntime.endDeboardingAnimationExpected) {
         if (missionRuntime.deboardingAfterFarewellStarted) return false;
         const continued = !!window.missionSceneContinueDeboarding?.(

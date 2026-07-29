@@ -6919,6 +6919,10 @@ function clearActiveMissionRuntimeMarkersFromState(state = {}) {
 }
 
 function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired', options = {}) {
+    if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     const info = options.expiryInfo || null;
     if (typeof window.missionRuntimeReset === 'function') {
         try { window.missionRuntimeReset({ respawnAfterClear: false }); } catch (_) {}
@@ -8365,6 +8369,10 @@ async function restoreMissionState(state, options = {}) {
     const allowDraft = !!options.allowDraft;
     const resumeRuntime = options.resumeRuntime === true;
     const restoreSource = String(options.source || '').toLowerCase();
+    if (!resumeRuntime && options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     if (!state || typeof state !== 'object') {
         return clearExpiredActiveMissionPersistence(`restore-${restoreSource || 'state'}-invalid`, {
             pushCloudClear: restoreSource === 'cloud'
@@ -8673,6 +8681,10 @@ async function restoreMissionState(state, options = {}) {
 }
 
 function clearAppMissionState(options = {}) {
+    if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
     const nextStart = String(options.nextStart || '').trim();
     if (options.abortDispatch !== false) _abortDispatchRun(options.reason || 'Clear');
     if (window.meterInterval) {
@@ -8684,7 +8696,9 @@ function clearAppMissionState(options = {}) {
     const led = document.getElementById('meterLed');
     if (led) led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
     document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
-    if (!options.skipRuntimeReset && typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    if (!options.skipRuntimeReset && typeof window.missionRuntimeReset === 'function') {
+        window.missionRuntimeReset({ complianceReleased: options.complianceReleased === true });
+    }
     localStorage.removeItem('ga_active_mission');
     localStorage.removeItem('ga_active_mission_contract');
     localStorage.removeItem('ga_active_passenger');
@@ -41877,6 +41891,13 @@ function applyMissionProposalChoiceToMissionContractV4(contract = null, choice =
 
 async function generateMission(options = {}) {
     const dispatchOptions = (options && typeof options === 'object') ? options : {};
+    if (window.missionComplianceBlockReset?.()) {
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = 'Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.';
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        setMissionGenerationProgress({ visible: false, force: true });
+        return false;
+    }
     const missionProposalChoice = normalizeMissionProposalChoice(dispatchOptions.proposalChoice || null);
     const followupSeed = (dispatchOptions.followupSeed && typeof dispatchOptions.followupSeed === 'object')
         ? dispatchOptions.followupSeed

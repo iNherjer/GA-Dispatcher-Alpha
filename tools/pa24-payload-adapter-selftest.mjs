@@ -152,8 +152,8 @@ const overweightPlan = context._missionCargoBuildPa24PlanFromManifest({
 assert.equal(overweightPlan.error, 'pa24_gross_weight_exceeded');
 
 for (const required of [
-    "const TRACKER_VERSION = 'v315';",
-    "const TRACKER_VERSION_CODE = 315;",
+    "const TRACKER_VERSION = 'v316';",
+    "const TRACKER_VERSION_CODE = 316;",
     "const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';",
     "units: 'number'",
     "name: 'L:BaggageWeight', units: 'pounds'",
@@ -162,7 +162,7 @@ for (const required of [
 ]) {
     assert.ok(trackerSource.includes(required), `tracker contract missing: ${required}`);
 }
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 315;"));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v315';"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 316;"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v316';"));
 
 console.log('PA24 production payload adapter selftest: ok');
