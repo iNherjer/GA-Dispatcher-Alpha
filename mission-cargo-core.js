@@ -43,6 +43,7 @@ let missionCargoOnboardEquipmentCloudTimer = null;
 const MISSION_CARGO_PAYLOAD_SYNC_DEBOUNCE_MS = 500;
 const MISSION_CARGO_PAYLOAD_SYNC_MAX_WAIT_MS = 2000;
 const MISSION_CARGO_PA24_VERIFY_DELAYS_MS = Object.freeze([350, 650]);
+const MISSION_CARGO_PA24_SEAT_REASSERT_DELAY_MS = 220;
 const _MISSION_CARGO_PAYLOAD_SYNC_QUEUE = {
     timer: null,
     burstStartedAt: 0,
@@ -1800,6 +1801,111 @@ function _missionCargoComparePayloadStations(snapshot = null, targetStations = [
     };
 }
 
+function _missionCargoComparePa24State(snapshot = null, targetState = null, toleranceLbs = 1) {
+    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
+    const target = targetState && typeof targetState === 'object' ? targetState : null;
+    if (!normalized?.pa24 || !target) {
+        return {
+            ok: false,
+            reason: normalized?.pa24 ? 'no_pa24_target' : 'no_pa24_snapshot',
+            mismatches: [],
+            checked: 0
+        };
+    }
+    const targetSeats = target.seats && typeof target.seats === 'object' ? target.seats : {};
+    const targetWeights = target.characterWeights && typeof target.characterWeights === 'object'
+        ? target.characterWeights
+        : {};
+    const tolerance = Math.max(0.25, Number(toleranceLbs) || 1);
+    const mismatches = [];
+    let checked = 0;
+    [2, 3, 4].forEach((seat) => {
+        const expectedCharacter = Math.max(0, Math.min(4, Math.round(Number(targetSeats[seat] ?? targetSeats[String(seat)] ?? 0) || 0)));
+        const actualCharacter = Math.max(0, Math.min(4, Math.round(Number(normalized.pa24.seats?.[seat] || 0) || 0)));
+        checked += 1;
+        if (actualCharacter !== expectedCharacter) {
+            mismatches.push({
+                field: `Seat${seat}Character`,
+                seat,
+                expected: expectedCharacter,
+                actual: actualCharacter
+            });
+        }
+        if (expectedCharacter <= 0) return;
+        const expectedWeight = Number(targetWeights[expectedCharacter] ?? targetWeights[String(expectedCharacter)]);
+        const actualWeight = Number(normalized.pa24.characterWeights?.[expectedCharacter]);
+        checked += 1;
+        if (!Number.isFinite(expectedWeight) || !Number.isFinite(actualWeight) || Math.abs(actualWeight - expectedWeight) > tolerance) {
+            mismatches.push({
+                field: `Character${expectedCharacter}Weight`,
+                character: expectedCharacter,
+                expected: Number.isFinite(expectedWeight) ? Math.round(expectedWeight * 10) / 10 : null,
+                actual: Number.isFinite(actualWeight) ? Math.round(actualWeight * 10) / 10 : null
+            });
+        }
+    });
+    const expectedBaggage = Number(target.baggageWeightLbs);
+    const actualBaggage = Number(normalized.pa24.baggageWeightLbs);
+    if (Number.isFinite(expectedBaggage)) {
+        checked += 1;
+        if (!Number.isFinite(actualBaggage) || Math.abs(actualBaggage - expectedBaggage) > tolerance) {
+            mismatches.push({
+                field: 'BaggageWeight',
+                expected: Math.round(expectedBaggage * 10) / 10,
+                actual: Number.isFinite(actualBaggage) ? Math.round(actualBaggage * 10) / 10 : null
+            });
+        }
+    }
+    return {
+        ok: mismatches.length === 0,
+        reason: mismatches.length ? 'pa24_state_mismatch' : 'matched',
+        mismatches,
+        checked
+    };
+}
+
+async function _missionCargoReassertPa24Seats(targetState = null, options = {}) {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerDebugSetVar !== 'function') {
+        return { status: 'skipped' };
+    }
+    const target = targetState && typeof targetState === 'object' ? targetState : null;
+    const seats = target?.seats && typeof target.seats === 'object' ? target.seats : null;
+    if (!seats) return { status: 'no_pa24_target' };
+    const revision = Math.max(0, Math.round(Number(options.revision || 0)));
+    const isCurrentRevision = () => !revision || _missionCargoPayloadSyncIsCurrentRevision(revision);
+    const delayMs = Math.max(0, Number(options.delayMs ?? MISSION_CARGO_PA24_SEAT_REASSERT_DELAY_MS) || 0);
+    if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+    if (!isCurrentRevision()) {
+        return { status: 'superseded', reason: 'newer_payload_state_pending', revision };
+    }
+    const applied = [];
+    for (const seat of [2, 3, 4]) {
+        const character = Math.max(0, Math.min(4, Math.round(Number(seats[seat] ?? seats[String(seat)] ?? 0) || 0)));
+        if (character <= 0) continue;
+        const ack = await window.trackerDebugSetVar({
+            name: `L:Seat${seat}Character`,
+            value: character,
+            units: 'enum',
+            reason: options.reason || 'pa24-payload-seat-reassert',
+            timeoutMs: Number(options.timeoutMs) || 7000
+        });
+        if (!isCurrentRevision()) {
+            return { status: 'superseded', reason: 'newer_payload_state_pending', revision, applied };
+        }
+        if (ack?.status !== 'ok' && ack?.status !== 'noop') {
+            return {
+                status: 'error',
+                reason: ack?.error || ack?.status || 'pa24_seat_reassert_failed',
+                seat,
+                character,
+                applied
+            };
+        }
+        applied.push({ seat, character });
+    }
+    return { status: 'ok', applied };
+}
+
 async function _missionCargoVerifyPayloadStable(targetStations = [], options = {}) {
     if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadGet !== 'function') {
         return { status: 'skipped' };
@@ -1818,8 +1924,13 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
     const startedAt = Date.now();
     const revision = Math.max(0, Math.round(Number(options.revision || 0)));
     const isCurrentRevision = () => !revision || _MISSION_CARGO_PAYLOAD_SYNC_QUEUE.revision === revision;
+    const pa24TargetState = options.pa24State && typeof options.pa24State === 'object'
+        ? options.pa24State
+        : null;
     let lastAck = null;
     let lastCheck = null;
+    let lastPa24Check = null;
+    let pa24ReassertAttempts = 0;
     const renderStatus = () => {
         if (document.getElementById('missionCargoOverlay')?.style.display !== 'flex') return;
         const mode = window.missionCargoStatus?.lastMode === 'unload'
@@ -1868,13 +1979,36 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
             }
             const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
             lastCheck = _missionCargoComparePayloadStations(snapshot, targets, options.toleranceLbs || 1);
-            if (!lastCheck.ok) break;
+            lastPa24Check = pa24TargetState
+                ? _missionCargoComparePa24State(snapshot, pa24TargetState, options.toleranceLbs || 1)
+                : null;
+            if (lastCheck.ok && (!lastPa24Check || lastPa24Check.ok)) continue;
+            if (lastCheck.ok && lastPa24Check && !lastPa24Check.ok && pa24ReassertAttempts < 1) {
+                pa24ReassertAttempts += 1;
+                const reassertAck = await _missionCargoReassertPa24Seats(pa24TargetState, {
+                    revision,
+                    delayMs: 0,
+                    reason: 'pa24-payload-seat-verify-retry',
+                    timeoutMs: Number(options.timeoutMs) || 12000
+                });
+                if (reassertAck?.status === 'superseded') {
+                    window.missionCargoStatus.payloadVerification = null;
+                    window.missionCargoStatus.payloadVerificationRunning = false;
+                    renderStatus();
+                    return reassertAck;
+                }
+                continue;
+            }
+            break;
         }
+        const stable = !!lastCheck?.ok && (!lastPa24Check || lastPa24Check.ok);
         const result = {
-            status: lastCheck?.ok ? 'ok' : 'unstable',
-            reason: lastCheck?.ok ? 'stable' : (lastCheck?.reason || lastAck?.error || lastAck?.status || 'payload_unstable'),
+            status: stable ? 'ok' : 'unstable',
+            reason: stable ? 'stable' : (lastPa24Check?.reason || lastCheck?.reason || lastAck?.error || lastAck?.status || 'payload_unstable'),
             elapsedMs: Date.now() - startedAt,
             check: lastCheck,
+            pa24Check: lastPa24Check,
+            pa24ReassertAttempts,
             lastAckStatus: lastAck?.status || null,
             maxStations
         };
@@ -1888,6 +2022,8 @@ async function _missionCargoVerifyPayloadStable(targetStations = [], options = {
             reason: err?.message || String(err) || 'payload_verification_failed',
             elapsedMs: Date.now() - startedAt,
             check: lastCheck,
+            pa24Check: lastPa24Check,
+            pa24ReassertAttempts,
             lastAckStatus: lastAck?.status || null,
             maxStations
         };
@@ -2371,6 +2507,18 @@ async function _missionCargoRunPayloadSync(reason = 'cargo-sync', revision = 0) 
             };
         }
         if (setAck?.status === 'ok') {
+            if ((plan.payloadAdapter || baseline.payloadAdapter) === MISSION_CARGO_PA24_ADAPTER && plan.pa24State) {
+                const reassertAck = await _missionCargoReassertPa24Seats(plan.pa24State, {
+                    revision,
+                    reason: 'pa24-payload-seat-post-write'
+                });
+                if (reassertAck?.status === 'superseded' || !_missionCargoPayloadSyncIsCurrentRevision(revision)) {
+                    window.missionCargoStatus.payloadNeedsSync = true;
+                    return reassertAck?.status === 'superseded'
+                        ? reassertAck
+                        : { status: 'superseded', reason: 'newer_payload_state_pending', revision };
+                }
+            }
             const verifyAck = await _missionCargoVerifyPayloadStable(
                 plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })),
                 {
@@ -2380,7 +2528,10 @@ async function _missionCargoRunPayloadSync(reason = 'cargo-sync', revision = 0) 
                     timeoutMs: 12000,
                     delaysMs: (plan.payloadAdapter || baseline.payloadAdapter) === MISSION_CARGO_PA24_ADAPTER
                         ? MISSION_CARGO_PA24_VERIFY_DELAYS_MS
-                        : undefined
+                        : undefined,
+                    pa24State: (plan.payloadAdapter || baseline.payloadAdapter) === MISSION_CARGO_PA24_ADAPTER
+                        ? plan.pa24State
+                        : null
                 }
             );
             if (verifyAck?.status === 'superseded' || !_missionCargoPayloadSyncIsCurrentRevision(revision)) {

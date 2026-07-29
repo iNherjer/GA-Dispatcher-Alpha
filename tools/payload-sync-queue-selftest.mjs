@@ -180,3 +180,80 @@ await Promise.resolve();
 assert.equal(timers.size, 0, 'the queue must be empty after the latest revision succeeds');
 
 console.log('Payload sync single-flight behavior selftest: ok');
+
+const pa24CompareContext = {
+    Number,
+    Math,
+    _missionCargoNormalizePayloadSnapshot: snapshot => snapshot
+};
+vm.runInNewContext(
+    functionSource('_missionCargoComparePa24State'),
+    pa24CompareContext
+);
+const pa24Target = {
+    seats: { 2: 2, 3: 0, 4: 0 },
+    characterWeights: { 2: 180, 3: 0, 4: 0 },
+    baggageWeightLbs: 25
+};
+const lostOccupancy = pa24CompareContext._missionCargoComparePa24State({
+    pa24: {
+        seats: { 2: 0, 3: 0, 4: 0 },
+        characterWeights: { 2: 180, 3: 0, 4: 0 },
+        baggageWeightLbs: 25
+    }
+}, pa24Target, 1);
+assert.equal(lostOccupancy.ok, false, 'matching weight must not hide a lost seat assignment');
+assert.deepEqual(
+    Array.from(lostOccupancy.mismatches, row => row.field),
+    ['Seat2Character']
+);
+assert.equal(pa24CompareContext._missionCargoComparePa24State({
+    pa24: {
+        seats: { 2: 2, 3: 0, 4: 0 },
+        characterWeights: { 2: 180, 3: 0, 4: 0 },
+        baggageWeightLbs: 25
+    }
+}, pa24Target, 1).ok, true);
+
+const seatWrites = [];
+let seatRevisionCurrent = true;
+const pa24ReassertContext = {
+    Number,
+    Math,
+    Promise,
+    setTimeout: callback => {
+        callback();
+        return 1;
+    },
+    window: {
+        simModeActive: false,
+        liveTrackerConnected: true,
+        trackerDebugSetVar: async options => {
+            seatWrites.push(options);
+            return { status: 'ok' };
+        }
+    },
+    _missionCargoPayloadSyncIsCurrentRevision: () => seatRevisionCurrent
+};
+vm.runInNewContext([
+    'const MISSION_CARGO_PA24_SEAT_REASSERT_DELAY_MS = 220;',
+    functionSource('_missionCargoReassertPa24Seats')
+].join('\n'), pa24ReassertContext);
+const reassertResult = await pa24ReassertContext._missionCargoReassertPa24Seats(pa24Target, {
+    revision: 7,
+    delayMs: 0
+});
+assert.equal(reassertResult.status, 'ok');
+assert.deepEqual(
+    seatWrites.map(write => [write.name, write.value, write.units]),
+    [['L:Seat2Character', 2, 'enum']],
+    'only occupied target seats may be reasserted'
+);
+seatRevisionCurrent = false;
+assert.equal((await pa24ReassertContext._missionCargoReassertPa24Seats(pa24Target, {
+    revision: 8,
+    delayMs: 0
+})).status, 'superseded');
+assert.equal(seatWrites.length, 1, 'a stale revision must not restore an old occupant');
+
+console.log('PA24 seat occupancy verification selftest: ok');
