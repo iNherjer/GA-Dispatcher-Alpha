@@ -28,9 +28,43 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v317';
-const TRACKER_VERSION_CODE = 317;
+const TRACKER_VERSION = 'v318';
+const TRACKER_VERSION_CODE = 318;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
+const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
+const PA24_FUEL_TANK_LVARS = [
+  { key: 'FuelLeftWingTank', name: 'L:FuelLeftWingTank' },
+  { key: 'FuelRightWingTank', name: 'L:FuelRightWingTank' },
+  { key: 'FuelLeftTipTank', name: 'L:FuelLeftTipTank' },
+  { key: 'FuelRightTipTank', name: 'L:FuelRightTipTank' }
+];
+
+function resolveFuelWeightData(standardFuelWeightLbs, fuelWeightPerGallonLbs, pa24Raw = {}, isPa24 = false) {
+  if (!isPa24) {
+    const weight = Number(standardFuelWeightLbs);
+    return {
+      fuelWeightLbs: Number.isFinite(weight) && weight >= 0 ? Math.round(weight * 10) / 10 : null,
+      fuelTotalGallons: null,
+      fuelWeightPerGallonLbs: null,
+      fuelSource: 'simconnect'
+    };
+  }
+  const gallons = PA24_FUEL_TANK_LVARS.reduce(
+    (sum, tank) => sum + Math.max(0, Number(pa24Raw?.[tank.key]) || 0),
+    0
+  );
+  const reportedDensity = Number(fuelWeightPerGallonLbs);
+  const density = Number.isFinite(reportedDensity) && reportedDensity > 0
+    ? reportedDensity
+    : PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS;
+  return {
+    fuelWeightLbs: Math.round(gallons * density * 10) / 10,
+    fuelTotalGallons: Math.round(gallons * 10) / 10,
+    fuelWeightPerGallonLbs: Math.round(density * 100) / 100,
+    fuelSource: 'pa24_accusim'
+  };
+}
+
 const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
 let credentialsProvidedByDesktop = false;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
@@ -1194,8 +1228,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     { key: 'PayloadWeight', name: 'L:PayloadWeight', units: 'pounds' },
     { key: 'TotalWeight', name: 'L:TotalWeight', units: 'pounds' },
     { key: 'GrossWeight', name: 'L:GrossWeight', units: 'pounds' },
-    { key: 'EmptyWeight', name: 'L:EmptyWeight', units: 'pounds' }
+    { key: 'EmptyWeight', name: 'L:EmptyWeight', units: 'pounds' },
+    ...PA24_FUEL_TANK_LVARS.map((tank) => ({ ...tank, units: 'number' }))
   ];
+  let currentPayloadAdapter = '';
 
   const detectPayloadAdapter = (aircraft = {}) => {
     const haystack = `${aircraft?.title || ''} ${aircraft?.model || ''} ${aircraft?.type || ''}`;
@@ -1215,6 +1251,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     handle.addToDataDefinition(defId, 'TOTAL WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
     handle.addToDataDefinition(defId, 'EMPTY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
     handle.addToDataDefinition(defId, 'FUEL TOTAL QUANTITY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
+    handle.addToDataDefinition(defId, 'FUEL WEIGHT PER GALLON', 'pounds', SimConnectDataType.FLOAT64);
     handle.addToDataDefinition(defId, 'PAYLOAD STATION COUNT', 'number', SimConnectDataType.FLOAT64);
     for (let i = 1; i <= count; i += 1) {
       handle.addToDataDefinition(defId, `PAYLOAD STATION WEIGHT:${i}`, 'pounds', SimConnectDataType.FLOAT64);
@@ -3382,7 +3419,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       };
       const totalWeightLbs = Number(readFn());
       const emptyWeightLbs = Number(readFn());
-      const fuelWeightLbs = Number(readFn());
+      const standardFuelWeightLbs = Number(readFn());
+      const fuelWeightPerGallonLbs = Number(readFn());
       const payloadStationCountReported = clampPayloadStationCount(Number(readFn()), pending.stationCount);
       const stations = [];
       for (let i = 1; i <= pending.stationCount; i += 1) {
@@ -3399,7 +3437,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const knownStations = stations.filter(s => s.index <= payloadStationCountReported);
       const stationPayloadWeightLbs = knownStations.reduce((sum, s) => sum + (Number.isFinite(Number(s.weightLbs)) ? Number(s.weightLbs) : 0), 0);
       const payloadAdapter = detectPayloadAdapter(aircraft);
+      currentPayloadAdapter = payloadAdapter;
       const isPa24 = payloadAdapter === PA24_PAYLOAD_ADAPTER;
+      const fuelData = resolveFuelWeightData(
+        standardFuelWeightLbs,
+        fuelWeightPerGallonLbs,
+        pa24Raw,
+        isPa24
+      );
       const pa24 = isPa24 ? {
         seats: {
           1: Math.round(Number(pa24Raw.Seat1Character) || 0),
@@ -3420,7 +3465,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         payloadWeightLbs: Math.round((Number(pa24Raw.PayloadWeight) || 0) * 10) / 10,
         totalWeightLbs: Math.round((Number(pa24Raw.TotalWeight) || 0) * 10) / 10,
         grossWeightLbs: Math.round((Number(pa24Raw.GrossWeight) || 0) * 10) / 10,
-        emptyWeightLbs: Math.round((Number(pa24Raw.EmptyWeight) || 0) * 10) / 10
+        emptyWeightLbs: Math.round((Number(pa24Raw.EmptyWeight) || 0) * 10) / 10,
+        fuelTanksGallons: {
+          leftWing: Math.round((Number(pa24Raw.FuelLeftWingTank) || 0) * 10) / 10,
+          rightWing: Math.round((Number(pa24Raw.FuelRightWingTank) || 0) * 10) / 10,
+          leftTip: Math.round((Number(pa24Raw.FuelLeftTipTank) || 0) * 10) / 10,
+          rightTip: Math.round((Number(pa24Raw.FuelRightTipTank) || 0) * 10) / 10
+        },
+        fuelTotalGallons: fuelData.fuelTotalGallons,
+        fuelWeightPerGallonLbs: fuelData.fuelWeightPerGallonLbs
       } : null;
       pending.resolve({
         payloadAdapter,
@@ -3432,7 +3485,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         emptyWeightLbs: isPa24 && Number.isFinite(pa24?.emptyWeightLbs)
           ? pa24.emptyWeightLbs
           : (Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null),
-        fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
+        fuelWeightLbs: fuelData.fuelWeightLbs,
+        fuelTotalGallons: fuelData.fuelTotalGallons,
+        fuelWeightPerGallonLbs: fuelData.fuelWeightPerGallonLbs,
+        fuelSource: fuelData.fuelSource,
         payloadWeightLbs: isPa24 && Number.isFinite(pa24?.payloadWeightLbs)
           ? pa24.payloadWeightLbs
           : Math.round(stationPayloadWeightLbs * 10) / 10,
@@ -3753,6 +3809,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     },
     getTrackerMissionStatus() {
       return trackerMissionStatus?.missionId ? enrichMissionStatusWithScenes(trackerMissionStatus) : null;
+    },
+    getPayloadAdapter() {
+      return currentPayloadAdapter;
     },
     clearAll(reason = 'shutdown') {
       return Promise.all([
@@ -4432,6 +4491,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       addOptionalVar('TOTAL WEIGHT', 'pounds', 'totalWeightLbs');
       addOptionalVar('EMPTY WEIGHT', 'pounds', 'emptyWeightLbs');
       addOptionalVar('FUEL TOTAL QUANTITY WEIGHT', 'pounds', 'fuelWeightLbs');
+      addOptionalVar('FUEL WEIGHT PER GALLON', 'pounds', 'fuelWeightPerGallonLbs');
+      PA24_FUEL_TANK_LVARS.forEach((tank) => addOptionalVar(tank.name, 'number', tank.key));
       addOptionalVar('PAYLOAD STATION COUNT', 'number', 'payloadStationCount');
 
       handle.requestDataOnSimObject(
@@ -4509,7 +4570,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const parkingBrake = raw.parkingBrake;
               const totalWeightLbs = raw.totalWeightLbs;
               const emptyWeightLbs = raw.emptyWeightLbs;
-              const fuelWeightLbs = raw.fuelWeightLbs;
+              const fuelData = resolveFuelWeightData(
+                raw.fuelWeightLbs,
+                raw.fuelWeightPerGallonLbs,
+                raw,
+                missionSmokeController.getPayloadAdapter() === 'pa24_accusim'
+              );
               const payloadStationCount = raw.payloadStationCount;
               const payloadWeightLbs = (Number.isFinite(totalWeightLbs) && Number.isFinite(emptyWeightLbs))
                 ? (totalWeightLbs - emptyWeightLbs)
@@ -4560,7 +4626,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null,
                   totalWeightLbs: Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null,
                   emptyWeightLbs: Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null,
-                  fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
+                  fuelWeightLbs: fuelData.fuelWeightLbs,
+                  fuelTotalGallons: fuelData.fuelTotalGallons,
+                  fuelWeightPerGallonLbs: fuelData.fuelWeightPerGallonLbs,
+                  fuelSource: fuelData.fuelSource,
                   payloadWeightLbs: Number.isFinite(payloadWeightLbs) ? Math.round(payloadWeightLbs * 10) / 10 : null,
                   payloadStationCount: Number.isFinite(payloadStationCount) ? Math.max(0, Math.round(payloadStationCount)) : null,
                   iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,

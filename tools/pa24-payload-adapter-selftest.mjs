@@ -22,6 +22,20 @@ const functionSource = (name) => {
     throw new Error(`unterminated function ${name}`);
 };
 
+const trackerFunctionSource = (name) => {
+    const functionStart = trackerSource.indexOf(`function ${name}(`);
+    assert.ok(functionStart >= 0, `missing tracker function ${name}`);
+    const open = trackerSource.indexOf(') {', functionStart) + 2;
+    assert.ok(open > functionStart, `missing tracker function body ${name}`);
+    let depth = 0;
+    for (let index = open; index < trackerSource.length; index += 1) {
+        if (trackerSource[index] === '{') depth += 1;
+        if (trackerSource[index] === '}') depth -= 1;
+        if (depth === 0) return trackerSource.slice(functionStart, index + 1);
+    }
+    throw new Error(`unterminated tracker function ${name}`);
+};
+
 const context = {
     window: { lastLiveFlightData: {} },
     _missionCargoIsPassengerItem: item => item?.itemType === 'passenger',
@@ -48,6 +62,30 @@ vm.runInNewContext([
     functionSource('_missionCargoMergeFuelIntoPayloadBaseline'),
     functionSource('_missionCargoMergeFuelIntoCurrentSnapshot')
 ].join('\n'), context);
+
+const trackerFuelContext = {};
+vm.runInNewContext([
+    'const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;',
+    `const PA24_FUEL_TANK_LVARS = ${JSON.stringify([
+        { key: 'FuelLeftWingTank', name: 'L:FuelLeftWingTank' },
+        { key: 'FuelRightWingTank', name: 'L:FuelRightWingTank' },
+        { key: 'FuelLeftTipTank', name: 'L:FuelLeftTipTank' },
+        { key: 'FuelRightTipTank', name: 'L:FuelRightTipTank' }
+    ])};`,
+    trackerFunctionSource('resolveFuelWeightData')
+].join('\n'), trackerFuelContext);
+
+const accusimFuel = trackerFuelContext.resolveFuelWeightData(0, 0, {
+    FuelLeftWingTank: 30,
+    FuelRightWingTank: 30,
+    FuelLeftTipTank: 15,
+    FuelRightTipTank: 15
+}, true);
+assert.equal(accusimFuel.fuelTotalGallons, 90);
+assert.equal(accusimFuel.fuelWeightPerGallonLbs, 6);
+assert.equal(accusimFuel.fuelWeightLbs, 540);
+assert.equal(accusimFuel.fuelSource, 'pa24_accusim');
+assert.equal(trackerFuelContext.resolveFuelWeightData(123.4, 0, {}, false).fuelWeightLbs, 123.4);
 
 const baseline = {
     payloadAdapter: 'pa24_accusim',
@@ -177,11 +215,17 @@ const overweightPlan = context._missionCargoBuildPa24PlanFromManifest({
 assert.equal(overweightPlan.error, 'pa24_gross_weight_exceeded');
 
 for (const required of [
-    "const TRACKER_VERSION = 'v317';",
-    "const TRACKER_VERSION_CODE = 317;",
+    "const TRACKER_VERSION = 'v318';",
+    "const TRACKER_VERSION_CODE = 318;",
     "const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';",
     'const PA24_PAYLOAD_SEAT_SETTLE_MS = 220;',
     'applyPa24PayloadState(pa24State, before?.pa24)',
+    "name: 'L:FuelLeftWingTank'",
+    "name: 'L:FuelRightWingTank'",
+    "name: 'L:FuelLeftTipTank'",
+    "name: 'L:FuelRightTipTank'",
+    "'FUEL WEIGHT PER GALLON'",
+    "fuelSource: 'pa24_accusim'",
     "units: 'number'",
     "name: 'L:BaggageWeight', units: 'pounds'",
     'pa24_adapter_aircraft_mismatch',
@@ -190,8 +234,8 @@ for (const required of [
     assert.ok(trackerSource.includes(required), `tracker contract missing: ${required}`);
 }
 assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat]'));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 317;"));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v317';"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 318;"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v318';"));
 assert.ok(syncSource.includes('window.missionCargoHandleLiveFuelUpdate?.(data.flight);'));
 
 console.log('PA24 production payload adapter selftest: ok');
