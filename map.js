@@ -13527,7 +13527,7 @@ async function fetchMapContextWeather(latlng) {
     if (typeof window.fetchOpenMeteoWeatherPoints !== 'function') return null;
     const samples = await window.fetchOpenMeteoWeatherPoints(
         [{ lat: latlng.lat, lon: latlng.lng }],
-        { includePressure: false, maxConcurrency: 1 }
+        { includePressure: true, maxConcurrency: 1 }
     );
     return Array.isArray(samples) ? (samples[0] || null) : null;
 }
@@ -13845,6 +13845,223 @@ function getMapContextHeightBandLayer(airspace) {
     return 3;
 }
 
+function getMapContextCloudVisualProfile(type, hasTS = false) {
+    const normalizedType = String(type || '').toUpperCase();
+    if (typeof vpGetCloudLayerProfile === 'function') {
+        try {
+            return vpGetCloudLayerProfile(normalizedType, hasTS);
+        } catch (_) {}
+    }
+    const profiles = {
+        FEW: { thicknessFt: 900, density: 0.32, topAlpha: 0.12, bottomAlpha: 0.2, ridgeStrength: 0.22 },
+        SCT: { thicknessFt: 1700, density: 0.46, topAlpha: 0.16, bottomAlpha: 0.28, ridgeStrength: 0.3 },
+        BKN: { thicknessFt: 3200, density: 0.72, topAlpha: 0.2, bottomAlpha: 0.42, ridgeStrength: 0.4 },
+        OVC: { thicknessFt: 5200, density: 0.9, topAlpha: 0.24, bottomAlpha: 0.5, ridgeStrength: 0.46 },
+        VV: { thicknessFt: 5200, density: 0.9, topAlpha: 0.24, bottomAlpha: 0.5, ridgeStrength: 0.46 }
+    };
+    const profile = { ...(profiles[normalizedType] || profiles.SCT) };
+    if (hasTS) {
+        profile.thicknessFt = Math.max(profile.thicknessFt, 12000);
+        profile.density = Math.min(1, profile.density + 0.12);
+        profile.topAlpha = Math.min(0.38, profile.topAlpha + 0.08);
+        profile.bottomAlpha = Math.min(0.62, profile.bottomAlpha + 0.1);
+        profile.ridgeStrength = Math.min(0.62, profile.ridgeStrength + 0.12);
+    }
+    return profile;
+}
+
+function getMapContextCloudCoverage(type) {
+    const normalizedType = String(type || '').toUpperCase();
+    if (normalizedType === 'FEW') return 22;
+    if (normalizedType === 'SCT') return 45;
+    if (normalizedType === 'BKN') return 80;
+    if (normalizedType === 'OVC' || normalizedType === 'VV') return 100;
+    return 50;
+}
+
+function getMapContextAtmosphereData(state, terrainFt) {
+    const weather = state?.weather;
+    if (!weather) {
+        return {
+            clouds: [],
+            hasRain: false,
+            hasSnow: false,
+            precipitationMm: 0,
+            lowestBaseFt: null
+        };
+    }
+
+    const pressureProfile = Array.isArray(weather.pressureProfile) ? weather.pressureProfile : [];
+    let clouds = [];
+    if (typeof vpDeriveCloudLayersFromPressureProfile === 'function') {
+        try {
+            clouds = vpDeriveCloudLayersFromPressureProfile(pressureProfile, terrainFt);
+        } catch (_) {
+            clouds = [];
+        }
+    }
+
+    const precipitationMm = Math.max(
+        0,
+        Number(weather.precipitationMm) || 0,
+        Number(weather.rainMm) || 0
+    );
+    const hasTS = [95, 96, 99].includes(Number(weather.weatherCode));
+    const hasRain = (Number(weather.rainMm) || 0) > 0.1 || precipitationMm > 0.25;
+    const hasSnow = (Number(weather.snowfallCm) || 0) > 0.05;
+    const estimatedCloud = typeof vpBuildTempDewCloudLayer === 'function'
+        ? vpBuildTempDewCloudLayer({
+            temp2mC: weather.temp2mC,
+            dewPoint2mC: weather.dewPoint2mC,
+            rh2mPct: weather.rh2mPct,
+            windKt: weather.wspd,
+            terrainFt,
+            lowCloudPct: weather.cloudLowPct,
+            coveragePct: weather.cloudTotalPct,
+            weatherCode: weather.weatherCode,
+            hasRain,
+            hasSnow,
+            source: 'map_context_openmeteo'
+        })
+        : null;
+    const pressureLowestBase = clouds.reduce((lowest, cloud) => {
+        const baseFt = Number(cloud?.baseMsl);
+        return Number.isFinite(baseFt) ? Math.min(lowest, baseFt) : lowest;
+    }, Infinity);
+    if (estimatedCloud && (!Number.isFinite(pressureLowestBase) || estimatedCloud.baseMsl < pressureLowestBase - 500)) {
+        clouds.unshift(estimatedCloud);
+    }
+
+    clouds = clouds
+        .map((cloud) => {
+            const baseMsl = Number(cloud?.baseMsl);
+            if (!Number.isFinite(baseMsl)) return null;
+            const type = String(cloud?.type || 'SCT').toUpperCase();
+            const visualProfile = getMapContextCloudVisualProfile(type, hasTS);
+            const measuredTopMsl = Number(cloud?.topMsl);
+            const topMsl = Number.isFinite(measuredTopMsl) && measuredTopMsl > baseMsl + 150
+                ? measuredTopMsl
+                : baseMsl + visualProfile.thicknessFt;
+            return {
+                type,
+                baseMsl,
+                topMsl,
+                coveragePct: getMapContextCloudCoverage(type),
+                density: visualProfile.density,
+                topAlpha: visualProfile.topAlpha,
+                bottomAlpha: visualProfile.bottomAlpha,
+                ridgeStrength: visualProfile.ridgeStrength,
+                hasTS
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.baseMsl - b.baseMsl);
+
+    const lowestBaseFt = clouds.length
+        ? clouds.reduce((lowest, cloud) => Math.min(lowest, cloud.baseMsl), Infinity)
+        : null;
+    return { clouds, hasRain, hasSnow, hasTS, precipitationMm, lowestBaseFt };
+}
+
+function renderMapContextAtmosphere(atmosphere, maxFt, terrainFt) {
+    if (!atmosphere || !Number.isFinite(maxFt) || maxFt <= 0) return '';
+    const cloudLayers = (Array.isArray(atmosphere.clouds) ? atmosphere.clouds : []).map((cloud, cloudIndex) => {
+        const baseFt = Math.max(terrainFt, Number(cloud.baseMsl) || 0);
+        const topFt = Math.max(baseFt + 100, Number(cloud.topMsl) || baseFt);
+        if (baseFt >= maxFt || topFt <= 0) return '';
+        const visibleBaseFt = Math.min(maxFt, baseFt);
+        const visibleTopFt = Math.min(maxFt, topFt);
+        const topPct = Math.max(0, Math.min(100, 100 - ((visibleTopFt / maxFt) * 100)));
+        const bottomPct = Math.max(0, Math.min(100, 100 - ((visibleBaseFt / maxFt) * 100)));
+        const heightPct = Math.max(1.2, bottomPct - topPct);
+        const type = String(cloud.type || 'SCT').toLowerCase();
+        const coveragePct = Math.max(15, Math.min(100, Number(cloud.coveragePct) || 50));
+        const density = Math.max(0.2, Math.min(1, Number(cloud.density) || (coveragePct / 100)));
+        const ridgeStrength = Math.max(0.15, Math.min(0.7, Number(cloud.ridgeStrength) || 0.3));
+        const grayTop = Math.round(218 - (density * 72) - (cloud.hasTS ? 18 : 0));
+        const grayBottom = Math.round(170 - (density * 105) - (cloud.hasTS ? 24 : 0));
+        const topAlpha = Math.min(0.92, 0.46 + (Number(cloud.topAlpha) || 0.16) + density * 0.16);
+        const bottomAlpha = Math.min(0.98, 0.52 + (Number(cloud.bottomAlpha) || 0.28) + density * 0.12);
+        const highlightAlpha = Math.min(0.88, topAlpha + 0.11);
+        const massWidth = Math.round(120 + density * 70);
+        const delaySeconds = -((cloudIndex * 1.73) + (baseFt * 0.00037)) % 7;
+        return `
+            <span class="ga-map-context-height-cloud is-${escapePopupText(type)}${cloud.hasTS ? ' has-thunderstorm' : ''}"
+                  style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;
+                         --ga-map-context-cloud-density:${density.toFixed(2)};
+                         --ga-map-context-cloud-ridge:${ridgeStrength.toFixed(2)};
+                         --ga-map-context-cloud-mass-width:${massWidth}%;
+                         --ga-map-context-cloud-top:rgba(${grayTop},${grayTop},${grayTop},${topAlpha.toFixed(2)});
+                         --ga-map-context-cloud-bottom:rgba(${grayBottom},${grayBottom},${grayBottom},${bottomAlpha.toFixed(2)});
+                         --ga-map-context-cloud-highlight:rgba(255,255,255,${highlightAlpha.toFixed(2)});
+                         --ga-map-context-cloud-delay:${delaySeconds.toFixed(2)}s"
+                  aria-hidden="true">
+                <span class="ga-map-context-height-cloud-mass">
+                    <span class="ga-map-context-height-cloud-core"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-top is-a"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-top is-b"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-top is-c"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-bottom is-a"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-bottom is-b"></span>
+                    <span class="ga-map-context-height-cloud-lobe is-bottom is-c"></span>
+                </span>
+            </span>`;
+    }).join('');
+
+    let precipitation = '';
+    let rainSplashes = '';
+    if (atmosphere.hasRain || atmosphere.hasSnow) {
+        const fallbackBaseFt = Math.max(terrainFt + 1200, maxFt * 0.55);
+        const precipBaseFt = Math.min(
+            maxFt,
+            Math.max(terrainFt + 150, Number(atmosphere.lowestBaseFt) || fallbackBaseFt)
+        );
+        const topPct = Math.max(0, Math.min(100, 100 - ((precipBaseFt / maxFt) * 100)));
+        const heightPct = Math.max(1.5, 100 - topPct);
+        const intensity = Math.max(0.42, Math.min(0.92, 0.42 + (Number(atmosphere.precipitationMm) || 0) * 0.15));
+        precipitation = `
+            <span class="ga-map-context-height-precipitation${atmosphere.hasRain ? ' is-rain' : ''}${atmosphere.hasSnow ? ' is-snow' : ''}"
+                  style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;--ga-map-context-precip-opacity:${intensity.toFixed(2)}"
+                  aria-hidden="true"></span>`;
+        if (atmosphere.hasRain) {
+            const terrainHeightPct = Math.max(2.2, Math.min(92, (terrainFt / maxFt) * 100));
+            const terrainTopPct = Math.max(1, Math.min(98, 100 - terrainHeightPct));
+            const terrainContour = [
+                { x: 18, y: 2, delay: 0.08, scale: 0.92 },
+                { x: 37, y: 18, delay: 0.54, scale: 0.76 },
+                { x: 58, y: 4, delay: 0.31, scale: 1.0 },
+                { x: 78, y: 15, delay: 0.73, scale: 0.82 },
+                { x: 97, y: 2, delay: 0.42, scale: 0.9 }
+            ];
+            rainSplashes = `
+                <span class="ga-map-context-height-rain-splashes"
+                      style="--ga-map-context-splash-opacity:${Math.min(1, intensity + 0.18).toFixed(2)}"
+                      aria-hidden="true">
+                    ${terrainContour.map((point) => {
+                        const groundPct = terrainTopPct + (terrainHeightPct * point.y / 100);
+                        return `
+                            <span class="ga-map-context-height-rain-splash"
+                                  style="left:${point.x}%;top:${groundPct.toFixed(2)}%;
+                                         --ga-map-context-splash-delay:-${point.delay.toFixed(2)}s;
+                                         --ga-map-context-splash-scale:${point.scale.toFixed(2)};
+                                         --ga-map-context-splash-start-scale:${(point.scale * 0.55).toFixed(2)};
+                                         --ga-map-context-splash-end-scale:${(point.scale * 1.28).toFixed(2)}">
+                                <i></i>
+                            </span>`;
+                    }).join('')}
+                </span>`;
+        }
+    }
+
+    if (!cloudLayers && !precipitation) return '';
+    return `
+        <div class="ga-map-context-height-atmosphere" aria-hidden="true">
+            ${cloudLayers}
+            ${precipitation}
+            ${rainSplashes}
+        </div>`;
+}
+
 function renderMapContextHeightBand(state) {
     const { terrainFt, currentAltitudeFt, maxFt, bands } = getMapContextHeightBandData(state);
     state.heightBandMaxFt = maxFt;
@@ -13912,11 +14129,17 @@ function renderMapContextHeightBand(state) {
               aria-label="Eigene Flughöhe ${Math.round(currentAltitudeFt)} Fuß MSL"
               title="Eigene Flughöhe · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
     const loading = state.loading.airspaces || state.loading.terrain;
+    const atmosphere = renderMapContextAtmosphere(
+        getMapContextAtmosphereData(state, terrainFt),
+        maxFt,
+        terrainFt
+    );
     return `
         <div class="ga-map-context-height-band${loading ? ' is-loading' : ''}">
             <div class="ga-map-context-height-title">HÖHE <small>FT MSL</small></div>
             <div class="ga-map-context-height-plot">
                 <div class="ga-map-context-height-sky"></div>
+                ${atmosphere}
                 <div class="ga-map-context-height-scale">${ticks}</div>
                 ${ownAltitudeMarker}
                 <div class="ga-map-context-height-stack">
