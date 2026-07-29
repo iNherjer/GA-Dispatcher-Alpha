@@ -197,6 +197,10 @@ const MISSION_SCENE_ASSET_POOLS = {
     medicalEquipment: _sceneCatalogRoleTitles('cargo.medical_kit', [
         'Cardboard'
     ]),
+    aircraftLogbooks: _sceneCatalogRoleTitles('cargo.aircraft_logbook'),
+    fireExtinguishers: _sceneCatalogRoleTitles('cargo.fire_extinguisher'),
+    firstAidCases: _sceneCatalogRoleTitles('cargo.first_aid_case'),
+    wheelChocks: _sceneCatalogRoleTitles('cargo.wheel_chocks'),
     animalTransportBoxes: _sceneCatalogRoleTitles('cargo.animal_transport_box', [
         'Cardboard',
         'Pallet01_03'
@@ -4481,6 +4485,10 @@ function _missionSceneCargoIsSemanticHomebaseTitle(title = '') {
         MISSION_SCENE_ASSET_POOLS.campingEquipment,
         MISSION_SCENE_ASSET_POOLS.equipmentCases,
         MISSION_SCENE_ASSET_POOLS.medicalEquipment,
+        MISSION_SCENE_ASSET_POOLS.aircraftLogbooks,
+        MISSION_SCENE_ASSET_POOLS.fireExtinguishers,
+        MISSION_SCENE_ASSET_POOLS.firstAidCases,
+        MISSION_SCENE_ASSET_POOLS.wheelChocks,
         MISSION_SCENE_ASSET_POOLS.animalTransportBoxes
     ).includes(String(title || '').trim());
 }
@@ -4515,6 +4523,18 @@ function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) 
         const title = String(pool?.[0] || fallback || '').trim();
         return title ? { title, candidates: _sceneAssetCandidates(title, pool) } : null;
     };
+    if (/(luftfahrzeug[\s-]?(?:bordbuch|flugbuch)|aircraft[\s-]?logbook|bordbuch|flugbuch)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.aircraftLogbooks);
+    }
+    if (/(feuerloesch|feuerlösch|fire[\s-]?extinguisher)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.fireExtinguishers);
+    }
+    if (/(verband(?:kasten|zeug)|erste[\s-]?hilfe[\s-]?(?:koffer|kasten|case)|first[\s-]?aid[\s-]?case)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.firstAidCases);
+    }
+    if (/(radkeil|wheel[\s-]?chock|\bchocks?\b)/i.test(text)) {
+        return pickPrimary(MISSION_SCENE_ASSET_POOLS.wheelChocks);
+    }
     if (/(postsack|postsendung|postbeutel|briefsendung)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.mailSacks, `cargo-mail-${text}`);
     if (/(kuehlbox|kühlbox|blutkonserven|serum|laborproben|probenbeutel)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.coolers, `cargo-cooler-${text}`);
     if (/(transportbox|tiertransportbox|reisebox|reha[\s-]?box|vogelbox|wildvogelbox|greifvogelbox|igelbox|fledermaus[\s-]?kleinbox|tiertransport)/i.test(text)) {
@@ -4734,6 +4754,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     if (manifestItems.length) {
         return manifestItems
             .filter(item => !_missionCargoIsPassengerItem(item))
+            .filter(item => !(item.persistentEquipment === true && item.status === 'loaded'))
             .map((item, index) => ({
                 ...makeItem(
                     item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
@@ -5786,6 +5807,10 @@ function _missionTargetSceneFeatureHintsFromSpec(kind = 'survey_context') {
             if (r === 'animal.grazing') add('animal_herd');
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
             if (r === 'scene.lighting.lantern') add('lantern');
+            if (r === 'cargo.aircraft_logbook') add('aircraft_logbook');
+            if (r === 'cargo.fire_extinguisher') add('fire_extinguisher');
+            if (r === 'cargo.first_aid_case') add('first_aid_case');
+            if (r === 'cargo.wheel_chocks') add('wheel_chocks');
             if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box' || r === 'cargo.camera_equipment' || r === 'cargo.camping_equipment' || r === 'cargo.equipment_case') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
             if (r === 'aircraft.wreck') add('aircraft_wreck');
@@ -5810,6 +5835,7 @@ function _missionTargetSceneKindFromFeatureHints(text = '') {
     if (has('missing_person')) return 'sar_land';
     if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
     if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
+    if (has('aircraft_logbook') || has('fire_extinguisher') || has('first_aid_case') || has('wheel_chocks')) return 'cargo_site';
     if (has('cargo_material') || has('pallet_stack')) return 'cargo_site';
     if (has('watercraft') || has('waterfowl')) return 'water_context';
     if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire') || has('lantern')) return 'wildlife_site';
@@ -5946,6 +5972,26 @@ function _missionTargetSceneNormalizeFeature(value) {
         pallet_stack: 'pallet_stack',
         material_stack: 'pallet_stack',
         materiallager: 'pallet_stack',
+        logbook: 'aircraft_logbook',
+        aircraft_logbook: 'aircraft_logbook',
+        bordbuch: 'aircraft_logbook',
+        flugbuch: 'aircraft_logbook',
+        fire_extinguisher: 'fire_extinguisher',
+        feuerloescher: 'fire_extinguisher',
+        feuerlöscher: 'fire_extinguisher',
+        feuerl_scher: 'fire_extinguisher',
+        first_aid: 'first_aid_case',
+        first_aid_case: 'first_aid_case',
+        verbandkasten: 'first_aid_case',
+        verbandzeug: 'first_aid_case',
+        erste_hilfe_koffer: 'first_aid_case',
+        chock: 'wheel_chocks',
+        chocks: 'wheel_chocks',
+        wheel_chock: 'wheel_chocks',
+        wheel_chocks: 'wheel_chocks',
+        aircraft_wheel_chocks: 'wheel_chocks',
+        radkeil: 'wheel_chocks',
+        radkeile: 'wheel_chocks',
         power: 'powerline',
         power_pylon: 'powerline',
         pylon: 'powerline',
@@ -6173,6 +6219,10 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'animal.grazing') add('animal_herd');
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
             if (r === 'scene.lighting.lantern') add('lantern');
+            if (r === 'cargo.aircraft_logbook') add('aircraft_logbook');
+            if (r === 'cargo.fire_extinguisher') add('fire_extinguisher');
+            if (r === 'cargo.first_aid_case') add('first_aid_case');
+            if (r === 'cargo.wheel_chocks') add('wheel_chocks');
             if (r === 'vehicle.car') add((kind === 'road_incident' || kind === 'event_site') ? 'road_vehicles' : 'parked_vehicle');
             if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box' || r === 'cargo.camera_equipment' || r === 'cargo.camping_equipment' || r === 'cargo.equipment_case') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
@@ -6190,7 +6240,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     if (/(baumaterial|baustellenmaterial|building material|rooftopunits|rooftop units|aggregat|generator|materiallager)/.test(text)) add('construction_material');
     if (/(flugzeug|kleinflugzeug|ultraleicht|ul[\s-]?maschine|luftfahrzeug|wrack|einschlag|absturz)/.test(text)) add('aircraft_wreck');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
-    if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
+    if (!out.includes('aircraft_logbook') && /(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
     if (kind === 'sar_land' && (/(sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|winkt|hilferuf|hilfezeichen)/.test(text) || _missionSarLooksLikePersonSearch())) add('missing_person');
     if (/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text)) add('signal_smoke');
     else if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
@@ -6535,6 +6585,32 @@ function _missionTargetSceneItems(kind) {
                 const fallback = kind === 'sar_land' ? { f: 8 + step, r: -6 - step, hdg: 10 } : { f: -11 - step, r: 14 + step, hdg: 10 };
                 const pos = _missionTargetGeoOffset(['water', 'path', 'road', 'parking'], fallback.f, fallback.r, { minM: 10, maxM: 95, lateralM: i * 4, hdgOffsetDeg: fallback.hdg });
                 add(`feature_equipment_${i + 1}`, kind === 'sar_land' ? 'Hinweis / kleine Ausruestung' : 'Zusatz Ausruestung', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+            } else if (feature === 'aircraft_logbook' || feature === 'fire_extinguisher' || feature === 'first_aid_case' || feature === 'wheel_chocks') {
+                const featurePools = {
+                    aircraft_logbook: MISSION_SCENE_ASSET_POOLS.aircraftLogbooks,
+                    fire_extinguisher: MISSION_SCENE_ASSET_POOLS.fireExtinguishers,
+                    first_aid_case: MISSION_SCENE_ASSET_POOLS.firstAidCases,
+                    wheel_chocks: MISSION_SCENE_ASSET_POOLS.wheelChocks
+                };
+                const featureLabels = {
+                    aircraft_logbook: 'Luftfahrzeug-Bordbuch / Flugbuch',
+                    fire_extinguisher: 'Feuerloescher',
+                    first_aid_case: 'Erste-Hilfe-Koffer / Verbandkasten',
+                    wheel_chocks: 'Flugzeug-Radkeile / Wheel Chocks'
+                };
+                const pool = featurePools[feature] || [];
+                const title = String(pool[0] || '').trim();
+                if (!title) continue;
+                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], -8 - step, 11 + step, {
+                    minM: 8,
+                    maxM: 75,
+                    lateralM: i * 3,
+                    hdgOffsetDeg: 10
+                });
+                add(`feature_${feature}_${i + 1}`, featureLabels[feature], title, pool, pos.f, pos.r, {
+                    hdgOffsetDeg: pos.hdg,
+                    placement: 'mission equipment'
+                });
             } else if (feature === 'campfire') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-campfire-${i}`, 'VO_Fire_R1_40');
                 add(`feature_campfire_${i + 1}`, 'Zusatz Lagerfeuer', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, -7 - step, 8 + step, { hdgOffsetDeg: 0 });
@@ -11849,6 +11925,17 @@ function _syncApplyFollowupsFromCloud(data = null) {
     }
 }
 
+function _syncOnboardEquipmentPayload() {
+    if (typeof window.missionCargoGetOnboardEquipmentForSync !== 'function') return null;
+    try { return window.missionCargoGetOnboardEquipmentForSync(); } catch (_) { return null; }
+}
+
+function _syncApplyOnboardEquipmentFromCloud(data = null) {
+    if (!data || !Object.prototype.hasOwnProperty.call(data, 'onboardEquipment')) return false;
+    if (typeof window.missionCargoApplyOnboardEquipmentFromSync !== 'function') return false;
+    try { return window.missionCargoApplyOnboardEquipmentFromSync(data.onboardEquipment); } catch (_) { return false; }
+}
+
 function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
     const attempts = [
         { maxPinnedFlights: 10, flightDataLevel: 1, logbookMax: 40, missionLevel: 1, maxFollowUps: 36 },
@@ -12206,6 +12293,7 @@ function setLastSyncedPayload() {
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         aircraftPresets: getAircraftPresetsForSync(),
+        onboardEquipment: _syncOnboardEquipmentPayload(),
         followUpRequests: _syncFollowupPayload()
     };
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
@@ -12263,6 +12351,7 @@ async function triggerCloudSave(immediate = false) {
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         aircraftPresets: getAircraftPresetsForSync(),
+        onboardEquipment: _syncOnboardEquipmentPayload(),
         followUpRequests: _syncFollowupPayload()
     };
 
@@ -12374,6 +12463,7 @@ async function forceSyncLoad() {
             : null;
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
         await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+        _syncApplyOnboardEquipmentFromCloud(data);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -12438,6 +12528,7 @@ async function silentSyncLoad() {
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
             const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
             await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+            _syncApplyOnboardEquipmentFromCloud(data);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -12617,6 +12708,7 @@ async function checkCloudAfterIdle() {
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
                 newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
                 aircraftPresets: getAircraftPresetsForSync(),
+                onboardEquipment: _syncOnboardEquipmentPayload(),
                 followUpRequests: _syncFollowupPayload()
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
@@ -12632,6 +12724,7 @@ async function checkCloudAfterIdle() {
                 if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
                 const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+                _syncApplyOnboardEquipmentFromCloud(data);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -14462,6 +14555,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
     const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
+    window.gaUpdateMapContextOwnAltitude?.(alt);
     _recordLiveTrailPoint(lat, lon);
     _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'gps-tick');
     if (now - lastMissionRuntimeLiveUiRefreshAt > 650) {
@@ -15524,6 +15618,7 @@ window.hideLivePlane = function (options = {}) {
     if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
     window.lastLiveGpsPos = null;
     window.lastLiveFlightData = null;
+    window.gaUpdateMapContextOwnAltitude?.(null);
     window.gaLastTrackerTelemetryAt = 0;
     lastTelemetryUpdateAt = 0;
     vpProfileLockIdx = -1;

@@ -8613,7 +8613,7 @@ async function restoreMissionState(state, options = {}) {
     gpsState.subPage = 0;
     gpsState.maxPages = { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 };
     gpsState.wikiCache = {};
-    gpsState.metarCache = {};
+    _pruneMetarMemoryCache();
     runwayCache = {};
     document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
 
@@ -8723,7 +8723,7 @@ function clearAppMissionState(options = {}) {
     if (rBtn) rBtn.classList.remove('active');
 
     gpsState.wikiCache = {};
-    gpsState.metarCache = {};
+    _pruneMetarMemoryCache();
     runwayCache = {};
     gpsState.mode = 'FPL';
     gpsState.subPage = 0;
@@ -9447,21 +9447,283 @@ async function _fetchMetarArrayViaVariants(sourceUrl, {
     return null;
 }
 
-async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false) {
-    const container = document.getElementById(containerId);
+const METAR_MEMORY_CACHE_TTL_MS = 10 * 60 * 1000;
+let metarMemoryCachePruneTimer = null;
+
+function _isFreshMetarMemoryEntry(entry, now = Date.now()) {
+    const cachedAt = Number(entry?.cachedAt);
+    return Number.isFinite(cachedAt)
+        && cachedAt > 0
+        && (now - cachedAt) < METAR_MEMORY_CACHE_TTL_MS;
+}
+
+function _scheduleMetarMemoryCachePrune() {
+    if (metarMemoryCachePruneTimer) {
+        clearTimeout(metarMemoryCachePruneTimer);
+        metarMemoryCachePruneTimer = null;
+    }
+    const expiries = [
+        ...Object.values(gpsState?.metarCache || {}).map(entry => Number(entry?.cachedAt) + METAR_MEMORY_CACHE_TTL_MS),
+        ...(Array.isArray(gpsState?.metarRegionCache) ? gpsState.metarRegionCache : [])
+            .map(entry => Number(entry?.cachedAt) + METAR_MEMORY_CACHE_TTL_MS)
+    ].filter(Number.isFinite);
+    if (!expiries.length) return;
+    const nextExpiry = Math.min(...expiries);
+    metarMemoryCachePruneTimer = setTimeout(() => {
+        metarMemoryCachePruneTimer = null;
+        _pruneMetarMemoryCache();
+    }, Math.max(250, nextExpiry - Date.now() + 25));
+}
+
+function _pruneMetarMemoryCache(now = Date.now()) {
+    if (!gpsState.metarCache || typeof gpsState.metarCache !== 'object') {
+        gpsState.metarCache = {};
+    }
+    Object.keys(gpsState.metarCache).forEach((key) => {
+        if (!_isFreshMetarMemoryEntry(gpsState.metarCache[key], now)) {
+            delete gpsState.metarCache[key];
+        }
+    });
+    gpsState.metarRegionCache = (Array.isArray(gpsState.metarRegionCache)
+        ? gpsState.metarRegionCache
+        : []
+    ).filter(entry => _isFreshMetarMemoryEntry(entry, now));
+    _scheduleMetarMemoryCachePrune();
+}
+
+function _getMetarMemoryEntry(key) {
+    const normalizedKey = String(key || '').trim().toUpperCase();
+    if (!normalizedKey) return null;
+    const entry = gpsState.metarCache?.[normalizedKey];
+    if (!_isFreshMetarMemoryEntry(entry)) {
+        if (entry) delete gpsState.metarCache[normalizedKey];
+        return null;
+    }
+    return entry;
+}
+
+function _setMetarMemoryEntry(key, entry) {
+    const normalizedKey = String(key || '').trim().toUpperCase();
+    if (!normalizedKey || !entry) return null;
+    const cachedEntry = {
+        ...entry,
+        cachedAt: Number(entry.cachedAt) || Date.now()
+    };
+    gpsState.metarCache[normalizedKey] = cachedEntry;
+    _scheduleMetarMemoryCachePrune();
+    return cachedEntry;
+}
+
+function _storeMetarRegion(data, bounds) {
+    const candidates = (Array.isArray(data) ? data : []).filter(item => (
+        item
+        && Number.isFinite(Number(item.lat))
+        && Number.isFinite(Number(item.lon))
+    ));
+    if (!candidates.length || !bounds) return;
+    const cachedAt = Date.now();
+    const entry = {
+        data: candidates,
+        bounds: {
+            latMin: Number(bounds.latMin),
+            lonMin: Number(bounds.lonMin),
+            latMax: Number(bounds.latMax),
+            lonMax: Number(bounds.lonMax)
+        },
+        cachedAt
+    };
+    gpsState.metarRegionCache = (Array.isArray(gpsState.metarRegionCache)
+        ? gpsState.metarRegionCache
+        : []
+    ).filter(region => {
+        if (!_isFreshMetarMemoryEntry(region, cachedAt)) return false;
+        const current = region.bounds || {};
+        return !(
+            Number(current.latMin) === entry.bounds.latMin
+            && Number(current.lonMin) === entry.bounds.lonMin
+            && Number(current.latMax) === entry.bounds.latMax
+            && Number(current.lonMax) === entry.bounds.lonMax
+        );
+    });
+    gpsState.metarRegionCache.push(entry);
+    candidates.forEach((station) => {
+        const stationIcao = String(station.icaoId || station.icao || '').trim().toUpperCase();
+        if (!stationIcao) return;
+        const stationEntry = {
+            data: [station],
+            isFallback: false,
+            foundIcao: stationIcao,
+            cachedAt
+        };
+        _setMetarMemoryEntry(stationIcao, stationEntry);
+        _setMetarMemoryEntry(`STATION:${stationIcao}`, stationEntry);
+    });
+    _scheduleMetarMemoryCachePrune();
+}
+
+function _getCachedMetarRegionForPoint(lat, lon) {
+    const pointLat = Number(lat);
+    const pointLon = Number(lon);
+    if (![pointLat, pointLon].every(Number.isFinite)) return null;
+    _pruneMetarMemoryCache();
+    return (Array.isArray(gpsState.metarRegionCache) ? gpsState.metarRegionCache : [])
+        .filter((entry) => {
+            const bounds = entry?.bounds || {};
+            return (
+                pointLat >= Number(bounds.latMin)
+                && pointLat <= Number(bounds.latMax)
+                && pointLon >= Number(bounds.lonMin)
+                && pointLon <= Number(bounds.lonMax)
+            );
+        })
+        .sort((a, b) => Number(b.cachedAt) - Number(a.cachedAt))[0] || null;
+}
+
+function _selectMetarForAirport(candidates, icao, lat, lon) {
+    const items = (Array.isArray(candidates) ? candidates : []).filter(item => (
+        item
+        && Number.isFinite(Number(item.lat))
+        && Number.isFinite(Number(item.lon))
+    ));
+    if (!items.length) return null;
+    const requestedIcao = String(icao || '').trim().toUpperCase();
+    const direct = items.find(item => (
+        String(item.icaoId || item.icao || '').trim().toUpperCase() === requestedIcao
+    ));
+    if (direct) return { station: direct, isFallback: false };
+    let closest = items[0];
+    let minDist = calcNav(lat, lon, Number(closest.lat), Number(closest.lon)).dist;
+    for (let index = 1; index < items.length; index += 1) {
+        const distance = calcNav(lat, lon, Number(items[index].lat), Number(items[index].lon)).dist;
+        if (distance < minDist) {
+            minDist = distance;
+            closest = items[index];
+        }
+    }
+    return { station: closest, isFallback: true };
+}
+
+function _escapeMetarWidgetText(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function _getMetarRunwayVisualData(runwayText) {
+    const match = String(runwayText || '').match(
+        /(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/
+    );
+    if (!match) return null;
+    return {
+        headingDeg: parseInt(match[1], 10) * 10,
+        end1: `${match[1]}${match[2]}`,
+        end2: match[3]
+    };
+}
+
+function _renderMetarCompassTicks() {
+    let ticks = '';
+    for (let heading = 0; heading < 360; heading += 5) {
+        const isCardinal = heading % 90 === 0;
+        const isLong = heading % 10 === 0;
+        const length = isCardinal ? 8 : (isLong ? 5 : 3);
+        const strokeWidth = isCardinal ? 2 : 1;
+        const color = isCardinal ? '#111' : '#888';
+        ticks += `<line x1="80" y1="2" x2="80" y2="${2 + length}" stroke="${color}" stroke-width="${strokeWidth}" transform="rotate(${heading} 80 80)"></line>`;
+        if (heading % 30 !== 0) continue;
+        const angleRad = (heading - 90) * Math.PI / 180;
+        const tx = 80 + 61 * Math.cos(angleRad);
+        const ty = 80 + 61 * Math.sin(angleRad);
+        const label = isCardinal
+            ? (heading === 0 ? 'N' : (heading === 90 ? 'O' : (heading === 180 ? 'S' : 'W')))
+            : String(heading / 10);
+        ticks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="${isCardinal ? 14 : 10}" fill="${isCardinal ? '#111' : '#333'}" font-weight="bold" text-anchor="middle" dominant-baseline="central">${label}</text>`;
+    }
+    return ticks;
+}
+
+function _renderMetarRunwayLayer(runway, isMini = false) {
+    if (!runway) return '';
+    const width = isMini ? '15px' : '26px';
+    const height = isMini ? '60px' : '105px';
+    const fontSize = isMini ? '8px' : '10px';
+    return `
+        <div style="position:absolute;top:50%;left:50%;width:${width};height:${height};background:#444;border:1px solid #111;border-radius:3px;transform:translate(-50%,-50%) rotate(${runway.headingDeg}deg);transform-origin:center center;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:3px 0;box-sizing:border-box;z-index:5;box-shadow:0 2px 4px rgba(0,0,0,.4);">
+            <div style="width:100%;text-align:center;font-size:${fontSize};line-height:1;color:#fff;font-weight:bold;transform:rotate(180deg);font-family:sans-serif;">${_escapeMetarWidgetText(runway.end2)}</div>
+            <div style="width:2px;flex-grow:1;margin:3px 0;background:repeating-linear-gradient(to bottom,#d4d4d4 0,#d4d4d4 6px,transparent 6px,transparent 12px);"></div>
+            <div style="width:100%;text-align:center;font-size:${fontSize};line-height:1;color:#fff;font-weight:bold;font-family:sans-serif;">${_escapeMetarWidgetText(runway.end1)}</div>
+        </div>`;
+}
+
+window.renderAirportMetarLoadingWidget = function(icao, runwayText, options = {}) {
+    const responsiveEmbed = options?.responsiveEmbed !== false;
+    const runway = _getMetarRunwayVisualData(runwayText);
+    const weatherFont = "'Courier New', Courier, monospace";
+    const valueStyle = 'color:#111;font-size:13px;font-weight:bold;white-space:nowrap;';
+    const labelStyle = 'color:#666;font-size:8px;font-weight:bold;letter-spacing:1px;';
+    return `
+        <div class="ga-weather-card ga-weather-card-loading"
+             data-ga-metar-loading="true"
+             style="background:#f0eada;border-radius:12px;padding:10px;border:3px solid #c2bba8;box-shadow:0 4px 8px rgba(0,0,0,.2),inset 0 2px 5px rgba(255,255,255,.5);font-family:Arial,sans-serif;color:#333;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:6px;left:6px;width:6px;height:6px;background:#ddd;border-radius:50%;box-shadow:inset 0 0 2px #555;"></div>
+            <div style="position:absolute;bottom:6px;right:6px;width:6px;height:6px;background:#ddd;border-radius:50%;box-shadow:inset 0 0 2px #555;"></div>
+            <div style="position:absolute;top:6px;right:6px;width:6px;height:6px;background:#ddd;border-radius:50%;box-shadow:inset 0 0 2px #555;"></div>
+            <div style="position:absolute;bottom:6px;left:6px;width:6px;height:6px;background:#ddd;border-radius:50%;box-shadow:inset 0 0 2px #555;"></div>
+            <div style="color:#8a1a12;font-size:12px;font-weight:bold;margin-bottom:5px;border-bottom:2px dashed #c2bba8;padding-bottom:4px;font-family:${weatherFont};display:flex;justify-content:space-between;align-items:center;gap:6px;letter-spacing:.5px;">
+                <span>▶ STATION: ${_escapeMetarWidgetText(String(icao || '').trim().toUpperCase())}</span>
+                <span class="ga-weather-loading-status" style="color:#8a6b12;font-size:10px;padding:1px 5px;border:2px solid #c69b28;border-radius:4px;background:rgba(255,255,255,.7);">LÄDT</span>
+            </div>
+            <div class="ga-weather-layout${responsiveEmbed ? ' ga-weather-layout-responsive' : ''}"
+                 style="display:flex;justify-content:space-between;align-items:stretch;gap:5px;${responsiveEmbed ? 'flex-direction:column;' : ''}">
+                <div style="display:flex;flex-direction:column;gap:3px;font-family:${weatherFont};flex-shrink:1;min-width:0;">
+                    <div><div style="${labelStyle}">WIND</div><div style="${valueStyle}color:#1a73e8;">WIRD GELADEN</div></div>
+                    <div style="display:flex;gap:7px;">
+                        <div><div style="${labelStyle}">VIS</div><div style="${valueStyle}">--</div></div>
+                        <div><div style="${labelStyle}">WX</div><div style="${valueStyle}">--</div></div>
+                    </div>
+                    <div style="display:flex;gap:7px;">
+                        <div><div style="${labelStyle}">TEMP</div><div style="${valueStyle}">--</div></div>
+                        <div><div style="${labelStyle}">DEWP</div><div style="${valueStyle}">--</div></div>
+                    </div>
+                    <div style="display:flex;gap:7px;">
+                        <div><div style="${labelStyle}">QNH</div><div style="${valueStyle}">--</div></div>
+                        <div><div style="${labelStyle}">COVER</div><div style="${valueStyle}">--</div></div>
+                    </div>
+                </div>
+                <div class="ga-weather-windrose"
+                     aria-label="${runway ? `Piste ${_escapeMetarWidgetText(runway.end1)}/${_escapeMetarWidgetText(runway.end2)}` : 'Piste wird geladen'}"
+                     style="position:relative;width:min(100%,148px);height:auto;aspect-ratio:1;flex:0 1 auto;align-self:center;margin:2px auto 0;border:4px solid #a8a291;border-radius:50%;background:#fcfaf5;box-shadow:inset 0 2px 8px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.2);">
+                    <svg viewBox="0 0 160 160" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;">
+                        ${_renderMetarCompassTicks()}
+                    </svg>
+                    ${_renderMetarRunwayLayer(runway)}
+                </div>
+            </div>
+        </div>`;
+};
+
+async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false, options = {}) {
+    let container = document.getElementById(containerId);
     if (!container) return;
+    const loadOptions = options && typeof options === 'object' ? options : {};
+    const requestedRunwayIcao = String(loadOptions.runwayIcao || '').trim().toUpperCase();
 
     // Zwingt das Widget ins "Modern"-Design, auch wenn das Retro-Theme aktiv ist (wichtig für Karten-Popups)
     const isRetro = !forceModern && document.body.classList.contains('theme-retro');
     const isOps1940 = !forceModern && document.body.classList.contains('theme-ops1940');
-    if (isRetro || isOps1940) {
-        container.style.boxShadow = 'none';
-        container.style.background = 'transparent';
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:#555; font-family: \'Caveat\', cursive; font-size:22px; transform: rotate(-1deg);">Sucht lokales Wetter...</div>';
-    } else {
-        container.style.boxShadow = '';
-        container.style.background = '';
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:#888; font-size:12px; background:#1a1a1a; border-radius:6px;">Sucht lokales Wetter...</div>';
+    if (!loadOptions.preserveLoadingContent || !String(container.innerHTML || '').trim()) {
+        if (isRetro || isOps1940) {
+            container.style.boxShadow = 'none';
+            container.style.background = 'transparent';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#555; font-family: \'Caveat\', cursive; font-size:22px; transform: rotate(-1deg);">Sucht lokales Wetter...</div>';
+        } else {
+            container.style.boxShadow = '';
+            container.style.background = '';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#888; font-size:12px; background:#1a1a1a; border-radius:6px;">Sucht lokales Wetter...</div>';
+        }
     }
 
     const hasCoordinates = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
@@ -9479,15 +9741,30 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         let isFallback = false;
         let foundIcao = icaoNorm;
 
-        // --- CACHE LOGIK: Bulk-Daten aus dem Profil nutzen oder Theme-Wechsel abfangen ---
+        // Zehn Minuten gültiger In-Memory-Cache. Neben exakten Platz-/Koordinaten-
+        // Schlüsseln werden komplette METAR-Regionen gehalten, damit ein weiterer
+        // Flugplatz im selben Gebiet seine Station sofort und eindeutig wiederverwenden kann.
+        _pruneMetarMemoryCache();
         const cacheKey = (icaoNorm || 'COORDS') + (hasCoordinates ? `_${Number(lat).toFixed(2)}_${Number(lon).toFixed(2)}` : '');
-        const cachedEntry = gpsState.metarCache[cacheKey] || gpsState.metarCache[icaoNorm];
+        const cachedEntry = _getMetarMemoryEntry(cacheKey) || _getMetarMemoryEntry(icaoNorm);
         if (cachedEntry) {
             metarDataList = cachedEntry.data;
             isFallback = cachedEntry.isFallback;
             foundIcao = cachedEntry.foundIcao;
         } else {
-            if (looksLikeIcao) {
+            const cachedRegion = hasCoordinates ? _getCachedMetarRegionForPoint(lat, lon) : null;
+            const cachedRegionSelection = cachedRegion
+                ? _selectMetarForAirport(cachedRegion.data, icaoNorm, lat, lon)
+                : null;
+            if (cachedRegionSelection?.station) {
+                metarDataList = [cachedRegionSelection.station];
+                isFallback = cachedRegionSelection.isFallback;
+                foundIcao = String(
+                    cachedRegionSelection.station.icaoId
+                    || cachedRegionSelection.station.icao
+                    || icaoNorm
+                ).trim().toUpperCase();
+            } else if (looksLikeIcao) {
                 const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json&t=${Date.now()}`;
                 const mainData = await _fetchMetarArrayViaVariants(directUrl, {
                     includeCodeTabs: true,
@@ -9499,7 +9776,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                 if (Array.isArray(mainData)) metarDataList = mainData;
             }
 
-            if ((!metarDataList || metarDataList.length === 0) && lat !== undefined && lon !== undefined) {
+            if ((!metarDataList || metarDataList.length === 0) && hasCoordinates) {
                 const latMin = lat - 0.6, latMax = lat + 0.6;
                 const lonMin = lon - 0.8, lonMax = lon + 0.8;
                 const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
@@ -9511,24 +9788,17 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                     retryDelayMs: 350
                 });
                 if (Array.isArray(fbData)) {
+                    _storeMetarRegion(fbData, { latMin, lonMin, latMax, lonMax });
                     try {
-                        if (fbData.length > 0) {
-                            const candidates = fbData.filter(m =>
-                                m &&
-                                Number.isFinite(Number(m.lat)) &&
-                                Number.isFinite(Number(m.lon))
-                            );
-                            if (candidates.length > 0) {
-                                let closest = candidates[0];
-                                let minDist = calcNav(lat, lon, Number(closest.lat), Number(closest.lon)).dist;
-                                for (let i = 1; i < candidates.length; i++) {
-                                    let d = calcNav(lat, lon, Number(candidates[i].lat), Number(candidates[i].lon)).dist;
-                                    if (d < minDist) { minDist = d; closest = candidates[i]; }
-                                }
-                                metarDataList = [closest];
-                                foundIcao = closest.icaoId || icaoNorm;
-                                isFallback = true;
-                            }
+                        const selection = _selectMetarForAirport(fbData, icaoNorm, lat, lon);
+                        if (selection?.station) {
+                            metarDataList = [selection.station];
+                            foundIcao = String(
+                                selection.station.icaoId
+                                || selection.station.icao
+                                || icaoNorm
+                            ).trim().toUpperCase();
+                            isFallback = selection.isFallback;
                         }
                     } catch (parseErr) {
                         console.error("Failed to process fallback METAR JSON", parseErr);
@@ -9537,14 +9807,56 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             }
 
             // Ergebnis in den Cache legen
-            gpsState.metarCache[cacheKey] = { data: metarDataList, isFallback, foundIcao };
+            const cacheEntry = {
+                data: metarDataList,
+                isFallback,
+                foundIcao,
+                cachedAt: Date.now()
+            };
+            _setMetarMemoryEntry(cacheKey, cacheEntry);
+            // Dieselbe Station kann in Karte und Wetterübersicht leicht
+            // abweichende Koordinaten haben. Der ICAO-Alias vermeidet dann
+            // eine zweite identische METAR-Abfrage.
+            if (icaoNorm && Array.isArray(metarDataList) && metarDataList.length > 0) {
+                _setMetarMemoryEntry(icaoNorm, cacheEntry);
+            }
+            if (foundIcao && Array.isArray(metarDataList) && metarDataList.length > 0) {
+                _setMetarMemoryEntry(`STATION:${foundIcao}`, {
+                    data: metarDataList,
+                    isFallback: false,
+                    foundIcao,
+                    cachedAt: cacheEntry.cachedAt
+                });
+            }
 
         } // Ende der Cache-Else-Bedingung
+
+        // Kontext-Popups werden während parallel laufender Gelände-/Luftraum-
+        // Abfragen neu gerendert. Danach immer das aktuell sichtbare Ziel
+        // verwenden statt eines inzwischen abgehängten DOM-Knotens.
+        container = document.getElementById(containerId);
+        if (!container) return;
 
         if (!Array.isArray(metarDataList)) metarDataList = [];
         metarDataList = metarDataList.filter(m => m && typeof m === 'object');
 
         if (!metarDataList || metarDataList.length === 0) {
+            const loadingCard = container.querySelector?.('[data-ga-metar-loading="true"]');
+            if (loadOptions.preserveLoadingContent && loadingCard) {
+                const status = loadingCard.querySelector('.ga-weather-loading-status');
+                if (status) {
+                    status.textContent = 'KEIN METAR';
+                    status.style.color = '#a61b12';
+                    status.style.borderColor = '#c85b51';
+                }
+                const windValue = loadingCard.querySelector('.ga-weather-layout > div > div:first-child > div:last-child');
+                if (windValue) {
+                    windValue.textContent = '--';
+                    windValue.style.color = '#555';
+                }
+                loadingCard.removeAttribute('data-ga-metar-loading');
+                return;
+            }
             if (isRetro) {
                 container.innerHTML = `
                     <div style="padding:15px; text-align:center; font-family: 'Caveat', cursive; transform: rotate(1deg);">
@@ -9601,19 +9913,25 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         if (wspd === 0) windText = "Calm (0 kt)";
 
         const isMini = containerId.startsWith('wxPopup');
+        const isResponsiveEmbed = !isMini && Boolean(loadOptions.responsiveEmbed);
+        // Bei einem METAR-Fallback bleibt die Pistenvisualisierung am
+        // angefragten Flugplatz. Nur das Wetter stammt von der Ersatzstation.
+        const runwayIcao = requestedRunwayIcao || (looksLikeIcao ? icaoNorm : foundIcao);
         
         // Für Vollansicht: auf Pisten-Daten warten; für Mini-Popup direkt aus Cache lesen
         let retries = 0;
-        if (!isMini) {
-            while (!runwayCache[foundIcao] && !runwayCache[icao] && retries < 15) {
+        if (!isMini && !loadOptions.skipRunwayWait) {
+            while (runwayIcao && !runwayCache[runwayIcao] && retries < 15) {
                 await new Promise(r => setTimeout(r, 200));
                 retries++;
             }
         }
+        container = document.getElementById(containerId);
+        if (!container) return;
 
         let rwyHdg = 0; let rwy1 = ""; let rwy2 = "";
         {
-            const rData = runwayCache[foundIcao] || runwayCache[icao];
+            const rData = runwayIcao ? runwayCache[runwayIcao] : null;
             if (rData && !rData.includes('Keine Daten')) {
                 const match = rData.match(/(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/);
                 if (match) { rwyHdg = parseInt(match[1], 10) * 10; rwy1 = match[1] + match[2]; rwy2 = match[3]; }
@@ -9726,18 +10044,20 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                 </div>`;
             }
 
-            let cSize = isMini ? 90 : 160;
-            let gap = isMini ? 4 : 8;
-            let fVal = isMini ? 12 : 15;
-            let fLbl = isMini ? 9 : 10;
-            let pPad = isMini ? '10px' : '15px 15px 20px 15px';
+            const cSize = isMini ? '90px' : (isResponsiveEmbed ? 'min(100%, 148px)' : '160px');
+            const cHeight = isResponsiveEmbed ? 'auto' : cSize;
+            let gap = isMini ? 4 : (isResponsiveEmbed ? 3 : 8);
+            let fVal = isMini ? 12 : (isResponsiveEmbed ? 13 : 15);
+            let fLbl = isMini ? 9 : (isResponsiveEmbed ? 8 : 10);
+            const rowGap = isResponsiveEmbed ? 7 : 12;
+            let pPad = isMini ? '10px' : (isResponsiveEmbed ? '10px' : '15px 15px 20px 15px');
             const weatherFont = isOps1940 ? "'Caveat', cursive" : "'Courier New', Courier, monospace";
             const weatherOuterFont = isOps1940 ? "'Caveat', cursive" : "'Arial', sans-serif";
             const rawTextSafe = raw && raw.trim() ? raw : 'RAW nicht verfügbar';
             const miniDecoded = `${visib} · ${wx} · ${temp} / ${dewp} · ${cover}`;
 
             container.innerHTML = `
-                <div style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family:${weatherOuterFont}; color: #333; position:relative; overflow:hidden;">
+                <div class="ga-weather-card" style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family:${weatherOuterFont}; color: #333; position:relative; overflow:hidden;">
 
                     ${!isMini ? `
                     <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
@@ -9746,30 +10066,30 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                     <div style="position:absolute; bottom:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
                     ` : ''}
 
-                    <div style="color: #8a1a12; font-size: 14px; font-weight: bold; margin-bottom: ${isMini?6:12}px; ${isMini ? '' : 'border-bottom: 2px dashed #c2bba8;'} padding-bottom: ${isMini?0:8}px; font-family:${weatherFont}; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
+                    <div style="color:#8a1a12; font-size:${isResponsiveEmbed ? 12 : 14}px; font-weight:bold; margin-bottom:${isMini ? 6 : (isResponsiveEmbed ? 5 : 12)}px; ${isMini ? '' : 'border-bottom:2px dashed #c2bba8;'} padding-bottom:${isMini ? 0 : (isResponsiveEmbed ? 4 : 8)}px; font-family:${weatherFont}; display:flex; justify-content:space-between; align-items:center; letter-spacing:0.5px;">
                         <span>${modernHeaderText}</span>
-                        <span style="color:${catColor}; font-size:14px; padding: 2px 8px; border: 2px solid ${catColor}; border-radius: 4px; background: rgba(255,255,255,0.7); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
+                        <span style="color:${catColor}; font-size:${isResponsiveEmbed ? 12 : 14}px; padding:${isResponsiveEmbed ? '1px 5px' : '2px 8px'}; border:2px solid ${catColor}; border-radius:4px; background:rgba(255,255,255,0.7); box-shadow:0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
                     </div>
-                    ${!isMini ? `<div style="background:#e6e0ce; color:#333; font-family:${weatherFont}; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">${rawTextSafe}</div>` : ''}
+                    ${!isMini && !isResponsiveEmbed ? `<div style="background:#e6e0ce; color:#333; font-family:${weatherFont}; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">${rawTextSafe}</div>` : ''}
                     ${isMini ? `<div style="background:#ece6d6; color:#2f2f2f; font-family:${weatherFont}; padding:6px 8px; border-radius:4px; font-size:10px; margin-bottom:8px; border:1px solid #c8c0ac; line-height:1.35; word-break:break-word;">${rawTextSafe}<br><span style="color:#555;">${miniDecoded}</span></div>` : ''}
-                    <div style="display:flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <div class="ga-weather-layout${isResponsiveEmbed ? ' ga-weather-layout-responsive' : ''}" style="display:flex; justify-content:space-between; align-items:${isResponsiveEmbed ? 'stretch' : 'center'}; gap:${isResponsiveEmbed ? 5 : 8}px;${isResponsiveEmbed ? ' flex-direction:column;' : ''}">
                         <div style="display:flex; flex-direction:column; gap:${gap}px; font-family:${weatherFont}; flex-shrink: 1; min-width: 0;">
                             <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#1a73e8; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${windText}</div></div>
                             ${!isMini ? `
-                            <div style="display:flex; gap:12px;">
+                            <div style="display:flex; gap:${rowGap}px;">
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">VIS</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${visib}</div></div>
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">WX</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${wx}</div></div>
                             </div>
-                            <div style="display:flex; gap:12px;">
+                            <div style="display:flex; gap:${rowGap}px;">
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${temp}</div></div>
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${dewp}</div></div>
                             </div>` : ''}
-                            <div style="display:flex; gap:12px;">
+                            <div style="display:flex; gap:${rowGap}px;">
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${qnhStr}</div></div>
                                 ${!isMini ? `<div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${cover}</div></div>` : ''}
                             </div>
                         </div>
-                        <div style="position:relative; width:${cSize}px; height:${cSize}px; flex-shrink: 0; ${isMini ? 'margin-left: auto;' : ''} border:4px solid #a8a291; border-radius:50%; background:#fcfaf5; box-shadow: inset 0 2px 8px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.2);">
+                        <div class="ga-weather-windrose" style="position:relative; width:${cSize}; height:${cHeight}; aspect-ratio:1; flex:${isResponsiveEmbed ? '0 1 auto' : '0 0 auto'}; align-self:${isResponsiveEmbed ? 'center' : 'auto'}; ${isMini ? 'margin-left:auto;' : (isResponsiveEmbed ? 'margin:2px auto 0;' : '')} border:4px solid #a8a291; border-radius:50%; background:#fcfaf5; box-shadow:inset 0 2px 8px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.2);">
                             <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;">
                                 ${svgTicks}
                             </svg>
@@ -9781,6 +10101,24 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         }
     } catch (err) {
         console.error("METAR fetch error:", err);
+        container = document.getElementById(containerId);
+        if (!container) return;
+        const loadingCard = container.querySelector?.('[data-ga-metar-loading="true"]');
+        if (loadOptions.preserveLoadingContent && loadingCard) {
+            const status = loadingCard.querySelector('.ga-weather-loading-status');
+            if (status) {
+                status.textContent = 'METAR FEHLER';
+                status.style.color = '#a61b12';
+                status.style.borderColor = '#c85b51';
+            }
+            const windValue = loadingCard.querySelector('.ga-weather-layout > div > div:first-child > div:last-child');
+            if (windValue) {
+                windValue.textContent = '--';
+                windValue.style.color = '#555';
+            }
+            loadingCard.removeAttribute('data-ga-metar-loading');
+            return;
+        }
         const isRetro = document.body.classList.contains('theme-retro');
         const isOps1940 = document.body.classList.contains('theme-ops1940');
         if (isRetro || isOps1940) {
@@ -14837,7 +15175,7 @@ function renderRunwayDetailsResult(domEl, result, icaoCode) {
 }
 
 async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
-    const domEl = document.getElementById(elementId);
+    let domEl = document.getElementById(elementId);
     if (!domEl) return;
     const normalizedIcao = String(icaoCode || '').trim().toUpperCase();
     const lookupKey = normalizedIcao || `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
@@ -14884,6 +15222,8 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
         runwayTemporaryCache.set(lookupKey, Date.now());
         console.warn('[Runway] Quelle vorübergehend nicht verfügbar:', normalizedIcao || lookupKey, result.error || result.source);
     }
+    domEl = document.getElementById(elementId);
+    if (!domEl) return;
     renderRunwayDetailsResult(domEl, result, normalizedIcao);
 }
 
@@ -23005,6 +23345,10 @@ function missionSceneTargetFeatureCatalog() {
         tent: { roles: ['camp.tent'] },
         parked_vehicle: { roles: ['vehicle.car'] },
         small_equipment: { roles: ['cargo.small_box'] },
+        aircraft_logbook: { roles: ['cargo.aircraft_logbook'] },
+        fire_extinguisher: { roles: ['cargo.fire_extinguisher'] },
+        first_aid_case: { roles: ['cargo.first_aid_case'] },
+        wheel_chocks: { roles: ['cargo.wheel_chocks'] },
         campfire: { roles: ['vfx.fire'] },
         bus: { roles: ['vehicle.bus'] },
         signal_smoke: { roles: ['vfx.smoke'] },
@@ -23110,6 +23454,26 @@ function normalizeMissionTargetSceneFeature(value) {
         pallet_stack: 'pallet_stack',
         material_stack: 'pallet_stack',
         materiallager: 'pallet_stack',
+        logbook: 'aircraft_logbook',
+        aircraft_logbook: 'aircraft_logbook',
+        bordbuch: 'aircraft_logbook',
+        flugbuch: 'aircraft_logbook',
+        fire_extinguisher: 'fire_extinguisher',
+        feuerloescher: 'fire_extinguisher',
+        feuerlöscher: 'fire_extinguisher',
+        feuerl_scher: 'fire_extinguisher',
+        first_aid: 'first_aid_case',
+        first_aid_case: 'first_aid_case',
+        verbandkasten: 'first_aid_case',
+        verbandzeug: 'first_aid_case',
+        erste_hilfe_koffer: 'first_aid_case',
+        chock: 'wheel_chocks',
+        chocks: 'wheel_chocks',
+        wheel_chock: 'wheel_chocks',
+        wheel_chocks: 'wheel_chocks',
+        aircraft_wheel_chocks: 'wheel_chocks',
+        radkeil: 'wheel_chocks',
+        radkeile: 'wheel_chocks',
         power: 'powerline',
         power_pylon: 'powerline',
         pylon: 'powerline',
@@ -23564,6 +23928,10 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
             'sar.person_target': 'missing_person',
             'person.ground_crew': 'people',
             'cargo.medical_kit': 'cargo_material',
+            'cargo.aircraft_logbook': 'aircraft_logbook',
+            'cargo.fire_extinguisher': 'fire_extinguisher',
+            'cargo.first_aid_case': 'first_aid_case',
+            'cargo.wheel_chocks': 'wheel_chocks',
             'cargo.container': 'cargo_material',
             'cargo.pallet_large': 'pallet_stack',
             'cargo.pallet_medium': 'pallet_stack',
@@ -23603,6 +23971,7 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
     if (has('missing_person')) return 'sar_land';
     if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
     if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
+    if (has('aircraft_logbook') || has('fire_extinguisher') || has('first_aid_case') || has('wheel_chocks')) return 'cargo_site';
     if (has('cargo_material') || has('pallet_stack')) return 'cargo_site';
     if (has('watercraft') || has('waterfowl')) return 'water_context';
     if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire')) return 'wildlife_site';
@@ -44419,6 +44788,7 @@ const gpsState = {
     visible: false,
     maxPages: { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 },
     metarCache: {},
+    metarRegionCache: [],
     wikiCache: {}
 };
 

@@ -2,8 +2,8 @@
 // the SimObjects_Visuals.pdf visual pass. VFX entries are kept as known/ACK-tested assets
 // because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-07-27-homebase-cargo-v0.6.20',
-    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.20',
+    version: '2026-07-29-homebase-cargo-v0.6.21-wheel-chocks',
+    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.21 including aircraft wheel chocks',
     targetSceneKinds: {
         none: {
             label: 'Keine Zielszene',
@@ -38,7 +38,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         cargo_site: {
             label: 'Fracht-/Materialpunkt',
-            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.camera_equipment', 'cargo.camping_equipment', 'cargo.equipment_case', 'cargo.animal_transport_box'],
+            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.camera_equipment', 'cargo.camping_equipment', 'cargo.equipment_case', 'cargo.animal_transport_box', 'cargo.aircraft_logbook', 'cargo.fire_extinguisher', 'cargo.first_aid_case', 'cargo.wheel_chocks'],
             useFor: ['cargo_fragile', 'club_utility', 'animal_transport']
         },
         construction_site: {
@@ -276,6 +276,22 @@ window.MISSION_SCENE_ASSETS = {
         small_equipment: {
             label: 'kleine Ausruestung / Kisten / Picknick',
             roles: ['cargo.small_box']
+        },
+        aircraft_logbook: {
+            label: 'Luftfahrzeug-Bordbuch / Flugbuch',
+            roles: ['cargo.aircraft_logbook']
+        },
+        fire_extinguisher: {
+            label: 'Feuerloescher',
+            roles: ['cargo.fire_extinguisher']
+        },
+        first_aid_case: {
+            label: 'Erste-Hilfe-Koffer / Verbandkasten',
+            roles: ['cargo.first_aid_case']
+        },
+        wheel_chocks: {
+            label: 'Flugzeug-Radkeile / Wheel Chocks',
+            roles: ['cargo.wheel_chocks']
         },
         campfire: {
             label: 'kleines Lagerfeuer / Feuerstelle',
@@ -680,6 +696,18 @@ window.MISSION_SCENE_ASSETS = {
         'cargo.medical_kit': [
             'VFR Multitool Mission Medical Backpack Cargo',
             'Cardboard'
+        ],
+        'cargo.aircraft_logbook': [
+            'VFR Multitool Mission Aircraft Logbook Cargo'
+        ],
+        'cargo.fire_extinguisher': [
+            'VFR Multitool Homebase Fire Extinguisher'
+        ],
+        'cargo.first_aid_case': [
+            'VFR Multitool Homebase First Aid Case'
+        ],
+        'cargo.wheel_chocks': [
+            'VFR Multitool Homebase Aircraft Wheel Chocks'
         ],
         'cargo.animal_transport_box': [
             'VFR Multitool Mission Pet Carrier Cargo',

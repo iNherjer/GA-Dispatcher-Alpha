@@ -596,6 +596,25 @@ input[type=range]::-webkit-slider-thumb {
     transition: filter 0.3s;
 }
 
+#mapArea,
+#mapArea *,
+#map,
+#map *,
+#map::before,
+#map::after {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#mapArea img,
+#mapArea canvas,
+#mapArea svg {
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
 .map-fullscreen {
     position: fixed !important;
     top: 0 !important;
@@ -11736,6 +11755,729 @@ body.theme-retro .mission-accept-btn {
 }
 .ff-context-popup .leaflet-popup-close-button {
     color: #aaa;
+}
+.ga-map-context-popup {
+    margin-bottom: 0 !important;
+}
+#map.ga-map-context-open .leaflet-popup-pane {
+    z-index: 3000;
+}
+#map.ga-map-context-open .leaflet-control-layers {
+    visibility: hidden;
+    pointer-events: none;
+}
+.ga-map-context-popup .leaflet-popup-content-wrapper {
+    overflow: hidden;
+    color: #ecf7ff;
+    background: rgba(7, 14, 22, 0.97);
+    border: 1px solid rgba(83, 211, 255, 0.72);
+    border-radius: 11px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.ga-map-context-popup .leaflet-popup-content {
+    width: min(292px, calc(100vw - 76px)) !important;
+    margin: 9px 10px 10px;
+}
+.ga-map-context-popup .leaflet-popup-tip-container {
+    top: 50%;
+    left: -20px;
+    width: 20px;
+    height: 34px;
+    margin: -17px 0 0;
+}
+.ga-map-context-popup .leaflet-popup-tip {
+    width: 17px;
+    height: 17px;
+    margin: 8px 0 0 10px;
+    background: rgba(7, 14, 22, 0.97);
+    box-shadow: none;
+}
+.ga-map-context-popup .leaflet-popup-close-button {
+    top: 3px;
+    right: 4px;
+    color: #9cb4c4;
+    font-size: 20px;
+}
+.ga-map-context-panel {
+    display: grid;
+    gap: 7px;
+    font-family: var(--drawer-font, 'Courier New', monospace);
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.38;
+}
+.ga-map-context-heading {
+    display: grid;
+    gap: 1px;
+    padding-right: 24px;
+    color: #fff;
+}
+.ga-map-context-heading > b {
+    font-size: 12.5px;
+    font-weight: 900;
+}
+.ga-map-context-kicker {
+    color: #53d3ff;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.13em;
+}
+.ga-map-context-body {
+    display: grid;
+    grid-template-columns: minmax(82px, 31%) minmax(0, 1fr);
+    gap: 7px;
+    height: min(390px, calc(100dvh - 175px));
+    min-height: 245px;
+}
+.ga-map-context-details {
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-color: rgba(83, 211, 255, 0.5) transparent;
+    scrollbar-width: thin;
+}
+.ga-map-context-panel section {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 6px 0 0;
+    border-top: 1px solid rgba(130, 184, 214, 0.22);
+}
+.ga-map-context-panel section + section {
+    margin-top: 6px;
+}
+.ga-map-context-panel h4 {
+    margin: 0;
+    color: #a6def5;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.ga-map-context-summary {
+    display: grid;
+    gap: 2px;
+    font-weight: 700;
+}
+.ga-map-context-summary > span::after {
+    content: ';';
+    color: #607d8f;
+}
+.ga-map-context-loading,
+.ga-map-context-muted,
+.ga-map-context-source {
+    color: #89a0af;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+.ga-map-context-loading::before {
+    content: '◌';
+    display: inline-block;
+    margin-right: 4px;
+    color: #53d3ff;
+    animation: gaMapContextSpin 0.9s linear infinite;
+}
+@keyframes gaMapContextSpin {
+    to { transform: rotate(360deg); }
+}
+.ga-map-context-airspace,
+.ga-map-context-feature {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    width: 100%;
+    margin: 0 0 3px;
+    padding: 6px 7px;
+    color: #eaf6ff;
+    text-align: left;
+    font: inherit;
+    font-weight: 650;
+    line-height: 1.34;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ga-map-context-airspace {
+    border-left: 3px solid var(--ga-map-context-airspace-color, #53d3ff);
+}
+.ga-map-context-airspace:hover,
+.ga-map-context-airspace:focus-visible,
+.ga-map-context-airspace.is-selected {
+    background: color-mix(in srgb, var(--ga-map-context-airspace-color, #53d3ff) 18%, rgba(7, 14, 22, 0.96));
+    border-color: var(--ga-map-context-airspace-color, #53d3ff);
+    outline: none;
+}
+.ga-map-context-airspace-title {
+    display: grid;
+    grid-template-columns: 7px minmax(0, 1fr);
+    align-items: center;
+    gap: 3px;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.22;
+}
+.ga-map-context-airspace-title i {
+    width: 6px;
+    height: 6px;
+    background: var(--ga-map-context-airspace-color, #53d3ff);
+    border-radius: 50%;
+}
+.ga-map-context-airspace-title b,
+.ga-map-context-feature b {
+    overflow: hidden;
+    font-weight: 900;
+    text-overflow: ellipsis;
+}
+.ga-map-context-airspace-meta {
+    color: #b9cad5;
+    font-size: 11px;
+    font-weight: 750;
+}
+.ga-map-context-airspace-frequency {
+    display: grid;
+    gap: 1px;
+    font-variant-numeric: tabular-nums;
+}
+.ga-map-context-frequency-row,
+.ga-popup-frequency-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+}
+.ga-map-context-frequency-label,
+.ga-popup-frequency-label {
+    min-width: 0;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ga-map-context-frequency-value,
+.ga-popup-frequency-value {
+    text-align: right;
+    white-space: nowrap;
+}
+.ga-map-context-airspace-action,
+.ga-map-context-feature-action {
+    margin-top: 2px;
+    color: var(--ga-map-context-airspace-color, #53d3ff);
+    font-size: 10.5px;
+    font-weight: 900;
+}
+.ga-map-context-feature {
+    margin-bottom: 6px;
+    border-left: 3px solid #facc15;
+    background: rgba(250, 204, 21, 0.07);
+}
+.ga-map-context-feature:hover,
+.ga-map-context-feature:focus-visible,
+.ga-map-context-feature.is-selected {
+    border-color: #facc15;
+    background: rgba(250, 204, 21, 0.16);
+    outline: none;
+}
+.ga-map-context-feature-kind {
+    color: #facc15;
+    font-size: 10.5px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+.ga-map-context-feature-action {
+    color: #facc15;
+}
+.ga-map-context-height-band {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+    overflow: hidden;
+    background: #dff3ff;
+    border: 1px solid rgba(126, 211, 255, 0.65);
+    border-radius: 7px;
+}
+.ga-map-context-height-title {
+    padding: 4px 3px 3px;
+    color: #123144;
+    font-size: 11.5px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.72);
+    border-bottom: 1px solid rgba(34, 88, 112, 0.24);
+}
+.ga-map-context-height-title small {
+    display: block;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+}
+.ga-map-context-height-plot {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+.ga-map-context-height-sky {
+    position: absolute;
+    inset: 0;
+    background:
+        repeating-linear-gradient(to bottom, rgba(21, 109, 155, 0.14) 0 1px, transparent 1px 25%),
+        linear-gradient(to bottom, #87d7ff 0%, #dff7ff 82%, #eef9e9 100%);
+}
+.ga-map-context-height-scale {
+    position: absolute;
+    inset: 5px auto 5px 2px;
+    width: 28px;
+    color: #123144;
+    font-size: 9px;
+    font-weight: 900;
+    z-index: 7;
+}
+.ga-map-context-height-tick {
+    position: absolute;
+    left: 0;
+    width: 27px;
+    transform: translateY(-50%);
+    text-shadow: 0 1px rgba(255, 255, 255, 0.8);
+}
+.ga-map-context-height-tick::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 23px;
+    width: 5px;
+    border-top: 1px solid rgba(18, 49, 68, 0.6);
+}
+.ga-map-context-height-tick.is-transition {
+    z-index: 2;
+    width: 29px;
+    padding: 1px 1px 1px 0;
+    color: #07344a;
+    font-size: 8px;
+    line-height: 1;
+    background: rgba(238, 249, 255, 0.88);
+    border-radius: 2px;
+}
+.ga-map-context-height-tick.is-transition::after {
+    left: 25px;
+    width: 8px;
+    border-top-color: #0b678c;
+    border-top-width: 2px;
+}
+.ga-map-context-height-tick:first-child {
+    transform: none;
+}
+.ga-map-context-height-tick:last-child {
+    transform: translateY(-100%);
+}
+.ga-map-context-height-stack {
+    position: absolute;
+    inset: 5px 3px 5px 30px;
+    border-left: 1px solid rgba(18, 49, 68, 0.42);
+}
+.ga-map-context-height-ownship {
+    position: absolute;
+    left: 24px;
+    z-index: 12;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 10px solid #facc15;
+    filter: drop-shadow(0 0 1px #3f3100) drop-shadow(0 0 3px rgba(250, 204, 21, 0.85));
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+.ga-map-context-height-airspace {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    left: 2px;
+    right: 2px;
+    z-index: var(--ga-map-context-band-layer, 3);
+    min-height: 11px;
+    overflow: hidden;
+    padding: 1px 2px;
+    color: #071018;
+    font: 900 9px/1.08 var(--drawer-font, 'Courier New', monospace);
+    text-align: center;
+    background: color-mix(in srgb, var(--ga-map-context-airspace-color, #53d3ff) 31%, rgba(255, 255, 255, 0.42));
+    border: 1px solid var(--ga-map-context-airspace-color, #53d3ff);
+    border-radius: 2px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ga-map-context-height-airspace span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ga-map-context-height-class-letter {
+    color: #06141d;
+    font-size: var(--ga-map-context-class-size, 21px);
+    font-weight: 1000;
+    line-height: 0.86;
+    text-shadow: 0 1px rgba(255, 255, 255, 0.72);
+}
+.ga-map-context-height-class-letter.is-ctr {
+    font-size: min(var(--ga-map-context-class-size, 21px), 20px);
+    letter-spacing: -0.05em;
+}
+.ga-map-context-height-airspace-label {
+    font-size: 10.5px;
+    font-weight: 900;
+    line-height: 1.08;
+}
+.ga-map-context-height-airspace.is-selected .ga-map-context-height-class-letter {
+    color: #fff;
+    text-shadow: none;
+}
+.ga-map-context-height-airspace:hover,
+.ga-map-context-height-airspace:focus-visible,
+.ga-map-context-height-airspace.is-selected {
+    z-index: 9;
+    color: #fff;
+    background: color-mix(in srgb, var(--ga-map-context-airspace-color, #53d3ff) 76%, #071018);
+    border-color: #fff;
+    box-shadow: 0 0 0 2px #facc15, 0 0 9px rgba(250, 204, 21, 0.8);
+    outline: none;
+}
+.ga-map-context-height-terrain {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    left: -1px;
+    z-index: 2;
+    min-height: 8px;
+    color: #12310f;
+    background: linear-gradient(to bottom, #62c83c, #26721f);
+    border-top: 2px solid #174f15;
+    clip-path: polygon(0 14%, 18% 2%, 37% 18%, 58% 4%, 78% 15%, 100% 0, 100% 100%, 0 100%);
+}
+.ga-map-context-height-ground-label {
+    position: absolute;
+    left: 1px;
+    z-index: 10;
+    max-width: calc(100% - 2px);
+    padding: 1px 2px;
+    color: #16310d;
+    font-size: 9px;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+    background: rgba(246, 255, 225, 0.94);
+    border: 1px solid rgba(31, 92, 24, 0.45);
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transform: translateY(-105%);
+}
+.ga-map-context-height-feature {
+    position: absolute;
+    right: -2px;
+    left: -2px;
+    z-index: 8;
+    height: 0;
+    padding: 0;
+    color: #5b4300;
+    background: transparent;
+    border: 0;
+    border-top: 2px solid #facc15;
+    cursor: pointer;
+}
+.ga-map-context-height-feature::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    background: #facc15;
+    border: 1px solid #5b4300;
+    border-radius: 50%;
+}
+.ga-map-context-height-feature span {
+    position: absolute;
+    top: -11px;
+    right: 0;
+    padding: 1px 2px;
+    font: 900 8px/1 var(--drawer-font, 'Courier New', monospace);
+    background: rgba(255, 247, 190, 0.94);
+    border-radius: 2px;
+}
+.ga-map-context-height-feature.is-selected {
+    border-top-width: 3px;
+    filter: drop-shadow(0 0 4px #facc15);
+}
+.ga-map-context-height-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 12;
+    padding: 2px 3px;
+    color: #123144;
+    font-size: 8px;
+    font-weight: 900;
+    background: rgba(255, 255, 255, 0.78);
+    border-radius: 3px;
+    transform: translate(-50%, -50%);
+}
+.ga-map-context-airport-block {
+    min-width: 0;
+    margin-bottom: 4px;
+}
+.ga-map-context-feature-selector {
+    margin-bottom: 4px;
+}
+.ga-map-context-airport-full {
+    min-width: 0;
+    overflow: hidden;
+    padding: 5px;
+    color: #10202d !important;
+    background: #edf7fb !important;
+    border: 1px solid rgba(250, 204, 21, 0.72);
+    border-radius: 7px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+.ga-map-context-airport-full,
+.ga-map-context-airport-full * {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.ga-map-context-airport-full > div {
+    min-width: 0 !important;
+    color: #10202d !important;
+    font-weight: 700;
+}
+.ga-map-context-airport-full > div > div:not(.ga-weather-card) {
+    color: #243746;
+}
+.ga-map-context-airport-full [style*="font-size:10px"] {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+}
+.ga-map-context-airport-full [style*="font-size:11px"] {
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+}
+.ga-map-context-airport-full [id*="_frequencies"] {
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+}
+.ga-map-context-airport-full .ga-popup-frequency-row {
+    gap: 10px;
+}
+.ga-map-context-airport-full [style*="font-size:13px"] {
+    font-size: 13px !important;
+    font-weight: 900 !important;
+}
+.ga-map-context-airport-full button,
+.ga-map-context-airport-full a {
+    font-weight: 900 !important;
+}
+.ga-map-context-airport-full hr {
+    margin: 5px 0 !important;
+}
+.ga-map-context-airport-full .ga-airport-popup-compact hr {
+    margin: 2px 0 !important;
+}
+.ga-map-context-airport-full .ga-airport-popup-compact {
+    line-height: 1.25;
+}
+.ga-map-context-airport-full .ga-airport-altitude-line {
+    white-space: nowrap;
+}
+.ga-map-context-airport-full input[type="range"] {
+    min-width: 0;
+    width: 100%;
+}
+.ga-map-context-airport-full .ga-weather-card {
+    max-width: 100% !important;
+    padding: 8px !important;
+    color: #29251e !important;
+    background: #f0eada !important;
+    border-width: 2px !important;
+}
+.ga-map-context-airport-full .ga-weather-layout {
+    align-items: stretch !important;
+    flex-direction: column;
+}
+.ga-map-context-airport-full .ga-weather-windrose {
+    align-self: center;
+    width: min(100%, 148px) !important;
+    height: auto !important;
+    aspect-ratio: 1;
+    flex: 0 1 auto !important;
+    margin: 2px auto 0 !important;
+}
+.ga-map-context-weather-card {
+    position: relative;
+    overflow: hidden;
+    padding: 8px;
+    color: #29251e;
+    font-family: Arial, sans-serif;
+    background: #f0eada;
+    border: 2px solid #c2bba8;
+    border-radius: 9px;
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.25), inset 0 1px 4px rgba(255, 255, 255, 0.6);
+}
+.ga-map-context-weather-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    color: #8a1a12;
+    border-bottom: 2px dashed #c2bba8;
+}
+.ga-map-context-weather-header b {
+    font: 900 11px/1.1 var(--drawer-font, 'Courier New', monospace);
+}
+.ga-map-context-weather-header span {
+    color: #59636a;
+    font: 800 7.5px/1 var(--drawer-font, 'Courier New', monospace);
+}
+.ga-map-context-weather-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 42%);
+    align-items: center;
+    gap: 5px;
+}
+.ga-map-context-weather-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 7px;
+    min-width: 0;
+}
+.ga-map-context-weather-values > span {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+.ga-map-context-weather-values > span.is-wide {
+    grid-column: 1 / -1;
+}
+.ga-map-context-weather-values small {
+    color: #666;
+    font: 900 8px/1 var(--drawer-font, 'Courier New', monospace);
+    letter-spacing: 0.04em;
+}
+.ga-map-context-weather-values b {
+    overflow: hidden;
+    color: #111;
+    font: 900 10.5px/1.08 var(--drawer-font, 'Courier New', monospace);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.ga-map-context-weather-values b.is-wind {
+    color: #1a73e8;
+}
+.ga-map-context-windrose {
+    display: block;
+    width: min(100%, 116px);
+    min-width: 0;
+    max-width: 116px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    align-self: center;
+    justify-self: center;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    margin: 0 auto;
+    background: #fcfaf5;
+    border: 3px solid #a8a291;
+    border-radius: 50%;
+    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.12), 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+.ga-map-context-windrose svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+}
+.ga-airport-hover-tooltip {
+    display: block;
+    font-family: var(--drawer-font, 'Courier New', monospace);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+.ga-airport-hover-tooltip b {
+    color: #facc15;
+}
+.ga-airport-hover-tooltip span {
+    color: #d7e3eb;
+    font-size: 10px;
+}
+.ga-map-context-weather-source {
+    margin-top: 5px;
+    color: #6b675d;
+    font: 800 8px/1.2 var(--drawer-font, 'Courier New', monospace);
+}
+.ga-map-context-point {
+    animation: gaMapContextPointPulse 1.15s ease-in-out infinite;
+}
+.ga-map-context-airspace-highlight,
+.ga-map-context-object-highlight {
+    animation: gaMapContextAirspacePulse 1.4s ease-in-out infinite;
+}
+@keyframes gaMapContextPointPulse {
+    0%, 100% { stroke-opacity: 1; fill-opacity: 0.92; }
+    50% { stroke-opacity: 0.55; fill-opacity: 0.45; }
+}
+@keyframes gaMapContextAirspacePulse {
+    0%, 100% { stroke-opacity: 1; fill-opacity: 0.32; }
+    50% { stroke-opacity: 0.68; fill-opacity: 0.12; }
+}
+@media (min-width: 760px) {
+    .ga-map-context-popup .leaflet-popup-content {
+        width: min(440px, calc(100vw - 120px)) !important;
+        margin: 10px 11px 11px;
+    }
+    .ga-map-context-panel {
+        font-size: 13px;
+    }
+    .ga-map-context-body {
+        grid-template-columns: minmax(112px, 29%) minmax(0, 1fr);
+        gap: 9px;
+        height: max(190px, min(560px, calc(100dvh - 150px), calc(var(--ga-map-context-map-height, 620px) - 58px)));
+        min-height: 190px;
+    }
+    .ga-map-context-height-title {
+        font-size: 12px;
+    }
+    .ga-map-context-airport-full .ga-weather-layout-responsive {
+        align-items: center !important;
+        flex-direction: row !important;
+        gap: 7px !important;
+    }
+    .ga-map-context-airport-full .ga-weather-layout-responsive .ga-weather-windrose {
+        width: 126px !important;
+        max-width: 126px !important;
+        flex: 0 0 126px !important;
+        margin: 0 !important;
+    }
+}
+@media (max-width: 759px) {
+    .ga-map-context-airport-full .ga-airport-altitude-desktop-only {
+        display: none;
+    }
+}
+@media (max-height: 520px) {
+    .ga-map-context-body {
+        height: calc(100dvh - 145px);
+        min-height: 190px;
+    }
 }
 .ff-toast {
     position: absolute;

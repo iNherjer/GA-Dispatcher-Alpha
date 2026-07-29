@@ -31,7 +31,165 @@ const _MISSION_CARGO_AUDIO_QUEUE = {
     active: false,
     pending: []
 };
+const MISSION_CARGO_ONBOARD_EQUIPMENT_STORAGE_KEY = 'ga_aircraft_onboard_equipment_v1';
+const MISSION_CARGO_PERSISTENT_EQUIPMENT_IDS = Object.freeze([
+    'bordbuch',
+    'first-aid',
+    'fire-extinguisher',
+    'chocks'
+]);
 let missionCargoManualPaxRollbackTimer = null;
+let missionCargoOnboardEquipmentCloudTimer = null;
+
+function _missionCargoAircraftSlot(value = window.selectedAC || window.activeAircraftPresetSettingsSlot || 'PA-24') {
+    return String(value || 'PA-24')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_.-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || 'PA-24';
+}
+
+function _missionCargoNormalizeOnboardEquipmentState(raw = null) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const aircraftSource = source.aircraft && typeof source.aircraft === 'object' ? source.aircraft : {};
+    const aircraft = {};
+    Object.entries(aircraftSource).slice(0, 12).forEach(([rawSlot, rawEntry]) => {
+        const slot = _missionCargoAircraftSlot(rawSlot);
+        const entry = rawEntry && typeof rawEntry === 'object' ? rawEntry : {};
+        const itemSource = entry.items && typeof entry.items === 'object' ? entry.items : {};
+        const items = {};
+        MISSION_CARGO_PERSISTENT_EQUIPMENT_IDS.forEach((id) => {
+            const rawItem = itemSource[id];
+            if (!rawItem || typeof rawItem !== 'object') return;
+            const loadedAt = Number(rawItem.loadedAt);
+            const updatedAt = Number(rawItem.updatedAt);
+            const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(String(rawItem.expiresAt || ''))
+                ? String(rawItem.expiresAt)
+                : '';
+            items[id] = {
+                onboard: rawItem.onboard === true,
+                loadedAt: Number.isFinite(loadedAt) && loadedAt > 0 ? Math.round(loadedAt) : 0,
+                expiresAt,
+                updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : 0
+            };
+        });
+        const entryUpdatedAt = Number(entry.updatedAt);
+        aircraft[slot] = {
+            updatedAt: Number.isFinite(entryUpdatedAt) && entryUpdatedAt > 0 ? Math.round(entryUpdatedAt) : 0,
+            items
+        };
+    });
+    const updatedAt = Number(source.updatedAt);
+    return {
+        version: 1,
+        updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : 0,
+        aircraft
+    };
+}
+
+function _missionCargoReadOnboardEquipmentState() {
+    try {
+        return _missionCargoNormalizeOnboardEquipmentState(
+            JSON.parse(localStorage.getItem(MISSION_CARGO_ONBOARD_EQUIPMENT_STORAGE_KEY) || '{}')
+        );
+    } catch (_) {
+        return _missionCargoNormalizeOnboardEquipmentState(null);
+    }
+}
+
+function _missionCargoScheduleOnboardEquipmentCloudSync() {
+    const toggle = document.getElementById('syncToggle');
+    if (toggle && !toggle.checked) return;
+    if (missionCargoOnboardEquipmentCloudTimer) clearTimeout(missionCargoOnboardEquipmentCloudTimer);
+    missionCargoOnboardEquipmentCloudTimer = setTimeout(() => {
+        missionCargoOnboardEquipmentCloudTimer = null;
+        try {
+            if (typeof triggerCloudSave === 'function') triggerCloudSave(true);
+        } catch (_) {}
+    }, 1200);
+}
+
+function _missionCargoWriteOnboardEquipmentState(raw = null, options = {}) {
+    const normalized = _missionCargoNormalizeOnboardEquipmentState(raw);
+    const next = JSON.stringify(normalized);
+    let previous = '';
+    try { previous = localStorage.getItem(MISSION_CARGO_ONBOARD_EQUIPMENT_STORAGE_KEY) || ''; } catch (_) {}
+    if (previous === next) return false;
+    try {
+        localStorage.setItem(MISSION_CARGO_ONBOARD_EQUIPMENT_STORAGE_KEY, next);
+    } catch (_) {
+        return false;
+    }
+    if (options.scheduleCloud === true) _missionCargoScheduleOnboardEquipmentCloudSync();
+    return true;
+}
+
+function _missionCargoStoredEquipmentItems(aircraftSlot = '') {
+    const slot = _missionCargoAircraftSlot(aircraftSlot);
+    return _missionCargoReadOnboardEquipmentState().aircraft?.[slot]?.items || {};
+}
+
+function _missionCargoApplyStoredOnboardEquipment(items = [], aircraftSlot = '') {
+    const storedItems = _missionCargoStoredEquipmentItems(aircraftSlot);
+    (Array.isArray(items) ? items : []).forEach((item) => {
+        if (item?.persistentEquipment !== true) return;
+        const stored = storedItems[item.id];
+        if (!stored) return;
+        if (stored.expiresAt) item.expiresAt = stored.expiresAt;
+        if (stored.onboard === true) {
+            item.status = 'loaded';
+            item.loadedAt = Number(stored.loadedAt || 0) || Date.now();
+            item.persistentEquipmentInherited = true;
+        } else {
+            item.persistentEquipmentInherited = false;
+        }
+    });
+    return items;
+}
+
+function _missionCargoPersistOnboardEquipment(manifest = null) {
+    if (!manifest || !Array.isArray(manifest.items)) return false;
+    const slot = _missionCargoAircraftSlot(manifest.aircraftSlot);
+    const state = _missionCargoReadOnboardEquipmentState();
+    const previousEntry = state.aircraft[slot] || { updatedAt: 0, items: {} };
+    const nextItems = { ...previousEntry.items };
+    const now = Date.now();
+    let changed = false;
+    MISSION_CARGO_PERSISTENT_EQUIPMENT_IDS.forEach((id) => {
+        const item = manifest.items.find(entry => entry?.id === id && entry.persistentEquipment === true);
+        if (!item) return;
+        const previous = previousEntry.items?.[id] || {};
+        const onboard = item.status === 'loaded';
+        const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(String(item.expiresAt || '')) ? String(item.expiresAt) : '';
+        const loadedAt = onboard
+            ? (Number(item.loadedAt || previous.loadedAt || 0) || now)
+            : 0;
+        const itemChanged = previous.onboard !== onboard
+            || Number(previous.loadedAt || 0) !== loadedAt
+            || String(previous.expiresAt || '') !== expiresAt;
+        nextItems[id] = {
+            onboard,
+            loadedAt,
+            expiresAt,
+            updatedAt: itemChanged ? now : Number(previous.updatedAt || 0)
+        };
+        changed = itemChanged || changed;
+    });
+    if (!changed) return false;
+    state.aircraft[slot] = { updatedAt: now, items: nextItems };
+    state.updatedAt = now;
+    return _missionCargoWriteOnboardEquipmentState(state, { scheduleCloud: true });
+}
+
+window.missionCargoGetOnboardEquipmentForSync = function() {
+    return _missionCargoReadOnboardEquipmentState();
+};
+
+window.missionCargoApplyOnboardEquipmentFromSync = function(raw = null) {
+    if (!raw || typeof raw !== 'object') return false;
+    return _missionCargoWriteOnboardEquipmentState(raw, { scheduleCloud: false });
+};
 
 function _missionCargoPlayAudioCueNow(fallbackCueId = 'none', item = null, event = 'event', options = {}) {
     const cueId = _missionCargoAudioCueId('cargo', event, fallbackCueId);
@@ -234,7 +392,9 @@ function _missionCargoPushItem(items, item) {
         forwardOffsetM: Number.isFinite(Number(item.forwardOffsetM)) ? Number(item.forwardOffsetM) : (items.length * 0.45),
         rightOffsetM: Number.isFinite(Number(item.rightOffsetM)) ? Number(item.rightOffsetM) : (items.length % 2 ? -0.8 : 0),
         pickupLocation: item.pickupLocation === 'target' ? 'target' : '',
-        deliverAtHome: item.deliverAtHome === true
+        deliverAtHome: item.deliverAtHome === true,
+        persistentEquipment: item.persistentEquipment === true,
+        persistentEquipmentInherited: item.persistentEquipmentInherited === true
     });
 }
 
@@ -275,8 +435,81 @@ function _missionCargoExpiryDate(seed = '', monthsMin = 9, monthsRange = 24) {
     return date.toISOString().slice(0, 10);
 }
 
+function _missionCargoPersistentEquipmentDefinitions() {
+    const pool = (key, fallbackTitle) => {
+        try {
+            const values = (typeof MISSION_SCENE_ASSET_POOLS !== 'undefined' && Array.isArray(MISSION_SCENE_ASSET_POOLS?.[key]))
+                ? MISSION_SCENE_ASSET_POOLS[key]
+                : [];
+            return values.length ? values : [fallbackTitle];
+        } catch (_) {
+            return [fallbackTitle];
+        }
+    };
+    return [
+        {
+            id: 'bordbuch',
+            sceneKind: 'cargo.aircraft_logbook',
+            label: 'Bordbuch / Dispatch-Mappe',
+            weightLbs: 3,
+            required: false,
+            deliverAtDestination: false,
+            persistentEquipment: true,
+            objectTitle: 'VFR Multitool Mission Aircraft Logbook Cargo',
+            titleCandidates: pool('aircraftLogbooks', 'VFR Multitool Mission Aircraft Logbook Cargo'),
+            forwardOffsetM: 0.35,
+            rightOffsetM: -0.75
+        },
+        {
+            id: 'first-aid',
+            sceneKind: 'cargo.first_aid_case',
+            label: 'Verbandzeug',
+            weightLbs: 2,
+            required: false,
+            deliverAtDestination: false,
+            persistentEquipment: true,
+            equipmentType: 'expiry',
+            expiresAt: _missionCargoExpiryDate('first-aid', 6, 18),
+            objectTitle: 'VFR Multitool Homebase First Aid Case',
+            titleCandidates: pool('firstAidCases', 'VFR Multitool Homebase First Aid Case'),
+            forwardOffsetM: 0.65,
+            rightOffsetM: -0.55
+        },
+        {
+            id: 'fire-extinguisher',
+            sceneKind: 'cargo.fire_extinguisher',
+            label: 'Feuerloescher',
+            weightLbs: 5,
+            required: false,
+            deliverAtDestination: false,
+            persistentEquipment: true,
+            equipmentType: 'expiry',
+            expiresAt: _missionCargoExpiryDate('fire-extinguisher', 4, 20),
+            objectTitle: 'VFR Multitool Homebase Fire Extinguisher',
+            titleCandidates: pool('fireExtinguishers', 'VFR Multitool Homebase Fire Extinguisher'),
+            forwardOffsetM: 0.95,
+            rightOffsetM: 0.55
+        },
+        {
+            id: 'chocks',
+            sceneKind: 'cargo.wheel_chocks',
+            label: 'Chocks / Radkeile',
+            weightLbs: 6,
+            required: false,
+            deliverAtDestination: false,
+            persistentEquipment: true,
+            equipmentType: 'ground',
+            objectTitle: 'VFR Multitool Homebase Aircraft Wheel Chocks',
+            titleCandidates: pool('wheelChocks', 'VFR Multitool Homebase Aircraft Wheel Chocks'),
+            forwardOffsetM: 1.25,
+            rightOffsetM: -0.25
+        }
+    ];
+}
+
 function _missionCargoGenerateManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
+    const aircraftSlot = _missionCargoAircraftSlot();
     const taskDomain = _missionSceneTaskDomain();
     const bush = _activeBushMissionSpec();
     const bushCompletionMode = String(bush?.completionMode || '').toLowerCase();
@@ -406,10 +639,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
     }
 
-    _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false, forwardOffsetM: 0.35, rightOffsetM: -0.75 });
-    _missionCargoPushItem(items, { id: 'first-aid', label: 'Verbandzeug', weightLbs: 2, required: false, deliverAtDestination: false, equipmentType: 'expiry', expiresAt: _missionCargoExpiryDate('first-aid', 6, 18), forwardOffsetM: 0.65, rightOffsetM: -0.55 });
-    _missionCargoPushItem(items, { id: 'fire-extinguisher', label: 'Feuerloescher', weightLbs: 5, required: false, deliverAtDestination: false, equipmentType: 'expiry', expiresAt: _missionCargoExpiryDate('fire-extinguisher', 4, 20), forwardOffsetM: 0.95, rightOffsetM: 0.55 });
-    _missionCargoPushItem(items, { id: 'chocks', label: 'Chocks / Radkeile', weightLbs: 6, required: false, deliverAtDestination: false, equipmentType: 'ground', forwardOffsetM: 1.25, rightOffsetM: -0.25 });
+    _missionCargoPersistentEquipmentDefinitions().forEach(item => _missionCargoPushItem(items, item));
     if (/(cargo|freight|fracht|animal_transport)/.test(taskDomain) && !isBushPickupCargo) {
         _missionCargoPushItem(items, { id: 'cargo-docs', label: 'Frachtpapiere und Uebergabeunterlagen', weightLbs: 4, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.8 });
         _missionCargoPushItem(items, { id: 'tie-downs', label: 'Spanngurte / Ladungsnetz', weightLbs: 8, required: false, deliverAtDestination: false, forwardOffsetM: 1.1, rightOffsetM: -0.9, objectTitle: 'Pallet01_03', titleCandidates: MISSION_SCENE_ASSET_POOLS.palletCargo });
@@ -437,14 +667,61 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     if (!items.length) {
         _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false });
     }
+    _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     return {
-        version: 1,
+        version: 3,
         key,
+        aircraftSlot,
         taskDomain,
         isPoi,
         createdAt: Date.now(),
         items
     };
+}
+
+function _missionCargoUpgradePersistentEquipmentManifest(manifest = null) {
+    if (!manifest || !Array.isArray(manifest.items)) return false;
+    if (Number(manifest.version || 0) >= 3 && manifest.aircraftSlot) return false;
+    const definitions = _missionCargoPersistentEquipmentDefinitions();
+    definitions.forEach((definition) => {
+        let item = manifest.items.find(entry => entry?.id === definition.id);
+        if (!item) {
+            _missionCargoPushItem(manifest.items, definition);
+            return;
+        }
+        const hydrated = [];
+        _missionCargoPushItem(hydrated, {
+            ...definition,
+            status: item.status,
+            healthPct: item.healthPct,
+            expiresAt: item.expiresAt || definition.expiresAt,
+            log: item.log,
+            persistentEquipmentInherited: false
+        });
+        const metadata = hydrated[0] || {};
+        [
+            'itemType',
+            'sceneKind',
+            'label',
+            'storyName',
+            'weightLbs',
+            'required',
+            'deliverAtDestination',
+            'equipmentType',
+            'expiresAt',
+            'objectTitle',
+            'titleCandidates',
+            'forwardOffsetM',
+            'rightOffsetM',
+            'persistentEquipment',
+            'persistentEquipmentInherited'
+        ].forEach((key) => {
+            item[key] = metadata[key];
+        });
+    });
+    manifest.version = 3;
+    manifest.aircraftSlot = _missionCargoAircraftSlot(manifest.aircraftSlot);
+    return true;
 }
 
 function _missionCargoGetManifest() {
@@ -464,6 +741,7 @@ function _missionCargoPersistManifest(manifest) {
     if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
         window.activeMissionContract.cargoManifest = manifest;
     }
+    _missionCargoPersistOnboardEquipment(manifest);
     try {
         window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } }));
     } catch (_) {}
@@ -508,6 +786,8 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
     let manifest = _missionCargoGetManifest();
     if (!manifest || manifest.key !== key || !Array.isArray(manifest.items) || !manifest.items.length || !_missionCargoManifestMatchesMissionRecipe(manifest)) {
         manifest = _missionCargoGenerateManifest(cargoAsset || _missionSceneCargoAsset());
+        _missionCargoPersistManifest(manifest);
+    } else if (_missionCargoUpgradePersistentEquipmentManifest(manifest)) {
         _missionCargoPersistManifest(manifest);
     }
     window.missionCargoStatus.manifestKey = manifest.key || key;
@@ -1085,10 +1365,13 @@ function _missionCargoAllocateWeightToStations(map, stationIndices = [], totalWe
     return chosen;
 }
 
-function _missionCargoBuildMissionExtraPlan(manifest, layout) {
+function _missionCargoBuildMissionExtraPlan(manifest, layout, options = {}) {
     const missionByStation = new Map();
     const assignments = [];
-    const passengerItems = (manifest?.items || []).filter(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
+    const persistentOnly = options.persistentOnly === true;
+    const passengerItems = persistentOnly
+        ? []
+        : (manifest?.items || []).filter(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
     let paxTotalLbs = passengerItems.reduce((sum, item) => sum + Math.max(0, Number(item.weightLbs || 0)), 0);
     let paxCount = passengerItems.reduce((sum, item) => sum + Math.max(0, Math.round(Number(item.passengerCount) || 1)), 0);
     if (paxTotalLbs <= 0) {
@@ -1103,7 +1386,11 @@ function _missionCargoBuildMissionExtraPlan(manifest, layout) {
         assignments.push({ type: 'pax', label: paxCount > 1 ? `${paxCount} Passagiere` : 'Passagier', weightLbs: Math.round(paxTotalLbs), stations: [layout.copilotIndex].concat(layout.rearSeatIndices).slice(0, Math.max(1, Math.min(1 + layout.rearSeatIndices.length, paxCount || 1))) });
     }
 
-    const loadedItems = (manifest?.items || []).filter(item => item.status === 'loaded' && !_missionCargoIsPassengerItem(item));
+    const loadedItems = (manifest?.items || [])
+        .filter(item => item.status === 'loaded' && !_missionCargoIsPassengerItem(item))
+        .filter(item => options.excludePersistent !== true || item.persistentEquipment !== true)
+        .filter(item => !persistentOnly || item.persistentEquipment === true)
+        .filter(item => options.includeInheritedPersistent === true || item.persistentEquipmentInherited !== true);
     const allNonPilotIndices = layout.allIndices.filter(idx => idx !== layout.pilotIndex);
     const cargoPrimary = layout.cargoIndices.length ? layout.cargoIndices : (layout.rearSeatIndices.length ? layout.rearSeatIndices : allNonPilotIndices);
     const nonCopilotCargo = cargoPrimary.filter(idx => idx !== layout.copilotIndex);
@@ -1134,6 +1421,46 @@ function _missionCargoBuildMissionExtraPlan(manifest, layout) {
         paxCount,
         paxTotalLbs
     };
+}
+
+function _missionCargoDetachInheritedEquipmentFromBaseline(item = null) {
+    if (!item || item.persistentEquipment !== true || item.persistentEquipmentInherited !== true) return false;
+    const baseline = _missionCargoNormalizePayloadSnapshot(
+        window.missionCargoStatus?.payloadBaseline || window.aircraftPayloadStatus?.snapshot
+    );
+    item.persistentEquipmentInherited = false;
+    if (!baseline) return false;
+    const layout = _missionCargoBuildPayloadLayout(baseline);
+    const plan = _missionCargoBuildMissionExtraPlan({
+        items: [{ ...item, status: 'loaded', persistentEquipmentInherited: false }]
+    }, layout, {
+        persistentOnly: true,
+        includeInheritedPersistent: true
+    });
+    const removedLbs = baseline.stations.reduce(
+        (sum, row) => sum + Math.max(0, Number(plan.missionByStation.get(row.index) || 0)),
+        0
+    );
+    const nextBaseline = {
+        ...baseline,
+        totalWeightLbs: Number.isFinite(Number(baseline.totalWeightLbs))
+            ? Math.max(0, Number(baseline.totalWeightLbs) - removedLbs)
+            : null,
+        payloadWeightLbs: Number.isFinite(Number(baseline.payloadWeightLbs))
+            ? Math.max(0, Number(baseline.payloadWeightLbs) - removedLbs)
+            : null,
+        stations: baseline.stations.map(row => ({
+            index: row.index,
+            weightLbs: Math.round(Math.max(
+                0,
+                Number(row.weightLbs || 0) - Number(plan.missionByStation.get(row.index) || 0)
+            ) * 10) / 10
+        }))
+    };
+    window.missionCargoStatus.payloadBaseline = nextBaseline;
+    window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(nextBaseline);
+    window.missionCargoStatus.payloadPlan = null;
+    return removedLbs > 0;
 }
 
 function _missionCargoBuildPlanFromManifest(manifest, baseline) {
@@ -1295,7 +1622,10 @@ function _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, sna
     const snapshot = _missionCargoNormalizePayloadSnapshot(snapshotNow);
     if (!snapshot) return [];
     const layout = _missionCargoBuildPayloadLayout(snapshot);
-    const missionPlan = _missionCargoBuildMissionExtraPlan(manifestBeforeReset, layout);
+    const missionPlan = _missionCargoBuildMissionExtraPlan(manifestBeforeReset, layout, {
+        excludePersistent: true,
+        includeInheritedPersistent: true
+    });
     return snapshot.stations.map((row) => {
         const missionExtra = Number(missionPlan.missionByStation.get(row.index) || 0);
         const currentWeight = Math.max(0, Number(row.weightLbs || 0));
@@ -1306,17 +1636,38 @@ function _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, sna
     });
 }
 
+function _missionCargoEstimatePersistentStationsFromBaseline(manifestBeforeReset, baselineSnapshot) {
+    const baseline = _missionCargoNormalizePayloadSnapshot(baselineSnapshot);
+    if (!baseline) return [];
+    const layout = _missionCargoBuildPayloadLayout(baseline);
+    const persistentPlan = _missionCargoBuildMissionExtraPlan(manifestBeforeReset, layout, {
+        persistentOnly: true
+    });
+    return baseline.stations.map(row => ({
+        index: row.index,
+        weightLbs: Math.round(Math.max(
+            0,
+            Number(row.weightLbs || 0) + Number(persistentPlan.missionByStation.get(row.index) || 0)
+        ) * 10) / 10
+    }));
+}
+
 function _missionCargoResetManifestState(manifest) {
     if (!manifest || !Array.isArray(manifest.items)) return false;
+    const storedItems = _missionCargoStoredEquipmentItems(manifest.aircraftSlot);
     let changed = false;
     manifest.items.forEach((item) => {
-        const nextStatus = 'pending';
+        const stored = item.persistentEquipment === true ? storedItems[item.id] : null;
+        const nextStatus = stored?.onboard === true ? 'loaded' : 'pending';
         if (item.status !== nextStatus) changed = true;
         item.status = nextStatus;
         if (item.loadedAt || item.unloadedAt || item.droppedAt) changed = true;
-        item.loadedAt = 0;
+        item.loadedAt = nextStatus === 'loaded' ? (Number(stored?.loadedAt || 0) || Date.now()) : 0;
         item.unloadedAt = 0;
         item.droppedAt = 0;
+        const inherited = nextStatus === 'loaded' && item.persistentEquipment === true;
+        if (item.persistentEquipmentInherited !== inherited) changed = true;
+        item.persistentEquipmentInherited = inherited;
         if (Number.isFinite(Number(item.droppedLat)) || Number.isFinite(Number(item.droppedLon)) || Number.isFinite(Number(item.droppedAltFt))) changed = true;
         item.droppedLat = null;
         item.droppedLon = null;
@@ -1371,8 +1722,16 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     }
     let targetStations = [];
     let targetMaxStations = 0;
-    if (baseline && Array.isArray(baseline.stations) && baseline.stations.length && (!snapshot || baseline.payloadStationCount === snapshot.payloadStationCount)) {
-        targetStations = baseline.stations.map(row => ({ index: row.index, weightLbs: Math.max(0, Number(row.weightLbs || 0)) }));
+    const hasLoadedPersistentEquipment = manifestBeforeReset.items.some(
+        item => item?.persistentEquipment === true && item.status === 'loaded'
+    );
+    if (snapshot && hasLoadedPersistentEquipment) {
+        targetStations = _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshot);
+        targetMaxStations = snapshot.sampledStationCount || snapshot.payloadStationCount || targetStations.length;
+    } else if (baseline && Array.isArray(baseline.stations) && baseline.stations.length && (!snapshot || baseline.payloadStationCount === snapshot.payloadStationCount)) {
+        targetStations = hasLoadedPersistentEquipment
+            ? _missionCargoEstimatePersistentStationsFromBaseline(manifestBeforeReset, baseline)
+            : baseline.stations.map(row => ({ index: row.index, weightLbs: Math.max(0, Number(row.weightLbs || 0)) }));
         targetMaxStations = baseline.sampledStationCount || baseline.payloadStationCount || targetStations.length;
     } else if (snapshot) {
         targetStations = _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshot);
@@ -2060,7 +2419,14 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const isUnload = mode === 'unload';
     const missionStartReady = (isUnload || isPickup) ? true : _missionCargoLoadInteractionReady();
     const visibleItems = isUnload
-        ? manifest.items.filter(item => (item.status === 'loaded' || item.status === 'unloaded' || item.status === 'dropped') && _missionCargoItemNeedsUnloadHere(item))
+        ? manifest.items.filter(item => (
+            item.status === 'loaded'
+            || item.status === 'unloaded'
+            || item.status === 'dropped'
+        ) && (
+            _missionCargoItemNeedsUnloadHere(item)
+            || item.persistentEquipment === true
+        ))
         : (isPickup
             ? manifest.items.filter(item => item.pickupLocation === 'target')
             : manifest.items);
@@ -2115,7 +2481,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''} ${dropped ? 'is-dropped' : ''}">
                 <div class="mission-cargo-row-main">
                     <div class="mission-cargo-row-title">${_missionCargoEscape(item.storyName || item.label)}</div>
-                    <div class="mission-cargo-row-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${status}${distanceMeta}</div>
+                    <div class="mission-cargo-row-meta">${item.persistentEquipment === true ? 'Bordbestand' : (item.required ? 'Pflicht' : 'Optional')} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${status}${distanceMeta}</div>
                 </div>
                 ${action}
             </div>`;
@@ -2139,7 +2505,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <tr class="${rowClasses}"${rowBusy ? ' aria-disabled="true"' : ''}${rowAction}>
                 <td>${idx + 1}</td>
                 <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
-                <td>${isPassenger ? `PAX${Number(item.passengerCount || 0) > 1 ? ` x${Number(item.passengerCount)}` : ''}` : (item.required ? 'Pflicht' : 'Optional')}</td>
+                <td>${isPassenger ? `PAX${Number(item.passengerCount || 0) > 1 ? ` x${Number(item.passengerCount)}` : ''}` : (item.persistentEquipment === true ? 'Bordbestand' : (item.required ? 'Pflicht' : 'Optional'))}</td>
                 <td>${Math.round(Number(item.weightLbs) || 0)} lbs</td>
                 <td>${_missionCargoEscape(stationText)}</td>
                 <td>${status}</td>
@@ -2202,7 +2568,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             ${modeHint}
             <div class="mission-cargo-copy">${isUnload
-                ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
+                ? `Entlade die am Ziel benoetigten Gegenstaende. Bordbestand bleibt beim Flugzeug gespeichert, solange du ihn nicht auslaedst. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
                 : (isPickup
                     ? `Hier laedst du ${pickupItemTypeLabel} am ${pickupPlaceLabel} ein. Nach der Bestaetigung wird der Rueckflug freigegeben.`
                     : (window.missionCargoStatus?.loadConfirmed
@@ -2348,6 +2714,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
+    if (item.persistentEquipment === true) item.persistentEquipmentInherited = false;
     item.status = 'loaded';
     item.loadedAt = Date.now();
     item.unloadedAt = 0;
@@ -2411,6 +2778,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
         if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
         return ok;
     }
+    _missionCargoDetachInheritedEquipmentFromBaseline(item);
     item.status = 'pending';
     item.loadedAt = 0;
     item.unloadedAt = 0;
@@ -2494,6 +2862,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     if (_missionCargoIsPassengerItem(item) && !options.drop && !_missionCargoGroundHandlingAllowed()) return false;
     const dropped = options.drop === true || _missionCargoIsAirborneNow();
     if (_missionCargoIsPassengerItem(item) && dropped) return false;
+    if (!_missionCargoIsPassengerItem(item)) _missionCargoDetachInheritedEquipmentFromBaseline(item);
     if (dropped) {
         const livePos = _missionCargoCommandBasePos();
         item.status = 'dropped';

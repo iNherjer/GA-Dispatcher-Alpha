@@ -11,12 +11,19 @@ vm.runInNewContext(
 );
 
 const roles = catalogContext.window.MISSION_SCENE_ASSETS?.roles || {};
+const homebaseCatalog = JSON.parse(
+    fs.readFileSync(new URL('../homebase/assets/catalog.json', import.meta.url), 'utf8')
+);
 const requiredRoles = [
     'cargo.camera_equipment',
     'cargo.camping_equipment',
     'cargo.equipment_case',
     'cargo.medical_kit',
     'cargo.animal_transport_box',
+    'cargo.aircraft_logbook',
+    'cargo.fire_extinguisher',
+    'cargo.first_aid_case',
+    'cargo.wheel_chocks',
     'scene.lighting.lantern'
 ];
 requiredRoles.forEach(role => {
@@ -50,7 +57,11 @@ const pools = {
     campingEquipment: roles['cargo.camping_equipment'],
     cameraEquipment: roles['cargo.camera_equipment'],
     equipmentCases: roles['cargo.equipment_case'],
-    woodCrates: roles['cargo.wood_crate']
+    woodCrates: roles['cargo.wood_crate'],
+    aircraftLogbooks: roles['cargo.aircraft_logbook'],
+    fireExtinguishers: roles['cargo.fire_extinguisher'],
+    firstAidCases: roles['cargo.first_aid_case'],
+    wheelChocks: roles['cargo.wheel_chocks']
 };
 
 const matcherContext = {
@@ -70,6 +81,11 @@ const ANIMAL = 'VFR Multitool Mission Pet Carrier Cargo';
 const CASE_SMALL = 'VFR Multitool Homebase Hardcase Yellow Small';
 const CASE_MEDIUM = 'VFR Multitool Homebase Hardcase Red Pro';
 const CASE_LARGE = 'VFR Multitool Homebase Flight Case Black';
+const LOGBOOK = 'VFR Multitool Mission Aircraft Logbook Cargo';
+const FIRE_EXTINGUISHER = 'VFR Multitool Homebase Fire Extinguisher';
+const FIRST_AID_CASE = 'VFR Multitool Homebase First Aid Case';
+const WHEEL_CHOCKS = 'VFR Multitool Homebase Aircraft Wheel Chocks';
+assert.ok(JSON.stringify(homebaseCatalog).includes(WHEEL_CHOCKS), 'wheel chocks missing from Homebase asset catalog');
 
 assert.equal(match('Kamera- und Audio-Set (32 lbs)', 32), CAMERA);
 assert.equal(match('Duffelbags und Kameraausrüstung (42 lbs)', 42), CAMERA);
@@ -84,5 +100,16 @@ assert.equal(match('Kleiner Therapiehund in Reisebox (28 lbs)', 28), ANIMAL);
 assert.equal(match('AOG-Avionikmodul im gepolsterten Kuriercase (16 lbs)', 16), CASE_SMALL);
 assert.equal(match('Kalibrierter Sensorkoffer (32 lbs)', 32), CASE_MEDIUM);
 assert.equal(match('Lidar-Scanner im Flightcase (65 lbs)', 65), CASE_LARGE);
+assert.equal(match('Luftfahrzeug-Bordbuch (3 lbs)', 3), LOGBOOK);
+assert.equal(match('Feuerlöscher (5 lbs)', 5), FIRE_EXTINGUISHER);
+assert.equal(match('Verbandkasten (2 lbs)', 2), FIRST_AID_CASE);
+assert.equal(match('Zwei Paar Flugzeug-Radkeile (6 lbs)', 6), WHEEL_CHOCKS);
+
+const targetSceneFeatures = catalogContext.window.MISSION_SCENE_ASSETS?.targetSceneFeatures || {};
+['aircraft_logbook', 'fire_extinguisher', 'first_aid_case', 'wheel_chocks'].forEach(feature => {
+    assert.ok(targetSceneFeatures[feature], `missing target-scene feature ${feature}`);
+});
+assert.ok(syncSource.includes("feature === 'aircraft_logbook' || feature === 'fire_extinguisher' || feature === 'first_aid_case' || feature === 'wheel_chocks'"), 'target-scene feature spawner missing');
+assert.ok(syncSource.includes("r === 'cargo.aircraft_logbook'"), 'target-scene role mapping missing');
 
 console.log('mission scene cargo selftest: ok');
