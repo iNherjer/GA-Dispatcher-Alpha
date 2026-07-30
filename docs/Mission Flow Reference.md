@@ -112,6 +112,11 @@ Passenger-Pickup:
 Cargo-Pickup verwendet denselben Ablauf ohne PAX-Boarding. Die Fracht bleibt
 bis zum Home-Unload Pflichtladung.
 
+Auch ein am Start wirklich leerer Pickup-Hinflug durchlaeuft den Modus `load`.
+Es gibt dabei keine Startladung anzuklicken, aber die leere Abflugliste wird
+wie bei jeder anderen Mission unterschrieben und mit dem zweiten Klick
+bestaetigt. Pickup-Missionen besitzen keinen separaten Start-Shortcut.
+
 ## 4. Ablaufklassen
 
 Profile veraendern Story, Rolle, Ziel, Manifest und Szene. Eine neue

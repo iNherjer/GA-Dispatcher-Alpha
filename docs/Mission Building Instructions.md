@@ -143,6 +143,12 @@ Bush-Missionen haben bereits ein eigenes Progress-Modell. Relevante Zustände si
 
 Neue Bush-Varianten sollten dieses Muster weiterverwenden, statt ein zweites paralleles Fortschrittsmodell einzuführen.
 
+Bei Pickup-Missionen wird `pickupCompleted` aus allen am Ziel erforderlichen
+Manifest-Items abgeleitet. Ein Passenger-Pickup mit Begleitfracht bleibt nach
+dem PAX-Boarding in `pickup_loading`, bis auch die Fracht geladen ist. Auch ein
+leerer Hinflug muss den normalen `load`-Scope unterschreiben und bestaetigen;
+ein Pickup-spezifischer Abflug-Shortcut ist nicht zulaessig.
+
 ### 3.5 Szenen-System in `sync.js` + `ga-tracker-client/tracker.js`
 
 App-seitig relevante Einstiegspunkte:

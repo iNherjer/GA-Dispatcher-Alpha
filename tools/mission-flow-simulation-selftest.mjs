@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const runtimeSource = fs.readFileSync(new URL('../mission-runtime-core.js', import.meta.url), 'utf8');
+const cargoSource = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
 const syncSource = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8');
 
 function functionSource(source, name) {
@@ -171,7 +172,7 @@ context._missionCargoGroundHandlingAllowed = () => state.onGround && state.gsKts
 context._missionCargoNeedsUnload = cargoNeedsUnload;
 context._missionCargoNeedsArrivalWorkflow = arrivalWorkflowOpen;
 context._missionCargoIsPassengerItem = isPassenger;
-context._missionBushPickupItem = () => state.manifest.find(item => item.pickupLocation === 'target') || null;
+context._missionCargoEnsureManifest = () => ({ items: state.manifest });
 context._missionBushPickupAtTargetNow = () => state.atTarget && state.onGround && state.gsKts <= 5;
 context._isAtMissionHome = () => state.atHome;
 context._bushRecipeIdFromSpec = bush => (
@@ -247,55 +248,16 @@ assert.equal(simulatedRuntimePhase, 'boarded');
 assert.equal(startContext._missionCargoMaybePromoteStartReady('repeat-click'), true);
 assert.ok(simulatedStartUiUpdates >= 1);
 
-// Empty pickup missions have one intentional start shortcut and cannot use it with origin cargo still open.
-let pickupStartPhase = 'prepare';
-let pickupRuntimePhase = 'planned';
-let pickupWindowClosed = 0;
-let pickupOriginItems = [
-    { id: 'pickup-passenger', pickupLocation: 'target', status: 'pending' }
-];
-const pickupStartContext = {
-    window: {
-        missionCargoStatus: {
-            loadConfirmed: false,
-            error: 'old'
-        },
-        closeMissionCargoDialog: () => {
-            pickupWindowClosed += 1;
-        }
-    },
-    _missionBushIsPickupMission: () => true,
-    _hasValidMissionForStart: () => true,
-    _missionStartGroundReady: () => true,
-    _missionCargoEnsureManifest: () => ({ items: pickupOriginItems }),
-    _missionPhaseDebugPush: () => {},
-    _activeBushMissionSpec: () => ({ pickupKind: 'passenger' }),
-    _missionCargoClearSignatureAnimation: () => {},
-    _setMissionStartPhase: phase => {
-        pickupStartPhase = phase;
-    },
-    _setMissionRuntimePhase: phase => {
-        pickupRuntimePhase = phase;
-    },
-    _updateMissionRuntimeUi: () => {},
-    Array,
-    String,
-    Object
-};
-vm.runInNewContext(functionSource(syncSource, '_missionPrepareEmptyPickupStart'), pickupStartContext);
-assert.equal(pickupStartContext._missionPrepareEmptyPickupStart('simulation-empty-pickup'), true);
-assert.equal(pickupStartPhase, 'boarded');
-assert.equal(pickupRuntimePhase, 'boarded');
-assert.equal(pickupStartContext.window.missionCargoStatus.loadConfirmed, true);
-assert.equal(pickupWindowClosed, 1);
-pickupOriginItems = [
-    { id: 'forgotten-origin-cargo', pickupLocation: '', status: 'pending' },
-    { id: 'pickup-passenger', pickupLocation: 'target', status: 'pending' }
-];
-assert.equal(
-    pickupStartContext._missionPrepareEmptyPickupStart('simulation-origin-open'),
-    false,
-    'empty-pickup shortcut must not skip unresolved origin cargo'
+// An empty outbound pickup leg still uses the central load signature/confirmation gate.
+assert.doesNotMatch(
+    syncSource,
+    /_missionPrepareEmptyPickupStart|missionPrepareEmptyPickupStart/,
+    'sync must not bypass the central load gate for empty outbound pickup legs'
+);
+assert.doesNotMatch(
+    cargoSource,
+    /missionPrepareEmptyPickupStart/,
+    'cargo completion must not bypass its own departure signature gate'
 );
 
 // POI: no unload before a meaningful flight, then cargo -> signature -> farewell/end.
@@ -437,14 +399,21 @@ updateBush();
 assertAction('pickup', false, 'passenger pickup ready');
 state.manifest[0].status = 'loaded';
 updateBush();
-const pickupConfirmAction = assertAction('pickup', false, 'passenger pickup loaded but unconfirmed');
-assert.equal(pickupConfirmAction.pickupConfirmOnly, true);
+const pickupLoadingAction = assertAction('pickup', false, 'passenger loaded while companion cargo remains open');
+assert.equal(pickupLoadingAction.pickupConfirmOnly, false);
+assert.equal(state.bushProgress.pickupCompleted, false);
+assert.equal(state.bushProgress.status, 'pickup_loading');
 assert.equal(
     state.manifest.filter(item => item.required && item.pickupLocation === 'target' && item.status !== 'loaded').length,
     1,
     'passenger alone must not complete the central pickup loading list'
 );
 state.manifest[1].status = 'loaded';
+updateBush();
+const pickupConfirmAction = assertAction('pickup', false, 'passenger and companion cargo loaded but unconfirmed');
+assert.equal(pickupConfirmAction.pickupConfirmOnly, true);
+assert.equal(state.bushProgress.pickupCompleted, true);
+assert.equal(state.bushProgress.status, 'pickup_complete');
 assert.equal(
     state.manifest.filter(item => item.required && item.pickupLocation === 'target' && item.status !== 'loaded').length,
     0,

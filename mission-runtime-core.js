@@ -502,9 +502,27 @@ function _missionRuntimePhaseViewSnapshot() {
 }
 window.missionRuntimeGetPhaseSnapshot = _missionRuntimePhaseViewSnapshot;
 
-function _missionBushPickupItem(manifest = _missionCargoEnsureManifest()) {
+function _missionBushPickupItems(manifest = _missionCargoEnsureManifest()) {
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
-    return items.find(item => item && item.pickupLocation === 'target') || null;
+    return items.filter(item => item && item.pickupLocation === 'target');
+}
+
+function _missionBushPickupLoadState(manifest = _missionCargoEnsureManifest()) {
+    const pickupItems = _missionBushPickupItems(manifest);
+    const requiredItems = pickupItems.filter(item => item.required === true);
+    const blockingItems = requiredItems.length ? requiredItems : pickupItems;
+    const pickedItems = blockingItems.filter(item => item.status === 'loaded' || item.status === 'unloaded');
+    const unloadedItems = blockingItems.filter(item => item.status === 'unloaded');
+    return {
+        pickupItems,
+        requiredItems: blockingItems,
+        hasItems: blockingItems.length > 0,
+        pickedCount: pickedItems.length,
+        complete: blockingItems.length > 0 && pickedItems.length === blockingItems.length,
+        unloaded: blockingItems.length > 0 && unloadedItems.length === blockingItems.length,
+        hasPassenger: blockingItems.some(item => _missionCargoIsPassengerItem(item)),
+        hasCargo: blockingItems.some(item => !_missionCargoIsPassengerItem(item))
+    };
 }
 
 function _missionBushPickupAtTargetNow(lat = null, lon = null) {
@@ -535,19 +553,20 @@ function _missionBushPickupReadyForAction() {
     if (!_missionBushIsPickupMission()) return false;
     const progress = _activeBushMissionProgress();
     if (!progress) return false;
-    if (progress?.pickupCompleted && !progress?.pickupConfirmed) {
+    const pickupState = _missionBushPickupLoadState();
+    if (pickupState.complete && !progress?.pickupConfirmed) {
         return !!_missionEndReadiness()?.groundStill;
     }
     if (!_missionBushPickupAtTargetNow()) return false;
-    if (progress?.pickupReady) return true;
-    const pickupItem = _missionBushPickupItem();
-    const pickupLoaded = pickupItem?.status === 'loaded' || pickupItem?.status === 'unloaded';
-    if (!pickupItem || pickupLoaded) return false;
+    if (!pickupState.hasItems || pickupState.complete) return false;
+    if (progress?.pickupReady && !progress?.pickupCompleted) return true;
     _persistBushMissionProgress({
         ...progress,
         targetReached: true,
         pickupReady: true,
-        status: 'pickup_ready'
+        pickupCompleted: false,
+        pickupConfirmed: false,
+        status: pickupState.pickedCount > 0 ? 'pickup_loading' : 'pickup_ready'
     });
     return true;
 }
@@ -651,14 +670,16 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
     const endReady = _missionEndReadiness(curLat, curLon);
     if (endReady?.atTarget) next.targetReached = true;
     if (_missionBushIsPickupMission()) {
-        const pickupItem = _missionBushPickupItem();
-        const pickupLoaded = pickupItem?.status === 'loaded' || pickupItem?.status === 'unloaded';
-        const pickupUnloadedHome = pickupItem?.status === 'unloaded' && _isAtMissionHome(curLat, curLon);
-        const pickupIsPassenger = _missionCargoIsPassengerItem(pickupItem);
+        const pickupState = _missionBushPickupLoadState();
+        const pickupLoaded = pickupState.complete;
+        const pickupUnloadedHome = pickupState.unloaded && _isAtMissionHome(curLat, curLon);
         const atPickup = _missionBushPickupAtTargetNow(curLat, curLon);
-        next.pickupReady = !!(atPickup && !pickupLoaded);
+        next.pickupReady = !!(atPickup && pickupState.hasItems && !pickupLoaded);
         next.pickupCompleted = !!pickupLoaded;
-        if (next.pickupReady && !pickupLoaded) next.status = 'pickup_ready';
+        if (!pickupLoaded) next.pickupConfirmed = false;
+        if (next.pickupReady && !pickupLoaded) {
+            next.status = pickupState.pickedCount > 0 ? 'pickup_loading' : 'pickup_ready';
+        }
         if (pickupLoaded && !next.pickupConfirmed) next.status = 'pickup_complete';
         if (pickupLoaded && next.pickupConfirmed && bush.requiresReturnHome && !pickupUnloadedHome) next.status = 'return_leg';
         if (pickupLoaded && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
@@ -667,8 +688,8 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
             next.groundStopQualified = !!pickupUnloadedHome;
         }
         if (pickupUnloadedHome) {
-            if (pickupIsPassenger) next.passengerDropped = true;
-            else next.cargoDelivered = true;
+            if (pickupState.hasPassenger) next.passengerDropped = true;
+            if (pickupState.hasCargo) next.cargoDelivered = true;
             next.returnHomeQualified = true;
             next.groundStopQualified = true;
             next.status = 'ready_to_close';

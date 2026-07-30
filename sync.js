@@ -7394,14 +7394,7 @@ function _missionBushPickupBoardingApplySuccess(item = null) {
         skipAnimation: true,
         playAudioCue: false
     });
-    const next = _activeBushMissionProgress();
-    if (next) {
-        _persistBushMissionProgress({
-            ...next,
-            pickupCompleted: true,
-            status: 'pickup_complete'
-        });
-    }
+    _missionBushUpdateProgress();
     window.missionCargoActivatePickupPassenger?.();
     _missionScenePrepareDeboardingCue();
     if (typeof window.paxVoiceResetLeg === 'function') {
@@ -8919,32 +8912,6 @@ function _missionCargoScheduleStartReadyPromotion(reason = 'cargo-ready-poll', a
     _updateMissionRuntimeUi();
     setTimeout(() => _missionCargoScheduleStartReadyPromotion(reason, attemptsLeft - 1), 500);
 }
-
-function _missionPrepareEmptyPickupStart(reason = 'pickup-empty-start') {
-    if (typeof _missionBushIsPickupMission !== 'function' || !_missionBushIsPickupMission()) return false;
-    if (!_hasValidMissionForStart() || !_missionStartGroundReady()) return false;
-    const manifest = (typeof _missionCargoEnsureManifest === 'function') ? _missionCargoEnsureManifest() : null;
-    const originOpen = Array.isArray(manifest?.items)
-        ? manifest.items.some(item => item && item.pickupLocation !== 'target' && item.status !== 'loaded')
-        : false;
-    if (originOpen) return false;
-    _missionPhaseDebugPush('trigger', {
-        name: 'missionPrepareEmptyPickupStart',
-        reason,
-        pickupKind: String(_activeBushMissionSpec()?.pickupKind || '')
-    });
-    if (window.missionCargoStatus) {
-        window.missionCargoStatus.loadConfirmed = true;
-        window.missionCargoStatus.error = null;
-    }
-    _missionCargoClearSignatureAnimation();
-    _setMissionStartPhase('boarded');
-    _setMissionRuntimePhase('boarded', { updateUi: false });
-    window.closeMissionCargoDialog?.();
-    _updateMissionRuntimeUi();
-    return true;
-}
-window.missionPrepareEmptyPickupStart = _missionPrepareEmptyPickupStart;
 
 function _missionCloseOutcomeSummaryText(outcome = null) {
     const o = (outcome && typeof outcome === 'object') ? outcome : null;
@@ -11264,7 +11231,6 @@ window.startMissionBoarding = async function() {
         _updateMissionRuntimeUi();
         return false;
     }
-    if (_missionPrepareEmptyPickupStart('startMissionBoarding')) return true;
     _setMissionStartPhase('boarding');
     _setMissionRuntimePhase('boarding', { updateUi: false });
     _updateMissionRuntimeUi();

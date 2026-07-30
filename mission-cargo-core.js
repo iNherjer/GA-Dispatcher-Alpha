@@ -5286,10 +5286,6 @@ window.finishMissionCargoLoadingAndStart = async function() {
         return false;
     }
     const manifest = _missionCargoEnsureManifest();
-    if (typeof window.missionPrepareEmptyPickupStart === 'function' && window.missionPrepareEmptyPickupStart('cargo-finish-loading')) {
-        window.closeMissionCargoDialog?.();
-        return true;
-    }
     const requiredMissing = (manifest.items || []).filter(item => item.required && item.pickupLocation !== 'target' && item.status !== 'loaded');
     if (requiredMissing.length > 0) {
         window.missionCargoStatus.error = `Pflichtladung noch offen: ${requiredMissing.map(item => item.storyName || item.label || item.id).join(', ')}`;
