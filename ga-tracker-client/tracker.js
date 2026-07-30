@@ -28,8 +28,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v319';
-const TRACKER_VERSION_CODE = 319;
+const TRACKER_VERSION = 'v320';
+const TRACKER_VERSION_CODE = 320;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -2700,6 +2700,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         ? (pickupRoutePoint ? 'deboarding-pickup-boarded' : (vehicleArrivalEnabled ? 'deboarding-vehicle-boarded' : 'deboarding-walkoff-hidden'))
         : 'deboarding-route-failed-cleanup'
     ));
+    if (allPersonRoutesSent) {
+      sendAck({
+        type: 'mission_scene_deboarding_stage',
+        commandId,
+        sceneId,
+        missionId,
+        status: 'ok',
+        stage: boardedPickup ? 'passenger_vehicle_boarded' : 'passenger_handoff_complete',
+        deboarded: routeSentCount,
+        pickupBound: boardedPickup ? 1 : 0,
+        reason: command?.reason || 'mission-end'
+      });
+    }
     let pickupVehicleDeparture = false;
     let pickupVehicleDepartureMs = 0;
     if (boardedPickup) {
@@ -2734,6 +2747,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       type: 'mission_scene_deboarding_ack',
       commandId,
       sceneId,
+      missionId,
       status: allPersonRoutesSent ? 'ok' : 'error',
       vehicleRouteSent: vehicleRouteSent ? 1 : 0,
       vehicleArrival: vehicleArrivalEnabled ? 1 : 0,
