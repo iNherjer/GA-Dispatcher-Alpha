@@ -420,10 +420,10 @@ Wichtig:
 | Rezept | Typischer Zweck | Task am Ziel | Landung am Ziel | Rückflugpflicht | Abschlussort | Grundphasen |
 | --- | --- | --- | --- | --- | --- | --- |
 | `APT arrival` | normaler A->B-Flug, Charter, Cargo, Besuch | nein oder nur Handoff am Platz | ja | nein | Ziel | `enroute -> end_unloading/end_ready -> close` |
-| `POI on-task` | Beobachtung, Survey, Foto, Umwelt, Fire Watch | ja, in der Luft oder über dem Zielgebiet | normalerweise nein | je nach Mission | Ziel oder Heimat | `enroute -> on_task -> ready_to_close` oder `enroute -> on_task -> return_leg -> ready_to_close` |
+| `POI on-task` | Beobachtung, Survey, Foto, Umwelt, Fire Watch | ja, in der Luft oder über dem Zielgebiet | normalerweise nein | je nach Mission | Ziel oder Heimat | `enroute -> on_task -> end_unloading -> ready_to_close` oder `enroute -> on_task -> return_leg -> home_unloading -> ready_to_close` |
 | `Bush strip target` | Supply, Charter-Dropoff, Adventure-Landung | ja, aber am Strip / am Boden | ja | nein | Ziel | `enroute -> end_unloading/end_ready -> ready_to_close` |
 | `Bush pickup return` | Pax/Fracht aufnehmen und heimbringen | ja, Pickup am Zielstrip | ja | ja | Heimat | `outbound_empty -> pickup_ready -> pickup_loading -> pickup_complete -> return_leg -> home_unloading -> ready_to_close` |
-| `Bush RTB task` | Task im Zielgebiet, dann direkte Heimkehr | ja, aber nicht als Pickup/Unload | normalerweise nein | ja | Heimat | `enroute -> on_task -> return_leg -> ready_to_close` |
+| `Bush RTB task` | Task im Zielgebiet, dann direkte Heimkehr | ja, aber nicht als Pickup/Unload | normalerweise nein | ja | Heimat | `enroute -> on_task -> return_leg -> home_unloading -> ready_to_close` |
 
 ### 7.0.1 Wiederverwendungsregel
 
@@ -444,7 +444,7 @@ Wichtige Konsequenz:
 | Rezept | `pickup` | `unload` | `end` | `close` | Verboten |
 | --- | --- | --- | --- | --- | --- |
 | `APT arrival` | nein | falls Manifest Ziel-Unload verlangt | ja | ja | künstliche `on_task`-Phasen ohne fachlichen Task |
-| `POI on-task` | nein | nein, außer echter Home- oder Ziel-Handoff ist Teil des Manifests | ja, nach Task-Erfüllung | ja | Ziel-Landung als Ersatz für Task-Erfüllung |
+| `POI on-task` | nein | ja, Pflicht-Missionsfracht am tatsächlichen Abschlussort; weitere Items nur bei echtem Home- oder Ziel-Handoff | ja, nach Task-Erfüllung und Ankunfts-Verladung | ja | Ziel-Landung als Ersatz für Task-Erfüllung |
 | `Bush strip target` | nein | ja, wenn Ziel-Manifest oder Dropoff es verlangt | ja | ja | Rückflug-Sonderphasen ohne fachlichen RTB-Zwang |
 | `Bush pickup return` | ja | ja, am Heimatplatz | ja | ja | Abschluss am Ziel, bevor Pickup-/Home-Pfad erfüllt ist |
 | `Bush RTB task` | nein | nein, außer definierter Home-Handoff | ja, erst nach Task und Heimkehr | ja | Ziel-Landung als Recon-/Task-Abschluss |
@@ -635,9 +635,10 @@ Gemeinsame Bausteine der POI-Familie:
 
 Gemeinsame Architekturregeln:
 
-- POI-Missionen verwenden `enroute -> on_task -> ready_to_close` oder `enroute -> on_task -> return_leg -> ready_to_close`
+- POI-Missionen verwenden `enroute -> on_task -> end_unloading -> ready_to_close` oder `enroute -> on_task -> return_leg -> home_unloading -> ready_to_close`
 - `pickup` ist kein regulaerer POI-Pfad
-- `unload` ist nur erlaubt, wenn das Manifest ausdruecklich einen echten Home- oder Ziel-Handoff verlangt
+- Pflicht-Missionsfracht einer POI-Mission wird am tatsächlichen Abschlussort über das zentrale Verladefenster entladen und per Ankunftsunterschrift bestätigt
+- weitere Items verwenden `unload` nur, wenn das Manifest ausdrücklich einen echten Home- oder Ziel-Handoff verlangt
 - Erfolg entsteht durch fachlich erfuellten Task, nicht durch blosses Landen am POI
 - Sollparameter fuer echte POI-Tasks sind Teil des Missionsdesigns:
   - `targetAltFt > 0` oder bewusst `0` fuer Flyover-Sonderfall
@@ -978,6 +979,7 @@ Wichtige Architekturregel:
 
 - `Bush Recon Return` ist **kein** `pickup`-Rezept.
 - `Bush Recon Return` ist **kein** `target unload`-Rezept.
+- Pflicht-Missionsfracht wird bei `Bush Recon Return` ausschließlich nach der Rückkehr am Heimatplatz entladen.
 - Es nutzt das POI-Task-Rezept und ergänzt nur:
   - Bush-Narrativ
   - Bush-Zieltypen

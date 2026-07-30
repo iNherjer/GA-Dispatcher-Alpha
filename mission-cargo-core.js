@@ -3,10 +3,14 @@
 // Ziel: Strukturgewinn ohne Verhaltensaenderung.
 
 let missionCargoComplianceDebugManifest = null;
+let missionCargoGroundInventoryManifest = null;
 
 function _missionCargoMissionKey() {
     if (missionCargoComplianceDebugManifest?.key) {
         return String(missionCargoComplianceDebugManifest.key);
+    }
+    if (missionCargoGroundInventoryManifest?.key && !_missionCargoHasActiveMission()) {
+        return String(missionCargoGroundInventoryManifest.key);
     }
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const stableKey = String(
@@ -52,6 +56,7 @@ const MISSION_CARGO_PAYLOAD_SYNC_DEBOUNCE_MS = 500;
 const MISSION_CARGO_PAYLOAD_SYNC_MAX_WAIT_MS = 2000;
 const MISSION_CARGO_PA24_VERIFY_DELAYS_MS = Object.freeze([350, 650]);
 const MISSION_CARGO_PA24_SEAT_REASSERT_DELAY_MS = 220;
+const MISSION_CARGO_OBJECT_ACTION_DEBOUNCE_MS = 180;
 const _MISSION_CARGO_PAYLOAD_SYNC_QUEUE = {
     timer: null,
     burstStartedAt: 0,
@@ -63,6 +68,8 @@ const _MISSION_CARGO_PAYLOAD_SYNC_QUEUE = {
     waiters: [],
     lastResult: { status: 'idle' }
 };
+const _MISSION_CARGO_OBJECT_ACTION_QUEUE = new Map();
+let missionCargoObjectActionRevision = 0;
 let missionCargoBoardBookBannerTimer = null;
 
 function _missionCargoAircraftSlot(value = window.selectedAC || window.activeAircraftPresetSettingsSlot || 'PA-24') {
@@ -127,6 +134,17 @@ function _missionCargoExpiryDaysRemaining(expiresAt, now = Date.now()) {
     return Number.isFinite(expiryDay) ? expiryDay - todayDay : null;
 }
 
+function _missionCargoFormatExpiryDate(expiresAt = '') {
+    const match = String(expiresAt || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]} ${match[2]} ${match[1]}` : '-- -- ----';
+}
+
+function _missionCargoNullableNumber(value) {
+    if (value === null || typeof value === 'undefined' || String(value).trim() === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function _missionCargoNormalizeOnboardEquipmentState(raw = null) {
     const source = raw && typeof raw === 'object' ? raw : {};
     const sourceVersion = Number(source.version || 0);
@@ -153,14 +171,31 @@ function _missionCargoNormalizeOnboardEquipmentState(raw = null) {
             const migratedExpiry = isExpiryItem && sourceVersion < 2
                 ? _missionCargoNewExpiryDate(`${slot}|${id}|migration|${effectiveIssuedAt}`, effectiveIssuedAt)
                 : expiresAt;
+            const onboard = rawItem.onboard === true;
+            const storedStatus = onboard
+                ? 'onboard'
+                : (String(rawItem.status || '').toLowerCase() === 'lost' ? 'lost' : 'offboard');
+            let unloadLat = _missionCargoNullableNumber(rawItem.unloadLat);
+            let unloadLon = _missionCargoNullableNumber(rawItem.unloadLon);
+            const unloadAltFt = _missionCargoNullableNumber(rawItem.unloadAltFt);
+            if (unloadLat === 0 && unloadLon === 0) {
+                unloadLat = null;
+                unloadLon = null;
+            }
+            const lostAt = Number(rawItem.lostAt);
             items[id] = {
-                onboard: rawItem.onboard === true,
+                onboard,
+                status: storedStatus,
                 loadedAt: Number.isFinite(loadedAt) && loadedAt > 0 ? Math.round(loadedAt) : 0,
                 expiresAt: migratedExpiry,
                 issuedAt: isExpiryItem ? effectiveIssuedAt : 0,
                 serialId: isExpiryItem
                     ? (String(rawItem.serialId || '').trim() || _missionCargoNewEquipmentSerial(id, effectiveIssuedAt))
                     : '',
+                unloadLat,
+                unloadLon,
+                unloadAltFt,
+                lostAt: Number.isFinite(lostAt) && lostAt > 0 ? Math.round(lostAt) : 0,
                 updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : 0
             };
         });
@@ -172,7 +207,7 @@ function _missionCargoNormalizeOnboardEquipmentState(raw = null) {
     });
     const updatedAt = Number(source.updatedAt);
     return {
-        version: 2,
+        version: 3,
         updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : 0,
         aircraft
     };
@@ -233,9 +268,23 @@ function _missionCargoApplyStoredOnboardEquipment(items = [], aircraftSlot = '')
             item.status = 'loaded';
             item.loadedAt = Number(stored.loadedAt || 0) || Date.now();
             item.persistentEquipmentInherited = true;
-        } else {
-            item.status = 'pending';
+        } else if (stored.status === 'lost') {
+            item.status = 'lost';
             item.loadedAt = 0;
+            item.unloadedAt = 0;
+            item.unloadLat = null;
+            item.unloadLon = null;
+            item.unloadAltFt = null;
+            item.lostAt = Number(stored.lostAt || 0) || Number(stored.updatedAt || 0) || Date.now();
+            item.persistentEquipmentInherited = false;
+        } else {
+            item.status = 'unloaded';
+            item.loadedAt = 0;
+            item.unloadedAt = Number(stored.updatedAt || 0) || Date.now();
+            item.unloadLat = _missionCargoNullableNumber(stored.unloadLat);
+            item.unloadLon = _missionCargoNullableNumber(stored.unloadLon);
+            item.unloadAltFt = _missionCargoNullableNumber(stored.unloadAltFt);
+            item.lostAt = 0;
             item.persistentEquipmentInherited = false;
         }
     });
@@ -255,23 +304,40 @@ function _missionCargoPersistOnboardEquipment(manifest = null) {
         if (!item) return;
         const previous = previousEntry.items?.[id] || {};
         const onboard = item.status === 'loaded';
+        const equipmentStatus = onboard ? 'onboard' : (item.status === 'lost' ? 'lost' : 'offboard');
         const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(String(item.expiresAt || '')) ? String(item.expiresAt) : '';
         const issuedAt = Number(item.issuedAt || previous.issuedAt || 0);
         const serialId = String(item.serialId || previous.serialId || '');
         const loadedAt = onboard
             ? (Number(item.loadedAt || previous.loadedAt || 0) || now)
             : 0;
+        const unloadLat = equipmentStatus === 'offboard' ? _missionCargoNullableNumber(item.unloadLat) : null;
+        const unloadLon = equipmentStatus === 'offboard' ? _missionCargoNullableNumber(item.unloadLon) : null;
+        const unloadAltFt = equipmentStatus === 'offboard' ? _missionCargoNullableNumber(item.unloadAltFt) : null;
+        const lostAt = equipmentStatus === 'lost'
+            ? (Number(item.lostAt || previous.lostAt || 0) || now)
+            : 0;
         const itemChanged = previous.onboard !== onboard
+            || String(previous.status || (previous.onboard ? 'onboard' : 'offboard')) !== equipmentStatus
             || Number(previous.loadedAt || 0) !== loadedAt
             || String(previous.expiresAt || '') !== expiresAt
             || Number(previous.issuedAt || 0) !== issuedAt
-            || String(previous.serialId || '') !== serialId;
+            || String(previous.serialId || '') !== serialId
+            || String(previous.unloadLat ?? '') !== String(unloadLat ?? '')
+            || String(previous.unloadLon ?? '') !== String(unloadLon ?? '')
+            || String(previous.unloadAltFt ?? '') !== String(unloadAltFt ?? '')
+            || Number(previous.lostAt || 0) !== lostAt;
         nextItems[id] = {
             onboard,
+            status: equipmentStatus,
             loadedAt,
             expiresAt,
             issuedAt,
             serialId,
+            unloadLat,
+            unloadLon,
+            unloadAltFt,
+            lostAt,
             updatedAt: itemChanged ? now : Number(previous.updatedAt || 0)
         };
         changed = itemChanged || changed;
@@ -470,9 +536,11 @@ function _missionCargoPushItem(items, item) {
     const title = item.objectTitle || _missionCargoSmallTitle(item.label || item.storyName || '');
     const itemType = String(item.itemType || 'cargo').trim().toLowerCase() === 'passenger' ? 'passenger' : 'cargo';
     const rawTitleCandidates = _sceneAssetCandidates(title, item.titleCandidates || MISSION_SCENE_ASSET_POOLS.smallCargo || MISSION_SCENE_ASSET_POOLS.cargo);
-    const titleCandidates = itemType === 'cargo' && typeof _missionSceneSafeBoardingCargoCandidates === 'function'
-        ? _missionSceneSafeBoardingCargoCandidates(rawTitleCandidates.concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard']))
-        : rawTitleCandidates;
+    const titleCandidates = itemType === 'cargo' && typeof _missionSceneBoardingCargoCandidates === 'function'
+        ? _missionSceneBoardingCargoCandidates(title, rawTitleCandidates)
+        : (itemType === 'cargo' && typeof _missionSceneSafeBoardingCargoCandidates === 'function'
+            ? _missionSceneSafeBoardingCargoCandidates(rawTitleCandidates.concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard']))
+            : rawTitleCandidates);
     items.push({
         id,
         itemType,
@@ -497,7 +565,11 @@ function _missionCargoPushItem(items, item) {
         pickupLocation: item.pickupLocation === 'target' ? 'target' : '',
         deliverAtHome: item.deliverAtHome === true,
         persistentEquipment: item.persistentEquipment === true,
-        persistentEquipmentInherited: item.persistentEquipmentInherited === true
+        persistentEquipmentInherited: item.persistentEquipmentInherited === true,
+        passengerOwned: item.passengerOwned === true,
+        handoffWithPassenger: item.handoffWithPassenger === true || item.passengerOwned === true,
+        handoffComplete: item.handoffComplete === true,
+        handedOffAt: Number.isFinite(Number(item.handedOffAt)) ? Math.max(0, Number(item.handedOffAt)) : 0
     });
 }
 
@@ -529,6 +601,29 @@ function _missionCargoPassengerTotalWeightLbs() {
 
 function _missionCargoIsPassengerItem(item = null) {
     return !!item && String(item.itemType || '').toLowerCase() === 'passenger';
+}
+
+function _missionCargoPrimaryTravelsWithPassenger(taskDomain = '') {
+    if (!_missionCargoHasPassengerMission()) return false;
+    const domain = String(taskDomain || '').trim().toLowerCase();
+    return !/(^|_)(?:cargo|freight|fracht|medical_transfer|animal_transport|fire_watch|search_and_rescue)(?:_|$)/.test(domain);
+}
+
+function _missionCargoIsPassengerHandoffLocked(item = null) {
+    return !!item && (item.handoffComplete === true || Number(item.handedOffAt || 0) > 0);
+}
+
+function _missionCargoIsPassengerHandoffItem(item = null, manifest = _missionCargoEnsureManifest()) {
+    if (!item || _missionCargoIsPassengerItem(item) || item.persistentEquipment === true || item.required !== true) return false;
+    if (item.handoffWithPassenger === true || item.passengerOwned === true) return true;
+    if (Object.prototype.hasOwnProperty.call(item, 'handoffWithPassenger')
+        || Object.prototype.hasOwnProperty.call(item, 'passengerOwned')) {
+        return false;
+    }
+    if (String(item.id || '') !== 'primary-cargo') return false;
+    const hasPassenger = Array.isArray(manifest?.items)
+        && manifest.items.some(entry => _missionCargoIsPassengerItem(entry));
+    return hasPassenger && _missionCargoPrimaryTravelsWithPassenger(manifest?.taskDomain || '');
 }
 
 function _missionCargoExpiryDate(seed = '') {
@@ -739,7 +834,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             storyName: primaryLabel,
             weightLbs: primaryWeightLbs,
             required: true,
-            deliverAtDestination: !isPoi && !isBushReturnHomeRecon,
+            deliverAtDestination: !isBushReturnHomeRecon,
+            deliverAtHome: isBushReturnHomeRecon,
+            passengerOwned: _missionCargoPrimaryTravelsWithPassenger(taskDomain),
+            handoffWithPassenger: _missionCargoPrimaryTravelsWithPassenger(taskDomain),
             objectTitle: primaryTitle,
             titleCandidates: primaryCandidates,
             forwardOffsetM: 0,
@@ -749,7 +847,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
 
     _missionCargoPersistentEquipmentDefinitions().forEach(item => _missionCargoPushItem(items, item));
     if (/(cargo|freight|fracht|animal_transport)/.test(taskDomain) && !isBushPickupCargo) {
-        _missionCargoPushItem(items, { id: 'cargo-docs', label: 'Frachtpapiere und Uebergabeunterlagen', weightLbs: 4, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.8 });
+        _missionCargoPushItem(items, { id: 'cargo-docs', label: 'Frachtpapiere und Uebergabeunterlagen', weightLbs: 4, required: true, deliverAtDestination: !isBushReturnHomeRecon, deliverAtHome: isBushReturnHomeRecon, forwardOffsetM: 0.75, rightOffsetM: 0.8 });
         _missionCargoPushItem(items, { id: 'tie-downs', label: 'Spanngurte / Ladungsnetz', weightLbs: 8, required: false, deliverAtDestination: false, forwardOffsetM: 1.1, rightOffsetM: -0.9, objectTitle: 'Pallet01_03', titleCandidates: MISSION_SCENE_ASSET_POOLS.palletCargo });
     }
     if (/(news_coverage|media|photo)/.test(taskDomain)) {
@@ -770,14 +868,14 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
     }
     if (taskDomain === 'medical_transfer') {
-        _missionCargoPushItem(items, { id: 'patient-docs', label: 'Patientenakte / Kuehlhinweis', weightLbs: 3, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.85 });
+        _missionCargoPushItem(items, { id: 'patient-docs', label: 'Patientenakte / Kuehlhinweis', weightLbs: 3, required: true, deliverAtDestination: !isBushReturnHomeRecon, deliverAtHome: isBushReturnHomeRecon, forwardOffsetM: 0.75, rightOffsetM: 0.85 });
     }
     if (!items.length) {
         _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false });
     }
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     return {
-        version: 4,
+        version: 5,
         key,
         aircraftSlot,
         taskDomain,
@@ -789,56 +887,78 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
 
 function _missionCargoUpgradePersistentEquipmentManifest(manifest = null) {
     if (!manifest || !Array.isArray(manifest.items)) return false;
-    if (Number(manifest.version || 0) >= 4 && manifest.aircraftSlot) return false;
-    const definitions = _missionCargoPersistentEquipmentDefinitions();
-    definitions.forEach((definition) => {
-        let item = manifest.items.find(entry => entry?.id === definition.id);
-        if (!item) {
-            _missionCargoPushItem(manifest.items, definition);
-            return;
-        }
-        const hydrated = [];
-        _missionCargoPushItem(hydrated, {
-            ...definition,
-            status: item.status,
-            healthPct: item.healthPct,
-            expiresAt: item.expiresAt || definition.expiresAt,
-            issuedAt: item.issuedAt || definition.issuedAt,
-            serialId: item.serialId || definition.serialId,
-            log: item.log,
-            persistentEquipmentInherited: false
+    const previousVersion = Number(manifest.version || 0);
+    const needsPersistentEquipmentUpgrade = previousVersion < 4 || !manifest.aircraftSlot;
+    const needsPoiDeliveryUpgrade = previousVersion < 5;
+    if (!needsPersistentEquipmentUpgrade && !needsPoiDeliveryUpgrade) return false;
+    if (needsPersistentEquipmentUpgrade) {
+        const definitions = _missionCargoPersistentEquipmentDefinitions();
+        definitions.forEach((definition) => {
+            let item = manifest.items.find(entry => entry?.id === definition.id);
+            if (!item) {
+                _missionCargoPushItem(manifest.items, definition);
+                return;
+            }
+            const hydrated = [];
+            _missionCargoPushItem(hydrated, {
+                ...definition,
+                status: item.status,
+                healthPct: item.healthPct,
+                expiresAt: item.expiresAt || definition.expiresAt,
+                issuedAt: item.issuedAt || definition.issuedAt,
+                serialId: item.serialId || definition.serialId,
+                log: item.log,
+                persistentEquipmentInherited: false
+            });
+            const metadata = hydrated[0] || {};
+            [
+                'itemType',
+                'sceneKind',
+                'label',
+                'storyName',
+                'weightLbs',
+                'required',
+                'deliverAtDestination',
+                'equipmentType',
+                'expiresAt',
+                'issuedAt',
+                'serialId',
+                'objectTitle',
+                'titleCandidates',
+                'forwardOffsetM',
+                'rightOffsetM',
+                'persistentEquipment',
+                'persistentEquipmentInherited'
+            ].forEach((key) => {
+                item[key] = metadata[key];
+            });
         });
-        const metadata = hydrated[0] || {};
-        [
-            'itemType',
-            'sceneKind',
-            'label',
-            'storyName',
-            'weightLbs',
-            'required',
-            'deliverAtDestination',
-            'equipmentType',
-            'expiresAt',
-            'issuedAt',
-            'serialId',
-            'objectTitle',
-            'titleCandidates',
-            'forwardOffsetM',
-            'rightOffsetM',
-            'persistentEquipment',
-            'persistentEquipmentInherited'
-        ].forEach((key) => {
-            item[key] = metadata[key];
-        });
-    });
+    }
+    if (needsPoiDeliveryUpgrade && manifest.isPoi === true) {
+        const bush = _activeBushMissionSpec();
+        const isBushReturnHomeRecon = !!(
+            bush
+            && String(bush.targetMode || '').toLowerCase() === 'area_then_return'
+            && String(bush.completionMode || '').toLowerCase() === 'return_home'
+        );
+        manifest.items
+            .filter(item => item?.required === true && item?.persistentEquipment !== true && !_missionCargoIsPassengerItem(item))
+            .forEach((item) => {
+                item.deliverAtDestination = !isBushReturnHomeRecon;
+                item.deliverAtHome = isBushReturnHomeRecon;
+            });
+    }
     manifest.aircraftSlot = _missionCargoAircraftSlot(manifest.aircraftSlot);
-    _missionCargoApplyStoredOnboardEquipment(manifest.items, manifest.aircraftSlot);
-    manifest.version = 4;
+    if (needsPersistentEquipmentUpgrade) {
+        _missionCargoApplyStoredOnboardEquipment(manifest.items, manifest.aircraftSlot);
+    }
+    manifest.version = 5;
     return true;
 }
 
 function _missionCargoGetManifest() {
     if (missionCargoComplianceDebugManifest) return missionCargoComplianceDebugManifest;
+    if (missionCargoGroundInventoryManifest && !_missionCargoHasActiveMission()) return missionCargoGroundInventoryManifest;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (md?.cargoManifest && typeof md.cargoManifest === 'object') return md.cargoManifest;
     if (md?.missionContract?.cargoManifest && typeof md.missionContract.cargoManifest === 'object') return md.missionContract.cargoManifest;
@@ -851,21 +971,28 @@ function _missionCargoPersistManifest(manifest) {
         missionCargoComplianceDebugManifest
         && String(manifest?.key || '') === String(missionCargoComplianceDebugManifest.key || '')
     );
+    const isGroundInventoryManifest = !!(
+        missionCargoGroundInventoryManifest
+        && String(manifest?.key || '') === String(missionCargoGroundInventoryManifest.key || '')
+    );
+    const isTransientManifest = isComplianceDebugManifest || isGroundInventoryManifest;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (isComplianceDebugManifest) {
         missionCargoComplianceDebugManifest = manifest;
+    } else if (isGroundInventoryManifest) {
+        missionCargoGroundInventoryManifest = manifest;
     } else if (md && typeof md === 'object') {
         md.cargoManifest = manifest;
         if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.cargoManifest = manifest;
     }
-    if (!isComplianceDebugManifest && window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+    if (!isTransientManifest && window.activeMissionContract && typeof window.activeMissionContract === 'object') {
         window.activeMissionContract.cargoManifest = manifest;
     }
     _missionCargoPersistOnboardEquipment(manifest);
     try {
         window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } }));
     } catch (_) {}
-    if (!isComplianceDebugManifest) {
+    if (!isTransientManifest) {
         try {
             if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
             else if (typeof saveMissionState === 'function') saveMissionState();
@@ -885,9 +1012,8 @@ function _missionCargoEnsureUiSyncHook() {
     window.addEventListener('missioncargochange', () => {
         const overlay = document.getElementById('missionCargoOverlay');
         if (!overlay || overlay.style.display !== 'flex') return;
-        const mode = window.missionCargoStatus?.lastMode === 'unload'
-            ? 'unload'
-            : (window.missionCargoStatus?.lastMode === 'pickup' ? 'pickup' : 'load');
+        const requestedMode = String(window.missionCargoStatus?.lastMode || 'load');
+        const mode = ['unload', 'pickup', 'equipment'].includes(requestedMode) ? requestedMode : 'load';
         _missionCargoRenderDialog(mode, { skipPayloadRefresh: true });
     });
 }
@@ -899,6 +1025,14 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
         window.missionCargoStatus.manifestKey = missionCargoComplianceDebugManifest.key || key;
         _missionCargoResetPayloadPlanForMissionKey(missionCargoComplianceDebugManifest.key || key);
         return missionCargoComplianceDebugManifest;
+    }
+    if (missionCargoGroundInventoryManifest && _missionCargoHasActiveMission()) {
+        missionCargoGroundInventoryManifest = null;
+    }
+    if (missionCargoGroundInventoryManifest && !_missionCargoHasActiveMission()) {
+        window.missionCargoStatus.manifestKey = missionCargoGroundInventoryManifest.key || key;
+        _missionCargoResetPayloadPlanForMissionKey(missionCargoGroundInventoryManifest.key || key);
+        return missionCargoGroundInventoryManifest;
     }
     if (typeof window.missionIsFreeflightOnly === 'function' && window.missionIsFreeflightOnly(md)) {
         return {
@@ -916,6 +1050,17 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
         _missionCargoPersistManifest(manifest);
     } else if (_missionCargoUpgradePersistentEquipmentManifest(manifest)) {
         _missionCargoPersistManifest(manifest);
+    } else if (manifest.items.some(item => item?.persistentEquipment === true && item.status === 'pending')) {
+        const previousStates = manifest.items
+            .filter(item => item?.persistentEquipment === true)
+            .map(item => `${item.id}:${item.status}`)
+            .join('|');
+        _missionCargoApplyStoredOnboardEquipment(manifest.items, manifest.aircraftSlot);
+        const nextStates = manifest.items
+            .filter(item => item?.persistentEquipment === true)
+            .map(item => `${item.id}:${item.status}`)
+            .join('|');
+        if (nextStates !== previousStates) _missionCargoPersistManifest(manifest);
     }
     window.missionCargoStatus.manifestKey = manifest.key || key;
     _missionCargoResetPayloadPlanForMissionKey(manifest.key || key);
@@ -926,6 +1071,7 @@ window.missionCargoBeginComplianceDebugSession = function(options = {}) {
     if (missionCargoComplianceDebugManifest) {
         return JSON.parse(JSON.stringify(missionCargoComplianceDebugManifest));
     }
+    missionCargoGroundInventoryManifest = null;
     const startedAt = Math.round(Number(options.startedAt || 0) || Date.now());
     const landingAt = Math.max(startedAt, Math.round(Number(options.landingAt || 0) || startedAt));
     const flightId = String(options.flightId || `debug-authority|${startedAt}`);
@@ -960,6 +1106,40 @@ window.missionCargoEndComplianceDebugSession = function(flightId = '') {
     const expectedFlightId = String(flightId || '');
     if (expectedFlightId && expectedFlightId !== String(missionCargoComplianceDebugManifest.flightId || '')) return false;
     missionCargoComplianceDebugManifest = null;
+    window.missionCargoStatus.manifestKey = '';
+    window.missionCargoStatus.error = null;
+    return true;
+};
+
+window.missionCargoBeginGroundInventorySession = function() {
+    const aircraftSlot = _missionCargoAircraftSlot();
+    if (missionCargoGroundInventoryManifest?.aircraftSlot === aircraftSlot) {
+        return JSON.parse(JSON.stringify(missionCargoGroundInventoryManifest));
+    }
+    const createdAt = Date.now();
+    const key = `ground-inventory-${aircraftSlot}-${createdAt}`;
+    const items = _missionCargoPersistentEquipmentDefinitions();
+    _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
+    missionCargoGroundInventoryManifest = {
+        version: 4,
+        key,
+        aircraftSlot,
+        taskDomain: 'ground_inventory',
+        isPoi: false,
+        groundInventory: true,
+        createdAt,
+        items
+    };
+    window.missionCargoStatus.error = null;
+    window.missionCargoStatus.manifestKey = key;
+    _missionCargoPersistManifest(missionCargoGroundInventoryManifest);
+    setTimeout(() => _missionCargoSpawnUnloadedSceneObjects('ground-inventory-open'), 0);
+    return JSON.parse(JSON.stringify(missionCargoGroundInventoryManifest));
+};
+
+window.missionCargoEndGroundInventorySession = function() {
+    if (!missionCargoGroundInventoryManifest) return false;
+    missionCargoGroundInventoryManifest = null;
     window.missionCargoStatus.manifestKey = '';
     window.missionCargoStatus.error = null;
     return true;
@@ -1017,9 +1197,23 @@ function _missionCargoFormatDate(ts = Date.now()) {
 }
 
 function _missionCargoInvalidateDispatchSignature(manifest) {
-    if (!manifest || !manifest.dispatchSignature) return false;
+    if (!manifest) return false;
+    const hadSignature = !!manifest.dispatchSignature;
     manifest.dispatchSignature = null;
-    return true;
+    if (window.missionCargoStatus) {
+        window.missionCargoStatus.loadConfirmed = false;
+    }
+    return hadSignature;
+}
+
+function _missionCargoSignatureScope(mode = 'load') {
+    return String(mode || '').toLowerCase() === 'unload' ? 'arrival' : 'departure';
+}
+
+function _missionCargoSignatureMatchesMode(signature = null, mode = 'load') {
+    if (!signature || typeof signature !== 'object') return false;
+    const recordedScope = String(signature.scope || 'departure').toLowerCase();
+    return recordedScope === _missionCargoSignatureScope(mode);
 }
 
 function _missionCargoClearSignatureAnimation() {
@@ -1028,57 +1222,87 @@ function _missionCargoClearSignatureAnimation() {
         window.missionCargoStatus.signatureAnimationTimer = 0;
     }
     if (window.missionCargoStatus) window.missionCargoStatus.signatureAnimationEndsAt = 0;
+    if (window.missionCargoStatus) window.missionCargoStatus.signatureAnimationMode = '';
 }
 
 function _missionCargoStartSignatureAnimation(options = {}) {
     const durationMs = Math.max(300, Number(options.durationMs) || 1600);
+    const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
     _missionCargoClearSignatureAnimation();
     if (!window.missionCargoStatus) return;
     window.missionCargoStatus.signatureAnimationEndsAt = Date.now() + durationMs;
+    window.missionCargoStatus.signatureAnimationMode = renderMode;
     window.missionCargoStatus.signatureAnimationTimer = window.setTimeout(() => {
         if (window.missionCargoStatus) {
             window.missionCargoStatus.signatureAnimationTimer = 0;
             window.missionCargoStatus.signatureAnimationEndsAt = 0;
+            window.missionCargoStatus.signatureAnimationMode = '';
         }
-        if (options.render !== false && document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
-            _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        if (options.render !== false
+            && document.getElementById('missionCargoOverlay')?.style.display === 'flex'
+            && window.missionCargoStatus?.lastMode === renderMode) {
+            _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         }
     }, durationMs + 40);
 }
 
 window.missionCargoSignDispatchList = function(options = {}) {
     const manifest = _missionCargoEnsureManifest();
-    const requiredMissing = (manifest.items || []).filter(item => item.required && item.pickupLocation !== 'target' && item.status !== 'loaded');
+    const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
+    const isArrival = renderMode === 'unload';
+    const requiredMissing = isArrival
+        ? (manifest.items || []).filter(item => (
+            item.required
+            && item.status === 'loaded'
+            && !_missionCargoIsPassengerItem(item)
+            && _missionCargoItemNeedsUnloadHere(item)
+        ))
+        : (manifest.items || []).filter(item => item.required && item.pickupLocation !== 'target' && item.status !== 'loaded');
     if (requiredMissing.length > 0) {
-        window.missionCargoStatus.error = `Pflichtladung noch offen: ${requiredMissing.map(item => item.storyName || item.label || item.id).join(', ')}`;
-        if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        window.missionCargoStatus.error = isArrival
+            ? `Pflichtladung noch zu entladen: ${requiredMissing.map(item => item.storyName || item.label || item.id).join(', ')}`
+            : `Pflichtladung noch offen: ${requiredMissing.map(item => item.storyName || item.label || item.id).join(', ')}`;
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     manifest.dispatchSignature = {
         by: _missionCargoPilotId(),
         at: Date.now(),
         aircraft: _missionCargoAircraftLabel(),
+        scope: _missionCargoSignatureScope(renderMode),
         note: String(options?.note || '').trim()
     };
     _missionCargoPersistManifest(manifest);
-    if (options.animate !== false) _missionCargoStartSignatureAnimation({ render: options.render !== false });
-    if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    if (options.animate !== false) {
+        _missionCargoStartSignatureAnimation({
+            render: options.render !== false,
+            mode: renderMode
+        });
+    }
+    if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
 window.missionCargoClearDispatchSignature = function(options = {}) {
     const manifest = _missionCargoEnsureManifest();
-    if (!manifest.dispatchSignature) return false;
+    const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
+    if (!_missionCargoSignatureMatchesMode(manifest.dispatchSignature, renderMode)) return false;
     _missionCargoClearSignatureAnimation();
     manifest.dispatchSignature = null;
+    if (renderMode === 'load' && window.missionCargoStatus) {
+        window.missionCargoStatus.loadConfirmed = false;
+    }
     _missionCargoPersistManifest(manifest);
-    if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
 window.missionCargoToggleDispatchSignature = function(options = {}) {
     const manifest = _missionCargoEnsureManifest();
-    if (manifest.dispatchSignature) return window.missionCargoClearDispatchSignature(options);
+    const renderMode = _missionCargoActionDialogMode({ mode: options.mode }, 'load');
+    if (_missionCargoSignatureMatchesMode(manifest.dispatchSignature, renderMode)) {
+        return window.missionCargoClearDispatchSignature({ ...options, mode: renderMode });
+    }
     return window.missionCargoSignDispatchList(options);
 };
 
@@ -1087,11 +1311,34 @@ function _missionCargoSceneId() {
 }
 
 function _missionCargoUnloadSceneId() {
+    if (missionCargoGroundInventoryManifest && !_missionCargoHasActiveMission()) {
+        return `scene-ground-inventory-${_missionCargoAircraftSlot(missionCargoGroundInventoryManifest.aircraftSlot)}-cargo-unload`;
+    }
     return `${_missionSceneId()}-cargo-unload`;
 }
 
+function _missionCargoStableObjectKey(item = null, manifest = null) {
+    const itemId = String(item?.id || item?.cargoItemId || item?.sceneKind || 'cargo-item')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'cargo-item';
+    const activeManifest = manifest || _missionCargoGetManifest();
+    if (item?.persistentEquipment === true) {
+        return `aircraft-equipment:${_missionCargoAircraftSlot(activeManifest?.aircraftSlot)}:${itemId}`;
+    }
+    const missionKey = String(activeManifest?.key || _missionCargoMissionKey() || 'active-mission')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'active-mission';
+    return `mission-cargo:${missionKey}:${itemId}`;
+}
+
 function _missionCargoLivePos() {
-    const pos = window.lastLiveGpsPos || {};
+    const pos = (window.simModeActive && window.gaSimGpsPos)
+        ? window.gaSimGpsPos
+        : (window.lastLiveGpsPos || {});
     const lat = Number(pos.lat);
     const lon = Number(pos.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -1120,9 +1367,9 @@ function _missionCargoCommandBasePos() {
 }
 
 function _missionCargoDistanceToUnloadM(item, livePos = null) {
-    const unloadLat = Number(item?.unloadLat);
-    const unloadLon = Number(item?.unloadLon);
-    if (!Number.isFinite(unloadLat) || !Number.isFinite(unloadLon)) return null;
+    const unloadLat = _missionCargoNullableNumber(item?.unloadLat);
+    const unloadLon = _missionCargoNullableNumber(item?.unloadLon);
+    if (unloadLat === null || unloadLon === null || (unloadLat === 0 && unloadLon === 0)) return null;
     const pos = livePos || _missionCargoLivePos();
     if (!pos) return null;
     return _haversineNmLocal(pos.lat, pos.lon, unloadLat, unloadLon) * 1852;
@@ -1130,10 +1377,10 @@ function _missionCargoDistanceToUnloadM(item, livePos = null) {
 
 function _missionCargoCanReloadUnloadedItem(item, maxDistanceM = MISSION_CARGO_RELOAD_MAX_DISTANCE_M) {
     if (!item || item.status !== 'unloaded') return true;
-    if (!window.liveTrackerConnected) return true;
-    const unloadLat = Number(item.unloadLat);
-    const unloadLon = Number(item.unloadLon);
-    if (!Number.isFinite(unloadLat) || !Number.isFinite(unloadLon)) return true;
+    if (!window.simModeActive && !window.liveTrackerConnected) return true;
+    const unloadLat = _missionCargoNullableNumber(item.unloadLat);
+    const unloadLon = _missionCargoNullableNumber(item.unloadLon);
+    if (unloadLat === null || unloadLon === null || (unloadLat === 0 && unloadLon === 0)) return true;
     const dM = _missionCargoDistanceToUnloadM(item);
     return Number.isFinite(dM) && dM <= Number(maxDistanceM || MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
 }
@@ -1194,7 +1441,9 @@ function _missionCargoPassengerSpawnPlacement(item = null) {
 function _missionCargoManualPassengerSceneBusy() {
     const status = window.missionSceneStatus || {};
     return !!(
-        status.boardingPreparing
+        missionRuntime.waitingFarewellDeboarding
+        || missionRuntime.deboardingAfterFarewellStarted
+        || status.boardingPreparing
         || status.boardingRequested
         || status.boardingActive
         || status.deboardingRequested
@@ -1296,8 +1545,10 @@ function _missionCargoVisibleKind(item = null, options = {}) {
 function _missionCargoVisibleSelectors(item = null, options = {}) {
     const visibleKind = _missionCargoVisibleKind(item, options);
     const baseKind = String(item?.sceneKind || '').trim();
+    const objectKey = String(options.objectKey || _missionCargoStableObjectKey(item)).trim();
     const extraKinds = Array.isArray(options.extraKinds) ? options.extraKinds.map(v => String(v || '').trim()).filter(Boolean) : [];
     return {
+        objectKeys: objectKey ? [objectKey] : [],
         kinds: Array.from(new Set([visibleKind, baseKind, ...extraKinds].filter(Boolean))),
         labels: [item?.label, item?.storyName].filter(Boolean),
         itemIds: [item?.id].filter(Boolean),
@@ -1308,15 +1559,23 @@ function _missionCargoVisibleSelectors(item = null, options = {}) {
 function _missionCargoRemoveVisibleItem(item = null, options = {}) {
     if (!item || window.simModeActive || !window.liveTrackerConnected || _missionCargoIsPassengerItem(item)) return false;
     const sceneId = options.sceneId || (options.unloaded ? _missionCargoUnloadSceneId() : _missionCargoSceneId());
+    const objectKey = String(options.objectKey || _missionCargoStableObjectKey(item)).trim();
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_object_remove',
         sceneId,
         reason: options.reason || 'cargo-visible-remove',
-        ..._missionCargoVisibleSelectors(item, { unloaded: !!options.unloaded, extraKinds: options.extraKinds })
+        objectKey,
+        objectRevision: Math.max(0, Math.round(Number(options.objectRevision || 0))),
+        allScenes: options.allScenes !== false,
+        ..._missionCargoVisibleSelectors(item, {
+            objectKey,
+            unloaded: !!options.unloaded,
+            extraKinds: options.extraKinds
+        })
     });
     window.missionCargoStatus.lastCommandAt = Date.now();
-    window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_remove', commandId, itemId: item.id };
-    return !!commandId;
+    window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_remove', commandId, itemId: item.id, objectKey };
+    return commandId || false;
 }
 
 function _missionCargoSpawnVisibleItem(item = null, options = {}) {
@@ -1329,11 +1588,15 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
     }
     const sceneId = options.sceneId || (options.unloaded ? _missionCargoUnloadSceneId() : _missionCargoSceneId());
     const kind = _missionCargoVisibleKind(item, { unloaded: !!options.unloaded });
+    const objectKey = String(options.objectKey || _missionCargoStableObjectKey(item)).trim();
     const placement = _missionCargoGroundSpawnPlacement(item);
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_object_spawn',
         sceneId,
         reason: options.reason || 'cargo-visible-spawn',
+        objectKey,
+        objectRevision: Math.max(0, Math.round(Number(options.objectRevision || 0))),
+        replaceExisting: options.replaceExisting !== false,
         lat: Number(pos.lat),
         lon: Number(pos.lon),
         altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
@@ -1343,6 +1606,8 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
             itemId: item.id || '',
             cargoItemId: item.id || '',
             cargoSceneKind: item.sceneKind || kind,
+            objectKey,
+            objectRevision: Math.max(0, Math.round(Number(options.objectRevision || 0))),
             label: item.storyName || item.label || item.id,
             objectTitle: item.objectTitle || 'Cardboard',
             titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
@@ -1353,8 +1618,88 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
         }]
     });
     window.missionCargoStatus.lastCommandAt = Date.now();
-    window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId: item.id };
-    return !!commandId;
+    window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId: item.id, objectKey };
+    return commandId || false;
+}
+
+function _missionCargoFlushVisibleItemState(objectKey) {
+    const key = String(objectKey || '').trim();
+    const state = _MISSION_CARGO_OBJECT_ACTION_QUEUE.get(key);
+    if (!state) return false;
+    state.timer = null;
+    const desired = state.desired;
+    if (!desired) {
+        _MISSION_CARGO_OBJECT_ACTION_QUEUE.delete(key);
+        return false;
+    }
+    const sendOptions = {
+        ...(desired.options || {}),
+        objectKey: key,
+        objectRevision: desired.revision
+    };
+    const commandId = desired.visible
+        ? _missionCargoSpawnVisibleItem(desired.item, sendOptions)
+        : _missionCargoRemoveVisibleItem(desired.item, { ...sendOptions, allScenes: true });
+    if (!commandId) {
+        _MISSION_CARGO_OBJECT_ACTION_QUEUE.delete(key);
+        return false;
+    }
+    state.pendingCommandId = String(commandId);
+    state.pendingRevision = desired.revision;
+    state.sentAt = Date.now();
+    return commandId;
+}
+
+function _missionCargoQueueVisibleItemState(item = null, visible = false, options = {}) {
+    if (!item || window.simModeActive || !window.liveTrackerConnected || _missionCargoIsPassengerItem(item)) return false;
+    const objectKey = _missionCargoStableObjectKey(item);
+    const previous = _MISSION_CARGO_OBJECT_ACTION_QUEUE.get(objectKey);
+    if (previous?.timer) clearTimeout(previous.timer);
+    const revision = ++missionCargoObjectActionRevision;
+    const state = previous || {
+        objectKey,
+        pendingCommandId: '',
+        pendingRevision: 0,
+        sentAt: 0,
+        timer: null,
+        desired: null
+    };
+    state.desired = {
+        visible: visible === true,
+        revision,
+        item: JSON.parse(JSON.stringify(item)),
+        options: { ...options }
+    };
+    const delayMs = options.immediate === true
+        ? 0
+        : Math.max(0, Number(options.delayMs ?? MISSION_CARGO_OBJECT_ACTION_DEBOUNCE_MS));
+    state.timer = setTimeout(() => _missionCargoFlushVisibleItemState(objectKey), delayMs);
+    _MISSION_CARGO_OBJECT_ACTION_QUEUE.set(objectKey, state);
+    return true;
+}
+
+window.missionCargoResolveVisibleItemAck = function(ack = {}) {
+    if (ack.type !== 'mission_scene_object_spawn_ack' && ack.type !== 'mission_scene_object_remove_ack') return false;
+    const commandId = String(ack.commandId || '');
+    if (!commandId) return false;
+    for (const [objectKey, state] of _MISSION_CARGO_OBJECT_ACTION_QUEUE.entries()) {
+        if (String(state?.pendingCommandId || '') !== commandId) continue;
+        state.pendingCommandId = '';
+        state.pendingRevision = 0;
+        if (!state.timer && Number(state.desired?.revision || 0) <= Number(ack.objectRevision || state.desired?.revision || 0)) {
+            _MISSION_CARGO_OBJECT_ACTION_QUEUE.delete(objectKey);
+        }
+        return true;
+    }
+    return false;
+};
+
+function _missionCargoCancelVisibleItemActions() {
+    for (const state of _MISSION_CARGO_OBJECT_ACTION_QUEUE.values()) {
+        if (state?.timer) clearTimeout(state.timer);
+    }
+    _MISSION_CARGO_OBJECT_ACTION_QUEUE.clear();
+    missionCargoObjectActionRevision += 1;
 }
 
 function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
@@ -1363,6 +1708,7 @@ function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
 
 function _missionCargoItemCanLoadAtCurrentStage(item = null) {
     if (!item || typeof item !== 'object') return false;
+    if (_missionCargoIsPassengerHandoffLocked(item)) return false;
     if (item.pickupLocation === 'target') return _missionBushPickupAtTargetNow();
     return true;
 }
@@ -2319,6 +2665,9 @@ function _missionCargoResetManifestState(manifest) {
         item.loadedAt = nextStatus === 'loaded' ? (Number(stored?.loadedAt || 0) || Date.now()) : 0;
         item.unloadedAt = 0;
         item.droppedAt = 0;
+        if (_missionCargoIsPassengerHandoffLocked(item)) changed = true;
+        item.handoffComplete = false;
+        item.handedOffAt = 0;
         const inherited = nextStatus === 'loaded' && item.persistentEquipment === true;
         if (item.persistentEquipmentInherited !== inherited) changed = true;
         item.persistentEquipmentInherited = inherited;
@@ -2349,6 +2698,7 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
     window.missionCargoStatus.payloadFinalizeRunning = false;
     window.missionCargoStatus.payloadFinalizeSeq = Number(window.missionCargoStatus.payloadFinalizeSeq || 0) + 1;
     window.missionCargoStatus.payloadStartOverride = false;
+    _missionCargoCancelVisibleItemActions();
     _missionCargoCancelPayloadSyncQueue(reason);
     if (window.missionCargoStatus.payloadSyncRunning) {
         const waitUntil = Date.now() + 2600;
@@ -2484,6 +2834,68 @@ function _missionCargoFormatStationList(indices = []) {
     return list.length ? list.join(', ') : '-';
 }
 
+function _missionCargoFormatSheetStationAssignment(indices = [], payloadAdapter = '') {
+    const stations = [...new Set((Array.isArray(indices) ? indices : [])
+        .map(value => Math.round(Number(value)))
+        .filter(value => Number.isFinite(value) && value >= 1))];
+    if (!stations.length) return '-';
+    if (String(payloadAdapter || '') !== MISSION_CARGO_PA24_ADAPTER) {
+        return stations.join('/');
+    }
+    const pa24Labels = {
+        2: 'Sitz 2',
+        3: 'Sitz 3',
+        4: 'Sitz 4',
+        5: 'Gepäckfach'
+    };
+    return stations.map(station => pa24Labels[station] || `S${station}`).join(' / ');
+}
+
+function _missionCargoGroupPayloadAssignmentStations(plan = null) {
+    const grouped = new Map();
+    (Array.isArray(plan?.assignments) ? plan.assignments : [])
+        .filter(row => (row?.type === 'cargo' && row?.itemId) || row?.type === 'pax')
+        .forEach((row) => {
+            const key = row?.itemId ? String(row.itemId) : 'mission-passenger';
+            const stations = grouped.get(key) || [];
+            (Array.isArray(row?.stations) ? row.stations : []).forEach((station) => {
+                const normalized = Math.round(Number(station));
+                if (Number.isFinite(normalized) && normalized >= 1 && !stations.includes(normalized)) {
+                    stations.push(normalized);
+                }
+            });
+            grouped.set(key, stations);
+        });
+    return grouped;
+}
+
+function _missionCargoRememberPayloadAssignments(manifest = null, plan = null) {
+    if (!manifest || !Array.isArray(manifest.items) || plan?.error) return false;
+    const grouped = _missionCargoGroupPayloadAssignmentStations(plan);
+    if (!grouped.size) return false;
+    const payloadAdapter = String(plan?.payloadAdapter || '');
+    let changed = false;
+    grouped.forEach((stations, key) => {
+        const targets = manifest.items.filter(item => (
+            String(item?.id || '') === key
+            || (key === 'mission-passenger' && _missionCargoIsPassengerItem(item) && item.status === 'loaded')
+        ));
+        targets.forEach((item) => {
+            const previous = Array.isArray(item.payloadStations)
+                ? item.payloadStations.map(value => Math.round(Number(value))).filter(Number.isFinite)
+                : [];
+            const sameStations = previous.length === stations.length
+                && previous.every((value, index) => value === stations[index]);
+            if (sameStations && String(item.payloadStationAdapter || '') === payloadAdapter) return;
+            item.payloadStations = [...stations];
+            item.payloadStationAdapter = payloadAdapter;
+            changed = true;
+        });
+    });
+    if (changed) _missionCargoPersistManifest(manifest);
+    return changed;
+}
+
 function _missionCargoPayloadStatusMessageHtml() {
     const verification = window.missionCargoStatus?.payloadVerification || null;
     const running = !!window.missionCargoStatus?.payloadVerificationRunning;
@@ -2547,51 +2959,6 @@ function _missionCargoPayloadRequestedWeights(manifest = null) {
     };
 }
 
-function _missionCargoPa24PayloadTableRows(snapshot = null, plan = null) {
-    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
-    if (!normalized || normalized.payloadAdapter !== MISSION_CARGO_PA24_ADAPTER || !normalized.pa24) return [];
-    const plannedStations = new Map(
-        (Array.isArray(plan?.stations) ? plan.stations : [])
-            .map(row => [Math.round(Number(row?.index)), Number(row?.weightLbs)])
-            .filter(([index, weight]) => Number.isFinite(index) && Number.isFinite(weight))
-    );
-    const hasPlannedState = !!(plan?.pa24State && typeof plan.pa24State === 'object');
-    const seatRows = [2, 3, 4].map((seat) => {
-        const currentCharacter = Math.max(0, Math.min(4, Math.round(Number(normalized.pa24.seats?.[seat] || 0))));
-        const currentWeightLbs = currentCharacter > 0
-            ? Math.max(0, Number(normalized.pa24.characterWeights?.[currentCharacter] || 0))
-            : 0;
-        const targetCharacter = hasPlannedState
-            ? Math.max(0, Math.min(4, Math.round(Number(plan.pa24State.seats?.[seat] || 0))))
-            : null;
-        const plannedWeight = plannedStations.get(seat);
-        return {
-            kind: 'seat',
-            index: seat,
-            label: `Sitz ${seat}`,
-            currentCharacter,
-            currentWeightLbs: Math.round(currentWeightLbs * 10) / 10,
-            targetCharacter,
-            targetWeightLbs: Number.isFinite(plannedWeight) ? Math.round(plannedWeight * 10) / 10 : null
-        };
-    });
-    const plannedBaggageWeight = plannedStations.get(5);
-    return [
-        ...seatRows,
-        {
-            kind: 'baggage',
-            index: 5,
-            label: 'Gepäckfach',
-            currentCharacter: null,
-            currentWeightLbs: Math.round(Math.max(0, Number(normalized.pa24.baggageWeightLbs || 0)) * 10) / 10,
-            targetCharacter: null,
-            targetWeightLbs: Number.isFinite(plannedBaggageWeight)
-                ? Math.round(plannedBaggageWeight * 10) / 10
-                : null
-        }
-    ];
-}
-
 function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
     if (!snapshot) {
@@ -2628,46 +2995,16 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const paxPart = Number.isFinite(paxWeight) ? `Pax ${Math.round(paxWeight)} lbs` : 'Pax n/a';
     const cargoPart = Number.isFinite(cargoWeight) ? `Cargo ${Math.round(cargoWeight)} lbs` : 'Cargo n/a';
     if (snapshot.payloadAdapter === MISSION_CARGO_PA24_ADAPTER) {
-        const pa24Rows = _missionCargoPa24PayloadTableRows(snapshot, plan);
-        const tableRows = pa24Rows.map((row) => {
-            const occupancy = row.kind === 'seat'
-                ? `<span class="mission-cargo-payload-occupancy ${row.currentCharacter > 0 ? 'is-occupied' : 'is-free'}">${row.currentCharacter > 0 ? `Belegt · C${row.currentCharacter}` : 'Frei'}</span>`
-                : `<span class="mission-cargo-payload-occupancy">max. ${MISSION_CARGO_PA24_BAGGAGE_MAX_LBS} lbs</span>`;
-            const target = Number.isFinite(Number(row.targetWeightLbs))
-                ? `${Math.round(Number(row.targetWeightLbs))} lbs`
-                : '—';
-            return `
-                <tr>
-                    <th scope="row"><strong>${_missionCargoEscape(row.label)}</strong><small>S${row.index}</small></th>
-                    <td>${occupancy}</td>
-                    <td class="is-number">${Math.round(Number(row.currentWeightLbs) || 0)} lbs</td>
-                    <td class="is-number">${target}</td>
-                </tr>`;
-        }).join('');
+        const maximumWeight = Number.isFinite(Number(plan?.grossWeightLbs))
+            ? Number(plan.grossWeightLbs)
+            : Number(snapshot.pa24?.grossWeightLbs);
         return `
             <div class="mission-cargo-payload-summary is-pa24">
-                <div class="mission-cargo-payload-heading">
-                    <strong>Accu-Sim Comanche</strong>
-                    <span>${mode === 'unload' ? 'Entladen' : 'Verladen'}</span>
-                </div>
                 <div class="mission-cargo-payload-metrics">
-                    <span><small>Gesamt</small><strong>${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '—'} lbs</strong></span>
-                    <span><small>Leer</small><strong>${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '—'} lbs</strong></span>
+                    <span><small>Max. Gewicht</small><strong>${Number.isFinite(maximumWeight) ? Math.round(maximumWeight) : '—'} lbs</strong></span>
+                    <span><small>PAX</small><strong>${Number.isFinite(paxWeight) ? Math.round(paxWeight) : '—'} lbs</strong></span>
+                    <span><small>Payload</small><strong>${Number.isFinite(cargoWeight) ? Math.round(cargoWeight) : '—'} lbs</strong></span>
                     <span><small>Fuel</small><strong>${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '—'} lbs</strong></span>
-                </div>
-                <div class="mission-cargo-payload-plan">
-                    <strong>Mission-Plan</strong>
-                    <span>${paxPart}</span>
-                    <span>${cargoPart}</span>
-                    <span>Zusatz ${Math.round(missionExtra)} lbs</span>
-                </div>
-                <div class="mission-cargo-payload-table-wrap">
-                    <table class="mission-cargo-payload-table">
-                        <thead>
-                            <tr><th>Station</th><th>Belegung</th><th>Aktuell</th><th>Ziel</th></tr>
-                        </thead>
-                        <tbody>${tableRows}</tbody>
-                    </table>
                 </div>
                 ${_missionCargoPayloadStatusMessageHtml()}
             </div>`;
@@ -3095,7 +3432,10 @@ function _missionCargoRequiredStatusSnapshot(manifest = _missionCargoEnsureManif
             itemType: String(item.itemType || 'cargo'),
             pickupLocation: String(item.pickupLocation || ''),
             deliverAtDestination: item.deliverAtDestination !== false,
-            deliverAtHome: item.deliverAtHome === true
+            deliverAtHome: item.deliverAtHome === true,
+            handoffWithPassenger: _missionCargoIsPassengerHandoffItem(item, manifest),
+            handoffComplete: _missionCargoIsPassengerHandoffLocked(item),
+            handedOffAt: Number(item.handedOffAt || 0)
         }));
 }
 
@@ -3145,6 +3485,9 @@ function _missionCargoFinalizeMissionOutcome(options = {}) {
 window.missionCargoFinalizeMissionOutcome = _missionCargoFinalizeMissionOutcome;
 
 window.missionCargoGetManifestSnapshot = function() {
+    if (missionCargoGroundInventoryManifest && !_missionCargoHasActiveMission()) {
+        return JSON.parse(JSON.stringify(missionCargoGroundInventoryManifest));
+    }
     if (!_missionCargoHasActiveMission()) return null;
     _missionCargoApplyStressSnapshot();
     return JSON.parse(JSON.stringify(_missionCargoEnsureManifest()));
@@ -3154,6 +3497,8 @@ window.missionCargoCurrentFlightId = function() {
     if (missionCargoComplianceDebugManifest?.flightId) {
         return String(missionCargoComplianceDebugManifest.flightId);
     }
+    const recordedFlightId = String(_missionCargoGetManifest()?.flightEvents?.flightId || '').trim();
+    if (recordedFlightId) return recordedFlightId;
     const startedAt = Number(
         (typeof missionRuntime !== 'undefined' && missionRuntime?.startedAt)
         || (typeof flightRecorder !== 'undefined' && flightRecorder?.startTs)
@@ -3194,6 +3539,28 @@ function _missionCargoFormatLogTime(timestamp) {
     });
 }
 
+function _missionCargoBoardBookActionState(item = null, manifest = null, source = 'cargo') {
+    const currentFlightId = window.missionCargoCurrentFlightId?.() || '';
+    const log = item?.log && typeof item.log === 'object' ? item.log : {};
+    const currentLog = String(log.flightId || '') === String(currentFlightId) ? log : {};
+    const hasStart = Number(currentLog.startAt || 0) > 0;
+    const hasLanding = Number(currentLog.landingAt || 0) > 0;
+    const field = !hasStart ? 'start' : (!hasLanding ? 'landing' : '');
+    const availableStatus = item?.status === 'loaded' || item?.status === 'unloaded';
+    const missionAvailable = manifest?.groundInventory !== true && _missionCargoHasActiveMission();
+    const allowed = !!field
+        && availableStatus
+        && missionAvailable
+        && window.missionComplianceBoardBookWriteAllowed?.(field, { source }) !== false;
+    return {
+        field,
+        allowed,
+        complete: hasStart && hasLanding,
+        label: field === 'landing' ? 'Landezeit eintragen' : 'Startzeit eintragen',
+        log: currentLog
+    };
+}
+
 function _missionCargoFlightEndpointLabel(which = 'start') {
     if (missionCargoComplianceDebugManifest) return 'Debug-Standort';
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
@@ -3218,6 +3585,10 @@ function _missionCargoDismissBoardBookBanner() {
     missionCargoBoardBookBannerTimer = null;
     const banner = document.getElementById('missionBoardBookReminder');
     if (banner) banner.hidden = true;
+    const host = document.getElementById('awmFreqBanner');
+    if (host && !Array.from(host.children).some(child => child.hidden !== true)) {
+        host.style.display = 'none';
+    }
 }
 
 function _missionCargoShowBoardBookBanner(field = 'start') {
@@ -3228,17 +3599,20 @@ function _missionCargoShowBoardBookBanner(field = 'start') {
     const log = item.log && typeof item.log === 'object' ? item.log : {};
     const currentFlightId = window.missionCargoCurrentFlightId?.() || '';
     if (String(log.flightId || '') === String(currentFlightId) && Number(log[`${normalized}At`] || 0) > 0) return false;
+    const host = document.getElementById('awmFreqBanner');
     let banner = document.getElementById('missionBoardBookReminder');
     if (!banner) {
         banner = document.createElement('section');
         banner.id = 'missionBoardBookReminder';
-        banner.className = 'mission-boardbook-reminder';
+        banner.className = 'awm-freq-entry mission-boardbook-reminder';
         banner.setAttribute('role', 'status');
         banner.addEventListener('click', (event) => {
             if (event.target?.closest?.('button')) return;
             _missionCargoDismissBoardBookBanner();
         });
-        document.body.appendChild(banner);
+        (host || document.body).appendChild(banner);
+    } else if (host && banner.parentElement !== host) {
+        host.appendChild(banner);
     }
     banner.dataset.field = normalized;
     banner.innerHTML = `
@@ -3254,6 +3628,7 @@ function _missionCargoShowBoardBookBanner(field = 'start') {
         if (ok) _missionCargoDismissBoardBookBanner();
     });
     banner.hidden = false;
+    if (host) host.style.display = 'block';
     if (missionCargoBoardBookBannerTimer) clearTimeout(missionCargoBoardBookBannerTimer);
     missionCargoBoardBookBannerTimer = setTimeout(_missionCargoDismissBoardBookBanner, 15000);
     return true;
@@ -3277,7 +3652,7 @@ window.missionCargoRecordFlightEvent = function(field = 'start', timestamp = Dat
     }
     manifest.flightEvents.flightId = currentFlightId;
     _missionCargoPersistManifest(manifest);
-    if (created && options.showBanner !== false) {
+    if (options.showBanner !== false) {
         setTimeout(() => _missionCargoShowBoardBookBanner(normalized), Math.max(0, Number(options.delayMs || 0)));
     }
     return true;
@@ -3288,46 +3663,50 @@ window.missionCargoReplaceEquipment = function(itemId) {
     if (id !== 'first-aid' && id !== 'fire-extinguisher') return false;
     const manifest = _missionCargoEnsureManifest();
     const item = (manifest.items || []).find(entry => String(entry?.id || '') === id);
-    if (!item || item.status !== 'unloaded' || item.equipmentType !== 'expiry') return false;
+    const offboardInventoryAvailable = item?.status === 'pending'
+        && window.missionCargoStatus?.lastMode === 'equipment'
+        && missionRuntime.active !== true;
+    if (!item || (item.status !== 'unloaded' && !offboardInventoryAvailable) || item.equipmentType !== 'expiry') return false;
+    const renderMode = _missionCargoActionDialogMode({ mode: window.missionCargoStatus?.lastMode }, 'load');
     if (window.missionComplianceBeforeEquipmentReplace?.() === false) {
         window.missionCargoStatus.error = 'Austausch gesperrt: Fuer diesen Flug findet eine Behoerdenkontrolle statt.';
-        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     const daysRemaining = _missionCargoExpiryDaysRemaining(item.expiresAt);
     if (Number.isFinite(daysRemaining) && daysRemaining >= MISSION_CARGO_EQUIPMENT_REPLACE_THRESHOLD_DAYS) {
         window.missionCargoStatus.error = `Austausch erst bei weniger als ${MISSION_CARGO_EQUIPMENT_REPLACE_THRESHOLD_DAYS} Tagen Restgueltigkeit moeglich.`;
-        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     const now = Date.now();
-    if (!window.simModeActive && window.liveTrackerConnected) {
-        _missionCargoRemoveVisibleItem(item, {
-            sceneId: _missionCargoUnloadSceneId(),
-            reason: 'equipment-replace-remove-old',
-            unloaded: true
-        });
-    }
+    const itemWasUnloaded = item.status === 'unloaded';
     item.issuedAt = now;
     item.serialId = _missionCargoNewEquipmentSerial(id, now);
     item.expiresAt = _missionCargoNewExpiryDate('', now);
     item.replacedAt = now;
     _missionCargoPersistManifest(manifest);
-    if (!window.simModeActive && window.liveTrackerConnected) {
-        _missionCargoSpawnVisibleItem(item, {
+    if (itemWasUnloaded && !window.simModeActive && window.liveTrackerConnected) {
+        const pos = _missionCargoCommandBasePos();
+        _missionCargoQueueVisibleItemState(item, true, {
             sceneId: _missionCargoUnloadSceneId(),
             reason: 'equipment-replace-spawn-new',
-            unloaded: true
+            unloaded: true,
+            pos: {
+                lat: _missionCargoNullableNumber(item.unloadLat) ?? Number(pos?.lat),
+                lon: _missionCargoNullableNumber(item.unloadLon) ?? Number(pos?.lon),
+                altFt: _missionCargoNullableNumber(item.unloadAltFt) ?? Number(pos?.altFt || 0),
+                hdg: Number(pos?.hdg || 0)
+            }
         });
     }
     window.missionCargoStatus.error = null;
-    _missionCargoRenderDialog(window.missionCargoStatus?.lastMode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+    _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
 function _missionCargoNeedsUnload(options = {}) {
     const manifest = _missionCargoEnsureManifest();
-    if (manifest.isPoi) return false;
     const ignorePassenger = !!options?.ignorePassenger;
     return _missionCargoLoadedItems(manifest).some(item => {
         if (!_missionCargoItemNeedsUnloadHere(item) || item.status === 'unloaded') return false;
@@ -3336,6 +3715,14 @@ function _missionCargoNeedsUnload(options = {}) {
     });
 }
 window.missionCargoNeedsUnload = _missionCargoNeedsUnload;
+
+function _missionCargoNeedsArrivalWorkflow(options = {}) {
+    if (!_missionCargoHasActiveMission()) return false;
+    const manifest = _missionCargoEnsureManifest();
+    return _missionCargoNeedsUnload(options)
+        || !_missionCargoSignatureMatchesMode(manifest.dispatchSignature, 'unload');
+}
+window.missionCargoNeedsArrivalWorkflow = _missionCargoNeedsArrivalWorkflow;
 
 function _missionCargoManualPassengerLoadOptions(item = null, wasUnloaded = false, reason = '') {
     const unloadedKind = `unloaded_${item?.sceneKind || item?.id || 'passenger'}`;
@@ -3362,6 +3749,15 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
         window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', { reason: 'no_passenger_item', source: options.reason || null });
         return false;
     }
+    if (_missionCargoIsPassengerHandoffLocked(item)) {
+        window.missionCargoStatus.error = 'Der verabschiedete Passagier ist nicht mehr am Flugzeug.';
+        window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', {
+            reason: 'farewell_handoff_complete',
+            itemId: item.id || null,
+            source: options.reason || null
+        });
+        return false;
+    }
     if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
         window.gaMissionPhaseDebugRecord?.('pax_manifest_load_blocked', { reason: 'wrong_stage', itemId: item.id || null, status: item.status || null, source: options.reason || null });
         return false;
@@ -3386,6 +3782,8 @@ function _missionCargoMarkPassengerLoaded(options = {}) {
     item.droppedLat = null;
     item.droppedLon = null;
     item.droppedAltFt = null;
+    item.handoffComplete = false;
+    item.handedOffAt = 0;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     window.gaMissionPhaseDebugRecord?.('pax_manifest_status', {
@@ -3467,6 +3865,8 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     item.droppedLat = null;
     item.droppedLon = null;
     item.droppedAltFt = null;
+    item.handoffComplete = false;
+    item.handedOffAt = 0;
     if (_missionCargoIsPassengerItem(item) && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
         window.missionSceneStatus.personBoarded = false;
     }
@@ -3554,6 +3954,90 @@ function _missionCargoMarkPassengerUnloaded(options = {}) {
     return true;
 }
 
+function _missionCargoCompletePassengerHandoff(options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    const passengers = (manifest.items || []).filter(item => (
+        _missionCargoIsPassengerItem(item)
+        && (item.status === 'loaded' || _missionCargoIsPassengerHandoffLocked(item))
+    ));
+    if (!passengers.length) return false;
+    const handedOffAt = Math.max(1, Number(options.handedOffAt || 0) || Date.now());
+    const reason = String(options.reason || 'passenger-vehicle-handoff');
+    let changed = false;
+    let passengerStatusChanged = false;
+    const passengerIds = [];
+    const cargoIds = [];
+
+    passengers.forEach((item) => {
+        const alreadyComplete = _missionCargoIsPassengerHandoffLocked(item);
+        if (item.status === 'loaded') {
+            item.status = 'unloaded';
+            item.loadedAt = 0;
+            item.unloadedAt = handedOffAt;
+            passengerStatusChanged = true;
+            changed = true;
+        }
+        if (!alreadyComplete) changed = true;
+        item.handoffComplete = true;
+        item.handedOffAt = alreadyComplete
+            ? Math.max(1, Number(item.handedOffAt || 0) || handedOffAt)
+            : handedOffAt;
+        item.unloadLat = null;
+        item.unloadLon = null;
+        item.unloadAltFt = null;
+        passengerIds.push(String(item.id || 'mission-passenger'));
+    });
+
+    (manifest.items || [])
+        .filter(item => _missionCargoIsPassengerHandoffItem(item, manifest))
+        .filter(item => item.status === 'unloaded')
+        .forEach((item) => {
+            const alreadyComplete = _missionCargoIsPassengerHandoffLocked(item);
+            item.handoffComplete = true;
+            item.handedOffAt = alreadyComplete
+                ? Math.max(1, Number(item.handedOffAt || 0) || handedOffAt)
+                : handedOffAt;
+            item.unloadLat = null;
+            item.unloadLon = null;
+            item.unloadAltFt = null;
+            cargoIds.push(String(item.id || ''));
+            if (!alreadyComplete) {
+                changed = true;
+                if (!window.simModeActive && window.liveTrackerConnected) {
+                    _missionCargoQueueVisibleItemState(item, false, {
+                        sceneId: _missionCargoUnloadSceneId(),
+                        reason: `${reason}-cargo-taken`,
+                        unloaded: true,
+                        immediate: true
+                    });
+                }
+            }
+        });
+
+    if (window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
+        window.missionSceneStatus.personBoarded = false;
+    }
+    if (changed) _missionCargoPersistManifest(manifest);
+    window.gaMissionPhaseDebugRecord?.('passenger_handoff_complete', {
+        reason,
+        commandId: options.commandId || null,
+        handedOffAt,
+        passengerIds,
+        cargoIds,
+        passengerStatusChanged
+    });
+    if (passengerStatusChanged) {
+        _missionCargoSyncPayloadToSim(`${reason}-payload`).catch(() => {});
+    }
+    return {
+        changed,
+        handedOffAt,
+        passengerIds,
+        cargoIds
+    };
+}
+window.missionCargoCompletePassengerHandoff = _missionCargoCompletePassengerHandoff;
+
 function _missionCargoEscape(text = '') {
     if (typeof escapeHtmlLite === 'function') return escapeHtmlLite(text);
     return String(text || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -3573,6 +4057,10 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const groundHandlingAllowed = _missionCargoGroundHandlingAllowed();
     const isPickup = mode === 'pickup';
+    const isUnload = mode === 'unload';
+    const isEquipment = mode === 'equipment';
+    const isLoad = mode === 'load';
+    const usesManifestSheet = isLoad || isUnload || isEquipment;
     const complianceUi = typeof window.missionComplianceGetCargoUiState === 'function'
         ? (window.missionComplianceGetCargoUiState() || { active: false })
         : { active: false };
@@ -3581,6 +4069,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     if (window.missionCargoStatus.payloadBaseline) {
         window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(manifest, window.missionCargoStatus.payloadBaseline);
     }
+    _missionCargoRememberPayloadAssignments(manifest, window.missionCargoStatus?.payloadPlan);
     let overlay = document.getElementById('missionCargoOverlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -3598,43 +4087,55 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         listTop: Number(overlay.querySelector('.mission-cargo-list')?.scrollTop || 0),
         listLeft: Number(overlay.querySelector('.mission-cargo-list')?.scrollLeft || 0)
     } : null;
-    const isUnload = mode === 'unload';
-    const missionStartReady = (isUnload || isPickup) ? true : _missionCargoLoadInteractionReady();
-    const visibleItems = isUnload
-        ? manifest.items.filter(item => (
-            item.status === 'loaded'
-            || item.status === 'unloaded'
-            || item.status === 'dropped'
-        ) && (
-            _missionCargoItemNeedsUnloadHere(item)
-            || item.persistentEquipment === true
-        ))
+    const missionStartReady = (isUnload || isPickup || isEquipment) ? true : _missionCargoLoadInteractionReady();
+    const visibleItems = isEquipment
+        ? manifest.items.filter(item => item.persistentEquipment === true)
         : (isPickup
             ? manifest.items.filter(item => item.pickupLocation === 'target')
             : manifest.items);
+    const rowItems = usesManifestSheet ? [] : visibleItems;
     const requiredMissing = manifest.items.filter(item => item.required && item.pickupLocation !== 'target' && item.status !== 'loaded').length;
     const requiredUnloadBlockingMissing = manifest.items.filter(item => item.required && _missionCargoItemNeedsUnloadHere(item) && item.status === 'loaded' && !_missionCargoIsPassengerItem(item)).length;
     const requiredPickupMissing = visibleItems.filter(item => item.required && item.status !== 'loaded').length;
     const unloadCompletesMission = isUnload && _missionRuntimeGroundEndReady();
     const passengerDeboardPending = isUnload && unloadCompletesMission && visibleItems.some(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
-    const signature = manifest.dispatchSignature && typeof manifest.dispatchSignature === 'object' ? manifest.dispatchSignature : null;
-    const signatureAnimating = !!signature && !isUnload && !isPickup && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now();
+    const signatureMode = isUnload ? 'unload' : 'load';
+    const storedSignature = manifest.dispatchSignature && typeof manifest.dispatchSignature === 'object'
+        ? manifest.dispatchSignature
+        : null;
+    const signature = _missionCargoSignatureMatchesMode(storedSignature, signatureMode)
+        ? storedSignature
+        : null;
+    const signatureAnimating = !!signature
+        && (isLoad || isUnload)
+        && String(window.missionCargoStatus?.signatureAnimationMode || signatureMode) === signatureMode
+        && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now();
     const signatureReady = !!signature && !signatureAnimating;
     const payloadFinalizeRunning = !!window.missionCargoStatus?.payloadFinalizeRunning;
+    const payloadAdapter = String(
+        window.missionCargoStatus?.payloadPlan?.payloadAdapter
+        || window.missionCargoStatus?.payloadBaseline?.payloadAdapter
+        || window.aircraftPayloadStatus?.snapshot?.payloadAdapter
+        || ''
+    );
     const assignmentMap = new Map(
-        ((window.missionCargoStatus?.payloadPlan?.assignments) || [])
-            .filter(row => (row?.type === 'cargo' && row?.itemId) || row?.type === 'pax')
-            .map(row => [row?.itemId ? String(row.itemId) : 'mission-passenger', Array.isArray(row.stations) ? row.stations.join('/') : '-'])
+        [..._missionCargoGroupPayloadAssignmentStations(window.missionCargoStatus?.payloadPlan)]
+            .map(([key, stations]) => [
+                key,
+                _missionCargoFormatSheetStationAssignment(stations, payloadAdapter)
+            ])
     );
     const livePos = _missionCargoLivePos();
     const pickupBoardingActive = isPickup && _missionBushIsPickupPassengerMission() && !!(window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive);
     const manualPassengerSceneBusy = _missionCargoManualPassengerSceneBusy();
     const pickupItemTypeLabel = _missionBushIsPickupCargoMission() ? 'Rueckholfracht' : 'wartenden Pickup-Gast';
-    const rows = visibleItems.map(item => {
+    const rows = rowItems.map(item => {
         const isPassenger = _missionCargoIsPassengerItem(item);
         const loaded = item.status === 'loaded';
         const unloaded = item.status === 'unloaded';
         const dropped = item.status === 'dropped';
+        const handedOff = _missionCargoIsPassengerHandoffLocked(item);
+        const pending = !loaded && !unloaded && !dropped;
         const reloadDistanceM = _missionCargoDistanceToUnloadM(item, livePos);
         const canReloadNearby = _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
         const passengerSceneBusy = isPassenger && manualPassengerSceneBusy;
@@ -3645,9 +4146,22 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const passengerSceneBusyLabel = passengerSceneBusy ? _missionCargoPassengerBusyLabel() : '';
         const canComplianceLoad = window.missionComplianceCanMutateCargo?.(item.id, 'load') !== false;
         const canComplianceUnload = window.missionComplianceCanMutateCargo?.(item.id, 'unload') !== false;
+        const managesPersistentEquipment = item.persistentEquipment === true && (isLoad || isEquipment);
+        const pendingEquipmentLocked = isEquipment && pending && (missionRuntime.active || complianceUi.active === true);
+        const actionMode = isEquipment ? 'equipment' : 'load';
         let action = '';
-        if (isUnload && isPassenger && !unloaded && unloadCompletesMission) {
+        if (handedOff) {
+            action = `<button class="mission-cargo-row-btn" disabled>${isPassenger ? 'Verabschiedet' : 'Mitgenommen'}</button>`;
+        } else if (isUnload && isPassenger && !unloaded && unloadCompletesMission) {
             action = '<button class="mission-cargo-row-btn" disabled>Nach Farewell</button>';
+        } else if (managesPersistentEquipment) {
+            action = dropped
+                ? '<button class="mission-cargo-row-btn" disabled>Abgeworfen</button>'
+                : (loaded
+                    ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canComplianceUnload) ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: '${actionMode}' })">${!canComplianceUnload ? 'Kontrolle läuft' : (!groundHandlingAllowed ? 'Nur am Boden' : 'Ausladen & prüfen')}</button>`
+                    : (unloaded
+                        ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canReloadNearby || !canComplianceLoad) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${actionMode}' })">${!canComplianceLoad ? 'Kontrolle läuft' : (!groundHandlingAllowed ? 'Nur am Boden' : (canReloadNearby ? 'Wieder laden' : 'Zu weit weg'))}</button>`
+                        : `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canComplianceLoad || pendingEquipmentLocked) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${actionMode}' })">${pendingEquipmentLocked ? 'Nicht an Bord' : (!canComplianceLoad ? 'Kontrolle läuft' : (!groundHandlingAllowed ? 'Nur am Boden' : 'Einladen'))}</button>`));
         } else {
             action = isUnload
                 ? (dropped
@@ -3657,12 +4171,29 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                     : `<button class="mission-cargo-row-btn" ${((!groundHandlingAllowed && isPassenger) || passengerSceneBusy || !canComplianceUnload) ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${!canComplianceUnload ? 'Kontrolle läuft' : (passengerSceneBusy ? passengerSceneBusyLabel : (groundHandlingAllowed ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Nur am Boden' : 'Abwerfen')))}</button>`))
                 : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed || !_missionCargoItemCanLoadAtCurrentStage(item) || pickupBoardingActive || passengerSceneBusy || passengerUsesMainBoarding) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: '${isPickup ? 'pickup' : 'load'}' })">${passengerSceneBusy ? passengerSceneBusyLabel : (passengerUsesMainBoarding ? 'Via Boarding' : (pickupBoardingActive ? 'Boarding läuft' : (!groundHandlingAllowed ? 'Nur am Boden' : (!_missionCargoItemCanLoadAtCurrentStage(item) ? 'Am Ziel' : (dropped ? 'Abgeworfen' : (loaded ? (isPassenger ? 'An Bord' : 'Geladen') : (isPassenger ? 'Einsteigen' : 'Laden')))))))}</button>`;
         }
-        const status = dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen'));
+        const status = handedOff
+            ? (isPassenger ? 'verabschiedet' : 'mitgenommen')
+            : (dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen')));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))
             ? ` · Distanz ${Math.round(reloadDistanceM)} m`
             : '';
         let equipmentDetail = '';
-        if (unloaded && item.persistentEquipment === true) {
+        const isBoardBook = /bordbuch/i.test(`${item.id} ${item.label} ${item.storyName}`);
+        const groundInventoryItemAvailable = isEquipment
+            && pending
+            && missionRuntime.active !== true
+            && complianceUi.active !== true;
+        if (isBoardBook && item.persistentEquipment === true) {
+            const boardBookAction = _missionCargoBoardBookActionState(item, manifest, 'cargo-equipment');
+            const boardBookLabel = boardBookAction.complete ? 'Flug eingetragen' : boardBookAction.label;
+            equipmentDetail = `
+                <div class="mission-cargo-equipment-detail is-boardbook">
+                    <span>Start: <b>${_missionCargoEscape(boardBookAction.log.startTime || '--')}</b> · Landung: <b>${_missionCargoEscape(boardBookAction.log.landingTime || '--')}</b></span>
+                    <div>
+                        <button type="button" ${boardBookAction.allowed ? '' : 'disabled'} onclick="event.stopPropagation(); window.missionCargoSetBoardBookTime && missionCargoSetBoardBookTime('${item.id}', '${boardBookAction.field || 'landing'}', { source: 'cargo-equipment' })">${boardBookLabel}</button>
+                    </div>
+                </div>`;
+        } else if ((unloaded || groundInventoryItemAvailable) && item.persistentEquipment === true) {
             if (item.equipmentType === 'expiry') {
                 const daysRemaining = _missionCargoExpiryDaysRemaining(item.expiresAt);
                 const expiryTone = !Number.isFinite(daysRemaining) || daysRemaining < 0
@@ -3677,27 +4208,15 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 const replaceLocked = complianceUi.replacementLocked === true;
                 equipmentDetail = `
                     <div class="mission-cargo-equipment-detail ${expiryTone}">
-                        <span>Ablaufdatum: <b>${_missionCargoEscape(item.expiresAt || '--')}</b> · ${_missionCargoEscape(expiryText)}</span>
-                        ${replaceEligible
-                            ? `<button type="button" ${replaceLocked ? 'disabled' : ''} onclick="window.missionCargoReplaceEquipment && missionCargoReplaceEquipment('${item.id}')">${replaceLocked ? 'Austausch gesperrt' : 'Gegen neuen ersetzen'}</button>`
+                        <span>Ablaufdatum: <b>${_missionCargoEscape(_missionCargoFormatExpiryDate(item.expiresAt))}</b> · ${_missionCargoEscape(expiryText)}</span>
+                        ${replaceEligible && !replaceLocked
+                            ? `<button type="button" onclick="window.missionCargoReplaceEquipment && missionCargoReplaceEquipment('${item.id}')">Erneuern</button>`
                             : ''}
-                    </div>`;
-            } else if (/bordbuch/i.test(`${item.id} ${item.label} ${item.storyName}`)) {
-                const log = item.log && typeof item.log === 'object' ? item.log : {};
-                const startAllowed = window.missionComplianceBoardBookWriteAllowed?.('start', { source: 'cargo' }) !== false;
-                const landingAllowed = window.missionComplianceBoardBookWriteAllowed?.('landing', { source: 'cargo' }) !== false;
-                equipmentDetail = `
-                    <div class="mission-cargo-equipment-detail is-boardbook">
-                        <span>Start: <b>${_missionCargoEscape(log.startTime || '--')}</b> · Landung: <b>${_missionCargoEscape(log.landingTime || '--')}</b></span>
-                        <div>
-                            <button type="button" ${startAllowed ? '' : 'disabled'} onclick="window.missionCargoSetBoardBookTime && missionCargoSetBoardBookTime('${item.id}', 'start', { source: 'cargo' })">Startzeit eintragen</button>
-                            <button type="button" ${landingAllowed ? '' : 'disabled'} onclick="window.missionCargoSetBoardBookTime && missionCargoSetBoardBookTime('${item.id}', 'landing', { source: 'cargo' })">Landezeit eintragen</button>
-                        </div>
                     </div>`;
             }
         }
         return `
-            <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''} ${dropped ? 'is-dropped' : ''}">
+            <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''} ${unloaded ? 'is-unloaded' : ''} ${handedOff ? 'is-handed-off' : ''} ${dropped ? 'is-dropped' : ''}">
                 <div class="mission-cargo-row-main">
                     <div class="mission-cargo-row-title">${_missionCargoEscape(item.storyName || item.label)}</div>
                     <div class="mission-cargo-row-meta">${item.persistentEquipment === true ? 'Bordbestand' : (item.required ? 'Pflicht' : 'Optional')} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${status}${distanceMeta}</div>
@@ -3705,41 +4224,191 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 ${action}
             </div>
             ${equipmentDetail}`;
-    }).join('') || `<div class="mission-cargo-empty">${isUnload ? 'Keine geladene Zielfracht offen.' : 'Keine Ladung fuer diese Mission.'}</div>`;
+    }).join('') || `<div class="mission-cargo-empty">${isEquipment || isLoad ? 'Kein Bordbestand vorhanden.' : (isUnload ? 'Keine geladene Zielfracht offen.' : 'Keine Ladung fuer diese Mission.')}</div>`;
     const clipboardRows = visibleItems.map((item, idx) => {
         const isPassenger = _missionCargoIsPassengerItem(item);
-        const loaded = item.status === 'loaded' || item.status === 'unloaded';
+        const isBoardBook = /bordbuch/i.test(`${item.id} ${item.label} ${item.storyName}`);
+        const onboard = item.status === 'loaded';
         const unloaded = item.status === 'unloaded';
         const dropped = item.status === 'dropped';
-        const status = dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (loaded ? (isPassenger ? 'an bord' : 'geladen') : 'offen'));
-        const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
+        const lost = item.status === 'lost';
+        const handedOff = _missionCargoIsPassengerHandoffLocked(item);
+        const pending = !onboard && !unloaded && !dropped && !lost;
+        const status = handedOff
+            ? (isPassenger ? 'verabschiedet' : 'mitgenommen')
+            : (lost
+                ? 'verloren'
+                : (dropped ? 'abgeworfen' : (unloaded ? (isPassenger ? 'ausgestiegen' : 'ausgeladen') : (onboard ? (isPassenger ? 'an bord' : 'geladen') : 'offen'))));
+        const rememberedStationText = _missionCargoFormatSheetStationAssignment(
+            item.payloadStations,
+            item.payloadStationAdapter || payloadAdapter
+        );
+        const stationText = assignmentMap.get(String(item.id))
+            || (rememberedStationText !== '-' ? rememberedStationText : ((onboard || unloaded) ? 'auto' : '-'));
+        const expiryDate = unloaded && item.equipmentType === 'expiry'
+            ? _missionCargoFormatExpiryDate(item.expiresAt)
+            : '';
+        const itemName = `
+            <span>${_missionCargoEscape(item.storyName || item.label || item.id)}</span>
+            ${expiryDate ? `<span class="mission-cargo-sheet-item-date">Gültig bis ${_missionCargoEscape(expiryDate)}</span>` : ''}
+        `;
+        const daysRemaining = item.equipmentType === 'expiry'
+            ? _missionCargoExpiryDaysRemaining(item.expiresAt)
+            : null;
+        const replaceEligible = unloaded
+            && item.equipmentType === 'expiry'
+            && (!Number.isFinite(daysRemaining) || daysRemaining < MISSION_CARGO_EQUIPMENT_REPLACE_THRESHOLD_DAYS)
+            && complianceUi.replacementLocked !== true;
+        const boardBookAction = isBoardBook
+            ? _missionCargoBoardBookActionState(item, manifest, 'cargo-manifest')
+            : null;
+        const stationAction = replaceEligible
+            ? `<button type="button" class="mission-cargo-sheet-action" onclick="event.stopPropagation(); window.missionCargoReplaceEquipment && missionCargoReplaceEquipment('${item.id}')">Erneuern</button>`
+            : (boardBookAction
+                ? `<button type="button" class="mission-cargo-sheet-action" ${boardBookAction.allowed ? '' : 'disabled'} onclick="event.stopPropagation(); window.missionCargoSetBoardBookTime && missionCargoSetBoardBookTime('${item.id}', '${boardBookAction.field || 'landing'}', { source: 'cargo-manifest' })">${boardBookAction.complete ? 'Flug eingetragen' : boardBookAction.label}</button>`
+                : '');
+        const stationMarkup = `
+            <span class="mission-cargo-sheet-station">${_missionCargoEscape(stationText)}</span>
+            ${stationAction}
+        `;
         const rowBusy = isPassenger && manualPassengerSceneBusy;
-        const rowCanInteract = !isUnload && !isPickup && groundHandlingAllowed && _missionCargoItemCanLoadAtCurrentStage(item) && !rowBusy;
-        const rowAction = rowCanInteract ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}', { mode: 'load' })"` : '';
+        const canComplianceLoad = window.missionComplianceCanMutateCargo?.(item.id, 'load') !== false;
+        const canComplianceUnload = window.missionComplianceCanMutateCargo?.(item.id, 'unload') !== false;
+        const canLoadAtStage = _missionCargoItemCanLoadAtCurrentStage(item);
+        const canReloadNearby = !unloaded || _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
+        const pendingEquipmentLocked = isEquipment && pending && (missionRuntime.active || complianceUi.active === true);
+        const usesArrivalDeboarding = isUnload && isPassenger && onboard && unloadCompletesMission;
+        let rowActionJs = '';
+        let rowActionLabel = '';
+        let rowActionDisabled = true;
+        if (handedOff) {
+            rowActionLabel = isPassenger ? 'Verabschiedet' : 'Vom PAX mitgenommen';
+        } else if (dropped) {
+            rowActionLabel = 'Abgeworfen';
+        } else if (lost) {
+            const replacementAvailable = isEquipment
+                && manifest.groundInventory === true
+                && missionRuntime.active !== true
+                && complianceUi.active !== true;
+            rowActionJs = replacementAvailable
+                ? `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'equipment', replaceLost: true })`
+                : '';
+            rowActionLabel = replacementAvailable ? 'Ersatz einladen' : 'Verloren';
+            rowActionDisabled = !replacementAvailable || !groundHandlingAllowed;
+        } else if (isUnload) {
+            if (usesArrivalDeboarding) {
+                const passengerEndReleased = signatureReady
+                    && requiredUnloadBlockingMissing === 0
+                    && canComplianceUnload;
+                rowActionJs = passengerEndReleased
+                    ? "window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd({ source: 'passenger-row', skipConfirm: true })"
+                    : '';
+                rowActionLabel = requiredUnloadBlockingMissing > 0
+                    ? 'Pflichtfracht zuerst'
+                    : (signatureReady ? 'Aussteigen' : 'Nach Unterschrift');
+                rowActionDisabled = !passengerEndReleased || !groundHandlingAllowed || rowBusy;
+            } else if (onboard) {
+                rowActionJs = `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: 'unload' })`;
+                rowActionLabel = !canComplianceUnload
+                    ? 'Kontrolle läuft'
+                    : (rowBusy
+                        ? _missionCargoPassengerBusyLabel()
+                        : (groundHandlingAllowed
+                            ? (isPassenger ? 'Aussteigen' : 'Ausladen')
+                            : (isPassenger ? 'Nur am Boden' : 'Abwerfen')));
+                rowActionDisabled = !canComplianceUnload || rowBusy || (!groundHandlingAllowed && isPassenger);
+            } else if (unloaded) {
+                rowActionJs = `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })`;
+                rowActionLabel = !canComplianceLoad
+                    ? 'Kontrolle läuft'
+                    : (rowBusy
+                        ? _missionCargoPassengerBusyLabel()
+                        : (!groundHandlingAllowed
+                            ? 'Nur am Boden'
+                            : (canReloadNearby ? (isPassenger ? 'Einsteigen' : 'Wieder laden') : 'Zu weit weg')));
+                rowActionDisabled = !canComplianceLoad || rowBusy || !groundHandlingAllowed || !canReloadNearby || !canLoadAtStage;
+            } else {
+                rowActionLabel = 'Nicht an Bord';
+            }
+        } else if (isEquipment) {
+            if (onboard) {
+                rowActionJs = `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: 'equipment' })`;
+                rowActionLabel = !canComplianceUnload ? 'Kontrolle läuft' : (groundHandlingAllowed ? 'Ausladen' : 'Nur am Boden');
+                rowActionDisabled = !canComplianceUnload || !groundHandlingAllowed;
+            } else {
+                rowActionJs = `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'equipment' })`;
+                rowActionLabel = pendingEquipmentLocked
+                    ? 'Nicht an Bord'
+                    : (!canComplianceLoad
+                        ? 'Kontrolle läuft'
+                        : (!groundHandlingAllowed
+                            ? 'Nur am Boden'
+                            : (canReloadNearby ? (unloaded ? 'Wieder laden' : 'Einladen') : 'Zu weit weg')));
+                rowActionDisabled = pendingEquipmentLocked || !canComplianceLoad || !groundHandlingAllowed || !canReloadNearby || !canLoadAtStage;
+            }
+        } else if (isLoad) {
+            if (item.persistentEquipment === true) {
+                if (onboard) {
+                    rowActionJs = `window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}', { mode: 'load' })`;
+                    rowActionLabel = !canComplianceUnload ? 'Kontrolle läuft' : (groundHandlingAllowed ? 'Ausladen' : 'Nur am Boden');
+                    rowActionDisabled = !canComplianceUnload || !groundHandlingAllowed;
+                } else {
+                    rowActionJs = `window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'load' })`;
+                    rowActionLabel = !canComplianceLoad
+                        ? 'Kontrolle läuft'
+                        : (!groundHandlingAllowed
+                            ? 'Nur am Boden'
+                            : (canReloadNearby ? (unloaded ? 'Wieder laden' : 'Einladen') : 'Zu weit weg'));
+                    rowActionDisabled = !canComplianceLoad || !groundHandlingAllowed || !canReloadNearby || !canLoadAtStage;
+                }
+            } else {
+                rowActionJs = `window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}', { mode: 'load' })`;
+                rowActionLabel = rowBusy
+                    ? _missionCargoPassengerBusyLabel()
+                    : (!groundHandlingAllowed
+                        ? 'Nur am Boden'
+                        : (!canLoadAtStage
+                            ? 'Am Ziel'
+                            : (onboard ? (isPassenger ? 'Aussteigen' : 'Ausladen') : (isPassenger ? 'Einsteigen' : 'Laden'))));
+                rowActionDisabled = rowBusy
+                    || !groundHandlingAllowed
+                    || !canLoadAtStage
+                    || (onboard ? !canComplianceUnload : !canComplianceLoad);
+            }
+        }
+        const rowCanInteract = !!rowActionJs && !rowActionDisabled;
+        const rowAction = rowCanInteract ? ` onclick="${rowActionJs}"` : '';
+        const statusHint = rowActionLabel
+            ? `<span class="mission-cargo-sheet-status-hint">${_missionCargoEscape(rowActionLabel)}</span>`
+            : '';
         const rowClasses = [
-            loaded ? 'is-loaded' : '',
+            onboard ? 'is-loaded' : '',
+            unloaded ? 'is-unloaded' : '',
+            handedOff ? 'is-handed-off' : '',
+            lost ? 'is-lost' : '',
             rowCanInteract ? 'is-interactive' : '',
             rowBusy ? 'is-disabled' : ''
         ].filter(Boolean).join(' ');
         return `
-            <tr class="${rowClasses}"${rowBusy ? ' aria-disabled="true"' : ''}${rowAction}>
+            <tr class="${rowClasses}"${rowBusy ? ' aria-disabled="true"' : ''}${rowAction}${rowActionLabel ? ` title="${_missionCargoEscape(rowActionLabel)}"` : ''}>
                 <td>${idx + 1}</td>
-                <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
+                <td>${itemName}</td>
                 <td>${isPassenger ? `PAX${Number(item.passengerCount || 0) > 1 ? ` x${Number(item.passengerCount)}` : ''}` : (item.persistentEquipment === true ? 'Bordbestand' : (item.required ? 'Pflicht' : 'Optional'))}</td>
                 <td>${Math.round(Number(item.weightLbs) || 0)} lbs</td>
-                <td>${_missionCargoEscape(stationText)}</td>
-                <td>${status}</td>
+                <td>${stationMarkup}</td>
+                <td><div class="mission-cargo-sheet-status"><span>${status}</span>${statusHint}</div></td>
             </tr>`;
-    }).join('') || `<tr><td colspan="6">Keine Ladung fuer diese Mission.</td></tr>`;
+    }).join('') || `<tr><td colspan="6">${isEquipment ? 'Kein Bordbestand vorhanden.' : 'Keine Ladung fuer diese Mission.'}</td></tr>`;
     const metaAircraft = _missionCargoAircraftLabel();
     const metaPilot = _missionCargoPilotId();
     const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
     const signatureName = _missionCargoEscape(signature?.by || metaPilot);
-    const signatureActionEnabled = (!!signature || requiredMissing === 0) && !manualPassengerSceneBusy;
-    const signaturePanel = (!isUnload && !isPickup) ? `
-        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${signatureAnimating ? 'is-animating' : ''} ${(!signatureAnimating && signatureActionEnabled) ? 'is-clickable' : ''}" onclick="${(!signatureAnimating && signatureActionEnabled) ? 'window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()' : ''}">
+    const signatureBlockingMissing = isUnload ? requiredUnloadBlockingMissing : requiredMissing;
+    const signatureActionEnabled = (!!signature || signatureBlockingMissing === 0) && !manualPassengerSceneBusy;
+    const signaturePanel = (isLoad || isUnload) ? `
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${signatureAnimating ? 'is-animating' : ''} ${(!signatureAnimating && signatureActionEnabled) ? 'is-clickable' : ''}" onclick="${(!signatureAnimating && signatureActionEnabled) ? `window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature({ mode: '${signatureMode}' })` : ''}">
             <div class="mission-cargo-signature-line">${signature ? `<span class="mission-cargo-signature-name">${signatureName}</span>` : '&nbsp;'}</div>
-            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · ${signatureAnimating ? 'wird eingetragen' : (signatureReady ? 'Klick: Signatur löschen' : (signatureActionEnabled ? 'Klick: unterschreiben' : 'Pflichtladung zuerst vollständig laden'))}</div>
+            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · ${signatureAnimating ? 'wird eingetragen' : (signatureReady ? 'Klick: Signatur löschen' : (signatureActionEnabled ? 'Klick: unterschreiben' : (isUnload ? 'Pflichtladung zuerst vollständig entladen' : 'Pflichtladung zuerst vollständig laden')))}</div>
         </div>` : '';
     const pickupReadyToConfirm = isPickup && requiredPickupMissing === 0 && visibleItems.length > 0;
     const complianceEvidenceOpen = isUnload && complianceUi.active === true && complianceUi.phase === 'evidence_open';
@@ -3747,17 +4416,20 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         && (complianceUi.phase === 'request_playing' || complianceUi.phase === 'result_playing' || complianceUi.phase === 'departing');
     let primaryActionJs = 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()';
     let primaryActionLabel = 'Verladung abschließen';
-    if (complianceEvidenceOpen) {
+    if (isEquipment) {
+        primaryActionJs = 'window.closeMissionCargoDialog && closeMissionCargoDialog()';
+        primaryActionLabel = 'Fenster schließen';
+    } else if (complianceEvidenceOpen) {
         primaryActionJs = 'window.missionComplianceSubmitEvidence && missionComplianceSubmitEvidence()';
         primaryActionLabel = complianceUi.actionLabel || 'Der Kontrolle vorlegen';
     } else if (complianceActionBusy) {
         primaryActionJs = '';
         primaryActionLabel = complianceUi.phase === 'departing' ? 'Abfahrt abwarten ...' : 'Kontrolle läuft ...';
-    } else if (!isUnload && !isPickup && window.missionCargoStatus?.loadConfirmed) {
+    } else if (isLoad && window.missionCargoStatus?.loadConfirmed) {
         primaryActionJs = 'window.closeMissionCargoDialog && closeMissionCargoDialog()';
-        primaryActionLabel = 'Hinweis verstanden - Fenster schließen';
-    } else if (!isUnload && !isPickup && !signatureReady) {
-        primaryActionJs = 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()';
+        primaryActionLabel = 'Fenster schließen';
+    } else if ((isLoad || isUnload) && !signatureReady) {
+        primaryActionJs = `window.missionCargoSignDispatchList && missionCargoSignDispatchList({ mode: '${signatureMode}' })`;
         primaryActionLabel = signatureAnimating ? 'Unterschrift wird eingetragen ...' : 'Unterschrift eintragen';
     } else if (isUnload) {
         primaryActionJs = 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()';
@@ -3770,20 +4442,20 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     } else if (payloadFinalizeRunning) {
         primaryActionLabel = 'Sim-Zuladung wird geprüft ...';
     }
-    const secondaryAction = (!isUnload && !isPickup && signatureReady && !window.missionCargoStatus?.loadConfirmed)
-        ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
+    const secondaryAction = ((isLoad || isUnload) && signatureReady && !(isLoad && window.missionCargoStatus?.loadConfirmed))
+        ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature({ mode: '${signatureMode}' })">Zurueck zur Liste</button>`
         : '';
-    const listMarkup = (!isUnload && !isPickup)
-        ? ''
-        : `<div class="mission-cargo-list">${rows}</div>`;
+    const listMarkup = usesManifestSheet ? '' : `<div class="mission-cargo-list">${rows}</div>`;
     const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup'
         ? 'Zielplatz'
         : 'Zielstrip';
-    const modeHint = isUnload
+    const modeHint = isEquipment
+        ? '<div class="mission-cargo-summary">Bordbestand zum Pruefen zuerst ausladen. Gültigkeit und Aktionen erscheinen direkt unter dem jeweiligen Item.</div>'
+        : (isUnload
         ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.</div>' : '')
         : (isPickup
             ? (!groundHandlingAllowed ? `<div class="mission-cargo-summary">Pickup ist nur im Stillstand am ${pickupPlaceLabel} moeglich.</div>` : '<div class="mission-cargo-summary">Zum Treffpunkt rollen, Pickup laden und danach den Rueckflug bestaetigen.</div>')
-            : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : ''));
+            : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : '<div class="mission-cargo-summary">Bordbestand direkt in der Frachtgutliste anklicken. Nach dem Ausladen erscheint das Gueltigkeitsdatum unter dem Namen.</div>')));
     const onboardWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'loaded' ? Number(item.weightLbs || 0) : 0), 0);
     const unloadedWeightLbs = manifest.items.reduce((sum, item) => sum + (item.status === 'unloaded' ? Number(item.weightLbs || 0) : 0), 0);
     const weightSummary = `${Math.round(onboardWeightLbs)} lbs an Bord${unloadedWeightLbs > 0 ? ` · ${Math.round(unloadedWeightLbs)} lbs entladen` : ''}`;
@@ -3791,14 +4463,16 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         <div class="mission-cargo-panel">
             <div class="mission-cargo-head">
                 <div>
-                    <div class="mission-cargo-kicker">${isUnload ? 'Ankunft' : 'Abflug'}</div>
-                    <div class="mission-cargo-title">${isUnload ? 'Ladung entladen' : (isPickup ? `Pickup am ${pickupPlaceLabel}` : 'Verladung')}</div>
+                    <div class="mission-cargo-kicker">${isPickup ? 'Pickup' : 'Bodenservice'}</div>
+                    <div class="mission-cargo-title">${isPickup ? `Pickup am ${pickupPlaceLabel}` : 'Verladung'}</div>
                 </div>
                 <button class="mission-cargo-close" onclick="window.closeMissionCargoDialog && closeMissionCargoDialog()" title="Schliessen">×</button>
             </div>
             ${modeHint}
             ${complianceUi.active === true ? `<div class="mission-cargo-summary mission-cargo-compliance-summary">${_missionCargoEscape(complianceUi.message || 'Behoerdenkontrolle laeuft.')}</div>` : ''}
-            <div class="mission-cargo-copy">${isUnload
+            <div class="mission-cargo-copy">${isEquipment
+                ? 'Hier kannst du Bordbuch, Feuerloescher und Verbandzeug ausladen, pruefen, bei Bedarf austauschen und wieder einladen.'
+                : (isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Bordbestand bleibt beim Flugzeug gespeichert, solange du ihn nicht auslaedst. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
                 : (isPickup
                     ? `Hier laedst du ${pickupItemTypeLabel} am ${pickupPlaceLabel} ein. Nach der Bestaetigung wird der Rueckflug freigegeben.`
@@ -3808,8 +4482,8 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                             : 'Verladung ist bestaetigt. Mission starten wird freigegeben, sobald Boarding und Ansage fertig sind.')
                         : (missionStartReady
                             ? 'Die Boarding-Animation ist abgeschlossen. Nach dem Abschliessen der Verladung ist die Mission startbereit.'
-                            : 'Verladen ist bereits moeglich. Die eigentliche Missionsaktivierung wird erst nach Boarding und Verladung freigeschaltet.')))}</div>
-            ${(!isUnload && !isPickup) ? `
+                            : 'Verladen ist bereits moeglich. Die eigentliche Missionsaktivierung wird erst nach Boarding und Verladung freigeschaltet.'))))}</div>
+            ${usesManifestSheet ? `
             <div class="mission-cargo-clipboard">
                 <div class="mission-cargo-sheet-title">Frachtgutliste</div>
                 <div class="mission-cargo-sheet-meta">
@@ -3832,15 +4506,15 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 </table>
                 ${signaturePanel}
             </div>` : ''}
-            ${_missionCargoPayloadSummaryHtml(mode)}
+            ${isEquipment ? '' : _missionCargoPayloadSummaryHtml(mode)}
             ${listMarkup}
             <div class="mission-cargo-summary">
-                <span>${isUnload ? `${requiredUnloadBlockingMissing} Pflicht-Items noch zu entladen${passengerDeboardPending ? ' · PAX via Deboarding' : ''}` : (isPickup ? `${requiredPickupMissing} Pickup-Items offen` : `${requiredMissing} Pflicht-Items offen`)}</span>
+                <span>${isEquipment ? `${manifest.items.filter(item => item.persistentEquipment === true && item.status === 'loaded').length} Bord-Items an Bord` : (isUnload ? `${requiredUnloadBlockingMissing} Pflicht-Items noch zu entladen${passengerDeboardPending ? ' · PAX via Deboarding' : ''}` : (isPickup ? `${requiredPickupMissing} Pickup-Items offen` : `${requiredMissing} Pflicht-Items offen`))}</span>
                 <span>${weightSummary}</span>
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${((isUnload && (!groundHandlingAllowed || manualPassengerSceneBusy || complianceActionBusy)) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm || manualPassengerSceneBusy)) || (!isUnload && !isPickup && (!groundHandlingAllowed || signatureAnimating || payloadFinalizeRunning || manualPassengerSceneBusy || requiredMissing > 0))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${((isUnload && (!groundHandlingAllowed || signatureAnimating || manualPassengerSceneBusy || complianceActionBusy || requiredUnloadBlockingMissing > 0)) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm || manualPassengerSceneBusy)) || (isLoad && (!groundHandlingAllowed || signatureAnimating || payloadFinalizeRunning || manualPassengerSceneBusy || requiredMissing > 0))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3911,7 +4585,11 @@ window.missionCargoHandleLiveFuelUpdate = function(flightData = null) {
 
 window.openMissionCargoDialog = function(mode = 'load') {
     _missionCargoEnsureUiSyncHook();
-    const normalizedMode = mode === 'unload' ? 'unload' : (mode === 'pickup' ? 'pickup' : 'load');
+    const requestedMode = String(mode || 'load');
+    const normalizedMode = ['unload', 'pickup', 'equipment'].includes(requestedMode) ? requestedMode : 'load';
+    if (normalizedMode === 'unload' && !_missionCargoHasActiveMission()) {
+        return window.openMissionGroundCargoDialog?.() || false;
+    }
     if (normalizedMode === 'unload') {
         try {
             window.missionComplianceEnsureFinalDecision?.();
@@ -3920,6 +4598,33 @@ window.openMissionCargoDialog = function(mode = 'load') {
     }
     _missionCargoRenderDialog(normalizedMode, { preserveScroll: false });
     _updateMissionRuntimeUi();
+    return true;
+};
+
+window.openMissionGroundCargoDialog = function() {
+    if (!_missionCargoGroundHandlingAllowed()) {
+        window.missionCargoStatus.error = 'Bordbestand kann nur am Boden und im Stillstand geoeffnet werden.';
+        return false;
+    }
+    if (_missionCargoHasActiveMission()) {
+        window.missionCargoEndGroundInventorySession?.();
+        const complianceActive = window.missionComplianceGetCargoUiState?.()?.active === true;
+        let groundAction = null;
+        try {
+            groundAction = missionRuntime.active
+                ? window.missionResolveGroundAction?.({ active: true, trigger: 'cargo-ground-window' })
+                : null;
+        } catch (_) {}
+        const arrivalWork = complianceActive
+            || groundAction?.action === 'unload'
+            || (missionRuntime.active && _missionRuntimeGroundEndReady());
+        const mode = arrivalWork ? 'unload' : 'load';
+        window.openMissionCargoDialog?.(mode);
+    } else {
+        window.missionCargoBeginGroundInventorySession?.();
+        window.openMissionCargoDialog?.('equipment');
+    }
+    return true;
 };
 
 window.closeMissionCargoDialog = function() {
@@ -3927,14 +4632,62 @@ window.closeMissionCargoDialog = function() {
     if (overlay) overlay.style.display = 'none';
 };
 
+function _missionCargoActionDialogMode(options = {}, fallback = 'load') {
+    const requestedMode = String(options?.mode || '');
+    if (requestedMode === 'unload-reload' || requestedMode === 'unload') return 'unload';
+    if (requestedMode === 'pickup') return 'pickup';
+    if (requestedMode === 'equipment') return 'equipment';
+    if (requestedMode === 'load') return 'load';
+    return fallback;
+}
+
 window.missionCargoLoadItem = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
+    const renderMode = _missionCargoActionDialogMode(options, 'load');
+    if (_missionCargoIsPassengerHandoffLocked(item)) {
+        window.missionCargoStatus.error = _missionCargoIsPassengerItem(item)
+            ? 'Der verabschiedete Passagier ist bereits abgefahren.'
+            : 'Dieses Item wurde dem Passagier übergeben und mitgenommen.';
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
+    if (!_missionCargoGroundHandlingAllowed()) {
+        window.missionCargoStatus.error = 'Verladen ist nur am Boden und im Stillstand moeglich.';
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
     if (window.missionComplianceCanMutateCargo?.(itemId, 'load') === false) {
         window.missionCargoStatus.error = 'Aenderung gesperrt, solange das Kontrollergebnis bekanntgegeben wird.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
+    }
+    const replacingLostEquipment = item.status === 'lost';
+    if (replacingLostEquipment) {
+        const replacementAllowed = options.replaceLost === true
+            && manifest.groundInventory === true
+            && missionRuntime.active !== true
+            && window.missionComplianceGetCargoUiState?.()?.active !== true;
+        if (!replacementAllowed) {
+            window.missionCargoStatus.error = 'Verlorener Bordbestand kann erst beim naechsten Bodenservice ersetzt werden.';
+            if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+            return false;
+        }
+        const issuedAt = Date.now();
+        item.status = 'pending';
+        item.lostAt = 0;
+        item.loadedAt = 0;
+        item.unloadedAt = 0;
+        item.unloadLat = null;
+        item.unloadLon = null;
+        item.unloadAltFt = null;
+        if (item.equipmentType === 'expiry') {
+            item.issuedAt = issuedAt;
+            item.serialId = _missionCargoNewEquipmentSerial(item.id, issuedAt);
+            item.expiresAt = _missionCargoNewExpiryDate(`${manifest.aircraftSlot}|${item.id}|lost-replacement|${issuedAt}`, issuedAt);
+            item.replacedAt = issuedAt;
+        }
     }
     if (!_missionCargoItemCanLoadAtCurrentStage(item)) {
         const pickupPlaceLabel = String(_activeBushMissionSpec()?.profileId || '').toLowerCase() === 'apt_charter_pickup'
@@ -3943,7 +4696,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         window.missionCargoStatus.error = item.pickupLocation === 'target'
             ? `Dieser Pickup ist erst am ${pickupPlaceLabel} verfügbar.`
             : 'Dieses Item ist in der aktuellen Missionsphase noch nicht verfügbar.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'pickup' ? 'pickup' : (options.mode === 'unload-reload' ? 'unload' : 'load'), { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     if (_missionCargoIsPassengerItem(item)
@@ -3952,7 +4705,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         && !missionRuntime.active
         && options.skipAnimation !== true) {
         window.missionCargoStatus.error = 'Der Passagier steigt über den regulären Boarding-Ablauf ein.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     if (!options.skipAnimation && item.pickupLocation === 'target' && _missionCargoIsPassengerItem(item) && item.status !== 'unloaded') {
@@ -3961,7 +4714,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     }
     if (item.status === 'dropped') {
         window.missionCargoStatus.error = 'Dieses Item wurde im Flug abgeworfen und kann nicht wieder geladen werden.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     if (item.status === 'unloaded' && !_missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M)) {
@@ -3969,13 +4722,13 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         window.missionCargoStatus.error = Number.isFinite(dM)
             ? `Zu weit vom entladenen Item entfernt (${Math.round(dM)} m, max ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m).`
             : `Position fehlt: fuer Wiederladen im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m bleiben.`;
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     const wasUnloaded = item.status === 'unloaded';
     if (_missionCargoIsPassengerItem(item) && !options.skipAnimation) {
         const ok = _missionCargoMarkPassengerLoaded(_missionCargoManualPassengerLoadOptions(item, wasUnloaded, options.reason));
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return ok;
     }
     if (item.persistentEquipment === true) item.persistentEquipmentInherited = false;
@@ -3989,6 +4742,9 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     item.droppedLat = null;
     item.droppedLon = null;
     item.droppedAltFt = null;
+    item.lostAt = 0;
+    item.handoffComplete = false;
+    item.handedOffAt = 0;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (_missionCargoIsPassengerItem(item) && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
@@ -4007,7 +4763,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         const removeSceneId = isTargetPickup
             ? (window.missionAptArrivalSceneStatus?.sceneId || _missionAptArrivalSceneId())
             : (wasUnloaded ? _missionCargoUnloadSceneId() : _missionCargoSceneId());
-        _missionCargoRemoveVisibleItem(item, {
+        _missionCargoQueueVisibleItemState(item, false, {
             sceneId: removeSceneId,
             reason: isTargetPickup ? 'pickup-cargo-load' : (wasUnloaded ? 'cargo-reload' : 'cargo-load'),
             unloaded: wasUnloaded,
@@ -4015,7 +4771,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
         });
     }
     _missionCargoSyncPayloadToSim(wasUnloaded ? 'cargo-reload-item' : 'cargo-load-item').catch(() => {});
-    if (options.render !== false) _missionCargoRenderDialog(options.mode === 'pickup' ? 'pickup' : (options.mode === 'unload-reload' ? 'unload' : 'load'), { skipPayloadRefresh: true });
+    if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
@@ -4023,15 +4779,21 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item) return false;
+    const renderMode = _missionCargoActionDialogMode(options, 'load');
+    if (!_missionCargoGroundHandlingAllowed()) {
+        window.missionCargoStatus.error = 'Verladen ist nur am Boden und im Stillstand moeglich.';
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
     const complianceAction = item.status === 'loaded' ? 'unload' : 'load';
     if (window.missionComplianceCanMutateCargo?.(itemId, complianceAction) === false) {
         window.missionCargoStatus.error = 'Aenderung gesperrt, solange das Kontrollergebnis bekanntgegeben wird.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     if (_missionCargoIsPassengerItem(item) && _missionCargoManualPassengerSceneBusy()) {
         window.missionCargoStatus.error = _missionCargoManualPassengerBusyMessage();
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
     if (item.status === 'unloaded') {
@@ -4045,7 +4807,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unboard',
             manualAnimation: true
         });
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return ok;
     }
     _missionCargoDetachInheritedEquipmentFromBaseline(item);
@@ -4062,32 +4824,167 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     item.healthPct = 100;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
-    _missionCargoSpawnVisibleItem(item, { reason: 'cargo-toggle-unload' });
+    _missionCargoQueueVisibleItemState(item, true, {
+        reason: 'cargo-toggle-unload',
+        sceneId: _missionCargoSceneId(),
+        unloaded: false
+    });
     _missionCargoPlayAudioCue('cargo_unload', item, 'unload', { queue: true });
     _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
-    if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
 function _missionCargoIsAirborneNow() {
-    const fd = window.lastLiveFlightData || {};
+    const fd = (window.simModeActive && window.gaSimFlightData)
+        ? window.gaSimFlightData
+        : (window.lastLiveFlightData || {});
     if (typeof fd.onGround === 'boolean') return !fd.onGround;
     const agl = Number(fd.aglFt);
     const gs = Number(fd.gsKts ?? fd.gs ?? window.lastLiveGpsPos?.gs ?? 0);
     return (Number.isFinite(agl) && agl > 80) || (missionRuntime.active && Number.isFinite(gs) && gs > 35);
 }
 
+window.missionCargoHandleAircraftMovement = function(rawFlightData = null) {
+    const fd = rawFlightData && typeof rawFlightData === 'object'
+        ? rawFlightData
+        : (window.lastLiveFlightData || {});
+    const onGroundKnown = typeof fd.onGround === 'boolean';
+    const agl = Number(fd.aglFt);
+    const gs = Number(fd.gsKts ?? fd.gs ?? window.lastLiveGpsPos?.gs ?? 0);
+    const departed = onGroundKnown
+        ? fd.onGround === false
+        : ((Number.isFinite(agl) && agl > 80) || (Number.isFinite(gs) && gs > 35));
+    const groundUiKey = `${departed ? 'air' : 'ground'}:${!departed && (!Number.isFinite(gs) || gs <= 5) ? 'still' : 'moving'}`;
+    if (window.missionCargoStatus?.groundUiKey !== groundUiKey) {
+        window.missionCargoStatus.groundUiKey = groundUiKey;
+        setTimeout(() => {
+            try { _updateMissionRuntimeUi(); } catch (_) {}
+        }, 0);
+    }
+    if (!departed) return false;
+
+    const aircraftSlot = _missionCargoAircraftSlot();
+    const state = _missionCargoReadOnboardEquipmentState();
+    const storedEntry = state.aircraft?.[aircraftSlot];
+    const lostIds = MISSION_CARGO_PERSISTENT_EQUIPMENT_IDS.filter((id) => {
+        const stored = storedEntry?.items?.[id];
+        return !!stored && stored.onboard !== true && stored.status !== 'lost';
+    });
+    if (!lostIds.length) return false;
+
+    const now = Date.now();
+    lostIds.forEach((id) => {
+        const stored = storedEntry.items[id];
+        stored.onboard = false;
+        stored.status = 'lost';
+        stored.loadedAt = 0;
+        stored.unloadLat = null;
+        stored.unloadLon = null;
+        stored.unloadAltFt = null;
+        stored.lostAt = now;
+        stored.updatedAt = now;
+    });
+    storedEntry.updatedAt = now;
+    state.updatedAt = now;
+    _missionCargoWriteOnboardEquipmentState(state, { scheduleCloud: true });
+
+    const manifests = Array.from(new Set([
+        missionCargoGroundInventoryManifest,
+        _missionCargoGetManifest()
+    ].filter(manifest => manifest && Array.isArray(manifest.items))));
+    manifests.forEach((manifest) => {
+        let changed = false;
+        lostIds.forEach((id) => {
+            const item = manifest.items.find(entry => entry?.id === id && entry.persistentEquipment === true);
+            if (!item || item.status === 'loaded' || item.status === 'lost') return;
+            _missionCargoQueueVisibleItemState(item, false, {
+                sceneId: _missionCargoUnloadSceneId(),
+                reason: 'ground-equipment-left-behind',
+                unloaded: true
+            });
+            item.status = 'lost';
+            item.loadedAt = 0;
+            item.unloadedAt = 0;
+            item.unloadLat = null;
+            item.unloadLon = null;
+            item.unloadAltFt = null;
+            item.lostAt = now;
+            changed = true;
+        });
+        if (changed) _missionCargoPersistManifest(manifest);
+    });
+    window.missionCargoStatus.lastEquipmentLossAt = now;
+    window.missionCargoStatus.lastEquipmentLossIds = lostIds.slice();
+    return true;
+};
+
+window.missionCargoStageSimEquipmentAtAircraft = function(reason = 'sim-boarding-stage') {
+    if (!window.simModeActive || !_missionCargoGroundHandlingAllowed()) return false;
+    const pos = _missionCargoLivePos();
+    if (!pos) return false;
+    const manifest = _missionCargoEnsureManifest();
+    const staged = [];
+    (manifest.items || [])
+        .filter(item => item?.persistentEquipment === true && item.status === 'unloaded')
+        .forEach(item => {
+            const previousDistanceM = _missionCargoDistanceToUnloadM(item, pos);
+            item.unloadLat = pos.lat;
+            item.unloadLon = pos.lon;
+            item.unloadAltFt = pos.altFt;
+            item.unloadedAt = Number(item.unloadedAt || 0) || Date.now();
+            staged.push({
+                id: item.id,
+                previousDistanceM: Number.isFinite(previousDistanceM) ? Math.round(previousDistanceM) : null
+            });
+        });
+    if (!staged.length) return false;
+    _missionCargoPersistManifest(manifest);
+    _missionPhaseDebugPush('cargo_sim_equipment_staged', {
+        reason,
+        position: { lat: pos.lat, lon: pos.lon, altFt: pos.altFt },
+        items: staged
+    });
+    return true;
+};
+
 function _missionCargoRemoveLoadedSceneObjects(reason = 'cargo-loaded-sync') {
     if (window.simModeActive || !window.liveTrackerConnected) return false;
     const manifest = _missionCargoEnsureManifest();
     let sent = false;
     manifest.items
-        .filter(item => item.status === 'loaded' || item.status === 'unloaded')
+        .filter(item => item.status === 'loaded' && item.persistentEquipment !== true && !_missionCargoIsPassengerItem(item))
         .forEach(item => {
-            sent = _missionCargoRemoveVisibleItem(item, {
+            sent = _missionCargoQueueVisibleItemState(item, false, {
                 reason,
-                unloaded: item.status === 'unloaded',
-                sceneId: item.status === 'unloaded' ? _missionCargoUnloadSceneId() : _missionCargoSceneId()
+                unloaded: false,
+                sceneId: _missionCargoSceneId(),
+                immediate: true
+            }) || sent;
+        });
+    return sent;
+}
+
+function _missionCargoEnsurePendingSceneObjects(spawnedObjects = [], reason = 'cargo-pending-sync') {
+    if (window.simModeActive || !window.liveTrackerConnected) return false;
+    const manifest = _missionCargoEnsureManifest();
+    const visibleObjectKeys = new Set((Array.isArray(spawnedObjects) ? spawnedObjects : [])
+        .map(object => String(object?.objectKey || '').trim())
+        .filter(Boolean));
+    let sent = false;
+    (manifest.items || [])
+        .filter(item => item.status === 'pending')
+        .filter(item => item.persistentEquipment !== true)
+        .filter(item => item.pickupLocation !== 'target')
+        .filter(item => !_missionCargoIsPassengerItem(item))
+        .forEach(item => {
+            const objectKey = _missionCargoStableObjectKey(item, manifest);
+            if (visibleObjectKeys.has(objectKey)) return;
+            sent = _missionCargoQueueVisibleItemState(item, true, {
+                sceneId: _missionCargoSceneId(),
+                reason,
+                unloaded: false,
+                immediate: true
             }) || sent;
         });
     return sent;
@@ -4105,17 +5002,24 @@ function _missionCargoSpawnUnloadedSceneObjects(reason = 'cargo-unloaded-sync') 
     let sent = false;
     (manifest.items || [])
         .filter(item => item.status === 'unloaded' && !_missionCargoIsPassengerItem(item))
+        .filter(item => !_missionCargoIsPassengerHandoffLocked(item))
         .forEach(item => {
-            _missionCargoRemoveVisibleItem(item, {
-                sceneId: _missionCargoUnloadSceneId(),
-                reason: `${reason}-refresh-remove`,
-                unloaded: true
-            });
-            sent = _missionCargoSpawnVisibleItem(item, {
+            const storedLat = _missionCargoNullableNumber(item.unloadLat);
+            const storedLon = _missionCargoNullableNumber(item.unloadLon);
+            if (storedLat !== null && storedLon !== null && !_missionCargoCanReloadUnloadedItem(item)) return;
+            const storedAltFt = _missionCargoNullableNumber(item.unloadAltFt);
+            sent = _missionCargoQueueVisibleItemState(item, true, {
                 sceneId: _missionCargoUnloadSceneId(),
                 reason,
                 unloaded: true,
-                pos
+                pos: storedLat !== null && storedLon !== null
+                    ? {
+                        lat: storedLat,
+                        lon: storedLon,
+                        altFt: storedAltFt ?? Number(pos.altFt || 0),
+                        hdg: Number(pos.hdg || 0)
+                    }
+                    : pos
             }) || sent;
         });
     return sent;
@@ -4129,13 +5033,18 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status !== 'loaded') return false;
+    const renderMode = _missionCargoActionDialogMode(options, 'unload');
     if (window.missionComplianceCanMutateCargo?.(itemId, 'unload') === false) {
         window.missionCargoStatus.error = 'Aenderung gesperrt, solange das Kontrollergebnis bekanntgegeben wird.';
-        if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return false;
     }
-    if (_missionCargoIsPassengerItem(item) && !options.drop && !_missionCargoGroundHandlingAllowed()) return false;
     const dropped = options.drop === true || _missionCargoIsAirborneNow();
+    if (!dropped && !_missionCargoGroundHandlingAllowed()) {
+        window.missionCargoStatus.error = 'Entladen ist nur am Boden und im Stillstand moeglich.';
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
+        return false;
+    }
     if (_missionCargoIsPassengerItem(item) && dropped) return false;
     if (!_missionCargoIsPassengerItem(item)) _missionCargoDetachInheritedEquipmentFromBaseline(item);
     if (dropped) {
@@ -4158,7 +5067,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         }
         _missionCargoPlayAudioCue('cargo_drop', item, 'drop');
         _missionCargoSyncPayloadToSim('cargo-drop-item').catch(() => {});
-        if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return true;
     }
     if (_missionCargoIsPassengerItem(item)) {
@@ -4166,7 +5075,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             reason: options.reason || 'passenger-manual-unload',
             manualAnimation: true
         });
-        if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+        if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
         return ok;
     }
     const livePos = _missionCargoCommandBasePos();
@@ -4186,19 +5095,15 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     }
     _missionCargoPlayAudioCue('cargo_unload', item, 'unload', { queue: true });
     if (!window.simModeActive && window.liveTrackerConnected && !_missionCargoIsPassengerItem(item)) {
-        _missionCargoRemoveVisibleItem(item, {
-            sceneId: _missionCargoUnloadSceneId(),
-            reason: 'cargo-unload-refresh-remove',
-            unloaded: true
-        });
-        _missionCargoSpawnVisibleItem(item, {
+        _missionCargoQueueVisibleItemState(item, true, {
             sceneId: _missionCargoUnloadSceneId(),
             reason: 'cargo-unload',
-            unloaded: true
+            unloaded: true,
+            pos: livePos
         });
     }
     _missionCargoSyncPayloadToSim('cargo-unload-item').catch(() => {});
-    if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+    if (options.render !== false) _missionCargoRenderDialog(renderMode, { skipPayloadRefresh: true });
     return true;
 };
 
@@ -4206,10 +5111,17 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || !/bordbuch/i.test(`${item.id} ${item.label} ${item.storyName}`)) return false;
+    if (manifest.groundInventory === true) {
+        window.missionCargoStatus.error = 'Kein laufender Missionsflug fuer einen Bordbucheintrag.';
+        return false;
+    }
     const normalized = field === 'landing' ? 'landing' : 'start';
     const source = String(options.source || 'cargo');
+    const directCargoSource = source === 'cargo-manifest' || source === 'cargo-equipment';
     if (source === 'banner') {
         if (item.status !== 'loaded') return false;
+    } else if (directCargoSource) {
+        if (item.status !== 'loaded' && item.status !== 'unloaded') return false;
     } else if (item.status !== 'unloaded') {
         return false;
     }
@@ -4222,6 +5134,7 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
     const atKey = normalized === 'landing' ? 'landingAt' : 'startAt';
     item.log = item.log && typeof item.log === 'object' ? item.log : {};
     const currentFlightId = window.missionCargoCurrentFlightId?.() || '';
+    if (!currentFlightId) return false;
     if (String(item.log.flightId || '') !== String(currentFlightId)) {
         item.log = {};
     }
@@ -4232,6 +5145,16 @@ window.missionCargoSetBoardBookTime = function(itemId, field, options = {}) {
     item.log.loggedAt = Date.now();
     item.log.lastSource = source;
     item.log.backfilled = source !== 'banner';
+    manifest.flightEvents = manifest.flightEvents && typeof manifest.flightEvents === 'object'
+        ? manifest.flightEvents
+        : {};
+    if (String(manifest.flightEvents.flightId || '') !== String(currentFlightId)) {
+        manifest.flightEvents = {};
+    }
+    manifest.flightEvents.flightId = currentFlightId;
+    if (!Number(manifest.flightEvents[atKey] || 0)) {
+        manifest.flightEvents[atKey] = timestamp;
+    }
     _missionCargoPersistManifest(manifest);
     if (document.getElementById('missionBoardBookReminder')?.dataset?.field === normalized) {
         _missionCargoDismissBoardBookBanner();
@@ -4259,8 +5182,8 @@ window.finishMissionCargoLoadingAndStart = async function() {
         _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
         return false;
     }
-    if (!manifest.dispatchSignature) {
-        window.missionCargoSignDispatchList?.();
+    if (!_missionCargoSignatureMatchesMode(manifest.dispatchSignature, 'load')) {
+        window.missionCargoSignDispatchList?.({ mode: 'load' });
         return false;
     }
     if (Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now()) {
@@ -4295,11 +5218,7 @@ window.finishMissionCargoLoadingAndStart = async function() {
     if (!_missionCargoMaybePromoteStartReady('cargo-finish-loading')) {
         _missionCargoScheduleStartReadyPromotion('cargo-finish-loading');
     }
-    if (window.missionCargoStatus.payloadStartOverride) {
-        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-    } else {
-        window.closeMissionCargoDialog?.();
-    }
+    window.closeMissionCargoDialog?.();
     _updateMissionRuntimeUi();
     return true;
 };
@@ -4400,8 +5319,14 @@ window.finishMissionCargoPickupAndContinue = function() {
     return true;
 };
 
-window.finishMissionCargoUnloadAndEnd = function() {
-    _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd' });
+window.finishMissionCargoUnloadAndEnd = function(options = {}) {
+    const source = String(options.source || 'cargo-primary');
+    _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd', source });
+    if (!_missionCargoHasActiveMission()) {
+        window.closeMissionCargoDialog?.();
+        window.openMissionGroundCargoDialog?.();
+        return false;
+    }
     const complianceUi = window.missionComplianceGetCargoUiState?.() || { active: false };
     if (complianceUi.active === true && complianceUi.phase === 'evidence_open') {
         return !!window.missionComplianceSubmitEvidence?.();
@@ -4413,9 +5338,29 @@ window.finishMissionCargoUnloadAndEnd = function() {
     )) {
         return false;
     }
+    const manifest = _missionCargoEnsureManifest();
+    const requiredUnloadBlocking = (manifest.items || []).filter(item => (
+        item.required
+        && item.status === 'loaded'
+        && !_missionCargoIsPassengerItem(item)
+        && _missionCargoItemNeedsUnloadHere(item)
+    ));
+    if (requiredUnloadBlocking.length > 0) {
+        window.missionCargoStatus.error = `Pflichtladung noch zu entladen: ${requiredUnloadBlocking.map(item => item.storyName || item.label || item.id).join(', ')}`;
+        _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+        return false;
+    }
+    if (!_missionCargoSignatureMatchesMode(manifest.dispatchSignature, 'unload')) {
+        window.missionCargoSignDispatchList?.({ mode: 'unload' });
+        return false;
+    }
+    if (Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now()) {
+        _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
+        return false;
+    }
     const completesMission = _missionRuntimeGroundEndReady();
-    if (!_missionCargoConfirmCriticalAction(completesMission ? 'cargo-end' : 'cargo-unload')) {
-        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:cancelled', completesMission: !!completesMission });
+    if (options.skipConfirm !== true && !_missionCargoConfirmCriticalAction(completesMission ? 'cargo-end' : 'cargo-unload')) {
+        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:cancelled', completesMission: !!completesMission, source });
         return false;
     }
     _missionCargoSpawnUnloadedSceneObjects('cargo-finish-unload');
@@ -4443,6 +5388,96 @@ window.finishMissionCargoUnloadAndEnd = function() {
     return !!window.manualMissionEnd({ skipCargoUnload: true, skipConfirm: true });
 };
 
-function _missionCargoGroundHandlingAllowed() {
-    return !_missionCargoIsAirborneNow();
+function _missionCargoGroundHandlingStatus() {
+    const fd = (window.simModeActive && window.gaSimFlightData)
+        ? window.gaSimFlightData
+        : (window.lastLiveFlightData || {});
+    const pos = (window.simModeActive && window.gaSimGpsPos)
+        ? window.gaSimGpsPos
+        : (window.lastLiveGpsPos || {});
+    const gs = Number(fd.gsKts ?? fd.gs ?? pos.gs);
+    const agl = Number(fd.aglFt);
+    const hasOnGroundFlag = typeof fd.onGround === 'boolean';
+    let onGround = hasOnGroundFlag
+        ? fd.onGround === true
+        : (Number.isFinite(agl) ? agl <= 35 : !_missionCargoIsAirborneNow());
+    let ready = onGround && (!Number.isFinite(gs) || gs <= 5);
+    let label = ready ? 'Am Boden bereit' : (onGround ? 'Nicht im Stillstand' : 'Nicht am Boden');
+    if (!window.simModeActive && typeof _missionStartGroundStatus === 'function') {
+        try {
+            const groundStatus = _missionStartGroundStatus() || {};
+            ready = groundStatus.ready === true;
+            onGround = groundStatus.onGround === true
+                || groundStatus.reason === 'moving'
+                || groundStatus.reason === 'paused'
+                || groundStatus.reason === 'menu_or_map';
+            label = String(groundStatus.label || label);
+        } catch (_) {}
+    }
+    return { ready, onGround, gs: Number.isFinite(gs) ? gs : null, label };
 }
+window.missionCargoGroundHandlingStatus = _missionCargoGroundHandlingStatus;
+
+function _missionCargoGroundHandlingAllowed() {
+    return _missionCargoGroundHandlingStatus().ready === true;
+}
+window.missionCargoGroundHandlingAllowed = _missionCargoGroundHandlingAllowed;
+
+window.missionCargoDebugSnapshot = function() {
+    const manifest = _missionCargoGetManifest();
+    const cargoPos = _missionCargoLivePos();
+    const rawPos = window.lastLiveGpsPos || null;
+    const simPos = window.gaSimGpsPos || null;
+    const formatPos = (pos = null) => {
+        const lat = _missionCargoNullableNumber(pos?.lat);
+        const lon = _missionCargoNullableNumber(pos?.lon);
+        return (lat === null || lon === null)
+            ? null
+            : {
+                lat,
+                lon,
+                altFt: _missionCargoNullableNumber(pos?.altFt ?? pos?.alt),
+                hdg: _missionCargoNullableNumber(pos?.hdg),
+                t: Number(pos?.t || 0) || 0
+            };
+    };
+    const items = Array.isArray(manifest?.items)
+        ? manifest.items
+            .filter(item => item?.persistentEquipment === true)
+            .map(item => {
+                const unloadLat = _missionCargoNullableNumber(item.unloadLat);
+                const unloadLon = _missionCargoNullableNumber(item.unloadLon);
+                const distanceM = _missionCargoDistanceToUnloadM(item, cargoPos);
+                return {
+                    id: String(item.id || ''),
+                    label: String(item.storyName || item.label || item.id || 'Bordbestand'),
+                    status: String(item.status || ''),
+                    unloadLat,
+                    unloadLon,
+                    unloadAltFt: _missionCargoNullableNumber(item.unloadAltFt),
+                    distanceM: Number.isFinite(distanceM) ? Math.round(distanceM) : null,
+                    reloadAllowed: _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M)
+                };
+            })
+        : [];
+    const source = window.simModeActive && simPos ? 'sim' : 'live';
+    const objectActions = Array.from(_MISSION_CARGO_OBJECT_ACTION_QUEUE.values()).map(state => ({
+        objectKey: String(state?.objectKey || ''),
+        desiredVisible: state?.desired?.visible === true,
+        revision: Number(state?.desired?.revision || 0),
+        pendingCommandId: String(state?.pendingCommandId || ''),
+        pendingRevision: Number(state?.pendingRevision || 0),
+        sentAt: Number(state?.sentAt || 0)
+    }));
+    return {
+        ts: Date.now(),
+        source,
+        simMode: !!window.simModeActive,
+        trackerConnected: !!window.liveTrackerConnected,
+        cargoPos: formatPos(cargoPos),
+        simPos: formatPos(simPos),
+        rawPos: formatPos(rawPos),
+        objectActions,
+        items
+    };
+};

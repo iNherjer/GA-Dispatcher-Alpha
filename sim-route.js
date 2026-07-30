@@ -197,36 +197,20 @@
                 simMissionEndRecord = rec;
                 simPhase = 'mission_end_pending';
                 console.log('[SimPax] end_hold abgelaufen → Sim-Mission wartet auf explizites Missionsende.');
-                if (typeof window.openMissionCargoDialog === 'function') {
-                    if (typeof window.missionBushUpdateProgress === 'function') {
-                        try { window.missionBushUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now()); } catch (_) {}
-                    }
-                    const groundAction = typeof window.missionResolveGroundAction === 'function'
-                        ? window.missionResolveGroundAction({ active: true, trigger: 'sim:end_hold' })
-                        : null;
-                    if (groundAction?.action === 'pickup') {
-                        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
-                            try { window.gaMissionPhaseDebugRecord('dialog', { mode: 'pickup', trigger: 'sim:end_hold', phase: groundAction.phase }); } catch (_) {}
-                        }
-                        window.openMissionCargoDialog('pickup');
-                        return;
-                    }
-                    if (groundAction?.action === 'unload') {
-                        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
-                            try { window.gaMissionPhaseDebugRecord('dialog', { mode: 'unload', trigger: 'sim:end_hold', phase: groundAction.phase }); } catch (_) {}
-                        }
-                        window.openMissionCargoDialog('unload');
-                        return;
-                    }
-                    if (typeof window.gaMissionPhaseDebugRecord === 'function') {
-                        try {
-                            window.gaMissionPhaseDebugRecord('trigger', {
-                                name: 'sim:end_hold:await-explicit-end',
-                                action: groundAction?.action || 'end',
-                                phase: groundAction?.phase || 'mission_end_pending'
-                            });
-                        } catch (_) {}
-                    }
+                if (typeof window.missionBushUpdateProgress === 'function') {
+                    try { window.missionBushUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now()); } catch (_) {}
+                }
+                const groundAction = typeof window.missionResolveGroundAction === 'function'
+                    ? window.missionResolveGroundAction({ active: true, trigger: 'sim:end_hold' })
+                    : null;
+                if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+                    try {
+                        window.gaMissionPhaseDebugRecord('trigger', {
+                            name: 'sim:end_hold:await-explicit-end',
+                            action: groundAction?.action || 'end',
+                            phase: groundAction?.phase || 'mission_end_pending'
+                        });
+                    } catch (_) {}
                 }
                 return;
             }
@@ -409,6 +393,11 @@
             onGround: false
         };
 
+        _publishSimTelemetryPosition(pos.lat, pos.lon, alt, pos.hdg, roundedGs);
+        try {
+            window.missionCargoHandleAircraftMovement?.(window.gaSimFlightData);
+        } catch (_) {}
+
         // Positions-Injektion → gleiche Funktion wie Live-GPS
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
         _recordSimTrack(pos.lat, pos.lon, alt);
@@ -458,8 +447,26 @@
             onGround: true
         };
 
+        _publishSimTelemetryPosition(pos.lat, pos.lon, alt, pos.hdg, 0);
+        try {
+            window.missionCargoHandleAircraftMovement?.(window.gaSimFlightData);
+        } catch (_) {}
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
         _recordSimTrack(pos.lat, pos.lon, alt, true);
+    }
+
+    function _publishSimTelemetryPosition(lat, lon, alt, hdg, gs = 0) {
+        window.gaSimGpsPos = {
+            lat: Number(lat),
+            lon: Number(lon),
+            alt: Number(alt),
+            hdg: Number(hdg),
+            gs: Number(gs) || 0,
+            t: Date.now()
+        };
+        window.gaSimFlightData = {
+            ...(window.lastLiveFlightData || {})
+        };
     }
 
     // ── Stop ──────────────────────────────────────────────────────────────────
@@ -468,6 +475,8 @@
         simActive = false;
         window.simModeActive = false;
         window.simHadMeaningfulAirbornePhase = false;
+        window.gaSimGpsPos = null;
+        window.gaSimFlightData = null;
         simMissionEndPending = false;
         simMissionEndRecord = null;
         simIntermediateHold = null;
@@ -636,10 +645,16 @@
     }
 
     window.completeSimMissionEnd = function () {
+        const groundAction = typeof window.missionResolveGroundAction === 'function'
+            ? window.missionResolveGroundAction({ active: true, trigger: 'completeSimMissionEnd:force-check' })
+            : null;
+        if (groundAction?.action === 'unload') {
+            if (typeof window.openMissionCargoDialog === 'function') {
+                window.openMissionCargoDialog('unload');
+            }
+            return false;
+        }
         if (!simMissionEndPending) {
-            const groundAction = typeof window.missionResolveGroundAction === 'function'
-                ? window.missionResolveGroundAction({ active: true, trigger: 'completeSimMissionEnd:force-check' })
-                : null;
             const phase = String(groundAction?.phase || '').trim().toLowerCase();
             const canForceArm = !!(
                 (simActive || window.simManualModeActive)

@@ -11337,14 +11337,16 @@ body.map-drawing-active #map.leaflet-dragging {
     background: rgba(9, 18, 30, 0.97);
     color: #e8f4ff;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.56);
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 .mission-cargo-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    padding: 14px 16px 10px;
+    gap: 10px;
+    padding: 10px 13px 7px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .mission-cargo-kicker {
@@ -11354,31 +11356,31 @@ body.map-drawing-active #map.leaflet-dragging {
     color: #8ec5ff;
 }
 .mission-cargo-title {
-    margin-top: 2px;
-    font-size: 18px;
+    margin-top: 1px;
+    font-size: 17px;
     font-weight: 800;
 }
 .mission-cargo-close {
-    width: 30px;
-    height: 30px;
+    width: 27px;
+    height: 27px;
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 50%;
     background: rgba(255,255,255,0.06);
     color: rgba(232,244,255,0.78);
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
     cursor: pointer;
 }
 .mission-cargo-copy {
-    padding: 10px 16px;
-    font-size: 12px;
-    line-height: 1.35;
+    padding: 6px 13px;
+    font-size: 11px;
+    line-height: 1.25;
     color: rgba(232, 244, 255, 0.76);
 }
 .mission-cargo-clipboard {
-    margin: 6px 14px 10px;
-    padding: 12px 12px 10px;
-    overflow-x: auto;
+    margin: 4px 11px 7px;
+    padding: 9px 9px 8px;
+    overflow: visible;
     border: 1px solid rgba(171, 151, 116, 0.56);
     border-radius: 6px;
     background:
@@ -11390,18 +11392,18 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-title {
     font-family: 'MS33558', 'Courier New', monospace;
     letter-spacing: 0.06em;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 .mission-cargo-sheet-meta {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px 14px;
+    gap: 3px 10px;
     font-family: 'Courier Prime', 'Courier New', monospace;
-    font-size: 12px;
-    margin-bottom: 8px;
+    font-size: 11px;
+    margin-bottom: 5px;
 }
 .mission-cargo-sheet-table {
     width: 100%;
@@ -11416,7 +11418,7 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-table th,
 .mission-cargo-sheet-table td {
     border: 1px solid rgba(53, 45, 32, 0.45);
-    padding: 4px 7px;
+    padding: 3px 5px;
     vertical-align: top;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -11442,6 +11444,13 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-table tbody tr.is-loaded td {
     background: rgba(102, 170, 118, 0.14);
 }
+.mission-cargo-sheet-table tbody tr.is-unloaded td {
+    background: rgba(193, 142, 61, 0.10);
+}
+.mission-cargo-sheet-table tbody tr.is-lost td {
+    background: rgba(139, 69, 62, 0.12);
+    color: rgba(79, 31, 27, 0.78);
+}
 .mission-cargo-sheet-table tbody tr.is-interactive {
     cursor: pointer;
 }
@@ -11455,8 +11464,56 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-table tbody tr.is-disabled td {
     background: rgba(90, 90, 90, 0.10);
 }
+.mission-cargo-sheet-item-date {
+    display: block;
+    margin-top: 3px;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    color: rgba(54, 42, 26, 0.78);
+}
+.mission-cargo-sheet-station {
+    display: block;
+}
+.mission-cargo-sheet-action {
+    display: inline;
+    margin-top: 4px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px dotted currentColor;
+    border-radius: 0;
+    background: transparent;
+    color: #1e2738;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.25;
+    cursor: pointer;
+}
+.mission-cargo-sheet-action:hover:not(:disabled) {
+    color: #4a2c0b;
+    border-bottom-style: solid;
+}
+.mission-cargo-sheet-action:disabled {
+    cursor: default;
+    opacity: 0.48;
+}
+.mission-cargo-sheet-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+.mission-cargo-sheet-status-hint {
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: rgba(55, 43, 28, 0.62);
+}
 .mission-cargo-signature {
-    margin-top: 11px;
+    margin-top: 7px;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -11468,10 +11525,10 @@ body.map-drawing-active #map.leaflet-dragging {
     box-shadow: inset 0 -2px 0 rgba(47, 35, 18, 0.14);
 }
 .mission-cargo-signature-line {
-    min-width: 250px;
+    min-width: 220px;
     border-bottom: 1px solid rgba(47, 35, 18, 0.7);
     font-family: 'Caveat', 'Segoe Print', cursive;
-    font-size: 30px;
+    font-size: 25px;
     text-align: center;
     color: rgba(17, 22, 31, 0.88);
     line-height: 1.1;
@@ -11490,8 +11547,8 @@ body.map-drawing-active #map.leaflet-dragging {
     color: rgba(17, 22, 31, 0.35);
 }
 .mission-cargo-signature-meta {
-    margin-top: 3px;
-    font-size: 10px;
+    margin-top: 2px;
+    font-size: 9px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgba(46, 34, 18, 0.75);
@@ -11612,8 +11669,9 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-summary {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
-    padding: 9px 16px;
+    flex-wrap: wrap;
+    gap: 3px 10px;
+    padding: 6px 13px;
     border-top: 1px solid rgba(255,255,255,0.08);
     font-size: 11px;
     color: rgba(232,244,255,0.72);
@@ -11626,7 +11684,6 @@ body.map-drawing-active #map.leaflet-dragging {
     font-weight: 800;
 }
 
-.mission-boardbook-reminder,
 .mission-compliance-banner {
     position: fixed;
     left: 50%;
@@ -11646,8 +11703,10 @@ body.map-drawing-active #map.leaflet-dragging {
     font-family: Arial, sans-serif;
 }
 .mission-boardbook-reminder {
-    top: 12px;
     cursor: pointer;
+    border-top-color: #d5aa4e;
+    background: rgba(33, 27, 13, 0.97);
+    color: #fff0bd;
 }
 .mission-compliance-banner {
     top: 74px;
@@ -11657,7 +11716,7 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 .mission-boardbook-reminder[hidden],
 .mission-compliance-banner[hidden] {
-    display: none;
+    display: none !important;
 }
 .mission-boardbook-reminder-copy,
 .mission-compliance-banner-copy {
@@ -11687,7 +11746,7 @@ body.map-drawing-active #map.leaflet-dragging {
     cursor: pointer;
 }
 .mission-cargo-payload-summary {
-    padding: 9px 16px;
+    padding: 6px 13px;
     border-top: 1px solid rgba(255,255,255,0.08);
     font-size: 11px;
     line-height: 1.45;
@@ -11695,39 +11754,18 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 .mission-cargo-payload-summary.is-pa24 {
     display: grid;
-    gap: 9px;
-    padding-top: 11px;
-    background: rgba(6,16,25,0.34);
-}
-.mission-cargo-payload-heading,
-.mission-cargo-payload-plan {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px 10px;
-}
-.mission-cargo-payload-heading {
-    justify-content: space-between;
-    color: rgba(239,248,255,0.94);
-}
-.mission-cargo-payload-heading strong {
-    font-size: 13px;
-}
-.mission-cargo-payload-heading span {
-    color: rgba(151,205,255,0.86);
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    gap: 7px;
+    padding-block: 6px;
 }
 .mission-cargo-payload-metrics {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
 }
 .mission-cargo-payload-metrics > span {
     display: grid;
     gap: 1px;
-    padding: 6px 8px;
+    padding: 4px 6px;
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 6px;
     background: rgba(255,255,255,0.035);
@@ -11743,74 +11781,9 @@ body.map-drawing-active #map.leaflet-dragging {
     color: rgba(239,248,255,0.92);
     font-size: 12px;
 }
-.mission-cargo-payload-plan {
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(63,145,214,0.08);
-}
-.mission-cargo-payload-plan strong {
-    color: rgba(151,205,255,0.92);
-}
-.mission-cargo-payload-table-wrap {
-    min-width: 0;
-    overflow-x: auto;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 7px;
-}
-.mission-cargo-payload-table {
-    width: 100%;
-    min-width: 390px;
-    border-collapse: collapse;
-    color: rgba(232,244,255,0.82);
-    font-size: 12px;
-}
-.mission-cargo-payload-table th,
-.mission-cargo-payload-table td {
-    padding: 6px 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-    text-align: left;
-}
-.mission-cargo-payload-table thead th {
-    background: rgba(255,255,255,0.04);
-    color: rgba(210,231,247,0.58);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-.mission-cargo-payload-table tbody tr:last-child th,
-.mission-cargo-payload-table tbody tr:last-child td {
-    border-bottom: 0;
-}
-.mission-cargo-payload-table tbody th {
-    min-width: 84px;
-}
-.mission-cargo-payload-table tbody th strong,
-.mission-cargo-payload-table tbody th small {
-    display: block;
-}
-.mission-cargo-payload-table tbody th small {
-    color: rgba(210,231,247,0.48);
-    font-size: 9px;
-}
-.mission-cargo-payload-table .is-number {
-    white-space: nowrap;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-}
-.mission-cargo-payload-occupancy {
-    display: inline-block;
-    white-space: nowrap;
-    color: rgba(210,231,247,0.62);
-}
-.mission-cargo-payload-occupancy.is-occupied {
-    color: rgba(255,222,139,0.9);
-}
-.mission-cargo-payload-occupancy.is-free {
-    color: rgba(116,231,194,0.86);
-}
 .mission-cargo-payload-message {
-    margin-top: 7px;
-    padding: 7px 9px;
+    margin-top: 4px;
+    padding: 5px 7px;
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 6px;
     background: rgba(255,255,255,0.05);
@@ -11831,18 +11804,18 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-actions {
     display: flex;
     gap: 8px;
-    padding: 12px 16px 14px;
+    padding: 8px 13px 10px;
     border-top: 1px solid rgba(255,255,255,0.08);
 }
 .mission-cargo-secondary {
     min-width: 96px;
-    height: 38px;
+    height: 34px;
     background: rgba(255,255,255,0.06);
     border-color: rgba(255,255,255,0.16);
 }
 .mission-cargo-primary {
     flex: 1;
-    min-height: 38px;
+    min-height: 34px;
 }
 .mission-cargo-empty {
     padding: 18px 10px;
@@ -11855,39 +11828,33 @@ body.map-drawing-active #map.leaflet-dragging {
     }
     .mission-cargo-panel {
         width: min(760px, calc(100vw - 16px));
-        max-height: calc(100vh - 10px);
+        max-height: calc(100dvh - 10px);
     }
     .mission-cargo-clipboard {
-        margin: 4px 8px 8px;
-        padding: 10px 8px 8px;
+        margin: 3px 7px 6px;
+        padding: 7px 6px 6px;
     }
     .mission-cargo-sheet-meta {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 2px 7px;
+        font-size: 10px;
     }
     .mission-cargo-sheet-table {
-        font-size: 17px;
+        font-size: 16px;
     }
     .mission-cargo-sheet-table th,
     .mission-cargo-sheet-table td {
-        padding: 4px 5px;
-    }
-    .mission-cargo-summary {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
+        padding: 3px 4px;
     }
     .mission-cargo-signature-line {
-        min-width: 180px;
+        min-width: 165px;
+        font-size: 22px;
     }
     .mission-cargo-primary {
         font-size: 11px;
     }
     .mission-cargo-payload-summary {
-        padding-inline: 10px;
-    }
-    .mission-cargo-payload-table th,
-    .mission-cargo-payload-table td {
-        padding: 5px 6px;
+        padding-inline: 8px;
     }
     .mission-cargo-equipment-detail,
     .mission-boardbook-reminder,
@@ -11898,6 +11865,18 @@ body.map-drawing-active #map.leaflet-dragging {
     }
     .mission-compliance-banner {
         top: 94px;
+    }
+}
+@media (max-width: 440px) {
+    .mission-cargo-sheet-meta {
+        grid-template-columns: 1fr;
+    }
+    .mission-cargo-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .mission-cargo-payload-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

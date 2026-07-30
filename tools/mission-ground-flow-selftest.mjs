@@ -10,6 +10,7 @@ const tracker = read('ga-tracker-client/tracker.js');
 const sync = read('sync.js');
 const runtime = read('mission-runtime-core.js');
 const cargo = read('mission-cargo-core.js');
+const simRoute = read('sim-route.js');
 const voice = read('passenger-voice.js');
 const index = read('index.html');
 const app = read('app.js');
@@ -58,6 +59,7 @@ assertOrder('deboarding sequence', deboarding, [
     "'deboarding-close-before-walk'",
     'sendWaypointRoute(person.objectId',
     'people.forEach(person => removeSceneObject(',
+    "stage: boardedPickup ? 'passenger_vehicle_boarded' : 'passenger_handoff_complete'",
     'pickupVehicleDepartureMs = departVehicle',
     'await sleep(pickupVehicleDepartureMs)',
     "type: 'mission_scene_deboarding_ack'"
@@ -106,18 +108,52 @@ assert.match(cargo, /function _missionCargoPassengerBusyLabel\(\)/);
 assert.match(cargo, /Boarding läuft/);
 assert.match(cargo, /Einsteigen läuft/);
 assert.match(cargo, /Aussteigen läuft/);
+assert.match(cargo, /const passengerEndReleased = signatureReady[\s\S]{0,160}requiredUnloadBlockingMissing === 0/);
+assert.match(cargo, /Pflichtfracht zuerst/);
+assert.match(cargo, /finishMissionCargoUnloadAndEnd\(\{ source: 'passenger-row', skipConfirm: true \}\)/);
+assert.match(cargo, /function _missionCargoCompletePassengerHandoff\(/);
+assert.match(cargo, /handoffComplete/);
+assert.match(runtime, /stage === 'passenger_vehicle_boarded'/);
+assert.match(runtime, /missionCargoCompletePassengerHandoff/);
+assert.doesNotMatch(runtime, /passengerOnly|missionRuntimeStartPassengerDeboarding/);
 assert.match(cargo, /passengerSceneBusy \? passengerSceneBusyLabel : \(passengerUsesMainBoarding/);
 assert.match(sync, /boarding-sim-passenger-sync/);
 assert.match(sync, /showClose \|\| showDeboarding \|\| showEnd/);
 assert.doesNotMatch(sync, /touchdown-farewell|flight-finalize-farewell/);
+assert.doesNotMatch(sync, /missionCargoMaybeOpenArrivalDialog\?\.\('runtime-ground-end-ready'\)/);
+assert.doesNotMatch(cargo, /window\.missionCargoMaybeOpenArrivalDialog\s*=/);
+const manualMissionEndSection = section(sync, 'window.manualMissionEnd = function', 'window.completeMissionClose = function');
+assert.match(manualMissionEndSection, /groundAction\.action === 'unload'/);
+assert.doesNotMatch(manualMissionEndSection, /groundAction\.action === 'unload' \|\| poiGroundEndReady/);
+assert.doesNotMatch(simRoute, /mode: '(?:unload|pickup)', trigger: 'sim:end_hold'/);
+assert.match(simRoute, /groundAction\?\.action === 'unload'[\s\S]{0,220}openMissionCargoDialog\('unload'\)[\s\S]{0,100}return false/);
+assert.match(sync, /function _prepareFreshMissionRuntimeStart\(/);
+assert.match(sync, /missionRuntimeResumeSuppressedFor === snapId[\s\S]{0,420}state: 'fresh-start'/);
+assert.match(sync, /const shouldBeActive = !!runtime\.active \|\| \['active', 'end_ready'\]\.includes\(phase\)/);
+assert.doesNotMatch(sync, /const shouldBeActive = trackerActive \|\|/);
+const startBannerAction = section(sync, 'window.handleMissionStartBannerAction = async function', '// --- LIVE TRAFFIC ---');
+const freshStartBranch = section(startBannerAction, "if (phase === 'planned')", "if (phase === 'prepare')");
+assertOrder('fresh mission start', freshStartBranch, [
+    "_prepareFreshMissionRuntimeStart('mission-start-prepare')",
+    "_setMissionStartPhase('prepare')",
+    "_missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-start-prepare')"
+]);
 assert.match(cargo, /await _missionCargoSyncPayloadBeforeStart/);
 assert.match(cargo, /item\.status !== 'loaded'\);/);
+assert.doesNotMatch(cargo, /if \(manifest\.isPoi\) return false/);
+assert.match(cargo, /function _missionCargoNeedsArrivalWorkflow\(/);
+assert.match(cargo, /deliverAtDestination: !isBushReturnHomeRecon/);
+const runtimeGroundEndSection = section(runtime, 'function _missionRuntimeGroundEndReady', 'function _missionPoiEndedAtHome');
+assertOrder('bush ground gate before POI ground gate', runtimeGroundEndSection, [
+    'if (_missionSceneIsBushMission())',
+    'if (_missionSceneIsPoiMission())'
+]);
 assert.match(voice, /Das Boarding ist abgeschlossen, die Tür ist geschlossen/);
 assert.match(voice, /Die Flugzeugtür ist geöffnet; du sitzt noch an Bord/);
 assert.match(voice, /die Tür ist geschlossen und ich bin jetzt an Bord/);
 assert.match(sync, /boardingVoiceComplete/);
 assert.match(sync, /const vehicleSupportEnabled = !aptPickupPoint/);
-assert.match(sync, /tracker_v278_required/);
+assert.match(sync, /tracker_\$\{MIN_TRACKER_VERSION_LABEL\}_required/);
 assert.match(sync, /missionInterruptedDeboardingRecovery/);
 assert.match(sync, /cancel-interrupted-deboarding/);
 assert.match(tracker, /TRACKER_VERSION = 'v\d+'/);
@@ -190,6 +226,69 @@ assert.equal(
     'pickup return must become unload/end-ready before passenger deboarding'
 );
 
+context._missionSceneIsPoiMission = () => true;
+context._missionSceneIsBushMission = () => true;
+assert.equal(
+    context._missionPoiGroundEndReady({ groundStill: true, ready: false }),
+    false,
+    'Bush recon must never inherit the unrestricted POI landing gate'
+);
+context._missionBushGroundEndReady = () => false;
+assert.equal(
+    context._missionRuntimeGroundEndReady({ groundStill: true, ready: false }),
+    false,
+    'POI task presentation must not bypass the stricter Bush return-home gate'
+);
+context._missionBushGroundEndReady = () => true;
+assert.equal(
+    context._missionRuntimeGroundEndReady({ groundStill: true, ready: false }),
+    true,
+    'Bush recon must become end-ready when its own return-home gate succeeds'
+);
+
+context._missionSceneIsBushMission = () => false;
+context._missionSceneIsPoiMission = () => true;
+context._missionRuntimeGroundEndReady = () => false;
+context._missionEndDeboardingBusy = () => false;
+context._missionBushPickupReadyForAction = () => false;
+context._activeBushMissionProgress = () => null;
+context._missionCargoNeedsUnload = () => true;
+context._missionCargoNeedsArrivalWorkflow = () => true;
+context._missionCargoGroundHandlingAllowed = () => true;
+context._missionPhaseDebugState = () => ({ lastGroundActionSig: '' });
+context._missionPhaseDebugSummarizeGroundAction = value => value;
+context._missionPhaseDebugPush = () => {};
+let poiGroundAction = context._missionResolveGroundAction({
+    active: true,
+    endReady: { groundStill: true, ready: false, atTarget: false }
+});
+assert.notEqual(
+    poiGroundAction.action,
+    'unload',
+    'POI cargo must not enter arrival unloading before the flight is end-ready'
+);
+context._missionRuntimeGroundEndReady = () => true;
+poiGroundAction = context._missionResolveGroundAction({
+    active: true,
+    endReady: { groundStill: true, ready: false, atTarget: false }
+});
+assert.equal(
+    poiGroundAction.action,
+    'unload',
+    'end-ready POI flights must enter the central arrival loading window'
+);
+context._missionSceneIsPoiMission = () => false;
+context._missionCargoNeedsArrivalWorkflow = options => options?.ignorePassenger !== true;
+poiGroundAction = context._missionResolveGroundAction({
+    active: true,
+    endReady: { groundStill: true, ready: true, atTarget: true }
+});
+assert.equal(
+    poiGroundAction.action,
+    'end',
+    'after cargo and arrival signature are complete, a remaining passenger must proceed to farewell instead of reopening unloading'
+);
+
 context.window.activePassenger = { name: 'Testgast' };
 context._missionCargoIsPassengerItem = item => item?.type === 'passenger';
 context._missionCargoGetManifest = () => ({ items: [{ type: 'passenger', status: 'unloaded' }] });
@@ -200,6 +299,43 @@ assert.equal(
 );
 context._missionCargoGetManifest = () => ({ items: [{ type: 'passenger', status: 'loaded' }] });
 assert.equal(context._missionRuntimeHasPassengerForDeboarding(), true, 'a loaded manifest passenger must deboard');
+context._missionCargoGetManifest = () => ({ items: [{ type: 'passenger', status: 'loaded', handoffComplete: true, handedOffAt: Date.now() }] });
+assert.equal(
+    context._missionRuntimeHasPassengerForDeboarding(),
+    false,
+    'a passenger handed to the arrival vehicle must never deboard or board again'
+);
+
+let passengerHandoffCalls = 0;
+context.window.missionSceneStatus = { personBoarded: true };
+context.window.missionCargoCompletePassengerHandoff = () => {
+    passengerHandoffCalls += 1;
+    return { changed: true, cargoIds: ['primary-cargo'] };
+};
+context._missionPhaseDebugPush = () => {};
+context.missionRuntime.waitingFarewellDeboarding = true;
+context.missionRuntime.endDeboardingCommandId = 'deboard-1';
+assert.equal(
+    context._missionRuntimeHandleDeboardingStage({
+        type: 'mission_scene_deboarding_stage',
+        commandId: 'deboard-1',
+        stage: 'passenger_vehicle_boarded'
+    }),
+    true,
+    'vehicle-boarded stage must complete the passenger handoff'
+);
+assert.equal(passengerHandoffCalls, 1);
+assert.equal(context.window.missionSceneStatus.personBoarded, false);
+context.missionRuntime.waitingFarewellDeboarding = false;
+
+context._missionPhaseDebugPush = () => {};
+context._missionCargoNeedsArrivalWorkflow = () => true;
+context.window.triggerPaxFarewell = () => false;
+assert.equal(
+    context._triggerPaxFarewellAndWaitForDeboard(null, 'normal-mission-end'),
+    false,
+    'normal mission end must remain blocked while required cargo still needs unloading'
+);
 
 let pickupDepartureCalls = 0;
 context.window.triggerPaxPickupDeparture = () => { pickupDepartureCalls += 1; };

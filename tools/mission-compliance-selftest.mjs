@@ -12,6 +12,12 @@ const mapSource = fs.readFileSync(new URL('../map.js', import.meta.url), 'utf8')
 const runtimeSource = fs.readFileSync(new URL('../mission-runtime-core.js', import.meta.url), 'utf8');
 const syncSource = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8');
 const trackerSource = fs.readFileSync(new URL('../ga-tracker-client/tracker.js', import.meta.url), 'utf8');
+const fixedNow = new Date(2026, 6, 29, 12, 0, 0, 0).getTime();
+class FixedDate extends Date {
+    static now() {
+        return fixedNow;
+    }
+}
 
 const context = {
     window: {
@@ -30,7 +36,7 @@ const context = {
     },
     setTimeout,
     clearTimeout,
-    Date,
+    Date: FixedDate,
     JSON,
     Object,
     Number,
@@ -44,14 +50,13 @@ vm.runInNewContext(source, context);
 
 const api = context.window.MissionComplianceCore;
 assert.ok(api, 'MissionComplianceCore export missing');
-assert.equal(api.probability, 0.03);
-assert.equal(api.shouldInspect(0), true);
-assert.equal(api.shouldInspect(0.029999), true);
+assert.equal(api.probability, 0);
+assert.equal(api.shouldInspect(0), false);
+assert.equal(api.shouldInspect(0.029999), false);
 assert.equal(api.shouldInspect(0.03), false);
 assert.equal(api.shouldInspect(0.99, true), true);
 assert.deepEqual(Array.from(api.requestedItemIds), ['bordbuch', 'fire-extinguisher', 'first-aid']);
 
-const fixedNow = new Date(2026, 6, 29, 12, 0, 0, 0).getTime();
 assert.equal(api.expiryStatus('2026-07-29', fixedNow).daysRemaining, 0);
 assert.equal(api.expiryStatus('2026-07-28', fixedNow).overdueDays, 1);
 assert.equal(api.classifyOverdue(0), 'valid');

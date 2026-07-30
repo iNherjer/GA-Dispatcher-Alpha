@@ -91,11 +91,11 @@
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="styles.css?v=pa24-payload-table-20260730-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=mission-cargo-flow-20260730-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-main-launch-20260724-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=pa24-payload-table-20260730-01">
+        <link rel="stylesheet" href="styles.css?v=mission-cargo-flow-20260730-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1382,6 +1382,7 @@
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.handleMissionStartBannerAction ? handleMissionStartBannerAction() : (window.toggleManualMissionRuntime && toggleManualMissionRuntime())" style="display:none;">▶ Mission starten</button>
+            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionGroundCargoDialog && openMissionGroundCargoDialog()" style="display:none;" title="Verladefenster am Boden öffnen">📦 Verladung</button>
             <button type="button" class="pb-btn map-toolbar-help-btn" onclick="showSettingsHelp('map-table', event)" aria-label="Hilfe zum Kartentisch" aria-expanded="false">?</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
         </div>
@@ -2558,23 +2559,23 @@
 <script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
-<script defer src="taws.js?v=mission-terrain-envelope-20260722-01"></script>
-<script defer src="data/mission-scene-assets.js?v=homebase-cargo-0621-chocks-20260729-01"></script>
+<script defer src="taws.js?v=boardbook-banner-stack-20260729-01"></script>
+<script defer src="data/mission-scene-assets.js?v=homebase-cargo-0622-personal-luggage-20260730-01"></script>
 <script defer src="mission-definition-core.js?v=mission-quality-20260628-01"></script>
 <script defer src="mission-variety-core.js?v=bush-adventure-ground-20260615-01"></script>
 <script defer src="mission-arrival-core.js?v=mission-arrival-core-20260605-01"></script>
-<script defer src="mission-runtime-core.js?v=mission-phase-view-20260727-01"></script>
-<script defer src="mission-cargo-core.js?v=pa24-payload-table-20260730-01"></script>
+<script defer src="mission-runtime-core.js?v=mission-cargo-flow-20260730-01"></script>
+<script defer src="mission-cargo-core.js?v=mission-cargo-flow-20260730-01"></script>
 <script defer src="mission-compliance-core.js?v=authority-inspection-debug-now-20260729-02"></script>
 <script defer src="mission-infra-outcome-core.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-followup.js?v=infra-outcome-chain-20260618-02"></script>
 <script defer src="mission-poi-chain.js?v=poi-chain-20260620-01"></script>
 <script defer src="airport-type-filter.js?v=mission-airport-types-20260728-01"></script>
 <script defer src="aviation-data-hosted.js?v=hosted-aviation-data-20260728-01"></script>
-<script defer src="sync.js?v=tracker-v320-passenger-handoff-20260730-01"></script>
+<script defer src="sync.js?v=mission-cargo-flow-20260730-01"></script>
 <script defer src="homebase/homebase-asset-catalog.js?v=homebase-controls-v313-20260723-01"></script>
 <script defer src="homebase-integration.js?v=homebase-controls-v313-20260723-01"></script>
-<script defer src="checklists.js?v=mission-phase-view-20260727-01"></script>
+<script defer src="checklists.js?v=ground-cargo-entry-20260729-01"></script>
 <script defer src="profile.js?v=aviation-mode-debug-20260728-01"></script>
 <script defer src="map.js?v=map-single-click-20260729-07"></script>
 <script defer src="map-utility-tools.js?v=e6b-flipfix-20260709-01"></script>
@@ -2584,7 +2585,7 @@
 <script defer src="mission-poi-chain-runtime.js?v=overlay-throttle-20260710-01"></script>
 <script defer src="board.js?v=mission-debrief-data-20260722-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
-<script defer src="sim-manual-flight.js?v=manual-sim-20260617-01"></script>
+<script defer src="sim-manual-flight.js?v=cargo-left-behind-20260729-01"></script>
 <script defer src="passenger-voice.js?v=mission-debrief-data-20260722-01"></script>
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script>

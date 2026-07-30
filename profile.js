@@ -4360,9 +4360,57 @@ window.vpBuildWeatherDebugReport = function() {
             if (typeof sd.writerUsable === 'boolean') storyBits.push(`usable=${sd.writerUsable ? 'ja' : 'nein'}`);
             if (typeof sd.writerAccepted === 'boolean') storyBits.push(`accepted=${sd.writerAccepted ? 'ja' : 'nein'}`);
             if (sd.fallbackReason) storyBits.push(`fallback=${String(sd.fallbackReason)}`);
+            if (typeof sd.postSanitizerFallbackEver === 'boolean') storyBits.push(`postFallback=${sd.postSanitizerFallbackEver ? 'ja' : 'nein'}`);
             if (typeof sd.finalLooksEnumerative === 'boolean') storyBits.push(`enumerativ=${sd.finalLooksEnumerative ? 'ja' : 'nein'}`);
             if (Number.isFinite(Number(sd.finalSentenceCount))) storyBits.push(`sentences=${Number(sd.finalSentenceCount)}`);
             if (storyBits.length) lines.push(`- Story-Debug: ${storyBits.join(' | ')}`);
+            if (sd.effectiveSource && sd.effectiveSource !== sd.source) {
+                lines.push(`- Story effektive Quelle: ${flattenText(sd.effectiveSource, 320)}`);
+            }
+            const rawAiStory = String(sd.rawAiStory || sd.rawStoryPreview || '').replace(/\s+/g, ' ').trim();
+            if (rawAiStory) {
+                lines.push(`- Story KI-Rohtext: ${flattenText(rawAiStory, 2400)}`);
+            }
+            const writerStory = String(sd.writerStory || '').replace(/\s+/g, ' ').trim();
+            if (writerStory && writerStory !== rawAiStory) {
+                lines.push(`- Story nach Writer-Prüfung: ${flattenText(writerStory, 2400)}`);
+            }
+            const postSanitizerRuns = Array.isArray(sd.postSanitizerRuns)
+                ? sd.postSanitizerRuns
+                : (sd.postSanitizer && typeof sd.postSanitizer === 'object' ? [sd.postSanitizer] : []);
+            postSanitizerRuns.forEach((run, index) => {
+                const fallbackReasons = Array.isArray(run?.fallbackReasons)
+                    ? run.fallbackReasons.filter(Boolean)
+                    : [];
+                const stage = run?.stage || 'post_sanitizer';
+                const runNo = Number.isFinite(Number(run?.run)) ? Number(run.run) : index + 1;
+                const inputShape = `${Number(run?.inputLength || 0)}/${Number(run?.inputSentenceCount || 0)}`;
+                const outputShape = `${Number(run?.outputLength || 0)}/${Number(run?.outputSentenceCount || 0)}`;
+                const fallbackShape = run?.usedFallback
+                    ? ` | lokal=${Number(run?.fallbackLength || 0)}/${Number(run?.fallbackSentenceCount || 0)}`
+                    : '';
+                lines.push(`- Story Post-Sanitizer #${runNo}: ${stage} | fallback=${run?.usedFallback ? 'ja' : 'nein'} | changed=${run?.storyChanged ? 'ja' : 'nein'} | in=${inputShape} -> out=${outputShape}${fallbackShape} | reason=${fallbackReasons.join(',') || '-'}`);
+                const profileDecision = run?.profilePassengerDecision && typeof run.profilePassengerDecision === 'object'
+                    ? run.profilePassengerDecision
+                    : null;
+                if (profileDecision) {
+                    const decisionReasons = Array.isArray(profileDecision.reasons) ? profileDecision.reasons.filter(Boolean) : [];
+                    lines.push(`  Profil-PAX-Prüfung: accepted=${profileDecision.accepted ? 'ja' : 'nein'} | reason=${decisionReasons.join(',') || '-'} | story/pax/cargo=${profileDecision.storyActivity || '-'}/${profileDecision.passengerActivity || '-'}/${profileDecision.cargoActivity || '-'}`);
+                }
+                const originalDecision = run?.originalPassengerDecision && typeof run.originalPassengerDecision === 'object'
+                    ? run.originalPassengerDecision
+                    : null;
+                if (originalDecision) {
+                    const decisionReasons = Array.isArray(originalDecision.reasons) ? originalDecision.reasons.filter(Boolean) : [];
+                    lines.push(`  Original-PAX-Prüfung: accepted=${originalDecision.accepted ? 'ja' : 'nein'} | reason=${decisionReasons.join(',') || '-'} | story/pax/cargo=${originalDecision.storyActivity || '-'}/${originalDecision.passengerActivity || '-'}/${originalDecision.cargoActivity || '-'}`);
+                }
+                if (run?.usedFallback && run?.fallbackStory) {
+                    lines.push(`  Lokaler Fallback: ${flattenText(run.fallbackStory, 2400)}`);
+                }
+                if (run?.storyChanged && run?.outputStory) {
+                    lines.push(`  Post-Ausgabe: ${flattenText(run.outputStory, 2400)}`);
+                }
+            });
         }
         const textPassenger = (window.activePassenger && typeof window.activePassenger === 'object')
             ? window.activePassenger
@@ -4561,6 +4609,56 @@ window.vpBuildWeatherDebugReport = function() {
     if (sceneEvents.length) {
         lines.push('- Scene Events:');
         sceneEvents.forEach(ev => lines.push(`  ${vpFormatDebugTs(ev.ts)} :: ${ev.event}`));
+    }
+    lines.push('');
+    lines.push('Cargo / Bordbestand Diagnose');
+    const cargoDbg = (typeof window.missionCargoDebugSnapshot === 'function')
+        ? window.missionCargoDebugSnapshot()
+        : null;
+    if (!cargoDbg) {
+        lines.push('- (Cargo-Diagnose noch nicht verfügbar)');
+    } else {
+        const hasCargoNumber = value => (
+            value !== null
+            && typeof value !== 'undefined'
+            && String(value).trim() !== ''
+            && Number.isFinite(Number(value))
+        );
+        const fmtCargoPos = (pos = null) => (
+            pos && hasCargoNumber(pos.lat) && hasCargoNumber(pos.lon)
+                ? `${Number(pos.lat).toFixed(6)}, ${Number(pos.lon).toFixed(6)}${hasCargoNumber(pos.altFt) ? ` @ ${Math.round(Number(pos.altFt))} ft` : ''}`
+                : '-'
+        );
+        const cargoPositionDistanceM = (a = null, b = null) => {
+            if (!a || !b) return null;
+            const lat1 = Number(a.lat) * Math.PI / 180;
+            const lat2 = Number(b.lat) * Math.PI / 180;
+            const dLat = lat2 - lat1;
+            const dLon = (Number(b.lon) - Number(a.lon)) * Math.PI / 180;
+            if (![lat1, lat2, dLat, dLon].every(Number.isFinite)) return null;
+            const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+            return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+        };
+        const rawSimDeltaM = cargoPositionDistanceM(cargoDbg.rawPos, cargoDbg.simPos);
+        lines.push(`- Quelle: ${cargoDbg.source || '-'} | Sim=${cargoDbg.simMode ? 'ja' : 'nein'} | Tracker=${cargoDbg.trackerConnected ? 'verbunden' : 'getrennt'}`);
+        lines.push(`- Cargo-Flugzeugposition: ${fmtCargoPos(cargoDbg.cargoPos)}`);
+        lines.push(`- Sim-Position: ${fmtCargoPos(cargoDbg.simPos)}`);
+        lines.push(`- Raw-Live-Position: ${fmtCargoPos(cargoDbg.rawPos)}${Number.isFinite(rawSimDeltaM) ? ` | Δ zur Sim-Position ${Math.round(rawSimDeltaM)} m` : ''}`);
+        const objectActions = Array.isArray(cargoDbg.objectActions) ? cargoDbg.objectActions : [];
+        lines.push(`- Objekt-Aktionen: ${objectActions.length ? objectActions.map(action => `${action.objectKey || '-'}:${action.desiredVisible ? 'sichtbar' : 'an Bord'}@r${action.revision || 0}${action.pendingCommandId ? `(${action.pendingCommandId})` : ''}`).join(' | ') : 'keine offen'}`);
+        const cargoItems = Array.isArray(cargoDbg.items) ? cargoDbg.items : [];
+        if (!cargoItems.length) {
+            lines.push('- Bordbestand: keine Items');
+        } else {
+            lines.push('- Bordbestand:');
+            cargoItems.forEach(item => {
+                const itemPos = hasCargoNumber(item.unloadLat) && hasCargoNumber(item.unloadLon)
+                    ? `${Number(item.unloadLat).toFixed(6)}, ${Number(item.unloadLon).toFixed(6)}`
+                    : '-';
+                const distance = hasCargoNumber(item.distanceM) ? `${Math.round(Number(item.distanceM))} m` : '-';
+                lines.push(`  ${item.id || '?'} "${item.label || ''}" | status=${item.status || '-'} | ablage=${itemPos} | dist=${distance} | laden=${item.reloadAllowed ? 'ja' : 'nein'}`);
+            });
+        }
     }
     lines.push('');
     lines.push('PAX / Boarding / Voice Diagnose');

@@ -165,7 +165,10 @@ window.awmSetAirspaceWarn = function(on) {
     localStorage.setItem('awm_warn_airspace', on ? '1' : '0');
     if (!_awmAirspaceWarn) {
         const banner = document.getElementById('awmFreqBanner');
-        if (banner) banner.style.display = 'none';
+        if (banner) {
+            banner.querySelectorAll('[data-askey]').forEach(entry => entry.remove());
+            banner.style.display = Array.from(banner.children).some(child => child.hidden !== true) ? 'block' : 'none';
+        }
     }
 };
 
@@ -487,7 +490,7 @@ function _awShowFreqBanner(as, col) {
         _awConsumeFreqBannerEvent(ev);
         if (!entry.isConnected) return;
         entry.remove();
-        if (!banner.children.length) banner.style.display = 'none';
+        if (!Array.from(banner.children).some(child => child.hidden !== true)) banner.style.display = 'none';
     };
     const consumeOnly = (ev) => _awConsumeFreqBannerEvent(ev, { preventDefault: false });
     const dismissBtn = entry.querySelector('.awm-freq-dismiss');
@@ -511,7 +514,10 @@ function _awShowFreqBanner(as, col) {
 function checkAirspaceWarnings(predPoints) {
     if (!_awmAirspaceWarn) {
         const banner = document.getElementById('awmFreqBanner');
-        if (banner) banner.style.display = 'none';
+        if (banner) {
+            banner.querySelectorAll('[data-askey]').forEach(entry => entry.remove());
+            banner.style.display = Array.from(banner.children).some(child => child.hidden !== true) ? 'block' : 'none';
+        }
         return;
     }
     if (!_awLoaded) { _awLoadClips(); return; }

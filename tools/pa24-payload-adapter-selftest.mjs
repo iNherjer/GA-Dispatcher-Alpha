@@ -42,6 +42,7 @@ const context = {
     _missionCargoIsPassengerItem: item => item?.itemType === 'passenger',
     _missionCargoBoardedPaxCount: () => 0,
     _missionCargoPaxWeightLbs: () => 180,
+    _missionCargoPersistManifest: () => {},
     JSON,
     Map,
     Set,
@@ -61,7 +62,9 @@ vm.runInNewContext([
     functionSource('_missionCargoPa24StateFromSnapshot'),
     functionSource('_missionCargoBuildPa24PlanFromManifest'),
     functionSource('_missionCargoPayloadRequestedWeights'),
-    functionSource('_missionCargoPa24PayloadTableRows'),
+    functionSource('_missionCargoFormatSheetStationAssignment'),
+    functionSource('_missionCargoGroupPayloadAssignmentStations'),
+    functionSource('_missionCargoRememberPayloadAssignments'),
     functionSource('_missionCargoMergeFuelIntoPayloadBaseline'),
     functionSource('_missionCargoMergeFuelIntoCurrentSnapshot')
 ].join('\n'), context);
@@ -158,33 +161,6 @@ assert.equal(plan.stations.find(row => row.index === 4)?.weightLbs, 65);
 assert.equal(plan.stations.find(row => row.index === 5)?.weightLbs, 45);
 assert.equal(plan.missionWeightLbs, 280);
 
-const payloadRows = context._missionCargoPa24PayloadTableRows(baseline, plan);
-assert.deepEqual(
-    Array.from(payloadRows, row => row.index),
-    [2, 3, 4, 5],
-    'Comanche summary must expose only seats 2-4 and baggage'
-);
-assert.equal(payloadRows[0].currentCharacter, 0);
-assert.equal(payloadRows[0].targetCharacter, 2);
-assert.equal(payloadRows[0].targetWeightLbs, 180);
-assert.equal(payloadRows[2].targetWeightLbs, 65);
-assert.equal(payloadRows[3].currentWeightLbs, 10);
-assert.equal(payloadRows[3].targetWeightLbs, 45);
-
-const occupiedRows = context._missionCargoPa24PayloadTableRows({
-    ...baseline,
-    pa24: {
-        ...baseline.pa24,
-        seats: { 1: 1, 2: 2, 3: 3, 4: 4 },
-        characterWeights: { 1: 170, 2: 180, 3: 180, 4: 180 },
-        baggageWeightLbs: 94
-    }
-}, { payloadAdapter: 'pa24_accusim', error: 'pa24_no_free_seat' });
-assert.equal(occupiedRows.length, 4);
-assert.deepEqual(Array.from(occupiedRows.slice(0, 3), row => row.currentCharacter), [2, 3, 4]);
-assert.equal(occupiedRows[3].currentWeightLbs, 94);
-assert.ok(occupiedRows.every(row => row.targetWeightLbs === null));
-
 const requestedWeights = context._missionCargoPayloadRequestedWeights({
     items: [
         { itemType: 'passenger', status: 'loaded', passengerCount: 2, weightLbs: 360 },
@@ -194,6 +170,47 @@ const requestedWeights = context._missionCargoPayloadRequestedWeights({
 assert.equal(requestedWeights.paxWeightLbs, 360);
 assert.equal(requestedWeights.cargoWeightLbs, 10);
 assert.equal(requestedWeights.missionWeightLbs, 370);
+assert.equal(
+    context._missionCargoFormatSheetStationAssignment([2, 3, 4, 5], 'pa24_accusim'),
+    'Sitz 2 / Sitz 3 / Sitz 4 / Gepäckfach'
+);
+assert.equal(context._missionCargoFormatSheetStationAssignment([5], 'pa24_accusim'), 'Gepäckfach');
+assert.equal(context._missionCargoFormatSheetStationAssignment([2, 3], 'msfs_payload_stations'), '2/3');
+
+const groupedAssignments = context._missionCargoGroupPayloadAssignmentStations({
+    assignments: [
+        { type: 'pax', stations: [2] },
+        { type: 'pax', stations: [3] },
+        { type: 'cargo', itemId: 'camera', stations: [5] }
+    ]
+});
+assert.deepEqual(Array.from(groupedAssignments.get('mission-passenger')), [2, 3]);
+assert.deepEqual(Array.from(groupedAssignments.get('camera')), [5]);
+const assignmentManifest = {
+    items: [
+        { id: 'mission-passenger', itemType: 'passenger', status: 'loaded' },
+        { id: 'camera', itemType: 'cargo', status: 'loaded' }
+    ]
+};
+assert.equal(context._missionCargoRememberPayloadAssignments(assignmentManifest, {
+    payloadAdapter: 'pa24_accusim',
+    assignments: [
+        { type: 'pax', stations: [2] },
+        { type: 'pax', stations: [3] },
+        { type: 'cargo', itemId: 'camera', stations: [5] }
+    ]
+}), true);
+assert.deepEqual(Array.from(assignmentManifest.items[0].payloadStations), [2, 3]);
+assert.deepEqual(Array.from(assignmentManifest.items[1].payloadStations), [5]);
+assert.equal(assignmentManifest.items[0].payloadStationAdapter, 'pa24_accusim');
+assert.equal(context._missionCargoRememberPayloadAssignments(assignmentManifest, {
+    payloadAdapter: 'pa24_accusim',
+    assignments: [
+        { type: 'pax', stations: [2] },
+        { type: 'pax', stations: [3] },
+        { type: 'cargo', itemId: 'camera', stations: [5] }
+    ]
+}), false);
 
 const overflowPlan = context._missionCargoBuildPa24PlanFromManifest({
     items: [{ id: 'overflow', itemType: 'cargo', status: 'loaded', weightLbs: 15, label: 'Kleinteil' }]
@@ -277,7 +294,15 @@ assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 320;"));
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v320';"));
 assert.ok(syncSource.includes('window.missionCargoHandleLiveFuelUpdate?.(data.flight);'));
-assert.ok(cargoSource.includes('class="mission-cargo-payload-table"'));
-assert.ok(stylesSource.includes('.mission-cargo-payload-table'));
+assert.ok(!cargoSource.includes('class="mission-cargo-payload-table"'));
+assert.ok(!stylesSource.includes('.mission-cargo-payload-table'));
+assert.ok(cargoSource.includes('<small>Max. Gewicht</small>'));
+assert.ok(cargoSource.includes('<small>PAX</small>'));
+assert.ok(cargoSource.includes('<small>Payload</small>'));
+assert.ok(cargoSource.includes('<small>Fuel</small>'));
+assert.ok(stylesSource.includes('grid-template-columns: repeat(4, minmax(0, 1fr))'));
+assert.match(stylesSource, /\.mission-cargo-panel\s*\{[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s);
+assert.match(stylesSource, /\.mission-cargo-clipboard\s*\{[^}]*overflow:\s*visible;/s);
+assert.ok(!cargoSource.includes('Hinweis verstanden'));
 
 console.log('PA24 production payload adapter selftest: ok');

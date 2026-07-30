@@ -205,11 +205,24 @@ const MISSION_SCENE_ASSET_POOLS = {
         'Cardboard',
         'Pallet01_03'
     ]),
-    cameraEquipment: _sceneCatalogRoleTitles('cargo.camera_equipment', ['Cardboard']),
+    cameraEquipment: _sceneCatalogRoleMerge([
+        'cargo.camera_equipment',
+        'cargo.equipment_case',
+        'cargo.luggage.duffel',
+        'cargo.luggage.suitcase',
+        'cargo.luggage.backpack'
+    ]),
     campingEquipment: _sceneCatalogRoleTitles('cargo.camping_equipment', ['Cardboard']),
-    equipmentCases: _sceneCatalogRoleTitles('cargo.equipment_case', ['Cardboard']),
+    equipmentCases: _sceneCatalogRoleTitles('cargo.equipment_case'),
     luggageBackpacks: _sceneCatalogRoleTitles('cargo.luggage.backpack'),
     luggageDuffels: _sceneCatalogRoleTitles('cargo.luggage.duffel'),
+    luggageSuitcases: _sceneCatalogRoleTitles('cargo.luggage.suitcase'),
+    personalLuggage: _sceneCatalogRoleMerge([
+        'cargo.luggage.duffel',
+        'cargo.luggage.suitcase',
+        'cargo.luggage.backpack',
+        'cargo.equipment_case'
+    ]),
     toolboxes: _sceneCatalogRoleTitles('cargo.toolbox'),
     toolCarts: _sceneCatalogRoleTitles('cargo.tool_cart'),
     coolers: _sceneCatalogRoleTitles('cargo.cooler'),
@@ -2164,6 +2177,21 @@ function _clearMissionRuntimeSnapshot(reason = 'mission-runtime-clear') {
     _missionPhaseDebugPush('resume_snapshot_clear', { reason });
 }
 
+function _prepareFreshMissionRuntimeStart(reason = 'mission-start-prepare') {
+    const missionId = _activeMissionRuntimeId('');
+    _clearMissionRuntimeSnapshot(reason);
+    if (missionId) missionRuntimeResumeSuppressedFor = missionId;
+    missionRuntimeResumeAppliedFor = '';
+    _clearActiveMissionRuntimeMarker(reason);
+    _sendMissionLifecycleToTracker('ended', reason);
+    _missionPhaseDebugPush('fresh_start_guard', {
+        reason,
+        missionId: missionId || null,
+        resumeSuppressed: !!missionId
+    });
+    return missionId;
+}
+
 function _missionRuntimePhaseCountsAsStarted(phase = '') {
     const p = String(phase || '').toLowerCase();
     return ['prepare', 'boarding', 'boarded', 'active', 'end_ready', 'closing'].includes(p);
@@ -2504,6 +2532,10 @@ window.missionCargoStatus = {
     loadConfirmed: false,
     signatureAnimationEndsAt: 0,
     signatureAnimationTimer: 0,
+    arrivalAutoOpenedFor: '',
+    groundUiKey: '',
+    lastEquipmentLossAt: 0,
+    lastEquipmentLossIds: [],
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null,
@@ -3777,6 +3809,17 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     const snap = snapshot || _readMissionRuntimeSnapshot();
     if (!snap || !_snapshotMatchesActiveMission(snap)) return false;
     const snapId = _missionRuntimeSnapshotMissionId(snap);
+    if (snapId
+        && missionRuntimeResumeSuppressedFor === snapId
+        && !missionRuntime.active
+        && !missionRuntime.closingPending) {
+        _missionPhaseDebugPush('resume_suppressed', {
+            reason: options.reason || 'mission-resume',
+            missionId: snapId,
+            state: 'fresh-start'
+        });
+        return false;
+    }
     const ageMs = Date.now() - Number(snap.savedAt || 0);
     const pendingCompletion = _readPendingMissionDebrief();
     const hasPendingCompletion = !!(pendingCompletion?.missionId && pendingCompletion.missionId === snapId);
@@ -3793,7 +3836,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     const phase = String(runtime.phase || snap.runtimePhase || '').toLowerCase();
     const trackerActive = options.trackerActive === true;
     const shouldBeClosing = !!runtime.closingPending || phase === 'closing';
-    const shouldBeActive = trackerActive || !!runtime.active || ['active', 'end_ready'].includes(phase);
+    const shouldBeActive = !!runtime.active || ['active', 'end_ready'].includes(phase);
     const shouldRestore = shouldBeClosing || shouldBeActive || ['prepare', 'boarding', 'boarded'].includes(startPhase);
     if (!shouldRestore) return false;
 
@@ -3889,7 +3932,8 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
         phase: missionRuntime.phase,
         active: !!missionRuntime.active,
         closing: !!missionRuntime.closingPending,
-        trackerConfirmed: options.trackerConfirmed === true
+        trackerConfirmed: options.trackerConfirmed === true,
+        trackerActive
     });
     _persistMissionRuntimeSnapshot(options.reason || 'mission-resume', { immediate: true });
     if (missionInterruptedDeboardingRecovery && window.liveTrackerConnected) {
@@ -4269,6 +4313,10 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
 
 function _missionAptArrivalSceneItems(plan = {}) {
     const items = _missionAptArrivalPreviewItems(plan);
+    const pickupManifest = _missionCargoEnsureManifest();
+    const pickupCargoItem = typeof _missionBushPickupItem === 'function'
+        ? _missionBushPickupItem(pickupManifest)
+        : null;
     const movingPickupPersonIndex = _missionBushIsPickupPassengerMission()
         ? items.findIndex(item => {
             const role = String(item?.role || '').trim();
@@ -4281,11 +4329,24 @@ function _missionAptArrivalSceneItems(plan = {}) {
             movingPerson: index === movingPickupPersonIndex
         });
         if (!asset.title) return null;
+        const isPickupCargoVisual = pickupCargoItem
+            && !_missionCargoIsPassengerItem(pickupCargoItem)
+            && (
+                String(item?.kind || '').toLowerCase().includes('arrival_equipment')
+                || String(item?.role || '').toLowerCase().startsWith('cargo.')
+            );
         return {
             ...item,
             label: item.label || item.kind || `APT Arrival ${index + 1}`,
             objectTitle: asset.title,
             titleCandidates: asset.candidates,
+            ...(isPickupCargoVisual ? {
+                itemId: pickupCargoItem.id || '',
+                cargoItemId: pickupCargoItem.id || '',
+                cargoSceneKind: pickupCargoItem.sceneKind || item.kind || '',
+                objectKey: _missionCargoStableObjectKey(pickupCargoItem, pickupManifest),
+                objectRevision: 0
+            } : {}),
             headingMode: 'with_aircraft',
             altOffsetFt: Number.isFinite(Number(item.altOffsetFt)) ? Number(item.altOffsetFt) : 0
         };
@@ -4498,6 +4559,28 @@ function _missionSceneSafeBoardingCargoCandidates(candidates = []) {
         .filter(title => !/(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || '')));
 }
 
+function _missionSceneCargoIsPersonalLuggageTitle(title = '') {
+    return _sceneUniqueTitles(
+        MISSION_SCENE_ASSET_POOLS.cameraEquipment,
+        MISSION_SCENE_ASSET_POOLS.personalLuggage
+    ).includes(String(title || '').trim());
+}
+
+function _missionSceneBoardingCargoCandidates(title = '', candidates = [], options = null) {
+    const primary = String(title || 'Cardboard').trim() || 'Cardboard';
+    const personalLuggage = _missionSceneCargoIsPersonalLuggageTitle(primary);
+    const smallCargoFallbacks = _sceneUniqueTitles(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard']);
+    const suppliedCandidates = _sceneAssetCandidates(primary, candidates);
+    const semanticCandidates = personalLuggage
+        ? suppliedCandidates.filter(candidate => !smallCargoFallbacks.includes(candidate))
+        : suppliedCandidates;
+    const includeSmallCargoFallback = options?.includeSmallCargoFallback !== false && !personalLuggage;
+    const fallback = includeSmallCargoFallback ? smallCargoFallbacks : [];
+    return _missionSceneSafeBoardingCargoCandidates(
+        semanticCandidates.concat(fallback)
+    );
+}
+
 function _missionSceneCargoTitleIsTruckContainer(title = '') {
     return /(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || ''));
 }
@@ -4506,6 +4589,8 @@ function _missionSceneCargoIsSemanticHomebaseTitle(title = '') {
     return _sceneUniqueTitles(
         MISSION_SCENE_ASSET_POOLS.luggageBackpacks,
         MISSION_SCENE_ASSET_POOLS.luggageDuffels,
+        MISSION_SCENE_ASSET_POOLS.luggageSuitcases,
+        MISSION_SCENE_ASSET_POOLS.personalLuggage,
         MISSION_SCENE_ASSET_POOLS.toolboxes,
         MISSION_SCENE_ASSET_POOLS.toolCarts,
         MISSION_SCENE_ASSET_POOLS.coolers,
@@ -4577,21 +4662,50 @@ function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) 
     if (/(kanister|kraftstoff|treibstoff)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.jerrycanPairs, `cargo-jerrycan-${text}`);
     if (/(werkzeugwagen|tool\s*cart)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolCarts, `cargo-tool-cart-${text}`);
     if (/(werkzeug|toolbox|werkzeugkiste|werkzeugtasche|wartungskit|prueflampe|prüflampe|sicherungsdraht)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolboxes, `cargo-toolbox-${text}`);
-    if (/(kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+    if (/(kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) {
+        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+        return asset
+            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+            : null;
+    }
     if (/(campingausruestung|campingausrüstung|camp[\s-]?proviant|angel[\s-]?(?:und[\s-]?)?camptaschen|packraft|trockenbeutel|provianttasche|wasserfilter|solarlader|trail[\s-]?crew[\s-]?proviant)/i.test(text)) {
         return pickPrimary(MISSION_SCENE_ASSET_POOLS.campingEquipment);
     }
     if (/(kamera|camera|fotoequipment|fotoausruestung|fotoausrüstung|foto[\s-]?kit|stativ|gimbal|teleobjektiv|film[\s-]?(?:und[\s-]?)?akkukoffer|audio[\s-]?set|waermebildkamera|wärmebildkamera|thermal[\s-]?handkamera)/i.test(text)) {
         return pickPrimary(MISSION_SCENE_ASSET_POOLS.cameraEquipment);
     }
-    if (/(hardcase|flightcase|schutzcase|transportcase|kuriercase|klimacase|schaumcase|polstercase|acrylcase|alukoffer|schutzverpackung|instrumentenkoffer|sensorkoffer|kalibrierkoffer|messkoffer|probenkoffer|arbeitskoffer|funkakku[\s-]?case|tabletcase|koffer)/i.test(text)) {
+    if (/(hardcase|flightcase|schutzcase|transportcase|kuriercase|klimacase|schaumcase|polstercase|acrylcase|alukoffer|schutzverpackung|instrumentenkoffer|sensorkoffer|kalibrierkoffer|messkoffer|probenkoffer|arbeitskoffer|werkzeugkoffer|funkakku[\s-]?case|tabletcase)/i.test(text)) {
         const caseIndex = Number.isFinite(weight) && weight >= 36 ? 2 : (Number.isFinite(weight) && weight >= 20 ? 1 : 0);
         const title = MISSION_SCENE_ASSET_POOLS.equipmentCases[caseIndex] || MISSION_SCENE_ASSET_POOLS.equipmentCases[0] || '';
-        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.equipmentCases) } : null;
+        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.personalLuggage) } : null;
     }
-    if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageDuffels, `cargo-duffel-${text}`);
-    if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks.slice(1), `cargo-daypack-${text}`, MISSION_SCENE_ASSET_POOLS.luggageBackpacks[0]);
-    if (/(rucksack|rucksäcke)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+    if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) {
+        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageDuffels, `cargo-duffel-${text}`);
+        return asset
+            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+            : null;
+    }
+    if (/(reisekoffer|rollkoffer|kabinen[\s-]?(?:koffer|trolley)|cabin[\s-]?trolley|handgepaeck|handgepäck|urlaubskoffer|\bkoffer\b)/i.test(text)) {
+        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageSuitcases, `cargo-suitcase-${text}`);
+        return asset
+            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+            : null;
+    }
+    if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) {
+        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks.slice(1), `cargo-daypack-${text}`, MISSION_SCENE_ASSET_POOLS.luggageBackpacks[0]);
+        return asset
+            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+            : null;
+    }
+    if (/(rucksack|rucksäcke)/i.test(text)) {
+        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
+        return asset
+            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+            : null;
+    }
+    if (/(privat[\s-]?gepaeck|privat[\s-]?gepäck|reisegepaeck|reisegepäck|\bgepaeck\b|\bgepäck\b|persoenliche sachen|persönliche sachen|kleidung|jacken|sonnenbrill)/i.test(text)) {
+        return pick(MISSION_SCENE_ASSET_POOLS.personalLuggage, `cargo-personal-${text}`);
+    }
     if (/(holz\s*kiste|versorgungskisten?|ersatzteilkiste|materialkiste|utility-kiste|frachtkiste)/i.test(text)) {
         const crateIndex = Number.isFinite(weight) && weight >= 75 ? 2 : (Number.isFinite(weight) && weight >= 35 ? 1 : 0);
         const title = MISSION_SCENE_ASSET_POOLS.woodCrates[crateIndex] || MISSION_SCENE_ASSET_POOLS.woodCrates[0] || '';
@@ -4758,9 +4872,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     const baseForward = Number.isFinite(Number(cargoPoint?.forwardM)) ? Number(cargoPoint.forwardM) : 4;
     const baseRight = Number.isFinite(Number(cargoPoint?.rightM)) ? Number(cargoPoint.rightM) : 4;
     const baseAlt = Number.isFinite(Number(cargoPoint?.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0;
-    const safeCargoCandidates = (title, candidates = []) => _missionSceneSafeBoardingCargoCandidates(
-        _sceneAssetCandidates(title || 'Cardboard', candidates).concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
-    );
+    const safeCargoCandidates = (title, candidates = []) => _missionSceneBoardingCargoCandidates(title, candidates);
     const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0, weightLbs = null) => {
         const semanticHomebaseAsset = _missionSceneCargoIsSemanticHomebaseTitle(title);
         const safeTitle = semanticHomebaseAsset ? title : _missionSceneSafeBoardingCargoTitle(title, label, weightLbs);
@@ -4785,7 +4897,9 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     if (manifestItems.length) {
         return manifestItems
             .filter(item => !_missionCargoIsPassengerItem(item))
-            .filter(item => !(item.persistentEquipment === true && item.status === 'loaded'))
+            .filter(item => item.persistentEquipment !== true)
+            .filter(item => item.pickupLocation !== 'target')
+            .filter(item => String(item.status || 'pending') === 'pending')
             .map((item, index) => ({
                 ...makeItem(
                     item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
@@ -4797,7 +4911,11 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
                     Number.isFinite(Number(item.weightLbs)) ? Number(item.weightLbs) : null
                 ),
                 cargoItemId: item.id || '',
-                cargoSceneKind: item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`)
+                cargoSceneKind: item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
+                objectKey: typeof _missionCargoStableObjectKey === 'function'
+                    ? _missionCargoStableObjectKey(item, manifest)
+                    : `mission-cargo:${manifest?.key || 'active'}:${item.id || index}`,
+                objectRevision: 0
             }));
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
@@ -7880,7 +7998,11 @@ function _missionSceneDeboardingPaxCount() {
         const passengerItems = manifest.items.filter(item => _missionCargoIsPassengerItem(item));
         if (!passengerItems.length) return 0;
         return Math.max(0, Math.min(3, passengerItems
-            .filter(item => item.status === 'loaded')
+            .filter(item => (
+                item.status === 'loaded'
+                && item.handoffComplete !== true
+                && !(Number(item.handedOffAt || 0) > 0)
+            ))
             .reduce((sum, item) => sum + Math.max(1, Number(item.passengerCount) || 1), 0)));
     }
     if (!window.missionSceneStatus?.personBoarded) return 0;
@@ -7891,17 +8013,31 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
     if (window.simModeActive && !window.liveTrackerConnected) return false;
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
     if (options?.coordinateFarewell === true && (!Number.isFinite(trackerVersionCode) || trackerVersionCode < MIN_TRACKER_VERSION_CODE)) {
-        window.missionSceneStatus.deboardingError = 'tracker_v278_required';
+        window.missionSceneStatus.deboardingError = `tracker_${MIN_TRACKER_VERSION_LABEL}_required`;
+        _missionPhaseDebugPush('deboarding_blocked', {
+            reason: 'tracker_version',
+            required: MIN_TRACKER_VERSION_LABEL,
+            received: Number.isFinite(trackerVersionCode) ? trackerVersionCode : null
+        });
         return false;
     }
-    if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) return false;
+    if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) {
+        _missionPhaseDebugPush('deboarding_blocked', { reason: 'already_active' });
+        return false;
+    }
     const deboardingPaxCount = _missionSceneDeboardingPaxCount();
-    if (deboardingPaxCount <= 0) return false;
+    if (deboardingPaxCount <= 0) {
+        _missionPhaseDebugPush('deboarding_blocked', { reason: 'no_loaded_passenger' });
+        return false;
+    }
     const allowBushHomeHandoff = reason === 'bush-home-unload' && _missionBushIsPickupPassengerMission();
     const allowMissionEndDeboarding = /(farewell|mission-end|manual-end|flight-finalize|touchdown)/i.test(String(reason || ''));
     if (_missionCargoPassengerAlreadyUnloaded() && !allowBushHomeHandoff && !allowMissionEndDeboarding) return false;
     const pos = window.lastLiveGpsPos || {};
-    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
+    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) {
+        _missionPhaseDebugPush('deboarding_blocked', { reason: 'no_live_position' });
+        return false;
+    }
     const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
     const aptSpawnedByKind = window.missionAptArrivalSceneStatus?.spawnedByKind;
     const aptVehicleConfirmed = !aptSpawnedByKind || typeof aptSpawnedByKind !== 'object'
@@ -7960,7 +8096,10 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
         command.deboardingPickupSceneId = _missionAptArrivalSceneId();
     }
     const commandId = window.sendTrackerCommand(command);
-    if (!commandId) return false;
+    if (!commandId) {
+        _missionPhaseDebugPush('deboarding_blocked', { reason: 'command_not_sent' });
+        return false;
+    }
     window.missionSceneStatus.sceneId = sceneId;
     window.missionSceneStatus.lastCommandAt = Date.now();
     window.missionSceneStatus.lastCommand = { type: 'mission_scene_deboarding', commandId, reason };
@@ -7970,6 +8109,14 @@ window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
     window.missionSceneStatus.deboardingError = null;
     window.missionSceneStatus.deboardingCommandId = String(commandId);
     window.missionSceneStatus.deboardingCueCommandId = '';
+    _missionPhaseDebugPush('deboarding_command', {
+        commandId: String(commandId),
+        sceneId,
+        reason,
+        passengerCount: deboardingPaxCount,
+        coordinateFarewell: options?.coordinateFarewell === true,
+        usesStagedArrivalVehicle: !!aptPickupPoint
+    });
     _missionSceneArmDeboardingWatchdog(commandId, reason);
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
     return commandId;
@@ -8311,6 +8458,9 @@ function _handleTrackerAck(ack) {
             window.missionCargoStatus.lastAckAt = Date.now();
             window.missionCargoStatus.lastAck = ack;
             window.missionCargoStatus.error = ack.status === 'ok' || ack.status === 'noop' ? null : (ack.error || ack.status || 'cargo_scene_command_failed');
+            if (ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack') {
+                window.missionCargoResolveVisibleItemAck?.(ack);
+            }
             if (ack.type === 'mission_scene_manual_pax_ack' && window.missionSceneStatus && typeof window.missionSceneStatus === 'object') {
                 const resolvedPending = !!window.missionCargoResolveManualPassengerAck?.(ack);
                 if (resolvedPending) {
@@ -8415,7 +8565,11 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.lastSpawnFailedAt = ack.status === 'ok' ? 0 : Date.now();
             window.missionSceneStatus.boardingComplete = false;
             window.missionSceneStatus.personBoarded = false;
-            if (ack.status === 'ok') _missionCargoRemoveLoadedSceneObjects('cargo-loaded-after-scene-spawn');
+            if (ack.status === 'ok') {
+                _missionCargoRemoveLoadedSceneObjects('cargo-loaded-after-scene-spawn');
+                _missionCargoEnsurePendingSceneObjects(ack.objects, 'cargo-pending-after-scene-spawn');
+                _missionCargoSpawnUnloadedSceneObjects('cargo-unloaded-after-scene-spawn');
+            }
         } else if (ack.type === 'mission_scene_clear_ack') {
             window.missionSceneStatus.spawnRequested = false;
             window.missionSceneStatus.clearRequested = false;
@@ -9917,6 +10071,7 @@ function _updateMissionRuntimeUi() {
     const bEnd = document.getElementById('missionEndBtn');
     const bAuto = document.getElementById('missionAutoStartBtn');
     const bMap = document.getElementById('mapMissionToggleBtn');
+    const bGroundCargo = document.getElementById('mapGroundCargoBtn');
     if (bStart) bStart.disabled = missionRuntime.active;
     if (bEnd) bEnd.disabled = !missionRuntime.active || deboardingBusy;
     if (bAuto) {
@@ -9925,6 +10080,19 @@ function _updateMissionRuntimeUi() {
         bAuto.setAttribute('aria-pressed', 'false');
         bAuto.classList.remove('is-on');
         bAuto.classList.add('is-off');
+    }
+    if (bGroundCargo) {
+        const cargoGroundStatus = window.missionCargoGroundHandlingStatus?.() || {
+            ready: groundReady,
+            onGround: groundStatus.onGround === true,
+            label: groundStatus.label
+        };
+        const groundCargoVisible = cargoGroundStatus.onGround === true;
+        bGroundCargo.style.display = groundCargoVisible ? 'inline-flex' : 'none';
+        bGroundCargo.disabled = cargoGroundStatus.ready !== true;
+        bGroundCargo.title = cargoGroundStatus.ready === true
+            ? 'Verladefenster und Bordbestand oeffnen'
+            : String(cargoGroundStatus.label || 'Nur am Boden und im Stillstand');
     }
     if (bMap) {
         if (missionRuntime.closingPending) {
@@ -11078,6 +11246,9 @@ window.startMissionBoarding = async function() {
     }
     if (_missionStartPhase() === 'boarding' && window.missionSceneStatus?.boardingComplete) {
         _missionPhaseDebugPush('start_boarding_blocked', { reason: 'already_complete_open_cargo' });
+        if (window.simModeActive) {
+            try { window.missionCargoStageSimEquipmentAtAircraft?.('sim-boarding-reopen'); } catch (_) {}
+        }
         window.openMissionCargoDialog?.('load');
         _updateMissionRuntimeUi();
         return true;
@@ -11129,6 +11300,7 @@ window.startMissionBoarding = async function() {
                     boardingError: null,
                     personBoarded: !!hasBoardingPassenger
                 });
+                try { window.missionCargoStageSimEquipmentAtAircraft?.('sim-boarding-start'); } catch (_) {}
                 if (hasBoardingPassenger && typeof _missionCargoMarkPassengerLoaded === 'function') {
                     _missionCargoMarkPassengerLoaded({ reason: 'boarding-sim-passenger-sync', playAudioCue: false });
                 }
@@ -11256,6 +11428,7 @@ window.manualMissionStart = function() {
     missionRuntime.endDeboardingCompleted = false;
     missionRuntime.endDeboardingCommandId = '';
     missionRuntime.endReadinessKey = '';
+    if (window.missionCargoStatus) window.missionCargoStatus.arrivalAutoOpenedFor = '';
     let missionStartVoiceState = null;
     try {
         const voice = typeof window.paxVoiceGetDebugState === 'function' ? window.paxVoiceGetDebugState() : null;
@@ -11326,7 +11499,7 @@ window.manualMissionEnd = function(options = {}) {
         window.openMissionCargoDialog('pickup');
         return false;
     }
-    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && (groundAction.action === 'unload' || poiGroundEndReady)) {
+    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && groundAction.action === 'unload') {
         _missionPhaseDebugPush('dialog', { mode: 'unload', trigger: 'manualMissionEnd', phase: groundAction.phase, poiGroundEndReady: !!poiGroundEndReady });
         window.openMissionCargoDialog('unload');
         return false;
@@ -11572,11 +11745,17 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase === 'planned') {
+            _prepareFreshMissionRuntimeStart('mission-start-prepare');
             _setMissionStartPhase('prepare');
             _setMissionRuntimePhase('planned');
             _updateMissionRuntimeUi();
             if (!window.simModeActive && typeof _missionSceneHandleFlightTick === 'function') {
-                setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-start-prepare'), 120);
+                _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-start-prepare');
+                setTimeout(() => {
+                    if (_missionStartPhase() !== 'prepare' || missionRuntime.active) return;
+                    if (window.missionSceneStatus?.spawned || window.missionSceneStatus?.spawnRequested) return;
+                    _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-start-prepare-retry');
+                }, 500);
             }
             return;
         }
@@ -15508,6 +15687,14 @@ function updateFlightRecorder(lat, lon, alt) {
         : Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
     const hasOnGroundFlag = typeof _lfd?.onGround === 'boolean';
     const onGroundNow = hasOnGroundFlag ? !!_lfd.onGround : false;
+    try {
+        window.missionCargoHandleAircraftMovement?.({
+            ...(_lfd || {}),
+            gsKts: gs,
+            aglFt: agl,
+            onGround: hasOnGroundFlag ? onGroundNow : undefined
+        });
+    } catch (_) {}
     window.missionMaybeTriggerPickupDepartureVoice?.({
         ...(_lfd || {}),
         gsKts: gs,

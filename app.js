@@ -17140,6 +17140,12 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         && String(base.taskDomain || profileSpec.taskDomain || '').toLowerCase() === 'infra_chain_recon'
         && !!String(base.name || '').trim()
         && !!String(base.role || '').trim();
+    const keepBasePrivateOutingPersona = profileSpec.id === 'private_outing'
+        && !isPOI
+        && String(base.taskDomain || '').toLowerCase() === 'private_outing'
+        && !!String(base.name || '').trim()
+        && !!String(base.role || '').trim()
+        && !!String(base.storySeed || base.personalStoryCue || base.paxBriefingSeed || '').trim();
     const contractNewsBriefId = profileSpec.id === 'news_coverage'
         ? String(
             missionContext?._missionContractV4?.newsBrief?.id
@@ -17161,7 +17167,10 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         && !!String(base.role || '').trim()
         && !!preferredNewsBriefId
         && baseMatchesNewsBriefPersona;
-    const keepBasePersona = keepBaseChainPersona || keepBaseNewsPersona;
+    // Private outings get their variety from the initial persona/activity pick before the writer.
+    // Preserve that combination when the finished mission is profiled again so story, PAX and cargo
+    // keep one shared red thread instead of triggering a rewrite through a second random pick.
+    const keepBasePersona = keepBaseChainPersona || keepBaseNewsPersona || keepBasePrivateOutingPersona;
     const persona = keepBasePersona ? {} : (newsBriefPersona ? { ...newsBriefPersona } : (_pickRandomProfilePersona(profileSpec, missionContext) || {}));
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
@@ -19325,6 +19334,7 @@ function _missionPrivateOutingBuildStoryContract(missionLike = {}, profile = nul
         },
         route: {
             ...(existingContract.route || {}),
+            startName: existingContract?.route?.startName || missionLike?.startName || '',
             targetName: existingContract?.route?.targetName || targetName,
             distanceNm: Number.isFinite(Number(existingContract?.route?.distanceNm))
                 ? Math.round(Number(existingContract.route.distanceNm) * 10) / 10
@@ -21088,12 +21098,23 @@ function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
     };
     const storyContract = _missionPrivateOutingBuildStoryContract(missionLike, profile);
     const currentStory = String(missionLike.s || missionLike.story || missionLike.missionStory || '').replace(/\s+/g, ' ').trim();
+    const profilePassengerDecision = {};
     const profilePassengerNeedsFallback = currentStory
-        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, passenger, storyContract)
+        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, passenger, storyContract, profilePassengerDecision)
         : true;
+    if (!currentStory) {
+        profilePassengerDecision.accepted = false;
+        profilePassengerDecision.reasons = ['empty_story'];
+        profilePassengerDecision.storyLength = 0;
+        profilePassengerDecision.sentenceCount = 0;
+    }
+    const originalPassengerDecision = {};
     const originalPassengerNeedsFallback = currentStory && originalPassenger
-        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, originalPassenger, storyContract)
+        ? _missionPipelineV4PrivateOutingBriefingNeedsFallback(currentStory, originalPassenger, storyContract, originalPassengerDecision)
         : profilePassengerNeedsFallback;
+    if (!currentStory || !originalPassenger) {
+        Object.assign(originalPassengerDecision, profilePassengerDecision);
+    }
     const fallbackHintParts = [
         passenger?.storySeed,
         passenger?.personalStoryCue,
@@ -21115,6 +21136,52 @@ function _sanitizePrivateOutingNarrative(missionLike = {}, profile = null) {
         || (profilePassengerNeedsFallback && originalPassengerNeedsFallback);
     let finalStory = _missionPrivateOutingPolishSpokenBriefing(needsStoryFallback ? fallback : currentStory);
     finalStory = _missionPrivateOutingEnrichShortBriefing(finalStory, storyContract, passenger);
+    const debugStoryText = value => String(value || '').replace(/\s+/g, ' ').trim().slice(0, 2400);
+    const existingStoryDebug = missionLike._missionWriterV4Debug && typeof missionLike._missionWriterV4Debug === 'object'
+        ? missionLike._missionWriterV4Debug
+        : {};
+    const previousSanitizerRuns = Array.isArray(existingStoryDebug.postSanitizerRuns)
+        ? existingStoryDebug.postSanitizerRuns
+        : [];
+    const fallbackReasons = Array.from(new Set([
+        ...(!currentStory ? ['empty_story'] : []),
+        ...(currentStory && currentStory.length < 90 ? ['too_short_for_post_sanitizer'] : []),
+        ...(_missionPrivateOutingGenericNarrativeText(currentStory) ? ['generic_narrative'] : []),
+        ...(profilePassengerNeedsFallback && originalPassengerNeedsFallback
+            ? [
+                ...(Array.isArray(profilePassengerDecision.reasons) ? profilePassengerDecision.reasons : []),
+                ...(Array.isArray(originalPassengerDecision.reasons) ? originalPassengerDecision.reasons : [])
+            ]
+            : [])
+    ].filter(Boolean)));
+    const sanitizerRun = {
+        stage: 'private_outing_post_sanitizer',
+        run: previousSanitizerRuns.length + 1,
+        usedFallback: needsStoryFallback,
+        storyChanged: currentStory !== finalStory,
+        fallbackReasons,
+        inputLength: currentStory.length,
+        inputSentenceCount: _missionPipelineV4SentenceCount(currentStory),
+        fallbackLength: needsStoryFallback ? fallback.length : 0,
+        fallbackSentenceCount: needsStoryFallback ? _missionPipelineV4SentenceCount(fallback) : 0,
+        outputLength: finalStory.length,
+        outputSentenceCount: _missionPipelineV4SentenceCount(finalStory),
+        inputStory: debugStoryText(currentStory),
+        fallbackStory: needsStoryFallback ? debugStoryText(fallback) : '',
+        outputStory: currentStory !== finalStory ? debugStoryText(finalStory) : '',
+        profilePassengerDecision,
+        originalPassengerDecision
+    };
+    const postSanitizerRuns = [...previousSanitizerRuns, sanitizerRun].slice(-4);
+    missionLike._missionWriterV4Debug = {
+        ...existingStoryDebug,
+        postSanitizer: sanitizerRun,
+        postSanitizerRuns,
+        postSanitizerFallbackEver: !!existingStoryDebug.postSanitizerFallbackEver || needsStoryFallback,
+        effectiveSource: (!!existingStoryDebug.postSanitizerFallbackEver || needsStoryFallback)
+            ? `${existingStoryDebug.source || missionLike._source || 'Mission Writer'} -> Local Private Outing Rewrite`
+            : (existingStoryDebug.effectiveSource || existingStoryDebug.source || missionLike._source || 'Mission Writer')
+    };
     if (finalStory) {
         missionLike.s = finalStory;
         missionLike.story = finalStory;
@@ -21379,7 +21446,7 @@ function _pickClubUtilityPassengerForCargo(profile = null, cargoText = '', missi
     return null;
 }
 
-function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
+function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText, dispatchContext = null) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
     const baseType = (isPOI || usesPoiTaskRecipe) ? 'poi' : 'apt';
@@ -21398,6 +21465,17 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const profile = getMissionTaskProfile(effectiveProfileId, baseType);
     if (!profile || profile.id === 'auto') {
         return { mission: m, paxText, cargoText, appliedProfile: 'auto' };
+    }
+    if (profile.id === 'private_outing' && !isPOI && dispatchContext && typeof dispatchContext === 'object') {
+        const targetName = String(dispatchContext.targetName || dispatchContext.destName || '').replace(/\s+/g, ' ').trim();
+        const startName = String(dispatchContext.startName || '').replace(/\s+/g, ' ').trim();
+        const distanceNm = Number(dispatchContext.distanceNm);
+        const source = String(dispatchContext.source || '').replace(/\s+/g, ' ').trim();
+        if (targetName && !String(m.targetName || '').trim()) m.targetName = targetName;
+        if (targetName && !String(m.destName || '').trim()) m.destName = targetName;
+        if (startName && !String(m.startName || '').trim()) m.startName = startName;
+        if (Number.isFinite(distanceNm) && distanceNm > 0 && !(Number(m.dist) > 0)) m.dist = distanceNm;
+        if (source && !String(m._source || '').trim()) m._source = source;
     }
 
     const sourcePassenger = (m.passenger && typeof m.passenger === 'object') ? { ...m.passenger } : null;
@@ -35849,23 +35927,43 @@ function _missionPipelineV4BushPickupBriefingLooksPaxPerspective(text = '') {
     return /\b(ich\s+(bin|war|habe|muss|soll|sitze|stehe|warte|komme|fliege|bringe)|bring\s+mich|hol\s+mich|nimm\s+mich|mein(?:e|er|em|en)?\s+(arbeit|auftrag|ausruestung|ausrüstung|rucksack|tablet|daten|proben|werkzeug|notizen)|als\s+passagier\s+zurueck|als\s+passagier\s+zuruck|als\s+passagier\s+zurück)\b/.test(normalized);
 }
 
-function _missionPipelineV4PrivateOutingBriefingNeedsFallback(text = '', passenger = {}, contract = {}) {
+function _missionPipelineV4PrivateOutingBriefingNeedsFallback(text = '', passenger = {}, contract = {}, diagnostics = null) {
+    const diagnosticTarget = diagnostics && typeof diagnostics === 'object' ? diagnostics : null;
+    const reject = reason => {
+        if (diagnosticTarget) {
+            diagnosticTarget.accepted = false;
+            diagnosticTarget.reasons = reason ? [reason] : [];
+        }
+        return true;
+    };
+    const accept = () => {
+        if (diagnosticTarget) {
+            diagnosticTarget.accepted = true;
+            diagnosticTarget.reasons = [];
+        }
+        return false;
+    };
     const normalized = normalizeMissionText(text);
-    if (!normalized) return true;
-    if (_missionPrivateOutingGenericNarrativeText(text)) return true;
-    if (_missionPrivateOutingBriefingHasRelationConflict(text, passenger)) return true;
-    if (/\b[A-ZÄÖÜ][a-zäöüß]+ [A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]+ und du\b/.test(String(text || ''))) return true;
-    if (/\b(kuehle[rmn]? kaffee|kuhle[rmn]? kaffee|kalter kaffee)\b/.test(normalized)) return true;
-    if (/\b(gemeinsam mit deinem begleiter|gemeinsam mit deiner begleiterin|privater begleiter|private begleiterin|begleitperson)\b/.test(normalized)) return true;
-    if (/\b(entspannten privaten ausflug von|sommerwetter fuer einen entspannten privaten ausflug|sommerwetter fur einen entspannten privaten ausflug|ein paar schoene stunden abseits des alltags|ein paar schone stunden abseits des alltags|die zeit in der luft zu geniessen|optimal auszunutzen)\b/.test(normalized)) return true;
-    if (/\b(herrliche[snr]? sommerwetter|ruhige[nr]? sichten|laden heute foermlich|gemuetliche[nr]? nachmittag|kuehle[snr]? getraenk oder einen kleinen snack|flug ueber das land|perfekte einstimmung|alltag fuer ein paar stunden hinter uns|freiheit in der luft|gute stimmung am boden|ideale[rmn]? tag)\b/.test(normalized)) return true;
-    if (/\broute\s+(?:ueber|uber)\s+\d+\s+(?:meilen|nm|seemeilen)\b/.test(normalized)) return true;
-    if (_missionPipelineV4SentenceCount(text) < 3) return true;
-    if (/\b(es\s+geht\s+nicht\s+um|nicht\s+um\s+(?:einen|eine|das)\s+.+?\s+sondern|kein(?:e|en)?\s+(?:rundflug|sightseeing|arbeitsauftrag|auftrag|charter|fracht))\b/.test(normalized)) return true;
+    if (diagnosticTarget) {
+        diagnosticTarget.storyLength = String(text || '').replace(/\s+/g, ' ').trim().length;
+        diagnosticTarget.sentenceCount = _missionPipelineV4SentenceCount(text);
+        diagnosticTarget.passengerName = String(passenger?.name || '').trim();
+    }
+    if (!normalized) return reject('empty_story');
+    if (_missionPrivateOutingGenericNarrativeText(text)) return reject('generic_narrative');
+    if (_missionPrivateOutingBriefingHasRelationConflict(text, passenger)) return reject('passenger_relation_conflict');
+    if (/\b[A-ZÄÖÜ][a-zäöüß]+ [A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]+ und du\b/.test(String(text || ''))) return reject('full_name_second_person');
+    if (/\b(kuehle[rmn]? kaffee|kuhle[rmn]? kaffee|kalter kaffee)\b/.test(normalized)) return reject('cold_coffee_phrase');
+    if (/\b(gemeinsam mit deinem begleiter|gemeinsam mit deiner begleiterin|privater begleiter|private begleiterin|begleitperson)\b/.test(normalized)) return reject('generic_companion_phrase');
+    if (/\b(entspannten privaten ausflug von|sommerwetter fuer einen entspannten privaten ausflug|sommerwetter fur einen entspannten privaten ausflug|ein paar schoene stunden abseits des alltags|ein paar schone stunden abseits des alltags|die zeit in der luft zu geniessen|optimal auszunutzen)\b/.test(normalized)) return reject('stock_private_outing_phrase');
+    if (/\b(herrliche[snr]? sommerwetter|ruhige[nr]? sichten|laden heute foermlich|gemuetliche[nr]? nachmittag|kuehle[snr]? getraenk oder einen kleinen snack|flug ueber das land|perfekte einstimmung|alltag fuer ein paar stunden hinter uns|freiheit in der luft|gute stimmung am boden|ideale[rmn]? tag)\b/.test(normalized)) return reject('stock_scenic_phrase');
+    if (/\broute\s+(?:ueber|uber)\s+\d+\s+(?:meilen|nm|seemeilen)\b/.test(normalized)) return reject('route_miles_template');
+    if (_missionPipelineV4SentenceCount(text) < 3) return reject('too_few_sentences');
+    if (/\b(es\s+geht\s+nicht\s+um|nicht\s+um\s+(?:einen|eine|das)\s+.+?\s+sondern|kein(?:e|en)?\s+(?:rundflug|sightseeing|arbeitsauftrag|auftrag|charter|fracht))\b/.test(normalized)) return reject('negated_mission_rules');
     const driftCheckText = normalized
         .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+einen|nicht\s+als|ohne)\s+(?:rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion)\b/g, ' ')
         .replace(/\b(?:kein|keine|keinen|nicht\s+um\s+eine|nicht\s+als|ohne)\s+(?:sightseeing[-\s]?tour|panorama[-\s]?tour|frachtmission|charterlogik|arbeitsmission)\b/g, ' ');
-    if (/\b(rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat|heimatflugplatz|rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion|profil|pipeline|muss\s+nennen|handoff)\b/.test(driftCheckText)) return true;
+    if (/\b(rueckkehr|rückkehr|zurueck\s+zum\s+heimat|zurück\s+zum\s+heimat|heimatflugplatz|rundflug|panorama|ueberflug|überflug|sightseeing|arbeitsauftrag|charter|fracht|medizin|training|reporter|redaktion|profil|pipeline|muss\s+nennen|handoff)\b/.test(driftCheckText)) return reject('domain_drift');
     const paxName = String(passenger?.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     const firstName = String(paxName.split(/\s+/)[0] || '').trim();
     const hasNamedPassenger = firstName && !/^(gast|passagier|passenger|ausflugsgast)$/i.test(firstName)
@@ -35878,21 +35976,35 @@ function _missionPipelineV4PrivateOutingBriefingNeedsFallback(text = '', passeng
     const hasSpokenPersonalBriefing = hasPrivateCompanion
         && /\b(du|ihr|euch|wir|uns|zusammen|gemeinsam|nach\s+dem\s+abstellen|vorfeld|gepaeck|gepäck|tasche|rucksack|handtuch|kaffee|wasser|auszeit|freier\s+tag|freier\s+nachmittag)\b/.test(normalized)
         && _missionPipelineV4SentenceCount(text) >= 3;
-    if (!hasPrivateCompanion || (!hasPrivateActivity && !hasSpokenPersonalBriefing)) return true;
+    if (diagnosticTarget) {
+        diagnosticTarget.hasNamedPassenger = !!hasNamedPassenger;
+        diagnosticTarget.hasSpecificRelation = hasSpecificRelation;
+        diagnosticTarget.hasPairLanguage = hasPairLanguage;
+        diagnosticTarget.hasPrivateActivity = hasPrivateActivity;
+        diagnosticTarget.hasSpokenPersonalBriefing = hasSpokenPersonalBriefing;
+    }
+    if (!hasPrivateCompanion) return reject('missing_private_companion');
+    if (!hasPrivateActivity && !hasSpokenPersonalBriefing) return reject('missing_private_activity');
     const cargoText = normalizeMissionText(contract?.cargoText || contract?.cargo || contract?.c || '');
     const storyActivity = _missionPrivateOutingActivityKind(text);
+    if (diagnosticTarget) diagnosticTarget.storyActivity = storyActivity;
     if (storyActivity === 'family') {
         const hasConcreteFamilyStory = /\b(kaffee|kuchen|tasse|tassen|tisch|familientisch|garten|fotos?|fotoalbum|fotoalben|album|geburtstag|abschluss|ueberraschung|überraschung|essen|abendessen|familienessen|familienkaffee|familienrunde|familienchat|familientag|geschwistertag|wiedersehen|gastgeber|gastgeberin|cousin|cousine|tante|onkel|oma|opa|apfelkuchen|umarmung|umarmungen|jacken\s+ueber\s+dem\s+stuhl|jacken\s+über\s+dem\s+stuhl)\b/.test(normalized);
         const routeOrPickupOnly = /\b(autofahrt|anreisemodus|ueber die luft statt ueber die strasse|über die luft statt über die straße|ohne lange autofahrt|abholung am vorfeld|familienabholung|ohne umweg familienzeit)\b/.test(normalized);
-        if (!hasConcreteFamilyStory || (routeOrPickupOnly && !hasConcreteFamilyStory)) return true;
+        if (!hasConcreteFamilyStory || (routeOrPickupOnly && !hasConcreteFamilyStory)) return reject('family_story_too_generic');
     }
     const passengerActivity = _missionPrivateOutingNarrativeActivityKind(passenger);
-    if (passengerActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesNarrativelyAligned(passengerActivity, storyActivity)) return true;
+    if (diagnosticTarget) diagnosticTarget.passengerActivity = passengerActivity;
+    if (passengerActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesNarrativelyAligned(passengerActivity, storyActivity)) return reject('passenger_activity_mismatch');
     const cargoActivity = _missionPrivateOutingActivityKind(cargoText);
     const cargoIsStrongActivityAnchor = /\b(badetasche|handtuch|handtuecher|handtücher|badehose|bikini|wanderschuhe|trekkingschuhe|museum|ausstellung|kamera|stativ|einkaufskorb|einkaufstasche|wellness|wochenendtasche)\b/.test(cargoText);
-    if (cargoIsStrongActivityAnchor && cargoActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesCompatible(cargoActivity, storyActivity)) return true;
-    if (cargoText && /\b(?:wellness|wochenendtasche)\b/.test(cargoText) && /\b(kuehle[rmn]? kaffee|kuhle[rmn]? kaffee|stadtbummel)\b/.test(normalized) && !/\b(?:wellness|wochenend|spaziergang|paartag|partner|partnerin)\b/.test(normalized)) return true;
-    return false;
+    if (diagnosticTarget) {
+        diagnosticTarget.cargoActivity = cargoActivity;
+        diagnosticTarget.cargoIsStrongActivityAnchor = cargoIsStrongActivityAnchor;
+    }
+    if (cargoIsStrongActivityAnchor && cargoActivity !== 'outing' && storyActivity !== 'outing' && !_missionPrivateOutingActivitiesCompatible(cargoActivity, storyActivity)) return reject('cargo_activity_mismatch');
+    if (cargoText && /\b(?:wellness|wochenendtasche)\b/.test(cargoText) && /\b(kuehle[rmn]? kaffee|kuhle[rmn]? kaffee|stadtbummel)\b/.test(normalized) && !/\b(?:wellness|wochenend|spaziergang|paartag|partner|partnerin)\b/.test(normalized)) return reject('wellness_cargo_story_mismatch');
+    return accept();
 }
 
 function _missionPipelineV4BushPickupNeutralField(value = '', fallback = '', options = {}) {
@@ -38158,8 +38270,10 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
             missionFamily: family,
             hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
             rawStoryLength: String(src.story || '').trim().length,
+            rawAiStory: _missionWriterV5Text(src.story || '', 2400),
             rawStoryPreview: _missionWriterV5Text(src.story || '', 520),
             finalStoryLength: finalStory.length,
+            writerStory: _missionWriterV5Text(finalStory, 2400),
             storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
             fallbackReason: finalized.fallbackReason || '',
             writerAccepted: !!finalized.acceptedRaw,
@@ -38363,7 +38477,9 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
             taskDomain: requiredTaskDomain,
             hasPoiChain: !!(contract?.poiChain?.points?.length >= 2),
             rawStoryLength: String(src.story || '').trim().length,
+            rawAiStory: _missionWriterV5Text(src.story || '', 2400),
             finalStoryLength: finalStory.length,
+            writerStory: _missionWriterV5Text(finalStory, 2400),
             storyChangedByFinalize: String(src.story || '').trim() !== finalStory,
             finalLooksEnumerative: typeof _missionPipelineV4LooksEnumerative === 'function'
                 ? _missionPipelineV4LooksEnumerative(finalStory)
@@ -43680,7 +43796,13 @@ async function generateMission(options = {}) {
         }
         {
             const effectiveProfileId = dispatchProfileId;
-            const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
+            const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText, {
+                targetName: dest?.n || '',
+                destName: dest?.n || '',
+                startName: start?.n || '',
+                distanceNm: totalDist,
+                source: dataSource
+            });
             const appliedProfileId = profApplied.appliedProfile || effectiveProfileId || 'auto';
             m = profApplied.mission || m;
             paxText = profApplied.paxText || paxText;

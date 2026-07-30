@@ -2,8 +2,8 @@
 // the SimObjects_Visuals.pdf visual pass. VFX entries are kept as known/ACK-tested assets
 // because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-07-29-homebase-cargo-v0.6.21-wheel-chocks',
-    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.21 including aircraft wheel chocks',
+    version: '2026-07-30-homebase-cargo-v0.6.22-personal-luggage',
+    source: 'msfs2024-spawn-validation manual pass, SimObjects_Visuals.pdf visual tagging, known VFX, plus Homebase cargo assets v0.6.22 including personal luggage and aircraft wheel chocks',
     targetSceneKinds: {
         none: {
             label: 'Keine Zielszene',
@@ -38,7 +38,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         cargo_site: {
             label: 'Fracht-/Materialpunkt',
-            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.camera_equipment', 'cargo.camping_equipment', 'cargo.equipment_case', 'cargo.animal_transport_box', 'cargo.aircraft_logbook', 'cargo.fire_extinguisher', 'cargo.first_aid_case', 'cargo.wheel_chocks'],
+            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.wood_crate', 'cargo.toolbox', 'cargo.cooler', 'cargo.luggage.backpack', 'cargo.luggage.duffel', 'cargo.luggage.suitcase', 'cargo.camera_equipment', 'cargo.camping_equipment', 'cargo.equipment_case', 'cargo.animal_transport_box', 'cargo.aircraft_logbook', 'cargo.fire_extinguisher', 'cargo.first_aid_case', 'cargo.wheel_chocks'],
             useFor: ['cargo_fragile', 'club_utility', 'animal_transport']
         },
         construction_site: {
@@ -660,6 +660,10 @@ window.MISSION_SCENE_ASSETS = {
         ],
         'cargo.luggage.duffel': [
             'VFR Multitool Homebase Duffel Bag'
+        ],
+        'cargo.luggage.suitcase': [
+            'VFR Multitool Homebase Travel Suitcase',
+            'VFR Multitool Homebase Cabin Trolley'
         ],
         'cargo.toolbox': [
             'VFR Multitool Homebase Portable Toolbox',

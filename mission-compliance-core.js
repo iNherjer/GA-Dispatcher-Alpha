@@ -3,7 +3,9 @@
 // UI, Voice und Tracker fuehren diesen Zustand nur aus; Abschlussentscheidungen
 // bleiben hier zentral und werden reload-sicher im aktiven Missionsdatensatz gespeichert.
 
-const MISSION_COMPLIANCE_PROBABILITY = 0.03;
+// Vorübergehend deaktiviert, bis der vollständige Ablauf manuell abgenommen ist.
+// Debug-Forcing bleibt über missionComplianceShouldInspect(..., true) aktiv.
+const MISSION_COMPLIANCE_PROBABILITY = 0;
 const MISSION_COMPLIANCE_REQUESTED_ITEM_IDS = Object.freeze([
     'bordbuch',
     'fire-extinguisher',

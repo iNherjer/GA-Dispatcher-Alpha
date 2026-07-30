@@ -101,6 +101,8 @@
         );
         manualActive = false;
         window.simManualModeActive = false;
+        window.gaSimGpsPos = null;
+        window.gaSimFlightData = null;
         clearInterval(manualInterval);
         manualInterval = null;
         manualHoldReason = '';
@@ -278,12 +280,30 @@
         } catch (_) {}
 
         window.lastLiveFlightData = _flightDataSnapshot(gs);
+        _publishSimTelemetryPosition(gs);
+        try {
+            window.missionCargoHandleAircraftMovement?.(window.gaSimFlightData);
+        } catch (_) {}
         if (typeof updateLivePlanePosition === 'function') {
             updateLivePlanePosition(manual.lat, manual.lon, Math.round(manual.mslFt), Math.round(manual.hdg));
         }
         _recordManualTrack(manual.lat, manual.lon, manual.mslFt, gs, force);
         _updateLiveTelemetryBox(gs);
         _updatePanel();
+    }
+
+    function _publishSimTelemetryPosition(gs = 0) {
+        window.gaSimGpsPos = {
+            lat: Number(manual.lat),
+            lon: Number(manual.lon),
+            alt: Number(manual.mslFt),
+            hdg: Number(manual.hdg),
+            gs: Number(gs) || 0,
+            t: Date.now()
+        };
+        window.gaSimFlightData = {
+            ...(window.lastLiveFlightData || {})
+        };
     }
 
     function _flightDataSnapshot(gsOverride = null) {

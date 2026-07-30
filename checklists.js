@@ -1600,7 +1600,13 @@
             ? `${outcome.loadedWeightLbs || 0}/${outcome.totalWeightLbs || 0} lbs · ${outcome.failed ? 'kritisch' : 'ok'}`
             : cargoHomeSummary();
         if (!items.length) {
-            bodyEl.innerHTML = `${toolTopline('cargo')} ${renderToolEmpty('Keine aktive Missionsladung gefunden.')}`;
+            bodyEl.innerHTML = `
+                ${toolTopline('cargo')}
+                <div class="checklist-topline">
+                    <button class="checklist-action-btn" type="button" data-action="cargo-open-modal">Bordbestand verwalten</button>
+                </div>
+                ${renderToolEmpty('Keine aktive Missionsladung gefunden. Der Bordbestand kann am Boden trotzdem verwaltet werden.')}
+            `;
             return;
         }
         const rows = items.map(item => {
@@ -4173,7 +4179,13 @@ ${routeLines}`;
             setStatus(ok ? 'Gegenstand durch ein neues Exemplar ersetzt.' : 'Austausch derzeit nicht moeglich.', ok ? 'good' : 'warn');
             render();
         } else if (action === 'cargo-open-modal') {
-            if (typeof window.openMissionCargoDialog === 'function') {
+            if (typeof window.openMissionGroundCargoDialog === 'function') {
+                const opened = window.openMissionGroundCargoDialog();
+                setStatus(
+                    opened ? 'Verladefenster geoeffnet.' : 'Verladefenster ist nur am Boden und im Stillstand verfuegbar.',
+                    opened ? 'good' : 'warn'
+                );
+            } else if (typeof window.openMissionCargoDialog === 'function') {
                 window.openMissionCargoDialog('load');
                 setStatus('Verladefenster geoeffnet.', 'good');
             } else {
