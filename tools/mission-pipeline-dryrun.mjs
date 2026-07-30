@@ -2330,8 +2330,8 @@ function buildScenePlannerV3Payload(prompt, toolResult = {}) {
     const pickupName = String(base.expectedBy || 'Pickup-Gast').trim();
     const items = isBushPickup && baseItems.length
       ? baseItems
-        .filter(item => item && /arrival_(vehicle|person|contact)/i.test(String(item.kind || '')))
-        .slice(0, 3)
+        .filter(item => item && /arrival_(vehicle|person|contact|equipment)/i.test(String(item.kind || '')))
+        .slice(0, 4)
         .map(item => ({
           kind: item.kind,
           label: item.label || item.objectTitle || (String(item.kind || '').includes('vehicle') ? 'Geländewagen' : pickupName),
@@ -2380,7 +2380,7 @@ function buildScenePlannerV3Payload(prompt, toolResult = {}) {
         items
       },
       localizationNotes: ['APT targetScene bleibt none; sichtbare Objekte werden relativ zum Arrival-Anker gesetzt.'],
-      validationNotes: [isBushPickup ? 'Bush-Pickup bleibt Person plus kleines Fahrzeug am Striprand, ohne Cargo-Uebergabe.' : 'Rollen/Objekte passen zum Uebergabeauftrag und bleiben sparsam.']
+      validationNotes: [isBushPickup ? 'Bush-Pickup bleibt Gast plus Begleitgepaeck und kleines Fahrzeug am Striprand.' : 'Rollen/Objekte passen zum Uebergabeauftrag und bleiben sparsam.']
     };
   }
 

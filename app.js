@@ -25665,10 +25665,27 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         'vehicle.truck',
         'vehicle.emergency.medical',
         'cargo.small_box',
+        'cargo.equipment_case',
         'cargo.medical_kit',
         'cargo.animal_transport_box'
     ]);
-    const sourceItems = (rawFitsBaseRole && rawItems.length) ? rawItems : fallbackItems;
+    let sourceItems = (rawFitsBaseRole && rawItems.length) ? rawItems : fallbackItems;
+    const isBushPickupRole = String(basePlan.role || '').toLowerCase() === 'bush_strip_pickup';
+    if (isBushPickupRole && sourceItems === rawItems) {
+        const requiredPickupCargo = fallbackItems.filter(item => (
+            String(item?.role || '').toLowerCase() === 'cargo.equipment_case'
+            || /^arrival_equipment_/i.test(String(item?.kind || ''))
+        ));
+        requiredPickupCargo.forEach(fallbackItem => {
+            const fallbackRole = String(fallbackItem?.role || '').toLowerCase();
+            const fallbackKind = String(fallbackItem?.kind || '').toLowerCase();
+            const alreadyIncluded = sourceItems.some(item => (
+                (fallbackRole && String(item?.role || '').toLowerCase() === fallbackRole)
+                || (fallbackKind && String(item?.kind || '').toLowerCase() === fallbackKind)
+            ));
+            if (!alreadyIncluded) sourceItems = [...sourceItems, fallbackItem];
+        });
+    }
     const items = sourceItems
         .map((item, index) => {
             const role = scenePlannerV3CleanText(item?.role || fallbackItems[index]?.role || '', 60);
@@ -43334,6 +43351,22 @@ async function generateMission(options = {}) {
                         : (aiPickupStory || fallbackPickupStory);
                     const selectedPickupName = String(selectedPickupStory?.personName || aiPassengerName || fallbackMission?.passenger?.name || '').trim();
                     const selectedPickupRole = String(selectedPickupStory?.role || aiPassengerRole || fallbackMission?.passenger?.role || fallbackBushSpec.pickupRole || '').trim();
+                    const pickupCandidate = Array.isArray(missionContractV4?.pickupCreativeBrief?.candidateShortlist)
+                        ? missionContractV4.pickupCreativeBrief.candidateShortlist[0] || null
+                        : null;
+                    const pickupEquipmentIdeas = Array.isArray(pickupCandidate?.objectIdeas)
+                        ? pickupCandidate.objectIdeas
+                            .slice(0, 3)
+                            .map(item => _missionPipelineV4BushPickupDisplayText(item))
+                            .filter(Boolean)
+                        : [];
+                    const pickupCargoLabel = pickupEquipmentIdeas.length
+                        ? _missionPipelineV4JoinNaturalList(pickupEquipmentIdeas)
+                        : String(
+                            existingBush.pickupCargoLabel
+                            || fallbackBushSpec.pickupCargoLabel
+                            || 'Persönliche Ausrüstung und Unterlagen'
+                        ).trim();
                     const useFallbackPickupDetails = !useExistingPickupStory && !hasAiPickupPassenger;
                     const hydratedBush = sanitizeBushMissionSpec({
                         ...fallbackBushSpec,
@@ -43347,6 +43380,8 @@ async function generateMission(options = {}) {
                         pickupGreetingText: hasAiPickupPassenger
                             ? (aiPassenger?.greetingText || existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText)
                             : (existingBush.pickupGreetingText || aiPassenger?.greetingText || fallbackBushSpec.pickupGreetingText),
+                        pickupCargoLabel,
+                        pickupCargoWeightLbs: Number(existingBush.pickupCargoWeightLbs || fallbackBushSpec.pickupCargoWeightLbs) || 18,
                         pickupStory: selectedPickupStory || fallbackBushSpec.pickupStory
                     });
                     if (hydratedBush) {
@@ -43389,7 +43424,6 @@ async function generateMission(options = {}) {
             const pickupKind = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
             const targetMode = String(dispatchBushSpec?.targetMode || '').toLowerCase();
             if (targetMode === 'strip_then_return' && (pickupKind === 'passenger' || pickupKind === 'cargo')) {
-                cargoText = '-';
                 if (pickupKind === 'passenger') {
                     const pickupStory = (dispatchBushSpec?.pickupStory && typeof dispatchBushSpec.pickupStory === 'object') ? dispatchBushSpec.pickupStory : {};
                     const pickupRole = String(
@@ -43415,8 +43449,13 @@ async function generateMission(options = {}) {
                         m.paxText = paxText;
                         m.cat = 'bush_pickup';
                     }
+                    cargoText = String(
+                        dispatchBushSpec?.pickupCargoLabel
+                        || 'Persönliche Ausrüstung und Unterlagen'
+                    ).trim();
                 } else if (pickupKind === 'cargo') {
                     paxText = '0 PAX';
+                    cargoText = String(dispatchBushSpec?.pickupLabel || 'Rueckholfracht').trim();
                     if (typeof m === 'object') {
                         m.pax = '0 PAX';
                         m.paxText = '0 PAX';
@@ -43424,8 +43463,8 @@ async function generateMission(options = {}) {
                     }
                 }
                 if (typeof m === 'object') {
-                    m.cargo = '-';
-                    m.cargoText = '-';
+                    m.cargo = cargoText;
+                    m.cargoText = cargoText;
                 }
             }
         }

@@ -479,6 +479,10 @@ function _paxMissionEndVoiceActive() {
     );
 }
 
+function _paxSpeechCanceledByMissionEnd(options = {}) {
+    return options?.cancelWhenMissionEnd === true && _paxMissionEndVoiceActive();
+}
+
 function _paxStopCurrentPlayback(reason = 'mission-reset') {
     const playback = _paxCurrentPlayback;
     if (!playback) return;
@@ -6472,15 +6476,27 @@ function _logRoleConsistencyCheck(eventLabel) {
     }
 }
 
-async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch) {
+async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch, options = {}) {
     if (!_paxEpochCurrent(epoch)) return;
+    if (_paxSpeechCanceledByMissionEnd(options)) {
+        _paxLog(`${options.eventLabel || 'Ansage'} verworfen: Farewell/Missionsende aktiv`, 'state');
+        return;
+    }
     const audio = await _requestTTSAudio(text, speaker);
     if (!_paxEpochCurrent(epoch)) return;
+    if (_paxSpeechCanceledByMissionEnd(options)) {
+        _paxLog(`${options.eventLabel || 'Ansage'} nach TTS verworfen: Farewell/Missionsende aktiv`, 'state');
+        return;
+    }
     if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch, audio.sourceLabel || 'TTS');
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch, options = {}) {
     if (!_paxEpochCurrent(epoch)) return;
+    if (_paxSpeechCanceledByMissionEnd(options)) {
+        _paxLog(`${eventLabel} verworfen: Farewell/Missionsende aktiv`, 'state');
+        return;
+    }
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
     const pax = window.activePassenger || null;
@@ -6497,6 +6513,10 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
     if (!_paxEpochCurrent(epoch)) return;
+    if (_paxSpeechCanceledByMissionEnd(options)) {
+        _paxLog(`${eventLabel} nach Textgen verworfen: Farewell/Missionsende aktiv`, 'state');
+        return;
+    }
     const spokenText = _injectPattonvilleJuliusEasteregg(
         _injectPattonvilleReportingPointsHint(
             _normalizeSpokenText(spokenTextRaw),
@@ -6517,7 +6537,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
         _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
         return;
     }
-    await _playTextAsTTS(spokenText, speakerSnapshot, epoch);
+    await _playTextAsTTS(spokenText, speakerSnapshot, epoch, { ...options, eventLabel });
 }
 
 function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null, options = {}) {
@@ -6525,6 +6545,10 @@ function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null, opti
     _paxLog(`Queue +1 | Event: ${eventLabel}`, 'state');
     const run = async () => {
         if (epoch !== _paxMissionEpoch) return;
+        if (_paxSpeechCanceledByMissionEnd(options)) {
+            _paxLog(`Queue verworfen | Event: ${eventLabel} · Farewell/Missionsende aktiv`, 'state');
+            return;
+        }
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             if (epoch !== _paxMissionEpoch) return;
@@ -9317,7 +9341,7 @@ window.triggerPaxAtTarget = async function(flightData) {
             _paxLog('AtTarget-Queue unterdrueckt: Farewell/Missionsende aktiv', 'state');
             return;
         }
-        _speakAndShow(prompt, label);
+        _speakAndShow(prompt, label, null, { cancelWhenMissionEnd: true });
     }, 2000);
 };
 
@@ -9505,7 +9529,7 @@ window.triggerPaxLandingRoll = async function(record) {
     _paxLog('Landing-Roll → API-Call in 1s', 'event');
     _paxMissionTimeout(() => {
         if (_paxMissionEndVoiceActive()) return;
-        _speakAndShow(prompt, 'Nach der Landung');
+        _speakAndShow(prompt, 'Nach der Landung', null, { cancelWhenMissionEnd: true });
     }, 1000);
 };
 

@@ -12,6 +12,7 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
 ## Pflichtlekture nach Arbeitsbereich
 
 - Missionslogik, neue Missionstypen, Bush/POI/APT, Runtime, Manifest, Cargo, Ground Actions:
+  - `docs/Mission Flow Reference.md`
   - `docs/Mission Building Instructions.md`
   - `docs/Mission Semantics Rules V4.md`
   - `docs/Mission Roadmap.md`, wenn Prioritaeten oder neue Missionsideen betroffen sind

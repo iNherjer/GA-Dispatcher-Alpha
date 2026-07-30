@@ -4314,8 +4314,11 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
 function _missionAptArrivalSceneItems(plan = {}) {
     const items = _missionAptArrivalPreviewItems(plan);
     const pickupManifest = _missionCargoEnsureManifest();
-    const pickupCargoItem = typeof _missionBushPickupItem === 'function'
-        ? _missionBushPickupItem(pickupManifest)
+    const pickupCargoItem = Array.isArray(pickupManifest?.items)
+        ? pickupManifest.items.find(item => (
+            item?.pickupLocation === 'target'
+            && !_missionCargoIsPassengerItem(item)
+        )) || null
         : null;
     const movingPickupPersonIndex = _missionBushIsPickupPassengerMission()
         ? items.findIndex(item => {

@@ -1,5 +1,11 @@
 # Mission Building Instructions
 
+Schnelle Ablaufuebersicht: `docs/Mission Flow Reference.md`.
+
+Diese Datei bleibt das ausfuehrliche Bau- und Erweiterungshandbuch. Die Flow
+Reference dokumentiert kompakt den aktuell ausgefuehrten Start-, Pickup-,
+Unload-, Farewell- und Close-Pfad aller Ablaufklassen.
+
 Diese Datei beschreibt den aktuellen Missions-Baukasten im Projekt. Sie ist bewusst am echten Code ausgerichtet und nicht an einer idealisierten Zielarchitektur. Ziel ist, neue Missionen planbar zu machen, bestehende Logik sicher zu erweitern und spätere Refactors mit klaren Grenzen vorzubereiten.
 
 ## 1. Architektur in Kurzform
@@ -998,11 +1004,14 @@ Bausteine:
 Typische Erfolgslogik:
 
 1. leer zum Zielstrip
-2. Pickup vor Ort
-3. Rückflug
-4. Passagier daheim aussteigen lassen
-5. optional Handoff-Szene
-6. Mission schließen
+2. PAX und Begleitfracht im zentralen Verlade-Manager laden
+3. Pickup-Liste mit eigenem Scope `pickup` unterschreiben
+4. Pickup separat bestaetigen und damit den Rueckflug freigeben
+5. Rückflug
+6. Begleitfracht daheim entladen und Ankunft unterschreiben/bestaetigen
+7. Passagier nach Farewell daheim aussteigen lassen
+8. optional Handoff-Szene
+9. Mission schließen
 
 ### 7.8 Bush Pickup Cargo
 
@@ -1016,9 +1025,12 @@ Typische Erfolgslogik:
 
 1. leer hin
 2. Fracht aufnehmen
-3. Rückflug
-4. Fracht am Heimatplatz ausladen
-5. Mission schließen
+3. Pickup-Liste mit eigenem Scope `pickup` unterschreiben
+4. Pickup separat bestaetigen und damit den Rueckflug freigeben
+5. Rückflug
+6. Fracht am Heimatplatz ausladen
+7. Ankunft unterschreiben und bestaetigen
+8. Mission schließen
 
 ## 8. Checkliste für neue Missionstypen
 

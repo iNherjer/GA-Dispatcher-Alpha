@@ -280,9 +280,9 @@ for (const requiredUiText of [
     "if (normalizedMode === 'unload' && !_missionCargoHasActiveMission())",
     'if (missionCargoGroundInventoryManifest && !_missionCargoHasActiveMission())',
     "const isEquipment = mode === 'equipment'",
-    'const usesManifestSheet = isLoad || isUnload || isEquipment',
+    'const usesManifestSheet = isLoad || isUnload || isPickup || isEquipment',
     "const listMarkup = usesManifestSheet ? ''",
-    'const signaturePanel = (isLoad || isUnload)',
+    'const signaturePanel = (isLoad || isUnload || isPickup)',
     'scope: _missionCargoSignatureScope(renderMode)',
     "const arrivalWork = complianceActive",
     "_missionCargoSignatureMatchesMode(manifest.dispatchSignature, 'unload')",
@@ -424,7 +424,10 @@ vm.runInNewContext([
     functionSource('_missionCargoSignatureMatchesMode')
 ].join('\n'), signatureScopeContext);
 assert.equal(signatureScopeContext._missionCargoSignatureScope('load'), 'departure');
+assert.equal(signatureScopeContext._missionCargoSignatureScope('pickup'), 'pickup');
 assert.equal(signatureScopeContext._missionCargoSignatureScope('unload'), 'arrival');
+assert.equal(signatureScopeContext._missionCargoSignatureMatchesMode({ scope: 'pickup' }, 'pickup'), true);
+assert.equal(signatureScopeContext._missionCargoSignatureMatchesMode({ scope: 'departure' }, 'pickup'), false);
 assert.equal(signatureScopeContext._missionCargoSignatureMatchesMode({ scope: 'arrival' }, 'unload'), true);
 assert.equal(signatureScopeContext._missionCargoSignatureMatchesMode({ scope: 'departure' }, 'unload'), false);
 assert.equal(signatureScopeContext._missionCargoSignatureMatchesMode({ by: 'LEGACY' }, 'load'), true);

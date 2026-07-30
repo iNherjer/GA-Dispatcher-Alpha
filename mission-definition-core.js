@@ -226,9 +226,16 @@ function sanitizeBushMissionSpec(raw = null) {
     if (!raw || typeof raw !== 'object') return null;
     const targetModeRaw = String(raw.targetMode || '').trim().toLowerCase();
     const completionModeRaw = String(raw.completionMode || '').trim().toLowerCase();
+    const pickupKind = ['passenger', 'cargo'].includes(String(raw.pickupKind || '').trim().toLowerCase())
+        ? String(raw.pickupKind || '').trim().toLowerCase()
+        : '';
     const targetMode = ['strip', 'area', 'route', 'strip_then_return', 'area_then_return'].includes(targetModeRaw) ? targetModeRaw : '';
     const completionMode = ['land_at_target', 'unload_at_target', 'passenger_dropoff', 'recon_in_area', 'visit_waypoints', 'return_home'].includes(completionModeRaw) ? completionModeRaw : '';
     if (!targetMode || !completionMode) return null;
+    const pickupCargoLabel = String(
+        raw.pickupCargoLabel
+        || (pickupKind === 'passenger' ? 'Persönliche Ausrüstung und Unterlagen' : '')
+    ).trim().replace(/\s+/g, ' ').slice(0, 180);
     return _applyBushRecipeGuardrails({
         profileId: String(raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
         targetMode,
@@ -236,9 +243,13 @@ function sanitizeBushMissionSpec(raw = null) {
         reconFocus: String(raw.reconFocus || '').trim().slice(0, 240),
         reconFocusLabel: String(raw.reconFocusLabel || '').trim().slice(0, 120),
         requiresReturnHome: !!raw.requiresReturnHome,
-        pickupKind: ['passenger', 'cargo'].includes(String(raw.pickupKind || '').trim().toLowerCase()) ? String(raw.pickupKind || '').trim().toLowerCase() : '',
+        pickupKind,
         pickupLabel: String(raw.pickupLabel || '').trim().slice(0, 120),
         pickupRole: String(raw.pickupRole || '').trim().slice(0, 120),
+        pickupCargoLabel,
+        pickupCargoWeightLbs: pickupCargoLabel
+            ? Math.max(1, Math.min(250, Math.round(Number(raw.pickupCargoWeightLbs) || 18)))
+            : 0,
         pickupGreetingText: String(raw.pickupGreetingText || '').trim().slice(0, 520),
         pickupStory: _sanitizeBushPickupStory(raw.pickupStory),
         pickupPassengerCount: Math.max(0, Math.min(6, Math.round(Number(raw.pickupPassengerCount) || 0))),
@@ -881,6 +892,8 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
             pickupKind: 'passenger',
             pickupLabel: passengerForPickup?.name ? `${passengerForPickup.name} (${passengerForPickup.role || 'Bush Pickup'})` : 'Bush Pickup Passenger',
             pickupRole: String(passengerForPickup?.role || 'Bush Pickup Passenger').trim(),
+            pickupCargoLabel: 'Persönliche Ausrüstung und Unterlagen',
+            pickupCargoWeightLbs: 18,
             pickupGreetingText: String(passengerForPickup?.greetingText || '').trim(),
             pickupStory: _sanitizeBushPickupStory(passengerForPickup?.pickupStory || null),
             pickupPassengerCount: 1,
@@ -1103,10 +1116,13 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             vehicleRole: bushVehicle.role,
             vehicleLabel: bushVehicle.label,
             personRole: 'person.ground_crew',
-            equipmentRole: pickupKind === 'cargo' ? 'cargo.small_box' : '',
+            equipmentRole: pickupKind === 'cargo' ? 'cargo.small_box' : 'cargo.equipment_case',
+            equipmentLabel: pickupKind === 'cargo'
+                ? String(bush.pickupLabel || 'Rueckholfracht').trim()
+                : String(bush.pickupCargoLabel || 'Persönliche Ausrüstung und Unterlagen').trim(),
             narrativeHint: pickupKind === 'cargo'
                 ? `Am Zielstrip wartet eine Bush-Frachtaufnahme fuer ${bushTargetName}. Die Rueckholfracht liegt am Treffpunkt fuer den Heimflug bereit.`
-                : `Am Zielstrip wartet ein Bush-Pickup fuer ${bushTargetName}. Der Gast steht am Treffpunkt fuer den Rueckflug bereit.`
+                : `Am Zielstrip wartet ein Bush-Pickup fuer ${bushTargetName}. Der Gast und seine Begleitfracht stehen am Treffpunkt fuer den Rueckflug bereit.`
         };
     }
     if (bush && !bush.requiresReturnHome) {

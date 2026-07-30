@@ -395,7 +395,8 @@ state.manifest[0].status = 'unloaded';
 state.signatureScope = 'arrival';
 assertAction('end', true, 'Bush recon signed home completion');
 
-// Passenger pickup: pickup, explicit confirmation, return, signature, then farewell.
+// Passenger pickup: pickup list, dedicated pickup signature, explicit confirmation,
+// return, arrival signature, then farewell.
 resetScenario('bush_pickup_passenger', {
     bushSpec: {
         profileId: 'bush_pickup_strip',
@@ -419,6 +420,15 @@ resetScenario('bush_pickup_passenger', {
             pickupLocation: 'target',
             deliverAtDestination: false,
             deliverAtHome: true
+        },
+        {
+            id: 'pickup-companion-cargo',
+            itemType: 'cargo',
+            required: true,
+            status: 'pending',
+            pickupLocation: 'target',
+            deliverAtDestination: false,
+            deliverAtHome: true
         }
     ]
 });
@@ -429,6 +439,24 @@ state.manifest[0].status = 'loaded';
 updateBush();
 const pickupConfirmAction = assertAction('pickup', false, 'passenger pickup loaded but unconfirmed');
 assert.equal(pickupConfirmAction.pickupConfirmOnly, true);
+assert.equal(
+    state.manifest.filter(item => item.required && item.pickupLocation === 'target' && item.status !== 'loaded').length,
+    1,
+    'passenger alone must not complete the central pickup loading list'
+);
+state.manifest[1].status = 'loaded';
+assert.equal(
+    state.manifest.filter(item => item.required && item.pickupLocation === 'target' && item.status !== 'loaded').length,
+    0,
+    'passenger and companion cargo together complete the central pickup loading list'
+);
+assert.notEqual(
+    state.signatureScope,
+    'pickup',
+    'the departure signature must not release pickup confirmation'
+);
+state.signatureScope = 'pickup';
+assert.equal(state.signatureScope, 'pickup', 'pickup receives its own signature before confirmation');
 state.bushProgress.pickupConfirmed = true;
 state.bushProgress.status = 'return_leg';
 setTelemetry({ onGround: false, atTarget: false, atHome: false, meaningfulFlight: true });
@@ -438,6 +466,8 @@ setTelemetry({ onGround: true, atTarget: false, atHome: true, meaningfulFlight: 
 updateBush();
 assert.equal(state.bushProgress.status, 'home_unloading');
 assertAction('unload', true, 'passenger pickup home signature');
+state.manifest[1].status = 'unloaded';
+assertAction('unload', true, 'companion cargo unloaded but arrival signature still missing');
 state.signatureScope = 'arrival';
 assertAction('end', true, 'passenger pickup releases farewell after signature');
 
@@ -448,6 +478,8 @@ state.bushProgress.pickupCompleted = true;
 state.bushProgress.status = 'home_unloading';
 const lateConfirmAction = assertAction('pickup', false, 'late passenger pickup confirmation recovery');
 assert.equal(lateConfirmAction.pickupConfirmOnly, true);
+assert.notEqual(state.signatureScope, 'pickup', 'late recovery still requires a fresh pickup signature');
+state.signatureScope = 'pickup';
 state.bushProgress.pickupConfirmed = true;
 updateBush();
 assertAction('unload', true, 'late pickup confirmation returns to home handoff');
@@ -484,6 +516,8 @@ updateBush();
 assertAction('pickup', false, 'cargo pickup ready');
 state.manifest[0].status = 'loaded';
 updateBush();
+assert.notEqual(state.signatureScope, 'pickup', 'cargo pickup cannot reuse the departure signature');
+state.signatureScope = 'pickup';
 state.bushProgress.pickupConfirmed = true;
 state.bushProgress.status = 'return_leg';
 setTelemetry({ onGround: true, atTarget: false, atHome: true, meaningfulFlight: true });

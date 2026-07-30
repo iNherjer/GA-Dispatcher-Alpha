@@ -5,6 +5,7 @@ function buildAptArrivalSceneItems(role = {}) {
     const personRole = String(role?.personRole || 'person.ground_crew');
     const vehicleRole = String(role?.vehicleRole || '');
     const equipmentRole = String(role?.equipmentRole || '');
+    const explicitEquipmentLabel = String(role?.equipmentLabel || '').trim();
     const isBushStripRole = /^bush_strip_/.test(roleId);
     const explicitVehicleLabel = String(role?.vehicleLabel || '').trim();
     const vehicleLabel = roleId === 'media_pickup'
@@ -78,7 +79,9 @@ function buildAptArrivalSceneItems(role = {}) {
             ? 'Frachtuebergabe'
             : (roleId === 'medical_handoff'
                 ? 'Medizinische Uebergabekiste'
-                : (roleId === 'animal_handoff' ? (animalSpec?.cargoLabel || 'Tiertransportbox') : 'Uebergabeausruestung'));
+                : (roleId === 'animal_handoff'
+                    ? (animalSpec?.cargoLabel || 'Tiertransportbox')
+                    : (explicitEquipmentLabel || 'Uebergabeausruestung')));
         const fixedBoxEquipment = roleId === 'medical_handoff' || roleId === 'animal_handoff';
         const equipmentTitle = roleId === 'animal_handoff'
             ? (animalSpec?.cargoTitle || 'Cardboard')
