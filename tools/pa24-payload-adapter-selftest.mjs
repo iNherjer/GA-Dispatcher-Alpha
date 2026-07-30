@@ -255,8 +255,8 @@ const overweightPlan = context._missionCargoBuildPa24PlanFromManifest({
 assert.equal(overweightPlan.error, 'pa24_gross_weight_exceeded');
 
 for (const required of [
-    "const TRACKER_VERSION = 'v318';",
-    "const TRACKER_VERSION_CODE = 318;",
+    "const TRACKER_VERSION = 'v319';",
+    "const TRACKER_VERSION_CODE = 319;",
     "const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';",
     'const PA24_PAYLOAD_SEAT_SETTLE_MS = 220;',
     'applyPa24PayloadState(pa24State, before?.pa24)',
@@ -274,8 +274,8 @@ for (const required of [
     assert.ok(trackerSource.includes(required), `tracker contract missing: ${required}`);
 }
 assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat]'));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 318;"));
-assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v318';"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 319;"));
+assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v319';"));
 assert.ok(syncSource.includes('window.missionCargoHandleLiveFuelUpdate?.(data.flight);'));
 assert.ok(cargoSource.includes('class="mission-cargo-payload-table"'));
 assert.ok(stylesSource.includes('.mission-cargo-payload-table'));
