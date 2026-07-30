@@ -2998,6 +2998,12 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
         const maximumWeight = Number.isFinite(Number(plan?.grossWeightLbs))
             ? Number(plan.grossWeightLbs)
             : Number(snapshot.pa24?.grossWeightLbs);
+        const totalWeight = Number.isFinite(Number(snapshot.totalWeightLbs))
+            ? Number(snapshot.totalWeightLbs)
+            : Number(snapshot.pa24?.totalWeightLbs);
+        const emptyWeight = Number.isFinite(Number(snapshot.emptyWeightLbs))
+            ? Number(snapshot.emptyWeightLbs)
+            : Number(snapshot.pa24?.emptyWeightLbs);
         return `
             <div class="mission-cargo-payload-summary is-pa24">
                 <div class="mission-cargo-payload-metrics">
@@ -3005,6 +3011,8 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
                     <span><small>PAX</small><strong>${Number.isFinite(paxWeight) ? Math.round(paxWeight) : '—'} lbs</strong></span>
                     <span><small>Payload</small><strong>${Number.isFinite(cargoWeight) ? Math.round(cargoWeight) : '—'} lbs</strong></span>
                     <span><small>Fuel</small><strong>${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '—'} lbs</strong></span>
+                    <span class="is-half"><small>Gesamt</small><strong>${Number.isFinite(totalWeight) ? Math.round(totalWeight) : '—'} lbs</strong></span>
+                    <span class="is-half"><small>Leer</small><strong>${Number.isFinite(emptyWeight) ? Math.round(emptyWeight) : '—'} lbs</strong></span>
                 </div>
                 ${_missionCargoPayloadStatusMessageHtml()}
             </div>`;
