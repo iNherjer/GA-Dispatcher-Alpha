@@ -11693,6 +11693,121 @@ body.map-drawing-active #map.leaflet-dragging {
     line-height: 1.45;
     color: rgba(232,244,255,0.72);
 }
+.mission-cargo-payload-summary.is-pa24 {
+    display: grid;
+    gap: 9px;
+    padding-top: 11px;
+    background: rgba(6,16,25,0.34);
+}
+.mission-cargo-payload-heading,
+.mission-cargo-payload-plan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 10px;
+}
+.mission-cargo-payload-heading {
+    justify-content: space-between;
+    color: rgba(239,248,255,0.94);
+}
+.mission-cargo-payload-heading strong {
+    font-size: 13px;
+}
+.mission-cargo-payload-heading span {
+    color: rgba(151,205,255,0.86);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.mission-cargo-payload-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+.mission-cargo-payload-metrics > span {
+    display: grid;
+    gap: 1px;
+    padding: 6px 8px;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.035);
+}
+.mission-cargo-payload-metrics small {
+    color: rgba(210,231,247,0.55);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.mission-cargo-payload-metrics strong {
+    color: rgba(239,248,255,0.92);
+    font-size: 12px;
+}
+.mission-cargo-payload-plan {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(63,145,214,0.08);
+}
+.mission-cargo-payload-plan strong {
+    color: rgba(151,205,255,0.92);
+}
+.mission-cargo-payload-table-wrap {
+    min-width: 0;
+    overflow-x: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
+}
+.mission-cargo-payload-table {
+    width: 100%;
+    min-width: 390px;
+    border-collapse: collapse;
+    color: rgba(232,244,255,0.82);
+    font-size: 12px;
+}
+.mission-cargo-payload-table th,
+.mission-cargo-payload-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    text-align: left;
+}
+.mission-cargo-payload-table thead th {
+    background: rgba(255,255,255,0.04);
+    color: rgba(210,231,247,0.58);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.mission-cargo-payload-table tbody tr:last-child th,
+.mission-cargo-payload-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+.mission-cargo-payload-table tbody th {
+    min-width: 84px;
+}
+.mission-cargo-payload-table tbody th strong,
+.mission-cargo-payload-table tbody th small {
+    display: block;
+}
+.mission-cargo-payload-table tbody th small {
+    color: rgba(210,231,247,0.48);
+    font-size: 9px;
+}
+.mission-cargo-payload-table .is-number {
+    white-space: nowrap;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.mission-cargo-payload-occupancy {
+    display: inline-block;
+    white-space: nowrap;
+    color: rgba(210,231,247,0.62);
+}
+.mission-cargo-payload-occupancy.is-occupied {
+    color: rgba(255,222,139,0.9);
+}
+.mission-cargo-payload-occupancy.is-free {
+    color: rgba(116,231,194,0.86);
+}
 .mission-cargo-payload-message {
     margin-top: 7px;
     padding: 7px 9px;
@@ -11766,6 +11881,13 @@ body.map-drawing-active #map.leaflet-dragging {
     }
     .mission-cargo-primary {
         font-size: 11px;
+    }
+    .mission-cargo-payload-summary {
+        padding-inline: 10px;
+    }
+    .mission-cargo-payload-table th,
+    .mission-cargo-payload-table td {
+        padding: 5px 6px;
     }
     .mission-cargo-equipment-detail,
     .mission-boardbook-reminder,

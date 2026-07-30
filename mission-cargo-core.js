@@ -2527,6 +2527,71 @@ function _missionCargoPayloadStatusMessageHtml() {
     return '';
 }
 
+function _missionCargoPayloadRequestedWeights(manifest = null) {
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const passengers = items.filter(item => item.status === 'loaded' && _missionCargoIsPassengerItem(item));
+    const cargo = items
+        .filter(item => item.status === 'loaded' && !_missionCargoIsPassengerItem(item))
+        .filter(item => item.persistentEquipmentInherited !== true);
+    const paxCount = passengers.reduce(
+        (sum, item) => sum + Math.max(1, Math.round(Number(item.passengerCount) || 1)),
+        0
+    );
+    let paxWeightLbs = passengers.reduce((sum, item) => sum + Math.max(0, Number(item.weightLbs || 0)), 0);
+    if (paxCount > 0 && paxWeightLbs <= 0) paxWeightLbs = paxCount * _missionCargoPaxWeightLbs();
+    const cargoWeightLbs = cargo.reduce((sum, item) => sum + Math.max(0, Number(item.weightLbs || 0)), 0);
+    return {
+        paxWeightLbs: Math.round(paxWeightLbs * 10) / 10,
+        cargoWeightLbs: Math.round(cargoWeightLbs * 10) / 10,
+        missionWeightLbs: Math.round((paxWeightLbs + cargoWeightLbs) * 10) / 10
+    };
+}
+
+function _missionCargoPa24PayloadTableRows(snapshot = null, plan = null) {
+    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
+    if (!normalized || normalized.payloadAdapter !== MISSION_CARGO_PA24_ADAPTER || !normalized.pa24) return [];
+    const plannedStations = new Map(
+        (Array.isArray(plan?.stations) ? plan.stations : [])
+            .map(row => [Math.round(Number(row?.index)), Number(row?.weightLbs)])
+            .filter(([index, weight]) => Number.isFinite(index) && Number.isFinite(weight))
+    );
+    const hasPlannedState = !!(plan?.pa24State && typeof plan.pa24State === 'object');
+    const seatRows = [2, 3, 4].map((seat) => {
+        const currentCharacter = Math.max(0, Math.min(4, Math.round(Number(normalized.pa24.seats?.[seat] || 0))));
+        const currentWeightLbs = currentCharacter > 0
+            ? Math.max(0, Number(normalized.pa24.characterWeights?.[currentCharacter] || 0))
+            : 0;
+        const targetCharacter = hasPlannedState
+            ? Math.max(0, Math.min(4, Math.round(Number(plan.pa24State.seats?.[seat] || 0))))
+            : null;
+        const plannedWeight = plannedStations.get(seat);
+        return {
+            kind: 'seat',
+            index: seat,
+            label: `Sitz ${seat}`,
+            currentCharacter,
+            currentWeightLbs: Math.round(currentWeightLbs * 10) / 10,
+            targetCharacter,
+            targetWeightLbs: Number.isFinite(plannedWeight) ? Math.round(plannedWeight * 10) / 10 : null
+        };
+    });
+    const plannedBaggageWeight = plannedStations.get(5);
+    return [
+        ...seatRows,
+        {
+            kind: 'baggage',
+            index: 5,
+            label: 'Gepäckfach',
+            currentCharacter: null,
+            currentWeightLbs: Math.round(Math.max(0, Number(normalized.pa24.baggageWeightLbs || 0)) * 10) / 10,
+            targetCharacter: null,
+            targetWeightLbs: Number.isFinite(plannedBaggageWeight)
+                ? Math.round(plannedBaggageWeight * 10) / 10
+                : null
+        }
+    ];
+}
+
 function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
     if (!snapshot) {
@@ -2550,6 +2615,63 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const plan = window.missionCargoStatus.payloadPlan;
     const liveFuelWeight = Number(window.lastLiveFlightData?.fuelWeightLbs);
     const fuelWeight = Number.isFinite(liveFuelWeight) ? liveFuelWeight : Number(snapshot.fuelWeightLbs);
+    const requestedWeights = _missionCargoPayloadRequestedWeights(_missionCargoGetManifest());
+    const paxWeight = Number.isFinite(Number(plan?.paxWeightLbs))
+        ? Number(plan.paxWeightLbs)
+        : requestedWeights.paxWeightLbs;
+    const cargoWeight = Number.isFinite(Number(plan?.cargoWeightLbs))
+        ? Number(plan.cargoWeightLbs)
+        : requestedWeights.cargoWeightLbs;
+    const missionExtra = Number.isFinite(Number(plan?.missionWeightLbs))
+        ? Number(plan.missionWeightLbs)
+        : requestedWeights.missionWeightLbs;
+    const paxPart = Number.isFinite(paxWeight) ? `Pax ${Math.round(paxWeight)} lbs` : 'Pax n/a';
+    const cargoPart = Number.isFinite(cargoWeight) ? `Cargo ${Math.round(cargoWeight)} lbs` : 'Cargo n/a';
+    if (snapshot.payloadAdapter === MISSION_CARGO_PA24_ADAPTER) {
+        const pa24Rows = _missionCargoPa24PayloadTableRows(snapshot, plan);
+        const tableRows = pa24Rows.map((row) => {
+            const occupancy = row.kind === 'seat'
+                ? `<span class="mission-cargo-payload-occupancy ${row.currentCharacter > 0 ? 'is-occupied' : 'is-free'}">${row.currentCharacter > 0 ? `Belegt · C${row.currentCharacter}` : 'Frei'}</span>`
+                : `<span class="mission-cargo-payload-occupancy">max. ${MISSION_CARGO_PA24_BAGGAGE_MAX_LBS} lbs</span>`;
+            const target = Number.isFinite(Number(row.targetWeightLbs))
+                ? `${Math.round(Number(row.targetWeightLbs))} lbs`
+                : '—';
+            return `
+                <tr>
+                    <th scope="row"><strong>${_missionCargoEscape(row.label)}</strong><small>S${row.index}</small></th>
+                    <td>${occupancy}</td>
+                    <td class="is-number">${Math.round(Number(row.currentWeightLbs) || 0)} lbs</td>
+                    <td class="is-number">${target}</td>
+                </tr>`;
+        }).join('');
+        return `
+            <div class="mission-cargo-payload-summary is-pa24">
+                <div class="mission-cargo-payload-heading">
+                    <strong>Accu-Sim Comanche</strong>
+                    <span>${mode === 'unload' ? 'Entladen' : 'Verladen'}</span>
+                </div>
+                <div class="mission-cargo-payload-metrics">
+                    <span><small>Gesamt</small><strong>${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '—'} lbs</strong></span>
+                    <span><small>Leer</small><strong>${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '—'} lbs</strong></span>
+                    <span><small>Fuel</small><strong>${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '—'} lbs</strong></span>
+                </div>
+                <div class="mission-cargo-payload-plan">
+                    <strong>Mission-Plan</strong>
+                    <span>${paxPart}</span>
+                    <span>${cargoPart}</span>
+                    <span>Zusatz ${Math.round(missionExtra)} lbs</span>
+                </div>
+                <div class="mission-cargo-payload-table-wrap">
+                    <table class="mission-cargo-payload-table">
+                        <thead>
+                            <tr><th>Station</th><th>Belegung</th><th>Aktuell</th><th>Ziel</th></tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+                ${_missionCargoPayloadStatusMessageHtml()}
+            </div>`;
+    }
     const stationRows = (plan?.stations || snapshot.stations || []).map((row) => {
         const target = Number(row?.weightLbs);
         const base = Number(row?.baselineWeightLbs);
@@ -2559,9 +2681,6 @@ function _missionCargoPayloadSummaryHtml(mode = 'load') {
             : '';
         return `<span>S${Math.round(Number(row?.index) || 0)}: ${Number.isFinite(target) ? Math.round(target) : '-'} lbs${detail}</span>`;
     }).join(' · ');
-    const missionExtra = Number.isFinite(Number(plan?.missionWeightLbs)) ? Number(plan.missionWeightLbs) : null;
-    const paxPart = Number.isFinite(Number(plan?.paxWeightLbs)) ? `Pax ${Math.round(plan.paxWeightLbs)} lbs` : 'Pax n/a';
-    const cargoPart = Number.isFinite(Number(plan?.cargoWeightLbs)) ? `Cargo ${Math.round(plan.cargoWeightLbs)} lbs` : 'Cargo n/a';
     const distributionText = snapshot.payloadAdapter === MISSION_CARGO_PA24_ADAPTER
         ? `Accu-Sim Comanche · Sitze S2/S3/S4 · Baggage S5 (max. ${MISSION_CARGO_PA24_BAGGAGE_MAX_LBS} lbs)`
         : `Nutzlaststationen: ${snapshot.payloadStationCount} · Verteilung: Copilot S${layout.copilotIndex} · Ruecksitze ${_missionCargoFormatStationList(layout.rearSeatIndices)} · Cargo ${_missionCargoFormatStationList(layout.cargoIndices)}`;

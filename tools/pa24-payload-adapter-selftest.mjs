@@ -7,6 +7,7 @@ import vm from 'node:vm';
 const cargoSource = fs.readFileSync(new URL('../mission-cargo-core.js', import.meta.url), 'utf8');
 const trackerSource = fs.readFileSync(new URL('../ga-tracker-client/tracker.js', import.meta.url), 'utf8');
 const syncSource = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8');
+const stylesSource = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
 const functionSource = (name) => {
     const functionStart = cargoSource.indexOf(`function ${name}(`);
@@ -59,6 +60,8 @@ vm.runInNewContext([
     functionSource('_missionCargoItemIsBulky'),
     functionSource('_missionCargoPa24StateFromSnapshot'),
     functionSource('_missionCargoBuildPa24PlanFromManifest'),
+    functionSource('_missionCargoPayloadRequestedWeights'),
+    functionSource('_missionCargoPa24PayloadTableRows'),
     functionSource('_missionCargoMergeFuelIntoPayloadBaseline'),
     functionSource('_missionCargoMergeFuelIntoCurrentSnapshot')
 ].join('\n'), context);
@@ -155,6 +158,43 @@ assert.equal(plan.stations.find(row => row.index === 4)?.weightLbs, 65);
 assert.equal(plan.stations.find(row => row.index === 5)?.weightLbs, 45);
 assert.equal(plan.missionWeightLbs, 280);
 
+const payloadRows = context._missionCargoPa24PayloadTableRows(baseline, plan);
+assert.deepEqual(
+    Array.from(payloadRows, row => row.index),
+    [2, 3, 4, 5],
+    'Comanche summary must expose only seats 2-4 and baggage'
+);
+assert.equal(payloadRows[0].currentCharacter, 0);
+assert.equal(payloadRows[0].targetCharacter, 2);
+assert.equal(payloadRows[0].targetWeightLbs, 180);
+assert.equal(payloadRows[2].targetWeightLbs, 65);
+assert.equal(payloadRows[3].currentWeightLbs, 10);
+assert.equal(payloadRows[3].targetWeightLbs, 45);
+
+const occupiedRows = context._missionCargoPa24PayloadTableRows({
+    ...baseline,
+    pa24: {
+        ...baseline.pa24,
+        seats: { 1: 1, 2: 2, 3: 3, 4: 4 },
+        characterWeights: { 1: 170, 2: 180, 3: 180, 4: 180 },
+        baggageWeightLbs: 94
+    }
+}, { payloadAdapter: 'pa24_accusim', error: 'pa24_no_free_seat' });
+assert.equal(occupiedRows.length, 4);
+assert.deepEqual(Array.from(occupiedRows.slice(0, 3), row => row.currentCharacter), [2, 3, 4]);
+assert.equal(occupiedRows[3].currentWeightLbs, 94);
+assert.ok(occupiedRows.every(row => row.targetWeightLbs === null));
+
+const requestedWeights = context._missionCargoPayloadRequestedWeights({
+    items: [
+        { itemType: 'passenger', status: 'loaded', passengerCount: 2, weightLbs: 360 },
+        { itemType: 'cargo', status: 'loaded', weightLbs: 10 }
+    ]
+});
+assert.equal(requestedWeights.paxWeightLbs, 360);
+assert.equal(requestedWeights.cargoWeightLbs, 10);
+assert.equal(requestedWeights.missionWeightLbs, 370);
+
 const overflowPlan = context._missionCargoBuildPa24PlanFromManifest({
     items: [{ id: 'overflow', itemType: 'cargo', status: 'loaded', weightLbs: 15, label: 'Kleinteil' }]
 }, {
@@ -237,5 +277,7 @@ assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 318;"));
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v318';"));
 assert.ok(syncSource.includes('window.missionCargoHandleLiveFuelUpdate?.(data.flight);'));
+assert.ok(cargoSource.includes('class="mission-cargo-payload-table"'));
+assert.ok(stylesSource.includes('.mission-cargo-payload-table'));
 
 console.log('PA24 production payload adapter selftest: ok');
