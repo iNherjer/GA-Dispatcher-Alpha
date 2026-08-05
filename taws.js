@@ -71,28 +71,52 @@ function _tawsResumeThen(fn) {
     }
 }
 
-// "Whoop Whoop" – klassischer GPWS-Warntton (zwei aufsteigende Sweeps)
-function _tawsPlayWhoopWhoop() {
-    if (!_tawsAudioCtx) return;
-    _tawsResumeThen(() => {
-        const now = _tawsAudioCtx.currentTime;
-        for (let i = 0; i < 2; i++) {
-            const osc  = _tawsAudioCtx.createOscillator();
-            const gain = _tawsAudioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(_awmMasterGain || _tawsAudioCtx.destination);
-            osc.type = 'sine';
-            const t = now + i * 0.65;
-            osc.frequency.setValueAtTime(440, t);
-            osc.frequency.linearRampToValueAtTime(920, t + 0.45);
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.85, t + 0.05);
-            gain.gain.setValueAtTime(0.85, t + 0.40);
-            gain.gain.linearRampToValueAtTime(0, t + 0.55);
-            osc.start(t);
-            osc.stop(t + 0.6);
+// "Whoop Whoop" – klassischer GPWS-Warntton (zwei aufsteigende Sweeps).
+// Der Ton ist ein normales Queue-Segment, damit er die Pax Voice ebenfalls
+// respektiert und bei einer Unterbrechung spaeter erneut abgespielt werden kann.
+function _tawsStartWhoopWhoop(onended) {
+    if (!_tawsAudioCtx) return null;
+    const nodes = [];
+    let done = false;
+    let timer = null;
+    const finish = () => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        for (const { osc, gain } of nodes) {
+            try { osc.onended = null; } catch (_) {}
+            try { osc.disconnect(); } catch (_) {}
+            try { gain.disconnect(); } catch (_) {}
         }
-    });
+        if (typeof onended === 'function') onended();
+    };
+    const now = _tawsAudioCtx.currentTime + 0.05;
+    for (let i = 0; i < 2; i++) {
+        const osc  = _tawsAudioCtx.createOscillator();
+        const gain = _tawsAudioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(_awmMasterGain || _tawsAudioCtx.destination);
+        osc.type = 'sine';
+        const t = now + i * 0.65;
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.linearRampToValueAtTime(920, t + 0.45);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.85, t + 0.05);
+        gain.gain.setValueAtTime(0.85, t + 0.40);
+        gain.gain.linearRampToValueAtTime(0, t + 0.55);
+        osc.start(t);
+        osc.stop(t + 0.6);
+        nodes.push({ osc, gain });
+    }
+    timer = setTimeout(finish, 1400);
+    return {
+        stop: () => {
+            for (const { osc } of nodes) {
+                try { osc.stop(0); } catch (_) {}
+            }
+            finish();
+        }
+    };
 }
 
 function _tawsUnlockAll() {
@@ -253,17 +277,64 @@ const _awState = new Map();
 // wird nur der erste angesagt.
 const _awTypeChain = new Map(); // typeKey → { lastActiveMs, warnedAt }
 const _AW_CHAIN_GAP = 45000;   // 45 s offener Luftraum → Kette zurückgesetzt
-// Serielle Abspielqueue: verhindert gleichzeitige Ansagen
+// Serielle Abspielqueue: verhindert gleichzeitige Ansagen und laesst eine
+// laufende Pax Voice immer vor. Priority-Tokens vermeiden, dass ein spaetes
+// onended einer alten Wiedergabe eine neuere Pax Voice versehentlich freigibt.
 let _awQueueBusy = false;
 const _awQueue = [];
+const _awPriorityAudioTokens = new Set();
+let _awPriorityAudioSerial = 0;
+let _awCurrentPlayback = null;
+
+function _awPriorityAudioActive() {
+    return _awPriorityAudioTokens.size > 0;
+}
+
+function _awInterruptCurrentPlayback() {
+    const playback = _awCurrentPlayback;
+    if (!playback || playback.interrupted) return;
+    playback.interrupted = true;
+    if (playback.nextTimer) clearTimeout(playback.nextTimer);
+    playback.nextTimer = null;
+
+    const repeatCurrent = playback.currentSegment ? 1 : 0;
+    const remainingStart = Math.max(0, playback.nextIndex - repeatCurrent);
+    const remaining = playback.segments.slice(remainingStart);
+    if (remaining.length) _awQueue.unshift(remaining);
+
+    const current = playback.currentSegment;
+    playback.currentSegment = null;
+    if (current) {
+        try { current.onended = null; } catch (_) {}
+        try { current.stop?.(); } catch (_) {}
+        try { current.disconnect?.(); } catch (_) {}
+    }
+    if (_awCurrentPlayback === playback) _awCurrentPlayback = null;
+    _awQueueBusy = false;
+}
+
+window.awmBeginPriorityAudio = function(label = 'priority-audio') {
+    const token = `${++_awPriorityAudioSerial}:${String(label || 'priority-audio')}`;
+    _awPriorityAudioTokens.add(token);
+    _awInterruptCurrentPlayback();
+    return token;
+};
+
+window.awmEndPriorityAudio = function(token) {
+    if (token) _awPriorityAudioTokens.delete(token);
+    if (!_awPriorityAudioActive() && _awQueue.length && !_awQueueBusy) {
+        _awDrainQueue();
+    }
+};
 
 function _awEnqueue(keys) {
     _awQueue.push(keys);
-    if (!_awQueueBusy) _awDrainQueue();
+    if (!_awQueueBusy && !_awPriorityAudioActive()) _awDrainQueue();
 }
 
 function _awDrainQueue() {
     if (!_awQueue.length) { _awQueueBusy = false; return; }
+    if (_awPriorityAudioActive()) { _awQueueBusy = false; return; }
     _awQueueBusy = true;
     const keys = _awQueue.shift();
     if (!_tawsAudioCtx || !_awLoaded) { _awDrainQueue(); return; }
@@ -271,6 +342,7 @@ function _awDrainQueue() {
     // Null-Keys (kein Luftraumtyp) herausfiltern; fehlende Buffer warnen
     const valid = keys.filter(k => {
         if (!k) return false;
+        if (k === 'taws-whoop') return true;
         if (!_awBuffers[k]) { console.warn('[AWM] Buffer fehlt:', k); return false; }
         return true;
     });
@@ -280,14 +352,55 @@ function _awDrainQueue() {
     // Das verhindert dass Chrome/Quest-3 Clips verwirft wenn der AudioContext
     // kurz suspended war und der geplante Startzeitpunkt bereits vergangen ist.
     _tawsResumeThen(() => {
-        let i = 0;
+        if (_awPriorityAudioActive()) {
+            _awQueue.unshift(valid);
+            _awQueueBusy = false;
+            return;
+        }
+        const playback = {
+            segments: valid,
+            nextIndex: 0,
+            currentSegment: null,
+            nextTimer: null,
+            interrupted: false
+        };
+        _awCurrentPlayback = playback;
         function next() {
-            if (i >= valid.length) { _awDrainQueue(); return; }
-            const buf = _awBuffers[valid[i++]];
+            playback.nextTimer = null;
+            if (playback.interrupted) return;
+            if (_awPriorityAudioActive()) {
+                _awInterruptCurrentPlayback();
+                return;
+            }
+            if (playback.nextIndex >= valid.length) {
+                if (_awCurrentPlayback === playback) _awCurrentPlayback = null;
+                _awDrainQueue();
+                return;
+            }
+            const key = valid[playback.nextIndex++];
+            if (key === 'taws-whoop') {
+                const controller = _tawsStartWhoopWhoop(() => {
+                    if (playback.interrupted) return;
+                    playback.currentSegment = null;
+                    playback.nextTimer = setTimeout(next, 80);
+                });
+                if (!controller) {
+                    playback.nextTimer = setTimeout(next, 0);
+                    return;
+                }
+                playback.currentSegment = controller;
+                return;
+            }
+            const buf = _awBuffers[key];
             const src = _tawsAudioCtx.createBufferSource();
             src.buffer = buf;
             src.connect(_awmMasterGain || _tawsAudioCtx.destination);
-            src.onended = () => setTimeout(next, 80);
+            src.onended = () => {
+                if (playback.interrupted) return;
+                playback.currentSegment = null;
+                playback.nextTimer = setTimeout(next, 80);
+            };
+            playback.currentSegment = src;
             src.start(_tawsAudioCtx.currentTime + 0.05);
         }
         next();
@@ -896,9 +1009,9 @@ async function checkTerrainAlongPath(points) {
         const now = Date.now();
         if (!isLanding && now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
             _tawsLastVoiceAlert = now;
-            // Whoop-Whoop + Sprachsample via AudioContext (kein HTMLAudioElement mehr)
-            _tawsPlayWhoopWhoop();
-            _awPlaySequence(['taws-alert']);
+            // Whoop-Whoop und Sprachsample gemeinsam einreihen. So warten beide
+            // auf eine laufende Pax Voice und bleiben als eine Warnung zusammen.
+            _awPlaySequence(['taws-whoop', 'taws-alert']);
         }
     }
 

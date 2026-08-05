@@ -4294,6 +4294,12 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
             const src = ctx.createBufferSource();
             src.buffer = buf;
             src.connect(chain.input);
+            let priorityToken = null;
+            try {
+                if (typeof window.awmBeginPriorityAudio === 'function') {
+                    priorityToken = window.awmBeginPriorityAudio(`pax:${sourceLabel}`);
+                }
+            } catch (_) {}
             _paxStopCurrentPlayback('new-playback');
             let done = false;
             let watchdog = null;
@@ -4310,6 +4316,10 @@ async function _paxDecodeAudioBufferAndPlay(rawAudioBuffer, mimeType, epoch = _p
                 done = true;
                 if (watchdog) clearTimeout(watchdog);
                 if (_paxCurrentPlayback === playback) _paxCurrentPlayback = null;
+                if (priorityToken && typeof window.awmEndPriorityAudio === 'function') {
+                    try { window.awmEndPriorityAudio(priorityToken); } catch (_) {}
+                    priorityToken = null;
+                }
                 try { src.onended = null; } catch (_) {}
                 try { src.disconnect(); } catch (_) {}
                 try { chain.noise?.disconnect(); } catch (_) {}
