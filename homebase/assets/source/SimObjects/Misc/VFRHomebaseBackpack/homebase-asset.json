@@ -1,0 +1,30 @@
+{
+  "key": "backpack",
+  "folder": "VFRHomebaseBackpack",
+  "title": "VFR Multitool Homebase Backpack",
+  "label": "Rucksack",
+  "version": "1.0.1",
+  "kind": "object",
+  "group": "Fracht",
+  "missionSpawnable": true,
+  "missionTags": [
+    "cargo",
+    "luggage",
+    "passenger",
+    "travel",
+    "supplies"
+  ],
+  "missionRoles": [
+    "cargo",
+    "scene-prop"
+  ],
+  "updatedAt": "2026-08-06T08:57:20.154Z",
+  "workbenchVisible": true,
+  "homebasePlaceable": true,
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null
+}
