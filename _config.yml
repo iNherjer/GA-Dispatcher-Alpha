@@ -2,3 +2,4 @@ exclude:
   - analysis
   - docs
   - tools
+  - homebase/assets
