@@ -127,6 +127,30 @@ kann aber dieselbe SmartScreen-Warnung wie die bisherige portable EXE ausloesen.
 Ein selbst signiertes Entwicklungszertifikat darf nicht als produktive
 Vertrauensloesung dargestellt werden.
 
+## 3b) AccuSim-Bridge und Tracker-Integration
+
+Die optionale Bridge liegt unter `ga-tracker-client/accusim-router-desktop` und
+wird im separaten oeffentlichen Repository
+`iNherjer/AccuSim-DRSM-Telemetry-Router` veroeffentlicht. Seit Bridge `1.12.0`
+steuert der Tracker sie ueber ein versioniertes lokales Protokoll.
+
+Bei gemeinsamen Releases gilt zwingend diese Reihenfolge:
+
+1. Bridge-Version in `accusim-router-desktop/package.json` erhoehen, Tests und
+   `npm run build:win` ausfuehren.
+2. Bridge-Release mit Bootstrapper, passendem NSIS-Payload und `latest.yml`
+   vollstaendig veroeffentlichen und den Download pruefen.
+3. Erst danach die Tracker-Desktop-Version bauen und veroeffentlichen. Der
+   Tracker-Button laedt immer das neueste stabile Bridge-Release und darf daher
+   nicht vor der von ihm mindestens verlangten Bridge-Version live gehen.
+
+Normale spaetere Bridge-Updates benoetigen keine Tracker-Aenderung, solange
+`CONTROL_PROTOCOL_VERSION` kompatibel bleibt. Die laufende Bridge meldet ihre
+App-Version selbst; im gestoppten Zustand liest der Tracker die installierte
+Version aus Windows-Registry beziehungsweise EXE-Dateiinformationen. Die
+Konstante `MIN_BRIDGE_INTEGRATION_VERSION` darf nur angehoben werden, wenn der
+Tracker eine tatsaechlich neuere Bridge-Funktion zwingend benoetigt.
+
 ## 4) Beta- und Stable-Synchronisierung
 
 `beta/main` und `stable/main` liegen auf separaten Remotes und sollen jeweils exakt

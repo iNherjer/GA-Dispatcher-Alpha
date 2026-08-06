@@ -100,7 +100,9 @@ class TrackerConfigStore {
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
       updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
       autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
-      startMinimized: normalizeBoolean(preferences.startMinimized, false)
+      startMinimized: normalizeBoolean(preferences.startMinimized, false),
+      autoStartBridge: normalizeBoolean(preferences.autoStartBridge, false),
+      stopBridgeWithTracker: normalizeBoolean(preferences.stopBridgeWithTracker, true)
     };
   }
 
@@ -164,7 +166,9 @@ class TrackerConfigStore {
       preferences: {
         ...current,
         autoStartTracker: normalizeBoolean(preferences.autoStartTracker, normalizeBoolean(current.autoStartTracker, true)),
-        startMinimized: normalizeBoolean(preferences.startMinimized, normalizeBoolean(current.startMinimized, false))
+        startMinimized: normalizeBoolean(preferences.startMinimized, normalizeBoolean(current.startMinimized, false)),
+        autoStartBridge: normalizeBoolean(preferences.autoStartBridge, normalizeBoolean(current.autoStartBridge, false)),
+        stopBridgeWithTracker: normalizeBoolean(preferences.stopBridgeWithTracker, normalizeBoolean(current.stopBridgeWithTracker, true))
       }
     });
   }
@@ -179,7 +183,9 @@ class TrackerConfigStore {
       preferences: {
         updatePolicy: normalizeUpdatePolicy(legacy.updatePolicy),
         autoStartTracker: normalizeBoolean(legacy.autoStartTracker, true),
-        startMinimized: normalizeBoolean(legacy.startMinimized, false)
+        startMinimized: normalizeBoolean(legacy.startMinimized, false),
+        autoStartBridge: normalizeBoolean(legacy.autoStartBridge, false),
+        stopBridgeWithTracker: normalizeBoolean(legacy.stopBridgeWithTracker, true)
       }
     });
     return true;

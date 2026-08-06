@@ -154,6 +154,62 @@
       </summary>
       <pre id="logOutput">Noch keine Tracker-Ereignisse.</pre>
     </details>
+
+    <section class="panel bridge-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">DRSM MOTION · OPTIONAL</p>
+          <h2>AccuSim Telemetry Bridge</h2>
+        </div>
+        <span id="bridgeBadge" class="mini-badge">Prüfung</span>
+      </div>
+      <p id="bridgeMessage" class="subtle">Bridge-Installation wird geprüft.</p>
+      <p id="bridgeVersion" class="path-line"></p>
+      <div class="bridge-status-grid" aria-label="Bridge-Status">
+        <div>
+          <small>Prozess</small>
+          <strong id="bridgeProcessStatus">Nicht gestartet</strong>
+        </div>
+        <div>
+          <small>SimConnect</small>
+          <strong id="bridgeSimStatus">Nicht verbunden</strong>
+        </div>
+        <div>
+          <small>DRSM / UDP</small>
+          <strong id="bridgeUdpStatus">Inaktiv</strong>
+        </div>
+      </div>
+      <div id="bridgeProgressWrap" class="progress-wrap" hidden>
+        <span id="bridgeProgress" class="progress-bar"></span>
+      </div>
+      <div class="bridge-actions">
+        <button id="bridgeInstallButton" class="primary-button" type="button">Bridge installieren</button>
+        <button id="bridgeStartButton" class="secondary-button" type="button">Starten</button>
+        <button id="bridgeSettingsButton" class="secondary-button" type="button">Einstellungen</button>
+        <button id="bridgeRefreshButton" class="text-button" type="button">Status &amp; Version prüfen</button>
+      </div>
+      <label class="toggle-row bridge-toggle">
+        <span>
+          <strong>Mit dem Tracker starten</strong>
+          <small>Startet die vollständige Bridge ohne zusätzliches Fenster oder Tray-Symbol.</small>
+        </span>
+        <span class="toggle-control">
+          <input id="autoStartBridgeCheckbox" type="checkbox">
+          <span class="toggle-track" aria-hidden="true"></span>
+        </span>
+      </label>
+      <label class="toggle-row">
+        <span>
+          <strong>Mit dem Tracker beenden</strong>
+          <small>Beendet nur eine vom Tracker gestartete Bridge; eine eigenständig geöffnete Instanz bleibt erhalten.</small>
+        </span>
+        <span class="toggle-control">
+          <input id="stopBridgeWithTrackerCheckbox" type="checkbox" checked>
+          <span class="toggle-track" aria-hidden="true"></span>
+        </span>
+      </label>
+      <p class="asset-note">Die Einstellungen öffnen weiterhin das vollständige separate Bridge-Fenster. Konfiguration und Telemetrie-Runtime sind in beiden Startarten identisch.</p>
+    </section>
   </main>
 
   <dialog id="updateDialog">

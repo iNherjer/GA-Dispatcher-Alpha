@@ -13,6 +13,7 @@ const {
 const { TrackerConfigStore } = require('./lib/config-store');
 const { startupDecision } = require('./lib/startup-policy');
 const { verifyCredentials } = require('./lib/auth-client');
+const { BridgeManager } = require('./lib/bridge-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
 const { TrackerRuntimeManager } = require('./lib/runtime-manager');
 const { TrackerProcess } = require('./lib/tracker-process');
@@ -25,7 +26,10 @@ let configStore = null;
 let trackerProcess = null;
 let runtimeManager = null;
 let homebaseManager = null;
+let bridgeManager = null;
 let trackerStartupAllowed = false;
+let finalQuitReady = false;
+let bridgeShutdownInProgress = false;
 
 function iconPath() {
   return app.isPackaged
@@ -42,11 +46,14 @@ function currentState() {
       hasPin: false,
       updatePolicy: 'ask',
       autoStartTracker: true,
-      startMinimized: false
+      startMinimized: false,
+      autoStartBridge: false,
+      stopBridgeWithTracker: true
     },
     tracker: trackerProcess?.publicState() || null,
     update: runtimeManager?.publicState() || null,
-    homebaseAssets: homebaseManager?.publicState() || null
+    homebaseAssets: homebaseManager?.publicState() || null,
+    bridge: bridgeManager?.publicState() || null
   };
 }
 
@@ -92,6 +99,11 @@ function createWindow({ showOnReady = true } = {}) {
     if (!capturePath) return;
     setTimeout(async () => {
       try {
+        const captureScrollY = Number(process.env.VFR_TRACKER_CAPTURE_SCROLL_Y || 0);
+        if (Number.isFinite(captureScrollY) && captureScrollY > 0) {
+          await mainWindow.webContents.executeJavaScript(`window.scrollTo(0, ${Math.round(captureScrollY)})`);
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
         const image = await mainWindow.webContents.capturePage();
         fs.writeFileSync(capturePath, image.toPNG());
       } finally {
@@ -154,6 +166,19 @@ async function startTrackerIfReady() {
   return result;
 }
 
+async function bridgeAction(action) {
+  try {
+    const result = await action();
+    broadcastState();
+    return result;
+  } catch (error) {
+    const message = error?.message || String(error);
+    bridgeManager?.setState({ phase: 'error', message, error });
+    broadcastState();
+    return { ok: false, message };
+  }
+}
+
 function registerIpc() {
   ipcMain.handle('app:get-state', () => currentState());
   ipcMain.handle('tracker:start', async () => {
@@ -161,6 +186,11 @@ function registerIpc() {
     return startTrackerIfReady();
   });
   ipcMain.handle('tracker:stop', () => trackerProcess.stop());
+  ipcMain.handle('bridge:refresh', () => bridgeAction(() => bridgeManager.refresh({ checkRemote: true })));
+  ipcMain.handle('bridge:install', () => bridgeAction(() => bridgeManager.install()));
+  ipcMain.handle('bridge:start', () => bridgeAction(() => bridgeManager.start()));
+  ipcMain.handle('bridge:stop', () => bridgeAction(() => bridgeManager.stop()));
+  ipcMain.handle('bridge:show-settings', () => bridgeAction(() => bridgeManager.showSettings()));
   ipcMain.handle('settings:save-credentials', async (_event, payload) => {
     const pilotId = String(payload?.pilotId || '').trim();
     const pin = String(payload?.pin || '').trim();
@@ -189,7 +219,9 @@ function registerIpc() {
   ipcMain.handle('settings:set-startup-preferences', (_event, payload) => {
     configStore.setStartupPreferences({
       autoStartTracker: payload?.autoStartTracker === true,
-      startMinimized: payload?.startMinimized === true
+      startMinimized: payload?.startMinimized === true,
+      autoStartBridge: payload?.autoStartBridge === true,
+      stopBridgeWithTracker: payload?.stopBridgeWithTracker !== false
     });
     broadcastState();
     return { ok: true, settings: configStore.publicSettings() };
@@ -274,6 +306,29 @@ async function startApplication() {
     runtimeManager,
     getCredentials: () => configStore.credentials()
   });
+  const developmentBridgeDirectory = path.resolve(__dirname, '..', 'accusim-router-desktop');
+  let developmentBridgeVersion = '';
+  if (!app.isPackaged) {
+    try {
+      developmentBridgeVersion = String(JSON.parse(fs.readFileSync(path.join(developmentBridgeDirectory, 'package.json'), 'utf8')).version || '');
+    } catch (_) {}
+  }
+  bridgeManager = new BridgeManager({
+    localAppData: localAppDataBase,
+    installerRoot: path.join(applicationRoot, 'Bridge Installer'),
+    explicitExecutablePath: String(process.env.VFR_MULTITOOL_BRIDGE_EXECUTABLE || '').trim(),
+    developmentSpec: app.isPackaged ? null : {
+      command: process.execPath,
+      args: [developmentBridgeDirectory],
+      cwd: developmentBridgeDirectory,
+      env: process.env,
+      version: developmentBridgeVersion
+    },
+    launchInstaller: async (file) => {
+      const error = await shell.openPath(file);
+      if (error) throw new Error(error);
+    }
+  });
 
   trackerProcess.on('state', broadcastState);
   trackerProcess.on('log', (entry) => {
@@ -284,6 +339,7 @@ async function startApplication() {
     if (state?.phase === 'choice-required') showWindow();
   });
   homebaseManager.on('state', broadcastState);
+  bridgeManager.on('state', broadcastState);
 
   registerIpc();
   const launchDecision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
@@ -315,6 +371,12 @@ async function startApplication() {
   if (!configStore.hasCredentials()) showWindow();
   if (migration.verificationFailed) showWindow();
   homebaseManager.refresh({ force: false }).catch(() => {});
+  void (async () => {
+    await bridgeManager.refresh();
+    if (configStore.publicSettings().autoStartBridge) await bridgeManager.start();
+    bridgeManager.startPolling();
+    await bridgeManager.checkLatest({ quiet: true });
+  })().catch(() => {});
   broadcastState();
 }
 
@@ -324,9 +386,19 @@ if (!singleInstanceLock) {
   app.on('second-instance', showWindow);
   app.whenReady().then(startApplication);
   app.on('activate', showWindow);
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
     app.isQuitting = true;
     trackerProcess?.stop();
+    bridgeManager?.stopPolling();
+    const shouldStopBridge = configStore?.publicSettings().stopBridgeWithTracker !== false;
+    if (finalQuitReady || !shouldStopBridge || !bridgeManager) return;
+    event.preventDefault();
+    if (bridgeShutdownInProgress) return;
+    bridgeShutdownInProgress = true;
+    bridgeManager.shutdownOwned().finally(() => {
+      finalQuitReady = true;
+      app.quit();
+    });
   });
   app.on('window-all-closed', () => {
     // Die App bleibt als Windows-Tray-Anwendung aktiv.

@@ -146,6 +146,7 @@ select {
 .process-badge.starting,
 .process-badge.stopping,
 .mini-badge.checking,
+.mini-badge.starting,
 .mini-badge.downloading,
 .mini-badge.working {
   border-color: rgba(255, 197, 104, 0.38);
@@ -466,6 +467,57 @@ select:focus {
   justify-self: start;
 }
 
+.bridge-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bridge-status-grid > div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px;
+  background: rgba(7, 17, 29, 0.48);
+}
+
+.bridge-status-grid small,
+.bridge-status-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bridge-status-grid small {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.bridge-status-grid strong {
+  font-size: 12px;
+}
+
+.bridge-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bridge-actions .text-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.bridge-toggle {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
 .danger-button {
   border-color: rgba(255, 116, 134, 0.32);
   color: #ff9cab;
@@ -575,7 +627,16 @@ dialog::backdrop {
     grid-template-columns: 1fr;
   }
 
-  .asset-actions .text-button {
+  .asset-actions .text-button,
+  .bridge-actions .text-button {
     grid-column: auto;
+  }
+
+  .bridge-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .bridge-status-grid {
+    grid-template-columns: 1fr;
   }
 }

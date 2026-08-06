@@ -18,6 +18,10 @@ Dateigroesse und SHA-256 geprueft und als separater Hintergrundprozess gestartet
 - beim ersten Update: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
 - Updateinstallation vor dem Trackerstart, nicht waehrend eines Flugs
 - Homebase Asset Pack installieren, aktualisieren, reparieren und deinstallieren
+- optionale AccuSim-DRSM-Bridge erkennen, sicher aus dem öffentlichen GitHub-
+  Release installieren und im Hintergrund starten/stoppen
+- vollständige Bridge-Einstellungen aus dem Tracker öffnen, ohne eine zweite
+  Telemetrieinstanz oder einen zweiten UDP-Sender zu erzeugen
 
 Persoenliche Tracker-/Homebase-Daten bleiben unter
 `Dokumente/VFR Multitool/Tracker`. Programmzustand, geladene Tracker-Versionen und
@@ -91,6 +95,26 @@ ohne den Stable-Zeiger zu schreiben.
 
 Der Installer arbeitet pro Benutzer und benoetigt standardmaessig keine
 Administratorrechte.
+
+## AccuSim-DRSM-Bridge
+
+Der Tracker erkennt vorhandene per-user-Installationen über den Windows-
+Uninstall-Eintrag und die Standardpfade unter `%LOCALAPPDATA%/Programs`. Die
+installierte Version wird aus dem Registry-Eintrag beziehungsweise den Windows-
+Dateiinformationen gelesen. Eine laufende Bridge meldet zusätzlich ihre Version,
+den SimConnect-/UDP-Status und die Version des lokalen Steuerprotokolls selbst.
+
+Bridge-Versionen vor `1.12.0` werden weiterhin als vorhandene Installation
+erkannt und können über `Einstellungen` normal geöffnet werden. Für den echten
+fensterlosen Tracker-Modus ist einmalig mindestens Bridge `1.12.0` erforderlich.
+Danach bleiben normale Bridge-Auto-Updates kompatibel: Installationspfad und
+Konfiguration bleiben erhalten, und der Tracker übernimmt die jeweils von der
+laufenden Bridge gemeldete neue App-Version.
+
+Der Tracker lädt den kleinen Bridge-Webinstaller aus dem aktuellen stabilen
+GitHub-Release. Dateiname, unveränderliche Release-URL, Dateigröße und die von
+GitHub veröffentlichte SHA-256-Prüfsumme werden vor dem Öffnen geprüft. Die
+eigentliche Installation bleibt eine sichtbare, vom Benutzer bestätigte Aktion.
 
 ## Updatekanal
 

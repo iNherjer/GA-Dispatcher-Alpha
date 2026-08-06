@@ -31,7 +31,12 @@ test('credentials are encrypted in app data while personal tracker config is pre
   store.write({ homebaseFallback: { schemaVersion: 1 }, consoleMode: 'status', pin: '9999' });
   store.saveCredentials('Foxtrot-Mike-764', '1234');
   store.setUpdatePolicy('automatic');
-  store.setStartupPreferences({ autoStartTracker: false, startMinimized: true });
+  store.setStartupPreferences({
+    autoStartTracker: false,
+    startMinimized: true,
+    autoStartBridge: true,
+    stopBridgeWithTracker: false
+  });
 
   const trackerConfig = store.read();
   const desktopConfig = store.readDesktop();
@@ -46,7 +51,9 @@ test('credentials are encrypted in app data while personal tracker config is pre
     hasPin: true,
     updatePolicy: 'automatic',
     autoStartTracker: false,
-    startMinimized: true
+    startMinimized: true,
+    autoStartBridge: true,
+    stopBridgeWithTracker: false
   });
 });
 
@@ -82,7 +89,9 @@ test('startup preferences default to automatic tracker start and visible window'
     hasPin: false,
     updatePolicy: 'ask',
     autoStartTracker: true,
-    startMinimized: false
+    startMinimized: false,
+    autoStartBridge: false,
+    stopBridgeWithTracker: true
   });
 });
 
