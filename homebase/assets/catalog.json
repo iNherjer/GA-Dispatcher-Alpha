@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.22",
+    "version": "0.6.24",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -91,7 +91,7 @@
       "folder": "VFRHomebaseBackpack",
       "title": "VFR Multitool Homebase Backpack",
       "label": "Rucksack",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "object",
       "group": "Fracht",
       "missionSpawnable": true,
@@ -106,9 +106,15 @@
         "cargo",
         "scene-prop"
       ],
-      "updatedAt": "2026-07-15T19:05:32.018Z",
+      "updatedAt": "2026-08-06T08:57:20.154Z",
       "workbenchVisible": true,
-      "homebasePlaceable": true
+      "homebasePlaceable": true,
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null
     },
     {
       "key": "briefcase",
@@ -190,7 +196,7 @@
       "folder": "VFRMissionCampingEquipmentCargo",
       "title": "VFR Multitool Mission Camping Equipment Cargo",
       "label": "Campingausrüstung – verladefertig",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "kind": "object",
       "group": "Missionsfracht",
       "homebasePlaceable": false,
@@ -213,7 +219,7 @@
       "headingCorrectionDeg": 0,
       "collisionProfile": null,
       "vegetationExclusion": null,
-      "updatedAt": "2026-07-28T16:02:17.287Z"
+      "updatedAt": "2026-08-06T09:13:33.134Z"
     },
     {
       "key": "chair",
@@ -1391,6 +1397,6 @@
       "homebasePlaceable": true
     }
   ],
-  "updatedAt": "2026-07-29T07:26:07.001Z",
+  "updatedAt": "2026-08-06T09:13:36.687Z",
   "stockObjects": []
 }
