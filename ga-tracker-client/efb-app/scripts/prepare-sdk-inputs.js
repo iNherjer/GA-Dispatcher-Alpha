@@ -13,8 +13,14 @@ const root = path.resolve(supplied);
 const packageSources = fs.existsSync(path.join(root, 'PackageSources')) ? path.join(root, 'PackageSources') : root;
 const efbApiSource = path.join(packageSources, 'efb_api');
 const templateAppSource = path.join(packageSources, 'TemplateApp');
-if (!fs.existsSync(path.join(efbApiSource, 'dist', 'package.json'))) {
-  throw new Error(`Offizielles efb_api/dist nicht gefunden. Zuerst im SDK-Ordner ${efbApiSource} npm install ausfuehren.`);
+const efbApiDist = path.join(efbApiSource, 'dist');
+const efbApiEntryFiles = ['index.js', 'index.d.ts'];
+const missingEfbApiEntries = efbApiEntryFiles.filter((name) => !fs.existsSync(path.join(efbApiDist, name)));
+if (missingEfbApiEntries.length) {
+  throw new Error(
+    `Offizielles efb_api/dist ist unvollstaendig (${missingEfbApiEntries.join(', ')} fehlt). ` +
+    `Zuerst im SDK-Ordner ${efbApiSource} npm install ausfuehren.`
+  );
 }
 const templatePackagePath = path.join(templateAppSource, 'package.json');
 if (!fs.existsSync(templatePackagePath)) throw new Error(`Offizielle TemplateApp/package.json nicht gefunden: ${templatePackagePath}`);

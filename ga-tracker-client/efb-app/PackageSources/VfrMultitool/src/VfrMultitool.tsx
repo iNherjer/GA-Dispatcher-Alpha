@@ -79,6 +79,10 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     node.className = `badge ${state}`.trim();
   }
 
+  private setText(node: HTMLElement | null, text: string): void {
+    if (node) node.textContent = text;
+  }
+
   private async poll(): Promise<void> {
     try {
       const [statusResponse, snapshotResponse] = await Promise.all([
@@ -92,24 +96,24 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       if (!status || !snapshot) throw new Error('protocol_mismatch');
 
       this.setConnection('Tracker verbunden', 'online');
-      this.trackerRef.getOrDefault().textContent = `${status.trackerVersion || '–'} · ${status.runtimeChannel || '–'}`;
-      this.relayRef.getOrDefault().textContent = status.relayConnected ? 'Verbunden' : 'Wartet';
-      this.simulatorRef.getOrDefault().textContent = status.simulatorConnected ? 'Verbunden' : 'Nicht verbunden';
+      this.setText(this.trackerRef.getOrDefault(), `${status.trackerVersion || '–'} · ${status.runtimeChannel || '–'}`);
+      this.setText(this.relayRef.getOrDefault(), status.relayConnected ? 'Verbunden' : 'Wartet');
+      this.setText(this.simulatorRef.getOrDefault(), status.simulatorConnected ? 'Verbunden' : 'Nicht verbunden');
       if (snapshot.available && Number.isFinite(snapshot.lat) && Number.isFinite(snapshot.lon)) {
-        this.positionRef.getOrDefault().textContent = `${Number(snapshot.lat).toFixed(5)}, ${Number(snapshot.lon).toFixed(5)} · ${Math.round(Number(snapshot.alt) || 0)} ft · ${Math.round(Number(snapshot.hdg) || 0)}°`;
-        this.flightRef.getOrDefault().textContent = `GS ${Math.round(Number(snapshot.flight?.gsKts) || 0)} kt · IAS ${Math.round(Number(snapshot.flight?.iasKts) || 0)} kt · ${snapshot.flight?.onGround ? 'Am Boden' : 'In der Luft'}`;
+        this.setText(this.positionRef.getOrDefault(), `${Number(snapshot.lat).toFixed(5)}, ${Number(snapshot.lon).toFixed(5)} · ${Math.round(Number(snapshot.alt) || 0)} ft · ${Math.round(Number(snapshot.hdg) || 0)}°`);
+        this.setText(this.flightRef.getOrDefault(), `GS ${Math.round(Number(snapshot.flight?.gsKts) || 0)} kt · IAS ${Math.round(Number(snapshot.flight?.iasKts) || 0)} kt · ${snapshot.flight?.onGround ? 'Am Boden' : 'In der Luft'}`);
       } else {
-        this.positionRef.getOrDefault().textContent = 'Warte auf Positionsdaten aus dem Simulator.';
-        this.flightRef.getOrDefault().textContent = '';
+        this.setText(this.positionRef.getOrDefault(), 'Warte auf Positionsdaten aus dem Simulator.');
+        this.setText(this.flightRef.getOrDefault(), '');
       }
     } catch (_) {
       if (!this.active) return;
       this.setConnection('Tracker nicht erreichbar', 'error');
-      this.trackerRef.getOrDefault().textContent = '–';
-      this.relayRef.getOrDefault().textContent = '–';
-      this.simulatorRef.getOrDefault().textContent = '–';
-      this.positionRef.getOrDefault().textContent = 'Bitte den VFR Multitool Tracker in einer EFB-kompatiblen Version starten.';
-      this.flightRef.getOrDefault().textContent = '';
+      this.setText(this.trackerRef.getOrDefault(), '–');
+      this.setText(this.relayRef.getOrDefault(), '–');
+      this.setText(this.simulatorRef.getOrDefault(), '–');
+      this.setText(this.positionRef.getOrDefault(), 'Bitte den VFR Multitool Tracker in einer EFB-kompatiblen Version starten.');
+      this.setText(this.flightRef.getOrDefault(), '');
     }
     if (this.active) this.timer = setTimeout(() => void this.poll(), 1000);
   }
