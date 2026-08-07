@@ -13,6 +13,7 @@ const {
   fallbackShouldBeActive
 } = require('./homebase-fallback-cache.js');
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
+const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -28,9 +29,18 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v320';
-const TRACKER_VERSION_CODE = 320;
+const TRACKER_VERSION = 'v321';
+const TRACKER_VERSION_CODE = 321;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
+const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
+const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
+  trackerVersion: TRACKER_VERSION,
+  trackerVersionCode: TRACKER_VERSION_CODE,
+  runtimeChannel: TRACKER_RUNTIME_CHANNEL,
+  clientId: 'ga-tracker',
+  id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
+  timestamp: Date.now()
+});
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
   { key: 'FuelLeftWingTank', name: 'L:FuelLeftWingTank' },
@@ -4472,6 +4482,7 @@ function startTracker(syncId, pin) {
         status: 'connected',
         trackerVersion: TRACKER_VERSION,
         trackerVersionCode: TRACKER_VERSION_CODE,
+        trackerProtocolHello: TRACKER_PROTOCOL_HELLO,
         sentAt: Date.now()
       }));
     };
@@ -4482,6 +4493,7 @@ function startTracker(syncId, pin) {
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
       trackerLog(`📡 Relay verbunden für Pilot-ID: ${syncId} (Konto verifiziert)`);
+      debugLog(`TRACKER_PROTOCOL_HELLO version=${TRACKER_PROTOCOL_HELLO.protocolVersion} channel=${TRACKER_RUNTIME_CHANNEL} capabilities=${TRACKER_PROTOCOL_HELLO.payload.capabilities.join(',')}`);
       trackerStatusStartTimer = setTimeout(() => {
         trackerStatusStartTimer = null;
         sendTrackerStatus();
