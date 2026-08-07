@@ -77,6 +77,12 @@ dieser Stufe weder ueber das externe Relay nachgeladen noch am Loopback-Endpunkt
 ausgegeben. Das EFB 0.2.0 bleibt damit vollstaendig read-only; die bestehende
 Web-Missionslogik und ihre Erfolgskriterien bleiben unveraendert.
 
+Die Mindestversion der Alpha-Web-App bleibt davon getrennt bei Tracker v320.
+Stable v320 kann den bestehenden Web-/Relay-Ablauf daher auch gegen
+`origin/main` weiter bedienen. Fehlt einem Tracker eine neuere EFB-Capability,
+zeigt ausschliesslich die betroffene EFB-Funktion einen begrenzten Fallback;
+die Web-App fordert deshalb nicht pauschal den jeweils neuesten Alpha-Tracker.
+
 ## Sichere Einfuehrung
 
 1. Desktop-Kanaele trennen: Stable bleibt Standard, Alpha erhaelt eine eigene Runtime.

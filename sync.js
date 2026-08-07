@@ -13386,8 +13386,11 @@ const liveFreqLookupPending = {};
 // Steam-/Store-Community-Pfaderkennung v290; Crew-Homebases v291,
 // generische Hangar-Toranimationen v293, der gehärtete Relay-Dispatch v294
 // die korrigierte SimConnect-RawBuffer-Übergabe, generische Objektsteuerungen und cachefeste Assetupdates ab v298.
-const MIN_TRACKER_VERSION_CODE = 324;
-const MIN_TRACKER_VERSION_LABEL = 'v324';
+// v320 bleibt die Mindestversion fuer den bestehenden Web-/Relay-Vertrag.
+// Neuere Alpha-Capabilities (z. B. EFB-Snapshots ab v323/v324) werden von ihren
+// jeweiligen Clients ausgehandelt und duerfen die Stable-Runtime nicht sperren.
+const MIN_TRACKER_VERSION_CODE = 320;
+const MIN_TRACKER_VERSION_LABEL = 'v320';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

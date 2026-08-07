@@ -272,8 +272,6 @@ const overweightPlan = context._missionCargoBuildPa24PlanFromManifest({
 assert.equal(overweightPlan.error, 'pa24_gross_weight_exceeded');
 
 for (const required of [
-    "const TRACKER_VERSION = 'v320';",
-    "const TRACKER_VERSION_CODE = 320;",
     "const PA24_PAYLOAD_ADAPTER = 'pa24_accusim';",
     'const PA24_PAYLOAD_SEAT_SETTLE_MS = 220;',
     'applyPa24PayloadState(pa24State, before?.pa24)',
@@ -290,6 +288,8 @@ for (const required of [
 ]) {
     assert.ok(trackerSource.includes(required), `tracker contract missing: ${required}`);
 }
+const trackerVersionCode = Number(trackerSource.match(/const TRACKER_VERSION_CODE = (\d+);/)?.[1]);
+assert.ok(Number.isFinite(trackerVersionCode) && trackerVersionCode >= 320, 'tracker version must retain the v320 web baseline');
 assert.ok(trackerSource.includes('previousState.seats[seat] !== state.seats[seat]'));
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_CODE = 320;"));
 assert.ok(syncSource.includes("const MIN_TRACKER_VERSION_LABEL = 'v320';"));

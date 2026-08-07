@@ -149,9 +149,10 @@ the automatic path is no longer the documented safe path.
 - Do not send PA24 latch toggle/client events during automatic boarding,
   deboarding, or manual passenger load/unload. Explicit LVars are the source of
   truth.
-- If `tracker.js` changes, bump `TRACKER_VERSION`, `TRACKER_VERSION_CODE`,
-  `MIN_TRACKER_VERSION_CODE`, `MIN_TRACKER_VERSION_LABEL`, rebuild the tracker
-  EXE, and upload the release asset according to `docs/github-push-workflow.md`.
+- If `tracker.js` changes, bump `TRACKER_VERSION` and `TRACKER_VERSION_CODE`,
+  rebuild the tracker EXE, and upload the release asset according to
+  `docs/github-push-workflow.md`. Only raise the web minimum in `sync.js` when
+  the existing Web/Relay contract actually requires the new tracker version.
 
 ## Expected Debug Signatures
 

@@ -78,8 +78,13 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
 1. Tracker-Version vor dem Build erhoehen:
    - In `ga-tracker-client/tracker.js`:
      - `TRACKER_VERSION` und `TRACKER_VERSION_CODE` um `+1` erhoehen.
-   - In `sync.js`:
-     - `MIN_TRACKER_VERSION_CODE` und `MIN_TRACKER_VERSION_LABEL` auf dieselbe neue Tracker-Version setzen, damit alte EXEs die Update-Warnung ausloesen.
+   - `MIN_TRACKER_VERSION_CODE` und `MIN_TRACKER_VERSION_LABEL` in `sync.js`
+     bleiben auf der aeltesten Version, die den bestehenden Web-/Relay-Vertrag
+     vollstaendig erfuellt. Sie werden nur angehoben, wenn eine Web-Funktion
+     nachweislich eine neue Tracker-Funktion zwingend benoetigt.
+   - Additive Alpha-Funktionen werden stattdessen ueber ihren eigenen
+     Capability-Handshake freigeschaltet. Ein neuer Alpha-Tracker allein ist
+     kein Grund, die Stable-Runtime in der Alpha-Web-App zu sperren.
 2. EXE neu bauen:
    - Im Ordner `ga-tracker-client`:
    - `npm run build:tracker`
