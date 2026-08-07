@@ -53,11 +53,11 @@ Ohne gueltiges `protocol.hello` wird ein Peer als `legacy` behandelt. Der neue
 Tracker darf dann nur die bestehenden Telemetrie- und Command-Pfade voraussetzen.
 Unbekannte neue Funktionen werden nicht stillschweigend verwendet.
 
-Tracker v321 bettet dieses Hello ausschliesslich als zusaetzliches Feld
+Tracker ab v321 bettet dieses Hello ausschliesslich als zusaetzliches Feld
 `trackerProtocolHello` in die bereits vorhandenen `gps`-Statuspakete ein. Typ,
 Routing und bestehende Felder des Relay-Protokolls bleiben unveraendert. Alte
 Web-Clients ignorieren das neue Feld; neue Clients koennen es validieren und
-Capabilities aushandeln. v321 meldet absichtlich nur die beiden bereits
+Capabilities aushandeln. Der erste Protokollstand meldet absichtlich nur die beiden bereits
 implementierten Legacy-Capabilities und behauptet noch keine EFB-Interaktionen.
 
 ## Sichere Einfuehrung
