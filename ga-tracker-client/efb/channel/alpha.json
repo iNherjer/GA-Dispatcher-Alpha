@@ -1,7 +1,16 @@
 {
   "schemaVersion": 1,
   "channel": "alpha",
-  "available": false,
+  "available": true,
   "packageName": "vfr-multitool-efb",
-  "message": "Das erste EFB-Paket wird nach dem MSFS-SDK-Build und In-Sim-Test hier veröffentlicht."
+  "packageVersion": "0.1.0",
+  "releaseTag": "efb-app-v0.1.0",
+  "publishedAt": "2026-08-07T09:04:05.689Z",
+  "message": "",
+  "archive": {
+    "name": "vfr-multitool-efb-0.1.0.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/efb-app-v0.1.0/vfr-multitool-efb-0.1.0.zip",
+    "size": 24455,
+    "sha256": "a8a8227445f82aaeb271906c54155d7def83fb472296273e000dc1a008ef4cb5"
+  }
 }
