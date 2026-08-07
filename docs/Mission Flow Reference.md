@@ -271,6 +271,25 @@ haben.
 
 ## 7. Wiederherstellung und Sackgassen-Schutz
 
+- Missionsentwuerfe und akzeptierte, noch nicht begonnene Missionen bleiben
+  lokal erhalten und werden bei aktivem Auto-Sync in den aktiven Cloud-Slot
+  geschrieben. Ein Cloud-Restore darf den Draft-Status nicht automatisch als
+  Missionsstart behandeln.
+- Ein ausstehender Missions-Upload wird lokal markiert. Nach Neustart oder
+  erneutem Sichtbarwerden wird dieser lokale Stand vor einem Cloud-Pull erneut
+  hochgeladen; der lokale Sync-Zeitstempel wird erst nach bestaetigter
+  Serverantwort fortgeschrieben.
+- Der erzwungene App-Update-Pfad speichert zuerst den aktuellen In-Memory-Stand
+  und versucht dann einen bestaetigten Cloud-Upload, bevor Service Worker und
+  Caches entfernt werden.
+- Nur der Laufstand einer wirklich begonnenen, noch nicht beendeten Mission
+  verfaellt 12 Stunden nach Missionsstart. Auftrag, Briefing, Route, Passagier
+  und Vertrag bleiben erhalten; Flug-, Boarding-, Cargo-, Bush-, SAR- und
+  POI-Fortschritt werden sauber zurueckgesetzt und die Mission faellt auf
+  `planned` zurueck. Dieser geplante Stand wird wieder in die Cloud geschrieben.
+  Geplante, akzeptierte oder als Draft gespeicherte Missionen besitzen keine
+  solche Altersgrenze. Ein bereits abgeschlossener Stand mit ausstehendem
+  Debrief wird nicht auf geplant zurueckgesetzt.
 - Das Schliessen des Verlade-Managers verwirft keinen Item- oder Signaturstatus.
 - Fehlende Pflichtpositionen halten nur den naechsten Gate geschlossen.
 - Eine geloeschte Signatur kann erneut gesetzt werden.
@@ -312,6 +331,7 @@ node --check sync.js
 node tools/mission-flow-simulation-selftest.mjs
 node tools/mission-ground-flow-selftest.mjs
 node tools/mission-cargo-persistence-selftest.mjs
+node tools/mission-update-sync-selftest.mjs
 ```
 
 Bei Profil-, Contract- oder Szenenaenderungen zusaetzlich einen erzwungenen

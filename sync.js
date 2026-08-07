@@ -5,8 +5,90 @@
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
 const AUTH_VERIFY_URL = 'https://ga-proxy.einherjer.workers.dev/api/auth/verify';
 const SYNC_MAX_UPLOAD_BYTES = 95000;
+const SYNC_PENDING_UPLOAD_KEY = 'ga_sync_pending_upload_v1';
 let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 let lastSyncedPayloadStr = "";
+let activeMissionCloudSaveTimer = null;
+let activeMissionCloudSavePromise = null;
+
+function _syncReadPendingUpload() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(SYNC_PENDING_UPLOAD_KEY) || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _syncMarkPendingUpload(reason = 'local-change') {
+    const now = Date.now();
+    const existing = _syncReadPendingUpload();
+    const pilotId = String(getSyncId() || existing?.pilotId || '').trim();
+    const pending = {
+        version: 1,
+        requestedAt: Number(existing?.requestedAt || now) || now,
+        updatedAt: now,
+        reason: String(reason || existing?.reason || 'local-change'),
+        pilotId
+    };
+    try { localStorage.setItem(SYNC_PENDING_UPLOAD_KEY, JSON.stringify(pending)); } catch (_) {}
+    return pending;
+}
+
+function _syncClearPendingUpload() {
+    try { localStorage.removeItem(SYNC_PENDING_UPLOAD_KEY); } catch (_) {}
+}
+
+function queueActiveMissionCloudSave(reason = 'mission-state-change', options = {}) {
+    _syncMarkPendingUpload(reason);
+    const toggle = document.getElementById('syncToggle');
+    if (!getSyncId() || (toggle && !toggle.checked)) return false;
+    if (activeMissionCloudSaveTimer) clearTimeout(activeMissionCloudSaveTimer);
+    const delayMs = Number.isFinite(Number(options.delayMs)) ? Math.max(0, Number(options.delayMs)) : 1200;
+    activeMissionCloudSaveTimer = setTimeout(() => {
+        activeMissionCloudSaveTimer = null;
+        activeMissionCloudSavePromise = triggerCloudSave(true, {
+            force: true,
+            skipHomebase: true,
+            reason
+        }).finally(() => {
+            activeMissionCloudSavePromise = null;
+        });
+    }, delayMs);
+    return true;
+}
+window.queueActiveMissionCloudSave = queueActiveMissionCloudSave;
+
+async function flushActiveMissionCloudSave(reason = 'mission-flush', options = {}) {
+    if (activeMissionCloudSaveTimer) {
+        clearTimeout(activeMissionCloudSaveTimer);
+        activeMissionCloudSaveTimer = null;
+    }
+    if (activeMissionCloudSavePromise) {
+        try { await activeMissionCloudSavePromise; } catch (_) {}
+    }
+    if (options.markPending !== false) _syncMarkPendingUpload(reason);
+    return triggerCloudSave(true, {
+        force: true,
+        skipHomebase: options.skipHomebase !== false,
+        reason
+    });
+}
+window.flushActiveMissionCloudSaveForUpdate = reason => flushActiveMissionCloudSave(reason || 'app-update');
+
+async function syncPendingUploadThenLoad(reason = 'sync-resume') {
+    const pending = _syncReadPendingUpload();
+    const currentPilotId = String(getSyncId() || '').trim().toLowerCase();
+    const pendingPilotId = String(pending?.pilotId || '').trim().toLowerCase();
+    if (pendingPilotId && currentPilotId && pendingPilotId !== currentPilotId) {
+        _syncClearPendingUpload();
+    } else if (pending) {
+        const result = await flushActiveMissionCloudSave(reason, { markPending: false, skipHomebase: true });
+        if (_syncReadPendingUpload() && result?.skipped !== true) return result;
+    }
+    return silentSyncLoad({ pendingHandled: true });
+}
+window.syncPendingUploadThenLoad = syncPendingUploadThenLoad;
 
 (function installIdleNetworkSleep() {
     if (window.gaIdleSleep) return;
@@ -53,7 +135,7 @@ let lastSyncedPayloadStr = "";
                 flushWakeTasks();
                 const t = document.getElementById('syncToggle');
                 if (t && t.checked && getSyncId() && typeof silentSyncLoad === 'function') {
-                    try { silentSyncLoad(); } catch (_) {}
+                    try { syncPendingUploadThenLoad('idle-wake'); } catch (_) {}
                 }
             }, 0);
         }
@@ -112,7 +194,7 @@ function saveSyncToggle() {
         localStorage.setItem('ga_sync_enabled', t.checked);
         if (label) label.style.color = t.checked ? '#4caf50' : '#888';
     }
-    if (t && t.checked) silentSyncLoad();
+    if (t && t.checked) syncPendingUploadThenLoad('sync-toggle-enabled');
 }
 
 function getSyncId() {
@@ -11981,7 +12063,7 @@ function setSyncLoginState(isLoggedIn) {
             const label = document.getElementById('autoSyncLabel');
             if (label) label.style.color = savedToggle ? '#4caf50' : '#888';
         }
-        if (t && t.checked) silentSyncLoad();
+        if (t && t.checked) syncPendingUploadThenLoad('login-sync-resume');
         if (typeof connectToLiveGPS === 'function') connectToLiveGPS(syncId);
     } else {
         if (led) { led.style.background = "#d93829"; led.style.boxShadow = "0 0 5px #d93829"; }
@@ -12586,24 +12668,35 @@ function _syncActiveMissionIsExpired(state = null) {
     try { return !!window.isActiveMissionStateExpired(state); } catch (_) { return false; }
 }
 
-function _syncClearExpiredActiveMission(reason = 'sync-active-mission-expired', state = null, options = {}) {
-    if (typeof window.clearExpiredActiveMissionPersistence === 'function') {
+function _syncResetExpiredActiveMissionToPlanned(reason = 'sync-active-mission-runtime-expired', state = null, options = {}) {
+    if (!state || typeof state !== 'object') return null;
+    if (typeof window.resetExpiredActiveMissionToPlanned === 'function') {
         let expiryInfo = null;
         if (state && typeof window.activeMissionRestoreExpiryInfo === 'function') {
             try { expiryInfo = window.activeMissionRestoreExpiryInfo(state); } catch (_) { expiryInfo = null; }
         }
         try {
-            window.clearExpiredActiveMissionPersistence(reason, {
+            return window.resetExpiredActiveMissionToPlanned(state, reason, {
                 expiryInfo,
-                pushCloudClear: options.pushCloudClear === true
+                queueCloudSave: options.queueCloudSave !== false,
+                showIndicator: options.showIndicator !== false
             });
         } catch (_) {}
-        return;
     }
-    try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
-    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    const clear = obj => {
+        if (!obj || typeof obj !== 'object') return;
+        delete obj.activeMissionRuntimeStartedAt;
+        delete obj.activeMissionRuntimeSavedAt;
+        delete obj.activeMissionRuntimePhase;
+        delete obj.activeMissionRuntimeMissionId;
+    };
+    clear(state);
+    clear(state.currentMissionData);
+    clear(state.activeMissionContract);
+    clear(state.currentMissionData?.missionContract);
     try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
+    try { localStorage.setItem('ga_active_mission', JSON.stringify(state)); } catch (_) {}
+    return state;
 }
 
 function _syncActiveMissionPayload() {
@@ -12612,13 +12705,11 @@ function _syncActiveMissionPayload() {
         if (_missionIsFreeflightOnly(state)) {
             return null;
         }
-        if (_syncMissionStateIsDraft(state)) {
-            return null;
-        }
         if (_syncActiveMissionIsExpired(state)) {
             if (window.missionComplianceBlockReset?.()) return state;
-            _syncClearExpiredActiveMission('sync-upload-expired-active-mission', state);
-            return null;
+            return _syncResetExpiredActiveMissionToPlanned('sync-upload-expired-active-mission', state, {
+                queueCloudSave: false
+            }) || state;
         }
         if (state) return state;
     } catch (_) {
@@ -12628,11 +12719,11 @@ function _syncActiveMissionPayload() {
         ? window.__gaActiveMissionStorageFallback
         : null;
     if (_missionIsFreeflightOnly(fallback)) return null;
-    if (_syncMissionStateIsDraft(fallback)) return null;
     if (_syncActiveMissionIsExpired(fallback)) {
         if (window.missionComplianceBlockReset?.()) return fallback;
-        _syncClearExpiredActiveMission('sync-upload-expired-active-mission-fallback', fallback);
-        return null;
+        return _syncResetExpiredActiveMissionToPlanned('sync-upload-expired-active-mission-fallback', fallback, {
+            queueCloudSave: false
+        }) || fallback;
     }
     return fallback || null;
 }
@@ -12657,15 +12748,24 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
     } catch (_) {
         localMission = null;
     }
-    if (activeMission && !_syncMissionStateIsDraft(activeMission)) {
+    if (activeMission) {
         if (_missionIsFreeflightOnly(activeMission)) return false;
+        let missionToApply = activeMission;
+        let staleRuntimeResetToPlanned = false;
         if (_syncActiveMissionIsExpired(activeMission)) {
+            const localRuntime = _syncLocalMissionRuntimeStatus(localMission);
+            const keepFreshSameLocalMission = !!(
+                localMission
+                && _syncMissionStatesShareIdentity(localMission, activeMission)
+                && localRuntime.started
+                && !localRuntime.expired
+            );
             const keepDifferentLocalMission = !!(
                 localMission
                 && !_syncMissionStateIsDraft(localMission)
                 && !_syncMissionStatesShareIdentity(localMission, activeMission)
             );
-            if (keepDifferentLocalMission) {
+            if (keepFreshSameLocalMission || keepDifferentLocalMission) {
                 if (typeof window.triggerCloudSave === 'function') {
                     setTimeout(() => {
                         try { window.triggerCloudSave(true); } catch (_) {}
@@ -12673,29 +12773,44 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
                 }
                 return false;
             }
-            _syncClearExpiredActiveMission('cloud-active-mission-expired', activeMission, { pushCloudClear: true });
+            missionToApply = _syncResetExpiredActiveMissionToPlanned('cloud-active-mission-runtime-expired', activeMission, {
+                queueCloudSave: false,
+                showIndicator: false
+            });
+            if (!missionToApply) return false;
+            staleRuntimeResetToPlanned = true;
+        }
+        const cloudIsDraft = _syncMissionStateIsDraft(missionToApply);
+        if (!_syncConfirmReplaceRunningLocalMission(missionToApply, localMission, { source: 'cloud-active-mission' })) {
             return false;
         }
-        if (!_syncConfirmReplaceRunningLocalMission(activeMission, localMission, { source: 'cloud-active-mission' })) {
-            return false;
-        }
-        const resumeRuntime = _syncShouldCloudRestoreResumeRuntime(activeMission, localMission);
+        const resumeRuntime = !staleRuntimeResetToPlanned
+            && !cloudIsDraft
+            && _syncShouldCloudRestoreResumeRuntime(missionToApply, localMission);
         window.__gaCloudActiveMissionApplyInProgress = true;
         try {
             const stored = typeof window.storeActiveMissionStateSafely === 'function'
-                ? window.storeActiveMissionStateSafely(activeMission, { refreshActiveMissionTimestamp: false })
+                ? window.storeActiveMissionStateSafely(missionToApply, { refreshActiveMissionTimestamp: false })
                 : (() => {
-                    localStorage.setItem('ga_active_mission', JSON.stringify(activeMission));
+                    localStorage.setItem('ga_active_mission', JSON.stringify(missionToApply));
                     return true;
                 })();
             if (stored === false) {
                 try { console.warn('[SYNC] Cloud-Active-Mission konnte nur im Speicher-Fallback gehalten werden.'); } catch (_) {}
             }
-            const restored = await restoreMissionState(activeMission, { source: 'cloud', resumeRuntime });
-            const completionState = String(activeMission.missionCompletionState || activeMission.currentMissionData?.missionCompletionState || '');
-            const completionRecord = activeMission.missionCompletionRecord || activeMission.currentMissionData?.missionCompletionRecord || null;
+            const restored = await restoreMissionState(missionToApply, {
+                source: 'cloud',
+                allowDraft: cloudIsDraft,
+                resumeRuntime,
+                runtimeResetToPlanned: staleRuntimeResetToPlanned
+            });
+            const completionState = String(missionToApply.missionCompletionState || missionToApply.currentMissionData?.missionCompletionState || '');
+            const completionRecord = missionToApply.missionCompletionRecord || missionToApply.currentMissionData?.missionCompletionRecord || null;
             if (restored !== false && completionState === 'completed_awaiting_cleanup' && completionRecord && typeof window.restoreMissionCompletionFromCloud === 'function') {
                 window.restoreMissionCompletionFromCloud(completionRecord, 'cloud-completion-restore');
+            }
+            if (restored !== false && staleRuntimeResetToPlanned && typeof window.queueActiveMissionCloudSave === 'function') {
+                window.queueActiveMissionCloudSave('cloud-runtime-expired-reset-to-planned', { delayMs: 0 });
             }
             return restored !== false;
         } catch (err) {
@@ -12707,9 +12822,9 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
         }
     }
     try {
-        // Entwuerfe und reine Freiflug-/Planungsrouten werden absichtlich nicht
-        // in die Cloud geladen. Ein leerer Cloud-Missionsslot darf sie daher
-        // beim Reload nicht als vermeintlich beendete Mission entfernen.
+        // Ein leerer Cloud-Missionsslot darf einen lokalen Entwurf oder eine
+        // reine Freiflug-/Planungsroute nicht bei einem stillen Reload entfernen.
+        // Offene lokale Aenderungen werden ueber den Pending-Upload zuerst gepusht.
         if (_syncShouldPreserveLocalMissionWithoutCloud(localMission)) return false;
     } catch (_) {}
     if (!_syncConfirmReplaceRunningLocalMission(null, localMission, { source: 'cloud-no-active-mission' })) {
@@ -12772,29 +12887,28 @@ async function _syncHomebasePull(reason = 'app-pull') {
     }
 }
 
-async function triggerCloudSave(immediate = false) {
+async function triggerCloudSave(immediate = false, options = {}) {
     const id = getSyncId();
     const t = document.getElementById('syncToggle');
-    if (!id) return;
-    // SOFT-SYNC FIX: Normale Spielaktionen (wie Zettel bewegen) rufen dies ohne Parameter auf.
-    // Diese blockieren wir jetzt hart. Ein Upload findet NUR noch beim Schließen (true)
-    // oder durch manuelle Buttons ('manual') statt!
-    if (!immediate) return;
-    if (immediate !== 'manual' && t && !t.checked) return;
+    if (!id) return { ok: false, skipped: true, reason: 'missing-sync-id' };
+    // Allgemeine Spielaktionen ohne Parameter bleiben lokal. Missionsaenderungen
+    // verwenden die dedizierte Queue und rufen diesen Pfad bestaetigt mit true auf.
+    if (!immediate) return { ok: false, skipped: true, reason: 'soft-sync-disabled' };
+    if (immediate !== 'manual' && t && !t.checked) return { ok: false, skipped: true, reason: 'auto-sync-disabled' };
     if (immediate === 'manual') {
-        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) return;
+        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) {
+            return { ok: false, skipped: true, reason: 'manual-cancelled' };
+        }
         setNavComLed('navcomSaveBtn', 'syncing');
     }
     // Homebase bleibt ein eigener, revisionsgesicherter Datensatz. Der normale
     // App-Push startet beide Uploads gemeinsam, ohne eine nie geöffnete bzw.
     // unveränderte Workbench als leeren Entwurf hochzuladen.
-    const homebasePushPromise = _syncHomebasePush(immediate === 'manual' ? 'app-manual-push' : 'app-close-push');
-    if (immediate !== 'manual' && _syncHasLocalDraftMission()) {
-        await homebasePushPromise;
-        updateSyncStatus("Cloud: Missionsentwurf lokal");
-        return;
-    }
-    localSyncTime = Date.now();
+    const homebasePushPromise = options.skipHomebase === true
+        ? Promise.resolve({ ok: true, skipped: true })
+        : _syncHomebasePush(immediate === 'manual' ? 'app-manual-push' : 'app-close-push');
+    const uploadSyncTime = Date.now();
+    const pendingBeforeSave = _syncReadPendingUpload();
     const payloadToCompare = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
         logbook: _missionLogbookForSync(),
@@ -12809,18 +12923,20 @@ async function triggerCloudSave(immediate = false) {
     };
 
     const currentPayloadStr = JSON.stringify(payloadToCompare);
-    if (currentPayloadStr === lastSyncedPayloadStr && immediate !== 'manual') {
+    if (currentPayloadStr === lastSyncedPayloadStr && immediate !== 'manual' && options.force !== true && !pendingBeforeSave) {
+        _syncClearPendingUpload();
         await homebasePushPromise;
         updateSyncStatus("Cloud: Aktuell ✅");
-        return;
+        return { ok: true, skipped: true, reason: 'unchanged' };
     }
+    _syncMarkPendingUpload(options.reason || (immediate === 'manual' ? 'manual-upload' : 'auto-upload'));
     updateSyncStatus("Speichere in Cloud...");
-    localStorage.setItem('ga_sync_time', localSyncTime);
     let profileSaved = false;
+    let profileError = null;
     try {
         const id = getSyncId();
         const pin = getSyncPin();
-        const upload = _syncBuildUploadPayload(payloadToCompare, localSyncTime, pin);
+        const upload = _syncBuildUploadPayload(payloadToCompare, uploadSyncTime, pin);
         const bodyStr = upload.bodyStr;
         if (bodyStr.length > SYNC_MAX_UPLOAD_BYTES) {
             updateSyncStatus(`Cloud: zu groß (${Math.round(bodyStr.length / 1024)} KB)`, true);
@@ -12840,7 +12956,10 @@ async function triggerCloudSave(immediate = false) {
         const res = await fetch(SYNC_URL + id + "?pin=" + pin, fetchOptions);
         if (res.ok) {
             profileSaved = true;
+            localSyncTime = uploadSyncTime;
+            localStorage.setItem('ga_sync_time', localSyncTime);
             lastSyncedPayloadStr = currentPayloadStr;
+            _syncClearPendingUpload();
             updateSyncStatus("Cloud: Gespeichert ✅");
             flashSyncIndicator('up');
             if (immediate === 'manual') {
@@ -12854,6 +12973,7 @@ async function triggerCloudSave(immediate = false) {
             throw new Error(`HTTP ${res.status}`);
         }
     } catch (e) {
+        profileError = e;
         console.error("[Sync] Cloud save failed:", e);
         const msg = String(e?.message || '');
         updateSyncStatus(
@@ -12876,6 +12996,13 @@ async function triggerCloudSave(immediate = false) {
             updateSyncStatus("App gespeichert · Homebase nicht gespeichert ⚠️", true);
         }
     }
+    return {
+        ok: profileSaved,
+        skipped: false,
+        pending: !!_syncReadPendingUpload(),
+        reason: profileSaved ? 'saved' : 'save-failed',
+        error: profileError ? String(profileError?.message || profileError) : null
+    };
 }
 async function forceSyncLoad() {
     if (!confirm("⬇️ CLOUD DOWNLOAD\nMöchtest du deinen Spielstand aus der Cloud laden? Alle lokalen Änderungen (die nicht hochgeladen wurden) gehen dabei verloren!")) return;
@@ -12959,10 +13086,13 @@ async function forceSyncLoad() {
         setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
     }
 }
-async function silentSyncLoad() {
+async function silentSyncLoad(options = {}) {
     const id = getSyncId();
     const t = document.getElementById('syncToggle');
     if (!id || (t && !t.checked)) return;
+    if (options.pendingHandled !== true && _syncReadPendingUpload()) {
+        return syncPendingUploadThenLoad('silent-sync-pending');
+    }
     const homebasePullPromise = _syncHomebasePull('app-silent-pull');
     try {
         const res = await fetch(SYNC_URL + id + "?pin=" + getSyncPin(), {

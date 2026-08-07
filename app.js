@@ -4851,7 +4851,11 @@ window.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
             triggerCloudSave(true); // Push in die Cloud (nur wenn sich Daten wirklich geändert haben)
         } else if (document.visibilityState === 'visible') {
-            silentSyncLoad(); // Pull aus der Cloud
+            if (typeof window.syncPendingUploadThenLoad === 'function') {
+                window.syncPendingUploadThenLoad('document-visible');
+            } else {
+                silentSyncLoad(); // Pull aus der Cloud
+            }
         }
     }
 });
@@ -6560,12 +6564,7 @@ function clearDraftMissionPersistence(reason = 'draft') {
     try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
     try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
     rememberActiveMissionStateMemoryFallback(null);
-    try { console.debug('[MISSION DRAFT] Persistenz blockiert:', reason); } catch (_) {}
-    if (reason === 'new-mission-draft' && typeof window.triggerCloudSave === 'function') {
-        setTimeout(() => {
-            try { window.triggerCloudSave(true); } catch (_) {}
-        }, 0);
-    }
+    try { console.debug('[MISSION DRAFT] Vorherigen aktiven Missionsstand geloescht:', reason); } catch (_) {}
 }
 window.clearDraftMissionPersistence = clearDraftMissionPersistence;
 
@@ -6862,6 +6861,12 @@ function activeMissionRestoreExpiryInfo(state = {}, options = {}) {
         source: 'none'
     };
     if (!state || typeof state !== 'object') return info;
+    const completionState = String(
+        state.missionCompletionState
+        || state.currentMissionData?.missionCompletionState
+        || ''
+    ).toLowerCase();
+    if (completionState === 'completed_awaiting_cleanup') return info;
     const markerInfo = activeMissionRuntimeMarkerInfo(state, now);
     const snapshotInfo = activeMissionRuntimeSnapshotInfo(state, now);
     const runtimeInfo = markerInfo.started ? markerInfo : snapshotInfo;
@@ -6917,6 +6922,165 @@ function clearActiveMissionRuntimeMarkersFromState(state = {}) {
     if (state.currentMissionData?.missionContract) clear(state.currentMissionData.missionContract);
     return state;
 }
+
+function resetMissionCargoManifestToPlanned(manifest = null) {
+    if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.items)) return false;
+    if (typeof _missionCargoResetManifestState === 'function') {
+        try { return !!_missionCargoResetManifestState(manifest); } catch (_) {}
+    }
+    let changed = false;
+    manifest.items.forEach(item => {
+        if (!item || typeof item !== 'object') return;
+        const persistentLoaded = item.persistentEquipment === true
+            && item.persistentEquipmentInherited === true
+            && item.status === 'loaded';
+        const nextStatus = persistentLoaded ? 'loaded' : 'pending';
+        if (item.status !== nextStatus) changed = true;
+        item.status = nextStatus;
+        item.loadedAt = persistentLoaded ? (Number(item.loadedAt || 0) || Date.now()) : 0;
+        item.unloadedAt = 0;
+        item.droppedAt = 0;
+        item.handoffComplete = false;
+        item.handedOffAt = 0;
+        item.droppedLat = null;
+        item.droppedLon = null;
+        item.droppedAltFt = null;
+        item.unloadLat = null;
+        item.unloadLon = null;
+        item.unloadAltFt = null;
+        item.healthPct = 100;
+        item.log = {};
+    });
+    manifest.maxStressDamagePct = 0;
+    manifest.dispatchSignature = null;
+    return changed;
+}
+
+function resetExpiredActiveMissionStateToPlanned(state = {}) {
+    if (!state || typeof state !== 'object') return null;
+    clearActiveMissionRuntimeMarkersFromState(state);
+
+    const missionObjects = [];
+    const addMissionObject = value => {
+        if (value && typeof value === 'object' && !missionObjects.includes(value)) missionObjects.push(value);
+    };
+    addMissionObject(state);
+    addMissionObject(state.currentMissionData);
+    addMissionObject(state.activeMissionContract);
+    addMissionObject(state.currentMissionData?.missionContract);
+
+    missionObjects.forEach(obj => {
+        clearActiveMissionRuntimeMarkersFromState(obj);
+        obj.missionResult = '';
+        obj.missionFailed = false;
+        obj.missionOutcome = null;
+        obj.cargoOutcome = null;
+        obj.poiEndedAtHome = false;
+        obj.poiNeedsRideHome = false;
+        delete obj.missionCompletionState;
+        delete obj.missionCompletionId;
+        delete obj.missionCompletionRecord;
+        delete obj.poiChainProgress;
+        delete obj.complianceInspection;
+        if (obj.bush && typeof buildInitialBushMissionProgress === 'function') {
+            try { obj.bushProgress = buildInitialBushMissionProgress(obj.bush); } catch (_) { delete obj.bushProgress; }
+        } else {
+            delete obj.bushProgress;
+        }
+        if (obj.sarHeli && typeof missionSarHeliInitialProgress === 'function') {
+            try { obj.sarHeliProgress = missionSarHeliInitialProgress(); } catch (_) { delete obj.sarHeliProgress; }
+        } else {
+            delete obj.sarHeliProgress;
+        }
+    });
+
+    const passengers = [
+        state.activePassenger,
+        state.currentMissionData?.passenger,
+        state.activeMissionContract?.passenger,
+        state.currentMissionData?.missionContract?.passenger
+    ];
+    passengers.forEach(passenger => {
+        if (!passenger || typeof passenger !== 'object') return;
+        delete passenger.poiChainProgress;
+    });
+
+    const manifests = [];
+    missionObjects.forEach(obj => {
+        if (obj?.cargoManifest && !manifests.includes(obj.cargoManifest)) manifests.push(obj.cargoManifest);
+    });
+    manifests.forEach(resetMissionCargoManifestToPlanned);
+    return state;
+}
+window.resetExpiredActiveMissionStateToPlanned = resetExpiredActiveMissionStateToPlanned;
+
+function resetExpiredActiveMissionToPlanned(state = {}, reason = 'active-mission-runtime-expired', options = {}) {
+    if (!state || typeof state !== 'object') return false;
+    if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
+        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        return false;
+    }
+    const info = options.expiryInfo || activeMissionRestoreExpiryInfo(state);
+    const plannedState = resetExpiredActiveMissionStateToPlanned(state);
+    if (!plannedState) return false;
+
+    try {
+        const plannedIds = activeMissionStateIds(plannedState);
+        const currentState = {
+            currentMissionData: (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null,
+            activeMissionContract: window.activeMissionContract || null
+        };
+        const currentIds = activeMissionStateIds(currentState);
+        const matchesLoadedMission = plannedIds.length > 0
+            && currentIds.some(id => plannedIds.includes(id));
+        if (matchesLoadedMission) {
+            currentMissionData = plannedState.currentMissionData;
+            window.currentMissionData = currentMissionData;
+            window.activeMissionContract = plannedState.activeMissionContract
+                || currentMissionData?.missionContract
+                || null;
+            window.activePassenger = plannedState.activePassenger || null;
+        }
+    } catch (_) {}
+
+    if (typeof window.missionRuntimeReset === 'function') {
+        try { window.missionRuntimeReset({ respawnAfterClear: false, reason }); } catch (_) {}
+    }
+    try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
+    try { localStorage.removeItem('ga_pending_mission_debrief_v1'); } catch (_) {}
+    try {
+        storeActiveMissionStateSafely(plannedState, { refreshActiveMissionTimestamp: true });
+    } catch (_) {}
+    try {
+        storeActiveMissionContractSafely(
+            plannedState.activeMissionContract
+            || plannedState.currentMissionData?.missionContract
+            || null
+        );
+    } catch (_) {}
+    try {
+        if (plannedState.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(plannedState.activePassenger));
+        else localStorage.removeItem('ga_active_passenger');
+    } catch (_) {}
+
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator && options.showIndicator !== false) {
+        const ageHours = info && Number.isFinite(Number(info.ageMs))
+            ? Math.round(Number(info.ageMs) / 360000) / 10
+            : null;
+        indicator.innerText = ageHours
+            ? `Mission nach ${ageHours} h auf geplant zurückgesetzt.`
+            : 'Mission auf geplant zurückgesetzt.';
+    }
+    try {
+        console.warn('[MISSION RESTORE] Alter Laufstand auf geplant zurückgesetzt:', reason, info || '');
+    } catch (_) {}
+    if (options.queueCloudSave !== false && typeof window.queueActiveMissionCloudSave === 'function') {
+        try { window.queueActiveMissionCloudSave('mission-runtime-expired-reset-to-planned', { delayMs: 0 }); } catch (_) {}
+    }
+    return plannedState;
+}
+window.resetExpiredActiveMissionToPlanned = resetExpiredActiveMissionToPlanned;
 
 function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired', options = {}) {
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
@@ -8252,11 +8416,13 @@ function saveMissionState() {
         try { localStorage.removeItem('ga_active_mission_runtime'); } catch (_) {}
     }
     storeActiveMissionStateSafely(state);
+    if (!freeflightOnly && typeof window.queueActiveMissionCloudSave === 'function') {
+        window.queueActiveMissionCloudSave(draftPending ? 'mission-draft-saved' : 'mission-state-saved');
+    }
     if (draftPending) {
-        try { console.debug('[MISSION DRAFT] Lokal gespeichert, Cloud-Sync blockiert.'); } catch (_) {}
+        try { console.debug('[MISSION DRAFT] Lokal gespeichert und fuer Cloud-Sync vorgemerkt.'); } catch (_) {}
         return;
     }
-    triggerCloudSave();
 }
 
 function restoreMissionV3Context(md, state = {}, restoredPassenger = null, restoredMissionContract = null) {
@@ -8367,8 +8533,10 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 
 async function restoreMissionState(state, options = {}) {
     const allowDraft = !!options.allowDraft;
-    const resumeRuntime = options.resumeRuntime === true;
+    let resumeRuntime = options.resumeRuntime === true;
     const restoreSource = String(options.source || '').toLowerCase();
+    let staleRuntimeResetToPlanned = options.runtimeResetToPlanned === true;
+    let staleRuntimeExpiryInfo = options.runtimeResetExpiryInfo || null;
     if (!resumeRuntime && options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
@@ -8387,15 +8555,21 @@ async function restoreMissionState(state, options = {}) {
     if (resumeRuntime || restoreSource === 'cloud') {
         const expiryInfo = activeMissionRestoreExpiryInfo(state);
         if (expiryInfo.expired) {
-            return clearExpiredActiveMissionPersistence(`restore-${restoreSource || 'startup'}-expired`, {
+            const plannedState = resetExpiredActiveMissionToPlanned(state, `restore-${restoreSource || 'startup'}-expired`, {
                 expiryInfo,
-                pushCloudClear: restoreSource === 'cloud'
+                queueCloudSave: true,
+                showIndicator: false
             });
+            if (!plannedState) return false;
+            state = plannedState;
+            resumeRuntime = false;
+            staleRuntimeResetToPlanned = true;
+            staleRuntimeExpiryInfo = expiryInfo;
         }
     } else {
         clearActiveMissionRuntimeMarkersFromState(state);
     }
-    if (!resumeRuntime && typeof window.missionRuntimeReset === 'function') {
+    if (!resumeRuntime && !staleRuntimeResetToPlanned && typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
     }
     if (!resumeRuntime) {
@@ -8617,7 +8791,23 @@ async function restoreMissionState(state, options = {}) {
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
     const restoredDraft = isMissionDraftPending(currentMissionData);
-    recalculatePerformance(); document.getElementById('searchIndicator').innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
+    recalculatePerformance();
+    const searchIndicator = document.getElementById('searchIndicator');
+    if (searchIndicator) {
+        if (staleRuntimeResetToPlanned) {
+            const ageHours = staleRuntimeExpiryInfo && Number.isFinite(Number(staleRuntimeExpiryInfo.ageMs))
+                ? Math.round(Number(staleRuntimeExpiryInfo.ageMs) / 360000) / 10
+                : null;
+            searchIndicator.innerText = ageHours
+                ? `📋 Mission nach ${ageHours} h wieder auf geplant gesetzt.`
+                : '📋 Mission wieder auf geplant gesetzt.';
+        } else {
+            searchIndicator.innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
+        }
+    }
+    if (staleRuntimeResetToPlanned && typeof window.refreshMissionRuntimeUi === 'function') {
+        try { window.refreshMissionRuntimeUi(); } catch (_) {}
+    }
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
 
     gpsState.mode = 'FPL';
@@ -45556,20 +45746,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // === FORCE UPDATE (V53) ===
-window.forceAppUpdate = function() {
-    if (confirm("Möchtest du ein Update erzwingen? Der Zwischenspeicher wird geleert und die App neu geladen.")) {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) { registration.unregister(); }
-                caches.keys().then(function(names) {
-                    for (let name of names) caches.delete(name);
-                    window.location.reload(true);
-                });
-            });
-        } else {
-            window.location.reload(true);
+window.forceAppUpdate = async function() {
+    if (!confirm("Möchtest du ein Update erzwingen? Der Zwischenspeicher wird geleert und die App neu geladen.")) return;
+    if (window.__gaForceUpdateRunning) return;
+    window.__gaForceUpdateRunning = true;
+    const versionEl = document.getElementById('swVersionDisplay');
+    if (versionEl) versionEl.innerText = 'SYNC / UPDATE…';
+    try {
+        if (saveMissionTimeout) {
+            clearTimeout(saveMissionTimeout);
+            saveMissionTimeout = null;
         }
+        if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof saveMissionState === 'function') {
+            saveMissionState();
+        }
+        if (typeof window.flushActiveMissionCloudSaveForUpdate === 'function') {
+            const syncResult = await Promise.race([
+                window.flushActiveMissionCloudSaveForUpdate('app-update'),
+                new Promise(resolve => setTimeout(() => resolve({ ok: false, pending: true, reason: 'timeout' }), 12000))
+            ]);
+            if (syncResult?.ok === false && syncResult?.skipped !== true) {
+                try { console.warn('[UPDATE] Cloud-Sync nicht bestaetigt; ausstehender Upload bleibt fuer den Neustart vorgemerkt.', syncResult); } catch (_) {}
+            }
+        }
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.allSettled(registrations.map(registration => registration.unregister()));
+        }
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.allSettled(names.map(name => caches.delete(name)));
+        }
+    } catch (err) {
+        try { console.warn('[UPDATE] Vorbereitung unvollstaendig; lokaler Missionsstand bleibt erhalten.', err); } catch (_) {}
     }
+    window.location.reload(true);
 };
 
 

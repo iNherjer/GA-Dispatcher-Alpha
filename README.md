@@ -83,6 +83,9 @@ Funktionen:
 - **Auto-Sync**: laedt und speichert automatisch, wenn du angemeldet bist.
 - **Push**: aktuellen Stand in die Cloud schreiben.
 - **Pull**: Cloud-Stand auf dieses Geraet holen.
+- Neu erzeugte Missionsentwuerfe und akzeptierte Missionen werden bei aktivem Auto-Sync geraeteuebergreifend gespeichert. Ein fehlgeschlagener Upload bleibt vorgemerkt und wird beim naechsten Start vor dem Cloud-Pull erneut versucht.
+- Der Update-Ablauf versucht einen ausstehenden Missionsstand vor dem Reload bestaetigt hochzuladen. Der lokale Missionsstand bleibt auch erhalten, wenn der Upload gerade nicht moeglich ist.
+- Eine wirklich begonnene Mission kann nach einem Reload bis zu 12 Stunden ab Missionsstart fortgesetzt werden. Ist sie danach noch nicht beendet, bleibt der Auftrag erhalten und faellt mit zurueckgesetztem Flug-, Boarding-, Cargo- und Aufgabenfortschritt wieder auf **geplant**. Geplante oder akzeptierte, noch nicht begonnene Missionen besitzen keine Altersgrenze.
 - **Live GPS**: zeigt, ob Daten vom PC-Tracker ankommen.
 - Der Live-GPS-Status unterscheidet drei Stufen: `WAIT` bedeutet, dass nur die App am Relay verbunden ist; `LINK · v302` bestätigt den verbundenen PC-Tracker ohne frische Sim-Telemetrie; `LIVE · v302` zeigt aktive Telemetrie. Bei `LINK` und `LIVE` wird die erkannte Tracker-Version mit angezeigt.
 - **Tracker fuer Windows**: installiert und aktualisiert die Runtime, die MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App sendet.
