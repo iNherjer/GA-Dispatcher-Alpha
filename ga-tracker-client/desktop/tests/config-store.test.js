@@ -30,6 +30,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
   const store = createStore();
   store.write({ homebaseFallback: { schemaVersion: 1 }, consoleMode: 'status', pin: '9999' });
   store.saveCredentials('Foxtrot-Mike-764', '1234');
+  store.setRuntimeChannel('alpha');
   store.setUpdatePolicy('automatic');
   store.setStartupPreferences({
     autoStartTracker: false,
@@ -49,6 +50,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
   assert.deepEqual(store.publicSettings(), {
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
+    runtimeChannel: 'alpha',
     updatePolicy: 'automatic',
     autoStartTracker: false,
     startMinimized: true,
@@ -87,6 +89,7 @@ test('startup preferences default to automatic tracker start and visible window'
   assert.deepEqual(store.publicSettings(), {
     pilotId: '',
     hasPin: false,
+    runtimeChannel: 'stable',
     updatePolicy: 'ask',
     autoStartTracker: true,
     startMinimized: false,

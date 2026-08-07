@@ -12,12 +12,13 @@ function cleanLogLine(line) {
 }
 
 class TrackerProcess extends EventEmitter {
-  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials }) {
+  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel }) {
     super();
     this.app = electronApp;
     this.dataDirectory = dataDirectory;
     this.runtimeManager = runtimeManager;
     this.getCredentials = typeof getCredentials === 'function' ? getCredentials : () => null;
+    this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
     this.child = null;
     this.status = createTrackerStatus();
     this.logs = [];
@@ -37,7 +38,8 @@ class TrackerProcess extends EventEmitter {
     const sharedEnvironment = {
       ...process.env,
       VFR_MULTITOOL_TRACKER_DATA_DIR: this.dataDirectory,
-      VFR_MULTITOOL_TRACKER_HEADLESS: '1'
+      VFR_MULTITOOL_TRACKER_HEADLESS: '1',
+      VFR_MULTITOOL_TRACKER_CHANNEL: this.getRuntimeChannel() === 'alpha' ? 'alpha' : 'stable'
     };
     if (this.app.isPackaged) {
       const executable = this.runtimeManager?.currentExecutablePath() || '';

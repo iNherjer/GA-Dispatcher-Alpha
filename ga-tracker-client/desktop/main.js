@@ -11,6 +11,12 @@ const {
   Tray
 } = require('electron');
 const { TrackerConfigStore } = require('./lib/config-store');
+const {
+  RUNTIME_CHANNELS,
+  normalizeRuntimeChannel,
+  runtimeChannelDefinition,
+  runtimeRootForChannel
+} = require('./lib/runtime-channel');
 const { startupDecision } = require('./lib/startup-policy');
 const { verifyCredentials } = require('./lib/auth-client');
 const { BridgeManager } = require('./lib/bridge-manager');
@@ -30,6 +36,8 @@ let bridgeManager = null;
 let trackerStartupAllowed = false;
 let finalQuitReady = false;
 let bridgeShutdownInProgress = false;
+let trackerApplicationRoot = '';
+let runtimeStateListener = null;
 
 function iconPath() {
   return app.isPackaged
@@ -44,6 +52,7 @@ function currentState() {
     settings: configStore?.publicSettings() || {
       pilotId: '',
       hasPin: false,
+      runtimeChannel: 'stable',
       updatePolicy: 'ask',
       autoStartTracker: true,
       startMinimized: false,
@@ -55,6 +64,90 @@ function currentState() {
     homebaseAssets: homebaseManager?.publicState() || null,
     bridge: bridgeManager?.publicState() || null
   };
+}
+
+function createRuntimeManager(channel) {
+  const definition = runtimeChannelDefinition(channel);
+  const manager = new TrackerRuntimeManager({
+    runtimeRoot: runtimeRootForChannel(trackerApplicationRoot, definition.id),
+    channelUrl: definition.channelUrl,
+    getUpdatePolicy: () => configStore.publicSettings().updatePolicy,
+    saveUpdatePolicy: (policy) => configStore.setUpdatePolicy(policy)
+  });
+  runtimeStateListener = (state) => {
+    broadcastState();
+    if (state?.phase === 'choice-required') showWindow();
+  };
+  manager.on('state', runtimeStateListener);
+  return manager;
+}
+
+function replaceRuntimeManager(channel) {
+  if (runtimeManager && runtimeStateListener) runtimeManager.off('state', runtimeStateListener);
+  runtimeManager = createRuntimeManager(channel);
+  if (trackerProcess) trackerProcess.runtimeManager = runtimeManager;
+  return runtimeManager;
+}
+
+function setDevelopmentRuntimeState(channel) {
+  const label = runtimeChannelDefinition(channel).label;
+  runtimeManager.setState({
+    phase: 'development',
+    version: 'v314',
+    installedVersion: 'v314',
+    message: `Entwicklungsmodus: tracker.js wird direkt gestartet. Zielkanal: ${label}.`
+  });
+}
+
+async function stopTrackerAndWait() {
+  if (!trackerProcess?.child) return { ok: true, wasRunning: false };
+  return new Promise((resolve) => {
+    let finished = false;
+    const done = (result) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      trackerProcess.off('exit', onExit);
+      resolve(result);
+    };
+    const onExit = () => done({ ok: true, wasRunning: true });
+    const timeout = setTimeout(() => done({ ok: false, wasRunning: true, message: 'Der laufende Tracker konnte nicht rechtzeitig beendet werden.' }), 10000);
+    trackerProcess.once('exit', onExit);
+    const result = trackerProcess.stop();
+    if (result?.ok === false) done({ ok: false, wasRunning: true, message: result.message || 'Tracker konnte nicht beendet werden.' });
+  });
+}
+
+async function switchRuntimeChannel(rawChannel) {
+  const requested = String(rawChannel || '').trim().toLowerCase();
+  if (!Object.hasOwn(RUNTIME_CHANNELS, requested)) return { ok: false, message: 'Unbekannter Tracker-Kanal.' };
+  const current = normalizeRuntimeChannel(configStore.publicSettings().runtimeChannel);
+  if (requested === current) return { ok: true, channel: current, unchanged: true };
+  if (['checking', 'downloading', 'choice-required'].includes(runtimeManager.publicState().phase) || runtimeManager.busy) {
+    return { ok: false, message: 'Der Tracker-Kanal kann während einer laufenden Updateprüfung nicht gewechselt werden.' };
+  }
+
+  const stopped = await stopTrackerAndWait();
+  if (!stopped.ok) return stopped;
+
+  configStore.setRuntimeChannel(requested);
+  const manager = replaceRuntimeManager(requested);
+  broadcastState();
+  try {
+    if (app.isPackaged) await manager.ensureReady();
+    else setDevelopmentRuntimeState(requested);
+    if (stopped.wasRunning) {
+      trackerStartupAllowed = true;
+      const started = await startTrackerIfReady();
+      if (!started?.ok) return { ...started, channel: requested };
+    }
+    broadcastState();
+    return { ok: true, channel: requested };
+  } catch (error) {
+    showWindow();
+    broadcastState();
+    return { ok: false, channel: requested, message: error?.message || String(error) };
+  }
 }
 
 function broadcastState() {
@@ -216,6 +309,7 @@ function registerIpc() {
     broadcastState();
     return { ok: true, settings: configStore.publicSettings() };
   });
+  ipcMain.handle('settings:set-runtime-channel', (_event, payload) => switchRuntimeChannel(payload?.channel));
   ipcMain.handle('settings:set-startup-preferences', (_event, payload) => {
     configStore.setStartupPreferences({
       autoStartTracker: payload?.autoStartTracker === true,
@@ -269,6 +363,7 @@ async function startApplication() {
   const documentsDirectory = String(process.env.VFR_MULTITOOL_DOCUMENTS_DIR || '').trim() || app.getPath('documents');
   const localAppDataBase = String(process.env.VFR_MULTITOOL_LOCAL_APP_DATA_DIR || process.env.LOCALAPPDATA || '').trim() || app.getPath('appData');
   const applicationRoot = path.join(localAppDataBase, 'VFR Multitool');
+  trackerApplicationRoot = applicationRoot;
   const desktopDataDirectory = path.join(applicationRoot, 'Desktop');
   configStore = new TrackerConfigStore({
     documentsDirectory,
@@ -277,11 +372,7 @@ async function startApplication() {
   });
   configStore.ensureDataDirectory();
   const migration = await configStore.migrateLegacyCredentials(verifyCredentials);
-  runtimeManager = new TrackerRuntimeManager({
-    runtimeRoot: path.join(applicationRoot, 'Tracker'),
-    getUpdatePolicy: () => configStore.publicSettings().updatePolicy,
-    saveUpdatePolicy: (policy) => configStore.setUpdatePolicy(policy)
-  });
+  runtimeManager = createRuntimeManager(configStore.publicSettings().runtimeChannel);
   if (process.env.VFR_TRACKER_PREVIEW_UPDATE === '1') {
     runtimeManager.setState({
       phase: 'choice-required',
@@ -304,7 +395,8 @@ async function startApplication() {
     electronApp: app,
     dataDirectory: configStore.dataDirectory,
     runtimeManager,
-    getCredentials: () => configStore.credentials()
+    getCredentials: () => configStore.credentials(),
+    getRuntimeChannel: () => configStore.publicSettings().runtimeChannel
   });
   const developmentBridgeDirectory = path.resolve(__dirname, '..', 'accusim-router-desktop');
   let developmentBridgeVersion = '';
@@ -334,10 +426,6 @@ async function startApplication() {
   trackerProcess.on('log', (entry) => {
     if (/Keine Anmeldung bestätigt|Pilot-ID nicht gefunden|PIN .* falsch/.test(String(entry?.line || ''))) showWindow();
   });
-  runtimeManager.on('state', (state) => {
-    broadcastState();
-    if (state?.phase === 'choice-required') showWindow();
-  });
   homebaseManager.on('state', broadcastState);
   bridgeManager.on('state', broadcastState);
 
@@ -358,12 +446,7 @@ async function startApplication() {
       showWindow();
     }
   } else {
-    runtimeManager.setState({
-      phase: 'development',
-      version: 'v314',
-      installedVersion: 'v314',
-      message: 'Entwicklungsmodus: tracker.js wird direkt gestartet.'
-    });
+    setDevelopmentRuntimeState(configStore.publicSettings().runtimeChannel);
     trackerStartupAllowed = true;
     const decision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
     if (decision.startTracker && !trackerProcess.child) await startTrackerIfReady();

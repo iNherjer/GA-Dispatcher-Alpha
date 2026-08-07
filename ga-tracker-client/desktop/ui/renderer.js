@@ -12,6 +12,8 @@ const elements = {
   credentialsForm: document.getElementById('credentialsForm'),
   saveCredentialsButton: document.getElementById('saveCredentialsButton'),
   formMessage: document.getElementById('formMessage'),
+  runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
+  runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
   updatePolicySelect: document.getElementById('updatePolicySelect'),
   updateBadge: document.getElementById('updateBadge'),
   updateMessage: document.getElementById('updateMessage'),
@@ -75,6 +77,7 @@ const labels = {
 
 let latestState = null;
 let dialogVisible = false;
+let channelChangePending = false;
 
 function setClass(element, baseClass, state) {
   element.className = `${baseClass} ${state || 'waiting'}`;
@@ -112,6 +115,7 @@ function renderUpdate(update) {
   elements.updateProgressWrap.hidden = !showProgress;
   elements.updateProgress.style.width = `${Math.max(0, Math.min(100, Number(update.percent) || 0))}%`;
   elements.checkRuntimeButton.disabled = ['checking', 'downloading', 'choice-required', 'development'].includes(phase);
+  elements.runtimeChannelSelect.disabled = channelChangePending || ['checking', 'downloading', 'choice-required'].includes(phase);
 
   if (phase === 'choice-required' && !dialogVisible) {
     dialogVisible = true;
@@ -214,8 +218,10 @@ function render(state) {
   latestState = state;
   const tracker = state?.tracker || {};
   const settings = state?.settings || {};
+  const runtimeChannel = settings.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
+  const runtimeChannelLabel = runtimeChannel === 'alpha' ? 'Alpha' : 'Stable';
 
-  elements.versionLine.textContent = `Desktop v${state?.appVersion || '–'} · Engine ${state?.trackerVersion || '–'}`;
+  elements.versionLine.textContent = `Desktop v${state?.appVersion || '–'} · Engine ${state?.trackerVersion || '–'} · ${runtimeChannelLabel}`;
   setClass(elements.processBadge, 'process-badge', tracker.process);
   elements.processBadge.textContent = labels.process[tracker.process] || 'Bereit';
 
@@ -228,6 +234,15 @@ function render(state) {
 
   if (document.activeElement !== elements.pilotIdInput) elements.pilotIdInput.value = settings.pilotId || '';
   elements.pinInput.placeholder = settings.hasPin ? 'gespeichert' : '••••';
+  if (document.activeElement !== elements.runtimeChannelSelect && !channelChangePending) {
+    elements.runtimeChannelSelect.value = runtimeChannel;
+  }
+  if (!channelChangePending) {
+    elements.runtimeChannelMessage.className = 'channel-message subtle';
+    elements.runtimeChannelMessage.textContent = runtimeChannel === 'alpha'
+      ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
+      : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
+  }
   if (document.activeElement !== elements.updatePolicySelect) {
     elements.updatePolicySelect.value = settings.updatePolicy || 'ask';
   }
@@ -275,6 +290,29 @@ elements.credentialsForm.addEventListener('submit', async (event) => {
 
 elements.updatePolicySelect.addEventListener('change', async () => {
   await window.trackerDesktop.setUpdatePolicy(elements.updatePolicySelect.value);
+});
+
+elements.runtimeChannelSelect.addEventListener('change', async () => {
+  const previous = latestState?.settings?.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
+  const requested = elements.runtimeChannelSelect.value === 'alpha' ? 'alpha' : 'stable';
+  if (requested === previous) return;
+  if (requested === 'alpha' && !window.confirm('Zum Alpha-Kanal wechseln? Der laufende Tracker wird bei Bedarf neu gestartet. Testversionen können noch Fehler enthalten; Stable bleibt separat installiert.')) {
+    elements.runtimeChannelSelect.value = previous;
+    return;
+  }
+
+  channelChangePending = true;
+  elements.runtimeChannelSelect.disabled = true;
+  elements.runtimeChannelMessage.className = 'channel-message subtle';
+  elements.runtimeChannelMessage.textContent = `Wechsel zu ${requested === 'alpha' ? 'Alpha' : 'Stable'} wird vorbereitet …`;
+  const result = await window.trackerDesktop.setRuntimeChannel(requested);
+  channelChangePending = false;
+  const state = await window.trackerDesktop.getState();
+  render(state);
+  if (!result?.ok) {
+    elements.runtimeChannelMessage.className = 'channel-message subtle error';
+    elements.runtimeChannelMessage.textContent = result?.message || 'Tracker-Kanal konnte nicht gewechselt werden.';
+  }
 });
 
 async function saveStartupPreferences() {

@@ -355,6 +355,20 @@ select:focus {
   font-size: 13px;
 }
 
+.channel-row {
+  margin-bottom: 8px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.channel-message {
+  margin: 0 0 13px;
+}
+
+.channel-message.error {
+  color: var(--red);
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

@@ -2,14 +2,17 @@
 
 Die Desktop-App ist ein kleiner Windows-Bootstrapper fuer die bestehende
 Tracker-Engine. Der Installer enthaelt keine Tracker-EXE. Beim ersten Start wird
-die aktuelle Engine aus `ga-tracker-client/channel/stable.json` geladen, gegen
-Dateigroesse und SHA-256 geprueft und als separater Hintergrundprozess gestartet.
+standardmaessig die aktuelle Stable-Engine geladen, gegen Dateigroesse und
+SHA-256 geprueft und als separater Hintergrundprozess gestartet. Im Fenster kann
+zwischen `Stable` und `Alpha` gewechselt werden.
 
 ## Funktionen
 
 - kleines Statusfenster und Windows-Tray
 - Pilot-ID/PIN-Pruefung ueber den bestehenden Auth-Endpunkt
 - Download, Pruefung, Update und Start/Stopp der Tracker-Engine
+- umschaltbare Tracker-Kanaele `Stable` und `Alpha`
+- getrennte Runtime-Verzeichnisse fuer sicheren Rueckwechsel auf Stable
 - vorherige gepruefte Engine als lokaler Rueckfall
 - Tracker-Engine startet standardmaessig automatisch nach der Updatepruefung
 - optionaler unsichtbarer Start direkt ins Windows-Tray
@@ -26,6 +29,10 @@ Dateigroesse und SHA-256 geprueft und als separater Hintergrundprozess gestartet
 Persoenliche Tracker-/Homebase-Daten bleiben unter
 `Dokumente/VFR Multitool/Tracker`. Programmzustand, geladene Tracker-Versionen und
 Asset-Downloadcaches liegen dagegen unter `%LOCALAPPDATA%/VFR Multitool`.
+Stable behaelt aus Kompatibilitaetsgruenden den bisherigen Runtime-Pfad
+`Tracker`; Alpha verwendet den separaten Pfad `Tracker Alpha`. Ein Wechsel
+beendet einen laufenden Tracker kontrolliert, bereitet den Zielkanal vor und
+startet ihn danach wieder. Die jeweils andere Runtime bleibt unveraendert.
 Pilot-ID und PIN werden vor dem Speichern am Auth-Endpunkt geprueft. Die PIN wird
 mit Electrons `safeStorage`/Windows DPAPI geschuetzt in LocalAppData gespeichert
 und nur ueber eine lokale Prozess-Pipe an die Engine uebergeben. Sie steht weder
@@ -118,9 +125,16 @@ eigentliche Installation bleibt eine sichtbare, vom Benutzer bestätigte Aktion.
 
 ## Updatekanal
 
-Die Tracker-Runtime liest den Kanal:
+Die Tracker-Runtime liest je nach Auswahl einen dieser Kanaele:
 
 `ga-tracker-client/channel/stable.json`
+
+`ga-tracker-client/channel/alpha.json`
+
+Neue Runtime-Releases werden zuerst ueber `alpha.json` an Tester verteilt. Nach
+erfolgreicher Erprobung wird dasselbe unveraenderliche Release-Artefakt durch
+Anpassen von `stable.json` freigegeben. Stable ist die Voreinstellung; bestehende
+Desktop-Konfigurationen ohne Kanalangabe bleiben dadurch rueckwaertskompatibel.
 
 Der spaetere Selbst-Updater des Bootstrapprogramms verwendet den generischen
 Desktop-Kanal:

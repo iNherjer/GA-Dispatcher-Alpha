@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { normalizeRuntimeChannel } = require('./runtime-channel');
 
 const UPDATE_POLICIES = new Set(['ask', 'automatic']);
 
@@ -98,6 +99,7 @@ class TrackerConfigStore {
     return {
       pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
+      runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
       updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
       autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
       startMinimized: normalizeBoolean(preferences.startMinimized, false),
@@ -158,6 +160,18 @@ class TrackerConfigStore {
     });
   }
 
+  setRuntimeChannel(channel) {
+    const normalized = normalizeRuntimeChannel(channel);
+    const desktop = this.readDesktop();
+    return this.writeDesktop({
+      ...desktop,
+      preferences: {
+        ...safeObject(desktop.preferences),
+        runtimeChannel: normalized
+      }
+    });
+  }
+
   setStartupPreferences(preferences = {}) {
     const desktop = this.readDesktop();
     const current = safeObject(desktop.preferences);
@@ -181,6 +195,7 @@ class TrackerConfigStore {
     this.writeDesktop({
       ...desktop,
       preferences: {
+        runtimeChannel: normalizeRuntimeChannel(legacy.runtimeChannel),
         updatePolicy: normalizeUpdatePolicy(legacy.updatePolicy),
         autoStartTracker: normalizeBoolean(legacy.autoStartTracker, true),
         startMinimized: normalizeBoolean(legacy.startMinimized, false),

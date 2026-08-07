@@ -86,8 +86,16 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
 3. Danach zusaetzlich auf `origin` releasen:
    - Jede Version als eigenen unveraenderlichen Release `v<code>` veroeffentlichen.
    - Nur die gebaute Datei `ga-tracker-client/VFR-Multitool-Tracker.exe` als Release-Asset veroeffentlichen.
-   - `ga-tracker-client/channel/stable.json` auf denselben Tag, die exakte Dateigroesse und SHA-256 setzen.
-   - Der dauerhafte App-Link `/api/tracker/download` liest diesen Kanal; `index.html` muss bei kuenftigen Tracker-Releases nicht erneut angepasst werden.
+   - Zuerst nur `ga-tracker-client/channel/alpha.json` auf denselben Tag, die exakte Dateigroesse und SHA-256 setzen.
+   - `ga-tracker-client/channel/stable.json` bleibt bis zur erfolgreichen Tester-Freigabe unveraendert.
+   - Der neue Tracker muss das Protokoll der aktuell produktiven Web-App weiterhin bedienen koennen. Neue Nachrichten oder Felder werden additiv eingefuehrt und ueber Capabilities erkannt.
+
+### 2a) Tracker von Alpha nach Stable freigeben
+
+1. Das bereits veroeffentlichte Alpha-Artefakt wird nicht neu gebaut und nicht ersetzt.
+2. Nach den Tests `ga-tracker-client/channel/stable.json` auf exakt denselben Release-Tag, dieselbe Dateigroesse und dieselbe SHA-256-Pruefsumme wie `alpha.json` setzen.
+3. Desktop-Test durchfuehren: Alpha starten, auf Stable zurueckschalten und pruefen, dass die getrennte Stable-Runtime weiterhin startet.
+4. Der dauerhafte App-Link `/api/tracker/download` liest den Stable-Kanal; `index.html` muss bei kuenftigen Tracker-Releases nicht erneut angepasst werden.
 
 ## 3) Prioritaet
 
@@ -98,14 +106,14 @@ Wenn `tracker.js` geaendert wurde, gilt beides:
 ## 3a) Tracker-Desktop-App und Autoupdater
 
 Die installierbare Desktop-App liegt unter `ga-tracker-client/desktop`. Sie
-ist ein schlanker Bootstrapper und buendelt keine Tracker-EXE. Die Runtime wird
-beim ersten Start aus `ga-tracker-client/channel/stable.json` geladen, geprueft
-und versioniert in LocalAppData abgelegt.
+ist ein schlanker Bootstrapper und buendelt keine Tracker-EXE. Stable ist der
+Standardkanal; Tester koennen auf Alpha umschalten. Beide Runtimes werden
+getrennt in LocalAppData abgelegt, wobei Stable den bisherigen Pfad behaelt.
 
 1. Vor einem Desktop-Release:
    - `version` in `ga-tracker-client/desktop/package.json` als SemVer erhoehen.
-   - Der Tracker-Kanal muss auf ein vorhandenes, vollstaendig getestetes
-     origin-Release nach Abschnitt 2 zeigen.
+   - Stable- und Alpha-Kanal muessen auf vorhandene, unveraenderliche
+     origin-Releases nach Abschnitt 2 zeigen.
 2. Desktop-Tests und Build:
    - `cd ga-tracker-client/desktop`
    - `npm test`
@@ -151,20 +159,23 @@ Version aus Windows-Registry beziehungsweise EXE-Dateiinformationen. Die
 Konstante `MIN_BRIDGE_INTEGRATION_VERSION` darf nur angehoben werden, wenn der
 Tracker eine tatsaechlich neuere Bridge-Funktion zwingend benoetigt.
 
-## 4) Beta- und Stable-Synchronisierung
+## 4) Alpha-, Beta- und Stable-Promotion
 
-`beta/main` und `stable/main` liegen auf separaten Remotes und sollen jeweils exakt
-dem aktuellen `origin/main`-Commit entsprechen. Es gibt keine Stable-spezifische
-`CNAME`- oder Custom-Domain-Ausnahme.
+`origin/main` ist der Alpha-Integrationsstand und kann ueber die zugehoerigen
+GitHub Pages direkt getestet werden. `beta/main` und `stable/main` sind bewusst
+nachlaufende Promotion-Ziele. Sie muessen nicht mehr jederzeit dem aktuellen
+`origin/main` entsprechen.
 
-1. Aktuellen Origin-Commit und Ziel-Branches live pruefen:
+1. Vor einer Promotion die drei Zielstaende live pruefen:
    - `git ls-remote origin refs/heads/main`
    - `git ls-remote beta refs/heads/main`
    - `git ls-remote stable refs/heads/main`
-2. Bei einem Fast-Forward den exakten Origin-SHA auf beide Ziele pushen:
-   - `git push beta <origin-main-sha>:refs/heads/main`
-   - `git push stable <origin-main-sha>:refs/heads/main`
-3. Danach die Refs und Pages-Runs live pruefen:
+2. Nach dem Alpha-Test den ausdruecklich freigegebenen Origin-SHA nach Beta promoten:
+   - `git push beta <freigegebener-origin-sha>:refs/heads/main`
+3. Erst nach dem Beta-Test genau denselben freigegebenen SHA nach Stable promoten:
+   - `git push stable <freigegebener-origin-sha>:refs/heads/main`
+4. Niemals ungeprueft den jeweils neuesten `origin/main`-Stand nach Stable spiegeln. Zwischenzeitliche Alpha-Commits duerfen Stable nicht beeinflussen.
+5. Danach die Refs und Pages-Runs live pruefen:
    - `git ls-remote beta refs/heads/main`
    - `git ls-remote stable refs/heads/main`
    - `gh run list -R iNherjer/GA-Dispatcher-beta --limit 5`

@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
 const path = require('node:path');
+const { runtimeChannelDefinition } = require('./runtime-channel');
 
 const TRACKER_EXE_NAME = 'VFR-Multitool-Tracker.exe';
-const DEFAULT_CHANNEL_URL = 'https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/ga-tracker-client/channel/stable.json';
+const DEFAULT_CHANNEL_URL = runtimeChannelDefinition('stable').channelUrl;
 const MAX_CHANNEL_BYTES = 256 * 1024;
 const MAX_RUNTIME_BYTES = 160 * 1024 * 1024;
 const MIN_RUNTIME_VERSION_CODE = 314;

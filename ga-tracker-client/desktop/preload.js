@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   stopBridge: () => ipcRenderer.invoke('bridge:stop'),
   showBridgeSettings: () => ipcRenderer.invoke('bridge:show-settings'),
   saveCredentials: (pilotId, pin) => ipcRenderer.invoke('settings:save-credentials', { pilotId, pin }),
+  setRuntimeChannel: (channel) => ipcRenderer.invoke('settings:set-runtime-channel', { channel }),
   setUpdatePolicy: (policy) => ipcRenderer.invoke('settings:set-update-policy', { policy }),
   setStartupPreferences: (preferences) => ipcRenderer.invoke('settings:set-startup-preferences', preferences),
   chooseUpdate: (choice) => ipcRenderer.invoke('update:choice', { choice }),
