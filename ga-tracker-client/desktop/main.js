@@ -20,6 +20,7 @@ const {
 const { startupDecision } = require('./lib/startup-policy');
 const { verifyCredentials } = require('./lib/auth-client');
 const { BridgeManager } = require('./lib/bridge-manager');
+const { EfbPackageManager } = require('./lib/efb-package-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
 const { TrackerRuntimeManager } = require('./lib/runtime-manager');
 const { TrackerProcess } = require('./lib/tracker-process');
@@ -32,6 +33,7 @@ let configStore = null;
 let trackerProcess = null;
 let runtimeManager = null;
 let homebaseManager = null;
+let efbPackageManager = null;
 let bridgeManager = null;
 let trackerStartupAllowed = false;
 let finalQuitReady = false;
@@ -62,6 +64,7 @@ function currentState() {
     tracker: trackerProcess?.publicState() || null,
     update: runtimeManager?.publicState() || null,
     homebaseAssets: homebaseManager?.publicState() || null,
+    efbPackage: efbPackageManager?.publicState() || null,
     bridge: bridgeManager?.publicState() || null
   };
 }
@@ -131,8 +134,10 @@ async function switchRuntimeChannel(rawChannel) {
   if (!stopped.ok) return stopped;
 
   configStore.setRuntimeChannel(requested);
+  efbPackageManager?.setChannel(requested);
   const manager = replaceRuntimeManager(requested);
   broadcastState();
+  efbPackageManager?.refresh({ force: true }).catch(() => {});
   try {
     if (app.isPackaged) await manager.ensureReady();
     else setDevelopmentRuntimeState(requested);
@@ -353,6 +358,15 @@ function registerIpc() {
     if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
     return homebaseManager.uninstall();
   });
+  ipcMain.handle('efb:refresh', () => efbPackageManager.refresh({ force: true }));
+  ipcMain.handle('efb:install', (_event, payload) => {
+    if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
+    return efbPackageManager.install({ repair: payload?.repair === true });
+  });
+  ipcMain.handle('efb:uninstall', (_event, payload) => {
+    if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
+    return efbPackageManager.uninstall();
+  });
   ipcMain.handle('system:open-data-folder', async () => {
     const error = await shell.openPath(configStore.dataDirectory);
     return { ok: !error, message: error || '' };
@@ -384,6 +398,9 @@ async function startApplication() {
   const supportModulePath = app.isPackaged
     ? path.join(process.resourcesPath, 'homebase-support', 'homebase-package-service.js')
     : path.resolve(__dirname, '..', 'homebase-package-service.js');
+  const updaterModulePath = app.isPackaged
+    ? path.join(process.resourcesPath, 'homebase-support', 'homebase-asset-updater.js')
+    : path.resolve(__dirname, '..', 'homebase-asset-updater.js');
   homebaseManager = new HomebaseAssetManager({
     supportModulePath,
     runtimeDirectory: path.join(applicationRoot, 'Homebase Manager'),
@@ -391,6 +408,15 @@ async function startApplication() {
     localAppData: localAppDataBase
   });
   homebaseManager.inspect();
+  efbPackageManager = new EfbPackageManager({
+    supportModulePath,
+    updaterModulePath,
+    runtimeDirectory: path.join(applicationRoot, 'EFB Package Manager'),
+    appData: process.env.APPDATA || app.getPath('appData'),
+    localAppData: localAppDataBase,
+    channel: configStore.publicSettings().runtimeChannel
+  });
+  efbPackageManager.inspect();
   trackerProcess = new TrackerProcess({
     electronApp: app,
     dataDirectory: configStore.dataDirectory,
@@ -427,6 +453,7 @@ async function startApplication() {
     if (/Keine Anmeldung bestätigt|Pilot-ID nicht gefunden|PIN .* falsch/.test(String(entry?.line || ''))) showWindow();
   });
   homebaseManager.on('state', broadcastState);
+  efbPackageManager.on('state', broadcastState);
   bridgeManager.on('state', broadcastState);
 
   registerIpc();
@@ -454,6 +481,7 @@ async function startApplication() {
   if (!configStore.hasCredentials()) showWindow();
   if (migration.verificationFailed) showWindow();
   homebaseManager.refresh({ force: false }).catch(() => {});
+  efbPackageManager.refresh({ force: false }).catch(() => {});
   void (async () => {
     await bridgeManager.refresh();
     if (configStore.publicSettings().autoStartBridge) await bridgeManager.start();

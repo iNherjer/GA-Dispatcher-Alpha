@@ -21,6 +21,8 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - beim ersten Update: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
 - Updateinstallation vor dem Trackerstart, nicht waehrend eines Flugs
 - Homebase Asset Pack installieren, aktualisieren, reparieren und deinstallieren
+- MSFS-2024-EFB-App passend zum gewählten Tracker-Kanal installieren,
+  aktualisieren, reparieren und isoliert deinstallieren
 - optionale AccuSim-DRSM-Bridge erkennen, sicher aus dem öffentlichen GitHub-
   Release installieren und im Hintergrund starten/stoppen
 - vollständige Bridge-Einstellungen aus dem Tracker öffnen, ohne eine zweite
@@ -154,3 +156,17 @@ auch Desktop-App und Installer signiert und mit Zeitstempel versehen werden.
 
 Ohne ein solches Zertifikat bleibt der Installer technisch nutzbar, Windows kann
 aber wie bei der bisherigen portablen EXE eine SmartScreen-Warnung anzeigen.
+
+## MSFS-2024-EFB-Paket
+
+Die EFB-App ist ein eigenes Community-Package mit den getrennten Kanälen
+`ga-tracker-client/efb/channel/alpha.json` und `stable.json`. Der Paketmanager
+verwendet automatisch denselben Kanal wie die Tracker-Runtime, tauscht eine
+Installation beim Kanalwechsel aber nicht ungefragt aus. Installation, Update
+und Reparatur benötigen eine ausdrückliche Bestätigung und einen geschlossenen
+Simulator.
+
+Vor der Aktivierung eines Kanalzeigers prüft die Release-Pipeline das vom
+offiziellen MSFS-2024-SDK gebaute Package, dessen `manifest.json`, `layout.json`,
+Dateigrößen, ZIP-Struktur und SHA-256. Die Deinstallation ist auf den eigenen
+Ordner `vfr-multitool-efb` begrenzt.

@@ -27,6 +27,15 @@ const elements = {
   assetRepairButton: document.getElementById('assetRepairButton'),
   assetUninstallButton: document.getElementById('assetUninstallButton'),
   assetRefreshButton: document.getElementById('assetRefreshButton'),
+  efbChannelLabel: document.getElementById('efbChannelLabel'),
+  efbBadge: document.getElementById('efbBadge'),
+  efbMessage: document.getElementById('efbMessage'),
+  efbVersion: document.getElementById('efbVersion'),
+  efbPath: document.getElementById('efbPath'),
+  efbPrimaryButton: document.getElementById('efbPrimaryButton'),
+  efbRepairButton: document.getElementById('efbRepairButton'),
+  efbUninstallButton: document.getElementById('efbUninstallButton'),
+  efbRefreshButton: document.getElementById('efbRefreshButton'),
   bridgeBadge: document.getElementById('bridgeBadge'),
   bridgeMessage: document.getElementById('bridgeMessage'),
   bridgeVersion: document.getElementById('bridgeVersion'),
@@ -152,6 +161,36 @@ function renderHomebaseAssets(assets = {}) {
   elements.assetRefreshButton.disabled = busy;
 }
 
+function renderEfbPackage(efb = {}, runtimeChannel = 'stable') {
+  const phase = String(efb.phase || 'idle');
+  const installed = efb.installed === true;
+  const complete = efb.installedComplete === true;
+  const remoteAvailable = efb.remoteAvailable === true;
+  const busy = efb.busy === true || ['checking', 'working'].includes(phase);
+  elements.efbChannelLabel.textContent = runtimeChannel.toUpperCase();
+  elements.efbBadge.textContent = {
+    idle: 'Prüfung',
+    checking: 'Prüft',
+    working: 'Arbeitet',
+    ready: complete ? (efb.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : (remoteAvailable ? 'Optional' : 'Vorbereitung')),
+    error: 'Fehler'
+  }[phase] || 'Status';
+  setClass(elements.efbBadge, 'mini-badge', phase === 'ready' && complete && !efb.updateAvailable ? 'current' : phase);
+  elements.efbMessage.textContent = efb.message || 'EFB-Paketstatus wird geprüft.';
+  const versions = [];
+  if (efb.installedVersion) versions.push(`Installiert: ${efb.installedVersion}`);
+  if (efb.remoteVersion) versions.push(`Verfügbar: ${efb.remoteVersion}`);
+  elements.efbVersion.textContent = versions.join(' · ');
+  elements.efbPath.textContent = efb.communityPath ? `Community: ${efb.communityPath}` : '';
+  elements.efbPrimaryButton.textContent = !installed
+    ? 'Installieren'
+    : (efb.updateAvailable ? `Auf ${efb.remoteVersion || 'neue Version'} aktualisieren` : 'Installiert');
+  elements.efbPrimaryButton.disabled = busy || !remoteAvailable || (complete && !efb.updateAvailable);
+  elements.efbRepairButton.disabled = busy || !installed || !remoteAvailable;
+  elements.efbUninstallButton.disabled = busy || !installed;
+  elements.efbRefreshButton.disabled = busy;
+}
+
 function renderBridge(bridge = {}) {
   const phase = String(bridge.phase || 'idle');
   const installed = bridge.installed === true;
@@ -266,6 +305,7 @@ function render(state) {
   renderLogs(tracker.logs);
   renderUpdate(state?.update);
   renderHomebaseAssets(state?.homebaseAssets);
+  renderEfbPackage(state?.efbPackage, runtimeChannel);
   renderBridge(state?.bridge);
 }
 
@@ -355,6 +395,21 @@ elements.assetRepairButton.addEventListener('click', async () => {
 elements.assetUninstallButton.addEventListener('click', async () => {
   if (!window.confirm('Das gemeinsame Homebase Asset Pack aus dem MSFS-Community-Ordner entfernen? Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.')) return;
   await window.trackerDesktop.uninstallHomebaseAssets();
+});
+
+elements.efbRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshEfbPackage());
+elements.efbPrimaryButton.addEventListener('click', async () => {
+  const action = latestState?.efbPackage?.installed ? 'aktualisiert' : 'installiert';
+  if (!window.confirm(`Die VFR Multitool EFB App wird aus dem gewählten Tracker-Kanal geladen, geprüft und im erkannten MSFS-2024-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`)) return;
+  await window.trackerDesktop.installEfbPackage(false);
+});
+elements.efbRepairButton.addEventListener('click', async () => {
+  if (!window.confirm('Die VFR Multitool EFB App wird vollständig neu geladen, geprüft und ersetzt. MSFS muss geschlossen sein. Fortfahren?')) return;
+  await window.trackerDesktop.installEfbPackage(true);
+});
+elements.efbUninstallButton.addEventListener('click', async () => {
+  if (!window.confirm('Nur die VFR Multitool EFB App aus dem MSFS-2024-Community-Ordner entfernen? Tracker, Homebase Assets und persönliche Daten bleiben erhalten.')) return;
+  await window.trackerDesktop.uninstallEfbPackage();
 });
 
 elements.bridgeRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshBridge());

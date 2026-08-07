@@ -14,6 +14,8 @@
   const CAPABILITIES = Object.freeze({
     LEGACY_TELEMETRY: 'legacy.telemetry.v1',
     LEGACY_COMMANDS: 'legacy.commands.v1',
+    TRACKER_STATUS: 'tracker.status.v1',
+    FLIGHT_SNAPSHOT: 'flight.snapshot.v1',
     MISSION_SNAPSHOT: 'mission.snapshot.v1',
     EFB_INTERACTION: 'efb.interaction.v1'
   });

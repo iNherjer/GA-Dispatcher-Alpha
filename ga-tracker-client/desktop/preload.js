@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   refreshHomebaseAssets: () => ipcRenderer.invoke('homebase:refresh'),
   installHomebaseAssets: (repair = false) => ipcRenderer.invoke('homebase:install', { confirmed: true, repair }),
   uninstallHomebaseAssets: () => ipcRenderer.invoke('homebase:uninstall', { confirmed: true }),
+  refreshEfbPackage: () => ipcRenderer.invoke('efb:refresh'),
+  installEfbPackage: (repair = false) => ipcRenderer.invoke('efb:install', { confirmed: true, repair }),
+  uninstallEfbPackage: () => ipcRenderer.invoke('efb:uninstall', { confirmed: true }),
   openDataFolder: () => ipcRenderer.invoke('system:open-data-folder'),
   onStateChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "channel": "alpha",
+  "available": false,
+  "packageName": "vfr-multitool-efb",
+  "message": "Das erste EFB-Paket wird nach dem MSFS-SDK-Build und In-Sim-Test hier veröffentlicht."
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Version="2" Name="vfr-multitool-efb" FolderName="Packages" MetadataFolderName="PackagesMetadata">
+  <OutputDirectory>.</OutputDirectory>
+  <TemporaryOutputDirectory>_PackageInt</TemporaryOutputDirectory>
+  <Packages>
+    <Package>PackageDefinitions\vfr-multitool-efb.xml</Package>
+  </Packages>
+</Project>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="VFR Multitool">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b2237"/>
+      <stop offset="1" stop-color="#07111d"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <path d="M18 70 64 26l46 44-12 12-34-32-34 32z" fill="#62d5c7"/>
+  <path d="M34 82h60v18H34z" fill="#f3f8fb"/>
+  <circle cx="64" cy="82" r="10" fill="#ffbf69"/>
+</svg>

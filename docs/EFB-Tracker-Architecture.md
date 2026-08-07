@@ -60,6 +60,14 @@ Web-Clients ignorieren das neue Feld; neue Clients koennen es validieren und
 Capabilities aushandeln. Der erste Protokollstand meldet absichtlich nur die beiden bereits
 implementierten Legacy-Capabilities und behauptet noch keine EFB-Interaktionen.
 
+Tracker v323 ergaenzt daneben eine getrennte read-only Loopback-Schnittstelle
+auf `127.0.0.1:49880`. Sie liefert mit eigenem Hello ausschließlich
+`tracker.status.v1` und `flight.snapshot.v1`. Dieser lokale Pfad funktioniert
+auch dann, wenn das Cloud-Relay voruebergehend getrennt ist. Die Relay-Nachricht,
+und die Missionslogik der bestehenden Web-App bleiben dabei unveraendert. Der
+Alpha-Stand fordert v323 passend zum neuen Tracker-Release an; Beta und Stable
+bleiben bis zur ausdruecklichen Promotion auf ihrem jeweils freigegebenen Stand.
+
 ## Sichere Einfuehrung
 
 1. Desktop-Kanaele trennen: Stable bleibt Standard, Alpha erhaelt eine eigene Runtime.
@@ -70,6 +78,7 @@ implementierten Legacy-Capabilities und behauptet noch keine EFB-Interaktionen.
 6. Rechenlogik nur modulweise verschieben und jeweils gegen die bestehende Web-App testen.
 7. Dasselbe unveraenderliche Tracker-Artefakt nach Alpha-Test in Stable promoten.
 
-`tracker.js`, `sync.js`, `mission-runtime-core.js` und `mission-cargo-core.js`
-werden in den ersten beiden Schritten nicht umverdrahtet. Dadurch ist die neue
-Grenze vorhanden, ohne den aktuell produktiven Missionsablauf zu beeinflussen.
+`mission-runtime-core.js`, `mission-cargo-core.js` und der bestehende
+Web-/Relay-Ablauf werden in dieser Stufe nicht umverdrahtet. Dadurch ist die
+neue Grenze vorhanden, ohne den aktuell produktiven Missionsablauf zu
+beeinflussen.

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "channel": "stable",
+  "available": false,
+  "packageName": "vfr-multitool-efb",
+  "message": "Die EFB-App wird erst nach erfolgreichem Alpha-Test für Stable freigegeben."
+}

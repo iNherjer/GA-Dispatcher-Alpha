@@ -14,6 +14,11 @@ const {
 } = require('./homebase-fallback-cache.js');
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
+const {
+  DEFAULT_EFB_HTTP_PORT,
+  createTrackerEfbHttpHello,
+  createTrackerEfbHttpServer
+} = require('./tracker-efb-http-server.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -29,8 +34,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v322';
-const TRACKER_VERSION_CODE = 322;
+const TRACKER_VERSION = 'v323';
+const TRACKER_VERSION_CODE = 323;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
@@ -39,6 +44,14 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   runtimeChannel: TRACKER_RUNTIME_CHANNEL,
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
+  timestamp: Date.now()
+});
+const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
+  trackerVersion: TRACKER_VERSION,
+  trackerVersionCode: TRACKER_VERSION_CODE,
+  runtimeChannel: TRACKER_RUNTIME_CHANNEL,
+  clientId: 'ga-tracker-local',
+  id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now()
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
@@ -4132,6 +4145,43 @@ function startTracker(syncId, pin) {
   const _dispatchedHangarCommandIds = new Map();
   const _directHangarAckCommandIds = new Map();
   let _homebaseFallbackCache = null;
+  let _relayConnected = false;
+  let _simulatorConnected = false;
+  let _lastEfbSnapshot = null;
+  let _efbHttpServer = null;
+  const updateEfbState = (patch = {}) => {
+    if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
+    if (Object.hasOwn(patch, 'simulatorConnected')) _simulatorConnected = patch.simulatorConnected === true;
+    if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
+  };
+  try {
+    const configuredPort = Number(process.env.VFR_MULTITOOL_EFB_PORT || DEFAULT_EFB_HTTP_PORT);
+    _efbHttpServer = createTrackerEfbHttpServer({
+      port: configuredPort,
+      hello: TRACKER_EFB_HTTP_HELLO,
+      getStatus: () => ({
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        runtimeChannel: TRACKER_RUNTIME_CHANNEL,
+        relayConnected: _relayConnected,
+        simulatorConnected: _simulatorConnected,
+        telemetryAvailable: Boolean(_lastEfbSnapshot),
+        lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null
+      }),
+      getSnapshot: () => _lastEfbSnapshot,
+      log: debugLog
+    });
+    _efbHttpServer.start().then((address) => {
+      trackerLog(`📟 EFB-Schnittstelle bereit: http://127.0.0.1:${address.port}`);
+    }).catch((error) => {
+      _efbHttpServer = null;
+      trackerWarn(`⚠️  Lokale EFB-Schnittstelle nicht verfügbar: ${error?.message || error}`);
+      debugLog(`EFB_HTTP_START_ERROR error=${error?.message || error}`);
+    });
+  } catch (error) {
+    trackerWarn(`⚠️  Lokale EFB-Schnittstelle konnte nicht vorbereitet werden: ${error?.message || error}`);
+    debugLog(`EFB_HTTP_CONFIG_ERROR error=${error?.message || error}`);
+  }
   const isHomebaseObjectControlType = (type) => [
     'homebase_v1.hangar.animation.set',
     'homebase_v1.object.control.set',
@@ -4432,7 +4482,8 @@ function startTracker(syncId, pin) {
       pin,
       setTrackerCommandHandler,
       (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
-      () => _homebaseFallbackCache
+      () => _homebaseFallbackCache,
+      updateEfbState
     );
   };
 
@@ -4490,6 +4541,7 @@ function startTracker(syncId, pin) {
     ws.on('open', () => {
       opened = true;
       _reconnecting = false;
+      updateEfbState({ relayConnected: true });
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
       trackerLog(`📡 Relay verbunden für Pilot-ID: ${syncId} (Konto verifiziert)`);
@@ -4533,6 +4585,7 @@ function startTracker(syncId, pin) {
     ws.on('close', () => {
       clearWsTimers();
       if (_currentWs === ws) _currentWs = null;
+      updateEfbState({ relayConnected: false });
       scheduleReconnect("WebSocket getrennt. Neuverbindung in 5 Sekunden...");
     });
   }
@@ -4541,9 +4594,10 @@ function startTracker(syncId, pin) {
   connect();
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
+      if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
       let lastGpsMsg = null;
       let latestGroundTrafficSnapshot = [];
@@ -4886,6 +4940,25 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
                 applyHomebaseFallback(lastGpsMsg);
+                if (typeof updateEfbState === 'function') {
+                  updateEfbState({
+                    simulatorConnected: true,
+                    snapshot: {
+                      capturedAt: now,
+                      lat,
+                      lon,
+                      alt: Math.round(alt),
+                      hdg: Math.round(hdg),
+                      flight: {
+                        gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
+                        iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
+                        onGround: Boolean(onGround)
+                      }
+                    }
+                  });
+                }
+              } else if (typeof updateEfbState === 'function') {
+                updateEfbState({ snapshot: null });
               }
               if (ws && ws.readyState === WebSocket.OPEN && validPosition) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
@@ -5052,16 +5125,18 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
+        if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: false, snapshot: null });
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState), 5000);
       });
     })
     .catch(err => {
+      if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: false, snapshot: null });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState), 5000);
     });
 }
 

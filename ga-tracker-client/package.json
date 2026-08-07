@@ -30,6 +30,6 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^6.18.1"
+    "@yao-pkg/pkg": "6.18.1"
   }
 }

@@ -132,6 +132,28 @@ getrennt in LocalAppData abgelegt, wobei Stable den bisherigen Pfad behaelt.
 
 Ohne oeffentlich vertrauenswuerdiges Zertifikat ist der Build funktionsfaehig,
 kann aber dieselbe SmartScreen-Warnung wie die bisherige portable EXE ausloesen.
+
+## 3c) MSFS-2024-EFB-Community-Package
+
+Die EFB-App wird als eigenes Community-Package `vfr-multitool-efb` ausgeliefert.
+Alpha und Stable verwenden getrennte Kanaldateien unter
+`ga-tracker-client/efb/channel/`, aber denselben Paketordner. Ein Kanalwechsel
+installiert oder ersetzt das Paket niemals automatisch.
+
+1. App mit den Abhaengigkeiten des offiziell installierten MSFS-2024-EFB-
+   Templates bauen und im Simulator testen.
+2. Das Package im Project Editor beziehungsweise Package Tool bauen. Nur dessen
+   Ausgabe mit `manifest.json` und `layout.json` verwenden.
+3. `node ga-tracker-client/efb-app/scripts/prepare-release.js alpha` ausfuehren.
+   Das Kommando prueft Paket und Archiv und erzeugt eine Kanalvorlage.
+4. ZIP unter dem unveraenderlichen Tag `efb-app-v<packageVersion>` hochladen.
+5. Erst nach erfolgreicher Downloadkontrolle die erzeugte Vorlage bewusst nach
+   `ga-tracker-client/efb/channel/alpha.json` uebernehmen und pushen.
+6. Nach dem Alpha-Test exakt dasselbe Release-Artefakt durch Anpassen von
+   `stable.json` promoten; nicht neu bauen oder ersetzen.
+
+Solange kein SDK-Build erfolgreich im Simulator getestet wurde, bleibt der
+jeweilige Kanal mit `available: false` deaktiviert.
 Ein selbst signiertes Entwicklungszertifikat darf nicht als produktive
 Vertrauensloesung dargestellt werden.
 

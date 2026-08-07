@@ -27,3 +27,13 @@ tools/cloudflare-worker/.wrangler/
 .workbench-cache/
 tools/workbench-cache/
 workbench-cache/
+
+# Lokale MSFS-2024-EFB-SDK-Abhängigkeiten und Buildausgaben
+ga-tracker-client/efb-app/PackageSources/efb_api/
+ga-tracker-client/efb-app/PackageSources/vendor/
+ga-tracker-client/efb-app/PackageSources/VfrMultitool/node_modules/
+ga-tracker-client/efb-app/PackageSources/VfrMultitool/dist/
+ga-tracker-client/efb-app/Packages/
+ga-tracker-client/efb-app/PackagesMetadata/
+ga-tracker-client/efb-app/_PackageInt/
+ga-tracker-client/efb-app/release-output/
