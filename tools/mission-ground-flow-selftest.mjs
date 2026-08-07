@@ -89,7 +89,8 @@ assert.match(appDeboarding, /_missionSceneMovingPersonTitle\(primaryGender, 'deb
 assert.match(appDeboarding, /_missionSceneMovingPersonCandidates\(primaryGender, personTitle\)/);
 const aptArrivalItems = section(sync, 'function _missionAptArrivalSceneItems', 'window.missionAptArrivalEnsureSpawned = function');
 assert.match(aptArrivalItems, /movingPickupPersonIndex/);
-assert.match(aptArrivalItems, /movingPerson: index === movingPickupPersonIndex/);
+assert.match(aptArrivalItems, /movingPerson: isMovingPickupPerson/);
+assert.match(aptArrivalItems, /kind: isMovingPickupPerson \? 'person_boarder_1' : item\.kind/);
 const aptArrivalAsset = section(sync, 'function _missionAptArrivalAssetForItem', 'function _missionAptArrivalSceneItems');
 assert.match(aptArrivalAsset, /options\.movingPerson === true[\s\S]*\^tarmac_/i);
 const manualPax = section(cargo, 'function _missionCargoSendManualPassengerCommand', 'function _missionCargoVisibleKind');

@@ -4328,8 +4328,9 @@ function _missionAptArrivalSceneItems(plan = {}) {
         })
         : -1;
     return items.map((item, index) => {
+        const isMovingPickupPerson = index === movingPickupPersonIndex;
         const asset = _missionAptArrivalAssetForItem(item, index, {
-            movingPerson: index === movingPickupPersonIndex
+            movingPerson: isMovingPickupPerson
         });
         if (!asset.title) return null;
         const isPickupCargoVisual = pickupCargoItem
@@ -4340,6 +4341,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
             );
         return {
             ...item,
+            kind: isMovingPickupPerson ? 'person_boarder_1' : item.kind,
             label: item.label || item.kind || `APT Arrival ${index + 1}`,
             objectTitle: asset.title,
             titleCandidates: asset.candidates,

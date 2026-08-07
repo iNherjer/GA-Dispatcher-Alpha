@@ -109,6 +109,12 @@ Passenger-Pickup:
 7. Danach `Pickup bestaetigen und Rueckflug freigeben` anklicken.
 8. Fortschritt setzt `pickupCompleted`, `pickupConfirmed` und `return_leg`.
 
+Die wartende Person bleibt fachlich Teil der APT-/Strip-Arrival-Szene, wird in
+der an den Tracker gesendeten Szene aber als `person_boarder_1` markiert. Nur
+so darf der zentrale Pickup-Klick die sichtbare Person in die bestehende
+`mission_scene_boarding`-Animation uebernehmen. Normale Empfangskontakte
+bleiben `arrival_person_*` und koennen nicht versehentlich einsteigen.
+
 Cargo-Pickup verwendet denselben Ablauf ohne PAX-Boarding. Die Fracht bleibt
 bis zum Home-Unload Pflichtladung.
 

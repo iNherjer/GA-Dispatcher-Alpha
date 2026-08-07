@@ -168,6 +168,7 @@ assert.ok(
 assert.match(runtimeSource, /stage === 'passenger_vehicle_boarded'/);
 assert.match(runtimeSource, /_missionRuntimeCommitPassengerHandoff/);
 assert.match(trackerSource, /stage: boardedPickup \? 'passenger_vehicle_boarded' : 'passenger_handoff_complete'/);
-assert.match(trackerSource, /const TRACKER_VERSION = 'v320';/);
+const trackerVersionCode = Number(trackerSource.match(/const TRACKER_VERSION_CODE = (\d+);/)?.[1]);
+assert.ok(Number.isFinite(trackerVersionCode) && trackerVersionCode >= 320);
 
 console.log('mission passenger handoff selftest: ok');

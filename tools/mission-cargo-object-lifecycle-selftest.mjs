@@ -118,6 +118,7 @@ assert.ok(trackerSource.includes('SCENE_OBJECT_COMMAND_SUPERSEDED'));
 assert.ok(trackerSource.includes('command?.allScenes === true'));
 assert.ok(trackerSource.includes('command?.replaceExisting === true'));
 assert.ok(trackerSource.includes('SCENE_LATE_ASSIGN_DISCARDED'));
-assert.ok(trackerSource.includes("const TRACKER_VERSION = 'v320';"));
+const trackerVersionCode = Number(trackerSource.match(/const TRACKER_VERSION_CODE = (\d+);/)?.[1]);
+assert.ok(Number.isFinite(trackerVersionCode) && trackerVersionCode >= 320);
 
 console.log('mission cargo object lifecycle selftest: ok');

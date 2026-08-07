@@ -35,7 +35,8 @@ const syncSource = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8
 const functionSource = (name) => {
     const start = syncSource.indexOf(`function ${name}(`);
     assert.ok(start >= 0, `missing function ${name}`);
-    const open = syncSource.indexOf('{', start);
+    const open = syncSource.indexOf(') {', start) + 2;
+    assert.ok(open > start, `missing function body ${name}`);
     let depth = 0;
     for (let i = open; i < syncSource.length; i += 1) {
         if (syncSource[i] === '{') depth += 1;
@@ -79,6 +80,44 @@ assert.deepEqual(
     'mission start scene must contain only pending, non-persistent departure cargo'
 );
 assert.equal(startCargoItems[0].objectKey, 'mission-cargo:mission-test:mission-pending');
+
+const aptArrivalContext = {
+    _missionAptArrivalPreviewItems: plan => plan.items || [],
+    _missionCargoEnsureManifest: () => ({
+        key: 'pickup-test',
+        items: [
+            { id: 'pickup-passenger', itemType: 'passenger', required: true, pickupLocation: 'target', status: 'pending' },
+            { id: 'pickup-companion-cargo', itemType: 'cargo', required: true, pickupLocation: 'target', status: 'pending' }
+        ]
+    }),
+    _missionCargoIsPassengerItem: item => item?.itemType === 'passenger',
+    _missionBushIsPickupPassengerMission: () => true,
+    _missionAptArrivalAssetForItem: item => ({ title: item.objectTitle || item.label, candidates: [item.objectTitle || item.label] }),
+    _missionCargoStableObjectKey: item => `mission-cargo:pickup-test:${item.id}`,
+    Number,
+    String
+};
+vm.runInNewContext(functionSource('_missionAptArrivalSceneItems'), aptArrivalContext);
+const aptArrivalPlan = {
+    items: [
+        { kind: 'arrival_vehicle', label: 'Bush-Fahrzeug', role: 'vehicle.car' },
+        { kind: 'arrival_person_1', label: 'Pickup-Gast', role: 'person.ground_crew' },
+        { kind: 'arrival_equipment_1', label: 'Begleitfracht', role: 'cargo.equipment_case' }
+    ]
+};
+const pickupArrivalItems = aptArrivalContext._missionAptArrivalSceneItems(aptArrivalPlan);
+assert.deepEqual(
+    Array.from(pickupArrivalItems, item => item.kind),
+    ['arrival_vehicle', 'person_boarder_1', 'arrival_equipment_1'],
+    'passenger pickup arrival must expose its waiting person to the tracker boarding handler'
+);
+aptArrivalContext._missionBushIsPickupPassengerMission = () => false;
+const regularArrivalItems = aptArrivalContext._missionAptArrivalSceneItems(aptArrivalPlan);
+assert.deepEqual(
+    Array.from(regularArrivalItems, item => item.kind),
+    ['arrival_vehicle', 'arrival_person_1', 'arrival_equipment_1'],
+    'regular arrival contacts must remain non-boardable'
+);
 
 const personalLuggage = [
     ...roles['cargo.luggage.duffel'],
