@@ -68,6 +68,15 @@ und die Missionslogik der bestehenden Web-App bleiben dabei unveraendert. Der
 Alpha-Stand fordert v323 passend zum neuen Tracker-Release an; Beta und Stable
 bleiben bis zur ausdruecklichen Promotion auf ihrem jeweils freigegebenen Stand.
 
+Tracker v324 erweitert denselben lokalen GET-Pfad um
+`mission.snapshot.v1` unter `/api/v1/mission`. Der Snapshot projiziert nur den
+ohnehin bereits im Tracker vorhandenen technischen Missionsstatus:
+Mission-ID, Lifecycle-State, Runtime-Phase und Anzahl der lokal aktiven
+Simulatorszenen. Titel, Briefing, Route, Frachtinhalt und Zugangsdaten werden in
+dieser Stufe weder ueber das externe Relay nachgeladen noch am Loopback-Endpunkt
+ausgegeben. Das EFB 0.2.0 bleibt damit vollstaendig read-only; die bestehende
+Web-Missionslogik und ihre Erfolgskriterien bleiben unveraendert.
+
 ## Sichere Einfuehrung
 
 1. Desktop-Kanaele trennen: Stable bleibt Standard, Alpha erhaelt eine eigene Runtime.

@@ -39,6 +39,13 @@ Tracker v323 stellt eine read-only API ausschließlich auf
 `tracker.status.v1` und `flight.snapshot.v1`. Zugangsdaten, Pilot-PIN und
 schreibende Missionsbefehle werden nicht über diesen Endpunkt ausgegeben.
 
+Tracker v324 und EFB 0.2.0 ergänzen `mission.snapshot.v1`. Ausgegeben werden
+nur Mission-ID, Lifecycle-State, Runtime-Phase und lokale Szenenzahl, die der
+Tracker bereits für den bestehenden Web-/Relay-Ablauf führt. Missionsbriefing,
+Route und Manifest werden bewusst noch nicht durch das externe Relay
+transportiert. Reichere Inhalte benötigen zuerst einen getrennt abgesicherten
+lokalen Datenpfad.
+
 Schreibende EFB-Aktionen werden erst später mit eigener Capability,
 kurzlebiger Sitzung und expliziter Eingabevalidierung ergänzt. CommBus bleibt
 als native MSFS-Transportoption vorgesehen, ist aber keine Voraussetzung für

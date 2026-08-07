@@ -34,8 +34,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v323';
-const TRACKER_VERSION_CODE = 323;
+const TRACKER_VERSION = 'v324';
+const TRACKER_VERSION_CODE = 324;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
@@ -4148,11 +4148,13 @@ function startTracker(syncId, pin) {
   let _relayConnected = false;
   let _simulatorConnected = false;
   let _lastEfbSnapshot = null;
+  let _lastEfbMissionSnapshot = null;
   let _efbHttpServer = null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
     if (Object.hasOwn(patch, 'simulatorConnected')) _simulatorConnected = patch.simulatorConnected === true;
     if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
+    if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
   };
   try {
     const configuredPort = Number(process.env.VFR_MULTITOOL_EFB_PORT || DEFAULT_EFB_HTTP_PORT);
@@ -4166,9 +4168,12 @@ function startTracker(syncId, pin) {
         relayConnected: _relayConnected,
         simulatorConnected: _simulatorConnected,
         telemetryAvailable: Boolean(_lastEfbSnapshot),
-        lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null
+        lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null,
+        missionAvailable: Boolean(_lastEfbMissionSnapshot),
+        lastMissionSnapshotAt: Number(_lastEfbMissionSnapshot?.updatedAt) || null
       }),
       getSnapshot: () => _lastEfbSnapshot,
+      getMissionSnapshot: () => _lastEfbMissionSnapshot,
       log: debugLog
     });
     _efbHttpServer.start().then((address) => {
@@ -4665,7 +4670,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             else if (command?.sceneSignature) homebaseSceneSignature = String(command.sceneSignature).slice(0, 96);
           }
           if (homebaseManager?.handleCommand(command)) return true;
-          return missionSmokeController.handleCommand(command);
+          const handled = missionSmokeController.handleCommand(command);
+          if (handled && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle') && typeof updateEfbState === 'function') {
+            updateEfbState({ missionSnapshot: missionSmokeController.getTrackerMissionStatus() });
+          }
+          return handled;
         });
       }
 
@@ -5029,6 +5038,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   };
                 }
                 const trackerMissionStatus = missionSmokeController.getTrackerMissionStatus();
+                if (typeof updateEfbState === 'function') {
+                  updateEfbState({ missionSnapshot: trackerMissionStatus });
+                }
                 if (trackerMissionStatus?.missionId) {
                   gpsMsg.trackerMissionStatus = trackerMissionStatus;
                 }
