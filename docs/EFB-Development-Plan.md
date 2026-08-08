@@ -65,11 +65,80 @@ Ereignis deterministisch den neuen Zustand. UI, Voice, Szenen und Transport
 reagieren auf ausgegebene Effekte, besitzen aber keine versteckte eigene
 State-Machine.
 
+## Produktziel: Kartentisch im EFB
+
+Der Kartentisch mit seinen flugrelevanten Werkzeugen ist das zentrale
+Produktziel der EFB-App. Hauptmenue und Pinnwand muessen nicht ins EFB
+uebernommen werden. Das EFB soll langfristig die cockpitgerechte Karten- und
+Missionsoberflaeche sein, waehrend die Web-App fuer Missionsauswahl, Planung und
+umfangreiche Verwaltung verfuegbar bleibt.
+
+Der bestehende `map.js`-Kartentisch wird nicht als Ganzes in die EFB-App
+kopiert. Er ist stark an DOM, globale Web-App-Zustaende, `localStorage`,
+Missionsruntime und externe Datenquellen gekoppelt. Wiederverwendbare Geometrie,
+Klassifikation und Darstellungskonfiguration werden schrittweise in reine
+Module extrahiert. Web-Kartentisch und EFB erhalten getrennte, fuer ihre
+Oberflaeche passende Renderer auf denselben Vertraegen.
+
+### Geplante Kartenfunktionen
+
+- Flugzeugposition, Kurs, Track, Hoehe, Geschwindigkeit und Auto-Follow
+- aktuelle Route, Legs, Wegpunkte, Direktlinie und Fortschritt
+- Missionsziele, Suchgebiete, Survey-Muster, Korridore und Szenenhinweise
+- Basiskarten und ausgewaehlte Luftfahrt-Overlays
+- Flugplaetze, Navaids, Luftraeume, AIP-Verweise und relevante Detailkarten
+- Wetter, Wind, Radar, VFR-Index und spaeter Terrain-Avoid
+- Messen, Zeichnen, Markierungen und touchgerechte Kartenwerkzeuge
+- Hoehenprofil, Leg-Informationen und kompakte Flug-/Missionsstatusanzeige
+- optionale Cockpitwerkzeuge wie Stoppuhr, Rechner und E6B
+
+### Karten-Verantwortungsgrenzen
+
+- Das EFB rendert Karte, Marker und lokale UI-Zustaende wie Zoom, Follow,
+  Layerauswahl, Messung und nicht missionskritische Zeichnungen.
+- Der Tracker liefert hochfrequente Flug- und Traffic-Daten, Route,
+  Missionsgeometrie, abgeleitete Warnungen und spaeter gecachte Datenprodukte.
+- Web-App beziehungsweise Worker bleiben zunaechst Quelle fuer Planung,
+  Wetter-, AIP-, OpenAIP-, GAFOR- und Hindernisdaten. Der Tracker stellt diese
+  schrittweise ueber kontrollierte lokale Endpunkte bereit, damit das EFB nicht
+  von vielen externen CORS-/CSP- und Authentifizierungswegen abhaengt.
+- Externe Karten- und Overlayquellen werden vor Uebernahme einzeln auf
+  Nutzungslizenz, Attribution, CORS, Canvas-Kompatibilitaet und Cache-Regeln
+  geprueft. Kartenkacheln werden nicht ungeprueft gespiegelt oder offline
+  gespeichert.
+
+### Karten-Ausbaustufen
+
+1. `K0 Map Shell`: lokal gebuendeltes Leaflet, eine Basiskarte, Flugzeugmarker,
+   Pan/Zoom, Auto-Follow und robuste Touch-/Orientation-Tests.
+2. `K1 Flight Map`: Route, Legs, Wegpunkte, Fortschritt, Direktlinie, Messen und
+   grundlegende Flugdatentafeln.
+3. `K2 Mission Map`: Missionsziele und -geometrie aus `mission.snapshot.v2`
+   beziehungsweise einem getrennten `map.snapshot.v1`; weiterhin read-only.
+4. `K3 Aviation Layers`: Flugplaetze, Navaids, Luftraeume, Wetter und
+   AIP-Verweise ueber klar versionierte Datenadapter.
+5. `K4 Advanced Tools`: Zeichnen, Hoehenprofil, Traffic, VFR-Index,
+   Terrain-Avoid und weitere rechenintensive Layer nach Performance- und
+   Quellenpruefung.
+
+Ein erster Karten-Prototyp benoetigt noch keine Tracker-Autoritaet ueber den
+Missionskern. `flight.snapshot.v1` reicht fuer `K0`; Mission Snapshot v2 und der
+spaetere Missionskern erweitern dieselbe Karte danach um Missionsinhalt und
+validierte Aktionen.
+
 ## Roadmap
 
 ### E0 - Read-only EFB stabilisieren
 
 Status: in Alpha-Test
+
+Testergebnis 2026-08-08: EFB 0.2.0 laeuft auf dem primaeren Testsystem sowohl
+am physischen Cockpit-EFB als auch im 2D-Panel ohne Orientation-Flapping.
+Tracker v324, Flugtelemetrie und der technische Missionssnapshot werden
+angezeigt. Der Gegentest auf dem urspruenglich betroffenen Testsystem steht noch
+aus. Eine alte beendete Mission kann in `mission.snapshot.v1` weiterhin als
+letzter technischer Zustand erscheinen; Snapshot v2 muss aktive und letzte
+Mission eindeutig trennen.
 
 - EFB 0.2.0 ueber den Tracker-Desktop-Manager installieren und aktualisieren.
 - Portrait/Landscape in den betroffenen Flugzeugen sowohl am physischen
@@ -256,9 +325,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Naechste priorisierte Schritte
 
-- [ ] EFB 0.2.0 im problematischen Flugzeug auf Orientation-Flapping testen.
+- [x] EFB 0.2.0 am physischen EFB und im 2D-Panel des primaeren Testsystems
+      ohne Orientation-Flapping getestet.
+- [ ] EFB 0.2.0 auf dem urspruenglich betroffenen Testsystem gegenpruefen.
 - [ ] EFB 0.2.0 ohne/mit Tracker sowie ohne/mit aktiver Mission testen.
 - [ ] Testergebnis und betroffenen EFB-Modus in dieser Datei dokumentieren.
+- [ ] `K0 Map Shell` als naechsten isolierten EFB-Alpha-Prototyp festlegen:
+      eine Basiskarte, Flugzeugmarker, Pan/Zoom und Auto-Follow.
+- [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
+      entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
 - [ ] Web-seitigen read-only Snapshot zum Tracker transportieren.
 - [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
@@ -277,3 +352,7 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   recipe-weise Autoritaetsuebergabe; kein direkter Umzug der Browser-Runtime.
 - 2026-08-08: Bord-/Behoerdenkontrolle wird als untergeordneter Missionsworkflow
   geplant und erst nach gemeinsamer Kernextraktion schreibend ins EFB gebracht.
+- 2026-08-08: Der Kartentisch mit flug- und missionsrelevanten Werkzeugen wird
+  zum zentralen EFB-Produktziel. Hauptmenue und Pinnwand bleiben ausserhalb des
+  EFB-Scopes. Die Umsetzung erfolgt als eigener EFB-Kartenclient auf gemeinsam
+  extrahierten Modulen und versionierten Tracker-Vertraegen.
