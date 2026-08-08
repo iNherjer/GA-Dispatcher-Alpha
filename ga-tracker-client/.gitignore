@@ -3,3 +3,4 @@ package-lock.json
 desktop/dist/
 desktop/build/
 !desktop/package-lock.json
+!efb-app/PackageSources/VfrMultitool/package-lock.json

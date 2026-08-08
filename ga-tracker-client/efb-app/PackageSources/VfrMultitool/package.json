@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@efb/efb-api": "file:../efb_api/dist/",
-    "@microsoft/msfs-sdk": "2.3.3",
+    "@microsoft/msfs-sdk": "file:../vendor/microsoft-msfs-sdk.tgz",
     "@microsoft/msfs-types": "^1.14.6"
   },
   "devDependencies": {

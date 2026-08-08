@@ -29,6 +29,10 @@ Diese Datei ist der verbindliche Einstiegspunkt fuer Codex/AI-Arbeit in diesem R
   - `tools/cloudflare-worker/README.md`
 - GAFOR-Sektor-Editor:
   - `tools/gafor-sector-editor.md`
+- MSFS-2024-EFB, Community-Package und Tracker/EFB-Protokoll:
+  - `docs/EFB-Development-Plan.md` zuerst lesen und nach Entscheidungen aktualisieren
+  - `docs/EFB-Tracker-Architecture.md`
+  - `docs/EFB-Community-Package.md`, wenn Build, Installation oder Release betroffen sind
 - GitHub Push, Release, Tracker-EXE:
   - `docs/github-push-workflow.md`
 

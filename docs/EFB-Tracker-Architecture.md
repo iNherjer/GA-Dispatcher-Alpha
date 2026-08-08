@@ -1,5 +1,9 @@
 # EFB-/Tracker-Architektur
 
+Der chatuebergreifende Umsetzungsstand, die priorisierte Roadmap und der Plan
+zur Migration des Missionskerns stehen in `docs/EFB-Development-Plan.md`.
+Diese Datei beschreibt die dauerhaften Architekturgrenzen.
+
 ## Zielbild
 
 Der Windows-Tracker wird schrittweise zur lokalen Ausfuehrungs- und
