@@ -15,6 +15,9 @@ const baseConfig = {
   keepNames: true,
   bundle: true,
   outdir: 'dist',
+  loader: {
+    '.png': 'dataurl'
+  },
   sourcemap: process.env.SOURCE_MAPS === 'true',
   minify: process.env.MINIFY !== 'false',
   target: 'es2017',

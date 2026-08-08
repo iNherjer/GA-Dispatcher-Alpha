@@ -1,8 +1,24 @@
 # VFR Multitool EFB App
 
 Dieses Verzeichnis enthält das MSFS-2024-SDK-Projekt für die schlanke
-EFB-Oberfläche. Die erste Alpha-Stufe liest ausschließlich Status und
-Flugtelemetrie vom lokal laufenden Tracker auf `127.0.0.1:49880`.
+EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie und den
+technischen Missionssnapshot vom lokal laufenden Tracker auf
+`127.0.0.1:49880`.
+
+## Karten-Prototyp 0.3.0
+
+Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
+versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das
+VFR-/Aero-Overlay aktiv. Pan, Zoom, Auto-Follow, ein richtungsabhängiger
+Flugzeugmarker und die bisherige Statusseite sind enthalten. Alternative
+Basiskarten sowie DFS-, FAA- und DWD-Overlays werden erst nach expliziter
+Auswahl geladen.
+
+Die Online-Kartenanbieter erhalten technisch notwendige Tile-Anfragen mit
+IP-Adresse, Zeit, Zoomstufe und Kachelkoordinaten. Der EFB-Client sendet dabei
+keine Pilot-, Missions- oder Tracker-Zugangsdaten. Die Layerauswahl wird nur
+lokal im EFB gespeichert; Kartenkacheln werden nicht als eigenes Offlinepaket
+verteilt.
 
 ## SDK-Eingaben
 

@@ -21,6 +21,10 @@ EFB 0.2.0 zeigt Trackerstatus, Flugtelemetrie sowie den technischen
 Missionsstatus aus `mission.snapshot.v1`. Missionsbriefing, Route, Manifest und
 Missionsaktionen sind noch nicht Bestandteil dieses Protokollstands.
 
+EFB 0.3.0 befindet sich als noch nicht ausgelieferter `K0 Map Shell` im
+Windows-SDK- und In-Sim-Test. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
+0.2.0; es gibt keine automatische Vorabinstallation des Karten-Prototyps.
+
 ## Verbindliche Architekturentscheidungen
 
 1. Der Windows-Tracker wird schrittweise zur lokalen Ausfuehrungs- und
@@ -125,6 +129,14 @@ Ein erster Karten-Prototyp benoetigt noch keine Tracker-Autoritaet ueber den
 Missionskern. `flight.snapshot.v1` reicht fuer `K0`; Mission Snapshot v2 und der
 spaetere Missionskern erweitern dieselbe Karte danach um Missionsinhalt und
 validierte Aktionen.
+
+Fuer den 0.3.0-Prototyp sind die beschriftete OpenTopoMap und das
+VFR-/Aero-Overlay als Default festgelegt. Alternative Basiskarten sowie DFS-,
+FAA- und DWD-Overlays sind opt-in und werden erst nach Auswahl angefordert. Bei
+direkten Online-Tile-Anfragen sehen die jeweiligen Anbieter technisch bedingt
+IP-Adresse, Zeitpunkt, Zoomstufe und Kachelkoordinaten, jedoch keine Pilot-,
+Missions- oder Tracker-Zugangsdaten. Die Auswahl bleibt lokal gespeichert; ein
+eigener Offline-Cache ist nicht Teil von K0.
 
 ## Roadmap
 
@@ -330,8 +342,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] EFB 0.2.0 auf dem urspruenglich betroffenen Testsystem gegenpruefen.
 - [ ] EFB 0.2.0 ohne/mit Tracker sowie ohne/mit aktiver Mission testen.
 - [ ] Testergebnis und betroffenen EFB-Modus in dieser Datei dokumentieren.
-- [ ] `K0 Map Shell` als naechsten isolierten EFB-Alpha-Prototyp festlegen:
-      eine Basiskarte, Flugzeugmarker, Pan/Zoom und Auto-Follow.
+- [x] `K0 Map Shell` als isolierten EFB-0.3.0-Prototyp implementieren:
+      OpenTopo mit Beschriftung, VFR-/Aero-Defaultoverlay, Flugzeugmarker,
+      Pan/Zoom, Auto-Follow, Layerauswahl und Offline-/Fehlerzustand.
+- [ ] EFB 0.3.0 mit dem offiziellen Windows-SDK bauen, im physischen EFB und
+      2D-Panel auf Touch, Orientation, Tilezugriff und Tracker-Recovery testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
@@ -356,3 +371,6 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   zum zentralen EFB-Produktziel. Hauptmenue und Pinnwand bleiben ausserhalb des
   EFB-Scopes. Die Umsetzung erfolgt als eigener EFB-Kartenclient auf gemeinsam
   extrahierten Modulen und versionierten Tracker-Vertraegen.
+- 2026-08-08: `K0 Map Shell` wird als EFB 0.3.0 vorbereitet. OpenTopo mit Text
+  und das VFR-/Aero-Overlay sind Default; weitere Onlinequellen bleiben opt-in.
+  Der bestehende 0.2.0-Alpha-Kanal bleibt bis zum SDK- und In-Sim-Test aktiv.
