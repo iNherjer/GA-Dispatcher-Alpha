@@ -285,6 +285,15 @@ const _awQueue = [];
 const _awPriorityAudioTokens = new Set();
 let _awPriorityAudioSerial = 0;
 let _awCurrentPlayback = null;
+const _awQueueStats = {
+    enqueued: 0,
+    waypointEnqueued: 0,
+    segmentsStarted: 0,
+    lastEnqueuedAt: 0,
+    lastEnqueuedKey: '',
+    lastStartedAt: 0,
+    lastStartedKey: ''
+};
 
 function _awPriorityAudioActive() {
     return _awPriorityAudioTokens.size > 0;
@@ -328,16 +337,35 @@ window.awmEndPriorityAudio = function(token) {
 };
 
 function _awEnqueue(keys) {
+    if (!Array.isArray(keys) || !keys.length) return;
     _awQueue.push(keys);
+    _awQueueStats.enqueued += 1;
+    if (keys[0] === 'aw-wp-erreicht') _awQueueStats.waypointEnqueued += 1;
+    _awQueueStats.lastEnqueuedAt = Date.now();
+    _awQueueStats.lastEnqueuedKey = String(keys[0] || '');
+    if (!_tawsAudioCtx) _tawsInitAudio();
+    else if (!_awLoaded && !_awLoading) _awLoadClips();
     if (!_awQueueBusy && !_awPriorityAudioActive()) _awDrainQueue();
 }
 
 function _awDrainQueue() {
     if (!_awQueue.length) { _awQueueBusy = false; return; }
     if (_awPriorityAudioActive()) { _awQueueBusy = false; return; }
+    // Queue-Eintraege niemals entfernen, solange AudioContext oder Clips noch
+    // nicht bereit sind. Besonders auf Quest kann das Laden des Voice-Packs
+    // laenger dauern als eine Pax-Ansage; der alte Ablauf verlor dann den WP.
+    if (!_tawsAudioCtx) {
+        _awQueueBusy = false;
+        _tawsInitAudio();
+        return;
+    }
+    if (!_awLoaded) {
+        _awQueueBusy = false;
+        if (!_awLoading) _awLoadClips();
+        return;
+    }
     _awQueueBusy = true;
     const keys = _awQueue.shift();
-    if (!_tawsAudioCtx || !_awLoaded) { _awDrainQueue(); return; }
 
     // Null-Keys (kein Luftraumtyp) herausfiltern; fehlende Buffer warnen
     const valid = keys.filter(k => {
@@ -378,6 +406,9 @@ function _awDrainQueue() {
                 return;
             }
             const key = valid[playback.nextIndex++];
+            _awQueueStats.segmentsStarted += 1;
+            _awQueueStats.lastStartedAt = Date.now();
+            _awQueueStats.lastStartedKey = String(key || '');
             if (key === 'taws-whoop') {
                 const controller = _tawsStartWhoopWhoop(() => {
                     if (playback.interrupted) return;
@@ -435,13 +466,39 @@ async function _awLoadClips() {
     _awLoaded  = true;
     _awLoading = false;
     console.log(`[AWM] Clips geladen (${pack || 'anna'}):`, Object.keys(_awBuffers).length);
+    if (_awQueue.length && !_awQueueBusy && !_awPriorityAudioActive()) {
+        setTimeout(_awDrainQueue, 0);
+    }
 }
 
 // Ansage in serielle Queue einreihen
 function _awPlaySequence(keys) {
-    if (!_tawsAudioCtx || !_awLoaded) return;
     _awEnqueue(keys);
 }
+
+window.awmGetAudioQueueDebugState = function() {
+    return {
+        wpEnabled: !!_awmWpAlert,
+        airspaceEnabled: !!_awmAirspaceWarn,
+        frequencyEnabled: !!_awmReadFreq,
+        terrainEnabled: !!_awmTerrainWarn,
+        audioContextState: _tawsAudioCtx?.state || 'unavailable',
+        clipsLoaded: !!_awLoaded,
+        clipsLoading: !!_awLoading,
+        loadedClipCount: Object.keys(_awBuffers).length,
+        queueDepth: _awQueue.length,
+        queueBusy: !!_awQueueBusy,
+        priorityHolds: _awPriorityAudioTokens.size,
+        playbackActive: !!_awCurrentPlayback,
+        enqueuedCount: _awQueueStats.enqueued,
+        waypointEnqueuedCount: _awQueueStats.waypointEnqueued,
+        segmentsStartedCount: _awQueueStats.segmentsStarted,
+        lastEnqueuedAt: _awQueueStats.lastEnqueuedAt || null,
+        lastEnqueuedKey: _awQueueStats.lastEnqueuedKey || null,
+        lastStartedAt: _awQueueStats.lastStartedAt || null,
+        lastStartedKey: _awQueueStats.lastStartedKey || null
+    };
+};
 
 // Luftraum-Typ → Audio-Key (null = kein Alert für diesen Typ)
 function _awTypeKey(as) {

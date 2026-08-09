@@ -4724,6 +4724,12 @@ window.vpBuildWeatherDebugReport = function() {
     } catch (_) {
         voiceState = null;
     }
+    let awmQueueState = null;
+    try {
+        awmQueueState = typeof window.awmGetAudioQueueDebugState === 'function' ? window.awmGetAudioQueueDebugState() : null;
+    } catch (_) {
+        awmQueueState = null;
+    }
     const runtimePhase = typeof window.missionRuntimePhase === 'function'
         ? window.missionRuntimePhase()
         : (runtimeSnapshot?.runtime?.phase || runtimeSnapshot?.startPhase || '-');
@@ -4742,6 +4748,9 @@ window.vpBuildWeatherDebugReport = function() {
     if (voiceState) {
         lines.push(`- Voice: enabled=${voiceState.voiceEnabled ? '1' : '0'} | effects=${voiceState.audioEffectsEnabled ? '1' : '0'} | apiKey=${voiceState.hasApiKey ? '1' : '0'} | hasPassenger=${voiceState.hasPassenger ? '1' : '0'} | pax=${flattenText(voiceState.passengerName || '-', 80)}`);
         lines.push(`- Voice Audio: context=${voiceState.audioContextState || '-'} | gain=${Number.isFinite(Number(voiceState.masterGain)) ? Number(voiceState.masterGain).toFixed(2) : '-'} | epoch=${voiceState.missionEpoch ?? '-'} | playback=${voiceState.playbackActive ? '1' : '0'} | prepared=${Array.isArray(voiceState.preparedAudio) ? voiceState.preparedAudio.length : 0}`);
+        if (awmQueueState) {
+            lines.push(`- AWM Queue: wp=${awmQueueState.wpEnabled ? '1' : '0'} | airspace=${awmQueueState.airspaceEnabled ? '1' : '0'} | freq=${awmQueueState.frequencyEnabled ? '1' : '0'} | terrain=${awmQueueState.terrainEnabled ? '1' : '0'} | context=${awmQueueState.audioContextState || '-'} | clips=${awmQueueState.clipsLoaded ? 'ready' : (awmQueueState.clipsLoading ? 'loading' : 'not-loaded')}(${Number(awmQueueState.loadedClipCount || 0)}) | depth=${Number(awmQueueState.queueDepth || 0)} | busy=${awmQueueState.queueBusy ? '1' : '0'} | paxHold=${Number(awmQueueState.priorityHolds || 0)} | playback=${awmQueueState.playbackActive ? '1' : '0'} | enqueued=${Number(awmQueueState.enqueuedCount || 0)} (WP ${Number(awmQueueState.waypointEnqueuedCount || 0)}) | started=${Number(awmQueueState.segmentsStartedCount || 0)} | lastEnqueue=${awmQueueState.lastEnqueuedKey || '-'}@${vpFormatDebugTs(awmQueueState.lastEnqueuedAt)} | lastStart=${awmQueueState.lastStartedKey || '-'}@${vpFormatDebugTs(awmQueueState.lastStartedAt)}`);
+        }
         lines.push(`- Voice Flags: boarding=${voiceState.boardingDone ? '1' : '0'} | greeting=${voiceState.greetingDone ? '1' : '0'} | target=${voiceState.atTargetDone ? '1' : '0'} | farewell=${voiceState.farewellDone ? '1' : '0'} | endLock=${voiceState.missionEndVoiceActive ? '1' : '0'}`);
         const recentVoiceLog = Array.isArray(voiceState.recentLog) ? voiceState.recentLog.slice(0, 30).reverse() : [];
         if (recentVoiceLog.length) {
