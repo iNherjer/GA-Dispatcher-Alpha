@@ -1,6 +1,9 @@
 'use strict';
 
 const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
+const AERO_BASE_OPACITY = 0.5;
+const MISSION_EMPTY_DEBOUNCE_MS = 3000;
+const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
 
 const BASE_LAYERS = Object.freeze([
   Object.freeze({
@@ -115,6 +118,68 @@ function normalizePreferences(value = {}) {
   };
 }
 
+function baseLayerOpacity(value = {}) {
+  return normalizePreferences(value).overlays.includes('aero') ? AERO_BASE_OPACITY : 1;
+}
+
+function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
+  const currentAt = Math.max(0, Math.round(finite(now) || 0));
+  const lastSnapshot = previous?.lastSnapshot && typeof previous.lastSnapshot === 'object'
+    && previous.lastSnapshot.available === true
+    && String(previous.lastSnapshot.missionId || '').trim()
+    ? previous.lastSnapshot
+    : null;
+  const lastSeenAt = Math.max(0, Math.round(finite(previous?.lastSeenAt) || 0));
+  const emptySince = Math.max(0, Math.round(finite(previous?.emptySince) || 0));
+  const source = incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : null;
+  const hasMission = source?.available === true && String(source.missionId || '').trim();
+
+  if (hasMission) {
+    return {
+      mode: 'mission',
+      snapshot: source,
+      lastSnapshot: source,
+      lastSeenAt: currentAt,
+      emptySince: 0
+    };
+  }
+
+  const withinGapGrace = lastSnapshot
+    && lastSeenAt > 0
+    && currentAt >= lastSeenAt
+    && (currentAt - lastSeenAt) <= MISSION_SNAPSHOT_GAP_GRACE_MS;
+  if (withinGapGrace) {
+    return {
+      mode: 'mission',
+      snapshot: lastSnapshot,
+      lastSnapshot,
+      lastSeenAt,
+      emptySince: 0
+    };
+  }
+
+  if (source?.available === false) {
+    const nextEmptySince = emptySince > 0 ? emptySince : currentAt;
+    const pending = currentAt >= nextEmptySince
+      && (currentAt - nextEmptySince) < MISSION_EMPTY_DEBOUNCE_MS;
+    return {
+      mode: pending ? 'pending' : 'empty',
+      snapshot: null,
+      lastSnapshot: pending ? lastSnapshot : null,
+      lastSeenAt: pending ? lastSeenAt : 0,
+      emptySince: nextEmptySince
+    };
+  }
+
+  return {
+    mode: 'unsupported',
+    snapshot: null,
+    lastSnapshot: null,
+    lastSeenAt: 0,
+    emptySince: 0
+  };
+}
+
 function normalizeFlightSnapshot(value) {
   if (!value || typeof value !== 'object' || value.available !== true) return null;
   const lat = finite(value.lat);
@@ -145,9 +210,14 @@ function formatFlightLine(snapshot) {
 }
 
 module.exports = Object.freeze({
+  AERO_BASE_OPACITY,
   BASE_LAYERS,
   DEFAULT_CENTER,
+  MISSION_EMPTY_DEBOUNCE_MS,
+  MISSION_SNAPSHOT_GAP_GRACE_MS,
   OVERLAY_LAYERS,
+  advanceMissionDisplay,
+  baseLayerOpacity,
   formatCoordinateLine,
   formatFlightLine,
   normalizeFlightSnapshot,

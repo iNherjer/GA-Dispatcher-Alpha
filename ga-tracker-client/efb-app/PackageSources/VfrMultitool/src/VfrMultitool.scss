@@ -378,21 +378,33 @@
     pointer-events: none;
   }
 
-  .efb-aircraft-marker { border: 0; background: transparent; }
+  .efb-aircraft-marker { border: 0; background: transparent; pointer-events: none; }
 
   .efb-aircraft-glyph {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    border: 2px solid #073d46;
-    border-radius: 50%;
-    background: var(--cyan);
-    box-shadow: 0 2px 0 #fff, 0 5px 14px rgba(0, 0, 0, .52);
-    place-items: center;
-    transform-origin: center;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, .6));
+    transform: translate(-50%, -37%);
 
-    svg { width: 29px; height: 29px; }
-    path { fill: #062331; stroke: #fff; stroke-width: .8; }
+    img {
+      width: 100%;
+      height: 100%;
+      transform-origin: 50% 37%;
+      will-change: transform;
+    }
+
+    .aircraft-center-dot {
+      position: absolute;
+      top: 37%;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #000;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
   }
 
   .efb-aircraft-marker.is-stale .efb-aircraft-glyph { opacity: .52; filter: grayscale(1); }

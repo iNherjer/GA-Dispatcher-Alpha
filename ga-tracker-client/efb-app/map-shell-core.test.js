@@ -32,6 +32,43 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   });
 });
 
+test('aero overlay dims the base map like the web map table', () => {
+  assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 0.5);
+  assert.equal(core.baseLayerOpacity({ overlays: ['dfs'] }), 1);
+  assert.equal(core.baseLayerOpacity({ overlays: [] }), 1);
+});
+
+test('mission display keeps confirmed truth across short empty snapshot gaps', () => {
+  const initialEmpty = core.advanceMissionDisplay({ available: false }, {}, 1000);
+  assert.equal(initialEmpty.mode, 'pending');
+
+  const confirmed = core.advanceMissionDisplay({
+    available: true,
+    missionId: 'mission-42',
+    state: 'active',
+    phase: 'prepare'
+  }, initialEmpty, 2000);
+  assert.equal(confirmed.mode, 'mission');
+  assert.equal(confirmed.snapshot.missionId, 'mission-42');
+
+  const transientGap = core.advanceMissionDisplay({ available: false }, confirmed, 6000);
+  assert.equal(transientGap.mode, 'mission');
+  assert.equal(transientGap.snapshot.missionId, 'mission-42');
+
+  const expiredGap = core.advanceMissionDisplay({ available: false }, transientGap, 15001);
+  assert.equal(expiredGap.mode, 'pending');
+  const stableEmpty = core.advanceMissionDisplay({ available: false }, expiredGap, 18002);
+  assert.equal(stableEmpty.mode, 'empty');
+  assert.equal(stableEmpty.snapshot, null);
+});
+
+test('terminal mission snapshots replace active state immediately', () => {
+  const active = core.advanceMissionDisplay({ available: true, missionId: 'mission-42', state: 'active' }, {}, 1000);
+  const ended = core.advanceMissionDisplay({ available: true, missionId: 'mission-42', state: 'ended' }, active, 1100);
+  assert.equal(ended.mode, 'mission');
+  assert.equal(ended.snapshot.state, 'ended');
+});
+
 test('flight snapshots are range checked and normalized for the map renderer', () => {
   assert.equal(core.normalizeFlightSnapshot({ available: false }), null);
   assert.equal(core.normalizeFlightSnapshot({ available: true, lat: 91, lon: 8 }), null);

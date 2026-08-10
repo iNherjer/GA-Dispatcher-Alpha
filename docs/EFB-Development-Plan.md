@@ -38,8 +38,13 @@ Buttons bleiben ohne Wirkung. Die Analyse der mit SDK 1.7.2 ausgelieferten
 `FSComponent`-Implementierung ergab, dass native JSX-`onClick`-Props nicht als
 Listener registriert, sondern nur als HTML-Attribute gesetzt werden. EFB 0.3.4
 bindet deshalb alle eigenen Buttons nach `onAfterRender` direkt ueber
-`HTMLButtonElement.onclick`. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
-0.2.0; es gibt keine automatische Vorabinstallation des Karten-Prototyps.
+`HTMLButtonElement.onclick`. Der In-Sim-Test von 0.3.4 bestaetigt Karte/Status,
+Layerdialog, Layerauswahl und Follow als bedienbar. Dabei wurden drei
+Darstellungsdetails fuer 0.3.5 festgelegt: 50 Prozent Basiskarten-Deckkraft bei
+aktivem Aero-Overlay wie im Web-Kartentisch, dessen gelber 40-px-Flugzeugmarker
+und eine rein darstellende Entprellung kurzzeitig leerer Missionssnapshots.
+Bis zur Freigabe bleibt der Alpha-Kanal auf 0.2.0; es gibt keine automatische
+Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
 
@@ -375,9 +380,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] EFB 0.3.3 mit getrennter Pointer-Overlay-Ebene bauen und testen. Leaflet-
       Zoom funktioniert weiterhin, aber Layer, Follow und Karte/Status bleiben
       ohne Wirkung; 0.3.3 wird nicht ausgeliefert.
-- [ ] EFB 0.3.4 mit echten DOM-`onclick`-Handlern fuer Karte/Status, Layerdialog,
-      Layerauswahl und Follow durchs offizielle SDK bauen. Danach alle Buttons,
-      Pan, Zoom, Orientation und Tracker-Recovery gemeinsam testen.
+- [x] EFB 0.3.4 mit echten DOM-`onclick`-Handlern bauen und testen. Karte/Status,
+      Layerdialog, Layerauswahl und Follow funktionieren neben Pan und Zoom.
+- [ ] EFB 0.3.5 mit 50-Prozent-Basiskarten-Deckkraft beim Aero-Overlay, dem
+      gelben 40-px-Web-Flugzeugmarker und entprellter Missionsanzeige durchs
+      offizielle SDK bauen und im 2D-/physischen EFB testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
@@ -438,3 +445,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   keinen Listener. 0.3.4 entfernt diese JSX-Props und bindet die nativen Buttons
   nach `onAfterRender` ueber ihre DOM-`onclick`-Eigenschaft. Dieses Verfahren
   entspricht der internen Ereignisbindung des offiziellen EFB-`Button`.
+- 2026-08-10: Der 0.3.4-In-Sim-Test bestaetigt alle app-eigenen Buttons als
+  funktionsfaehig. 0.3.5 gleicht Aero-Basiskarten-Deckkraft und Flugzeugmarker
+  an den Web-Kartentisch an. Wiederholt beobachtete `available:false`-Luecken
+  zwischen gueltigen `mission.snapshot.v1`-Antworten werden nur in der EFB-
+  Darstellung entprellt: bestaetigte Wahrheit bleibt maximal 12 Sekunden
+  sichtbar, waehrend neue und terminale Snapshots sofort gewinnen. Diese
+  Schutzschicht setzt selbst keine Missionsphase und verschiebt keine
+  Missionsautoritaet.

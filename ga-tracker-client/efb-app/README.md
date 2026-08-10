@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie und den
 technischen Missionssnapshot vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Karten-Prototyp 0.3.4
+## Karten-Prototyp 0.3.5
 
 Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
 versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das
@@ -20,7 +20,7 @@ keine Pilot-, Missions- oder Tracker-Zugangsdaten. Die Layerauswahl wird nur
 lokal im EFB gespeichert; Kartenkacheln werden nicht als eigenes Offlinepaket
 verteilt.
 
-0.3.4 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
+0.3.5 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
 CSS-Klassen und initialisiert Leaflet erst nach `AppView.onAfterRender`. Die
 Vollflaechen verwenden explizite `top`-/`left`-Positionen sowie Breite und
 Hoehe. Leaflet startet erst, nachdem der Host eine messbare Layoutgroesse
@@ -32,10 +32,19 @@ und mit Praefix `[VFR Multitool EFB]` im EFB-Debugger ausgegeben.
 
 Native JSX-Buttons verwenden bewusst kein `onClick`-Attribut. Die in SDK 1.7.2
 enthaltene `FSComponent`-Version registriert damit keinen DOM-Listener, sondern
-schreibt unbekannte Props nur als HTML-Attribute. Deshalb bindet 0.3.4 Karte,
+schreibt unbekannte Props nur als HTML-Attribute. Deshalb bindet die App Karte,
 Status, Layer, Follow und die Layerauswahl erst in `onAfterRender` direkt ueber
 `HTMLButtonElement.onclick`. Das entspricht dem Bindungsweg des offiziellen
 EFB-`Button`, behaelt aber die app-spezifischen Kartenstyles bei.
+
+Bei aktivem VFR-/Aero-Overlay reduziert 0.3.5 die Deckkraft der Basiskarte wie
+der Web-Kartentisch auf 50 Prozent. Flugzeugsilhouette, Standardfarbe
+`#f2c12e`, Groesse 40 px und Drehachse entsprechen ebenfalls dem Web-
+Kartentisch. Die Missionsanzeige entprellt einen anfaenglich leeren Snapshot
+und behaelt einen zuletzt bestaetigten Stand fuer bis zu 12 Sekunden, wenn der
+Tracker dazwischen `available:false` liefert. Gueltige neue oder terminale
+Snapshots werden weiterhin sofort dargestellt; Missionsphasen werden im EFB
+weder erzeugt noch veraendert.
 
 ## SDK-Eingaben
 

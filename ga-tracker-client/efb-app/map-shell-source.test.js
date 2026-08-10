@@ -8,6 +8,7 @@ const path = require('node:path');
 const sourceRoot = path.join(__dirname, 'PackageSources', 'VfrMultitool', 'src');
 const tsx = fs.readFileSync(path.join(sourceRoot, 'VfrMultitool.tsx'), 'utf8');
 const scss = fs.readFileSync(path.join(sourceRoot, 'VfrMultitool.scss'), 'utf8');
+const aircraftSvg = fs.readFileSync(path.join(sourceRoot, 'Assets', 'aircraft-marker.svg'), 'utf8');
 
 test('map and status surfaces use app-specific class names', () => {
   assert.match(tsx, /class="ga-efb-map-view"/);
@@ -54,6 +55,23 @@ test('native EFB buttons bind real DOM click handlers after render', () => {
   assert.match(tsx, /this\.bindButton\(this\.followButtonRef\.getOrDefault\(\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-base-layer\]'\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-overlay-layer\]'\)/);
+});
+
+test('EFB map mirrors web base dimming and the default aircraft marker', () => {
+  assert.match(tsx, /MapShellCore\.baseLayerOpacity\(this\.preferences\)/);
+  assert.match(tsx, /Assets\/aircraft-marker\.svg/);
+  assert.match(tsx, /iconSize: \[0, 0\]/);
+  assert.match(tsx, /querySelector\?\.\('\.efb-aircraft-glyph img'\)/);
+  assert.match(scss, /\.efb-aircraft-glyph \{[\s\S]*?width: 40px;[\s\S]*?height: 40px;[\s\S]*?transform: translate\(-50%, -37%\);/);
+  assert.match(aircraftSvg, /viewBox="0 0 447\.74 339\.91"/);
+  assert.match(aircraftSvg, /fill="#f2c12e" stroke="#000" stroke-width="16"/);
+});
+
+test('mission UI debounces initial emptiness and keeps confirmed snapshots across short gaps', () => {
+  assert.match(tsx, /MapShellCore\.advanceMissionDisplay\(snapshot, this\.missionDisplayState, Date\.now\(\)\)/);
+  assert.match(tsx, /this\.missionDisplayState\.mode === 'pending'/);
+  assert.match(tsx, /Missionsdaten werden synchronisiert\./);
+  assert.match(tsx, /this\.missionDisplayState\.snapshot as MissionSnapshotPayload/);
 });
 
 test('map initialization failures remain visible and diagnosable', () => {

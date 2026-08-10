@@ -123,6 +123,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private baseLayers = new Map<string, any>();
   private overlayLayers = new Map<string, any>();
   private lastFlight: NormalizedFlightSnapshot | null = null;
+  private missionDisplayState: any = {};
   private tileErrorCount = 0;
   private mapLayoutRetryCount = 0;
   private preferences: MapPreferences = MapShellCore.normalizePreferences();
@@ -418,6 +419,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     nextLayer.addTo(this.map);
     this.currentBaseLayerId = nextId;
     this.preferences = { ...this.preferences, baseLayer: nextId };
+    this.syncBaseLayerOpacity();
     this.tileErrorCount = 0;
     this.setLayerStatus('Online-Karten werden geladen', '');
     this.syncLayerButtons();
@@ -433,8 +435,14 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     if (enabled) overlays.add(layerId);
     else overlays.delete(layerId);
     this.preferences = MapShellCore.normalizePreferences({ ...this.preferences, overlays: Array.from(overlays) });
+    this.syncBaseLayerOpacity();
     this.syncLayerButtons();
     if (persist) this.savePreferences();
+  }
+
+  private syncBaseLayerOpacity(): void {
+    const layer = this.baseLayers.get(this.currentBaseLayerId);
+    layer?.setOpacity?.(MapShellCore.baseLayerOpacity(this.preferences));
   }
 
   private toggleOverlay(layerId: string): void {
@@ -492,9 +500,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private createPlaneIcon(): any {
     return L.divIcon({
       className: 'efb-aircraft-marker',
-      html: '<div class="efb-aircraft-glyph" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 0 2 1.1 2 2.7v7.2l10.2 6v3l-10.2-3.2v5.9l3.8 2.7v2.4L16 27.5l-5.8 1.7v-2.4l3.8-2.7v-5.9L3.8 21.4v-3l10.2-6V5.2c0-1.6.7-2.7 2-2.7z"/></svg></div>',
-      iconAnchor: [22, 22],
-      iconSize: [44, 44]
+      html: `<div class="efb-aircraft-glyph" aria-hidden="true"><img src="${BASE_URL}/Assets/aircraft-marker.svg" alt=""><span class="aircraft-center-dot"></span></div>`,
+      iconAnchor: [0, 0],
+      iconSize: [0, 0]
     });
   }
 
@@ -528,7 +536,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     } else {
       this.planeMarker.setLatLng([snapshot.lat, snapshot.lon]);
     }
-    const glyph = this.planeMarker.getElement?.()?.querySelector?.('.efb-aircraft-glyph') as HTMLElement | null;
+    const glyph = this.planeMarker.getElement?.()?.querySelector?.('.efb-aircraft-glyph img') as HTMLElement | null;
     if (glyph) glyph.style.transform = `rotate(${snapshot.headingDeg}deg)`;
     this.markPlaneStale(false);
     if (this.preferences.follow) {
@@ -538,18 +546,27 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private renderMission(snapshot: MissionSnapshotPayload | null): void {
-    if (!snapshot) {
+    this.missionDisplayState = MapShellCore.advanceMissionDisplay(snapshot, this.missionDisplayState, Date.now());
+    if (this.missionDisplayState.mode === 'unsupported') {
       this.setText(this.missionRef.getOrDefault(), 'Missionsanzeige benötigt Tracker v324 oder neuer.');
       this.setText(this.missionPhaseRef.getOrDefault(), '');
       this.setText(this.missionScenesRef.getOrDefault(), '');
       return;
     }
-    if (!snapshot.available || !snapshot.missionId) {
+    if (this.missionDisplayState.mode === 'pending') {
+      this.setText(this.missionRef.getOrDefault(), 'Missionsdaten werden synchronisiert.');
+      this.setText(this.missionPhaseRef.getOrDefault(), '');
+      this.setText(this.missionScenesRef.getOrDefault(), '');
+      return;
+    }
+    if (this.missionDisplayState.mode === 'empty') {
       this.setText(this.missionRef.getOrDefault(), 'Noch keine Mission vom Web-Frontend empfangen.');
       this.setText(this.missionPhaseRef.getOrDefault(), '');
       this.setText(this.missionScenesRef.getOrDefault(), '');
       return;
     }
+    const mission = this.missionDisplayState.snapshot as MissionSnapshotPayload | null;
+    if (!mission?.missionId) return;
     const phaseLabels: Record<string, string> = {
       idle: 'Leerlauf',
       planned: 'Geplant',
@@ -568,10 +585,10 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       reset: 'Zurückgesetzt',
       cleared: 'Zurückgesetzt'
     };
-    const phase = String(snapshot.phase || '').toLowerCase();
-    const state = String(snapshot.state || '').toLowerCase();
-    const sceneCount = Math.max(0, Math.round(Number(snapshot.sceneCount) || 0));
-    this.setText(this.missionRef.getOrDefault(), String(snapshot.missionId));
+    const phase = String(mission.phase || '').toLowerCase();
+    const state = String(mission.state || '').toLowerCase();
+    const sceneCount = Math.max(0, Math.round(Number(mission.sceneCount) || 0));
+    this.setText(this.missionRef.getOrDefault(), String(mission.missionId));
     this.setText(this.missionPhaseRef.getOrDefault(), `Status ${stateLabels[state] || state || '–'} · Phase ${phaseLabels[phase] || phase || '–'}`);
     this.setText(this.missionScenesRef.getOrDefault(), sceneCount === 1 ? '1 lokale Simulatorszene aktiv' : `${sceneCount} lokale Simulatorszenen aktiv`);
   }
