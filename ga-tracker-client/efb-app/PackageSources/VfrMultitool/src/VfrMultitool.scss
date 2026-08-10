@@ -16,6 +16,7 @@
   height: 100%;
   min-height: 100%;
   overflow: hidden;
+  isolation: isolate;
   color: var(--text);
   background: var(--navy-950);
   font-family: "Noto Sans", sans-serif;
@@ -103,14 +104,15 @@
   .connection-pill.online { color: #061713; border-color: var(--cyan); background: var(--cyan); }
   .connection-pill.error { color: #ffe8e8; border-color: #a85353; background: #5d2424; }
 
-  .map-screen,
-  .map-canvas {
+  .ga-efb-map-view,
+  .ga-efb-map-canvas {
     position: absolute;
     inset: 0;
+    display: block;
   }
 
-  .map-screen { overflow: hidden; background: #c9d0cb; }
-  .map-canvas { z-index: 1; }
+  .ga-efb-map-view { z-index: 1; overflow: hidden; background: #c9d0cb; }
+  .ga-efb-map-canvas { z-index: 1; }
 
   .leaflet-container {
     color: #17212a;
@@ -376,7 +378,7 @@
 
   .efb-aircraft-marker.is-stale .efb-aircraft-glyph { opacity: .52; filter: grayscale(1); }
 
-  .status-screen {
+  .ga-efb-status-view {
     position: absolute;
     z-index: 10;
     inset: 0;

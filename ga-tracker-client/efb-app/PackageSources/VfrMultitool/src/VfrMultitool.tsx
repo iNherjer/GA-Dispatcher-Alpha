@@ -109,7 +109,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private mapFlightRef = FSComponent.createRef<HTMLParagraphElement>();
 
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private mapInitTimer: ReturnType<typeof setTimeout> | null = null;
   private active = false;
+  private rendered = false;
   private screen: 'map' | 'status' = 'map';
   private map: any | null = null;
   private planeMarker: any | null = null;
@@ -132,36 +134,79 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   public onResume(): void { this.activate(); }
   public onPause(): void { this.deactivate(false); }
   public onClose(): void { this.deactivate(true); }
+  public onAfterRender(node: VNode): void {
+    super.onAfterRender(node);
+    this.rendered = true;
+    if (this.active) this.scheduleMapInitialization();
+  }
 
   private activate(): void {
-    this.setScreen(this.screen);
     this.startPolling();
+    this.setScreen(this.screen);
     if (!this.resizeBound) {
       window.addEventListener('resize', this.onWindowResize);
       this.resizeBound = true;
     }
-    setTimeout(() => {
-      this.ensureMap();
-      this.map?.invalidateSize({ pan: false });
-    }, 0);
+    this.scheduleMapInitialization();
   }
 
   private deactivate(removeMap: boolean): void {
     this.stopPolling();
+    if (this.mapInitTimer) clearTimeout(this.mapInitTimer);
+    this.mapInitTimer = null;
     if (this.resizeBound) {
       window.removeEventListener('resize', this.onWindowResize);
       this.resizeBound = false;
     }
     if (!removeMap) return;
+    this.rendered = false;
+    this.disposeMap();
+  }
+
+  private disposeMap(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    this.map?.remove();
+    try { this.map?.remove(); } catch (_) {}
     this.map = null;
     this.planeMarker = null;
     this.baseLayers.clear();
     this.overlayLayers.clear();
     this.currentBaseLayerId = '';
     this.hasCenteredOnAircraft = false;
+  }
+
+  private scheduleMapInitialization(delay = 0): void {
+    if (!this.active || !this.rendered || this.screen !== 'map') return;
+    if (this.mapInitTimer) clearTimeout(this.mapInitTimer);
+    this.mapInitTimer = setTimeout(() => {
+      this.mapInitTimer = null;
+      if (this.map) {
+        this.map.invalidateSize({ pan: false });
+        if (this.preferences.follow && this.lastFlight) this.centerOnAircraft(false);
+      } else {
+        this.initializeMapSafely();
+      }
+    }, delay);
+  }
+
+  private initializeMapSafely(): void {
+    if (!this.active || !this.rendered || this.screen !== 'map' || this.map) return;
+    try {
+      const host = this.mapCanvasRef.getOrDefault();
+      if (!host) {
+        this.scheduleMapInitialization(100);
+        return;
+      }
+      this.ensureMap();
+      if (!this.map) throw new Error('map_mount_missing');
+      this.map.invalidateSize({ pan: false });
+      if (this.preferences.follow && this.lastFlight) this.centerOnAircraft(false);
+    } catch (error) {
+      console.error('[VFR Multitool EFB] Karteninitialisierung fehlgeschlagen', error);
+      this.disposeMap();
+      this.setLayerStatus('Kartenmodul konnte nicht initialisiert werden', 'error');
+      this.setMapNotice('Karte konnte nicht initialisiert werden · Details im EFB-Debugger', 'error');
+    }
   }
 
   private startPolling(): void {
@@ -194,13 +239,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.mapTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'map');
     this.statusTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'status');
     this.closeLayerDrawer();
-    if (screen === 'map') {
-      setTimeout(() => {
-        this.ensureMap();
-        this.map?.invalidateSize({ pan: false });
-        if (this.preferences.follow && this.lastFlight) this.centerOnAircraft(false);
-      }, 0);
-    }
+    if (screen === 'map') this.scheduleMapInitialization();
   }
 
   private readPreferences(): MapPreferences {
@@ -427,11 +466,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private updateMapFlight(snapshot: NormalizedFlightSnapshot): void {
     this.lastFlight = snapshot;
-    this.ensureMap();
     this.setText(this.mapPositionRef.getOrDefault(), MapShellCore.formatCoordinateLine(snapshot));
     this.setText(this.mapFlightRef.getOrDefault(), MapShellCore.formatFlightLine(snapshot));
-    this.setMapNotice('', '');
+    if (!this.map) this.initializeMapSafely();
     if (!this.map) return;
+    this.setMapNotice('', '');
     if (!this.planeMarker) {
       this.planeMarker = L.marker([snapshot.lat, snapshot.lon], {
         icon: this.createPlaneIcon(),
@@ -558,8 +597,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           <span ref={this.connectionRef} class="connection-pill">Warte auf Tracker</span>
         </header>
 
-        <div ref={this.mapScreenRef} class="map-screen">
-          <div ref={this.mapCanvasRef} class="map-canvas" aria-label="VFR Kartentisch"></div>
+        <div ref={this.mapScreenRef} class="ga-efb-map-view">
+          <div ref={this.mapCanvasRef} class="ga-efb-map-canvas" aria-label="VFR Kartentisch"></div>
           <button ref={this.layerButtonRef} class="map-fab layer-button" type="button" title="Kartenebenen" onClick={() => this.toggleLayerDrawer()}>
             <span class="layer-stack" aria-hidden="true"></span><span>Layer</span>
           </button>
@@ -599,7 +638,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           <div class="map-alpha-note">Alpha Map Shell · Route und Missionslayer folgen</div>
         </div>
 
-        <div ref={this.statusScreenRef} class="status-screen is-hidden">
+        <div ref={this.statusScreenRef} class="ga-efb-status-view is-hidden">
           <div class="status-content">
             <section class="card status-grid">
               <div><span class="label">Tracker</span><span ref={this.trackerRef} class="value">–</span></div>
