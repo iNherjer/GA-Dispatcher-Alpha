@@ -79,6 +79,9 @@ Wenn `--env production` Fehler über `.../workers/services/.../environments/prod
 Hinweis:
 - Der Worker nutzt `env.GA_SYNC_KV`; dafür muss ein KV-Binding `GA_SYNC_KV` im Worker vorhanden sein.
 - Ohne dieses Binding liefern `/api/sync/*` und `/api/checklists/community*` einen `503` mit Hinweistext.
+- Ein Profil-Upload an `/api/sync/*` darf hoechstens 100 KiB gross sein. Der
+  Browser verwendet dieselbe Grenze; seine stufenweise Kompaktierung versucht
+  Mission, Pinnwand, Logbuch und Follow-ups vorher unter diesen Wert zu bringen.
 - Die Checklist-Community nutzt vorhandene Sync-Profile zur PIN-Prüfung. Veröffentlichte Records speichern `ownerId`, Titel, Kapitel/Punkte, Zähler und Version, aber niemals den PIN.
 - `POST /api/checklists/community` erwartet `{ "action": "publish", "checklist": { ... } }` oder `{ "action": "unpublish", "id": "..." }`.
 - Für den Bugtracker kann optional ein Secret gesetzt werden:

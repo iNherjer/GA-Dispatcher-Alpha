@@ -6,6 +6,7 @@ import vm from 'node:vm';
 
 const appSource = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const syncSource = fs.readFileSync(new URL('../sync.js', import.meta.url), 'utf8');
+const workerSource = fs.readFileSync(new URL('cloudflare-worker/worker-merged-full.js', import.meta.url), 'utf8');
 
 function sourceBetween(source, startToken, endToken) {
     const start = source.indexOf(startToken);
@@ -252,7 +253,7 @@ const uploadContext = {
     Date,
     Promise,
     SYNC_URL: 'https://example.invalid/api/sync/',
-    SYNC_MAX_UPLOAD_BYTES: 95000,
+    SYNC_MAX_UPLOAD_BYTES: 100 * 1024,
     localSyncTime: 100,
     lastSyncedPayloadStr: '',
     getSyncId: () => 'PILOT',
@@ -301,6 +302,33 @@ const successfulUpload = await vm.runInContext('triggerCloudSave', uploadContext
 assert.equal(successfulUpload.ok, true);
 assert.ok(Number(uploadStorage.api.getItem('ga_sync_time')) > 100, 'successful upload must commit the sync timestamp');
 assert.equal(uploadStorage.api.getItem('ga_sync_pending_upload_v1'), null, 'successful upload must clear the pending marker');
+
+assert.match(
+    syncSource,
+    /const SYNC_MAX_UPLOAD_BYTES = 100 \* 1024;/,
+    'the browser upload limit must match the worker 100 KiB contract'
+);
+assert.match(
+    workerSource,
+    /rawBody\.length > 100 \* 1024/,
+    'the worker contract must continue to accept the same 100 KiB limit'
+);
+let nearLimitFetches = 0;
+uploadContext._syncBuildUploadPayload = () => ({
+    compacted: true,
+    bodyStr: 'x'.repeat(97005)
+});
+uploadContext.fetch = async () => {
+    nearLimitFetches += 1;
+    return { ok: true, status: 200 };
+};
+const nearLimitUpload = await vm.runInContext('triggerCloudSave', uploadContext)(true, {
+    force: true,
+    skipHomebase: true,
+    reason: 'near-worker-limit-test'
+});
+assert.equal(nearLimitUpload.ok, true, 'a 97 KB profile accepted by the worker must not be rejected by the browser');
+assert.equal(nearLimitFetches, 1, 'the near-limit profile must reach the worker');
 
 const updateBlock = sourceBetween(appSource, 'window.forceAppUpdate = async function()', '// === AUTO-RESIZE');
 assert.ok(
