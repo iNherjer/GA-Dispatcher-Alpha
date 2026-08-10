@@ -96,6 +96,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private missionScenesRef = FSComponent.createRef<HTMLParagraphElement>();
 
   private mapScreenRef = FSComponent.createRef<HTMLDivElement>();
+  private mapControlsRef = FSComponent.createRef<HTMLDivElement>();
   private statusScreenRef = FSComponent.createRef<HTMLDivElement>();
   private mapTabRef = FSComponent.createRef<HTMLButtonElement>();
   private statusTabRef = FSComponent.createRef<HTMLButtonElement>();
@@ -252,6 +253,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private setScreen(screen: 'map' | 'status'): void {
     this.screen = screen;
     this.mapScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
+    this.mapControlsRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
     this.statusScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'status');
     this.mapTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'map');
     this.statusTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'status');
@@ -616,6 +618,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
         <div ref={this.mapScreenRef} class="ga-efb-map-view">
           <div ref={this.mapCanvasRef} class="ga-efb-map-canvas" aria-label="VFR Kartentisch"></div>
+        </div>
+
+        <div ref={this.mapControlsRef} class="ga-efb-map-controls">
           <button ref={this.layerButtonRef} class="map-fab layer-button" type="button" title="Kartenebenen" onClick={() => this.toggleLayerDrawer()}>
             <span class="layer-stack" aria-hidden="true"></span><span>Layer</span>
           </button>
