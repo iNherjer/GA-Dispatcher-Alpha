@@ -123,6 +123,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private overlayLayers = new Map<string, any>();
   private lastFlight: NormalizedFlightSnapshot | null = null;
   private tileErrorCount = 0;
+  private mapLayoutRetryCount = 0;
   private preferences: MapPreferences = MapShellCore.normalizePreferences();
 
   private readonly onWindowResize = (): void => {
@@ -173,6 +174,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.overlayLayers.clear();
     this.currentBaseLayerId = '';
     this.hasCenteredOnAircraft = false;
+    this.mapLayoutRetryCount = 0;
   }
 
   private scheduleMapInitialization(delay = 0): void {
@@ -197,6 +199,21 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         this.scheduleMapInitialization(100);
         return;
       }
+      const bounds = host.getBoundingClientRect();
+      if (bounds.width < 2 || bounds.height < 2) {
+        if (this.mapLayoutRetryCount === 0) {
+          console.warn('[VFR Multitool EFB] Kartenflaeche wartet auf Layoutgroesse', {
+            width: bounds.width,
+            height: bounds.height
+          });
+        }
+        this.mapLayoutRetryCount += 1;
+        this.setLayerStatus('Kartenflaeche wird vorbereitet', '');
+        this.setMapNotice('Kartenflaeche wird vorbereitet', '');
+        this.scheduleMapInitialization(Math.min(1000, 100 + this.mapLayoutRetryCount * 50));
+        return;
+      }
+      this.mapLayoutRetryCount = 0;
       this.ensureMap();
       if (!this.map) throw new Error('map_mount_missing');
       this.map.invalidateSize({ pan: false });

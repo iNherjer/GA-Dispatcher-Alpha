@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie und den
 technischen Missionssnapshot vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Karten-Prototyp 0.3.1
+## Karten-Prototyp 0.3.2
 
 Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
 versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das
@@ -20,12 +20,14 @@ keine Pilot-, Missions- oder Tracker-Zugangsdaten. Die Layerauswahl wird nur
 lokal im EFB gespeichert; Kartenkacheln werden nicht als eigenes Offlinepaket
 verteilt.
 
-0.3.1 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
-CSS-Klassen und initialisiert Leaflet erst nach `AppView.onAfterRender`. Damit
-wird der im 0.3.0-In-Sim-Test beobachtete schwarze Inhalt durch eine moegliche
-Kollision mit EFB-Hoststyles beziehungsweise eine zu fruehe DOM-Initialisierung
-vermieden. Ein verbleibender Leaflet-Fehler wird sichtbar in der App und mit
-Praefix `[VFR Multitool EFB]` im EFB-Debugger ausgegeben.
+0.3.2 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
+CSS-Klassen und initialisiert Leaflet erst nach `AppView.onAfterRender`. Die
+Vollflaechen verwenden explizite `top`-/`left`-Positionen sowie Breite und
+Hoehe, weil der 0.3.1-In-Sim-Test zwar eine weiterlaufende App, aber keine
+sichtbare Karten- oder Statusflaeche zeigte. Leaflet startet erst, nachdem der
+Host eine messbare Layoutgroesse besitzt. Ein verbleibender Leaflet-Fehler wird
+sichtbar in der App und mit Praefix `[VFR Multitool EFB]` im EFB-Debugger
+ausgegeben.
 
 ## SDK-Eingaben
 

@@ -25,8 +25,11 @@ EFB 0.3.0 wurde mit SDK 1.7.2 erfolgreich gebaut, im In-Sim-Test aber
 verworfen: Header und Trackerstatus erschienen, die komplette Kartenflaeche
 einschliesslich ihrer Bedienelemente blieb schwarz. Der Tilezugriff war dabei
 extern erfolgreich; das Fehlerbild liegt vor der Tile-Darstellung. EFB 0.3.1
-haertet deshalb Host-CSS-Abgrenzung, `onAfterRender`-Initialisierung und
-sichtbare Fehlerdiagnose. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
+belegte auf einem System mit funktionierender 3D-Ausgabe, dass App, View-Switch
+und Tracker-Poll weiterlaufen. Karten- und Statusflaeche blieben dennoch
+unsichtbar. EFB 0.3.2 ersetzt deshalb die fuer Coherent verdaechtige
+`inset`-Kurzform durch explizite Vollflaechen-Geometrie und startet Leaflet nur
+bei messbarer Hostgroesse. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
 0.2.0; es gibt keine automatische Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
@@ -352,9 +355,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] EFB 0.3.0 mit dem offiziellen Windows-SDK 1.7.2 bauen; der erste
       In-Sim-Test zeigte nur Header/Trackerstatus und eine schwarze
       Kartenflaeche. 0.3.0 wird nicht ausgeliefert.
-- [ ] EFB 0.3.1 mit eindeutigen View-Klassen und Initialisierung nach
-      `onAfterRender` bauen; zuerst Sichtbarkeit von Karte und Bedienelementen,
-      danach Touch, Orientation, Tilezugriff und Tracker-Recovery testen.
+- [x] EFB 0.3.1 mit eindeutigen View-Klassen und Initialisierung nach
+      `onAfterRender` bauen und testen. View-Switch und Tracker-Recovery laufen,
+      Karten- und Statusflaeche bleiben jedoch unsichtbar; 0.3.1 wird nicht
+      ausgeliefert.
+- [ ] EFB 0.3.2 mit expliziter Vollflaechen-Geometrie und Layoutgroessen-Gate
+      bauen; zuerst Sichtbarkeit von Karte und Statusseite, danach Touch,
+      Orientation, Tilezugriff und Tracker-Recovery testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
@@ -387,3 +394,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   0.3.1 trennt Karten-/Statuscontainer namentlich von Hoststyles und startet
   Leaflet garantiert nach `onAfterRender`; Initialisierungsfehler werden im UI
   und im EFB-Debugger sichtbar.
+- 2026-08-10: 0.3.1 zeigt dasselbe schwarze Inhaltsfeld auch auf einem System
+  mit funktionierender 3D-Ausgabe. Der View-Switch reagiert und ein beendeter
+  Tracker aendert den Status weiterhin; die App ist daher nicht eingefroren.
+  0.3.2 ersetzt `inset` in den Vollflaechen durch explizite Breite, Hoehe,
+  `top` und `left` und prueft die DOM-Groesse vor der Leaflet-Initialisierung.

@@ -27,6 +27,15 @@ test('map initialization waits for the rendered EFB view', () => {
   assert.match(tsx, /initializeMapSafely/);
 });
 
+test('full-size views avoid unsupported inset shorthand and gate Leaflet on layout size', () => {
+  assert.doesNotMatch(scss, /\binset\s*:/);
+  assert.match(scss, /\.ga-efb-map-view,[\s\S]*?top: 0;[\s\S]*?left: 0;[\s\S]*?width: 100%;[\s\S]*?height: 100%;/);
+  assert.match(scss, /\.ga-efb-status-view[\s\S]*?top: 0;[\s\S]*?left: 0;[\s\S]*?width: 100%;[\s\S]*?height: 100%;/);
+  assert.match(tsx, /host\.getBoundingClientRect\(\)/);
+  assert.match(tsx, /bounds\.width < 2 \|\| bounds\.height < 2/);
+  assert.match(tsx, /Kartenflaeche wartet auf Layoutgroesse/);
+});
+
 test('map initialization failures remain visible and diagnosable', () => {
   assert.match(tsx, /console\.error\('\[VFR Multitool EFB\] Karteninitialisierung fehlgeschlagen'/);
   assert.match(tsx, /Karte konnte nicht initialisiert werden/);
