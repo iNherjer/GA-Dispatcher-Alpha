@@ -132,6 +132,13 @@ vm.runInNewContext(
 );
 const localRun = { missionId: 'mission-a', runId: 'run-a', revision: 7 };
 assert.equal(
+  relationContext._missionAuthorityIncomingRunRelation(null, {
+    missionId: 'mission-a', runId: 'run-a', ownerClientId: 'legacy-client', revision: 2
+  }, 'device-a'),
+  'foreign',
+  'a tracker run must remain readable before this browser has local authority state'
+);
+assert.equal(
   relationContext._missionAuthorityIncomingRunRelation(localRun, {
     missionId: 'mission-a', runId: 'run-a', ownerClientId: 'device-b', revision: 8
   }, 'device-a'),
@@ -179,6 +186,11 @@ assert.match(
   syncSource,
   /authority_demoted_to_observer/,
   'the previous owner must be demoted to observer mode'
+);
+assert.match(
+  syncSource,
+  /catch \(authorityError\)[\s\S]*?Telemetrie laeuft weiter/,
+  'authority projection failures must not discard otherwise valid GPS telemetry'
 );
 assert.match(
   syncSource,

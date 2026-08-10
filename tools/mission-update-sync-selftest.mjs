@@ -272,8 +272,10 @@ const uploadContext = {
     _syncFollowupPayload: () => [],
     _syncBuildUploadPayload: (payload, lastModified, pin) => ({
         compacted: false,
+        payload: { ...payload, lastModified, pin },
         bodyStr: JSON.stringify({ ...payload, lastModified, pin })
     }),
+    _syncPayloadComponentChars: () => ({}),
     _syncReadPendingUpload: () => {
         const raw = uploadStorage.api.getItem('ga_sync_pending_upload_v1');
         return raw ? JSON.parse(raw) : null;

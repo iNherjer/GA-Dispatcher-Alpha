@@ -1958,7 +1958,7 @@ function _missionAuthorityAckWasSentLocally(ack = {}) {
 function _missionAuthorityIncomingRunRelation(local = null, active = null, clientId = '') {
     if (!active?.missionId || !active?.runId) return 'none';
     const ownClientId = String(clientId || '').trim();
-    const localRevision = Math.max(0, Math.round(Number(local.revision) || 0));
+    const localRevision = Math.max(0, Math.round(Number(local?.revision) || 0));
     const activeRevision = Math.max(0, Math.round(Number(active.revision) || 0));
     if (local?.runId === active.runId
         && localRevision
@@ -13137,10 +13137,19 @@ function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
             pin
         };
         const bodyStr = JSON.stringify(payload);
-        last = { payload, bodyStr, compacted: true };
+        last = { payload, bodyStr, compacted: true, compaction: { ...cfg } };
         if (bodyStr.length <= SYNC_MAX_UPLOAD_BYTES) return last;
     }
     return last || { payload: { ...basePayload, lastModified: localSyncTs, pin }, bodyStr: JSON.stringify({ ...basePayload, lastModified: localSyncTs, pin }), compacted: false };
+}
+
+function _syncPayloadComponentChars(payload = null) {
+    if (!payload || typeof payload !== 'object') return {};
+    const out = {};
+    Object.keys(payload).forEach(key => {
+        try { out[key] = JSON.stringify(payload[key]).length; } catch (_) { out[key] = -1; }
+    });
+    return out;
 }
 
 function _syncMissionStateIsDraft(state = null) {
@@ -13586,8 +13595,20 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const pin = getSyncPin();
         const upload = _syncBuildUploadPayload(payloadToCompare, uploadSyncTime, pin);
         const bodyStr = upload.bodyStr;
+        window.gaLastCloudUploadDiagnostics = {
+            at: Date.now(),
+            status: 'prepared',
+            rawChars: currentPayloadStr.length,
+            uploadChars: bodyStr.length,
+            limitChars: SYNC_MAX_UPLOAD_BYTES,
+            compacted: !!upload.compacted,
+            compaction: upload.compaction || null,
+            rawComponents: _syncPayloadComponentChars(payloadToCompare),
+            uploadComponents: _syncPayloadComponentChars(upload.payload)
+        };
         if (bodyStr.length > SYNC_MAX_UPLOAD_BYTES) {
             updateSyncStatus(`Cloud: zu groß (${Math.round(bodyStr.length / 1024)} KB)`, true);
+            window.gaLastCloudUploadDiagnostics.status = 'too-large';
             throw new Error(`Payload ${bodyStr.length} bytes`);
         }
         if (upload.compacted && bodyStr.length < currentPayloadStr.length) {
@@ -13604,6 +13625,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const res = await fetch(SYNC_URL + id + "?pin=" + pin, fetchOptions);
         if (res.ok) {
             profileSaved = true;
+            if (window.gaLastCloudUploadDiagnostics) window.gaLastCloudUploadDiagnostics.status = 'saved';
             localSyncTime = uploadSyncTime;
             localStorage.setItem('ga_sync_time', localSyncTime);
             lastSyncedPayloadStr = currentPayloadStr;
@@ -13622,6 +13644,9 @@ async function triggerCloudSave(immediate = false, options = {}) {
         }
     } catch (e) {
         profileError = e;
+        if (window.gaLastCloudUploadDiagnostics && window.gaLastCloudUploadDiagnostics.status === 'prepared') {
+            window.gaLastCloudUploadDiagnostics.status = 'failed';
+        }
         console.error("[Sync] Cloud save failed:", e);
         const msg = String(e?.message || '');
         updateSyncStatus(
@@ -15483,14 +15508,21 @@ window.connectToLiveGPS = async function(syncId) {
                 try {
                     window.dispatchEvent(new CustomEvent('homebasetelemetry', { detail: { data } }));
                 } catch (_) {}
-                if (data.trackerMissionAuthority && typeof data.trackerMissionAuthority === 'object') {
-                    _handleTrackerMissionAuthoritySnapshot(data.trackerMissionAuthority, 'tracker-gps-authority');
-                } else if (data.trackerMissionStatus && typeof data.trackerMissionStatus === 'object') {
-                    window.lastTrackerMissionStatus = {
-                        ...data.trackerMissionStatus,
-                        receivedAt: Date.now()
-                    };
-                    _handleTrackerMissionStatus(window.lastTrackerMissionStatus, 'tracker-gps-status');
+                try {
+                    if (data.trackerMissionAuthority && typeof data.trackerMissionAuthority === 'object') {
+                        _handleTrackerMissionAuthoritySnapshot(data.trackerMissionAuthority, 'tracker-gps-authority');
+                    } else if (data.trackerMissionStatus && typeof data.trackerMissionStatus === 'object') {
+                        window.lastTrackerMissionStatus = {
+                            ...data.trackerMissionStatus,
+                            receivedAt: Date.now()
+                        };
+                        _handleTrackerMissionStatus(window.lastTrackerMissionStatus, 'tracker-gps-status');
+                    }
+                } catch (authorityError) {
+                    // Authority-Projektionen duerfen niemals das eigentliche GPS-Paket
+                    // verwerfen. Telemetrie und LIVE-Anzeige laufen weiter; der Fehler
+                    // bleibt fuer die Diagnose sichtbar.
+                    console.error('[MISSION AUTH] Tracker-Projektion fehlgeschlagen; Telemetrie laeuft weiter:', authorityError);
                 }
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;

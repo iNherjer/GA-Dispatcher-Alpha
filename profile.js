@@ -3872,6 +3872,18 @@ function vpBuildStorageDiagnosticsLines() {
     if (pinboard) {
         lines.push(`- Pinnwand-Inhalt: ${pinboard.notes} Zettel | gepinnte Missionen ${pinboard.pinnedFlights} | Legacy-Flugtracks ${pinboard.recordedFlights} mit ${pinboard.trackPoints} Punkten`);
     }
+    const cloudUpload = window.gaLastCloudUploadDiagnostics;
+    if (cloudUpload && typeof cloudUpload === 'object') {
+        const fmtChars = value => Number.isFinite(Number(value)) ? `${(Number(value) / 1024).toFixed(1)} KiB` : '-';
+        lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
+        const componentText = Object.entries(cloudUpload.uploadComponents || {})
+            .filter(([, value]) => Number(value) >= 0)
+            .sort((a, b) => Number(b[1]) - Number(a[1]))
+            .slice(0, 8)
+            .map(([key, value]) => `${key}=${fmtChars(value)}`)
+            .join(' | ');
+        if (componentText) lines.push(`- Cloud-Komponenten kompakt: ${componentText}`);
+    }
     const groupSummary = inventory.groups
         .slice(0, 8)
         .map(group => `${group.category} ${vpFormatBytes(group.bytes)}`)

@@ -269,6 +269,17 @@ Owner-Revision zum schreibgeschuetzten Beobachter demotiert. Semantische
 Start-/Runtime-Phasenwechsel werden sofort zum Tracker geschrieben; der
 periodische 10-Sekunden-Pfad bleibt nur fuer nichtkritische Zwischenstaende.
 
+Folgetest 2026-08-10, Web-Cache v1615: Traf ein persistenter Tracker-Run auf
+einen Browser ohne lokalen Authority-Eintrag, griff der Revisionsvergleich auf
+`local.revision` statt `local?.revision` zu. Der Fehler brach jedes kombinierte
+GPS-/Authority-Paket vor dem LIVE-Update ab; sichtbar blieb nur `LINK`, obwohl
+Tracker und Relay verbunden waren. Web-Cache v1616 macht den Vergleich
+nullsicher und kapselt Authority-Projektionen zusaetzlich so, dass ein kuenftiger
+Authority-Fehler niemals die eigentliche Flugtelemetrie verwirft. Der
+Cloud-Upload protokolliert ausserdem Roh-, Kompakt- und Komponentengroessen fuer
+die Diagnose; eine Aenderung des serverseitigen Profil-Limits ist davon
+getrennt.
+
 ### E2 - Reinen Missionsausfuehrungskern extrahieren
 
 Status: geplant
@@ -464,6 +475,9 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Web-Cache v1614 gegen den konkreten Boarding-Handoff erneut testen:
       `boarded` und `active` muessen vom Tracker gewinnen; auf dem alten Geraet
       duerfen keine fremden Boarding-/Szenen-ACKs den lokalen Zustand aendern.
+- [ ] Web-Cache v1616 mit einem bereits persistenten Tracker-Run und einem
+      Browser ohne lokalen Authority-Eintrag testen: Anzeige muss von LINK auf
+      LIVE wechseln und danach den Handoff anbieten.
 - [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
@@ -476,6 +490,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   fuer selbst gesendete `commandId`. Ein Tracker-bestaetigter Handoff darf den
   lokalen Fresh-Start-Guard uebersteuern; ein abgeloester Owner stoppt seine
   Snapshot-Schreibversuche und bleibt Beobachter.
+- 2026-08-10: Authority-Projektionen sind ein Zusatzkanal innerhalb eines
+  Telemetriepakets. Fehler in diesem Zusatzkanal duerfen Position, Flugzustand
+  und LIVE-Anzeige nicht mehr verwerfen; der Revisionsvergleich akzeptiert
+  explizit einen noch nicht vorhandenen lokalen Authority-State.
 - 2026-08-10: Tracker v325 fuehrt vor der vollstaendigen Headless-Migration
   einen persistenten Einzel-Run als Missionswahrheit ein. Fremde Web-Apps
   beobachten diesen Run und koennen ihn nur ueber einen expliziten Handoff

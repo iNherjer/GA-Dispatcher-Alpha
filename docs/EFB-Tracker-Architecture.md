@@ -103,6 +103,12 @@ bleibt Beobachter. Ein explizit bestaetigter Handoff darf dagegen den lokalen
 Fresh-Start-Restore-Schutz uebersteuern und muss den Tracker-Snapshot vor dem
 ersten eigenen Update vollstaendig anwenden.
 
+Authority-Daten koennen gemeinsam mit einem gueltigen GPS-Paket eintreffen. Die
+Web-App behandelt deren Projektion als isolierten Zusatzschritt: ein fehlender
+lokaler Authority-State ist ein regulaerer Observer-Fall, und ein Fehler im
+Authority-Abgleich darf die Position, den Flugzustand oder den Wechsel der
+Anzeige von LINK auf LIVE nicht abbrechen.
+
 Der Relay-Vertrag kennt dafuer folgende additive Commands und ACKs:
 
 - `mission_authority_acquire`
