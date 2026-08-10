@@ -61,8 +61,10 @@ Tracker ab v321 bettet dieses Hello ausschliesslich als zusaetzliches Feld
 `trackerProtocolHello` in die bereits vorhandenen `gps`-Statuspakete ein. Typ,
 Routing und bestehende Felder des Relay-Protokolls bleiben unveraendert. Alte
 Web-Clients ignorieren das neue Feld; neue Clients koennen es validieren und
-Capabilities aushandeln. Der erste Protokollstand meldet absichtlich nur die beiden bereits
-implementierten Legacy-Capabilities und behauptet noch keine EFB-Interaktionen.
+Capabilities aushandeln. Der erste Protokollstand meldete absichtlich nur die
+beiden Legacy-Capabilities. Tracker v325 meldet additiv
+`mission.authority.v1` und `mission.snapshot.v2`; alte Clients ignorieren diese
+Felder weiterhin.
 
 Tracker v323 ergaenzt daneben eine getrennte read-only Loopback-Schnittstelle
 auf `127.0.0.1:49880`. Sie liefert mit eigenem Hello ausschließlich
@@ -80,6 +82,42 @@ Simulatorszenen. Titel, Briefing, Route, Frachtinhalt und Zugangsdaten werden in
 dieser Stufe weder ueber das externe Relay nachgeladen noch am Loopback-Endpunkt
 ausgegeben. Das EFB 0.2.0 bleibt damit vollstaendig read-only; die bestehende
 Web-Missionslogik und ihre Erfolgskriterien bleiben unveraendert.
+
+Tracker v325 fuehrt neben dem weiterhin kompatiblen flachen
+`mission.snapshot.v1` einen persistenten, einzelnen Missionslauf ein. Der
+Tracker ist fuer die Auswahl des aktiven Runs, Owner-Wechsel, Revisionen,
+Snapshot-Persistenz und die Zulassung missionsbezogener SimObject-Befehle die
+Autoritaet. Die Web-App bleibt in dieser Zwischenstufe fachliche
+Ausfuehrungsinstanz: Sie berechnet Phasen und Fortschritt und uebergibt dem
+Tracker versionierte Resume-Bundles. Dadurch wird Split Brain verhindert,
+bevor der reine Missionsausfuehrungskern vollstaendig headless im Tracker
+laufen kann.
+
+Der Relay-Vertrag kennt dafuer folgende additive Commands und ACKs:
+
+- `mission_authority_acquire`
+- `mission_authority_takeover`
+- `mission_authority_release`
+- `mission_snapshot_update`
+- `mission_snapshot_request`
+
+Missionsbezogene Szenen-, Smoke- und Lifecycle-Commands tragen bei aktivierter
+Capability `missionId`, `runId`, `clientId` und die bekannte Revision. Der
+Tracker validiert diese Huelle vor jeder Status- oder SimConnect-Mutation.
+Abgelehnte oder veraltete Befehle erhalten den aktuellen oeffentlichen Run als
+Konfliktantwort und haben keine Seiteneffekte.
+
+Der lokale HTTP-Endpunkt bleibt read-only. `/api/v1/mission` liefert bei einem
+aktiven Run weiterhin die bisherigen flachen Felder fuer EFB 0.2.x und daneben
+den neuen Authority-Snapshot. Ohne aktiven Run wird keine alte beendete Mission
+mehr als aktive Mission ausgegeben; `lastRun` bleibt im getrennten
+Authority-Snapshot fuer Diagnosezwecke erhalten.
+
+Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
+Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
+geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`
+und monotone Snapshot-Sequenzen. Resume-Bundles sind groessenbegrenzt und
+verwenden einen expliziten Missionstyp-/Facettenvertrag.
 
 Die Mindestversion der Alpha-Web-App bleibt davon getrennt bei Tracker v320.
 Stable v320 kann den bestehenden Web-/Relay-Ablauf daher auch gegen

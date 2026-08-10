@@ -19,6 +19,7 @@ const {
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server.js');
+const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -34,8 +35,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v324';
-const TRACKER_VERSION_CODE = 324;
+const TRACKER_VERSION = 'v325';
+const TRACKER_VERSION_CODE = 325;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
@@ -95,6 +96,7 @@ const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
+const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -339,13 +341,13 @@ function buildTitleCandidates(title, extra = []) {
   return uniqueStrings(candidates);
 }
 
-function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null) {
+function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null) {
   const missions = new Map();
   const scenes = new Map();
   let sceneOperationQueue = Promise.resolve();
   const sceneObjectOperationStates = new Map();
   const sceneObjectDesiredStates = new Map();
-  let trackerMissionStatus = null;
+  let authorityReleasePending = false;
   const CREATE_EXCEPTION_GRACE_MS = 900;
   const LATE_ASSIGNED_RETENTION_MS = 30000;
   const pendingAssign = new Map();
@@ -1462,6 +1464,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     try {
       const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
       const ackPayload = { ...(payload || {}) };
+      if (missionAuthority?.recordEffectAck) missionAuthority.recordEffectAck(ackPayload);
       if (!ackPayload.missionId && ackPayload.sceneId) {
         const rec = scenes.get(String(ackPayload.sceneId));
         if (rec?.missionId) ackPayload.missionId = rec.missionId;
@@ -1635,25 +1638,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const rememberMissionCommand = (command) => {
     const missionId = String(command?.missionId || '').trim();
     if (!missionId) return;
-    const lifecycleState = String(command?.state || '').trim().toLowerCase();
-    const phase = String(command?.missionPhase || '').trim().toLowerCase();
-    const type = String(command?.type || command?.command || '').trim().toLowerCase();
-    const reason = String(command?.reason || '').trim().toLowerCase();
-    const terminal = /^(ended|closed|reset|cleared|closing)$/i.test(lifecycleState)
-      || phase === 'closing'
-      || (/^mission_scene_clear/.test(type) && /mission-runtime-reset|mission-close|manual-mission-end/.test(reason));
-    const sceneSummary = sceneSummaryForMission(missionId);
-    trackerMissionStatus = {
-      missionId,
-      state: lifecycleState || (terminal ? 'ended' : 'active'),
-      active: !terminal,
-      phase: phase || null,
-      sceneId: command?.sceneId ? String(command.sceneId) : null,
-      sceneCount: sceneSummary.length,
-      scenes: sceneSummary.slice(0, 12),
-      lastCommandType: String(command?.type || command?.command || '').trim() || null,
-      updatedAt: Date.now()
-    };
+    missionAuthority?.recordCommand?.(command);
   };
 
   const sceneObjectIdentity = (sceneId, obj = {}) => {
@@ -3861,15 +3846,137 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   });
 
+  const authorityAckType = (type) => {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (normalized === 'mission_scene_clear_all') return 'mission_scene_clear_ack';
+    return normalized ? `${normalized}_ack` : 'mission_authority_rejected_ack';
+  };
+
+  const sendAuthorityResult = (type, command, result = {}) => {
+    sendAck({
+      ...(result?.replayAck && typeof result.replayAck === 'object' ? result.replayAck : {}),
+      type: authorityAckType(type),
+      commandId: command?.commandId || null,
+      missionId: command?.missionId || result?.activeRun?.missionId || '',
+      runId: command?.runId || result?.activeRun?.runId || '',
+      status: result?.status || (result?.ok ? 'ok' : 'error'),
+      error: result?.error || '',
+      reason: result?.reason || command?.reason || '',
+      previousOwnerClientId: result?.previousOwnerClientId || undefined,
+      outcome: result?.outcome || undefined,
+      resumed: result?.resumed === true,
+      authoritativeRun: result?.activeRun || null,
+      releasedRun: result?.releasedRun || null,
+      resumeBundle: result?.resumeBundle || undefined,
+      effect: result?.effect || undefined,
+      deduplicated: result?.duplicate === true
+    });
+  };
+
+  const clearAuthorityRunEffects = async (missionId, reason = 'mission-authority-release') => {
+    const matchingSceneIds = [...scenes.values()]
+      .filter(rec => String(rec?.missionId || '') === String(missionId || ''))
+      .map(rec => String(rec?.sceneId || ''))
+      .filter(Boolean);
+    cancelAllDeboardingContinuations(reason);
+    cancelAllGroundVisitReleases(reason);
+    const results = await Promise.all([
+      clearMission(missionId, reason),
+      ...matchingSceneIds.map(sceneId => enqueueSceneOperation(sceneId, () => clearScene(sceneId, reason, null)))
+    ]);
+    return results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
+  };
+
+  const handleAuthorityCommand = (type, command) => {
+    if (!missionAuthority) return false;
+    if (authorityReleasePending && type !== 'mission_snapshot_request' && type !== 'mission_authority_release') {
+      sendAuthorityResult(type, command, {
+        ok: false,
+        status: 'conflict',
+        error: 'mission_authority_release_pending',
+        activeRun: missionAuthority.getActiveRun()
+      });
+      return true;
+    }
+    if (type === 'mission_authority_acquire') {
+      try {
+        sendAuthorityResult(type, command, missionAuthority.acquire(command));
+      } catch (error) {
+        sendAuthorityResult(type, command, { ok: false, status: 'error', error: error?.code || error?.message || String(error) });
+      }
+      return true;
+    }
+    if (type === 'mission_authority_takeover') {
+      sendAuthorityResult(type, command, missionAuthority.takeover(command));
+      return true;
+    }
+    if (type === 'mission_snapshot_request') {
+      sendAuthorityResult(type, command, missionAuthority.requestSnapshot(command));
+      return true;
+    }
+    if (type === 'mission_snapshot_update') {
+      sendAuthorityResult(type, command, missionAuthority.updateSnapshot(command));
+      return true;
+    }
+    if (type === 'mission_authority_release') {
+      if (authorityReleasePending) {
+        sendAuthorityResult(type, command, { ok: false, status: 'noop', error: 'release_pending', activeRun: missionAuthority.getActiveRun() });
+        return true;
+      }
+      const validation = missionAuthority.validate({ ...command, type: 'mission_lifecycle' });
+      if (!validation.ok) {
+        sendAuthorityResult(type, command, validation);
+        return true;
+      }
+      authorityReleasePending = true;
+      clearAuthorityRunEffects(command?.missionId, command?.reason || 'mission-authority-release')
+        .then((cleared) => {
+          const result = missionAuthority.release(command);
+          sendAck({
+            type: 'mission_authority_release_ack',
+            commandId: command?.commandId || null,
+            missionId: command?.missionId || '',
+            runId: command?.runId || '',
+            status: result?.status || (result?.ok ? 'ok' : 'error'),
+            error: result?.error || '',
+            outcome: result?.outcome || command?.outcome || '',
+            cleared,
+            releasedRun: result?.releasedRun || null,
+            authoritativeRun: result?.activeRun || null
+          });
+        })
+        .catch((error) => {
+          sendAuthorityResult(type, command, { ok: false, status: 'error', error: error?.message || String(error), activeRun: missionAuthority.getActiveRun() });
+        })
+        .finally(() => { authorityReleasePending = false; });
+      return true;
+    }
+    return false;
+  };
+
   return {
     handleCommand(command) {
       const type = String(command?.type || command?.command || '').trim();
+      if (handleAuthorityCommand(type, command)) return true;
+      if (authorityReleasePending && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle')) {
+        sendAuthorityResult(type, command, { ok: false, status: 'conflict', error: 'mission_authority_release_pending', activeRun: missionAuthority?.getActiveRun?.() || null });
+        return true;
+      }
+      const authorityValidation = missionAuthority?.validate?.(command);
+      if (authorityValidation && !authorityValidation.ok) {
+        sendAuthorityResult(type, command, authorityValidation);
+        return true;
+      }
       if (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle') rememberMissionCommand(command);
       if (type === 'mission_lifecycle') {
-        if (/^(ended|closed|reset|cleared|closing)$/i.test(String(command?.state || ''))) {
+        const lifecycleTerminal = /^(ended|closed|reset|cleared)$/i.test(String(command?.state || ''));
+        if (lifecycleTerminal || /^closing$/i.test(String(command?.state || ''))) {
           cancelAllDeboardingContinuations(command?.reason || `mission-${command?.state || 'ended'}`);
           cancelAllGroundVisitReleases(command?.reason || `mission-${command?.state || 'ended'}`);
         }
+        const legacyRelease = lifecycleTerminal && authorityValidation?.legacy === true
+          ? missionAuthority?.releaseLegacy?.(command)
+          : null;
         sendAck({
           type: 'mission_lifecycle_ack',
           commandId: command?.commandId || null,
@@ -3877,7 +3984,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           status: 'ok',
           state: command?.state || '',
           phase: command?.missionPhase || '',
-          reason: command?.reason || 'mission-lifecycle'
+          reason: command?.reason || 'mission-lifecycle',
+          authorityReleased: legacyRelease?.ok === true,
+          releasedRun: legacyRelease?.releasedRun || null
         });
         return true;
       }
@@ -4114,7 +4223,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return false;
     },
     getTrackerMissionStatus() {
-      return trackerMissionStatus?.missionId ? enrichMissionStatusWithScenes(trackerMissionStatus) : null;
+      const activeRun = missionAuthority?.getActiveRun?.() || null;
+      return activeRun?.missionId ? enrichMissionStatusWithScenes(activeRun) : null;
+    },
+    getMissionAuthoritySnapshot() {
+      return missionAuthority?.getPublicSnapshot?.() || null;
     },
     getPayloadAdapter() {
       return currentPayloadAdapter;
@@ -4132,6 +4245,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 function startTracker(syncId, pin) {
   debugLog(`START ${TRACKER_DISPLAY_NAME} dataDir=${TRACKER_DATA_DIR} debugFile=${TRACKER_DEBUG_FILE}`);
   for (const event of TRACKER_STORAGE.events) debugLog(event);
+  const missionAuthorityManager = createMissionAuthorityManager({
+    storageFile: MISSION_AUTHORITY_FILE,
+    log: debugLog
+  });
   let _reconnecting = false;
   let _reconnectTimer = null;
   let _simStarted = false;
@@ -4148,7 +4265,7 @@ function startTracker(syncId, pin) {
   let _relayConnected = false;
   let _simulatorConnected = false;
   let _lastEfbSnapshot = null;
-  let _lastEfbMissionSnapshot = null;
+  let _lastEfbMissionSnapshot = missionAuthorityManager.getActiveRun();
   let _efbHttpServer = null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
@@ -4173,7 +4290,10 @@ function startTracker(syncId, pin) {
         lastMissionSnapshotAt: Number(_lastEfbMissionSnapshot?.updatedAt) || null
       }),
       getSnapshot: () => _lastEfbSnapshot,
-      getMissionSnapshot: () => _lastEfbMissionSnapshot,
+      getMissionSnapshot: () => ({
+        ...(_lastEfbMissionSnapshot || {}),
+        authoritySnapshot: missionAuthorityManager.getPublicSnapshot()
+      }),
       log: debugLog
     });
     _efbHttpServer.start().then((address) => {
@@ -4488,7 +4608,8 @@ function startTracker(syncId, pin) {
       setTrackerCommandHandler,
       (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
       () => _homebaseFallbackCache,
-      updateEfbState
+      updateEfbState,
+      missionAuthorityManager
     );
   };
 
@@ -4599,14 +4720,22 @@ function startTracker(syncId, pin) {
   connect();
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
       let lastGpsMsg = null;
       let latestGroundTrafficSnapshot = [];
-      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg, () => latestGroundTrafficSnapshot);
+      const missionSmokeController = createMissionSmokeController(
+        handle,
+        getWs,
+        syncId,
+        pin,
+        () => lastGpsMsg,
+        () => latestGroundTrafficSnapshot,
+        missionAuthorityManager
+      );
       const sendHomebaseAck = (payload = {}) => {
         const ws = getWs();
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -4671,7 +4800,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           }
           if (homebaseManager?.handleCommand(command)) return true;
           const handled = missionSmokeController.handleCommand(command);
-          if (handled && (/^mission_(scene|smoke)_/i.test(type) || type === 'mission_lifecycle') && typeof updateEfbState === 'function') {
+          if (handled && (/^mission_(scene|smoke|authority|snapshot)_/i.test(type) || type === 'mission_lifecycle') && typeof updateEfbState === 'function') {
             updateEfbState({ missionSnapshot: missionSmokeController.getTrackerMissionStatus() });
           }
           return handled;
@@ -5038,12 +5167,14 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   };
                 }
                 const trackerMissionStatus = missionSmokeController.getTrackerMissionStatus();
+                const trackerMissionAuthority = missionSmokeController.getMissionAuthoritySnapshot();
                 if (typeof updateEfbState === 'function') {
                   updateEfbState({ missionSnapshot: trackerMissionStatus });
                 }
                 if (trackerMissionStatus?.missionId) {
                   gpsMsg.trackerMissionStatus = trackerMissionStatus;
                 }
+                if (trackerMissionAuthority) gpsMsg.trackerMissionAuthority = trackerMissionAuthority;
                 if (latestTrafficSnapshot && latestTrafficSnapshot.length > 0) {
                   gpsMsg.traffic = latestTrafficSnapshot;
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
@@ -5142,13 +5273,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
       });
     })
     .catch(err => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: false, snapshot: null });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
     });
 }
 

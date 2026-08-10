@@ -6555,7 +6555,17 @@ window.isAcceptedOrActiveMissionPresent = isAcceptedOrActiveMissionPresent;
 
 function confirmMissionOverwriteIfNeeded() {
     if (!isAcceptedOrActiveMissionPresent()) return true;
-    return confirm("Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
+    const confirmed = confirm("Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
+    if (!confirmed) return false;
+    if (typeof window.missionRuntimeReset === 'function') {
+        const reset = window.missionRuntimeReset({
+            respawnAfterClear: false,
+            authorityOutcome: 'aborted',
+            reason: 'new-mission-replacement'
+        });
+        if (reset === false) return false;
+    }
+    return true;
 }
 window.confirmMissionOverwriteIfNeeded = confirmMissionOverwriteIfNeeded;
 
@@ -8534,6 +8544,7 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 async function restoreMissionState(state, options = {}) {
     const allowDraft = !!options.allowDraft;
     let resumeRuntime = options.resumeRuntime === true;
+    const authorityConfirmed = options.authorityConfirmed === true;
     const restoreSource = String(options.source || '').toLowerCase();
     let staleRuntimeResetToPlanned = options.runtimeResetToPlanned === true;
     let staleRuntimeExpiryInfo = options.runtimeResetExpiryInfo || null;
@@ -8554,7 +8565,7 @@ async function restoreMissionState(state, options = {}) {
     }
     if (resumeRuntime || restoreSource === 'cloud') {
         const expiryInfo = activeMissionRestoreExpiryInfo(state);
-        if (expiryInfo.expired) {
+        if (expiryInfo.expired && !authorityConfirmed) {
             const plannedState = resetExpiredActiveMissionToPlanned(state, `restore-${restoreSource || 'startup'}-expired`, {
                 expiryInfo,
                 queueCloudSave: true,
@@ -8887,7 +8898,12 @@ function clearAppMissionState(options = {}) {
     if (led) led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
     document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
     if (!options.skipRuntimeReset && typeof window.missionRuntimeReset === 'function') {
-        window.missionRuntimeReset({ complianceReleased: options.complianceReleased === true });
+        const resetOk = window.missionRuntimeReset({
+            complianceReleased: options.complianceReleased === true,
+            authorityOutcome: options.authorityOutcome || 'cleared',
+            reason: options.reason || 'clear-app-mission-state'
+        });
+        if (resetOk === false) return false;
     }
     localStorage.removeItem('ga_active_mission');
     localStorage.removeItem('ga_active_mission_contract');

@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v324 | v320 | v324 ergaenzt `mission.snapshot.v1`; neuere Funktionen bleiben capability-basiert |
+| Tracker-Runtime | v325 Release-Kandidat | v320 | v325 ergaenzt den persistenten Mission-Authority-Lock; Freigabe bleibt capability-basiert |
 | EFB-Community-Package | 0.2.0 | noch nicht verfuegbar | Alpha-Testpaket; Stable erst nach In-Sim-Freigabe desselben unveraenderten Artefakts |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -185,7 +185,7 @@ Mission eindeutig trennen.
 
 ### E1 - `mission.snapshot.v2`
 
-Status: geplant
+Status: erster Authority-/Resume-Unterbau implementiert, Alpha-Test ausstehend
 
 Die Web-App bleibt Missionsautoritaet und uebergibt dem Tracker einen
 sanitisierten, reicheren Lesezustand. Der Tracker persistiert und serviert ihn
@@ -203,6 +203,58 @@ Die bestehende `/api/v1/mission`-Antwort bleibt fuer EFB 0.2.0 erhalten. Eine
 neue Capability, beispielsweise `mission.snapshot.v2`, schaltet die reichere
 Darstellung gezielt frei. Zugangsdaten, Pilot-PIN und unnoetige persoenliche
 Daten duerfen nicht in den Snapshot gelangen.
+
+#### E1a - Persistenter Mission-Run und Geräteuebergabe (Tracker v325)
+
+Der erste v2-Unterbau loest den bisherigen Split-Brain-Fall, ohne die gesamte
+fachliche State-Machine bereits in den Tracker zu kopieren:
+
+- Der Tracker persistiert genau einen `activeRun` in
+  `mission-authority-v1.json`. Der Run enthaelt `missionId`, `runId`,
+  `ownerClientId`, Revision, Phase, Resume-Bundle und ein begrenztes
+  Effektjournal.
+- `mission.authority.v1` und `mission.snapshot.v2` werden nur im neuen
+  Relay-Hello angeboten. Fehlt die Capability, verwendet die Web-App weiterhin
+  unveraendert den v320-Vertrag.
+- Ein Missionsstart muss zuerst `mission_authority_acquire` erfolgreich
+  abschliessen. Ein anderer Missionslauf erhaelt `conflict`; der abgelehnte
+  Befehl darf weder Status noch Simulatorszene veraendern.
+- Eine fremde App loescht den Tracker-Stand nie mehr automatisch. Sie zeigt den
+  aktiven Tracker-Run an und kann nach ausdruecklicher Bestaetigung Snapshot,
+  Owner und Runtime uebernehmen.
+- Die Bindung verwendet eine zufaellige, lokal persistierte Client-ID,
+  `runId` und Revision. Es wird kein zusaetzliches Sitzungsgeheimnis ueber das
+  externe Relay transportiert; Sync-ID/PIN bleiben dessen bestehende
+  Zugangskontrolle.
+- Alte Web-Clients koennen bei leerem Tracker weiterhin implizit einen
+  Legacy-Run starten. Solange dieser Legacy-Run aktiv ist, funktionieren ihre
+  bisherigen Befehle und ihr terminales Lifecycle-Event. Ein alter Client darf
+  aber keinen bereits von einem versionierten Client gehaltenen Run mutieren.
+
+Das Resume-Bundle verwendet `ga.mission-resume.v2`. Primaeradapter sind
+`apt`, `poi`, `survey_pattern`, `poi_chain`, `training`, `bush_pickup` und
+`sar_heli`. Cargo, Behoerdenkontrolle, Flugschreiber und Passenger-Comfort
+werden als zusaetzliche Facetten restauriert. Damit teilen sich einfache A-B-
+Missionen und komplexe POI-/Pattern-Missionen denselben Transportvertrag, ohne
+ihre fachlich verschiedenen Fortschrittsobjekte zu vermischen.
+
+Freigabesemantik:
+
+- Normaler Abschluss: Authority erst nach Debrief/Cleanup als `completed`
+  freigeben.
+- Mission Reset: Run als `reset` freigeben, Runtime/Szenen bereinigen, das
+  vorhandene Briefing lokal wieder auf `planned` setzen.
+- Dispatch-Clear: Run als `cleared` freigeben und danach Briefing entfernen.
+- Neue Mission oder Direct-to: laufenden Run nur nach ausdruecklicher
+  Abbruchbestaetigung als `aborted` freigeben.
+- App schliessen, Reload oder Tracker-Neustart: keine Freigabe. Der persistente
+  Run bleibt die Missionswahrheit.
+
+Das Effektjournal dedupliziert wiederholte Szenen-, Boarding-, Deboarding- und
+Smoke-Commands anhand stabiler `commandId` und speichert ausschliesslich eine
+kleine technische ACK-Zusammenfassung. Es ist die Grundlage fuer sichere
+Retries, ersetzt aber noch nicht den spaeteren vollstaendigen, headless
+Missionsausfuehrungskern.
 
 ### E2 - Reinen Missionsausfuehrungskern extrahieren
 
@@ -387,8 +439,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       offizielle SDK bauen und im 2D-/physischen EFB testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
-- [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
-- [ ] Web-seitigen read-only Snapshot zum Tracker transportieren.
+- [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
+      Einzel-Run, Owner, Revision, Effektjournal und Missionstyp-Adaptern
+      implementieren; Alpha-In-Sim-/Mehrgeraetetest steht aus.
+- [x] Web-seitigen Resume-Snapshot zum Tracker transportieren und persistent
+      speichern; vollstaendige fachliche Tracker-Runtime bleibt eine spaetere
+      Ausbaustufe.
+- [ ] Tracker v325 gegen zwei Browsergeraete testen: Konflikt ohne Flackern,
+      expliziter Handoff, Reload, Tracker-Neustart, Reset, Clear, Direct-to und
+      normaler Abschluss.
 - [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
@@ -396,6 +455,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-10: Tracker v325 fuehrt vor der vollstaendigen Headless-Migration
+  einen persistenten Einzel-Run als Missionswahrheit ein. Fremde Web-Apps
+  beobachten diesen Run und koennen ihn nur ueber einen expliziten Handoff
+  uebernehmen; die bisherige automatische Mismatch-Bereinigung entfaellt.
+  Resume v2 deckt APT, POI, Survey, POI-Ketten, Training, Bush/Pickup und
+  SAR-Heli sowie Cargo-/Compliance-Facetten ab. Reset, Clear, Abschluss, neue
+  Mission und Direct-to besitzen getrennte Freigabegruende.
 - 2026-08-10: Ab Tracker Desktop 1.6.0 aktualisiert sich auch die installierte
   Bootstrap-/Desktop-App ueber den getrennten Desktop-Kanal. Downloads werden
   per SHA-512-Metadaten geprueft, koennen automatisch vorbereitet werden und

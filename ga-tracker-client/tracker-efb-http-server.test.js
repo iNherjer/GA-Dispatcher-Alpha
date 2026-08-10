@@ -23,7 +23,7 @@ function request(address, pathname, method = 'GET') {
   });
 }
 
-test('local EFB hello advertises only implemented read-only capabilities', () => {
+test('local EFB hello advertises only implemented read-only snapshot capabilities', () => {
   const hello = createTrackerEfbHttpHello({
     trackerVersion: 'v324',
     trackerVersionCode: 324,

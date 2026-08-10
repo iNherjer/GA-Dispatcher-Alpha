@@ -8,7 +8,7 @@ const {
   readTrackerRelayHello
 } = require('./tracker-efb-relay-core');
 
-test('tracker relay hello advertises only capabilities implemented by the legacy runtime', () => {
+test('tracker relay hello advertises the implemented legacy and mission-authority capabilities', () => {
   const hello = createTrackerRelayHello({
     trackerVersion: 'v321',
     trackerVersionCode: 321,

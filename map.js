@@ -8015,6 +8015,8 @@ function renderMainRoute() {
                                 isPlanningOnlyMode = String(parsed?.profile || '').toLowerCase() === 'freeflight_planning';
                             }
                             if (isPlanningOnlyMode) {
+                                if (typeof window.confirmMissionAuthorityReplacement === 'function'
+                                    && !window.confirmMissionAuthorityReplacement('die POI-Freiflugplanung', 'poi-freeflight-planning')) return;
                                 if (titleEl) titleEl.innerHTML = '🧭 Freiflug · POI-Ziel';
                                 if (storyEl) storyEl.innerText = 'Kein Missionsauftrag erstellt. Das POI-Ziel wurde im Freiflug-/Planungsmodus verschoben.';
                                 if (typeof currentMissionData !== 'undefined' && currentMissionData) {
@@ -8674,6 +8676,8 @@ async function applyAirportDirectTo(airport, options = {}) {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
     }
+    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+        && !window.confirmMissionAuthorityReplacement('Direct-to', 'airport-direct-to')) return false;
     const destAirport = normalizeAirportForMap(airport);
     if (!destAirport || !destAirport.icao || !Number.isFinite(destAirport.lat) || !Number.isFinite(destAirport.lon)) return false;
 
@@ -8789,6 +8793,8 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
     }
+    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+        && !window.confirmMissionAuthorityReplacement('den Homebase-Besuch', 'crew-homebase-visit')) return false;
     const lat = Number(homebase.lat ?? homebase.spawn?.lat);
     const lon = Number(homebase.lon ?? homebase.spawn?.lon);
     const departureIcao = String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
@@ -15315,6 +15321,8 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
         try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
         return false;
     }
+    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+        && !window.confirmMissionAuthorityReplacement('Direct-to', 'freeflight-direct-to')) return false;
     if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
     // GPS-Start aktualisieren falls verfuegbar
     if (isGpsLive()) {
