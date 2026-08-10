@@ -470,9 +470,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       ohne Wirkung; 0.3.3 wird nicht ausgeliefert.
 - [x] EFB 0.3.4 mit echten DOM-`onclick`-Handlern bauen und testen. Karte/Status,
       Layerdialog, Layerauswahl und Follow funktionieren neben Pan und Zoom.
-- [ ] EFB 0.3.5 mit 50-Prozent-Basiskarten-Deckkraft beim Aero-Overlay, dem
+- [x] EFB 0.3.5 mit 50-Prozent-Basiskarten-Deckkraft beim Aero-Overlay, dem
       gelben 40-px-Web-Flugzeugmarker und entprellter Missionsanzeige durchs
-      offizielle SDK bauen und im 2D-/physischen EFB testen.
+      offizielle SDK bauen, im 2D-/physischen EFB testen und als
+      `efb-app-v0.3.5` im Alpha-Kanal freigeben.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -501,6 +502,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-10: EFB 0.3.5 ist nach SDK-1.7.2-Build und In-Sim-Test als
+  unveraendertes Alpha-Artefakt `efb-app-v0.3.5` freigegeben. Der Remote-
+  Rueckdownload wurde mit 86.714 Bytes und SHA-256
+  `c08566a59a22abba803370abd9d0480d80642e8a2a0175e48897d354946446b2`
+  erneut validiert. `efb/channel/alpha.json` zeigt auf dieses Release; Stable
+  bleibt unveraendert deaktiviert.
 - 2026-08-10: Der Relay-Pfad verteilt Tracker-ACKs an mehrere verbundene
   Browser. Ab Web-Cache v1614 verarbeitet ein Browser missionsbezogene ACKs nur
   fuer selbst gesendete `commandId`. Ein Tracker-bestaetigter Handoff darf den

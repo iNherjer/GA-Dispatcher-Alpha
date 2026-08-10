@@ -91,3 +91,9 @@ Das ZIP wird unter dem ausgegebenen unveränderlichen Tag als GitHub-Release-
 Asset hochgeladen. Erst danach wird die erzeugte `alpha.json` bewusst nach
 `ga-tracker-client/efb/channel/alpha.json` übernommen und veröffentlicht.
 Stable wird später auf exakt dasselbe getestete Release-Artefakt gesetzt.
+
+0.3.5 wurde am 10.08.2026 nach dem SDK- und In-Sim-Test als Alpha-Release
+`efb-app-v0.3.5` veroeffentlicht. Das Remote-Archiv ist 86.714 Bytes gross und
+hat SHA-256
+`c08566a59a22abba803370abd9d0480d80642e8a2a0175e48897d354946446b2`.
+Der Stable-Kanal bleibt fuer eine spaetere, artefaktgleiche Promotion gesperrt.

@@ -35,6 +35,15 @@ Desktop-App verwendet. Die Vorlage aktiviert den Online-Kanal nicht selbst;
 das geschieht erst nach Upload des unveränderlichen GitHub-Release-Assets und
 dem In-Sim-Test.
 
+## Aktueller Alpha-Stand
+
+EFB 0.3.5 ist seit 2026-08-10 als Alpha-Release unter
+`efb-app-v0.3.5` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
+erzeugte Community-Paket wurde nach dem In-Sim-Test erneut heruntergeladen,
+entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
+Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
+zur getrennten Promotion deaktiviert.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf
