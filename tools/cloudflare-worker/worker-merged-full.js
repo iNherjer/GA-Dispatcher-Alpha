@@ -2641,7 +2641,7 @@ export default {
 
       if (request.method === "POST") {
         let rawBody = await request.text();
-        if (rawBody.length > 100 * 1024) {
+        if (rawBody.length > 256 * 1024) {
           return json({ error: "Zu groß" }, 413);
         }
 

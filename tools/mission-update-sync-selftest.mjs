@@ -253,7 +253,7 @@ const uploadContext = {
     Date,
     Promise,
     SYNC_URL: 'https://example.invalid/api/sync/',
-    SYNC_MAX_UPLOAD_BYTES: 100 * 1024,
+    SYNC_MAX_UPLOAD_BYTES: 256 * 1024,
     localSyncTime: 100,
     lastSyncedPayloadStr: '',
     getSyncId: () => 'PILOT',
@@ -307,18 +307,19 @@ assert.equal(uploadStorage.api.getItem('ga_sync_pending_upload_v1'), null, 'succ
 
 assert.match(
     syncSource,
-    /const SYNC_MAX_UPLOAD_BYTES = 100 \* 1024;/,
-    'the browser upload limit must match the worker 100 KiB contract'
+    /const SYNC_MAX_UPLOAD_BYTES = 256 \* 1024;/,
+    'the browser upload limit must match the worker 256 KiB contract'
 );
 assert.match(
     workerSource,
-    /rawBody\.length > 100 \* 1024/,
-    'the worker contract must continue to accept the same 100 KiB limit'
+    /rawBody\.length > 256 \* 1024/,
+    'the worker contract must continue to accept the same 256 KiB limit'
 );
 let nearLimitFetches = 0;
 uploadContext._syncBuildUploadPayload = () => ({
     compacted: true,
-    bodyStr: 'x'.repeat(97005)
+    payload: {},
+    bodyStr: 'x'.repeat(180 * 1024)
 });
 uploadContext.fetch = async () => {
     nearLimitFetches += 1;
@@ -329,7 +330,7 @@ const nearLimitUpload = await vm.runInContext('triggerCloudSave', uploadContext)
     skipHomebase: true,
     reason: 'near-worker-limit-test'
 });
-assert.equal(nearLimitUpload.ok, true, 'a 97 KB profile accepted by the worker must not be rejected by the browser');
+assert.equal(nearLimitUpload.ok, true, 'a grown mission profile accepted by the worker must not be rejected by the browser');
 assert.equal(nearLimitFetches, 1, 'the near-limit profile must reach the worker');
 
 const updateBlock = sourceBetween(appSource, 'window.forceAppUpdate = async function()', '// === AUTO-RESIZE');

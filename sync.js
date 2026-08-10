@@ -4,9 +4,9 @@
    ========================================================= */
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
 const AUTH_VERIFY_URL = 'https://ga-proxy.einherjer.workers.dev/api/auth/verify';
-// Muss dem Worker-Vertrag entsprechen: /api/sync/* akzeptiert bis zu 100 KiB.
+// Muss dem Worker-Vertrag entsprechen: /api/sync/* akzeptiert bis zu 256 KiB.
 // Beide Seiten pruefen die Laenge des bereits dekodierten JSON-Strings.
-const SYNC_MAX_UPLOAD_BYTES = 100 * 1024;
+const SYNC_MAX_UPLOAD_BYTES = 256 * 1024;
 const SYNC_PENDING_UPLOAD_KEY = 'ga_sync_pending_upload_v1';
 let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 let lastSyncedPayloadStr = "";

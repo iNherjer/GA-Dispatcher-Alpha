@@ -280,6 +280,13 @@ Cloud-Upload protokolliert ausserdem Roh-, Kompakt- und Komponentengroessen fuer
 die Diagnose; eine Aenderung des serverseitigen Profil-Limits ist davon
 getrennt.
 
+Nach ausdruecklicher Freigabe wurde das bestehende Profil-Limit anschliessend
+von 100 auf 256 KiB erweitert. Das bleibt weit unter den Cloudflare-Grenzen,
+fuegt keine Datenfelder und keinen Dienst hinzu und veraendert weder die Anzahl
+der Worker-Requests noch der KV-Schreibvorgaenge. Stable-Clients mit kleineren
+Profilen bleiben kompatibel; die Alpha-App behaelt ihre stufenweise
+Kompaktierung und nutzt nur den groesseren Sicherheitsabstand.
+
 ### E2 - Reinen Missionsausfuehrungskern extrahieren
 
 Status: geplant
@@ -494,6 +501,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Telemetriepakets. Fehler in diesem Zusatzkanal duerfen Position, Flugzustand
   und LIVE-Anzeige nicht mehr verwerfen; der Revisionsvergleich akzeptiert
   explizit einen noch nicht vorhandenen lokalen Authority-State.
+- 2026-08-10: Das bestehende Cloud-Profil darf nach ausdruecklicher Freigabe bis
+  256 KiB gross sein. Client und Worker verwenden dieselbe Grenze; die
+  Sync-Frequenz und damit die Free-Kontingente nach Request-/Write-Anzahl bleiben
+  unveraendert.
 - 2026-08-10: Tracker v325 fuehrt vor der vollstaendigen Headless-Migration
   einen persistenten Einzel-Run als Missionswahrheit ein. Fremde Web-Apps
   beobachten diesen Run und koennen ihn nur ueber einen expliziten Handoff
