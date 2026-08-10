@@ -256,6 +256,19 @@ kleine technische ACK-Zusammenfassung. Es ist die Grundlage fuer sichere
 Retries, ersetzt aber noch nicht den spaeteren vollstaendigen, headless
 Missionsausfuehrungskern.
 
+Mehrgeraetetest 2026-08-10, erster v325-Stand: Der Tracker-Run und der explizite
+Handoff funktionierten, der uebernommene Runtime-Snapshot wurde jedoch vom
+lokalen Fresh-Start-Schutz als `state:fresh-start` verworfen. Dadurch schrieb
+das neue Geraet seinen lokalen `prepare`-/Boardingstand zurueck, obwohl der
+Tracker bereits `boarded` oder `active` gespeichert hatte. Zusaetzlich
+verarbeiteten beide Browser die ueber das Relay ausgestrahlten ACKs des jeweils
+anderen Clients. Web-Cache v1614 behebt beides: `authorityConfirmed` wird bis
+zum Runtime-Restore durchgereicht, fremde Mission-ACKs werden per lokaler
+`commandId` ignoriert und der vorherige Owner wird bei einer neueren
+Owner-Revision zum schreibgeschuetzten Beobachter demotiert. Semantische
+Start-/Runtime-Phasenwechsel werden sofort zum Tracker geschrieben; der
+periodische 10-Sekunden-Pfad bleibt nur fuer nichtkritische Zwischenstaende.
+
 ### E2 - Reinen Missionsausfuehrungskern extrahieren
 
 Status: geplant
@@ -448,6 +461,9 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker v325 gegen zwei Browsergeraete testen: Konflikt ohne Flackern,
       expliziter Handoff, Reload, Tracker-Neustart, Reset, Clear, Direct-to und
       normaler Abschluss.
+- [ ] Web-Cache v1614 gegen den konkreten Boarding-Handoff erneut testen:
+      `boarded` und `active` muessen vom Tracker gewinnen; auf dem alten Geraet
+      duerfen keine fremden Boarding-/Szenen-ACKs den lokalen Zustand aendern.
 - [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
@@ -455,6 +471,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-10: Der Relay-Pfad verteilt Tracker-ACKs an mehrere verbundene
+  Browser. Ab Web-Cache v1614 verarbeitet ein Browser missionsbezogene ACKs nur
+  fuer selbst gesendete `commandId`. Ein Tracker-bestaetigter Handoff darf den
+  lokalen Fresh-Start-Guard uebersteuern; ein abgeloester Owner stoppt seine
+  Snapshot-Schreibversuche und bleibt Beobachter.
 - 2026-08-10: Tracker v325 fuehrt vor der vollstaendigen Headless-Migration
   einen persistenten Einzel-Run als Missionswahrheit ein. Fremde Web-Apps
   beobachten diesen Run und koennen ihn nur ueber einen expliziten Handoff

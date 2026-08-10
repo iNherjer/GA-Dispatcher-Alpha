@@ -93,6 +93,16 @@ Tracker versionierte Resume-Bundles. Dadurch wird Split Brain verhindert,
 bevor der reine Missionsausfuehrungskern vollstaendig headless im Tracker
 laufen kann.
 
+Die Web-App behandelt den Relay-Kanal als Broadcast-Transport: Authority-,
+Lifecycle- und Szenen-ACKs werden deshalb nur verarbeitet, wenn ihre
+`commandId` lokal gesendet wurde. Ein fremdes ACK darf weder Boarding, Manifest
+noch Szenenstatus dieses Browsers veraendern. Meldet der Tracker fuer denselben
+Run einen anderen Owner mit mindestens derselben Revision, verwirft der alte
+Owner seine lokale Schreibberechtigung, stoppt ausstehende Snapshot-Updates und
+bleibt Beobachter. Ein explizit bestaetigter Handoff darf dagegen den lokalen
+Fresh-Start-Restore-Schutz uebersteuern und muss den Tracker-Snapshot vor dem
+ersten eigenen Update vollstaendig anwenden.
+
 Der Relay-Vertrag kennt dafuer folgende additive Commands und ACKs:
 
 - `mission_authority_acquire`

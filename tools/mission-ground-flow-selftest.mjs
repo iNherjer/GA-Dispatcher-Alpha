@@ -148,7 +148,9 @@ assert.doesNotMatch(manualMissionEndSection, /groundAction\.action === 'unload' 
 assert.doesNotMatch(simRoute, /mode: '(?:unload|pickup)', trigger: 'sim:end_hold'/);
 assert.match(simRoute, /groundAction\?\.action === 'unload'[\s\S]{0,220}openMissionCargoDialog\('unload'\)[\s\S]{0,100}return false/);
 assert.match(sync, /function _prepareFreshMissionRuntimeStart\(/);
-assert.match(sync, /missionRuntimeResumeSuppressedFor === snapId[\s\S]{0,420}state: 'fresh-start'/);
+assert.match(sync, /function _missionAuthorityShouldSuppressFreshStartRestore\(/);
+assert.match(sync, /missionRuntimeResumeSuppressedFor === missionId[\s\S]{0,220}options\.authorityConfirmed !== true/);
+assert.match(sync, /_missionAuthorityShouldSuppressFreshStartRestore\(snapId, options\)[\s\S]{0,260}state: 'fresh-start'/);
 assert.match(sync, /const shouldBeActive = !!runtime\.active \|\| \['active', 'end_ready'\]\.includes\(phase\)/);
 assert.doesNotMatch(sync, /const shouldBeActive = trackerActive \|\|/);
 const startBannerAction = section(sync, 'window.handleMissionStartBannerAction = async function', '// --- LIVE TRAFFIC ---');

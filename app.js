@@ -8754,7 +8754,14 @@ async function restoreMissionState(state, options = {}) {
         });
     } catch (_) {}
     if (resumeRuntime && !restoredFreeflightOnly && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
-        try { window.missionRuntimeRestoreFromSnapshot(null, { reason: 'mission-state-restore' }); } catch (_) {}
+        try {
+            window.missionRuntimeRestoreFromSnapshot(null, {
+                reason: 'mission-state-restore',
+                authorityConfirmed,
+                trackerConfirmed: authorityConfirmed && restoreSource === 'tracker-authority',
+                trackerActive: authorityConfirmed && restoreSource === 'tracker-authority'
+            });
+        } catch (_) {}
     }
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;

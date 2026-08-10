@@ -1,6 +1,6 @@
 # Mission Flow Reference
 
-Stand: 30.07.2026
+Stand: 10.08.2026
 
 Diese Datei ist die kurze operative Referenz fuer den aktuellen Missionsablauf.
 Sie beantwortet zuerst:
@@ -298,6 +298,13 @@ haben.
 - Alte Passenger-Pickup-Manifeste werden um Begleitfracht erweitert. Ist der
   Pickup bereits geladen oder abgeschlossen, wird die Migration passend zum
   vorhandenen Zustand ausgefuehrt, damit keine unerfuellbare Bedingung entsteht.
+- Eine ausdruecklich bestaetigte Tracker-Geraeteuebergabe restauriert den
+  autoritativen Runtime-, Boarding- und Manifeststand auch dann, wenn dieses
+  Geraet die Mission zuvor bewusst als frischen Start geoeffnet hatte. Der
+  lokale Fresh-Start-Schutz darf nur automatische lokale Restores blockieren.
+- Nach einer Geraeteuebergabe wird der bisherige Owner zum Beobachter. ACKs und
+  Snapshot-Schreibversuche anderer Clients duerfen seinen lokalen Missionsstand
+  nicht mehr fortschalten oder wieder zum Tracker zurueckschreiben.
 - Sim- und Live-Modus verwenden dieselben fachlichen Gates. Nur Scene-ACK,
   Telemetriequelle und sichtbare Animation unterscheiden sich.
 

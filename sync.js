@@ -1857,7 +1857,10 @@ function _setMissionRuntimePhase(phase = 'idle', options = {}) {
             trigger: options.reason || 'set-runtime-phase'
         });
     }
-    _persistMissionRuntimeSnapshot(options.reason || 'set-runtime-phase');
+    _persistMissionRuntimeSnapshot(
+        options.reason || 'set-runtime-phase',
+        prev !== next ? { immediate: true } : {}
+    );
     if (options.updateUi !== false) _updateMissionRuntimeUi();
     return next;
 }
@@ -1881,6 +1884,7 @@ const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
 const missionAuthorityAckWaiters = new Map();
+const missionAuthorityLocalCommandIds = new Map();
 let missionRuntimeSnapshotTimer = null;
 let missionRuntimeLastPersistAt = 0;
 let missionRuntimePendingSnapshotReason = '';
@@ -1895,6 +1899,10 @@ let missionAuthorityLastSnapshotHash = '';
 let missionAuthorityLastSnapshotPushAt = 0;
 let missionAuthoritySnapshotPushTimer = null;
 let missionAuthorityAdoptPromise = null;
+let missionAuthorityForeignAckLastSig = '';
+let missionAuthorityForeignAckLastLogAt = 0;
+const MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS = 10 * 60 * 1000;
+const MISSION_AUTHORITY_LOCAL_COMMAND_MAX = 800;
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -1922,6 +1930,41 @@ function _missionAuthorityClientId() {
         }
         return window.__gaMissionAuthorityClientId;
     }
+}
+
+function _rememberMissionAuthorityLocalCommand(commandId = '', type = '') {
+    const id = String(commandId || '').trim();
+    if (!id) return false;
+    const now = Date.now();
+    missionAuthorityLocalCommandIds.set(id, {
+        type: String(type || '').trim().toLowerCase(),
+        sentAt: now
+    });
+    for (const [storedId, entry] of missionAuthorityLocalCommandIds) {
+        if (missionAuthorityLocalCommandIds.size <= MISSION_AUTHORITY_LOCAL_COMMAND_MAX
+            && now - Number(entry?.sentAt || 0) <= MISSION_AUTHORITY_LOCAL_COMMAND_TTL_MS) break;
+        missionAuthorityLocalCommandIds.delete(storedId);
+    }
+    return true;
+}
+
+function _missionAuthorityAckWasSentLocally(ack = {}) {
+    const commandId = String(ack?.commandId || '').trim();
+    return !!(commandId && missionAuthorityLocalCommandIds.has(commandId));
+}
+
+function _missionAuthorityIncomingRunRelation(local = null, active = null, clientId = '') {
+    if (!active?.missionId || !active?.runId) return 'none';
+    const ownClientId = String(clientId || '').trim();
+    const localRevision = Math.max(0, Math.round(Number(local.revision) || 0));
+    const activeRevision = Math.max(0, Math.round(Number(active.revision) || 0));
+    if (local?.runId === active.runId
+        && localRevision
+        && activeRevision
+        && activeRevision < localRevision) return 'stale';
+    if (active.ownerClientId === ownClientId) return 'owner';
+    if (!local?.runId || local.runId !== active.runId) return 'foreign';
+    return 'demote';
 }
 
 function _readMissionAuthorityState() {
@@ -1956,6 +1999,10 @@ function _writeMissionAuthorityState(next = null) {
 
 function _clearMissionAuthorityState(reason = 'clear') {
     const previous = _readMissionAuthorityState();
+    if (missionAuthoritySnapshotPushTimer) {
+        clearTimeout(missionAuthoritySnapshotPushTimer);
+        missionAuthoritySnapshotPushTimer = null;
+    }
     _writeMissionAuthorityState(null);
     missionAuthorityLastSnapshotHash = '';
     missionAuthoritySnapshotSequence = 0;
@@ -2111,6 +2158,14 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
     if (!local?.runId || !missionId || local.missionId !== missionId) return false;
     const push = () => {
         missionAuthoritySnapshotPushTimer = null;
+        const currentLocal = _readMissionAuthorityState();
+        if (!currentLocal?.runId
+            || currentLocal.missionId !== missionId
+            || currentLocal.clientId !== _missionAuthorityClientId()) return;
+        const trackerRun = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
+        if (trackerRun?.runId && trackerRun.runId !== currentLocal.runId) return;
+        const relation = _missionAuthorityIncomingRunRelation(currentLocal, trackerRun, _missionAuthorityClientId());
+        if (relation === 'demote' || relation === 'foreign') return;
         const bundle = _buildMissionAuthorityResumeBundle(reason);
         if (!bundle) return;
         const runtimeForHash = _safeCloneJson(bundle.runtime, null) || {};
@@ -2133,8 +2188,8 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
         window.sendTrackerCommand({
             type: 'mission_snapshot_update',
             missionId,
-            runId: local.runId,
-            clientId: local.clientId,
+            runId: currentLocal.runId,
+            clientId: currentLocal.clientId,
             snapshotSequence: missionAuthoritySnapshotSequence,
             state: missionRuntime.closingPending ? 'closing' : 'active',
             missionPhase: _missionRuntimePhaseSnapshot(),
@@ -3940,6 +3995,9 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
     if (/^mission_scene_(spawn|boarding|deboarding|ground_visit)$/i.test(String(command.type || '')) && command.sceneId) {
         _rememberMissionSceneId(command.sceneId);
     }
+    if (missionScopedCommand || missionAuthorityProtocol) {
+        _rememberMissionAuthorityLocalCommand(commandId, commandType);
+    }
     ws.send(JSON.stringify(payload));
     _trackerPendingMarkSent(trackerCommand, commandId, options);
     if (missionScopedCommand) {
@@ -4120,20 +4178,37 @@ function _restoreCargoManifestFromRuntimeSnapshot(snapshot = null) {
     return true;
 }
 
+function _missionAuthorityShouldSuppressFreshStartRestore(snapshotMissionId = '', options = {}) {
+    const missionId = _normalizeMissionRuntimeId(snapshotMissionId || '');
+    return !!(
+        missionId
+        && missionRuntimeResumeSuppressedFor === missionId
+        && !missionRuntime.active
+        && !missionRuntime.closingPending
+        && options.authorityConfirmed !== true
+    );
+}
+
 function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     const snap = snapshot || _readMissionRuntimeSnapshot();
     if (!snap || !_snapshotMatchesActiveMission(snap)) return false;
     const snapId = _missionRuntimeSnapshotMissionId(snap);
-    if (snapId
-        && missionRuntimeResumeSuppressedFor === snapId
-        && !missionRuntime.active
-        && !missionRuntime.closingPending) {
+    if (_missionAuthorityShouldSuppressFreshStartRestore(snapId, options)) {
         _missionPhaseDebugPush('resume_suppressed', {
             reason: options.reason || 'mission-resume',
             missionId: snapId,
             state: 'fresh-start'
         });
         return false;
+    }
+    if (snapId
+        && missionRuntimeResumeSuppressedFor === snapId
+        && options.authorityConfirmed === true) {
+        _missionPhaseDebugPush('resume_fresh_start_guard_overridden', {
+            reason: options.reason || 'mission-resume',
+            missionId: snapId,
+            source: 'tracker-authority'
+        });
     }
     const ageMs = Date.now() - Number(snap.savedAt || 0);
     const pendingCompletion = _readPendingMissionDebrief();
@@ -4186,11 +4261,11 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     }
 
     if (shouldBeActive) {
-        _setMissionStartPhase('boarded');
+        _setMissionStartPhase('boarded', { persist: false });
     } else if (['prepare', 'boarding', 'boarded'].includes(startPhase)) {
         // Nicht-idempotente Boarding-Animationen werden nach einem Reload nie
         // als laufend restauriert. Der Pilot kann sie kontrolliert neu starten.
-        _setMissionStartPhase(startPhase === 'boarding' ? 'prepare' : startPhase);
+        _setMissionStartPhase(startPhase === 'boarding' ? 'prepare' : startPhase, { persist: false });
     }
 
     missionRuntime.phase = shouldBeClosing ? 'closing' : (phase === 'end_ready' ? 'end_ready' : (shouldBeActive ? 'active' : _missionRuntimePhaseSnapshot()));
@@ -4249,6 +4324,7 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     }
 
     missionRuntimeResumeAppliedFor = snapId;
+    if (missionRuntimeResumeSuppressedFor === snapId) missionRuntimeResumeSuppressedFor = '';
     _missionPhaseDebugPush('resume_restore', {
         reason: options.reason || 'mission-resume',
         missionId: snapId,
@@ -4384,10 +4460,10 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
 
 function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'tracker-authority') {
     if (!snapshot || typeof snapshot !== 'object') return false;
-    window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
     const active = snapshot.activeRun && typeof snapshot.activeRun === 'object' ? snapshot.activeRun : null;
-    const local = _readMissionAuthorityState();
+    let local = _readMissionAuthorityState();
     if (!active?.missionId || !active?.runId) {
+        window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
         window.lastTrackerMissionStatus = null;
         if (local?.runId) _clearMissionAuthorityState(`${reason}:tracker-no-active-run`);
         if (window.missionRuntimeResumeConflict?.trackerActive) {
@@ -4395,6 +4471,29 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
             _updateMissionRuntimeUi();
         }
         return true;
+    }
+    const relation = _missionAuthorityIncomingRunRelation(local, active, _missionAuthorityClientId());
+    if (relation === 'stale') {
+        _missionPhaseDebugPush('authority_snapshot_stale_ignored', {
+            reason,
+            missionId: active.missionId,
+            runId: active.runId,
+            incomingRevision: Number(active.revision || 0),
+            localRevision: Number(local?.revision || 0)
+        });
+        return false;
+    }
+    window.lastTrackerMissionAuthority = { ...snapshot, receivedAt: Date.now() };
+    if (relation === 'demote') {
+        _clearMissionAuthorityState(`${reason}:owner-transferred`);
+        local = null;
+        _missionPhaseDebugPush('authority_demoted_to_observer', {
+            reason,
+            missionId: active.missionId,
+            runId: active.runId,
+            ownerClientId: active.ownerClientId || null,
+            revision: Number(active.revision || 0)
+        });
     }
     const trackerMissionId = _normalizeMissionRuntimeId(active.missionId);
     const sameOwner = active.ownerClientId === _missionAuthorityClientId();
@@ -8801,6 +8900,28 @@ window.missionComplianceReleaseGroundVisit = function(state = null) {
 
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
+    const ackType = String(ack.type || '').toLowerCase();
+    const ackCommandId = String(ack.commandId || '').trim();
+    const authorityScopedAck = /^(mission_(authority|snapshot|scene|smoke)_|mission_lifecycle_ack)/i.test(ackType);
+    if (_trackerSupportsMissionAuthority()
+        && authorityScopedAck
+        && ackCommandId
+        && !_missionAuthorityAckWasSentLocally(ack)) {
+        const now = Date.now();
+        const signature = `${ackType}|${ackCommandId}|${ack.status || ''}|${ack.error || ''}`;
+        if (signature !== missionAuthorityForeignAckLastSig || now - missionAuthorityForeignAckLastLogAt > 30000) {
+            missionAuthorityForeignAckLastSig = signature;
+            missionAuthorityForeignAckLastLogAt = now;
+            _missionPhaseDebugPush('foreign_tracker_ack_ignored', {
+                type: ack.type || '',
+                commandId: ackCommandId,
+                missionId: ack.missionId || null,
+                status: ack.status || '',
+                error: ack.error || ''
+            });
+        }
+        return;
+    }
     _trackerPendingHandleAck(ack);
     const authorityAck = /^mission_(authority|snapshot)_.*_ack$/i.test(String(ack.type || ''));
     if (authorityAck) {
@@ -9353,7 +9474,7 @@ function _missionStartPhase() {
     }
 }
 
-function _setMissionStartPhase(phase) {
+function _setMissionStartPhase(phase, options = {}) {
     try {
         const key = _missionStartPhaseKey();
         if (!key) return;
@@ -9371,7 +9492,9 @@ function _setMissionStartPhase(phase) {
                 trigger: 'set-start-phase'
             });
         }
-        _persistMissionRuntimeSnapshot('set-start-phase');
+        if (options.persist !== false) {
+            _persistMissionRuntimeSnapshot('set-start-phase', prev !== next ? { immediate: true } : {});
+        }
     } catch (_) {}
 }
 
