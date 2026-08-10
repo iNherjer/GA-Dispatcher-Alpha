@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie und den
 technischen Missionssnapshot vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Karten-Prototyp 0.3.3
+## Karten-Prototyp 0.3.4
 
 Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
 versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das
@@ -20,7 +20,7 @@ keine Pilot-, Missions- oder Tracker-Zugangsdaten. Die Layerauswahl wird nur
 lokal im EFB gespeichert; Kartenkacheln werden nicht als eigenes Offlinepaket
 verteilt.
 
-0.3.3 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
+0.3.4 verwendet fuer Karten- und Statusflaeche bewusst app-spezifische
 CSS-Klassen und initialisiert Leaflet erst nach `AppView.onAfterRender`. Die
 Vollflaechen verwenden explizite `top`-/`left`-Positionen sowie Breite und
 Hoehe. Leaflet startet erst, nachdem der Host eine messbare Layoutgroesse
@@ -29,6 +29,13 @@ Pointer-Overlay-Ebene oberhalb des Leaflet-Hosts: freie Kartenbereiche bleiben
 fuer Pan und Zoom durchlaessig, Buttons und der geoeffnete Layerdialog nehmen
 Eingaben selbst an. Ein verbleibender Leaflet-Fehler wird sichtbar in der App
 und mit Praefix `[VFR Multitool EFB]` im EFB-Debugger ausgegeben.
+
+Native JSX-Buttons verwenden bewusst kein `onClick`-Attribut. Die in SDK 1.7.2
+enthaltene `FSComponent`-Version registriert damit keinen DOM-Listener, sondern
+schreibt unbekannte Props nur als HTML-Attribute. Deshalb bindet 0.3.4 Karte,
+Status, Layer, Follow und die Layerauswahl erst in `onAfterRender` direkt ueber
+`HTMLButtonElement.onclick`. Das entspricht dem Bindungsweg des offiziellen
+EFB-`Button`, behaelt aber die app-spezifischen Kartenstyles bei.
 
 ## SDK-Eingaben
 

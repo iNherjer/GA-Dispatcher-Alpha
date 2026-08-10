@@ -32,9 +32,14 @@ unsichtbar. EFB 0.3.2 ersetzte deshalb die fuer Coherent verdaechtige
 bei messbarer Hostgroesse. Dadurch sind Karte, Flugzeugmarker und Zoom im
 Simulator sichtbar und funktionsfaehig; die ueber Leaflet liegenden
 Layer-/Follow-Bedienelemente nehmen jedoch noch keine Eingaben an. EFB 0.3.3
-trennt diese Bedienelemente deshalb in eine eigene Pointer-Overlay-Ebene. Bis
-zu dessen Freigabe bleibt der Alpha-Kanal auf 0.2.0; es gibt keine automatische
-Vorabinstallation des Karten-Prototyps.
+trennt diese Bedienelemente deshalb in eine eigene Pointer-Overlay-Ebene. Der
+In-Sim-Test zeigt dort weiterhin: Leaflet-Zoom funktioniert, alle app-eigenen
+Buttons bleiben ohne Wirkung. Die Analyse der mit SDK 1.7.2 ausgelieferten
+`FSComponent`-Implementierung ergab, dass native JSX-`onClick`-Props nicht als
+Listener registriert, sondern nur als HTML-Attribute gesetzt werden. EFB 0.3.4
+bindet deshalb alle eigenen Buttons nach `onAfterRender` direkt ueber
+`HTMLButtonElement.onclick`. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
+0.2.0; es gibt keine automatische Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
 
@@ -367,9 +372,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       bauen und testen. Karte, Tiles, Flugzeugmarker und Zoom funktionieren;
       Layer-/Follow-Bedienelemente reagieren noch nicht. 0.3.2 wird nicht
       ausgeliefert.
-- [ ] EFB 0.3.3 mit getrennter Pointer-Overlay-Ebene bauen; zuerst Layer,
-      Follow und Karte/Status, danach Pan, Zoom, Orientation und
-      Tracker-Recovery gemeinsam testen.
+- [x] EFB 0.3.3 mit getrennter Pointer-Overlay-Ebene bauen und testen. Leaflet-
+      Zoom funktioniert weiterhin, aber Layer, Follow und Karte/Status bleiben
+      ohne Wirkung; 0.3.3 wird nicht ausgeliefert.
+- [ ] EFB 0.3.4 mit echten DOM-`onclick`-Handlern fuer Karte/Status, Layerdialog,
+      Layerauswahl und Follow durchs offizielle SDK bauen. Danach alle Buttons,
+      Pan, Zoom, Orientation und Tracker-Recovery gemeinsam testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
@@ -423,3 +431,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Buttons reagieren noch nicht. 0.3.3 verschiebt die Karten-UI deshalb aus der
   Leaflet-Flaeche in eine eigene durchlaessige Pointer-Overlay-Ebene, deren
   Buttons Eingaben explizit annehmen.
+- 2026-08-10: Auch mit der getrennten Pointer-Overlay-Ebene von 0.3.3 reagieren
+  alle app-eigenen Buttons nicht, waehrend Leaflet-Zoom Eingaben verarbeitet.
+  Die exakte SDK-Abhaengigkeit `@microsoft/msfs-sdk` 2.1.1 setzt unbekannte
+  JSX-Props wie `onClick` lediglich als HTML-Attribute; sie registriert daraus
+  keinen Listener. 0.3.4 entfernt diese JSX-Props und bindet die nativen Buttons
+  nach `onAfterRender` ueber ihre DOM-`onclick`-Eigenschaft. Dieses Verfahren
+  entspricht der internen Ereignisbindung des offiziellen EFB-`Button`.

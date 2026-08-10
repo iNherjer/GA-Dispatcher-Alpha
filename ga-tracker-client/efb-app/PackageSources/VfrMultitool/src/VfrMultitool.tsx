@@ -139,7 +139,34 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   public onAfterRender(node: VNode): void {
     super.onAfterRender(node);
     this.rendered = true;
+    this.bindDomInteractions();
     if (this.active) this.scheduleMapInitialization();
+  }
+
+  private bindButton(button: HTMLButtonElement | null, callback: () => void): void {
+    if (!button) return;
+    button.onclick = (event: MouseEvent): void => {
+      event.preventDefault();
+      event.stopPropagation();
+      callback();
+    };
+  }
+
+  private bindDomInteractions(): void {
+    this.bindButton(this.mapTabRef.getOrDefault(), () => this.setScreen('map'));
+    this.bindButton(this.statusTabRef.getOrDefault(), () => this.setScreen('status'));
+    this.bindButton(this.layerButtonRef.getOrDefault(), () => this.toggleLayerDrawer());
+    this.bindButton(this.followButtonRef.getOrDefault(), () => this.setFollow(!this.preferences.follow, true));
+
+    const drawer = this.layerDrawerRef.getOrDefault();
+    if (!drawer) return;
+    this.bindButton(drawer.querySelector<HTMLButtonElement>('[data-layer-close]'), () => this.closeLayerDrawer());
+    drawer.querySelectorAll<HTMLButtonElement>('[data-base-layer]').forEach((button) => {
+      this.bindButton(button, () => this.activateBaseLayer(String(button.dataset.baseLayer || '')));
+    });
+    drawer.querySelectorAll<HTMLButtonElement>('[data-overlay-layer]').forEach((button) => {
+      this.bindButton(button, () => this.toggleOverlay(String(button.dataset.overlayLayer || '')));
+    });
   }
 
   private activate(): void {
@@ -610,8 +637,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             <span>EFB v{EFB_APP_VERSION}</span>
           </div>
           <nav class="view-switch" aria-label="Ansicht wechseln">
-            <button ref={this.mapTabRef} class="is-active" type="button" onClick={() => this.setScreen('map')}>Karte</button>
-            <button ref={this.statusTabRef} type="button" onClick={() => this.setScreen('status')}>Status</button>
+            <button ref={this.mapTabRef} class="is-active" type="button">Karte</button>
+            <button ref={this.statusTabRef} type="button">Status</button>
           </nav>
           <span ref={this.connectionRef} class="connection-pill">Warte auf Tracker</span>
         </header>
@@ -621,32 +648,32 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         </div>
 
         <div ref={this.mapControlsRef} class="ga-efb-map-controls">
-          <button ref={this.layerButtonRef} class="map-fab layer-button" type="button" title="Kartenebenen" onClick={() => this.toggleLayerDrawer()}>
+          <button ref={this.layerButtonRef} class="map-fab layer-button" type="button" title="Kartenebenen">
             <span class="layer-stack" aria-hidden="true"></span><span>Layer</span>
           </button>
           <aside ref={this.layerDrawerRef} class="layer-drawer" aria-hidden="true">
             <div class="drawer-head">
               <div><span class="drawer-kicker">Kartentisch</span><strong>Kartenebenen</strong></div>
-              <button type="button" title="Layer schließen" onClick={() => this.closeLayerDrawer()}>×</button>
+              <button type="button" title="Layer schließen" data-layer-close="true">×</button>
             </div>
             <span class="layer-group-title">Basiskarte</span>
             <div class="layer-list">
-              <button type="button" data-base-layer="topo" onClick={() => this.activateBaseLayer('topo')}><span></span>OpenTopo · Text</button>
-              <button type="button" data-base-layer="terrain" onClick={() => this.activateBaseLayer('terrain')}><span></span>Terrain</button>
-              <button type="button" data-base-layer="satellite" onClick={() => this.activateBaseLayer('satellite')}><span></span>Satellit</button>
-              <button type="button" data-base-layer="dark" onClick={() => this.activateBaseLayer('dark')}><span></span>Dunkel</button>
-              <button type="button" data-base-layer="light" onClick={() => this.activateBaseLayer('light')}><span></span>Hell</button>
+              <button type="button" data-base-layer="topo"><span></span>OpenTopo · Text</button>
+              <button type="button" data-base-layer="terrain"><span></span>Terrain</button>
+              <button type="button" data-base-layer="satellite"><span></span>Satellit</button>
+              <button type="button" data-base-layer="dark"><span></span>Dunkel</button>
+              <button type="button" data-base-layer="light"><span></span>Hell</button>
             </div>
             <span class="layer-group-title">Overlays</span>
             <div class="layer-list overlays">
-              <button type="button" data-overlay-layer="aero" onClick={() => this.toggleOverlay('aero')}><span></span>VFR-Lufträume / Aero</button>
-              <button type="button" data-overlay-layer="dfs" onClick={() => this.toggleOverlay('dfs')}><span></span>DFS ICAO 1:500k</button>
-              <button type="button" data-overlay-layer="faa" onClick={() => this.toggleOverlay('faa')}><span></span>FAA VFR Sectional</button>
-              <button type="button" data-overlay-layer="dwd" onClick={() => this.toggleOverlay('dwd')}><span></span>DWD Warnungen</button>
+              <button type="button" data-overlay-layer="aero"><span></span>VFR-Lufträume / Aero</button>
+              <button type="button" data-overlay-layer="dfs"><span></span>DFS ICAO 1:500k</button>
+              <button type="button" data-overlay-layer="faa"><span></span>FAA VFR Sectional</button>
+              <button type="button" data-overlay-layer="dwd"><span></span>DWD Warnungen</button>
             </div>
             <p ref={this.layerStatusRef} class="layer-status">Online-Karten werden geladen</p>
           </aside>
-          <button ref={this.followButtonRef} class="map-fab follow-button" type="button" aria-pressed="true" title="Auto-Follow aktiv" onClick={() => this.setFollow(!this.preferences.follow, true)}>
+          <button ref={this.followButtonRef} class="map-fab follow-button" type="button" aria-pressed="true" title="Auto-Follow aktiv">
             <span class="follow-reticle" aria-hidden="true"></span><span>Follow</span>
           </button>
           <div ref={this.mapNoticeRef} class="map-notice">Warte auf Positionsdaten aus dem Simulator</div>

@@ -44,6 +44,18 @@ test('interactive map controls live on a pointer-isolated overlay above Leaflet'
   assert.match(scss, /\.map-fab \{[\s\S]*?pointer-events: auto;/);
 });
 
+test('native EFB buttons bind real DOM click handlers after render', () => {
+  assert.doesNotMatch(tsx, /<button[^>]*\bonClick=/);
+  assert.match(tsx, /this\.bindDomInteractions\(\)/);
+  assert.match(tsx, /button\.onclick = \(event: MouseEvent\): void =>/);
+  assert.match(tsx, /this\.bindButton\(this\.mapTabRef\.getOrDefault\(\)/);
+  assert.match(tsx, /this\.bindButton\(this\.statusTabRef\.getOrDefault\(\)/);
+  assert.match(tsx, /this\.bindButton\(this\.layerButtonRef\.getOrDefault\(\)/);
+  assert.match(tsx, /this\.bindButton\(this\.followButtonRef\.getOrDefault\(\)/);
+  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-base-layer\]'\)/);
+  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-overlay-layer\]'\)/);
+});
+
 test('map initialization failures remain visible and diagnosable', () => {
   assert.match(tsx, /console\.error\('\[VFR Multitool EFB\] Karteninitialisierung fehlgeschlagen'/);
   assert.match(tsx, /Karte konnte nicht initialisiert werden/);
