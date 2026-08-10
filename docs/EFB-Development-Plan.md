@@ -27,10 +27,14 @@ einschliesslich ihrer Bedienelemente blieb schwarz. Der Tilezugriff war dabei
 extern erfolgreich; das Fehlerbild liegt vor der Tile-Darstellung. EFB 0.3.1
 belegte auf einem System mit funktionierender 3D-Ausgabe, dass App, View-Switch
 und Tracker-Poll weiterlaufen. Karten- und Statusflaeche blieben dennoch
-unsichtbar. EFB 0.3.2 ersetzt deshalb die fuer Coherent verdaechtige
+unsichtbar. EFB 0.3.2 ersetzte deshalb die fuer Coherent verdaechtige
 `inset`-Kurzform durch explizite Vollflaechen-Geometrie und startet Leaflet nur
-bei messbarer Hostgroesse. Bis zu dessen Freigabe bleibt der Alpha-Kanal auf
-0.2.0; es gibt keine automatische Vorabinstallation des Karten-Prototyps.
+bei messbarer Hostgroesse. Dadurch sind Karte, Flugzeugmarker und Zoom im
+Simulator sichtbar und funktionsfaehig; die ueber Leaflet liegenden
+Layer-/Follow-Bedienelemente nehmen jedoch noch keine Eingaben an. EFB 0.3.3
+trennt diese Bedienelemente deshalb in eine eigene Pointer-Overlay-Ebene. Bis
+zu dessen Freigabe bleibt der Alpha-Kanal auf 0.2.0; es gibt keine automatische
+Vorabinstallation des Karten-Prototyps.
 
 ## Verbindliche Architekturentscheidungen
 
@@ -359,9 +363,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       `onAfterRender` bauen und testen. View-Switch und Tracker-Recovery laufen,
       Karten- und Statusflaeche bleiben jedoch unsichtbar; 0.3.1 wird nicht
       ausgeliefert.
-- [ ] EFB 0.3.2 mit expliziter Vollflaechen-Geometrie und Layoutgroessen-Gate
-      bauen; zuerst Sichtbarkeit von Karte und Statusseite, danach Touch,
-      Orientation, Tilezugriff und Tracker-Recovery testen.
+- [x] EFB 0.3.2 mit expliziter Vollflaechen-Geometrie und Layoutgroessen-Gate
+      bauen und testen. Karte, Tiles, Flugzeugmarker und Zoom funktionieren;
+      Layer-/Follow-Bedienelemente reagieren noch nicht. 0.3.2 wird nicht
+      ausgeliefert.
+- [ ] EFB 0.3.3 mit getrennter Pointer-Overlay-Ebene bauen; zuerst Layer,
+      Follow und Karte/Status, danach Pan, Zoom, Orientation und
+      Tracker-Recovery gemeinsam testen.
 - [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
       entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
 - [ ] Vertrag und Selftests fuer `mission.snapshot.v2` festlegen.
@@ -410,3 +418,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Tracker aendert den Status weiterhin; die App ist daher nicht eingefroren.
   0.3.2 ersetzt `inset` in den Vollflaechen durch explizite Breite, Hoehe,
   `top` und `left` und prueft die DOM-Groesse vor der Leaflet-Initialisierung.
+- 2026-08-10: 0.3.2 macht OpenTopo, VFR-/Aero-Overlay, Flugzeugmarker und Zoom
+  im Simulator sichtbar und funktionsfaehig. Die schwebenden Layer-/Follow-
+  Buttons reagieren noch nicht. 0.3.3 verschiebt die Karten-UI deshalb aus der
+  Leaflet-Flaeche in eine eigene durchlaessige Pointer-Overlay-Ebene, deren
+  Buttons Eingaben explizit annehmen.

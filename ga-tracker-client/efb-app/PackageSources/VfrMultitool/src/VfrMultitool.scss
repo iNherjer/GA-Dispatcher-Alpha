@@ -105,7 +105,8 @@
   .connection-pill.error { color: #ffe8e8; border-color: #a85353; background: #5d2424; }
 
   .ga-efb-map-view,
-  .ga-efb-map-canvas {
+  .ga-efb-map-canvas,
+  .ga-efb-map-controls {
     position: absolute;
     top: 0;
     left: 0;
@@ -116,6 +117,7 @@
 
   .ga-efb-map-view { z-index: 1; overflow: hidden; background: #c9d0cb; }
   .ga-efb-map-canvas { z-index: 1; }
+  .ga-efb-map-controls { z-index: 1100; pointer-events: none; }
 
   .leaflet-container {
     color: #17212a;
@@ -153,6 +155,7 @@
     cursor: pointer;
     font-size: .75rem;
     font-weight: 700;
+    pointer-events: auto;
     backdrop-filter: blur(7px);
   }
 

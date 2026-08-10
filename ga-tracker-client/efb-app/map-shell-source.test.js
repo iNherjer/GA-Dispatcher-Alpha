@@ -36,6 +36,14 @@ test('full-size views avoid unsupported inset shorthand and gate Leaflet on layo
   assert.match(tsx, /Kartenflaeche wartet auf Layoutgroesse/);
 });
 
+test('interactive map controls live on a pointer-isolated overlay above Leaflet', () => {
+  assert.match(tsx, /mapControlsRef = FSComponent\.createRef<HTMLDivElement>\(\)/);
+  assert.match(tsx, /class="ga-efb-map-controls"/);
+  assert.match(tsx, /this\.mapControlsRef\.getOrDefault\(\)\?\.classList\.toggle\('is-hidden', screen !== 'map'\)/);
+  assert.match(scss, /\.ga-efb-map-controls \{ z-index: 1100; pointer-events: none; \}/);
+  assert.match(scss, /\.map-fab \{[\s\S]*?pointer-events: auto;/);
+});
+
 test('map initialization failures remain visible and diagnosable', () => {
   assert.match(tsx, /console\.error\('\[VFR Multitool EFB\] Karteninitialisierung fehlgeschlagen'/);
   assert.match(tsx, /Karte konnte nicht initialisiert werden/);
