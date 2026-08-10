@@ -1,6 +1,6 @@
 {
   "name": "vfr-multitool-tracker-desktop",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
   "author": "VFR Multitool",
@@ -48,8 +48,8 @@
         "to": "homebase-support/homebase-asset-catalog.js"
       },
       {
-        "from": "../../icon-192.png",
-        "to": "assets/icon.png"
+        "from": "assets/tracker-icon-192.png",
+        "to": "assets/tracker-icon.png"
       }
     ],
     "win": {
@@ -61,7 +61,7 @@
           ]
         }
       ],
-      "icon": "../../icon-512.png"
+      "icon": "assets/tracker-icon-512.png"
     },
     "nsis": {
       "oneClick": false,

@@ -143,7 +143,10 @@ kann aber dieselbe SmartScreen-Warnung wie die bisherige portable EXE ausloesen.
 Die EFB-App wird als eigenes Community-Package `vfr-multitool-efb` ausgeliefert.
 Alpha und Stable verwenden getrennte Kanaldateien unter
 `ga-tracker-client/efb/channel/`, aber denselben Paketordner. Ein Kanalwechsel
-installiert oder ersetzt das Paket niemals automatisch.
+installiert das Paket niemals erstmalig automatisch. Eine vorhandene
+Installation darf nur bei aktivierter EFB-Auto-Update-Einstellung und
+geschlossenem MSFS auf die Version des neuen Kanals aktualisiert werden;
+andernfalls bleibt es beim Updateangebot.
 
 1. App mit den Abhaengigkeiten des offiziell installierten MSFS-2024-EFB-
    Templates bauen und im Simulator testen.

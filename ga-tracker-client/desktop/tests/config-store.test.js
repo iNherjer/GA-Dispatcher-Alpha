@@ -32,6 +32,9 @@ test('credentials are encrypted in app data while personal tracker config is pre
   store.saveCredentials('Foxtrot-Mike-764', '1234');
   store.setRuntimeChannel('alpha');
   store.setUpdatePolicy('automatic');
+  store.setModuleUpdatePolicy('homebase', 'automatic');
+  store.setModuleUpdatePolicy('efb', 'automatic');
+  store.setModuleUpdatePolicy('bridge', 'automatic');
   store.setStartupPreferences({
     autoStartTracker: false,
     startMinimized: true,
@@ -52,6 +55,9 @@ test('credentials are encrypted in app data while personal tracker config is pre
     hasPin: true,
     runtimeChannel: 'alpha',
     updatePolicy: 'automatic',
+    homebaseUpdatePolicy: 'automatic',
+    efbUpdatePolicy: 'automatic',
+    bridgeUpdatePolicy: 'automatic',
     autoStartTracker: false,
     startMinimized: true,
     autoStartBridge: true,
@@ -91,11 +97,19 @@ test('startup preferences default to automatic tracker start and visible window'
     hasPin: false,
     runtimeChannel: 'stable',
     updatePolicy: 'ask',
+    homebaseUpdatePolicy: 'ask',
+    efbUpdatePolicy: 'ask',
+    bridgeUpdatePolicy: 'ask',
     autoStartTracker: true,
     startMinimized: false,
     autoStartBridge: false,
     stopBridgeWithTracker: true
   });
+});
+
+test('module update policies reject unknown modules', () => {
+  const store = createStore();
+  assert.throws(() => store.setModuleUpdatePolicy('unknown', 'automatic'), /Unbekanntes Update-Modul/);
 });
 
 test('PIN validation and unavailable OS encryption are rejected', () => {

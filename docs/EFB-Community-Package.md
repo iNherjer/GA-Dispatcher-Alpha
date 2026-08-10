@@ -10,8 +10,11 @@ auf den eigenen Paketordner begrenzte Deinstallation an.
 
 Das EFB-Package folgt dem gewählten Tracker-Kanal. Alpha und Stable besitzen
 getrennte Kanaldateien, installieren aber niemals zwei konkurrierende
-Paketordner. Ein Kanalwechsel ersetzt das Package nicht automatisch, weil MSFS
-dabei geschlossen sein muss.
+Paketordner. Bei einer bereits vorhandenen Installation bietet der
+Tracker-Desktop-Manager ein gefundenes Update per Dialog an. Ist die getrennte
+EFB-Auto-Update-Option aktiviert, wird es stattdessen bei geschlossenem MSFS
+automatisch installiert und nur als laufendes Statusbanner angezeigt. Die
+Erstinstallation, Reparatur und Deinstallation bleiben ausdrückliche Aktionen.
 
 ## Paketvertrag
 

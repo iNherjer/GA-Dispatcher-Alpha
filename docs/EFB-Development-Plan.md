@@ -373,6 +373,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-10: Der Tracker-Desktop-Manager ordnet Tracker, Homebase Assets, EFB
+  und Bridge als standardmaessig geschlossene Module unter einer kompakten
+  Status-/Startleiste. Updateentscheidungen sind pro Modul getrennt. Bereits
+  installierte EFB-Pakete bieten neue Versionen per Dialog an oder werden bei
+  aktivierter EFB-Automatik bei geschlossenem MSFS ohne Dialog aktualisiert;
+  Erstinstallation, Reparatur und Deinstallation bleiben manuell.
 - 2026-08-07: EFB wird als eigenes, vom Tracker verwaltetes Community-Package
   mit getrennten Alpha-/Stable-Kanaelen ausgeliefert.
 - 2026-08-07: Erste Transportstufe bleibt HTTP-Loopback und vollstaendig

@@ -19,3 +19,24 @@ test('renderer only calls desktop methods exposed by the preload bridge', () => 
   const methods = Array.from(new Set(Array.from(renderer.matchAll(/trackerDesktop\.([A-Za-z0-9_]+)/g), (match) => match[1])));
   for (const method of methods) assert.match(preload, new RegExp(`\\b${method}\\s*:`), `Fehlende Preload-Methode: ${method}`);
 });
+
+test('status controls stay visible while modules are closed and ordered', () => {
+  const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
+  const modules = Array.from(html.matchAll(/<details class="module-panel" data-module-panel>/g));
+  assert.equal(modules.length, 4);
+  assert.doesNotMatch(html, /<details class="module-panel"[^>]*\sopen(?:\s|>)/);
+  const start = html.indexOf('id="startButton"');
+  const tracker = html.indexOf('<strong>Tracker</strong>');
+  const homebase = html.indexOf('<strong>Homebase Asset Pack</strong>');
+  const efb = html.indexOf('<strong>VFR Multitool EFB</strong>');
+  const bridge = html.indexOf('<strong>AccuSim Telemetry Bridge</strong>');
+  assert.ok(start >= 0 && start < tracker);
+  assert.ok(tracker < homebase && homebase < efb && efb < bridge);
+});
+
+test('desktop window and Windows build use the dedicated tracker icon', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'));
+  assert.equal(packageJson.build.win.icon, 'assets/tracker-icon-512.png');
+  assert.ok(fs.existsSync(path.join(desktopRoot, 'assets', 'tracker-icon-512.png')));
+  assert.ok(fs.existsSync(path.join(desktopRoot, 'assets', 'tracker-icon-192.png')));
+});

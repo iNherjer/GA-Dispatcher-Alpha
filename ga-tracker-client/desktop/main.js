@@ -41,10 +41,16 @@ let bridgeShutdownInProgress = false;
 let trackerApplicationRoot = '';
 let runtimeStateListener = null;
 
+const MANAGED_UPDATE_MODULES = Object.freeze({
+  homebase: Object.freeze({ policyKey: 'homebaseUpdatePolicy' }),
+  efb: Object.freeze({ policyKey: 'efbUpdatePolicy' }),
+  bridge: Object.freeze({ policyKey: 'bridgeUpdatePolicy' })
+});
+
 function iconPath() {
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'assets', 'icon.png')
-    : path.resolve(__dirname, '..', '..', 'icon-192.png');
+    ? path.join(process.resourcesPath, 'assets', 'tracker-icon.png')
+    : path.resolve(__dirname, 'assets', 'tracker-icon-192.png');
 }
 
 function currentState() {
@@ -56,6 +62,9 @@ function currentState() {
       hasPin: false,
       runtimeChannel: 'stable',
       updatePolicy: 'ask',
+      homebaseUpdatePolicy: 'ask',
+      efbUpdatePolicy: 'ask',
+      bridgeUpdatePolicy: 'ask',
       autoStartTracker: true,
       startMinimized: false,
       autoStartBridge: false,
@@ -67,6 +76,57 @@ function currentState() {
     efbPackage: efbPackageManager?.publicState() || null,
     bridge: bridgeManager?.publicState() || null
   };
+}
+
+function managedModuleState(module) {
+  if (module === 'homebase') return homebaseManager?.publicState() || null;
+  if (module === 'efb') return efbPackageManager?.publicState() || null;
+  if (module === 'bridge') return bridgeManager?.publicState() || null;
+  return null;
+}
+
+function managedModuleUpdatePolicy(module) {
+  const key = MANAGED_UPDATE_MODULES[module]?.policyKey;
+  return key && configStore?.publicSettings()?.[key] === 'automatic' ? 'automatic' : 'ask';
+}
+
+function shouldOfferManagedUpdate(module, state = managedModuleState(module)) {
+  return Boolean(
+    MANAGED_UPDATE_MODULES[module]
+    && managedModuleUpdatePolicy(module) === 'ask'
+    && state?.installed === true
+    && state?.updateAvailable === true
+    && String(state?.phase || '') === 'ready'
+  );
+}
+
+function broadcastManagedModuleState(module, state) {
+  broadcastState();
+  if (shouldOfferManagedUpdate(module, state)) showWindow();
+}
+
+async function maybeAutoUpdateManagedModule(module) {
+  const state = managedModuleState(module);
+  if (managedModuleUpdatePolicy(module) !== 'automatic' || state?.installed !== true || state?.updateAvailable !== true) {
+    return { ok: true, skipped: true };
+  }
+  if (state?.busy === true || ['checking', 'working', 'downloading', 'starting', 'installer-launched'].includes(String(state?.phase || ''))) {
+    return { ok: true, skipped: true, busy: true };
+  }
+  if (module === 'homebase') return homebaseManager.install({ repair: false });
+  if (module === 'efb') return efbPackageManager.install({ repair: false });
+  if (module === 'bridge') return bridgeAction(() => bridgeManager.install());
+  return { ok: false, message: 'Unbekanntes Update-Modul.' };
+}
+
+async function refreshManagedModule(module, { force = true } = {}) {
+  let result;
+  if (module === 'homebase') result = await homebaseManager.refresh({ force });
+  else if (module === 'efb') result = await efbPackageManager.refresh({ force });
+  else if (module === 'bridge') result = await bridgeAction(() => bridgeManager.refresh({ checkRemote: true }));
+  else return { ok: false, message: 'Unbekanntes Update-Modul.' };
+  if (result?.ok !== false) await maybeAutoUpdateManagedModule(module);
+  return result;
 }
 
 function createRuntimeManager(channel) {
@@ -137,7 +197,7 @@ async function switchRuntimeChannel(rawChannel) {
   efbPackageManager?.setChannel(requested);
   const manager = replaceRuntimeManager(requested);
   broadcastState();
-  efbPackageManager?.refresh({ force: true }).catch(() => {});
+  refreshManagedModule('efb', { force: true }).catch(() => {});
   try {
     if (app.isPackaged) await manager.ensureReady();
     else setDevelopmentRuntimeState(requested);
@@ -284,7 +344,7 @@ function registerIpc() {
     return startTrackerIfReady();
   });
   ipcMain.handle('tracker:stop', () => trackerProcess.stop());
-  ipcMain.handle('bridge:refresh', () => bridgeAction(() => bridgeManager.refresh({ checkRemote: true })));
+  ipcMain.handle('bridge:refresh', () => refreshManagedModule('bridge', { force: true }));
   ipcMain.handle('bridge:install', () => bridgeAction(() => bridgeManager.install()));
   ipcMain.handle('bridge:start', () => bridgeAction(() => bridgeManager.start()));
   ipcMain.handle('bridge:stop', () => bridgeAction(() => bridgeManager.stop()));
@@ -313,6 +373,14 @@ function registerIpc() {
     configStore.setUpdatePolicy(payload?.policy);
     broadcastState();
     return { ok: true, settings: configStore.publicSettings() };
+  });
+  ipcMain.handle('settings:set-module-update-policy', async (_event, payload) => {
+    const module = String(payload?.module || '').trim().toLowerCase();
+    if (!MANAGED_UPDATE_MODULES[module]) return { ok: false, message: 'Unbekanntes Update-Modul.' };
+    configStore.setModuleUpdatePolicy(module, payload?.policy);
+    broadcastState();
+    const update = await maybeAutoUpdateManagedModule(module);
+    return { ok: update?.ok !== false, settings: configStore.publicSettings(), update };
   });
   ipcMain.handle('settings:set-runtime-channel', (_event, payload) => switchRuntimeChannel(payload?.channel));
   ipcMain.handle('settings:set-startup-preferences', (_event, payload) => {
@@ -349,7 +417,7 @@ function registerIpc() {
       return { ok: false, message: error?.message || String(error) };
     }
   });
-  ipcMain.handle('homebase:refresh', () => homebaseManager.refresh({ force: true }));
+  ipcMain.handle('homebase:refresh', () => refreshManagedModule('homebase', { force: true }));
   ipcMain.handle('homebase:install', (_event, payload) => {
     if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
     return homebaseManager.install({ repair: payload?.repair === true });
@@ -358,7 +426,7 @@ function registerIpc() {
     if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
     return homebaseManager.uninstall();
   });
-  ipcMain.handle('efb:refresh', () => efbPackageManager.refresh({ force: true }));
+  ipcMain.handle('efb:refresh', () => refreshManagedModule('efb', { force: true }));
   ipcMain.handle('efb:install', (_event, payload) => {
     if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
     return efbPackageManager.install({ repair: payload?.repair === true });
@@ -452,9 +520,9 @@ async function startApplication() {
   trackerProcess.on('log', (entry) => {
     if (/Keine Anmeldung bestätigt|Pilot-ID nicht gefunden|PIN .* falsch/.test(String(entry?.line || ''))) showWindow();
   });
-  homebaseManager.on('state', broadcastState);
-  efbPackageManager.on('state', broadcastState);
-  bridgeManager.on('state', broadcastState);
+  homebaseManager.on('state', (state) => broadcastManagedModuleState('homebase', state));
+  efbPackageManager.on('state', (state) => broadcastManagedModuleState('efb', state));
+  bridgeManager.on('state', (state) => broadcastManagedModuleState('bridge', state));
 
   registerIpc();
   const launchDecision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
@@ -480,13 +548,12 @@ async function startApplication() {
   }
   if (!configStore.hasCredentials()) showWindow();
   if (migration.verificationFailed) showWindow();
-  homebaseManager.refresh({ force: false }).catch(() => {});
-  efbPackageManager.refresh({ force: false }).catch(() => {});
+  refreshManagedModule('homebase', { force: false }).catch(() => {});
+  refreshManagedModule('efb', { force: false }).catch(() => {});
   void (async () => {
-    await bridgeManager.refresh();
-    if (configStore.publicSettings().autoStartBridge) await bridgeManager.start();
+    await refreshManagedModule('bridge', { force: false });
+    if (configStore.publicSettings().autoStartBridge && bridgeManager.publicState().phase !== 'installer-launched') await bridgeManager.start();
     bridgeManager.startPolling();
-    await bridgeManager.checkLatest({ quiet: true });
   })().catch(() => {});
   broadcastState();
 }

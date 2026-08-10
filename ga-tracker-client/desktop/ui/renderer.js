@@ -1,12 +1,15 @@
 const elements = {
   versionLine: document.getElementById('versionLine'),
   processBadge: document.getElementById('processBadge'),
+  automaticUpdateBanner: document.getElementById('automaticUpdateBanner'),
+  automaticUpdateBannerText: document.getElementById('automaticUpdateBannerText'),
   relayDot: document.getElementById('relayDot'),
   relayStatus: document.getElementById('relayStatus'),
   simDot: document.getElementById('simDot'),
   simStatus: document.getElementById('simStatus'),
   telemetryDot: document.getElementById('telemetryDot'),
   telemetryStatus: document.getElementById('telemetryStatus'),
+  trackerModuleSummary: document.getElementById('trackerModuleSummary'),
   pilotIdInput: document.getElementById('pilotIdInput'),
   pinInput: document.getElementById('pinInput'),
   credentialsForm: document.getElementById('credentialsForm'),
@@ -14,28 +17,33 @@ const elements = {
   formMessage: document.getElementById('formMessage'),
   runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
-  updatePolicySelect: document.getElementById('updatePolicySelect'),
+  trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
   updateBadge: document.getElementById('updateBadge'),
   updateMessage: document.getElementById('updateMessage'),
   updateProgressWrap: document.getElementById('updateProgressWrap'),
   updateProgress: document.getElementById('updateProgress'),
   checkRuntimeButton: document.getElementById('checkRuntimeButton'),
+  assetModuleSummary: document.getElementById('assetModuleSummary'),
   assetBadge: document.getElementById('assetBadge'),
   assetMessage: document.getElementById('assetMessage'),
   assetPath: document.getElementById('assetPath'),
+  homebaseAutoUpdateCheckbox: document.getElementById('homebaseAutoUpdateCheckbox'),
   assetPrimaryButton: document.getElementById('assetPrimaryButton'),
   assetRepairButton: document.getElementById('assetRepairButton'),
   assetUninstallButton: document.getElementById('assetUninstallButton'),
   assetRefreshButton: document.getElementById('assetRefreshButton'),
+  efbModuleSummary: document.getElementById('efbModuleSummary'),
   efbChannelLabel: document.getElementById('efbChannelLabel'),
   efbBadge: document.getElementById('efbBadge'),
   efbMessage: document.getElementById('efbMessage'),
   efbVersion: document.getElementById('efbVersion'),
   efbPath: document.getElementById('efbPath'),
+  efbAutoUpdateCheckbox: document.getElementById('efbAutoUpdateCheckbox'),
   efbPrimaryButton: document.getElementById('efbPrimaryButton'),
   efbRepairButton: document.getElementById('efbRepairButton'),
   efbUninstallButton: document.getElementById('efbUninstallButton'),
   efbRefreshButton: document.getElementById('efbRefreshButton'),
+  bridgeModuleSummary: document.getElementById('bridgeModuleSummary'),
   bridgeBadge: document.getElementById('bridgeBadge'),
   bridgeMessage: document.getElementById('bridgeMessage'),
   bridgeVersion: document.getElementById('bridgeVersion'),
@@ -44,6 +52,7 @@ const elements = {
   bridgeUdpStatus: document.getElementById('bridgeUdpStatus'),
   bridgeProgressWrap: document.getElementById('bridgeProgressWrap'),
   bridgeProgress: document.getElementById('bridgeProgress'),
+  bridgeAutoUpdateCheckbox: document.getElementById('bridgeAutoUpdateCheckbox'),
   bridgeInstallButton: document.getElementById('bridgeInstallButton'),
   bridgeStartButton: document.getElementById('bridgeStartButton'),
   bridgeSettingsButton: document.getElementById('bridgeSettingsButton'),
@@ -58,38 +67,52 @@ const elements = {
   detailStatus: document.getElementById('detailStatus'),
   logOutput: document.getElementById('logOutput'),
   updateDialog: document.getElementById('updateDialog'),
-  updateDialogTitle: document.getElementById('updateDialogTitle')
+  updateDialogTitle: document.getElementById('updateDialogTitle'),
+  updateDialogMessage: document.getElementById('updateDialogMessage')
 };
 
 const labels = {
-  process: {
-    stopped: 'Bereit',
-    starting: 'Startet',
-    running: 'Aktiv',
-    stopping: 'Stoppt',
-    error: 'Fehler'
+  process: { stopped: 'Bereit', starting: 'Startet', running: 'Aktiv', stopping: 'Stoppt', error: 'Fehler' },
+  relay: { waiting: 'Wartet', connecting: 'Verbindet …', connected: 'Verbunden' },
+  simulator: { waiting: 'Nicht verbunden', connected: 'Verbunden' },
+  telemetry: { waiting: 'Keine Positionsdaten', live: 'Live' }
+};
+
+const updateModules = {
+  tracker: {
+    title: (version) => `Tracker-Update ${version || ''} verfügbar`.trim(),
+    message: 'Wie möchtest du dieses und künftige Tracker-Updates behandeln?'
   },
-  relay: {
-    waiting: 'Wartet',
-    connecting: 'Verbindet …',
-    connected: 'Verbunden'
+  homebase: {
+    title: (version) => `Homebase Assets ${version || ''} verfügbar`.trim(),
+    message: 'Das vorhandene Asset Pack kann aktualisiert werden. MSFS muss für die Installation geschlossen sein.'
   },
-  simulator: {
-    waiting: 'Nicht verbunden',
-    connected: 'Verbunden'
+  efb: {
+    title: (version) => `EFB-Update ${version || ''} verfügbar`.trim(),
+    message: 'Die vorhandene EFB-App kann aus dem gewählten Tracker-Kanal aktualisiert werden. MSFS muss geschlossen sein.'
   },
-  telemetry: {
-    waiting: 'Keine Positionsdaten',
-    live: 'Live'
+  bridge: {
+    title: (version) => `Bridge-Update ${version || ''} verfügbar`.trim(),
+    message: 'Der verifizierte Bridge-Installer kann geladen werden. Die Windows-Installation wird anschließend sichtbar bestätigt.'
   }
 };
 
 let latestState = null;
-let dialogVisible = false;
+let activeUpdateDialog = null;
 let channelChangePending = false;
+const dismissedUpdates = new Set();
 
 function setClass(element, baseClass, state) {
   element.className = `${baseClass} ${state || 'waiting'}`;
+}
+
+function setChecked(element, checked) {
+  if (document.activeElement !== element) element.checked = checked;
+}
+
+function modulePolicy(settings, module) {
+  const key = module === 'tracker' ? 'updatePolicy' : `${module}UpdatePolicy`;
+  return settings?.[key] === 'automatic' ? 'automatic' : 'ask';
 }
 
 function renderLogs(logs) {
@@ -104,37 +127,20 @@ function renderLogs(logs) {
   elements.logOutput.scrollTop = elements.logOutput.scrollHeight;
 }
 
-function renderUpdate(update) {
-  if (!update) return;
+function renderUpdate(update = {}, runtimeChannel = 'stable') {
   const phase = String(update.phase || 'idle');
   elements.updateBadge.textContent = {
-    development: 'Entwicklung',
-    idle: 'Bereit',
-    checking: 'Prüft',
-    current: 'Aktuell',
-    'choice-required': 'Verfügbar',
-    downloading: 'Download',
-    ready: 'Installiert',
-    deferred: 'Später',
-    error: 'Fehler'
+    development: 'Entwicklung', idle: 'Bereit', checking: 'Prüft', current: 'Aktuell',
+    'choice-required': 'Update', downloading: 'Download', ready: 'Installiert', deferred: 'Später', error: 'Fehler'
   }[phase] || 'Update';
   setClass(elements.updateBadge, 'mini-badge', phase);
   elements.updateMessage.textContent = update.message || '';
-  const showProgress = phase === 'downloading' || phase === 'ready';
-  elements.updateProgressWrap.hidden = !showProgress;
+  elements.updateProgressWrap.hidden = phase !== 'downloading';
   elements.updateProgress.style.width = `${Math.max(0, Math.min(100, Number(update.percent) || 0))}%`;
   elements.checkRuntimeButton.disabled = ['checking', 'downloading', 'choice-required', 'development'].includes(phase);
   elements.runtimeChannelSelect.disabled = channelChangePending || ['checking', 'downloading', 'choice-required'].includes(phase);
-
-  if (phase === 'choice-required' && !dialogVisible) {
-    dialogVisible = true;
-    elements.updateDialogTitle.textContent = `Tracker-Update ${update.version || ''} verfügbar`;
-    elements.updateDialog.showModal();
-  }
-  if (phase !== 'choice-required' && dialogVisible) {
-    dialogVisible = false;
-    elements.updateDialog.close();
-  }
+  const installedVersion = update.installedVersion || update.version || 'nicht installiert';
+  elements.trackerModuleSummary.textContent = `Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
 }
 
 function renderHomebaseAssets(assets = {}) {
@@ -143,15 +149,15 @@ function renderHomebaseAssets(assets = {}) {
   const complete = assets.installedComplete === true;
   const busy = assets.busy === true || ['checking', 'working'].includes(phase);
   elements.assetBadge.textContent = {
-    idle: 'Prüfung',
-    checking: 'Prüft',
-    working: 'Arbeitet',
-    ready: complete ? (assets.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : 'Optional'),
-    error: 'Fehler'
+    idle: 'Prüfung', checking: 'Prüft', working: 'Update',
+    ready: complete ? (assets.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : 'Optional'), error: 'Fehler'
   }[phase] || 'Status';
   setClass(elements.assetBadge, 'mini-badge', phase === 'ready' && complete && !assets.updateAvailable ? 'current' : phase);
   elements.assetMessage.textContent = assets.message || 'Homebase-Assetstatus wird geprüft.';
   elements.assetPath.textContent = assets.communityPath ? `Community: ${assets.communityPath}` : '';
+  elements.assetModuleSummary.textContent = installed
+    ? `Installiert ${assets.installedVersion || ''}${assets.updateAvailable && assets.remoteVersion ? ` · ${assets.remoteVersion} verfügbar` : ''}`.trim()
+    : 'Nicht installiert · optional';
   elements.assetPrimaryButton.textContent = !installed
     ? 'Installieren'
     : (assets.updateAvailable ? `Auf ${assets.remoteVersion || 'neue Version'} aktualisieren` : 'Installiert');
@@ -169,9 +175,7 @@ function renderEfbPackage(efb = {}, runtimeChannel = 'stable') {
   const busy = efb.busy === true || ['checking', 'working'].includes(phase);
   elements.efbChannelLabel.textContent = runtimeChannel.toUpperCase();
   elements.efbBadge.textContent = {
-    idle: 'Prüfung',
-    checking: 'Prüft',
-    working: 'Arbeitet',
+    idle: 'Prüfung', checking: 'Prüft', working: 'Update',
     ready: complete ? (efb.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : (remoteAvailable ? 'Optional' : 'Vorbereitung')),
     error: 'Fehler'
   }[phase] || 'Status';
@@ -182,6 +186,9 @@ function renderEfbPackage(efb = {}, runtimeChannel = 'stable') {
   if (efb.remoteVersion) versions.push(`Verfügbar: ${efb.remoteVersion}`);
   elements.efbVersion.textContent = versions.join(' · ');
   elements.efbPath.textContent = efb.communityPath ? `Community: ${efb.communityPath}` : '';
+  elements.efbModuleSummary.textContent = installed
+    ? `Installiert ${efb.installedVersion || ''}${efb.updateAvailable && efb.remoteVersion ? ` · ${efb.remoteVersion} verfügbar` : ''}`.trim()
+    : `Nicht installiert · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
   elements.efbPrimaryButton.textContent = !installed
     ? 'Installieren'
     : (efb.updateAvailable ? `Auf ${efb.remoteVersion || 'neue Version'} aktualisieren` : 'Installiert');
@@ -198,27 +205,23 @@ function renderBridge(bridge = {}) {
   const controlled = bridge.controlAvailable === true;
   const runtime = bridge.runtime || {};
   const running = controlled && runtime.process === 'running';
-  const busy = ['checking', 'downloading', 'starting'].includes(phase);
-
+  const busy = ['checking', 'downloading', 'starting', 'installer-launched'].includes(phase);
   let badge = 'Optional';
   let badgeClass = 'idle';
   if (phase === 'error') {
-    badge = 'Fehler';
-    badgeClass = 'error';
+    badge = 'Fehler'; badgeClass = 'error';
+  } else if (phase === 'installer-launched') {
+    badge = 'Installer offen'; badgeClass = 'choice-required';
   } else if (busy) {
-    badge = phase === 'downloading' ? 'Download' : (phase === 'starting' ? 'Startet' : 'Prüft');
-    badgeClass = phase;
+    badge = phase === 'downloading' ? 'Download' : (phase === 'starting' ? 'Startet' : 'Prüft'); badgeClass = phase;
   } else if (!installed) {
     badge = 'Optional';
-  } else if (!supported) {
-    badge = 'Update nötig';
-    badgeClass = 'choice-required';
+  } else if (bridge.updateAvailable || !supported) {
+    badge = 'Update'; badgeClass = 'choice-required';
   } else if (running) {
-    badge = 'Aktiv';
-    badgeClass = 'current';
+    badge = 'Aktiv'; badgeClass = 'current';
   } else {
-    badge = controlled ? 'Bereit' : 'Installiert';
-    badgeClass = controlled ? 'current' : 'idle';
+    badge = controlled ? 'Bereit' : 'Installiert'; badgeClass = controlled ? 'current' : 'idle';
   }
   elements.bridgeBadge.textContent = badge;
   setClass(elements.bridgeBadge, 'mini-badge', badgeClass);
@@ -228,29 +231,76 @@ function renderBridge(bridge = {}) {
   if (bridge.updateAvailable && bridge.latestVersion) versionParts.push(`Verfügbar: v${bridge.latestVersion}`);
   if (controlled) versionParts.push(bridge.owner === 'tracker' ? 'Tracker-Hintergrundmodus' : 'Eigenständig geöffnet');
   elements.bridgeVersion.textContent = versionParts.join(' · ');
-
-  elements.bridgeProcessStatus.textContent = running
-    ? 'Aktiv'
-    : (controlled ? 'Bereit' : 'Nicht gestartet');
-  elements.bridgeSimStatus.textContent = runtime.simulator === 'connected'
-    ? 'Verbunden'
-    : (runtime.simulator === 'connecting' ? 'Verbindet …' : 'Nicht verbunden');
-  elements.bridgeUdpStatus.textContent = runtime.udp === 'active'
-    ? `${Number(runtime.packets) || 0} Pakete`
-    : 'Inaktiv';
-
+  elements.bridgeModuleSummary.textContent = installed
+    ? `Installiert${bridge.installedVersion ? ` v${bridge.installedVersion}` : ''}${bridge.updateAvailable && bridge.latestVersion ? ` · v${bridge.latestVersion} verfügbar` : ''}`
+    : 'Nicht installiert · optional';
+  elements.bridgeProcessStatus.textContent = running ? 'Aktiv' : (controlled ? 'Bereit' : 'Nicht gestartet');
+  elements.bridgeSimStatus.textContent = runtime.simulator === 'connected' ? 'Verbunden' : (runtime.simulator === 'connecting' ? 'Verbindet …' : 'Nicht verbunden');
+  elements.bridgeUdpStatus.textContent = runtime.udp === 'active' ? `${Number(runtime.packets) || 0} Pakete` : 'Inaktiv';
   elements.bridgeProgressWrap.hidden = phase !== 'downloading';
   elements.bridgeProgress.style.width = `${Math.max(0, Math.min(100, Number(bridge.percent) || 0))}%`;
   elements.bridgeInstallButton.textContent = !installed
     ? 'Bridge installieren'
-    : (!supported
-      ? 'Bridge für Tracker aktualisieren'
-      : (bridge.updateAvailable ? `Auf v${bridge.latestVersion} aktualisieren` : (bridge.latestVersion ? 'Bridge ist aktuell' : 'Bridge installiert')));
+    : (!supported ? 'Bridge für Tracker aktualisieren' : (bridge.updateAvailable ? `Auf v${bridge.latestVersion} aktualisieren` : (bridge.latestVersion ? 'Bridge ist aktuell' : 'Bridge installiert')));
   elements.bridgeInstallButton.disabled = busy || (installed && supported && !bridge.updateAvailable);
   elements.bridgeStartButton.textContent = running ? 'Bridge stoppen' : 'Bridge starten';
   elements.bridgeStartButton.disabled = busy || !installed || !supported;
   elements.bridgeSettingsButton.disabled = busy || (!installed && !controlled);
   elements.bridgeRefreshButton.disabled = busy;
+}
+
+function renderAutomaticUpdateBanner(state, settings) {
+  const active = [];
+  const trackerUpdate = state?.update || {};
+  if (modulePolicy(settings, 'tracker') === 'automatic' && trackerUpdate.phase === 'downloading' && trackerUpdate.installedVersion) active.push('Tracker');
+  const homebase = state?.homebaseAssets || {};
+  if (modulePolicy(settings, 'homebase') === 'automatic' && homebase.installed && homebase.updateAvailable && homebase.phase === 'working') active.push('Homebase Assets');
+  const efb = state?.efbPackage || {};
+  if (modulePolicy(settings, 'efb') === 'automatic' && efb.installed && efb.updateAvailable && efb.phase === 'working') active.push('EFB');
+  const bridge = state?.bridge || {};
+  if (modulePolicy(settings, 'bridge') === 'automatic' && bridge.installed && bridge.updateAvailable && ['checking', 'downloading'].includes(bridge.phase)) active.push('Bridge');
+  elements.automaticUpdateBanner.hidden = active.length === 0;
+  if (active.length) {
+    elements.automaticUpdateBannerText.textContent = active.length === 1
+      ? `${active[0]} wird gerade automatisch aktualisiert …`
+      : `${active.join(' und ')} werden gerade automatisch aktualisiert …`;
+  }
+}
+
+function pendingUpdate(state) {
+  const settings = state?.settings || {};
+  const update = state?.update || {};
+  const candidates = [];
+  if (modulePolicy(settings, 'tracker') === 'ask' && update.phase === 'choice-required') {
+    candidates.push({ module: 'tracker', version: update.version || '', key: `tracker:${update.version || 'unknown'}` });
+  }
+  const managed = [
+    { module: 'homebase', state: state?.homebaseAssets, version: state?.homebaseAssets?.remoteVersion },
+    { module: 'efb', state: state?.efbPackage, version: state?.efbPackage?.remoteVersion },
+    { module: 'bridge', state: state?.bridge, version: state?.bridge?.latestVersion ? `v${state.bridge.latestVersion}` : '' }
+  ];
+  for (const candidate of managed) {
+    if (modulePolicy(settings, candidate.module) !== 'ask') continue;
+    if (candidate.state?.installed !== true || candidate.state?.updateAvailable !== true || candidate.state?.phase !== 'ready') continue;
+    candidates.push({ module: candidate.module, version: candidate.version || '', key: `${candidate.module}:${candidate.version || 'unknown'}` });
+  }
+  return candidates.find((candidate) => !dismissedUpdates.has(candidate.key)) || null;
+}
+
+function closeUpdateDialog() {
+  activeUpdateDialog = null;
+  if (elements.updateDialog.open) elements.updateDialog.close();
+}
+
+function renderUpdateDialog(state) {
+  const pending = pendingUpdate(state);
+  if (activeUpdateDialog && activeUpdateDialog.key !== pending?.key) closeUpdateDialog();
+  if (!pending || activeUpdateDialog) return;
+  activeUpdateDialog = pending;
+  const definition = updateModules[pending.module];
+  elements.updateDialogTitle.textContent = definition.title(pending.version);
+  elements.updateDialogMessage.textContent = definition.message;
+  elements.updateDialog.showModal();
 }
 
 function render(state) {
@@ -259,11 +309,9 @@ function render(state) {
   const settings = state?.settings || {};
   const runtimeChannel = settings.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
   const runtimeChannelLabel = runtimeChannel === 'alpha' ? 'Alpha' : 'Stable';
-
   elements.versionLine.textContent = `Desktop v${state?.appVersion || '–'} · Engine ${state?.trackerVersion || '–'} · ${runtimeChannelLabel}`;
   setClass(elements.processBadge, 'process-badge', tracker.process);
   elements.processBadge.textContent = labels.process[tracker.process] || 'Bereit';
-
   setClass(elements.relayDot, 'status-dot', tracker.relay);
   elements.relayStatus.textContent = labels.relay[tracker.relay] || 'Wartet';
   setClass(elements.simDot, 'status-dot', tracker.simulator);
@@ -273,40 +321,33 @@ function render(state) {
 
   if (document.activeElement !== elements.pilotIdInput) elements.pilotIdInput.value = settings.pilotId || '';
   elements.pinInput.placeholder = settings.hasPin ? 'gespeichert' : '••••';
-  if (document.activeElement !== elements.runtimeChannelSelect && !channelChangePending) {
-    elements.runtimeChannelSelect.value = runtimeChannel;
-  }
+  if (document.activeElement !== elements.runtimeChannelSelect && !channelChangePending) elements.runtimeChannelSelect.value = runtimeChannel;
   if (!channelChangePending) {
     elements.runtimeChannelMessage.className = 'channel-message subtle';
     elements.runtimeChannelMessage.textContent = runtimeChannel === 'alpha'
       ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
       : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
   }
-  if (document.activeElement !== elements.updatePolicySelect) {
-    elements.updatePolicySelect.value = settings.updatePolicy || 'ask';
-  }
-  if (document.activeElement !== elements.autoStartTrackerCheckbox) {
-    elements.autoStartTrackerCheckbox.checked = settings.autoStartTracker !== false;
-  }
-  if (document.activeElement !== elements.startMinimizedCheckbox) {
-    elements.startMinimizedCheckbox.checked = settings.startMinimized === true;
-  }
-  if (document.activeElement !== elements.autoStartBridgeCheckbox) {
-    elements.autoStartBridgeCheckbox.checked = settings.autoStartBridge === true;
-  }
-  if (document.activeElement !== elements.stopBridgeWithTrackerCheckbox) {
-    elements.stopBridgeWithTrackerCheckbox.checked = settings.stopBridgeWithTracker !== false;
-  }
+  setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
+  setChecked(elements.homebaseAutoUpdateCheckbox, modulePolicy(settings, 'homebase') === 'automatic');
+  setChecked(elements.efbAutoUpdateCheckbox, modulePolicy(settings, 'efb') === 'automatic');
+  setChecked(elements.bridgeAutoUpdateCheckbox, modulePolicy(settings, 'bridge') === 'automatic');
+  setChecked(elements.autoStartTrackerCheckbox, settings.autoStartTracker !== false);
+  setChecked(elements.startMinimizedCheckbox, settings.startMinimized === true);
+  setChecked(elements.autoStartBridgeCheckbox, settings.autoStartBridge === true);
+  setChecked(elements.stopBridgeWithTrackerCheckbox, settings.stopBridgeWithTracker !== false);
 
   const running = ['starting', 'running', 'stopping'].includes(tracker.process);
   elements.startButton.disabled = running;
   elements.stopButton.disabled = !running;
   elements.detailStatus.textContent = tracker.detail || 'Tracker ist nicht gestartet.';
   renderLogs(tracker.logs);
-  renderUpdate(state?.update);
+  renderUpdate(state?.update, runtimeChannel);
   renderHomebaseAssets(state?.homebaseAssets);
   renderEfbPackage(state?.efbPackage, runtimeChannel);
   renderBridge(state?.bridge);
+  renderAutomaticUpdateBanner(state, settings);
+  renderUpdateDialog(state);
 }
 
 elements.credentialsForm.addEventListener('submit', async (event) => {
@@ -328,9 +369,10 @@ elements.credentialsForm.addEventListener('submit', async (event) => {
   elements.formMessage.textContent = `Verbunden als ${result.pilotId}.`;
 });
 
-elements.updatePolicySelect.addEventListener('change', async () => {
-  await window.trackerDesktop.setUpdatePolicy(elements.updatePolicySelect.value);
-});
+elements.trackerAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setUpdatePolicy(elements.trackerAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
+elements.homebaseAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('homebase', elements.homebaseAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
+elements.efbAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('efb', elements.efbAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
+elements.bridgeAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('bridge', elements.bridgeAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
 
 elements.runtimeChannelSelect.addEventListener('change', async () => {
   const previous = latestState?.settings?.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
@@ -340,15 +382,13 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
     elements.runtimeChannelSelect.value = previous;
     return;
   }
-
   channelChangePending = true;
   elements.runtimeChannelSelect.disabled = true;
   elements.runtimeChannelMessage.className = 'channel-message subtle';
   elements.runtimeChannelMessage.textContent = `Wechsel zu ${requested === 'alpha' ? 'Alpha' : 'Stable'} wird vorbereitet …`;
   const result = await window.trackerDesktop.setRuntimeChannel(requested);
   channelChangePending = false;
-  const state = await window.trackerDesktop.getState();
-  render(state);
+  render(await window.trackerDesktop.getState());
   if (!result?.ok) {
     elements.runtimeChannelMessage.className = 'channel-message subtle error';
     elements.runtimeChannelMessage.textContent = result?.message || 'Tracker-Kanal konnte nicht gewechselt werden.';
@@ -374,6 +414,8 @@ elements.startButton.addEventListener('click', async () => {
   if (result?.needsCredentials) {
     elements.formMessage.className = 'form-message error';
     elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern.';
+    const trackerPanel = elements.pilotIdInput.closest('[data-module-panel]');
+    if (trackerPanel) trackerPanel.open = true;
     elements.pilotIdInput.focus();
   }
 });
@@ -425,11 +467,42 @@ elements.bridgeStartButton.addEventListener('click', async () => {
 });
 elements.bridgeSettingsButton.addEventListener('click', () => window.trackerDesktop.showBridgeSettings());
 
+async function runUpdateChoice(choice) {
+  const pending = activeUpdateDialog;
+  if (!pending) return;
+  if (choice === 'later') {
+    dismissedUpdates.add(pending.key);
+    closeUpdateDialog();
+    renderUpdateDialog(latestState);
+    return;
+  }
+  closeUpdateDialog();
+  if (pending.module === 'tracker') {
+    await window.trackerDesktop.chooseUpdate(choice);
+    return;
+  }
+  if (choice === 'automatic') {
+    await window.trackerDesktop.setModuleUpdatePolicy(pending.module, 'automatic');
+    return;
+  }
+  if (pending.module === 'homebase') await window.trackerDesktop.installHomebaseAssets(false);
+  if (pending.module === 'efb') await window.trackerDesktop.installEfbPackage(false);
+  if (pending.module === 'bridge') await window.trackerDesktop.installBridge();
+}
+
 for (const button of document.querySelectorAll('[data-update-choice]')) {
   button.addEventListener('click', async (event) => {
     event.preventDefault();
-    const choice = button.dataset.updateChoice;
-    await window.trackerDesktop.chooseUpdate(choice);
+    await runUpdateChoice(button.dataset.updateChoice);
+  });
+}
+
+for (const panel of document.querySelectorAll('[data-module-panel]')) {
+  panel.addEventListener('toggle', () => {
+    if (!panel.open) return;
+    for (const other of document.querySelectorAll('[data-module-panel]')) {
+      if (other !== panel) other.open = false;
+    }
   });
 }
 

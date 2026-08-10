@@ -9,6 +9,7 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 ## Funktionen
 
 - kleines Statusfenster und Windows-Tray
+- eigenes Tracker-Icon fuer Tray, Taskleiste und Windows-Installer
 - Pilot-ID/PIN-Pruefung ueber den bestehenden Auth-Endpunkt
 - Download, Pruefung, Update und Start/Stopp der Tracker-Engine
 - umschaltbare Tracker-Kanaele `Stable` und `Alpha`
@@ -18,8 +19,10 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - optionaler unsichtbarer Start direkt ins Windows-Tray
 - Relay-, SimConnect- und Telemetrie-Status aus dem Tracker-Protokoll
 - Updateeinstellung `ask` oder `automatic`
-- beim ersten Update: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
+- getrennte Auto-Update-Einstellungen fuer Tracker, Homebase Assets, EFB und Bridge
+- bei Updates vorhandener Installationen: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
 - Updateinstallation vor dem Trackerstart, nicht waehrend eines Flugs
+- kompakte Status-/Startleiste und standardmaessig geschlossene Modulbereiche
 - Homebase Asset Pack installieren, aktualisieren, reparieren und deinstallieren
 - MSFS-2024-EFB-App passend zum gewählten Tracker-Kanal installieren,
   aktualisieren, reparieren und isoliert deinstallieren
@@ -161,10 +164,10 @@ aber wie bei der bisherigen portablen EXE eine SmartScreen-Warnung anzeigen.
 
 Die EFB-App ist ein eigenes Community-Package mit den getrennten Kanälen
 `ga-tracker-client/efb/channel/alpha.json` und `stable.json`. Der Paketmanager
-verwendet automatisch denselben Kanal wie die Tracker-Runtime, tauscht eine
-Installation beim Kanalwechsel aber nicht ungefragt aus. Installation, Update
-und Reparatur benötigen eine ausdrückliche Bestätigung und einen geschlossenen
-Simulator.
+verwendet automatisch denselben Kanal wie die Tracker-Runtime. Bei vorhandenen
+Installationen werden Updates angeboten oder mit aktivierter EFB-Automatik bei
+geschlossenem Simulator direkt installiert. Erstinstallation, Reparatur und
+Deinstallation benötigen weiterhin eine ausdrückliche Bestätigung.
 
 Vor der Aktivierung eines Kanalzeigers prüft die Release-Pipeline das vom
 offiziellen MSFS-2024-SDK gebaute Package, dessen `manifest.json`, `layout.json`,

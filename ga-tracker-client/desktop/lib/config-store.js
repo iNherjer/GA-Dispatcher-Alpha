@@ -3,6 +3,11 @@ const path = require('node:path');
 const { normalizeRuntimeChannel } = require('./runtime-channel');
 
 const UPDATE_POLICIES = new Set(['ask', 'automatic']);
+const MODULE_UPDATE_POLICY_KEYS = Object.freeze({
+  homebase: 'homebaseUpdatePolicy',
+  efb: 'efbUpdatePolicy',
+  bridge: 'bridgeUpdatePolicy'
+});
 
 function normalizeUpdatePolicy(value) {
   return UPDATE_POLICIES.has(String(value || '').trim()) ? String(value).trim() : 'ask';
@@ -101,6 +106,9 @@ class TrackerConfigStore {
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
       updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
+      homebaseUpdatePolicy: normalizeUpdatePolicy(preferences.homebaseUpdatePolicy),
+      efbUpdatePolicy: normalizeUpdatePolicy(preferences.efbUpdatePolicy),
+      bridgeUpdatePolicy: normalizeUpdatePolicy(preferences.bridgeUpdatePolicy),
       autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
       startMinimized: normalizeBoolean(preferences.startMinimized, false),
       autoStartBridge: normalizeBoolean(preferences.autoStartBridge, false),
@@ -160,6 +168,20 @@ class TrackerConfigStore {
     });
   }
 
+  setModuleUpdatePolicy(module, policy) {
+    const key = MODULE_UPDATE_POLICY_KEYS[String(module || '').trim().toLowerCase()];
+    if (!key) throw new Error('Unbekanntes Update-Modul.');
+    const normalized = normalizeUpdatePolicy(policy);
+    const desktop = this.readDesktop();
+    return this.writeDesktop({
+      ...desktop,
+      preferences: {
+        ...safeObject(desktop.preferences),
+        [key]: normalized
+      }
+    });
+  }
+
   setRuntimeChannel(channel) {
     const normalized = normalizeRuntimeChannel(channel);
     const desktop = this.readDesktop();
@@ -197,6 +219,9 @@ class TrackerConfigStore {
       preferences: {
         runtimeChannel: normalizeRuntimeChannel(legacy.runtimeChannel),
         updatePolicy: normalizeUpdatePolicy(legacy.updatePolicy),
+        homebaseUpdatePolicy: normalizeUpdatePolicy(legacy.homebaseUpdatePolicy),
+        efbUpdatePolicy: normalizeUpdatePolicy(legacy.efbUpdatePolicy),
+        bridgeUpdatePolicy: normalizeUpdatePolicy(legacy.bridgeUpdatePolicy),
         autoStartTracker: normalizeBoolean(legacy.autoStartTracker, true),
         startMinimized: normalizeBoolean(legacy.startMinimized, false),
         autoStartBridge: normalizeBoolean(legacy.autoStartBridge, false),
@@ -238,6 +263,7 @@ class TrackerConfigStore {
 }
 
 module.exports = {
+  MODULE_UPDATE_POLICY_KEYS,
   TrackerConfigStore,
   normalizeBoolean,
   normalizeUpdatePolicy,
