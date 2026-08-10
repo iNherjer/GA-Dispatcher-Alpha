@@ -19,7 +19,10 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   assert.deepEqual(core.normalizePreferences(), {
     baseLayer: 'topo',
     overlays: ['aero'],
-    follow: true
+    follow: true,
+    theme: 'classic',
+    toolbarCollapsed: false,
+    profileVisible: true
   });
   assert.deepEqual(core.normalizePreferences({
     baseLayer: 'missing',
@@ -28,8 +31,24 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   }), {
     baseLayer: 'topo',
     overlays: ['dfs'],
-    follow: false
+    follow: false,
+    theme: 'classic',
+    toolbarCollapsed: false,
+    profileVisible: true
   });
+});
+
+test('EFB preferences preserve supported app designs and chrome visibility', () => {
+  assert.deepEqual(core.THEMES.map((theme) => theme.id), ['classic', 'retro', 'navcom', 'ops1940', 'win95']);
+  const preferences = core.normalizePreferences({
+    theme: 'ops1940',
+    toolbarCollapsed: true,
+    profileVisible: false
+  });
+  assert.equal(preferences.theme, 'ops1940');
+  assert.equal(preferences.toolbarCollapsed, true);
+  assert.equal(preferences.profileVisible, false);
+  assert.equal(core.normalizePreferences({ theme: 'unknown' }).theme, 'classic');
 });
 
 test('aero overlay dims the base map like the web map table', () => {
@@ -103,4 +122,37 @@ test('map flight labels remain deterministic', () => {
   });
   assert.equal(core.formatCoordinateLine(snapshot), '48.27836, 8.42969 · 2207 ft · 235°');
   assert.equal(core.formatFlightLine(snapshot), 'GS 0 kt · IAS 0 kt · Am Boden');
+});
+
+test('versioned map snapshots are bounded before entering the renderer', () => {
+  const snapshot = core.normalizeTrackerMapSnapshot({
+    schema: 'ga.map-snapshot.v1',
+    version: 1,
+    missionId: 'mission-42',
+    runId: 'run-42',
+    revision: 7,
+    route: {
+      totalDistanceNm: 20,
+      waypoints: [
+        { id: 'a', name: 'EDTW', lat: 48.279, lon: 8.428, elevationFt: 2201 },
+        { id: 'b', name: 'Target', lat: 48.4, lon: 8.7 }
+      ]
+    },
+    navigation: { activeLegIndex: 0, bearingToNextDeg: -5, progress: 0.25 },
+    profile: { mode: 'planned-only', totalDistanceNm: 20, cruiseAltitudeFt: 4500, points: [] },
+    missionGeometry: { target: { id: 'target', name: 'Ziel', lat: 48.4, lon: 8.7 }, poiChain: [] }
+  });
+  assert.equal(snapshot.missionId, 'mission-42');
+  assert.equal(snapshot.route.waypoints.length, 2);
+  assert.equal(snapshot.navigation.bearingToNextDeg, 355);
+  assert.equal(snapshot.navigation.progress, 0.25);
+  assert.equal(core.normalizeTrackerMapSnapshot({ schema: 'ga.map-snapshot.v2', version: 2 }), null);
+});
+
+test('calculator evaluates arithmetic locally without dynamic code execution', () => {
+  assert.equal(core.evaluateCalculatorExpression('(12+3)*2'), 30);
+  assert.equal(core.evaluateCalculatorExpression('50%+1'), 1.5);
+  assert.equal(core.evaluateCalculatorExpression('9÷3'), 3);
+  assert.throws(() => core.evaluateCalculatorExpression('2/0'));
+  assert.throws(() => core.evaluateCalculatorExpression('globalThis'));
 });

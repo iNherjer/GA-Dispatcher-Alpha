@@ -28,6 +28,7 @@ const baseConfig = {
   },
   plugins: [
     copyStaticFiles({ src: './src/Assets', dest: './dist/Assets' }),
+    copyStaticFiles({ src: '../../../../e6b', dest: './dist/Assets/E6B' }),
     globalExternals.globalExternals({
       '@microsoft/msfs-sdk': { varName: 'msfssdk', type: 'cjs' }
     }),

@@ -14,12 +14,15 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Runtime | v325 | v320 | v325 ist im Alpha-Kanal; Stable bleibt bis zur Testerfreigabe unveraendert |
-| EFB-Community-Package | 0.2.0 | noch nicht verfuegbar | Alpha-Testpaket; Stable erst nach In-Sim-Freigabe desselben unveraenderten Artefakts |
+| EFB-Community-Package | 0.3.5 | noch nicht verfuegbar | 0.3.5 ist im Alpha-Kanal; 0.4.0 bleibt bis SDK-/In-Sim-Test ein Source-Kandidat |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
-EFB 0.2.0 zeigt Trackerstatus, Flugtelemetrie sowie den technischen
-Missionsstatus aus `mission.snapshot.v1`. Missionsbriefing, Route, Manifest und
-Missionsaktionen sind noch nicht Bestandteil dieses Protokollstands.
+EFB 0.3.5 zeigt Trackerstatus, Flugtelemetrie, den technischen Missionsstatus
+aus `mission.snapshot.v1` und die stabile K0-Kartenflaeche. Missionsbriefing,
+Manifest und Missionsaktionen sind noch nicht Bestandteil dieses
+Protokollstands. Der Source-Kandidat 0.4.0 erweitert die Karte additiv ueber
+Tracker v326 und `map.snapshot.v1`; der freigegebene Alpha-Kanal bleibt bis zum
+SDK-/In-Sim-Test auf 0.3.5.
 
 EFB 0.3.0 wurde mit SDK 1.7.2 erfolgreich gebaut, im In-Sim-Test aber
 verworfen: Header und Trackerstatus erschienen, die komplette Kartenflaeche
@@ -158,6 +161,18 @@ direkten Online-Tile-Anfragen sehen die jeweiligen Anbieter technisch bedingt
 IP-Adresse, Zeitpunkt, Zoomstufe und Kachelkoordinaten, jedoch keine Pilot-,
 Missions- oder Tracker-Zugangsdaten. Die Auswahl bleibt lokal gespeichert; ein
 eigener Offline-Cache ist nicht Teil von K0.
+
+Source-Kandidat 0.4.0 kombiniert die ersten read-only Teile von K1, K2 und K4:
+Tracker v326 projiziert aus dem persistenten Resume-Bundle Route, Wegpunkte,
+aktives Leg, Restdistanz, Cross-Track, Missionsziel/POI-Kette und ein
+planbasiertes Hoehenprofil in `ga.map-snapshot.v1`. Der Snapshot enthaelt keine
+Story-, Passenger-, Cloud- oder Zugangsdaten. Das EFB rendert diese Projektion
+mit eigenem Leaflet-/SVG-Renderer. Classic, Retro, NAV/COM, OPS 1940 und
+Windows 95 sind lokale EFB-Designs; Menueleiste und Hoehenband werden lokal
+persistiert. Uhr/Stoppuhr und Rechner laufen rein lokal, der bestehende E6B wird
+als statisches lokales Asset gebuendelt. Ein volles Terrainprofil bleibt K4:
+0.4.0 kennzeichnet sein Hoehenband explizit als Planprofil und erfindet keine
+fehlenden Terrainpunkte.
 
 ## Roadmap
 
@@ -474,8 +489,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       gelben 40-px-Web-Flugzeugmarker und entprellter Missionsanzeige durchs
       offizielle SDK bauen, im 2D-/physischen EFB testen und als
       `efb-app-v0.3.5` im Alpha-Kanal freigeben.
-- [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
-      entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
+- [x] Additiven Karten-Datenvertrag `map.snapshot.v1` fuer Route, Navigation,
+      Missionsgeometrie und Planprofil entwerfen, ohne den bestehenden Tracker-
+      Mindeststand global anzuheben; Source-Implementierung in Tracker v326.
+- [x] EFB-0.4.0-Source mit App-Designs, einklappbarer Menueleiste, Route,
+      planbasiertem Hoehenband, Kompass, Uhr/Stoppuhr, lokalem Rechner und
+      gebuendeltem E6B implementieren.
+- [ ] EFB 0.4.0 mit offiziellem Windows-SDK bauen, Bundle inklusive E6B-
+      Assets pruefen und im 2D-/physischen EFB testen; Alpha bleibt bis dahin
+      unveraendert auf 0.3.5.
+- [ ] Tracker v326 bauen und zusammen mit EFB 0.4.0 gegen die Fallback-
+      Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
       Einzel-Run, Owner, Revision, Effektjournal und Missionstyp-Adaptern
       implementieren; Alpha-In-Sim-/Mehrgeraetetest steht aus.
@@ -501,6 +525,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-10: EFB 0.4.0 wird als eigener Browser-Client des lokalen Trackers
+  gebaut, nicht als eingebettete Vollversion der Web-App. `map.snapshot.v1`
+  trennt Route, Live-Navigation, Missionsgeometrie und Planprofil von
+  Narrative/Cloud. Das EFB besitzt eigene SDK-sichere Renderer und lokale
+  UI-Praeferenzen; Tracker und Web teilen schrittweise reine Datenkerne. Die
+  vorhandenen App-Designs werden als kompakte EFB-Themes uebernommen. Uhr,
+  Rechner und E6B bleiben nicht missionskritische lokale Werkzeuge. Der
+  Terrainverlauf des Hoehenbands folgt erst mit einem eigenen versionierten
+  Datenprodukt.
 
 - 2026-08-10: EFB 0.3.5 ist nach SDK-1.7.2-Build und In-Sim-Test als
   unveraendertes Alpha-Artefakt `efb-app-v0.3.5` freigegeben. Der Remote-

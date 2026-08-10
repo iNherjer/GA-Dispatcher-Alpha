@@ -4,6 +4,16 @@ const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
 const AERO_BASE_OPACITY = 0.5;
 const MISSION_EMPTY_DEBOUNCE_MS = 3000;
 const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
+const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
+const MAP_SNAPSHOT_VERSION = 1;
+
+const THEMES = Object.freeze([
+  Object.freeze({ id: 'classic', label: 'Classic' }),
+  Object.freeze({ id: 'retro', label: 'Retro' }),
+  Object.freeze({ id: 'navcom', label: 'NAV/COM' }),
+  Object.freeze({ id: 'ops1940', label: 'OPS 1940' }),
+  Object.freeze({ id: 'win95', label: 'Windows 95' })
+]);
 
 const BASE_LAYERS = Object.freeze([
   Object.freeze({
@@ -93,6 +103,7 @@ const OVERLAY_LAYERS = Object.freeze([
 
 const BASE_IDS = new Set(BASE_LAYERS.map((layer) => layer.id));
 const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id));
+const THEME_IDS = new Set(THEMES.map((theme) => theme.id));
 
 function finite(value) {
   const number = Number(value);
@@ -114,8 +125,160 @@ function normalizePreferences(value = {}) {
     overlays: Array.from(new Set(requestedOverlays
       .map((entry) => String(entry || '').trim().toLowerCase())
       .filter((entry) => OVERLAY_IDS.has(entry)))),
-    follow: source.follow !== false
+    follow: source.follow !== false,
+    theme: THEME_IDS.has(String(source.theme || '').trim().toLowerCase())
+      ? String(source.theme).trim().toLowerCase()
+      : 'classic',
+    toolbarCollapsed: source.toolbarCollapsed === true,
+    profileVisible: source.profileVisible !== false
   };
+}
+
+function normalizeMapPoint(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const lat = finite(source.lat);
+  const lon = finite(source.lon);
+  if (lat === null || lon === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return {
+    id: String(source.id || '').slice(0, 80),
+    name: String(source.name || '').slice(0, 100),
+    lat,
+    lon,
+    elevationFt: finite(source.elevationFt),
+    kind: String(source.kind || '').slice(0, 40),
+    required: source.required !== false
+  };
+}
+
+function normalizeTrackerMapSnapshot(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  if (source.schema !== MAP_SNAPSHOT_SCHEMA || Number(source.version) !== MAP_SNAPSHOT_VERSION) return null;
+  const rawRoute = source.route && typeof source.route === 'object' ? source.route : {};
+  const waypoints = (Array.isArray(rawRoute.waypoints) ? rawRoute.waypoints : [])
+    .slice(0, 128)
+    .map(normalizeMapPoint)
+    .filter(Boolean);
+  if (waypoints.length < 2) return null;
+  const profileSource = source.profile && typeof source.profile === 'object' ? source.profile : null;
+  const profilePoints = (Array.isArray(profileSource?.points) ? profileSource.points : [])
+    .slice(0, 128)
+    .map((point) => ({
+      waypointId: String(point?.waypointId || '').slice(0, 80),
+      name: String(point?.name || '').slice(0, 100),
+      distanceNm: Math.max(0, finite(point?.distanceNm) || 0),
+      terrainFt: finite(point?.terrainFt),
+      plannedAltFt: Math.max(0, finite(point?.plannedAltFt) || 0)
+    }));
+  const navigationSource = source.navigation && typeof source.navigation === 'object' ? source.navigation : null;
+  const geometrySource = source.missionGeometry && typeof source.missionGeometry === 'object' ? source.missionGeometry : {};
+  return {
+    schema: MAP_SNAPSHOT_SCHEMA,
+    version: MAP_SNAPSHOT_VERSION,
+    missionId: String(source.missionId || '').slice(0, 180),
+    runId: String(source.runId || '').slice(0, 220),
+    revision: Math.max(1, Math.round(finite(source.revision) || 1)),
+    route: {
+      totalDistanceNm: Math.max(0, finite(rawRoute.totalDistanceNm) || 0),
+      waypoints
+    },
+    navigation: navigationSource ? {
+      activeLegIndex: Math.max(0, Math.round(finite(navigationSource.activeLegIndex) || 0)),
+      nextWaypointId: String(navigationSource.nextWaypointId || '').slice(0, 80),
+      nextWaypointName: String(navigationSource.nextWaypointName || '').slice(0, 100),
+      bearingToNextDeg: normalizeHeading(navigationSource.bearingToNextDeg),
+      distanceToNextNm: Math.max(0, finite(navigationSource.distanceToNextNm) || 0),
+      crossTrackNm: finite(navigationSource.crossTrackNm) || 0,
+      routeDistanceNm: Math.max(0, finite(navigationSource.routeDistanceNm) || 0),
+      remainingDistanceNm: Math.max(0, finite(navigationSource.remainingDistanceNm) || 0),
+      progress: Math.max(0, Math.min(1, finite(navigationSource.progress) || 0))
+    } : null,
+    profile: profileSource ? {
+      mode: String(profileSource.mode || 'planned-only'),
+      terrainAvailable: profileSource.terrainAvailable === true,
+      totalDistanceNm: Math.max(0, finite(profileSource.totalDistanceNm) || 0),
+      cruiseAltitudeFt: Math.max(0, finite(profileSource.cruiseAltitudeFt) || 0),
+      points: profilePoints
+    } : null,
+    missionGeometry: {
+      target: normalizeMapPoint(geometrySource.target),
+      poiChain: (Array.isArray(geometrySource.poiChain) ? geometrySource.poiChain : [])
+        .slice(0, 96)
+        .map(normalizeMapPoint)
+        .filter(Boolean)
+    }
+  };
+}
+
+function normalizeCalcExpression(expression) {
+  return String(expression || '')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/,/g, '.')
+    .replace(/\s+/g, '');
+}
+
+function evaluateCalculatorExpression(rawExpression) {
+  const source = normalizeCalcExpression(rawExpression);
+  if (!source || source.length > 160) throw new Error('invalid-expression');
+  let index = 0;
+  const peek = () => source[index] || '';
+  const match = (character) => {
+    if (source[index] !== character) return false;
+    index += 1;
+    return true;
+  };
+  const parseExpression = () => {
+    let value = parseTerm();
+    while (index < source.length) {
+      if (match('+')) value += parseTerm();
+      else if (match('-')) value -= parseTerm();
+      else break;
+    }
+    return value;
+  };
+  const parseTerm = () => {
+    let value = parseUnary();
+    while (index < source.length) {
+      if (match('*')) value *= parseUnary();
+      else if (match('/')) {
+        const divisor = parseUnary();
+        value = divisor === 0 ? NaN : value / divisor;
+      } else break;
+    }
+    return value;
+  };
+  const parseUnary = () => {
+    if (match('+')) return parseUnary();
+    if (match('-')) return -parseUnary();
+    return parsePostfix();
+  };
+  const parsePostfix = () => {
+    let value = parsePrimary();
+    while (match('%')) value /= 100;
+    return value;
+  };
+  const parsePrimary = () => {
+    const character = peek();
+    if (match('(')) {
+      const value = parseExpression();
+      if (!match(')')) throw new Error('missing-parenthesis');
+      return value;
+    }
+    if (/\d|\./.test(character)) {
+      const start = index;
+      while (/\d|\./.test(peek())) index += 1;
+      const numberText = source.slice(start, index);
+      if ((numberText.match(/\./g) || []).length > 1) throw new Error('invalid-number');
+      const number = Number(numberText);
+      if (!Number.isFinite(number)) throw new Error('invalid-number');
+      return number;
+    }
+    throw new Error('unexpected-token');
+  };
+  const result = parseExpression();
+  if (index !== source.length || !Number.isFinite(result)) throw new Error('invalid-result');
+  return result;
 }
 
 function baseLayerOpacity(value = {}) {
@@ -216,11 +379,14 @@ module.exports = Object.freeze({
   MISSION_EMPTY_DEBOUNCE_MS,
   MISSION_SNAPSHOT_GAP_GRACE_MS,
   OVERLAY_LAYERS,
+  THEMES,
   advanceMissionDisplay,
   baseLayerOpacity,
   formatCoordinateLine,
   formatFlightLine,
   normalizeFlightSnapshot,
   normalizeHeading,
-  normalizePreferences
+  normalizePreferences,
+  normalizeTrackerMapSnapshot,
+  evaluateCalculatorExpression
 });

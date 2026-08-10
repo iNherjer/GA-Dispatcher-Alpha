@@ -141,6 +141,29 @@ den neuen Authority-Snapshot. Ohne aktiven Run wird keine alte beendete Mission
 mehr als aktive Mission ausgegeben; `lastRun` bleibt im getrennten
 Authority-Snapshot fuer Diagnosezwecke erhalten.
 
+Tracker v326 fuegt dem Loopback-Vertrag die Capability `map.snapshot.v1` und
+den GET-Endpunkt `/api/v1/map` hinzu. Die Projektion wird aus dem bereits
+autoritativen `activeRun.resumeBundle` und der letzten Sim-Telemetrie gebildet
+und enthaelt ausschliesslich:
+
+- sanitierte Route, Legs und Wegpunkte,
+- aktives Leg, Bearing, Distanz, Cross-Track und Routenfortschritt,
+- Missionsziel und begrenzte POI-Kettengeometrie,
+- ein planbasiertes Hoehenband mit bekannten Endpunkt-Hoehen.
+
+Story, Briefing, Passagierdetails, Cloud-Profil, PINs und Zugangsdaten sind kein
+Teil dieses Vertrages. Fehlt Route oder Capability, bleibt die 0.3.x-Karte mit
+Flugzeug, Layern, Pan/Zoom und Follow benutzbar. Ein aelteres EFB ignoriert die
+neue Capability. Das EFB berechnet aus dem Snapshot keine Missionsphase und
+sendet auf diesem Pfad weiterhin keine Befehle.
+
+Der Kartenclient ist bewusst kein iframe der vollstaendigen Web-App. Der
+Tracker ist lokaler Server fuer kontrollierte Datenprodukte; die EFB-App ist
+ein eigener, SDK-gerechter Browser-Client mit Leaflet-/SVG-Renderer. Reine
+Geometrie- und Formatierungskerne koennen von Web, Tracker und EFB gemeinsam
+genutzt werden, waehrend DOM, Cloud-Sync, Voice und Missionsautoritaet nicht in
+das EFB-Bundle kopiert werden.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

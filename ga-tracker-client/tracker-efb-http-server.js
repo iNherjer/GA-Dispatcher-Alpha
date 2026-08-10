@@ -12,6 +12,7 @@ const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
 const DEFAULT_EFB_HTTP_PORT = 49880;
 const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.FLIGHT_SNAPSHOT,
+  CAPABILITIES.MAP_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT_V2,
   CAPABILITIES.TRACKER_STATUS
@@ -73,6 +74,7 @@ function createTrackerEfbHttpServer(options = {}) {
   if (hello.type !== 'protocol.hello' || hello.payload?.role !== 'tracker') throw new Error('Der EFB-HTTP-Server benoetigt ein gueltiges Tracker-Hello.');
   const getStatus = typeof options.getStatus === 'function' ? options.getStatus : () => ({});
   const getSnapshot = typeof options.getSnapshot === 'function' ? options.getSnapshot : () => null;
+  const getMapSnapshot = typeof options.getMapSnapshot === 'function' ? options.getMapSnapshot : () => null;
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
@@ -124,6 +126,16 @@ function createTrackerEfbHttpServer(options = {}) {
       jsonResponse(response, 200, {
         hello,
         message: createMessage('mission.snapshot', snapshot && typeof snapshot === 'object'
+          ? { ...snapshot, available: true }
+          : { available: false })
+      });
+      return;
+    }
+    if (pathname === '/api/v1/map') {
+      const snapshot = getMapSnapshot();
+      jsonResponse(response, 200, {
+        hello,
+        message: createMessage('map.snapshot', snapshot && typeof snapshot === 'object'
           ? { ...snapshot, available: true }
           : { available: false })
       });

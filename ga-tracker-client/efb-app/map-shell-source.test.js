@@ -55,6 +55,35 @@ test('native EFB buttons bind real DOM click handlers after render', () => {
   assert.match(tsx, /this\.bindButton\(this\.followButtonRef\.getOrDefault\(\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-base-layer\]'\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-overlay-layer\]'\)/);
+  assert.match(tsx, /this\.bindButton\(this\.toolbarToggleRef\.getOrDefault\(\)/);
+  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-theme\]'\)/);
+  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-tool\]'\)/);
+  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-calc\]'\)/);
+});
+
+test('tracker map contract feeds route, profile and compass without embedding mission narrative', () => {
+  assert.match(tsx, /fetch\(`\$\{TRACKER_API_URL\}\/api\/v1\/map`/);
+  assert.match(tsx, /'map\.snapshot', 'map\.snapshot\.v1'/);
+  assert.match(tsx, /MapShellCore\.normalizeTrackerMapSnapshot\(mapPayload\)/);
+  assert.match(tsx, /private renderMapSnapshot\(snapshot: TrackerMapSnapshot/);
+  assert.match(tsx, /private renderProfile\(\)/);
+  assert.match(tsx, /private renderCompass\(\)/);
+  assert.match(tsx, /class="profile-band"/);
+  assert.match(tsx, /class="map-compass"/);
+});
+
+test('theme and local tool shell stays EFB-native and bundles the existing E6B', () => {
+  for (const theme of ['classic', 'retro', 'navcom', 'ops1940', 'win95']) {
+    assert.match(tsx, new RegExp(`data-theme="${theme}"`));
+    if (theme === 'classic') assert.match(scss, /\.vfr-multitool-app/);
+    else assert.match(scss, new RegExp(`theme-${theme}`));
+  }
+  assert.match(tsx, /data-tool="e6b"/);
+  assert.match(tsx, /data-tool="clock"/);
+  assert.match(tsx, /data-tool="calculator"/);
+  assert.match(tsx, /Assets\/E6B\/e6b-flight-computer\.html\?embedded=1/);
+  assert.match(tsx, /MapShellCore\.evaluateCalculatorExpression/);
+  assert.match(tsx, /ga-e6b-close/);
 });
 
 test('EFB map mirrors web base dimming and the default aircraft marker', () => {
