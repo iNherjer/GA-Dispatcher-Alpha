@@ -103,6 +103,18 @@ bleibt Beobachter. Ein explizit bestaetigter Handoff darf dagegen den lokalen
 Fresh-Start-Restore-Schutz uebersteuern und muss den Tracker-Snapshot vor dem
 ersten eigenen Update vollstaendig anwenden.
 
+Ein Legacy-Run kann durch einen alten Szenenbefehl bereits existieren, bevor
+sein erster Resume-v2-Snapshot geschrieben wurde. Ein solcher
+`mission_snapshot_request` antwortet mit `noop`. Dieser Zustand darf nicht zu
+einer gegenseitigen Warteposition aller Browser fuehren: Liegt auf einem
+Geraet lokal exakt dieselbe Missions-ID, kann der Benutzer diesen lokalen Stand
+ausdruecklich als einmaligen Rettungsstand bestaetigen. Die App uebernimmt den
+`legacy-client`-Run mit der zuletzt gelesenen Revision und schreibt unmittelbar
+danach ein vollstaendiges Resume-Bundle per bestaetigtem
+`mission_snapshot_update`. Erst nach dessen ACK gilt der Handoff als
+abgeschlossen. Andere Missions-IDs und Runs eines fremden versionierten Owners
+sind von diesem Recovery-Pfad ausgeschlossen.
+
 Authority-Daten koennen gemeinsam mit einem gueltigen GPS-Paket eintreffen. Die
 Web-App behandelt deren Projektion als isolierten Zusatzschritt: ein fehlender
 lokaler Authority-State ist ein regulaerer Observer-Fall, und ein Fehler im

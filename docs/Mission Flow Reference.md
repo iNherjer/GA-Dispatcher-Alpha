@@ -305,6 +305,14 @@ haben.
 - Nach einer Geraeteuebergabe wird der bisherige Owner zum Beobachter. ACKs und
   Snapshot-Schreibversuche anderer Clients duerfen seinen lokalen Missionsstand
   nicht mehr fortschalten oder wieder zum Tracker zurueckschreiben.
+- Ein durch alte Szenenbefehle implizit angelegter `legacy-client`-Run kann noch
+  keinen Resume-v2-Snapshot besitzen. In diesem Sonderfall darf eine Web-App
+  nach ausdruecklicher Bestaetigung genau dann einen Rettungsstand setzen, wenn
+  ihre lokale Missions-ID exakt der Tracker-Missions-ID entspricht. Die
+  Reihenfolge ist verbindlich: Owner uebernehmen, vollstaendiges Resume-Bundle
+  als bestaetigten `mission_snapshot_update` schreiben, erst danach die
+  Uebergabe lokal abschliessen. Eine andere Mission oder ein fremder
+  versionierter Owner bleibt gesperrt.
 - Sim- und Live-Modus verwenden dieselben fachlichen Gates. Nur Scene-ACK,
   Telemetriequelle und sichtbare Animation unterscheiden sich.
 

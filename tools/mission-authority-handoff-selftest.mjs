@@ -172,6 +172,64 @@ vm.runInNewContext(
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'local-command' }), true);
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'foreign-command' }), false);
 
+const recoveryMission = { currentMissionData: { missionId: 'mission-a', mission: 'Testmission' } };
+const persistedRecoveryRuntime = {
+  version: 1,
+  missionId: 'mission-a',
+  startPhase: 'boarded',
+  runtime: { missionId: 'mission-a', phase: 'active', active: true }
+};
+const recoveryContext = {
+  Date,
+  _normalizeMissionRuntimeId: value => String(value || '').trim().toLowerCase(),
+  _missionAuthorityClientId: () => 'device-a',
+  _syncActiveMissionPayload: () => recoveryMission,
+  _syncMissionIdentityValues: state => [state?.currentMissionData?.missionId].filter(Boolean),
+  _syncReadRuntimeSnapshot: () => persistedRecoveryRuntime,
+  _buildMissionRuntimeSnapshot: () => ({
+    version: 1,
+    missionId: 'mission-a',
+    startPhase: 'planned',
+    runtime: { missionId: 'mission-a', phase: 'planned', active: false }
+  }),
+  _missionRuntimeSnapshotMissionId: snapshot => snapshot?.missionId || snapshot?.runtime?.missionId || '',
+  _syncRuntimeSnapshotStarted: snapshot => !!snapshot?.runtime?.active,
+  _syncCompactActiveMission: state => JSON.parse(JSON.stringify(state)),
+  _missionAuthorityAdapter: () => 'apt',
+  _validateMissionAuthorityResumeBundle: bundle => ({
+    ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime)
+  }),
+  _syncMissionTitleForPrompt: () => 'Testmission',
+  window: {
+    GAMissionResumeAdapters: {
+      createDescriptor: runtime => ({
+        schema: 'ga.mission-resume.v2',
+        version: 2,
+        missionId: runtime.missionId,
+        primaryAdapter: 'apt',
+        facets: []
+      })
+    }
+  }
+};
+vm.runInNewContext(
+  functionSource(syncSource, '_buildMissionAuthorityLocalRecovery'),
+  recoveryContext
+);
+const recoverableLegacy = recoveryContext._buildMissionAuthorityLocalRecovery({
+  missionId: 'mission-a', runId: 'run-a', ownerClientId: 'legacy-client'
+});
+assert.equal(recoverableLegacy.ok, true);
+assert.equal(recoverableLegacy.runtimeSource, 'persisted');
+assert.equal(recoverableLegacy.bundle.runtime.startPhase, 'boarded');
+assert.equal(recoverableLegacy.bundle.missionId, 'mission-a');
+assert.equal(recoveryContext._buildMissionAuthorityLocalRecovery({
+  missionId: 'mission-b', runId: 'run-b', ownerClientId: 'legacy-client'
+}).error, 'local_mission_mismatch');
+assert.equal(recoveryContext._buildMissionAuthorityLocalRecovery({
+  missionId: 'mission-a', runId: 'run-a', ownerClientId: 'device-b'
+}).error, 'tracker_owner_not_recoverable');
+
 assert.match(
   appSource,
   /missionRuntimeRestoreFromSnapshot\(null,\s*\{[\s\S]*?authorityConfirmed,[\s\S]*?trackerConfirmed:/,
@@ -196,6 +254,11 @@ assert.match(
   syncSource,
   /_persistMissionRuntimeSnapshot\(\s*options\.reason \|\| 'set-runtime-phase',[\s\S]*?prev !== next \? \{ immediate: true \} : \{\}/,
   'semantic runtime phase changes must reach the tracker immediately'
+);
+assert.match(
+  syncSource,
+  /legacy-device-handoff-recovery-seed[\s\S]*?resumeBundle: bundle/,
+  'an explicitly recovered legacy run must be seeded with a complete resume bundle'
 );
 
 console.log('mission-authority handoff selftest: ok');

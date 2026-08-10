@@ -2078,6 +2078,115 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
     };
 }
 
+function _validateMissionAuthorityResumeBundle(bundle = null) {
+    if (typeof window.GAMissionResumeAdapters?.validateBundle === 'function') {
+        try { return window.GAMissionResumeAdapters.validateBundle(bundle); } catch (_) {}
+    }
+    return {
+        ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime),
+        error: bundle ? 'resume_bundle_invalid' : 'resume_bundle_missing'
+    };
+}
+
+function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-local-recovery') {
+    const trackerMissionId = _normalizeMissionRuntimeId(active?.missionId || '');
+    const trackerMissionKey = trackerMissionId.toLowerCase();
+    const ownerClientId = String(active?.ownerClientId || '').trim();
+    const localClientId = _missionAuthorityClientId();
+    if (!trackerMissionId || !active?.runId) return { ok: false, error: 'tracker_run_missing' };
+    if (ownerClientId !== 'legacy-client' && ownerClientId !== localClientId) {
+        return { ok: false, error: 'tracker_owner_not_recoverable' };
+    }
+
+    const missionState = _syncActiveMissionPayload();
+    const localMissionIds = _syncMissionIdentityValues(missionState)
+        .map(value => _normalizeMissionRuntimeId(value).toLowerCase())
+        .filter(Boolean);
+    if (!missionState || !localMissionIds.includes(trackerMissionKey)) {
+        return { ok: false, error: 'local_mission_mismatch' };
+    }
+
+    const persistedRuntime = _syncReadRuntimeSnapshot();
+    const liveRuntime = _buildMissionRuntimeSnapshot(reason);
+    const matchesMission = snapshot => (
+        _normalizeMissionRuntimeId(_missionRuntimeSnapshotMissionId(snapshot)).toLowerCase() === trackerMissionKey
+    );
+    const persistedMatches = matchesMission(persistedRuntime);
+    const liveMatches = matchesMission(liveRuntime);
+    let runtime = null;
+    let runtimeSource = 'planned-fallback';
+    if (persistedMatches && (!liveMatches
+        || (_syncRuntimeSnapshotStarted(persistedRuntime) && !_syncRuntimeSnapshotStarted(liveRuntime)))) {
+        runtime = persistedRuntime;
+        runtimeSource = 'persisted';
+    } else if (liveMatches) {
+        runtime = liveRuntime;
+        runtimeSource = 'live';
+    } else if (persistedMatches) {
+        runtime = persistedRuntime;
+        runtimeSource = 'persisted';
+    } else {
+        runtime = {
+            version: 1,
+            missionId: trackerMissionId,
+            startedAt: 0,
+            savedAt: Date.now(),
+            reason,
+            startPhase: 'planned',
+            runtime: {
+                missionId: trackerMissionId,
+                phase: 'planned',
+                startedAt: 0,
+                active: false,
+                manual: false,
+                armed: false,
+                closingPending: false,
+                closingReason: ''
+            }
+        };
+    }
+
+    const compactMissionState = _syncCompactActiveMission(missionState, 3);
+    const bundle = {
+        version: 2,
+        missionId: trackerMissionId,
+        adapter: _missionAuthorityAdapter(runtime, compactMissionState),
+        descriptor: typeof window.GAMissionResumeAdapters?.createDescriptor === 'function'
+            ? window.GAMissionResumeAdapters.createDescriptor(runtime, compactMissionState)
+            : null,
+        savedAt: Date.now(),
+        missionState: compactMissionState,
+        runtime
+    };
+    const validation = _validateMissionAuthorityResumeBundle(bundle);
+    if (!validation.ok) return { ok: false, error: validation.error || 'local_resume_invalid' };
+    return {
+        ok: true,
+        bundle,
+        validation,
+        runtimeSource,
+        ownerClientId,
+        missionTitle: _syncMissionTitleForPrompt(missionState)
+    };
+}
+
+function _missionAuthorityResumeBundleHash(bundle = null) {
+    if (!bundle || typeof bundle !== 'object') return '';
+    const runtimeForHash = _safeCloneJson(bundle.runtime, null) || {};
+    delete runtimeForHash.savedAt;
+    delete runtimeForHash.reason;
+    delete runtimeForHash.lastLiveGpsPos;
+    delete runtimeForHash.lastLiveFlightData;
+    delete runtimeForHash.trackerMissionStatus;
+    return _missionAuthorityStateHash({
+        version: bundle.version,
+        missionId: bundle.missionId,
+        descriptor: bundle.descriptor,
+        missionState: bundle.missionState,
+        runtime: runtimeForHash
+    });
+}
+
 function _resolveMissionAuthorityAck(ack = {}) {
     const commandId = String(ack.commandId || '').trim();
     if (!commandId) return false;
@@ -2170,19 +2279,7 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
         if (relation === 'demote' || relation === 'foreign') return;
         const bundle = _buildMissionAuthorityResumeBundle(reason);
         if (!bundle) return;
-        const runtimeForHash = _safeCloneJson(bundle.runtime, null) || {};
-        delete runtimeForHash.savedAt;
-        delete runtimeForHash.reason;
-        delete runtimeForHash.lastLiveGpsPos;
-        delete runtimeForHash.lastLiveFlightData;
-        delete runtimeForHash.trackerMissionStatus;
-        const stateHash = _missionAuthorityStateHash({
-            version: bundle.version,
-            missionId: bundle.missionId,
-            descriptor: bundle.descriptor,
-            missionState: bundle.missionState,
-            runtime: runtimeForHash
-        });
+        const stateHash = _missionAuthorityResumeBundleHash(bundle);
         if (stateHash && stateHash === missionAuthorityLastSnapshotHash) return;
         missionAuthoritySnapshotSequence = Math.max(missionAuthoritySnapshotSequence + 1, Date.now());
         missionAuthorityLastSnapshotHash = stateHash;
@@ -4516,12 +4613,6 @@ window.resumeTrackerMissionOnThisDevice = async function() {
     if (!_trackerSupportsMissionAuthority()) return false;
     const active = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
     if (!active?.missionId || !active?.runId) return false;
-    const label = String(active.missionId || 'Mission');
-    try {
-        if (!confirm(`Auf dem Tracker läuft bereits ${label}.\n\nDiese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?`)) return false;
-    } catch (_) {
-        return false;
-    }
     const snapshotAck = await _sendMissionAuthorityRequest({
         type: 'mission_snapshot_request',
         missionId: active.missionId,
@@ -4529,27 +4620,122 @@ window.resumeTrackerMissionOnThisDevice = async function() {
         clientId: _missionAuthorityClientId(),
         reason: 'device-handoff-preview'
     }, 12000);
-    const bundle = snapshotAck.resumeBundle && typeof snapshotAck.resumeBundle === 'object' ? snapshotAck.resumeBundle : null;
-    const bundleValidation = typeof window.GAMissionResumeAdapters?.validateBundle === 'function'
-        ? window.GAMissionResumeAdapters.validateBundle(bundle)
-        : { ok: !!(bundle?.missionState && bundle?.runtime) };
-    if (snapshotAck.status !== 'ok' || !bundleValidation.ok) {
-        try { alert('Der Tracker hat für diese Mission noch keinen vollständigen Übergabestand. Bitte die bisherige App kurz verbunden lassen und erneut versuchen.'); } catch (_) {}
+    const authoritativeRun = snapshotAck.authoritativeRun && typeof snapshotAck.authoritativeRun === 'object'
+        ? snapshotAck.authoritativeRun
+        : active;
+    let bundle = snapshotAck.resumeBundle && typeof snapshotAck.resumeBundle === 'object' ? snapshotAck.resumeBundle : null;
+    let bundleValidation = _validateMissionAuthorityResumeBundle(bundle);
+    let localRecovery = null;
+    const missingLegacySnapshot = String(snapshotAck.status || '').toLowerCase() === 'noop' && !bundle;
+    if (missingLegacySnapshot) {
+        localRecovery = _buildMissionAuthorityLocalRecovery(authoritativeRun, 'legacy-device-handoff-recovery');
+        if (localRecovery.ok) {
+            bundle = localRecovery.bundle;
+            bundleValidation = localRecovery.validation;
+        }
+    }
+    if (!localRecovery?.ok && (snapshotAck.status !== 'ok' || !bundleValidation.ok)) {
+        const mismatch = localRecovery?.error === 'local_mission_mismatch';
+        const foreignOwner = localRecovery?.error === 'tracker_owner_not_recoverable';
+        const message = mismatch
+            ? 'Der Tracker hat noch keinen vollständigen Übergabestand. Auf diesem Gerät liegt jedoch eine andere Mission; sie darf den laufenden Tracker-Lauf nicht überschreiben.'
+            : (foreignOwner
+                ? 'Der Tracker hat noch keinen vollständigen Übergabestand. Der Lauf gehört bereits einem anderen Gerät; bitte dieses kurz verbunden lassen und erneut versuchen.'
+                : 'Der Tracker hat für diese Mission noch keinen vollständigen Übergabestand. Bitte die bisherige App kurz verbunden lassen und erneut versuchen.');
+        _missionPhaseDebugPush('authority_handoff_rejected', {
+            reason: localRecovery?.error || snapshotAck.error || bundleValidation.error || 'resume_bundle_missing',
+            missionId: authoritativeRun?.missionId || active.missionId,
+            runId: authoritativeRun?.runId || active.runId,
+            ownerClientId: authoritativeRun?.ownerClientId || null,
+            localMissionId: _activeMissionRuntimeId('') || null
+        });
+        try { alert(message); } catch (_) {}
         return false;
     }
-    const takeoverAck = await _sendMissionAuthorityRequest({
-        type: 'mission_authority_takeover',
-        missionId: active.missionId,
-        runId: active.runId,
-        clientId: _missionAuthorityClientId(),
-        expectedRevision: Number(snapshotAck.authoritativeRun?.revision || active.revision || 0),
-        reason: 'explicit-device-handoff'
-    }, 12000);
+
+    const label = String(authoritativeRun.missionId || active.missionId || 'Mission');
+    try {
+        if (localRecovery?.ok) {
+            const title = String(localRecovery.missionTitle || label);
+            const phase = String(bundle.runtime?.startPhase || bundle.runtime?.runtime?.phase || 'geplant');
+            if (!confirm(
+                `Der ältere Tracker-Lauf enthält noch keinen Übergabe-Snapshot.\n\n`
+                + `Auf diesem Gerät liegt dieselbe Mission „${title}“ (lokaler Stand: ${phase}). `
+                + 'Diesen Stand jetzt einmalig als Tracker-Wahrheit übernehmen?'
+            )) return false;
+        } else if (!confirm(`Auf dem Tracker läuft bereits ${label}.\n\nDiese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?`)) {
+            return false;
+        }
+    } catch (_) {
+        return false;
+    }
+
+    const alreadyOwned = authoritativeRun.ownerClientId === _missionAuthorityClientId();
+    const takeoverAck = alreadyOwned
+        ? { status: 'ok', authoritativeRun }
+        : await _sendMissionAuthorityRequest({
+            type: 'mission_authority_takeover',
+            missionId: authoritativeRun.missionId,
+            runId: authoritativeRun.runId,
+            clientId: _missionAuthorityClientId(),
+            expectedRevision: Number(authoritativeRun.revision || 0),
+            reason: localRecovery?.ok ? 'explicit-legacy-recovery' : 'explicit-device-handoff'
+        }, 12000);
     if (takeoverAck.status !== 'ok' || !takeoverAck.authoritativeRun?.runId) {
         try { alert('Die Mission konnte nicht übernommen werden. Der Stand hat sich zwischenzeitlich geändert; bitte erneut versuchen.'); } catch (_) {}
         return false;
     }
-    _writeMissionAuthorityState({ ...takeoverAck.authoritativeRun, clientId: _missionAuthorityClientId() });
+    const ownedAuthority = _writeMissionAuthorityState({
+        ...takeoverAck.authoritativeRun,
+        clientId: _missionAuthorityClientId()
+    });
+
+    if (localRecovery?.ok) {
+        const local = ownedAuthority;
+        if (!local?.missionId || !local?.runId || !local?.clientId) {
+            try { alert('Der lokale Authority-Stand konnte nicht angelegt werden. Bitte lokalen Speicher freigeben und erneut versuchen.'); } catch (_) {}
+            return false;
+        }
+        const stateHash = _missionAuthorityResumeBundleHash(bundle);
+        missionAuthoritySnapshotSequence = Math.max(missionAuthoritySnapshotSequence + 1, Date.now());
+        const snapshotSequence = missionAuthoritySnapshotSequence;
+        const seedAck = await _sendMissionAuthorityRequest({
+            type: 'mission_snapshot_update',
+            missionId: local.missionId,
+            runId: local.runId,
+            clientId: local.clientId,
+            snapshotSequence,
+            state: bundle.runtime?.runtime?.closingPending ? 'closing' : 'active',
+            missionPhase: bundle.runtime?.startPhase || bundle.runtime?.runtime?.phase || 'planned',
+            stateHash,
+            reason: 'legacy-device-handoff-recovery-seed',
+            resumeBundle: bundle
+        }, 12000);
+        if (seedAck.status !== 'ok' || !seedAck.authoritativeRun?.runId) {
+            _missionPhaseDebugPush('authority_legacy_recovery_seed_failed', {
+                missionId: local.missionId,
+                runId: local.runId,
+                status: seedAck.status || '',
+                error: seedAck.error || '',
+                snapshotSequence
+            });
+            _queueMissionAuthoritySnapshot('legacy-device-handoff-recovery-retry', { immediate: true });
+            try { alert('Die Mission wurde übernommen, aber der Rettungsstand wurde noch nicht bestätigt. Bitte diese App mit dem Tracker verbunden lassen und die Übergabe erneut öffnen.'); } catch (_) {}
+            return false;
+        }
+        missionAuthorityLastSnapshotHash = stateHash;
+        missionAuthorityLastSnapshotPushAt = Date.now();
+        _writeMissionAuthorityState({ ...seedAck.authoritativeRun, clientId: _missionAuthorityClientId() });
+        _missionPhaseDebugPush('authority_legacy_recovery_seeded', {
+            missionId: local.missionId,
+            runId: local.runId,
+            previousOwnerClientId: authoritativeRun.ownerClientId || null,
+            runtimeSource: localRecovery.runtimeSource,
+            snapshotSequence,
+            revision: seedAck.authoritativeRun.revision || null
+        });
+    }
+
     try {
         localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState));
         localStorage.setItem(MISSION_RUNTIME_RESUME_KEY, JSON.stringify(bundle.runtime));
@@ -4557,7 +4743,7 @@ window.resumeTrackerMissionOnThisDevice = async function() {
     let restored = false;
     try {
         restored = (await restoreMissionState(bundle.missionState, {
-            source: 'tracker-authority',
+            source: localRecovery?.ok ? 'tracker-authority-legacy-recovery' : 'tracker-authority',
             allowDraft: false,
             resumeRuntime: true,
             authorityConfirmed: true
@@ -4580,6 +4766,8 @@ window.resumeTrackerMissionOnThisDevice = async function() {
     _missionPhaseDebugPush('authority_handoff_complete', {
         missionId: active.missionId,
         runId: active.runId,
+        recoveredFromLocal: !!localRecovery?.ok,
+        runtimeSource: localRecovery?.runtimeSource || 'tracker',
         adapter: bundle.descriptor?.primaryAdapter || bundle.adapter || null,
         facets: bundle.descriptor?.facets || []
     });

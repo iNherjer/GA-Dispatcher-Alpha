@@ -119,7 +119,40 @@ const legacy = reloaded.validate({ type: 'mission_scene_spawn', commandId: 'lega
 assert.equal(legacy.ok, true);
 assert.equal(reloaded.getActiveRun().missionId, 'mission-legacy');
 assert.equal(reloaded.validate({ type: 'mission_scene_spawn', missionId: 'foreign-legacy' }).ok, false);
-assert.equal(reloaded.releaseLegacy({ missionId: 'mission-legacy', state: 'ended' }).ok, true);
+const legacyWithoutSnapshot = reloaded.requestSnapshot({ missionId: 'mission-legacy' });
+assert.equal(legacyWithoutSnapshot.status, 'noop');
+assert.equal(legacyWithoutSnapshot.resumeBundle, null);
+const legacyRecoveryTakeover = reloaded.takeover({
+  missionId: 'mission-legacy',
+  runId: reloaded.getActiveRun().runId,
+  clientId: 'app-recovery',
+  expectedRevision: reloaded.getActiveRun().revision,
+  reason: 'explicit-legacy-recovery'
+});
+assert.equal(legacyRecoveryTakeover.ok, true);
+assert.equal(legacyRecoveryTakeover.previousOwnerClientId, 'legacy-client');
+const recoverySeed = reloaded.updateSnapshot({
+  missionId: 'mission-legacy',
+  runId: legacyRecoveryTakeover.activeRun.runId,
+  clientId: 'app-recovery',
+  snapshotSequence: 1,
+  phase: 'planned',
+  resumeBundle: {
+    version: 2,
+    missionId: 'mission-legacy',
+    missionState: { currentMissionData: { missionId: 'mission-legacy' } },
+    runtime: { missionId: 'mission-legacy', startPhase: 'planned' },
+    adapter: 'apt'
+  }
+});
+assert.equal(recoverySeed.ok, true);
+assert.equal(reloaded.requestSnapshot({ missionId: 'mission-legacy' }).status, 'ok');
+assert.equal(reloaded.release({
+  missionId: 'mission-legacy',
+  runId: legacyRecoveryTakeover.activeRun.runId,
+  clientId: 'app-recovery',
+  outcome: 'reset'
+}).ok, true);
 assert.equal(reloaded.getActiveRun(), null);
 
 console.log('mission-authority-core tests: ok');

@@ -230,6 +230,11 @@ fachliche State-Machine bereits in den Tracker zu kopieren:
   Legacy-Run starten. Solange dieser Legacy-Run aktiv ist, funktionieren ihre
   bisherigen Befehle und ihr terminales Lifecycle-Event. Ein alter Client darf
   aber keinen bereits von einem versionierten Client gehaltenen Run mutieren.
+- Fuer einen impliziten `legacy-client`-Run ohne ersten Resume-Snapshot gibt es
+  einen bestaetigten Recovery-Pfad: Nur eine lokal exakt passende Missions-ID
+  darf den Run uebernehmen und muss sofort einen vollstaendigen, vom Tracker
+  bestaetigten Resume-v2-Snapshot setzen. Fremde Missionen und fremde
+  versionierte Owner bleiben gesperrt.
 
 Das Resume-Bundle verwendet `ga.mission-resume.v2`. Primaeradapter sind
 `apt`, `poi`, `survey_pattern`, `poi_chain`, `training`, `bush_pickup` und
@@ -485,6 +490,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Web-Cache v1616 mit einem bereits persistenten Tracker-Run und einem
       Browser ohne lokalen Authority-Eintrag testen: Anzeige muss von LINK auf
       LIVE wechseln und danach den Handoff anbieten.
+- [ ] Web-Cache v1618 mit dem realen `legacy-client`-Run ohne Snapshot testen:
+      ein Geraet mit derselben Mission setzt nach Bestaetigung den Rettungsstand;
+      das zweite Geraet bezieht danach den normalen Tracker-Snapshot. Eine
+      andere lokale Mission muss abgewiesen werden.
 - [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
@@ -497,6 +506,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   fuer selbst gesendete `commandId`. Ein Tracker-bestaetigter Handoff darf den
   lokalen Fresh-Start-Guard uebersteuern; ein abgeloester Owner stoppt seine
   Snapshot-Schreibversuche und bleibt Beobachter.
+- 2026-08-10: Ein implizit angelegter `legacy-client`-Run ohne Resume-Snapshot
+  darf nicht alle Geraete in einen Uebergabe-Deadlock bringen. Ab Web-Cache
+  v1618 kann eine lokal identische Mission nach gesonderter Bestaetigung den
+  Run uebernehmen und als ersten vollstaendigen Tracker-Snapshot setzen. Andere
+  Missions-IDs und fremde versionierte Owner bleiben unveraendert gesperrt.
 - 2026-08-10: Authority-Projektionen sind ein Zusatzkanal innerhalb eines
   Telemetriepakets. Fehler in diesem Zusatzkanal duerfen Position, Flugzustand
   und LIVE-Anzeige nicht mehr verwerfen; der Revisionsvergleich akzeptiert
