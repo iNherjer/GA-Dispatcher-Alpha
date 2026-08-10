@@ -15,6 +15,7 @@ class FakeUpdater extends EventEmitter {
     super();
     this.eventName = eventName;
     this.downloadCount = 0;
+    this.installCount = 0;
   }
 
   checkForUpdates() {
@@ -27,10 +28,12 @@ class FakeUpdater extends EventEmitter {
     return Promise.resolve();
   }
 
-  quitAndInstall() {}
+  quitAndInstall() {
+    this.installCount += 1;
+  }
 }
 
-test('startup continues when no update is available', async () => {
+test('startup check runs without blocking the tracker and reports current', async () => {
   const updater = new FakeUpdater('update-not-available');
   const controller = new UpdateController({
     autoUpdater: updater,
@@ -39,7 +42,8 @@ test('startup continues when no update is available', async () => {
     getPolicy: () => 'ask',
     savePolicy: () => {}
   });
-  assert.equal(await controller.checkAtStartup(), 'continue');
+  assert.deepEqual(await controller.checkAtStartup(), { ok: true });
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(controller.publicState().phase, 'current');
 });
 
@@ -59,6 +63,27 @@ test('first update waits for one-time, automatic or later choice', async () => {
   assert.deepEqual(controller.handleChoice('automatic'), { ok: true, action: 'download' });
   assert.equal(savedPolicy, 'automatic');
   assert.equal(updater.downloadCount, 1);
-  controller.resolveStartup('test-complete');
-  assert.equal(await startup, 'test-complete');
+  assert.deepEqual(await startup, { ok: true });
+});
+
+test('automatic policy downloads a discovered update and a ready update installs after cleanup', async () => {
+  const updater = new FakeUpdater('update-available');
+  let cleanedUp = false;
+  const controller = new UpdateController({
+    autoUpdater: updater,
+    isPackaged: true,
+    platform: 'win32',
+    getPolicy: () => 'automatic',
+    savePolicy: () => {},
+    beforeInstall: async () => { cleanedUp = true; }
+  });
+  await controller.checkAtStartup();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.publicState().phase, 'downloading');
+  assert.equal(updater.downloadCount, 1);
+  updater.emit('update-downloaded', { version: '1.1.0' });
+  assert.equal(controller.publicState().phase, 'ready');
+  assert.deepEqual(await controller.install(), { ok: true });
+  assert.equal(cleanedUp, true);
+  assert.equal(updater.installCount, 1);
 });

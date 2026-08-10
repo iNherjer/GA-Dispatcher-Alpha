@@ -40,3 +40,13 @@ test('desktop window and Windows build use the dedicated tracker icon', () => {
   assert.ok(fs.existsSync(path.join(desktopRoot, 'assets', 'tracker-icon-512.png')));
   assert.ok(fs.existsSync(path.join(desktopRoot, 'assets', 'tracker-icon-192.png')));
 });
+
+test('Windows build packages the desktop self-updater and immutable channel', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'));
+  const main = fs.readFileSync(path.join(desktopRoot, 'main.js'), 'utf8');
+  assert.equal(packageJson.dependencies['electron-updater'], '6.8.9');
+  assert.equal(packageJson.build.publish[0].provider, 'generic');
+  assert.match(packageJson.build.publish[0].url, /ga-tracker-client\/channel\/desktop\/$/);
+  assert.match(main, /require\('electron-updater'\)/);
+  assert.match(main, /desktopUpdateController\.checkAtStartup\(\)/);
+});

@@ -1,28 +1,31 @@
 const { EventEmitter } = require('node:events');
 
-const STARTUP_CHECK_TIMEOUT_MS = 10000;
-
 function normalizeChoice(value) {
   const choice = String(value || '').trim();
   return ['once', 'automatic', 'later'].includes(choice) ? choice : 'later';
 }
 
+function cleanVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '').slice(0, 40);
+}
+
 class UpdateController extends EventEmitter {
-  constructor({ autoUpdater, isPackaged, platform, getPolicy, savePolicy }) {
+  constructor({ autoUpdater, isPackaged, platform, getPolicy, savePolicy, beforeInstall }) {
     super();
     this.autoUpdater = autoUpdater;
-    this.supported = Boolean(isPackaged && platform === 'win32');
-    this.getPolicy = getPolicy;
-    this.savePolicy = savePolicy;
-    this.startupGateOpen = false;
-    this.startupResolve = null;
-    this.startupTimer = null;
+    this.supported = Boolean(autoUpdater && isPackaged && platform === 'win32');
+    this.getPolicy = typeof getPolicy === 'function' ? getPolicy : () => 'ask';
+    this.savePolicy = typeof savePolicy === 'function' ? savePolicy : () => {};
+    this.beforeInstall = typeof beforeInstall === 'function' ? beforeInstall : async () => {};
+    this.manualCheck = false;
     this.state = {
       supported: this.supported,
       phase: this.supported ? 'idle' : 'development',
       version: '',
       percent: 0,
-      message: this.supported ? 'Updateprüfung steht bereit.' : 'Updates sind erst im installierten Windows-Build aktiv.'
+      message: this.supported
+        ? 'Updateprüfung für die Desktop-App steht bereit.'
+        : 'App-Updates sind erst im installierten Windows-Build aktiv.'
     };
     if (this.supported) this.attachUpdaterEvents();
   }
@@ -36,45 +39,34 @@ class UpdateController extends EventEmitter {
     this.emit('state', this.publicState());
   }
 
-  resolveStartup(result) {
-    if (!this.startupResolve) return;
-    const resolve = this.startupResolve;
-    this.startupResolve = null;
-    this.startupGateOpen = false;
-    if (this.startupTimer) clearTimeout(this.startupTimer);
-    this.startupTimer = null;
-    resolve(result);
-  }
-
   attachUpdaterEvents() {
     this.autoUpdater.autoDownload = false;
-    this.autoUpdater.autoInstallOnAppQuit = false;
+    this.autoUpdater.autoInstallOnAppQuit = true;
     this.autoUpdater.on('checking-for-update', () => {
-      this.setState({ phase: 'checking', message: 'Suche nach Updates …', percent: 0 });
+      this.setState({ phase: 'checking', percent: 0, message: 'Suche nach einer neuen Desktop-App …' });
     });
     this.autoUpdater.on('update-not-available', () => {
-      this.setState({ phase: 'current', message: 'Die installierte Version ist aktuell.', percent: 0 });
-      this.resolveStartup('continue');
+      this.manualCheck = false;
+      this.setState({ phase: 'current', version: '', percent: 0, message: 'Die Desktop-App ist aktuell.' });
     });
     this.autoUpdater.on('update-available', (info) => {
-      const version = String(info?.version || '');
-      if (!this.startupGateOpen) {
-        this.setState({
-          phase: 'deferred',
-          version,
-          message: `Version ${version} ist verfügbar und wird beim nächsten Trackerstart angeboten.`
-        });
-        return;
-      }
+      const version = cleanVersion(info?.version);
+      this.manualCheck = false;
       if (this.getPolicy() === 'automatic') {
-        this.setState({ phase: 'downloading', version, message: `Version ${version} wird automatisch geladen …`, percent: 0 });
-        this.download();
+        this.setState({
+          phase: 'downloading',
+          version,
+          percent: 0,
+          message: `Desktop-App v${version} wird automatisch geladen …`
+        });
+        void this.download();
         return;
       }
       this.setState({
         phase: 'choice-required',
         version,
-        message: `Version ${version} ist verfügbar.`
+        percent: 0,
+        message: `Desktop-App v${version} ist verfügbar.`
       });
     });
     this.autoUpdater.on('download-progress', (progress) => {
@@ -82,83 +74,98 @@ class UpdateController extends EventEmitter {
       this.setState({
         phase: 'downloading',
         percent,
-        message: `Update wird geladen … ${Math.round(percent)} %`
+        message: `Desktop-App wird geladen und geprüft … ${Math.round(percent)} %`
       });
     });
     this.autoUpdater.on('update-downloaded', (info) => {
       this.setState({
         phase: 'ready',
-        version: String(info?.version || this.state.version || ''),
+        version: cleanVersion(info?.version || this.state.version),
         percent: 100,
-        message: 'Update ist geprüft und wird installiert …'
+        message: 'Das App-Update ist geprüft. Es wird beim nächsten Beenden oder nach einem Neustart installiert.'
       });
-      this.emit('install-ready');
+      this.emit('install-ready', this.publicState());
     });
     this.autoUpdater.on('error', (error) => {
+      this.manualCheck = false;
       this.setState({
         phase: 'error',
-        message: `Updateprüfung fehlgeschlagen: ${error?.message || error}`,
-        percent: 0
+        percent: 0,
+        message: `App-Update fehlgeschlagen: ${error?.message || error}`
       });
-      this.resolveStartup('continue');
     });
   }
 
-  async checkAtStartup() {
-    if (!this.supported) return 'continue';
-    this.startupGateOpen = true;
-    const result = new Promise((resolve) => {
-      this.startupResolve = resolve;
-      this.startupTimer = setTimeout(() => {
-        if (!this.startupResolve) return;
-        this.setState({
-          phase: 'deferred',
-          message: 'Updateprüfung dauerte zu lange und wird beim nächsten Start wiederholt.'
-        });
-        this.resolveStartup('continue');
-      }, STARTUP_CHECK_TIMEOUT_MS);
-    });
-    Promise.resolve(this.autoUpdater.checkForUpdates()).catch((error) => {
-      this.setState({ phase: 'error', message: `Updateprüfung fehlgeschlagen: ${error?.message || error}` });
-      this.resolveStartup('continue');
-    });
-    return result;
+  async check({ manual = false } = {}) {
+    if (!this.supported) return { ok: false, message: 'App-Updates sind nur im installierten Windows-Build verfügbar.' };
+    if (['checking', 'downloading', 'installing'].includes(this.state.phase)) {
+      return { ok: false, message: 'Die App-Aktualisierung läuft bereits.' };
+    }
+    this.manualCheck = manual === true;
+    this.setState({ phase: 'checking', percent: 0, message: 'Suche nach einer neuen Desktop-App …' });
+    try {
+      await this.autoUpdater.checkForUpdates();
+      return { ok: true };
+    } catch (error) {
+      this.manualCheck = false;
+      this.setState({ phase: 'error', percent: 0, message: `App-Update fehlgeschlagen: ${error?.message || error}` });
+      return { ok: false, message: error?.message || String(error) };
+    }
+  }
+
+  checkAtStartup() {
+    return this.check({ manual: false });
   }
 
   async download() {
+    if (!this.supported || !['choice-required', 'downloading'].includes(this.state.phase)) {
+      return { ok: false, message: 'Derzeit steht kein App-Update zum Download bereit.' };
+    }
+    if (this.state.phase !== 'downloading') {
+      this.setState({ phase: 'downloading', percent: 0, message: 'Desktop-App wird geladen und geprüft …' });
+    }
     try {
       await this.autoUpdater.downloadUpdate();
+      return { ok: true };
     } catch (error) {
-      this.setState({ phase: 'error', message: `Update konnte nicht geladen werden: ${error?.message || error}` });
-      this.resolveStartup('continue');
+      this.setState({ phase: 'error', percent: 0, message: `App-Update konnte nicht geladen werden: ${error?.message || error}` });
+      return { ok: false, message: error?.message || String(error) };
     }
   }
 
   handleChoice(rawChoice) {
-    if (this.state.phase !== 'choice-required') return { ok: false, message: 'Derzeit wartet kein Update auf eine Auswahl.' };
+    if (this.state.phase !== 'choice-required') return { ok: false, message: 'Derzeit wartet kein App-Update auf eine Auswahl.' };
     const choice = normalizeChoice(rawChoice);
     if (choice === 'later') {
-      this.setState({ phase: 'deferred', message: 'Update wurde bis zum nächsten Start zurückgestellt.' });
-      this.resolveStartup('continue');
+      this.setState({ phase: 'deferred', message: 'App-Update wurde bis zur nächsten Prüfung zurückgestellt.' });
       return { ok: true, action: 'continue' };
     }
     if (choice === 'automatic') this.savePolicy('automatic');
     this.setState({
       phase: 'downloading',
+      percent: 0,
       message: choice === 'automatic'
-        ? 'Automatische Updates sind aktiviert. Update wird geladen …'
-        : 'Dieses Update wird geladen …',
-      percent: 0
+        ? 'Automatische App-Updates sind aktiviert. Update wird geladen …'
+        : 'Dieses App-Update wird geladen …'
     });
-    this.download();
+    void this.download();
     return { ok: true, action: 'download' };
   }
 
-  quitAndInstall() {
-    if (!this.supported) return false;
-    this.autoUpdater.quitAndInstall(false, true);
-    return true;
+  async install() {
+    if (!this.supported || this.state.phase !== 'ready') {
+      return { ok: false, message: 'Das App-Update ist noch nicht installationsbereit.' };
+    }
+    this.setState({ phase: 'installing', message: 'Tracker und Bridge werden beendet; danach startet die Installation …' });
+    try {
+      await this.beforeInstall();
+      this.autoUpdater.quitAndInstall(false, true);
+      return { ok: true };
+    } catch (error) {
+      this.setState({ phase: 'error', message: `App-Update konnte nicht gestartet werden: ${error?.message || error}` });
+      return { ok: false, message: error?.message || String(error) };
+    }
   }
 }
 
-module.exports = { STARTUP_CHECK_TIMEOUT_MS, UpdateController, normalizeChoice };
+module.exports = { UpdateController, cleanVersion, normalizeChoice };

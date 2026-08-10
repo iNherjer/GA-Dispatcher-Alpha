@@ -373,6 +373,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-10: Ab Tracker Desktop 1.6.0 aktualisiert sich auch die installierte
+  Bootstrap-/Desktop-App ueber den getrennten Desktop-Kanal. Downloads werden
+  per SHA-512-Metadaten geprueft, koennen automatisch vorbereitet werden und
+  werden erst beim Beenden oder nach einem bestaetigten Neustart installiert.
+  Aeltere Desktop-Versionen benoetigen einmalig den manuellen Wechsel auf 1.6.0.
 - 2026-08-10: Der Tracker-Desktop-Manager ordnet Tracker, Homebase Assets, EFB
   und Bridge als standardmaessig geschlossene Module unter einer kompakten
   Status-/Startleiste. Updateentscheidungen sind pro Modul getrennt. Bereits

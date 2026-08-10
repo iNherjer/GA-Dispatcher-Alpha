@@ -4,6 +4,7 @@ const { normalizeRuntimeChannel } = require('./runtime-channel');
 
 const UPDATE_POLICIES = new Set(['ask', 'automatic']);
 const MODULE_UPDATE_POLICY_KEYS = Object.freeze({
+  desktop: 'desktopUpdatePolicy',
   homebase: 'homebaseUpdatePolicy',
   efb: 'efbUpdatePolicy',
   bridge: 'bridgeUpdatePolicy'
@@ -105,6 +106,7 @@ class TrackerConfigStore {
       pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
+      desktopUpdatePolicy: normalizeUpdatePolicy(preferences.desktopUpdatePolicy),
       updatePolicy: normalizeUpdatePolicy(preferences.updatePolicy),
       homebaseUpdatePolicy: normalizeUpdatePolicy(preferences.homebaseUpdatePolicy),
       efbUpdatePolicy: normalizeUpdatePolicy(preferences.efbUpdatePolicy),
@@ -218,6 +220,7 @@ class TrackerConfigStore {
       ...desktop,
       preferences: {
         runtimeChannel: normalizeRuntimeChannel(legacy.runtimeChannel),
+        desktopUpdatePolicy: normalizeUpdatePolicy(legacy.desktopUpdatePolicy),
         updatePolicy: normalizeUpdatePolicy(legacy.updatePolicy),
         homebaseUpdatePolicy: normalizeUpdatePolicy(legacy.homebaseUpdatePolicy),
         efbUpdatePolicy: normalizeUpdatePolicy(legacy.efbUpdatePolicy),

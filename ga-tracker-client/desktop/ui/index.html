@@ -114,7 +114,31 @@
 
           <section class="settings-group">
             <p class="eyebrow">VERSION &amp; UPDATES</p>
-            <h2>Tracker-Runtime</h2>
+            <h2>Desktop-App</h2>
+            <p id="desktopUpdateVersion" class="path-line">Installiert: Desktop v–</p>
+            <label class="toggle-row">
+              <span>
+                <strong>App-Updates automatisch laden</strong>
+                <small>Geprüfte Updates werden vorbereitet; der Neustart bleibt unter deiner Kontrolle.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="desktopAutoUpdateCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+            <div id="desktopUpdateProgressWrap" class="progress-wrap" hidden>
+              <span id="desktopUpdateProgress" class="progress-bar"></span>
+            </div>
+            <p id="desktopUpdateMessage" class="subtle">App-Updateprüfung wird vorbereitet.</p>
+            <div class="inline-actions">
+              <button id="checkDesktopUpdateButton" class="text-button panel-action" type="button">App-Update prüfen</button>
+              <button id="installDesktopUpdateButton" class="primary-button compact-button" type="button" hidden>Installieren &amp; neu starten</button>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <p class="eyebrow">TRACKER-ENGINE</p>
+            <h2>Runtime &amp; Datenkanal</h2>
             <label class="policy-row channel-row">
               <span>
                 <strong>Release-Kanal</strong>
@@ -297,6 +321,16 @@
       <button data-update-choice="automatic" class="primary-button" value="automatic">Künftig automatisch</button>
       <button data-update-choice="once" class="secondary-button" value="once">Nur dieses Mal</button>
       <button data-update-choice="later" class="text-button centered" value="later">Später</button>
+    </form>
+  </dialog>
+
+  <dialog id="desktopInstallDialog">
+    <form method="dialog" class="dialog-card">
+      <p class="eyebrow">APP-UPDATE BEREIT</p>
+      <h2 id="desktopInstallDialogTitle">Tracker-App aktualisieren</h2>
+      <p>Das Update wurde vollständig geladen und per Prüfsumme verifiziert. Tracker und eine vom Tracker gestartete Bridge werden für die Installation beendet.</p>
+      <button id="confirmDesktopInstallButton" class="primary-button" value="install">Jetzt neu starten &amp; installieren</button>
+      <button class="text-button centered" value="later">Beim Beenden installieren</button>
     </form>
   </dialog>
 

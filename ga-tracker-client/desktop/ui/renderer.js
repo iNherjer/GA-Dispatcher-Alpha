@@ -18,6 +18,13 @@ const elements = {
   runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
+  desktopAutoUpdateCheckbox: document.getElementById('desktopAutoUpdateCheckbox'),
+  desktopUpdateVersion: document.getElementById('desktopUpdateVersion'),
+  desktopUpdateMessage: document.getElementById('desktopUpdateMessage'),
+  desktopUpdateProgressWrap: document.getElementById('desktopUpdateProgressWrap'),
+  desktopUpdateProgress: document.getElementById('desktopUpdateProgress'),
+  checkDesktopUpdateButton: document.getElementById('checkDesktopUpdateButton'),
+  installDesktopUpdateButton: document.getElementById('installDesktopUpdateButton'),
   updateBadge: document.getElementById('updateBadge'),
   updateMessage: document.getElementById('updateMessage'),
   updateProgressWrap: document.getElementById('updateProgressWrap'),
@@ -68,7 +75,10 @@ const elements = {
   logOutput: document.getElementById('logOutput'),
   updateDialog: document.getElementById('updateDialog'),
   updateDialogTitle: document.getElementById('updateDialogTitle'),
-  updateDialogMessage: document.getElementById('updateDialogMessage')
+  updateDialogMessage: document.getElementById('updateDialogMessage'),
+  desktopInstallDialog: document.getElementById('desktopInstallDialog'),
+  desktopInstallDialogTitle: document.getElementById('desktopInstallDialogTitle'),
+  confirmDesktopInstallButton: document.getElementById('confirmDesktopInstallButton')
 };
 
 const labels = {
@@ -79,6 +89,10 @@ const labels = {
 };
 
 const updateModules = {
+  desktop: {
+    title: (version) => `Tracker-App v${version || ''} verfügbar`.trim(),
+    message: 'Wie möchtest du dieses und künftige Updates der Desktop-App behandeln? Die Installation erfolgt nach einem kontrollierten Neustart.'
+  },
   tracker: {
     title: (version) => `Tracker-Update ${version || ''} verfügbar`.trim(),
     message: 'Wie möchtest du dieses und künftige Tracker-Updates behandeln?'
@@ -100,6 +114,7 @@ const updateModules = {
 let latestState = null;
 let activeUpdateDialog = null;
 let channelChangePending = false;
+let dismissedDesktopInstallVersion = '';
 const dismissedUpdates = new Set();
 
 function setClass(element, baseClass, state) {
@@ -127,7 +142,25 @@ function renderLogs(logs) {
   elements.logOutput.scrollTop = elements.logOutput.scrollHeight;
 }
 
-function renderUpdate(update = {}, runtimeChannel = 'stable') {
+function renderDesktopUpdate(update = {}, appVersion = '') {
+  const phase = String(update.phase || 'idle');
+  elements.desktopUpdateVersion.textContent = `Installiert: Desktop v${appVersion || '–'}${update.version ? ` · Verfügbar: v${update.version}` : ''}`;
+  elements.desktopUpdateMessage.textContent = update.message || 'App-Updateprüfung wird vorbereitet.';
+  elements.desktopUpdateProgressWrap.hidden = phase !== 'downloading';
+  elements.desktopUpdateProgress.style.width = `${Math.max(0, Math.min(100, Number(update.percent) || 0))}%`;
+  elements.checkDesktopUpdateButton.disabled = update.supported !== true || ['checking', 'downloading', 'ready', 'installing'].includes(phase);
+  elements.installDesktopUpdateButton.hidden = phase !== 'ready';
+  elements.installDesktopUpdateButton.disabled = phase !== 'ready';
+
+  if (['choice-required', 'downloading', 'ready', 'installing', 'error'].includes(phase)) {
+    elements.updateBadge.textContent = {
+      'choice-required': 'App-Update', downloading: 'App-Download', ready: 'Neustart', installing: 'Installiert', error: 'App-Fehler'
+    }[phase];
+    setClass(elements.updateBadge, 'mini-badge', phase);
+  }
+}
+
+function renderUpdate(update = {}, runtimeChannel = 'stable', appVersion = '') {
   const phase = String(update.phase || 'idle');
   elements.updateBadge.textContent = {
     development: 'Entwicklung', idle: 'Bereit', checking: 'Prüft', current: 'Aktuell',
@@ -140,7 +173,7 @@ function renderUpdate(update = {}, runtimeChannel = 'stable') {
   elements.checkRuntimeButton.disabled = ['checking', 'downloading', 'choice-required', 'development'].includes(phase);
   elements.runtimeChannelSelect.disabled = channelChangePending || ['checking', 'downloading', 'choice-required'].includes(phase);
   const installedVersion = update.installedVersion || update.version || 'nicht installiert';
-  elements.trackerModuleSummary.textContent = `Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
+  elements.trackerModuleSummary.textContent = `Desktop v${appVersion || '–'} · Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
 }
 
 function renderHomebaseAssets(assets = {}) {
@@ -251,6 +284,8 @@ function renderBridge(bridge = {}) {
 
 function renderAutomaticUpdateBanner(state, settings) {
   const active = [];
+  const desktopUpdate = state?.desktopUpdate || {};
+  if (modulePolicy(settings, 'desktop') === 'automatic' && desktopUpdate.phase === 'downloading') active.push('Tracker-App');
   const trackerUpdate = state?.update || {};
   if (modulePolicy(settings, 'tracker') === 'automatic' && trackerUpdate.phase === 'downloading' && trackerUpdate.installedVersion) active.push('Tracker');
   const homebase = state?.homebaseAssets || {};
@@ -270,7 +305,11 @@ function renderAutomaticUpdateBanner(state, settings) {
 function pendingUpdate(state) {
   const settings = state?.settings || {};
   const update = state?.update || {};
+  const desktopUpdate = state?.desktopUpdate || {};
   const candidates = [];
+  if (modulePolicy(settings, 'desktop') === 'ask' && desktopUpdate.phase === 'choice-required') {
+    candidates.push({ module: 'desktop', version: desktopUpdate.version || '', key: `desktop:${desktopUpdate.version || 'unknown'}` });
+  }
   if (modulePolicy(settings, 'tracker') === 'ask' && update.phase === 'choice-required') {
     candidates.push({ module: 'tracker', version: update.version || '', key: `tracker:${update.version || 'unknown'}` });
   }
@@ -303,6 +342,19 @@ function renderUpdateDialog(state) {
   elements.updateDialog.showModal();
 }
 
+function renderDesktopInstallDialog(state) {
+  const update = state?.desktopUpdate || {};
+  const version = String(update.version || '');
+  if (update.phase !== 'ready') {
+    if (elements.desktopInstallDialog.open) elements.desktopInstallDialog.close();
+    if (version !== dismissedDesktopInstallVersion) dismissedDesktopInstallVersion = '';
+    return;
+  }
+  if (elements.updateDialog.open || elements.desktopInstallDialog.open || dismissedDesktopInstallVersion === version) return;
+  elements.desktopInstallDialogTitle.textContent = `Tracker-App v${version || '–'} installieren`;
+  elements.desktopInstallDialog.showModal();
+}
+
 function render(state) {
   latestState = state;
   const tracker = state?.tracker || {};
@@ -329,6 +381,7 @@ function render(state) {
       : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
   }
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
+  setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
   setChecked(elements.homebaseAutoUpdateCheckbox, modulePolicy(settings, 'homebase') === 'automatic');
   setChecked(elements.efbAutoUpdateCheckbox, modulePolicy(settings, 'efb') === 'automatic');
   setChecked(elements.bridgeAutoUpdateCheckbox, modulePolicy(settings, 'bridge') === 'automatic');
@@ -342,12 +395,14 @@ function render(state) {
   elements.stopButton.disabled = !running;
   elements.detailStatus.textContent = tracker.detail || 'Tracker ist nicht gestartet.';
   renderLogs(tracker.logs);
-  renderUpdate(state?.update, runtimeChannel);
+  renderUpdate(state?.update, runtimeChannel, state?.appVersion);
+  renderDesktopUpdate(state?.desktopUpdate, state?.appVersion);
   renderHomebaseAssets(state?.homebaseAssets);
   renderEfbPackage(state?.efbPackage, runtimeChannel);
   renderBridge(state?.bridge);
   renderAutomaticUpdateBanner(state, settings);
   renderUpdateDialog(state);
+  renderDesktopInstallDialog(state);
 }
 
 elements.credentialsForm.addEventListener('submit', async (event) => {
@@ -370,6 +425,7 @@ elements.credentialsForm.addEventListener('submit', async (event) => {
 });
 
 elements.trackerAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setUpdatePolicy(elements.trackerAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
+elements.desktopAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('desktop', elements.desktopAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
 elements.homebaseAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('homebase', elements.homebaseAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
 elements.efbAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('efb', elements.efbAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
 elements.bridgeAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setModuleUpdatePolicy('bridge', elements.bridgeAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
@@ -422,6 +478,8 @@ elements.startButton.addEventListener('click', async () => {
 
 elements.stopButton.addEventListener('click', () => window.trackerDesktop.stopTracker());
 elements.openFolderButton.addEventListener('click', () => window.trackerDesktop.openDataFolder());
+elements.checkDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.checkDesktopUpdate());
+elements.installDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.installDesktopUpdate());
 elements.checkRuntimeButton.addEventListener('click', () => window.trackerDesktop.checkRuntimeUpdate());
 
 elements.assetRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshHomebaseAssets());
@@ -477,6 +535,10 @@ async function runUpdateChoice(choice) {
     return;
   }
   closeUpdateDialog();
+  if (pending.module === 'desktop') {
+    await window.trackerDesktop.chooseDesktopUpdate(choice);
+    return;
+  }
   if (pending.module === 'tracker') {
     await window.trackerDesktop.chooseUpdate(choice);
     return;
@@ -489,6 +551,18 @@ async function runUpdateChoice(choice) {
   if (pending.module === 'efb') await window.trackerDesktop.installEfbPackage(false);
   if (pending.module === 'bridge') await window.trackerDesktop.installBridge();
 }
+
+elements.confirmDesktopInstallButton.addEventListener('click', async (event) => {
+  event.preventDefault();
+  elements.desktopInstallDialog.close();
+  await window.trackerDesktop.installDesktopUpdate();
+});
+
+elements.desktopInstallDialog.addEventListener('close', () => {
+  if (latestState?.desktopUpdate?.phase === 'ready') {
+    dismissedDesktopInstallVersion = String(latestState.desktopUpdate.version || '');
+  }
+});
 
 for (const button of document.querySelectorAll('[data-update-choice]')) {
   button.addEventListener('click', async (event) => {

@@ -487,6 +487,27 @@ select:focus {
   margin-top: 9px;
 }
 
+.inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.inline-actions .panel-action {
+  margin-top: 0;
+}
+
+.compact-button {
+  min-height: 34px;
+  font-size: 11px;
+}
+
+.compact-button[hidden] {
+  display: none;
+}
+
 .form-message.error,
 .channel-message.error {
   color: var(--red);

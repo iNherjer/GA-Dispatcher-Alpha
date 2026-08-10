@@ -10,6 +10,7 @@ const {
   shell,
   Tray
 } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { TrackerConfigStore } = require('./lib/config-store');
 const {
   RUNTIME_CHANNELS,
@@ -24,6 +25,7 @@ const { EfbPackageManager } = require('./lib/efb-package-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
 const { TrackerRuntimeManager } = require('./lib/runtime-manager');
 const { TrackerProcess } = require('./lib/tracker-process');
+const { UpdateController } = require('./lib/update-controller');
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
@@ -32,6 +34,7 @@ let tray = null;
 let configStore = null;
 let trackerProcess = null;
 let runtimeManager = null;
+let desktopUpdateController = null;
 let homebaseManager = null;
 let efbPackageManager = null;
 let bridgeManager = null;
@@ -61,6 +64,7 @@ function currentState() {
       pilotId: '',
       hasPin: false,
       runtimeChannel: 'stable',
+      desktopUpdatePolicy: 'ask',
       updatePolicy: 'ask',
       homebaseUpdatePolicy: 'ask',
       efbUpdatePolicy: 'ask',
@@ -71,6 +75,7 @@ function currentState() {
       stopBridgeWithTracker: true
     },
     tracker: trackerProcess?.publicState() || null,
+    desktopUpdate: desktopUpdateController?.publicState() || null,
     update: runtimeManager?.publicState() || null,
     homebaseAssets: homebaseManager?.publicState() || null,
     efbPackage: efbPackageManager?.publicState() || null,
@@ -277,10 +282,13 @@ function createWindow({ showOnReady = true } = {}) {
   });
 }
 
-function createTray() {
-  const image = nativeImage.createFromPath(iconPath()).resize({ width: 20, height: 20 });
-  tray = new Tray(image);
-  tray.setToolTip('VFR Multitool Tracker');
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  const desktopUpdate = desktopUpdateController?.publicState() || {};
+  const desktopUpdateBusy = ['checking', 'downloading', 'installing'].includes(desktopUpdate.phase);
+  const desktopUpdateLabel = desktopUpdate.phase === 'ready'
+    ? `Tracker-App v${desktopUpdate.version || ''} installieren`.trim()
+    : (desktopUpdate.phase === 'checking' ? 'App-Update wird geprüft …' : 'App-Update prüfen');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Tracker anzeigen', click: showWindow },
     { type: 'separator' },
@@ -294,6 +302,16 @@ function createTray() {
     { label: 'Tracker stoppen', click: () => trackerProcess?.stop() },
     { type: 'separator' },
     {
+      label: desktopUpdateLabel,
+      enabled: desktopUpdate.supported === true && !desktopUpdateBusy,
+      click: () => {
+        showWindow();
+        if (desktopUpdateController?.publicState().phase === 'ready') void desktopUpdateController.install();
+        else void desktopUpdateController?.check({ manual: true });
+      }
+    },
+    { type: 'separator' },
+    {
       label: 'Beenden',
       click: () => {
         app.isQuitting = true;
@@ -302,6 +320,13 @@ function createTray() {
       }
     }
   ]));
+}
+
+function createTray() {
+  const image = nativeImage.createFromPath(iconPath()).resize({ width: 20, height: 20 });
+  tray = new Tray(image);
+  tray.setToolTip('VFR Multitool Tracker');
+  updateTrayMenu();
   tray.on('double-click', showWindow);
 }
 
@@ -376,6 +401,15 @@ function registerIpc() {
   });
   ipcMain.handle('settings:set-module-update-policy', async (_event, payload) => {
     const module = String(payload?.module || '').trim().toLowerCase();
+    if (module === 'desktop') {
+      const policy = payload?.policy === 'automatic' ? 'automatic' : 'ask';
+      configStore.setModuleUpdatePolicy('desktop', policy);
+      broadcastState();
+      const update = policy === 'automatic' && desktopUpdateController?.publicState().phase === 'choice-required'
+        ? desktopUpdateController.handleChoice('automatic')
+        : { ok: true, skipped: true };
+      return { ok: update?.ok !== false, settings: configStore.publicSettings(), update };
+    }
     if (!MANAGED_UPDATE_MODULES[module]) return { ok: false, message: 'Unbekanntes Update-Modul.' };
     configStore.setModuleUpdatePolicy(module, payload?.policy);
     broadcastState();
@@ -393,6 +427,9 @@ function registerIpc() {
     broadcastState();
     return { ok: true, settings: configStore.publicSettings() };
   });
+  ipcMain.handle('desktop-update:choice', (_event, payload) => desktopUpdateController.handleChoice(payload?.choice));
+  ipcMain.handle('desktop-update:check', () => desktopUpdateController.check({ manual: true }));
+  ipcMain.handle('desktop-update:install', () => desktopUpdateController.install());
   ipcMain.handle('update:choice', (_event, payload) => runtimeManager.handleChoice(payload?.choice));
   ipcMain.handle('runtime:check', async () => {
     const wasRunning = Boolean(trackerProcess.child);
@@ -454,6 +491,39 @@ async function startApplication() {
   });
   configStore.ensureDataDirectory();
   const migration = await configStore.migrateLegacyCredentials(verifyCredentials);
+  const portableBuild = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
+  desktopUpdateController = new UpdateController({
+    autoUpdater,
+    isPackaged: app.isPackaged && !portableBuild,
+    platform: process.platform,
+    getPolicy: () => configStore.publicSettings().desktopUpdatePolicy,
+    savePolicy: (policy) => configStore.setModuleUpdatePolicy('desktop', policy),
+    beforeInstall: async () => {
+      app.isQuitting = true;
+      trackerProcess?.stop();
+      bridgeManager?.stopPolling();
+      if (bridgeManager) await bridgeManager.shutdownOwned();
+      finalQuitReady = true;
+    }
+  });
+  desktopUpdateController.on('state', (state) => {
+    updateTrayMenu();
+    broadcastState();
+    if (['choice-required', 'ready'].includes(state?.phase)) showWindow();
+  });
+  const previewDesktopUpdate = String(process.env.VFR_TRACKER_PREVIEW_DESKTOP_UPDATE || '').trim();
+  if (previewDesktopUpdate) {
+    const phase = ['choice-required', 'downloading', 'ready'].includes(previewDesktopUpdate) ? previewDesktopUpdate : 'choice-required';
+    desktopUpdateController.setState({
+      supported: true,
+      phase,
+      version: '1.6.1',
+      percent: phase === 'downloading' ? 46 : (phase === 'ready' ? 100 : 0),
+      message: phase === 'ready'
+        ? 'Das App-Update ist geprüft und zur Installation bereit.'
+        : (phase === 'downloading' ? 'Desktop-App wird geladen und geprüft … 46 %' : 'Desktop-App v1.6.1 ist verfügbar.')
+    });
+  }
   runtimeManager = createRuntimeManager(configStore.publicSettings().runtimeChannel);
   if (process.env.VFR_TRACKER_PREVIEW_UPDATE === '1') {
     runtimeManager.setState({
@@ -528,6 +598,7 @@ async function startApplication() {
   const launchDecision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
   createWindow({ showOnReady: launchDecision.showWindow || migration.verificationFailed === true });
   createTray();
+  if (!previewDesktopUpdate) void desktopUpdateController.checkAtStartup();
 
   if (app.isPackaged) {
     try {

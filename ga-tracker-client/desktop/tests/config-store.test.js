@@ -31,6 +31,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
   store.write({ homebaseFallback: { schemaVersion: 1 }, consoleMode: 'status', pin: '9999' });
   store.saveCredentials('Foxtrot-Mike-764', '1234');
   store.setRuntimeChannel('alpha');
+  store.setModuleUpdatePolicy('desktop', 'automatic');
   store.setUpdatePolicy('automatic');
   store.setModuleUpdatePolicy('homebase', 'automatic');
   store.setModuleUpdatePolicy('efb', 'automatic');
@@ -54,6 +55,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
     runtimeChannel: 'alpha',
+    desktopUpdatePolicy: 'automatic',
     updatePolicy: 'automatic',
     homebaseUpdatePolicy: 'automatic',
     efbUpdatePolicy: 'automatic',
@@ -96,6 +98,7 @@ test('startup preferences default to automatic tracker start and visible window'
     pilotId: '',
     hasPin: false,
     runtimeChannel: 'stable',
+    desktopUpdatePolicy: 'ask',
     updatePolicy: 'ask',
     homebaseUpdatePolicy: 'ask',
     efbUpdatePolicy: 'ask',

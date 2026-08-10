@@ -19,7 +19,10 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - optionaler unsichtbarer Start direkt ins Windows-Tray
 - Relay-, SimConnect- und Telemetrie-Status aus dem Tracker-Protokoll
 - Updateeinstellung `ask` oder `automatic`
-- getrennte Auto-Update-Einstellungen fuer Tracker, Homebase Assets, EFB und Bridge
+- Selbst-Updater fuer die installierte Desktop-App mit SHA-512-Pruefung und
+  kontrolliertem Neustart
+- getrennte Auto-Update-Einstellungen fuer Desktop-App, Tracker-Engine,
+  Homebase Assets, EFB und Bridge
 - bei Updates vorhandener Installationen: `Nur dieses Mal`, `Kuenftig automatisch` oder `Spaeter`
 - Updateinstallation vor dem Trackerstart, nicht waehrend eines Flugs
 - kompakte Status-/Startleiste und standardmaessig geschlossene Modulbereiche
@@ -141,14 +144,19 @@ erfolgreicher Erprobung wird dasselbe unveraenderliche Release-Artefakt durch
 Anpassen von `stable.json` freigegeben. Stable ist die Voreinstellung; bestehende
 Desktop-Konfigurationen ohne Kanalangabe bleiben dadurch rueckwaertskompatibel.
 
-Der spaetere Selbst-Updater des Bootstrapprogramms verwendet den generischen
+Der Selbst-Updater des Bootstrapprogramms verwendet den generischen
 Desktop-Kanal:
 
 `ga-tracker-client/channel/desktop/`
 
 Bei einer Veroeffentlichung werden `latest.yml`, Installer und Blockmap zuerst
 als unveraenderliche Release-Artefakte hochgeladen. Erst danach darf der
-produktive Kanal auf diesen Release zeigen. Die Release-Artefakte sollten
+produktive Kanal auf diesen Release zeigen. Die App prueft den Kanal bei jedem
+Start, verifiziert den Download anhand der von `electron-builder` erzeugten
+SHA-512-Metadaten und installiert ihn beim naechsten Beenden oder nach einem
+bestaetigten Neustart. Die erste updaterfaehige Version muss von Installationen
+vor 1.6.0 einmal manuell installiert werden. Danach erfolgen Desktop-Updates
+ueber diesen Kanal. Die Release-Artefakte sollten
 Authenticode-signiert werden, sobald ein oeffentlich vertrauenswuerdiges
 Code-Signing-Zertifikat vorhanden ist.
 
