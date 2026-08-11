@@ -5,9 +5,9 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch 0.4.4
+## Tracker-gehosteter Kartentisch 0.4.5
 
-Tracker v329 bietet additiv `efb.web-client.v1` und die read-only Seite
+Tracker v330 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
 erscheint im EFB der Tab `App-Karte`. Die Seite verwendet den originalen
 Kartentisch-DOM, die App-Styles, Leaflet, Stoppuhr, Rechner und den
@@ -40,6 +40,15 @@ Ein automatischer Quellentest verhindert deren Wiedereinfuehrung; kleine
 Polyfills im fruehen Bootstrap decken fehlende Browsermethoden ab. Die
 Tracker-Debugdatei rotiert ab v329 bei 8 MiB und reduziert auch bereits
 uebergrosse Altdateien beim ersten neuen Eintrag auf einen kleinen Tail.
+
+Der 0.4.4/v329-In-Sim-Test bestaetigte den vollstaendigen Hoststart, zeigte
+aber fehlende Coherent-Methoden in Rechner (`String.trimEnd`) und E6B
+(`Array.flatMap`) sowie fehlendes Freihandzeichnen. Der mit Tracker v330
+ausgelieferte Hoststand 0.4.5 ergaenzt diese Runtime-Fallbacks auch im getrennten
+E6B-iframe, meldet dessen Boot/JSON-Zustand, implementiert PEN/DEL/CLR und
+entprellt unveraenderte Parent-, Routen- und Markerupdates. Das installierte
+Community-Paket bleibt dabei Version 0.4.4; fuer v330 ist kein neuer SDK-Build
+notwendig.
 
 ## Karten- und Werkzeugbasis 0.4.1
 

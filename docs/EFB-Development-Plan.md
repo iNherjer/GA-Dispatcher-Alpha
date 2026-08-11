@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v329 Testkandidat | v320 | v329 ergaenzt nur Coherent-Kompatibilitaet und begrenztes lokales Debuglogging; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | 0.4.1 bleibt funktionaler SDK-Fallback; 0.4.4 ist der Coherent-Syntax-Fix fuer den tracker-gehosteten Kartentisch |
+| Tracker-Runtime | v325 freigegeben / v330 Testkandidat | v320 | v330 repariert die Coherent-Werkzeugruntime des tracker-gehosteten Kartentischs; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v330-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -239,6 +239,25 @@ Nullish Coalescing und Spread aus der gesamten ausgelieferten Map-/Werkzeug-/
 E6B-Skriptkette, installiert kleine Runtime-Polyfills und beantwortet die nur
 durch geerbte App-CSS angefragten `bg.jpg`/`map.jpg` lokal mit einem
 transparenten Platzhalter.
+
+Der In-Sim-Test von 0.4.4/v329 bestaetigt anschliessend den vollstaendigen
+Hoststart, Karte, Flugzeug, Route, Toolbar und Trackerstatus. Die rotierende
+Logdatei reduzierte eine vorhandene 353-MB-Datei beim Start wie vorgesehen.
+Die Interaktion legte aber zwei weitere Coherent-Laufzeitluecken offen:
+`String.trimEnd()` brach den Rechner ab und `Array.flatMap()` stoppte den E6B
+noch vor dem Abruf seiner Scheiben-JSONs. Freihandzeichnen war im schlanken
+Hostadapter noch nicht implementiert. Zudem meldeten Child und Parent den
+unveraenderten Livezustand jede Sekunde und Route sowie Flugzeugmarker wurden
+haeufiger als erforderlich neu gesetzt.
+
+Tracker v330 liefert deshalb den tracker-gehosteten Kartentischstand 0.4.5
+ohne neues Community-Package. Der Bootstrap und der getrennte E6B-iframe
+erhalten die fehlenden Methoden; E6B-Fehler werden ueber den begrenzten
+Diagnosepfad sichtbar. Rechner, Stoppuhr, E6B-Flip und Freihandzeichnen sind
+im lokalen End-to-End-Browsertest bedienbar. Parent-Status wird nur noch bei
+Zustandswechseln gesendet, Route nur bei veraenderter Geometrie neu aufgebaut
+und der Flugzeugmarker nur bei tatsaechlicher Bewegung beziehungsweise
+Headingaenderung aktualisiert.
 
 ## Roadmap
 
@@ -594,10 +613,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] 0.4.4/v329 mit durchgaengigem Coherent-Syntaxgate, Runtime-Polyfills,
       lokalen CSS-Hintergrundplatzhaltern und rotiertem Tracker-Debuglog
       implementieren; lokale Quellen-, Webclient- und Logtests bestanden.
-- [ ] Tracker v329 und EFB 0.4.4 auf Windows bauen und im Simulator Karte,
-      Buttons, E6B, Resize/Orientation, Snapshot-Recovery und v326-Fallback
-      pruefen. Der Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt bis dahin
-      unangetastet.
+- [x] Tracker v329 und EFB 0.4.4 auf Windows bauen und im Simulator pruefen.
+      Ergebnis: Host, Karte, Route, Flugzeug, Toolbar und Logrotation laufen;
+      Rechner (`trimEnd`), E6B (`flatMap`) und Freihandzeichnen brauchen v330.
+- [x] Tracker v330 / gehosteten Kartentisch 0.4.5 mit Runtime-Fallbacks,
+      E6B-iframe-Diagnose, Freihandzeichnen und zustandsabhaengigen Karten-/
+      Parent-Updates implementieren; lokaler Rechner-, E6B-, Stoppuhr- und
+      Zeichentest bestanden. Das installierte EFB-Paket bleibt 0.4.4.
+- [ ] Tracker v330 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
+      Rechner, E6B Front/Wind, PEN/DEL/SET/CLR/NM, Kartenflackern,
+      Resize/Orientation und Snapshot-Recovery. Der Ruecksprungpunkt
+      `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -625,6 +651,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der 0.4.4/v329-In-Sim-Test erreicht erstmals den vollstaendigen
+  tracker-gehosteten Kartentisch. Die verbleibenden Werkzeugfehler sind keine
+  SDK- oder Transportfehler: Coherent fehlt `String.trimEnd` im Rechner und
+  `Array.flatMap` im E6B-Fallback. Tracker v330 ergaenzt diese Methoden in
+  Parent und E6B-iframe, meldet E6B-Boot/JSON/Fallback getrennt, implementiert
+  Freihandlinien sowie Undo/Clear und entprellt unveraenderte Live-, Routen-
+  und Markerdaten. Weil alle Aenderungen in den vom Tracker ausgelieferten
+  Assets liegen, ist dafuer kein erneuter SDK-Build des installierten
+  Community-Pakets 0.4.4 erforderlich.
 
 - 2026-08-11: Der 0.4.3-In-Sim-Log belegt erfolgreiche HTTP-Ladung aller
   Skripte, aber Parserabbrueche an Optional Chaining in `map-shell-core.js`

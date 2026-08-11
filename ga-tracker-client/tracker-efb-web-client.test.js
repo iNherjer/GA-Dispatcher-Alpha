@@ -51,12 +51,15 @@ test('inline bootstrap provides close fallback and bounded client diagnostics be
   assert.match(source, /installCompatibilityPolyfills/);
   assert.match(source, /Element\.prototype\.replaceChildren/);
   assert.match(source, /Object\.entries/);
+  assert.match(source, /String\.prototype\.trimEnd/);
+  assert.match(source, /Array\.prototype\.flatMap/);
 });
 
 test('Kartentisch markup extraction stays bounded to the map and rewrites E6B locally', () => {
   const markup = extractKartentischMarkup();
   assert.ok(markup.length > 50000);
   assert.match(markup, /src="\/efb\/v1\/e6b\/e6b-flight-computer\.html\?/);
+  assert.match(markup, /embedded=1&amp;coherent=1&amp;/);
   assert.doesNotMatch(markup, /gaDebugLogInstalled/);
 });
 
@@ -90,6 +93,22 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   const e6bSource = getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.js').body.toString('utf8');
   assert.match(e6bSource, /installE6BCompatibilityPolyfills/);
   assert.match(e6bSource, /Element\.prototype\.replaceChildren/);
+  assert.match(e6bSource, /Array\.prototype\.flatMap/);
+  assert.match(e6bSource, /reportE6B/);
+  const utilitySource = getTrackerEfbWebClientAsset('/efb/v1/assets/map-utility-tools.js').body.toString('utf8');
+  assert.doesNotMatch(utilitySource, /calcState\.expression\.trimEnd/);
+  assert.match(utilitySource, /ga-e6b-diagnostic/);
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  assert.match(hostSource, /notifyParentState\('live'\)/);
+  assert.doesNotMatch(hostSource, /notifyParent\('live'\)/);
+});
+
+test('E6B document forwards iframe diagnostics before loading its runtime', () => {
+  const page = getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.html').body.toString('utf8');
+  assert.match(page, /ga-e6b-diagnostic/);
+  assert.match(page, /unhandledrejection/);
+  assert.match(page, /workbenchjson02/);
+  assert.ok(page.indexOf('inline-diagnostics') < page.indexOf('e6b-core.js'));
 });
 
 test('legacy app background requests resolve to a tiny local placeholder', () => {

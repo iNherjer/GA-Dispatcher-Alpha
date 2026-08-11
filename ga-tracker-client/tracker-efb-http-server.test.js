@@ -33,8 +33,8 @@ function request(address, pathname, options = {}) {
 
 test('local EFB hello advertises snapshots, web client and bounded client diagnostics', () => {
   const hello = createTrackerEfbHttpHello({
-    trackerVersion: 'v329',
-    trackerVersionCode: 329,
+    trackerVersion: 'v330',
+    trackerVersionCode: 330,
     runtimeChannel: 'alpha',
     id: 'hello-test',
     timestamp: 1

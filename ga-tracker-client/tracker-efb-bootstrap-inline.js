@@ -11,6 +11,15 @@
     if (!Number.isInteger) Number.isInteger = function (value) { return Number.isFinite(value) && Math.floor(value) === value; };
     if (!Number.EPSILON) Number.EPSILON = Math.pow(2, -52);
     if (!Math.sign) Math.sign = function (value) { var number = Number(value); return number === 0 || isNaN(number) ? number : (number > 0 ? 1 : -1); };
+    if (!Math.hypot) Math.hypot = function () {
+      var sum = 0;
+      for (var valueIndex = 0; valueIndex < arguments.length; valueIndex += 1) {
+        var number = Number(arguments[valueIndex]);
+        sum += number * number;
+      }
+      return Math.sqrt(sum);
+    };
+    if (!Math.log10) Math.log10 = function (value) { return Math.log(value) / Math.LN10; };
     if (!Object.assign) Object.assign = function (target) {
       if (target == null) throw new TypeError('Object.assign target');
       var output = Object(target);
@@ -33,9 +42,43 @@
       }
       return false;
     };
+    if (!Array.prototype.find) Array.prototype.find = function (predicate, thisArg) {
+      if (typeof predicate !== 'function') throw new TypeError('Array.find predicate');
+      for (var findIndex = 0; findIndex < this.length; findIndex += 1) {
+        if (predicate.call(thisArg, this[findIndex], findIndex, this)) return this[findIndex];
+      }
+      return undefined;
+    };
+    if (!Array.prototype.flatMap) Array.prototype.flatMap = function (callback, thisArg) {
+      if (typeof callback !== 'function') throw new TypeError('Array.flatMap callback');
+      var result = [];
+      for (var flatIndex = 0; flatIndex < this.length; flatIndex += 1) {
+        if (!(flatIndex in this)) continue;
+        var mapped = callback.call(thisArg, this[flatIndex], flatIndex, this);
+        if (Array.isArray(mapped)) Array.prototype.push.apply(result, mapped);
+        else result.push(mapped);
+      }
+      return result;
+    };
     if (!String.prototype.includes) String.prototype.includes = function (value, start) { return this.indexOf(value, start || 0) >= 0; };
     if (!String.prototype.startsWith) String.prototype.startsWith = function (value, start) { return this.slice(start || 0, (start || 0) + String(value).length) === String(value); };
     if (!String.prototype.endsWith) String.prototype.endsWith = function (value) { var text = String(value); return this.slice(this.length - text.length) === text; };
+    if (!String.prototype.trimStart) String.prototype.trimStart = function () { return String(this).replace(/^\s+/, ''); };
+    if (!String.prototype.trimEnd) String.prototype.trimEnd = function () { return String(this).replace(/\s+$/, ''); };
+    if (!String.prototype.padStart) String.prototype.padStart = function (length, fill) {
+      var value = String(this);
+      var target = Math.max(0, Number(length) || 0);
+      var padding = String(fill == null ? ' ' : fill) || ' ';
+      while (value.length < target) value = padding.slice(0, target - value.length) + value;
+      return value;
+    };
+    if (!String.prototype.padEnd) String.prototype.padEnd = function (length, fill) {
+      var value = String(this);
+      var target = Math.max(0, Number(length) || 0);
+      var padding = String(fill == null ? ' ' : fill) || ' ';
+      while (value.length < target) value += padding.slice(0, target - value.length);
+      return value;
+    };
     if (window.NodeList && !NodeList.prototype.forEach) NodeList.prototype.forEach = Array.prototype.forEach;
     if (window.Element && !Element.prototype.matches) Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
     if (window.Element && !Element.prototype.closest) Element.prototype.closest = function (selector) {
@@ -52,6 +95,9 @@
         var child = arguments[index];
         this.appendChild(child && child.nodeType ? child : document.createTextNode(String(child)));
       }
+    };
+    if (window.Element && !Element.prototype.remove) Element.prototype.remove = function () {
+      if (this.parentNode) this.parentNode.removeChild(this);
     };
   }
 

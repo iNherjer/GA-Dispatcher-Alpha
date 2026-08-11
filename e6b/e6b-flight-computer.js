@@ -11,6 +11,7 @@
             for (let index = 0; index < arguments.length; index += 1) sum += Number(arguments[index]) * Number(arguments[index]);
             return Math.sqrt(sum);
         };
+        if (!Math.log10) Math.log10 = function(value) { return Math.log(value) / Math.LN10; };
         if (!Object.values) Object.values = function(source) { return Object.keys(Object(source)).map(function(key) { return source[key]; }); };
         if (!Object.entries) Object.entries = function(source) { return Object.keys(Object(source)).map(function(key) { return [key, source[key]]; }); };
         if (!Array.prototype.includes) Array.prototype.includes = function(value, fromIndex) {
@@ -23,7 +24,33 @@
             }
             return false;
         };
+        if (!Array.prototype.find) Array.prototype.find = function(predicate, thisArg) {
+            if (typeof predicate !== 'function') throw new TypeError('Array.find predicate');
+            for (let index = 0; index < this.length; index += 1) {
+                if (predicate.call(thisArg, this[index], index, this)) return this[index];
+            }
+            return undefined;
+        };
+        if (!Array.prototype.flatMap) Array.prototype.flatMap = function(callback, thisArg) {
+            if (typeof callback !== 'function') throw new TypeError('Array.flatMap callback');
+            const result = [];
+            for (let index = 0; index < this.length; index += 1) {
+                if (!(index in this)) continue;
+                const mapped = callback.call(thisArg, this[index], index, this);
+                if (Array.isArray(mapped)) Array.prototype.push.apply(result, mapped);
+                else result.push(mapped);
+            }
+            return result;
+        };
         if (!String.prototype.includes) String.prototype.includes = function(value, start) { return this.indexOf(value, start || 0) >= 0; };
+        if (!String.prototype.padStart) String.prototype.padStart = function(length, fill) {
+            let value = String(this);
+            const target = Math.max(0, Number(length) || 0);
+            const padding = String(fill == null ? ' ' : fill) || ' ';
+            while (value.length < target) value = padding.slice(0, target - value.length) + value;
+            return value;
+        };
+        if (!String.prototype.trimEnd) String.prototype.trimEnd = function() { return String(this).replace(/\s+$/, ''); };
         if (window.Element && !Element.prototype.replaceChildren) Element.prototype.replaceChildren = function() {
             while (this.firstChild) this.removeChild(this.firstChild);
             for (let index = 0; index < arguments.length; index += 1) {
@@ -31,9 +58,18 @@
                 this.appendChild(child && child.nodeType ? child : document.createTextNode(String(child)));
             }
         };
+        if (window.Element && !Element.prototype.remove) Element.prototype.remove = function() {
+            if (this.parentNode) this.parentNode.removeChild(this);
+        };
     }
 
     installE6BCompatibilityPolyfills();
+
+    function reportE6B(level, event, stage, message, details) {
+        if (typeof window.__gaE6BReport === 'function') {
+            window.__gaE6BReport(level, event, stage, message, details);
+        }
+    }
 
     const core = window.GAE6B;
     const FRONT_VIEWBOX = { width: 510, height: 590 };
@@ -472,24 +508,16 @@
         return `${base}?v=${WORKBENCH_WIND_JSON_VERSION}`;
     }
 
-    async function fetchWorkbenchFrontDisc() {
-        try {
-            const response = await fetch(workbenchFrontJsonUrl(), { cache: 'no-store' });
-            if (!response.ok) return null;
-            return await response.json();
-        } catch (_) {
-            return null;
-        }
+    function fetchWorkbenchFrontDisc() {
+        return fetch(workbenchFrontJsonUrl(), { cache: 'no-store' })
+            .then(response => response.ok ? response.json() : null)
+            .catch(() => null);
     }
 
-    async function fetchWorkbenchWindDisc() {
-        try {
-            const response = await fetch(workbenchWindJsonUrl(), { cache: 'no-store' });
-            if (!response.ok) return null;
-            return await response.json();
-        } catch (_) {
-            return null;
-        }
+    function fetchWorkbenchWindDisc() {
+        return fetch(workbenchWindJsonUrl(), { cache: 'no-store' })
+            .then(response => response.ok ? response.json() : null)
+            .catch(() => null);
     }
 
     function validWorkbenchFrontDisc(snapshot) {
@@ -1124,11 +1152,20 @@
     function loadWorkbenchFrontDisc() {
         const saved = readWorkbenchFrontDisc();
         const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.front;
-        applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved)
+        const initial = validWorkbenchFrontDisc(saved)
             ? saved
-            : (validWorkbenchFrontDisc(preloaded) ? preloaded : bundledWorkbenchFrontDisc()));
+            : (validWorkbenchFrontDisc(preloaded) ? preloaded : null);
+        applyWorkbenchFrontDisc(initial);
         fetchWorkbenchFrontDisc().then(snapshot => {
-            if (validWorkbenchFrontDisc(snapshot)) applyWorkbenchFrontDisc(snapshot);
+            if (validWorkbenchFrontDisc(snapshot)) {
+                applyWorkbenchFrontDisc(snapshot);
+                reportE6B('info', 'workbench', 'front-ready', 'E6B-Vorderseite geladen');
+                return;
+            }
+            if (!initial) {
+                applyWorkbenchFrontDisc(bundledWorkbenchFrontDisc());
+                reportE6B('warn', 'workbench', 'front-fallback', 'E6B-Vorderseite nutzt eingebauten Fallback');
+            }
         });
     }
 
@@ -1283,8 +1320,13 @@
         if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
         else if (validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(preloaded);
         fetchWorkbenchWindDisc().then(snapshot => {
-            if (validWorkbenchWindDisc(snapshot)) applyWorkbenchWindDisc(snapshot);
-            else if (!validWorkbenchWindDisc(saved) && !validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(null);
+            if (validWorkbenchWindDisc(snapshot)) {
+                applyWorkbenchWindDisc(snapshot);
+                reportE6B('info', 'workbench', 'wind-ready', 'E6B-Windseite geladen');
+            } else if (!validWorkbenchWindDisc(saved) && !validWorkbenchWindDisc(preloaded)) {
+                applyWorkbenchWindDisc(null);
+                reportE6B('warn', 'workbench', 'wind-missing', 'E6B-Windseite konnte nicht geladen werden');
+            }
         });
     }
 
@@ -2531,26 +2573,32 @@
     }
 
     function init() {
-        loadWorkbenchFrontDisc();
-        loadWorkbenchWindDisc();
-        stripCalibrationDomForEmbedded();
-        if (calibrationMode) {
-            renderWindowPlanSectors();
-            renderScalePlanScales();
+        try {
+            loadWorkbenchFrontDisc();
+            loadWorkbenchWindDisc();
+            stripCalibrationDomForEmbedded();
+            if (calibrationMode) {
+                renderWindowPlanSectors();
+                renderScalePlanScales();
+            }
+            readInputs();
+            syncInputs();
+            bindEvents();
+            if (embeddedMode) {
+                const availableWidth = Math.max(180, Number(window.innerWidth) || 510);
+                const availableHeight = Math.max(180, Number(window.innerHeight) || 590);
+                setEmbeddedBaseSize(
+                    Math.min(availableWidth, availableHeight * FRONT_VIEWBOX.width / FRONT_VIEWBOX.height),
+                    Math.min(availableWidth, availableHeight * WIND_VIEWBOX.width / WIND_VIEWBOX.height)
+                );
+            }
+            applyViewTransform();
+            render();
+            reportE6B('info', 'boot', 'ready', 'E6B initialisiert');
+        } catch (error) {
+            reportE6B('error', 'boot', 'init-error', error && error.message || error, error && error.stack || '');
+            throw error;
         }
-        readInputs();
-        syncInputs();
-        bindEvents();
-        if (embeddedMode) {
-            const availableWidth = Math.max(180, Number(window.innerWidth) || 510);
-            const availableHeight = Math.max(180, Number(window.innerHeight) || 590);
-            setEmbeddedBaseSize(
-                Math.min(availableWidth, availableHeight * FRONT_VIEWBOX.width / FRONT_VIEWBOX.height),
-                Math.min(availableWidth, availableHeight * WIND_VIEWBOX.width / WIND_VIEWBOX.height)
-            );
-        }
-        applyViewTransform();
-        render();
     }
 
     if (document.readyState === 'loading') {

@@ -67,6 +67,12 @@ Nullish Coalescing und Spread-Syntax. Die vererbten CSS-Anfragen nach
 `bg.jpg` und `map.jpg` werden lokal beantwortet. 0.4.3 wird nicht in einen
 Kanal eingetragen.
 
+Der 0.4.4/v329-In-Sim-Test bestaetigt den Hoststart und die Kartendarstellung.
+Die danach gefundenen Rechner-, E6B-, Zeichen- und Updateprobleme liegen
+ausschliesslich in den tracker-gehosteten Assets. Tracker v330 liefert deren
+korrigierten Hoststand 0.4.5; das bereits mit SDK 1.7.2 gebaute Community-
+Paket 0.4.4 muss fuer diesen Test nicht neu gebaut oder neu installiert werden.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

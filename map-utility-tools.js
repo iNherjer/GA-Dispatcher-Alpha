@@ -29,6 +29,11 @@
     const TIMER_MAX_MS = TIMER_MAX_SECONDS * 1000;
     const TIMER_DIGIT_MAX = [9, 9, 5, 9];
     const TIMER_DIGIT_DRAG_STEP_PX = 14;
+    function reportUtility(level, event, stage, message, details) {
+        if (typeof window.__gaEfbReport === 'function') {
+            window.__gaEfbReport(level, event, stage, message, details);
+        }
+    }
     const FORMULA_HELP = {
         'time-distance': {
             title: 'Zeit / Distanz / GS',
@@ -582,9 +587,13 @@
 
     function handleE6BFrameMessage(event) {
         const frame = el('mapE6BFrame');
-        if (!frame || event.source !== frame.contentWindow) return;
+        if (!frame || (event.source && event.source !== frame.contentWindow)) return;
         const data = event && event.data;
         if (!data || typeof data !== 'object') return;
+        if (data.type === 'ga-e6b-diagnostic') {
+            reportUtility(data.level || 'info', `e6b-${data.event || 'runtime'}`, data.stage || '', data.message || '', data.details || '');
+            return;
+        }
         if (data.type === 'ga-e6b-close') {
             closeMapUtilityTool('e6b');
             return;
@@ -607,6 +616,7 @@
         if (!cfg) return;
         const panel = el(cfg.panel);
         if (!panel) return;
+        reportUtility('info', 'utility-action', `open-${tool}`, 'Kartenwerkzeug geoeffnet');
         const isOpen = panel.style.display !== 'none';
         if (!isOpen) {
             panel.style.display = 'block';
@@ -629,6 +639,7 @@
         if (!cfg) return;
         const panel = el(cfg.panel);
         if (!panel) return;
+        reportUtility('info', 'utility-action', `close-${tool}`, 'Kartenwerkzeug geschlossen');
         savePanelPosition(cfg);
         if (tool === 'stopwatch') setTimerPickerOpen(false);
         if (tool === 'calculator') closeFormulaHelp();
@@ -1737,6 +1748,10 @@
         return match ? match[1] : '';
     }
 
+    function trimCalcEnd(value) {
+        return String(value == null ? '' : value).replace(/\s+$/, '');
+    }
+
     function previewCalcEntry() {
         const segment = currentCalcSegment(calcState.expression);
         if (segment) {
@@ -1787,7 +1802,7 @@
     }
 
     function applyOperator(operator) {
-        let expression = calcState.justEvaluated ? calcState.display : calcState.expression.trimEnd();
+        let expression = calcState.justEvaluated ? calcState.display : trimCalcEnd(calcState.expression);
         calcState.justEvaluated = false;
         const symbol = calcOperatorSymbol(operator);
         if (!expression) {
@@ -1806,8 +1821,9 @@
             const result = evaluateCalcExpression(expression);
             setCalcExpression(expression);
             setCalcDisplay(formatCalcNumber(result));
-        } catch (_) {
+        } catch (error) {
             setCalcDisplay('ERR');
+            reportUtility('warn', 'calculator', 'evaluation-error', error && error.message || 'Ungueltiger Ausdruck');
         }
         calcState.justEvaluated = true;
     }
@@ -1824,7 +1840,7 @@
             clearCalc();
             return;
         }
-        const trimmed = calcState.expression.trimEnd();
+        const trimmed = trimCalcEnd(calcState.expression);
         setCalcExpression(trimmed.slice(0, -1));
         previewCalcEntry();
     }
@@ -1859,7 +1875,7 @@
         const fn = String(name || '').toLowerCase();
         if (!['sin', 'cos', 'tan'].includes(fn)) return;
         let prefix = '';
-        const expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
+        const expression = calcState.justEvaluated ? '' : trimCalcEnd(calcState.expression);
         calcState.justEvaluated = false;
         if (expression && /[+×÷−-]$/.test(expression)) prefix = ' ';
         else if (expression && /[\d)%]$/.test(expression)) prefix = ' × ';
@@ -1869,7 +1885,7 @@
 
     function inputCalcParen(paren) {
         const value = paren === ')' ? ')' : '(';
-        let expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
+        let expression = calcState.justEvaluated ? '' : trimCalcEnd(calcState.expression);
         calcState.justEvaluated = false;
         if (value === '(' && expression && /[\d)%]$/.test(expression)) expression += ' × ';
         setCalcExpression(expression + value);

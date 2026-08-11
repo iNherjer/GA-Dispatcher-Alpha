@@ -106,7 +106,36 @@
         </aside>
     </main>
 
-    <script src="./e6b-core.js?v=20260708-workbenchfront01"></script>
-    <script src="./e6b-flight-computer.js?v=20260710-workbenchjson01"></script>
+    <script>
+        (function () {
+            'use strict';
+            function text(value, limit) {
+                return String(value == null ? '' : value).replace(/[\r\n\t]+/g, ' ').slice(0, limit || 320);
+            }
+            function report(level, event, stage, message, details) {
+                try {
+                    window.parent.postMessage({
+                        type: 'ga-e6b-diagnostic',
+                        level: text(level || 'info', 12),
+                        event: text(event || 'runtime', 48),
+                        stage: text(stage || '', 80),
+                        message: text(message || '', 320),
+                        details: text(details || '', 800)
+                    }, '*');
+                } catch (_) {}
+            }
+            window.__gaE6BReport = report;
+            window.addEventListener('error', function (event) {
+                report('error', 'window-error', event.filename || 'e6b', event.message || 'Unbekannter E6B-Fehler', event.lineno || '');
+            });
+            window.addEventListener('unhandledrejection', function (event) {
+                var reason = event && event.reason;
+                report('error', 'unhandled-rejection', 'promise', reason && reason.message || reason || 'Unbekannte Promise-Ablehnung');
+            });
+            report('info', 'boot', 'inline-diagnostics', 'E6B-Diagnose aktiv');
+        })();
+    </script>
+    <script src="./e6b-core.js?v=20260708-workbenchfront01" onload="__gaE6BReport('info','script','e6b-core.js','geladen')" onerror="__gaE6BReport('error','script','e6b-core.js','konnte nicht geladen werden')"></script>
+    <script src="./e6b-flight-computer.js?v=20260710-workbenchjson02" onload="__gaE6BReport('info','script','e6b-flight-computer.js','geladen')" onerror="__gaE6BReport('error','script','e6b-flight-computer.js','konnte nicht geladen werden')"></script>
 </body>
 </html>

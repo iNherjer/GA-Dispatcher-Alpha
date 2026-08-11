@@ -8,7 +8,9 @@
   var flight = null;
   var mapSnapshot = null;
   var mapRevision = 0;
+  var routeSignature = '';
   var planeMarker = null;
+  var planeHeading = null;
   var routeLayer = null;
   var geometryLayer = null;
   var drawingLayer = null;
@@ -25,9 +27,13 @@
   var drawMode = '';
   var drawPoints = [];
   var drawLine = null;
+  var drawStrokeActive = false;
+  var drawLastContainerPoint = null;
+  var drawHistory = [];
   var drawColor = '#ff3b30';
   var drawWeight = 5;
   var routeProgressTarget = 'wpt';
+  var lastParentState = '';
   var preferences = readPreferences();
 
   function byId(id) { return document.getElementById(id); }
@@ -78,6 +84,12 @@
         channel: String(window.__gaEfbChannel || '')
       }, '*');
     } catch (_) {}
+  }
+
+  function notifyParentState(state, detail) {
+    if (lastParentState === state) return;
+    lastParentState = state;
+    notifyParent(state, detail || {});
   }
 
   function closeHost(reason) {
@@ -137,7 +149,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | EFB 0.4.4');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.5');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -244,6 +256,7 @@
     });
     map.on('dragstart', function () { if (preferences.follow) setFollow(false); });
     map.on('click', handleMapClick);
+    bindMapDrawingInput();
     window.addEventListener('resize', function () {
       map.invalidateSize(false);
       renderProfile();
@@ -275,14 +288,25 @@
   function renderFlight(payload) {
     var normalized = API.normalizeFlightSnapshot(payload);
     if (!normalized) return;
+    var previous = flight;
     flight = normalized;
-    if (!planeMarker) planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(flight.headingDeg), zIndexOffset: 2000 }).addTo(map);
-    else { planeMarker.setLatLng([flight.lat, flight.lon]); planeMarker.setIcon(planeIcon(flight.headingDeg)); }
+    if (!planeMarker) {
+      planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(flight.headingDeg), zIndexOffset: 2000 }).addTo(map);
+      planeHeading = flight.headingDeg;
+    } else {
+      var moved = !previous || map.distance([previous.lat, previous.lon], [flight.lat, flight.lon]) >= 0.5;
+      if (moved) planeMarker.setLatLng([flight.lat, flight.lon]);
+      var headingDelta = planeHeading == null ? 360 : Math.abs(((flight.headingDeg - planeHeading + 540) % 360) - 180);
+      if (headingDelta >= 1) {
+        planeMarker.setIcon(planeIcon(flight.headingDeg));
+        planeHeading = flight.headingDeg;
+      }
+    }
     if (preferences.follow) {
       if (!firstFlightCenter || map.getZoom() < 8) {
         map.setView([flight.lat, flight.lon], 10, { animate: false });
         firstFlightCenter = true;
-      } else {
+      } else if (map.distance(map.getCenter(), [flight.lat, flight.lon]) >= 5) {
         map.panTo([flight.lat, flight.lon], { animate: false });
       }
     }
@@ -327,16 +351,32 @@
     }
   }
 
+  function mapRouteSignature(snapshot) {
+    var parts = [String(snapshot.missionId || '')];
+    (snapshot.route && snapshot.route.waypoints || []).forEach(function (point) {
+      parts.push(['w', point.id || point.name || '', point.lat, point.lon].join(':'));
+    });
+    var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
+    if (target) parts.push(['t', target.id || target.name || '', target.lat, target.lon].join(':'));
+    (snapshot.missionGeometry && snapshot.missionGeometry.poiChain || []).forEach(function (point) {
+      parts.push(['c', point.id || point.name || '', point.lat, point.lon].join(':'));
+    });
+    return parts.join('|');
+  }
+
   function renderMapPayload(payload) {
     if (!payload || payload.available !== true) return;
     var normalized = API.normalizeTrackerMapSnapshot(payload);
     if (!normalized) return;
-    if (!mapSnapshot || normalized.revision !== mapRevision || normalized.missionId !== mapSnapshot.missionId) {
+    var nextRouteSignature = mapRouteSignature(normalized);
+    if (!mapSnapshot || nextRouteSignature !== routeSignature) {
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
+      routeSignature = nextRouteSignature;
       renderRoute(normalized);
     } else {
       mapSnapshot = normalized;
+      mapRevision = normalized.revision;
     }
     renderProgress();
     updateCompass();
@@ -496,24 +536,132 @@
     ['mapToolPen', 'mapToolMeasure'].forEach(function (id) { var button = byId(id); if (button) button.classList.remove('active'); });
     if (mode === 'pen') byId('mapToolPen').classList.add('active');
     if (mode === 'measure') byId('mapToolMeasure').classList.add('active');
-    if (map) map.getContainer().style.cursor = mode ? 'crosshair' : '';
+    document.body.classList.toggle('map-drawing-active', mode === 'pen' || mode === 'measure');
+    if (map) {
+      map.getContainer().style.cursor = mode ? 'crosshair' : '';
+      if (map.dragging) {
+        if (mode === 'pen') map.dragging.disable();
+        else map.dragging.enable();
+      }
+    }
     drawPoints = [];
     drawLine = null;
+    drawStrokeActive = false;
+    drawLastContainerPoint = null;
+    report('info', 'draw-action', mode ? 'mode-' + mode : 'mode-off', mode ? 'Zeichenmodus aktiv' : 'Zeichenmodus beendet');
   }
 
   function handleMapClick(event) {
-    if (drawMode !== 'pen' && drawMode !== 'measure') return;
+    if (drawMode !== 'measure') return;
     drawPoints.push(event.latlng);
-    var group = drawMode === 'measure' ? measureLayer : drawingLayer;
+    var group = measureLayer;
     if (drawLine) group.removeLayer(drawLine);
-    drawLine = L.polyline(drawPoints, drawMode === 'measure'
-      ? { color: '#f2c12e', weight: 3, dashArray: '5,5' }
-      : { color: drawColor, weight: drawWeight }).addTo(group);
-    if (drawMode === 'measure' && drawPoints.length > 1) {
+    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5' }).addTo(group);
+    if (drawPoints.length === 1) drawHistory.push({ layer: drawLine, group: group });
+    else if (drawHistory.length) drawHistory[drawHistory.length - 1].layer = drawLine;
+    if (drawPoints.length > 1) {
       var metres = 0;
       for (var index = 1; index < drawPoints.length; index += 1) metres += map.distance(drawPoints[index - 1], drawPoints[index]);
       drawLine.bindTooltip((metres / 1852).toFixed(2) + ' NM', { permanent: true, direction: 'center', className: 'ga-route-label' }).openTooltip();
     }
+    report('info', 'draw-action', 'measure-point', 'Messpunkt gesetzt', String(drawPoints.length));
+  }
+
+  function drawEventPoint(event) {
+    var source = event && event.touches && event.touches.length ? event.touches[0] : event;
+    if (!source || !map) return null;
+    try {
+      return {
+        latlng: map.mouseEventToLatLng(source),
+        container: map.mouseEventToContainerPoint(source)
+      };
+    } catch (_) { return null; }
+  }
+
+  function isMapDrawingSurface(event) {
+    var target = event && event.target;
+    if (!target || !target.closest) return true;
+    return !target.closest('.leaflet-control, .map-draw-rail, .map-draw-menu, button, input, select');
+  }
+
+  function beginPenStroke(event) {
+    if (drawMode !== 'pen' || !isMapDrawingSurface(event)) return;
+    if (event.button != null && event.button !== 0) return;
+    var point = drawEventPoint(event);
+    if (!point) return;
+    if (event.preventDefault) event.preventDefault();
+    if (event.stopPropagation) event.stopPropagation();
+    drawPoints = [point.latlng];
+    drawLastContainerPoint = point.container;
+    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round' }).addTo(drawingLayer);
+    drawHistory.push({ layer: drawLine, group: drawingLayer });
+    drawStrokeActive = true;
+    try { if (event.pointerId != null && event.target.setPointerCapture) event.target.setPointerCapture(event.pointerId); } catch (_) {}
+    report('info', 'draw-action', 'pen-start', 'Freihandlinie begonnen');
+  }
+
+  function movePenStroke(event) {
+    if (!drawStrokeActive || drawMode !== 'pen') return;
+    var point = drawEventPoint(event);
+    if (!point) return;
+    if (drawLastContainerPoint && point.container.distanceTo && point.container.distanceTo(drawLastContainerPoint) < 2) return;
+    if (event.preventDefault) event.preventDefault();
+    if (event.stopPropagation) event.stopPropagation();
+    drawPoints.push(point.latlng);
+    drawLastContainerPoint = point.container;
+    drawLine.setLatLngs(drawPoints);
+  }
+
+  function endPenStroke(event) {
+    if (!drawStrokeActive) return;
+    if (event && event.preventDefault) event.preventDefault();
+    if (event && event.stopPropagation) event.stopPropagation();
+    try { if (event && event.pointerId != null && event.target.releasePointerCapture) event.target.releasePointerCapture(event.pointerId); } catch (_) {}
+    report('info', 'draw-action', 'pen-end', 'Freihandlinie abgeschlossen', String(drawPoints.length));
+    drawStrokeActive = false;
+    drawPoints = [];
+    drawLine = null;
+    drawLastContainerPoint = null;
+  }
+
+  function bindMapDrawingInput() {
+    if (!map) return;
+    var container = map.getContainer();
+    if (!container || container.getAttribute('data-ga-draw-bound') === '1') return;
+    container.setAttribute('data-ga-draw-bound', '1');
+    if (window.PointerEvent) {
+      container.addEventListener('pointerdown', beginPenStroke, false);
+      container.addEventListener('pointermove', movePenStroke, false);
+      container.addEventListener('pointerup', endPenStroke, false);
+      container.addEventListener('pointercancel', endPenStroke, false);
+    } else {
+      container.addEventListener('mousedown', beginPenStroke, false);
+      window.addEventListener('mousemove', movePenStroke, false);
+      window.addEventListener('mouseup', endPenStroke, false);
+      container.addEventListener('touchstart', beginPenStroke, false);
+      container.addEventListener('touchmove', movePenStroke, false);
+      container.addEventListener('touchend', endPenStroke, false);
+    }
+  }
+
+  function clearDrawings() {
+    drawingLayer.clearLayers();
+    measureLayer.clearLayers();
+    drawHistory = [];
+    setDrawMode('');
+    report('info', 'draw-action', 'clear-all', 'Zeichnungen und Messungen geloescht');
+  }
+
+  function eraseLastDrawing() {
+    var entry = drawHistory.pop();
+    if (entry && entry.group && entry.layer) {
+      entry.group.removeLayer(entry.layer);
+      if (entry.layer === drawLine) {
+        drawLine = null;
+        drawPoints = [];
+      }
+    }
+    report('info', 'draw-action', 'erase-last', entry ? 'Letzte Zeichnung geloescht' : 'Keine Zeichnung zum Loeschen');
   }
 
   function fetchJson(url) {
@@ -535,12 +683,12 @@
       setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
       renderFlight(safePayload(responses[1]));
       renderMapPayload(safePayload(responses[2]));
-      notifyParent('live');
+      notifyParentState('live');
       pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {
       trackerOnline = false;
       setTrackerState('Tracker nicht erreichbar', true);
-      notifyParent('error');
+      notifyParentState('error');
       report('warn', 'poll', 'tracker-unreachable', 'Snapshot-Polling fehlgeschlagen');
       pollTimer = window.setTimeout(poll, 1800);
     });
@@ -572,22 +720,39 @@
     if (stack) stack.classList.toggle('open');
     var button = byId('mapDrawFloatingBtn');
     if (button) button.classList.toggle('active', stack && stack.classList.contains('open'));
+    report('info', 'tool-action', stack && stack.classList.contains('open') ? 'rail-open' : 'rail-close', 'Kartenwerkzeugleiste umgeschaltet');
   };
   window.activateMapDrawTool = function (tool, event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     if (tool === 'stopwatch' || tool === 'calculator' || tool === 'e6b') {
+      report('info', 'tool-action', 'open-' + tool, 'Kartenwerkzeug angefordert');
       if (window.openMapUtilityTool) window.openMapUtilityTool(tool);
       return;
     }
-    if (tool === 'drawClear' || tool === 'eraser') {
-      drawingLayer.clearLayers(); measureLayer.clearLayers(); setDrawMode('');
+    if (tool === 'drawClear') {
+      clearDrawings();
+      return;
+    }
+    if (tool === 'eraser') {
+      eraseLastDrawing();
       return;
     }
     setDrawMode(drawMode === tool ? '' : tool);
   };
-  window.toggleMapDrawSettingsMenu = function () { var menu = byId('mapDrawMenu'); if (menu) menu.classList.toggle('open'); };
-  window.setMapDrawColor = function (value) { drawColor = String(value || '#ff3b30'); };
-  window.setMapDrawWeight = function (value) { drawWeight = clamp(Number(value) || 5, 2, 18); };
+  window.toggleMapDrawSettingsMenu = function () {
+    var menu = byId('mapDrawMenu');
+    if (!menu) return;
+    menu.classList.toggle('open');
+    report('info', 'draw-action', menu.classList.contains('open') ? 'settings-open' : 'settings-close', 'Stift-Einstellungen umgeschaltet');
+  };
+  window.setMapDrawColor = function (value) {
+    drawColor = String(value || '#ff3b30');
+    report('info', 'draw-action', 'color', 'Stiftfarbe geaendert');
+  };
+  window.setMapDrawWeight = function (value) {
+    drawWeight = clamp(Number(value) || 5, 2, 18);
+    report('info', 'draw-action', 'weight', 'Stiftbreite geaendert', String(drawWeight));
+  };
   window.toggleRouteProgressTarget = function () { routeProgressTarget = routeProgressTarget === 'wpt' ? 'route' : 'wpt'; renderProgress(); };
   window.stepLiveNextLegPreview = function () {};
   window.vpZoom = function (delta) { profileZoom = clamp(profileZoom + Number(delta || 0), 0, 90); renderProfile(); };
@@ -608,7 +773,7 @@
       if (!API || !L) {
         setTrackerState('Kartentisch-Module fehlen', true);
         boot('host-missing-modules', 'Kartentisch-Module fehlen', true);
-        notifyParent('error', { stage: 'host-missing-modules' });
+        notifyParentState('error', { stage: 'host-missing-modules' });
         return;
       }
       configureOriginalChrome();
@@ -619,14 +784,14 @@
       var bootStatus = byId('gaEfbBootStatus');
       if (bootStatus) bootStatus.style.display = 'none';
       report('info', 'boot', 'host-ready', 'Kartentisch und Karte bereit');
-      notifyParent('ready', { stage: 'host-ready' });
+      notifyParentState('ready', { stage: 'host-ready' });
       poll();
     } catch (error) {
       var message = error && error.message || String(error);
       setTrackerState('Kartentisch konnte nicht starten', true);
       boot('host-init-error', message, true);
       report('error', 'host-init', 'exception', message, error && error.stack || '');
-      notifyParent('error', { stage: 'host-init-error', message: message });
+      notifyParentState('error', { stage: 'host-init-error', message: message });
     }
   }
 

@@ -26,7 +26,7 @@ function writeKartentischFragment() {
     throw new Error('Der originale Kartentisch-Abschnitt konnte nicht aus index.html extrahiert werden.');
   }
   const fragment = html.slice(start, end)
-    .replace('src="e6b/e6b-flight-computer.html?', 'src="/efb/v1/e6b/e6b-flight-computer.html?');
+    .replace('src="e6b/e6b-flight-computer.html?embedded=1&amp;', 'src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;');
   const target = path.join(OUTPUT_ROOT, 'kartentisch-fragment.html');
   ensureParent(target);
   fs.writeFileSync(target, fragment, 'utf8');

@@ -204,6 +204,14 @@ beim ersten neuen Eintrag sofort auf ihren letzten Tail reduziert. Das
 Debuglogging kann damit die Missionsautoritaet weiterhin beobachten, aber den
 Benutzerdatentraeger nicht mehr unbegrenzt fuellen.
 
+Tracker v330 erweitert diese Hostgrenze um Runtime-Kompatibilitaet fuer die
+tatsaechlich im Simulator fehlenden Methoden `String.trimEnd` und
+`Array.flatMap`. Das E6B-iframe meldet Boot-, Script-, JSON- und Fallbackstatus
+ueber denselben begrenzten Diagnosepfad. Unveraenderte `live`-Meldungen werden
+nicht mehr sekundenweise an den Parent gespiegelt. Ebenso werden Route und
+Flugzeugmarker nur bei veraenderter Geometrie, Position oder Richtung neu
+gerendert. Diese Aenderungen bleiben rein lokal und read-only.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`
