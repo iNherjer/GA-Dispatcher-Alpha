@@ -6,10 +6,40 @@ const postcss = require('postcss');
 const postCssUrl = require('postcss-url');
 const postcssPrefixSelector = require('postcss-prefix-selector');
 const sassPlugin = require('esbuild-sass-plugin');
+const fs = require('node:fs');
+const path = require('node:path');
 
 require('dotenv').config({ path: `${__dirname}/.env` });
 
 const servingMode = process.env.SERVING_MODE || '';
+const efbE6bCompatPlugin = {
+  name: 'efb-e6b-compat-assets',
+  setup(build) {
+    build.onEnd((result) => {
+      if (result.errors.length) return;
+      const e6bSource = path.resolve(__dirname, '../../../../e6b');
+      const e6bOutput = path.resolve(__dirname, 'dist/Assets/E6B');
+      fs.mkdirSync(e6bOutput, { recursive: true });
+      const front = fs.readFileSync(path.join(e6bSource, 'e6b-workbench-front-disc.json'), 'utf8').trim();
+      const wind = fs.readFileSync(path.join(e6bSource, 'e6b-workbench-wind-disc.json'), 'utf8').trim();
+      fs.writeFileSync(
+        path.join(e6bOutput, 'e6b-efb-disc-data.js'),
+        `window.GAE6B_EFB_DISCS={front:${front},wind:${wind}};\n`,
+        'utf8'
+      );
+      const sourceHtml = fs.readFileSync(path.join(e6bSource, 'e6b-flight-computer.html'), 'utf8');
+      const efbHtml = sourceHtml.replace(
+        '<script src="./e6b-core.js',
+        '<script src="./e6b-efb-disc-data.js"></script>\n    <script src="./e6b-core.js'
+      );
+      if (efbHtml === sourceHtml || !efbHtml.includes('e6b-efb-disc-data.js')) {
+        throw new Error('EFB E6B preload could not be injected into e6b-flight-computer.html');
+      }
+      fs.writeFileSync(path.join(e6bOutput, 'e6b-flight-computer-efb.html'), efbHtml, 'utf8');
+    });
+  }
+};
+
 const baseConfig = {
   entryPoints: ['src/VfrMultitool.tsx'],
   keepNames: true,
@@ -41,7 +71,8 @@ const baseConfig = {
         return css;
       }
     }),
-    typecheckPlugin({ watch: servingMode === 'WATCH' })
+    typecheckPlugin({ watch: servingMode === 'WATCH' }),
+    efbE6bCompatPlugin
   ]
 };
 

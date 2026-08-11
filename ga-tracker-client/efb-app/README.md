@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Karten- und Werkzeugkandidat 0.4.0
+## Karten- und Werkzeugkandidat 0.4.1
 
 Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
 versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das
@@ -46,20 +46,32 @@ Tracker dazwischen `available:false` liefert. Gueltige neue oder terminale
 Snapshots werden weiterhin sofort dargestellt; Missionsphasen werden im EFB
 weder erzeugt noch veraendert.
 
-0.4.0 erweitert diesen freigegebenen K0-Stand in den Sources. Tracker v326
+0.4.1 ersetzt den nach dem In-Sim-Test verworfenen 0.4.0-Werkzeugprototyp und
+erweitert den freigegebenen K0-Stand in den Sources. Tracker v326
 liefert ueber `/api/v1/map` einen begrenzten `map.snapshot.v1` mit Route,
 Wegpunkten, Live-Navigation, Missionsziel/POI-Kette und einem Planprofil. Das
 EFB zeichnet Route, Missionsgeometrie, Hoehenband und Kompass selbst. Ohne die
 neue Capability bleibt die bisherige Karte funktionsfaehig.
 
 Die App uebernimmt die Designrichtungen Classic, Retro, NAV/COM, OPS 1940 und
-Windows 95 als kompakte EFB-Themes. Design, einklappbare Menueleiste,
+Windows 95 als kompakte, am Web-Kartentisch ausgerichtete EFB-Themes. Design, einklappbare Menueleiste,
 Profil-Sichtbarkeit, Layer und Follow werden nur lokal gespeichert. Uhr mit
-Stoppuhr und der Rechner laufen lokal. Der bestehende E6B wird beim Build unter
-`Assets/E6B` mitgebuendelt und im Werkzeugfenster geladen; es gibt dafuer
-keinen externen Serverzugriff. Das erste Hoehenband zeigt den geplanten
+Stoppuhr und der Rechner laufen lokal und verwenden die Geraetedarstellung des
+Web-Kartentischs. Der bestehende E6B wird nicht als statische Formularmaske
+nachgebaut: Beim Build werden die originalen Front- und Windscheiben sowie die
+vorhandene Drag-, Dreh-, Flip- und Zoom-Logik unter `Assets/E6B` mitgebuendelt.
+`e6b-flight-computer-efb.html` erzwingt den Embedded-Coherent-Modus und
+`e6b-efb-disc-data.js` stellt beide Scheiben ohne Fetch-Abhaengigkeit bereit.
+Es gibt dafuer keinen externen Serverzugriff. Das erste Hoehenband zeigt den geplanten
 Routenverlauf und bekannte Endpunkt-Hoehen. Ein echtes Terrainprofil wird erst
 nach einem eigenen versionierten Tracker-Datenprodukt freigeschaltet.
+
+EFB 0.4.0 wurde mit SDK 1.7.2 erfolgreich gebaut, aber nicht freigegeben. Im
+Simulator wich die Shell sichtbar vom Web-Kartentisch ab, Unicode-Piktogramme
+wurden teilweise nicht dargestellt und der E6B zeigte wegen eines nicht
+aktivierten Embedded-Modus nur seine Entwicklungsmaske. 0.4.1 verwendet fuer
+kritische EFB-Geometrie explizite, Coherent-vertraegliche CSS-Eigenschaften und
+ASCII-sichere Controls.
 
 ## SDK-Eingaben
 
@@ -88,6 +100,8 @@ im Project Editor gebaut. Das fertige Paket liegt unter
 - `layout.json`
 - `html_ui\efb_ui\efb_apps\vfrmultitool\VfrMultitool.js`
 - `html_ui\efb_ui\efb_apps\vfrmultitool\VfrMultitool.css`
+- `html_ui\efb_ui\efb_apps\vfrmultitool\Assets\E6B\e6b-flight-computer-efb.html`
+- `html_ui\efb_ui\efb_apps\vfrmultitool\Assets\E6B\e6b-efb-disc-data.js`
 
 Erst dieses SDK-gebaute Paket wird als ZIP veröffentlicht. Ein Source-Ordner
 oder ein ungeprüfter Handbau darf nicht in den Updatekanal eingetragen werden.

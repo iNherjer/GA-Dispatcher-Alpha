@@ -44,6 +44,12 @@ entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
 Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
 zur getrennten Promotion deaktiviert.
 
+Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
+Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
+Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal
+eingetragen. 0.4.1 ist der korrigierte Source-Kandidat. Alpha bleibt bis zu
+offiziellem SDK-Build sowie bestandenem 2D-/physischem In-Sim-Test auf 0.3.5.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

@@ -55,7 +55,9 @@
             return new URLSearchParams();
         }
     })();
-    const embeddedMode = searchParams.has('embedded');
+    const locationMode = `${window.location.search || ''} ${window.location.hash || ''}`;
+    const embeddedMode = searchParams.has('embedded') || /embedded(?:=1)?/i.test(locationMode);
+    const coherentMode = /coherent/i.test(locationMode);
     const calibrationMode = false;
     const viewTransformMode = embeddedMode;
     const state = {
@@ -108,6 +110,10 @@
 
     if (embeddedMode && document.body) {
         document.body.classList.add('e6b-embedded');
+    }
+
+    if (coherentMode && document.body) {
+        document.body.classList.add('e6b-coherent');
     }
 
     if (viewTransformMode && document.body) {
@@ -273,6 +279,16 @@
         }
         if (Number.isFinite(wind) && wind > 0) {
             embeddedBaseSize.windWidth = wind;
+        }
+        const frontStack = qs('#e6bFrontStack');
+        const windStack = qs('#e6bWindStack');
+        if (frontStack && Number.isFinite(front) && front > 0) {
+            frontStack.style.width = `${front}px`;
+            frontStack.style.height = `${front * FRONT_VIEWBOX.height / FRONT_VIEWBOX.width}px`;
+        }
+        if (windStack && Number.isFinite(wind) && wind > 0) {
+            windStack.style.width = `${wind}px`;
+            windStack.style.height = `${wind * WIND_VIEWBOX.height / WIND_VIEWBOX.width}px`;
         }
         setViewTransform(viewState.scale, viewState.x, viewState.y);
     }
@@ -1071,7 +1087,10 @@
 
     function loadWorkbenchFrontDisc() {
         const saved = readWorkbenchFrontDisc();
-        applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved) ? saved : bundledWorkbenchFrontDisc());
+        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.front;
+        applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved)
+            ? saved
+            : (validWorkbenchFrontDisc(preloaded) ? preloaded : bundledWorkbenchFrontDisc()));
         fetchWorkbenchFrontDisc().then(snapshot => {
             if (validWorkbenchFrontDisc(snapshot)) applyWorkbenchFrontDisc(snapshot);
         });
@@ -1224,10 +1243,12 @@
 
     function loadWorkbenchWindDisc() {
         const saved = readWorkbenchWindDisc();
+        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.wind;
         if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
+        else if (validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(preloaded);
         fetchWorkbenchWindDisc().then(snapshot => {
             if (validWorkbenchWindDisc(snapshot)) applyWorkbenchWindDisc(snapshot);
-            else if (!validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(null);
+            else if (!validWorkbenchWindDisc(saved) && !validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(null);
         });
     }
 
@@ -2484,6 +2505,14 @@
         readInputs();
         syncInputs();
         bindEvents();
+        if (embeddedMode) {
+            const availableWidth = Math.max(180, Number(window.innerWidth) || 510);
+            const availableHeight = Math.max(180, Number(window.innerHeight) || 590);
+            setEmbeddedBaseSize(
+                Math.min(availableWidth, availableHeight * FRONT_VIEWBOX.width / FRONT_VIEWBOX.height),
+                Math.min(availableWidth, availableHeight * WIND_VIEWBOX.width / WIND_VIEWBOX.height)
+            );
+        }
         applyViewTransform();
         render();
     }

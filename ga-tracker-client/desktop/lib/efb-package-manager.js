@@ -4,7 +4,9 @@ const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
-const { requestBuffer } = require('./runtime-manager');
+function requestBuffer(...args) {
+  return require('./runtime-manager').requestBuffer(...args);
+}
 
 const EFB_PACKAGE_NAME = 'vfr-multitool-efb';
 const EFB_REQUIRED_FILES = Object.freeze([

@@ -132,7 +132,7 @@ function payloadOf<T>(value: unknown, expectedType: string, requiredCapability?:
 }
 
 class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
-  private rootRef = FSComponent.createRef<HTMLDivElement>();
+  private appRootRef = FSComponent.createRef<HTMLDivElement>();
   private topbarRef = FSComponent.createRef<HTMLElement>();
   private toolbarToggleRef = FSComponent.createRef<HTMLButtonElement>();
   private connectionRef = FSComponent.createRef<HTMLSpanElement>();
@@ -174,10 +174,14 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private clockLocalRef = FSComponent.createRef<HTMLTimeElement>();
   private stopwatchRef = FSComponent.createRef<HTMLTimeElement>();
   private stopwatchToggleRef = FSComponent.createRef<HTMLButtonElement>();
+  private stopwatchMinuteHandRef = FSComponent.createRef<HTMLDivElement>();
+  private stopwatchSecondHandRef = FSComponent.createRef<HTMLDivElement>();
+  private stopwatchTenthHandRef = FSComponent.createRef<HTMLDivElement>();
   private calculatorPanelRef = FSComponent.createRef<HTMLDivElement>();
   private calculatorExpressionRef = FSComponent.createRef<HTMLDivElement>();
   private calculatorResultRef = FSComponent.createRef<HTMLDivElement>();
   private e6bPanelRef = FSComponent.createRef<HTMLDivElement>();
+  private e6bFrameRef = FSComponent.createRef<HTMLIFrameElement>();
   private mapNoticeRef = FSComponent.createRef<HTMLDivElement>();
   private mapPositionRef = FSComponent.createRef<HTMLParagraphElement>();
   private mapFlightRef = FSComponent.createRef<HTMLParagraphElement>();
@@ -212,8 +216,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private calculatorExpression = '';
 
   private readonly onWindowResize = (): void => {
-    if (this.screen !== 'map' || !this.map) return;
-    this.map.invalidateSize({ pan: false });
+    if (this.screen !== 'map') return;
+    this.map?.invalidateSize({ pan: false });
+    this.syncE6bFrameSize();
   };
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
@@ -270,6 +275,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.calculatorPanelRef.getOrDefault()?.querySelectorAll<HTMLButtonElement>('[data-calc]').forEach((button) => {
       this.bindButton(button, () => this.handleCalculatorKey(String(button.dataset.calc || '')));
     });
+    const e6bFrame = this.e6bFrameRef.getOrDefault();
+    if (e6bFrame) e6bFrame.onload = (): void => this.syncE6bFrameSize();
 
     const drawer = this.layerDrawerRef.getOrDefault();
     if (!drawer) return;
@@ -372,7 +379,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       console.error('[VFR Multitool EFB] Karteninitialisierung fehlgeschlagen', error);
       this.disposeMap();
       this.setLayerStatus('Kartenmodul konnte nicht initialisiert werden', 'error');
-      this.setMapNotice('Karte konnte nicht initialisiert werden · Details im EFB-Debugger', 'error');
+      this.setMapNotice('Karte konnte nicht initialisiert werden | Details im EFB-Debugger', 'error');
     }
   }
 
@@ -433,7 +440,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private setTheme(theme: string, persist = true): void {
     this.preferences = MapShellCore.normalizePreferences({ ...this.preferences, theme });
-    const root = this.rootRef.getOrDefault();
+    const root = this.appRootRef.getOrDefault();
     if (root) {
       for (const entry of MapShellCore.THEMES) root.classList.remove(`theme-${entry.id}`);
       root.classList.add(`theme-${this.preferences.theme}`);
@@ -450,7 +457,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private setToolbarCollapsed(collapsed: boolean, persist = true): void {
     this.preferences = { ...this.preferences, toolbarCollapsed: collapsed };
     this.topbarRef.getOrDefault()?.classList.toggle('is-collapsed', collapsed);
-    this.rootRef.getOrDefault()?.classList.toggle('toolbar-collapsed', collapsed);
+    this.appRootRef.getOrDefault()?.classList.toggle('toolbar-collapsed', collapsed);
     const button = this.toolbarToggleRef.getOrDefault();
     button?.setAttribute('aria-expanded', String(!collapsed));
     if (button) button.title = collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden';
@@ -461,10 +468,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private setProfileVisible(visible: boolean, persist = true): void {
     this.preferences = { ...this.preferences, profileVisible: visible };
     this.profileBandRef.getOrDefault()?.classList.toggle('is-hidden', !visible);
-    this.rootRef.getOrDefault()?.classList.toggle('profile-hidden', !visible);
+    this.appRootRef.getOrDefault()?.classList.toggle('profile-hidden', !visible);
     const button = this.profileButtonRef.getOrDefault();
     button?.classList.toggle('is-active', visible);
     button?.setAttribute('aria-pressed', String(visible));
+    this.setText(button, visible ? 'Profil (An)' : 'Profil (Aus)');
     if (persist) this.savePreferences();
     this.renderProfile();
   }
@@ -503,6 +511,25 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.calculatorPanelRef.getOrDefault()?.classList.toggle('is-hidden', tool !== 'calculator');
     this.e6bPanelRef.getOrDefault()?.classList.toggle('is-hidden', tool !== 'e6b');
     this.updateClock();
+    if (tool === 'e6b') {
+      setTimeout(() => this.syncE6bFrameSize(), 0);
+      setTimeout(() => this.syncE6bFrameSize(), 180);
+    }
+  }
+
+  private syncE6bFrameSize(): void {
+    if (this.activeTool !== 'e6b') return;
+    const panel = this.e6bPanelRef.getOrDefault();
+    const frame = this.e6bFrameRef.getOrDefault();
+    if (!panel || !frame?.contentWindow) return;
+    const bounds = panel.getBoundingClientRect();
+    if (bounds.width < 10 || bounds.height < 10) return;
+    const frontWidth = Math.max(180, Math.min(bounds.width, bounds.height * 510 / 590));
+    const windWidth = Math.max(180, Math.min(bounds.width, bounds.height * 510 / 1000));
+    try {
+      frame.contentWindow.postMessage({ type: 'ga-e6b-set-base-size', frontWidth, windWidth }, '*');
+      frame.contentWindow.postMessage({ type: 'ga-e6b-reset-view' }, '*');
+    } catch (_) {}
   }
 
   private closeToolPanel(): void {
@@ -533,6 +560,13 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const hours = Math.floor(elapsed / 3600000);
     this.setText(this.stopwatchRef.getOrDefault(), `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`);
     this.setText(this.stopwatchToggleRef.getOrDefault(), this.stopwatchRunning ? 'Stopp' : 'Start');
+    const elapsedSeconds = elapsed / 1000;
+    const minuteHand = this.stopwatchMinuteHandRef.getOrDefault();
+    const secondHand = this.stopwatchSecondHandRef.getOrDefault();
+    const tenthHand = this.stopwatchTenthHandRef.getOrDefault();
+    if (minuteHand) minuteHand.style.transform = `rotate(${elapsedSeconds / 60 * 6}deg)`;
+    if (secondHand) secondHand.style.transform = `rotate(${elapsedSeconds * 6}deg)`;
+    if (tenthHand) tenthHand.style.transform = `rotate(${elapsedSeconds * 360}deg)`;
   }
 
   private toggleStopwatch(): void {
@@ -567,7 +601,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       } catch (_) {
         this.setText(this.calculatorResultRef.getOrDefault(), 'ERR');
       }
-    } else if (/^[0-9()+\-×÷.%]$/.test(key) && this.calculatorExpression.length < 120) {
+    } else if (/^[0-9()+\-*/.%]$/.test(key) && this.calculatorExpression.length < 120) {
       this.calculatorExpression += key;
     }
     this.setText(this.calculatorExpressionRef.getOrDefault(), this.calculatorExpression || 'Bereit');
@@ -931,9 +965,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const bearing = navigation?.bearingToNextDeg;
     compass?.style.setProperty('--bearing-relative', `${bearing === undefined ? 0 : bearing - heading}deg`);
     compass?.classList.toggle('has-bearing', bearing !== undefined && bearing !== null);
-    this.setText(this.compassHeadingRef.getOrDefault(), `${String(Math.round(heading)).padStart(3, '0')}°`);
+    this.setText(this.compassHeadingRef.getOrDefault(), `${String(Math.round(heading)).padStart(3, '0')} deg`);
     this.setText(this.compassBearingRef.getOrDefault(), navigation
-      ? `${navigation.nextWaypointName || 'NEXT'} · ${navigation.bearingToNextDeg.toFixed(0)}° · ${navigation.distanceToNextNm.toFixed(1)} NM`
+      ? `${navigation.nextWaypointName || 'NEXT'} | ${navigation.bearingToNextDeg.toFixed(0)} deg | ${navigation.distanceToNextNm.toFixed(1)} NM`
       : 'Keine aktive Route');
   }
 
@@ -990,8 +1024,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     }
     const navigation = this.lastMapSnapshot?.navigation;
     this.setText(this.profileStatusRef.getOrDefault(), navigation
-      ? `${navigation.nextWaypointName || 'NEXT'} · ${navigation.remainingDistanceNm.toFixed(1)} NM Rest · ${navigation.crossTrackNm.toFixed(2)} NM XTK`
-      : `Planprofil · ${profile.totalDistanceNm.toFixed(1)} NM · ${Math.round(profile.cruiseAltitudeFt)} ft`);
+      ? `${navigation.nextWaypointName || 'NEXT'} | ${navigation.remainingDistanceNm.toFixed(1)} NM Rest | ${navigation.crossTrackNm.toFixed(2)} NM XTK`
+      : `Planprofil | ${profile.totalDistanceNm.toFixed(1)} NM | ${Math.round(profile.cruiseAltitudeFt)} ft`);
   }
 
   private renderMission(snapshot: MissionSnapshotPayload | null): void {
@@ -1038,7 +1072,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const state = String(mission.state || '').toLowerCase();
     const sceneCount = Math.max(0, Math.round(Number(mission.sceneCount) || 0));
     this.setText(this.missionRef.getOrDefault(), String(mission.missionId));
-    this.setText(this.missionPhaseRef.getOrDefault(), `Status ${stateLabels[state] || state || '–'} · Phase ${phaseLabels[phase] || phase || '–'}`);
+    this.setText(this.missionPhaseRef.getOrDefault(), `Status ${stateLabels[state] || state || '-'} | Phase ${phaseLabels[phase] || phase || '-'}`);
     this.setText(this.missionScenesRef.getOrDefault(), sceneCount === 1 ? '1 lokale Simulatorszene aktiv' : `${sceneCount} lokale Simulatorszenen aktiv`);
   }
 
@@ -1063,7 +1097,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         : null;
 
       this.setConnection('Tracker verbunden', 'online');
-      this.setText(this.trackerRef.getOrDefault(), `${status.trackerVersion || '–'} · ${status.runtimeChannel || '–'}`);
+      this.setText(this.trackerRef.getOrDefault(), `${status.trackerVersion || '-'} | ${status.runtimeChannel || '-'}`);
       this.setText(this.relayRef.getOrDefault(), status.relayConnected ? 'Verbunden' : 'Wartet');
       this.setText(this.simulatorRef.getOrDefault(), status.simulatorConnected ? 'Verbunden' : 'Nicht verbunden');
       const mapSnapshot = MapShellCore.normalizeFlightSnapshot(snapshot) as NormalizedFlightSnapshot | null;
@@ -1088,9 +1122,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     } catch (_) {
       if (!this.active) return;
       this.setConnection('Tracker nicht erreichbar', 'error');
-      this.setText(this.trackerRef.getOrDefault(), '–');
-      this.setText(this.relayRef.getOrDefault(), '–');
-      this.setText(this.simulatorRef.getOrDefault(), '–');
+      this.setText(this.trackerRef.getOrDefault(), '-');
+      this.setText(this.relayRef.getOrDefault(), '-');
+      this.setText(this.simulatorRef.getOrDefault(), '-');
       this.setText(this.positionRef.getOrDefault(), 'Bitte den VFR Multitool Tracker in einer EFB-kompatiblen Version starten.');
       this.setText(this.flightRef.getOrDefault(), '');
       this.setText(this.missionRef.getOrDefault(), 'Keine Missionsdaten verfügbar.');
@@ -1098,7 +1132,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       this.setText(this.missionScenesRef.getOrDefault(), '');
       this.setText(this.mapPositionRef.getOrDefault(), this.lastFlight ? MapShellCore.formatCoordinateLine(this.lastFlight) : 'Tracker offline');
       this.setText(this.mapFlightRef.getOrDefault(), this.lastFlight ? 'Letzte bekannte Position' : 'Karte ist frei verschiebbar');
-      this.setMapNotice('Tracker nicht erreichbar · Karte bleibt bedienbar', 'error');
+      this.setMapNotice('Tracker nicht erreichbar | Karte bleibt bedienbar', 'error');
       this.markPlaneStale(true);
     }
     if (this.active) this.timer = setTimeout(() => void this.poll(), 1000);
@@ -1106,26 +1140,24 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   public render(): VNode {
     return (
-      <div ref={this.rootRef} class="vfr-multitool-app theme-classic">
+      <div ref={this.appRootRef} class="vfr-multitool-app theme-classic">
         <header ref={this.topbarRef} class="app-topbar">
           <div class="topbar-content">
-            <div class="brand">
-              <strong>VFR Multitool</strong>
-              <span>EFB v{EFB_APP_VERSION}</span>
+            <div class="map-toolbar-title-row">
+              <strong>NAV STATION (KARTENTISCH)</strong>
+              <span>VFR Multitool EFB v{EFB_APP_VERSION}</span>
             </div>
-            <nav class="view-switch" aria-label="Ansicht wechseln">
-              <button ref={this.mapTabRef} class="is-active" type="button">Karte</button>
-              <button ref={this.statusTabRef} type="button">Status</button>
-            </nav>
-            <div class="topbar-actions">
-              <button ref={this.profileButtonRef} type="button" aria-pressed="true">Profil</button>
-              <button ref={this.themeButtonRef} type="button">Design</button>
-              <button ref={this.toolsButtonRef} type="button">Werkzeuge</button>
+            <div class="map-toolbar-buttons">
+              <button ref={this.mapTabRef} class="pb-btn is-active" type="button">Karte</button>
+              <button ref={this.statusTabRef} class="pb-btn" type="button">Status</button>
+              <button ref={this.profileButtonRef} class="pb-btn" type="button" aria-pressed="true">Profil (An)</button>
+              <button ref={this.themeButtonRef} class="pb-btn" type="button">Design</button>
+              <button ref={this.toolsButtonRef} class="pb-btn" type="button">Werkzeuge</button>
+              <span ref={this.connectionRef} class="connection-pill">Warte auf Tracker</span>
             </div>
-            <span ref={this.connectionRef} class="connection-pill">Warte auf Tracker</span>
           </div>
           <button ref={this.toolbarToggleRef} class="topbar-toggle" type="button" aria-expanded="true" title="Menüleiste ausblenden">
-            <span aria-hidden="true">⌃</span>
+            <span class="collapse-chevron" aria-hidden="true"></span>
           </button>
         </header>
 
@@ -1140,11 +1172,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           <aside ref={this.layerDrawerRef} class="layer-drawer" aria-hidden="true">
             <div class="drawer-head">
               <div><span class="drawer-kicker">Kartentisch</span><strong>Kartenebenen</strong></div>
-              <button type="button" title="Layer schließen" data-layer-close="true">×</button>
+              <button type="button" title="Layer schließen" data-layer-close="true">X</button>
             </div>
             <span class="layer-group-title">Basiskarte</span>
             <div class="layer-list">
-              <button type="button" data-base-layer="topo"><span></span>OpenTopo · Text</button>
+              <button type="button" data-base-layer="topo"><span></span>OpenTopo / Text</button>
               <button type="button" data-base-layer="terrain"><span></span>Terrain</button>
               <button type="button" data-base-layer="satellite"><span></span>Satellit</button>
               <button type="button" data-base-layer="dark"><span></span>Dunkel</button>
@@ -1162,7 +1194,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           <aside ref={this.themeDrawerRef} class="chrome-drawer theme-drawer" aria-hidden="true">
             <div class="drawer-head">
               <div><span class="drawer-kicker">Darstellung</span><strong>App-Design</strong></div>
-              <button type="button" title="Design schließen" data-theme-close="true">×</button>
+              <button type="button" title="Design schließen" data-theme-close="true">X</button>
             </div>
             <div class="theme-grid">
               <button type="button" data-theme="classic"><span class="theme-swatch classic"></span>Classic</button>
@@ -1175,7 +1207,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
           <aside ref={this.toolsDrawerRef} class="chrome-drawer tools-drawer" aria-hidden="true">
             <div class="drawer-head">
               <div><span class="drawer-kicker">Cockpit</span><strong>Werkzeuge</strong></div>
-              <button type="button" title="Werkzeuge schließen" data-tools-close="true">×</button>
+              <button type="button" title="Werkzeuge schließen" data-tools-close="true">X</button>
             </div>
             <div class="tool-launchers">
               <button type="button" data-tool="e6b"><strong>E6B</strong><span>Flight Computer</span></button>
@@ -1190,15 +1222,16 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             <div class="compass-course-marker" aria-hidden="true"></div>
             <svg viewBox="0 0 300 300" aria-hidden="true">
               <g ref={this.compassRoseRef} class="compass-rose">
-                <circle cx="150" cy="150" r="137"></circle>
-                <line x1="150" y1="13" x2="150" y2="34"></line>
-                <line x1="287" y1="150" x2="266" y2="150"></line>
-                <line x1="150" y1="287" x2="150" y2="266"></line>
-                <line x1="13" y1="150" x2="34" y2="150"></line>
-                <line x1="247" y1="53" x2="234" y2="66"></line>
-                <line x1="247" y1="247" x2="234" y2="234"></line>
-                <line x1="53" y1="247" x2="66" y2="234"></line>
-                <line x1="53" y1="53" x2="66" y2="66"></line>
+                <circle class="compass-outer" cx="150" cy="150" r="143"></circle>
+                <circle class="compass-inner" cx="150" cy="150" r="118"></circle>
+                <line class="major" x1="150" y1="7" x2="150" y2="33"></line>
+                <line class="major" x1="293" y1="150" x2="267" y2="150"></line>
+                <line class="major" x1="150" y1="293" x2="150" y2="267"></line>
+                <line class="major" x1="7" y1="150" x2="33" y2="150"></line>
+                <line x1="251" y1="49" x2="234" y2="66"></line>
+                <line x1="251" y1="251" x2="234" y2="234"></line>
+                <line x1="49" y1="251" x2="66" y2="234"></line>
+                <line x1="49" y1="49" x2="66" y2="66"></line>
                 <text x="150" y="52">N</text><text x="248" y="158">E</text>
                 <text x="150" y="258">S</text><text x="52" y="158">W</text>
                 <text x="222" y="83">03</text><text x="222" y="225">15</text>
@@ -1206,7 +1239,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
               </g>
             </svg>
             <div class="compass-bearing-bug" aria-hidden="true"></div>
-            <div class="compass-readout"><span ref={this.compassHeadingRef}>000°</span><small ref={this.compassBearingRef}>Keine aktive Route</small></div>
+            <div class="compass-readout"><span ref={this.compassHeadingRef}>000 deg</span><small ref={this.compassBearingRef}>Keine aktive Route</small></div>
           </aside>
           <div ref={this.mapNoticeRef} class="map-notice">Warte auf Positionsdaten aus dem Simulator</div>
           <section ref={this.profileBandRef} class="profile-band" aria-label="Routen-Höhenband">
@@ -1221,25 +1254,46 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             <p ref={this.mapFlightRef} class="strip-flight">Karte ist frei verschiebbar</p>
           </div>
           <aside ref={this.toolPanelRef} class="tool-panel" aria-hidden="true">
-            <div class="tool-panel-head"><strong ref={this.toolTitleRef}>Werkzeug</strong><button type="button" data-tool-close="true">×</button></div>
+            <div class="tool-panel-head"><strong ref={this.toolTitleRef}>Werkzeug</strong><button type="button" data-tool-close="true">X</button></div>
             <div ref={this.clockPanelRef} class="clock-tool is-hidden">
-              <div class="clock-grid"><div><span>UTC</span><time ref={this.clockUtcRef}>00:00:00 UTC</time></div><div><span>Lokal</span><time ref={this.clockLocalRef}>00:00:00</time></div></div>
-              <div class="stopwatch"><span>Stoppuhr</span><time ref={this.stopwatchRef}>00:00:00.0</time><div><button ref={this.stopwatchToggleRef} type="button">Start</button><button type="button" data-stopwatch-reset="true">Reset</button></div></div>
+              <div class="map-stopwatch-device">
+                <div class="stopwatch-bezel">
+                  <button ref={this.stopwatchToggleRef} class="stopwatch-crown stopwatch-crown-main" type="button">Start</button>
+                  <button class="stopwatch-crown stopwatch-crown-reset" type="button" data-stopwatch-reset="true">Reset</button>
+                  <div class="stopwatch-dial" aria-hidden="true">
+                    <div class="stopwatch-tick-ring"></div>
+                    <span class="stopwatch-number number-60">60</span><span class="stopwatch-number number-5">5</span>
+                    <span class="stopwatch-number number-10">10</span><span class="stopwatch-number number-15">15</span>
+                    <span class="stopwatch-number number-20">20</span><span class="stopwatch-number number-25">25</span>
+                    <span class="stopwatch-number number-30">30</span><span class="stopwatch-number number-35">35</span>
+                    <span class="stopwatch-number number-40">40</span><span class="stopwatch-number number-45">45</span>
+                    <span class="stopwatch-number number-50">50</span><span class="stopwatch-number number-55">55</span>
+                    <div class="stopwatch-digital-face"><time ref={this.stopwatchRef}>00:00:00.0</time></div>
+                    <div ref={this.stopwatchMinuteHandRef} class="stopwatch-hand stopwatch-minute-hand"></div>
+                    <div ref={this.stopwatchSecondHandRef} class="stopwatch-hand stopwatch-second-hand"></div>
+                    <div ref={this.stopwatchTenthHandRef} class="stopwatch-hand stopwatch-tenth-hand"></div>
+                    <div class="stopwatch-hub"></div>
+                  </div>
+                </div>
+                <div class="stopwatch-time-grid"><div><span>UTC</span><time ref={this.clockUtcRef}>00:00:00 UTC</time></div><div><span>Lokal</span><time ref={this.clockLocalRef}>00:00:00</time></div></div>
+              </div>
             </div>
             <div ref={this.calculatorPanelRef} class="calculator-tool is-hidden">
-              <div ref={this.calculatorExpressionRef} class="calc-expression">Bereit</div>
-              <div ref={this.calculatorResultRef} class="calc-result">0</div>
-              <div class="calc-keypad">
-                <button type="button" data-calc="clear">C</button><button type="button" data-calc="(">(</button><button type="button" data-calc=")">)</button><button type="button" data-calc="backspace">⌫</button>
-                <button type="button" data-calc="7">7</button><button type="button" data-calc="8">8</button><button type="button" data-calc="9">9</button><button type="button" data-calc="÷">÷</button>
-                <button type="button" data-calc="4">4</button><button type="button" data-calc="5">5</button><button type="button" data-calc="6">6</button><button type="button" data-calc="×">×</button>
-                <button type="button" data-calc="1">1</button><button type="button" data-calc="2">2</button><button type="button" data-calc="3">3</button><button type="button" data-calc="−">−</button>
-                <button type="button" data-calc="0">0</button><button type="button" data-calc=".">.</button><button type="button" data-calc="%">%</button><button type="button" data-calc="+">+</button>
-                <button class="equals" type="button" data-calc="equals">=</button>
+              <div class="calculator-case">
+                <div class="calculator-topbar"><strong>FLIGHT COMPUTER</strong><span>GA-120</span></div>
+                <div class="calculator-display"><div ref={this.calculatorExpressionRef} class="calc-expression">Bereit</div><div ref={this.calculatorResultRef} class="calc-result">0</div></div>
+                <div class="calc-keypad calculator-keypad">
+                  <button type="button" data-calc="clear">C</button><button type="button" data-calc="(">(</button><button type="button" data-calc=")">)</button><button type="button" data-calc="backspace">DEL</button>
+                  <button type="button" data-calc="7">7</button><button type="button" data-calc="8">8</button><button type="button" data-calc="9">9</button><button class="operator" type="button" data-calc="/">/</button>
+                  <button type="button" data-calc="4">4</button><button type="button" data-calc="5">5</button><button type="button" data-calc="6">6</button><button class="operator" type="button" data-calc="*">*</button>
+                  <button type="button" data-calc="1">1</button><button type="button" data-calc="2">2</button><button type="button" data-calc="3">3</button><button class="operator" type="button" data-calc="-">-</button>
+                  <button type="button" data-calc="0">0</button><button type="button" data-calc=".">.</button><button type="button" data-calc="%">%</button><button class="operator" type="button" data-calc="+">+</button>
+                  <button class="equals" type="button" data-calc="equals">=</button>
+                </div>
               </div>
             </div>
             <div ref={this.e6bPanelRef} class="e6b-tool is-hidden">
-              <iframe title="E6B Flight Computer" src={`${BASE_URL}/Assets/E6B/e6b-flight-computer.html?embedded=1`}></iframe>
+              <iframe ref={this.e6bFrameRef} title="E6B Flight Computer" src={`${BASE_URL}/Assets/E6B/e6b-flight-computer-efb.html#embedded-coherent`}></iframe>
             </div>
           </aside>
         </div>
@@ -1247,9 +1301,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         <div ref={this.statusScreenRef} class="ga-efb-status-view is-hidden">
           <div class="status-content">
             <section class="card status-grid">
-              <div><span class="label">Tracker</span><span ref={this.trackerRef} class="value">–</span></div>
-              <div><span class="label">Relay</span><span ref={this.relayRef} class="value">–</span></div>
-              <div><span class="label">Simulator</span><span ref={this.simulatorRef} class="value">–</span></div>
+              <div><span class="label">Tracker</span><span ref={this.trackerRef} class="value">-</span></div>
+              <div><span class="label">Relay</span><span ref={this.relayRef} class="value">-</span></div>
+              <div><span class="label">Simulator</span><span ref={this.simulatorRef} class="value">-</span></div>
               <div><span class="label">Modus</span><span class="value">Read-only</span></div>
             </section>
             <section class="card">
@@ -1258,7 +1312,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
               <p ref={this.flightRef} class="hint"></p>
             </section>
             <section class="card">
-              <span class="label">Mission · Read-only</span>
+              <span class="label">Mission | Read-only</span>
               <p ref={this.missionRef} class="mission-id">Warte auf Missionsdaten.</p>
               <p ref={this.missionPhaseRef} class="hint"></p>
               <p ref={this.missionScenesRef} class="hint compact"></p>

@@ -120,8 +120,8 @@ test('map flight labels remain deterministic', () => {
     hdg: 235,
     flight: { gsKts: 0, iasKts: 0, onGround: true }
   });
-  assert.equal(core.formatCoordinateLine(snapshot), '48.27836, 8.42969 · 2207 ft · 235°');
-  assert.equal(core.formatFlightLine(snapshot), 'GS 0 kt · IAS 0 kt · Am Boden');
+  assert.equal(core.formatCoordinateLine(snapshot), '48.27836, 8.42969 | 2207 ft | 235 deg');
+  assert.equal(core.formatFlightLine(snapshot), 'GS 0 kt | IAS 0 kt | Am Boden');
 });
 
 test('versioned map snapshots are bounded before entering the renderer', () => {

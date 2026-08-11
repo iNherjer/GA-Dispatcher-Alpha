@@ -9,6 +9,11 @@ const sourceRoot = path.join(__dirname, 'PackageSources', 'VfrMultitool', 'src')
 const tsx = fs.readFileSync(path.join(sourceRoot, 'VfrMultitool.tsx'), 'utf8');
 const scss = fs.readFileSync(path.join(sourceRoot, 'VfrMultitool.scss'), 'utf8');
 const aircraftSvg = fs.readFileSync(path.join(sourceRoot, 'Assets', 'aircraft-marker.svg'), 'utf8');
+const e6bRoot = path.join(__dirname, '..', '..', 'e6b');
+const e6bJs = fs.readFileSync(path.join(e6bRoot, 'e6b-flight-computer.js'), 'utf8');
+const e6bCss = fs.readFileSync(path.join(e6bRoot, 'e6b-flight-computer.css'), 'utf8');
+const e6bHtml = fs.readFileSync(path.join(e6bRoot, 'e6b-flight-computer.html'), 'utf8');
+const buildJs = fs.readFileSync(path.join(__dirname, 'PackageSources', 'VfrMultitool', 'build.js'), 'utf8');
 
 test('map and status surfaces use app-specific class names', () => {
   assert.match(tsx, /class="ga-efb-map-view"/);
@@ -72,7 +77,7 @@ test('tracker map contract feeds route, profile and compass without embedding mi
   assert.match(tsx, /class="map-compass"/);
 });
 
-test('theme and local tool shell stays EFB-native and bundles the existing E6B', () => {
+test('theme and local tool shell reuses the map-table devices and bundles the interactive E6B', () => {
   for (const theme of ['classic', 'retro', 'navcom', 'ops1940', 'win95']) {
     assert.match(tsx, new RegExp(`data-theme="${theme}"`));
     if (theme === 'classic') assert.match(scss, /\.vfr-multitool-app/);
@@ -81,9 +86,29 @@ test('theme and local tool shell stays EFB-native and bundles the existing E6B',
   assert.match(tsx, /data-tool="e6b"/);
   assert.match(tsx, /data-tool="clock"/);
   assert.match(tsx, /data-tool="calculator"/);
-  assert.match(tsx, /Assets\/E6B\/e6b-flight-computer\.html\?embedded=1/);
+  assert.match(tsx, /Assets\/E6B\/e6b-flight-computer-efb\.html#embedded-coherent/);
   assert.match(tsx, /MapShellCore\.evaluateCalculatorExpression/);
   assert.match(tsx, /ga-e6b-close/);
+  assert.match(tsx, /class="map-stopwatch-device"/);
+  assert.match(tsx, /stopwatchSecondHandRef/);
+  assert.match(tsx, /class="calculator-case"/);
+  assert.match(tsx, /syncE6bFrameSize/);
+  assert.match(buildJs, /e6b-efb-disc-data\.js/);
+  assert.match(buildJs, /e6b-workbench-front-disc\.json/);
+  assert.match(buildJs, /e6b-workbench-wind-disc\.json/);
+  assert.match(e6bJs, /embeddedMode = searchParams\.has\('embedded'\) \|\| \/embedded/);
+  assert.match(e6bJs, /window\.GAE6B_EFB_DISCS/);
+  assert.match(e6bCss, /body\.e6b-coherent/);
+  assert.doesNotMatch(e6bCss, /\binset\s*:/);
+  assert.doesNotMatch(e6bCss, /\bmin\(/);
+  assert.doesNotMatch(e6bCss, /\bclamp\(/);
+  assert.doesNotMatch(e6bHtml, /[↻−×]/);
+});
+
+test('Coherent-facing controls avoid the unsupported glyphs seen in the simulator', () => {
+  assert.doesNotMatch(tsx, /[⌃⌫×÷−·°↻]/);
+  assert.doesNotMatch(scss, /\bmin\(/);
+  assert.doesNotMatch(scss, /\bclamp\(/);
 });
 
 test('EFB map mirrors web base dimming and the default aircraft marker', () => {

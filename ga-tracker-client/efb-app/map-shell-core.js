@@ -18,7 +18,7 @@ const THEMES = Object.freeze([
 const BASE_LAYERS = Object.freeze([
   Object.freeze({
     id: 'topo',
-    label: 'OpenTopo · Text',
+    label: 'OpenTopo / Text',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     fallbackUrl: 'https://backup.opentopomap.org/{z}/{x}/{y}.png',
     options: Object.freeze({
@@ -364,12 +364,12 @@ function normalizeFlightSnapshot(value) {
 
 function formatCoordinateLine(snapshot) {
   if (!snapshot) return 'Keine Position';
-  return `${snapshot.lat.toFixed(5)}, ${snapshot.lon.toFixed(5)} · ${snapshot.altFt} ft · ${Math.round(snapshot.headingDeg)}°`;
+  return `${snapshot.lat.toFixed(5)}, ${snapshot.lon.toFixed(5)} | ${snapshot.altFt} ft | ${Math.round(snapshot.headingDeg)} deg`;
 }
 
 function formatFlightLine(snapshot) {
   if (!snapshot) return 'Warte auf Flugdaten';
-  return `GS ${snapshot.gsKts} kt · IAS ${snapshot.iasKts} kt · ${snapshot.onGround ? 'Am Boden' : 'In der Luft'}`;
+  return `GS ${snapshot.gsKts} kt | IAS ${snapshot.iasKts} kt | ${snapshot.onGround ? 'Am Boden' : 'In der Luft'}`;
 }
 
 module.exports = Object.freeze({

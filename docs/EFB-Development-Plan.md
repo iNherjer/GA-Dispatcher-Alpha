@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-10
+Stand: 2026-08-11
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -14,15 +14,27 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Runtime | v325 | v320 | v325 ist im Alpha-Kanal; Stable bleibt bis zur Testerfreigabe unveraendert |
-| EFB-Community-Package | 0.3.5 | noch nicht verfuegbar | 0.3.5 ist im Alpha-Kanal; 0.4.0 bleibt bis SDK-/In-Sim-Test ein Source-Kandidat |
+| EFB-Community-Package | 0.3.5 | noch nicht verfuegbar | 0.3.5 ist im Alpha-Kanal; 0.4.0 ist verworfen, 0.4.1 bleibt bis SDK-/In-Sim-Test ein Source-Kandidat |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.3.5 zeigt Trackerstatus, Flugtelemetrie, den technischen Missionsstatus
 aus `mission.snapshot.v1` und die stabile K0-Kartenflaeche. Missionsbriefing,
 Manifest und Missionsaktionen sind noch nicht Bestandteil dieses
-Protokollstands. Der Source-Kandidat 0.4.0 erweitert die Karte additiv ueber
+Protokollstands. Der korrigierte Source-Kandidat 0.4.1 erweitert die Karte additiv ueber
 Tracker v326 und `map.snapshot.v1`; der freigegebene Alpha-Kanal bleibt bis zum
 SDK-/In-Sim-Test auf 0.3.5.
+
+EFB 0.4.0 wurde mit dem offiziellen SDK 1.7.2 gebaut, nach dem In-Sim-Test aber
+verworfen. Menueleiste, Designs und Werkzeuge hatten weder die optische noch
+die funktionale Naehe zum Web-Kartentisch. Im Coherent-Host wurde der
+Query-Schalter des E6B-Iframes nicht zuverlaessig als Embedded-Modus erkannt;
+dadurch erschien die Entwicklungsmaske, waehrend die eigentlichen Scheiben
+ausserhalb der sichtbaren Flaeche lagen beziehungsweise nicht geladen waren.
+Mehrere moderne CSS-Kurzformen und Unicode-Piktogramme fuehrten zusaetzlich zu
+verworfenem Layout und nicht darstellbaren Zeichen. 0.4.1 ersetzt diesen
+Ansatz durch Kartentisch-nahe Toolbar- und Werkzeugkomponenten, ASCII-sichere
+Bedienelemente, explizite Coherent-Geometrie sowie den echten interaktiven E6B
+mit lokal vorgebuendelten Front- und Windscheiben.
 
 EFB 0.3.0 wurde mit SDK 1.7.2 erfolgreich gebaut, im In-Sim-Test aber
 verworfen: Header und Trackerstatus erschienen, die komplette Kartenflaeche
@@ -162,16 +174,18 @@ IP-Adresse, Zeitpunkt, Zoomstufe und Kachelkoordinaten, jedoch keine Pilot-,
 Missions- oder Tracker-Zugangsdaten. Die Auswahl bleibt lokal gespeichert; ein
 eigener Offline-Cache ist nicht Teil von K0.
 
-Source-Kandidat 0.4.0 kombiniert die ersten read-only Teile von K1, K2 und K4:
+Source-Kandidat 0.4.1 kombiniert die ersten read-only Teile von K1, K2 und K4:
 Tracker v326 projiziert aus dem persistenten Resume-Bundle Route, Wegpunkte,
 aktives Leg, Restdistanz, Cross-Track, Missionsziel/POI-Kette und ein
 planbasiertes Hoehenprofil in `ga.map-snapshot.v1`. Der Snapshot enthaelt keine
 Story-, Passenger-, Cloud- oder Zugangsdaten. Das EFB rendert diese Projektion
 mit eigenem Leaflet-/SVG-Renderer. Classic, Retro, NAV/COM, OPS 1940 und
 Windows 95 sind lokale EFB-Designs; Menueleiste und Hoehenband werden lokal
-persistiert. Uhr/Stoppuhr und Rechner laufen rein lokal, der bestehende E6B wird
-als statisches lokales Asset gebuendelt. Ein volles Terrainprofil bleibt K4:
-0.4.0 kennzeichnet sein Hoehenband explizit als Planprofil und erfindet keine
+persistiert. Uhr/Stoppuhr und Rechner laufen rein lokal. Der bestehende E6B
+wird nicht als vereinfachte Maske nachgebaut: Front- und Windscheibe sowie die
+vorhandene Drag-, Dreh-, Flip- und Zoom-Logik werden als lokale Assets
+gebuendelt. Ein volles Terrainprofil bleibt K4: 0.4.1 kennzeichnet sein
+Hoehenband explizit als Planprofil und erfindet keine
 fehlenden Terrainpunkte.
 
 ## Roadmap
@@ -495,10 +509,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] EFB-0.4.0-Source mit App-Designs, einklappbarer Menueleiste, Route,
       planbasiertem Hoehenband, Kompass, Uhr/Stoppuhr, lokalem Rechner und
       gebuendeltem E6B implementieren.
-- [ ] EFB 0.4.0 mit offiziellem Windows-SDK bauen, Bundle inklusive E6B-
-      Assets pruefen und im 2D-/physischen EFB testen; Alpha bleibt bis dahin
-      unveraendert auf 0.3.5.
-- [ ] Tracker v326 bauen und zusammen mit EFB 0.4.0 gegen die Fallback-
+- [x] EFB 0.4.0 mit offiziellem Windows-SDK 1.7.2 bauen und im Simulator
+      pruefen. Ergebnis verworfen: Web-Design und Werkzeugfunktion fehlen,
+      E6B zeigt nur die Entwicklungsmaske, Unicode-Zeichen und Coherent-CSS
+      werden teilweise nicht dargestellt.
+- [x] EFB-0.4.1-Source mit Kartentisch-naher Toolbar, echten lokalen Uhr- und
+      Rechnerkomponenten, ASCII-sicheren Controls und dem vollstaendigen
+      interaktiven E6B fuer Coherent korrigieren.
+- [ ] EFB 0.4.1 mit offiziellem Windows-SDK bauen, die beiden generierten
+      E6B-Assets und das restliche Bundle pruefen und im 2D-/physischen EFB
+      testen; Alpha bleibt bis dahin unveraendert auf 0.3.5.
+- [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
       Einzel-Run, Owner, Revision, Effektjournal und Missionstyp-Adaptern
@@ -525,6 +546,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der In-Sim-Stand 0.4.0 wird nicht freigegeben. Die EFB-Shell
+  muss sich sichtbar und funktional am bestehenden Web-Kartentisch
+  orientieren; fuer bereits vorhandene Werkzeuge wird keine rein dekorative
+  Ersatzmaske akzeptiert. 0.4.1 verwendet fuer den E6B die originalen Front-
+  und Windscheiben samt Interaktionslogik, erzwingt Embedded-Coherent per
+  Fragment statt nur per Query und legt die Scheiben beim Build als lokalen
+  Preload ab. Kritische EFB-Geometrie verwendet keine von SDK 1.7.2
+  problematisch behandelten Kurzformen; Controls und technische Anzeigen
+  bleiben bis zum Nachweis weiterer Fonts auf ASCII-sicheren Zeichen.
 
 - 2026-08-10: EFB 0.4.0 wird als eigener Browser-Client des lokalen Trackers
   gebaut, nicht als eingebettete Vollversion der Web-App. `map.snapshot.v1`
