@@ -24,6 +24,13 @@ Protokollstands. Der korrigierte Source-Kandidat 0.4.1 erweitert die Karte addit
 Tracker v326 und `map.snapshot.v1`; der freigegebene Alpha-Kanal bleibt bis zum
 SDK-/In-Sim-Test auf 0.3.5.
 
+Der Quellstand von 0.4.1 ist lokal mit dem annotierten Git-Tag
+`efb-v0.4.1-sdk-input` unveraenderlich markiert. 0.4.2 entsteht getrennt im
+Branch `codex/efb-map-server-0.4.2`; weder der laufende Windows-SDK-Build von
+0.4.1 noch der Alpha-Kanal werden dadurch veraendert. Die erste 0.4.2-Stufe ist
+absichtlich nur eine Tracker-Webclient-Probe und noch keine Zerlegung der
+grossen Kartentischdateien.
+
 EFB 0.4.0 wurde mit dem offiziellen SDK 1.7.2 gebaut, nach dem In-Sim-Test aber
 verworfen. Menueleiste, Designs und Werkzeuge hatten weder die optische noch
 die funktionale Naehe zum Web-Kartentisch. Im Coherent-Host wurde der
@@ -187,6 +194,16 @@ vorhandene Drag-, Dreh-, Flip- und Zoom-Logik werden als lokale Assets
 gebuendelt. Ein volles Terrainprofil bleibt K4: 0.4.1 kennzeichnet sein
 Hoehenband explizit als Planprofil und erfindet keine
 fehlenden Terrainpunkte.
+
+Source-Kandidat 0.4.2 prueft vor der gemeinsamen Kartenextraktion eine zweite
+Hostgrenze. Tracker v327 liefert hinter `efb.web-client.v1` eine dedizierte,
+read-only Seite unter `/efb/v1/`. Das EFB zeigt den zugehoerigen `Server-Test`
+nur bei ausgehandelter Capability; ohne v327 bleibt die vollstaendige native
+0.4.1-Karte aktiv. Die Testseite enthaelt bewusst keinen nachgebauten
+Kartentisch, sondern nur Klick-, Kontrast-, Resize- und Snapshot-Diagnose. Das
+In-Sim-Gate beantwortet damit, ob Coherent eine vom Tracker bereitgestellte
+interaktive Browseroberflaeche stabil laden kann, bevor `map.js`, Hoehenband
+oder Voice strukturell getrennt werden.
 
 ## Roadmap
 
@@ -519,6 +536,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] EFB 0.4.1 mit offiziellem Windows-SDK bauen, die beiden generierten
       E6B-Assets und das restliche Bundle pruefen und im 2D-/physischen EFB
       testen; Alpha bleibt bis dahin unveraendert auf 0.3.5.
+- [x] Den exakten 0.4.1-SDK-Input mit `efb-v0.4.1-sdk-input` markieren und
+      0.4.2 in einem getrennten Branch/Worktree beginnen.
+- [x] Additive Tracker-Webclient-Probe fuer 0.4.2 implementieren: v327 meldet
+      `efb.web-client.v1`, `/efb/v1/` prueft Eingabe/Resize/Snapshot und das EFB
+      zeigt den `Server-Test` nur bei vorhandener Capability.
+- [ ] 0.4.2 erst nach abgeschlossenem 0.4.1-Test durchs offizielle SDK bauen;
+      im Simulator iframe-Laden, Klicktest, Kontrast, Resize/Orientation,
+      Snapshot-Recovery und v326-Fallback pruefen.
+- [ ] Nur bei bestandenem 0.4.2-Gate den echten Kartentisch in einen
+      tracker-gehosteten View, gemeinsame reine Kerne sowie Web-/EFB-Hostadapter
+      trennen. Der Rücksprungpunkt bleibt bis dahin unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -546,6 +574,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Vor der Zerlegung der grossen Kartentischdateien wurde der
+  0.4.1-SDK-Input als lokaler Git-Tag `efb-v0.4.1-sdk-input` eingefroren und
+  0.4.2 in `codex/efb-map-server-0.4.2` isoliert. Der laufende 0.4.1-Build wird
+  nicht abgewartet, aber 0.4.2 bleibt bis zu dessen Ergebnis additiv. Eine
+  kleine Tracker-Webclient-Probe muss zuerst Laden, Interaktion, Resize und
+  Snapshotzugriff in Coherent nachweisen; erst danach beginnt die eigentliche
+  Extraktion. Die native 0.4.1-Karte bleibt capability-gesteuerter Fallback.
 
 - 2026-08-11: Der In-Sim-Stand 0.4.0 wird nicht freigegeben. Die EFB-Shell
   muss sich sichtbar und funktional am bestehenden Web-Kartentisch

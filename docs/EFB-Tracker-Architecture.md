@@ -157,12 +157,20 @@ Flugzeug, Layern, Pan/Zoom und Follow benutzbar. Ein aelteres EFB ignoriert die
 neue Capability. Das EFB berechnet aus dem Snapshot keine Missionsphase und
 sendet auf diesem Pfad weiterhin keine Befehle.
 
-Der Kartenclient ist bewusst kein iframe der vollstaendigen Web-App. Der
-Tracker ist lokaler Server fuer kontrollierte Datenprodukte; die EFB-App ist
-ein eigener, SDK-gerechter Browser-Client mit Leaflet-/SVG-Renderer. Reine
-Geometrie- und Formatierungskerne koennen von Web, Tracker und EFB gemeinsam
-genutzt werden, waehrend DOM, Cloud-Sync, Voice und Missionsautoritaet nicht in
-das EFB-Bundle kopiert werden.
+Der Kartenclient ist bewusst kein iframe der vollstaendigen Web-App. Tracker
+v327 und EFB 0.4.2 pruefen jedoch additiv, ob eine eigens fuer diesen Zweck vom
+Tracker gelieferte read-only Browseroberflaeche in Coherent stabil laeuft. Die
+Probe unter `/efb/v1/` enthaelt noch keinen Kartentisch; sie misst nur Laden,
+Interaktion, Resize und lokalen Snapshotzugriff. Bei fehlender Capability
+bleibt der SDK-eigene 0.4.1-Renderer aktiv.
+
+Besteht dieses Gate, darf der Tracker spaeter einen kontrollierten
+Kartentisch-View hosten, den die EFB-Shell als Client darstellt. Das ist keine
+zweite Vollversion der Web-App: DOM, Cloud-Sync, Missionsautoritaet und
+Benutzergeheimnisse bleiben draussen. Reine Geometrie-, Formatierungs- und
+Darstellungskerne werden gemeinsam genutzt; Web, Tracker-View und EFB-Shell
+erhalten kleine Hostadapter. Voice bleibt ein eigener Tracker-Dienst und wird
+nicht aus dem eingebetteten EFB-Dokument heraus autoritativ gesteuert.
 
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN

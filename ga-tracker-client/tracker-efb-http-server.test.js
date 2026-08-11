@@ -25,8 +25,8 @@ function request(address, pathname, method = 'GET') {
 
 test('local EFB hello advertises only implemented read-only snapshot capabilities', () => {
   const hello = createTrackerEfbHttpHello({
-    trackerVersion: 'v324',
-    trackerVersionCode: 324,
+    trackerVersion: 'v327',
+    trackerVersionCode: 327,
     runtimeChannel: 'alpha',
     id: 'hello-test',
     timestamp: 1
@@ -34,6 +34,7 @@ test('local EFB hello advertises only implemented read-only snapshot capabilitie
   assert.deepEqual(hello.payload.capabilities, TRACKER_EFB_HTTP_CAPABILITIES);
   assert.equal(hello.payload.transport, 'http-loopback-readonly');
   assert.equal(hello.payload.runtimeChannel, 'alpha');
+  assert.equal(hello.payload.capabilities.includes('efb.web-client.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {
@@ -94,6 +95,12 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   assert.equal(map.message.payload.available, true);
   assert.equal(map.message.payload.schema, 'ga.map-snapshot.v1');
   assert.equal(map.message.payload.route.waypoints.length, 2);
+
+  const webClient = await request(address, '/efb/v1/');
+  assert.equal(webClient.statusCode, 200);
+  assert.match(webClient.headers['content-type'], /^text\/html/);
+  assert.match(webClient.body, /data-probe-version="1"/);
+  assert.match(webClient.body, /ga-efb-server-probe/);
 
   assert.equal((await request(address, '/api/v1/status', 'POST')).statusCode, 405);
   assert.equal((await request(address, '/unknown')).statusCode, 404);

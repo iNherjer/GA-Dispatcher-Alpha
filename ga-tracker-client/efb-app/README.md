@@ -5,7 +5,22 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Karten- und Werkzeugkandidat 0.4.1
+## Tracker-Webclient-Probe 0.4.2
+
+0.4.2 ist ein isolierter Architekturtest auf Basis des unveraenderten
+0.4.1-Kartentischs. Tracker v327 bietet additiv `efb.web-client.v1` und die
+read-only Seite `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese
+Capability, erscheint im EFB der Tab `Server-Test`. Die Seite prueft nur, ob
+Coherent einen vom Tracker gelieferten Browserclient laden, bedienen,
+skalieren und mit demselben lokalen Snapshot-Endpunkt verbinden kann.
+
+Die Probe ist ausdruecklich kein zweiter Kartentisch und noch kein Ersatz fuer
+die native 0.4.1-Karte. Fehlt die Capability, bleibt der Tab unsichtbar und der
+vollstaendige 0.4.1-Fallback funktioniert weiter. Erst nach erfolgreichem
+In-Sim-Test werden Kartentisch, Hoehenband und Werkzeuge in gemeinsame,
+host-neutrale Module zerlegt.
+
+## Karten- und Werkzeugbasis 0.4.1
 
 Die Kartenansicht ist die Standardseite und nutzt das im Hauptprojekt
 versionierte Leaflet. Standardmäßig sind die beschriftete OpenTopoMap sowie das

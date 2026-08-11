@@ -20,7 +20,8 @@
     MISSION_SNAPSHOT: 'mission.snapshot.v1',
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
     MISSION_AUTHORITY: 'mission.authority.v1',
-    EFB_INTERACTION: 'efb.interaction.v1'
+    EFB_INTERACTION: 'efb.interaction.v1',
+    EFB_WEB_CLIENT: 'efb.web-client.v1'
   });
 
   const LEGACY_CAPABILITIES = Object.freeze([

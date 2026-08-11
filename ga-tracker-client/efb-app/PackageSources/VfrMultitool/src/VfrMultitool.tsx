@@ -131,6 +131,21 @@ function payloadOf<T>(value: unknown, expectedType: string, requiredCapability?:
   return envelope.message.payload || null;
 }
 
+function supportsCapability(value: unknown, capability: string): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const hello = (value as { hello?: unknown }).hello as {
+    schema?: string;
+    schemaVersion?: number;
+    type?: string;
+    payload?: { capabilities?: string[] };
+  } | undefined;
+  return hello?.schema === 'ga.tracker-efb'
+    && hello.schemaVersion === 1
+    && hello.type === 'protocol.hello'
+    && Array.isArray(hello.payload?.capabilities)
+    && hello.payload.capabilities.includes(capability);
+}
+
 class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private appRootRef = FSComponent.createRef<HTMLDivElement>();
   private topbarRef = FSComponent.createRef<HTMLElement>();
@@ -147,8 +162,12 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private mapScreenRef = FSComponent.createRef<HTMLDivElement>();
   private mapControlsRef = FSComponent.createRef<HTMLDivElement>();
+  private serverScreenRef = FSComponent.createRef<HTMLDivElement>();
+  private serverFrameRef = FSComponent.createRef<HTMLIFrameElement>();
+  private serverFrameStatusRef = FSComponent.createRef<HTMLSpanElement>();
   private statusScreenRef = FSComponent.createRef<HTMLDivElement>();
   private mapTabRef = FSComponent.createRef<HTMLButtonElement>();
+  private serverTabRef = FSComponent.createRef<HTMLButtonElement>();
   private statusTabRef = FSComponent.createRef<HTMLButtonElement>();
   private mapCanvasRef = FSComponent.createRef<HTMLDivElement>();
   private layerDrawerRef = FSComponent.createRef<HTMLElement>();
@@ -190,7 +209,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private mapInitTimer: ReturnType<typeof setTimeout> | null = null;
   private active = false;
   private rendered = false;
-  private screen: 'map' | 'status' = 'map';
+  private screen: 'map' | 'server' | 'status' = 'map';
+  private serverClientAvailable = false;
+  private serverFrameStarted = false;
   private map: any | null = null;
   private planeMarker: any | null = null;
   private routeLayer: any | null = null;
@@ -223,6 +244,16 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event?.data?.type === 'ga-e6b-close') this.closeToolPanel();
+    if (event?.data?.type === 'ga-efb-server-probe'
+      && event.source === this.serverFrameRef.getOrDefault()?.contentWindow) {
+      const state = String(event.data.state || '');
+      const clicks = Math.max(0, Number(event.data.clicks) || 0);
+      this.setText(this.serverFrameStatusRef.getOrDefault(), state === 'ready'
+        ? 'Tracker-Seite geladen und skriptbereit'
+        : state === 'input'
+          ? `Eingabe bestaetigt (${clicks})`
+          : 'Tracker-Seite reagiert');
+    }
   };
 
   public onOpen(): void { this.activate(); }
@@ -248,6 +279,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private bindDomInteractions(): void {
     this.bindButton(this.mapTabRef.getOrDefault(), () => this.setScreen('map'));
+    this.bindButton(this.serverTabRef.getOrDefault(), () => {
+      if (this.serverClientAvailable) this.setScreen('server');
+    });
     this.bindButton(this.statusTabRef.getOrDefault(), () => this.setScreen('status'));
     this.bindButton(this.toolbarToggleRef.getOrDefault(), () => this.setToolbarCollapsed(!this.preferences.toolbarCollapsed));
     this.bindButton(this.layerButtonRef.getOrDefault(), () => this.toggleLayerDrawer());
@@ -277,6 +311,10 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     });
     const e6bFrame = this.e6bFrameRef.getOrDefault();
     if (e6bFrame) e6bFrame.onload = (): void => this.syncE6bFrameSize();
+    const serverFrame = this.serverFrameRef.getOrDefault();
+    if (serverFrame) serverFrame.onload = (): void => {
+      this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite geladen | warte auf Skriptmeldung');
+    };
 
     const drawer = this.layerDrawerRef.getOrDefault();
     if (!drawer) return;
@@ -406,17 +444,44 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     if (node) node.textContent = text;
   }
 
-  private setScreen(screen: 'map' | 'status'): void {
+  private setScreen(screen: 'map' | 'server' | 'status'): void {
+    if (screen === 'server' && !this.serverClientAvailable) screen = 'map';
     this.screen = screen;
     this.mapScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
     this.mapControlsRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
+    this.serverScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'server');
     this.statusScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'status');
     this.mapTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'map');
+    this.serverTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'server');
     this.statusTabRef.getOrDefault()?.classList.toggle('is-active', screen === 'status');
     this.closeLayerDrawer();
     this.closeDrawers();
     if (screen !== 'map') this.closeToolPanel();
     if (screen === 'map') this.scheduleMapInitialization();
+    if (screen === 'server') this.startServerFrame();
+  }
+
+  private setServerClientAvailable(available: boolean): void {
+    this.serverClientAvailable = available;
+    const button = this.serverTabRef.getOrDefault();
+    button?.classList.toggle('is-hidden', !available);
+    if (button) button.disabled = !available;
+    if (!available) {
+      const frame = this.serverFrameRef.getOrDefault();
+      if (frame && this.serverFrameStarted) frame.src = 'about:blank';
+      this.serverFrameStarted = false;
+      this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Webclient nicht verfuegbar');
+      if (this.screen === 'server') this.setScreen('map');
+    }
+  }
+
+  private startServerFrame(): void {
+    if (this.serverFrameStarted || !this.serverClientAvailable) return;
+    const frame = this.serverFrameRef.getOrDefault();
+    if (!frame) return;
+    this.serverFrameStarted = true;
+    this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
+    frame.src = `${TRACKER_API_URL}/efb/v1/`;
   }
 
   private readPreferences(): MapPreferences {
@@ -1086,9 +1151,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       ]);
       if (!this.active) return;
       if (!statusResponse.ok || !snapshotResponse.ok) throw new Error('tracker_unavailable');
-      const status = payloadOf<TrackerStatusPayload>(await statusResponse.json(), 'tracker.status');
+      const statusEnvelope = await statusResponse.json();
+      const status = payloadOf<TrackerStatusPayload>(statusEnvelope, 'tracker.status');
       const snapshot = payloadOf<FlightSnapshotPayload>(await snapshotResponse.json(), 'flight.snapshot');
       if (!status || !snapshot) throw new Error('protocol_mismatch');
+      this.setServerClientAvailable(supportsCapability(statusEnvelope, 'efb.web-client.v1'));
       const mission = missionResponse?.ok
         ? payloadOf<MissionSnapshotPayload>(await missionResponse.json(), 'mission.snapshot', 'mission.snapshot.v1')
         : null;
@@ -1121,6 +1188,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       }
     } catch (_) {
       if (!this.active) return;
+      this.setServerClientAvailable(false);
       this.setConnection('Tracker nicht erreichbar', 'error');
       this.setText(this.trackerRef.getOrDefault(), '-');
       this.setText(this.relayRef.getOrDefault(), '-');
@@ -1149,6 +1217,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             </div>
             <div class="map-toolbar-buttons">
               <button ref={this.mapTabRef} class="pb-btn is-active" type="button">Karte</button>
+              <button ref={this.serverTabRef} class="pb-btn is-hidden" type="button" disabled>Server-Test</button>
               <button ref={this.statusTabRef} class="pb-btn" type="button">Status</button>
               <button ref={this.profileButtonRef} class="pb-btn" type="button" aria-pressed="true">Profil (An)</button>
               <button ref={this.themeButtonRef} class="pb-btn" type="button">Design</button>
@@ -1163,6 +1232,11 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
         <div ref={this.mapScreenRef} class="ga-efb-map-view">
           <div ref={this.mapCanvasRef} class="ga-efb-map-canvas" aria-label="VFR Kartentisch"></div>
+        </div>
+
+        <div ref={this.serverScreenRef} class="ga-efb-server-view is-hidden">
+          <iframe ref={this.serverFrameRef} title="Tracker-hosted EFB client probe"></iframe>
+          <span ref={this.serverFrameStatusRef} class="server-frame-status">Tracker-Server-Unterstuetzung wird geprueft</span>
         </div>
 
         <div ref={this.mapControlsRef} class="ga-efb-map-controls">
