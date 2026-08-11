@@ -1,0 +1,229 @@
+/* Tracker-hosted EFB view. The visual base deliberately comes from styles.css. */
+html,
+body.ga-efb-tracker-host {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #111 !important;
+}
+
+body.ga-efb-tracker-host #mapTableOverlay {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+body.ga-efb-tracker-host .win95-window-dragbar,
+body.ga-efb-tracker-host .win95-window-resize-handles,
+body.ga-efb-tracker-host .win95-overlay-minimize-btn,
+body.ga-efb-tracker-host .win95-overlay-close-btn,
+body.ga-efb-tracker-host .map-fullscreen-close-btn,
+body.ga-efb-tracker-host #mapSideDrawer,
+body.ga-efb-tracker-host #mapHintsBtn,
+body.ga-efb-tracker-host #mapHintsMenu,
+body.ga-efb-tracker-host #mapVoiceBtn,
+body.ga-efb-tracker-host #mapVoiceMenu,
+body.ga-efb-tracker-host #freeflightBtn,
+body.ga-efb-tracker-host #mapMissionToggleBtn,
+body.ga-efb-tracker-host #mapGroundCargoBtn,
+body.ga-efb-tracker-host .map-toolbar-help-btn,
+body.ga-efb-tracker-host #manualSimPanel,
+body.ga-efb-tracker-host #missionStartBanner,
+body.ga-efb-tracker-host #btnVpSettings,
+body.ga-efb-tracker-host #vpSettingsMenu,
+body.ga-efb-tracker-host #btnToggleVpMode,
+body.ga-efb-tracker-host #btnSimMode,
+body.ga-efb-tracker-host #btnManualSimMode,
+body.ga-efb-tracker-host #simSpeedStrip {
+  display: none !important;
+}
+
+body.ga-efb-tracker-host .pinboard-header {
+  flex: 0 0 auto !important;
+  padding: max(6px, env(safe-area-inset-top, 0px)) 8px 6px !important;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner {
+  width: 100%;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner > div:last-child {
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner > div:last-child::-webkit-scrollbar {
+  display: none;
+}
+
+body.ga-efb-tracker-host #navStationLabel {
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-design,
+body.ga-efb-tracker-host .ga-efb-host-state {
+  height: 30px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-state {
+  padding: 5px 9px;
+  border: 1px solid #35695f;
+  border-radius: 3px;
+  color: #061713;
+  background: #69ded0;
+  font: 700 11px/1 monospace;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-state.error {
+  color: #fff;
+  border-color: #a85353;
+  background: #6a2929;
+}
+
+body.ga-efb-tracker-host #mapArea,
+body.ga-efb-tracker-host #map {
+  min-height: 0 !important;
+}
+
+body.ga-efb-tracker-host #map {
+  background: #c9d0cb;
+}
+
+body.ga-efb-tracker-host #mapProfileStrip {
+  flex: 0 0 24%;
+  min-height: 105px;
+  max-height: 34%;
+}
+
+body.ga-efb-tracker-host.profile-hidden #profileResizeHandle,
+body.ga-efb-tracker-host.profile-hidden #mapProfileStrip {
+  display: none !important;
+}
+
+body.ga-efb-tracker-host #routeProgressBar {
+  flex: 0 0 auto;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers {
+  max-width: min(260px, 72vw);
+  max-height: 58vh;
+  overflow: auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-plane-icon {
+  background: transparent;
+  border: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .8));
+}
+
+body.ga-efb-tracker-host .ga-efb-plane-icon img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  transform-origin: 50% 50%;
+}
+
+body.ga-efb-tracker-host .ga-route-waypoint {
+  display: flex;
+  width: 18px !important;
+  height: 18px !important;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #111;
+  background: #ffdf45;
+  box-shadow: 0 1px 4px #000c;
+  font: 800 8px/1 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-mission-target {
+  display: flex;
+  width: 22px !important;
+  height: 22px !important;
+  align-items: center;
+  justify-content: center;
+  border: 3px double #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: #cf3232;
+  box-shadow: 0 1px 5px #000c;
+  font: 900 10px/1 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .leaflet-tooltip.ga-route-label {
+  padding: 2px 4px;
+  border: 1px solid #333;
+  color: #111;
+  background: rgba(255, 255, 255, .86);
+  font: 700 9px/1.2 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-profile-empty {
+  position: absolute;
+  inset: 30px 0 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8ea0ac;
+  font: 11px monospace;
+  pointer-events: none;
+}
+
+body.ga-efb-tracker-host .map-draw-tool-btn {
+  min-width: 36px;
+  font-size: 9px;
+  font-family: monospace;
+}
+
+body.ga-efb-tracker-host #mapDrawFloatingBtn,
+body.ga-efb-tracker-host #autoFollowBtn {
+  font: 800 9px/1 monospace;
+  letter-spacing: -.3px;
+}
+
+@media (max-width: 760px) {
+  body.ga-efb-tracker-host #navStationLabel {
+    font-size: 10px;
+  }
+
+  body.ga-efb-tracker-host #mapToolbarInner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.ga-efb-tracker-host #mapToolbarInner > div:last-child {
+    width: 100%;
+  }
+
+  body.ga-efb-tracker-host #mapTableOverlay .pinboard-header .pb-btn,
+  body.ga-efb-tracker-host .ga-efb-host-design,
+  body.ga-efb-tracker-host .ga-efb-host-state {
+    height: 27px;
+    min-height: 27px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  body.ga-efb-tracker-host #mapProfileStrip {
+    flex-basis: 22%;
+    min-height: 94px;
+  }
+}

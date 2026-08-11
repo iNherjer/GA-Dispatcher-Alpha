@@ -14,22 +14,23 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
 | Tracker-Runtime | v325 | v320 | v325 ist im Alpha-Kanal; Stable bleibt bis zur Testerfreigabe unveraendert |
-| EFB-Community-Package | 0.3.5 | noch nicht verfuegbar | 0.3.5 ist im Alpha-Kanal; 0.4.0 ist verworfen, 0.4.1 bleibt bis SDK-/In-Sim-Test ein Source-Kandidat |
+| EFB-Community-Package | 0.4.1 Teststand | noch nicht verfuegbar | 0.4.1 ist im 2D-/physischen EFB funktional bestaetigt und bleibt Fallback fuer 0.4.2 |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
-EFB 0.3.5 zeigt Trackerstatus, Flugtelemetrie, den technischen Missionsstatus
-aus `mission.snapshot.v1` und die stabile K0-Kartenflaeche. Missionsbriefing,
-Manifest und Missionsaktionen sind noch nicht Bestandteil dieses
-Protokollstands. Der korrigierte Source-Kandidat 0.4.1 erweitert die Karte additiv ueber
-Tracker v326 und `map.snapshot.v1`; der freigegebene Alpha-Kanal bleibt bis zum
-SDK-/In-Sim-Test auf 0.3.5.
+EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
+Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
+Der In-Sim-Test bestaetigt aktive Route, korrekt gesetztes Flugzeug und
+bedienbare Werkzeuge; Gestaltung und Werkzeugdarstellung erreichen den
+Original-Kartentisch noch nicht. Missionsbriefing, Manifest und schreibende
+Missionsaktionen sind weiterhin nicht Bestandteil dieses Protokollstands.
 
 Der Quellstand von 0.4.1 ist lokal mit dem annotierten Git-Tag
 `efb-v0.4.1-sdk-input` unveraenderlich markiert. 0.4.2 entsteht getrennt im
 Branch `codex/efb-map-server-0.4.2`; weder der laufende Windows-SDK-Build von
-0.4.1 noch der Alpha-Kanal werden dadurch veraendert. Die erste 0.4.2-Stufe ist
-absichtlich nur eine Tracker-Webclient-Probe und noch keine Zerlegung der
-grossen Kartentischdateien.
+0.4.1 noch der Alpha-Kanal werden dadurch veraendert. Die Tracker-Webclient-
+Probe ist als separater Diagnosepfad erhalten. Nach dem positiven 0.4.1-
+Fallbacktest entsteht in 0.4.2 additiv der erste echte tracker-gehostete
+Kartentisch-View.
 
 EFB 0.4.0 wurde mit dem offiziellen SDK 1.7.2 gebaut, nach dem In-Sim-Test aber
 verworfen. Menueleiste, Designs und Werkzeuge hatten weder die optische noch
@@ -195,15 +196,24 @@ gebuendelt. Ein volles Terrainprofil bleibt K4: 0.4.1 kennzeichnet sein
 Hoehenband explizit als Planprofil und erfindet keine
 fehlenden Terrainpunkte.
 
-Source-Kandidat 0.4.2 prueft vor der gemeinsamen Kartenextraktion eine zweite
-Hostgrenze. Tracker v327 liefert hinter `efb.web-client.v1` eine dedizierte,
-read-only Seite unter `/efb/v1/`. Das EFB zeigt den zugehoerigen `Server-Test`
-nur bei ausgehandelter Capability; ohne v327 bleibt die vollstaendige native
-0.4.1-Karte aktiv. Die Testseite enthaelt bewusst keinen nachgebauten
-Kartentisch, sondern nur Klick-, Kontrast-, Resize- und Snapshot-Diagnose. Das
-In-Sim-Gate beantwortet damit, ob Coherent eine vom Tracker bereitgestellte
-interaktive Browseroberflaeche stabil laden kann, bevor `map.js`, Hoehenband
-oder Voice strukturell getrennt werden.
+Source-Kandidat 0.4.2 verwendet eine zweite Hostgrenze. Tracker v327 liefert
+hinter `efb.web-client.v1` eine dedizierte read-only Seite unter `/efb/v1/`;
+die kleine Transportprobe bleibt unter `/efb/v1/probe/` erreichbar. Der echte
+View extrahiert den originalen Kartentisch-DOM aus `index.html`, verwendet die
+originale `styles.css`, `map-utility-tools.js`, Leaflet- und E6B-Assets und
+fuellt die Oberflaeche ueber einen kleinen Tracker-Hostadapter. `map.js` und
+`profile.js` werden wegen ihrer Kopplung an Cloud, Missionsruntime und globale
+Web-App-Zustaende nicht als Ganzes geladen. Route, Missionsgeometrie,
+Navigation und Planprofil kommen weiter ausschliesslich aus
+`map.snapshot.v1`; Missionen bleiben read-only. Das EFB zeigt die `App-Karte`
+nur bei ausgehandelter Capability, ohne v327 bleibt die native 0.4.1-Karte
+vollstaendig aktiv.
+
+Der lokale Browser-Gate vom 2026-08-11 bestaetigt Original-Styles, Route,
+Flugzeugmarker, Kompass, Planprofil, Designs, Toolbar, Layer und die originalen
+Werkzeuge. Stoppuhr, Rechner (`7 + 8 = 15`) und der echte E6B inklusive Flip
+auf die Windscheibe liefen ohne Scriptfehler. Ausstehend sind der offizielle
+Windows-PKG-/SDK-Build und der Coherent-In-Sim-Test.
 
 ## Roadmap
 
@@ -533,20 +543,24 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] EFB-0.4.1-Source mit Kartentisch-naher Toolbar, echten lokalen Uhr- und
       Rechnerkomponenten, ASCII-sicheren Controls und dem vollstaendigen
       interaktiven E6B fuer Coherent korrigieren.
-- [ ] EFB 0.4.1 mit offiziellem Windows-SDK bauen, die beiden generierten
-      E6B-Assets und das restliche Bundle pruefen und im 2D-/physischen EFB
-      testen; Alpha bleibt bis dahin unveraendert auf 0.3.5.
+- [x] EFB 0.4.1 mit offiziellem Windows-SDK bauen und im Simulator testen.
+      Aktive Route, Flugzeugposition und Werkzeuge funktionieren im 2D-/
+      physischen EFB; Gestaltung/Funktionsnaehe bleibt der Grund fuer 0.4.2.
 - [x] Den exakten 0.4.1-SDK-Input mit `efb-v0.4.1-sdk-input` markieren und
       0.4.2 in einem getrennten Branch/Worktree beginnen.
 - [x] Additive Tracker-Webclient-Probe fuer 0.4.2 implementieren: v327 meldet
-      `efb.web-client.v1`, `/efb/v1/` prueft Eingabe/Resize/Snapshot und das EFB
-      zeigt den `Server-Test` nur bei vorhandener Capability.
-- [ ] 0.4.2 erst nach abgeschlossenem 0.4.1-Test durchs offizielle SDK bauen;
-      im Simulator iframe-Laden, Klicktest, Kontrast, Resize/Orientation,
-      Snapshot-Recovery und v326-Fallback pruefen.
-- [ ] Nur bei bestandenem 0.4.2-Gate den echten Kartentisch in einen
-      tracker-gehosteten View, gemeinsame reine Kerne sowie Web-/EFB-Hostadapter
-      trennen. Der Rücksprungpunkt bleibt bis dahin unangetastet.
+      `efb.web-client.v1`; die Diagnose bleibt unter `/efb/v1/probe/` erhalten.
+- [x] Ersten echten tracker-gehosteten 0.4.2-Kartentisch additiv implementieren:
+      Original-DOM/-Styles/-Werkzeuge, Browser-kompatibler `map-shell-core`,
+      read-only Hostadapter sowie native 0.4.1-Fallbackkarte.
+- [x] Lokalen 0.4.2-Browser-Gate fuer Route, Flugzeug, Kompass, Planprofil,
+      Designs, Toolbar, Layer, Stoppuhr, Rechner und E6B ohne Scriptfehler
+      bestehen.
+- [ ] Tracker v327 mit allen Kartentisch-/E6B-Assets als Windows-EXE bauen,
+      danach EFB 0.4.2 durchs offizielle SDK schicken.
+- [ ] Im Simulator iframe-Laden, Buttons, E6B, Resize/Orientation,
+      Snapshot-Recovery und v326-Fallback pruefen. Der Ruecksprungpunkt
+      `efb-v0.4.1-sdk-input` bleibt bis dahin unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -574,6 +588,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der In-Sim-Test von 0.4.1 bestaetigt aktive Route, korrekt
+  positioniertes Flugzeug und bedienbare Werkzeuge. Damit ist der markierte
+  0.4.1-Stand ein belastbarer Fallback. Auf ausdrueckliche Freigabe wurde die
+  0.4.2-Hostgrenze deshalb vom reinen Probe-Dokument zum echten Kartentisch-
+  View erweitert. Der Tracker liefert Original-DOM, Original-Styles,
+  `map-utility-tools.js`, Leaflet und die vollstaendigen E6B-Assets; ein neuer
+  read-only Adapter bindet `flight.snapshot.v1` und `map.snapshot.v1` an.
+  `map.js`/`profile.js` bleiben unveraendert und werden nicht in die Tracker-
+  Runtime geladen. Ohne `efb.web-client.v1` bleibt die native 0.4.1-Karte.
 
 - 2026-08-11: Vor der Zerlegung der grossen Kartentischdateien wurde der
   0.4.1-SDK-Input als lokaler Git-Tag `efb-v0.4.1-sdk-input` eingefroren und

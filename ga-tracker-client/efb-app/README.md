@@ -5,20 +5,21 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-Webclient-Probe 0.4.2
+## Tracker-gehosteter Kartentisch 0.4.2
 
-0.4.2 ist ein isolierter Architekturtest auf Basis des unveraenderten
-0.4.1-Kartentischs. Tracker v327 bietet additiv `efb.web-client.v1` und die
-read-only Seite `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese
-Capability, erscheint im EFB der Tab `Server-Test`. Die Seite prueft nur, ob
-Coherent einen vom Tracker gelieferten Browserclient laden, bedienen,
-skalieren und mit demselben lokalen Snapshot-Endpunkt verbinden kann.
+Tracker v327 bietet additiv `efb.web-client.v1` und die read-only Seite
+`http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
+erscheint im EFB der Tab `App-Karte`. Die Seite verwendet den originalen
+Kartentisch-DOM, die App-Styles, Leaflet, Stoppuhr, Rechner und den
+vollstaendigen interaktiven E6B. Ein kleiner Hostadapter versorgt Flugzeug,
+Route, Missionsgeometrie, Navigation, Kompass und Planprofil aus den lokalen
+Tracker-Snapshots. Die reine Diagnoseprobe bleibt unter `/efb/v1/probe/`.
 
-Die Probe ist ausdruecklich kein zweiter Kartentisch und noch kein Ersatz fuer
-die native 0.4.1-Karte. Fehlt die Capability, bleibt der Tab unsichtbar und der
-vollstaendige 0.4.1-Fallback funktioniert weiter. Erst nach erfolgreichem
-In-Sim-Test werden Kartentisch, Hoehenband und Werkzeuge in gemeinsame,
-host-neutrale Module zerlegt.
+`map.js`, `profile.js`, Cloud-Sync und die Web-Missionsruntime werden nicht in
+den Tracker geladen. Fehlt die Capability, bleibt `App-Karte` unsichtbar und
+der vollstaendige native 0.4.1-Fallback funktioniert weiter. Die vom Windows-
+Tracker benoetigten Originalassets werden mit `sync-efb-web-assets.js` in ein
+versioniertes, von `pkg` sicher einbettbares Bundle gespiegelt.
 
 ## Karten- und Werkzeugbasis 0.4.1
 

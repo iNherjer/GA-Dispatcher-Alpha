@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E6B Flight Computer Prototype</title>
+    <link rel="stylesheet" href="./e6b-flight-computer.css?v=20260709-controls01">
+</head>
+<body>
+    <header class="e6b-topbar">
+        <div>
+            <h1>E6B Flight Computer</h1>
+            <span>SVG-Scheiben-Prototyp</span>
+        </div>
+        <nav class="side-switch" aria-label="E6B Seite">
+            <button type="button" class="active" data-side="front">CONV</button>
+            <button type="button" data-side="wind">WIND</button>
+        </nav>
+    </header>
+
+    <main class="e6b-layout">
+        <section class="e6b-stage" aria-label="E6B Flight Computer">
+            <div id="e6bComputer" class="e6b-computer showing-front">
+                <div id="e6bFrontStack" class="e6b-stack front-stack" data-dial="front" aria-label="E6B Conversion Seite">
+                    <div id="e6bWorkbenchFrontFixed" class="e6b-board-layer e6b-workbench-front-layer e6b-workbench-front-fixed-layer" aria-hidden="true"></div>
+                    <div id="e6bFrontRotor" class="e6b-board-layer e6b-rotating-board e6b-front-rotor">
+                        <div id="e6bWorkbenchFrontRotorArt" class="e6b-board-layer e6b-workbench-front-layer e6b-workbench-front-rotor-art" aria-hidden="true"></div>
+                    </div>
+                    <div id="e6bWorkbenchFrontMissing" class="e6b-board-layer e6b-workbench-front-missing" aria-hidden="true">
+                        <span>Workbench-Stand speichern</span>
+                    </div>
+                </div>
+                <div id="e6bWindStack" class="e6b-stack wind-stack" data-dial="wind" aria-label="E6B Wind Seite">
+                    <div id="e6bWindSlider" class="e6b-board-layer e6b-wind-slider e6b-workbench-wind-layer e6b-workbench-wind-slider-art" aria-hidden="true"></div>
+                    <div id="e6bWorkbenchWindRotorBack" class="e6b-board-layer e6b-workbench-wind-layer e6b-workbench-wind-rotor-back-art" aria-hidden="true"></div>
+                    <div id="e6bWindRotor" class="e6b-board-layer e6b-wind-rotor e6b-wind-rotor-placeholder">
+                        <div id="e6bWorkbenchWindRotorArt" class="e6b-board-layer e6b-workbench-wind-layer e6b-workbench-wind-rotor-art" aria-hidden="true"></div>
+                        <div id="e6bWindDot" class="e6b-wind-dot" aria-hidden="true"></div>
+                    </div>
+                    <div id="e6bWorkbenchWindMissing" class="e6b-board-layer e6b-workbench-wind-missing" aria-hidden="true">
+                        <span>Wind-Workbench-Stand speichern</span>
+                    </div>
+                </div>
+                <div id="e6bEmbeddedChrome" class="e6b-embedded-chrome" aria-label="E6B Fenstersteuerung">
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="flip" title="E6B umdrehen" aria-label="E6B umdrehen">FLIP</button>
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="zoomOut" title="E6B herauszoomen" aria-label="E6B herauszoomen">-</button>
+                    <button type="button" class="e6b-embedded-btn" data-e6b-control="zoomIn" title="E6B hineinzoomen" aria-label="E6B hineinzoomen">+</button>
+                    <button type="button" class="e6b-embedded-btn e6b-embedded-close" data-e6b-control="close" title="E6B schließen" aria-label="E6B schließen">X</button>
+                </div>
+            </div>
+        </section>
+
+        <aside class="e6b-controls">
+            <section class="control-section front-controls">
+                <div class="control-title">Conversion Side</div>
+                <div class="control-grid">
+                    <label>Speed kt<input id="e6bSpeed" type="number" inputmode="decimal" min="10" max="999" step="1" value="120"></label>
+                    <label>Minutes<input id="e6bMinutes" type="number" inputmode="decimal" min="1" max="600" step="1" value="10"></label>
+                    <label>GPH<input id="e6bFuelRate" type="number" inputmode="decimal" min="0.1" max="99" step="0.1" value="9.5"></label>
+                    <label>Fuel min<input id="e6bFuelMinutes" type="number" inputmode="decimal" min="1" max="600" step="1" value="45"></label>
+                </div>
+                <div class="button-row">
+                    <button type="button" data-align="speed">Set 60 / Speed</button>
+                    <button type="button" data-align="fuel">Set 60 / GPH</button>
+                </div>
+                <dl class="readout">
+                    <div><dt>Distance</dt><dd id="e6bDistanceReadout">--</dd></div>
+                    <div><dt>Fuel</dt><dd id="e6bFuelReadout">--</dd></div>
+                    <div><dt>Rotor</dt><dd id="e6bRingReadout">--</dd></div>
+                </dl>
+            </section>
+
+            <section class="control-section front-controls">
+                <div class="control-title">Altitude / TAS</div>
+                <div class="control-grid">
+                    <label>PA ft<input id="e6bPressureAlt" type="number" inputmode="decimal" step="100" value="5000"></label>
+                    <label>OAT C<input id="e6bOat" type="number" inputmode="decimal" step="1" value="25"></label>
+                    <label>CAS kt<input id="e6bCas" type="number" inputmode="decimal" step="1" value="100"></label>
+                </div>
+                <dl class="readout">
+                    <div><dt>Density Alt</dt><dd id="e6bDensityReadout">--</dd></div>
+                    <div><dt>TAS approx</dt><dd id="e6bTasReadout">--</dd></div>
+                </dl>
+            </section>
+
+            <section class="control-section wind-controls">
+                <div class="control-title">Wind Side</div>
+                <div class="control-grid">
+                    <label>Course<input id="e6bCourse" type="number" inputmode="numeric" min="0" max="359" step="1" value="90"></label>
+                    <label>TAS kt<input id="e6bWindTas" type="number" inputmode="decimal" min="20" max="650" step="1" value="100"></label>
+                    <label>Wind from<input id="e6bWindFrom" type="number" inputmode="numeric" min="0" max="359" step="1" value="360"></label>
+                    <label>Wind kt<input id="e6bWindSpeed" type="number" inputmode="decimal" min="0" max="200" step="1" value="20"></label>
+                </div>
+                <div class="button-row">
+                    <button type="button" class="active" data-wind-tool="rotate">Rotate</button>
+                    <button type="button" data-wind-tool="slide">Slide TAS</button>
+                </div>
+                <dl class="readout">
+                    <div><dt>Heading</dt><dd id="e6bHeadingReadout">--</dd></div>
+                    <div><dt>WCA</dt><dd id="e6bWcaReadout">--</dd></div>
+                    <div><dt>GS</dt><dd id="e6bGsReadout">--</dd></div>
+                    <div><dt>Compass</dt><dd id="e6bCompassReadout">--</dd></div>
+                </dl>
+            </section>
+
+        </aside>
+    </main>
+
+    <script src="./e6b-core.js?v=20260708-workbenchfront01"></script>
+    <script src="./e6b-flight-computer.js?v=20260710-workbenchjson01"></script>
+</body>
+</html>

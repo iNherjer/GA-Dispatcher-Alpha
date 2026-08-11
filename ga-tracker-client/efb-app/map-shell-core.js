@@ -372,7 +372,7 @@ function formatFlightLine(snapshot) {
   return `GS ${snapshot.gsKts} kt | IAS ${snapshot.iasKts} kt | ${snapshot.onGround ? 'Am Boden' : 'In der Luft'}`;
 }
 
-module.exports = Object.freeze({
+const mapShellCoreApi = Object.freeze({
   AERO_BASE_OPACITY,
   BASE_LAYERS,
   DEFAULT_CENTER,
@@ -390,3 +390,10 @@ module.exports = Object.freeze({
   normalizeTrackerMapSnapshot,
   evaluateCalculatorExpression
 });
+
+if (typeof module === 'object' && module && module.exports) {
+  module.exports = mapShellCoreApi;
+}
+if (typeof window !== 'undefined') {
+  window.GAMapShellCore = mapShellCoreApi;
+}

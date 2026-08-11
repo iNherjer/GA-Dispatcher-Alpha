@@ -9,7 +9,10 @@ const {
 } = require('./tracker-efb-protocol-core');
 const {
   EFB_WEB_CLIENT_PATH,
-  createTrackerEfbWebClientPage
+  EFB_WEB_CLIENT_PROBE_PATH,
+  createTrackerEfbProbePage,
+  createTrackerEfbWebClientPage,
+  getTrackerEfbWebClientAsset
 } = require('./tracker-efb-web-client');
 
 const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
@@ -77,6 +80,19 @@ function htmlResponse(response, statusCode, value) {
     'Cache-Control': 'no-store',
     'Content-Length': body.length,
     'Content-Type': 'text/html; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  response.end(body);
+}
+
+function assetResponse(response, statusCode, asset) {
+  const body = Buffer.isBuffer(asset?.body) ? asset.body : Buffer.from(asset?.body || '');
+  response.writeHead(statusCode, {
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-store',
+    'Content-Length': body.length,
+    'Content-Type': String(asset?.contentType || 'application/octet-stream'),
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff'
   });
@@ -161,6 +177,15 @@ function createTrackerEfbHttpServer(options = {}) {
     }
     if (pathname === EFB_WEB_CLIENT_PATH) {
       htmlResponse(response, 200, createTrackerEfbWebClientPage());
+      return;
+    }
+    if (pathname === EFB_WEB_CLIENT_PROBE_PATH) {
+      htmlResponse(response, 200, createTrackerEfbProbePage());
+      return;
+    }
+    const asset = getTrackerEfbWebClientAsset(pathname);
+    if (asset) {
+      assetResponse(response, 200, asset);
       return;
     }
     jsonResponse(response, 404, { error: 'not_found' });

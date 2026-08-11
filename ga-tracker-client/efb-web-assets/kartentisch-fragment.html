@@ -1,0 +1,674 @@
+<div id="mapTableOverlay" class="pinboard-overlay">
+    <div class="win95-window-dragbar win95-overlay-dragbar" data-win95-drag-target="mapTableOverlay" aria-hidden="true"></div>
+    <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('map', event)" aria-label="Kartentisch minimieren" title="Kartentisch minimieren"></button>
+    <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('map', event)" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">X</button>
+    <button type="button" class="map-fullscreen-close-btn" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">×</button>
+    <div class="win95-window-resize-handles" aria-hidden="true">
+        <div class="win95-window-resize-handle win95-resize-n" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="n"></div>
+        <div class="win95-window-resize-handle win95-resize-e" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="e"></div>
+        <div class="win95-window-resize-handle win95-resize-s" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="s"></div>
+        <div class="win95-window-resize-handle win95-resize-w" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="w"></div>
+        <div class="win95-window-resize-handle win95-resize-ne" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="ne"></div>
+        <div class="win95-window-resize-handle win95-resize-se" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="se"></div>
+        <div class="win95-window-resize-handle win95-resize-sw" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="sw"></div>
+        <div class="win95-window-resize-handle win95-resize-nw" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="nw"></div>
+    </div>
+    <div class="pinboard-header">
+        <div id="mapToolbarInner">
+        <div class="map-toolbar-title-row">
+            <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
+            <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
+            <div style="position:relative; display:inline-flex; align-items:center;">
+                <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()" aria-expanded="false">⚙️ Anzeige</button>
+                <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; width:210px; max-width:calc(100vw - 16px); box-sizing:border-box; overflow:hidden; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                    <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
+                    <button id="hintToggleAirportSingleClick" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleMapSingleClickMode && cycleMapSingleClickMode()" aria-label="Einzelklick für Flugplätze, VRPs und Navaids: Aus">🛩️ Einzelklick: Aus</button>
+                    <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
+                    <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
+                        <button id="hintToggleWeather" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
+                        <button id="btnToggleWeatherMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('weatherMenu', event)" title="Wetter-Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                    </div>
+                    <div id="weatherMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <button id="btnToggleMapWeatherSource" class="pb-btn" onclick="window.toggleMapWeatherSource && toggleMapWeatherSource()" title="Datenquelle für Karten-Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">🌐 Kartenquelle: METAR</button>
+                        <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
+                        <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
+                        <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
+                            <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
+                            <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" title="VFR-Index Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                        </div>
+                        <div id="vfrIndexMenuBlock" style="display:none; box-sizing:border-box; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Planungsland: –</div>
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
+                        <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
+                            <option value="auto">Auto (Planungsland)</option>
+                        </select>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <button id="vfrRefreshBtn" class="pb-btn" onclick="window.vpRefreshVfrIndex && vpRefreshVfrIndex()" style="display:block; flex:1; margin:0; text-align:center;">↻ Refresh</button>
+                            <span id="vfrNextFetchHint" style="font-size:10px; color:#9a9a9a; white-space:nowrap;">min. 15 min</span>
+                        </div>
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Modell</div>
+                        <select id="vfrModelSelect" onchange="window.vpSetVfrModel && vpSetVfrModel(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:4px;">
+                            <option value="robust_sector">Robust</option>
+                            <option value="internal">Kacheln</option>
+                            <option value="gafor_sector">Klassisch</option>
+                        </select>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin:3px 0 3px 0;">
+                            <label for="vfrSectorLineWidthSlider" style="font-size:10px; color:#a8a8a8;">Sektorlinienbreite</label>
+                            <span id="vfrSectorLineWidthValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">20 px</span>
+                        </div>
+                        <input id="vfrSectorLineWidthSlider" type="range" min="2" max="40" step="1" value="20" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:6px;" oninput="window.vpSetVfrSectorLineWidth && vpSetVfrSectorLineWidth(this.value)">
+                        <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0; max-width:100%; overflow:hidden;"></div>
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Ampel-Zeitfenster</div>
+                        <select id="vfrAmpelWindowSelect" onchange="window.vpSetVfrAmpelWindowMode && vpSetVfrAmpelWindowMode(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:5px;">
+                            <option value="sun">SR/SS</option>
+                            <option value="utc6">UTC 6h</option>
+                        </select>
+                        <button id="vfrAmpelWindowCycleBtn" class="pb-btn" onclick="window.vpCycleVfrAmpelWindowMode && vpCycleVfrAmpelWindowMode()" style="display:block; width:100%; margin:0 0 5px 0; text-align:center;">Zeitfenster: SR/SS</button>
+                        <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
+                        <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Status: Aus</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
+                        <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>
+                        <button id="btnToggleTerrainAvoidMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('terrainAvoidMenu', event)" title="Terrain Avoid Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                    </div>
+                    <div id="terrainAvoidMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:5px;">Clearance-Schwellen</div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+                            <label for="terrainAvoidWarnSlider" style="font-size:10px; color:#a8a8a8;">Warnung bis</label>
+                            <span id="terrainAvoidWarnValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">500 ft</span>
+                        </div>
+                        <input id="terrainAvoidWarnSlider" type="range" min="0" max="3000" step="100" value="500" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:6px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('warn', this.value)">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+                            <label for="terrainAvoidSafeSlider" style="font-size:10px; color:#a8a8a8;">Schwarz ab</label>
+                            <span id="terrainAvoidSafeValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">1000 ft</span>
+                        </div>
+                        <input id="terrainAvoidSafeSlider" type="range" min="0" max="5000" step="100" value="1000" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:4px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('safe', this.value)">
+                        <button id="terrainAvoidResetBtn" class="pb-btn" onclick="window.resetTerrainAvoidThresholds && resetTerrainAvoidThresholds()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">↺ Defaults (500 / 1000)</button>
+                        <div id="terrainAvoidStatus" style="font-size:10px; color:#9a9a9a;">Live-Layer aus</div>
+                    </div>
+                    <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
+                    <button id="hintToggleAutoZoom" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('autoZoom')">🔍 Autozoom (Aus)</button>
+                    <div id="mapAutoZoomMenuBlock" style="box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+                            <label for="mapAutoZoomStrengthSlider" style="font-size:10px; color:#a8a8a8;">Vorausschau</label>
+                            <span id="mapAutoZoomStrengthValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">8 min</span>
+                        </div>
+                        <input id="mapAutoZoomStrengthSlider" type="range" min="2" max="25" step="1" value="8" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:4px;" oninput="window.setMapAutoZoomLookaheadMinutes && window.setMapAutoZoomLookaheadMinutes(this.value, { persist: true })">
+                        <div id="mapAutoZoomStatus" style="font-size:10px; color:#9a9a9a;">Aus</div>
+                    </div>
+                    <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
+                    <button id="hintToggleCurrentInfo" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('currentInfo')">📍 Aktuell (An)</button>
+                    <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
+                    <button id="hintToggleRouteProgress" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('routeProgress')">⏱ Route-Leiste (An)</button>
+                    <button id="routeLegLabelModeBtn" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleRouteLegLabelMode && cycleRouteLegLabelMode()">📏 Legs: Distanz</button>
+                    <button id="hintToggleCompass" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('compass')">🔵 Kompassscheibe (An)</button>
+                    <button id="hintToggleLowFps" class="pb-btn" style="display:block; width:100%; margin:6px 0 0 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('lowFps')">🐢 Low FPS Mode (Aus)</button>
+                    <div style="height:1px; background:#2f2f2f; margin:7px 0;"></div>
+                    <button id="btnTogglePlaneIconMenu" class="pb-btn" onclick="toggleVpPlaneIconMenu(event)" title="Farbe und Größe des Flugzeug-Icons" style="display:block; width:100%; margin:0; text-align:left;">✈️ Flugzeug Icon</button>
+                    <div id="vpPlaneIconMenu" style="display:none; margin-top:4px; border:1px solid #3a3a3a; border-radius:6px; padding:7px; background:#0d0d0d;">
+                        <label for="vpPlaneColorPicker" style="display:block; color:#a8a8a8; font-size:10px; margin-bottom:4px;">Farbe</label>
+                        <input id="vpPlaneColorPicker" type="color" value="#f2c12e" style="width:100%; height:30px; border:1px solid #4a4a4a; border-radius:4px; background:none; cursor:pointer; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
+                            <label for="vpPlaneSizeSlider" style="color:#a8a8a8; font-size:10px;">Größe</label>
+                            <span id="vpPlaneSizeValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">40 px</span>
+                        </div>
+                        <input id="vpPlaneSizeSlider" type="range" min="20" max="100" step="1" value="40" style="width:100%; cursor:pointer;">
+                    </div>
+                </div>
+            </div>
+            <div style="position:relative; display:inline-flex; align-items:center;">
+                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()" aria-expanded="false">🔊 Audio</button>
+                <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                            <div style="font-size:11px; color:#888; letter-spacing:0.04em;">AUDIO WARNINGS</div>
+                            <button type="button" class="settings-help-btn map-voice-help-btn" onclick="showSettingsHelp('map-voice', event)" aria-label="Hilfe zum Audio-Menue" aria-expanded="false">?</button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                            <span style="font-size:13px;">🔊</span>
+                            <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
+                                style="flex:1; min-width:90px; accent-color:#4da6ff; cursor:pointer;"
+                                oninput="awmSetVolume(this.value)">
+                            <span id="awmVolumeLabel" style="font-size:11px; color:#aaa; min-width:34px; text-align:right;">100%</span>
+                        </div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmReadFreqCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetReadFreq(this.checked)">
+                            📻 Frequenz ansagen
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmTerrainWarnCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetTerrainWarn(this.checked)">
+                            🏔️ Terrain Warning
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmAirspaceWarnCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetAirspaceWarn(this.checked)">
+                            🛡️ Luftraum Warning
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 8px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmWpAlertCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetWpAlert(this.checked)">
+                            📍 Wegpunkt-Ansage
+                        </label>
+                        <div style="font-size:11px; color:#aaa; margin:7px 0 5px 0;">Warning-Stimme</div>
+                        <audio id="awmDemoAudio" style="display:none;"></audio>
+                        <div id="awmVoiceList" style="display:flex; flex-direction:column; gap:4px;">
+                        </div>
+                    </div>
+                    <div style="border-top:1px solid #333; padding-top:8px; margin-top:8px;">
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER AUDIO</div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmPaxVoiceCheck"
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="paxVoiceSetEnabled(this.checked)">
+                            🧑‍✈️ Stimme (Text immer aktiv)
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmAudioEffectsCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="paxVoiceSetAudioEffectsEnabled(this.checked)">
+                            🔔 Audioeffekte
+                        </label>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Modus</span>
+                            <select id="awmPaxModeSelect"
+                                style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
+                                onchange="paxVoiceSetMode(this.value === 'strict')">
+                                <option value="easy">Entspannt</option>
+                                <option value="strict">Streng</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Humor</span>
+                            <select id="awmPaxHumorSelect"
+                                style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
+                                onchange="paxVoiceSetHumor(this.value)">
+                                <option value="subtle">Dezent</option>
+                                <option value="normal">Normal</option>
+                                <option value="bold">Frech</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">TTS</span>
+                            <select id="awmPaxTtsModelSelect"
+                                style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
+                                onchange="paxVoiceSetTtsModel(this.value)">
+                                <option value="auto">Auto (Provider-Standard)</option>
+                                <option value="3.1">Nur Gemini 3.1 TTS</option>
+                                <option value="2.5">Nur Gemini 2.5 TTS</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Fast Mode</span>
+                            <label title="Startet im Auto-TTS-Modus den Gemini-2.5-Fallback parallel, wenn 3.1 nach kurzer Zeit noch nicht fertig ist."
+                                style="flex:1; display:flex; align-items:center; gap:6px; font-size:11px; color:#d0e8ff; cursor:pointer; user-select:none;">
+                                <input id="awmPaxFastTtsToggle"
+                                    type="checkbox"
+                                    onchange="paxVoiceSetTtsHedge(this.checked)"
+                                    style="width:14px; height:14px; accent-color:#5dade2; cursor:pointer;">
+                                <span>Hedge aktivieren</span>
+                            </label>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Audio</span>
+                            <select id="awmPaxAudioStyleSelect"
+                                style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
+                                onchange="paxVoiceSetAudioStyle(this.value)">
+                                <option value="clear">Version 1 - Klar</option>
+                                <option value="intercom">Version 2 - Intercom ohne Rauschen</option>
+                                <option value="intercom_noise">Version 3 - Intercom + Rauschen (Standard)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
+            <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.handleMissionStartBannerAction ? handleMissionStartBannerAction() : (window.toggleManualMissionRuntime && toggleManualMissionRuntime())" style="display:none;">▶ Mission starten</button>
+            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionGroundCargoDialog && openMissionGroundCargoDialog()" style="display:none;" title="Verladefenster am Boden öffnen">📦 Verladung</button>
+            <button type="button" class="pb-btn map-toolbar-help-btn" onclick="showSettingsHelp('map-table', event)" aria-label="Hilfe zum Kartentisch" aria-expanded="false">?</button>
+            <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
+        </div>
+        </div><!-- /#mapToolbarInner -->
+        <div id="mapToolbarToggleRow">
+            <button id="mapToolbarToggle" onclick="toggleMapToolbar()">▲</button>
+        </div>
+    </div>
+    <div class="pinboard-scroll-area">
+        <div class="maptable-content" style="flex-direction: column;">
+            <div id="mapSideDrawer" class="map-side-drawer" aria-label="Kartenwerkzeuge">
+                <button id="mapSideDrawerHandle" class="map-side-drawer-handle" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer()" aria-expanded="false" title="Kartenwerkzeuge">
+                    <span aria-hidden="true"></span>
+                </button>
+                <div class="map-side-drawer-panel">
+                    <div class="map-side-drawer-head">
+                        <div>
+                            <div class="map-side-drawer-kicker">TOOLS</div>
+                            <div id="checklistDrawerTitle" class="map-side-drawer-title">Kartenwerkzeuge</div>
+                        </div>
+                        <div class="map-side-drawer-actions">
+                            <button type="button" class="settings-help-btn map-side-help-btn" onclick="showSettingsHelp('map-side-drawer', event)" aria-label="Hilfe zu Seitenmenue und Checklisten" aria-expanded="false">?</button>
+                            <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">×</button>
+                        </div>
+                    </div>
+                    <div id="checklistDrawerStatus" class="map-side-drawer-status" aria-live="polite"></div>
+                    <div id="checklistDrawerBody" class="map-side-drawer-body"></div>
+                </div>
+            </div>
+            <div id="routeProgressBar" class="route-progress-bar" style="display:none;" aria-live="polite">
+                <div class="route-progress-item">
+                    <span class="route-progress-label route-progress-static-label">POS</span>
+                    <span id="routeProgressPos" class="route-progress-value">--</span>
+                </div>
+                <div class="route-progress-item">
+                    <button id="routeProgressDstLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DST <span class="route-progress-target">WPT</span></button>
+                    <span id="routeProgressDst" class="route-progress-value">--.- NM</span>
+                </div>
+                <div class="route-progress-item">
+                    <button id="routeProgressEtaLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">ETA <span class="route-progress-target">WPT</span></button>
+                    <span id="routeProgressEta" class="route-progress-value">--:--</span>
+                </div>
+                <div class="route-progress-item">
+                    <button id="routeProgressDurLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DUR <span class="route-progress-target">WPT</span></button>
+                    <span id="routeProgressDur" class="route-progress-value">--</span>
+                </div>
+                <div class="route-progress-item">
+                    <span class="route-progress-label route-progress-static-label">FREQ</span>
+                    <span id="routeProgressFreq" class="route-progress-value">--</span>
+                </div>
+            </div>
+            <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0; overflow:hidden;">
+                <div id="map"></div>
+                <!-- Karten-Overlay: Auto-Follow Button -->
+                <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
+                    🎯
+                </button>
+                <div id="mapDrawRail" class="map-draw-rail">
+                    <button id="mapDrawFloatingBtn" class="map-draw-floating-btn" type="button" title="Werkzeugleiste" onclick="window.toggleMapToolRail && toggleMapToolRail(event)">✎</button>
+                    <div id="mapDrawToolStack" class="map-draw-tool-stack" aria-label="Kartenwerkzeuge">
+                        <button id="mapToolPen" class="map-draw-tool-btn" type="button" title="Stift" onclick="window.activateMapDrawTool && activateMapDrawTool('pen', event)">✎</button>
+                        <button id="mapToolEraser" class="map-draw-tool-btn" type="button" title="Radierer" onclick="window.activateMapDrawTool && activateMapDrawTool('eraser', event)">⌫</button>
+                        <button id="mapToolSettings" class="map-draw-tool-btn" type="button" title="Farben & Größe" onclick="window.toggleMapDrawSettingsMenu && window.toggleMapDrawSettingsMenu()">🎨</button>
+                        <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen und Lineal löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
+                        <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
+                        <button id="mapToolStopwatch" class="map-draw-tool-btn" type="button" title="Stoppuhr" onclick="window.activateMapDrawTool && activateMapDrawTool('stopwatch', event)">⏱</button>
+                        <button id="mapToolCalculator" class="map-draw-tool-btn" type="button" title="Taschenrechner" onclick="window.activateMapDrawTool && activateMapDrawTool('calculator', event)">▦</button>
+                        <button id="mapToolE6B" class="map-draw-tool-btn map-draw-tool-btn-text" type="button" title="E6B Flight Computer" onclick="window.activateMapDrawTool && activateMapDrawTool('e6b', event)">E6B</button>
+                    </div>
+                </div>
+                <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
+                    <div class="map-draw-swatches" aria-label="Schnellfarben">
+                        <button type="button" style="--swatch:#ff3b30;" onclick="window.setMapDrawColor && setMapDrawColor('#ff3b30')" title="Rot"></button>
+                        <button type="button" style="--swatch:#f2c12e;" onclick="window.setMapDrawColor && setMapDrawColor('#f2c12e')" title="Gelb"></button>
+                        <button type="button" style="--swatch:#44ff44;" onclick="window.setMapDrawColor && setMapDrawColor('#44ff44')" title="Grün"></button>
+                        <button type="button" style="--swatch:#4da6ff;" onclick="window.setMapDrawColor && setMapDrawColor('#4da6ff')" title="Blau"></button>
+                        <button type="button" style="--swatch:#ffffff;" onclick="window.setMapDrawColor && setMapDrawColor('#ffffff')" title="Weiß"></button>
+                    </div>
+                    <div class="map-draw-menu-row">
+                        <input id="mapDrawWeightInput" type="range" min="2" max="18" value="5" step="1" oninput="window.setMapDrawWeight && setMapDrawWeight(this.value)">
+                    </div>
+                </div>
+                <div id="mapStopwatchDevice" class="map-utility-device map-stopwatch-device" aria-hidden="true" style="display:none;">
+                    <div id="mapStopwatchHandle" class="map-utility-drag-handle stopwatch-bezel" aria-label="Stoppuhr verschieben">
+                        <button id="mapStopwatchStartStop" class="stopwatch-crown stopwatch-crown-main" type="button" title="Start / Stop">START</button>
+                        <button id="mapStopwatchReset" class="stopwatch-crown stopwatch-crown-reset" type="button" title="Reset">RESET</button>
+                        <button id="mapStopwatchScale" class="stopwatch-crown stopwatch-scale-toggle" type="button" title="Uhr auf 50% verkleinern">50%</button>
+                        <button id="mapStopwatchClose" class="map-utility-close" type="button" title="Schließen">x</button>
+                        <div class="stopwatch-dial" aria-hidden="true">
+                            <div class="stopwatch-tick-ring"></div>
+                            <div class="stopwatch-tick tick-12"></div>
+                            <div class="stopwatch-tick tick-3"></div>
+                            <div class="stopwatch-tick tick-6"></div>
+                            <div class="stopwatch-tick tick-9"></div>
+                            <span class="stopwatch-number number-60">60</span>
+                            <span class="stopwatch-number number-5">5</span>
+                            <span class="stopwatch-number number-10">10</span>
+                            <span class="stopwatch-number number-15">15</span>
+                            <span class="stopwatch-number number-20">20</span>
+                            <span class="stopwatch-number number-25">25</span>
+                            <span class="stopwatch-number number-30">30</span>
+                            <span class="stopwatch-number number-35">35</span>
+                            <span class="stopwatch-number number-40">40</span>
+                            <span class="stopwatch-number number-45">45</span>
+                            <span class="stopwatch-number number-50">50</span>
+                            <span class="stopwatch-number number-55">55</span>
+                            <div class="stopwatch-digital-face">
+                                <div id="mapStopwatchElapsed" class="utility-seven-seg">00:00.0</div>
+                            </div>
+                            <div class="stopwatch-hand stopwatch-minute-hand" id="mapStopwatchMinuteHand"></div>
+                            <div class="stopwatch-hand stopwatch-second-hand" id="mapStopwatchSecondHand"></div>
+                            <div class="stopwatch-hand stopwatch-tenth-hand" id="mapStopwatchTenthHand"></div>
+                            <div class="stopwatch-hub"></div>
+                            <button id="mapStopwatchTimerDisplay" class="stopwatch-timer-display" type="button" title="Timer einstellen">
+                                <span id="mapStopwatchTimerLabel">TIMER</span>
+                                <strong id="mapStopwatchTimerValue" class="utility-seven-seg">05:00</strong>
+                            </button>
+                            <div id="mapStopwatchTimerPicker" class="stopwatch-timer-picker" aria-hidden="true">
+                                <div class="timer-picker-digits" aria-label="Timerdauer">
+                                    <div class="timer-picker-digit" data-timer-digit="0">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="0" title="Minuten-Zehner erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="0" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="0" title="Minuten-Zehner verringern">▼</button>
+                                    </div>
+                                    <div class="timer-picker-digit" data-timer-digit="1">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="1" title="Minuten-Einer erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="1" title="Ziehen zum Einstellen">5</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="1" title="Minuten-Einer verringern">▼</button>
+                                    </div>
+                                    <span class="timer-picker-separator">:</span>
+                                    <div class="timer-picker-digit" data-timer-digit="2">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="2" title="Sekunden-Zehner erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="2" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="2" title="Sekunden-Zehner verringern">▼</button>
+                                    </div>
+                                    <div class="timer-picker-digit" data-timer-digit="3">
+                                        <button type="button" data-timer-step="1" data-timer-digit-index="3" title="Sekunden-Einer erhöhen">▲</button>
+                                        <button type="button" class="timer-picker-value utility-seven-seg" data-timer-drag="3" title="Ziehen zum Einstellen">0</button>
+                                        <button type="button" data-timer-step="-1" data-timer-digit-index="3" title="Sekunden-Einer verringern">▼</button>
+                                    </div>
+                                </div>
+                                <div class="timer-picker-actions">
+                                    <button id="mapStopwatchTimerStartStop" type="button">START</button>
+                                    <button id="mapStopwatchTimerReset" type="button">RESET</button>
+                                    <button id="mapStopwatchTimerClose" type="button" title="Timer-Einstellung schließen">OK</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten">
+                        <div>
+                            <span>UTC</span>
+                            <strong id="mapStopwatchUtc">--:--:--</strong>
+                        </div>
+                        <div>
+                            <span>LOCAL</span>
+                            <strong id="mapStopwatchLocal">--:--:--</strong>
+                        </div>
+                    </div>
+                </div>
+                <div id="mapCalculatorDevice" class="map-utility-device map-calculator-device" aria-hidden="true" style="display:none;">
+                    <button id="mapCalculatorFormulaToggle" class="calculator-formula-tab" type="button" title="Formel-Spickzettel">FORM</button>
+                    <aside id="mapCalculatorFormulaDrawer" class="calculator-formula-drawer" aria-hidden="true">
+                        <div class="formula-drawer-title">Formel Spickzettel</div>
+                        <div class="formula-drawer-source">Kurzreferenz nach <a href="https://aopa.de/wp-content/uploads/49_Berechnungen_und_Formeln_fuer_Piloten.pdf" target="_blank" rel="noopener">AOPA Safety Letter Nr. 49</a></div>
+                        <div class="formula-sections" data-formula-sections>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-nav">Navigation & Kurs</button>
+                                <div id="formula-panel-nav" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="time-distance">Zeit / Distanz / GS</button><span data-formula-expr="Distanz / GS" data-formula-vars="Distanz,GS" data-formula-result="Zeit h">Zeit (h) = Distanz / GS</span><span data-formula-expr="GS * Zeit" data-formula-vars="GS,Zeit" data-formula-result="Distanz">Distanz = GS * Zeit</span><span data-formula-expr="Distanz / Zeit" data-formula-vars="Distanz,Zeit" data-formula-result="GS">GS = Distanz / Zeit</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="rule-60">1:60 Regel</button><span data-formula-expr="Ablage * 60 / Strecke" data-formula-vars="Ablage,Strecke" data-formula-result="Korrektur °">Parallel-Korr. ° ≈ Ablage NM * 60 / Strecke NM</span><span data-formula-expr="Ablage * 60 / Rest" data-formula-vars="Ablage,Rest" data-formula-result="Ziel-Korr. °">Ziel-Korr. ° ≈ Ablage NM * 60 / Rest NM</span><span data-formula-expr="Parallel + Ziel" data-formula-vars="Parallel,Ziel" data-formula-result="Gesamt-Korr. °">Gesamt-Korr. ° = Parallel + Ziel</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="variation">Missweisung</button><span data-formula-expr="rwK - Ost" data-formula-vars="rwK,Ost" data-formula-result="mwK">mwK = rwK - Ost</span><span data-formula-expr="rwK + West" data-formula-vars="rwK,West" data-formula-result="mwK">mwK = rwK + West</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="map-scale">Kartenmaßstab</button><span data-formula-expr="cm * 5" data-formula-vars="cm" data-formula-result="km">1:500k km = cm * 5</span><span data-formula-expr="cm * 2.5" data-formula-vars="cm" data-formula-result="km">1:250k km = cm * 2.5</span><span data-formula-expr="cm * 1" data-formula-vars="cm" data-formula-result="km">1:100k km = cm * 1</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-fuel">Fuel & Reserve</button>
+                                <div id="formula-panel-fuel" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="fuel-range">Fuel / Range</button><span data-formula-expr="GPH * Zeit" data-formula-vars="GPH,Zeit" data-formula-result="Fuel">Fuel = GPH * Zeit</span><span data-formula-expr="Fuel / GPH" data-formula-vars="Fuel,GPH" data-formula-result="Endurance">Endurance = Fuel / GPH</span><span data-formula-expr="GS * Endurance" data-formula-vars="GS,Endurance" data-formula-result="Range">Range = GS * Endurance</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="fuel-reserve">Reserve</button><span data-formula-expr="Reservefuel / Verbrauch" data-formula-vars="Reservefuel,Verbrauch" data-formula-result="Reservezeit">Reservezeit = Reservefuel / Verbrauch</span><span data-formula-expr="GS * Reservezeit" data-formula-vars="GS,Reservezeit" data-formula-result="Reserve-NM">Reserve-NM = GS * Reservezeit</span><span data-formula-expr="GPH * 0.5" data-formula-vars="GPH" data-formula-result="Tagreserve">Tagreserve = GPH * 0.5</span><span data-formula-expr="GPH * 0.75" data-formula-vars="GPH" data-formula-result="Nachtreserve">Nachtreserve = GPH * 0.75</span><span data-formula-expr="TripFuel * 1.05" data-formula-vars="TripFuel" data-formula-result="Fuel+5%">Fuel+5% = TripFuel * 1.05</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-descent">Sinkflug & Profil</button>
+                                <div id="formula-panel-descent" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="descent-profile">Sinkflug / 3°</button><span data-formula-expr="NM * 300" data-formula-vars="NM" data-formula-result="ft">3° Profil ft ≈ NM * 300</span><span data-formula-expr="Höhe / 300" data-formula-vars="Höhe" data-formula-result="TOD NM">TOD NM = Höhe abzubauen / 300</span><span data-formula-expr="GS * 5" data-formula-vars="GS" data-formula-result="VS ft/min">VS ft/min ≈ GS * 5</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="climb-gradient">Steig- / Sinkwinkel</button><span data-formula-expr="Gradient / 1.7" data-formula-vars="Gradient" data-formula-result="Winkel °">Winkel ° ≈ Gradient % / 1.7</span><span data-formula-expr="ftNM / 60.8" data-formula-vars="ftNM" data-formula-result="Gradient %">Gradient % ≈ ft pro NM / 60.8</span><span data-formula-expr="ROC / GS * 60" data-formula-vars="ROC,GS" data-formula-result="ft/NM">ft/NM = ROC / GS * 60</span><span data-formula-expr="GradientFtNm * GS / 60" data-formula-vars="GradientFtNm,GS" data-formula-result="ROC ft/min">ROC = ft/NM * GS / 60</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-wind">Wind & Anflug</button>
+                                <div id="formula-panel-wind" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="wind-components">Windkomponenten</button><span data-formula-expr="Wind * cos(Winkel)" data-formula-vars="Wind,Winkel" data-formula-result="Headwind">Headwind ≈ Wind * cos(Winkel)</span><span data-formula-expr="Wind * sin(Winkel)" data-formula-vars="Wind,Winkel" data-formula-result="Crosswind">Crosswind ≈ Wind * sin(Winkel)</span><span data-formula-expr="Crosswind / TAS * 60" data-formula-vars="Crosswind,TAS" data-formula-result="WCA °">WCA ° ≈ Crosswind / TAS * 60</span><span data-formula-expr="TAS - Headwind" data-formula-vars="TAS,Headwind" data-formula-result="GS">GS ≈ TAS - Headwind</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="crosswind-thirds">Crosswind Drittel</button><span data-formula-expr="Wind / 3" data-formula-vars="Wind" data-formula-result="Crosswind">0-30° ≈ 1/3 Wind</span><span data-formula-expr="Wind * 2 / 3" data-formula-vars="Wind" data-formula-result="Crosswind">30-60° ≈ 2/3 Wind</span><span data-formula-expr="Wind" data-formula-vars="Wind" data-formula-result="Crosswind">60-90° ≈ voller Wind</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="sine-short">Sinus kurz</button><span>sin 10° ≈ .2 / 20° ≈ .3</span><span>sin 30° = .5 / 40° ≈ .6</span><span>sin 50° ≈ .8 / 60° ≈ .9</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="gust-additive">Gust-Zuschlag</button><span data-formula-expr="Böendifferenz / 2" data-formula-vars="Böendifferenz" data-formula-result="Vref-Zuschlag">Vref-Zuschlag ≈ halbe Böendifferenz</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-performance">Leistung & Atmosphäre</button>
+                                <div id="formula-panel-performance" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="tas">TAS</button><span data-formula-expr="IAS * (1 + 0.02 * Höhe / 1000)" data-formula-vars="IAS,Höhe" data-formula-result="TAS">TAS ≈ IAS * (1 + 0.02 * Höhe/1000)</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="true-altitude">Wahre Höhe</button><span data-formula-expr="Indicated + 4 * (Indicated / 1000) * DeltaISA" data-formula-vars="Indicated,DeltaISA" data-formula-result="True Alt">True Alt ≈ Indicated + Temp-Korr.</span><span data-formula-expr="4 * (Indicated / 1000) * DeltaISA" data-formula-vars="Indicated,DeltaISA" data-formula-result="Temp-Korr.">Temp-Korr. = 4 ft/1000 ft je °C über ISA</span><span data-formula-expr="FL * 100 + (QNH - 1013) * 30" data-formula-vars="FL,QNH" data-formula-result="QNH-Höhe">QNH-Höhe ≈ FL*100 + (QNH - 1013) * 30</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="isa-temp">ISA Temperatur</button><span data-formula-expr="15 - 2 * Höhe / 1000" data-formula-vars="Höhe" data-formula-result="ISA °C">ISA °C = 15 - 2 * Höhe/1000 ft</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="density-altitude">Dichtehöhe</button><span data-formula-expr="Elevation + (1013 - QNH) * 30" data-formula-vars="Elevation,QNH" data-formula-result="PA">PA ≈ Elevation + (1013 - QNH) * 30</span><span data-formula-expr="PA + 120 * (OAT - ISA)" data-formula-vars="PA,OAT,ISA" data-formula-result="DA">DA ≈ PA + 120 * (OAT - ISA)</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="takeoff-factors">Startstrecke Zuschläge</button><span data-formula-expr="Strecke * (1 + 0.10 * Steigung)" data-formula-vars="Strecke,Steigung" data-formula-result="Startstrecke">Start = Strecke * (1 + 0.10 * Steigung%)</span><span data-formula-expr="Strecke * 1.1" data-formula-vars="Strecke" data-formula-result="Startstrecke">Feuchtes Gras = Strecke * 1.1</span><span data-formula-expr="Strecke * 1.2" data-formula-vars="Strecke" data-formula-result="Startstrecke">Trockenes Gras = Strecke * 1.2</span><span data-formula-expr="Strecke * 1.5" data-formula-vars="Strecke" data-formula-result="Startstrecke">Aufgeweicht = Strecke * 1.5</span><span data-formula-expr="Strecke * 1.3" data-formula-vars="Strecke" data-formula-result="Startstrecke">Bewuchs / Pfützen = Strecke * 1.3</span><span data-formula-expr="Strecke * 1.25" data-formula-vars="Strecke" data-formula-result="Startstrecke">Pulverschnee = Strecke * 1.25</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="turn-stall">Kurvenstall</button><span data-formula-expr="Vs * 1.03" data-formula-vars="Vs" data-formula-result="Vs 20°">Vs 20° Bank ≈ Vs * 1.03</span><span data-formula-expr="Vs * 1.14" data-formula-vars="Vs" data-formula-result="Vs 40°">Vs 40° Bank ≈ Vs * 1.14</span><span data-formula-expr="Vs * 1.19" data-formula-vars="Vs" data-formula-result="Vs 45°">Vs 45° Bank ≈ Vs * 1.19</span><span data-formula-expr="Vs * 1.41" data-formula-vars="Vs" data-formula-result="Vs 60°">Vs 60° Bank ≈ Vs * 1.41</span></p>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="lowest-fl">Niedrigste FL</button><span data-formula-expr="Druckdiff * 30" data-formula-vars="Druckdiff" data-formula-result="ft">Druckdiff. zu 1013 * 30 ft</span><span>QNH &lt; 1013: Mindest-FL steigt</span></p>
+                                </div>
+                            </section>
+                            <section class="formula-section">
+                                <button class="formula-section-toggle" type="button" aria-expanded="false" aria-controls="formula-panel-units">Einheiten</button>
+                                <div id="formula-panel-units" class="formula-panel" hidden>
+                                    <p><button class="formula-help-trigger" type="button" data-help-key="unit-standard">Standard</button><span data-formula-expr="NM * 1.852" data-formula-vars="NM" data-formula-result="km">km = NM * 1.852</span><span data-formula-expr="kt * 1.852" data-formula-vars="kt" data-formula-result="km/h">km/h = kt * 1.852</span><span data-formula-expr="kt * 2 * 0.9" data-formula-vars="kt" data-formula-result="km/h">km/h ≈ kt * 2 - 10%</span><span data-formula-expr="ft * 0.3048" data-formula-vars="ft" data-formula-result="m">m = ft * 0.3048</span><span data-formula-expr="gal * 3.785" data-formula-vars="gal" data-formula-result="l">l = gal * 3.785</span><span data-formula-expr="lb * 0.454" data-formula-vars="lb" data-formula-result="kg">kg = lb * 0.454</span></p>
+                                </div>
+                            </section>
+                        </div>
+                    </aside>
+                    <div id="mapFormulaHelpOverlay" class="formula-help-overlay" hidden aria-hidden="true">
+                        <div class="formula-help-card" role="dialog" aria-modal="true" aria-labelledby="mapFormulaHelpTitle">
+                            <button id="mapFormulaHelpClose" class="formula-help-close" type="button" title="Schließen">x</button>
+                            <div id="mapFormulaHelpTitle" class="formula-help-title">Formelhilfe</div>
+                            <pre id="mapFormulaHelpFormula" class="formula-help-formula"></pre>
+                            <div id="mapFormulaHelpBody" class="formula-help-body"></div>
+                        </div>
+                    </div>
+                    <div id="mapCalculatorHandle" class="map-utility-drag-handle calculator-case" aria-label="Taschenrechner verschieben">
+                        <div class="calculator-topbar">
+                            <div class="map-utility-device-title">VFR CALC</div>
+                            <button id="mapCalculatorClose" class="map-utility-close" type="button" title="Schließen">x</button>
+                        </div>
+                        <div id="mapCalculatorDisplay" class="calculator-display utility-seven-seg" aria-live="polite">
+                            <div id="mapCalculatorExpression" class="calculator-expression">DEG</div>
+                            <div id="mapCalculatorResult" class="calculator-result">0</div>
+                        </div>
+                        <div class="calculator-keypad" aria-label="Taschenrechner">
+                            <button type="button" data-calc="clear">C</button>
+                            <button type="button" data-calc="backspace">⌫</button>
+                            <button type="button" data-calc="paren" data-value="(">(</button>
+                            <button type="button" data-calc="paren" data-value=")">)</button>
+                            <button type="button" data-calc="function" data-fn="sin">sin</button>
+                            <button type="button" data-calc="function" data-fn="cos">cos</button>
+                            <button type="button" data-calc="function" data-fn="tan">tan</button>
+                            <button type="button" data-calc="percent">%</button>
+                            <button type="button" data-calc="digit" data-value="7">7</button>
+                            <button type="button" data-calc="digit" data-value="8">8</button>
+                            <button type="button" data-calc="digit" data-value="9">9</button>
+                            <button type="button" data-calc="operator" data-op="/">÷</button>
+                            <button type="button" data-calc="digit" data-value="4">4</button>
+                            <button type="button" data-calc="digit" data-value="5">5</button>
+                            <button type="button" data-calc="digit" data-value="6">6</button>
+                            <button type="button" data-calc="operator" data-op="*">×</button>
+                            <button type="button" data-calc="digit" data-value="1">1</button>
+                            <button type="button" data-calc="digit" data-value="2">2</button>
+                            <button type="button" data-calc="digit" data-value="3">3</button>
+                            <button type="button" data-calc="operator" data-op="-">−</button>
+                            <button type="button" data-calc="digit" data-value="0">0</button>
+                            <button type="button" data-calc="decimal">.</button>
+                            <button type="button" data-calc="equals">=</button>
+                            <button type="button" data-calc="operator" data-op="+">+</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="manualSimPanel" class="manual-sim-panel" aria-hidden="true" style="display:none;">
+                    <div id="manualSimPanelHeader" class="manual-sim-header">
+                        <div>
+                            <div class="manual-sim-title">MAN SIM</div>
+                        </div>
+                        <button class="manual-sim-close" type="button" title="Schließen" onclick="window.stopManualSimMode && stopManualSimMode()">x</button>
+                    </div>
+                    <div class="manual-sim-controls" aria-label="Manuelle Sim-Steuerung">
+                        <div class="manual-sim-pad">
+                            <span></span>
+                            <button type="button" title="Höhe +100 ft" onclick="window.manualSimAdjust && manualSimAdjust('alt', 100)">↑</button>
+                            <span></span>
+                            <button type="button" title="Heading links" onclick="window.manualSimAdjust && manualSimAdjust('hdg', -10)">←</button>
+                            <button type="button" title="On Ground" onclick="window.manualSimSetGround && manualSimSetGround()">GND</button>
+                            <button type="button" title="Heading rechts" onclick="window.manualSimAdjust && manualSimAdjust('hdg', 10)">→</button>
+                            <button type="button" title="Airborne" onclick="window.manualSimSetAirborne && manualSimSetAirborne()">AIR</button>
+                            <button type="button" title="Höhe -100 ft" onclick="window.manualSimAdjust && manualSimAdjust('alt', -100)">↓</button>
+                            <span></span>
+                        </div>
+                        <div class="manual-sim-speed">
+                            <button type="button" title="Speed -10 kt" onclick="window.manualSimAdjust && manualSimAdjust('gs', -10)">-</button>
+                            <strong>SPD</strong>
+                            <button type="button" title="Speed +10 kt" onclick="window.manualSimAdjust && manualSimAdjust('gs', 10)">+</button>
+                        </div>
+                    </div>
+                    <div class="manual-sim-triggers" aria-label="Manuelle Missions-Trigger">
+                        <button type="button" onclick="window.manualSimTriggerMissionAction && manualSimTriggerMissionAction()">MISSION</button>
+                        <button type="button" onclick="window.manualSimTriggerAtTarget && manualSimTriggerAtTarget()">AT TARGET</button>
+                        <button type="button" onclick="window.manualSimTriggerLandingRoll && manualSimTriggerLandingRoll()">LANDING</button>
+                        <button type="button" onclick="window.manualSimStartAuto && manualSimStartAuto()">AUTO WPT</button>
+                    </div>
+                </div>
+                <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->
+                <div id="awmFreqBanner" style="display:none; position:absolute; top:0; left:0; right:0; z-index:5000; pointer-events:auto; border-radius:0 0 6px 6px; overflow-y:auto; max-height:44vh;"></div>
+                <!-- Live Telemetrie – oben mittig -->
+                <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:50%; transform:translateX(-50%); right:auto; min-width:110px; pointer-events:auto; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:2px;">
+                        <span>GS:</span><span><span id="teleGS" class="tele-val" style="color:var(--blue);">0.0</span> <span class="tele-unit">KT</span></span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:2px;">
+                        <span>VS:</span><span><span id="teleVS" class="tele-val" style="color:var(--green);">0</span> <span class="tele-unit">FT/M</span></span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:16px;">
+                        <span>ALT:</span><span><span id="teleAGL" class="tele-val" style="color:#ffcc44;">—</span> <span class="tele-unit">FT</span></span>
+                    </div>
+                </div>
+                <div id="liveCurrentBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% - 230px); transform:none; right:auto; width:154px; min-width:154px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
+                    <div style="font-size:11px; color:#8ec5ff; letter-spacing:0.4px; margin-bottom:3px;">AKTUELL</div>
+                    <div id="currentPosRef" class="tele-val" style="font-size:14px; color:#fff; margin-bottom:4px; white-space:normal;">—</div>
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
+                        <span style="font-size:11px; color:#aaa;">FREQ</span>
+                        <span id="currentFreqValue" class="tele-val" style="font-size:13px; color:#9fd3ff; text-align:right; line-height:1.1; overflow-wrap:anywhere;">—</span>
+                    </div>
+                    <div id="currentFreqSource" style="font-size:10px; color:#777; text-align:right; line-height:1.15; min-height:11px;"></div>
+                </div>
+                <div id="liveNextWpBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% + 128px); transform:none; right:auto; width:138px; min-width:138px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+                        <div style="font-size:11px; color:#8ec5ff; letter-spacing:0.4px;">NEXT LEG</div>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <button id="nextLegPrevBtn" class="next-leg-nav-btn" type="button" title="Vorheriger Wegpunkt" onclick="window.stepLiveNextLegPreview && stepLiveNextLegPreview(-1, event)">◀</button>
+                            <button id="nextLegNextBtn" class="next-leg-nav-btn" type="button" title="Nächster Wegpunkt" onclick="window.stepLiveNextLegPreview && stepLiveNextLegPreview(1, event)">▶</button>
+                        </div>
+                    </div>
+                    <div id="nextWpName" class="tele-val" style="font-size:14px; color:#fff; margin-bottom:4px;">—</div>
+                    <div style="display:flex; justify-content:space-between; gap:10px;">
+                        <span style="font-size:11px; color:#aaa;">BRG</span>
+                        <span id="nextWpCourse" class="tele-val" style="font-size:14px; color:#44ffcc;">---</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; gap:10px;">
+                        <span style="font-size:11px; color:#aaa;">DIS</span>
+                        <span><span id="nextWpDist" class="tele-val" style="font-size:14px; color:#ffcc44;">--.-</span> <span class="tele-unit">NM</span></span>
+                    </div>
+                </div>
+                <!-- Compass Rose -->
+                <div id="compassRoseWrap" style="display:none;">
+                    <div id="compassHeadingMarker"></div>
+                    <div id="compassPeekTab"></div>
+                    <!-- Fixed CDI strip (non-rotating, always horizontal) -->
+                    <svg id="compassCdiSvg" viewBox="-55 -14 110 46" width="110" height="46"
+                         style="position:absolute; top:50px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:3; overflow:visible;"></svg>
+                    <div id="compassDisc">
+                        <svg id="compassSvg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" width="300" height="300"></svg>
+                    </div>
+                </div>
+                <div id="missionStartBanner" class="mission-start-banner" style="display:none;">
+                    <button type="button" class="mission-start-banner-close" onclick="window.dismissMissionStartBanner && dismissMissionStartBanner()" title="Banner ausblenden">×</button>
+                    <div class="mission-start-banner-body">
+                        <div id="missionStartBannerKicker" class="mission-start-banner-kicker">Mission bereit</div>
+                        <div id="missionStartBannerText" class="mission-start-banner-text">Tracker verbunden. Szene wird vorbereitet.</div>
+                    </div>
+                    <button type="button" class="mission-start-banner-btn" id="missionStartBannerBtn" onclick="window.handleMissionStartBannerAction && handleMissionStartBannerAction()">Mission beginnen</button>
+                </div>
+            </div>
+            <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe"></div>
+            <div id="mapProfileStrip" class="map-profile-strip">
+                <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen">−</button>
+                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level">0%</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal reinzoomen">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Maximale Höhe der Y-Achse (ft)">MAX FT</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (−1000 ft)">−</button>
+                    <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto-Skalierung zurücksetzen">AUTO</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)" title="Y-Achse vergrößern (+1000 ft)">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:2px;" title="Reiseflughöhe (ft MSL)">ALT</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)" title="Reiseflughöhe −500 ft">−</button>
+                    <span id="altMapInput" class="vp-ctrl-val" onclick="promptForAlt()" title="Reiseflughöhe – klicken für manuelle Eingabe">4500</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(500)" title="Reiseflughöhe +500 ft">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Steig- und Sinkrate (ft/min)">V/S</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)" title="V/S −100 ft/min">−</button>
+                    <span id="rateMapInput" class="vp-ctrl-val" onclick="promptForRate()" title="Steig-/Sinkrate – klicken für manuelle Eingabe">500</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeRate(100)" title="V/S +100 ft/min">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px; margin-left:auto;">|</span>
+                    <!-- Zahnrad-Untermenü für Layer-Toggles -->
+                    <div style="position:relative; display:inline-block;">
+                        <button id="btnVpSettings" onclick="toggleVpSettingsMenu()" title="Darstellungs-Optionen" class="vp-toggle-cloud active vp-btn-relative" style="min-width:28px; font-size:13px;">
+                            ⚙️<span id="vpSettingsErrorDot" style="display:none; position:absolute; top:-4px; right:-4px; width:9px; height:9px; background:#ff4444; border-radius:50%; border:1.5px solid #222; box-shadow:0 0 4px #f00;"></span>
+                        </button>
+                        <div id="vpSettingsMenu" style="display:none; position:fixed; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                            <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
+                                <button id="btnToggleClouds" class="pb-btn active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" style="display:block; width:100%; margin:0; text-align:left;">⛅ Wolken</button>
+                                <button id="btnToggleWeatherSource" class="pb-btn" onclick="vpToggleWeatherSource()" title="Datenquelle für Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0; text-align:left;">🌐 Quelle: METAR</button>
+                                <button id="btnToggleWeatherRenderMode" class="pb-btn" onclick="vpToggleWeatherRenderMode()" title="Darstellungsstil für Wetter im Höhenband wechseln" style="display:block; width:100%; margin:0; text-align:left;">🌦️ Wetterstil: Classic</button>
+                                <button id="btnToggleIsobars" class="pb-btn active" onclick="vpToggleIsobars()" title="Isobaren (hPa) im Höhenband ein-/ausblenden" style="display:block; width:100%; margin:0; text-align:left;">🧭 Isobaren</button>
+                                <button id="btnToggleWindComponents" class="pb-btn active" onclick="vpToggleWindComponents()" title="Head-/Tailwind-Komponenten je Höhe ein-/ausblenden" style="display:block; width:100%; margin:0; text-align:left;">💨 Windkomponenten</button>
+                                <button id="btnToggleLandmarks" class="pb-btn active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" style="display:block; width:100%; margin:0; text-align:left;">🏙️ Städte</button>
+                                <button id="btnToggleObstacles" class="pb-btn active vp-btn-relative" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" style="display:block; width:100%; margin:0; text-align:left;">🗼 Hindernisse</button>
+                                <button id="btnToggleRoads" class="pb-btn active vp-btn-relative" onclick="vpToggleRoads()" title="Straßen (Autobahn/Bundesstraße) an/aus" style="display:block; width:100%; margin:0; text-align:left;">🛣️ Straßen</button>
+                                <button id="btnToggleRivers" class="pb-btn active vp-btn-relative" onclick="vpToggleRivers()" title="Flüsse/Gewässer an/aus" style="display:block; width:100%; margin:0; text-align:left;">🌊 Flüsse</button>
+                                <button id="btnTogglePower" class="pb-btn active vp-btn-relative" onclick="vpTogglePower()" title="Stromleitungen/Strommasten an/aus" style="display:block; width:100%; margin:0; text-align:left;">⚡ Strom</button>
+                                <button id="btnToggleAirspaces" class="pb-btn active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="display:block; width:100%; margin:0; text-align:left;">🛡️ Lufträume</button>
+                                <button id="btnToggleTrafficProfile" class="pb-btn active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" style="display:block; width:100%; margin:0; text-align:left;">📡 Traffic</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Zwischen Routen-Modus (RTE) und Heading-Modus (HDG) wechseln" style="margin-left:4px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; color:#6f6; border-color:#4a4; background:#0d200d;">RTE</button>
+                    <span style="color:#555; font-size:10px; margin: 0 4px;">|</span>
+                    <button id="btnSimMode" class="vp-toggle-cloud" onclick="window.startSimMode && startSimMode()" title="Route simulieren" style="min-width:40px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#1a3a1a; color:#6f6;">▶&thinsp;SIM</button>
+                    <button id="btnManualSimMode" class="vp-toggle-cloud manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="display:none; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#17253a; color:#8ec5ff; border-color:#33506d;">MAN</button>
+                </div>
+                <!-- Time-Warp Leiste – nur im Sim-Modus sichtbar -->
+                <div id="simSpeedStrip" style="display:none; align-items:center; gap:4px; padding:3px 6px; background:rgba(0,40,0,0.6); border-top:1px solid #1a4a1a;">
+                    <span style="font-size:9px; color:#6f6; font-family:monospace; margin-right:2px;">WARP</span>
+                    <button class="sim-spd vp-ctrl-btn active" data-s="1"  onclick="setSimSpeed(1)"  style="min-width:28px;">1×</button>
+                    <button class="sim-spd vp-ctrl-btn"        data-s="2"  onclick="setSimSpeed(2)"  style="min-width:28px;">2×</button>
+                    <button class="sim-spd vp-ctrl-btn"        data-s="5"  onclick="setSimSpeed(5)"  style="min-width:28px;">5×</button>
+                    <button class="sim-spd vp-ctrl-btn"        data-s="10" onclick="setSimSpeed(10)" style="min-width:28px;">10×</button>
+                    <button class="sim-spd vp-ctrl-btn"        data-s="30" onclick="setSimSpeed(30)" style="min-width:28px;">30×</button>
+                    <button id="btnManualSimStrip" class="manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="margin-left:auto; font-size:9px; font-family:monospace; background:#17253a; color:#8ec5ff; border:1px solid #33506d; border-radius:3px; padding:2px 7px; cursor:pointer;">MAN</button>
+                </div>
+                <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none; overflow-x: auto; overflow-y: hidden;">
+                    <div id="vpCanvasWrapper" style="height: 100%; position: relative; overflow: hidden;">
+                        <canvas id="mapProfileCanvasBg" style="position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;"></canvas>
+                        <canvas id="mapProfileCanvas" style="position: absolute; left: 0; top: 0; z-index: 2; touch-action: none;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="mapE6BDevice" class="map-utility-device map-e6b-device map-e6b-half e6b-iframe-controls" aria-hidden="true" style="display:none;">
+    <div class="map-e6b-shell">
+        <div class="map-e6b-window-controls" aria-label="E6B Fenstersteuerung">
+            <button id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>
+            <button id="mapE6BZoomOut" class="map-e6b-window-btn" type="button" title="E6B herauszoomen" aria-label="E6B herauszoomen">−</button>
+            <button id="mapE6BZoomIn" class="map-e6b-window-btn" type="button" title="E6B hineinzoomen" aria-label="E6B hineinzoomen">+</button>
+            <button id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">×</button>
+        </div>
+        <iframe id="mapE6BFrame" class="map-e6b-frame" title="E6B Flight Computer" src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;v=20260710-workbenchjson01" loading="lazy" allowtransparency="true"></iframe>
+    </div>
+</div>

@@ -158,19 +158,21 @@ neue Capability. Das EFB berechnet aus dem Snapshot keine Missionsphase und
 sendet auf diesem Pfad weiterhin keine Befehle.
 
 Der Kartenclient ist bewusst kein iframe der vollstaendigen Web-App. Tracker
-v327 und EFB 0.4.2 pruefen jedoch additiv, ob eine eigens fuer diesen Zweck vom
-Tracker gelieferte read-only Browseroberflaeche in Coherent stabil laeuft. Die
-Probe unter `/efb/v1/` enthaelt noch keinen Kartentisch; sie misst nur Laden,
-Interaktion, Resize und lokalen Snapshotzugriff. Bei fehlender Capability
-bleibt der SDK-eigene 0.4.1-Renderer aktiv.
+v327 und EFB 0.4.2 liefern additiv eine eigens fuer diesen Zweck gebaute,
+read-only Browseroberflaeche. `/efb/v1/` ist der Kartentisch-View;
+`/efb/v1/probe/` bleibt der kleine Transport-/Eingabetest. Bei fehlender
+Capability bleibt der SDK-eigene 0.4.1-Renderer aktiv.
 
-Besteht dieses Gate, darf der Tracker spaeter einen kontrollierten
-Kartentisch-View hosten, den die EFB-Shell als Client darstellt. Das ist keine
-zweite Vollversion der Web-App: DOM, Cloud-Sync, Missionsautoritaet und
-Benutzergeheimnisse bleiben draussen. Reine Geometrie-, Formatierungs- und
-Darstellungskerne werden gemeinsam genutzt; Web, Tracker-View und EFB-Shell
-erhalten kleine Hostadapter. Voice bleibt ein eigener Tracker-Dienst und wird
-nicht aus dem eingebetteten EFB-Dokument heraus autoritativ gesteuert.
+Der Tracker-View verwendet den originalen Kartentisch-DOM-Abschnitt aus
+`index.html`, die originale `styles.css`, `map-utility-tools.js`, Leaflet und
+die vollstaendigen E6B-Assets. Das ist trotzdem keine zweite Vollversion der
+Web-App: `map.js`, `profile.js`, Cloud-Sync, Missionsautoritaet,
+Benutzergeheimnisse und die uebrige App-DOM bleiben draussen. Ein kleiner
+Hostadapter rendert Flugzeug, Route, Missionsgeometrie, Navigation, Kompass und
+Planprofil aus den versionierten Tracker-Snapshots. `map-shell-core.js` ist als
+gemeinsamer Node-/Browser-Kern nutzbar. Voice bleibt ein eigener Tracker-
+Dienst und wird nicht aus dem eingebetteten EFB-Dokument heraus autoritativ
+gesteuert.
 
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN

@@ -99,8 +99,20 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-probe-version="1"/);
-  assert.match(webClient.body, /ga-efb-server-probe/);
+  assert.match(webClient.body, /data-efb-view-version="2"/);
+  assert.match(webClient.body, /id="mapTableOverlay"/);
+
+  const hostScript = await request(address, '/efb/v1/assets/host.js');
+  assert.equal(hostScript.statusCode, 200);
+  assert.match(hostScript.headers['content-type'], /^text\/javascript/);
+  assert.match(hostScript.body, /ga-efb-kartentisch/);
+
+  const e6b = await request(address, '/efb/v1/e6b/e6b-flight-computer.html');
+  assert.equal(e6b.statusCode, 200);
+  assert.match(e6b.body, /E6B Flight Computer/);
+
+  const traversal = await request(address, '/efb/v1/e6b/%2e%2e/index.html');
+  assert.equal(traversal.statusCode, 404);
 
   assert.equal((await request(address, '/api/v1/status', 'POST')).statusCode, 405);
   assert.equal((await request(address, '/unknown')).statusCode, 404);

@@ -186,6 +186,15 @@
     background: #06121d;
   }
 
+  &.server-client-active .app-topbar {
+    display: none;
+  }
+
+  &.server-client-active .server-frame-status {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .server-frame-status {
     position: absolute;
     z-index: 3;

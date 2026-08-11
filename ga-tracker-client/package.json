@@ -4,6 +4,7 @@
   "description": "MSFS to WebSocket GPS Tracker Bridge",
   "main": "tracker.js",
   "scripts": {
+    "prebuild:tracker": "node sync-efb-web-assets.js",
     "start": "node tracker.js",
     "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
     "build:pa24-payload-probe": "pkg pa24-payload-probe.js --target node18-win-x64 --output dist/PA24-Payload-Probe.exe",
@@ -22,6 +23,26 @@
   },
   "pkg": {
     "scripts": "spawn-edtw-smoke-test.js",
+    "assets": [
+      "efb-web-assets/kartentisch-fragment.html",
+      "efb-web-assets/styles.css",
+      "efb-web-assets/map-utility-tools.js",
+      "efb-web-assets/aircraft-marker.svg",
+      "efb-web-assets/vendor/leaflet/leaflet.css",
+      "efb-web-assets/vendor/leaflet/leaflet.js",
+      "efb-web-assets/vendor/leaflet/images/layers.png",
+      "efb-web-assets/vendor/leaflet/images/layers-2x.png",
+      "efb-web-assets/vendor/leaflet/images/marker-icon.png",
+      "efb-web-assets/e6b/e6b-core.js",
+      "efb-web-assets/e6b/e6b-flight-computer.css",
+      "efb-web-assets/e6b/e6b-flight-computer.html",
+      "efb-web-assets/e6b/e6b-flight-computer.js",
+      "efb-web-assets/e6b/e6b-workbench-front-disc.json",
+      "efb-web-assets/e6b/e6b-workbench-wind-disc.json",
+      "efb-app/map-shell-core.js",
+      "tracker-efb-kartentisch-host.css",
+      "tracker-efb-kartentisch-host.js"
+    ],
     "targets": ["node20-win-x64"],
     "outputPath": "dist"
   },

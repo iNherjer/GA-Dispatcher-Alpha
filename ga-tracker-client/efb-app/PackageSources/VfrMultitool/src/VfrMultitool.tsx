@@ -244,6 +244,21 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event?.data?.type === 'ga-e6b-close') this.closeToolPanel();
+    if (event?.data?.type === 'ga-efb-kartentisch'
+      && event.source === this.serverFrameRef.getOrDefault()?.contentWindow) {
+      const state = String(event.data.state || '');
+      if (state === 'close') {
+        this.setScreen('map');
+        return;
+      }
+      this.setText(this.serverFrameStatusRef.getOrDefault(), state === 'ready'
+        ? 'Original-Kartentisch geladen'
+        : state === 'live'
+          ? 'Kartentisch live mit Tracker verbunden'
+          : state === 'error'
+            ? 'Kartentisch geladen | Tracker-Verbindung unterbrochen'
+            : 'Kartentisch reagiert');
+    }
     if (event?.data?.type === 'ga-efb-server-probe'
       && event.source === this.serverFrameRef.getOrDefault()?.contentWindow) {
       const state = String(event.data.state || '');
@@ -447,6 +462,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private setScreen(screen: 'map' | 'server' | 'status'): void {
     if (screen === 'server' && !this.serverClientAvailable) screen = 'map';
     this.screen = screen;
+    this.appRootRef.getOrDefault()?.classList.toggle('server-client-active', screen === 'server');
     this.mapScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
     this.mapControlsRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'map');
     this.serverScreenRef.getOrDefault()?.classList.toggle('is-hidden', screen !== 'server');
@@ -1217,7 +1233,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             </div>
             <div class="map-toolbar-buttons">
               <button ref={this.mapTabRef} class="pb-btn is-active" type="button">Karte</button>
-              <button ref={this.serverTabRef} class="pb-btn is-hidden" type="button" disabled>Server-Test</button>
+              <button ref={this.serverTabRef} class="pb-btn is-hidden" type="button" disabled>App-Karte</button>
               <button ref={this.statusTabRef} class="pb-btn" type="button">Status</button>
               <button ref={this.profileButtonRef} class="pb-btn" type="button" aria-pressed="true">Profil (An)</button>
               <button ref={this.themeButtonRef} class="pb-btn" type="button">Design</button>
@@ -1235,7 +1251,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         </div>
 
         <div ref={this.serverScreenRef} class="ga-efb-server-view is-hidden">
-          <iframe ref={this.serverFrameRef} title="Tracker-hosted EFB client probe"></iframe>
+          <iframe ref={this.serverFrameRef} title="VFR Multitool Kartentisch vom Tracker"></iframe>
           <span ref={this.serverFrameStatusRef} class="server-frame-status">Tracker-Server-Unterstuetzung wird geprueft</span>
         </div>
 
