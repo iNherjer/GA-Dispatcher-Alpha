@@ -17,13 +17,17 @@ const {
 
 const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
 const DEFAULT_EFB_HTTP_PORT = 49880;
+const EFB_CLIENT_LOG_PATH = '/api/v1/client-log';
+const MAX_EFB_CLIENT_LOG_BYTES = 8192;
+const MAX_EFB_CLIENT_LOGS_PER_MINUTE = 120;
 const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.FLIGHT_SNAPSHOT,
   CAPABILITIES.MAP_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT_V2,
   CAPABILITIES.TRACKER_STATUS,
-  CAPABILITIES.EFB_WEB_CLIENT
+  CAPABILITIES.EFB_WEB_CLIENT,
+  CAPABILITIES.EFB_CLIENT_DIAGNOSTICS
 ].sort());
 
 function safeObject(value) {
@@ -63,7 +67,7 @@ function jsonResponse(response, statusCode, value) {
   const body = Buffer.from(`${JSON.stringify(value)}\n`, 'utf8');
   response.writeHead(statusCode, {
     'Access-Control-Allow-Headers': 'Accept, Content-Type',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'no-store',
     'Content-Length': body.length,
@@ -71,6 +75,59 @@ function jsonResponse(response, statusCode, value) {
     'X-Content-Type-Options': 'nosniff'
   });
   response.end(body);
+}
+
+function emptyResponse(response, statusCode = 204) {
+  response.writeHead(statusCode, {
+    'Access-Control-Allow-Headers': 'Accept, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-store',
+    'Content-Length': 0,
+    'X-Content-Type-Options': 'nosniff'
+  });
+  response.end();
+}
+
+function sanitizeLogField(value, limit = 240) {
+  let text = '';
+  if (typeof value === 'string') text = value;
+  else if (value != null) {
+    try { text = typeof value === 'object' ? JSON.stringify(value) : String(value); } catch (_) { text = String(value); }
+  }
+  return text.replace(/[\r\n\t]+/g, ' ').replace(/[\x00-\x1f\x7f]/g, '').slice(0, limit);
+}
+
+function readJsonBody(request, maxBytes = MAX_EFB_CLIENT_LOG_BYTES) {
+  return new Promise((resolve, reject) => {
+    const declaredLength = Number(request.headers['content-length']);
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      request.resume();
+      reject(Object.assign(new Error('payload_too_large'), { statusCode: 413 }));
+      return;
+    }
+    const chunks = [];
+    let length = 0;
+    request.on('data', (chunk) => {
+      length += chunk.length;
+      if (length <= maxBytes) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (length > maxBytes) {
+        reject(Object.assign(new Error('payload_too_large'), { statusCode: 413 }));
+        return;
+      }
+      try {
+        const value = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_payload');
+        resolve(value);
+      } catch (error) {
+        reject(Object.assign(error, { statusCode: 400 }));
+      }
+    });
+    request.on('aborted', () => reject(Object.assign(new Error('request_aborted'), { statusCode: 400 })));
+    request.on('error', (error) => reject(Object.assign(error, { statusCode: 400 })));
+  });
 }
 
 function htmlResponse(response, statusCode, value) {
@@ -112,28 +169,63 @@ function createTrackerEfbHttpServer(options = {}) {
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
+  const loggedAssets = new Set();
+  let clientLogWindowStartedAt = 0;
+  let clientLogCount = 0;
+  let clientLogRateLimitReported = false;
 
-  const handler = (request, response) => {
+  const handler = async (request, response) => {
     if (!isLoopbackAddress(request.socket?.remoteAddress)) {
       jsonResponse(response, 403, { error: 'loopback_only' });
       return;
     }
     if (request.method === 'OPTIONS') {
-      response.writeHead(204, {
-        'Access-Control-Allow-Headers': 'Accept, Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-store'
-      });
-      response.end();
-      return;
-    }
-    if (request.method !== 'GET') {
-      jsonResponse(response, 405, { error: 'method_not_allowed' });
+      emptyResponse(response);
       return;
     }
     let pathname = '';
-    try { pathname = new URL(request.url || '/', `http://${host}`).pathname; } catch (_) {}
+    let requestUrl = null;
+    try { requestUrl = new URL(request.url || '/', `http://${host}`); pathname = requestUrl.pathname; } catch (_) {}
+    if (request.method === 'POST' && pathname === EFB_CLIENT_LOG_PATH) {
+      const now = Date.now();
+      if (!clientLogWindowStartedAt || now - clientLogWindowStartedAt >= 60000) {
+        clientLogWindowStartedAt = now;
+        clientLogCount = 0;
+        clientLogRateLimitReported = false;
+      }
+      clientLogCount += 1;
+      if (clientLogCount > MAX_EFB_CLIENT_LOGS_PER_MINUTE) {
+        request.resume();
+        if (!clientLogRateLimitReported) {
+          log(`EFB_CLIENT_RATE_LIMIT limit=${MAX_EFB_CLIENT_LOGS_PER_MINUTE}`);
+          clientLogRateLimitReported = true;
+        }
+        jsonResponse(response, 429, { error: 'rate_limited' });
+        return;
+      }
+      try {
+        const entry = await readJsonBody(request);
+        const level = sanitizeLogField(entry.level || 'info', 12).toLowerCase();
+        const event = sanitizeLogField(entry.event || 'client', 48);
+        const stage = sanitizeLogField(entry.stage, 80);
+        const sessionId = sanitizeLogField(entry.sessionId, 80);
+        const channel = sanitizeLogField(entry.channel, 120);
+        const message = sanitizeLogField(entry.message, 320).replace(/"/g, "'");
+        const details = sanitizeLogField(entry.details, 800).replace(/"/g, "'");
+        log(`EFB_CLIENT level=${level} event=${event} stage=${stage} session=${sessionId} channel=${channel} message="${message}" details="${details}"`);
+        emptyResponse(response);
+      } catch (error) {
+        const statusCode = Number(error?.statusCode) === 413 ? 413 : 400;
+        log(`EFB_CLIENT_REJECT status=${statusCode} error=${sanitizeLogField(error?.message || error, 120)}`);
+        jsonResponse(response, statusCode, { error: statusCode === 413 ? 'payload_too_large' : 'invalid_payload' });
+      }
+      return;
+    }
+    if (request.method !== 'GET') {
+      log(`EFB_HTTP_REJECT method=${sanitizeLogField(request.method, 12)} path=${sanitizeLogField(pathname, 160)}`);
+      jsonResponse(response, 405, { error: 'method_not_allowed' });
+      return;
+    }
     if (pathname === '/api/v1/hello') {
       jsonResponse(response, 200, hello);
       return;
@@ -176,6 +268,7 @@ function createTrackerEfbHttpServer(options = {}) {
       return;
     }
     if (pathname === EFB_WEB_CLIENT_PATH) {
+      log(`EFB_HTTP_PAGE path=${pathname} channel=${sanitizeLogField(requestUrl?.searchParams?.get('channel'), 120)}`);
       htmlResponse(response, 200, createTrackerEfbWebClientPage());
       return;
     }
@@ -185,9 +278,14 @@ function createTrackerEfbHttpServer(options = {}) {
     }
     const asset = getTrackerEfbWebClientAsset(pathname);
     if (asset) {
+      if (!loggedAssets.has(pathname)) {
+        loggedAssets.add(pathname);
+        log(`EFB_HTTP_ASSET path=${sanitizeLogField(pathname, 180)} bytes=${Buffer.isBuffer(asset.body) ? asset.body.length : Buffer.byteLength(String(asset.body || ''))}`);
+      }
       assetResponse(response, 200, asset);
       return;
     }
+    log(`EFB_HTTP_NOT_FOUND path=${sanitizeLogField(pathname, 180)}`);
     jsonResponse(response, 404, { error: 'not_found' });
   };
 
@@ -199,8 +297,15 @@ function createTrackerEfbHttpServer(options = {}) {
     get hello() { return hello; },
     async start() {
       if (server) return this.address;
-      server = http.createServer(handler);
-      server.on('clientError', (_error, socket) => {
+      server = http.createServer((request, response) => {
+        handler(request, response).catch((error) => {
+          log(`EFB_HTTP_ERROR method=${sanitizeLogField(request.method, 12)} path=${sanitizeLogField(request.url, 180)} error=${sanitizeLogField(error?.message || error, 240)}`);
+          if (!response.headersSent) jsonResponse(response, 500, { error: 'internal_error' });
+          else response.end();
+        });
+      });
+      server.on('clientError', (error, socket) => {
+        log(`EFB_HTTP_CLIENT_ERROR ${sanitizeLogField(error?.message || error, 240)}`);
         try { socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'); } catch (_) {}
       });
       await new Promise((resolve, reject) => {
@@ -232,6 +337,8 @@ function createTrackerEfbHttpServer(options = {}) {
 module.exports = {
   DEFAULT_EFB_HTTP_HOST,
   DEFAULT_EFB_HTTP_PORT,
+  EFB_CLIENT_LOG_PATH,
+  MAX_EFB_CLIENT_LOG_BYTES,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer,

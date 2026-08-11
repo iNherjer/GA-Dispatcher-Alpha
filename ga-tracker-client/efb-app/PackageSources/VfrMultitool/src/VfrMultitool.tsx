@@ -212,6 +212,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private screen: 'map' | 'server' | 'status' = 'map';
   private serverClientAvailable = false;
   private serverFrameStarted = false;
+  private serverFrameChannel = '';
   private map: any | null = null;
   private planeMarker: any | null = null;
   private routeLayer: any | null = null;
@@ -244,10 +245,17 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event?.data?.type === 'ga-e6b-close') this.closeToolPanel();
-    if (event?.data?.type === 'ga-efb-kartentisch'
-      && event.source === this.serverFrameRef.getOrDefault()?.contentWindow) {
+    const frameWindow = this.serverFrameRef.getOrDefault()?.contentWindow;
+    const messageChannel = String(event?.data?.channel || '');
+    const trustedServerFrameMessage = event.source === frameWindow
+      || Boolean(this.serverFrameChannel && messageChannel === this.serverFrameChannel);
+    if (event?.data?.type === 'ga-efb-kartentisch' && trustedServerFrameMessage) {
       const state = String(event.data.state || '');
+      const stage = String(event.data.stage || '');
+      const message = String(event.data.message || '');
+      this.reportServerFrameEvent('parent-message', state || stage, message);
       if (state === 'close') {
+        this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch wird geschlossen');
         this.setScreen('map');
         return;
       }
@@ -259,8 +267,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             ? 'Kartentisch geladen | Tracker-Verbindung unterbrochen'
             : 'Kartentisch reagiert');
     }
-    if (event?.data?.type === 'ga-efb-server-probe'
-      && event.source === this.serverFrameRef.getOrDefault()?.contentWindow) {
+    if (event?.data?.type === 'ga-efb-server-probe' && event.source === frameWindow) {
       const state = String(event.data.state || '');
       const clicks = Math.max(0, Number(event.data.clicks) || 0);
       this.setText(this.serverFrameStatusRef.getOrDefault(), state === 'ready'
@@ -329,6 +336,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const serverFrame = this.serverFrameRef.getOrDefault();
     if (serverFrame) serverFrame.onload = (): void => {
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite geladen | warte auf Skriptmeldung');
+      this.reportServerFrameEvent('iframe', 'load', serverFrame.src);
     };
 
     const drawer = this.layerDrawerRef.getOrDefault();
@@ -486,6 +494,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       const frame = this.serverFrameRef.getOrDefault();
       if (frame && this.serverFrameStarted) frame.src = 'about:blank';
       this.serverFrameStarted = false;
+      this.serverFrameChannel = '';
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Webclient nicht verfuegbar');
       if (this.screen === 'server') this.setScreen('map');
     }
@@ -496,8 +505,28 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const frame = this.serverFrameRef.getOrDefault();
     if (!frame) return;
     this.serverFrameStarted = true;
+    this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
-    frame.src = `${TRACKER_API_URL}/efb/v1/`;
+    this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
+    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=3`;
+  }
+
+  private reportServerFrameEvent(event: string, stage: string, message = ''): void {
+    try {
+      void fetch(`${TRACKER_API_URL}/api/v1/client-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'info',
+          event,
+          stage,
+          message,
+          sessionId: 'efb-parent',
+          channel: this.serverFrameChannel,
+          at: Date.now()
+        })
+      }).catch(() => undefined);
+    } catch (_) {}
   }
 
   private readPreferences(): MapPreferences {

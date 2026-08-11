@@ -45,7 +45,31 @@ body.ga-efb-tracker-host #simSpeedStrip {
 
 body.ga-efb-tracker-host .pinboard-header {
   flex: 0 0 auto !important;
-  padding: max(6px, env(safe-area-inset-top, 0px)) 8px 6px !important;
+  padding: 6px 8px !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-boot-status {
+  position: fixed;
+  top: 42px;
+  left: 50%;
+  z-index: 100000;
+  width: 300px;
+  margin-left: -150px;
+  padding: 7px 10px;
+  box-sizing: border-box;
+  border: 1px solid #35695f;
+  border-radius: 3px;
+  color: #061713;
+  background: #69ded0;
+  font: 700 10px/1.25 monospace;
+  text-align: center;
+  pointer-events: none;
+}
+
+body.ga-efb-tracker-host .ga-efb-boot-status.error {
+  color: #fff;
+  border-color: #a85353;
+  background: #6a2929;
 }
 
 body.ga-efb-tracker-host #mapToolbarInner {
@@ -121,7 +145,7 @@ body.ga-efb-tracker-host #routeProgressBar {
 }
 
 body.ga-efb-tracker-host .leaflet-control-layers {
-  max-width: min(260px, 72vw);
+  max-width: 260px;
   max-height: 58vh;
   overflow: auto;
 }
@@ -177,7 +201,10 @@ body.ga-efb-tracker-host .leaflet-tooltip.ga-route-label {
 
 body.ga-efb-tracker-host .ga-profile-empty {
   position: absolute;
-  inset: 30px 0 0;
+  top: 30px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 3;
   display: flex;
   align-items: center;

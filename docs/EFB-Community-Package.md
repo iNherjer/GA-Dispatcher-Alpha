@@ -50,6 +50,15 @@ Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal
 eingetragen. 0.4.1 ist der korrigierte Source-Kandidat. Alpha bleibt bis zu
 offiziellem SDK-Build sowie bestandenem 2D-/physischem In-Sim-Test auf 0.3.5.
 
+0.4.2 wurde zusammen mit Tracker v327 auf Windows gebaut und im Simulator
+geprueft, aber nicht in den Alpha-Kanal eingetragen: Das originale HTML/CSS-
+Grundgeruest erschien, die externe Kartentisch-Skriptkette initialisierte sich
+in Coherent jedoch nicht. 0.4.3/v328 ist der naechste SDK-Testkandidat mit
+sequenziellem Scriptstart, ausfallsicherem Schliessen sowie begrenztem lokalem
+Boot-/Fehlerlogging. Bis dessen In-Sim-Test bestanden ist, bleiben der
+unveraenderliche 0.3.5-Alpha-Release und der markierte 0.4.1-SDK-Fallback die
+Ruecksprungpunkte.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

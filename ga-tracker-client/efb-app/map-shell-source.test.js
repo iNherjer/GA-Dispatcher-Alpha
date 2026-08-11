@@ -133,3 +133,12 @@ test('map initialization failures remain visible and diagnosable', () => {
   assert.match(tsx, /Karte konnte nicht initialisiert werden/);
   assert.match(scss, /\.ga-efb-map-view[\s\S]*display: block/);
 });
+
+test('tracker-hosted Kartentisch uses a channel handshake and reports iframe diagnostics', () => {
+  assert.match(tsx, /private serverFrameChannel = ''/);
+  assert.match(tsx, /messageChannel === this\.serverFrameChannel/);
+  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=3/);
+  assert.match(tsx, /\/api\/v1\/client-log/);
+  assert.match(tsx, /this\.reportServerFrameEvent\('parent-message'/);
+  assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\('map'\)/);
+});

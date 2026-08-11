@@ -32,11 +32,20 @@
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, value) { var node = byId(id); if (node) node.textContent = String(value == null ? '' : value); }
-  function finite(value) { var number = Number(value); return Number.isFinite(number) ? number : null; }
+  function isFiniteNumber(value) { return typeof value === 'number' && isFinite(value); }
+  function finite(value) { var number = Number(value); return isFiniteNumber(number) ? number : null; }
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
   function safePayload(envelope) { return envelope && envelope.message && envelope.message.payload || null; }
   function formatNumber(value, digits) { var number = finite(value); return number == null ? '--' : number.toFixed(digits); }
-  function pad2(value) { return String(Math.max(0, Math.round(value))).padStart(2, '0'); }
+  function leftPad(value, length) { var result = String(value); while (result.length < length) result = '0' + result; return result; }
+  function pad2(value) { return leftPad(Math.max(0, Math.round(value)), 2); }
+  function report(level, event, stage, message, details) {
+    if (typeof window.__gaEfbReport === 'function') window.__gaEfbReport(level, event, stage, message, details);
+  }
+  function boot(stage, message, error) {
+    if (typeof window.__gaEfbBoot === 'function') window.__gaEfbBoot(stage, message, error);
+    else report(error ? 'error' : 'info', 'boot', stage, message);
+  }
   function etaText(distanceNm, gsKts) {
     if (!(distanceNm >= 0) || !(gsKts > 1)) return '--:--';
     var date = new Date(Date.now() + distanceNm / gsKts * 3600000);
@@ -57,8 +66,28 @@
     try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)); } catch (_) {}
   }
 
-  function notifyParent(state) {
-    try { window.parent.postMessage({ type: 'ga-efb-kartentisch', state: state }, '*'); } catch (_) {}
+  function notifyParent(state, detail) {
+    if (typeof window.__gaEfbNotifyParent === 'function') {
+      window.__gaEfbNotifyParent(state, detail || {});
+      return;
+    }
+    try {
+      window.parent.postMessage({
+        type: 'ga-efb-kartentisch',
+        state: state,
+        channel: String(window.__gaEfbChannel || '')
+      }, '*');
+    } catch (_) {}
+  }
+
+  function closeHost(reason) {
+    // Das Original-Markup entfernt diese Klassen vor toggleMapTable(). Falls
+    // der Parent die Nachricht nicht annimmt, darf die Seite nicht leer werden.
+    if (document.body) document.body.classList.add('map-is-fullscreen');
+    document.documentElement.classList.add('map-is-fullscreen');
+    report('info', 'close', reason || 'button', 'Schliessen an EFB-Host gemeldet');
+    notifyParent('close', { stage: reason || 'button' });
+    return false;
   }
 
   function applyTheme(theme) {
@@ -66,7 +95,8 @@
     ids.forEach(function (id) { document.body.classList.remove('theme-' + id); });
     document.body.classList.add('theme-' + theme);
     preferences.theme = theme;
-    var entry = API.THEMES.find(function (candidate) { return candidate.id === theme; });
+    var entry = null;
+    API.THEMES.some(function (candidate) { if (candidate.id !== theme) return false; entry = candidate; return true; });
     var button = document.querySelector('.ga-efb-host-design');
     if (button) button.textContent = 'Design: ' + (entry ? entry.label : theme);
     savePreferences();
@@ -74,7 +104,12 @@
   }
 
   function cycleTheme() {
-    var index = API.THEMES.findIndex(function (entry) { return entry.id === preferences.theme; });
+    var index = -1;
+    API.THEMES.some(function (entry, candidateIndex) {
+      if (entry.id !== preferences.theme) return false;
+      index = candidateIndex;
+      return true;
+    });
     var next = API.THEMES[(index + 1) % API.THEMES.length];
     applyTheme(next.id);
   }
@@ -102,7 +137,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | EFB 0.4.2');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | EFB 0.4.3');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -150,7 +185,8 @@
   }
 
   function createTileLayer(definition) {
-    var options = Object.assign({}, definition.options || {});
+    var options = {};
+    Object.keys(definition.options || {}).forEach(function (key) { options[key] = definition.options[key]; });
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
     return L.tileLayer(definition.url, options);
   }
@@ -330,7 +366,7 @@
       node.textContent = routeProgressTarget === 'route' ? 'RTE' : 'WPT';
     });
     setText('nextWpName', navigation.nextWaypointName || navigation.nextWaypointId || 'NEXT');
-    setText('nextWpCourse', pad2(navigation.bearingToNextDeg).padStart(3, '0') + ' deg');
+    setText('nextWpCourse', leftPad(Math.round(navigation.bearingToNextDeg || 0), 3) + ' deg');
     setText('nextWpDist', formatNumber(navigation.distanceToNextNm, 1));
   }
 
@@ -352,7 +388,7 @@
       if (major) {
         var label = createSvg('text', { x: 150, y: 44, fill: '#fff', 'font-size': 18, 'font-weight': 700, 'text-anchor': 'middle', transform: 'rotate(' + degree + ' 150 150)' });
         var cardinal = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[degree];
-        label.textContent = cardinal || String(degree / 10).padStart(2, '0');
+        label.textContent = cardinal || leftPad(degree / 10, 2);
         svg.appendChild(label);
       }
     }
@@ -500,12 +536,13 @@
       renderFlight(safePayload(responses[1]));
       renderMapPayload(safePayload(responses[2]));
       notifyParent('live');
+      pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {
       trackerOnline = false;
       setTrackerState('Tracker nicht erreichbar', true);
       notifyParent('error');
-    }).finally(function () {
-      pollTimer = window.setTimeout(poll, trackerOnline ? 1000 : 1800);
+      report('warn', 'poll', 'tracker-unreachable', 'Snapshot-Polling fehlgeschlagen');
+      pollTimer = window.setTimeout(poll, 1800);
     });
   }
 
@@ -562,20 +599,35 @@
   window.promptForRate = function () {};
   window.resetMainRoute = function () {};
   window.minimizeWin95OverlayWindow = function () {};
-  window.closeWin95OverlayWindow = function () { notifyParent('close'); };
-  window.toggleMapTable = function () { notifyParent('close'); };
+  window.closeWin95OverlayWindow = function () { return closeHost('window-close'); };
+  window.toggleMapTable = function () { return closeHost('toggle-map-table'); };
 
   function init() {
-    if (!API || !L) {
-      setTrackerState('Kartentisch-Module fehlen', true);
-      notifyParent('error');
-      return;
+    boot('host-init', 'Kartentisch wird initialisiert', false);
+    try {
+      if (!API || !L) {
+        setTrackerState('Kartentisch-Module fehlen', true);
+        boot('host-missing-modules', 'Kartentisch-Module fehlen', true);
+        notifyParent('error', { stage: 'host-missing-modules' });
+        return;
+      }
+      configureOriginalChrome();
+      boot('host-chrome', 'Kartentisch-Oberflaeche bereit', false);
+      initializeMap();
+      if (!map) throw new Error('Leaflet-Karte wurde nicht initialisiert.');
+      setFollow(preferences.follow);
+      var bootStatus = byId('gaEfbBootStatus');
+      if (bootStatus) bootStatus.style.display = 'none';
+      report('info', 'boot', 'host-ready', 'Kartentisch und Karte bereit');
+      notifyParent('ready', { stage: 'host-ready' });
+      poll();
+    } catch (error) {
+      var message = error && error.message || String(error);
+      setTrackerState('Kartentisch konnte nicht starten', true);
+      boot('host-init-error', message, true);
+      report('error', 'host-init', 'exception', message, error && error.stack || '');
+      notifyParent('error', { stage: 'host-init-error', message: message });
     }
-    configureOriginalChrome();
-    initializeMap();
-    setFollow(preferences.follow);
-    notifyParent('ready');
-    poll();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

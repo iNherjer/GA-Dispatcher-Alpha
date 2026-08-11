@@ -43,6 +43,12 @@ function extractKartentischMarkup() {
   return markup;
 }
 
+function getInlineBootstrapSource() {
+  return readCachedFile(path.join(__dirname, 'tracker-efb-bootstrap-inline.js'))
+    .toString('utf8')
+    .replace(/<\/script/gi, '<\\/script');
+}
+
 function createTrackerEfbWebClientPage() {
   return `<!doctype html>
 <html lang="de" class="map-is-fullscreen">
@@ -50,16 +56,18 @@ function createTrackerEfbWebClientPage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>VFR Multitool Kartentisch</title>
-  <link rel="stylesheet" href="/efb/v1/assets/leaflet.css">
-  <link rel="stylesheet" href="/efb/v1/assets/app-styles.css">
-  <link rel="stylesheet" href="/efb/v1/assets/host.css">
-  <script defer src="/efb/v1/assets/leaflet.js"></script>
-  <script defer src="/efb/v1/assets/map-shell-core.js"></script>
-  <script defer src="/efb/v1/assets/map-utility-tools.js"></script>
-  <script defer src="/efb/v1/assets/host.js"></script>
+  <script>${getInlineBootstrapSource()}</script>
+  <link rel="stylesheet" href="/efb/v1/assets/leaflet.css" onload="__gaEfbReport('info','style-loaded','leaflet.css')" onerror="__gaEfbReport('error','style-error','leaflet.css')">
+  <link rel="stylesheet" href="/efb/v1/assets/app-styles.css" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
+  <link rel="stylesheet" href="/efb/v1/assets/host.css" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
 </head>
-<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="2">
+<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="3">
+<div id="gaEfbBootStatus" class="ga-efb-boot-status">Kartentisch-Skripte werden geladen</div>
 ${extractKartentischMarkup()}
+<script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>
+<script src="/efb/v1/assets/map-shell-core.js" onload="__gaEfbScriptLoaded('map-shell-core.js')" onerror="__gaEfbScriptError('map-shell-core.js')"></script>
+<script src="/efb/v1/assets/map-utility-tools.js" onload="__gaEfbScriptLoaded('map-utility-tools.js')" onerror="__gaEfbScriptError('map-utility-tools.js')"></script>
+<script src="/efb/v1/assets/host.js" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;
 }
@@ -87,5 +95,6 @@ module.exports = {
   createTrackerEfbProbePage,
   createTrackerEfbWebClientPage,
   extractKartentischMarkup,
+  getInlineBootstrapSource,
   getTrackerEfbWebClientAsset
 };

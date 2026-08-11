@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 | v320 | v325 ist im Alpha-Kanal; Stable bleibt bis zur Testerfreigabe unveraendert |
-| EFB-Community-Package | 0.4.1 Teststand | noch nicht verfuegbar | 0.4.1 ist im 2D-/physischen EFB funktional bestaetigt und bleibt Fallback fuer 0.4.2 |
+| Tracker-Runtime | v325 freigegeben / v328 Testkandidat | v320 | v328 ergaenzt nur den lokalen EFB-Webclient und dessen Diagnose; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.3 Testkandidat | noch nicht verfuegbar | 0.4.1 bleibt funktionaler SDK-Fallback; 0.4.3 diagnostiziert und haertet den tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -212,8 +212,22 @@ vollstaendig aktiv.
 Der lokale Browser-Gate vom 2026-08-11 bestaetigt Original-Styles, Route,
 Flugzeugmarker, Kompass, Planprofil, Designs, Toolbar, Layer und die originalen
 Werkzeuge. Stoppuhr, Rechner (`7 + 8 = 15`) und der echte E6B inklusive Flip
-auf die Windscheibe liefen ohne Scriptfehler. Ausstehend sind der offizielle
-Windows-PKG-/SDK-Build und der Coherent-In-Sim-Test.
+auf die Windscheibe liefen ohne Scriptfehler. Tracker v327 und EFB 0.4.2 wurden
+danach auf Windows gebaut und durchs offizielle SDK geschickt. Der Coherent-
+In-Sim-Test lud zwar das originale HTML/CSS-Grundgeruest, initialisierte aber
+die externe JavaScript-Kette nicht: Karteninhalt und Hostanpassungen fehlten,
+waehrend `/efb/v1/assets/host.js` am laufenden Tracker mit HTTP 200 erreichbar
+blieb. Der originale Schliessen-Handler konnte in diesem Zustand zudem eine
+noch nicht definierte Hostfunktion aufrufen.
+
+0.4.3/v328 ist der isolierte Diagnose- und Haertungskandidat. Ein kleiner
+Inline-Bootstrap stellt den Schliessen-Pfad bereits vor allen externen
+Skripten bereit, laedt Leaflet, Map-Kern, Werkzeuge und Hostadapter danach
+explizit in Reihenfolge und meldet Bootstufen sowie Fehler an den begrenzten
+Loopback-Endpunkt `/api/v1/client-log`. Ein zufaelliger iframe-Channel ergaenzt
+die Parent-Pruefung, weil Coherent `MessageEvent.source` nicht in jeder
+Konstellation verlaesslich erhaelt. Diese Diagnosedaten sind nicht
+missionsautorativ und koennen weder SimConnect noch Missionszustand aendern.
 
 ## Roadmap
 
@@ -556,10 +570,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Lokalen 0.4.2-Browser-Gate fuer Route, Flugzeug, Kompass, Planprofil,
       Designs, Toolbar, Layer, Stoppuhr, Rechner und E6B ohne Scriptfehler
       bestehen.
-- [ ] Tracker v327 mit allen Kartentisch-/E6B-Assets als Windows-EXE bauen,
-      danach EFB 0.4.2 durchs offizielle SDK schicken.
-- [ ] Im Simulator iframe-Laden, Buttons, E6B, Resize/Orientation,
-      Snapshot-Recovery und v326-Fallback pruefen. Der Ruecksprungpunkt
+- [x] Tracker v327 mit allen Kartentisch-/E6B-Assets als Windows-EXE bauen und
+      EFB 0.4.2 durchs offizielle SDK schicken. In-Sim-Ergebnis: HTML/CSS-
+      Huelle sichtbar, externe Host-Skriptkette nicht initialisiert;
+      Schliessen konnte dadurch in eine fehlende Funktion laufen.
+- [x] 0.4.3/v328 mit sequenziellem Coherent-Bootstrap, fruehem ausfallsicherem
+      Schliessen, iframe-Channel und begrenztem lokalen Client-/Asset-Logging
+      implementieren; lokale Protokoll-, Quellen- und HTTP-Tests bestanden.
+- [ ] Tracker v328 und EFB 0.4.3 auf Windows bauen und im Simulator Bootstufen,
+      Schliessen, Karte, Buttons, E6B, Resize/Orientation, Snapshot-Recovery
+      und v326-Fallback pruefen. Der Ruecksprungpunkt
       `efb-v0.4.1-sdk-input` bleibt bis dahin unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
@@ -588,6 +608,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der Windows-/SDK-Test von 0.4.2 zeigt im Simulator nur die
+  originale Kartentisch-Huelle. Tracker v327 bleibt nach dem Klick aktiv und
+  liefert `host.js` lokal mit HTTP 200; die fehlenden Hosttexte, Karte und
+  Buttons belegen damit einen Abbruch vor der Hostinitialisierung, keinen
+  Tracker-Absturz. 0.4.3/v328 laedt die externe Skriptfolge ohne `defer`, legt
+  einen ES5-sicheren Inline-Bootstrap davor und macht Schliessen unabhaengig
+  vom grossen Hostadapter. Der lokale Diagnose-POST ist auf Loopback, 8 KiB
+  je Meldung und 120 Meldungen pro Minute begrenzt. Wiederholte unveraenderte
+  Hangartor-Scans werden nur noch bei Aenderung oder als Fuenf-Minuten-
+  Heartbeat geloggt, damit die EFB-Bootspur sichtbar bleibt.
 
 - 2026-08-11: Der In-Sim-Test von 0.4.1 bestaetigt aktive Route, korrekt
   positioniertes Flugzeug und bedienbare Werkzeuge. Damit ist der markierte

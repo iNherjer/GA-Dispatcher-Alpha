@@ -21,7 +21,8 @@
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
     MISSION_AUTHORITY: 'mission.authority.v1',
     EFB_INTERACTION: 'efb.interaction.v1',
-    EFB_WEB_CLIENT: 'efb.web-client.v1'
+    EFB_WEB_CLIENT: 'efb.web-client.v1',
+    EFB_CLIENT_DIAGNOSTICS: 'efb.client-diagnostics.v1'
   });
 
   const LEGACY_CAPABILITIES = Object.freeze([

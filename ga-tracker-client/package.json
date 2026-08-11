@@ -40,6 +40,7 @@
       "efb-web-assets/e6b/e6b-workbench-front-disc.json",
       "efb-web-assets/e6b/e6b-workbench-wind-disc.json",
       "efb-app/map-shell-core.js",
+      "tracker-efb-bootstrap-inline.js",
       "tracker-efb-kartentisch-host.css",
       "tracker-efb-kartentisch-host.js"
     ],

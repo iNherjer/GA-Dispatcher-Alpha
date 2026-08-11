@@ -174,6 +174,21 @@ gemeinsamer Node-/Browser-Kern nutzbar. Voice bleibt ein eigener Tracker-
 Dienst und wird nicht aus dem eingebetteten EFB-Dokument heraus autoritativ
 gesteuert.
 
+Tracker v328 und EFB 0.4.3 haerten ausschliesslich diese lokale Hostgrenze.
+Der HTML-Einstieg enthaelt einen kleinen ES5-kompatiblen Inline-Bootstrap,
+damit Schliessen und Fehlerdiagnose auch funktionieren, wenn Coherent eines
+der grossen externen Skripte nicht ausfuehrt. Leaflet, `map-shell-core.js`,
+Werkzeuge und Hostadapter werden danach in fester Reihenfolge geladen. Jede
+iframe-Sitzung erhaelt einen zufaelligen Channel; Parent-Nachrichten werden
+ueber `event.source` oder den passenden Channel angenommen.
+
+Die Capability `efb.client-diagnostics.v1` erlaubt ausschliesslich begrenzte
+technische Meldungen an `POST /api/v1/client-log`. Der Endpunkt ist wie die
+Snapshots nur an Loopback gebunden, nimmt hoechstens 8 KiB pro Meldung und 120
+Meldungen pro Minute an und entfernt Steuerzeichen. Er schreibt keine Daten in
+Missions-, Cloud- oder SimConnect-Zustaende. Der fachliche EFB-Vertrag bleibt
+deshalb read-only; der POST ist nur ein lokaler Debug-Rueckkanal.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

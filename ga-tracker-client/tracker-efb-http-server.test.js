@@ -2,14 +2,22 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const test = require('node:test');
 const {
+  MAX_EFB_CLIENT_LOG_BYTES,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server');
 
-function request(address, pathname, method = 'GET') {
+function request(address, pathname, options = {}) {
+  if (typeof options === 'string') options = { method: options };
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port: address.port, path: pathname, method }, (response) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port: address.port,
+      path: pathname,
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    }, (response) => {
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => resolve({
@@ -19,14 +27,14 @@ function request(address, pathname, method = 'GET') {
       }));
     });
     req.on('error', reject);
-    req.end();
+    req.end(options.body || undefined);
   });
 }
 
-test('local EFB hello advertises only implemented read-only snapshot capabilities', () => {
+test('local EFB hello advertises snapshots, web client and bounded client diagnostics', () => {
   const hello = createTrackerEfbHttpHello({
-    trackerVersion: 'v327',
-    trackerVersionCode: 327,
+    trackerVersion: 'v328',
+    trackerVersionCode: 328,
     runtimeChannel: 'alpha',
     id: 'hello-test',
     timestamp: 1
@@ -35,6 +43,7 @@ test('local EFB hello advertises only implemented read-only snapshot capabilitie
   assert.equal(hello.payload.transport, 'http-loopback-readonly');
   assert.equal(hello.payload.runtimeChannel, 'alpha');
   assert.equal(hello.payload.capabilities.includes('efb.web-client.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('efb.client-diagnostics.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {
@@ -45,6 +54,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
     id: 'hello-server-test',
     timestamp: 1
   });
+  const logs = [];
   const server = createTrackerEfbHttpServer({
     host: '127.0.0.1',
     port: 0,
@@ -66,7 +76,8 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
       title: 'Testflug',
       route: { start: 'EDDS', destination: 'EDTF', target: '' },
       cargo: { total: 2, required: 2, loaded: 2, unloaded: 0, pending: 0 }
-    })
+    }),
+    log: (line) => logs.push(line)
   });
   t.after(() => server.stop());
   const address = await server.start();
@@ -99,7 +110,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="2"/);
+  assert.match(webClient.body, /data-efb-view-version="3"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');
@@ -110,6 +121,32 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const e6b = await request(address, '/efb/v1/e6b/e6b-flight-computer.html');
   assert.equal(e6b.statusCode, 200);
   assert.match(e6b.body, /E6B Flight Computer/);
+
+  const clientLog = await request(address, '/api/v1/client-log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      level: 'error',
+      event: 'host-init',
+      stage: 'leaflet',
+      sessionId: 'test-session',
+      channel: 'test-channel',
+      message: 'Zeile 1\nZeile 2',
+      details: { reason: 'test' }
+    })
+  });
+  assert.equal(clientLog.statusCode, 204);
+  assert.equal(logs.some((line) => line.includes('EFB_CLIENT level=error event=host-init stage=leaflet')), true);
+  assert.equal(logs.some((line) => line.includes('Zeile 1 Zeile 2')), true);
+  assert.equal(logs.some((line) => line.includes('EFB_HTTP_PAGE')), true);
+  assert.equal(logs.some((line) => line.includes('EFB_HTTP_ASSET path=/efb/v1/assets/host.js')), true);
+
+  assert.equal((await request(address, '/api/v1/client-log', {
+    method: 'POST', body: '{ungueltig'
+  })).statusCode, 400);
+  assert.equal((await request(address, '/api/v1/client-log', {
+    method: 'POST', body: 'x'.repeat(MAX_EFB_CLIENT_LOG_BYTES + 1)
+  })).statusCode, 413);
 
   const traversal = await request(address, '/efb/v1/e6b/%2e%2e/index.html');
   assert.equal(traversal.statusCode, 404);

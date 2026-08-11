@@ -5,9 +5,9 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch 0.4.2
+## Tracker-gehosteter Kartentisch 0.4.3
 
-Tracker v327 bietet additiv `efb.web-client.v1` und die read-only Seite
+Tracker v328 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
 erscheint im EFB der Tab `App-Karte`. Die Seite verwendet den originalen
 Kartentisch-DOM, die App-Styles, Leaflet, Stoppuhr, Rechner und den
@@ -20,6 +20,18 @@ den Tracker geladen. Fehlt die Capability, bleibt `App-Karte` unsichtbar und
 der vollstaendige native 0.4.1-Fallback funktioniert weiter. Die vom Windows-
 Tracker benoetigten Originalassets werden mit `sync-efb-web-assets.js` in ein
 versioniertes, von `pkg` sicher einbettbares Bundle gespiegelt.
+
+Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
+die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen
+ES5-kompatiblen Inline-Bootstrap vor Leaflet und Hostadapter. Er stellt den
+Schliessen-Pfad sofort bereit, laedt die grossen Skripte danach in fester
+Reihenfolge und meldet technische Bootstufen ueber
+`efb.client-diagnostics.v1` an den begrenzten lokalen Endpunkt
+`POST /api/v1/client-log`. Diese Diagnose kann weder Missionen noch
+SimConnect-Werte veraendern. iframe-Nachrichten tragen zusaetzlich einen
+zufaelligen Sitzungs-Channel, damit Coherent-Schliessen auch bei einem
+unvollstaendigen `MessageEvent.source` sicher dem richtigen View zugeordnet
+werden kann.
 
 ## Karten- und Werkzeugbasis 0.4.1
 

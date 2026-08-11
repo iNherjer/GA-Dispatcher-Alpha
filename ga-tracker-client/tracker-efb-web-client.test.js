@@ -8,6 +8,7 @@ const {
   createTrackerEfbProbePage,
   createTrackerEfbWebClientPage,
   extractKartentischMarkup,
+  getInlineBootstrapSource,
   getTrackerEfbWebClientAsset
 } = require('./tracker-efb-web-client');
 
@@ -15,7 +16,7 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.match(page, /data-efb-view-version="2"/);
+  assert.match(page, /data-efb-view-version="3"/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -23,8 +24,29 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapE6BDevice"/);
   assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
   assert.match(page, /src="\/efb\/v1\/assets\/host\.js"/);
+  assert.match(page, /id="gaEfbBootStatus"/);
+  assert.match(page, /window\.toggleMapTable = function/);
+  assert.doesNotMatch(page, /<script defer/);
+  const scriptOrder = [
+    '/efb/v1/assets/leaflet.js',
+    '/efb/v1/assets/map-shell-core.js',
+    '/efb/v1/assets/map-utility-tools.js',
+    '/efb/v1/assets/host.js'
+  ].map((asset) => page.indexOf(`<script src="${asset}"`));
+  assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
+  assert.equal(scriptOrder.every((index) => index > 0), true);
   assert.doesNotMatch(page, /id="pinboardOverlay"/);
   assert.doesNotMatch(page, /id="settingsSection"/);
+});
+
+test('inline bootstrap provides close fallback and bounded client diagnostics before external scripts', () => {
+  const source = getInlineBootstrapSource();
+  assert.doesNotThrow(() => new Function(source));
+  assert.match(source, /MAX_EVENTS = 80/);
+  assert.match(source, /\/api\/v1\/client-log/);
+  assert.match(source, /window\.toggleMapTable = function/);
+  assert.match(source, /document\.documentElement\.classList\.add\('map-is-fullscreen'\)/);
+  assert.match(source, /channel: channel/);
 });
 
 test('Kartentisch markup extraction stays bounded to the map and rewrites E6B locally', () => {
