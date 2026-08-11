@@ -189,6 +189,21 @@ Meldungen pro Minute an und entfernt Steuerzeichen. Er schreibt keine Daten in
 Missions-, Cloud- oder SimConnect-Zustaende. Der fachliche EFB-Vertrag bleibt
 deshalb read-only; der POST ist nur ein lokaler Debug-Rueckkanal.
 
+Der 0.4.3-In-Sim-Log zeigt, dass die Dateien in richtiger Reihenfolge geladen
+werden, Coherent aber Optional Chaining und Object Spread nicht parst.
+Tracker v329 und EFB 0.4.4 definieren deshalb eine zusaetzliche Hostgrenze:
+alle direkt oder im E6B-iframe ausgefuehrten Skripte muessen ohne `?.`, `??`
+und Spread-Syntax auskommen. Der Inline-Bootstrap ergaenzt nur kleine
+Browser-Polyfills; er ersetzt keine Missions- oder Kartenlogik.
+
+Der technische Rueckkanal schreibt weiter in `ga-tracker-debug.txt`, diese
+Datei ist ab v329 jedoch rotiert: 8 MiB aktive Datei, zwei Tail-Archive mit je
+hoechstens 512 KiB, 32 KiB pro Einzelzeile und 1,5 Sekunden Entprellung fuer
+identische Nachbarereignisse. Eine beim Upgrade bereits uebergrosse Datei wird
+beim ersten neuen Eintrag sofort auf ihren letzten Tail reduziert. Das
+Debuglogging kann damit die Missionsautoritaet weiterhin beobachten, aber den
+Benutzerdatentraeger nicht mehr unbegrenzt fuellen.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

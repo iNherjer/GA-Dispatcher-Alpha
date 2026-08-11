@@ -11,12 +11,13 @@ const {
   getInlineBootstrapSource,
   getTrackerEfbWebClientAsset
 } = require('./tracker-efb-web-client');
+const trackerPackage = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
 test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app modules', () => {
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.match(page, /data-efb-view-version="3"/);
+  assert.match(page, /data-efb-view-version="4"/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -47,6 +48,9 @@ test('inline bootstrap provides close fallback and bounded client diagnostics be
   assert.match(source, /window\.toggleMapTable = function/);
   assert.match(source, /document\.documentElement\.classList\.add\('map-is-fullscreen'\)/);
   assert.match(source, /channel: channel/);
+  assert.match(source, /installCompatibilityPolyfills/);
+  assert.match(source, /Element\.prototype\.replaceChildren/);
+  assert.match(source, /Object\.entries/);
 });
 
 test('Kartentisch markup extraction stays bounded to the map and rewrites E6B locally', () => {
@@ -67,6 +71,34 @@ test('tracker-hosted static assets are allowlisted and browser scripts parse', (
   assert.doesNotThrow(() => new Function(coreScript.body.toString('utf8')));
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/e6b/../index.html'), null);
   assert.equal(getTrackerEfbWebClientAsset('/efb/v1/assets/unknown.js'), null);
+});
+
+test('all Coherent-facing scripts avoid syntax rejected by the simulator engine', () => {
+  const paths = [
+    '/efb/v1/assets/host.js',
+    '/efb/v1/assets/map-utility-tools.js',
+    '/efb/v1/assets/map-shell-core.js',
+    '/efb/v1/e6b/e6b-core.js',
+    '/efb/v1/e6b/e6b-flight-computer.js'
+  ];
+  paths.forEach((assetPath) => {
+    const source = getTrackerEfbWebClientAsset(assetPath).body.toString('utf8');
+    assert.doesNotMatch(source, /\?\./, `${assetPath} contains optional chaining`);
+    assert.doesNotMatch(source, /\?\?/, `${assetPath} contains nullish coalescing`);
+    assert.doesNotMatch(source, /(^\s*|[([{,]\s*)\.\.\./m, `${assetPath} contains spread syntax`);
+  });
+  const e6bSource = getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.js').body.toString('utf8');
+  assert.match(e6bSource, /installE6BCompatibilityPolyfills/);
+  assert.match(e6bSource, /Element\.prototype\.replaceChildren/);
+});
+
+test('legacy app background requests resolve to a tiny local placeholder', () => {
+  ['/efb/v1/assets/bg.jpg', '/efb/v1/assets/map.jpg'].forEach((assetPath) => {
+    const asset = getTrackerEfbWebClientAsset(assetPath);
+    assert.equal(asset.contentType, 'image/svg+xml; charset=utf-8');
+    assert.ok(asset.body.length < 512);
+  });
+  assert.ok(trackerPackage.pkg.assets.includes('efb-web-assets/background-placeholder.svg'));
 });
 
 test('versioned tracker asset mirror matches the selected original app sources', () => {

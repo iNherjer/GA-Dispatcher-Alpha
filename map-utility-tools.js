@@ -461,12 +461,14 @@
 
     function nudgeE6BChromeStack(dx, dy) {
         if (!e6bChromeState.stack) return;
+        const stack = e6bChromeState.stack;
         e6bChromeState.stack = {
-            ...e6bChromeState.stack,
-            left: e6bChromeState.stack.left + dx,
-            top: e6bChromeState.stack.top + dy,
-            right: e6bChromeState.stack.right + dx,
-            bottom: e6bChromeState.stack.bottom + dy
+            left: stack.left + dx,
+            top: stack.top + dy,
+            right: stack.right + dx,
+            bottom: stack.bottom + dy,
+            width: stack.width,
+            height: stack.height
         };
     }
 
@@ -1369,8 +1371,8 @@
 
     function inferFormulaUnit(formula, name, role = 'variable') {
         const cleanName = String(name || '').replace(/[()]/g, '').trim();
-        const resultName = String(formula?.result || '');
-        const expr = String(formula?.expr || '');
+        const resultName = String(formula && formula.result || '');
+        const expr = String(formula && formula.expr || '');
         const speedNames = new Set(['GS', 'IAS', 'TAS', 'Wind', 'Headwind', 'Crosswind', 'Vs', 'Böendifferenz', 'kt']);
         const distanceNames = new Set(['Distanz', 'Ablage', 'Range', 'Reserve-NM', 'NM', 'TOD', 'Rest']);
         const altitudeNames = new Set(['Höhe', 'PA', 'DA', 'Indicated', 'True Alt', 'QNH-Höhe', 'Elevation', 'ft']);
@@ -1481,7 +1483,7 @@
     function substituteCalcFormulaExpression(formula) {
         if (!formula) return '';
         let expression = formula.expr;
-        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
+        formula.vars.slice().sort((a, b) => b.length - a.length).forEach(name => {
             const value = Object.prototype.hasOwnProperty.call(formula.values, name)
                 ? formula.values[name]
                 : '0';
@@ -1496,7 +1498,7 @@
         const activeName = formula.vars[formula.current] || '';
         const activeUnit = inferFormulaUnit(formula, activeName);
         let html = escapeCalcHtml(formula.display);
-        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
+        formula.vars.slice().sort((a, b) => b.length - a.length).forEach(name => {
             const stored = Object.prototype.hasOwnProperty.call(formula.values, name) ? formula.values[name] : '';
             const rawValue = name === activeName ? (formula.entry || stored) : stored;
             const raw = rawValue || name;
@@ -1991,7 +1993,7 @@
     }
 
     function openFormulaHelp(trigger) {
-        const key = trigger?.dataset?.helpKey;
+        const key = trigger && trigger.dataset ? trigger.dataset.helpKey : '';
         const data = key ? FORMULA_HELP[key] : null;
         const overlay = el('mapFormulaHelpOverlay');
         const title = el('mapFormulaHelpTitle');
@@ -2007,7 +2009,8 @@
                 p.textContent = String(text);
                 return p;
             });
-        body.replaceChildren(...paragraphs);
+        while (body.firstChild) body.removeChild(body.firstChild);
+        paragraphs.forEach(paragraph => body.appendChild(paragraph));
         overlay.hidden = false;
         overlay.setAttribute('aria-hidden', 'false');
         overlay.classList.add('is-open');

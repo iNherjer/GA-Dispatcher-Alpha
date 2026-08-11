@@ -5,9 +5,9 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch 0.4.3
+## Tracker-gehosteter Kartentisch 0.4.4
 
-Tracker v328 bietet additiv `efb.web-client.v1` und die read-only Seite
+Tracker v329 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
 erscheint im EFB der Tab `App-Karte`. Die Seite verwendet den originalen
 Kartentisch-DOM, die App-Styles, Leaflet, Stoppuhr, Rechner und den
@@ -32,6 +32,14 @@ SimConnect-Werte veraendern. iframe-Nachrichten tragen zusaetzlich einen
 zufaelligen Sitzungs-Channel, damit Coherent-Schliessen auch bei einem
 unvollstaendigen `MessageEvent.source` sicher dem richtigen View zugeordnet
 werden kann.
+
+Der 0.4.3-In-Sim-Log bestaetigte diese Ladekette, zeigte aber Parserabbrueche
+an Optional Chaining und Object Spread. 0.4.4 entfernt `?.`, `??` und
+Spread-Syntax aus allen tracker-gehosteten Map-, Werkzeug- und E6B-Skripten.
+Ein automatischer Quellentest verhindert deren Wiedereinfuehrung; kleine
+Polyfills im fruehen Bootstrap decken fehlende Browsermethoden ab. Die
+Tracker-Debugdatei rotiert ab v329 bei 8 MiB und reduziert auch bereits
+uebergrosse Altdateien beim ersten neuen Eintrag auf einen kleinen Tail.
 
 ## Karten- und Werkzeugbasis 0.4.1
 

@@ -508,7 +508,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
     this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
-    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=3`;
+    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=4`;
   }
 
   private reportServerFrameEvent(event: string, stage: string, message = ''): void {

@@ -53,11 +53,19 @@ offiziellem SDK-Build sowie bestandenem 2D-/physischem In-Sim-Test auf 0.3.5.
 0.4.2 wurde zusammen mit Tracker v327 auf Windows gebaut und im Simulator
 geprueft, aber nicht in den Alpha-Kanal eingetragen: Das originale HTML/CSS-
 Grundgeruest erschien, die externe Kartentisch-Skriptkette initialisierte sich
-in Coherent jedoch nicht. 0.4.3/v328 ist der naechste SDK-Testkandidat mit
-sequenziellem Scriptstart, ausfallsicherem Schliessen sowie begrenztem lokalem
-Boot-/Fehlerlogging. Bis dessen In-Sim-Test bestanden ist, bleiben der
-unveraenderliche 0.3.5-Alpha-Release und der markierte 0.4.1-SDK-Fallback die
+in Coherent jedoch nicht. 0.4.3/v328 fuegte sequenziellen Scriptstart,
+ausfallsicheres Schliessen sowie begrenzte lokale Boot-/Fehlerdiagnose hinzu
+und lieferte damit den konkreten Parserbefund. Der unveraenderliche
+0.3.5-Alpha-Release und der markierte 0.4.1-SDK-Fallback bleiben die
 Ruecksprungpunkte.
+
+Der 0.4.3-Test hat den lokalen Transport und Schliessen bestaetigt, aber zwei
+konkrete Coherent-Parserfehler (`?.` und `...`) offengelegt. 0.4.4/v329 ist
+deshalb der folgende SDK-Testkandidat. Seine tracker-gehosteten Map-, Werkzeug-
+und E6B-Skripte sind durch ein Quellen-Gate frei von Optional Chaining,
+Nullish Coalescing und Spread-Syntax. Die vererbten CSS-Anfragen nach
+`bg.jpg` und `map.jpg` werden lokal beantwortet. 0.4.3 wird nicht in einen
+Kanal eingetragen.
 
 ## Erste Transportstufe
 

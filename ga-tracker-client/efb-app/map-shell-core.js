@@ -160,15 +160,18 @@ function normalizeTrackerMapSnapshot(value) {
     .filter(Boolean);
   if (waypoints.length < 2) return null;
   const profileSource = source.profile && typeof source.profile === 'object' ? source.profile : null;
-  const profilePoints = (Array.isArray(profileSource?.points) ? profileSource.points : [])
+  const profilePoints = (profileSource && Array.isArray(profileSource.points) ? profileSource.points : [])
     .slice(0, 128)
-    .map((point) => ({
-      waypointId: String(point?.waypointId || '').slice(0, 80),
-      name: String(point?.name || '').slice(0, 100),
-      distanceNm: Math.max(0, finite(point?.distanceNm) || 0),
-      terrainFt: finite(point?.terrainFt),
-      plannedAltFt: Math.max(0, finite(point?.plannedAltFt) || 0)
-    }));
+    .map((point) => {
+      const item = point && typeof point === 'object' ? point : {};
+      return {
+        waypointId: String(item.waypointId || '').slice(0, 80),
+        name: String(item.name || '').slice(0, 100),
+        distanceNm: Math.max(0, finite(item.distanceNm) || 0),
+        terrainFt: finite(item.terrainFt),
+        plannedAltFt: Math.max(0, finite(item.plannedAltFt) || 0)
+      };
+    });
   const navigationSource = source.navigation && typeof source.navigation === 'object' ? source.navigation : null;
   const geometrySource = source.missionGeometry && typeof source.missionGeometry === 'object' ? source.missionGeometry : {};
   return {
@@ -287,15 +290,16 @@ function baseLayerOpacity(value = {}) {
 
 function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
   const currentAt = Math.max(0, Math.round(finite(now) || 0));
-  const lastSnapshot = previous?.lastSnapshot && typeof previous.lastSnapshot === 'object'
-    && previous.lastSnapshot.available === true
-    && String(previous.lastSnapshot.missionId || '').trim()
-    ? previous.lastSnapshot
+  const previousState = previous && typeof previous === 'object' ? previous : {};
+  const lastSnapshot = previousState.lastSnapshot && typeof previousState.lastSnapshot === 'object'
+    && previousState.lastSnapshot.available === true
+    && String(previousState.lastSnapshot.missionId || '').trim()
+    ? previousState.lastSnapshot
     : null;
-  const lastSeenAt = Math.max(0, Math.round(finite(previous?.lastSeenAt) || 0));
-  const emptySince = Math.max(0, Math.round(finite(previous?.emptySince) || 0));
+  const lastSeenAt = Math.max(0, Math.round(finite(previousState.lastSeenAt) || 0));
+  const emptySince = Math.max(0, Math.round(finite(previousState.emptySince) || 0));
   const source = incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : null;
-  const hasMission = source?.available === true && String(source.missionId || '').trim();
+  const hasMission = source && source.available === true && String(source.missionId || '').trim();
 
   if (hasMission) {
     return {
@@ -321,7 +325,7 @@ function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
     };
   }
 
-  if (source?.available === false) {
+  if (source && source.available === false) {
     const nextEmptySince = emptySince > 0 ? emptySince : currentAt;
     const pending = currentAt >= nextEmptySince
       && (currentAt - nextEmptySince) < MISSION_EMPTY_DEBOUNCE_MS;

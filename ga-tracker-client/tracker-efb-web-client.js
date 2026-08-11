@@ -8,6 +8,8 @@ const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/bg.jpg': [path.join(__dirname, 'efb-web-assets', 'background-placeholder.svg'), 'image/svg+xml; charset=utf-8'],
+  '/efb/v1/assets/map.jpg': [path.join(__dirname, 'efb-web-assets', 'background-placeholder.svg'), 'image/svg+xml; charset=utf-8'],
   '/efb/v1/assets/app-styles.css': [path.join(__dirname, 'efb-web-assets', 'styles.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/host.css': [path.join(__dirname, 'tracker-efb-kartentisch-host.css'), 'text/css; charset=utf-8'],
   '/efb/v1/assets/host.js': [path.join(__dirname, 'tracker-efb-kartentisch-host.js'), 'text/javascript; charset=utf-8'],
@@ -61,7 +63,7 @@ function createTrackerEfbWebClientPage() {
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
   <link rel="stylesheet" href="/efb/v1/assets/host.css" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
 </head>
-<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="3">
+<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="4">
 <div id="gaEfbBootStatus" class="ga-efb-boot-status">Kartentisch-Skripte werden geladen</div>
 ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>

@@ -21,6 +21,7 @@ const {
 } = require('./tracker-efb-http-server.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.js');
+const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -36,8 +37,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v328';
-const TRACKER_VERSION_CODE = 328;
+const TRACKER_VERSION = 'v329';
+const TRACKER_VERSION_CODE = 329;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
@@ -97,6 +98,13 @@ const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
+const debugLog = createRotatingDebugLog({
+  filename: TRACKER_DEBUG_FILE,
+  maxBytes: 8 * 1024 * 1024,
+  retainedTailBytes: 512 * 1024,
+  maxLineBytes: 32 * 1024,
+  dedupeWindowMs: 1500
+});
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
@@ -165,14 +173,6 @@ function trackerStatus(line = '') {
   }
   consoleStatusLine = line;
   consoleRenderStatusLine();
-}
-
-function debugLog(line) {
-  try {
-    const ts = new Date().toISOString();
-    fs.mkdirSync(path.dirname(TRACKER_DEBUG_FILE), { recursive: true });
-    fs.appendFileSync(TRACKER_DEBUG_FILE, `[${ts}] ${line}\n`, 'utf8');
-  } catch (_) {}
 }
 
 function toFiniteNumber(value, fallback = null) {

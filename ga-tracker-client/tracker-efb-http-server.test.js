@@ -33,8 +33,8 @@ function request(address, pathname, options = {}) {
 
 test('local EFB hello advertises snapshots, web client and bounded client diagnostics', () => {
   const hello = createTrackerEfbHttpHello({
-    trackerVersion: 'v328',
-    trackerVersionCode: 328,
+    trackerVersion: 'v329',
+    trackerVersionCode: 329,
     runtimeChannel: 'alpha',
     id: 'hello-test',
     timestamp: 1
@@ -110,7 +110,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="3"/);
+  assert.match(webClient.body, /data-efb-view-version="4"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');

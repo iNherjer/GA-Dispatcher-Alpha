@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v328 Testkandidat | v320 | v328 ergaenzt nur den lokalen EFB-Webclient und dessen Diagnose; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.3 Testkandidat | noch nicht verfuegbar | 0.4.1 bleibt funktionaler SDK-Fallback; 0.4.3 diagnostiziert und haertet den tracker-gehosteten Kartentisch |
+| Tracker-Runtime | v325 freigegeben / v329 Testkandidat | v320 | v329 ergaenzt nur Coherent-Kompatibilitaet und begrenztes lokales Debuglogging; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | 0.4.1 bleibt funktionaler SDK-Fallback; 0.4.4 ist der Coherent-Syntax-Fix fuer den tracker-gehosteten Kartentisch |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -228,6 +228,17 @@ Loopback-Endpunkt `/api/v1/client-log`. Ein zufaelliger iframe-Channel ergaenzt
 die Parent-Pruefung, weil Coherent `MessageEvent.source` nicht in jeder
 Konstellation verlaesslich erhaelt. Diese Diagnosedaten sind nicht
 missionsautorativ und koennen weder SimConnect noch Missionszustand aendern.
+
+Der In-Sim-Log von 0.4.3 hat die Transport- und Reihenfolgefrage geklaert:
+alle Assets wurden mit HTTP 200 geladen und der Inline-Bootstrap sowie der
+Schliessen-Channel liefen. Coherent verwarf jedoch `map-shell-core.js` an
+Optional Chaining (`?.`) und `map-utility-tools.js` an Object Spread (`...`).
+Der anschliessende Hostfehler an `API.normalizePreferences` war nur eine Folge
+des nicht angelegten Map-Kerns. 0.4.4/v329 entfernt Optional Chaining,
+Nullish Coalescing und Spread aus der gesamten ausgelieferten Map-/Werkzeug-/
+E6B-Skriptkette, installiert kleine Runtime-Polyfills und beantwortet die nur
+durch geerbte App-CSS angefragten `bg.jpg`/`map.jpg` lokal mit einem
+transparenten Platzhalter.
 
 ## Roadmap
 
@@ -577,10 +588,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] 0.4.3/v328 mit sequenziellem Coherent-Bootstrap, fruehem ausfallsicherem
       Schliessen, iframe-Channel und begrenztem lokalen Client-/Asset-Logging
       implementieren; lokale Protokoll-, Quellen- und HTTP-Tests bestanden.
-- [ ] Tracker v328 und EFB 0.4.3 auf Windows bauen und im Simulator Bootstufen,
-      Schliessen, Karte, Buttons, E6B, Resize/Orientation, Snapshot-Recovery
-      und v326-Fallback pruefen. Der Ruecksprungpunkt
-      `efb-v0.4.1-sdk-input` bleibt bis dahin unangetastet.
+- [x] Tracker v328 und EFB 0.4.3 auf Windows bauen und im Simulator Bootstufen
+      und Schliessen pruefen. Ergebnis: Transport/Channel funktionieren;
+      Coherent bricht an `?.` und `...` ab, deshalb kein Hoststart.
+- [x] 0.4.4/v329 mit durchgaengigem Coherent-Syntaxgate, Runtime-Polyfills,
+      lokalen CSS-Hintergrundplatzhaltern und rotiertem Tracker-Debuglog
+      implementieren; lokale Quellen-, Webclient- und Logtests bestanden.
+- [ ] Tracker v329 und EFB 0.4.4 auf Windows bauen und im Simulator Karte,
+      Buttons, E6B, Resize/Orientation, Snapshot-Recovery und v326-Fallback
+      pruefen. Der Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt bis dahin
+      unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -608,6 +625,19 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der 0.4.3-In-Sim-Log belegt erfolgreiche HTTP-Ladung aller
+  Skripte, aber Parserabbrueche an Optional Chaining in `map-shell-core.js`
+  und Object Spread in `map-utility-tools.js`. 0.4.4/v329 ersetzt diese sowie
+  Nullish Coalescing und die weiteren Spread-Vorkommen auch im echten E6B und
+  sichert das mit einem Quellen-Gate fuer alle Coherent-facing Skripte ab.
+  Der fruehe Bootstrap stellt kompatible Standardmethoden wie
+  `Object.entries`, `Array.includes` und `Element.replaceChildren` bereit.
+  Gleichzeitig wird `ga-tracker-debug.txt` ab dem ersten v329-Logeintrag auf
+  hoechstens 8 MiB aktive Daten plus zwei kleine Tail-Archive begrenzt;
+  uebergrosse Altdateien werden nicht vollstaendig umbenannt, sondern sofort
+  auf die letzten 512 KiB reduziert. Unmittelbar identische Logzeilen werden
+  fuer 1,5 Sekunden entprellt und Einzelzeilen auf 32 KiB begrenzt.
 
 - 2026-08-11: Der Windows-/SDK-Test von 0.4.2 zeigt im Simulator nur die
   originale Kartentisch-Huelle. Tracker v327 bleibt nach dem Klick aktiv und

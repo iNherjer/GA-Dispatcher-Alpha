@@ -28,6 +28,7 @@
       "efb-web-assets/styles.css",
       "efb-web-assets/map-utility-tools.js",
       "efb-web-assets/aircraft-marker.svg",
+      "efb-web-assets/background-placeholder.svg",
       "efb-web-assets/vendor/leaflet/leaflet.css",
       "efb-web-assets/vendor/leaflet/leaflet.js",
       "efb-web-assets/vendor/leaflet/images/layers.png",

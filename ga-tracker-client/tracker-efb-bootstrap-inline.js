@@ -6,6 +6,57 @@
   var sessionId = 'efb-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   var channel = '';
 
+  function installCompatibilityPolyfills() {
+    if (!Number.isFinite) Number.isFinite = function (value) { return typeof value === 'number' && isFinite(value); };
+    if (!Number.isInteger) Number.isInteger = function (value) { return Number.isFinite(value) && Math.floor(value) === value; };
+    if (!Number.EPSILON) Number.EPSILON = Math.pow(2, -52);
+    if (!Math.sign) Math.sign = function (value) { var number = Number(value); return number === 0 || isNaN(number) ? number : (number > 0 ? 1 : -1); };
+    if (!Object.assign) Object.assign = function (target) {
+      if (target == null) throw new TypeError('Object.assign target');
+      var output = Object(target);
+      for (var sourceIndex = 1; sourceIndex < arguments.length; sourceIndex += 1) {
+        var source = arguments[sourceIndex];
+        if (source == null) continue;
+        Object.keys(Object(source)).forEach(function (key) { output[key] = source[key]; });
+      }
+      return output;
+    };
+    if (!Object.values) Object.values = function (source) { return Object.keys(Object(source)).map(function (key) { return source[key]; }); };
+    if (!Object.entries) Object.entries = function (source) { return Object.keys(Object(source)).map(function (key) { return [key, source[key]]; }); };
+    if (!Array.prototype.includes) Array.prototype.includes = function (value, fromIndex) {
+      var length = this.length >>> 0;
+      var index = Math.max(Number(fromIndex) || 0, 0);
+      while (index < length) {
+        var current = this[index];
+        if (current === value || (current !== current && value !== value)) return true;
+        index += 1;
+      }
+      return false;
+    };
+    if (!String.prototype.includes) String.prototype.includes = function (value, start) { return this.indexOf(value, start || 0) >= 0; };
+    if (!String.prototype.startsWith) String.prototype.startsWith = function (value, start) { return this.slice(start || 0, (start || 0) + String(value).length) === String(value); };
+    if (!String.prototype.endsWith) String.prototype.endsWith = function (value) { var text = String(value); return this.slice(this.length - text.length) === text; };
+    if (window.NodeList && !NodeList.prototype.forEach) NodeList.prototype.forEach = Array.prototype.forEach;
+    if (window.Element && !Element.prototype.matches) Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+    if (window.Element && !Element.prototype.closest) Element.prototype.closest = function (selector) {
+      var node = this;
+      while (node && node.nodeType === 1) {
+        if (node.matches && node.matches(selector)) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+    if (window.Element && !Element.prototype.replaceChildren) Element.prototype.replaceChildren = function () {
+      while (this.firstChild) this.removeChild(this.firstChild);
+      for (var index = 0; index < arguments.length; index += 1) {
+        var child = arguments[index];
+        this.appendChild(child && child.nodeType ? child : document.createTextNode(String(child)));
+      }
+    };
+  }
+
+  installCompatibilityPolyfills();
+
   function text(value, limit) {
     return String(value == null ? '' : value).replace(/[\r\n\t]+/g, ' ').slice(0, limit || 240);
   }

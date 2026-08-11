@@ -96,7 +96,7 @@ test('theme and local tool shell reuses the map-table devices and bundles the in
   assert.match(buildJs, /e6b-efb-disc-data\.js/);
   assert.match(buildJs, /e6b-workbench-front-disc\.json/);
   assert.match(buildJs, /e6b-workbench-wind-disc\.json/);
-  assert.match(e6bJs, /embeddedMode = searchParams\.has\('embedded'\) \|\| \/embedded/);
+  assert.match(e6bJs, /embeddedMode = \/embedded\(\?:=1\)\?\/i\.test\(locationMode\)/);
   assert.match(e6bJs, /window\.GAE6B_EFB_DISCS/);
   assert.match(e6bCss, /body\.e6b-coherent/);
   assert.doesNotMatch(e6bCss, /\binset\s*:/);
@@ -137,7 +137,7 @@ test('map initialization failures remain visible and diagnosable', () => {
 test('tracker-hosted Kartentisch uses a channel handshake and reports iframe diagnostics', () => {
   assert.match(tsx, /private serverFrameChannel = ''/);
   assert.match(tsx, /messageChannel === this\.serverFrameChannel/);
-  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=3/);
+  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=4/);
   assert.match(tsx, /\/api\/v1\/client-log/);
   assert.match(tsx, /this\.reportServerFrameEvent\('parent-message'/);
   assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\('map'\)/);

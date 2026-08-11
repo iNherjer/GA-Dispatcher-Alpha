@@ -137,7 +137,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | EFB 0.4.3');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | EFB 0.4.4');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
