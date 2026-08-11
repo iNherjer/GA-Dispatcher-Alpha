@@ -4,6 +4,7 @@ const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
 const MAP_SNAPSHOT_VERSION = 1;
 const MAX_ROUTE_WAYPOINTS = 128;
 const MAX_CHAIN_POINTS = 96;
+const MAX_PROFILE_POINTS = 128;
 const EARTH_RADIUS_NM = 3440.065;
 
 function object(value) {
@@ -188,10 +189,85 @@ function plannedCruiseAltitudeFt(parts, flight) {
   return Math.round(selected || liveAltitude || 3500);
 }
 
+function normalizeTerrainProfile(parts, routeTotalDistanceNm) {
+  const source = object(parts.bundle.mapProfile);
+  const rawPoints = Array.isArray(source.points) ? source.points.slice(0, MAX_PROFILE_POINTS) : [];
+  const points = [];
+  let cumulativeNm = 0;
+  for (const rawPoint of rawPoints) {
+    const point = object(rawPoint);
+    const lat = finite(point.lat ?? point.latitude);
+    const lon = finite(point.lon ?? point.lng ?? point.longitude);
+    const terrainFt = finite(point.elevFt ?? point.terrainFt ?? point.elevationFt);
+    if (lat === null || lon === null || terrainFt === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
+    const previous = points[points.length - 1];
+    const explicitDistance = finite(point.distNM ?? point.distanceNm);
+    if (previous) cumulativeNm += distanceNm(previous, { lat, lon });
+    let distanceAlongNm = explicitDistance === null ? cumulativeNm : Math.max(0, explicitDistance);
+    if (previous && distanceAlongNm < previous.distanceNm) distanceAlongNm = previous.distanceNm;
+    points.push({ lat, lon, terrainFt: Math.round(terrainFt), distanceNm: distanceAlongNm });
+  }
+  if (points.length < 2) return [];
+  const sourceTotal = finite(source.totalDistanceNm) || points[points.length - 1].distanceNm;
+  const targetTotal = routeTotalDistanceNm > 0 ? routeTotalDistanceNm : sourceTotal;
+  const scale = sourceTotal > 0 && targetTotal > 0 ? targetTotal / sourceTotal : 1;
+  return points.map(point => ({
+    lat: point.lat,
+    lon: point.lon,
+    terrainFt: point.terrainFt,
+    distanceNm: Math.round(point.distanceNm * scale * 100) / 100
+  }));
+}
+
+function plannedAltitudeAtDistance(distanceNm, totalDistanceNm, cruiseAltitudeFt, waypoints) {
+  const progress = totalDistanceNm > 0 ? Math.max(0, Math.min(1, distanceNm / totalDistanceNm)) : 0;
+  const startElevation = waypoints[0].elevationFt ?? cruiseAltitudeFt;
+  const endElevation = waypoints[waypoints.length - 1].elevationFt ?? cruiseAltitudeFt;
+  if (progress < 0.18) return startElevation + (cruiseAltitudeFt - startElevation) * (progress / 0.18);
+  if (progress > 0.78) return cruiseAltitudeFt + (endElevation - cruiseAltitudeFt) * ((progress - 0.78) / 0.22);
+  return cruiseAltitudeFt;
+}
+
 function buildProfile(parts, waypoints, legs, flight) {
   if (!waypoints.length || !legs.length) return null;
   const totalDistanceNm = legs[legs.length - 1].endDistanceNm;
   const cruiseAltitudeFt = plannedCruiseAltitudeFt(parts, flight);
+  const terrainProfile = normalizeTerrainProfile(parts, totalDistanceNm);
+  if (terrainProfile.length >= 2) {
+    const profilePoints = terrainProfile.map(point => ({
+      waypointId: '',
+      name: '',
+      distanceNm: point.distanceNm,
+      terrainFt: point.terrainFt,
+      plannedAltFt: Math.max(0, Math.round(plannedAltitudeAtDistance(
+        point.distanceNm,
+        totalDistanceNm,
+        cruiseAltitudeFt,
+        waypoints
+      )))
+    }));
+    waypoints.forEach((waypoint, index) => {
+      const waypointDistanceNm = index === 0 ? 0 : legs[index - 1].endDistanceNm;
+      let nearestIndex = 0;
+      let nearestDelta = Infinity;
+      profilePoints.forEach((point, pointIndex) => {
+        const delta = Math.abs(point.distanceNm - waypointDistanceNm);
+        if (delta < nearestDelta) {
+          nearestIndex = pointIndex;
+          nearestDelta = delta;
+        }
+      });
+      profilePoints[nearestIndex].waypointId = waypoint.id;
+      profilePoints[nearestIndex].name = waypoint.name;
+    });
+    return {
+      mode: 'tracker-terrain',
+      terrainAvailable: true,
+      totalDistanceNm,
+      cruiseAltitudeFt,
+      points: profilePoints
+    };
+  }
   const profilePoints = waypoints.map((waypoint, index) => {
     const distanceAlongNm = index === 0 ? 0 : legs[index - 1].endDistanceNm;
     const progress = totalDistanceNm > 0 ? distanceAlongNm / totalDistanceNm : 0;

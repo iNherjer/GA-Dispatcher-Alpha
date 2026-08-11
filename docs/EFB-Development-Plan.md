@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v330 Testkandidat | v320 | v330 repariert die Coherent-Werkzeugruntime des tracker-gehosteten Kartentischs; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v330-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v331 Testkandidat | v320 | v331 ergaenzt Terrainprofil, Wegpunktvorschau, Fenstersteuerung und stabile Kartenebenen; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v331-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -258,6 +258,17 @@ im lokalen End-to-End-Browsertest bedienbar. Parent-Status wird nur noch bei
 Zustandswechseln gesendet, Route nur bei veraenderter Geometrie neu aufgebaut
 und der Flugzeugmarker nur bei tatsaechlicher Bewegung beziehungsweise
 Headingaenderung aktualisiert.
+
+Tracker v331 liefert den tracker-gehosteten Kartentischstand 0.4.6 ebenfalls
+ohne neues Community-Package. Die Web-App legt ein optionales, auf 96 Punkte
+begrenztes `mapProfile` getrennt vom Cloud-Missionspayload in das autoritative
+Tracker-Resume-Bundle. Damit kann `/api/v1/map` das echte Terrainprofil samt
+Planhoehe an das EFB projizieren. Die Leg-Pfeile schalten eine lokale
+Wegpunktvorschau mit Distanz, Bearing und gestrichelter Vorschauverbindung;
+sie veraendern weder Mission noch Route. Telemetrie-, Positions- und
+Legfenster sind verschiebbar, einzeln schliessbar und ueber `Infos`
+wiederherstellbar. Feste Leaflet-Panes, abgeschaltete Tile-/Zoom-Fades und
+zustandsabhaengige Updates verhindern konkurrierende Layer-Reihenfolgen.
 
 ## Roadmap
 
@@ -620,10 +631,19 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       E6B-iframe-Diagnose, Freihandzeichnen und zustandsabhaengigen Karten-/
       Parent-Updates implementieren; lokaler Rechner-, E6B-, Stoppuhr- und
       Zeichentest bestanden. Das installierte EFB-Paket bleibt 0.4.4.
-- [ ] Tracker v330 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
-      Rechner, E6B Front/Wind, PEN/DEL/SET/CLR/NM, Kartenflackern,
-      Resize/Orientation und Snapshot-Recovery. Der Ruecksprungpunkt
-      `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v330 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim starten.
+      Ergebnis: Kartentisch, Route, Flugzeug, Kompass und Werkzeuge erreichen
+      den vorgesehenen Host; der Test meldet als Restpunkte Terrainprofil,
+      Legwechsel, Fensterbedienung und gelegentliches Kartenflackern.
+- [x] Tracker v331 / gehosteten Kartentisch 0.4.6 mit kompaktem
+      Tracker-Terrainprofil, lokaler Wegpunktvorschau, verschieb-/schliessbaren
+      Infoboxen und festen Leaflet-Panes implementieren. Browser-End-to-End-
+      Test bestaetigt Terrain, Legwechsel sowie Schliessen/Wiederherstellen;
+      Quellen-, Snapshot- und Webclienttests bestanden.
+- [ ] Tracker v331 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
+      Terrainprofil, Legpfeile, Drag/Schliessen/Infos, Rechner, E6B Front/Wind,
+      PEN/DEL/SET/CLR/NM, Kartenflackern und Resize/Orientation. Der
+      Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -651,6 +671,18 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-11: Der v330-In-Sim-Test bestaetigt die grundsaetzliche
+  Kartentisch-Hostgrenze, zeigt aber vier getrennte Restprobleme: Dem
+  bisherigen Snapshot fehlt echtes Terrain, die Legpfeile haben keine lokale
+  Vorschaufunktion, die Original-Infoboxen besitzen im EFB keine
+  Fenstersteuerung und Leaflet-Layer koennen beim Aktualisieren ihre sichtbare
+  Reihenfolge wechseln. Tracker v331 loest das additiv im read-only Hoststand
+  0.4.6. Das Terrain kommt als kleiner `mapProfile`-Untervertrag im
+  Tracker-Authority-Bundle und nicht im Cloud-Payload. Legwechsel bleiben
+  reine EFB-Vorschau; Fensterpositionen bleiben lokale UI-Praeferenz. Kein
+  Punkt erhaelt damit Missions- oder SimConnect-Schreibrechte, und das
+  installierte Community-Paket 0.4.4 braucht keinen erneuten SDK-Build.
 
 - 2026-08-11: Der 0.4.4/v329-In-Sim-Test erreicht erstmals den vollstaendigen
   tracker-gehosteten Kartentisch. Die verbleibenden Werkzeugfehler sind keine

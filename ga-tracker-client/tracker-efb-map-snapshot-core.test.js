@@ -12,6 +12,17 @@ function activeRun() {
     updatedAt: 1234,
     resumeBundle: {
       version: 2,
+      mapProfile: {
+        version: 1,
+        terrainAvailable: true,
+        totalDistanceNm: 38,
+        points: [
+          { lat: 48.2792, lon: 8.4283, elevFt: 2201, distNM: 0 },
+          { lat: 48.38, lon: 8.62, elevFt: 2860, distNM: 12 },
+          { lat: 48.51, lon: 8.82, elevFt: 1720, distNM: 24 },
+          { lat: 48.6899, lon: 9.2219, elevFt: 1276, distNM: 38 }
+        ]
+      },
       missionState: {
         currentMissionData: {
           missionTitle: 'Nicht im Kartenvertrag ausgeben',
@@ -48,9 +59,23 @@ test('map snapshot projects a bounded route and live navigation without narrativ
   assert.ok(snapshot.navigation.distanceToNextNm > 0);
   assert.ok(snapshot.navigation.progress >= 0 && snapshot.navigation.progress <= 1);
   assert.equal(snapshot.profile.cruiseAltitudeFt, 4500);
+  assert.equal(snapshot.profile.terrainAvailable, true);
+  assert.equal(snapshot.profile.mode, 'tracker-terrain');
+  assert.equal(snapshot.profile.points.length, 4);
+  assert.equal(snapshot.profile.points[0].name, 'EDTW');
+  assert.equal(snapshot.profile.points.at(-1).name, 'EDDS');
   assert.equal(snapshot.missionGeometry.poiChain.length, 2);
   assert.equal(JSON.stringify(snapshot).includes('Geschichte'), false);
   assert.equal(JSON.stringify(snapshot).includes('missionStory'), false);
+});
+
+test('map snapshot keeps a planned profile when an older bundle has no terrain payload', () => {
+  const run = activeRun();
+  delete run.resumeBundle.mapProfile;
+  const snapshot = projectTrackerMapSnapshot(run, { lat: 48.33, lon: 8.52, alt: 3100 });
+  assert.equal(snapshot.profile.terrainAvailable, false);
+  assert.equal(snapshot.profile.mode, 'planned-with-endpoint-elevation');
+  assert.equal(snapshot.profile.points.length, 3);
 });
 
 test('map snapshot rejects runs without a persisted route bundle', () => {

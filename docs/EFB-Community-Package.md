@@ -73,6 +73,12 @@ ausschliesslich in den tracker-gehosteten Assets. Tracker v330 liefert deren
 korrigierten Hoststand 0.4.5; das bereits mit SDK 1.7.2 gebaute Community-
 Paket 0.4.4 muss fuer diesen Test nicht neu gebaut oder neu installiert werden.
 
+Der folgende Tracker v331 liefert Hoststand 0.4.6 mit Terrainprofil,
+Wegpunktvorschau, verschieb-/schliessbaren Infoboxen und festen
+Leaflet-Ebenen. Auch diese Aenderungen liegen ausschliesslich im lokalen
+Tracker-Host. Das installierte Community-Paket 0.4.4 bleibt deshalb fuer den
+v331-Windows-/In-Sim-Test unveraendert; ein neuer SDK-Build ist nicht noetig.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

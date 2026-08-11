@@ -101,6 +101,12 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
   assert.match(hostSource, /notifyParentState\('live'\)/);
   assert.doesNotMatch(hostSource, /notifyParent\('live'\)/);
+  assert.match(hostSource, /stepLiveNextLegPreview = function \(delta, event\)/);
+  assert.doesNotMatch(hostSource, /stepLiveNextLegPreview = function \(\) \{\}/);
+  assert.match(hostSource, /createStablePane\('gaBasePane', 200\)/);
+  assert.match(hostSource, /fadeAnimation: false/);
+  assert.match(hostSource, /bindInfoBoxDrag/);
+  assert.match(hostSource, /ga-info-box-close/);
 });
 
 test('E6B document forwards iframe diagnostics before loading its runtime', () => {

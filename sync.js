@@ -2055,6 +2055,67 @@ function _missionAuthorityStateHash(value) {
     return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}-${raw.length}`;
 }
 
+function _buildMissionAuthorityMapProfile() {
+    const source = (typeof vpElevationData !== 'undefined' && Array.isArray(vpElevationData))
+        ? vpElevationData
+        : (Array.isArray(window.vpElevationData) ? window.vpElevationData : []);
+    const clean = source.map(point => {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lon ?? point?.lng);
+        const elevFt = Number(point?.elevFt ?? point?.terrainFt ?? point?.elevationFt);
+        const distNM = Number(point?.distNM ?? point?.distanceNm);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(elevFt)) return null;
+        const item = {
+            lat: Math.round(lat * 1e5) / 1e5,
+            lon: Math.round(lon * 1e5) / 1e5,
+            elevFt: Math.round(elevFt)
+        };
+        if (Number.isFinite(distNM)) item.distNM = Math.round(distNM * 100) / 100;
+        return item;
+    }).filter(Boolean);
+    if (clean.length < 2) return null;
+    const maxPoints = 96;
+    const points = [];
+    if (clean.length <= maxPoints) {
+        points.push(...clean);
+    } else {
+        const step = (clean.length - 1) / (maxPoints - 1);
+        for (let index = 0; index < maxPoints; index += 1) {
+            points.push(clean[Math.min(clean.length - 1, Math.round(index * step))]);
+        }
+    }
+    const totalDistanceNm = Number(points[points.length - 1]?.distNM);
+    return {
+        version: 1,
+        terrainAvailable: true,
+        totalDistanceNm: Number.isFinite(totalDistanceNm) ? totalDistanceNm : null,
+        points
+    };
+}
+
+function _restoreMissionAuthorityMapProfile(bundle = null) {
+    const source = Array.isArray(bundle?.mapProfile?.points) ? bundle.mapProfile.points : [];
+    const points = source.map(point => {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lon ?? point?.lng);
+        const elevFt = Number(point?.elevFt ?? point?.terrainFt ?? point?.elevationFt);
+        const distNM = Number(point?.distNM ?? point?.distanceNm);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(elevFt)) return null;
+        return {
+            lat,
+            lon,
+            elevFt,
+            ...(Number.isFinite(distNM) ? { distNM } : {})
+        };
+    }).filter(Boolean);
+    if (points.length < 2) return false;
+    try {
+        vpElevationData = points;
+    } catch (_) {}
+    window.vpElevationData = points;
+    return true;
+}
+
 function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
     const runtime = _buildMissionRuntimeSnapshot(reason);
     if (!runtime?.missionId) return null;
@@ -2073,6 +2134,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, missionState)
             : null,
         savedAt: Date.now(),
+        mapProfile: _buildMissionAuthorityMapProfile(),
         missionState,
         runtime
     };
@@ -2155,6 +2217,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, compactMissionState)
             : null,
         savedAt: Date.now(),
+        mapProfile: _buildMissionAuthorityMapProfile(),
         missionState: compactMissionState,
         runtime
     };
@@ -2182,6 +2245,7 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         version: bundle.version,
         missionId: bundle.missionId,
         descriptor: bundle.descriptor,
+        mapProfile: bundle.mapProfile,
         missionState: bundle.missionState,
         runtime: runtimeForHash
     });
@@ -4752,6 +4816,7 @@ window.resumeTrackerMissionOnThisDevice = async function() {
         console.warn('[MISSION AUTHORITY] Geräteübergabe konnte lokal nicht restauriert werden:', error);
     }
     if (!restored) return false;
+    _restoreMissionAuthorityMapProfile(bundle);
     if (missionRuntimeResumeAppliedFor !== _normalizeMissionRuntimeId(active.missionId)) {
         _restoreMissionRuntimeFromSnapshot(bundle.runtime, {
             reason: 'tracker-authority-handoff',

@@ -4,6 +4,7 @@
   var API = window.GAMapShellCore;
   var L = window.L;
   var PREFERENCES_KEY = 'ga_efb_tracker_kartentisch_v1';
+  var INFO_BOX_STORAGE_KEY = 'ga_efb_tracker_info_boxes_v1';
   var map = null;
   var flight = null;
   var mapSnapshot = null;
@@ -13,6 +14,8 @@
   var planeHeading = null;
   var routeLayer = null;
   var geometryLayer = null;
+  var previewLayer = null;
+  var previewLine = null;
   var drawingLayer = null;
   var measureLayer = null;
   var baseLayers = {};
@@ -33,8 +36,10 @@
   var drawColor = '#ff3b30';
   var drawWeight = 5;
   var routeProgressTarget = 'wpt';
+  var previewWaypointIndex = null;
   var lastParentState = '';
   var preferences = readPreferences();
+  var infoBoxState = readInfoBoxState();
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, value) { var node = byId(id); if (node) node.textContent = String(value == null ? '' : value); }
@@ -45,6 +50,26 @@
   function formatNumber(value, digits) { var number = finite(value); return number == null ? '--' : number.toFixed(digits); }
   function leftPad(value, length) { var result = String(value); while (result.length < length) result = '0' + result; return result; }
   function pad2(value) { return leftPad(Math.max(0, Math.round(value)), 2); }
+  function radians(value) { return Number(value) * Math.PI / 180; }
+  function distanceNmBetween(a, b) {
+    if (!a || !b) return null;
+    if (map) return map.distance([a.lat, a.lon], [b.lat, b.lon]) / 1852;
+    var lat1 = radians(a.lat);
+    var lat2 = radians(b.lat);
+    var dLat = lat2 - lat1;
+    var dLon = radians(Number(b.lon) - Number(a.lon));
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 3440.065 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+  }
+  function bearingBetween(a, b) {
+    if (!a || !b) return 0;
+    var lat1 = radians(a.lat);
+    var lat2 = radians(b.lat);
+    var dLon = radians(Number(b.lon) - Number(a.lon));
+    var y = Math.sin(dLon) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
   function report(level, event, stage, message, details) {
     if (typeof window.__gaEfbReport === 'function') window.__gaEfbReport(level, event, stage, message, details);
   }
@@ -70,6 +95,179 @@
 
   function savePreferences() {
     try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)); } catch (_) {}
+  }
+
+  function readInfoBoxState() {
+    var result = {};
+    ['liveTelemetryBox', 'liveCurrentBox', 'liveNextWpBox'].forEach(function (id) {
+      result[id] = { hidden: false, top: '', left: '' };
+    });
+    try {
+      var source = JSON.parse(localStorage.getItem(INFO_BOX_STORAGE_KEY) || '{}');
+      Object.keys(result).forEach(function (id) {
+        var item = source && source[id];
+        if (!item || typeof item !== 'object') return;
+        result[id].hidden = item.hidden === true;
+        result[id].top = typeof item.top === 'string' ? item.top : '';
+        result[id].left = typeof item.left === 'string' ? item.left : '';
+      });
+    } catch (_) {}
+    return result;
+  }
+
+  function saveInfoBoxState() {
+    try { localStorage.setItem(INFO_BOX_STORAGE_KEY, JSON.stringify(infoBoxState)); } catch (_) {}
+  }
+
+  function infoBoxVisible(id) {
+    return !infoBoxState[id] || infoBoxState[id].hidden !== true;
+  }
+
+  function updateInfoRestoreButton() {
+    var button = document.querySelector('.ga-efb-host-infos');
+    if (!button) return;
+    var hidden = Object.keys(infoBoxState).filter(function (id) { return infoBoxState[id].hidden === true; }).length;
+    button.textContent = hidden ? 'Infos (' + hidden + ')' : 'Infos';
+    button.classList.toggle('active', hidden > 0);
+  }
+
+  function setInfoBoxAvailability(id, available) {
+    var node = byId(id);
+    if (node) node.style.display = available && infoBoxVisible(id) ? 'block' : 'none';
+  }
+
+  function showAllInfoBoxes() {
+    Object.keys(infoBoxState).forEach(function (id) { infoBoxState[id].hidden = false; });
+    saveInfoBoxState();
+    setInfoBoxAvailability('liveTelemetryBox', !!flight);
+    setInfoBoxAvailability('liveCurrentBox', !!flight);
+    setInfoBoxAvailability('liveNextWpBox', !!(mapSnapshot && mapSnapshot.navigation));
+    updateInfoRestoreButton();
+    report('info', 'info-box', 'restore-all', 'Infofenster wieder eingeblendet');
+  }
+
+  function hideInfoBox(id) {
+    if (!infoBoxState[id]) return;
+    infoBoxState[id].hidden = true;
+    saveInfoBoxState();
+    setInfoBoxAvailability(id, false);
+    updateInfoRestoreButton();
+    report('info', 'info-box', 'close-' + id, 'Infofenster ausgeblendet');
+  }
+
+  function resetInfoBoxPosition(node) {
+    if (!node || !infoBoxState[node.id]) return;
+    infoBoxState[node.id].top = '';
+    infoBoxState[node.id].left = '';
+    saveInfoBoxState();
+    node.classList.remove('tele-dragged');
+    var defaults = {
+      liveTelemetryBox: { top: '10px', left: '50%', transform: 'translateX(-50%)' },
+      liveCurrentBox: { top: '10px', left: 'calc(50% - 230px)', transform: 'none' },
+      liveNextWpBox: { top: '10px', left: 'calc(50% + 128px)', transform: 'none' }
+    };
+    var initial = defaults[node.id];
+    if (initial) {
+      node.style.top = initial.top;
+      node.style.left = initial.left;
+      node.style.right = 'auto';
+      node.style.transform = initial.transform;
+    }
+  }
+
+  function bindInfoBoxDrag(node) {
+    if (!node || node.getAttribute('data-ga-drag-bound') === '1') return;
+    node.setAttribute('data-ga-drag-bound', '1');
+    var saved = infoBoxState[node.id];
+    if (saved && saved.top && saved.left) {
+      node.style.top = saved.top;
+      node.style.left = saved.left;
+      node.style.right = 'auto';
+      node.style.transform = 'none';
+      node.classList.add('tele-dragged');
+    }
+    var dragging = false;
+    var startX = 0;
+    var startY = 0;
+    var startTop = 0;
+    var startLeft = 0;
+    function eventPoint(event) {
+      var source = event && event.touches && event.touches.length ? event.touches[0] : event;
+      return source ? { x: Number(source.clientX) || 0, y: Number(source.clientY) || 0 } : null;
+    }
+    function begin(event) {
+      if (event.target && event.target.closest && event.target.closest('button')) return;
+      if (event.button != null && event.button !== 0) return;
+      var point = eventPoint(event);
+      if (!point) return;
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+      dragging = true;
+      startX = point.x;
+      startY = point.y;
+      startTop = node.offsetTop;
+      startLeft = node.offsetLeft;
+      node.classList.add('tele-dragging');
+      try { if (event.pointerId != null && node.setPointerCapture) node.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    function move(event) {
+      if (!dragging) return;
+      var point = eventPoint(event);
+      if (!point) return;
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+      var parent = node.parentElement;
+      var maxLeft = Math.max(5, parent.clientWidth - node.offsetWidth - 5);
+      var maxTop = Math.max(5, parent.clientHeight - node.offsetHeight - 5);
+      var left = clamp(startLeft + point.x - startX, 5, maxLeft);
+      var top = clamp(startTop + point.y - startY, 5, maxTop);
+      node.style.top = Math.round(top) + 'px';
+      node.style.left = Math.round(left) + 'px';
+      node.style.right = 'auto';
+      node.style.transform = 'none';
+      node.classList.add('tele-dragged');
+    }
+    function end(event) {
+      if (!dragging) return;
+      dragging = false;
+      node.classList.remove('tele-dragging');
+      if (infoBoxState[node.id]) {
+        infoBoxState[node.id].top = node.style.top;
+        infoBoxState[node.id].left = node.style.left;
+        saveInfoBoxState();
+      }
+      try { if (event && event.pointerId != null && node.releasePointerCapture) node.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+    if (window.PointerEvent) {
+      node.addEventListener('pointerdown', begin, false);
+      node.addEventListener('pointermove', move, false);
+      node.addEventListener('pointerup', end, false);
+      node.addEventListener('pointercancel', end, false);
+    } else {
+      node.addEventListener('mousedown', begin, false);
+      window.addEventListener('mousemove', move, false);
+      window.addEventListener('mouseup', end, false);
+      node.addEventListener('touchstart', begin, false);
+      window.addEventListener('touchmove', move, false);
+      window.addEventListener('touchend', end, false);
+    }
+    node.addEventListener('dblclick', function (event) {
+      if (event.target && event.target.closest && event.target.closest('button')) return;
+      resetInfoBoxPosition(node);
+    });
+  }
+
+  function setupInfoBoxes() {
+    Object.keys(infoBoxState).forEach(function (id) {
+      var node = byId(id);
+      if (!node) return;
+      var close = makeButton('ga-info-box-close', 'X', function () { hideInfoBox(id); });
+      close.title = 'Infofenster schliessen';
+      close.setAttribute('aria-label', 'Infofenster schliessen');
+      node.appendChild(close);
+      bindInfoBoxDrag(node);
+    });
+    updateInfoRestoreButton();
   }
 
   function notifyParent(state, detail) {
@@ -149,7 +347,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.5');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.6');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -157,6 +355,7 @@
     if (actions && profileButton) {
       var design = makeButton('pb-btn ga-efb-host-design', 'Design', cycleTheme);
       profileButton.insertAdjacentElement('afterend', design);
+      design.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-infos', 'Infos', showAllInfoBoxes));
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
     }
 
@@ -194,13 +393,25 @@
     document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
     syncProfileButton();
     applyTheme(preferences.theme);
+    setupInfoBoxes();
   }
 
-  function createTileLayer(definition) {
+  function createTileLayer(definition, paneName) {
     var options = {};
     Object.keys(definition.options || {}).forEach(function (key) { options[key] = definition.options[key]; });
+    options.pane = paneName;
+    options.updateWhenIdle = true;
+    options.updateWhenZooming = false;
+    options.keepBuffer = 2;
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
     return L.tileLayer(definition.url, options);
+  }
+
+  function createStablePane(name, zIndex) {
+    var pane = map.createPane(name);
+    pane.style.zIndex = String(zIndex);
+    pane.style.pointerEvents = 'none';
+    return pane;
   }
 
   function updateBaseOpacity() {
@@ -217,18 +428,29 @@
       zoom: API.DEFAULT_CENTER.zoom,
       zoomControl: true,
       attributionControl: true,
-      preferCanvas: true
+      preferCanvas: true,
+      fadeAnimation: false,
+      zoomAnimation: false,
+      markerZoomAnimation: false
     });
+
+    createStablePane('gaBasePane', 200);
+    createStablePane('gaAeroPane', 250);
+    createStablePane('gaRoutePane', 430);
+    createStablePane('gaGeometryPane', 440);
+    createStablePane('gaPreviewPane', 445);
+    createStablePane('gaDrawingPane', 450);
+    createStablePane('gaAircraftPane', 500);
 
     var baseControl = {};
     var overlayControl = {};
     API.BASE_LAYERS.forEach(function (definition) {
-      var layer = createTileLayer(definition);
+      var layer = createTileLayer(definition, 'gaBasePane');
       baseLayers[definition.id] = layer;
       baseControl[definition.label] = layer;
     });
     API.OVERLAY_LAYERS.forEach(function (definition) {
-      var layer = createTileLayer(definition);
+      var layer = createTileLayer(definition, 'gaAeroPane');
       overlayLayers[definition.id] = layer;
       overlayControl[definition.label] = layer;
     });
@@ -238,6 +460,7 @@
     layerControl = L.control.layers(baseControl, overlayControl, { collapsed: true, position: 'topright' }).addTo(map);
     routeLayer = L.layerGroup().addTo(map);
     geometryLayer = L.layerGroup().addTo(map);
+    previewLayer = L.layerGroup().addTo(map);
     drawingLayer = L.layerGroup().addTo(map);
     measureLayer = L.layerGroup().addTo(map);
     map.on('baselayerchange', function (event) {
@@ -291,7 +514,7 @@
     var previous = flight;
     flight = normalized;
     if (!planeMarker) {
-      planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(flight.headingDeg), zIndexOffset: 2000 }).addTo(map);
+      planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(flight.headingDeg), pane: 'gaAircraftPane', zIndexOffset: 2000 }).addTo(map);
       planeHeading = flight.headingDeg;
     } else {
       var moved = !previous || map.distance([previous.lat, previous.lon], [flight.lat, flight.lon]) >= 0.5;
@@ -316,8 +539,8 @@
     setText('currentPosRef', flight.lat.toFixed(4) + ', ' + flight.lon.toFixed(4) + ' | ' + flight.altFt + ' ft');
     var telemetry = byId('liveTelemetryBox');
     var current = byId('liveCurrentBox');
-    if (telemetry) telemetry.style.display = 'block';
-    if (current) current.style.display = 'block';
+    setInfoBoxAvailability('liveTelemetryBox', !!telemetry);
+    setInfoBoxAvailability('liveCurrentBox', !!current);
     updateCompass();
     renderProgress();
     renderProfile();
@@ -334,17 +557,19 @@
   function renderRoute(snapshot) {
     routeLayer.clearLayers();
     geometryLayer.clearLayers();
+    if (previewLayer) previewLayer.clearLayers();
+    previewLine = null;
     var waypoints = snapshot.route.waypoints;
     var latlngs = waypoints.map(function (point) { return [point.lat, point.lon]; });
-    L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: '10,10', className: 'animated-route-line' }).addTo(routeLayer);
+    L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: '10,10', pane: 'gaRoutePane' }).addTo(routeLayer);
     waypoints.forEach(function (point, index) {
-      var marker = L.marker([point.lat, point.lon], { icon: markerIcon(index) }).addTo(routeLayer);
+      var marker = L.marker([point.lat, point.lon], { icon: markerIcon(index), pane: 'gaRoutePane' }).addTo(routeLayer);
       marker.bindTooltip(point.name || ('WP ' + (index + 1)), { direction: 'top', offset: [0, -8], className: 'ga-route-label' });
     });
     var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
-    if (target) L.marker([target.lat, target.lon], { icon: targetIcon() }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
+    if (target) L.marker([target.lat, target.lon], { icon: targetIcon(), pane: 'gaGeometryPane' }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
     var chain = snapshot.missionGeometry && snapshot.missionGeometry.poiChain || [];
-    if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6' }).addTo(geometryLayer);
+    if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane' }).addTo(geometryLayer);
     if (!firstRouteFit && latlngs.length > 1 && !flight) {
       map.fitBounds(L.latLngBounds(latlngs), { padding: [35, 35] });
       firstRouteFit = true;
@@ -370,6 +595,7 @@
     if (!normalized) return;
     var nextRouteSignature = mapRouteSignature(normalized);
     if (!mapSnapshot || nextRouteSignature !== routeSignature) {
+      previewWaypointIndex = null;
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
       routeSignature = nextRouteSignature;
@@ -383,6 +609,62 @@
     renderProfile();
   }
 
+  function automaticWaypointIndex() {
+    var navigation = mapSnapshot && mapSnapshot.navigation;
+    var route = mapSnapshot && mapSnapshot.route;
+    if (!navigation || !route || !route.waypoints || !route.waypoints.length) return 0;
+    return clamp(Math.round(Number(navigation.activeLegIndex) || 0) + 1, 0, route.waypoints.length - 1);
+  }
+
+  function selectedWaypointNavigation() {
+    var route = mapSnapshot && mapSnapshot.route;
+    var navigation = mapSnapshot && mapSnapshot.navigation;
+    var waypoints = route && route.waypoints || [];
+    if (!navigation || !waypoints.length) return null;
+    var automaticIndex = automaticWaypointIndex();
+    var selectedIndex = previewWaypointIndex == null ? automaticIndex : clamp(previewWaypointIndex, 0, waypoints.length - 1);
+    var waypoint = waypoints[selectedIndex];
+    var position = flight ? { lat: flight.lat, lon: flight.lon } : null;
+    var distance = position ? distanceNmBetween(position, waypoint) : null;
+    var bearing = position ? bearingBetween(position, waypoint) : null;
+    if (selectedIndex === automaticIndex) {
+      if (distance == null) distance = navigation.distanceToNextNm;
+      if (bearing == null) bearing = navigation.bearingToNextDeg;
+    }
+    return {
+      automaticIndex: automaticIndex,
+      selectedIndex: selectedIndex,
+      waypoint: waypoint,
+      distanceNm: distance == null ? 0 : distance,
+      bearingDeg: bearing == null ? 0 : bearing,
+      manual: previewWaypointIndex != null
+    };
+  }
+
+  function renderPreviewLine(selected) {
+    if (!previewLayer) return;
+    if (!selected || !selected.manual || !flight) {
+      if (previewLine) previewLayer.removeLayer(previewLine);
+      previewLine = null;
+      return;
+    }
+    var points = [
+      [flight.lat, flight.lon],
+      [selected.waypoint.lat, selected.waypoint.lon]
+    ];
+    if (!previewLine) {
+      previewLine = L.polyline(points, {
+        color: '#44d9ff',
+        opacity: 0.9,
+        weight: 3,
+        dashArray: '6,7',
+        pane: 'gaPreviewPane'
+      }).addTo(previewLayer);
+    } else {
+      previewLine.setLatLngs(points);
+    }
+  }
+
   function renderProgress() {
     var navigation = mapSnapshot && mapSnapshot.navigation;
     var route = mapSnapshot && mapSnapshot.route;
@@ -390,12 +672,15 @@
     var next = byId('liveNextWpBox');
     if (!navigation || !route) {
       if (bar) bar.style.display = 'none';
-      if (next) next.style.display = 'none';
+      setInfoBoxAvailability('liveNextWpBox', false);
+      if (previewLine && previewLayer) previewLayer.removeLayer(previewLine);
+      previewLine = null;
       return;
     }
+    var selected = selectedWaypointNavigation();
     if (bar) bar.style.display = 'flex';
-    if (next) next.style.display = 'block';
-    var distance = routeProgressTarget === 'route' ? navigation.remainingDistanceNm : navigation.distanceToNextNm;
+    setInfoBoxAvailability('liveNextWpBox', !!next);
+    var distance = routeProgressTarget === 'route' ? navigation.remainingDistanceNm : selected.distanceNm;
     var gs = flight ? flight.gsKts : 0;
     setText('routeProgressPos', formatNumber(navigation.routeDistanceNm, 1) + ' NM');
     setText('routeProgressDst', formatNumber(distance, 1) + ' NM');
@@ -405,9 +690,14 @@
     Array.prototype.forEach.call(document.querySelectorAll('.route-progress-target'), function (node) {
       node.textContent = routeProgressTarget === 'route' ? 'RTE' : 'WPT';
     });
-    setText('nextWpName', navigation.nextWaypointName || navigation.nextWaypointId || 'NEXT');
-    setText('nextWpCourse', leftPad(Math.round(navigation.bearingToNextDeg || 0), 3) + ' deg');
-    setText('nextWpDist', formatNumber(navigation.distanceToNextNm, 1));
+    setText('nextWpName', selected.waypoint.name || selected.waypoint.id || 'NEXT');
+    setText('nextWpCourse', leftPad(Math.round(selected.bearingDeg || 0), 3) + ' deg');
+    setText('nextWpDist', formatNumber(selected.distanceNm, 1));
+    var previousButton = byId('nextLegPrevBtn');
+    var nextButton = byId('nextLegNextBtn');
+    if (previousButton) previousButton.disabled = selected.selectedIndex <= 0;
+    if (nextButton) nextButton.disabled = selected.selectedIndex >= route.waypoints.length - 1;
+    renderPreviewLine(selected);
   }
 
   function createSvg(name, attributes) {
@@ -556,7 +846,7 @@
     drawPoints.push(event.latlng);
     var group = measureLayer;
     if (drawLine) group.removeLayer(drawLine);
-    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5' }).addTo(group);
+    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5', pane: 'gaDrawingPane' }).addTo(group);
     if (drawPoints.length === 1) drawHistory.push({ layer: drawLine, group: group });
     else if (drawHistory.length) drawHistory[drawHistory.length - 1].layer = drawLine;
     if (drawPoints.length > 1) {
@@ -593,7 +883,7 @@
     if (event.stopPropagation) event.stopPropagation();
     drawPoints = [point.latlng];
     drawLastContainerPoint = point.container;
-    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round' }).addTo(drawingLayer);
+    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round', pane: 'gaDrawingPane' }).addTo(drawingLayer);
     drawHistory.push({ layer: drawLine, group: drawingLayer });
     drawStrokeActive = true;
     try { if (event.pointerId != null && event.target.setPointerCapture) event.target.setPointerCapture(event.pointerId); } catch (_) {}
@@ -754,7 +1044,16 @@
     report('info', 'draw-action', 'weight', 'Stiftbreite geaendert', String(drawWeight));
   };
   window.toggleRouteProgressTarget = function () { routeProgressTarget = routeProgressTarget === 'wpt' ? 'route' : 'wpt'; renderProgress(); };
-  window.stepLiveNextLegPreview = function () {};
+  window.stepLiveNextLegPreview = function (delta, event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    var route = mapSnapshot && mapSnapshot.route;
+    var waypoints = route && route.waypoints || [];
+    if (!waypoints.length) return;
+    var current = previewWaypointIndex == null ? automaticWaypointIndex() : previewWaypointIndex;
+    previewWaypointIndex = clamp(current + Number(delta || 0), 0, waypoints.length - 1);
+    renderProgress();
+    report('info', 'waypoint-preview', 'select', 'Wegpunktvorschau umgeschaltet', String(previewWaypointIndex));
+  };
   window.vpZoom = function (delta) { profileZoom = clamp(profileZoom + Number(delta || 0), 0, 90); renderProfile(); };
   window.vpChangeYAxis = function (delta) { profileYAxis = Math.max(1000, (profileYAxis || 6000) + Number(delta || 0)); renderProfile(); };
   window.vpResetYAxis = function () { profileYAxis = 0; renderProfile(); };

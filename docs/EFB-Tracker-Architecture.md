@@ -149,7 +149,8 @@ und enthaelt ausschliesslich:
 - sanitierte Route, Legs und Wegpunkte,
 - aktives Leg, Bearing, Distanz, Cross-Track und Routenfortschritt,
 - Missionsziel und begrenzte POI-Kettengeometrie,
-- ein planbasiertes Hoehenband mit bekannten Endpunkt-Hoehen.
+- ein Hoehenband, das ohne Terrainvertrag auf bekannte Planhoehen
+  zurueckfaellt.
 
 Story, Briefing, Passagierdetails, Cloud-Profil, PINs und Zugangsdaten sind kein
 Teil dieses Vertrages. Fehlt Route oder Capability, bleibt die 0.3.x-Karte mit
@@ -211,6 +212,22 @@ ueber denselben begrenzten Diagnosepfad. Unveraenderte `live`-Meldungen werden
 nicht mehr sekundenweise an den Parent gespiegelt. Ebenso werden Route und
 Flugzeugmarker nur bei veraenderter Geometrie, Position oder Richtung neu
 gerendert. Diese Aenderungen bleiben rein lokal und read-only.
+
+Tracker v331 ergaenzt den Authority-Untervertrag optional um `mapProfile`.
+Die Web-App sanitisiert und reduziert das bereits berechnete Terrainprofil
+vor dem Resume-Upload auf hoechstens 96 Punkte. Es wird getrennt vom
+Cloud-Missionspayload nur im autoritativen Tracker-Resume-Bundle gespeichert;
+Geschichten, Passagierdaten, Caches und Rohdaten bleiben ausgeschlossen. Die
+HTTP-Projektion normalisiert hoechstens 128 Punkte und liefert Terrain- und
+Planhoehe an das EFB. Fehlt das Feld bei einem alten Run, bleibt das bisherige
+planbasierte Hoehenband erhalten.
+
+Der 0.4.6-Host verwendet feste Leaflet-Panes fuer Basis-, Aero-, Routen-,
+Zeichen-, Vorschau- und Flugzeuglayer und schaltet Karten-/Tile-Fades ab. Die
+Legpfeile waehlen nur einen lokalen Vorschauwegpunkt; sie senden keinen
+Missionsbefehl. Position und Sichtbarkeit der Infoboxen sind ebenfalls reine
+lokale EFB-Praeferenzen. Damit erweitert v331 Darstellung und Bedienung, nicht
+die Schreibrechte des EFB-Vertrages.
 
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
