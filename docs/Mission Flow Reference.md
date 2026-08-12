@@ -302,6 +302,17 @@ haben.
   autoritativen Runtime-, Boarding- und Manifeststand auch dann, wenn dieses
   Geraet die Mission zuvor bewusst als frischen Start geoeffnet hatte. Der
   lokale Fresh-Start-Schutz darf nur automatische lokale Restores blockieren.
+- Ein Cloud-Pull darf einen aktiven Tracker-Run weder ersetzen noch loeschen.
+  Beim manuellen Pull werden die nicht missionsbezogenen Profildaten normal
+  geladen; Mission, Phase und Fortschritt kommen danach ausschliesslich aus
+  dem bestaetigten Tracker-Resume-Bundle. Auch eine gleich benannte
+  Cloud-Mission ist dabei nur ein Hinweis auf die Identitaet, keine zweite
+  Runtime-Wahrheit.
+- Weicht die Cloud-Missions-ID vom aktiven Tracker-Run ab, bleibt die
+  Cloud-Kopie gesperrt und der Pull bietet die ausdrueckliche
+  Tracker-Geraeteuebergabe an. Ein stiller Pull darf diese Uebergabe niemals
+  selbst bestaetigen; er aktualisiert nur die uebrigen Cloud-Daten und behaelt
+  den Tracker-Run als aktive Mission bei.
 - Nach einer Geraeteuebergabe wird der bisherige Owner zum Beobachter. ACKs und
   Snapshot-Schreibversuche anderer Clients duerfen seinen lokalen Missionsstand
   nicht mehr fortschalten oder wieder zum Tracker zurueckschreiben.

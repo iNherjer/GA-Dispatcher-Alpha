@@ -4677,7 +4677,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     return true;
 }
 
-window.resumeTrackerMissionOnThisDevice = async function() {
+window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
     if (!_trackerSupportsMissionAuthority()) return false;
     const active = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
     if (!active?.missionId || !active?.runId) return false;
@@ -4731,8 +4731,14 @@ window.resumeTrackerMissionOnThisDevice = async function() {
                 + `Auf diesem Gerät liegt dieselbe Mission „${title}“ (lokaler Stand: ${phase}). `
                 + 'Diesen Stand jetzt einmalig als Tracker-Wahrheit übernehmen?'
             )) return false;
-        } else if (!confirm(`Auf dem Tracker läuft bereits ${label}.\n\nDiese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?`)) {
-            return false;
+        } else {
+            const promptContext = String(options.promptContext || '').trim();
+            const prompt = [
+                promptContext,
+                `Auf dem Tracker läuft bereits ${label}.`,
+                'Diese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?'
+            ].filter(Boolean).join('\n\n');
+            if (!confirm(prompt)) return false;
         }
     } catch (_) {
         return false;
@@ -13654,13 +13660,81 @@ function _syncHasLocalDraftMission() {
     }
 }
 
-async function _syncApplyActiveMissionFromCloud(activeMission = null) {
+function _syncActiveTrackerRunForCloudPull() {
+    if (typeof window === 'undefined' || !window.liveTrackerConnected) return null;
+    if (typeof _trackerSupportsMissionAuthority !== 'function' || !_trackerSupportsMissionAuthority()) return null;
+    const run = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
+    if (!run || typeof run !== 'object') return null;
+    const missionId = _normalizeMissionRuntimeId(run.missionId || '');
+    const runId = String(run.runId || '').trim();
+    const state = String(run.state || '').trim().toLowerCase();
+    const inactive = run.active === false || /^(ended|closed|reset|cleared|completed)$/.test(state);
+    if (!missionId || !runId || inactive) return null;
+    return { ...run, missionId, runId };
+}
+
+function _syncRecordCloudMissionPullOutcome(status, details = {}) {
+    const outcome = {
+        status: String(status || 'unknown'),
+        at: Date.now(),
+        ...details
+    };
+    window.gaLastCloudMissionPullOutcome = outcome;
+    try {
+        console.info('[SYNC MISSION AUTHORITY]', outcome.status, JSON.stringify(outcome));
+    } catch (_) {}
+    if (typeof _missionPhaseDebugPush === 'function') {
+        try { _missionPhaseDebugPush('cloud_pull_authority', outcome); } catch (_) {}
+    }
+    return outcome;
+}
+
+async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {}) {
     const briefing = document.getElementById("briefingBox");
     let localMission = null;
+    window.gaLastCloudMissionPullOutcome = null;
     try {
         localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
     } catch (_) {
         localMission = null;
+    }
+    const trackerRun = _syncActiveTrackerRunForCloudPull();
+    if (trackerRun) {
+        const trackerMissionId = String(trackerRun.missionId || '').trim().toLowerCase();
+        const cloudMissionIds = _syncMissionIdentityValues(activeMission);
+        const cloudMatchesTracker = !!(trackerMissionId && cloudMissionIds.includes(trackerMissionId));
+        const cloudMissionTitle = activeMission ? _syncMissionTitleForPrompt(activeMission) : '';
+        const commonOutcome = {
+            source: String(options.source || 'cloud-pull'),
+            trackerMissionId: trackerRun.missionId,
+            trackerRunId: trackerRun.runId,
+            trackerOwnerClientId: trackerRun.ownerClientId || null,
+            cloudMissionId: cloudMissionIds[0] || null,
+            cloudMatchesTracker
+        };
+        if (options.allowTrackerHandoff !== true || typeof window.resumeTrackerMissionOnThisDevice !== 'function') {
+            _syncRecordCloudMissionPullOutcome('tracker-authority-retained', commonOutcome);
+            return false;
+        }
+        const promptContext = cloudMatchesTracker
+            ? 'Der Cloud-Pull gehört zur laufenden Tracker-Mission. Phase und Fortschritt werden deshalb aus dem autoritativen Tracker-Stand übernommen.'
+            : (activeMission
+                ? `Die Cloud-Kopie „${cloudMissionTitle}“ gehört nicht zum laufenden Tracker-Lauf und darf ihn nicht überschreiben. Der Tracker-Stand hat Vorrang.`
+                : 'In der Cloud ist keine aktive Mission gespeichert. Der laufende Tracker-Lauf darf dadurch nicht gelöscht werden und hat Vorrang.');
+        let resumed = false;
+        try {
+            resumed = (await window.resumeTrackerMissionOnThisDevice({
+                source: options.source || 'cloud-pull',
+                promptContext
+            })) === true;
+        } catch (error) {
+            try { console.warn('[SYNC] Tracker-Mission konnte nach Cloud-Pull nicht übernommen werden:', error); } catch (_) {}
+        }
+        _syncRecordCloudMissionPullOutcome(
+            resumed ? 'tracker-handoff-complete' : 'tracker-handoff-incomplete',
+            commonOutcome
+        );
+        return resumed;
     }
     if (activeMission) {
         if (_missionIsFreeflightOnly(activeMission)) return false;
@@ -13726,6 +13800,10 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
             if (restored !== false && staleRuntimeResetToPlanned && typeof window.queueActiveMissionCloudSave === 'function') {
                 window.queueActiveMissionCloudSave('cloud-runtime-expired-reset-to-planned', { delayMs: 0 });
             }
+            _syncRecordCloudMissionPullOutcome(restored !== false ? 'cloud-mission-applied' : 'cloud-mission-rejected', {
+                source: String(options.source || 'cloud-pull'),
+                cloudMissionId: _syncMissionIdentityValues(missionToApply)[0] || null
+            });
             return restored !== false;
         } catch (err) {
             try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
@@ -13762,6 +13840,9 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
         try { localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
     }
     if (briefing) briefing.style.display = "none";
+    _syncRecordCloudMissionPullOutcome('cloud-mission-cleared', {
+        source: String(options.source || 'cloud-pull')
+    });
     return false;
 }
 
@@ -13972,7 +14053,11 @@ async function forceSyncLoad() {
             ? _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard })
             : null;
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-        await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+        await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+            source: 'manual-cloud-pull',
+            allowTrackerHandoff: true
+        });
+        const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
         _syncApplyOnboardEquipmentFromCloud(data);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -13991,9 +14076,14 @@ async function forceSyncLoad() {
             || logbookStore?.storageRescued
             || logbookStore?.compacted
         );
-        const pinboardStatus = pinboardStore?.dropped
+        let pinboardStatus = pinboardStore?.dropped
             ? "Cloud: Geladen (ohne Pinnwand) ⚠️"
             : (storageAdjusted ? "Cloud: Geladen (Speicher angepasst) ✅" : "Cloud: Geladen ✅");
+        if (missionPullOutcome?.status === 'tracker-handoff-complete') {
+            pinboardStatus = 'Cloud geladen · Tracker-Mission übernommen ✅';
+        } else if (missionPullOutcome?.status === 'tracker-handoff-incomplete') {
+            pinboardStatus = 'Cloud-Daten geladen · Tracker-Mission bleibt geschützt ⚠️';
+        }
         updateSyncStatus(pinboardStatus);
         flashSyncIndicator('down');
 
@@ -14003,7 +14093,11 @@ async function forceSyncLoad() {
         renderLog();
         const homebaseResult = await homebasePullPromise;
         if (homebaseResult?.ok && homebaseResult?.record) {
-            updateSyncStatus("Cloud geladen · Homebase geprüft ✅");
+            updateSyncStatus(missionPullOutcome?.status === 'tracker-handoff-complete'
+                ? 'Cloud + Homebase geladen · Tracker-Mission übernommen ✅'
+                : (missionPullOutcome?.status === 'tracker-handoff-incomplete'
+                    ? 'Cloud + Homebase geladen · Tracker-Mission bleibt geschützt ⚠️'
+                    : "Cloud geladen · Homebase geprüft ✅"));
         } else if (homebaseResult?.ok === false && !homebaseResult?.disabled) {
             updateSyncStatus("App geladen · Homebase nicht geladen ⚠️", true);
         }
@@ -14040,7 +14134,11 @@ async function silentSyncLoad(options = {}) {
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
             const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-            await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+            await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+                source: 'silent-cloud-pull',
+                allowTrackerHandoff: false
+            });
+            const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
             _syncApplyOnboardEquipmentFromCloud(data);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -14056,7 +14154,9 @@ async function silentSyncLoad(options = {}) {
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
             renderLog();
-            updateSyncStatus("Auto-Sync: Aktualisiert 🔄");
+            updateSyncStatus(missionPullOutcome?.status === 'tracker-authority-retained'
+                ? 'Auto-Sync: Daten aktualisiert · Tracker-Mission aktiv 🔄'
+                : "Auto-Sync: Aktualisiert 🔄");
             flashSyncIndicator('down');
         }
     } catch (e) {
@@ -14236,7 +14336,11 @@ async function checkCloudAfterIdle() {
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
                 const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-                await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+                    source: 'idle-cloud-pull',
+                    allowTrackerHandoff: true
+                });
+                const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
                 _syncApplyOnboardEquipmentFromCloud(data);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -14250,7 +14354,11 @@ async function checkCloudAfterIdle() {
                 updateGroupBadgeUI();
                 if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
                 renderLog();
-                updateSyncStatus("Cloud-Update geladen ✅");
+                updateSyncStatus(missionPullOutcome?.status === 'tracker-handoff-complete'
+                    ? 'Cloud-Update · Tracker-Mission übernommen ✅'
+                    : (missionPullOutcome?.status === 'tracker-handoff-incomplete'
+                        ? 'Cloud-Update · Tracker-Mission bleibt geschützt ⚠️'
+                        : "Cloud-Update geladen ✅"));
                 flashSyncIndicator('down');
             } else {
                 // User lehnt ab -> Behalte lokale Daten.

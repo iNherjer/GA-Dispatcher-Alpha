@@ -197,7 +197,19 @@ const cloudContext = {
     localStorage: cloudStorage.api,
     document: { getElementById: () => ({ style: { display: 'block' } }) },
     console: { warn() {} },
+    Date,
     JSON,
+    _syncActiveTrackerRunForCloudPull: () => null,
+    _syncRecordCloudMissionPullOutcome: (status, details = {}) => {
+        const outcome = { status, ...details };
+        cloudContext.window.gaLastCloudMissionPullOutcome = outcome;
+        return outcome;
+    },
+    _syncMissionIdentityValues: state => {
+        const id = state?.currentMissionData?.missionId || state?.missionId || '';
+        return id ? [String(id).trim().toLowerCase()] : [];
+    },
+    _syncMissionTitleForPrompt: state => state?.currentMissionData?.missionTitle || state?.currentMissionData?.missionId || 'Mission',
     _syncMissionStateIsDraft: state => state?.currentMissionData?.sceneAccepted === false,
     _missionIsFreeflightOnly: () => false,
     _syncActiveMissionIsExpired: () => false,
@@ -214,7 +226,7 @@ const cloudContext = {
 vm.createContext(cloudContext);
 vm.runInContext(sourceBetween(
     syncSource,
-    'async function _syncApplyActiveMissionFromCloud(activeMission = null)',
+    'async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {})',
     'function setLastSyncedPayload()'
 ), cloudContext, { filename: 'mission-cloud-draft-restore-test.js' });
 assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(draftState), true);
@@ -237,6 +249,62 @@ assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudCont
 assert.equal(restoreOptions?.resumeRuntime, false, 'a stale cloud runtime must restore as planned');
 assert.equal(restoreOptions?.runtimeResetToPlanned, true, 'cloud restore must expose the reset-to-planned state');
 assert.equal(resetCloudUploadQueued, 1, 'the planned replacement must be queued back to the cloud');
+
+const trackerRun = {
+    missionId: 'mission-tracker-alpha',
+    runId: 'run-tracker-alpha',
+    ownerClientId: 'alpha-client',
+    state: 'active'
+};
+const foreignCloudMission = {
+    currentMissionData: {
+        missionId: 'mission-local-stable',
+        missionTitle: 'Andere Cloud-Mission',
+        sceneAccepted: true
+    }
+};
+let trackerHandoffCalls = 0;
+let trackerHandoffOptions = null;
+cloudContext._syncActiveTrackerRunForCloudPull = () => trackerRun;
+cloudContext.window.resumeTrackerMissionOnThisDevice = async options => {
+    trackerHandoffCalls += 1;
+    trackerHandoffOptions = options;
+    return true;
+};
+restoreOptions = null;
+assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(foreignCloudMission, {
+    source: 'manual-cloud-pull',
+    allowTrackerHandoff: true
+}), true);
+assert.equal(trackerHandoffCalls, 1, 'manual cloud pull must enter the tracker handoff path');
+assert.equal(restoreOptions, null, 'a foreign cloud mission must never be restored over an active tracker run');
+assert.match(trackerHandoffOptions?.promptContext || '', /darf ihn nicht überschreiben/);
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'tracker-handoff-complete');
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.cloudMatchesTracker, false);
+
+const handoffsBeforeSilentPull = trackerHandoffCalls;
+assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(foreignCloudMission, {
+    source: 'silent-cloud-pull',
+    allowTrackerHandoff: false
+}), false);
+assert.equal(trackerHandoffCalls, handoffsBeforeSilentPull, 'silent cloud pull must not take mission ownership');
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.status, 'tracker-authority-retained');
+
+const matchingCloudMission = {
+    currentMissionData: {
+        missionId: trackerRun.missionId,
+        missionTitle: 'Alpha-Mission',
+        sceneAccepted: true
+    }
+};
+assert.equal(await vm.runInContext('_syncApplyActiveMissionFromCloud', cloudContext)(matchingCloudMission, {
+    source: 'manual-cloud-pull',
+    allowTrackerHandoff: true
+}), true);
+assert.equal(cloudContext.window.gaLastCloudMissionPullOutcome?.cloudMatchesTracker, true);
+assert.match(trackerHandoffOptions?.promptContext || '', /Phase und Fortschritt.*Tracker-Stand/);
+
+cloudContext._syncActiveTrackerRunForCloudPull = () => null;
 
 const uploadStorage = storageHarness({
     ga_sync_time: '100',

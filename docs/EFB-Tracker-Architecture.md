@@ -248,6 +248,16 @@ nachladen. Terrain bleibt Teil des Authority-Bundles: Nach Abschluss ihres
 bestehenden Terrainabrufs sendet die Web-App sofort einen neuen kompakten
 Snapshot; der Tracker startet dafuer keinen eigenen Routendaten-Abruf.
 
+Der Web-App-Cloud-Pull wird ebenfalls an dieser Authority-Grenze arbitriert.
+Solange der verbundene Tracker einen aktiven Run meldet, darf `activeMission`
+aus dem Cloud-Profil weder lokal restauriert noch als Scene-/Lifecycle-Quelle
+verwendet werden. Ein manueller Pull startet stattdessen den bestehenden
+Snapshot-/Takeover-Dialog und restauriert nach Bestaetigung das Resume-Bundle
+des Trackers. Ein stiller Pull behaelt den Tracker-Run ohne Ownerwechsel bei;
+Logbuch, Pinnwand, Presets und die uebrigen Profildaten koennen trotzdem
+aktualisiert werden. Damit bleiben Stable-, Alpha- und lokale App-Instanzen
+Cloud-kompatibel, ohne eine zweite Missionsautoritaet zu erzeugen.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

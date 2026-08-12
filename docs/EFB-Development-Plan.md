@@ -676,6 +676,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Tracker v333 / Host 0.4.8 mit lokalem, erlaubnislistenbasiertem
       Karten-Tile-Proxy samt 32-MiB-RAM-Grenze und sofortigem App-Terrain-Push
       implementieren; HTTP-, Cache-, Quellen- und Syntaxtests bestanden.
+- [x] Web-App-Cloud-Pull gegen einen aktiven Tracker-Run absichern: manueller
+      Pull verwendet die bestaetigte Tracker-Geraeteuebergabe, stiller Pull
+      aktualisiert nur die uebrigen Profildaten, und eine fremde Cloud-Mission
+      kann keine Scene-/Lifecycle-Befehle mehr gegen den aktiven Run senden.
 - [ ] Tracker v333 mit vorhandenem EFB 0.4.4 und passendem lokalen App-Stand
       auf Windows/In-Sim testen: Basiskarte nach Bewegung > 5 Sekunden,
       `EFB_TILE_PROXY_READY` sowie `map-profile:tracker-terrain` pruefen.

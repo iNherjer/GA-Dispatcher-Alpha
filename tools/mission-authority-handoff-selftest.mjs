@@ -196,6 +196,7 @@ const recoveryContext = {
   _syncRuntimeSnapshotStarted: snapshot => !!snapshot?.runtime?.active,
   _syncCompactActiveMission: state => JSON.parse(JSON.stringify(state)),
   _missionAuthorityAdapter: () => 'apt',
+  _buildMissionAuthorityMapProfile: () => null,
   _validateMissionAuthorityResumeBundle: bundle => ({
     ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime)
   }),
