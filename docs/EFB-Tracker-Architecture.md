@@ -248,6 +248,15 @@ nachladen. Terrain bleibt Teil des Authority-Bundles: Nach Abschluss ihres
 bestehenden Terrainabrufs sendet die Web-App sofort einen neuen kompakten
 Snapshot; der Tracker startet dafuer keinen eigenen Routendaten-Abruf.
 
+Host 0.4.9/v334 behaelt diesen Proxy bei und haertet die letzte Renderergrenze:
+Das transparente Aero-PNG wird mit geringer Deckkraft beigemischt, damit ein
+Coherent-Compositor mit schwarzem Alpha-Fallback die Basiskarte nicht mehr
+verdecken kann. Toolbar und Leaflet-Layerdialog erhalten EFB-eigene
+Abstands-/Kontrastregeln. Nach einer Geraeteuebergabe plant die Web-App den
+vorhandenen Profilabruf erneut ein, sobald die restaurierte Route mindestens
+zwei Punkte besitzt; das fertige kompakte Profil wird weiter ueber denselben
+Authority-Snapshot uebertragen.
+
 Der Web-App-Cloud-Pull wird ebenfalls an dieser Authority-Grenze arbitriert.
 Solange der verbundene Tracker einen aktiven Run meldet, darf `activeMission`
 aus dem Cloud-Profil weder lokal restauriert noch als Scene-/Lifecycle-Quelle

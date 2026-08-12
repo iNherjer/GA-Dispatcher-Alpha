@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v333 Testkandidat | v320 | v333 liefert Basiskarten/Aero ueber einen begrenzten lokalen Tile-Proxy; Stable bleibt unveraendert |
+| Tracker-Runtime | v325 freigegeben / v334 Testkandidat | v320 | v334 haertet transparente Aero-Tiles, Toolbar/Layerdialog und den Terrain-Push nach der Geraeteuebergabe; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v333-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -680,9 +680,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Pull verwendet die bestaetigte Tracker-Geraeteuebergabe, stiller Pull
       aktualisiert nur die uebrigen Profildaten, und eine fremde Cloud-Mission
       kann keine Scene-/Lifecycle-Befehle mehr gegen den aktiven Run senden.
-- [ ] Tracker v333 mit vorhandenem EFB 0.4.4 und passendem lokalen App-Stand
-      auf Windows/In-Sim testen: Basiskarte nach Bewegung > 5 Sekunden,
-      `EFB_TILE_PROXY_READY` sowie `map-profile:tracker-terrain` pruefen.
+- [x] Tracker v333 mit vorhandenem EFB 0.4.4 und passendem lokalen App-Stand
+      auf Windows/In-Sim testen. Ergebnis: Proxy-Tiles kommen an, aber der
+      Coherent-Compositor stellt die transparente Aero-Ebene nach etwa einer
+      Sekunde schwarz dar; der uebernommene Run bleibt ohne spaeten
+      Routen-Trigger bei `planned-only`.
+- [ ] Tracker v334 / Host 0.4.9 mit vorhandenem EFB 0.4.4 und passendem lokalen
+      App-Stand auf Windows/In-Sim testen: Basiskarte mit aktivem Aero-Layer
+      nach Bewegung > 5 Sekunden, lesbarer Layerdialog, freie Toolbar sowie
+      `map-profile:terrain` nach dem Cloud-/Tracker-Handoff pruefen.
       Der
       Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
@@ -712,6 +718,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v333-In-Sim-Test trennt Netzwerk und Darstellung: Topo- und
+  Aero-Tiles werden vom lokalen Proxy erfolgreich geliefert, erst das spaeter
+  eintreffende transparente Aero-PNG verdeckt die Basiskarte im Coherent-
+  Compositor schwarz. Host 0.4.9/v334 begrenzt deshalb dessen Deckkraft auf
+  eine rendererfeste Beimischung, reserviert die native EFB-Kopfzeile und
+  setzt den Layerdialog kontrastreich. Nach einer bestaetigten Tracker-
+  Uebergabe wird der bestehende Web-App-Terrainabruf ausserdem erneut
+  angestossen, sobald die restaurierte Route bereit ist; der Tracker bleibt
+  dabei ohne eigenen Hoehendienst.
 
 - 2026-08-12: Der v332-In-Sim-Log bestaetigt `map-profile:planned-only`; das
   Terrain war beim ersten Authority-Snapshot noch nicht fertig und loeste

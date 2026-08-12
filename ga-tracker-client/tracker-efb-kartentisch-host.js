@@ -537,7 +537,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.8');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.9');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -604,6 +604,7 @@
     options.updateWhenIdle = true;
     options.updateWhenZooming = false;
     options.keepBuffer = 2;
+    options.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
     return L.tileLayer(definition.localUrl || definition.url, options);
   }
@@ -1239,6 +1240,17 @@
     syncProfileButton();
     savePreferences();
     window.setTimeout(function () { if (map) map.invalidateSize(false); renderProfile(); }, 30);
+  };
+  window.showSettingsHelp = function (topic, event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    var normalized = String(topic || '').toLowerCase();
+    var text = normalized.indexOf('drawer') >= 0
+      ? 'Mission und Checklisten kommen im EFB direkt vom Tracker. Änderungen erfolgen weiterhin in der verbundenen App.'
+      : 'Der EFB-Kartentisch zeigt Route, Flugzeugposition und Tracker-Status. Layer und Anzeigen lassen sich über die obere Leiste umschalten.';
+    var status = byId('checklistDrawerStatus');
+    if (status) status.textContent = text;
+    report('info', 'help', normalized || 'map', text);
+    return false;
   };
   window.toggleAutoFollow = function () { setFollow(!preferences.follow); };
   window.toggleMapToolRail = function (event) {

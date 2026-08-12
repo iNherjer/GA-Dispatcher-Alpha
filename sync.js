@@ -2375,6 +2375,33 @@ window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready'
     return _queueMissionAuthoritySnapshot(reason, { immediate: true });
 };
 
+let missionAuthorityProfileRefreshTimer = null;
+function _scheduleMissionAuthorityProfileRefresh(reason = 'tracker-authority-handoff') {
+    if (missionAuthorityProfileRefreshTimer) clearTimeout(missionAuthorityProfileRefreshTimer);
+    const delays = [250, 1000, 3000];
+    let attempt = 0;
+    const run = () => {
+        missionAuthorityProfileRefreshTimer = null;
+        const existing = _buildMissionAuthorityMapProfile();
+        if (existing?.points?.length >= 2) {
+            _queueMissionAuthoritySnapshot(`${reason}-profile-ready`, { immediate: true });
+            return;
+        }
+        let started = false;
+        try {
+            started = typeof window.vpHardReloadRouteProfile === 'function'
+                && window.vpHardReloadRouteProfile(reason) === true;
+        } catch (_) {
+            started = false;
+        }
+        if (started || attempt >= delays.length - 1) return;
+        attempt += 1;
+        missionAuthorityProfileRefreshTimer = setTimeout(run, delays[attempt]);
+    };
+    missionAuthorityProfileRefreshTimer = setTimeout(run, delays[attempt]);
+    return true;
+}
+
 function _trackerAckTypeForCommand(type = '') {
     const t = String(type || '').toLowerCase();
     if (!t) return '';
@@ -4827,6 +4854,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
     }
     if (!restored) return false;
     _restoreMissionAuthorityMapProfile(bundle);
+    _scheduleMissionAuthorityProfileRefresh('tracker-authority-handoff');
     if (missionRuntimeResumeAppliedFor !== _normalizeMissionRuntimeId(active.missionId)) {
         _restoreMissionRuntimeFromSnapshot(bundle.runtime, {
             reason: 'tracker-authority-handoff',

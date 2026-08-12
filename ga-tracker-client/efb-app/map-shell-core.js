@@ -68,7 +68,10 @@ const OVERLAY_LAYERS = Object.freeze([
     kind: 'tile',
     url: 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest',
     localUrl: '/api/v1/map-tile/aero/{z}/{x}/{y}.png',
-    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.68, maxNativeZoom: 12, maxZoom: 18 })
+    // MSFS Coherent can composite transparent PNG tile layers against black
+    // instead of the layer below. A deliberately light overlay keeps the
+    // basemap readable even on that renderer while retaining the airspace ink.
+    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.24, maxNativeZoom: 12, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'dfs',

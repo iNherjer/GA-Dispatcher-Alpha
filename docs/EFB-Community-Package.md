@@ -92,6 +92,12 @@ Terrainabruf. Beide Aenderungen liegen im Tracker-Host beziehungsweise in der
 Web-App. Das installierte Community-Paket 0.4.4 bleibt auch fuer diesen Test
 unveraendert; ein weiterer SDK-Build ist nicht erforderlich.
 
+Tracker v334 liefert Hoststand 0.4.9 mit Coherent-tauglicher Aero-Beimischung,
+freier Kopfzeile, kontrastreichem Layerdialog und erneutem Terrainprofil-
+Trigger nach der Tracker-Geraeteuebergabe. Der ausgelieferte Code liegt erneut
+vollstaendig im Tracker-Host beziehungsweise in der Web-App; das installierte
+Community-Paket 0.4.4 muss fuer den v334-Test nicht neu gebaut werden.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

@@ -206,7 +206,11 @@ body.ga-efb-tracker-host .ga-efb-checklist-detail input {
 
 body.ga-efb-tracker-host .pinboard-header {
   flex: 0 0 auto !important;
-  padding: 6px 8px !important;
+  position: relative;
+  z-index: 140000;
+  min-height: 66px;
+  padding: 34px 8px 6px !important;
+  box-sizing: border-box;
 }
 
 body.ga-efb-tracker-host .ga-efb-boot-status {
@@ -235,6 +239,7 @@ body.ga-efb-tracker-host .ga-efb-boot-status.error {
 
 body.ga-efb-tracker-host #mapToolbarInner {
   width: 100%;
+  min-width: 0;
   flex-wrap: nowrap;
   gap: 5px;
 }
@@ -252,7 +257,7 @@ body.ga-efb-tracker-host #mapToolbarInner > div:last-child::-webkit-scrollbar {
 }
 
 body.ga-efb-tracker-host #navStationLabel {
-  white-space: nowrap;
+  display: none !important;
 }
 
 body.ga-efb-tracker-host .ga-efb-host-design,
@@ -315,6 +320,14 @@ body.ga-efb-tracker-host #map .leaflet-tile,
 body.ga-efb-tracker-host #map .leaflet-layer,
 body.ga-efb-tracker-host #map .leaflet-map-pane {
   transition: none !important;
+}
+
+body.ga-efb-tracker-host #map img.ga-efb-map-tile {
+  border: 0 !important;
+  background: transparent !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  backface-visibility: visible !important;
 }
 
 body.ga-efb-tracker-host #map .leaflet-ga-base-pane {
@@ -406,9 +419,65 @@ body.ga-efb-tracker-host #routeProgressBar {
 }
 
 body.ga-efb-tracker-host .leaflet-control-layers {
+  z-index: 15000 !important;
   max-width: 260px;
   max-height: 58vh;
   overflow: auto;
+  border: 1px solid #6d8796 !important;
+  border-radius: 6px !important;
+  color: #f3f7f8 !important;
+  background: rgba(7, 20, 29, .98) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .75) !important;
+  font: 700 11px/1.35 Arial, sans-serif !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers-expanded {
+  padding: 10px 12px !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label,
+body.ga-efb-tracker-host .leaflet-control-layers span {
+  color: #f3f7f8 !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label {
+  display: block;
+  padding: 4px 2px;
+  margin: 0 !important;
+  border-radius: 3px;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label input {
+  flex: 0 0 auto;
+  margin: 0 !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label:hover {
+  background: rgba(105, 222, 208, .16) !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers-separator {
+  border-top-color: #45606f !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers input {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  letter-spacing: normal !important;
+  accent-color: #69ded0;
 }
 
 body.ga-efb-tracker-host .ga-efb-plane-icon {
@@ -493,8 +562,8 @@ body.ga-efb-tracker-host #autoFollowBtn {
   }
 
   body.ga-efb-tracker-host #mapToolbarInner {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
   }
 
   body.ga-efb-tracker-host #mapToolbarInner > div:last-child {
