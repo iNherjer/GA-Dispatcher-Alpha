@@ -5,6 +5,8 @@ const MAP_SNAPSHOT_VERSION = 1;
 const MAX_ROUTE_WAYPOINTS = 128;
 const MAX_CHAIN_POINTS = 96;
 const MAX_PROFILE_POINTS = 128;
+const MAX_PROFILE_OBSTACLES = 64;
+const MAX_PROFILE_AIRSPACES = 48;
 const EARTH_RADIUS_NM = 3440.065;
 
 function object(value) {
@@ -219,6 +221,59 @@ function normalizeTerrainProfile(parts, routeTotalDistanceNm) {
   }));
 }
 
+function normalizeProfileObstacles(parts, routeTotalDistanceNm) {
+  const source = object(parts.bundle.mapProfile);
+  const result = [];
+  for (const value of (Array.isArray(source.obstacles) ? source.obstacles : []).slice(0, MAX_PROFILE_OBSTACLES)) {
+    const item = object(value);
+    const distanceAlongNm = finite(item.distanceNm ?? item.distNM);
+    const heightFt = finite(item.heightFt ?? item.hFt);
+    if (distanceAlongNm === null || heightFt === null || heightFt <= 0) continue;
+    result.push({
+      distanceNm: Math.round(Math.max(0, Math.min(routeTotalDistanceNm, distanceAlongNm)) * 100) / 100,
+      heightFt: Math.round(Math.min(10000, heightFt)),
+      type: cleanText(item.type || 'obstacle', 24).toLowerCase() || 'obstacle'
+    });
+  }
+  return result;
+}
+
+function normalizeProfileAirspaces(parts, routeTotalDistanceNm) {
+  const source = object(parts.bundle.mapProfile);
+  const result = [];
+  for (const value of (Array.isArray(source.airspaces) ? source.airspaces : []).slice(0, MAX_PROFILE_AIRSPACES)) {
+    const item = object(value);
+    const startDistanceNm = finite(item.startDistanceNm ?? item.asMinDist);
+    const endDistanceNm = finite(item.endDistanceNm ?? item.asMaxDist);
+    const lowerFt = finite(item.lowerFt);
+    const upperFt = finite(item.upperFt);
+    if (startDistanceNm === null || endDistanceNm === null || lowerFt === null || upperFt === null || endDistanceNm <= startDistanceNm) continue;
+    const color = /^#[0-9a-f]{3,8}$/i.test(String(item.color || '')) ? String(item.color) : '#4da6ff';
+    result.push({
+      name: cleanText(item.name || 'Luftraum', 80),
+      type: finite(item.type),
+      startDistanceNm: Math.round(Math.max(0, Math.min(routeTotalDistanceNm, startDistanceNm)) * 100) / 100,
+      endDistanceNm: Math.round(Math.max(0, Math.min(routeTotalDistanceNm, endDistanceNm)) * 100) / 100,
+      lowerFt: Math.round(Math.max(0, lowerFt)),
+      upperFt: Math.round(Math.max(lowerFt, upperFt)),
+      lowerAgl: item.lowerAgl === true,
+      upperAgl: item.upperAgl === true,
+      color,
+      frequencies: (Array.isArray(item.frequencies) ? item.frequencies : []).map(entry => cleanText(entry, 20)).filter(Boolean).slice(0, 3)
+    });
+  }
+  return result.filter(item => item.endDistanceNm > item.startDistanceNm);
+}
+
+function normalizeMapContext(parts) {
+  const source = object(object(parts.bundle.mapProfile).context);
+  return {
+    position: cleanText(source.position, 60),
+    frequency: cleanText(source.frequency, 40),
+    frequencySource: cleanText(source.frequencySource, 80)
+  };
+}
+
 function plannedAltitudeAtDistance(distanceNm, totalDistanceNm, cruiseAltitudeFt, waypoints) {
   const progress = totalDistanceNm > 0 ? Math.max(0, Math.min(1, distanceNm / totalDistanceNm)) : 0;
   const startElevation = waypoints[0].elevationFt ?? cruiseAltitudeFt;
@@ -232,11 +287,15 @@ function buildProfile(parts, waypoints, legs, flight) {
   if (!waypoints.length || !legs.length) return null;
   const totalDistanceNm = legs[legs.length - 1].endDistanceNm;
   const cruiseAltitudeFt = plannedCruiseAltitudeFt(parts, flight);
+  const obstacles = normalizeProfileObstacles(parts, totalDistanceNm);
+  const airspaces = normalizeProfileAirspaces(parts, totalDistanceNm);
   const terrainProfile = normalizeTerrainProfile(parts, totalDistanceNm);
   if (terrainProfile.length >= 2) {
     const profilePoints = terrainProfile.map(point => ({
       waypointId: '',
       name: '',
+      lat: point.lat,
+      lon: point.lon,
       distanceNm: point.distanceNm,
       terrainFt: point.terrainFt,
       plannedAltFt: Math.max(0, Math.round(plannedAltitudeAtDistance(
@@ -265,6 +324,8 @@ function buildProfile(parts, waypoints, legs, flight) {
       terrainAvailable: true,
       totalDistanceNm,
       cruiseAltitudeFt,
+      obstacles,
+      airspaces,
       points: profilePoints
     };
   }
@@ -285,6 +346,8 @@ function buildProfile(parts, waypoints, legs, flight) {
     return {
       waypointId: waypoint.id,
       name: waypoint.name,
+      lat: waypoint.lat,
+      lon: waypoint.lon,
       distanceNm: Math.round(distanceAlongNm * 100) / 100,
       terrainFt: endpointAltitude === null ? null : Math.round(endpointAltitude),
       plannedAltFt: Math.max(0, Math.round(plannedAltFt))
@@ -295,6 +358,8 @@ function buildProfile(parts, waypoints, legs, flight) {
     terrainAvailable: false,
     totalDistanceNm,
     cruiseAltitudeFt,
+    obstacles,
+    airspaces,
     points: profilePoints
   };
 }
@@ -343,6 +408,7 @@ function projectTrackerMapSnapshot(activeRun, flightSnapshot = null, options = {
       legs
     },
     navigation,
+    context: normalizeMapContext(parts),
     profile: buildProfile(parts, waypoints, legs, flight),
     missionGeometry: {
       target: normalizeTarget(parts),

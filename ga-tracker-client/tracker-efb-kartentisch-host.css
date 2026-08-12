@@ -288,6 +288,10 @@ body.ga-efb-tracker-host .ga-efb-e6b-input-surface.is-dragging {
   cursor: grabbing;
 }
 
+body.ga-efb-tracker-host .ga-efb-e6b-input-surface.wind-side {
+  border-radius: 0;
+}
+
 body.ga-efb-tracker-host .ga-efb-host-state {
   padding: 5px 9px;
   border: 1px solid #35695f;
@@ -361,6 +365,38 @@ body.ga-efb-tracker-host #map .leaflet-ga-aircraft-pane {
   z-index: 500 !important;
 }
 
+body.ga-efb-tracker-host.map-drawing-active #map {
+  touch-action: none !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content-wrapper,
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-tip {
+  color: #eaf4f7;
+  background: rgba(7, 20, 29, .98);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-card {
+  font: 11px/1.45 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-card > strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #69ded0;
+  font-size: 14px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-card > div {
+  margin: 3px 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces span {
+  display: block;
+  margin-top: 3px;
+  padding-left: 7px;
+  border-left: 2px solid #4da6ff;
+}
+
 body.ga-efb-tracker-host .telemetry-box {
   padding-right: 25px !important;
   backdrop-filter: none !important;
@@ -406,10 +442,37 @@ body.ga-efb-tracker-host .ga-efb-host-infos.active {
   background: #f2c12e;
 }
 
+body.ga-efb-tracker-host .ga-efb-host-context.active {
+  color: #111;
+  border-color: #d8b64c;
+  background: #f2c12e;
+}
+
 body.ga-efb-tracker-host #mapProfileStrip {
   flex: 0 0 24%;
   min-height: 105px;
-  max-height: 34%;
+  max-height: 65%;
+}
+
+body.ga-efb-tracker-host #profileResizeHandle {
+  position: relative;
+  z-index: 12000;
+  pointer-events: auto !important;
+}
+
+body.ga-efb-tracker-host #mapProfileStrip .map-profile-controls,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-btn,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-val,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-label {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto !important;
+}
+
+body.ga-efb-tracker-host.ga-profile-resizing,
+body.ga-efb-tracker-host.ga-profile-resizing * {
+  cursor: ns-resize !important;
+  user-select: none !important;
 }
 
 body.ga-efb-tracker-host.profile-hidden #profileResizeHandle,
@@ -418,7 +481,26 @@ body.ga-efb-tracker-host.profile-hidden #mapProfileStrip {
 }
 
 body.ga-efb-tracker-host #routeProgressBar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
   flex: 0 0 auto;
+  overflow: hidden;
+}
+
+body.ga-efb-tracker-host #routeProgressBar .route-progress-item {
+  min-width: 0;
+  padding-right: 4px;
+  padding-left: 4px;
+  overflow: hidden;
+}
+
+body.ga-efb-tracker-host #routeProgressBar .route-progress-value,
+body.ga-efb-tracker-host #routeProgressBar .route-progress-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.ga-efb-tracker-host .leaflet-control-layers {

@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v337 Testkandidat | v320 | v337 aktualisiert Routen unmittelbar, ersetzt alte Vektorebenen vollstaendig und macht E6B/Checklisten Coherent-tauglich; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v337-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v338 Testkandidat | v320 | v338 erweitert den Kartentisch um bedienbare E6B-Windseite, Kontextabfrage, Profil-Luftraeume/Hindernisse und Coherent-taugliche Bedienung; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v338-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -326,6 +326,19 @@ neue Leaflet-Gruppen mit separaten SVG-Renderern, akzeptiert am E6B zusaetzlich
 Mouse-/Touch-Gesten und schaltet Checklistenpunkte ueber einen expliziten
 Click-Pfad. Nicht darstellbare E6B-Symbole wurden durch ASCII-Beschriftungen
 ersetzt.
+
+Tracker v338/Host 0.5.3 transportiert zusaetzlich ein begrenztes Profilpaket
+mit hoechstens 96 Terrainpunkten, 64 Hindernissen und 48 Luftraeumen ueber den
+bestehenden Authority-Snapshot. Der Tracker normalisiert diese Daten und stellt
+sie dem EFB ausschliesslich lokal ueber `127.0.0.1` bereit. Der EFB-Kartentisch
+rendert daraus Profil-Luftraeume und Hindernisse, zeigt Positions- und
+Frequenzkontext, bietet `Was ist hier?`, bedienbare Profilregler und einen
+vertikalen Profilgriff. Die E6B-Windseite leitet nun auch Schieber- und
+Windpunktgesten an den eingebetteten Originalrechner weiter. Der Zeichenpfad
+nutzt Leaflets echte Containerkoordinaten und einen eigenen SVG-Renderer.
+Der dynamische HDG-Profilmodus bleibt eine spaetere lokale Tracker/EFB-Aufgabe;
+v338 uebertraegt weiterhin das Routenprofil und keinen sekundenweisen
+HDG-Komplettsnapshot durchs Relay.
 
 ## Roadmap
 
@@ -732,11 +745,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Route und Terrainband sind sichtbar; Routenupdates warten noch bis zu
       zehn Sekunden und hinterlassen Vektorartefakte, E6B-Drehung und
       Checklisten-Checkboxen reagieren im Coherent-Host noch nicht.
-- [ ] Tracker v337 / Host 0.5.2 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1622` auf Windows/In-Sim testen: Routenmutation innerhalb
-      etwa einer Sekunde ohne alte Linien, E6B-Drehung per Maus/Touch sowie
-      persistente Checklisten-Haken pruefen. Der Ruecksprungpunkt
-      `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v337 / Host 0.5.2 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1622` auf Windows/In-Sim testen. Ergebnis: Route wird
+      schneller uebernommen; E6B-Vorderseite funktioniert. Windschieber,
+      Windpunkt, Profil-Luftraeume/Hindernisse, Profilbedienung,
+      `Was ist hier?`, Checklisten und korrigierter Zeichenpfad fehlen noch.
+- [ ] Tracker v338 / Host 0.5.3 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1623` auf Windows/In-Sim testen: E6B-Windschieber und
+      Windpunkt, gleichmaessige Kopffelder/Frequenz, Kontextabfrage,
+      Luftraeume/Hindernisse und alle Profilregler, vertikaler Profilgriff,
+      persistente Checklisten sowie Stift ohne Versatz/Artefakte pruefen. Der
+      Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -764,6 +783,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Host 0.5.3/v338 haelt den EFB-Livepfad lokal: Das EFB pollt den
+  Tracker auf `127.0.0.1:49880`; nur das kompakte, begrenzte Profilpaket kommt
+  mit dem Missions-Authority-Snapshot Web-App -> Relay -> Tracker. Die lokale
+  Browser-QA bestaetigt E6B-Windschieber und Windpunkt, Kontextpopup,
+  Profil-Luftraeume/Hindernisse, Profilregler und Profilgriff, verschiebbare und
+  schliessbare Infofenster, persistente Checklisten sowie einen Zeichenpfad
+  ohne horizontalen Versatz. 29 automatisierte EFB-Tests sind erfolgreich.
 
 - 2026-08-12: Der v336-In-Sim-Log zeigt fuer E6B Vorder-/Rueckseite einen
   vollstaendigen Boot, aber keine einzige `e6b-action`-Drehgeste; Coherent

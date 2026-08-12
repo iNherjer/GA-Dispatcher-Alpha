@@ -13,9 +13,20 @@ function activeRun() {
     resumeBundle: {
       version: 2,
       mapProfile: {
-        version: 1,
+        version: 2,
         terrainAvailable: true,
         totalDistanceNm: 38,
+        context: {
+          position: '0.2 NM SE EDTW',
+          frequency: 'FIS 128.950',
+          frequencySource: 'Offenes Gebiet'
+        },
+        obstacles: [
+          { distanceNm: 12, heightFt: 450, type: 'mast' }
+        ],
+        airspaces: [
+          { name: 'CTR Test', type: 'CTR', startDistanceNm: 8, endDistanceNm: 18, lowerFt: 2500, upperFt: 4500, color: '#4da6ff', frequencies: ['118.100'] }
+        ],
         points: [
           { lat: 48.2792, lon: 8.4283, elevFt: 2201, distNM: 0 },
           { lat: 48.38, lon: 8.62, elevFt: 2860, distNM: 12 },
@@ -63,10 +74,41 @@ test('map snapshot projects a bounded route and live navigation without narrativ
   assert.equal(snapshot.profile.mode, 'tracker-terrain');
   assert.equal(snapshot.profile.points.length, 4);
   assert.equal(snapshot.profile.points[0].name, 'EDTW');
+  assert.equal(snapshot.profile.points[0].lat, 48.2792);
   assert.equal(snapshot.profile.points.at(-1).name, 'EDDS');
+  assert.equal(snapshot.profile.obstacles.length, 1);
+  assert.equal(snapshot.profile.obstacles[0].heightFt, 450);
+  assert.equal(snapshot.profile.airspaces.length, 1);
+  assert.equal(snapshot.profile.airspaces[0].name, 'CTR Test');
+  assert.equal(snapshot.context.position, '0.2 NM SE EDTW');
+  assert.equal(snapshot.context.frequency, 'FIS 128.950');
   assert.equal(snapshot.missionGeometry.poiChain.length, 2);
   assert.equal(JSON.stringify(snapshot).includes('Geschichte'), false);
   assert.equal(JSON.stringify(snapshot).includes('missionStory'), false);
+});
+
+test('map snapshot bounds profile decorations for relay capacity', () => {
+  const run = activeRun();
+  run.resumeBundle.mapProfile.obstacles = Array.from({ length: 100 }, (_, index) => ({
+    distanceNm: index / 3,
+    heightFt: 300 + index,
+    type: 'mast'
+  }));
+  run.resumeBundle.mapProfile.airspaces = Array.from({ length: 80 }, (_, index) => ({
+    name: 'Airspace ' + index,
+    type: 'D',
+    startDistanceNm: index / 4,
+    endDistanceNm: index / 4 + 2,
+    lowerFt: 1500,
+    upperFt: 4500,
+    color: '#4da6ff',
+    frequencies: ['118.100', '119.200', '120.300', '121.400']
+  }));
+  const snapshot = projectTrackerMapSnapshot(run, { lat: 48.33, lon: 8.52, alt: 3100 });
+  assert.equal(snapshot.profile.obstacles.length, 64);
+  assert.equal(snapshot.profile.airspaces.length, 48);
+  assert.equal(snapshot.profile.airspaces[0].frequencies.length, 3);
+  assert.ok(Buffer.byteLength(JSON.stringify(snapshot), 'utf8') < 64 * 1024);
 });
 
 test('map snapshot keeps a planned profile when an older bundle has no terrain payload', () => {

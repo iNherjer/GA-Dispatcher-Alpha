@@ -114,8 +114,12 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /Mission: /);
   assert.match(hostSource, /Checklisten/);
   assert.match(hostSource, /Werkzeuge/);
+  assert.match(hostSource, /Was ist hier/);
   assert.match(hostSource, /map-profile/);
-  assert.match(hostSource, /container\.clientWidth \|\| rect\.width/);
+  assert.match(hostSource, /map\.mouseEventToContainerPoint\(source\)/);
+  assert.match(hostSource, /setupProfileResize/);
+  assert.match(hostSource, /profile\.airspaces/);
+  assert.match(hostSource, /profile\.obstacles/);
   assert.match(hostSource, /\{ url: definition\.url, label: 'direct' \}/);
   assert.match(hostSource, /\{ url: definition\.localUrl, label: 'tracker-proxy' \}/);
   assert.match(hostSource, /return createResilientTileLayer\(definition, options\)/);
@@ -123,10 +127,14 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /event=map-tile|map-tile/);
   assert.match(utilitySource, /ga-efb-e6b-input-surface/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
+  assert.match(utilitySource, /ga-e6b-wind-slide-delta/);
+  assert.match(utilitySource, /ga-e6b-wind-dot-set/);
   assert.match(utilitySource, /addEventListener\('mousedown'/);
   assert.match(utilitySource, /addEventListener\('touchstart'/);
   assert.match(utilitySource, /ga-efb-tracker-host/);
   assert.match(e6bSource, /ga-e6b-rotate-delta/);
+  assert.match(e6bSource, /ga-e6b-wind-slide-delta/);
+  assert.match(e6bSource, /ga-e6b-wind-dot-set/);
   const hostCss = getTrackerEfbWebClientAsset('/efb/v1/assets/host.css').body.toString('utf8');
   assert.match(hostCss, /#liveNextWpBox \.ga-info-box-close[\s\S]*?right: -20px/);
   assert.match(hostSource, /routeRenderer = L\.svg/);

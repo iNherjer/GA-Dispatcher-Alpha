@@ -21,6 +21,7 @@
   var geometryRenderer = null;
   var previewLine = null;
   var drawingLayer = null;
+  var drawingRenderer = null;
   var measureLayer = null;
   var baseLayers = {};
   var overlayLayers = {};
@@ -31,6 +32,11 @@
   var trackerOnline = false;
   var profileZoom = 0;
   var profileYAxis = 0;
+  var profileCruiseOverride = null;
+  var profileVerticalRate = 500;
+  var profileResizeActive = false;
+  var contextPickActive = false;
+  var mapContextPopup = null;
   var drawMode = '';
   var drawPoints = [];
   var drawLine = null;
@@ -49,6 +55,7 @@
   var drawerView = 'mission';
   var drawerChecklistId = '';
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
+  var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var efbChecklistProgress = readEfbChecklistProgress();
   var EFB_CHECKLISTS = [
     { id: 'vfr-briefing', title: 'VFR Briefing', sections: [
@@ -546,7 +553,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.2');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.3');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -562,7 +569,9 @@
       missionButton.insertAdjacentElement('afterend', checklistButton);
       var layerButton = makeButton('pb-btn ga-efb-host-layers', 'Layer', toggleLayerMenu);
       checklistButton.insertAdjacentElement('afterend', layerButton);
-      layerButton.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-tools', 'Werkzeuge', function () {
+      var contextButton = makeButton('pb-btn ga-efb-host-context', 'Was ist hier', toggleMapContextPick);
+      layerButton.insertAdjacentElement('afterend', contextButton);
+      contextButton.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-tools', 'Werkzeuge', function () {
         window.toggleMapToolRail();
       }));
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
@@ -604,6 +613,7 @@
     applyTheme(preferences.theme);
     setupInfoBoxes();
     setupSideDrawer();
+    setupProfileResize();
   }
 
   function tileTemplateUrl(template, layer, coords) {
@@ -743,6 +753,7 @@
     createStablePane('gaAircraftPane', 500);
     routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
     geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
+    drawingRenderer = L.svg ? L.svg({ pane: 'gaDrawingPane' }) : null;
 
     var baseControl = {};
     var overlayControl = {};
@@ -781,6 +792,7 @@
     });
     map.on('dragstart', function () { if (preferences.follow) setFollow(false); });
     map.on('click', handleMapClick);
+    map.on('contextmenu', function (event) { openMapContextInfo(event.latlng); });
     bindMapDrawingInput();
     window.addEventListener('resize', function () {
       map.invalidateSize(false);
@@ -908,6 +920,7 @@
     if (!normalized) return;
     var nextRouteSignature = mapRouteSignature(normalized);
     if (!mapSnapshot || nextRouteSignature !== routeSignature) {
+      if (mapSnapshot && normalized.missionId !== mapSnapshot.missionId) profileCruiseOverride = null;
       previewWaypointIndex = null;
       mapSnapshot = normalized;
       mapRevision = normalized.revision;
@@ -1014,15 +1027,18 @@
       return;
     }
     var selected = selectedWaypointNavigation();
-    if (bar) bar.style.display = 'flex';
+    if (bar) bar.style.display = 'grid';
     setInfoBoxAvailability('liveNextWpBox', !!next);
     var distance = routeProgressTarget === 'route' ? navigation.remainingDistanceNm : selected.distanceNm;
     var gs = flight ? flight.gsKts : 0;
-    setText('routeProgressPos', formatNumber(navigation.routeDistanceNm, 1) + ' NM');
+    var context = mapSnapshot && mapSnapshot.context || {};
+    setText('routeProgressPos', context.position || (formatNumber(navigation.routeDistanceNm, 1) + ' NM'));
     setText('routeProgressDst', formatNumber(distance, 1) + ' NM');
     setText('routeProgressEta', etaText(distance, gs));
     setText('routeProgressDur', durationText(distance, gs));
-    setText('routeProgressFreq', '--');
+    setText('routeProgressFreq', context.frequency || '--');
+    setText('currentFreqValue', context.frequency || '\u2014');
+    setText('currentFreqSource', context.frequencySource || '');
     Array.prototype.forEach.call(document.querySelectorAll('.route-progress-target'), function (node) {
       node.textContent = routeProgressTarget === 'route' ? 'RTE' : 'WPT';
     });
@@ -1098,12 +1114,99 @@
     return context;
   }
 
+  function profileTerrainAt(points, distanceNm) {
+    if (!points || !points.length) return 0;
+    if (distanceNm <= points[0].distanceNm) return Math.max(0, finite(points[0].terrainFt) || 0);
+    for (var index = 1; index < points.length; index += 1) {
+      var previous = points[index - 1];
+      var next = points[index];
+      if (distanceNm > next.distanceNm) continue;
+      var span = Math.max(0.001, next.distanceNm - previous.distanceNm);
+      var progress = clamp((distanceNm - previous.distanceNm) / span, 0, 1);
+      var first = Math.max(0, finite(previous.terrainFt) || 0);
+      var second = Math.max(0, finite(next.terrainFt) || 0);
+      return first + (second - first) * progress;
+    }
+    return Math.max(0, finite(points[points.length - 1].terrainFt) || 0);
+  }
+
+  function colorWithAlpha(color, alpha) {
+    var value = String(color || '').replace('#', '');
+    if (value.length === 3) value = value.charAt(0) + value.charAt(0) + value.charAt(1) + value.charAt(1) + value.charAt(2) + value.charAt(2);
+    if (!/^[0-9a-f]{6}$/i.test(value)) return 'rgba(77,166,255,' + alpha + ')';
+    return 'rgba(' + parseInt(value.slice(0, 2), 16) + ',' + parseInt(value.slice(2, 4), 16) + ',' + parseInt(value.slice(4, 6), 16) + ',' + alpha + ')';
+  }
+
+  function setupProfileResize() {
+    var handle = byId('profileResizeHandle');
+    var strip = byId('mapProfileStrip');
+    if (!handle || !strip || handle.getAttribute('data-ga-resize-bound') === '1') return;
+    handle.setAttribute('data-ga-resize-bound', '1');
+    try {
+      var savedHeight = Number(localStorage.getItem(EFB_PROFILE_HEIGHT_KEY));
+      if (savedHeight >= 90) {
+        strip.style.height = savedHeight + 'px';
+        strip.style.flexBasis = savedHeight + 'px';
+      }
+    } catch (_) {}
+    var startY = 0;
+    var startHeight = 0;
+    function clientY(event) {
+      var source = event && event.touches && event.touches.length ? event.touches[0] : event;
+      return source ? Number(source.clientY) : 0;
+    }
+    function begin(event) {
+      if (event.preventDefault) event.preventDefault();
+      startY = clientY(event);
+      startHeight = strip.getBoundingClientRect().height;
+      profileResizeActive = true;
+      document.body.classList.add('ga-profile-resizing');
+      try { if (event.pointerId != null && handle.setPointerCapture) handle.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    function move(event) {
+      if (!profileResizeActive) return;
+      if (event.preventDefault) event.preventDefault();
+      var hostHeight = document.documentElement.clientHeight || window.innerHeight || 700;
+      var nextHeight = clamp(startHeight + startY - clientY(event), 90, Math.max(120, hostHeight * 0.65));
+      strip.style.height = Math.round(nextHeight) + 'px';
+      strip.style.flexBasis = Math.round(nextHeight) + 'px';
+      if (map) map.invalidateSize(false);
+      renderProfile();
+    }
+    function finish(event) {
+      if (!profileResizeActive) return;
+      profileResizeActive = false;
+      document.body.classList.remove('ga-profile-resizing');
+      try { localStorage.setItem(EFB_PROFILE_HEIGHT_KEY, String(Math.round(strip.getBoundingClientRect().height))); } catch (_) {}
+      try { if (event && event.pointerId != null && handle.releasePointerCapture) handle.releasePointerCapture(event.pointerId); } catch (_) {}
+      if (map) map.invalidateSize(false);
+      renderProfile();
+      report('info', 'map-profile', 'resize', 'Profilhoehe geaendert', String(Math.round(strip.getBoundingClientRect().height)));
+    }
+    if (window.PointerEvent) {
+      handle.addEventListener('pointerdown', begin, false);
+      handle.addEventListener('pointermove', move, false);
+      handle.addEventListener('pointerup', finish, false);
+      handle.addEventListener('pointercancel', finish, false);
+    } else {
+      handle.addEventListener('mousedown', begin, false);
+      window.addEventListener('mousemove', move, false);
+      window.addEventListener('mouseup', finish, false);
+      handle.addEventListener('touchstart', begin, false);
+      window.addEventListener('touchmove', move, false);
+      window.addEventListener('touchend', finish, false);
+    }
+  }
+
   function renderProfile() {
     var wrapper = byId('vpCanvasWrapper');
+    var scroll = byId('mapProfileScroll');
     var background = byId('mapProfileCanvasBg');
     var foreground = byId('mapProfileCanvas');
     if (!wrapper || !background || !foreground || document.body.classList.contains('profile-hidden')) return;
-    var width = Math.max(280, wrapper.clientWidth || 0);
+    var viewportWidth = Math.max(280, scroll ? scroll.clientWidth : wrapper.clientWidth || 0);
+    var width = Math.round(viewportWidth * (1 + profileZoom / 100));
+    wrapper.style.width = width + 'px';
     var height = Math.max(68, wrapper.clientHeight || 0);
     var bg = prepareCanvas(background, width, height);
     var fg = prepareCanvas(foreground, width, height);
@@ -1118,9 +1221,18 @@
     }
     ensureProfileEmpty('');
     var points = profile.points;
+    var airspaces = profile.airspaces || [];
+    var obstacles = profile.obstacles || [];
     var maxDistance = Math.max(1, finite(profile.totalDistanceNm) || finite(points[points.length - 1].distanceNm) || 1);
-    var maxAlt = Math.max(profile.cruiseAltitudeFt || 0, flight ? flight.altFt : 0, 1000);
+    var cruiseAltitude = profileCruiseOverride == null ? Math.max(0, finite(profile.cruiseAltitudeFt) || 0) : profileCruiseOverride;
+    var maxAlt = Math.max(cruiseAltitude, flight ? flight.altFt : 0, 1000);
     points.forEach(function (point) { maxAlt = Math.max(maxAlt, point.plannedAltFt || 0, point.terrainFt || 0); });
+    airspaces.forEach(function (entry) {
+      var middle = (entry.startDistanceNm + entry.endDistanceNm) / 2;
+      var terrain = entry.upperAgl ? profileTerrainAt(points, middle) : 0;
+      maxAlt = Math.max(maxAlt, (entry.upperFt || 0) + terrain);
+    });
+    obstacles.forEach(function (entry) { maxAlt = Math.max(maxAlt, profileTerrainAt(points, entry.distanceNm) + (entry.heightFt || 0)); });
     maxAlt = profileYAxis > 0 ? profileYAxis : Math.ceil((maxAlt + 800) / 1000) * 1000;
     var left = 32, right = 8, top = 7, bottom = 17;
     var plotWidth = width - left - right, plotHeight = height - top - bottom;
@@ -1136,6 +1248,25 @@
       bg.beginPath(); bg.moveTo(left, rowY); bg.lineTo(width - right, rowY); bg.stroke();
       bg.fillText(Math.round(altitude / 1000) + 'k', left - 4, rowY + 3);
     }
+    airspaces.forEach(function (entry) {
+      var middle = (entry.startDistanceNm + entry.endDistanceNm) / 2;
+      var terrain = profileTerrainAt(points, middle);
+      var lower = Math.max(0, entry.lowerFt || 0) + (entry.lowerAgl ? terrain : 0);
+      var upper = Math.max(lower, Math.max(0, entry.upperFt || 0) + (entry.upperAgl ? terrain : 0));
+      var firstX = x(entry.startDistanceNm);
+      var lastX = x(entry.endDistanceNm);
+      bg.fillStyle = colorWithAlpha(entry.color, 0.16);
+      bg.strokeStyle = colorWithAlpha(entry.color, 0.68);
+      bg.lineWidth = 1;
+      bg.fillRect(firstX, y(upper), Math.max(1, lastX - firstX), Math.max(1, y(lower) - y(upper)));
+      bg.strokeRect(firstX, y(upper), Math.max(1, lastX - firstX), Math.max(1, y(lower) - y(upper)));
+      if (lastX - firstX > 45) {
+        bg.fillStyle = colorWithAlpha(entry.color, 0.92);
+        bg.textAlign = 'center';
+        bg.font = '8px Arial';
+        bg.fillText(String(entry.name || entry.type || 'Luftraum').slice(0, 18), (firstX + lastX) / 2, y(upper) + 10);
+      }
+    });
     if (profile.terrainAvailable) {
       fg.beginPath(); fg.moveTo(x(points[0].distanceNm), y(0));
       points.forEach(function (point) { fg.lineTo(x(point.distanceNm), y(point.terrainFt || 0)); });
@@ -1143,8 +1274,22 @@
       fg.fillStyle = 'rgba(62,112,54,.9)'; fg.fill();
     }
     fg.beginPath();
-    points.forEach(function (point, index) { if (index === 0) fg.moveTo(x(point.distanceNm), y(point.plannedAltFt)); else fg.lineTo(x(point.distanceNm), y(point.plannedAltFt)); });
+    points.forEach(function (point, index) {
+      var planned = profileCruiseOverride == null ? point.plannedAltFt : Math.min(point.plannedAltFt || cruiseAltitude, cruiseAltitude);
+      if (index > 0 && index < points.length - 1 && profileCruiseOverride != null) planned = cruiseAltitude;
+      if (index === 0) fg.moveTo(x(point.distanceNm), y(planned)); else fg.lineTo(x(point.distanceNm), y(planned));
+    });
     fg.strokeStyle = '#ff4a4a'; fg.lineWidth = 2.5; fg.stroke();
+    obstacles.forEach(function (entry) {
+      var obstacleX = x(entry.distanceNm);
+      var ground = profileTerrainAt(points, entry.distanceNm);
+      var topAltitude = ground + Math.max(0, entry.heightFt || 0);
+      fg.strokeStyle = '#ffb52e';
+      fg.fillStyle = '#ffcf54';
+      fg.lineWidth = 2;
+      fg.beginPath(); fg.moveTo(obstacleX, y(ground)); fg.lineTo(obstacleX, y(topAltitude)); fg.stroke();
+      fg.beginPath(); fg.moveTo(obstacleX, y(topAltitude) - 5); fg.lineTo(obstacleX - 4, y(topAltitude) + 3); fg.lineTo(obstacleX + 4, y(topAltitude) + 3); fg.closePath(); fg.fill();
+    });
     fg.fillStyle = '#b8cbd5'; fg.font = '8px Arial'; fg.textAlign = 'center';
     points.forEach(function (point) { fg.fillText(String(point.name || '').slice(0, 8), x(point.distanceNm), height - 4); });
     var position = mapSnapshot && mapSnapshot.navigation ? mapSnapshot.navigation.routeDistanceNm : 0;
@@ -1152,12 +1297,21 @@
       fg.fillStyle = '#f2dc32';
       fg.beginPath(); fg.moveTo(x(position), y(flight.altFt) - 5); fg.lineTo(x(position) - 6, y(flight.altFt) + 5); fg.lineTo(x(position) + 6, y(flight.altFt) + 5); fg.closePath(); fg.fill();
     }
-    setText('altMapInput', Math.round(profile.cruiseAltitudeFt || 0));
+    setText('altMapInput', Math.round(cruiseAltitude));
+    setText('rateMapInput', Math.round(profileVerticalRate));
     setText('yAxisDisplay', profileYAxis > 0 ? profileYAxis : 'AUTO');
     setText('vpZoomDisplay', profileZoom + '%');
   }
 
   function setDrawMode(mode) {
+    if (mode && contextPickActive) {
+      contextPickActive = false;
+      var contextButton = document.querySelector('.ga-efb-host-context');
+      if (contextButton) {
+        contextButton.classList.remove('active');
+        contextButton.textContent = 'Was ist hier';
+      }
+    }
     drawMode = mode;
     ['mapToolPen', 'mapToolMeasure'].forEach(function (id) { var button = byId(id); if (button) button.classList.remove('active'); });
     if (mode === 'pen') byId('mapToolPen').classList.add('active');
@@ -1177,12 +1331,89 @@
     report('info', 'draw-action', mode ? 'mode-' + mode : 'mode-off', mode ? 'Zeichenmodus aktiv' : 'Zeichenmodus beendet');
   }
 
+  function nearestProfilePoint(latlng) {
+    var profile = mapSnapshot && mapSnapshot.profile;
+    var points = profile && profile.points || [];
+    var best = null;
+    var bestDistance = Infinity;
+    points.forEach(function (point) {
+      if (!isFiniteNumber(point.lat) || !isFiniteNumber(point.lon)) return;
+      var distance = map.distance(latlng, [point.lat, point.lon]);
+      if (distance >= bestDistance) return;
+      bestDistance = distance;
+      best = point;
+    });
+    return best;
+  }
+
+  function nearestRouteWaypoint(latlng) {
+    var waypoints = mapSnapshot && mapSnapshot.route && mapSnapshot.route.waypoints || [];
+    var best = null;
+    var bestDistance = Infinity;
+    waypoints.forEach(function (point) {
+      var distance = map.distance(latlng, [point.lat, point.lon]);
+      if (distance >= bestDistance) return;
+      bestDistance = distance;
+      best = { waypoint: point, distanceNm: distance / 1852, bearingDeg: bearingBetween({ lat: latlng.lat, lon: latlng.lng }, point) };
+    });
+    return best;
+  }
+
+  function openMapContextInfo(latlng) {
+    if (!map || !latlng) return;
+    var profile = mapSnapshot && mapSnapshot.profile;
+    var context = mapSnapshot && mapSnapshot.context || {};
+    var profilePoint = nearestProfilePoint(latlng);
+    var routePoint = nearestRouteWaypoint(latlng);
+    var routeDistance = profilePoint ? finite(profilePoint.distanceNm) : null;
+    var airspaces = profile && profile.airspaces || [];
+    var activeAirspaces = routeDistance == null ? [] : airspaces.filter(function (entry) {
+      return routeDistance >= entry.startDistanceNm && routeDistance <= entry.endDistanceNm;
+    }).slice(0, 6);
+    var html = '<div class="ga-efb-context-card"><strong>Was ist hier?</strong>' +
+      '<div>' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5) + '</div>';
+    if (routePoint) html += '<div><b>Naechster Wegpunkt:</b> ' + drawerEscape(routePoint.waypoint.name || routePoint.waypoint.id || 'WP') +
+      ' | ' + routePoint.distanceNm.toFixed(1) + ' NM / ' + leftPad(Math.round(routePoint.bearingDeg), 3) + ' deg</div>';
+    if (profilePoint && profilePoint.terrainFt != null) html += '<div><b>Terrain:</b> ' + Math.round(profilePoint.terrainFt) + ' ft MSL</div>';
+    if (routeDistance != null) html += '<div><b>Route:</b> ' + routeDistance.toFixed(1) + ' NM ab Start</div>';
+    if (context.frequency) html += '<div><b>Aktuelle Frequenz:</b> ' + drawerEscape(context.frequency) +
+      (context.frequencySource ? ' (' + drawerEscape(context.frequencySource) + ')' : '') + '</div>';
+    if (activeAirspaces.length) {
+      html += '<div class="ga-efb-context-airspaces"><b>Luftraeume am Routenpunkt:</b>';
+      activeAirspaces.forEach(function (entry) {
+        var frequencies = entry.frequencies && entry.frequencies.length ? ' | ' + entry.frequencies.join(', ') : '';
+        html += '<span>' + drawerEscape(entry.name || entry.type || 'Luftraum') + ': ' + Math.round(entry.lowerFt || 0) + '-' + Math.round(entry.upperFt || 0) + ' ft' + drawerEscape(frequencies) + '</span>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    if (mapContextPopup) try { map.closePopup(mapContextPopup); } catch (_) {}
+    mapContextPopup = L.popup({ maxWidth: 310, className: 'ga-efb-context-popup' }).setLatLng(latlng).setContent(html).openOn(map);
+    report('info', 'map-context', 'open', 'Kartenkontext angezeigt', latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5));
+  }
+
+  function toggleMapContextPick() {
+    contextPickActive = !contextPickActive;
+    var button = document.querySelector('.ga-efb-host-context');
+    if (button) {
+      button.classList.toggle('active', contextPickActive);
+      button.textContent = contextPickActive ? 'Was ist hier (An)' : 'Was ist hier';
+    }
+    if (contextPickActive) setDrawMode('');
+    if (map) map.getContainer().style.cursor = contextPickActive ? 'help' : '';
+    report('info', 'map-context', contextPickActive ? 'enabled' : 'disabled', 'Was-ist-hier-Modus umgeschaltet');
+  }
+
   function handleMapClick(event) {
+    if (contextPickActive) {
+      openMapContextInfo(event.latlng);
+      return;
+    }
     if (drawMode !== 'measure') return;
     drawPoints.push(event.latlng);
     var group = measureLayer;
     if (drawLine) group.removeLayer(drawLine);
-    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5', pane: 'gaDrawingPane' }).addTo(group);
+    drawLine = L.polyline(drawPoints, { color: '#f2c12e', weight: 3, dashArray: '5,5', pane: 'gaDrawingPane', renderer: drawingRenderer || undefined }).addTo(group);
     if (drawPoints.length === 1) drawHistory.push({ layer: drawLine, group: group });
     else if (drawHistory.length) drawHistory[drawHistory.length - 1].layer = drawLine;
     if (drawPoints.length > 1) {
@@ -1197,18 +1428,7 @@
     var source = event && event.touches && event.touches.length ? event.touches[0] : event;
     if (!source || !map) return null;
     try {
-      var container = map.getContainer();
-      var rect = container && container.getBoundingClientRect ? container.getBoundingClientRect() : null;
-      if (!container || !rect || !(rect.width > 0) || !(rect.height > 0)) return null;
-      // Coherent may render the EFB document at a scaled CSS size. Leaflet's
-      // mouseEvent helper assumes a 1:1 viewport and therefore produces the
-      // visible horizontal offset reported in MSFS. Convert through the actual
-      // rendered rectangle before asking Leaflet for the geographic position.
-      var renderedX = Number(source.clientX) - rect.left;
-      var renderedY = Number(source.clientY) - rect.top;
-      var localX = renderedX * (container.clientWidth || rect.width) / rect.width;
-      var localY = renderedY * (container.clientHeight || rect.height) / rect.height;
-      var containerPoint = L.point(localX, localY);
+      var containerPoint = map.mouseEventToContainerPoint(source);
       return {
         latlng: map.containerPointToLatLng(containerPoint),
         container: containerPoint
@@ -1231,10 +1451,10 @@
     if (event.stopPropagation) event.stopPropagation();
     drawPoints = [point.latlng];
     drawLastContainerPoint = point.container;
-    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round', pane: 'gaDrawingPane' }).addTo(drawingLayer);
+    drawLine = L.polyline(drawPoints, { color: drawColor, weight: drawWeight, lineCap: 'round', lineJoin: 'round', smoothFactor: 0, noClip: true, pane: 'gaDrawingPane', renderer: drawingRenderer || undefined }).addTo(drawingLayer);
     drawHistory.push({ layer: drawLine, group: drawingLayer });
     drawStrokeActive = true;
-    try { if (event.pointerId != null && event.target.setPointerCapture) event.target.setPointerCapture(event.pointerId); } catch (_) {}
+    try { if (event.pointerId != null && map.getContainer().setPointerCapture) map.getContainer().setPointerCapture(event.pointerId); } catch (_) {}
     report('info', 'draw-action', 'pen-start', 'Freihandlinie begonnen');
   }
 
@@ -1254,7 +1474,7 @@
     if (!drawStrokeActive) return;
     if (event && event.preventDefault) event.preventDefault();
     if (event && event.stopPropagation) event.stopPropagation();
-    try { if (event && event.pointerId != null && event.target.releasePointerCapture) event.target.releasePointerCapture(event.pointerId); } catch (_) {}
+    try { if (event && event.pointerId != null && map.getContainer().releasePointerCapture) map.getContainer().releasePointerCapture(event.pointerId); } catch (_) {}
     report('info', 'draw-action', 'pen-end', 'Freihandlinie abgeschlossen', String(drawPoints.length));
     drawStrokeActive = false;
     drawPoints = [];
@@ -1414,13 +1634,35 @@
     renderProgress();
     report('info', 'waypoint-preview', 'select', 'Wegpunktvorschau umgeschaltet', String(previewWaypointIndex));
   };
-  window.vpZoom = function (delta) { profileZoom = clamp(profileZoom + Number(delta || 0), 0, 90); renderProfile(); };
+  window.vpZoom = function (delta) { profileZoom = clamp(profileZoom + Number(delta || 0), 0, 200); renderProfile(); };
   window.vpChangeYAxis = function (delta) { profileYAxis = Math.max(1000, (profileYAxis || 6000) + Number(delta || 0)); renderProfile(); };
   window.vpResetYAxis = function () { profileYAxis = 0; renderProfile(); };
-  window.vpChangeAlt = function () {};
-  window.vpChangeRate = function () {};
-  window.promptForAlt = function () {};
-  window.promptForRate = function () {};
+  window.vpChangeAlt = function (delta) {
+    var profile = mapSnapshot && mapSnapshot.profile;
+    var current = profileCruiseOverride == null ? finite(profile && profile.cruiseAltitudeFt) || 4500 : profileCruiseOverride;
+    profileCruiseOverride = clamp(Math.round(current + Number(delta || 0)), 500, 18000);
+    renderProfile();
+  };
+  window.vpChangeRate = function (delta) {
+    profileVerticalRate = clamp(Math.round(profileVerticalRate + Number(delta || 0)), 100, 2500);
+    renderProfile();
+  };
+  window.promptForAlt = function () {
+    if (typeof window.prompt !== 'function') return;
+    var profile = mapSnapshot && mapSnapshot.profile;
+    var current = profileCruiseOverride == null ? finite(profile && profile.cruiseAltitudeFt) || 4500 : profileCruiseOverride;
+    var value = finite(window.prompt('Reiseflughoehe in ft MSL', String(Math.round(current))));
+    if (value == null) return;
+    profileCruiseOverride = clamp(Math.round(value), 500, 18000);
+    renderProfile();
+  };
+  window.promptForRate = function () {
+    if (typeof window.prompt !== 'function') return;
+    var value = finite(window.prompt('Steig-/Sinkrate in ft/min', String(Math.round(profileVerticalRate))));
+    if (value == null) return;
+    profileVerticalRate = clamp(Math.round(value), 100, 2500);
+    renderProfile();
+  };
   window.resetMainRoute = function () {};
   window.minimizeWin95OverlayWindow = function () {};
   window.closeWin95OverlayWindow = function () { return closeHost('window-close'); };

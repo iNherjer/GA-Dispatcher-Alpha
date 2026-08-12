@@ -226,7 +226,7 @@
 
     let dragState = null;
     let timerDigitDragState = null;
-    const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {} };
+    const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {}, interaction: null };
     let pendingE6BSide = '';
     let e6bDialDrag = null;
 
@@ -392,6 +392,37 @@
         return Math.atan2(x, y) * 180 / Math.PI;
     }
 
+    function e6bSurfacePoint(surface, event) {
+        const source = e6bEventPoint(event);
+        const rect = surface.getBoundingClientRect();
+        const interaction = e6bChromeState.interaction || {};
+        const width = Math.max(1, finiteE6BNumber(interaction.viewBoxWidth, e6bChromeState.side === 'wind' ? 510 : 510));
+        const height = Math.max(1, finiteE6BNumber(interaction.viewBoxHeight, e6bChromeState.side === 'wind' ? 1000 : 590));
+        return {
+            x: Math.max(0, Math.min(width, (Number(source && source.clientX) - rect.left) / Math.max(1, rect.width) * width)),
+            y: Math.max(0, Math.min(height, (Number(source && source.clientY) - rect.top) / Math.max(1, rect.height) * height)),
+            width,
+            height,
+            rect
+        };
+    }
+
+    function e6bWindAction(surface, event) {
+        if (e6bChromeState.side !== 'wind') return 'rotate';
+        const point = e6bSurfacePoint(surface, event);
+        const interaction = e6bChromeState.interaction || {};
+        const cx = finiteE6BNumber(interaction.centerX, point.width / 2);
+        const cy = finiteE6BNumber(interaction.centerY, point.height / 2);
+        const radius = Math.hypot(point.x - cx, point.y - cy);
+        const minX = finiteE6BNumber(interaction.sliderMinX, 52);
+        const maxX = finiteE6BNumber(interaction.sliderMaxX, 458);
+        const sliderClearance = finiteE6BNumber(interaction.sliderClearance, 286);
+        const dotClearance = finiteE6BNumber(interaction.dotClearance, 178);
+        if (point.x >= minX && point.x <= maxX && radius > sliderClearance) return 'slide';
+        if (radius <= dotClearance) return 'dot';
+        return 'rotate';
+    }
+
     function normalizeE6BAngleDelta(value) {
         let delta = Number(value) || 0;
         while (delta > 180) delta -= 360;
@@ -405,17 +436,31 @@
         const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
         if (!panel || !shell) return null;
         let surface = shell.querySelector('.ga-efb-e6b-input-surface');
-        if (surface) return surface;
+        if (surface) {
+            surface.classList.toggle('wind-side', e6bChromeState.side === 'wind');
+            return surface;
+        }
         surface = document.createElement('div');
         surface.className = 'ga-efb-e6b-input-surface';
         surface.setAttribute('role', 'slider');
         surface.setAttribute('aria-label', 'E6B Scheibe drehen');
         surface.setAttribute('aria-valuemin', '-180');
         surface.setAttribute('aria-valuemax', '180');
+        surface.classList.toggle('wind-side', e6bChromeState.side === 'wind');
         const begin = (event, inputId) => {
             if (event.button !== undefined && event.button !== 0) return;
             if (e6bDialDrag) return;
-            e6bDialDrag = { inputId, pointerId: event.pointerId, angle: e6bDialAngle(surface, event) };
+            const point = e6bSurfacePoint(surface, event);
+            const action = e6bWindAction(surface, event);
+            e6bDialDrag = {
+                inputId,
+                pointerId: event.pointerId,
+                action,
+                angle: e6bDialAngle(surface, event),
+                lastClientY: Number(e6bEventPoint(event) && e6bEventPoint(event).clientY) || 0,
+                startPoint: point,
+                moved: false
+            };
             surface.classList.add('is-dragging');
             bringToFront(panel);
             if (inputId === 'pointer' && surface.setPointerCapture) {
@@ -423,15 +468,25 @@
             }
             event.preventDefault();
             event.stopPropagation();
-            reportUtility('info', 'e6b-action', 'dial-start', 'E6B-Scheibe wird gedreht', e6bChromeState.side);
+            reportUtility('info', 'e6b-action', action === 'slide' ? 'wind-slide-start' : (action === 'dot' ? 'wind-dot-start' : 'dial-start'), action === 'slide' ? 'E6B-Windschieber wird bewegt' : (action === 'dot' ? 'E6B-Windpunkt wird gesetzt' : 'E6B-Scheibe wird gedreht'), e6bChromeState.side);
         };
         const move = (event, inputId) => {
             if (!e6bDialDrag || e6bDialDrag.inputId !== inputId) return;
             if (inputId === 'pointer' && e6bDialDrag.pointerId !== event.pointerId) return;
-            const angle = e6bDialAngle(surface, event);
-            const delta = normalizeE6BAngleDelta(angle - e6bDialDrag.angle);
-            e6bDialDrag.angle = angle;
-            if (Math.abs(delta) > 0.01) postE6BMessage({ type: 'ga-e6b-rotate-delta', delta });
+            const source = e6bEventPoint(event);
+            const clientY = Number(source && source.clientY) || 0;
+            const point = e6bSurfacePoint(surface, event);
+            if (Math.hypot(point.x - e6bDialDrag.startPoint.x, point.y - e6bDialDrag.startPoint.y) > 3) e6bDialDrag.moved = true;
+            if (e6bDialDrag.action === 'slide') {
+                const deltaY = (clientY - e6bDialDrag.lastClientY) / Math.max(1, point.rect.height) * point.height;
+                e6bDialDrag.lastClientY = clientY;
+                if (Math.abs(deltaY) > 0.01) postE6BMessage({ type: 'ga-e6b-wind-slide-delta', delta: deltaY });
+            } else if (e6bDialDrag.action === 'rotate') {
+                const angle = e6bDialAngle(surface, event);
+                const delta = normalizeE6BAngleDelta(angle - e6bDialDrag.angle);
+                e6bDialDrag.angle = angle;
+                if (Math.abs(delta) > 0.01) postE6BMessage({ type: 'ga-e6b-rotate-delta', delta });
+            }
             event.preventDefault();
             event.stopPropagation();
         };
@@ -441,11 +496,16 @@
             if (inputId === 'pointer' && surface.releasePointerCapture) {
                 try { surface.releasePointerCapture(event.pointerId); } catch (_) {}
             }
+            const finished = e6bDialDrag;
+            if (finished.action === 'dot' && !finished.moved) {
+                const point = e6bSurfacePoint(surface, event);
+                postE6BMessage({ type: 'ga-e6b-wind-dot-set', x: point.x, y: point.y });
+            }
             e6bDialDrag = null;
             surface.classList.remove('is-dragging');
             event.preventDefault();
             event.stopPropagation();
-            reportUtility('info', 'e6b-action', 'dial-end', 'E6B-Scheibe gedreht', e6bChromeState.side);
+            reportUtility('info', 'e6b-action', finished.action === 'slide' ? 'wind-slide-end' : (finished.action === 'dot' ? 'wind-dot-set' : 'dial-end'), finished.action === 'slide' ? 'E6B-Windschieber bewegt' : (finished.action === 'dot' ? 'E6B-Windpunkt gesetzt' : 'E6B-Scheibe gedreht'), e6bChromeState.side);
         };
         surface.addEventListener('pointerdown', event => begin(event, 'pointer'));
         surface.addEventListener('pointermove', event => move(event, 'pointer'));
@@ -668,6 +728,9 @@
             height: Math.max(1, finiteE6BNumber(stack.height, 1))
         };
         e6bChromeState.controls = data.controls && typeof data.controls === 'object' ? data.controls : {};
+        e6bChromeState.interaction = data.interaction && typeof data.interaction === 'object' ? data.interaction : null;
+        const inputSurface = ensureE6BInputSurface();
+        if (inputSurface) inputSurface.classList.toggle('wind-side', e6bChromeState.side === 'wind');
         const panel = el('mapE6BDevice');
         if (panel) panel.classList.toggle('e6b-iframe-controls', data.localControls === true);
         applyE6BChromePosition();

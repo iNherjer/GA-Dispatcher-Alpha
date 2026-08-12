@@ -40702,6 +40702,9 @@ async function fetchRouteAirspaces(routePts, options = {}) {
                         target.frequencies = fetched;
                     }
                     if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+                    if (typeof window.gaPushMissionAuthorityProfile === 'function') {
+                        window.gaPushMissionAuthorityProfile('airspace-frequency-ready');
+                    }
                 });
         });
 
@@ -40710,6 +40713,9 @@ async function fetchRouteAirspaces(routePts, options = {}) {
         renderAirspaceWarningsList();
         if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) renderMapProfile();
         if (typeof renderVerticalProfile === 'function' && document.getElementById('vpCanvas')) renderVerticalProfile();
+        if (typeof window.gaPushMissionAuthorityProfile === 'function') {
+            window.gaPushMissionAuthorityProfile('route-airspaces-ready');
+        }
 
     } catch (e) {
         if (requestSeq !== routeAirspaceRetryState.requestSeq

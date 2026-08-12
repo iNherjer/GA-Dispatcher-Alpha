@@ -141,13 +141,25 @@ test('versioned map snapshots are bounded before entering the renderer', () => {
       ]
     },
     navigation: { activeLegIndex: 0, bearingToNextDeg: -5, progress: 0.25 },
-    profile: { mode: 'planned-only', totalDistanceNm: 20, cruiseAltitudeFt: 4500, points: [] },
+    profile: {
+      mode: 'planned-only',
+      totalDistanceNm: 20,
+      cruiseAltitudeFt: 4500,
+      points: [{ lat: 48.279, lon: 8.428, distanceNm: 0, terrainFt: 2201, plannedAltFt: 2201 }],
+      obstacles: [{ distanceNm: 5, heightFt: 420, type: 'mast' }],
+      airspaces: [{ name: 'CTR Test', startDistanceNm: 2, endDistanceNm: 8, lowerFt: 2500, upperFt: 4500, frequencies: ['118.100'] }]
+    },
+    context: { position: '0.2 NM SE EDTW', frequency: 'FIS 128.950', frequencySource: 'Offenes Gebiet' },
     missionGeometry: { target: { id: 'target', name: 'Ziel', lat: 48.4, lon: 8.7 }, poiChain: [] }
   });
   assert.equal(snapshot.missionId, 'mission-42');
   assert.equal(snapshot.route.waypoints.length, 2);
   assert.equal(snapshot.navigation.bearingToNextDeg, 355);
   assert.equal(snapshot.navigation.progress, 0.25);
+  assert.equal(snapshot.profile.points[0].lat, 48.279);
+  assert.equal(snapshot.profile.obstacles[0].heightFt, 420);
+  assert.equal(snapshot.profile.airspaces[0].frequencies[0], '118.100');
+  assert.equal(snapshot.context.frequency, 'FIS 128.950');
   assert.equal(core.normalizeTrackerMapSnapshot({ schema: 'ga.map-snapshot.v2', version: 2 }), null);
 });
 

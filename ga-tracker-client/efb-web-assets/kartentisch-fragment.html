@@ -594,22 +594,22 @@
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen">−</button>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal rauszoomen">-</button>
                     <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level">0%</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal reinzoomen">+</button>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal reinzoomen">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Maximale Höhe der Y-Achse (ft)">MAX FT</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (−1000 ft)">−</button>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (-1000 ft)">-</button>
                     <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto-Skalierung zurücksetzen">AUTO</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)" title="Y-Achse vergrößern (+1000 ft)">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:2px;" title="Reiseflughöhe (ft MSL)">ALT</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)" title="Reiseflughöhe −500 ft">−</button>
+                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)" title="Reiseflughöhe -500 ft">-</button>
                     <span id="altMapInput" class="vp-ctrl-val" onclick="promptForAlt()" title="Reiseflughöhe – klicken für manuelle Eingabe">4500</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeAlt(500)" title="Reiseflughöhe +500 ft">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Steig- und Sinkrate (ft/min)">V/S</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)" title="V/S −100 ft/min">−</button>
+                    <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)" title="V/S -100 ft/min">-</button>
                     <span id="rateMapInput" class="vp-ctrl-val" onclick="promptForRate()" title="Steig-/Sinkrate – klicken für manuelle Eingabe">500</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeRate(100)" title="V/S +100 ft/min">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px; margin-left:auto;">|</span>

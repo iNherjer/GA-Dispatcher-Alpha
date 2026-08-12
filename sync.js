@@ -2085,11 +2085,90 @@ function _buildMissionAuthorityMapProfile() {
         }
     }
     const totalDistanceNm = Number(points[points.length - 1]?.distNM);
+    const obstacles = [];
+    const obstacleSource = (typeof vpObstacles !== 'undefined' && Array.isArray(vpObstacles))
+        ? vpObstacles
+        : (Array.isArray(window.vpObstacles) ? window.vpObstacles : []);
+    for (const raw of obstacleSource) {
+        if (obstacles.length >= 64) break;
+        const distanceNm = Number(raw?.distNM ?? raw?.distanceNm);
+        const heightFt = Number(raw?.hFt ?? raw?.heightFt ?? raw?.height);
+        if (!Number.isFinite(distanceNm) || !Number.isFinite(heightFt) || heightFt <= 0) continue;
+        obstacles.push({
+            distanceNm: Math.round(Math.max(0, distanceNm) * 100) / 100,
+            heightFt: Math.round(Math.min(10000, heightFt)),
+            type: String(raw?.type || 'obstacle').replace(/[^a-z0-9_-]/gi, '').slice(0, 24).toLowerCase() || 'obstacle'
+        });
+    }
+    const airspaces = [];
+    if (Number.isFinite(totalDistanceNm) && typeof getCachedAirspaceIntersections === 'function') {
+        try {
+            const intersections = getCachedAirspaceIntersections(clean.map(point => ({
+                lat: point.lat,
+                lon: point.lon,
+                elevFt: point.elevFt,
+                distNM: point.distNM
+            })), totalDistanceNm);
+            for (const item of intersections) {
+                if (airspaces.length >= 48) break;
+                const startDistanceNm = Number(item?.asMinDist);
+                const endDistanceNm = Number(item?.asMaxDist);
+                const lowerFt = Number(item?.lowerFt);
+                const upperFt = Number(item?.upperFt);
+                if (!Number.isFinite(startDistanceNm) || !Number.isFinite(endDistanceNm)
+                    || !Number.isFinite(lowerFt) || !Number.isFinite(upperFt)
+                    || endDistanceNm <= startDistanceNm) continue;
+                const airspace = item?.as || {};
+                let color = '#4da6ff';
+                try {
+                    const styled = typeof getAirspaceStyle === 'function' ? getAirspaceStyle(airspace) : null;
+                    if (/^#[0-9a-f]{3,8}$/i.test(String(styled?.color || ''))) color = String(styled.color);
+                } catch (_) {}
+                const frequencies = Array.isArray(airspace.frequencies)
+                    ? airspace.frequencies.map(entry => String((entry?.value ?? entry) || '').trim()).filter(Boolean).slice(0, 3)
+                    : [];
+                airspaces.push({
+                    name: String(airspace.name || airspace.designator || 'Luftraum').slice(0, 80),
+                    type: Number.isFinite(Number(airspace.type)) ? Number(airspace.type) : null,
+                    startDistanceNm: Math.round(Math.max(0, startDistanceNm) * 100) / 100,
+                    endDistanceNm: Math.round(Math.max(0, endDistanceNm) * 100) / 100,
+                    lowerFt: Math.round(Math.max(0, lowerFt)),
+                    upperFt: Math.round(Math.max(lowerFt, upperFt)),
+                    lowerAgl: item?.isLowerAgl === true,
+                    upperAgl: item?.isUpperAgl === true,
+                    color,
+                    frequencies
+                });
+            }
+        } catch (_) {}
+    }
+    let context = null;
+    try {
+        const live = window.lastLiveGpsPos || {};
+        const lat = Number(live.lat);
+        const lon = Number(live.lon);
+        const alt = Number(live.alt ?? live.altFt);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            const frequency = typeof getCurrentFrequencyInfo === 'function'
+                ? getCurrentFrequencyInfo(lat, lon, Number.isFinite(alt) ? alt : null)
+                : null;
+            context = {
+                position: typeof formatRouteProgressPosition === 'function'
+                    ? String(formatRouteProgressPosition(lat, lon) || '').slice(0, 60)
+                    : '',
+                frequency: String(frequency?.value || '').slice(0, 40),
+                frequencySource: String(frequency?.source || '').slice(0, 80)
+            };
+        }
+    } catch (_) {}
     return {
-        version: 1,
+        version: 2,
         terrainAvailable: true,
         totalDistanceNm: Number.isFinite(totalDistanceNm) ? totalDistanceNm : null,
-        points
+        points,
+        obstacles,
+        airspaces,
+        context
     };
 }
 

@@ -176,13 +176,44 @@ function normalizeTrackerMapSnapshot(value) {
       return {
         waypointId: String(item.waypointId || '').slice(0, 80),
         name: String(item.name || '').slice(0, 100),
+        lat: finite(item.lat),
+        lon: finite(item.lon),
         distanceNm: Math.max(0, finite(item.distanceNm) || 0),
         terrainFt: finite(item.terrainFt),
         plannedAltFt: Math.max(0, finite(item.plannedAltFt) || 0)
       };
     });
+  const profileObstacles = (profileSource && Array.isArray(profileSource.obstacles) ? profileSource.obstacles : [])
+    .slice(0, 64)
+    .map((entry) => {
+      const item = entry && typeof entry === 'object' ? entry : {};
+      return {
+        distanceNm: Math.max(0, finite(item.distanceNm) || 0),
+        heightFt: Math.max(0, finite(item.heightFt) || 0),
+        type: String(item.type || 'obstacle').slice(0, 32)
+      };
+    });
+  const profileAirspaces = (profileSource && Array.isArray(profileSource.airspaces) ? profileSource.airspaces : [])
+    .slice(0, 48)
+    .map((entry) => {
+      const item = entry && typeof entry === 'object' ? entry : {};
+      return {
+        name: String(item.name || 'Luftraum').slice(0, 80),
+        type: String(item.type || '').slice(0, 32),
+        startDistanceNm: Math.max(0, finite(item.startDistanceNm) || 0),
+        endDistanceNm: Math.max(0, finite(item.endDistanceNm) || 0),
+        lowerFt: Math.max(0, finite(item.lowerFt) || 0),
+        upperFt: Math.max(0, finite(item.upperFt) || 0),
+        lowerAgl: item.lowerAgl === true,
+        upperAgl: item.upperAgl === true,
+        color: String(item.color || '#4da6ff').slice(0, 16),
+        frequencies: (Array.isArray(item.frequencies) ? item.frequencies : []).slice(0, 3).map((value) => String(value || '').slice(0, 20))
+      };
+    })
+    .filter((item) => item.endDistanceNm > item.startDistanceNm);
   const navigationSource = source.navigation && typeof source.navigation === 'object' ? source.navigation : null;
   const geometrySource = source.missionGeometry && typeof source.missionGeometry === 'object' ? source.missionGeometry : {};
+  const contextSource = source.context && typeof source.context === 'object' ? source.context : {};
   return {
     schema: MAP_SNAPSHOT_SCHEMA,
     version: MAP_SNAPSHOT_VERSION,
@@ -209,8 +240,15 @@ function normalizeTrackerMapSnapshot(value) {
       terrainAvailable: profileSource.terrainAvailable === true,
       totalDistanceNm: Math.max(0, finite(profileSource.totalDistanceNm) || 0),
       cruiseAltitudeFt: Math.max(0, finite(profileSource.cruiseAltitudeFt) || 0),
+      obstacles: profileObstacles,
+      airspaces: profileAirspaces,
       points: profilePoints
     } : null,
+    context: {
+      position: String(contextSource.position || '').slice(0, 60),
+      frequency: String(contextSource.frequency || '').slice(0, 40),
+      frequencySource: String(contextSource.frequencySource || '').slice(0, 80)
+    },
     missionGeometry: {
       target: normalizeMapPoint(geometrySource.target),
       poiChain: (Array.isArray(geometrySource.poiChain) ? geometrySource.poiChain : [])
