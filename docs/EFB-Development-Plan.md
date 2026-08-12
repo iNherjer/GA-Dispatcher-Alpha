@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v336 Testkandidat | v320 | v336 gleicht Kartenkontrast an den Kartentisch an und protokolliert die jeweils projizierte Authority-Route samt Terrainmodus; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v336-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v337 Testkandidat | v320 | v337 aktualisiert Routen unmittelbar, ersetzt alte Vektorebenen vollstaendig und macht E6B/Checklisten Coherent-tauglich; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v337-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -314,6 +314,18 @@ Missionsstart jede tatsaechliche Routenmutation sofort in den bestehenden
 Authority-Snapshot, verwirft dabei ein veraltetes Profil und sendet nach dem
 asynchronen Terrainabruf denselben Snapshot erneut mit Hoehenpunkten. Der
 Tracker protokolliert jeden relevanten Wechsel als `MISSION_MAP_AUTHORITY`.
+
+Der v336-In-Sim-Test bestaetigt sichtbare Kartenkacheln, aktive Route und das
+Tracker-Terrainprofil. Routenmutationen kamen jedoch erst mit dem naechsten
+10-Sekunden-Runtime-Snapshot an; der Coherent-Renderer liess dabei Teile der
+alten Vektorroute stehen. E6B-Drehgesten erzeugten keine `e6b-action`-Events,
+waehrend normale Buttons funktionierten, und Checkbox-`change` wurde ebenfalls
+nicht verlaesslich ausgeloest. Tracker v337/Host 0.5.2 sendet deshalb nach einer
+Routenmutation einen kurzen Settle-Snapshot, ersetzt Route/Geometrie/Preview als
+neue Leaflet-Gruppen mit separaten SVG-Renderern, akzeptiert am E6B zusaetzlich
+Mouse-/Touch-Gesten und schaltet Checklistenpunkte ueber einen expliziten
+Click-Pfad. Nicht darstellbare E6B-Symbole wurden durch ASCII-Beschriftungen
+ersetzt.
 
 ## Roadmap
 
@@ -715,12 +727,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       zu schwach; Terrain bleibt `planned-only`, weil die getestete Alpha
       `v1619` den Profilpush noch nicht enthaelt. Local `v1603 / NO SW` ist
       ebenfalls ein alter Quellstand und kein geeigneter Gegentest.
-- [ ] Tracker v336 / Host 0.5.1 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1621` auf Windows/In-Sim testen: Aero-Kontrast gegen den
-      originalen Kartentisch vergleichen; nach `Mission starten` und nach
-      jeder Routenmutation zuerst `MISSION_MAP_AUTHORITY ... planned-only`,
-      danach `... tracker-terrain` und ein gerendertes Terrainband erwarten.
-      Der Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v336 / Host 0.5.1 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1621` auf Windows/In-Sim testen. Ergebnis: Kartenkacheln,
+      Route und Terrainband sind sichtbar; Routenupdates warten noch bis zu
+      zehn Sekunden und hinterlassen Vektorartefakte, E6B-Drehung und
+      Checklisten-Checkboxen reagieren im Coherent-Host noch nicht.
+- [ ] Tracker v337 / Host 0.5.2 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1622` auf Windows/In-Sim testen: Routenmutation innerhalb
+      etwa einer Sekunde ohne alte Linien, E6B-Drehung per Maus/Touch sowie
+      persistente Checklisten-Haken pruefen. Der Ruecksprungpunkt
+      `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -748,6 +764,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v336-In-Sim-Log zeigt fuer E6B Vorder-/Rueckseite einen
+  vollstaendigen Boot, aber keine einzige `e6b-action`-Drehgeste; Coherent
+  liefert auf der transparenten Eingabeflaeche damit keine verlaesslichen
+  Pointer-Events. Host 0.5.2/v337 ergaenzt Mouse und Touch, ersetzt drei
+  problematische Unicode-Symbole durch ASCII und behandelt Checklistenhaken
+  als explizite Click-Aktion. Ein zweiter, 240 ms versetzter Authority-Push
+  faengt Routenmutationen ab, deren erster Render-Callback noch den vorherigen
+  Stand sah. Leaflet-Routen werden als neue Gruppen mit eigenen SVG-Renderern
+  eingesetzt, damit der Coherent-Compositor keine alten Canvas-Pixel behaelt.
 
 - 2026-08-12: Der v335-Log zeigt nach erfolgreicher Authority-Uebernahme nur
   `map-profile:planned-only`; danach folgen Runtime-Snapshots, aber kein

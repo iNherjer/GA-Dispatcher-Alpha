@@ -2423,8 +2423,15 @@ window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready'
     return _queueMissionAuthoritySnapshot(reason, { immediate: true });
 };
 
+let missionAuthorityRouteRetryTimer = null;
 window.gaPushMissionAuthorityRoute = function(reason = 'route-changed') {
-    return _queueMissionAuthoritySnapshot(reason, { immediate: true, includeMapProfile: false });
+    const sent = _queueMissionAuthoritySnapshot(reason, { immediate: true, includeMapProfile: false });
+    if (missionAuthorityRouteRetryTimer) clearTimeout(missionAuthorityRouteRetryTimer);
+    missionAuthorityRouteRetryTimer = setTimeout(() => {
+        missionAuthorityRouteRetryTimer = null;
+        _queueMissionAuthoritySnapshot(`${reason}-settled`, { immediate: true, includeMapProfile: false });
+    }, 240);
+    return sent;
 };
 
 let missionAuthorityProfileRefreshTimer = null;

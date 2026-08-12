@@ -2668,6 +2668,13 @@ function triggerVerticalProfileUpdate() {
 
             // Führe beide schweren Netzwerk-Tasks parallel aus
             await Promise.all([fetchWetter(), fetchOverpass()]);
+            if (
+                Array.isArray(vpElevationData)
+                && vpElevationData.length >= 2
+                && typeof window.gaPushMissionAuthorityProfile === 'function'
+            ) {
+                window.gaPushMissionAuthorityProfile('profile-features-ready');
+            }
             if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
             if (status) {
                 const wxInfo = (vpWeatherSource === 'openmeteo')

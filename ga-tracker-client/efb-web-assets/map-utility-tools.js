@@ -376,10 +376,19 @@
         } catch (_) {}
     }
 
+    function e6bEventPoint(event) {
+        const touches = event && event.touches;
+        const changedTouches = event && event.changedTouches;
+        return (touches && touches.length ? touches[0] : null)
+            || (changedTouches && changedTouches.length ? changedTouches[0] : null)
+            || event;
+    }
+
     function e6bDialAngle(surface, event) {
+        const point = e6bEventPoint(event);
         const rect = surface.getBoundingClientRect();
-        const x = Number(event.clientX) - rect.left - rect.width / 2;
-        const y = rect.height / 2 - (Number(event.clientY) - rect.top);
+        const x = Number(point && point.clientX) - rect.left - rect.width / 2;
+        const y = rect.height / 2 - (Number(point && point.clientY) - rect.top);
         return Math.atan2(x, y) * 180 / Math.PI;
     }
 
@@ -403,30 +412,33 @@
         surface.setAttribute('aria-label', 'E6B Scheibe drehen');
         surface.setAttribute('aria-valuemin', '-180');
         surface.setAttribute('aria-valuemax', '180');
-        surface.addEventListener('pointerdown', event => {
+        const begin = (event, inputId) => {
             if (event.button !== undefined && event.button !== 0) return;
-            e6bDialDrag = { pointerId: event.pointerId, angle: e6bDialAngle(surface, event) };
+            if (e6bDialDrag) return;
+            e6bDialDrag = { inputId, pointerId: event.pointerId, angle: e6bDialAngle(surface, event) };
             surface.classList.add('is-dragging');
             bringToFront(panel);
-            if (surface.setPointerCapture) {
+            if (inputId === 'pointer' && surface.setPointerCapture) {
                 try { surface.setPointerCapture(event.pointerId); } catch (_) {}
             }
             event.preventDefault();
             event.stopPropagation();
             reportUtility('info', 'e6b-action', 'dial-start', 'E6B-Scheibe wird gedreht', e6bChromeState.side);
-        });
-        surface.addEventListener('pointermove', event => {
-            if (!e6bDialDrag || e6bDialDrag.pointerId !== event.pointerId) return;
+        };
+        const move = (event, inputId) => {
+            if (!e6bDialDrag || e6bDialDrag.inputId !== inputId) return;
+            if (inputId === 'pointer' && e6bDialDrag.pointerId !== event.pointerId) return;
             const angle = e6bDialAngle(surface, event);
             const delta = normalizeE6BAngleDelta(angle - e6bDialDrag.angle);
             e6bDialDrag.angle = angle;
             if (Math.abs(delta) > 0.01) postE6BMessage({ type: 'ga-e6b-rotate-delta', delta });
             event.preventDefault();
             event.stopPropagation();
-        });
-        const finish = event => {
-            if (!e6bDialDrag || e6bDialDrag.pointerId !== event.pointerId) return;
-            if (surface.releasePointerCapture) {
+        };
+        const finish = (event, inputId) => {
+            if (!e6bDialDrag || e6bDialDrag.inputId !== inputId) return;
+            if (inputId === 'pointer' && e6bDialDrag.pointerId !== event.pointerId) return;
+            if (inputId === 'pointer' && surface.releasePointerCapture) {
                 try { surface.releasePointerCapture(event.pointerId); } catch (_) {}
             }
             e6bDialDrag = null;
@@ -435,8 +447,18 @@
             event.stopPropagation();
             reportUtility('info', 'e6b-action', 'dial-end', 'E6B-Scheibe gedreht', e6bChromeState.side);
         };
-        surface.addEventListener('pointerup', finish);
-        surface.addEventListener('pointercancel', finish);
+        surface.addEventListener('pointerdown', event => begin(event, 'pointer'));
+        surface.addEventListener('pointermove', event => move(event, 'pointer'));
+        surface.addEventListener('pointerup', event => finish(event, 'pointer'));
+        surface.addEventListener('pointercancel', event => finish(event, 'pointer'));
+        surface.addEventListener('mousedown', event => begin(event, 'mouse'));
+        surface.addEventListener('mousemove', event => move(event, 'mouse'));
+        surface.addEventListener('mouseup', event => finish(event, 'mouse'));
+        surface.addEventListener('mouseleave', event => finish(event, 'mouse'));
+        surface.addEventListener('touchstart', event => begin(event, 'touch'), false);
+        surface.addEventListener('touchmove', event => move(event, 'touch'), false);
+        surface.addEventListener('touchend', event => finish(event, 'touch'), false);
+        surface.addEventListener('touchcancel', event => finish(event, 'touch'), false);
         shell.appendChild(surface);
         return surface;
     }

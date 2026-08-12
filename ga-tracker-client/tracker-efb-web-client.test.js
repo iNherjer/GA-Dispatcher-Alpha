@@ -109,6 +109,8 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /ga-info-box-close/);
   assert.match(hostSource, /renderMissionPayload/);
   assert.match(hostSource, /setupSideDrawer/);
+  assert.match(hostSource, /data-efb-check-row/);
+  assert.match(hostSource, /checklist-action/);
   assert.match(hostSource, /Mission: /);
   assert.match(hostSource, /Checklisten/);
   assert.match(hostSource, /Werkzeuge/);
@@ -121,10 +123,14 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /event=map-tile|map-tile/);
   assert.match(utilitySource, /ga-efb-e6b-input-surface/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
+  assert.match(utilitySource, /addEventListener\('mousedown'/);
+  assert.match(utilitySource, /addEventListener\('touchstart'/);
   assert.match(utilitySource, /ga-efb-tracker-host/);
   assert.match(e6bSource, /ga-e6b-rotate-delta/);
   const hostCss = getTrackerEfbWebClientAsset('/efb/v1/assets/host.css').body.toString('utf8');
   assert.match(hostCss, /#liveNextWpBox \.ga-info-box-close[\s\S]*?right: -20px/);
+  assert.match(hostSource, /routeRenderer = L\.svg/);
+  assert.match(hostSource, /map\.removeLayer\(layer\)/);
   assert.match(hostCss, /#map img\.ga-efb-map-tile \{[\s\S]*?visibility: visible !important;[\s\S]*?mix-blend-mode: normal !important;/);
 });
 

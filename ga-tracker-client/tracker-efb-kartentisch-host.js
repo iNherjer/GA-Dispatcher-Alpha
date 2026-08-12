@@ -17,6 +17,8 @@
   var routeLayer = null;
   var geometryLayer = null;
   var previewLayer = null;
+  var routeRenderer = null;
+  var geometryRenderer = null;
   var previewLine = null;
   var drawingLayer = null;
   var measureLayer = null;
@@ -384,7 +386,7 @@
       html += '<section><h4>' + drawerEscape(section.title) + '</h4>';
       section.items.forEach(function (text, itemIndex) {
         var key = checklist.id + ':' + sectionIndex + ':' + itemIndex;
-        html += '<label><input type="checkbox" data-efb-check-item="' + drawerEscape(key) + '"'
+        html += '<label data-efb-check-row="' + drawerEscape(key) + '"><input type="checkbox" data-efb-check-item="' + drawerEscape(key) + '"'
           + (efbChecklistProgress[key] === true ? ' checked' : '') + '><span>' + drawerEscape(text) + '</span></label>';
       });
       html += '</section>';
@@ -431,6 +433,19 @@
       report('info', 'side-drawer', next ? 'open-' + drawerView : 'close', 'EFB-Seitenmenue umgeschaltet');
     };
     body.addEventListener('click', function (event) {
+      var checkNode = event.target && event.target.closest ? event.target.closest('[data-efb-check-row]') : null;
+      if (checkNode) {
+        var checkKey = checkNode.getAttribute('data-efb-check-row') || '';
+        if (checkKey) {
+          efbChecklistProgress[checkKey] = efbChecklistProgress[checkKey] !== true;
+          saveEfbChecklistProgress();
+          renderSideDrawer();
+          report('info', 'checklist-action', efbChecklistProgress[checkKey] ? 'checked' : 'unchecked', 'Checklistenpunkt aktualisiert', checkKey);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-drawer-action]') : null;
       if (!actionNode) return;
       var action = actionNode.getAttribute('data-efb-drawer-action');
@@ -440,13 +455,6 @@
       renderSideDrawer();
       event.preventDefault();
       event.stopPropagation();
-    });
-    body.addEventListener('change', function (event) {
-      var key = event.target && event.target.getAttribute ? event.target.getAttribute('data-efb-check-item') : '';
-      if (!key) return;
-      efbChecklistProgress[key] = event.target.checked === true;
-      saveEfbChecklistProgress();
-      renderSideDrawer();
     });
     ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'wheel'].forEach(function (type) {
       drawer.addEventListener(type, function (event) { event.stopPropagation(); }, false);
@@ -538,7 +546,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.1');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.2');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -733,6 +741,8 @@
     createStablePane('gaPreviewPane', 445);
     createStablePane('gaDrawingPane', 450);
     createStablePane('gaAircraftPane', 500);
+    routeRenderer = L.svg ? L.svg({ pane: 'gaRoutePane' }) : null;
+    geometryRenderer = L.svg ? L.svg({ pane: 'gaGeometryPane' }) : null;
 
     var baseControl = {};
     var overlayControl = {};
@@ -847,13 +857,16 @@
   }
 
   function renderRoute(snapshot) {
-    routeLayer.clearLayers();
-    geometryLayer.clearLayers();
-    if (previewLayer) previewLayer.clearLayers();
+    var previousRouteLayer = routeLayer;
+    var previousGeometryLayer = geometryLayer;
+    var previousPreviewLayer = previewLayer;
+    routeLayer = L.layerGroup();
+    geometryLayer = L.layerGroup();
+    previewLayer = L.layerGroup();
     previewLine = null;
     var waypoints = snapshot.route.waypoints;
     var latlngs = waypoints.map(function (point) { return [point.lat, point.lon]; });
-    L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: '10,10', pane: 'gaRoutePane' }).addTo(routeLayer);
+    L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer);
     waypoints.forEach(function (point, index) {
       var marker = L.marker([point.lat, point.lon], { icon: markerIcon(index), pane: 'gaRoutePane' }).addTo(routeLayer);
       marker.bindTooltip(point.name || ('WP ' + (index + 1)), { direction: 'top', offset: [0, -8], className: 'ga-route-label' });
@@ -861,7 +874,15 @@
     var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
     if (target) L.marker([target.lat, target.lon], { icon: targetIcon(), pane: 'gaGeometryPane' }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
     var chain = snapshot.missionGeometry && snapshot.missionGeometry.poiChain || [];
-    if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane' }).addTo(geometryLayer);
+    if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane', renderer: geometryRenderer || undefined }).addTo(geometryLayer);
+    [previousRouteLayer, previousGeometryLayer, previousPreviewLayer].forEach(function (layer) {
+      if (!layer || !map) return;
+      try { layer.clearLayers(); } catch (_) {}
+      try { map.removeLayer(layer); } catch (_) {}
+    });
+    routeLayer.addTo(map);
+    geometryLayer.addTo(map);
+    previewLayer.addTo(map);
     if (!firstRouteFit && latlngs.length > 1 && !flight) {
       map.fitBounds(L.latLngBounds(latlngs), { padding: [35, 35] });
       firstRouteFit = true;
