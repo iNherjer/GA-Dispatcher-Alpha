@@ -37,6 +37,8 @@
   var profileResizeActive = false;
   var contextPickActive = false;
   var mapContextPopup = null;
+  var mapContextPress = null;
+  var mapContextSuppressClickUntil = 0;
   var drawMode = '';
   var drawPoints = [];
   var drawLine = null;
@@ -169,10 +171,10 @@
   }
 
   function updateInfoRestoreButton() {
-    var button = document.querySelector('.ga-efb-host-infos');
+    var button = document.querySelector('.ga-efb-host-display-menu .ga-efb-host-menu-trigger');
     if (!button) return;
     var hidden = Object.keys(infoBoxState).filter(function (id) { return infoBoxState[id].hidden === true; }).length;
-    button.textContent = hidden ? 'Anzeige (' + hidden + ')' : 'Anzeige';
+    button.firstChild.nodeValue = hidden ? 'Anzeige (' + hidden + ')' : 'Anzeige';
     button.classList.toggle('active', hidden > 0);
   }
 
@@ -543,6 +545,47 @@
     return button;
   }
 
+  function closeHostMenus(except) {
+    Array.prototype.forEach.call(document.querySelectorAll('.ga-efb-host-menu.is-open'), function (menu) {
+      if (menu === except) return;
+      menu.classList.remove('is-open');
+      var trigger = menu.querySelector('.ga-efb-host-menu-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function makeHostMenu(className, label, items) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'ga-efb-host-menu ' + className;
+    var trigger = makeButton('pb-btn ga-efb-host-menu-trigger', label, function () {
+      var open = !wrapper.classList.contains('is-open');
+      closeHostMenus(wrapper);
+      wrapper.classList.toggle('is-open', open);
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    var panel = document.createElement('div');
+    panel.className = 'ga-efb-host-menu-panel';
+    items.forEach(function (item) {
+      if (item.hint) {
+        var hint = document.createElement('div');
+        hint.className = 'ga-efb-host-menu-hint';
+        hint.textContent = item.label;
+        panel.appendChild(hint);
+        return;
+      }
+      var entry = makeButton('ga-efb-host-menu-item', item.label, function () {
+        closeHostMenus();
+        item.action();
+      });
+      panel.appendChild(entry);
+    });
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(panel);
+    return wrapper;
+  }
+
   function toggleLayerMenu() {
     var control = document.querySelector('.leaflet-control-layers');
     if (!control) return;
@@ -553,32 +596,46 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.3');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.4');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
     var profileButton = byId('vpToggleBtn');
     if (actions && profileButton) {
-      var design = makeButton('pb-btn ga-efb-host-design', 'Design', cycleTheme);
-      profileButton.insertAdjacentElement('afterend', design);
-      var infos = makeButton('pb-btn ga-efb-host-infos', 'Anzeige', showAllInfoBoxes);
-      design.insertAdjacentElement('afterend', infos);
-      var missionButton = makeButton('pb-btn ga-efb-host-mission', 'Mission', function () { openSideDrawer('mission'); });
-      infos.insertAdjacentElement('afterend', missionButton);
-      var checklistButton = makeButton('pb-btn ga-efb-host-checklists', 'Checklisten', function () { openSideDrawer('checklists'); });
-      missionButton.insertAdjacentElement('afterend', checklistButton);
-      var layerButton = makeButton('pb-btn ga-efb-host-layers', 'Layer', toggleLayerMenu);
-      checklistButton.insertAdjacentElement('afterend', layerButton);
-      var contextButton = makeButton('pb-btn ga-efb-host-context', 'Was ist hier', toggleMapContextPick);
-      layerButton.insertAdjacentElement('afterend', contextButton);
-      contextButton.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-tools', 'Werkzeuge', function () {
-        window.toggleMapToolRail();
-      }));
+      actions.classList.add('ga-efb-host-actions');
+      var displayMenu = makeHostMenu('ga-efb-host-display-menu', 'Anzeige', [
+        { label: 'Infofenster einblenden', action: showAllInfoBoxes },
+        { label: 'Design wechseln', action: cycleTheme },
+        { label: 'Kartenlayer', action: toggleLayerMenu },
+        { label: 'Was ist hier: Karte kurz halten', hint: true }
+      ]);
+      profileButton.insertAdjacentElement('afterend', displayMenu);
+      var missionMenu = makeHostMenu('ga-efb-host-mission-menu', 'Mission', [
+        { label: 'Missionsstatus', action: function () { openSideDrawer('mission'); } },
+        { label: 'Checklisten', action: function () { openSideDrawer('checklists'); } }
+      ]);
+      displayMenu.insertAdjacentElement('afterend', missionMenu);
+      var toolsMenu = makeHostMenu('ga-efb-host-tools-menu', 'Werkzeuge', [
+        { label: 'Werkzeugleiste', action: function () { window.toggleMapToolRail(); } },
+        { label: 'Zeichnen', action: function () { setDrawMode('pen'); } },
+        { label: 'Strecke messen', action: function () { setDrawMode('measure'); } },
+        { label: 'Uhr / Timer', action: function () { window.openMapUtilityTool('stopwatch'); } },
+        { label: 'Rechner', action: function () { window.openMapUtilityTool('calculator'); } },
+        { label: 'E6B Flight Computer', action: function () { window.openMapUtilityTool('e6b'); } }
+      ]);
+      missionMenu.insertAdjacentElement('afterend', toolsMenu);
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
+      if (!document.body.getAttribute('data-ga-host-menu-bound')) {
+        document.body.setAttribute('data-ga-host-menu-bound', '1');
+        document.addEventListener('click', function (event) {
+          if (event.target && event.target.closest && event.target.closest('.ga-efb-host-menu')) return;
+          closeHostMenus();
+        });
+      }
     }
 
     var reset = actions && actions.querySelector('button[onclick="resetMainRoute()"]');
-    if (reset) { reset.textContent = 'Route read-only'; reset.disabled = true; reset.title = 'Die Route kommt aus dem Tracker'; }
+    if (reset) { reset.textContent = 'Route'; reset.disabled = true; reset.title = 'Read-only: Die Route kommt aus dem Tracker'; }
     var closeButtons = actions && actions.querySelectorAll('.pb-btn.close');
     if (closeButtons) Array.prototype.forEach.call(closeButtons, function (button) { button.textContent = 'X'; });
     setText('mapToolbarToggle', '^');
@@ -792,7 +849,13 @@
     });
     map.on('dragstart', function () { if (preferences.follow) setFollow(false); });
     map.on('click', handleMapClick);
-    map.on('contextmenu', function (event) { openMapContextInfo(event.latlng); });
+    map.on('contextmenu', function (event) { openMapContextInfo(event.latlng, 'contextmenu'); });
+    map.on('popupclose', function (event) {
+      if (mapContextPopup && event && event.popup && event.popup !== mapContextPopup) return;
+      mapContextPopup = null;
+      document.body.classList.remove('ga-efb-context-open');
+    });
+    bindMapContextLongPress();
     bindMapDrawingInput();
     window.addEventListener('resize', function () {
       map.invalidateSize(false);
@@ -935,13 +998,16 @@
     renderProfile();
     var profile = normalized.profile;
     var profileDiagnostic = profile
-      ? [profile.mode || 'unknown', profile.terrainAvailable ? 'terrain' : 'no-terrain', profile.points ? profile.points.length : 0].join(':')
+      ? [profile.mode || 'unknown', profile.terrainAvailable ? 'terrain' : 'no-terrain', profile.points ? profile.points.length : 0,
+        profile.obstacles ? profile.obstacles.length : 0, profile.airspaces ? profile.airspaces.length : 0].join(':')
       : 'missing';
     if (profileDiagnostic !== lastProfileDiagnostic) {
       lastProfileDiagnostic = profileDiagnostic;
       report(profile && profile.terrainAvailable ? 'info' : 'warn', 'map-profile', profile ? profile.mode || 'unknown' : 'missing',
         profile && profile.terrainAvailable ? 'Terrainprofil vom Tracker aktiv' : 'Trackerprofil enthaelt noch keine Terraindaten',
-        profile ? 'points=' + (profile.points ? profile.points.length : 0) : '');
+        profile ? 'points=' + (profile.points ? profile.points.length : 0) +
+          ' obstacles=' + (profile.obstacles ? profile.obstacles.length : 0) +
+          ' airspaces=' + (profile.airspaces ? profile.airspaces.length : 0) : '');
     }
   }
 
@@ -1284,11 +1350,48 @@
       var obstacleX = x(entry.distanceNm);
       var ground = profileTerrainAt(points, entry.distanceNm);
       var topAltitude = ground + Math.max(0, entry.heightFt || 0);
-      fg.strokeStyle = '#ffb52e';
-      fg.fillStyle = '#ffcf54';
-      fg.lineWidth = 2;
-      fg.beginPath(); fg.moveTo(obstacleX, y(ground)); fg.lineTo(obstacleX, y(topAltitude)); fg.stroke();
-      fg.beginPath(); fg.moveTo(obstacleX, y(topAltitude) - 5); fg.lineTo(obstacleX - 4, y(topAltitude) + 3); fg.lineTo(obstacleX + 4, y(topAltitude) + 3); fg.closePath(); fg.fill();
+      var groundY = y(ground);
+      var trueTopY = y(topAltitude);
+      var topY = Math.min(groundY - 8, trueTopY);
+      var type = String(entry.type || 'obstacle').toLowerCase();
+      fg.save();
+      fg.strokeStyle = '#fff4cf';
+      fg.fillStyle = '#ffb52e';
+      fg.lineWidth = 1.4;
+      fg.shadowColor = 'rgba(0,0,0,.8)';
+      fg.shadowBlur = 2;
+      if (type === 'wind' || type.indexOf('wind') >= 0) {
+        var hubY = Math.min(groundY - 5, topY + 4);
+        var radius = Math.max(4, Math.min(8, (groundY - topY) * 0.42));
+        fg.beginPath(); fg.moveTo(obstacleX, groundY); fg.lineTo(obstacleX, hubY); fg.stroke();
+        for (var blade = 0; blade < 3; blade += 1) {
+          var angle = (-90 + blade * 120) * Math.PI / 180;
+          fg.beginPath(); fg.moveTo(obstacleX, hubY); fg.lineTo(obstacleX + Math.cos(angle) * radius, hubY + Math.sin(angle) * radius); fg.stroke();
+        }
+        fg.beginPath(); fg.arc(obstacleX, hubY, 1.8, 0, Math.PI * 2); fg.fill();
+      } else if (type === 'power_tower' || type.indexOf('power') >= 0) {
+        var half = Math.max(3, Math.min(6, (groundY - topY) * 0.22));
+        fg.beginPath(); fg.moveTo(obstacleX, topY); fg.lineTo(obstacleX - half, groundY); fg.moveTo(obstacleX, topY); fg.lineTo(obstacleX + half, groundY); fg.moveTo(obstacleX - half, groundY); fg.lineTo(obstacleX + half, groundY); fg.stroke();
+        [0.3, 0.58].forEach(function (fraction) {
+          var crossY = topY + (groundY - topY) * fraction;
+          fg.beginPath(); fg.moveTo(obstacleX - half - 2, crossY); fg.lineTo(obstacleX + half + 2, crossY); fg.stroke();
+        });
+      } else {
+        fg.beginPath(); fg.moveTo(obstacleX, groundY); fg.lineTo(obstacleX, topY); fg.stroke();
+        fg.beginPath(); fg.moveTo(obstacleX - 3, topY + 4); fg.lineTo(obstacleX, topY); fg.lineTo(obstacleX + 3, topY + 4); fg.stroke();
+        if ((entry.heightFt || 0) >= 250) {
+          var middleY = topY + (groundY - topY) * 0.46;
+          fg.beginPath(); fg.moveTo(obstacleX - 4, middleY); fg.lineTo(obstacleX + 4, middleY); fg.stroke();
+        }
+      }
+      if ((entry.heightFt || 0) >= 180 && width > 520) {
+        fg.shadowBlur = 0;
+        fg.fillStyle = '#ffcf54';
+        fg.font = '7px Arial';
+        fg.textAlign = 'center';
+        fg.fillText(Math.round(entry.heightFt) + 'ft', obstacleX, Math.max(8, topY - 3));
+      }
+      fg.restore();
     });
     fg.fillStyle = '#b8cbd5'; fg.font = '8px Arial'; fg.textAlign = 'center';
     points.forEach(function (point) { fg.fillText(String(point.name || '').slice(0, 8), x(point.distanceNm), height - 4); });
@@ -1359,8 +1462,45 @@
     return best;
   }
 
-  function openMapContextInfo(latlng) {
+  function mapContextHeightMarkup(profilePoint, activeAirspaces) {
+    var terrainFt = Math.max(0, finite(profilePoint && profilePoint.terrainFt) || 0);
+    var ownAltitudeFt = Math.max(0, finite(flight && flight.altFt) || 0);
+    var highest = Math.max(5000, terrainFt + 1500, ownAltitudeFt + 1000);
+    activeAirspaces.forEach(function (entry) {
+      var upper = Math.max(0, finite(entry.upperFt) || 0) + (entry.upperAgl ? terrainFt : 0);
+      highest = Math.max(highest, upper + 500);
+    });
+    var step = highest <= 10000 ? 1000 : 2500;
+    var maxFt = Math.min(30000, Math.ceil(highest / step) * step);
+    function top(value) { return clamp(100 - Math.max(0, Number(value) || 0) / maxFt * 100, 0, 100); }
+    var ticks = '';
+    for (var index = 0; index <= 4; index += 1) {
+      var value = maxFt * index / 4;
+      ticks += '<span style="bottom:' + (index * 25) + '%">' + (value >= 10000 ? Math.round(value / 1000) + 'k' : Math.round(value).toLocaleString('de-DE')) + '</span>';
+    }
+    var bands = activeAirspaces.map(function (entry) {
+      var lower = Math.max(0, finite(entry.lowerFt) || 0) + (entry.lowerAgl ? terrainFt : 0);
+      var upper = Math.max(lower + 100, Math.max(0, finite(entry.upperFt) || 0) + (entry.upperAgl ? terrainFt : 0));
+      var bandTop = top(upper);
+      var bandHeight = Math.max(2, top(lower) - bandTop);
+      return '<i class="ga-efb-context-height-airspace" style="top:' + bandTop.toFixed(2) + '%;height:' + bandHeight.toFixed(2) + '%;--ga-context-color:' + drawerEscape(entry.color || '#4da6ff') + '"><b>' + drawerEscape(String(entry.name || 'Luftraum').slice(0, 10)) + '</b></i>';
+    }).join('');
+    var terrainHeight = Math.max(2, 100 - top(terrainFt));
+    var ownship = ownAltitudeFt > 0
+      ? '<i class="ga-efb-context-height-ownship" style="top:' + top(ownAltitudeFt).toFixed(2) + '%" title="Eigene Hoehe ' + Math.round(ownAltitudeFt) + ' ft"></i>'
+      : '';
+    return '<div class="ga-efb-context-height">' +
+      '<div class="ga-efb-context-height-title">HOEHE<small>FT MSL</small></div>' +
+      '<div class="ga-efb-context-height-scale">' + ticks + '</div>' +
+      '<div class="ga-efb-context-height-plot">' + bands + ownship +
+        '<i class="ga-efb-context-height-terrain" style="height:' + terrainHeight.toFixed(2) + '%"></i>' +
+        '<em style="bottom:' + Math.min(94, terrainHeight + 1).toFixed(2) + '%">' + Math.round(terrainFt) + ' ft</em>' +
+      '</div></div>';
+  }
+
+  function openMapContextInfo(latlng, source) {
     if (!map || !latlng) return;
+    closeHostMenus();
     var profile = mapSnapshot && mapSnapshot.profile;
     var context = mapSnapshot && mapSnapshot.context || {};
     var profilePoint = nearestProfilePoint(latlng);
@@ -1370,25 +1510,55 @@
     var activeAirspaces = routeDistance == null ? [] : airspaces.filter(function (entry) {
       return routeDistance >= entry.startDistanceNm && routeDistance <= entry.endDistanceNm;
     }).slice(0, 6);
-    var html = '<div class="ga-efb-context-card"><strong>Was ist hier?</strong>' +
-      '<div>' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5) + '</div>';
-    if (routePoint) html += '<div><b>Naechster Wegpunkt:</b> ' + drawerEscape(routePoint.waypoint.name || routePoint.waypoint.id || 'WP') +
-      ' | ' + routePoint.distanceNm.toFixed(1) + ' NM / ' + leftPad(Math.round(routePoint.bearingDeg), 3) + ' deg</div>';
-    if (profilePoint && profilePoint.terrainFt != null) html += '<div><b>Terrain:</b> ' + Math.round(profilePoint.terrainFt) + ' ft MSL</div>';
-    if (routeDistance != null) html += '<div><b>Route:</b> ' + routeDistance.toFixed(1) + ' NM ab Start</div>';
-    if (context.frequency) html += '<div><b>Aktuelle Frequenz:</b> ' + drawerEscape(context.frequency) +
-      (context.frequencySource ? ' (' + drawerEscape(context.frequencySource) + ')' : '') + '</div>';
+    var waypoint = routePoint && routePoint.waypoint;
+    var waypointKind = String(waypoint && waypoint.kind || 'Routenpunkt').toUpperCase();
+    var details = '';
+    if (routePoint) {
+      details += '<section class="ga-efb-context-feature"><small>' + drawerEscape(waypointKind) + '</small>' +
+        '<strong>' + drawerEscape(waypoint.name || waypoint.id || 'WP') + '</strong>' +
+        '<span>' + routePoint.distanceNm.toFixed(1) + ' NM &nbsp; ' + leftPad(Math.round(routePoint.bearingDeg), 3) + ' deg</span>' +
+        (finite(waypoint.elevationFt) != null ? '<span>Platz-/Punkthoehe ' + Math.round(waypoint.elevationFt) + ' ft</span>' : '') + '</section>';
+    }
+    details += '<section><h4>PUNKT</h4>' +
+      '<div class="ga-efb-context-summary"><span><b>Gelaende</b>' + (profilePoint && profilePoint.terrainFt != null ? Math.round(profilePoint.terrainFt) + ' ft MSL' : '--') + '</span>' +
+      '<span><b>Route</b>' + (routeDistance != null ? routeDistance.toFixed(1) + ' NM ab Start' : '--') + '</span></div></section>';
+    if (context.frequency) details += '<section><h4>FREQUENZ</h4><div class="ga-efb-context-frequency"><b>' + drawerEscape(context.frequency) + '</b><span>' + drawerEscape(context.frequencySource || 'Tracker') + '</span></div></section>';
     if (activeAirspaces.length) {
-      html += '<div class="ga-efb-context-airspaces"><b>Luftraeume am Routenpunkt:</b>';
+      details += '<section><h4>LUFTRAEUME</h4><div class="ga-efb-context-airspaces">';
       activeAirspaces.forEach(function (entry) {
         var frequencies = entry.frequencies && entry.frequencies.length ? ' | ' + entry.frequencies.join(', ') : '';
-        html += '<span>' + drawerEscape(entry.name || entry.type || 'Luftraum') + ': ' + Math.round(entry.lowerFt || 0) + '-' + Math.round(entry.upperFt || 0) + ' ft' + drawerEscape(frequencies) + '</span>';
+        details += '<span style="--ga-context-color:' + drawerEscape(entry.color || '#4da6ff') + '"><b>' + drawerEscape(entry.name || entry.type || 'Luftraum') + '</b><small>' + Math.round(entry.lowerFt || 0) + '-' + Math.round(entry.upperFt || 0) + ' ft' + drawerEscape(frequencies) + '</small></span>';
       });
-      html += '</div>';
+      details += '</div></section>';
+    } else {
+      details += '<section><h4>LUFTRAEUME</h4><div class="ga-efb-context-muted">Kein Routenluftraum im uebertragenen Profil.</div></section>';
     }
-    html += '</div>';
+    var html = '<div class="ga-efb-context-panel"><header><small>WAS IST HIER?</small><strong>' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5) + '</strong><button type="button" class="ga-efb-context-close" aria-label="Schliessen">X</button></header>' +
+      '<div class="ga-efb-context-body">' + mapContextHeightMarkup(profilePoint, activeAirspaces) + '<div class="ga-efb-context-details">' + details + '</div></div>' +
+      '<footer>' + (source === 'longpress' ? 'LANGDRUCK' : 'KARTENAUSWAHL') + ' | TRACKER-SNAPSHOT</footer></div>';
     if (mapContextPopup) try { map.closePopup(mapContextPopup); } catch (_) {}
-    mapContextPopup = L.popup({ maxWidth: 310, className: 'ga-efb-context-popup' }).setLatLng(latlng).setContent(html).openOn(map);
+    mapContextPopup = L.popup({
+      minWidth: 360,
+      maxWidth: 480,
+      maxHeight: 620,
+      offset: L.point(0, 70),
+      autoPan: true,
+      autoPanPaddingTopLeft: L.point(10, 12),
+      autoPanPaddingBottomRight: L.point(10, 12),
+      keepInView: true,
+      className: 'ga-efb-context-popup'
+    }).setLatLng(latlng).setContent(html).openOn(map);
+    document.body.classList.add('ga-efb-context-open');
+    window.setTimeout(function () {
+      var close = document.querySelector('.ga-efb-context-close');
+      if (close) close.onclick = function (event) {
+        if (event && event.preventDefault) event.preventDefault();
+        if (event && event.stopPropagation) event.stopPropagation();
+        if (map) map.closePopup();
+        mapContextPopup = null;
+        document.body.classList.remove('ga-efb-context-open');
+      };
+    }, 0);
     report('info', 'map-context', 'open', 'Kartenkontext angezeigt', latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5));
   }
 
@@ -1404,9 +1574,53 @@
     report('info', 'map-context', contextPickActive ? 'enabled' : 'disabled', 'Was-ist-hier-Modus umgeschaltet');
   }
 
+  function clearMapContextPress() {
+    if (mapContextPress && mapContextPress.timer) window.clearTimeout(mapContextPress.timer);
+    mapContextPress = null;
+  }
+
+  function bindMapContextLongPress() {
+    if (!map) return;
+    var container = map.getContainer();
+    if (!container || container.getAttribute('data-ga-context-longpress') === '1') return;
+    container.setAttribute('data-ga-context-longpress', '1');
+    function begin(event) {
+      clearMapContextPress();
+      if (drawMode || event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      if (event.target && event.target.closest && event.target.closest('.leaflet-control, button, input, .map-draw-rail, .map-draw-menu')) return;
+      var rect = container.getBoundingClientRect();
+      var start = { x: Number(event.clientX), y: Number(event.clientY), pointerId: event.pointerId };
+      start.timer = window.setTimeout(function () {
+        if (!mapContextPress || mapContextPress.pointerId !== start.pointerId) return;
+        var point = L.point(start.x - rect.left, start.y - rect.top);
+        mapContextSuppressClickUntil = Date.now() + 900;
+        clearMapContextPress();
+        openMapContextInfo(map.containerPointToLatLng(point), 'longpress');
+      }, 650);
+      mapContextPress = start;
+    }
+    function move(event) {
+      if (!mapContextPress || mapContextPress.pointerId !== event.pointerId) return;
+      if (Math.hypot(Number(event.clientX) - mapContextPress.x, Number(event.clientY) - mapContextPress.y) > 10) clearMapContextPress();
+    }
+    function end(event) {
+      if (mapContextPress && mapContextPress.pointerId === event.pointerId) clearMapContextPress();
+    }
+    container.addEventListener('pointerdown', begin, { passive: true });
+    container.addEventListener('pointermove', move, { passive: true });
+    container.addEventListener('pointerup', end, { passive: true });
+    container.addEventListener('pointercancel', end, { passive: true });
+    container.addEventListener('click', function (event) {
+      if (Date.now() >= mapContextSuppressClickUntil) return;
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }, true);
+  }
+
   function handleMapClick(event) {
+    if (Date.now() < mapContextSuppressClickUntil) return;
     if (contextPickActive) {
-      openMapContextInfo(event.latlng);
+      openMapContextInfo(event.latlng, 'pick-mode');
       return;
     }
     if (drawMode !== 'measure') return;

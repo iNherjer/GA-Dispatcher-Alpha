@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v338 Testkandidat | v320 | v338 erweitert den Kartentisch um bedienbare E6B-Windseite, Kontextabfrage, Profil-Luftraeume/Hindernisse und Coherent-taugliche Bedienung; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v338-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v339 Testkandidat | v320 | v339 isoliert EFB-E6B-Anpassungen, ergaenzt Original-naehere Klappmenues, Karten-Langdruck und differenzierte Hindernissymbole; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v339-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -339,6 +339,18 @@ nutzt Leaflets echte Containerkoordinaten und einen eigenen SVG-Renderer.
 Der dynamische HDG-Profilmodus bleibt eine spaetere lokale Tracker/EFB-Aufgabe;
 v338 uebertraegt weiterhin das Routenprofil und keinen sekundenweisen
 HDG-Komplettsnapshot durchs Relay.
+
+Tracker v339/Host 0.5.4 trennt die Coherent-spezifische E6B-Bedienung wieder
+streng von den gemeinsam genutzten App-Dateien. Die normale Local-/Alpha-App
+verwendet damit unveraendert den Original-E6B und die Original-Profilbuttons;
+nur die im Tracker eingebettete EFB-Kopie enthaelt Mouse-/Touch-Hilfen fuer
+Windschieber und Windpunkt. Die EFB-Kopfleiste fasst Anzeige, Mission und
+Werkzeuge in Klappmenues zusammen. Ein 650-ms-Langdruck auf die Karte oeffnet
+einen erweiterten lokalen Kontext mit Hoehenband, Routenpunkt, Terrain,
+Frequenz und den im Snapshot vorhandenen Luftraeumen. Hindernisse werden nach
+Typ als Windrad, Strommast oder Mast/Turm gerendert. Vollstaendige
+Original-Paritaet fuer AIP, METAR und spontane POI-Abfragen benoetigt spaeter
+einen lokalen On-demand-Kontextvertrag mit dem Tracker.
 
 ## Roadmap
 
@@ -750,12 +762,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       schneller uebernommen; E6B-Vorderseite funktioniert. Windschieber,
       Windpunkt, Profil-Luftraeume/Hindernisse, Profilbedienung,
       `Was ist hier?`, Checklisten und korrigierter Zeichenpfad fehlen noch.
-- [ ] Tracker v338 / Host 0.5.3 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1623` auf Windows/In-Sim testen: E6B-Windschieber und
-      Windpunkt, gleichmaessige Kopffelder/Frequenz, Kontextabfrage,
-      Luftraeume/Hindernisse und alle Profilregler, vertikaler Profilgriff,
-      persistente Checklisten sowie Stift ohne Versatz/Artefakte pruefen. Der
-      Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v338 / Host 0.5.3 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1623` auf Windows/In-Sim testen. Ergebnis: Luftraeume
+      kommen an, EFB-E6B und Profilbedienung funktionieren weitergehend. Die
+      EFB-Hilfen waren jedoch versehentlich auch in der normalen Local-App
+      gelandet; Kontextabfrage und Hindernissymbole waren noch grobe
+      Platzhalter.
+- [ ] Tracker v339 / Host 0.5.4 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1624` auf Windows/In-Sim testen: unveraenderter App-E6B,
+      EFB-Klappmenues, 650-ms-Karten-Langdruck, erweitertes Kontextfenster und
+      typgerechte Hindernissymbole pruefen. Der Ruecksprungpunkt
+      `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -783,6 +800,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Host 0.5.4/v339 isoliert alle Coherent-E6B-Eingriffspfade in
+  `ga-tracker-client/efb-web-assets`; die entsprechenden normalen App-Dateien
+  sind bytegleich zum Stand vor v338. Automatisierte Tests sichern diese
+  absichtliche Trennung gegen erneutes Ueberschreiben. Die EFB-Kopfleiste nutzt
+  nun Klappmenues, Karten-Langdruck oeffnet den erweiterten lokalen Kontext und
+  Hindernisse erhalten typbezogene Profil-Symbole. Der bestehende Snapshot
+  bleibt begrenzt; AIP-/Wetter-Details werden noch nicht on demand nachgeladen.
 
 - 2026-08-12: Host 0.5.3/v338 haelt den EFB-Livepfad lokal: Das EFB pollt den
   Tracker auf `127.0.0.1:49880`; nur das kompakte, begrenzte Profilpaket kommt

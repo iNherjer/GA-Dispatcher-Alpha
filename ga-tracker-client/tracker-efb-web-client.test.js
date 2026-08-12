@@ -120,6 +120,10 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /setupProfileResize/);
   assert.match(hostSource, /profile\.airspaces/);
   assert.match(hostSource, /profile\.obstacles/);
+  assert.match(hostSource, /makeHostMenu/);
+  assert.match(hostSource, /bindMapContextLongPress/);
+  assert.match(hostSource, /ga-efb-context-panel/);
+  assert.match(hostSource, /650/);
   assert.match(hostSource, /\{ url: definition\.url, label: 'direct' \}/);
   assert.match(hostSource, /\{ url: definition\.localUrl, label: 'tracker-proxy' \}/);
   assert.match(hostSource, /return createResilientTileLayer\(definition, options\)/);
@@ -159,16 +163,19 @@ test('legacy app background requests resolve to a tiny local placeholder', () =>
   assert.ok(trackerPackage.pkg.assets.includes('efb-web-assets/background-placeholder.svg'));
 });
 
-test('versioned tracker asset mirror matches the selected original app sources', () => {
+test('versioned tracker assets keep shared sources in sync and EFB interaction patches isolated', () => {
   const projectRoot = path.resolve(__dirname, '..');
   const assetRoot = path.join(__dirname, 'efb-web-assets');
   assert.deepEqual(fs.readFileSync(path.join(assetRoot, 'styles.css')), fs.readFileSync(path.join(projectRoot, 'styles.css')));
-  assert.deepEqual(fs.readFileSync(path.join(assetRoot, 'map-utility-tools.js')), fs.readFileSync(path.join(projectRoot, 'map-utility-tools.js')));
+  const appUtilitySource = fs.readFileSync(path.join(projectRoot, 'map-utility-tools.js'), 'utf8');
+  const efbUtilitySource = fs.readFileSync(path.join(assetRoot, 'map-utility-tools.js'), 'utf8');
+  assert.notEqual(efbUtilitySource, appUtilitySource);
+  assert.match(efbUtilitySource, /ga-e6b-wind-slide-delta/);
+  assert.doesNotMatch(appUtilitySource, /ga-e6b-wind-slide-delta/);
   [
     'e6b-core.js',
     'e6b-flight-computer.css',
     'e6b-flight-computer.html',
-    'e6b-flight-computer.js',
     'e6b-workbench-front-disc.json',
     'e6b-workbench-wind-disc.json'
   ].forEach((filename) => {
@@ -179,6 +186,17 @@ test('versioned tracker asset mirror matches the selected original app sources',
     );
     assert.ok(getTrackerEfbWebClientAsset(`/efb/v1/e6b/${filename}`));
   });
+  const appE6BSource = fs.readFileSync(path.join(projectRoot, 'e6b', 'e6b-flight-computer.js'), 'utf8');
+  const efbE6BSource = fs.readFileSync(path.join(assetRoot, 'e6b', 'e6b-flight-computer.js'), 'utf8');
+  assert.notEqual(efbE6BSource, appE6BSource);
+  assert.match(efbE6BSource, /ga-e6b-wind-dot-set/);
+  assert.doesNotMatch(appE6BSource, /ga-e6b-wind-dot-set/);
+  assert.ok(getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.js'));
+  const syncSource = fs.readFileSync(path.join(__dirname, 'sync-efb-web-assets.js'), 'utf8');
+  assert.doesNotMatch(syncSource, /copy\('map-utility-tools\.js'\)/);
+  assert.doesNotMatch(syncSource, /copy\('e6b\/e6b-flight-computer\.js'\)/);
+  assert.match(syncSource, /requireEfbFork\('map-utility-tools\.js'/);
+  assert.match(syncSource, /vpZoom\(-10\).*Horizontal rauszoomen/);
 });
 
 test('diagnostic probe remains available separately from the Kartentisch', () => {

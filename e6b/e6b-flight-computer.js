@@ -460,16 +460,6 @@
                     width: stackRect.width,
                     height: stackRect.height
                 },
-                interaction: {
-                    viewBoxWidth: state.side === 'wind' ? WIND_VIEWBOX.width : FRONT_VIEWBOX.width,
-                    viewBoxHeight: state.side === 'wind' ? WIND_VIEWBOX.height : FRONT_VIEWBOX.height,
-                    centerX: state.side === 'wind' ? WIND_VIEWBOX.cx : FRONT_VIEWBOX.width / 2,
-                    centerY: state.side === 'wind' ? WIND_VIEWBOX.cy : FRONT_VIEWBOX.height / 2,
-                    sliderMinX: WIND_SLIDER_HIT.minX,
-                    sliderMaxX: WIND_SLIDER_HIT.maxX,
-                    sliderClearance: WIND_SLIDER_HIT.sliderClearance,
-                    dotClearance: WIND_SLIDER_HIT.compassClearance
-                },
                 controls: embeddedControlPositions(stackRect)
             }, '*');
         } catch (_) {}
@@ -2582,31 +2572,6 @@
                 if (Number.isFinite(delta)) {
                     if (state.side === 'wind') state.windRotation += delta;
                     else state.frontRotation += delta;
-                    applyRotations();
-                    updateReadouts();
-                    scheduleEmbeddedViewStatePost();
-                }
-            }
-            if (data.type === 'ga-e6b-wind-slide-delta' && state.side === 'wind') {
-                const delta = Number(data.delta);
-                if (Number.isFinite(delta)) {
-                    state.windSlideY = clampWindSlide(state.windSlideY + delta);
-                    applyRotations();
-                    updateReadouts();
-                    scheduleEmbeddedViewStatePost();
-                }
-            }
-            if (data.type === 'ga-e6b-wind-dot-set' && state.side === 'wind') {
-                const visibleX = Number(data.x);
-                const visibleY = Number(data.y);
-                if (Number.isFinite(visibleX) && Number.isFinite(visibleY)) {
-                    const rotorPoint = rotateWindPoint({
-                        x: core.clamp(visibleX, 0, WIND_VIEWBOX.width),
-                        y: core.clamp(visibleY, 0, WIND_VIEWBOX.height)
-                    }, -state.windRotation);
-                    state.windDotX = core.clamp(rotorPoint.x, 0, WIND_VIEWBOX.width);
-                    state.windDotY = core.clamp(rotorPoint.y, 0, WIND_VIEWBOX.height);
-                    windDotUserSet = true;
                     applyRotations();
                     updateReadouts();
                     scheduleEmbeddedViewStatePost();
