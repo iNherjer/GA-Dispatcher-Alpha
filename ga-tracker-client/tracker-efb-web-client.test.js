@@ -175,6 +175,9 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.notEqual(efbUtilitySource, appUtilitySource);
   assert.match(efbUtilitySource, /ga-e6b-wind-slide-delta/);
   assert.doesNotMatch(appUtilitySource, /ga-e6b-wind-slide-delta/);
+  assert.match(appUtilitySource, /function fitE6BFrameToViewport\(panel\)/);
+  assert.match(appUtilitySource, /frame\.style\.width = `\$\{viewportWidth\}px`/);
+  assert.doesNotMatch(efbUtilitySource, /fitE6BFrameToViewport/);
   [
     'e6b-core.js',
     'e6b-workbench-front-disc.json',

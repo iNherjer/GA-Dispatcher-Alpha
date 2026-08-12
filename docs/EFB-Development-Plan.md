@@ -363,6 +363,16 @@ EFB sind nun vier ausdruecklich geschuetzte Forks. Der Asset-Sync bricht ab,
 wenn einer dieser Forks fehlt, und die App verwendet wieder nur ihr eigenes,
 am Instrument verankertes Buttonset.
 
+Der anschliessende Local-Test zeigte ausserdem eine aeltere feste E6B-
+Arbeitsflaeche: Das eingebettete Instrument lief in einem auf `320%` der
+Panelgroesse begrenzten Iframe und konnte auf breiten Bildschirmen deshalb
+nicht bis an die sichtbaren Kartentischraender geschoben werden. Webstand
+`ga-dispatcher-v1626` passt den normalen App-Iframe beim Oeffnen, Skalieren und
+bei Viewport-Aenderungen an den tatsaechlich sichtbaren Browser-Viewport an.
+Die Instrumentgroesse bleibt unveraendert; nur sein Bewegungsraum folgt nun
+der realen Fensterbreite und -hoehe. Der geschuetzte Coherent-/EFB-Fork bleibt
+davon unberuehrt.
+
 ## Roadmap
 
 ### E0 - Read-only EFB stabilisieren
@@ -784,9 +794,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Karten-Langdruck und Kontext sind vorhanden, aber der normale App-E6B
       zeigt wegen unvollstaendiger Quelltrennung zwei Buttonsets.
 - [ ] Tracker v340 / Host 0.5.5 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1625` auf Windows/In-Sim testen: In Local/Alpha darf nur
+      `ga-dispatcher-v1626` auf Windows/In-Sim testen: In Local/Alpha darf nur
       das originale, mitbewegte E6B-Buttonset sichtbar sein; im EFB muss nur
-      das Coherent-Ersatzset erscheinen. Danach Klappmenues, 650-ms-
+      das Coherent-Ersatzset erscheinen. Das App-E6B muss sich auch auf einem
+      breiten Bildschirm bis an alle sichtbaren Kartentischraender schieben
+      lassen. Danach Klappmenues, 650-ms-
       Karten-Langdruck, Kontextfenster und Hindernissymbole gegenpruefen. Der Ruecksprungpunkt
       `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
@@ -816,6 +828,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Webstand v1626 ersetzt fuer das normale App-E6B die feste
+  `320%`-Iframe-Arbeitsflaeche zur Laufzeit durch den realen Visual Viewport.
+  Damit ist der Bewegungsraum nicht mehr von der Panel-Pixelbreite abhaengig.
+  Der EFB-Fork bleibt unveraendert und durch den bestehenden Sync-Test
+  getrennt.
 
 - 2026-08-12: Host 0.5.5/v340 schliesst die in v339 noch unvollstaendige
   E6B-Trennung. Normale App und EFB besitzen getrennte HTML-, CSS-, Runtime-
