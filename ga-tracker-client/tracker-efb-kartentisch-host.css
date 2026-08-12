@@ -323,6 +323,9 @@ body.ga-efb-tracker-host #map .leaflet-map-pane {
 }
 
 body.ga-efb-tracker-host #map img.ga-efb-map-tile {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1;
   border: 0 !important;
   background: transparent !important;
   filter: none !important;

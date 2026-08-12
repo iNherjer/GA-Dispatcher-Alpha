@@ -14,6 +14,41 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#080808">
     <meta name="mobile-web-app-capable" content="yes">
+    <script>
+        // A development server on localhost or the private LAN must never be controlled by a
+        // previously installed PWA worker. Otherwise Local can silently run
+        // old mission/sync code while Alpha is current. Remove that worker and
+        // perform one clean reload before the application scripts start.
+        (() => {
+            const host = String(window.location.hostname || '').toLowerCase();
+            const localDev = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1'
+                || host.endsWith('.local') || /^192\.168\./.test(host) || /^10\./.test(host)
+                || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^100\./.test(host);
+            window.__gaLocalDevNoSw = localDev;
+            if (!localDev) return;
+            window.addEventListener('load', () => {
+                const hadController = !!navigator.serviceWorker?.controller;
+                const unregister = ('serviceWorker' in navigator)
+                    ? navigator.serviceWorker.getRegistrations().then(regs => Promise.allSettled(regs.map(reg => reg.unregister())))
+                    : Promise.resolve();
+                const clearCaches = ('caches' in window)
+                    ? caches.keys().then(keys => Promise.allSettled(keys.filter(key => /^ga-dispatcher-/i.test(key)).map(key => caches.delete(key))))
+                    : Promise.resolve();
+                Promise.allSettled([unregister, clearCaches]).finally(() => {
+                    const reloadKey = 'ga_local_no_sw_reload_v1';
+                    if (hadController && sessionStorage.getItem(reloadKey) !== '1') {
+                        sessionStorage.setItem(reloadKey, '1');
+                        const freshUrl = new URL(window.location.href);
+                        freshUrl.searchParams.set('noSw', '1');
+                        freshUrl.searchParams.set('localFresh', String(Date.now()));
+                        window.location.replace(freshUrl.toString());
+                    } else {
+                        sessionStorage.removeItem(reloadKey);
+                    }
+                });
+            }, { once: true });
+        })();
+    </script>
     <style>
         /* Pre-paint guard: verhindert weißen Flash vor dem Laden von styles.css */
         html, body {
@@ -2761,7 +2796,7 @@
 
     // Service Worker mit Update-Splash und Reload-Gate
     const _swParams = new URLSearchParams(window.location.search || '');
-    const _skipSwForDebug = _swParams.has('fireDebug') || _swParams.has('fireCacheFresh') || _swParams.has('noSw');
+    const _skipSwForDebug = window.__gaLocalDevNoSw === true || _swParams.has('fireDebug') || _swParams.has('fireCacheFresh') || _swParams.has('noSw');
     function _setBootSplashUpdate(status, detail = '', showActions = false) {
         const splash = document.getElementById('bootSplash');
         if (!splash) return;

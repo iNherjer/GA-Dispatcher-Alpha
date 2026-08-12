@@ -114,12 +114,18 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /Werkzeuge/);
   assert.match(hostSource, /map-profile/);
   assert.match(hostSource, /container\.clientWidth \|\| rect\.width/);
+  assert.match(hostSource, /\{ url: definition\.url, label: 'direct' \}/);
+  assert.match(hostSource, /\{ url: definition\.localUrl, label: 'tracker-proxy' \}/);
+  assert.match(hostSource, /return createResilientTileLayer\(definition, options\)/);
+  assert.doesNotMatch(hostSource, /definition\.localUrl \|\| definition\.url/);
+  assert.match(hostSource, /event=map-tile|map-tile/);
   assert.match(utilitySource, /ga-efb-e6b-input-surface/);
   assert.match(utilitySource, /ga-e6b-rotate-delta/);
   assert.match(utilitySource, /ga-efb-tracker-host/);
   assert.match(e6bSource, /ga-e6b-rotate-delta/);
   const hostCss = getTrackerEfbWebClientAsset('/efb/v1/assets/host.css').body.toString('utf8');
   assert.match(hostCss, /#liveNextWpBox \.ga-info-box-close[\s\S]*?right: -20px/);
+  assert.match(hostCss, /#map img\.ga-efb-map-tile \{[\s\S]*?visibility: visible !important;[\s\S]*?mix-blend-mode: normal !important;/);
 });
 
 test('E6B document forwards iframe diagnostics before loading its runtime', () => {

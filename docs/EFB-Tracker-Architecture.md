@@ -257,6 +257,22 @@ vorhandenen Profilabruf erneut ein, sobald die restaurierte Route mindestens
 zwei Punkte besitzt; das fertige kompakte Profil wird weiter ueber denselben
 Authority-Snapshot uebertragen.
 
+Host 0.5.0/v335 kehrt fuer Rasterkarten zum im nativen MSFS-EFB bestaetigten
+Transport zurueck: direkte HTTPS-Quelle zuerst, vorhandene direkte Backup-URL
+danach und der erlaubnislistenbasierte Loopback-Proxy erst als letzter
+Fallback. Der Proxy bleibt damit nutzbar, ist aber nicht mehr Voraussetzung
+fuer die Coherent-Bilddarstellung. Jede Layerquelle meldet einmalig, ob
+`direct`, `backup` oder `tracker-proxy` sichtbar wurde. Fehlgeschlagene
+Einzelkacheln erzeugen keinen Layerfehler mehr, sobald eine Quelle dieses
+Layers erfolgreich dargestellt wurde.
+
+Der lokale Web-Entwicklungsserver ist kein PWA-Installationsziel. Er sendet
+alle Dateien mit `no-store` und entfernt auf Localhost beziehungsweise privaten
+LAN-Hosts alte GA-Service-Worker und GA-Caches. Dadurch laufen Local und Alpha
+nicht mehr versehentlich mit weit auseinanderliegenden Skriptstaenden gegen
+dieselbe Tracker-Authority. Der lokale Versionshinweis muss fuer diesen Stand
+`ga-dispatcher-v1620 / NO SW` zeigen.
+
 Der Web-App-Cloud-Pull wird ebenfalls an dieser Authority-Grenze arbitriert.
 Solange der verbundene Tracker einen aktiven Run meldet, darf `activeMission`
 aus dem Cloud-Profil weder lokal restauriert noch als Scene-/Lifecycle-Quelle

@@ -43,6 +43,7 @@
   var preferences = readPreferences();
   var infoBoxState = readInfoBoxState();
   var lastProfileDiagnostic = '';
+  var tileHealthReported = {};
   var drawerView = 'mission';
   var drawerChecklistId = '';
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
@@ -537,7 +538,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.9');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.0');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -597,6 +598,91 @@
     setupSideDrawer();
   }
 
+  function tileTemplateUrl(template, layer, coords) {
+    var data = {
+      r: L.Browser && L.Browser.retina ? '@2x' : '',
+      s: layer && typeof layer._getSubdomain === 'function' ? layer._getSubdomain(coords) : '',
+      x: coords.x,
+      y: coords.y,
+      z: coords.z
+    };
+    return L.Util.template(template, data);
+  }
+
+  function reportTileHealth(definition, state, sourceLabel, details) {
+    var key = String(definition.id || 'layer') + ':' + state;
+    var readyKey = String(definition.id || 'layer') + ':ready';
+    if (state !== 'ready' && tileHealthReported[readyKey]) return;
+    if (tileHealthReported[key]) return;
+    tileHealthReported[key] = true;
+    report(state === 'ready' ? 'info' : 'warn', 'map-tile', String(definition.id || 'layer'),
+      state === 'ready' ? 'Kartenquelle sichtbar' : 'Kartenquelle nicht darstellbar',
+      'source=' + String(sourceLabel || 'unknown') + (details ? ' ' + details : ''));
+  }
+
+  function createResilientTileLayer(definition, options) {
+    var sources = [];
+    [
+      { url: definition.url, label: 'direct' },
+      { url: definition.fallbackUrl, label: 'backup' },
+      { url: definition.localUrl, label: 'tracker-proxy' }
+    ].forEach(function (candidate) {
+      var source = String(candidate.url || '').trim();
+      var duplicate = sources.some(function (entry) { return entry.url === source; });
+      if (source && !duplicate) sources.push({ url: source, label: candidate.label });
+    });
+    if (sources.length < 2 || !L.TileLayer || typeof L.TileLayer.extend !== 'function') {
+      return L.tileLayer(sources.length ? sources[0].url : definition.url, options);
+    }
+    var ResilientLayer = L.TileLayer.extend({
+      createTile: function (coords, done) {
+        var layer = this;
+        var tile = document.createElement('img');
+        var sourceIndex = 0;
+        var settled = false;
+        var timeout = 0;
+        tile.alt = '';
+        tile.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
+        tile.setAttribute('role', 'presentation');
+        tile.setAttribute('decoding', 'async');
+
+        function clearTimer() {
+          if (!timeout) return;
+          window.clearTimeout(timeout);
+          timeout = 0;
+        }
+        function finish(error) {
+          if (settled) return;
+          settled = true;
+          clearTimer();
+          tile.onload = null;
+          tile.onerror = null;
+          var source = sources[sourceIndex] || {};
+          if (error) reportTileHealth(definition, 'failed', source.label, String(error.message || error));
+          else reportTileHealth(definition, 'ready', source.label, 'fallbacks=' + sourceIndex);
+          done(error, tile);
+        }
+        function loadSource(index) {
+          sourceIndex = index;
+          clearTimer();
+          tile.src = tileTemplateUrl(sources[sourceIndex].url, layer, coords);
+          timeout = window.setTimeout(function () {
+            if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
+            else finish(new Error('map_tile_timeout'));
+          }, sourceIndex === 0 ? 5000 : 7000);
+        }
+        tile.onload = function () { finish(null); };
+        tile.onerror = function () {
+          if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
+          else finish(new Error('map_tile_failed'));
+        };
+        loadSource(0);
+        return tile;
+      }
+    });
+    return new ResilientLayer(sources[0].url, options);
+  }
+
   function createTileLayer(definition, paneName) {
     var options = {};
     Object.keys(definition.options || {}).forEach(function (key) { options[key] = definition.options[key]; });
@@ -606,7 +692,11 @@
     options.keepBuffer = 2;
     options.className = 'ga-efb-map-tile ga-efb-map-tile-' + String(definition.id || 'layer');
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
-    return L.tileLayer(definition.localUrl || definition.url, options);
+    // The native EFB map renders direct HTTPS image tiles correctly, while the
+    // same images served through the loopback proxy remain black in some
+    // Coherent builds. Use the proven direct path first and retain the bounded
+    // tracker proxy only as the final fallback.
+    return createResilientTileLayer(definition, options);
   }
 
   function createStablePane(name, zIndex) {

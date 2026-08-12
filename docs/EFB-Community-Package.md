@@ -98,6 +98,14 @@ Trigger nach der Tracker-Geraeteuebergabe. Der ausgelieferte Code liegt erneut
 vollstaendig im Tracker-Host beziehungsweise in der Web-App; das installierte
 Community-Paket 0.4.4 muss fuer den v334-Test nicht neu gebaut werden.
 
+Tracker v335 liefert Hoststand 0.5.0. Rasterkarten verwenden zuerst den im
+nativen EFB funktionierenden direkten HTTPS-Pfad und erst bei Bedarf Backup
+beziehungsweise lokalen Proxy. Der dazugehoerige lokale Webstand laeuft auf
+privaten Entwicklungsadressen ohne Service Worker und muss
+`ga-dispatcher-v1620 / NO SW` anzeigen; ein angezeigtes `v1603` ist ein alter,
+fuer den Authority-/Terrain-Test ungeeigneter Cache. Das Community-Paket 0.4.4
+bleibt auch fuer v335 unveraendert installiert.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

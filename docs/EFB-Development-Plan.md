@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v334 Testkandidat | v320 | v334 haertet transparente Aero-Tiles, Toolbar/Layerdialog und den Terrain-Push nach der Geraeteuebergabe; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v333-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v335 Testkandidat | v320 | v335 verwendet den im nativen EFB bestaetigten direkten HTTPS-Tilepfad mit Proxy-Fallback und erkennt den lokalen Webstand cachefrei; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v335-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -293,6 +293,16 @@ des Kartentisches deshalb ueber den Loopback-Server und einen auf 32 MiB
 begrenzten RAM-Cache. Die Web-App stoesst nach ihrem ohnehin stattfindenden
 Terrainabruf sofort ein Authority-Snapshot-Update an. Es entsteht weder ein
 neuer Worker-Aufruf noch ein weiterer Terrain-Drittanbieterpfad im Tracker.
+
+Der v334-In-Sim-Test bestaetigt zwar erfolgreiche Tile-Antworten des lokalen
+Proxys, die Loopback-Bilder bleiben im Coherent-Kartentisch aber schwarz. Die
+parallel getestete native EFB-Karte rendert dieselben Quellen ueber direkte
+HTTPS-URLs. Tracker v335/Host 0.5.0 verwendet deshalb diesen bestaetigten Pfad
+zuerst und behaelt Backup-URL sowie begrenzten Tracker-Proxy pro Kachel als
+Fallback. Ein einmaliges `map-tile`-Diagnoseereignis nennt die tatsaechlich
+sichtbare Quelle. Der lokale Entwicklungsserver deaktiviert Service Worker
+und App-Caches auf Localhost/privaten LAN-Adressen; damit kann ein alter Stand
+wie `v1603` nicht mehr unbemerkt gegen eine aktuelle Alpha-App schreiben.
 
 ## Roadmap
 
@@ -685,10 +695,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Coherent-Compositor stellt die transparente Aero-Ebene nach etwa einer
       Sekunde schwarz dar; der uebernommene Run bleibt ohne spaeten
       Routen-Trigger bei `planned-only`.
-- [ ] Tracker v334 / Host 0.4.9 mit vorhandenem EFB 0.4.4 und passendem lokalen
-      App-Stand auf Windows/In-Sim testen: Basiskarte mit aktivem Aero-Layer
-      nach Bewegung > 5 Sekunden, lesbarer Layerdialog, freie Toolbar sowie
-      `map-profile:terrain` nach dem Cloud-/Tracker-Handoff pruefen.
+- [x] Tracker v334 / Host 0.4.9 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      testen. Ergebnis: Der Proxy liefert Kacheln, Coherent zeigt sie dennoch
+      schwarz. Die verwendete Local-App meldete Cache `v1603` und konnte daher
+      den neuen Terrain-/Authority-Refresh nicht ausfuehren.
+- [ ] Tracker v335 / Host 0.5.0 mit vorhandenem EFB 0.4.4 und aktuellem lokalen
+      App-Stand `ga-dispatcher-v1620 / NO SW` auf Windows/In-Sim testen:
+      Basiskarte nach Bewegung > 5 Sekunden, `map-tile: source=direct` sowie
+      `map-profile: tracker-terrain` nach dem Cloud-/Tracker-Handoff pruefen.
       Der
       Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
@@ -718,6 +732,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v334-Log bestaetigt erfolgreiche Antworten des lokalen
+  Tile-Proxys, waehrend die Kartentisch-Flaeche schwarz bleibt. Da die native
+  EFB-Karte direkte HTTPS-Tiles auf demselben System sichtbar rendert, nutzt
+  Host 0.5.0/v335 je Kachel zuerst die direkte Quelle, danach deren Backup und
+  erst zuletzt den weiterhin begrenzten Loopback-Proxy. Der gleichzeitig
+  angezeigte lokale Web-Cache `v1603` erklaert den fehlenden v334-Terrain-Push
+  und unsaubere versionsuebergreifende Authority-Wechsel. Lokale Server senden
+  deshalb konsequent `no-store`; private Entwicklungs-Hosts entfernen alte
+  GA-Service-Worker und zeigen `NO SW` an.
 
 - 2026-08-12: Der v333-In-Sim-Test trennt Netzwerk und Darstellung: Topo- und
   Aero-Tiles werden vom lokalen Proxy erfolgreich geliefert, erst das spaeter
