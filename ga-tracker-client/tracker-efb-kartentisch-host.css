@@ -18,6 +18,11 @@ body.ga-efb-tracker-host #mapTableOverlay {
   transition: none !important;
 }
 
+/* Coherent uses the outer EFB control set; keep its ASCII FLIP label compact. */
+body.ga-efb-tracker-host #mapE6BFlip {
+  font-size: 7px;
+}
+
 body.ga-efb-tracker-host .win95-window-dragbar,
 body.ga-efb-tracker-host .win95-window-resize-handles,
 body.ga-efb-tracker-host .win95-overlay-minimize-btn,

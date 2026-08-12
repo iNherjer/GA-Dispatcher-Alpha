@@ -21,8 +21,7 @@ body {
 
 body.e6b-embedded {
     width: 100vw;
-    height: 100vh;
-    min-height: 100vh;
+    min-height: 100dvh;
     overflow: hidden;
     background: transparent;
 }
@@ -100,8 +99,8 @@ body.e6b-embedded .e6b-layout {
     grid-template-columns: 1fr;
     gap: 0;
     width: 100vw;
-    height: 100vh;
-    min-height: 100vh;
+    height: 100dvh;
+    min-height: 100dvh;
     padding: 0;
     overflow: visible;
 }
@@ -180,26 +179,24 @@ body.e6b-view-gesturing .e6b-stack {
 }
 
 .front-stack {
-    width: 650px;
-    max-width: 100%;
+    width: min(650px, 100%, calc((100vh - 116px) * 0.864));
     aspect-ratio: 510 / 590;
 }
 
 .wind-stack {
-    width: 470px;
-    max-width: 100%;
+    width: min(470px, 100%, calc((100vh - 116px) * 0.51));
     aspect-ratio: 510 / 1000;
 }
 
 body.e6b-embedded .front-stack {
-    width: var(--e6b-embedded-front-width, 510px);
+    width: var(--e6b-embedded-front-width, min(100vw, calc(100dvh * 510 / 590)));
     max-width: none;
     overflow: visible;
     border-radius: 0;
 }
 
 body.e6b-embedded .wind-stack {
-    width: var(--e6b-embedded-wind-width, 510px);
+    width: var(--e6b-embedded-wind-width, min(100vw, calc(100dvh * 510 / 1000)));
     max-width: none;
     overflow: visible;
     border-radius: 0;
@@ -207,8 +204,7 @@ body.e6b-embedded .wind-stack {
 
 .e6b-board-layer {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -253,8 +249,7 @@ body.e6b-embedded .wind-stack {
 
 .e6b-workbench-render-image {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -359,10 +354,7 @@ body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
 .e6b-embedded-chrome {
     display: none;
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     z-index: 20;
     overflow: visible;
     pointer-events: none;
@@ -376,10 +368,9 @@ body.e6b-embedded .e6b-embedded-chrome {
     position: absolute;
     left: var(--e6b-local-control-x, 0px);
     top: var(--e6b-local-control-y, 0px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
+    display: grid;
+    place-items: center;
+    width: 31px;
     height: 31px;
     border: 1px solid rgba(43, 49, 53, 0.72);
     border-radius: 50%;
@@ -394,35 +385,6 @@ body.e6b-embedded .e6b-embedded-chrome {
     transform: translate(-50%, -50%);
     user-select: none;
     touch-action: none;
-}
-
-body.e6b-coherent,
-body.e6b-coherent .e6b-layout,
-body.e6b-coherent .e6b-stage,
-body.e6b-coherent .e6b-computer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-}
-
-body.e6b-coherent .e6b-computer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-body.e6b-coherent .e6b-embedded-chrome {
-    display: none;
-}
-
-body.e6b-coherent .front-stack,
-body.e6b-coherent .wind-stack {
-    flex: 0 0 auto;
-    max-width: none;
 }
 
 .e6b-embedded-btn:active {
@@ -448,8 +410,6 @@ body.e6b-coherent .wind-stack {
 .e6b-embedded-btn[data-e6b-control="flip"] {
     left: var(--e6b-local-control-flip-x, var(--e6b-local-control-x, 0px));
     top: var(--e6b-local-control-flip-y, var(--e6b-local-control-y, 0px));
-    width: 40px;
-    font-size: 9px;
 }
 
 .e6b-embedded-btn[data-e6b-control="zoomOut"] {
@@ -638,7 +598,7 @@ body.e6b-coherent .wind-stack {
         position: static;
         top: auto;
         height: auto;
-        min-height: 68vh;
+        min-height: min(68vh, 680px);
     }
 
     .e6b-controls {

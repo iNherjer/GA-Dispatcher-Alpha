@@ -1,76 +1,6 @@
 (function() {
     'use strict';
 
-    function installE6BCompatibilityPolyfills() {
-        if (!Number.isFinite) Number.isFinite = function(value) { return typeof value === 'number' && isFinite(value); };
-        if (!Number.isInteger) Number.isInteger = function(value) { return Number.isFinite(value) && Math.floor(value) === value; };
-        if (!Number.EPSILON) Number.EPSILON = Math.pow(2, -52);
-        if (!Math.sign) Math.sign = function(value) { const number = Number(value); return number === 0 || isNaN(number) ? number : (number > 0 ? 1 : -1); };
-        if (!Math.hypot) Math.hypot = function() {
-            let sum = 0;
-            for (let index = 0; index < arguments.length; index += 1) sum += Number(arguments[index]) * Number(arguments[index]);
-            return Math.sqrt(sum);
-        };
-        if (!Math.log10) Math.log10 = function(value) { return Math.log(value) / Math.LN10; };
-        if (!Object.values) Object.values = function(source) { return Object.keys(Object(source)).map(function(key) { return source[key]; }); };
-        if (!Object.entries) Object.entries = function(source) { return Object.keys(Object(source)).map(function(key) { return [key, source[key]]; }); };
-        if (!Array.prototype.includes) Array.prototype.includes = function(value, fromIndex) {
-            const length = this.length >>> 0;
-            let index = Math.max(Number(fromIndex) || 0, 0);
-            while (index < length) {
-                const current = this[index];
-                if (current === value || (current !== current && value !== value)) return true;
-                index += 1;
-            }
-            return false;
-        };
-        if (!Array.prototype.find) Array.prototype.find = function(predicate, thisArg) {
-            if (typeof predicate !== 'function') throw new TypeError('Array.find predicate');
-            for (let index = 0; index < this.length; index += 1) {
-                if (predicate.call(thisArg, this[index], index, this)) return this[index];
-            }
-            return undefined;
-        };
-        if (!Array.prototype.flatMap) Array.prototype.flatMap = function(callback, thisArg) {
-            if (typeof callback !== 'function') throw new TypeError('Array.flatMap callback');
-            const result = [];
-            for (let index = 0; index < this.length; index += 1) {
-                if (!(index in this)) continue;
-                const mapped = callback.call(thisArg, this[index], index, this);
-                if (Array.isArray(mapped)) Array.prototype.push.apply(result, mapped);
-                else result.push(mapped);
-            }
-            return result;
-        };
-        if (!String.prototype.includes) String.prototype.includes = function(value, start) { return this.indexOf(value, start || 0) >= 0; };
-        if (!String.prototype.padStart) String.prototype.padStart = function(length, fill) {
-            let value = String(this);
-            const target = Math.max(0, Number(length) || 0);
-            const padding = String(fill == null ? ' ' : fill) || ' ';
-            while (value.length < target) value = padding.slice(0, target - value.length) + value;
-            return value;
-        };
-        if (!String.prototype.trimEnd) String.prototype.trimEnd = function() { return String(this).replace(/\s+$/, ''); };
-        if (window.Element && !Element.prototype.replaceChildren) Element.prototype.replaceChildren = function() {
-            while (this.firstChild) this.removeChild(this.firstChild);
-            for (let index = 0; index < arguments.length; index += 1) {
-                const child = arguments[index];
-                this.appendChild(child && child.nodeType ? child : document.createTextNode(String(child)));
-            }
-        };
-        if (window.Element && !Element.prototype.remove) Element.prototype.remove = function() {
-            if (this.parentNode) this.parentNode.removeChild(this);
-        };
-    }
-
-    installE6BCompatibilityPolyfills();
-
-    function reportE6B(level, event, stage, message, details) {
-        if (typeof window.__gaE6BReport === 'function') {
-            window.__gaE6BReport(level, event, stage, message, details);
-        }
-    }
-
     const core = window.GAE6B;
     const FRONT_VIEWBOX = { width: 510, height: 590 };
     const WIND_VIEWBOX = { width: 510, height: 1000, cx: 255, cy: 500 };
@@ -118,9 +48,14 @@
     const SCALE_PLAN_NUMERIC_FIELDS = ['startAngle', 'endAngle', 'radius', 'tickLength', 'labelRadius', 'min', 'max', 'minorStep', 'majorStep', 'fontSize'];
     const SCALE_PLAN_MAX_TICKS = 1200;
     const SVG_NS = 'http://www.w3.org/2000/svg';
-    const locationMode = `${window.location.search || ''} ${window.location.hash || ''}`;
-    const embeddedMode = /embedded(?:=1)?/i.test(locationMode);
-    const coherentMode = /coherent/i.test(locationMode);
+    const searchParams = (() => {
+        try {
+            return new URLSearchParams(window.location.search);
+        } catch (_) {
+            return new URLSearchParams();
+        }
+    })();
+    const embeddedMode = searchParams.has('embedded');
     const calibrationMode = false;
     const viewTransformMode = embeddedMode;
     const state = {
@@ -160,22 +95,6 @@
         appliedFrontWidth: 0,
         appliedWindWidth: 0
     };
-
-    function mergePlainObjects() {
-        const result = {};
-        for (let index = 0; index < arguments.length; index += 1) {
-            const source = arguments[index];
-            if (!source || typeof source !== 'object') continue;
-            Object.keys(source).forEach(key => {
-                result[key] = source[key];
-            });
-        }
-        return result;
-    }
-
-    function valueOrFallback(value, fallback) {
-        return value === null || typeof value === 'undefined' ? fallback : value;
-    }
     const viewPointers = new Map();
     let viewGesture = null;
     let embeddedViewStatePostPending = false;
@@ -189,10 +108,6 @@
 
     if (embeddedMode && document.body) {
         document.body.classList.add('e6b-embedded');
-    }
-
-    if (coherentMode && document.body) {
-        document.body.classList.add('e6b-coherent');
     }
 
     if (viewTransformMode && document.body) {
@@ -359,16 +274,6 @@
         if (Number.isFinite(wind) && wind > 0) {
             embeddedBaseSize.windWidth = wind;
         }
-        const frontStack = qs('#e6bFrontStack');
-        const windStack = qs('#e6bWindStack');
-        if (frontStack && Number.isFinite(front) && front > 0) {
-            frontStack.style.width = `${front}px`;
-            frontStack.style.height = `${front * FRONT_VIEWBOX.height / FRONT_VIEWBOX.width}px`;
-        }
-        if (windStack && Number.isFinite(wind) && wind > 0) {
-            windStack.style.width = `${wind}px`;
-            windStack.style.height = `${wind * WIND_VIEWBOX.height / WIND_VIEWBOX.width}px`;
-        }
         setViewTransform(viewState.scale, viewState.x, viewState.y);
     }
 
@@ -444,10 +349,7 @@
         try {
             window.parent.postMessage({
                 type: 'ga-e6b-view-state',
-                // Coherent does not reliably route pointer input through the
-                // nested iframe. The tracker host therefore owns the visible
-                // controls and the transparent dial interaction surface.
-                localControls: false,
+                localControls: true,
                 side: state.side,
                 scale: viewState.scale,
                 x: viewState.x,
@@ -511,16 +413,24 @@
         return `${base}?v=${WORKBENCH_WIND_JSON_VERSION}`;
     }
 
-    function fetchWorkbenchFrontDisc() {
-        return fetch(workbenchFrontJsonUrl(), { cache: 'no-store' })
-            .then(response => response.ok ? response.json() : null)
-            .catch(() => null);
+    async function fetchWorkbenchFrontDisc() {
+        try {
+            const response = await fetch(workbenchFrontJsonUrl(), { cache: 'no-store' });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (_) {
+            return null;
+        }
     }
 
-    function fetchWorkbenchWindDisc() {
-        return fetch(workbenchWindJsonUrl(), { cache: 'no-store' })
-            .then(response => response.ok ? response.json() : null)
-            .catch(() => null);
+    async function fetchWorkbenchWindDisc() {
+        try {
+            const response = await fetch(workbenchWindJsonUrl(), { cache: 'no-store' });
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (_) {
+            return null;
+        }
     }
 
     function validWorkbenchFrontDisc(snapshot) {
@@ -573,8 +483,9 @@
             { id: 'left-help-label', type: 'label', label: 'Left help text', text: 'FOR ALTITUDE\\nCOMPUTATIONS', disc: 'front', radius: 390, startAngle: -166, fontSize: 34, textRotation: 0, fontWeight: 'bold' },
             { id: 'right-help-label', type: 'label', label: 'Right help text', text: 'FOR TRUE\\nAIRSPEED &\\nDENSITY ALT', disc: 'front', radius: 390, startAngle: -14, fontSize: 31, textRotation: 0, fontWeight: 'bold' },
             { id: 'fuel-label', type: 'label', label: 'Fuel block', text: 'FOR FUEL\\nCONSUMPTION', disc: 'front', radius: 420, startAngle: 100, fontSize: 30, textRotation: 180, fontWeight: 'bold' },
-            { id: 'time-distance-label', type: 'label', label: 'Time distance block', text: 'FOR TIME\\nAND DISTANCE', disc: 'front', radius: 420, startAngle: 56, fontSize: 30, textRotation: 180, fontWeight: 'bold' }
-        ].concat(bundledWorkbenchIndexElements());
+            { id: 'time-distance-label', type: 'label', label: 'Time distance block', text: 'FOR TIME\\nAND DISTANCE', disc: 'front', radius: 420, startAngle: 56, fontSize: 30, textRotation: 180, fontWeight: 'bold' },
+            ...bundledWorkbenchIndexElements()
+        ];
     }
 
     function bundledWorkbenchIndexElements() {
@@ -611,7 +522,8 @@
             { id: 'idx-density-pointer', type: 'index', label: 'Density altitude pointer', disc: 'front', radius: 246, labelRadius: 300, startAngle: -90 }
         ].map(element => {
             if (skipIds.has(element.id)) return element;
-            return mergePlainObjects(element, {
+            return {
+                ...element,
                 text: textById[element.id] || String(element.label || '').replace(/\s+index$/i, '').toUpperCase(),
                 fontSize: 40,
                 textRotation: 52.2,
@@ -619,18 +531,19 @@
                 indexWidth: 30,
                 stemLength: 20,
                 fontWeight: 'bold'
-            });
+            };
         });
     }
 
     function renderBundledWorkbenchSvg(source, disc) {
         const body = [
             bundledSvgStyle(),
-            tag('g', { class: `trace-preview-disc trace-preview-${disc}` }, [renderBundledSurface(source, disc)]
-                .concat(source.elements
+            tag('g', { class: `trace-preview-disc trace-preview-${disc}` }, [
+                renderBundledSurface(source, disc),
+                ...source.elements
                     .filter(element => bundledElementDisc(element) === disc)
-                    .map(element => renderBundledElement(source, element)))
-                .join(''))
+                    .map(element => renderBundledElement(source, element))
+            ].join(''))
         ].join('');
         return tag('svg', {
             xmlns: SVG_NS,
@@ -664,13 +577,16 @@
         const windows = disc === 'front'
             ? source.elements.filter(element => bundledElementDisc(element) === 'front' && element.type === 'window')
             : [];
-        const d = [bundledCirclePath(source, radius)].concat(windows.map(element => bundledSectorPath(
+        const d = [
+            bundledCirclePath(source, radius),
+            ...windows.map(element => bundledSectorPath(
                 source,
                 Number(element.innerRadius || 0),
                 Number(element.outerRadius || 0),
                 Number(element.startAngle || 0),
                 Number(element.endAngle || 0)
-            ))).join(' ');
+            ))
+        ].join(' ');
         return tag('path', { class: `trace-preview-surface trace-preview-${disc}-surface`, d, 'fill-rule': 'evenodd' });
     }
 
@@ -695,7 +611,7 @@
                 if (Number.isFinite(radius + indexLength + stemLength)) candidates.push(Math.abs(radius + indexLength + stemLength));
                 if (Number.isFinite(labelRadius + fontSize)) candidates.push(Math.abs(labelRadius + fontSize));
             });
-        return Math.max.apply(Math, candidates.filter(Number.isFinite).concat([1])) + 28;
+        return Math.max(...candidates.filter(Number.isFinite), 1) + 28;
     }
 
     function renderBundledElement(source, element) {
@@ -728,13 +644,11 @@
     }
 
     function renderBundledScale(source, scale) {
-        const ticks = parseBundledNumberList(scale.minorValuesText)
-            .map(item => renderBundledTick(source, scale, item, 'minor'))
-            .concat(parseBundledNumberList(scale.mediumValuesText)
-                .map(item => renderBundledTick(source, scale, item, 'medium')))
-            .concat(parseBundledNumberList(scale.valuesText)
-                .map(item => renderBundledTick(source, scale, item, 'major')))
-            .join('');
+        const ticks = [
+            ...parseBundledNumberList(scale.minorValuesText).map(item => renderBundledTick(source, scale, item, 'minor')),
+            ...parseBundledNumberList(scale.mediumValuesText).map(item => renderBundledTick(source, scale, item, 'medium')),
+            ...parseBundledNumberList(scale.valuesText).map(item => renderBundledTick(source, scale, item, 'major'))
+        ].join('');
         return tag('g', { class: 'trace-scale' }, [
             tag('path', {
                 class: 'trace-scale-guide',
@@ -756,15 +670,16 @@
         const p = bundledPolarPoint(source, labelRadius, angle);
         return tag('g', { class: 'trace-scale-point' }, [
             line,
-            tag('text', mergePlainObjects({
+            tag('text', {
                 class: 'trace-number',
                 x: p.x,
                 y: p.y,
                 'font-size': Number(scale.fontSize || 24),
                 'text-anchor': 'middle',
                 'dominant-baseline': 'middle',
-                transform: `rotate(${roundSvg(angle + 90)} ${roundSvg(p.x)} ${roundSvg(p.y)})`
-            }, bundledTypographyAttrs(source, scale)), escapeSvgText(item.label))
+                transform: `rotate(${roundSvg(angle + 90)} ${roundSvg(p.x)} ${roundSvg(p.y)})`,
+                ...bundledTypographyAttrs(source, scale)
+            }, escapeSvgText(item.label))
         ].join(''));
     }
 
@@ -776,15 +691,16 @@
             x: p.x,
             dy: index === 0 ? `${-(lines.length - 1) * 0.55}em` : '1.1em'
         }, escapeSvgText(line))).join('');
-        return tag('text', mergePlainObjects({
+        return tag('text', {
             class: 'trace-label',
             x: p.x,
             y: p.y,
             'font-size': Number(element.fontSize || 28),
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
-            transform: `rotate(${roundSvg(Number(element.textRotation || 0))} ${roundSvg(p.x)} ${roundSvg(p.y)})`
-        }, bundledTypographyAttrs(source, element)), tspans);
+            transform: `rotate(${roundSvg(Number(element.textRotation || 0))} ${roundSvg(p.x)} ${roundSvg(p.y)})`,
+            ...bundledTypographyAttrs(source, element)
+        }, tspans);
     }
 
     function renderBundledIndex(source, element) {
@@ -814,15 +730,16 @@
             const labelAngle = angle + Number(element.labelAngleOffset || 0);
             const labelRadius = Number(element.labelRadius || Number(element.radius || 0) + Number(element.indexLength || 0) + 44);
             const p = bundledPolarPoint(source, labelRadius, labelAngle);
-            parts.push(tag('text', mergePlainObjects({
+            parts.push(tag('text', {
                 class: 'trace-index-label',
                 x: p.x,
                 y: p.y,
                 'font-size': Number(element.fontSize || 24),
                 'text-anchor': 'middle',
                 'dominant-baseline': 'middle',
-                transform: `rotate(${roundSvg(Number(element.textRotation || 0))} ${roundSvg(p.x)} ${roundSvg(p.y)})`
-            }, bundledTypographyAttrs(source, element)), escapeSvgText(element.text)));
+                transform: `rotate(${roundSvg(Number(element.textRotation || 0))} ${roundSvg(p.x)} ${roundSvg(p.y)})`,
+                ...bundledTypographyAttrs(source, element)
+            }, escapeSvgText(element.text)));
         }
         return tag('g', { class: 'trace-index' }, parts.join(''));
     }
@@ -830,8 +747,8 @@
     function bundledIndexGeometry(source, element) {
         const angle = Number(element.startAngle || 0);
         const radius = Number(element.radius || 0);
-        const length = Number(valueOrFallback(element.indexLength, valueOrFallback(element.majorTick, 62)));
-        const width = Number(valueOrFallback(element.indexWidth, valueOrFallback(element.minorTick, 38)));
+        const length = Number(element.indexLength ?? element.majorTick ?? 62);
+        const width = Number(element.indexWidth ?? element.minorTick ?? 38);
         const stemLength = Number(element.stemLength || 0);
         const rotation = Number(element.indexRotation || 0);
         const markerAngle = angle + rotation;
@@ -972,8 +889,8 @@
             }
             return bundledExtrapolate(points[points.length - 2], points[points.length - 1], value);
         }
-        const min = Number(valueOrFallback(scale.min, 0));
-        const max = Number(valueOrFallback(scale.max, 100));
+        const min = Number(scale.min ?? 0);
+        const max = Number(scale.max ?? 100);
         if (scale.mapping === 'log10' && value > 0 && min > 0 && max > min) {
             const span = Math.log10(max) - Math.log10(min);
             const t = span ? (Math.log10(value) - Math.log10(min)) / span : 0;
@@ -1154,21 +1071,9 @@
 
     function loadWorkbenchFrontDisc() {
         const saved = readWorkbenchFrontDisc();
-        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.front;
-        const initial = validWorkbenchFrontDisc(saved)
-            ? saved
-            : (validWorkbenchFrontDisc(preloaded) ? preloaded : null);
-        applyWorkbenchFrontDisc(initial);
+        applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved) ? saved : bundledWorkbenchFrontDisc());
         fetchWorkbenchFrontDisc().then(snapshot => {
-            if (validWorkbenchFrontDisc(snapshot)) {
-                applyWorkbenchFrontDisc(snapshot);
-                reportE6B('info', 'workbench', 'front-ready', 'E6B-Vorderseite geladen');
-                return;
-            }
-            if (!initial) {
-                applyWorkbenchFrontDisc(bundledWorkbenchFrontDisc());
-                reportE6B('warn', 'workbench', 'front-fallback', 'E6B-Vorderseite nutzt eingebauten Fallback');
-            }
+            if (validWorkbenchFrontDisc(snapshot)) applyWorkbenchFrontDisc(snapshot);
         });
     }
 
@@ -1319,17 +1224,10 @@
 
     function loadWorkbenchWindDisc() {
         const saved = readWorkbenchWindDisc();
-        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.wind;
         if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
-        else if (validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(preloaded);
         fetchWorkbenchWindDisc().then(snapshot => {
-            if (validWorkbenchWindDisc(snapshot)) {
-                applyWorkbenchWindDisc(snapshot);
-                reportE6B('info', 'workbench', 'wind-ready', 'E6B-Windseite geladen');
-            } else if (!validWorkbenchWindDisc(saved) && !validWorkbenchWindDisc(preloaded)) {
-                applyWorkbenchWindDisc(null);
-                reportE6B('warn', 'workbench', 'wind-missing', 'E6B-Windseite konnte nicht geladen werden');
-            }
+            if (validWorkbenchWindDisc(snapshot)) applyWorkbenchWindDisc(snapshot);
+            else if (!validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(null);
         });
     }
 
@@ -1603,7 +1501,7 @@
         let settings = { originalVisible: true, referenceFaded: false, newVisible: true, helpersVisible: true, zoomPercent: 100 };
         try {
             const stored = JSON.parse(window.localStorage.getItem(PREVIEW_STORAGE_KEY) || 'null');
-            if (stored && typeof stored === 'object') settings = mergePlainObjects(settings, stored);
+            if (stored && typeof stored === 'object') settings = { ...settings, ...stored };
         } catch (_) {}
         setPreviewSettings(settings, false);
     }
@@ -1876,7 +1774,7 @@
     function renderScale(group) {
         placeScaleElement(group);
         const geometry = scaleGeometryFromDataset(group.dataset);
-        const numericGeometry = mergePlainObjects(geometry);
+        const numericGeometry = { ...geometry };
         delete numericGeometry.layer;
         delete numericGeometry.mapping;
         if (Object.values(numericGeometry).some(value => !Number.isFinite(value))) return;
@@ -2567,16 +2465,6 @@
                 setViewTransform(viewState.scale, viewState.x + Number(data.dx || 0), viewState.y + Number(data.dy || 0));
             }
             if (data.type === 'ga-e6b-zoom-view') zoomViewByFactor(data.factor);
-            if (data.type === 'ga-e6b-rotate-delta') {
-                const delta = Number(data.delta);
-                if (Number.isFinite(delta)) {
-                    if (state.side === 'wind') state.windRotation += delta;
-                    else state.frontRotation += delta;
-                    applyRotations();
-                    updateReadouts();
-                    scheduleEmbeddedViewStatePost();
-                }
-            }
             if (data.type === 'ga-e6b-report-view') scheduleEmbeddedViewStatePost();
         });
         bindWindowPlanControls();
@@ -2586,32 +2474,18 @@
     }
 
     function init() {
-        try {
-            loadWorkbenchFrontDisc();
-            loadWorkbenchWindDisc();
-            stripCalibrationDomForEmbedded();
-            if (calibrationMode) {
-                renderWindowPlanSectors();
-                renderScalePlanScales();
-            }
-            readInputs();
-            syncInputs();
-            bindEvents();
-            if (embeddedMode) {
-                const availableWidth = Math.max(180, Number(window.innerWidth) || 510);
-                const availableHeight = Math.max(180, Number(window.innerHeight) || 590);
-                setEmbeddedBaseSize(
-                    Math.min(availableWidth, availableHeight * FRONT_VIEWBOX.width / FRONT_VIEWBOX.height),
-                    Math.min(availableWidth, availableHeight * WIND_VIEWBOX.width / WIND_VIEWBOX.height)
-                );
-            }
-            applyViewTransform();
-            render();
-            reportE6B('info', 'boot', 'ready', 'E6B initialisiert');
-        } catch (error) {
-            reportE6B('error', 'boot', 'init-error', error && error.message || error, error && error.stack || '');
-            throw error;
+        loadWorkbenchFrontDisc();
+        loadWorkbenchWindDisc();
+        stripCalibrationDomForEmbedded();
+        if (calibrationMode) {
+            renderWindowPlanSectors();
+            renderScalePlanScales();
         }
+        readInputs();
+        syncInputs();
+        bindEvents();
+        applyViewTransform();
+        render();
     }
 
     if (document.readyState === 'loading') {

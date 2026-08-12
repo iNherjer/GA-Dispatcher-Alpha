@@ -9135,7 +9135,6 @@ body.theme-navcom.navcom-rack-v2 .navcom-clear-btn {
 }
 
 #mapE6BFlip {
-    font-size: 7px;
     left: var(--e6b-control-flip-x, calc(var(--e6b-tool-stack-right, 100%) - 82px));
     top: var(--e6b-control-flip-y, calc(var(--e6b-tool-stack-top, 0px) + 22px));
 }

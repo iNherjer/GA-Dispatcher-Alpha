@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v339 Testkandidat | v320 | v339 isoliert EFB-E6B-Anpassungen, ergaenzt Original-naehere Klappmenues, Karten-Langdruck und differenzierte Hindernissymbole; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v339-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v340 Testkandidat | v320 | v340 schliesst die E6B-Quelltrennung ab; EFB-Klappmenues, Karten-Langdruck und differenzierte Hindernissymbole bleiben aus v339 erhalten; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v340-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -351,6 +351,17 @@ Frequenz und den im Snapshot vorhandenen Luftraeumen. Hindernisse werden nach
 Typ als Windrad, Strommast oder Mast/Turm gerendert. Vollstaendige
 Original-Paritaet fuer AIP, METAR und spontane POI-Abfragen benoetigt spaeter
 einen lokalen On-demand-Kontextvertrag mit dem Tracker.
+
+Der erste Local-Test von v339 zeigte, dass die Trennung noch nicht vollstaendig
+war: E6B-HTML und -CSS wurden weiterhin gemeinsam synchronisiert und die
+normale E6B-Runtime meldete `localControls: false`. Dadurch waren in Local das
+Original- und das Coherent-Ersatzset gleichzeitig sichtbar; das innere Set
+wirkte beim Verschieben nicht fest am Instrument. Tracker v340/Host 0.5.5
+stellt die normalen E6B-HTML-/CSS-/JS- und Werkzeugdateien exakt auf den
+unveraenderten Alpha-Stand zurueck. HTML, CSS, Runtime-JS und Werkzeug-JS des
+EFB sind nun vier ausdruecklich geschuetzte Forks. Der Asset-Sync bricht ab,
+wenn einer dieser Forks fehlt, und die App verwendet wieder nur ihr eigenes,
+am Instrument verankertes Buttonset.
 
 ## Roadmap
 
@@ -768,10 +779,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       EFB-Hilfen waren jedoch versehentlich auch in der normalen Local-App
       gelandet; Kontextabfrage und Hindernissymbole waren noch grobe
       Platzhalter.
-- [ ] Tracker v339 / Host 0.5.4 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1624` auf Windows/In-Sim testen: unveraenderter App-E6B,
-      EFB-Klappmenues, 650-ms-Karten-Langdruck, erweitertes Kontextfenster und
-      typgerechte Hindernissymbole pruefen. Der Ruecksprungpunkt
+- [x] Tracker v339 / Host 0.5.4 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1624` in Local gegentesten. Ergebnis: Klappmenues,
+      Karten-Langdruck und Kontext sind vorhanden, aber der normale App-E6B
+      zeigt wegen unvollstaendiger Quelltrennung zwei Buttonsets.
+- [ ] Tracker v340 / Host 0.5.5 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1625` auf Windows/In-Sim testen: In Local/Alpha darf nur
+      das originale, mitbewegte E6B-Buttonset sichtbar sein; im EFB muss nur
+      das Coherent-Ersatzset erscheinen. Danach Klappmenues, 650-ms-
+      Karten-Langdruck, Kontextfenster und Hindernissymbole gegenpruefen. Der Ruecksprungpunkt
       `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
@@ -801,10 +817,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-12: Host 0.5.5/v340 schliesst die in v339 noch unvollstaendige
+  E6B-Trennung. Normale App und EFB besitzen getrennte HTML-, CSS-, Runtime-
+  und Werkzeugquellen. Der Shared-Asset-Sync validiert alle vier EFB-Forks,
+  statt sie mit den App-Dateien zu ueberschreiben. Die normalen Dateien sind
+  gegen den unveraenderten Alpha-Stand geprueft; App-Glyphen und
+  `localControls: true` sind wiederhergestellt.
+
 - 2026-08-12: Host 0.5.4/v339 isoliert alle Coherent-E6B-Eingriffspfade in
   `ga-tracker-client/efb-web-assets`; die entsprechenden normalen App-Dateien
-  sind bytegleich zum Stand vor v338. Automatisierte Tests sichern diese
-  absichtliche Trennung gegen erneutes Ueberschreiben. Die EFB-Kopfleiste nutzt
+  sollten getrennt werden; der erste Local-Test deckte jedoch zwei verbliebene
+  gemeinsame Quellen auf. Die EFB-Kopfleiste nutzt
   nun Klappmenues, Karten-Langdruck oeffnet den erweiterten lokalen Kontext und
   Hindernisse erhalten typbezogene Profil-Symbole. Der bestehende Snapshot
   bleibt begrenzt; AIP-/Wetter-Details werden noch nicht on demand nachgeladen.

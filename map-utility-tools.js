@@ -29,11 +29,6 @@
     const TIMER_MAX_MS = TIMER_MAX_SECONDS * 1000;
     const TIMER_DIGIT_MAX = [9, 9, 5, 9];
     const TIMER_DIGIT_DRAG_STEP_PX = 14;
-    function reportUtility(level, event, stage, message, details) {
-        if (typeof window.__gaEfbReport === 'function') {
-            window.__gaEfbReport(level, event, stage, message, details);
-        }
-    }
     const FORMULA_HELP = {
         'time-distance': {
             title: 'Zeit / Distanz / GS',
@@ -228,7 +223,6 @@
     let timerDigitDragState = null;
     const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {} };
     let pendingE6BSide = '';
-    let e6bDialDrag = null;
 
     function el(id) {
         return document.getElementById(id);
@@ -376,93 +370,6 @@
         } catch (_) {}
     }
 
-    function e6bEventPoint(event) {
-        const touches = event && event.touches;
-        const changedTouches = event && event.changedTouches;
-        return (touches && touches.length ? touches[0] : null)
-            || (changedTouches && changedTouches.length ? changedTouches[0] : null)
-            || event;
-    }
-
-    function e6bDialAngle(surface, event) {
-        const point = e6bEventPoint(event);
-        const rect = surface.getBoundingClientRect();
-        const x = Number(point && point.clientX) - rect.left - rect.width / 2;
-        const y = rect.height / 2 - (Number(point && point.clientY) - rect.top);
-        return Math.atan2(x, y) * 180 / Math.PI;
-    }
-
-    function normalizeE6BAngleDelta(value) {
-        let delta = Number(value) || 0;
-        while (delta > 180) delta -= 360;
-        while (delta < -180) delta += 360;
-        return delta;
-    }
-
-    function ensureE6BInputSurface() {
-        if (!document.body || !document.body.classList.contains('ga-efb-tracker-host')) return null;
-        const panel = el('mapE6BDevice');
-        const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
-        if (!panel || !shell) return null;
-        let surface = shell.querySelector('.ga-efb-e6b-input-surface');
-        if (surface) return surface;
-        surface = document.createElement('div');
-        surface.className = 'ga-efb-e6b-input-surface';
-        surface.setAttribute('role', 'slider');
-        surface.setAttribute('aria-label', 'E6B Scheibe drehen');
-        surface.setAttribute('aria-valuemin', '-180');
-        surface.setAttribute('aria-valuemax', '180');
-        const begin = (event, inputId) => {
-            if (event.button !== undefined && event.button !== 0) return;
-            if (e6bDialDrag) return;
-            e6bDialDrag = { inputId, pointerId: event.pointerId, angle: e6bDialAngle(surface, event) };
-            surface.classList.add('is-dragging');
-            bringToFront(panel);
-            if (inputId === 'pointer' && surface.setPointerCapture) {
-                try { surface.setPointerCapture(event.pointerId); } catch (_) {}
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            reportUtility('info', 'e6b-action', 'dial-start', 'E6B-Scheibe wird gedreht', e6bChromeState.side);
-        };
-        const move = (event, inputId) => {
-            if (!e6bDialDrag || e6bDialDrag.inputId !== inputId) return;
-            if (inputId === 'pointer' && e6bDialDrag.pointerId !== event.pointerId) return;
-            const angle = e6bDialAngle(surface, event);
-            const delta = normalizeE6BAngleDelta(angle - e6bDialDrag.angle);
-            e6bDialDrag.angle = angle;
-            if (Math.abs(delta) > 0.01) postE6BMessage({ type: 'ga-e6b-rotate-delta', delta });
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        const finish = (event, inputId) => {
-            if (!e6bDialDrag || e6bDialDrag.inputId !== inputId) return;
-            if (inputId === 'pointer' && e6bDialDrag.pointerId !== event.pointerId) return;
-            if (inputId === 'pointer' && surface.releasePointerCapture) {
-                try { surface.releasePointerCapture(event.pointerId); } catch (_) {}
-            }
-            e6bDialDrag = null;
-            surface.classList.remove('is-dragging');
-            event.preventDefault();
-            event.stopPropagation();
-            reportUtility('info', 'e6b-action', 'dial-end', 'E6B-Scheibe gedreht', e6bChromeState.side);
-        };
-        surface.addEventListener('pointerdown', event => begin(event, 'pointer'));
-        surface.addEventListener('pointermove', event => move(event, 'pointer'));
-        surface.addEventListener('pointerup', event => finish(event, 'pointer'));
-        surface.addEventListener('pointercancel', event => finish(event, 'pointer'));
-        surface.addEventListener('mousedown', event => begin(event, 'mouse'));
-        surface.addEventListener('mousemove', event => move(event, 'mouse'));
-        surface.addEventListener('mouseup', event => finish(event, 'mouse'));
-        surface.addEventListener('mouseleave', event => finish(event, 'mouse'));
-        surface.addEventListener('touchstart', event => begin(event, 'touch'), false);
-        surface.addEventListener('touchmove', event => move(event, 'touch'), false);
-        surface.addEventListener('touchend', event => finish(event, 'touch'), false);
-        surface.addEventListener('touchcancel', event => finish(event, 'touch'), false);
-        shell.appendChild(surface);
-        return surface;
-    }
-
     function requestE6BSide(side) {
         const target = side === 'wind' ? 'wind' : 'front';
         pendingE6BSide = target;
@@ -554,14 +461,12 @@
 
     function nudgeE6BChromeStack(dx, dy) {
         if (!e6bChromeState.stack) return;
-        const stack = e6bChromeState.stack;
         e6bChromeState.stack = {
-            left: stack.left + dx,
-            top: stack.top + dy,
-            right: stack.right + dx,
-            bottom: stack.bottom + dy,
-            width: stack.width,
-            height: stack.height
+            ...e6bChromeState.stack,
+            left: e6bChromeState.stack.left + dx,
+            top: e6bChromeState.stack.top + dy,
+            right: e6bChromeState.stack.right + dx,
+            bottom: e6bChromeState.stack.bottom + dy
         };
     }
 
@@ -675,13 +580,9 @@
 
     function handleE6BFrameMessage(event) {
         const frame = el('mapE6BFrame');
-        if (!frame || (event.source && event.source !== frame.contentWindow)) return;
+        if (!frame || event.source !== frame.contentWindow) return;
         const data = event && event.data;
         if (!data || typeof data !== 'object') return;
-        if (data.type === 'ga-e6b-diagnostic') {
-            reportUtility(data.level || 'info', `e6b-${data.event || 'runtime'}`, data.stage || '', data.message || '', data.details || '');
-            return;
-        }
         if (data.type === 'ga-e6b-close') {
             closeMapUtilityTool('e6b');
             return;
@@ -704,7 +605,6 @@
         if (!cfg) return;
         const panel = el(cfg.panel);
         if (!panel) return;
-        reportUtility('info', 'utility-action', `open-${tool}`, 'Kartenwerkzeug geoeffnet');
         const isOpen = panel.style.display !== 'none';
         if (!isOpen) {
             panel.style.display = 'block';
@@ -727,7 +627,6 @@
         if (!cfg) return;
         const panel = el(cfg.panel);
         if (!panel) return;
-        reportUtility('info', 'utility-action', `close-${tool}`, 'Kartenwerkzeug geschlossen');
         savePanelPosition(cfg);
         if (tool === 'stopwatch') setTimerPickerOpen(false);
         if (tool === 'calculator') closeFormulaHelp();
@@ -1470,8 +1369,8 @@
 
     function inferFormulaUnit(formula, name, role = 'variable') {
         const cleanName = String(name || '').replace(/[()]/g, '').trim();
-        const resultName = String(formula && formula.result || '');
-        const expr = String(formula && formula.expr || '');
+        const resultName = String(formula?.result || '');
+        const expr = String(formula?.expr || '');
         const speedNames = new Set(['GS', 'IAS', 'TAS', 'Wind', 'Headwind', 'Crosswind', 'Vs', 'Böendifferenz', 'kt']);
         const distanceNames = new Set(['Distanz', 'Ablage', 'Range', 'Reserve-NM', 'NM', 'TOD', 'Rest']);
         const altitudeNames = new Set(['Höhe', 'PA', 'DA', 'Indicated', 'True Alt', 'QNH-Höhe', 'Elevation', 'ft']);
@@ -1582,7 +1481,7 @@
     function substituteCalcFormulaExpression(formula) {
         if (!formula) return '';
         let expression = formula.expr;
-        formula.vars.slice().sort((a, b) => b.length - a.length).forEach(name => {
+        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
             const value = Object.prototype.hasOwnProperty.call(formula.values, name)
                 ? formula.values[name]
                 : '0';
@@ -1597,7 +1496,7 @@
         const activeName = formula.vars[formula.current] || '';
         const activeUnit = inferFormulaUnit(formula, activeName);
         let html = escapeCalcHtml(formula.display);
-        formula.vars.slice().sort((a, b) => b.length - a.length).forEach(name => {
+        [...formula.vars].sort((a, b) => b.length - a.length).forEach(name => {
             const stored = Object.prototype.hasOwnProperty.call(formula.values, name) ? formula.values[name] : '';
             const rawValue = name === activeName ? (formula.entry || stored) : stored;
             const raw = rawValue || name;
@@ -1836,10 +1735,6 @@
         return match ? match[1] : '';
     }
 
-    function trimCalcEnd(value) {
-        return String(value == null ? '' : value).replace(/\s+$/, '');
-    }
-
     function previewCalcEntry() {
         const segment = currentCalcSegment(calcState.expression);
         if (segment) {
@@ -1890,7 +1785,7 @@
     }
 
     function applyOperator(operator) {
-        let expression = calcState.justEvaluated ? calcState.display : trimCalcEnd(calcState.expression);
+        let expression = calcState.justEvaluated ? calcState.display : calcState.expression.trimEnd();
         calcState.justEvaluated = false;
         const symbol = calcOperatorSymbol(operator);
         if (!expression) {
@@ -1909,9 +1804,8 @@
             const result = evaluateCalcExpression(expression);
             setCalcExpression(expression);
             setCalcDisplay(formatCalcNumber(result));
-        } catch (error) {
+        } catch (_) {
             setCalcDisplay('ERR');
-            reportUtility('warn', 'calculator', 'evaluation-error', error && error.message || 'Ungueltiger Ausdruck');
         }
         calcState.justEvaluated = true;
     }
@@ -1928,7 +1822,7 @@
             clearCalc();
             return;
         }
-        const trimmed = trimCalcEnd(calcState.expression);
+        const trimmed = calcState.expression.trimEnd();
         setCalcExpression(trimmed.slice(0, -1));
         previewCalcEntry();
     }
@@ -1963,7 +1857,7 @@
         const fn = String(name || '').toLowerCase();
         if (!['sin', 'cos', 'tan'].includes(fn)) return;
         let prefix = '';
-        const expression = calcState.justEvaluated ? '' : trimCalcEnd(calcState.expression);
+        const expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
         calcState.justEvaluated = false;
         if (expression && /[+×÷−-]$/.test(expression)) prefix = ' ';
         else if (expression && /[\d)%]$/.test(expression)) prefix = ' × ';
@@ -1973,7 +1867,7 @@
 
     function inputCalcParen(paren) {
         const value = paren === ')' ? ')' : '(';
-        let expression = calcState.justEvaluated ? '' : trimCalcEnd(calcState.expression);
+        let expression = calcState.justEvaluated ? '' : calcState.expression.trimEnd();
         calcState.justEvaluated = false;
         if (value === '(' && expression && /[\d)%]$/.test(expression)) expression += ' × ';
         setCalcExpression(expression + value);
@@ -2097,7 +1991,7 @@
     }
 
     function openFormulaHelp(trigger) {
-        const key = trigger && trigger.dataset ? trigger.dataset.helpKey : '';
+        const key = trigger?.dataset?.helpKey;
         const data = key ? FORMULA_HELP[key] : null;
         const overlay = el('mapFormulaHelpOverlay');
         const title = el('mapFormulaHelpTitle');
@@ -2113,8 +2007,7 @@
                 p.textContent = String(text);
                 return p;
             });
-        while (body.firstChild) body.removeChild(body.firstChild);
-        paragraphs.forEach(paragraph => body.appendChild(paragraph));
+        body.replaceChildren(...paragraphs);
         overlay.hidden = false;
         overlay.setAttribute('aria-hidden', 'false');
         overlay.classList.add('is-open');
@@ -2312,7 +2205,6 @@
 
     function initMapUtilityTools() {
         bindButtons();
-        ensureE6BInputSurface();
         bindDrag('stopwatch');
         bindDrag('calculator');
         bindDrag('e6b');

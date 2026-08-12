@@ -35,6 +35,8 @@ function writeKartentischFragment() {
   }
   const fragment = html.slice(start, end)
     .replace('src="e6b/e6b-flight-computer.html?embedded=1&amp;', 'src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;')
+    .replace('id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>', 'id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">FLIP</button>')
+    .replace('id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">×</button>', 'id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" aria-label="E6B schließen">X</button>')
     .replace('onclick="vpZoom(10)" title="Horizontal rauszoomen"', 'onclick="vpZoom(-10)" title="Horizontal rauszoomen"')
     .replace('onclick="vpZoom(-10)" title="Horizontal reinzoomen"', 'onclick="vpZoom(10)" title="Horizontal reinzoomen"')
     .replaceAll('−', '-');
@@ -51,16 +53,16 @@ copy('vendor/leaflet/images/layers.png');
 copy('vendor/leaflet/images/layers-2x.png');
 copy('vendor/leaflet/images/marker-icon.png');
 copy('e6b/e6b-core.js');
-copy('e6b/e6b-flight-computer.css');
-copy('e6b/e6b-flight-computer.html');
 copy('e6b/e6b-workbench-front-disc.json');
 copy('e6b/e6b-workbench-wind-disc.json');
 copy('ga-tracker-client/efb-app/PackageSources/VfrMultitool/src/Assets/aircraft-marker.svg', 'aircraft-marker.svg');
 
-// Diese beiden Dateien sind absichtliche Coherent-/EFB-Forks. Sie duerfen beim
+// Diese Dateien sind absichtliche Coherent-/EFB-Forks. Sie duerfen beim
 // Shared-Asset-Sync nicht wieder in die normale Browser-App zurueckkopiert oder
 // durch deren Quellen ersetzt werden.
 requireEfbFork('map-utility-tools.js', 'ga-e6b-wind-slide-delta');
+requireEfbFork(path.join('e6b', 'e6b-flight-computer.html'), 'ga-e6b-diagnostic');
+requireEfbFork(path.join('e6b', 'e6b-flight-computer.css'), 'body.e6b-coherent');
 requireEfbFork(path.join('e6b', 'e6b-flight-computer.js'), 'ga-e6b-wind-dot-set');
 
 process.stdout.write('EFB_WEB_ASSETS_SYNCED\n');

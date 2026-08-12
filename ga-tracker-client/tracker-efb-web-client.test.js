@@ -60,6 +60,9 @@ test('Kartentisch markup extraction stays bounded to the map and rewrites E6B lo
   assert.ok(markup.length > 50000);
   assert.match(markup, /src="\/efb\/v1\/e6b\/e6b-flight-computer\.html\?/);
   assert.match(markup, /embedded=1&amp;coherent=1&amp;/);
+  assert.match(markup, /id="mapE6BFlip"[^>]*>FLIP<\/button>/);
+  assert.match(markup, /id="mapE6BClose"[^>]*>X<\/button>/);
+  assert.doesNotMatch(markup, /id="mapE6BFlip"[^>]*>↻<\/button>/);
   assert.doesNotMatch(markup, /gaDebugLogInstalled/);
 });
 
@@ -174,8 +177,6 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.doesNotMatch(appUtilitySource, /ga-e6b-wind-slide-delta/);
   [
     'e6b-core.js',
-    'e6b-flight-computer.css',
-    'e6b-flight-computer.html',
     'e6b-workbench-front-disc.json',
     'e6b-workbench-wind-disc.json'
   ].forEach((filename) => {
@@ -191,11 +192,29 @@ test('versioned tracker assets keep shared sources in sync and EFB interaction p
   assert.notEqual(efbE6BSource, appE6BSource);
   assert.match(efbE6BSource, /ga-e6b-wind-dot-set/);
   assert.doesNotMatch(appE6BSource, /ga-e6b-wind-dot-set/);
+  assert.match(appE6BSource, /localControls: true/);
+  assert.doesNotMatch(appE6BSource, /coherentMode/);
+  assert.doesNotMatch(appE6BSource, /installE6BCompatibilityPolyfills/);
   assert.ok(getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.js'));
+  const appE6BHtml = fs.readFileSync(path.join(projectRoot, 'e6b', 'e6b-flight-computer.html'), 'utf8');
+  const efbE6BHtml = fs.readFileSync(path.join(assetRoot, 'e6b', 'e6b-flight-computer.html'), 'utf8');
+  const appE6BCss = fs.readFileSync(path.join(projectRoot, 'e6b', 'e6b-flight-computer.css'), 'utf8');
+  const efbE6BCss = fs.readFileSync(path.join(assetRoot, 'e6b', 'e6b-flight-computer.css'), 'utf8');
+  assert.notEqual(efbE6BHtml, appE6BHtml);
+  assert.notEqual(efbE6BCss, appE6BCss);
+  assert.match(appE6BHtml, /data-e6b-control="flip"[^>]*>↻<\/button>/);
+  assert.doesNotMatch(appE6BHtml, /ga-e6b-diagnostic/);
+  assert.doesNotMatch(appE6BCss, /body\.e6b-coherent/);
+  assert.match(efbE6BHtml, /ga-e6b-diagnostic/);
+  assert.match(efbE6BCss, /body\.e6b-coherent/);
   const syncSource = fs.readFileSync(path.join(__dirname, 'sync-efb-web-assets.js'), 'utf8');
   assert.doesNotMatch(syncSource, /copy\('map-utility-tools\.js'\)/);
   assert.doesNotMatch(syncSource, /copy\('e6b\/e6b-flight-computer\.js'\)/);
+  assert.doesNotMatch(syncSource, /copy\('e6b\/e6b-flight-computer\.html'\)/);
+  assert.doesNotMatch(syncSource, /copy\('e6b\/e6b-flight-computer\.css'\)/);
   assert.match(syncSource, /requireEfbFork\('map-utility-tools\.js'/);
+  assert.match(syncSource, /requireEfbFork\(path\.join\('e6b', 'e6b-flight-computer\.html'\)/);
+  assert.match(syncSource, /requireEfbFork\(path\.join\('e6b', 'e6b-flight-computer\.css'\)/);
   assert.match(syncSource, /vpZoom\(-10\).*Horizontal rauszoomen/);
 });
 
