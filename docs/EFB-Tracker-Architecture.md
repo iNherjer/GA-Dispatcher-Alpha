@@ -229,6 +229,15 @@ Missionsbefehl. Position und Sichtbarkeit der Infoboxen sind ebenfalls reine
 lokale EFB-Praeferenzen. Damit erweitert v331 Darstellung und Bedienung, nicht
 die Schreibrechte des EFB-Vertrages.
 
+Host 0.4.7/v332 behaelt diese read-only Grenze bei. Die Aero-Ebene darf die
+Basiskarte nicht ein zweites Mal dimmen. Freihand-Pointer werden vom sichtbaren
+Coherent-Rechteck in Leaflets interne Containerkoordinaten umgerechnet. Das
+E6B wird weiterhin im lokalen iframe gerendert, die Drehgeste wird wegen der
+Coherent-Pointergrenze jedoch auf einer Parent-Flaeche erfasst und als
+`ga-e6b-rotate-delta` weitergegeben. Mission und Checklisten im Seitenmenue
+erzeugen keine Tracker-Commands: Mission ist eine Projektion von
+`/api/v1/mission`, Checklistenhaken bleiben nur im EFB-localStorage.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

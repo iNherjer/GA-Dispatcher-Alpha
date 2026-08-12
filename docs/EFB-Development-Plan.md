@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-11
+Stand: 2026-08-12
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v331 Testkandidat | v320 | v331 ergaenzt Terrainprofil, Wegpunktvorschau, Fenstersteuerung und stabile Kartenebenen; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v331-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v332 Testkandidat | v320 | v332 stabilisiert Karte, Coherent-E6B, Zeichenkoordinaten, Legbedienung und read-only Seitenmenue; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v332-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -269,6 +269,19 @@ sie veraendern weder Mission noch Route. Telemetrie-, Positions- und
 Legfenster sind verschiebbar, einzeln schliessbar und ueber `Infos`
 wiederherstellbar. Feste Leaflet-Panes, abgeschaltete Tile-/Zoom-Fades und
 zustandsabhaengige Updates verhindern konkurrierende Layer-Reihenfolgen.
+
+Tracker v332 liefert Hoststand 0.4.7. Die Basis bleibt beim spaeter eintreffenden
+Aero-Layer voll sichtbar, statt durch zwei hintereinander angewendete
+Opacity-Stufen fast zu verschwinden. Zeichenkoordinaten werden zwischen dem
+tatsaechlich gerenderten Coherent-Rechteck und Leaflets interner
+Containergroesse skaliert. Das E6B erhaelt im Parent eine eigene transparente
+Drehflaeche und sendet Rotationsdeltas an das iframe; dadurch ist die Scheibe
+auch dann bedienbar, wenn Coherent Pointer nicht zuverlaessig durch das iframe
+reicht. Der Schliessen-Knopf des Legfensters ueberdeckt die Vor-/Zurueck-Pfeile
+nicht mehr. Die Kopfleiste ergaenzt Anzeige, Mission, Checklisten, Layer und
+Werkzeuge; das Seitenmenue zeigt den read-only Tracker-Missionsstatus sowie
+lokal gespeicherte EFB-Checklisten. Ein begrenzter `map-profile`-Logeintrag
+unterscheidet echtes Tracker-Terrain klar vom Planfallback.
 
 ## Roadmap
 
@@ -640,7 +653,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Infoboxen und festen Leaflet-Panes implementieren. Browser-End-to-End-
       Test bestaetigt Terrain, Legwechsel sowie Schliessen/Wiederherstellen;
       Quellen-, Snapshot- und Webclienttests bestanden.
-- [ ] Tracker v331 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
+- [x] Tracker v332 / gehosteten Kartentisch 0.4.7 mit dauerhaft sichtbarer
+      Basiskarte, skalierten Zeichenkoordinaten, Parent-E6B-Drehflaeche,
+      getrenntem Leg-Schliessen-Knopf und read-only Mission-/Checklistenmenue
+      implementieren. Lokaler Browsertest bestaetigt Karte nach Aero-Ladung,
+      Terrainband, Legwechsel, E6B-Rotation, Rechner und Freihandlinie.
+- [ ] Tracker v332 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
       Terrainprofil, Legpfeile, Drag/Schliessen/Infos, Rechner, E6B Front/Wind,
       PEN/DEL/SET/CLR/NM, Kartenflackern und Resize/Orientation. Der
       Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
@@ -671,6 +689,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v331-In-Sim-Test zeigt, dass die Basiskarte erst nach dem
+  Eintreffen des Aero-Layers ausbleicht, Zeichnen unter der Coherent-Skalierung
+  versetzt ist und Pointer nicht verlaesslich in das E6B-iframe gelangen.
+  Hoststand 0.4.7/v332 korrigiert diese drei Hostgrenzen ohne SDK-Neubau. Das
+  neue Seitenmenue bleibt read-only: Missionswahrheit kommt vom Tracker,
+  Checklistenhaken bleiben reine lokale EFB-Praeferenz. Das Terrainband kann
+  nur echtes Terrain anzeigen, wenn die passend aktualisierte Web-App den
+  kompakten `mapProfile` beim Missionsstart in das Tracker-Bundle schreibt;
+  der Tracker protokolliert den verwendeten Modus explizit.
 
 - 2026-08-11: Der v330-In-Sim-Test bestaetigt die grundsaetzliche
   Kartentisch-Hostgrenze, zeigt aber vier getrennte Restprobleme: Dem

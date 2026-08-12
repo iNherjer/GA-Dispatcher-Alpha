@@ -1,7 +1,10 @@
 'use strict';
 
 const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
-const AERO_BASE_OPACITY = 0.5;
+// The Aero tiles already carry their own semi-transparent chart background.
+// Dimming the base layer as well makes the map appear to vanish as soon as the
+// (slower) Aero tile arrives after a pan/zoom.
+const AERO_BASE_OPACITY = 1;
 const MISSION_EMPTY_DEBOUNCE_MS = 3000;
 const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
 const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';

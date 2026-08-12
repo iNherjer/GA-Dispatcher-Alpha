@@ -51,8 +51,8 @@ test('EFB preferences preserve supported app designs and chrome visibility', () 
   assert.equal(core.normalizePreferences({ theme: 'unknown' }).theme, 'classic');
 });
 
-test('aero overlay dims the base map like the web map table', () => {
-  assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 0.5);
+test('aero overlay keeps the base map visible while its own opacity blends the chart', () => {
+  assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 1);
   assert.equal(core.baseLayerOpacity({ overlays: ['dfs'] }), 1);
   assert.equal(core.baseLayerOpacity({ overlays: [] }), 1);
 });

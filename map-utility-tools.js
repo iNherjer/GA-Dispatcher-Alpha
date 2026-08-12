@@ -228,6 +228,7 @@
     let timerDigitDragState = null;
     const e6bChromeState = { x: 0, y: 0, scale: 1, side: 'front', stack: null, controls: {} };
     let pendingE6BSide = '';
+    let e6bDialDrag = null;
 
     function el(id) {
         return document.getElementById(id);
@@ -373,6 +374,71 @@
         try {
             frame.contentWindow.postMessage(message, '*');
         } catch (_) {}
+    }
+
+    function e6bDialAngle(surface, event) {
+        const rect = surface.getBoundingClientRect();
+        const x = Number(event.clientX) - rect.left - rect.width / 2;
+        const y = rect.height / 2 - (Number(event.clientY) - rect.top);
+        return Math.atan2(x, y) * 180 / Math.PI;
+    }
+
+    function normalizeE6BAngleDelta(value) {
+        let delta = Number(value) || 0;
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        return delta;
+    }
+
+    function ensureE6BInputSurface() {
+        if (!document.body || !document.body.classList.contains('ga-efb-tracker-host')) return null;
+        const panel = el('mapE6BDevice');
+        const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
+        if (!panel || !shell) return null;
+        let surface = shell.querySelector('.ga-efb-e6b-input-surface');
+        if (surface) return surface;
+        surface = document.createElement('div');
+        surface.className = 'ga-efb-e6b-input-surface';
+        surface.setAttribute('role', 'slider');
+        surface.setAttribute('aria-label', 'E6B Scheibe drehen');
+        surface.setAttribute('aria-valuemin', '-180');
+        surface.setAttribute('aria-valuemax', '180');
+        surface.addEventListener('pointerdown', event => {
+            if (event.button !== undefined && event.button !== 0) return;
+            e6bDialDrag = { pointerId: event.pointerId, angle: e6bDialAngle(surface, event) };
+            surface.classList.add('is-dragging');
+            bringToFront(panel);
+            if (surface.setPointerCapture) {
+                try { surface.setPointerCapture(event.pointerId); } catch (_) {}
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            reportUtility('info', 'e6b-action', 'dial-start', 'E6B-Scheibe wird gedreht', e6bChromeState.side);
+        });
+        surface.addEventListener('pointermove', event => {
+            if (!e6bDialDrag || e6bDialDrag.pointerId !== event.pointerId) return;
+            const angle = e6bDialAngle(surface, event);
+            const delta = normalizeE6BAngleDelta(angle - e6bDialDrag.angle);
+            e6bDialDrag.angle = angle;
+            if (Math.abs(delta) > 0.01) postE6BMessage({ type: 'ga-e6b-rotate-delta', delta });
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        const finish = event => {
+            if (!e6bDialDrag || e6bDialDrag.pointerId !== event.pointerId) return;
+            if (surface.releasePointerCapture) {
+                try { surface.releasePointerCapture(event.pointerId); } catch (_) {}
+            }
+            e6bDialDrag = null;
+            surface.classList.remove('is-dragging');
+            event.preventDefault();
+            event.stopPropagation();
+            reportUtility('info', 'e6b-action', 'dial-end', 'E6B-Scheibe gedreht', e6bChromeState.side);
+        };
+        surface.addEventListener('pointerup', finish);
+        surface.addEventListener('pointercancel', finish);
+        shell.appendChild(surface);
+        return surface;
     }
 
     function requestE6BSide(side) {
@@ -2224,6 +2290,7 @@
 
     function initMapUtilityTools() {
         bindButtons();
+        ensureE6BInputSurface();
         bindDrag('stopwatch');
         bindDrag('calculator');
         bindDrag('e6b');

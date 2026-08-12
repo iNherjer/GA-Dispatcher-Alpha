@@ -8,6 +8,8 @@
   var map = null;
   var flight = null;
   var mapSnapshot = null;
+  var missionSnapshot = null;
+  var missionSignature = '';
   var mapRevision = 0;
   var routeSignature = '';
   var planeMarker = null;
@@ -40,6 +42,28 @@
   var lastParentState = '';
   var preferences = readPreferences();
   var infoBoxState = readInfoBoxState();
+  var lastProfileDiagnostic = '';
+  var drawerView = 'mission';
+  var drawerChecklistId = '';
+  var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
+  var efbChecklistProgress = readEfbChecklistProgress();
+  var EFB_CHECKLISTS = [
+    { id: 'vfr-briefing', title: 'VFR Briefing', sections: [
+      { title: 'Route', items: ['Start, Ziel und Ausweichplatz geprueft', 'Kurs, Strecke und ETE plausibel', 'Reiseflughoehe und Terrain geprueft', 'Luftraeume und Frequenzen notiert'] },
+      { title: 'Wetter', items: ['METAR/TAF geprueft', 'Wind, Sicht und Wolkenuntergrenze bewertet', 'Tageslicht und Reserven beruecksichtigt'] },
+      { title: 'Aircraft', items: ['Fuel und Reserve gerechnet', 'Beladung und Schwerpunkt geprueft', 'Dokumente und Notverfahren bereit'] }
+    ] },
+    { id: 'sep-normal', title: 'SEP Normal Procedures', sections: [
+      { title: 'Before Start', items: ['Parking brake set', 'Fuel selector and quantity checked', 'Avionics off, circuit breakers checked', 'Departure brief complete'] },
+      { title: 'Run-up / Takeoff', items: ['Engine instruments in green', 'Flight controls free and correct', 'Trim and flaps set', 'Runway, heading and wind confirmed'] },
+      { title: 'Cruise', items: ['Power, mixture and trim set', 'Navigation cross-checked', 'Fuel and endurance monitored'] }
+    ] },
+    { id: 'arrival', title: 'Arrival / Landing', sections: [
+      { title: 'Arrival', items: ['Airport elevation, runway and circuit checked', 'Frequency and reporting points ready', 'Wind, QNH and visibility checked'] },
+      { title: 'Approach', items: ['Approach speed and flap plan briefed', 'Go-around path and safe altitude briefed', 'Landing distance acceptable'] },
+      { title: 'After Landing', items: ['Runway vacated', 'Flaps retracted', 'Taxi and parking plan confirmed'] }
+    ] }
+  ];
 
   function byId(id) { return document.getElementById(id); }
   function setText(id, value) { var node = byId(id); if (node) node.textContent = String(value == null ? '' : value); }
@@ -115,6 +139,17 @@
     return result;
   }
 
+  function readEfbChecklistProgress() {
+    try {
+      var source = JSON.parse(localStorage.getItem(EFB_CHECKLIST_PROGRESS_KEY) || '{}');
+      return source && typeof source === 'object' ? source : {};
+    } catch (_) { return {}; }
+  }
+
+  function saveEfbChecklistProgress() {
+    try { localStorage.setItem(EFB_CHECKLIST_PROGRESS_KEY, JSON.stringify(efbChecklistProgress)); } catch (_) {}
+  }
+
   function saveInfoBoxState() {
     try { localStorage.setItem(INFO_BOX_STORAGE_KEY, JSON.stringify(infoBoxState)); } catch (_) {}
   }
@@ -127,7 +162,7 @@
     var button = document.querySelector('.ga-efb-host-infos');
     if (!button) return;
     var hidden = Object.keys(infoBoxState).filter(function (id) { return infoBoxState[id].hidden === true; }).length;
-    button.textContent = hidden ? 'Infos (' + hidden + ')' : 'Infos';
+    button.textContent = hidden ? 'Anzeige (' + hidden + ')' : 'Anzeige';
     button.classList.toggle('active', hidden > 0);
   }
 
@@ -270,6 +305,154 @@
     updateInfoRestoreButton();
   }
 
+  function drawerEscape(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function checklistItems(checklist) {
+    var items = [];
+    (checklist && checklist.sections || []).forEach(function (section, sectionIndex) {
+      (section.items || []).forEach(function (text, itemIndex) {
+        items.push({ key: checklist.id + ':' + sectionIndex + ':' + itemIndex, text: text, section: section.title });
+      });
+    });
+    return items;
+  }
+
+  function checklistDoneCount(checklist) {
+    return checklistItems(checklist).filter(function (item) { return efbChecklistProgress[item.key] === true; }).length;
+  }
+
+  function missionStatusMarkup() {
+    var mission = missionSnapshot && missionSnapshot.available !== false ? missionSnapshot : null;
+    if (!mission || !mission.missionId) {
+      return '<div class="ga-efb-drawer-empty"><strong>Keine aktive Mission</strong><span>Der Tracker meldet aktuell keine priorisierte Mission.</span></div>';
+    }
+    var route = mission.route && typeof mission.route === 'object' ? mission.route : {};
+    var cargo = mission.cargo && typeof mission.cargo === 'object' ? mission.cargo : {};
+    var title = mission.title || mission.name || mission.missionId;
+    var state = mission.state || (mission.active ? 'active' : 'unknown');
+    var phase = mission.phase || mission.runtimePhase || mission.startPhase || '--';
+    var routeText = [route.start || route.departure || '', route.destination || route.end || ''].filter(Boolean).join(' -> ');
+    var cargoText = '';
+    if (cargo.total != null || cargo.required != null) {
+      cargoText = '<div><dt>Cargo</dt><dd>' + drawerEscape(cargo.loaded || 0) + ' / ' + drawerEscape(cargo.required != null ? cargo.required : cargo.total) + ' geladen</dd></div>';
+    }
+    return '<div class="ga-efb-mission-card">'
+      + '<div class="ga-efb-mission-live"><span></span>TRACKER-WAHRHEIT</div>'
+      + '<h3>' + drawerEscape(title) + '</h3>'
+      + '<div class="ga-efb-mission-id">' + drawerEscape(mission.missionId) + '</div>'
+      + '<dl>'
+      + '<div><dt>Status</dt><dd>' + drawerEscape(state) + '</dd></div>'
+      + '<div><dt>Phase</dt><dd>' + drawerEscape(phase) + '</dd></div>'
+      + (routeText ? '<div><dt>Route</dt><dd>' + drawerEscape(routeText) + '</dd></div>' : '')
+      + '<div><dt>Szenen</dt><dd>' + drawerEscape(mission.sceneCount || 0) + '</dd></div>'
+      + cargoText
+      + '</dl>'
+      + '<p>Read-only: Fortschritt und Missionshoheit kommen direkt vom Tracker.</p>'
+      + '</div>';
+  }
+
+  function checklistListMarkup() {
+    return '<div class="ga-efb-checklist-list">' + EFB_CHECKLISTS.map(function (checklist) {
+      var total = checklistItems(checklist).length;
+      var done = checklistDoneCount(checklist);
+      return '<button type="button" data-efb-drawer-action="open-checklist" data-checklist-id="' + drawerEscape(checklist.id) + '">'
+        + '<strong>' + drawerEscape(checklist.title) + '</strong>'
+        + '<span>' + done + ' / ' + total + ' erledigt</span>'
+        + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function selectedChecklistMarkup() {
+    var checklist = null;
+    EFB_CHECKLISTS.some(function (candidate) {
+      if (candidate.id !== drawerChecklistId) return false;
+      checklist = candidate;
+      return true;
+    });
+    if (!checklist) return checklistListMarkup();
+    var html = '<button type="button" class="ga-efb-drawer-back" data-efb-drawer-action="checklist-list">&lt; Alle Checklisten</button>';
+    html += '<div class="ga-efb-checklist-detail"><h3>' + drawerEscape(checklist.title) + '</h3>';
+    checklist.sections.forEach(function (section, sectionIndex) {
+      html += '<section><h4>' + drawerEscape(section.title) + '</h4>';
+      section.items.forEach(function (text, itemIndex) {
+        var key = checklist.id + ':' + sectionIndex + ':' + itemIndex;
+        html += '<label><input type="checkbox" data-efb-check-item="' + drawerEscape(key) + '"'
+          + (efbChecklistProgress[key] === true ? ' checked' : '') + '><span>' + drawerEscape(text) + '</span></label>';
+      });
+      html += '</section>';
+    });
+    return html + '</div>';
+  }
+
+  function renderSideDrawer() {
+    var body = byId('checklistDrawerBody');
+    var title = byId('checklistDrawerTitle');
+    var status = byId('checklistDrawerStatus');
+    if (!body) return;
+    if (title) title.textContent = drawerView === 'mission' ? 'Missionsstatus' : 'Checklisten';
+    if (status) status.textContent = drawerView === 'mission' ? 'Live vom Tracker | nur Lesen' : 'Fortschritt bleibt lokal in diesem EFB';
+    var tabs = '<div class="ga-efb-drawer-tabs">'
+      + '<button type="button" data-efb-drawer-action="mission" class="' + (drawerView === 'mission' ? 'active' : '') + '">Mission</button>'
+      + '<button type="button" data-efb-drawer-action="checklists" class="' + (drawerView === 'checklists' ? 'active' : '') + '">Checklisten</button>'
+      + '</div>';
+    body.innerHTML = tabs + (drawerView === 'mission' ? missionStatusMarkup() : (drawerChecklistId ? selectedChecklistMarkup() : checklistListMarkup()));
+  }
+
+  function openSideDrawer(view) {
+    var drawer = byId('mapSideDrawer');
+    var handle = byId('mapSideDrawerHandle');
+    if (!drawer) return;
+    if (view === 'mission' || view === 'checklists') drawerView = view;
+    drawer.classList.add('is-open');
+    if (handle) handle.setAttribute('aria-expanded', 'true');
+    renderSideDrawer();
+    report('info', 'side-drawer', 'open-' + drawerView, 'EFB-Seitenmenue geoeffnet');
+  }
+
+  function setupSideDrawer() {
+    var drawer = byId('mapSideDrawer');
+    var body = byId('checklistDrawerBody');
+    if (!drawer || !body) return;
+    drawer.style.display = 'block';
+    window.gaChecklistToggleDrawer = function (force) {
+      var next = typeof force === 'boolean' ? force : !drawer.classList.contains('is-open');
+      drawer.classList.toggle('is-open', next);
+      var handle = byId('mapSideDrawerHandle');
+      if (handle) handle.setAttribute('aria-expanded', next ? 'true' : 'false');
+      if (next) renderSideDrawer();
+      report('info', 'side-drawer', next ? 'open-' + drawerView : 'close', 'EFB-Seitenmenue umgeschaltet');
+    };
+    body.addEventListener('click', function (event) {
+      var actionNode = event.target && event.target.closest ? event.target.closest('[data-efb-drawer-action]') : null;
+      if (!actionNode) return;
+      var action = actionNode.getAttribute('data-efb-drawer-action');
+      if (action === 'mission') { drawerView = 'mission'; drawerChecklistId = ''; }
+      if (action === 'checklists' || action === 'checklist-list') { drawerView = 'checklists'; drawerChecklistId = ''; }
+      if (action === 'open-checklist') { drawerView = 'checklists'; drawerChecklistId = actionNode.getAttribute('data-checklist-id') || ''; }
+      renderSideDrawer();
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    body.addEventListener('change', function (event) {
+      var key = event.target && event.target.getAttribute ? event.target.getAttribute('data-efb-check-item') : '';
+      if (!key) return;
+      efbChecklistProgress[key] = event.target.checked === true;
+      saveEfbChecklistProgress();
+      renderSideDrawer();
+    });
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'wheel'].forEach(function (type) {
+      drawer.addEventListener(type, function (event) { event.stopPropagation(); }, false);
+    });
+    renderSideDrawer();
+  }
+
   function notifyParent(state, detail) {
     if (typeof window.__gaEfbNotifyParent === 'function') {
       window.__gaEfbNotifyParent(state, detail || {});
@@ -344,10 +527,17 @@
     return button;
   }
 
+  function toggleLayerMenu() {
+    var control = document.querySelector('.leaflet-control-layers');
+    if (!control) return;
+    control.classList.toggle('leaflet-control-layers-expanded');
+    report('info', 'toolbar', 'layers', 'Layerauswahl umgeschaltet');
+  }
+
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.6');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.7');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -355,7 +545,17 @@
     if (actions && profileButton) {
       var design = makeButton('pb-btn ga-efb-host-design', 'Design', cycleTheme);
       profileButton.insertAdjacentElement('afterend', design);
-      design.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-infos', 'Infos', showAllInfoBoxes));
+      var infos = makeButton('pb-btn ga-efb-host-infos', 'Anzeige', showAllInfoBoxes);
+      design.insertAdjacentElement('afterend', infos);
+      var missionButton = makeButton('pb-btn ga-efb-host-mission', 'Mission', function () { openSideDrawer('mission'); });
+      infos.insertAdjacentElement('afterend', missionButton);
+      var checklistButton = makeButton('pb-btn ga-efb-host-checklists', 'Checklisten', function () { openSideDrawer('checklists'); });
+      missionButton.insertAdjacentElement('afterend', checklistButton);
+      var layerButton = makeButton('pb-btn ga-efb-host-layers', 'Layer', toggleLayerMenu);
+      checklistButton.insertAdjacentElement('afterend', layerButton);
+      layerButton.insertAdjacentElement('afterend', makeButton('pb-btn ga-efb-host-tools', 'Werkzeuge', function () {
+        window.toggleMapToolRail();
+      }));
       actions.appendChild(makeButton('ga-efb-host-state', 'Tracker wird verbunden', function () {}));
     }
 
@@ -394,6 +594,7 @@
     syncProfileButton();
     applyTheme(preferences.theme);
     setupInfoBoxes();
+    setupSideDrawer();
   }
 
   function createTileLayer(definition, paneName) {
@@ -607,6 +808,29 @@
     renderProgress();
     updateCompass();
     renderProfile();
+    var profile = normalized.profile;
+    var profileDiagnostic = profile
+      ? [profile.mode || 'unknown', profile.terrainAvailable ? 'terrain' : 'no-terrain', profile.points ? profile.points.length : 0].join(':')
+      : 'missing';
+    if (profileDiagnostic !== lastProfileDiagnostic) {
+      lastProfileDiagnostic = profileDiagnostic;
+      report(profile && profile.terrainAvailable ? 'info' : 'warn', 'map-profile', profile ? profile.mode || 'unknown' : 'missing',
+        profile && profile.terrainAvailable ? 'Terrainprofil vom Tracker aktiv' : 'Trackerprofil enthaelt noch keine Terraindaten',
+        profile ? 'points=' + (profile.points ? profile.points.length : 0) : '');
+    }
+  }
+
+  function renderMissionPayload(payload) {
+    var next = payload && payload.available === true ? payload : null;
+    var signature = next ? [next.missionId || '', next.runId || '', next.revision || '', next.state || '', next.phase || next.runtimePhase || '', next.sceneCount || 0].join('|') : 'none';
+    if (signature === missionSignature) return;
+    missionSignature = signature;
+    missionSnapshot = next;
+    var button = document.querySelector('.ga-efb-host-mission');
+    if (button) button.textContent = next && next.missionId ? 'Mission: ' + String(next.phase || next.state || 'aktiv').slice(0, 14) : 'Mission';
+    var drawer = byId('mapSideDrawer');
+    if (drawer && drawer.classList.contains('is-open') && drawerView === 'mission') renderSideDrawer();
+    report('info', 'mission-panel', next ? 'active' : 'empty', next ? 'Missionsstatus vom Tracker aktualisiert' : 'Keine aktive Tracker-Mission', next ? String(next.missionId || '') : '');
   }
 
   function automaticWaypointIndex() {
@@ -861,9 +1085,21 @@
     var source = event && event.touches && event.touches.length ? event.touches[0] : event;
     if (!source || !map) return null;
     try {
+      var container = map.getContainer();
+      var rect = container && container.getBoundingClientRect ? container.getBoundingClientRect() : null;
+      if (!container || !rect || !(rect.width > 0) || !(rect.height > 0)) return null;
+      // Coherent may render the EFB document at a scaled CSS size. Leaflet's
+      // mouseEvent helper assumes a 1:1 viewport and therefore produces the
+      // visible horizontal offset reported in MSFS. Convert through the actual
+      // rendered rectangle before asking Leaflet for the geographic position.
+      var renderedX = Number(source.clientX) - rect.left;
+      var renderedY = Number(source.clientY) - rect.top;
+      var localX = renderedX * (container.clientWidth || rect.width) / rect.width;
+      var localY = renderedY * (container.clientHeight || rect.height) / rect.height;
+      var containerPoint = L.point(localX, localY);
       return {
-        latlng: map.mouseEventToLatLng(source),
-        container: map.mouseEventToContainerPoint(source)
+        latlng: map.containerPointToLatLng(containerPoint),
+        container: containerPoint
       };
     } catch (_) { return null; }
   }
@@ -973,6 +1209,7 @@
       setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
       renderFlight(safePayload(responses[1]));
       renderMapPayload(safePayload(responses[2]));
+      renderMissionPayload(safePayload(responses[3]));
       notifyParentState('live');
       pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {

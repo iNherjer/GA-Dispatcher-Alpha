@@ -415,6 +415,10 @@ body.e6b-coherent .e6b-computer {
     justify-content: center;
 }
 
+body.e6b-coherent .e6b-embedded-chrome {
+    display: none;
+}
+
 body.e6b-coherent .front-stack,
 body.e6b-coherent .wind-stack {
     flex: 0 0 auto;

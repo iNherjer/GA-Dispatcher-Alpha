@@ -79,6 +79,12 @@ Leaflet-Ebenen. Auch diese Aenderungen liegen ausschliesslich im lokalen
 Tracker-Host. Das installierte Community-Paket 0.4.4 bleibt deshalb fuer den
 v331-Windows-/In-Sim-Test unveraendert; ein neuer SDK-Build ist nicht noetig.
 
+Tracker v332 liefert darauf Hoststand 0.4.7 mit stabiler Karten-Opacity,
+Coherent-tauglicher E6B-Drehflaeche, skalierten Zeichenkoordinaten und einem
+read-only Mission-/Checklistenmenue. Auch dieser Stand wird vollstaendig vom
+lokalen Tracker-Host ausgeliefert. Das vorhandene Community-Paket 0.4.4 bleibt
+fuer den v332-Test installiert; nur die Tracker-Runtime wird ersetzt.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

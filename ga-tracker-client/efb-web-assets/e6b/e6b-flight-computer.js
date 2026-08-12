@@ -444,7 +444,10 @@
         try {
             window.parent.postMessage({
                 type: 'ga-e6b-view-state',
-                localControls: true,
+                // Coherent does not reliably route pointer input through the
+                // nested iframe. The tracker host therefore owns the visible
+                // controls and the transparent dial interaction surface.
+                localControls: false,
                 side: state.side,
                 scale: viewState.scale,
                 x: viewState.x,
@@ -2564,6 +2567,16 @@
                 setViewTransform(viewState.scale, viewState.x + Number(data.dx || 0), viewState.y + Number(data.dy || 0));
             }
             if (data.type === 'ga-e6b-zoom-view') zoomViewByFactor(data.factor);
+            if (data.type === 'ga-e6b-rotate-delta') {
+                const delta = Number(data.delta);
+                if (Number.isFinite(delta)) {
+                    if (state.side === 'wind') state.windRotation += delta;
+                    else state.frontRotation += delta;
+                    applyRotations();
+                    updateReadouts();
+                    scheduleEmbeddedViewStatePost();
+                }
+            }
             if (data.type === 'ga-e6b-report-view') scheduleEmbeddedViewStatePost();
         });
         bindWindowPlanControls();
