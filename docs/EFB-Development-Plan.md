@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v332 Testkandidat | v320 | v332 stabilisiert Karte, Coherent-E6B, Zeichenkoordinaten, Legbedienung und read-only Seitenmenue; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v332-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v333 Testkandidat | v320 | v333 liefert Basiskarten/Aero ueber einen begrenzten lokalen Tile-Proxy; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v333-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -282,6 +282,17 @@ nicht mehr. Die Kopfleiste ergaenzt Anzeige, Mission, Checklisten, Layer und
 Werkzeuge; das Seitenmenue zeigt den read-only Tracker-Missionsstatus sowie
 lokal gespeicherte EFB-Checklisten. Ein begrenzter `map-profile`-Logeintrag
 unterscheidet echtes Tracker-Terrain klar vom Planfallback.
+
+Der v332-In-Sim-Test zeigt zwei verbleibende Transportfehler: Coherent verliert
+nach einer Kartenbewegung die direkt bei externen Tile-Hosts angeforderten
+Basiskacheln, waehrend lokale Route und Aero-Geometrie stehen bleiben. Ausserdem
+wurde ein schon ohne `mapProfile` gespeicherter Authority-Run nach dem
+asynchronen Terrainabruf der Web-App nicht erneut zum Tracker geschrieben.
+Tracker v333/Host 0.4.8 leitet die fest erlaubten Basis-, Aero- und DFS-Kacheln
+des Kartentisches deshalb ueber den Loopback-Server und einen auf 32 MiB
+begrenzten RAM-Cache. Die Web-App stoesst nach ihrem ohnehin stattfindenden
+Terrainabruf sofort ein Authority-Snapshot-Update an. Es entsteht weder ein
+neuer Worker-Aufruf noch ein weiterer Terrain-Drittanbieterpfad im Tracker.
 
 ## Roadmap
 
@@ -658,9 +669,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       getrenntem Leg-Schliessen-Knopf und read-only Mission-/Checklistenmenue
       implementieren. Lokaler Browsertest bestaetigt Karte nach Aero-Ladung,
       Terrainband, Legwechsel, E6B-Rotation, Rechner und Freihandlinie.
-- [ ] Tracker v332 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen:
-      Terrainprofil, Legpfeile, Drag/Schliessen/Infos, Rechner, E6B Front/Wind,
-      PEN/DEL/SET/CLR/NM, Kartenflackern und Resize/Orientation. Der
+- [x] Tracker v332 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen.
+      Ergebnis: Route/Overlay bleiben sichtbar, aber extern geladene
+      Basiskacheln verschwinden nach Kartenbewegung; ein alter Authority-Run
+      bleibt ohne erneuten App-Push bei `planned-only`.
+- [x] Tracker v333 / Host 0.4.8 mit lokalem, erlaubnislistenbasiertem
+      Karten-Tile-Proxy samt 32-MiB-RAM-Grenze und sofortigem App-Terrain-Push
+      implementieren; HTTP-, Cache-, Quellen- und Syntaxtests bestanden.
+- [ ] Tracker v333 mit vorhandenem EFB 0.4.4 und passendem lokalen App-Stand
+      auf Windows/In-Sim testen: Basiskarte nach Bewegung > 5 Sekunden,
+      `EFB_TILE_PROXY_READY` sowie `map-profile:tracker-terrain` pruefen.
+      Der
       Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
@@ -689,6 +708,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v332-In-Sim-Log bestaetigt `map-profile:planned-only`; das
+  Terrain war beim ersten Authority-Snapshot noch nicht fertig und loeste
+  spaeter keinen neuen Push aus. Zugleich verschwinden direkt von Coherent
+  geladene externe Basiskacheln nach Kartenbewegungen. Host 0.4.8/v333 nutzt
+  fuer die fest erlaubten Kartendienste daher den lokalen Tracker-HTTP-Server
+  mit begrenztem RAM-Cache. Terrain wird weiterhin ausschliesslich aus den
+  bereits von der Web-App geladenen Punkten uebernommen; der Tracker sendet
+  keine Route an einen neuen Hoehendienst.
 
 - 2026-08-12: Der v331-In-Sim-Test zeigt, dass die Basiskarte erst nach dem
   Eintreffen des Aero-Layers ausbleicht, Zeichnen unter der Coherent-Skalierung

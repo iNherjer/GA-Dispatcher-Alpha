@@ -2341,6 +2341,12 @@ function triggerVerticalProfileUpdate() {
             window.vpBgNeedsUpdate = true;
             
             window.vpElevationData = vpElevationData;
+            if (
+                vpElevationData.length >= 2
+                && typeof window.gaPushMissionAuthorityProfile === 'function'
+            ) {
+                window.gaPushMissionAuthorityProfile('terrain-profile-ready');
+            }
             if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
                 vpApplySarHeliAltitudeConstraints(cacheKey);
             }

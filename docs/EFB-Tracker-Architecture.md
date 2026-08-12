@@ -238,6 +238,16 @@ Coherent-Pointergrenze jedoch auf einer Parent-Flaeche erfasst und als
 erzeugen keine Tracker-Commands: Mission ist eine Projektion von
 `/api/v1/mission`, Checklistenhaken bleiben nur im EFB-localStorage.
 
+Host 0.4.8/v333 fuehrt die im Kartentisch erlaubten Rasterquellen ueber
+`/api/v1/map-tile/{layer}/{z}/{x}/{y}.png`. Der Loopback-Server akzeptiert nur
+bekannte Layer und gueltige Tile-Indizes, begrenzt Antworten auf 2 MiB,
+dedupliziert parallele Abrufe und haelt hoechstens 32 MiB im RAM. Er ist kein
+offener URL-Proxy und nutzt den Cloudflare Worker nicht. Dadurch muss der
+Coherent-Browser nach einer Kartenbewegung keine Cross-Origin-Tiles direkt
+nachladen. Terrain bleibt Teil des Authority-Bundles: Nach Abschluss ihres
+bestehenden Terrainabrufs sendet die Web-App sofort einen neuen kompakten
+Snapshot; der Tracker startet dafuer keinen eigenen Routendaten-Abruf.
+
 Persistiert werden keine Sync-PIN und kein neuer Authority-Token. Der
 Authority-Vertrag stuetzt sich innerhalb der bereits durch Sync-ID/PIN
 geschuetzten Relay-Sitzung auf eine zufaellige Client-ID, die Tracker-`runId`

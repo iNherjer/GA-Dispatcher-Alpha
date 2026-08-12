@@ -537,7 +537,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.7');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.4.8');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -605,7 +605,7 @@
     options.updateWhenZooming = false;
     options.keepBuffer = 2;
     if (definition.kind === 'wms' && L.tileLayer.wms) return L.tileLayer.wms(definition.url, options);
-    return L.tileLayer(definition.url, options);
+    return L.tileLayer(definition.localUrl || definition.url, options);
   }
 
   function createStablePane(name, zIndex) {

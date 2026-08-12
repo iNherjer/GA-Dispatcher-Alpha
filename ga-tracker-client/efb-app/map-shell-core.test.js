@@ -11,6 +11,7 @@ test('map layer catalog keeps stable unique ids and secure endpoints', () => {
     assert.match(layer.id, /^[a-z][a-z0-9-]*$/);
     assert.match(layer.url, /^https:\/\//);
     if (layer.fallbackUrl) assert.match(layer.fallbackUrl, /^https:\/\//);
+    if (layer.localUrl) assert.match(layer.localUrl, /^\/api\/v1\/map-tile\/[a-z][a-z0-9-]*\/\{z\}\/\{x\}\/\{y\}\.png$/);
     assert.ok(layer.label);
   }
 });

@@ -85,6 +85,13 @@ read-only Mission-/Checklistenmenue. Auch dieser Stand wird vollstaendig vom
 lokalen Tracker-Host ausgeliefert. Das vorhandene Community-Paket 0.4.4 bleibt
 fuer den v332-Test installiert; nur die Tracker-Runtime wird ersetzt.
 
+Tracker v333 liefert Hoststand 0.4.8. Die bekannten Kartenquellen werden dabei
+ueber den lokalen Tracker-Server und einen begrenzten RAM-Cache geladen; die
+Web-App aktualisiert den Tracker-Snapshot unmittelbar nach ihrem vorhandenen
+Terrainabruf. Beide Aenderungen liegen im Tracker-Host beziehungsweise in der
+Web-App. Das installierte Community-Paket 0.4.4 bleibt auch fuer diesen Test
+unveraendert; ein weiterer SDK-Build ist nicht erforderlich.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

@@ -14,6 +14,10 @@ const {
   createTrackerEfbWebClientPage,
   getTrackerEfbWebClientAsset
 } = require('./tracker-efb-web-client');
+const {
+  createTrackerEfbTileProxy,
+  parseTrackerEfbTilePath
+} = require('./tracker-efb-tile-proxy');
 
 const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
 const DEFAULT_EFB_HTTP_PORT = 49880;
@@ -156,6 +160,20 @@ function assetResponse(response, statusCode, asset) {
   response.end(body);
 }
 
+function tileResponse(response, tile) {
+  const body = Buffer.isBuffer(tile?.body) ? tile.body : Buffer.from(tile?.body || '');
+  response.writeHead(200, {
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'public, max-age=86400',
+    'Content-Length': body.length,
+    'Content-Type': String(tile?.contentType || 'image/png'),
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+    'X-EFB-Tile-Cache': String(tile?.cache || 'miss')
+  });
+  response.end(body);
+}
+
 function createTrackerEfbHttpServer(options = {}) {
   const host = String(options.host || DEFAULT_EFB_HTTP_HOST).trim();
   const port = Number(options.port ?? DEFAULT_EFB_HTTP_PORT);
@@ -173,6 +191,10 @@ function createTrackerEfbHttpServer(options = {}) {
   let clientLogWindowStartedAt = 0;
   let clientLogCount = 0;
   let clientLogRateLimitReported = false;
+  const tileProxy = createTrackerEfbTileProxy({
+    fetchRemote: options.fetchRemote,
+    log
+  });
 
   const handler = async (request, response) => {
     if (!isLoopbackAddress(request.socket?.remoteAddress)) {
@@ -258,13 +280,22 @@ function createTrackerEfbHttpServer(options = {}) {
       return;
     }
     if (pathname === '/api/v1/map') {
-      const snapshot = getMapSnapshot();
+      const snapshot = await getMapSnapshot();
       jsonResponse(response, 200, {
         hello,
         message: createMessage('map.snapshot', snapshot && typeof snapshot === 'object'
           ? { ...snapshot, available: true }
           : { available: false })
       });
+      return;
+    }
+    const tileRequest = parseTrackerEfbTilePath(pathname);
+    if (tileRequest) {
+      try {
+        tileResponse(response, await tileProxy.get(tileRequest));
+      } catch (error) {
+        jsonResponse(response, 502, { error: 'tile_upstream_unavailable' });
+      }
       return;
     }
     if (pathname === EFB_WEB_CLIENT_PATH) {

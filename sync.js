@@ -2371,6 +2371,10 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
     return true;
 }
 
+window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready') {
+    return _queueMissionAuthoritySnapshot(reason, { immediate: true });
+};
+
 function _trackerAckTypeForCommand(type = '') {
     const t = String(type || '').toLowerCase();
     if (!t) return '';

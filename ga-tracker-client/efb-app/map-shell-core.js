@@ -24,6 +24,7 @@ const BASE_LAYERS = Object.freeze([
     label: 'OpenTopo / Text',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     fallbackUrl: 'https://backup.opentopomap.org/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/topo/{z}/{x}/{y}.png',
     options: Object.freeze({
       attribution: '&copy; OpenStreetMap-Mitwirkende, Kartendarstellung &copy; OpenTopoMap',
       maxNativeZoom: 17,
@@ -34,24 +35,28 @@ const BASE_LAYERS = Object.freeze([
     id: 'terrain',
     label: 'Terrain',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+    localUrl: '/api/v1/map-tile/terrain/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 13, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'satellite',
     label: 'Satellit',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    localUrl: '/api/v1/map-tile/satellite/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 18, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'dark',
     label: 'Dunkel',
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/dark/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
   }),
   Object.freeze({
     id: 'light',
     label: 'Hell',
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/light/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
   })
 ]);
@@ -62,6 +67,7 @@ const OVERLAY_LAYERS = Object.freeze([
     label: 'VFR-Lufträume / Aero',
     kind: 'tile',
     url: 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest',
+    localUrl: '/api/v1/map-tile/aero/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.68, maxNativeZoom: 12, maxZoom: 18 })
   }),
   Object.freeze({
@@ -69,6 +75,7 @@ const OVERLAY_LAYERS = Object.freeze([
     label: 'DFS ICAO 1:500k',
     kind: 'tile',
     url: 'https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/dfs/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; DFS Deutsche Flugsicherung', opacity: 1, maxNativeZoom: 11, maxZoom: 18 })
   }),
   Object.freeze({

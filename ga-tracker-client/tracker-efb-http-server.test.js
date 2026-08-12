@@ -23,6 +23,7 @@ function request(address, pathname, options = {}) {
       response.on('end', () => resolve({
         statusCode: response.statusCode,
         headers: response.headers,
+        rawBody: Buffer.concat(chunks),
         body: Buffer.concat(chunks).toString('utf8')
       }));
     });
@@ -171,6 +172,41 @@ test('mission endpoint reports an unavailable snapshot without inventing mission
   const address = await server.start();
   const mission = JSON.parse((await request(address, '/api/v1/mission')).body);
   assert.deepEqual(mission.message.payload, { available: false });
+});
+
+test('map tiles are fetched once through the bounded loopback proxy and then cached', async (t) => {
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v333', trackerVersionCode: 333 });
+  const logs = [];
+  const requests = [];
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const server = createTrackerEfbHttpServer({
+    host: '127.0.0.1',
+    port: 0,
+    hello,
+    fetchRemote: async (url) => {
+      requests.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'image/png' },
+        arrayBuffer: async () => png
+      };
+    },
+    log: (line) => logs.push(line)
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const first = await request(address, '/api/v1/map-tile/topo/8/133/88.png');
+  const second = await request(address, '/api/v1/map-tile/topo/8/133/88.png');
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['content-type'], 'image/png');
+  assert.equal(first.headers['x-efb-tile-cache'], 'miss');
+  assert.equal(second.headers['x-efb-tile-cache'], 'hit');
+  assert.deepEqual(first.rawBody, png);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0], /^https:\/\/[abc]\.tile\.opentopomap\.org\/8\/133\/88\.png$/);
+  assert.equal(logs.some((line) => line.includes('EFB_TILE_PROXY_READY layer=topo')), true);
+  assert.equal((await request(address, '/api/v1/map-tile/unknown/8/133/88.png')).statusCode, 404);
 });
 
 test('EFB HTTP server rejects non-loopback bind addresses', () => {
