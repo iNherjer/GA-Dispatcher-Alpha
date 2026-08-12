@@ -273,6 +273,25 @@ nicht mehr versehentlich mit weit auseinanderliegenden Skriptstaenden gegen
 dieselbe Tracker-Authority. Der lokale Versionshinweis muss fuer diesen Stand
 `ga-dispatcher-v1620 / NO SW` zeigen.
 
+Host 0.5.1/v336 behaelt diesen Tiletransport bei und gleicht die Darstellung
+an den originalen Kartentisch an: Bei aktivem Aero-Layer laeuft die Basiskarte
+mit 0,5 und die Aero-Karte mit 0,65 Deckkraft. Die Karte bleibt damit blass,
+waehrend Luftraumgrenzen und Beschriftungen fuehren.
+
+Ab Webstand v1621 ist die im Kartentisch tatsaechlich aktive Route Bestandteil
+jedes bestehenden Authority-Resume-Bundles. Nach Missionsstart loest eine
+Routenmutation sofort `mission_snapshot_update` aus; dabei wird ein Profil der
+vorherigen Route nicht weitergereicht. Der ohnehin vorhandene asynchrone
+Terrainabruf sendet nach Abschluss einen zweiten Snapshot mit `mapProfile`.
+Das EFB pollt weiter nur die lokale read-only Projektion und aktualisiert Route
+und Band anhand der Revision. `MISSION_MAP_AUTHORITY` protokolliert auf dem
+Tracker nur bei relevanten Projektionswechseln Mission, Run, Routenpunkte,
+Profilmodus, Profilpunkte und Terrainstatus. Vor `Mission starten` besteht
+weiterhin kein Authority-Run; eine geplante Route wird daher bewusst nicht
+ueber einen zusaetzlichen Relay-Kanal transportiert. Fuer den gemeinsamen
+v336-Test muss die Web-App `ga-dispatcher-v1621` anzeigen; Local v1603 und die
+getestete Alpha v1619 sind dafuer funktional zu alt.
+
 Der Web-App-Cloud-Pull wird ebenfalls an dieser Authority-Grenze arbitriert.
 Solange der verbundene Tracker einen aktiven Run meldet, darf `activeMission`
 aus dem Cloud-Profil weder lokal restauriert noch als Scene-/Lifecycle-Quelle

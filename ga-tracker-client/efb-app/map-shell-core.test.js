@@ -52,8 +52,9 @@ test('EFB preferences preserve supported app designs and chrome visibility', () 
   assert.equal(core.normalizePreferences({ theme: 'unknown' }).theme, 'classic');
 });
 
-test('aero overlay keeps the base map visible while its own opacity blends the chart', () => {
-  assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 1);
+test('aero overlay subdues the basemap like the original Kartentisch', () => {
+  assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 0.5);
+  assert.equal(core.OVERLAY_LAYERS.find((layer) => layer.id === 'aero')?.options?.opacity, 0.65);
   assert.equal(core.baseLayerOpacity({ overlays: ['dfs'] }), 1);
   assert.equal(core.baseLayerOpacity({ overlays: [] }), 1);
 });

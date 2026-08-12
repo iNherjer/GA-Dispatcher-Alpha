@@ -106,6 +106,14 @@ privaten Entwicklungsadressen ohne Service Worker und muss
 fuer den Authority-/Terrain-Test ungeeigneter Cache. Das Community-Paket 0.4.4
 bleibt auch fuer v335 unveraendert installiert.
 
+Tracker v336 liefert Hoststand 0.5.1 mit dem Kartenkontrast des originalen
+Kartentischs und einer begrenzten Authority-Kartenprojektion im Debuglog. Der
+zugehoerige Webstand muss `ga-dispatcher-v1621` anzeigen: Er aktualisiert nach
+Missionsstart die Route sofort und reicht das echte Terrainprofil nach dessen
+vorhandenem asynchronem Abruf nach. Alpha `v1619` sowie Local `v1603 / NO SW`
+koennen diesen Test nicht bestehen, weil ihnen diese Quelllogik fehlt. Das
+installierte Community-Paket 0.4.4 bleibt auch fuer v336 unveraendert.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

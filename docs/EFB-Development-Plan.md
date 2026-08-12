@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v335 Testkandidat | v320 | v335 verwendet den im nativen EFB bestaetigten direkten HTTPS-Tilepfad mit Proxy-Fallback und erkennt den lokalen Webstand cachefrei; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v335-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v336 Testkandidat | v320 | v336 gleicht Kartenkontrast an den Kartentisch an und protokolliert die jeweils projizierte Authority-Route samt Terrainmodus; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v336-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -303,6 +303,17 @@ Fallback. Ein einmaliges `map-tile`-Diagnoseereignis nennt die tatsaechlich
 sichtbare Quelle. Der lokale Entwicklungsserver deaktiviert Service Worker
 und App-Caches auf Localhost/privaten LAN-Adressen; damit kann ein alter Stand
 wie `v1603` nicht mehr unbemerkt gegen eine aktuelle Alpha-App schreiben.
+
+Der v335-In-Sim-Test bestaetigt den direkten Tilepfad und damit eine dauerhaft
+sichtbare Karte. Das fehlende Terrainband stammt nicht aus der EFB-Projektion:
+die getestete Alpha `ga-dispatcher-v1619` enthaelt den spaeten Authority-
+Profilpush noch nicht und lieferte laut Log nur `planned-only`. Tracker
+v336/Host 0.5.1 dimmt bei aktivem Aero-Layer die Basiskarte wie der originale
+Kartentisch (Basis 0,5, Aero 0,65). Der Webstand v1621 schreibt nach
+Missionsstart jede tatsaechliche Routenmutation sofort in den bestehenden
+Authority-Snapshot, verwirft dabei ein veraltetes Profil und sendet nach dem
+asynchronen Terrainabruf denselben Snapshot erneut mit Hoehenpunkten. Der
+Tracker protokolliert jeden relevanten Wechsel als `MISSION_MAP_AUTHORITY`.
 
 ## Roadmap
 
@@ -699,12 +710,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       testen. Ergebnis: Der Proxy liefert Kacheln, Coherent zeigt sie dennoch
       schwarz. Die verwendete Local-App meldete Cache `v1603` und konnte daher
       den neuen Terrain-/Authority-Refresh nicht ausfuehren.
-- [ ] Tracker v335 / Host 0.5.0 mit vorhandenem EFB 0.4.4 und aktuellem lokalen
-      App-Stand `ga-dispatcher-v1620 / NO SW` auf Windows/In-Sim testen:
-      Basiskarte nach Bewegung > 5 Sekunden, `map-tile: source=direct` sowie
-      `map-profile: tracker-terrain` nach dem Cloud-/Tracker-Handoff pruefen.
-      Der
-      Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v335 / Host 0.5.0 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      testen. Ergebnis: Direkte Tiles bleiben sichtbar. Der Aero-Kontrast ist
+      zu schwach; Terrain bleibt `planned-only`, weil die getestete Alpha
+      `v1619` den Profilpush noch nicht enthaelt. Local `v1603 / NO SW` ist
+      ebenfalls ein alter Quellstand und kein geeigneter Gegentest.
+- [ ] Tracker v336 / Host 0.5.1 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1621` auf Windows/In-Sim testen: Aero-Kontrast gegen den
+      originalen Kartentisch vergleichen; nach `Mission starten` und nach
+      jeder Routenmutation zuerst `MISSION_MAP_AUTHORITY ... planned-only`,
+      danach `... tracker-terrain` und ein gerendertes Terrainband erwarten.
+      Der Ruecksprungpunkt `efb-v0.4.1-sdk-input` bleibt unangetastet.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -732,6 +748,17 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-12: Der v335-Log zeigt nach erfolgreicher Authority-Uebernahme nur
+  `map-profile:planned-only`; danach folgen Runtime-Snapshots, aber kein
+  `terrain-profile-ready`. Die getestete Alpha ist Cache v1619, waehrend der
+  Profilpush erst im neueren Quellstand vorhanden ist. Webstand v1621 bindet
+  deshalb die aktuelle Kartenroute explizit in das bestehende Resume-Bundle
+  ein, sendet Routenmutationen sofort ohne veraltetes Profil und laesst den
+  fertigen Terrainabruf als zweiten Authority-Snapshot folgen. Es entsteht
+  kein zweiter Missionszustand und kein neuer Relay-Kanal. Host 0.5.1/v336
+  setzt fuer Aero denselben Kontrast wie der Web-Kartentisch und protokolliert
+  Route, Profilmodus und Punktzahl direkt im Trackerlog.
 
 - 2026-08-12: Der v334-Log bestaetigt erfolgreiche Antworten des lokalen
   Tile-Proxys, waehrend die Kartentisch-Flaeche schwarz bleibt. Da die native

@@ -7722,6 +7722,9 @@ function notifyMainRouteChanged(reason = 'route-render') {
         window._lastWetterRouteKey = null;
         window._lastWetterCoverageKey = null;
         window._lastWetterRouteNm = 0;
+        if (typeof window.gaPushMissionAuthorityRoute === 'function') {
+            window.gaPushMissionAuthorityRoute(reason);
+        }
     }
     scheduleMainRouteProfileReload(reason);
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {

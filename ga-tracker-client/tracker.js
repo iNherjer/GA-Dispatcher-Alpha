@@ -37,8 +37,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v335';
-const TRACKER_VERSION_CODE = 335;
+const TRACKER_VERSION = 'v336';
+const TRACKER_VERSION_CODE = 336;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
@@ -345,6 +345,7 @@ function buildTitleCandidates(title, extra = []) {
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null) {
   const missions = new Map();
   const scenes = new Map();
+  let lastAuthorityMapProjectionSignature = '';
   let sceneOperationQueue = Promise.resolve();
   const sceneObjectOperationStates = new Map();
   const sceneObjectDesiredStates = new Map();
@@ -3888,6 +3889,24 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
   };
 
+  const logAuthorityMapProjection = (command = {}, result = null) => {
+    if (!result?.ok) return;
+    const projected = projectTrackerMapSnapshot(
+      missionAuthority.getActiveRun({ includeBundle: true }),
+      typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null
+    );
+    const signature = projected ? JSON.stringify({
+      missionId: projected.missionId,
+      runId: projected.runId,
+      route: (projected.route?.waypoints || []).map(point => [point.lat, point.lon]),
+      profileMode: projected.profile?.mode || 'none',
+      profilePoints: projected.profile?.points?.length || 0
+    }) : 'none';
+    if (signature === lastAuthorityMapProjectionSignature) return;
+    lastAuthorityMapProjectionSignature = signature;
+    debugLog(`MISSION_MAP_AUTHORITY mission=${projected?.missionId || command?.missionId || ''} run=${projected?.runId || command?.runId || ''} revision=${projected?.revision || result?.activeRun?.revision || 0} routePoints=${projected?.route?.waypoints?.length || 0} profileMode=${projected?.profile?.mode || 'none'} profilePoints=${projected?.profile?.points?.length || 0} terrain=${projected?.profile?.terrainAvailable === true ? 1 : 0} reason=${command?.reason || command?.type || 'authority-update'}`);
+  };
+
   const handleAuthorityCommand = (type, command) => {
     if (!missionAuthority) return false;
     if (authorityReleasePending && type !== 'mission_snapshot_request' && type !== 'mission_authority_release') {
@@ -3901,7 +3920,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     if (type === 'mission_authority_acquire') {
       try {
-        sendAuthorityResult(type, command, missionAuthority.acquire(command));
+        const result = missionAuthority.acquire(command);
+        logAuthorityMapProjection(command, result);
+        sendAuthorityResult(type, command, result);
       } catch (error) {
         sendAuthorityResult(type, command, { ok: false, status: 'error', error: error?.code || error?.message || String(error) });
       }
@@ -3916,7 +3937,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     }
     if (type === 'mission_snapshot_update') {
-      sendAuthorityResult(type, command, missionAuthority.updateSnapshot(command));
+      const result = missionAuthority.updateSnapshot(command);
+      logAuthorityMapProjection(command, result);
+      sendAuthorityResult(type, command, result);
       return true;
     }
     if (type === 'mission_authority_release') {

@@ -2093,6 +2093,52 @@ function _buildMissionAuthorityMapProfile() {
     };
 }
 
+function _missionAuthorityLiveRouteSnapshot() {
+    const candidates = [
+        (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null,
+        Array.isArray(window._missionRouteWaypoints) ? window._missionRouteWaypoints : null,
+        (typeof currentMissionData !== 'undefined' && Array.isArray(currentMissionData?.routeWaypoints))
+            ? currentMissionData.routeWaypoints
+            : null,
+        (typeof currentMissionData !== 'undefined' && Array.isArray(currentMissionData?.missionRouteWaypoints))
+            ? currentMissionData.missionRouteWaypoints
+            : null
+    ];
+    const source = candidates.find(value => Array.isArray(value) && value.length >= 2);
+    if (!source) return [];
+    return source.slice(0, 128).map((point, index) => {
+        const lat = Number(point?.lat ?? point?.latitude);
+        const lon = Number(point?.lon ?? point?.lng ?? point?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const elevationFt = Number(point?.elevationFt ?? point?.elevFt ?? point?.altitudeFt ?? point?.altFt);
+        return {
+            id: String(point?.id || point?.ref || `wp-${index + 1}`).slice(0, 80),
+            name: String(point?.name || point?.label || point?.icao || point?.ident || `WP ${index + 1}`).slice(0, 100),
+            lat: Math.round(lat * 1e6) / 1e6,
+            lon: Math.round(lon * 1e6) / 1e6,
+            ...(Number.isFinite(elevationFt) ? { elevationFt: Math.round(elevationFt) } : {}),
+            kind: String(point?.kind || point?.type || (point?.isPOI ? 'poi' : 'waypoint')).slice(0, 40),
+            required: point?.required !== false
+        };
+    }).filter(Boolean);
+}
+
+function _missionAuthorityInjectLiveRoute(missionState = null) {
+    const route = _missionAuthorityLiveRouteSnapshot();
+    if (!missionState || typeof missionState !== 'object' || route.length < 2) return missionState;
+    missionState.routeWaypoints = _safeCloneJson(route, route);
+    missionState.missionRouteWaypoints = _safeCloneJson(route, route);
+    if (missionState.currentMissionData && typeof missionState.currentMissionData === 'object') {
+        missionState.currentMissionData.routeWaypoints = _safeCloneJson(route, route);
+        missionState.currentMissionData.missionRouteWaypoints = _safeCloneJson(route, route);
+    }
+    if (missionState.activeMissionContract && typeof missionState.activeMissionContract === 'object') {
+        missionState.activeMissionContract.routeWaypoints = _safeCloneJson(route, route);
+        missionState.activeMissionContract.missionRouteWaypoints = _safeCloneJson(route, route);
+    }
+    return missionState;
+}
+
 function _restoreMissionAuthorityMapProfile(bundle = null) {
     const source = Array.isArray(bundle?.mapProfile?.points) ? bundle.mapProfile.points : [];
     const points = source.map(point => {
@@ -2116,13 +2162,14 @@ function _restoreMissionAuthorityMapProfile(bundle = null) {
     return true;
 }
 
-function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
+function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
     const runtime = _buildMissionRuntimeSnapshot(reason);
     if (!runtime?.missionId) return null;
     let missionState = null;
     try {
         const activeState = _syncActiveMissionPayload();
         missionState = activeState ? _syncCompactActiveMission(activeState, 3) : null;
+        missionState = _missionAuthorityInjectLiveRoute(missionState);
     } catch (_) {
         missionState = null;
     }
@@ -2134,7 +2181,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, missionState)
             : null,
         savedAt: Date.now(),
-        mapProfile: _buildMissionAuthorityMapProfile(),
+        mapProfile: options.includeMapProfile === false ? null : _buildMissionAuthorityMapProfile(),
         missionState,
         runtime
     };
@@ -2208,7 +2255,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         };
     }
 
-    const compactMissionState = _syncCompactActiveMission(missionState, 3);
+    const compactMissionState = _missionAuthorityInjectLiveRoute(_syncCompactActiveMission(missionState, 3));
     const bundle = {
         version: 2,
         missionId: trackerMissionId,
@@ -2309,6 +2356,7 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
             resumed: ack.resumed === true,
             reason
         });
+        _scheduleMissionAuthorityProfileRefresh('tracker-authority-acquired');
         return true;
     }
     const active = ack.authoritativeRun || null;
@@ -2341,7 +2389,7 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
         if (trackerRun?.runId && trackerRun.runId !== currentLocal.runId) return;
         const relation = _missionAuthorityIncomingRunRelation(currentLocal, trackerRun, _missionAuthorityClientId());
         if (relation === 'demote' || relation === 'foreign') return;
-        const bundle = _buildMissionAuthorityResumeBundle(reason);
+        const bundle = _buildMissionAuthorityResumeBundle(reason, options);
         if (!bundle) return;
         const stateHash = _missionAuthorityResumeBundleHash(bundle);
         if (stateHash && stateHash === missionAuthorityLastSnapshotHash) return;
@@ -2373,6 +2421,10 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
 
 window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready') {
     return _queueMissionAuthoritySnapshot(reason, { immediate: true });
+};
+
+window.gaPushMissionAuthorityRoute = function(reason = 'route-changed') {
+    return _queueMissionAuthoritySnapshot(reason, { immediate: true, includeMapProfile: false });
 };
 
 let missionAuthorityProfileRefreshTimer = null;

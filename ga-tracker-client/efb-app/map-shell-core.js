@@ -1,10 +1,9 @@
 'use strict';
 
 const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
-// The Aero tiles already carry their own semi-transparent chart background.
-// Dimming the base layer as well makes the map appear to vanish as soon as the
-// (slower) Aero tile arrives after a pan/zoom.
-const AERO_BASE_OPACITY = 1;
+// Match the Kartentisch: the basemap is deliberately subdued while the VFR
+// chart remains strong enough for airspace boundaries and labels to lead.
+const AERO_BASE_OPACITY = 0.5;
 const MISSION_EMPTY_DEBOUNCE_MS = 3000;
 const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
 const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
@@ -68,10 +67,7 @@ const OVERLAY_LAYERS = Object.freeze([
     kind: 'tile',
     url: 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest',
     localUrl: '/api/v1/map-tile/aero/{z}/{x}/{y}.png',
-    // MSFS Coherent can composite transparent PNG tile layers against black
-    // instead of the layer below. A deliberately light overlay keeps the
-    // basemap readable even on that renderer while retaining the airspace ink.
-    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.24, maxNativeZoom: 12, maxZoom: 18 })
+    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'dfs',
