@@ -37,23 +37,20 @@ dem In-Sim-Test.
 
 ## Aktueller Alpha-Stand
 
-EFB 0.4.8 ist seit 2026-08-13 als Alpha-Release unter
-`efb-app-v0.4.8` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
-erzeugte Community-Paket wurde nach dem In-Sim-Test erneut heruntergeladen,
-entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
-Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
-zur getrennten Promotion deaktiviert.
+EFB 0.4.11 ist seit 2026-08-13 als Alpha-Release unter
+`efb-app-v0.4.11` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
+erzeugte Community-Paket wurde nach dem In-Sim-Test erneut von GitHub
+heruntergeladen, entpackt und gegen Version, Paketstruktur, Groesse und
+SHA-256 validiert. Der Alpha-Kanal zeigt auf genau dieses unveraenderliche
+Archiv; Tracker-Alpha zeigt passend auf v348. Stable bleibt bis zur getrennten
+Promotion unveraendert beziehungsweise fuer das EFB deaktiviert.
 
-Der naechste isolierte Quellkandidat ist EFB 0.4.11 zusammen mit Tracker v348
-und Host 0.6.2. Er baut auf dem 0.4.10/v347-In-Sim-Lauf auf, setzt Mission
-Control auf zwei Drittel Breite, stabilisiert den Scroll gegen Liveupdates,
-erhaelt echte deutsche Umlaute und laedt Custom-Listen weiter direkt aus dem
-bereits von der App genutzten GA-Sync in den lokalen Tracker-Cache. Dieser
-Kandidat ist noch kein Release. Er darf erst nach einem offiziellen
-SDK-1.7.2-Build, neu gebauter Tracker-v348-EXE und positivem In-Sim-Test als
-`efb-app-v0.4.11` beziehungsweise in
-`channel/alpha.json` eingetragen werden. Das bestehende Alpha-Artefakt
-0.4.8/v345 bleibt bis dahin unveraendert.
+EFB 0.4.11 und Host 0.6.2 bauen auf dem 0.4.10/v347-In-Sim-Lauf auf, setzen
+Mission Control auf zwei Drittel Breite, stabilisieren den Scroll gegen
+Liveupdates, erhalten echte deutsche Umlaute und laden Custom-Listen direkt
+aus dem bereits von der App genutzten GA-Sync in den lokalen Tracker-Cache.
+Das vorherige Alpha-Artefakt 0.4.8/v345 bleibt als unveraenderlicher
+Ruecksprungpunkt erhalten.
 
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als

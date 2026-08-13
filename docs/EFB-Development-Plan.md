@@ -13,15 +13,15 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v346 Alpha | v320 | v346 sendet mit 2 Hz parallel ueber Cloudflare und Render; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.4.8 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
+| Tracker-Runtime | v348 Alpha | v320 | v348 ergaenzt Mission Control und Custom-Checklisten auf dem Dual-Relay-Stand; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
-## Naechster isolierter Testkandidat
+## Aktueller EFB-Alpha-Stand
 
-Tracker v348 / Host 0.6.2 und EFB 0.4.11 sind als lokaler Folgekandidat
-vorbereitet, aber noch nicht offiziell auf Windows gebaut, in MSFS getestet
-oder in einen Kanal eingetragen. Der 0.4.10/v347-Test bestaetigte Modern-
+Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
+MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
+freigegeben. Der 0.4.10/v347-Test bestaetigte zuvor Modern-
 Design, Umschaltung, die breitere Mission Control, Checklisteninteraktion und
 den direkten Cloudabruf. Im laufend aktualisierten Missionsmenue unterbrach
 der vollstaendige DOM-Neuaufbau jedoch den Coherent-Scroll; ausserdem waren
@@ -49,8 +49,8 @@ aktualisiert; echte Inhaltsaenderungen werden waehrend Touch-, Wheel- oder
 Momentum-Scroll gepuffert und danach mit wiederhergestellter Position
 angewendet. Der UTF-8-Vertrag bleibt unveraendert; sichtbare EFB-Fallbacktexte
 verwenden echte Umlaute, einschliesslich normalisierter kombinierender
-Umlautzeichen. Offener Gate ist ein offizieller Windows-SDK-1.7.2-Build von
-EFB 0.4.11 samt Tracker-v348-EXE und anschliessender In-Sim-Pruefung.
+Umlautzeichen. Die veroeffentlichten GitHub-Artefakte wurden nach dem Upload
+frisch heruntergeladen und gegen Groesse, SHA-256 und Paketversion geprueft.
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
 Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
@@ -950,7 +950,7 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Breite, globale Schriftwahl und Custom-Listen funktionieren; der Test
       zeigt jedoch den Scroll-Ruecksprung bei Liveupdates und verbliebene
       ASCII-Transliterationen in EFB-Fallbacktexten.
-- [ ] Tracker v348 und EFB 0.4.11 offiziell auf Windows bauen und In-Sim testen:
+- [x] Tracker v348 und EFB 0.4.11 offiziell auf Windows bauen und In-Sim testen:
       Mission Drawer mit zwei Dritteln Breite, stabiler Touch-/Wheel-Scroll,
       echte deutsche Umlaute und unveraenderter direkter Cloudabruf.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
@@ -958,6 +958,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Tracker v348 und EFB 0.4.11 sind als Alpha veroeffentlicht. Der
+  offizielle SDK-1.7.2-Build und der nachfolgende In-Sim-Test wurden
+  freigegeben. Beide Artefakte wurden nach dem GitHub-Upload frisch
+  heruntergeladen und gegen Groesse und SHA-256 geprueft; das EFB-Archiv wurde
+  zusaetzlich entpackt und als Paketversion 0.4.11 validiert. Alpha zeigt auf
+  exakt diese unveraenderlichen Releases; Stable bleibt unveraendert.
 
 - 2026-08-13: Der 0.4.10/v347-In-Sim-Test bestaetigt den direkten Cloudabruf
   und die groessere Mission Control. Der sekundenweise Missionspfad konnte den
@@ -968,7 +975,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Scrollposition nach dem Layout wieder her. Die Breite wird auf zwei Drittel
   reduziert; sichtbare EFB-Fallbacktexte und kombinierende Umlautzeichen werden
   als echtes UTF-8 ausgegeben. Der veroeffentlichte Dual-Relay-Stand aus `main`
-  bleibt vollstaendig enthalten; Alpha bleibt auf v346/0.4.8.
+  bleibt vollstaendig enthalten; der Stand wurde danach als v348/0.4.11 fuer
+  Alpha freigegeben.
 
 - 2026-08-13: Der erste 0.4.9/v346-In-Sim-Lauf bestaetigt die stabile
   Umschaltung, das Modern-Design, anklickbare Checklisten und Mission Control.
