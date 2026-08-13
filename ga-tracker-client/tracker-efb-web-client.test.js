@@ -18,17 +18,17 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '34701');
+  assert.equal(EFB_WEB_ASSET_REVISION, '34801');
   assert.match(page, /data-efb-view-version="6"/);
-  assert.match(page, /host\.css\?v=34701/);
-  assert.match(page, /host\.js\?v=34701/);
+  assert.match(page, /host\.css\?v=34801/);
+  assert.match(page, /host\.js\?v=34801/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
   assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=34701"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=34801"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
@@ -36,7 +36,7 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
     '/efb/v1/assets/leaflet.js',
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/map-utility-tools.js',
-    '/efb/v1/assets/host.js?v=34701'
+    '/efb/v1/assets/host.js?v=34801'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -180,13 +180,48 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostCss, /\.map-e6b-device\.map-e6b-half \{[\s\S]*?transform: scale\(\.7\) !important/);
   assert.match(hostCss, /\.calculator-formula-drawer,[\s\S]*?background: #f7f4e8 !important/);
   assert.match(hostCss, /\.ga-efb-context-windrose \.ga-efb-context-runway rect/);
-  assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 75vw/);
+  assert.match(hostCss, /#mapSideDrawer \{[\s\S]*?--checklist-panel-width: 66\.6667vw/);
   assert.match(hostSource, /Schrift kleiner \(-\)/);
-  assert.match(hostSource, /Schrift groesser \(\+\)/);
+  assert.match(hostSource, /Schrift größer \(\+\)/);
+  assert.match(hostSource, /Schriftgröße:/);
+  assert.match(hostSource, /Missionsstatus prüfen/);
+  assert.match(hostSource, /FLUGHÖHE/);
+  assert.match(hostSource, /function requestSideDrawerRefresh\(\)/);
+  assert.match(hostSource, /body\.addEventListener\('scroll', noteDrawerScroll/);
+  assert.match(hostSource, /window\.setTimeout\(apply, 90\)/);
   assert.match(hostSource, /function applyEfbFontScale\(\)/);
   assert.match(hostSource, /function normalizeCoherentGlyphs\(root\)/);
   assert.match(hostSource, /new window\.MutationObserver/);
   assert.match(hostSource, /element\.hasAttribute\('data-ga-efb-font-base'\)/);
+});
+
+test('mission drawer signatures ignore volatile relay and flight fields', () => {
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const signatureSource = hostSource.match(/function missionRenderSignature\(payload\) \{[\s\S]*?\n  \}\n\n  function updateMissionLiveFields/)?.[0]
+    .replace(/\n\n  function updateMissionLiveFields$/, '');
+  assert.ok(signatureSource);
+  const missionRenderSignature = new Function(`return (${signatureSource});`)();
+  const first = {
+    missionId: 'mission-1', runId: 'run-1', revision: 4, state: 'active', phase: 'enroute', sceneCount: 1,
+    view: {
+      capturedAt: 100,
+      title: 'Überführungsflug', story: 'Öl prüfen und zur Küste fliegen.', currentTask: 'Ziel anfliegen',
+      target: { name: 'Kühlungsborn', route: 'EDXY -> EDCX', distanceNm: 25.4, bearingDeg: 42 },
+      flight: { trackerLive: true, mslFt: 3200, aglFt: 1800, gsKts: 102 },
+      progress: [{ label: 'Strecke', percent: 40 }]
+    }
+  };
+  const volatileUpdate = JSON.parse(JSON.stringify(first));
+  volatileUpdate.revision = 9;
+  volatileUpdate.view.capturedAt = 200;
+  volatileUpdate.view.target.distanceNm = 21.8;
+  volatileUpdate.view.target.bearingDeg = 44;
+  volatileUpdate.view.flight.mslFt = 3500;
+  volatileUpdate.view.flight.aglFt = 2100;
+  volatileUpdate.view.flight.gsKts = 106;
+  assert.equal(missionRenderSignature(first), missionRenderSignature(volatileUpdate));
+  volatileUpdate.view.story = 'Geänderter Missionstext';
+  assert.notEqual(missionRenderSignature(first), missionRenderSignature(volatileUpdate));
 });
 
 test('EFB map long-press input normalizes mouse, pointer and touch coordinates', () => {

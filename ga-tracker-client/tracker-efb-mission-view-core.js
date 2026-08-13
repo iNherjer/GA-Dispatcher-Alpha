@@ -150,8 +150,8 @@ function fallbackView(activeRun, flightSnapshot) {
   if (/closing|complete|closed|ended/.test(phaseName)) current = 3;
   let currentTask = `${targetName} anfliegen`;
   if (!active) currentTask = 'Mission vorbereiten und starten';
-  if (progress.aborted) currentTask = 'Sicher landen und Mission mit Abweichung abschliessen';
-  else if (progress.satisfied) currentTask = 'Zum vorgesehenen Landeplatz zurueckkehren und landen';
+  if (progress.aborted) currentTask = 'Sicher landen und Mission mit Abweichung abschließen';
+  else if (progress.satisfied) currentTask = 'Zum vorgesehenen Landeplatz zurückkehren und landen';
   const flight = object(flightSnapshot?.flight);
   return sanitizeMissionView({
     capturedAt: activeRun?.updatedAt,

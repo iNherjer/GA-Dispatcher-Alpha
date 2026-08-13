@@ -73,3 +73,15 @@ test('mission view row and phase counts are capped', () => {
   assert.equal(sanitized.phase.current, 7);
   assert.equal(sanitized.progress.length, 12);
 });
+
+test('German mission text keeps composed and decomposed umlauts', () => {
+  const decomposed = 'U\u0308berprüfung für Öl, Straße und Kühlgerät';
+  const sanitized = sanitizeMissionView({
+    title: 'Überführungsflug',
+    story: decomposed,
+    currentTask: 'Zurückkehren und Mission abschließen'
+  });
+  assert.equal(sanitized.title, 'Überführungsflug');
+  assert.equal(sanitized.story, decomposed);
+  assert.equal(sanitized.currentTask, 'Zurückkehren und Mission abschließen');
+});

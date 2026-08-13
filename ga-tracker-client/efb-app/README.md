@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.10
+## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.11
 
 Tracker v330 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
@@ -62,6 +62,14 @@ bereits von der App im GA-Sync gespeicherten `CHKIDX_`-/`CHK_`-Daten nun
 zusaetzlich selbst, speichert den letzten gueltigen Stand lokal und aktualisiert
 ihn alle 60 Sekunden. Die App-Relay-Uebergabe bleibt als schneller Zusatzpfad
 erhalten.
+
+0.4.11 / Tracker v348 / Host 0.6.2 reduziert Mission Control auf zwei Drittel
+der Kartenbreite. Volatile Relay-Revisionen, Zeitstempel und Flugwerte loesen
+keinen vollstaendigen DOM-Neuaufbau mehr aus. Echte Inhaltsupdates werden
+waehrend Touch-, Wheel- oder Momentum-Scroll gepuffert, danach positionsstabil
+angewendet; Hoehe und Zielwerte bleiben durch gezielte Textupdates live.
+Sichtbare EFB-Fallbacktexte verwenden echte Umlaute, und kombinierende
+Umlautzeichen werden vor der Coherent-Darstellung normalisiert.
 
 Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
 die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen

@@ -44,14 +44,14 @@ entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
 Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
 zur getrennten Promotion deaktiviert.
 
-Der naechste isolierte Quellkandidat ist EFB 0.4.10 zusammen mit Tracker v347
-und Host 0.6.1. Er baut auf dem stabilen 0.4.9/v346-In-Sim-Lauf auf,
-verbreitert Mission Control auf 75 Prozent, ergaenzt eine globale
-Schriftgroessenwahl, ersetzt weitere nicht darstellbare Coherent-Zeichen und
-laedt Custom-Listen direkt aus dem bereits von der App genutzten GA-Sync in
-den lokalen Tracker-Cache. Dieser Kandidat ist noch kein Release. Er darf erst
-nach einem offiziellen SDK-1.7.2-Build, neu gebauter Tracker-v347-EXE und
-positivem In-Sim-Test als `efb-app-v0.4.10` beziehungsweise in
+Der naechste isolierte Quellkandidat ist EFB 0.4.11 zusammen mit Tracker v348
+und Host 0.6.2. Er baut auf dem 0.4.10/v347-In-Sim-Lauf auf, setzt Mission
+Control auf zwei Drittel Breite, stabilisiert den Scroll gegen Liveupdates,
+erhaelt echte deutsche Umlaute und laedt Custom-Listen weiter direkt aus dem
+bereits von der App genutzten GA-Sync in den lokalen Tracker-Cache. Dieser
+Kandidat ist noch kein Release. Er darf erst nach einem offiziellen
+SDK-1.7.2-Build, neu gebauter Tracker-v348-EXE und positivem In-Sim-Test als
+`efb-app-v0.4.11` beziehungsweise in
 `channel/alpha.json` eingetragen werden. Das bestehende Alpha-Artefakt
 0.4.8/v345 bleibt bis dahin unveraendert.
 

@@ -19,18 +19,19 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 
 ## Naechster isolierter Testkandidat
 
-Tracker v347 / Host 0.6.1 und EFB 0.4.10 sind als lokaler Folgekandidat
+Tracker v348 / Host 0.6.2 und EFB 0.4.11 sind als lokaler Folgekandidat
 vorbereitet, aber noch nicht offiziell auf Windows gebaut, in MSFS getestet
-oder in einen Kanal eingetragen. Der 0.4.9/v346-Test bestaetigte Modern-Design,
-Umschaltung, Mission Control und Checklisteninteraktion, zeigte aber ein zu
-schmales Missionsmenue, kleine Schrift, weitere fehlende Coherent-Glyphen und
-keine Custom-Listen. 0.4.10 verbreitert den Drawer auf 75 Prozent, vergroessert
-die Missionstexte und bietet unter `Anzeige` eine globale Schriftwahl von 90
-bis 130 Prozent.
+oder in einen Kanal eingetragen. Der 0.4.10/v347-Test bestaetigte Modern-
+Design, Umschaltung, die breitere Mission Control, Checklisteninteraktion und
+den direkten Cloudabruf. Im laufend aktualisierten Missionsmenue unterbrach
+der vollstaendige DOM-Neuaufbau jedoch den Coherent-Scroll; ausserdem waren
+einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
+auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
+behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
-v347 mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
+v348 mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
 gespeicherten `CHKIDX_`-/`CHK_`-Datensaetze beim Start und alle 60 Sekunden
 selbst. Nur ein vollstaendig gueltiger Abruf ersetzt den atomaren lokalen Cache
 `efb-checklists-v1.json`; bei Netz- oder Serverfehlern bleibt der letzte Stand
@@ -42,12 +43,14 @@ Mission Control erhaelt ueber `mission.view.v1` eine begrenzte Projektion der
 bereits in der App dargestellten Missionsdaten aus demselben Authority-Resume-
 Bundle. Es zeigt Auftrag, Verlauf, Ziel, Live-Flugwerte, Fortschritt,
 Bedingungen, Passagier-/Ladungszustand und Lagebericht, bleibt jedoch read-only.
-Alle 77 lokalen Quell-, Vertrags- und Loopback-Tests sind bestanden. Die
-Browserpruefung bestaetigte Drawer-Breite und Interaktion; nach einer dabei
-gefundenen und korrigierten Schriftinitialisierung bleibt die abschliessende
-visuelle Pruefung bewusst Teil des Windows-/In-Sim-Gates. Offener Gate ist ein
-offizieller Windows-SDK-1.7.2-Build von EFB 0.4.10 samt Tracker-v347-EXE und
-anschliessender In-Sim-Pruefung.
+Der v348-Renderer trennt volatile Revisionen, Zeitstempel, Zielentfernung und
+Live-Flugwerte von strukturellen Missionsaenderungen. Livewerte werden gezielt
+aktualisiert; echte Inhaltsaenderungen werden waehrend Touch-, Wheel- oder
+Momentum-Scroll gepuffert und danach mit wiederhergestellter Position
+angewendet. Der UTF-8-Vertrag bleibt unveraendert; sichtbare EFB-Fallbacktexte
+verwenden echte Umlaute, einschliesslich normalisierter kombinierender
+Umlautzeichen. Offener Gate ist ein offizieller Windows-SDK-1.7.2-Build von
+EFB 0.4.11 samt Tracker-v348-EXE und anschliessender In-Sim-Pruefung.
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
 Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
@@ -943,14 +946,29 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       Control sind bestaetigt. Custom-Listen fehlten, weil der Windows-Checkout
       den vorgesehenen App-Export-Patch nicht enthielt; v347 ersetzt diese
       Abhaengigkeit durch den direkten Tracker-Cloudabruf.
-- [ ] Tracker v347 und EFB 0.4.10 offiziell auf Windows bauen und In-Sim testen:
-      Mission Drawer mit 75 Prozent Breite, globale Schriftwahl, ASCII-sichere
-      Bedienelemente und Custom-Listen aus dem direkten Tracker-Cloudabruf.
+- [x] Tracker v347 und EFB 0.4.10 auf Windows bauen und In-Sim pruefen:
+      Breite, globale Schriftwahl und Custom-Listen funktionieren; der Test
+      zeigt jedoch den Scroll-Ruecksprung bei Liveupdates und verbliebene
+      ASCII-Transliterationen in EFB-Fallbacktexten.
+- [ ] Tracker v348 und EFB 0.4.11 offiziell auf Windows bauen und In-Sim testen:
+      Mission Drawer mit zwei Dritteln Breite, stabiler Touch-/Wheel-Scroll,
+      echte deutsche Umlaute und unveraenderter direkter Cloudabruf.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Der 0.4.10/v347-In-Sim-Test bestaetigt den direkten Cloudabruf
+  und die groessere Mission Control. Der sekundenweise Missionspfad konnte den
+  Drawer waehrend des Scrollens jedoch vollstaendig neu aufbauen und damit die
+  Coherent-Geste abbrechen. 0.4.11/v348 ignoriert volatile Relay-/Flugfelder
+  fuer den strukturellen Rendervergleich, aktualisiert Livewerte gezielt,
+  puffert echte Inhaltsupdates waehrend der Interaktion und stellt die
+  Scrollposition nach dem Layout wieder her. Die Breite wird auf zwei Drittel
+  reduziert; sichtbare EFB-Fallbacktexte und kombinierende Umlautzeichen werden
+  als echtes UTF-8 ausgegeben. Der veroeffentlichte Dual-Relay-Stand aus `main`
+  bleibt vollstaendig enthalten; Alpha bleibt auf v346/0.4.8.
 
 - 2026-08-13: Der erste 0.4.9/v346-In-Sim-Lauf bestaetigt die stabile
   Umschaltung, das Modern-Design, anklickbare Checklisten und Mission Control.

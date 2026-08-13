@@ -12,12 +12,12 @@ const {
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
-test('tracker v347 exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v347'/);
+test('tracker v348 exits a duplicate instance when the fixed EFB port is already occupied', () => {
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v348'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 347/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 348/);
   assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
   assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
   assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);
@@ -92,7 +92,8 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
       state: 'active',
       active: true,
       phase: 'active',
-      title: 'Testflug',
+      title: 'Überführungsflug',
+      story: 'Öl prüfen und zur Küste fliegen.',
       route: { start: 'EDDS', destination: 'EDTF', target: '' },
       cargo: { total: 2, required: 2, loaded: 2, unloaded: 0, pending: 0 }
     }),
@@ -132,7 +133,10 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   assert.equal(mission.message.type, 'mission.snapshot');
   assert.equal(mission.message.payload.available, true);
   assert.equal(mission.message.payload.missionId, 'mission-42');
+  assert.equal(mission.message.payload.title, 'Überführungsflug');
+  assert.equal(mission.message.payload.story, 'Öl prüfen und zur Küste fliegen.');
   assert.equal(mission.message.payload.route.destination, 'EDTF');
+  assert.equal((await request(address, '/api/v1/mission')).headers['content-type'], 'application/json; charset=utf-8');
 
   const checklists = JSON.parse((await request(address, '/api/v1/checklists')).body);
   assert.equal(checklists.message.type, 'checklist.library');
