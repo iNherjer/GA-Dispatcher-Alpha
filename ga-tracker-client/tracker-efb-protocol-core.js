@@ -17,6 +17,7 @@
     TRACKER_STATUS: 'tracker.status.v1',
     FLIGHT_SNAPSHOT: 'flight.snapshot.v1',
     MAP_SNAPSHOT: 'map.snapshot.v1',
+    MAP_CONTEXT: 'map.context.v1',
     MISSION_SNAPSHOT: 'mission.snapshot.v1',
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
     MISSION_AUTHORITY: 'mission.authority.v1',

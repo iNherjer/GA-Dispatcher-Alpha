@@ -68,7 +68,7 @@ test('native EFB buttons bind real DOM click handlers after render', () => {
 
 test('tracker map contract feeds route, profile and compass without embedding mission narrative', () => {
   assert.match(tsx, /fetch\(`\$\{TRACKER_API_URL\}\/api\/v1\/map`/);
-  assert.match(tsx, /'map\.snapshot', 'map\.snapshot\.v1'/);
+  assert.match(tsx, /'map\.snapshot',\s*'map\.snapshot\.v1'/);
   assert.match(tsx, /MapShellCore\.normalizeTrackerMapSnapshot\(mapPayload\)/);
   assert.match(tsx, /private renderMapSnapshot\(snapshot: TrackerMapSnapshot/);
   assert.match(tsx, /private renderProfile\(\)/);
@@ -77,36 +77,18 @@ test('tracker map contract feeds route, profile and compass without embedding mi
   assert.match(tsx, /class="map-compass"/);
 });
 
-test('theme and local tool shell reuses the map-table devices and bundles the interactive E6B', () => {
-  for (const theme of ['classic', 'retro', 'navcom', 'ops1940', 'win95']) {
-    assert.match(tsx, new RegExp(`data-theme="${theme}"`));
-    if (theme === 'classic') assert.match(scss, /\.vfr-multitool-app/);
-    else assert.match(scss, new RegExp(`theme-${theme}`));
-  }
-  assert.match(tsx, /data-tool="e6b"/);
-  assert.match(tsx, /data-tool="clock"/);
-  assert.match(tsx, /data-tool="calculator"/);
-  assert.match(tsx, /Assets\/E6B\/e6b-flight-computer-efb\.html#embedded-coherent/);
-  assert.match(tsx, /MapShellCore\.evaluateCalculatorExpression/);
-  assert.match(tsx, /ga-e6b-close/);
-  assert.match(tsx, /class="map-stopwatch-device"/);
-  assert.match(tsx, /stopwatchSecondHandRef/);
-  assert.match(tsx, /class="calculator-case"/);
-  assert.match(tsx, /syncE6bFrameSize/);
-  assert.match(buildJs, /e6b-efb-disc-data\.js/);
-  assert.match(buildJs, /e6b-workbench-front-disc\.json/);
-  assert.match(buildJs, /e6b-workbench-wind-disc\.json/);
-  assert.match(e6bJs, /embeddedMode = \/embedded\(\?:=1\)\?\/i\.test\(locationMode\)/);
-  assert.match(e6bJs, /window\.GAE6B_EFB_DISCS/);
-  assert.match(e6bCss, /body\.e6b-coherent/);
-  assert.doesNotMatch(e6bCss, /\binset\s*:/);
-  assert.doesNotMatch(e6bCss, /\bmin\(/);
-  assert.doesNotMatch(e6bCss, /\bclamp\(/);
-  assert.doesNotMatch(e6bHtml, /[↻−×]/);
+test('minimal fallback keeps only its layer chooser accessible', () => {
+  assert.match(tsx, /ref=\{this\.themeButtonRef\} class="pb-btn is-hidden"/);
+  assert.match(tsx, /ref=\{this\.toolsButtonRef\} class="pb-btn is-hidden"/);
+  assert.match(tsx, /ref=\{this\.profileButtonRef\} class="pb-btn is-hidden"/);
+  assert.doesNotMatch(scss, /&\.fallback-map-active \.ga-efb-map-controls/);
+  assert.match(scss, /&\.fallback-map-active \.follow-button,[\s\S]*?&\.fallback-map-active \.flight-strip,[\s\S]*?display: none !important;/);
+  assert.match(tsx, /ref=\{this\.layerButtonRef\} class="map-fab layer-button"/);
 });
 
 test('Coherent-facing controls avoid the unsupported glyphs seen in the simulator', () => {
   assert.doesNotMatch(tsx, /[⌃⌫×÷−·°↻]/);
+  assert.doesNotMatch(tsx, /\.flatMap\(/);
   assert.doesNotMatch(scss, /\bmin\(/);
   assert.doesNotMatch(scss, /\bclamp\(/);
 });
@@ -137,8 +119,33 @@ test('map initialization failures remain visible and diagnosable', () => {
 test('tracker-hosted Kartentisch uses a channel handshake and reports iframe diagnostics', () => {
   assert.match(tsx, /private serverFrameChannel = ''/);
   assert.match(tsx, /messageChannel === this\.serverFrameChannel/);
-  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=4/);
+  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=6/);
   assert.match(tsx, /\/api\/v1\/client-log/);
   assert.match(tsx, /this\.reportServerFrameEvent\('parent-message'/);
-  assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\('map'\)/);
+  assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\(this\.serverClientAvailable \? 'server' : 'map'\)/);
+});
+
+test('native map is a minimal tracker-off fallback and tracker availability selects the hosted app map', () => {
+  assert.match(tsx, /class="vfr-multitool-app theme-classic fallback-map-active"/);
+  assert.match(tsx, /class="fallback-map-hint">Nur sichtbar, wenn der Tracker aus ist/);
+  assert.match(tsx, /if \(available\) \{[\s\S]*?this\.setScreen\('server'\)/);
+  assert.match(tsx, /if \(this\.screen !== 'map'\) this\.setScreen\('map'\)/);
+  assert.match(tsx, /root\?\.classList\.toggle\('fallback-map-active', !available\)/);
+  assert.match(scss, /top: 1\.3rem;/);
+  assert.doesNotMatch(scss, /&\.fallback-map-active \.ga-efb-map-controls/);
+  assert.match(scss, /&\.fallback-map-active \.follow-button,[\s\S]*?&\.fallback-map-active \.flight-strip,[\s\S]*?display: none !important;/);
+  assert.match(tsx, /ref=\{this\.layerButtonRef\} class="map-fab layer-button"/);
+  assert.match(tsx, /ref=\{this\.profileButtonRef\} class="pb-btn is-hidden"/);
+  assert.match(tsx, /ref=\{this\.themeButtonRef\} class="pb-btn is-hidden"/);
+  assert.match(tsx, /ref=\{this\.toolsButtonRef\} class="pb-btn is-hidden"/);
+});
+
+test('hosted map survives transient polls and parent rendering failures without iframe churn', () => {
+  assert.match(tsx, /private consecutiveTrackerPollFailures = 0/);
+  assert.match(tsx, /private readonly trackerPollFailureThreshold = 3/);
+  assert.match(tsx, /if \(this\.serverClientAvailable && failureCount < this\.trackerPollFailureThreshold\)[\s\S]*?Kartentisch bleibt aktiv/);
+  assert.match(tsx, /this\.setServerClientAvailable\(supportsCapability\(statusEnvelope, 'efb\.web-client\.v1'\)\);[\s\S]*?try \{[\s\S]*?this\.updateMapFlight\(mapSnapshot\)/);
+  assert.match(tsx, /this\.reportServerFrameEvent\('poll', 'render-error'/);
+  assert.match(tsx, /catch \(error\) \{[\s\S]*?this\.handleTrackerPollFailure\(error\)/);
+  assert.match(tsx, /if \(!this\.serverFrameStarted\) return;[\s\S]*?this\.reportServerFrameEvent\('iframe', 'load'/);
 });

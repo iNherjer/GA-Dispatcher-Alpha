@@ -213,6 +213,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private serverClientAvailable = false;
   private serverFrameStarted = false;
   private serverFrameChannel = '';
+  private consecutiveTrackerPollFailures = 0;
+  private readonly trackerPollFailureThreshold = 3;
   private map: any | null = null;
   private planeMarker: any | null = null;
   private routeLayer: any | null = null;
@@ -256,7 +258,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       this.reportServerFrameEvent('parent-message', state || stage, message);
       if (state === 'close') {
         this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch wird geschlossen');
-        this.setScreen('map');
+        this.setScreen(this.serverClientAvailable ? 'server' : 'map');
         return;
       }
       this.setText(this.serverFrameStatusRef.getOrDefault(), state === 'ready'
@@ -335,6 +337,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     if (e6bFrame) e6bFrame.onload = (): void => this.syncE6bFrameSize();
     const serverFrame = this.serverFrameRef.getOrDefault();
     if (serverFrame) serverFrame.onload = (): void => {
+      if (!this.serverFrameStarted) return;
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite geladen | warte auf Skriptmeldung');
       this.reportServerFrameEvent('iframe', 'load', serverFrame.src);
     };
@@ -354,7 +357,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.preferences = this.readPreferences();
     this.applyPreferencesToChrome();
     this.startPolling();
-    this.setScreen(this.screen);
+    this.setScreen(this.serverClientAvailable ? 'server' : 'map');
     if (!this.resizeBound) {
       window.addEventListener('resize', this.onWindowResize);
       window.addEventListener('message', this.onWindowMessage);
@@ -468,6 +471,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private setScreen(screen: 'map' | 'server' | 'status'): void {
+    if (this.serverClientAvailable && screen === 'map') screen = 'server';
     if (screen === 'server' && !this.serverClientAvailable) screen = 'map';
     this.screen = screen;
     this.appRootRef.getOrDefault()?.classList.toggle('server-client-active', screen === 'server');
@@ -486,17 +490,25 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private setServerClientAvailable(available: boolean): void {
+    const changed = this.serverClientAvailable !== available;
     this.serverClientAvailable = available;
+    const root = this.appRootRef.getOrDefault();
+    root?.classList.toggle('fallback-map-active', !available);
+    root?.classList.toggle('tracker-map-available', available);
     const button = this.serverTabRef.getOrDefault();
-    button?.classList.toggle('is-hidden', !available);
+    button?.classList.add('is-hidden');
     if (button) button.disabled = !available;
+    if (available) {
+      if (changed || this.screen !== 'server') this.setScreen('server');
+      return;
+    }
     if (!available) {
       const frame = this.serverFrameRef.getOrDefault();
       if (frame && this.serverFrameStarted) frame.src = 'about:blank';
       this.serverFrameStarted = false;
       this.serverFrameChannel = '';
       this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Webclient nicht verfuegbar');
-      if (this.screen === 'server') this.setScreen('map');
+      if (this.screen !== 'map') this.setScreen('map');
     }
   }
 
@@ -508,16 +520,21 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
     this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
-    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=4`;
+    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=6`;
   }
 
-  private reportServerFrameEvent(event: string, stage: string, message = ''): void {
+  private reportServerFrameEvent(
+    event: string,
+    stage: string,
+    message = '',
+    level: 'info' | 'warn' | 'error' = 'info'
+  ): void {
     try {
       void fetch(`${TRACKER_API_URL}/api/v1/client-log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          level: 'info',
+          level,
           event,
           stage,
           message,
@@ -527,6 +544,58 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
         })
       }).catch(() => undefined);
     } catch (_) {}
+  }
+
+  private clientErrorMessage(error: unknown): string {
+    if (error instanceof Error) return `${error.name || 'Error'}: ${error.message || 'unknown_error'}`.slice(0, 240);
+    return String(error || 'unknown_error').slice(0, 240);
+  }
+
+  private async readOptionalPayload<T>(
+    response: Response | null,
+    expectedType: string,
+    requiredCapability?: string
+  ): Promise<T | null> {
+    if (!response || !response.ok) return null;
+    try {
+      const payload = payloadOf<T>(await response.json(), expectedType, requiredCapability);
+      if (!payload) {
+        this.reportServerFrameEvent('poll-optional', expectedType, 'protocol_mismatch', 'warn');
+      }
+      return payload;
+    } catch (error) {
+      this.reportServerFrameEvent('poll-optional', expectedType, this.clientErrorMessage(error), 'warn');
+      return null;
+    }
+  }
+
+  private showTrackerOfflineState(): void {
+    this.setServerClientAvailable(false);
+    this.setConnection('Tracker nicht erreichbar', 'error');
+    this.setText(this.trackerRef.getOrDefault(), '-');
+    this.setText(this.relayRef.getOrDefault(), '-');
+    this.setText(this.simulatorRef.getOrDefault(), '-');
+    this.setText(this.positionRef.getOrDefault(), 'Bitte den VFR Multitool Tracker in einer EFB-kompatiblen Version starten.');
+    this.setText(this.flightRef.getOrDefault(), '');
+    this.setText(this.missionRef.getOrDefault(), 'Keine Missionsdaten verfuegbar.');
+    this.setText(this.missionPhaseRef.getOrDefault(), '');
+    this.setText(this.missionScenesRef.getOrDefault(), '');
+    this.setText(this.mapPositionRef.getOrDefault(), this.lastFlight ? MapShellCore.formatCoordinateLine(this.lastFlight) : 'Tracker offline');
+    this.setText(this.mapFlightRef.getOrDefault(), this.lastFlight ? 'Letzte bekannte Position' : 'Karte ist frei verschiebbar');
+    this.setMapNotice('Tracker nicht erreichbar | Karte bleibt bedienbar', 'error');
+    this.markPlaneStale(true);
+  }
+
+  private handleTrackerPollFailure(error: unknown): void {
+    this.consecutiveTrackerPollFailures += 1;
+    const failureCount = this.consecutiveTrackerPollFailures;
+    this.reportServerFrameEvent('poll', 'core-error', `${failureCount}/${this.trackerPollFailureThreshold} ${this.clientErrorMessage(error)}`, 'error');
+    if (this.serverClientAvailable && failureCount < this.trackerPollFailureThreshold) {
+      this.setConnection(`Tracker-Verbindung unterbrochen (${failureCount}/${this.trackerPollFailureThreshold})`, 'error');
+      this.setText(this.serverFrameStatusRef.getOrDefault(), 'Kartentisch bleibt aktiv | Verbindung wird erneut geprueft');
+      return;
+    }
+    this.showTrackerOfflineState();
   }
 
   private readPreferences(): MapPreferences {
@@ -1101,7 +1170,10 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     const height = 145;
     const top = 12;
     const bottom = 124;
-    const values = profile.points.flatMap((point) => [point.plannedAltFt, point.terrainFt || 0]);
+    const values: number[] = [];
+    profile.points.forEach((point) => {
+      values.push(point.plannedAltFt, point.terrainFt || 0);
+    });
     if (this.lastFlight) values.push(this.lastFlight.altFt);
     const maxAlt = Math.max(1000, Math.ceil(Math.max(...values) / 1000) * 1000);
     const xFor = (distance: number) => Math.max(0, Math.min(width, distance / profile.totalDistanceNm * width));
@@ -1200,74 +1272,82 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
       const status = payloadOf<TrackerStatusPayload>(statusEnvelope, 'tracker.status');
       const snapshot = payloadOf<FlightSnapshotPayload>(await snapshotResponse.json(), 'flight.snapshot');
       if (!status || !snapshot) throw new Error('protocol_mismatch');
-      this.setServerClientAvailable(supportsCapability(statusEnvelope, 'efb.web-client.v1'));
-      const mission = missionResponse?.ok
-        ? payloadOf<MissionSnapshotPayload>(await missionResponse.json(), 'mission.snapshot', 'mission.snapshot.v1')
-        : null;
-      const mapPayload = mapResponse?.ok
-        ? payloadOf<any>(await mapResponse.json(), 'map.snapshot', 'map.snapshot.v1')
-        : null;
-
-      this.setConnection('Tracker verbunden', 'online');
-      this.setText(this.trackerRef.getOrDefault(), `${status.trackerVersion || '-'} | ${status.runtimeChannel || '-'}`);
-      this.setText(this.relayRef.getOrDefault(), status.relayConnected ? 'Verbunden' : 'Wartet');
-      this.setText(this.simulatorRef.getOrDefault(), status.simulatorConnected ? 'Verbunden' : 'Nicht verbunden');
       const mapSnapshot = MapShellCore.normalizeFlightSnapshot(snapshot) as NormalizedFlightSnapshot | null;
-      if (mapSnapshot) {
-        this.setText(this.positionRef.getOrDefault(), MapShellCore.formatCoordinateLine(mapSnapshot));
-        this.setText(this.flightRef.getOrDefault(), MapShellCore.formatFlightLine(mapSnapshot));
-        this.updateMapFlight(mapSnapshot);
-      } else {
-        this.setText(this.positionRef.getOrDefault(), 'Warte auf Positionsdaten aus dem Simulator.');
-        this.setText(this.flightRef.getOrDefault(), '');
-        this.setText(this.mapPositionRef.getOrDefault(), 'Warte auf Simulatorposition');
-        this.setText(this.mapFlightRef.getOrDefault(), 'Karte ist frei verschiebbar');
-        this.setMapNotice('Warte auf Positionsdaten aus dem Simulator', '');
-      }
-      this.renderMission(mission);
+      const mission = await this.readOptionalPayload<MissionSnapshotPayload>(
+        missionResponse,
+        'mission.snapshot',
+        'mission.snapshot.v1'
+      );
+      const mapPayload = await this.readOptionalPayload<any>(
+        mapResponse,
+        'map.snapshot',
+        'map.snapshot.v1'
+      );
+      let normalizedMap: TrackerMapSnapshot | null = null;
       if (mapPayload?.available === true) {
-        const normalizedMap = MapShellCore.normalizeTrackerMapSnapshot(mapPayload) as TrackerMapSnapshot | null;
-        if (normalizedMap) this.renderMapSnapshot(normalizedMap);
-      } else if (mapPayload?.available === false) {
-        this.clearMapSnapshot();
+        try {
+          normalizedMap = MapShellCore.normalizeTrackerMapSnapshot(mapPayload) as TrackerMapSnapshot | null;
+          if (!normalizedMap) this.reportServerFrameEvent('poll-optional', 'map-normalize', 'invalid_map_snapshot', 'warn');
+        } catch (error) {
+          this.reportServerFrameEvent('poll-optional', 'map-normalize', this.clientErrorMessage(error), 'warn');
+        }
       }
-    } catch (_) {
+
+      const previousFailures = this.consecutiveTrackerPollFailures;
+      this.consecutiveTrackerPollFailures = 0;
+      if (previousFailures > 0) {
+        this.reportServerFrameEvent('poll', 'recovered', `after=${previousFailures}`, 'info');
+      }
+      this.setServerClientAvailable(supportsCapability(statusEnvelope, 'efb.web-client.v1'));
+
+      try {
+        this.setConnection('Tracker verbunden', 'online');
+        this.setText(this.trackerRef.getOrDefault(), `${status.trackerVersion || '-'} | ${status.runtimeChannel || '-'}`);
+        this.setText(this.relayRef.getOrDefault(), status.relayConnected ? 'Verbunden' : 'Wartet');
+        this.setText(this.simulatorRef.getOrDefault(), status.simulatorConnected ? 'Verbunden' : 'Nicht verbunden');
+        if (mapSnapshot) {
+          this.setText(this.positionRef.getOrDefault(), MapShellCore.formatCoordinateLine(mapSnapshot));
+          this.setText(this.flightRef.getOrDefault(), MapShellCore.formatFlightLine(mapSnapshot));
+          this.updateMapFlight(mapSnapshot);
+        } else {
+          this.setText(this.positionRef.getOrDefault(), 'Warte auf Positionsdaten aus dem Simulator.');
+          this.setText(this.flightRef.getOrDefault(), '');
+          this.setText(this.mapPositionRef.getOrDefault(), 'Warte auf Simulatorposition');
+          this.setText(this.mapFlightRef.getOrDefault(), 'Karte ist frei verschiebbar');
+          this.setMapNotice('Warte auf Positionsdaten aus dem Simulator', '');
+        }
+        this.renderMission(mission);
+        if (normalizedMap) this.renderMapSnapshot(normalizedMap);
+        else if (mapPayload?.available === false) this.clearMapSnapshot();
+      } catch (error) {
+        console.error('[VFR Multitool EFB] Tracker-Daten konnten nicht dargestellt werden', error);
+        this.reportServerFrameEvent('poll', 'render-error', this.clientErrorMessage(error), 'error');
+      }
+    } catch (error) {
       if (!this.active) return;
-      this.setServerClientAvailable(false);
-      this.setConnection('Tracker nicht erreichbar', 'error');
-      this.setText(this.trackerRef.getOrDefault(), '-');
-      this.setText(this.relayRef.getOrDefault(), '-');
-      this.setText(this.simulatorRef.getOrDefault(), '-');
-      this.setText(this.positionRef.getOrDefault(), 'Bitte den VFR Multitool Tracker in einer EFB-kompatiblen Version starten.');
-      this.setText(this.flightRef.getOrDefault(), '');
-      this.setText(this.missionRef.getOrDefault(), 'Keine Missionsdaten verfügbar.');
-      this.setText(this.missionPhaseRef.getOrDefault(), '');
-      this.setText(this.missionScenesRef.getOrDefault(), '');
-      this.setText(this.mapPositionRef.getOrDefault(), this.lastFlight ? MapShellCore.formatCoordinateLine(this.lastFlight) : 'Tracker offline');
-      this.setText(this.mapFlightRef.getOrDefault(), this.lastFlight ? 'Letzte bekannte Position' : 'Karte ist frei verschiebbar');
-      this.setMapNotice('Tracker nicht erreichbar | Karte bleibt bedienbar', 'error');
-      this.markPlaneStale(true);
+      this.handleTrackerPollFailure(error);
     }
     if (this.active) this.timer = setTimeout(() => void this.poll(), 1000);
   }
 
   public render(): VNode {
     return (
-      <div ref={this.appRootRef} class="vfr-multitool-app theme-classic">
+      <div ref={this.appRootRef} class="vfr-multitool-app theme-classic fallback-map-active">
         <header ref={this.topbarRef} class="app-topbar">
           <div class="topbar-content">
             <div class="map-toolbar-title-row">
-              <strong>NAV STATION (KARTENTISCH)</strong>
+              <strong>FALLBACK-KARTE</strong>
               <span>VFR Multitool EFB v{EFB_APP_VERSION}</span>
             </div>
             <div class="map-toolbar-buttons">
-              <button ref={this.mapTabRef} class="pb-btn is-active" type="button">Karte</button>
+              <span class="fallback-map-hint">Nur sichtbar, wenn der Tracker aus ist</span>
+              <button ref={this.mapTabRef} class="pb-btn is-active is-hidden" type="button">Fallback-Karte</button>
               <button ref={this.serverTabRef} class="pb-btn is-hidden" type="button" disabled>App-Karte</button>
-              <button ref={this.statusTabRef} class="pb-btn" type="button">Status</button>
-              <button ref={this.profileButtonRef} class="pb-btn" type="button" aria-pressed="true">Profil (An)</button>
-              <button ref={this.themeButtonRef} class="pb-btn" type="button">Design</button>
-              <button ref={this.toolsButtonRef} class="pb-btn" type="button">Werkzeuge</button>
-              <span ref={this.connectionRef} class="connection-pill">Warte auf Tracker</span>
+              <button ref={this.statusTabRef} class="pb-btn is-hidden" type="button">Status</button>
+              <button ref={this.profileButtonRef} class="pb-btn is-hidden" type="button" aria-pressed="false">Profil (Aus)</button>
+              <button ref={this.themeButtonRef} class="pb-btn is-hidden" type="button">Design</button>
+              <button ref={this.toolsButtonRef} class="pb-btn is-hidden" type="button">Werkzeuge</button>
+              <span ref={this.connectionRef} class="connection-pill error">Tracker aus</span>
             </div>
           </div>
           <button ref={this.toolbarToggleRef} class="topbar-toggle" type="button" aria-expanded="true" title="Menüleiste ausblenden">

@@ -5,21 +5,44 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch 0.4.5
+## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.8
 
 Tracker v330 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
-erscheint im EFB der Tab `App-Karte`. Die Seite verwendet den originalen
+wechselt das EFB automatisch in die App-Karte. Die Seite verwendet den originalen
 Kartentisch-DOM, die App-Styles, Leaflet, Stoppuhr, Rechner und den
 vollstaendigen interaktiven E6B. Ein kleiner Hostadapter versorgt Flugzeug,
 Route, Missionsgeometrie, Navigation, Kompass und Planprofil aus den lokalen
 Tracker-Snapshots. Die reine Diagnoseprobe bleibt unter `/efb/v1/probe/`.
 
 `map.js`, `profile.js`, Cloud-Sync und die Web-Missionsruntime werden nicht in
-den Tracker geladen. Fehlt die Capability, bleibt `App-Karte` unsichtbar und
-der vollstaendige native 0.4.1-Fallback funktioniert weiter. Die vom Windows-
+den Tracker geladen. Fehlt die Capability, erscheint ausschliesslich die
+native Fallback-Karte mit Basiskarte/Aero-Overlay, letzter Route und letzter
+Position. Positionsbanner, Kompass, Profil, Werkzeuge und Statusnavigation
+sind im Fallback verborgen. Die vom Windows-
 Tracker benoetigten Originalassets werden mit `sync-efb-web-assets.js` in ein
 versioniertes, von `pkg` sicher einbettbares Bundle gespiegelt.
+
+0.4.6 behebt den im 0.4.5-In-Sim-Test gefundenen Umschaltzyklus: Kernpoll,
+optionale Snapshots und Parent-Darstellung besitzen getrennte Fehlerpfade.
+Ein Darstellungsfehler kann den bereits gestarteten Host-iframe nicht mehr auf
+`about:blank` zuruecksetzen. Bei aktiver App-Karte werden ein oder zwei kurze
+Kernpollaussetzer toleriert und ueber den begrenzten Client-Diagnoseendpunkt
+gemeldet; erst der dritte aufeinanderfolgende Ausfall aktiviert die native
+Fallback-Karte.
+
+0.4.7 entfernt den im 0.4.6-Test geloggten Coherent-Renderfehler durch eine
+Profilwertschleife ohne `Array.flatMap`. Die weiterhin minimale Fallback-Karte
+zeigt wieder ihren Basiskarten-/Layerdialog; Follow, Kompass, Profil und
+Werkzeuge bleiben dort verborgen. Tracker v345/Host 0.5.9 liefert die
+Darstellungsfeinarbeiten und nutzt fuer den Punktkontext primaer die gehostete
+GA Aviation DB mit regionalem OpenAIP-Proxy als Fallback.
+
+0.4.8 ist der abschliessende Parent-Fix fuer den Alpha-Kandidaten: Die im
+0.4.7-In-Sim-Test noch sichtbare `flight-strip` mit "Aktuelle Position" wird
+in der Tracker-aus-Fallback-Karte ebenfalls ausgeblendet. Basiskarte,
+Layerauswahl, Route und Flugzeugposition bleiben sichtbar. Tracker v345 und
+der tracker-gehostete Hoststand 0.5.9 bleiben unveraendert.
 
 Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
 die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen

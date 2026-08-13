@@ -278,6 +278,60 @@ an den originalen Kartentisch an: Bei aktivem Aero-Layer laeuft die Basiskarte
 mit 0,5 und die Aero-Karte mit 0,65 Deckkraft. Die Karte bleibt damit blass,
 waehrend Luftraumgrenzen und Beschriftungen fuehren.
 
+Host 0.5.7/v342 ergaenzt den lokalen GET-Vertrag additiv um
+`map.context.v1` unter `/api/v1/map-context?lat=...&lon=...&radiusNm=...`.
+Der Tracker validiert und begrenzt Koordinaten und Suchradius und fragt fuer
+den ausdruecklich ausgewaehlten Punkt OpenAIP ueber den GA-Proxy sowie
+Open-Meteo Elevation und Forecast ab. Upstream-Antworten sind zeit- und
+groessenbegrenzt, parallele identische Anfragen werden dedupliziert und
+hoechstens 64 kompakte Ergebnisse liegen kurzzeitig im RAM. Teilresultate
+bleiben nutzbar, wenn eine Quelle ausfaellt. Dieser Pfad ist read-only und
+veraendert weder Route noch Mission, Authority, SimConnect oder Web-App-Daten.
+Die notwendige Weitergabe der ausgewaehlten Koordinaten wurde vom Benutzer
+ausdruecklich freigegeben.
+
+EFB 0.4.5 behandelt die native Leaflet-Karte nicht mehr als gleichrangige
+Ansicht. Fehlt `efb.web-client.v1`, ist sie der sichtbare, rein darstellende
+Fallback fuer Basiskarte/Aero-Overlay, letzte Route und letzte Position. Alle
+weiteren nativen Karten-Chrome-Elemente bleiben verborgen. Sobald die
+Capability erscheint, setzt die Parent-App den tracker-gehosteten iframe als
+einzige Kartenansicht; faellt sie weg, wird der iframe verworfen und die
+Fallback-Karte wieder sichtbar. Host 0.5.8/v343 verwendet fuer geaenderte
+Host-CSS/-JS die Assetrevision `34301` und iframe-View `5`, damit Coherent keine
+vorherige Runtime aus dem Cache uebernimmt. Dieser Ansichtswechsel veraendert
+weder Missionsautoritaet noch Route oder SimConnect-Zustand.
+
+Der Windows-/In-Sim-Test von EFB 0.4.5 zeigte einen Fehler in dieser Parent-
+Umschaltung: Die Capability wurde vor der restlichen Poll-Darstellung
+aktiviert. Warf ein spaeterer Schritt, fing derselbe Catch-Block den Fehler als
+Transportausfall ab, setzte den iframe sofort auf `about:blank` und wiederholte
+den Zyklus jede Sekunde. EFB 0.4.6 trennt deshalb Kerntransport,
+optionale Endpunkte und Parent-Rendering. Ein aktiver Host-iframe bleibt bei
+ein oder zwei aufeinanderfolgenden Kernpollfehlern geladen; erst der dritte
+Fehler schaltet zur Fallback-Karte. Diagnosemeldungen nennen `core-error`,
+`render-error`, optionale Protokollfehler und die anschliessende Erholung.
+Tracker v344 beendet bei `EADDRINUSE` die neu gestartete zweite Instanz mit
+einem eindeutigen Fehler, statt ohne lokale EFB-Schnittstelle weiterzulaufen.
+
+EFB 0.4.7/Tracker v345 entfernt den danach im Log sichtbaren Parent-
+Renderfehler durch eine Coherent-taugliche Profilwertschleife. Die native
+Fallback-Karte behaelt Basiskarten- und Layerauswahl, waehrend Follow,
+Kompass, Profil und Werkzeuge verborgen bleiben. Der Punktkontext liest
+OpenAIP-Daten primaer aus derselben gehosteten GA Aviation DB wie die App und
+faellt bei einem Fehler auf den GA-Proxy zurueck. Dessen Abdeckung wird auf
+stabile 0,5-Grad-Schluessel quantisiert, damit benachbarte Kartenpunkte den
+gemeinsamen Cache nutzen. Terrain und Wetter bleiben parallele Open-Meteo-
+Abfragen; Antwort und Debuglog nennen Quelle, Modus und Einzellaufzeiten.
+Host-CSS/-JS verwenden Assetrevision `34501`, der Parent iframe-View `6`.
+Alle Pfade bleiben read-only und aendern weder die App-Dateien noch Mission,
+Route oder SimConnect-Zustand.
+
+EFB 0.4.8 korrigiert ausschliesslich die Parent-Sichtbarkeit der nativen
+Fallback-Karte: Neben Follow, Kompass, Profil und Werkzeugen wird auch die
+`flight-strip` mit der aktuellen Position ausgeblendet. Layerauswahl, Route
+und Flugzeugmarker bleiben erhalten. Der Trackervertrag und Host 0.5.9 sind
+gegenueber 0.4.7 unveraendert.
+
 Ab Webstand v1621 ist die im Kartentisch tatsaechlich aktive Route Bestandteil
 jedes bestehenden Authority-Resume-Bundles. Nach Missionsstart loest eine
 Routenmutation sofort `mission_snapshot_update` aus; dabei wird ein Profil der

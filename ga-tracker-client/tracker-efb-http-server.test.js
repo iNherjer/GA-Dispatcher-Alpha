@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const http = require('node:http');
+const path = require('node:path');
 const test = require('node:test');
 const {
   MAX_EFB_CLIENT_LOG_BYTES,
@@ -7,6 +9,16 @@ const {
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server');
+
+const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
+
+test('tracker v345 exits a duplicate instance when the fixed EFB port is already occupied', () => {
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v345'/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 345/);
+  assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
+  assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
+  assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);
+});
 
 function request(address, pathname, options = {}) {
   if (typeof options === 'string') options = { method: options };
@@ -45,6 +57,7 @@ test('local EFB hello advertises snapshots, web client and bounded client diagno
   assert.equal(hello.payload.runtimeChannel, 'alpha');
   assert.equal(hello.payload.capabilities.includes('efb.web-client.v1'), true);
   assert.equal(hello.payload.capabilities.includes('efb.client-diagnostics.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('map.context.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {
@@ -78,6 +91,16 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
       route: { start: 'EDDS', destination: 'EDTF', target: '' },
       cargo: { total: 2, required: 2, loaded: 2, unloaded: 0, pending: 0 }
     }),
+    mapContextProvider: {
+      get: async request => ({
+        schema: 'ga.map-context.v1',
+        position: { lat: request.lat, lon: request.lon },
+        terrainFt: 1337,
+        airspaces: [],
+        feature: null,
+        weather: null
+      })
+    },
     log: (line) => logs.push(line)
   });
   t.after(() => server.stop());
@@ -108,10 +131,17 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   assert.equal(map.message.payload.schema, 'ga.map-snapshot.v1');
   assert.equal(map.message.payload.route.waypoints.length, 2);
 
+  const mapContext = JSON.parse((await request(address, '/api/v1/map-context?lat=49.01303&lon=8.8385&radiusNm=3')).body);
+  assert.equal(mapContext.message.type, 'map.context');
+  assert.equal(mapContext.message.payload.available, true);
+  assert.equal(mapContext.message.payload.position.lat, 49.01303);
+  assert.equal(mapContext.message.payload.terrainFt, 1337);
+  assert.equal((await request(address, '/api/v1/map-context?lat=999&lon=8')).statusCode, 400);
+
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="4"/);
+  assert.match(webClient.body, /data-efb-view-version="5"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');

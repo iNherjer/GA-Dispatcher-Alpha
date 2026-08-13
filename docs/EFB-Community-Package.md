@@ -114,6 +114,33 @@ vorhandenem asynchronem Abruf nach. Alpha `v1619` sowie Local `v1603 / NO SW`
 koennen diesen Test nicht bestehen, weil ihnen diese Quelllogik fehlt. Das
 installierte Community-Paket 0.4.4 bleibt auch fuer v336 unveraendert.
 
+Tracker v343/Host 0.5.8 benoetigt erstmals wieder einen neuen Community-
+Package-Kandidaten: EFB 0.4.5 macht die native Karte zum reduzierten
+Tracker-aus-Fallback und wechselt bei `efb.web-client.v1` automatisch in die
+tracker-gehostete App-Karte. Der offizielle SDK-1.7.2-Build war formal korrekt,
+wurde nach dem In-Sim-Test aber verworfen: Ein Parent-Renderfehler entlud den
+iframe im Sekundentakt wieder auf `about:blank`. EFB 0.4.6/Tracker v344 ist der
+folgende Testkandidat. Er trennt Kernpoll und Parent-Rendering, toleriert zwei
+kurze Kernpollaussetzer bei aktiver App-Karte und verhindert parallele Tracker-
+Instanzen auf dem festen EFB-Port. Erst ein neuer offizieller SDK-Build samt
+positivem In-Sim-Test darf als Paketarchiv oder Kanalstand verwendet werden.
+0.4.4 bleibt bis dahin der Ruecksprungpunkt.
+
+Der 0.4.6/v344-In-Sim-Test bestaetigte den stabilen automatischen Wechsel,
+legte aber im Parent weiterhin den Coherent-Fehler `Array.flatMap is not a
+function` offen. EFB 0.4.7/Tracker v345 ist deshalb der naechste gemeinsame
+SDK-Testkandidat. Neben dem Parent-Fix bringt er die Layerauswahl der nativen
+Fallback-Karte zurueck; die weiteren Werkzeug-, Kontext- und Datenquellen-
+Feinarbeiten werden vom Tracker-Host 0.5.9 geliefert. Weder 0.4.7 noch v345
+duerfen vor offiziellem SDK-Build und positivem In-Sim-Test in Alpha oder
+Stable eingetragen werden.
+
+Der folgende 0.4.7/v345-In-Sim-Test bestaetigte den stabilen Kandidaten. Als
+einzige Parent-Abweichung blieb in der Fallback-Karte die `flight-strip` mit
+"Aktuelle Position" sichtbar. EFB 0.4.8 entfernt diesen Streifen und benoetigt
+wegen der kompilierten SCSS-Aenderung einen letzten offiziellen SDK-Build.
+Tracker v345 und Host 0.5.9 werden dafuer nicht neu versioniert oder ersetzt.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

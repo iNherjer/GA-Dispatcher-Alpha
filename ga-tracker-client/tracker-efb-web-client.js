@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
+const EFB_WEB_ASSET_REVISION = '34501';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -61,15 +62,15 @@ function createTrackerEfbWebClientPage() {
   <script>${getInlineBootstrapSource()}</script>
   <link rel="stylesheet" href="/efb/v1/assets/leaflet.css" onload="__gaEfbReport('info','style-loaded','leaflet.css')" onerror="__gaEfbReport('error','style-error','leaflet.css')">
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">
-  <link rel="stylesheet" href="/efb/v1/assets/host.css" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
+  <link rel="stylesheet" href="/efb/v1/assets/host.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','host.css')" onerror="__gaEfbReport('error','style-error','host.css')">
 </head>
-<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="4">
+<body class="map-is-fullscreen theme-classic ga-efb-tracker-host" data-efb-view-version="5">
 <div id="gaEfbBootStatus" class="ga-efb-boot-status">Kartentisch-Skripte werden geladen</div>
 ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/leaflet.js" onload="__gaEfbScriptLoaded('leaflet.js')" onerror="__gaEfbScriptError('leaflet.js')"></script>
 <script src="/efb/v1/assets/map-shell-core.js" onload="__gaEfbScriptLoaded('map-shell-core.js')" onerror="__gaEfbScriptError('map-shell-core.js')"></script>
 <script src="/efb/v1/assets/map-utility-tools.js" onload="__gaEfbScriptLoaded('map-utility-tools.js')" onerror="__gaEfbScriptError('map-utility-tools.js')"></script>
-<script src="/efb/v1/assets/host.js" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
+<script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;
 }
@@ -94,6 +95,7 @@ function getTrackerEfbWebClientAsset(pathname) {
 module.exports = {
   EFB_WEB_CLIENT_PATH,
   EFB_WEB_CLIENT_PROBE_PATH,
+  EFB_WEB_ASSET_REVISION,
   createTrackerEfbProbePage,
   createTrackerEfbWebClientPage,
   extractKartentischMarkup,

@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-12
+Stand: 2026-08-13
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v340 Testkandidat | v320 | v340 schliesst die E6B-Quelltrennung ab; EFB-Klappmenues, Karten-Langdruck und differenzierte Hindernissymbole bleiben aus v339 erhalten; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.4 Testkandidat | noch nicht verfuegbar | Das installierte 0.4.4-Paket bleibt fuer den v340-Test unveraendert; der gehostete Kartentisch wird aus dem Tracker geliefert |
+| Tracker-Runtime | v325 freigegeben / v345 Testkandidat | v320 | v345 liefert die EFB-Feinarbeiten und den bevorzugten gehosteten Luftfahrtdatenpfad; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.8 Source-Testkandidat | noch nicht verfuegbar | 0.4.8 behaelt die 0.4.7-Fixes und entfernt den verbliebenen Positionsstreifen aus der reduzierten Fallback-Karte |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
@@ -372,6 +372,58 @@ bei Viewport-Aenderungen an den tatsaechlich sichtbaren Browser-Viewport an.
 Die Instrumentgroesse bleibt unveraendert; nur sein Bewegungsraum folgt nun
 der realen Fensterbreite und -hoehe. Der geschuetzte Coherent-/EFB-Fork bleibt
 davon unberuehrt.
+
+Der anschliessende In-Sim-Test zeigte, dass der 650-ms-Karten-Langdruck im
+Coherent-EFB nicht ausloest. Der Host hatte diesen Pfad ausschliesslich an
+`pointer*`-Events gebunden, obwohl der Simulator bei bereits reparierten
+EFB-Eingaben je nach Oberflaeche `mouse*`- oder `touch*`-Events liefert. Der
+EFB-Host normalisiert deshalb nun alle drei Eingabefamilien, liest
+Touch-Koordinaten auch aus `touches` beziehungsweise `changedTouches` und
+beendet die Geste ueber Window-Listener. Synthetische Doppelereignisse werden
+entprellt. Diese Aenderung betrifft nur
+`ga-tracker-client/tracker-efb-kartentisch-host.js`; normale App-Dateien und
+ihre Eingabepfade bleiben unveraendert.
+
+Der In-Sim-Test von v341 bestaetigte danach den Karten-Langdruck, deckte aber
+den fachlich falschen Platzhalterpfad auf: Koordinaten und Popup-Anker kamen
+vom gedrueckten Punkt, waehrend Terrain, Luftraum und Objektkarte weiterhin
+vom naechsten Routenprofilpunkt beziehungsweise Wegpunkt stammten. Host
+0.5.7/v342 ersetzt diese Naeherung durch den additiven, read-only
+Loopback-Vertrag `map.context.v1` unter `/api/v1/map-context`. Der Tracker
+fragt fuer die explizit gedrueckten Koordinaten OpenAIP ueber den vorhandenen
+GA-Proxy sowie Open-Meteo Elevation und Forecast ab, begrenzt Radius,
+Antwortgroesse, Timeout und RAM-Cache und liefert Teilresultate bei
+Quellenfehlern. Der Benutzer hat die dafuer notwendige Weitergabe der
+gedrueckten Koordinaten am 2026-08-12 ausdruecklich freigegeben.
+
+Das EFB zeigt daraus das tatsaechliche Gelaende, eigene Hoehe, die am Punkt
+enthaltenen Luftraeume samt Grenzen/Frequenzen, Punktwetter und nur ein im
+aktuellen Kartenmassstab nahes Luftfahrtobjekt. Routenwegpunkte werden nicht
+mehr als Ortsinhalt eingesetzt. Hoehenband, Wolken-/Niederschlagshinweis,
+Luftraumkarten, Wetterkarte und Windrose orientieren sich staerker am
+Original-Kontextmenue der App. Normale App-Dateien bleiben unveraendert.
+
+Der folgende In-Sim-Vergleich von v342 bestaetigte die korrekte Ortsbindung,
+zeigte aber zwei verbleibende UI-Luecken: Die native Karte blieb trotz
+Tracker-Verbindung als manuell waehlbare Parallelansicht bestehen und der
+Punktkontext war dichter und deutlich kleiner gesetzt als das Original.
+EFB-Sourcekandidat 0.4.5 macht die native Karte deshalb zu einer reinen
+Tracker-aus-Fallback-Karte. Sie zeigt nur Basiskarte/Aero-Overlay, letzte Route
+und letzte Position; Positionsbanner, Kompass, Profil, Werkzeuge und Status-
+Navigation bleiben dort unsichtbar. Die schmale Fallback-Menueleiste liegt
+unterhalb des Simulator-Chromes und erklaert ihren Zustand. Sobald
+`efb.web-client.v1` verfuegbar ist, wechselt die App ohne Benutzereingriff in
+den tracker-gehosteten Kartentisch; bei Verbindungsverlust kehrt sie zur
+Fallback-Karte zurueck.
+
+Tracker v343/Host 0.5.8 vergroessert Popup, Schrift, Zeilenabstand und
+Touchflaechen, ordnet Hoehenband und Detailkarten ueber identische nummerierte
+Luftraummarker zu und blendet den Kompass waehrend des Kontexts aus. Nahe
+Flugplaetze erhalten eine App-nahe Vollansicht mit ICAO/Name, Hoehe,
+Entfernung/Peilung, Pisten, Frequenzen, AIP-Link sowie eingebettetem
+Punktwetter, Windrose, QNH und abgeleiteter Flugwetterkategorie. Eine
+Assetrevision in Host-CSS/-JS und iframe-View verhindert, dass Coherent nach
+einem Trackerwechsel den vorherigen Hoststand aus dem Cache verwendet.
 
 ## Roadmap
 
@@ -793,14 +845,42 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       `ga-dispatcher-v1624` in Local gegentesten. Ergebnis: Klappmenues,
       Karten-Langdruck und Kontext sind vorhanden, aber der normale App-E6B
       zeigt wegen unvollstaendiger Quelltrennung zwei Buttonsets.
-- [ ] Tracker v340 / Host 0.5.5 mit vorhandenem EFB 0.4.4 und Webstand
-      `ga-dispatcher-v1626` auf Windows/In-Sim testen: In Local/Alpha darf nur
-      das originale, mitbewegte E6B-Buttonset sichtbar sein; im EFB muss nur
-      das Coherent-Ersatzset erscheinen. Das App-E6B muss sich auch auf einem
-      breiten Bildschirm bis an alle sichtbaren Kartentischraender schieben
-      lassen. Danach Klappmenues, 650-ms-
-      Karten-Langdruck, Kontextfenster und Hindernissymbole gegenpruefen. Der Ruecksprungpunkt
-      `efb-v0.4.1-sdk-input` bleibt unangetastet.
+- [x] Tracker v340 / Host 0.5.5 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1626` auf Windows/In-Sim getestet: E6B-Quelltrennung ist
+      vorhanden; der 650-ms-Karten-Langdruck loest im Coherent-EFB jedoch
+      wegen des reinen Pointer-Pfads nicht aus.
+- [x] Tracker v341 / Host 0.5.6 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      getestet: Der Langdruck oeffnet das Kontextfenster. Das Fenster bezog
+      seine Inhalte jedoch noch falsch vom naechsten Routenwegpunkt statt vom
+      gedrueckten Kartenpunkt.
+- [x] Tracker v342 / Host 0.5.7 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      geprueft: Der Langdruck zeigt den lokalen Flugplatz, das tatsaechliche
+      Gelaende, Wetter und die Luftraeume am Kartenpunkt statt eines fernen
+      Routenwegpunkts. Offen blieben Lesbarkeit, eindeutige Zuordnung im
+      Hoehenband, Flugplatz-Vollansicht und die parallele native Karte.
+- [x] Tracker v343 / Host 0.5.8 zusammen mit dem offiziell gebauten EFB-0.4.5-
+      Community-Paket auf Windows/In-Sim geprueft und als Releasekandidat
+      verworfen: Nach dem Tracker-Handshake wechselte die Parent-App im
+      Sekundentakt in den iframe und wegen eines spaeteren Poll-/Renderfehlers
+      sofort wieder auf `about:blank`. Neustartversuche erzeugten zusaetzlich
+      `EADDRINUSE`, weil die erste Tracker-Instanz Port 49880 weiter belegte.
+- [x] Tracker v344 / Host 0.5.8 zusammen mit dem offiziell neu gebauten
+      EFB-0.4.6-Community-Paket auf Windows/In-Sim pruefen: Der iframe muss
+      nach erfolgreichem Handshake geladen bleiben; einzelne Poll- oder
+      Parent-Renderfehler duerfen ihn nicht entladen. Erst drei aufeinander-
+      folgende Kernfehler duerfen zur Fallback-Karte wechseln. Eine zweite
+      Tracker-Instanz muss mit eindeutiger Portmeldung beendet werden. Danach
+      den Punktkontext bei EDTL und den Rueckwechsel bei echtem Tracker-Ende
+      erneut pruefen. Normale App-Dateien und der Web-App-Cache bleiben
+      unveraendert.
+- [ ] Tracker v345 / Host 0.5.9 zusammen mit dem offiziell neu gebauten
+      EFB-0.4.7-Community-Paket auf Windows/In-Sim pruefen: Parent-Profil ohne
+      `Array.flatMap`, Fallback-Layerauswahl, 30 Prozent kleineres E6B,
+      kontrastreiches Rechner-Formblatt, zentrierte Luftraumlabels,
+      Piste in der Wetter-Windrose, entfernten AIP-Link und Toolbar-X sowie
+      ASCII-sichere Kontexttexte pruefen. Der Datenfooter und das Debuglog
+      muessen Quelle und Einzelzeiten nennen; normale App-Dateien bleiben
+      unveraendert.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -828,6 +908,53 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Der 0.4.6/v344-In-Sim-Test bestaetigt stabilen iframe-Wechsel
+  und Rueckfall, zeigt im Parent aber weiterhin einen Coherent-Renderfehler an
+  `Array.flatMap`. EFB 0.4.7 ersetzt ihn durch eine Schleife und laesst in der
+  reduzierten Fallback-Karte ausschliesslich die Basiskarten-/Layerauswahl
+  wieder zu. Tracker v345/Host 0.5.9 verkleinert E6B und verbessert Rechner-
+  Formblatt sowie Punktkontext. Luftfahrtdaten verwenden primaer die bereits
+  von der App genutzte gehostete GA Aviation DB; bei Fehlern folgt der
+  OpenAIP-Regioncache mit stabilen 0,5-Grad-Schluesseln. Wetter und Terrain
+  bleiben parallele Open-Meteo-Abfragen. Quelle und Laufzeit werden getrennt
+  diagnostiziert.
+
+- 2026-08-13: EFB 0.4.7/Tracker v345 wurde im Simulator als stabil
+  bestaetigt. In der Tracker-aus-Fallback-Karte blieb jedoch die native
+  `flight-strip` mit "Aktuelle Position" sichtbar. EFB 0.4.8 blendet auch
+  dieses Chrome-Element aus; Tracker v345/Host 0.5.9 bleibt unveraendert.
+  Wegen der Parent-CSS-Aenderung ist vor dem Alpha-Release ein letzter
+  offizieller SDK-Build erforderlich.
+
+- 2026-08-12: EFB 0.4.6 behandelt Tracker-Kernpoll, optionale Snapshots und
+  Parent-Darstellung als getrennte Fehlerbereiche. Eine erfolgreiche
+  Capability-Erkennung startet den Host-iframe nur nach gueltiger Status- und
+  Snapshotverarbeitung; spaetere Darstellungsfehler koennen ihn nicht mehr
+  sofort entladen. Bei einer bestehenden App-Karte werden bis zu zwei
+  aufeinanderfolgende Kernpollfehler toleriert und als
+  `efb.client-diagnostics.v1` protokolliert. Tracker v344 beendet eine zweite
+  Instanz gezielt, wenn Port 49880 bereits belegt ist.
+
+- 2026-08-12: EFB 0.4.5 trennt die native Fallback-Karte von der
+  tracker-gehosteten App-Karte. Die Fallback-Karte ist nur bei fehlendem
+  `efb.web-client.v1` sichtbar und enthaelt ausschliesslich Karte/Aero-Overlay,
+  letzte Route und letzte Position. Tracker v343/Host 0.5.8 vergroessert und
+  strukturiert `Was ist hier?`, fuegt die Flugplatz-Vollansicht hinzu und
+  versioniert die geaenderten Hostassets gegen Coherent-Caches. Diese Arbeiten
+  bleiben auf EFB- und Tracker-Dateien begrenzt.
+
+- 2026-08-12: Host 0.5.7/v342 fuehrt `map.context.v1` als begrenzten
+  Tracker-Loopback-Vertrag ein. Nach ausdruecklicher Benutzerfreigabe werden
+  nur die gedrueckten Koordinaten fuer OpenAIP-/Open-Meteo-Leseabfragen
+  verwendet. Der Host zeigt keine Routenwegpunkte mehr als Ersatz fuer
+  Ortsdaten und uebernimmt Aufbau und Inhalte des originalen App-Kontexts
+  enger, ohne gemeinsame App-Dateien zu aendern.
+
+- 2026-08-12: Host 0.5.6/v341 verwendet fuer den EFB-Karten-Langdruck im tracker-gehosteten
+  Kartentisch einen isolierten Pointer-/Mouse-/Touch-Adapter. Damit folgt der
+  Kontextpfad den nachgewiesenen Coherent-Eingabefallbacks, ohne `map.js`,
+  `map-utility-tools.js`, E6B-App-Dateien oder den Web-App-Cache zu aendern.
 
 - 2026-08-12: Webstand v1626 ersetzt fuer das normale App-E6B die feste
   `320%`-Iframe-Arbeitsflaeche zur Laufzeit durch den realen Visual Viewport.

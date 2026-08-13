@@ -18,6 +18,10 @@ const {
   createTrackerEfbTileProxy,
   parseTrackerEfbTilePath
 } = require('./tracker-efb-tile-proxy');
+const {
+  createTrackerEfbMapContextProvider,
+  parseTrackerEfbMapContextQuery
+} = require('./tracker-efb-map-context');
 
 const DEFAULT_EFB_HTTP_HOST = '127.0.0.1';
 const DEFAULT_EFB_HTTP_PORT = 49880;
@@ -26,6 +30,7 @@ const MAX_EFB_CLIENT_LOG_BYTES = 8192;
 const MAX_EFB_CLIENT_LOGS_PER_MINUTE = 120;
 const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.FLIGHT_SNAPSHOT,
+  CAPABILITIES.MAP_CONTEXT,
   CAPABILITIES.MAP_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT_V2,
@@ -195,6 +200,11 @@ function createTrackerEfbHttpServer(options = {}) {
     fetchRemote: options.fetchRemote,
     log
   });
+  const mapContextProvider = options.mapContextProvider || createTrackerEfbMapContextProvider({
+    fetchRemote: options.fetchRemote,
+    getCurrentAltitudeFt: () => safeObject(getSnapshot()).alt,
+    log
+  });
 
   const handler = async (request, response) => {
     if (!isLoopbackAddress(request.socket?.remoteAddress)) {
@@ -285,6 +295,21 @@ function createTrackerEfbHttpServer(options = {}) {
         hello,
         message: createMessage('map.snapshot', snapshot && typeof snapshot === 'object'
           ? { ...snapshot, available: true }
+          : { available: false })
+      });
+      return;
+    }
+    if (pathname === '/api/v1/map-context') {
+      const contextRequest = parseTrackerEfbMapContextQuery(requestUrl?.searchParams);
+      if (!contextRequest) {
+        jsonResponse(response, 400, { error: 'invalid_map_context_coordinates' });
+        return;
+      }
+      const context = await mapContextProvider.get(contextRequest);
+      jsonResponse(response, 200, {
+        hello,
+        message: createMessage('map.context', context && typeof context === 'object'
+          ? { ...context, available: true }
           : { available: false })
       });
       return;

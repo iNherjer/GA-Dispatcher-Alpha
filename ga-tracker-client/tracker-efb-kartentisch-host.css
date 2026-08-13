@@ -28,6 +28,7 @@ body.ga-efb-tracker-host .win95-window-resize-handles,
 body.ga-efb-tracker-host .win95-overlay-minimize-btn,
 body.ga-efb-tracker-host .win95-overlay-close-btn,
 body.ga-efb-tracker-host .map-fullscreen-close-btn,
+body.ga-efb-tracker-host #mapToolbarInner .pb-btn.close,
 body.ga-efb-tracker-host #mapHintsBtn,
 body.ga-efb-tracker-host #mapHintsMenu,
 body.ga-efb-tracker-host #mapVoiceBtn,
@@ -475,6 +476,13 @@ body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-tip {
   background: rgba(7, 20, 29, .98);
 }
 
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border: 1px solid rgba(83, 211, 255, .72);
+  border-radius: 11px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .55);
+}
+
 body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content {
   width: min(450px, calc(100vw - 78px)) !important;
   margin: 0 !important;
@@ -488,13 +496,16 @@ body.ga-efb-tracker-host.ga-efb-context-open .telemetry-box {
   visibility: hidden !important;
 }
 
+body.ga-efb-tracker-host.ga-efb-context-open #compassRoseWrap {
+  visibility: hidden !important;
+}
+
 body.ga-efb-tracker-host .ga-efb-context-panel {
   overflow: hidden;
-  border: 1px solid #37515e;
-  border-radius: 5px;
+  border-radius: 10px;
   color: #e8f1f4;
-  background: rgba(6, 19, 28, .99);
-  font: 11px/1.35 Arial, sans-serif;
+  background: rgba(7, 14, 22, .99);
+  font: 650 11px/1.38 'Courier New', monospace;
 }
 
 body.ga-efb-tracker-host .ga-efb-context-panel > header {
@@ -536,16 +547,20 @@ body.ga-efb-tracker-host .ga-efb-context-close {
 
 body.ga-efb-tracker-host .ga-efb-context-body {
   display: grid;
-  grid-template-columns: 94px minmax(0, 1fr);
-  min-height: 250px;
+  grid-template-columns: 108px minmax(0, 1fr);
+  min-height: 280px;
   max-height: min(520px, calc(100vh - 175px));
 }
 
 body.ga-efb-tracker-host .ga-efb-context-height {
   position: relative;
-  min-height: 250px;
+  min-height: 280px;
   border-right: 1px solid #33505d;
-  background: linear-gradient(#98dcfb 0 72%, #60834d 72% 100%);
+  background: linear-gradient(#b5e7fb 0 72%, #78a55c 72% 100%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height.is-loading {
+  filter: saturate(.72);
 }
 
 body.ga-efb-tracker-host .ga-efb-context-height-title {
@@ -606,10 +621,87 @@ body.ga-efb-tracker-host .ga-efb-context-height-airspace {
 body.ga-efb-tracker-host .ga-efb-context-height-airspace b {
   display: block;
   overflow: hidden;
-  color: #11232b;
-  font: 700 6px/1 monospace;
+  color: #071820;
+  font: 900 11px/1 'Courier New', monospace;
   text-align: center;
   white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-cloud {
+  position: absolute;
+  right: -8px;
+  left: 6px;
+  z-index: 1;
+  min-height: 8px;
+  overflow: hidden;
+  border-radius: 48% 52% 46% 54% / 40% 48% 52% 60%;
+  background: linear-gradient(to bottom, rgba(242, 246, 249, .9), rgba(126, 139, 151, .8));
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, .7), 0 1px 3px rgba(33, 48, 58, .35);
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-cloud b {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #40515c;
+  font: 900 7px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-precipitation {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  left: 7px;
+  z-index: 2;
+  opacity: .56;
+  background: repeating-linear-gradient(103deg, transparent 0 5px, #247dcc 5px 7px, transparent 7px 12px);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature {
+  position: absolute;
+  right: -1px;
+  left: -1px;
+  z-index: 8;
+  height: 0;
+  border-top: 2px solid #facc15;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature::before {
+  position: absolute;
+  top: -4px;
+  left: -1px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #5b4300;
+  border-radius: 50%;
+  background: #facc15;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature b {
+  position: absolute;
+  top: -9px;
+  right: 1px;
+  padding: 1px 2px;
+  border-radius: 2px;
+  color: #5b4300;
+  background: rgba(255, 247, 190, .94);
+  font: 900 7px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 12;
+  padding: 3px 4px;
+  border-radius: 3px;
+  color: #123144;
+  background: rgba(255, 255, 255, .82);
+  font: 900 7px/1 'Courier New', monospace;
+  transform: translate(-50%, -50%);
 }
 
 body.ga-efb-tracker-host .ga-efb-context-height-terrain {
@@ -662,6 +754,13 @@ body.ga-efb-tracker-host .ga-efb-context-details {
 
 body.ga-efb-tracker-host .ga-efb-context-details section {
   margin: 0 0 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(83, 211, 255, .14);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details > section:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 body.ga-efb-tracker-host .ga-efb-context-details h4 {
@@ -705,6 +804,12 @@ body.ga-efb-tracker-host .ga-efb-context-summary span {
   gap: 8px;
 }
 
+body.ga-efb-tracker-host .ga-efb-context-summary strong {
+  color: #eef7fa;
+  font-size: 9px;
+  text-align: right;
+}
+
 body.ga-efb-tracker-host .ga-efb-context-summary b {
   color: #8ba7b2;
 }
@@ -744,6 +849,201 @@ body.ga-efb-tracker-host .ga-efb-context-airspaces span small {
   font-size: 8px;
 }
 
+body.ga-efb-tracker-host .ga-efb-context-airspaces .ga-efb-context-airspace-frequencies {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies i {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies em {
+  color: #8fa9b4;
+  font: 800 8px/1.2 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies b {
+  color: #69ded0 !important;
+  font: 900 9px/1.2 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-source {
+  margin-top: 4px;
+  color: #6f8995;
+  font-size: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-busy::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border: 1px solid rgba(83, 211, 255, .28);
+  border-top-color: #53d3ff;
+  border-radius: 50%;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-error {
+  padding: 6px;
+  border: 1px solid rgba(248, 113, 113, .55);
+  border-radius: 4px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, .24);
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather {
+  overflow: hidden;
+  padding: 7px;
+  border: 2px solid #c2bba8;
+  border-radius: 8px;
+  color: #29251e;
+  background: #f0eada;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, .25), inset 0 1px 4px rgba(255, 255, 255, .6);
+  font-family: Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 2px dashed #c2bba8;
+  color: #8a1a12;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header b {
+  font: 900 9px/1.1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header span,
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  color: #69675f;
+  font: 800 6px/1.2 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values > span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values > span.is-wide {
+  grid-column: 1 / -1;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values small {
+  color: #666;
+  font: 900 6px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b {
+  overflow: hidden;
+  color: #111;
+  font: 900 8px/1.08 'Courier New', monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b.is-wind {
+  color: #1a73e8;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border: 3px solid #a8a291;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #fcfaf5;
+  box-shadow: inset 0 2px 7px rgba(0, 0, 0, .12), 0 2px 5px rgba(0, 0, 0, .18);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > b,
+body.ga-efb-tracker-host .ga-efb-context-windrose > span,
+body.ga-efb-tracker-host .ga-efb-context-windrose > em,
+body.ga-efb-tracker-host .ga-efb-context-windrose > small {
+  position: absolute;
+  color: #222;
+  font: 900 8px/1 Arial, sans-serif;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > b { top: 3px; left: 50%; transform: translateX(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > span { top: 50%; right: 3px; transform: translateY(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > em { bottom: 3px; left: 50%; transform: translateX(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > small { top: 50%; left: 3px; transform: translateY(-50%); }
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > i {
+  position: absolute;
+  top: 6px;
+  bottom: 50%;
+  left: calc(50% - 1px);
+  width: 3px;
+  border-radius: 2px;
+  background: #1a73e8;
+  transform-origin: 50% 100%;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > i::after {
+  position: absolute;
+  bottom: -5px;
+  left: -4px;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+  border-top: 12px solid #1a73e8;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > strong {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #1a73e8;
+  font: 900 8px/1 Arial, sans-serif;
+  transform: translate(-50%, -50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  margin-top: 4px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-point {
+  animation: gaEfbContextPointPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes gaEfbContextPointPulse {
+  0%, 100% { stroke-opacity: 1; fill-opacity: .92; }
+  50% { stroke-opacity: .55; fill-opacity: .45; }
+}
+
 body.ga-efb-tracker-host .ga-efb-context-panel > footer {
   padding: 5px 8px;
   border-top: 1px solid #314853;
@@ -751,6 +1051,482 @@ body.ga-efb-tracker-host .ga-efb-context-panel > footer {
   background: #08141b;
   font: 8px/1.2 monospace;
   text-align: right;
+}
+
+/* Host 0.5.8: lesbarer, eindeutig zuordenbarer Kartenkontext. */
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content {
+  width: min(540px, calc(100vw - 64px)) !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel {
+  font: 650 13px/1.48 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header {
+  padding: 10px 42px 9px 12px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header small {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header strong {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-close {
+  top: 9px;
+  right: 9px;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  line-height: 26px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-body {
+  grid-template-columns: 132px minmax(0, 1fr);
+  min-height: 310px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height {
+  min-height: 310px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title {
+  top: 7px;
+  left: 7px;
+  font-size: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title small {
+  margin-top: 3px;
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale {
+  top: 34px;
+  bottom: 10px;
+  width: 33px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale span {
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot {
+  top: 34px;
+  right: 6px;
+  bottom: 10px;
+  left: 39px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace {
+  right: 2px;
+  left: 2px;
+  min-height: 2px;
+  overflow: hidden;
+  border-width: 2px;
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 0 0 1px var(--ga-context-color);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label {
+  position: absolute;
+  z-index: 10;
+  display: grid;
+  left: 50%;
+  gap: 2px;
+  width: calc(100% - 8px);
+  min-width: 24px;
+  color: #0a202a;
+  font-style: normal;
+  place-items: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 3px;
+  border: 1px solid var(--ga-context-color);
+  border-radius: 3px;
+  background: rgba(245, 252, 255, .96);
+  font: 900 10px/1 'Courier New', monospace;
+  line-height: 1;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ga-context-color);
+  font: 900 8px/1 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label small {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  padding: 2px 3px;
+  border: 1px solid rgba(10, 32, 42, .25);
+  border-radius: 2px;
+  color: #102832;
+  background: rgba(245, 252, 255, .94);
+  font: 900 7px/1.1 'Courier New', monospace;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b,
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label small {
+  max-width: calc(100% - 4px);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-terrain {
+  z-index: 5;
+  min-height: 3px;
+  border-top: 2px solid #234d1d;
+  background: linear-gradient(to bottom, #75a95a, #315f2c);
+  clip-path: polygon(0 18%, 17% 5%, 34% 20%, 53% 4%, 72% 16%, 88% 7%, 100% 15%, 100% 100%, 0 100%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot > em {
+  right: 3px;
+  padding: 2px 3px;
+  border: 1px solid rgba(35, 77, 29, .55);
+  border-radius: 2px;
+  color: #173712;
+  background: rgba(245, 255, 232, .94);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature b {
+  top: -11px;
+  padding: 2px 4px;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details {
+  padding: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details section {
+  margin-bottom: 12px;
+  padding-top: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details h4 {
+  margin-bottom: 7px;
+  font-size: 11px;
+  letter-spacing: .8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature,
+body.ga-efb-tracker-host .ga-efb-context-frequency,
+body.ga-efb-tracker-host .ga-efb-context-summary {
+  gap: 5px;
+  padding: 9px;
+  border-radius: 6px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature small {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature strong {
+  font-size: 14px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature span,
+body.ga-efb-tracker-host .ga-efb-context-frequency span,
+body.ga-efb-tracker-host .ga-efb-context-summary strong,
+body.ga-efb-tracker-host .ga-efb-context-summary b,
+body.ga-efb-tracker-host .ga-efb-context-muted {
+  font-size: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span {
+  margin-top: 7px;
+  padding: 8px 9px;
+  border-left-width: 4px;
+  border-radius: 5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > b > i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ga-context-color);
+  font: 900 10px/1 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > small {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies em,
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies b {
+  font-size: 10px !important;
+  line-height: 1.35;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-source {
+  margin-top: 6px;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget {
+  overflow: hidden;
+  padding: 0 !important;
+  border: 1px solid rgba(250, 204, 21, .72) !important;
+  border-radius: 7px;
+  background: #edf7fb;
+  box-shadow: 0 4px 11px rgba(0, 0, 0, .28);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  color: #fff;
+  background: #141711;
+  border-bottom: 2px solid #d7b619;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header small {
+  color: #f4d72a;
+  font: 900 10px/1.1 'Courier New', monospace;
+  letter-spacing: .5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header strong {
+  overflow: hidden;
+  font: 900 13px/1.2 'Courier New', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-sheet {
+  padding: 9px;
+  color: #172b36;
+  background: #edf7fb;
+  font-family: 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 7px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #9eb3bd;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity b {
+  font-size: 16px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics > span {
+  display: grid;
+  gap: 2px;
+  padding: 5px 6px;
+  border: 1px solid #b9c9cf;
+  border-radius: 4px;
+  background: #f8fcfd;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics small {
+  color: #697d86;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row {
+  display: grid;
+  grid-template-columns: 34px minmax(52px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 0;
+  border-top: 1px solid #b9c9cf;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > b {
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #fff;
+  background: #31576a;
+  font-size: 8px;
+  text-align: center;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > strong {
+  color: #132630;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > span {
+  overflow: hidden;
+  color: #405762;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row.is-muted {
+  grid-template-columns: 34px minmax(0, 1fr);
+  color: #6f828a;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget .ga-efb-context-weather {
+  margin: 0 8px 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather {
+  padding: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category {
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: #118f32;
+  background: #f4fff5;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-mvfr {
+  color: #1966bd;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-ifr {
+  color: #c21d25;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-lifr {
+  color: #9c27b0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-body {
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values {
+  gap: 6px 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values small {
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose {
+  width: 88px;
+  height: 88px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway rect {
+  fill: #4b4b48;
+  stroke: #151515;
+  stroke-width: 1.5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway line {
+  stroke: #f3f0dc;
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway text {
+  fill: #fff;
+  font: 900 9px/1 Arial, sans-serif;
+  text-anchor: middle;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-wind-arrow line {
+  stroke: #1a73e8;
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-wind-arrow polygon {
+  fill: #1a73e8;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-cardinal,
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-calm {
+  fill: #222;
+  font: 900 9px/1 Arial, sans-serif;
+  text-anchor: middle;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-calm {
+  fill: #1a73e8;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  margin-top: 6px;
+  font-size: 7px;
 }
 
 body.ga-efb-tracker-host .telemetry-box {
@@ -1024,4 +1800,58 @@ body.ga-efb-tracker-host #autoFollowBtn {
     flex-basis: 22%;
     min-height: 94px;
   }
+}
+
+/* Coherent renders the shared notebook gradients nearly transparent. */
+body.ga-efb-tracker-host .calculator-formula-drawer,
+body.ga-efb-tracker-host .formula-help-card {
+  border: 2px solid #5d656c !important;
+  background: #f7f4e8 !important;
+  color: #1b252c !important;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .72) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .calculator-formula-drawer {
+  z-index: 40 !important;
+  min-width: 330px;
+  padding: 20px 16px 18px 24px !important;
+  transform: translateX(-14px) !important;
+}
+
+body.ga-efb-tracker-host .map-calculator-device.formula-open .calculator-formula-drawer,
+body.ga-efb-tracker-host .map-calculator-device.formula-open.formula-left .calculator-formula-drawer,
+body.ga-efb-tracker-host .map-calculator-device.formula-open.formula-under .calculator-formula-drawer {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+body.ga-efb-tracker-host .formula-drawer-title,
+body.ga-efb-tracker-host .formula-section-toggle,
+body.ga-efb-tracker-host .formula-panel,
+body.ga-efb-tracker-host .formula-panel strong,
+body.ga-efb-tracker-host .formula-help-trigger,
+body.ga-efb-tracker-host .formula-help-title,
+body.ga-efb-tracker-host .formula-help-body {
+  color: #1b252c !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .formula-section-toggle {
+  background: #e4e1d6 !important;
+  font-size: 15px !important;
+}
+
+body.ga-efb-tracker-host .formula-panel,
+body.ga-efb-tracker-host .formula-help-body {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+/* Standardansicht: linear 30 Prozent kleiner; Vollbild bleibt unveraendert. */
+body.ga-efb-tracker-host .map-e6b-device.map-e6b-half {
+  transform: scale(.7) !important;
+  transform-origin: 50% 50% !important;
 }

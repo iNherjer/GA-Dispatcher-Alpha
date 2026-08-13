@@ -5,6 +5,7 @@ const test = require('node:test');
 const {
   EFB_WEB_CLIENT_PATH,
   EFB_WEB_CLIENT_PROBE_PATH,
+  EFB_WEB_ASSET_REVISION,
   createTrackerEfbProbePage,
   createTrackerEfbWebClientPage,
   extractKartentischMarkup,
@@ -17,14 +18,17 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.match(page, /data-efb-view-version="4"/);
+  assert.equal(EFB_WEB_ASSET_REVISION, '34501');
+  assert.match(page, /data-efb-view-version="5"/);
+  assert.match(page, /host\.css\?v=34501/);
+  assert.match(page, /host\.js\?v=34501/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
   assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=34501"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
@@ -32,7 +36,7 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
     '/efb/v1/assets/leaflet.js',
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/map-utility-tools.js',
-    '/efb/v1/assets/host.js'
+    '/efb/v1/assets/host.js?v=34501'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -125,7 +129,27 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /profile\.obstacles/);
   assert.match(hostSource, /makeHostMenu/);
   assert.match(hostSource, /bindMapContextLongPress/);
+  assert.match(hostSource, /function mapContextEventPoint\(event\)/);
+  assert.match(hostSource, /event\.changedTouches && event\.changedTouches\.length/);
+  assert.match(hostSource, /addEventListener\('pointerdown', begin, true\)/);
+  assert.match(hostSource, /addEventListener\('mousedown', begin, true\)/);
+  assert.match(hostSource, /addEventListener\('touchstart', begin, true\)/);
+  assert.match(hostSource, /addEventListener\('touchend', end, true\)/);
   assert.match(hostSource, /ga-efb-context-panel/);
+  assert.match(hostSource, /\/api\/v1\/map-context\?lat=/);
+  assert.match(hostSource, /aviationSource \+ ' \+ ' \+ weatherSource/);
+  assert.match(hostSource, /PUNKTWETTER/);
+  assert.match(hostSource, /ga-efb-context-airport-widget/);
+  assert.match(hostSource, /FLUGPLATZ \| VOLLANSICHT/);
+  assert.doesNotMatch(hostSource, /AIP VFR OEFFNEN/);
+  assert.match(hostSource, /ga-efb-context-runway/);
+  assert.match(hostSource, /labelTop = clamp\(bandTop \+ \(bandHeight \/ 2\)/);
+  assert.match(hostSource, /querySelectorAll\('\.pb-btn\.close'\)[\s\S]*?button\.parentNode\.removeChild\(button\)/);
+  assert.doesNotMatch(hostSource, /[·°—–…−×÷⌃⌫↻]/);
+  assert.match(hostSource, /mapContextFlightCategory/);
+  assert.match(hostSource, /pressureMslHpa/);
+  assert.doesNotMatch(hostSource, /nearestRouteWaypoint/);
+  assert.doesNotMatch(hostSource, /Kein Routenluftraum/);
   assert.match(hostSource, /650/);
   assert.match(hostSource, /\{ url: definition\.url, label: 'direct' \}/);
   assert.match(hostSource, /\{ url: definition\.localUrl, label: 'tracker-proxy' \}/);
@@ -147,6 +171,45 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
   assert.match(hostSource, /routeRenderer = L\.svg/);
   assert.match(hostSource, /map\.removeLayer\(layer\)/);
   assert.match(hostCss, /#map img\.ga-efb-map-tile \{[\s\S]*?visibility: visible !important;[\s\S]*?mix-blend-mode: normal !important;/);
+  assert.match(hostCss, /\.ga-efb-context-weather/);
+  assert.match(hostCss, /\.ga-efb-context-height-cloud/);
+  assert.match(hostCss, /\.ga-efb-context-point/);
+  assert.match(hostCss, /\.ga-efb-context-airport-widget/);
+  assert.match(hostCss, /\.ga-efb-context-airspaces > span > b > i/);
+  assert.match(hostCss, /grid-template-columns: 132px minmax\(0, 1fr\)/);
+  assert.match(hostCss, /\.map-e6b-device\.map-e6b-half \{[\s\S]*?transform: scale\(\.7\) !important/);
+  assert.match(hostCss, /\.calculator-formula-drawer,[\s\S]*?background: #f7f4e8 !important/);
+  assert.match(hostCss, /\.ga-efb-context-windrose \.ga-efb-context-runway rect/);
+});
+
+test('EFB map long-press input normalizes mouse, pointer and touch coordinates', () => {
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8');
+  const inputTypeSource = hostSource.match(/function mapContextInputType\(event\) \{[\s\S]*?\n  \}\n\n  function mapContextEventPoint/)?.[0]
+    .replace(/\n\n  function mapContextEventPoint$/, '');
+  const eventPointSource = hostSource.match(/function mapContextEventPoint\(event\) \{[\s\S]*?\n  \}\n\n  function bindMapContextLongPress/)?.[0]
+    .replace(/\n\n  function bindMapContextLongPress$/, '');
+  assert.ok(inputTypeSource);
+  assert.ok(eventPointSource);
+  const mapContextInputType = new Function(`return (${inputTypeSource});`)();
+  const mapContextEventPoint = new Function(
+    'mapContextInputType',
+    'isFiniteNumber',
+    `return (${eventPointSource});`
+  )(mapContextInputType, (value) => typeof value === 'number' && Number.isFinite(value));
+
+  assert.deepEqual(mapContextEventPoint({ type: 'mousedown', clientX: 12, clientY: 34, button: 0 }), {
+    x: 12, y: 34, key: 'mouse:0', inputType: 'mouse'
+  });
+  assert.deepEqual(mapContextEventPoint({ type: 'pointerdown', clientX: 20, clientY: 40, pointerId: 7 }), {
+    x: 20, y: 40, key: 'pointer:7', inputType: 'pointer'
+  });
+  assert.deepEqual(mapContextEventPoint({ type: 'touchstart', touches: [{ clientX: 50, clientY: 60, identifier: 3 }] }), {
+    x: 50, y: 60, key: 'touch:3', inputType: 'touch'
+  });
+  assert.deepEqual(mapContextEventPoint({ type: 'touchend', touches: [], changedTouches: [{ clientX: 51, clientY: 61, identifier: 3 }] }), {
+    x: 51, y: 61, key: 'touch:3', inputType: 'touch'
+  });
+  assert.equal(mapContextEventPoint({ type: 'touchcancel', touches: [], changedTouches: [] }), null);
 });
 
 test('E6B document forwards iframe diagnostics before loading its runtime', () => {

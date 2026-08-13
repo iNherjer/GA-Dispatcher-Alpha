@@ -34,7 +34,7 @@
   .app-topbar {
     position: absolute;
     z-index: 1300;
-    top: 0;
+    top: 1.3rem;
     right: 0;
     left: 0;
     min-height: 4.2rem;
@@ -156,6 +156,12 @@
   .connection-pill.online { color: #061713; border-color: var(--cyan); background: var(--cyan); }
   .connection-pill.error { color: #ffe8e8; border-color: #a85353; background: #5d2424; }
 
+  .fallback-map-hint {
+    color: #ffe9a8;
+    font: 800 .68rem/1.2 "Courier New", monospace;
+    letter-spacing: .02em;
+  }
+
   .ga-efb-map-view,
   .ga-efb-map-canvas,
   .ga-efb-map-controls,
@@ -188,6 +194,19 @@
 
   &.server-client-active .app-topbar {
     display: none;
+  }
+
+  &.fallback-map-active .leaflet-control-zoom {
+    display: none !important;
+  }
+
+  &.fallback-map-active .follow-button,
+  &.fallback-map-active .map-compass,
+  &.fallback-map-active .profile-band,
+  &.fallback-map-active .flight-strip,
+  &.fallback-map-active .current-position-banner,
+  &.fallback-map-active .tools-rail {
+    display: none !important;
   }
 
   &.server-client-active .server-frame-status {
