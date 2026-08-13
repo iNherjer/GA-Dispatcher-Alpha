@@ -37,8 +37,8 @@ dem In-Sim-Test.
 
 ## Aktueller Alpha-Stand
 
-EFB 0.3.5 ist seit 2026-08-10 als Alpha-Release unter
-`efb-app-v0.3.5` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
+EFB 0.4.8 ist seit 2026-08-13 als Alpha-Release unter
+`efb-app-v0.4.8` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
 erzeugte Community-Paket wurde nach dem In-Sim-Test erneut heruntergeladen,
 entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
 Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
@@ -47,8 +47,8 @@ zur getrennten Promotion deaktiviert.
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
 Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal
-eingetragen. 0.4.1 ist der korrigierte Source-Kandidat. Alpha bleibt bis zu
-offiziellem SDK-Build sowie bestandenem 2D-/physischem In-Sim-Test auf 0.3.5.
+eingetragen. 0.4.1 war der folgende korrigierte Source-Kandidat; Alpha blieb
+bis zum freigegebenen 0.4.8-Build auf 0.3.5.
 
 0.4.2 wurde zusammen mit Tracker v327 auf Windows gebaut und im Simulator
 geprueft, aber nicht in den Alpha-Kanal eingetragen: Das originale HTML/CSS-

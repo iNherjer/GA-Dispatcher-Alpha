@@ -13,8 +13,8 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 freigegeben / v345 Testkandidat | v320 | v345 liefert die EFB-Feinarbeiten und den bevorzugten gehosteten Luftfahrtdatenpfad; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.3.5 Alpha / 0.4.8 Source-Testkandidat | noch nicht verfuegbar | 0.4.8 behaelt die 0.4.7-Fixes und entfernt den verbliebenen Positionsstreifen aus der reduzierten Fallback-Karte |
+| Tracker-Runtime | v345 Alpha | v320 | v345 liefert die EFB-Feinarbeiten und den bevorzugten gehosteten Luftfahrtdatenpfad; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.4.8 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
