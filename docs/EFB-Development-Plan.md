@@ -910,6 +910,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-13: Der Render-Relay begrenzt kontinuierliche GPS-Telemetrie
+  serverseitig auf 2 Hz. Weil der oeffentliche Render-WebSocket-Pfad trotz
+  beidseitiger Aktivierung kein `permessage-deflate` aushandelt, verwendet die
+  Web-App zusaetzlich die additive Relay-Capability `gzip-base64-v1`. Nur
+  ausdruecklich kompatible Browser erhalten gebuendelte Telemetrie als
+  `relay_compressed`-Huelle; Legacy-Clients, Tracker, Workbench, Commands, ACKs
+  und Heartbeats behalten den bisherigen JSON-Vertrag. Damit ist fuer den
+  Kompressions-Hotfix kein neuer Tracker- oder EFB-Build erforderlich.
 - 2026-08-13: Der 0.4.6/v344-In-Sim-Test bestaetigt stabilen iframe-Wechsel
   und Rueckfall, zeigt im Parent aber weiterhin einen Coherent-Renderfehler an
   `Array.flatMap`. EFB 0.4.7 ersetzt ihn durch eine Schleife und laesst in der

@@ -45,7 +45,7 @@ assert.match(wakeLockHelpers, /visibilitychange/, 'visibility recovery for wake 
 assert.match(wakeLockHelpers, /_requestLiveGpsScreenWakeLock\('document-visible'\)/, 'wake lock must be reacquired when document becomes visible');
 
 const liveSocketHandlers = sourceBetween(
-    'liveGpsSocket.onmessage = (event) =>',
+    'liveGpsSocket.onmessage = async (event) =>',
     'function _headingDiffDeg(a, b)'
 );
 assert.match(liveSocketHandlers, /updateLivePlanePosition\(data\.lat, data\.lon, data\.alt, data\.hdg\);\s*_handleLiveGpsTelemetryForWakeLock\(\);/, 'GPS telemetry must drive wake lock');

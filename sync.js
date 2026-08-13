@@ -15965,7 +15965,15 @@ window.connectToLiveGPS = async function(syncId) {
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
-        socket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
+        const relayCapabilities = typeof window.gaRelayCompression?.advertisedCapabilities === 'function'
+            ? window.gaRelayCompression.advertisedCapabilities()
+            : [];
+        socket.send(JSON.stringify({
+            type: 'join',
+            syncId: syncId,
+            pin: getSyncPin(),
+            ...(relayCapabilities.length ? { relayCapabilities } : {})
+        }));
         if (missionInterruptedDeboardingRecovery) {
             setTimeout(() => _missionSceneCancelInterruptedDeboarding('websocket-open'), 350);
         }
@@ -16009,10 +16017,13 @@ window.connectToLiveGPS = async function(syncId) {
         setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'websocket-open'), missionSceneTickDelayMs);
     };
 
-    liveGpsSocket.onmessage = (event) => {
+    liveGpsSocket.onmessage = async (event) => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         try {
-            const data = JSON.parse(event.data);
+            const data = typeof window.gaRelayCompression?.decode === 'function'
+                ? await window.gaRelayCompression.decode(event.data)
+                : JSON.parse(event.data);
+            if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
             if (data.type === 'error') {
                 alert(data.message);
                 if (liveGpsSocket) liveGpsSocket.close();
