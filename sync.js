@@ -14567,12 +14567,18 @@ function resetSyncTimer() {
 
 // Globale Variablen für das Live-Tracking
 let liveGpsSocket = null;
+let liveGpsRelayProbeSocket = null;
+let liveGpsRelayProbeTimer = null;
+let liveGpsRelayProbeTimeout = null;
+let liveGpsRelayProbeKey = '';
 let liveGpsMarker = null;
 let liveGpsMarkerElement = null;
 let liveGpsMarkerSvgElement = null;
 let lastLivePlanePerformanceMode = null;
 window.liveTrackerConnected = false;
 window.liveTrackerVersionCode = null;
+window.liveGpsRelayKey = 'cloudflare';
+window.liveGpsRelayCode = 'C';
 let lastTrackerDisconnectAt = 0;
 let lastTrackerReconnectAt = 0;
 let trackerReconnectRecoveryUntil = 0;
@@ -14587,6 +14593,9 @@ let liveGpsConnectionSeq = 0;
 let liveGpsReconnectTimer = null;
 const LIVE_GPS_WAKE_LOCK_STALE_MS = 15000;
 const TRACKER_HEARTBEAT_STALE_MS = 12000;
+const LIVE_GPS_RELAY_PROBE_TIMEOUT_MS = 10000;
+const LIVE_GPS_PRIMARY_RETRY_MS = 60000;
+const LIVE_GPS_FALLBACK_RETRY_MS = 15000;
 let liveGpsWakeLock = null;
 let liveGpsWakeLockRequestPending = false;
 let liveGpsWakeLockTelemetryTimer = null;
@@ -14687,6 +14696,7 @@ window.addEventListener('ga-sleepchange', (event) => {
         clearTimeout(liveGpsReconnectTimer);
         liveGpsReconnectTimer = null;
     }
+    _cancelLiveGpsRelayProbe();
     if (liveGpsSocket) {
         try {
             liveGpsSocket.onopen = null;
@@ -14760,6 +14770,28 @@ function _trackerVersionLabel(pkt = null) {
     return String(window.liveTrackerVersionLabel || '').trim();
 }
 
+function _liveGpsRelayEndpoint(relayKey = window.liveGpsRelayKey) {
+    const core = window.gaRelayFailover;
+    if (core && typeof core.endpoint === 'function') return core.endpoint(relayKey);
+    return String(relayKey || '').toLowerCase() === 'render'
+        ? { key: 'render', code: 'R', label: 'Render', url: 'wss://websocketrelais.onrender.com/', wakeUrl: 'https://websocketrelais.onrender.com/' }
+        : { key: 'cloudflare', code: 'C', label: 'Cloudflare', url: 'wss://ga-relay.einherjer.workers.dev/' };
+}
+
+function _setLiveGpsRelay(relayKey) {
+    const endpoint = _liveGpsRelayEndpoint(relayKey);
+    window.liveGpsRelayKey = endpoint.key;
+    window.liveGpsRelayCode = endpoint.code;
+    return endpoint;
+}
+
+function _liveGpsIndicatorConnectionLabel(versionLabel = '') {
+    if (typeof window.gaRelayFailover?.indicatorConnectionLabel === 'function') {
+        return window.gaRelayFailover.indicatorConnectionLabel(versionLabel, window.liveGpsRelayKey);
+    }
+    return [String(versionLabel || '').trim(), String(window.liveGpsRelayCode || '').trim()].filter(Boolean).join(' ');
+}
+
 function _setLiveGpsIndicator(state, pkt = null) {
     const ind = document.getElementById('liveGpsIndicator');
     if (!ind) return;
@@ -14767,35 +14799,38 @@ function _setLiveGpsIndicator(state, pkt = null) {
     const packetLabel = _trackerVersionLabel(pkt);
     if (packetLabel) window.liveTrackerVersionLabel = packetLabel;
     const versionLabel = String(window.liveTrackerVersionLabel || '').trim();
+    const connectionLabel = _liveGpsIndicatorConnectionLabel(versionLabel);
+    const relayName = _liveGpsRelayEndpoint().label;
     ind.dataset.trackerState = nextState;
+    ind.dataset.relay = String(window.liveGpsRelayCode || '');
     ind.style.textShadow = 'none';
 
     if (nextState === 'live') {
-        ind.textContent = `🛰️ LIVE${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.textContent = `🛰️ LIVE${connectionLabel ? ` · ${connectionLabel}` : ''}`;
         ind.style.color = '#44ff44';
         ind.style.textShadow = '0 0 8px #44ff44';
-        ind.title = `PC-Tracker verbunden; Telemetrie aktiv${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        ind.title = `PC-Tracker über ${relayName} verbunden; Telemetrie aktiv${versionLabel ? ` – Version ${versionLabel}` : ''}`;
         return;
     }
     if (nextState === 'link') {
-        ind.textContent = `🛰️ LINK${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.textContent = `🛰️ LINK${connectionLabel ? ` · ${connectionLabel}` : ''}`;
         ind.style.color = '#55d7ff';
         ind.style.textShadow = '0 0 7px rgba(85, 215, 255, 0.75)';
-        ind.title = `PC-Tracker am Relay verbunden; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        ind.title = `PC-Tracker über ${relayName} verbunden; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
         return;
     }
     if (nextState === 'wait') {
-        ind.textContent = `🛰️ WAIT${versionLabel ? ` · ${versionLabel}` : ''}`;
+        ind.textContent = `🛰️ WAIT${connectionLabel ? ` · ${connectionLabel}` : ''}`;
         ind.style.color = '#f2c12e';
         ind.title = versionLabel
-            ? `Relay verbunden; Tracker ${versionLabel} sendet momentan keine frische Telemetrie`
-            : 'Relay verbunden; warte auf Telemetrie vom PC-Tracker';
+            ? `${relayName}-Relay verbunden; Tracker ${versionLabel} sendet momentan keine frische Telemetrie`
+            : `${relayName}-Relay verbunden; warte auf Telemetrie vom PC-Tracker`;
         return;
     }
     if (nextState === 'wake') {
-        ind.textContent = '🛰️ WAKE';
+        ind.textContent = `🛰️ WAKE${window.liveGpsRelayCode ? ` · ${window.liveGpsRelayCode}` : ''}`;
         ind.style.color = '#f2c12e';
-        ind.title = 'Relay wird gestartet';
+        ind.title = `${relayName}-Relay wird verbunden`;
         return;
     }
     window.liveTrackerVersionLabel = '';
@@ -14833,6 +14868,9 @@ function _markTrackerHeartbeat(pkt) {
             window.liveTrackerVersionLabel = '';
             window.liveTrackerCapabilities = [];
             _setLiveGpsIndicator('wait');
+            const alternate = window.gaRelayFailover?.alternateRelayKey?.(window.liveGpsRelayKey)
+                || (window.liveGpsRelayKey === 'render' ? 'cloudflare' : 'render');
+            _scheduleLiveGpsRelayProbe(alternate, getSyncId(), 0, liveGpsConnectionSeq);
         }
     }, TRACKER_HEARTBEAT_STALE_MS);
 }
@@ -15901,16 +15939,129 @@ function updateNextWpTelemetry(lat, lon) {
     return nextInfo;
 }
 
+function _cancelLiveGpsRelayProbe(clearRetry = true) {
+    if (clearRetry && liveGpsRelayProbeTimer) {
+        clearTimeout(liveGpsRelayProbeTimer);
+        liveGpsRelayProbeTimer = null;
+    }
+    if (liveGpsRelayProbeTimeout) {
+        clearTimeout(liveGpsRelayProbeTimeout);
+        liveGpsRelayProbeTimeout = null;
+    }
+    const socket = liveGpsRelayProbeSocket;
+    liveGpsRelayProbeSocket = null;
+    liveGpsRelayProbeKey = '';
+    if (!socket) return;
+    try {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onclose = null;
+        socket.onerror = null;
+        socket.close();
+    } catch (_) {}
+}
+
+function _relayPacketShowsTracker(data) {
+    if (!data || data.type !== 'gps') return false;
+    if (data.trackerStatusOnly === true && data.source === 'tracker' && data.status === 'connected') return true;
+    return Number.isFinite(Number(data.lat)) && Number.isFinite(Number(data.lon));
+}
+
+function _scheduleLiveGpsRelayProbe(relayKey, syncId, delayMs = 0, expectedSeq = liveGpsConnectionSeq) {
+    if (!syncId || expectedSeq !== liveGpsConnectionSeq) return;
+    const endpoint = _liveGpsRelayEndpoint(relayKey);
+    if (endpoint.key === window.liveGpsRelayKey) return;
+    if (endpoint.key === 'render' && window.liveGpsRelayKey === 'cloudflare' && _trackerHeartbeatIsFresh()) return;
+    if (liveGpsRelayProbeTimer) clearTimeout(liveGpsRelayProbeTimer);
+    liveGpsRelayProbeTimer = setTimeout(() => {
+        liveGpsRelayProbeTimer = null;
+        _probeLiveGpsRelay(endpoint.key, syncId, expectedSeq);
+    }, Math.max(0, Number(delayMs) || 0));
+}
+
+async function _probeLiveGpsRelay(relayKey, syncId, expectedSeq) {
+    if (!syncId || expectedSeq !== liveGpsConnectionSeq) return;
+    const endpoint = _liveGpsRelayEndpoint(relayKey);
+    if (endpoint.key === window.liveGpsRelayKey) return;
+    if (endpoint.key === 'render' && window.liveGpsRelayKey === 'cloudflare' && _trackerHeartbeatIsFresh()) return;
+
+    _cancelLiveGpsRelayProbe(false);
+    let wsUrl = endpoint.url;
+    try {
+        if (typeof window.gaRelayFailover?.websocketUrl === 'function') {
+            wsUrl = await window.gaRelayFailover.websocketUrl(endpoint.key, syncId);
+        }
+    } catch (error) {
+        console.warn(`[GPS] ${endpoint.label}-Probe konnte keine Relay-URL erzeugen:`, error);
+        return;
+    }
+    if (expectedSeq !== liveGpsConnectionSeq || endpoint.key === window.liveGpsRelayKey) return;
+
+    const probe = new WebSocket(wsUrl);
+    liveGpsRelayProbeSocket = probe;
+    liveGpsRelayProbeKey = endpoint.key;
+    let promoted = false;
+    const finish = () => {
+        if (liveGpsRelayProbeSocket !== probe) return;
+        _cancelLiveGpsRelayProbe(false);
+        if (promoted || expectedSeq !== liveGpsConnectionSeq) return;
+        if (endpoint.key === 'cloudflare' && window.liveGpsRelayKey === 'render') {
+            _scheduleLiveGpsRelayProbe('cloudflare', syncId, LIVE_GPS_PRIMARY_RETRY_MS, expectedSeq);
+        } else if (endpoint.key === 'render' && window.liveGpsRelayKey === 'cloudflare' && !_trackerHeartbeatIsFresh()) {
+            _scheduleLiveGpsRelayProbe('render', syncId, LIVE_GPS_FALLBACK_RETRY_MS, expectedSeq);
+        }
+    };
+
+    liveGpsRelayProbeTimeout = setTimeout(() => {
+        try { probe.close(); } catch (_) {}
+        finish();
+    }, LIVE_GPS_RELAY_PROBE_TIMEOUT_MS);
+
+    probe.onopen = () => {
+        if (liveGpsRelayProbeSocket !== probe || expectedSeq !== liveGpsConnectionSeq) return;
+        const relayCapabilities = typeof window.gaRelayCompression?.advertisedCapabilities === 'function'
+            ? window.gaRelayCompression.advertisedCapabilities()
+            : [];
+        probe.send(JSON.stringify({
+            type: 'join',
+            syncId,
+            pin: getSyncPin(),
+            relayRole: 'viewer',
+            ...(relayCapabilities.length ? { relayCapabilities } : {})
+        }));
+    };
+    probe.onmessage = async (event) => {
+        if (liveGpsRelayProbeSocket !== probe || expectedSeq !== liveGpsConnectionSeq) return;
+        try {
+            const data = typeof window.gaRelayCompression?.decode === 'function'
+                ? await window.gaRelayCompression.decode(event.data)
+                : JSON.parse(event.data);
+            if (!_relayPacketShowsTracker(data)) return;
+            promoted = true;
+            console.info(`[GPS] ${endpoint.label}-Relay liefert Tracker-Daten; schalte auf ${endpoint.code}.`);
+            _cancelLiveGpsRelayProbe(false);
+            window.connectToLiveGPS(syncId, { relayKey: endpoint.key, reason: 'relay-probe-promote' });
+        } catch (_) {}
+    };
+    probe.onerror = finish;
+    probe.onclose = finish;
+}
+
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
-window.connectToLiveGPS = async function(syncId) {
+window.connectToLiveGPS = async function(syncId, options = {}) {
     if (!syncId) return;
     if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('live-gps')) {
         window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(syncId));
         return;
     }
 
-    const wsUrl = 'wss://websocketrelais.onrender.com/';
+    const requestedRelayKey = typeof options === 'string' ? options : options?.relayKey;
+    const relayEndpoint = _setLiveGpsRelay(
+        window.gaRelayFailover?.normalizeRelayKey?.(requestedRelayKey)
+            || (String(requestedRelayKey || '').toLowerCase() === 'render' ? 'render' : 'cloudflare')
+    );
     const connectionSeq = ++liveGpsConnectionSeq;
+    _cancelLiveGpsRelayProbe();
     _clearTrackerHeartbeat();
     if (liveGpsReconnectTimer) {
         clearTimeout(liveGpsReconnectTimer);
@@ -15928,15 +16079,31 @@ window.connectToLiveGPS = async function(syncId) {
         } catch (_) {}
     }
 
-    console.log(`[GPS] 📡 Verbinde mit Live-Tracking für Pilot-ID ${syncId}...`);
+    console.log(`[GPS] 📡 Verbinde mit ${relayEndpoint.label}-Live-Tracking [${relayEndpoint.code}] für Pilot-ID ${syncId}...`);
 
-    // Wake-up Ping: Render.com Free Tier aus dem Schlaf holen bevor WebSocket versucht wird
     window.liveTrackerVersionCode = null;
     window.liveTrackerVersionLabel = '';
     _setLiveGpsIndicator('wake');
+    // Nur Render benoetigt weiterhin einen Wake-up-Ping fuer moegliche Cold Starts.
+    if (relayEndpoint.wakeUrl) {
+        try {
+            await fetch(relayEndpoint.wakeUrl, { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
+        } catch(e) { /* WebSocket versucht es trotzdem. */ }
+    }
+    if (connectionSeq !== liveGpsConnectionSeq) return;
+
+    let wsUrl = relayEndpoint.url;
     try {
-        await fetch('https://websocketrelais.onrender.com/', { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
-    } catch(e) { /* Server schläft evtl. noch – WebSocket versucht es trotzdem */ }
+        if (typeof window.gaRelayFailover?.websocketUrl === 'function') {
+            wsUrl = await window.gaRelayFailover.websocketUrl(relayEndpoint.key, syncId);
+        }
+    } catch (error) {
+        console.warn(`[GPS] ${relayEndpoint.label}-Relay-URL konnte nicht erzeugt werden:`, error);
+        if (relayEndpoint.key === 'cloudflare' && connectionSeq === liveGpsConnectionSeq) {
+            window.connectToLiveGPS(syncId, { relayKey: 'render', reason: 'cloudflare-url-error' });
+        }
+        return;
+    }
     if (connectionSeq !== liveGpsConnectionSeq) return;
 
     const socket = new WebSocket(wsUrl);
@@ -15944,7 +16111,7 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onopen = () => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
-        console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
+        console.log(`[GPS] ✅ ${relayEndpoint.label}-Relay [${relayEndpoint.code}] verbunden. Warte auf Flugzeug-Daten...`);
         gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
         const now = Date.now();
         lastTrackerReconnectAt = now;
@@ -15972,6 +16139,7 @@ window.connectToLiveGPS = async function(syncId) {
             type: 'join',
             syncId: syncId,
             pin: getSyncPin(),
+            relayRole: 'viewer',
             ...(relayCapabilities.length ? { relayCapabilities } : {})
         }));
         if (missionInterruptedDeboardingRecovery) {
@@ -16005,6 +16173,14 @@ window.connectToLiveGPS = async function(syncId) {
         }
 
         _setLiveGpsIndicator('wait');
+        const alternateRelayKey = window.gaRelayFailover?.alternateRelayKey?.(relayEndpoint.key)
+            || (relayEndpoint.key === 'render' ? 'cloudflare' : 'render');
+        _scheduleLiveGpsRelayProbe(
+            alternateRelayKey,
+            syncId,
+            relayEndpoint.key === 'render' ? 15000 : 7000,
+            connectionSeq
+        );
         if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
             setTimeout(() => window.missionSmokeEnsureSpawned('websocket-open'), 500);
         }
@@ -16024,8 +16200,17 @@ window.connectToLiveGPS = async function(syncId) {
                 ? await window.gaRelayCompression.decode(event.data)
                 : JSON.parse(event.data);
             if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
+            if (data.type === 'relay_status') {
+                if (data.status === 'stopping' || data.status === 'unavailable') {
+                    socket.gaRelayStopped = true;
+                    socket.close();
+                }
+                return;
+            }
             if (data.type === 'error') {
-                alert(data.message);
+                socket.gaFatalRelayError = /falscher pin/i.test(String(data.message || ''));
+                if (socket.gaFatalRelayError) alert(data.message);
+                else console.warn(`[GPS] ${relayEndpoint.label}-Relay meldet einen Fehler: ${data.message || 'unbekannt'}`);
                 if (liveGpsSocket) liveGpsSocket.close();
                 return;
             }
@@ -16040,6 +16225,9 @@ window.connectToLiveGPS = async function(syncId) {
                 && data.source === 'tracker'
                 && data.status === 'connected') {
                 _markTrackerHeartbeat(data);
+                if (relayEndpoint.key === 'cloudflare' && liveGpsRelayProbeKey === 'render') {
+                    _cancelLiveGpsRelayProbe();
+                }
                 const indicatorState = document.getElementById('liveGpsIndicator')?.dataset?.trackerState;
                 if (indicatorState !== 'live') _setLiveGpsIndicator('link', data);
                 return;
@@ -16047,6 +16235,9 @@ window.connectToLiveGPS = async function(syncId) {
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
                 _markTrackerHeartbeat(data);
+                if (relayEndpoint.key === 'cloudflare' && liveGpsRelayProbeKey === 'render') {
+                    _cancelLiveGpsRelayProbe();
+                }
                 try {
                     window.dispatchEvent(new CustomEvent('homebasetelemetry', { detail: { data } }));
                 } catch (_) {}
@@ -16126,6 +16317,21 @@ window.connectToLiveGPS = async function(syncId) {
             sceneSpawned: !!window.missionSceneStatus?.spawned,
             personBoarded: !!window.missionSceneStatus?.personBoarded
         });
+        const relayAfterDisconnect = window.gaRelayFailover?.relayAfterDisconnect?.(
+            relayEndpoint.key,
+            socket.gaFatalRelayError === true
+        ) || (relayEndpoint.key === 'cloudflare' && socket.gaFatalRelayError !== true ? 'render' : relayEndpoint.key);
+        const shouldFallbackToRender = relayAfterDisconnect === 'render' && relayEndpoint.key !== 'render';
+        if (shouldFallbackToRender) {
+            console.warn(`[GPS] ${relayEndpoint.label}-Relay nicht verfügbar; wechsle auf Render [R].`);
+            _setLiveGpsRelay('render');
+            _setLiveGpsIndicator('wake');
+            window.connectToLiveGPS(syncId, {
+                relayKey: 'render',
+                reason: socket.gaRelayStopped ? 'cloudflare-stopping' : 'cloudflare-close'
+            });
+            return;
+        }
         window.liveTrackerVersionCode = null;
         _releaseLiveGpsScreenWakeLock('websocket-close');
         _updateMissionRuntimeUi();
@@ -16137,14 +16343,18 @@ window.connectToLiveGPS = async function(syncId) {
         window._hdgAutoActivated = false;
 
         // Exponentielles Backoff: 2s → 4s → 8s → max 15s (fängt Render.com Cold Starts sauber ab)
-        console.warn(`[GPS] ❌ Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
+        if (socket.gaFatalRelayError === true) {
+            console.warn(`[GPS] ❌ ${relayEndpoint.label}-Relay hat die Verbindung abgelehnt; kein automatischer Wechsel mit denselben Zugangsdaten.`);
+            return;
+        }
+        console.warn(`[GPS] ❌ ${relayEndpoint.label}-Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
         liveGpsReconnectTimer = setTimeout(() => {
             liveGpsReconnectTimer = null;
             if (connectionSeq === liveGpsConnectionSeq) {
                 if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('live-gps')) {
                     window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(syncId));
                 } else {
-                    connectToLiveGPS(syncId);
+                    window.connectToLiveGPS(syncId, { relayKey: relayEndpoint.key, reason: 'relay-reconnect' });
                 }
             }
         }, gpsReconnectDelay);
@@ -16153,12 +16363,10 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onerror = () => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
-        clearTimeout(gpsWatchdog);
-        _clearTrackerHeartbeat();
-        lastTrackerDisconnectAt = Date.now();
-        window.liveTrackerConnected = false;
+        _releaseLiveGpsScreenWakeLock('websocket-error');
         _missionPhaseDebugPush('tracker_connection', {
             state: 'error',
+            relay: relayEndpoint.key,
             runtimeActive: !!missionRuntime.active,
             runtimeClosing: !!missionRuntime.closingPending,
             startPhase: _missionStartPhase(),
@@ -16166,12 +16374,7 @@ window.connectToLiveGPS = async function(syncId) {
             sceneSpawned: !!window.missionSceneStatus?.spawned,
             personBoarded: !!window.missionSceneStatus?.personBoarded
         });
-        window.liveTrackerVersionCode = null;
-        _releaseLiveGpsScreenWakeLock('websocket-error');
-        _updateMissionRuntimeUi();
-        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
-        _setLiveGpsIndicator('off');
-        hideNextWpTelemetry();
+        try { socket.close(); } catch (_) {}
     };
 };
 

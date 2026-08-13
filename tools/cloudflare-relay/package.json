@@ -1,0 +1,9 @@
+{
+  "name": "ga-cloudflare-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node relay-worker.test.mjs",
+    "deploy": "wrangler deploy"
+  }
+}

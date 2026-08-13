@@ -121,15 +121,30 @@ lokaler Authority-State ist ein regulaerer Observer-Fall, und ein Fehler im
 Authority-Abgleich darf die Position, den Flugzustand oder den Wechsel der
 Anzeige von LINK auf LIVE nicht abbrechen.
 
-Der externe Render-Relay begrenzt kontinuierliche Tracker-Telemetrie auf 2 Hz.
-Da der oeffentliche Render-WebSocket-Pfad `permessage-deflate` nicht bis zum
-Client aushandelt, verwendet die Web-App additiv `gzip-base64-v1`: Nur ein
+Tracker v346 sendet kontinuierliche Telemetrie mit 2 Hz parallel an zwei
+unabhaengige Relays. Cloudflare Durable Objects ist der Primaerpfad (`C`), der
+vorhandene Render-Dienst bleibt der Fallback (`R`). Die Web-App haelt nur den
+aktiven Empfangspfad offen. Schlaegt Cloudflare fehl, wechselt sie sofort zu
+Render. Bleibt die Cloudflare-Verbindung zwar offen, aber Tracker-Heartbeat und
+Telemetrie fehlen, prueft die App Render kurzzeitig und wechselt nur nach einem
+echten Tracker-Paket. Auf Render prueft sie Cloudflare periodisch und kehrt
+ebenfalls erst nach einem echten Tracker-Paket zum Primaerpfad zurueck. Dadurch
+bleiben alte Render-only-Tracker kompatibel, ohne im regulaeren Cloudflare-
+Betrieb Render-Egress zu erzeugen.
+
+Der Cloudflare-Worker verwendet pro SHA-256-Pilot-ID-Raum ein SQLite-backed
+Durable Object mit Hibernation-WebSockets. Die Pilot-ID steht nicht im
+WebSocket-Pfad. `relayRole=tracker|viewer` begrenzt Tracker-Commands auf Tracker
+und Telemetrie/ACKs auf Viewer. Kontinuierliche Pakete werden zusaetzlich ohne
+Timer auf etwa 2 Hz begrenzt; seltene Traffic-Snapshots umgehen dieses Gate.
+Befehle, ACKs und Heartbeats bleiben unverzoegert.
+
+Render begrenzt kontinuierliche Tracker-Telemetrie weiterhin serverseitig auf
+2 Hz. Da sein oeffentlicher WebSocket-Pfad `permessage-deflate` nicht bis zum
+Client aushandelt, verwendet die Web-App dort additiv `gzip-base64-v1`: Nur ein
 Browser, der diese Relay-Capability in seiner `join`-Nachricht anbietet, erhaelt
-Telemetrie als `relay_compressed`-Huelle. Der Relay komprimiert den bereits
-gebuendelten JSON-Stand; der Browser entpackt ihn vor der bestehenden
-GPS-Verarbeitung. Legacy-Clients, Tracker, Workbench sowie Befehle, ACKs und
-Heartbeats bleiben beim bisherigen unkomprimierten Vertrag. Fehlt die native
-Browser-API `DecompressionStream('gzip')`, wird die Capability nicht angeboten.
+Telemetrie als `relay_compressed`-Huelle. Legacy-Clients, Tracker, Workbench,
+Befehle, ACKs und Heartbeats behalten den bisherigen unkomprimierten Vertrag.
 
 Der Relay-Vertrag kennt dafuer folgende additive Commands und ACKs:
 

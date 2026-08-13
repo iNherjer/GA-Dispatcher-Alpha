@@ -22,6 +22,7 @@ analysis/privatetmpbush-*.json
 
 # Cloudflare/Wrangler lokaler Zustand und Cache
 tools/cloudflare-worker/.wrangler/
+tools/cloudflare-relay/.wrangler/
 
 # Workbench cache (PBF-Dateien, Zwischenergebnisse) – nie ins Repo
 .workbench-cache/

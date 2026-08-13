@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
+const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 function sourceBetween(startToken, endToken) {
     const start = source.indexOf(startToken);
@@ -51,5 +52,13 @@ const liveSocketHandlers = sourceBetween(
 assert.match(liveSocketHandlers, /updateLivePlanePosition\(data\.lat, data\.lon, data\.alt, data\.hdg\);\s*_handleLiveGpsTelemetryForWakeLock\(\);/, 'GPS telemetry must drive wake lock');
 assert.match(liveSocketHandlers, /_releaseLiveGpsScreenWakeLock\('websocket-close'\)/, 'websocket close must release wake lock');
 assert.match(liveSocketHandlers, /_releaseLiveGpsScreenWakeLock\('websocket-error'\)/, 'websocket error must release wake lock');
+assert.match(source, /relayRole:\s*'viewer'/, 'browser must identify itself as a relay viewer');
+assert.match(liveSocketHandlers, /shouldFallbackToRender[\s\S]*?relayKey:\s*'render'/, 'Cloudflare close must switch to Render');
+assert.match(source, /_liveGpsIndicatorConnectionLabel\(versionLabel\)/, 'relay code must be shown beside the tracker version');
+assert.match(source, /LIVE_GPS_PRIMARY_RETRY_MS/, 'Render fallback must keep probing the Cloudflare primary');
+assert.ok(
+    index.indexOf('relay-failover-core.js') < index.indexOf('sync.js?v=relay-failover'),
+    'relay failover core must load before sync.js'
+);
 
 console.log('[ok] live telemetry visibility selftest');
