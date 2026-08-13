@@ -18,17 +18,17 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '34501');
-  assert.match(page, /data-efb-view-version="5"/);
-  assert.match(page, /host\.css\?v=34501/);
-  assert.match(page, /host\.js\?v=34501/);
+  assert.equal(EFB_WEB_ASSET_REVISION, '34601');
+  assert.match(page, /data-efb-view-version="6"/);
+  assert.match(page, /host\.css\?v=34601/);
+  assert.match(page, /host\.js\?v=34601/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
   assert.match(page, /id="mapCalculatorDevice"/);
   assert.match(page, /id="mapE6BDevice"/);
   assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=34501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=34601"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
@@ -36,7 +36,7 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
     '/efb/v1/assets/leaflet.js',
     '/efb/v1/assets/map-shell-core.js',
     '/efb/v1/assets/map-utility-tools.js',
-    '/efb/v1/assets/host.js?v=34501'
+    '/efb/v1/assets/host.js?v=34601'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);

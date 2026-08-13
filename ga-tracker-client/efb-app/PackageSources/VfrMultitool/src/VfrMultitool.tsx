@@ -175,9 +175,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private layerStatusRef = FSComponent.createRef<HTMLParagraphElement>();
   private followButtonRef = FSComponent.createRef<HTMLButtonElement>();
   private profileButtonRef = FSComponent.createRef<HTMLButtonElement>();
-  private themeButtonRef = FSComponent.createRef<HTMLButtonElement>();
   private toolsButtonRef = FSComponent.createRef<HTMLButtonElement>();
-  private themeDrawerRef = FSComponent.createRef<HTMLElement>();
   private toolsDrawerRef = FSComponent.createRef<HTMLElement>();
   private profileBandRef = FSComponent.createRef<HTMLElement>();
   private profileSvgRef = FSComponent.createRef<SVGSVGElement>();
@@ -311,14 +309,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.bindButton(this.layerButtonRef.getOrDefault(), () => this.toggleLayerDrawer());
     this.bindButton(this.followButtonRef.getOrDefault(), () => this.setFollow(!this.preferences.follow, true));
     this.bindButton(this.profileButtonRef.getOrDefault(), () => this.setProfileVisible(!this.preferences.profileVisible));
-    this.bindButton(this.themeButtonRef.getOrDefault(), () => this.toggleDrawer('theme'));
     this.bindButton(this.toolsButtonRef.getOrDefault(), () => this.toggleDrawer('tools'));
-
-    const themeDrawer = this.themeDrawerRef.getOrDefault();
-    this.bindButton(themeDrawer?.querySelector<HTMLButtonElement>('[data-theme-close]') || null, () => this.closeDrawers());
-    themeDrawer?.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach((button) => {
-      this.bindButton(button, () => this.setTheme(String(button.dataset.theme || 'classic')));
-    });
 
     const toolsDrawer = this.toolsDrawerRef.getOrDefault();
     this.bindButton(toolsDrawer?.querySelector<HTMLButtonElement>('[data-tools-close]') || null, () => this.closeDrawers());
@@ -520,7 +511,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.serverFrameChannel = `efb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     this.setText(this.serverFrameStatusRef.getOrDefault(), 'Tracker-Seite wird geladen');
     this.reportServerFrameEvent('iframe', 'start', this.serverFrameChannel);
-    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=6`;
+    frame.src = `${TRACKER_API_URL}/efb/v1/?channel=${encodeURIComponent(this.serverFrameChannel)}&view=7`;
   }
 
   private reportServerFrameEvent(
@@ -612,25 +603,9 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   }
 
   private applyPreferencesToChrome(): void {
-    this.setTheme(this.preferences.theme, false);
+    this.preferences = MapShellCore.normalizePreferences({ ...this.preferences, theme: 'classic' });
     this.setToolbarCollapsed(this.preferences.toolbarCollapsed, false);
     this.setProfileVisible(this.preferences.profileVisible, false);
-  }
-
-  private setTheme(theme: string, persist = true): void {
-    this.preferences = MapShellCore.normalizePreferences({ ...this.preferences, theme });
-    const root = this.appRootRef.getOrDefault();
-    if (root) {
-      for (const entry of MapShellCore.THEMES) root.classList.remove(`theme-${entry.id}`);
-      root.classList.add(`theme-${this.preferences.theme}`);
-    }
-    const drawer = this.themeDrawerRef.getOrDefault();
-    drawer?.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach((button) => {
-      const active = button.dataset.theme === this.preferences.theme;
-      button.classList.toggle('is-active', active);
-      button.setAttribute('aria-pressed', String(active));
-    });
-    if (persist) this.savePreferences();
   }
 
   private setToolbarCollapsed(collapsed: boolean, persist = true): void {
@@ -656,25 +631,20 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     this.renderProfile();
   }
 
-  private toggleDrawer(which: 'theme' | 'tools'): void {
-    const target = which === 'theme' ? this.themeDrawerRef.getOrDefault() : this.toolsDrawerRef.getOrDefault();
-    const other = which === 'theme' ? this.toolsDrawerRef.getOrDefault() : this.themeDrawerRef.getOrDefault();
+  private toggleDrawer(which: 'tools'): void {
+    const target = this.toolsDrawerRef.getOrDefault();
     const opening = !target?.classList.contains('is-open');
     this.closeLayerDrawer();
-    other?.classList.remove('is-open');
-    other?.setAttribute('aria-hidden', 'true');
     target?.classList.toggle('is-open', opening);
     target?.setAttribute('aria-hidden', String(!opening));
-    this.themeButtonRef.getOrDefault()?.classList.toggle('is-active', which === 'theme' && opening);
     this.toolsButtonRef.getOrDefault()?.classList.toggle('is-active', which === 'tools' && opening);
   }
 
   private closeDrawers(): void {
-    for (const drawer of [this.themeDrawerRef.getOrDefault(), this.toolsDrawerRef.getOrDefault()]) {
+    for (const drawer of [this.toolsDrawerRef.getOrDefault()]) {
       drawer?.classList.remove('is-open');
       drawer?.setAttribute('aria-hidden', 'true');
     }
-    this.themeButtonRef.getOrDefault()?.classList.remove('is-active');
     this.toolsButtonRef.getOrDefault()?.classList.remove('is-active');
   }
 
@@ -1345,7 +1315,6 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
               <button ref={this.serverTabRef} class="pb-btn is-hidden" type="button" disabled>App-Karte</button>
               <button ref={this.statusTabRef} class="pb-btn is-hidden" type="button">Status</button>
               <button ref={this.profileButtonRef} class="pb-btn is-hidden" type="button" aria-pressed="false">Profil (Aus)</button>
-              <button ref={this.themeButtonRef} class="pb-btn is-hidden" type="button">Design</button>
               <button ref={this.toolsButtonRef} class="pb-btn is-hidden" type="button">Werkzeuge</button>
               <span ref={this.connectionRef} class="connection-pill error">Tracker aus</span>
             </div>
@@ -1389,19 +1358,6 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
               <button type="button" data-overlay-layer="dwd"><span></span>DWD Warnungen</button>
             </div>
             <p ref={this.layerStatusRef} class="layer-status">Online-Karten werden geladen</p>
-          </aside>
-          <aside ref={this.themeDrawerRef} class="chrome-drawer theme-drawer" aria-hidden="true">
-            <div class="drawer-head">
-              <div><span class="drawer-kicker">Darstellung</span><strong>App-Design</strong></div>
-              <button type="button" title="Design schließen" data-theme-close="true">X</button>
-            </div>
-            <div class="theme-grid">
-              <button type="button" data-theme="classic"><span class="theme-swatch classic"></span>Classic</button>
-              <button type="button" data-theme="retro"><span class="theme-swatch retro"></span>Retro</button>
-              <button type="button" data-theme="navcom"><span class="theme-swatch navcom"></span>NAV/COM</button>
-              <button type="button" data-theme="ops1940"><span class="theme-swatch ops1940"></span>OPS 1940</button>
-              <button type="button" data-theme="win95"><span class="theme-swatch win95"></span>Windows 95</button>
-            </div>
           </aside>
           <aside ref={this.toolsDrawerRef} class="chrome-drawer tools-drawer" aria-hidden="true">
             <div class="drawer-head">
@@ -1518,7 +1474,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
             </section>
             <section class="card">
               <span class="label">Alpha-Stufe 4</span>
-              <p class="hint">Kartentisch-Shell mit Route, Missionsgeometrie, planbasiertem Höhenband, Kompass, App-Designs sowie lokalen Uhr-, Rechner- und E6B-Werkzeugen. Der Tracker bleibt die autoritative Datenquelle.</p>
+              <p class="hint">Kartentisch-Shell im Modern-Design mit Route, Missionsgeometrie, planbasiertem Höhenband, Kompass sowie lokalen Uhr-, Rechner- und E6B-Werkzeugen. Der Tracker bleibt die autoritative Datenquelle.</p>
             </section>
           </div>
         </div>

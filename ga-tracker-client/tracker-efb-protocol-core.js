@@ -20,7 +20,9 @@
     MAP_CONTEXT: 'map.context.v1',
     MISSION_SNAPSHOT: 'mission.snapshot.v1',
     MISSION_SNAPSHOT_V2: 'mission.snapshot.v2',
+    MISSION_VIEW: 'mission.view.v1',
     MISSION_AUTHORITY: 'mission.authority.v1',
+    CHECKLIST_LIBRARY: 'checklist.library.v1',
     EFB_INTERACTION: 'efb.interaction.v1',
     EFB_WEB_CLIENT: 'efb.web-client.v1',
     EFB_CLIENT_DIAGNOSTICS: 'efb.client-diagnostics.v1'

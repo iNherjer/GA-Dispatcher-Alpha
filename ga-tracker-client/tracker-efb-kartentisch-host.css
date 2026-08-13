@@ -176,6 +176,22 @@ body.ga-efb-tracker-host .ga-efb-checklist-list button span {
   white-space: nowrap;
 }
 
+body.ga-efb-tracker-host .ga-efb-checklist-list button strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-list button strong em {
+  padding: 2px 5px;
+  border: 1px solid var(--drawer-accent);
+  border-radius: 3px;
+  color: var(--drawer-accent);
+  font: 800 8px/1 var(--drawer-font-mono);
+  font-style: normal;
+  letter-spacing: .5px;
+}
+
 body.ga-efb-tracker-host .ga-efb-drawer-back {
   margin-bottom: 8px;
   padding: 8px 10px;
@@ -192,22 +208,355 @@ body.ga-efb-tracker-host .ga-efb-checklist-detail h4 {
   text-transform: uppercase;
 }
 
-body.ga-efb-tracker-host .ga-efb-checklist-detail label {
+body.ga-efb-tracker-host .ga-efb-checklist-detail .ga-efb-check-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  width: 100%;
+  margin: 0;
   padding: 7px 0;
   border-bottom: 1px solid var(--drawer-border-soft);
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--drawer-text);
+  cursor: pointer;
+  font-family: var(--drawer-font);
   font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail .ga-efb-check-row > i {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  max-width: 17px;
+  min-height: 17px;
+  max-height: 17px;
+  margin: 0;
+  border: 2px solid var(--drawer-muted);
+  border-radius: 2px;
+  background: var(--drawer-surface-strong);
+  flex: 0 0 17px;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail .ga-efb-check-row.is-checked > i {
+  border-color: var(--drawer-accent);
+  background: var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail .ga-efb-check-row.is-checked > i::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid #071512;
+  border-bottom: 2px solid #071512;
+  transform: rotate(43deg);
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail .ga-efb-check-row.is-checked > span {
+  color: var(--drawer-muted);
+  text-decoration: line-through;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-control {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--drawer-text);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-hero,
+body.ga-efb-tracker-host .ga-efb-mission-order,
+body.ga-efb-tracker-host .ga-efb-mission-section,
+body.ga-efb-tracker-host .ga-efb-mission-metrics > section,
+body.ga-efb-tracker-host .ga-efb-mission-conditions > section {
+  box-sizing: border-box;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 8px;
+  background: var(--drawer-surface);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-hero {
+  padding: 13px;
+  border-left: 4px solid var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-hero.is-good,
+body.ga-efb-tracker-host .ga-efb-mission-order.is-good { border-left-color: var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-hero.is-danger,
+body.ga-efb-tracker-host .ga-efb-mission-order.is-danger { border-left-color: #ef635a; }
+
+body.ga-efb-tracker-host .ga-efb-mission-hero > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--drawer-muted);
+  font: 700 10px/1.2 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--drawer-good);
+  font-weight: 900;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-live > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-hero h3 {
+  margin: 9px 0 5px;
+  color: var(--drawer-heading);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-hero p {
+  margin: 0;
+  color: var(--drawer-text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-order {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border-left: 4px solid var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-order small,
+body.ga-efb-tracker-host .ga-efb-mission-section > small {
+  color: var(--drawer-accent);
+  font: 800 9px/1.2 var(--drawer-font-mono);
+  letter-spacing: .7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-order strong {
+  color: var(--drawer-heading);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-order span {
+  color: var(--drawer-muted);
+  font-size: 10px;
   line-height: 1.35;
 }
 
-body.ga-efb-tracker-host .ga-efb-checklist-detail input {
-  width: 17px;
-  height: 17px;
+body.ga-efb-tracker-host .ga-efb-mission-section {
+  padding: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-phases {
+  display: flex;
+  gap: 4px;
+  margin-top: 9px;
+  overflow: hidden;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-phase {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--drawer-muted);
+  text-align: center;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-phase > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 50%;
+  background: var(--drawer-surface-strong);
+  font: 800 8px/1 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-phase > b {
+  max-width: 62px;
+  font-size: 8px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-phase.is-current { color: var(--drawer-accent); }
+body.ga-efb-tracker-host .ga-efb-mission-phase.is-current > span { border-color: var(--drawer-accent); box-shadow: 0 0 6px rgba(53, 214, 190, .35); }
+body.ga-efb-tracker-host .ga-efb-mission-phase.is-done { color: var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-phase.is-done > span { border-color: var(--drawer-good); }
+
+body.ga-efb-tracker-host .ga-efb-mission-metrics,
+body.ga-efb-tracker-host .ga-efb-mission-conditions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-metrics > section,
+body.ga-efb-tracker-host .ga-efb-mission-conditions > section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-metrics span,
+body.ga-efb-tracker-host .ga-efb-mission-conditions span {
+  color: var(--drawer-muted);
+  font: 800 9px/1.2 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-metrics b,
+body.ga-efb-tracker-host .ga-efb-mission-conditions b {
+  overflow: hidden;
+  color: var(--drawer-heading);
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-metrics small,
+body.ga-efb-tracker-host .ga-efb-mission-conditions small {
+  overflow: hidden;
+  color: var(--drawer-muted);
+  font-size: 9px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-conditions strong {
+  color: var(--drawer-heading);
+  font: 900 22px/1 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-conditions .is-good { border-top: 3px solid var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-conditions .is-warn { border-top: 3px solid #f2c12e; }
+body.ga-efb-tracker-host .ga-efb-mission-conditions .is-danger { border-top: 3px solid #ef635a; }
+
+body.ga-efb-tracker-host .ga-efb-mission-progress {
+  margin-top: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-progress > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-progress > div > b {
+  color: var(--drawer-muted);
+  font-weight: 600;
+  text-align: right;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-progress > i {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--drawer-surface-strong);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-progress > i > span {
+  display: block;
+  height: 100%;
+  background: var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-progress > i.is-good > span { background: var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-progress > i.is-danger > span { background: #ef635a; }
+
+body.ga-efb-tracker-host .ga-efb-mission-requirements,
+body.ga-efb-tracker-host .ga-efb-mission-feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-requirement {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 7px;
+  padding: 7px 8px;
+  border-left: 3px solid var(--drawer-border-soft);
+  background: var(--drawer-surface-strong);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-requirement > span { color: var(--drawer-muted); }
+body.ga-efb-tracker-host .ga-efb-mission-requirement > b { color: var(--drawer-heading); }
+body.ga-efb-tracker-host .ga-efb-mission-requirement.is-good { border-left-color: var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-requirement.is-warn { border-left-color: #f2c12e; }
+body.ga-efb-tracker-host .ga-efb-mission-requirement.is-danger { border-left-color: #ef635a; }
+
+body.ga-efb-tracker-host .ga-efb-mission-feedback {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 7px;
+  align-items: start;
+  padding: 7px;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 5px;
+  background: var(--drawer-surface-strong);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-feedback > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #071512;
+  background: var(--drawer-accent);
+  font: 900 8px/1 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-feedback.is-good > span { background: var(--drawer-good); }
+body.ga-efb-tracker-host .ga-efb-mission-feedback.is-warn > span { background: #f2c12e; }
+body.ga-efb-tracker-host .ga-efb-mission-feedback.is-danger > span { color: #fff; background: #ef635a; }
+
+body.ga-efb-tracker-host .ga-efb-mission-feedback p {
   margin: 0;
-  accent-color: var(--drawer-accent);
+  color: var(--drawer-text);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-footer {
+  padding: 1px 3px 8px;
+  color: var(--drawer-muted);
+  font: 8px/1.4 var(--drawer-font-mono);
+  text-align: center;
 }
 
 body.ga-efb-tracker-host .pinboard-header {

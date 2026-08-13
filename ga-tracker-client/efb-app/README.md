@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.8
+## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.9
 
 Tracker v330 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
@@ -43,6 +43,14 @@ GA Aviation DB mit regionalem OpenAIP-Proxy als Fallback.
 in der Tracker-aus-Fallback-Karte ebenfalls ausgeblendet. Basiskarte,
 Layerauswahl, Route und Flugzeugposition bleiben sichtbar. Tracker v345 und
 der tracker-gehostete Hoststand 0.5.9 bleiben unveraendert.
+
+0.4.9 ist der folgende, noch unveroeffentlichte Testkandidat fuer Tracker v346
+und Host 0.6.0. Im EFB ist ausschliesslich das Modern-Design aktiv; der
+Designschalter entfaellt. Checklisten verwenden quadratische, explizit
+gebundene Schaltflaechen. Eigene Listen kommen aus der begrenzten lokalen
+Tracker-Persistenz unter `/api/v1/checklists`; ihr Abhakfortschritt bleibt
+lokal im EFB. Mission Control rendert eine begrenzte read-only Projektion des
+App-Missionsmenues aus `/api/v1/mission`.
 
 Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
 die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen
@@ -121,8 +129,9 @@ Wegpunkten, Live-Navigation, Missionsziel/POI-Kette und einem Planprofil. Das
 EFB zeichnet Route, Missionsgeometrie, Hoehenband und Kompass selbst. Ohne die
 neue Capability bleibt die bisherige Karte funktionsfaehig.
 
-Die App uebernimmt die Designrichtungen Classic, Retro, NAV/COM, OPS 1940 und
-Windows 95 als kompakte, am Web-Kartentisch ausgerichtete EFB-Themes. Design, einklappbare Menueleiste,
+Bis 0.4.8 uebernahm die App mehrere Designrichtungen. Ab 0.4.9 wird fuer das
+EFB nur noch der moderne Kartentisch-Stil verwendet; alte gespeicherte Theme-
+Werte werden beim Lesen darauf normalisiert. Einklappbare Menueleiste,
 Profil-Sichtbarkeit, Layer und Follow werden nur lokal gespeichert. Uhr mit
 Stoppuhr und der Rechner laufen lokal und verwenden die Geraetedarstellung des
 Web-Kartentischs. Der bestehende E6B wird nicht als statische Formularmaske

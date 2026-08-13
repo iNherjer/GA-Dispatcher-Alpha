@@ -23,6 +23,8 @@ test('tracker relay hello advertises the implemented legacy and mission-authorit
   assert.equal(hello.payload.transport, 'relay-embedded');
   assert.deepEqual(hello.payload.capabilities, TRACKER_RELAY_CAPABILITIES);
   assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.EFB_INTERACTION), false);
+  assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.CHECKLIST_LIBRARY), true);
+  assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.MISSION_VIEW), true);
   assert.equal(readTrackerRelayHello({ trackerProtocolHello: hello })?.id, 'tracker-hello-test');
 });
 

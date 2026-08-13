@@ -26,6 +26,7 @@
     const COMMUNITY_POLL_TIMER_MS = 60 * 1000;
     const COMMUNITY_POLL_LOCK_TTL_MS = 2 * 60 * 1000;
     const COMMUNITY_TAB_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    const TRACKER_CHECKLIST_CAPABILITY = 'checklist.library.v1';
 
     const BUILTIN_CHECKLISTS = [
         {
@@ -140,6 +141,9 @@
     let lastKvPullAt = 0;
     let communityPullInProgress = false;
     let lastCommunityPullAt = 0;
+    let trackerPublishTimer = null;
+    let trackerLastPublishedHash = '';
+    let trackerConnectionToken = '';
 
     const state = {
         view: 'home',
@@ -431,7 +435,51 @@
 
     function saveCustomLists() {
         writeJson(CUSTOM_STORAGE_KEY, customLists);
+        scheduleCustomChecklistsForTracker();
     }
+
+    function trackerCustomChecklistSnapshot() {
+        const checklists = customLists.map(checklist => ({
+            id: checklist.id,
+            title: checklist.title,
+            updatedAt: Number(checklist.updatedAt || 0),
+            chapters: (checklist.chapters || []).map(chapter => ({
+                id: chapter.id,
+                title: chapter.title,
+                items: (chapter.items || []).map(item => ({ id: item.id, text: item.text }))
+            }))
+        }));
+        return {
+            revision: checklists.reduce((latest, checklist) => Math.max(latest, Number(checklist.updatedAt || 0)), 0),
+            updatedAt: Date.now(),
+            checklists
+        };
+    }
+
+    function publishCustomChecklistsToTracker() {
+        const capabilities = Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities : [];
+        if (!capabilities.includes(TRACKER_CHECKLIST_CAPABILITY) || typeof window.sendTrackerCommand !== 'function') return false;
+        const library = trackerCustomChecklistSnapshot();
+        const contentHash = JSON.stringify(library.checklists);
+        if (contentHash === trackerLastPublishedHash) return true;
+        const commandId = window.sendTrackerCommand({
+            type: 'efb_checklist_library.store',
+            library
+        });
+        if (!commandId) return false;
+        trackerLastPublishedHash = contentHash;
+        return true;
+    }
+
+    function scheduleCustomChecklistsForTracker(delayMs = 180) {
+        if (trackerPublishTimer) clearTimeout(trackerPublishTimer);
+        trackerPublishTimer = setTimeout(() => {
+            trackerPublishTimer = null;
+            publishCustomChecklistsToTracker();
+        }, Math.max(0, Number(delayMs) || 0));
+    }
+
+    window.gaGetCustomChecklistTrackerSnapshot = trackerCustomChecklistSnapshot;
 
     function saveProgress() {
         writeJson(PROGRESS_STORAGE_KEY, progressByChecklist);
@@ -1108,6 +1156,39 @@
         return rows;
     }
 
+    function missionWorkProgressData(runtimeSnapshot, progress, cargoOutcome) {
+        const rows = [];
+        const runtimeMetrics = Array.isArray(runtimeSnapshot?.workProgress)
+            ? runtimeSnapshot.workProgress
+            : [];
+        runtimeMetrics.forEach(metric => {
+            const tone = metric.satisfied ? 'good' : (progress?.aborted ? 'danger' : '');
+            if (metric.kind === 'count') {
+                const activeText = Number(metric.activePct || 0) > 0 && Number(metric.completed || 0) < Number(metric.total || 0)
+                    ? ` · aktueller Abschnitt ${Math.round(Number(metric.activePct))}%`
+                    : '';
+                rows.push({ label: metric.label, percent: metric.percent, detail: `${Math.round(Number(metric.completed || 0))} von ${Math.round(Number(metric.total || 0))} erfolgreich${activeText}`, tone });
+            } else if (metric.kind === 'duration') {
+                rows.push({ label: metric.label, percent: metric.percent, detail: `${missionFormatDuration(metric.completedSec)} / ${missionFormatDuration(metric.requiredSec)}${metric.satisfied ? ' · erfüllt' : ''}`, tone });
+            } else if (metric.kind === 'distance') {
+                rows.push({ label: metric.label, percent: metric.percent, detail: `${Number(metric.completedNm || 0).toFixed(1)} / ${Number(metric.requiredNm || 0).toFixed(1)} NM${metric.satisfied ? ' · erfüllt' : ''}`, tone });
+            }
+        });
+        if (cargoOutcome?.requiredTotal > 0) {
+            const cargoHasHardFailure = (cargoOutcome.droppedRequired || []).length > 0 || (cargoOutcome.damagedRequired || []).length > 0;
+            rows.push({
+                label: 'Pflichtmanifest',
+                percent: (Number(cargoOutcome.requiredLoaded || 0) / Number(cargoOutcome.requiredTotal || 1)) * 100,
+                detail: `${cargoOutcome.requiredLoaded || 0}/${cargoOutcome.requiredTotal} an Bord`,
+                tone: cargoHasHardFailure ? 'danger' : ''
+            });
+        }
+        if (!rows.length && runtimeSnapshot?.flags?.taskSatisfied) {
+            rows.push({ label: 'Arbeitsauftrag', percent: 100, detail: 'erfolgreich abgeschlossen', tone: 'good' });
+        }
+        return rows;
+    }
+
     function missionCurrentTask(data, active, progress, live) {
         const runtimeNext = missionRuntimeText('missionRuntimeNextStep');
         if (runtimeNext) return runtimeNext.replace(/^Nächster Schritt:\s*/i, '');
@@ -1385,6 +1466,83 @@
             <div class="mission-control-updated">Stand ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · aktualisiert sich automatisch</div>
         `;
     }
+
+    window.gaGetEfbMissionViewSnapshot = function() {
+        const data = missionGlobalData();
+        if (!data.exists) return null;
+        const runtimeSnapshot = missionRuntimePhaseSnapshot();
+        const active = runtimeSnapshot
+            ? !!runtimeSnapshot.active
+            : (typeof window.missionRuntimeIsActive === 'function' && window.missionRuntimeIsActive());
+        const progress = missionPoiProgress();
+        const comfort = missionComfortSummary();
+        const cargoOutcome = missionCargoOutcome();
+        const live = missionLiveState();
+        const targetNav = missionTargetNav(data, live);
+        const surveySpec = missionSurveySpec(data);
+        const chainSpec = missionPoiChainSpec(data);
+        const title = missionText(data.md?.missionTitle || data.md?.mission || data.md?.title || 'Aktive Mission', 150);
+        const story = missionText(data.md?.missionStory || data.md?.story || data.md?.s || data.contract?.summary || '', Infinity);
+        const runtimeStatus = missionRuntimeText('missionRuntimeStatus', active ? 'Mission aktiv' : (data.accepted ? 'Mission liegt bereit' : 'Missionsentwurf'));
+        const runtimeDetail = missionRuntimeText('missionRuntimeDetail', data.accepted ? 'Missionsdaten geladen.' : 'Mission muss noch angenommen werden.');
+        const currentTask = runtimeSnapshot?.nextStep || missionCurrentTask(data, active, progress, live);
+        const phase = missionPhaseModel(runtimeSnapshot, active);
+        const requirements = missionRequirementRows(data, runtimeSnapshot, progress, surveySpec, chainSpec, live, targetNav, cargoOutcome);
+        const feedback = missionFeedbackItems(data, progress, comfort, cargoOutcome, live, targetNav, surveySpec, active);
+        const cargoHasHardFailure = (cargoOutcome?.droppedRequired || []).length > 0 || (cargoOutcome?.damagedRequired || []).length > 0;
+        const taskTone = progress?.aborted || (active && cargoHasHardFailure) ? 'danger' : (progress?.satisfied ? 'good' : 'active');
+        const comfortScore = comfort ? missionClampPct(comfort.comfortScore) : null;
+        const comfortTone = comfortScore === null ? 'muted' : (comfortScore >= 72 ? 'good' : (comfortScore >= 55 ? 'warn' : 'danger'));
+        const cargoCondition = cargoOutcome ? missionClampPct(cargoOutcome.conditionPct ?? 100) : null;
+        const cargoTone = cargoCondition === null
+            ? 'muted'
+            : (cargoHasHardFailure || cargoCondition <= 35
+                ? 'danger'
+                : (Number(cargoOutcome?.requiredLoaded || 0) < Number(cargoOutcome?.requiredTotal || 0) || cargoCondition < 75 ? 'warn' : 'good'));
+        const domain = missionTaskDomain(data);
+        const route = [missionText(data.md?.start || '', 12), missionText(data.md?.dest || '', 12)].filter(Boolean).join(' -> ');
+        return {
+            schema: 'ga.efb-mission-view.v1',
+            version: 1,
+            capturedAt: Date.now(),
+            title,
+            story,
+            status: runtimeStatus,
+            detail: runtimeDetail,
+            currentTask,
+            taskTone,
+            active,
+            domain,
+            domainLabel: missionDomainLabel(domain),
+            phase: { current: phase.current, stages: phase.stages.map((label, index) => ({ id: `phase-${index + 1}`, label })) },
+            target: {
+                name: missionTargetName(data),
+                distanceNm: Number.isFinite(Number(targetNav?.dist)) ? Number(targetNav.dist) : null,
+                bearingDeg: Number.isFinite(Number(targetNav?.brng)) ? Number(targetNav.brng) : null,
+                route
+            },
+            flight: live,
+            progress: missionWorkProgressData(runtimeSnapshot, progress, cargoOutcome),
+            requirements,
+            feedback,
+            comfort: {
+                available: !!comfort,
+                score: comfortScore,
+                tone: comfortTone,
+                state: comfort?.mood || (data.passenger ? 'Noch ohne Wertung' : 'Kein Pax an Bord'),
+                detail: comfort ? `${comfort.pilotEvents || 0} Pilot · ${comfort.weatherEvents || 0} Wetter` : (data.passenger?.role || 'Unbegleiteter Auftrag')
+            },
+            cargo: {
+                available: !!cargoOutcome,
+                conditionPct: cargoCondition,
+                tone: cargoTone,
+                state: cargoOutcome ? (cargoHasHardFailure ? 'kritisch' : (Number(cargoOutcome.requiredLoaded || 0) < Number(cargoOutcome.requiredTotal || 0) ? 'noch offen' : 'gesichert')) : 'Keine Ladung',
+                detail: cargoOutcome ? `${cargoOutcome.loadedWeightLbs || 0}/${cargoOutcome.totalWeightLbs || 0} lbs erfasst` : cargoHomeSummary(),
+                requiredLoaded: Number(cargoOutcome?.requiredLoaded || 0),
+                requiredTotal: Number(cargoOutcome?.requiredTotal || 0)
+            }
+        };
+    };
 
     function cargoManifestSnapshot() {
         try {
@@ -4263,6 +4421,7 @@ ${routeLines}`;
         loadStateFromStorage();
         initDrawerEvents();
         render();
+        scheduleCustomChecklistsForTracker(600);
         setInterval(() => {
             if (document.visibilityState === 'visible') maybePullCommunity(false);
         }, COMMUNITY_POLL_TIMER_MS);
@@ -4308,6 +4467,14 @@ ${routeLines}`;
             if (state.view === 'list') maybePullKvChecklists(true);
             if (state.view === 'list' || state.view === 'manager' || state.view === 'home') maybePullCommunity(true);
         }
+    });
+    window.addEventListener('gatrackercapabilitieschange', (event) => {
+        const nextToken = String(event?.detail?.connectionToken || '');
+        if (nextToken && nextToken !== trackerConnectionToken) {
+            trackerConnectionToken = nextToken;
+            trackerLastPublishedHash = '';
+        }
+        scheduleCustomChecklistsForTracker(120);
     });
     setInterval(() => {
         if (document.visibilityState !== 'visible' || !isDrawerOpen() || state.view !== 'mission' || !bodyEl) return;

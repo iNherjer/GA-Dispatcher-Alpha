@@ -21,6 +21,8 @@ const {
 } = require('./tracker-efb-http-server.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
 const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.js');
+const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-core.js');
+const { createTrackerEfbChecklistStore } = require('./tracker-efb-checklist-library.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 /**
@@ -37,8 +39,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v345';
-const TRACKER_VERSION_CODE = 345;
+const TRACKER_VERSION = 'v346';
+const TRACKER_VERSION_CODE = 346;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -107,6 +109,7 @@ const debugLog = createRotatingDebugLog({
   dedupeWindowMs: 1500
 });
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
+const EFB_CHECKLIST_LIBRARY_FILE = path.join(TRACKER_DATA_DIR, 'efb-checklists-v1.json');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -4274,6 +4277,10 @@ function startTracker(syncId, pin) {
     storageFile: MISSION_AUTHORITY_FILE,
     log: debugLog
   });
+  const efbChecklistStore = createTrackerEfbChecklistStore({
+    storageFile: EFB_CHECKLIST_LIBRARY_FILE,
+    log: debugLog
+  });
   let _reconnecting = false;
   let _reconnectTimer = null;
   let _simStarted = false;
@@ -4311,18 +4318,28 @@ function startTracker(syncId, pin) {
         simulatorConnected: _simulatorConnected,
         telemetryAvailable: Boolean(_lastEfbSnapshot),
         lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null,
-        missionAvailable: Boolean(_lastEfbMissionSnapshot),
-        lastMissionSnapshotAt: Number(_lastEfbMissionSnapshot?.updatedAt) || null
+        missionAvailable: Boolean(missionAuthorityManager.getActiveRun()),
+        lastMissionSnapshotAt: Number(missionAuthorityManager.getActiveRun()?.updatedAt) || null,
+        customChecklistCount: efbChecklistStore.getSnapshot().checklists.length,
+        checklistLibraryRevision: efbChecklistStore.getSnapshot().revision
       }),
       getSnapshot: () => _lastEfbSnapshot,
       getMapSnapshot: () => projectTrackerMapSnapshot(
         missionAuthorityManager.getActiveRun({ includeBundle: true }),
         _lastEfbSnapshot
       ),
-      getMissionSnapshot: () => ({
-        ...(_lastEfbMissionSnapshot || {}),
-        authoritySnapshot: missionAuthorityManager.getPublicSnapshot()
-      }),
+      getMissionSnapshot: () => {
+        const projected = projectTrackerEfbMissionView(
+          missionAuthorityManager.getActiveRun({ includeBundle: true }),
+          _lastEfbSnapshot,
+          _lastEfbMissionSnapshot
+        );
+        return projected ? {
+          ...projected,
+          authoritySnapshot: missionAuthorityManager.getPublicSnapshot()
+        } : null;
+      },
+      getChecklistSnapshot: () => efbChecklistStore.getSnapshot(),
       log: debugLog
     });
     _efbHttpServer.start().then((address) => {
@@ -4406,6 +4423,49 @@ function startTracker(syncId, pin) {
       debugLog(`HOMEBASE_ACK_ERROR type=${payload?.type || 'unknown'} error=${error?.message || error}`);
       return false;
     }
+  };
+  const sendChecklistAck = (payload = {}) => {
+    const ws = getWs();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      ws.send(JSON.stringify({
+        type: 'gps',
+        syncId,
+        pin,
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        commandAckOnly: true,
+        trackerAck: { source: 'tracker', ...payload, at: Date.now() }
+      }));
+      debugLog(`EFB_CHECKLIST_ACK status=${payload?.status || ''} commandId=${payload?.commandId || ''} revision=${payload?.revision || 0}`);
+      return true;
+    } catch (error) {
+      debugLog(`EFB_CHECKLIST_ACK_ERROR error=${error?.message || error}`);
+      return false;
+    }
+  };
+  const handleAlwaysAvailableChecklistCommand = (command = {}) => {
+    if (String(command?.type || '') !== 'efb_checklist_library.store') return false;
+    try {
+      const result = efbChecklistStore.store(command?.library);
+      sendChecklistAck({
+        type: 'efb_checklist_library.store_ack',
+        commandId: command?.commandId || null,
+        status: result.status,
+        error: result.error || '',
+        revision: result.snapshot?.revision || 0,
+        checklistCount: result.snapshot?.checklists?.length || 0
+      });
+    } catch (error) {
+      sendChecklistAck({
+        type: 'efb_checklist_library.store_ack',
+        commandId: command?.commandId || null,
+        status: 'error',
+        error: error?.message || String(error)
+      });
+      debugLog(`EFB_CHECKLIST_LIBRARY_REJECT error=${error?.message || error}`);
+    }
+    return true;
   };
   const homebasePackageService = HOMEBASE_ENABLED
     ? createHomebasePackageService({
@@ -4511,6 +4571,7 @@ function startTracker(syncId, pin) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
+    if (handleAlwaysAvailableChecklistCommand(command)) return;
     if (handleAlwaysAvailableHomebaseCommand(command)) return;
     if (typeof _trackerCommandHandler === 'function') {
       try {
@@ -5126,6 +5187,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                       flight: {
                         gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
                         iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
+                        aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
                         onGround: Boolean(onGround)
                       }
                     }

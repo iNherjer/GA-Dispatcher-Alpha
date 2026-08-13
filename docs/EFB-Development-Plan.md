@@ -17,6 +17,29 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | EFB-Community-Package | 0.4.8 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
+## Naechster isolierter Testkandidat
+
+Tracker v346 / Host 0.6.0 und EFB 0.4.9 sind als lokaler Kandidat vorbereitet,
+aber noch nicht gebaut, in MSFS getestet oder in einen Kanal eingetragen. Das
+EFB verwendet nur noch das Modern-Design; eine Designauswahl wird nicht mehr
+angeboten. Checklistenpunkte sind Coherent-taugliche Schaltflaechen mit
+quadratischer, selbst gezeichneter Checkbox statt nativer Browser-Checkbox.
+
+Eigene App-Checklisten werden nur nach Aushandlung von
+`checklist.library.v1` begrenzt und sanitisiert an den Tracker uebergeben. Der
+Tracker speichert sie atomar in `efb-checklists-v1.json` und stellt sie ueber
+`GET /api/v1/checklists` lokal fuer das EFB bereit. Der Abhakfortschritt bleibt
+weiter ausschliesslich im EFB-localStorage und wird nicht an App, Tracker oder
+Cloud zurueckgeschrieben.
+
+Mission Control erhaelt ueber `mission.view.v1` eine begrenzte Projektion der
+bereits in der App dargestellten Missionsdaten aus demselben Authority-Resume-
+Bundle. Es zeigt Auftrag, Verlauf, Ziel, Live-Flugwerte, Fortschritt,
+Bedingungen, Passagier-/Ladungszustand und Lagebericht, bleibt jedoch read-only.
+Die lokalen Quell-, Loopback- und Browser-Interaktionstests sind bestanden;
+offener Gate ist ein offizieller Windows-SDK-1.7.2-Build von EFB 0.4.9 samt
+Tracker-v346-EXE und anschliessender In-Sim-Pruefung.
+
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
 Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
 Der In-Sim-Test bestaetigt aktive Route, korrekt gesetztes Flugzeug und
@@ -903,12 +926,28 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       ein Geraet mit derselben Mission setzt nach Bestaetigung den Rettungsstand;
       das zweite Geraet bezieht danach den normalen Tracker-Snapshot. Eine
       andere lokale Mission muss abgewiesen werden.
-- [ ] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen.
+- [x] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen: Der
+      v346/0.4.9-Quellstand projiziert die vorhandene App-Sicht begrenzt ueber
+      das Authority-Bundle und den lokalen Tracker-HTTP-Endpunkt.
+- [ ] Tracker v346 und EFB 0.4.9 offiziell auf Windows bauen und In-Sim testen:
+      nur Modern-Design, quadratische und dauerhaft anklickbare Checkboxen,
+      Custom-Listen nach Tracker-Neustart sowie das read-only Mission Control.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Fuer den naechsten isolierten Kandidaten EFB 0.4.9/Tracker v346
+  wird die EFB-Designauswahl entfernt; die vorhandene Classic-Kennung bleibt
+  nur als interner Name des Modern-Styles bestehen. Eigene Checklisten laufen
+  capability-gesteuert App -> Relay -> Tracker-Persistenz -> lokaler EFB-
+  Endpunkt. Ihre Inhalte werden begrenzt, der EFB-Abhakstand bleibt lokal.
+  Mission Control uebernimmt eine sanitierte Projektion derselben Daten, die
+  das App-Missionsmenue bereits nutzt, ohne Missionsregeln oder Schreibaktionen
+  in den Host zu kopieren. 53 EFB-/Tracker-Tests sowie eine lokale Browser-
+  Pruefung von Anzeige, Custom-Liste, Checkbox-Toggle und Reload-Persistenz sind
+  bestanden. Alpha bleibt bis zum Windows-SDK-/In-Sim-Test auf v345/0.4.8.
 
 - 2026-08-13: Der 0.4.6/v344-In-Sim-Test bestaetigt stabilen iframe-Wechsel
   und Rueckfall, zeigt im Parent aber weiterhin einen Coherent-Renderfehler an

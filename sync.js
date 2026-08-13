@@ -2252,6 +2252,14 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
     } catch (_) {
         missionState = null;
     }
+    let efbMission = null;
+    try {
+        efbMission = typeof window.gaGetEfbMissionViewSnapshot === 'function'
+            ? window.gaGetEfbMissionViewSnapshot()
+            : null;
+    } catch (_) {
+        efbMission = null;
+    }
     return {
         version: 2,
         missionId: runtime.missionId,
@@ -2261,6 +2269,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
             : null,
         savedAt: Date.now(),
         mapProfile: options.includeMapProfile === false ? null : _buildMissionAuthorityMapProfile(),
+        efbMission,
         missionState,
         runtime
     };
@@ -2335,6 +2344,14 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
     }
 
     const compactMissionState = _missionAuthorityInjectLiveRoute(_syncCompactActiveMission(missionState, 3));
+    let efbMission = null;
+    try {
+        efbMission = typeof window.gaGetEfbMissionViewSnapshot === 'function'
+            ? window.gaGetEfbMissionViewSnapshot()
+            : null;
+    } catch (_) {
+        efbMission = null;
+    }
     const bundle = {
         version: 2,
         missionId: trackerMissionId,
@@ -2344,6 +2361,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
             : null,
         savedAt: Date.now(),
         mapProfile: _buildMissionAuthorityMapProfile(),
+        efbMission,
         missionState: compactMissionState,
         runtime
     };
@@ -2367,11 +2385,14 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
     delete runtimeForHash.lastLiveGpsPos;
     delete runtimeForHash.lastLiveFlightData;
     delete runtimeForHash.trackerMissionStatus;
+    const efbMissionForHash = _safeCloneJson(bundle.efbMission, null);
+    if (efbMissionForHash && typeof efbMissionForHash === 'object') delete efbMissionForHash.capturedAt;
     return _missionAuthorityStateHash({
         version: bundle.version,
         missionId: bundle.missionId,
         descriptor: bundle.descriptor,
         mapProfile: bundle.mapProfile,
+        efbMission: efbMissionForHash,
         missionState: bundle.missionState,
         runtime: runtimeForHash
     });
@@ -14823,6 +14844,15 @@ function _markTrackerHeartbeat(pkt) {
     lastTrackerHeartbeatAt = Date.now();
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) window.liveTrackerCapabilities = reportedCapabilities;
+    try {
+        window.dispatchEvent(new CustomEvent('gatrackercapabilitieschange', {
+            detail: {
+                capabilities: Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities.slice() : [],
+                trackerVersionCode: _extractTrackerVersionCode(pkt),
+                connectionToken: String(liveGpsConnectionSeq)
+            }
+        }));
+    } catch (_) {}
     _maybePromptTrackerUpdate(pkt);
     if (trackerHeartbeatWatchdog) clearTimeout(trackerHeartbeatWatchdog);
     trackerHeartbeatWatchdog = setTimeout(() => {

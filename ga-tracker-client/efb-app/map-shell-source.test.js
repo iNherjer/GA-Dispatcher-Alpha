@@ -61,7 +61,7 @@ test('native EFB buttons bind real DOM click handlers after render', () => {
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-base-layer\]'\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-overlay-layer\]'\)/);
   assert.match(tsx, /this\.bindButton\(this\.toolbarToggleRef\.getOrDefault\(\)/);
-  assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-theme\]'\)/);
+  assert.doesNotMatch(tsx, /\[data-theme\]/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-tool\]'\)/);
   assert.match(tsx, /querySelectorAll<HTMLButtonElement>\('\[data-calc\]'\)/);
 });
@@ -78,7 +78,7 @@ test('tracker map contract feeds route, profile and compass without embedding mi
 });
 
 test('minimal fallback keeps only its layer chooser accessible', () => {
-  assert.match(tsx, /ref=\{this\.themeButtonRef\} class="pb-btn is-hidden"/);
+  assert.doesNotMatch(tsx, /themeButtonRef|themeDrawerRef|App-Design/);
   assert.match(tsx, /ref=\{this\.toolsButtonRef\} class="pb-btn is-hidden"/);
   assert.match(tsx, /ref=\{this\.profileButtonRef\} class="pb-btn is-hidden"/);
   assert.doesNotMatch(scss, /&\.fallback-map-active \.ga-efb-map-controls/);
@@ -119,7 +119,7 @@ test('map initialization failures remain visible and diagnosable', () => {
 test('tracker-hosted Kartentisch uses a channel handshake and reports iframe diagnostics', () => {
   assert.match(tsx, /private serverFrameChannel = ''/);
   assert.match(tsx, /messageChannel === this\.serverFrameChannel/);
-  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=6/);
+  assert.match(tsx, /\/efb\/v1\/\?channel=\$\{encodeURIComponent\(this\.serverFrameChannel\)\}&view=7/);
   assert.match(tsx, /\/api\/v1\/client-log/);
   assert.match(tsx, /this\.reportServerFrameEvent\('parent-message'/);
   assert.match(tsx, /state === 'close'[\s\S]*?this\.setScreen\(this\.serverClientAvailable \? 'server' : 'map'\)/);
@@ -136,7 +136,7 @@ test('native map is a minimal tracker-off fallback and tracker availability sele
   assert.match(scss, /&\.fallback-map-active \.follow-button,[\s\S]*?&\.fallback-map-active \.flight-strip,[\s\S]*?display: none !important;/);
   assert.match(tsx, /ref=\{this\.layerButtonRef\} class="map-fab layer-button"/);
   assert.match(tsx, /ref=\{this\.profileButtonRef\} class="pb-btn is-hidden"/);
-  assert.match(tsx, /ref=\{this\.themeButtonRef\} class="pb-btn is-hidden"/);
+  assert.doesNotMatch(tsx, /themeButtonRef|themeDrawerRef|App-Design/);
   assert.match(tsx, /ref=\{this\.toolsButtonRef\} class="pb-btn is-hidden"/);
 });
 

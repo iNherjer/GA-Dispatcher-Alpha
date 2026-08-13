@@ -34,6 +34,8 @@ const TRACKER_EFB_HTTP_CAPABILITIES = Object.freeze([
   CAPABILITIES.MAP_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT,
   CAPABILITIES.MISSION_SNAPSHOT_V2,
+  CAPABILITIES.MISSION_VIEW,
+  CAPABILITIES.CHECKLIST_LIBRARY,
   CAPABILITIES.TRACKER_STATUS,
   CAPABILITIES.EFB_WEB_CLIENT,
   CAPABILITIES.EFB_CLIENT_DIAGNOSTICS
@@ -190,6 +192,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const getSnapshot = typeof options.getSnapshot === 'function' ? options.getSnapshot : () => null;
   const getMapSnapshot = typeof options.getMapSnapshot === 'function' ? options.getMapSnapshot : () => null;
   const getMissionSnapshot = typeof options.getMissionSnapshot === 'function' ? options.getMissionSnapshot : () => null;
+  const getChecklistSnapshot = typeof options.getChecklistSnapshot === 'function' ? options.getChecklistSnapshot : () => null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
   const loggedAssets = new Set();
@@ -284,6 +287,16 @@ function createTrackerEfbHttpServer(options = {}) {
       jsonResponse(response, 200, {
         hello,
         message: createMessage('mission.snapshot', snapshot && typeof snapshot === 'object'
+          ? { ...snapshot, available: true }
+          : { available: false })
+      });
+      return;
+    }
+    if (pathname === '/api/v1/checklists') {
+      const snapshot = getChecklistSnapshot();
+      jsonResponse(response, 200, {
+        hello,
+        message: createMessage('checklist.library', snapshot && typeof snapshot === 'object'
           ? { ...snapshot, available: true }
           : { available: false })
       });

@@ -10,11 +10,7 @@ const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
 const MAP_SNAPSHOT_VERSION = 1;
 
 const THEMES = Object.freeze([
-  Object.freeze({ id: 'classic', label: 'Classic' }),
-  Object.freeze({ id: 'retro', label: 'Retro' }),
-  Object.freeze({ id: 'navcom', label: 'NAV/COM' }),
-  Object.freeze({ id: 'ops1940', label: 'OPS 1940' }),
-  Object.freeze({ id: 'win95', label: 'Windows 95' })
+  Object.freeze({ id: 'classic', label: 'Modern' })
 ]);
 
 const BASE_LAYERS = Object.freeze([
@@ -135,9 +131,7 @@ function normalizePreferences(value = {}) {
       .map((entry) => String(entry || '').trim().toLowerCase())
       .filter((entry) => OVERLAY_IDS.has(entry)))),
     follow: source.follow !== false,
-    theme: THEME_IDS.has(String(source.theme || '').trim().toLowerCase())
-      ? String(source.theme).trim().toLowerCase()
-      : 'classic',
+    theme: 'classic',
     toolbarCollapsed: source.toolbarCollapsed === true,
     profileVisible: source.profileVisible !== false
   };

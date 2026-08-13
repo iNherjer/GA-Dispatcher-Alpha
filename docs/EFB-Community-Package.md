@@ -44,6 +44,16 @@ entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
 Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
 zur getrennten Promotion deaktiviert.
 
+Der naechste isolierte Quellkandidat ist EFB 0.4.9 zusammen mit Tracker v346
+und Host 0.6.0. Er entfernt die Designauswahl zugunsten des Modern-Styles,
+repariert Checklisteninteraktion und Checkbox-Geometrie, liefert gespeicherte
+Custom-Listen aus dem Tracker und erweitert das read-only Mission Control um
+die von der App projizierten Missionsdetails. Dieser Kandidat ist noch kein
+Release. Er darf erst nach einem offiziellen SDK-1.7.2-Build, neu gebauter
+Tracker-v346-EXE und positivem In-Sim-Test als `efb-app-v0.4.9` beziehungsweise
+in `channel/alpha.json` eingetragen werden. Das bestehende Alpha-Artefakt
+0.4.8/v345 bleibt bis dahin unveraendert.
+
 Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
 Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
 Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal

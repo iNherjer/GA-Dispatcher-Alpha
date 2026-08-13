@@ -59,10 +59,12 @@
   var tileHealthReported = {};
   var drawerView = 'mission';
   var drawerChecklistId = '';
+  var trackerChecklistLibrary = { revision: 0, checklists: [] };
+  var checklistLibrarySignature = '';
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var efbChecklistProgress = readEfbChecklistProgress();
-  var EFB_CHECKLISTS = [
+  var EFB_BUILTIN_CHECKLISTS = [
     { id: 'vfr-briefing', title: 'VFR Briefing', sections: [
       { title: 'Route', items: ['Start, Ziel und Ausweichplatz geprueft', 'Kurs, Strecke und ETE plausibel', 'Reiseflughoehe und Terrain geprueft', 'Luftraeume und Frequenzen notiert'] },
       { title: 'Wetter', items: ['METAR/TAF geprueft', 'Wind, Sicht und Wolkenuntergrenze bewertet', 'Tageslicht und Reserven beruecksichtigt'] },
@@ -128,8 +130,11 @@
   }
 
   function readPreferences() {
-    try { return API.normalizePreferences(JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}')); }
-    catch (_) { return API.normalizePreferences(); }
+    var normalized;
+    try { normalized = API.normalizePreferences(JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}')); }
+    catch (_) { normalized = API.normalizePreferences(); }
+    normalized.theme = 'classic';
+    return normalized;
   }
 
   function savePreferences() {
@@ -327,6 +332,11 @@
       .replace(/\u2026/g, '...')
       .replace(/\u00b0/g, ' deg')
       .replace(/\u2032/g, ' ft')
+      .replace(/\u2194/g, ' <-> ')
+      .replace(/\u2192/g, ' -> ')
+      .replace(/\u2190/g, ' <- ')
+      .replace(/[\u2022\u25cf]/g, ' - ')
+      .replace(/[\u2713\u2714]/g, 'OK')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -337,11 +347,25 @@
   function checklistItems(checklist) {
     var items = [];
     (checklist && checklist.sections || []).forEach(function (section, sectionIndex) {
-      (section.items || []).forEach(function (text, itemIndex) {
-        items.push({ key: checklist.id + ':' + sectionIndex + ':' + itemIndex, text: text, section: section.title });
+      var sectionId = String(section.id || 'section-' + (sectionIndex + 1));
+      (section.items || []).forEach(function (item, itemIndex) {
+        var text = item && typeof item === 'object' ? item.text : item;
+        var itemId = item && typeof item === 'object' ? item.id : 'item-' + (itemIndex + 1);
+        items.push({
+          key: checklist.id + ':' + sectionId + ':' + String(itemId || 'item-' + (itemIndex + 1)),
+          text: text,
+          section: section.title
+        });
       });
     });
     return items;
+  }
+
+  function allEfbChecklists() {
+    var custom = trackerChecklistLibrary && Array.isArray(trackerChecklistLibrary.checklists)
+      ? trackerChecklistLibrary.checklists
+      : [];
+    return EFB_BUILTIN_CHECKLISTS.concat(custom);
   }
 
   function checklistDoneCount(checklist) {
@@ -353,37 +377,71 @@
     if (!mission || !mission.missionId) {
       return '<div class="ga-efb-drawer-empty"><strong>Keine aktive Mission</strong><span>Der Tracker meldet aktuell keine priorisierte Mission.</span></div>';
     }
-    var route = mission.route && typeof mission.route === 'object' ? mission.route : {};
-    var cargo = mission.cargo && typeof mission.cargo === 'object' ? mission.cargo : {};
-    var title = mission.title || mission.name || mission.missionId;
-    var state = mission.state || (mission.active ? 'active' : 'unknown');
-    var phase = mission.phase || mission.runtimePhase || mission.startPhase || '--';
-    var routeText = [route.start || route.departure || '', route.destination || route.end || ''].filter(Boolean).join(' -> ');
-    var cargoText = '';
-    if (cargo.total != null || cargo.required != null) {
-      cargoText = '<div><dt>Cargo</dt><dd>' + drawerEscape(cargo.loaded || 0) + ' / ' + drawerEscape(cargo.required != null ? cargo.required : cargo.total) + ' geladen</dd></div>';
-    }
-    return '<div class="ga-efb-mission-card">'
-      + '<div class="ga-efb-mission-live"><span></span>TRACKER-WAHRHEIT</div>'
-      + '<h3>' + drawerEscape(title) + '</h3>'
-      + '<div class="ga-efb-mission-id">' + drawerEscape(mission.missionId) + '</div>'
-      + '<dl>'
-      + '<div><dt>Status</dt><dd>' + drawerEscape(state) + '</dd></div>'
-      + '<div><dt>Phase</dt><dd>' + drawerEscape(phase) + '</dd></div>'
-      + (routeText ? '<div><dt>Route</dt><dd>' + drawerEscape(routeText) + '</dd></div>' : '')
-      + '<div><dt>Szenen</dt><dd>' + drawerEscape(mission.sceneCount || 0) + '</dd></div>'
-      + cargoText
-      + '</dl>'
-      + '<p>Read-only: Fortschritt und Missionshoheit kommen direkt vom Tracker.</p>'
+    var view = mission.view && typeof mission.view === 'object' ? mission.view : mission;
+    var target = view.target && typeof view.target === 'object' ? view.target : {};
+    var live = view.flight && typeof view.flight === 'object' ? view.flight : {};
+    var phase = view.phase && typeof view.phase === 'object' ? view.phase : {};
+    var stages = Array.isArray(phase.stages) ? phase.stages : [];
+    var phaseCurrent = Math.max(0, Math.min(stages.length - 1, Math.round(Number(phase.current) || 0)));
+    var targetLine = target.distanceNm != null
+      ? formatNumber(target.distanceNm, 1) + ' NM | ' + leftPad(Math.round(Number(target.bearingDeg) || 0), 3) + ' deg'
+      : (live.trackerLive ? 'Zielposition offen' : 'Tracker wartet');
+    var altitudeLine = live.mslFt != null ? Math.round(Number(live.mslFt) || 0) + ' ft MSL' : 'Keine Live-Hoehe';
+    var altitudeDetail = live.aglFt != null
+      ? Math.round(Number(live.aglFt) || 0) + ' ft AGL'
+      : (live.gsKts != null ? Math.round(Number(live.gsKts) || 0) + ' kt GS' : 'Live-Daten offen');
+    var phaseHtml = stages.map(function (stage, index) {
+      var label = stage && typeof stage === 'object' ? stage.label : stage;
+      return '<div class="ga-efb-mission-phase' + (index < phaseCurrent ? ' is-done' : '') + (index === phaseCurrent ? ' is-current' : '') + '">'
+        + '<span>' + (index < phaseCurrent ? 'OK' : String(index + 1)) + '</span><b>' + drawerEscape(label || 'Phase') + '</b></div>';
+    }).join('');
+    var progressHtml = (Array.isArray(view.progress) ? view.progress : []).map(function (row) {
+      var pct = clamp(Math.round(Number(row.percent) || 0), 0, 100);
+      return '<div class="ga-efb-mission-progress"><div><span>' + drawerEscape(row.label) + '</span><b>' + drawerEscape(row.detail) + '</b></div>'
+        + '<i class="is-' + drawerEscape(row.tone || 'active') + '"><span style="width:' + pct + '%"></span></i></div>';
+    }).join('');
+    var requirementsHtml = (Array.isArray(view.requirements) ? view.requirements : []).map(function (row) {
+      return '<div class="ga-efb-mission-requirement is-' + drawerEscape(row.tone || 'neutral') + '"><span>'
+        + drawerEscape(row.label) + '</span><b>' + drawerEscape(row.detail) + '</b></div>';
+    }).join('');
+    var feedbackHtml = (Array.isArray(view.feedback) ? view.feedback : []).map(function (row) {
+      return '<div class="ga-efb-mission-feedback is-' + drawerEscape(row.tone || 'info') + '"><span>'
+        + (row.tone === 'danger' || row.tone === 'warn' ? '!' : (row.tone === 'good' ? 'OK' : 'i'))
+        + '</span><p>' + drawerEscape(row.detail) + '</p></div>';
+    }).join('');
+    var comfort = view.comfort && typeof view.comfort === 'object' ? view.comfort : {};
+    var cargo = view.cargo && typeof view.cargo === 'object' ? view.cargo : {};
+    var conditions = '<div class="ga-efb-mission-conditions">'
+      + '<section class="is-' + drawerEscape(comfort.tone || 'muted') + '"><span>PAX-STIMMUNG</span><strong>'
+      + (comfort.score == null ? '--' : drawerEscape(comfort.score) + '%') + '</strong><b>' + drawerEscape(comfort.state || 'Keine Wertung')
+      + '</b><small>' + drawerEscape(comfort.detail || '') + '</small></section>'
+      + '<section class="is-' + drawerEscape(cargo.tone || 'muted') + '"><span>LADUNGSZUSTAND</span><strong>'
+      + (cargo.conditionPct == null ? '--' : drawerEscape(cargo.conditionPct) + '%') + '</strong><b>' + drawerEscape(cargo.state || 'Keine Ladung')
+      + '</b><small>' + drawerEscape(cargo.detail || '') + '</small></section></div>';
+    return '<div class="ga-efb-mission-control">'
+      + '<section class="ga-efb-mission-hero is-' + drawerEscape(view.taskTone || 'active') + '">'
+      + '<div><span class="ga-efb-mission-live"><i></i>' + (live.trackerLive ? 'LIVE' : 'TRACKER') + '</span><span>' + drawerEscape(view.status || mission.state || 'Mission aktiv') + '</span></div>'
+      + '<h3>' + drawerEscape(view.title || mission.title || mission.missionId) + '</h3>'
+      + (view.story ? '<p>' + drawerEscape(view.story) + '</p>' : '') + '</section>'
+      + '<section class="ga-efb-mission-order is-' + drawerEscape(view.taskTone || 'active') + '"><small>AKTUELLER AUFTRAG</small><strong>'
+      + drawerEscape(view.currentTask || 'Missionsstatus pruefen') + '</strong><span>' + drawerEscape(view.detail || '') + '</span></section>'
+      + (phaseHtml ? '<section class="ga-efb-mission-section"><small>MISSIONSVERLAUF</small><div class="ga-efb-mission-phases">' + phaseHtml + '</div></section>' : '')
+      + '<div class="ga-efb-mission-metrics"><section><span>ZIEL</span><b>' + drawerEscape(targetLine) + '</b><small>' + drawerEscape(target.name || '') + '</small></section>'
+      + '<section><span>FLUGHOEHE</span><b>' + drawerEscape(altitudeLine) + '</b><small>' + drawerEscape(altitudeDetail) + '</small></section></div>'
+      + (progressHtml ? '<section class="ga-efb-mission-section"><small>LIVE-FORTSCHRITT</small>' + progressHtml + '</section>' : '')
+      + (requirementsHtml ? '<section class="ga-efb-mission-section"><small>BEDINGUNGEN</small><div class="ga-efb-mission-requirements">' + requirementsHtml + '</div></section>' : '')
+      + conditions
+      + (feedbackHtml ? '<section class="ga-efb-mission-section"><small>LAGEBERICHT</small><div class="ga-efb-mission-feedback-list">' + feedbackHtml + '</div></section>' : '')
+      + '<div class="ga-efb-mission-footer">Read-only | Mission und Fortschritt kommen vom Tracker | ' + drawerEscape(mission.sceneCount || 0) + ' Szenen</div>'
       + '</div>';
   }
 
   function checklistListMarkup() {
-    return '<div class="ga-efb-checklist-list">' + EFB_CHECKLISTS.map(function (checklist) {
+    return '<div class="ga-efb-checklist-list">' + allEfbChecklists().map(function (checklist) {
       var total = checklistItems(checklist).length;
       var done = checklistDoneCount(checklist);
       return '<button type="button" data-efb-drawer-action="open-checklist" data-checklist-id="' + drawerEscape(checklist.id) + '">'
-        + '<strong>' + drawerEscape(checklist.title) + '</strong>'
+        + '<strong>' + drawerEscape(checklist.title) + (checklist.source === 'custom' ? '<em>EIGEN</em>' : '') + '</strong>'
         + '<span>' + done + ' / ' + total + ' erledigt</span>'
         + '</button>';
     }).join('') + '</div>';
@@ -391,7 +449,7 @@
 
   function selectedChecklistMarkup() {
     var checklist = null;
-    EFB_CHECKLISTS.some(function (candidate) {
+    allEfbChecklists().some(function (candidate) {
       if (candidate.id !== drawerChecklistId) return false;
       checklist = candidate;
       return true;
@@ -401,10 +459,14 @@
     html += '<div class="ga-efb-checklist-detail"><h3>' + drawerEscape(checklist.title) + '</h3>';
     checklist.sections.forEach(function (section, sectionIndex) {
       html += '<section><h4>' + drawerEscape(section.title) + '</h4>';
-      section.items.forEach(function (text, itemIndex) {
-        var key = checklist.id + ':' + sectionIndex + ':' + itemIndex;
-        html += '<label data-efb-check-row="' + drawerEscape(key) + '"><input type="checkbox" data-efb-check-item="' + drawerEscape(key) + '"'
-          + (efbChecklistProgress[key] === true ? ' checked' : '') + '><span>' + drawerEscape(text) + '</span></label>';
+      section.items.forEach(function (item, itemIndex) {
+        var text = item && typeof item === 'object' ? item.text : item;
+        var sectionId = section.id || 'section-' + (sectionIndex + 1);
+        var itemId = item && typeof item === 'object' ? item.id : 'item-' + (itemIndex + 1);
+        var key = checklist.id + ':' + sectionId + ':' + itemId;
+        var checked = efbChecklistProgress[key] === true;
+        html += '<button type="button" class="ga-efb-check-row' + (checked ? ' is-checked' : '') + '" data-efb-check-row="' + drawerEscape(key)
+          + '" role="checkbox" aria-checked="' + (checked ? 'true' : 'false') + '"><i aria-hidden="true"></i><span>' + drawerEscape(text) + '</span></button>';
       });
       html += '</section>';
     });
@@ -416,7 +478,7 @@
     var title = byId('checklistDrawerTitle');
     var status = byId('checklistDrawerStatus');
     if (!body) return;
-    if (title) title.textContent = drawerView === 'mission' ? 'Missionsstatus' : 'Checklisten';
+    if (title) title.textContent = drawerView === 'mission' ? 'Mission Control' : 'Checklisten';
     if (status) status.textContent = drawerView === 'mission' ? 'Live vom Tracker | nur Lesen' : 'Fortschritt bleibt lokal in diesem EFB';
     var tabs = '<div class="ga-efb-drawer-tabs">'
       + '<button type="button" data-efb-drawer-action="mission" class="' + (drawerView === 'mission' ? 'active' : '') + '">Mission</button>'
@@ -509,28 +571,12 @@
     return false;
   }
 
-  function applyTheme(theme) {
-    var ids = API.THEMES.map(function (entry) { return entry.id; });
-    ids.forEach(function (id) { document.body.classList.remove('theme-' + id); });
-    document.body.classList.add('theme-' + theme);
-    preferences.theme = theme;
-    var entry = null;
-    API.THEMES.some(function (candidate) { if (candidate.id !== theme) return false; entry = candidate; return true; });
-    var button = document.querySelector('.ga-efb-host-design');
-    if (button) button.textContent = 'Design: ' + (entry ? entry.label : theme);
+  function applyTheme() {
+    ['classic', 'retro', 'navcom', 'ops1940', 'win95'].forEach(function (id) { document.body.classList.remove('theme-' + id); });
+    document.body.classList.add('theme-classic');
+    preferences.theme = 'classic';
     savePreferences();
     if (map) window.setTimeout(function () { map.invalidateSize(false); }, 50);
-  }
-
-  function cycleTheme() {
-    var index = -1;
-    API.THEMES.some(function (entry, candidateIndex) {
-      if (entry.id !== preferences.theme) return false;
-      index = candidateIndex;
-      return true;
-    });
-    var next = API.THEMES[(index + 1) % API.THEMES.length];
-    applyTheme(next.id);
   }
 
   function setTrackerState(text, error) {
@@ -604,7 +650,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.5.9');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.0');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -613,7 +659,6 @@
       actions.classList.add('ga-efb-host-actions');
       var displayMenu = makeHostMenu('ga-efb-host-display-menu', 'Anzeige', [
         { label: 'Infofenster einblenden', action: showAllInfoBoxes },
-        { label: 'Design wechseln', action: cycleTheme },
         { label: 'Kartenlayer', action: toggleLayerMenu },
         { label: 'Was ist hier: Karte kurz halten', hint: true }
       ]);
@@ -677,7 +722,7 @@
     document.body.classList.toggle('toolbar-collapsed', preferences.toolbarCollapsed);
     document.body.classList.toggle('profile-hidden', !preferences.profileVisible);
     syncProfileButton();
-    applyTheme(preferences.theme);
+    applyTheme();
     setupInfoBoxes();
     setupSideDrawer();
     setupProfileResize();
@@ -1033,15 +1078,43 @@
 
   function renderMissionPayload(payload) {
     var next = payload && payload.available === true ? payload : null;
-    var signature = next ? [next.missionId || '', next.runId || '', next.revision || '', next.state || '', next.phase || next.runtimePhase || '', next.sceneCount || 0].join('|') : 'none';
+    var view = next && next.view && typeof next.view === 'object' ? next.view : {};
+    var signature = next ? [next.missionId || '', next.runId || '', next.revision || '', next.state || '', next.phase || '', next.sceneCount || 0,
+      view.capturedAt || '', view.currentTask || '', view.taskTone || '', JSON.stringify(view.progress || []), JSON.stringify(view.feedback || [])].join('|') : 'none';
     if (signature === missionSignature) return;
     missionSignature = signature;
     missionSnapshot = next;
     var button = document.querySelector('.ga-efb-host-mission');
     if (button) button.textContent = next && next.missionId ? 'Mission: ' + String(next.phase || next.state || 'aktiv').slice(0, 14) : 'Mission';
     var drawer = byId('mapSideDrawer');
-    if (drawer && drawer.classList.contains('is-open') && drawerView === 'mission') renderSideDrawer();
+    if (drawer && drawer.classList.contains('is-open') && drawerView === 'mission') {
+      var body = byId('checklistDrawerBody');
+      var scrollTop = body ? body.scrollTop : 0;
+      renderSideDrawer();
+      if (body) body.scrollTop = scrollTop;
+    }
     report('info', 'mission-panel', next ? 'active' : 'empty', next ? 'Missionsstatus vom Tracker aktualisiert' : 'Keine aktive Tracker-Mission', next ? String(next.missionId || '') : '');
+  }
+
+  function renderChecklistPayload(payload) {
+    var next = payload && payload.available === true && Array.isArray(payload.checklists)
+      ? payload
+      : { revision: 0, updatedAt: 0, checklists: [] };
+    var signature = [next.revision || 0, next.updatedAt || 0, next.checklists.length].join('|');
+    if (signature === checklistLibrarySignature) return;
+    checklistLibrarySignature = signature;
+    trackerChecklistLibrary = next;
+    if (drawerChecklistId && !allEfbChecklists().some(function (checklist) { return checklist.id === drawerChecklistId; })) {
+      drawerChecklistId = '';
+    }
+    var drawer = byId('mapSideDrawer');
+    if (drawer && drawer.classList.contains('is-open') && drawerView === 'checklists') {
+      var body = byId('checklistDrawerBody');
+      var scrollTop = body ? body.scrollTop : 0;
+      renderSideDrawer();
+      if (body) body.scrollTop = scrollTop;
+    }
+    report('info', 'checklist-library', 'loaded', 'Eigene Checklisten vom Tracker geladen', 'count=' + next.checklists.length + ' revision=' + (next.revision || 0));
   }
 
   function automaticWaypointIndex() {
@@ -2005,11 +2078,13 @@
   }
 
   function poll() {
+    var checklistRequest = fetchJson('/api/v1/checklists').catch(function () { return null; });
     Promise.all([
       fetchJson('/api/v1/status'),
       fetchJson('/api/v1/snapshot'),
       fetchJson('/api/v1/map'),
-      fetchJson('/api/v1/mission')
+      fetchJson('/api/v1/mission'),
+      checklistRequest
     ]).then(function (responses) {
       trackerOnline = true;
       var status = safePayload(responses[0]);
@@ -2017,6 +2092,7 @@
       renderFlight(safePayload(responses[1]));
       renderMapPayload(safePayload(responses[2]));
       renderMissionPayload(safePayload(responses[3]));
+      if (responses[4]) renderChecklistPayload(safePayload(responses[4]));
       notifyParentState('live');
       pollTimer = window.setTimeout(poll, 1000);
     }).catch(function () {

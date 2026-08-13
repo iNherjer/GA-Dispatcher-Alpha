@@ -234,8 +234,8 @@ Basiskarte nicht ein zweites Mal dimmen. Freihand-Pointer werden vom sichtbaren
 Coherent-Rechteck in Leaflets interne Containerkoordinaten umgerechnet. Das
 E6B wird weiterhin im lokalen iframe gerendert, die Drehgeste wird wegen der
 Coherent-Pointergrenze jedoch auf einer Parent-Flaeche erfasst und als
-`ga-e6b-rotate-delta` weitergegeben. Mission und Checklisten im Seitenmenue
-erzeugen keine Tracker-Commands: Mission ist eine Projektion von
+`ga-e6b-rotate-delta` weitergegeben. Mission und Checklistenhaken im
+Seitenmenue erzeugen keine Tracker-Commands: Mission ist eine Projektion von
 `/api/v1/mission`, Checklistenhaken bleiben nur im EFB-localStorage.
 
 Host 0.4.8/v333 fuehrt die im Kartentisch erlaubten Rasterquellen ueber
@@ -333,6 +333,25 @@ und Flugzeugmarker bleiben erhalten. Der Trackervertrag und Host 0.5.9 sind
 gegenueber 0.4.7 unveraendert. Der offizielle SDK-1.7.2-Build und der
 abschliessende In-Sim-Test wurden am 13.08.2026 freigegeben; Tracker und Paket
 koennen deshalb als unveraenderliche Alpha-Artefakte veroeffentlicht werden.
+
+Der isolierte Kandidat Tracker v346 / Host 0.6.0 / EFB 0.4.9 erweitert diese
+Grenze um zwei getrennte, versionierte Datenprodukte. `mission.view.v1` liegt
+im bestehenden Authority-Resume-Bundle und enthaelt eine begrenzte Projektion
+der bereits von der App berechneten Missionsmenue-Daten. Der Tracker validiert
+und begrenzt sie erneut, bevor `/api/v1/mission` sie an das read-only Mission
+Control liefert. Der Host berechnet weder Missionsphasen noch Erfolgskriterien.
+
+`checklist.library.v1` ist davon unabhaengig. Nur die Web-App sendet nach
+Capability-Pruefung den Command `efb_checklist_library.store` mit ihren
+sanitisierten Custom-Listen. Der Tracker akzeptiert hoechstens 40 Listen,
+20 Abschnitte und 300 Punkte je Liste sowie insgesamt 512 KiB, schreibt atomar
+nach `efb-checklists-v1.json` und liefert das Ergebnis ueber
+`GET /api/v1/checklists`. Sync-PIN, Community-Abos, App-Abhakstand und Cloud-
+Daten sind nicht Teil dieses Snapshots. Im EFB sind Checklisten weiterhin
+read-only bezueglich ihrer Definition; nur der lokale Abhakstand wird
+veraendert. EFB 0.4.9 normalisiert zudem jede gespeicherte Theme-Praeferenz auf
+den einzigen Modern-Style. v346/0.4.9 ist nicht veroeffentlicht und benoetigt
+vor einem Kanaleintrag den offiziellen Windows-/In-Sim-Test.
 
 Ab Webstand v1621 ist die im Kartentisch tatsaechlich aktive Route Bestandteil
 jedes bestehenden Authority-Resume-Bundles. Nach Missionsstart loest eine

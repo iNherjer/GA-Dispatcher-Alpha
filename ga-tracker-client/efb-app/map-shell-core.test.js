@@ -39,14 +39,14 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   });
 });
 
-test('EFB preferences preserve supported app designs and chrome visibility', () => {
-  assert.deepEqual(core.THEMES.map((theme) => theme.id), ['classic', 'retro', 'navcom', 'ops1940', 'win95']);
+test('EFB preferences always use the single Modern design and preserve chrome visibility', () => {
+  assert.deepEqual(core.THEMES, [{ id: 'classic', label: 'Modern' }]);
   const preferences = core.normalizePreferences({
     theme: 'ops1940',
     toolbarCollapsed: true,
     profileVisible: false
   });
-  assert.equal(preferences.theme, 'ops1940');
+  assert.equal(preferences.theme, 'classic');
   assert.equal(preferences.toolbarCollapsed, true);
   assert.equal(preferences.profileVisible, false);
   assert.equal(core.normalizePreferences({ theme: 'unknown' }).theme, 'classic');

@@ -12,9 +12,9 @@ const {
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
-test('tracker v345 exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v345'/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 345/);
+test('tracker v346 exits a duplicate instance when the fixed EFB port is already occupied', () => {
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v346'/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 346/);
   assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
   assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
   assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);
@@ -58,6 +58,8 @@ test('local EFB hello advertises snapshots, web client and bounded client diagno
   assert.equal(hello.payload.capabilities.includes('efb.web-client.v1'), true);
   assert.equal(hello.payload.capabilities.includes('efb.client-diagnostics.v1'), true);
   assert.equal(hello.payload.capabilities.includes('map.context.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('checklist.library.v1'), true);
+  assert.equal(hello.payload.capabilities.includes('mission.view.v1'), true);
 });
 
 test('loopback EFB server exposes versioned status, flight and mission snapshots read-only', async (t) => {
@@ -90,6 +92,10 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
       title: 'Testflug',
       route: { start: 'EDDS', destination: 'EDTF', target: '' },
       cargo: { total: 2, required: 2, loaded: 2, unloaded: 0, pending: 0 }
+    }),
+    getChecklistSnapshot: () => ({
+      schema: 'ga.efb-checklist-library.v1', version: 1, revision: 3, updatedAt: 4,
+      checklists: [{ id: 'custom-one', title: 'Eigene Liste', sections: [] }]
     }),
     mapContextProvider: {
       get: async request => ({
@@ -125,6 +131,11 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   assert.equal(mission.message.payload.missionId, 'mission-42');
   assert.equal(mission.message.payload.route.destination, 'EDTF');
 
+  const checklists = JSON.parse((await request(address, '/api/v1/checklists')).body);
+  assert.equal(checklists.message.type, 'checklist.library');
+  assert.equal(checklists.message.payload.available, true);
+  assert.equal(checklists.message.payload.checklists[0].title, 'Eigene Liste');
+
   const map = JSON.parse((await request(address, '/api/v1/map')).body);
   assert.equal(map.message.type, 'map.snapshot');
   assert.equal(map.message.payload.available, true);
@@ -141,7 +152,7 @@ test('loopback EFB server exposes versioned status, flight and mission snapshots
   const webClient = await request(address, '/efb/v1/');
   assert.equal(webClient.statusCode, 200);
   assert.match(webClient.headers['content-type'], /^text\/html/);
-  assert.match(webClient.body, /data-efb-view-version="5"/);
+  assert.match(webClient.body, /data-efb-view-version="6"/);
   assert.match(webClient.body, /id="mapTableOverlay"/);
 
   const hostScript = await request(address, '/efb/v1/assets/host.js');
