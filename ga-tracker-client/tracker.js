@@ -25,6 +25,11 @@ const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-cor
 const { createTrackerEfbChecklistStore } = require('./tracker-efb-checklist-library.js');
 const { fetchTrackerEfbChecklistLibrary } = require('./tracker-efb-checklist-cloud.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
+const {
+  TRACKER_RELAY_ENDPOINTS,
+  buildTrackerRelayUrl,
+  createRelayFanout
+} = require('./tracker-relay-routing-core.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -32,7 +37,6 @@ const { createRotatingDebugLog } = require('./tracker-debug-log.js');
  */
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const WS_URL = 'wss://websocketrelais.onrender.com/';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const TRACKER_STORAGE = prepareTrackerStorage({ legacyDirectory: RUNTIME_DIR });
 const TRACKER_DATA_DIR = TRACKER_STORAGE.dataDirectory;
@@ -4308,11 +4312,16 @@ function startTracker(syncId, pin) {
       _checklistCloudSyncInProgress = false;
     }
   };
-  let _reconnecting = false;
-  let _reconnectTimer = null;
   let _simStarted = false;
-  let _wsAttempt = 0;
-  let _currentWs = null;
+  const _relayStates = new Map(
+    TRACKER_RELAY_ENDPOINTS.map(config => [config.key, {
+      config: { ...config, resolvedUrl: buildTrackerRelayUrl(config, syncId) },
+      socket: null,
+      reconnectTimer: null,
+      attempt: 0
+    }])
+  );
+  let _homebaseRemoteCheckScheduled = false;
   let _trackerCommandHandler = null;
   const _pendingTrackerCommands = [];
   const MAX_PENDING_TRACKER_COMMANDS = 64;
@@ -4401,7 +4410,12 @@ function startTracker(syncId, pin) {
       ? 'homebase_v1.door_automation.set_ack'
       : 'homebase_v1.hangar.animation.set_ack';
 
-  const getWs = () => _currentWs;
+  const relayFanout = createRelayFanout(
+    () => _relayStates.values(),
+    WebSocket,
+    (error, state) => debugLog(`RELAY_SEND_ERROR relay=${state?.config?.key || 'unknown'} error=${error?.message || error}`)
+  );
+  const getWs = () => relayFanout;
   const readCurrentHomebaseFallback = () => {
     const config = readTrackerConfig();
     const candidate = config?.homebaseFallback;
@@ -4716,14 +4730,12 @@ function startTracker(syncId, pin) {
     _pendingDirectHangarCommands.set(commandId, timer);
     debugLog(`HANGAR_DIRECT_FALLBACK_WAIT commandId=${commandId} delayMs=${DIRECT_HANGAR_FALLBACK_DELAY_MS}`);
   };
-  const scheduleReconnect = (reason, delayMs = 5000) => {
-    if (_reconnectTimer) return;
-    _reconnecting = false;
-    if (reason) trackerWarn(`⚠️  ${reason}`);
-    _reconnectTimer = setTimeout(() => {
-      _reconnectTimer = null;
-      connect();
-    }, delayMs);
+  const refreshRelayConnectionState = () => {
+    updateEfbState({
+      relayConnected: Array.from(_relayStates.values()).some(
+        state => state.socket?.readyState === WebSocket.OPEN
+      )
+    });
   };
   const startSimConnectOnce = () => {
     if (_simStarted) return;
@@ -4740,13 +4752,21 @@ function startTracker(syncId, pin) {
     );
   };
 
-  function connect() {
-    if (_reconnecting) return;
-    _reconnecting = true;
-    _wsAttempt += 1;
-    trackerLog(`\nVerbinde mit WebSocket-Server: ${WS_URL}... (Versuch ${_wsAttempt})`);
-    const ws = new WebSocket(WS_URL, { handshakeTimeout: 10000 });
-    _currentWs = ws;
+  function scheduleRelayReconnect(state, reason, delayMs = 5000) {
+    if (!state || state.reconnectTimer) return;
+    if (reason) trackerWarn(`⚠️  ${state.config.label}-Relay: ${reason}`);
+    state.reconnectTimer = setTimeout(() => {
+      state.reconnectTimer = null;
+      connectRelay(state);
+    }, delayMs);
+  }
+
+  function connectRelay(state) {
+    if (!state || state.socket?.readyState === WebSocket.OPEN || state.socket?.readyState === WebSocket.CONNECTING) return;
+    state.attempt += 1;
+    trackerLog(`\nVerbinde mit ${state.config.label}-Relay [${state.config.code}]... (Versuch ${state.attempt})`);
+    const ws = new WebSocket(state.config.resolvedUrl, { handshakeTimeout: 10000 });
+    state.socket = ws;
     let opened = false;
     let awaitingPong = false;
     let pingInterval = null;
@@ -4787,24 +4807,26 @@ function startTracker(syncId, pin) {
         trackerVersion: TRACKER_VERSION,
         trackerVersionCode: TRACKER_VERSION_CODE,
         trackerProtocolHello: TRACKER_PROTOCOL_HELLO,
+        relaySource: state.config.code,
         sentAt: Date.now()
       }));
     };
 
     ws.on('open', () => {
       opened = true;
-      _reconnecting = false;
-      updateEfbState({ relayConnected: true });
+      state.attempt = 0;
+      refreshRelayConnectionState();
       clearWsTimers();
-      ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
-      trackerLog(`📡 Relay verbunden für Pilot-ID: ${syncId} (Konto verifiziert)`);
-      debugLog(`TRACKER_PROTOCOL_HELLO version=${TRACKER_PROTOCOL_HELLO.protocolVersion} channel=${TRACKER_RUNTIME_CHANNEL} capabilities=${TRACKER_PROTOCOL_HELLO.payload.capabilities.join(',')}`);
+      ws.send(JSON.stringify({ type: 'join', syncId, pin, relayRole: 'tracker' }));
+      trackerLog(`📡 ${state.config.label}-Relay [${state.config.code}] verbunden für Pilot-ID: ${syncId}`);
+      debugLog(`TRACKER_RELAY_OPEN relay=${state.config.key} version=${TRACKER_PROTOCOL_HELLO.protocolVersion} channel=${TRACKER_RUNTIME_CHANNEL} capabilities=${TRACKER_PROTOCOL_HELLO.payload.capabilities.join(',')}`);
       trackerStatusStartTimer = setTimeout(() => {
         trackerStatusStartTimer = null;
         sendTrackerStatus();
         trackerStatusInterval = setInterval(sendTrackerStatus, 5000);
       }, 250);
-      if (homebasePackageService) {
+      if (homebasePackageService && !_homebaseRemoteCheckScheduled) {
+        _homebaseRemoteCheckScheduled = true;
         setTimeout(() => {
           homebasePackageService.checkRemoteAssets({ notify: true }).then((status) => {
             debugLog(`HOMEBASE_ASSET_REMOTE_CHECK available=${status.remoteAvailable} update=${status.updateAvailable} installed=${status.installedVersion || 'none'} remote=${status.remoteVersion || 'none'} error=${status.remoteError || 'none'}`);
@@ -4831,15 +4853,16 @@ function startTracker(syncId, pin) {
     ws.on('message', handleTrackerMessage);
 
     ws.on('error', (err) => {
-      trackerError("❌ WebSocket-Fehler:", err.message);
-      if (!opened) scheduleReconnect("WebSocket-Verbindung fehlgeschlagen. Neuer Versuch in 5 Sekunden...");
+      trackerError(`❌ ${state.config.label}-Relay-Fehler:`, err.message);
+      debugLog(`TRACKER_RELAY_ERROR relay=${state.config.key} opened=${opened ? 'yes' : 'no'} error=${err?.message || err}`);
     });
 
     ws.on('close', () => {
       clearWsTimers();
-      if (_currentWs === ws) _currentWs = null;
-      updateEfbState({ relayConnected: false });
-      scheduleReconnect("WebSocket getrennt. Neuverbindung in 5 Sekunden...");
+      if (state.socket === ws) state.socket = null;
+      refreshRelayConnectionState();
+      debugLog(`TRACKER_RELAY_CLOSE relay=${state.config.key}`);
+      scheduleRelayReconnect(state, 'Verbindung getrennt. Neuer Versuch in 5 Sekunden...');
     });
   }
 
@@ -4848,7 +4871,7 @@ function startTracker(syncId, pin) {
   if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();
   if (typeof checklistCloudInterval.unref === 'function') checklistCloudInterval.unref();
   startSimConnectOnce();
-  connect();
+  for (const state of _relayStates.values()) connectRelay(state);
 }
 
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
@@ -4975,7 +4998,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
 
       let lastSent = 0;
       let lastFlightLog = 0;
-      const SEND_INTERVAL_MS = 100;
+      // Der Relay- und UI-Vertrag arbeitet mit 2 Hz. Eine dichtere Uebertragung
+      // erhoeht nur Request-/Ingress-Last und liefert dem Browser keine
+      // zusaetzlichen nutzbaren Frames.
+      const SEND_INTERVAL_MS = 500;
       const GPS_SOURCE_INTERVAL_FRAMES = 3;
       const TRAFFIC_POLL_MS = 5000;
       const DEF_ID = 206;

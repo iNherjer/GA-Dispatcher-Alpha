@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v345 Alpha | v320 | v345 liefert die EFB-Feinarbeiten und den bevorzugten gehosteten Luftfahrtdatenpfad; Stable bleibt unveraendert |
+| Tracker-Runtime | v346 Alpha | v320 | v346 sendet mit 2 Hz parallel ueber Cloudflare und Render; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.8 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -974,6 +974,26 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Pruefung von Anzeige, Custom-Liste, Checkbox-Toggle und Reload-Persistenz sind
   bestanden. Alpha bleibt bis zum Windows-SDK-/In-Sim-Test auf v345/0.4.8.
 
+- 2026-08-13: Cloudflare Durable Objects ist als primaerer Relay-Pfad (`C`)
+  produktiv unter `ga-relay.einherjer.workers.dev` bereitgestellt; Render bleibt
+  als unabhaengiger Fallback (`R`). Tracker v346 sendet denselben 2-Hz-Stand an
+  beide Dienste. Die Web-App empfaengt nur ueber den aktiven Dienst, wechselt
+  bei Socket-Ausfall oder nach einer erfolgreichen Tracker-Probe auf Render und
+  prueft von dort periodisch die Rueckkehr zu Cloudflare. Alte Tracker bleiben
+  dadurch ueber Render nutzbar. Das Cloudflare-Durable-Object nutzt gehashte
+  Raumschluessel, Hibernation-WebSockets, Rollenrouting und ein timerfreies
+  Telemetrie-Gate. Lokale Worker-, Routing-, Cache-, Authority-, Storage-,
+  Auth- und Homebase-Tests bestanden. Live wurden Cloudflare-Drosselung,
+  unverzoegerte Commands sowie der gemeinsame `C -> R`-Fallback mit einem
+  temporaeren Raum bestaetigt. Web-Cache v1630 aktiviert die Umstellung.
+- 2026-08-13: Der Render-Relay begrenzt kontinuierliche GPS-Telemetrie
+  serverseitig auf 2 Hz. Weil der oeffentliche Render-WebSocket-Pfad trotz
+  beidseitiger Aktivierung kein `permessage-deflate` aushandelt, verwendet die
+  Web-App zusaetzlich die additive Relay-Capability `gzip-base64-v1`. Nur
+  ausdruecklich kompatible Browser erhalten gebuendelte Telemetrie als
+  `relay_compressed`-Huelle; Legacy-Clients, Tracker, Workbench, Commands, ACKs
+  und Heartbeats behalten den bisherigen JSON-Vertrag. Damit ist fuer den
+  Kompressions-Hotfix kein neuer Tracker- oder EFB-Build erforderlich.
 - 2026-08-13: Der 0.4.6/v344-In-Sim-Test bestaetigt stabilen iframe-Wechsel
   und Rueckfall, zeigt im Parent aber weiterhin einen Coherent-Renderfehler an
   `Array.flatMap`. EFB 0.4.7 ersetzt ihn durch eine Schleife und laesst in der

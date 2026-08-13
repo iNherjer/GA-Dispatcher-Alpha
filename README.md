@@ -87,7 +87,7 @@ Funktionen:
 - Der Update-Ablauf versucht einen ausstehenden Missionsstand vor dem Reload bestaetigt hochzuladen. Der lokale Missionsstand bleibt auch erhalten, wenn der Upload gerade nicht moeglich ist.
 - Eine wirklich begonnene Mission kann nach einem Reload bis zu 12 Stunden ab Missionsstart fortgesetzt werden. Ist sie danach noch nicht beendet, bleibt der Auftrag erhalten und faellt mit zurueckgesetztem Flug-, Boarding-, Cargo- und Aufgabenfortschritt wieder auf **geplant**. Geplante oder akzeptierte, noch nicht begonnene Missionen besitzen keine Altersgrenze.
 - **Live GPS**: zeigt, ob Daten vom PC-Tracker ankommen.
-- Der Live-GPS-Status unterscheidet drei Stufen: `WAIT` bedeutet, dass nur die App am Relay verbunden ist; `LINK · v302` bestätigt den verbundenen PC-Tracker ohne frische Sim-Telemetrie; `LIVE · v302` zeigt aktive Telemetrie. Bei `LINK` und `LIVE` wird die erkannte Tracker-Version mit angezeigt.
+- Der Live-GPS-Status unterscheidet drei Stufen: `WAIT` bedeutet, dass nur die App am Relay verbunden ist; `LINK · v346 C` bestätigt den verbundenen PC-Tracker ohne frische Sim-Telemetrie; `LIVE · v346 C` zeigt aktive Telemetrie. Hinter der Tracker-Version kennzeichnet `C` den primaeren Cloudflare-Pfad und `R` den automatischen Render-Fallback.
 - **Tracker fuer Windows**: installiert und aktualisiert die Runtime, die MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App sendet.
 
 PC-Tracker einrichten:
@@ -102,6 +102,7 @@ Der Tracker prueft Pilot-ID und PIN vor dem Verbindungsaufbau beim Sync-Dienst. 
 Tipps:
 
 - Die Reihenfolge ist unkritisch: Tracker und MSFS koennen vor oder nach der App starten.
+- Tracker v346 spiegelt seine 2-Hz-Telemetrie zu Cloudflare und Render. Die App empfaengt normalerweise nur ueber Cloudflare und oeffnet Render erst bei Ausfall oder wenn ein aelterer Render-only-Tracker erkannt wird.
 - Wenn Live-GPS aktiv ist, nutzt **Direct To** automatisch die echte aktuelle Position als Start.
 - Bei Sync-Konflikten nicht hektisch Push/Pull druecken. Erst pruefen, welches Geraet den gewuenschten Stand hat.
 
