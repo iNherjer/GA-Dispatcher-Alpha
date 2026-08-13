@@ -40702,6 +40702,9 @@ async function fetchRouteAirspaces(routePts, options = {}) {
                         target.frequencies = fetched;
                     }
                     if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+                    if (typeof window.gaPushMissionAuthorityProfile === 'function') {
+                        window.gaPushMissionAuthorityProfile('airspace-frequency-ready');
+                    }
                 });
         });
 
@@ -40710,6 +40713,9 @@ async function fetchRouteAirspaces(routePts, options = {}) {
         renderAirspaceWarningsList();
         if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) renderMapProfile();
         if (typeof renderVerticalProfile === 'function' && document.getElementById('vpCanvas')) renderVerticalProfile();
+        if (typeof window.gaPushMissionAuthorityProfile === 'function') {
+            window.gaPushMissionAuthorityProfile('route-airspaces-ready');
+        }
 
     } catch (e) {
         if (requestSeq !== routeAirspaceRetryState.requestSeq
@@ -45748,10 +45754,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const el = document.getElementById('swVersionDisplay');
     const params = new URLSearchParams(window.location.search || '');
-    const swBypassMode = params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
+    const swBypassMode = window.__gaLocalDevNoSw === true || params.has('fireCacheFresh') || params.has('noSw') || params.has('swBypass');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1464', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1621', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

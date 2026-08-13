@@ -172,6 +172,30 @@ vm.runInNewContext(
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'local-command' }), true);
 assert.equal(ackContext._missionAuthorityAckWasSentLocally({ commandId: 'foreign-command' }), false);
 
+const profileRefreshCalls = [];
+const profileRefreshContext = {
+  clearTimeout: () => {},
+  setTimeout: callback => { callback(); return 1; },
+  _buildMissionAuthorityMapProfile: () => null,
+  _queueMissionAuthoritySnapshot: () => profileRefreshCalls.push('push'),
+  window: {
+    vpHardReloadRouteProfile: reason => {
+      profileRefreshCalls.push(reason);
+      return profileRefreshCalls.length >= 2;
+    }
+  }
+};
+vm.runInNewContext(
+  `let missionAuthorityProfileRefreshTimer = null;\n${functionSource(syncSource, '_scheduleMissionAuthorityProfileRefresh')}`,
+  profileRefreshContext
+);
+assert.equal(profileRefreshContext._scheduleMissionAuthorityProfileRefresh('handoff-test'), true);
+assert.deepEqual(
+  profileRefreshCalls,
+  ['handoff-test', 'handoff-test'],
+  'handoff profile refresh must retry until the restored route can start its terrain fetch'
+);
+
 const recoveryMission = { currentMissionData: { missionId: 'mission-a', mission: 'Testmission' } };
 const persistedRecoveryRuntime = {
   version: 1,
@@ -196,6 +220,7 @@ const recoveryContext = {
   _syncRuntimeSnapshotStarted: snapshot => !!snapshot?.runtime?.active,
   _syncCompactActiveMission: state => JSON.parse(JSON.stringify(state)),
   _missionAuthorityAdapter: () => 'apt',
+  _buildMissionAuthorityMapProfile: () => null,
   _validateMissionAuthorityResumeBundle: bundle => ({
     ok: !!(bundle?.missionId && bundle?.missionState && bundle?.runtime)
   }),

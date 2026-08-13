@@ -20,6 +20,8 @@ const {
   createTrackerEfbHttpServer
 } = require('./tracker-efb-http-server.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
+const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.js');
+const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -35,9 +37,10 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v325';
-const TRACKER_VERSION_CODE = 325;
+const TRACKER_VERSION = 'v345';
+const TRACKER_VERSION_CODE = 345;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
+const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
@@ -96,6 +99,13 @@ const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(TRACKER_DATA_DIR, 'ga-tracker-debug.txt');
+const debugLog = createRotatingDebugLog({
+  filename: TRACKER_DEBUG_FILE,
+  maxBytes: 8 * 1024 * 1024,
+  retainedTailBytes: 512 * 1024,
+  maxLineBytes: 32 * 1024,
+  dedupeWindowMs: 1500
+});
 const MISSION_AUTHORITY_FILE = path.join(TRACKER_DATA_DIR, 'mission-authority-v1.json');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
@@ -164,14 +174,6 @@ function trackerStatus(line = '') {
   }
   consoleStatusLine = line;
   consoleRenderStatusLine();
-}
-
-function debugLog(line) {
-  try {
-    const ts = new Date().toISOString();
-    fs.mkdirSync(path.dirname(TRACKER_DEBUG_FILE), { recursive: true });
-    fs.appendFileSync(TRACKER_DEBUG_FILE, `[${ts}] ${line}\n`, 'utf8');
-  } catch (_) {}
 }
 
 function toFiniteNumber(value, fallback = null) {
@@ -344,6 +346,7 @@ function buildTitleCandidates(title, extra = []) {
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null) {
   const missions = new Map();
   const scenes = new Map();
+  let lastAuthorityMapProjectionSignature = '';
   let sceneOperationQueue = Promise.resolve();
   const sceneObjectOperationStates = new Map();
   const sceneObjectDesiredStates = new Map();
@@ -3887,6 +3890,24 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
   };
 
+  const logAuthorityMapProjection = (command = {}, result = null) => {
+    if (!result?.ok) return;
+    const projected = projectTrackerMapSnapshot(
+      missionAuthority.getActiveRun({ includeBundle: true }),
+      typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null
+    );
+    const signature = projected ? JSON.stringify({
+      missionId: projected.missionId,
+      runId: projected.runId,
+      route: (projected.route?.waypoints || []).map(point => [point.lat, point.lon]),
+      profileMode: projected.profile?.mode || 'none',
+      profilePoints: projected.profile?.points?.length || 0
+    }) : 'none';
+    if (signature === lastAuthorityMapProjectionSignature) return;
+    lastAuthorityMapProjectionSignature = signature;
+    debugLog(`MISSION_MAP_AUTHORITY mission=${projected?.missionId || command?.missionId || ''} run=${projected?.runId || command?.runId || ''} revision=${projected?.revision || result?.activeRun?.revision || 0} routePoints=${projected?.route?.waypoints?.length || 0} profileMode=${projected?.profile?.mode || 'none'} profilePoints=${projected?.profile?.points?.length || 0} terrain=${projected?.profile?.terrainAvailable === true ? 1 : 0} reason=${command?.reason || command?.type || 'authority-update'}`);
+  };
+
   const handleAuthorityCommand = (type, command) => {
     if (!missionAuthority) return false;
     if (authorityReleasePending && type !== 'mission_snapshot_request' && type !== 'mission_authority_release') {
@@ -3900,7 +3921,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     if (type === 'mission_authority_acquire') {
       try {
-        sendAuthorityResult(type, command, missionAuthority.acquire(command));
+        const result = missionAuthority.acquire(command);
+        logAuthorityMapProjection(command, result);
+        sendAuthorityResult(type, command, result);
       } catch (error) {
         sendAuthorityResult(type, command, { ok: false, status: 'error', error: error?.code || error?.message || String(error) });
       }
@@ -3915,7 +3938,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     }
     if (type === 'mission_snapshot_update') {
-      sendAuthorityResult(type, command, missionAuthority.updateSnapshot(command));
+      const result = missionAuthority.updateSnapshot(command);
+      logAuthorityMapProjection(command, result);
+      sendAuthorityResult(type, command, result);
       return true;
     }
     if (type === 'mission_authority_release') {
@@ -4290,6 +4315,10 @@ function startTracker(syncId, pin) {
         lastMissionSnapshotAt: Number(_lastEfbMissionSnapshot?.updatedAt) || null
       }),
       getSnapshot: () => _lastEfbSnapshot,
+      getMapSnapshot: () => projectTrackerMapSnapshot(
+        missionAuthorityManager.getActiveRun({ includeBundle: true }),
+        _lastEfbSnapshot
+      ),
       getMissionSnapshot: () => ({
         ...(_lastEfbMissionSnapshot || {}),
         authoritySnapshot: missionAuthorityManager.getPublicSnapshot()
@@ -4300,6 +4329,13 @@ function startTracker(syncId, pin) {
       trackerLog(`📟 EFB-Schnittstelle bereit: http://127.0.0.1:${address.port}`);
     }).catch((error) => {
       _efbHttpServer = null;
+      if (error?.code === 'EADDRINUSE') {
+        trackerError(`❌ Lokaler EFB-Port ${configuredPort} ist bereits belegt. Wahrscheinlich laeuft noch eine andere Tracker-Instanz.`);
+        trackerWarn('⚠️  Diese zweite Tracker-Instanz wird beendet, damit EFB- und Simulatorzustand nicht auseinanderlaufen.');
+        debugLog(`EFB_HTTP_PORT_CONFLICT port=${configuredPort} exitCode=${EFB_HTTP_PORT_CONFLICT_EXIT_CODE}`);
+        setTimeout(() => process.exit(EFB_HTTP_PORT_CONFLICT_EXIT_CODE), 250);
+        return;
+      }
       trackerWarn(`⚠️  Lokale EFB-Schnittstelle nicht verfügbar: ${error?.message || error}`);
       debugLog(`EFB_HTTP_START_ERROR error=${error?.message || error}`);
     });

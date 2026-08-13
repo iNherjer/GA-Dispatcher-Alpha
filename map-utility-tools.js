@@ -349,6 +349,7 @@
         }
         requestAnimationFrame(() => {
             clampPanel(panel);
+            fitE6BFrameToViewport(panel);
             const cfg = getToolConfig('e6b');
             if (cfg && panel.style.display !== 'none') savePanelPosition(cfg);
             syncE6BBaseSize(panel);
@@ -417,6 +418,23 @@
             width: rect ? Math.max(1, rect.width) : window.innerWidth,
             height: rect ? Math.max(1, rect.height) : window.innerHeight
         };
+    }
+
+    function fitE6BFrameToViewport(panel) {
+        const shell = panel ? panel.querySelector('.map-e6b-shell') : null;
+        const frame = el('mapE6BFrame');
+        if (!panel || !shell || !frame || panel.style.display === 'none') return;
+        const shellRect = shell.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const viewportLeft = viewport ? finiteE6BNumber(viewport.offsetLeft) : 0;
+        const viewportTop = viewport ? finiteE6BNumber(viewport.offsetTop) : 0;
+        const viewportWidth = Math.max(1, viewport ? finiteE6BNumber(viewport.width, window.innerWidth) : window.innerWidth);
+        const viewportHeight = Math.max(1, viewport ? finiteE6BNumber(viewport.height, window.innerHeight) : window.innerHeight);
+        frame.style.left = `${viewportLeft - shellRect.left}px`;
+        frame.style.top = `${viewportTop - shellRect.top}px`;
+        frame.style.width = `${viewportWidth}px`;
+        frame.style.height = `${viewportHeight}px`;
+        frame.style.transform = 'none';
     }
 
     function getE6BFrameOffset(panel) {
@@ -616,6 +634,7 @@
         bringToFront(panel);
         if (tool === 'e6b') requestAnimationFrame(() => {
             clampPanel(panel);
+            fitE6BFrameToViewport(panel);
             syncE6BBaseSize(panel);
             reclampE6BViewOffset();
         });
@@ -2212,7 +2231,9 @@
         const e6bFrame = el('mapE6BFrame');
         if (e6bFrame && e6bFrame.dataset.e6bViewBound !== '1') {
             e6bFrame.addEventListener('load', () => {
-                syncE6BBaseSize(el('mapE6BDevice'));
+                const panel = el('mapE6BDevice');
+                fitE6BFrameToViewport(panel);
+                syncE6BBaseSize(panel);
                 postE6BMessage({ type: 'ga-e6b-report-view' });
             });
             e6bFrame.dataset.e6bViewBound = '1';
@@ -2239,6 +2260,7 @@
                 if (panel && panel.style.display !== 'none') {
                     clampPanel(panel);
                     if (tool === 'e6b') {
+                        fitE6BFrameToViewport(panel);
                         syncE6BBaseSize(panel);
                         reclampE6BViewOffset();
                     }

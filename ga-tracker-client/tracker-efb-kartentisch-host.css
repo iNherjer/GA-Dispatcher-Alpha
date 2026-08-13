@@ -1,0 +1,1857 @@
+/* Tracker-hosted EFB view. The visual base deliberately comes from styles.css. */
+html,
+body.ga-efb-tracker-host {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #111 !important;
+}
+
+body.ga-efb-tracker-host #mapTableOverlay {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+/* Coherent uses the outer EFB control set; keep its ASCII FLIP label compact. */
+body.ga-efb-tracker-host #mapE6BFlip {
+  font-size: 7px;
+}
+
+body.ga-efb-tracker-host .win95-window-dragbar,
+body.ga-efb-tracker-host .win95-window-resize-handles,
+body.ga-efb-tracker-host .win95-overlay-minimize-btn,
+body.ga-efb-tracker-host .win95-overlay-close-btn,
+body.ga-efb-tracker-host .map-fullscreen-close-btn,
+body.ga-efb-tracker-host #mapToolbarInner .pb-btn.close,
+body.ga-efb-tracker-host #mapHintsBtn,
+body.ga-efb-tracker-host #mapHintsMenu,
+body.ga-efb-tracker-host #mapVoiceBtn,
+body.ga-efb-tracker-host #mapVoiceMenu,
+body.ga-efb-tracker-host #freeflightBtn,
+body.ga-efb-tracker-host #mapMissionToggleBtn,
+body.ga-efb-tracker-host #mapGroundCargoBtn,
+body.ga-efb-tracker-host .map-toolbar-help-btn,
+body.ga-efb-tracker-host #manualSimPanel,
+body.ga-efb-tracker-host #missionStartBanner,
+body.ga-efb-tracker-host #btnVpSettings,
+body.ga-efb-tracker-host #vpSettingsMenu,
+body.ga-efb-tracker-host #btnToggleVpMode,
+body.ga-efb-tracker-host #btnSimMode,
+body.ga-efb-tracker-host #btnManualSimMode,
+body.ga-efb-tracker-host #simSpeedStrip {
+  display: none !important;
+}
+
+body.ga-efb-tracker-host #mapSideDrawer {
+  display: block;
+}
+
+body.ga-efb-tracker-host .ga-efb-drawer-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+body.ga-efb-tracker-host .ga-efb-drawer-tabs button,
+body.ga-efb-tracker-host .ga-efb-drawer-back,
+body.ga-efb-tracker-host .ga-efb-checklist-list button {
+  box-sizing: border-box;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 7px;
+  background: var(--drawer-surface-strong);
+  color: var(--drawer-heading);
+  cursor: pointer;
+  font: 700 12px/1.2 var(--drawer-font);
+}
+
+body.ga-efb-tracker-host .ga-efb-drawer-tabs button {
+  min-height: 38px;
+}
+
+body.ga-efb-tracker-host .ga-efb-drawer-tabs button.active {
+  border-color: var(--drawer-accent);
+  color: var(--drawer-accent);
+  background: var(--drawer-surface-strong);
+  box-shadow: inset 0 -2px 0 var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card,
+body.ga-efb-tracker-host .ga-efb-drawer-empty,
+body.ga-efb-tracker-host .ga-efb-checklist-detail {
+  padding: 13px;
+  border: 1px solid var(--drawer-border-soft);
+  border-radius: 9px;
+  background: var(--drawer-surface);
+  color: var(--drawer-text);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card h3,
+body.ga-efb-tracker-host .ga-efb-checklist-detail h3 {
+  margin: 7px 0 4px;
+  color: var(--drawer-heading);
+  font-size: 17px;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--drawer-good);
+  font: 800 10px/1 var(--drawer-font-mono);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-live span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-id {
+  overflow: hidden;
+  color: var(--drawer-muted);
+  font: 10px/1.3 var(--drawer-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card dl {
+  margin: 12px 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card dl > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--drawer-border-soft);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card dt {
+  color: var(--drawer-muted);
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card dd {
+  margin: 0;
+  color: var(--drawer-heading);
+  font-weight: 700;
+}
+
+body.ga-efb-tracker-host .ga-efb-mission-card p,
+body.ga-efb-tracker-host .ga-efb-drawer-empty span {
+  display: block;
+  margin: 8px 0 0;
+  color: var(--drawer-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-list button span {
+  color: var(--drawer-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-drawer-back {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail section {
+  margin-top: 13px;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail h4 {
+  margin: 0 0 6px;
+  color: var(--drawer-accent);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--drawer-border-soft);
+  color: var(--drawer-text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+body.ga-efb-tracker-host .ga-efb-checklist-detail input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--drawer-accent);
+}
+
+body.ga-efb-tracker-host .pinboard-header {
+  flex: 0 0 auto !important;
+  position: relative;
+  z-index: 140000;
+  min-height: 66px;
+  padding: 34px 8px 6px !important;
+  box-sizing: border-box;
+}
+
+body.ga-efb-tracker-host .ga-efb-boot-status {
+  position: fixed;
+  top: 42px;
+  left: 50%;
+  z-index: 100000;
+  width: 300px;
+  margin-left: -150px;
+  padding: 7px 10px;
+  box-sizing: border-box;
+  border: 1px solid #35695f;
+  border-radius: 3px;
+  color: #061713;
+  background: #69ded0;
+  font: 700 10px/1.25 monospace;
+  text-align: center;
+  pointer-events: none;
+}
+
+body.ga-efb-tracker-host .ga-efb-boot-status.error {
+  color: #fff;
+  border-color: #a85353;
+  background: #6a2929;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner {
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner > div:last-child {
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-actions {
+  overflow: visible !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-trigger::after {
+  width: 0;
+  height: 0;
+  border-top: 4px solid currentColor;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu.is-open .ga-efb-host-menu-trigger {
+  color: #111;
+  border-color: #d8b64c;
+  background: #f2c12e;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-panel {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  z-index: 180000;
+  display: none;
+  min-width: 180px;
+  max-width: min(280px, calc(100vw - 16px));
+  margin-top: 0;
+  padding: 6px;
+  border: 1px solid #4e6571;
+  border-radius: 5px;
+  box-sizing: border-box;
+  background: rgba(7, 18, 25, .985);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .62);
+}
+
+body.ga-efb-tracker-host .ga-efb-host-tools-menu .ga-efb-host-menu-panel {
+  right: 0;
+  left: auto;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu.is-open .ga-efb-host-menu-panel {
+  display: block;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  margin: 0 0 4px;
+  padding: 7px 9px;
+  border: 1px solid rgba(117, 149, 164, .38);
+  border-radius: 3px;
+  color: #e7f1f5;
+  background: rgba(27, 42, 51, .96);
+  font: 700 11px/1.2 Arial, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-item:last-child {
+  margin-bottom: 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-item:hover,
+body.ga-efb-tracker-host .ga-efb-host-menu-item:focus {
+  color: #071219;
+  border-color: #69ded0;
+  background: #69ded0;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-menu-hint {
+  padding: 7px 8px 3px;
+  border-top: 1px solid rgba(117, 149, 164, .25);
+  color: #8faab6;
+  font: 10px/1.3 monospace;
+}
+
+body.ga-efb-tracker-host #mapToolbarInner > div:last-child::-webkit-scrollbar {
+  display: none;
+}
+
+body.ga-efb-tracker-host #navStationLabel {
+  display: none !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-design,
+body.ga-efb-tracker-host .ga-efb-host-state {
+  height: 30px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+body.ga-efb-tracker-host .ga-efb-e6b-input-surface {
+  position: absolute;
+  left: var(--e6b-tool-stack-left, 0px);
+  top: var(--e6b-tool-stack-top, 0px);
+  z-index: 3;
+  width: var(--e6b-tool-stack-width, 100%);
+  height: var(--e6b-tool-stack-height, 100%);
+  border-radius: 50%;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  background: transparent;
+}
+
+body.ga-efb-tracker-host .ga-efb-e6b-input-surface.is-dragging {
+  cursor: grabbing;
+}
+
+body.ga-efb-tracker-host .ga-efb-e6b-input-surface.wind-side {
+  border-radius: 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-state {
+  padding: 5px 9px;
+  border: 1px solid #35695f;
+  border-radius: 3px;
+  color: #061713;
+  background: #69ded0;
+  font: 700 11px/1 monospace;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-state.error {
+  color: #fff;
+  border-color: #a85353;
+  background: #6a2929;
+}
+
+body.ga-efb-tracker-host #mapArea,
+body.ga-efb-tracker-host #map {
+  min-height: 0 !important;
+}
+
+body.ga-efb-tracker-host #map {
+  isolation: isolate;
+  background: #c9d0cb;
+  filter: none !important;
+  transform: none !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-tile,
+body.ga-efb-tracker-host #map .leaflet-layer,
+body.ga-efb-tracker-host #map .leaflet-map-pane {
+  transition: none !important;
+}
+
+body.ga-efb-tracker-host #map img.ga-efb-map-tile {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1;
+  border: 0 !important;
+  background: transparent !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  backface-visibility: visible !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-base-pane {
+  z-index: 200 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-aero-pane {
+  z-index: 250 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-route-pane {
+  z-index: 430 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-geometry-pane {
+  z-index: 440 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-preview-pane {
+  z-index: 445 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-drawing-pane {
+  z-index: 450 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-ga-aircraft-pane {
+  z-index: 500 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-popup-pane {
+  z-index: 10500 !important;
+}
+
+body.ga-efb-tracker-host.map-drawing-active #map {
+  touch-action: none !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content-wrapper,
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-tip {
+  color: #eaf4f7;
+  background: rgba(7, 20, 29, .98);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border: 1px solid rgba(83, 211, 255, .72);
+  border-radius: 11px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .55);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content {
+  width: min(450px, calc(100vw - 78px)) !important;
+  margin: 0 !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-close-button {
+  display: none;
+}
+
+body.ga-efb-tracker-host.ga-efb-context-open .telemetry-box {
+  visibility: hidden !important;
+}
+
+body.ga-efb-tracker-host.ga-efb-context-open #compassRoseWrap {
+  visibility: hidden !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel {
+  overflow: hidden;
+  border-radius: 10px;
+  color: #e8f1f4;
+  background: rgba(7, 14, 22, .99);
+  font: 650 11px/1.38 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header {
+  position: relative;
+  padding: 8px 36px 7px 10px;
+  border-bottom: 1px solid #314853;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header small,
+body.ga-efb-tracker-host .ga-efb-context-panel > header strong {
+  display: block;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header small {
+  color: #69ded0;
+  font: 800 10px/1.2 monospace;
+  letter-spacing: .7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header strong {
+  margin-top: 2px;
+  color: #fff;
+  font: 700 12px/1.2 monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-close {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #4d626d;
+  border-radius: 3px;
+  color: #dce9ee;
+  background: #172833;
+  font: 800 11px/22px Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-body {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  min-height: 280px;
+  max-height: min(520px, calc(100vh - 175px));
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height {
+  position: relative;
+  min-height: 280px;
+  border-right: 1px solid #33505d;
+  background: linear-gradient(#b5e7fb 0 72%, #78a55c 72% 100%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height.is-loading {
+  filter: saturate(.72);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  z-index: 5;
+  color: #12252d;
+  font: 800 9px/1 monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title small {
+  display: block;
+  margin-top: 2px;
+  font-size: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale {
+  position: absolute;
+  top: 27px;
+  bottom: 8px;
+  left: 3px;
+  z-index: 4;
+  width: 28px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale span {
+  position: absolute;
+  right: 0;
+  color: #18313b;
+  font: 7px/1 monospace;
+  transform: translateY(50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot {
+  position: absolute;
+  top: 27px;
+  right: 5px;
+  bottom: 8px;
+  left: 34px;
+  overflow: hidden;
+  border-left: 1px solid rgba(12, 42, 54, .5);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace {
+  position: absolute;
+  z-index: 2;
+  right: 3px;
+  left: 3px;
+  min-height: 2px;
+  border: 1px solid var(--ga-context-color);
+  box-sizing: border-box;
+  background: rgba(77, 166, 255, .28);
+  background: color-mix(in srgb, var(--ga-context-color) 28%, rgba(255,255,255,.25));
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace b {
+  display: block;
+  overflow: hidden;
+  color: #071820;
+  font: 900 11px/1 'Courier New', monospace;
+  text-align: center;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-cloud {
+  position: absolute;
+  right: -8px;
+  left: 6px;
+  z-index: 1;
+  min-height: 8px;
+  overflow: hidden;
+  border-radius: 48% 52% 46% 54% / 40% 48% 52% 60%;
+  background: linear-gradient(to bottom, rgba(242, 246, 249, .9), rgba(126, 139, 151, .8));
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, .7), 0 1px 3px rgba(33, 48, 58, .35);
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-cloud b {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #40515c;
+  font: 900 7px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-precipitation {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  left: 7px;
+  z-index: 2;
+  opacity: .56;
+  background: repeating-linear-gradient(103deg, transparent 0 5px, #247dcc 5px 7px, transparent 7px 12px);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature {
+  position: absolute;
+  right: -1px;
+  left: -1px;
+  z-index: 8;
+  height: 0;
+  border-top: 2px solid #facc15;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature::before {
+  position: absolute;
+  top: -4px;
+  left: -1px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #5b4300;
+  border-radius: 50%;
+  background: #facc15;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature b {
+  position: absolute;
+  top: -9px;
+  right: 1px;
+  padding: 1px 2px;
+  border-radius: 2px;
+  color: #5b4300;
+  background: rgba(255, 247, 190, .94);
+  font: 900 7px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 12;
+  padding: 3px 4px;
+  border-radius: 3px;
+  color: #123144;
+  background: rgba(255, 255, 255, .82);
+  font: 900 7px/1 'Courier New', monospace;
+  transform: translate(-50%, -50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-terrain {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  min-height: 2px;
+  border-top: 1px solid #273d20;
+  background: #5f884e;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot > em {
+  position: absolute;
+  z-index: 5;
+  right: 2px;
+  color: #18301c;
+  font: 700 6px/1 monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-ownship {
+  position: absolute;
+  z-index: 6;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: #f12f3b;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-ownship::before {
+  position: absolute;
+  top: -4px;
+  left: -1px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid #f2c12e;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details {
+  overflow: auto;
+  padding: 8px;
+  background: rgba(8, 24, 34, .98);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details section {
+  margin: 0 0 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(83, 211, 255, .14);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details > section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details h4 {
+  margin: 0 0 4px;
+  color: #7f9eaa;
+  font: 800 9px/1.2 monospace;
+  letter-spacing: .5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature,
+body.ga-efb-tracker-host .ga-efb-context-frequency,
+body.ga-efb-tracker-host .ga-efb-context-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid #344c57;
+  border-radius: 4px;
+  background: rgba(27, 39, 39, .96);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature small {
+  color: #f2c12e;
+  font: 800 8px/1.1 monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature span,
+body.ga-efb-tracker-host .ga-efb-context-frequency span {
+  color: #a9bbc3;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-summary span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-summary strong {
+  color: #eef7fa;
+  font-size: 9px;
+  text-align: right;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-summary b {
+  color: #8ba7b2;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-frequency b {
+  color: #69ded0;
+  font: 800 13px/1.1 monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-muted {
+  color: #8298a2;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces span {
+  display: block;
+  margin-top: 4px;
+  padding: 5px 6px;
+  border: 1px solid #314751;
+  border-left: 3px solid var(--ga-context-color);
+  border-radius: 3px;
+  background: rgba(25, 38, 45, .92);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces span b,
+body.ga-efb-tracker-host .ga-efb-context-airspaces span small {
+  display: block;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces span b {
+  color: #eef6f8;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces span small {
+  margin-top: 2px;
+  color: #9eb1b9;
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces .ga-efb-context-airspace-frequencies {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies i {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies em {
+  color: #8fa9b4;
+  font: 800 8px/1.2 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies b {
+  color: #69ded0 !important;
+  font: 900 9px/1.2 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-source {
+  margin-top: 4px;
+  color: #6f8995;
+  font-size: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-busy::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border: 1px solid rgba(83, 211, 255, .28);
+  border-top-color: #53d3ff;
+  border-radius: 50%;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-error {
+  padding: 6px;
+  border: 1px solid rgba(248, 113, 113, .55);
+  border-radius: 4px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, .24);
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather {
+  overflow: hidden;
+  padding: 7px;
+  border: 2px solid #c2bba8;
+  border-radius: 8px;
+  color: #29251e;
+  background: #f0eada;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, .25), inset 0 1px 4px rgba(255, 255, 255, .6);
+  font-family: Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 2px dashed #c2bba8;
+  color: #8a1a12;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header b {
+  font: 900 9px/1.1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header span,
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  color: #69675f;
+  font: 800 6px/1.2 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values > span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values > span.is-wide {
+  grid-column: 1 / -1;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values small {
+  color: #666;
+  font: 900 6px/1 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b {
+  overflow: hidden;
+  color: #111;
+  font: 900 8px/1.08 'Courier New', monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b.is-wind {
+  color: #1a73e8;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border: 3px solid #a8a291;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #fcfaf5;
+  box-shadow: inset 0 2px 7px rgba(0, 0, 0, .12), 0 2px 5px rgba(0, 0, 0, .18);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > b,
+body.ga-efb-tracker-host .ga-efb-context-windrose > span,
+body.ga-efb-tracker-host .ga-efb-context-windrose > em,
+body.ga-efb-tracker-host .ga-efb-context-windrose > small {
+  position: absolute;
+  color: #222;
+  font: 900 8px/1 Arial, sans-serif;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > b { top: 3px; left: 50%; transform: translateX(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > span { top: 50%; right: 3px; transform: translateY(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > em { bottom: 3px; left: 50%; transform: translateX(-50%); }
+body.ga-efb-tracker-host .ga-efb-context-windrose > small { top: 50%; left: 3px; transform: translateY(-50%); }
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > i {
+  position: absolute;
+  top: 6px;
+  bottom: 50%;
+  left: calc(50% - 1px);
+  width: 3px;
+  border-radius: 2px;
+  background: #1a73e8;
+  transform-origin: 50% 100%;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > i::after {
+  position: absolute;
+  bottom: -5px;
+  left: -4px;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+  border-top: 12px solid #1a73e8;
+  content: '';
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose > strong {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #1a73e8;
+  font: 900 8px/1 Arial, sans-serif;
+  transform: translate(-50%, -50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  margin-top: 4px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-point {
+  animation: gaEfbContextPointPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes gaEfbContextPointPulse {
+  0%, 100% { stroke-opacity: 1; fill-opacity: .92; }
+  50% { stroke-opacity: .55; fill-opacity: .45; }
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > footer {
+  padding: 5px 8px;
+  border-top: 1px solid #314853;
+  color: #6f8995;
+  background: #08141b;
+  font: 8px/1.2 monospace;
+  text-align: right;
+}
+
+/* Host 0.5.8: lesbarer, eindeutig zuordenbarer Kartenkontext. */
+body.ga-efb-tracker-host .ga-efb-context-popup .leaflet-popup-content {
+  width: min(540px, calc(100vw - 64px)) !important;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel {
+  font: 650 13px/1.48 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header {
+  padding: 10px 42px 9px 12px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header small {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-panel > header strong {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-close {
+  top: 9px;
+  right: 9px;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  line-height: 26px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-body {
+  grid-template-columns: 132px minmax(0, 1fr);
+  min-height: 310px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height {
+  min-height: 310px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title {
+  top: 7px;
+  left: 7px;
+  font-size: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-title small {
+  margin-top: 3px;
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale {
+  top: 34px;
+  bottom: 10px;
+  width: 33px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-scale span {
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot {
+  top: 34px;
+  right: 6px;
+  bottom: 10px;
+  left: 39px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace {
+  right: 2px;
+  left: 2px;
+  min-height: 2px;
+  overflow: hidden;
+  border-width: 2px;
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 0 0 1px var(--ga-context-color);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label {
+  position: absolute;
+  z-index: 10;
+  display: grid;
+  left: 50%;
+  gap: 2px;
+  width: calc(100% - 8px);
+  min-width: 24px;
+  color: #0a202a;
+  font-style: normal;
+  place-items: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 3px;
+  border: 1px solid var(--ga-context-color);
+  border-radius: 3px;
+  background: rgba(245, 252, 255, .96);
+  font: 900 10px/1 'Courier New', monospace;
+  line-height: 1;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ga-context-color);
+  font: 900 8px/1 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label small {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  padding: 2px 3px;
+  border: 1px solid rgba(10, 32, 42, .25);
+  border-radius: 2px;
+  color: #102832;
+  background: rgba(245, 252, 255, .94);
+  font: 900 7px/1.1 'Courier New', monospace;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label b,
+body.ga-efb-tracker-host .ga-efb-context-height-airspace-label small {
+  max-width: calc(100% - 4px);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-terrain {
+  z-index: 5;
+  min-height: 3px;
+  border-top: 2px solid #234d1d;
+  background: linear-gradient(to bottom, #75a95a, #315f2c);
+  clip-path: polygon(0 18%, 17% 5%, 34% 20%, 53% 4%, 72% 16%, 88% 7%, 100% 15%, 100% 100%, 0 100%);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-plot > em {
+  right: 3px;
+  padding: 2px 3px;
+  border: 1px solid rgba(35, 77, 29, .55);
+  border-radius: 2px;
+  color: #173712;
+  background: rgba(245, 255, 232, .94);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-height-feature b {
+  top: -11px;
+  padding: 2px 4px;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details {
+  padding: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details section {
+  margin-bottom: 12px;
+  padding-top: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-details h4 {
+  margin-bottom: 7px;
+  font-size: 11px;
+  letter-spacing: .8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature,
+body.ga-efb-tracker-host .ga-efb-context-frequency,
+body.ga-efb-tracker-host .ga-efb-context-summary {
+  gap: 5px;
+  padding: 9px;
+  border-radius: 6px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature small {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature strong {
+  font-size: 14px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-feature span,
+body.ga-efb-tracker-host .ga-efb-context-frequency span,
+body.ga-efb-tracker-host .ga-efb-context-summary strong,
+body.ga-efb-tracker-host .ga-efb-context-summary b,
+body.ga-efb-tracker-host .ga-efb-context-muted {
+  font-size: 11px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span {
+  margin-top: 7px;
+  padding: 8px 9px;
+  border-left-width: 4px;
+  border-radius: 5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > b > i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--ga-context-color);
+  font: 900 10px/1 'Courier New', monospace;
+  font-style: normal;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspaces > span > small {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies em,
+body.ga-efb-tracker-host .ga-efb-context-airspace-frequencies b {
+  font-size: 10px !important;
+  line-height: 1.35;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-source {
+  margin-top: 6px;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget {
+  overflow: hidden;
+  padding: 0 !important;
+  border: 1px solid rgba(250, 204, 21, .72) !important;
+  border-radius: 7px;
+  background: #edf7fb;
+  box-shadow: 0 4px 11px rgba(0, 0, 0, .28);
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  color: #fff;
+  background: #141711;
+  border-bottom: 2px solid #d7b619;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header small {
+  color: #f4d72a;
+  font: 900 10px/1.1 'Courier New', monospace;
+  letter-spacing: .5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget > header strong {
+  overflow: hidden;
+  font: 900 13px/1.2 'Courier New', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-sheet {
+  padding: 9px;
+  color: #172b36;
+  background: #edf7fb;
+  font-family: 'Courier New', monospace;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 7px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #9eb3bd;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity b {
+  font-size: 16px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-identity span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics > span {
+  display: grid;
+  gap: 2px;
+  padding: 5px 6px;
+  border: 1px solid #b9c9cf;
+  border-radius: 4px;
+  background: #f8fcfd;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics small {
+  color: #697d86;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-metrics b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row {
+  display: grid;
+  grid-template-columns: 34px minmax(52px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 0;
+  border-top: 1px solid #b9c9cf;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > b {
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #fff;
+  background: #31576a;
+  font-size: 8px;
+  text-align: center;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > strong {
+  color: #132630;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row > span {
+  overflow: hidden;
+  color: #405762;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+body.ga-efb-tracker-host .ga-efb-airport-row.is-muted {
+  grid-template-columns: 34px minmax(0, 1fr);
+  color: #6f828a;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-airport-widget .ga-efb-context-weather {
+  margin: 0 8px 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather {
+  padding: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category {
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: #118f32;
+  background: #f4fff5;
+  font-size: 9px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-mvfr {
+  color: #1966bd;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-ifr {
+  color: #c21d25;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > header .ga-efb-flight-category.is-lifr {
+  color: #9c27b0;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-body {
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values {
+  gap: 6px 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values small {
+  font-size: 8px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather-values b {
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose {
+  width: 88px;
+  height: 88px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway rect {
+  fill: #4b4b48;
+  stroke: #151515;
+  stroke-width: 1.5px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway line {
+  stroke: #f3f0dc;
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-runway text {
+  fill: #fff;
+  font: 900 9px/1 Arial, sans-serif;
+  text-anchor: middle;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-wind-arrow line {
+  stroke: #1a73e8;
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-wind-arrow polygon {
+  fill: #1a73e8;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-cardinal,
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-calm {
+  fill: #222;
+  font: 900 9px/1 Arial, sans-serif;
+  text-anchor: middle;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-windrose .ga-efb-context-calm {
+  fill: #1a73e8;
+  font-size: 10px;
+}
+
+body.ga-efb-tracker-host .ga-efb-context-weather > footer {
+  margin-top: 6px;
+  font-size: 7px;
+}
+
+body.ga-efb-tracker-host .telemetry-box {
+  padding-right: 25px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(15, 15, 15, .93) !important;
+  touch-action: none;
+}
+
+body.ga-efb-tracker-host .ga-info-box-close {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 2;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 3px;
+  color: #dce8ee;
+  background: rgba(24, 30, 34, .9);
+  font: 800 10px/15px Arial, sans-serif;
+  cursor: pointer;
+}
+
+body.ga-efb-tracker-host .ga-info-box-close:hover,
+body.ga-efb-tracker-host .ga-info-box-close:focus {
+  color: #fff;
+  border-color: #ff7777;
+  background: #7a2929;
+}
+
+body.ga-efb-tracker-host #liveNextWpBox {
+  padding-right: 9px !important;
+}
+
+body.ga-efb-tracker-host #liveNextWpBox .ga-info-box-close {
+  right: -20px;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-infos.active {
+  color: #111;
+  border-color: #d8b64c;
+  background: #f2c12e;
+}
+
+body.ga-efb-tracker-host .ga-efb-host-context.active {
+  color: #111;
+  border-color: #d8b64c;
+  background: #f2c12e;
+}
+
+body.ga-efb-tracker-host #mapProfileStrip {
+  flex: 0 0 24%;
+  min-height: 105px;
+  max-height: 65%;
+}
+
+body.ga-efb-tracker-host #profileResizeHandle {
+  position: relative;
+  z-index: 12000;
+  pointer-events: auto !important;
+}
+
+body.ga-efb-tracker-host #mapProfileStrip .map-profile-controls,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-btn,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-val,
+body.ga-efb-tracker-host #mapProfileStrip .vp-ctrl-label {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto !important;
+}
+
+body.ga-efb-tracker-host.ga-profile-resizing,
+body.ga-efb-tracker-host.ga-profile-resizing * {
+  cursor: ns-resize !important;
+  user-select: none !important;
+}
+
+body.ga-efb-tracker-host.profile-hidden #profileResizeHandle,
+body.ga-efb-tracker-host.profile-hidden #mapProfileStrip {
+  display: none !important;
+}
+
+body.ga-efb-tracker-host #routeProgressBar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+body.ga-efb-tracker-host #routeProgressBar .route-progress-item {
+  min-width: 0;
+  padding-right: 4px;
+  padding-left: 4px;
+  overflow: hidden;
+}
+
+body.ga-efb-tracker-host #routeProgressBar .route-progress-value,
+body.ga-efb-tracker-host #routeProgressBar .route-progress-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers {
+  z-index: 15000 !important;
+  max-width: 260px;
+  max-height: 58vh;
+  overflow: auto;
+  border: 1px solid #6d8796 !important;
+  border-radius: 6px !important;
+  color: #f3f7f8 !important;
+  background: rgba(7, 20, 29, .98) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .75) !important;
+  font: 700 11px/1.35 Arial, sans-serif !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers-expanded {
+  padding: 10px 12px !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label,
+body.ga-efb-tracker-host .leaflet-control-layers span {
+  color: #f3f7f8 !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label {
+  display: block;
+  padding: 4px 2px;
+  margin: 0 !important;
+  border-radius: 3px;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label input {
+  flex: 0 0 auto;
+  margin: 0 !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers label:hover {
+  background: rgba(105, 222, 208, .16) !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers-separator {
+  border-top-color: #45606f !important;
+}
+
+body.ga-efb-tracker-host .leaflet-control-layers input {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  letter-spacing: normal !important;
+  accent-color: #69ded0;
+}
+
+body.ga-efb-tracker-host .ga-efb-plane-icon {
+  background: transparent;
+  border: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .8));
+}
+
+body.ga-efb-tracker-host .ga-efb-plane-icon img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  transform-origin: 50% 50%;
+}
+
+body.ga-efb-tracker-host .ga-route-waypoint {
+  display: flex;
+  width: 18px !important;
+  height: 18px !important;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #111;
+  background: #ffdf45;
+  box-shadow: 0 1px 4px #000c;
+  font: 800 8px/1 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-mission-target {
+  display: flex;
+  width: 22px !important;
+  height: 22px !important;
+  align-items: center;
+  justify-content: center;
+  border: 3px double #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: #cf3232;
+  box-shadow: 0 1px 5px #000c;
+  font: 900 10px/1 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .leaflet-tooltip.ga-route-label {
+  padding: 2px 4px;
+  border: 1px solid #333;
+  color: #111;
+  background: rgba(255, 255, 255, .86);
+  font: 700 9px/1.2 Arial, sans-serif;
+}
+
+body.ga-efb-tracker-host .ga-profile-empty {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8ea0ac;
+  font: 11px monospace;
+  pointer-events: none;
+}
+
+body.ga-efb-tracker-host .map-draw-tool-btn {
+  min-width: 36px;
+  font-size: 9px;
+  font-family: monospace;
+}
+
+body.ga-efb-tracker-host #mapDrawFloatingBtn,
+body.ga-efb-tracker-host #autoFollowBtn {
+  font: 800 9px/1 monospace;
+  letter-spacing: -.3px;
+}
+
+@media (max-width: 760px) {
+  body.ga-efb-tracker-host #navStationLabel {
+    font-size: 10px;
+  }
+
+  body.ga-efb-tracker-host #mapToolbarInner {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  body.ga-efb-tracker-host #mapToolbarInner > div:last-child {
+    width: 100%;
+  }
+
+  body.ga-efb-tracker-host #mapTableOverlay .pinboard-header .pb-btn,
+  body.ga-efb-tracker-host .ga-efb-host-design,
+  body.ga-efb-tracker-host .ga-efb-host-state {
+    height: 27px;
+    min-height: 27px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  body.ga-efb-tracker-host #mapProfileStrip {
+    flex-basis: 22%;
+    min-height: 94px;
+  }
+}
+
+/* Coherent renders the shared notebook gradients nearly transparent. */
+body.ga-efb-tracker-host .calculator-formula-drawer,
+body.ga-efb-tracker-host .formula-help-card {
+  border: 2px solid #5d656c !important;
+  background: #f7f4e8 !important;
+  color: #1b252c !important;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .72) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .calculator-formula-drawer {
+  z-index: 40 !important;
+  min-width: 330px;
+  padding: 20px 16px 18px 24px !important;
+  transform: translateX(-14px) !important;
+}
+
+body.ga-efb-tracker-host .map-calculator-device.formula-open .calculator-formula-drawer,
+body.ga-efb-tracker-host .map-calculator-device.formula-open.formula-left .calculator-formula-drawer,
+body.ga-efb-tracker-host .map-calculator-device.formula-open.formula-under .calculator-formula-drawer {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+body.ga-efb-tracker-host .formula-drawer-title,
+body.ga-efb-tracker-host .formula-section-toggle,
+body.ga-efb-tracker-host .formula-panel,
+body.ga-efb-tracker-host .formula-panel strong,
+body.ga-efb-tracker-host .formula-help-trigger,
+body.ga-efb-tracker-host .formula-help-title,
+body.ga-efb-tracker-host .formula-help-body {
+  color: #1b252c !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  text-shadow: none !important;
+}
+
+body.ga-efb-tracker-host .formula-section-toggle {
+  background: #e4e1d6 !important;
+  font-size: 15px !important;
+}
+
+body.ga-efb-tracker-host .formula-panel,
+body.ga-efb-tracker-host .formula-help-body {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+/* Standardansicht: linear 30 Prozent kleiner; Vollbild bleibt unveraendert. */
+body.ga-efb-tracker-host .map-e6b-device.map-e6b-half {
+  transform: scale(.7) !important;
+  transform-origin: 50% 50% !important;
+}

@@ -1,16 +1,29 @@
 'use strict';
 
 const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
+// Match the Kartentisch: the basemap is deliberately subdued while the VFR
+// chart remains strong enough for airspace boundaries and labels to lead.
 const AERO_BASE_OPACITY = 0.5;
 const MISSION_EMPTY_DEBOUNCE_MS = 3000;
 const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
+const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
+const MAP_SNAPSHOT_VERSION = 1;
+
+const THEMES = Object.freeze([
+  Object.freeze({ id: 'classic', label: 'Classic' }),
+  Object.freeze({ id: 'retro', label: 'Retro' }),
+  Object.freeze({ id: 'navcom', label: 'NAV/COM' }),
+  Object.freeze({ id: 'ops1940', label: 'OPS 1940' }),
+  Object.freeze({ id: 'win95', label: 'Windows 95' })
+]);
 
 const BASE_LAYERS = Object.freeze([
   Object.freeze({
     id: 'topo',
-    label: 'OpenTopo · Text',
+    label: 'OpenTopo / Text',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     fallbackUrl: 'https://backup.opentopomap.org/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/topo/{z}/{x}/{y}.png',
     options: Object.freeze({
       attribution: '&copy; OpenStreetMap-Mitwirkende, Kartendarstellung &copy; OpenTopoMap',
       maxNativeZoom: 17,
@@ -21,24 +34,28 @@ const BASE_LAYERS = Object.freeze([
     id: 'terrain',
     label: 'Terrain',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+    localUrl: '/api/v1/map-tile/terrain/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 13, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'satellite',
     label: 'Satellit',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    localUrl: '/api/v1/map-tile/satellite/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: 'Tiles &copy; Esri', maxNativeZoom: 18, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'dark',
     label: 'Dunkel',
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/dark/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
   }),
   Object.freeze({
     id: 'light',
     label: 'Hell',
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    localUrl: '/api/v1/map-tile/light/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
   })
 ]);
@@ -49,13 +66,15 @@ const OVERLAY_LAYERS = Object.freeze([
     label: 'VFR-Lufträume / Aero',
     kind: 'tile',
     url: 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest',
-    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.68, maxNativeZoom: 12, maxZoom: 18 })
+    localUrl: '/api/v1/map-tile/aero/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12, maxZoom: 18 })
   }),
   Object.freeze({
     id: 'dfs',
     label: 'DFS ICAO 1:500k',
     kind: 'tile',
     url: 'https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/dfs/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; DFS Deutsche Flugsicherung', opacity: 1, maxNativeZoom: 11, maxZoom: 18 })
   }),
   Object.freeze({
@@ -93,6 +112,7 @@ const OVERLAY_LAYERS = Object.freeze([
 
 const BASE_IDS = new Set(BASE_LAYERS.map((layer) => layer.id));
 const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id));
+const THEME_IDS = new Set(THEMES.map((theme) => theme.id));
 
 function finite(value) {
   const number = Number(value);
@@ -114,8 +134,201 @@ function normalizePreferences(value = {}) {
     overlays: Array.from(new Set(requestedOverlays
       .map((entry) => String(entry || '').trim().toLowerCase())
       .filter((entry) => OVERLAY_IDS.has(entry)))),
-    follow: source.follow !== false
+    follow: source.follow !== false,
+    theme: THEME_IDS.has(String(source.theme || '').trim().toLowerCase())
+      ? String(source.theme).trim().toLowerCase()
+      : 'classic',
+    toolbarCollapsed: source.toolbarCollapsed === true,
+    profileVisible: source.profileVisible !== false
   };
+}
+
+function normalizeMapPoint(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const lat = finite(source.lat);
+  const lon = finite(source.lon);
+  if (lat === null || lon === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return {
+    id: String(source.id || '').slice(0, 80),
+    name: String(source.name || '').slice(0, 100),
+    lat,
+    lon,
+    elevationFt: finite(source.elevationFt),
+    kind: String(source.kind || '').slice(0, 40),
+    required: source.required !== false
+  };
+}
+
+function normalizeTrackerMapSnapshot(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  if (source.schema !== MAP_SNAPSHOT_SCHEMA || Number(source.version) !== MAP_SNAPSHOT_VERSION) return null;
+  const rawRoute = source.route && typeof source.route === 'object' ? source.route : {};
+  const waypoints = (Array.isArray(rawRoute.waypoints) ? rawRoute.waypoints : [])
+    .slice(0, 128)
+    .map(normalizeMapPoint)
+    .filter(Boolean);
+  if (waypoints.length < 2) return null;
+  const profileSource = source.profile && typeof source.profile === 'object' ? source.profile : null;
+  const profilePoints = (profileSource && Array.isArray(profileSource.points) ? profileSource.points : [])
+    .slice(0, 128)
+    .map((point) => {
+      const item = point && typeof point === 'object' ? point : {};
+      return {
+        waypointId: String(item.waypointId || '').slice(0, 80),
+        name: String(item.name || '').slice(0, 100),
+        lat: finite(item.lat),
+        lon: finite(item.lon),
+        distanceNm: Math.max(0, finite(item.distanceNm) || 0),
+        terrainFt: finite(item.terrainFt),
+        plannedAltFt: Math.max(0, finite(item.plannedAltFt) || 0)
+      };
+    });
+  const profileObstacles = (profileSource && Array.isArray(profileSource.obstacles) ? profileSource.obstacles : [])
+    .slice(0, 64)
+    .map((entry) => {
+      const item = entry && typeof entry === 'object' ? entry : {};
+      return {
+        distanceNm: Math.max(0, finite(item.distanceNm) || 0),
+        heightFt: Math.max(0, finite(item.heightFt) || 0),
+        type: String(item.type || 'obstacle').slice(0, 32)
+      };
+    });
+  const profileAirspaces = (profileSource && Array.isArray(profileSource.airspaces) ? profileSource.airspaces : [])
+    .slice(0, 48)
+    .map((entry) => {
+      const item = entry && typeof entry === 'object' ? entry : {};
+      return {
+        name: String(item.name || 'Luftraum').slice(0, 80),
+        type: String(item.type || '').slice(0, 32),
+        startDistanceNm: Math.max(0, finite(item.startDistanceNm) || 0),
+        endDistanceNm: Math.max(0, finite(item.endDistanceNm) || 0),
+        lowerFt: Math.max(0, finite(item.lowerFt) || 0),
+        upperFt: Math.max(0, finite(item.upperFt) || 0),
+        lowerAgl: item.lowerAgl === true,
+        upperAgl: item.upperAgl === true,
+        color: String(item.color || '#4da6ff').slice(0, 16),
+        frequencies: (Array.isArray(item.frequencies) ? item.frequencies : []).slice(0, 3).map((value) => String(value || '').slice(0, 20))
+      };
+    })
+    .filter((item) => item.endDistanceNm > item.startDistanceNm);
+  const navigationSource = source.navigation && typeof source.navigation === 'object' ? source.navigation : null;
+  const geometrySource = source.missionGeometry && typeof source.missionGeometry === 'object' ? source.missionGeometry : {};
+  const contextSource = source.context && typeof source.context === 'object' ? source.context : {};
+  return {
+    schema: MAP_SNAPSHOT_SCHEMA,
+    version: MAP_SNAPSHOT_VERSION,
+    missionId: String(source.missionId || '').slice(0, 180),
+    runId: String(source.runId || '').slice(0, 220),
+    revision: Math.max(1, Math.round(finite(source.revision) || 1)),
+    route: {
+      totalDistanceNm: Math.max(0, finite(rawRoute.totalDistanceNm) || 0),
+      waypoints
+    },
+    navigation: navigationSource ? {
+      activeLegIndex: Math.max(0, Math.round(finite(navigationSource.activeLegIndex) || 0)),
+      nextWaypointId: String(navigationSource.nextWaypointId || '').slice(0, 80),
+      nextWaypointName: String(navigationSource.nextWaypointName || '').slice(0, 100),
+      bearingToNextDeg: normalizeHeading(navigationSource.bearingToNextDeg),
+      distanceToNextNm: Math.max(0, finite(navigationSource.distanceToNextNm) || 0),
+      crossTrackNm: finite(navigationSource.crossTrackNm) || 0,
+      routeDistanceNm: Math.max(0, finite(navigationSource.routeDistanceNm) || 0),
+      remainingDistanceNm: Math.max(0, finite(navigationSource.remainingDistanceNm) || 0),
+      progress: Math.max(0, Math.min(1, finite(navigationSource.progress) || 0))
+    } : null,
+    profile: profileSource ? {
+      mode: String(profileSource.mode || 'planned-only'),
+      terrainAvailable: profileSource.terrainAvailable === true,
+      totalDistanceNm: Math.max(0, finite(profileSource.totalDistanceNm) || 0),
+      cruiseAltitudeFt: Math.max(0, finite(profileSource.cruiseAltitudeFt) || 0),
+      obstacles: profileObstacles,
+      airspaces: profileAirspaces,
+      points: profilePoints
+    } : null,
+    context: {
+      position: String(contextSource.position || '').slice(0, 60),
+      frequency: String(contextSource.frequency || '').slice(0, 40),
+      frequencySource: String(contextSource.frequencySource || '').slice(0, 80)
+    },
+    missionGeometry: {
+      target: normalizeMapPoint(geometrySource.target),
+      poiChain: (Array.isArray(geometrySource.poiChain) ? geometrySource.poiChain : [])
+        .slice(0, 96)
+        .map(normalizeMapPoint)
+        .filter(Boolean)
+    }
+  };
+}
+
+function normalizeCalcExpression(expression) {
+  return String(expression || '')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/,/g, '.')
+    .replace(/\s+/g, '');
+}
+
+function evaluateCalculatorExpression(rawExpression) {
+  const source = normalizeCalcExpression(rawExpression);
+  if (!source || source.length > 160) throw new Error('invalid-expression');
+  let index = 0;
+  const peek = () => source[index] || '';
+  const match = (character) => {
+    if (source[index] !== character) return false;
+    index += 1;
+    return true;
+  };
+  const parseExpression = () => {
+    let value = parseTerm();
+    while (index < source.length) {
+      if (match('+')) value += parseTerm();
+      else if (match('-')) value -= parseTerm();
+      else break;
+    }
+    return value;
+  };
+  const parseTerm = () => {
+    let value = parseUnary();
+    while (index < source.length) {
+      if (match('*')) value *= parseUnary();
+      else if (match('/')) {
+        const divisor = parseUnary();
+        value = divisor === 0 ? NaN : value / divisor;
+      } else break;
+    }
+    return value;
+  };
+  const parseUnary = () => {
+    if (match('+')) return parseUnary();
+    if (match('-')) return -parseUnary();
+    return parsePostfix();
+  };
+  const parsePostfix = () => {
+    let value = parsePrimary();
+    while (match('%')) value /= 100;
+    return value;
+  };
+  const parsePrimary = () => {
+    const character = peek();
+    if (match('(')) {
+      const value = parseExpression();
+      if (!match(')')) throw new Error('missing-parenthesis');
+      return value;
+    }
+    if (/\d|\./.test(character)) {
+      const start = index;
+      while (/\d|\./.test(peek())) index += 1;
+      const numberText = source.slice(start, index);
+      if ((numberText.match(/\./g) || []).length > 1) throw new Error('invalid-number');
+      const number = Number(numberText);
+      if (!Number.isFinite(number)) throw new Error('invalid-number');
+      return number;
+    }
+    throw new Error('unexpected-token');
+  };
+  const result = parseExpression();
+  if (index !== source.length || !Number.isFinite(result)) throw new Error('invalid-result');
+  return result;
 }
 
 function baseLayerOpacity(value = {}) {
@@ -124,15 +337,16 @@ function baseLayerOpacity(value = {}) {
 
 function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
   const currentAt = Math.max(0, Math.round(finite(now) || 0));
-  const lastSnapshot = previous?.lastSnapshot && typeof previous.lastSnapshot === 'object'
-    && previous.lastSnapshot.available === true
-    && String(previous.lastSnapshot.missionId || '').trim()
-    ? previous.lastSnapshot
+  const previousState = previous && typeof previous === 'object' ? previous : {};
+  const lastSnapshot = previousState.lastSnapshot && typeof previousState.lastSnapshot === 'object'
+    && previousState.lastSnapshot.available === true
+    && String(previousState.lastSnapshot.missionId || '').trim()
+    ? previousState.lastSnapshot
     : null;
-  const lastSeenAt = Math.max(0, Math.round(finite(previous?.lastSeenAt) || 0));
-  const emptySince = Math.max(0, Math.round(finite(previous?.emptySince) || 0));
+  const lastSeenAt = Math.max(0, Math.round(finite(previousState.lastSeenAt) || 0));
+  const emptySince = Math.max(0, Math.round(finite(previousState.emptySince) || 0));
   const source = incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : null;
-  const hasMission = source?.available === true && String(source.missionId || '').trim();
+  const hasMission = source && source.available === true && String(source.missionId || '').trim();
 
   if (hasMission) {
     return {
@@ -158,7 +372,7 @@ function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
     };
   }
 
-  if (source?.available === false) {
+  if (source && source.available === false) {
     const nextEmptySince = emptySince > 0 ? emptySince : currentAt;
     const pending = currentAt >= nextEmptySince
       && (currentAt - nextEmptySince) < MISSION_EMPTY_DEBOUNCE_MS;
@@ -201,26 +415,36 @@ function normalizeFlightSnapshot(value) {
 
 function formatCoordinateLine(snapshot) {
   if (!snapshot) return 'Keine Position';
-  return `${snapshot.lat.toFixed(5)}, ${snapshot.lon.toFixed(5)} · ${snapshot.altFt} ft · ${Math.round(snapshot.headingDeg)}°`;
+  return `${snapshot.lat.toFixed(5)}, ${snapshot.lon.toFixed(5)} | ${snapshot.altFt} ft | ${Math.round(snapshot.headingDeg)} deg`;
 }
 
 function formatFlightLine(snapshot) {
   if (!snapshot) return 'Warte auf Flugdaten';
-  return `GS ${snapshot.gsKts} kt · IAS ${snapshot.iasKts} kt · ${snapshot.onGround ? 'Am Boden' : 'In der Luft'}`;
+  return `GS ${snapshot.gsKts} kt | IAS ${snapshot.iasKts} kt | ${snapshot.onGround ? 'Am Boden' : 'In der Luft'}`;
 }
 
-module.exports = Object.freeze({
+const mapShellCoreApi = Object.freeze({
   AERO_BASE_OPACITY,
   BASE_LAYERS,
   DEFAULT_CENTER,
   MISSION_EMPTY_DEBOUNCE_MS,
   MISSION_SNAPSHOT_GAP_GRACE_MS,
   OVERLAY_LAYERS,
+  THEMES,
   advanceMissionDisplay,
   baseLayerOpacity,
   formatCoordinateLine,
   formatFlightLine,
   normalizeFlightSnapshot,
   normalizeHeading,
-  normalizePreferences
+  normalizePreferences,
+  normalizeTrackerMapSnapshot,
+  evaluateCalculatorExpression
 });
+
+if (typeof module === 'object' && module && module.exports) {
+  module.exports = mapShellCoreApi;
+}
+if (typeof window !== 'undefined') {
+  window.GAMapShellCore = mapShellCoreApi;
+}

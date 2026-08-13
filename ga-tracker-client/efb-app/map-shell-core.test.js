@@ -11,6 +11,7 @@ test('map layer catalog keeps stable unique ids and secure endpoints', () => {
     assert.match(layer.id, /^[a-z][a-z0-9-]*$/);
     assert.match(layer.url, /^https:\/\//);
     if (layer.fallbackUrl) assert.match(layer.fallbackUrl, /^https:\/\//);
+    if (layer.localUrl) assert.match(layer.localUrl, /^\/api\/v1\/map-tile\/[a-z][a-z0-9-]*\/\{z\}\/\{x\}\/\{y\}\.png$/);
     assert.ok(layer.label);
   }
 });
@@ -19,7 +20,10 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   assert.deepEqual(core.normalizePreferences(), {
     baseLayer: 'topo',
     overlays: ['aero'],
-    follow: true
+    follow: true,
+    theme: 'classic',
+    toolbarCollapsed: false,
+    profileVisible: true
   });
   assert.deepEqual(core.normalizePreferences({
     baseLayer: 'missing',
@@ -28,12 +32,29 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   }), {
     baseLayer: 'topo',
     overlays: ['dfs'],
-    follow: false
+    follow: false,
+    theme: 'classic',
+    toolbarCollapsed: false,
+    profileVisible: true
   });
 });
 
-test('aero overlay dims the base map like the web map table', () => {
+test('EFB preferences preserve supported app designs and chrome visibility', () => {
+  assert.deepEqual(core.THEMES.map((theme) => theme.id), ['classic', 'retro', 'navcom', 'ops1940', 'win95']);
+  const preferences = core.normalizePreferences({
+    theme: 'ops1940',
+    toolbarCollapsed: true,
+    profileVisible: false
+  });
+  assert.equal(preferences.theme, 'ops1940');
+  assert.equal(preferences.toolbarCollapsed, true);
+  assert.equal(preferences.profileVisible, false);
+  assert.equal(core.normalizePreferences({ theme: 'unknown' }).theme, 'classic');
+});
+
+test('aero overlay subdues the basemap like the original Kartentisch', () => {
   assert.equal(core.baseLayerOpacity({ overlays: ['aero'] }), 0.5);
+  assert.equal(core.OVERLAY_LAYERS.find((layer) => layer.id === 'aero')?.options?.opacity, 0.65);
   assert.equal(core.baseLayerOpacity({ overlays: ['dfs'] }), 1);
   assert.equal(core.baseLayerOpacity({ overlays: [] }), 1);
 });
@@ -101,6 +122,51 @@ test('map flight labels remain deterministic', () => {
     hdg: 235,
     flight: { gsKts: 0, iasKts: 0, onGround: true }
   });
-  assert.equal(core.formatCoordinateLine(snapshot), '48.27836, 8.42969 · 2207 ft · 235°');
-  assert.equal(core.formatFlightLine(snapshot), 'GS 0 kt · IAS 0 kt · Am Boden');
+  assert.equal(core.formatCoordinateLine(snapshot), '48.27836, 8.42969 | 2207 ft | 235 deg');
+  assert.equal(core.formatFlightLine(snapshot), 'GS 0 kt | IAS 0 kt | Am Boden');
+});
+
+test('versioned map snapshots are bounded before entering the renderer', () => {
+  const snapshot = core.normalizeTrackerMapSnapshot({
+    schema: 'ga.map-snapshot.v1',
+    version: 1,
+    missionId: 'mission-42',
+    runId: 'run-42',
+    revision: 7,
+    route: {
+      totalDistanceNm: 20,
+      waypoints: [
+        { id: 'a', name: 'EDTW', lat: 48.279, lon: 8.428, elevationFt: 2201 },
+        { id: 'b', name: 'Target', lat: 48.4, lon: 8.7 }
+      ]
+    },
+    navigation: { activeLegIndex: 0, bearingToNextDeg: -5, progress: 0.25 },
+    profile: {
+      mode: 'planned-only',
+      totalDistanceNm: 20,
+      cruiseAltitudeFt: 4500,
+      points: [{ lat: 48.279, lon: 8.428, distanceNm: 0, terrainFt: 2201, plannedAltFt: 2201 }],
+      obstacles: [{ distanceNm: 5, heightFt: 420, type: 'mast' }],
+      airspaces: [{ name: 'CTR Test', startDistanceNm: 2, endDistanceNm: 8, lowerFt: 2500, upperFt: 4500, frequencies: ['118.100'] }]
+    },
+    context: { position: '0.2 NM SE EDTW', frequency: 'FIS 128.950', frequencySource: 'Offenes Gebiet' },
+    missionGeometry: { target: { id: 'target', name: 'Ziel', lat: 48.4, lon: 8.7 }, poiChain: [] }
+  });
+  assert.equal(snapshot.missionId, 'mission-42');
+  assert.equal(snapshot.route.waypoints.length, 2);
+  assert.equal(snapshot.navigation.bearingToNextDeg, 355);
+  assert.equal(snapshot.navigation.progress, 0.25);
+  assert.equal(snapshot.profile.points[0].lat, 48.279);
+  assert.equal(snapshot.profile.obstacles[0].heightFt, 420);
+  assert.equal(snapshot.profile.airspaces[0].frequencies[0], '118.100');
+  assert.equal(snapshot.context.frequency, 'FIS 128.950');
+  assert.equal(core.normalizeTrackerMapSnapshot({ schema: 'ga.map-snapshot.v2', version: 2 }), null);
+});
+
+test('calculator evaluates arithmetic locally without dynamic code execution', () => {
+  assert.equal(core.evaluateCalculatorExpression('(12+3)*2'), 30);
+  assert.equal(core.evaluateCalculatorExpression('50%+1'), 1.5);
+  assert.equal(core.evaluateCalculatorExpression('9÷3'), 3);
+  assert.throws(() => core.evaluateCalculatorExpression('2/0'));
+  assert.throws(() => core.evaluateCalculatorExpression('globalThis'));
 });

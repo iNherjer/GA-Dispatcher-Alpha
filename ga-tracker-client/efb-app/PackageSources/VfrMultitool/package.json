@@ -1,6 +1,6 @@
 {
   "name": "@vfr-multitool/efb-app",
-  "version": "0.3.5",
+  "version": "0.4.8",
   "private": true,
   "scripts": {
     "build": "node ./build.js",

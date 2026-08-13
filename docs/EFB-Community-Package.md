@@ -44,6 +44,103 @@ entpackt und gegen Version, Paketstruktur, Groesse und SHA-256 validiert. Der
 Alpha-Kanal zeigt auf genau dieses unveraenderliche Archiv. Stable bleibt bis
 zur getrennten Promotion deaktiviert.
 
+Der mit SDK 1.7.2 gebaute In-Sim-Prototyp 0.4.0 wurde wegen fehlender
+Design-/Funktionsparitaet, nicht darstellbarer Zeichen und einer nur als
+Entwicklungsmaske sichtbaren E6B-Ansicht verworfen und niemals in einen Kanal
+eingetragen. 0.4.1 ist der korrigierte Source-Kandidat. Alpha bleibt bis zu
+offiziellem SDK-Build sowie bestandenem 2D-/physischem In-Sim-Test auf 0.3.5.
+
+0.4.2 wurde zusammen mit Tracker v327 auf Windows gebaut und im Simulator
+geprueft, aber nicht in den Alpha-Kanal eingetragen: Das originale HTML/CSS-
+Grundgeruest erschien, die externe Kartentisch-Skriptkette initialisierte sich
+in Coherent jedoch nicht. 0.4.3/v328 fuegte sequenziellen Scriptstart,
+ausfallsicheres Schliessen sowie begrenzte lokale Boot-/Fehlerdiagnose hinzu
+und lieferte damit den konkreten Parserbefund. Der unveraenderliche
+0.3.5-Alpha-Release und der markierte 0.4.1-SDK-Fallback bleiben die
+Ruecksprungpunkte.
+
+Der 0.4.3-Test hat den lokalen Transport und Schliessen bestaetigt, aber zwei
+konkrete Coherent-Parserfehler (`?.` und `...`) offengelegt. 0.4.4/v329 ist
+deshalb der folgende SDK-Testkandidat. Seine tracker-gehosteten Map-, Werkzeug-
+und E6B-Skripte sind durch ein Quellen-Gate frei von Optional Chaining,
+Nullish Coalescing und Spread-Syntax. Die vererbten CSS-Anfragen nach
+`bg.jpg` und `map.jpg` werden lokal beantwortet. 0.4.3 wird nicht in einen
+Kanal eingetragen.
+
+Der 0.4.4/v329-In-Sim-Test bestaetigt den Hoststart und die Kartendarstellung.
+Die danach gefundenen Rechner-, E6B-, Zeichen- und Updateprobleme liegen
+ausschliesslich in den tracker-gehosteten Assets. Tracker v330 liefert deren
+korrigierten Hoststand 0.4.5; das bereits mit SDK 1.7.2 gebaute Community-
+Paket 0.4.4 muss fuer diesen Test nicht neu gebaut oder neu installiert werden.
+
+Der folgende Tracker v331 liefert Hoststand 0.4.6 mit Terrainprofil,
+Wegpunktvorschau, verschieb-/schliessbaren Infoboxen und festen
+Leaflet-Ebenen. Auch diese Aenderungen liegen ausschliesslich im lokalen
+Tracker-Host. Das installierte Community-Paket 0.4.4 bleibt deshalb fuer den
+v331-Windows-/In-Sim-Test unveraendert; ein neuer SDK-Build ist nicht noetig.
+
+Tracker v332 liefert darauf Hoststand 0.4.7 mit stabiler Karten-Opacity,
+Coherent-tauglicher E6B-Drehflaeche, skalierten Zeichenkoordinaten und einem
+read-only Mission-/Checklistenmenue. Auch dieser Stand wird vollstaendig vom
+lokalen Tracker-Host ausgeliefert. Das vorhandene Community-Paket 0.4.4 bleibt
+fuer den v332-Test installiert; nur die Tracker-Runtime wird ersetzt.
+
+Tracker v333 liefert Hoststand 0.4.8. Die bekannten Kartenquellen werden dabei
+ueber den lokalen Tracker-Server und einen begrenzten RAM-Cache geladen; die
+Web-App aktualisiert den Tracker-Snapshot unmittelbar nach ihrem vorhandenen
+Terrainabruf. Beide Aenderungen liegen im Tracker-Host beziehungsweise in der
+Web-App. Das installierte Community-Paket 0.4.4 bleibt auch fuer diesen Test
+unveraendert; ein weiterer SDK-Build ist nicht erforderlich.
+
+Tracker v334 liefert Hoststand 0.4.9 mit Coherent-tauglicher Aero-Beimischung,
+freier Kopfzeile, kontrastreichem Layerdialog und erneutem Terrainprofil-
+Trigger nach der Tracker-Geraeteuebergabe. Der ausgelieferte Code liegt erneut
+vollstaendig im Tracker-Host beziehungsweise in der Web-App; das installierte
+Community-Paket 0.4.4 muss fuer den v334-Test nicht neu gebaut werden.
+
+Tracker v335 liefert Hoststand 0.5.0. Rasterkarten verwenden zuerst den im
+nativen EFB funktionierenden direkten HTTPS-Pfad und erst bei Bedarf Backup
+beziehungsweise lokalen Proxy. Der dazugehoerige lokale Webstand laeuft auf
+privaten Entwicklungsadressen ohne Service Worker und muss
+`ga-dispatcher-v1620 / NO SW` anzeigen; ein angezeigtes `v1603` ist ein alter,
+fuer den Authority-/Terrain-Test ungeeigneter Cache. Das Community-Paket 0.4.4
+bleibt auch fuer v335 unveraendert installiert.
+
+Tracker v336 liefert Hoststand 0.5.1 mit dem Kartenkontrast des originalen
+Kartentischs und einer begrenzten Authority-Kartenprojektion im Debuglog. Der
+zugehoerige Webstand muss `ga-dispatcher-v1621` anzeigen: Er aktualisiert nach
+Missionsstart die Route sofort und reicht das echte Terrainprofil nach dessen
+vorhandenem asynchronem Abruf nach. Alpha `v1619` sowie Local `v1603 / NO SW`
+koennen diesen Test nicht bestehen, weil ihnen diese Quelllogik fehlt. Das
+installierte Community-Paket 0.4.4 bleibt auch fuer v336 unveraendert.
+
+Tracker v343/Host 0.5.8 benoetigt erstmals wieder einen neuen Community-
+Package-Kandidaten: EFB 0.4.5 macht die native Karte zum reduzierten
+Tracker-aus-Fallback und wechselt bei `efb.web-client.v1` automatisch in die
+tracker-gehostete App-Karte. Der offizielle SDK-1.7.2-Build war formal korrekt,
+wurde nach dem In-Sim-Test aber verworfen: Ein Parent-Renderfehler entlud den
+iframe im Sekundentakt wieder auf `about:blank`. EFB 0.4.6/Tracker v344 ist der
+folgende Testkandidat. Er trennt Kernpoll und Parent-Rendering, toleriert zwei
+kurze Kernpollaussetzer bei aktiver App-Karte und verhindert parallele Tracker-
+Instanzen auf dem festen EFB-Port. Erst ein neuer offizieller SDK-Build samt
+positivem In-Sim-Test darf als Paketarchiv oder Kanalstand verwendet werden.
+0.4.4 bleibt bis dahin der Ruecksprungpunkt.
+
+Der 0.4.6/v344-In-Sim-Test bestaetigte den stabilen automatischen Wechsel,
+legte aber im Parent weiterhin den Coherent-Fehler `Array.flatMap is not a
+function` offen. EFB 0.4.7/Tracker v345 ist deshalb der naechste gemeinsame
+SDK-Testkandidat. Neben dem Parent-Fix bringt er die Layerauswahl der nativen
+Fallback-Karte zurueck; die weiteren Werkzeug-, Kontext- und Datenquellen-
+Feinarbeiten werden vom Tracker-Host 0.5.9 geliefert. Weder 0.4.7 noch v345
+duerfen vor offiziellem SDK-Build und positivem In-Sim-Test in Alpha oder
+Stable eingetragen werden.
+
+Der folgende 0.4.7/v345-In-Sim-Test bestaetigte den stabilen Kandidaten. Als
+einzige Parent-Abweichung blieb in der Fallback-Karte die `flight-strip` mit
+"Aktuelle Position" sichtbar. EFB 0.4.8 entfernt diesen Streifen und benoetigt
+wegen der kompilierten SCSS-Aenderung einen letzten offiziellen SDK-Build.
+Tracker v345 und Host 0.5.9 werden dafuer nicht neu versioniert oder ersetzt.
+
 ## Erste Transportstufe
 
 Tracker v323 stellt eine read-only API ausschließlich auf

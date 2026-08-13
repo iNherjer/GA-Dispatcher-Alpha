@@ -71,8 +71,12 @@ class WorkbenchHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def end_headers(self):
-        if self.path.split('?', 1)[0].endswith('.json'):
-            self.send_header('Cache-Control', 'no-store')
+        # This server is a development surface. Browser/PWA caches make a
+        # locally edited app look like an older Alpha build and can even keep
+        # an obsolete mission-authority client alive. Never cache local files.
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         super().end_headers()
 
     @staticmethod

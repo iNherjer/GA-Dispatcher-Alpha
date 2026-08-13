@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-10
+Stand: 2026-08-13
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -13,13 +13,36 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v325 | v320 | v325 ist im Alpha-Kanal; Stable bleibt bis zur Testerfreigabe unveraendert |
-| EFB-Community-Package | 0.2.0 | noch nicht verfuegbar | Alpha-Testpaket; Stable erst nach In-Sim-Freigabe desselben unveraenderten Artefakts |
+| Tracker-Runtime | v325 freigegeben / v345 Testkandidat | v320 | v345 liefert die EFB-Feinarbeiten und den bevorzugten gehosteten Luftfahrtdatenpfad; Stable bleibt unveraendert |
+| EFB-Community-Package | 0.3.5 Alpha / 0.4.8 Source-Testkandidat | noch nicht verfuegbar | 0.4.8 behaelt die 0.4.7-Fixes und entfernt den verbliebenen Positionsstreifen aus der reduzierten Fallback-Karte |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
-EFB 0.2.0 zeigt Trackerstatus, Flugtelemetrie sowie den technischen
-Missionsstatus aus `mission.snapshot.v1`. Missionsbriefing, Route, Manifest und
-Missionsaktionen sind noch nicht Bestandteil dieses Protokollstands.
+EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
+Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
+Der In-Sim-Test bestaetigt aktive Route, korrekt gesetztes Flugzeug und
+bedienbare Werkzeuge; Gestaltung und Werkzeugdarstellung erreichen den
+Original-Kartentisch noch nicht. Missionsbriefing, Manifest und schreibende
+Missionsaktionen sind weiterhin nicht Bestandteil dieses Protokollstands.
+
+Der Quellstand von 0.4.1 ist lokal mit dem annotierten Git-Tag
+`efb-v0.4.1-sdk-input` unveraenderlich markiert. 0.4.2 entsteht getrennt im
+Branch `codex/efb-map-server-0.4.2`; weder der laufende Windows-SDK-Build von
+0.4.1 noch der Alpha-Kanal werden dadurch veraendert. Die Tracker-Webclient-
+Probe ist als separater Diagnosepfad erhalten. Nach dem positiven 0.4.1-
+Fallbacktest entsteht in 0.4.2 additiv der erste echte tracker-gehostete
+Kartentisch-View.
+
+EFB 0.4.0 wurde mit dem offiziellen SDK 1.7.2 gebaut, nach dem In-Sim-Test aber
+verworfen. Menueleiste, Designs und Werkzeuge hatten weder die optische noch
+die funktionale Naehe zum Web-Kartentisch. Im Coherent-Host wurde der
+Query-Schalter des E6B-Iframes nicht zuverlaessig als Embedded-Modus erkannt;
+dadurch erschien die Entwicklungsmaske, waehrend die eigentlichen Scheiben
+ausserhalb der sichtbaren Flaeche lagen beziehungsweise nicht geladen waren.
+Mehrere moderne CSS-Kurzformen und Unicode-Piktogramme fuehrten zusaetzlich zu
+verworfenem Layout und nicht darstellbaren Zeichen. 0.4.1 ersetzt diesen
+Ansatz durch Kartentisch-nahe Toolbar- und Werkzeugkomponenten, ASCII-sichere
+Bedienelemente, explizite Coherent-Geometrie sowie den echten interaktiven E6B
+mit lokal vorgebuendelten Front- und Windscheiben.
 
 EFB 0.3.0 wurde mit SDK 1.7.2 erfolgreich gebaut, im In-Sim-Test aber
 verworfen: Header und Trackerstatus erschienen, die komplette Kartenflaeche
@@ -158,6 +181,249 @@ direkten Online-Tile-Anfragen sehen die jeweiligen Anbieter technisch bedingt
 IP-Adresse, Zeitpunkt, Zoomstufe und Kachelkoordinaten, jedoch keine Pilot-,
 Missions- oder Tracker-Zugangsdaten. Die Auswahl bleibt lokal gespeichert; ein
 eigener Offline-Cache ist nicht Teil von K0.
+
+Source-Kandidat 0.4.1 kombiniert die ersten read-only Teile von K1, K2 und K4:
+Tracker v326 projiziert aus dem persistenten Resume-Bundle Route, Wegpunkte,
+aktives Leg, Restdistanz, Cross-Track, Missionsziel/POI-Kette und ein
+planbasiertes Hoehenprofil in `ga.map-snapshot.v1`. Der Snapshot enthaelt keine
+Story-, Passenger-, Cloud- oder Zugangsdaten. Das EFB rendert diese Projektion
+mit eigenem Leaflet-/SVG-Renderer. Classic, Retro, NAV/COM, OPS 1940 und
+Windows 95 sind lokale EFB-Designs; Menueleiste und Hoehenband werden lokal
+persistiert. Uhr/Stoppuhr und Rechner laufen rein lokal. Der bestehende E6B
+wird nicht als vereinfachte Maske nachgebaut: Front- und Windscheibe sowie die
+vorhandene Drag-, Dreh-, Flip- und Zoom-Logik werden als lokale Assets
+gebuendelt. Ein volles Terrainprofil bleibt K4: 0.4.1 kennzeichnet sein
+Hoehenband explizit als Planprofil und erfindet keine
+fehlenden Terrainpunkte.
+
+Source-Kandidat 0.4.2 verwendet eine zweite Hostgrenze. Tracker v327 liefert
+hinter `efb.web-client.v1` eine dedizierte read-only Seite unter `/efb/v1/`;
+die kleine Transportprobe bleibt unter `/efb/v1/probe/` erreichbar. Der echte
+View extrahiert den originalen Kartentisch-DOM aus `index.html`, verwendet die
+originale `styles.css`, `map-utility-tools.js`, Leaflet- und E6B-Assets und
+fuellt die Oberflaeche ueber einen kleinen Tracker-Hostadapter. `map.js` und
+`profile.js` werden wegen ihrer Kopplung an Cloud, Missionsruntime und globale
+Web-App-Zustaende nicht als Ganzes geladen. Route, Missionsgeometrie,
+Navigation und Planprofil kommen weiter ausschliesslich aus
+`map.snapshot.v1`; Missionen bleiben read-only. Das EFB zeigt die `App-Karte`
+nur bei ausgehandelter Capability, ohne v327 bleibt die native 0.4.1-Karte
+vollstaendig aktiv.
+
+Der lokale Browser-Gate vom 2026-08-11 bestaetigt Original-Styles, Route,
+Flugzeugmarker, Kompass, Planprofil, Designs, Toolbar, Layer und die originalen
+Werkzeuge. Stoppuhr, Rechner (`7 + 8 = 15`) und der echte E6B inklusive Flip
+auf die Windscheibe liefen ohne Scriptfehler. Tracker v327 und EFB 0.4.2 wurden
+danach auf Windows gebaut und durchs offizielle SDK geschickt. Der Coherent-
+In-Sim-Test lud zwar das originale HTML/CSS-Grundgeruest, initialisierte aber
+die externe JavaScript-Kette nicht: Karteninhalt und Hostanpassungen fehlten,
+waehrend `/efb/v1/assets/host.js` am laufenden Tracker mit HTTP 200 erreichbar
+blieb. Der originale Schliessen-Handler konnte in diesem Zustand zudem eine
+noch nicht definierte Hostfunktion aufrufen.
+
+0.4.3/v328 ist der isolierte Diagnose- und Haertungskandidat. Ein kleiner
+Inline-Bootstrap stellt den Schliessen-Pfad bereits vor allen externen
+Skripten bereit, laedt Leaflet, Map-Kern, Werkzeuge und Hostadapter danach
+explizit in Reihenfolge und meldet Bootstufen sowie Fehler an den begrenzten
+Loopback-Endpunkt `/api/v1/client-log`. Ein zufaelliger iframe-Channel ergaenzt
+die Parent-Pruefung, weil Coherent `MessageEvent.source` nicht in jeder
+Konstellation verlaesslich erhaelt. Diese Diagnosedaten sind nicht
+missionsautorativ und koennen weder SimConnect noch Missionszustand aendern.
+
+Der In-Sim-Log von 0.4.3 hat die Transport- und Reihenfolgefrage geklaert:
+alle Assets wurden mit HTTP 200 geladen und der Inline-Bootstrap sowie der
+Schliessen-Channel liefen. Coherent verwarf jedoch `map-shell-core.js` an
+Optional Chaining (`?.`) und `map-utility-tools.js` an Object Spread (`...`).
+Der anschliessende Hostfehler an `API.normalizePreferences` war nur eine Folge
+des nicht angelegten Map-Kerns. 0.4.4/v329 entfernt Optional Chaining,
+Nullish Coalescing und Spread aus der gesamten ausgelieferten Map-/Werkzeug-/
+E6B-Skriptkette, installiert kleine Runtime-Polyfills und beantwortet die nur
+durch geerbte App-CSS angefragten `bg.jpg`/`map.jpg` lokal mit einem
+transparenten Platzhalter.
+
+Der In-Sim-Test von 0.4.4/v329 bestaetigt anschliessend den vollstaendigen
+Hoststart, Karte, Flugzeug, Route, Toolbar und Trackerstatus. Die rotierende
+Logdatei reduzierte eine vorhandene 353-MB-Datei beim Start wie vorgesehen.
+Die Interaktion legte aber zwei weitere Coherent-Laufzeitluecken offen:
+`String.trimEnd()` brach den Rechner ab und `Array.flatMap()` stoppte den E6B
+noch vor dem Abruf seiner Scheiben-JSONs. Freihandzeichnen war im schlanken
+Hostadapter noch nicht implementiert. Zudem meldeten Child und Parent den
+unveraenderten Livezustand jede Sekunde und Route sowie Flugzeugmarker wurden
+haeufiger als erforderlich neu gesetzt.
+
+Tracker v330 liefert deshalb den tracker-gehosteten Kartentischstand 0.4.5
+ohne neues Community-Package. Der Bootstrap und der getrennte E6B-iframe
+erhalten die fehlenden Methoden; E6B-Fehler werden ueber den begrenzten
+Diagnosepfad sichtbar. Rechner, Stoppuhr, E6B-Flip und Freihandzeichnen sind
+im lokalen End-to-End-Browsertest bedienbar. Parent-Status wird nur noch bei
+Zustandswechseln gesendet, Route nur bei veraenderter Geometrie neu aufgebaut
+und der Flugzeugmarker nur bei tatsaechlicher Bewegung beziehungsweise
+Headingaenderung aktualisiert.
+
+Tracker v331 liefert den tracker-gehosteten Kartentischstand 0.4.6 ebenfalls
+ohne neues Community-Package. Die Web-App legt ein optionales, auf 96 Punkte
+begrenztes `mapProfile` getrennt vom Cloud-Missionspayload in das autoritative
+Tracker-Resume-Bundle. Damit kann `/api/v1/map` das echte Terrainprofil samt
+Planhoehe an das EFB projizieren. Die Leg-Pfeile schalten eine lokale
+Wegpunktvorschau mit Distanz, Bearing und gestrichelter Vorschauverbindung;
+sie veraendern weder Mission noch Route. Telemetrie-, Positions- und
+Legfenster sind verschiebbar, einzeln schliessbar und ueber `Infos`
+wiederherstellbar. Feste Leaflet-Panes, abgeschaltete Tile-/Zoom-Fades und
+zustandsabhaengige Updates verhindern konkurrierende Layer-Reihenfolgen.
+
+Tracker v332 liefert Hoststand 0.4.7. Die Basis bleibt beim spaeter eintreffenden
+Aero-Layer voll sichtbar, statt durch zwei hintereinander angewendete
+Opacity-Stufen fast zu verschwinden. Zeichenkoordinaten werden zwischen dem
+tatsaechlich gerenderten Coherent-Rechteck und Leaflets interner
+Containergroesse skaliert. Das E6B erhaelt im Parent eine eigene transparente
+Drehflaeche und sendet Rotationsdeltas an das iframe; dadurch ist die Scheibe
+auch dann bedienbar, wenn Coherent Pointer nicht zuverlaessig durch das iframe
+reicht. Der Schliessen-Knopf des Legfensters ueberdeckt die Vor-/Zurueck-Pfeile
+nicht mehr. Die Kopfleiste ergaenzt Anzeige, Mission, Checklisten, Layer und
+Werkzeuge; das Seitenmenue zeigt den read-only Tracker-Missionsstatus sowie
+lokal gespeicherte EFB-Checklisten. Ein begrenzter `map-profile`-Logeintrag
+unterscheidet echtes Tracker-Terrain klar vom Planfallback.
+
+Der v332-In-Sim-Test zeigt zwei verbleibende Transportfehler: Coherent verliert
+nach einer Kartenbewegung die direkt bei externen Tile-Hosts angeforderten
+Basiskacheln, waehrend lokale Route und Aero-Geometrie stehen bleiben. Ausserdem
+wurde ein schon ohne `mapProfile` gespeicherter Authority-Run nach dem
+asynchronen Terrainabruf der Web-App nicht erneut zum Tracker geschrieben.
+Tracker v333/Host 0.4.8 leitet die fest erlaubten Basis-, Aero- und DFS-Kacheln
+des Kartentisches deshalb ueber den Loopback-Server und einen auf 32 MiB
+begrenzten RAM-Cache. Die Web-App stoesst nach ihrem ohnehin stattfindenden
+Terrainabruf sofort ein Authority-Snapshot-Update an. Es entsteht weder ein
+neuer Worker-Aufruf noch ein weiterer Terrain-Drittanbieterpfad im Tracker.
+
+Der v334-In-Sim-Test bestaetigt zwar erfolgreiche Tile-Antworten des lokalen
+Proxys, die Loopback-Bilder bleiben im Coherent-Kartentisch aber schwarz. Die
+parallel getestete native EFB-Karte rendert dieselben Quellen ueber direkte
+HTTPS-URLs. Tracker v335/Host 0.5.0 verwendet deshalb diesen bestaetigten Pfad
+zuerst und behaelt Backup-URL sowie begrenzten Tracker-Proxy pro Kachel als
+Fallback. Ein einmaliges `map-tile`-Diagnoseereignis nennt die tatsaechlich
+sichtbare Quelle. Der lokale Entwicklungsserver deaktiviert Service Worker
+und App-Caches auf Localhost/privaten LAN-Adressen; damit kann ein alter Stand
+wie `v1603` nicht mehr unbemerkt gegen eine aktuelle Alpha-App schreiben.
+
+Der v335-In-Sim-Test bestaetigt den direkten Tilepfad und damit eine dauerhaft
+sichtbare Karte. Das fehlende Terrainband stammt nicht aus der EFB-Projektion:
+die getestete Alpha `ga-dispatcher-v1619` enthaelt den spaeten Authority-
+Profilpush noch nicht und lieferte laut Log nur `planned-only`. Tracker
+v336/Host 0.5.1 dimmt bei aktivem Aero-Layer die Basiskarte wie der originale
+Kartentisch (Basis 0,5, Aero 0,65). Der Webstand v1621 schreibt nach
+Missionsstart jede tatsaechliche Routenmutation sofort in den bestehenden
+Authority-Snapshot, verwirft dabei ein veraltetes Profil und sendet nach dem
+asynchronen Terrainabruf denselben Snapshot erneut mit Hoehenpunkten. Der
+Tracker protokolliert jeden relevanten Wechsel als `MISSION_MAP_AUTHORITY`.
+
+Der v336-In-Sim-Test bestaetigt sichtbare Kartenkacheln, aktive Route und das
+Tracker-Terrainprofil. Routenmutationen kamen jedoch erst mit dem naechsten
+10-Sekunden-Runtime-Snapshot an; der Coherent-Renderer liess dabei Teile der
+alten Vektorroute stehen. E6B-Drehgesten erzeugten keine `e6b-action`-Events,
+waehrend normale Buttons funktionierten, und Checkbox-`change` wurde ebenfalls
+nicht verlaesslich ausgeloest. Tracker v337/Host 0.5.2 sendet deshalb nach einer
+Routenmutation einen kurzen Settle-Snapshot, ersetzt Route/Geometrie/Preview als
+neue Leaflet-Gruppen mit separaten SVG-Renderern, akzeptiert am E6B zusaetzlich
+Mouse-/Touch-Gesten und schaltet Checklistenpunkte ueber einen expliziten
+Click-Pfad. Nicht darstellbare E6B-Symbole wurden durch ASCII-Beschriftungen
+ersetzt.
+
+Tracker v338/Host 0.5.3 transportiert zusaetzlich ein begrenztes Profilpaket
+mit hoechstens 96 Terrainpunkten, 64 Hindernissen und 48 Luftraeumen ueber den
+bestehenden Authority-Snapshot. Der Tracker normalisiert diese Daten und stellt
+sie dem EFB ausschliesslich lokal ueber `127.0.0.1` bereit. Der EFB-Kartentisch
+rendert daraus Profil-Luftraeume und Hindernisse, zeigt Positions- und
+Frequenzkontext, bietet `Was ist hier?`, bedienbare Profilregler und einen
+vertikalen Profilgriff. Die E6B-Windseite leitet nun auch Schieber- und
+Windpunktgesten an den eingebetteten Originalrechner weiter. Der Zeichenpfad
+nutzt Leaflets echte Containerkoordinaten und einen eigenen SVG-Renderer.
+Der dynamische HDG-Profilmodus bleibt eine spaetere lokale Tracker/EFB-Aufgabe;
+v338 uebertraegt weiterhin das Routenprofil und keinen sekundenweisen
+HDG-Komplettsnapshot durchs Relay.
+
+Tracker v339/Host 0.5.4 trennt die Coherent-spezifische E6B-Bedienung wieder
+streng von den gemeinsam genutzten App-Dateien. Die normale Local-/Alpha-App
+verwendet damit unveraendert den Original-E6B und die Original-Profilbuttons;
+nur die im Tracker eingebettete EFB-Kopie enthaelt Mouse-/Touch-Hilfen fuer
+Windschieber und Windpunkt. Die EFB-Kopfleiste fasst Anzeige, Mission und
+Werkzeuge in Klappmenues zusammen. Ein 650-ms-Langdruck auf die Karte oeffnet
+einen erweiterten lokalen Kontext mit Hoehenband, Routenpunkt, Terrain,
+Frequenz und den im Snapshot vorhandenen Luftraeumen. Hindernisse werden nach
+Typ als Windrad, Strommast oder Mast/Turm gerendert. Vollstaendige
+Original-Paritaet fuer AIP, METAR und spontane POI-Abfragen benoetigt spaeter
+einen lokalen On-demand-Kontextvertrag mit dem Tracker.
+
+Der erste Local-Test von v339 zeigte, dass die Trennung noch nicht vollstaendig
+war: E6B-HTML und -CSS wurden weiterhin gemeinsam synchronisiert und die
+normale E6B-Runtime meldete `localControls: false`. Dadurch waren in Local das
+Original- und das Coherent-Ersatzset gleichzeitig sichtbar; das innere Set
+wirkte beim Verschieben nicht fest am Instrument. Tracker v340/Host 0.5.5
+stellt die normalen E6B-HTML-/CSS-/JS- und Werkzeugdateien exakt auf den
+unveraenderten Alpha-Stand zurueck. HTML, CSS, Runtime-JS und Werkzeug-JS des
+EFB sind nun vier ausdruecklich geschuetzte Forks. Der Asset-Sync bricht ab,
+wenn einer dieser Forks fehlt, und die App verwendet wieder nur ihr eigenes,
+am Instrument verankertes Buttonset.
+
+Der anschliessende Local-Test zeigte ausserdem eine aeltere feste E6B-
+Arbeitsflaeche: Das eingebettete Instrument lief in einem auf `320%` der
+Panelgroesse begrenzten Iframe und konnte auf breiten Bildschirmen deshalb
+nicht bis an die sichtbaren Kartentischraender geschoben werden. Webstand
+`ga-dispatcher-v1626` passt den normalen App-Iframe beim Oeffnen, Skalieren und
+bei Viewport-Aenderungen an den tatsaechlich sichtbaren Browser-Viewport an.
+Die Instrumentgroesse bleibt unveraendert; nur sein Bewegungsraum folgt nun
+der realen Fensterbreite und -hoehe. Der geschuetzte Coherent-/EFB-Fork bleibt
+davon unberuehrt.
+
+Der anschliessende In-Sim-Test zeigte, dass der 650-ms-Karten-Langdruck im
+Coherent-EFB nicht ausloest. Der Host hatte diesen Pfad ausschliesslich an
+`pointer*`-Events gebunden, obwohl der Simulator bei bereits reparierten
+EFB-Eingaben je nach Oberflaeche `mouse*`- oder `touch*`-Events liefert. Der
+EFB-Host normalisiert deshalb nun alle drei Eingabefamilien, liest
+Touch-Koordinaten auch aus `touches` beziehungsweise `changedTouches` und
+beendet die Geste ueber Window-Listener. Synthetische Doppelereignisse werden
+entprellt. Diese Aenderung betrifft nur
+`ga-tracker-client/tracker-efb-kartentisch-host.js`; normale App-Dateien und
+ihre Eingabepfade bleiben unveraendert.
+
+Der In-Sim-Test von v341 bestaetigte danach den Karten-Langdruck, deckte aber
+den fachlich falschen Platzhalterpfad auf: Koordinaten und Popup-Anker kamen
+vom gedrueckten Punkt, waehrend Terrain, Luftraum und Objektkarte weiterhin
+vom naechsten Routenprofilpunkt beziehungsweise Wegpunkt stammten. Host
+0.5.7/v342 ersetzt diese Naeherung durch den additiven, read-only
+Loopback-Vertrag `map.context.v1` unter `/api/v1/map-context`. Der Tracker
+fragt fuer die explizit gedrueckten Koordinaten OpenAIP ueber den vorhandenen
+GA-Proxy sowie Open-Meteo Elevation und Forecast ab, begrenzt Radius,
+Antwortgroesse, Timeout und RAM-Cache und liefert Teilresultate bei
+Quellenfehlern. Der Benutzer hat die dafuer notwendige Weitergabe der
+gedrueckten Koordinaten am 2026-08-12 ausdruecklich freigegeben.
+
+Das EFB zeigt daraus das tatsaechliche Gelaende, eigene Hoehe, die am Punkt
+enthaltenen Luftraeume samt Grenzen/Frequenzen, Punktwetter und nur ein im
+aktuellen Kartenmassstab nahes Luftfahrtobjekt. Routenwegpunkte werden nicht
+mehr als Ortsinhalt eingesetzt. Hoehenband, Wolken-/Niederschlagshinweis,
+Luftraumkarten, Wetterkarte und Windrose orientieren sich staerker am
+Original-Kontextmenue der App. Normale App-Dateien bleiben unveraendert.
+
+Der folgende In-Sim-Vergleich von v342 bestaetigte die korrekte Ortsbindung,
+zeigte aber zwei verbleibende UI-Luecken: Die native Karte blieb trotz
+Tracker-Verbindung als manuell waehlbare Parallelansicht bestehen und der
+Punktkontext war dichter und deutlich kleiner gesetzt als das Original.
+EFB-Sourcekandidat 0.4.5 macht die native Karte deshalb zu einer reinen
+Tracker-aus-Fallback-Karte. Sie zeigt nur Basiskarte/Aero-Overlay, letzte Route
+und letzte Position; Positionsbanner, Kompass, Profil, Werkzeuge und Status-
+Navigation bleiben dort unsichtbar. Die schmale Fallback-Menueleiste liegt
+unterhalb des Simulator-Chromes und erklaert ihren Zustand. Sobald
+`efb.web-client.v1` verfuegbar ist, wechselt die App ohne Benutzereingriff in
+den tracker-gehosteten Kartentisch; bei Verbindungsverlust kehrt sie zur
+Fallback-Karte zurueck.
+
+Tracker v343/Host 0.5.8 vergroessert Popup, Schrift, Zeilenabstand und
+Touchflaechen, ordnet Hoehenband und Detailkarten ueber identische nummerierte
+Luftraummarker zu und blendet den Kompass waehrend des Kontexts aus. Nahe
+Flugplaetze erhalten eine App-nahe Vollansicht mit ICAO/Name, Hoehe,
+Entfernung/Peilung, Pisten, Frequenzen, AIP-Link sowie eingebettetem
+Punktwetter, Windrose, QNH und abgeleiteter Flugwetterkategorie. Eine
+Assetrevision in Host-CSS/-JS und iframe-View verhindert, dass Coherent nach
+einem Trackerwechsel den vorherigen Hoststand aus dem Cache verwendet.
 
 ## Roadmap
 
@@ -474,8 +740,149 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       gelben 40-px-Web-Flugzeugmarker und entprellter Missionsanzeige durchs
       offizielle SDK bauen, im 2D-/physischen EFB testen und als
       `efb-app-v0.3.5` im Alpha-Kanal freigeben.
-- [ ] Karten-Datenvertrag fuer Route, Missionsgeometrie und Layer-Metadaten
-      entwerfen, ohne den bestehenden Tracker-Mindeststand global anzuheben.
+- [x] Additiven Karten-Datenvertrag `map.snapshot.v1` fuer Route, Navigation,
+      Missionsgeometrie und Planprofil entwerfen, ohne den bestehenden Tracker-
+      Mindeststand global anzuheben; Source-Implementierung in Tracker v326.
+- [x] EFB-0.4.0-Source mit App-Designs, einklappbarer Menueleiste, Route,
+      planbasiertem Hoehenband, Kompass, Uhr/Stoppuhr, lokalem Rechner und
+      gebuendeltem E6B implementieren.
+- [x] EFB 0.4.0 mit offiziellem Windows-SDK 1.7.2 bauen und im Simulator
+      pruefen. Ergebnis verworfen: Web-Design und Werkzeugfunktion fehlen,
+      E6B zeigt nur die Entwicklungsmaske, Unicode-Zeichen und Coherent-CSS
+      werden teilweise nicht dargestellt.
+- [x] EFB-0.4.1-Source mit Kartentisch-naher Toolbar, echten lokalen Uhr- und
+      Rechnerkomponenten, ASCII-sicheren Controls und dem vollstaendigen
+      interaktiven E6B fuer Coherent korrigieren.
+- [x] EFB 0.4.1 mit offiziellem Windows-SDK bauen und im Simulator testen.
+      Aktive Route, Flugzeugposition und Werkzeuge funktionieren im 2D-/
+      physischen EFB; Gestaltung/Funktionsnaehe bleibt der Grund fuer 0.4.2.
+- [x] Den exakten 0.4.1-SDK-Input mit `efb-v0.4.1-sdk-input` markieren und
+      0.4.2 in einem getrennten Branch/Worktree beginnen.
+- [x] Additive Tracker-Webclient-Probe fuer 0.4.2 implementieren: v327 meldet
+      `efb.web-client.v1`; die Diagnose bleibt unter `/efb/v1/probe/` erhalten.
+- [x] Ersten echten tracker-gehosteten 0.4.2-Kartentisch additiv implementieren:
+      Original-DOM/-Styles/-Werkzeuge, Browser-kompatibler `map-shell-core`,
+      read-only Hostadapter sowie native 0.4.1-Fallbackkarte.
+- [x] Lokalen 0.4.2-Browser-Gate fuer Route, Flugzeug, Kompass, Planprofil,
+      Designs, Toolbar, Layer, Stoppuhr, Rechner und E6B ohne Scriptfehler
+      bestehen.
+- [x] Tracker v327 mit allen Kartentisch-/E6B-Assets als Windows-EXE bauen und
+      EFB 0.4.2 durchs offizielle SDK schicken. In-Sim-Ergebnis: HTML/CSS-
+      Huelle sichtbar, externe Host-Skriptkette nicht initialisiert;
+      Schliessen konnte dadurch in eine fehlende Funktion laufen.
+- [x] 0.4.3/v328 mit sequenziellem Coherent-Bootstrap, fruehem ausfallsicherem
+      Schliessen, iframe-Channel und begrenztem lokalen Client-/Asset-Logging
+      implementieren; lokale Protokoll-, Quellen- und HTTP-Tests bestanden.
+- [x] Tracker v328 und EFB 0.4.3 auf Windows bauen und im Simulator Bootstufen
+      und Schliessen pruefen. Ergebnis: Transport/Channel funktionieren;
+      Coherent bricht an `?.` und `...` ab, deshalb kein Hoststart.
+- [x] 0.4.4/v329 mit durchgaengigem Coherent-Syntaxgate, Runtime-Polyfills,
+      lokalen CSS-Hintergrundplatzhaltern und rotiertem Tracker-Debuglog
+      implementieren; lokale Quellen-, Webclient- und Logtests bestanden.
+- [x] Tracker v329 und EFB 0.4.4 auf Windows bauen und im Simulator pruefen.
+      Ergebnis: Host, Karte, Route, Flugzeug, Toolbar und Logrotation laufen;
+      Rechner (`trimEnd`), E6B (`flatMap`) und Freihandzeichnen brauchen v330.
+- [x] Tracker v330 / gehosteten Kartentisch 0.4.5 mit Runtime-Fallbacks,
+      E6B-iframe-Diagnose, Freihandzeichnen und zustandsabhaengigen Karten-/
+      Parent-Updates implementieren; lokaler Rechner-, E6B-, Stoppuhr- und
+      Zeichentest bestanden. Das installierte EFB-Paket bleibt 0.4.4.
+- [x] Tracker v330 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim starten.
+      Ergebnis: Kartentisch, Route, Flugzeug, Kompass und Werkzeuge erreichen
+      den vorgesehenen Host; der Test meldet als Restpunkte Terrainprofil,
+      Legwechsel, Fensterbedienung und gelegentliches Kartenflackern.
+- [x] Tracker v331 / gehosteten Kartentisch 0.4.6 mit kompaktem
+      Tracker-Terrainprofil, lokaler Wegpunktvorschau, verschieb-/schliessbaren
+      Infoboxen und festen Leaflet-Panes implementieren. Browser-End-to-End-
+      Test bestaetigt Terrain, Legwechsel sowie Schliessen/Wiederherstellen;
+      Quellen-, Snapshot- und Webclienttests bestanden.
+- [x] Tracker v332 / gehosteten Kartentisch 0.4.7 mit dauerhaft sichtbarer
+      Basiskarte, skalierten Zeichenkoordinaten, Parent-E6B-Drehflaeche,
+      getrenntem Leg-Schliessen-Knopf und read-only Mission-/Checklistenmenue
+      implementieren. Lokaler Browsertest bestaetigt Karte nach Aero-Ladung,
+      Terrainband, Legwechsel, E6B-Rotation, Rechner und Freihandlinie.
+- [x] Tracker v332 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim testen.
+      Ergebnis: Route/Overlay bleiben sichtbar, aber extern geladene
+      Basiskacheln verschwinden nach Kartenbewegung; ein alter Authority-Run
+      bleibt ohne erneuten App-Push bei `planned-only`.
+- [x] Tracker v333 / Host 0.4.8 mit lokalem, erlaubnislistenbasiertem
+      Karten-Tile-Proxy samt 32-MiB-RAM-Grenze und sofortigem App-Terrain-Push
+      implementieren; HTTP-, Cache-, Quellen- und Syntaxtests bestanden.
+- [x] Web-App-Cloud-Pull gegen einen aktiven Tracker-Run absichern: manueller
+      Pull verwendet die bestaetigte Tracker-Geraeteuebergabe, stiller Pull
+      aktualisiert nur die uebrigen Profildaten, und eine fremde Cloud-Mission
+      kann keine Scene-/Lifecycle-Befehle mehr gegen den aktiven Run senden.
+- [x] Tracker v333 mit vorhandenem EFB 0.4.4 und passendem lokalen App-Stand
+      auf Windows/In-Sim testen. Ergebnis: Proxy-Tiles kommen an, aber der
+      Coherent-Compositor stellt die transparente Aero-Ebene nach etwa einer
+      Sekunde schwarz dar; der uebernommene Run bleibt ohne spaeten
+      Routen-Trigger bei `planned-only`.
+- [x] Tracker v334 / Host 0.4.9 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      testen. Ergebnis: Der Proxy liefert Kacheln, Coherent zeigt sie dennoch
+      schwarz. Die verwendete Local-App meldete Cache `v1603` und konnte daher
+      den neuen Terrain-/Authority-Refresh nicht ausfuehren.
+- [x] Tracker v335 / Host 0.5.0 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      testen. Ergebnis: Direkte Tiles bleiben sichtbar. Der Aero-Kontrast ist
+      zu schwach; Terrain bleibt `planned-only`, weil die getestete Alpha
+      `v1619` den Profilpush noch nicht enthaelt. Local `v1603 / NO SW` ist
+      ebenfalls ein alter Quellstand und kein geeigneter Gegentest.
+- [x] Tracker v336 / Host 0.5.1 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1621` auf Windows/In-Sim testen. Ergebnis: Kartenkacheln,
+      Route und Terrainband sind sichtbar; Routenupdates warten noch bis zu
+      zehn Sekunden und hinterlassen Vektorartefakte, E6B-Drehung und
+      Checklisten-Checkboxen reagieren im Coherent-Host noch nicht.
+- [x] Tracker v337 / Host 0.5.2 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1622` auf Windows/In-Sim testen. Ergebnis: Route wird
+      schneller uebernommen; E6B-Vorderseite funktioniert. Windschieber,
+      Windpunkt, Profil-Luftraeume/Hindernisse, Profilbedienung,
+      `Was ist hier?`, Checklisten und korrigierter Zeichenpfad fehlen noch.
+- [x] Tracker v338 / Host 0.5.3 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1623` auf Windows/In-Sim testen. Ergebnis: Luftraeume
+      kommen an, EFB-E6B und Profilbedienung funktionieren weitergehend. Die
+      EFB-Hilfen waren jedoch versehentlich auch in der normalen Local-App
+      gelandet; Kontextabfrage und Hindernissymbole waren noch grobe
+      Platzhalter.
+- [x] Tracker v339 / Host 0.5.4 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1624` in Local gegentesten. Ergebnis: Klappmenues,
+      Karten-Langdruck und Kontext sind vorhanden, aber der normale App-E6B
+      zeigt wegen unvollstaendiger Quelltrennung zwei Buttonsets.
+- [x] Tracker v340 / Host 0.5.5 mit vorhandenem EFB 0.4.4 und Webstand
+      `ga-dispatcher-v1626` auf Windows/In-Sim getestet: E6B-Quelltrennung ist
+      vorhanden; der 650-ms-Karten-Langdruck loest im Coherent-EFB jedoch
+      wegen des reinen Pointer-Pfads nicht aus.
+- [x] Tracker v341 / Host 0.5.6 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      getestet: Der Langdruck oeffnet das Kontextfenster. Das Fenster bezog
+      seine Inhalte jedoch noch falsch vom naechsten Routenwegpunkt statt vom
+      gedrueckten Kartenpunkt.
+- [x] Tracker v342 / Host 0.5.7 mit vorhandenem EFB 0.4.4 auf Windows/In-Sim
+      geprueft: Der Langdruck zeigt den lokalen Flugplatz, das tatsaechliche
+      Gelaende, Wetter und die Luftraeume am Kartenpunkt statt eines fernen
+      Routenwegpunkts. Offen blieben Lesbarkeit, eindeutige Zuordnung im
+      Hoehenband, Flugplatz-Vollansicht und die parallele native Karte.
+- [x] Tracker v343 / Host 0.5.8 zusammen mit dem offiziell gebauten EFB-0.4.5-
+      Community-Paket auf Windows/In-Sim geprueft und als Releasekandidat
+      verworfen: Nach dem Tracker-Handshake wechselte die Parent-App im
+      Sekundentakt in den iframe und wegen eines spaeteren Poll-/Renderfehlers
+      sofort wieder auf `about:blank`. Neustartversuche erzeugten zusaetzlich
+      `EADDRINUSE`, weil die erste Tracker-Instanz Port 49880 weiter belegte.
+- [x] Tracker v344 / Host 0.5.8 zusammen mit dem offiziell neu gebauten
+      EFB-0.4.6-Community-Paket auf Windows/In-Sim pruefen: Der iframe muss
+      nach erfolgreichem Handshake geladen bleiben; einzelne Poll- oder
+      Parent-Renderfehler duerfen ihn nicht entladen. Erst drei aufeinander-
+      folgende Kernfehler duerfen zur Fallback-Karte wechseln. Eine zweite
+      Tracker-Instanz muss mit eindeutiger Portmeldung beendet werden. Danach
+      den Punktkontext bei EDTL und den Rueckwechsel bei echtem Tracker-Ende
+      erneut pruefen. Normale App-Dateien und der Web-App-Cache bleiben
+      unveraendert.
+- [ ] Tracker v345 / Host 0.5.9 zusammen mit dem offiziell neu gebauten
+      EFB-0.4.7-Community-Paket auf Windows/In-Sim pruefen: Parent-Profil ohne
+      `Array.flatMap`, Fallback-Layerauswahl, 30 Prozent kleineres E6B,
+      kontrastreiches Rechner-Formblatt, zentrierte Luftraumlabels,
+      Piste in der Wetter-Windrose, entfernten AIP-Link und Toolbar-X sowie
+      ASCII-sichere Kontexttexte pruefen. Der Datenfooter und das Debuglog
+      muessen Quelle und Einzelzeiten nennen; normale App-Dateien bleiben
+      unveraendert.
+- [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
+      Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
       Einzel-Run, Owner, Revision, Effektjournal und Missionstyp-Adaptern
       implementieren; Alpha-In-Sim-/Mehrgeraetetest steht aus.
@@ -501,6 +908,226 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Der 0.4.6/v344-In-Sim-Test bestaetigt stabilen iframe-Wechsel
+  und Rueckfall, zeigt im Parent aber weiterhin einen Coherent-Renderfehler an
+  `Array.flatMap`. EFB 0.4.7 ersetzt ihn durch eine Schleife und laesst in der
+  reduzierten Fallback-Karte ausschliesslich die Basiskarten-/Layerauswahl
+  wieder zu. Tracker v345/Host 0.5.9 verkleinert E6B und verbessert Rechner-
+  Formblatt sowie Punktkontext. Luftfahrtdaten verwenden primaer die bereits
+  von der App genutzte gehostete GA Aviation DB; bei Fehlern folgt der
+  OpenAIP-Regioncache mit stabilen 0,5-Grad-Schluesseln. Wetter und Terrain
+  bleiben parallele Open-Meteo-Abfragen. Quelle und Laufzeit werden getrennt
+  diagnostiziert.
+
+- 2026-08-13: EFB 0.4.7/Tracker v345 wurde im Simulator als stabil
+  bestaetigt. In der Tracker-aus-Fallback-Karte blieb jedoch die native
+  `flight-strip` mit "Aktuelle Position" sichtbar. EFB 0.4.8 blendet auch
+  dieses Chrome-Element aus; Tracker v345/Host 0.5.9 bleibt unveraendert.
+  Wegen der Parent-CSS-Aenderung ist vor dem Alpha-Release ein letzter
+  offizieller SDK-Build erforderlich.
+
+- 2026-08-12: EFB 0.4.6 behandelt Tracker-Kernpoll, optionale Snapshots und
+  Parent-Darstellung als getrennte Fehlerbereiche. Eine erfolgreiche
+  Capability-Erkennung startet den Host-iframe nur nach gueltiger Status- und
+  Snapshotverarbeitung; spaetere Darstellungsfehler koennen ihn nicht mehr
+  sofort entladen. Bei einer bestehenden App-Karte werden bis zu zwei
+  aufeinanderfolgende Kernpollfehler toleriert und als
+  `efb.client-diagnostics.v1` protokolliert. Tracker v344 beendet eine zweite
+  Instanz gezielt, wenn Port 49880 bereits belegt ist.
+
+- 2026-08-12: EFB 0.4.5 trennt die native Fallback-Karte von der
+  tracker-gehosteten App-Karte. Die Fallback-Karte ist nur bei fehlendem
+  `efb.web-client.v1` sichtbar und enthaelt ausschliesslich Karte/Aero-Overlay,
+  letzte Route und letzte Position. Tracker v343/Host 0.5.8 vergroessert und
+  strukturiert `Was ist hier?`, fuegt die Flugplatz-Vollansicht hinzu und
+  versioniert die geaenderten Hostassets gegen Coherent-Caches. Diese Arbeiten
+  bleiben auf EFB- und Tracker-Dateien begrenzt.
+
+- 2026-08-12: Host 0.5.7/v342 fuehrt `map.context.v1` als begrenzten
+  Tracker-Loopback-Vertrag ein. Nach ausdruecklicher Benutzerfreigabe werden
+  nur die gedrueckten Koordinaten fuer OpenAIP-/Open-Meteo-Leseabfragen
+  verwendet. Der Host zeigt keine Routenwegpunkte mehr als Ersatz fuer
+  Ortsdaten und uebernimmt Aufbau und Inhalte des originalen App-Kontexts
+  enger, ohne gemeinsame App-Dateien zu aendern.
+
+- 2026-08-12: Host 0.5.6/v341 verwendet fuer den EFB-Karten-Langdruck im tracker-gehosteten
+  Kartentisch einen isolierten Pointer-/Mouse-/Touch-Adapter. Damit folgt der
+  Kontextpfad den nachgewiesenen Coherent-Eingabefallbacks, ohne `map.js`,
+  `map-utility-tools.js`, E6B-App-Dateien oder den Web-App-Cache zu aendern.
+
+- 2026-08-12: Webstand v1626 ersetzt fuer das normale App-E6B die feste
+  `320%`-Iframe-Arbeitsflaeche zur Laufzeit durch den realen Visual Viewport.
+  Damit ist der Bewegungsraum nicht mehr von der Panel-Pixelbreite abhaengig.
+  Der EFB-Fork bleibt unveraendert und durch den bestehenden Sync-Test
+  getrennt.
+
+- 2026-08-12: Host 0.5.5/v340 schliesst die in v339 noch unvollstaendige
+  E6B-Trennung. Normale App und EFB besitzen getrennte HTML-, CSS-, Runtime-
+  und Werkzeugquellen. Der Shared-Asset-Sync validiert alle vier EFB-Forks,
+  statt sie mit den App-Dateien zu ueberschreiben. Die normalen Dateien sind
+  gegen den unveraenderten Alpha-Stand geprueft; App-Glyphen und
+  `localControls: true` sind wiederhergestellt.
+
+- 2026-08-12: Host 0.5.4/v339 isoliert alle Coherent-E6B-Eingriffspfade in
+  `ga-tracker-client/efb-web-assets`; die entsprechenden normalen App-Dateien
+  sollten getrennt werden; der erste Local-Test deckte jedoch zwei verbliebene
+  gemeinsame Quellen auf. Die EFB-Kopfleiste nutzt
+  nun Klappmenues, Karten-Langdruck oeffnet den erweiterten lokalen Kontext und
+  Hindernisse erhalten typbezogene Profil-Symbole. Der bestehende Snapshot
+  bleibt begrenzt; AIP-/Wetter-Details werden noch nicht on demand nachgeladen.
+
+- 2026-08-12: Host 0.5.3/v338 haelt den EFB-Livepfad lokal: Das EFB pollt den
+  Tracker auf `127.0.0.1:49880`; nur das kompakte, begrenzte Profilpaket kommt
+  mit dem Missions-Authority-Snapshot Web-App -> Relay -> Tracker. Die lokale
+  Browser-QA bestaetigt E6B-Windschieber und Windpunkt, Kontextpopup,
+  Profil-Luftraeume/Hindernisse, Profilregler und Profilgriff, verschiebbare und
+  schliessbare Infofenster, persistente Checklisten sowie einen Zeichenpfad
+  ohne horizontalen Versatz. 29 automatisierte EFB-Tests sind erfolgreich.
+
+- 2026-08-12: Der v336-In-Sim-Log zeigt fuer E6B Vorder-/Rueckseite einen
+  vollstaendigen Boot, aber keine einzige `e6b-action`-Drehgeste; Coherent
+  liefert auf der transparenten Eingabeflaeche damit keine verlaesslichen
+  Pointer-Events. Host 0.5.2/v337 ergaenzt Mouse und Touch, ersetzt drei
+  problematische Unicode-Symbole durch ASCII und behandelt Checklistenhaken
+  als explizite Click-Aktion. Ein zweiter, 240 ms versetzter Authority-Push
+  faengt Routenmutationen ab, deren erster Render-Callback noch den vorherigen
+  Stand sah. Leaflet-Routen werden als neue Gruppen mit eigenen SVG-Renderern
+  eingesetzt, damit der Coherent-Compositor keine alten Canvas-Pixel behaelt.
+
+- 2026-08-12: Der v335-Log zeigt nach erfolgreicher Authority-Uebernahme nur
+  `map-profile:planned-only`; danach folgen Runtime-Snapshots, aber kein
+  `terrain-profile-ready`. Die getestete Alpha ist Cache v1619, waehrend der
+  Profilpush erst im neueren Quellstand vorhanden ist. Webstand v1621 bindet
+  deshalb die aktuelle Kartenroute explizit in das bestehende Resume-Bundle
+  ein, sendet Routenmutationen sofort ohne veraltetes Profil und laesst den
+  fertigen Terrainabruf als zweiten Authority-Snapshot folgen. Es entsteht
+  kein zweiter Missionszustand und kein neuer Relay-Kanal. Host 0.5.1/v336
+  setzt fuer Aero denselben Kontrast wie der Web-Kartentisch und protokolliert
+  Route, Profilmodus und Punktzahl direkt im Trackerlog.
+
+- 2026-08-12: Der v334-Log bestaetigt erfolgreiche Antworten des lokalen
+  Tile-Proxys, waehrend die Kartentisch-Flaeche schwarz bleibt. Da die native
+  EFB-Karte direkte HTTPS-Tiles auf demselben System sichtbar rendert, nutzt
+  Host 0.5.0/v335 je Kachel zuerst die direkte Quelle, danach deren Backup und
+  erst zuletzt den weiterhin begrenzten Loopback-Proxy. Der gleichzeitig
+  angezeigte lokale Web-Cache `v1603` erklaert den fehlenden v334-Terrain-Push
+  und unsaubere versionsuebergreifende Authority-Wechsel. Lokale Server senden
+  deshalb konsequent `no-store`; private Entwicklungs-Hosts entfernen alte
+  GA-Service-Worker und zeigen `NO SW` an.
+
+- 2026-08-12: Der v333-In-Sim-Test trennt Netzwerk und Darstellung: Topo- und
+  Aero-Tiles werden vom lokalen Proxy erfolgreich geliefert, erst das spaeter
+  eintreffende transparente Aero-PNG verdeckt die Basiskarte im Coherent-
+  Compositor schwarz. Host 0.4.9/v334 begrenzt deshalb dessen Deckkraft auf
+  eine rendererfeste Beimischung, reserviert die native EFB-Kopfzeile und
+  setzt den Layerdialog kontrastreich. Nach einer bestaetigten Tracker-
+  Uebergabe wird der bestehende Web-App-Terrainabruf ausserdem erneut
+  angestossen, sobald die restaurierte Route bereit ist; der Tracker bleibt
+  dabei ohne eigenen Hoehendienst.
+
+- 2026-08-12: Der v332-In-Sim-Log bestaetigt `map-profile:planned-only`; das
+  Terrain war beim ersten Authority-Snapshot noch nicht fertig und loeste
+  spaeter keinen neuen Push aus. Zugleich verschwinden direkt von Coherent
+  geladene externe Basiskacheln nach Kartenbewegungen. Host 0.4.8/v333 nutzt
+  fuer die fest erlaubten Kartendienste daher den lokalen Tracker-HTTP-Server
+  mit begrenztem RAM-Cache. Terrain wird weiterhin ausschliesslich aus den
+  bereits von der Web-App geladenen Punkten uebernommen; der Tracker sendet
+  keine Route an einen neuen Hoehendienst.
+
+- 2026-08-12: Der v331-In-Sim-Test zeigt, dass die Basiskarte erst nach dem
+  Eintreffen des Aero-Layers ausbleicht, Zeichnen unter der Coherent-Skalierung
+  versetzt ist und Pointer nicht verlaesslich in das E6B-iframe gelangen.
+  Hoststand 0.4.7/v332 korrigiert diese drei Hostgrenzen ohne SDK-Neubau. Das
+  neue Seitenmenue bleibt read-only: Missionswahrheit kommt vom Tracker,
+  Checklistenhaken bleiben reine lokale EFB-Praeferenz. Das Terrainband kann
+  nur echtes Terrain anzeigen, wenn die passend aktualisierte Web-App den
+  kompakten `mapProfile` beim Missionsstart in das Tracker-Bundle schreibt;
+  der Tracker protokolliert den verwendeten Modus explizit.
+
+- 2026-08-11: Der v330-In-Sim-Test bestaetigt die grundsaetzliche
+  Kartentisch-Hostgrenze, zeigt aber vier getrennte Restprobleme: Dem
+  bisherigen Snapshot fehlt echtes Terrain, die Legpfeile haben keine lokale
+  Vorschaufunktion, die Original-Infoboxen besitzen im EFB keine
+  Fenstersteuerung und Leaflet-Layer koennen beim Aktualisieren ihre sichtbare
+  Reihenfolge wechseln. Tracker v331 loest das additiv im read-only Hoststand
+  0.4.6. Das Terrain kommt als kleiner `mapProfile`-Untervertrag im
+  Tracker-Authority-Bundle und nicht im Cloud-Payload. Legwechsel bleiben
+  reine EFB-Vorschau; Fensterpositionen bleiben lokale UI-Praeferenz. Kein
+  Punkt erhaelt damit Missions- oder SimConnect-Schreibrechte, und das
+  installierte Community-Paket 0.4.4 braucht keinen erneuten SDK-Build.
+
+- 2026-08-11: Der 0.4.4/v329-In-Sim-Test erreicht erstmals den vollstaendigen
+  tracker-gehosteten Kartentisch. Die verbleibenden Werkzeugfehler sind keine
+  SDK- oder Transportfehler: Coherent fehlt `String.trimEnd` im Rechner und
+  `Array.flatMap` im E6B-Fallback. Tracker v330 ergaenzt diese Methoden in
+  Parent und E6B-iframe, meldet E6B-Boot/JSON/Fallback getrennt, implementiert
+  Freihandlinien sowie Undo/Clear und entprellt unveraenderte Live-, Routen-
+  und Markerdaten. Weil alle Aenderungen in den vom Tracker ausgelieferten
+  Assets liegen, ist dafuer kein erneuter SDK-Build des installierten
+  Community-Pakets 0.4.4 erforderlich.
+
+- 2026-08-11: Der 0.4.3-In-Sim-Log belegt erfolgreiche HTTP-Ladung aller
+  Skripte, aber Parserabbrueche an Optional Chaining in `map-shell-core.js`
+  und Object Spread in `map-utility-tools.js`. 0.4.4/v329 ersetzt diese sowie
+  Nullish Coalescing und die weiteren Spread-Vorkommen auch im echten E6B und
+  sichert das mit einem Quellen-Gate fuer alle Coherent-facing Skripte ab.
+  Der fruehe Bootstrap stellt kompatible Standardmethoden wie
+  `Object.entries`, `Array.includes` und `Element.replaceChildren` bereit.
+  Gleichzeitig wird `ga-tracker-debug.txt` ab dem ersten v329-Logeintrag auf
+  hoechstens 8 MiB aktive Daten plus zwei kleine Tail-Archive begrenzt;
+  uebergrosse Altdateien werden nicht vollstaendig umbenannt, sondern sofort
+  auf die letzten 512 KiB reduziert. Unmittelbar identische Logzeilen werden
+  fuer 1,5 Sekunden entprellt und Einzelzeilen auf 32 KiB begrenzt.
+
+- 2026-08-11: Der Windows-/SDK-Test von 0.4.2 zeigt im Simulator nur die
+  originale Kartentisch-Huelle. Tracker v327 bleibt nach dem Klick aktiv und
+  liefert `host.js` lokal mit HTTP 200; die fehlenden Hosttexte, Karte und
+  Buttons belegen damit einen Abbruch vor der Hostinitialisierung, keinen
+  Tracker-Absturz. 0.4.3/v328 laedt die externe Skriptfolge ohne `defer`, legt
+  einen ES5-sicheren Inline-Bootstrap davor und macht Schliessen unabhaengig
+  vom grossen Hostadapter. Der lokale Diagnose-POST ist auf Loopback, 8 KiB
+  je Meldung und 120 Meldungen pro Minute begrenzt. Wiederholte unveraenderte
+  Hangartor-Scans werden nur noch bei Aenderung oder als Fuenf-Minuten-
+  Heartbeat geloggt, damit die EFB-Bootspur sichtbar bleibt.
+
+- 2026-08-11: Der In-Sim-Test von 0.4.1 bestaetigt aktive Route, korrekt
+  positioniertes Flugzeug und bedienbare Werkzeuge. Damit ist der markierte
+  0.4.1-Stand ein belastbarer Fallback. Auf ausdrueckliche Freigabe wurde die
+  0.4.2-Hostgrenze deshalb vom reinen Probe-Dokument zum echten Kartentisch-
+  View erweitert. Der Tracker liefert Original-DOM, Original-Styles,
+  `map-utility-tools.js`, Leaflet und die vollstaendigen E6B-Assets; ein neuer
+  read-only Adapter bindet `flight.snapshot.v1` und `map.snapshot.v1` an.
+  `map.js`/`profile.js` bleiben unveraendert und werden nicht in die Tracker-
+  Runtime geladen. Ohne `efb.web-client.v1` bleibt die native 0.4.1-Karte.
+
+- 2026-08-11: Vor der Zerlegung der grossen Kartentischdateien wurde der
+  0.4.1-SDK-Input als lokaler Git-Tag `efb-v0.4.1-sdk-input` eingefroren und
+  0.4.2 in `codex/efb-map-server-0.4.2` isoliert. Der laufende 0.4.1-Build wird
+  nicht abgewartet, aber 0.4.2 bleibt bis zu dessen Ergebnis additiv. Eine
+  kleine Tracker-Webclient-Probe muss zuerst Laden, Interaktion, Resize und
+  Snapshotzugriff in Coherent nachweisen; erst danach beginnt die eigentliche
+  Extraktion. Die native 0.4.1-Karte bleibt capability-gesteuerter Fallback.
+
+- 2026-08-11: Der In-Sim-Stand 0.4.0 wird nicht freigegeben. Die EFB-Shell
+  muss sich sichtbar und funktional am bestehenden Web-Kartentisch
+  orientieren; fuer bereits vorhandene Werkzeuge wird keine rein dekorative
+  Ersatzmaske akzeptiert. 0.4.1 verwendet fuer den E6B die originalen Front-
+  und Windscheiben samt Interaktionslogik, erzwingt Embedded-Coherent per
+  Fragment statt nur per Query und legt die Scheiben beim Build als lokalen
+  Preload ab. Kritische EFB-Geometrie verwendet keine von SDK 1.7.2
+  problematisch behandelten Kurzformen; Controls und technische Anzeigen
+  bleiben bis zum Nachweis weiterer Fonts auf ASCII-sicheren Zeichen.
+
+- 2026-08-10: EFB 0.4.0 wird als eigener Browser-Client des lokalen Trackers
+  gebaut, nicht als eingebettete Vollversion der Web-App. `map.snapshot.v1`
+  trennt Route, Live-Navigation, Missionsgeometrie und Planprofil von
+  Narrative/Cloud. Das EFB besitzt eigene SDK-sichere Renderer und lokale
+  UI-Praeferenzen; Tracker und Web teilen schrittweise reine Datenkerne. Die
+  vorhandenen App-Designs werden als kompakte EFB-Themes uebernommen. Uhr,
+  Rechner und E6B bleiben nicht missionskritische lokale Werkzeuge. Der
+  Terrainverlauf des Hoehenbands folgt erst mit einem eigenen versionierten
+  Datenprodukt.
 
 - 2026-08-10: EFB 0.3.5 ist nach SDK-1.7.2-Build und In-Sim-Test als
   unveraendertes Alpha-Artefakt `efb-app-v0.3.5` freigegeben. Der Remote-

@@ -2055,13 +2055,200 @@ function _missionAuthorityStateHash(value) {
     return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}-${raw.length}`;
 }
 
-function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
+function _buildMissionAuthorityMapProfile() {
+    const source = (typeof vpElevationData !== 'undefined' && Array.isArray(vpElevationData))
+        ? vpElevationData
+        : (Array.isArray(window.vpElevationData) ? window.vpElevationData : []);
+    const clean = source.map(point => {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lon ?? point?.lng);
+        const elevFt = Number(point?.elevFt ?? point?.terrainFt ?? point?.elevationFt);
+        const distNM = Number(point?.distNM ?? point?.distanceNm);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(elevFt)) return null;
+        const item = {
+            lat: Math.round(lat * 1e5) / 1e5,
+            lon: Math.round(lon * 1e5) / 1e5,
+            elevFt: Math.round(elevFt)
+        };
+        if (Number.isFinite(distNM)) item.distNM = Math.round(distNM * 100) / 100;
+        return item;
+    }).filter(Boolean);
+    if (clean.length < 2) return null;
+    const maxPoints = 96;
+    const points = [];
+    if (clean.length <= maxPoints) {
+        points.push(...clean);
+    } else {
+        const step = (clean.length - 1) / (maxPoints - 1);
+        for (let index = 0; index < maxPoints; index += 1) {
+            points.push(clean[Math.min(clean.length - 1, Math.round(index * step))]);
+        }
+    }
+    const totalDistanceNm = Number(points[points.length - 1]?.distNM);
+    const obstacles = [];
+    const obstacleSource = (typeof vpObstacles !== 'undefined' && Array.isArray(vpObstacles))
+        ? vpObstacles
+        : (Array.isArray(window.vpObstacles) ? window.vpObstacles : []);
+    for (const raw of obstacleSource) {
+        if (obstacles.length >= 64) break;
+        const distanceNm = Number(raw?.distNM ?? raw?.distanceNm);
+        const heightFt = Number(raw?.hFt ?? raw?.heightFt ?? raw?.height);
+        if (!Number.isFinite(distanceNm) || !Number.isFinite(heightFt) || heightFt <= 0) continue;
+        obstacles.push({
+            distanceNm: Math.round(Math.max(0, distanceNm) * 100) / 100,
+            heightFt: Math.round(Math.min(10000, heightFt)),
+            type: String(raw?.type || 'obstacle').replace(/[^a-z0-9_-]/gi, '').slice(0, 24).toLowerCase() || 'obstacle'
+        });
+    }
+    const airspaces = [];
+    if (Number.isFinite(totalDistanceNm) && typeof getCachedAirspaceIntersections === 'function') {
+        try {
+            const intersections = getCachedAirspaceIntersections(clean.map(point => ({
+                lat: point.lat,
+                lon: point.lon,
+                elevFt: point.elevFt,
+                distNM: point.distNM
+            })), totalDistanceNm);
+            for (const item of intersections) {
+                if (airspaces.length >= 48) break;
+                const startDistanceNm = Number(item?.asMinDist);
+                const endDistanceNm = Number(item?.asMaxDist);
+                const lowerFt = Number(item?.lowerFt);
+                const upperFt = Number(item?.upperFt);
+                if (!Number.isFinite(startDistanceNm) || !Number.isFinite(endDistanceNm)
+                    || !Number.isFinite(lowerFt) || !Number.isFinite(upperFt)
+                    || endDistanceNm <= startDistanceNm) continue;
+                const airspace = item?.as || {};
+                let color = '#4da6ff';
+                try {
+                    const styled = typeof getAirspaceStyle === 'function' ? getAirspaceStyle(airspace) : null;
+                    if (/^#[0-9a-f]{3,8}$/i.test(String(styled?.color || ''))) color = String(styled.color);
+                } catch (_) {}
+                const frequencies = Array.isArray(airspace.frequencies)
+                    ? airspace.frequencies.map(entry => String((entry?.value ?? entry) || '').trim()).filter(Boolean).slice(0, 3)
+                    : [];
+                airspaces.push({
+                    name: String(airspace.name || airspace.designator || 'Luftraum').slice(0, 80),
+                    type: Number.isFinite(Number(airspace.type)) ? Number(airspace.type) : null,
+                    startDistanceNm: Math.round(Math.max(0, startDistanceNm) * 100) / 100,
+                    endDistanceNm: Math.round(Math.max(0, endDistanceNm) * 100) / 100,
+                    lowerFt: Math.round(Math.max(0, lowerFt)),
+                    upperFt: Math.round(Math.max(lowerFt, upperFt)),
+                    lowerAgl: item?.isLowerAgl === true,
+                    upperAgl: item?.isUpperAgl === true,
+                    color,
+                    frequencies
+                });
+            }
+        } catch (_) {}
+    }
+    let context = null;
+    try {
+        const live = window.lastLiveGpsPos || {};
+        const lat = Number(live.lat);
+        const lon = Number(live.lon);
+        const alt = Number(live.alt ?? live.altFt);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            const frequency = typeof getCurrentFrequencyInfo === 'function'
+                ? getCurrentFrequencyInfo(lat, lon, Number.isFinite(alt) ? alt : null)
+                : null;
+            context = {
+                position: typeof formatRouteProgressPosition === 'function'
+                    ? String(formatRouteProgressPosition(lat, lon) || '').slice(0, 60)
+                    : '',
+                frequency: String(frequency?.value || '').slice(0, 40),
+                frequencySource: String(frequency?.source || '').slice(0, 80)
+            };
+        }
+    } catch (_) {}
+    return {
+        version: 2,
+        terrainAvailable: true,
+        totalDistanceNm: Number.isFinite(totalDistanceNm) ? totalDistanceNm : null,
+        points,
+        obstacles,
+        airspaces,
+        context
+    };
+}
+
+function _missionAuthorityLiveRouteSnapshot() {
+    const candidates = [
+        (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null,
+        Array.isArray(window._missionRouteWaypoints) ? window._missionRouteWaypoints : null,
+        (typeof currentMissionData !== 'undefined' && Array.isArray(currentMissionData?.routeWaypoints))
+            ? currentMissionData.routeWaypoints
+            : null,
+        (typeof currentMissionData !== 'undefined' && Array.isArray(currentMissionData?.missionRouteWaypoints))
+            ? currentMissionData.missionRouteWaypoints
+            : null
+    ];
+    const source = candidates.find(value => Array.isArray(value) && value.length >= 2);
+    if (!source) return [];
+    return source.slice(0, 128).map((point, index) => {
+        const lat = Number(point?.lat ?? point?.latitude);
+        const lon = Number(point?.lon ?? point?.lng ?? point?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const elevationFt = Number(point?.elevationFt ?? point?.elevFt ?? point?.altitudeFt ?? point?.altFt);
+        return {
+            id: String(point?.id || point?.ref || `wp-${index + 1}`).slice(0, 80),
+            name: String(point?.name || point?.label || point?.icao || point?.ident || `WP ${index + 1}`).slice(0, 100),
+            lat: Math.round(lat * 1e6) / 1e6,
+            lon: Math.round(lon * 1e6) / 1e6,
+            ...(Number.isFinite(elevationFt) ? { elevationFt: Math.round(elevationFt) } : {}),
+            kind: String(point?.kind || point?.type || (point?.isPOI ? 'poi' : 'waypoint')).slice(0, 40),
+            required: point?.required !== false
+        };
+    }).filter(Boolean);
+}
+
+function _missionAuthorityInjectLiveRoute(missionState = null) {
+    const route = _missionAuthorityLiveRouteSnapshot();
+    if (!missionState || typeof missionState !== 'object' || route.length < 2) return missionState;
+    missionState.routeWaypoints = _safeCloneJson(route, route);
+    missionState.missionRouteWaypoints = _safeCloneJson(route, route);
+    if (missionState.currentMissionData && typeof missionState.currentMissionData === 'object') {
+        missionState.currentMissionData.routeWaypoints = _safeCloneJson(route, route);
+        missionState.currentMissionData.missionRouteWaypoints = _safeCloneJson(route, route);
+    }
+    if (missionState.activeMissionContract && typeof missionState.activeMissionContract === 'object') {
+        missionState.activeMissionContract.routeWaypoints = _safeCloneJson(route, route);
+        missionState.activeMissionContract.missionRouteWaypoints = _safeCloneJson(route, route);
+    }
+    return missionState;
+}
+
+function _restoreMissionAuthorityMapProfile(bundle = null) {
+    const source = Array.isArray(bundle?.mapProfile?.points) ? bundle.mapProfile.points : [];
+    const points = source.map(point => {
+        const lat = Number(point?.lat);
+        const lon = Number(point?.lon ?? point?.lng);
+        const elevFt = Number(point?.elevFt ?? point?.terrainFt ?? point?.elevationFt);
+        const distNM = Number(point?.distNM ?? point?.distanceNm);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(elevFt)) return null;
+        return {
+            lat,
+            lon,
+            elevFt,
+            ...(Number.isFinite(distNM) ? { distNM } : {})
+        };
+    }).filter(Boolean);
+    if (points.length < 2) return false;
+    try {
+        vpElevationData = points;
+    } catch (_) {}
+    window.vpElevationData = points;
+    return true;
+}
+
+function _buildMissionAuthorityResumeBundle(reason = 'runtime', options = {}) {
     const runtime = _buildMissionRuntimeSnapshot(reason);
     if (!runtime?.missionId) return null;
     let missionState = null;
     try {
         const activeState = _syncActiveMissionPayload();
         missionState = activeState ? _syncCompactActiveMission(activeState, 3) : null;
+        missionState = _missionAuthorityInjectLiveRoute(missionState);
     } catch (_) {
         missionState = null;
     }
@@ -2073,6 +2260,7 @@ function _buildMissionAuthorityResumeBundle(reason = 'runtime') {
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, missionState)
             : null,
         savedAt: Date.now(),
+        mapProfile: options.includeMapProfile === false ? null : _buildMissionAuthorityMapProfile(),
         missionState,
         runtime
     };
@@ -2146,7 +2334,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
         };
     }
 
-    const compactMissionState = _syncCompactActiveMission(missionState, 3);
+    const compactMissionState = _missionAuthorityInjectLiveRoute(_syncCompactActiveMission(missionState, 3));
     const bundle = {
         version: 2,
         missionId: trackerMissionId,
@@ -2155,6 +2343,7 @@ function _buildMissionAuthorityLocalRecovery(active = null, reason = 'legacy-loc
             ? window.GAMissionResumeAdapters.createDescriptor(runtime, compactMissionState)
             : null,
         savedAt: Date.now(),
+        mapProfile: _buildMissionAuthorityMapProfile(),
         missionState: compactMissionState,
         runtime
     };
@@ -2182,6 +2371,7 @@ function _missionAuthorityResumeBundleHash(bundle = null) {
         version: bundle.version,
         missionId: bundle.missionId,
         descriptor: bundle.descriptor,
+        mapProfile: bundle.mapProfile,
         missionState: bundle.missionState,
         runtime: runtimeForHash
     });
@@ -2245,6 +2435,7 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
             resumed: ack.resumed === true,
             reason
         });
+        _scheduleMissionAuthorityProfileRefresh('tracker-authority-acquired');
         return true;
     }
     const active = ack.authoritativeRun || null;
@@ -2277,7 +2468,7 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
         if (trackerRun?.runId && trackerRun.runId !== currentLocal.runId) return;
         const relation = _missionAuthorityIncomingRunRelation(currentLocal, trackerRun, _missionAuthorityClientId());
         if (relation === 'demote' || relation === 'foreign') return;
-        const bundle = _buildMissionAuthorityResumeBundle(reason);
+        const bundle = _buildMissionAuthorityResumeBundle(reason, options);
         if (!bundle) return;
         const stateHash = _missionAuthorityResumeBundleHash(bundle);
         if (stateHash && stateHash === missionAuthorityLastSnapshotHash) return;
@@ -2304,6 +2495,48 @@ function _queueMissionAuthoritySnapshot(reason = 'runtime', options = {}) {
         const minDelay = Math.max(700, 10000 - (Date.now() - missionAuthorityLastSnapshotPushAt));
         missionAuthoritySnapshotPushTimer = setTimeout(push, minDelay);
     }
+    return true;
+}
+
+window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready') {
+    return _queueMissionAuthoritySnapshot(reason, { immediate: true });
+};
+
+let missionAuthorityRouteRetryTimer = null;
+window.gaPushMissionAuthorityRoute = function(reason = 'route-changed') {
+    const sent = _queueMissionAuthoritySnapshot(reason, { immediate: true, includeMapProfile: false });
+    if (missionAuthorityRouteRetryTimer) clearTimeout(missionAuthorityRouteRetryTimer);
+    missionAuthorityRouteRetryTimer = setTimeout(() => {
+        missionAuthorityRouteRetryTimer = null;
+        _queueMissionAuthoritySnapshot(`${reason}-settled`, { immediate: true, includeMapProfile: false });
+    }, 240);
+    return sent;
+};
+
+let missionAuthorityProfileRefreshTimer = null;
+function _scheduleMissionAuthorityProfileRefresh(reason = 'tracker-authority-handoff') {
+    if (missionAuthorityProfileRefreshTimer) clearTimeout(missionAuthorityProfileRefreshTimer);
+    const delays = [250, 1000, 3000];
+    let attempt = 0;
+    const run = () => {
+        missionAuthorityProfileRefreshTimer = null;
+        const existing = _buildMissionAuthorityMapProfile();
+        if (existing?.points?.length >= 2) {
+            _queueMissionAuthoritySnapshot(`${reason}-profile-ready`, { immediate: true });
+            return;
+        }
+        let started = false;
+        try {
+            started = typeof window.vpHardReloadRouteProfile === 'function'
+                && window.vpHardReloadRouteProfile(reason) === true;
+        } catch (_) {
+            started = false;
+        }
+        if (started || attempt >= delays.length - 1) return;
+        attempt += 1;
+        missionAuthorityProfileRefreshTimer = setTimeout(run, delays[attempt]);
+    };
+    missionAuthorityProfileRefreshTimer = setTimeout(run, delays[attempt]);
     return true;
 }
 
@@ -4609,7 +4842,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
     return true;
 }
 
-window.resumeTrackerMissionOnThisDevice = async function() {
+window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
     if (!_trackerSupportsMissionAuthority()) return false;
     const active = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
     if (!active?.missionId || !active?.runId) return false;
@@ -4663,8 +4896,14 @@ window.resumeTrackerMissionOnThisDevice = async function() {
                 + `Auf diesem Gerät liegt dieselbe Mission „${title}“ (lokaler Stand: ${phase}). `
                 + 'Diesen Stand jetzt einmalig als Tracker-Wahrheit übernehmen?'
             )) return false;
-        } else if (!confirm(`Auf dem Tracker läuft bereits ${label}.\n\nDiese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?`)) {
-            return false;
+        } else {
+            const promptContext = String(options.promptContext || '').trim();
+            const prompt = [
+                promptContext,
+                `Auf dem Tracker läuft bereits ${label}.`,
+                'Diese Mission auf diesem Gerät übernehmen und am gespeicherten Stand fortsetzen?'
+            ].filter(Boolean).join('\n\n');
+            if (!confirm(prompt)) return false;
         }
     } catch (_) {
         return false;
@@ -4752,6 +4991,8 @@ window.resumeTrackerMissionOnThisDevice = async function() {
         console.warn('[MISSION AUTHORITY] Geräteübergabe konnte lokal nicht restauriert werden:', error);
     }
     if (!restored) return false;
+    _restoreMissionAuthorityMapProfile(bundle);
+    _scheduleMissionAuthorityProfileRefresh('tracker-authority-handoff');
     if (missionRuntimeResumeAppliedFor !== _normalizeMissionRuntimeId(active.missionId)) {
         _restoreMissionRuntimeFromSnapshot(bundle.runtime, {
             reason: 'tracker-authority-handoff',
@@ -13585,13 +13826,81 @@ function _syncHasLocalDraftMission() {
     }
 }
 
-async function _syncApplyActiveMissionFromCloud(activeMission = null) {
+function _syncActiveTrackerRunForCloudPull() {
+    if (typeof window === 'undefined' || !window.liveTrackerConnected) return null;
+    if (typeof _trackerSupportsMissionAuthority !== 'function' || !_trackerSupportsMissionAuthority()) return null;
+    const run = window.lastTrackerMissionAuthority?.activeRun || window.lastTrackerMissionStatus || null;
+    if (!run || typeof run !== 'object') return null;
+    const missionId = _normalizeMissionRuntimeId(run.missionId || '');
+    const runId = String(run.runId || '').trim();
+    const state = String(run.state || '').trim().toLowerCase();
+    const inactive = run.active === false || /^(ended|closed|reset|cleared|completed)$/.test(state);
+    if (!missionId || !runId || inactive) return null;
+    return { ...run, missionId, runId };
+}
+
+function _syncRecordCloudMissionPullOutcome(status, details = {}) {
+    const outcome = {
+        status: String(status || 'unknown'),
+        at: Date.now(),
+        ...details
+    };
+    window.gaLastCloudMissionPullOutcome = outcome;
+    try {
+        console.info('[SYNC MISSION AUTHORITY]', outcome.status, JSON.stringify(outcome));
+    } catch (_) {}
+    if (typeof _missionPhaseDebugPush === 'function') {
+        try { _missionPhaseDebugPush('cloud_pull_authority', outcome); } catch (_) {}
+    }
+    return outcome;
+}
+
+async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {}) {
     const briefing = document.getElementById("briefingBox");
     let localMission = null;
+    window.gaLastCloudMissionPullOutcome = null;
     try {
         localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
     } catch (_) {
         localMission = null;
+    }
+    const trackerRun = _syncActiveTrackerRunForCloudPull();
+    if (trackerRun) {
+        const trackerMissionId = String(trackerRun.missionId || '').trim().toLowerCase();
+        const cloudMissionIds = _syncMissionIdentityValues(activeMission);
+        const cloudMatchesTracker = !!(trackerMissionId && cloudMissionIds.includes(trackerMissionId));
+        const cloudMissionTitle = activeMission ? _syncMissionTitleForPrompt(activeMission) : '';
+        const commonOutcome = {
+            source: String(options.source || 'cloud-pull'),
+            trackerMissionId: trackerRun.missionId,
+            trackerRunId: trackerRun.runId,
+            trackerOwnerClientId: trackerRun.ownerClientId || null,
+            cloudMissionId: cloudMissionIds[0] || null,
+            cloudMatchesTracker
+        };
+        if (options.allowTrackerHandoff !== true || typeof window.resumeTrackerMissionOnThisDevice !== 'function') {
+            _syncRecordCloudMissionPullOutcome('tracker-authority-retained', commonOutcome);
+            return false;
+        }
+        const promptContext = cloudMatchesTracker
+            ? 'Der Cloud-Pull gehört zur laufenden Tracker-Mission. Phase und Fortschritt werden deshalb aus dem autoritativen Tracker-Stand übernommen.'
+            : (activeMission
+                ? `Die Cloud-Kopie „${cloudMissionTitle}“ gehört nicht zum laufenden Tracker-Lauf und darf ihn nicht überschreiben. Der Tracker-Stand hat Vorrang.`
+                : 'In der Cloud ist keine aktive Mission gespeichert. Der laufende Tracker-Lauf darf dadurch nicht gelöscht werden und hat Vorrang.');
+        let resumed = false;
+        try {
+            resumed = (await window.resumeTrackerMissionOnThisDevice({
+                source: options.source || 'cloud-pull',
+                promptContext
+            })) === true;
+        } catch (error) {
+            try { console.warn('[SYNC] Tracker-Mission konnte nach Cloud-Pull nicht übernommen werden:', error); } catch (_) {}
+        }
+        _syncRecordCloudMissionPullOutcome(
+            resumed ? 'tracker-handoff-complete' : 'tracker-handoff-incomplete',
+            commonOutcome
+        );
+        return resumed;
     }
     if (activeMission) {
         if (_missionIsFreeflightOnly(activeMission)) return false;
@@ -13657,6 +13966,10 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
             if (restored !== false && staleRuntimeResetToPlanned && typeof window.queueActiveMissionCloudSave === 'function') {
                 window.queueActiveMissionCloudSave('cloud-runtime-expired-reset-to-planned', { delayMs: 0 });
             }
+            _syncRecordCloudMissionPullOutcome(restored !== false ? 'cloud-mission-applied' : 'cloud-mission-rejected', {
+                source: String(options.source || 'cloud-pull'),
+                cloudMissionId: _syncMissionIdentityValues(missionToApply)[0] || null
+            });
             return restored !== false;
         } catch (err) {
             try { console.warn('[SYNC] Cloud-Active-Mission-Restore fehlgeschlagen:', err); } catch (_) {}
@@ -13693,6 +14006,9 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null) {
         try { localStorage.removeItem('ga_mission_debug_snapshot'); } catch (_) {}
     }
     if (briefing) briefing.style.display = "none";
+    _syncRecordCloudMissionPullOutcome('cloud-mission-cleared', {
+        source: String(options.source || 'cloud-pull')
+    });
     return false;
 }
 
@@ -13903,7 +14219,11 @@ async function forceSyncLoad() {
             ? _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard })
             : null;
         const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-        await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+        await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+            source: 'manual-cloud-pull',
+            allowTrackerHandoff: true
+        });
+        const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
         _syncApplyOnboardEquipmentFromCloud(data);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -13922,9 +14242,14 @@ async function forceSyncLoad() {
             || logbookStore?.storageRescued
             || logbookStore?.compacted
         );
-        const pinboardStatus = pinboardStore?.dropped
+        let pinboardStatus = pinboardStore?.dropped
             ? "Cloud: Geladen (ohne Pinnwand) ⚠️"
             : (storageAdjusted ? "Cloud: Geladen (Speicher angepasst) ✅" : "Cloud: Geladen ✅");
+        if (missionPullOutcome?.status === 'tracker-handoff-complete') {
+            pinboardStatus = 'Cloud geladen · Tracker-Mission übernommen ✅';
+        } else if (missionPullOutcome?.status === 'tracker-handoff-incomplete') {
+            pinboardStatus = 'Cloud-Daten geladen · Tracker-Mission bleibt geschützt ⚠️';
+        }
         updateSyncStatus(pinboardStatus);
         flashSyncIndicator('down');
 
@@ -13934,7 +14259,11 @@ async function forceSyncLoad() {
         renderLog();
         const homebaseResult = await homebasePullPromise;
         if (homebaseResult?.ok && homebaseResult?.record) {
-            updateSyncStatus("Cloud geladen · Homebase geprüft ✅");
+            updateSyncStatus(missionPullOutcome?.status === 'tracker-handoff-complete'
+                ? 'Cloud + Homebase geladen · Tracker-Mission übernommen ✅'
+                : (missionPullOutcome?.status === 'tracker-handoff-incomplete'
+                    ? 'Cloud + Homebase geladen · Tracker-Mission bleibt geschützt ⚠️'
+                    : "Cloud geladen · Homebase geprüft ✅"));
         } else if (homebaseResult?.ok === false && !homebaseResult?.disabled) {
             updateSyncStatus("App geladen · Homebase nicht geladen ⚠️", true);
         }
@@ -13971,7 +14300,11 @@ async function silentSyncLoad(options = {}) {
             localStorage.setItem('ga_sync_time', localSyncTime);
             if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
             const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-            await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+            await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+                source: 'silent-cloud-pull',
+                allowTrackerHandoff: false
+            });
+            const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
             _syncApplyOnboardEquipmentFromCloud(data);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -13987,7 +14320,9 @@ async function silentSyncLoad(options = {}) {
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
             renderLog();
-            updateSyncStatus("Auto-Sync: Aktualisiert 🔄");
+            updateSyncStatus(missionPullOutcome?.status === 'tracker-authority-retained'
+                ? 'Auto-Sync: Daten aktualisiert · Tracker-Mission aktiv 🔄'
+                : "Auto-Sync: Aktualisiert 🔄");
             flashSyncIndicator('down');
         }
     } catch (e) {
@@ -14167,7 +14502,11 @@ async function checkCloudAfterIdle() {
                 localStorage.setItem('ga_sync_time', localSyncTime);
                 if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
                 const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
-                await _syncApplyActiveMissionFromCloud(data.activeMission || null);
+                await _syncApplyActiveMissionFromCloud(data.activeMission || null, {
+                    source: 'idle-cloud-pull',
+                    allowTrackerHandoff: true
+                });
+                const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
                 _syncApplyOnboardEquipmentFromCloud(data);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
@@ -14181,7 +14520,11 @@ async function checkCloudAfterIdle() {
                 updateGroupBadgeUI();
                 if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
                 renderLog();
-                updateSyncStatus("Cloud-Update geladen ✅");
+                updateSyncStatus(missionPullOutcome?.status === 'tracker-handoff-complete'
+                    ? 'Cloud-Update · Tracker-Mission übernommen ✅'
+                    : (missionPullOutcome?.status === 'tracker-handoff-incomplete'
+                        ? 'Cloud-Update · Tracker-Mission bleibt geschützt ⚠️'
+                        : "Cloud-Update geladen ✅"));
                 flashSyncIndicator('down');
             } else {
                 // User lehnt ab -> Behalte lokale Daten.

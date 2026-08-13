@@ -18,6 +18,7 @@ const SCAN_RADIUS_M = 1000;
 const USER_POLL_MS = 400;
 const HANGAR_SCAN_MS = 1500;
 const HANGAR_SCAN_SETTLE_MS = 450;
+const HANGAR_SCAN_LOG_HEARTBEAT_MS = 300000;
 const SOURCE_FRESH_MS = 2500;
 const REASSERT_COMMAND_MS = 2000;
 const TARGET_MATCH_RADIUS_M = 30;
@@ -200,6 +201,8 @@ function createHomebaseDoorAutomation(handle, options = {}) {
   let userTimer = null;
   let hangarTimer = null;
   let stopped = false;
+  let lastLoggedHangarCount = null;
+  let lastHangarScanLogAt = 0;
 
   const definitionFor = (control) => {
     if (definitionsBySimvar.has(control.simvar)) return definitionsBySimvar.get(control.simvar);
@@ -284,7 +287,12 @@ function createHomebaseDoorAutomation(handle, options = {}) {
       for (const [objectId, record] of states) {
         if (!activeIds.has(objectId) && !record.manualOverrideState && doorStateExpired(record, now)) states.delete(objectId);
       }
-      log(`HOMEBASE_DOOR_SCAN count=${hangars.size}`);
+      if (lastLoggedHangarCount !== hangars.size || now - lastHangarScanLogAt >= HANGAR_SCAN_LOG_HEARTBEAT_MS) {
+        const reason = lastLoggedHangarCount === null ? 'initial' : lastLoggedHangarCount !== hangars.size ? 'changed' : 'heartbeat';
+        log(`HOMEBASE_DOOR_SCAN count=${hangars.size} reason=${reason}`);
+        lastLoggedHangarCount = hangars.size;
+        lastHangarScanLogAt = now;
+      }
       evaluate();
     }, HANGAR_SCAN_SETTLE_MS);
   };
@@ -427,6 +435,7 @@ module.exports = {
   PLAYER_CLOSE_RADIUS_M,
   CLOSE_DELAY_MS,
   DOOR_STATE_RETENTION_MS,
+  HANGAR_SCAN_LOG_HEARTBEAT_MS,
   SOURCE_FRESH_MS,
   collectDoorControls,
   distanceMeters,

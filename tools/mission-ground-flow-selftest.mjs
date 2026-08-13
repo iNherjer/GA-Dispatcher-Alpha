@@ -203,7 +203,7 @@ assert.match(homebaseWorkbench, /\/api\/assets\/update-install/);
 assert.match(homebasePackageService, /HOMEBASE_ASSETS_INSTALLED/);
 assert.match(homebasePackageService, /homebase-assets-install/);
 assert.doesNotMatch(trackerPackage, /embedded-homebase-assets/);
-assert.doesNotMatch(trackerPackage, /prebuild:tracker/);
+assert.match(trackerPackage, /"prebuild:tracker": "node sync-efb-web-assets\.js"/);
 
 const context = {
     window: {
