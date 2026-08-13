@@ -61,6 +61,8 @@
   var drawerChecklistId = '';
   var trackerChecklistLibrary = { revision: 0, checklists: [] };
   var checklistLibrarySignature = '';
+  var efbUiObserver = null;
+  var efbUiRefreshTimer = 0;
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
   var efbChecklistProgress = readEfbChecklistProgress();
@@ -130,10 +132,13 @@
   }
 
   function readPreferences() {
+    var source = {};
     var normalized;
-    try { normalized = API.normalizePreferences(JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}')); }
-    catch (_) { normalized = API.normalizePreferences(); }
+    try { source = JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}'); }
+    catch (_) { source = {}; }
+    normalized = API.normalizePreferences(source);
     normalized.theme = 'classic';
+    normalized.fontScale = clamp(Number(source.fontScale) || 1.1, 0.9, 1.3);
     return normalized;
   }
 
@@ -325,7 +330,7 @@
     updateInfoRestoreButton();
   }
 
-  function drawerEscape(value) {
+  function coherentText(value) {
     return String(value == null ? '' : value)
       .replace(/\u00b7/g, ' | ')
       .replace(/[\u2013\u2014\u2212]/g, '-')
@@ -337,11 +342,120 @@
       .replace(/\u2190/g, ' <- ')
       .replace(/[\u2022\u25cf]/g, ' - ')
       .replace(/[\u2713\u2714]/g, 'OK')
+      .replace(/\u00d7/g, 'x')
+      .replace(/\u00f7/g, '/')
+      .replace(/[\u2191\u25b2]/g, '^')
+      .replace(/[\u2193\u25bc]/g, 'v')
+      .replace(/[\uFE0E\uFE0F\u200D]/g, '')
+      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+      .replace(/[\u2190-\u21FF\u2300-\u23FF\u25A0-\u27BF]/g, '');
+  }
+
+  function drawerEscape(value) {
+    return coherentText(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function nodeInsideSvg(node) {
+    var current = node && node.parentNode;
+    while (current && current !== document.body) {
+      if (String(current.nodeName || '').toLowerCase() === 'svg') return true;
+      current = current.parentNode;
+    }
+    return false;
+  }
+
+  function normalizeCoherentGlyphs(root) {
+    if (!root) return;
+    var nodes = root.querySelectorAll ? root.querySelectorAll('*') : [];
+    var elements = root.nodeType === 1 ? [root] : [];
+    for (var index = 0; index < nodes.length; index += 1) elements.push(nodes[index]);
+    elements.forEach(function (element) {
+      var tag = String(element.nodeName || '').toUpperCase();
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || nodeInsideSvg(element)) return;
+      for (var child = element.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType !== 3 || !child.nodeValue) continue;
+        var normalized = coherentText(child.nodeValue);
+        if (normalized !== child.nodeValue) child.nodeValue = normalized;
+      }
+    });
+  }
+
+  function fontScaleElements() {
+    var all = document.body && document.body.querySelectorAll ? document.body.querySelectorAll('*') : [];
+    var result = document.body ? [document.body] : [];
+    for (var index = 0; index < all.length; index += 1) {
+      var tag = String(all[index].nodeName || '').toUpperCase();
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'SVG' || nodeInsideSvg(all[index])) continue;
+      result.push(all[index]);
+    }
+    return result;
+  }
+
+  function syncFontScaleControls() {
+    var label = document.querySelector('.ga-efb-font-size-hint');
+    if (label) label.textContent = 'Schriftgroesse: ' + Math.round(preferences.fontScale * 100) + '%';
+  }
+
+  function applyEfbFontScale() {
+    var nextScale = clamp(Number(preferences.fontScale) || 1.1, 0.9, 1.3);
+    var elements = fontScaleElements();
+    elements.forEach(function (element) {
+      if (!element.hasAttribute('data-ga-efb-font-base')) return;
+      var stored = Number(element.getAttribute('data-ga-efb-font-base'));
+      if (isFiniteNumber(stored)) element.style.fontSize = stored + 'px';
+    });
+    elements.forEach(function (element) {
+      if (element.hasAttribute('data-ga-efb-font-base')) return;
+      var computed = parseFloat(window.getComputedStyle(element).fontSize);
+      if (!isFiniteNumber(computed) || computed <= 0) return;
+      element.setAttribute('data-ga-efb-font-base', String(Math.round(computed * 100) / 100));
+    });
+    elements.forEach(function (element) {
+      if (!element.hasAttribute('data-ga-efb-font-base')) return;
+      var base = Number(element.getAttribute('data-ga-efb-font-base'));
+      if (isFiniteNumber(base)) element.style.fontSize = Math.round(base * nextScale * 10) / 10 + 'px';
+    });
+    document.body.setAttribute('data-ga-efb-font-scale', String(Math.round(nextScale * 100)));
+    syncFontScaleControls();
+  }
+
+  function setEfbFontScale(value) {
+    preferences.fontScale = clamp(Math.round((Number(value) || 1.1) * 10) / 10, 0.9, 1.3);
+    savePreferences();
+    applyEfbFontScale();
+    report('info', 'font-scale', String(Math.round(preferences.fontScale * 100)), 'EFB-Schriftgroesse aktualisiert');
+  }
+
+  function scheduleEfbUiRefresh() {
+    if (efbUiRefreshTimer) return;
+    efbUiRefreshTimer = window.setTimeout(function () {
+      efbUiRefreshTimer = 0;
+      normalizeCoherentGlyphs(document.body);
+      applyEfbFontScale();
+    }, 40);
+  }
+
+  function setupEfbUiCompatibility() {
+    normalizeCoherentGlyphs(document.body);
+    applyEfbFontScale();
+    if (typeof window.MutationObserver !== 'function' || efbUiObserver) return;
+    efbUiObserver = new window.MutationObserver(function (mutations) {
+      var hasTextContent = mutations.some(function (mutation) {
+        for (var index = 0; index < mutation.addedNodes.length; index += 1) {
+          var node = mutation.addedNodes[index];
+          if (node.nodeType === 3 && String(node.nodeValue || '').trim()) return true;
+          if (node.nodeType === 1 && String(node.textContent || '').trim()) return true;
+        }
+        return false;
+      });
+      if (hasTextContent) scheduleEfbUiRefresh();
+    });
+    efbUiObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   function checklistItems(checklist) {
@@ -624,7 +738,7 @@
     items.forEach(function (item) {
       if (item.hint) {
         var hint = document.createElement('div');
-        hint.className = 'ga-efb-host-menu-hint';
+        hint.className = 'ga-efb-host-menu-hint' + (item.className ? ' ' + item.className : '');
         hint.textContent = item.label;
         panel.appendChild(hint);
         return;
@@ -633,6 +747,7 @@
         closeHostMenus();
         item.action();
       });
+      if (item.className) entry.classList.add(item.className);
       panel.appendChild(entry);
     });
     wrapper.appendChild(trigger);
@@ -650,7 +765,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.0');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.1');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -660,6 +775,10 @@
       var displayMenu = makeHostMenu('ga-efb-host-display-menu', 'Anzeige', [
         { label: 'Infofenster einblenden', action: showAllInfoBoxes },
         { label: 'Kartenlayer', action: toggleLayerMenu },
+        { label: 'Schrift kleiner (-)', action: function () { setEfbFontScale(preferences.fontScale - 0.1); } },
+        { label: 'Schriftgroesse: ' + Math.round(preferences.fontScale * 100) + '%', hint: true, className: 'ga-efb-font-size-hint' },
+        { label: 'Schrift groesser (+)', action: function () { setEfbFontScale(preferences.fontScale + 0.1); } },
+        { label: 'Schrift Standard (110%)', action: function () { setEfbFontScale(1.1); } },
         { label: 'Was ist hier: Karte kurz halten', hint: true }
       ]);
       profileButton.insertAdjacentElement('afterend', displayMenu);
@@ -2232,6 +2351,7 @@
       boot('host-chrome', 'Kartentisch-Oberflaeche bereit', false);
       initializeMap();
       if (!map) throw new Error('Leaflet-Karte wurde nicht initialisiert.');
+      setupEfbUiCompatibility();
       setFollow(preferences.follow);
       var bootStatus = byId('gaEfbBootStatus');
       if (bootStatus) bootStatus.style.display = 'none';
@@ -2249,5 +2369,9 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
-  window.addEventListener('beforeunload', function () { if (pollTimer) window.clearTimeout(pollTimer); });
+  window.addEventListener('beforeunload', function () {
+    if (pollTimer) window.clearTimeout(pollTimer);
+    if (efbUiRefreshTimer) window.clearTimeout(efbUiRefreshTimer);
+    if (efbUiObserver) efbUiObserver.disconnect();
+  });
 })();

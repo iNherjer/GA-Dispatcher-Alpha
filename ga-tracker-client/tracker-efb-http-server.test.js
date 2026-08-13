@@ -12,9 +12,12 @@ const {
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
-test('tracker v346 exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v346'/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 346/);
+test('tracker v347 exits a duplicate instance when the fixed EFB port is already occupied', () => {
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v347'/);
+  assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
+  assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
+  assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 347/);
   assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
   assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
   assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);

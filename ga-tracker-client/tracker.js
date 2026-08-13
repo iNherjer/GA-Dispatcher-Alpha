@@ -23,6 +23,7 @@ const { createMissionAuthorityManager } = require('./mission-authority-core.js')
 const { projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core.js');
 const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-core.js');
 const { createTrackerEfbChecklistStore } = require('./tracker-efb-checklist-library.js');
+const { fetchTrackerEfbChecklistLibrary } = require('./tracker-efb-checklist-cloud.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 
 /**
@@ -39,8 +40,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v346';
-const TRACKER_VERSION_CODE = 346;
+const TRACKER_VERSION = 'v347';
+const TRACKER_VERSION_CODE = 347;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4281,6 +4282,32 @@ function startTracker(syncId, pin) {
     storageFile: EFB_CHECKLIST_LIBRARY_FILE,
     log: debugLog
   });
+  let _checklistCloudSyncInProgress = false;
+  let _checklistCloudLastAttemptAt = 0;
+  let _checklistCloudLastSuccessAt = 0;
+  let _checklistCloudLastStatus = 'pending';
+  const refreshChecklistLibraryFromCloud = async (reason = 'interval') => {
+    if (_checklistCloudSyncInProgress) return;
+    _checklistCloudSyncInProgress = true;
+    _checklistCloudLastAttemptAt = Date.now();
+    try {
+      const result = await fetchTrackerEfbChecklistLibrary(syncId, pin);
+      if (!result.ok) {
+        _checklistCloudLastStatus = result.code || 'error';
+        debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=${_checklistCloudLastStatus} error=${result.message || 'unknown'}`);
+        return;
+      }
+      const stored = efbChecklistStore.store(result.library);
+      _checklistCloudLastStatus = stored.ok ? result.status : stored.status;
+      if (stored.ok) _checklistCloudLastSuccessAt = Date.now();
+      debugLog(`EFB_CHECKLIST_CLOUD_SYNC reason=${reason} status=${_checklistCloudLastStatus} checklists=${result.library.checklists.length} revision=${stored.snapshot.revision}`);
+    } catch (error) {
+      _checklistCloudLastStatus = 'exception';
+      debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=exception error=${error?.message || error}`);
+    } finally {
+      _checklistCloudSyncInProgress = false;
+    }
+  };
   let _reconnecting = false;
   let _reconnectTimer = null;
   let _simStarted = false;
@@ -4321,7 +4348,10 @@ function startTracker(syncId, pin) {
         missionAvailable: Boolean(missionAuthorityManager.getActiveRun()),
         lastMissionSnapshotAt: Number(missionAuthorityManager.getActiveRun()?.updatedAt) || null,
         customChecklistCount: efbChecklistStore.getSnapshot().checklists.length,
-        checklistLibraryRevision: efbChecklistStore.getSnapshot().revision
+        checklistLibraryRevision: efbChecklistStore.getSnapshot().revision,
+        checklistCloudStatus: _checklistCloudLastStatus,
+        checklistCloudLastAttemptAt: _checklistCloudLastAttemptAt || null,
+        checklistCloudLastSuccessAt: _checklistCloudLastSuccessAt || null
       }),
       getSnapshot: () => _lastEfbSnapshot,
       getMapSnapshot: () => projectTrackerMapSnapshot(
@@ -4813,6 +4843,10 @@ function startTracker(syncId, pin) {
     });
   }
 
+  const checklistCloudStartTimer = setTimeout(() => refreshChecklistLibraryFromCloud('startup'), 600);
+  const checklistCloudInterval = setInterval(() => refreshChecklistLibraryFromCloud('interval'), 60000);
+  if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();
+  if (typeof checklistCloudInterval.unref === 'function') checklistCloudInterval.unref();
   startSimConnectOnce();
   connect();
 }

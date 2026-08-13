@@ -19,26 +19,35 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 
 ## Naechster isolierter Testkandidat
 
-Tracker v346 / Host 0.6.0 und EFB 0.4.9 sind als lokaler Kandidat vorbereitet,
-aber noch nicht gebaut, in MSFS getestet oder in einen Kanal eingetragen. Das
-EFB verwendet nur noch das Modern-Design; eine Designauswahl wird nicht mehr
-angeboten. Checklistenpunkte sind Coherent-taugliche Schaltflaechen mit
-quadratischer, selbst gezeichneter Checkbox statt nativer Browser-Checkbox.
+Tracker v347 / Host 0.6.1 und EFB 0.4.10 sind als lokaler Folgekandidat
+vorbereitet, aber noch nicht offiziell auf Windows gebaut, in MSFS getestet
+oder in einen Kanal eingetragen. Der 0.4.9/v346-Test bestaetigte Modern-Design,
+Umschaltung, Mission Control und Checklisteninteraktion, zeigte aber ein zu
+schmales Missionsmenue, kleine Schrift, weitere fehlende Coherent-Glyphen und
+keine Custom-Listen. 0.4.10 verbreitert den Drawer auf 75 Prozent, vergroessert
+die Missionstexte und bietet unter `Anzeige` eine globale Schriftwahl von 90
+bis 130 Prozent.
 
-Eigene App-Checklisten werden nur nach Aushandlung von
-`checklist.library.v1` begrenzt und sanitisiert an den Tracker uebergeben. Der
-Tracker speichert sie atomar in `efb-checklists-v1.json` und stellt sie ueber
-`GET /api/v1/checklists` lokal fuer das EFB bereit. Der Abhakfortschritt bleibt
-weiter ausschliesslich im EFB-localStorage und wird nicht an App, Tracker oder
-Cloud zurueckgeschrieben.
+Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
+begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
+v347 mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
+gespeicherten `CHKIDX_`-/`CHK_`-Datensaetze beim Start und alle 60 Sekunden
+selbst. Nur ein vollstaendig gueltiger Abruf ersetzt den atomaren lokalen Cache
+`efb-checklists-v1.json`; bei Netz- oder Serverfehlern bleibt der letzte Stand
+erhalten. `GET /api/v1/checklists` stellt ihn lokal fuer das EFB bereit. Der
+Abhakfortschritt bleibt weiter ausschliesslich im EFB-localStorage und wird
+nicht an App, Tracker oder Cloud zurueckgeschrieben.
 
 Mission Control erhaelt ueber `mission.view.v1` eine begrenzte Projektion der
 bereits in der App dargestellten Missionsdaten aus demselben Authority-Resume-
 Bundle. Es zeigt Auftrag, Verlauf, Ziel, Live-Flugwerte, Fortschritt,
 Bedingungen, Passagier-/Ladungszustand und Lagebericht, bleibt jedoch read-only.
-Die lokalen Quell-, Loopback- und Browser-Interaktionstests sind bestanden;
-offener Gate ist ein offizieller Windows-SDK-1.7.2-Build von EFB 0.4.9 samt
-Tracker-v346-EXE und anschliessender In-Sim-Pruefung.
+Alle 77 lokalen Quell-, Vertrags- und Loopback-Tests sind bestanden. Die
+Browserpruefung bestaetigte Drawer-Breite und Interaktion; nach einer dabei
+gefundenen und korrigierten Schriftinitialisierung bleibt die abschliessende
+visuelle Pruefung bewusst Teil des Windows-/In-Sim-Gates. Offener Gate ist ein
+offizieller Windows-SDK-1.7.2-Build von EFB 0.4.10 samt Tracker-v347-EXE und
+anschliessender In-Sim-Pruefung.
 
 EFB 0.4.1 zeigt Trackerstatus, Flugtelemetrie, Route, Flugzeugposition,
 Planprofil und lokale Werkzeuge ueber Tracker v326 und `map.snapshot.v1`.
@@ -929,14 +938,30 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] EFB-Mission-Control zunaechst ohne Schreibaktionen darstellen: Der
       v346/0.4.9-Quellstand projiziert die vorhandene App-Sicht begrenzt ueber
       das Authority-Bundle und den lokalen Tracker-HTTP-Endpunkt.
-- [ ] Tracker v346 und EFB 0.4.9 offiziell auf Windows bauen und In-Sim testen:
-      nur Modern-Design, quadratische und dauerhaft anklickbare Checkboxen,
-      Custom-Listen nach Tracker-Neustart sowie das read-only Mission Control.
+- [x] Tracker v346 und EFB 0.4.9 auf Windows bauen und In-Sim testen:
+      Modern-Design, Umschaltung, quadratische Checkboxen und read-only Mission
+      Control sind bestaetigt. Custom-Listen fehlten, weil der Windows-Checkout
+      den vorgesehenen App-Export-Patch nicht enthielt; v347 ersetzt diese
+      Abhaengigkeit durch den direkten Tracker-Cloudabruf.
+- [ ] Tracker v347 und EFB 0.4.10 offiziell auf Windows bauen und In-Sim testen:
+      Mission Drawer mit 75 Prozent Breite, globale Schriftwahl, ASCII-sichere
+      Bedienelemente und Custom-Listen aus dem direkten Tracker-Cloudabruf.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-13: Der erste 0.4.9/v346-In-Sim-Lauf bestaetigt die stabile
+  Umschaltung, das Modern-Design, anklickbare Checklisten und Mission Control.
+  Das Windows-Ergebnis enthielt jedoch nicht den vorgesehenen App-Patch fuer
+  `checklist.library.v1`; deshalb konnten Custom-Listen nicht zum Tracker
+  gelangen. Fuer 0.4.10/v347 liest der Tracker nach ausdruecklicher Freigabe
+  denselben privaten GA-Sync wie die App direkt und behaelt bei Abruffehlern
+  seinen letzten lokalen Cache. Gleichzeitig wird Mission Control auf 75
+  Prozent Breite erweitert, die Missionstypografie vergroessert, eine globale
+  Schriftwahl unter `Anzeige` angeboten und HTML-Text zentral von nicht
+  darstellbaren Coherent-Symbolen bereinigt. Alpha bleibt auf v345/0.4.8.
 
 - 2026-08-13: Fuer den naechsten isolierten Kandidaten EFB 0.4.9/Tracker v346
   wird die EFB-Designauswahl entfernt; die vorhandene Classic-Kennung bleibt

@@ -5,7 +5,7 @@ EFB-Oberfläche. Die App liest ausschließlich Status, Flugtelemetrie sowie
 technische Missions- und Kartensnapshots vom lokal laufenden Tracker auf
 `127.0.0.1:49880`.
 
-## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.9
+## Tracker-gehosteter Kartentisch und Fallback-Karte 0.4.10
 
 Tracker v330 bietet additiv `efb.web-client.v1` und die read-only Seite
 `http://127.0.0.1:49880/efb/v1/` an. Meldet der Tracker diese Capability,
@@ -44,13 +44,24 @@ in der Tracker-aus-Fallback-Karte ebenfalls ausgeblendet. Basiskarte,
 Layerauswahl, Route und Flugzeugposition bleiben sichtbar. Tracker v345 und
 der tracker-gehostete Hoststand 0.5.9 bleiben unveraendert.
 
-0.4.9 ist der folgende, noch unveroeffentlichte Testkandidat fuer Tracker v346
-und Host 0.6.0. Im EFB ist ausschliesslich das Modern-Design aktiv; der
+0.4.9 war der erste unveroeffentlichte Testkandidat fuer Tracker v346 und Host
+0.6.0. Im EFB ist ausschliesslich das Modern-Design aktiv; der
 Designschalter entfaellt. Checklisten verwenden quadratische, explizit
 gebundene Schaltflaechen. Eigene Listen kommen aus der begrenzten lokalen
 Tracker-Persistenz unter `/api/v1/checklists`; ihr Abhakfortschritt bleibt
 lokal im EFB. Mission Control rendert eine begrenzte read-only Projektion des
 App-Missionsmenues aus `/api/v1/mission`.
+
+0.4.10 / Tracker v347 / Host 0.6.1 folgt auf den ersten 0.4.9-In-Sim-Lauf.
+Mission Control belegt nun 75 Prozent der Kartenbreite und verwendet groessere
+Grundschrift. Unter `Anzeige` kann die Schriftgroesse fuer die gesamte
+tracker-gehostete EFB-Oberflaeche von 90 bis 130 Prozent eingestellt werden.
+Ein zentraler Coherent-Textfilter ersetzt nicht darstellbare Bedienelemente
+wie das Leaflet-Minus und das Drawer-X durch ASCII. Der Tracker liest die
+bereits von der App im GA-Sync gespeicherten `CHKIDX_`-/`CHK_`-Daten nun
+zusaetzlich selbst, speichert den letzten gueltigen Stand lokal und aktualisiert
+ihn alle 60 Sekunden. Die App-Relay-Uebergabe bleibt als schneller Zusatzpfad
+erhalten.
 
 Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
 die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen
