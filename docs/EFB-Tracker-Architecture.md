@@ -330,7 +330,9 @@ EFB 0.4.8 korrigiert ausschliesslich die Parent-Sichtbarkeit der nativen
 Fallback-Karte: Neben Follow, Kompass, Profil und Werkzeugen wird auch die
 `flight-strip` mit der aktuellen Position ausgeblendet. Layerauswahl, Route
 und Flugzeugmarker bleiben erhalten. Der Trackervertrag und Host 0.5.9 sind
-gegenueber 0.4.7 unveraendert.
+gegenueber 0.4.7 unveraendert. Der offizielle SDK-1.7.2-Build und der
+abschliessende In-Sim-Test wurden am 13.08.2026 freigegeben; Tracker und Paket
+koennen deshalb als unveraenderliche Alpha-Artefakte veroeffentlicht werden.
 
 Ab Webstand v1621 ist die im Kartentisch tatsaechlich aktive Route Bestandteil
 jedes bestehenden Authority-Resume-Bundles. Nach Missionsstart loest eine

@@ -873,14 +873,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       den Punktkontext bei EDTL und den Rueckwechsel bei echtem Tracker-Ende
       erneut pruefen. Normale App-Dateien und der Web-App-Cache bleiben
       unveraendert.
-- [ ] Tracker v345 / Host 0.5.9 zusammen mit dem offiziell neu gebauten
-      EFB-0.4.7-Community-Paket auf Windows/In-Sim pruefen: Parent-Profil ohne
+- [x] Tracker v345 / Host 0.5.9 zusammen mit dem offiziell neu gebauten
+      EFB-0.4.8-Community-Paket auf Windows/In-Sim geprueft: Parent-Profil ohne
       `Array.flatMap`, Fallback-Layerauswahl, 30 Prozent kleineres E6B,
       kontrastreiches Rechner-Formblatt, zentrierte Luftraumlabels,
       Piste in der Wetter-Windrose, entfernten AIP-Link und Toolbar-X sowie
-      ASCII-sichere Kontexttexte pruefen. Der Datenfooter und das Debuglog
-      muessen Quelle und Einzelzeiten nennen; normale App-Dateien bleiben
-      unveraendert.
+      ASCII-sichere Kontexttexte sind bestaetigt. Der Datenfooter und das
+      Debuglog nennen Quelle und Einzelzeiten. Die 0.4.8-Fallback-Karte zeigt
+      keinen Positionsstreifen mehr; Tracker-Umschaltung und Rueckfall sind
+      stabil.
 - [ ] Tracker v326 bauen und zusammen mit EFB 0.4.1 gegen die Fallback-
       Darstellung mit Tracker v325 testen.
 - [x] Authority-/Resume-Untervertrag fuer `mission.snapshot.v2` mit
@@ -924,8 +925,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   bestaetigt. In der Tracker-aus-Fallback-Karte blieb jedoch die native
   `flight-strip` mit "Aktuelle Position" sichtbar. EFB 0.4.8 blendet auch
   dieses Chrome-Element aus; Tracker v345/Host 0.5.9 bleibt unveraendert.
-  Wegen der Parent-CSS-Aenderung ist vor dem Alpha-Release ein letzter
-  offizieller SDK-Build erforderlich.
+  Der letzte offizielle SDK-1.7.2-Build bestand Package-, Quellen- und
+  Kompatibilitaetspruefung und wurde am 13.08.2026 im Simulator freigegeben.
+  Damit sind EFB 0.4.8 und die unveraenderte Tracker-v345-EXE fuer Alpha
+  freigegeben; Stable bleibt bis zum gesonderten Testerentscheid unveraendert.
 
 - 2026-08-12: EFB 0.4.6 behandelt Tracker-Kernpoll, optionale Snapshots und
   Parent-Darstellung als getrennte Fehlerbereiche. Eine erfolgreiche

@@ -139,7 +139,11 @@ Der folgende 0.4.7/v345-In-Sim-Test bestaetigte den stabilen Kandidaten. Als
 einzige Parent-Abweichung blieb in der Fallback-Karte die `flight-strip` mit
 "Aktuelle Position" sichtbar. EFB 0.4.8 entfernt diesen Streifen und benoetigt
 wegen der kompilierten SCSS-Aenderung einen letzten offiziellen SDK-Build.
-Tracker v345 und Host 0.5.9 werden dafuer nicht neu versioniert oder ersetzt.
+Dieser Build wurde mit SDK 1.7.2 erfolgreich erzeugt, formal validiert und am
+13.08.2026 im Simulator freigegeben. Karte, Route beziehungsweise letzte
+Position und Layerauswahl bleiben im Fallback sichtbar; der Positionsstreifen
+ist ausgeblendet und der automatische Wechsel zu Host 0.5.9 funktioniert.
+Tracker v345 bleibt das dazu freigegebene unveraenderliche Tracker-Artefakt.
 
 ## Erste Transportstufe
 
