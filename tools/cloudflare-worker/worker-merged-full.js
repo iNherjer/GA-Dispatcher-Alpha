@@ -329,17 +329,19 @@ async function handleHomebaseSync(request, requestUrl, env) {
 }
 
 function activeGroupMember(group, pilotId, now = Date.now()) {
-  const id = normalizeOneLine(pilotId, 160);
+  const id = normalizePilotIdLookup(pilotId);
   if (!id || !group || typeof group !== "object") return null;
-  const kicked = new Set(Array.isArray(group.kicked) ? group.kicked.map((value) => String(value || "")) : []);
+  const kicked = new Set((Array.isArray(group.kicked) ? group.kicked : []).map(normalizePilotIdLookup).filter(Boolean));
   if (kicked.has(id)) return null;
   const members = Array.isArray(group.members) ? group.members : [];
-  return members.find((member) => {
-    if (!member || String(member.syncId || "") !== id) return false;
+  return members.reduce((latest, member) => {
+    if (!member || normalizePilotIdLookup(member.syncId) !== id) return latest;
     const lastSeen = normalizeFinite(member.lastSeen, 0, 0, now + 86400000);
     const timeout = member.isAdmin === true ? 365 * 86400000 : 28 * 86400000;
-    return now - lastSeen < timeout;
-  }) || null;
+    if (now - lastSeen >= timeout) return latest;
+    const latestSeen = normalizeFinite(latest?.lastSeen, 0, 0, now + 86400000);
+    return !latest || lastSeen > latestSeen ? member : latest;
+  }, null);
 }
 
 async function handleCrewHomebases(request, requestUrl, env) {
@@ -360,12 +362,16 @@ async function handleCrewHomebases(request, requestUrl, env) {
   if (!requester) return json({ error: "Kein aktives Mitglied dieser Crew" }, 403);
 
   const now = Date.now();
-  const members = (Array.isArray(group?.members) ? group.members : [])
-    .map((member) => ({ member, active: activeGroupMember(group, member?.syncId, now) }))
-    .filter(({ active }) => active);
+  const activeMembersById = new Map();
+  for (const member of (Array.isArray(group?.members) ? group.members : [])) {
+    const active = activeGroupMember(group, member?.syncId, now);
+    const memberId = normalizePilotIdLookup(active?.syncId);
+    if (active && memberId) activeMembersById.set(memberId, active);
+  }
+  const members = Array.from(activeMembersById.values());
   const bases = [];
   const directory = [];
-  for (const { active } of members) {
+  for (const active of members) {
     const pilotId = String(active.syncId || "");
     try {
       const raw = await env.GA_SYNC_KV.get(`${HOMEBASE_PREFIX}${pilotId}`);
@@ -386,7 +392,7 @@ async function handleCrewHomebases(request, requestUrl, env) {
       if (!crewShareEnabled) continue;
       directory[directory.length - 1].updatedAt = normalizeFinite(record.updatedAt, 0, 0, now + 86400000);
       directory[directory.length - 1].spawn = plan.spawn;
-      if (pilotId === auth.ownerId) continue;
+      if (normalizePilotIdLookup(pilotId) === normalizePilotIdLookup(auth.ownerId)) continue;
       bases.push({
         pilotId,
         nick,

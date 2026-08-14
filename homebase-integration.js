@@ -184,7 +184,9 @@
       ? window.getGroupName()
       : localStorage.getItem('ga_group_name');
     const groupName = String(rawGroupName || '').trim().toUpperCase();
-    return { ...sync, groupName };
+    // Crew-Homebases are a read-only group feature. They only require valid
+    // credentials and must stay available when profile auto-sync is disabled.
+    return { ...sync, authReady: !!sync.pilotId && !!sync.pin, groupName };
   }
 
   function crewHeaders(context) {
@@ -776,7 +778,7 @@
 
   async function refreshCrewHomebases(reason = 'poll') {
     const context = getCrewContext();
-    if (!context.enabled || !context.pilotId || !context.pin || !context.groupName) {
+    if (!context.authReady || !context.groupName) {
       crewHomebases = [];
       crewHomebaseDirectory = [];
       publishCrewHomebaseDirectory();

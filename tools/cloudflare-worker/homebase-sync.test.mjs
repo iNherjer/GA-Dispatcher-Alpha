@@ -168,4 +168,23 @@ assert.equal(JSON.stringify(crew.body).includes("4711"), false);
 const outsider = await call(env, "/api/homebase-group/TEST", { headers: { ...headers, "X-Pilot-ID": "pilotC", "X-Pilot-PIN": "9999" } });
 assert.equal(outsider.response.status, 403);
 
+kv.store.set("GROUP_CASE", JSON.stringify({
+  members: [
+    { syncId: "PILOTA", nick: "Alpha Legacy", lastSeen: Date.now(), isAdmin: true },
+    { syncId: "pilotB", nick: "Bravo", lastSeen: Date.now(), isAdmin: false }
+  ],
+  kicked: []
+}));
+const legacyCaseMember = await call(env, "/api/homebase-group/CASE", { headers });
+assert.equal(legacyCaseMember.response.status, 200);
+assert.equal(legacyCaseMember.body.bases.length, 1);
+assert.equal(legacyCaseMember.body.bases[0].pilotId, "pilotB");
+
+kv.store.set("GROUP_CASE", JSON.stringify({
+  members: [{ syncId: "PILOTA", nick: "Alpha Legacy", lastSeen: Date.now(), isAdmin: true }],
+  kicked: ["PiLoTa"]
+}));
+const legacyCaseKick = await call(env, "/api/homebase-group/CASE", { headers });
+assert.equal(legacyCaseKick.response.status, 403);
+
 console.log("homebase-sync tests ok");

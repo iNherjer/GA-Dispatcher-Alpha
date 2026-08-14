@@ -81,3 +81,13 @@ test('periodic Crew refresh preserves the last scene signature', () => {
   assert.match(refreshBlock, /applyCrewScene\(window\.lastLiveGpsPos, reason\)/);
   assert.doesNotMatch(refreshBlock, /crewLastSceneSignature\s*=\s*['"]['"]/);
 });
+
+test('Crew Homebases require authentication but not profile auto-sync', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'homebase-integration.js'), 'utf8');
+  const contextBlock = source.match(/function getCrewContext[\s\S]*?function crewHeaders/)?.[0] || '';
+  const refreshBlock = source.match(/async function refreshCrewHomebases[\s\S]*?function scheduleCrewRefresh/)?.[0] || '';
+
+  assert.match(contextBlock, /authReady:\s*!!sync\.pilotId\s*&&\s*!!sync\.pin/);
+  assert.match(refreshBlock, /if \(!context\.authReady \|\| !context\.groupName\)/);
+  assert.doesNotMatch(refreshBlock, /!context\.enabled/);
+});
