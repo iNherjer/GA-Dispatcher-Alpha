@@ -773,6 +773,10 @@ body.ga-efb-tracker-host #map .leaflet-map-pane {
   transition: none !important;
 }
 
+body.ga-efb-tracker-host #map img.leaflet-tile {
+  mix-blend-mode: normal !important;
+}
+
 body.ga-efb-tracker-host #map img.ga-efb-map-tile {
   display: block !important;
   visibility: visible !important;
@@ -784,31 +788,39 @@ body.ga-efb-tracker-host #map img.ga-efb-map-tile {
   backface-visibility: visible !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-base-pane {
+body.ga-efb-tracker-host #map .leaflet-gaBase-pane {
   z-index: 200 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-aero-pane {
-  z-index: 250 !important;
+body.ga-efb-tracker-host #map .leaflet-gaVfr-pane {
+  z-index: 280 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-route-pane {
+body.ga-efb-tracker-host #map .leaflet-gaOfficialChart-pane {
+  z-index: 310 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-gaWeather-pane {
+  z-index: 340 !important;
+}
+
+body.ga-efb-tracker-host #map .leaflet-gaRoute-pane {
   z-index: 430 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-geometry-pane {
+body.ga-efb-tracker-host #map .leaflet-gaGeometry-pane {
   z-index: 440 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-preview-pane {
+body.ga-efb-tracker-host #map .leaflet-gaPreview-pane {
   z-index: 445 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-drawing-pane {
+body.ga-efb-tracker-host #map .leaflet-gaDrawing-pane {
   z-index: 450 !important;
 }
 
-body.ga-efb-tracker-host #map .leaflet-ga-aircraft-pane {
+body.ga-efb-tracker-host #map .leaflet-gaAircraft-pane {
   z-index: 500 !important;
 }
 

@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '34801';
+const EFB_WEB_ASSET_REVISION = '35401';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({

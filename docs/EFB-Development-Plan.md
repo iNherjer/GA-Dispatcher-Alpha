@@ -1060,6 +1060,16 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-14: Tracker v354 / Host 0.6.3 korrigiert das von einem Nutzer
+  gemeldete Flackern des FAA-Sectional-Overlays. Die Analyse zeigte keinen
+  Clear-, Reload- oder Layer-Rebuild-Loop. FAA und das
+  transparente DWD-WMS erbten im tracker-gehosteten EFB jedoch Leaflets
+  `plus-lighter`, weil nur Resilient-Tiles die bisherige Hostklasse erhielten;
+  zugleich lagen Aero, FAA/DFS und DWD gemeinsam in einer Pane. Der EFB-Host
+  erzwingt deshalb fuer alle Raster-Tiles normalen Blend-Modus und trennt wie
+  die App VFR (280), offizielle Karten (310) und Wetter (340). App-Kartencode
+  und native Fallback-Karte bleiben unveraendert.
+
 - 2026-08-14: Der reale v352-Lauf bestaetigte Kartentisch-Wake und spaeteren
   App-Open-Wake aus `hibernate:paused`. Kurze Render-/Cloudflare-Neuverbindungen
   wurden funktional ueberstanden, die App beschriftete geplanten Schlaf oder

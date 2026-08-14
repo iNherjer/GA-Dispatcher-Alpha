@@ -69,6 +69,12 @@
   var drawerRefreshPending = false;
   var EFB_CHECKLIST_PROGRESS_KEY = 'ga_efb_tracker_checklist_progress_v1';
   var EFB_PROFILE_HEIGHT_KEY = 'ga_efb_tracker_profile_height_v1';
+  var EFB_OVERLAY_PANES = {
+    aero: 'gaVfrPane',
+    dfs: 'gaOfficialChartPane',
+    faa: 'gaOfficialChartPane',
+    dwd: 'gaWeatherPane'
+  };
   var efbChecklistProgress = readEfbChecklistProgress();
   var EFB_BUILTIN_CHECKLISTS = [
     { id: 'vfr-briefing', title: 'VFR Briefing', sections: [
@@ -833,7 +839,7 @@
   function configureOriginalChrome() {
     var overlay = byId('mapTableOverlay');
     if (overlay) overlay.classList.add('active');
-    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.2');
+    setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.6.3');
 
     var toolbarRow = byId('mapToolbarInner');
     var actions = toolbarRow && toolbarRow.lastElementChild;
@@ -1023,6 +1029,11 @@
     return pane;
   }
 
+  function overlayPaneName(definition) {
+    var id = String(definition && definition.id || '').toLowerCase();
+    return EFB_OVERLAY_PANES[id] || 'gaVfrPane';
+  }
+
   function updateBaseOpacity() {
     var opacity = API.baseLayerOpacity(preferences);
     Object.keys(baseLayers).forEach(function (id) {
@@ -1044,7 +1055,9 @@
     });
 
     createStablePane('gaBasePane', 200);
-    createStablePane('gaAeroPane', 250);
+    createStablePane('gaVfrPane', 280);
+    createStablePane('gaOfficialChartPane', 310);
+    createStablePane('gaWeatherPane', 340);
     createStablePane('gaRoutePane', 430);
     createStablePane('gaGeometryPane', 440);
     createStablePane('gaPreviewPane', 445);
@@ -1062,7 +1075,7 @@
       baseControl[definition.label] = layer;
     });
     API.OVERLAY_LAYERS.forEach(function (definition) {
-      var layer = createTileLayer(definition, 'gaAeroPane');
+      var layer = createTileLayer(definition, overlayPaneName(definition));
       overlayLayers[definition.id] = layer;
       overlayControl[definition.label] = layer;
     });
