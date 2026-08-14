@@ -16,6 +16,7 @@
     LEGACY_COMMANDS: 'legacy.commands.v1',
     TRACKER_STATUS: 'tracker.status.v1',
     TELEMETRY_HIBERNATE: 'telemetry.hibernate.v1',
+    TELEMETRY_WAKE: 'telemetry.wake.v1',
     FLIGHT_SNAPSHOT: 'flight.snapshot.v1',
     MAP_SNAPSHOT: 'map.snapshot.v1',
     MAP_CONTEXT: 'map.context.v1',

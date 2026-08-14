@@ -6,7 +6,8 @@ const {
   createTelemetryHibernateController,
   disconnectedTelemetryHibernateState,
   isMenuZeroPosition,
-  isMsfsMenuPosition
+  isMsfsMenuPosition,
+  telemetryWakeReasonForCommand
 } = require('./tracker-telemetry-hibernate-core');
 
 test('MSFS menu zero position enters hibernate immediately and wakes at a valid position', () => {
@@ -133,4 +134,67 @@ test('explicit SimStop and disconnected states stay visible to status consumers'
   assert.equal(disconnected.mode, 'hibernate');
   assert.equal(disconnected.reason, 'sim_disconnected');
   assert.equal(disconnected.shouldSendTelemetry, false);
+});
+
+test('an app wake interrupts ground or pause hibernate and restarts both timers', () => {
+  const controller = createTelemetryHibernateController({ idleEnterMs: 1000 });
+  const idle = {
+    lat: 48.27917,
+    lon: 8.42833,
+    onGround: true,
+    groundSpeedKts: 0,
+    paused: true
+  };
+  controller.update({ ...idle, now: 10 });
+  assert.equal(controller.update({ ...idle, now: 1010 }).mode, 'hibernate');
+
+  const wake = controller.wake({ now: 1100, reason: 'mission-start' });
+  assert.equal(wake.accepted, true);
+  assert.equal(wake.state.mode, 'active');
+  assert.equal(wake.state.groundIdleSince, null);
+  assert.equal(wake.state.pauseIdleSince, null);
+
+  const restarted = controller.update({ ...idle, now: 1101 });
+  assert.equal(restarted.mode, 'active');
+  assert.equal(restarted.groundIdleSince, 1101);
+  assert.equal(restarted.pauseIdleSince, 1101);
+  assert.equal(controller.update({ ...idle, now: 2100 }).mode, 'active');
+  assert.equal(controller.update({ ...idle, now: 2101 }).mode, 'hibernate');
+});
+
+test('ending pause resets the already-running ground timer as well', () => {
+  const controller = createTelemetryHibernateController({ idleEnterMs: 1000 });
+  const idle = { lat: 48.27917, lon: 8.42833, onGround: true, groundSpeedKts: 0 };
+  controller.update({ ...idle, paused: true, now: 0 });
+  assert.equal(controller.update({ ...idle, paused: true, now: 1000 }).mode, 'hibernate');
+
+  const unpaused = controller.update({ ...idle, paused: false, now: 1001 });
+  assert.equal(unpaused.mode, 'active');
+  assert.equal(unpaused.groundIdleSince, 1001);
+  assert.equal(unpaused.pauseIdleSince, null);
+  assert.equal(controller.update({ ...idle, paused: false, now: 2000 }).mode, 'active');
+});
+
+test('menu and invalid-position hibernate cannot be woken into useless telemetry', () => {
+  const menu = createTelemetryHibernateController();
+  menu.update({ now: 10, lat: 0, lon: 90, paused: true, groundSpeedKts: 250 });
+  const blockedMenu = menu.wake({ now: 11, reason: 'app-open' });
+  assert.equal(blockedMenu.accepted, false);
+  assert.equal(blockedMenu.blockedReason, 'menu_position');
+  assert.equal(blockedMenu.state.mode, 'hibernate');
+
+  const invalid = createTelemetryHibernateController();
+  invalid.update({ now: 20, lat: NaN, lon: NaN });
+  assert.equal(invalid.wake({ now: 21 }).accepted, false);
+});
+
+test('sim-affecting app commands request a wake while local-only commands do not', () => {
+  assert.equal(telemetryWakeReasonForCommand({ type: 'tracker_telemetry_wake', reason: 'app-open' }), 'app-open');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'mission_authority_acquire' }), 'app-command:mission_authority_acquire');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'mission_scene_boarding' }), 'app-command:mission_scene_boarding');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'aircraft_payload_set' }), 'app-command:aircraft_payload_set');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'homebase_v1.preview.set' }), 'app-command:homebase_v1.preview.set');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'homebase_v1.hangar.animation.set' }), 'app-command:homebase_v1.hangar.animation.set');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'homebase_v1.capabilities' }), '');
+  assert.equal(telemetryWakeReasonForCommand({ type: 'efb_checklist_library.store' }), '');
 });

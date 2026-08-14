@@ -26,6 +26,7 @@ test('tracker relay hello advertises the implemented legacy and mission-authorit
   assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.CHECKLIST_LIBRARY), true);
   assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.MISSION_VIEW), true);
   assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.TELEMETRY_HIBERNATE), true);
+  assert.equal(hello.payload.capabilities.includes(protocol.CAPABILITIES.TELEMETRY_WAKE), true);
   assert.equal(readTrackerRelayHello({ trackerProtocolHello: hello })?.id, 'tracker-hello-test');
 });
 

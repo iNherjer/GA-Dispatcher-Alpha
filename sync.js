@@ -92,6 +92,14 @@ async function syncPendingUploadThenLoad(reason = 'sync-resume') {
 }
 window.syncPendingUploadThenLoad = syncPendingUploadThenLoad;
 
+function _lastFullTrackerTelemetryAt() {
+    const explicitAt = Number(window.gaLastTrackerTelemetryAt || 0);
+    if (Number.isFinite(explicitAt) && explicitAt > 0) return explicitAt;
+    if (window.lastLiveGpsPos?.lastKnown === true) return 0;
+    const positionAt = Number(window.lastLiveGpsPos?.t || 0);
+    return Number.isFinite(positionAt) && positionAt > 0 ? positionAt : 0;
+}
+
 (function installIdleNetworkSleep() {
     if (window.gaIdleSleep) return;
     const IDLE_SLEEP_MS = 10 * 60 * 1000;
@@ -101,7 +109,7 @@ window.syncPendingUploadThenLoad = syncPendingUploadThenLoad;
     const wakeTasks = new Map();
 
     function isTrackerLive() {
-        const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+        const lastTelemetryAt = _lastFullTrackerTelemetryAt();
         return !!window.liveTrackerConnected && Number.isFinite(lastTelemetryAt) && (Date.now() - lastTelemetryAt) < 15000;
     }
 
@@ -1885,6 +1893,7 @@ const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
+const TELEMETRY_WAKE_CAPABILITY = 'telemetry.wake.v1';
 const missionAuthorityAckWaiters = new Map();
 const missionAuthorityLocalCommandIds = new Map();
 let missionRuntimeSnapshotTimer = null;
@@ -2028,6 +2037,12 @@ function _trackerSupportsMissionAuthority() {
         && window.liveTrackerCapabilities.includes(MISSION_AUTHORITY_CAPABILITY);
 }
 window.trackerSupportsMissionAuthority = _trackerSupportsMissionAuthority;
+
+function _trackerSupportsTelemetryWake() {
+    return Array.isArray(window.liveTrackerCapabilities)
+        && window.liveTrackerCapabilities.includes(TELEMETRY_WAKE_CAPABILITY);
+}
+window.trackerSupportsTelemetryWake = _trackerSupportsTelemetryWake;
 
 function _missionAuthorityAdapter(runtimeSnapshot = null, missionState = null) {
     if (typeof window.GAMissionResumeAdapters?.detectPrimaryAdapter === 'function') {
@@ -2526,6 +2541,7 @@ window.gaPushMissionAuthorityProfile = function(reason = 'terrain-profile-ready'
 let missionAuthorityRouteRetryTimer = null;
 window.gaPushMissionAuthorityRoute = function(reason = 'route-changed') {
     const sent = _queueMissionAuthoritySnapshot(reason, { immediate: true, includeMapProfile: false });
+    if (!sent) window.requestTrackerTelemetryWake?.(reason);
     if (missionAuthorityRouteRetryTimer) clearTimeout(missionAuthorityRouteRetryTimer);
     missionAuthorityRouteRetryTimer = setTimeout(() => {
         missionAuthorityRouteRetryTimer = null;
@@ -4014,7 +4030,9 @@ function _missionSceneFlightGate(flightData = null) {
     const nearGround = Number.isFinite(agl) && agl <= 80;
     const onGround = hasOnGroundFlag ? !!fd.onGround : nearGround;
     const groundLike = onGround || nearGround;
-    const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
+    const trackerMenuHibernate = window.liveTrackerTelemetryMode === 'hibernate'
+        && ['menu_position', 'menu_zero', 'sim_stopped', 'invalid_position'].includes(String(window.liveTrackerTelemetryReason || '').toLowerCase());
+    const inMenuOrMap = trackerMenuHibernate || !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const airborne = !groundLike && ((hasOnGroundFlag && !onGround && gs > 35) || (Number.isFinite(agl) && agl > 120) || gs > 70);
     const lowGround = hasOnGroundFlag
         ? onGround || !Number.isFinite(agl) || agl <= 25
@@ -4369,6 +4387,31 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
         }
         _missionSceneDebugPatch(patch, `tracker-command:${trackerCommand.type}`);
     }
+    return commandId;
+};
+
+window.requestTrackerTelemetryWake = function(reason = 'app-interaction', options = {}) {
+    if (window.simModeActive || !window.liveTrackerConnected || !_trackerSupportsTelemetryWake()) return false;
+    const hibernateReason = String(window.liveTrackerTelemetryReason || '').trim().toLowerCase();
+    if (['menu_position', 'menu_zero', 'sim_stopped', 'sim_disconnected', 'invalid_position'].includes(hibernateReason)) {
+        return false;
+    }
+    const now = Date.now();
+    const normalizedReason = String(reason || 'app-interaction').trim().slice(0, 96) || 'app-interaction';
+    const dedupeKey = `${liveGpsConnectionSeq}|${normalizedReason}`;
+    if (options.force !== true
+        && window.gaLastTrackerWakeRequest?.key === dedupeKey
+        && now - Number(window.gaLastTrackerWakeRequest?.at || 0) < 1500) {
+        return false;
+    }
+    const commandId = window.sendTrackerCommand({
+        type: 'tracker_telemetry_wake',
+        reason: normalizedReason,
+        observedTelemetryMode: String(window.liveTrackerTelemetryMode || 'unknown'),
+        observedHibernateSince: Number(window.liveTrackerTelemetrySince) || null
+    }, { telemetryWake: true });
+    if (!commandId) return false;
+    window.gaLastTrackerWakeRequest = { key: dedupeKey, commandId, reason: normalizedReason, at: now };
     return commandId;
 };
 
@@ -9354,6 +9397,18 @@ function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     const ackType = String(ack.type || '').toLowerCase();
     const ackCommandId = String(ack.commandId || '').trim();
+    if (ackType === 'tracker_telemetry_wake_ack') {
+        window.gaLastTrackerWakeAck = { ...ack, receivedAt: Date.now() };
+        if (String(ack.status || '').toLowerCase() === 'ok') {
+            window.liveTrackerTelemetryMode = 'active';
+            window.liveTrackerTelemetryReason = '';
+            window.liveTrackerTelemetrySince = null;
+        }
+        try {
+            window.dispatchEvent(new CustomEvent('gatrackerwakeack', { detail: { ack } }));
+        } catch (_) {}
+        return;
+    }
     const authorityScopedAck = /^(mission_(authority|snapshot|scene|smoke)_|mission_lifecycle_ack)/i.test(ackType);
     if (_trackerSupportsMissionAuthority()
         && authorityScopedAck
@@ -9993,7 +10048,9 @@ function _missionStartGroundStatus() {
     const onGround = hasOnGroundFlag ? !!fd.onGround : (Number.isFinite(agl) ? agl <= 35 : false);
     const nearSurface = Number.isFinite(agl) ? agl <= 35 : onGround;
     const parkingBrakeSet = fd.parkingBrake === true || fd.parkingBrake === 1;
-    const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
+    const trackerMenuHibernate = window.liveTrackerTelemetryMode === 'hibernate'
+        && ['menu_position', 'menu_zero', 'sim_stopped', 'invalid_position'].includes(String(window.liveTrackerTelemetryReason || '').toLowerCase());
+    const inMenuOrMap = trackerMenuHibernate || !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const stationary = gs <= 5 || (parkingBrakeSet && gs <= 10);
     const paused = _missionTrackerPauseActive(fd, onGround || nearSurface, stationary);
     const ready = !!((onGround || nearSurface) && stationary && !paused && !inMenuOrMap);
@@ -12830,6 +12887,7 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 window.handleMissionStartBannerAction = async function() {
     if (missionStartActionPromise) return missionStartActionPromise;
     missionStartActionPromise = (async () => {
+        window.requestTrackerTelemetryWake?.('mission-start');
         if (window.missionRuntimeResumeConflict?.trackerActive === true) {
             return window.resumeTrackerMissionOnThisDevice?.();
         }
@@ -14601,6 +14659,7 @@ window.liveTrackerVersionCode = null;
 window.liveTrackerTelemetryMode = 'unknown';
 window.liveTrackerTelemetryReason = '';
 window.liveTrackerTelemetrySince = null;
+window.liveTrackerLastKnownPosition = null;
 window.liveGpsRelayKey = 'cloudflare';
 window.liveGpsRelayCode = 'C';
 let lastTrackerDisconnectAt = 0;
@@ -14615,6 +14674,8 @@ let lastTrackerHeartbeatAt = 0;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveGpsConnectionSeq = 0;
 let liveGpsReconnectTimer = null;
+let liveGpsConnectionHasTelemetry = false;
+let liveGpsConnectionWakeRequested = false;
 const LIVE_GPS_WAKE_LOCK_STALE_MS = 15000;
 const TRACKER_HEARTBEAT_STALE_MS = 12000;
 const LIVE_GPS_RELAY_PROBE_TIMEOUT_MS = 10000;
@@ -14627,7 +14688,7 @@ let liveGpsWakeLockRequestGeneration = 0;
 let liveGpsWakeLockRetryAfter = 0;
 
 function _hasFreshLiveGpsTelemetry(now = Date.now()) {
-    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    const lastTelemetryAt = _lastFullTrackerTelemetryAt();
     return !!window.liveTrackerConnected
         && Number.isFinite(lastTelemetryAt)
         && (now - lastTelemetryAt) < LIVE_GPS_WAKE_LOCK_STALE_MS;
@@ -14641,7 +14702,7 @@ function _clearLiveGpsWakeLockTelemetryTimer() {
 
 function _scheduleLiveGpsWakeLockTelemetryTimeout() {
     _clearLiveGpsWakeLockTelemetryTimer();
-    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    const lastTelemetryAt = _lastFullTrackerTelemetryAt();
     if (!window.liveTrackerConnected || !Number.isFinite(lastTelemetryAt)) return;
     const remainingMs = Math.max(0, LIVE_GPS_WAKE_LOCK_STALE_MS - (Date.now() - lastTelemetryAt));
     liveGpsWakeLockTelemetryTimer = setTimeout(() => {
@@ -14712,7 +14773,7 @@ document.addEventListener('visibilitychange', () => {
 }, { passive: true });
 window.addEventListener('ga-sleepchange', (event) => {
     if (!event?.detail?.sleeping) return;
-    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    const lastTelemetryAt = _lastFullTrackerTelemetryAt();
     if (Number.isFinite(lastTelemetryAt) && Date.now() - lastTelemetryAt < 15000) return;
     const hadLiveGpsSession = !!liveGpsSocket || !!liveGpsReconnectTimer;
     const reconnectId = getSyncId();
@@ -14921,6 +14982,7 @@ function _markTrackerHeartbeat(pkt) {
     }
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) window.liveTrackerCapabilities = reportedCapabilities;
+    _rememberTrackerHibernatePosition(pkt);
     try {
         window.dispatchEvent(new CustomEvent('gatrackercapabilitieschange', {
             detail: {
@@ -14930,6 +14992,13 @@ function _markTrackerHeartbeat(pkt) {
             }
         }));
     } catch (_) {}
+    if (window.liveTrackerTelemetryMode === 'hibernate'
+        && !liveGpsConnectionHasTelemetry
+        && !liveGpsConnectionWakeRequested
+        && _trackerSupportsTelemetryWake()) {
+        liveGpsConnectionWakeRequested = true;
+        window.requestTrackerTelemetryWake?.('app-open-hibernate');
+    }
     _maybePromptTrackerUpdate(pkt);
     if (trackerHeartbeatWatchdog) clearTimeout(trackerHeartbeatWatchdog);
     trackerHeartbeatWatchdog = setTimeout(() => {
@@ -14948,6 +15017,43 @@ function _markTrackerHeartbeat(pkt) {
             _scheduleLiveGpsRelayProbe(alternate, getSyncId(), 0, liveGpsConnectionSeq);
         }
     }, TRACKER_HEARTBEAT_STALE_MS);
+}
+
+function _rememberTrackerHibernatePosition(pkt = null) {
+    const reason = String(pkt?.telemetryHibernateReason || '').trim().toLowerCase();
+    if (String(pkt?.telemetryMode || '').trim().toLowerCase() !== 'hibernate') return false;
+    if (['menu_position', 'menu_zero', 'sim_stopped', 'sim_disconnected', 'invalid_position'].includes(reason)) return false;
+    const snapshot = pkt?.telemetryLastPosition;
+    const lat = Number(snapshot?.lat);
+    const lon = Number(snapshot?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
+    const capturedAt = Number(snapshot?.capturedAt);
+    const alt = Number(snapshot?.alt);
+    const hdg = Number(snapshot?.hdg);
+    const flight = snapshot?.flight && typeof snapshot.flight === 'object' ? snapshot.flight : {};
+    const remembered = {
+        lat,
+        lon,
+        alt: Number.isFinite(alt) ? alt : 0,
+        hdg: Number.isFinite(hdg) ? hdg : 0,
+        gs: Number.isFinite(Number(flight.gsKts)) ? Number(flight.gsKts) : Number(window.lastLiveGpsPos?.gs || 0),
+        t: Number.isFinite(capturedAt) ? capturedAt : Date.now(),
+        lastKnown: true,
+        hibernating: true
+    };
+    window.liveTrackerLastKnownPosition = { ...remembered, flight: { ...flight }, reason };
+    const currentAt = Number(window.lastLiveGpsPos?.t || 0);
+    if (!window.lastLiveGpsPos || window.lastLiveGpsPos.lastKnown === true || remembered.t >= currentAt) {
+        window.lastLiveGpsPos = remembered;
+        window.lastLiveFlightData = { ...(window.lastLiveFlightData || {}), ...flight };
+        _updateMissionRuntimeUi();
+    }
+    try {
+        window.dispatchEvent(new CustomEvent('gatrackerlastpositionchange', {
+            detail: { position: window.liveTrackerLastKnownPosition }
+        }));
+    } catch (_) {}
+    return true;
 }
 
 function _maybePromptTrackerUpdate(pkt) {
@@ -16194,6 +16300,8 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
             trackerReconnectRecoveryUntil = now + 20000;
         }
         window.liveTrackerConnected = true;
+        liveGpsConnectionHasTelemetry = false;
+        liveGpsConnectionWakeRequested = false;
         _missionPhaseDebugPush('tracker_connection', {
             state: 'open',
             reconnectResyncPending: !!missionSceneReconnectResyncPending,
@@ -16313,6 +16421,7 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
             }
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
+                liveGpsConnectionHasTelemetry = true;
                 _markTrackerHeartbeat(data);
                 if (relayEndpoint.key === 'cloudflare' && liveGpsRelayProbeKey === 'render') {
                     _cancelLiveGpsRelayProbe();

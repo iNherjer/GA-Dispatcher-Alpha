@@ -14,11 +14,17 @@ test('tracker status reports hibernate while full relay telemetry is gated', () 
   assert.match(trackerSource, /currentTelemetryHibernateState = telemetryHibernateController\.update/);
   assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
   assert.match(trackerSource, /if \(currentTelemetryHibernateState\.hibernating\)/);
+  assert.match(trackerSource, /telemetryLastPosition:/);
+  assert.match(trackerSource, /telemetryHibernateController\.wake/);
+  assert.match(trackerSource, /tracker_telemetry_wake_ack/);
 });
 
 test('web app renders hibernate separately from live telemetry and reports it in diagnostics', () => {
   assert.match(appSyncSource, /ind\.textContent = `🛰️ HIB/);
   assert.match(appSyncSource, /window\.liveTrackerTelemetryMode === 'hibernate'/);
   assert.match(appSyncSource, /_setLiveGpsIndicator\('hibernate', data\)/);
+  assert.match(appSyncSource, /requestTrackerTelemetryWake/);
+  assert.match(appSyncSource, /_rememberTrackerHibernatePosition/);
+  assert.match(appSyncSource, /app-open-hibernate/);
   assert.match(profileSource, /telemetry=\$\{window\.liveTrackerTelemetryMode/);
 });

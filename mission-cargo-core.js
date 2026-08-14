@@ -1021,6 +1021,9 @@ function _missionCargoPersistManifest(manifest) {
     } catch (_) {}
     if (!isTransientManifest) {
         try {
+            window.requestTrackerTelemetryWake?.('mission-cargo-change');
+        } catch (_) {}
+        try {
             if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
             else if (typeof saveMissionState === 'function') saveMissionState();
         } catch (_) {}

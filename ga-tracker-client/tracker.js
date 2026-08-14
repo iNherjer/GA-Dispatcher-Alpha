@@ -32,7 +32,8 @@ const {
 } = require('./tracker-relay-routing-core.js');
 const {
   createTelemetryHibernateController,
-  disconnectedTelemetryHibernateState
+  disconnectedTelemetryHibernateState,
+  telemetryWakeReasonForCommand
 } = require('./tracker-telemetry-hibernate-core.js');
 
 /**
@@ -48,8 +49,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v349';
-const TRACKER_VERSION_CODE = 349;
+const TRACKER_VERSION = 'v350';
+const TRACKER_VERSION_CODE = 350;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4327,6 +4328,7 @@ function startTracker(syncId, pin) {
   );
   let _homebaseRemoteCheckScheduled = false;
   let _trackerCommandHandler = null;
+  let _trackerTelemetryWakeHandler = null;
   const _pendingTrackerCommands = [];
   const MAX_PENDING_TRACKER_COMMANDS = 64;
   const DIRECT_HANGAR_FALLBACK_DELAY_MS = 750;
@@ -4511,6 +4513,26 @@ function startTracker(syncId, pin) {
       return false;
     }
   };
+  const sendTelemetryWakeAck = (payload = {}) => {
+    const ws = getWs();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      ws.send(JSON.stringify({
+        type: 'gps',
+        syncId,
+        pin,
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        commandAckOnly: true,
+        trackerAck: { source: 'tracker', type: 'tracker_telemetry_wake_ack', ...payload, at: Date.now() }
+      }));
+      debugLog(`TRACKER_TELEMETRY_WAKE_ACK status=${payload?.status || ''} commandId=${payload?.commandId || ''} reason=${payload?.reason || payload?.blockedReason || ''}`);
+      return true;
+    } catch (error) {
+      debugLog(`TRACKER_TELEMETRY_WAKE_ACK_ERROR error=${error?.message || error}`);
+      return false;
+    }
+  };
   const handleAlwaysAvailableChecklistCommand = (command = {}) => {
     if (String(command?.type || '') !== 'efb_checklist_library.store') return false;
     try {
@@ -4616,6 +4638,9 @@ function startTracker(syncId, pin) {
       }
     }
   };
+  const setTrackerTelemetryWakeHandler = (handler) => {
+    _trackerTelemetryWakeHandler = typeof handler === 'function' ? handler : null;
+  };
   const pruneHangarCommandState = (now = Date.now()) => {
     for (const [commandId, at] of _dispatchedHangarCommandIds) {
       if ((now - at) > 30000) _dispatchedHangarCommandIds.delete(commandId);
@@ -4628,6 +4653,27 @@ function startTracker(syncId, pin) {
     const type = String(command?.type || '');
     const commandId = String(command?.commandId || '');
     const isHangarDoor = isHomebaseObjectControlType(type);
+    const wakeReason = telemetryWakeReasonForCommand(command);
+    let wakeResult = null;
+    if (wakeReason && typeof _trackerTelemetryWakeHandler === 'function') {
+      try {
+        wakeResult = _trackerTelemetryWakeHandler({ reason: wakeReason, command, source });
+      } catch (error) {
+        debugLog(`TRACKER_TELEMETRY_WAKE_ERROR type=${type || 'unknown'} commandId=${commandId || 'none'} error=${error?.message || error}`);
+      }
+    }
+    if (type === 'tracker_telemetry_wake') {
+      sendTelemetryWakeAck({
+        commandId: commandId || null,
+        status: wakeResult?.accepted === true ? 'ok' : 'blocked',
+        reason: wakeReason || 'app-open',
+        blockedReason: wakeResult?.blockedReason || (wakeResult ? '' : 'simconnect_not_ready'),
+        telemetryMode: wakeResult?.state?.mode || _telemetryHibernateState.mode,
+        telemetryHibernateReason: wakeResult?.state?.reason || _telemetryHibernateState.reason || null,
+        timersReset: wakeResult?.accepted === true
+      });
+      return;
+    }
     pruneHangarCommandState();
     if (isHangarDoor && commandId) {
       if (_dispatchedHangarCommandIds.has(commandId)) {
@@ -4768,6 +4814,7 @@ function startTracker(syncId, pin) {
       syncId,
       pin,
       setTrackerCommandHandler,
+      setTrackerTelemetryWakeHandler,
       (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
       () => _homebaseFallbackCache,
       updateEfbState,
@@ -4842,6 +4889,9 @@ function startTracker(syncId, pin) {
         telemetryPauseIdleSince: Number(_telemetryHibernateState.pauseIdleSince) || null,
         telemetryPauseForMs: Number(_telemetryHibernateState.pauseForMs) || 0,
         telemetryIntervalMs: _telemetryHibernateState.mode === 'hibernate' ? 5000 : 500,
+        telemetryLastPosition: _telemetryHibernateState.mode === 'hibernate' && _lastEfbSnapshot
+          ? _lastEfbSnapshot
+          : null,
         sentAt: Date.now()
       }));
     };
@@ -4908,7 +4958,7 @@ function startTracker(syncId, pin) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
@@ -5050,6 +5100,22 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const SYS_REQ_DIALOG = 921;
       const telemetryHibernateController = createTelemetryHibernateController();
       let currentTelemetryHibernateState = disconnectedTelemetryHibernateState();
+      if (typeof setTrackerTelemetryWakeHandler === 'function') {
+        setTrackerTelemetryWakeHandler(({ reason = 'app-interaction', command = null, source = 'tracker-relay' } = {}) => {
+          const previousMode = currentTelemetryHibernateState.mode;
+          const previousReason = currentTelemetryHibernateState.reason || '';
+          const result = telemetryHibernateController.wake({ now: Date.now(), reason });
+          currentTelemetryHibernateState = result.state;
+          if (typeof updateEfbState === 'function') {
+            updateEfbState({
+              simulatorConnected: true,
+              telemetryHibernate: currentTelemetryHibernateState
+            });
+          }
+          debugLog(`TRACKER_TELEMETRY_WAKE source=${source} command=${command?.type || 'explicit'} accepted=${result.accepted === true} from=${previousMode}:${previousReason || 'none'} to=${currentTelemetryHibernateState.mode}:${currentTelemetryHibernateState.reason || 'none'} reason=${reason} blocked=${result.blockedReason || 'none'}`);
+          return result;
+        });
+      }
 
       const runtimeState = {
         pauseFlags: 0,
@@ -5296,7 +5362,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                         gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
                         iasKts: Number.isFinite(iasKts) ? Math.round(iasKts * 10) / 10 : null,
                         aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
-                        onGround: Boolean(onGround)
+                        onGround: Boolean(onGround),
+                        simPaused,
+                        pauseFlags: runtimeState.pauseFlags || 0,
+                        simRunning: runtimeState.simRunning,
+                        dialogMode: runtimeState.dialogMode,
+                        inMenuOrMap,
+                        parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null
                       }
                     }
                   });
@@ -5492,10 +5564,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           snapshot: null
         });
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
+        if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
       });
     })
     .catch(err => {
@@ -5505,7 +5578,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         snapshot: null
       });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
+      if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
     });
 }
 

@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v349 Alpha | v320 | v349 pausiert Relay-Telemetrie bei Bodenstillstand, Pause und im MSFS-Menue; Stable bleibt unveraendert |
+| Tracker-Runtime | v350 Alpha | v320 | v350 macht Hibernate durch App-/Sim-Interaktionen gezielt weckbar; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -29,17 +29,29 @@ einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
 auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
 behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
 
-Tracker v349 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
+Tracker v350 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
 oder sofort bei MSFS-Nullposition `(0,0)`, pausierter Menueposition nahe
 `(0,90)`, nach fuenf Minuten durchgehender Pause beziehungsweise bei `SimStop`
 pausieren nur die
 2-Hz-GPS-/Traffic-Pakete zu Cloudflare und Render. SimConnect, lokaler EFB-
 Snapshot, Commands und ACKs bleiben aktiv. Der 5-Sekunden-Status meldet
-`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v349 C/R`, und
+`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v350 C/R`, und
 Flugzustand oder mindestens 5 kt wecken die Telemetrie ohne Neustart. Die
 isolierte Zustandslogik und der Loopback-Vertrag sind automatisiert getestet;
 der reale MSFS-Uebergang bleibt vor einer Stable-Promotion zu bestaetigen.
+
+v350 fuegt additiv `telemetry.wake.v1` hinzu. Tracker-Commands fuer Mission,
+Route/Authority-Snapshot, Cargo/Payload, Szenen und Homebase bleiben im HIB
+empfangsbereit, wecken die Relay-Telemetrie vor der Sim-Aktion und setzen
+Boden- sowie Pause-Timer gemeinsam zurueck. Oeffnet die Web-App eine bereits
+hibernierende Boden-/Pause-Session, uebernimmt sie die letzte gueltige Position
+aus dem 5-Sekunden-Status und fordert genau einmal frische Telemetrie an. Die
+unbrauchbaren Menue-/Nullpositionen `(0,90)` und `(0,0)` sowie SimStop bleiben
+nicht weckbar. Das Ende einer HIB-Regel setzt beide Timer zurueck, damit etwa
+das Aufheben der Pause nicht durch den parallel abgelaufenen Bodentimer sofort
+wieder in HIB fuehrt. Web-Cache `ga-dispatcher-v1635` enthaelt den passenden
+App-Vertrag.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
@@ -973,7 +985,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Tracker v349 real in MSFS fuer ACTIVE -> HIB pruefen: Der Pause-Timer
       wechselte nach fuenf Minuten, Cloudflare und Render blieben verbunden,
       und Commands, ACKs sowie der lokale EFB-Pfad arbeiteten im HIB weiter.
-- [ ] Tracker v349 real in MSFS fuer HIB -> ACTIVE pruefen und dabei Position,
+- [x] Tracker-v350-Wake-Vertrag implementieren und automatisiert pruefen:
+      letzte Position im HIB-Status, einmaliger App-Open-Wake, Command-Wake fuer
+      Mission, Route, Cargo, Szene und Homebase sowie gemeinsamer Timer-Reset.
+- [ ] Tracker v350 real in MSFS fuer HIB -> ACTIVE pruefen und dabei Position,
       Flugzustand, Traffic, Homebase, Mission-/Payload-Commands und lokalen
       EFB-Snapshot abgleichen, bevor derselbe Release nach Stable promoviert
       wird.
@@ -982,6 +997,19 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Tracker v350 behandelt Hibernate ausschliesslich als
+  Telemetrie-Drosselung. `telemetry.wake.v1` weckt Boden-/Pause-HIB durch einen
+  expliziten App-Open-Wake oder jeden Sim-relevanten App-Command. Mission-
+  Authority-Snapshots transportieren Routen- und Fortschrittsaenderungen auch
+  im HIB weiter zum Tracker und damit zum lokalen EFB. Cargo-/Payload- und
+  Homebase-/Szenenbefehle werden erst geweckt und danach unveraendert
+  ausgefuehrt. Der HIB-Status fuehrt die letzte gueltige Position samt
+  kompaktem Boden-/Pause-Zustand; Menue-/Nullpositionen bleiben bewusst
+  gesperrt. Das Aufheben einer Regel und jeder akzeptierte Wake setzen beide
+  Fuenf-Minuten-Timer gemeinsam zurueck. Stable bleibt bis zum realen Test auf
+  v320. Die vollstaendige automatisierte Web-/Tracker-/Desktop-/EFB-Testmatrix
+  ist mit 140 Tests gruen.
 
 - 2026-08-14: Der erste reale v349-Lauf bestaetigt `ACTIVE -> HIB` um
   `06:42:23Z` nach 300 Sekunden Pause. Cloudflare war seit `06:37:21Z`

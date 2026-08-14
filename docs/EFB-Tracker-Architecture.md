@@ -155,6 +155,22 @@ und Checklisten-Commands sowie ACKs und der lokale EFB-Pfad liefen im HIB
 weiter. `HIB -> ACTIVE` und die anschliessende Vollstaendigkeit von Position,
 Flugzustand, Traffic und Snapshots bleiben als eigener MSFS-Testpunkt offen.
 
+Tracker v350 fuehrt additiv `telemetry.wake.v1` ein und macht damit explizit,
+dass Hibernate nur den dauernden Relay-Datenstrom drosselt. Beide Relay-Sockets
+und der Command-Dispatcher bleiben aktiv. Mission-, Authority-/Routen-,
+Payload-/Cargo-, Szenen-, Homebase- und direkte Sim-Commands wecken einen
+Boden- oder Pause-HIB vor der Verarbeitung und setzen Boden- und Pause-Timer
+gemeinsam zurueck. Dasselbe gilt fuer einen einmaligen Wake, wenn die Web-App
+in eine bereits hibernierende Session einsteigt. Der HIB-Status traegt dafuer
+die letzte gueltige Position und den kompakten Boden-/Pause-Zustand; die App
+kann Start- und Entfernungsbedingungen sofort bewerten und erhaelt danach
+wieder normale 2-Hz-Pakete. `(0,90)`, `(0,0)`, SimStop und ungueltige Positionen
+bleiben nicht weckbar. Beim Ende einer HIB-Regel werden beide Timer neu
+gestartet, damit eine aufgehobene Pause nicht sofort durch einen alten
+Bodenstillstands-Timer ersetzt wird. Routen- und Fortschrittsaenderungen laufen
+als Authority-Snapshot trotz HIB zum Tracker und aktualisieren dadurch den
+read-only Mission-View des lokalen EFB.
+
 Homebase-Crew-Capabilities werden getrennt vom Tracker-/EFB-Hello ausgehandelt,
 weil der SimConnect-Objektmanager beim fruehen Trackerstart noch fehlen kann.
 Eine gueltige negative Capability-Antwort ist deshalb ein temporaerer Zustand,
