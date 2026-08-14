@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-13
+Stand: 2026-08-14
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v348 Alpha | v320 | v348 ergaenzt Mission Control und Custom-Checklisten auf dem Dual-Relay-Stand; Stable bleibt unveraendert |
+| Tracker-Runtime | v348 Alpha, v349 Hotfix-Kandidat | v320 | v349 pausiert Relay-Telemetrie bei Bodenstillstand und im MSFS-Menue; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -28,6 +28,18 @@ der vollstaendige DOM-Neuaufbau jedoch den Coherent-Scroll; ausserdem waren
 einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
 auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
 behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
+
+Tracker v349 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
+und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
+oder sofort bei MSFS-Nullposition `(0,0)`, pausierter Menueposition nahe
+`(0,90)`, nach fuenf Minuten durchgehender Pause beziehungsweise bei `SimStop`
+pausieren nur die
+2-Hz-GPS-/Traffic-Pakete zu Cloudflare und Render. SimConnect, lokaler EFB-
+Snapshot, Commands und ACKs bleiben aktiv. Der 5-Sekunden-Status meldet
+`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v349 C/R`, und
+Flugzustand oder mindestens 5 kt wecken die Telemetrie ohne Neustart. Die
+isolierte Zustandslogik und der Loopback-Vertrag sind automatisiert getestet;
+der reale MSFS-Uebergang bleibt vor einer Stable-Promotion zu bestaetigen.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
@@ -953,11 +965,29 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Tracker v348 und EFB 0.4.11 offiziell auf Windows bauen und In-Sim testen:
       Mission Drawer mit zwei Dritteln Breite, stabiler Touch-/Wheel-Scroll,
       echte deutsche Umlaute und unveraenderter direkter Cloudabruf.
+- [x] Tracker-v349-Hibernate als additiven Relay-Hotfix implementieren und
+      automatisiert pruefen: Null-/Menueposition und SimStop sofort, Bodenstillstand nach
+      fuenf Minuten unter 5 kt oder nach fuenf Minuten Pause, sofortiges
+      Aufwachen bei Flugzustand, 5 kt beziehungsweise aufgehobener Pause;
+      Commands, ACKs und lokaler EFB-Pfad bleiben aktiv.
+- [ ] Tracker v349 real in MSFS mit den Uebergaengen ACTIVE -> HIB -> ACTIVE
+      pruefen, bevor derselbe Release nach Stable promoviert wird.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Fuer vergessene Tracker-Instanzen wird die 2-Hz-Relay-Telemetrie
+  in v349 gezielt hiberniert. Bodenstillstand benoetigt fuenf Minuten mit
+  `SIM ON GROUND` und weniger als 5 kt; die MSFS-Nullpositionen `(0,0)` und
+  pausiert `(0,90)` sowie `SimStop` greifen sofort; eine beliebige
+  durchgehende Pause greift nach fuenf Minuten. Das dabei beobachtete
+  `Menu N` wird nicht als Signal verwendet. Der Tracker liest SimConnect lokal
+  weiter, versorgt das EFB,
+  verarbeitet Commands/ACKs und sendet alle fuenf Sekunden einen Status. Die
+  Web-App zeigt `HIB` mit Relaykennung und Grund. Stable bleibt bis zum realen
+  MSFS-Test auf v320.
 
 - 2026-08-13: Tracker v348 und EFB 0.4.11 sind als Alpha veroeffentlicht. Der
   offizielle SDK-1.7.2-Build und der nachfolgende In-Sim-Test wurden

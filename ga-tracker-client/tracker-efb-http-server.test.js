@@ -12,12 +12,15 @@ const {
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
-test('tracker v348 exits a duplicate instance when the fixed EFB port is already occupied', () => {
-  assert.match(trackerSource, /const TRACKER_VERSION = 'v348'/);
+test('tracker v349 exits a duplicate instance when the fixed EFB port is already occupied', () => {
+  assert.match(trackerSource, /const TRACKER_VERSION = 'v349'/);
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
-  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 348/);
+  assert.match(trackerSource, /const TRACKER_VERSION_CODE = 349/);
+  assert.match(trackerSource, /createTelemetryHibernateController/);
+  assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
+  assert.match(trackerSource, /currentTelemetryHibernateState\.shouldSendTelemetry/);
   assert.match(trackerSource, /const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12/);
   assert.match(trackerSource, /if \(error\?\.code === 'EADDRINUSE'\)[\s\S]*?process\.exit\(EFB_HTTP_PORT_CONFLICT_EXIT_CODE\)/);
   assert.match(trackerSource, /Diese zweite Tracker-Instanz wird beendet/);

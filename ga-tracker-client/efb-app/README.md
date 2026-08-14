@@ -71,6 +71,14 @@ angewendet; Hoehe und Zielwerte bleiben durch gezielte Textupdates live.
 Sichtbare EFB-Fallbacktexte verwenden echte Umlaute, und kombinierende
 Umlautzeichen werden vor der Coherent-Darstellung normalisiert.
 
+Tracker v349 veraendert das EFB-Paket 0.4.11 und Host 0.6.2 nicht. Der Tracker
+pausiert ausschliesslich die Relay-Telemetrie nach fuenf Minuten am Boden unter
+5 kt, nach fuenf Minuten durchgehender Pause sowie sofort an den
+MSFS-Menuepositionen nahe `(0,0)` und pausiert
+`(0,90)` oder bei `SimStop`. Der lokale
+Loopback-Snapshot bleibt aktiv, sodass das EFB weiter versorgt wird und der
+Tracker bei Flugzustand oder mindestens 5 kt ohne Neustart auf 2 Hz aufwacht.
+
 Der Windows-/In-Sim-Test von 0.4.2 lud das HTML/CSS-Grundgeruest, aber nicht
 die externe Host-Skriptkette. 0.4.3 legt deshalb einen kleinen
 ES5-kompatiblen Inline-Bootstrap vor Leaflet und Hostadapter. Er stellt den

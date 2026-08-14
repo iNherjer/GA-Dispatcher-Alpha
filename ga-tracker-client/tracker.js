@@ -30,6 +30,10 @@ const {
   buildTrackerRelayUrl,
   createRelayFanout
 } = require('./tracker-relay-routing-core.js');
+const {
+  createTelemetryHibernateController,
+  disconnectedTelemetryHibernateState
+} = require('./tracker-telemetry-hibernate-core.js');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -44,8 +48,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v348';
-const TRACKER_VERSION_CODE = 348;
+const TRACKER_VERSION = 'v349';
+const TRACKER_VERSION_CODE = 349;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4332,12 +4336,21 @@ function startTracker(syncId, pin) {
   let _homebaseFallbackCache = null;
   let _relayConnected = false;
   let _simulatorConnected = false;
+  let _telemetryHibernateState = disconnectedTelemetryHibernateState();
   let _lastEfbSnapshot = null;
   let _lastEfbMissionSnapshot = missionAuthorityManager.getActiveRun();
   let _efbHttpServer = null;
   const updateEfbState = (patch = {}) => {
     if (Object.hasOwn(patch, 'relayConnected')) _relayConnected = patch.relayConnected === true;
     if (Object.hasOwn(patch, 'simulatorConnected')) _simulatorConnected = patch.simulatorConnected === true;
+    if (Object.hasOwn(patch, 'telemetryHibernate') && patch.telemetryHibernate && typeof patch.telemetryHibernate === 'object') {
+      const previousKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
+      _telemetryHibernateState = patch.telemetryHibernate;
+      const nextKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
+      if (previousKey !== nextKey) {
+        debugLog(`TRACKER_TELEMETRY_MODE mode=${_telemetryHibernateState.mode || 'unknown'} reason=${_telemetryHibernateState.reason || 'none'} groundIdleMs=${Number(_telemetryHibernateState.idleForMs || 0)} pauseMs=${Number(_telemetryHibernateState.pauseForMs || 0)}`);
+      }
+    }
     if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
   };
@@ -4352,6 +4365,16 @@ function startTracker(syncId, pin) {
         runtimeChannel: TRACKER_RUNTIME_CHANNEL,
         relayConnected: _relayConnected,
         simulatorConnected: _simulatorConnected,
+        telemetryMode: _telemetryHibernateState.mode,
+        telemetryHibernateReason: _telemetryHibernateState.reason || null,
+        telemetryModeSince: Number(_telemetryHibernateState.since) || null,
+        telemetryHibernateSince: _telemetryHibernateState.mode === 'hibernate'
+          ? (Number(_telemetryHibernateState.since) || null)
+          : null,
+        telemetryGroundIdleSince: Number(_telemetryHibernateState.groundIdleSince) || null,
+        telemetryIdleForMs: Number(_telemetryHibernateState.idleForMs) || 0,
+        telemetryPauseIdleSince: Number(_telemetryHibernateState.pauseIdleSince) || null,
+        telemetryPauseForMs: Number(_telemetryHibernateState.pauseForMs) || 0,
         telemetryAvailable: Boolean(_lastEfbSnapshot),
         lastSnapshotAt: Number(_lastEfbSnapshot?.capturedAt) || null,
         missionAvailable: Boolean(missionAuthorityManager.getActiveRun()),
@@ -4808,6 +4831,17 @@ function startTracker(syncId, pin) {
         trackerVersionCode: TRACKER_VERSION_CODE,
         trackerProtocolHello: TRACKER_PROTOCOL_HELLO,
         relaySource: state.config.code,
+        telemetryMode: _telemetryHibernateState.mode,
+        telemetryHibernateReason: _telemetryHibernateState.reason || null,
+        telemetryModeSince: Number(_telemetryHibernateState.since) || null,
+        telemetryHibernateSince: _telemetryHibernateState.mode === 'hibernate'
+          ? (Number(_telemetryHibernateState.since) || null)
+          : null,
+        telemetryGroundIdleSince: Number(_telemetryHibernateState.groundIdleSince) || null,
+        telemetryIdleForMs: Number(_telemetryHibernateState.idleForMs) || 0,
+        telemetryPauseIdleSince: Number(_telemetryHibernateState.pauseIdleSince) || null,
+        telemetryPauseForMs: Number(_telemetryHibernateState.pauseForMs) || 0,
+        telemetryIntervalMs: _telemetryHibernateState.mode === 'hibernate' ? 5000 : 500,
         sentAt: Date.now()
       }));
     };
@@ -5014,6 +5048,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const EVT_FLIGHT_LOADED = 915;
       const SYS_REQ_SIM = 920;
       const SYS_REQ_DIALOG = 921;
+      const telemetryHibernateController = createTelemetryHibernateController();
+      let currentTelemetryHibernateState = disconnectedTelemetryHibernateState();
 
       const runtimeState = {
         pauseFlags: 0,
@@ -5228,9 +5264,20 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 ? (simPausedA > 0.5)
                 : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
               const simPausedFromEvent = (runtimeState.pauseFlags || 0) !== 0;
+              const simPaused = simPausedFromEvent || simPausedFromVar;
+              const inMenuOrMap = isInMenuOrMap();
 
               const ws = getWs();
-              const validPosition = lat !== 0 || lon !== 0;
+              currentTelemetryHibernateState = telemetryHibernateController.update({
+                now,
+                lat,
+                lon,
+                onGround,
+                groundSpeedKts,
+                paused: simPaused,
+                menuDetected: runtimeState.simRunning === 0
+              });
+              const validPosition = currentTelemetryHibernateState.validPosition;
               if (validPosition) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
@@ -5238,6 +5285,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 if (typeof updateEfbState === 'function') {
                   updateEfbState({
                     simulatorConnected: true,
+                    telemetryHibernate: currentTelemetryHibernateState,
                     snapshot: {
                       capturedAt: now,
                       lat,
@@ -5254,9 +5302,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   });
                 }
               } else if (typeof updateEfbState === 'function') {
-                updateEfbState({ snapshot: null });
+                updateEfbState({
+                  simulatorConnected: true,
+                  telemetryHibernate: currentTelemetryHibernateState,
+                  snapshot: null
+                });
               }
-              if (ws && ws.readyState === WebSocket.OPEN && validPosition) {
+              if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
                   mslFt: Math.round(alt || 0),
@@ -5282,11 +5334,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     : (Number.isFinite(precipState) ? precipState > 0 : null),
                   inCloud: Number.isFinite(inCloud) ? (inCloud > 0.5) : null,
                   turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
-                  simPaused: simPausedFromEvent || simPausedFromVar,
+                  simPaused,
                   pauseFlags: runtimeState.pauseFlags || 0,
                   simRunning: runtimeState.simRunning,
                   dialogMode: runtimeState.dialogMode,
-                  inMenuOrMap: isInMenuOrMap(),
+                  inMenuOrMap,
                   parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null,
                   totalWeightLbs: Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null,
                   emptyWeightLbs: Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null,
@@ -5308,6 +5360,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   pin: pin,
                   trackerVersion: TRACKER_VERSION,
                   trackerVersionCode: TRACKER_VERSION_CODE,
+                  telemetryMode: 'active',
+                  telemetryHibernateReason: null,
                   lat: lat,
                   lon: lon,
                   alt: Math.round(alt),
@@ -5394,6 +5448,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const trafficInterval = setInterval(() => {
         const ws = getWs();
         if (!ws || ws.readyState !== 1 /*OPEN*/) return;
+        if (currentTelemetryHibernateState.hibernating) {
+          trafficBuffer = {};
+          latestTrafficSnapshot = null;
+          latestGroundTrafficSnapshot = [];
+          return;
+        }
         trafficBuffer = {};
         // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 50 NM = 92600m
         handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 92600, 1);
@@ -5426,7 +5486,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
-        if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: false, snapshot: null });
+        if (typeof updateEfbState === 'function') updateEfbState({
+          simulatorConnected: false,
+          telemetryHibernate: disconnectedTelemetryHibernateState(),
+          snapshot: null
+        });
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
@@ -5435,7 +5499,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       });
     })
     .catch(err => {
-      if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: false, snapshot: null });
+      if (typeof updateEfbState === 'function') updateEfbState({
+        simulatorConnected: false,
+        telemetryHibernate: disconnectedTelemetryHibernateState(),
+        snapshot: null
+      });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
     });

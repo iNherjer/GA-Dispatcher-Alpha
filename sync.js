@@ -14598,6 +14598,9 @@ let liveGpsMarkerSvgElement = null;
 let lastLivePlanePerformanceMode = null;
 window.liveTrackerConnected = false;
 window.liveTrackerVersionCode = null;
+window.liveTrackerTelemetryMode = 'unknown';
+window.liveTrackerTelemetryReason = '';
+window.liveTrackerTelemetrySince = null;
 window.liveGpsRelayKey = 'cloudflare';
 window.liveGpsRelayCode = 'C';
 let lastTrackerDisconnectAt = 0;
@@ -14824,6 +14827,8 @@ function _setLiveGpsIndicator(state, pkt = null) {
     const relayName = _liveGpsRelayEndpoint().label;
     ind.dataset.trackerState = nextState;
     ind.dataset.relay = String(window.liveGpsRelayCode || '');
+    ind.dataset.telemetryMode = String(window.liveTrackerTelemetryMode || 'unknown');
+    ind.dataset.telemetryReason = String(window.liveTrackerTelemetryReason || '');
     ind.style.textShadow = 'none';
 
     if (nextState === 'live') {
@@ -14838,6 +14843,22 @@ function _setLiveGpsIndicator(state, pkt = null) {
         ind.style.color = '#55d7ff';
         ind.style.textShadow = '0 0 7px rgba(85, 215, 255, 0.75)';
         ind.title = `PC-Tracker über ${relayName} verbunden; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        return;
+    }
+    if (nextState === 'hibernate') {
+        const reason = String(window.liveTrackerTelemetryReason || '');
+        const reasonText = ({
+            ground_idle: 'seit fünf Minuten am Boden unter 5 kt',
+            paused: 'seit fünf Minuten pausiert',
+            menu_zero: 'MSFS-Menüposition erkannt',
+            menu_position: 'MSFS-Menüposition erkannt',
+            sim_stopped: 'MSFS-Simulation gestoppt',
+            sim_disconnected: 'keine SimConnect-Verbindung'
+        })[reason] || 'keine plausible Sim-Position';
+        ind.textContent = `🛰️ HIB${connectionLabel ? ` · ${connectionLabel}` : ''}`;
+        ind.style.color = '#8fd8ff';
+        ind.style.textShadow = '0 0 7px rgba(143, 216, 255, 0.55)';
+        ind.title = `Tracker-Hibernate über ${relayName}: ${reasonText}; Status alle 5 Sekunden${versionLabel ? ` – Version ${versionLabel}` : ''}`;
         return;
     }
     if (nextState === 'wait') {
@@ -14855,6 +14876,9 @@ function _setLiveGpsIndicator(state, pkt = null) {
         return;
     }
     window.liveTrackerVersionLabel = '';
+    window.liveTrackerTelemetryMode = 'unknown';
+    window.liveTrackerTelemetryReason = '';
+    window.liveTrackerTelemetrySince = null;
     ind.textContent = '🛰️ OFF';
     ind.style.color = '#666';
     ind.title = 'Kein PC-Tracker verbunden';
@@ -14873,10 +14897,28 @@ function _clearTrackerHeartbeat() {
     }
     lastTrackerHeartbeatAt = 0;
     window.liveTrackerCapabilities = [];
+    window.liveTrackerTelemetryMode = 'unknown';
+    window.liveTrackerTelemetryReason = '';
+    window.liveTrackerTelemetrySince = null;
 }
 
 function _markTrackerHeartbeat(pkt) {
     lastTrackerHeartbeatAt = Date.now();
+    const reportedTelemetryMode = String(pkt?.telemetryMode || '').trim().toLowerCase();
+    if (reportedTelemetryMode === 'active' || reportedTelemetryMode === 'hibernate') {
+        window.liveTrackerTelemetryMode = reportedTelemetryMode;
+        window.liveTrackerTelemetryReason = reportedTelemetryMode === 'hibernate'
+            ? String(pkt?.telemetryHibernateReason || 'unknown')
+            : '';
+        const reportedSince = Number(pkt?.telemetryModeSince ?? pkt?.telemetryHibernateSince);
+        window.liveTrackerTelemetrySince = Number.isFinite(reportedSince)
+            ? reportedSince
+            : null;
+    } else if (Number.isFinite(Number(pkt?.lat)) && Number.isFinite(Number(pkt?.lon))) {
+        window.liveTrackerTelemetryMode = 'active';
+        window.liveTrackerTelemetryReason = '';
+        window.liveTrackerTelemetrySince = null;
+    }
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) window.liveTrackerCapabilities = reportedCapabilities;
     try {
@@ -14897,6 +14939,9 @@ function _markTrackerHeartbeat(pkt) {
             window.liveTrackerVersionCode = null;
             window.liveTrackerVersionLabel = '';
             window.liveTrackerCapabilities = [];
+            window.liveTrackerTelemetryMode = 'unknown';
+            window.liveTrackerTelemetryReason = '';
+            window.liveTrackerTelemetrySince = null;
             _setLiveGpsIndicator('wait');
             const alternate = window.gaRelayFailover?.alternateRelayKey?.(window.liveGpsRelayKey)
                 || (window.liveGpsRelayKey === 'render' ? 'cloudflare' : 'render');
@@ -16259,7 +16304,11 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                     _cancelLiveGpsRelayProbe();
                 }
                 const indicatorState = document.getElementById('liveGpsIndicator')?.dataset?.trackerState;
-                if (indicatorState !== 'live') _setLiveGpsIndicator('link', data);
+                if (window.liveTrackerTelemetryMode === 'hibernate') {
+                    _setLiveGpsIndicator('hibernate', data);
+                } else if (indicatorState !== 'live') {
+                    _setLiveGpsIndicator('link', data);
+                }
                 return;
             }
             if (data.type === 'gps') {
@@ -16318,7 +16367,9 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                 gpsWatchdog = setTimeout(() => {
                     const ind = document.getElementById('liveGpsIndicator');
                     if (ind?.dataset?.trackerState === 'live') {
-                        _setLiveGpsIndicator(_trackerHeartbeatIsFresh() ? 'link' : 'wait');
+                        _setLiveGpsIndicator(_trackerHeartbeatIsFresh()
+                            ? (window.liveTrackerTelemetryMode === 'hibernate' ? 'hibernate' : 'link')
+                            : 'wait');
                     }
                 }, 3000);
             }

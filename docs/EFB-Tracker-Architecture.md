@@ -132,6 +132,22 @@ ebenfalls erst nach einem echten Tracker-Paket zum Primaerpfad zurueck. Dadurch
 bleiben alte Render-only-Tracker kompatibel, ohne im regulaeren Cloudflare-
 Betrieb Render-Egress zu erzeugen.
 
+Tracker v349 fuehrt additiv `telemetry.hibernate.v1` ein. Nach fuenf Minuten
+am Boden mit weniger als 5 kt oder nach fuenf Minuten durchgehender Pause
+pausiert er die kontinuierlichen GPS- und Traffic-Pakete an beide Relays. Die
+SimConnect-Abfrage, der lokale EFB-
+Snapshot, Commands und ACKs bleiben aktiv; ein unkomprimierter Trackerstatus
+meldet alle fuenf Sekunden Modus und Grund. Die MSFS-Nullposition nahe `(0,0)`,
+die pausierte Menueposition nahe `(0,90)` oder ein expliziter `SimStop`
+aktivieren Hibernate sofort. Das von MSFS dort gemeldete `Menu N` ist
+nachweislich kein Erkennungssignal. Eine plausible
+Position mit mindestens 5 kt oder ein nicht mehr gesetztes `SIM ON GROUND`
+reaktiviert die 2-Hz-Telemetrie ohne Tracker-Neustart; ein Pause-Hibernate
+endet beim Aufheben der Pause, sofern kein anderer Hibernate-Grund fortbesteht.
+Die Web-App zeigt diesen
+Zustand als `HIB` und behandelt den weiterlaufenden Status als gueltigen
+Heartbeat, aber nicht als Flugtelemetrie.
+
 Der Cloudflare-Worker verwendet pro SHA-256-Pilot-ID-Raum ein SQLite-backed
 Durable Object mit Hibernation-WebSockets. Die Pilot-ID steht nicht im
 WebSocket-Pfad. `relayRole=tracker|viewer` begrenzt Tracker-Commands auf Tracker
