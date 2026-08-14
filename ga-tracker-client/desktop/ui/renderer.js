@@ -85,8 +85,17 @@ const labels = {
   process: { stopped: 'Bereit', starting: 'Startet', running: 'Aktiv', stopping: 'Stoppt', error: 'Fehler' },
   relay: { waiting: 'Wartet', connecting: 'Verbindet …', connected: 'Verbunden' },
   simulator: { waiting: 'Nicht verbunden', connected: 'Verbunden' },
-  telemetry: { waiting: 'Keine Positionsdaten', live: 'Live' }
+  telemetry: { off: 'OFF', link: 'LINK', hibernate: 'HIB', live: 'LIVE' }
 };
+
+function relayStatusLabel(tracker = {}) {
+  const cloudflare = tracker.relayCloudflare === 'connected';
+  const render = tracker.relayRender === 'connected';
+  if (cloudflare && render) return 'C+R';
+  if (cloudflare) return 'C';
+  if (render) return 'R';
+  return labels.relay[tracker.relay] || 'Wartet';
+}
 
 const updateModules = {
   desktop: {
@@ -365,11 +374,11 @@ function render(state) {
   setClass(elements.processBadge, 'process-badge', tracker.process);
   elements.processBadge.textContent = labels.process[tracker.process] || 'Bereit';
   setClass(elements.relayDot, 'status-dot', tracker.relay);
-  elements.relayStatus.textContent = labels.relay[tracker.relay] || 'Wartet';
+  elements.relayStatus.textContent = relayStatusLabel(tracker);
   setClass(elements.simDot, 'status-dot', tracker.simulator);
   elements.simStatus.textContent = labels.simulator[tracker.simulator] || 'Nicht verbunden';
   setClass(elements.telemetryDot, 'status-dot', tracker.telemetry);
-  elements.telemetryStatus.textContent = labels.telemetry[tracker.telemetry] || 'Keine Positionsdaten';
+  elements.telemetryStatus.textContent = labels.telemetry[tracker.telemetry] || 'OFF';
 
   if (document.activeElement !== elements.pilotIdInput) elements.pilotIdInput.value = settings.pilotId || '';
   elements.pinInput.placeholder = settings.hasPin ? 'gespeichert' : '••••';

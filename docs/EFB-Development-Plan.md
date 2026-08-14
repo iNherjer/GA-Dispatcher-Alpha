@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v352 Alpha | v320 | v352 schliesst reale HIB-Wake- und Last-Position-Luecken; Stable bleibt unveraendert |
+| Tracker-Runtime | v352 Alpha; v353 lokal vorbereitet | v320 | v353 vereinheitlicht LIVE/HIB/LINK/OFF und verhindert Checklisten-Split-Brain; Release steht noch aus |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -82,15 +82,36 @@ kurzen Ereignis-Uebergangsfrist autoritativ, sodass ein nicht zurueckgesetztes
 Event-Flag den Tracker nicht dauerhaft im Grund `paused` halten kann. Der
 zugehoerige Web-Cache ist `ga-dispatcher-v1637`.
 
+v353 ist lokal vorbereitet und trennt den sichtbaren Betriebszustand vom Relay-Transport. Das Desktop-
+Fenster zeigt `LIVE`, `HIB`, `LINK` oder `OFF` und weist die tatsaechlich
+verbundenen Relay-Wege als `C+R`, `C` beziehungsweise `R` aus. Kurze
+WebSocket-Neuverbindungen und geplanter App-Netzwerkschlaf werden in der
+Web-App nicht mehr faelschlich als abgeschalteter Tracker dargestellt; ein
+bekannter HIB-Zustand bleibt bis zum Wake sichtbar. Die abgearbeitete normale
+Homebase-Tordiagnose schreibt keine wiederholten Open-/Close-/Scan-Zeilen mehr,
+Fehler bleiben weiterhin protokolliert. Der zugehoerige Web-Cache ist
+`ga-dispatcher-v1638`.
+
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
-v348 mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
+mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
 gespeicherten `CHKIDX_`-/`CHK_`-Datensaetze beim Start und alle 60 Sekunden
 selbst. Nur ein vollstaendig gueltiger Abruf ersetzt den atomaren lokalen Cache
 `efb-checklists-v1.json`; bei Netz- oder Serverfehlern bleibt der letzte Stand
 erhalten. `GET /api/v1/checklists` stellt ihn lokal fuer das EFB bereit. Der
 Abhakfortschritt bleibt weiter ausschliesslich im EFB-localStorage und wird
 nicht an App, Tracker oder Cloud zurueckgeschrieben.
+
+v353 behebt dabei den im realen Log nachgewiesenen Konflikt zwischen drei
+lokalen und zwei im Cloud-Index eingetragenen Listen. Identischer Inhalt ist
+weiterhin ein echtes `noop` ohne Persistenz oder Revisionswechsel und wird nun
+auch so protokolliert. Sobald der Tracker in einer Sitzung einen gueltigen,
+vollstaendigen App-Snapshot akzeptiert hat, bleibt dieser Snapshot autoritativ;
+ein bereits laufender oder spaeterer Cloud-Fallback darf ihn nicht wieder durch
+einen unvollstaendigen Index ersetzen. Die Web-App zieht beim Start zunaechst
+vorhandene Remote-Listen und ergaenzt danach nur fehlende oder lokal neuere
+Eintraege samt Index. Fehlgeschlagene Remote-Abrufe werden nicht
+ueberschrieben; explizite Loeschungen behalten den bestehenden Indexpfad.
 
 Mission Control erhaelt ueber `mission.view.v1` eine begrenzte Projektion der
 bereits in der App dargestellten Missionsdaten aus demselben Authority-Resume-
@@ -1029,11 +1050,26 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       letzte Kartenposition, App-/Routeninteraktion, Menueende, Flugzustand,
       Traffic, Homebase, Mission-/Payload-Commands und lokalen EFB-Snapshot
       abgleichen, bevor derselbe Release nach Stable promoviert wird.
+- [ ] Tracker v353 und Desktop 1.6.1 real pruefen: `C+R`/`C`/`R`,
+      `LIVE`/`HIB`/`LINK`/`OFF`, HIB ueber geplanten App-Schlaf sowie eine
+      identische und eine 3/2-abweichende Checklistenbibliothek abgleichen.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Der reale v352-Lauf bestaetigte Kartentisch-Wake und spaeteren
+  App-Open-Wake aus `hibernate:paused`. Kurze Render-/Cloudflare-Neuverbindungen
+  wurden funktional ueberstanden, die App beschriftete geplanten Schlaf oder
+  Reconnect jedoch zeitweise als `OFF`. v353 reserviert `OFF` fuer einen
+  tatsaechlich beendeten Tracker und trennt `LINK`, `HIB` und `LIVE` sichtbar.
+  Dasselbe Log belegte einen wiederholten Checklistenwechsel 3 -> 2: Die App
+  lieferte drei lokale Listen, waehrend der direkte Cloud-Poll einen
+  unvollstaendigen Zweierindex als Ersatz behandelte. v353 macht den
+  App-Snapshot sitzungsautoritativ, meldet identischen Cloudinhalt als `noop`
+  und fuellt fehlende beziehungsweise neuere lokale Listen kontrolliert in den
+  Cloud-Index zurueck. Stable bleibt auf v320.
 
 - 2026-08-14: Der reale v351-Test bestaetigte den HIB-Eintritt nach exakt fuenf
   Minuten, zeigte aber drei unabhaengige Wake-Luecken. Der 5-Sekunden-Status

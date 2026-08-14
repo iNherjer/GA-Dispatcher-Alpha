@@ -17,7 +17,8 @@ zwischen `Stable` und `Alpha` gewechselt werden.
 - vorherige gepruefte Engine als lokaler Rueckfall
 - Tracker-Engine startet standardmaessig automatisch nach der Updatepruefung
 - optionaler unsichtbarer Start direkt ins Windows-Tray
-- Relay-, SimConnect- und Telemetrie-Status aus dem Tracker-Protokoll
+- getrennte Relay-Anzeige `C+R`/`C`/`R` und Trackerzustand
+  `LIVE`/`HIB`/`LINK`/`OFF` aus dem Tracker-Protokoll
 - Updateeinstellung `ask` oder `automatic`
 - Selbst-Updater fuer die installierte Desktop-App mit SHA-512-Pruefung und
   kontrolliertem Neustart

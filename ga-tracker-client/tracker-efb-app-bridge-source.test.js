@@ -13,6 +13,8 @@ test('the app exports custom checklists only behind the tracker capability', () 
   assert.match(source, /capabilities\.includes\(TRACKER_CHECKLIST_CAPABILITY\)/);
   assert.match(source, /type: 'efb_checklist_library\.store'/);
   assert.match(source, /window\.gaGetCustomChecklistTrackerSnapshot = trackerCustomChecklistSnapshot/);
+  assert.match(source, /maybePullKvChecklists\(true\)/);
+  assert.match(source, /pendingUploads/);
 });
 
 test('the authority bundle carries the bounded EFB mission projection without replacing mission state', () => {

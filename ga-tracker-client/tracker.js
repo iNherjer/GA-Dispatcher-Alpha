@@ -50,8 +50,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v352';
-const TRACKER_VERSION_CODE = 352;
+const TRACKER_VERSION = 'v353';
+const TRACKER_VERSION_CODE = 353;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4296,8 +4296,13 @@ function startTracker(syncId, pin) {
   let _checklistCloudLastAttemptAt = 0;
   let _checklistCloudLastSuccessAt = 0;
   let _checklistCloudLastStatus = 'pending';
+  let _checklistAppSnapshotAccepted = false;
   const refreshChecklistLibraryFromCloud = async (reason = 'interval') => {
     if (_checklistCloudSyncInProgress) return;
+    if (_checklistAppSnapshotAccepted) {
+      _checklistCloudLastStatus = 'app-authority';
+      return;
+    }
     _checklistCloudSyncInProgress = true;
     _checklistCloudLastAttemptAt = Date.now();
     try {
@@ -4307,10 +4312,18 @@ function startTracker(syncId, pin) {
         debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=${_checklistCloudLastStatus} error=${result.message || 'unknown'}`);
         return;
       }
+      // Der Web-Client liefert die vollstaendige lokale Bibliothek. Wenn sie
+      // waehrend des laufenden Cloud-Abrufs eingetroffen ist, darf ein aelterer
+      // CHKIDX_-Stand sie nicht direkt wieder ueberschreiben.
+      if (_checklistAppSnapshotAccepted) {
+        _checklistCloudLastStatus = 'app-authority';
+        debugLog(`EFB_CHECKLIST_CLOUD_DEFERRED reason=${reason} status=app-authority cloudChecklists=${result.library.checklists.length}`);
+        return;
+      }
       const stored = efbChecklistStore.store(result.library);
-      _checklistCloudLastStatus = stored.ok ? result.status : stored.status;
+      _checklistCloudLastStatus = stored.status;
       if (stored.ok) _checklistCloudLastSuccessAt = Date.now();
-      debugLog(`EFB_CHECKLIST_CLOUD_SYNC reason=${reason} status=${_checklistCloudLastStatus} checklists=${result.library.checklists.length} revision=${stored.snapshot.revision}`);
+      debugLog(`EFB_CHECKLIST_CLOUD_SYNC reason=${reason} status=${_checklistCloudLastStatus} cloudStatus=${result.status} checklists=${result.library.checklists.length} revision=${stored.snapshot.revision}`);
     } catch (error) {
       _checklistCloudLastStatus = 'exception';
       debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=exception error=${error?.message || error}`);
@@ -4353,6 +4366,7 @@ function startTracker(syncId, pin) {
       const nextKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
       if (previousKey !== nextKey) {
         debugLog(`TRACKER_TELEMETRY_MODE mode=${_telemetryHibernateState.mode || 'unknown'} reason=${_telemetryHibernateState.reason || 'none'} groundIdleMs=${Number(_telemetryHibernateState.idleForMs || 0)} pauseMs=${Number(_telemetryHibernateState.pauseForMs || 0)}`);
+        trackerStatus(`TRACKER_UI_STATE telemetry=${_telemetryHibernateState.mode === 'hibernate' ? 'hibernate' : 'link'} reason=${_telemetryHibernateState.reason || 'none'}`);
       }
     }
     if (Object.hasOwn(patch, 'snapshot')) _lastEfbSnapshot = patch.snapshot && typeof patch.snapshot === 'object' ? patch.snapshot : null;
@@ -4539,6 +4553,14 @@ function startTracker(syncId, pin) {
     if (String(command?.type || '') !== 'efb_checklist_library.store') return false;
     try {
       const result = efbChecklistStore.store(command?.library);
+      if (result.ok) {
+        const firstAcceptedAppSnapshot = !_checklistAppSnapshotAccepted;
+        _checklistAppSnapshotAccepted = true;
+        _checklistCloudLastStatus = 'app-authority';
+        if (firstAcceptedAppSnapshot) {
+          debugLog(`EFB_CHECKLIST_APP_AUTHORITY status=${result.status} checklists=${result.snapshot?.checklists?.length || 0} revision=${result.snapshot?.revision || 0}`);
+        }
+      }
       sendChecklistAck({
         type: 'efb_checklist_library.store_ack',
         commandId: command?.commandId || null,

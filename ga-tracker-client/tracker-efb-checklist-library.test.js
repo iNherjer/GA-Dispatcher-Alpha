@@ -82,3 +82,34 @@ test('failed persistence does not make an unsaved checklist look stored', () => 
   assert.equal(store.getSnapshot().checklists.length, 0);
   assert.equal(store.getSnapshot().revision, 0);
 });
+
+test('identical checklist content is a noop and keeps the stored revision', () => {
+  let writes = 0;
+  const memoryFs = {
+    existsSync() { return false; },
+    mkdirSync() {},
+    writeFileSync() { writes += 1; },
+    renameSync() {},
+    unlinkSync() {}
+  };
+  const store = createTrackerEfbChecklistStore({
+    storageFile: '/virtual/efb-checklists-v1.json',
+    fs: memoryFs,
+    now: () => 100
+  });
+  const library = {
+    revision: 7,
+    updatedAt: 80,
+    checklists: [{
+      id: 'same',
+      title: 'Identisch',
+      chapters: [{ id: 'start', title: 'Start', items: [{ id: 'one', text: 'Prüfen' }] }]
+    }]
+  };
+  const first = store.store(library);
+  const second = store.store({ ...library, revision: 99, updatedAt: 999 });
+  assert.equal(first.status, 'ok');
+  assert.equal(second.status, 'noop');
+  assert.equal(second.snapshot.revision, first.snapshot.revision);
+  assert.equal(writes, 1);
+});

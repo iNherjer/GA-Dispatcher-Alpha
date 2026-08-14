@@ -14791,6 +14791,9 @@ window.addEventListener('ga-sleepchange', (event) => {
     }
     _cancelLiveGpsRelayProbe();
     if (liveGpsSocket) {
+        const previousTrackerState = document.getElementById('liveGpsIndicator')?.dataset?.trackerState || '';
+        const previousTelemetryReason = String(window.liveTrackerTelemetryReason || '');
+        const previousTelemetrySince = window.liveTrackerTelemetrySince;
         try {
             liveGpsSocket.onopen = null;
             liveGpsSocket.onmessage = null;
@@ -14802,7 +14805,14 @@ window.addEventListener('ga-sleepchange', (event) => {
         window.liveTrackerConnected = false;
         window.liveTrackerVersionCode = null;
         _clearTrackerHeartbeat();
-        _setLiveGpsIndicator('off');
+        if (previousTrackerState === 'hibernate') {
+            window.liveTrackerTelemetryMode = 'hibernate';
+            window.liveTrackerTelemetryReason = previousTelemetryReason;
+            window.liveTrackerTelemetrySince = previousTelemetrySince;
+            _setLiveGpsIndicator('hibernate');
+        } else {
+            _setLiveGpsIndicator('link');
+        }
     }
     if (hadLiveGpsSession && reconnectId) {
         window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(reconnectId));
@@ -14911,7 +14921,7 @@ function _setLiveGpsIndicator(state, pkt = null) {
         ind.textContent = `🛰️ LINK${connectionLabel ? ` · ${connectionLabel}` : ''}`;
         ind.style.color = '#55d7ff';
         ind.style.textShadow = '0 0 7px rgba(85, 215, 255, 0.75)';
-        ind.title = `PC-Tracker über ${relayName} verbunden; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
+        ind.title = `Tracker-/Relay-Verbindung aktiv oder wird wiederhergestellt; warte auf Telemetrie${versionLabel ? ` – Version ${versionLabel}` : ''}`;
         return;
     }
     if (nextState === 'hibernate') {
@@ -16554,6 +16564,9 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
 
     liveGpsSocket.onclose = () => {
         if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
+        const previousTrackerState = document.getElementById('liveGpsIndicator')?.dataset?.trackerState || '';
+        const previousTelemetryReason = String(window.liveTrackerTelemetryReason || '');
+        const previousTelemetrySince = window.liveTrackerTelemetrySince;
         clearTimeout(gpsWatchdog);
         _clearTrackerHeartbeat();
         liveGpsSocket = null;
@@ -16587,7 +16600,6 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
         _releaseLiveGpsScreenWakeLock('websocket-close');
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
-        _setLiveGpsIndicator('off');
         hideNextWpTelemetry();
 
         // Auto-HDG zurücksetzen damit es bei der nächsten Verbindung wieder greift
@@ -16595,8 +16607,17 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
 
         // Exponentielles Backoff: 2s → 4s → 8s → max 15s (fängt Render.com Cold Starts sauber ab)
         if (socket.gaFatalRelayError === true) {
+            _setLiveGpsIndicator('off');
             console.warn(`[GPS] ❌ ${relayEndpoint.label}-Relay hat die Verbindung abgelehnt; kein automatischer Wechsel mit denselben Zugangsdaten.`);
             return;
+        }
+        if (previousTrackerState === 'hibernate') {
+            window.liveTrackerTelemetryMode = 'hibernate';
+            window.liveTrackerTelemetryReason = previousTelemetryReason;
+            window.liveTrackerTelemetrySince = previousTelemetrySince;
+            _setLiveGpsIndicator('hibernate');
+        } else {
+            _setLiveGpsIndicator('link');
         }
         console.warn(`[GPS] ❌ ${relayEndpoint.label}-Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
         liveGpsReconnectTimer = setTimeout(() => {

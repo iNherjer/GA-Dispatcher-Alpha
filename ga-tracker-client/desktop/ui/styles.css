@@ -271,6 +271,21 @@ summary {
   box-shadow: 0 0 0 3px rgba(97, 230, 167, 0.1), 0 0 12px rgba(97, 230, 167, 0.32);
 }
 
+.status-dot.link {
+  background: var(--blue);
+  box-shadow: 0 0 0 3px rgba(84, 184, 255, 0.1), 0 0 12px rgba(84, 184, 255, 0.28);
+}
+
+.status-dot.hibernate {
+  background: #8fd8ff;
+  box-shadow: 0 0 0 3px rgba(143, 216, 255, 0.1), 0 0 12px rgba(143, 216, 255, 0.25);
+}
+
+.status-dot.off {
+  background: #536678;
+  box-shadow: 0 0 0 3px rgba(83, 102, 120, 0.11);
+}
+
 .overview-detail {
   min-height: 17px;
   margin: 11px 2px 0;

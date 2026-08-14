@@ -3881,17 +3881,27 @@ ${routeLines}`;
         kvPullInProgress = true;
         lastKvPullAt = now;
         try {
-            const index = await kvGet(kvIndexKey(credentials), credentials);
-            if (!index || !Array.isArray(index.entries)) return;
+            const index = await kvGet(kvIndexKey(credentials), credentials) || {
+                kind: 'checklist-index-v1',
+                lastModified: 0,
+                entries: []
+            };
+            if (!Array.isArray(index.entries)) return;
             const remoteLists = [];
+            const fetchedRemoteIds = new Set();
+            const failedRemoteIds = new Set();
             for (const entry of index.entries.slice(0, 80)) {
                 try {
                     const payload = await kvGet(kvChecklistKey(entry.id, credentials), credentials);
                     const checklist = sanitizeCustomList(payload?.checklist || payload);
-                    if (checklist) remoteLists.push(checklist);
-                } catch (_) {}
+                    if (checklist) {
+                        remoteLists.push(checklist);
+                        fetchedRemoteIds.add(checklist.id);
+                    }
+                } catch (_) {
+                    failedRemoteIds.add(String(entry?.id || ''));
+                }
             }
-            if (!remoteLists.length) return;
             let changed = false;
             remoteLists.forEach(remote => {
                 const idx = customLists.findIndex(local => local.id === remote.id);
@@ -3907,6 +3917,40 @@ ${routeLines}`;
                 saveCustomLists();
                 if (state.view === 'list' || state.view === 'manager' || state.view === 'home') render();
                 setStatus('Cloud-Listen aktualisiert.', 'good');
+            }
+
+            // Der Cloud-Index war historisch nicht fuer alle bereits lokal
+            // vorhandenen Listen vollstaendig. Nach dem nicht-destruktiven Pull
+            // wird deshalb nur das hochgeladen, was fehlt oder lokal neuer ist.
+            // Fehlgeschlagene Remote-Abrufe werden dabei nie ueberschrieben.
+            const remoteEntries = new Map(index.entries.map(entry => [String(entry?.id || ''), entry]));
+            const pendingUploads = customLists.filter(checklist => {
+                const remote = remoteEntries.get(checklist.id);
+                if (failedRemoteIds.has(checklist.id)) return false;
+                if (!remote || !fetchedRemoteIds.has(checklist.id)) return true;
+                return Number(checklist.updatedAt || 0) > Number(remote.updatedAt || 0);
+            });
+            for (const checklist of pendingUploads) {
+                await kvPut(
+                    kvChecklistKey(checklist.id, credentials),
+                    { kind: 'checklist-v1', checklist, lastModified: Date.now() },
+                    credentials
+                );
+            }
+            const entrySignature = entries => JSON.stringify((entries || []).map(entry => ({
+                id: String(entry?.id || ''),
+                updatedAt: Number(entry?.updatedAt || 0),
+                chapterCount: Number(entry?.chapterCount || 0),
+                itemCount: Number(entry?.itemCount || 0),
+                published: !!entry?.published,
+                communityId: String(entry?.communityId || '')
+            })).sort((a, b) => a.id.localeCompare(b.id)));
+            const nextIndex = kvIndexPayload(credentials);
+            if (pendingUploads.length || entrySignature(index.entries) !== entrySignature(nextIndex.entries)) {
+                await kvPut(kvIndexKey(credentials), nextIndex, credentials);
+                if (!changed && (state.view === 'list' || state.view === 'manager')) {
+                    setStatus('Lokale Listen in der Cloud ergänzt.', 'good');
+                }
             }
         } catch (_) {
             if (state.view === 'list' || state.view === 'manager') setStatus('Cloud-Listen nicht erreichbar.', 'warn');
@@ -4422,6 +4466,7 @@ ${routeLines}`;
         initDrawerEvents();
         render();
         scheduleCustomChecklistsForTracker(600);
+        maybePullKvChecklists(true);
         setInterval(() => {
             if (document.visibilityState === 'visible') maybePullCommunity(false);
         }, COMMUNITY_POLL_TIMER_MS);

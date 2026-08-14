@@ -195,6 +195,25 @@ aber als sichtbar gekennzeichneter, eingefrorener HIB-Marker dargestellt
 werden. Nicht plausible `(0,90)`-/`(0,0)`-, SimStop- und ungueltige Zustaende
 bleiben gegen App-Wake gesperrt.
 
+Tracker v353 vereinheitlicht die sichtbaren Betriebszustaende ueber Web-App
+und Desktop: `LIVE` bedeutet volle Relay-Telemetrie, `HIB` den weiterhin
+befehlsfaehigen 5-Sekunden-Status, `LINK` einen laufenden Tracker beim Aufbau
+oder Warten auf Telemetrie und `OFF` ausschliesslich einen beendeten Prozess
+beziehungsweise eine endgueltig abgelehnte Sitzung. Die Relay-Anzeige bleibt
+davon getrennt und nennt `C+R`, `C` oder `R`. Ein geplanter App-Netzwerkschlaf
+und ein automatischer Reconnect verlieren den letzten bekannten HIB-Zustand
+nicht mehr durch eine voreilige OFF-Anzeige.
+
+Fuer `checklist.library.v1` ist der vollstaendige App-Snapshot innerhalb einer
+laufenden Tracker-Sitzung die schreibende Autoritaet. Der direkte CHKIDX-/CHK-
+Abruf ist ein Start-/Fallbackpfad und darf einen bereits akzeptierten
+App-Snapshot weder nachtraeglich noch durch ein Race ueberschreiben.
+Inhaltsgleiche Bibliotheken bleiben ohne Persistenz und Revisionswechsel
+`noop`. Die Web-App vereinigt beim Start zunaechst Remote-Neuzugaenge und
+neuere Remote-Eintraege und schreibt danach nur fehlende oder lokal neuere
+Listen zurueck. Damit wird ein unvollstaendiger Cloud-Index repariert, ohne
+einen fehlgeschlagenen Remote-Abruf blind zu ueberschreiben.
+
 Homebase-Crew-Capabilities werden getrennt vom Tracker-/EFB-Hello ausgehandelt,
 weil der SimConnect-Objektmanager beim fruehen Trackerstart noch fehlen kann.
 Eine gueltige negative Capability-Antwort ist deshalb ein temporaerer Zustand,
