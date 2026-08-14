@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v352 Alpha; v353 lokal vorbereitet | v320 | v353 vereinheitlicht LIVE/HIB/LINK/OFF und verhindert Checklisten-Split-Brain; Release steht noch aus |
+| Tracker-Runtime | v353 Alpha | v320 | v353 vereinheitlicht LIVE/HIB/LINK/OFF und verhindert Checklisten-Split-Brain; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -82,15 +82,16 @@ kurzen Ereignis-Uebergangsfrist autoritativ, sodass ein nicht zurueckgesetztes
 Event-Flag den Tracker nicht dauerhaft im Grund `paused` halten kann. Der
 zugehoerige Web-Cache ist `ga-dispatcher-v1637`.
 
-v353 ist lokal vorbereitet und trennt den sichtbaren Betriebszustand vom Relay-Transport. Das Desktop-
+v353 ist als Alpha zusammen mit Desktop 1.6.1 veroeffentlicht und trennt den
+sichtbaren Betriebszustand vom Relay-Transport. Das Desktop-
 Fenster zeigt `LIVE`, `HIB`, `LINK` oder `OFF` und weist die tatsaechlich
 verbundenen Relay-Wege als `C+R`, `C` beziehungsweise `R` aus. Kurze
 WebSocket-Neuverbindungen und geplanter App-Netzwerkschlaf werden in der
 Web-App nicht mehr faelschlich als abgeschalteter Tracker dargestellt; ein
 bekannter HIB-Zustand bleibt bis zum Wake sichtbar. Die abgearbeitete normale
 Homebase-Tordiagnose schreibt keine wiederholten Open-/Close-/Scan-Zeilen mehr,
-Fehler bleiben weiterhin protokolliert. Der zugehoerige Web-Cache ist
-`ga-dispatcher-v1638`.
+Fehler bleiben weiterhin protokolliert. Der veroeffentlichte Web-Cache ist
+`ga-dispatcher-v1639`.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
