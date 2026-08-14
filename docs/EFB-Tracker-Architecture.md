@@ -183,6 +183,18 @@ Command und weckt vor der Ausfuehrung. Damit sind automatische Zustandsabfragen
 keine Benutzerinteraktion, waehrend echte Homebase-Aenderungen ihre Wake-
 Semantik behalten.
 
+Tracker v352 behandelt daneben reale Sim-/UI-Aktivitaet als Ende eines
+Boden-/Pause-HIB. `Pause`/`Pause_EX1` mit aufgehobener Pause, `SimStart`,
+`PositionChanged` und `FlightLoaded` wecken den HIB-Controller und starten
+Boden- sowie Pause-Timer neu. Pause-SimVars loesen nach einer kurzen
+Event-Uebergangsfrist ein eventuell haengengebliebenes Pause-Event-Flag ab.
+Die Web-App fordert bei vertrauenswuerdiger Benutzeraktivitaet und bei
+semantischen Routenaenderungen einen Wake an. Statuspakete bleiben dabei
+read-only und erzeugen selbst keinen Wake; ihre letzte gueltige Position darf
+aber als sichtbar gekennzeichneter, eingefrorener HIB-Marker dargestellt
+werden. Nicht plausible `(0,90)`-/`(0,0)`-, SimStop- und ungueltige Zustaende
+bleiben gegen App-Wake gesperrt.
+
 Homebase-Crew-Capabilities werden getrennt vom Tracker-/EFB-Hello ausgehandelt,
 weil der SimConnect-Objektmanager beim fruehen Trackerstart noch fehlen kann.
 Eine gueltige negative Capability-Antwort ist deshalb ein temporaerer Zustand,

@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v351 Alpha | v320 | v351 entkoppelt unveraenderte Homebase-Crew-Polls vom Hibernate-Wake; Stable bleibt unveraendert |
+| Tracker-Runtime | v352 Alpha | v320 | v352 schliesst reale HIB-Wake- und Last-Position-Luecken; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -29,14 +29,14 @@ einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
 auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
 behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
 
-Tracker v351 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
+Tracker v352 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
 oder sofort bei MSFS-Nullposition `(0,0)`, pausierter Menueposition nahe
 `(0,90)`, nach fuenf Minuten durchgehender Pause beziehungsweise bei `SimStop`
 pausieren nur die
 2-Hz-GPS-/Traffic-Pakete zu Cloudflare und Render. SimConnect, lokaler EFB-
 Snapshot, Commands und ACKs bleiben aktiv. Der 5-Sekunden-Status meldet
-`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v351 C/R`, und
+`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v352 C/R`, und
 Flugzustand oder mindestens 5 kt wecken die Telemetrie ohne Neustart. Die
 isolierte Zustandslogik und der Loopback-Vertrag sind automatisiert getestet;
 der reale MSFS-Uebergang bleibt vor einer Stable-Promotion zu bestaetigen.
@@ -62,6 +62,25 @@ Wiederholungen erhalten `status=noop`, bauen keine SimObjects neu auf und
 setzen weder Boden- noch Pause-HIB-Timer zurueck. Eine echte Aenderung bleibt
 ein Sim-relevanter Command und weckt weiterhin vor ihrer Ausfuehrung. Der
 zugehoerige Web-Cache ist `ga-dispatcher-v1636`.
+
+v352 schliesst die im anschliessenden realen HIB-Test gefundenen Wake- und
+Darstellungsluecken. Die Web-App zeichnet die im Status weitergefuehrte letzte
+gueltige Position auch dann als gekennzeichneten HIB-Marker, wenn der
+Kartentisch erst nach dem letzten 2-Hz-Paket geoeffnet oder neu aufgebaut wird.
+Vertrauenswuerdige Nutzerinteraktionen wie Kartentisch oeffnen/schliessen,
+Klick, Touch, Tastatur, Scrollen oder das Ende einer Drag-Aktion fordern bei
+Boden-/Pause-HIB einen Wake an; die gesperrten Menue-/Nullpositionen bleiben
+unveraendert nicht weckbar. Die Routensignatur erfasst nun auch kleine
+Geometrie-, Namen-, Hoehen- und POI-Aenderungen sowie das Leeren einer Route,
+damit der bestehende Authority-/Wake-Pfad nicht ausfaellt.
+
+Auf Trackerseite werden `Pause`, `Pause_EX1`, `SimStart`, `PositionChanged` und
+`FlightLoaded` als echte Zustandswechsel behandelt. Ein aufgehobenes
+Pause-Signal sowie neue Flug-/Positionszustaende wecken den Controller und
+setzen beide HIB-Timer zurueck. SimConnect-Pausevariablen sind nach einer
+kurzen Ereignis-Uebergangsfrist autoritativ, sodass ein nicht zurueckgesetztes
+Event-Flag den Tracker nicht dauerhaft im Grund `paused` halten kann. Der
+zugehoerige Web-Cache ist `ga-dispatcher-v1637`.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
@@ -1002,15 +1021,30 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       implementieren und automatisiert pruefen: unveraenderte Polls senden
       keinen neuen App-Command; alte beziehungsweise doppelte Crew-Commands
       erhalten tracker-seitig `noop` und loesen keinen HIB-Wake aus.
-- [ ] Tracker v351 real in MSFS fuer ACTIVE -> HIB -> ACTIVE pruefen und dabei Position,
-      Flugzustand, Traffic, Homebase, Mission-/Payload-Commands und lokalen
-      EFB-Snapshot abgleichen, bevor derselbe Release nach Stable promoviert
-      wird.
+- [x] Tracker v351 real bis ACTIVE -> HIB pruefen: HIB trat nach fuenf Minuten
+      Pause ein und der Homebase-Poll hielt ihn nicht mehr wach. Der Test fand
+      drei Folgeluecken bei Kartendarstellung, App-/Routen-Wake und dem nach
+      Menueende haengenden Pause-Flag; diese sind in v352 korrigiert.
+- [ ] Tracker v352 real in MSFS fuer ACTIVE -> HIB -> ACTIVE pruefen und dabei
+      letzte Kartenposition, App-/Routeninteraktion, Menueende, Flugzustand,
+      Traffic, Homebase, Mission-/Payload-Commands und lokalen EFB-Snapshot
+      abgleichen, bevor derselbe Release nach Stable promoviert wird.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Der reale v351-Test bestaetigte den HIB-Eintritt nach exakt fuenf
+  Minuten, zeigte aber drei unabhaengige Wake-Luecken. Der 5-Sekunden-Status
+  enthielt die letzte Position, ohne sie bei spaeter aufgebauter Karte zu
+  zeichnen. Die getestete Routenaenderung erreichte den Wake-Pfad nicht, und
+  nach dem Menueende blieb ein Pause-Event-Flag gesetzt. v352 zeichnet deshalb
+  einen gekennzeichneten HIB-Marker, weckt bei vertrauenswuerdiger App-
+  Interaktion und umfassender erkannten Routenaenderungen und behandelt
+  Pause-Ende, SimStart, PositionChanged und FlightLoaded als Timer-Reset. Nach
+  kurzer Uebergangsfrist sind die Pause-SimVars autoritativ. Stable bleibt auf
+  v320.
 
 - 2026-08-14: Der reale v350-Bodentest zeigte keinen HIB-Uebergang, weil der
   Homebase-Gruppenpoll alle 45 Sekunden seine Vergleichssignatur loeschte und

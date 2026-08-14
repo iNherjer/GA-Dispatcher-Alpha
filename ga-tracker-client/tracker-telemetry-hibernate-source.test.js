@@ -19,6 +19,10 @@ test('tracker status reports hibernate while full relay telemetry is gated', () 
   assert.match(trackerSource, /tracker_telemetry_wake_ack/);
   assert.match(trackerSource, /homebaseManager\?\.isCrewSceneCurrent\(command\) \? 'crew-scene-unchanged'/);
   assert.match(trackerSource, /TRACKER_TELEMETRY_WAKE_SKIP/);
+  assert.match(trackerSource, /resolveSimPausedState/);
+  assert.match(trackerSource, /sim-event:Pause_EX1/);
+  assert.match(trackerSource, /sim-event:PositionChanged/);
+  assert.match(trackerSource, /sim-event:FlightLoaded/);
 });
 
 test('web app renders hibernate separately from live telemetry and reports it in diagnostics', () => {
@@ -27,6 +31,8 @@ test('web app renders hibernate separately from live telemetry and reports it in
   assert.match(appSyncSource, /_setLiveGpsIndicator\('hibernate', data\)/);
   assert.match(appSyncSource, /requestTrackerTelemetryWake/);
   assert.match(appSyncSource, /_rememberTrackerHibernatePosition/);
+  assert.match(appSyncSource, /_renderTrackerHibernateLastPosition/);
+  assert.match(appSyncSource, /app-user-interaction/);
   assert.match(appSyncSource, /app-open-hibernate/);
   assert.match(profileSource, /telemetry=\$\{window\.liveTrackerTelemetryMode/);
 });

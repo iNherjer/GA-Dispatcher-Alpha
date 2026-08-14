@@ -7620,9 +7620,17 @@ function resetMainRoute() {
 }
 
 function mainRouteProfileRefreshKey(points = routeWaypoints) {
-    if (!Array.isArray(points) || points.length < 2) return '';
+    if (!Array.isArray(points)) return '';
     return points
-        .map(p => `${(Number(p?.lat) || 0).toFixed(4)},${(Number(p?.lng ?? p?.lon) || 0).toFixed(4)}`)
+        .map(p => [
+            (Number(p?.lat) || 0).toFixed(6),
+            (Number(p?.lng ?? p?.lon) || 0).toFixed(6),
+            String(p?.icao || '').trim().toUpperCase(),
+            String(p?.name || '').trim(),
+            Number.isFinite(Number(p?.altFt ?? p?.alt)) ? Math.round(Number(p?.altFt ?? p?.alt)) : '',
+            p?.isPOI === true ? 'poi' : '',
+            String(p?.poiChainPointId || '').trim()
+        ].join(','))
         .join('|');
 }
 
@@ -7702,9 +7710,8 @@ function runMainRoutePostUpdate(label, fn) {
 }
 
 function notifyMainRouteChanged(reason = 'route-render') {
-    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
+    if (!Array.isArray(routeWaypoints)) return;
     const routeKey = mainRouteProfileRefreshKey(routeWaypoints);
-    if (!routeKey) return;
     const routeChanged = window._lastMainRouteProfileRefreshKey !== routeKey;
     window._lastMainRouteProfileRefreshKey = routeKey;
     if (typeof _syncCurrentMissionRouteFromMap === 'function') {
@@ -7726,6 +7733,7 @@ function notifyMainRouteChanged(reason = 'route-render') {
             window.gaPushMissionAuthorityRoute(reason);
         }
     }
+    if (routeWaypoints.length < 2) return;
     scheduleMainRouteProfileReload(reason);
     if (typeof scheduleRouteDerivedDataRefresh === 'function') {
         scheduleRouteDerivedDataRefresh({ profileDelayMs: 900, airspaceDelayMs: 800, profileDuringBusy: true });

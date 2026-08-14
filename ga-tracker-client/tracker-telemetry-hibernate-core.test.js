@@ -7,6 +7,7 @@ const {
   disconnectedTelemetryHibernateState,
   isMenuZeroPosition,
   isMsfsMenuPosition,
+  resolveSimPausedState,
   telemetryWakeReasonForCommand
 } = require('./tracker-telemetry-hibernate-core');
 
@@ -103,6 +104,36 @@ test('five minutes of pause hibernates implausible in-flight telemetry and unpau
   assert.equal(awake.mode, 'active');
   assert.equal(awake.pauseIdleSince, null);
   assert.equal(awake.shouldSendTelemetry, true);
+});
+
+test('fresh pause events bridge SimVar lag but stale event flags cannot hold the tracker paused', () => {
+  assert.equal(resolveSimPausedState({
+    now: 1000,
+    simPausedA: 0,
+    simPausedB: 0,
+    pauseFlags: 1,
+    pauseFlagsUpdatedAt: 500
+  }), true);
+  assert.equal(resolveSimPausedState({
+    now: 4000,
+    simPausedA: 0,
+    simPausedB: 0,
+    pauseFlags: 1,
+    pauseFlagsUpdatedAt: 500
+  }), false);
+  assert.equal(resolveSimPausedState({
+    now: 4000,
+    simPausedA: 1,
+    pauseFlags: 0,
+    pauseFlagsUpdatedAt: 0
+  }), true);
+  assert.equal(resolveSimPausedState({
+    now: 4000,
+    simPausedA: NaN,
+    simPausedB: NaN,
+    pauseFlags: 1,
+    pauseFlagsUpdatedAt: 500
+  }), true);
 });
 
 test('explicit SimStop and disconnected states stay visible to status consumers', () => {

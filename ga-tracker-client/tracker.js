@@ -33,6 +33,7 @@ const {
 const {
   createTelemetryHibernateController,
   disconnectedTelemetryHibernateState,
+  resolveSimPausedState,
   telemetryWakeReasonForCommand
 } = require('./tracker-telemetry-hibernate-core.js');
 
@@ -49,8 +50,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v351';
-const TRACKER_VERSION_CODE = 351;
+const TRACKER_VERSION = 'v352';
+const TRACKER_VERSION_CODE = 352;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5121,25 +5122,29 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const SYS_REQ_DIALOG = 921;
       const telemetryHibernateController = createTelemetryHibernateController();
       let currentTelemetryHibernateState = disconnectedTelemetryHibernateState();
+      const wakeTelemetryFromSource = ({ reason = 'app-interaction', command = null, source = 'tracker-runtime' } = {}) => {
+        const previousMode = currentTelemetryHibernateState.mode;
+        const previousReason = currentTelemetryHibernateState.reason || '';
+        const result = telemetryHibernateController.wake({ now: Date.now(), reason });
+        currentTelemetryHibernateState = result.state;
+        if (typeof updateEfbState === 'function') {
+          updateEfbState({
+            simulatorConnected: true,
+            telemetryHibernate: currentTelemetryHibernateState
+          });
+        }
+        debugLog(`TRACKER_TELEMETRY_WAKE source=${source} command=${command?.type || 'explicit'} accepted=${result.accepted === true} from=${previousMode}:${previousReason || 'none'} to=${currentTelemetryHibernateState.mode}:${currentTelemetryHibernateState.reason || 'none'} reason=${reason} blocked=${result.blockedReason || 'none'}`);
+        return result;
+      };
       if (typeof setTrackerTelemetryWakeHandler === 'function') {
         setTrackerTelemetryWakeHandler(({ reason = 'app-interaction', command = null, source = 'tracker-relay' } = {}) => {
-          const previousMode = currentTelemetryHibernateState.mode;
-          const previousReason = currentTelemetryHibernateState.reason || '';
-          const result = telemetryHibernateController.wake({ now: Date.now(), reason });
-          currentTelemetryHibernateState = result.state;
-          if (typeof updateEfbState === 'function') {
-            updateEfbState({
-              simulatorConnected: true,
-              telemetryHibernate: currentTelemetryHibernateState
-            });
-          }
-          debugLog(`TRACKER_TELEMETRY_WAKE source=${source} command=${command?.type || 'explicit'} accepted=${result.accepted === true} from=${previousMode}:${previousReason || 'none'} to=${currentTelemetryHibernateState.mode}:${currentTelemetryHibernateState.reason || 'none'} reason=${reason} blocked=${result.blockedReason || 'none'}`);
-          return result;
+          return wakeTelemetryFromSource({ reason, command, source });
         });
       }
 
       const runtimeState = {
         pauseFlags: 0,
+        pauseFlagsUpdatedAt: 0,
         simRunning: 1,
         dialogMode: 0,
         lastPositionChangedAt: 0,
@@ -5174,6 +5179,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (recvEventEx1.clientEventId === EVT_PAUSE_EX1) {
           const flags = Number(recvEventEx1?.data?.[0] || 0);
           runtimeState.pauseFlags = Number.isFinite(flags) ? flags : 0;
+          runtimeState.pauseFlagsUpdatedAt = Date.now();
+          if (runtimeState.pauseFlags === 0) {
+            wakeTelemetryFromSource({ reason: 'sim-pause-ended', source: 'sim-event:Pause_EX1' });
+          }
         }
       });
 
@@ -5181,15 +5190,25 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         switch (recvEvent.clientEventId) {
           case EVT_PAUSE:
             runtimeState.pauseFlags = Number(recvEvent.data) ? 1 : 0;
+            runtimeState.pauseFlagsUpdatedAt = Date.now();
+            if (runtimeState.pauseFlags === 0) {
+              wakeTelemetryFromSource({ reason: 'sim-pause-ended', source: 'sim-event:Pause' });
+            }
             break;
           case EVT_SIM_START:
             runtimeState.simRunning = 1;
+            runtimeState.pauseFlags = 0;
+            runtimeState.pauseFlagsUpdatedAt = Date.now();
+            wakeTelemetryFromSource({ reason: 'sim-start', source: 'sim-event:SimStart' });
             break;
           case EVT_SIM_STOP:
             runtimeState.simRunning = 0;
             break;
           case EVT_POSITION_CHANGED:
             runtimeState.lastPositionChangedAt = Date.now();
+            runtimeState.pauseFlags = 0;
+            runtimeState.pauseFlagsUpdatedAt = runtimeState.lastPositionChangedAt;
+            wakeTelemetryFromSource({ reason: 'sim-position-changed', source: 'sim-event:PositionChanged' });
             break;
           default:
             break;
@@ -5199,6 +5218,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       handle.on('eventFilename', (recvEventFilename) => {
         if (recvEventFilename.clientEventId === EVT_FLIGHT_LOADED) {
           runtimeState.lastFlightLoadedAt = Date.now();
+          runtimeState.pauseFlags = 0;
+          runtimeState.pauseFlagsUpdatedAt = runtimeState.lastFlightLoadedAt;
+          wakeTelemetryFromSource({ reason: 'sim-flight-loaded', source: 'sim-event:FlightLoaded' });
         }
       });
 
@@ -5347,11 +5369,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               const payloadWeightLbs = (Number.isFinite(totalWeightLbs) && Number.isFinite(emptyWeightLbs))
                 ? (totalWeightLbs - emptyWeightLbs)
                 : null;
-              const simPausedFromVar = Number.isFinite(simPausedA)
-                ? (simPausedA > 0.5)
-                : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
-              const simPausedFromEvent = (runtimeState.pauseFlags || 0) !== 0;
-              const simPaused = simPausedFromEvent || simPausedFromVar;
+              const simPaused = resolveSimPausedState({
+                now,
+                simPausedA,
+                simPausedB,
+                pauseFlags: runtimeState.pauseFlags,
+                pauseFlagsUpdatedAt: runtimeState.pauseFlagsUpdatedAt
+              });
               const inMenuOrMap = isInMenuOrMap();
 
               const ws = getWs();

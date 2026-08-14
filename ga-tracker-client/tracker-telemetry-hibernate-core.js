@@ -5,6 +5,7 @@ const DEFAULT_GROUND_SPEED_THRESHOLD_KTS = 5;
 const DEFAULT_MENU_ZERO_EPSILON_DEG = 0.0001;
 const DEFAULT_MSFS_MENU_LONGITUDE_DEG = 90;
 const DEFAULT_MSFS_MENU_POSITION_EPSILON_DEG = 0.001;
+const DEFAULT_PAUSE_EVENT_GRACE_MS = 2000;
 const NON_WAKEABLE_HIBERNATE_REASONS = new Set([
   'invalid_position',
   'menu_position',
@@ -48,6 +49,25 @@ function isMsfsMenuPosition(lat, lon, options = {}) {
   );
   return Math.abs(Number(lat)) <= epsilon
     && Math.abs(Number(lon) - DEFAULT_MSFS_MENU_LONGITUDE_DEG) <= epsilon;
+}
+
+function resolveSimPausedState(input = {}) {
+  const now = Number.isFinite(Number(input.now)) ? Number(input.now) : Date.now();
+  const pauseFlags = Number(input.pauseFlags) || 0;
+  const pauseFlagsUpdatedAt = Number(input.pauseFlagsUpdatedAt) || 0;
+  const eventGraceMs = Math.max(
+    0,
+    Number(input.eventGraceMs ?? DEFAULT_PAUSE_EVENT_GRACE_MS) || 0
+  );
+  const pauseVars = [input.simPausedA, input.simPausedB]
+    .map(Number)
+    .filter(Number.isFinite);
+  const hasPauseVar = pauseVars.length > 0;
+  const pausedFromVar = pauseVars.some(value => value > 0.5);
+  const eventIsFresh = pauseFlagsUpdatedAt > 0
+    && now - pauseFlagsUpdatedAt <= eventGraceMs;
+  const pausedFromEvent = pauseFlags !== 0 && (!hasPauseVar || eventIsFresh);
+  return pausedFromVar || pausedFromEvent;
 }
 
 function telemetryWakeReasonForCommand(command = {}) {
@@ -231,6 +251,7 @@ function createTelemetryHibernateController(options = {}) {
 }
 
 module.exports = {
+  DEFAULT_PAUSE_EVENT_GRACE_MS,
   DEFAULT_GROUND_SPEED_THRESHOLD_KTS,
   DEFAULT_IDLE_ENTER_MS,
   DEFAULT_MENU_ZERO_EPSILON_DEG,
@@ -241,5 +262,6 @@ module.exports = {
   isFiniteGeoPosition,
   isMenuZeroPosition,
   isMsfsMenuPosition,
+  resolveSimPausedState,
   telemetryWakeReasonForCommand
 };

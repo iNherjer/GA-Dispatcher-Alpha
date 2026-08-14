@@ -14621,7 +14621,8 @@ async function checkCloudAfterIdle() {
     // 10 Sekunden Cooldown, damit man bei vielen Klicks nicht bombardiert wird
     setTimeout(() => { idleCheckInProgress = false; }, 10000);
 }
-function resetSyncTimer() {
+let lastTrustedAppWakeAt = 0;
+function resetSyncTimer(event = null) {
     try {
         const now = Date.now();
         const idleTime = now - syncLastActivityTime;
@@ -14636,11 +14637,17 @@ function resetSyncTimer() {
             syncIsSleeping = false;
             syncLastFetchTime = now;
         }
+        if (event?.isTrusted === true
+            && window.liveTrackerTelemetryMode === 'hibernate'
+            && now - lastTrustedAppWakeAt >= 1500) {
+            lastTrustedAppWakeAt = now;
+            window.requestTrackerTelemetryWake?.('app-user-interaction');
+        }
     } catch(e) {
         console.warn("Sync Timer Error intercepted", e);
     }
 }
-['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
+['click', 'touchstart', 'pointerup', 'scroll', 'keydown'].forEach(evt => {
     document.addEventListener(evt, resetSyncTimer, { passive: true, capture: true });
 });
 
@@ -14653,6 +14660,7 @@ let liveGpsRelayProbeKey = '';
 let liveGpsMarker = null;
 let liveGpsMarkerElement = null;
 let liveGpsMarkerSvgElement = null;
+let liveGpsHibernateMarker = null;
 let lastLivePlanePerformanceMode = null;
 window.liveTrackerConnected = false;
 window.liveTrackerVersionCode = null;
@@ -15048,11 +15056,64 @@ function _rememberTrackerHibernatePosition(pkt = null) {
         window.lastLiveFlightData = { ...(window.lastLiveFlightData || {}), ...flight };
         _updateMissionRuntimeUi();
     }
+    _renderTrackerHibernateLastPosition(remembered);
     try {
         window.dispatchEvent(new CustomEvent('gatrackerlastpositionchange', {
             detail: { position: window.liveTrackerLastKnownPosition }
         }));
     } catch (_) {}
+    return true;
+}
+
+function _clearTrackerHibernateMapState() {
+    if (liveGpsHibernateMarker) {
+        try { liveGpsHibernateMarker.remove(); } catch (_) {}
+        liveGpsHibernateMarker = null;
+    }
+    if (liveGpsMarker) {
+        try { liveGpsMarker.setOpacity(1); } catch (_) {}
+        const markerEl = typeof liveGpsMarker.getElement === 'function' ? liveGpsMarker.getElement() : null;
+        markerEl?.classList?.remove('hibernate-last-known');
+    }
+}
+
+function _renderTrackerHibernateLastPosition(position = window.liveTrackerLastKnownPosition) {
+    const lat = Number(position?.lat);
+    const lon = Number(position?.lon);
+    const hdg = Number(position?.hdg) || 0;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)
+        || typeof map === 'undefined' || !map || typeof L === 'undefined'
+        || !_canRunLiveMapVisualWork()) return false;
+
+    if (liveGpsMarker) {
+        if (liveGpsHibernateMarker) {
+            try { liveGpsHibernateMarker.remove(); } catch (_) {}
+            liveGpsHibernateMarker = null;
+        }
+        liveGpsMarker.setLatLng([lat, lon]);
+        try { liveGpsMarker.setOpacity(0.72); } catch (_) {}
+        const markerEl = typeof liveGpsMarker.getElement === 'function' ? liveGpsMarker.getElement() : null;
+        markerEl?.classList?.add('hibernate-last-known');
+        if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+        return true;
+    }
+
+    const icon = L.divIcon({
+        className: 'live-plane-hibernate-marker',
+        iconSize: [42, 42],
+        iconAnchor: [21, 21],
+        html: `<div title="Letzte bekannte Flugzeugposition (HIB)" style="position:relative;width:42px;height:42px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 3px rgba(0,0,0,.85));">
+            <svg viewBox="0 0 32 32" width="32" height="32" style="transform:rotate(${hdg}deg);transform-origin:50% 50%;">
+                <path d="M16 1.5l3.4 10.2 10.1 4.1v3.1l-10.1-1.7-1.1 8 4 2.3v2.2L16 28.3l-6.3 1.4v-2.2l4-2.3-1.1-8-10.1 1.7v-3.1l10.1-4.1z" fill="#8fd8ff" stroke="#07131d" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <span style="position:absolute;right:-5px;bottom:-1px;padding:1px 4px;border:1px solid #07131d;border-radius:5px;background:#8fd8ff;color:#07131d;font:700 9px/1.2 system-ui,sans-serif;">HIB</span>
+        </div>`
+    });
+    liveGpsHibernateMarker = L.marker([lat, lon], {
+        icon,
+        zIndexOffset: 9998,
+        interactive: false
+    }).addTo(map);
     return true;
 }
 
@@ -16743,6 +16804,9 @@ window.gaRequestLiveMapVisualRefresh = function(reason = 'map-visible') {
     lastPredictionUpdate = 0;
     liveSnailTrailDirty = true;
     if (_canRunLiveMapVisualWork()) {
+        if (window.liveTrackerTelemetryMode === 'hibernate' && window.liveTrackerLastKnownPosition) {
+            _renderTrackerHibernateLastPosition(window.liveTrackerLastKnownPosition);
+        }
         _refreshMissionArrivalGuideLine();
         _scheduleLiveTrafficMapRender(window.vpTrafficData || [], window.lastLiveGpsPos?.alt, { immediate: true });
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') {
@@ -16758,6 +16822,7 @@ document.addEventListener('visibilitychange', () => {
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
     const now = Date.now();
+    _clearTrackerHibernateMapState();
     lastTelemetryUpdateAt = now;
     window.gaLastTrackerTelemetryAt = now;
     const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
@@ -17824,6 +17889,7 @@ window.toggleTrafficMap = function(forceState = null) {
 
 // Sim-Modus: Flugzeug-Icon, Trail und Profil zurücksetzen
 window.hideLivePlane = function (options = {}) {
+    _clearTrackerHibernateMapState();
     if (liveGpsMarker) { liveGpsMarker.remove(); liveGpsMarker = null; }
     liveGpsMarkerElement = null;
     liveGpsMarkerSvgElement = null;
