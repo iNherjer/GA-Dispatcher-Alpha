@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v350 Alpha | v320 | v350 macht Hibernate durch App-/Sim-Interaktionen gezielt weckbar; Stable bleibt unveraendert |
+| Tracker-Runtime | v351 Alpha | v320 | v351 entkoppelt unveraenderte Homebase-Crew-Polls vom Hibernate-Wake; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -29,14 +29,14 @@ einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
 auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
 behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
 
-Tracker v350 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
+Tracker v351 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
 oder sofort bei MSFS-Nullposition `(0,0)`, pausierter Menueposition nahe
 `(0,90)`, nach fuenf Minuten durchgehender Pause beziehungsweise bei `SimStop`
 pausieren nur die
 2-Hz-GPS-/Traffic-Pakete zu Cloudflare und Render. SimConnect, lokaler EFB-
 Snapshot, Commands und ACKs bleiben aktiv. Der 5-Sekunden-Status meldet
-`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v350 C/R`, und
+`telemetryMode=hibernate` samt Grund, die Web-App zeigt `HIB · v351 C/R`, und
 Flugzustand oder mindestens 5 kt wecken die Telemetrie ohne Neustart. Die
 isolierte Zustandslogik und der Loopback-Vertrag sind automatisiert getestet;
 der reale MSFS-Uebergang bleibt vor einer Stable-Promotion zu bestaetigen.
@@ -52,6 +52,16 @@ nicht weckbar. Das Ende einer HIB-Regel setzt beide Timer zurueck, damit etwa
 das Aufheben der Pause nicht durch den parallel abgelaufenen Bodentimer sofort
 wieder in HIB fuehrt. Web-Cache `ga-dispatcher-v1635` enthaelt den passenden
 App-Vertrag.
+
+v351 korrigiert die im realen v350-Bodentest gefundene Homebase-
+Rueckkopplung. Der 45-Sekunden-Gruppenpoll behaelt seine letzte
+Crew-Szenensignatur und sendet `homebase_v1.crew.set` nur noch bei einer
+tatsaechlich geaenderten Szene. Der Tracker vergleicht denselben Befehl
+zusaetzlich mit der erfolgreich aufgebauten Crew-Szene: identische
+Wiederholungen erhalten `status=noop`, bauen keine SimObjects neu auf und
+setzen weder Boden- noch Pause-HIB-Timer zurueck. Eine echte Aenderung bleibt
+ein Sim-relevanter Command und weckt weiterhin vor ihrer Ausfuehrung. Der
+zugehoerige Web-Cache ist `ga-dispatcher-v1636`.
 
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
@@ -988,7 +998,11 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [x] Tracker-v350-Wake-Vertrag implementieren und automatisiert pruefen:
       letzte Position im HIB-Status, einmaliger App-Open-Wake, Command-Wake fuer
       Mission, Route, Cargo, Szene und Homebase sowie gemeinsamer Timer-Reset.
-- [ ] Tracker v350 real in MSFS fuer HIB -> ACTIVE pruefen und dabei Position,
+- [x] Tracker-v351-Hotfix gegen den real beobachteten 45-Sekunden-Crew-Poll
+      implementieren und automatisiert pruefen: unveraenderte Polls senden
+      keinen neuen App-Command; alte beziehungsweise doppelte Crew-Commands
+      erhalten tracker-seitig `noop` und loesen keinen HIB-Wake aus.
+- [ ] Tracker v351 real in MSFS fuer ACTIVE -> HIB -> ACTIVE pruefen und dabei Position,
       Flugzustand, Traffic, Homebase, Mission-/Payload-Commands und lokalen
       EFB-Snapshot abgleichen, bevor derselbe Release nach Stable promoviert
       wird.
@@ -997,6 +1011,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Der reale v350-Bodentest zeigte keinen HIB-Uebergang, weil der
+  Homebase-Gruppenpoll alle 45 Sekunden seine Vergleichssignatur loeschte und
+  ein unveraendertes `homebase_v1.crew.set` als Sim-Interaktion sendete. v351
+  behaelt die App-Signatur ueber Polls hinweg. Als zweite Sicherung fuehrt der
+  Tracker die Signatur der zuletzt erfolgreich aufgebauten Crew-Szene und
+  beantwortet identische Wiederholungen mit `noop`, ohne SimObjects neu
+  aufzubauen oder HIB-Timer zurueckzusetzen. Echte Crew-Aenderungen wecken den
+  Tracker unveraendert. Stable bleibt bis zum realen Uebergangstest auf v320.
 
 - 2026-08-14: Tracker v350 behandelt Hibernate ausschliesslich als
   Telemetrie-Drosselung. `telemetry.wake.v1` weckt Boden-/Pause-HIB durch einen

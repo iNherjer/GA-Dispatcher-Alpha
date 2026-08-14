@@ -17,6 +17,8 @@ test('tracker status reports hibernate while full relay telemetry is gated', () 
   assert.match(trackerSource, /telemetryLastPosition:/);
   assert.match(trackerSource, /telemetryHibernateController\.wake/);
   assert.match(trackerSource, /tracker_telemetry_wake_ack/);
+  assert.match(trackerSource, /homebaseManager\?\.isCrewSceneCurrent\(command\) \? 'crew-scene-unchanged'/);
+  assert.match(trackerSource, /TRACKER_TELEMETRY_WAKE_SKIP/);
 });
 
 test('web app renders hibernate separately from live telemetry and reports it in diagnostics', () => {

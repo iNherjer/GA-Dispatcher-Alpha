@@ -171,6 +171,18 @@ Bodenstillstands-Timer ersetzt wird. Routen- und Fortschrittsaenderungen laufen
 als Authority-Snapshot trotz HIB zum Tracker und aktualisieren dadurch den
 read-only Mission-View des lokalen EFB.
 
+Tracker v351 schaerft diesen Wake-Vertrag fuer idempotente Homebase-Crew-
+Synchronisationen. Der periodische Gruppenabruf der Web-App behaelt seine
+letzte Szenensignatur und sendet nur bei geaendertem, positionsrelevantem
+Crew-Inhalt. Der Tracker fuehrt unabhaengig davon die kanonische Signatur der
+zuletzt fehlerfrei aufgebauten Crew-Szene. Ein identisches
+`homebase_v1.crew.set` wird mit `status=noop` bestaetigt, ohne die Szene neu
+aufzubauen und ohne die HIB-Timer zurueckzusetzen. Ein neuer oder nach einem
+Fehler erneut anzuwendender Inhalt bleibt ein regulaerer Sim-relevanter
+Command und weckt vor der Ausfuehrung. Damit sind automatische Zustandsabfragen
+keine Benutzerinteraktion, waehrend echte Homebase-Aenderungen ihre Wake-
+Semantik behalten.
+
 Homebase-Crew-Capabilities werden getrennt vom Tracker-/EFB-Hello ausgehandelt,
 weil der SimConnect-Objektmanager beim fruehen Trackerstart noch fehlen kann.
 Eine gueltige negative Capability-Antwort ist deshalb ein temporaerer Zustand,

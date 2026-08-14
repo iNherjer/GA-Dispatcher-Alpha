@@ -73,3 +73,11 @@ test('Homebase integration uses the gate for HIB status retries without recursiv
   assert.match(source, /addEventListener\('gatrackercapabilitieschange', handleTrackerCapabilitiesChange\)/);
   assert.doesNotMatch(source, /crewCapabilityRequestedAt\s*=\s*0/);
 });
+
+test('periodic Crew refresh preserves the last scene signature', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'homebase-integration.js'), 'utf8');
+  const refreshBlock = source.match(/async function refreshCrewHomebases[\s\S]*?function scheduleCrewRefresh/)?.[0] || '';
+
+  assert.match(refreshBlock, /applyCrewScene\(window\.lastLiveGpsPos, reason\)/);
+  assert.doesNotMatch(refreshBlock, /crewLastSceneSignature\s*=\s*['"]['"]/);
+});

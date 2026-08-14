@@ -98,6 +98,11 @@ function normalizeItem(raw, fallbackId = '') {
   };
 }
 
+function crewSceneSignatureForCommand(command = {}) {
+  const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_CREW_OBJECTS) : [];
+  return JSON.stringify(input.map((raw) => normalizeItem(raw)));
+}
+
 function createHomebaseObjectManager(handle, options = {}) {
   const sendAck = typeof options.sendAck === 'function' ? options.sendAck : () => {};
   const log = typeof options.log === 'function' ? options.log : () => {};
@@ -128,6 +133,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   const pendingRemovals = new Map();
   const hangarAnimationDefinitions = new Map();
   const personControllers = new Map();
+  let crewSceneSignature = '';
   let personWaypointDefinitionReady = false;
   let operationQueue = Promise.resolve();
   const doorAutomation = createHomebaseDoorAutomation(handle, { log });
@@ -637,6 +643,7 @@ function createHomebaseObjectManager(handle, options = {}) {
   });
 
   const clearCollection = async (collection) => {
+    if (collection === 'crew') crewSceneSignature = '';
     const records = [...objectsById.values()].filter((record) => collectionFor(record) === collection);
     const removed = [];
     const failed = [];
@@ -869,6 +876,9 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const handleCrewSet = async (command) => {
+    const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_CREW_OBJECTS) : [];
+    let requestedSceneSignature = '';
+    try { requestedSceneSignature = crewSceneSignatureForCommand({ objects: input }); } catch (_) {}
     const targetGeneration = advanceGeneration('crew');
     for (const [requestId, pending] of pendingGround.entries()) {
       if (collectionFor(pending.record) !== 'crew') continue;
@@ -878,7 +888,6 @@ function createHomebaseObjectManager(handle, options = {}) {
     }
     const teardown = await clearCollection('crew');
     if (teardown.failed.length) throw new Error(`${teardown.failed.length} Crew-Objekt(e) wurden nicht bestätigt entfernt.`);
-    const input = Array.isArray(command?.objects) ? command.objects.slice(0, MAX_CREW_OBJECTS) : [];
     const spawned = [];
     const failed = [];
     for (const raw of input) {
@@ -891,6 +900,8 @@ function createHomebaseObjectManager(handle, options = {}) {
         failed.push({ id: raw?.id, title: raw?.title, label: raw?.label, error: error?.message || String(error) });
       }
     }
+    if (!failed.length && requestedSceneSignature) crewSceneSignature = requestedSceneSignature;
+    else crewSceneSignature = '';
     sendAck({
       type: 'homebase_v1.crew.set_ack',
       commandId: command?.commandId || null,
@@ -901,6 +912,15 @@ function createHomebaseObjectManager(handle, options = {}) {
       failedObjects: failed,
       generation: targetGeneration
     });
+  };
+
+  const isCrewSceneCurrent = (command) => {
+    if (!crewSceneSignature) return false;
+    try {
+      return crewSceneSignatureForCommand(command) === crewSceneSignature;
+    } catch (_) {
+      return false;
+    }
   };
 
   const handleObjectAdd = async (command) => {
@@ -1254,6 +1274,19 @@ function createHomebaseObjectManager(handle, options = {}) {
         return true;
       }
       if (type === 'homebase_v1.crew.set') {
+        if (isCrewSceneCurrent(command)) {
+          const objectCount = [...objectsById.values()].filter((record) => collectionFor(record) === 'crew').length;
+          sendAck({
+            type: 'homebase_v1.crew.set_ack',
+            commandId: command?.commandId || null,
+            status: 'noop',
+            message: 'Crew-Homebases sind bereits aktuell.',
+            objectCount,
+            unchanged: true,
+            generation: generations.crew
+          });
+          return true;
+        }
         enqueue(() => handleCrewSet(command)).catch((error) => sendError(type, command, error));
         return true;
       }
@@ -1288,12 +1321,14 @@ function createHomebaseObjectManager(handle, options = {}) {
       sendError(type, command, new Error(`Unbekannter Homebase-Befehl: ${type}`));
       return true;
     },
+    isCrewSceneCurrent,
     clearAll,
     snapshot() {
       return {
         generation: generations.preview,
         objectCount: objectsById.size,
         crewObjectCount: [...objectsById.values()].filter((record) => collectionFor(record) === 'crew').length,
+        crewSceneSignature,
         doorAutomationEnabled: doorAutomation.isEnabled(),
         objects: [...objectsById.values()].map((record) => ({ id: record.item.id, title: record.item.title, collection: collectionFor(record), objectId: record.objectId }))
       };
@@ -1301,4 +1336,4 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 }
 
-module.exports = { createHomebaseObjectManager, normalizeItem, allowedPreviewTitles };
+module.exports = { createHomebaseObjectManager, normalizeItem, crewSceneSignatureForCommand, allowedPreviewTitles };

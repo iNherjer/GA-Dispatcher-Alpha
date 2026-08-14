@@ -49,8 +49,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v350';
-const TRACKER_VERSION_CODE = 350;
+const TRACKER_VERSION = 'v351';
+const TRACKER_VERSION_CODE = 351;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4329,6 +4329,7 @@ function startTracker(syncId, pin) {
   let _homebaseRemoteCheckScheduled = false;
   let _trackerCommandHandler = null;
   let _trackerTelemetryWakeHandler = null;
+  let _trackerCommandWakeFilter = null;
   const _pendingTrackerCommands = [];
   const MAX_PENDING_TRACKER_COMMANDS = 64;
   const DIRECT_HANGAR_FALLBACK_DELAY_MS = 750;
@@ -4641,6 +4642,9 @@ function startTracker(syncId, pin) {
   const setTrackerTelemetryWakeHandler = (handler) => {
     _trackerTelemetryWakeHandler = typeof handler === 'function' ? handler : null;
   };
+  const setTrackerCommandWakeFilter = (handler) => {
+    _trackerCommandWakeFilter = typeof handler === 'function' ? handler : null;
+  };
   const pruneHangarCommandState = (now = Date.now()) => {
     for (const [commandId, at] of _dispatchedHangarCommandIds) {
       if ((now - at) > 30000) _dispatchedHangarCommandIds.delete(commandId);
@@ -4654,8 +4658,18 @@ function startTracker(syncId, pin) {
     const commandId = String(command?.commandId || '');
     const isHangarDoor = isHomebaseObjectControlType(type);
     const wakeReason = telemetryWakeReasonForCommand(command);
+    let wakeSuppressedReason = '';
+    if (wakeReason && typeof _trackerCommandWakeFilter === 'function') {
+      try {
+        wakeSuppressedReason = String(_trackerCommandWakeFilter(command) || '');
+      } catch (error) {
+        debugLog(`TRACKER_TELEMETRY_WAKE_FILTER_ERROR type=${type || 'unknown'} commandId=${commandId || 'none'} error=${error?.message || error}`);
+      }
+    }
     let wakeResult = null;
-    if (wakeReason && typeof _trackerTelemetryWakeHandler === 'function') {
+    if (wakeSuppressedReason) {
+      debugLog(`TRACKER_TELEMETRY_WAKE_SKIP source=${source} command=${type || 'unknown'} reason=${wakeSuppressedReason}`);
+    } else if (wakeReason && typeof _trackerTelemetryWakeHandler === 'function') {
       try {
         wakeResult = _trackerTelemetryWakeHandler({ reason: wakeReason, command, source });
       } catch (error) {
@@ -4815,6 +4829,7 @@ function startTracker(syncId, pin) {
       pin,
       setTrackerCommandHandler,
       setTrackerTelemetryWakeHandler,
+      setTrackerCommandWakeFilter,
       (commandId) => _directHangarAckCommandIds.has(String(commandId || '')),
       () => _homebaseFallbackCache,
       updateEfbState,
@@ -4958,7 +4973,7 @@ function startTracker(syncId, pin) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true });
@@ -5028,6 +5043,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         'homebase_v1.preview.object.move',
         'homebase_v1.preview.people.sync'
       ]);
+      if (typeof setTrackerCommandWakeFilter === 'function') {
+        setTrackerCommandWakeFilter((command) => {
+          if (String(command?.type || '') !== 'homebase_v1.crew.set') return '';
+          return homebaseManager?.isCrewSceneCurrent(command) ? 'crew-scene-unchanged' : '';
+        });
+      }
       if (typeof setTrackerCommandHandler === 'function') {
         setTrackerCommandHandler((command) => {
           const type = String(command?.type || '');
@@ -5565,10 +5586,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         });
         if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
+        if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
       });
     })
     .catch(err => {
@@ -5579,7 +5601,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       });
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
+      if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager), 5000);
     });
 }
 

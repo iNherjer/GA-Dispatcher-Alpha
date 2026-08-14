@@ -780,7 +780,6 @@
       crewHomebases = [];
       crewHomebaseDirectory = [];
       publishCrewHomebaseDirectory();
-      crewLastSceneSignature = '';
       applyCrewScene(window.lastLiveGpsPos, `${reason}-no-group`);
       return { ok: true, cleared: true };
     }
@@ -793,14 +792,12 @@
       crewHomebases = Array.isArray(data.bases) ? data.bases : [];
       crewHomebaseDirectory = Array.isArray(data.directory) ? data.directory : [];
       publishCrewHomebaseDirectory();
-      crewLastSceneSignature = '';
       applyCrewScene(window.lastLiveGpsPos, reason);
       return { ok: true, count: crewHomebases.length };
     } catch (error) {
       crewHomebases = [];
       crewHomebaseDirectory = [];
       publishCrewHomebaseDirectory();
-      crewLastSceneSignature = '';
       applyCrewScene(window.lastLiveGpsPos, `${reason}-failed`);
       return { ok: false, error: error?.message || String(error) };
     } finally {
