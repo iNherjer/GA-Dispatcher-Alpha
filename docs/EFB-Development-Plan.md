@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v353 Alpha | v320 | v353 vereinheitlicht LIVE/HIB/LINK/OFF und verhindert Checklisten-Split-Brain; Stable bleibt unveraendert |
+| Tracker-Runtime | v354 Alpha | v320 | v354 behebt FAA-/DWD-Tile-Compositing und trennt die EFB-Overlay-Panes; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -28,6 +28,12 @@ der vollstaendige DOM-Neuaufbau jedoch den Coherent-Scroll; ausserdem waren
 einzelne EFB-Fallbacktexte noch ASCII-transliteriert. 0.4.11 setzt den Drawer
 auf zwei Drittel der Kartenbreite, stabilisiert den Scroll bei Liveupdates und
 behaelt die globale Schriftwahl von 90 bis 130 Prozent bei.
+
+Tracker v354 / Host 0.6.3 ist als reines Tracker-Host-Update in Alpha
+veroeffentlicht. Es erzwingt im EFB fuer FAA- und DWD-Rastertiles normalen
+Blend-Modus und trennt VFR, offizielle Karten und Wetter in stabile Pane-
+Ebenen. Das offiziell getestete EFB-Community-Paket 0.4.11 bleibt unveraendert;
+ein neuer SDK-Build ist fuer diesen Test nicht erforderlich.
 
 Tracker v352 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
@@ -1060,7 +1066,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
-- 2026-08-14: Tracker v354 / Host 0.6.3 korrigiert das von einem Nutzer
+- 2026-08-14: Tracker v354 / Host 0.6.3 ist als Alpha veroeffentlicht und
+  korrigiert das von einem Nutzer
   gemeldete Flackern des FAA-Sectional-Overlays. Die Analyse zeigte keinen
   Clear-, Reload- oder Layer-Rebuild-Loop. FAA und das
   transparente DWD-WMS erbten im tracker-gehosteten EFB jedoch Leaflets

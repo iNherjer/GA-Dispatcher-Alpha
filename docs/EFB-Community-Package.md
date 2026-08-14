@@ -42,9 +42,10 @@ EFB 0.4.11 ist seit 2026-08-13 als Alpha-Release unter
 erzeugte Community-Paket wurde nach dem In-Sim-Test erneut von GitHub
 heruntergeladen, entpackt und gegen Version, Paketstruktur, Groesse und
 SHA-256 validiert. Der Alpha-Kanal zeigt auf genau dieses unveraenderliche
-Archiv; Tracker-Alpha zeigt seit 2026-08-14 auf v351. Der reine Tracker-v351-
-Hibernate-/Homebase-Hotfix benoetigt keinen neuen SDK-Build und veraendert das installierte
-EFB-Paket nicht. Stable bleibt bis zur getrennten
+Archiv; Tracker-Alpha zeigt seit 2026-08-14 auf v354. Der reine Tracker-v354-
+Hostfix fuer FAA-/DWD-Tile-Compositing und getrennte Overlay-Panes benoetigt
+keinen neuen SDK-Build und veraendert das installierte EFB-Paket nicht. Stable
+bleibt bis zur getrennten
 Promotion unveraendert beziehungsweise fuer das EFB deaktiviert.
 
 EFB 0.4.11 und Host 0.6.2 bauen auf dem 0.4.10/v347-In-Sim-Lauf auf, setzen
