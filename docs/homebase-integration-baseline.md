@@ -53,3 +53,15 @@ historische Rückfall- und Prüfspur erhalten.
 - Die Haupt-App führt den authentifizierten KV-Zugriff aus; Pilot-PIN und Cloudzugriff werden nicht an den Tracker übergeben.
 - Der Tracker bleibt ausschließlich für Live-Vorschau, Paketbau und Installation zuständig.
 - Revisionskonflikte werden nicht still überschrieben. Die Workbench lässt den Benutzer zwischen Cloud- und lokalem Stand wählen.
+
+## Laufzeit-Guard ab 14.08.2026
+
+- `homebase_v1.capabilities` darf nach einer Antwort ohne
+  `homebase-crew-scene`, einem fehlenden ACK oder einem Sendefehler fruehestens
+  nach 15 Sekunden erneut gesendet werden.
+- Eine negative Antwort bedeutet waehrend des Trackerstarts nur, dass der
+  SimConnect-Objektmanager noch nicht bereit ist. Sie darf keinen rekursiven
+  Sofortversuch ausloesen.
+- Der 5-Sekunden-Trackerstatus haelt die spaetere Aushandlung auch im
+  Telemetrie-Hibernate am Leben. Nur ein neuer Relay-Verbindungs-Token setzt
+  das Retry-Gate sofort zurueck.

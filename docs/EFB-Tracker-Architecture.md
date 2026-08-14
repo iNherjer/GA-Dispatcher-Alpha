@@ -148,6 +148,23 @@ Die Web-App zeigt diesen
 Zustand als `HIB` und behandelt den weiterlaufenden Status als gueltigen
 Heartbeat, aber nicht als Flugtelemetrie.
 
+Der reale v349-Lauf vom 14.08.2026 bestaetigt die erste Haelfte dieses
+Vertrags: `ACTIVE -> HIB` trat nach 300 Sekunden Pause ein, waehrend beide
+Relay-Sockets offen blieben. Szenen-, Homebase-, Mission-Authority-, Payload-
+und Checklisten-Commands sowie ACKs und der lokale EFB-Pfad liefen im HIB
+weiter. `HIB -> ACTIVE` und die anschliessende Vollstaendigkeit von Position,
+Flugzustand, Traffic und Snapshots bleiben als eigener MSFS-Testpunkt offen.
+
+Homebase-Crew-Capabilities werden getrennt vom Tracker-/EFB-Hello ausgehandelt,
+weil der SimConnect-Objektmanager beim fruehen Trackerstart noch fehlen kann.
+Eine gueltige negative Capability-Antwort ist deshalb ein temporaerer Zustand,
+aber kein Anlass fuer eine Request-/ACK-Rueckkopplung. Die Web-App wartet nach
+einem Versuch mindestens 15 Sekunden. Statuspakete duerfen danach einen neuen
+Versuch anstossen; ein neuer Relay-Verbindungs-Token setzt die Aushandlung
+kontrolliert zurueck. Damit funktioniert der spaetere Capability-Gewinn auch
+im HIB-Modus, ohne dessen 5-Sekunden-Status in eine schnelle Command-Schleife
+zu verwandeln.
+
 Der Cloudflare-Worker verwendet pro SHA-256-Pilot-ID-Raum ein SQLite-backed
 Durable Object mit Hibernation-WebSockets. Die Pilot-ID steht nicht im
 WebSocket-Pfad. `relayRole=tracker|viewer` begrenzt Tracker-Commands auf Tracker

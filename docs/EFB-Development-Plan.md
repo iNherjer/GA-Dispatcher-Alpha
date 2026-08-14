@@ -970,13 +970,36 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
       fuenf Minuten unter 5 kt oder nach fuenf Minuten Pause, sofortiges
       Aufwachen bei Flugzustand, 5 kt beziehungsweise aufgehobener Pause;
       Commands, ACKs und lokaler EFB-Pfad bleiben aktiv.
-- [ ] Tracker v349 real in MSFS mit den Uebergaengen ACTIVE -> HIB -> ACTIVE
-      pruefen, bevor derselbe Release nach Stable promoviert wird.
+- [x] Tracker v349 real in MSFS fuer ACTIVE -> HIB pruefen: Der Pause-Timer
+      wechselte nach fuenf Minuten, Cloudflare und Render blieben verbunden,
+      und Commands, ACKs sowie der lokale EFB-Pfad arbeiteten im HIB weiter.
+- [ ] Tracker v349 real in MSFS fuer HIB -> ACTIVE pruefen und dabei Position,
+      Flugzustand, Traffic, Homebase, Mission-/Payload-Commands und lokalen
+      EFB-Snapshot abgleichen, bevor derselbe Release nach Stable promoviert
+      wird.
 - [ ] Schnittgrenze fuer `mission-execution-core.js` anhand der vorhandenen
       Runtime-, Cargo- und Compliance-Tests festlegen.
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-14: Der erste reale v349-Lauf bestaetigt `ACTIVE -> HIB` um
+  `06:42:23Z` nach 300 Sekunden Pause. Cloudflare war seit `06:37:21Z`
+  verbunden; Render folgte nach einem einmaligen Handshake-Retry um
+  `06:37:43Z`. Beide Verbindungen blieben danach offen. Im HIB kamen weiterhin
+  Homebase-, Szenen-, Mission-Authority-, Payload- und Checklisten-Commands an;
+  ihre ACKs sowie der lokale EFB-Cloud-/Loopback-Pfad liefen weiter. Ein realer
+  Wake-Uebergang ist in diesem Log noch nicht enthalten und bleibt offen.
+
+- 2026-08-14: Die Homebase-Crew-Capability-Aushandlung wird in Web-Cache
+  `ga-dispatcher-v1634` gegen Rueckkopplung begrenzt. Eine fruehe, gueltige
+  Capability-Antwort ohne `homebase-crew-scene` loest keinen rekursiven
+  Sofortversuch mehr aus. Negative Antworten, fehlende ACKs und Sendefehler
+  duerfen denselben Request erst nach 15 Sekunden wiederholen; ein neuer
+  Relay-Verbindungs-Token setzt den Gate-Zustand kontrolliert zurueck. Die im
+  HIB weiterlaufenden 5-Sekunden-Statuspakete koennen den spaeter bereiten
+  SimConnect-Objektmanager neu aushandeln, ohne volle GPS-Telemetrie zu
+  benoetigen.
 
 - 2026-08-14: Fuer vergessene Tracker-Instanzen wird die 2-Hz-Relay-Telemetrie
   in v349 gezielt hiberniert. Bodenstillstand benoetigt fuenf Minuten mit

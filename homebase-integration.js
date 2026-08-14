@@ -10,6 +10,7 @@
   const HOMEBASE_CREW_MAX_OBJECTS = 100;
   const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
   const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
+  const HOMEBASE_CREW_CAPABILITY_RETRY_MS = 15000;
   const HOMEBASE_FALLBACK_SCHEMA_VERSION = 1;
   const HOMEBASE_FALLBACK_SYNC_DELAY_MS = 750;
   const HOMEBASE_LOCAL_STORAGE_KEY = 'vfr-homebase-workbench-v2';
@@ -28,8 +29,12 @@
   let crewRefreshInFlight = false;
   let crewLastSceneSignature = '';
   let crewRefreshTimer = null;
-  let crewTrackerSupported = false;
-  let crewCapabilityRequestedAt = 0;
+  let crewTrackerConnectionToken = '';
+  const crewCapabilityRetry = window.GAHomebaseCapabilityRetry?.createCapabilityRetryGate?.({
+    capability: 'homebase-crew-scene',
+    retryMs: HOMEBASE_CREW_CAPABILITY_RETRY_MS
+  });
+  if (!crewCapabilityRetry) throw new Error('Homebase capability retry core is unavailable.');
   let ownCloudPlan = null;
   let ownCloudRecord = null;
   let ownCloudLoadStarted = false;
@@ -755,10 +760,12 @@
     const signature = JSON.stringify(objects);
     if (signature === crewLastSceneSignature) return false;
     if (!window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
-    if (!crewTrackerSupported) {
-      if (!crewCapabilityRequestedAt || Date.now() - crewCapabilityRequestedAt > 15000) {
-        crewCapabilityRequestedAt = Date.now();
-        sendTracker({ type: 'homebase_v1.capabilities' }, { kind: 'crew-capabilities' });
+    if (!crewCapabilityRetry.isSupported()) {
+      const now = Date.now();
+      if (crewCapabilityRetry.shouldRequest(now)) {
+        crewCapabilityRetry.noteRequest(now);
+        const sent = sendTracker({ type: 'homebase_v1.capabilities' }, { kind: 'crew-capabilities' });
+        if (!sent) crewCapabilityRetry.noteSendFailed(now);
       }
       return false;
     }
@@ -1227,10 +1234,9 @@
     }
     if (meta.kind === 'crew-scene') return;
     if (ack.type === 'homebase_v1.capabilities_ack' || meta.kind === 'capabilities') {
-      crewTrackerSupported = Array.isArray(ack.capabilities) && ack.capabilities.includes('homebase-crew-scene');
-      crewCapabilityRequestedAt = 0;
+      const crewSupported = crewCapabilityRetry.noteCapabilities(ack.capabilities, Date.now());
       if (meta.kind === 'crew-capabilities') {
-        applyCrewScene(window.lastLiveGpsPos, 'crew-capabilities');
+        if (crewSupported) applyCrewScene(window.lastLiveGpsPos, 'crew-capabilities');
         return;
       }
       relayMessage({
@@ -1362,6 +1368,19 @@
     applyOwnHomebaseScene(data, 'telemetry');
   }
 
+  function handleTrackerCapabilitiesChange(event) {
+    const connectionToken = String(event?.detail?.connectionToken || '');
+    if (connectionToken && connectionToken !== crewTrackerConnectionToken) {
+      crewTrackerConnectionToken = connectionToken;
+      crewCapabilityRetry.reset();
+      crewLastSceneSignature = '';
+    }
+    // Statuspakete kommen auch im HIB-Modus alle fuenf Sekunden. Damit wird ein
+    // anfangs noch nicht bereiter SimConnect-Objektmanager nach dem Backoff neu
+    // ausgehandelt, ohne dass dafuer volle GPS-Telemetrie noetig ist.
+    applyCrewScene(window.lastLiveGpsPos, 'tracker-status');
+  }
+
   function openHomebaseEnvironment() {
     const element = overlay();
     if (!element) return;
@@ -1448,6 +1467,7 @@
   });
   window.addEventListener('homebasetrackerack', handleHomebaseAck);
   window.addEventListener('homebasetelemetry', handleTelemetry);
+  window.addEventListener('gatrackercapabilitieschange', handleTrackerCapabilitiesChange);
 
   if (document.body && typeof MutationObserver === 'function') {
     let lastTheme = currentHomebaseTheme();
