@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v348 Alpha, v349 Hotfix-Kandidat | v320 | v349 pausiert Relay-Telemetrie bei Bodenstillstand und im MSFS-Menue; Stable bleibt unveraendert |
+| Tracker-Runtime | v349 Alpha | v320 | v349 pausiert Relay-Telemetrie bei Bodenstillstand, Pause und im MSFS-Menue; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -988,6 +988,13 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   verarbeitet Commands/ACKs und sendet alle fuenf Sekunden einen Status. Die
   Web-App zeigt `HIB` mit Relaykennung und Grund. Stable bleibt bis zum realen
   MSFS-Test auf v320.
+
+- 2026-08-14: Tracker v349 ist als Alpha veroeffentlicht. 88 automatisierte
+  Tracker-/EFB-Tests sind gruen. Die Windows-x64-EXE wurde nach dem Upload
+  frisch von GitHub heruntergeladen und mit 48.069.653 Bytes sowie SHA-256
+  `9d77e876d3c20a78cf3bdb56b1f13a918d6d30b33f955283733cac07895cea4e`
+  gegen den lokalen Build validiert. Das EFB-Paket bleibt unveraendert auf
+  0.4.11; Stable bleibt auf Tracker v320.
 
 - 2026-08-13: Tracker v348 und EFB 0.4.11 sind als Alpha veroeffentlicht. Der
   offizielle SDK-1.7.2-Build und der nachfolgende In-Sim-Test wurden
