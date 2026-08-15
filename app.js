@@ -13058,6 +13058,13 @@ function buildPoiChainDebugSummary(missionData = null, contract = null, options 
     if (!chain || typeof chain !== 'object') return null;
     const points = Array.isArray(chain.points) ? chain.points : [];
     const overlay = chain.overlay && typeof chain.overlay === 'object' ? chain.overlay : {};
+    let effectiveOverlay = overlay;
+    try {
+        const runtimeSpec = typeof window.missionPoiChainRuntime?.normalizeSpec === 'function'
+            ? window.missionPoiChainRuntime.normalizeSpec(chain)
+            : null;
+        if (runtimeSpec?.overlay) effectiveOverlay = runtimeSpec.overlay;
+    } catch (_) {}
     const guide = chain.guide && typeof chain.guide === 'object' ? chain.guide : {};
     const routeCandidates = [
         options.routeWaypoints,
@@ -13082,7 +13089,7 @@ function buildPoiChainDebugSummary(missionData = null, contract = null, options 
             type: String(overlay.type || ''),
             label: String(overlay.label || ''),
             radiusNm: Number.isFinite(Number(overlay.radiusNm)) ? Math.round(Number(overlay.radiusNm) * 100) / 100 : null,
-            widthNm: Number.isFinite(Number(overlay.widthNm)) ? Math.round(Number(overlay.widthNm) * 100) / 100 : null,
+            widthNm: Number.isFinite(Number(effectiveOverlay.widthNm)) ? Math.round(Number(effectiveOverlay.widthNm) * 100) / 100 : null,
             start: _poiChainDebugCoord(overlay.start),
             end: _poiChainDebugCoord(overlay.end),
             trace: _poiChainDebugTraceSummary(overlay.trace)

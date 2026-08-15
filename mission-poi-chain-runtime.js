@@ -4,6 +4,8 @@
     const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
     const NM_TO_M = 1852;
     const EARTH_RADIUS_NM = 3440.065;
+    const CORRIDOR_WIDTH_VERSION = 2;
+    const LEGACY_CORRIDOR_WIDTH_SCALE = 4;
 
     const DEFAULTS = {
         triggerRadiusNm: 0.5,
@@ -217,6 +219,15 @@
         return dedupeTracePoints(points);
     }
 
+    function normalizeCorridorWidthNm(overlay = null) {
+        const declaredWidthNm = Math.max(0.3, Math.min(10, Number(overlay?.widthNm || 0.5)));
+        const widthVersion = Number(overlay?.widthVersion || 0);
+        const scale = widthVersion >= CORRIDOR_WIDTH_VERSION
+            ? 1
+            : LEGACY_CORRIDOR_WIDTH_SCALE;
+        return Math.max(0.3, Math.min(10, declaredWidthNm * scale));
+    }
+
     function polylineDistanceSamples(trace = []) {
         const points = dedupeTracePoints(trace);
         if (points.length < 2) return { points, distances: [0], totalNm: 0 };
@@ -327,7 +338,7 @@
         const crossTrackToleranceNm = Math.max(
             0.06,
             Math.min(
-                0.9,
+                5,
                 Number.isFinite(configuredTol) && configuredTol > 0
                     ? configuredTol
                     : Math.max(widthTol, DEFAULTS.corridor.crossTrackToleranceNm)
@@ -392,7 +403,12 @@
             label
         ].join(':'), 220);
         const guide = raw.guide && typeof raw.guide === 'object' ? raw.guide : null;
-        const overlay = raw.overlay && typeof raw.overlay === 'object' ? raw.overlay : null;
+        const rawOverlay = raw.overlay && typeof raw.overlay === 'object' ? raw.overlay : null;
+        const overlay = rawOverlay ? {
+            ...rawOverlay,
+            widthNm: normalizeCorridorWidthNm(rawOverlay),
+            widthVersion: CORRIDOR_WIDTH_VERSION
+        } : null;
         const corridor = normalizeCorridor(raw, overlay, guide, points);
         return {
             schema: 'ga.poiChainRuntime.v1',
@@ -415,6 +431,7 @@
                 end: overlay.end || guide?.end || null,
                 radiusNm: Math.max(0.2, Math.min(8, Number(overlay.radiusNm || 1.5))),
                 widthNm: Math.max(0.3, Math.min(10, Number(overlay.widthNm || 0.5))),
+                widthVersion: CORRIDOR_WIDTH_VERSION,
                 trace: (Array.isArray(overlay.trace) ? overlay.trace : [])
                     .map(point => {
                         const lat = Number(point?.lat);
@@ -658,7 +675,7 @@
         const metersPerPixel = (40075016.686 * Math.cos(lat * Math.PI / 180)) / (256 * Math.pow(2, zoom));
         if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) return 18;
         const px = (Number(widthNm || 0.5) * NM_TO_M) / metersPerPixel;
-        return Math.max(10, Math.min(64, Math.round(px)));
+        return Math.max(10, Math.min(320, Math.round(px)));
     }
 
     function corridorEdgeLatLngs(trace, offsetNm) {
@@ -1202,6 +1219,7 @@
             haversineNm,
             bearingDeg,
             projectPointToSegmentNm,
+            normalizeCorridorWidthNm,
             normalizeCorridor,
             overlayVisualKey
         }

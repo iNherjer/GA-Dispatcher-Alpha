@@ -85,6 +85,14 @@ Die wichtigsten Kennzahlen sind:
 - `selected`: finale Kettenpunkte
 - `distCorridorNm`: Abstand des Zielpunkts zur Leitpunktspur
 
+Die sichtbare Korridorbreite und die Runtime-Toleranz verwenden denselben
+Vertrag: `overlay.widthNm` ist die gesamte Breite, die erlaubte Querabweichung
+pro Seite ist die Haelfte davon. Seit Breitenversion 2 sind die Korridore wegen
+der geglaetteten, lokal teils kurvenschneidenden Leitpunktspur viermal so breit
+wie zuvor (zum Beispiel `2.4 NM` statt `0.6 NM` fuer Verkehrskorridore). Alte
+gespeicherte Ketten ohne `overlay.widthVersion` werden beim Laden einmalig mit
+demselben Faktor normalisiert.
+
 ## Debug-Force im Dispatcher
 
 Normale Infrastruktur-Inspektionen bleiben unveraendert, solange kein Debug

@@ -3,6 +3,7 @@
 
     const host = root || (typeof globalThis !== 'undefined' ? globalThis : {});
     const EARTH_RADIUS_NM = 3440.065;
+    const CORRIDOR_WIDTH_VERSION = 2;
 
     const DEFAULTS = {
         guideMaxCrossTrackNm: 5,
@@ -27,7 +28,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
-            overlayWidthNm: 0.5,
+            overlayWidthNm: 2.0,
             overlayLabel: 'Korridor-Brueckenpruefung'
         },
         road_bridge_inspection: {
@@ -39,7 +40,7 @@
             minScore: 8,
             minPoints: 3,
             maxPoints: 8,
-            overlayWidthNm: 0.5,
+            overlayWidthNm: 2.0,
             overlayLabel: 'Strassenbauwerk-Kette'
         },
         road_junction_survey: {
@@ -52,7 +53,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
-            overlayWidthNm: 0.6,
+            overlayWidthNm: 2.4,
             overlayLabel: 'Verkehrskorridor'
         },
         rail_chain_inspection: {
@@ -66,7 +67,7 @@
             minPoints: 3,
             maxPoints: 8,
             includePoiLayer: true,
-            overlayWidthNm: 0.5,
+            overlayWidthNm: 2.0,
             overlayLabel: 'Bahnkorridor'
         },
         power_grid_inspection: {
@@ -79,7 +80,7 @@
             minScore: 4,
             minPoints: 2,
             maxPoints: 6,
-            overlayWidthNm: 0.7,
+            overlayWidthNm: 2.8,
             overlayLabel: 'Stromtrassen-Kette'
         },
         generic_poi_chain: {
@@ -1482,6 +1483,7 @@
                 end: { lat: roundNumber(cfg.end.lat), lon: roundNumber(cfg.end.lon) },
                 radiusNm: roundNumber(cfg.candidateMaxCrossTrackNm, 2),
                 widthNm: roundNumber(cfg.overlayWidthNm, 2),
+                widthVersion: CORRIDOR_WIDTH_VERSION,
                 trace
             },
             points: runtimePoints,

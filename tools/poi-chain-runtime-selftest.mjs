@@ -29,6 +29,48 @@ function assertOk(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+const legacyCorridorSpec = api.normalizeSpec({
+    schema: 'ga.poiChain.v1',
+    key: 'poi-chain-legacy-width',
+    label: 'Legacy-Korridor',
+    overlay: {
+        widthNm: 0.6,
+        trace: [
+            { lat: 48.0, lon: 8.0 },
+            { lat: 48.1, lon: 8.0 }
+        ]
+    },
+    points: [
+        { id: 'legacy-p1', lat: 48.0, lon: 8.0 },
+        { id: 'legacy-p2', lat: 48.1, lon: 8.0 }
+    ]
+});
+assertOk(legacyCorridorSpec.overlay.widthNm === 2.4, 'legacy 0.6 NM corridor should migrate to 2.4 NM');
+assertOk(legacyCorridorSpec.corridor.crossTrackToleranceNm === 1.2, '2.4 NM corridor should allow 1.2 NM per side');
+const renormalizedCorridorSpec = api.normalizeSpec(legacyCorridorSpec);
+assertOk(renormalizedCorridorSpec.overlay.widthNm === 2.4, 'runtime normalization must not multiply corridor width twice');
+assertOk(renormalizedCorridorSpec.corridor.crossTrackToleranceNm === 1.2, 'runtime tolerance must remain stable after normalization');
+
+const currentCorridorSpec = api.normalizeSpec({
+    schema: 'ga.poiChain.v1',
+    key: 'poi-chain-current-width',
+    label: 'Aktueller Korridor',
+    overlay: {
+        widthNm: 2.4,
+        widthVersion: 2,
+        trace: [
+            { lat: 48.0, lon: 8.0 },
+            { lat: 48.1, lon: 8.0 }
+        ]
+    },
+    points: [
+        { id: 'current-p1', lat: 48.0, lon: 8.0 },
+        { id: 'current-p2', lat: 48.1, lon: 8.0 }
+    ]
+});
+assertOk(currentCorridorSpec.overlay.widthNm === 2.4, 'current corridor width must remain literal');
+assertOk(currentCorridorSpec.corridor.crossTrackToleranceNm === 1.2, 'current corridor should use half its visual width as tolerance');
+
 const spec = api.normalizeSpec({
     key: 'poi-chain-selftest',
     label: 'POI-Kette Test',
