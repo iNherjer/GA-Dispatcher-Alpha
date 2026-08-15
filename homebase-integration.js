@@ -8,6 +8,7 @@
   const HOMEBASE_CREW_POLL_MS = 45000;
   const HOMEBASE_CREW_RADIUS_NM = 10;
   const HOMEBASE_CREW_MAX_OBJECTS = 100;
+  const HOMEBASE_CREW_MAX_PEOPLE = 3;
   const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
   const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
   const HOMEBASE_CREW_CAPABILITY_RETRY_MS = 15000;
@@ -294,6 +295,13 @@
 
   function isPersistentOnlyHomebaseObject(title) {
     return homebaseCatalogDefinition(title)?.persistentOnly === true;
+  }
+
+  function isLiveSpawnableCrewObject(title) {
+    const definition = homebaseCatalogDefinition(title);
+    return definition?.persistentOnly !== true
+      && definition?.preview !== false
+      && definition?.kind !== 'internal';
   }
 
   function homebaseNavigationFootprint(title) {
@@ -710,7 +718,7 @@
     const hangar = plan.hangar || {};
     const lat = finite(spawn.lat, NaN);
     const lon = finite(spawn.lon, NaN);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { hangar: null, extras: [] };
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { hangar: null, people: [], extras: [] };
     const prefix = `crew-${compactCrewId(base.pilotId)}-`;
     const owner = String(base.nick || 'Pilot').slice(0, 48);
     const hangarPosition = offsetLatLon(lat, lon, finite(hangar.northM), finite(hangar.eastM));
@@ -720,7 +728,9 @@
       altFt: finite(spawn.altFt) + finite(hangar.heightFt), heightOffsetFt: finite(hangar.heightFt),
       heading: heading(finite(hangar.heading) + homebaseHeadingCorrection(hangar.objectTitle)), scale: 1
     } : null;
-    const extras = (Array.isArray(plan.objects) ? plan.objects : []).slice(0, 20).map((item, index) => {
+    const extras = (Array.isArray(plan.objects) ? plan.objects : [])
+      .filter((item) => item?.title && isLiveSpawnableCrewObject(item.title))
+      .slice(0, HOMEBASE_CREW_MAX_OBJECTS).map((item, index) => {
       const position = offsetLatLon(lat, lon, finite(item?.northM), finite(item?.eastM));
       return {
         id: `${prefix}object-${index + 1}`, title: String(item?.title || ''),
@@ -730,7 +740,19 @@
         heading: heading(finite(item?.heading) + homebaseHeadingCorrection(item?.title)), scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
       };
     }).filter((item) => item.title);
-    return { hangar: hangarObject, extras };
+    const people = (Array.isArray(plan.people) ? plan.people : []).slice(0, HOMEBASE_CREW_MAX_PEOPLE).flatMap((person, index) => {
+      const title = normalizeHomebasePersonTitle(person?.title);
+      if (!title) return [];
+      const position = offsetLatLon(lat, lon, finite(person?.startNorthM), finite(person?.startEastM));
+      return [{
+        id: `${prefix}person-${index + 1}`, title,
+        label: `${owner} · ${String(person?.label || `Mitarbeiter ${index + 1}`).slice(0, 48)}`,
+        lat: position.lat, lon: position.lon,
+        altFt: finite(spawn.altFt), heightOffsetFt: 0,
+        heading: heading(spawn.heading), scale: 1
+      }];
+    });
+    return { hangar: hangarObject, people, extras };
   }
 
   function crewSceneForPosition(position) {
@@ -744,6 +766,16 @@
       .sort((left, right) => left.distance - right.distance)
       .map((entry) => ({ ...entry, objects: crewObjectsForBase(entry.base) }));
     const scene = nearby.map((entry) => entry.objects.hangar).filter(Boolean).slice(0, HOMEBASE_CREW_MAX_OBJECTS);
+    for (let index = 0; scene.length < HOMEBASE_CREW_MAX_OBJECTS; index += 1) {
+      let added = false;
+      for (const entry of nearby) {
+        const person = entry.objects.people[index];
+        if (!person || scene.length >= HOMEBASE_CREW_MAX_OBJECTS) continue;
+        scene.push(person);
+        added = true;
+      }
+      if (!added) break;
+    }
     for (let index = 0; scene.length < HOMEBASE_CREW_MAX_OBJECTS; index += 1) {
       let added = false;
       for (const entry of nearby) {

@@ -137,7 +137,7 @@ assert.equal(crewDisabled.body.directory.find((entry) => entry.pilotId === "pilo
 assert.equal(crewDisabled.body.directory.find((entry) => entry.pilotId === "pilotA")?.spawn, undefined);
 
 const sharedPlan = structuredClone(plan);
-sharedPlan.objects = Array.from({ length: 25 }, (_, index) => ({
+sharedPlan.objects = Array.from({ length: 105 }, (_, index) => ({
   id: `box-${index + 1}`,
   title: "VFR Multitool Homebase Box",
   label: "Karton",
@@ -159,7 +159,10 @@ assert.equal(crew.response.status, 200);
 assert.equal(crew.body.bases.length, 1);
 assert.equal(crew.body.bases[0].pilotId, "pilotB");
 assert.equal(crew.body.bases[0].nick, "Bravo");
-assert.equal(crew.body.bases[0].plan.objects.length, 20);
+assert.equal(shared.body.record.plan.objects.length, 100);
+assert.equal(crew.body.bases[0].plan.objects.length, 100);
+assert.equal(crew.body.bases[0].plan.people.length, 1);
+assert.equal(crew.body.maxObjectsPerBase, 100);
 assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.hasHomebase, true);
 assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.spawn.lat, 48.1);
 assert.equal(JSON.stringify(crew.body.directory).includes("VFR Multitool Homebase Box"), false);

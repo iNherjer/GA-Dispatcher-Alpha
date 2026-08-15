@@ -91,3 +91,14 @@ test('Crew Homebases require authentication but not profile auto-sync', () => {
   assert.match(refreshBlock, /if \(!context\.authReady \|\| !context\.groupName\)/);
   assert.doesNotMatch(refreshBlock, /!context\.enabled/);
 });
+
+test('Crew Homebases keep the full live-spawnable plan and include static people', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'homebase-integration.js'), 'utf8');
+  const projectionBlock = source.match(/function crewObjectsForBase[\s\S]*?function crewSceneForPosition/)?.[0] || '';
+
+  assert.match(projectionBlock, /filter\(\(item\) => item\?\.title && isLiveSpawnableCrewObject\(item\.title\)\)/);
+  assert.match(projectionBlock, /slice\(0, HOMEBASE_CREW_MAX_OBJECTS\)/);
+  assert.match(projectionBlock, /Array\.isArray\(plan\.people\)/);
+  assert.match(projectionBlock, /person-\$\{index \+ 1\}/);
+  assert.doesNotMatch(projectionBlock, /slice\(0, 20\)/);
+});
