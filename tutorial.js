@@ -320,7 +320,7 @@
                 selector: ['#distRange', '#distRangeRadio', '#opsRangeSelect', '#dirPref', '#airportTypeFilterButton', '#airportTypeFilterRadioButton', '#opsAirportTypeButton'],
                 body: `
                     <p>Über <strong>Distanz</strong> und <strong>Richtung</strong> steuerst du den Suchraum.</p>
-                    <p>Unter <strong>Platztypen</strong> kannst du mehrere Kategorien kombinieren, etwa Verkehrslandeplätze, GA-, Segelflug-, UL- oder Militärplätze. Die Suche bleibt weltweit.</p>
+                    <p>Unter <strong>Platztypen</strong> kannst du mehrere Kategorien kombinieren, etwa Verkehrslandeplätze, GA-, Segelflug-, UL-, Heli- oder Militärplätze. DEP, DEST und automatisch erzeugte Ziele beachten diese Auswahl. Zivile Heliports erscheinen nur mit <strong>Heli</strong>; die Suche bleibt weltweit.</p>
                 `,
                 beforeEnter: () => {
                     ensureMapClosed();

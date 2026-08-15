@@ -1514,7 +1514,7 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'DEST / Ziel', text: 'Das Ziel. Leer oder RNDM bedeutet: Die App sucht ein passendes Ziel selbst aus.' },
             { term: 'TYPE / Typ', text: 'APT plant einen Flugplatz-zu-Flugplatz-Auftrag. POI plant einen Rundflug oder Zielpunkt.' },
             { term: 'RANGE / Distanz', text: 'Begrenzt die ungefaehre Gesamtstrecke. Egal/RNDM laesst die App frei waehlen.' },
-            { term: 'Platztypen', text: 'Legt per Mehrfachauswahl fest, welche Arten von Flugplätzen als Missionsziel vorgeschlagen werden. Die Suche selbst bleibt weltweit.' },
+            { term: 'Platztypen', text: 'Legt per Mehrfachauswahl fest, welche Arten von Flugplätzen in DEP, DEST und als automatisch erzeugte Ziele erscheinen. Zivile Heliports benötigen die separate Auswahl Heli; die Suche bleibt weltweit.' },
             { term: 'Richtung', text: 'Gibt eine bevorzugte Flugrichtung vor. Egal/RND nimmt jede passende Richtung.' },
             { term: 'Sitze / PAX', text: 'Bestimmt, wie viele Personen die Mission maximal einplanen darf.' },
             { term: 'Aircraft Presets', text: 'Waehlt schnell ein Flugzeugprofil wie C172, Comanche oder Aerostar.' },
@@ -4741,6 +4741,12 @@ let globalAirportsIntentPreloadPromise = null;
 let airportSearchIndex = null;
 let airportSearchIndexSourceSize = 0;
 const airportAutocompleteTimers = new WeakMap();
+const airportAutocompleteResults = new WeakMap();
+const airportAutocompleteRequestIds = new WeakMap();
+const airportLookupRecordCache = new Map();
+const AIRPORT_LOOKUP_STORAGE_KEY = 'ga_airport_lookup_records_v1';
+const AIRPORT_DATABASE_VERSION = 'snapshot-2026-07-28-merged-v1';
+const AIRPORT_DATABASE_MIN_RECORDS = 50_000;
 const AIRPORT_SEARCH_FIELD_CONFIG = {
     startLoc: { classicId: 'startLoc', opsId: 'opsDepInput', radioId: 'startLocRadio' },
     destLoc: { classicId: 'destLoc', opsId: 'opsDestInput', radioId: 'destLocRadio' }
@@ -5098,9 +5104,50 @@ function getAirportSearchCodes(apt = {}, key = '') {
         apt.icao_code,
         apt.icaoCode,
         apt.iata,
+        apt.altIdentifier,
+        apt.designator,
         ...aliases
     ];
     return Array.from(new Set(codes.map(normalizeAirportIdent).filter(Boolean)));
+}
+
+function buildAirportSearchRecord(key, apt = {}) {
+    const code = normalizeAirportIdent(key || apt.icao || openAipAirportStableIdent(apt));
+    const name = String(apt.name || apt.n || apt.city || code);
+    const city = String(apt.city || '');
+    const state = String(apt.state || '');
+    const country = String(apt.country || '');
+    const type = String(apt.type ?? '');
+    const codes = getAirportSearchCodes(apt, code);
+    const category = String(apt.airportTypeCategory || window.gaAirportTypes?.classify?.(apt) || '');
+    const haystack = normalizeAirportSearchText([
+        code,
+        codes.join(' '),
+        name,
+        city,
+        state,
+        country,
+        apt.iata || '',
+        apt.altIdentifier || '',
+        type,
+        category
+    ].join(' '));
+    return {
+        code,
+        displayCode: airportDisplayIdent({ ...apt, icao: code }),
+        apt,
+        codes,
+        name,
+        city,
+        state,
+        country,
+        type,
+        category,
+        aliasOf: normalizeAirportIdent(apt.aliasOf || ''),
+        nameNorm: normalizeAirportSearchText(name),
+        cityNorm: normalizeAirportSearchText(city),
+        haystack
+    };
 }
 
 function buildAirportSearchIndex() {
@@ -5113,40 +5160,9 @@ function buildAirportSearchIndex() {
     const keys = Object.keys(airports);
     if (airportSearchIndex && airportSearchIndexSourceSize === keys.length) return airportSearchIndex;
 
-    airportSearchIndex = keys.map(key => {
-        const apt = airports[key] || {};
-        const code = normalizeAirportIdent(key || apt.icao);
-        const name = String(apt.name || apt.n || apt.city || code);
-        const city = String(apt.city || '');
-        const state = String(apt.state || '');
-        const country = String(apt.country || '');
-        const type = String(apt.type || '');
-        const codes = getAirportSearchCodes(apt, code);
-        const haystack = normalizeAirportSearchText([
-            code,
-            codes.join(' '),
-            name,
-            city,
-            state,
-            country,
-            apt.iata || '',
-            type
-        ].join(' '));
-        return {
-            code,
-            apt,
-            codes,
-            name,
-            city,
-            state,
-            country,
-            type,
-            aliasOf: normalizeAirportIdent(apt.aliasOf || ''),
-            nameNorm: normalizeAirportSearchText(name),
-            cityNorm: normalizeAirportSearchText(city),
-            haystack
-        };
-    }).filter(record => record.code && record.haystack);
+    airportSearchIndex = keys
+        .map(key => buildAirportSearchRecord(key, airports[key] || {}))
+        .filter(record => record.code && record.haystack);
     airportSearchIndexSourceSize = keys.length;
     return airportSearchIndex;
 }
@@ -5175,7 +5191,16 @@ function scoreAirportSearchRecord(record, query, queryNorm, queryCode) {
     return score;
 }
 
-function searchAirportCandidates(query = '', limit = 5) {
+function airportSearchFieldAllowsRecord(record = {}, classicId = '', options = {}) {
+    if (window.gaAirportTypes?.classify?.(record.apt || record) === 'closed') return false;
+    if (options.exact === true) return true;
+    if (classicId === 'startLoc' || classicId === 'destLoc') {
+        return missionAirportMatchesTypeFilter(record.apt || record);
+    }
+    return true;
+}
+
+function searchAirportCandidates(query = '', limit = 5, options = {}) {
     const raw = String(query || '').trim();
     const queryNorm = normalizeAirportSearchText(raw);
     const queryCode = normalizeAirportIdent(raw);
@@ -5183,6 +5208,7 @@ function searchAirportCandidates(query = '', limit = 5) {
 
     const byCanonical = new Map();
     for (const record of buildAirportSearchIndex()) {
+        if (!airportSearchFieldAllowsRecord(record, options.classicId || '', options)) continue;
         const score = scoreAirportSearchRecord(record, raw, queryNorm, queryCode);
         if (score <= 0) continue;
         const canonicalKey = record.aliasOf && record.code !== queryCode ? record.aliasOf : record.code;
@@ -5197,8 +5223,7 @@ function searchAirportCandidates(query = '', limit = 5) {
         .slice(0, limit);
 }
 
-function getBestAirportSearchResult(query = '', { auto = false } = {}) {
-    const results = searchAirportCandidates(query, auto ? 2 : 1);
+function chooseBestAirportSearchResult(results = [], query = '', { auto = false } = {}) {
     const best = results[0] || null;
     if (!best || !auto) return best;
     const queryNorm = normalizeAirportSearchText(query);
@@ -5211,6 +5236,79 @@ function getBestAirportSearchResult(query = '', { auto = false } = {}) {
     if (best.score >= 520 && delta >= 40) return best;
     if (queryNorm.length >= 5 && best.score >= 420 && delta >= 80) return best;
     return null;
+}
+
+function getBestAirportSearchResult(query = '', { auto = false } = {}) {
+    const results = searchAirportCandidates(query, auto ? 2 : 1);
+    return chooseBestAirportSearchResult(results, query, { auto });
+}
+
+function airportLookupRecordKey(record = {}) {
+    return normalizeAirportIdent(record.icao || record.ident || openAipAirportStableIdent(record));
+}
+
+function compactAirportLookupRecord(record = {}) {
+    const normalized = buildAirportDispatchRecord(airportLookupRecordKey(record), record);
+    if (!normalized.icao || !Number.isFinite(normalized.lat) || !Number.isFinite(normalized.lon)) return null;
+    return {
+        icao: normalized.icao,
+        icaoCode: normalized.icaoCode || '',
+        altIdentifier: normalized.altIdentifier || '',
+        sourceId: normalized.sourceId || '',
+        name: normalized.name || normalized.icao,
+        city: normalized.city || '',
+        state: normalized.state || '',
+        country: normalized.country || '',
+        iata: normalized.iata || '',
+        elevation: Number.isFinite(Number(normalized.elevation)) ? Number(normalized.elevation) : null,
+        lat: Number(normalized.lat),
+        lon: Number(normalized.lon),
+        openAipType: parseOpenAipAirportType(normalized.openAipType),
+        type: parseOpenAipAirportType(normalized.openAipType) ?? normalized.type,
+        ppr: !!normalized.ppr,
+        private: !!normalized.private,
+        winchOnly: !!normalized.winchOnly,
+        airportTypeCategory: normalized.airportTypeCategory || '',
+        source: normalized.source || (parseOpenAipAirportType(normalized.openAipType) !== null ? 'openaip-search' : 'local-airports')
+    };
+}
+
+function loadPersistedAirportLookupRecords() {
+    if (airportLookupRecordCache.size) return;
+    try {
+        const stored = JSON.parse(localStorage.getItem(AIRPORT_LOOKUP_STORAGE_KEY) || '[]');
+        for (const record of (Array.isArray(stored) ? stored : [])) {
+            const compact = compactAirportLookupRecord(record);
+            if (compact) airportLookupRecordCache.set(compact.icao, compact);
+        }
+    } catch (_) {}
+}
+
+function rememberAirportLookupRecord(record = {}, options = {}) {
+    const compact = compactAirportLookupRecord(record);
+    if (!compact) return null;
+    loadPersistedAirportLookupRecords();
+    airportLookupRecordCache.delete(compact.icao);
+    airportLookupRecordCache.set(compact.icao, compact);
+    while (airportLookupRecordCache.size > 24) {
+        airportLookupRecordCache.delete(airportLookupRecordCache.keys().next().value);
+    }
+    if (options.persist === true) {
+        try {
+            localStorage.setItem(AIRPORT_LOOKUP_STORAGE_KEY, JSON.stringify(Array.from(airportLookupRecordCache.values())));
+        } catch (_) {}
+    }
+    return compact;
+}
+
+function getRememberedAirportLookupRecord(ident = '') {
+    loadPersistedAirportLookupRecords();
+    return airportLookupRecordCache.get(normalizeAirportIdent(ident)) || null;
+}
+
+async function searchAirportCatalogCandidates(query = '', classicId = '', limit = 8, options = {}) {
+    await loadGlobalAirports().catch(() => {});
+    return searchAirportCandidates(query, limit, { ...options, classicId });
 }
 
 function syncAirportFieldValue(classicId, value, { sourceInput = null, resolved = false } = {}) {
@@ -5280,6 +5378,7 @@ function setAirportAutocompleteActive(menu, index) {
 function renderAirportAutocomplete(input, classicId, results) {
     const menu = ensureAirportAutocompleteMenu(input, classicId);
     if (!menu) return;
+    airportAutocompleteResults.set(input, results);
     menu.innerHTML = '';
     if (!results.length) {
         hideAirportAutocomplete(input);
@@ -5296,7 +5395,7 @@ function renderAirportAutocomplete(input, classicId, results) {
 
         const code = document.createElement('span');
         code.className = 'airport-result-code';
-        code.textContent = result.code;
+        code.textContent = result.displayCode || result.code;
 
         const name = document.createElement('span');
         name.className = 'airport-result-name';
@@ -5304,7 +5403,8 @@ function renderAirportAutocomplete(input, classicId, results) {
 
         const meta = document.createElement('span');
         meta.className = 'airport-result-meta';
-        meta.textContent = [result.city, result.state, result.country].filter(Boolean).join(' · ');
+        const typeLabel = window.gaAirportTypes?.groupForRecord?.(result.apt)?.shortLabel || '';
+        meta.textContent = [typeLabel, result.city, result.state, result.country].filter(Boolean).join(' · ');
 
         button.append(code, name, meta);
         button.addEventListener('mousedown', event => {
@@ -5323,21 +5423,25 @@ function queueAirportAutocomplete(input, classicId) {
     const raw = String(input.value || '').trim();
     const existing = airportAutocompleteTimers.get(input);
     if (existing) clearTimeout(existing);
+    const requestId = (airportAutocompleteRequestIds.get(input) || 0) + 1;
+    airportAutocompleteRequestIds.set(input, requestId);
     if (!raw || raw.length < 2) {
         hideAirportAutocomplete(input);
         setAirportFieldState(classicId, '');
         return;
     }
+    setAirportFieldState(classicId, 'pending');
     const timer = setTimeout(async () => {
-        await loadGlobalAirports();
-        const results = searchAirportCandidates(input.value, 5);
+        const results = await searchAirportCatalogCandidates(raw, classicId, 8);
+        if (airportAutocompleteRequestIds.get(input) !== requestId || String(input.value || '').trim() !== raw) return;
         renderAirportAutocomplete(input, classicId, results);
-    }, 90);
+    }, 260);
     airportAutocompleteTimers.set(input, timer);
 }
 
 function selectAirportAutocompleteResult(input, classicId, result) {
     if (!result?.code) return;
+    rememberAirportLookupRecord(result.apt, { persist: true });
     syncAirportFieldValue(classicId, result.code, { sourceInput: input, resolved: true });
     setAirportFieldState(classicId, 'valid');
     hideAirportAutocomplete();
@@ -5353,12 +5457,28 @@ async function resolveAndNormalizeAirportField(input, classicId) {
         updateOps1940Panel();
         return null;
     }
+    if (classicId === 'destLoc' && /^(?:RNDM|----)$/i.test(raw)) {
+        syncAirportFieldValue(classicId, '', { sourceInput: input, resolved: false });
+        setAirportFieldState(classicId, '');
+        updateOps1940Panel();
+        return null;
+    }
     await loadGlobalAirports();
     const exactCode = normalizeAirportIdent(raw);
-    const exact = globalAirports && globalAirports[exactCode]
-        ? { code: exactCode, apt: globalAirports[exactCode] }
-        : getBestAirportSearchResult(raw, { auto: true });
+    const remembered = getRememberedAirportLookupRecord(exactCode);
+    let exact = globalAirports && globalAirports[exactCode]
+        ? buildAirportSearchRecord(exactCode, globalAirports[exactCode])
+        : (remembered ? buildAirportSearchRecord(exactCode, remembered) : null);
+    if (!exact) {
+        const results = await searchAirportCatalogCandidates(raw, classicId, 8);
+        exact = chooseBestAirportSearchResult(results, raw, { auto: true });
+    }
+    if (!exact && exactCode.length >= 3) {
+        const allTypeResults = await searchAirportCatalogCandidates(raw, classicId, 8, { allTypes: true, exact: true });
+        exact = allTypeResults.find(result => result.code === exactCode || result.codes.includes(exactCode)) || null;
+    }
     if (exact?.code) {
+        rememberAirportLookupRecord(exact.apt, { persist: true });
         syncAirportFieldValue(classicId, exact.code, { sourceInput: input, resolved: true });
         setAirportFieldState(classicId, 'valid');
         updateOps1940Panel();
@@ -5384,7 +5504,7 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
         const active = visible ? options[Math.max(0, activeIndex)] : null;
         if (active) {
             event.preventDefault();
-            const results = searchAirportCandidates(input.value, 5);
+            const results = airportAutocompleteResults.get(input) || [];
             const result = results[Number(active.dataset.index || 0)];
             if (result) selectAirportAutocompleteResult(input, classicId, result);
         } else {
@@ -5975,6 +6095,14 @@ function bootAppOnce() {
     initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 13500, 'alt');
     initOpsRotaryControls();
     initOps1940Panel();
+    const preloadAirportDatabase = () => {
+        void preloadGlobalAirportsOnIntent().then(() => buildAirportSearchIndex());
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(preloadAirportDatabase, { timeout: 3000 });
+    } else {
+        setTimeout(preloadAirportDatabase, 1200);
+    }
     syncToNavCom('altRadioDisplay', document.getElementById('altSlider') ? document.getElementById('altSlider').value : '4500');
 
     if (aiToggleBtn && aiToggleBtn.checked) {
@@ -7969,6 +8097,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'generatedAt', 'createdAt', 'updatedAt', 'savedAt',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionSubType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
+        'airportTypes', 'departureAirport', 'destinationAirport',
         'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
         'poiTerrainFt', 'poiTerrainMaxFt', 'poiTerrainRadiusNm', 'poiTerrainEnvelope',
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
@@ -8626,7 +8755,11 @@ async function restoreMissionState(state, options = {}) {
 
     document.getElementById("destRwyContainer").style.display = restoredMissionLikePoi ? "none" : "block";
     if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = restoredMissionLikePoi ? "none" : "block";
-    const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = currentStartICAO === 'GPS' ? "none" : "block";
+    const depLinks = document.getElementById("wikiDepLinks");
+    if (depLinks) {
+        const restoredDepIcao = airportRealIcao(state.currentMissionData?.departureAirport || { icao: state.currentStartICAO });
+        depLinks.style.display = restoredDepIcao ? "block" : "none";
+    }
     const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = "flex";
     const destLinks = document.getElementById("wikiDestLinks");
     if (destLinks) {
@@ -8635,6 +8768,8 @@ async function restoreMissionState(state, options = {}) {
     }
 
     currentMissionData = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
+    if (currentMissionData.departureAirport) rememberAirportLookupRecord(currentMissionData.departureAirport);
+    if (currentMissionData.destinationAirport) rememberAirportLookupRecord(currentMissionData.destinationAirport);
     routeWaypoints = resolveRouteWaypointsFromMissionState(state);
     const restoredMissionRouteSource = currentMissionData?.poiChain
         ? routeWaypoints
@@ -8782,7 +8917,10 @@ async function restoreMissionState(state, options = {}) {
 
     // Fallback: Wenn Frequenzen im Briefing fehlen (z.B. alte Pinnwand-Daten), neu laden
     if (!state.wikiDepFreqText && currentStartICAO && currentStartICAO !== 'GPS') {
-        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep');
+        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep', currentMissionData?.departureAirport || {
+            lat: currentMissionData?.initialStartLat,
+            lon: currentMissionData?.initialStartLon
+        });
     } else if (currentStartICAO === 'GPS' && document.getElementById("wikiDepFreqText")) {
         document.getElementById("wikiDepFreqText").innerHTML = '<span style="color:#888;">Live GPS Start</span>';
     }
@@ -10575,10 +10713,16 @@ async function loadGlobalAirports() {
     const isValidAirportMap = (parsed) => {
         if (!parsed || typeof parsed !== 'object') return false;
         const keys = Object.keys(parsed);
-        if (keys.length < 1000) return false;
+        if (keys.length < AIRPORT_DATABASE_MIN_RECORDS) return false;
         // Mindest-Sanitycheck für das bekannte Schema.
         const sample = parsed.EDDM || parsed.EDDF || parsed.EDNY || parsed.LOWW;
-        return !!(sample && typeof sample.lat === 'number' && typeof sample.lon === 'number');
+        const gliderSample = parsed['OA-09445F82'];
+        return !!(
+            sample
+            && typeof sample.lat === 'number'
+            && typeof sample.lon === 'number'
+            && gliderSample?.type === 1
+        );
     };
 
     const tryParseResponse = async (res) => {
@@ -10600,6 +10744,7 @@ async function loadGlobalAirports() {
         }
 
         const urls = [
+            `./airports.json?v=${AIRPORT_DATABASE_VERSION}`,
             './airports.json',
             'airports.json',
             '/airports.json',
@@ -10721,6 +10866,51 @@ function openAipElevationFeet(elevation) {
     return Number(elevation?.unit) === 1 ? Math.round(value) : Math.round(value * 3.28084);
 }
 
+function parseOpenAipAirportType(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric >= 0 && numeric <= 13 ? numeric : null;
+}
+
+function normalizeOpenAipAirportRecord(item = {}, options = {}) {
+    const coords = item?.geometry?.coordinates;
+    const lon = Number(Array.isArray(coords) ? coords[0] : (item?.lon ?? item?.lng));
+    const lat = Number(Array.isArray(coords) ? coords[1] : item?.lat);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const icao = openAipAirportStableIdent(item);
+    if (!icao) return null;
+    const sourceId = String(item?.sourceId || item?.id || item?._id || '').trim();
+    const icaoCode = String(item?.icaoCode || item?.icao || '').trim().toUpperCase();
+    const altIdentifier = String(item?.designator || item?.altIdentifier || item?.identifier || '').trim().toUpperCase();
+    const openAipType = parseOpenAipAirportType(item?.openAipType ?? item?.airportType ?? item?.type);
+    const elevation = openAipElevationFeet(item?.elevation ?? item?.elevFt);
+    const record = {
+        icao,
+        icaoCode,
+        altIdentifier,
+        sourceId,
+        openAipType,
+        type: openAipType ?? item?.type ?? '',
+        name: String(item?.name || item?.n || icao),
+        n: String(item?.name || item?.n || icao),
+        lat,
+        lon,
+        country: String(item?.country || item?.countryCode || item?.isoCountry || '').trim().toUpperCase(),
+        iata: String(item?.iataCode || item?.iata || '').trim().toUpperCase(),
+        elevation,
+        elevFt: elevation,
+        frequencies: Array.isArray(item?.frequencies) ? item.frequencies : [],
+        runways: Array.isArray(item?.runways) ? item.runways : [],
+        ppr: !!item?.ppr,
+        private: !!item?.private,
+        winchOnly: !!item?.winchOnly,
+        services: item?.services && typeof item.services === 'object' ? item.services : null,
+        source: options.source || item?.source || 'hosted-openaip'
+    };
+    record.airportTypeCategory = window.gaAirportTypes?.classify?.(record) || '';
+    return record;
+}
+
 async function fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref = 'any') {
     const key = [
         Math.round(lat * 10) / 10,
@@ -10756,40 +10946,12 @@ async function fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref = 'any')
         }
         const parsed = [];
         for (const item of items) {
-            const coords = item?.geometry?.coordinates;
-            if (!Array.isArray(coords) || coords.length < 2) continue;
-            const lonV = Number(coords[0]);
-            const latV = Number(coords[1]);
-            if (!Number.isFinite(latV) || !Number.isFinite(lonV)) continue;
-            const icao = openAipAirportStableIdent(item);
-            if (!icao) continue;
-            const sourceId = String(item?.id || item?._id || '').trim();
-            const icaoCode = String(item?.icaoCode || item?.icao || '').trim().toUpperCase();
-            const altIdentifier = String(item?.designator || item?.altIdentifier || item?.identifier || '').trim().toUpperCase();
-            const country = String(item?.country || item?.countryCode || item?.isoCountry || '').trim().toUpperCase();
-            const isDE = country === 'DE' || icaoCode.startsWith('ED') || icaoCode.startsWith('ET');
+            const record = normalizeOpenAipAirportRecord(item, { source: 'hosted-openaip' });
+            if (!record) continue;
+            const isDE = record.country === 'DE' || record.icaoCode.startsWith('ED') || record.icaoCode.startsWith('ET');
             if (regionPref === 'de' && !isDE) continue;
             if (regionPref === 'int' && isDE) continue;
-            parsed.push({
-                icao,
-                icaoCode,
-                altIdentifier,
-                sourceId,
-                openAipType: Number.isInteger(Number(item?.type)) ? Number(item.type) : null,
-                type: Number.isInteger(Number(item?.type)) ? Number(item.type) : item?.type,
-                name: String(item?.name || icao),
-                lat: latV,
-                lon: lonV,
-                country,
-                elevation: openAipElevationFeet(item?.elevation),
-                elevFt: openAipElevationFeet(item?.elevation),
-                frequencies: Array.isArray(item?.frequencies) ? item.frequencies : [],
-                runways: Array.isArray(item?.runways) ? item.runways : [],
-                ppr: !!item?.ppr,
-                private: !!item?.private,
-                winchOnly: !!item?.winchOnly,
-                source: 'hosted-openaip'
-            });
+            parsed.push(record);
         }
         openAipAirportDispatchCache.set(key, { ts: now, items: parsed });
         return parsed;
@@ -10813,7 +10975,7 @@ function buildAirportDispatchRecord(icao, apt = {}) {
         lat: Number(apt?.lat),
         lon: Number(apt?.lon),
         tz: apt?.tz || null,
-        iata: apt?.iata || '',
+        iata: apt?.iata || apt?.iataCode || '',
         faa: apt?.faa || apt?.local_code || '',
         localCode: apt?.local_code || apt?.localCode || '',
         gpsCode: apt?.gps_code || apt?.gpsCode || '',
@@ -10823,14 +10985,13 @@ function buildAirportDispatchRecord(icao, apt = {}) {
         aliasOf: apt?.aliasOf || '',
         aliases,
         type: apt?.type ?? '',
-        openAipType: Number.isInteger(Number(apt?.openAipType ?? apt?.airportType))
-            ? Number(apt?.openAipType ?? apt?.airportType)
-            : (Number.isInteger(Number(apt?.type)) ? Number(apt.type) : null),
+        openAipType: parseOpenAipAirportType(apt?.openAipType ?? apt?.airportType ?? apt?.type),
         frequencies: Array.isArray(apt?.frequencies) ? apt.frequencies : [],
         runways: Array.isArray(apt?.runways) ? apt.runways : [],
         ppr: !!apt?.ppr,
         private: !!apt?.private,
         winchOnly: !!apt?.winchOnly,
+        services: apt?.services && typeof apt.services === 'object' ? apt.services : null,
         airportTypeCategory: window.gaAirportTypes?.classify?.(apt) || '',
         source: apt?.source || ''
     };
@@ -10869,8 +11030,9 @@ function scoreBushAirportCandidate(apt = {}) {
 
 async function getAirportData(icao) {
     const code = normalizeAirportIdent(icao);
-    const missionAirport = currentMissionData?.destinationAirport;
-    if (missionAirport && normalizeAirportIdent(missionAirport.ident) === code) {
+    const missionAirport = [currentMissionData?.departureAirport, currentMissionData?.destinationAirport]
+        .find(candidate => candidate && normalizeAirportIdent(candidate.ident || candidate.icao) === code);
+    if (missionAirport) {
         return buildAirportDispatchRecord(code, {
             ...missionAirport,
             icao: code,
@@ -10880,6 +11042,8 @@ async function getAirportData(icao) {
             airportTypeCategory: missionAirport.category
         });
     }
+    const rememberedAirport = getRememberedAirportLookupRecord(code);
+    if (rememberedAirport) return buildAirportDispatchRecord(code, rememberedAirport);
     try {
         const cachedHostedAirport = JSON.parse(localStorage.getItem('ga_last_hosted_airport_v1') || 'null');
         if (cachedHostedAirport && normalizeAirportIdent(cachedHostedAirport.ident) === code) {
@@ -10897,9 +11061,15 @@ async function getAirportData(icao) {
     if (globalAirports && globalAirports[code]) {
         return buildAirportDispatchRecord(code, globalAirports[code]);
     }
-    const resolved = getBestAirportSearchResult(icao, { auto: true });
-    if (resolved?.code && globalAirports && globalAirports[resolved.code]) {
-        return buildAirportDispatchRecord(resolved.code, globalAirports[resolved.code]);
+    const localResolved = getBestAirportSearchResult(icao, { auto: true });
+    if (localResolved?.code && globalAirports && globalAirports[localResolved.code]) {
+        return buildAirportDispatchRecord(localResolved.code, globalAirports[localResolved.code]);
+    }
+    const catalogResults = await searchAirportCatalogCandidates(icao, 'startLoc', 8, { allTypes: true, exact: true });
+    const catalogResolved = chooseBestAirportSearchResult(catalogResults, icao, { auto: true });
+    if (catalogResolved?.apt) {
+        const remembered = rememberAirportLookupRecord(catalogResolved.apt, { persist: true }) || catalogResolved.apt;
+        return buildAirportDispatchRecord(catalogResolved.code, remembered);
     }
     try {
         const query = encodeURIComponent(String(icao || code).trim());
@@ -42437,6 +42607,7 @@ async function generateMission(options = {}) {
         if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
     }
     currentStartICAO = normalizeAirportIdent(start.icao || currentStartICAO);
+    const currentStartDisplayIdent = airportDisplayIdent(start);
     if (!followupStartAirport) syncAirportFieldValue('startLoc', currentStartICAO, { resolved: true });
 
     const rangePref = document.getElementById("distRange").value;
@@ -44361,6 +44532,20 @@ async function generateMission(options = {}) {
         initialTargetLat: Number(dest.lat),
         initialTargetLon: Number(dest.lon),
         airportTypes: airportTypeSelection,
+        departureAirport: {
+            ident: currentStartICAO,
+            displayIdent: currentStartDisplayIdent,
+            icaoCode: airportRealIcao(start) || null,
+            altIdentifier: start?.altIdentifier || null,
+            sourceId: start?.sourceId || null,
+            openAipType: parseOpenAipAirportType(start?.openAipType),
+            category: start?.airportTypeCategory || window.gaAirportTypes?.classify?.(start) || null,
+            name: start?.n || start?.name || null,
+            lat: Number(start.lat),
+            lon: Number(start.lon),
+            elevation: Number.isFinite(Number(start?.elevation)) ? Number(start.elevation) : null,
+            source: start?.source || null
+        },
         destinationAirport: !isPOI ? {
             ident: currentDestICAO,
             displayIdent: currentDestDisplayIdent,
@@ -44950,11 +45135,11 @@ async function generateMission(options = {}) {
     }
     storyForBriefing = sanitizePoiBriefingRuleLeaks(storyForBriefing, currentMissionData);
     document.getElementById("mStory").innerText = storyForBriefing;
-    document.getElementById("mDepICAO").innerText = currentStartICAO;
+    document.getElementById("mDepICAO").innerText = currentStartDisplayIdent;
     document.getElementById("mDepName").innerText = start.n;
     document.getElementById("mDepCoords").innerText = `${start.lat.toFixed(4)}, ${start.lon.toFixed(4)}`;
     const wikiDepNameEl = document.getElementById('wikiDepNameDisplay');
-    if (wikiDepNameEl) wikiDepNameEl.innerText = `${currentStartICAO} – ${start.n}`;
+    if (wikiDepNameEl) wikiDepNameEl.innerText = `${currentStartDisplayIdent} – ${start.n}`;
 
     setDrumCounter('distDrum', totalDist);
     recalculatePerformance();
@@ -44974,7 +45159,7 @@ async function generateMission(options = {}) {
 
     document.getElementById("destRwyContainer").style.display = missionActsLikePoi ? "none" : "block";
     if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = missionActsLikePoi ? "none" : "block";
-    const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = "block";
+    const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = airportRealIcao(start) ? "block" : "none";
     const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = missionActsLikePoi ? "none" : "flex";
 
     document.getElementById("briefingBox").style.display = "block";
@@ -44998,7 +45183,9 @@ async function generateMission(options = {}) {
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || plannedBriefingPassenger || null, 'map-updated');
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || plannedBriefingPassenger || null, 'map-updated');
 
-    currentDepElev  = (globalAirports && globalAirports[currentStartICAO])  ? (globalAirports[currentStartICAO].elevation  ?? null) : null;
+    currentDepElev = Number.isFinite(Number(start?.elevation))
+        ? Number(start.elevation)
+        : ((globalAirports && globalAirports[currentStartICAO]) ? (globalAirports[currentStartICAO].elevation ?? null) : null);
     currentDestElev = Number.isFinite(Number(dest?.elevation))
         ? Number(dest.elevation)
         : ((globalAirports && globalAirports[currentDestICAO]) ? (globalAirports[currentDestICAO].elevation ?? null) : null);
@@ -45015,7 +45202,7 @@ async function generateMission(options = {}) {
         if (!_isDispatchRunAlive(dispatchRunId)) return;
         if (!missionActsLikePoi) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
 
-        fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, currentStartICAO, 'wikiDepImageContainer', 'wikiDepImage');
+        fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, airportRealIcao(start) || null, 'wikiDepImageContainer', 'wikiDepImage');
         fetchAreaDescription(
             dest.lat,
             dest.lon,
@@ -45029,7 +45216,7 @@ async function generateMission(options = {}) {
         currentDepFreq = "";
         currentDestFreq = "";
 
-        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep');
+        fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep', start);
 
         // --- NEU: METAR Start laden ---
         loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon);

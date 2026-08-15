@@ -120,8 +120,9 @@
             record?.type
         ];
         for (const candidate of candidates) {
+            if (candidate === null || candidate === undefined || candidate === '') continue;
             const numeric = Number(candidate);
-            if (Number.isInteger(numeric)) return numeric;
+            if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 13) return numeric;
         }
         return null;
     }
@@ -144,6 +145,20 @@
     function matches(record = {}, ids = readSelection()) {
         const category = classify(record);
         return category !== 'closed' && sanitizeSelection(ids).includes(category);
+    }
+
+    function openAipTypes(ids = readSelection()) {
+        const selected = new Set(sanitizeSelection(ids));
+        return Array.from(new Set(
+            GROUPS
+                .filter(group => selected.has(group.id))
+                .flatMap(group => group.openAipTypes)
+        )).sort((a, b) => a - b);
+    }
+
+    function groupForRecord(record = {}) {
+        const category = classify(record);
+        return GROUPS.find(group => group.id === category) || null;
     }
 
     function selectedGroups() {
@@ -290,6 +305,8 @@
         defaultIds: DEFAULT_IDS,
         classify,
         matches,
+        openAipTypes,
+        groupForRecord,
         getSelected: readSelection,
         setSelected: writeSelection,
         selectDefaults: () => writeSelection(DEFAULT_IDS),

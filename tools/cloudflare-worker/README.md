@@ -36,10 +36,10 @@ npm test
 
 ## OpenAIP-Regionscache und Rollback
 
-Der Snapshot-Endpunkt lädt Flugplätze einschließlich Pisten, Lufträume, Navaids
-einschließlich Frequenz/Kanal/Reichweite und Reporting Points für dieselbe BBox
-gebündelt. Die BBox darf entsprechend der OpenAIP-Regel höchstens 5° breit und
-5° hoch sein.
+Der Snapshot-Endpunkt lädt Flugplätze einschließlich Platztyp, PPR-/Privatstatus,
+Services und Pisten, Lufträume, Navaids einschließlich Frequenz/Kanal/Reichweite
+und Reporting Points für dieselbe BBox gebündelt. Die BBox darf entsprechend der
+OpenAIP-Regel höchstens 5° breit und 5° hoch sein.
 
 - identische Rasterregionen werden im Cloudflare Edge Cache standortnah zwischen Nutzern wiederverwendet;
 - innerhalb der ersten fünf Minuten wird der Cache ohne OpenAIP-Abruf beantwortet;

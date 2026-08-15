@@ -13337,6 +13337,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'generatedAt', 'createdAt', 'updatedAt', 'savedAt',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
+        'airportTypes', 'departureAirport', 'destinationAirport',
         'poiPresentation', 'isPOI', 'poiName', 'targetName', 'targetLat', 'targetLon', 'targetAltFt', 'targetInfo',
         'poiTerrainFt', 'poiTerrainMaxFt', 'poiTerrainRadiusNm', 'poiTerrainEnvelope',
         'missionSubType', 'poiChain',

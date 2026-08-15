@@ -151,6 +151,7 @@ Wichtige Felder:
 - **DEP / Start**: ICAO-Code oder Suchtext. Beispiel: `EDTW`.
 - **DEST / Ziel**: optional. Leer, `RNDM` oder `----` bedeutet: die App sucht selbst.
 - **TYPE / Typ**: APT, POI, Bush oder Spezialprofil.
+- **Platztypen**: begrenzt DEP-/DEST-Vorschläge und automatisch erzeugte Ziele auf die aktivierten OpenAIP-Kategorien. Zivile Heliports erscheinen nur mit der separaten Auswahl **Heli**; für unterschiedliche Start- und Zieltypen können mehrere Kategorien gleichzeitig aktiviert werden.
 - **RANGE / Distanz**: Egal, Short, Medium oder Long.
 - **Region**: International, nur Deutschland oder Ausland.
 - **Richtung**: bevorzugte Himmelsrichtung.
@@ -159,6 +160,7 @@ Wichtige Felder:
 Tipps:
 
 - Fuer maximale Abwechslung **DEST leer lassen** und **RDM** nutzen.
+- DEP und DEST durchsuchen ausschließlich die vollständige, selbst gehostete `airports.json`. Sie vereinigt den bisherigen Katalog mit den typisierten OpenAIP-Plätzen und enthält auch Plätze ohne klassischen ICAO-Code; während der Eingabe ist kein OpenAIP-Liveabruf nötig.
 - Fuer kontrollierte Auswahl **PICK** aktivieren. Dann entscheidet man erst im Briefing, welcher Vorschlag wirklich ausgearbeitet wird.
 - Wenn du nur ein Ziel mit Planungsbriefing willst, nutze **Freiflug/Planung** statt einer echten Mission.
 
@@ -450,6 +452,8 @@ Tipps:
 ## Datenquellen und Grenzen
 
 Das VFR Multitool nutzt je nach Funktion lokale Daten, Browser-Cache, Live-Tracker-Daten, OpenAIP, Wetterquellen, DWD-/VFR-Daten, Kartenkacheln, Flughafen-/POI-Daten, Wikipedia/Wikidata-Kontext und optionale KI-Provider.
+
+Die manuelle Flugplatzsuche arbeitet vollständig mit der selbst gehosteten `airports.json`. `tools/build-airports-database.mjs` baut sie reproduzierbar aus `data/airports-backup-pre-openaip-20260815.json` und dem veröffentlichten GA-Dispatcher-Aviation-Data-Stand neu auf. Das Backup wird vom Builder niemals überschrieben; Version, Bestandszahlen und Prüfsummen stehen in `data/airports-database-meta.json`.
 
 Grenzen:
 

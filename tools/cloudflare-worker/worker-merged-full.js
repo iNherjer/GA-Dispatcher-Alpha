@@ -17,7 +17,7 @@ const OPENAIP_SNAPSHOT_COLLECTIONS = [
   {
     key: "airports",
     path: "/api/airports",
-    fields: "_id,name,icaoCode,country,elevation,geometry,frequencies,runways"
+    fields: "_id,name,icaoCode,iataCode,altIdentifier,type,country,elevation,geometry,ppr,private,winchOnly,frequencies,runways,services"
   },
   {
     key: "airspaces",
@@ -2434,10 +2434,10 @@ function getOpenAipSnapshotCache() {
 }
 
 function makeOpenAipSnapshotCacheRequest(coverage) {
-  // Eigener Cache-Key, damit ältere Snapshots ohne Runway-, ausführliche
-  // Navaid- oder Luftraum-Frequenzfelder nicht bis zum Ablauf ihrer
-  // 24h-Stale-Frist ausgeliefert werden.
-  return new Request(`https://ga-cache.invalid/openaip/snapshot/v4-airspace-frequencies?bbox=${encodeURIComponent(coverage.key)}`, {
+  // Eigener Cache-Key, damit ältere Snapshots ohne Platztypen, Runway-,
+  // ausführliche Navaid- oder Luftraum-Frequenzfelder nicht bis zum Ablauf
+  // ihrer 24h-Stale-Frist ausgeliefert werden.
+  return new Request(`https://ga-cache.invalid/openaip/snapshot/v5-airport-types?bbox=${encodeURIComponent(coverage.key)}`, {
     method: "GET"
   });
 }

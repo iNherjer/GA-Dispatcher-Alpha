@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "snapshot-2026-07-28",
+  "sourceGeneratedAt": "2026-07-28T08:44:28.006Z",
+  "source": {
+    "name": "OpenAIP",
+    "url": "https://www.openaip.net/",
+    "license": "CC BY-NC 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "api": "https://ga-proxy.einherjer.workers.dev/api"
+  },
+  "legacyBackup": "data/airports-backup-pre-openaip-20260815.json",
+  "legacyCount": 29303,
+  "legacySha256": "b2657af3cbe3413e870fbe3da968144469b063b9f188218fc1d724de5de609a1",
+  "openAipCount": 46607,
+  "totalCount": 59927,
+  "databaseBytes": 12591174,
+  "databaseSha256": "a4b249313afc4f7851a9af03a7fb98a558c729d88c5057f1f00e34c01e6747c3"
+}
