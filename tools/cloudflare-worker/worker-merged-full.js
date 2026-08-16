@@ -146,6 +146,8 @@ const HOMEBASE_MAX_PEOPLE = 3;
 const HOMEBASE_MAX_PERSON_DESTINATIONS = 20;
 const HOMEBASE_CREW_OBJECTS_PER_BASE = HOMEBASE_MAX_OBJECTS;
 const HOMEBASE_TTL = 31536000;
+const CREW_MEMBER_INACTIVITY_MS = 90 * 24 * 60 * 60 * 1000;
+const CREW_ADMIN_INACTIVITY_MS = 365 * 24 * 60 * 60 * 1000;
 
 function nowIso() {
   return new Date().toISOString();
@@ -170,6 +172,52 @@ function parseDateMs(value) {
     if (Number.isFinite(numeric) && numeric > 0) return numeric < 10000000000 ? numeric * 1000 : numeric;
   }
   return null;
+}
+
+function utcDayKey(ms = Date.now()) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function pilotAppActivityMs(profile, now = Date.now()) {
+  if (!profile || typeof profile !== "object") return 0;
+  return [profile.lastAppSeen, profile.lastModified, profile.updatedAt, profile.savedAt]
+    .map(parseDateMs)
+    .filter(value => Number.isFinite(value) && value > 0 && value <= now + 86400000)
+    .reduce((latest, value) => Math.max(latest, value), 0);
+}
+
+async function touchPilotAppActivityForDay(env, pilotId, profile, now = Date.now()) {
+  if (!pilotId || !profile || typeof profile !== "object") return profile;
+  const today = utcDayKey(now);
+  if (profile.lastAppSeenDay === today) return profile;
+  const updated = { ...profile, lastAppSeen: now, lastAppSeenDay: today };
+  try {
+    await env.GA_SYNC_KV.put(pilotId, JSON.stringify(updated), { expirationTtl: 31536000 });
+    return updated;
+  } catch (error) {
+    console.warn("Pilot activity touch failed:", pilotId, String(error?.message || error));
+    return profile;
+  }
+}
+
+async function hydrateGroupMemberActivity(group, env, now = Date.now()) {
+  if (!group || typeof group !== "object" || !Array.isArray(group.members)) return group;
+  const members = await Promise.all(group.members.map(async member => {
+    if (!member || typeof member !== "object") return member;
+    const memberId = normalizeOneLine(member.syncId, 160);
+    if (!memberId) return member;
+    try {
+      const resolution = await resolveSyncPilotId(env, memberId);
+      if (resolution.status !== "found") return member;
+      const profileActivity = pilotAppActivityMs(safeJsonParse(resolution.raw, null), now);
+      const groupActivity = normalizeFinite(member.lastSeen, 0, 0, now + 86400000);
+      return profileActivity > groupActivity ? { ...member, lastSeen: profileActivity } : member;
+    } catch (error) {
+      console.warn("Crew activity read failed:", memberId, String(error?.message || error));
+      return member;
+    }
+  }));
+  return { ...group, members };
 }
 
 function normalizeFinite(value, fallback, min, max) {
@@ -337,7 +385,7 @@ function activeGroupMember(group, pilotId, now = Date.now()) {
   return members.reduce((latest, member) => {
     if (!member || normalizePilotIdLookup(member.syncId) !== id) return latest;
     const lastSeen = normalizeFinite(member.lastSeen, 0, 0, now + 86400000);
-    const timeout = member.isAdmin === true ? 365 * 86400000 : 28 * 86400000;
+    const timeout = member.isAdmin === true ? CREW_ADMIN_INACTIVITY_MS : CREW_MEMBER_INACTIVITY_MS;
     if (now - lastSeen >= timeout) return latest;
     const latestSeen = normalizeFinite(latest?.lastSeen, 0, 0, now + 86400000);
     return !latest || lastSeen > latestSeen ? member : latest;
@@ -358,6 +406,7 @@ async function handleCrewHomebases(request, requestUrl, env) {
   } catch (error) {
     return json({ error: "Gruppen-KV konnte nicht gelesen werden", message: String(error?.message || error) }, 502);
   }
+  group = await hydrateGroupMemberActivity(group, env);
   const requester = activeGroupMember(group, auth.ownerId);
   if (!requester) return json({ error: "Kein aktives Mitglied dieser Crew" }, 403);
 
@@ -1081,6 +1130,8 @@ async function handlePilotAuthVerify(request, env) {
   if (!profile || String(profile.pin ?? "") !== pin) {
     return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
   }
+
+  await touchPilotAppActivityForDay(env, resolution.pilotId, profile);
 
   return json({ ok: true, pilotId: resolution.pilotId }, 200, {
     "Cache-Control": "no-store",
@@ -2632,14 +2683,18 @@ export default {
         }
 
         try {
-          const storedData = JSON.parse(rawData);
+          let storedData = JSON.parse(rawData);
           const requestPin = requestUrl.searchParams.get("pin");
 
           if (!isGroupKey && storedData.pin && storedData.pin !== requestPin) {
             return json({ error: "Falscher PIN" }, 401);
           }
 
-          return new Response(rawData, { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store", "X-Pilot-ID": storagePilotId } });
+          if (isGroupKey) {
+            storedData = await hydrateGroupMemberActivity(storedData, env);
+          }
+
+          return new Response(JSON.stringify(storedData), { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store", "X-Pilot-ID": storagePilotId } });
         } catch {
           return json({ error: "Datenformat ungültig" }, 500);
         }
@@ -2691,6 +2746,14 @@ export default {
             incomingData.registeredAt = registeredAt;
             incomingData.registeredAtMs = Date.parse(registeredAt);
             incomingData.syncId = storagePilotId;
+            rawBody = JSON.stringify(incomingData);
+          }
+
+          // Ein normaler Profil-Save ist bereits ein KV-Write. Deshalb kann er
+          // den Tages-Heartbeat ohne zusaetzlichen Request mitnehmen.
+          if (!isGroupKey) {
+            incomingData.lastAppSeen = Date.now();
+            incomingData.lastAppSeenDay = utcDayKey(incomingData.lastAppSeen);
             rawBody = JSON.stringify(incomingData);
           }
 

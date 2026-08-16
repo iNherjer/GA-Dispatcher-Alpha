@@ -3,12 +3,15 @@ import worker from "./worker-merged-full.js";
 
 function makeKv(seed = {}) {
   const store = new Map(Object.entries(seed));
+  const putCalls = [];
   return {
     store,
+    putCalls,
     async get(key) {
       return store.has(key) ? store.get(key) : null;
     },
     async put(key, value) {
+      putCalls.push(key);
       store.set(key, value);
     },
     async list({ prefix = "", limit = 1000, cursor = "" } = {}) {
@@ -47,6 +50,18 @@ const verified = await call(env, "/api/auth/verify", {
 assert.equal(verified.response.status, 200);
 assert.deepEqual(verified.body, { ok: true, pilotId: "SALUD" });
 assert.equal(verified.response.headers.get("X-Pilot-ID"), "SALUD");
+const saludAfterFirstLogin = JSON.parse(kv.store.get("SALUD"));
+assert.equal(saludAfterFirstLogin.lastAppSeenDay, new Date().toISOString().slice(0, 10));
+assert.ok(Number.isFinite(saludAfterFirstLogin.lastAppSeen));
+const saludWritesAfterFirstLogin = kv.putCalls.filter(key => key === "SALUD").length;
+
+const verifiedAgain = await call(env, "/api/auth/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ pilotId: "SALUD", pin: "1138" })
+});
+assert.equal(verifiedAgain.response.status, 200);
+assert.equal(kv.putCalls.filter(key => key === "SALUD").length, saludWritesAfterFirstLogin);
 
 const mixedCase = await call(env, "/api/auth/verify", {
   method: "POST",

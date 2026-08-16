@@ -14486,9 +14486,10 @@ async function triggerGroupSave(immediate = false) {
         if (res.ok) latestData = await res.json();
 
         let members = latestData.members || [];
-        // Veraltete Mitglieder (außer Admin) herausfiltern
+        // Veraltete Mitglieder herausfiltern. Der Worker spiegelt die letzte
+        // allgemeine App-Anmeldung in lastSeen; Crew-Aktivitaet ist nicht noetig.
         members = members.filter(m => {
-            const timeoutMs = m.isAdmin ? (365 * 24 * 60 * 60 * 1000) : (28 * 24 * 60 * 60 * 1000);
+            const timeoutMs = m.isAdmin ? (365 * 24 * 60 * 60 * 1000) : (90 * 24 * 60 * 60 * 1000);
             return (Date.now() - m.lastSeen) < timeoutMs && m.syncId !== syncId;
         });
 

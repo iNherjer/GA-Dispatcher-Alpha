@@ -154,6 +154,19 @@ const shared = await call(env, "/api/homebase/pilotB", {
 });
 assert.equal(shared.response.status, 200);
 
+const now = Date.now();
+const recentPilotBProfile = JSON.parse(kv.store.get("pilotB"));
+recentPilotBProfile.lastAppSeen = now - 24 * 60 * 60 * 1000;
+recentPilotBProfile.lastAppSeenDay = new Date(recentPilotBProfile.lastAppSeen).toISOString().slice(0, 10);
+kv.store.set("pilotB", JSON.stringify(recentPilotBProfile));
+const activityBackedGroup = JSON.parse(kv.store.get("GROUP_TEST"));
+activityBackedGroup.members.find(member => member.syncId === "pilotB").lastSeen = now - 91 * 24 * 60 * 60 * 1000;
+kv.store.set("GROUP_TEST", JSON.stringify(activityBackedGroup));
+
+const hydratedGroup = await call(env, "/api/sync/GROUP_TEST", { headers });
+assert.equal(hydratedGroup.response.status, 200);
+assert.equal(hydratedGroup.body.members.find(member => member.syncId === "pilotB")?.lastSeen, recentPilotBProfile.lastAppSeen);
+
 const crew = await call(env, "/api/homebase-group/TEST", { headers });
 assert.equal(crew.response.status, 200);
 assert.equal(crew.body.bases.length, 1);
@@ -167,6 +180,28 @@ assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.ha
 assert.equal(crew.body.directory.find((entry) => entry.pilotId === "pilotB")?.spawn.lat, 48.1);
 assert.equal(JSON.stringify(crew.body.directory).includes("VFR Multitool Homebase Box"), false);
 assert.equal(JSON.stringify(crew.body).includes("4711"), false);
+
+kv.store.set("GROUP_ACTIVITY_WINDOW", JSON.stringify({
+  members: [
+    { syncId: "pilotA", nick: "Alpha", lastSeen: now, isAdmin: true },
+    { syncId: "pilotC", nick: "Charlie", lastSeen: now - 89 * 24 * 60 * 60 * 1000, isAdmin: false }
+  ],
+  kicked: []
+}));
+const withinActivityWindow = await call(env, "/api/homebase-group/ACTIVITY_WINDOW", { headers });
+assert.equal(withinActivityWindow.response.status, 200);
+assert.equal(withinActivityWindow.body.directory.some(entry => entry.pilotId === "pilotC"), true);
+
+kv.store.set("GROUP_ACTIVITY_WINDOW", JSON.stringify({
+  members: [
+    { syncId: "pilotA", nick: "Alpha", lastSeen: now, isAdmin: true },
+    { syncId: "pilotC", nick: "Charlie", lastSeen: now - 91 * 24 * 60 * 60 * 1000, isAdmin: false }
+  ],
+  kicked: []
+}));
+const outsideActivityWindow = await call(env, "/api/homebase-group/ACTIVITY_WINDOW", { headers });
+assert.equal(outsideActivityWindow.response.status, 200);
+assert.equal(outsideActivityWindow.body.directory.some(entry => entry.pilotId === "pilotC"), false);
 
 const outsider = await call(env, "/api/homebase-group/TEST", { headers: { ...headers, "X-Pilot-ID": "pilotC", "X-Pilot-PIN": "9999" } });
 assert.equal(outsider.response.status, 403);

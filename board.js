@@ -1074,7 +1074,7 @@ function renderNotes() {
         (groupDataCache.members || []).forEach(m => {
             if (!m || typeof m !== 'object') return;
             const isMe = m.syncId === getSyncId();
-            const timeoutMs = m.isAdmin ? (365 * 24 * 60 * 60 * 1000) : (28 * 24 * 60 * 60 * 1000); // Admin=12Mon, Normal=28Tage
+            const timeoutMs = m.isAdmin ? (365 * 24 * 60 * 60 * 1000) : (90 * 24 * 60 * 60 * 1000); // Admin=12Mon, Normal=90Tage
             const isStale = (Date.now() - m.lastSeen) > timeoutMs;
             if(isStale) return;
 
