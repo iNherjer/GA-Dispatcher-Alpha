@@ -3,6 +3,7 @@
 const assert = require('assert');
 const { EventEmitter } = require('events');
 const catalog = require('./homebase-asset-catalog.js');
+const workbenchCatalog = require('../homebase/homebase-asset-catalog.js');
 const {
   OPEN_RADIUS_M,
   CLOSE_RADIUS_M,
@@ -26,6 +27,17 @@ assert.ok(distance > 9.9 && distance < 10.1, `Distanz war ${distance}`);
 
 const controls = collectDoorControls(catalog.assets);
 assert.ok(controls.some((control) => control.simvar === 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND'));
+assert.ok(controls.some((control) => control.title === 'VFR Multitool Homebase Office Container'
+  && control.simvar === 'L:1:VFR_HOMEBASE_OFFICE_CONTAINER_DOOR_COMMAND'));
+assert.ok(controls.some((control) => control.title === 'VFR Multitool Homebase MX Pavilion'
+  && control.simvar === 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND'));
+assert.ok(workbenchCatalog.assets.some((asset) => asset.key === 'officeContainer'
+  && asset.group === 'Gebäude'
+  && asset.controls?.some((control) => control.id === 'door')
+  && asset.controls?.some((control) => control.id === 'interiorLight')));
+assert.ok(workbenchCatalog.assets.some((asset) => asset.key === 'mxPavilion'
+  && asset.controls?.some((control) => control.id === 'door'
+    && control.simvar === 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND')));
 assert.ok(controls.every((control) => control.title && control.simvar.startsWith('L:1:')));
 assert.ok(controls.every((control) => Number.isFinite(control.openValue) && Number.isFinite(control.closedValue)));
 assert.ok(CLOSE_RADIUS_M > OPEN_RADIUS_M);
