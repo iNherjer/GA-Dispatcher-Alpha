@@ -3,6 +3,38 @@
 Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo. Das Standardziel ist immer
 `origin/main`, ausser der User verlangt ausdruecklich einen separaten Branch oder PR.
 
+## 0) Authentifizierung ohne `gh`-Sitzung
+
+Normale Pushes und Release-Uploads duerfen nicht von einer dauerhaft angemeldeten
+GitHub-CLI-Sitzung abhaengen. Auf macOS nutzt Git den Credential Helper
+`osxkeychain`; wenn `git push origin main` funktioniert, ist dieser Git-Zugang die
+verbindliche Authentifizierungsquelle.
+
+- Branches und Tags immer mit `git push` uebertragen.
+- GitHub-Releases und Release-Assets mit
+  `node tools/publish-github-release.mjs` veroeffentlichen.
+- Der Publisher liest das vorhandene GitHub-Token nur im eigenen Prozess ueber
+  `git credential fill`, gibt es niemals aus und schreibt es weder in Dateien noch
+  in die Prozessargumente.
+- Der Publisher prueft den bereits gepushten Tag, legt neue Releases zunaechst als
+  Draft an, verifiziert Dateigroesse und GitHub-SHA-256 und veroeffentlicht erst
+  danach. Vorhandene abweichende Assets werden niemals ersetzt.
+- `gh` bleibt optional fuer Funktionen ohne lokalen Ersatz, insbesondere GitHub-
+  Actions-Logs. Ein fehlerhafter `gh auth status` blockiert normale Pushes und
+  Release-Uploads nicht, solange der Git-Credential-Store funktioniert.
+
+Trockenlauf ohne Netzwerk oder Anmeldung:
+
+```bash
+node tools/publish-github-release.mjs \
+  --repo iNherjer/GA-Dispatcher-Alpha \
+  --tag v355 \
+  --title "Tracker v355 Alpha" \
+  --asset ga-tracker-client/VFR-Multitool-Tracker.exe \
+  --latest false \
+  --dry-run
+```
+
 ## 1) Normaler Push nach `origin/main`
 
 1. Vor dem Push immer zuerst die SW-Version in `sw.js` erhoehen:
@@ -91,6 +123,21 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
 3. Danach zusaetzlich auf `origin` releasen:
    - Jede Version als eigenen unveraenderlichen Release `v<code>` veroeffentlichen.
    - Nur die gebaute Datei `ga-tracker-client/VFR-Multitool-Tracker.exe` als Release-Asset veroeffentlichen.
+   - Den Release-Commit taggen und den Tag vor dem Release-Upload pushen:
+     - `git tag v<code> <release-commit>`
+     - `git push origin refs/tags/v<code>`
+   - Release ohne `gh`-Login erzeugen und das Asset atomar verifizieren:
+
+     ```bash
+     node tools/publish-github-release.mjs \
+       --repo iNherjer/GA-Dispatcher-Alpha \
+       --tag v<code> \
+       --title "Tracker v<code> Alpha" \
+       --asset ga-tracker-client/VFR-Multitool-Tracker.exe \
+       --notes "Kurze Beschreibung der Aenderung" \
+       --latest false
+     ```
+
    - Zuerst nur `ga-tracker-client/channel/alpha.json` auf denselben Tag, die exakte Dateigroesse und SHA-256 setzen.
    - `ga-tracker-client/channel/stable.json` bleibt bis zur erfolgreichen Tester-Freigabe unveraendert.
    - Der neue Tracker muss das Protokoll der aktuell produktiven Web-App weiterhin bedienen koennen. Neue Nachrichten oder Felder werden additiv eingefuehrt und ueber Capabilities erkannt.
