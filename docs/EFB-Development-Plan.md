@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v354 Alpha | v320 | v354 behebt FAA-/DWD-Tile-Compositing und trennt die EFB-Overlay-Panes; Stable bleibt unveraendert |
+| Tracker-Runtime | v356 Alpha | v320 | v356 erlaubt kontrollbezogene Opt-outs aus der Homebase-Naeherungsautomatik; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -34,6 +34,15 @@ veroeffentlicht. Es erzwingt im EFB fuer FAA- und DWD-Rastertiles normalen
 Blend-Modus und trennt VFR, offizielle Karten und Wetter in stabile Pane-
 Ebenen. Das offiziell getestete EFB-Community-Paket 0.4.11 bleibt unveraendert;
 ein neuer SDK-Build ist fuer diesen Test nicht erforderlich.
+
+Tracker v356 begrenzt die Homebase-Naeherungsautomatik auf Controls ohne
+explizites `proximityAutomation: false`. Die in v355 wieder sichtbar gemachten
+Pavillon-Seitenwaende bleiben damit manuell pro Instanz ein-/ausblendbar, werden
+aber nicht mehr wie ein Hangartor durch Spieler oder Mitarbeiter geschaltet.
+Hangars und die Buerocontainertuer behalten ihr bisheriges automatisches und
+manuelles Verhalten. Der Opt-out bleibt beim Merge eines aelteren installierten
+Asset-Katalogs erhalten; das Homebase-Asset-Paket und EFB 0.4.11 bleiben
+unveraendert.
 
 Tracker v352 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt

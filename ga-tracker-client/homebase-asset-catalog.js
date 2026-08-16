@@ -88,7 +88,7 @@ const assets = Object.freeze([
   { key: 'constructionFloodlightTripod', folder: 'VFRHomebaseConstructionFloodlightTripod', title: 'VFR Multitool Homebase Construction Floodlight Tripod', kind: 'object', group: 'Beleuchtung', label: 'Baustrahler mit Stativ', icon: 'L', version: '1.0.1', homebasePlaceable: true, workbenchVisible: true, controls: [{ schemaVersion: 1, id: 'light', type: 'light', label: 'Baustrahlerlicht', transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_CONSTRUCTION_FLOODLIGHT_LIGHT_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'on', durationMs: 0, states: [{ id: 'on', label: 'Einschalten', value: 0 }, { id: 'off', label: 'Ausschalten', value: 1 }] }] },
   { key: 'toolCart', folder: 'VFRHomebaseToolCart', title: 'VFR Multitool Homebase Tool Cart', kind: 'object', group: 'Ausstattung', label: 'Werkzeugwagen', icon: 'R', missionSpawnable: true, missionTags: ['cargo', 'tools', 'maintenance'], missionRoles: ['cargo', 'scene-prop'], homebasePlaceable: true },
   { key: 'fuelDrum', folder: 'VFRHomebaseFuelDrum', title: 'VFR Multitool Homebase Fuel Drum', kind: 'object', group: 'Ausstattung', label: 'Treibstofffass mit Handpumpe', icon: 'F' },
-  { key: 'mxPavilion', folder: 'VFRHomebaseMXPavilion', title: 'VFR Multitool Homebase MX Pavilion', kind: 'object', group: 'Ausstattung', label: 'Faltpavillon 3 x 3 m', icon: 'P', version: '1.0.1', homebasePlaceable: true, workbenchVisible: true, footprint: { widthM: 3.054, depthM: 3.054 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Pavillon-Seitenwände', transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'closed', durationMs: 0, states: [{ id: 'open', label: 'Ausblenden', value: 0 }, { id: 'closed', label: 'Einblenden', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'closed', control: { transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND', unit: 'number', scope: 'simobject', values: { open: 0, closed: 1 } } } },
+  { key: 'mxPavilion', folder: 'VFRHomebaseMXPavilion', title: 'VFR Multitool Homebase MX Pavilion', kind: 'object', group: 'Ausstattung', label: 'Faltpavillon 3 x 3 m', icon: 'P', version: '1.0.1', homebasePlaceable: true, workbenchVisible: true, footprint: { widthM: 3.054, depthM: 3.054 }, controls: [{ schemaVersion: 1, id: 'door', type: 'animation', label: 'Pavillon-Seitenwände', transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND', unit: 'number', scope: 'simobject', defaultState: 'closed', durationMs: 0, proximityAutomation: false, states: [{ id: 'open', label: 'Ausblenden', value: 0 }, { id: 'closed', label: 'Einblenden', value: 1 }] }], animation: { schemaVersion: 1, type: 'door', defaultState: 'closed', control: { transport: 'simconnect-lvar', simvar: 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND', unit: 'number', scope: 'simobject', values: { open: 0, closed: 1 } } } },
   { key: 'woodCrateSmall', folder: 'VFRHomebaseWoodCrateSmall', title: 'VFR Multitool Homebase Wood Crate Small', kind: 'object', group: 'Ausstattung', label: 'Holzkiste klein', icon: 'K', missionSpawnable: true, missionTags: ['cargo', 'freight', 'supplies'], missionRoles: ['cargo', 'scene-prop'], homebasePlaceable: true },
   { key: 'woodCrateMedium', folder: 'VFRHomebaseWoodCrateMedium', title: 'VFR Multitool Homebase Wood Crate Medium', kind: 'object', group: 'Ausstattung', label: 'Holzkiste mittel', icon: 'K', missionSpawnable: true, missionTags: ['cargo', 'freight', 'supplies'], missionRoles: ['cargo', 'scene-prop'], homebasePlaceable: true },
   { key: 'woodCrateLarge', folder: 'VFRHomebaseWoodCrateLarge', title: 'VFR Multitool Homebase Wood Crate Large', kind: 'object', group: 'Ausstattung', label: 'Holzkiste groß', icon: 'K', missionSpawnable: true, missionTags: ['cargo', 'freight', 'supplies'], missionRoles: ['cargo', 'scene-prop'], homebasePlaceable: true },
@@ -226,6 +226,7 @@ function normalizeControls(rawControls, legacyAnimation = null) {
       scope,
       defaultState,
       durationMs: Math.max(0, Math.min(600000, Math.round(Number(raw?.durationMs) || 0))),
+      ...(typeof raw?.proximityAutomation === 'boolean' ? { proximityAutomation: raw.proximityAutomation } : {}),
       states: Object.freeze(states)
     }));
   }
@@ -309,10 +310,17 @@ function registerRuntimeAssets(entries) {
     const entry = normalizeRuntimeAsset(raw);
     if (!entry) continue;
     const existing = definitionByTitle.get(entry.title) || {};
-    const mergedControls = normalizeControls([
-      ...(Array.isArray(entry.controls) ? entry.controls : []),
-      ...(Array.isArray(existing.controls) ? existing.controls : [])
-    ], entry.animation || existing.animation);
+    const entryControls = Array.isArray(entry.controls) ? entry.controls : [];
+    const existingControls = Array.isArray(existing.controls) ? existing.controls : [];
+    const existingControlsById = new Map(existingControls.map((control) => [String(control?.id || '').toLowerCase(), control]));
+    const mergedControls = Object.freeze(normalizeControls([
+      ...entryControls,
+      ...existingControls
+    ], entry.animation || existing.animation).map((control) => {
+      const fallback = existingControlsById.get(String(control?.id || '').toLowerCase());
+      if (typeof control.proximityAutomation === 'boolean' || typeof fallback?.proximityAutomation !== 'boolean') return control;
+      return Object.freeze({ ...control, proximityAutomation: fallback.proximityAutomation });
+    }));
     const merged = Object.freeze({
       ...existing,
       ...entry,

@@ -29,15 +29,24 @@ const controls = collectDoorControls(catalog.assets);
 assert.ok(controls.some((control) => control.simvar === 'L:1:VFR_HOMEBASE_ROUND_HANGAR_DOOR_COMMAND'));
 assert.ok(controls.some((control) => control.title === 'VFR Multitool Homebase Office Container'
   && control.simvar === 'L:1:VFR_HOMEBASE_OFFICE_CONTAINER_DOOR_COMMAND'));
-assert.ok(controls.some((control) => control.title === 'VFR Multitool Homebase MX Pavilion'
-  && control.simvar === 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND'));
+assert.ok(!controls.some((control) => control.title === 'VFR Multitool Homebase MX Pavilion'));
 assert.ok(workbenchCatalog.assets.some((asset) => asset.key === 'officeContainer'
   && asset.group === 'Gebäude'
   && asset.controls?.some((control) => control.id === 'door')
   && asset.controls?.some((control) => control.id === 'interiorLight')));
 assert.ok(workbenchCatalog.assets.some((asset) => asset.key === 'mxPavilion'
   && asset.controls?.some((control) => control.id === 'door'
-    && control.simvar === 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND')));
+    && control.simvar === 'L:1:VFR_HOMEBASE_MX_PAVILION_WALLS_COMMAND'
+    && control.proximityAutomation === false)));
+const pavilionAsset = catalog.assets.find((asset) => asset.key === 'mxPavilion');
+assert.equal(pavilionAsset?.controls?.find((control) => control.id === 'door')?.proximityAutomation, false);
+catalog.registerRuntimeAssets([{
+  ...pavilionAsset,
+  controls: pavilionAsset.controls.map(({ proximityAutomation, ...control }) => control)
+}]);
+const mergedLegacyPavilion = catalog.objectDefinitionForTitle(pavilionAsset.title);
+assert.equal(mergedLegacyPavilion?.controls?.find((control) => control.id === 'door')?.proximityAutomation, false);
+assert.ok(!collectDoorControls([mergedLegacyPavilion]).length);
 assert.ok(controls.every((control) => control.title && control.simvar.startsWith('L:1:')));
 assert.ok(controls.every((control) => Number.isFinite(control.openValue) && Number.isFinite(control.closedValue)));
 assert.ok(CLOSE_RADIUS_M > OPEN_RADIUS_M);

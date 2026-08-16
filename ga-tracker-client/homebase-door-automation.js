@@ -59,7 +59,7 @@ function collectDoorControls(entries = catalog.assets) {
         { id: 'closed', value: legacy.values?.closed }
       ]
     } : null);
-    if (!control || String(control.scope || '').toLowerCase() !== 'simobject') continue;
+    if (!control || control.proximityAutomation === false || String(control.scope || '').toLowerCase() !== 'simobject') continue;
     const simvar = normalizeObjectLocalVariable(control.simvar);
     const openState = control.states?.find((state) => String(state?.id || '').toLowerCase() === 'open');
     const closedState = control.states?.find((state) => String(state?.id || '').toLowerCase() === 'closed');

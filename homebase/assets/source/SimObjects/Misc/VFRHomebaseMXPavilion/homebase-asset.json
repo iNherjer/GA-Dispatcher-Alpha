@@ -29,6 +29,7 @@
       "unit": "number",
       "scope": "simobject",
       "defaultState": "closed",
+      "proximityAutomation": false,
       "states": [
         {
           "id": "open",
