@@ -246,15 +246,15 @@ Alte Tracker ignorieren unbekannte Felder. Die Web-App sendet sie dennoch nur na
 - [x] Van-/Bus-Auswahl, 1-m-Aufstellung und Stagger implementieren.
 - [x] ACK-Counts auf exakte Gruppengroesse absichern.
 - [x] Legacy-Einzelpfad und Tracker ohne Capability unveraendert testen.
-- [ ] Tracker-Version erhoehen, EXE bauen und nur Alpha veroeffentlichen.
+- [x] Tracker-Version erhoehen, EXE bauen und nur Alpha veroeffentlichen.
 - [ ] Realen MSFS-Test fuer Spawn, Wege, Tuer, Van und Bus dokumentieren.
 
 Lokaler Stand 2026-08-17: Tracker v357 ist gebaut. Das Windows-Artefakt hat
 48.109.342 Bytes und SHA-256
 `fd63d93715a5451482352c941757f3b9709db148d327d31cab90119c007024c6`.
-Die EXE enthaelt den neuen Gruppen-Core und die Capability. Alpha-Release,
-Kanalumschaltung und realer MSFS-Test stehen noch aus; `stable.json` ist
-unveraendert.
+Die EXE enthaelt den neuen Gruppen-Core und die Capability. Release `v357` ist
+veroeffentlicht und `channel/alpha.json` auf dieses Artefakt gesetzt;
+`stable.json` bleibt unveraendert auf v356. Der reale MSFS-Test steht noch aus.
 
 ### P4 - Gruppenmissionen freischalten, nur Web-App
 

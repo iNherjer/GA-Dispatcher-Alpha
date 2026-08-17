@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v356 Alpha | v356 | Beide Kanaele zeigen auf dasselbe unveraenderliche v356-Artefakt |
+| Tracker-Runtime | v357 Alpha | v356 | Gruppen-Szenen nur in Alpha; Stable bleibt auf dem unveraenderten v356-Artefakt |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -1086,10 +1086,10 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   1100-ms-Stagger und die feste Fahrzeugwahl Van fuer 2-3 beziehungsweise
   Minibus/Bus fuer 4-5 Personen frei. Partielle Spawns oder Routen duerfen
   weder ein erfolgreiches ACK noch Manifestfortschritt ausloesen. Der
-  Windows-Build ist lokal verifiziert (48.109.342 Bytes, SHA-256
+  Windows-Build ist lokal und remote verifiziert (48.109.342 Bytes, SHA-256
   `fd63d93715a5451482352c941757f3b9709db148d327d31cab90119c007024c6`),
-  aber noch nicht veroeffentlicht; Alpha und Stable bleiben daher vorerst auf
-  v356.
+  als Release `v357` veroeffentlicht und nur in `channel/alpha.json`
+  freigeschaltet. Stable bleibt bis zum realen MSFS-Test auf v356.
 
 - 2026-08-17: Flugzeug-Preset-Profile, Sitzplatzgrenzen und spaetere
   Charter-/Privat-/Sightseeing-Gruppen werden nach dem lokalen
