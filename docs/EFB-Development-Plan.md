@@ -1085,9 +1085,14 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Vorpruefung, DPAPI-gespeicherte Zugangsdaten und Klartext-Alt-Migration nutzen
   denselben Vertrag; insbesondere die von der App erzeugten sechsstelligen PINs
   bleiben nach einem Desktop-Neustart gueltig. Der Auth-Endpunkt war bereits
-  laengenunabhaengig und musste nicht geaendert werden. 1.6.2 wird als Alpha-
-  Prerelease ausgeliefert; der globale Stable-Autoupdate-Zeiger bleibt bis zur
-  Testerfreigabe auf Desktop 1.6.1. Tracker-/EFB-Kanaele bleiben unveraendert.
+  laengenunabhaengig und musste nicht geaendert werden. Der Windows-x64-Installer
+  ist als unveraenderliches Release `tracker-desktop-v1.6.2` veroeffentlicht
+  (100.262.313 Bytes, SHA-256
+  `23d6093d7f8de0b790ce140d646f79d2d8a5e97da3b8df89d71c8a33c5335123`).
+  Der frisch von GitHub geladene Installer stimmt in Groesse und Hash mit dem
+  lokalen Build ueberein. Der globale Desktop-Autoupdate-Zeiger liefert 1.6.2
+  an Alpha, Beta und Stable; die getrennten Tracker-Runtime- und EFB-Kanaele
+  bleiben unveraendert.
 
 - 2026-08-17: Der additive Gruppen-Szenenvertrag ist lokal im Tracker-v357-
   Kandidaten und in der Web-App implementiert. Die Capability
