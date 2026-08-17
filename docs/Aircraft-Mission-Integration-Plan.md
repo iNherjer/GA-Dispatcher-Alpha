@@ -292,6 +292,8 @@ die aufgefaecherten Laufwege bleiben bestehen; nur der serielle Deboarding-
 Spawn ist jetzt deckungsgleich. Der lokale v362-Build hat 48.113.280 Bytes und
 SHA-256
 `6d39d93a413ee18b0534fdd0c80f0167edf56a3cfaef7a838ee2acf9ff15c060`.
+Release `v362` ist veroeffentlicht und nur in `channel/alpha.json` aktiviert;
+Stable bleibt unveraendert auf v356.
 
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs

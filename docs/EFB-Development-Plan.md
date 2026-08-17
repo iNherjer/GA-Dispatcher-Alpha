@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v362 Alpha-Kandidat | v356 | v362 spawnt seriell aussteigende Gruppen am gemeinsamen Tuerpunkt; Stable bleibt unveraendert |
+| Tracker-Runtime | v362 Alpha | v356 | v362 spawnt seriell aussteigende Gruppen am gemeinsamen Tuerpunkt; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -1098,6 +1098,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   ACK-/Manifest-Handoff, Voice-Gate und Missionsphasen bleiben unveraendert.
   Der lokale Windows-Build umfasst 48.113.280 Bytes und hat SHA-256
   `6d39d93a413ee18b0534fdd0c80f0167edf56a3cfaef7a838ee2acf9ff15c060`.
+  Release `v362` ist veroeffentlicht, remote verifiziert und nur in
+  `channel/alpha.json` aktiviert; Stable bleibt auf v356.
 
 - 2026-08-17: Der reale Gruppen-Szenentest bestaetigte die isolierte
   Authority-Behandlung, zeigte aber bei 1100 ms zu eng hintereinander laufende
