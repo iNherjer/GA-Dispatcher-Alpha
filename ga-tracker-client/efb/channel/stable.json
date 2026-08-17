@@ -1,7 +1,16 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "available": false,
+  "available": true,
   "packageName": "vfr-multitool-efb",
-  "message": "Die EFB-App wird erst nach erfolgreichem Alpha-Test für Stable freigegeben."
+  "packageVersion": "0.4.11",
+  "releaseTag": "efb-app-v0.4.11",
+  "publishedAt": "2026-08-13T16:29:38Z",
+  "message": "",
+  "archive": {
+    "name": "vfr-multitool-efb-0.4.11.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/efb-app-v0.4.11/vfr-multitool-efb-0.4.11.zip",
+    "size": 432410,
+    "sha256": "2dab8a51c92fe71af453358ecdd31b4949c42e071e33ed334140afafe46d9034"
+  }
 }

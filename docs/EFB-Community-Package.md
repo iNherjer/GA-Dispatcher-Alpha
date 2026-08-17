@@ -35,18 +35,16 @@ Desktop-App verwendet. Die Vorlage aktiviert den Online-Kanal nicht selbst;
 das geschieht erst nach Upload des unveränderlichen GitHub-Release-Assets und
 dem In-Sim-Test.
 
-## Aktueller Alpha-Stand
+## Aktueller Kanalstand
 
 EFB 0.4.11 ist seit 2026-08-13 als Alpha-Release unter
 `efb-app-v0.4.11` verfuegbar. Das mit dem offiziellen MSFS-2024-SDK 1.7.2
 erzeugte Community-Paket wurde nach dem In-Sim-Test erneut von GitHub
 heruntergeladen, entpackt und gegen Version, Paketstruktur, Groesse und
-SHA-256 validiert. Der Alpha-Kanal zeigt auf genau dieses unveraenderliche
-Archiv; Tracker-Alpha zeigt seit 2026-08-14 auf v354. Der reine Tracker-v354-
-Hostfix fuer FAA-/DWD-Tile-Compositing und getrennte Overlay-Panes benoetigt
-keinen neuen SDK-Build und veraendert das installierte EFB-Paket nicht. Stable
-bleibt bis zur getrennten
-Promotion unveraendert beziehungsweise fuer das EFB deaktiviert.
+SHA-256 validiert. Seit 2026-08-17 zeigen Alpha und Stable auf genau dieses
+unveraenderliche Archiv. Die Promotion verwendet dieselbe Release-URL,
+Dateigroesse und SHA-256-Pruefsumme; sie erzeugt kein neues Paket und ersetzt
+kein bestehendes Asset.
 
 EFB 0.4.11 und Host 0.6.2 bauen auf dem 0.4.10/v347-In-Sim-Lauf auf, setzen
 Mission Control auf zwei Drittel Breite, stabilisieren den Scroll gegen

@@ -1,6 +1,6 @@
 # EFB-Entwicklungsplan
 
-Stand: 2026-08-14
+Stand: 2026-08-17
 
 Diese Datei ist der chatuebergreifende Einstiegspunkt fuer die Entwicklung der
 MSFS-2024-EFB-App. Neue Chats lesen zuerst diese Datei und danach, passend zur
@@ -13,11 +13,11 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v356 Alpha | v320 | v356 erlaubt kontrollbezogene Opt-outs aus der Homebase-Naeherungsautomatik; Stable bleibt unveraendert |
-| EFB-Community-Package | 0.4.11 Alpha | noch nicht verfuegbar | Offizieller SDK-1.7.2-Build und In-Sim-Test freigegeben; Stable bleibt deaktiviert |
+| Tracker-Runtime | v356 Alpha | v356 | Beide Kanaele zeigen auf dasselbe unveraenderliche v356-Artefakt |
+| EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
-## Aktueller EFB-Alpha-Stand
+## Aktueller EFB-Kanalstand
 
 Tracker v348 / Host 0.6.2 und EFB 0.4.11 wurden mit dem offiziellen
 MSFS-2024-SDK 1.7.2 auf Windows gebaut, in MSFS getestet und fuer Alpha
@@ -43,6 +43,11 @@ Hangars und die Buerocontainertuer behalten ihr bisheriges automatisches und
 manuelles Verhalten. Der Opt-out bleibt beim Merge eines aelteren installierten
 Asset-Katalogs erhalten; das Homebase-Asset-Paket und EFB 0.4.11 bleiben
 unveraendert.
+
+Am 2026-08-17 wurden Tracker v356 und EFB 0.4.11 nach Stable promoviert. Beide
+Stable-Kanaldateien referenzieren die bereits fuer Alpha veroeffentlichten,
+unveraenderlichen Release-Artefakte mit identischer Dateigroesse und SHA-256;
+es wurde kein neues Artefakt gebaut oder ein bestehendes Asset ersetzt.
 
 Tracker v352 ist ein reiner Runtime-/Relay-Hotfix auf diesem Stand; EFB 0.4.11
 und Host 0.6.2 werden nicht neu gebaut. Nach fuenf Minuten am Boden unter 5 kt
@@ -1074,6 +1079,12 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 - [ ] Tracker-Shadow-Replay implementieren, bevor Autoritaet verschoben wird.
 
 ## Entscheidungsprotokoll
+
+- 2026-08-17: Nach erfolgreicher Alpha-Freigabe und erneuter Live-Pruefung der
+  GitHub-Release-Assets wurden Tracker v356 und EFB 0.4.11 in die Stable-
+  Kanaele promotet. `channel/stable.json` verweist auf Tracker-v356, die
+  Stable-EFB-Kanaldatei auf `efb-app-v0.4.11`; beide verwenden dieselben
+  unveraenderlichen URLs, Groessen und SHA-256-Pruefsummen wie Alpha.
 
 - 2026-08-14: Tracker v354 / Host 0.6.3 ist als Alpha veroeffentlicht und
   korrigiert das von einem Nutzer
