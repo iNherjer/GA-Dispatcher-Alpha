@@ -8759,14 +8759,20 @@ async function applyAirportDirectTo(airport, options = {}) {
     currentDepFreq = '';
     currentDestFreq = '';
 
-    const startLocEl = document.getElementById('startLoc');
-    const startLocRadioEl = document.getElementById('startLocRadio');
-    const destLocEl = document.getElementById('destLoc');
-    const destLocRadioEl = document.getElementById('destLocRadio');
-    if (startLocEl) startLocEl.value = currentStartICAO === 'GPS' ? '' : (currentStartICAO || '');
-    if (startLocRadioEl) startLocRadioEl.value = currentStartICAO === 'GPS' ? 'GPS' : (currentStartICAO || '');
-    if (destLocEl) destLocEl.value = currentDestICAO || '';
-    if (destLocRadioEl) destLocRadioEl.value = currentDestICAO || '';
+    if (currentStartICAO === 'GPS') {
+        window.syncAirportFieldValue?.('startLoc', '', { resolved: false });
+        const startLocRadioEl = document.getElementById('startLocRadio');
+        if (startLocRadioEl) startLocRadioEl.value = 'GPS';
+    } else {
+        window.syncAirportFieldValue?.('startLoc', currentStartICAO || '', {
+            resolved: !!currentStartICAO,
+            record: startData
+        });
+    }
+    window.syncAirportFieldValue?.('destLoc', currentDestICAO || '', {
+        resolved: !!currentDestICAO,
+        record: destAirport
+    });
 
     if (useExistingStart && typeof populateBriefingUI === 'function') {
         const title = '👤 Privater Flug';
@@ -8808,7 +8814,8 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
         && !window.confirmMissionAuthorityReplacement('den Homebase-Besuch', 'crew-homebase-visit')) return false;
     const lat = Number(homebase.lat ?? homebase.spawn?.lat);
     const lon = Number(homebase.lon ?? homebase.spawn?.lon);
-    const departureIcao = String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
+    const departureIcao = window.getAirportFieldCanonicalValue?.('startLoc')
+        || String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
     if (!departureIcao) {
         alert('Bitte zuerst im DEP-Feld einen Startflugplatz eintragen.');
         return false;
@@ -8849,14 +8856,8 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
     syncDirectToFreeflightRouteState();
     currentDepFreq = '';
     currentDestFreq = '';
-    const startLoc = document.getElementById('startLoc');
-    const startLocRadio = document.getElementById('startLocRadio');
-    const destLoc = document.getElementById('destLoc');
-    const destLocRadio = document.getElementById('destLocRadio');
-    if (startLoc) startLoc.value = currentStartICAO;
-    if (startLocRadio) startLocRadio.value = currentStartICAO;
-    if (destLoc) destLoc.value = '';
-    if (destLocRadio) destLocRadio.value = '';
+    window.syncAirportFieldValue?.('startLoc', currentStartICAO, { resolved: true, record: startData });
+    window.syncAirportFieldValue?.('destLoc', '', { resolved: false });
 
     if (!map && typeof initMapBase === 'function') initMapBase();
     if (typeof populateBriefingUI === 'function') {
@@ -11820,7 +11821,8 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
 
 async function updateMapFromInputs() {
     if (!document.getElementById('mapTableOverlay').classList.contains('active')) return;
-    const sIcao = document.getElementById('startLoc').value.toUpperCase(), dIcao = document.getElementById('destLoc').value.toUpperCase();
+    const sIcao = window.getAirportFieldCanonicalValue?.('startLoc') || document.getElementById('startLoc').value.toUpperCase();
+    const dIcao = window.getAirportFieldCanonicalValue?.('destLoc') || document.getElementById('destLoc').value.toUpperCase();
     if (!sIcao) return;
     if (!map) initMapBase();
     let sData = await getAirportData(sIcao), dData = dIcao ? await getAirportData(dIcao) : null;

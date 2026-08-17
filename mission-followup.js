@@ -2342,12 +2342,20 @@
             alert('Folgeanfrage unvollständig: Start oder Ziel fehlt.');
             return false;
         }
-        const startEl = document.getElementById('startLoc');
-        const destEl = document.getElementById('destLoc');
         const typeEl = document.getElementById('targetType');
         const pickerValue = pickerValueForProfile(acceptance.dispatchProfileId || req.followUpKind, req);
-        if (startEl) startEl.value = start.icao;
-        if (destEl) destEl.value = isPoiFollowup ? '' : dest.icao;
+        if (typeof window.syncAirportFieldValue === 'function') {
+            window.syncAirportFieldValue('startLoc', start.icao, { resolved: true, record: start });
+            window.syncAirportFieldValue('destLoc', isPoiFollowup ? '' : dest.icao, {
+                resolved: !isPoiFollowup,
+                record: isPoiFollowup ? null : dest
+            });
+        } else {
+            const startEl = document.getElementById('startLoc');
+            const destEl = document.getElementById('destLoc');
+            if (startEl) startEl.value = start.icao;
+            if (destEl) destEl.value = isPoiFollowup ? '' : dest.icao;
+        }
         if (typeEl) {
             typeEl.value = pickerValue;
             try { localStorage.setItem('ga_target_type', pickerValue); } catch (_) {}
@@ -2356,10 +2364,6 @@
             }
         }
         if (typeof window.syncToNavCom === 'function') {
-            try { window.syncToNavCom('startLocRadio', start.icao); } catch (_) {}
-            if (!isPoiFollowup) {
-                try { window.syncToNavCom('destLocRadio', dest.icao); } catch (_) {}
-            }
             try { window.syncToNavCom('targetTypeRadio', pickerValue); } catch (_) {}
         }
         if (typeof window.generateMission !== 'function') {

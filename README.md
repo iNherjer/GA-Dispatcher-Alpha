@@ -453,7 +453,7 @@ Tipps:
 
 Das VFR Multitool nutzt je nach Funktion lokale Daten, Browser-Cache, Live-Tracker-Daten, OpenAIP, Wetterquellen, DWD-/VFR-Daten, Kartenkacheln, Flughafen-/POI-Daten, Wikipedia/Wikidata-Kontext und optionale KI-Provider.
 
-Die manuelle Flugplatzsuche arbeitet vollständig mit der selbst gehosteten `airports.json`. `tools/build-airports-database.mjs` baut sie reproduzierbar aus `data/airports-backup-pre-openaip-20260815.json` und dem veröffentlichten GA-Dispatcher-Aviation-Data-Stand neu auf. Das Backup wird vom Builder niemals überschrieben; Version, Bestandszahlen und Prüfsummen stehen in `data/airports-database-meta.json`.
+Die manuelle Flugplatzsuche arbeitet vollständig mit selbst gehosteten Daten. Damit die Vorschläge nicht auf die 12-MB-Gesamtdatenbank warten, lädt das Eingabefeld kleine Suchpakete aus `data/airport-search/`. Ein Zwei-Zeichen-Präfix liefert schnelle Standardtreffer; ein Trigramm-Index ergänzt Teilwort- und fehlertolerante Treffer wie `Zarten` oder `Kirchzaten`. Fuzzy-Treffer werden nur vorgeschlagen und nie automatisch übernommen. `airports.json` bleibt der vollständige Fallback für Dispatch und Offline-Betrieb. `tools/build-airports-database.mjs` baut die Gesamtdatenbank reproduzierbar aus `data/airports-backup-pre-openaip-20260815.json` und dem veröffentlichten GA-Dispatcher-Aviation-Data-Stand neu auf. Danach erzeugt `node tools/build-airport-search-packs.mjs` die Suchpakete einschließlich der FAA-Lokalkennungen. Das Backup wird von beiden Buildern niemals überschrieben; Version, Bestandszahlen und Prüfsummen stehen in `data/airports-database-meta.json` und `data/airport-search/manifest.json`.
 
 Grenzen:
 

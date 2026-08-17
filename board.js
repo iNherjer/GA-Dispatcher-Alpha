@@ -2657,8 +2657,13 @@ window.executeMSFSImport = async function(mode) {
          totalDist += calcNav(newRoute[i].lat, newRoute[i].lng, newRoute[i+1].lat, newRoute[i+1].lng).dist;
     }
     
-    document.getElementById('startLoc').value = startIcao;
-    document.getElementById('destLoc').value = destIcao;
+    if (typeof window.syncAirportFieldValue === 'function') {
+        window.syncAirportFieldValue('startLoc', startIcao, { resolved: true, record: sData });
+        window.syncAirportFieldValue('destLoc', destIcao, { resolved: true, record: dData });
+    } else {
+        document.getElementById('startLoc').value = startIcao;
+        document.getElementById('destLoc').value = destIcao;
+    }
     if (document.getElementById('altSlider')) {
         document.getElementById('altSlider').value = cruiseAlt;
         handleSliderChange('alt', cruiseAlt);

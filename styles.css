@@ -8508,6 +8508,11 @@ body.theme-navcom.navcom-rack-v2 .lcd-input {
         0 0 14px rgba(255,80,20,0.34) !important;
 }
 
+body.theme-navcom .radio-disp-inner .lcd-input.airport-input-name {
+    font-size: 14px !important;
+    letter-spacing: 0.55px !important;
+}
+
 body.theme-navcom.navcom-rack-v2 .navcom-proposal-switch {
     min-width: 76px;
     height: 21px;
