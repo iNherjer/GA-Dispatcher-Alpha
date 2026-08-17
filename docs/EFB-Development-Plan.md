@@ -1103,7 +1103,9 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   Alle 106 Tracker-/EFB-Tests bestehen. Der Windows-Build umfasst 48.113.240
   Bytes und hat SHA-256
   `7a7c5e34034c829552e5b4973b4fcca778402fd7ad78f987b9ed9c34f681a2c6`.
-  Stable bleibt auf v356; das EFB-Community-Paket bleibt auf 0.4.11.
+  Release `v360` ist veroeffentlicht, remote verifiziert und nur in
+  `channel/alpha.json` aktiviert. Stable bleibt auf v356; das
+  EFB-Community-Paket bleibt auf 0.4.11.
 
 - 2026-08-17: Web-Cache v1666 und Tracker v359 / Host 0.6.4 behandeln die
   Starter fuer Uhr/Stoppuhr, Rechner und E6B als Umschalter. Ein zweiter Klick
