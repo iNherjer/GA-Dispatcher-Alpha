@@ -1,4 +1,9 @@
 const https = require('node:https');
+const {
+  PILOT_PIN_REQUIREMENT,
+  isValidPilotPin,
+  normalizePilotPin
+} = require('./pilot-pin-policy');
 
 const AUTH_URL = 'https://ga-proxy.einherjer.workers.dev/api/auth/verify';
 
@@ -39,9 +44,9 @@ function postJson(url, payload, timeoutMs = 10000) {
 
 async function verifyCredentials(pilotId, pin, options = {}) {
   const requestedId = String(pilotId || '').trim();
-  const requestedPin = String(pin || '').trim();
-  if (!requestedId || !/^\d{4}$/.test(requestedPin)) {
-    return { ok: false, message: 'Bitte Pilot-ID und vierstelligen PIN eingeben.' };
+  const requestedPin = normalizePilotPin(pin);
+  if (!requestedId || !isValidPilotPin(requestedPin)) {
+    return { ok: false, message: `Bitte Pilot-ID eingeben. ${PILOT_PIN_REQUIREMENT}` };
   }
 
   let response;

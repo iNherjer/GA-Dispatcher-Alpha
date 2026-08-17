@@ -42,10 +42,10 @@ Stable behaelt aus Kompatibilitaetsgruenden den bisherigen Runtime-Pfad
 `Tracker`; Alpha verwendet den separaten Pfad `Tracker Alpha`. Ein Wechsel
 beendet einen laufenden Tracker kontrolliert, bereitet den Zielkanal vor und
 startet ihn danach wieder. Die jeweils andere Runtime bleibt unveraendert.
-Pilot-ID und PIN werden vor dem Speichern am Auth-Endpunkt geprueft. Die PIN wird
-mit Electrons `safeStorage`/Windows DPAPI geschuetzt in LocalAppData gespeichert
-und nur ueber eine lokale Prozess-Pipe an die Engine uebergeben. Sie steht weder
-im Dokumente-Ordner noch in der Prozessumgebung.
+Pilot-ID und der 4- bis 8-stellige PIN werden vor dem Speichern am Auth-Endpunkt
+geprueft. Die PIN wird mit Electrons `safeStorage`/Windows DPAPI geschuetzt in
+LocalAppData gespeichert und nur ueber eine lokale Prozess-Pipe an die Engine
+uebergeben. Sie steht weder im Dokumente-Ordner noch in der Prozessumgebung.
 
 Eine vorhandene Klartext-PIN in `tracker-config.json` wird erst nach erfolgreicher
 Online-Pruefung und sicherer Migration entfernt. Homebase-Fallback,

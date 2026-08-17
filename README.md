@@ -75,7 +75,7 @@ Tipps:
 
 ### Pilot-ID, Cloud-Sync und PC-Tracker
 
-Die **Pilot-ID** ist deine Identitaet fuer Sync, Crew und Live-Tracking. Der **PIN** schuetzt diese Identitaet.
+Die **Pilot-ID** ist deine Identitaet fuer Sync, Crew und Live-Tracking. Der **4- bis 8-stellige PIN** schuetzt diese Identitaet.
 
 Funktionen:
 

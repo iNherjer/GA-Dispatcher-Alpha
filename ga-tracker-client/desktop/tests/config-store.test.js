@@ -29,7 +29,7 @@ test('update policy defaults to ask and accepts automatic', () => {
 test('credentials are encrypted in app data while personal tracker config is preserved', () => {
   const store = createStore();
   store.write({ homebaseFallback: { schemaVersion: 1 }, consoleMode: 'status', pin: '9999' });
-  store.saveCredentials('Foxtrot-Mike-764', '1234');
+  store.saveCredentials('Foxtrot-Mike-764', '123456');
   store.setRuntimeChannel('alpha');
   store.setModuleUpdatePolicy('desktop', 'automatic');
   store.setUpdatePolicy('automatic');
@@ -49,8 +49,8 @@ test('credentials are encrypted in app data while personal tracker config is pre
   assert.equal(trackerConfig.pin, undefined);
   assert.equal(trackerConfig.consoleMode, 'status');
   assert.deepEqual(trackerConfig.homebaseFallback, { schemaVersion: 1 });
-  assert.equal(desktopConfig.encryptedPin, Buffer.from('protected:1234').toString('base64'));
-  assert.deepEqual(store.credentials(), { pilotId: 'Foxtrot-Mike-764', pin: '1234' });
+  assert.equal(desktopConfig.encryptedPin, Buffer.from('protected:123456').toString('base64'));
+  assert.deepEqual(store.credentials(), { pilotId: 'Foxtrot-Mike-764', pin: '123456' });
   assert.deepEqual(store.publicSettings(), {
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
@@ -71,24 +71,24 @@ test('legacy plaintext credentials are removed only after successful verificatio
   const store = createStore();
   store.write({
     syncId: 'legacy-id',
-    pin: '1234',
+    pin: '654321',
     trackerDesktop: { updatePolicy: 'automatic', autoStartTracker: true, startMinimized: true },
     homebaseFallback: { keep: true }
   });
 
   const failed = await store.migrateLegacyCredentials(async () => ({ ok: false, message: 'offline' }));
   assert.equal(failed.verificationFailed, true);
-  assert.equal(store.read().pin, '1234');
+  assert.equal(store.read().pin, '654321');
 
   const migrated = await store.migrateLegacyCredentials(async (pilotId, pin) => {
     assert.equal(pilotId, 'legacy-id');
-    assert.equal(pin, '1234');
+    assert.equal(pin, '654321');
     return { ok: true, pilotId: 'Legacy-ID' };
   });
   assert.equal(migrated.migrated, true);
   assert.equal(store.read().pin, undefined);
   assert.deepEqual(store.read().homebaseFallback, { keep: true });
-  assert.deepEqual(store.credentials(), { pilotId: 'Legacy-ID', pin: '1234' });
+  assert.deepEqual(store.credentials(), { pilotId: 'Legacy-ID', pin: '654321' });
   assert.equal(store.publicSettings().startMinimized, true);
 });
 
@@ -117,7 +117,9 @@ test('module update policies reject unknown modules', () => {
 
 test('PIN validation and unavailable OS encryption are rejected', () => {
   const store = createStore();
-  assert.throws(() => store.saveCredentials('Pilot', '12ab'), /vier Ziffern/);
+  assert.throws(() => store.saveCredentials('Pilot', '123'), /4 bis 8 Ziffern/);
+  assert.throws(() => store.saveCredentials('Pilot', '123456789'), /4 bis 8 Ziffern/);
+  assert.throws(() => store.saveCredentials('Pilot', '12ab56'), /4 bis 8 Ziffern/);
   const unavailable = new TrackerConfigStore({
     documentsDirectory: path.join(os.tmpdir(), 'documents'),
     applicationDataDirectory: path.join(os.tmpdir(), 'appdata'),

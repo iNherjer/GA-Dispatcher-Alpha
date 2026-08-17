@@ -13,6 +13,14 @@ test('renderer element bindings exist in the desktop HTML', () => {
   for (const id of ids) assert.match(html, new RegExp(`id=["']${id}["']`), `Fehlendes UI-Element: ${id}`);
 });
 
+test('PIN input accepts the same 4-to-8-digit range as the web app', () => {
+  const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
+  const pinInput = html.match(/<input\s+id="pinInput"[^>]*>/)?.[0] || '';
+  assert.match(pinInput, /pattern="\[0-9\]\{4,8\}"/);
+  assert.match(pinInput, /minlength="4"/);
+  assert.match(pinInput, /maxlength="8"/);
+});
+
 test('renderer only calls desktop methods exposed by the preload bridge', () => {
   const renderer = fs.readFileSync(path.join(desktopRoot, 'ui', 'renderer.js'), 'utf8');
   const preload = fs.readFileSync(path.join(desktopRoot, 'preload.js'), 'utf8');

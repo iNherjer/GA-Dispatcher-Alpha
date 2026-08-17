@@ -1,6 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeRuntimeChannel } = require('./runtime-channel');
+const {
+  PILOT_PIN_REQUIREMENT,
+  isValidPilotPin,
+  normalizePilotPin
+} = require('./pilot-pin-policy');
 
 const UPDATE_POLICIES = new Set(['ask', 'automatic']);
 const MODULE_UPDATE_POLICY_KEYS = Object.freeze({
@@ -124,8 +129,8 @@ class TrackerConfigStore {
     const encryptedPin = String(desktop.encryptedPin || '').trim();
     if (!pilotId || !encryptedPin || !this.encryptionAvailable()) return null;
     try {
-      const pin = String(this.secureStorage.decryptString(Buffer.from(encryptedPin, 'base64')) || '').trim();
-      if (!/^\d{4}$/.test(pin)) return null;
+      const pin = normalizePilotPin(this.secureStorage.decryptString(Buffer.from(encryptedPin, 'base64')));
+      if (!isValidPilotPin(pin)) return null;
       return { pilotId, pin };
     } catch (_) {
       return null;
@@ -138,9 +143,9 @@ class TrackerConfigStore {
 
   saveCredentials(pilotId, pin) {
     const normalizedPilotId = String(pilotId || '').trim();
-    const normalizedPin = String(pin || '').trim();
+    const normalizedPin = normalizePilotPin(pin);
     if (!normalizedPilotId || normalizedPilotId.length > 160) throw new Error('Pilot-ID fehlt oder ist zu lang.');
-    if (!/^\d{4}$/.test(normalizedPin)) throw new Error('Der PIN muss aus genau vier Ziffern bestehen.');
+    if (!isValidPilotPin(normalizedPin)) throw new Error(PILOT_PIN_REQUIREMENT);
     if (!this.encryptionAvailable()) throw new Error('Der Windows-Schutz für Zugangsdaten ist derzeit nicht verfügbar.');
 
     const encryptedPin = this.secureStorage.encryptString(normalizedPin).toString('base64');
@@ -249,7 +254,7 @@ class TrackerConfigStore {
       }
       return { migrated: false, alreadySecure: true };
     }
-    if (!legacyPilotId || !/^\d{4}$/.test(legacyPin)) return { migrated: false };
+    if (!legacyPilotId || !isValidPilotPin(legacyPin)) return { migrated: false };
     if (typeof verifier !== 'function') return { migrated: false, message: 'Konto-Prüfung fehlt.' };
 
     const verification = await verifier(legacyPilotId, legacyPin);

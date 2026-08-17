@@ -80,7 +80,7 @@
               </label>
               <label>
                 <span>PIN</span>
-                <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" placeholder="••••">
+                <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" placeholder="4–8 Ziffern">
               </label>
               <button id="saveCredentialsButton" class="primary-button" type="submit">Prüfen &amp; verbinden</button>
             </form>

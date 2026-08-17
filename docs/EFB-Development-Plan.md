@@ -1080,6 +1080,15 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-17: Tracker-Desktop 1.6.2 akzeptiert Pilot-PINs nun wie die Web-App
+  mit 4 bis 8 Ziffern statt ausschliesslich vier Ziffern. Eingabe, lokale
+  Vorpruefung, DPAPI-gespeicherte Zugangsdaten und Klartext-Alt-Migration nutzen
+  denselben Vertrag; insbesondere die von der App erzeugten sechsstelligen PINs
+  bleiben nach einem Desktop-Neustart gueltig. Der Auth-Endpunkt war bereits
+  laengenunabhaengig und musste nicht geaendert werden. 1.6.2 wird als Alpha-
+  Prerelease ausgeliefert; der globale Stable-Autoupdate-Zeiger bleibt bis zur
+  Testerfreigabe auf Desktop 1.6.1. Tracker-/EFB-Kanaele bleiben unveraendert.
+
 - 2026-08-17: Der additive Gruppen-Szenenvertrag ist lokal im Tracker-v357-
   Kandidaten und in der Web-App implementiert. Die Capability
   `mission.scene.group.v1` schaltet 2-5 Personen, zentrierte 1-m-Aufstellung,
