@@ -69,4 +69,6 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(syncSource, /if \(!partyKind \|\| partyKind === 'single'/);
   assert.match(syncSource, /groupSequence: true/);
   assert.match(syncSource, /_missionSceneValidateGroupFinalAck/);
+  assert.match(syncSource, /window\.missionSceneGroupDebug = Object\.freeze/);
+  assert.match(syncSource, /missionSceneGroupDebugWaiters\.has\(ackCommandId\)[\s\S]*?_trackerPendingHandleAck\(ack\)[\s\S]*?_missionSceneGroupDebugHandleAck\(ack\)/);
 });

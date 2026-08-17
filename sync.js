@@ -1889,6 +1889,8 @@ let missionSceneDeboardingWatchdogTimer = null;
 let missionSceneBoardingCuePlayback = null;
 let missionSceneDeboardingCuePlayback = null;
 let missionInterruptedDeboardingRecovery = null;
+const missionSceneGroupDebugWaiters = new Map();
+let missionSceneGroupDebugState = null;
 const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 const MISSION_AUTHORITY_STORAGE_KEY = 'ga_mission_authority_v1';
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
@@ -5656,6 +5658,245 @@ function _missionSceneGroupCommandFields() {
         groupVehicleKind: groupPlan.groupVehicleKind
     };
 }
+
+function _missionSceneGroupDebugPlan(count) {
+    if (!_trackerSupportsMissionSceneGroup()) {
+        return { ok: false, error: 'tracker_group_capability_required' };
+    }
+    if (typeof window.GAMissionSceneGroup?.normalizeGroupSequenceCommand !== 'function'
+        || typeof window.GAMissionSceneGroup?.buildGroupMemberPlans !== 'function') {
+        return { ok: false, error: 'group_core_unavailable' };
+    }
+    const group = window.GAMissionSceneGroup.normalizeGroupSequenceCommand({
+        groupSequence: true,
+        expectedPassengerCount: Number(count),
+        groupSpacingM: 1,
+        boardingStaggerMs: 1100
+    });
+    if (!group?.valid) return { ok: false, error: group?.error || 'invalid_group_count' };
+    const members = window.GAMissionSceneGroup.buildGroupMemberPlans(group.expectedPassengerCount, group);
+    const vehiclePool = group.groupVehicleKind === 'bus'
+        ? MISSION_SCENE_ASSET_POOLS.buses
+        : MISSION_SCENE_ASSET_POOLS.vans;
+    const vehicleFallback = group.groupVehicleKind === 'bus'
+        ? 'Microsoft_MiniBus_ASIA_01'
+        : 'Microsoft_Van_EUR';
+    const vehicleTitle = _scenePickTitle(
+        vehiclePool,
+        `mission-scene-group-debug-${group.expectedPassengerCount}`,
+        vehiclePool[0] || vehicleFallback
+    );
+    return {
+        ok: true,
+        group,
+        members,
+        vehicleTitle,
+        vehicleTitleCandidates: _sceneAssetCandidates(vehicleTitle, vehiclePool)
+    };
+}
+
+function _missionSceneGroupDebugPosition() {
+    const pos = window.lastLiveGpsPos || {};
+    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return null;
+    return {
+        lat: Number(pos.lat),
+        lon: Number(pos.lon),
+        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0
+    };
+}
+
+function _missionSceneGroupDebugSend(command, expectedAckType, timeoutMs = 70000) {
+    const commandId = window.sendTrackerCommand?.(command);
+    if (!commandId) return Promise.resolve({ type: expectedAckType, status: 'error', error: 'command_not_sent' });
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            missionSceneGroupDebugWaiters.delete(String(commandId));
+            resolve({ type: expectedAckType, commandId, sceneId: command.sceneId, status: 'timeout', error: 'debug_timeout' });
+        }, timeoutMs);
+        missionSceneGroupDebugWaiters.set(String(commandId), {
+            commandId: String(commandId),
+            expectedAckType: String(expectedAckType || '').toLowerCase(),
+            sceneId: String(command.sceneId || ''),
+            timer,
+            resolve
+        });
+    });
+}
+
+function _missionSceneGroupDebugHandleAck(ack = {}) {
+    const commandId = String(ack?.commandId || '');
+    const waiter = missionSceneGroupDebugWaiters.get(commandId);
+    if (!waiter) return false;
+    const ackType = String(ack?.type || '').toLowerCase();
+    if (ackType !== waiter.expectedAckType) return /^mission_scene_/.test(ackType);
+    clearTimeout(waiter.timer);
+    missionSceneGroupDebugWaiters.delete(commandId);
+    waiter.resolve(ack);
+    return true;
+}
+
+async function _missionSceneGroupDebugBoarding(count) {
+    const plan = _missionSceneGroupDebugPlan(count);
+    const position = _missionSceneGroupDebugPosition();
+    if (!plan.ok) return plan;
+    if (!position) return { status: 'error', error: 'no_live_position' };
+    const sceneId = `mission-scene-group-debug-board-${plan.group.expectedPassengerCount}-${Date.now()}`;
+    const boardingConfig = _missionSceneBoardingConfig();
+    const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
+    const primaryGender = _missionScenePassengerGender();
+    const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
+    const vehiclePoint = _missionSceneVehiclePoint();
+    const people = plan.members.map((member, index) => {
+        const gender = index % 2 === 0 ? primaryGender : secondaryGender;
+        const title = _missionSceneMovingPersonTitle(gender, `group-debug-${plan.group.expectedPassengerCount}-${index + 1}`);
+        return {
+            kind: member.kind,
+            label: `Debug Boarding Pax ${index + 1}`,
+            objectTitle: title,
+            titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
+            forwardM: Number(personSpawn.forwardM) || 16,
+            rightM: (Number(personSpawn.rightM) || -8) + member.lateralOffsetM,
+            headingMode: 'face_aircraft',
+            altOffsetFt: Number(personSpawn.altOffsetFt) || 0
+        };
+    });
+    const spawnAck = await _missionSceneGroupDebugSend({
+        type: 'mission_scene_spawn',
+        sceneId,
+        reason: 'group-debug-boarding-spawn',
+        ...position,
+        groupSequence: true,
+        expectedPassengerCount: plan.group.expectedPassengerCount,
+        groupSpacingM: plan.group.groupSpacingM,
+        boardingStaggerMs: plan.group.boardingStaggerMs,
+        groupVehicleKind: plan.group.groupVehicleKind,
+        boarderCount: plan.group.expectedPassengerCount,
+        passengerCount: plan.group.expectedPassengerCount,
+        vehicleDeparture: true,
+        vehicleArrival: true,
+        items: [{
+            kind: 'vehicle',
+            label: plan.group.groupVehicleKind === 'bus' ? 'Debug Gruppenbus' : 'Debug Gruppenvan',
+            objectTitle: plan.vehicleTitle,
+            titleCandidates: plan.vehicleTitleCandidates,
+            forwardM: vehiclePoint.forwardM,
+            rightM: vehiclePoint.rightM,
+            headingMode: 'face_aircraft',
+            altOffsetFt: 0
+        }].concat(people)
+    }, 'mission_scene_spawn_ack', 35000);
+    if (spawnAck?.status !== 'ok') return { phase: 'spawn', ...spawnAck };
+    missionSceneGroupDebugState = { sceneId, count: plan.group.expectedPassengerCount, phase: 'boarding-spawned' };
+    const boardingAck = await _missionSceneGroupDebugSend({
+        type: 'mission_scene_boarding',
+        sceneId,
+        reason: 'group-debug-boarding',
+        ...position,
+        profile: 'app_preset',
+        path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2
+            ? boardingConfig.path
+            : [boardingConfig.spawn, boardingConfig.target],
+        spawnPoint: boardingConfig.spawn,
+        targetPoint: boardingConfig.target,
+        aircraftSlot: boardingConfig.aircraftSlot || window.selectedAC || '',
+        aircraftName: boardingConfig.aircraftName || '',
+        groupSequence: true,
+        expectedPassengerCount: plan.group.expectedPassengerCount,
+        groupSpacingM: plan.group.groupSpacingM,
+        boardingStaggerMs: plan.group.boardingStaggerMs,
+        groupVehicleKind: plan.group.groupVehicleKind,
+        boarderCount: plan.group.expectedPassengerCount,
+        passengerCount: plan.group.expectedPassengerCount,
+        vehicleDeparture: true,
+        vehiclePoint,
+        vehicleDeparturePath: _missionSceneVehicleDeparturePath(),
+        vehicleSpeedKts: 7,
+        vehicleBoardDelayMs: 2800,
+        durationMs: Number(boardingConfig.durationMs) || 18000,
+        finalHoldMs: 450,
+        removePerson: true,
+        removeCargoAtWaypoint: false,
+        splitCargoRoute: false,
+        walkSpeedKts: Number(boardingConfig.walkSpeedKts) || 3.3,
+        openDoor: boardingConfig.openDoor !== false,
+        doorProfile: boardingConfig.doorProfile || 'default',
+        doorIndex: 1
+    }, 'mission_scene_boarding_ack', 80000);
+    missionSceneGroupDebugState = { sceneId, count: plan.group.expectedPassengerCount, phase: 'boarding-complete', ack: boardingAck };
+    return { phase: 'boarding', spawnAck, boardingAck };
+}
+
+async function _missionSceneGroupDebugDeboarding(count) {
+    const plan = _missionSceneGroupDebugPlan(count);
+    const position = _missionSceneGroupDebugPosition();
+    if (!plan.ok) return plan;
+    if (!position) return { status: 'error', error: 'no_live_position' };
+    const sceneId = `mission-scene-group-debug-deboard-${plan.group.expectedPassengerCount}-${Date.now()}`;
+    const boardingConfig = _missionSceneBoardingConfig();
+    const primaryGender = _missionScenePassengerGender();
+    const personTitle = _missionSceneMovingPersonTitle(primaryGender, `group-debug-deboard-${plan.group.expectedPassengerCount}`);
+    missionSceneGroupDebugState = { sceneId, count: plan.group.expectedPassengerCount, phase: 'deboarding-started' };
+    const deboardingAck = await _missionSceneGroupDebugSend({
+        type: 'mission_scene_deboarding',
+        sceneId,
+        reason: 'group-debug-deboarding',
+        ...position,
+        profile: 'app_preset',
+        path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2
+            ? boardingConfig.path
+            : [boardingConfig.spawn, boardingConfig.target],
+        spawnPoint: boardingConfig.spawn,
+        targetPoint: boardingConfig.target,
+        aircraftSlot: boardingConfig.aircraftSlot || window.selectedAC || '',
+        aircraftName: boardingConfig.aircraftName || '',
+        groupSequence: true,
+        expectedPassengerCount: plan.group.expectedPassengerCount,
+        groupSpacingM: plan.group.groupSpacingM,
+        boardingStaggerMs: plan.group.boardingStaggerMs,
+        groupVehicleKind: plan.group.groupVehicleKind,
+        boarderCount: plan.group.expectedPassengerCount,
+        passengerCount: plan.group.expectedPassengerCount,
+        vehicleDeparture: true,
+        vehicleArrival: true,
+        vehicleReturn: true,
+        vehiclePoint: _missionSceneVehiclePoint(),
+        vehicleDeparturePath: _missionSceneVehicleDeparturePath(),
+        vehicleReturnPath: _missionSceneVehicleDeparturePath().slice().reverse(),
+        vehicleSpeedKts: 7,
+        vehicleTitle: plan.vehicleTitle,
+        vehicleTitleCandidates: plan.vehicleTitleCandidates,
+        personTitle,
+        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle),
+        walkSpeedKts: Number(boardingConfig.walkSpeedKts) || 3.3,
+        openDoor: boardingConfig.openDoor !== false,
+        doorProfile: boardingConfig.doorProfile || 'default',
+        doorIndex: 1,
+        coordinateFarewell: false
+    }, 'mission_scene_deboarding_ack', 120000);
+    missionSceneGroupDebugState = { sceneId, count: plan.group.expectedPassengerCount, phase: 'deboarding-complete', ack: deboardingAck };
+    return { phase: 'deboarding', deboardingAck };
+}
+
+async function _missionSceneGroupDebugClear() {
+    const sceneId = String(missionSceneGroupDebugState?.sceneId || '');
+    if (!sceneId) return { status: 'noop', error: 'no_debug_scene' };
+    const ack = await _missionSceneGroupDebugSend({
+        type: 'mission_scene_clear',
+        sceneId,
+        reason: 'group-debug-clear'
+    }, 'mission_scene_clear_ack', 30000);
+    if (ack?.status === 'ok' || ack?.status === 'noop') missionSceneGroupDebugState = null;
+    return ack;
+}
+
+window.missionSceneGroupDebug = Object.freeze({
+    boarding: _missionSceneGroupDebugBoarding,
+    deboarding: _missionSceneGroupDebugDeboarding,
+    clear: _missionSceneGroupDebugClear,
+    plan: _missionSceneGroupDebugPlan,
+    status: () => missionSceneGroupDebugState ? { ...missionSceneGroupDebugState } : null
+});
 
 function _missionSceneBoarderCount() {
     const groupPlan = _missionSceneGroupPlan();
@@ -9564,6 +9805,11 @@ function _handleTrackerAck(ack) {
                 error: ack.error || ''
             });
         }
+        return;
+    }
+    if (missionSceneGroupDebugWaiters.has(ackCommandId)) {
+        _trackerPendingHandleAck(ack);
+        _missionSceneGroupDebugHandleAck(ack);
         return;
     }
     ack = _missionSceneValidateGroupFinalAck(ack);

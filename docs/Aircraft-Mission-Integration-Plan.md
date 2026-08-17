@@ -256,6 +256,17 @@ Die EXE enthaelt den neuen Gruppen-Core und die Capability. Release `v357` ist
 veroeffentlicht und `channel/alpha.json` auf dieses Artefakt gesetzt;
 `stable.json` bleibt unveraendert auf v356. Der reale MSFS-Test steht noch aus.
 
+Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
+werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
+werden vor Manifest, Runtime und Voice abgefangen:
+
+- `await missionSceneGroupDebug.boarding(2)` bis `boarding(5)` testet Spawn,
+  1-m-Aufstellung, Stagger, Tuer, Boarding und Fahrzeugabfahrt.
+- `await missionSceneGroupDebug.deboarding(2)` bis `deboarding(5)` testet
+  Fahrzeugankunft, zeitversetzten Ausstieg, Weg zum Fahrzeug und Abfahrt.
+- `await missionSceneGroupDebug.clear()` entfernt die zuletzt verwendete
+  Debug-Szene.
+
 ### P4 - Gruppenmissionen freischalten, nur Web-App
 
 - [ ] Party-Typen fuer Charter, Private Outing und Sightseeing einfuehren.
