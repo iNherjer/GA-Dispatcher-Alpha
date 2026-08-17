@@ -13,7 +13,7 @@ wesentliche Testergebnisse werden hier fortgeschrieben.
 | Bereich | Alpha | Stable | Bemerkung |
 | --- | --- | --- | --- |
 | Web-App | `origin/main` | getrennte Stable-Promotion | Alpha muss weiterhin mit dem freigegebenen Stable-Tracker funktionieren |
-| Tracker-Runtime | v359 Alpha-Kandidat | v356 | v359 liefert den Werkzeug-Toggle fuer den EFB-Host; Stable bleibt unveraendert |
+| Tracker-Runtime | v359 Alpha | v356 | v359 liefert den Werkzeug-Toggle fuer den EFB-Host; Stable bleibt unveraendert |
 | EFB-Community-Package | 0.4.11 Alpha | 0.4.11 | Beide Kanaele zeigen auf dasselbe mit SDK 1.7.2 gebaute und In-Sim-getestete Archiv |
 | EFB-Transport | HTTP-Loopback, read-only | - | `127.0.0.1:49880`, keine Zugangsdaten und keine schreibenden Mission Commands |
 
@@ -1095,6 +1095,8 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
   gebaut. Alle 103 Tracker-/EFB-Tests bestehen. Der lokale Windows-Build
   umfasst 48.111.252 Bytes und hat SHA-256
   `04962f7ce2f943c2cd5b37b575ee2694384516d8e38060390a760854a08f5b42`.
+  Release `v359` ist veroeffentlicht, remote verifiziert und nur in
+  `channel/alpha.json` aktiviert; Stable bleibt auf v356.
 
 - 2026-08-17: Tracker-Desktop 1.6.2 akzeptiert Pilot-PINs nun wie die Web-App
   mit 4 bis 8 Ziffern statt ausschliesslich vier Ziffern. Eingabe, lokale
