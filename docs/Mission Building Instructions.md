@@ -111,6 +111,13 @@ Das Manifest ist die Wahrheit darüber:
 - wo es entladen wird,
 - und was für Erfolg/Misserfolg zählt.
 
+Bei Passenger-Gruppen ist `passengerCount` die numerische Wahrheit. Die Party
+wird bei der Missionserzeugung vor dem Writer fixiert; Story, Contract,
+V4-Contract, Anzeige, Szenenparameter und Manifest duerfen den Count danach
+nicht neu wuerfeln oder aus freiem Text ableiten. `paxText` bleibt lediglich
+Anzeige sowie Legacy-Restore-Fallback. Eine Gruppe bleibt ein atomarer
+Passenger-Manifest-Eintrag; ihr Hauptpassagier bleibt die Voice-Persona.
+
 Für neue Missionen gilt: Erfolgskriterien nach Möglichkeit über Manifest und Progress modellieren, nicht über freie Sonderbedingungen in UI-Code.
 
 Faustregel:
@@ -210,8 +217,8 @@ Wichtig: Der Voice-Layer sollte auf Runtime-Phasen reagieren, nicht selbst Missi
 1. `handleMissionStartBannerAction()`
 2. `planned -> prepare`
 3. `prepare -> boarding`
-4. Bei PAX: Person läuft zum Flugzeug, Tür ist offen, Person verschwindet am Boarding-Punkt
-5. Tracker meldet `mission_scene_boarding_stage: passenger_boarded`
+4. Bei PAX: Person beziehungsweise freigegebene Gruppe laeuft zeitversetzt zum Flugzeug; die Tuer ist offen und jede Person verschwindet am Boarding-Punkt
+5. Tracker meldet die bestehenden Boarding-Stages und im finalen ACK exakt die erwartete Personenzahl
 6. Boarding-Cue läuft während die Tür schließt
 7. Nach dem finalen Boarding-ACK folgt die Boarding-Voice
 8. Pflichtladung vollständig laden, Dispatch-Liste unterschreiben und Sim-Payload prüfen
@@ -220,6 +227,12 @@ Wichtig: Der Voice-Layer sollte auf Runtime-Phasen reagieren, nicht selbst Missi
 11. `manualMissionStart()` oder Sim-Äquivalent
 
 Cargo-only mit `0 PAX` überspringt die Personenanimation vollständig. Ground Crew darf weder als Ersatzpassagier boarden noch beim Missionsende als Phantom-PAX gespawnt werden.
+
+Gruppen verwenden dieselben Phasen, Signaturen und Manifest-Gates wie eine
+Einzelperson. Ein partielles ACK darf weder Boarding noch Deboarding
+fortschalten. Die Gruppenerzeugung setzt die ausgehandelte
+`mission.scene.group.v1`-Capability voraus; ohne sie bleibt der bestehende
+Einzelpersonenpfad aktiv.
 
 Die koordinierte Deboarding-Sequenz setzt Tracker `v278` oder neuer voraus. Mit einem älteren/unerkannten Tracker läuft der Farewell-Fallback ohne unkoordinierte Personenanimation.
 

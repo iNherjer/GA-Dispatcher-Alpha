@@ -55,8 +55,8 @@ Alle Mitglieder einer Gruppe werden in MSFS als eigene Personen gespawnt. Sie st
 
 - Flugzeug-Presets speichern bereits Name, TAS, Fuel Flow, Sitze, maximale Zuladung, Klasse und Einsatzprofile.
 - `passengerCount` wird im Manifest bereits bis sechs gefuehrt.
-- Die Web-Szene begrenzt sichtbare Boarder derzeit auf zwei.
-- Der Tracker begrenzt Boarding und Deboarding derzeit auf drei Personen.
+- Der freigegebene Gruppenpfad kann mit Capability zwei bis fuenf sichtbare
+  Personen koordinieren; ohne Capability bleibt die bestehende Einzelperson.
 - Boarding laedt den Passenger-Manifest-Eintrag nach dem finalen ACK atomar.
 - Deboarding schliesst den Handoff beim bestehenden Stage-ACK `passenger_vehicle_boarded` beziehungsweise `passenger_handoff_complete` ab.
 - Van- und Bus-Assets sind im vorhandenen Szenenkatalog enthalten.
@@ -250,7 +250,7 @@ Alte Tracker ignorieren unbekannte Felder. Die Web-App sendet sie dennoch nur na
 - [x] ACK-Counts auf exakte Gruppengroesse absichern.
 - [x] Legacy-Einzelpfad und Tracker ohne Capability unveraendert testen.
 - [x] Tracker-Version erhoehen, EXE bauen und nur Alpha veroeffentlichen.
-- [ ] Realen MSFS-Test fuer Spawn, Wege, Tuer, Van und Bus dokumentieren.
+- [x] Realen MSFS-Test fuer Spawn, Wege, Tuer, Van und Bus dokumentieren.
 
 Lokaler Stand 2026-08-17: Tracker v357 ist gebaut. Das Windows-Artefakt hat
 48.109.342 Bytes und SHA-256
@@ -295,6 +295,16 @@ SHA-256
 Release `v362` ist veroeffentlicht und nur in `channel/alpha.json` aktiviert;
 Stable bleibt unveraendert auf v356.
 
+Der abschliessende reale v362-Test bestaetigte den gemeinsamen Tuer-Spawn,
+den seriellen Ausstieg im 2000-ms-Abstand und die sauberen Laufwege zum
+Gruppenfahrzeug. Damit ist P3 fuer den Alpha-Kanal freigegeben. Die produktive
+Missionskette akzeptiert ein Gruppen-Boarding oder -Deboarding weiterhin erst
+nach einem finalen `status: ok` mit exakt der erwarteten Personenzahl. Danach
+werden Passenger-Handoff und Manifest atomar aktualisiert; die bestehende UI
+wechselt auf „Mission startbereit“ beziehungsweise „Mission auswerten“ und
+gibt den normalen Missionsfortschritt frei. Die isolierten Debug-Sequenzen
+bleiben absichtlich ohne Manifest- oder Missionsfortschritt.
+
 Der reale Test kann ohne Missionsfortschritt in der Browser-Konsole ausgefuehrt
 werden. Die Debug-Sequenzen verwenden eigene Szenen- und Command-IDs; ihre ACKs
 werden vor Manifest, Runtime und Voice abgefangen:
@@ -308,11 +318,26 @@ werden vor Manifest, Runtime und Voice abgefangen:
 
 ### P4 - Gruppenmissionen freischalten, nur Web-App
 
-- [ ] Party-Typen fuer Charter, Private Outing und Sightseeing einfuehren.
-- [ ] Familie, Freundesgruppe, Verein und Business-Team nur bei ausreichender Kapazitaet ziehen.
-- [ ] Hauptpassagier bleibt Voice-Persona; Gruppenlabel und Count bleiben konsistent in Story, Contract und Manifest.
-- [ ] Utility bleibt ohne neue Gruppenvarianten.
-- [ ] Gruppenfreigabe an getestete Capability koppeln, ohne die globale Mindestversion anzuheben.
+- [x] Party-Typen fuer Charter, Private Outing und Sightseeing einfuehren.
+- [x] Familie, Freundesgruppe, Verein und Business-Team nur bei ausreichender Kapazitaet ziehen.
+- [x] Hauptpassagier bleibt Voice-Persona; Gruppenlabel und Count bleiben konsistent in Story, Contract und Manifest.
+- [x] Utility bleibt ohne neue Gruppenvarianten.
+- [x] Gruppenfreigabe an getestete Capability koppeln, ohne die globale Mindestversion anzuheben.
+
+P4 ist in der Web-App umgesetzt. Die Party wird vor dem Writer aus der aktiven
+Preset-Kapazitaet bestimmt und danach als fester Count durch Story, Contract,
+V4-Contract, Anzeige und Manifest gefuehrt. Bei zwei Personen entsteht ein
+Paar; ab drei Personen werden je nach Profil Familie, Freundesgruppe, Verein
+oder Business-Team gewichtet. Ein Viersitzer kann damit weiterhin ein, zwei
+oder drei PAX erhalten, ein Zweisitzer mit einem Passagierplatz immer nur einen.
+Utility und Cargo erhalten keine neuen Gruppenvarianten.
+
+Die Freigabe prueft ausschliesslich die ausgehandelte
+`mission.scene.group.v1`-Capability. Ein Stable-/Legacy-Tracker erzeugt daher
+weiter Einzelpersonen, ohne dass die globale Mindestversion angehoben wird.
+Der Alpha-Tracker bleibt v362; P4 aendert weder Tracker-Code noch Runtime-Gates.
+Automatisierte Dryruns decken Viersitzer-Gruppen, Cub-Limit, fehlende Capability
+und Utility-/Cargo-Ausschluss ab.
 
 ### P5 - Maximale Zuladung
 

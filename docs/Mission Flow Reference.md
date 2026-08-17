@@ -128,6 +128,15 @@ bestaetigt. Pickup-Missionen besitzen keinen separaten Start-Shortcut.
 Profile veraendern Story, Rolle, Ziel, Manifest und Szene. Eine neue
 Ablaufklasse ist nur noetig, wenn sich die fachlichen Gates aendern.
 
+Charter, Private Outing und Sightseeing duerfen bei ausgehandelter
+`mission.scene.group.v1`-Capability eine Party von zwei bis fuenf Personen
+erzeugen, begrenzt durch die Passagierplaetze des bei der Erzeugung aktiven
+Presets. `party.count` und `passengerCount` muessen identisch bleiben; die
+benannte Hauptperson bleibt die einzige Voice-Persona. Die Gruppe ist ein
+atomarer Passenger-Manifest-Eintrag und erzeugt keine neue Ablaufklasse.
+Utility und Cargo erhalten durch diese Regel keine Gruppenvariante. Ohne
+Capability gilt der bestehende Einzelpersonenpfad.
+
 | Ablaufklasse | Referenzprofile | Zielaktion | Rueckflug | Abschluss |
 | --- | --- | --- | --- | --- |
 | APT Arrival | Charter, Privat, Cargo, Medical, Tiertransport | Landung am Zielflugplatz | nein | Ziel-Unload/Signatur, Farewell/Deboarding, Close |

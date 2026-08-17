@@ -2904,7 +2904,7 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, sharedLocalStorage = null }) {
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', totalSeats = 4, groupCapability = false, partyRandomValues = null, sharedLocalStorage = null }) {
   const { context, prompts } = setupContext(seed, { liveGemini, sharedLocalStorage });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
@@ -2916,9 +2916,30 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
   loadScript(context, 'mission-cargo-core.js');
   loadScript(context, 'mission-poi-chain.js');
   loadScript(context, 'sync.js');
+  if (groupCapability) context.liveTrackerCapabilities = ['mission.scene.group.v1'];
   loadScript(context, 'aircraft-mission-capability-core.js');
   loadScript(context, 'aircraft-mission-profile-core.js');
   loadScript(context, 'app.js');
+  if (Array.isArray(partyRandomValues) && partyRandomValues.length) {
+    context.__dryrunMissionPartyRandomValues = partyRandomValues.slice(0, 2);
+    vm.runInContext(`
+      resolveGeneratedMissionPartyPlan = function(options = {}) {
+        const capability = options.aircraftCapability && typeof options.aircraftCapability === 'object'
+          ? options.aircraftCapability
+          : getMissionAircraftCapabilitySnapshot();
+        return window.aircraftMissionCapabilityCore.resolveMissionPartyPlan({
+          profileId: options.profileId,
+          taskDomain: options.taskDomain,
+          category: options.category,
+          baseType: options.baseType,
+          passengerCapacity: capability.passengerCapacity,
+          groupCapability: missionTrackerSupportsGroupGeneration(),
+          allowGroup: true,
+          randomValues: window.__dryrunMissionPartyRandomValues
+        });
+      };
+    `, context);
+  }
   loadScript(context, 'mission-poi-chain-runtime.js');
   loadScript(context, 'passenger-voice.js');
   installForcedSarIncidentDryrun(context, forcedIncidentType);
@@ -3108,6 +3129,8 @@ function parseCliArgs(argv) {
     pipelineV4: false,
     liveGemini: false,
     totalSeats: 4,
+    groupCapability: false,
+    partyRandomValues: null,
     help: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
@@ -3127,6 +3150,11 @@ function parseCliArgs(argv) {
       args.pipelineV3 = false;
     }
     else if (arg === '--live-gemini') args.liveGemini = true;
+    else if (arg === '--group-capability') args.groupCapability = true;
+    else if (arg.startsWith('--party-roll=')) {
+      const values = arg.slice(13).split(',').map(value => Number(value)).filter(Number.isFinite).slice(0, 2);
+      args.partyRandomValues = values.length ? values : null;
+    }
     else if (arg.startsWith('--runs=')) args.runs = Math.max(1, Math.min(20, Number.parseInt(arg.slice(7), 10) || args.runs));
     else if (arg.startsWith('--seed=')) args.seed = Number.parseInt(arg.slice(7), 10) || args.seed;
     else if (arg.startsWith('--seats=')) args.totalSeats = Math.max(1, Math.min(6, Number.parseInt(arg.slice(8), 10) || args.totalSeats));
@@ -3250,6 +3278,8 @@ Options:
   --runs=N                       Number of runs, 1-20
   --seed=N                       Deterministic seed
   --seats=N                     Aircraft total seats, 1-6 (default 4)
+  --group-capability            Simulate tracker capability mission.scene.group.v1
+  --party-roll=A,B              Deterministic party count/kind rolls for P4 tests
   --types=A,B                    Explicit picker/dryrun target types
   --profile=PROFILE             Force task profile, e.g. search_and_rescue
   --categories=A,B              Force categories with --profile, e.g. road,forest,water,mountain
@@ -3284,6 +3314,8 @@ async function main() {
   const runs = buildRunConfigs(args).map(cfg => ({
     ...cfg,
     totalSeats: args.totalSeats,
+    groupCapability: args.groupCapability,
+    partyRandomValues: args.partyRandomValues,
     apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY',
     sharedLocalStorage
   }));
@@ -3304,6 +3336,8 @@ async function main() {
       seed: runs[i]?.seed,
       targetType: runs[i]?.targetType,
       totalSeats: runs[i]?.totalSeats,
+      groupCapability: runs[i]?.groupCapability === true,
+      partyRandomValues: runs[i]?.partyRandomValues || null,
       blocked: !!r.blocked,
       blockPhase: r.blockPhase || null,
       blockReason: r.blockReason || null,

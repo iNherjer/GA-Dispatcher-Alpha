@@ -117,12 +117,19 @@ Kontext darf nicht:
 
 - Aussicht und ruhige Beobachtung bleiben der Fokus.
 - Kein nachtraeglicher Arbeits- oder Einsatzauftrag.
+- Eine Sightseeing-Gruppe aendert nur Party-Narrativ und Personenzahl, nicht
+  Ziel, TaskDomain oder Ablaufklasse.
 
 ### `cargo_fragile`, `medical_transfer`, `animal_transport`, `charter`, `club_utility`, `training`
 
 - Transport, Begleitung, Uebergabe oder Training bleiben Primärzweck.
 - Umfeld darf nur Plausibilisierung und Ankunftskontext liefern.
 - Kein Drift zu POI-Arbeitsauftrag.
+- Eine vor dem Writer fixierte Passenger-Party muss mit exaktem Count und Label
+  erhalten bleiben. Die benannte Hauptperson bleibt die einzige Voice-Persona;
+  weitere Gruppenmitglieder erhalten keine erfundenen Namen oder Nebenauftraege.
+- `club_utility` erzeugt keine Vereinsgruppe. Ein Vereinsausflug ist eine
+  Charter-/Reise-Party und kein Utility-Einsatzzweck.
 
 ### `fire_watch`
 

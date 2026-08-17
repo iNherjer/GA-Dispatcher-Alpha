@@ -1089,6 +1089,29 @@ Vor jeder Autoritaetsfreigabe muessen mindestens bestehen:
 
 ## Entscheidungsprotokoll
 
+- 2026-08-17: P4 schaltet Gruppenmissionen ausschliesslich in der Web-App frei.
+  Charter, Private Outing und Sightseeing koennen bei ausreichenden
+  Preset-Passagierplaetzen Paar, Familie, Freundesgruppe, Verein oder
+  Business-Team ziehen. Party-Typ und exakter Count werden vor dem Writer
+  festgelegt und bleiben in Story, Hauptpassagier-/Voice-Rolle, Contract,
+  V4-Contract, Anzeige und Manifest identisch. Utility und Cargo erzeugen keine
+  neuen Gruppen. Die Freigabe haengt additiv an der ausgehandelten
+  `mission.scene.group.v1`-Capability; ohne sie sowie bei nur einem freien Sitz
+  bleibt es bei einer Einzelperson. Tracker v362 Alpha und v356 Stable bleiben
+  unveraendert.
+
+- 2026-08-17: Der abschliessende reale Tracker-v362-Gruppentest wurde
+  freigegeben. Gemeinsamer Tuer-Spawn, serieller Ausstieg im 2000-ms-Abstand
+  und Laufwege zum Van beziehungsweise Bus funktionieren im Simulator. Die
+  Abnahme der Produktionskette bestaetigt zusaetzlich: Nur ein finales
+  Gruppen-ACK mit exakt vollstaendiger Personenzahl wird akzeptiert; danach
+  werden Passenger-Handoff und Manifest atomar abgeschlossen und die
+  bestehende Missions-UI wechselt auf „Mission startbereit“ beziehungsweise
+  „Mission auswerten“. Damit bleibt die vorhandene Missionslogik unveraendert
+  und der normale Missionsfortschritt wird erst nach bestaetigtem
+  Animationsende freigegeben. Die Debug-Sequenzen bleiben weiterhin isoliert
+  und veraendern keinen Missionsstand.
+
 - 2026-08-17: Der zweite reale Gruppen-Deboarding-Test zeigte, dass der
   seitliche 1-m-Aufstellungsversatz einzelne Personenmodelle vom Tuerpunkt in
   den Flugzeugrumpf verschob. Der v362-Alpha-Kandidat spawnt deshalb alle

@@ -23621,6 +23621,10 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         party: party && typeof party === 'object'
             ? { ...party }
             : (mission?.party && typeof mission.party === 'object' ? { ...mission.party } : null),
+        partyNarrative: buildMissionPartyNarrativeContext(
+            party && typeof party === 'object' ? party : mission?.party,
+            passenger || mission?.passenger || null
+        ),
         aircraftCapability: aircraftCapability && typeof aircraftCapability === 'object'
             ? { ...aircraftCapability, aircraftTags: [...(aircraftCapability.aircraftTags || [])] }
             : (mission?.aircraftCapability && typeof mission.aircraftCapability === 'object'
@@ -24281,6 +24285,8 @@ function resolveMissionPassengerCapacityPlan({
     passengerCount = null,
     pickupPassengerCount = null,
     aircraftCapability = null,
+    maxPartySize = 1,
+    party = null,
     roleLabel = '',
     preserveDash = false
 } = {}) {
@@ -24294,7 +24300,8 @@ function resolveMissionPassengerCapacityPlan({
             passengerCount,
             pickupPassengerCount,
             passengerCapacity: capability.passengerCapacity,
-            maxPartySize: 1,
+            maxPartySize,
+            party,
             roleLabel,
             preserveDash
         });
@@ -24323,7 +24330,87 @@ function resolveMissionPassengerCapacityPlan({
     };
 }
 
-function formatPaxBriefingText(paxText, passenger) {
+function missionTrackerSupportsGroupGeneration() {
+    if (typeof window.trackerSupportsMissionSceneGroup === 'function') {
+        try { return window.trackerSupportsMissionSceneGroup() === true; } catch (_) {}
+    }
+    return Array.isArray(window.liveTrackerCapabilities)
+        && window.liveTrackerCapabilities.includes('mission.scene.group.v1');
+}
+
+function resolveGeneratedMissionPartyPlan({
+    profileId = '',
+    taskDomain = '',
+    category = '',
+    baseType = 'apt',
+    aircraftCapability = null
+} = {}) {
+    const capabilityCore = window.aircraftMissionCapabilityCore;
+    if (!capabilityCore || typeof capabilityCore.resolveMissionPartyPlan !== 'function') return null;
+    const capability = aircraftCapability && typeof aircraftCapability === 'object'
+        ? aircraftCapability
+        : getMissionAircraftCapabilitySnapshot();
+    return capabilityCore.resolveMissionPartyPlan({
+        profileId,
+        taskDomain,
+        category,
+        baseType,
+        passengerCapacity: capability.passengerCapacity,
+        groupCapability: missionTrackerSupportsGroupGeneration(),
+        allowGroup: true
+    });
+}
+
+function buildMissionPartyNarrativeContext(party = null, passenger = null) {
+    if (!party || typeof party !== 'object') return null;
+    const count = Math.max(0, Math.min(5, Math.round(Number(party.count) || 0)));
+    if (count <= 0) return null;
+    const kind = String(party.kind || (count === 1 ? 'single' : 'group')).trim().toLowerCase();
+    const label = String(party.label || (count === 1 ? 'Passagier' : 'Reisegruppe')).replace(/\s+/g, ' ').trim();
+    return {
+        count,
+        kind,
+        label,
+        leadPassengerName: String(passenger?.name || '').replace(/\s+/g, ' ').trim() || null,
+        leadPassengerRole: String(passenger?.role || '').replace(/\s+/g, ' ').trim() || null,
+        leadIsVoicePersona: true
+    };
+}
+
+function synchronizeMissionPartyPresentation(mission = null, party = null) {
+    if (!mission || typeof mission !== 'object') return mission;
+    const context = buildMissionPartyNarrativeContext(party, mission.passenger || null);
+    if (!context || context.count <= 1) return mission;
+    const passenger = mission.passenger && typeof mission.passenger === 'object'
+        ? mission.passenger
+        : {};
+    mission.passenger = {
+        ...passenger,
+        party: { count: context.count, kind: context.kind, label: context.label },
+        partyLead: true
+    };
+    const storyKey = Object.prototype.hasOwnProperty.call(mission, 'story') ? 'story' : 's';
+    const story = String(mission[storyKey] || mission.s || '').replace(/\s+/g, ' ').trim();
+    const normalizedStory = normalizeMissionText(story);
+    const normalizedLabel = normalizeMissionText(context.label);
+    const normalizedLeadName = normalizeMissionText(context.leadPassengerName || '');
+    const exactCountPattern = new RegExp(`\\b${context.count}\\s*(?:pax|personen|gaeste|gäste)\\b`, 'i');
+    const alreadyAligned = exactCountPattern.test(story)
+        && normalizedLabel
+        && normalizedStory.includes(normalizedLabel)
+        && (!normalizedLeadName || normalizedStory.includes(normalizedLeadName));
+    if (!alreadyAligned) {
+        const leadName = context.leadPassengerName || 'Der Hauptgast';
+        const leadTitle = String(passenger.gender || '').toLowerCase() === 'female' ? 'Hauptpassagierin' : 'Hauptpassagier';
+        const article = /(?:paar|team)$/i.test(context.label) ? 'dem' : 'der';
+        const partySentence = `${leadName} reist als ${leadTitle} mit ${article} ${context.label}; insgesamt sind ${context.count} Personen an Bord.`;
+        mission[storyKey] = _cleanupNarrativeArtifacts(`${story} ${partySentence}`.trim());
+        if (storyKey !== 's') mission.s = mission[storyKey];
+    }
+    return mission;
+}
+
+function formatPaxBriefingText(paxText, passenger, party = null) {
     const base = String(paxText || '').trim();
     const name = String(passenger?.name || '').trim();
     const role = String(passenger?.role || '').trim();
@@ -24334,6 +24421,12 @@ function formatPaxBriefingText(paxText, passenger) {
     if (m) {
         const left = String(m[1] || '').trim();
         const inner = String(m[2] || '').trim();
+        const partyCount = Math.max(0, Math.min(5, Math.round(Number(party?.count) || 0)));
+        const partyLabel = String(party?.label || '').replace(/\s+/g, ' ').trim();
+        if (partyCount > 1) {
+            const descriptor = partyLabel || inner || 'Reisegruppe';
+            return `${left} (${descriptor} · Hauptperson: ${name})`.trim();
+        }
         const descriptor = role || inner;
         if (!descriptor) return `${left} (${name})`.trim();
         return `${left} (${descriptor}: ${name})`.trim();
@@ -33204,6 +33297,7 @@ function buildMissionContractV4({
                 }
             }))
         : null;
+    const partyNarrative = buildMissionPartyNarrativeContext(plannerContext.party || null, plannerContext.passenger || null);
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -33213,6 +33307,7 @@ function buildMissionContractV4({
         party: plannerContext.party && typeof plannerContext.party === 'object'
             ? { ...plannerContext.party }
             : null,
+        partyNarrative,
         aircraftCapability: plannerContext.aircraftCapability && typeof plannerContext.aircraftCapability === 'object'
             ? {
                 ...plannerContext.aircraftCapability,
@@ -33311,6 +33406,7 @@ Regeln:
 18b. historian_guided_tour: Schreibe eine historische Ortslesart, keine generische Geschichtsstunde. Gute City/Castle-Anker sind Ortskern, Siedlungsform, alte Verkehrswege, Kirchen-/Marktplatzlage, Tal-/Hanglage, Burg-/Schlosslage, Denkmalgestalt oder fruehere Nutzung. Rollen duerfen Ortsarchivarin, Denkmalpfleger, Heimatforscherin oder Stadtchronist sein.
 18c. mapping_survey: Schreibe einen echten Survey-Auftrag, keine Sightseeing- oder Foto-Story. Benenne Auftraggeber/Verwendung (GIS, Orthofoto, Photogrammetrie, Korridoraufnahme, Projektvergleich), Zielgeometrie, geplante Arbeitsweise und Handoff an die Auswertung. Einzelobjekte koennen einen ruhigen Orbit brauchen, Flaechen/Korridore parallele Nord-Sued-Passes. Keine Schadensdiagnose, keine SAR-Sprache und keine Behauptung, dass ein Pattern bereits technisch geprueft wird.
 19. charter und club_utility: Die im MISSION_BRIEF_FORM und der Story-Spine festgelegte Geschichte hat Vorrang. Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Zielkontakt oder praktische Ablauf daran haengt. Ersetze einen konkreten Planner-Anlass nie durch ein anderes Thema, nur weil Gepäck oder Cargo dazu passen könnte. Erzähle zuerst Menschen, Anlass und Zielmoment; Wetter, Flug und Route sind danach nur natürliche Stütze der Geschichte.
+19party. Wenn CONTRACT.party.count groesser als 1 ist, beschreibe genau diese Gruppe mit CONTRACT.party.label und derselben Gesamtzahl. passenger bleibt die namentliche Hauptperson und spaetere Voice-Persona; erfinde keine weiteren Namen. Eine Familie, Freundes-/Sightseeing-/Vereinsgruppe oder ein Business-Team bleibt Teil desselben Auftrags und darf nicht in eine Utility-, Cargo- oder Trainingsrolle umgedeutet werden.
 19club. club_utility + APT: Nutze CONTRACT.cargoText oder CONTRACT.storyFrame.shipment als bindendes Rohmaterial, aber lies es richtig. Wenn es konkrete Vereinsladung ist, erzaehle konkret, was geliefert wird und was danach passiert: wer uebernimmt am Ziel, wofuer wird die Ladung dort gebraucht, welcher naechste Club-, Flugtag-, Hangar-, Werkstatt- oder Briefingtisch-Schritt folgt. Wenn CONTRACT.storyFrame.noDelivery=true oder cargoText nach Clubjacke, Bordtasche, Notizbuch, Sonnenbrille, persoenlichen Sachen, Fly-In-Besuch, Grillwurst, Stammtisch oder VFR-Planungstool klingt, erzaehle einen Clubbesuch ohne erfundene Uebergabe: Einladung, Mitflieger, Flug zum Zielplatz, Clubheim, Stammtisch, Fly-In oder Fachsimpeln tragen dann die Geschichte. Wiederhole Ladung oder Bordzeug nicht als Motiv in jedem Satz. Route, Wetter, Terrain und Pax-Rolle duerfen den Vereinsmoment lebendiger machen. Originell ist erlaubt, aber klein und glaubwuerdig.
 19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
@@ -44085,10 +44181,28 @@ async function generateMission(options = {}) {
     }
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
+    const generatedMissionPartyPlan = (!isPlanningOnlyMode && !followupSeed && !missionProposalChoice?.paxText)
+        ? resolveGeneratedMissionPartyPlan({
+            profileId: preWriterProfile?.id || dispatchProfileId,
+            taskDomain: preWriterProfile?.taskDomain || '',
+            category: isPOI ? selectedPoiCategory : selectedAptCategory,
+            baseType: isBushDispatch ? 'bush' : (isPOI ? 'poi' : 'apt'),
+            aircraftCapability: missionAircraftCapability
+        })
+        : null;
     if (isPlanningOnlyMode) paxText = '-';
     const preWriterPassengerPlan = resolveMissionPassengerCapacityPlan({
         paxText,
+        passengerCount: generatedMissionPartyPlan?.eligible
+            ? generatedMissionPartyPlan.passengerCount
+            : null,
         aircraftCapability: missionAircraftCapability,
+        maxPartySize: generatedMissionPartyPlan?.eligible
+            ? generatedMissionPartyPlan.maxPartySize
+            : 1,
+        party: generatedMissionPartyPlan?.eligible
+            ? generatedMissionPartyPlan.party
+            : null,
         preserveDash: isPlanningOnlyMode
     });
     if (preWriterPassengerPlan.blocked) {
@@ -45158,7 +45272,9 @@ async function generateMission(options = {}) {
                 missionContractV4,
                 weatherHooks: missionPlanV2?.plan?.weatherHooks,
                 cargoText,
-                paxText
+                paxText,
+                passengerCount: preWriterPassengerPlan.passengerCount,
+                party: preWriterPassengerPlan.party
             });
             if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
                 paxText = `1 PAX (${m.passenger.role})`;
@@ -45333,12 +45449,14 @@ async function generateMission(options = {}) {
     }
     const finalPassengerPlan = resolveMissionPassengerCapacityPlan({
         paxText,
-        passengerCount: m?.passengerCount !== null
+        passengerCount: generatedMissionPartyPlan?.eligible
+            ? preWriterPassengerPlan.passengerCount
+            : (m?.passengerCount !== null
             && m?.passengerCount !== undefined
             && m?.passengerCount !== ''
             && Number.isFinite(Number(m.passengerCount))
             ? Number(m.passengerCount)
-            : null,
+            : null),
         pickupPassengerCount: m?.bush?.pickupPassengerCount !== null
             && m?.bush?.pickupPassengerCount !== undefined
             && m?.bush?.pickupPassengerCount !== ''
@@ -45346,6 +45464,12 @@ async function generateMission(options = {}) {
             ? Number(m.bush.pickupPassengerCount)
             : null,
         aircraftCapability: missionAircraftCapability,
+        maxPartySize: generatedMissionPartyPlan?.eligible
+            ? generatedMissionPartyPlan.maxPartySize
+            : 1,
+        party: generatedMissionPartyPlan?.eligible
+            ? preWriterPassengerPlan.party
+            : null,
         roleLabel: m?.passenger?.role || '',
         preserveDash: isPlanningOnlyMode
     });
@@ -45369,13 +45493,19 @@ async function generateMission(options = {}) {
         if (finalPassengerPlan.deferredPickup && m.bush && typeof m.bush === 'object') {
             m.bush.pickupPassengerCount = finalPassengerPlan.pickupPassengerCount;
         }
+        synchronizeMissionPartyPresentation(m, finalPassengerPlan.party);
     }
     if (missionContractV4 && typeof missionContractV4 === 'object') {
         missionContractV4.paxText = paxText;
         missionContractV4.passengerCount = finalPassengerPlan.passengerCount;
         missionContractV4.plannedPassengerCount = finalPassengerPlan.plannedPassengerCount;
         missionContractV4.party = finalPassengerPlan.party;
+        missionContractV4.partyNarrative = buildMissionPartyNarrativeContext(finalPassengerPlan.party, m?.passenger || null);
         missionContractV4.aircraftCapability = missionAircraftCapability;
+        if (m && typeof m === 'object') {
+            missionContractV4.passenger = m.passenger || missionContractV4.passenger || null;
+            missionContractV4.missionStory = String(m.s || m.story || missionContractV4.missionStory || '');
+        }
         if (finalPassengerPlan.plannedPassengerCount <= 0) missionContractV4.passenger = null;
         if (m && typeof m === 'object') m._missionContractV4 = missionContractV4;
     }
@@ -46091,7 +46221,11 @@ async function generateMission(options = {}) {
     const plannedBriefingPassenger = isDeferredPickupPassenger && m?.passenger && typeof m.passenger === 'object'
         ? m.passenger
         : null;
-    const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger || plannedBriefingPassenger);
+    const paxBriefingText = formatPaxBriefingText(
+        paxText,
+        window.activePassenger || plannedBriefingPassenger,
+        currentMissionData?.party || finalPassengerPlan.party || null
+    );
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
